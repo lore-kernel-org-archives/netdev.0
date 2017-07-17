@@ -1,627 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] inetpeer: remove AVL implementation in favor of RB
- tree
-Date: Mon, 17 Jul 2017 02:56:10 -0700
-Message-ID: <1500285370.5566.20.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1499270405.16045.8.camel@edumazet-glaptop3.roam.corp.google.com>
+From: <sean.wang@mediatek.com>
+Subject: [PATCH net-next v2 1/4] dt-bindings: net: mediatek: add support for MediaTek MT7623 and MT7622 SoC
+Date: Mon, 17 Jul 2017 18:06:22 +0800
+Message-ID: <d1e8daa3291f303bd581b89eae6e4003f2ee58a8.1500285278.git.sean.wang@mediatek.com>
+References: <cover.1500285278.git.sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Florian Westphal <fw@strlen.de>,
-        netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1499270405.16045.8.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>,
+        Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw01.mediatek.com ([210.61.82.183]:15672 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751272AbdGQKGh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 06:06:37 -0400
+In-Reply-To: <cover.1500285278.git.sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Sean Wang <sean.wang@mediatek.com>
 
-As discussed in Faro during Netfilter Workshop 2017, RB trees can be
-used with RCU, using a seqlock.
+The patch adds the supplements in the dt-binding document for MediaTek
+MT7622 SoC with extra SGMII system controller and relevant clock consumers
+listed as the requirements for those SoCs equipped with the SGMII circuit.
+Also, add the missing binding information for MT7623 SoC here which relies
+on the fallback binding of MT2701.
 
-Note that net/rxrpc/conn_service.c is already using this.
-
-This patch converts inetpeer from AVL tree to RB tree, since it allows
-to remove private AVL implementation in favor of shared RB code.
-
-$ size net/ipv4/inetpeer.before net/ipv4/inetpeer.after
-   text    data     bss     dec     hex filename
-   3195      40     128    3363     d23 net/ipv4/inetpeer.before
-   1562      24       0    1586     632 net/ipv4/inetpeer.after
-
-The same technique can be used to speed up
-net/netfilter/nft_set_rbtree.c (removing rwlock contention in fast path)
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 ---
- include/net/inetpeer.h |   11 -
- net/ipv4/inetpeer.c    |  428 ++++++++-------------------------------
- 2 files changed, 92 insertions(+), 347 deletions(-)
+ Documentation/devicetree/bindings/net/mediatek-net.txt | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index f2a215fc78e4686f597c4041796663a7a463e73f..950ed182f62f6f2e359b8ead28d903b4c6dc877f 100644
---- a/include/net/inetpeer.h
-+++ b/include/net/inetpeer.h
-@@ -33,18 +33,12 @@ struct inetpeer_addr {
- };
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+index c7194e8..1d1168b 100644
+--- a/Documentation/devicetree/bindings/net/mediatek-net.txt
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -7,24 +7,30 @@ have dual GMAC each represented by a child node..
+ * Ethernet controller node
  
- struct inet_peer {
--	/* group together avl_left,avl_right,v4daddr to speedup lookups */
--	struct inet_peer __rcu	*avl_left, *avl_right;
-+	struct rb_node		rb_node;
- 	struct inetpeer_addr	daddr;
--	__u32			avl_height;
+ Required properties:
+-- compatible: Should be "mediatek,mt2701-eth"
++- compatible: Should be
++		"mediatek,mt2701-eth": for MT2701 SoC
++		"mediatek,mt7623-eth", "mediatek,mt2701-eth": for MT7623 SoC
++		"mediatek,mt7622-eth": for MT7622 SoC
+ - reg: Address and length of the register set for the device
+ - interrupts: Should contain the three frame engines interrupts in numeric
+ 	order. These are fe_int0, fe_int1 and fe_int2.
+ - clocks: the clock used by the core
+ - clock-names: the names of the clock listed in the clocks property. These are
+-	"ethif", "esw", "gp2", "gp1"
++	"ethif", "esw", "gp2", "gp1" : For MT2701 and MT7623 SoC
++        "ethif", "esw", "gp0", "gp1", "gp2", "sgmii_tx250m", "sgmii_rx250m",
++	"sgmii_cdr_ref", "sgmii_cdr_fb", "sgmii_ck", "eth2pll" : For MT7622 SoC
+ - power-domains: phandle to the power domain that the ethernet is part of
+ - resets: Should contain a phandle to the ethsys reset signal
+ - reset-names: Should contain the reset signal name "eth"
+ - mediatek,ethsys: phandle to the syscon node that handles the port setup
++- mediatek,sgmiisys: phandle to the syscon node that handles the SGMII setup
++	which is required for those SoCs equipped with SGMII such as MT7622 SoC.
+ - mediatek,pctl: phandle to the syscon node that handles the ports slew rate
+ 	and driver current
  
- 	u32			metrics[RTAX_MAX];
- 	u32			rate_tokens;	/* rate limiting for ICMP */
- 	unsigned long		rate_last;
--	union {
--		struct list_head	gc_list;
--		struct rcu_head     gc_rcu;
--	};
- 	/*
- 	 * Once inet_peer is queued for deletion (refcnt == 0), following field
- 	 * is not available: rid
-@@ -55,7 +49,6 @@ struct inet_peer {
- 			atomic_t			rid;		/* Frag reception counter */
- 		};
- 		struct rcu_head         rcu;
--		struct inet_peer	*gc_next;
- 	};
+ Optional properties:
+ - interrupt-parent: Should be the phandle for the interrupt controller
+   that services interrupts for this device
+-
+ * Ethernet MAC node
  
- 	/* following fields might be frequently dirtied */
-@@ -64,7 +57,7 @@ struct inet_peer {
- };
- 
- struct inet_peer_base {
--	struct inet_peer __rcu	*root;
-+	struct rb_root		rb_root;
- 	seqlock_t		lock;
- 	int			total;
- };
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index c5a117cc66198ca0fe9d49e1c15f3c3110a0d634..337ad41bb80a5fcd3db7ac674292c5b5d462982e 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -33,7 +33,7 @@
-  *  also be removed if the pool is overloaded i.e. if the total amount of
-  *  entries is greater-or-equal than the threshold.
-  *
-- *  Node pool is organised as an AVL tree.
-+ *  Node pool is organised as an RB tree.
-  *  Such an implementation has been chosen not just for fun.  It's a way to
-  *  prevent easy and efficient DoS attacks by creating hash collisions.  A huge
-  *  amount of long living nodes in a single hash slot would significantly delay
-@@ -45,7 +45,7 @@
-  *      AND reference count being 0.
-  *  3.  Global variable peer_total is modified under the pool lock.
-  *  4.  struct inet_peer fields modification:
-- *		avl_left, avl_right, avl_parent, avl_height: pool lock
-+ *		rb_node: pool lock
-  *		refcnt: atomically against modifications on other CPU;
-  *		   usually under some other lock to prevent node disappearing
-  *		daddr: unchangeable
-@@ -53,30 +53,15 @@
- 
- static struct kmem_cache *peer_cachep __read_mostly;
- 
--static LIST_HEAD(gc_list);
--static const int gc_delay = 60 * HZ;
--static struct delayed_work gc_work;
--static DEFINE_SPINLOCK(gc_lock);
--
--#define node_height(x) x->avl_height
--
--#define peer_avl_empty ((struct inet_peer *)&peer_fake_node)
--#define peer_avl_empty_rcu ((struct inet_peer __rcu __force *)&peer_fake_node)
--static const struct inet_peer peer_fake_node = {
--	.avl_left	= peer_avl_empty_rcu,
--	.avl_right	= peer_avl_empty_rcu,
--	.avl_height	= 0
--};
--
- void inet_peer_base_init(struct inet_peer_base *bp)
- {
--	bp->root = peer_avl_empty_rcu;
-+	bp->rb_root = RB_ROOT;
- 	seqlock_init(&bp->lock);
- 	bp->total = 0;
- }
- EXPORT_SYMBOL_GPL(inet_peer_base_init);
- 
--#define PEER_MAXDEPTH 40 /* sufficient for about 2^27 nodes */
-+#define PEER_MAX_GC 32
- 
- /* Exported for sysctl_net_ipv4.  */
- int inet_peer_threshold __read_mostly = 65536 + 128;	/* start to throw entries more
-@@ -84,53 +69,6 @@ int inet_peer_threshold __read_mostly = 65536 + 128;	/* start to throw entries m
- int inet_peer_minttl __read_mostly = 120 * HZ;	/* TTL under high load: 120 sec */
- int inet_peer_maxttl __read_mostly = 10 * 60 * HZ;	/* usual time to live: 10 min */
- 
--static void inetpeer_gc_worker(struct work_struct *work)
--{
--	struct inet_peer *p, *n, *c;
--	struct list_head list;
--
--	spin_lock_bh(&gc_lock);
--	list_replace_init(&gc_list, &list);
--	spin_unlock_bh(&gc_lock);
--
--	if (list_empty(&list))
--		return;
--
--	list_for_each_entry_safe(p, n, &list, gc_list) {
--
--		if (need_resched())
--			cond_resched();
--
--		c = rcu_dereference_protected(p->avl_left, 1);
--		if (c != peer_avl_empty) {
--			list_add_tail(&c->gc_list, &list);
--			p->avl_left = peer_avl_empty_rcu;
--		}
--
--		c = rcu_dereference_protected(p->avl_right, 1);
--		if (c != peer_avl_empty) {
--			list_add_tail(&c->gc_list, &list);
--			p->avl_right = peer_avl_empty_rcu;
--		}
--
--		n = list_entry(p->gc_list.next, struct inet_peer, gc_list);
--
--		if (refcount_read(&p->refcnt) == 1) {
--			list_del(&p->gc_list);
--			kmem_cache_free(peer_cachep, p);
--		}
--	}
--
--	if (list_empty(&list))
--		return;
--
--	spin_lock_bh(&gc_lock);
--	list_splice(&list, &gc_list);
--	spin_unlock_bh(&gc_lock);
--
--	schedule_delayed_work(&gc_work, gc_delay);
--}
--
- /* Called from ip_output.c:ip_init  */
- void __init inet_initpeers(void)
- {
-@@ -153,225 +91,62 @@ void __init inet_initpeers(void)
- 			sizeof(struct inet_peer),
- 			0, SLAB_HWCACHE_ALIGN | SLAB_PANIC,
- 			NULL);
--
--	INIT_DEFERRABLE_WORK(&gc_work, inetpeer_gc_worker);
- }
- 
--#define rcu_deref_locked(X, BASE)				\
--	rcu_dereference_protected(X, lockdep_is_held(&(BASE)->lock.lock))
--
--/*
-- * Called with local BH disabled and the pool lock held.
-- */
--#define lookup(_daddr, _stack, _base)				\
--({								\
--	struct inet_peer *u;					\
--	struct inet_peer __rcu **v;				\
--								\
--	stackptr = _stack;					\
--	*stackptr++ = &_base->root;				\
--	for (u = rcu_deref_locked(_base->root, _base);		\
--	     u != peer_avl_empty;) {				\
--		int cmp = inetpeer_addr_cmp(_daddr, &u->daddr);	\
--		if (cmp == 0)					\
--			break;					\
--		if (cmp == -1)					\
--			v = &u->avl_left;			\
--		else						\
--			v = &u->avl_right;			\
--		*stackptr++ = v;				\
--		u = rcu_deref_locked(*v, _base);		\
--	}							\
--	u;							\
--})
--
--/*
-- * Called with rcu_read_lock()
-- * Because we hold no lock against a writer, its quite possible we fall
-- * in an endless loop.
-- * But every pointer we follow is guaranteed to be valid thanks to RCU.
-- * We exit from this function if number of links exceeds PEER_MAXDEPTH
-- */
--static struct inet_peer *lookup_rcu(const struct inetpeer_addr *daddr,
--				    struct inet_peer_base *base)
-+/* Called with rcu_read_lock() or base->lock held */
-+static struct inet_peer *lookup(const struct inetpeer_addr *daddr,
-+				struct inet_peer_base *base,
-+				unsigned int seq,
-+				struct inet_peer *gc_stack[],
-+				unsigned int *gc_cnt,
-+				struct rb_node **parent_p,
-+				struct rb_node ***pp_p)
- {
--	struct inet_peer *u = rcu_dereference(base->root);
--	int count = 0;
-+	struct rb_node **pp, *parent;
-+	struct inet_peer *p;
-+
-+	pp = &base->rb_root.rb_node;
-+	parent = NULL;
-+	while (*pp) {
-+		int cmp;
- 
--	while (u != peer_avl_empty) {
--		int cmp = inetpeer_addr_cmp(daddr, &u->daddr);
-+		parent = rcu_dereference_raw(*pp);
-+		p = rb_entry(parent, struct inet_peer, rb_node);
-+		cmp = inetpeer_addr_cmp(daddr, &p->daddr);
- 		if (cmp == 0) {
--			/* Before taking a reference, check if this entry was
--			 * deleted (refcnt=0)
--			 */
--			if (!refcount_inc_not_zero(&u->refcnt)) {
--				u = NULL;
--			}
--			return u;
-+			if (!refcount_inc_not_zero(&p->refcnt))
-+				break;
-+			return p;
-+		}
-+		if (gc_stack) {
-+			if (*gc_cnt < PEER_MAX_GC)
-+				gc_stack[(*gc_cnt)++] = p;
-+		} else if (unlikely(read_seqretry(&base->lock, seq))) {
-+			break;
- 		}
- 		if (cmp == -1)
--			u = rcu_dereference(u->avl_left);
-+			pp = &(*pp)->rb_left;
- 		else
--			u = rcu_dereference(u->avl_right);
--		if (unlikely(++count == PEER_MAXDEPTH))
--			break;
-+			pp = &(*pp)->rb_right;
- 	}
-+	*parent_p = parent;
-+	*pp_p = pp;
- 	return NULL;
- }
- 
--/* Called with local BH disabled and the pool lock held. */
--#define lookup_rightempty(start, base)				\
--({								\
--	struct inet_peer *u;					\
--	struct inet_peer __rcu **v;				\
--	*stackptr++ = &start->avl_left;				\
--	v = &start->avl_left;					\
--	for (u = rcu_deref_locked(*v, base);			\
--	     u->avl_right != peer_avl_empty_rcu;) {		\
--		v = &u->avl_right;				\
--		*stackptr++ = v;				\
--		u = rcu_deref_locked(*v, base);			\
--	}							\
--	u;							\
--})
--
--/* Called with local BH disabled and the pool lock held.
-- * Variable names are the proof of operation correctness.
-- * Look into mm/map_avl.c for more detail description of the ideas.
-- */
--static void peer_avl_rebalance(struct inet_peer __rcu **stack[],
--			       struct inet_peer __rcu ***stackend,
--			       struct inet_peer_base *base)
--{
--	struct inet_peer __rcu **nodep;
--	struct inet_peer *node, *l, *r;
--	int lh, rh;
--
--	while (stackend > stack) {
--		nodep = *--stackend;
--		node = rcu_deref_locked(*nodep, base);
--		l = rcu_deref_locked(node->avl_left, base);
--		r = rcu_deref_locked(node->avl_right, base);
--		lh = node_height(l);
--		rh = node_height(r);
--		if (lh > rh + 1) { /* l: RH+2 */
--			struct inet_peer *ll, *lr, *lrl, *lrr;
--			int lrh;
--			ll = rcu_deref_locked(l->avl_left, base);
--			lr = rcu_deref_locked(l->avl_right, base);
--			lrh = node_height(lr);
--			if (lrh <= node_height(ll)) {	/* ll: RH+1 */
--				RCU_INIT_POINTER(node->avl_left, lr);	/* lr: RH or RH+1 */
--				RCU_INIT_POINTER(node->avl_right, r);	/* r: RH */
--				node->avl_height = lrh + 1; /* RH+1 or RH+2 */
--				RCU_INIT_POINTER(l->avl_left, ll);       /* ll: RH+1 */
--				RCU_INIT_POINTER(l->avl_right, node);	/* node: RH+1 or RH+2 */
--				l->avl_height = node->avl_height + 1;
--				RCU_INIT_POINTER(*nodep, l);
--			} else { /* ll: RH, lr: RH+1 */
--				lrl = rcu_deref_locked(lr->avl_left, base);/* lrl: RH or RH-1 */
--				lrr = rcu_deref_locked(lr->avl_right, base);/* lrr: RH or RH-1 */
--				RCU_INIT_POINTER(node->avl_left, lrr);	/* lrr: RH or RH-1 */
--				RCU_INIT_POINTER(node->avl_right, r);	/* r: RH */
--				node->avl_height = rh + 1; /* node: RH+1 */
--				RCU_INIT_POINTER(l->avl_left, ll);	/* ll: RH */
--				RCU_INIT_POINTER(l->avl_right, lrl);	/* lrl: RH or RH-1 */
--				l->avl_height = rh + 1;	/* l: RH+1 */
--				RCU_INIT_POINTER(lr->avl_left, l);	/* l: RH+1 */
--				RCU_INIT_POINTER(lr->avl_right, node);	/* node: RH+1 */
--				lr->avl_height = rh + 2;
--				RCU_INIT_POINTER(*nodep, lr);
--			}
--		} else if (rh > lh + 1) { /* r: LH+2 */
--			struct inet_peer *rr, *rl, *rlr, *rll;
--			int rlh;
--			rr = rcu_deref_locked(r->avl_right, base);
--			rl = rcu_deref_locked(r->avl_left, base);
--			rlh = node_height(rl);
--			if (rlh <= node_height(rr)) {	/* rr: LH+1 */
--				RCU_INIT_POINTER(node->avl_right, rl);	/* rl: LH or LH+1 */
--				RCU_INIT_POINTER(node->avl_left, l);	/* l: LH */
--				node->avl_height = rlh + 1; /* LH+1 or LH+2 */
--				RCU_INIT_POINTER(r->avl_right, rr);	/* rr: LH+1 */
--				RCU_INIT_POINTER(r->avl_left, node);	/* node: LH+1 or LH+2 */
--				r->avl_height = node->avl_height + 1;
--				RCU_INIT_POINTER(*nodep, r);
--			} else { /* rr: RH, rl: RH+1 */
--				rlr = rcu_deref_locked(rl->avl_right, base);/* rlr: LH or LH-1 */
--				rll = rcu_deref_locked(rl->avl_left, base);/* rll: LH or LH-1 */
--				RCU_INIT_POINTER(node->avl_right, rll);	/* rll: LH or LH-1 */
--				RCU_INIT_POINTER(node->avl_left, l);	/* l: LH */
--				node->avl_height = lh + 1; /* node: LH+1 */
--				RCU_INIT_POINTER(r->avl_right, rr);	/* rr: LH */
--				RCU_INIT_POINTER(r->avl_left, rlr);	/* rlr: LH or LH-1 */
--				r->avl_height = lh + 1;	/* r: LH+1 */
--				RCU_INIT_POINTER(rl->avl_right, r);	/* r: LH+1 */
--				RCU_INIT_POINTER(rl->avl_left, node);	/* node: LH+1 */
--				rl->avl_height = lh + 2;
--				RCU_INIT_POINTER(*nodep, rl);
--			}
--		} else {
--			node->avl_height = (lh > rh ? lh : rh) + 1;
--		}
--	}
--}
--
--/* Called with local BH disabled and the pool lock held. */
--#define link_to_pool(n, base)					\
--do {								\
--	n->avl_height = 1;					\
--	n->avl_left = peer_avl_empty_rcu;			\
--	n->avl_right = peer_avl_empty_rcu;			\
--	/* lockless readers can catch us now */			\
--	rcu_assign_pointer(**--stackptr, n);			\
--	peer_avl_rebalance(stack, stackptr, base);		\
--} while (0)
--
- static void inetpeer_free_rcu(struct rcu_head *head)
- {
- 	kmem_cache_free(peer_cachep, container_of(head, struct inet_peer, rcu));
- }
- 
--static void unlink_from_pool(struct inet_peer *p, struct inet_peer_base *base,
--			     struct inet_peer __rcu **stack[PEER_MAXDEPTH])
--{
--	struct inet_peer __rcu ***stackptr, ***delp;
--
--	if (lookup(&p->daddr, stack, base) != p)
--		BUG();
--	delp = stackptr - 1; /* *delp[0] == p */
--	if (p->avl_left == peer_avl_empty_rcu) {
--		*delp[0] = p->avl_right;
--		--stackptr;
--	} else {
--		/* look for a node to insert instead of p */
--		struct inet_peer *t;
--		t = lookup_rightempty(p, base);
--		BUG_ON(rcu_deref_locked(*stackptr[-1], base) != t);
--		**--stackptr = t->avl_left;
--		/* t is removed, t->daddr > x->daddr for any
--		 * x in p->avl_left subtree.
--		 * Put t in the old place of p. */
--		RCU_INIT_POINTER(*delp[0], t);
--		t->avl_left = p->avl_left;
--		t->avl_right = p->avl_right;
--		t->avl_height = p->avl_height;
--		BUG_ON(delp[1] != &p->avl_left);
--		delp[1] = &t->avl_left; /* was &p->avl_left */
--	}
--	peer_avl_rebalance(stack, stackptr, base);
--	base->total--;
--	call_rcu(&p->rcu, inetpeer_free_rcu);
--}
--
- /* perform garbage collect on all items stacked during a lookup */
--static int inet_peer_gc(struct inet_peer_base *base,
--			struct inet_peer __rcu **stack[PEER_MAXDEPTH],
--			struct inet_peer __rcu ***stackptr)
-+static void inet_peer_gc(struct inet_peer_base *base,
-+			 struct inet_peer *gc_stack[],
-+			 unsigned int gc_cnt)
- {
--	struct inet_peer *p, *gchead = NULL;
-+	struct inet_peer *p;
- 	__u32 delta, ttl;
--	int cnt = 0;
-+	int i;
- 
- 	if (base->total >= inet_peer_threshold)
- 		ttl = 0; /* be aggressive */
-@@ -379,43 +154,38 @@ static int inet_peer_gc(struct inet_peer_base *base,
- 		ttl = inet_peer_maxttl
- 				- (inet_peer_maxttl - inet_peer_minttl) / HZ *
- 					base->total / inet_peer_threshold * HZ;
--	stackptr--; /* last stack slot is peer_avl_empty */
--	while (stackptr > stack) {
--		stackptr--;
--		p = rcu_deref_locked(**stackptr, base);
--		if (refcount_read(&p->refcnt) == 1) {
--			smp_rmb();
--			delta = (__u32)jiffies - p->dtime;
--			if (delta >= ttl && refcount_dec_if_one(&p->refcnt)) {
--				p->gc_next = gchead;
--				gchead = p;
--			}
--		}
-+	for (i = 0; i < gc_cnt; i++) {
-+		p = gc_stack[i];
-+		delta = (__u32)jiffies - p->dtime;
-+		if (delta < ttl || !refcount_dec_if_one(&p->refcnt))
-+			gc_stack[i] = NULL;
- 	}
--	while ((p = gchead) != NULL) {
--		gchead = p->gc_next;
--		cnt++;
--		unlink_from_pool(p, base, stack);
-+	for (i = 0; i < gc_cnt; i++) {
-+		p = gc_stack[i];
-+		if (p) {
-+			rb_erase(&p->rb_node, &base->rb_root);
-+			base->total--;
-+			call_rcu(&p->rcu, inetpeer_free_rcu);
-+		}
- 	}
--	return cnt;
- }
- 
- struct inet_peer *inet_getpeer(struct inet_peer_base *base,
- 			       const struct inetpeer_addr *daddr,
- 			       int create)
- {
--	struct inet_peer __rcu **stack[PEER_MAXDEPTH], ***stackptr;
--	struct inet_peer *p;
--	unsigned int sequence;
--	int invalidated, gccnt = 0;
-+	struct inet_peer *p, *gc_stack[PEER_MAX_GC];
-+	struct rb_node **pp, *parent;
-+	unsigned int gc_cnt, seq;
-+	int invalidated;
- 
- 	/* Attempt a lockless lookup first.
- 	 * Because of a concurrent writer, we might not find an existing entry.
- 	 */
- 	rcu_read_lock();
--	sequence = read_seqbegin(&base->lock);
--	p = lookup_rcu(daddr, base);
--	invalidated = read_seqretry(&base->lock, sequence);
-+	seq = read_seqbegin(&base->lock);
-+	p = lookup(daddr, base, seq, NULL, &gc_cnt, &parent, &pp);
-+	invalidated = read_seqretry(&base->lock, seq);
- 	rcu_read_unlock();
- 
- 	if (p)
-@@ -428,36 +198,31 @@ struct inet_peer *inet_getpeer(struct inet_peer_base *base,
- 	/* retry an exact lookup, taking the lock before.
- 	 * At least, nodes should be hot in our cache.
- 	 */
-+	parent = NULL;
- 	write_seqlock_bh(&base->lock);
--relookup:
--	p = lookup(daddr, stack, base);
--	if (p != peer_avl_empty) {
--		refcount_inc(&p->refcnt);
--		write_sequnlock_bh(&base->lock);
--		return p;
--	}
--	if (!gccnt) {
--		gccnt = inet_peer_gc(base, stack, stackptr);
--		if (gccnt && create)
--			goto relookup;
--	}
--	p = create ? kmem_cache_alloc(peer_cachep, GFP_ATOMIC) : NULL;
--	if (p) {
--		p->daddr = *daddr;
--		refcount_set(&p->refcnt, 2);
--		atomic_set(&p->rid, 0);
--		p->metrics[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
--		p->rate_tokens = 0;
--		/* 60*HZ is arbitrary, but chosen enough high so that the first
--		 * calculation of tokens is at its maximum.
--		 */
--		p->rate_last = jiffies - 60*HZ;
--		INIT_LIST_HEAD(&p->gc_list);
- 
--		/* Link the node. */
--		link_to_pool(p, base);
--		base->total++;
-+	gc_cnt = 0;
-+	p = lookup(daddr, base, seq, gc_stack, &gc_cnt, &parent, &pp);
-+	if (!p && create) {
-+		p = kmem_cache_alloc(peer_cachep, GFP_ATOMIC);
-+		if (p) {
-+			p->daddr = *daddr;
-+			refcount_set(&p->refcnt, 2);
-+			atomic_set(&p->rid, 0);
-+			p->metrics[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
-+			p->rate_tokens = 0;
-+			/* 60*HZ is arbitrary, but chosen enough high so that the first
-+			 * calculation of tokens is at its maximum.
-+			 */
-+			p->rate_last = jiffies - 60*HZ;
-+
-+			rb_link_node(&p->rb_node, parent, pp);
-+			rb_insert_color(&p->rb_node, &base->rb_root);
-+			base->total++;
-+		}
- 	}
-+	if (gc_cnt)
-+		inet_peer_gc(base, gc_stack, gc_cnt);
- 	write_sequnlock_bh(&base->lock);
- 
- 	return p;
-@@ -467,8 +232,9 @@ EXPORT_SYMBOL_GPL(inet_getpeer);
- void inet_putpeer(struct inet_peer *p)
- {
- 	p->dtime = (__u32)jiffies;
--	smp_mb__before_atomic();
--	refcount_dec(&p->refcnt);
-+
-+	if (refcount_dec_and_test(&p->refcnt))
-+		call_rcu(&p->rcu, inetpeer_free_rcu);
- }
- EXPORT_SYMBOL_GPL(inet_putpeer);
- 
-@@ -513,30 +279,16 @@ bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout)
- }
- EXPORT_SYMBOL(inet_peer_xrlim_allow);
- 
--static void inetpeer_inval_rcu(struct rcu_head *head)
--{
--	struct inet_peer *p = container_of(head, struct inet_peer, gc_rcu);
--
--	spin_lock_bh(&gc_lock);
--	list_add_tail(&p->gc_list, &gc_list);
--	spin_unlock_bh(&gc_lock);
--
--	schedule_delayed_work(&gc_work, gc_delay);
--}
--
- void inetpeer_invalidate_tree(struct inet_peer_base *base)
- {
--	struct inet_peer *root;
--
--	write_seqlock_bh(&base->lock);
-+	struct inet_peer *p, *n;
- 
--	root = rcu_deref_locked(base->root, base);
--	if (root != peer_avl_empty) {
--		base->root = peer_avl_empty_rcu;
--		base->total = 0;
--		call_rcu(&root->gc_rcu, inetpeer_inval_rcu);
-+	rbtree_postorder_for_each_entry_safe(p, n, &base->rb_root, rb_node) {
-+		inet_putpeer(p);
-+		cond_resched();
- 	}
- 
--	write_sequnlock_bh(&base->lock);
-+	base->rb_root = RB_ROOT;
-+	base->total = 0;
- }
- EXPORT_SYMBOL(inetpeer_invalidate_tree);
-
-
+ Required properties:
+-- 
+2.7.4
