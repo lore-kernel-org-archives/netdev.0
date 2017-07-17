@@ -1,57 +1,32 @@
-From: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 2/3] net: ethernet: bgmac: Make IDM register space optional
-Date: Mon, 17 Jul 2017 15:05:44 -0400
-Message-ID: <CAC3K-4rgVYkjGq_WTHoO6=fvSH0TuHOpdDpukbvK+5LxhLm4BA@mail.gmail.com>
-References: <1499972649-6200-1-git-send-email-abhishek.shah@broadcom.com>
- <1499972649-6200-3-git-send-email-abhishek.shah@broadcom.com>
- <CAC3K-4o=WRqBv_vTf7QGDYjWzMmVog=63ZbiHbHAuW7zJcsHFQ@mail.gmail.com> <CAKUFe6ad027MAg-A3XO7i1=c-Q623JqMPCKV_+Hi+ZpUojBn-Q@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [Patch net] bpf: check NULL for sk_to_full_sk() return value
+Date: Mon, 17 Jul 2017 21:06:49 +0200
+Message-ID: <596D0AC9.7070505@iogearbox.net>
+References: <20170717184255.6121-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal-g1n6cQUeyibVItvQsEIGlw@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE BINDINGS"
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Abhishek Shah <abhishek.shah-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKUFe6ad027MAg-A3XO7i1=c-Q623JqMPCKV_+Hi+ZpUojBn-Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: dsahern@gmail.com, Lawrence Brakmo <brakmo@fb.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:53734 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751311AbdGQTGz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 15:06:55 -0400
+In-Reply-To: <20170717184255.6121-1-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 17, 2017 at 2:37 PM, Abhishek Shah
-<abhishek.shah-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
-> Hi Jon,
+On 07/17/2017 08:42 PM, Cong Wang wrote:
+> When req->rsk_listener is NULL, sk_to_full_sk() returns
+> NULL too, so we have to check its return value against
+> NULL here.
 >
->> This also will need to be added to
->> drivers/net/ethernet/broadcom/bgmac-bcma.c.  Otherwise, the driver
->> will no longer work for those platforms.  Since this was already
->> accepted, please push out a fix ASAP.
->>
-> I do not see how the bcma driver [bgmac-bcma.c] will no longer work.
-> The whole idea behind introducing this  BGMAC_FEAT_IDM_MASK bit
-> was to keep bcma driver's functionality intact.
->
-> The BGMAC_FEAT_IDM_MASK bit is explicitly set by the bgmac-platform driver
-> and is unset inside the same if the idm register base is provided.
->
-> For BCMA driver case, I do not touch BGMAC_FEAT_IDM_MASK bit, i.e. it
-> is *not* set.
-> And if it is not set, each idm operation done in bgmac.c will take place.
-> Please explain if I am missing something here.
+> Fixes: 40304b2a1567 ("bpf: BPF support for sock_ops")
+> Reported-by: David Ahern <dsahern@gmail.com>
+> Tested-by: David Ahern <dsahern@gmail.com>
+> Cc: Lawrence Brakmo <brakmo@fb.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Sorry, I had it flipped in my mind.  Please disregard.
-
->
->
-> Regards,
-> Abhishek
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
