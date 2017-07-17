@@ -1,8 +1,8 @@
 From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next v2 2/4] net-next: mediatek: add platform data to
- adapt into various hardware
-Date: Mon, 17 Jul 2017 18:06:23 +0800
-Message-ID: <2987b7e3b40cfcd143b5da444c6722b5e92bc0b5.1500285278.git.sean.wang@mediatek.com>
+Subject: [PATCH net-next v2 3/4] net-next: mediatek: add support for MediaTek
+ MT7622 SoC
+Date: Mon, 17 Jul 2017 18:06:24 +0800
+Message-ID: <ad1d53a5224e2f8bbe88f7efcdb136f3afbe9c37.1500285278.git.sean.wang@mediatek.com>
 References: <cover.1500285278.git.sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,239 +25,279 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-This patch is the preparation patch in order to adapt into various
-hardware through adding platform data which holds specific characteristics
-among MediaTek SoCs and introducing the unified clock handler for those
-distinct clock requirements depending on different features such as
-TRGMII and SGMII getting support on the target SoC. And finally, add
-enhancement with given the generic description for Kconfig and remove the
-unnecessary machine type dependency in Makefile.
+This patch adds the driver for ethernet controller on MT7622 SoC. It has
+the similar handling logic as the previously MT7623 does, but there are
+additions against with MT7623 SoC, the shared SGMII given for the dual
+GMACs and including 5-ports 10/100 embedded switch support (ESW) as the
+GMAC1 option, thus more clocks consumers for the extra feature are
+introduced here. So for ease portability and maintenance, those
+differences all are being kept inside the platform data as other drivers
+usually do. Currently testing successfully is done with those patches for
+the conditions such as GMAC2 with IP1001 PHY via RGMII and GMAC1/2 with
+RTL8211F PHY via SGMII.
 
 Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/Kconfig       |  6 +--
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 75 ++++++++++++++++++++++++-----
- drivers/net/ethernet/mediatek/mtk_eth_soc.h | 23 ++++++++-
- 3 files changed, 88 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 67 ++++++++++++++++++++++++++++-
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h | 54 ++++++++++++++++++++++-
+ 2 files changed, 117 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/Kconfig b/drivers/net/ethernet/mediatek/Kconfig
-index 698bb89..f9149d2 100644
---- a/drivers/net/ethernet/mediatek/Kconfig
-+++ b/drivers/net/ethernet/mediatek/Kconfig
-@@ -7,11 +7,11 @@ config NET_VENDOR_MEDIATEK
- if NET_VENDOR_MEDIATEK
- 
- config NET_MEDIATEK_SOC
--	tristate "MediaTek MT7623 Gigabit ethernet support"
--	depends on NET_VENDOR_MEDIATEK && (MACH_MT7623 || MACH_MT2701)
-+	tristate "MediaTek SoC Gigabit Ethernet support"
-+	depends on NET_VENDOR_MEDIATEK
- 	select PHYLIB
- 	---help---
- 	  This driver supports the gigabit ethernet MACs in the
--	  MediaTek MT2701/MT7623 chipset family.
-+	  MediaTek SoC family.
- 
- endif #NET_VENDOR_MEDIATEK
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index b3d0c2e..ad48623 100644
+index ad48623..9f44246 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -184,7 +184,8 @@ static void mtk_phy_link_adjust(struct net_device *dev)
- 		break;
- 	};
+@@ -52,7 +52,8 @@ static const struct mtk_ethtool_stats {
+ };
  
--	if (mac->id == 0 && !mac->trgmii)
-+	if (MTK_HAS_CAPS(mac->hw->soc->caps, MTK_GMAC1_TRGMII) &&
-+	    !mac->id && !mac->trgmii)
- 		mtk_gmac0_rgmii_adjust(mac->hw, dev->phydev->speed);
+ static const char * const mtk_clks_source_name[] = {
+-	"ethif", "esw", "gp1", "gp2", "trgpll"
++	"ethif", "esw", "gp0", "gp1", "gp2", "trgpll", "sgmii_tx250m",
++	"sgmii_rx250m", "sgmii_cdr_ref", "sgmii_cdr_fb", "sgmii_ck", "eth2pll"
+ };
  
- 	if (dev->phydev->link)
-@@ -1832,9 +1833,36 @@ static void ethsys_reset(struct mtk_eth *eth, u32 reset_bits)
- 	mdelay(10);
+ void mtk_w32(struct mtk_eth *eth, u32 val, unsigned reg)
+@@ -162,6 +163,47 @@ static void mtk_gmac0_rgmii_adjust(struct mtk_eth *eth, int speed)
+ 	mtk_w32(eth, val, TRGMII_TCK_CTRL);
  }
  
-+static void mtk_clk_disable(struct mtk_eth *eth)
++static void mtk_gmac_sgmii_hw_setup(struct mtk_eth *eth, int mac_id)
 +{
-+	int clk;
++	u32 val;
 +
-+	for (clk = MTK_CLK_MAX - 1; clk >= 0; clk--)
-+		clk_disable_unprepare(eth->clks[clk]);
-+}
++	/* Setup the link timer and QPHY power up inside SGMIISYS */
++	regmap_write(eth->sgmiisys, SGMSYS_PCS_LINK_TIMER,
++		     SGMII_LINK_TIMER_DEFAULT);
 +
-+static int mtk_clk_enable(struct mtk_eth *eth)
-+{
-+	int clk, ret;
++	regmap_read(eth->sgmiisys, SGMSYS_SGMII_MODE, &val);
++	val |= SGMII_REMOTE_FAULT_DIS;
++	regmap_write(eth->sgmiisys, SGMSYS_SGMII_MODE, val);
 +
-+	for (clk = 0; clk < MTK_CLK_MAX ; clk++) {
-+		ret = clk_prepare_enable(eth->clks[clk]);
-+		if (ret)
-+			goto err_disable_clks;
++	regmap_read(eth->sgmiisys, SGMSYS_PCS_CONTROL_1, &val);
++	val |= SGMII_AN_RESTART;
++	regmap_write(eth->sgmiisys, SGMSYS_PCS_CONTROL_1, val);
++
++	regmap_read(eth->sgmiisys, SGMSYS_QPHY_PWR_STATE_CTRL, &val);
++	val &= ~SGMII_PHYA_PWD;
++	regmap_write(eth->sgmiisys, SGMSYS_QPHY_PWR_STATE_CTRL, val);
++
++	/* Determine MUX for which GMAC uses the SGMII interface */
++	if (MTK_HAS_CAPS(eth->soc->caps, MTK_DUAL_GMAC_SHARED_SGMII)) {
++		regmap_read(eth->ethsys, ETHSYS_SYSCFG0, &val);
++		val &= ~SYSCFG0_SGMII_MASK;
++		val |= !mac_id ? SYSCFG0_SGMII_GMAC1 : SYSCFG0_SGMII_GMAC2;
++		regmap_write(eth->ethsys, ETHSYS_SYSCFG0, val);
++
++		dev_info(eth->dev, "setup shared sgmii for gmac=%d\n",
++			 mac_id);
 +	}
 +
-+	return 0;
-+
-+err_disable_clks:
-+	while (--clk >= 0)
-+		clk_disable_unprepare(eth->clks[clk]);
-+
-+	return ret;
++	/* Setup the GMAC1 going through SGMII path when SoC also support
++	 * ESW on GMAC1
++	 */
++	if (MTK_HAS_CAPS(eth->soc->caps, MTK_GMAC1_ESW | MTK_GMAC1_SGMII) &&
++	    !mac_id) {
++		mtk_w32(eth, 0, MTK_MAC_MISC);
++		dev_info(eth->dev, "setup gmac1 going through sgmii");
++	}
 +}
 +
- static int mtk_hw_init(struct mtk_eth *eth)
+ static void mtk_phy_link_adjust(struct net_device *dev)
  {
--	int i, val;
-+	int i, val, ret;
+ 	struct mtk_mac *mac = netdev_priv(dev);
+@@ -269,6 +311,7 @@ static int mtk_phy_connect(struct net_device *dev)
+ 	if (!np)
+ 		return -ENODEV;
  
- 	if (test_and_set_bit(MTK_HW_INIT, &eth->state))
- 		return 0;
-@@ -1842,10 +1870,10 @@ static int mtk_hw_init(struct mtk_eth *eth)
- 	pm_runtime_enable(eth->dev);
- 	pm_runtime_get_sync(eth->dev);
- 
--	clk_prepare_enable(eth->clks[MTK_CLK_ETHIF]);
--	clk_prepare_enable(eth->clks[MTK_CLK_ESW]);
--	clk_prepare_enable(eth->clks[MTK_CLK_GP1]);
--	clk_prepare_enable(eth->clks[MTK_CLK_GP2]);
-+	ret = mtk_clk_enable(eth);
-+	if (ret)
-+		goto err_disable_pm;
-+
- 	ethsys_reset(eth, RSTCTRL_FE);
- 	ethsys_reset(eth, RSTCTRL_PPE);
- 
-@@ -1913,6 +1941,12 @@ static int mtk_hw_init(struct mtk_eth *eth)
++	mac->ge_mode = 0;
+ 	switch (of_get_phy_mode(np)) {
+ 	case PHY_INTERFACE_MODE_TRGMII:
+ 		mac->trgmii = true;
+@@ -276,7 +319,10 @@ static int mtk_phy_connect(struct net_device *dev)
+ 	case PHY_INTERFACE_MODE_RGMII_RXID:
+ 	case PHY_INTERFACE_MODE_RGMII_ID:
+ 	case PHY_INTERFACE_MODE_RGMII:
+-		mac->ge_mode = 0;
++		break;
++	case PHY_INTERFACE_MODE_SGMII:
++		if (MTK_HAS_CAPS(eth->soc->caps, MTK_SGMII))
++			mtk_gmac_sgmii_hw_setup(eth, mac->id);
+ 		break;
+ 	case PHY_INTERFACE_MODE_MII:
+ 		mac->ge_mode = 1;
+@@ -2421,6 +2467,7 @@ static int mtk_get_chip_id(struct mtk_eth *eth, u32 *chip_id)
+ static bool mtk_is_hwlro_supported(struct mtk_eth *eth)
+ {
+ 	switch (eth->chip_id) {
++	case MT7622_ETH:
+ 	case MT7623_ETH:
+ 		return true;
+ 	}
+@@ -2460,6 +2507,16 @@ static int mtk_probe(struct platform_device *pdev)
+ 		return PTR_ERR(eth->ethsys);
  	}
  
- 	return 0;
++	if (MTK_HAS_CAPS(eth->soc->caps, MTK_SGMII)) {
++		eth->sgmiisys =
++		syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
++						"mediatek,sgmiisys");
++		if (IS_ERR(eth->sgmiisys)) {
++			dev_err(&pdev->dev, "no sgmiisys regmap found\n");
++			return PTR_ERR(eth->sgmiisys);
++		}
++	}
 +
-+err_disable_pm:
-+	pm_runtime_put_sync(eth->dev);
-+	pm_runtime_disable(eth->dev);
-+
-+	return ret;
- }
+ 	eth->pctl = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+ 						    "mediatek,pctl");
+ 	if (IS_ERR(eth->pctl)) {
+@@ -2593,6 +2650,11 @@ static const struct mtk_soc_data mt2701_data = {
+ 	.required_clks = MT7623_CLKS_BITMAP
+ };
  
- static int mtk_hw_deinit(struct mtk_eth *eth)
-@@ -1920,10 +1954,7 @@ static int mtk_hw_deinit(struct mtk_eth *eth)
- 	if (!test_and_clear_bit(MTK_HW_INIT, &eth->state))
- 		return 0;
- 
--	clk_disable_unprepare(eth->clks[MTK_CLK_GP2]);
--	clk_disable_unprepare(eth->clks[MTK_CLK_GP1]);
--	clk_disable_unprepare(eth->clks[MTK_CLK_ESW]);
--	clk_disable_unprepare(eth->clks[MTK_CLK_ETHIF]);
-+	mtk_clk_disable(eth);
- 
- 	pm_runtime_put_sync(eth->dev);
- 	pm_runtime_disable(eth->dev);
-@@ -2401,6 +2432,7 @@ static int mtk_probe(struct platform_device *pdev)
- {
- 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	struct device_node *mac_np;
-+	const struct of_device_id *match;
- 	struct mtk_eth *eth;
- 	int err;
- 	int i;
-@@ -2409,6 +2441,9 @@ static int mtk_probe(struct platform_device *pdev)
- 	if (!eth)
- 		return -ENOMEM;
- 
-+	match = of_match_device(of_mtk_match, &pdev->dev);
-+	eth->soc = (struct mtk_soc_data *)match->data;
-+
- 	eth->dev = &pdev->dev;
- 	eth->base = devm_ioremap_resource(&pdev->dev, res);
- 	if (IS_ERR(eth->base))
-@@ -2445,7 +2480,12 @@ static int mtk_probe(struct platform_device *pdev)
- 		if (IS_ERR(eth->clks[i])) {
- 			if (PTR_ERR(eth->clks[i]) == -EPROBE_DEFER)
- 				return -EPROBE_DEFER;
--			return -ENODEV;
-+			if (eth->soc->required_clks & BIT(i)) {
-+				dev_err(&pdev->dev, "clock %s not found\n",
-+					mtk_clks_source_name[i]);
-+				return -EINVAL;
-+			}
-+			eth->clks[i] = NULL;
- 		}
- 	}
- 
-@@ -2548,8 +2588,19 @@ static int mtk_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
-+static const struct mtk_soc_data mt2701_data = {
-+	.caps = MTK_GMAC1_TRGMII,
-+	.required_clks = MT7623_CLKS_BITMAP
++static const struct mtk_soc_data mt7622_data = {
++	.caps = MTK_DUAL_GMAC_SHARED_SGMII | MTK_GMAC1_ESW,
++	.required_clks = MT7622_CLKS_BITMAP
 +};
 +
-+static const struct mtk_soc_data mt7623_data = {
-+	.caps = MTK_GMAC1_TRGMII,
-+	.required_clks = MT7623_CLKS_BITMAP
-+};
-+
+ static const struct mtk_soc_data mt7623_data = {
+ 	.caps = MTK_GMAC1_TRGMII,
+ 	.required_clks = MT7623_CLKS_BITMAP
+@@ -2600,6 +2662,7 @@ static const struct mtk_soc_data mt7623_data = {
+ 
  const struct of_device_id of_mtk_match[] = {
--	{ .compatible = "mediatek,mt2701-eth" },
-+	{ .compatible = "mediatek,mt2701-eth", .data = &mt2701_data},
-+	{ .compatible = "mediatek,mt7623-eth", .data = &mt7623_data},
+ 	{ .compatible = "mediatek,mt2701-eth", .data = &mt2701_data},
++	{ .compatible = "mediatek,mt7622-eth", .data = &mt7622_data},
+ 	{ .compatible = "mediatek,mt7623-eth", .data = &mt7623_data},
  	{},
  };
- MODULE_DEVICE_TABLE(of, of_mtk_match);
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index 5868a09..8ade23df 100644
+index 8ade23df..4594862 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -443,6 +443,9 @@ enum mtk_clks_map {
+@@ -302,6 +302,9 @@
+ #define PHY_IAC_REG_SHIFT	25
+ #define PHY_IAC_TIMEOUT		HZ
+ 
++#define MTK_MAC_MISC		0x1000c
++#define MTK_MUX_TO_ESW		BIT(0)
++
+ /* Mac control registers */
+ #define MTK_MAC_MCR(x)		(0x10100 + (x * 0x100))
+ #define MAC_MCR_MAX_RX_1536	BIT(24)
+@@ -357,11 +360,15 @@
+ #define ETHSYS_CHIPID0_3	0x0
+ #define ETHSYS_CHIPID4_7	0x4
+ #define MT7623_ETH		7623
++#define MT7622_ETH		7622
+ 
+ /* ethernet subsystem config register */
+ #define ETHSYS_SYSCFG0		0x14
+ #define SYSCFG0_GE_MASK		0x3
+ #define SYSCFG0_GE_MODE(x, y)	(x << (12 + (y * 2)))
++#define SYSCFG0_SGMII_MASK	(3 << 8)
++#define SYSCFG0_SGMII_GMAC1	((2 << 8) & GENMASK(9, 8))
++#define SYSCFG0_SGMII_GMAC2	((3 << 8) & GENMASK(9, 8))
+ 
+ /* ethernet subsystem clock register */
+ #define ETHSYS_CLKCFG0		0x2c
+@@ -372,6 +379,23 @@
+ #define RSTCTRL_FE		BIT(6)
+ #define RSTCTRL_PPE		BIT(31)
+ 
++/* SGMII subsystem config registers */
++/* Register to auto-negotiation restart */
++#define SGMSYS_PCS_CONTROL_1	0x0
++#define SGMII_AN_RESTART	BIT(9)
++
++/* Register to programmable link timer, the unit in 2 * 8ns */
++#define SGMSYS_PCS_LINK_TIMER	0x18
++#define SGMII_LINK_TIMER_DEFAULT	(0x186a0 & GENMASK(19, 0))
++
++/* Register to control remote fault */
++#define SGMSYS_SGMII_MODE	0x20
++#define SGMII_REMOTE_FAULT_DIS	BIT(8)
++
++/* Register to power up QPHY */
++#define SGMSYS_QPHY_PWR_STATE_CTRL 0xe8
++#define	SGMII_PHYA_PWD		BIT(4)
++
+ struct mtk_rx_dma {
+ 	unsigned int rxd1;
+ 	unsigned int rxd2;
+@@ -437,15 +461,31 @@ enum mtk_tx_flags {
+ enum mtk_clks_map {
+ 	MTK_CLK_ETHIF,
+ 	MTK_CLK_ESW,
++	MTK_CLK_GP0,
+ 	MTK_CLK_GP1,
+ 	MTK_CLK_GP2,
+ 	MTK_CLK_TRGPLL,
++	MTK_CLK_SGMII_TX_250M,
++	MTK_CLK_SGMII_RX_250M,
++	MTK_CLK_SGMII_CDR_REF,
++	MTK_CLK_SGMII_CDR_FB,
++	MTK_CLK_SGMII_CK,
++	MTK_CLK_ETH2PLL,
  	MTK_CLK_MAX
  };
  
-+#define MT7623_CLKS_BITMAP	(BIT(MTK_CLK_ETHIF) | BIT(MTK_CLK_ESW) |  \
-+				 BIT(MTK_CLK_GP1) | BIT(MTK_CLK_GP2) | \
-+				 BIT(MTK_CLK_TRGPLL))
+ #define MT7623_CLKS_BITMAP	(BIT(MTK_CLK_ETHIF) | BIT(MTK_CLK_ESW) |  \
+ 				 BIT(MTK_CLK_GP1) | BIT(MTK_CLK_GP2) | \
+ 				 BIT(MTK_CLK_TRGPLL))
++#define MT7622_CLKS_BITMAP	(BIT(MTK_CLK_ETHIF) | BIT(MTK_CLK_ESW) |  \
++				 BIT(MTK_CLK_GP0) | BIT(MTK_CLK_GP1) | \
++				 BIT(MTK_CLK_GP2) | \
++				 BIT(MTK_CLK_SGMII_TX_250M) | \
++				 BIT(MTK_CLK_SGMII_RX_250M) | \
++				 BIT(MTK_CLK_SGMII_CDR_REF) | \
++				 BIT(MTK_CLK_SGMII_CDR_FB) | \
++				 BIT(MTK_CLK_SGMII_CK) | \
++				 BIT(MTK_CLK_ETH2PLL))
  enum mtk_dev_state {
  	MTK_HW_INIT,
  	MTK_RESETTING
-@@ -511,6 +514,21 @@ struct mtk_rx_ring {
- 	u32 crx_idx_reg;
- };
+@@ -516,9 +556,16 @@ struct mtk_rx_ring {
  
-+#define MTK_TRGMII			BIT(0)
-+#define MTK_GMAC1_TRGMII		(BIT(1) | MTK_TRGMII)
-+#define MTK_HAS_CAPS(caps, _x)		(((caps) & (_x)) == (_x))
-+
-+/* struct mtk_soc_data -	This is the structure holding all differences
-+ *				among various plaforms
-+ * @caps			Flags shown the extra capability for the SoC
-+ * @required_clks		Flags shown the bitmap for required clocks on
-+ *				the target SoC
-+ */
-+struct mtk_soc_data {
-+	u32		caps;
-+	u32		required_clks;
-+};
-+
- /* currently no SoC has more than 2 macs */
- #define MTK_MAX_DEVS			2
+ #define MTK_TRGMII			BIT(0)
+ #define MTK_GMAC1_TRGMII		(BIT(1) | MTK_TRGMII)
++#define MTK_ESW				BIT(4)
++#define MTK_GMAC1_ESW			(BIT(5) | MTK_ESW)
++#define MTK_SGMII			BIT(8)
++#define MTK_GMAC1_SGMII			(BIT(9) | MTK_SGMII)
++#define MTK_GMAC2_SGMII			(BIT(10) | MTK_SGMII)
++#define MTK_DUAL_GMAC_SHARED_SGMII	(BIT(11) | MTK_GMAC1_SGMII | \
++					 MTK_GMAC2_SGMII)
+ #define MTK_HAS_CAPS(caps, _x)		(((caps) & (_x)) == (_x))
  
-@@ -542,7 +560,8 @@ struct mtk_rx_ring {
+-/* struct mtk_soc_data -	This is the structure holding all differences
++/* struct mtk_eth_data -	This is the structure holding all differences
+  *				among various plaforms
+  * @caps			Flags shown the extra capability for the SoC
+  * @required_clks		Flags shown the bitmap for required clocks on
+@@ -547,6 +594,8 @@ struct mtk_soc_data {
+  * @msg_enable:		Ethtool msg level
+  * @ethsys:		The register map pointing at the range used to setup
+  *			MII modes
++ * @sgmiisys:		The register map pointing at the range used to setup
++ *			SGMII modes
+  * @pctl:		The register map pointing at the range used to setup
+  *			GMAC port drive/slew values
+  * @dma_refcnt:		track how many netdevs are using the DMA engine
+@@ -560,7 +609,7 @@ struct mtk_soc_data {
   * @clks:		clock array for all clocks required
   * @mii_bus:		If there is a bus we need to create an instance for it
   * @pending_work:	The workqueue used to reset the dma ring
-- * @state               Initialization and runtime state of the device.
-+ * @state		Initialization and runtime state of the device
-+ * @soc:		Holding specific data among vaious SoCs
+- * @state		Initialization and runtime state of the device
++ * @state:		Initialization and runtime state of the device
+  * @soc:		Holding specific data among vaious SoCs
   */
  
- struct mtk_eth {
-@@ -574,6 +593,8 @@ struct mtk_eth {
- 	struct mii_bus			*mii_bus;
- 	struct work_struct		pending_work;
- 	unsigned long			state;
-+
-+	const struct mtk_soc_data	*soc;
- };
- 
- /* struct mtk_mac -	the structure that holds the info about the MACs of the
+@@ -577,6 +626,7 @@ struct mtk_eth {
+ 	u32				msg_enable;
+ 	unsigned long			sysclk;
+ 	struct regmap			*ethsys;
++	struct regmap			*sgmiisys;
+ 	struct regmap			*pctl;
+ 	u32				chip_id;
+ 	bool				hwlro;
 -- 
 2.7.4
