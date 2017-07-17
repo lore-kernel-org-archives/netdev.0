@@ -1,41 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 11/12] net: dsa: mv88e6xxx: add Energy Detect
- ops
-Date: Mon, 17 Jul 2017 13:45:49 -0700 (PDT)
-Message-ID: <20170717.134549.2101398770863549187.davem@davemloft.net>
-References: <20170717170346.19555-12-vivien.didelot@savoirfairelinux.com>
-        <20170717192734.GD9363@lunn.ch>
-        <87bmoiuae3.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Subject: Re: [PATCH net-next] samples/bpf: add option for native and skb
+ mode for redirect apps
+Date: Mon, 17 Jul 2017 13:46:41 -0700 (PDT)
+Message-ID: <20170717.134641.497885584190539189.davem@davemloft.net>
+References: <1500322459-3743-1-git-send-email-andy@greyhouse.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        f.fainelli@gmail.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87bmoiuae3.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
+        daniel@iogearbox.net, brouer@redhat.com
+To: andy@greyhouse.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58162 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751320AbdGQUqm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 16:46:42 -0400
+In-Reply-To: <1500322459-3743-1-git-send-email-andy@greyhouse.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Mon, 17 Jul 2017 15:32:52 -0400
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Mon, 17 Jul 2017 16:14:19 -0400
 
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
->> I never liked this. I think it is architecturally wrong for the switch
->> to be poking around in the PHY. It should ask the PHY driver. This is
->> especially true for external PHYs which might not be a Marvell PHY.
-> 
-> I share the same concern. However this patch is just isolating the
-> existing code so that we get rid of the last caps and flags and stop
-> writing (without reading them first) arbitrary registers.
-> 
-> Once this portion is moved to the PHY driver, one can remove it from
-> mv88e6xxx.
+> When testing with a driver that has both native and generic redirect support:
+ ...
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-Seems a reasonable plan of action.
-
-Andrew, do you agree?
+Applied.
