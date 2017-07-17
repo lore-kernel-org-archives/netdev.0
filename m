@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net] udp: preserve skb->dst if required for IP options
  processing
-Date: Mon, 17 Jul 2017 14:26:10 -0700
-Message-ID: <1500326770.5566.26.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Mon, 17 Jul 2017 14:30:06 -0700
+Message-ID: <1500327006.5566.29.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1500275043.5566.1.camel@edumazet-glaptop3.roam.corp.google.com>
          <a72faa05ed7b5ede6467096121ad6cee1fee229d.1500325067.git.pabeni@redhat.com>
 Mime-Version: 1.0
@@ -13,12 +13,12 @@ Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33369 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752524AbdGQV0N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 17:26:13 -0400
-Received: by mail-wr0-f195.google.com with SMTP id 40so249636wrw.0
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 14:26:12 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:33422 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751334AbdGQVaJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 17:30:09 -0400
+Received: by mail-wr0-f193.google.com with SMTP id 40so268548wrw.0
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 14:30:09 -0700 (PDT)
 In-Reply-To: <a72faa05ed7b5ede6467096121ad6cee1fee229d.1500325067.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -36,50 +36,11 @@ On Mon, 2017-07-17 at 22:59 +0200, Paolo Abeni wrote:
 > test it to decide to leverage the consume_stateless_skb()
 > optimization, without measurable additional cost in the faster
 > path.
-> 
-> Fixes: b65ac44674dd ("udp: try to avoid 2 cache miss on dequeue")
 
-Strange.... I thought bug was coming from
-commit 0a463c78d25b ("udp: avoid a cache miss on dequeue")
+Also the problem was not skb->dst at all, but fact that 
+skb->head can not be freed if IP options need later to be fetched.
 
-Please also add original reporter, from syzkaller team.
+( __ip_options_echo() -> 
+   sptr = skb_network_header(skb);
 
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-
-> Reported-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
->  net/ipv4/udp.c | 13 +++++++++++--
->  1 file changed, 11 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 25294d4..b057653 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1388,6 +1388,11 @@ void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
->  		unlock_sock_fast(sk, slow);
->  	}
->  
-> +	/* we cleared the head states previously only if the skb lacks any IP
-> +	 * options, see __udp_queue_rcv_skb().
-> +	 */
-> +	if (unlikely(IPCB(skb)->opt.optlen > 0))
-> +		skb_release_head_state(skb);
->  	consume_stateless_skb(skb);
->  }
->  EXPORT_SYMBOL_GPL(skb_consume_udp);
-> @@ -1779,8 +1784,12 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
->  		sk_mark_napi_id_once(sk, skb);
->  	}
->  
-> -	/* clear all pending head states while they are hot in the cache */
-> -	skb_release_head_state(skb);
-> +	/* At recvmsg() time we need skb->dst to process IP options-related
-> +	 * cmsg, elsewhere can we clear all pending head states while they are
-> +	 * hot in the cache
-> +	 */
-> +	if (likely(IPCB(skb)->opt.optlen == 0))
-> +		skb_release_head_state(skb);
->  
->  	rc = __udp_enqueue_schedule_skb(sk, skb);
->  	if (rc < 0) {
+... -> use after free
