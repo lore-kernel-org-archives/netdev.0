@@ -1,189 +1,64 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH] net/unix: drop obsolete fd-recursion limits
-Date: Mon, 17 Jul 2017 14:25:00 +0200
-Message-ID: <CAG-2HqXokzbsDt5Mt5VRyE=FFpUtfVe3YFhEhxuHv0b1KR7Wmw@mail.gmail.com>
-References: <20170717093554.16459-1-dh.herrmann@gmail.com>
+From: David Guyot <david.guyot@europecamions-interactive.com>
+Subject: ethtool uselessly tries to retrieve setting from a nonexistent
+ device
+Date: Mon, 17 Jul 2017 14:42:57 +0200
+Message-ID: <1500295377.2016.3.camel@europecamions-interactive.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Alban Crequy <alban.crequy@collabora.co.uk>,
-        Simon McVittie <simon.mcvittie@collabora.co.uk>
-To: David Herrmann <dh.herrmann@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170717093554.16459-1-dh.herrmann@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-SckJFXYeYE77m0Sb/51M"
+To: linville@tuxdriver.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:33912 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751332AbdGQMnJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2017 08:43:09 -0400
+Received: by mail-wr0-f196.google.com with SMTP id w4so1032927wrb.1
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 05:43:08 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 17, 2017 at 11:35 AM, David Herrmann <dh.herrmann@gmail.com> wrote:
-> All unix sockets now account inflight FDs to the respective sender.
-> This was introduced in:
->
->     commit 712f4aad406bb1ed67f3f98d04c044191f0ff593
->     Author: willy tarreau <w@1wt.eu>
->     Date:   Sun Jan 10 07:54:56 2016 +0100
->
->         unix: properly account for FDs passed over unix sockets
->
-> and further refined in:
->
->     commit 415e3d3e90ce9e18727e8843ae343eda5a58fad6
->     Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
->     Date:   Wed Feb 3 02:11:03 2016 +0100
->
->         unix: correctly track in-flight fds in sending process user_struct
->
-> Hence, regardless of the stacking depth of FDs, the total number of
-> inflight FDs is limited, and accounted. There is no known way for a
-> local user to exceed those limits or exploit the accounting.
->
-> Furthermore, the GC logic is independent of the recursion/stacking depth
-> as well. It solely depends on the total number of inflight FDs,
-> regardless of their layout.
->
-> Lastly, the current `recursion_level' suffers a TOCTOU race, since it
-> checks and inherits depths only at queue time. If we consider `A<-B' to
-> mean `queue-B-on-A', the following sequence circumvents the recursion
-> level easily:
->
->     A<-B
->        B<-C
->           C<-D
->              ...
->                Y<-Z
->
-> resulting in:
->
->     A<-B<-C<-...<-Z
->
-> With all of this in mind, lets drop the recursion limit. It has no
-> additional security value, anymore. On the contrary, it randomly
-> confuses message brokers that try to forward file-descriptors, since
-> any sendmsg(2) call can fail spuriously with ETOOMANYREFS if a client
-> maliciously modifies the FD while inflight.
->
-> Cc: Alban Crequy <alban.crequy@collabora.co.uk>
-> Cc: Simon McVittie <simon.mcvittie@collabora.co.uk>
-> Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
-Reviewed-by: Tom Gundersen <teg@jklm.no>
-> ---
->  include/net/af_unix.h |  1 -
->  net/unix/af_unix.c    | 24 +-----------------------
->  2 files changed, 1 insertion(+), 24 deletions(-)
->
-> diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-> index 678e4d6fa317..3b3194b2fc65 100644
-> --- a/include/net/af_unix.h
-> +++ b/include/net/af_unix.h
-> @@ -58,7 +58,6 @@ struct unix_sock {
->         struct list_head        link;
->         atomic_long_t           inflight;
->         spinlock_t              lock;
-> -       unsigned char           recursion_level;
->         unsigned long           gc_flags;
->  #define UNIX_GC_CANDIDATE      0
->  #define UNIX_GC_MAYBE_CYCLE    1
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index 7b52a380d710..5c53f22d62e8 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -1528,26 +1528,13 @@ static inline bool too_many_unix_fds(struct task_struct *p)
->         return false;
->  }
->
-> -#define MAX_RECURSION_LEVEL 4
-> -
->  static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
->  {
->         int i;
-> -       unsigned char max_level = 0;
->
->         if (too_many_unix_fds(current))
->                 return -ETOOMANYREFS;
->
-> -       for (i = scm->fp->count - 1; i >= 0; i--) {
-> -               struct sock *sk = unix_get_socket(scm->fp->fp[i]);
-> -
-> -               if (sk)
-> -                       max_level = max(max_level,
-> -                                       unix_sk(sk)->recursion_level);
-> -       }
-> -       if (unlikely(max_level > MAX_RECURSION_LEVEL))
-> -               return -ETOOMANYREFS;
-> -
->         /*
->          * Need to duplicate file references for the sake of garbage
->          * collection.  Otherwise a socket in the fps might become a
-> @@ -1559,7 +1546,7 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
->
->         for (i = scm->fp->count - 1; i >= 0; i--)
->                 unix_inflight(scm->fp->user, scm->fp->fp[i]);
-> -       return max_level;
-> +       return 0;
->  }
->
->  static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool send_fds)
-> @@ -1649,7 +1636,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
->         struct sk_buff *skb;
->         long timeo;
->         struct scm_cookie scm;
-> -       int max_level;
->         int data_len = 0;
->         int sk_locked;
->
-> @@ -1701,7 +1687,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
->         err = unix_scm_to_skb(&scm, skb, true);
->         if (err < 0)
->                 goto out_free;
-> -       max_level = err + 1;
->
->         skb_put(skb, len - data_len);
->         skb->data_len = data_len;
-> @@ -1819,8 +1804,6 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
->                 __net_timestamp(skb);
->         maybe_add_creds(skb, sock, other);
->         skb_queue_tail(&other->sk_receive_queue, skb);
-> -       if (max_level > unix_sk(other)->recursion_level)
-> -               unix_sk(other)->recursion_level = max_level;
->         unix_state_unlock(other);
->         other->sk_data_ready(other);
->         sock_put(other);
-> @@ -1855,7 +1838,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
->         int sent = 0;
->         struct scm_cookie scm;
->         bool fds_sent = false;
-> -       int max_level;
->         int data_len;
->
->         wait_for_unix_gc();
-> @@ -1905,7 +1887,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
->                         kfree_skb(skb);
->                         goto out_err;
->                 }
-> -               max_level = err + 1;
->                 fds_sent = true;
->
->                 skb_put(skb, size - data_len);
-> @@ -1925,8 +1906,6 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
->
->                 maybe_add_creds(skb, sock, other);
->                 skb_queue_tail(&other->sk_receive_queue, skb);
-> -               if (max_level > unix_sk(other)->recursion_level)
-> -                       unix_sk(other)->recursion_level = max_level;
->                 unix_state_unlock(other);
->                 other->sk_data_ready(other);
->                 sent += size;
-> @@ -2324,7 +2303,6 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state,
->                 last_len = last ? last->len : 0;
->  again:
->                 if (skb == NULL) {
-> -                       unix_sk(sk)->recursion_level = 0;
->                         if (copied >= target)
->                                 goto unlock;
->
-> --
-> 2.13.2
->
+
+--=-SckJFXYeYE77m0Sb/51M
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+Hello, there.
+
+I noticed a behavior of ethtool 4.8, as used in Debian Stretch, which
+could be improved: when I query a nonexistent device, ethtool tries to
+retrieve all its settings, even if the first test returns "No such
+device". In that case, ethtool should immediatly stop, only saying no
+such device, and not calling functions which results are already known.
+
+Hoping my remark is not too naive,
+
+Regards.
+--=20
+David Guyot
+Administrateur syst=C3=A8me=C2=A0/ Sysadmin
+Europe Camions Interactive=C2=A0/ Stockway
+Moulin Collot F-88500 Ambacourt
+T=C3=A9l=C2=A0: +33 (0)3 29 30 47 85
+--=-SckJFXYeYE77m0Sb/51M
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEE3x4z121mNEB/JJ/PgVDjr4mKouAFAllssNEACgkQgVDjr4mK
+ouAHDxAAh16n52MhF7bkzIC6VJF/ZqdSfPpo5iOoqTI3UuIoqr5OW6CC5YFuHTWv
+5blMY5MG60xFeqlrKlIRdmqpN9Ou8cgTx1/wK+4xzaumI+yNDnOkRpOs9utTYtyb
++KGm7DTlbChjWiPbov86U3SUFE4fmDj/9IrI1SdvSjzAZbyoLWyx25Oku66xDAiI
+t7/fMwLZaTsR43d4FEmsIPbZn01inSswCvLC09wk/sAGUZGsCc3eBCcrT9MOl6W3
+MF//v5YHuVVVTlnNRnN6/iWHibGWGYjsekhD3MTQM+LZUfvSJMh7RM3i00DEUuhQ
+czksPnfLPhOV1W7D6F6V+hyyyXy5OiHuvqM5G6AJ6L1QJlrjLX/lTlKkmUoH6aMk
+teaCiwhcf5UP/AZPVqfzztTmBrY2xSEmtkvWcSZgsKmEAoi4YkkoGvA0xgpG6QSR
+NMIEkTSJgw1mnAHcFZs7/8McsvvwTUOHiSZuYWZ3SvdZxWLwGmugLzhPh2YLKFvn
+nntS05+wFiKedvVKxiPSvAIOmzD4PfaU3DVX7gliZIxatkSDD/zrD9DCPi/7pcDO
+IpDP2HUsveYXwCWEGBwU31L6JrXqDyzPSh8Pwcud5i59O7Y+9ijdvaKg9LAWwZ9C
+vlJTnIAfGW8rFJl15d+Q34N3oSBzhfpPNrbigcPjgqn984SzXhQ=
+=tlgI
+-----END PGP SIGNATURE-----
+
+--=-SckJFXYeYE77m0Sb/51M--
