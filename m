@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 06/12] net: dsa: mv88e6xxx: add number of Global 2 IRQs
-Date: Mon, 17 Jul 2017 13:03:40 -0400
-Message-ID: <20170717170346.19555-7-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 07/12] net: dsa: mv88e6xxx: distinguish Global 2 Rsvd2CPU
+Date: Mon, 17 Jul 2017 13:03:41 -0400
+Message-ID: <20170717170346.19555-8-vivien.didelot@savoirfairelinux.com>
 References: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,376 +14,420 @@ In-Reply-To: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Similarly to g1_irqs, add a g2_irqs member to the info structure to
-indicates the presence of the Global 2 Interrupt Source and Mask
-registers.
+The 88E6185 family only has one 16-bit register to mark the 16 802.1D
+reserved multicast addresses in the range of 01:80:C2:00:00:0x as MGMT.
 
-At the same time, provide helpers and document the registers since they
-differ a bit between 88E6352 and 88E6390 families.
+The 88E6352 family also has one 16-bit register to mark the 16 GARP
+reserved multicast addresses in the range of 01:80:C2:00:00:2x as MGMT.
 
-This allows us to get rid of the MV88E6XXX_FLAG_G2_INT flag.
+Split the existing mv88e6095 prefixed mgmt_rsvd2cpu operation into two
+distinct mv88e6185 and mv88e6352 prefixed operations, and wrap its call
+into a mv88e6xxx_rsvd2cpu_setup helper.
+
+This allows us to also get rid of the MV88E6XXX_CAP_G2_MGMT_EN_* flags.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c    | 27 ++++++++++++++++++++++++---
- drivers/net/dsa/mv88e6xxx/chip.h    |  9 +--------
- drivers/net/dsa/mv88e6xxx/global2.c | 22 ++++++++++++++++++++--
- drivers/net/dsa/mv88e6xxx/global2.h | 19 +++++++++++++++++--
- 4 files changed, 62 insertions(+), 15 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c    | 55 ++++++++++++++++---------------
+ drivers/net/dsa/mv88e6xxx/chip.h    | 17 ----------
+ drivers/net/dsa/mv88e6xxx/global2.c | 65 ++++++++++++++++++++++++++++---------
+ drivers/net/dsa/mv88e6xxx/global2.h | 11 +++++--
+ 4 files changed, 86 insertions(+), 62 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 51f2797ecb52..1be0bc5e7c3f 100644
+index 1be0bc5e7c3f..874e2a154834 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3207,6 +3207,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 8,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-@@ -3242,6 +3243,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 8,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3260,6 +3262,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3295,6 +3298,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
- 		.atu_move_port_mask = 0x1f,
-+		.g2_irqs = 10,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6341,
-@@ -3312,6 +3316,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3330,6 +3335,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-@@ -3348,6 +3354,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3366,6 +3373,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3384,6 +3392,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3402,6 +3411,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3438,6 +3448,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
-+		.g2_irqs = 14,
- 		.pvt = true,
- 		.atu_move_port_mask = 0x1f,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
-@@ -3455,6 +3466,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
-+		.g2_irqs = 14,
- 		.atu_move_port_mask = 0x1f,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-@@ -3473,6 +3485,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
-+		.g2_irqs = 14,
- 		.atu_move_port_mask = 0x1f,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-@@ -3491,6 +3504,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3509,6 +3523,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
-+		.g2_irqs = 14,
- 		.atu_move_port_mask = 0x1f,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-@@ -3562,6 +3577,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
- 		.atu_move_port_mask = 0x1f,
-+		.g2_irqs = 10,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6341,
-@@ -3579,6 +3595,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3597,6 +3614,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3615,6 +3633,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 15000,
- 		.g1_irqs = 9,
-+		.g2_irqs = 10,
- 		.atu_move_port_mask = 0xf,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-@@ -3632,6 +3651,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
-+		.g2_irqs = 14,
- 		.atu_move_port_mask = 0x1f,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-@@ -3649,6 +3669,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.global1_addr = 0x1b,
- 		.age_time_coeff = 3750,
- 		.g1_irqs = 9,
-+		.g2_irqs = 14,
- 		.atu_move_port_mask = 0x1f,
- 		.pvt = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-@@ -3970,7 +3991,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 		if (err)
- 			goto out;
+@@ -926,6 +926,14 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
+ 		dev_err(ds->dev, "p%d: failed to update state\n", port);
+ }
  
--		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT)) {
-+		if (chip->info->g2_irqs > 0) {
- 			err = mv88e6xxx_g2_irq_setup(chip);
- 			if (err)
- 				goto out_g1_irq;
-@@ -3990,7 +4011,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- out_mdio:
- 	mv88e6xxx_mdios_unregister(chip);
- out_g2_irq:
--	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT) && chip->irq > 0)
-+	if (chip->info->g2_irqs > 0 && chip->irq > 0)
- 		mv88e6xxx_g2_irq_free(chip);
- out_g1_irq:
- 	if (chip->irq > 0) {
-@@ -4012,7 +4033,7 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
- 	mv88e6xxx_mdios_unregister(chip);
++static int mv88e6xxx_rsvd2cpu_setup(struct mv88e6xxx_chip *chip)
++{
++	if (chip->info->ops->mgmt_rsvd2cpu)
++		return chip->info->ops->mgmt_rsvd2cpu(chip);
++
++	return 0;
++}
++
+ static int mv88e6xxx_atu_setup(struct mv88e6xxx_chip *chip)
+ {
+ 	int err;
+@@ -2142,16 +2150,9 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
+ 	if (err)
+ 		goto unlock;
  
- 	if (chip->irq > 0) {
--		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_INT))
-+		if (chip->info->g2_irqs > 0)
- 			mv88e6xxx_g2_irq_free(chip);
- 		mv88e6xxx_g1_irq_free(chip);
- 	}
+-	/* Some generations have the configuration of sending reserved
+-	 * management frames to the CPU in global2, others in
+-	 * global1. Hence it does not fit the two setup functions
+-	 * above.
+-	 */
+-	if (chip->info->ops->mgmt_rsvd2cpu) {
+-		err = chip->info->ops->mgmt_rsvd2cpu(chip);
+-		if (err)
+-			goto unlock;
+-	}
++	err = mv88e6xxx_rsvd2cpu_setup(chip);
++	if (err)
++		goto unlock;
+ 
+ unlock:
+ 	mutex_unlock(&chip->reg_lock);
+@@ -2385,7 +2386,7 @@ static const struct mv88e6xxx_ops mv88e6085_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.ppu_enable = mv88e6185_g1_ppu_enable,
+ 	.ppu_disable = mv88e6185_g1_ppu_disable,
+ 	.reset = mv88e6185_g1_reset,
+@@ -2408,7 +2409,7 @@ static const struct mv88e6xxx_ops mv88e6095_ops = {
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+ 	.stats_get_stats = mv88e6095_stats_get_stats,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6185_g2_mgmt_rsvd2cpu,
+ 	.ppu_enable = mv88e6185_g1_ppu_enable,
+ 	.ppu_disable = mv88e6185_g1_ppu_disable,
+ 	.reset = mv88e6185_g1_reset,
+@@ -2441,7 +2442,7 @@ static const struct mv88e6xxx_ops mv88e6097_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -2467,7 +2468,7 @@ static const struct mv88e6xxx_ops mv88e6123_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -2496,7 +2497,7 @@ static const struct mv88e6xxx_ops mv88e6131_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6185_g2_mgmt_rsvd2cpu,
+ 	.ppu_enable = mv88e6185_g1_ppu_enable,
+ 	.ppu_disable = mv88e6185_g1_ppu_disable,
+ 	.reset = mv88e6185_g1_reset,
+@@ -2563,7 +2564,7 @@ static const struct mv88e6xxx_ops mv88e6161_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -2587,7 +2588,7 @@ static const struct mv88e6xxx_ops mv88e6165_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -2619,7 +2620,7 @@ static const struct mv88e6xxx_ops mv88e6171_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -2653,7 +2654,7 @@ static const struct mv88e6xxx_ops mv88e6172_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -2686,7 +2687,7 @@ static const struct mv88e6xxx_ops mv88e6175_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -2720,7 +2721,7 @@ static const struct mv88e6xxx_ops mv88e6176_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -2746,7 +2747,7 @@ static const struct mv88e6xxx_ops mv88e6185_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6185_g2_mgmt_rsvd2cpu,
+ 	.ppu_enable = mv88e6185_g1_ppu_enable,
+ 	.ppu_disable = mv88e6185_g1_ppu_disable,
+ 	.reset = mv88e6185_g1_reset,
+@@ -2884,7 +2885,7 @@ static const struct mv88e6xxx_ops mv88e6240_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -2952,7 +2953,7 @@ static const struct mv88e6xxx_ops mv88e6320_ops = {
+ 	.stats_get_stats = mv88e6320_stats_get_stats,
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6185_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6185_g1_vtu_loadpurge,
+@@ -3049,7 +3050,7 @@ static const struct mv88e6xxx_ops mv88e6350_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -3081,7 +3082,7 @@ static const struct mv88e6xxx_ops mv88e6351_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
+@@ -3115,7 +3116,7 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
+ 	.set_cpu_port = mv88e6095_g1_set_cpu_port,
+ 	.set_egress_port = mv88e6095_g1_set_egress_port,
+ 	.watchdog_ops = &mv88e6097_watchdog_ops,
+-	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
++	.mgmt_rsvd2cpu = mv88e6352_g2_mgmt_rsvd2cpu,
+ 	.reset = mv88e6352_g1_reset,
+ 	.vtu_getnext = mv88e6352_g1_vtu_getnext,
+ 	.vtu_loadpurge = mv88e6352_g1_vtu_loadpurge,
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.h b/drivers/net/dsa/mv88e6xxx/chip.h
-index 8eab123f0fed..2e760fd0ad24 100644
+index 2e760fd0ad24..48233971759e 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.h
 +++ b/drivers/net/dsa/mv88e6xxx/chip.h
-@@ -113,7 +113,6 @@ enum mv88e6xxx_cap {
+@@ -113,8 +113,6 @@ enum mv88e6xxx_cap {
  	 * The device contains a second set of global 16-bit registers.
  	 */
  	MV88E6XXX_CAP_GLOBAL2,
--	MV88E6XXX_CAP_G2_INT,		/* (0x00) Interrupt Status */
- 	MV88E6XXX_CAP_G2_MGMT_EN_2X,	/* (0x02) MGMT Enable Register 2x */
- 	MV88E6XXX_CAP_G2_MGMT_EN_0X,	/* (0x03) MGMT Enable Register 0x */
+-	MV88E6XXX_CAP_G2_MGMT_EN_2X,	/* (0x02) MGMT Enable Register 2x */
+-	MV88E6XXX_CAP_G2_MGMT_EN_0X,	/* (0x03) MGMT Enable Register 0x */
  	MV88E6XXX_CAP_G2_POT,		/* (0x0f) Priority Override Table */
-@@ -126,7 +125,6 @@ enum mv88e6xxx_cap {
+ };
+ 
+@@ -125,8 +123,6 @@ enum mv88e6xxx_cap {
  #define MV88E6XXX_FLAG_SMI_DATA		BIT_ULL(MV88E6XXX_CAP_SMI_DATA)
  
  #define MV88E6XXX_FLAG_GLOBAL2		BIT_ULL(MV88E6XXX_CAP_GLOBAL2)
--#define MV88E6XXX_FLAG_G2_INT		BIT_ULL(MV88E6XXX_CAP_G2_INT)
- #define MV88E6XXX_FLAG_G2_MGMT_EN_2X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_2X)
- #define MV88E6XXX_FLAG_G2_MGMT_EN_0X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_0X)
+-#define MV88E6XXX_FLAG_G2_MGMT_EN_2X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_2X)
+-#define MV88E6XXX_FLAG_G2_MGMT_EN_0X	BIT_ULL(MV88E6XXX_CAP_G2_MGMT_EN_0X)
  #define MV88E6XXX_FLAG_G2_POT		BIT_ULL(MV88E6XXX_CAP_G2_POT)
-@@ -143,7 +141,6 @@ enum mv88e6xxx_cap {
+ 
+ /* Multi-chip Addressing Mode */
+@@ -136,33 +132,25 @@ enum mv88e6xxx_cap {
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6095	\
+ 	(MV88E6XXX_FLAG_GLOBAL2 |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAGS_MULTI_CHIP)
  
  #define MV88E6XXX_FLAGS_FAMILY_6097	\
  	(MV88E6XXX_FLAG_GLOBAL2 |	\
--	 MV88E6XXX_FLAG_G2_INT |        \
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
  	 MV88E6XXX_FLAG_G2_POT |	\
-@@ -151,7 +148,6 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAGS_MULTI_CHIP)
  
  #define MV88E6XXX_FLAGS_FAMILY_6165	\
  	(MV88E6XXX_FLAG_GLOBAL2 |	\
--	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
-@@ -173,13 +169,11 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAGS_FAMILY_6341	\
- 	(MV88E6XXX_FLAG_EEE |		\
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
--	 MV88E6XXX_FLAG_G2_INT |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
  	 MV88E6XXX_FLAG_G2_POT |	\
  	 MV88E6XXX_FLAGS_MULTI_CHIP)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6185	\
+ 	(MV88E6XXX_FLAG_GLOBAL2 |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAGS_MULTI_CHIP)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6320	\
+ 	(MV88E6XXX_FLAG_EEE |		\
+ 	 MV88E6XXX_FLAG_GLOBAL2 |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAG_G2_POT |	\
+ 	 MV88E6XXX_FLAGS_MULTI_CHIP)
+ 
+@@ -174,16 +162,12 @@ enum mv88e6xxx_cap {
  
  #define MV88E6XXX_FLAGS_FAMILY_6351	\
  	(MV88E6XXX_FLAG_GLOBAL2 |	\
--	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
  	 MV88E6XXX_FLAG_G2_POT |	\
-@@ -188,7 +182,6 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAGS_MULTI_CHIP)
+ 
  #define MV88E6XXX_FLAGS_FAMILY_6352	\
  	(MV88E6XXX_FLAG_EEE |		\
  	 MV88E6XXX_FLAG_GLOBAL2 |	\
--	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+-	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
  	 MV88E6XXX_FLAG_G2_POT |	\
-@@ -197,7 +190,6 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAGS_FAMILY_6390	\
- 	(MV88E6XXX_FLAG_EEE |		\
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
--	 MV88E6XXX_FLAG_G2_INT |        \
  	 MV88E6XXX_FLAGS_MULTI_CHIP)
  
- struct mv88e6xxx_ops;
-@@ -213,6 +205,7 @@ struct mv88e6xxx_info {
- 	unsigned int global1_addr;
- 	unsigned int age_time_coeff;
- 	unsigned int g1_irqs;
-+	unsigned int g2_irqs;
- 	bool pvt;
- 	enum dsa_tag_protocol tag_protocol;
- 	unsigned long long flags;
+@@ -418,7 +402,6 @@ struct mv88e6xxx_ops {
+ 	int (*set_egress_port)(struct mv88e6xxx_chip *chip, int port);
+ 	const struct mv88e6xxx_irq_ops *watchdog_ops;
+ 
+-	/* Can be either in g1 or g2, so don't use a prefix */
+ 	int (*mgmt_rsvd2cpu)(struct mv88e6xxx_chip *chip);
+ 
+ 	/* Power on/off a SERDES interface */
 diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index 158d0f499874..be704c98dcbb 100644
+index be704c98dcbb..6b6ebbd6d322 100644
 --- a/drivers/net/dsa/mv88e6xxx/global2.c
 +++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -40,6 +40,21 @@ static int mv88e6xxx_g2_wait(struct mv88e6xxx_chip *chip, int reg, u16 mask)
- 	return mv88e6xxx_wait(chip, MV88E6XXX_G2, reg, mask);
+@@ -56,29 +56,65 @@ static int mv88e6xxx_g2_int_mask(struct mv88e6xxx_chip *chip, u16 mask)
  }
  
-+/* Offset 0x00: Interrupt Source Register */
-+
-+static int mv88e6xxx_g2_int_source(struct mv88e6xxx_chip *chip, u16 *src)
-+{
-+	/* Read (and clear most of) the Interrupt Source bits */
-+	return mv88e6xxx_g2_read(chip, MV88E6XXX_G2_INT_SRC, src);
-+}
-+
-+/* Offset 0x01: Interrupt Mask Register */
-+
-+static int mv88e6xxx_g2_int_mask(struct mv88e6xxx_chip *chip, u16 mask)
-+{
-+	return mv88e6xxx_g2_write(chip, MV88E6XXX_G2_INT_MASK, mask);
-+}
-+
  /* Offset 0x02: Management Enable 2x */
++
++static int mv88e6xxx_g2_mgmt_enable_2x(struct mv88e6xxx_chip *chip, u16 en2x)
++{
++	return mv88e6xxx_g2_write(chip, MV88E6XXX_G2_MGMT_EN_2X, en2x);
++}
++
  /* Offset 0x03: Management Enable 0x */
  
-@@ -933,7 +948,7 @@ static irqreturn_t mv88e6xxx_g2_irq_thread_fn(int irq, void *dev_id)
- 	u16 reg;
- 
- 	mutex_lock(&chip->reg_lock);
--	err = mv88e6xxx_g2_read(chip, MV88E6XXX_G2_INT_SOURCE, &reg);
-+	err = mv88e6xxx_g2_int_source(chip, &reg);
- 	mutex_unlock(&chip->reg_lock);
- 	if (err)
- 		goto out;
-@@ -959,8 +974,11 @@ static void mv88e6xxx_g2_irq_bus_lock(struct irq_data *d)
- static void mv88e6xxx_g2_irq_bus_sync_unlock(struct irq_data *d)
+-int mv88e6095_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip)
++static int mv88e6xxx_g2_mgmt_enable_0x(struct mv88e6xxx_chip *chip, u16 en0x)
  {
- 	struct mv88e6xxx_chip *chip = irq_data_get_irq_chip_data(d);
++	return mv88e6xxx_g2_write(chip, MV88E6XXX_G2_MGMT_EN_0X, en0x);
++}
++
++/* Offset 0x05: Switch Management Register */
++
++static int mv88e6xxx_g2_switch_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip,
++					     bool enable)
++{
++	u16 val;
+ 	int err;
+ 
+-	/* Consider the frames with reserved multicast destination
+-	 * addresses matching 01:80:c2:00:00:2x as MGMT.
+-	 */
+-	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_MGMT_EN_2X)) {
+-		err = mv88e6xxx_g2_write(chip, MV88E6XXX_G2_MGMT_EN_2X, 0xffff);
+-		if (err)
+-			return err;
+-	}
++	err = mv88e6xxx_g2_read(chip, MV88E6XXX_G2_SWITCH_MGMT, &val);
++	if (err)
++		return err;
++
++	if (enable)
++		val |= MV88E6XXX_G2_SWITCH_MGMT_RSVD2CPU;
++	else
++		val &= ~MV88E6XXX_G2_SWITCH_MGMT_RSVD2CPU;
++
++	return mv88e6xxx_g2_write(chip, MV88E6XXX_G2_SWITCH_MGMT, val);
++}
++
++int mv88e6185_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip)
++{
 +	int err;
  
--	mv88e6xxx_g2_write(chip, MV88E6XXX_G2_INT_MASK, ~chip->g2_irq.masked);
-+	err = mv88e6xxx_g2_int_mask(chip, ~chip->g2_irq.masked);
+ 	/* Consider the frames with reserved multicast destination
+ 	 * addresses matching 01:80:c2:00:00:0x as MGMT.
+ 	 */
+-	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_MGMT_EN_0X))
+-		return mv88e6xxx_g2_write(chip, MV88E6XXX_G2_MGMT_EN_0X,
+-					  0xffff);
++	err = mv88e6xxx_g2_mgmt_enable_0x(chip, 0xffff);
 +	if (err)
-+		dev_err(chip->dev, "failed to mask interrupts\n");
++		return err;
  
- 	mutex_unlock(&chip->reg_lock);
+-	return 0;
++	return mv88e6xxx_g2_switch_mgmt_rsvd2cpu(chip, true);
++}
++
++int mv88e6352_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip)
++{
++	int err;
++
++	/* Consider the frames with reserved multicast destination
++	 * addresses matching 01:80:c2:00:00:2x as MGMT.
++	 */
++	err = mv88e6xxx_g2_mgmt_enable_2x(chip, 0xffff);
++	if (err)
++		return err;
++
++	return mv88e6185_g2_mgmt_rsvd2cpu(chip);
  }
+ 
+ /* Offset 0x06: Device Mapping Table register */
+@@ -1081,9 +1117,6 @@ int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ 	 * port at the highest priority.
+ 	 */
+ 	reg = MV88E6XXX_G2_SWITCH_MGMT_FORCE_FLOW_CTL_PRI | (0x7 << 4);
+-	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_MGMT_EN_0X) ||
+-	    mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_MGMT_EN_2X))
+-		reg |= MV88E6XXX_G2_SWITCH_MGMT_RSVD2CPU | 0x7;
+ 	err = mv88e6xxx_g2_write(chip, MV88E6XXX_G2_SWITCH_MGMT, reg);
+ 	if (err)
+ 		return err;
 diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
-index 317ffd8f323d..7b21b2556af2 100644
+index 7b21b2556af2..487a81146c31 100644
 --- a/drivers/net/dsa/mv88e6xxx/global2.h
 +++ b/drivers/net/dsa/mv88e6xxx/global2.h
-@@ -20,11 +20,26 @@
- #define MV88E6XXX_G2	0x1c
- 
- /* Offset 0x00: Interrupt Source Register */
--#define MV88E6XXX_G2_INT_SOURCE			0x00
-+#define MV88E6XXX_G2_INT_SRC			0x00
-+#define MV88E6XXX_G2_INT_SRC_WDOG		0x8000
-+#define MV88E6XXX_G2_INT_SRC_JAM_LIMIT		0x4000
-+#define MV88E6XXX_G2_INT_SRC_DUPLEX_MISMATCH	0x2000
-+#define MV88E6XXX_G2_INT_SRC_WAKE_EVENT		0x1000
-+#define MV88E6352_G2_INT_SRC_SERDES		0x0800
-+#define MV88E6352_G2_INT_SRC_PHY		0x001f
-+#define MV88E6390_G2_INT_SRC_PHY		0x07fe
+@@ -260,7 +260,9 @@ int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip);
+ int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip);
+ int mv88e6xxx_g2_irq_setup(struct mv88e6xxx_chip *chip);
+ void mv88e6xxx_g2_irq_free(struct mv88e6xxx_chip *chip);
+-int mv88e6095_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
 +
- #define MV88E6XXX_G2_INT_SOURCE_WATCHDOG	15
++int mv88e6185_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
++int mv88e6352_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
  
- /* Offset 0x01: Interrupt Mask Register */
--#define MV88E6XXX_G2_INT_MASK	0x01
-+#define MV88E6XXX_G2_INT_MASK			0x01
-+#define MV88E6XXX_G2_INT_MASK_WDOG		0x8000
-+#define MV88E6XXX_G2_INT_MASK_JAM_LIMIT		0x4000
-+#define MV88E6XXX_G2_INT_MASK_DUPLEX_MISMATCH	0x2000
-+#define MV88E6XXX_G2_INT_MASK_WAKE_EVENT	0x1000
-+#define MV88E6352_G2_INT_MASK_SERDES		0x0800
-+#define MV88E6352_G2_INT_MASK_PHY		0x001f
-+#define MV88E6390_G2_INT_MASK_PHY		0x07fe
+ extern const struct mv88e6xxx_irq_ops mv88e6097_watchdog_ops;
+ extern const struct mv88e6xxx_irq_ops mv88e6390_watchdog_ops;
+@@ -362,7 +364,12 @@ static inline void mv88e6xxx_g2_irq_free(struct mv88e6xxx_chip *chip)
+ {
+ }
  
- /* Offset 0x02: MGMT Enable Register 2x */
- #define MV88E6XXX_G2_MGMT_EN_2X		0x02
+-static inline int mv88e6095_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip)
++static inline int mv88e6185_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int mv88e6352_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip)
+ {
+ 	return -EOPNOTSUPP;
+ }
 -- 
 2.13.2
