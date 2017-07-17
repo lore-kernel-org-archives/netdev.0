@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next repost v2] dt-bindings: net: ravb : Add
- support for r8a7743 SoC
-Date: Mon, 17 Jul 2017 08:55:30 -0700 (PDT)
-Message-ID: <20170717.085530.956515239805639192.davem@davemloft.net>
-References: <1500280432-43162-1-git-send-email-biju.das@bp.renesas.com>
+Subject: Re: [PATCH][next] net: bcmgenet: return NULL rather than 0 for
+ null pointer
+Date: Mon, 17 Jul 2017 08:55:56 -0700 (PDT)
+Message-ID: <20170717.085556.1127444301775237113.davem@davemloft.net>
+References: <20170717090725.32540-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, linux@armlinux.org.uk,
-        sergei.shtylyov@cogentembedded.com, horms@verge.net.au,
-        magnus.damm@gmail.com, chris.paterson2@renesas.com,
-        devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: biju.das@bp.renesas.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1500280432-43162-1-git-send-email-biju.das@bp.renesas.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170717090725.32540-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Biju Das <biju.das@bp.renesas.com>
-Date: Mon, 17 Jul 2017 09:33:52 +0100
+From: Colin King <colin.king@canonical.com>
+Date: Mon, 17 Jul 2017 10:07:25 +0100
 
-> Add a new compatible string for the RZ/G1M (R8A7743) SoC.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Biju Das <biju.das@bp.renesas.com>
-> Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> Reviewed-by: Simon Horman <horms+renesas@verge.net.au>
+> Don't return plain integer 0, instead return NULL
+> 
+> Fixes sparse warning:
+> warning: Using plain integer as NULL pointer
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied.
+This does not apply cleanly to the net-next tree.
