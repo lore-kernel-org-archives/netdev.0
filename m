@@ -1,7 +1,8 @@
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next 00/11] Change DSA's FDB API and perform switchdev cleanup
-Date: Tue, 18 Jul 2017 17:20:13 +0300
-Message-ID: <1500387624-4361-1-git-send-email-arkadis@mellanox.com>
+Subject: [PATCH net-next 05/11] net: dsa: Remove support for FDB add/del via SELF
+Date: Tue, 18 Jul 2017 17:20:18 +0300
+Message-ID: <1500387624-4361-6-git-send-email-arkadis@mellanox.com>
+References: <1500387624-4361-1-git-send-email-arkadis@mellanox.com>
 Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         f.fainelli@gmail.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, Woojung.Huh@microchip.com,
@@ -9,55 +10,58 @@ Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         Arkadi Sharshevsky <arkadis@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36000 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36085 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751413AbdGROQv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 10:16:51 -0400
+        with ESMTP id S1752167AbdGROQz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 10:16:55 -0400
+In-Reply-To: <1500387624-4361-1-git-send-email-arkadis@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patchset moves the DSA driver into learning static FDB entries via
-the switchdev notification chain rather then by using bridge bypass SELF
-flag. 
+FDB add/del can be added via switchdev notification chain. Thus the support
+for configuration via switchdev objects can be removed.
 
-The DSA drivers cannot sync the software bridge with hardware learned
-entries and use the switchdev's implementation of bypass FDB dumping.
-Because they are the only ones using this functionality, the fdb_dump
-implementation is moved from switchdev code into DSA.
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+---
+ net/dsa/slave.c | 12 ------------
+ 1 file changed, 12 deletions(-)
 
-Finally after this changes a major cleanup in switchdev can be done.
-
-Arkadi Sharshevsky (11):
-  net: dsa: Change DSA slave FDB API to be switchdev independent
-  net: dsa: Remove prepare phase for FDB
-  net: dsa: Remove switchdev dependency from DSA switch notifier chain
-  net: dsa: Add support for learning FDB through notification
-  net: dsa: Remove support for FDB add/del via SELF
-  net: dsa: Add support for querying supported bridge flags
-  net: dsa: Remove support for bypass bridge port attributes/vlan set
-  net: dsa: Remove redundant MDB dump support
-  net: dsa: Move FDB dump implementation inside DSA
-  net: bridge: Remove FDB deletion through switchdev object
-  net: switchdev: Remove bridge bypass support from switchdev
-
- drivers/net/dsa/b53/b53_common.c       |  85 +-----
- drivers/net/dsa/b53/b53_priv.h         |  16 +-
- drivers/net/dsa/bcm_sf2.c              |   2 -
- drivers/net/dsa/dsa_loop.c             |  38 ---
- drivers/net/dsa/microchip/ksz_common.c | 125 +++-----
- drivers/net/dsa/mt7530.c               |  44 +--
- drivers/net/dsa/mv88e6xxx/chip.c       | 148 ++--------
- drivers/net/dsa/qca8k.c                |  40 +--
- include/net/dsa.h                      |  25 +-
- include/net/switchdev.h                |  87 ------
- net/bridge/br_fdb.c                    |  18 --
- net/dsa/dsa.c                          |  13 +
- net/dsa/dsa_priv.h                     |  21 +-
- net/dsa/port.c                         |  51 +---
- net/dsa/slave.c                        | 247 +++++++++++++---
- net/dsa/switch.c                       |  21 +-
- net/switchdev/switchdev.c              | 519 ---------------------------------
- 17 files changed, 341 insertions(+), 1159 deletions(-)
-
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 8278d08..a083287 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -250,12 +250,6 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+ 	 */
+ 
+ 	switch (obj->id) {
+-	case SWITCHDEV_OBJ_ID_PORT_FDB:
+-		if (switchdev_trans_ph_prepare(trans))
+-			return 0;
+-		err = dsa_port_fdb_add(dp, SWITCHDEV_OBJ_PORT_FDB(obj)->addr,
+-				       SWITCHDEV_OBJ_PORT_FDB(obj)->vid);
+-		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_MDB:
+ 		err = dsa_port_mdb_add(dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
+ 		break;
+@@ -279,10 +273,6 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
+ 	int err;
+ 
+ 	switch (obj->id) {
+-	case SWITCHDEV_OBJ_ID_PORT_FDB:
+-		err = dsa_port_fdb_del(dp, SWITCHDEV_OBJ_PORT_FDB(obj)->addr,
+-				       SWITCHDEV_OBJ_PORT_FDB(obj)->vid);
+-		break;
+ 	case SWITCHDEV_OBJ_ID_PORT_MDB:
+ 		err = dsa_port_mdb_del(dp, SWITCHDEV_OBJ_PORT_MDB(obj));
+ 		break;
+@@ -925,8 +915,6 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	.ndo_change_rx_flags	= dsa_slave_change_rx_flags,
+ 	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
+ 	.ndo_set_mac_address	= dsa_slave_set_mac_address,
+-	.ndo_fdb_add		= switchdev_port_fdb_add,
+-	.ndo_fdb_del		= switchdev_port_fdb_del,
+ 	.ndo_fdb_dump		= switchdev_port_fdb_dump,
+ 	.ndo_do_ioctl		= dsa_slave_ioctl,
+ 	.ndo_get_iflink		= dsa_slave_get_iflink,
 -- 
 2.4.11
