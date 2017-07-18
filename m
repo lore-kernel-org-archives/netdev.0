@@ -1,76 +1,52 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH] net: fix build error in devmap helper calls
-Date: Mon, 17 Jul 2017 21:56:48 -0700
-Message-ID: <20170718045648.7398.68557.stgit@john-Precision-Tower-5810>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Mon, 17 Jul 2017 21:59:01 -0700
+Message-ID: <596D9595.1010704@gmail.com>
+References: <20170718110927.0f9974f6@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33022 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750931AbdGRE5C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 00:57:02 -0400
-Received: by mail-pf0-f194.google.com with SMTP id e199so1318233pfh.0
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 21:57:02 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20170718110927.0f9974f6@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Initial patches missed case with CONFIG_BPF_SYSCALL not set.
+On 07/17/2017 06:09 PM, Stephen Rothwell wrote:
+> Hi all,
+> 
+> After merging the net-next tree, today's linux-next build (arm
+> multi_v7_defconfig) failed like this:
+> 
+> net/core/filter.o: In function `xdp_do_flush_map':
+> filter.c:(.text+0x3770): undefined reference to `__dev_map_flush'
+> net/core/filter.o: In function `__bpf_tx_xdp':
+> filter.c:(.text+0x56dc): undefined reference to `__dev_map_insert_ctx'
+> net/core/filter.o: In function `xdp_do_redirect_map':
+> filter.c:(.text+0x5e24): undefined reference to `__dev_map_lookup_elem'
+> 
+> Caused by commit
+> 
+>   11393cc9b9be ("xdp: Add batching support to redirect map")
+> 
+> This build has
+> 
+> CONFIG_BPF=y
+> # CONFIG_BPF_SYSCALL is not set
+> 
+> I have used the net-next tree from next-20170717 for today.
+> 
 
-Fixes: 11393cc9b9be ("xdp: Add batching support to redirect map")
-Fixes: 97f91a7cf04f ("bpf: add bpf_redirect_map helper routine")
-Signed-off-by: John Fastabend <john.fastabend@gmail.com>
----
- include/linux/bpf.h |   25 ++++++++++++++++++++-----
- 1 file changed, 20 insertions(+), 5 deletions(-)
+I missed testing without CONFIG_BPF_SYSCALL. Patch is posted to netdev
+and on patchworks at,
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 6850a76..6353c74 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -318,6 +318,12 @@ static inline void bpf_long_memcpy(void *dst, const void *src, u32 size)
- 
- /* verify correctness of eBPF program */
- int bpf_check(struct bpf_prog **fp, union bpf_attr *attr);
-+
-+/* Map specifics */
-+struct net_device  *__dev_map_lookup_elem(struct bpf_map *map, u32 key);
-+void __dev_map_insert_ctx(struct bpf_map *map, u32 index);
-+void __dev_map_flush(struct bpf_map *map);
-+
- #else
- static inline struct bpf_prog *bpf_prog_get(u32 ufd)
- {
-@@ -356,6 +362,20 @@ static inline int __bpf_prog_charge(struct user_struct *user, u32 pages)
- static inline void __bpf_prog_uncharge(struct user_struct *user, u32 pages)
- {
- }
-+
-+static inline struct net_device  *__dev_map_lookup_elem(struct bpf_map *map,
-+						       u32 key)
-+{
-+	return NULL;
-+}
-+
-+static inline void __dev_map_insert_ctx(struct bpf_map *map, u32 index)
-+{
-+}
-+
-+static inline void __dev_map_flush(struct bpf_map *map)
-+{
-+}
- #endif /* CONFIG_BPF_SYSCALL */
- 
- /* verifier prototypes for helper functions called from eBPF programs */
-@@ -379,9 +399,4 @@ static inline void __bpf_prog_uncharge(struct user_struct *user, u32 pages)
- void bpf_user_rnd_init_once(void);
- u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
- 
--/* Map specifics */
--struct net_device  *__dev_map_lookup_elem(struct bpf_map *map, u32 key);
--void __dev_map_insert_ctx(struct bpf_map *map, u32 index);
--void __dev_map_flush(struct bpf_map *map);
--
- #endif /* _LINUX_BPF_H */
+https://patchwork.ozlabs.org/patch/789862/
+
+Thanks,
+John
