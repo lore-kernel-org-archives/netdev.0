@@ -1,58 +1,90 @@
-From: "Gustavo A. R. Silva" <gustavo-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
-Subject: [PATCH] net: ethernet: mediatek: remove useless code in mtk_poll_tx()
-Date: Tue, 18 Jul 2017 15:48:06 -0500
-Message-ID: <20170718204805.GA30888@embeddedgus>
+From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Subject: [PATCH] liquidio: lio_main: remove unnecessary static in
+ setup_io_queues()
+Date: Tue, 18 Jul 2017 15:53:48 -0500
+Message-ID: <20170718205348.GA25613@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- "Gustavo A. R. Silva" <gustavo-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
-To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
- Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+To: Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway20.websitewelcome.com ([192.185.65.13]:29363 "EHLO
+        gateway20.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751465AbdGRUxt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 16:53:49 -0400
+Received: from cm16.websitewelcome.com (cm16.websitewelcome.com [100.42.49.19])
+        by gateway20.websitewelcome.com (Postfix) with ESMTP id 932224012AFDF
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 15:53:49 -0500 (CDT)
 Content-Disposition: inline
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove useless local variable _condition_ and the code related.
+Remove unnecessary static on local variables cpu_id_modulus and cpu_id.
+Such variables are initialized before being used, on every execution
+path throughout the function. The static has no benefit and, removing
+it reduces the object file size.
 
-Signed-off-by: Gustavo A. R. Silva <gustavo-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+This issue was detected using Coccinelle and the following semantic patch:
+
+@bad exists@
+position p;
+identifier x;
+type T;
+@@
+
+static T x@p;
+...
+x = <+...x...+>
+
+@@
+identifier x;
+expression e;
+type T;
+position p != bad.p;
+@@
+
+-static
+ T x@p;
+ ... when != x
+     when strict
+?x = e;
+
+In the following log you can see a significant difference in the object
+file size. Also, there is a significant difference in the bss segment.
+This log is the output of the size command, before and after the code
+change:
+
+before:
+   text    data     bss     dec     hex filename
+  78689   15272   27808  121769   1dba9 drivers/net/ethernet/cavium/liquidio/lio_main.o
+
+after:
+   text    data     bss     dec     hex filename
+  78667   15128   27680  121475   1da83 drivers/net/ethernet/cavium/liquidio/lio_main.o
+
+Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index b3d0c2e..7e95cf5 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1027,7 +1027,6 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget)
- 	unsigned int done[MTK_MAX_DEVS];
- 	unsigned int bytes[MTK_MAX_DEVS];
- 	u32 cpu, dma;
--	static int condition;
- 	int total = 0, i;
- 
- 	memset(done, 0, sizeof(done));
-@@ -1051,10 +1050,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget)
- 			mac = 1;
- 
- 		skb = tx_buf->skb;
--		if (!skb) {
--			condition = 1;
-+		if (!skb)
- 			break;
--		}
- 
- 		if (skb != (struct sk_buff *)MTK_DMA_DUMMY_DESC) {
- 			bytes[mac] += skb->len;
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 51583ae..1d8fefa 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -2544,8 +2544,8 @@ static inline int setup_io_queues(struct octeon_device *octeon_dev,
+ {
+ 	struct octeon_droq_ops droq_ops;
+ 	struct net_device *netdev;
+-	static int cpu_id;
+-	static int cpu_id_modulus;
++	int cpu_id;
++	int cpu_id_modulus;
+ 	struct octeon_droq *droq;
+ 	struct napi_struct *napi;
+ 	int q, q_no, retval = 0;
 -- 
 2.5.0
