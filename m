@@ -1,60 +1,77 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] mdio_bus: Remove unneeded gpiod NULL check
-Date: Tue, 18 Jul 2017 15:32:09 +0200
-Message-ID: <20170718133209.GB32757@lunn.ch>
-References: <1500325749-8382-1-git-send-email-festevam@gmail.com>
- <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com>
- <CAOMZO5ABD9iasv67ehcpTzcjU-iD9=8vQ2vM7Gwc4-v9pnUt-Q@mail.gmail.com>
- <f4cdcb4b-feac-5106-8068-e694dbd3b4e6@cogentembedded.com>
- <CAOMZO5BycGHNocULcScDczRoEvbQqjnRZTDrNAw7=+zpadSOSA@mail.gmail.com>
+From: <stef.ryckmans@kortenberg.be>
+Subject: (unknown)
+Date: Tue, 18 Jul 2017 13:52:51 -0000
+Message-ID: <150038597174.2695.6286711528783429551@speedy.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Fabio Estevam <fabio.estevam@nxp.com>
-To: Fabio Estevam <festevam@gmail.com>,
-        Linus Walleij <linus.walleij@linaro.org>
+Content-Type: application/zip; name="EMAIL_78264106_netdev.zip
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59360 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751396AbdGRNcR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Jul 2017 09:32:17 -0400
-Content-Disposition: inline
-In-Reply-To: <CAOMZO5BycGHNocULcScDczRoEvbQqjnRZTDrNAw7=+zpadSOSA@mail.gmail.com>
+Received: from 186-133-39-5.speedy.com.ar ([186.133.39.5]:37781 "HELO
+        speedy.com.ar" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1751409AbdGRNxJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 09:53:09 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 18, 2017 at 09:52:51AM -0300, Fabio Estevam wrote:
-> On Tue, Jul 18, 2017 at 9:48 AM, Sergei Shtylyov
-> <sergei.shtylyov@cogentembedded.com> wrote:
-> > On 07/18/2017 03:39 PM, Fabio Estevam wrote:
-> >
-> >>>    Won't this result in kernel WARNING when GPIO is disabled?
-> >
-> >
-> >    GPIO support, I was going to type...
-> >
-> >> Not sure if I understood your point, but gpiod_set_value_cansleep() is
-> >> a no-op when the gpiod is NULL.
-> >
-> >
-> >    Look at the stub in <linux/gpio/consumer.h>, it has WARN_ON(1).
-> 
-> This patch does not alter the behavior of the driver with respect to
-> GPIO being disabled, so I still do not understand your concern.
-
-http://elixir.free-electrons.com/linux/latest/source/include/linux/gpio/consumer.h#L345
-static inline void gpiod_set_value_cansleep(struct gpio_desc *desc, int value)
-{
-	/* GPIO can never have been requested */
-	WARN_ON(1);
-}
-
-But i would say this is a gpio problem. If GPIO enabled does not care,
-GPIO disabled should also not care.
-
-Adding Linus Walleij.
-
-     Andrew
+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
+AAA=
