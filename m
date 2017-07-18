@@ -1,9 +1,9 @@
 From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: Re: [PATCH] liquidio: lio_vf_main: remove unnecessary static in
+Subject: Re: [PATCH] liquidio: lio_main: remove unnecessary static in
  setup_io_queues()
-Date: Tue, 18 Jul 2017 14:05:01 -0700
-Message-ID: <20170718210501.GA1176@felix-thinkpad.cavium.com>
-References: <20170718205015.GA1420@embeddedgus>
+Date: Tue, 18 Jul 2017 14:05:51 -0700
+Message-ID: <20170718210551.GB1176@felix-thinkpad.cavium.com>
+References: <20170718205348.GA25613@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Derek Chickles <derek.chickles@caviumnetworks.com>,
@@ -14,11 +14,11 @@ Cc: Derek Chickles <derek.chickles@caviumnetworks.com>,
 To: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170718205015.GA1420@embeddedgus>
+In-Reply-To: <20170718205348.GA25613@embeddedgus>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 18, 2017 at 03:50:15PM -0500, Gustavo A. R. Silva wrote:
+On Tue, Jul 18, 2017 at 03:53:48PM -0500, Gustavo A. R. Silva wrote:
 > Remove unnecessary static on local variables cpu_id_modulus and cpu_id.
 > Such variables are initialized before being used, on every execution
 > path throughout the function. The static has no benefit and, removing
@@ -56,34 +56,32 @@ On Tue, Jul 18, 2017 at 03:50:15PM -0500, Gustavo A. R. Silva wrote:
 > 
 > before:
 >    text    data     bss     dec     hex filename
->   55656   10680     576   66912   10560 drivers/net/ethernet/cavium/liquidio/lio_vf_main.o
+>   78689   15272   27808  121769   1dba9 drivers/net/ethernet/cavium/liquidio/lio_main.o
 > 
 > after:
 >    text    data     bss     dec     hex filename
->   55796   10536     448   66780   104dc drivers/net/ethernet/cavium/liquidio/lio_vf_main.o
+>   78667   15128   27680  121475   1da83 drivers/net/ethernet/cavium/liquidio/lio_main.o
 > 
 > Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
 > ---
->  drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 4 ++--
+>  drivers/net/ethernet/cavium/liquidio/lio_main.c | 4 ++--
 >  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-> index 9b24710..935ff29 100644
-> --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-> +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-> @@ -1663,10 +1663,10 @@ static int setup_io_queues(struct octeon_device *octeon_dev, int ifidx)
+> diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+> index 51583ae..1d8fefa 100644
+> --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
+> +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+> @@ -2544,8 +2544,8 @@ static inline int setup_io_queues(struct octeon_device *octeon_dev,
 >  {
 >  	struct octeon_droq_ops droq_ops;
 >  	struct net_device *netdev;
+> -	static int cpu_id;
 > -	static int cpu_id_modulus;
+> +	int cpu_id;
 > +	int cpu_id_modulus;
 >  	struct octeon_droq *droq;
 >  	struct napi_struct *napi;
-> -	static int cpu_id;
-> +	int cpu_id;
->  	int num_tx_descs;
->  	struct lio *lio;
->  	int retval = 0;
+>  	int q, q_no, retval = 0;
 > -- 
 > 2.5.0
 > 
