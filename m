@@ -1,33 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/12] net: dsa: mv88e6xxx: cleanup
- capabilities
-Date: Tue, 18 Jul 2017 11:11:14 -0700 (PDT)
-Message-ID: <20170718.111114.2176233751633219368.davem@davemloft.net>
-References: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170717170346.19555-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Mon, 17 Jul 2017 13:03:34 -0400
+Subject: Re: [PATCH net-next 11/11] net: switchdev: Remove bridge bypass support from switchdev
+Date: Tue, 18 Jul 2017 14:11:12 -0400
+Message-ID: <871spdboov.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1500387624-4361-1-git-send-email-arkadis@mellanox.com> <1500387624-4361-12-git-send-email-arkadis@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com,
+        Arkadi Sharshevsky <arkadis@mellanox.com>
+To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:53920 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751391AbdGRSOP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 14:14:15 -0400
+In-Reply-To: <1500387624-4361-12-git-send-email-arkadis@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> This patch series removes the remaining capabilities as well as the
-> flags bitmap in the info structures. Most of them are turned into ops,
-> or new info members.
-> 
-> There is no mv88e6xxx_cap enum or bitmap flags anymore, only
-> mv88e6xxx_info and mv88e6xxx_ops structures.
-> 
-> While reviewing and documenting the related G2 registers, fix a few
-> inconsistencies: 88E6185 has no interrupt in G2 and 88E6390 has a POT.
-> 
-> Except these two adjustments, there is no functional changes.
+Arkadi Sharshevsky <arkadis@mellanox.com> writes:
 
-Series applied, thanks Vivien.
+> Currently the bridge port flags, vlans, FDBs and MDBs can be offloaded
+> through the bridge code, making the switchdev's SELF bridge bypass
+> implementation to be redundant. This implies several changes:
+> - No need for dump infra in switchdev, DSA's special case is handled
+>   privately.
+> - Remove obj_dump from switchdev_ops.
+> - FDBs are removed from obj_add/del routines, due to the fact that they
+>   are offloaded through the bridge notifcation chain.
+
+                                     notification*
+                                     
+> - The switchdev_port_bridge_xx() and switchdev_port_fdb_xx() functions
+>   can be removed.
+>
+> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
