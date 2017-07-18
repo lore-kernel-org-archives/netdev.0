@@ -1,48 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 0/5] refine virtio-net XDP
-Date: Tue, 18 Jul 2017 23:13:15 +0300
-Message-ID: <20170718230748-mutt-send-email-mst@kernel.org>
-References: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: unexport dsa_is_port_initialized
+Date: Tue, 18 Jul 2017 16:23:56 -0400
+Message-ID: <20170718202356.7178-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 17, 2017 at 08:43:56PM +0800, Jason Wang wrote:
-> Hi:
-> 
-> This series brings two optimizations for virtio-net XDP:
-> 
-> - avoid reset during XDP set
-> - turn off offloads on demand
+The dsa_is_port_initialized helper is only used by dsa_switch_resume and
+dsa_switch_suspend, if CONFIG_PM_SLEEP is enabled. Make it static to
+dsa.c.
 
-I'm glad to see this take shape - this can be
-extended to optimize virtnet_get_headroom so we don't
-waste room if adjust_head is enabled.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ include/net/dsa.h | 5 -----
+ net/dsa/dsa.c     | 5 +++++
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-I see a couple of issues, responded to individual patches.
-
-
-> Please review.
-> 
-> Thanks
-> 
-> Jason Wang (5):
->   virtio_ring: allow to store zero as the ctx
->   virtio-net: pack headroom into ctx for mergeable buffer
->   virtio-net: switch to use new ctx API for small buffer
->   virtio-net: do not reset during XDP set
->   virtio-net: switch off offloads on demand if possible on XDP set
-> 
->  drivers/net/virtio_net.c     | 325 +++++++++++++++++++++++++------------------
->  drivers/virtio/virtio_ring.c |   2 +-
->  2 files changed, 194 insertions(+), 133 deletions(-)
-> 
-> -- 
-> 2.7.4
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 58969b9a090c..88da272d20d0 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -256,11 +256,6 @@ static inline bool dsa_is_normal_port(struct dsa_switch *ds, int p)
+ 	return !dsa_is_cpu_port(ds, p) && !dsa_is_dsa_port(ds, p);
+ }
+ 
+-static inline bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
+-{
+-	return ds->enabled_port_mask & (1 << p) && ds->ports[p].netdev;
+-}
+-
+ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
+ {
+ 	struct dsa_switch_tree *dst = ds->dst;
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 416ac4ef9ba9..a55e2e4087a4 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -220,6 +220,11 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
++static bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
++{
++	return ds->enabled_port_mask & (1 << p) && ds->ports[p].netdev;
++}
++
+ int dsa_switch_suspend(struct dsa_switch *ds)
+ {
+ 	int i, ret = 0;
+-- 
+2.13.3
