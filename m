@@ -1,72 +1,81 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net v2] udp: preserve skb->dst if required for IP options processing
-Date: Tue, 18 Jul 2017 11:57:55 +0200
-Message-ID: <8261bc94db747d35e48c4201b1f8bd52042ec345.1500363698.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/5] Netfilter fixes for net
+Date: Tue, 18 Jul 2017 12:13:54 +0200
+Message-ID: <1500372839-6735-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53390 "EHLO mx1.redhat.com"
+Received: from mail.us.es ([193.147.175.20]:44240 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751855AbdGRJ6M (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Jul 2017 05:58:12 -0400
+        id S1751411AbdGRKOJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Jul 2017 06:14:09 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id C312DA4169
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 12:13:56 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id AFE88A7F25
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 12:13:56 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id E663DDA840
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 12:13:51 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric noticed that in udp_recvmsg() we still need to access
-skb->dst while processing the IP options.
-Since commit 0a463c78d25b ("udp: avoid a cache miss on dequeue")
-skb->dst is no more available at recvmsg() time and bad things
-will happen if we enter the relevant code path.
+Hi David,
 
-This commit address the issue, avoid clearing skb->dst if
-any IP options are present into the relevant skb.
-Since the IP CB is contained in the first skb cacheline, we can
-test it to decide to leverage the consume_stateless_skb()
-optimization, without measurable additional cost in the faster
-path.
+The following patchset contains Netfilter fixes for your net tree,
+they are:
 
-v1 -> v2: updated commit message tags
+1) Missing netlink message sanity check in nfnetlink, patch from
+   Mateusz Jurczyk.
 
-Fixes: 0a463c78d25b ("udp: avoid a cache miss on dequeue")
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Reported-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/udp.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+2) We now have netfilter per-netns hooks, so let's kill global hook
+   infrastructure, this infrastructure is known to be racy with netns.
+   We don't care about out of tree modules. Patch from Florian Westphal.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 25294d4..b057653 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1388,6 +1388,11 @@ void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
- 		unlock_sock_fast(sk, slow);
- 	}
- 
-+	/* we cleared the head states previously only if the skb lacks any IP
-+	 * options, see __udp_queue_rcv_skb().
-+	 */
-+	if (unlikely(IPCB(skb)->opt.optlen > 0))
-+		skb_release_head_state(skb);
- 	consume_stateless_skb(skb);
- }
- EXPORT_SYMBOL_GPL(skb_consume_udp);
-@@ -1779,8 +1784,12 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 		sk_mark_napi_id_once(sk, skb);
- 	}
- 
--	/* clear all pending head states while they are hot in the cache */
--	skb_release_head_state(skb);
-+	/* At recvmsg() time we need skb->dst to process IP options-related
-+	 * cmsg, elsewhere can we clear all pending head states while they are
-+	 * hot in the cache
-+	 */
-+	if (likely(IPCB(skb)->opt.optlen == 0))
-+		skb_release_head_state(skb);
- 
- 	rc = __udp_enqueue_schedule_skb(sk, skb);
- 	if (rc < 0) {
--- 
-2.9.4
+3) find_appropriate_src() is buggy when colissions happens after the
+   conversion of the nat bysource to rhashtable. Also from Florian.
+
+4) Remove forward chain in nf_tables arp family, it's useless and it is
+   causing quite a bit of confusion, from Florian Westphal.
+
+5) nf_ct_remove_expect() is called with the wrong parameter, causing
+   kernel oops, patch from Florian Westphal.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 533da29b584de5ae0e9dafafbe52809f59cb5300:
+
+  Merge branch 'bcmgenet-Fragmented-SKB-corrections' (2017-07-15 21:29:08 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
+
+for you to fetch changes up to 36ac344e16e04e3e55e8fed7446095a6458c64e6:
+
+  netfilter: expect: fix crash when putting uninited expectation (2017-07-17 17:03:12 +0200)
+
+----------------------------------------------------------------
+Florian Westphal (4):
+      netfilter: remove old pre-netns era hook api
+      netfilter: nat: fix src map lookup
+      netfilter: nf_tables: only allow in/output for arp packets
+      netfilter: expect: fix crash when putting uninited expectation
+
+Mateusz Jurczyk (1):
+      netfilter: nfnetlink: Improve input length sanitization in nfnetlink_rcv
+
+ include/linux/netfilter.h           |   9 ---
+ net/ipv4/netfilter/nf_tables_arp.c  |   3 +-
+ net/netfilter/core.c                | 143 ------------------------------------
+ net/netfilter/nf_conntrack_expect.c |   2 +-
+ net/netfilter/nf_nat_core.c         |  17 +++--
+ net/netfilter/nfnetlink.c           |   6 +-
+ 6 files changed, 14 insertions(+), 166 deletions(-)
