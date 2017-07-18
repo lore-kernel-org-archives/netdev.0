@@ -1,128 +1,329 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: Re: commit 16ecba59 breaks 82574L under heavy load.
-Date: Tue, 18 Jul 2017 16:14:35 -0700
-Message-ID: <20170718231435.64us7vu67wtp6pwe@f1.synalogic.ca>
-References: <20170718142109.GO18556@csclub.uwaterloo.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        intel-wired-lan@lists.osuosl.org,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170718142109.GO18556@csclub.uwaterloo.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Subject: [PATCH net-next v2 1/1] geneve: add rtnl changelink support
+Date: Tue, 18 Jul 2017 16:33:06 -0700
+Message-ID: <1500420786-11993-1-git-send-email-girish.moodalbail@oracle.com>
+To: <pshelar@ovn.org>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:34441 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752102AbdGRXm7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 19:42:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2017/07/18 10:21, Lennart Sorensen wrote:
-> Commit 16ecba59bc333d6282ee057fb02339f77a880beb has apparently broken
-> at least the 82574L under heavy load (as in load heavy enough to cause
-> packet drops).  In this case, when running in MSI-X mode, the Other
-> Causes interrupt fires about 3000 times per second, but not due to link
-> state changes.  Unfortunately this commit changed the driver to assume
-> that the Other Causes interrupt can only mean link state change and
+This patch adds changelink rtnl operation support for geneve devices
+and the code changes involve:
 
-Thanks for the detailed analysis.
+  - add geneve_quiesce() which quiesces the geneve device data path
+    for both TX and RX. This lets us perform the changelink operation
+    atomically w.r.t data path. Also add geneve_unquiesce() to
+    reverse the operation of geneve_quiesce().
 
-Refering to the original discussion around this patch series, it seemed like
-the IMS bit for a condition had to be set for the Other interrupt to be raised
-for that condition.
+  - refactor geneve_newlink into geneve_nl2info to be used by both
+    geneve_newlink and geneve_changelink
 
-https://lkml.org/lkml/2015/11/4/683
+  - geneve_nl2info takes a changelink boolean argument to isolate
+    changelink checks.
 
-In this case however, E1000_ICR_RXT0 is not set in IMS so Other shouldn't be
-raised for Receiver Overrun. Apparently something is going on...
+  - Allow changing only a few attributes (ttl, tos, and remote tunnel
+    endpoint IP address (within the same address family)):
+    - return -EOPNOTSUPP for attributes that cannot be changed for
+      now. Incremental patches can make the non-supported one
+      available in the future if needed.
 
-I can reproduce the spurious Other interrupts with a simple mdelay()
-With the debugging patch at the end of the mail I see stuff like this
-while blasting with udp frames:
-          <idle>-0     [086] d.h1 15338.742675: e1000_msix_other: got Other interrupt, count 15127
-           <...>-54504 [086] d.h. 15338.742724: e1000_msix_other: got Other interrupt, count 1
-           <...>-54504 [086] d.h. 15338.742774: e1000_msix_other: got Other interrupt, count 1
-           <...>-54504 [086] d.h. 15338.742824: e1000_msix_other: got Other interrupt, count 1
-          <idle>-0     [086] d.h1 15340.745123: e1000_msix_other: got Other interrupt, count 27584
-           <...>-54504 [086] d.h. 15340.745172: e1000_msix_other: got Other interrupt, count 1
-           <...>-54504 [086] d.h. 15340.745222: e1000_msix_other: got Other interrupt, count 1
-           <...>-54504 [086] d.h. 15340.745272: e1000_msix_other: got Other interrupt, count 1
+Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+---
+v0 -> v1:
+   - added geneve_quiesce() and geneve_unquiesce() functions to
+     perform the changelink operation atomically w.r.t data path
+---
+ drivers/net/geneve.c | 192 +++++++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 157 insertions(+), 35 deletions(-)
 
-> hence sets the flag that (unfortunately) means both link is down and link
-> state should be checked.  Since this now happens 3000 times per second,
-> the chances of it happening while the watchdog_task is checking the link
-> state becomes pretty high, and it if does happen to coincice, then the
-> watchdog_task will reset the adapter, which causes a real loss of link.
-
-Through which path does watchdog_task reset the adapter? I didn't
-reproduce that.
-
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index b3679728caac..689ad76d0d12 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -46,6 +46,8 @@
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index de8156c..829f541 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -827,6 +827,9 @@ static int geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 	__be16 df;
+ 	int err;
  
- #include "e1000.h"
- 
-+DEFINE_RATELIMIT_STATE(e1000e_ratelimit_state, 2 * HZ, 4);
++	if (!gs4)
++		return -EIO;
 +
- #define DRV_EXTRAVERSION "-k"
+ 	rt = geneve_get_v4_rt(skb, dev, &fl4, info);
+ 	if (IS_ERR(rt))
+ 		return PTR_ERR(rt);
+@@ -866,6 +869,9 @@ static int geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 	__be16 sport;
+ 	int err;
  
- #define DRV_VERSION "3.2.6" DRV_EXTRAVERSION
-@@ -937,6 +939,8 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 	bool cleaned = false;
- 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
- 
-+	mdelay(10);
++	if (!gs6)
++		return -EIO;
 +
- 	i = rx_ring->next_to_clean;
- 	rx_desc = E1000_RX_DESC_EXT(*rx_ring, i);
- 	staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
-@@ -1067,6 +1071,13 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 
- 	adapter->total_rx_bytes += total_rx_bytes;
- 	adapter->total_rx_packets += total_rx_packets;
-+
-+	if (__ratelimit(&e1000e_ratelimit_state)) {
-+		static unsigned int max;
-+		max = max(max, total_rx_packets);
-+		trace_printk("received %u max %u\n", total_rx_packets, max);
-+	}
-+
- 	return cleaned;
+ 	dst = geneve_get_v6_dst(skb, dev, &fl6, info);
+ 	if (IS_ERR(dst))
+ 		return PTR_ERR(dst);
+@@ -1140,6 +1146,15 @@ static bool is_tnl_info_zero(const struct ip_tunnel_info *info)
+ 		return true;
  }
  
-@@ -1904,9 +1915,16 @@ static irqreturn_t e1000_msix_other(int __always_unused irq, void *data)
- 	struct net_device *netdev = data;
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
-+	static unsigned int count;
++static inline bool geneve_dst_addr_equal(struct ip_tunnel_info *a,
++					 struct ip_tunnel_info *b)
++{
++	if (ip_tunnel_info_af(a) == AF_INET)
++		return a->key.u.ipv4.dst == b->key.u.ipv4.dst;
++	else
++		return ipv6_addr_equal(&a->key.u.ipv6.dst, &b->key.u.ipv6.dst);
++}
++
+ static int geneve_configure(struct net *net, struct net_device *dev,
+ 			    const struct ip_tunnel_info *info,
+ 			    bool metadata, bool ipv6_rx_csum)
+@@ -1197,24 +1212,22 @@ static void init_tnl_info(struct ip_tunnel_info *info, __u16 dst_port)
+ 	info->key.tp_dst = htons(dst_port);
+ }
  
- 	hw->mac.get_link_status = true;
+-static int geneve_newlink(struct net *net, struct net_device *dev,
+-			  struct nlattr *tb[], struct nlattr *data[],
+-			  struct netlink_ext_ack *extack)
++static int geneve_nl2info(struct net_device *dev, struct nlattr *tb[],
++			  struct nlattr *data[], struct ip_tunnel_info *info,
++			  bool *metadata, bool *use_udp6_rx_checksums,
++			  bool changelink)
+ {
+-	bool use_udp6_rx_checksums = false;
+-	struct ip_tunnel_info info;
+-	bool metadata = false;
+-
+-	init_tnl_info(&info, GENEVE_UDP_PORT);
+-
+ 	if (data[IFLA_GENEVE_REMOTE] && data[IFLA_GENEVE_REMOTE6])
+ 		return -EINVAL;
  
-+	count++;
-+	if (__ratelimit(&e1000e_ratelimit_state)) {
-+		trace_printk("got Other interrupt, count %u\n", count);
-+		count = 0;
+ 	if (data[IFLA_GENEVE_REMOTE]) {
+-		info.key.u.ipv4.dst =
++		if (changelink && (ip_tunnel_info_af(info) == AF_INET6))
++			return -EOPNOTSUPP;
++
++		info->key.u.ipv4.dst =
+ 			nla_get_in_addr(data[IFLA_GENEVE_REMOTE]);
+ 
+-		if (IN_MULTICAST(ntohl(info.key.u.ipv4.dst))) {
++		if (IN_MULTICAST(ntohl(info->key.u.ipv4.dst))) {
+ 			netdev_dbg(dev, "multicast remote is unsupported\n");
+ 			return -EINVAL;
+ 		}
+@@ -1222,21 +1235,24 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
+ 
+ 	if (data[IFLA_GENEVE_REMOTE6]) {
+  #if IS_ENABLED(CONFIG_IPV6)
+-		info.mode = IP_TUNNEL_INFO_IPV6;
+-		info.key.u.ipv6.dst =
++		if (changelink && (ip_tunnel_info_af(info) == AF_INET))
++			return -EOPNOTSUPP;
++
++		info->mode = IP_TUNNEL_INFO_IPV6;
++		info->key.u.ipv6.dst =
+ 			nla_get_in6_addr(data[IFLA_GENEVE_REMOTE6]);
+ 
+-		if (ipv6_addr_type(&info.key.u.ipv6.dst) &
++		if (ipv6_addr_type(&info->key.u.ipv6.dst) &
+ 		    IPV6_ADDR_LINKLOCAL) {
+ 			netdev_dbg(dev, "link-local remote is unsupported\n");
+ 			return -EINVAL;
+ 		}
+-		if (ipv6_addr_is_multicast(&info.key.u.ipv6.dst)) {
++		if (ipv6_addr_is_multicast(&info->key.u.ipv6.dst)) {
+ 			netdev_dbg(dev, "multicast remote is unsupported\n");
+ 			return -EINVAL;
+ 		}
+-		info.key.tun_flags |= TUNNEL_CSUM;
+-		use_udp6_rx_checksums = true;
++		info->key.tun_flags |= TUNNEL_CSUM;
++		*use_udp6_rx_checksums = true;
+ #else
+ 		return -EPFNOSUPPORT;
+ #endif
+@@ -1245,48 +1261,153 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
+ 	if (data[IFLA_GENEVE_ID]) {
+ 		__u32 vni;
+ 		__u8 tvni[3];
++		__be64 tunid;
+ 
+ 		vni = nla_get_u32(data[IFLA_GENEVE_ID]);
+ 		tvni[0] = (vni & 0x00ff0000) >> 16;
+ 		tvni[1] = (vni & 0x0000ff00) >> 8;
+ 		tvni[2] =  vni & 0x000000ff;
+ 
+-		info.key.tun_id = vni_to_tunnel_id(tvni);
++		tunid = vni_to_tunnel_id(tvni);
++		if (changelink && (tunid != info->key.tun_id))
++			return -EOPNOTSUPP;
++		info->key.tun_id = tunid;
+ 	}
++
+ 	if (data[IFLA_GENEVE_TTL])
+-		info.key.ttl = nla_get_u8(data[IFLA_GENEVE_TTL]);
++		info->key.ttl = nla_get_u8(data[IFLA_GENEVE_TTL]);
+ 
+ 	if (data[IFLA_GENEVE_TOS])
+-		info.key.tos = nla_get_u8(data[IFLA_GENEVE_TOS]);
++		info->key.tos = nla_get_u8(data[IFLA_GENEVE_TOS]);
+ 
+ 	if (data[IFLA_GENEVE_LABEL]) {
+-		info.key.label = nla_get_be32(data[IFLA_GENEVE_LABEL]) &
++		info->key.label = nla_get_be32(data[IFLA_GENEVE_LABEL]) &
+ 				  IPV6_FLOWLABEL_MASK;
+-		if (info.key.label && (!(info.mode & IP_TUNNEL_INFO_IPV6)))
++		if (info->key.label && (!(info->mode & IP_TUNNEL_INFO_IPV6)))
+ 			return -EINVAL;
+ 	}
+ 
+-	if (data[IFLA_GENEVE_PORT])
+-		info.key.tp_dst = nla_get_be16(data[IFLA_GENEVE_PORT]);
++	if (data[IFLA_GENEVE_PORT]) {
++		if (changelink)
++			return -EOPNOTSUPP;
++		info->key.tp_dst = nla_get_be16(data[IFLA_GENEVE_PORT]);
++	}
+ 
+-	if (data[IFLA_GENEVE_COLLECT_METADATA])
+-		metadata = true;
++	if (data[IFLA_GENEVE_COLLECT_METADATA]) {
++		if (changelink)
++			return -EOPNOTSUPP;
++		*metadata = true;
++	}
+ 
+-	if (data[IFLA_GENEVE_UDP_CSUM] &&
+-	    nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
+-		info.key.tun_flags |= TUNNEL_CSUM;
++	if (data[IFLA_GENEVE_UDP_CSUM]) {
++		if (changelink)
++			return -EOPNOTSUPP;
++		if (nla_get_u8(data[IFLA_GENEVE_UDP_CSUM]))
++			info->key.tun_flags |= TUNNEL_CSUM;
++	}
+ 
+-	if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX] &&
+-	    nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]))
+-		info.key.tun_flags &= ~TUNNEL_CSUM;
++	if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]) {
++		if (changelink)
++			return -EOPNOTSUPP;
++		if (nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]))
++			info->key.tun_flags &= ~TUNNEL_CSUM;
 +	}
 +
- 	/* guard against interrupt when we're going down */
- 	if (!test_bit(__E1000_DOWN, &adapter->state)) {
- 		mod_timer(&adapter->watchdog_timer, jiffies + 1);
-@@ -7121,7 +7139,7 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	netdev->netdev_ops = &e1000e_netdev_ops;
- 	e1000e_set_ethtool_ops(netdev);
- 	netdev->watchdog_timeo = 5 * HZ;
--	netif_napi_add(netdev, &adapter->napi, e1000e_poll, 64);
-+	netif_napi_add(netdev, &adapter->napi, e1000e_poll, 500);
- 	strlcpy(netdev->name, pci_name(pdev), sizeof(netdev->name));
- 
- 	netdev->mem_start = mmio_start;
-@@ -7327,6 +7345,8 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_register;
- 
-+	ratelimit_set_flags(&e1000e_ratelimit_state, RATELIMIT_MSG_ON_RELEASE);
++	if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]) {
++		if (changelink)
++			return -EOPNOTSUPP;
++		if (nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]))
++			*use_udp6_rx_checksums = false;
++	}
 +
- 	/* carrier off reporting is important to ethtool even BEFORE open */
- 	netif_carrier_off(netdev);
++	return 0;
++}
  
+-	if (data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX] &&
+-	    nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]))
+-		use_udp6_rx_checksums = false;
++static int geneve_newlink(struct net *net, struct net_device *dev,
++			  struct nlattr *tb[], struct nlattr *data[],
++			  struct netlink_ext_ack *extack)
++{
++	bool use_udp6_rx_checksums = false;
++	struct ip_tunnel_info info;
++	bool metadata = false;
++	int err;
++
++	init_tnl_info(&info, GENEVE_UDP_PORT);
++	err = geneve_nl2info(dev, tb, data, &info, &metadata,
++			     &use_udp6_rx_checksums, false);
++	if (err)
++		return err;
+ 
+ 	return geneve_configure(net, dev, &info, metadata, use_udp6_rx_checksums);
+ }
+ 
++/* Quiesces the geneve device data path for both TX and RX. */
++static inline void geneve_quiesce(struct geneve_dev *geneve,
++				  struct geneve_sock **gs4,
++				  struct geneve_sock **gs6)
++{
++	*gs4 = rtnl_dereference(geneve->sock4);
++	rcu_assign_pointer(geneve->sock4, NULL);
++
++#if IS_ENABLED(CONFIG_IPV6)
++	*gs6 = rtnl_dereference(geneve->sock6);
++	rcu_assign_pointer(geneve->sock6, NULL);
++#else
++	*gs6 = NULL;
++#endif
++	synchronize_net();
++}
++
++/* Resumes the geneve device data path for both TX and RX. */
++static inline void geneve_unquiesce(struct geneve_dev *geneve,
++				    struct geneve_sock *gs4,
++				    struct geneve_sock __maybe_unused *gs6)
++{
++	rcu_assign_pointer(geneve->sock4, gs4);
++#if IS_ENABLED(CONFIG_IPV6)
++	rcu_assign_pointer(geneve->sock6, gs6);
++#endif
++	synchronize_net();
++}
++
++static int geneve_changelink(struct net_device *dev, struct nlattr *tb[],
++			     struct nlattr *data[],
++			     struct netlink_ext_ack *extack)
++{
++	struct geneve_dev *geneve = netdev_priv(dev);
++	struct geneve_sock *gs4, *gs6;
++	struct ip_tunnel_info info;
++	bool metadata;
++	bool use_udp6_rx_checksums;
++	int err;
++
++	/* If the geneve device is configured for metadata (or externally
++	 * controlled, for example, OVS), then nothing can be changed.
++	 */
++	if (geneve->collect_md)
++		return -EOPNOTSUPP;
++
++	/* Start with the existing info. */
++	memcpy(&info, &geneve->info, sizeof(info));
++	metadata = geneve->collect_md;
++	use_udp6_rx_checksums = geneve->use_udp6_rx_checksums;
++	err = geneve_nl2info(dev, tb, data, &info, &metadata,
++			     &use_udp6_rx_checksums, true);
++	if (err)
++		return err;
++
++	if (!geneve_dst_addr_equal(&geneve->info, &info))
++		dst_cache_reset(&info.dst_cache);
++
++	geneve_quiesce(geneve, &gs4, &gs6);
++	geneve->info = info;
++	geneve->collect_md = metadata;
++	geneve->use_udp6_rx_checksums = use_udp6_rx_checksums;
++	geneve_unquiesce(geneve, gs4, gs6);
++
++	return 0;
++}
++
+ static void geneve_dellink(struct net_device *dev, struct list_head *head)
+ {
+ 	struct geneve_dev *geneve = netdev_priv(dev);
+@@ -1375,6 +1496,7 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	.setup		= geneve_setup,
+ 	.validate	= geneve_validate,
+ 	.newlink	= geneve_newlink,
++	.changelink	= geneve_changelink,
+ 	.dellink	= geneve_dellink,
+ 	.get_size	= geneve_get_size,
+ 	.fill_info	= geneve_fill_info,
+-- 
+1.8.3.1
