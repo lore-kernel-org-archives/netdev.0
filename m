@@ -1,55 +1,48 @@
-From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: Re: [PATCH v10 00/15] Replace PCI pool by DMA pool API
-Date: Tue, 18 Jul 2017 13:47:50 +0200
-Message-ID: <4848adf5-4e1a-f1df-f004-607f3655f375@collabora.com>
-References: <20170706081310.30964-1-romain.perier@collabora.com>
- <1499635828.68875.4.camel@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 20/22] sound: pci: avoid string overflow warnings
+Date: Tue, 18 Jul 2017 13:52:30 +0200
+Message-ID: <CAK8P3a3G+scFLTbJhxNpGEwAw5TG18M27x6zYOGVZY0GUsnpPw@mail.gmail.com>
+References: <20170714120720.906842-1-arnd@arndb.de> <20170714120720.906842-21-arnd@arndb.de>
+ <s5hinivfbic.wl-tiwai@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1499635828.68875.4.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jaroslav Kysela <perex@perex.cz>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        alsa-devel@alsa-project.org,
+        "David S . Miller" <davem@davemloft.net>,
+        Geliang Tang <geliangtang@gmail.com>,
+        "the arch/x86 maintainers" <x86@kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        "Martin K . Petersen" <martin.petersen@oracle.com>,
+        Guenter Roeck <linux@roeck-us.net>,
+        Takashi Sakamoto <o-takashi@sakamocchi.jp>,
+        linux-scsi <linux-scsi@vger.kernel.org>,
+        Networking <netdev@vger.kernel.org>
+To: Takashi Iwai <tiwai@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <s5hinivfbic.wl-tiwai@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Fri, Jul 14, 2017 at 2:28 PM, Takashi Iwai <tiwai@suse.de> wrote:
+> On Fri, 14 Jul 2017 14:07:12 +0200,
+>
+> Thanks for the patch.  I have seen it but ignored, so far, as not sure
+> which action is the best.  An alternative solution is to use
+> snprintf() blindly, for example.
+>
+> For mixart, it's even better to drop mgr->shortname[] and longname[]
+> assignment.  The shortname is the fixed string, and the longname is
+> used only at copying to card->longname, so we can create a string
+> there from the scratch.
 
+I've done that now, and tried to be a little smarter with the other
+conversions. I also found related problems in ISA drivers after
+randconfig testing and fixed those as well.
 
-Le 09/07/2017 à 23:30, Doug Ledford a écrit :
-> On Thu, 2017-07-06 at 10:12 +0200, Romain Perier wrote:
->> The current PCI pool API are simple macro functions direct expanded
->> to
->> the appropriate dma pool functions. The prototypes are almost the
->> same
->> and semantically, they are very similar. I propose to use the DMA
->> pool
->> API directly and get rid of the old API.
->>
->> This set of patches, replaces the old API by the dma pool API
->> and remove the defines.
-> Is someone planning on merging this series?  If not, I'll send through
-> the patches I've personally tested (3, 5, and 6).
+Sent a 7-patch series now as a replacement.
 
-Not sure, I just know that Greg has merged patches for usb gadget.
-
-Regards,
-Romain
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+       Arnd
