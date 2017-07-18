@@ -1,78 +1,58 @@
-From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
-Subject: [PATCH] qlcnic: remove unnecessary static in qlcnic_dump_fw()
-Date: Tue, 18 Jul 2017 15:45:29 -0500
-Message-ID: <20170718204529.GA11448@embeddedgus>
+From: "Gustavo A. R. Silva" <gustavo-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+Subject: [PATCH] net: ethernet: mediatek: remove useless code in mtk_poll_tx()
+Date: Tue, 18 Jul 2017 15:48:06 -0500
+Message-ID: <20170718204805.GA30888@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <gustavo@embeddedor.com>
-To: Harish Patil <harish.patil@cavium.com>,
-        Manish Chopra <manish.chopra@cavium.com>,
-        Dept-GELinuxNICDev@cavium.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ "Gustavo A. R. Silva" <gustavo-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+ Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Remove unnecessary static on local variable fw_dump_ops.
-Such variable is initialized before being used, on every
-execution path throughout the function. The static has no
-benefit and, removing it reduces the object file size.
+Remove useless local variable _condition_ and the code related.
 
-This issue was detected using Coccinelle and the following semantic patch:
-
-@bad exists@
-position p;
-identifier x;
-type T;
-@@
-
-static T x@p;
-...
-x = <+...x...+>
-
-@@
-identifier x;
-expression e;
-type T;
-position p != bad.p;
-@@
-
--static
- T x@p;
- ... when != x
-     when strict
-?x = e;
-
-In the following log you can see a difference in the object file size.
-This log is the output of the size command, before and after the code
-change:
-
-before:
-   text    data     bss     dec     hex filename
-  19032    2136      64   21232    52f0 drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.o
-
-after:
-   text    data     bss     dec     hex filename
-  19020    2048       0   21068    524c drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.o
-
-Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
+Signed-off-by: Gustavo A. R. Silva <gustavo-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-index 0844b7c..afa10a1 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-@@ -1285,7 +1285,7 @@ int qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter)
- int qlcnic_dump_fw(struct qlcnic_adapter *adapter)
- {
- 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
--	static const struct qlcnic_dump_operations *fw_dump_ops;
-+	const struct qlcnic_dump_operations *fw_dump_ops;
- 	struct qlcnic_83xx_dump_template_hdr *hdr_83xx;
- 	u32 entry_offset, dump, no_entries, buf_offset = 0;
- 	int i, k, ops_cnt, ops_index, dump_size = 0;
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index b3d0c2e..7e95cf5 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -1027,7 +1027,6 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget)
+ 	unsigned int done[MTK_MAX_DEVS];
+ 	unsigned int bytes[MTK_MAX_DEVS];
+ 	u32 cpu, dma;
+-	static int condition;
+ 	int total = 0, i;
+ 
+ 	memset(done, 0, sizeof(done));
+@@ -1051,10 +1050,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget)
+ 			mac = 1;
+ 
+ 		skb = tx_buf->skb;
+-		if (!skb) {
+-			condition = 1;
++		if (!skb)
+ 			break;
+-		}
+ 
+ 		if (skb != (struct sk_buff *)MTK_DMA_DUMMY_DESC) {
+ 			bytes[mac] += skb->len;
 -- 
 2.5.0
