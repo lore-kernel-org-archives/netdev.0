@@ -1,46 +1,55 @@
-From: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
-Subject: Re: [PATCH 10/11] net: qtnfmac: constify pci_device_id.
-Date: Tue, 18 Jul 2017 14:01:52 +0300
-Message-ID: <20170718110150.cmjg2ke6rfvz53jm@bars>
-References: <1500315263-3373-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Subject: Re: [PATCH v10 00/15] Replace PCI pool by DMA pool API
+Date: Tue, 18 Jul 2017 13:47:50 +0200
+Message-ID: <4848adf5-4e1a-f1df-f004-607f3655f375@collabora.com>
+References: <20170706081310.30964-1-romain.perier@collabora.com>
+ <1499635828.68875.4.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: imitsyanko@quantenna.com, kvalo@codeaurora.org,
-        avinashp@quantenna.com, smatyukevich@quantenna.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1500315263-3373-1-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1499635828.68875.4.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> pci_device_id are not supposed to change at runtime. All functions
-> working with pci_device_id provided by <linux/pci.h> work with
-> const pci_device_id. So mark the non-const structs as const.
-> 
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
-> ---
->  drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-> index 7fc4f0d..02337d8 100644
-> --- a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-> +++ b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
-> @@ -1336,7 +1336,7 @@ static SIMPLE_DEV_PM_OPS(qtnf_pcie_pm_ops, qtnf_pcie_suspend,
->                          qtnf_pcie_resume);
->  #endif
-> 
-> -static struct pci_device_id qtnf_pcie_devid_table[] = {
-> +static const struct pci_device_id qtnf_pcie_devid_table[] = {
->         {
->                 PCIE_VENDOR_ID_QUANTENNA, PCIE_DEVICE_ID_QTN_PEARL,
->                 PCI_ANY_ID, PCI_ANY_ID, 0, 0,
-> --
-> 2.7.4
+Hello,
 
-Thanks !
 
-Reviewed-by: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
+Le 09/07/2017 à 23:30, Doug Ledford a écrit :
+> On Thu, 2017-07-06 at 10:12 +0200, Romain Perier wrote:
+>> The current PCI pool API are simple macro functions direct expanded
+>> to
+>> the appropriate dma pool functions. The prototypes are almost the
+>> same
+>> and semantically, they are very similar. I propose to use the DMA
+>> pool
+>> API directly and get rid of the old API.
+>>
+>> This set of patches, replaces the old API by the dma pool API
+>> and remove the defines.
+> Is someone planning on merging this series?  If not, I'll send through
+> the patches I've personally tested (3, 5, and 6).
+
+Not sure, I just know that Greg has merged patches for usb gadget.
+
+Regards,
+Romain
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
