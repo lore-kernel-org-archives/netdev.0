@@ -1,74 +1,108 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 01/22] mlxsw: spectrum_router: Enable IPv6 router
-Date: Tue, 18 Jul 2017 10:10:09 +0200
-Message-ID: <20170718081030.2781-2-jiri@resnulli.us>
-References: <20170718081030.2781-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
-        mlxsw@mellanox.com
+From: Dmitry <d.andreev@uni-eng.ru>
+Subject: [malfuction] /net/hsr: unstable node ping after hours of work
+Date: Tue, 18 Jul 2017 11:51:31 +0300
+Message-ID: <op.y3kdj5calevu92@dandreev01.uni-eng.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=koi8-r; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:35471 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751436AbdGRIKf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 04:10:35 -0400
-Received: by mail-wr0-f196.google.com with SMTP id a10so2869761wrd.2
-        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 01:10:34 -0700 (PDT)
-In-Reply-To: <20170718081030.2781-1-jiri@resnulli.us>
+Received: from fallback8.mail.ru ([94.100.181.110]:38370 "EHLO
+        fallback.mail.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751407AbdGRIvh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 04:51:37 -0400
+Received: from [10.161.25.37] (port=59148 helo=smtp60.i.mail.ru)
+        by fallback8.mail.ru with esmtp (envelope-from <d.andreev@uni-eng.ru>)
+        id 1dXOE9-0005mE-W5
+        for netdev@vger.kernel.org; Tue, 18 Jul 2017 11:51:35 +0300
+Received: by smtp60.i.mail.ru with esmtpa (envelope-from <d.andreev@uni-eng.ru>)
+        id 1dXOE7-0006JO-T5
+        for netdev@vger.kernel.org; Tue, 18 Jul 2017 11:51:32 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Before we add IPv6 constructs like traps and router interfaces, we first
-need to enable IPv6 routing in the device.
+Hello!
 
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h             | 4 +++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 4 ++--
- 2 files changed, 5 insertions(+), 3 deletions(-)
+I added
+mod_timer(&hsr->prune_timer, jiffies + msecs_to_jiffies(PRUNE_PERIOD))
+to end of hsr_prune_nodes function for periodically calling. I wrote  
+earlier that it looks like it's a bug.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 0ca1968..ce6c63d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -3953,10 +3953,12 @@ MLXSW_ITEM32(reg, rgcr, pcp_rw, 0x18, 16, 2);
-  */
- MLXSW_ITEM32(reg, rgcr, activity_dis, 0x20, 0, 8);
- 
--static inline void mlxsw_reg_rgcr_pack(char *payload, bool ipv4_en)
-+static inline void mlxsw_reg_rgcr_pack(char *payload, bool ipv4_en,
-+				       bool ipv6_en)
- {
- 	MLXSW_REG_ZERO(rgcr, payload);
- 	mlxsw_reg_rgcr_ipv4_en_set(payload, ipv4_en);
-+	mlxsw_reg_rgcr_ipv6_en_set(payload, ipv6_en);
- }
- 
- /* RITR - Router Interface Table Register
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 383fef5a..060134d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -3697,7 +3697,7 @@ static int __mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
- 		return -EIO;
- 	max_rifs = MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS);
- 
--	mlxsw_reg_rgcr_pack(rgcr_pl, true);
-+	mlxsw_reg_rgcr_pack(rgcr_pl, true, true);
- 	mlxsw_reg_rgcr_max_router_interfaces_set(rgcr_pl, max_rifs);
- 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rgcr), rgcr_pl);
- 	if (err)
-@@ -3709,7 +3709,7 @@ static void __mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
- {
- 	char rgcr_pl[MLXSW_REG_RGCR_LEN];
- 
--	mlxsw_reg_rgcr_pack(rgcr_pl, false);
-+	mlxsw_reg_rgcr_pack(rgcr_pl, false, false);
- 	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rgcr), rgcr_pl);
- }
- 
--- 
-2.9.3
+HSR ring first time (some hours) works properly then works not stable.
+
+  After some hours situation become like this:
+
+  node1 ping
+  node 2 OK
+  node 3 OK
+  node 4 NO PING
+  node 5 OK
+  node 6 NO PING
+  node 7 NO PING
+  node 8 OK
+  and etc.
+  in same time nodeN ping
+  node 1 NO PING
+  node 2 OK
+  node 3 OK
+  node 4 OK
+  node 5 OK
+  node 6 NO PING
+  node 7 OK
+  node 8 NO PING
+  and etc
+
+  and ping result dynamcally changing and not similiar for each node.
+
+
+
+
+Some thinking and tests:
+
+I added debug code into hsr_forward_do function:
+
+...
+if (hsr_register_frame_out(port, frame->node_src,
+					   frame->sequence_nr))
+			{			
+			//debug code
+			struct hsr_node *node = frame->node_src;
+			printk("\nhsr_forward_do(): registered frame dropped:  
+hsr_port_type:%d     %x:%x:%x:%x:%x:%x   %u\n", port->type,
+				node->MacAddressA[0], node->MacAddressA[1], node->MacAddressA[2],  
+node->MacAddressA[3], node->MacAddressA[4], node->MacAddressA[5],  
+frame->sequence_nr);
+			
+			continue;
+			}
+...
+
+As usual frame passed for port->type == 1, port->type == 2 and one frame  
+for port->type == 4 passed, one frame for port->type == 4 dropped.
+Sometime in limited period of time type == 1, type == 2 suddenly dropped  
+as already registered
+
+For debug purpose I commented this part of code:
+...
+/*if (hsr_register_frame_out(port, frame->node_src,
+					   frame->sequence_nr))
+			{			
+			//debug code
+			struct hsr_node *node = frame->node_src;
+			printk("\nhsr_forward_do(): registered frame dropped:  
+hsr_port_type:%d     %x:%x:%x:%x:%x:%x   %u\n", port->type,
+				node->MacAddressA[0], node->MacAddressA[1], node->MacAddressA[2],  
+node->MacAddressA[3], node->MacAddressA[4], node->MacAddressA[5],  
+frame->sequence_nr);
+			
+			continue;
+			}*/
+...
+
+and got stable ping on long time.
+In this case of course there are dublicated frames and they are dropped on  
+IP protocol layer.
+
+IMHO there are cumulative malfunction in code whitch manage list of nodes  
+and detect already processed frames.
