@@ -1,102 +1,73 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/22] mlxsw: spectrum_router: Flood unregistered multicast packets to router
-Date: Tue, 18 Jul 2017 10:10:12 +0200
-Message-ID: <20170718081030.2781-5-jiri@resnulli.us>
+Subject: [patch net-next 01/22] mlxsw: spectrum_router: Enable IPv6 router
+Date: Tue, 18 Jul 2017 10:10:09 +0200
+Message-ID: <20170718081030.2781-2-jiri@resnulli.us>
 References: <20170718081030.2781-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:32809 "EHLO
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35471 "EHLO
         mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751494AbdGRIKm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 04:10:42 -0400
-Received: by mail-wr0-f196.google.com with SMTP id y43so1460401wrd.0
-        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 01:10:41 -0700 (PDT)
+        with ESMTP id S1751436AbdGRIKf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 04:10:35 -0400
+Received: by mail-wr0-f196.google.com with SMTP id a10so2869761wrd.2
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 01:10:34 -0700 (PDT)
 In-Reply-To: <20170718081030.2781-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Up until now we only flooded broadcast packets to the router when an L3
-interface was configured on top of a bridge. However, IPv6 Neighbour
-Discovery packets are trapped to the CPU inside the router and these can
-be sent with a multicast address.
+Before we add IPv6 constructs like traps and router interfaces, we first
+need to enable IPv6 routing in the device.
 
-Flood unregistered multicast packets to the router port, so that
-relevant packets could be trapped there.
-
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c    | 20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h             | 4 +++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 4 ++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 0ca1968..ce6c63d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3953,10 +3953,12 @@ MLXSW_ITEM32(reg, rgcr, pcp_rw, 0x18, 16, 2);
+  */
+ MLXSW_ITEM32(reg, rgcr, activity_dis, 0x20, 0, 8);
+ 
+-static inline void mlxsw_reg_rgcr_pack(char *payload, bool ipv4_en)
++static inline void mlxsw_reg_rgcr_pack(char *payload, bool ipv4_en,
++				       bool ipv6_en)
+ {
+ 	MLXSW_REG_ZERO(rgcr, payload);
+ 	mlxsw_reg_rgcr_ipv4_en_set(payload, ipv4_en);
++	mlxsw_reg_rgcr_ipv6_en_set(payload, ipv6_en);
+ }
+ 
+ /* RITR - Router Interface Table Register
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 060134d..690bb9f 100644
+index 383fef5a..060134d 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -3558,6 +3558,11 @@ static int mlxsw_sp_rif_vlan_configure(struct mlxsw_sp_rif *rif)
+@@ -3697,7 +3697,7 @@ static int __mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ 		return -EIO;
+ 	max_rifs = MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS);
+ 
+-	mlxsw_reg_rgcr_pack(rgcr_pl, true);
++	mlxsw_reg_rgcr_pack(rgcr_pl, true, true);
+ 	mlxsw_reg_rgcr_max_router_interfaces_set(rgcr_pl, max_rifs);
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rgcr), rgcr_pl);
  	if (err)
- 		return err;
+@@ -3709,7 +3709,7 @@ static void __mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	char rgcr_pl[MLXSW_REG_RGCR_LEN];
  
-+	err = mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
-+				     mlxsw_sp_router_port(mlxsw_sp), true);
-+	if (err)
-+		goto err_fid_mc_flood_set;
-+
- 	err = mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
- 				     mlxsw_sp_router_port(mlxsw_sp), true);
- 	if (err)
-@@ -3566,6 +3571,9 @@ static int mlxsw_sp_rif_vlan_configure(struct mlxsw_sp_rif *rif)
- 	return 0;
- 
- err_fid_bc_flood_set:
-+	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
-+			       mlxsw_sp_router_port(mlxsw_sp), false);
-+err_fid_mc_flood_set:
- 	mlxsw_sp_rif_vlan_fid_op(rif, MLXSW_REG_RITR_VLAN_IF, vid, false);
- 	return err;
- }
-@@ -3577,6 +3585,8 @@ static void mlxsw_sp_rif_vlan_deconfigure(struct mlxsw_sp_rif *rif)
- 
- 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
- 			       mlxsw_sp_router_port(mlxsw_sp), false);
-+	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
-+			       mlxsw_sp_router_port(mlxsw_sp), false);
- 	mlxsw_sp_rif_vlan_fid_op(rif, MLXSW_REG_RITR_VLAN_IF, vid, false);
- }
- 
-@@ -3607,6 +3617,11 @@ static int mlxsw_sp_rif_fid_configure(struct mlxsw_sp_rif *rif)
- 	if (err)
- 		return err;
- 
-+	err = mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
-+				     mlxsw_sp_router_port(mlxsw_sp), true);
-+	if (err)
-+		goto err_fid_mc_flood_set;
-+
- 	err = mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
- 				     mlxsw_sp_router_port(mlxsw_sp), true);
- 	if (err)
-@@ -3615,6 +3630,9 @@ static int mlxsw_sp_rif_fid_configure(struct mlxsw_sp_rif *rif)
- 	return 0;
- 
- err_fid_bc_flood_set:
-+	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
-+			       mlxsw_sp_router_port(mlxsw_sp), false);
-+err_fid_mc_flood_set:
- 	mlxsw_sp_rif_vlan_fid_op(rif, MLXSW_REG_RITR_FID_IF, fid_index, false);
- 	return err;
- }
-@@ -3626,6 +3644,8 @@ static void mlxsw_sp_rif_fid_deconfigure(struct mlxsw_sp_rif *rif)
- 
- 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
- 			       mlxsw_sp_router_port(mlxsw_sp), false);
-+	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
-+			       mlxsw_sp_router_port(mlxsw_sp), false);
- 	mlxsw_sp_rif_vlan_fid_op(rif, MLXSW_REG_RITR_FID_IF, fid_index, false);
+-	mlxsw_reg_rgcr_pack(rgcr_pl, false);
++	mlxsw_reg_rgcr_pack(rgcr_pl, false, false);
+ 	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rgcr), rgcr_pl);
  }
  
 -- 
