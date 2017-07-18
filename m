@@ -1,55 +1,84 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: commit 16ecba59 breaks 82574L under heavy load.
-Date: Tue, 18 Jul 2017 10:21:09 -0400
-Message-ID: <20170718142109.GO18556@csclub.uwaterloo.ca>
+From: Ricardo Farrington <Ricardo.Farrington@cavium.com>
+Subject: RE: [PATCH v2 net-next 0/3] liquidio: avoid vm low memory crashes
+Date: Tue, 18 Jul 2017 15:08:49 +0000
+Message-ID: <CY1PR07MB26658DEEECB90656C84658EAECA10@CY1PR07MB2665.namprd07.prod.outlook.com>
+References: <20170718004920.GA1541@felix-thinkpad.cavium.com>
+ <20170718062317.GJ3259@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Len Sorensen <lsorense@csclub.uwaterloo.ca>,
-        netdev@vger.kernel.org, Benjamin Poirier <bpoirier@suse.com>,
-        intel-wired-lan@lists.osuosl.org,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
+        "Chickles, Derek" <Derek.Chickles@cavium.com>,
+        "Burla, Satananda" <Satananda.Burla@cavium.com>
+To: Leon Romanovsky <leon@kernel.org>,
+        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0088.outbound.protection.outlook.com ([104.47.33.88]:47600
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751441AbdGRPI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Jul 2017 11:08:57 -0400
+In-Reply-To: <20170718062317.GJ3259@mtr-leonro.local>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 16ecba59bc333d6282ee057fb02339f77a880beb has apparently broken
-at least the 82574L under heavy load (as in load heavy enough to cause
-packet drops).  In this case, when running in MSI-X mode, the Other
-Causes interrupt fires about 3000 times per second, but not due to link
-state changes.  Unfortunately this commit changed the driver to assume
-that the Other Causes interrupt can only mean link state change and
-hence sets the flag that (unfortunately) means both link is down and link
-state should be checked.  Since this now happens 3000 times per second,
-the chances of it happening while the watchdog_task is checking the link
-state becomes pretty high, and it if does happen to coincice, then the
-watchdog_task will reset the adapter, which causes a real loss of link.
+My apologies Leon - I did not infer that the subject line should have been =
+changed from your previous correspondence.  I will correct it.
 
-Reverting the commit makes everything work fine again (of course packets
-are still dropped, but at least the link stays up, the adapter isn't
-reset, and most packets make it through).
+Rick
 
-I tried checking what the bits in the ICR actually were under these
-conditions, and it would appear that the only bit set is 24 (the Other
-Causes interrupt bit).  So I don't know what the real cause is although
-rx buffer overrun would be my guess, and in fact I see nothing in the
-datasheet indicating that you can actually disable the rx buffer overrun
-from generating an interrupt.
+-----Original Message-----
+From: Leon Romanovsky [mailto:leon@kernel.org]=20
+Sent: Monday, July 17, 2017 11:23 PM
+To: Manlunas, Felix <Felix.Manlunas@cavium.com>
+Cc: davem@davemloft.net; netdev@vger.kernel.org; Vatsavayi, Raghu <Raghu.Va=
+tsavayi@cavium.com>; Chickles, Derek <Derek.Chickles@cavium.com>; Burla, Sa=
+tananda <Satananda.Burla@cavium.com>; Ricardo Farrington <Ricardo.Farringto=
+n@cavium.com>
+Subject: Re: [PATCH v2 net-next 0/3] liquidio: avoid vm low memory crashes
 
-Prior to this commit, the interrupt handler explicitly checked that the
-interrupt was caused by a link state change and only then did it trigger
-a recheck which worked fine and did not cause incorrect adapter resets,
-although it of course still had lots of undesired interrupts to deal with.
+On Mon, Jul 17, 2017 at 05:49:20PM -0700, Felix Manlunas wrote:
+> From: Rick Farrington <ricardo.farrington@cavium.com>
+>
+> This patchset addresses issues brought about by low memory conditions=20
+> in a VM.  These conditions were not seen when the driver was exercised=20
+> normally.  Rather, they were brought about through manual fault injection=
+.
+> They are being included in the interest of hardening the driver=20
+> against unforeseen circumstances.
+>
+> 1. Fix GPF in octeon_init_droq(); zero the allocated block 'recv_buf_list=
+'.
+>    This prevents a GPF trying to access an invalid 'recv_buf_list[i]' ent=
+ry
+>    in octeon_droq_destroy_ring_buffers() if init didn't alloc all entries=
+.
+> 2. Don't dereference a NULL ptr in octeon_droq_destroy_ring_buffers().
+> 3. For defensive programming, zero the allocated block 'oct->droq[0]' in
+>    octeon_setup_output_queues() and 'oct->instr_queue[0]' in
+>    octeon_setup_instr_queues().
+>
+> change log:
+> V1 -> V2:
+> 1. Corrected syntax in 'Subject' lines; no functional or code changes.
+>
+> Rick Farrington (3):
+>   liquidio: lowmem: init allocated memory to 0
+>   liquidio: lowmem: do not dereference null ptr
+>   liquidio: lowmem: init allocated memory to 0
 
-Of course ideally there would be a way to make these 3000 pointless
-interrupts per second not happen, but unless there is a way to determine
-that, I think this commit needs reverting, since it apparently causes
-link failures on actual hardware that exists.
+I'm feeling d=E9j=E0 vu here. We already discussed that zero allocated arra=
+ys have nothing to do with low memory conditions. Why are you continuing to=
+ use this misleading term here?
 
-The ports are onboard intel 82574L on a Supermicro X7SPA-HF-D525 with
-1.2a BIOS (upgrading to 1.2b to check if it makes a difference is not
-an option unfortunately).
-
--- 
-Len Sorensen
+>
+>  drivers/net/ethernet/cavium/liquidio/octeon_device.c | 8 ++++----
+>  drivers/net/ethernet/cavium/liquidio/octeon_droq.c   | 6 ++++--
+>  2 files changed, 8 insertions(+), 6 deletions(-)
+>
+> --
+> 2.9.0
+>
