@@ -1,31 +1,39 @@
-From: Fabio Estevam <festevam@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH net-next] mdio_bus: Remove unneeded gpiod NULL check
-Date: Tue, 18 Jul 2017 09:39:48 -0300
-Message-ID: <CAOMZO5ABD9iasv67ehcpTzcjU-iD9=8vQ2vM7Gwc4-v9pnUt-Q@mail.gmail.com>
-References: <1500325749-8382-1-git-send-email-festevam@gmail.com> <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com>
+Date: Tue, 18 Jul 2017 15:48:52 +0300
+Message-ID: <f4cdcb4b-feac-5106-8068-e694dbd3b4e6@cogentembedded.com>
+References: <1500325749-8382-1-git-send-email-festevam@gmail.com>
+ <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com>
+ <CAOMZO5ABD9iasv67ehcpTzcjU-iD9=8vQ2vM7Gwc4-v9pnUt-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
         Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         Fabio Estevam <fabio.estevam@nxp.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f173.google.com ([209.85.217.173]:35389 "EHLO
-        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751336AbdGRMjt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 08:39:49 -0400
-Received: by mail-ua0-f173.google.com with SMTP id 64so21576146uae.2
-        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 05:39:49 -0700 (PDT)
-In-Reply-To: <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:36554 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751371AbdGRMs4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 08:48:56 -0400
+Received: by mail-lf0-f54.google.com with SMTP id d78so8433563lfg.3
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 05:48:55 -0700 (PDT)
+In-Reply-To: <CAOMZO5ABD9iasv67ehcpTzcjU-iD9=8vQ2vM7Gwc4-v9pnUt-Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 18, 2017 at 6:56 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
+On 07/18/2017 03:39 PM, Fabio Estevam wrote:
 
->    Won't this result in kernel WARNING when GPIO is disabled?
+>>    Won't this result in kernel WARNING when GPIO is disabled?
 
-Not sure if I understood your point, but gpiod_set_value_cansleep() is
-a no-op when the gpiod is NULL.
+    GPIO support, I was going to type...
+
+> Not sure if I understood your point, but gpiod_set_value_cansleep() is
+> a no-op when the gpiod is NULL.
+
+    Look at the stub in <linux/gpio/consumer.h>, it has WARN_ON(1).
+
+MBR, Sergei
