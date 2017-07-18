@@ -1,53 +1,63 @@
-From: Eugeniy Paltsev <Eugeniy.Paltsev@synopsys.com>
-Subject: [PATCH] NET: dwmac: Make dwmac reset unconditional
-Date: Tue, 18 Jul 2017 17:07:15 +0300
-Message-ID: <20170718140715.25798-1-Eugeniy.Paltsev@synopsys.com>
-Cc: linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Eugeniy Paltsev <Eugeniy.Paltsev@synopsys.com>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: [PATCH net-next 00/11] Change DSA's FDB API and perform switchdev cleanup
+Date: Tue, 18 Jul 2017 17:20:13 +0300
+Message-ID: <1500387624-4361-1-git-send-email-arkadis@mellanox.com>
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        f.fainelli@gmail.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com,
+        Arkadi Sharshevsky <arkadis@mellanox.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36000 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751413AbdGROQv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 10:16:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Unconditional reset dwmac before HW init if reset controller is present.
+The patchset moves the DSA driver into learning static FDB entries via
+the switchdev notification chain rather then by using bridge bypass SELF
+flag. 
 
-In existing implementation we reset dwmac only after second module
-probing:
-(module load -> unload -> load again [reset happens])
+The DSA drivers cannot sync the software bridge with hardware learned
+entries and use the switchdev's implementation of bypass FDB dumping.
+Because they are the only ones using this functionality, the fdb_dump
+implementation is moved from switchdev code into DSA.
 
-Now we reset dwmac at every module load:
-(module load [reset happens] -> unload -> load again [reset happens])
+Finally after this changes a major cleanup in switchdev can be done.
 
-Also some reset controllers have only reset callback instead of
-assert + deassert callbacks pair, so handle this case.
+Arkadi Sharshevsky (11):
+  net: dsa: Change DSA slave FDB API to be switchdev independent
+  net: dsa: Remove prepare phase for FDB
+  net: dsa: Remove switchdev dependency from DSA switch notifier chain
+  net: dsa: Add support for learning FDB through notification
+  net: dsa: Remove support for FDB add/del via SELF
+  net: dsa: Add support for querying supported bridge flags
+  net: dsa: Remove support for bypass bridge port attributes/vlan set
+  net: dsa: Remove redundant MDB dump support
+  net: dsa: Move FDB dump implementation inside DSA
+  net: bridge: Remove FDB deletion through switchdev object
+  net: switchdev: Remove bridge bypass support from switchdev
 
-Signed-off-by: Eugeniy Paltsev <Eugeniy.Paltsev@synopsys.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/dsa/b53/b53_common.c       |  85 +-----
+ drivers/net/dsa/b53/b53_priv.h         |  16 +-
+ drivers/net/dsa/bcm_sf2.c              |   2 -
+ drivers/net/dsa/dsa_loop.c             |  38 ---
+ drivers/net/dsa/microchip/ksz_common.c | 125 +++-----
+ drivers/net/dsa/mt7530.c               |  44 +--
+ drivers/net/dsa/mv88e6xxx/chip.c       | 148 ++--------
+ drivers/net/dsa/qca8k.c                |  40 +--
+ include/net/dsa.h                      |  25 +-
+ include/net/switchdev.h                |  87 ------
+ net/bridge/br_fdb.c                    |  18 --
+ net/dsa/dsa.c                          |  13 +
+ net/dsa/dsa_priv.h                     |  21 +-
+ net/dsa/port.c                         |  51 +---
+ net/dsa/slave.c                        | 247 +++++++++++++---
+ net/dsa/switch.c                       |  21 +-
+ net/switchdev/switchdev.c              | 519 ---------------------------------
+ 17 files changed, 341 insertions(+), 1159 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 12236da..c7b3d0d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -4096,8 +4096,15 @@ int stmmac_dvr_probe(struct device *device,
- 	if ((phyaddr >= 0) && (phyaddr <= 31))
- 		priv->plat->phy_addr = phyaddr;
- 
--	if (priv->plat->stmmac_rst)
-+	if (priv->plat->stmmac_rst) {
-+		ret = reset_control_assert(priv->plat->stmmac_rst);
- 		reset_control_deassert(priv->plat->stmmac_rst);
-+		/* Some reset controllers have only reset callback instead of
-+		 * assert + deassert callbacks pair.
-+		 */
-+		if (ret == -ENOTSUPP)
-+			reset_control_reset(priv->plat->stmmac_rst);
-+	}
- 
- 	/* Init MAC and get the capabilities */
- 	ret = stmmac_hw_init(priv);
 -- 
-2.9.3
+2.4.11
