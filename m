@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Convert to using %pOF instead of full_name
-Date: Tue, 18 Jul 2017 14:51:46 -0700 (PDT)
-Message-ID: <20170718.145146.1983238254018568174.davem@davemloft.net>
-References: <20170718214339.7774-39-robh@kernel.org>
+Subject: Re: [PATCH 0/5] Netfilter fixes for net
+Date: Tue, 18 Jul 2017 14:54:31 -0700 (PDT)
+Message-ID: <20170718.145431.917938736055432958.davem@davemloft.net>
+References: <1500372839-6735-1-git-send-email-pablo@netfilter.org>
+        <20170718.120340.1012556068669757824.davem@davemloft.net>
+        <20170718211157.GA5832@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, madalin.bucur@nxp.com,
-        dougmill@linux.vnet.ibm.com, grygorii.strashko@ti.com,
-        michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
-        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: robh@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170718214339.7774-39-robh@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56896 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752831AbdGRVyc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 17:54:32 -0400
+In-Reply-To: <20170718211157.GA5832@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rob Herring <robh@kernel.org>
-Date: Tue, 18 Jul 2017 16:43:19 -0500
+From: Florian Westphal <fw@strlen.de>
+Date: Tue, 18 Jul 2017 23:11:57 +0200
 
-> Now that we have a custom printf format specifier, convert users of
-> full_name to use %pOF instead. This is preparation to remove storing
-> of the full path string for each node.
+> David Miller <davem@davemloft.net> wrote:
+>> What about that change Eric Dumazet was talking about with Florian
+>> that stopped instantiating conntrack by default in new namespaces?
 > 
-> Signed-off-by: Rob Herring <robh@kernel.org>
+> Seems more appropriate for -next.  If you prefer net instead, let me know
+> and I'll get to work.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Yeah it's more on the -next side, albeit annoying.
+
+Ok, so nevermind :)
