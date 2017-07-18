@@ -1,134 +1,70 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 17/22] mlxsw: spectrum_router: Set abort trap for IPv6
-Date: Tue, 18 Jul 2017 10:10:25 +0200
-Message-ID: <20170718081030.2781-18-jiri@resnulli.us>
+Subject: [patch net-next 12/22] mlxsw: spectrum_router: Don't create FIB node during lookup
+Date: Tue, 18 Jul 2017 10:10:20 +0200
+Message-ID: <20170718081030.2781-13-jiri@resnulli.us>
 References: <20170718081030.2781-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:35766 "EHLO
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35671 "EHLO
         mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751553AbdGRILA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 04:11:00 -0400
-Received: by mail-wr0-f196.google.com with SMTP id a10so2872339wrd.2
-        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 01:10:59 -0700 (PDT)
+        with ESMTP id S1751531AbdGRIKx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 04:10:53 -0400
+Received: by mail-wr0-f196.google.com with SMTP id a10so2871571wrd.2
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 01:10:52 -0700 (PDT)
 In-Reply-To: <20170718081030.2781-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-When we fail to insert a route we invoke the abort mechanism which
-flushes all the tables and inserts a default route in each, so that all
-packets incoming to the router will be trapped to the CPU.
+When looking up a FIB entry we shouldn't create the FIB node where it's
+supposed to be linked in case the node doesn't already exist.
 
-Upon abort, add an IPv6 default route to the IPv6 tables.
+Instead, lookup the node and fail if it doesn't exist.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 39 ++++++++++++++--------
- 1 file changed, 26 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 1141d74..0017a61 100644
+index 36f2b68..da8590b 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -2810,19 +2810,20 @@ static void mlxsw_sp_router_fib4_del(struct mlxsw_sp *mlxsw_sp,
- 	mlxsw_sp_fib_node_put(mlxsw_sp, fib_node);
+@@ -2314,8 +2314,8 @@ static void mlxsw_sp_fib4_entry_destroy(struct mlxsw_sp *mlxsw_sp,
  }
  
--static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
-+static int __mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp,
-+					    enum mlxsw_reg_ralxx_protocol proto,
-+					    u8 tree_id)
+ static struct mlxsw_sp_fib_node *
+-mlxsw_sp_fib4_node_get(struct mlxsw_sp *mlxsw_sp,
+-		       const struct fib_entry_notifier_info *fen_info);
++mlxsw_sp_fib_node_lookup(struct mlxsw_sp_fib *fib, const void *addr,
++			 size_t addr_len, unsigned char prefix_len);
+ 
+ static struct mlxsw_sp_fib_entry *
+ mlxsw_sp_fib4_entry_lookup(struct mlxsw_sp *mlxsw_sp,
+@@ -2323,9 +2323,18 @@ mlxsw_sp_fib4_entry_lookup(struct mlxsw_sp *mlxsw_sp,
  {
- 	char ralta_pl[MLXSW_REG_RALTA_LEN];
- 	char ralst_pl[MLXSW_REG_RALST_LEN];
- 	int i, err;
+ 	struct mlxsw_sp_fib_entry *fib_entry;
+ 	struct mlxsw_sp_fib_node *fib_node;
++	struct mlxsw_sp_fib *fib;
++	struct mlxsw_sp_vr *vr;
  
--	mlxsw_reg_ralta_pack(ralta_pl, true, MLXSW_REG_RALXX_PROTOCOL_IPV4,
--			     MLXSW_SP_LPM_TREE_MIN);
-+	mlxsw_reg_ralta_pack(ralta_pl, true, proto, tree_id);
- 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ralta), ralta_pl);
- 	if (err)
- 		return err;
- 
--	mlxsw_reg_ralst_pack(ralst_pl, 0xff, MLXSW_SP_LPM_TREE_MIN);
-+	mlxsw_reg_ralst_pack(ralst_pl, 0xff, tree_id);
- 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ralst), ralst_pl);
- 	if (err)
- 		return err;
-@@ -2835,17 +2836,14 @@ static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
- 		if (!mlxsw_sp_vr_is_used(vr))
- 			continue;
- 
--		mlxsw_reg_raltb_pack(raltb_pl, vr->id,
--				     MLXSW_REG_RALXX_PROTOCOL_IPV4,
--				     MLXSW_SP_LPM_TREE_MIN);
-+		mlxsw_reg_raltb_pack(raltb_pl, vr->id, proto, tree_id);
- 		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(raltb),
- 				      raltb_pl);
- 		if (err)
- 			return err;
- 
--		mlxsw_reg_ralue_pack4(ralue_pl, MLXSW_SP_L3_PROTO_IPV4,
--				      MLXSW_REG_RALUE_OP_WRITE_WRITE, vr->id, 0,
--				      0);
-+		mlxsw_reg_ralue_pack(ralue_pl, proto,
-+				     MLXSW_REG_RALUE_OP_WRITE_WRITE, vr->id, 0);
- 		mlxsw_reg_ralue_act_ip2me_pack(ralue_pl);
- 		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ralue),
- 				      ralue_pl);
-@@ -2856,6 +2854,21 @@ static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
- 	return 0;
- }
- 
-+static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
-+{
-+	enum mlxsw_reg_ralxx_protocol proto = MLXSW_REG_RALXX_PROTOCOL_IPV4;
-+	int err;
+-	fib_node = mlxsw_sp_fib4_node_get(mlxsw_sp, fen_info);
+-	if (IS_ERR(fib_node))
++	vr = mlxsw_sp_vr_find(mlxsw_sp, fen_info->tb_id);
++	if (!vr)
++		return NULL;
++	fib = mlxsw_sp_vr_fib(vr, MLXSW_SP_L3_PROTO_IPV4);
 +
-+	err = __mlxsw_sp_router_set_abort_trap(mlxsw_sp, proto,
-+					       MLXSW_SP_LPM_TREE_MIN);
-+	if (err)
-+		return err;
-+
-+	proto = MLXSW_REG_RALXX_PROTOCOL_IPV6;
-+	return __mlxsw_sp_router_set_abort_trap(mlxsw_sp, proto,
-+						MLXSW_SP_LPM_TREE_MIN + 1);
-+}
-+
- static void mlxsw_sp_fib4_node_flush(struct mlxsw_sp *mlxsw_sp,
- 				     struct mlxsw_sp_fib_node *fib_node)
- {
-@@ -2925,7 +2938,7 @@ static void mlxsw_sp_router_fib_flush(struct mlxsw_sp *mlxsw_sp)
- 	}
- }
++	fib_node = mlxsw_sp_fib_node_lookup(fib, &fen_info->dst,
++					    sizeof(fen_info->dst),
++					    fen_info->dst_len);
++	if (!fib_node)
+ 		return NULL;
  
--static void mlxsw_sp_router_fib4_abort(struct mlxsw_sp *mlxsw_sp)
-+static void mlxsw_sp_router_fib_abort(struct mlxsw_sp *mlxsw_sp)
- {
- 	int err;
- 
-@@ -2970,7 +2983,7 @@ static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
- 		err = mlxsw_sp_router_fib4_add(mlxsw_sp, &fib_work->fen_info,
- 					       replace, append);
- 		if (err)
--			mlxsw_sp_router_fib4_abort(mlxsw_sp);
-+			mlxsw_sp_router_fib_abort(mlxsw_sp);
- 		fib_info_put(fib_work->fen_info.fi);
- 		break;
- 	case FIB_EVENT_ENTRY_DEL:
-@@ -2981,7 +2994,7 @@ static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
- 	case FIB_EVENT_RULE_DEL:
- 		rule = fib_work->fr_info.rule;
- 		if (!fib4_rule_default(rule) && !rule->l3mdev)
--			mlxsw_sp_router_fib4_abort(mlxsw_sp);
-+			mlxsw_sp_router_fib_abort(mlxsw_sp);
- 		fib_rule_put(rule);
- 		break;
- 	case FIB_EVENT_NH_ADD: /* fall through */
+ 	list_for_each_entry(fib_entry, &fib_node->entry_list, list) {
 -- 
 2.9.3
