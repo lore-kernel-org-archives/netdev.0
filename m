@@ -1,61 +1,134 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 15/22] mlxsw: reg: Update RALUE register with IPv6 support
-Date: Tue, 18 Jul 2017 10:10:23 +0200
-Message-ID: <20170718081030.2781-16-jiri@resnulli.us>
+Subject: [patch net-next 17/22] mlxsw: spectrum_router: Set abort trap for IPv6
+Date: Tue, 18 Jul 2017 10:10:25 +0200
+Message-ID: <20170718081030.2781-18-jiri@resnulli.us>
 References: <20170718081030.2781-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:36588 "EHLO
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35766 "EHLO
         mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751543AbdGRIK5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 04:10:57 -0400
-Received: by mail-wr0-f196.google.com with SMTP id y67so670540wrb.3
-        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 01:10:57 -0700 (PDT)
+        with ESMTP id S1751553AbdGRILA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 04:11:00 -0400
+Received: by mail-wr0-f196.google.com with SMTP id a10so2872339wrd.2
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 01:10:59 -0700 (PDT)
 In-Reply-To: <20170718081030.2781-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Update the register so that IPv6 LPM entries could be programmed to the
-device's table.
+When we fail to insert a route we invoke the abort mechanism which
+flushes all the tables and inserts a default route in each, so that all
+packets incoming to the router will be trapped to the CPU.
+
+Upon abort, add an IPv6 default route to the IPv6 tables.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 39 ++++++++++++++--------
+ 1 file changed, 26 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 0fc2263..c6c50894 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4724,6 +4724,7 @@ MLXSW_ITEM32(reg, ralue, prefix_len, 0x08, 0, 8);
-  * Access: Index
-  */
- MLXSW_ITEM32(reg, ralue, dip4, 0x18, 0, 32);
-+MLXSW_ITEM_BUF(reg, ralue, dip6, 0x0C, 16);
- 
- enum mlxsw_reg_ralue_entry_type {
- 	MLXSW_REG_RALUE_ENTRY_TYPE_MARKER_ENTRY = 1,
-@@ -4857,6 +4858,16 @@ static inline void mlxsw_reg_ralue_pack4(char *payload,
- 	mlxsw_reg_ralue_dip4_set(payload, dip);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 1141d74..0017a61 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -2810,19 +2810,20 @@ static void mlxsw_sp_router_fib4_del(struct mlxsw_sp *mlxsw_sp,
+ 	mlxsw_sp_fib_node_put(mlxsw_sp, fib_node);
  }
  
-+static inline void mlxsw_reg_ralue_pack6(char *payload,
-+					 enum mlxsw_reg_ralxx_protocol protocol,
-+					 enum mlxsw_reg_ralue_op op,
-+					 u16 virtual_router, u8 prefix_len,
-+					 const void *dip)
+-static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
++static int __mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp,
++					    enum mlxsw_reg_ralxx_protocol proto,
++					    u8 tree_id)
+ {
+ 	char ralta_pl[MLXSW_REG_RALTA_LEN];
+ 	char ralst_pl[MLXSW_REG_RALST_LEN];
+ 	int i, err;
+ 
+-	mlxsw_reg_ralta_pack(ralta_pl, true, MLXSW_REG_RALXX_PROTOCOL_IPV4,
+-			     MLXSW_SP_LPM_TREE_MIN);
++	mlxsw_reg_ralta_pack(ralta_pl, true, proto, tree_id);
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ralta), ralta_pl);
+ 	if (err)
+ 		return err;
+ 
+-	mlxsw_reg_ralst_pack(ralst_pl, 0xff, MLXSW_SP_LPM_TREE_MIN);
++	mlxsw_reg_ralst_pack(ralst_pl, 0xff, tree_id);
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ralst), ralst_pl);
+ 	if (err)
+ 		return err;
+@@ -2835,17 +2836,14 @@ static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
+ 		if (!mlxsw_sp_vr_is_used(vr))
+ 			continue;
+ 
+-		mlxsw_reg_raltb_pack(raltb_pl, vr->id,
+-				     MLXSW_REG_RALXX_PROTOCOL_IPV4,
+-				     MLXSW_SP_LPM_TREE_MIN);
++		mlxsw_reg_raltb_pack(raltb_pl, vr->id, proto, tree_id);
+ 		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(raltb),
+ 				      raltb_pl);
+ 		if (err)
+ 			return err;
+ 
+-		mlxsw_reg_ralue_pack4(ralue_pl, MLXSW_SP_L3_PROTO_IPV4,
+-				      MLXSW_REG_RALUE_OP_WRITE_WRITE, vr->id, 0,
+-				      0);
++		mlxsw_reg_ralue_pack(ralue_pl, proto,
++				     MLXSW_REG_RALUE_OP_WRITE_WRITE, vr->id, 0);
+ 		mlxsw_reg_ralue_act_ip2me_pack(ralue_pl);
+ 		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ralue),
+ 				      ralue_pl);
+@@ -2856,6 +2854,21 @@ static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
+ 	return 0;
+ }
+ 
++static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
 +{
-+	mlxsw_reg_ralue_pack(payload, protocol, op, virtual_router, prefix_len);
-+	mlxsw_reg_ralue_dip6_memcpy_to(payload, dip);
++	enum mlxsw_reg_ralxx_protocol proto = MLXSW_REG_RALXX_PROTOCOL_IPV4;
++	int err;
++
++	err = __mlxsw_sp_router_set_abort_trap(mlxsw_sp, proto,
++					       MLXSW_SP_LPM_TREE_MIN);
++	if (err)
++		return err;
++
++	proto = MLXSW_REG_RALXX_PROTOCOL_IPV6;
++	return __mlxsw_sp_router_set_abort_trap(mlxsw_sp, proto,
++						MLXSW_SP_LPM_TREE_MIN + 1);
 +}
 +
- static inline void
- mlxsw_reg_ralue_act_remote_pack(char *payload,
- 				enum mlxsw_reg_ralue_trap_action trap_action,
+ static void mlxsw_sp_fib4_node_flush(struct mlxsw_sp *mlxsw_sp,
+ 				     struct mlxsw_sp_fib_node *fib_node)
+ {
+@@ -2925,7 +2938,7 @@ static void mlxsw_sp_router_fib_flush(struct mlxsw_sp *mlxsw_sp)
+ 	}
+ }
+ 
+-static void mlxsw_sp_router_fib4_abort(struct mlxsw_sp *mlxsw_sp)
++static void mlxsw_sp_router_fib_abort(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	int err;
+ 
+@@ -2970,7 +2983,7 @@ static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
+ 		err = mlxsw_sp_router_fib4_add(mlxsw_sp, &fib_work->fen_info,
+ 					       replace, append);
+ 		if (err)
+-			mlxsw_sp_router_fib4_abort(mlxsw_sp);
++			mlxsw_sp_router_fib_abort(mlxsw_sp);
+ 		fib_info_put(fib_work->fen_info.fi);
+ 		break;
+ 	case FIB_EVENT_ENTRY_DEL:
+@@ -2981,7 +2994,7 @@ static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
+ 	case FIB_EVENT_RULE_DEL:
+ 		rule = fib_work->fr_info.rule;
+ 		if (!fib4_rule_default(rule) && !rule->l3mdev)
+-			mlxsw_sp_router_fib4_abort(mlxsw_sp);
++			mlxsw_sp_router_fib_abort(mlxsw_sp);
+ 		fib_rule_put(rule);
+ 		break;
+ 	case FIB_EVENT_NH_ADD: /* fall through */
 -- 
 2.9.3
