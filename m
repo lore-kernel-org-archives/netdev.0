@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: ipv6: initialize treq->txhash in
- cookie_v[46]_check()
-Date: Tue, 18 Jul 2017 11:23:38 -0700 (PDT)
-Message-ID: <20170718.112338.288656675048363598.davem@davemloft.net>
-References: <20170717103558.35448-1-glider@google.com>
+Subject: Re: [PATCH net-next 0/5] refine virtio-net XDP
+Date: Tue, 18 Jul 2017 11:24:42 -0700 (PDT)
+Message-ID: <20170718.112442.705495974245565173.davem@davemloft.net>
+References: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: glider@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170717103558.35448-1-glider@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexander Potapenko <glider@google.com>
-Date: Mon, 17 Jul 2017 12:35:58 +0200
+From: Jason Wang <jasowang@redhat.com>
+Date: Mon, 17 Jul 2017 20:43:56 +0800
 
-> KMSAN reported use of uninitialized memory in skb_set_hash_from_sk(),
-> which originated from the TCP request socket created in
-> cookie_v6_check():
- ...
-> Similar error is reported for cookie_v4_check().
+> This series brings two optimizations for virtio-net XDP:
 > 
-> Signed-off-by: Alexander Potapenko <glider@google.com>
-> Fixes: 58d607d3e52f ("tcp: provide skb->hash to synack packets")
+> - avoid reset during XDP set
+> - turn off offloads on demand
+> 
+> Please review.
 
-Applied and queued up for -stable, thanks!
+Michael, please review Jason's changes.
+
+Thanks.
