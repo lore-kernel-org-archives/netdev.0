@@ -1,52 +1,42 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Mon, 17 Jul 2017 21:59:01 -0700
-Message-ID: <596D9595.1010704@gmail.com>
-References: <20170718110927.0f9974f6@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: What is the correct behavior ipv4/ipv6
+Date: Mon, 17 Jul 2017 22:08:14 -0700
+Message-ID: <1500354494.5566.36.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <f7aa79a4-81d9-5b6d-3a27-0d681e5619ae@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20170718110927.0f9974f6@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Rao Shoaib <rao.shoaib@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f173.google.com ([209.85.128.173]:35467 "EHLO
+        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751026AbdGRFIR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 01:08:17 -0400
+Received: by mail-wr0-f173.google.com with SMTP id w4so11483528wrb.2
+        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 22:08:16 -0700 (PDT)
+In-Reply-To: <f7aa79a4-81d9-5b6d-3a27-0d681e5619ae@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/17/2017 06:09 PM, Stephen Rothwell wrote:
-> Hi all,
-> 
-> After merging the net-next tree, today's linux-next build (arm
-> multi_v7_defconfig) failed like this:
-> 
-> net/core/filter.o: In function `xdp_do_flush_map':
-> filter.c:(.text+0x3770): undefined reference to `__dev_map_flush'
-> net/core/filter.o: In function `__bpf_tx_xdp':
-> filter.c:(.text+0x56dc): undefined reference to `__dev_map_insert_ctx'
-> net/core/filter.o: In function `xdp_do_redirect_map':
-> filter.c:(.text+0x5e24): undefined reference to `__dev_map_lookup_elem'
-> 
-> Caused by commit
-> 
->   11393cc9b9be ("xdp: Add batching support to redirect map")
-> 
-> This build has
-> 
-> CONFIG_BPF=y
-> # CONFIG_BPF_SYSCALL is not set
-> 
-> I have used the net-next tree from next-20170717 for today.
-> 
+On Mon, 2017-07-17 at 11:28 -0700, Rao Shoaib wrote:
+> I am looking at a system which is configured for IPv6 only but sits in a 
+> network that serves both IPv4 and IPv6. When an IPv4 packet with a 
+> destination  broadcast address is sent out (in this case DHCP) the 
+> system accepts it and since it does not have any route to the sender it 
+> prints the Martian message.
 
-I missed testing without CONFIG_BPF_SYSCALL. Patch is posted to netdev
-and on patchworks at,
+Which message exactly is printed ?
 
-https://patchwork.ozlabs.org/patch/789862/
-
-Thanks,
-John
+> 
+> Sure, we can turn off the Martian message and maybe the system should be 
+> in an IPv6 only network.
+> 
+> The question that is being asked is that why is the system accepting an 
+> IPv4 broadcast packet in the first place ?  Is this behavior incorrect 
+> and should I submit a patch ?
+> 
+> Thanks,
+> 
+> Shoaib
+> 
