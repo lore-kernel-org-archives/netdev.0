@@ -1,40 +1,29 @@
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Subject: Re: [ovs-dev] [PATCH 2/2] openvswitch: Optimize operations for OvS
- flow_stats.
-Date: Tue, 18 Jul 2017 13:39:36 +0800
-Message-ID: <5A8CA8BA-DB4C-4CFB-B772-C0BCAEBBFDDA@gmail.com>
-References: <1500272964-27238-1-git-send-email-xiangxia.m.yue@gmail.com>
- <1500272964-27238-2-git-send-email-xiangxia.m.yue@gmail.com>
- <CAOrHB_AVZP3DVER5wrU_hBL-8uHcMBKPL+xNDv_mOZxKRVPopw@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: ovs dev <dev@openvswitch.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@ovn.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH] net: fix build error in devmap helper calls
+Date: Mon, 17 Jul 2017 22:48:27 -0700 (PDT)
+Message-ID: <20170717.224827.905776500726773335.davem@davemloft.net>
+References: <20170718045648.7398.68557.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: john.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34737 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750931AbdGRFjg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 01:39:36 -0400
-Received: by mail-pf0-f196.google.com with SMTP id o88so1433071pfk.1
-        for <netdev@vger.kernel.org>; Mon, 17 Jul 2017 22:39:35 -0700 (PDT)
-In-Reply-To: <CAOrHB_AVZP3DVER5wrU_hBL-8uHcMBKPL+xNDv_mOZxKRVPopw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43724 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751026AbdGRFsb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 01:48:31 -0400
+In-Reply-To: <20170718045648.7398.68557.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Mon, 17 Jul 2017 21:56:48 -0700
 
-> On Jul 18, 2017, at 11:14 AM, Pravin Shelar <pshelar@ovn.org> wrote:
->=20
->>=20
->> This patch adds cpumask struct, the cpu_used_mask stores the cpu_id
->> that the flow used. And we only check the flow_stats on the cpu we
->> used, and it is unncessary to check all possible cpu when getting,
->> cleaning, and updating the flow_stats. Adding the cpu_used_mask to
->> sw_flow struct does=E2=80=99t increase the cacheline number.
->>=20
->> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
->=20
-> Patch looks good to me. I have one comment.
+> Initial patches missed case with CONFIG_BPF_SYSCALL not set.
+> 
+> Fixes: 11393cc9b9be ("xdp: Add batching support to redirect map")
+> Fixes: 97f91a7cf04f ("bpf: add bpf_redirect_map helper routine")
+> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
 
-Thanks. I will sent v2 and add =E2=80=9CAcked-by=E2=80=9D.=
+Applied, thanks.
