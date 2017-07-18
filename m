@@ -1,48 +1,31 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 20/22] sound: pci: avoid string overflow warnings
-Date: Tue, 18 Jul 2017 13:52:30 +0200
-Message-ID: <CAK8P3a3G+scFLTbJhxNpGEwAw5TG18M27x6zYOGVZY0GUsnpPw@mail.gmail.com>
-References: <20170714120720.906842-1-arnd@arndb.de> <20170714120720.906842-21-arnd@arndb.de>
- <s5hinivfbic.wl-tiwai@suse.de>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH net-next] mdio_bus: Remove unneeded gpiod NULL check
+Date: Tue, 18 Jul 2017 09:39:48 -0300
+Message-ID: <CAOMZO5ABD9iasv67ehcpTzcjU-iD9=8vQ2vM7Gwc4-v9pnUt-Q@mail.gmail.com>
+References: <1500325749-8382-1-git-send-email-festevam@gmail.com> <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Jaroslav Kysela <perex@perex.cz>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        alsa-devel@alsa-project.org,
-        "David S . Miller" <davem@davemloft.net>,
-        Geliang Tang <geliangtang@gmail.com>,
-        "the arch/x86 maintainers" <x86@kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        "James E . J . Bottomley" <jejb@linux.vnet.ibm.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        "Martin K . Petersen" <martin.petersen@oracle.com>,
-        Guenter Roeck <linux@roeck-us.net>,
-        Takashi Sakamoto <o-takashi@sakamocchi.jp>,
-        linux-scsi <linux-scsi@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>
-To: Takashi Iwai <tiwai@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <s5hinivfbic.wl-tiwai@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Fabio Estevam <fabio.estevam@nxp.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f173.google.com ([209.85.217.173]:35389 "EHLO
+        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751336AbdGRMjt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 08:39:49 -0400
+Received: by mail-ua0-f173.google.com with SMTP id 64so21576146uae.2
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 05:39:49 -0700 (PDT)
+In-Reply-To: <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 14, 2017 at 2:28 PM, Takashi Iwai <tiwai@suse.de> wrote:
-> On Fri, 14 Jul 2017 14:07:12 +0200,
->
-> Thanks for the patch.  I have seen it but ignored, so far, as not sure
-> which action is the best.  An alternative solution is to use
-> snprintf() blindly, for example.
->
-> For mixart, it's even better to drop mgr->shortname[] and longname[]
-> assignment.  The shortname is the fixed string, and the longname is
-> used only at copying to card->longname, so we can create a string
-> there from the scratch.
+On Tue, Jul 18, 2017 at 6:56 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
 
-I've done that now, and tried to be a little smarter with the other
-conversions. I also found related problems in ISA drivers after
-randconfig testing and fixed those as well.
+>    Won't this result in kernel WARNING when GPIO is disabled?
 
-Sent a 7-patch series now as a replacement.
-
-       Arnd
+Not sure if I understood your point, but gpiod_set_value_cansleep() is
+a no-op when the gpiod is NULL.
