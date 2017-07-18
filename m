@@ -1,89 +1,32 @@
-From: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH 2/2] openvswitch: Optimize operations for OvS
-	flow_stats.
-Date: Mon, 17 Jul 2017 20:14:35 -0700
-Message-ID: <CAOrHB_AVZP3DVER5wrU_hBL-8uHcMBKPL+xNDv_mOZxKRVPopw@mail.gmail.com>
-References: <1500272964-27238-1-git-send-email-xiangxia.m.yue@gmail.com>
-	<1500272964-27238-2-git-send-email-xiangxia.m.yue@gmail.com>
+From: "IT Department" <vanitha.b@careind.net>
+Subject: UPDATE
+Date: Tue, 18 Jul 2017 04:47:38 +0100
+Message-ID: <20170718033949.68F902861D74@cams.careind.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Tonghao Zhang <xiangxia.m.yue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1500272964-27238-2-git-send-email-xiangxia.m.yue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cams.careind.net ([1.23.164.19]:48949 "EHLO cams.careind.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751346AbdGRDsH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 17 Jul 2017 23:48:07 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+        by cams.careind.net (Postfix) with ESMTP id 343542861D5E
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 09:09:50 +0530 (IST)
+Received: from cams.careind.net ([127.0.0.1])
+        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id PaMc+TgUXVdu for <netdev@vger.kernel.org>;
+        Tue, 18 Jul 2017 09:09:50 +0530 (IST)
+Received: from [192.168.10.100] (unknown [192.168.0.31])
+        by cams.careind.net (Postfix) with ESMTPSA id 68F902861D74
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 09:09:49 +0530 (IST)
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gU3VuLCBKdWwgMTYsIDIwMTcgYXQgMTE6MjkgUE0sIFRvbmdoYW8gWmhhbmcKPHhpYW5neGlh
-Lm0ueXVlQGdtYWlsLmNvbT4gd3JvdGU6Cj4gV2hlbiBjYWxsaW5nIHRoZSBmbG93X2ZyZWUoKSB0
-byBmcmVlIHRoZSBmbG93LCB3ZSBjYWxsIG1hbnkgdGltZXMKPiAoY3B1X3Bvc3NpYmxlX21hc2ss
-IGVnLiAxMjggYXMgZGVmYXVsdCkgY3B1bWFza19uZXh0KCkuIFRoYXQgd2lsbAo+IHRha2UgdXAg
-b3VyIENQVSB1c2FnZSBpZiB3ZSBjYWxsIHRoZSBmbG93X2ZyZWUoKSBmcmVxdWVudGx5Lgo+IFdo
-ZW4gd2UgcHV0IGFsbCBwYWNrZXRzIHRvIHVzZXJzcGFjZSB2aWEgdXBjYWxsLCBhbmQgT3ZTIHdp
-bGwgc2VuZAo+IHRoZW0gYmFjayB2aWEgbmV0bGluayB0byBvdnNfcGFja2V0X2NtZF9leGVjdXRl
-KHdpbGwgY2FsbCBmbG93X2ZyZWUpLgo+Cj4gVGhlIHRlc3QgdG9wbyBpcyBzaG93biBhcyBiZWxv
-dy4gVk0wMSBzZW5kcyBUQ1AgcGFja2V0cyB0byBWTTAyLAo+IGFuZCBPdlMgZm9yd2FyZCBwYWNr
-dGV0cy4gV2hlbiB0ZXN0aW5nLCB3ZSB1c2UgcGVyZiB0byByZXBvcnQgdGhlCj4gc3lzdGVtIHBl
-cmZvcm1hbmNlLgo+Cj4gVk0wMSAtLS0gT3ZTLVZNIC0tLSBWTTAyCj4KPiBXaXRob3V0IHRoaXMg
-cGF0Y2gsIHBlcmYtdG9wIHNob3cgYXMgYmVsb3c6IFRoZSBmbG93X2ZyZWUoKSBpcwo+IDMuMDIl
-IENQVSB1c2FnZS4KPgo+ICAgICAgICAgNC4yMyUgIFtrZXJuZWxdICAgICAgICAgICAgW2tdIF9y
-YXdfc3Bpbl91bmxvY2tfaXJxcmVzdG9yZQo+ICAgICAgICAgMy42MiUgIFtrZXJuZWxdICAgICAg
-ICAgICAgW2tdIF9fZG9fc29mdGlycQo+ICAgICAgICAgMy4xNiUgIFtrZXJuZWxdICAgICAgICAg
-ICAgW2tdIF9fbWVtY3B5Cj4gICAgICAgICAzLjAyJSAgW2tlcm5lbF0gICAgICAgICAgICBba10g
-Zmxvd19mcmVlCj4gICAgICAgICAyLjQyJSAgbGliYy0yLjE3LnNvICAgICAgICBbLl0gX19tZW1j
-cHlfc3NzZTNfYmFjawo+ICAgICAgICAgMi4xOCUgIFtrZXJuZWxdICAgICAgICAgICAgW2tdIGNv
-cHlfdXNlcl9nZW5lcmljX3Vucm9sbGVkCj4gICAgICAgICAyLjE3JSAgW2tlcm5lbF0gICAgICAg
-ICAgICBba10gZmluZF9uZXh0X2JpdAo+Cj4gV2hlbiBhcHBsaWVkIHRoaXMgcGF0Y2gsIHBlcmYt
-dG9wIHNob3cgYXMgYmVsb3c6IE5vdCBzaG93biBvbgo+IHRoZSBsaXN0IGFueW1vcmUuCj4KPiAg
-ICAgICAgIDQuMTElICBba2VybmVsXSAgICAgICAgICAgIFtrXSBfcmF3X3NwaW5fdW5sb2NrX2ly
-cXJlc3RvcmUKPiAgICAgICAgIDMuNzklICBba2VybmVsXSAgICAgICAgICAgIFtrXSBfX2RvX3Nv
-ZnRpcnEKPiAgICAgICAgIDMuNDYlICBba2VybmVsXSAgICAgICAgICAgIFtrXSBfX21lbWNweQo+
-ICAgICAgICAgMi43MyUgIGxpYmMtMi4xNy5zbyAgICAgICAgWy5dIF9fbWVtY3B5X3Nzc2UzX2Jh
-Y2sKPiAgICAgICAgIDIuMjUlICBba2VybmVsXSAgICAgICAgICAgIFtrXSBjb3B5X3VzZXJfZ2Vu
-ZXJpY191bnJvbGxlZAo+ICAgICAgICAgMS44OSUgIGxpYmMtMi4xNy5zbyAgICAgICAgWy5dIF9p
-bnRfbWFsbG9jCj4gICAgICAgICAxLjUzJSAgb3ZzLXZzd2l0Y2hkICAgICAgICBbLl0geGxhdGVf
-YWN0aW9ucwo+Cj4gV2l0aCB0aGlzIHBhdGNoLCB0aGUgVENQIHRocm91Z2hwdXQod2UgZG9udCB1
-c2UgTWVnYWZsb3cgQ2FjaGUKPiArIE1pY3JvZmxvdyBDYWNoZSkgYmV0d2VlbiBWTXMgaXMgMS4x
-OEdicy9zZWMgdXAgdG8gMS4zMEdicy9zZWMKPiAobWF5YmUgfjEwJSBwZXJmb3JtYW5jZSBpbXBv
-cnZlKS4KPgo+IFRoaXMgcGF0Y2ggYWRkcyBjcHVtYXNrIHN0cnVjdCwgdGhlIGNwdV91c2VkX21h
-c2sgc3RvcmVzIHRoZSBjcHVfaWQKPiB0aGF0IHRoZSBmbG93IHVzZWQuIEFuZCB3ZSBvbmx5IGNo
-ZWNrIHRoZSBmbG93X3N0YXRzIG9uIHRoZSBjcHUgd2UKPiB1c2VkLCBhbmQgaXQgaXMgdW5uY2Vz
-c2FyeSB0byBjaGVjayBhbGwgcG9zc2libGUgY3B1IHdoZW4gZ2V0dGluZywKPiBjbGVhbmluZywg
-YW5kIHVwZGF0aW5nIHRoZSBmbG93X3N0YXRzLiBBZGRpbmcgdGhlIGNwdV91c2VkX21hc2sgdG8K
-PiBzd19mbG93IHN0cnVjdCBkb2Vz4oCZdCBpbmNyZWFzZSB0aGUgY2FjaGVsaW5lIG51bWJlci4K
-Pgo+IFNpZ25lZC1vZmYtYnk6IFRvbmdoYW8gWmhhbmcgPHhpYW5neGlhLm0ueXVlQGdtYWlsLmNv
-bT4KClBhdGNoIGxvb2tzIGdvb2QgdG8gbWUuIEkgaGF2ZSBvbmUgY29tbWVudC4KCj4gZGlmZiAt
-LWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93X3RhYmxlLmMgYi9uZXQvb3BlbnZzd2l0Y2gvZmxv
-d190YWJsZS5jCj4gaW5kZXggZWE3YTgwNy4uMzI0YTI0NiAxMDA2NDQKPiAtLS0gYS9uZXQvb3Bl
-bnZzd2l0Y2gvZmxvd190YWJsZS5jCj4gKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfdGFibGUu
-Ywo+IEBAIC05OCw2ICs5OCw5IEBAIHN0cnVjdCBzd19mbG93ICpvdnNfZmxvd19hbGxvYyh2b2lk
-KQo+Cj4gICAgICAgICBSQ1VfSU5JVF9QT0lOVEVSKGZsb3ctPnN0YXRzWzBdLCBzdGF0cyk7Cj4K
-PiArICAgICAgIGNwdW1hc2tfY2xlYXIoJmZsb3ctPmNwdV91c2VkX21hc2spOwpJIGRvIG5vdCBz
-ZWUgbmVlZCB0byBjbGVhciB0aGUgY3B1bWFzayB3aGVuIGZsb3cgaXMgYWxyZWFkeSB6ZXJvZWQu
-Cgo+ICsgICAgICAgY3B1bWFza19zZXRfY3B1KDAsICZmbG93LT5jcHVfdXNlZF9tYXNrKTsKPiAr
-Cj4gICAgICAgICByZXR1cm4gZmxvdzsKPiAgZXJyOgo+ICAgICAgICAga21lbV9jYWNoZV9mcmVl
-KGZsb3dfY2FjaGUsIGZsb3cpOwo+IEBAIC0xNDEsNyArMTQ0LDcgQEAgc3RhdGljIHZvaWQgZmxv
-d19mcmVlKHN0cnVjdCBzd19mbG93ICpmbG93KQo+ICAgICAgICAgaWYgKGZsb3ctPnNmX2FjdHMp
-Cj4gICAgICAgICAgICAgICAgIG92c19ubGFfZnJlZV9mbG93X2FjdGlvbnMoKHN0cnVjdCBzd19m
-bG93X2FjdGlvbnMgX19mb3JjZSAqKWZsb3ctPnNmX2FjdHMpOwo+ICAgICAgICAgLyogV2Ugb3Bl
-biBjb2RlIHRoaXMgdG8gbWFrZSBzdXJlIGNwdSAwIGlzIGFsd2F5cyBjb25zaWRlcmVkICovCj4g
-LSAgICAgICBmb3IgKGNwdSA9IDA7IGNwdSA8IG5yX2NwdV9pZHM7IGNwdSA9IGNwdW1hc2tfbmV4
-dChjcHUsIGNwdV9wb3NzaWJsZV9tYXNrKSkKPiArICAgICAgIGZvciAoY3B1ID0gMDsgY3B1IDwg
-bnJfY3B1X2lkczsgY3B1ID0gY3B1bWFza19uZXh0KGNwdSwgJmZsb3ctPmNwdV91c2VkX21hc2sp
-KQo+ICAgICAgICAgICAgICAgICBpZiAoZmxvdy0+c3RhdHNbY3B1XSkKPiAgICAgICAgICAgICAg
-ICAgICAgICAgICBrbWVtX2NhY2hlX2ZyZWUoZmxvd19zdGF0c19jYWNoZSwKPiAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKHN0cnVjdCBmbG93X3N0YXRzIF9fZm9yY2Ug
-KilmbG93LT5zdGF0c1tjcHVdKTsKPiAtLQo+IDEuOC4zLjEKPgpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3
-aXRjaC5vcmcKaHR0cHM6Ly9tYWlsLm9wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL292
-cy1kZXYK
+Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, please click the link  http://bit.ly/2u3llgw  to confirm that your email account is up to date with the institution requirement.
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
