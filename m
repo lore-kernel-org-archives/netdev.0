@@ -1,98 +1,122 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 11/22] mlxsw: spectrum_router: Don't assume neighbour type
-Date: Tue, 18 Jul 2017 10:10:19 +0200
-Message-ID: <20170718081030.2781-12-jiri@resnulli.us>
+Subject: [patch net-next 14/22] mlxsw: spectrum_router: Extend virtual routers with IPv6 support
+Date: Tue, 18 Jul 2017 10:10:22 +0200
+Message-ID: <20170718081030.2781-15-jiri@resnulli.us>
 References: <20170718081030.2781-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, arkadis@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:35660 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751341AbdGRIKw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 04:10:52 -0400
-Received: by mail-wr0-f194.google.com with SMTP id a10so2871457wrd.2
-        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 01:10:51 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:32975 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751341AbdGRIK4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 04:10:56 -0400
+Received: by mail-wr0-f193.google.com with SMTP id y43so1461698wrd.0
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 01:10:55 -0700 (PDT)
 In-Reply-To: <20170718081030.2781-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Thankfully, the neighbour subsystem is agnostic to the upper protocol
-and used by both IPv4 and IPv6. By removing assumptions regarding the
-neighbour type we can thus re-use much of the neighbour-related code for
-both IPv4 and IPv6.
+A Virtual Router (VR) is an entity which corresponds to a VRF and
+performs FIB lookup in an LPM tree according to the {VR, IP Proto} ->
+Tree binding.
 
-For each nexthop, store its gateway IP and for nexthop group store the
-neighbour table used by its nexthops.
-
-Use this information throughout the code and remove assumption about the
-neighbour type.
+Extend the virtual router data structure towards IPv6 FIB offload.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 28 +++++++++++++++++++---
+ 1 file changed, 25 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index cb797fb..36f2b68 100644
+index 936d96a..00d5449 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1437,6 +1437,7 @@ struct mlxsw_sp_nexthop {
- 						*/
- 	struct rhash_head ht_node;
- 	struct mlxsw_sp_nexthop_key key;
-+	unsigned char gw_addr[sizeof(struct in6_addr)];
- 	struct mlxsw_sp_rif *rif;
- 	u8 should_offload:1, /* set indicates this neigh is connected and
- 			      * should be put to KVD linear area of this group.
-@@ -1457,6 +1458,7 @@ struct mlxsw_sp_nexthop_group_key {
- struct mlxsw_sp_nexthop_group {
- 	struct rhash_head ht_node;
- 	struct list_head fib_list; /* list of fib entries that use this group */
-+	struct neigh_table *neigh_tbl;
- 	struct mlxsw_sp_nexthop_group_key key;
- 	u8 adj_index_valid:1,
- 	   gateway:1; /* routes using the group use a gateway */
-@@ -1774,7 +1776,6 @@ static int mlxsw_sp_nexthop_neigh_init(struct mlxsw_sp *mlxsw_sp,
- 				       struct mlxsw_sp_nexthop *nh)
- {
- 	struct mlxsw_sp_neigh_entry *neigh_entry;
--	struct fib_nh *fib_nh = nh->key.fib_nh;
- 	struct neighbour *n;
- 	u8 nud_state, dead;
- 	int err;
-@@ -1787,9 +1788,10 @@ static int mlxsw_sp_nexthop_neigh_init(struct mlxsw_sp *mlxsw_sp,
- 	 * The reference is taken either in neigh_lookup() or
- 	 * in neigh_create() in case n is not found.
- 	 */
--	n = neigh_lookup(&arp_tbl, &fib_nh->nh_gw, fib_nh->nh_dev);
-+	n = neigh_lookup(nh->nh_grp->neigh_tbl, &nh->gw_addr, nh->rif->dev);
- 	if (!n) {
--		n = neigh_create(&arp_tbl, &fib_nh->nh_gw, fib_nh->nh_dev);
-+		n = neigh_create(nh->nh_grp->neigh_tbl, &nh->gw_addr,
-+				 nh->rif->dev);
- 		if (IS_ERR(n))
- 			return PTR_ERR(n);
- 		neigh_event_send(n, NULL);
-@@ -1863,6 +1865,7 @@ static int mlxsw_sp_nexthop_init(struct mlxsw_sp *mlxsw_sp,
+@@ -431,6 +431,7 @@ struct mlxsw_sp_vr {
+ 	u32 tb_id; /* kernel fib table id */
+ 	unsigned int rif_count;
+ 	struct mlxsw_sp_fib *fib4;
++	struct mlxsw_sp_fib *fib6;
+ };
  
- 	nh->nh_grp = nh_grp;
- 	nh->key.fib_nh = fib_nh;
-+	memcpy(&nh->gw_addr, &fib_nh->nh_gw, sizeof(fib_nh->nh_gw));
- 	err = mlxsw_sp_nexthop_insert(mlxsw_sp, nh);
- 	if (err)
- 		return err;
-@@ -1961,6 +1964,8 @@ mlxsw_sp_nexthop_group_create(struct mlxsw_sp *mlxsw_sp, struct fib_info *fi)
- 	if (!nh_grp)
- 		return ERR_PTR(-ENOMEM);
- 	INIT_LIST_HEAD(&nh_grp->fib_list);
-+	nh_grp->neigh_tbl = &arp_tbl;
+ static const struct rhashtable_params mlxsw_sp_fib_ht_params;
+@@ -628,7 +629,7 @@ static void mlxsw_sp_lpm_fini(struct mlxsw_sp *mlxsw_sp)
+ 
+ static bool mlxsw_sp_vr_is_used(const struct mlxsw_sp_vr *vr)
+ {
+-	return !!vr->fib4;
++	return !!vr->fib4 || !!vr->fib6;
+ }
+ 
+ static struct mlxsw_sp_vr *mlxsw_sp_vr_find_unused(struct mlxsw_sp *mlxsw_sp)
+@@ -697,7 +698,7 @@ static struct mlxsw_sp_fib *mlxsw_sp_vr_fib(const struct mlxsw_sp_vr *vr,
+ 	case MLXSW_SP_L3_PROTO_IPV4:
+ 		return vr->fib4;
+ 	case MLXSW_SP_L3_PROTO_IPV6:
+-		BUG_ON(1);
++		return vr->fib6;
+ 	}
+ 	return NULL;
+ }
+@@ -706,6 +707,7 @@ static struct mlxsw_sp_vr *mlxsw_sp_vr_create(struct mlxsw_sp *mlxsw_sp,
+ 					      u32 tb_id)
+ {
+ 	struct mlxsw_sp_vr *vr;
++	int err;
+ 
+ 	vr = mlxsw_sp_vr_find_unused(mlxsw_sp);
+ 	if (!vr)
+@@ -713,12 +715,24 @@ static struct mlxsw_sp_vr *mlxsw_sp_vr_create(struct mlxsw_sp *mlxsw_sp,
+ 	vr->fib4 = mlxsw_sp_fib_create(vr, MLXSW_SP_L3_PROTO_IPV4);
+ 	if (IS_ERR(vr->fib4))
+ 		return ERR_CAST(vr->fib4);
++	vr->fib6 = mlxsw_sp_fib_create(vr, MLXSW_SP_L3_PROTO_IPV6);
++	if (IS_ERR(vr->fib6)) {
++		err = PTR_ERR(vr->fib6);
++		goto err_fib6_create;
++	}
+ 	vr->tb_id = tb_id;
+ 	return vr;
 +
- 	nh_grp->gateway = fi->fib_nh->nh_scope == RT_SCOPE_LINK;
- 	nh_grp->count = fi->fib_nhs;
- 	nh_grp->key.fi = fi;
++err_fib6_create:
++	mlxsw_sp_fib_destroy(vr->fib4);
++	vr->fib4 = NULL;
++	return ERR_PTR(err);
+ }
+ 
+ static void mlxsw_sp_vr_destroy(struct mlxsw_sp_vr *vr)
+ {
++	mlxsw_sp_fib_destroy(vr->fib6);
++	vr->fib6 = NULL;
+ 	mlxsw_sp_fib_destroy(vr->fib4);
+ 	vr->fib4 = NULL;
+ }
+@@ -776,7 +790,8 @@ static struct mlxsw_sp_vr *mlxsw_sp_vr_get(struct mlxsw_sp *mlxsw_sp, u32 tb_id)
+ 
+ static void mlxsw_sp_vr_put(struct mlxsw_sp_vr *vr)
+ {
+-	if (!vr->rif_count && list_empty(&vr->fib4->node_list))
++	if (!vr->rif_count && list_empty(&vr->fib4->node_list) &&
++	    list_empty(&vr->fib6->node_list))
+ 		mlxsw_sp_vr_destroy(vr);
+ }
+ 
+@@ -2895,6 +2910,13 @@ static void mlxsw_sp_router_fib_flush(struct mlxsw_sp *mlxsw_sp)
+ 		if (!mlxsw_sp_vr_is_used(vr))
+ 			continue;
+ 		mlxsw_sp_vr_fib_flush(mlxsw_sp, vr, MLXSW_SP_L3_PROTO_IPV4);
++
++		/* If virtual router was only used for IPv4, then it's no
++		 * longer used.
++		 */
++		if (!mlxsw_sp_vr_is_used(vr))
++			continue;
++		mlxsw_sp_vr_fib_flush(mlxsw_sp, vr, MLXSW_SP_L3_PROTO_IPV6);
+ 	}
+ }
+ 
 -- 
 2.9.3
