@@ -1,29 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atm: zatm: Fix an error handling path in
- 'zatm_init_one()'
-Date: Tue, 18 Jul 2017 11:38:18 -0700 (PDT)
-Message-ID: <20170718.113818.1199145447611241421.davem@davemloft.net>
-References: <20170717174241.18935-1-christophe.jaillet@wanadoo.fr>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 0/5] refine virtio-net XDP
+Date: Tue, 18 Jul 2017 21:47:01 +0300
+Message-ID: <20170718214645-mutt-send-email-mst@kernel.org>
+References: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
+	<20170718.112442.705495974245565173.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: christophe.jaillet@wanadoo.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170717174241.18935-1-christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20170718.112442.705495974245565173.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Date: Mon, 17 Jul 2017 19:42:41 +0200
-
-> If 'dma_set_mask_and_coherent()' fails, we must undo the previous
-> 'pci_request_regions()' call.
-> Adjust corresponding 'goto' to jump at the right place of the error
-> handling path.
+On Tue, Jul 18, 2017 at 11:24:42AM -0700, David Miller wrote:
+> From: Jason Wang <jasowang@redhat.com>
+> Date: Mon, 17 Jul 2017 20:43:56 +0800
 > 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> > This series brings two optimizations for virtio-net XDP:
+> > 
+> > - avoid reset during XDP set
+> > - turn off offloads on demand
+> > 
+> > Please review.
+> 
+> Michael, please review Jason's changes.
+> 
+> Thanks.
 
-Applied, thank you.
+Doing that, thanks for the reminder.
+
+-- 
+MST
