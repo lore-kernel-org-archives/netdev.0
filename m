@@ -1,287 +1,541 @@
-From: Martin Habets <mhabets@solarflare.com>
-Subject: [PATCH net-next] sfc: Add ethtool -m support for QSFP modules
-Date: Tue, 18 Jul 2017 16:43:19 +0100
-Message-ID: <d998b2ad-454c-0747-0988-44d93c1b9c82@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-        Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-To: Dave Miller <davem@davemloft.net>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [Resend, PATCH v1] ISDN: eicon: switch to use native bitmaps
+Date: Tue, 18 Jul 2017 18:49:26 +0300
+Message-ID: <20170718154926.87324-1-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Armin Schindler <mac@melware.de>,
+        Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:49333 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751393AbdGRPng (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 11:43:36 -0400
+Received: from mga01.intel.com ([192.55.52.88]:57521 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751348AbdGRPta (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Jul 2017 11:49:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This also adds support for non-QSFP modules attached to QSFP.
+Two arrays are clearly bit maps, so, make that explicit by converting to
+bitmap API and remove custom helpers.
 
-Signed-off-by: Martin Habets <mhabets@solarflare.com>
+Note sig_ind() uses out of boundary bit to (looks like) protect against
+potential bitmap_empty() checks for the same bitmap.
+
+This patch removes that since:
+1) that didn't guarantee atomicity anyway;
+2) the first operation inside the for-loop is set bit in the bitmap
+   (which effectively makes it non-empty);
+3) group_optimization() doesn't utilize possible emptiness of the bitmap
+   in question.
+
+Thus, if there is a protection needed it should be implemented properly.
+
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- drivers/net/ethernet/sfc/mcdi_port.c |  224 +++++++++++++++++++++++++++-------
- 1 file changed, 181 insertions(+), 43 deletions(-)
+- resend after v4.13-rc1 is out
+ drivers/isdn/hardware/eicon/divacapi.h |  16 +--
+ drivers/isdn/hardware/eicon/message.c  | 247 ++++++++-------------------------
+ 2 files changed, 58 insertions(+), 205 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
-index c905971c5f3a..d3f96a8f743b 100644
---- a/drivers/net/ethernet/sfc/mcdi_port.c
-+++ b/drivers/net/ethernet/sfc/mcdi_port.c
-@@ -746,59 +746,171 @@ static const char *efx_mcdi_phy_test_name(struct efx_nic *efx,
- 	return NULL;
+diff --git a/drivers/isdn/hardware/eicon/divacapi.h b/drivers/isdn/hardware/eicon/divacapi.h
+index a315a2914d70..c4868a0d82f4 100644
+--- a/drivers/isdn/hardware/eicon/divacapi.h
++++ b/drivers/isdn/hardware/eicon/divacapi.h
+@@ -26,15 +26,7 @@
+ 
+ /*#define DEBUG */
+ 
+-
+-
+-
+-
+-
+-
+-
+-
+-
++#include <linux/types.h>
+ 
+ #define IMPLEMENT_DTMF 1
+ #define IMPLEMENT_LINE_INTERCONNECT2 1
+@@ -82,8 +74,6 @@
+ #define CODEC_PERMANENT    0x02
+ #define ADV_VOICE          0x03
+ #define MAX_CIP_TYPES      5  /* kind of CIP types for group optimization */
+-#define C_IND_MASK_DWORDS  ((MAX_APPL + 32) >> 5)
+-
+ 
+ #define FAX_CONNECT_INFO_BUFFER_SIZE  256
+ #define NCPI_BUFFER_SIZE              256
+@@ -265,8 +255,8 @@ struct _PLCI {
+ 	word          ncci_ring_list;
+ 	byte          inc_dis_ncci_table[MAX_CHANNELS_PER_PLCI];
+ 	t_std_internal_command internal_command_queue[MAX_INTERNAL_COMMAND_LEVELS];
+-	dword         c_ind_mask_table[C_IND_MASK_DWORDS];
+-	dword         group_optimization_mask_table[C_IND_MASK_DWORDS];
++	DECLARE_BITMAP(c_ind_mask_table, MAX_APPL);
++	DECLARE_BITMAP(group_optimization_mask_table, MAX_APPL);
+ 	byte          RBuffer[200];
+ 	dword         msg_in_queue[MSG_IN_QUEUE_SIZE/sizeof(dword)];
+ 	API_SAVE      saved_msg;
+diff --git a/drivers/isdn/hardware/eicon/message.c b/drivers/isdn/hardware/eicon/message.c
+index 3b11422b1cce..eadd1ed1e014 100644
+--- a/drivers/isdn/hardware/eicon/message.c
++++ b/drivers/isdn/hardware/eicon/message.c
+@@ -23,9 +23,7 @@
+  *
+  */
+ 
+-
+-
+-
++#include <linux/bitmap.h>
+ 
+ #include "platform.h"
+ #include "di_defs.h"
+@@ -35,19 +33,9 @@
+ #include "mdm_msg.h"
+ #include "divasync.h"
+ 
+-
+-
+ #define FILE_ "MESSAGE.C"
+ #define dprintf
+ 
+-
+-
+-
+-
+-
+-
+-
+-
+ /*------------------------------------------------------------------*/
+ /* This is options supported for all adapters that are server by    */
+ /* XDI driver. Allo it is not necessary to ask it from every adapter*/
+@@ -72,9 +60,6 @@ static dword diva_xdi_extended_features = 0;
+ /*------------------------------------------------------------------*/
+ 
+ static void group_optimization(DIVA_CAPI_ADAPTER *a, PLCI *plci);
+-static void set_group_ind_mask(PLCI *plci);
+-static void clear_group_ind_mask_bit(PLCI *plci, word b);
+-static byte test_group_ind_mask_bit(PLCI *plci, word b);
+ void AutomaticLaw(DIVA_CAPI_ADAPTER *);
+ word CapiRelease(word);
+ word CapiRegister(word);
+@@ -1087,106 +1072,6 @@ static void plci_remove(PLCI *plci)
  }
  
--#define SFP_PAGE_SIZE	128
--#define SFP_NUM_PAGES	2
--static int efx_mcdi_phy_get_module_eeprom(struct efx_nic *efx,
--					  struct ethtool_eeprom *ee, u8 *data)
-+#define SFP_PAGE_SIZE		128
-+#define SFF_DIAG_TYPE_OFFSET	92
-+#define SFF_DIAG_ADDR_CHANGE	BIT(2)
-+#define SFF_8079_NUM_PAGES	2
-+#define SFF_8472_NUM_PAGES	4
-+#define SFF_8436_NUM_PAGES	5
-+#define SFF_DMT_LEVEL_OFFSET	94
-+
-+/** efx_mcdi_phy_get_module_eeprom_page() - Get a single page of module eeprom
-+ * @efx:	NIC context
-+ * @page:	EEPROM page number
-+ * @data:	Destination data pointer
-+ * @offset:	Offset in page to copy from in to data
-+ * @space:	Space available in data
-+ *
-+ * Return:
-+ *   >=0 - amount of data copied
-+ *   <0  - error
-+ */
-+static int efx_mcdi_phy_get_module_eeprom_page(struct efx_nic *efx,
-+					       unsigned int page,
-+					       u8 *data, ssize_t offset,
-+					       ssize_t space)
+ /*------------------------------------------------------------------*/
+-/* Application Group function helpers                               */
+-/*------------------------------------------------------------------*/
+-
+-static void set_group_ind_mask(PLCI *plci)
+-{
+-	word i;
+-
+-	for (i = 0; i < C_IND_MASK_DWORDS; i++)
+-		plci->group_optimization_mask_table[i] = 0xffffffffL;
+-}
+-
+-static void clear_group_ind_mask_bit(PLCI *plci, word b)
+-{
+-	plci->group_optimization_mask_table[b >> 5] &= ~(1L << (b & 0x1f));
+-}
+-
+-static byte test_group_ind_mask_bit(PLCI *plci, word b)
+-{
+-	return ((plci->group_optimization_mask_table[b >> 5] & (1L << (b & 0x1f))) != 0);
+-}
+-
+-/*------------------------------------------------------------------*/
+-/* c_ind_mask operations for arbitrary MAX_APPL                     */
+-/*------------------------------------------------------------------*/
+-
+-static void clear_c_ind_mask(PLCI *plci)
+-{
+-	word i;
+-
+-	for (i = 0; i < C_IND_MASK_DWORDS; i++)
+-		plci->c_ind_mask_table[i] = 0;
+-}
+-
+-static byte c_ind_mask_empty(PLCI *plci)
+-{
+-	word i;
+-
+-	i = 0;
+-	while ((i < C_IND_MASK_DWORDS) && (plci->c_ind_mask_table[i] == 0))
+-		i++;
+-	return (i == C_IND_MASK_DWORDS);
+-}
+-
+-static void set_c_ind_mask_bit(PLCI *plci, word b)
+-{
+-	plci->c_ind_mask_table[b >> 5] |= (1L << (b & 0x1f));
+-}
+-
+-static void clear_c_ind_mask_bit(PLCI *plci, word b)
+-{
+-	plci->c_ind_mask_table[b >> 5] &= ~(1L << (b & 0x1f));
+-}
+-
+-static byte test_c_ind_mask_bit(PLCI *plci, word b)
+-{
+-	return ((plci->c_ind_mask_table[b >> 5] & (1L << (b & 0x1f))) != 0);
+-}
+-
+-static void dump_c_ind_mask(PLCI *plci)
+-{
+-	word i, j, k;
+-	dword d;
+-	char *p;
+-	char buf[40];
+-
+-	for (i = 0; i < C_IND_MASK_DWORDS; i += 4)
+-	{
+-		p = buf + 36;
+-		*p = '\0';
+-		for (j = 0; j < 4; j++)
+-		{
+-			if (i + j < C_IND_MASK_DWORDS)
+-			{
+-				d = plci->c_ind_mask_table[i + j];
+-				for (k = 0; k < 8; k++)
+-				{
+-					*(--p) = hex_asc_lo(d);
+-					d >>= 4;
+-				}
+-			}
+-			else if (i != 0)
+-			{
+-				for (k = 0; k < 8; k++)
+-					*(--p) = ' ';
+-			}
+-			*(--p) = ' ';
+-		}
+-		dbug(1, dprintf("c_ind_mask =%s", (char *) p));
+-	}
+-}
+-
+-
+-
+-
+-
+-#define dump_plcis(a)
+-
+-
+-
+-/*------------------------------------------------------------------*/
+ /* translation function for each message                            */
+ /*------------------------------------------------------------------*/
+ 
+@@ -1457,13 +1342,13 @@ static byte connect_res(dword Id, word Number, DIVA_CAPI_ADAPTER *a,
+ 		return 1;
+ 	}
+ 	else if (plci->State == INC_CON_PENDING || plci->State == INC_CON_ALERT) {
+-		clear_c_ind_mask_bit(plci, (word)(appl->Id - 1));
+-		dump_c_ind_mask(plci);
++		__clear_bit(appl->Id - 1, plci->c_ind_mask_table);
++		dbug(1, dprintf("c_ind_mask =%*pb", MAX_APPL, plci->c_ind_mask_table));
+ 		Reject = GET_WORD(parms[0].info);
+ 		dbug(1, dprintf("Reject=0x%x", Reject));
+ 		if (Reject)
+ 		{
+-			if (c_ind_mask_empty(plci))
++			if (bitmap_empty(plci->c_ind_mask_table, MAX_APPL))
+ 			{
+ 				if ((Reject & 0xff00) == 0x3400)
+ 				{
+@@ -1553,11 +1438,8 @@ static byte connect_res(dword Id, word Number, DIVA_CAPI_ADAPTER *a,
+ 				sig_req(plci, CALL_RES, 0);
+ 			}
+ 
+-			for (i = 0; i < max_appl; i++) {
+-				if (test_c_ind_mask_bit(plci, i)) {
+-					sendf(&application[i], _DISCONNECT_I, Id, 0, "w", _OTHER_APPL_CONNECTED);
+-				}
+-			}
++			for_each_set_bit(i, plci->c_ind_mask_table, max_appl)
++				sendf(&application[i], _DISCONNECT_I, Id, 0, "w", _OTHER_APPL_CONNECTED);
+ 		}
+ 	}
+ 	return 1;
+@@ -1584,13 +1466,10 @@ static byte disconnect_req(dword Id, word Number, DIVA_CAPI_ADAPTER *a,
+ 	{
+ 		if (plci->State == INC_CON_PENDING || plci->State == INC_CON_ALERT)
+ 		{
+-			clear_c_ind_mask_bit(plci, (word)(appl->Id - 1));
++			__clear_bit(appl->Id - 1, plci->c_ind_mask_table);
+ 			plci->appl = appl;
+-			for (i = 0; i < max_appl; i++)
+-			{
+-				if (test_c_ind_mask_bit(plci, i))
+-					sendf(&application[i], _DISCONNECT_I, Id, 0, "w", 0);
+-			}
++			for_each_set_bit(i, plci->c_ind_mask_table, max_appl)
++				sendf(&application[i], _DISCONNECT_I, Id, 0, "w", 0);
+ 			plci->State = OUTG_DIS_PENDING;
+ 		}
+ 		if (plci->Sig.Id && plci->appl)
+@@ -1634,7 +1513,7 @@ static byte disconnect_res(dword Id, word Number, DIVA_CAPI_ADAPTER *a,
+ 	{
+ 		/* clear ind mask bit, just in case of collsion of          */
+ 		/* DISCONNECT_IND and CONNECT_RES                           */
+-		clear_c_ind_mask_bit(plci, (word)(appl->Id - 1));
++		__clear_bit(appl->Id - 1, plci->c_ind_mask_table);
+ 		ncci_free_receive_buffers(plci, 0);
+ 		if (plci_remove_check(plci))
+ 		{
+@@ -1642,7 +1521,7 @@ static byte disconnect_res(dword Id, word Number, DIVA_CAPI_ADAPTER *a,
+ 		}
+ 		if (plci->State == INC_DIS_PENDING
+ 		    || plci->State == SUSPENDING) {
+-			if (c_ind_mask_empty(plci)) {
++			if (bitmap_empty(plci->c_ind_mask_table, MAX_APPL)) {
+ 				if (plci->State != SUSPENDING) plci->State = IDLE;
+ 				dbug(1, dprintf("chs=%d", plci->channels));
+ 				if (!plci->channels) {
+@@ -3351,13 +3230,11 @@ static byte select_b_req(dword Id, word Number, DIVA_CAPI_ADAPTER *a,
+ 				}
+ 				plci->State = INC_CON_CONNECTED_ALERT;
+ 				plci->appl = appl;
+-				clear_c_ind_mask_bit(plci, (word)(appl->Id - 1));
+-				dump_c_ind_mask(plci);
+-				for (i = 0; i < max_appl; i++) /* disconnect the other appls */
+-				{                         /* its quasi a connect        */
+-					if (test_c_ind_mask_bit(plci, i))
+-						sendf(&application[i], _DISCONNECT_I, Id, 0, "w", _OTHER_APPL_CONNECTED);
+-				}
++				__clear_bit(appl->Id - 1, plci->c_ind_mask_table);
++				dbug(1, dprintf("c_ind_mask =%*pb", MAX_APPL, plci->c_ind_mask_table));
++				/* disconnect the other appls its quasi a connect */
++				for_each_set_bit(i, plci->c_ind_mask_table, max_appl)
++					sendf(&application[i], _DISCONNECT_I, Id, 0, "w", _OTHER_APPL_CONNECTED);
+ 			}
+ 
+ 			api_save_msg(msg, "s", &plci->saved_msg);
+@@ -5692,19 +5569,17 @@ static void sig_ind(PLCI *plci)
+ 		cip = find_cip(a, parms[4], parms[6]);
+ 		cip_mask = 1L << cip;
+ 		dbug(1, dprintf("cip=%d,cip_mask=%lx", cip, cip_mask));
+-		clear_c_ind_mask(plci);
++		bitmap_zero(plci->c_ind_mask_table, MAX_APPL);
+ 		if (!remove_started && !a->adapter_disabled)
+ 		{
+-			set_c_ind_mask_bit(plci, MAX_APPL);
+ 			group_optimization(a, plci);
+-			for (i = 0; i < max_appl; i++) {
++			for_each_set_bit(i, plci->group_optimization_mask_table, max_appl) {
+ 				if (application[i].Id
+ 				    && (a->CIP_Mask[i] & 1 || a->CIP_Mask[i] & cip_mask)
+-				    && CPN_filter_ok(parms[0], a, i)
+-				    && test_group_ind_mask_bit(plci, i)) {
++				    && CPN_filter_ok(parms[0], a, i)) {
+ 					dbug(1, dprintf("storedcip_mask[%d]=0x%lx", i, a->CIP_Mask[i]));
+-					set_c_ind_mask_bit(plci, i);
+-					dump_c_ind_mask(plci);
++					__set_bit(i, plci->c_ind_mask_table);
++					dbug(1, dprintf("c_ind_mask =%*pb", MAX_APPL, plci->c_ind_mask_table));
+ 					plci->State = INC_CON_PENDING;
+ 					plci->call_dir = (plci->call_dir & ~(CALL_DIR_OUT | CALL_DIR_ORIGINATE)) |
+ 						CALL_DIR_IN | CALL_DIR_ANSWER;
+@@ -5750,10 +5625,9 @@ static void sig_ind(PLCI *plci)
+ 						      SendMultiIE(plci, Id, multi_pi_parms, PI, 0x210, true));
+ 				}
+ 			}
+-			clear_c_ind_mask_bit(plci, MAX_APPL);
+-			dump_c_ind_mask(plci);
++			dbug(1, dprintf("c_ind_mask =%*pb", MAX_APPL, plci->c_ind_mask_table));
+ 		}
+-		if (c_ind_mask_empty(plci)) {
++		if (bitmap_empty(plci->c_ind_mask_table, MAX_APPL)) {
+ 			sig_req(plci, HANGUP, 0);
+ 			send_req(plci);
+ 			plci->State = IDLE;
+@@ -5994,13 +5868,13 @@ static void sig_ind(PLCI *plci)
+ 		break;
+ 
+ 	case RESUME:
+-		clear_c_ind_mask_bit(plci, (word)(plci->appl->Id - 1));
++		__clear_bit(plci->appl->Id - 1, plci->c_ind_mask_table);
+ 		PUT_WORD(&resume_cau[4], GOOD);
+ 		sendf(plci->appl, _FACILITY_I, Id, 0, "ws", (word)3, resume_cau);
+ 		break;
+ 
+ 	case SUSPEND:
+-		clear_c_ind_mask(plci);
++		bitmap_zero(plci->c_ind_mask_table, MAX_APPL);
+ 
+ 		if (plci->NL.Id && !plci->nl_remove_id) {
+ 			mixer_remove(plci);
+@@ -6037,15 +5911,12 @@ static void sig_ind(PLCI *plci)
+ 
+ 		if (plci->State == INC_CON_PENDING || plci->State == INC_CON_ALERT)
+ 		{
+-			for (i = 0; i < max_appl; i++)
+-			{
+-				if (test_c_ind_mask_bit(plci, i))
+-					sendf(&application[i], _DISCONNECT_I, Id, 0, "w", 0);
+-			}
++			for_each_set_bit(i, plci->c_ind_mask_table, max_appl)
++				sendf(&application[i], _DISCONNECT_I, Id, 0, "w", 0);
+ 		}
+ 		else
+ 		{
+-			clear_c_ind_mask(plci);
++			bitmap_zero(plci->c_ind_mask_table, MAX_APPL);
+ 		}
+ 		if (!plci->appl)
+ 		{
+@@ -6055,7 +5926,7 @@ static void sig_ind(PLCI *plci)
+ 				a->listen_active--;
+ 			}
+ 			plci->State = INC_DIS_PENDING;
+-			if (c_ind_mask_empty(plci))
++			if (bitmap_empty(plci->c_ind_mask_table, MAX_APPL))
+ 			{
+ 				plci->State = IDLE;
+ 				if (plci->NL.Id && !plci->nl_remove_id)
+@@ -6341,14 +6212,10 @@ static void SendInfo(PLCI *plci, dword Id, byte **parms, byte iesent)
+ 			    || Info_Number == DSP
+ 			    || Info_Number == UUI)
+ 			{
+-				for (j = 0; j < max_appl; j++)
+-				{
+-					if (test_c_ind_mask_bit(plci, j))
+-					{
+-						dbug(1, dprintf("Ovl_Ind"));
+-						iesent = true;
+-						sendf(&application[j], _INFO_I, Id, 0, "wS", Info_Number, Info_Element);
+-					}
++				for_each_set_bit(j, plci->c_ind_mask_table, max_appl) {
++					dbug(1, dprintf("Ovl_Ind"));
++					iesent = true;
++					sendf(&application[j], _INFO_I, Id, 0, "wS", Info_Number, Info_Element);
+ 				}
+ 			}
+ 		}               /* all other signalling states */
+@@ -6416,14 +6283,10 @@ static byte SendMultiIE(PLCI *plci, dword Id, byte **parms, byte ie_type,
+ 		}
+ 		else if (!plci->appl && Info_Number)
+ 		{                                        /* overlap receiving broadcast */
+-			for (j = 0; j < max_appl; j++)
+-			{
+-				if (test_c_ind_mask_bit(plci, j))
+-				{
+-					iesent = true;
+-					dbug(1, dprintf("Mlt_Ovl_Ind"));
+-					sendf(&application[j] , _INFO_I, Id, 0, "wS", Info_Number, Info_Element);
+-				}
++			for_each_set_bit(j, plci->c_ind_mask_table, max_appl) {
++				iesent = true;
++				dbug(1, dprintf("Mlt_Ovl_Ind"));
++				sendf(&application[j] , _INFO_I, Id, 0, "wS", Info_Number, Info_Element);
+ 			}
+ 		}                                        /* all other signalling states */
+ 		else if (Info_Number
+@@ -7270,7 +7133,6 @@ static word get_plci(DIVA_CAPI_ADAPTER *a)
+ 	word i, j;
+ 	PLCI *plci;
+ 
+-	dump_plcis(a);
+ 	for (i = 0; i < a->max_plci && a->plci[i].Id; i++);
+ 	if (i == a->max_plci) {
+ 		dbug(1, dprintf("get_plci: out of PLCIs"));
+@@ -7321,8 +7183,8 @@ static word get_plci(DIVA_CAPI_ADAPTER *a)
+ 
+ 	plci->ncci_ring_list = 0;
+ 	for (j = 0; j < MAX_CHANNELS_PER_PLCI; j++) plci->inc_dis_ncci_table[j] = 0;
+-	clear_c_ind_mask(plci);
+-	set_group_ind_mask(plci);
++	bitmap_zero(plci->c_ind_mask_table, MAX_APPL);
++	bitmap_fill(plci->group_optimization_mask_table, MAX_APPL);
+ 	plci->fax_connect_info_length = 0;
+ 	plci->nsf_control_bits = 0;
+ 	plci->ncpi_state = 0x00;
+@@ -9373,10 +9235,10 @@ word CapiRelease(word Id)
+ 					if (plci->State == INC_CON_PENDING
+ 					    || plci->State == INC_CON_ALERT)
+ 					{
+-						if (test_c_ind_mask_bit(plci, (word)(Id - 1)))
++						if (test_bit(Id - 1, plci->c_ind_mask_table))
+ 						{
+-							clear_c_ind_mask_bit(plci, (word)(Id - 1));
+-							if (c_ind_mask_empty(plci))
++							__clear_bit(Id - 1, plci->c_ind_mask_table);
++							if (bitmap_empty(plci->c_ind_mask_table, MAX_APPL))
+ 							{
+ 								sig_req(plci, HANGUP, 0);
+ 								send_req(plci);
+@@ -9384,10 +9246,10 @@ word CapiRelease(word Id)
+ 							}
+ 						}
+ 					}
+-					if (test_c_ind_mask_bit(plci, (word)(Id - 1)))
++					if (test_bit(Id - 1, plci->c_ind_mask_table))
+ 					{
+-						clear_c_ind_mask_bit(plci, (word)(Id - 1));
+-						if (c_ind_mask_empty(plci))
++						__clear_bit(Id - 1, plci->c_ind_mask_table);
++						if (bitmap_empty(plci->c_ind_mask_table, MAX_APPL))
+ 						{
+ 							if (!plci->appl)
+ 							{
+@@ -9452,7 +9314,7 @@ word CapiRelease(word Id)
+ static word plci_remove_check(PLCI *plci)
  {
- 	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_PHY_MEDIA_INFO_OUT_LENMAX);
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_PHY_MEDIA_INFO_IN_LEN);
- 	size_t outlen;
--	int rc;
- 	unsigned int payload_len;
--	unsigned int space_remaining = ee->len;
--	unsigned int page;
--	unsigned int page_off;
- 	unsigned int to_copy;
--	u8 *user_data = data;
-+	int rc;
+ 	if (!plci) return true;
+-	if (!plci->NL.Id && c_ind_mask_empty(plci))
++	if (!plci->NL.Id && bitmap_empty(plci->c_ind_mask_table, MAX_APPL))
+ 	{
+ 		if (plci->Sig.Id == 0xff)
+ 			plci->Sig.Id = 0;
+@@ -14735,7 +14597,8 @@ static void group_optimization(DIVA_CAPI_ADAPTER *a, PLCI *plci)
+ 	word appl_number_group_type[MAX_APPL];
+ 	PLCI *auxplci;
  
--	BUILD_BUG_ON(SFP_PAGE_SIZE * SFP_NUM_PAGES != ETH_MODULE_SFF_8079_LEN);
-+	if (offset > SFP_PAGE_SIZE)
-+		return -EINVAL;
+-	set_group_ind_mask(plci); /* all APPLs within this inc. call are allowed to dial in */
++	/* all APPLs within this inc. call are allowed to dial in */
++	bitmap_fill(plci->group_optimization_mask_table, MAX_APPL);
  
--	page_off = ee->offset % SFP_PAGE_SIZE;
--	page = ee->offset / SFP_PAGE_SIZE;
-+	to_copy = min(space, SFP_PAGE_SIZE - offset);
- 
--	while (space_remaining && (page < SFP_NUM_PAGES)) {
--		MCDI_SET_DWORD(inbuf, GET_PHY_MEDIA_INFO_IN_PAGE, page);
-+	MCDI_SET_DWORD(inbuf, GET_PHY_MEDIA_INFO_IN_PAGE, page);
-+	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_GET_PHY_MEDIA_INFO,
-+				inbuf, sizeof(inbuf),
-+				outbuf, sizeof(outbuf),
-+				&outlen);
- 
--		rc = efx_mcdi_rpc(efx, MC_CMD_GET_PHY_MEDIA_INFO,
--				  inbuf, sizeof(inbuf),
--				  outbuf, sizeof(outbuf),
--				  &outlen);
--		if (rc)
--			return rc;
-+	if (rc)
-+		return rc;
-+
-+	if (outlen < (MC_CMD_GET_PHY_MEDIA_INFO_OUT_DATA_OFST +
-+			SFP_PAGE_SIZE))
-+		return -EIO;
-+
-+	payload_len = MCDI_DWORD(outbuf, GET_PHY_MEDIA_INFO_OUT_DATALEN);
-+	if (payload_len != SFP_PAGE_SIZE)
-+		return -EIO;
- 
--		if (outlen < (MC_CMD_GET_PHY_MEDIA_INFO_OUT_DATA_OFST +
--			      SFP_PAGE_SIZE))
--			return -EIO;
-+	memcpy(data, MCDI_PTR(outbuf, GET_PHY_MEDIA_INFO_OUT_DATA) + offset,
-+	       to_copy);
- 
--		payload_len = MCDI_DWORD(outbuf,
--					 GET_PHY_MEDIA_INFO_OUT_DATALEN);
--		if (payload_len != SFP_PAGE_SIZE)
--			return -EIO;
-+	return to_copy;
-+}
- 
--		/* Copy as much as we can into data */
--		payload_len -= page_off;
--		to_copy = (space_remaining < payload_len) ?
--			space_remaining : payload_len;
-+static int efx_mcdi_phy_get_module_eeprom_byte(struct efx_nic *efx,
-+					       unsigned int page,
-+					       u8 byte)
-+{
-+	int rc;
-+	u8 data;
- 
--		memcpy(user_data,
--		       MCDI_PTR(outbuf, GET_PHY_MEDIA_INFO_OUT_DATA) + page_off,
--		       to_copy);
-+	rc = efx_mcdi_phy_get_module_eeprom_page(efx, page, &data, byte, 1);
-+	if (rc == 1)
-+		return data;
-+
-+	return rc;
-+}
-+
-+static int efx_mcdi_phy_diag_type(struct efx_nic *efx)
-+{
-+	/* Page zero of the EEPROM includes the diagnostic type at byte 92. */
-+	return efx_mcdi_phy_get_module_eeprom_byte(efx, 0,
-+						   SFF_DIAG_TYPE_OFFSET);
-+}
- 
--		space_remaining -= to_copy;
--		user_data += to_copy;
--		page_off = 0;
--		page++;
-+static int efx_mcdi_phy_sff_8472_level(struct efx_nic *efx)
-+{
-+	/* Page zero of the EEPROM includes the DMT level at byte 94. */
-+	return efx_mcdi_phy_get_module_eeprom_byte(efx, 0,
-+						   SFF_DMT_LEVEL_OFFSET);
-+}
-+
-+static u32 efx_mcdi_phy_module_type(struct efx_nic *efx)
-+{
-+	struct efx_mcdi_phy_data *phy_data = efx->phy_data;
-+
-+	if (phy_data->media != MC_CMD_MEDIA_QSFP_PLUS)
-+		return phy_data->media;
-+
-+	/* A QSFP+ NIC may actually have an SFP+ module attached.
-+	 * The ID is page 0, byte 0.
-+	 */
-+	switch (efx_mcdi_phy_get_module_eeprom_byte(efx, 0, 0)) {
-+	case 0x3:
-+		return MC_CMD_MEDIA_SFP_PLUS;
-+	case 0xc:
-+	case 0xd:
-+		return MC_CMD_MEDIA_QSFP_PLUS;
-+	default:
-+		return 0;
-+	}
-+}
-+
-+static int efx_mcdi_phy_get_module_eeprom(struct efx_nic *efx,
-+					  struct ethtool_eeprom *ee, u8 *data)
-+{
-+	int rc;
-+	ssize_t space_remaining = ee->len;
-+	unsigned int page_off;
-+	bool ignore_missing;
-+	int num_pages;
-+	int page;
-+
-+	switch (efx_mcdi_phy_module_type(efx)) {
-+	case MC_CMD_MEDIA_SFP_PLUS:
-+		num_pages = efx_mcdi_phy_sff_8472_level(efx) > 0 ?
-+				SFF_8472_NUM_PAGES : SFF_8079_NUM_PAGES;
-+		page = 0;
-+		ignore_missing = false;
-+		break;
-+	case MC_CMD_MEDIA_QSFP_PLUS:
-+		num_pages = SFF_8436_NUM_PAGES;
-+		page = -1; /* We obtain the lower page by asking for -1. */
-+		ignore_missing = true; /* Ignore missing pages after page 0. */
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	page_off = ee->offset % SFP_PAGE_SIZE;
-+	page += ee->offset / SFP_PAGE_SIZE;
-+
-+	while (space_remaining && (page < num_pages)) {
-+		rc = efx_mcdi_phy_get_module_eeprom_page(efx, page,
-+							 data, page_off,
-+							 space_remaining);
-+
-+		if (rc > 0) {
-+			space_remaining -= rc;
-+			data += rc;
-+			page_off = 0;
-+			page++;
-+		} else if (rc == 0) {
-+			space_remaining = 0;
-+		} else if (ignore_missing && (page > 0)) {
-+			int intended_size = SFP_PAGE_SIZE - page_off;
-+
-+			space_remaining -= intended_size;
-+			if (space_remaining < 0) {
-+				space_remaining = 0;
-+			} else {
-+				memset(data, 0, intended_size);
-+				data += intended_size;
-+				page_off = 0;
-+				page++;
-+				rc = 0;
-+			}
-+		} else {
-+			return rc;
-+		}
+ 	if (!a->group_optimization_enabled)
+ 	{
+@@ -14771,13 +14634,12 @@ static void group_optimization(DIVA_CAPI_ADAPTER *a, PLCI *plci)
+ 				if (a->plci[k].Id)
+ 				{
+ 					auxplci = &a->plci[k];
+-					if (auxplci->appl == &application[i]) /* application has a busy PLCI */
+-					{
++					if (auxplci->appl == &application[i]) {
++						/* application has a busy PLCI */
+ 						busy = true;
+ 						dbug(1, dprintf("Appl 0x%x is busy", i + 1));
+-					}
+-					else if (test_c_ind_mask_bit(auxplci, i)) /* application has an incoming call pending */
+-					{
++					} else if (test_bit(i, plci->c_ind_mask_table)) {
++						/* application has an incoming call pending */
+ 						busy = true;
+ 						dbug(1, dprintf("Appl 0x%x has inc. call pending", i + 1));
+ 					}
+@@ -14826,7 +14688,8 @@ static void group_optimization(DIVA_CAPI_ADAPTER *a, PLCI *plci)
+ 					if (appl_number_group_type[i] == appl_number_group_type[j])
+ 					{
+ 						dbug(1, dprintf("Appl 0x%x is member of group 0x%x, no call", j + 1, appl_number_group_type[j]));
+-						clear_group_ind_mask_bit(plci, j);           /* disable call on other group members */
++						/* disable call on other group members */
++						__clear_bit(j, plci->group_optimization_mask_table);
+ 						appl_number_group_type[j] = 0;       /* remove disabled group member from group list */
+ 					}
+ 				}
+@@ -14834,7 +14697,7 @@ static void group_optimization(DIVA_CAPI_ADAPTER *a, PLCI *plci)
+ 		}
+ 		else                                                 /* application should not get a call */
+ 		{
+-			clear_group_ind_mask_bit(plci, i);
++			__clear_bit(i, plci->group_optimization_mask_table);
+ 		}
  	}
  
- 	return 0;
-@@ -807,16 +919,42 @@ static int efx_mcdi_phy_get_module_eeprom(struct efx_nic *efx,
- static int efx_mcdi_phy_get_module_info(struct efx_nic *efx,
- 					struct ethtool_modinfo *modinfo)
- {
--	struct efx_mcdi_phy_data *phy_cfg = efx->phy_data;
-+	int sff_8472_level;
-+	int diag_type;
- 
--	switch (phy_cfg->media) {
-+	switch (efx_mcdi_phy_module_type(efx)) {
- 	case MC_CMD_MEDIA_SFP_PLUS:
--		modinfo->type = ETH_MODULE_SFF_8079;
--		modinfo->eeprom_len = ETH_MODULE_SFF_8079_LEN;
--		return 0;
-+		sff_8472_level = efx_mcdi_phy_sff_8472_level(efx);
-+
-+		/* If we can't read the diagnostics level we have none. */
-+		if (sff_8472_level < 0)
-+			return -EOPNOTSUPP;
-+
-+		/* Check if this module requires the (unsupported) address
-+		 * change operation.
-+		 */
-+		diag_type = efx_mcdi_phy_diag_type(efx);
-+
-+		if ((sff_8472_level == 0) ||
-+		    (diag_type & SFF_DIAG_ADDR_CHANGE)) {
-+			modinfo->type = ETH_MODULE_SFF_8079;
-+			modinfo->eeprom_len = ETH_MODULE_SFF_8079_LEN;
-+		} else {
-+			modinfo->type = ETH_MODULE_SFF_8472;
-+			modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
-+		}
-+		break;
-+
-+	case MC_CMD_MEDIA_QSFP_PLUS:
-+		modinfo->type = ETH_MODULE_SFF_8436;
-+		modinfo->eeprom_len = ETH_MODULE_SFF_8436_LEN;
-+		break;
-+
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-+
-+	return 0;
- }
- 
- static const struct efx_phy_operations efx_mcdi_phy_ops = {
+-- 
+2.11.0
