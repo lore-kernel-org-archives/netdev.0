@@ -1,84 +1,287 @@
-From: Ricardo Farrington <Ricardo.Farrington@cavium.com>
-Subject: RE: [PATCH v2 net-next 0/3] liquidio: avoid vm low memory crashes
-Date: Tue, 18 Jul 2017 15:08:49 +0000
-Message-ID: <CY1PR07MB26658DEEECB90656C84658EAECA10@CY1PR07MB2665.namprd07.prod.outlook.com>
-References: <20170718004920.GA1541@felix-thinkpad.cavium.com>
- <20170718062317.GJ3259@mtr-leonro.local>
+From: Martin Habets <mhabets@solarflare.com>
+Subject: [PATCH net-next] sfc: Add ethtool -m support for QSFP modules
+Date: Tue, 18 Jul 2017 16:43:19 +0100
+Message-ID: <d998b2ad-454c-0747-0988-44d93c1b9c82@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
-        "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>
-To: Leon Romanovsky <leon@kernel.org>,
-        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+        Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+To: Dave Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0088.outbound.protection.outlook.com ([104.47.33.88]:47600
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751441AbdGRPI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 18 Jul 2017 11:08:57 -0400
-In-Reply-To: <20170718062317.GJ3259@mtr-leonro.local>
-Content-Language: en-US
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:49333 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751393AbdGRPng (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 11:43:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My apologies Leon - I did not infer that the subject line should have been =
-changed from your previous correspondence.  I will correct it.
+This also adds support for non-QSFP modules attached to QSFP.
 
-Rick
+Signed-off-by: Martin Habets <mhabets@solarflare.com>
+---
+ drivers/net/ethernet/sfc/mcdi_port.c |  224 +++++++++++++++++++++++++++-------
+ 1 file changed, 181 insertions(+), 43 deletions(-)
 
------Original Message-----
-From: Leon Romanovsky [mailto:leon@kernel.org]=20
-Sent: Monday, July 17, 2017 11:23 PM
-To: Manlunas, Felix <Felix.Manlunas@cavium.com>
-Cc: davem@davemloft.net; netdev@vger.kernel.org; Vatsavayi, Raghu <Raghu.Va=
-tsavayi@cavium.com>; Chickles, Derek <Derek.Chickles@cavium.com>; Burla, Sa=
-tananda <Satananda.Burla@cavium.com>; Ricardo Farrington <Ricardo.Farringto=
-n@cavium.com>
-Subject: Re: [PATCH v2 net-next 0/3] liquidio: avoid vm low memory crashes
-
-On Mon, Jul 17, 2017 at 05:49:20PM -0700, Felix Manlunas wrote:
-> From: Rick Farrington <ricardo.farrington@cavium.com>
->
-> This patchset addresses issues brought about by low memory conditions=20
-> in a VM.  These conditions were not seen when the driver was exercised=20
-> normally.  Rather, they were brought about through manual fault injection=
-.
-> They are being included in the interest of hardening the driver=20
-> against unforeseen circumstances.
->
-> 1. Fix GPF in octeon_init_droq(); zero the allocated block 'recv_buf_list=
-'.
->    This prevents a GPF trying to access an invalid 'recv_buf_list[i]' ent=
-ry
->    in octeon_droq_destroy_ring_buffers() if init didn't alloc all entries=
-.
-> 2. Don't dereference a NULL ptr in octeon_droq_destroy_ring_buffers().
-> 3. For defensive programming, zero the allocated block 'oct->droq[0]' in
->    octeon_setup_output_queues() and 'oct->instr_queue[0]' in
->    octeon_setup_instr_queues().
->
-> change log:
-> V1 -> V2:
-> 1. Corrected syntax in 'Subject' lines; no functional or code changes.
->
-> Rick Farrington (3):
->   liquidio: lowmem: init allocated memory to 0
->   liquidio: lowmem: do not dereference null ptr
->   liquidio: lowmem: init allocated memory to 0
-
-I'm feeling d=E9j=E0 vu here. We already discussed that zero allocated arra=
-ys have nothing to do with low memory conditions. Why are you continuing to=
- use this misleading term here?
-
->
->  drivers/net/ethernet/cavium/liquidio/octeon_device.c | 8 ++++----
->  drivers/net/ethernet/cavium/liquidio/octeon_droq.c   | 6 ++++--
->  2 files changed, 8 insertions(+), 6 deletions(-)
->
-> --
-> 2.9.0
->
+diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
+index c905971c5f3a..d3f96a8f743b 100644
+--- a/drivers/net/ethernet/sfc/mcdi_port.c
++++ b/drivers/net/ethernet/sfc/mcdi_port.c
+@@ -746,59 +746,171 @@ static const char *efx_mcdi_phy_test_name(struct efx_nic *efx,
+ 	return NULL;
+ }
+ 
+-#define SFP_PAGE_SIZE	128
+-#define SFP_NUM_PAGES	2
+-static int efx_mcdi_phy_get_module_eeprom(struct efx_nic *efx,
+-					  struct ethtool_eeprom *ee, u8 *data)
++#define SFP_PAGE_SIZE		128
++#define SFF_DIAG_TYPE_OFFSET	92
++#define SFF_DIAG_ADDR_CHANGE	BIT(2)
++#define SFF_8079_NUM_PAGES	2
++#define SFF_8472_NUM_PAGES	4
++#define SFF_8436_NUM_PAGES	5
++#define SFF_DMT_LEVEL_OFFSET	94
++
++/** efx_mcdi_phy_get_module_eeprom_page() - Get a single page of module eeprom
++ * @efx:	NIC context
++ * @page:	EEPROM page number
++ * @data:	Destination data pointer
++ * @offset:	Offset in page to copy from in to data
++ * @space:	Space available in data
++ *
++ * Return:
++ *   >=0 - amount of data copied
++ *   <0  - error
++ */
++static int efx_mcdi_phy_get_module_eeprom_page(struct efx_nic *efx,
++					       unsigned int page,
++					       u8 *data, ssize_t offset,
++					       ssize_t space)
+ {
+ 	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_PHY_MEDIA_INFO_OUT_LENMAX);
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_PHY_MEDIA_INFO_IN_LEN);
+ 	size_t outlen;
+-	int rc;
+ 	unsigned int payload_len;
+-	unsigned int space_remaining = ee->len;
+-	unsigned int page;
+-	unsigned int page_off;
+ 	unsigned int to_copy;
+-	u8 *user_data = data;
++	int rc;
+ 
+-	BUILD_BUG_ON(SFP_PAGE_SIZE * SFP_NUM_PAGES != ETH_MODULE_SFF_8079_LEN);
++	if (offset > SFP_PAGE_SIZE)
++		return -EINVAL;
+ 
+-	page_off = ee->offset % SFP_PAGE_SIZE;
+-	page = ee->offset / SFP_PAGE_SIZE;
++	to_copy = min(space, SFP_PAGE_SIZE - offset);
+ 
+-	while (space_remaining && (page < SFP_NUM_PAGES)) {
+-		MCDI_SET_DWORD(inbuf, GET_PHY_MEDIA_INFO_IN_PAGE, page);
++	MCDI_SET_DWORD(inbuf, GET_PHY_MEDIA_INFO_IN_PAGE, page);
++	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_GET_PHY_MEDIA_INFO,
++				inbuf, sizeof(inbuf),
++				outbuf, sizeof(outbuf),
++				&outlen);
+ 
+-		rc = efx_mcdi_rpc(efx, MC_CMD_GET_PHY_MEDIA_INFO,
+-				  inbuf, sizeof(inbuf),
+-				  outbuf, sizeof(outbuf),
+-				  &outlen);
+-		if (rc)
+-			return rc;
++	if (rc)
++		return rc;
++
++	if (outlen < (MC_CMD_GET_PHY_MEDIA_INFO_OUT_DATA_OFST +
++			SFP_PAGE_SIZE))
++		return -EIO;
++
++	payload_len = MCDI_DWORD(outbuf, GET_PHY_MEDIA_INFO_OUT_DATALEN);
++	if (payload_len != SFP_PAGE_SIZE)
++		return -EIO;
+ 
+-		if (outlen < (MC_CMD_GET_PHY_MEDIA_INFO_OUT_DATA_OFST +
+-			      SFP_PAGE_SIZE))
+-			return -EIO;
++	memcpy(data, MCDI_PTR(outbuf, GET_PHY_MEDIA_INFO_OUT_DATA) + offset,
++	       to_copy);
+ 
+-		payload_len = MCDI_DWORD(outbuf,
+-					 GET_PHY_MEDIA_INFO_OUT_DATALEN);
+-		if (payload_len != SFP_PAGE_SIZE)
+-			return -EIO;
++	return to_copy;
++}
+ 
+-		/* Copy as much as we can into data */
+-		payload_len -= page_off;
+-		to_copy = (space_remaining < payload_len) ?
+-			space_remaining : payload_len;
++static int efx_mcdi_phy_get_module_eeprom_byte(struct efx_nic *efx,
++					       unsigned int page,
++					       u8 byte)
++{
++	int rc;
++	u8 data;
+ 
+-		memcpy(user_data,
+-		       MCDI_PTR(outbuf, GET_PHY_MEDIA_INFO_OUT_DATA) + page_off,
+-		       to_copy);
++	rc = efx_mcdi_phy_get_module_eeprom_page(efx, page, &data, byte, 1);
++	if (rc == 1)
++		return data;
++
++	return rc;
++}
++
++static int efx_mcdi_phy_diag_type(struct efx_nic *efx)
++{
++	/* Page zero of the EEPROM includes the diagnostic type at byte 92. */
++	return efx_mcdi_phy_get_module_eeprom_byte(efx, 0,
++						   SFF_DIAG_TYPE_OFFSET);
++}
+ 
+-		space_remaining -= to_copy;
+-		user_data += to_copy;
+-		page_off = 0;
+-		page++;
++static int efx_mcdi_phy_sff_8472_level(struct efx_nic *efx)
++{
++	/* Page zero of the EEPROM includes the DMT level at byte 94. */
++	return efx_mcdi_phy_get_module_eeprom_byte(efx, 0,
++						   SFF_DMT_LEVEL_OFFSET);
++}
++
++static u32 efx_mcdi_phy_module_type(struct efx_nic *efx)
++{
++	struct efx_mcdi_phy_data *phy_data = efx->phy_data;
++
++	if (phy_data->media != MC_CMD_MEDIA_QSFP_PLUS)
++		return phy_data->media;
++
++	/* A QSFP+ NIC may actually have an SFP+ module attached.
++	 * The ID is page 0, byte 0.
++	 */
++	switch (efx_mcdi_phy_get_module_eeprom_byte(efx, 0, 0)) {
++	case 0x3:
++		return MC_CMD_MEDIA_SFP_PLUS;
++	case 0xc:
++	case 0xd:
++		return MC_CMD_MEDIA_QSFP_PLUS;
++	default:
++		return 0;
++	}
++}
++
++static int efx_mcdi_phy_get_module_eeprom(struct efx_nic *efx,
++					  struct ethtool_eeprom *ee, u8 *data)
++{
++	int rc;
++	ssize_t space_remaining = ee->len;
++	unsigned int page_off;
++	bool ignore_missing;
++	int num_pages;
++	int page;
++
++	switch (efx_mcdi_phy_module_type(efx)) {
++	case MC_CMD_MEDIA_SFP_PLUS:
++		num_pages = efx_mcdi_phy_sff_8472_level(efx) > 0 ?
++				SFF_8472_NUM_PAGES : SFF_8079_NUM_PAGES;
++		page = 0;
++		ignore_missing = false;
++		break;
++	case MC_CMD_MEDIA_QSFP_PLUS:
++		num_pages = SFF_8436_NUM_PAGES;
++		page = -1; /* We obtain the lower page by asking for -1. */
++		ignore_missing = true; /* Ignore missing pages after page 0. */
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	page_off = ee->offset % SFP_PAGE_SIZE;
++	page += ee->offset / SFP_PAGE_SIZE;
++
++	while (space_remaining && (page < num_pages)) {
++		rc = efx_mcdi_phy_get_module_eeprom_page(efx, page,
++							 data, page_off,
++							 space_remaining);
++
++		if (rc > 0) {
++			space_remaining -= rc;
++			data += rc;
++			page_off = 0;
++			page++;
++		} else if (rc == 0) {
++			space_remaining = 0;
++		} else if (ignore_missing && (page > 0)) {
++			int intended_size = SFP_PAGE_SIZE - page_off;
++
++			space_remaining -= intended_size;
++			if (space_remaining < 0) {
++				space_remaining = 0;
++			} else {
++				memset(data, 0, intended_size);
++				data += intended_size;
++				page_off = 0;
++				page++;
++				rc = 0;
++			}
++		} else {
++			return rc;
++		}
+ 	}
+ 
+ 	return 0;
+@@ -807,16 +919,42 @@ static int efx_mcdi_phy_get_module_eeprom(struct efx_nic *efx,
+ static int efx_mcdi_phy_get_module_info(struct efx_nic *efx,
+ 					struct ethtool_modinfo *modinfo)
+ {
+-	struct efx_mcdi_phy_data *phy_cfg = efx->phy_data;
++	int sff_8472_level;
++	int diag_type;
+ 
+-	switch (phy_cfg->media) {
++	switch (efx_mcdi_phy_module_type(efx)) {
+ 	case MC_CMD_MEDIA_SFP_PLUS:
+-		modinfo->type = ETH_MODULE_SFF_8079;
+-		modinfo->eeprom_len = ETH_MODULE_SFF_8079_LEN;
+-		return 0;
++		sff_8472_level = efx_mcdi_phy_sff_8472_level(efx);
++
++		/* If we can't read the diagnostics level we have none. */
++		if (sff_8472_level < 0)
++			return -EOPNOTSUPP;
++
++		/* Check if this module requires the (unsupported) address
++		 * change operation.
++		 */
++		diag_type = efx_mcdi_phy_diag_type(efx);
++
++		if ((sff_8472_level == 0) ||
++		    (diag_type & SFF_DIAG_ADDR_CHANGE)) {
++			modinfo->type = ETH_MODULE_SFF_8079;
++			modinfo->eeprom_len = ETH_MODULE_SFF_8079_LEN;
++		} else {
++			modinfo->type = ETH_MODULE_SFF_8472;
++			modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
++		}
++		break;
++
++	case MC_CMD_MEDIA_QSFP_PLUS:
++		modinfo->type = ETH_MODULE_SFF_8436;
++		modinfo->eeprom_len = ETH_MODULE_SFF_8436_LEN;
++		break;
++
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
++
++	return 0;
+ }
+ 
+ static const struct efx_phy_operations efx_mcdi_phy_ops = {
