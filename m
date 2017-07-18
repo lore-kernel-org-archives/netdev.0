@@ -1,77 +1,65 @@
-From: "Gustavo A. R. Silva" <gustavo-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
-Subject: [PATCH] wireless: airo: remove unnecessary static in writerids()
-Date: Tue, 18 Jul 2017 15:37:11 -0500
-Message-ID: <20170718203711.GA30044@embeddedgus>
+From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Subject: [PATCH] rtlwifi: remove useless code
+Date: Tue, 18 Jul 2017 15:41:06 -0500
+Message-ID: <20170718204106.GA9905@embeddedgus>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        "Gustavo A. R. Silva" <gustavo-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove unnecessary static on local function pointer _writer_.
-Such pointer is initialized before being used, on every
-execution path throughout the function. The static has no
-benefit and, removing it reduces the object file size.
+Remove useless local variables last_read_point and last_txw_point and
+the code related.
 
-This issue was detected using Coccinelle and the following semantic patch:
-
-@bad exists@
-position p;
-identifier x;
-type T;
-@@
-
-static T x@p;
-...
-x = <+...x...+>
-
-@@
-identifier x;
-expression e;
-type T;
-position p != bad.p;
-@@
-
--static
- T x@p;
- ... when != x
-     when strict
-?x = e;
-
-In the following log you can see a significant difference in the object
-file size. This log is the output of the size command, before and after
-the code change:
-
-before:
-   text    data     bss     dec     hex filename
- 113797   19152    1216  134165   20c15 drivers/net/wireless/cisco/airo.o
-
-after:
-   text	   data	    bss	    dec	    hex	filename
- 113881	  19096	   1152	 134129	  20bf1	drivers/net/wireless/cisco/airo.o
-
-Signed-off-by: Gustavo A. R. Silva <gustavo-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
 ---
- drivers/net/wireless/cisco/airo.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/realtek/rtlwifi/rtl8192ee/trx.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/drivers/net/wireless/cisco/airo.c b/drivers/net/wireless/cisco/airo.c
-index 84143a0..1066d84 100644
---- a/drivers/net/wireless/cisco/airo.c
-+++ b/drivers/net/wireless/cisco/airo.c
-@@ -7837,7 +7837,7 @@ static int writerids(struct net_device *dev, aironet_ioctl *comp) {
- 	struct airo_info *ai = dev->ml_priv;
- 	int  ridcode;
-         int  enabled;
--	static int (* writer)(struct airo_info *, u16 rid, const void *, int, int);
-+	int (*writer)(struct airo_info *, u16 rid, const void *, int, int);
- 	unsigned char *iobuf;
+diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/trx.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/trx.c
+index 55f238a..c58393e 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/trx.c
++++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/trx.c
+@@ -478,7 +478,6 @@ u16 rtl92ee_rx_desc_buff_remained_cnt(struct ieee80211_hw *hw, u8 queue_index)
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	u16 read_point = 0, write_point = 0, remind_cnt = 0;
+ 	u32 tmp_4byte = 0;
+-	static u16 last_read_point;
+ 	static bool start_rx;
  
- 	/* Only super-user can write RIDs */
+ 	tmp_4byte = rtl_read_dword(rtlpriv, REG_RXQ_TXBD_IDX);
+@@ -506,7 +505,6 @@ u16 rtl92ee_rx_desc_buff_remained_cnt(struct ieee80211_hw *hw, u8 queue_index)
+ 
+ 	rtlpci->rx_ring[queue_index].next_rx_rp = write_point;
+ 
+-	last_read_point = read_point;
+ 	return remind_cnt;
+ }
+ 
+@@ -917,7 +915,6 @@ void rtl92ee_set_desc(struct ieee80211_hw *hw, u8 *pdesc, bool istx,
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	u16 cur_tx_rp = 0;
+ 	u16 cur_tx_wp = 0;
+-	static u16 last_txw_point;
+ 	static bool over_run;
+ 	u32 tmp = 0;
+ 	u8 q_idx = *val;
+@@ -951,9 +948,6 @@ void rtl92ee_set_desc(struct ieee80211_hw *hw, u8 *pdesc, bool istx,
+ 				rtl_write_word(rtlpriv,
+ 					       get_desc_addr_fr_q_idx(q_idx),
+ 					       ring->cur_tx_wp);
+-
+-				if (q_idx == 1)
+-					last_txw_point = cur_tx_wp;
+ 			}
+ 
+ 			if (ring->avl_desc < (max_tx_desc - 15)) {
 -- 
 2.5.0
