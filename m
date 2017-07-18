@@ -1,68 +1,98 @@
-From: <helga.brickl@arcor.de>
-Subject: (unknown)
-Date: Tue, 18 Jul 2017 23:49:51 -0000
-Message-ID: <150042179138.26437.3403386059542217621@hinet.net>
+From: <steven.la@riverbed.com>
+Subject: [git][98ed5bb] rvbd/rbt-kernel : bnx2-fix
+Date: Tue, 18 Jul 2017 23:43:20 +0000
+Message-ID: <20170718234320.24976.23065@leafminer.lab.nbttech.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_48303574101919_netdev.zip
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Michael@vger.kernel.org, <konrad.wilk@oracle.com>,
+        Chan@vger.kernel.org, <mchan@broadcom.com>,
+        akepner@vger.kernel.org, Rzeszutek@vger.kernel.org,
+        Konrad@vger.kernel.org, Wilk@vger.kernel.org,
+        <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 114-44-219-101.dynamic-ip.hinet.net ([114.44.219.101]:42727
-        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751962AbdGRXt6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 19:49:58 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from eng.riverbed.com ([208.70.196.45]:4501 "EHLO smtp1.riverbed.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752070AbdGRXwu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Jul 2017 19:52:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-WwAAAIIKAAAAAA==
+
+@new_changed_in []
+
+
+Repository: git@gitlab.lab.nbttech.com:rvbd/rbt-kernel.git
+Branch: bnx2-fix
+Author: Steven La <steven.la@riverbed.com>
+Date: 2017-07-18T16:34:31-07:00
+New Revision: 98ed5bbc446dca588ab8a1a6edbfc870dc9d6933
+
+
+Log:
+Apply the following patches from upstream and port extra skbuff
+operating routines used the these patches.
+
+    commit b7b6a688d217936459ff5cf1087b2361db952509
+    Author: Ian Campbell <Ian.Campbell@citrix.com>
+    Date:   Wed Aug 24 22:28:12 2011 +0000
+
+        bnx2: convert to SKB paged frag API.
+
+        Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+        Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+        Cc: Michael Chan <mchan@broadcom.com>
+        Cc: netdev@vger.kernel.org
+        Signed-off-by: David S. Miller <davem@davemloft.net>
+
+    commit a1f4e8bcbccf50cf1894c263af4d677d4f566533
+    Author: Eric Dumazet <eric.dumazet@gmail.com>
+    Date:   Thu Oct 13 07:50:19 2011 +0000
+
+        bnx2: fix skb truesize underestimation
+
+        bnx2 allocates a full page per fragment. We must account PAGE_SIZE
+        increments on skb->truesize, not the actual frag length.
+
+        Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+        Signed-off-by: David S. Miller <davem@davemloft.net>
+
+    commit 9e903e085262ffbf1fc44a17ac06058aca03524a
+    Author: Eric Dumazet <eric.dumazet@gmail.com>
+    Date:   Tue Oct 18 21:00:24 2011 +0000
+
+        net: add skb frag size accessors
+
+        To ease skb->truesize sanitization, its better to be able to localize
+        all references to skb frags size.
+
+        Define accessors : skb_frag_size() to fetch frag size, and
+        skb_frag_size_{set|add|sub}() to manipulate it.
+
+        Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+        Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Root Issue Details:
+For bug285465, there are some issues for handling paged data.
+
+Fix Summary Details:
+Apply the above three patches taken from upstream's code. Since RiOS is
+Redhat 6.1 release base, these patches need additionally skbuff helper
+routines, porting those as well.
+
+Testing:
+Run stress test on the interface that uses this driver.
+
+Fix Complete: # Yes
+Risk of Fix: # Low
+
+BugID: 285465
+DesignID:
+ReviewID:
+CC:
+Reviewed-By: akepner
+Approved-By:
+
+
+Open this commit in your browser:
+https://gitlab.lab.nbttech.com/rvbd/rbt-kernel/commit/98ed5bbc446dca588ab8a1a6edbfc870dc9d6933
