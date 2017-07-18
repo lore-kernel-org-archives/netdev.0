@@ -1,44 +1,51 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 11/12] net: dsa: mv88e6xxx: add Energy Detect ops
-Date: Tue, 18 Jul 2017 14:59:44 -0400
-Message-ID: <87d18xpo4f.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170717210405.GC11719@lunn.ch> <20170717.141048.999243831453421230.davem@davemloft.net> <e65f425d-d6c2-f1c3-ea92-c2a0878add44@gmail.com> <20170718.104636.315406311682846961.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] Netfilter fixes for net
+Date: Tue, 18 Jul 2017 12:03:40 -0700 (PDT)
+Message-ID: <20170718.120340.1012556068669757824.davem@davemloft.net>
+References: <1500372839-6735-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: andrew@lunn.ch, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: David Miller <davem@davemloft.net>, f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170718.104636.315406311682846961.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54626 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751505AbdGRTDl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 15:03:41 -0400
+In-Reply-To: <1500372839-6735-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 18 Jul 2017 12:13:54 +0200
 
-David Miller <davem@davemloft.net> writes:
+> The following patchset contains Netfilter fixes for your net tree,
+> they are:
+> 
+> 1) Missing netlink message sanity check in nfnetlink, patch from
+>    Mateusz Jurczyk.
+> 
+> 2) We now have netfilter per-netns hooks, so let's kill global hook
+>    infrastructure, this infrastructure is known to be racy with netns.
+>    We don't care about out of tree modules. Patch from Florian Westphal.
+> 
+> 3) find_appropriate_src() is buggy when colissions happens after the
+>    conversion of the nat bysource to rhashtable. Also from Florian.
+> 
+> 4) Remove forward chain in nf_tables arp family, it's useless and it is
+>    causing quite a bit of confusion, from Florian Westphal.
+> 
+> 5) nf_ct_remove_expect() is called with the wrong parameter, causing
+>    kernel oops, patch from Florian Westphal.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-> However, in this particular case, this issue was brought to Vivien's
-> attention multiple times in the past.
->
-> And I think the direct PHY poking issue is much more important than
-> these seemingly endless reorganizations of the driver that Vivien is
-> doing.
->
-> So I personally share Andrew's serious frustration that we are doing
-> constant reorgs but not addressing directly the specific issues that
-> one has been made clearly aware of.
+Pulled, thanks a lot.
 
-We support 26 Marvell Ethernet switch chips, so I am often comparing the
-documentation of many of them to make sure the driver stops writing
-arbitrary registers, ending up with many inconsistencies (like Remote
-Management being currently enabled on all chips with an RMU, fix coming)
-mainly due to poor documentation and device setup.
+What about that change Eric Dumazet was talking about with Florian
+that stopped instantiating conntrack by default in new namespaces?
 
-I know this looks boring, I do not particularly enjoy it myself, but I
-think this is also important. I don't mind fixing the poking function as
-well in the near future.
-
-
-Thanks,
-
-        Vivien
+Just curious.
