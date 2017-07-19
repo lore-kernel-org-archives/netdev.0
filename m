@@ -1,7 +1,7 @@
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next v2 03/13] net: dsa: Remove switchdev dependency from DSA switch notifier chain
-Date: Wed, 19 Jul 2017 19:04:44 +0300
-Message-ID: <1500480294-10604-4-git-send-email-arkadis@mellanox.com>
+Subject: [PATCH net-next v2 09/13] net: dsa: Remove support for MDB dump from DSA's drivers
+Date: Wed, 19 Jul 2017 19:04:50 +0300
+Message-ID: <1500480294-10604-10-git-send-email-arkadis@mellanox.com>
 References: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
 Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         f.fainelli@gmail.com, andrew@lunn.ch,
@@ -10,163 +10,99 @@ Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         Arkadi Sharshevsky <arkadis@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50567 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50643 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755289AbdGSQBa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 12:01:30 -0400
+        with ESMTP id S1755305AbdGSQBc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 12:01:32 -0400
 In-Reply-To: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the switchdev objects are embedded inside the DSA notifier
-info. This patch removes this dependency. This is done as a preparation
-stage before adding support for learning FDB through the switchdev
-notification chain.
+This is done as a preparation before removing support for MDB dump from
+DSA core. The MDBs are synced with the bridge and thus there is no
+need for special dump operation support.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/dsa_priv.h | 11 ++++++-----
- net/dsa/port.c     | 15 +++++++++------
- net/dsa/slave.c    |  6 ++++--
- net/dsa/switch.c   | 11 ++++-------
- 4 files changed, 23 insertions(+), 20 deletions(-)
+ drivers/net/dsa/microchip/ksz_common.c |  9 ---------
+ drivers/net/dsa/mv88e6xxx/chip.c       | 24 ------------------------
+ 2 files changed, 33 deletions(-)
 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 428402f..2b2f124 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -43,9 +43,10 @@ struct dsa_notifier_bridge_info {
+diff --git a/drivers/net/dsa/microchip/ksz_common.c b/drivers/net/dsa/microchip/ksz_common.c
+index a53ce59..4de9d90 100644
+--- a/drivers/net/dsa/microchip/ksz_common.c
++++ b/drivers/net/dsa/microchip/ksz_common.c
+@@ -1020,14 +1020,6 @@ static int ksz_port_mdb_del(struct dsa_switch *ds, int port,
+ 	return ret;
+ }
  
- /* DSA_NOTIFIER_FDB_* */
- struct dsa_notifier_fdb_info {
--	const struct switchdev_obj_port_fdb *fdb;
- 	int sw_index;
- 	int port;
-+	const unsigned char *addr;
-+	u16 vid;
+-static int ksz_port_mdb_dump(struct dsa_switch *ds, int port,
+-			     struct switchdev_obj_port_mdb *mdb,
+-			     switchdev_obj_dump_cb_t *cb)
+-{
+-	/* this is not called by switch layer */
+-	return 0;
+-}
+-
+ static int ksz_port_mirror_add(struct dsa_switch *ds, int port,
+ 			       struct dsa_mall_mirror_tc_entry *mirror,
+ 			       bool ingress)
+@@ -1090,7 +1082,6 @@ static const struct dsa_switch_ops ksz_switch_ops = {
+ 	.port_mdb_prepare       = ksz_port_mdb_prepare,
+ 	.port_mdb_add           = ksz_port_mdb_add,
+ 	.port_mdb_del           = ksz_port_mdb_del,
+-	.port_mdb_dump          = ksz_port_mdb_dump,
+ 	.port_mirror_add	= ksz_port_mirror_add,
+ 	.port_mirror_del	= ksz_port_mirror_del,
  };
- 
- /* DSA_NOTIFIER_MDB_* */
-@@ -119,10 +120,10 @@ int dsa_port_vlan_filtering(struct dsa_port *dp, bool vlan_filtering,
- 			    struct switchdev_trans *trans);
- int dsa_port_ageing_time(struct dsa_port *dp, clock_t ageing_clock,
- 			 struct switchdev_trans *trans);
--int dsa_port_fdb_add(struct dsa_port *dp,
--		     const struct switchdev_obj_port_fdb *fdb);
--int dsa_port_fdb_del(struct dsa_port *dp,
--		     const struct switchdev_obj_port_fdb *fdb);
-+int dsa_port_fdb_add(struct dsa_port *dp, const unsigned char *addr,
-+		     u16 vid);
-+int dsa_port_fdb_del(struct dsa_port *dp, const unsigned char *addr,
-+		     u16 vid);
- int dsa_port_fdb_dump(struct dsa_port *dp, struct switchdev_obj_port_fdb *fdb,
- 		      switchdev_obj_dump_cb_t *cb);
- int dsa_port_mdb_add(struct dsa_port *dp,
-diff --git a/net/dsa/port.c b/net/dsa/port.c
-index bd271b9..86e0585 100644
---- a/net/dsa/port.c
-+++ b/net/dsa/port.c
-@@ -146,25 +146,28 @@ int dsa_port_ageing_time(struct dsa_port *dp, clock_t ageing_clock,
- 	return dsa_port_notify(dp, DSA_NOTIFIER_AGEING_TIME, &info);
- }
- 
--int dsa_port_fdb_add(struct dsa_port *dp,
--		     const struct switchdev_obj_port_fdb *fdb)
-+int dsa_port_fdb_add(struct dsa_port *dp, const unsigned char *addr,
-+		     u16 vid)
- {
- 	struct dsa_notifier_fdb_info info = {
- 		.sw_index = dp->ds->index,
- 		.port = dp->index,
--		.fdb = fdb,
-+		.addr = addr,
-+		.vid = vid,
- 	};
- 
- 	return dsa_port_notify(dp, DSA_NOTIFIER_FDB_ADD, &info);
- }
- 
--int dsa_port_fdb_del(struct dsa_port *dp,
--		     const struct switchdev_obj_port_fdb *fdb)
-+int dsa_port_fdb_del(struct dsa_port *dp, const unsigned char *addr,
-+		     u16 vid)
- {
- 	struct dsa_notifier_fdb_info info = {
- 		.sw_index = dp->ds->index,
- 		.port = dp->index,
--		.fdb = fdb,
-+		.addr = addr,
-+		.vid = vid,
-+
- 	};
- 
- 	return dsa_port_notify(dp, DSA_NOTIFIER_FDB_DEL, &info);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index b4e68b2..19395cc 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -253,7 +253,8 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
- 		if (switchdev_trans_ph_prepare(trans))
- 			return 0;
--		err = dsa_port_fdb_add(dp, SWITCHDEV_OBJ_PORT_FDB(obj));
-+		err = dsa_port_fdb_add(dp, SWITCHDEV_OBJ_PORT_FDB(obj)->addr,
-+				       SWITCHDEV_OBJ_PORT_FDB(obj)->vid);
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_MDB:
- 		err = dsa_port_mdb_add(dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
-@@ -279,7 +280,8 @@ static int dsa_slave_port_obj_del(struct net_device *dev,
- 
- 	switch (obj->id) {
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
--		err = dsa_port_fdb_del(dp, SWITCHDEV_OBJ_PORT_FDB(obj));
-+		err = dsa_port_fdb_del(dp, SWITCHDEV_OBJ_PORT_FDB(obj)->addr,
-+				       SWITCHDEV_OBJ_PORT_FDB(obj)->vid);
- 		break;
- 	case SWITCHDEV_OBJ_ID_PORT_MDB:
- 		err = dsa_port_mdb_del(dp, SWITCHDEV_OBJ_PORT_MDB(obj));
-diff --git a/net/dsa/switch.c b/net/dsa/switch.c
-index eb20e0f..e6c06aa 100644
---- a/net/dsa/switch.c
-+++ b/net/dsa/switch.c
-@@ -83,8 +83,6 @@ static int dsa_switch_bridge_leave(struct dsa_switch *ds,
- static int dsa_switch_fdb_add(struct dsa_switch *ds,
- 			      struct dsa_notifier_fdb_info *info)
- {
--	const struct switchdev_obj_port_fdb *fdb = info->fdb;
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 9cc6269..97b77b9 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1443,15 +1443,6 @@ static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
+ 				fdb->ndm_state = NUD_NOARP;
+ 			else
+ 				fdb->ndm_state = NUD_REACHABLE;
+-		} else if (obj->id == SWITCHDEV_OBJ_ID_PORT_MDB) {
+-			struct switchdev_obj_port_mdb *mdb;
 -
- 	/* Do not care yet about other switch chips of the fabric */
- 	if (ds->index != info->sw_index)
- 		return 0;
-@@ -92,14 +90,13 @@ static int dsa_switch_fdb_add(struct dsa_switch *ds,
- 	if (!ds->ops->port_fdb_add)
- 		return -EOPNOTSUPP;
- 
--	return ds->ops->port_fdb_add(ds, info->port, fdb->addr, fdb->vid);
-+	return ds->ops->port_fdb_add(ds, info->port, info->addr,
-+				     info->vid);
- }
- 
- static int dsa_switch_fdb_del(struct dsa_switch *ds,
- 			      struct dsa_notifier_fdb_info *info)
- {
--	const struct switchdev_obj_port_fdb *fdb = info->fdb;
+-			if (!is_multicast_ether_addr(addr.mac))
+-				continue;
 -
- 	/* Do not care yet about other switch chips of the fabric */
- 	if (ds->index != info->sw_index)
- 		return 0;
-@@ -107,8 +104,8 @@ static int dsa_switch_fdb_del(struct dsa_switch *ds,
- 	if (!ds->ops->port_fdb_del)
- 		return -EOPNOTSUPP;
- 
--	return ds->ops->port_fdb_del(ds, info->port, fdb->addr,
--				     fdb->vid);
-+	return ds->ops->port_fdb_del(ds, info->port, info->addr,
-+				     info->vid);
+-			mdb = SWITCHDEV_OBJ_PORT_MDB(obj);
+-			mdb->vid = vid;
+-			ether_addr_copy(mdb->addr, addr.mac);
+ 		} else {
+ 			return -EOPNOTSUPP;
+ 		}
+@@ -3762,20 +3753,6 @@ static int mv88e6xxx_port_mdb_del(struct dsa_switch *ds, int port,
+ 	return err;
  }
  
- static int dsa_switch_mdb_add(struct dsa_switch *ds,
+-static int mv88e6xxx_port_mdb_dump(struct dsa_switch *ds, int port,
+-				   struct switchdev_obj_port_mdb *mdb,
+-				   switchdev_obj_dump_cb_t *cb)
+-{
+-	struct mv88e6xxx_chip *chip = ds->priv;
+-	int err;
+-
+-	mutex_lock(&chip->reg_lock);
+-	err = mv88e6xxx_port_db_dump(chip, port, &mdb->obj, cb);
+-	mutex_unlock(&chip->reg_lock);
+-
+-	return err;
+-}
+-
+ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
+ 	.probe			= mv88e6xxx_drv_probe,
+ 	.get_tag_protocol	= mv88e6xxx_get_tag_protocol,
+@@ -3809,7 +3786,6 @@ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
+ 	.port_mdb_prepare       = mv88e6xxx_port_mdb_prepare,
+ 	.port_mdb_add           = mv88e6xxx_port_mdb_add,
+ 	.port_mdb_del           = mv88e6xxx_port_mdb_del,
+-	.port_mdb_dump          = mv88e6xxx_port_mdb_dump,
+ 	.crosschip_bridge_join	= mv88e6xxx_crosschip_bridge_join,
+ 	.crosschip_bridge_leave	= mv88e6xxx_crosschip_bridge_leave,
+ };
 -- 
 2.4.11
