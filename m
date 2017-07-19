@@ -1,43 +1,69 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] netns: avoid directory traversal (was: ip netns: Make
- sure netns name is sane)
-Date: Tue, 18 Jul 2017 17:12:30 -0700
-Message-ID: <20170718171230.084c804e@xeon-e3>
-References: <20170710120831.9355-1-mcroce@redhat.com>
+Subject: Re: [PATCH iproute2 net-next] iproute: extend route get for mpls
+ routes
+Date: Tue, 18 Jul 2017 17:15:02 -0700
+Message-ID: <20170718171502.2e60581e@xeon-e3>
+References: <1499465291-2199-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Matteo Croce <mcroce@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:34917 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751962AbdGSANX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 20:13:23 -0400
-Received: by mail-pg0-f53.google.com with SMTP id v190so21091117pgv.2
-        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 17:13:22 -0700 (PDT)
-In-Reply-To: <20170710120831.9355-1-mcroce@redhat.com>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:36679 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751560AbdGSAPE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 20:15:04 -0400
+Received: by mail-pg0-f43.google.com with SMTP id u5so20965574pgq.3
+        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 17:15:04 -0700 (PDT)
+In-Reply-To: <1499465291-2199-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 10 Jul 2017 14:08:31 +0200
-Matteo Croce <mcroce@redhat.com> wrote:
+On Fri,  7 Jul 2017 15:08:11 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
-> Hi Phil,
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> I noticed that your patch still leaves an uncovered scenario, the one where the
-> namespace name is "." or "..".
-> Calling 'ip netns del ..' will remove /var/run which is a symlink to /run on
-> most systems causing some daemons, eg. dbus, to fail.
+> This patch extends route get to support mpls specific
+> route attributes like RTA_NEWDST.
 > 
-> ip netns doesn't validate input, allowing creation and deletion of files
-> relatives to /var/run/netns.
-> This patch denies creation or deletion of namespaces with names contaning
-> "/" or that matches exactly "." or "..".
-> ---
->  ip/ipnetns.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
+> Input:
+> RTA_DST - input label
+> RTA_NEWDST - labels in packet for multipath selection
 > 
+> By default the getroute handler returns matched
+> nexthop label, via and oif
+> 
+> With fibmatch keyword (RTM_F_FIB_MATCH flag), full matched
+> route is returned.
+> 
+> example:
+> $ip -f mpls route show
+> 101
+>         nexthop as to 102/103 via inet 172.16.2.2 dev virt1-2
+>         nexthop as to 302/303 via inet 172.16.12.2 dev virt1-12
+> 201
+>         nexthop as to 202/203 via inet6 2001:db8:2::2 dev virt1-2
+>         nexthop as to 402/403 via inet6 2001:db8:12::2 dev virt1-12
+> 
+> $ip -f mpls route get 103
+> RTNETLINK answers: Network is unreachable
+> 
+> $ip -f mpls route get 101
+> 101 as to 102/103 via inet 172.16.2.2 dev virt1-2
+> 
+> $ip -f mpls route get as to 302/303 101
+> 101 as to 302/303 via inet 172.16.12.2 dev virt1-12
+> 
+> $ip -f mpls route get fibmatch 103
+> RTNETLINK answers: Network is unreachable
+> 
+> $ip -f mpls route get fibmatch 101
+> 101
+>         nexthop as to 102/103 via inet 172.16.2.2 dev virt1-2
+>         nexthop as to 302/303 via inet 172.16.12.2 dev virt1-12
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-The patch itself is good, but the commit message needs fixing.
-Please rewrite it to describe the problem, and add signed-off-by
+Applied, thanks.
