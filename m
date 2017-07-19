@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 11/17] ipv6: fib: Allow non-FIB users to take reference on route
-Date: Wed, 19 Jul 2017 09:02:26 +0200
-Message-ID: <20170719070232.28457-12-jiri@resnulli.us>
+Subject: [patch net-next 09/17] ipv6: fib: Dump tables during registration to FIB chain
+Date: Wed, 19 Jul 2017 09:02:24 +0200
+Message-ID: <20170719070232.28457-10-jiri@resnulli.us>
 References: <20170719070232.28457-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         dsahern@gmail.com, roopa@cumulusnetworks.com,
@@ -10,138 +10,204 @@ Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         edumazet@google.com, yanhaishuang@cmss.chinamobile.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35792 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752834AbdGSHCv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:02:51 -0400
-Received: by mail-wm0-f67.google.com with SMTP id n64so1048171wmg.2
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 00:02:51 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35769 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752994AbdGSHCs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:02:48 -0400
+Received: by mail-wm0-f65.google.com with SMTP id n64so1047965wmg.2
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 00:02:48 -0700 (PDT)
 In-Reply-To: <20170719070232.28457-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Listeners of the FIB notification chain are expected to be able to take
-and release a reference on notified IPv6 routes. This is needed in the
-case of drivers capable of offloading these routes to a capable device.
+Dump all the FIB tables in each net namespace upon registration to the
+FIB notification chain so that the callee will have a complete view of
+the tables.
 
-Since notifications are sent in an atomic context, these drivers need to
-take a reference on the route, prepare a work item to offload the route
-and release the reference at the end of the work.
+The integrity of the dump is ensured by a per-table sequence counter
+that is incremented (under write lock) whenever a route is added or
+deleted from the table.
 
-Currently, rt6i_ref is used to indicate in how many FIB nodes a route
-appears. Different code paths rely on rt6i_ref being 0 to indicate the
-route is no longer used by the FIB.
+All the sequence counters are read (under each table's read lock) and
+summed, prior and after the dump. In case the counters differ, then the
+dump is either restarted or the registration fails.
 
-For example, whenever a route is deleted or replaced, fib6_purge_rt() is
-run to make sure the route is no longer present in intermediate nodes. A
-BUG_ON() at the end of the function is executed in case the reference
-count isn't 1, as it's only supposed to appear in the non-intermediate
-node from which it's going to be deleted.
-
-Instead of changing the semantics of rt6i_ref, a new reference count is
-added, so that external users could also take a reference on routes
-without modifying rt6i_ref.
-
-To make sure external users don't release routes used by the FIB, the
-reference count is set to 1 upon creation of a route and decremented by
-the FIB upon rt6_release().
-
-The reference count is atomic, as it's not protected by any locks and
-placed in the 40 bytes hole after the existing rt6i_ref.
-
-rt6_free_pcpu() is exported so that modules could invoke rt6_put().
-Similar to commit b423cb10807b ("ipv4: fib: Export free_fib_info()").
+While it's possible for a table to be modified after its counter has
+been read, this isn't really a problem. In case it happened before it
+was read the second time, then the comparison at the end will fail. If
+it happened afterwards, then we're guaranteed to be notified about the
+change, as the notification block is registered prior to the second
+read.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/ip6_fib.h | 17 +++++++++++++++++
- net/ipv6/ip6_fib.c    | 10 ++++------
- net/ipv6/route.c      |  4 ++++
- 3 files changed, 25 insertions(+), 6 deletions(-)
+ include/net/ip6_fib.h    |  4 +++
+ net/ipv6/fib6_notifier.c | 10 ++++--
+ net/ipv6/ip6_fib.c       | 92 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 104 insertions(+), 2 deletions(-)
 
 diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 0b30521..e8ecd08 100644
+index dbe5537..0b30521 100644
 --- a/include/net/ip6_fib.h
 +++ b/include/net/ip6_fib.h
-@@ -119,6 +119,7 @@ struct rt6_info {
- 	unsigned int			rt6i_nsiblings;
+@@ -235,6 +235,7 @@ struct fib6_table {
+ 	struct fib6_node	tb6_root;
+ 	struct inet_peer_base	tb6_peers;
+ 	unsigned int		flags;
++	unsigned int		fib_seq;
+ #define RT6_TABLE_HAS_DFLT_ROUTER	BIT(0)
+ };
  
- 	atomic_t			rt6i_ref;
-+	refcount_t			rt6i_extref;
+@@ -308,6 +309,9 @@ int call_fib6_notifiers(struct net *net, enum fib_event_type event_type,
+ int __net_init fib6_notifier_init(struct net *net);
+ void __net_exit fib6_notifier_exit(struct net *net);
  
- 	/* These are in a separate cache line. */
- 	struct rt6key			rt6i_dst ____cacheline_aligned_in_smp;
-@@ -187,6 +188,22 @@ static inline void ip6_rt_put(struct rt6_info *rt)
- 	dst_release(&rt->dst);
++unsigned int fib6_tables_seq_read(struct net *net);
++int fib6_tables_dump(struct net *net, struct notifier_block *nb);
++
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ int fib6_rules_init(void);
+ void fib6_rules_cleanup(void);
+diff --git a/net/ipv6/fib6_notifier.c b/net/ipv6/fib6_notifier.c
+index 298efc6..66a103e 100644
+--- a/net/ipv6/fib6_notifier.c
++++ b/net/ipv6/fib6_notifier.c
+@@ -23,12 +23,18 @@ int call_fib6_notifiers(struct net *net, enum fib_event_type event_type,
+ 
+ static unsigned int fib6_seq_read(struct net *net)
+ {
+-	return fib6_rules_seq_read(net);
++	return fib6_tables_seq_read(net) + fib6_rules_seq_read(net);
  }
  
-+void rt6_free_pcpu(struct rt6_info *non_pcpu_rt);
+ static int fib6_dump(struct net *net, struct notifier_block *nb)
+ {
+-	return fib6_rules_dump(net, nb);
++	int err;
 +
-+static inline void rt6_get(struct rt6_info *rt)
-+{
-+	refcount_inc(&rt->rt6i_extref);
-+}
++	err = fib6_rules_dump(net, nb);
++	if (err)
++		return err;
 +
-+static inline void rt6_put(struct rt6_info *rt)
-+{
-+	if (refcount_dec_and_test(&rt->rt6i_extref)) {
-+		rt6_free_pcpu(rt);
-+		dst_dev_put(&rt->dst);
-+		dst_release(&rt->dst);
-+	}
-+}
-+
- enum fib6_walk_state {
- #ifdef CONFIG_IPV6_SUBTREES
- 	FWS_S,
++	return fib6_tables_dump(net, nb);
+ }
+ 
+ static const struct fib_notifier_ops fib6_notifier_ops_template = {
 diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 719c1048..99ca785 100644
+index 595a57c..719c1048 100644
 --- a/net/ipv6/ip6_fib.c
 +++ b/net/ipv6/ip6_fib.c
-@@ -154,7 +154,7 @@ static void node_free(struct fib6_node *fn)
- 	kmem_cache_free(fib6_node_kmem, fn);
+@@ -303,6 +303,37 @@ static void __net_init fib6_tables_init(struct net *net)
+ 
+ #endif
+ 
++unsigned int fib6_tables_seq_read(struct net *net)
++{
++	unsigned int h, fib_seq = 0;
++
++	rcu_read_lock();
++	for (h = 0; h < FIB6_TABLE_HASHSZ; h++) {
++		struct hlist_head *head = &net->ipv6.fib_table_hash[h];
++		struct fib6_table *tb;
++
++		hlist_for_each_entry_rcu(tb, head, tb6_hlist) {
++			read_lock_bh(&tb->tb6_lock);
++			fib_seq += tb->fib_seq;
++			read_unlock_bh(&tb->tb6_lock);
++		}
++	}
++	rcu_read_unlock();
++
++	return fib_seq;
++}
++
++static int call_fib6_entry_notifier(struct notifier_block *nb, struct net *net,
++				    enum fib_event_type event_type,
++				    struct rt6_info *rt)
++{
++	struct fib6_entry_notifier_info info = {
++		.rt = rt,
++	};
++
++	return call_fib6_notifier(nb, net, event_type, &info.info);
++}
++
+ static int call_fib6_entry_notifiers(struct net *net,
+ 				     enum fib_event_type event_type,
+ 				     struct rt6_info *rt)
+@@ -311,9 +342,70 @@ static int call_fib6_entry_notifiers(struct net *net,
+ 		.rt = rt,
+ 	};
+ 
++	rt->rt6i_table->fib_seq++;
+ 	return call_fib6_notifiers(net, event_type, &info.info);
  }
  
--static void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
-+void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
++struct fib6_dump_arg {
++	struct net *net;
++	struct notifier_block *nb;
++};
++
++static void fib6_rt_dump(struct rt6_info *rt, struct fib6_dump_arg *arg)
++{
++	if (rt == arg->net->ipv6.ip6_null_entry)
++		return;
++	call_fib6_entry_notifier(arg->nb, arg->net, FIB_EVENT_ENTRY_ADD, rt);
++}
++
++static int fib6_node_dump(struct fib6_walker *w)
++{
++	struct rt6_info *rt;
++
++	for (rt = w->leaf; rt; rt = rt->dst.rt6_next)
++		fib6_rt_dump(rt, w->args);
++	w->leaf = NULL;
++	return 0;
++}
++
++static void fib6_table_dump(struct net *net, struct fib6_table *tb,
++			    struct fib6_walker *w)
++{
++	w->root = &tb->tb6_root;
++	read_lock_bh(&tb->tb6_lock);
++	fib6_walk(net, w);
++	read_unlock_bh(&tb->tb6_lock);
++}
++
++/* Called with rcu_read_lock() */
++int fib6_tables_dump(struct net *net, struct notifier_block *nb)
++{
++	struct fib6_dump_arg arg;
++	struct fib6_walker *w;
++	unsigned int h;
++
++	w = kzalloc(sizeof(*w), GFP_ATOMIC);
++	if (!w)
++		return -ENOMEM;
++
++	w->func = fib6_node_dump;
++	arg.net = net;
++	arg.nb = nb;
++	w->args = &arg;
++
++	for (h = 0; h < FIB6_TABLE_HASHSZ; h++) {
++		struct hlist_head *head = &net->ipv6.fib_table_hash[h];
++		struct fib6_table *tb;
++
++		hlist_for_each_entry_rcu(tb, head, tb6_hlist)
++			fib6_table_dump(net, tb, w);
++	}
++
++	kfree(w);
++
++	return 0;
++}
++
+ static int fib6_dump_node(struct fib6_walker *w)
  {
- 	int cpu;
- 
-@@ -177,14 +177,12 @@ static void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
- 	free_percpu(non_pcpu_rt->rt6i_pcpu);
- 	non_pcpu_rt->rt6i_pcpu = NULL;
- }
-+EXPORT_SYMBOL_GPL(rt6_free_pcpu);
- 
- static void rt6_release(struct rt6_info *rt)
- {
--	if (atomic_dec_and_test(&rt->rt6i_ref)) {
--		rt6_free_pcpu(rt);
--		dst_dev_put(&rt->dst);
--		dst_release(&rt->dst);
--	}
-+	if (atomic_dec_and_test(&rt->rt6i_ref))
-+		rt6_put(rt);
- }
- 
- static void fib6_link_table(struct net *net, struct fib6_table *tb)
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 924e02d..cabe0c6 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -345,6 +345,10 @@ static void rt6_info_init(struct rt6_info *rt)
- 	memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
- 	INIT_LIST_HEAD(&rt->rt6i_siblings);
- 	INIT_LIST_HEAD(&rt->rt6i_uncached);
-+	/* Make sure route can't be released as long as it's used by
-+	 * the FIB.
-+	 */
-+	refcount_set(&rt->rt6i_extref, 1);
- }
- 
- /* allocate dst with ip6_dst_ops */
+ 	int res;
 -- 
 2.9.3
