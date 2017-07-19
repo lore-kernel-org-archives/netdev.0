@@ -1,70 +1,34 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 00/13] Change DSA's FDB API and perform switchdev cleanup
-Date: Wed, 19 Jul 2017 16:17:08 -0400
-Message-ID: <87mv80ji63.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] liquidio: support new firmware statistic
+ fw_err_pki
+Date: Wed, 19 Jul 2017 13:23:04 -0700 (PDT)
+Message-ID: <20170719.132304.1947932558184487518.davem@davemloft.net>
+References: <20170717203314.GA1327@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com,
-        Arkadi Sharshevsky <arkadis@mellanox.com>
-To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:44748 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754211AbdGSUTw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 16:19:52 -0400
-In-Reply-To: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46772 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753432AbdGSUXH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 16:23:07 -0400
+In-Reply-To: <20170717203314.GA1327@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Arkadi,
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Mon, 17 Jul 2017 13:33:14 -0700
 
-I am testing your patch series the behavior changes suspiciously:
+> From: Rick Farrington <ricardo.farrington@cavium.com>
+> 
+> Added support for new firmware statistic 'tx_err_pki'.
+> 
+> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 
-    # brctl show br0
-    bridge name	bridge id		STP enabled	interfaces
-    br0		8000.f6d5ef06ccdd	no		lan0
-                                                        lan1
-                                                        lan2
-                                                        lan3
-                                                        lan4
-                                                        lan5
-                                                        lan6
-                                                        lan7
-                                                        lan8
-                                                        optical3
-                                                        optical4
-
-Without the patchset I have this behavior:
-
-    # bridge fdb add 00:11:22:33:44:55 dev lan4
-    # bridge fdb add 22:33:44:55:66:77 dev lan2 self
-    # bridge fdb show                               
-    01:00:5e:00:00:01 dev eth0 self permanent
-    01:00:5e:00:00:01 dev eth1 self permanent
-    0a:3f:f6:06:a2:ee dev lan0 master br0 permanent
-    22:33:44:55:66:77 dev lan2 self static
-    00:11:22:33:44:55 dev lan4 self static
-    01:00:5e:00:00:01 dev br0 self permanent
-
-And now with the patchset applied I have:
-
-# bridge fdb add 00:11:22:33:44:55 dev lan4
-# bridge fdb add 22:33:44:55:66:77 dev lan2 self
-# bridge fdb show
-01:00:5e:00:00:01 dev eth0 self permanent
-00:11:22:33:44:55 dev eth1 self permanent
-22:33:44:55:66:77 dev eth1 self permanent
-01:00:5e:00:00:01 dev eth1 self permanent
-0a:ca:c8:6b:05:65 dev lan0 master br0 permanent
-01:00:5e:00:00:01 dev br0 self permanent
-
-
-It looks like the FDB entries are reported to be associated with the
-master net device (eth1). Is the dump broken or is it the whole add?
-
-Thanks,
-
-        Vivien
+Applied.
