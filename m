@@ -1,51 +1,74 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH V2 net-next 21/21] net-next/hinic: Add select_queue and
- netpoll
-Date: Wed, 19 Jul 2017 14:34:24 +0300
-Message-ID: <139781f1-8770-2f6d-81c2-b2d411cfeac5@cogentembedded.com>
-References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
- <b5fb082d3a35a261c230313421ba16f3e9595dbe.1500454998.git.aviad.krawczyk@huawei.com>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: Re: [PATCH net-next 07/11] net: dsa: Remove support for bypass bridge
+ port attributes/vlan set
+Date: Wed, 19 Jul 2017 14:53:44 +0300
+Message-ID: <07d8159d-d7ab-eac2-0519-b1ce3c8e18c8@mellanox.com>
+References: <1500387624-4361-1-git-send-email-arkadis@mellanox.com>
+ <1500387624-4361-8-git-send-email-arkadis@mellanox.com>
+ <87d18xbq3d.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        bc.y@huawei.com, victor.gissin@huawei.com, zhaochen6@huawei.com,
-        tony.qu@huawei.com
-To: Aviad Krawczyk <aviad.krawczyk@huawei.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b5fb082d3a35a261c230313421ba16f3e9595dbe.1500454998.git.aviad.krawczyk@huawei.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-eopbgr50071.outbound.protection.outlook.com ([40.107.5.71]:59264
+        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752759AbdGSLx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Jul 2017 07:53:56 -0400
+In-Reply-To: <87d18xbq3d.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 7/19/2017 12:19 PM, Aviad Krawczyk wrote:
 
-> Add more netdev operations.
+
+On 07/18/2017 08:40 PM, Vivien Didelot wrote:
+> Hi Arkadi,
 > 
-> Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-> Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
-> ---
->   MAINTAINERS                                    |  7 ++++++
->   drivers/net/ethernet/huawei/hinic/hinic_main.c | 35 ++++++++++++++++++++++++++
->   2 files changed, 42 insertions(+)
+> Arkadi Sharshevsky <arkadis@mellanox.com> writes:
 > 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 1347726..5c85602 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -6269,6 +6269,13 @@ L:	linux-input@vger.kernel.org
->   S:	Maintained
->   F:	drivers/input/touchscreen/htcpen.c
->   
-> +HUAWEI ETHERNET DRIVER
-> +M:	Aviad Krawczyk <aviad.krawczyk@huawei.com>
-> +L:	netdev@vger.kernel.org
-> +S:	Supported
-> +F:	Documentation/networking/hinic.txt
-> +F:	drivers/net/ethernet/huawei/*
+>> The bridge port attributes/vlan for DSA devices should be set only
+>> from bridge code. Furthermore, The vlans are synced totally with the
+>> bridge so there is no need for special dump support.
+>>
+>> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+>> ---
+>>  drivers/net/dsa/b53/b53_common.c       | 44 --------------------------
+>>  drivers/net/dsa/b53/b53_priv.h         |  3 --
+>>  drivers/net/dsa/bcm_sf2.c              |  1 -
+>>  drivers/net/dsa/dsa_loop.c             | 38 -----------------------
+>>  drivers/net/dsa/microchip/ksz_common.c | 41 -------------------------
+>>  drivers/net/dsa/mv88e6xxx/chip.c       | 56 ----------------------------------
+>>  include/net/dsa.h                      |  4 ---
+>>  net/dsa/dsa_priv.h                     |  4 ---
+>>  net/dsa/port.c                         | 12 --------
+>>  net/dsa/slave.c                        |  6 ----
+> 
+> Regarding this massive deletion, can you please split it in two patches,
+> one deleting first the DSA core usage of .port_vlan_dump, i.e. in:
+> 
+>     net/dsa/dsa_priv.h
+>     net/dsa/port.c
+>     net/dsa/slave.c
+> 
+> Then a second patch which deletes the .port_vlan_dump implementations?
+> 
+> This may sound useless but it will actually make it easy for us to
+> restore the VLAN dump support in drivers once we introduce an
+> alternative way to query the hardware.
+> 
+> 
+> Thanks,
+> 
+>         Vivien
+> 
 
-    This means that subdirs there are not maintained, did you really mean it?
-
-[...]
-
-MNR, Sergei
+Yeah, no problem. But doesn't it make more sense to remove it first from
+the drivers and then from core? If it will be removed from core first it
+will leave unused code behind in the driver. Furthermore, it is
+symmetric with the code adding. You first add the core implementation
+and then only the drivers.
