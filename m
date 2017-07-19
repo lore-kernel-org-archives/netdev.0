@@ -1,8 +1,8 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 6/8] netvsc: need rcu_derefence when accessing
- internal device info
-Date: Wed, 19 Jul 2017 11:53:17 -0700
-Message-ID: <20170719185319.25871-7-sthemmin@microsoft.com>
+Subject: [PATCH net-next 7/8] netvsc: save pointer to parent netvsc_device in
+ channel table
+Date: Wed, 19 Jul 2017 11:53:18 -0700
+Message-ID: <20170719185319.25871-8-sthemmin@microsoft.com>
 References: <20170719185319.25871-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,109 +24,52 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-The netvsc_device structure should be accessed by rcu_dereference
-in the send path.  Change arguments to netvsc_send() to make
-this easier to do correctly.
-
-Remove no longer needed hv_device_to_netvsc_device.
+Keep back pointer in the per-channel data structure to
+avoid any possible RCU related issues when napi poll is
+called but netvsc_device is in RCU limbo.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   | 10 +++-------
- drivers/net/hyperv/netvsc.c       |  8 +++++---
- drivers/net/hyperv/netvsc_drv.c   |  4 ++--
- drivers/net/hyperv/rndis_filter.c |  2 +-
- 4 files changed, 11 insertions(+), 13 deletions(-)
+ drivers/net/hyperv/hyperv_net.h | 1 +
+ drivers/net/hyperv/netvsc.c     | 3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index e620374727c8..0054b6929f6e 100644
+index 0054b6929f6e..d13572879e7e 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -183,10 +183,12 @@ struct rndis_device {
- /* Interface */
- struct rndis_message;
- struct netvsc_device;
-+struct net_device_context;
-+
- struct netvsc_device *netvsc_device_add(struct hv_device *device,
- 					const struct netvsc_device_info *info);
- void netvsc_device_remove(struct hv_device *device);
--int netvsc_send(struct hv_device *device,
-+int netvsc_send(struct net_device_context *ndc,
- 		struct hv_netvsc_packet *packet,
- 		struct rndis_message *rndis_msg,
- 		struct hv_page_buffer **page_buffer,
-@@ -790,12 +792,6 @@ net_device_to_netvsc_device(struct net_device *ndev)
- 	return ((struct net_device_context *)netdev_priv(ndev))->nvdev;
- }
- 
--static inline struct netvsc_device *
--hv_device_to_netvsc_device(struct hv_device *device)
--{
--	return net_device_to_netvsc_device(hv_get_drvdata(device));
--}
--
- /* NdisInitialize message */
- struct rndis_initialize_request {
- 	u32 req_id;
+@@ -727,6 +727,7 @@ struct net_device_context {
+ /* Per channel data */
+ struct netvsc_channel {
+ 	struct vmbus_channel *channel;
++	struct netvsc_device *net_device;
+ 	const struct vmpacket_descriptor *desc;
+ 	struct napi_struct napi;
+ 	struct multi_send_data msd;
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 4a2550559442..3c6f3ae520d9 100644
+index 3c6f3ae520d9..c15640c6fd83 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -822,13 +822,15 @@ static inline void move_pkt_msd(struct hv_netvsc_packet **msd_send,
- 	msdp->count = 0;
- }
- 
--int netvsc_send(struct hv_device *device,
-+/* RCU already held by caller */
-+int netvsc_send(struct net_device_context *ndev_ctx,
- 		struct hv_netvsc_packet *packet,
- 		struct rndis_message *rndis_msg,
- 		struct hv_page_buffer **pb,
- 		struct sk_buff *skb)
+@@ -1224,11 +1224,11 @@ int netvsc_poll(struct napi_struct *napi, int budget)
  {
--	struct netvsc_device *net_device = hv_device_to_netvsc_device(device);
-+	struct netvsc_device *net_device = rcu_dereference(ndev_ctx->nvdev);
-+	struct hv_device *device = ndev_ctx->device_ctx;
- 	int ret = 0;
- 	struct netvsc_channel *nvchan;
- 	u32 pktlen = packet->total_data_buflen, msd_len = 0;
-@@ -840,7 +842,7 @@ int netvsc_send(struct hv_device *device,
- 	bool xmit_more = (skb != NULL) ? skb->xmit_more : false;
+ 	struct netvsc_channel *nvchan
+ 		= container_of(napi, struct netvsc_channel, napi);
++	struct netvsc_device *net_device = nvchan->net_device;
+ 	struct vmbus_channel *channel = nvchan->channel;
+ 	struct hv_device *device = netvsc_channel_to_device(channel);
+ 	u16 q_idx = channel->offermsg.offer.sub_channel_index;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+-	struct netvsc_device *net_device = net_device_to_netvsc_device(ndev);
+ 	int work_done = 0;
  
- 	/* If device is rescinded, return error and packet will get dropped. */
--	if (unlikely(net_device->destroy))
-+	if (unlikely(!net_device || net_device->destroy))
- 		return -ENODEV;
+ 	/* If starting a new interval */
+@@ -1307,6 +1307,7 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 		struct netvsc_channel *nvchan = &net_device->chan_table[i];
  
- 	/* We may race with netvsc_connect_vsp()/netvsc_init_buf() and get
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 0ca8c74143b4..1238600d717e 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -505,8 +505,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 
- 	/* timestamp packet in software */
- 	skb_tx_timestamp(skb);
--	ret = netvsc_send(net_device_ctx->device_ctx, packet,
--			  rndis_msg, &pb, skb);
-+
-+	ret = netvsc_send(net_device_ctx, packet, rndis_msg, &pb, skb);
- 	if (likely(ret == 0))
- 		return NETDEV_TX_OK;
- 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index cacf1e5536f7..9ab67c8309ff 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -243,7 +243,7 @@ static int rndis_filter_send_request(struct rndis_device *dev,
- 			pb[0].len;
+ 		nvchan->channel = device->channel;
++		nvchan->net_device = net_device;
  	}
  
--	ret = netvsc_send(net_device_ctx->device_ctx, packet, NULL, &pb, NULL);
-+	ret = netvsc_send(net_device_ctx, packet, NULL, &pb, NULL);
- 	return ret;
- }
- 
+ 	/* Enable NAPI handler before init callbacks */
 -- 
 2.11.0
