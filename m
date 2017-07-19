@@ -1,57 +1,48 @@
-From: Gabriel C <nix.or.die@gmail.com>
-Subject: Re: [PATCH] ath10k_htt_rx_amsdu_allowed(): use ath10k_dbg()
-Date: Wed, 19 Jul 2017 20:12:32 +0200
-Message-ID: <7a1578a8-68fc-4cc5-b659-a11c25508245@gmail.com>
-References: <288fce5b-d738-f0ac-2433-67e1b35a0664@gmail.com>
- <1500481605.25934.40.camel@perches.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: out-of-bounds access with virtio-net
+Date: Wed, 19 Jul 2017 11:23:05 -0700
+Message-ID: <CAM_iQpUUPhGRkac5eJb7PwG-EGGjf9fpcdfJO1L3QMhiMMUBtg@mail.gmail.com>
+References: <b3c684fd-72eb-f67b-90f3-bc1185d8b576@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ryan Hsu <ryanhsu@qti.qualcomm.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Kalle Valo <kvalo@qca.qualcomm.com>
-To: Joe Perches <joe@perches.com>,
-        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1500481605.25934.40.camel@perches.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:35129 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753349AbdGSSX1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 14:23:27 -0400
+Received: by mail-wm0-f42.google.com with SMTP id w126so6082574wme.0
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 11:23:26 -0700 (PDT)
+In-Reply-To: <b3c684fd-72eb-f67b-90f3-bc1185d8b576@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19.07.2017 18:26, Joe Perches wrote:
-> On Wed, 2017-07-19 at 17:37 +0200, Gabriel C wrote:
->>           Each time we get disconencted from AP we get flooded with messages like:
->>
->>           ...
->>           ath10k_pci 0000:03:00.0: no channel configured; ignoring frame(s)!
->>           <until ratelimit kicks in>
->>           ath10k_warn: 155 callbacks suppressed
-> 
-> []
-> 
->> diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
-> []
->> @@ -1514,7 +1514,7 @@ static bool ath10k_htt_rx_amsdu_allowed(struct ath10k *ar,
->>            */
->>
->>           if (!rx_status->freq) {
->> -               ath10k_warn(ar, "no channel configured; ignoring frame(s)!\n");
->> +               ath10k_dbg(ar, ATH10K_DBG_HTT, "no channel configured; ignoring frame(s)!\n");
->>                   return false;
->>           }
-> 
-> Hi.  This doesn't apply because of tab to space conversions.
-> 
-> Please use git send-email to send your patch.
+On Wed, Jul 19, 2017 at 9:59 AM, David Ahern <dsahern@gmail.com> wrote:
+> Changing the mac address on a virtio-net based nic is triggering an
+> out-of-bounds access. Nothing fancy with the command:
+>
+> ip li set dev eth2 addr 01:02:34:56:78:9a
+>
+> virtnet_set_mac_address is calling kmemdup for sizeof sockaddr, yet only
+> ETH_ALEN + sizeof(sa_family_t) bytes were malloc'ed.
 
-Yes you are right .. I think newer thunderbird just doesn't work anymore to send patches.
+Previously we have a dev->addr_len longer than sizeof sockaddr,
+now we a shorter one... This mac addr thing is really a mess currently.
 
-Will have a look to setup git send-email and resend.
 
-> 
-> Maybe read Documentation/process/email-clients.rst
-> 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d1ba90980be1..d13bebdf6465 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2031,7 +2031,7 @@ static int do_setlink(const struct sk_buff *skb,
+                struct sockaddr *sa;
+                int len;
 
-I use tbird to send patches forver but it seems latest updates here broke it some sort.
+-               len = sizeof(sa_family_t) + dev->addr_len;
++               len = sizeof(sa_family_t) + max(dev->addr_len, sizeof(*sa));
+                sa = kmalloc(len, GFP_KERNEL);
+                if (!sa) {
+                        err = -ENOMEM;
