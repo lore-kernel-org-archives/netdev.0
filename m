@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: unexport dsa_is_port_initialized
-Date: Wed, 19 Jul 2017 16:28:36 -0700 (PDT)
-Message-ID: <20170719.162836.944359459689323354.davem@davemloft.net>
-References: <20170718202356.7178-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] liquidio: lio_main: remove unnecessary static in
+ setup_io_queues()
+Date: Wed, 19 Jul 2017 16:34:30 -0700 (PDT)
+Message-ID: <20170719.163430.2283130742325293687.davem@davemloft.net>
+References: <20170718205348.GA25613@embeddedgus>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48956 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932529AbdGSX2h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 19:28:37 -0400
-In-Reply-To: <20170718202356.7178-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: derek.chickles@caviumnetworks.com,
+        satananda.burla@caviumnetworks.com,
+        felix.manlunas@caviumnetworks.com,
+        raghu.vatsavayi@caviumnetworks.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: gustavo@embeddedor.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170718205348.GA25613@embeddedgus>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Tue, 18 Jul 2017 16:23:56 -0400
+From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Date: Tue, 18 Jul 2017 15:53:48 -0500
 
-> The dsa_is_port_initialized helper is only used by dsa_switch_resume and
-> dsa_switch_suspend, if CONFIG_PM_SLEEP is enabled. Make it static to
-> dsa.c.
+> Remove unnecessary static on local variables cpu_id_modulus and cpu_id.
+> Such variables are initialized before being used, on every execution
+> path throughout the function. The static has no benefit and, removing
+> it reduces the object file size.
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> This issue was detected using Coccinelle and the following semantic patch:
+...
+> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
 
 Applied.
