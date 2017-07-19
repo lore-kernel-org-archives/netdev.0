@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 07/17] ipv6: fib: Add in-kernel notifications for route add / delete
-Date: Wed, 19 Jul 2017 09:02:22 +0200
-Message-ID: <20170719070232.28457-8-jiri@resnulli.us>
+Subject: [patch net-next 05/17] ipv6: fib_rules: Check if rule is a default rule
+Date: Wed, 19 Jul 2017 09:02:20 +0200
+Message-ID: <20170719070232.28457-6-jiri@resnulli.us>
 References: <20170719070232.28457-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         dsahern@gmail.com, roopa@cumulusnetworks.com,
@@ -10,107 +10,84 @@ Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         edumazet@google.com, yanhaishuang@cmss.chinamobile.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33673 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752989AbdGSHCq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:02:46 -0400
-Received: by mail-wr0-f195.google.com with SMTP id y43so7612756wrd.0
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 00:02:45 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:33653 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752822AbdGSHCm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:02:42 -0400
+Received: by mail-wr0-f194.google.com with SMTP id y43so7612617wrd.0
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 00:02:42 -0700 (PDT)
 In-Reply-To: <20170719070232.28457-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-As with IPv4, allow listeners of the FIB notification chain to receive
-notifications whenever a route is added, replaced or deleted. This is
-done by placing calls to the FIB notification chain in the two lowest
-level functions that end up performing these operations - namely,
-fib6_add_rt2node() and fib6_del_route().
+As explained in commit 3c71006d15fd ("ipv4: fib_rules: Check if rule is
+a default rule"), drivers supporting IPv6 FIB offload need to be able to
+sanitize the rules they don't support and potentially flush their
+tables.
 
-Unlike IPv4, APPEND notifications aren't sent as the kernel doesn't
-distinguish between "append" (NLM_F_CREATE|NLM_F_APPEND) and "prepend"
-(NLM_F_CREATE). If NLM_F_EXCL isn't set, duplicate routes are always
-added after the existing duplicate routes.
+Add an IPv6 helper to check if a FIB rule is a default rule.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
  include/net/ip6_fib.h |  5 +++++
- net/ipv6/ip6_fib.c    | 17 +++++++++++++++++
- 2 files changed, 22 insertions(+)
+ net/ipv6/fib6_rules.c | 20 ++++++++++++++++++++
+ 2 files changed, 25 insertions(+)
 
 diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index be8ddf3..e2b292b 100644
+index 1a88008..6000b0d 100644
 --- a/include/net/ip6_fib.h
 +++ b/include/net/ip6_fib.h
-@@ -258,6 +258,11 @@ typedef struct rt6_info *(*pol_lookup_t)(struct net *,
- 					 struct fib6_table *,
- 					 struct flowi6 *, int);
- 
-+struct fib6_entry_notifier_info {
-+	struct fib_notifier_info info; /* must be first */
-+	struct rt6_info *rt;
-+};
-+
- /*
-  *	exported functions
-  */
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index f93976e..595a57c 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -33,6 +33,7 @@
- #include <net/ndisc.h>
- #include <net/addrconf.h>
- #include <net/lwtunnel.h>
-+#include <net/fib_notifier.h>
- 
- #include <net/ip6_fib.h>
- #include <net/ip6_route.h>
-@@ -302,6 +303,17 @@ static void __net_init fib6_tables_init(struct net *net)
- 
- #endif
- 
-+static int call_fib6_entry_notifiers(struct net *net,
-+				     enum fib_event_type event_type,
-+				     struct rt6_info *rt)
+@@ -295,6 +295,7 @@ int ipv6_route_open(struct inode *inode, struct file *file);
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+ int fib6_rules_init(void);
+ void fib6_rules_cleanup(void);
++bool fib6_rule_default(const struct fib_rule *rule);
+ #else
+ static inline int               fib6_rules_init(void)
+ {
+@@ -304,5 +305,9 @@ static inline void              fib6_rules_cleanup(void)
+ {
+ 	return ;
+ }
++static inline bool fib6_rule_default(const struct fib_rule *rule)
 +{
-+	struct fib6_entry_notifier_info info = {
-+		.rt = rt,
-+	};
++	return true;
++}
+ #endif
+ #endif
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index ec849d8..ef1fcee 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -29,6 +29,26 @@ struct fib6_rule {
+ 	u8			tclass;
+ };
+ 
++static bool fib6_rule_matchall(const struct fib_rule *rule)
++{
++	struct fib6_rule *r = container_of(rule, struct fib6_rule, common);
 +
-+	return call_fib6_notifiers(net, event_type, &info.info);
++	if (r->dst.plen || r->src.plen || r->tclass)
++		return false;
++	return fib_rule_matchall(rule);
 +}
 +
- static int fib6_dump_node(struct fib6_walker *w)
++bool fib6_rule_default(const struct fib_rule *rule)
++{
++	if (!fib6_rule_matchall(rule) || rule->action != FR_ACT_TO_TBL ||
++	    rule->l3mdev)
++		return false;
++	if (rule->table != RT6_TABLE_LOCAL && rule->table != RT6_TABLE_MAIN)
++		return false;
++	return true;
++}
++EXPORT_SYMBOL_GPL(fib6_rule_default);
++
+ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
+ 				   int flags, pol_lookup_t lookup)
  {
- 	int res;
-@@ -879,6 +891,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 		*ins = rt;
- 		rt->rt6i_node = fn;
- 		atomic_inc(&rt->rt6i_ref);
-+		call_fib6_entry_notifiers(info->nl_net, FIB_EVENT_ENTRY_ADD,
-+					  rt);
- 		if (!info->skip_notify)
- 			inet6_rt_notify(RTM_NEWROUTE, rt, info, nlflags);
- 		info->nl_net->ipv6.rt6_stats->fib_rt_entries++;
-@@ -906,6 +920,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 		rt->rt6i_node = fn;
- 		rt->dst.rt6_next = iter->dst.rt6_next;
- 		atomic_inc(&rt->rt6i_ref);
-+		call_fib6_entry_notifiers(info->nl_net, FIB_EVENT_ENTRY_REPLACE,
-+					  rt);
- 		if (!info->skip_notify)
- 			inet6_rt_notify(RTM_NEWROUTE, rt, info, NLM_F_REPLACE);
- 		if (!(fn->fn_flags & RTN_RTINFO)) {
-@@ -1459,6 +1475,7 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
- 
- 	fib6_purge_rt(rt, fn, net);
- 
-+	call_fib6_entry_notifiers(net, FIB_EVENT_ENTRY_DEL, rt);
- 	if (!info->skip_notify)
- 		inet6_rt_notify(RTM_DELROUTE, rt, info, 0);
- 	rt6_release(rt);
 -- 
 2.9.3
