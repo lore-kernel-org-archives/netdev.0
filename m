@@ -1,65 +1,40 @@
-From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: Re: [PATCH V2 net-next 21/21] net-next/hinic: Add select_queue and
- netpoll
-Date: Wed, 19 Jul 2017 15:41:38 +0300
-Message-ID: <5b6faba9-78fe-8fd4-ceec-7af6df321236@huawei.com>
-References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
- <b5fb082d3a35a261c230313421ba16f3e9595dbe.1500454998.git.aviad.krawczyk@huawei.com>
- <139781f1-8770-2f6d-81c2-b2d411cfeac5@cogentembedded.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: Enable CMODE config support for
+ 6390X
+Date: Wed, 19 Jul 2017 15:25:28 +0200
+Message-ID: <20170719132528.GA2098@lunn.ch>
+References: <20170719061702.7692-1-mnhu@prevas.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
-        <zhaochen6@huawei.com>, <tony.qu@huawei.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <139781f1-8770-2f6d-81c2-b2d411cfeac5@cogentembedded.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Martin =?iso-8859-1?Q?Hundeb=F8ll?= <mnhu@prevas.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:33389 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752811AbdGSNZe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Jul 2017 09:25:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20170719061702.7692-1-mnhu@prevas.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+On Wed, Jul 19, 2017 at 08:17:02AM +0200, Martin Hundebøll wrote:
+> Commit f39908d3b1c45 ('net: dsa: mv88e6xxx: Set the CMODE for mv88e6390
+> ports 9 & 10') added support for setting the CMODE for the 6390X family,
+> but only enabled it for 9290 and 6390 - and left out 6390X.
+> 
+> Fix support for setting the CMODE on 6390X also by assigning
+> mv88e6390x_port_set_cmode() to the .port_set_cmode function pointer in
+> mv88e6390x_ops too.
+> 
+> Signed-off-by: Martin Hundebøll <mnhu@prevas.dk>
 
-I meant that drivers/net/ethernet/huawei/* is all the dir under huawei dir.
-(I saw this style of '*' is used in the maintainers file)
-I will change it to drivers/net/ethernet/huawei/hinic/ in the next fix.
+Duh!
 
-Thanks for review,
-Aviad
+Fixes: f39908d3b1c4 ("net: dsa: mv88e6xxx: Set the CMODE for mv88e6390 ports 9 & 10")
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-On 7/19/2017 2:34 PM, Sergei Shtylyov wrote:
-> On 7/19/2017 12:19 PM, Aviad Krawczyk wrote:
-> 
->> Add more netdev operations.
->>
->> Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
->> Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
->> ---
->>   MAINTAINERS                                    |  7 ++++++
->>   drivers/net/ethernet/huawei/hinic/hinic_main.c | 35 ++++++++++++++++++++++++++
->>   2 files changed, 42 insertions(+)
->>
->> diff --git a/MAINTAINERS b/MAINTAINERS
->> index 1347726..5c85602 100644
->> --- a/MAINTAINERS
->> +++ b/MAINTAINERS
->> @@ -6269,6 +6269,13 @@ L:    linux-input@vger.kernel.org
->>   S:    Maintained
->>   F:    drivers/input/touchscreen/htcpen.c
->>   +HUAWEI ETHERNET DRIVER
->> +M:    Aviad Krawczyk <aviad.krawczyk@huawei.com>
->> +L:    netdev@vger.kernel.org
->> +S:    Supported
->> +F:    Documentation/networking/hinic.txt
->> +F:    drivers/net/ethernet/huawei/*
-> 
->    This means that subdirs there are not maintained, did you really mean it?
-> 
-> [...]
-> 
-> MNR, Sergei
-> 
-> .
-> 
+    Andrew
