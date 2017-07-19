@@ -1,44 +1,81 @@
-From: Gabriel Craciunescu <nix.or.die@gmail.com>
-Subject: [PATCH v3] ath10k: ath10k_htt_rx_amsdu_allowed() use ath10k_dbg()
-Date: Wed, 19 Jul 2017 21:19:55 +0200
-Message-ID: <20170719191955.11518-1-nix.or.die@gmail.com>
-References: <e41a39fd-87a1-7fc7-158d-cb298e46a754@qca.qualcomm.com>
-Cc: ryanhsu@qti.qualcomm.com, joe@perches.com, kvalo@qca.qualcomm.com,
-        linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, Gabriel Craciunescu <nix.or.die@gmail.com>
-To: ath10k@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e41a39fd-87a1-7fc7-158d-cb298e46a754@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 1/2] net: phy: at803x: Fix RGMII RX and TX clock delays
+ setup
+Date: Wed, 19 Jul 2017 14:24:10 -0500
+Message-ID: <5ea9905f-e74a-4a43-dc5b-883ec9daf030@ti.com>
+References: <b332dc3e-4478-e34b-2b3f-226aad8a11d4@sigmadesigns.com>
+ <33ed5f4f-9939-dc00-b973-db39c16f2393@sigmadesigns.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+ Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ Linux ARM <linux-arm-kernel@lists.infradead.org>, Mason <slash.tmp@free.fr>
+To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>, Florian Fainelli
+ <f.fainelli@gmail.com>, Andrew Lunn <andrew@lunn.ch>, Mans Rullgard
+ <mans@mansr.com>, Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+ Fabio Estevam <fabio.estevam@nxp.com>,
+ Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+ Timur Tabi <timur@codeaurora.org>, Daniel Mack <zonque@gmail.com>, Sekhar
+ Nori <nsekhar@ti.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <33ed5f4f-9939-dc00-b973-db39c16f2393@sigmadesigns.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Each time we get disconencted from AP we get flooded with messages like:
+Hi
 
-...
-ath10k_pci 0000:03:00.0: no channel configured; ignoring frame(s)!
-<until ratelimit kicks in>
-ath10k_warn: 155 callbacks suppressed
-...
+On 07/19/2017 10:31 AM, Marc Gonzalez wrote:
+> The current code supports enabling RGMII RX and TX clock delays.
+> The unstated assumption is that these settings are disabled by
+> default at reset, which is not the case.
+> 
+> RX clock delay is enabled at reset. And TX clock delay "survives"
+> across SW resets. Thus, if the bootloader enables TX clock delay,
+> it will remain enabled at reset in Linux.
+> 
+> Provide disable functions to configure the RGMII clock delays
+> exactly as specified in the fwspec.
+> 
+> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+> ---
+>   drivers/net/phy/at803x.c | 32 ++++++++++++++++++++++++--------
+>   1 file changed, 24 insertions(+), 8 deletions(-)
+This patch breaks am335x-evm networking.
 
-Use ath10k_dbg() here too
-
-Signed-off-by: Gabriel Craciunescu <nix.or.die@gmail.com>
----
- drivers/net/wireless/ath/ath10k/htt_rx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
-index 398dda978d6e..75d9b59b7e63 100644
---- a/drivers/net/wireless/ath/ath10k/htt_rx.c
-+++ b/drivers/net/wireless/ath/ath10k/htt_rx.c
-@@ -1514,7 +1514,7 @@ static bool ath10k_htt_rx_amsdu_allowed(struct ath10k *ar,
- 	 */
+To restore it I've had to apply below diff:
+diff --git a/arch/arm/boot/dts/am335x-evm.dts b/arch/arm/boot/dts/am335x-evm.dts
+index 200d6ab..9578bdf 100644
+--- a/arch/arm/boot/dts/am335x-evm.dts
++++ b/arch/arm/boot/dts/am335x-evm.dts
+@@ -724,12 +724,12 @@
  
- 	if (!rx_status->freq) {
--		ath10k_warn(ar, "no channel configured; ignoring frame(s)!\n");
-+		ath10k_dbg(ar, ATH10K_DBG_HTT, "no channel configured; ignoring frame(s)!\n");
- 		return false;
- 	}
+ &cpsw_emac0 {
+        phy_id = <&davinci_mdio>, <0>;
+-       phy-mode = "rgmii-txid";
++       phy-mode = "rgmii-id";
+ };
  
+ &cpsw_emac1 {
+        phy_id = <&davinci_mdio>, <1>;
+-       phy-mode = "rgmii-txid";
++       phy-mode = "rgmii-id";
+ };
+ 
+ &tscadc {
+
+Sry, can't comment here to much - not E-PHY expert.
+
 -- 
-2.13.3
+regards,
+-grygorii
