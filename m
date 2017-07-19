@@ -1,120 +1,92 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 2/5] virtio-net: pack headroom into ctx for
- mergeable buffer
-Date: Wed, 19 Jul 2017 10:29:18 +0800
-Message-ID: <382b22b5-0735-b2d3-e838-adbc4bedfb3c@redhat.com>
+Subject: Re: [PATCH net-next 3/5] virtio-net: switch to use new ctx API for
+	small buffer
+Date: Wed, 19 Jul 2017 10:30:23 +0800
+Message-ID: <6bb5c666-e91b-d86a-358b-89c94f9260d8@redhat.com>
 References: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
- <1500295441-19339-3-git-send-email-jasowang@redhat.com>
- <20170718215432-mutt-send-email-mst@kernel.org>
+	<1500295441-19339-4-git-send-email-jasowang@redhat.com>
+	<20170718220030-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: virtualization@lists.linux-foundation.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170718215432-mutt-send-email-mst@kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170718220030-mutt-send-email-mst@kernel.org>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 2017年07月19日 02:59, Michael S. Tsirkin wrote:
-> On Mon, Jul 17, 2017 at 08:43:58PM +0800, Jason Wang wrote:
->> Pack headroom into ctx, then during XDP set, we could know the size of
->> headroom and copy if needed. This is required for avoiding reset on
->> XDP.
-> Not really when XDP is set - it's when buffers are used.
-
-Of course :)
-
->
-> virtio-net: pack headroom into ctx for mergeable buffers
->
-> Pack headroom into ctx - this way when we get a buffer we can figure out
-> the actual headroom that was allocated for the buffer. Will be helpful
-> to optimize switching between XDP and non-XDP modes which have different
-> headroom requirements.
-
-Thanks, let me use this as the commit log.
-
->
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>   drivers/net/virtio_net.c | 29 ++++++++++++++++++++++++-----
->>   1 file changed, 24 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 1f8c15c..8fae9a8 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -270,6 +270,23 @@ static void skb_xmit_done(struct virtqueue *vq)
->>   		netif_wake_subqueue(vi->dev, vq2txq(vq));
->>   }
->>   
->> +#define MRG_CTX_HEADER_SHIFT 22
->> +static void *mergeable_len_to_ctx(unsigned int truesize,
->> +				  unsigned int headroom)
->> +{
->> +	return (void *)(unsigned long)((headroom << MRG_CTX_HEADER_SHIFT) | truesize);
->> +}
->> +
->> +static unsigned int mergeable_ctx_to_headroom(void *mrg_ctx)
->> +{
->> +	return (unsigned long)mrg_ctx >> MRG_CTX_HEADER_SHIFT;
->> +}
->> +
->> +static unsigned int mergeable_ctx_to_truesize(void *mrg_ctx)
->> +{
->> +	return (unsigned long)mrg_ctx & ((1 << MRG_CTX_HEADER_SHIFT) - 1);
->> +}
->> +
->>   /* Called from bottom half context */
->>   static struct sk_buff *page_to_skb(struct virtnet_info *vi,
->>   				   struct receive_queue *rq,
->> @@ -639,13 +656,14 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
->>   	}
->>   	rcu_read_unlock();
->>   
->> -	if (unlikely(len > (unsigned long)ctx)) {
->> +	truesize = mergeable_ctx_to_truesize(ctx);
->> +	if (unlikely(len > truesize)) {
->>   		pr_debug("%s: rx error: len %u exceeds truesize %lu\n",
->>   			 dev->name, len, (unsigned long)ctx);
->>   		dev->stats.rx_length_errors++;
->>   		goto err_skb;
->>   	}
->> -	truesize = (unsigned long)ctx;
->> +
->>   	head_skb = page_to_skb(vi, rq, page, offset, len, truesize);
->>   	curr_skb = head_skb;
->>   
->> @@ -665,13 +683,14 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
->>   		}
->>   
->>   		page = virt_to_head_page(buf);
->> -		if (unlikely(len > (unsigned long)ctx)) {
->> +
->> +		truesize = mergeable_ctx_to_truesize(ctx);
->> +		if (unlikely(len > truesize)) {
->>   			pr_debug("%s: rx error: len %u exceeds truesize %lu\n",
->>   				 dev->name, len, (unsigned long)ctx);
->>   			dev->stats.rx_length_errors++;
->>   			goto err_skb;
->>   		}
->> -		truesize = (unsigned long)ctx;
->>   
->>   		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
->>   		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
->> @@ -889,7 +908,7 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi,
->>   
->>   	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
->>   	buf += headroom; /* advance address leaving hole at front of pkt */
->> -	ctx = (void *)(unsigned long)len;
->> +	ctx = mergeable_len_to_ctx(len, headroom);
->>   	get_page(alloc_frag->page);
->>   	alloc_frag->offset += len + headroom;
->>   	hole = alloc_frag->size - alloc_frag->offset;
->> -- 
->> 2.7.4
+CgpPbiAyMDE35bm0MDfmnIgxOeaXpSAwMzoyMCwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IHdoYXQncyBuZWVkZWQgaXMgYWJpbGl0eSB0byBzdG9yZSB0aGUgaGVhZHJvb20gdGhlcmUuCj4K
+PiB2aXJ0aW8tbmV0OiBzd2l0Y2ggdG8gdXNlIGN0eCBBUEkgZm9yIHNtYWxsIGJ1ZmZlcnMKPgo+
+IFVzZSBjdHggQVBJIHRvIHN0b3JlIGhlYWRyb29tIGZvciBzbWFsbCBidWZmZXJzLgo+IEZvbGxv
+d2luZyBwYXRjaGVzIHdpbGwgcmV0cmlldmUgdGhpcyBpbmZvIGFuZCB1c2UgaXQgZm9yIFhEUC4K
+Pgo+IE9uIE1vbiwgSnVsIDE3LCAyMDE3IGF0IDA4OjQzOjU5UE0gKzA4MDAsIEphc29uIFdhbmcg
+d3JvdGU6Cj4+IFN3aXRjaCB0byB1c2UgY3R4IEFQSSBmb3Igc21hbGwgYnVmZmVyLCB0aGlzIGlz
+IG5lZWQgZm9yIGF2b2lkaW5nCj4+IHJlc2V0IG9uIFhEUC4KPj4KPj4gU2lnbmVkLW9mZi1ieTog
+SmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4gLS0tCj4+ICAgZHJpdmVycy9uZXQv
+dmlydGlvX25ldC5jIHwgMTIgKysrKysrKy0tLS0tCj4+ICAgMSBmaWxlIGNoYW5nZWQsIDcgaW5z
+ZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
+L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+PiBpbmRleCA4ZmFlOWE4
+Li5lMzFiNWIyIDEwMDY0NAo+PiAtLS0gYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPj4gKysr
+IGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4+IEBAIC00MTAsNyArNDEwLDggQEAgc3RhdGlj
+IHVuc2lnbmVkIGludCB2aXJ0bmV0X2dldF9oZWFkcm9vbShzdHJ1Y3QgdmlydG5ldF9pbmZvICp2
+aSkKPj4gICBzdGF0aWMgc3RydWN0IHNrX2J1ZmYgKnJlY2VpdmVfc21hbGwoc3RydWN0IG5ldF9k
+ZXZpY2UgKmRldiwKPj4gICAJCQkJICAgICBzdHJ1Y3QgdmlydG5ldF9pbmZvICp2aSwKPj4gICAJ
+CQkJICAgICBzdHJ1Y3QgcmVjZWl2ZV9xdWV1ZSAqcnEsCj4+IC0JCQkJICAgICB2b2lkICpidWYs
+IHVuc2lnbmVkIGludCBsZW4pCj4+ICsJCQkJICAgICB2b2lkICpidWYsIHZvaWQgKmN0eCwKPj4g
+KwkJCQkgICAgIHVuc2lnbmVkIGludCBsZW4pCj4+ICAgewo+PiAgIAlzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiOwo+PiAgIAlzdHJ1Y3QgYnBmX3Byb2cgKnhkcF9wcm9nOwo+PiBAQCAtNzczLDcgKzc3NCw3
+IEBAIHN0YXRpYyBpbnQgcmVjZWl2ZV9idWYoc3RydWN0IHZpcnRuZXRfaW5mbyAqdmksIHN0cnVj
+dCByZWNlaXZlX3F1ZXVlICpycSwKPj4gICAJZWxzZSBpZiAodmktPmJpZ19wYWNrZXRzKQo+PiAg
+IAkJc2tiID0gcmVjZWl2ZV9iaWcoZGV2LCB2aSwgcnEsIGJ1ZiwgbGVuKTsKPj4gICAJZWxzZQo+
+PiAtCQlza2IgPSByZWNlaXZlX3NtYWxsKGRldiwgdmksIHJxLCBidWYsIGxlbik7Cj4+ICsJCXNr
+YiA9IHJlY2VpdmVfc21hbGwoZGV2LCB2aSwgcnEsIGJ1ZiwgY3R4LCBsZW4pOwo+PiAgIAo+PiAg
+IAlpZiAodW5saWtlbHkoIXNrYikpCj4+ICAgCQlyZXR1cm4gMDsKPj4gQEAgLTgxMiw2ICs4MTMs
+NyBAQCBzdGF0aWMgaW50IGFkZF9yZWN2YnVmX3NtYWxsKHN0cnVjdCB2aXJ0bmV0X2luZm8gKnZp
+LCBzdHJ1Y3QgcmVjZWl2ZV9xdWV1ZSAqcnEsCj4gTGV0J3MgZG9jdW1lbnQgdGhhdCBjdHggQVBJ
+IGlzIHVzZWQgYSBiaXQgZGlmZmVyZW50bHkgaGVyZToKPgo+IC8qIFVubGlrZSBtZXJnZWFibGUg
+YnVmZmVycywgYWxsIGJ1ZmZlcnMgYXJlIGFsbG9jYXRlZCB0byB0aGUgc2FtZSBzaXplLAo+ICAg
+KiBleGNlcHQgZm9yIHRoZSBoZWFkcm9vbS4gRm9yIHRoaXMgcmVhc29uIHdlIGRvIG5vdCBuZWVk
+IHRvIHVzZQo+ICAgKiBtZXJnZWFibGVfbGVuX3RvX2N0eCBoZXJlIC0gaXQgaXMgZW5vdWdoIHRv
+IHN0b3JlIHRoZSBoZWFkcm9vbSBhcyB0aGUKPiAgICogY29udGV4dCBpZ25vcmluZyB0aGUgdHJ1
+ZXNpemUuCj4gICAqLwoKT2suCgpUaGFua3MKCj4gYXMgYW4gYWx0ZXJuYXRpdmUsIHJldXNlIHRo
+ZSBzYW1lIGZvcm1hdCBhcyBtZXJnZWFibGUgYnVmZmVycy4KPgo+PiAgIAlzdHJ1Y3QgcGFnZV9m
+cmFnICphbGxvY19mcmFnID0gJnJxLT5hbGxvY19mcmFnOwo+PiAgIAljaGFyICpidWY7Cj4+ICAg
+CXVuc2lnbmVkIGludCB4ZHBfaGVhZHJvb20gPSB2aXJ0bmV0X2dldF9oZWFkcm9vbSh2aSk7Cj4+
+ICsJdm9pZCAqY3R4ID0gKHZvaWQgKikodW5zaWduZWQgbG9uZyl4ZHBfaGVhZHJvb207Cj4+ICAg
+CWludCBsZW4gPSB2aS0+aGRyX2xlbiArIFZJUlRORVRfUlhfUEFEICsgR09PRF9QQUNLRVRfTEVO
+ICsgeGRwX2hlYWRyb29tOwo+PiAgIAlpbnQgZXJyOwo+PiAgIAo+PiBAQCAtODI1LDcgKzgyNyw3
+IEBAIHN0YXRpYyBpbnQgYWRkX3JlY3ZidWZfc21hbGwoc3RydWN0IHZpcnRuZXRfaW5mbyAqdmks
+IHN0cnVjdCByZWNlaXZlX3F1ZXVlICpycSwKPj4gICAJYWxsb2NfZnJhZy0+b2Zmc2V0ICs9IGxl
+bjsKPj4gICAJc2dfaW5pdF9vbmUocnEtPnNnLCBidWYgKyBWSVJUTkVUX1JYX1BBRCArIHhkcF9o
+ZWFkcm9vbSwKPj4gICAJCSAgICB2aS0+aGRyX2xlbiArIEdPT0RfUEFDS0VUX0xFTik7Cj4+IC0J
+ZXJyID0gdmlydHF1ZXVlX2FkZF9pbmJ1ZihycS0+dnEsIHJxLT5zZywgMSwgYnVmLCBnZnApOwo+
+PiArCWVyciA9IHZpcnRxdWV1ZV9hZGRfaW5idWZfY3R4KHJxLT52cSwgcnEtPnNnLCAxLCBidWYs
+IGN0eCwgZ2ZwKTsKPj4gICAJaWYgKGVyciA8IDApCj4+ICAgCQlwdXRfcGFnZSh2aXJ0X3RvX2hl
+YWRfcGFnZShidWYpKTsKPj4gICAKPj4gQEAgLTEwMzQsNyArMTAzNiw3IEBAIHN0YXRpYyBpbnQg
+dmlydG5ldF9yZWNlaXZlKHN0cnVjdCByZWNlaXZlX3F1ZXVlICpycSwgaW50IGJ1ZGdldCkKPj4g
+ICAJdm9pZCAqYnVmOwo+PiAgIAlzdHJ1Y3QgdmlydG5ldF9zdGF0cyAqc3RhdHMgPSB0aGlzX2Nw
+dV9wdHIodmktPnN0YXRzKTsKPj4gICAKPj4gLQlpZiAodmktPm1lcmdlYWJsZV9yeF9idWZzKSB7
+Cj4+ICsJaWYgKCF2aS0+YmlnX3BhY2tldHMgfHwgdmktPm1lcmdlYWJsZV9yeF9idWZzKSB7Cj4+
+ICAgCQl2b2lkICpjdHg7Cj4+ICAgCj4+ICAgCQl3aGlsZSAocmVjZWl2ZWQgPCBidWRnZXQgJiYK
+Pj4gQEAgLTIxOTgsNyArMjIwMCw3IEBAIHN0YXRpYyBpbnQgdmlydG5ldF9maW5kX3ZxcyhzdHJ1
+Y3QgdmlydG5ldF9pbmZvICp2aSkKPj4gICAJbmFtZXMgPSBrbWFsbG9jKHRvdGFsX3ZxcyAqIHNp
+emVvZigqbmFtZXMpLCBHRlBfS0VSTkVMKTsKPj4gICAJaWYgKCFuYW1lcykKPj4gICAJCWdvdG8g
+ZXJyX25hbWVzOwo+PiAtCWlmICh2aS0+bWVyZ2VhYmxlX3J4X2J1ZnMpIHsKPj4gKwlpZiAoIXZp
+LT5iaWdfcGFja2V0cyB8fCB2aS0+bWVyZ2VhYmxlX3J4X2J1ZnMpIHsKPj4gICAJCWN0eCA9IGt6
+YWxsb2ModG90YWxfdnFzICogc2l6ZW9mKCpjdHgpLCBHRlBfS0VSTkVMKTsKPj4gICAJCWlmICgh
+Y3R4KQo+PiAgIAkJCWdvdG8gZXJyX2N0eDsKPj4gLS0gCj4+IDIuNy40CgpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5n
+IGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9s
+aXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
