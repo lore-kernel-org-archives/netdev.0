@@ -1,182 +1,69 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Update register ranges of T4/T5/T6 adapters
-Date: Wed, 19 Jul 2017 13:09:18 +0530
-Message-ID: <1500449958-19553-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
-        Arjun Vynipadath <arjun@chelsio.com>,
-        Casey Leedom <leedom@chelsio.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: Use sock_diag instead of procfs for new address families?
+Date: Wed, 19 Jul 2017 09:48:12 +0100
+Message-ID: <20170719084812.GB5628@stefanha-x1.localdomain>
+References: <20170718161806.GA21151@stefanha-x1.localdomain>
+ <20170718095838.18afb608@xeon-e3>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="neYutvxvOLaeuPCA"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jorgen Hansen <jhansen@vmware.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:18988 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751364AbdGSHj0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:39:26 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:44984 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753195AbdGSIsO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Jul 2017 04:48:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20170718095838.18afb608@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arjun Vynipadath <arjun@chelsio.com>
 
-Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 51 ++++++++----------------------
- 1 file changed, 14 insertions(+), 37 deletions(-)
+--neYutvxvOLaeuPCA
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 82bf7aa..570c095 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -913,7 +913,8 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0xd010, 0xd03c,
- 		0xdfc0, 0xdfe0,
- 		0xe000, 0xea7c,
--		0xf000, 0x11190,
-+		0xf000, 0x11110,
-+		0x11118, 0x11190,
- 		0x19040, 0x1906c,
- 		0x19078, 0x19080,
- 		0x1908c, 0x190e4,
-@@ -1439,8 +1440,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x1ff00, 0x1ff84,
- 		0x1ffc0, 0x1ffc8,
- 		0x30000, 0x30030,
--		0x30038, 0x30038,
--		0x30040, 0x30040,
- 		0x30100, 0x30144,
- 		0x30190, 0x301a0,
- 		0x301a8, 0x301b8,
-@@ -1551,8 +1550,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x33c3c, 0x33c50,
- 		0x33cf0, 0x33cfc,
- 		0x34000, 0x34030,
--		0x34038, 0x34038,
--		0x34040, 0x34040,
- 		0x34100, 0x34144,
- 		0x34190, 0x341a0,
- 		0x341a8, 0x341b8,
-@@ -1663,8 +1660,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x37c3c, 0x37c50,
- 		0x37cf0, 0x37cfc,
- 		0x38000, 0x38030,
--		0x38038, 0x38038,
--		0x38040, 0x38040,
- 		0x38100, 0x38144,
- 		0x38190, 0x381a0,
- 		0x381a8, 0x381b8,
-@@ -1775,8 +1770,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x3bc3c, 0x3bc50,
- 		0x3bcf0, 0x3bcfc,
- 		0x3c000, 0x3c030,
--		0x3c038, 0x3c038,
--		0x3c040, 0x3c040,
- 		0x3c100, 0x3c144,
- 		0x3c190, 0x3c1a0,
- 		0x3c1a8, 0x3c1b8,
-@@ -2040,12 +2033,8 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x1190, 0x1194,
- 		0x11a0, 0x11a4,
- 		0x11b0, 0x11b4,
--		0x11fc, 0x1258,
--		0x1280, 0x12d4,
--		0x12d9, 0x12d9,
--		0x12de, 0x12de,
--		0x12e3, 0x12e3,
--		0x12e8, 0x133c,
-+		0x11fc, 0x1274,
-+		0x1280, 0x133c,
- 		0x1800, 0x18fc,
- 		0x3000, 0x302c,
- 		0x3060, 0x30b0,
-@@ -2076,6 +2065,9 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x5ea0, 0x5eb0,
- 		0x5ec0, 0x5ec0,
- 		0x5ec8, 0x5ed0,
-+		0x5ee0, 0x5ee0,
-+		0x5ef0, 0x5ef0,
-+		0x5f00, 0x5f00,
- 		0x6000, 0x6020,
- 		0x6028, 0x6040,
- 		0x6058, 0x609c,
-@@ -2133,6 +2125,8 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0xd300, 0xd31c,
- 		0xdfc0, 0xdfe0,
- 		0xe000, 0xf008,
-+		0xf010, 0xf018,
-+		0xf020, 0xf028,
- 		0x11000, 0x11014,
- 		0x11048, 0x1106c,
- 		0x11074, 0x11088,
-@@ -2256,13 +2250,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x1ff00, 0x1ff84,
- 		0x1ffc0, 0x1ffc8,
- 		0x30000, 0x30030,
--		0x30038, 0x30038,
--		0x30040, 0x30040,
--		0x30048, 0x30048,
--		0x30050, 0x30050,
--		0x3005c, 0x30060,
--		0x30068, 0x30068,
--		0x30070, 0x30070,
- 		0x30100, 0x30168,
- 		0x30190, 0x301a0,
- 		0x301a8, 0x301b8,
-@@ -2325,13 +2312,12 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x326a8, 0x326a8,
- 		0x326ec, 0x326ec,
- 		0x32a00, 0x32abc,
--		0x32b00, 0x32b38,
-+		0x32b00, 0x32b18,
-+		0x32b20, 0x32b38,
- 		0x32b40, 0x32b58,
- 		0x32b60, 0x32b78,
- 		0x32c00, 0x32c00,
- 		0x32c08, 0x32c3c,
--		0x32e00, 0x32e2c,
--		0x32f00, 0x32f2c,
- 		0x33000, 0x3302c,
- 		0x33034, 0x33050,
- 		0x33058, 0x33058,
-@@ -2396,13 +2382,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x33c38, 0x33c50,
- 		0x33cf0, 0x33cfc,
- 		0x34000, 0x34030,
--		0x34038, 0x34038,
--		0x34040, 0x34040,
--		0x34048, 0x34048,
--		0x34050, 0x34050,
--		0x3405c, 0x34060,
--		0x34068, 0x34068,
--		0x34070, 0x34070,
- 		0x34100, 0x34168,
- 		0x34190, 0x341a0,
- 		0x341a8, 0x341b8,
-@@ -2465,13 +2444,12 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x366a8, 0x366a8,
- 		0x366ec, 0x366ec,
- 		0x36a00, 0x36abc,
--		0x36b00, 0x36b38,
-+		0x36b00, 0x36b18,
-+		0x36b20, 0x36b38,
- 		0x36b40, 0x36b58,
- 		0x36b60, 0x36b78,
- 		0x36c00, 0x36c00,
- 		0x36c08, 0x36c3c,
--		0x36e00, 0x36e2c,
--		0x36f00, 0x36f2c,
- 		0x37000, 0x3702c,
- 		0x37034, 0x37050,
- 		0x37058, 0x37058,
-@@ -2545,8 +2523,7 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
- 		0x40280, 0x40280,
- 		0x40304, 0x40304,
- 		0x40330, 0x4033c,
--		0x41304, 0x413b8,
--		0x413c0, 0x413c8,
-+		0x41304, 0x413c8,
- 		0x413d0, 0x413dc,
- 		0x413f0, 0x413f0,
- 		0x41400, 0x4140c,
--- 
-2.1.0
+On Tue, Jul 18, 2017 at 09:58:38AM -0700, Stephen Hemminger wrote:
+> On Tue, 18 Jul 2017 17:18:06 +0100
+> Stefan Hajnoczi <stefanha@redhat.com> wrote:
+>=20
+> > I am implementing userspace access to socket information for AF_VSOCK.
+> > A few hours into writing and testing a /proc/net/vsock seq_file I
+> > noticed that ss(8) prefers NETLINK_SOCK_DIAG over procfs.
+> >=20
+> > Before potentially wasting time implementing a legacy interface that
+> > won't be accepted, I thought it might be good to ask :).
+> >=20
+> > Which approach is preferred?
+> > 1. New address families must implement only sock_diag.
+> > 2. Both sock_diag and procfs must be implemented.
+> > 3. Implement whichever interface you prefer.
+> >=20
+> > Thanks,
+> > Stefan
+>=20
+> You are correct, I am unlikely to take any new code using /proc
+> in ss.
+
+Thanks Stephen and David, will switch to sock_diag.
+
+Stefan
+
+--neYutvxvOLaeuPCA
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBAgAGBQJZbxzMAAoJEJykq7OBq3PITcYIAJcDaRRGu+X+aCr+opGXIDiL
+Aj249VsIPtuLH/jtV0LWOZyj0JjmaN1/hmhyBi6Wts8V9CTTLqrT657QtLJVhW8u
+R1NIaE8V9k57XdCpfWliTmkQGBUJf3cAb5UoENz/1717MjlIzdabq1ftufehYOgX
+OLGmb9m9AsOj9Qlp6/5Tqy6dIBdxrcipIiPexf+BJId9gm2d78J9gg8TvHXCR26Z
+zfY7YVEcv0MNBCNYqBXL908q6coJ6ekQieASOVIOOuoDmPSctTxJ2lg11YNvDImS
+2V+cD5vab3B0anZuF9E1/Bpuedgjqz5Zkjl2iEll1i8MzEdZerJCDr2tYZMEC9Q=
+=oKb0
+-----END PGP SIGNATURE-----
+
+--neYutvxvOLaeuPCA--
