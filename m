@@ -1,7 +1,8 @@
 From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: [PATCH 0/3] can: m_can: Add PM Runtime Support
-Date: Wed, 19 Jul 2017 18:09:23 -0500
-Message-ID: <20170719230926.10872-1-fcooper@ti.com>
+Subject: [PATCH 2/3] can: m_can: Update documentation to indicate that hclk may be optional
+Date: Wed, 19 Jul 2017 18:09:25 -0500
+Message-ID: <20170719230926.10872-3-fcooper@ti.com>
+References: <20170719230926.10872-1-fcooper@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Franklin S Cooper Jr <fcooper@ti.com>
@@ -10,21 +11,30 @@ To: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
         <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
         <quentin.schulz@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170719230926.10872-1-fcooper@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add PM runtime support to the MCAN driver. To support devices that don't use
-PM runtime leave the original clk calls in the driver. Perhaps in the future
-when it makes sense we can remove these non pm runtime clk calls.
+Update the documentation to reflect that hclk is now an optional clock.
 
-Franklin S Cooper Jr (3):
-  can: m_can: Make hclk optional
-  can: m_can: Update documentation to indicate that hclk may be optional
-  can: m_can: Add PM Runtime
+Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+---
+ Documentation/devicetree/bindings/net/can/m_can.txt | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
- .../devicetree/bindings/net/can/m_can.txt          |  3 ++-
- drivers/net/can/m_can/m_can.c                      | 22 ++++++++++++++++++++--
- 2 files changed, 22 insertions(+), 3 deletions(-)
-
+diff --git a/Documentation/devicetree/bindings/net/can/m_can.txt b/Documentation/devicetree/bindings/net/can/m_can.txt
+index 9e33177..2a0fe5b 100644
+--- a/Documentation/devicetree/bindings/net/can/m_can.txt
++++ b/Documentation/devicetree/bindings/net/can/m_can.txt
+@@ -12,7 +12,8 @@ Required properties:
+ - interrupt-names	: Should contain "int0" and "int1"
+ - clocks		: Clocks used by controller, should be host clock
+ 			  and CAN clock.
+-- clock-names		: Should contain "hclk" and "cclk"
++- clock-names		: Should contain "hclk" and "cclk". For some socs hclk
++			  may be optional.
+ - pinctrl-<n>		: Pinctrl states as described in bindings/pinctrl/pinctrl-bindings.txt
+ - pinctrl-names 	: Names corresponding to the numbered pinctrl states
+ - bosch,mram-cfg	: Message RAM configuration data.
 -- 
 2.10.0
