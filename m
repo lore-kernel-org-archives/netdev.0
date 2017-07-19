@@ -1,65 +1,65 @@
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: Re: [PATCH V2 net-next 20/21] net-next/hinic: Add ethtool and stats
-Date: Wed, 19 Jul 2017 15:36:28 +0300
-Message-ID: <9df7d969-6706-d702-a674-9207f5b1c3df@huawei.com>
+Subject: Re: [PATCH V2 net-next 21/21] net-next/hinic: Add select_queue and
+ netpoll
+Date: Wed, 19 Jul 2017 15:41:38 +0300
+Message-ID: <5b6faba9-78fe-8fd4-ceec-7af6df321236@huawei.com>
 References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
- <b66411dd204e8989f58e70bea8ae11d2cbe5cd1b.1500454998.git.aviad.krawczyk@huawei.com>
- <1500460074.25934.33.camel@perches.com>
+ <b5fb082d3a35a261c230313421ba16f3e9595dbe.1500454998.git.aviad.krawczyk@huawei.com>
+ <139781f1-8770-2f6d-81c2-b2d411cfeac5@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
         <bc.y@huawei.com>, <victor.gissin@huawei.com>,
         <zhaochen6@huawei.com>, <tony.qu@huawei.com>
-To: Joe Perches <joe@perches.com>, <davem@davemloft.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1500460074.25934.33.camel@perches.com>
+In-Reply-To: <139781f1-8770-2f6d-81c2-b2d411cfeac5@cogentembedded.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Joe,
+Hi Sergei,
 
-I tried to be consistent with the comments before, that requested
-that we will use dev_err exclude some special cases for use netif.
-
-We will replace the dev_err(&netdev->dev,.. to netdev_err in the
-next fix.
+I meant that drivers/net/ethernet/huawei/* is all the dir under huawei dir.
+(I saw this style of '*' is used in the maintainers file)
+I will change it to drivers/net/ethernet/huawei/hinic/ in the next fix.
 
 Thanks for review,
 Aviad
 
-On 7/19/2017 1:27 PM, Joe Perches wrote:
-> On Wed, 2017-07-19 at 17:19 +0800, Aviad Krawczyk wrote:
->> Add ethtool operations and statistics operations.
+On 7/19/2017 2:34 PM, Sergei Shtylyov wrote:
+> On 7/19/2017 12:19 PM, Aviad Krawczyk wrote:
 > 
-> series trivia:
+>> Add more netdev operations.
+>>
+>> Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+>> Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
+>> ---
+>>   MAINTAINERS                                    |  7 ++++++
+>>   drivers/net/ethernet/huawei/hinic/hinic_main.c | 35 ++++++++++++++++++++++++++
+>>   2 files changed, 42 insertions(+)
+>>
+>> diff --git a/MAINTAINERS b/MAINTAINERS
+>> index 1347726..5c85602 100644
+>> --- a/MAINTAINERS
+>> +++ b/MAINTAINERS
+>> @@ -6269,6 +6269,13 @@ L:    linux-input@vger.kernel.org
+>>   S:    Maintained
+>>   F:    drivers/input/touchscreen/htcpen.c
+>>   +HUAWEI ETHERNET DRIVER
+>> +M:    Aviad Krawczyk <aviad.krawczyk@huawei.com>
+>> +L:    netdev@vger.kernel.org
+>> +S:    Supported
+>> +F:    Documentation/networking/hinic.txt
+>> +F:    drivers/net/ethernet/huawei/*
 > 
->> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-> []
->> @@ -67,6 +67,178 @@
-> []
->> +static int hinic_get_link_ksettings(struct net_device *netdev,
->> +				    struct ethtool_link_ksettings
->> +				    *link_ksettings)
->> +{
-> []
->> +	err = hinic_port_get_cap(nic_dev, &port_cap);
->> +	if (err) {
->> +		dev_err(&netdev->dev, "Failed to get port capabilities\n");
->> +		return err;
->> +	}
+>    This means that subdirs there are not maintained, did you really mean it?
 > 
-> it looks like a lot of these dev_<level> calls
-> should be converted to netdev_<level>
+> [...]
 > 
-> from:
-> 		dev_err(&netdev->dev, ...);
-> to:
-> 		netdev_err(netdev, ...);
-> 
-> etc...
-> 
+> MNR, Sergei
 > 
 > .
 > 
