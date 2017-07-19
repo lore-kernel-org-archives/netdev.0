@@ -1,46 +1,107 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH net] Revert "rtnetlink: Do not generate notifications for CHANGEADDR event"
-Date: Wed, 19 Jul 2017 10:22:40 -0700
-Message-ID: <1500484960-4967-1-git-send-email-dsahern@gmail.com>
-Cc: yaroslav.isakov@gmail.com, David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [PATCH 2/2] net: ethernet: nb8800: Fix RGMII TX clock delay setup
+Date: Wed, 19 Jul 2017 19:36:43 +0200
+Message-ID: <001a7afd-364d-359e-1478-e057c9083f73@free.fr>
+References: <b332dc3e-4478-e34b-2b3f-226aad8a11d4@sigmadesigns.com>
+ <61b71d12-4e3a-edbe-1d69-c66e7cf46d8e@sigmadesigns.com>
+ <yw1xzic0qrcg.fsf@mansr.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8bit
+Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Timur Tabi <timur@codeaurora.org>,
+        Daniel Mack <zonque@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Mans Rullgard <mans@mansr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35102 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752257AbdGSRWq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 13:22:46 -0400
-Received: by mail-pf0-f193.google.com with SMTP id q85so471728pfq.2
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 10:22:46 -0700 (PDT)
+Received: from smtp2-g21.free.fr ([212.27.42.2]:34222 "EHLO smtp2-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755882AbdGSRhV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Jul 2017 13:37:21 -0400
+In-Reply-To: <yw1xzic0qrcg.fsf@mansr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit cd8966e75ed3c6b41a37047a904617bc44fa481f.
+On 19/07/2017 19:17, Måns Rullgård wrote:
 
-The duplicate CHANGEADDR event message is sent regardless of link
-status whereas the setlink changes only generate a notification when
-the link is up. Not sending a notification when the link is down breaks
-dhcpcd which only processes hwaddr changes when the link is down.
+> Marc Gonzalez writes:
+> 
+>> According to commit e5f3a4a56ce2a707b2fb8ce37e4414dcac89c672
+>> ("Documentation: devicetree: clarify usage of the RGMII phy-modes")
+>> there are 4 RGMII phy-modes to handle:
+>>
+>> "rgmii" (RX and TX delays are added by the MAC when required)
+>> "rgmii-id" (RGMII with internal RX and TX delays provided by the PHY,
+>> 	the MAC should not add the RX or TX delays in this case)
+>> "rgmii-rxid" (RGMII with internal RX delay provided by the PHY,
+>> 	the MAC should not add an RX delay in this case)
+>> "rgmii-txid" (RGMII with internal TX delay provided by the PHY,
+>> 	the MAC should not add an TX delay in this case)
+>>
+>> Let the MAC handle TX clock delay for rgmii and rgmii-rxid.
+>>
+>> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+>> ---
+>>  drivers/net/ethernet/aurora/nb8800.c | 8 +++++---
+>>  1 file changed, 5 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+>> index 041cfb7952f8..f3ed320eb4ad 100644
+>> --- a/drivers/net/ethernet/aurora/nb8800.c
+>> +++ b/drivers/net/ethernet/aurora/nb8800.c
+>> @@ -609,7 +609,7 @@ static void nb8800_mac_config(struct net_device *dev)
+>>  		mac_mode |= HALF_DUPLEX;
+>>
+>>  	if (gigabit) {
+>> -		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
+>> +		if (phy_interface_is_rgmii(dev->phydev))
+>>  			mac_mode |= RGMII_MODE;
+>>
+>>  		mac_mode |= GMAC_MODE;
+> 
+> This is a separate issue, and the change is obviously correct.
+> 
+>> @@ -1268,11 +1268,13 @@ static int nb8800_tangox_init(struct net_device *dev)
+>>  		break;
+>>
+>>  	case PHY_INTERFACE_MODE_RGMII:
+>> -		pad_mode = PAD_MODE_RGMII;
+>> +	case PHY_INTERFACE_MODE_RGMII_RXID:
+>> +		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
+>>  		break;
+>>
+>> +	case PHY_INTERFACE_MODE_RGMII_ID:
+>>  	case PHY_INTERFACE_MODE_RGMII_TXID:
+>> -		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
+>> +		pad_mode = PAD_MODE_RGMII;
+>>  		break;
+> 
+> Won't this just make it break in a different set of circumstances?
 
-Fixes reported regression:
-    https://bugzilla.kernel.org/show_bug.cgi?id=196355
+I don't think so, and here's my reasoning:
 
-Reported-by: Yaroslav Isakov <yaroslav.isakov@gmail.com>
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- net/core/rtnetlink.c | 1 +
- 1 file changed, 1 insertion(+)
+AFAIU, the HW block always requires a TX clock delay
+(I don't know what the "safe" interval is. PHY adds
+2.4 ns, MAC adds ~1 ns, both work.)
+RX clock delay seems to be "Don't Care" (tested both
+enabled and disabled by PHY)
+By "tested", I mean ability to ping remote system.
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d1ba90980be1..11b25fbf3dd2 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -4241,6 +4241,7 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
- 
- 	switch (event) {
- 	case NETDEV_REBOOT:
-+	case NETDEV_CHANGEADDR:
- 	case NETDEV_CHANGENAME:
- 	case NETDEV_FEAT_CHANGE:
- 	case NETDEV_BONDING_FAILOVER:
--- 
-2.1.4
+If phy-mode is RGMII or RGMII_RXID, then don't add
+TX clock delay from PHY, therefore add it from MAC.
+
+If phy_mode is RGMII_ID or RGMII_TXID, then do add
+TX clock delay from PHY, therefore don't add it from MAC.
+
+What set of circumstances would create an issue?
+
+Regards.
