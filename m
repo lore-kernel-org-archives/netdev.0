@@ -1,36 +1,60 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 1/2] openvswitch: Optimize updating for OvS
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 2/2] openvswitch: Optimize operations for OvS
  flow_stats.
-Date: Wed, 19 Jul 2017 13:49:57 -0700 (PDT)
-Message-ID: <20170719.134957.2287331374531494457.davem@davemloft.net>
+Date: Wed, 19 Jul 2017 13:50:04 -0700 (PDT)
+Message-ID: <20170719.135004.334104341161895966.davem@davemloft.net>
 References: <1500359286-36597-1-git-send-email-xiangxia.m.yue@gmail.com>
+        <1500359286-36597-2-git-send-email-xiangxia.m.yue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: xiangxia.m.yue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1500359286-36597-1-git-send-email-xiangxia.m.yue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@ovn.org
+To: xiangxia.m.yue@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47184 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756068AbdGSUuF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 16:50:05 -0400
+In-Reply-To: <1500359286-36597-2-git-send-email-xiangxia.m.yue@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tonghao Zhang <xiangxia.m.yue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 17 Jul 2017 23:28:05 -0700
-
-> In the ovs_flow_stats_update(), we only use the node
-> var to alloc flow_stats struct. But this is not a
-> common case, it is unnecessary to call the numa_node_id()
-> everytime. This patch is not a bugfix, but there maybe
-> a small increase.
-> 
-> Signed-off-by: Tonghao Zhang <xiangxia.m.yue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
-Applied.
+RnJvbTogVG9uZ2hhbyBaaGFuZyA8eGlhbmd4aWEubS55dWVAZ21haWwuY29tPg0KRGF0ZTogTW9u
+LCAxNyBKdWwgMjAxNyAyMzoyODowNiAtMDcwMA0KDQo+IFdoZW4gY2FsbGluZyB0aGUgZmxvd19m
+cmVlKCkgdG8gZnJlZSB0aGUgZmxvdywgd2UgY2FsbCBtYW55IHRpbWVzDQo+IChjcHVfcG9zc2li
+bGVfbWFzaywgZWcuIDEyOCBhcyBkZWZhdWx0KSBjcHVtYXNrX25leHQoKS4gVGhhdCB3aWxsDQo+
+IHRha2UgdXAgb3VyIENQVSB1c2FnZSBpZiB3ZSBjYWxsIHRoZSBmbG93X2ZyZWUoKSBmcmVxdWVu
+dGx5Lg0KPiBXaGVuIHdlIHB1dCBhbGwgcGFja2V0cyB0byB1c2Vyc3BhY2UgdmlhIHVwY2FsbCwg
+YW5kIE92UyB3aWxsIHNlbmQNCj4gdGhlbSBiYWNrIHZpYSBuZXRsaW5rIHRvIG92c19wYWNrZXRf
+Y21kX2V4ZWN1dGUod2lsbCBjYWxsIGZsb3dfZnJlZSkuDQo+IA0KPiBUaGUgdGVzdCB0b3BvIGlz
+IHNob3duIGFzIGJlbG93LiBWTTAxIHNlbmRzIFRDUCBwYWNrZXRzIHRvIFZNMDIsDQo+IGFuZCBP
+dlMgZm9yd2FyZCBwYWNrdGV0cy4gV2hlbiB0ZXN0aW5nLCB3ZSB1c2UgcGVyZiB0byByZXBvcnQg
+dGhlDQo+IHN5c3RlbSBwZXJmb3JtYW5jZS4NCj4gDQo+IFZNMDEgLS0tIE92Uy1WTSAtLS0gVk0w
+Mg0KPiANCj4gV2l0aG91dCB0aGlzIHBhdGNoLCBwZXJmLXRvcCBzaG93IGFzIGJlbG93OiBUaGUg
+Zmxvd19mcmVlKCkgaXMNCj4gMy4wMiUgQ1BVIHVzYWdlLg0KPiANCj4gCTQuMjMlICBba2VybmVs
+XSAgICAgICAgICAgIFtrXSBfcmF3X3NwaW5fdW5sb2NrX2lycXJlc3RvcmUNCj4gCTMuNjIlICBb
+a2VybmVsXSAgICAgICAgICAgIFtrXSBfX2RvX3NvZnRpcnENCj4gCTMuMTYlICBba2VybmVsXSAg
+ICAgICAgICAgIFtrXSBfX21lbWNweQ0KPiAJMy4wMiUgIFtrZXJuZWxdICAgICAgICAgICAgW2td
+IGZsb3dfZnJlZQ0KPiAJMi40MiUgIGxpYmMtMi4xNy5zbyAgICAgICAgWy5dIF9fbWVtY3B5X3Nz
+c2UzX2JhY2sNCj4gCTIuMTglICBba2VybmVsXSAgICAgICAgICAgIFtrXSBjb3B5X3VzZXJfZ2Vu
+ZXJpY191bnJvbGxlZA0KPiAJMi4xNyUgIFtrZXJuZWxdICAgICAgICAgICAgW2tdIGZpbmRfbmV4
+dF9iaXQNCj4gDQo+IFdoZW4gYXBwbGllZCB0aGlzIHBhdGNoLCBwZXJmLXRvcCBzaG93IGFzIGJl
+bG93OiBOb3Qgc2hvd24gb24NCj4gdGhlIGxpc3QgYW55bW9yZS4NCj4gDQo+IAk0LjExJSAgW2tl
+cm5lbF0gICAgICAgICAgICBba10gX3Jhd19zcGluX3VubG9ja19pcnFyZXN0b3JlDQo+IAkzLjc5
+JSAgW2tlcm5lbF0gICAgICAgICAgICBba10gX19kb19zb2Z0aXJxDQo+IAkzLjQ2JSAgW2tlcm5l
+bF0gICAgICAgICAgICBba10gX19tZW1jcHkNCj4gCTIuNzMlICBsaWJjLTIuMTcuc28gICAgICAg
+IFsuXSBfX21lbWNweV9zc3NlM19iYWNrDQo+IAkyLjI1JSAgW2tlcm5lbF0gICAgICAgICAgICBb
+a10gY29weV91c2VyX2dlbmVyaWNfdW5yb2xsZWQNCj4gCTEuODklICBsaWJjLTIuMTcuc28gICAg
+ICAgIFsuXSBfaW50X21hbGxvYw0KPiAJMS41MyUgIG92cy12c3dpdGNoZCAgICAgICAgWy5dIHhs
+YXRlX2FjdGlvbnMNCj4gDQo+IFdpdGggdGhpcyBwYXRjaCwgdGhlIFRDUCB0aHJvdWdocHV0KHdl
+IGRvbnQgdXNlIE1lZ2FmbG93IENhY2hlDQo+ICsgTWljcm9mbG93IENhY2hlKSBiZXR3ZWVuIFZN
+cyBpcyAxLjE4R2JzL3NlYyB1cCB0byAxLjMwR2JzL3NlYw0KPiAobWF5YmUgfjEwJSBwZXJmb3Jt
+YW5jZSBpbXBvcnZlKS4NCj4gDQo+IFRoaXMgcGF0Y2ggYWRkcyBjcHVtYXNrIHN0cnVjdCwgdGhl
+IGNwdV91c2VkX21hc2sgc3RvcmVzIHRoZSBjcHVfaWQNCj4gdGhhdCB0aGUgZmxvdyB1c2VkLiBB
+bmQgd2Ugb25seSBjaGVjayB0aGUgZmxvd19zdGF0cyBvbiB0aGUgY3B1IHdlDQo+IHVzZWQsIGFu
+ZCBpdCBpcyB1bm5jZXNzYXJ5IHRvIGNoZWNrIGFsbCBwb3NzaWJsZSBjcHUgd2hlbiBnZXR0aW5n
+LA0KPiBjbGVhbmluZywgYW5kIHVwZGF0aW5nIHRoZSBmbG93X3N0YXRzLiBBZGRpbmcgdGhlIGNw
+dV91c2VkX21hc2sgdG8NCj4gc3dfZmxvdyBzdHJ1Y3QgZG9lc6J0IGluY3JlYXNlIHRoZSBjYWNo
+ZWxpbmUgbnVtYmVyLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogVG9uZ2hhbyBaaGFuZyA8eGlhbmd4
+aWEubS55dWVAZ21haWwuY29tPg0KPiBBY2tlZC1ieTogUHJhdmluIEIgU2hlbGFyIDxwc2hlbGFy
+QG92bi5vcmc+DQoNCkFwcGxpZWQuDQo=
