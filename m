@@ -1,61 +1,51 @@
-From: Matteo Croce <mcroce@redhat.com>
-Subject: [PATCH v2] netns: avoid directory traversal (was: ip netns: Make sure netns name is sane)
-Date: Thu, 20 Jul 2017 00:36:32 +0200
-Message-ID: <20170719223632.4124-1-mcroce@redhat.com>
-References: <20170718171230.084c804e@xeon-e3>
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH net-next] mdio_bus: Remove unneeded gpiod NULL check
+Date: Wed, 19 Jul 2017 19:37:09 -0300
+Message-ID: <CAOMZO5DT9xrGzX1SPGpLxOBB_KKKt_7obtq8kWxy4AeNdDKBfg@mail.gmail.com>
+References: <1500325749-8382-1-git-send-email-festevam@gmail.com>
+ <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com> <CAOMZO5ABD9iasv67ehcpTzcjU-iD9=8vQ2vM7Gwc4-v9pnUt-Q@mail.gmail.com>
+ <f4cdcb4b-feac-5106-8068-e694dbd3b4e6@cogentembedded.com> <CAOMZO5BycGHNocULcScDczRoEvbQqjnRZTDrNAw7=+zpadSOSA@mail.gmail.com>
+ <20170718133209.GB32757@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linus Walleij <linus.walleij@linaro.org>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Fabio Estevam <fabio.estevam@nxp.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33248 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751911AbdGSWgf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Jul 2017 18:36:35 -0400
-In-Reply-To: <20170718171230.084c804e@xeon-e3>
+Received: from mail-ua0-f194.google.com ([209.85.217.194]:33726 "EHLO
+        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932518AbdGSWhK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 18:37:10 -0400
+Received: by mail-ua0-f194.google.com with SMTP id u4so1223237uaa.0
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 15:37:10 -0700 (PDT)
+In-Reply-To: <20170718133209.GB32757@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v2: reword commit message
+Hi Andrew,
 
-ip netns keeps track of created namespaces with bind mounts named
-/var/run/netns/<namespace>. No input sanitization is done, allowing creation and
-deletion of files relatives to /var/run/netns or, if the path is non existent or
-invalid, allows to create "untracked" namespaces (invisible to the tool).
+On Tue, Jul 18, 2017 at 10:32 AM, Andrew Lunn <andrew@lunn.ch> wrote:
 
-This commit denies creation or deletion of namespaces with names contaning
-"/" or matching exactly "." or "..".
+> http://elixir.free-electrons.com/linux/latest/source/include/linux/gpio/consumer.h#L345
+> static inline void gpiod_set_value_cansleep(struct gpio_desc *desc, int value)
+> {
+>         /* GPIO can never have been requested */
+>         WARN_ON(1);
+> }
+>
+> But i would say this is a gpio problem. If GPIO enabled does not care,
+> GPIO disabled should also not care.
 
-Signed-off-by: Matteo Croce <mcroce@redhat.com>
----
- ip/ipnetns.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+Agreed.
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 0b0378ab..42549944 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -766,6 +766,11 @@ static int netns_monitor(int argc, char **argv)
- 	return 0;
- }
- 
-+static int invalid_name(const char *name)
-+{
-+	return strchr(name, '/') || !strcmp(name, ".") || !strcmp(name, "..");
-+}
-+
- int do_netns(int argc, char **argv)
- {
- 	netns_nsid_socket_init();
-@@ -775,6 +780,11 @@ int do_netns(int argc, char **argv)
- 		return netns_list(0, NULL);
- 	}
- 
-+	if (argc > 1 && invalid_name(argv[1])) {
-+		fprintf(stderr, "Invalid netns name \"%s\"\n", argv[1]);
-+		exit(-1);
-+	}
-+
- 	if ((matches(*argv, "list") == 0) || (matches(*argv, "show") == 0) ||
- 	    (matches(*argv, "lst") == 0)) {
- 		netns_map_init();
--- 
-2.13.3
+Sergei, sorry for taking so long to understand your point.
+
+> Adding Linus Walleij.
+
+Just sent a RFC patch to linux-gpio.
+
+Thanks
