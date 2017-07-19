@@ -1,38 +1,51 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 0/8] netvsc: lockdep and related fixes
-Date: Wed, 19 Jul 2017 11:53:11 -0700
-Message-ID: <20170719185319.25871-1-sthemmin@microsoft.com>
+Subject: [PATCH net-next 1/8] netvsc: force link update after MTU change
+Date: Wed, 19 Jul 2017 11:53:12 -0700
+Message-ID: <20170719185319.25871-2-sthemmin@microsoft.com>
+References: <20170719185319.25871-1-sthemmin@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:34962 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752847AbdGSSxW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 14:53:22 -0400
-Received: by mail-pg0-f45.google.com with SMTP id v190so3932498pgv.2
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 11:53:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: kys@microsoft.com,
+	haiyangz@microsoft.com,
+	sthemmin@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20170719185319.25871-1-sthemmin@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-These fix sparse and lockdep warnings from netvsc driver.
-Targeting these at net-next since no actual related failures
-have been observed in non-debug kernels.
+If two MTU changes are in less than update interval (2 seconds),
+then the netvsc network device may get stuck with no carrier.
 
-Stephen Hemminger (8):
-  netvsc: force link update after MTU change
-  netvsc: add some rtnl_dereference annotations
-  netvsc: change order of steps in setting queues
-  netvsc: change logic for change mtu and set_queues
-  netvsc: use ERR_PTR to avoid dereference issues
-  netvsc: need rcu_derefence when accessing internal device info
-  netvsc: save pointer to parent netvsc_device in channel table
-  netvsc: add rtnl annotations in rndis
+The netvsc driver debounces link status events which is fine
+for unsolicited updates, but blocks getting the update after
+down/up from MTU reinitialization.
 
- drivers/net/hyperv/hyperv_net.h   | 26 +++++-------
- drivers/net/hyperv/netvsc.c       | 33 ++++++++++------
- drivers/net/hyperv/netvsc_drv.c   | 83 +++++++++++++++++++++------------------
- drivers/net/hyperv/rndis_filter.c | 62 ++++++++++++++++-------------
- 4 files changed, 107 insertions(+), 97 deletions(-)
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 1 +
+ 1 file changed, 1 insertion(+)
 
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 63c98bbbc596..09b07ca9e69a 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -783,6 +783,7 @@ static int netvsc_set_channels(struct net_device *net,
+ 		ret = netvsc_open(net);
+ 
+ 	/* We may have missed link change notifications */
++	net_device_ctx->last_reconfig = 0;
+ 	schedule_delayed_work(&net_device_ctx->dwork, 0);
+ 
+ 	return ret;
 -- 
 2.11.0
