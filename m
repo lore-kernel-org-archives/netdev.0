@@ -1,98 +1,65 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [PATCH net-next 09/11] net: dsa: Move FDB dump implementation
- inside DSA
-Date: Wed, 19 Jul 2017 15:00:39 +0300
-Message-ID: <6da16295-facd-cc14-12a4-e91d62202695@mellanox.com>
-References: <1500387624-4361-1-git-send-email-arkadis@mellanox.com>
- <1500387624-4361-10-git-send-email-arkadis@mellanox.com>
- <877ez5boxj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Subject: Re: [PATCH V2 net-next 20/21] net-next/hinic: Add ethtool and stats
+Date: Wed, 19 Jul 2017 15:36:28 +0300
+Message-ID: <9df7d969-6706-d702-a674-9207f5b1c3df@huawei.com>
+References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
+ <b66411dd204e8989f58e70bea8ae11d2cbe5cd1b.1500454998.git.aviad.krawczyk@huawei.com>
+ <1500460074.25934.33.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr40057.outbound.protection.outlook.com ([40.107.4.57]:12758
-        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751448AbdGSMAt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Jul 2017 08:00:49 -0400
-In-Reply-To: <877ez5boxj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
+        <zhaochen6@huawei.com>, <tony.qu@huawei.com>
+To: Joe Perches <joe@perches.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1500460074.25934.33.camel@perches.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Joe,
 
+I tried to be consistent with the comments before, that requested
+that we will use dev_err exclude some special cases for use netif.
 
-On 07/18/2017 09:06 PM, Vivien Didelot wrote:
-> Hi Arkadi,
+We will replace the dev_err(&netdev->dev,.. to netdev_err in the
+next fix.
+
+Thanks for review,
+Aviad
+
+On 7/19/2017 1:27 PM, Joe Perches wrote:
+> On Wed, 2017-07-19 at 17:19 +0800, Aviad Krawczyk wrote:
+>> Add ethtool operations and statistics operations.
 > 
-> Arkadi Sharshevsky <arkadis@mellanox.com> writes:
+> series trivia:
 > 
->> +typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
->> +			      u16 ndm_state, void *data);
-> 
-> Can I ask you to change u16 ndm_state for bool is_static at the same
-> time? Ethernet switches do not need to report more than that.
->
-
-Will fix, thanks.
-
->> +static int
->> +dsa_slave_port_fdb_do_dump(const unsigned char *addr, u16 vid,
->> +			   u16 ndm_state, void *data)
+>> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
+> []
+>> @@ -67,6 +67,178 @@
+> []
+>> +static int hinic_get_link_ksettings(struct net_device *netdev,
+>> +				    struct ethtool_link_ksettings
+>> +				    *link_ksettings)
 >> +{
->> +	struct dsa_slave_dump_ctx *dump = data;
->> +	u32 portid = NETLINK_CB(dump->cb->skb).portid;
->> +	u32 seq = dump->cb->nlh->nlmsg_seq;
->> +	struct nlmsghdr *nlh;
->> +	struct ndmsg *ndm;
->> +
->> +	if (dump->idx < dump->cb->args[2])
->> +		goto skip;
->> +
->> +	nlh = nlmsg_put(dump->skb, portid, seq, RTM_NEWNEIGH,
->> +			sizeof(*ndm), NLM_F_MULTI);
->> +	if (!nlh)
->> +		return -EMSGSIZE;
->> +
->> +	ndm = nlmsg_data(nlh);
->> +	ndm->ndm_family  = AF_BRIDGE;
->> +	ndm->ndm_pad1    = 0;
->> +	ndm->ndm_pad2    = 0;
->> +	ndm->ndm_flags   = NTF_SELF;
->> +	ndm->ndm_type    = 0;
->> +	ndm->ndm_ifindex = dump->dev->ifindex;
->> +	ndm->ndm_state   = ndm_state;
+> []
+>> +	err = hinic_port_get_cap(nic_dev, &port_cap);
+>> +	if (err) {
+>> +		dev_err(&netdev->dev, "Failed to get port capabilities\n");
+>> +		return err;
+>> +	}
 > 
-> So we can simply scope this here:
+> it looks like a lot of these dev_<level> calls
+> should be converted to netdev_<level>
 > 
->         ndm->ndm_state = is_static ? NUD_NOARP : NUD_REACHABLE;
+> from:
+> 		dev_err(&netdev->dev, ...);
+> to:
+> 		netdev_err(netdev, ...);
 > 
->> +
->> +	if (nla_put(dump->skb, NDA_LLADDR, ETH_ALEN, addr))
->> +		goto nla_put_failure;
->> +
->> +	if (vid && nla_put_u16(dump->skb, NDA_VLAN, vid))
->> +		goto nla_put_failure;
->> +
->> +	nlmsg_end(dump->skb, nlh);
->> +
->> +skip:
->> +	dump->idx++;
->> +	return 0;
->> +
->> +nla_put_failure:
->> +	nlmsg_cancel(dump->skb, nlh);
->> +	return -EMSGSIZE;
->> +}
-> 
-> Other than that, LGTM.
+> etc...
 > 
 > 
-> Thanks,
-> 
->         Vivien
+> .
 > 
