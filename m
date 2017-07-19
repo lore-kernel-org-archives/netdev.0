@@ -1,7 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2 1/5] virtio_ring: allow to store zero as the ctx
-Date: Wed, 19 Jul 2017 16:54:45 +0800
-Message-ID: <1500454489-16805-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V2 2/5] virtio-net: pack headroom into ctx for
+	mergeable buffers
+Date: Wed, 19 Jul 2017 16:54:46 +0800
+Message-ID: <1500454489-16805-3-git-send-email-jasowang@redhat.com>
 References: <1500454489-16805-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,27 +22,86 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Allow zero to be store as a ctx, with this we could store e.g zero
-value which could be meaningful for the case of storing headroom
-through ctx.
+Pack headroom into ctx - this way when we get a buffer we can figure out
+the actual headroom that was allocated for the buffer. Will be helpful
+to optimize switching between XDP and non-XDP modes which have different
+headroom requirements.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/virtio/virtio_ring.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/virtio_net.c | 29 ++++++++++++++++++++++++-----
+ 1 file changed, 24 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-index 5e1b548..9aaa177 100644
---- a/drivers/virtio/virtio_ring.c
-+++ b/drivers/virtio/virtio_ring.c
-@@ -391,7 +391,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
- 	vq->desc_state[head].data = data;
- 	if (indirect)
- 		vq->desc_state[head].indir_desc = desc;
--	if (ctx)
-+	else
- 		vq->desc_state[head].indir_desc = ctx;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 1f8c15c..8fae9a8 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -270,6 +270,23 @@ static void skb_xmit_done(struct virtqueue *vq)
+ 		netif_wake_subqueue(vi->dev, vq2txq(vq));
+ }
  
- 	/* Put entry in available array (but don't update avail->idx until they
++#define MRG_CTX_HEADER_SHIFT 22
++static void *mergeable_len_to_ctx(unsigned int truesize,
++				  unsigned int headroom)
++{
++	return (void *)(unsigned long)((headroom << MRG_CTX_HEADER_SHIFT) | truesize);
++}
++
++static unsigned int mergeable_ctx_to_headroom(void *mrg_ctx)
++{
++	return (unsigned long)mrg_ctx >> MRG_CTX_HEADER_SHIFT;
++}
++
++static unsigned int mergeable_ctx_to_truesize(void *mrg_ctx)
++{
++	return (unsigned long)mrg_ctx & ((1 << MRG_CTX_HEADER_SHIFT) - 1);
++}
++
+ /* Called from bottom half context */
+ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+ 				   struct receive_queue *rq,
+@@ -639,13 +656,14 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 	}
+ 	rcu_read_unlock();
+ 
+-	if (unlikely(len > (unsigned long)ctx)) {
++	truesize = mergeable_ctx_to_truesize(ctx);
++	if (unlikely(len > truesize)) {
+ 		pr_debug("%s: rx error: len %u exceeds truesize %lu\n",
+ 			 dev->name, len, (unsigned long)ctx);
+ 		dev->stats.rx_length_errors++;
+ 		goto err_skb;
+ 	}
+-	truesize = (unsigned long)ctx;
++
+ 	head_skb = page_to_skb(vi, rq, page, offset, len, truesize);
+ 	curr_skb = head_skb;
+ 
+@@ -665,13 +683,14 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		}
+ 
+ 		page = virt_to_head_page(buf);
+-		if (unlikely(len > (unsigned long)ctx)) {
++
++		truesize = mergeable_ctx_to_truesize(ctx);
++		if (unlikely(len > truesize)) {
+ 			pr_debug("%s: rx error: len %u exceeds truesize %lu\n",
+ 				 dev->name, len, (unsigned long)ctx);
+ 			dev->stats.rx_length_errors++;
+ 			goto err_skb;
+ 		}
+-		truesize = (unsigned long)ctx;
+ 
+ 		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
+ 		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
+@@ -889,7 +908,7 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi,
+ 
+ 	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
+ 	buf += headroom; /* advance address leaving hole at front of pkt */
+-	ctx = (void *)(unsigned long)len;
++	ctx = mergeable_len_to_ctx(len, headroom);
+ 	get_page(alloc_frag->page);
+ 	alloc_frag->offset += len + headroom;
+ 	hole = alloc_frag->size - alloc_frag->offset;
 -- 
 2.7.4
