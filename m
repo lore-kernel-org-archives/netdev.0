@@ -1,165 +1,137 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2 5/5] virtio-net: switch off offloads on demand if
-	possible on XDP set
-Date: Wed, 19 Jul 2017 16:54:49 +0800
-Message-ID: <1500454489-16805-6-git-send-email-jasowang@redhat.com>
-References: <1500454489-16805-1-git-send-email-jasowang@redhat.com>
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Subject: [PATCH V2 net-next 00/21] Huawei HiNIC Ethernet Driver
+Date: Wed, 19 Jul 2017 17:18:58 +0800
+Message-ID: <cover.1500454998.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: mst@redhat.com, virtualization@lists.linux-foundation.org,
-	jasowang@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1500454489-16805-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
+        <aviad.krawczyk@huawei.com>, <zhaochen6@huawei.com>,
+        <tony.qu@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Current XDP implementation wants guest offloads feature to be disabled
-on device. This is inconvenient and means guest can't benefit from
-offloads if XDP is not used. This patch tries to address this
-limitation by disabling the offloads on demand through control guest
-offloads. Guest offloads will be disabled and enabled on demand on XDP
-set.
+The patch-set contains the support of the HiNIC Ethernet driver for
+hinic family of PCIE Network Interface Cards.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c | 70 ++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 65 insertions(+), 5 deletions(-)
+The Huawei's PCIE HiNIC card is a new Ethernet card and hence there was
+a need of a new driver.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b3fc01d..5fbd15e 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -57,6 +57,11 @@ DECLARE_EWMA(pkt_len, 0, 64)
- 
- #define VIRTNET_DRIVER_VERSION "1.0.0"
- 
-+const unsigned long guest_offloads[] = { VIRTIO_NET_F_GUEST_TSO4,
-+					 VIRTIO_NET_F_GUEST_TSO6,
-+					 VIRTIO_NET_F_GUEST_ECN,
-+					 VIRTIO_NET_F_GUEST_UFO };
-+
- struct virtnet_stats {
- 	struct u64_stats_sync tx_syncp;
- 	struct u64_stats_sync rx_syncp;
-@@ -164,10 +169,13 @@ struct virtnet_info {
- 	u8 ctrl_promisc;
- 	u8 ctrl_allmulti;
- 	u16 ctrl_vid;
-+	u64 ctrl_offloads;
- 
- 	/* Ethtool settings */
- 	u8 duplex;
- 	u32 speed;
-+
-+	unsigned long guest_offloads;
- };
- 
- struct padded_vnet_hdr {
-@@ -1896,6 +1904,47 @@ static int virtnet_restore_up(struct virtio_device *vdev)
- 	return err;
- }
- 
-+static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
-+{
-+	struct scatterlist sg;
-+	vi->ctrl_offloads = cpu_to_virtio64(vi->vdev, offloads);
-+
-+	sg_init_one(&sg, &vi->ctrl_offloads, sizeof(vi->ctrl_offloads));
-+
-+	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_GUEST_OFFLOADS,
-+				  VIRTIO_NET_CTRL_GUEST_OFFLOADS_SET, &sg)) {
-+		dev_warn(&vi->dev->dev, "Fail to set guest offload. \n");
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int virtnet_clear_guest_offloads(struct virtnet_info *vi)
-+{
-+	u64 offloads = 0;
-+
-+	if (!vi->guest_offloads)
-+		return 0;
-+
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_CSUM))
-+		offloads = 1ULL << VIRTIO_NET_F_GUEST_CSUM;
-+
-+	return virtnet_set_guest_offloads(vi, offloads);
-+}
-+
-+static int virtnet_restore_guest_offloads(struct virtnet_info *vi)
-+{
-+	u64 offloads = vi->guest_offloads;
-+
-+	if (!vi->guest_offloads)
-+		return 0;
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_CSUM))
-+		offloads |= 1ULL << VIRTIO_NET_F_GUEST_CSUM;
-+
-+	return virtnet_set_guest_offloads(vi, offloads);
-+}
-+
- static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
- 			   struct netlink_ext_ack *extack)
- {
-@@ -1905,10 +1954,11 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
- 	u16 xdp_qp = 0, curr_qp;
- 	int i, err;
- 
--	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
--	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
--	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
--	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_UFO)) {
-+	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS)
-+	    && (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
-+	        virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
-+	        virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
-+		virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_UFO))) {
- 		NL_SET_ERR_MSG_MOD(extack, "Can't set XDP while host is implementing LRO, disable LRO first");
- 		return -EOPNOTSUPP;
- 	}
-@@ -1955,6 +2005,12 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
- 		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
-+		if (i == 0) {
-+			if (!old_prog)
-+				virtnet_clear_guest_offloads(vi);
-+			if (!prog)
-+				virtnet_restore_guest_offloads(vi);
-+		}
- 		if (old_prog)
- 			bpf_prog_put(old_prog);
- 		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
-@@ -2588,6 +2644,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		netif_carrier_on(dev);
- 	}
- 
-+	for (i = 0; i < ARRAY_SIZE(guest_offloads); i++)
-+		if (virtio_has_feature(vi->vdev, guest_offloads[i]))
-+			set_bit(guest_offloads[i], &vi->guest_offloads);
-+
- 	pr_debug("virtnet: registered device %s with %d RX and TX vq's\n",
- 		 dev->name, max_queue_pairs);
- 
-@@ -2684,7 +2744,7 @@ static struct virtio_device_id id_table[] = {
- 	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN, \
- 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ, \
- 	VIRTIO_NET_F_CTRL_MAC_ADDR, \
--	VIRTIO_NET_F_MTU
-+	VIRTIO_NET_F_MTU, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS
- 
- static unsigned int features[] = {
- 	VIRTNET_FEATURES,
+The current driver is meant to be used for the Physical Function and there
+would soon be a support for Virtual Function and more features once the
+basic PF driver has been accepted.
+
+Changes v1 -> v2:
+1. remove driver version - Andrew Lunn comment
+	https://lkml.org/lkml/2017/7/12/372
+2. replace kzalloc by devm_kzalloc for short clean - Andrew Lunn comment
+	https://lkml.org/lkml/2017/7/12/372
+3. replace pr_ functions by dev_ functions - Andrew Lunn comment
+	https://lkml.org/lkml/2017/7/12/375
+4. seperate last patch by moving ops to a new patch - Andrew Lunn comment
+	https://lkml.org/lkml/2017/7/12/377
+
+Aviad Krawczyk (21):
+  net-next/hinic: Initialize hw interface
+  net-next/hinic: Initialize hw device components
+  net-next/hinic: Initialize api cmd resources
+  net-next/hinic: Initialize api cmd hw
+  net-next/hinic: Add management messages
+  net-next/hinic: Add api cmd commands
+  net-next/hinic: Add aeqs
+  net-next/hinic: Add port management commands
+  net-next/hinic: Add Rx mode and link event handler
+  net-next/hinic: Add logical Txq and Rxq
+  net-next/hinic: Add wq
+  net-next/hinic: Add qp resources
+  net-next/hinic: Set qp context
+  net-next/hinic: Initialize cmdq
+  net-next/hinic: Add ceqs
+  net-next/hinic: Add cmdq commands
+  net-next/hinic: Add cmdq completion handler
+  net-next/hinic: Add Rx handler
+  net-next/hinic: Add Tx operation
+  net-next/hinic: Add ethtool and stats
+  net-next/hinic: Add select_queue and netpoll
+
+ Documentation/networking/hinic.txt                 |  125 +++
+ MAINTAINERS                                        |    7 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/huawei/Kconfig                |   19 +
+ drivers/net/ethernet/huawei/Makefile               |    5 +
+ drivers/net/ethernet/huawei/hinic/Kconfig          |   13 +
+ drivers/net/ethernet/huawei/hinic/Makefile         |    6 +
+ drivers/net/ethernet/huawei/hinic/hinic_common.c   |   80 ++
+ drivers/net/ethernet/huawei/hinic/hinic_common.h   |   38 +
+ drivers/net/ethernet/huawei/hinic/hinic_dev.h      |   64 ++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   |  978 +++++++++++++++++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |  208 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c  |  940 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h  |  302 ++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |  149 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c   | 1058 ++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h   |  239 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c   |  877 +++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h   |  265 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.c    |  353 ++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.h    |  272 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.c    |  537 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.h    |   97 ++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c  |  599 ++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h  |  153 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.c    |  864 +++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h    |  394 +++++++
+ .../net/ethernet/huawei/hinic/hinic_hw_qp_ctxt.h   |  214 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c    |  885 +++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h    |  113 ++
+ drivers/net/ethernet/huawei/hinic/hinic_main.c     | 1142 ++++++++++++++++++++
+ .../net/ethernet/huawei/hinic/hinic_pci_id_tbl.h   |   27 +
+ drivers/net/ethernet/huawei/hinic/hinic_port.c     |  403 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.h     |  198 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.c       |  518 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.h       |   55 +
+ drivers/net/ethernet/huawei/hinic/hinic_tx.c       |  516 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_tx.h       |   62 ++
+ 39 files changed, 12777 insertions(+)
+ create mode 100644 Documentation/networking/hinic.txt
+ create mode 100644 drivers/net/ethernet/huawei/Kconfig
+ create mode 100644 drivers/net/ethernet/huawei/Makefile
+ create mode 100644 drivers/net/ethernet/huawei/hinic/Kconfig
+ create mode 100644 drivers/net/ethernet/huawei/hinic/Makefile
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_dev.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_io.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_io.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp_ctxt.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_main.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_rx.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_rx.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_tx.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_tx.h
+
 -- 
-2.7.4
+1.9.1
