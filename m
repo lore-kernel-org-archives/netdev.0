@@ -1,106 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next] bridge: this patch adds json support
- for bridge mdb show
-Date: Tue, 18 Jul 2017 17:33:51 -0700
-Message-ID: <20170718173351.55cb566a@xeon-e3>
-References: <1499466256-13808-1-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nikhil@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 0/5][pull request] 10GbE Intel Wired LAN Driver Updates 2017-07-18
+Date: Tue, 18 Jul 2017 18:23:00 -0700
+Message-ID: <20170719012305.76795-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:33550 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751560AbdGSAdy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2017 20:33:54 -0400
-Received: by mail-pg0-f51.google.com with SMTP id k14so21322978pgr.0
-        for <netdev@vger.kernel.org>; Tue, 18 Jul 2017 17:33:53 -0700 (PDT)
-In-Reply-To: <1499466256-13808-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from mga05.intel.com ([192.55.52.43]:31205 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751560AbdGSBXM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 18 Jul 2017 21:23:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  7 Jul 2017 15:24:16 -0700
-Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+This series contains updates to ixgbe only.
 
-> From: Nikhil Gajendrakumar <nikhil@cumulusnetworks.com>
-> 
-> This patch adds json output to bridge mdb show
-> 
-> Normal Output:
-> $ bridge -d -s mdb show
-> dev br0 port swp3 grp 239.0.0.1 temp  vid 128 172.26
-> dev br0 port swp3 grp 239.0.0.1 temp  vid 64 172.26
-> dev br0 port swp2 grp 239.0.0.2 temp  vid 1024 172.26
-> dev br0 port swp2 grp 239.0.0.2 temp  vid 256 172.26
-> dev br0 port swp2 grp 239.0.0.2 temp  vid 1 172.26
-> dev br0 port swp3 grp 239.0.0.1 temp  vid 1 172.26
-> router ports on br0: swp4    0.00 permanent
-> router ports on br0: swp5    0.00 permanent
-> 
-> Json Output:
-> $ bridge -d -s -j mdb show
-> {
->     "mdb": [{
->             "dev": "br0",
->             "port": "swp3",
->             "grp": "239.0.0.1",
->             "state": "temp",
->             "vid": 128,
->             "timer": " 166.74"
->         },{
->             "dev": "br0",
->             "port": "swp3",
->             "grp": "239.0.0.1",
->             "state": "temp",
->             "vid": 64,
->             "timer": " 166.74"
->         },{
->             "dev": "br0",
->             "port": "swp2",
->             "grp": "239.0.0.2",
->             "state": "temp",
->             "vid": 1024,
->             "timer": " 166.74"
->         },{
->             "dev": "br0",
->             "port": "swp2",
->             "grp": "239.0.0.2",
->             "state": "temp",
->             "vid": 256,
->             "timer": " 166.74"
->         },{
->             "dev": "br0",
->             "port": "swp2",
->             "grp": "239.0.0.2",
->             "state": "temp",
->             "vid": 1,
->             "timer": " 166.74"
->         },{
->             "dev": "br0",
->             "port": "swp3",
->             "grp": "239.0.0.1",
->             "state": "temp",
->             "vid": 1,
->             "timer": " 166.74"
->         }
->     ],
->     "router": {
->         "br0": [{
->                 "port": "swp4",
->                 "timer": "   0.00",
->                 "type": "permanent"
->             },{
->                 "port": "swp5",
->                 "timer": "   0.00",
->                 "type": "permanent"
->             }
->         ]
->     }
-> }
-> 
-> Signed-off-by: Nikhil Gajendrakumar <nikhil@cumulusnetworks.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Tony provides all of the changes in the series, starting with adding a
+check to ensure that adding a MAC filter was successful, before setting the
+MACVLAN.  In order to receive notifications of link configurations of the
+external PHY and support the configuration of the internal iXFI link on
+X552 devices, Tony enables LASI interrupts.  Update the iXFI driver code
+flow, since the MAC register NW_MNG_IF_SEL fields have been redefined for
+X553 devices, so add MAC checks for iXFI flows.  Added additional checks
+for flow control autonegotiation, since it is not support for X553 fiber
+ and XFI devices.
 
-Applied, you should also update usage message and man page.
+v2: removed unnecessary parens noticed by David Miller in patch 6 of the
+    series.
+v3: dropped patch 6 of the original series, while we work out a more
+    generic solution for malicious driver detection (MDD) support.
+
+The following are changes since commit 8c5e9fb8ac8f60253cd9589b61403d616dbdaf69:
+  Merge branch 'net-attribute_group-const'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
+
+Tony Nguyen (5):
+  ixgbe: Ensure MAC filter was added before setting MACVLAN
+  ixgbe: Enable LASI interrupts for X552 devices
+  ixgbe: Update NW_MNG_IF_SEL support for X553
+  ixgbe: Do not support flow control autonegotiation for X553
+  ixgbe: Disable flow control for XFI
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  30 +++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c  |  16 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |   4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 102 +++++++++++++++---------
+ 5 files changed, 99 insertions(+), 55 deletions(-)
+
+-- 
+2.13.2
