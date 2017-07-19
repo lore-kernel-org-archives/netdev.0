@@ -1,54 +1,85 @@
-From: Sean Wang <sean.wang@mediatek.com>
-Subject: Re: [PATCH] net: ethernet: mediatek: remove useless code in
- mtk_poll_tx()
-Date: Wed, 19 Jul 2017 11:23:01 +0800
-Message-ID: <1500434581.19736.12.camel@mtkswgap22>
-References: <20170718204805.GA30888@embeddedgus>
+From: NeilBrown <neilb@suse.com>
+Subject: [PATCH] net/sunrpc/xprt_sock: fix regression in connection error reporting.
+Date: Wed, 19 Jul 2017 14:05:01 +1000
+Message-ID: <87r2xdxeaa.fsf@notabene.neil.brown.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Felix Fietkau <nbd@openwrt.org>, John Crispin <blogic@openwrt.org>,
-        Matthias Brugger <matthias.bgg@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-mediatek@lists.infradead.org>,
-        <linux-kernel@vger.kernel.org>,
-        <linux-arm-kernel@lists.infradead.org>
-To: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Content-Type: multipart/signed; boundary="=-=-=";
+        micalg=pgp-sha256; protocol="application/pgp-signature"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170718204805.GA30888@embeddedgus>
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-07-18 at 15:48 -0500, Gustavo A. R. Silva wrote:
-> Remove useless local variable _condition_ and the code related.
-> 
-> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 5 +----
->  1 file changed, 1 insertion(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index b3d0c2e..7e95cf5 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -1027,7 +1027,6 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget)
->  	unsigned int done[MTK_MAX_DEVS];
->  	unsigned int bytes[MTK_MAX_DEVS];
->  	u32 cpu, dma;
-> -	static int condition;
->  	int total = 0, i;
->  
->  	memset(done, 0, sizeof(done));
-> @@ -1051,10 +1050,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget)
->  			mac = 1;
->  
->  		skb = tx_buf->skb;
-> -		if (!skb) {
-> -			condition = 1;
-> +		if (!skb)
->  			break;
-> -		}
->  
->  		if (skb != (struct sk_buff *)MTK_DMA_DUMMY_DESC) {
->  			bytes[mac] += skb->len;
+--=-=-=
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Acked-by: Sean Wang <sean.wang@mediatek.com>
+
+Commit 3d4762639dd3 ("tcp: remove poll() flakes when receiving
+RST") in v4.12 changed the order in which ->sk_state_change()
+and ->sk_error_report() are called when a socket is shut
+down - sk_state_change() is now called first.
+
+This causes xs_tcp_state_change() -> xs_sock_mark_closed() ->
+xprt_disconnect_done() to wake all pending tasked with -EAGAIN.
+When the ->sk_error_report() callback arrives, it is too late to
+pass the error on, and it is lost.
+
+As easy way to demonstrate the problem caused is to try to start
+rpc.nfsd while rcpbind isn't running.
+nfsd will attempt a tcp connection to rpcbind.  A ECONNREFUSED
+error is returned, but sunrpc code loses the error and keeps
+retrying.  If it saw the ECONNREFUSED, it would abort.
+
+To fix this, handle the sk->sk_err in the TCP_CLOSE branch of
+xs_tcp_state_change().
+
+Fixes: 3d4762639dd3 ("tcp: remove poll() flakes when receiving RST")
+Cc: stable@vger.kernel.org (v4.12)
+Signed-off-by: NeilBrown <neilb@suse.com>
+=2D--
+ net/sunrpc/xprtsock.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index d5b54c020dec..4f154d388748 100644
+=2D-- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -1624,6 +1624,8 @@ static void xs_tcp_state_change(struct sock *sk)
+ 		if (test_and_clear_bit(XPRT_SOCK_CONNECTING,
+ 					&transport->sock_state))
+ 			xprt_clear_connecting(xprt);
++		if (sk->sk_err)
++			xprt_wake_pending_tasks(xprt, -sk->sk_err);
+ 		xs_sock_mark_closed(xprt);
+ 	}
+  out:
+=2D-=20
+2.12.2
+
+
+--=-=-=
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEG8Yp69OQ2HB7X0l6Oeye3VZigbkFAllu2nAACgkQOeye3VZi
+gbmeZA//Q8wtVydWnaSmch48kUWOy8LYkVv1uHUVm7vTce+4Sd9321lgkgAOI+Cc
+h8s6AipYKGTFyBm/Kssii+Oa33F4+TT+9NBP7GDf7j/5b/vq35ozR/Xmc+Ra+xJW
+FC++eibIl6YDnZH2S918mgt29qBpomvPF/YN0itlfIatPiZ3OpNMa4a54vz2s6JA
+5TcfZJJoAvSvm9RbF7/5eQs1YkxpvvYnVw+6k+QNHLEkUAqZOKqp1dYXFjayofz3
+27QzvwDvzuPHG3ikhacypRbhkVDwc0zgXADDEnXX6vEQyHy9MlRZSS3q4yBYukvT
+HlhMydrHaaa/ZfGE8LSZKXz5fJMFGf9GkEIw8DCR4g1dYuysTU/avvtX1n4kOeDE
+bWsCcsW8ZJ6fD0Cer7eEUEyAsDNdoXPV+a9LFfDsD6skB/heJ2UsIPdWGXQG59Mc
+ZA1KiiUPjw8xvFzyX4uliukXbCLvi+IsFIQhvGPaAMzzLLrS3NTBTam98WvuEiOQ
+EM5guYgf2OR455egWtCLONB/DfXQUS7mb4QVxUQLHJ3T+yQrrUYN+6dS2sWwGESx
+Ny5jbNjdJdMPSSsj8arVjQ1kDsypA11trxf8kZYlnBvY+JApXeo7ifn4eTei+98j
+snwod/PiazgGC0GPWN6p09+v3UrJ7qh0sXgaP+fUGj2IMVlCseI=
+=AsPR
+-----END PGP SIGNATURE-----
+--=-=-=--
