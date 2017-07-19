@@ -1,155 +1,61 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH V2 net-next 01/21] net-next/hinic: Initialize hw interface
-Date: Thu, 20 Jul 2017 00:27:40 +0200
-Message-ID: <20170719222740.GA1755@electric-eye.fr.zoreil.com>
-References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
- <0febc61414e7908a7c8c0c2fa7c2b06b0f7524f7.1500454998.git.aviad.krawczyk@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, bc.y@huawei.com, victor.gissin@huawei.com,
-        zhaochen6@huawei.com, tony.qu@huawei.com
-To: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <0febc61414e7908a7c8c0c2fa7c2b06b0f7524f7.1500454998.git.aviad.krawczyk@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Matteo Croce <mcroce@redhat.com>
+Subject: [PATCH v2] netns: avoid directory traversal (was: ip netns: Make sure netns name is sane)
+Date: Thu, 20 Jul 2017 00:36:32 +0200
+Message-ID: <20170719223632.4124-1-mcroce@redhat.com>
+References: <20170718171230.084c804e@xeon-e3>
+Cc: netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33248 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751911AbdGSWgf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Jul 2017 18:36:35 -0400
+In-Reply-To: <20170718171230.084c804e@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Aviad Krawczyk <aviad.krawczyk@huawei.com> :
-[...]
-> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-> new file mode 100644
-> index 0000000..fbc9de4
-> --- /dev/null
-> +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-[...]
-> +/**
-> + * hinic_init_hwdev - Initialize the NIC HW
-> + * @hwdev: the NIC HW device that is returned from the initialization
-> + * @pdev: the NIC pci device
-> + *
-> + * Return 0 - Success, negative - Failure
-> + *
-> + * Initialize the NIC HW device and return a pointer to it in the first arg
-> + **/
+v2: reword commit message
 
-Return a pointer and use ERR_PTR / IS_ERR ?
+ip netns keeps track of created namespaces with bind mounts named
+/var/run/netns/<namespace>. No input sanitization is done, allowing creation and
+deletion of files relatives to /var/run/netns or, if the path is non existent or
+invalid, allows to create "untracked" namespaces (invisible to the tool).
 
-> +int hinic_init_hwdev(struct hinic_hwdev **hwdev, struct pci_dev *pdev)
-> +{
-> +	struct hinic_pfhwdev *pfhwdev;
-> +	struct hinic_hwif *hwif;
-> +	int err;
-> +
-> +	hwif = devm_kzalloc(&pdev->dev, sizeof(*hwif), GFP_KERNEL);
-> +	if (!hwif)
-> +		return -ENOMEM;
-> +
-> +	err = hinic_init_hwif(hwif, pdev);
-> +	if (err) {
-> +		dev_err(&pdev->dev, "Failed to init HW interface\n");
-> +		return err;
-> +	}
-> +
-> +	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
-> +		dev_err(&pdev->dev, "Unsupported PCI Function type\n");
-> +		err = -EFAULT;
-> +		goto func_type_err;
-> +	}
-> +
-> +	pfhwdev = devm_kzalloc(&pdev->dev, sizeof(*pfhwdev), GFP_KERNEL);
-> +	if (!pfhwdev) {
-> +		err = -ENOMEM;
-> +		goto pfhwdev_alloc_err;
+This commit denies creation or deletion of namespaces with names contaning
+"/" or matching exactly "." or "..".
 
-Intel, Mellanox, Broadcom, Amazon and friends use "err_xyz" labels.
+Signed-off-by: Matteo Croce <mcroce@redhat.com>
+---
+ ip/ipnetns.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-Please consider using the same style.
-
-[...]
-> +void hinic_free_hwdev(struct hinic_hwdev *hwdev)
-> +{
-> +	struct hinic_hwif *hwif = hwdev->hwif;
-> +	struct pci_dev *pdev = hwif->pdev;
-> +	struct hinic_pfhwdev *pfhwdev;
-> +
-> +	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
-> +		dev_err(&pdev->dev, "unsupported PCI Function type\n");
-> +		return;
-> +	}
-
-If it succeeded in hinic_init_hwdev, how could it fail here ?
-
-If it failed in hinic_init_hwdev, hinic_free_hwdev should not even
-be called.
-
--> remove ?
-
-[...]
-> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-> new file mode 100644
-> index 0000000..c61c769
-> --- /dev/null
-> +++ b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-[...]
-> +static void hinic_remove(struct pci_dev *pdev)
-> +{
-> +	struct net_device *netdev = pci_get_drvdata(pdev);
-> +	struct hinic_dev *nic_dev;
-> +
-> +	if (!netdev)
-> +		return;
-
-Your driver is flawed if this test can ever succeed.
-
-[...]
-> +static int __init hinic_init(void)
-> +{
-> +	return pci_register_driver(&hinic_driver);
-> +}
-> +
-> +static void __exit hinic_exit(void)
-> +{
-> +	pci_unregister_driver(&hinic_driver);
-> +}
-
-Use module_pci_driver(hinic_driver).
-
-Remove hinic_init() and hinic_exit().
-
-> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h b/drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h
-> new file mode 100644
-> index 0000000..1d92617
-> --- /dev/null
-> +++ b/drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h
-[...]
-> +#ifndef HINIC_PCI_ID_TBL_H
-> +#define HINIC_PCI_ID_TBL_H
-> +
-> +#ifndef PCI_VENDOR_ID_HUAWEI
-> +#define PCI_VENDOR_ID_HUAWEI            0x19e5
-> +#endif
-
-Useless: it duplicates include/linux/pci_ids.h
-
-> +
-> +#ifndef PCI_DEVICE_ID_HI1822_PF
-> +#define PCI_DEVICE_ID_HI1822_PF         0x1822
-> +#endif
-
-Please move it to the .c file where it is actually used.
-
-
-Extra:
-
-grep -E 'void\ \*' drivers/net/ethernet/huawei/hinic/* makes me nervous.
-
-At some point one function will be fed with a wrong pointer and the
-compiler won't notice it.
-
-For instance hinic_sq_read_wqe is only called with &skb. There's no
-reason to declare it using a 'void **' argument.
-
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index 0b0378ab..42549944 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -766,6 +766,11 @@ static int netns_monitor(int argc, char **argv)
+ 	return 0;
+ }
+ 
++static int invalid_name(const char *name)
++{
++	return strchr(name, '/') || !strcmp(name, ".") || !strcmp(name, "..");
++}
++
+ int do_netns(int argc, char **argv)
+ {
+ 	netns_nsid_socket_init();
+@@ -775,6 +780,11 @@ int do_netns(int argc, char **argv)
+ 		return netns_list(0, NULL);
+ 	}
+ 
++	if (argc > 1 && invalid_name(argv[1])) {
++		fprintf(stderr, "Invalid netns name \"%s\"\n", argv[1]);
++		exit(-1);
++	}
++
+ 	if ((matches(*argv, "list") == 0) || (matches(*argv, "show") == 0) ||
+ 	    (matches(*argv, "lst") == 0)) {
+ 		netns_map_init();
 -- 
-Ueimor
+2.13.3
