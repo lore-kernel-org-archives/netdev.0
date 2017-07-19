@@ -1,70 +1,37 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [patch net-next 07/17] ipv6: fib: Add in-kernel notifications
- for route add / delete
-Date: Wed, 19 Jul 2017 18:53:59 +0300
-Message-ID: <20170719155358.GB6078@splinter>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [patch net-next 10/17] ipv6: fib: Add offload indication to
+ routes
+Date: Wed, 19 Jul 2017 09:27:30 -0600
+Message-ID: <21bdef55-9cd2-8a17-9eaa-a10cfc6ef4d4@gmail.com>
 References: <20170719070232.28457-1-jiri@resnulli.us>
- <20170719070232.28457-8-jiri@resnulli.us>
- <2db9b613-3978-52f5-db9d-d3e36742db49@gmail.com>
+ <20170719070232.28457-11-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, mlxsw@mellanox.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, kafai@fb.com,
-        hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        kafai@fb.com, hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
         edumazet@google.com, yanhaishuang@cmss.chinamobile.com
-To: David Ahern <dsahern@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0080.outbound.protection.outlook.com ([104.47.1.80]:60864
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753731AbdGSPyJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Jul 2017 11:54:09 -0400
-Content-Disposition: inline
-In-Reply-To: <2db9b613-3978-52f5-db9d-d3e36742db49@gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33203 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755249AbdGSP1d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 11:27:33 -0400
+Received: by mail-pf0-f193.google.com with SMTP id e199so281876pfh.0
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 08:27:33 -0700 (PDT)
+In-Reply-To: <20170719070232.28457-11-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 19, 2017 at 09:38:11AM -0600, David Ahern wrote:
-> On 7/19/17 1:02 AM, Jiri Pirko wrote:
-> > @@ -879,6 +891,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
-> >  		*ins = rt;
-> >  		rt->rt6i_node = fn;
-> >  		atomic_inc(&rt->rt6i_ref);
-> > +		call_fib6_entry_notifiers(info->nl_net, FIB_EVENT_ENTRY_ADD,
-> > +					  rt);
-> >  		if (!info->skip_notify)
-> >  			inet6_rt_notify(RTM_NEWROUTE, rt, info, nlflags);
-> >  		info->nl_net->ipv6.rt6_stats->fib_rt_entries++;
-> > @@ -906,6 +920,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
-> >  		rt->rt6i_node = fn;
-> >  		rt->dst.rt6_next = iter->dst.rt6_next;
-> >  		atomic_inc(&rt->rt6i_ref);
-> > +		call_fib6_entry_notifiers(info->nl_net, FIB_EVENT_ENTRY_REPLACE,
-> > +					  rt);
-> >  		if (!info->skip_notify)
-> >  			inet6_rt_notify(RTM_NEWROUTE, rt, info, NLM_F_REPLACE);
-> >  		if (!(fn->fn_flags & RTN_RTINFO)) {
-> > @@ -1459,6 +1475,7 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
-> >  
-> >  	fib6_purge_rt(rt, fn, net);
-> >  
-> > +	call_fib6_entry_notifiers(net, FIB_EVENT_ENTRY_DEL, rt);
-> >  	if (!info->skip_notify)
-> >  		inet6_rt_notify(RTM_DELROUTE, rt, info, 0);
-> >  	rt6_release(rt);
-> > 
+On 7/19/17 1:02 AM, Jiri Pirko wrote:
+> Allow user space applications to see which routes are offloaded and
+> which aren't by setting the RTNH_F_OFFLOAD flag when dumping them.
 > 
-> 
-> Why aren't all of the notifier calls under the skip_notify? That flag is
-> used to make handling of ipv6 multipath routes on par with ipv4. See
-> commit 3b1137fe74829
+> To be consistent with IPv4, a multipath route is marked as offloaded if
+> one of its nexthops is offloaded. Individual nexthops aren't marked with
+> the 'offload' flag.
 
->From the cover letter:
-
-"Unlike user space notifications for IPv6 multipath routes, the FIB
-notification chain notifies these on a per-nexthop basis. This allows us
-to keep the common code lean and is also unnecessary, as notifications
-are serialized by each table's lock whereas applications maintaining
-netlink caches may suffer from concurrent dumps and deletions /
-additions of routes."
+It is more user friendly to report the offload per nexthop especially
+given the implications. There are already flags per nexthop and those
+flags are pushed to userspace so not an API change at all.
