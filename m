@@ -1,56 +1,66 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: out-of-bounds access with virtio-net
-Date: Wed, 19 Jul 2017 12:33:34 -0600
-Message-ID: <79f22f18-893e-58f6-ec16-e5ebdde8ed62@gmail.com>
-References: <b3c684fd-72eb-f67b-90f3-bc1185d8b576@gmail.com>
- <CAM_iQpUUPhGRkac5eJb7PwG-EGGjf9fpcdfJO1L3QMhiMMUBtg@mail.gmail.com>
+From: Ryan Hsu <ryanhsu@qti.qualcomm.com>
+Subject: Re: [PATCH] ath10k_htt_rx_amsdu_allowed(): use ath10k_dbg()
+Date: Wed, 19 Jul 2017 18:41:27 +0000
+Message-ID: <e41a39fd-87a1-7fc7-158d-cb298e46a754@qca.qualcomm.com>
+References: <1500481605.25934.40.camel@perches.com>
+ <20170719182454.11267-1-crazy@frugalware.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>,
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Cc: Ryan Hsu <ryanhsu@qti.qualcomm.com>,
+        "joe@perches.com" <joe@perches.com>,
+        Kalle Valo <kvalo@qca.qualcomm.com>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36340 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754507AbdGSSdg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 14:33:36 -0400
-Received: by mail-pf0-f194.google.com with SMTP id a11so594216pfj.3
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 11:33:36 -0700 (PDT)
-In-Reply-To: <CAM_iQpUUPhGRkac5eJb7PwG-EGGjf9fpcdfJO1L3QMhiMMUBtg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Gabriel Craciunescu <nix.or.die@gmail.com>,
+        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170719182454.11267-1-crazy@frugalware.org>
+Content-Language: en-US
+Content-ID: <78C732A787223342BC2C05C39710757C@qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/19/17 12:23 PM, Cong Wang wrote:
-> On Wed, Jul 19, 2017 at 9:59 AM, David Ahern <dsahern@gmail.com> wrote:
->> Changing the mac address on a virtio-net based nic is triggering an
->> out-of-bounds access. Nothing fancy with the command:
->>
->> ip li set dev eth2 addr 01:02:34:56:78:9a
->>
->> virtnet_set_mac_address is calling kmemdup for sizeof sockaddr, yet only
->> ETH_ALEN + sizeof(sa_family_t) bytes were malloc'ed.
-> 
-> Previously we have a dev->addr_len longer than sizeof sockaddr,
-> now we a shorter one... This mac addr thing is really a mess currently.
-> 
-> 
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index d1ba90980be1..d13bebdf6465 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -2031,7 +2031,7 @@ static int do_setlink(const struct sk_buff *skb,
->                 struct sockaddr *sa;
->                 int len;
-> 
-> -               len = sizeof(sa_family_t) + dev->addr_len;
-> +               len = sizeof(sa_family_t) + max(dev->addr_len, sizeof(*sa));
->                 sa = kmalloc(len, GFP_KERNEL);
->                 if (!sa) {
->                         err = -ENOMEM;
-> 
+On 07/19/2017 11:24 AM, Gabriel Craciunescu wrote:
 
-seems reasonable. I am heading to the mountains in a few hours; won't
-have time to test until Friday. Please submit formally; no need to wait
-for me.
+To make it consistent, maybe rename the patch title starting with ath10k:
+
+> From: Gabriel Craciunescu <nix.or.die@gmail.com>
+>
+> 	Each time we get disconencted from AP we get flooded with messages like:
+>
+> 	...
+> 	ath10k_pci 0000:03:00.0: no channel configured; ignoring frame(s)!
+> 	<until ratelimit kicks in>
+> 	ath10k_warn: 155 callbacks suppressed
+> 	...
+>
+> 	Use ath10k_dbg() here too.
+
+You don't need an indentation on every line of the commit.
+
+> Signed-off-by: Gabriel Craciunescu <nix.or.die@gmail.com>
+> ---
+>  drivers/net/wireless/ath/ath10k/htt_rx.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wirel=
+ess/ath/ath10k/htt_rx.c
+> index 398dda978d6e..75d9b59b7e63 100644
+> --- a/drivers/net/wireless/ath/ath10k/htt_rx.c
+> +++ b/drivers/net/wireless/ath/ath10k/htt_rx.c
+> @@ -1514,7 +1514,7 @@ static bool ath10k_htt_rx_amsdu_allowed(struct ath1=
+0k *ar,
+>  	 */
+> =20
+>  	if (!rx_status->freq) {
+> -		ath10k_warn(ar, "no channel configured; ignoring frame(s)!\n");
+> +		ath10k_dbg(ar, ATH10K_DBG_HTT, "no channel configured; ignoring frame(=
+s)!\n");
+>  		return false;
+>  	}
+> =20
+
+--=20
+Ryan Hsu
