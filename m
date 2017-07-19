@@ -1,53 +1,101 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [patch net-next 11/17] ipv6: fib: Allow non-FIB users to take
- reference on route
-Date: Wed, 19 Jul 2017 10:29:14 -0600
-Message-ID: <ad7666d8-ede5-9518-e169-3f5f6f0b6798@gmail.com>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [patch net-next 14/17] mlxsw: spectrum_router: Add support for
+ IPv6 routes addition / deletion
+Date: Wed, 19 Jul 2017 19:30:52 +0300
+Message-ID: <20170719163052.GB10775@splinter>
 References: <20170719070232.28457-1-jiri@resnulli.us>
- <20170719070232.28457-12-jiri@resnulli.us>
- <606f31c5-c5f9-193a-9527-6e47f827dd75@gmail.com>
- <20170719161727.GC6078@splinter>
+ <20170719070232.28457-15-jiri@resnulli.us>
+ <983f0254-9539-213d-f140-63b542d8f23e@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
         davem@davemloft.net, mlxsw@mellanox.com, roopa@cumulusnetworks.com,
         nikolay@cumulusnetworks.com, kafai@fb.com,
         hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
         edumazet@google.com, yanhaishuang@cmss.chinamobile.com
-To: Ido Schimmel <idosch@mellanox.com>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:37566 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753659AbdGSQ3R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 12:29:17 -0400
-Received: by mail-pg0-f51.google.com with SMTP id y129so2376273pgy.4
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 09:29:16 -0700 (PDT)
-In-Reply-To: <20170719161727.GC6078@splinter>
+Received: from mail-he1eur01on0060.outbound.protection.outlook.com ([104.47.0.60]:6519
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932446AbdGSQbC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Jul 2017 12:31:02 -0400
+Content-Disposition: inline
+In-Reply-To: <983f0254-9539-213d-f140-63b542d8f23e@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/19/17 10:17 AM, Ido Schimmel wrote:
-> I did exactly that in the beginning, but it didn't sit right with me for
-> the exact reason you mentioned - it can be a PITA to debug.
+On Wed, Jul 19, 2017 at 10:14:54AM -0600, David Ahern wrote:
+> On 7/19/17 1:02 AM, Jiri Pirko wrote:
+> > @@ -2094,6 +2106,40 @@ mlxsw_sp_fib_entry_should_offload(const struct mlxsw_sp_fib_entry *fib_entry)
+> >  	}
+> >  }
+> >  
+> > +static void
+> > +mlxsw_sp_fib6_entry_offload_set(struct mlxsw_sp_fib_entry *fib_entry)
+> > +{
+> > +	struct mlxsw_sp_fib6_entry *fib6_entry;
+> > +	struct mlxsw_sp_rt6 *mlxsw_sp_rt6;
+> > +
+> > +	fib6_entry = container_of(fib_entry, struct mlxsw_sp_fib6_entry,
+> > +				  common);
+> > +	list_for_each_entry(mlxsw_sp_rt6, &fib6_entry->rt6_list, list) {
+> > +		struct rt6_info *rt = mlxsw_sp_rt6->rt;
+> > +
+> > +		write_lock_bh(&rt->rt6i_table->tb6_lock);
+> > +		rt->rt6i_flags |= RTF_OFFLOAD;
+> > +		write_unlock_bh(&rt->rt6i_table->tb6_lock);
 > 
-> If we use rt6i_ref for something other than FIB references, then it
-> breaks existing code that relies on rt6i_ref being 0 to indicate it's
-> no longer used by the FIB. A non-zero value can now mean "not used by
-> the FIB, but waiting for some module to drop the reference in its
-> workqueue".
-> 
-> The BUG_ON() mentioned in the commit message is just one example.
-> Another check was added by you in commit 8048ced9b.
-> 
-> So I think we both want the same thing, but I'm not sure how your
-> approach is safer.
+> Seems wrong. A device driver should not be taking FIB table locks.
 
-A single reference counter rt6i_ref is best.
+Will remove this in v2.
 
-There are 2 reads of that counter to determine if the rt is still in the
-FIB. Both of those stem from side effects of using the 'lo' for the
-device for host addresses. I think an explicit flag can be used for that
-purpose instead of trying to deduce it from the reference counter. The
-commit you referenced copied what is done in init_loopback for
-consistency (both have same end goal).
+[...]
+
+> > +static int mlxsw_sp_nexthop6_init(struct mlxsw_sp *mlxsw_sp,
+> > +				  struct mlxsw_sp_nexthop_group *nh_grp,
+> > +				  struct mlxsw_sp_nexthop *nh,
+> > +				  const struct rt6_info *rt)
+> > +{
+> > +	struct net_device *dev = rt->dst.dev;
+> > +	struct mlxsw_sp_rif *rif;
+> > +	int err;
+> > +
+> > +	nh->nh_grp = nh_grp;
+> > +	memcpy(&nh->gw_addr, &rt->rt6i_gateway, sizeof(nh->gw_addr));
+> > +
+> > +	if (!dev)
+> > +		return 0;
+> > +
+> > +	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
+> > +	if (!rif)
+> > +		return 0;
+> 
+> rif == 0 means the dst device is not related to a port owned by this
+> driver?
+
+Yes.
+
+> 
+> 
+> A lot to process so I am sure I missed the answer to these:
+> 
+> 1. How do you handle host routes for local addresses? IPv6 inserts the
+> host and anycast routes with the device set to 'lo' (or VRF device)
+> instead of the device with the address. I have a patch to change this,
+> but needs more testing
+
+In mlxsw_sp_fib6_entry_type_set() we check for RTF_LOCAL and set the
+FIB entry type to MLXSW_SP_FIB_ENTRY_TYPE_TRAP. Packets hitting these
+routes will be trapped with IP2ME trap ID towards the CPU.
+
+> 2. How are routes with devices unrelated to ports owned by this driver
+> handled?
+
+They are handled just like any other route, but they don't have a valid
+RIF (for directly connected routes) or an adjacency group (for
+gatewayed routes), so the check in mlxsw_sp_fib_entry_should_offload()
+will return false and they will be programmed to the device with trap
+action, but using a trap ID (RTR_INGRESS0) with a lower traffic class
+than IP2ME, so packets that actually need to be locally received by the
+CPU have a better QoS.
