@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 1/5] ixgbe: Ensure MAC filter was added before setting MACVLAN
-Date: Tue, 18 Jul 2017 18:23:01 -0700
-Message-ID: <20170719012305.76795-2-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 2/5] ixgbe: Enable LASI interrupts for X552 devices
+Date: Tue, 18 Jul 2017 18:23:02 -0700
+Message-ID: <20170719012305.76795-3-jeffrey.t.kirsher@intel.com>
 References: <20170719012305.76795-1-jeffrey.t.kirsher@intel.com>
 Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:31205 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:47737 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751906AbdGSBXN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752601AbdGSBXN (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 18 Jul 2017 21:23:13 -0400
 In-Reply-To: <20170719012305.76795-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,51 +18,62 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Tony Nguyen <anthony.l.nguyen@intel.com>
 
-This patch adds a check to ensure that adding the MAC filter was
-successful before setting the MACVLAN.  If it was unsuccessful, propagate
-the error.
+Enable LASI interrupts on X552 devices in order to receive notifications of
+link configurations of the external PHY and support the configuration of
+the internal iXFI link since iXFI does not support auto-negotiation.  This
+is not required for X553 devices; add a check to avoid enabling LASI
+interrupts for X553 devices.
 
 Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 31 +++++++++++++++++++--------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 0760bd7eeb01..ca492876bd3d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -681,6 +681,7 @@ static int ixgbe_set_vf_macvlan(struct ixgbe_adapter *adapter,
- {
- 	struct list_head *pos;
- 	struct vf_macvlans *entry;
-+	s32 retval = 0;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 72d84a065e34..aa34e0b131bb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2404,17 +2404,30 @@ static s32 ixgbe_enable_lasi_ext_t_x550em(struct ixgbe_hw *hw)
+ 	status = ixgbe_get_lasi_ext_t_x550em(hw, &lsc);
  
- 	if (index <= 1) {
- 		list_for_each(pos, &adapter->vf_mvs.l) {
-@@ -721,14 +722,15 @@ static int ixgbe_set_vf_macvlan(struct ixgbe_adapter *adapter,
- 	if (!entry || !entry->free)
- 		return -ENOSPC;
+ 	/* Enable link status change alarm */
+-	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
+-				      MDIO_MMD_AN, &reg);
+-	if (status)
+-		return status;
  
--	entry->free = false;
--	entry->is_macvlan = true;
--	entry->vf = vf;
--	memcpy(entry->vf_macvlan, mac_addr, ETH_ALEN);
--
--	ixgbe_add_mac_filter(adapter, mac_addr, vf);
-+	retval = ixgbe_add_mac_filter(adapter, mac_addr, vf);
-+	if (retval >= 0) {
-+		entry->free = false;
-+		entry->is_macvlan = true;
-+		entry->vf = vf;
-+		memcpy(entry->vf_macvlan, mac_addr, ETH_ALEN);
+-	reg |= IXGBE_MDIO_PMA_TX_VEN_LASI_INT_EN;
++	/* Enable the LASI interrupts on X552 devices to receive notifications
++	 * of the link configurations of the external PHY and correspondingly
++	 * support the configuration of the internal iXFI link, since iXFI does
++	 * not support auto-negotiation. This is not required for X553 devices
++	 * having KR support, which performs auto-negotiations and which is used
++	 * as the internal link to the external PHY. Hence adding a check here
++	 * to avoid enabling LASI interrupts for X553 devices.
++	 */
++	if (hw->mac.type != ixgbe_mac_x550em_a) {
++		status = hw->phy.ops.read_reg(hw,
++					    IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
++					    MDIO_MMD_AN, &reg);
++		if (status)
++			return status;
++
++		reg |= IXGBE_MDIO_PMA_TX_VEN_LASI_INT_EN;
+ 
+-	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
+-				       MDIO_MMD_AN, reg);
+-	if (status)
+-		return status;
++		status = hw->phy.ops.write_reg(hw,
++					    IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
++					    MDIO_MMD_AN, reg);
++		if (status)
++			return status;
 +	}
  
--	return 0;
-+	return retval;
- }
- 
- static inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
+ 	/* Enable high temperature failure and global fault alarms */
+ 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_INT_MASK,
 -- 
 2.13.2
