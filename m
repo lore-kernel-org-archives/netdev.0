@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/17] ipv6: fib_rules: Dump rules during registration to FIB chain
-Date: Wed, 19 Jul 2017 09:02:23 +0200
-Message-ID: <20170719070232.28457-9-jiri@resnulli.us>
+Subject: [patch net-next 12/17] mlxsw: spectrum_router: Demultiplex FIB event based on family
+Date: Wed, 19 Jul 2017 09:02:27 +0200
+Message-ID: <20170719070232.28457-13-jiri@resnulli.us>
 References: <20170719070232.28457-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         dsahern@gmail.com, roopa@cumulusnetworks.com,
@@ -10,110 +10,124 @@ Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         edumazet@google.com, yanhaishuang@cmss.chinamobile.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:32969 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753008AbdGSHCr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:02:47 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 65so2181576wmf.0
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 00:02:46 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:34808 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753064AbdGSHCx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:02:53 -0400
+Received: by mail-wr0-f196.google.com with SMTP id o33so129627wrb.1
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 00:02:52 -0700 (PDT)
 In-Reply-To: <20170719070232.28457-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Allow users of the FIB notification chain to receive a complete view of
-the IPv6 FIB rules upon registration to the chain.
+The FIB notification block currently only handles IPv4 events, but we
+want to start handling IPv6 events soon, so lay the groundwork now.
 
-The integrity of the dump is ensured by a per-family sequence counter
-that is incremented (under RTNL) whenever a rule is added or deleted.
-
-All the sequence counters are read (under RTNL) and summed, prior and
-after the dump. In case the counters differ, then the dump is either
-restarted or the registration fails.
+Do that by preparing the work item and process it according to the
+notified address family.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/ip6_fib.h    | 10 ++++++++++
- net/ipv6/fib6_notifier.c |  4 ++--
- net/ipv6/fib6_rules.c    | 11 +++++++++++
- 3 files changed, 23 insertions(+), 2 deletions(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 65 +++++++++++++++-------
+ 1 file changed, 44 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index e2b292b..dbe5537 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -312,6 +312,8 @@ void __net_exit fib6_notifier_exit(struct net *net);
- int fib6_rules_init(void);
- void fib6_rules_cleanup(void);
- bool fib6_rule_default(const struct fib_rule *rule);
-+int fib6_rules_dump(struct net *net, struct notifier_block *nb);
-+unsigned int fib6_rules_seq_read(struct net *net);
- #else
- static inline int               fib6_rules_init(void)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 7965a53..d3b20bc 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -2982,7 +2982,7 @@ struct mlxsw_sp_fib_event_work {
+ 	unsigned long event;
+ };
+ 
+-static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
++static void mlxsw_sp_router_fib4_event_work(struct work_struct *work)
  {
-@@ -325,5 +327,13 @@ static inline bool fib6_rule_default(const struct fib_rule *rule)
- {
- 	return true;
+ 	struct mlxsw_sp_fib_event_work *fib_work =
+ 		container_of(work, struct mlxsw_sp_fib_event_work, work);
+@@ -3027,6 +3027,42 @@ static void mlxsw_sp_router_fib_event_work(struct work_struct *work)
+ 	kfree(fib_work);
  }
-+static inline int fib6_rules_dump(struct net *net, struct notifier_block *nb)
+ 
++static void mlxsw_sp_router_fib6_event_work(struct work_struct *work)
 +{
-+	return 0;
-+}
-+static inline unsigned int fib6_rules_seq_read(struct net *net)
-+{
-+	return 0;
-+}
- #endif
- #endif
-diff --git a/net/ipv6/fib6_notifier.c b/net/ipv6/fib6_notifier.c
-index c2bb1ab..298efc6 100644
---- a/net/ipv6/fib6_notifier.c
-+++ b/net/ipv6/fib6_notifier.c
-@@ -23,12 +23,12 @@ int call_fib6_notifiers(struct net *net, enum fib_event_type event_type,
- 
- static unsigned int fib6_seq_read(struct net *net)
- {
--	return 0;
-+	return fib6_rules_seq_read(net);
- }
- 
- static int fib6_dump(struct net *net, struct notifier_block *nb)
- {
--	return 0;
-+	return fib6_rules_dump(net, nb);
- }
- 
- static const struct fib_notifier_ops fib6_notifier_ops_template = {
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index ef1fcee..2f29e4e 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -14,6 +14,7 @@
-  */
- 
- #include <linux/netdevice.h>
-+#include <linux/notifier.h>
- #include <linux/export.h>
- 
- #include <net/fib_rules.h>
-@@ -49,6 +50,16 @@ bool fib6_rule_default(const struct fib_rule *rule)
- }
- EXPORT_SYMBOL_GPL(fib6_rule_default);
- 
-+int fib6_rules_dump(struct net *net, struct notifier_block *nb)
-+{
-+	return fib_rules_dump(net, nb, AF_INET6);
 +}
 +
-+unsigned int fib6_rules_seq_read(struct net *net)
++static void mlxsw_sp_router_fib4_event(struct mlxsw_sp_fib_event_work *fib_work,
++				       struct fib_notifier_info *info)
 +{
-+	return fib_rules_seq_read(net, AF_INET6);
++	switch (fib_work->event) {
++	case FIB_EVENT_ENTRY_REPLACE: /* fall through */
++	case FIB_EVENT_ENTRY_APPEND: /* fall through */
++	case FIB_EVENT_ENTRY_ADD: /* fall through */
++	case FIB_EVENT_ENTRY_DEL:
++		memcpy(&fib_work->fen_info, info, sizeof(fib_work->fen_info));
++		/* Take referece on fib_info to prevent it from being
++		 * freed while work is queued. Release it afterwards.
++		 */
++		fib_info_hold(fib_work->fen_info.fi);
++		break;
++	case FIB_EVENT_RULE_ADD: /* fall through */
++	case FIB_EVENT_RULE_DEL:
++		memcpy(&fib_work->fr_info, info, sizeof(fib_work->fr_info));
++		fib_rule_get(fib_work->fr_info.rule);
++		break;
++	case FIB_EVENT_NH_ADD: /* fall through */
++	case FIB_EVENT_NH_DEL:
++		memcpy(&fib_work->fnh_info, info, sizeof(fib_work->fnh_info));
++		fib_info_hold(fib_work->fnh_info.fib_nh->nh_parent);
++		break;
++	}
 +}
 +
- struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- 				   int flags, pol_lookup_t lookup)
- {
++static void mlxsw_sp_router_fib6_event(struct mlxsw_sp_fib_event_work *fib_work,
++				       struct fib_notifier_info *info)
++{
++}
++
+ /* Called with rcu_read_lock() */
+ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
+ 				     unsigned long event, void *ptr)
+@@ -3042,31 +3078,18 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
+ 	if (WARN_ON(!fib_work))
+ 		return NOTIFY_BAD;
+ 
+-	INIT_WORK(&fib_work->work, mlxsw_sp_router_fib_event_work);
+ 	router = container_of(nb, struct mlxsw_sp_router, fib_nb);
+ 	fib_work->mlxsw_sp = router->mlxsw_sp;
+ 	fib_work->event = event;
+ 
+-	switch (event) {
+-	case FIB_EVENT_ENTRY_REPLACE: /* fall through */
+-	case FIB_EVENT_ENTRY_APPEND: /* fall through */
+-	case FIB_EVENT_ENTRY_ADD: /* fall through */
+-	case FIB_EVENT_ENTRY_DEL:
+-		memcpy(&fib_work->fen_info, ptr, sizeof(fib_work->fen_info));
+-		/* Take referece on fib_info to prevent it from being
+-		 * freed while work is queued. Release it afterwards.
+-		 */
+-		fib_info_hold(fib_work->fen_info.fi);
++	switch (info->family) {
++	case AF_INET:
++		INIT_WORK(&fib_work->work, mlxsw_sp_router_fib4_event_work);
++		mlxsw_sp_router_fib4_event(fib_work, info);
+ 		break;
+-	case FIB_EVENT_RULE_ADD: /* fall through */
+-	case FIB_EVENT_RULE_DEL:
+-		memcpy(&fib_work->fr_info, ptr, sizeof(fib_work->fr_info));
+-		fib_rule_get(fib_work->fr_info.rule);
+-		break;
+-	case FIB_EVENT_NH_ADD: /* fall through */
+-	case FIB_EVENT_NH_DEL:
+-		memcpy(&fib_work->fnh_info, ptr, sizeof(fib_work->fnh_info));
+-		fib_info_hold(fib_work->fnh_info.fib_nh->nh_parent);
++	case AF_INET6:
++		INIT_WORK(&fib_work->work, mlxsw_sp_router_fib6_event_work);
++		mlxsw_sp_router_fib6_event(fib_work, info);
+ 		break;
+ 	}
+ 
 -- 
 2.9.3
