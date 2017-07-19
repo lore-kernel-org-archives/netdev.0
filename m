@@ -1,11 +1,11 @@
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [PATCH net-next 07/11] net: dsa: Remove support for bypass bridge
- port attributes/vlan set
-Date: Wed, 19 Jul 2017 14:53:44 +0300
-Message-ID: <07d8159d-d7ab-eac2-0519-b1ce3c8e18c8@mellanox.com>
+Subject: Re: [PATCH net-next 09/11] net: dsa: Move FDB dump implementation
+ inside DSA
+Date: Wed, 19 Jul 2017 15:00:39 +0300
+Message-ID: <6da16295-facd-cc14-12a4-e91d62202695@mellanox.com>
 References: <1500387624-4361-1-git-send-email-arkadis@mellanox.com>
- <1500387624-4361-8-git-send-email-arkadis@mellanox.com>
- <87d18xbq3d.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <1500387624-4361-10-git-send-email-arkadis@mellanox.com>
+ <877ez5boxj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -15,60 +15,84 @@ Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50071.outbound.protection.outlook.com ([40.107.5.71]:59264
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
+Received: from mail-eopbgr40057.outbound.protection.outlook.com ([40.107.4.57]:12758
+        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752759AbdGSLx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Jul 2017 07:53:56 -0400
-In-Reply-To: <87d18xbq3d.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+        id S1751448AbdGSMAt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Jul 2017 08:00:49 -0400
+In-Reply-To: <877ez5boxj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On 07/18/2017 08:40 PM, Vivien Didelot wrote:
+On 07/18/2017 09:06 PM, Vivien Didelot wrote:
 > Hi Arkadi,
 > 
 > Arkadi Sharshevsky <arkadis@mellanox.com> writes:
 > 
->> The bridge port attributes/vlan for DSA devices should be set only
->> from bridge code. Furthermore, The vlans are synced totally with the
->> bridge so there is no need for special dump support.
->>
->> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
->> ---
->>  drivers/net/dsa/b53/b53_common.c       | 44 --------------------------
->>  drivers/net/dsa/b53/b53_priv.h         |  3 --
->>  drivers/net/dsa/bcm_sf2.c              |  1 -
->>  drivers/net/dsa/dsa_loop.c             | 38 -----------------------
->>  drivers/net/dsa/microchip/ksz_common.c | 41 -------------------------
->>  drivers/net/dsa/mv88e6xxx/chip.c       | 56 ----------------------------------
->>  include/net/dsa.h                      |  4 ---
->>  net/dsa/dsa_priv.h                     |  4 ---
->>  net/dsa/port.c                         | 12 --------
->>  net/dsa/slave.c                        |  6 ----
+>> +typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
+>> +			      u16 ndm_state, void *data);
 > 
-> Regarding this massive deletion, can you please split it in two patches,
-> one deleting first the DSA core usage of .port_vlan_dump, i.e. in:
+> Can I ask you to change u16 ndm_state for bool is_static at the same
+> time? Ethernet switches do not need to report more than that.
+>
+
+Will fix, thanks.
+
+>> +static int
+>> +dsa_slave_port_fdb_do_dump(const unsigned char *addr, u16 vid,
+>> +			   u16 ndm_state, void *data)
+>> +{
+>> +	struct dsa_slave_dump_ctx *dump = data;
+>> +	u32 portid = NETLINK_CB(dump->cb->skb).portid;
+>> +	u32 seq = dump->cb->nlh->nlmsg_seq;
+>> +	struct nlmsghdr *nlh;
+>> +	struct ndmsg *ndm;
+>> +
+>> +	if (dump->idx < dump->cb->args[2])
+>> +		goto skip;
+>> +
+>> +	nlh = nlmsg_put(dump->skb, portid, seq, RTM_NEWNEIGH,
+>> +			sizeof(*ndm), NLM_F_MULTI);
+>> +	if (!nlh)
+>> +		return -EMSGSIZE;
+>> +
+>> +	ndm = nlmsg_data(nlh);
+>> +	ndm->ndm_family  = AF_BRIDGE;
+>> +	ndm->ndm_pad1    = 0;
+>> +	ndm->ndm_pad2    = 0;
+>> +	ndm->ndm_flags   = NTF_SELF;
+>> +	ndm->ndm_type    = 0;
+>> +	ndm->ndm_ifindex = dump->dev->ifindex;
+>> +	ndm->ndm_state   = ndm_state;
 > 
->     net/dsa/dsa_priv.h
->     net/dsa/port.c
->     net/dsa/slave.c
+> So we can simply scope this here:
 > 
-> Then a second patch which deletes the .port_vlan_dump implementations?
+>         ndm->ndm_state = is_static ? NUD_NOARP : NUD_REACHABLE;
 > 
-> This may sound useless but it will actually make it easy for us to
-> restore the VLAN dump support in drivers once we introduce an
-> alternative way to query the hardware.
+>> +
+>> +	if (nla_put(dump->skb, NDA_LLADDR, ETH_ALEN, addr))
+>> +		goto nla_put_failure;
+>> +
+>> +	if (vid && nla_put_u16(dump->skb, NDA_VLAN, vid))
+>> +		goto nla_put_failure;
+>> +
+>> +	nlmsg_end(dump->skb, nlh);
+>> +
+>> +skip:
+>> +	dump->idx++;
+>> +	return 0;
+>> +
+>> +nla_put_failure:
+>> +	nlmsg_cancel(dump->skb, nlh);
+>> +	return -EMSGSIZE;
+>> +}
+> 
+> Other than that, LGTM.
 > 
 > 
 > Thanks,
 > 
 >         Vivien
 > 
-
-Yeah, no problem. But doesn't it make more sense to remove it first from
-the drivers and then from core? If it will be removed from core first it
-will leave unused code behind in the driver. Furthermore, it is
-symmetric with the code adding. You first add the core implementation
-and then only the drivers.
