@@ -1,56 +1,182 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/17] mlxsw: spectrum_router: Ignore address families other than IPv4
-Date: Wed, 19 Jul 2017 09:02:17 +0200
-Message-ID: <20170719070232.28457-3-jiri@resnulli.us>
-References: <20170719070232.28457-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        dsahern@gmail.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, kafai@fb.com,
-        hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
-        edumazet@google.com, yanhaishuang@cmss.chinamobile.com
-To: netdev@vger.kernel.org
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Update register ranges of T4/T5/T6 adapters
+Date: Wed, 19 Jul 2017 13:09:18 +0530
+Message-ID: <1500449958-19553-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
+        Arjun Vynipadath <arjun@chelsio.com>,
+        Casey Leedom <leedom@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35331 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751390AbdGSHCi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:02:38 -0400
-Received: by mail-wr0-f195.google.com with SMTP id c24so4053213wra.2
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 00:02:38 -0700 (PDT)
-In-Reply-To: <20170719070232.28457-1-jiri@resnulli.us>
+Received: from stargate.chelsio.com ([12.32.117.8]:18988 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751364AbdGSHj0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:39:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Arjun Vynipadath <arjun@chelsio.com>
 
-We're about to add IPv6 notifications in the FIB notification chain, but
-the driver currently doesn't support these, so ignore them.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 51 ++++++++----------------------
+ 1 file changed, 14 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 6069681..7965a53 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -43,6 +43,7 @@
- #include <linux/inetdevice.h>
- #include <linux/netdevice.h>
- #include <linux/if_bridge.h>
-+#include <linux/socket.h>
- #include <net/netevent.h>
- #include <net/neighbour.h>
- #include <net/arp.h>
-@@ -3034,7 +3035,7 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
- 	struct fib_notifier_info *info = ptr;
- 	struct mlxsw_sp_router *router;
- 
--	if (!net_eq(info->net, &init_net))
-+	if (!net_eq(info->net, &init_net) || info->family != AF_INET)
- 		return NOTIFY_DONE;
- 
- 	fib_work = kzalloc(sizeof(*fib_work), GFP_ATOMIC);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 82bf7aa..570c095 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -913,7 +913,8 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0xd010, 0xd03c,
+ 		0xdfc0, 0xdfe0,
+ 		0xe000, 0xea7c,
+-		0xf000, 0x11190,
++		0xf000, 0x11110,
++		0x11118, 0x11190,
+ 		0x19040, 0x1906c,
+ 		0x19078, 0x19080,
+ 		0x1908c, 0x190e4,
+@@ -1439,8 +1440,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x1ff00, 0x1ff84,
+ 		0x1ffc0, 0x1ffc8,
+ 		0x30000, 0x30030,
+-		0x30038, 0x30038,
+-		0x30040, 0x30040,
+ 		0x30100, 0x30144,
+ 		0x30190, 0x301a0,
+ 		0x301a8, 0x301b8,
+@@ -1551,8 +1550,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x33c3c, 0x33c50,
+ 		0x33cf0, 0x33cfc,
+ 		0x34000, 0x34030,
+-		0x34038, 0x34038,
+-		0x34040, 0x34040,
+ 		0x34100, 0x34144,
+ 		0x34190, 0x341a0,
+ 		0x341a8, 0x341b8,
+@@ -1663,8 +1660,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x37c3c, 0x37c50,
+ 		0x37cf0, 0x37cfc,
+ 		0x38000, 0x38030,
+-		0x38038, 0x38038,
+-		0x38040, 0x38040,
+ 		0x38100, 0x38144,
+ 		0x38190, 0x381a0,
+ 		0x381a8, 0x381b8,
+@@ -1775,8 +1770,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x3bc3c, 0x3bc50,
+ 		0x3bcf0, 0x3bcfc,
+ 		0x3c000, 0x3c030,
+-		0x3c038, 0x3c038,
+-		0x3c040, 0x3c040,
+ 		0x3c100, 0x3c144,
+ 		0x3c190, 0x3c1a0,
+ 		0x3c1a8, 0x3c1b8,
+@@ -2040,12 +2033,8 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x1190, 0x1194,
+ 		0x11a0, 0x11a4,
+ 		0x11b0, 0x11b4,
+-		0x11fc, 0x1258,
+-		0x1280, 0x12d4,
+-		0x12d9, 0x12d9,
+-		0x12de, 0x12de,
+-		0x12e3, 0x12e3,
+-		0x12e8, 0x133c,
++		0x11fc, 0x1274,
++		0x1280, 0x133c,
+ 		0x1800, 0x18fc,
+ 		0x3000, 0x302c,
+ 		0x3060, 0x30b0,
+@@ -2076,6 +2065,9 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x5ea0, 0x5eb0,
+ 		0x5ec0, 0x5ec0,
+ 		0x5ec8, 0x5ed0,
++		0x5ee0, 0x5ee0,
++		0x5ef0, 0x5ef0,
++		0x5f00, 0x5f00,
+ 		0x6000, 0x6020,
+ 		0x6028, 0x6040,
+ 		0x6058, 0x609c,
+@@ -2133,6 +2125,8 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0xd300, 0xd31c,
+ 		0xdfc0, 0xdfe0,
+ 		0xe000, 0xf008,
++		0xf010, 0xf018,
++		0xf020, 0xf028,
+ 		0x11000, 0x11014,
+ 		0x11048, 0x1106c,
+ 		0x11074, 0x11088,
+@@ -2256,13 +2250,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x1ff00, 0x1ff84,
+ 		0x1ffc0, 0x1ffc8,
+ 		0x30000, 0x30030,
+-		0x30038, 0x30038,
+-		0x30040, 0x30040,
+-		0x30048, 0x30048,
+-		0x30050, 0x30050,
+-		0x3005c, 0x30060,
+-		0x30068, 0x30068,
+-		0x30070, 0x30070,
+ 		0x30100, 0x30168,
+ 		0x30190, 0x301a0,
+ 		0x301a8, 0x301b8,
+@@ -2325,13 +2312,12 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x326a8, 0x326a8,
+ 		0x326ec, 0x326ec,
+ 		0x32a00, 0x32abc,
+-		0x32b00, 0x32b38,
++		0x32b00, 0x32b18,
++		0x32b20, 0x32b38,
+ 		0x32b40, 0x32b58,
+ 		0x32b60, 0x32b78,
+ 		0x32c00, 0x32c00,
+ 		0x32c08, 0x32c3c,
+-		0x32e00, 0x32e2c,
+-		0x32f00, 0x32f2c,
+ 		0x33000, 0x3302c,
+ 		0x33034, 0x33050,
+ 		0x33058, 0x33058,
+@@ -2396,13 +2382,6 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x33c38, 0x33c50,
+ 		0x33cf0, 0x33cfc,
+ 		0x34000, 0x34030,
+-		0x34038, 0x34038,
+-		0x34040, 0x34040,
+-		0x34048, 0x34048,
+-		0x34050, 0x34050,
+-		0x3405c, 0x34060,
+-		0x34068, 0x34068,
+-		0x34070, 0x34070,
+ 		0x34100, 0x34168,
+ 		0x34190, 0x341a0,
+ 		0x341a8, 0x341b8,
+@@ -2465,13 +2444,12 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x366a8, 0x366a8,
+ 		0x366ec, 0x366ec,
+ 		0x36a00, 0x36abc,
+-		0x36b00, 0x36b38,
++		0x36b00, 0x36b18,
++		0x36b20, 0x36b38,
+ 		0x36b40, 0x36b58,
+ 		0x36b60, 0x36b78,
+ 		0x36c00, 0x36c00,
+ 		0x36c08, 0x36c3c,
+-		0x36e00, 0x36e2c,
+-		0x36f00, 0x36f2c,
+ 		0x37000, 0x3702c,
+ 		0x37034, 0x37050,
+ 		0x37058, 0x37058,
+@@ -2545,8 +2523,7 @@ void t4_get_regs(struct adapter *adap, void *buf, size_t buf_size)
+ 		0x40280, 0x40280,
+ 		0x40304, 0x40304,
+ 		0x40330, 0x4033c,
+-		0x41304, 0x413b8,
+-		0x413c0, 0x413c8,
++		0x41304, 0x413c8,
+ 		0x413d0, 0x413dc,
+ 		0x413f0, 0x413f0,
+ 		0x41400, 0x4140c,
 -- 
-2.9.3
+2.1.0
