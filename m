@@ -1,48 +1,55 @@
-From: =?UTF-8?q?Martin=20Hundeb=C3=B8ll?= <mnhu@prevas.dk>
-Subject: [PATCH] net: dsa: mv88e6xxx: Enable CMODE config support for 6390X
-Date: Wed, 19 Jul 2017 08:17:02 +0200
-Message-ID: <20170719061702.7692-1-mnhu@prevas.dk>
+From: Luca Coelho <luca@coelho.fi>
+Subject: Re: [PATCH v2] iwlwifi: mvm: Fix a memory leak in an error handling
+ path in 'iwl_mvm_sar_get_wgds_table()'
+Date: Wed, 19 Jul 2017 09:59:52 +0300
+Message-ID: <1500447592.22048.256.camel@coelho.fi>
+References: <20170714100659.26369-1-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Martin=20Hundeb=C3=B8ll?= <mnhu@prevas.dk>,
-        <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail01.prevas.se ([62.95.78.3]:56283 "EHLO mail01.prevas.se"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752794AbdGSG10 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Jul 2017 02:27:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
+        johannes.berg@intel.com, emmanuel.grumbach@intel.com,
+        linuxwifi@intel.com, kvalo@codeaurora.org, sara.sharon@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170714100659.26369-1-christophe.jaillet@wanadoo.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit f39908d3b1c45 ('net: dsa: mv88e6xxx: Set the CMODE for mv88e6390
-ports 9 & 10') added support for setting the CMODE for the 6390X family,
-but only enabled it for 9290 and 6390 - and left out 6390X.
+On Fri, 2017-07-14 at 12:06 +0200, Christophe JAILLET wrote:
+> We should free 'wgds.pointer' here as done a few lines above in another
+> error handling path.
+> It was allocated within 'acpi_evaluate_object()'.
+> 
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> ---
+> v2: rebase after 7fe90e0e3d60 ("iwlwifi: mvm: refactor geo init")
 
-Fix support for setting the CMODE on 6390X also by assigning
-mv88e6390x_port_set_cmode() to the .port_set_cmode function pointer in
-mv88e6390x_ops too.
+Thanks, Christophe!
 
-Signed-off-by: Martin Hundebøll <mnhu@prevas.dk>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 1 +
- 1 file changed, 1 insertion(+)
+I've pushed this to our internal tree and it will eventually reach the
+mainline via our normal process.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 947ea352a57a..7fa19d4a8e13 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3233,6 +3233,7 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
- 	.port_set_jumbo_size = mv88e6165_port_set_jumbo_size,
- 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
- 	.port_pause_limit = mv88e6390_port_pause_limit,
-+	.port_set_cmode = mv88e6390x_port_set_cmode,
- 	.port_disable_learn_limit = mv88e6xxx_port_disable_learn_limit,
- 	.port_disable_pri_override = mv88e6xxx_port_disable_pri_override,
- 	.stats_snapshot = mv88e6390_g1_stats_snapshot,
--- 
-2.13.3
+
+> Moreovern a comment in '/drivers/acpi/acpica/utalloc.c' states that:
+> /* [...] Note: The caller should use acpi_os_free to free this
+>  * buffer created via ACPI_ALLOCATE_BUFFER.
+>  */
+> 
+> So, at the end of this function:
+> 	out_free:
+> 		kfree(wgds.pointer);
+> should maybe be:
+> 	out_free:
+> 		acpi_os_free(wgds.pointer);
+> 
+> If correct, several places should be fixed accordingly.
+
+Thanks for pointing out! I'm about to do some refactoring in this code
+and I'll make sure I check the proper way to free the acpi buffer when
+doing so.
+
+--
+Cheers,
+Luca.
