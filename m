@@ -1,57 +1,47 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [PATCH net-next 04/11] net: dsa: Add support for learning FDB
- through notification
-Date: Wed, 19 Jul 2017 13:27:50 +0300
-Message-ID: <f371f4fa-4b09-d342-9b17-647b49468330@mellanox.com>
-References: <1500387624-4361-1-git-send-email-arkadis@mellanox.com>
- <1500387624-4361-5-git-send-email-arkadis@mellanox.com>
- <87o9shfywl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH V2 net-next 20/21] net-next/hinic: Add ethtool and stats
+Date: Wed, 19 Jul 2017 03:27:54 -0700
+Message-ID: <1500460074.25934.33.camel@perches.com>
+References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
+         <b66411dd204e8989f58e70bea8ae11d2cbe5cd1b.1500454998.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0059.outbound.protection.outlook.com ([104.47.0.59]:15200
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754580AbdGSK2B (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Jul 2017 06:28:01 -0400
-In-Reply-To: <87o9shfywl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        bc.y@huawei.com, victor.gissin@huawei.com, zhaochen6@huawei.com,
+        tony.qu@huawei.com
+To: Aviad Krawczyk <aviad.krawczyk@huawei.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b66411dd204e8989f58e70bea8ae11d2cbe5cd1b.1500454998.git.aviad.krawczyk@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, 2017-07-19 at 17:19 +0800, Aviad Krawczyk wrote:
+> Add ethtool operations and statistics operations.
 
+series trivia:
 
-On 07/18/2017 08:16 PM, Vivien Didelot wrote:
-> Hi Arkadi,
-> 
-> Arkadi Sharshevsky <arkadis@mellanox.com> writes:
-> 
->> --- a/include/net/dsa.h
->> +++ b/include/net/dsa.h
->> @@ -451,6 +451,7 @@ void unregister_switch_driver(struct dsa_switch_driver *type);
->>  struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
->>  
->>  struct net_device *dsa_dev_to_net_device(struct device *dev);
->> +bool dsa_schedule_work(struct work_struct *work);
-> 
-> You forgot to move this declaration to net/dsa/dsa_priv.h, since this is
-> private to DSA core and does not need to be exposed to drivers ;-)
->
+> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
+[]
+> @@ -67,6 +67,178 @@
+[]
+> +static int hinic_get_link_ksettings(struct net_device *netdev,
+> +				    struct ethtool_link_ksettings
+> +				    *link_ksettings)
+> +{
+[]
+> +	err = hinic_port_get_cap(nic_dev, &port_cap);
+> +	if (err) {
+> +		dev_err(&netdev->dev, "Failed to get port capabilities\n");
+> +		return err;
+> +	}
 
-No problem, will move it to dsa_priv.h, thanks.
+it looks like a lot of these dev_<level> calls
+should be converted to netdev_<level>
 
->> +	err = unregister_netdevice_notifier(&dsa_slave_switchdev_notifier);
->> +	if (err)
->> +		pr_err("DSA: failed to unregister switchdev notifier (%d)\n", err);
-> 
-> I think you meant unregister_switchdev_notifier() here.
-> 
-> Thanks,
-> 
->         Vivien
-> 
+from:
+		dev_err(&netdev->dev, ...);
+to:
+		netdev_err(netdev, ...);
+
+etc...
