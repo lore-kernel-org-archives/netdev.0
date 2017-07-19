@@ -1,122 +1,91 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 8/8] netvsc: add rtnl annotations in rndis
-Date: Wed, 19 Jul 2017 11:53:19 -0700
-Message-ID: <20170719185319.25871-9-sthemmin@microsoft.com>
+Subject: [PATCH net-next 2/8] netvsc: add some rtnl_dereference annotations
+Date: Wed, 19 Jul 2017 11:53:13 -0700
+Message-ID: <20170719185319.25871-3-sthemmin@microsoft.com>
 References: <20170719185319.25871-1-sthemmin@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:38722 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932107AbdGSSxc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 14:53:32 -0400
-Received: by mail-pg0-f53.google.com with SMTP id s4so3878069pgr.5
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 11:53:32 -0700 (PDT)
+To: kys@microsoft.com,
+	haiyangz@microsoft.com,
+	sthemmin@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <20170719185319.25871-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-The rndis functions are used when changing device state.
-Therefore the references from network device to internal state
-are protected by RTNL mutex.
+In a couple places RTNL is held, and the netvsc_device pointer
+is acquired without annotation.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   |  6 ------
- drivers/net/hyperv/netvsc.c       |  6 ++++--
- drivers/net/hyperv/netvsc_drv.c   |  1 +
- drivers/net/hyperv/rndis_filter.c | 12 ++++++++++--
- 4 files changed, 15 insertions(+), 10 deletions(-)
+ drivers/net/hyperv/netvsc.c     | 5 +++--
+ drivers/net/hyperv/netvsc_drv.c | 7 ++++---
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index d13572879e7e..afb65f753574 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -787,12 +787,6 @@ struct netvsc_device {
- 	struct rcu_head rcu;
- };
- 
--static inline struct netvsc_device *
--net_device_to_netvsc_device(struct net_device *ndev)
--{
--	return ((struct net_device_context *)netdev_priv(ndev))->nvdev;
--}
--
- /* NdisInitialize message */
- struct rndis_initialize_request {
- 	u32 req_id;
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index c15640c6fd83..0a9d9feedc3f 100644
+index 0a9167dd72fb..e202ec5d6f63 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -105,7 +105,8 @@ static void netvsc_destroy_buf(struct hv_device *device)
+@@ -41,7 +41,7 @@ void netvsc_switch_datapath(struct net_device *ndev, bool vf)
  {
- 	struct nvsp_message *revoke_packet;
- 	struct net_device *ndev = hv_get_drvdata(device);
--	struct netvsc_device *net_device = net_device_to_netvsc_device(ndev);
-+	struct net_device_context *ndc = netdev_priv(ndev);
-+	struct netvsc_device *net_device = rtnl_dereference(ndc->nvdev);
- 	int ret;
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+ 	struct hv_device *dev = net_device_ctx->device_ctx;
+-	struct netvsc_device *nv_dev = net_device_ctx->nvdev;
++	struct netvsc_device *nv_dev = rtnl_dereference(net_device_ctx->nvdev);
+ 	struct nvsp_message *init_pkt = &nv_dev->channel_init_pkt;
  
- 	/*
-@@ -829,7 +830,8 @@ int netvsc_send(struct net_device_context *ndev_ctx,
- 		struct hv_page_buffer **pb,
- 		struct sk_buff *skb)
+ 	memset(init_pkt, 0, sizeof(struct nvsp_message));
+@@ -549,7 +549,8 @@ void netvsc_device_remove(struct hv_device *device)
  {
--	struct netvsc_device *net_device = rcu_dereference(ndev_ctx->nvdev);
+ 	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *net_device = net_device_ctx->nvdev;
 +	struct netvsc_device *net_device
-+		= rcu_dereference_rtnl(ndev_ctx->nvdev);
- 	struct hv_device *device = ndev_ctx->device_ctx;
- 	int ret = 0;
- 	struct netvsc_channel *nvchan;
++		= rtnl_dereference(net_device_ctx->nvdev);
+ 	int i;
+ 
+ 	netvsc_disconnect_vsp(device);
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 1238600d717e..a164981c15f7 100644
+index 09b07ca9e69a..e8e82a6a4b1a 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1548,6 +1548,7 @@ static int netvsc_probe(struct hv_device *dev,
+@@ -69,7 +69,7 @@ static void netvsc_set_multicast_list(struct net_device *net)
+ static int netvsc_open(struct net_device *net)
+ {
+ 	struct net_device_context *ndev_ctx = netdev_priv(net);
+-	struct netvsc_device *nvdev = ndev_ctx->nvdev;
++	struct netvsc_device *nvdev = rtnl_dereference(ndev_ctx->nvdev);
+ 	struct rndis_device *rdev;
+ 	int ret = 0;
  
- 	netif_set_real_num_tx_queues(net, nvdev->num_chn);
- 	netif_set_real_num_rx_queues(net, nvdev->num_chn);
-+	rtnl_unlock();
+@@ -1364,7 +1364,7 @@ static struct net_device *get_netvsc_byref(struct net_device *vf_netdev)
+ 			continue;	/* not a netvsc device */
  
- 	netdev_lockdep_set_classes(net);
+ 		net_device_ctx = netdev_priv(dev);
+-		if (net_device_ctx->nvdev == NULL)
++		if (!rtnl_dereference(net_device_ctx->nvdev))
+ 			continue;	/* device is removed */
  
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 9ab67c8309ff..e439886f72c1 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -84,6 +84,14 @@ static struct rndis_device *get_rndis_device(void)
- 	return device;
- }
+ 		if (rtnl_dereference(net_device_ctx->vf_netdev) == vf_netdev)
+@@ -1589,7 +1589,8 @@ static int netvsc_remove(struct hv_device *dev)
+ 	 * removed. Also blocks mtu and channel changes.
+ 	 */
+ 	rtnl_lock();
+-	rndis_filter_device_remove(dev, ndev_ctx->nvdev);
++	rndis_filter_device_remove(dev,
++				   rtnl_dereference(ndev_ctx->nvdev));
+ 	rtnl_unlock();
  
-+static struct netvsc_device *
-+net_device_to_netvsc_device(struct net_device *ndev)
-+{
-+	struct net_device_context *net_device_ctx = netdev_priv(ndev);
-+
-+	return rtnl_dereference(net_device_ctx->nvdev);
-+}
-+
- static struct rndis_request *get_rndis_request(struct rndis_device *dev,
- 					     u32 msg_type,
- 					     u32 msg_len)
-@@ -472,7 +480,7 @@ static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
- 
- 	if (oid == OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES) {
- 		struct net_device_context *ndevctx = netdev_priv(dev->ndev);
--		struct netvsc_device *nvdev = ndevctx->nvdev;
-+		struct netvsc_device *nvdev = rtnl_dereference(ndevctx->nvdev);
- 		struct ndis_offload *hwcaps;
- 		u32 nvsp_version = nvdev->nvsp_version;
- 		u8 ndis_rev;
-@@ -944,7 +952,7 @@ static void rndis_filter_halt_device(struct rndis_device *dev)
- 	struct rndis_request *request;
- 	struct rndis_halt_request *halt;
- 	struct net_device_context *net_device_ctx = netdev_priv(dev->ndev);
--	struct netvsc_device *nvdev = net_device_ctx->nvdev;
-+	struct netvsc_device *nvdev = rtnl_dereference(net_device_ctx->nvdev);
- 
- 	/* Attempt to do a rndis device halt */
- 	request = get_rndis_request(dev, RNDIS_MSG_HALT,
+ 	unregister_netdev(net);
 -- 
 2.11.0
