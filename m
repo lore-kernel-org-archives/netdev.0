@@ -1,46 +1,53 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] ath10k_htt_rx_amsdu_allowed(): use ath10k_dbg()
-Date: Wed, 19 Jul 2017 09:26:45 -0700
-Message-ID: <1500481605.25934.40.camel@perches.com>
-References: <288fce5b-d738-f0ac-2433-67e1b35a0664@gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [patch net-next 11/17] ipv6: fib: Allow non-FIB users to take
+ reference on route
+Date: Wed, 19 Jul 2017 10:29:14 -0600
+Message-ID: <ad7666d8-ede5-9518-e169-3f5f6f0b6798@gmail.com>
+References: <20170719070232.28457-1-jiri@resnulli.us>
+ <20170719070232.28457-12-jiri@resnulli.us>
+ <606f31c5-c5f9-193a-9527-6e47f827dd75@gmail.com>
+ <20170719161727.GC6078@splinter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Ryan Hsu <ryanhsu@qti.qualcomm.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Kalle Valo <kvalo@qca.qualcomm.com>
-To: Gabriel C <nix.or.die@gmail.com>,
-        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <288fce5b-d738-f0ac-2433-67e1b35a0664@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        davem@davemloft.net, mlxsw@mellanox.com, roopa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com, kafai@fb.com,
+        hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
+        edumazet@google.com, yanhaishuang@cmss.chinamobile.com
+To: Ido Schimmel <idosch@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:37566 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753659AbdGSQ3R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 12:29:17 -0400
+Received: by mail-pg0-f51.google.com with SMTP id y129so2376273pgy.4
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 09:29:16 -0700 (PDT)
+In-Reply-To: <20170719161727.GC6078@splinter>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-07-19 at 17:37 +0200, Gabriel C wrote:
->          Each time we get disconencted from AP we get flooded with messages like:
+On 7/19/17 10:17 AM, Ido Schimmel wrote:
+> I did exactly that in the beginning, but it didn't sit right with me for
+> the exact reason you mentioned - it can be a PITA to debug.
 > 
->          ...
->          ath10k_pci 0000:03:00.0: no channel configured; ignoring frame(s)!
->          <until ratelimit kicks in>
->          ath10k_warn: 155 callbacks suppressed
-
-[]
-
-> diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
-[]
-> @@ -1514,7 +1514,7 @@ static bool ath10k_htt_rx_amsdu_allowed(struct ath10k *ar,
->           */
+> If we use rt6i_ref for something other than FIB references, then it
+> breaks existing code that relies on rt6i_ref being 0 to indicate it's
+> no longer used by the FIB. A non-zero value can now mean "not used by
+> the FIB, but waiting for some module to drop the reference in its
+> workqueue".
 > 
->          if (!rx_status->freq) {
-> -               ath10k_warn(ar, "no channel configured; ignoring frame(s)!\n");
-> +               ath10k_dbg(ar, ATH10K_DBG_HTT, "no channel configured; ignoring frame(s)!\n");
->                  return false;
->          }
+> The BUG_ON() mentioned in the commit message is just one example.
+> Another check was added by you in commit 8048ced9b.
+> 
+> So I think we both want the same thing, but I'm not sure how your
+> approach is safer.
 
-Hi.  This doesn't apply because of tab to space conversions.
+A single reference counter rt6i_ref is best.
 
-Please use git send-email to send your patch.
-
-Maybe read Documentation/process/email-clients.rst
+There are 2 reads of that counter to determine if the rt is still in the
+FIB. Both of those stem from side effects of using the 'lo' for the
+device for host addresses. I think an explicit flag can be used for that
+purpose instead of trying to deduce it from the reference counter. The
+commit you referenced copied what is done in init_loopback for
+consistency (both have same end goal).
