@@ -1,69 +1,51 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: Use sock_diag instead of procfs for new address families?
-Date: Wed, 19 Jul 2017 09:48:12 +0100
-Message-ID: <20170719084812.GB5628@stefanha-x1.localdomain>
-References: <20170718161806.GA21151@stefanha-x1.localdomain>
- <20170718095838.18afb608@xeon-e3>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next V2 0/5] Refine virtio-net XDP
+Date: Wed, 19 Jul 2017 16:54:44 +0800
+Message-ID: <1500454489-16805-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="neYutvxvOLaeuPCA"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jorgen Hansen <jhansen@vmware.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44984 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753195AbdGSIsO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Jul 2017 04:48:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20170718095838.18afb608@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: mst@redhat.com, virtualization@lists.linux-foundation.org,
+	jasowang@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+Hi:
 
---neYutvxvOLaeuPCA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This series brings two optimizations for virtio-net XDP:
 
-On Tue, Jul 18, 2017 at 09:58:38AM -0700, Stephen Hemminger wrote:
-> On Tue, 18 Jul 2017 17:18:06 +0100
-> Stefan Hajnoczi <stefanha@redhat.com> wrote:
->=20
-> > I am implementing userspace access to socket information for AF_VSOCK.
-> > A few hours into writing and testing a /proc/net/vsock seq_file I
-> > noticed that ss(8) prefers NETLINK_SOCK_DIAG over procfs.
-> >=20
-> > Before potentially wasting time implementing a legacy interface that
-> > won't be accepted, I thought it might be good to ask :).
-> >=20
-> > Which approach is preferred?
-> > 1. New address families must implement only sock_diag.
-> > 2. Both sock_diag and procfs must be implemented.
-> > 3. Implement whichever interface you prefer.
-> >=20
-> > Thanks,
-> > Stefan
->=20
-> You are correct, I am unlikely to take any new code using /proc
-> in ss.
+- avoid reset during XDP set
+- turn off offloads on demand
 
-Thanks Stephen and David, will switch to sock_diag.
+Changes from V1:
+- Various tweaks on commit logs and comments
+- Use virtnet_napi_enable() when enabling NAPI on XDP set
+- Copy the small buffer packet only if xdp_headroom is smaller than
+  required
 
-Stefan
+Please review.
 
---neYutvxvOLaeuPCA
-Content-Type: application/pgp-signature; name="signature.asc"
+Thanks
 
------BEGIN PGP SIGNATURE-----
+Jason Wang (5):
+  virtio_ring: allow to store zero as the ctx
+  virtio-net: pack headroom into ctx for mergeable buffers
+  virtio-net: switch to use new ctx API for small buffer
+  virtio-net: do not reset during XDP set
+  virtio-net: switch off offloads on demand if possible on XDP set
 
-iQEcBAEBAgAGBQJZbxzMAAoJEJykq7OBq3PITcYIAJcDaRRGu+X+aCr+opGXIDiL
-Aj249VsIPtuLH/jtV0LWOZyj0JjmaN1/hmhyBi6Wts8V9CTTLqrT657QtLJVhW8u
-R1NIaE8V9k57XdCpfWliTmkQGBUJf3cAb5UoENz/1717MjlIzdabq1ftufehYOgX
-OLGmb9m9AsOj9Qlp6/5Tqy6dIBdxrcipIiPexf+BJId9gm2d78J9gg8TvHXCR26Z
-zfY7YVEcv0MNBCNYqBXL908q6coJ6ekQieASOVIOOuoDmPSctTxJ2lg11YNvDImS
-2V+cD5vab3B0anZuF9E1/Bpuedgjqz5Zkjl2iEll1i8MzEdZerJCDr2tYZMEC9Q=
-=oKb0
------END PGP SIGNATURE-----
+ drivers/net/virtio_net.c     | 332 ++++++++++++++++++++++++++-----------------
+ drivers/virtio/virtio_ring.c |   2 +-
+ 2 files changed, 200 insertions(+), 134 deletions(-)
 
---neYutvxvOLaeuPCA--
+-- 
+2.7.4
