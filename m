@@ -1,101 +1,70 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 1/2] net: phy: at803x: Fix RGMII RX and TX clock delays
- setup
-Date: Wed, 19 Jul 2017 15:11:43 -0500
-Message-ID: <c653658c-9985-f157-fc44-4b8168c770c2@ti.com>
-References: <b332dc3e-4478-e34b-2b3f-226aad8a11d4@sigmadesigns.com>
- <33ed5f4f-9939-dc00-b973-db39c16f2393@sigmadesigns.com>
- <5ea9905f-e74a-4a43-dc5b-883ec9daf030@ti.com>
- <abbcd40c-5ecd-2197-73d0-2046cf1e7b5c@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 00/13] Change DSA's FDB API and perform switchdev cleanup
+Date: Wed, 19 Jul 2017 16:17:08 -0400
+Message-ID: <87mv80ji63.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
- Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
- "David S. Miller" <davem@davemloft.net>,
- Linux ARM <linux-arm-kernel@lists.infradead.org>, Mason <slash.tmp@free.fr>
-To: Florian Fainelli <f.fainelli@gmail.com>, Marc Gonzalez
- <marc_gonzalez@sigmadesigns.com>,
- Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
- Martin Blumenstingl <martin.blumenstingl@gmail.com>, Fabio
- Estevam <fabio.estevam@nxp.com>, Zefir Kurtisi <zefir.kurtisi@neratec.com>,
- Timur Tabi <timur@codeaurora.org>, Daniel Mack <zonque@gmail.com>, Sekhar
- Nori <nsekhar@ti.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <abbcd40c-5ecd-2197-73d0-2046cf1e7b5c@gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com,
+        Arkadi Sharshevsky <arkadis@mellanox.com>
+To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:44748 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754211AbdGSUTw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 16:19:52 -0400
+In-Reply-To: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi Arkadi,
+
+I am testing your patch series the behavior changes suspiciously:
+
+    # brctl show br0
+    bridge name	bridge id		STP enabled	interfaces
+    br0		8000.f6d5ef06ccdd	no		lan0
+                                                        lan1
+                                                        lan2
+                                                        lan3
+                                                        lan4
+                                                        lan5
+                                                        lan6
+                                                        lan7
+                                                        lan8
+                                                        optical3
+                                                        optical4
+
+Without the patchset I have this behavior:
+
+    # bridge fdb add 00:11:22:33:44:55 dev lan4
+    # bridge fdb add 22:33:44:55:66:77 dev lan2 self
+    # bridge fdb show                               
+    01:00:5e:00:00:01 dev eth0 self permanent
+    01:00:5e:00:00:01 dev eth1 self permanent
+    0a:3f:f6:06:a2:ee dev lan0 master br0 permanent
+    22:33:44:55:66:77 dev lan2 self static
+    00:11:22:33:44:55 dev lan4 self static
+    01:00:5e:00:00:01 dev br0 self permanent
+
+And now with the patchset applied I have:
+
+# bridge fdb add 00:11:22:33:44:55 dev lan4
+# bridge fdb add 22:33:44:55:66:77 dev lan2 self
+# bridge fdb show
+01:00:5e:00:00:01 dev eth0 self permanent
+00:11:22:33:44:55 dev eth1 self permanent
+22:33:44:55:66:77 dev eth1 self permanent
+01:00:5e:00:00:01 dev eth1 self permanent
+0a:ca:c8:6b:05:65 dev lan0 master br0 permanent
+01:00:5e:00:00:01 dev br0 self permanent
 
 
+It looks like the FDB entries are reported to be associated with the
+master net device (eth1). Is the dump broken or is it the whole add?
 
-On 07/19/2017 02:30 PM, Florian Fainelli wrote:
-> On 07/19/2017 12:24 PM, Grygorii Strashko wrote:
->> Hi
->>
->> On 07/19/2017 10:31 AM, Marc Gonzalez wrote:
->>> The current code supports enabling RGMII RX and TX clock delays.
->>> The unstated assumption is that these settings are disabled by
->>> default at reset, which is not the case.
->>>
->>> RX clock delay is enabled at reset. And TX clock delay "survives"
->>> across SW resets. Thus, if the bootloader enables TX clock delay,
->>> it will remain enabled at reset in Linux.
->>>
->>> Provide disable functions to configure the RGMII clock delays
->>> exactly as specified in the fwspec.
->>>
->>> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
->>> ---
->>>    drivers/net/phy/at803x.c | 32 ++++++++++++++++++++++++--------
->>>    1 file changed, 24 insertions(+), 8 deletions(-)
->> This patch breaks am335x-evm networking.
->>
->> To restore it I've had to apply below diff:
->> diff --git a/arch/arm/boot/dts/am335x-evm.dts b/arch/arm/boot/dts/am335x-evm.dts
->> index 200d6ab..9578bdf 100644
->> --- a/arch/arm/boot/dts/am335x-evm.dts
->> +++ b/arch/arm/boot/dts/am335x-evm.dts
->> @@ -724,12 +724,12 @@
->>   
->>   &cpsw_emac0 {
->>          phy_id = <&davinci_mdio>, <0>;
->> -       phy-mode = "rgmii-txid";
->> +       phy-mode = "rgmii-id";
->>   };
->>   
->>   &cpsw_emac1 {
->>          phy_id = <&davinci_mdio>, <1>;
->> -       phy-mode = "rgmii-txid";
->> +       phy-mode = "rgmii-id";
->>   };
->>   
->>   &tscadc {
->>
->> Sry, can't comment here to much - not E-PHY expert.
-> 
-> It's useful feedback, since we had poorly defined "phy-mode" semantics
-> for too long, this is totally expected, Marc this is exactly why Mans is
-> suggesting additional MAC-specific properties to define delays.
-> 
+Thanks,
 
-Yeah. original commit is pretty old and description is not very useful
-
-commit 6d75afe2916adf9e9de6862275cdf89b9b7e4d0e
-Author: Mugunthan V N <mugunthanvnm@ti.com>
-Date:   Mon Jun 3 20:10:11 2013 +0000
-
-     ARM: dts: AM33XX: Add phy-mode to CPSW node
-
-
--- 
-regards,
--grygorii
+        Vivien
