@@ -1,53 +1,59 @@
-From: Gabriel C <nix.or.die@gmail.com>
-Subject: [PATCH] ath10k_htt_rx_amsdu_allowed(): use ath10k_dbg()
-Date: Wed, 19 Jul 2017 17:37:08 +0200
-Message-ID: <288fce5b-d738-f0ac-2433-67e1b35a0664@gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [patch net-next 07/17] ipv6: fib: Add in-kernel notifications for
+ route add / delete
+Date: Wed, 19 Jul 2017 09:38:11 -0600
+Message-ID: <2db9b613-3978-52f5-db9d-d3e36742db49@gmail.com>
+References: <20170719070232.28457-1-jiri@resnulli.us>
+ <20170719070232.28457-8-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Ryan Hsu <ryanhsu@qti.qualcomm.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Kalle Valo <kvalo@qca.qualcomm.com>
-To: "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        kafai@fb.com, hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
+        edumazet@google.com, yanhaishuang@cmss.chinamobile.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36578 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933226AbdGSPhJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 11:37:09 -0400
-Content-Language: en-US
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34974 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933245AbdGSPiO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 11:38:14 -0400
+Received: by mail-pg0-f65.google.com with SMTP id d193so342663pgc.2
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 08:38:13 -0700 (PDT)
+In-Reply-To: <20170719070232.28457-8-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 7/19/17 1:02 AM, Jiri Pirko wrote:
+> @@ -879,6 +891,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+>  		*ins = rt;
+>  		rt->rt6i_node = fn;
+>  		atomic_inc(&rt->rt6i_ref);
+> +		call_fib6_entry_notifiers(info->nl_net, FIB_EVENT_ENTRY_ADD,
+> +					  rt);
+>  		if (!info->skip_notify)
+>  			inet6_rt_notify(RTM_NEWROUTE, rt, info, nlflags);
+>  		info->nl_net->ipv6.rt6_stats->fib_rt_entries++;
+> @@ -906,6 +920,8 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+>  		rt->rt6i_node = fn;
+>  		rt->dst.rt6_next = iter->dst.rt6_next;
+>  		atomic_inc(&rt->rt6i_ref);
+> +		call_fib6_entry_notifiers(info->nl_net, FIB_EVENT_ENTRY_REPLACE,
+> +					  rt);
+>  		if (!info->skip_notify)
+>  			inet6_rt_notify(RTM_NEWROUTE, rt, info, NLM_F_REPLACE);
+>  		if (!(fn->fn_flags & RTN_RTINFO)) {
+> @@ -1459,6 +1475,7 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
+>  
+>  	fib6_purge_rt(rt, fn, net);
+>  
+> +	call_fib6_entry_notifiers(net, FIB_EVENT_ENTRY_DEL, rt);
+>  	if (!info->skip_notify)
+>  		inet6_rt_notify(RTM_DELROUTE, rt, info, 0);
+>  	rt6_release(rt);
+> 
 
-         Each time we get disconencted from AP we get flooded with messages like:
 
-         ...
-         ath10k_pci 0000:03:00.0: no channel configured; ignoring frame(s)!
-         <until ratelimit kicks in>
-         ath10k_warn: 155 callbacks suppressed
-         ...
-
-         Use ath10k_dbg() here too.
-
-Signed-off-by: Gabriel Craciunescu <nix.or.die@gmail.com>
----
-  drivers/net/wireless/ath/ath10k/htt_rx.c | 2 +-
-  1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
-index 398dda978d6e..75d9b59b7e63 100644
---- a/drivers/net/wireless/ath/ath10k/htt_rx.c
-+++ b/drivers/net/wireless/ath/ath10k/htt_rx.c
-@@ -1514,7 +1514,7 @@ static bool ath10k_htt_rx_amsdu_allowed(struct ath10k *ar,
-          */
-
-         if (!rx_status->freq) {
--               ath10k_warn(ar, "no channel configured; ignoring frame(s)!\n");
-+               ath10k_dbg(ar, ATH10K_DBG_HTT, "no channel configured; ignoring frame(s)!\n");
-                 return false;
-         }
-
--- 
-2.13.3
+Why aren't all of the notifier calls under the skip_notify? That flag is
+used to make handling of ipv6 multipath routes on par with ipv4. See
+commit 3b1137fe74829
