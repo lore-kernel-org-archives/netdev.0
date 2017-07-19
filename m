@@ -1,7 +1,8 @@
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next v2 00/13] Change DSA's FDB API and perform switchdev cleanup
-Date: Wed, 19 Jul 2017 19:04:41 +0300
-Message-ID: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
+Subject: [PATCH net-next v2 08/13] net: dsa: Remove support for bypass bridge port attributes/vlan set
+Date: Wed, 19 Jul 2017 19:04:49 +0300
+Message-ID: <1500480294-10604-9-git-send-email-arkadis@mellanox.com>
+References: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
 Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         f.fainelli@gmail.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, Woojung.Huh@microchip.com,
@@ -9,61 +10,99 @@ Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         Arkadi Sharshevsky <arkadis@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50547 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50629 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755295AbdGSQBa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 12:01:30 -0400
+        with ESMTP id S1755260AbdGSQBb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 12:01:31 -0400
+In-Reply-To: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patchset moves the DSA driver into learning static FDB entries via
-the switchdev notification chain rather then by using bridge bypass SELF
-flag. 
+The bridge port attributes/vlan for DSA devices should be set only
+from bridge code. Furthermore, The vlans are synced totally with the
+bridge so there is no need for special dump support.
 
-The DSA drivers cannot sync the software bridge with hardware learned
-entries and use the switchdev's implementation of bypass FDB dumping.
-Because they are the only ones using this functionality, the fdb_dump
-implementation is moved from switchdev code into DSA.
-
-Finally after this changes a major cleanup in switchdev can be done.
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 ---
-Please see individual patches for patch specific change logs.
-v1->v2
-- Split MDB/vlan dump removal into core/driver removal.
+ include/net/dsa.h  |  4 ----
+ net/dsa/dsa_priv.h |  4 ----
+ net/dsa/port.c     | 12 ------------
+ net/dsa/slave.c    |  6 ------
+ 4 files changed, 26 deletions(-)
 
-Arkadi Sharshevsky (13):
-  net: dsa: Change DSA slave FDB API to be switchdev independent
-  net: dsa: Remove prepare phase for FDB
-  net: dsa: Remove switchdev dependency from DSA switch notifier chain
-  net: dsa: Add support for learning FDB through notification
-  net: dsa: Remove support for FDB add/del via SELF
-  net: dsa: Add support for querying supported bridge flags
-  net: dsa: Remove support for vlan dump from DSA's drivers
-  net: dsa: Remove support for bypass bridge port attributes/vlan set
-  net: dsa: Remove support for MDB dump from DSA's drivers
-  net: dsa: Remove redundant MDB dump support
-  net: dsa: Move FDB dump implementation inside DSA
-  net: bridge: Remove FDB deletion through switchdev object
-  net: switchdev: Remove bridge bypass support from switchdev
-
- drivers/net/dsa/b53/b53_common.c       |  83 +-----
- drivers/net/dsa/b53/b53_priv.h         |  16 +-
- drivers/net/dsa/bcm_sf2.c              |   2 -
- drivers/net/dsa/dsa_loop.c             |  38 ---
- drivers/net/dsa/microchip/ksz_common.c | 124 ++------
- drivers/net/dsa/mt7530.c               |  41 +--
- drivers/net/dsa/mv88e6xxx/chip.c       | 147 ++--------
- drivers/net/dsa/qca8k.c                |  42 +--
- include/net/dsa.h                      |  23 +-
- include/net/switchdev.h                |  87 ------
- net/bridge/br_fdb.c                    |  18 --
- net/dsa/dsa.c                          |  13 +
- net/dsa/dsa_priv.h                     |  22 +-
- net/dsa/port.c                         |  51 +---
- net/dsa/slave.c                        | 247 +++++++++++++---
- net/dsa/switch.c                       |  21 +-
- net/switchdev/switchdev.c              | 519 ---------------------------------
- 17 files changed, 329 insertions(+), 1165 deletions(-)
-
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index f054d41..4b82647 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -384,10 +384,6 @@ struct dsa_switch_ops {
+ 				 struct switchdev_trans *trans);
+ 	int	(*port_vlan_del)(struct dsa_switch *ds, int port,
+ 				 const struct switchdev_obj_port_vlan *vlan);
+-	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
+-				  struct switchdev_obj_port_vlan *vlan,
+-				  switchdev_obj_dump_cb_t *cb);
+-
+ 	/*
+ 	 * Forwarding database
+ 	 */
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 3ad666a..cddcea2 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -139,10 +139,6 @@ int dsa_port_vlan_add(struct dsa_port *dp,
+ 		      struct switchdev_trans *trans);
+ int dsa_port_vlan_del(struct dsa_port *dp,
+ 		      const struct switchdev_obj_port_vlan *vlan);
+-int dsa_port_vlan_dump(struct dsa_port *dp,
+-		       struct switchdev_obj_port_vlan *vlan,
+-		       switchdev_obj_dump_cb_t *cb);
+-
+ /* slave.c */
+ extern const struct dsa_device_ops notag_netdev_ops;
+ void dsa_slave_mii_bus_init(struct dsa_switch *ds);
+diff --git a/net/dsa/port.c b/net/dsa/port.c
+index 86e0585..ce19216 100644
+--- a/net/dsa/port.c
++++ b/net/dsa/port.c
+@@ -246,15 +246,3 @@ int dsa_port_vlan_del(struct dsa_port *dp,
+ 
+ 	return dsa_port_notify(dp, DSA_NOTIFIER_VLAN_DEL, &info);
+ }
+-
+-int dsa_port_vlan_dump(struct dsa_port *dp,
+-		       struct switchdev_obj_port_vlan *vlan,
+-		       switchdev_obj_dump_cb_t *cb)
+-{
+-	struct dsa_switch *ds = dp->ds;
+-
+-	if (ds->ops->port_vlan_dump)
+-		return ds->ops->port_vlan_dump(ds, dp->index, vlan, cb);
+-
+-	return -EOPNOTSUPP;
+-}
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 3ad1f4d..f939d79 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -302,9 +302,6 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
+ 	case SWITCHDEV_OBJ_ID_PORT_MDB:
+ 		err = dsa_port_mdb_dump(dp, SWITCHDEV_OBJ_PORT_MDB(obj), cb);
+ 		break;
+-	case SWITCHDEV_OBJ_ID_PORT_VLAN:
+-		err = dsa_port_vlan_dump(dp, SWITCHDEV_OBJ_PORT_VLAN(obj), cb);
+-		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+@@ -926,9 +923,6 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	.ndo_netpoll_cleanup	= dsa_slave_netpoll_cleanup,
+ 	.ndo_poll_controller	= dsa_slave_poll_controller,
+ #endif
+-	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
+-	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+-	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+ 	.ndo_get_phys_port_name	= dsa_slave_get_phys_port_name,
+ 	.ndo_setup_tc		= dsa_slave_setup_tc,
+ };
 -- 
 2.4.11
