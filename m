@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/17] mlxsw: Support for IPv6 UC router
-Date: Wed, 19 Jul 2017 09:02:15 +0200
-Message-ID: <20170719070232.28457-1-jiri@resnulli.us>
+Subject: [patch net-next 01/17] net: core: Make the FIB notification chain generic
+Date: Wed, 19 Jul 2017 09:02:16 +0200
+Message-ID: <20170719070232.28457-2-jiri@resnulli.us>
+References: <20170719070232.28457-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         dsahern@gmail.com, roopa@cumulusnetworks.com,
         nikolay@cumulusnetworks.com, kafai@fb.com,
@@ -9,95 +10,666 @@ Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         edumazet@google.com, yanhaishuang@cmss.chinamobile.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33615 "EHLO
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:33628 "EHLO
         mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751390AbdGSHCg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:02:36 -0400
-Received: by mail-wr0-f195.google.com with SMTP id y43so7612358wrd.0
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 00:02:35 -0700 (PDT)
+        with ESMTP id S1752055AbdGSHCh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 03:02:37 -0400
+Received: by mail-wr0-f195.google.com with SMTP id y43so7612443wrd.0
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 00:02:36 -0700 (PDT)
+In-Reply-To: <20170719070232.28457-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-This set adds support for IPv6 unicast routes offload. The first four
-patches make the FIB notification chain generic so that it could be used
-by address families other than IPv4. This is done by having each address
-family register its callbacks with the common code, so that its FIB tables
-and rules could be dumped upon registration to the chain, while ensuring
-the integrity of the dump. The exact mechanics are explained in detail in
-the first patch.
+The FIB notification chain is currently soley used by IPv4 code.
+However, we're going to introduce IPv6 FIB offload support, which
+requires these notification as well.
 
-The next seven patches build upon this work and add the necessary
-callbacks in IPv6 code. This allows listeners of the chain to receive
-notifications about IPv6 routes addition, deletion and replacement as
-well as FIB rules notifications.
+As explained in commit c3852ef7f2f8 ("ipv4: fib: Replay events when
+registering FIB notifier"), upon registration to the chain, the callee
+receives a full dump of the FIB tables and rules by traversing all the
+net namespaces. The integrity of the dump is ensured by a per-namespace
+sequence counter that is incremented whenever a change to the tables or
+rules occurs.
 
-Unlike user space notifications for IPv6 multipath routes, the FIB
-notification chain notifies these on a per-nexthop basis. This allows
-us to keep the common code lean and is also unnecessary, as notifications
-are serialized by each table's lock whereas applications maintaining
-netlink caches may suffer from concurrent dumps and deletions / additions
-of routes.
+In order to allow more address families to use the chain, each family is
+expected to register its fib_notifier_ops in its pernet init. These
+operations allow the common code to read the family's sequence counter
+as well as dump its tables and rules in the given net namespace.
 
-The last six patches enable the mlxsw driver to offload IPv6 unicast
-routes to the Spectrum ASIC. Without resorting to ACLs, lookup is done
-solely based on the destination IP, so the abort mechanism is invoked
-upon the addition of source-specific routes.
+Additionally, a 'family' parameter is added to sent notifications, so
+that listeners could distinguish between the different families.
 
-Follow-up patch sets will increase the scale of gatewayed routes by
-consolidating identical nexthop groups to one adjacency entry in the
-device's adjacency table (as in IPv4), as well as add support for
-NH_{ADD,DEL} events which enable support for the
-'ignore_routes_with_linkdown' sysctl.
+Implement the common code that allows listeners to register to the chain
+and for address families to register their fib_notifier_ops. Subsequent
+patches will implement these operations in IPv6.
 
-Ido Schimmel (17):
-  net: core: Make the FIB notification chain generic
-  mlxsw: spectrum_router: Ignore address families other than IPv4
-  rocker: Ignore address families other than IPv4
-  net: fib_rules: Implement notification logic in core
-  ipv6: fib_rules: Check if rule is a default rule
-  ipv6: fib: Add FIB notifiers callbacks
-  ipv6: fib: Add in-kernel notifications for route add / delete
-  ipv6: fib_rules: Dump rules during registration to FIB chain
-  ipv6: fib: Dump tables during registration to FIB chain
-  ipv6: fib: Add offload indication to routes
-  ipv6: fib: Allow non-FIB users to take reference on route
-  mlxsw: spectrum_router: Demultiplex FIB event based on family
-  mlxsw: spectrum_router: Sanitize IPv6 FIB rules
-  mlxsw: spectrum_router: Add support for IPv6 routes addition /
-    deletion
-  mlxsw: spectrum_router: Add support for route replace
-  mlxsw: spectrum_router: Abort on source-specific routes
-  mlxsw: spectrum_router: Don't ignore IPv6 notifications
+In the future, ipmr and ip6mr will be extended to provide these
+notifications as well.
 
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 815 ++++++++++++++++++++-
- drivers/net/ethernet/rocker/rocker_main.c          |   5 +
- include/net/fib_notifier.h                         |  44 ++
- include/net/fib_rules.h                            |   9 +
- include/net/ip6_fib.h                              |  52 ++
- include/net/ip_fib.h                               |  54 +-
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |   1 +
+ drivers/net/ethernet/rocker/rocker_main.c          |   1 +
+ include/net/fib_notifier.h                         |  44 ++++++
+ include/net/ip_fib.h                               |  30 +---
  include/net/net_namespace.h                        |   1 +
  include/net/netns/ipv4.h                           |   1 +
- include/net/netns/ipv6.h                           |   1 +
- include/uapi/linux/ipv6_route.h                    |   1 +
  net/core/Makefile                                  |   3 +-
- net/core/fib_notifier.c                            | 164 +++++
- net/core/fib_rules.c                               |  63 ++
- net/ipv4/fib_frontend.c                            |  17 +-
- net/ipv4/fib_notifier.c                            |  99 ++-
- net/ipv4/fib_rules.c                               |  44 +-
+ net/core/fib_notifier.c                            | 164 +++++++++++++++++++++
+ net/ipv4/fib_frontend.c                            |  17 ++-
+ net/ipv4/fib_notifier.c                            |  94 +++++-------
+ net/ipv4/fib_rules.c                               |   5 +-
  net/ipv4/fib_semantics.c                           |   9 +-
  net/ipv4/fib_trie.c                                |   5 +-
- net/ipv6/Makefile                                  |   2 +-
- net/ipv6/fib6_notifier.c                           |  61 ++
- net/ipv6/fib6_rules.c                              |  31 +
- net/ipv6/ip6_fib.c                                 | 126 +++-
- net/ipv6/route.c                                   |  23 +-
- 23 files changed, 1459 insertions(+), 171 deletions(-)
+ 13 files changed, 282 insertions(+), 93 deletions(-)
  create mode 100644 include/net/fib_notifier.h
  create mode 100644 net/core/fib_notifier.c
- create mode 100644 net/ipv6/fib6_notifier.c
 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index e6d629f..6069681 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -52,6 +52,7 @@
+ #include <net/addrconf.h>
+ #include <net/ndisc.h>
+ #include <net/ipv6.h>
++#include <net/fib_notifier.h>
+ 
+ #include "spectrum.h"
+ #include "core.h"
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index b1e5c07..ef38c1a 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -34,6 +34,7 @@
+ #include <net/netevent.h>
+ #include <net/arp.h>
+ #include <net/fib_rules.h>
++#include <net/fib_notifier.h>
+ #include <linux/io-64-nonatomic-lo-hi.h>
+ #include <generated/utsrelease.h>
+ 
+diff --git a/include/net/fib_notifier.h b/include/net/fib_notifier.h
+new file mode 100644
+index 0000000..2414752
+--- /dev/null
++++ b/include/net/fib_notifier.h
+@@ -0,0 +1,44 @@
++#ifndef __NET_FIB_NOTIFIER_H
++#define __NET_FIB_NOTIFIER_H
++
++#include <linux/types.h>
++#include <linux/notifier.h>
++#include <net/net_namespace.h>
++
++struct fib_notifier_info {
++	struct net *net;
++	int family;
++};
++
++enum fib_event_type {
++	FIB_EVENT_ENTRY_REPLACE,
++	FIB_EVENT_ENTRY_APPEND,
++	FIB_EVENT_ENTRY_ADD,
++	FIB_EVENT_ENTRY_DEL,
++	FIB_EVENT_RULE_ADD,
++	FIB_EVENT_RULE_DEL,
++	FIB_EVENT_NH_ADD,
++	FIB_EVENT_NH_DEL,
++};
++
++struct fib_notifier_ops {
++	int family;
++	struct list_head list;
++	unsigned int (*fib_seq_read)(struct net *net);
++	int (*fib_dump)(struct net *net, struct notifier_block *nb);
++	struct rcu_head rcu;
++};
++
++int call_fib_notifier(struct notifier_block *nb, struct net *net,
++		      enum fib_event_type event_type,
++		      struct fib_notifier_info *info);
++int call_fib_notifiers(struct net *net, enum fib_event_type event_type,
++		       struct fib_notifier_info *info);
++int register_fib_notifier(struct notifier_block *nb,
++			  void (*cb)(struct notifier_block *nb));
++int unregister_fib_notifier(struct notifier_block *nb);
++struct fib_notifier_ops *
++fib_notifier_ops_register(const struct fib_notifier_ops *tmpl, struct net *net);
++void fib_notifier_ops_unregister(struct fib_notifier_ops *ops);
++
++#endif
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 41d580c..800a006 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -19,6 +19,7 @@
+ #include <net/flow.h>
+ #include <linux/seq_file.h>
+ #include <linux/rcupdate.h>
++#include <net/fib_notifier.h>
+ #include <net/fib_rules.h>
+ #include <net/inetpeer.h>
+ #include <linux/percpu.h>
+@@ -201,10 +202,6 @@ static inline void fib_info_offload_dec(struct fib_info *fi)
+ #define FIB_RES_PREFSRC(net, res)	((res).fi->fib_prefsrc ? : \
+ 					 FIB_RES_SADDR(net, res))
+ 
+-struct fib_notifier_info {
+-	struct net *net;
+-};
+-
+ struct fib_entry_notifier_info {
+ 	struct fib_notifier_info info; /* must be first */
+ 	u32 dst;
+@@ -225,25 +222,14 @@ struct fib_nh_notifier_info {
+ 	struct fib_nh *fib_nh;
+ };
+ 
+-enum fib_event_type {
+-	FIB_EVENT_ENTRY_REPLACE,
+-	FIB_EVENT_ENTRY_APPEND,
+-	FIB_EVENT_ENTRY_ADD,
+-	FIB_EVENT_ENTRY_DEL,
+-	FIB_EVENT_RULE_ADD,
+-	FIB_EVENT_RULE_DEL,
+-	FIB_EVENT_NH_ADD,
+-	FIB_EVENT_NH_DEL,
+-};
+-
+-int register_fib_notifier(struct notifier_block *nb,
+-			  void (*cb)(struct notifier_block *nb));
+-int unregister_fib_notifier(struct notifier_block *nb);
+-int call_fib_notifier(struct notifier_block *nb, struct net *net,
+-		      enum fib_event_type event_type,
+-		      struct fib_notifier_info *info);
+-int call_fib_notifiers(struct net *net, enum fib_event_type event_type,
++int call_fib4_notifier(struct notifier_block *nb, struct net *net,
++		       enum fib_event_type event_type,
+ 		       struct fib_notifier_info *info);
++int call_fib4_notifiers(struct net *net, enum fib_event_type event_type,
++			struct fib_notifier_info *info);
++
++int __net_init fib4_notifier_init(struct net *net);
++void __net_exit fib4_notifier_exit(struct net *net);
+ 
+ void fib_notify(struct net *net, struct notifier_block *nb);
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 31a2b51..7700c2f 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -88,6 +88,7 @@ struct net {
+ 	/* core fib_rules */
+ 	struct list_head	rules_ops;
+ 
++	struct list_head	fib_notifier_ops;  /* protected by net_mutex */
+ 
+ 	struct net_device       *loopback_dev;          /* The loopback */
+ 	struct netns_core	core;
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 9a14a08..20d061c 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -159,6 +159,7 @@ struct netns_ipv4 {
+ 	int sysctl_fib_multipath_hash_policy;
+ #endif
+ 
++	struct fib_notifier_ops	*notifier_ops;
+ 	unsigned int	fib_seq;	/* protected by rtnl_mutex */
+ 
+ 	atomic_t	rt_genid;
+diff --git a/net/core/Makefile b/net/core/Makefile
+index d501c42..56d771a 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -9,7 +9,8 @@ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+ 
+ obj-y		     += dev.o ethtool.o dev_addr_lists.o dst.o netevent.o \
+ 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o \
+-			sock_diag.o dev_ioctl.o tso.o sock_reuseport.o
++			sock_diag.o dev_ioctl.o tso.o sock_reuseport.o \
++			fib_notifier.o
+ 
+ obj-y += net-sysfs.o
+ obj-$(CONFIG_PROC_FS) += net-procfs.o
+diff --git a/net/core/fib_notifier.c b/net/core/fib_notifier.c
+new file mode 100644
+index 0000000..292aab8
+--- /dev/null
++++ b/net/core/fib_notifier.c
+@@ -0,0 +1,164 @@
++#include <linux/rtnetlink.h>
++#include <linux/notifier.h>
++#include <linux/rcupdate.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <net/net_namespace.h>
++#include <net/fib_notifier.h>
++
++static ATOMIC_NOTIFIER_HEAD(fib_chain);
++
++int call_fib_notifier(struct notifier_block *nb, struct net *net,
++		      enum fib_event_type event_type,
++		      struct fib_notifier_info *info)
++{
++	info->net = net;
++	return nb->notifier_call(nb, event_type, info);
++}
++EXPORT_SYMBOL(call_fib_notifier);
++
++int call_fib_notifiers(struct net *net, enum fib_event_type event_type,
++		       struct fib_notifier_info *info)
++{
++	info->net = net;
++	return atomic_notifier_call_chain(&fib_chain, event_type, info);
++}
++EXPORT_SYMBOL(call_fib_notifiers);
++
++static unsigned int fib_seq_sum(void)
++{
++	struct fib_notifier_ops *ops;
++	unsigned int fib_seq = 0;
++	struct net *net;
++
++	rtnl_lock();
++	for_each_net(net) {
++		list_for_each_entry(ops, &net->fib_notifier_ops, list)
++			fib_seq += ops->fib_seq_read(net);
++	}
++	rtnl_unlock();
++
++	return fib_seq;
++}
++
++static int fib_net_dump(struct net *net, struct notifier_block *nb)
++{
++	struct fib_notifier_ops *ops;
++
++	list_for_each_entry_rcu(ops, &net->fib_notifier_ops, list) {
++		int err = ops->fib_dump(net, nb);
++
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
++static bool fib_dump_is_consistent(struct notifier_block *nb,
++				   void (*cb)(struct notifier_block *nb),
++				   unsigned int fib_seq)
++{
++	atomic_notifier_chain_register(&fib_chain, nb);
++	if (fib_seq == fib_seq_sum())
++		return true;
++	atomic_notifier_chain_unregister(&fib_chain, nb);
++	if (cb)
++		cb(nb);
++	return false;
++}
++
++#define FIB_DUMP_MAX_RETRIES 5
++int register_fib_notifier(struct notifier_block *nb,
++			  void (*cb)(struct notifier_block *nb))
++{
++	int retries = 0;
++	int err;
++
++	do {
++		unsigned int fib_seq = fib_seq_sum();
++		struct net *net;
++
++		rcu_read_lock();
++		for_each_net_rcu(net) {
++			err = fib_net_dump(net, nb);
++			if (err)
++				goto err_fib_net_dump;
++		}
++		rcu_read_unlock();
++
++		if (fib_dump_is_consistent(nb, cb, fib_seq))
++			return 0;
++	} while (++retries < FIB_DUMP_MAX_RETRIES);
++
++	return -EBUSY;
++
++err_fib_net_dump:
++	rcu_read_unlock();
++	return err;
++}
++EXPORT_SYMBOL(register_fib_notifier);
++
++int unregister_fib_notifier(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_unregister(&fib_chain, nb);
++}
++EXPORT_SYMBOL(unregister_fib_notifier);
++
++static int __fib_notifier_ops_register(struct fib_notifier_ops *ops,
++				       struct net *net)
++{
++	struct fib_notifier_ops *o;
++
++	list_for_each_entry(o, &net->fib_notifier_ops, list)
++		if (ops->family == o->family)
++			return -EEXIST;
++	list_add_tail_rcu(&ops->list, &net->fib_notifier_ops);
++	return 0;
++}
++
++struct fib_notifier_ops *
++fib_notifier_ops_register(const struct fib_notifier_ops *tmpl, struct net *net)
++{
++	struct fib_notifier_ops *ops;
++	int err;
++
++	ops = kmemdup(tmpl, sizeof(*ops), GFP_KERNEL);
++	if (!ops)
++		return ERR_PTR(-ENOMEM);
++
++	err = __fib_notifier_ops_register(ops, net);
++	if (err)
++		goto err_register;
++
++	return ops;
++
++err_register:
++	kfree(ops);
++	return ERR_PTR(err);
++}
++EXPORT_SYMBOL(fib_notifier_ops_register);
++
++void fib_notifier_ops_unregister(struct fib_notifier_ops *ops)
++{
++	list_del_rcu(&ops->list);
++	kfree_rcu(ops, rcu);
++}
++EXPORT_SYMBOL(fib_notifier_ops_unregister);
++
++static int __net_init fib_notifier_net_init(struct net *net)
++{
++	INIT_LIST_HEAD(&net->fib_notifier_ops);
++	return 0;
++}
++
++static struct pernet_operations fib_notifier_net_ops = {
++	.init = fib_notifier_net_init,
++};
++
++static int __init fib_notifier_init(void)
++{
++	return register_pernet_subsys(&fib_notifier_net_ops);
++}
++
++subsys_initcall(fib_notifier_init);
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 4e678fa..7ed3c0a 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -1247,22 +1247,28 @@ static int __net_init ip_fib_net_init(struct net *net)
+ 	int err;
+ 	size_t size = sizeof(struct hlist_head) * FIB_TABLE_HASHSZ;
+ 
+-	net->ipv4.fib_seq = 0;
++	err = fib4_notifier_init(net);
++	if (err)
++		return err;
+ 
+ 	/* Avoid false sharing : Use at least a full cache line */
+ 	size = max_t(size_t, size, L1_CACHE_BYTES);
+ 
+ 	net->ipv4.fib_table_hash = kzalloc(size, GFP_KERNEL);
+-	if (!net->ipv4.fib_table_hash)
+-		return -ENOMEM;
++	if (!net->ipv4.fib_table_hash) {
++		err = -ENOMEM;
++		goto err_table_hash_alloc;
++	}
+ 
+ 	err = fib4_rules_init(net);
+ 	if (err < 0)
+-		goto fail;
++		goto err_rules_init;
+ 	return 0;
+ 
+-fail:
++err_rules_init:
+ 	kfree(net->ipv4.fib_table_hash);
++err_table_hash_alloc:
++	fib4_notifier_exit(net);
+ 	return err;
+ }
+ 
+@@ -1292,6 +1298,7 @@ static void ip_fib_net_exit(struct net *net)
+ #endif
+ 	rtnl_unlock();
+ 	kfree(net->ipv4.fib_table_hash);
++	fib4_notifier_exit(net);
+ }
+ 
+ static int __net_init fib_net_init(struct net *net)
+diff --git a/net/ipv4/fib_notifier.c b/net/ipv4/fib_notifier.c
+index e0714d9..7cf1954 100644
+--- a/net/ipv4/fib_notifier.c
++++ b/net/ipv4/fib_notifier.c
+@@ -1,86 +1,66 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/notifier.h>
+-#include <linux/rcupdate.h>
++#include <linux/socket.h>
+ #include <linux/kernel.h>
+ #include <net/net_namespace.h>
++#include <net/fib_notifier.h>
+ #include <net/netns/ipv4.h>
+ #include <net/ip_fib.h>
+ 
+-static ATOMIC_NOTIFIER_HEAD(fib_chain);
+-
+-int call_fib_notifier(struct notifier_block *nb, struct net *net,
+-		      enum fib_event_type event_type,
+-		      struct fib_notifier_info *info)
++int call_fib4_notifier(struct notifier_block *nb, struct net *net,
++		       enum fib_event_type event_type,
++		       struct fib_notifier_info *info)
+ {
+-	info->net = net;
+-	return nb->notifier_call(nb, event_type, info);
++	info->family = AF_INET;
++	return call_fib_notifier(nb, net, event_type, info);
+ }
+ 
+-int call_fib_notifiers(struct net *net, enum fib_event_type event_type,
+-		       struct fib_notifier_info *info)
++int call_fib4_notifiers(struct net *net, enum fib_event_type event_type,
++			struct fib_notifier_info *info)
+ {
++	ASSERT_RTNL();
++
++	info->family = AF_INET;
+ 	net->ipv4.fib_seq++;
+-	info->net = net;
+-	return atomic_notifier_call_chain(&fib_chain, event_type, info);
++	return call_fib_notifiers(net, event_type, info);
+ }
+ 
+-static unsigned int fib_seq_sum(void)
++static unsigned int fib4_seq_read(struct net *net)
+ {
+-	unsigned int fib_seq = 0;
+-	struct net *net;
++	ASSERT_RTNL();
+ 
+-	rtnl_lock();
+-	for_each_net(net)
+-		fib_seq += net->ipv4.fib_seq;
+-	rtnl_unlock();
+-
+-	return fib_seq;
++	return net->ipv4.fib_seq;
+ }
+ 
+-static bool fib_dump_is_consistent(struct notifier_block *nb,
+-				   void (*cb)(struct notifier_block *nb),
+-				   unsigned int fib_seq)
++static int fib4_dump(struct net *net, struct notifier_block *nb)
+ {
+-	atomic_notifier_chain_register(&fib_chain, nb);
+-	if (fib_seq == fib_seq_sum())
+-		return true;
+-	atomic_notifier_chain_unregister(&fib_chain, nb);
+-	if (cb)
+-		cb(nb);
+-	return false;
++	fib_rules_notify(net, nb);
++	fib_notify(net, nb);
++
++	return 0;
+ }
+ 
+-#define FIB_DUMP_MAX_RETRIES 5
+-int register_fib_notifier(struct notifier_block *nb,
+-			  void (*cb)(struct notifier_block *nb))
+-{
+-	int retries = 0;
++static const struct fib_notifier_ops fib4_notifier_ops_template = {
++	.family		= AF_INET,
++	.fib_seq_read	= fib4_seq_read,
++	.fib_dump	= fib4_dump,
++};
+ 
+-	do {
+-		unsigned int fib_seq = fib_seq_sum();
+-		struct net *net;
++int __net_init fib4_notifier_init(struct net *net)
++{
++	struct fib_notifier_ops *ops;
+ 
+-		/* Mutex semantics guarantee that every change done to
+-		 * FIB tries before we read the change sequence counter
+-		 * is now visible to us.
+-		 */
+-		rcu_read_lock();
+-		for_each_net_rcu(net) {
+-			fib_rules_notify(net, nb);
+-			fib_notify(net, nb);
+-		}
+-		rcu_read_unlock();
++	net->ipv4.fib_seq = 0;
+ 
+-		if (fib_dump_is_consistent(nb, cb, fib_seq))
+-			return 0;
+-	} while (++retries < FIB_DUMP_MAX_RETRIES);
++	ops = fib_notifier_ops_register(&fib4_notifier_ops_template, net);
++	if (IS_ERR(ops))
++		return PTR_ERR(ops);
++	net->ipv4.notifier_ops = ops;
+ 
+-	return -EBUSY;
++	return 0;
+ }
+-EXPORT_SYMBOL(register_fib_notifier);
+ 
+-int unregister_fib_notifier(struct notifier_block *nb)
++void __net_exit fib4_notifier_exit(struct net *net)
+ {
+-	return atomic_notifier_chain_unregister(&fib_chain, nb);
++	fib_notifier_ops_unregister(net->ipv4.notifier_ops);
+ }
+-EXPORT_SYMBOL(unregister_fib_notifier);
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 778ecf9..acdbf5a 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -32,6 +32,7 @@
+ #include <net/tcp.h>
+ #include <net/ip_fib.h>
+ #include <net/fib_rules.h>
++#include <net/fib_notifier.h>
+ 
+ struct fib4_rule {
+ 	struct fib_rule		common;
+@@ -193,7 +194,7 @@ static int call_fib_rule_notifier(struct notifier_block *nb, struct net *net,
+ 		.rule = rule,
+ 	};
+ 
+-	return call_fib_notifier(nb, net, event_type, &info.info);
++	return call_fib4_notifier(nb, net, event_type, &info.info);
+ }
+ 
+ static int call_fib_rule_notifiers(struct net *net,
+@@ -204,7 +205,7 @@ static int call_fib_rule_notifiers(struct net *net,
+ 		.rule = rule,
+ 	};
+ 
+-	return call_fib_notifiers(net, event_type, &info.info);
++	return call_fib4_notifiers(net, event_type, &info.info);
+ }
+ 
+ /* Called with rcu_read_lock() */
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 22210010..1cd7b5d 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -44,6 +44,7 @@
+ #include <net/netlink.h>
+ #include <net/nexthop.h>
+ #include <net/lwtunnel.h>
++#include <net/fib_notifier.h>
+ 
+ #include "fib_lookup.h"
+ 
+@@ -1449,14 +1450,14 @@ static int call_fib_nh_notifiers(struct fib_nh *fib_nh,
+ 		if (IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
+ 		    fib_nh->nh_flags & RTNH_F_LINKDOWN)
+ 			break;
+-		return call_fib_notifiers(dev_net(fib_nh->nh_dev), event_type,
+-					  &info.info);
++		return call_fib4_notifiers(dev_net(fib_nh->nh_dev), event_type,
++					   &info.info);
+ 	case FIB_EVENT_NH_DEL:
+ 		if ((IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
+ 		     fib_nh->nh_flags & RTNH_F_LINKDOWN) ||
+ 		    (fib_nh->nh_flags & RTNH_F_DEAD))
+-			return call_fib_notifiers(dev_net(fib_nh->nh_dev),
+-						  event_type, &info.info);
++			return call_fib4_notifiers(dev_net(fib_nh->nh_dev),
++						   event_type, &info.info);
+ 	default:
+ 		break;
+ 	}
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 64668c6..1a6ffb0 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -81,6 +81,7 @@
+ #include <net/tcp.h>
+ #include <net/sock.h>
+ #include <net/ip_fib.h>
++#include <net/fib_notifier.h>
+ #include <trace/events/fib.h>
+ #include "fib_lookup.h"
+ 
+@@ -97,7 +98,7 @@ static int call_fib_entry_notifier(struct notifier_block *nb, struct net *net,
+ 		.type = type,
+ 		.tb_id = tb_id,
+ 	};
+-	return call_fib_notifier(nb, net, event_type, &info.info);
++	return call_fib4_notifier(nb, net, event_type, &info.info);
+ }
+ 
+ static int call_fib_entry_notifiers(struct net *net,
+@@ -113,7 +114,7 @@ static int call_fib_entry_notifiers(struct net *net,
+ 		.type = type,
+ 		.tb_id = tb_id,
+ 	};
+-	return call_fib_notifiers(net, event_type, &info.info);
++	return call_fib4_notifiers(net, event_type, &info.info);
+ }
+ 
+ #define MAX_STAT_DEPTH 32
 -- 
 2.9.3
