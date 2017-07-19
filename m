@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/packet: remove unused PGV_FROM_VMALLOC
- definition.
-Date: Wed, 19 Jul 2017 16:28:31 -0700 (PDT)
-Message-ID: <20170719.162831.1865265583339620884.davem@davemloft.net>
-References: <1500405810-20611-1-git-send-email-rami.rosen@intel.com>
+Subject: Re: [PATCH net-next] net: dsa: unexport dsa_is_port_initialized
+Date: Wed, 19 Jul 2017 16:28:36 -0700 (PDT)
+Message-ID: <20170719.162836.944359459689323354.davem@davemloft.net>
+References: <20170718202356.7178-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, loke.chetan@gmail.com, xiaosuo@gmail.com,
-        shanwei@cn.fujitsu.com
-To: rami.rosen@intel.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48946 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48956 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932529AbdGSX2c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 19:28:32 -0400
-In-Reply-To: <1500405810-20611-1-git-send-email-rami.rosen@intel.com>
+        with ESMTP id S932529AbdGSX2h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 19:28:37 -0400
+In-Reply-To: <20170718202356.7178-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rami Rosen <rami.rosen@intel.com>
-Date: Tue, 18 Jul 2017 22:23:30 +0300
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Tue, 18 Jul 2017 16:23:56 -0400
 
-> This patch removes the definition of PGV_FROM_VMALLOC from af_packet.c.
-> The PGV_FROM_VMALLOC definition was already removed by 
-> commit 441c793a5650 ("net: cleanup unused macros in net directory"),
-> and its usage was removed even before by commit c56b4d90123b 
-> ("af_packet: remove pgv.flags"); but it was added back by mistake later on,
-> in commit f6fb8f100b80 ("af-packet: TPACKET_V3 flexible buffer implementation").
+> The dsa_is_port_initialized helper is only used by dsa_switch_resume and
+> dsa_switch_suspend, if CONFIG_PM_SLEEP is enabled. Make it static to
+> dsa.c.
 > 
-> Signed-off-by: Rami Rosen <rami.rosen@intel.com>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Applied, thanks Rami.
+Applied.
