@@ -1,54 +1,57 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 1/2] net: phy: at803x: Fix RGMII RX and TX clock delays
- setup
-Date: Wed, 19 Jul 2017 12:49:50 -0500
-Message-ID: <d0b7027d-1306-a114-00c0-8e3cb01d4d0e@codeaurora.org>
-References: <b332dc3e-4478-e34b-2b3f-226aad8a11d4@sigmadesigns.com>
- <33ed5f4f-9939-dc00-b973-db39c16f2393@sigmadesigns.com>
+From: Gabriel C <nix.or.die@gmail.com>
+Subject: Re: [PATCH] ath10k_htt_rx_amsdu_allowed(): use ath10k_dbg()
+Date: Wed, 19 Jul 2017 20:12:32 +0200
+Message-ID: <7a1578a8-68fc-4cc5-b659-a11c25508245@gmail.com>
+References: <288fce5b-d738-f0ac-2433-67e1b35a0664@gmail.com>
+ <1500481605.25934.40.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
-        Mason <slash.tmp@free.fr>
-To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Daniel Mack <zonque@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:35476 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754469AbdGSRt4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 13:49:56 -0400
-In-Reply-To: <33ed5f4f-9939-dc00-b973-db39c16f2393@sigmadesigns.com>
+Cc: Ryan Hsu <ryanhsu@qti.qualcomm.com>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Kalle Valo <kvalo@qca.qualcomm.com>
+To: Joe Perches <joe@perches.com>,
+        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1500481605.25934.40.camel@perches.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/19/2017 10:31 AM, Marc Gonzalez wrote:
-> The current code supports enabling RGMII RX and TX clock delays.
-> The unstated assumption is that these settings are disabled by
-> default at reset, which is not the case.
+On 19.07.2017 18:26, Joe Perches wrote:
+> On Wed, 2017-07-19 at 17:37 +0200, Gabriel C wrote:
+>>           Each time we get disconencted from AP we get flooded with messages like:
+>>
+>>           ...
+>>           ath10k_pci 0000:03:00.0: no channel configured; ignoring frame(s)!
+>>           <until ratelimit kicks in>
+>>           ath10k_warn: 155 callbacks suppressed
 > 
-> RX clock delay is enabled at reset. And TX clock delay "survives"
-> across SW resets. Thus, if the bootloader enables TX clock delay,
-> it will remain enabled at reset in Linux.
+> []
 > 
-> Provide disable functions to configure the RGMII clock delays
-> exactly as specified in the fwspec.
+>> diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
+> []
+>> @@ -1514,7 +1514,7 @@ static bool ath10k_htt_rx_amsdu_allowed(struct ath10k *ar,
+>>            */
+>>
+>>           if (!rx_status->freq) {
+>> -               ath10k_warn(ar, "no channel configured; ignoring frame(s)!\n");
+>> +               ath10k_dbg(ar, ATH10K_DBG_HTT, "no channel configured; ignoring frame(s)!\n");
+>>                   return false;
+>>           }
+> 
+> Hi.  This doesn't apply because of tab to space conversions.
+> 
+> Please use git send-email to send your patch.
 
-I only use SGMII mode, and I tested and can confirm that this patch does 
-not break SGMII, so:
+Yes you are right .. I think newer thunderbird just doesn't work anymore to send patches.
 
-Acked-by: Timur Tabi <timur@codeaurora.org>
+Will have a look to setup git send-email and resend.
 
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+> 
+> Maybe read Documentation/process/email-clients.rst
+> 
+
+I use tbird to send patches forver but it seems latest updates here broke it some sort.
