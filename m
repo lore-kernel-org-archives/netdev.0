@@ -1,108 +1,104 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next v2 08/13] net: dsa: Remove support for bypass bridge port attributes/vlan set
-Date: Wed, 19 Jul 2017 19:04:49 +0300
-Message-ID: <1500480294-10604-9-git-send-email-arkadis@mellanox.com>
-References: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, Woojung.Huh@microchip.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com,
-        Arkadi Sharshevsky <arkadis@mellanox.com>
-To: netdev@vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [patch net-next 14/17] mlxsw: spectrum_router: Add support for
+ IPv6 routes addition / deletion
+Date: Wed, 19 Jul 2017 10:14:54 -0600
+Message-ID: <983f0254-9539-213d-f140-63b542d8f23e@gmail.com>
+References: <20170719070232.28457-1-jiri@resnulli.us>
+ <20170719070232.28457-15-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        kafai@fb.com, hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
+        edumazet@google.com, yanhaishuang@cmss.chinamobile.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50629 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755260AbdGSQBb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 12:01:31 -0400
-In-Reply-To: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33096 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753856AbdGSQO6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 12:14:58 -0400
+Received: by mail-pg0-f67.google.com with SMTP id z1so421409pgs.0
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2017 09:14:58 -0700 (PDT)
+In-Reply-To: <20170719070232.28457-15-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bridge port attributes/vlan for DSA devices should be set only
-from bridge code. Furthermore, The vlans are synced totally with the
-bridge so there is no need for special dump support.
+On 7/19/17 1:02 AM, Jiri Pirko wrote:
+> @@ -2094,6 +2106,40 @@ mlxsw_sp_fib_entry_should_offload(const struct mlxsw_sp_fib_entry *fib_entry)
+>  	}
+>  }
+>  
+> +static void
+> +mlxsw_sp_fib6_entry_offload_set(struct mlxsw_sp_fib_entry *fib_entry)
+> +{
+> +	struct mlxsw_sp_fib6_entry *fib6_entry;
+> +	struct mlxsw_sp_rt6 *mlxsw_sp_rt6;
+> +
+> +	fib6_entry = container_of(fib_entry, struct mlxsw_sp_fib6_entry,
+> +				  common);
+> +	list_for_each_entry(mlxsw_sp_rt6, &fib6_entry->rt6_list, list) {
+> +		struct rt6_info *rt = mlxsw_sp_rt6->rt;
+> +
+> +		write_lock_bh(&rt->rt6i_table->tb6_lock);
+> +		rt->rt6i_flags |= RTF_OFFLOAD;
+> +		write_unlock_bh(&rt->rt6i_table->tb6_lock);
 
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
----
- include/net/dsa.h  |  4 ----
- net/dsa/dsa_priv.h |  4 ----
- net/dsa/port.c     | 12 ------------
- net/dsa/slave.c    |  6 ------
- 4 files changed, 26 deletions(-)
+Seems wrong. A device driver should not be taking FIB table locks.
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index f054d41..4b82647 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -384,10 +384,6 @@ struct dsa_switch_ops {
- 				 struct switchdev_trans *trans);
- 	int	(*port_vlan_del)(struct dsa_switch *ds, int port,
- 				 const struct switchdev_obj_port_vlan *vlan);
--	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
--				  struct switchdev_obj_port_vlan *vlan,
--				  switchdev_obj_dump_cb_t *cb);
--
- 	/*
- 	 * Forwarding database
- 	 */
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 3ad666a..cddcea2 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -139,10 +139,6 @@ int dsa_port_vlan_add(struct dsa_port *dp,
- 		      struct switchdev_trans *trans);
- int dsa_port_vlan_del(struct dsa_port *dp,
- 		      const struct switchdev_obj_port_vlan *vlan);
--int dsa_port_vlan_dump(struct dsa_port *dp,
--		       struct switchdev_obj_port_vlan *vlan,
--		       switchdev_obj_dump_cb_t *cb);
--
- /* slave.c */
- extern const struct dsa_device_ops notag_netdev_ops;
- void dsa_slave_mii_bus_init(struct dsa_switch *ds);
-diff --git a/net/dsa/port.c b/net/dsa/port.c
-index 86e0585..ce19216 100644
---- a/net/dsa/port.c
-+++ b/net/dsa/port.c
-@@ -246,15 +246,3 @@ int dsa_port_vlan_del(struct dsa_port *dp,
- 
- 	return dsa_port_notify(dp, DSA_NOTIFIER_VLAN_DEL, &info);
- }
--
--int dsa_port_vlan_dump(struct dsa_port *dp,
--		       struct switchdev_obj_port_vlan *vlan,
--		       switchdev_obj_dump_cb_t *cb)
--{
--	struct dsa_switch *ds = dp->ds;
--
--	if (ds->ops->port_vlan_dump)
--		return ds->ops->port_vlan_dump(ds, dp->index, vlan, cb);
--
--	return -EOPNOTSUPP;
--}
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 3ad1f4d..f939d79 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -302,9 +302,6 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
- 	case SWITCHDEV_OBJ_ID_PORT_MDB:
- 		err = dsa_port_mdb_dump(dp, SWITCHDEV_OBJ_PORT_MDB(obj), cb);
- 		break;
--	case SWITCHDEV_OBJ_ID_PORT_VLAN:
--		err = dsa_port_vlan_dump(dp, SWITCHDEV_OBJ_PORT_VLAN(obj), cb);
--		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -926,9 +923,6 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_netpoll_cleanup	= dsa_slave_netpoll_cleanup,
- 	.ndo_poll_controller	= dsa_slave_poll_controller,
- #endif
--	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
--	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
--	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
- 	.ndo_get_phys_port_name	= dsa_slave_get_phys_port_name,
- 	.ndo_setup_tc		= dsa_slave_setup_tc,
- };
--- 
-2.4.11
+
+> +	}
+> +}
+> +
+> +static void
+> +mlxsw_sp_fib6_entry_offload_unset(struct mlxsw_sp_fib_entry *fib_entry)
+> +{
+> +	struct mlxsw_sp_fib6_entry *fib6_entry;
+> +	struct mlxsw_sp_rt6 *mlxsw_sp_rt6;
+> +
+> +	fib6_entry = container_of(fib_entry, struct mlxsw_sp_fib6_entry,
+> +				  common);
+> +	list_for_each_entry(mlxsw_sp_rt6, &fib6_entry->rt6_list, list) {
+> +		struct rt6_info *rt = mlxsw_sp_rt6->rt;
+> +
+> +		write_lock_bh(&rt->rt6i_table->tb6_lock);
+> +		rt->rt6i_flags &= ~RTF_OFFLOAD;
+> +		write_unlock_bh(&rt->rt6i_table->tb6_lock);
+
+same here.
+
+
+
+
+> +static int mlxsw_sp_nexthop6_init(struct mlxsw_sp *mlxsw_sp,
+> +				  struct mlxsw_sp_nexthop_group *nh_grp,
+> +				  struct mlxsw_sp_nexthop *nh,
+> +				  const struct rt6_info *rt)
+> +{
+> +	struct net_device *dev = rt->dst.dev;
+> +	struct mlxsw_sp_rif *rif;
+> +	int err;
+> +
+> +	nh->nh_grp = nh_grp;
+> +	memcpy(&nh->gw_addr, &rt->rt6i_gateway, sizeof(nh->gw_addr));
+> +
+> +	if (!dev)
+> +		return 0;
+> +
+> +	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
+> +	if (!rif)
+> +		return 0;
+
+rif == 0 means the dst device is not related to a port owned by this
+driver?
+
+
+A lot to process so I am sure I missed the answer to these:
+
+1. How do you handle host routes for local addresses? IPv6 inserts the
+host and anycast routes with the device set to 'lo' (or VRF device)
+instead of the device with the address. I have a patch to change this,
+but needs more testing
+
+2. How are routes with devices unrelated to ports owned by this driver
+handled?
