@@ -1,49 +1,54 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: tehuti: don't process data if it has not been copied from userspace
-Date: Wed, 19 Jul 2017 18:46:59 +0100
-Message-ID: <20170719174659.22646-1-colin.king@canonical.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 1/2] net: phy: at803x: Fix RGMII RX and TX clock delays
+ setup
+Date: Wed, 19 Jul 2017 12:49:50 -0500
+Message-ID: <d0b7027d-1306-a114-00c0-8e3cb01d4d0e@codeaurora.org>
+References: <b332dc3e-4478-e34b-2b3f-226aad8a11d4@sigmadesigns.com>
+ <33ed5f4f-9939-dc00-b973-db39c16f2393@sigmadesigns.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+        Mason <slash.tmp@free.fr>
+To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Daniel Mack <zonque@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:35476 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754469AbdGSRt4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 13:49:56 -0400
+In-Reply-To: <33ed5f4f-9939-dc00-b973-db39c16f2393@sigmadesigns.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On 07/19/2017 10:31 AM, Marc Gonzalez wrote:
+> The current code supports enabling RGMII RX and TX clock delays.
+> The unstated assumption is that these settings are disabled by
+> default at reset, which is not the case.
+> 
+> RX clock delay is enabled at reset. And TX clock delay "survives"
+> across SW resets. Thus, if the bootloader enables TX clock delay,
+> it will remain enabled at reset in Linux.
+> 
+> Provide disable functions to configure the RGMII clock delays
+> exactly as specified in the fwspec.
 
-The array data is only populated with valid information from userspace
-if cmd != SIOCDEVPRIVATE, other cases the array contains garbage on
-the stack. The subsequent switch statement acts on a subcommand in
-data[0] which could be any garbage value if cmd is SIOCDEVPRIVATE which
-seems incorrect to me.  Instead, just return EOPNOTSUPP for the case
-where cmd == SIOCDEVPRIVATE to avoid this issue.
+I only use SGMII mode, and I tested and can confirm that this patch does 
+not break SGMII, so:
 
-As a side note, I suspect that the original intention of the code
-was for this ioctl to work just for cmd == SIOCDEVPRIVATE (and the
-current logic is reversed). However, I don't wont to change the current
-semantics in case any userspace code relies on this existing behaviour.
+Acked-by: Timur Tabi <timur@codeaurora.org>
 
-Detected by CoverityScan, CID#139647 ("Uninitialized scalar variable")
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/tehuti/tehuti.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
-index 711fbbbc4b1f..163d8d16bc24 100644
---- a/drivers/net/ethernet/tehuti/tehuti.c
-+++ b/drivers/net/ethernet/tehuti/tehuti.c
-@@ -654,6 +654,8 @@ static int bdx_ioctl_priv(struct net_device *ndev, struct ifreq *ifr, int cmd)
- 			RET(-EFAULT);
- 		}
- 		DBG("%d 0x%x 0x%x\n", data[0], data[1], data[2]);
-+	} else {
-+		return -EOPNOTSUPP;
- 	}
- 
- 	if (!capable(CAP_SYS_RAWIO))
 -- 
-2.11.0
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
