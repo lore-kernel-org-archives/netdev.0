@@ -1,47 +1,35 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [patch net-next 14/17] mlxsw: spectrum_router: Add support for
- IPv6 routes addition / deletion
-Date: Wed, 19 Jul 2017 19:43:45 +0300
-Message-ID: <20170719164345.GA23668@splinter>
-References: <20170719070232.28457-1-jiri@resnulli.us>
- <20170719070232.28457-15-jiri@resnulli.us>
- <983f0254-9539-213d-f140-63b542d8f23e@gmail.com>
- <20170719163052.GB10775@splinter>
- <ca78d11f-bf7d-5fd3-756b-6faedfd86758@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: Enable CMODE config support for 6390X
+Date: Wed, 19 Jul 2017 12:55:11 -0400
+Message-ID: <87d18wfjtc.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170719061702.7692-1-mnhu@prevas.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, mlxsw@mellanox.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, kafai@fb.com,
-        hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
-        edumazet@google.com, yanhaishuang@cmss.chinamobile.com
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Martin =?utf-8?Q?Hundeb=C3=B8ll?= <mnhu@prevas.dk>,
+        netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Martin =?utf-8?Q?Hundeb=C3=B8ll?= <mnhu@prevas.dk>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0047.outbound.protection.outlook.com ([104.47.1.47]:31616
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753709AbdGSQnw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Jul 2017 12:43:52 -0400
-Content-Disposition: inline
-In-Reply-To: <ca78d11f-bf7d-5fd3-756b-6faedfd86758@gmail.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:59590 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753094AbdGSQ5z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 12:57:55 -0400
+In-Reply-To: <20170719061702.7692-1-mnhu@prevas.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 19, 2017 at 10:36:52AM -0600, David Ahern wrote:
-> >> 2. How are routes with devices unrelated to ports owned by this driver
-> >> handled?
-> > 
-> > They are handled just like any other route, but they don't have a valid
-> > RIF (for directly connected routes) or an adjacency group (for
-> > gatewayed routes), so the check in mlxsw_sp_fib_entry_should_offload()
-> > will return false and they will be programmed to the device with trap
-> > action, but using a trap ID (RTR_INGRESS0) with a lower traffic class
-> > than IP2ME, so packets that actually need to be locally received by the
-> > CPU have a better QoS.
-> 
-> so mlxsw keeps a copy of the complete FIB for IPv4 and IPv6, even routes
-> unrelated to its ports?
+Martin Hundebøll <mnhu@prevas.dk> writes:
 
-If we don't reflect all the routes in the system to the ASIC, then we'll
-have a broken routing table and a different behavior from what you would
-get with plain NICs.
+> Commit f39908d3b1c45 ('net: dsa: mv88e6xxx: Set the CMODE for mv88e6390
+> ports 9 & 10') added support for setting the CMODE for the 6390X family,
+> but only enabled it for 9290 and 6390 - and left out 6390X.
+>
+> Fix support for setting the CMODE on 6390X also by assigning
+> mv88e6390x_port_set_cmode() to the .port_set_cmode function pointer in
+> mv88e6390x_ops too.
+>
+> Signed-off-by: Martin Hundebøll <mnhu@prevas.dk>
+
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
