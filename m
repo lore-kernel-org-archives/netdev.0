@@ -1,39 +1,54 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 0/5] refine virtio-net XDP
-Date: Wed, 19 Jul 2017 10:40:51 +0800
-Message-ID: <76c84108-76a1-fa5e-8b4a-db8bc3724f4f@redhat.com>
-References: <1500295441-19339-1-git-send-email-jasowang@redhat.com>
-	<20170718230748-mutt-send-email-mst@kernel.org>
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: Re: [PATCH] net: ethernet: mediatek: remove useless code in
+ mtk_poll_tx()
+Date: Wed, 19 Jul 2017 11:23:01 +0800
+Message-ID: <1500434581.19736.12.camel@mtkswgap22>
+References: <20170718204805.GA30888@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170718230748-mutt-send-email-mst@kernel.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Felix Fietkau <nbd@openwrt.org>, John Crispin <blogic@openwrt.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-mediatek@lists.infradead.org>,
+        <linux-kernel@vger.kernel.org>,
+        <linux-arm-kernel@lists.infradead.org>
+To: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170718204805.GA30888@embeddedgus>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE35bm0MDfmnIgxOeaXpSAwNDoxMywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIE1vbiwgSnVsIDE3LCAyMDE3IGF0IDA4OjQzOjU2UE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+IEhpOgo+Pgo+PiBUaGlzIHNlcmllcyBicmluZ3MgdHdvIG9wdGltaXphdGlvbnMgZm9y
-IHZpcnRpby1uZXQgWERQOgo+Pgo+PiAtIGF2b2lkIHJlc2V0IGR1cmluZyBYRFAgc2V0Cj4+IC0g
-dHVybiBvZmYgb2ZmbG9hZHMgb24gZGVtYW5kCj4gSSdtIGdsYWQgdG8gc2VlIHRoaXMgdGFrZSBz
-aGFwZSAtIHRoaXMgY2FuIGJlCj4gZXh0ZW5kZWQgdG8gb3B0aW1pemUgdmlydG5ldF9nZXRfaGVh
-ZHJvb20gc28gd2UgZG9uJ3QKPiB3YXN0ZSByb29tIGlmIGFkanVzdF9oZWFkIGlzIGVuYWJsZWQu
-CgpSaWdodCwgd2UgY2FuIGRvIGl0IG9uIHRvcC4KCj4gSSBzZWUgYSBjb3VwbGUgb2YgaXNzdWVz
-LCByZXNwb25kZWQgdG8gaW5kaXZpZHVhbCBwYXRjaGVzLgo+Cj4KClRoYW5rcyBmb3IgdGhlIHJl
-dmlld2luZy4KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-ClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1m
-b3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9s
-aXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+On Tue, 2017-07-18 at 15:48 -0500, Gustavo A. R. Silva wrote:
+> Remove useless local variable _condition_ and the code related.
+> 
+> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
+> ---
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 5 +----
+>  1 file changed, 1 insertion(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> index b3d0c2e..7e95cf5 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> @@ -1027,7 +1027,6 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget)
+>  	unsigned int done[MTK_MAX_DEVS];
+>  	unsigned int bytes[MTK_MAX_DEVS];
+>  	u32 cpu, dma;
+> -	static int condition;
+>  	int total = 0, i;
+>  
+>  	memset(done, 0, sizeof(done));
+> @@ -1051,10 +1050,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget)
+>  			mac = 1;
+>  
+>  		skb = tx_buf->skb;
+> -		if (!skb) {
+> -			condition = 1;
+> +		if (!skb)
+>  			break;
+> -		}
+>  
+>  		if (skb != (struct sk_buff *)MTK_DMA_DUMMY_DESC) {
+>  			bytes[mac] += skb->len;
+
+Acked-by: Sean Wang <sean.wang@mediatek.com>
