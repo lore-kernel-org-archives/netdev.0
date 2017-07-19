@@ -1,11 +1,12 @@
 From: Philipp Zabel <p.zabel@pengutronix.de>
-Subject: [PATCH 046/102] net: ethernet: hix5hd2_gmac: explicitly request exclusive reset control
-Date: Wed, 19 Jul 2017 17:25:50 +0200
-Message-ID: <20170719152646.25903-47-p.zabel@pengutronix.de>
+Subject: [PATCH 049/102] ath10k: explicitly request exclusive reset control
+Date: Wed, 19 Jul 2017 17:25:53 +0200
+Message-ID: <20170719152646.25903-50-p.zabel@pengutronix.de>
 References: <20170719152646.25903-1-p.zabel@pengutronix.de>
 Cc: Philipp Zabel <p.zabel@pengutronix.de>,
-        Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>, netdev@vger.kernel.org
+        Kalle Valo <kvalo@qca.qualcomm.com>,
+        ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170719152646.25903-1-p.zabel@pengutronix.de>
@@ -20,37 +21,64 @@ explicit API call so the temporary transition helpers can be removed.
 
 No functional changes.
 
-Cc: Yisen Zhuang <yisen.zhuang@huawei.com>
-Cc: Salil Mehta <salil.mehta@huawei.com>
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>
+Cc: ath10k@lists.infradead.org
+Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
 ---
- drivers/net/ethernet/hisilicon/hix5hd2_gmac.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/wireless/ath/ath10k/ahb.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c b/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
-index 25a6c8722ecac..02b7e2f490099 100644
---- a/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
-+++ b/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
-@@ -1161,16 +1161,16 @@ static int hix5hd2_dev_probe(struct platform_device *pdev)
- 		goto out_disable_mac_core_clk;
+diff --git a/drivers/net/wireless/ath/ath10k/ahb.c b/drivers/net/wireless/ath/ath10k/ahb.c
+index da770af830369..2ad3ed7b89417 100644
+--- a/drivers/net/wireless/ath/ath10k/ahb.c
++++ b/drivers/net/wireless/ath/ath10k/ahb.c
+@@ -197,35 +197,40 @@ static int ath10k_ahb_rst_ctrl_init(struct ath10k *ar)
+ 
+ 	dev = &ar_ahb->pdev->dev;
+ 
+-	ar_ahb->core_cold_rst = devm_reset_control_get(dev, "wifi_core_cold");
++	ar_ahb->core_cold_rst = devm_reset_control_get_exclusive(dev,
++								 "wifi_core_cold");
+ 	if (IS_ERR(ar_ahb->core_cold_rst)) {
+ 		ath10k_err(ar, "failed to get core cold rst ctrl: %ld\n",
+ 			   PTR_ERR(ar_ahb->core_cold_rst));
+ 		return PTR_ERR(ar_ahb->core_cold_rst);
  	}
  
--	priv->mac_core_rst = devm_reset_control_get(dev, "mac_core");
-+	priv->mac_core_rst = devm_reset_control_get_exclusive(dev, "mac_core");
- 	if (IS_ERR(priv->mac_core_rst))
- 		priv->mac_core_rst = NULL;
- 	hix5hd2_mac_core_reset(priv);
+-	ar_ahb->radio_cold_rst = devm_reset_control_get(dev, "wifi_radio_cold");
++	ar_ahb->radio_cold_rst = devm_reset_control_get_exclusive(dev,
++								  "wifi_radio_cold");
+ 	if (IS_ERR(ar_ahb->radio_cold_rst)) {
+ 		ath10k_err(ar, "failed to get radio cold rst ctrl: %ld\n",
+ 			   PTR_ERR(ar_ahb->radio_cold_rst));
+ 		return PTR_ERR(ar_ahb->radio_cold_rst);
+ 	}
  
--	priv->mac_ifc_rst = devm_reset_control_get(dev, "mac_ifc");
-+	priv->mac_ifc_rst = devm_reset_control_get_exclusive(dev, "mac_ifc");
- 	if (IS_ERR(priv->mac_ifc_rst))
- 		priv->mac_ifc_rst = NULL;
+-	ar_ahb->radio_warm_rst = devm_reset_control_get(dev, "wifi_radio_warm");
++	ar_ahb->radio_warm_rst = devm_reset_control_get_exclusive(dev,
++								  "wifi_radio_warm");
+ 	if (IS_ERR(ar_ahb->radio_warm_rst)) {
+ 		ath10k_err(ar, "failed to get radio warm rst ctrl: %ld\n",
+ 			   PTR_ERR(ar_ahb->radio_warm_rst));
+ 		return PTR_ERR(ar_ahb->radio_warm_rst);
+ 	}
  
--	priv->phy_rst = devm_reset_control_get(dev, "phy");
-+	priv->phy_rst = devm_reset_control_get_exclusive(dev, "phy");
- 	if (IS_ERR(priv->phy_rst)) {
- 		priv->phy_rst = NULL;
- 	} else {
+-	ar_ahb->radio_srif_rst = devm_reset_control_get(dev, "wifi_radio_srif");
++	ar_ahb->radio_srif_rst = devm_reset_control_get_exclusive(dev,
++								  "wifi_radio_srif");
+ 	if (IS_ERR(ar_ahb->radio_srif_rst)) {
+ 		ath10k_err(ar, "failed to get radio srif rst ctrl: %ld\n",
+ 			   PTR_ERR(ar_ahb->radio_srif_rst));
+ 		return PTR_ERR(ar_ahb->radio_srif_rst);
+ 	}
+ 
+-	ar_ahb->cpu_init_rst = devm_reset_control_get(dev, "wifi_cpu_init");
++	ar_ahb->cpu_init_rst = devm_reset_control_get_exclusive(dev,
++								"wifi_cpu_init");
+ 	if (IS_ERR(ar_ahb->cpu_init_rst)) {
+ 		ath10k_err(ar, "failed to get cpu init rst ctrl: %ld\n",
+ 			   PTR_ERR(ar_ahb->cpu_init_rst));
 -- 
 2.11.0
