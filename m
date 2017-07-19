@@ -1,113 +1,94 @@
-From: "Nguyen, Anthony L" <anthony.l.nguyen@intel.com>
-Subject: RE: [net-next v3 1/5] ixgbe: Ensure MAC filter was added before
- setting MACVLAN
-Date: Wed, 19 Jul 2017 17:09:34 +0000
-Message-ID: <4C5EDC162D52824D9E7FB1446983F3EE9C59E5A8@ORSMSX116.amr.corp.intel.com>
-References: <20170719012305.76795-1-jeffrey.t.kirsher@intel.com>
-         <20170719012305.76795-2-jeffrey.t.kirsher@intel.com>
- <1500461695.25934.35.camel@perches.com>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH 2/2] net: ethernet: nb8800: Fix RGMII TX clock delay setup
+Date: Wed, 19 Jul 2017 18:17:03 +0100
+Message-ID: <yw1xzic0qrcg.fsf@mansr.com>
+References: <b332dc3e-4478-e34b-2b3f-226aad8a11d4@sigmadesigns.com>
+        <61b71d12-4e3a-edbe-1d69-c66e7cf46d8e@sigmadesigns.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: Joe Perches <joe@perches.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Timur Tabi <timur@codeaurora.org>,
+        Daniel Mack <zonque@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+        Mason <slash.tmp@free.fr>
+To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64618 "EHLO mga01.intel.com"
+Received: from unicorn.mansr.com ([81.2.72.234]:59144 "EHLO unicorn.mansr.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753680AbdGSRJg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 19 Jul 2017 13:09:36 -0400
-In-Reply-To: <1500461695.25934.35.camel@perches.com>
-Content-Language: en-US
+        id S1754121AbdGSRRH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 19 Jul 2017 13:17:07 -0400
+In-Reply-To: <61b71d12-4e3a-edbe-1d69-c66e7cf46d8e@sigmadesigns.com> (Marc
+        Gonzalez's message of "Wed, 19 Jul 2017 17:33:27 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Marc Gonzalez <marc_gonzalez@sigmadesigns.com> writes:
 
+> According to commit e5f3a4a56ce2a707b2fb8ce37e4414dcac89c672
+> ("Documentation: devicetree: clarify usage of the RGMII phy-modes")
+> there are 4 RGMII phy-modes to handle:
+>
+> "rgmii" (RX and TX delays are added by the MAC when required)
+> "rgmii-id" (RGMII with internal RX and TX delays provided by the PHY,
+> 	the MAC should not add the RX or TX delays in this case)
+> "rgmii-rxid" (RGMII with internal RX delay provided by the PHY,
+> 	the MAC should not add an RX delay in this case)
+> "rgmii-txid" (RGMII with internal TX delay provided by the PHY,
+> 	the MAC should not add an TX delay in this case)
+>
+> Let the MAC handle TX clock delay for rgmii and rgmii-rxid.
+>
+> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+> ---
+>  drivers/net/ethernet/aurora/nb8800.c | 8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+> index 041cfb7952f8..f3ed320eb4ad 100644
+> --- a/drivers/net/ethernet/aurora/nb8800.c
+> +++ b/drivers/net/ethernet/aurora/nb8800.c
+> @@ -609,7 +609,7 @@ static void nb8800_mac_config(struct net_device *dev)
+>  		mac_mode |= HALF_DUPLEX;
+>
+>  	if (gigabit) {
+> -		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
+> +		if (phy_interface_is_rgmii(dev->phydev))
+>  			mac_mode |= RGMII_MODE;
+>
+>  		mac_mode |= GMAC_MODE;
 
-> -----Original Message-----
-> From: Joe Perches [mailto:joe@perches.com]
-> Sent: Wednesday, July 19, 2017 3:55 AM
-> Subject: Re: [net-next v3 1/5] ixgbe: Ensure MAC filter was added before setting
-> MACVLAN
-> 
-> On Tue, 2017-07-18 at 18:23 -0700, Jeff Kirsher wrote:
-> > This patch adds a check to ensure that adding the MAC filter was
-> > successful before setting the MACVLAN.  If it was unsuccessful,
-> > propagate the error.
-> []
-> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> > b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> []
-> > @@ -681,6 +681,7 @@ static int ixgbe_set_vf_macvlan(struct
-> > ixgbe_adapter *adapter,  {
-> >  	struct list_head *pos;
-> >  	struct vf_macvlans *entry;
-> > +	s32 retval = 0;
-> 
-> This function returns int, why use s32 here?
-> 
-> >  	if (index <= 1) {
-> >  		list_for_each(pos, &adapter->vf_mvs.l) { @@ -721,14 +722,15
-> @@
-> > static int ixgbe_set_vf_macvlan(struct ixgbe_adapter *adapter,
-> >  	if (!entry || !entry->free)
-> >  		return -ENOSPC;
-> >
-> > -	entry->free = false;
-> > -	entry->is_macvlan = true;
-> > -	entry->vf = vf;
-> > -	memcpy(entry->vf_macvlan, mac_addr, ETH_ALEN);
-> > -
-> > -	ixgbe_add_mac_filter(adapter, mac_addr, vf);
-> > +	retval = ixgbe_add_mac_filter(adapter, mac_addr, vf);
-> > +	if (retval >= 0) {
-> > +		entry->free = false;
-> > +		entry->is_macvlan = true;
-> > +		entry->vf = vf;
-> > +		memcpy(entry->vf_macvlan, mac_addr, ETH_ALEN);
-> > +	}
-> >
-> > -	return 0;
-> > +	return retval;
-> 
-> This is also backwards logic from typical style and unnecessarily indents code.
-> 
-> 	retval = ixgbe_add_mac_filter(adapter, mac_addr, vf);
-> 	if (retval < 0)
-> 		return retval;
-> 
-> 	entry->free = false;
-> 	entry->is_macvlan = true;
-> 	entry->vf = vf;
-> 	memcpy(entry->vf_macvlan, mac_addr, ETH_ALEN);>
-> 
-> 	return 0;
-> }
-> 
-> This patch also sets the return value to a possible positive value.
-> 
-> Is that really desired?
-> 
-> The only code that seems to use a possible positive value also limits its return to
-> 0
-> 
-> static int ixgbe_uc_sync(struct net_device *netdev, const unsigned char *addr) {
-> 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-> 	int ret;
-> 
-> 	ret = ixgbe_add_mac_filter(adapter, addr, VMDQ_P(0));
-> 
-> 	return min_t(int, ret, 0);
-> }
-> 
+This is a separate issue, and the change is obviously correct.
 
-Hi Joe,
+> @@ -1268,11 +1268,13 @@ static int nb8800_tangox_init(struct net_device *dev)
+>  		break;
+>
+>  	case PHY_INTERFACE_MODE_RGMII:
+> -		pad_mode = PAD_MODE_RGMII;
+> +	case PHY_INTERFACE_MODE_RGMII_RXID:
+> +		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
+>  		break;
+>
+> +	case PHY_INTERFACE_MODE_RGMII_ID:
+>  	case PHY_INTERFACE_MODE_RGMII_TXID:
+> -		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
+> +		pad_mode = PAD_MODE_RGMII;
+>  		break;
 
-Thanks for the review.  I'll make those changes and get a v2 resubmitted.
+Won't this just make it break in a different set of circumstances?
 
-Thanks,
-Tony
+I think the only sane solution to this mess is to never configure the
+MAC delay based on the existing phy-connection-type property.  If some
+board requires this delay (because the PHY can't do it), a new property
+should probably be introduced for that.
+
+-- 
+Måns Rullgård
