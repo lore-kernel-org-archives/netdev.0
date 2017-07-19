@@ -1,7 +1,7 @@
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V2 net-next 01/21] net-next/hinic: Initialize hw interface
-Date: Wed, 19 Jul 2017 17:18:59 +0800
-Message-ID: <0febc61414e7908a7c8c0c2fa7c2b06b0f7524f7.1500454998.git.aviad.krawczyk@huawei.com>
+Subject: [PATCH V2 net-next 08/21] net-next/hinic: Add port management commands
+Date: Wed, 19 Jul 2017 17:19:06 +0800
+Message-ID: <8d8b74015159973570ef51bef6cbd402833d30c0.1500454998.git.aviad.krawczyk@huawei.com>
 References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,658 +10,487 @@ Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
         <aviad.krawczyk@huawei.com>, <zhaochen6@huawei.com>,
         <tony.qu@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([45.249.212.187]:9793 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753313AbdGSJYa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2017 05:24:30 -0400
 In-Reply-To: <cover.1500454998.git.aviad.krawczyk@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Initialize hw interface as part of the nic initialization for accessing hw.
+Add the port management commands that are sent as management messages.
+The port management commands are used for netdev operations.
 
 Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
 ---
- Documentation/networking/hinic.txt                 | 125 ++++++++++++
- drivers/net/ethernet/Kconfig                       |   1 +
- drivers/net/ethernet/Makefile                      |   1 +
- drivers/net/ethernet/huawei/Kconfig                |  19 ++
- drivers/net/ethernet/huawei/Makefile               |   5 +
- drivers/net/ethernet/huawei/hinic/Kconfig          |  13 ++
- drivers/net/ethernet/huawei/hinic/Makefile         |   3 +
- drivers/net/ethernet/huawei/hinic/hinic_dev.h      |  33 ++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |  36 ++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c   | 208 ++++++++++++++++++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h   |  42 +++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_if.c    | 208 ++++++++++++++++++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_if.h    | 160 ++++++++++++++++
- drivers/net/ethernet/huawei/hinic/hinic_main.c     | 209 +++++++++++++++++++++
- .../net/ethernet/huawei/hinic/hinic_pci_id_tbl.h   |  27 +++
- 15 files changed, 1090 insertions(+)
- create mode 100644 Documentation/networking/hinic.txt
- create mode 100644 drivers/net/ethernet/huawei/Kconfig
- create mode 100644 drivers/net/ethernet/huawei/Makefile
- create mode 100644 drivers/net/ethernet/huawei/hinic/Kconfig
- create mode 100644 drivers/net/ethernet/huawei/hinic/Makefile
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_dev.h
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_main.c
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h
+ drivers/net/ethernet/huawei/hinic/Makefile       |   4 +-
+ drivers/net/ethernet/huawei/hinic/hinic_dev.h    |   4 +
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c |  30 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h |  29 +++
+ drivers/net/ethernet/huawei/hinic/hinic_main.c   | 201 ++++++++++++++++++-
+ drivers/net/ethernet/huawei/hinic/hinic_port.c   | 241 +++++++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.h   |  68 +++++++
+ 7 files changed, 574 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.h
 
-diff --git a/Documentation/networking/hinic.txt b/Documentation/networking/hinic.txt
-new file mode 100644
-index 0000000..989366a
---- /dev/null
-+++ b/Documentation/networking/hinic.txt
-@@ -0,0 +1,125 @@
-+Linux Kernel Driver for Huawei Intelligent NIC(HiNIC) family
-+============================================================
-+
-+Overview:
-+=========
-+HiNIC is a network interface card for the Data Center Area.
-+
-+The driver supports a range of link-speed devices (10GbE, 25GbE, 40GbE, etc.).
-+The driver supports also a negotiated and extendable feature set.
-+
-+Some HiNIC devices support SR-IOV. This driver is used for Physical Function
-+(PF).
-+
-+HiNIC devices support MSI-X interrupt vector for each Tx/Rx queue and
-+adaptive interrupt moderation.
-+
-+HiNIC devices support also various offload features such as checksum offload,
-+TCP Transmit Segmentation Offload(TSO), Receive-Side Scaling(RSS) and
-+LRO(Large Receive Offload).
-+
-+
-+Supported PCI vendor ID/device IDs:
-+===================================
-+
-+19e5:1822 - HiNIC PF
-+
-+
-+Driver Architecture and Source Code:
-+====================================
-+
-+hinic_dev - Implement a Logical Network device that is independent from
-+specific HW details about HW data structure formats.
-+
-+hinic_hwdev - Implement the HW details of the device and include the components
-+for accessing the PCI NIC.
-+
-+hinic_hwdev contains the following components:
-+===============================================
-+
-+HW Interface:
-+=============
-+
-+The interface for accessing the pci device (DMA memory and PCI BARs).
-+(hinic_hw_if.c, hinic_hw_if.h)
-+
-+Configuration Status Registers Area that describes the HW Registers on the
-+configuration and status BAR0. (hinic_hw_csr.h)
-+
-+MGMT components:
-+================
-+
-+Asynchronous Event Queues(AEQs) - The event queues for receiving messages from
-+the MGMT modules on the cards. (hinic_hw_eqs.c, hinic_hw_eqs.h)
-+
-+Application Programmable Interface commands(API CMD) - Interface for sending
-+MGMT commands to the card. (hinic_hw_api_cmd.c, hinic_hw_api_cmd.h)
-+
-+Management (MGMT) - the PF to MGMT channel that uses API CMD for sending MGMT
-+commands to the card and receives notifications from the MGMT modules on the
-+card by AEQs. Also set the addresses of the IO CMDQs in HW.
-+(hinic_hw_mgmt.c, hinic_hw_mgmt.h)
-+
-+IO components:
-+==============
-+
-+Completion Event Queues(CEQs) - The completion Event Queues that describe IO
-+tasks that are finished. (hinic_hw_eqs.c, hinic_hw_eqs.h)
-+
-+Work Queues(WQ) - Contain the memory and operations for use by CMD queues and
-+the Queue Pairs. The WQ is a Memory Block in a Page. The Block contains
-+pointers to Memory Areas that are the Memory for the Work Queue Elements(WQEs).
-+(hinic_hw_wq.c, hinic_hw_wq.h)
-+
-+Command Queues(CMDQ) - The queues for sending commands for IO management and is
-+used to set the QPs addresses in HW. The commands completion events are
-+accumulated on the CEQ that is configured to receive the CMDQ completion events.
-+(hinic_hw_cmdq.c, hinic_hw_cmdq.h)
-+
-+Queue Pairs(QPs) - The HW Receive and Send queues for Receiving and Transmitting
-+Data. (hinic_hw_qp.c, hinic_hw_qp.h, hinic_hw_qp_ctxt.h)
-+
-+IO - de/constructs all the IO components. (hinic_hw_io.c, hinic_hw_io.h)
-+
-+HW device:
-+==========
-+
-+HW device - de/constructs the HW Interface, the MGMT components on the
-+initialization of the driver and the IO components on the case of Interface
-+UP/DOWN Events. (hinic_hw_dev.c, hinic_hw_dev.h)
-+
-+
-+hinic_dev contains the following components:
-+===============================================
-+
-+PCI ID table - Contains the supported PCI Vendor/Device IDs.
-+(hinic_pci_tbl.h)
-+
-+Port Commands - Send commands to the HW device for port management
-+(MAC, Vlan, MTU, ...). (hinic_port.c, hinic_port.h)
-+
-+Tx Queues - Logical Tx Queues that use the HW Send Queues for transmit.
-+The Logical Tx queue is not dependent on the format of the HW Send Queue.
-+(hinic_tx.c, hinic_tx.h)
-+
-+Rx Queues - Logical Rx Queues that use the HW Receive Queues for receive.
-+The Logical Rx queue is not dependent on the format of the HW Receive Queue.
-+(hinic_rx.c, hinic_rx.h)
-+
-+hinic_dev - de/constructs the Logical Tx and Rx Queues.
-+(hinic_main.c, hinic_dev.h)
-+
-+
-+Miscellaneous:
-+=============
-+
-+Common functions that are used by HW and Logical Device.
-+(hinic_common.c, hinic_common.h)
-+
-+
-+Support
-+=======
-+
-+If an issue is identified with the released source code on the supported kernel
-+with a supported adapter, email the specific information related to the issue to
-+aviad.krawczyk@huawei.com.
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index edae15ac..c604213 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -78,6 +78,7 @@ source "drivers/net/ethernet/freescale/Kconfig"
- source "drivers/net/ethernet/fujitsu/Kconfig"
- source "drivers/net/ethernet/hisilicon/Kconfig"
- source "drivers/net/ethernet/hp/Kconfig"
-+source "drivers/net/ethernet/huawei/Kconfig"
- source "drivers/net/ethernet/ibm/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/i825xx/Kconfig"
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index bf7f450..a0a03d4 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -41,6 +41,7 @@ obj-$(CONFIG_NET_VENDOR_FREESCALE) += freescale/
- obj-$(CONFIG_NET_VENDOR_FUJITSU) += fujitsu/
- obj-$(CONFIG_NET_VENDOR_HISILICON) += hisilicon/
- obj-$(CONFIG_NET_VENDOR_HP) += hp/
-+obj-$(CONFIG_NET_VENDOR_HUAWEI) += huawei/
- obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
-diff --git a/drivers/net/ethernet/huawei/Kconfig b/drivers/net/ethernet/huawei/Kconfig
-new file mode 100644
-index 0000000..c1a95ae
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/Kconfig
-@@ -0,0 +1,19 @@
-+#
-+# Huawei driver configuration
-+#
-+
-+config NET_VENDOR_HUAWEI
-+	bool "Huawei devices"
-+	default y
-+	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y.
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Huawei cards. If you say Y, you will be asked
-+	  for your specific card in the following questions.
-+
-+if NET_VENDOR_HUAWEI
-+
-+source "drivers/net/ethernet/huawei/hinic/Kconfig"
-+
-+endif # NET_VENDOR_HUAWEI
-diff --git a/drivers/net/ethernet/huawei/Makefile b/drivers/net/ethernet/huawei/Makefile
-new file mode 100644
-index 0000000..aa0eb3a
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the Huawei device drivers.
-+#
-+
-+obj-$(CONFIG_HINIC) += hinic/
-\ No newline at end of file
-diff --git a/drivers/net/ethernet/huawei/hinic/Kconfig b/drivers/net/ethernet/huawei/hinic/Kconfig
-new file mode 100644
-index 0000000..69f2b1f
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/Kconfig
-@@ -0,0 +1,13 @@
-+#
-+# Huawei driver configuration
-+#
-+
-+config HINIC
-+	tristate "Huawei Intelligent PCIE Network Interface Card"
-+	depends on (PCI_MSI && X86)
-+	default m
-+	---help---
-+	  This driver supports HiNIC PCIE Ethernet cards.
-+	  To compile this driver as part of the kernel, choose Y here.
-+	  If unsure, choose N.
-+	  The default is compiled as module.
 diff --git a/drivers/net/ethernet/huawei/hinic/Makefile b/drivers/net/ethernet/huawei/hinic/Makefile
-new file mode 100644
-index 0000000..353cee0
---- /dev/null
+index 88223d0..08951a6 100644
+--- a/drivers/net/ethernet/huawei/hinic/Makefile
 +++ b/drivers/net/ethernet/huawei/hinic/Makefile
-@@ -0,0 +1,3 @@
-+obj-$(CONFIG_HINIC) += hinic.o
-+
-+hinic-y := hinic_main.o hinic_hw_dev.o hinic_hw_if.o
+@@ -1,4 +1,4 @@
+ obj-$(CONFIG_HINIC) += hinic.o
+ 
+-hinic-y := hinic_main.o hinic_hw_dev.o hinic_hw_mgmt.o hinic_hw_api_cmd.o \
+-	   hinic_hw_eqs.o hinic_hw_if.o
+\ No newline at end of file
++hinic-y := hinic_main.o hinic_port.o hinic_hw_dev.o hinic_hw_mgmt.o \
++	   hinic_hw_api_cmd.o hinic_hw_eqs.o hinic_hw_if.o
+\ No newline at end of file
 diff --git a/drivers/net/ethernet/huawei/hinic/hinic_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-new file mode 100644
-index 0000000..f23e8af
---- /dev/null
+index f23e8af..dd540b4 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_dev.h
 +++ b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-@@ -0,0 +1,33 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
+@@ -18,6 +18,7 @@
+ 
+ #include <linux/netdevice.h>
+ #include <linux/types.h>
++#include <linux/semaphore.h>
+ 
+ #include "hinic_hw_dev.h"
+ 
+@@ -28,6 +29,9 @@ struct hinic_dev {
+ 	struct hinic_hwdev              *hwdev;
+ 
+ 	u32                             msg_enable;
 +
-+#ifndef HINIC_DEV_H
-+#define HINIC_DEV_H
-+
-+#include <linux/netdevice.h>
-+#include <linux/types.h>
-+
-+#include "hinic_hw_dev.h"
-+
-+#define HINIC_DRV_NAME          "HiNIC"
-+
-+struct hinic_dev {
-+	struct net_device               *netdev;
-+	struct hinic_hwdev              *hwdev;
-+
-+	u32                             msg_enable;
-+};
-+
-+#endif
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-new file mode 100644
-index 0000000..c3440a9
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-@@ -0,0 +1,36 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#ifndef HINIC_HW_CSR_H
-+#define HINIC_HW_CSR_H
-+
-+/* HW interface registers */
-+#define HINIC_CSR_FUNC_ATTR0_ADDR                       0x0
-+#define HINIC_CSR_FUNC_ATTR1_ADDR                       0x4
-+
-+#define HINIC_DMA_ATTR_BASE                             0xC80
-+#define HINIC_ELECTION_BASE                             0x4200
-+
-+#define HINIC_DMA_ATTR_STRIDE                           0x4
-+#define HINIC_CSR_DMA_ATTR_ADDR(idx)                    \
-+	(HINIC_DMA_ATTR_BASE + (idx) * HINIC_DMA_ATTR_STRIDE)
-+
-+#define HINIC_PPF_ELECTION_STRIDE                       0x4
-+#define HINIC_CSR_MAX_PORTS                             4
-+
-+#define HINIC_CSR_PPF_ELECTION_ADDR(idx)                \
-+	(HINIC_ELECTION_BASE +  (idx) * HINIC_PPF_ELECTION_STRIDE)
-+
-+#endif
++	struct semaphore                mgmt_lock;
++	unsigned long                   *vlan_bitmap;
+ };
+ 
+ #endif
 diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-new file mode 100644
-index 0000000..fbc9de4
---- /dev/null
+index c61ff10..52d9bb7 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
 +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-@@ -0,0 +1,208 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/pci.h>
-+#include <linux/device.h>
-+#include <linux/errno.h>
-+#include <linux/slab.h>
-+#include <linux/bitops.h>
-+
-+#include "hinic_hw_if.h"
-+#include "hinic_hw_dev.h"
-+
-+#define MAX_IRQS(max_qps, num_aeqs, num_ceqs)   \
-+		 (2 * (max_qps) + (num_aeqs) + (num_ceqs))
-+
-+/**
-+ * init_msix - enable the msix and save the entries
+@@ -202,6 +202,36 @@ static void disable_msix(struct hinic_hwdev *hwdev)
+ }
+ 
+ /**
++ * hinic_port_msg_cmd - send port msg to mgmt
 + * @hwdev: the NIC HW device
++ * @cmd: the port command
++ * @buf_in: input buffer
++ * @in_size: input size
++ * @buf_out: output buffer
++ * @out_size: returned output size
 + *
 + * Return 0 - Success, negative - Failure
 + **/
-+static int init_msix(struct hinic_hwdev *hwdev)
-+{
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	int num_aeqs = HINIC_HWIF_NUM_AEQS(hwif);
-+	int num_ceqs = HINIC_HWIF_NUM_CEQS(hwif);
-+	int nr_irqs = MAX_IRQS(HINIC_MAX_QPS, num_aeqs, num_ceqs);
-+	size_t msix_entries_size;
-+	int i, err;
-+
-+	if (nr_irqs > HINIC_HWIF_NUM_IRQS(hwif))
-+		nr_irqs = HINIC_HWIF_NUM_IRQS(hwif);
-+
-+	msix_entries_size = nr_irqs * sizeof(*hwdev->msix_entries);
-+
-+	hwdev->msix_entries = devm_kzalloc(&pdev->dev, msix_entries_size,
-+					   GFP_KERNEL);
-+	if (!hwdev->msix_entries)
-+		return -ENOMEM;
-+
-+	for (i = 0; i < nr_irqs; i++)
-+		hwdev->msix_entries[i].entry = i;
-+
-+	err = pci_enable_msix_exact(pdev, hwdev->msix_entries, nr_irqs);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to enable pci msix\n");
-+		return err;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * disable_msix - disable the msix
-+ * @hwdev: the NIC HW device
-+ **/
-+static void disable_msix(struct hinic_hwdev *hwdev)
-+{
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+
-+	pci_disable_msix(pdev);
-+}
-+
-+/**
-+ * init_pfhwdev - Initialize the extended components of PF
-+ * @pfhwdev: the HW device for PF
-+ *
-+ * Return 0 - success, negative - failure
-+ **/
-+static int init_pfhwdev(struct hinic_pfhwdev *pfhwdev)
-+{
-+	/* Initialize PF HW device extended components */
-+	return 0;
-+}
-+
-+/**
-+ * free_pfhwdev - Free the extended components of PF
-+ * @pfhwdev: the HW device for PF
-+ **/
-+static void free_pfhwdev(struct hinic_pfhwdev *pfhwdev)
-+{
-+}
-+
-+/**
-+ * hinic_init_hwdev - Initialize the NIC HW
-+ * @hwdev: the NIC HW device that is returned from the initialization
-+ * @pdev: the NIC pci device
-+ *
-+ * Return 0 - Success, negative - Failure
-+ *
-+ * Initialize the NIC HW device and return a pointer to it in the first arg
-+ **/
-+int hinic_init_hwdev(struct hinic_hwdev **hwdev, struct pci_dev *pdev)
++int hinic_port_msg_cmd(struct hinic_hwdev *hwdev, enum hinic_port_cmd cmd,
++		       void *buf_in, u16 in_size, void *buf_out, u16 *out_size)
 +{
 +	struct hinic_pfhwdev *pfhwdev;
-+	struct hinic_hwif *hwif;
-+	int err;
-+
-+	hwif = devm_kzalloc(&pdev->dev, sizeof(*hwif), GFP_KERNEL);
-+	if (!hwif)
-+		return -ENOMEM;
-+
-+	err = hinic_init_hwif(hwif, pdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to init HW interface\n");
-+		return err;
-+	}
-+
-+	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
-+		dev_err(&pdev->dev, "Unsupported PCI Function type\n");
-+		err = -EFAULT;
-+		goto func_type_err;
-+	}
-+
-+	pfhwdev = devm_kzalloc(&pdev->dev, sizeof(*pfhwdev), GFP_KERNEL);
-+	if (!pfhwdev) {
-+		err = -ENOMEM;
-+		goto pfhwdev_alloc_err;
-+	}
-+
-+	*hwdev = &pfhwdev->hwdev;
-+	(*hwdev)->hwif = hwif;
-+
-+	err = init_msix(*hwdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to init msix\n");
-+		goto init_msix_err;
-+	}
-+
-+	err = init_pfhwdev(pfhwdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to init PF HW device\n");
-+		goto init_pfhwdev_err;
-+	}
-+
-+	return 0;
-+
-+init_pfhwdev_err:
-+	disable_msix(*hwdev);
-+
-+init_msix_err:
-+pfhwdev_alloc_err:
-+func_type_err:
-+	hinic_free_hwif(hwif);
-+	return err;
-+}
-+
-+/**
-+ * hinic_free_hwdev - Free the NIC HW device
-+ * @hwdev: the NIC HW device
-+ **/
-+void hinic_free_hwdev(struct hinic_hwdev *hwdev)
-+{
 +	struct hinic_hwif *hwif = hwdev->hwif;
 +	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_pfhwdev *pfhwdev;
 +
 +	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
 +		dev_err(&pdev->dev, "unsupported PCI Function type\n");
-+		return;
++		return -EINVAL;
 +	}
 +
 +	pfhwdev = container_of(hwdev, struct hinic_pfhwdev, hwdev);
 +
-+	free_pfhwdev(pfhwdev);
-+
-+	disable_msix(hwdev);
-+
-+	hinic_free_hwif(hwif);
++	return hinic_msg_to_mgmt(&pfhwdev->pf_to_mgmt, HINIC_MOD_L2NIC, cmd,
++				 buf_in, in_size, buf_out, out_size,
++				 HINIC_MGMT_MSG_SYNC);
 +}
 +
 +/**
-+ * hinic_hwdev_num_qps - return the number QPs available for use
-+ * @hwdev: the NIC HW device
-+ *
-+ * Return number QPs available for use
-+ **/
-+int hinic_hwdev_num_qps(struct hinic_hwdev *hwdev)
-+{
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	int num_aeqs, num_ceqs, nr_irqs, num_qps;
-+
-+	num_aeqs = HINIC_HWIF_NUM_AEQS(hwif);
-+	num_ceqs = HINIC_HWIF_NUM_CEQS(hwif);
-+	nr_irqs = HINIC_HWIF_NUM_IRQS(hwif);
-+
-+	/* Each QP has its own (SQ + RQ) interrupt */
-+	num_qps = (nr_irqs - (num_aeqs + num_ceqs)) / 2;
-+
-+	/* num_qps must be power of 2 */
-+	return BIT(fls(num_qps) - 1);
-+}
+  * init_pfhwdev - Initialize the extended components of PF
+  * @pfhwdev: the HW device for PF
+  *
 diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-new file mode 100644
-index 0000000..3b57c67
---- /dev/null
+index 5b4b686..b3325e7 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
 +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
+@@ -30,6 +30,31 @@ struct hinic_cap {
+ 	u16     num_qps;
+ };
+ 
++enum hinic_port_cmd {
++	HINIC_PORT_CMD_CHANGE_MTU = 2,
 +
-+#ifndef HINIC_HW_DEV_H
-+#define HINIC_HW_DEV_H
++	HINIC_PORT_CMD_ADD_VLAN = 3,
++	HINIC_PORT_CMD_DEL_VLAN = 4,
 +
-+#include <linux/pci.h>
++	HINIC_PORT_CMD_SET_MAC = 9,
++	HINIC_PORT_CMD_GET_MAC = 10,
++	HINIC_PORT_CMD_DEL_MAC = 11,
 +
-+#include "hinic_hw_if.h"
++	HINIC_PORT_CMD_SET_RX_MODE = 12,
 +
-+#define HINIC_MAX_QPS   32
++	HINIC_PORT_CMD_GET_LINK_STATE = 24,
 +
-+struct hinic_hwdev {
-+	struct hinic_hwif               *hwif;
-+	struct msix_entry               *msix_entries;
++	HINIC_PORT_CMD_SET_PORT_STATE = 41,
++
++	HINIC_PORT_CMD_FWCTXT_INIT = 69,
++
++	HINIC_PORT_CMD_SET_FUNC_STATE = 93,
++
++	HINIC_PORT_CMD_GET_GLOBAL_QPN = 102,
++
++	HINIC_PORT_CMD_GET_CAP = 170,
 +};
 +
-+struct hinic_pfhwdev {
-+	struct hinic_hwdev              hwdev;
+ struct hinic_hwdev {
+ 	struct hinic_hwif               *hwif;
+ 	struct msix_entry               *msix_entries;
+@@ -45,6 +70,10 @@ struct hinic_pfhwdev {
+ 	struct hinic_pf_to_mgmt         pf_to_mgmt;
+ };
+ 
++int hinic_port_msg_cmd(struct hinic_hwdev *hwdev, enum hinic_port_cmd cmd,
++		       void *buf_in, u16 in_size, void *buf_out,
++		       u16 *out_size);
 +
-+	/* PF Extended components should be here */
-+};
-+
-+int hinic_init_hwdev(struct hinic_hwdev **hwdev, struct pci_dev *pdev);
-+
-+void hinic_free_hwdev(struct hinic_hwdev *hwdev);
-+
-+int hinic_hwdev_num_qps(struct hinic_hwdev *hwdev);
-+
-+#endif
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
-new file mode 100644
-index 0000000..dbb3346
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
-@@ -0,0 +1,208 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#include <linux/pci.h>
-+#include <linux/device.h>
-+#include <linux/errno.h>
-+#include <linux/io.h>
-+#include <linux/types.h>
+ int hinic_init_hwdev(struct hinic_hwdev **hwdev, struct pci_dev *pdev);
+ 
+ void hinic_free_hwdev(struct hinic_hwdev *hwdev);
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
+index c61c769..09d303b 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_main.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_main.c
+@@ -13,6 +13,7 @@
+  *
+  */
+ 
++#include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/pci.h>
+ #include <linux/device.h>
+@@ -20,9 +21,16 @@
+ #include <linux/types.h>
+ #include <linux/etherdevice.h>
+ #include <linux/netdevice.h>
++#include <linux/slab.h>
++#include <linux/if_vlan.h>
++#include <linux/semaphore.h>
++#include <net/ip.h>
 +#include <linux/bitops.h>
++#include <linux/bitmap.h>
+ 
+ #include "hinic_pci_id_tbl.h"
+ #include "hinic_hw_dev.h"
++#include "hinic_port.h"
+ #include "hinic_dev.h"
+ 
+ MODULE_AUTHOR("Huawei Technologies CO., Ltd");
+@@ -33,10 +41,169 @@
+ 					 NETIF_MSG_IFUP |                  \
+ 					 NETIF_MSG_TX_ERR | NETIF_MSG_RX_ERR)
+ 
++#define VLAN_BITMAP_SIZE(nic_dev)       (ALIGN(VLAN_N_VID, 8) / 8)
 +
-+#include "hinic_hw_csr.h"
-+#include "hinic_hw_if.h"
++static int change_mac_addr(struct net_device *netdev, const u8 *addr);
 +
-+#define PCIE_ATTR_ENTRY         0
++static int hinic_change_mtu(struct net_device *netdev, int new_mtu)
++{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	int err;
++
++	netif_info(nic_dev, drv, netdev, "set_mtu mtu = %d\n", new_mtu);
++
++	err = hinic_port_set_mtu(nic_dev, new_mtu);
++	if (err)
++		dev_err(&netdev->dev, "Failed to set port mtu\n");
++	else
++		netdev->mtu = new_mtu;
++
++	return err;
++}
++
++static int hinic_set_mac_addr(struct net_device *netdev, void *addr)
++{
++	struct sockaddr *saddr = addr;
++	unsigned char new_mac[ETH_ALEN];
++	int err;
++
++	memcpy(new_mac, saddr->sa_data, ETH_ALEN);
++
++	err = change_mac_addr(netdev, new_mac);
++	if (!err)
++		memcpy(netdev->dev_addr, new_mac, ETH_ALEN);
++
++	return err;
++}
 +
 +/**
-+ * hwif_ready - test if the HW is ready for use
-+ * @hwif: the HW interface of a pci function device
++ * change_mac_addr - change the main mac address of network device
++ * @netdev: network device
++ * @addr: mac address to set
 + *
 + * Return 0 - Success, negative - Failure
 + **/
-+static int hwif_ready(struct hinic_hwif *hwif)
++static int change_mac_addr(struct net_device *netdev, const u8 *addr)
 +{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	unsigned long *vlan_bitmap = nic_dev->vlan_bitmap;
++	u16 vid = 0;
++	int err;
++
++	if (!is_valid_ether_addr(addr))
++		return -EADDRNOTAVAIL;
++
++	netif_info(nic_dev, drv, netdev, "change mac addr = %02x %02x %02x %02x %02x %02x\n",
++		   addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
++
++	down(&nic_dev->mgmt_lock);
++
++	do {
++		err = hinic_port_del_mac(nic_dev, netdev->dev_addr, vid);
++		if (err) {
++			dev_err(&netdev->dev, "Failed to delete mac\n");
++			break;
++		}
++
++		err = hinic_port_add_mac(nic_dev, addr, vid);
++		if (err) {
++			dev_err(&netdev->dev, "Failed to add mac\n");
++			break;
++		}
++
++		vid = find_next_bit(vlan_bitmap, VLAN_N_VID, vid + 1);
++	} while (vid != VLAN_N_VID);
++
++	up(&nic_dev->mgmt_lock);
++
++	return err;
++}
++
++static int hinic_vlan_rx_add_vid(struct net_device *netdev,
++				 __always_unused __be16 proto, u16 vid)
++{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	unsigned long *vlan_bitmap = nic_dev->vlan_bitmap;
++	int ret, err;
++
++	netif_info(nic_dev, drv, netdev, "add vid = %d\n", vid);
++
++	down(&nic_dev->mgmt_lock);
++
++	err = hinic_port_add_vlan(nic_dev, vid);
++	if (err) {
++		dev_err(&netdev->dev, "Failed to add vlan\n");
++		goto vlan_add_err;
++	}
++
++	err = hinic_port_add_mac(nic_dev, netdev->dev_addr, vid);
++	if (err) {
++		dev_err(&netdev->dev, "Failed to set mac\n");
++		goto add_mac_err;
++	}
++
++	bitmap_set(vlan_bitmap, vid, 1);
++
++	up(&nic_dev->mgmt_lock);
++
++	return 0;
++
++add_mac_err:
++	ret = hinic_port_del_vlan(nic_dev, vid);
++	if (ret)
++		dev_err(&netdev->dev, "Failed to revert by removing vlan\n");
++
++vlan_add_err:
++	up(&nic_dev->mgmt_lock);
++	return err;
++}
++
++static int hinic_vlan_rx_kill_vid(struct net_device *netdev,
++				  __always_unused __be16 proto, u16 vid)
++{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	unsigned long *vlan_bitmap = nic_dev->vlan_bitmap;
++	int err;
++
++	netif_info(nic_dev, drv, netdev, "remove vid = %d\n", vid);
++
++	down(&nic_dev->mgmt_lock);
++
++	err = hinic_port_del_vlan(nic_dev, vid);
++	if (err) {
++		dev_err(&netdev->dev, "Failed to delete vlan\n");
++		goto del_vlan_err;
++	}
++
++	bitmap_clear(vlan_bitmap, vid, 1);
++
++	up(&nic_dev->mgmt_lock);
++
++	return 0;
++
++del_vlan_err:
++	up(&nic_dev->mgmt_lock);
++	return err;
++}
++
+ static const struct net_device_ops hinic_netdev_ops = {
+-	/* Operations are empty, should be filled */
++	.ndo_change_mtu = hinic_change_mtu,
++	.ndo_set_mac_address = hinic_set_mac_addr,
++	.ndo_validate_addr = eth_validate_addr,
++	.ndo_vlan_rx_add_vid = hinic_vlan_rx_add_vid,
++	.ndo_vlan_rx_kill_vid = hinic_vlan_rx_kill_vid,
++	/* more operations should be filled */
+ };
+ 
++static void netdev_features_init(struct net_device *netdev)
++{
++	netdev->hw_features = NETIF_F_SG | NETIF_F_HIGHDMA;
++
++	netdev->vlan_features = netdev->hw_features;
++
++	netdev->features = netdev->hw_features | NETIF_F_HW_VLAN_CTAG_FILTER;
++}
++
+ /**
+  * nic_dev_init - Initialize the NIC device
+  * @pdev: the NIC pci device
+@@ -77,8 +244,36 @@ static int nic_dev_init(struct pci_dev *pdev)
+ 	nic_dev->netdev = netdev;
+ 	nic_dev->msg_enable = MSG_ENABLE_DEFAULT;
+ 
++	sema_init(&nic_dev->mgmt_lock, 1);
++
++	nic_dev->vlan_bitmap = devm_kzalloc(&pdev->dev,
++					    VLAN_BITMAP_SIZE(nic_dev),
++					    GFP_KERNEL);
++	if (!nic_dev->vlan_bitmap) {
++		err = -ENOMEM;
++		goto vlan_bitmap_err;
++	}
++
+ 	pci_set_drvdata(pdev, netdev);
+ 
++	err = hinic_port_get_mac(nic_dev, netdev->dev_addr);
++	if (err)
++		dev_warn(&netdev->dev, "Failed to get mac address\n");
++
++	err = hinic_port_add_mac(nic_dev, netdev->dev_addr, 0);
++	if (err) {
++		dev_err(&netdev->dev, "Failed to add mac\n");
++		goto add_mac_err;
++	}
++
++	err = hinic_port_set_mtu(nic_dev, netdev->mtu);
++	if (err) {
++		dev_err(&netdev->dev, "Failed to set mtu\n");
++		goto set_mtu_err;
++	}
++
++	netdev_features_init(netdev);
++
+ 	netif_carrier_off(netdev);
+ 
+ 	err = register_netdev(netdev);
+@@ -90,7 +285,11 @@ static int nic_dev_init(struct pci_dev *pdev)
+ 	return 0;
+ 
+ reg_netdev_err:
++set_mtu_err:
++add_mac_err:
+ 	pci_set_drvdata(pdev, NULL);
++
++vlan_bitmap_err:
+ 	free_netdev(netdev);
+ 
+ alloc_etherdev_err:
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.c b/drivers/net/ethernet/huawei/hinic/hinic_port.c
+new file mode 100644
+index 0000000..5524320
+--- /dev/null
++++ b/drivers/net/ethernet/huawei/hinic/hinic_port.c
+@@ -0,0 +1,241 @@
++/*
++ * Huawei HiNIC PCI Express Linux driver
++ * Copyright(c) 2017 Huawei Technologies Co., Ltd
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * for more details.
++ *
++ */
++
++#include <linux/types.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/if_vlan.h>
++#include <linux/pci.h>
++#include <linux/device.h>
++#include <linux/errno.h>
++
++#include "hinic_hw_if.h"
++#include "hinic_hw_dev.h"
++#include "hinic_port.h"
++#include "hinic_dev.h"
++
++#define HINIC_MIN_MTU_SIZE              256
++#define HINIC_MAX_JUMBO_FRAME_SIZE      15872
++
++enum mac_op {
++	MAC_DEL,
++	MAC_SET,
++};
++
++/**
++ * change_mac - change(add or delete) mac address
++ * @nic_dev: nic device
++ * @addr: mac address
++ * @vlan_id: vlan number to set with the mac
++ * @op: add or delete the mac
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int change_mac(struct hinic_dev *nic_dev, const u8 *addr,
++		      u16 vlan_id, enum mac_op op)
++{
++	struct net_device *netdev = nic_dev->netdev;
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_hwif *hwif = hwdev->hwif;
 +	struct pci_dev *pdev = hwif->pdev;
-+	u32 addr, attr1;
++	struct hinic_port_mac_cmd port_mac_cmd;
++	enum hinic_port_cmd cmd;
++	u16 out_size;
++	int err;
 +
-+	addr   = HINIC_CSR_FUNC_ATTR1_ADDR;
-+	attr1  = hinic_hwif_read_reg(hwif, addr);
++	if (vlan_id >= VLAN_N_VID) {
++		netif_err(nic_dev, drv, netdev, "Invalid VLAN number\n");
++		return -EINVAL;
++	}
 +
-+	if (!HINIC_FA1_GET(attr1, INIT_STATUS)) {
-+		dev_err(&pdev->dev, "hwif status is not ready\n");
++	if (op == MAC_SET)
++		cmd = HINIC_PORT_CMD_SET_MAC;
++	else
++		cmd = HINIC_PORT_CMD_DEL_MAC;
++
++	port_mac_cmd.func_idx = HINIC_HWIF_GLOB_IDX(hwif);
++	port_mac_cmd.vlan_id = vlan_id;
++	memcpy(port_mac_cmd.mac, addr, ETH_ALEN);
++
++	err = hinic_port_msg_cmd(hwdev, cmd, &port_mac_cmd,
++				 sizeof(port_mac_cmd),
++				 &port_mac_cmd, &out_size);
++	if (err || (out_size != sizeof(port_mac_cmd)) || port_mac_cmd.status) {
++		dev_err(&pdev->dev, "Failed to change MAC, ret = %d\n",
++			port_mac_cmd.status);
 +		return -EFAULT;
 +	}
 +
@@ -669,551 +498,169 @@ index 0000000..dbb3346
 +}
 +
 +/**
-+ * set_hwif_attr - set the attributes in the relevant members in hwif
-+ * @hwif: the HW interface of a pci function device
-+ * @attr0: the first attribute that was read from the hw
-+ * @attr1: the second attribute that was read from the hw
-+ **/
-+static void set_hwif_attr(struct hinic_hwif *hwif, u32 attr0, u32 attr1)
-+{
-+	hwif->attr.func_global_idx = HINIC_FA0_GET(attr0, FUNC_GLOB_IDX);
-+	hwif->attr.pf_idx       = HINIC_FA0_GET(attr0, PF_IDX);
-+	hwif->attr.pci_intf_idx = HINIC_FA0_GET(attr0, PCI_INTF_IDX);
-+	hwif->attr.func_type    = HINIC_FA0_GET(attr0, FUNC_TYPE);
-+
-+	hwif->attr.num_aeqs = BIT(HINIC_FA1_GET(attr1, AEQS_PER_FUNC));
-+	hwif->attr.num_ceqs = BIT(HINIC_FA1_GET(attr1, CEQS_PER_FUNC));
-+	hwif->attr.num_irqs = BIT(HINIC_FA1_GET(attr1, IRQS_PER_FUNC));
-+	hwif->attr.num_dma_attr = BIT(HINIC_FA1_GET(attr1, DMA_ATTR_PER_FUNC));
-+}
-+
-+/**
-+ * read_hwif_attr - read the attributes and set members in hwif
-+ * @hwif: the HW interface of a pci function device
-+ **/
-+static void read_hwif_attr(struct hinic_hwif *hwif)
-+{
-+	u32 addr, attr0, attr1;
-+
-+	addr   = HINIC_CSR_FUNC_ATTR0_ADDR;
-+	attr0  = hinic_hwif_read_reg(hwif, addr);
-+
-+	addr   = HINIC_CSR_FUNC_ATTR1_ADDR;
-+	attr1  = hinic_hwif_read_reg(hwif, addr);
-+
-+	set_hwif_attr(hwif, attr0, attr1);
-+}
-+
-+/**
-+ * set_ppf - try to set hwif as ppf and set the type of hwif in this case
-+ * @hwif: the HW interface of a pci function device
-+ **/
-+static void set_ppf(struct hinic_hwif *hwif)
-+{
-+	struct hinic_func_attr *attr = &hwif->attr;
-+	u32 addr, val, ppf_election;
-+
-+	/* Read Modify Write */
-+	addr  = HINIC_CSR_PPF_ELECTION_ADDR(HINIC_HWIF_PCI_INTF(hwif));
-+
-+	val = hinic_hwif_read_reg(hwif, addr);
-+	val = HINIC_PPF_ELECTION_CLEAR(val, IDX);
-+
-+	ppf_election = HINIC_PPF_ELECTION_SET(HINIC_HWIF_GLOB_IDX(hwif), IDX);
-+
-+	val |= ppf_election;
-+	hinic_hwif_write_reg(hwif, addr, val);
-+
-+	/* check PPF */
-+	val = hinic_hwif_read_reg(hwif, addr);
-+
-+	attr->ppf_idx = HINIC_PPF_ELECTION_GET(val, IDX);
-+	if (attr->ppf_idx == HINIC_HWIF_GLOB_IDX(hwif))
-+		attr->func_type = HINIC_PPF;
-+}
-+
-+/**
-+ * set_dma_attr - set the dma attributes in the HW
-+ * @hwif: the HW interface of a pci function device
-+ * @entry_idx: the entry index in the dma table
-+ * @st: PCIE TLP steering tag
-+ * @at: PCIE TLP AT field
-+ * @ph: PCIE TLP Processing Hint field
-+ * @no_snooping: PCIE TLP No snooping
-+ * @tph_en: PCIE TLP Processing Hint Enable
-+ **/
-+static void set_dma_attr(struct hinic_hwif *hwif, u32 entry_idx,
-+			 u8 st, u8 at, u8 ph,
-+			 enum hinic_pcie_nosnoop no_snooping,
-+			 enum hinic_pcie_tph tph_en)
-+{
-+	u32 addr, val, dma_attr_entry;
-+
-+	/* Read Modify Write */
-+	addr = HINIC_CSR_DMA_ATTR_ADDR(entry_idx);
-+
-+	val = hinic_hwif_read_reg(hwif, addr);
-+	val = HINIC_DMA_ATTR_CLEAR(val, ST)             &
-+	      HINIC_DMA_ATTR_CLEAR(val, AT)             &
-+	      HINIC_DMA_ATTR_CLEAR(val, PH)             &
-+	      HINIC_DMA_ATTR_CLEAR(val, NO_SNOOPING)    &
-+	      HINIC_DMA_ATTR_CLEAR(val, TPH_EN);
-+
-+	dma_attr_entry = HINIC_DMA_ATTR_SET(st, ST)                     |
-+			 HINIC_DMA_ATTR_SET(at, AT)                     |
-+			 HINIC_DMA_ATTR_SET(ph, PH)                     |
-+			 HINIC_DMA_ATTR_SET(no_snooping, NO_SNOOPING)   |
-+			 HINIC_DMA_ATTR_SET(tph_en, TPH_EN);
-+
-+	val |= dma_attr_entry;
-+	hinic_hwif_write_reg(hwif, addr, val);
-+}
-+
-+/**
-+ * dma_attr_table_init - initialize the the default dma attributes
-+ * @hwif: the HW interface of a pci function device
-+ **/
-+static void dma_attr_init(struct hinic_hwif *hwif)
-+{
-+	set_dma_attr(hwif, PCIE_ATTR_ENTRY, HINIC_PCIE_ST_DISABLE,
-+		     HINIC_PCIE_AT_DISABLE, HINIC_PCIE_PH_DISABLE,
-+		     HINIC_PCIE_SNOOP, HINIC_PCIE_TPH_DISABLE);
-+}
-+
-+/**
-+ * hinic_init_hwif - initialize the hw interface
-+ * @hwif: the HW interface of a pci function device
-+ * @pdev: the pci device for acessing PCI resources
++ * hinic_port_add_mac - add mac address
++ * @nic_dev: nic device
++ * @addr: mac address
++ * @vlan_id: vlan number to set with the mac
 + *
 + * Return 0 - Success, negative - Failure
 + **/
-+int hinic_init_hwif(struct hinic_hwif *hwif, struct pci_dev *pdev)
++int hinic_port_add_mac(struct hinic_dev *nic_dev,
++		       const u8 *addr, u16 vlan_id)
 +{
++	return change_mac(nic_dev, addr, vlan_id, MAC_SET);
++}
++
++/**
++ * hinic_port_del_mac - remove mac address
++ * @nic_dev: nic device
++ * @addr: mac address
++ * @vlan_id: vlan number that is connected to the mac
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_del_mac(struct hinic_dev *nic_dev, const u8 *addr,
++		       u16 vlan_id)
++{
++	return change_mac(nic_dev, addr, vlan_id, MAC_DEL);
++}
++
++/**
++ * hinic_port_get_mac - get the mac address of the nic device
++ * @nic_dev: nic device
++ * @addr: returned mac address
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_get_mac(struct hinic_dev *nic_dev, u8 *addr)
++{
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_hwif *hwif = hwdev->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	struct hinic_port_mac_cmd port_mac_cmd;
++	u16 out_size;
 +	int err;
 +
-+	hwif->pdev = pdev;
++	port_mac_cmd.func_idx = HINIC_HWIF_GLOB_IDX(hwif);
 +
-+	hwif->cfg_regs_bar = pci_ioremap_bar(pdev, HINIC_PCI_CFG_REGS_BAR);
-+	if (!hwif->cfg_regs_bar) {
-+		dev_err(&pdev->dev, "Failed to map configuration regs\n");
-+		return -ENOMEM;
++	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_GET_MAC,
++				 &port_mac_cmd, sizeof(port_mac_cmd),
++				 &port_mac_cmd, &out_size);
++	if (err || (out_size != sizeof(port_mac_cmd)) || port_mac_cmd.status) {
++		dev_err(&pdev->dev, "Failed to get mac, ret = %d\n",
++			port_mac_cmd.status);
++		return -EFAULT;
 +	}
 +
-+	err = hwif_ready(hwif);
-+	if (err) {
-+		dev_err(&pdev->dev, "HW interface is not ready\n");
-+		goto hwif_ready_err;
-+	}
-+
-+	read_hwif_attr(hwif);
-+
-+	if (HINIC_IS_PF(hwif))
-+		set_ppf(hwif);
-+
-+	/* No transactionss before DMA is initialized */
-+	dma_attr_init(hwif);
++	memcpy(addr, port_mac_cmd.mac, ETH_ALEN);
 +	return 0;
-+
-+hwif_ready_err:
-+	iounmap(hwif->cfg_regs_bar);
-+	return err;
 +}
 +
 +/**
-+ * hinic_free_hwif - free the HW interface
-+ * @hwif: the HW interface of a pci function device
-+ **/
-+void hinic_free_hwif(struct hinic_hwif *hwif)
-+{
-+	iounmap(hwif->cfg_regs_bar);
-+}
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-new file mode 100644
-index 0000000..319da92
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-@@ -0,0 +1,160 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#ifndef HINIC_HW_IF_H
-+#define HINIC_HW_IF_H
-+
-+#include <linux/pci.h>
-+#include <linux/io.h>
-+#include <linux/types.h>
-+#include <asm/byteorder.h>
-+
-+#define HINIC_DMA_ATTR_ST_SHIFT                                 0
-+#define HINIC_DMA_ATTR_AT_SHIFT                                 8
-+#define HINIC_DMA_ATTR_PH_SHIFT                                 10
-+#define HINIC_DMA_ATTR_NO_SNOOPING_SHIFT                        12
-+#define HINIC_DMA_ATTR_TPH_EN_SHIFT                             13
-+
-+#define HINIC_DMA_ATTR_ST_MASK                                  0xFF
-+#define HINIC_DMA_ATTR_AT_MASK                                  0x3
-+#define HINIC_DMA_ATTR_PH_MASK                                  0x3
-+#define HINIC_DMA_ATTR_NO_SNOOPING_MASK                         0x1
-+#define HINIC_DMA_ATTR_TPH_EN_MASK                              0x1
-+
-+#define HINIC_DMA_ATTR_SET(val, member)                         \
-+	(((u32)(val) & HINIC_DMA_ATTR_##member##_MASK) <<       \
-+	 HINIC_DMA_ATTR_##member##_SHIFT)
-+
-+#define HINIC_DMA_ATTR_CLEAR(val, member)                       \
-+	((val) & (~(HINIC_DMA_ATTR_##member##_MASK              \
-+	 << HINIC_DMA_ATTR_##member##_SHIFT)))
-+
-+#define HINIC_FA0_FUNC_GLOB_IDX_SHIFT                           0
-+#define HINIC_FA0_PF_IDX_SHIFT                                  10
-+#define HINIC_FA0_PCI_INTF_IDX_SHIFT                            14
-+/* reserved members - off 16 */
-+#define HINIC_FA0_FUNC_TYPE_SHIFT                               24
-+
-+#define HINIC_FA0_FUNC_GLOB_IDX_MASK                            0x3FF
-+#define HINIC_FA0_PF_IDX_MASK                                   0xF
-+#define HINIC_FA0_PCI_INTF_IDX_MASK                             0x3
-+#define HINIC_FA0_FUNC_TYPE_MASK                                0x1
-+
-+#define HINIC_FA0_GET(val, member)                              \
-+	(((val) >> HINIC_FA0_##member##_SHIFT) & HINIC_FA0_##member##_MASK)
-+
-+#define HINIC_FA1_AEQS_PER_FUNC_SHIFT                           8
-+/* reserved members - off 10 */
-+#define HINIC_FA1_CEQS_PER_FUNC_SHIFT                           12
-+/* reserved members - off 15 */
-+#define HINIC_FA1_IRQS_PER_FUNC_SHIFT                           20
-+#define HINIC_FA1_DMA_ATTR_PER_FUNC_SHIFT                       24
-+/* reserved members - off 27 */
-+#define HINIC_FA1_INIT_STATUS_SHIFT                             30
-+
-+#define HINIC_FA1_AEQS_PER_FUNC_MASK                            0x3
-+#define HINIC_FA1_CEQS_PER_FUNC_MASK                            0x7
-+#define HINIC_FA1_IRQS_PER_FUNC_MASK                            0xF
-+#define HINIC_FA1_DMA_ATTR_PER_FUNC_MASK                        0x7
-+#define HINIC_FA1_INIT_STATUS_MASK                              0x1
-+
-+#define HINIC_FA1_GET(val, member)                              \
-+	(((val) >> HINIC_FA1_##member##_SHIFT) & HINIC_FA1_##member##_MASK)
-+
-+#define HINIC_PPF_ELECTION_IDX_SHIFT                            0
-+#define HINIC_PPF_ELECTION_IDX_MASK                             0x1F
-+
-+#define HINIC_PPF_ELECTION_SET(val, member)                     \
-+	(((u32)(val) & HINIC_PPF_ELECTION_##member##_MASK) <<   \
-+	 HINIC_PPF_ELECTION_##member##_SHIFT)
-+
-+#define HINIC_PPF_ELECTION_GET(val, member)                     \
-+	(((val) >> HINIC_PPF_ELECTION_##member##_SHIFT) &       \
-+	 HINIC_PPF_ELECTION_##member##_MASK)
-+
-+#define HINIC_PPF_ELECTION_CLEAR(val, member)                   \
-+	((val) & (~(HINIC_PPF_ELECTION_##member##_MASK          \
-+	 << HINIC_PPF_ELECTION_##member##_SHIFT)))
-+
-+#define HINIC_HWIF_NUM_AEQS(hwif)       ((hwif)->attr.num_aeqs)
-+#define HINIC_HWIF_NUM_CEQS(hwif)       ((hwif)->attr.num_ceqs)
-+#define HINIC_HWIF_NUM_IRQS(hwif)       ((hwif)->attr.num_irqs)
-+#define HINIC_HWIF_GLOB_IDX(hwif)       ((hwif)->attr.func_global_idx)
-+#define HINIC_HWIF_PCI_INTF(hwif)       ((hwif)->attr.pci_intf_idx)
-+
-+#define HINIC_FUNC_TYPE(hwif)           ((hwif)->attr.func_type)
-+#define HINIC_IS_PF(hwif)               (HINIC_FUNC_TYPE(hwif) == HINIC_PF)
-+#define HINIC_IS_PPF(hwif)              (HINIC_FUNC_TYPE(hwif) == HINIC_PPF)
-+
-+#define HINIC_PCI_CFG_REGS_BAR          0
-+
-+#define HINIC_PCIE_ST_DISABLE           0
-+#define HINIC_PCIE_AT_DISABLE           0
-+#define HINIC_PCIE_PH_DISABLE           0
-+
-+enum hinic_pcie_nosnoop {
-+	HINIC_PCIE_SNOOP        = 0,
-+	HINIC_PCIE_NO_SNOOP     = 1,
-+};
-+
-+enum hinic_pcie_tph {
-+	HINIC_PCIE_TPH_DISABLE  = 0,
-+	HINIC_PCIE_TPH_ENABLE   = 1,
-+};
-+
-+enum hinic_func_type {
-+	HINIC_PF        = 0,
-+	HINIC_PPF       = 2,
-+};
-+
-+struct hinic_func_attr {
-+	u16                     func_global_idx;
-+	u8                      pf_idx;
-+	u8                      pci_intf_idx;
-+
-+	enum hinic_func_type    func_type;
-+
-+	u8                      ppf_idx;
-+
-+	u16                     num_irqs;
-+	u8                      num_aeqs;
-+	u8                      num_ceqs;
-+
-+	u8                      num_dma_attr;
-+};
-+
-+struct hinic_hwif {
-+	struct pci_dev          *pdev;
-+	void __iomem            *cfg_regs_bar;
-+
-+	struct hinic_func_attr  attr;
-+};
-+
-+static inline u32 hinic_hwif_read_reg(struct hinic_hwif *hwif, u32 reg)
-+{
-+	return be32_to_cpu(readl(hwif->cfg_regs_bar + reg));
-+}
-+
-+static inline void hinic_hwif_write_reg(struct hinic_hwif *hwif, u32 reg,
-+					u32 val)
-+{
-+	writel(cpu_to_be32(val), hwif->cfg_regs_bar + reg);
-+}
-+
-+int hinic_init_hwif(struct hinic_hwif *hwif, struct pci_dev *pdev);
-+
-+void hinic_free_hwif(struct hinic_hwif *hwif);
-+
-+#endif
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-new file mode 100644
-index 0000000..c61c769
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-@@ -0,0 +1,209 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/pci.h>
-+#include <linux/device.h>
-+#include <linux/errno.h>
-+#include <linux/types.h>
-+#include <linux/etherdevice.h>
-+#include <linux/netdevice.h>
-+
-+#include "hinic_pci_id_tbl.h"
-+#include "hinic_hw_dev.h"
-+#include "hinic_dev.h"
-+
-+MODULE_AUTHOR("Huawei Technologies CO., Ltd");
-+MODULE_DESCRIPTION("Huawei Intelligent NIC driver");
-+MODULE_LICENSE("GPL");
-+
-+#define MSG_ENABLE_DEFAULT              (NETIF_MSG_DRV | NETIF_MSG_PROBE | \
-+					 NETIF_MSG_IFUP |                  \
-+					 NETIF_MSG_TX_ERR | NETIF_MSG_RX_ERR)
-+
-+static const struct net_device_ops hinic_netdev_ops = {
-+	/* Operations are empty, should be filled */
-+};
-+
-+/**
-+ * nic_dev_init - Initialize the NIC device
-+ * @pdev: the NIC pci device
++ * hinic_port_set_mtu - set mtu
++ * @nic_dev: nic device
++ * @new_mtu: new mtu
 + *
 + * Return 0 - Success, negative - Failure
 + **/
-+static int nic_dev_init(struct pci_dev *pdev)
++int hinic_port_set_mtu(struct hinic_dev *nic_dev, int new_mtu)
 +{
-+	struct hinic_dev *nic_dev;
-+	struct net_device *netdev;
-+	struct hinic_hwdev *hwdev;
-+	int err, num_qps;
++	struct net_device *netdev = nic_dev->netdev;
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_hwif *hwif = hwdev->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	struct hinic_port_mtu_cmd port_mtu_cmd;
++	u16 out_size;
++	int err, max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
 +
-+	err = hinic_init_hwdev(&hwdev, pdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to initialize HW device\n");
-+		return err;
++	if (new_mtu < HINIC_MIN_MTU_SIZE) {
++		netif_err(nic_dev, drv, netdev, "mtu < MIN MTU size");
++		return -EINVAL;
 +	}
 +
-+	num_qps = hinic_hwdev_num_qps(hwdev);
-+	if (num_qps <= 0) {
-+		dev_err(&pdev->dev, "Invalid number of QPS\n");
-+		err = -EINVAL;
-+		goto num_qps_err;
++	if (max_frame > HINIC_MAX_JUMBO_FRAME_SIZE) {
++		netif_err(nic_dev, drv, netdev, "mtu > MAX MTU size");
++		return -EINVAL;
 +	}
 +
-+	netdev = alloc_etherdev_mq(sizeof(*nic_dev), num_qps);
-+	if (!netdev) {
-+		dev_err(&pdev->dev, "Failed to allocate Ethernet device\n");
-+		err = -ENOMEM;
-+		goto alloc_etherdev_err;
-+	}
++	port_mtu_cmd.func_idx = HINIC_HWIF_GLOB_IDX(hwif);
++	port_mtu_cmd.mtu = new_mtu;
 +
-+	netdev->netdev_ops = &hinic_netdev_ops;
-+
-+	nic_dev = (struct hinic_dev *)netdev_priv(netdev);
-+	nic_dev->hwdev = hwdev;
-+	nic_dev->netdev = netdev;
-+	nic_dev->msg_enable = MSG_ENABLE_DEFAULT;
-+
-+	pci_set_drvdata(pdev, netdev);
-+
-+	netif_carrier_off(netdev);
-+
-+	err = register_netdev(netdev);
-+	if (err) {
-+		dev_err(&netdev->dev, "Failed to register netdev\n");
-+		goto reg_netdev_err;
++	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_CHANGE_MTU,
++				 &port_mtu_cmd, sizeof(port_mtu_cmd),
++				 &port_mtu_cmd, &out_size);
++	if (err || (out_size != sizeof(port_mtu_cmd)) || port_mtu_cmd.status) {
++		dev_err(&pdev->dev, "Failed to set mtu, ret = %d\n",
++			port_mtu_cmd.status);
++		return -EFAULT;
 +	}
 +
 +	return 0;
-+
-+reg_netdev_err:
-+	pci_set_drvdata(pdev, NULL);
-+	free_netdev(netdev);
-+
-+alloc_etherdev_err:
-+num_qps_err:
-+	hinic_free_hwdev(hwdev);
-+	return err;
 +}
 +
-+static int hinic_probe(struct pci_dev *pdev,
-+		       const struct pci_device_id *id)
++/**
++ * hinic_port_add_vlan - add vlan to the nic device
++ * @nic_dev: nic device
++ * @vlan_id: the vlan number to add
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_add_vlan(struct hinic_dev *nic_dev, u16 vlan_id)
 +{
-+	int err = pci_enable_device(pdev);
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_hwif *hwif = hwdev->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	struct hinic_port_vlan_cmd port_vlan_cmd;
++	int err;
 +
++	port_vlan_cmd.func_idx = HINIC_HWIF_GLOB_IDX(hwif);
++	port_vlan_cmd.vlan_id = vlan_id;
++
++	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_ADD_VLAN,
++				 &port_vlan_cmd, sizeof(port_vlan_cmd),
++				 NULL, NULL);
 +	if (err) {
-+		dev_err(&pdev->dev, "Failed to enable PCI device\n");
++		dev_err(&pdev->dev, "Failed to add vlan\n");
 +		return err;
 +	}
 +
-+	err = pci_request_regions(pdev, HINIC_DRV_NAME);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to request PCI regions\n");
-+		goto pci_regions_err;
-+	}
-+
-+	pci_set_master(pdev);
-+
-+	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
-+	if (err) {
-+		dev_warn(&pdev->dev, "Couldn't set 64-bit DMA mask\n");
-+		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
-+		if (err) {
-+			dev_err(&pdev->dev, "Failed to set DMA mask\n");
-+			goto dma_mask_err;
-+		}
-+	}
-+
-+	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
-+	if (err) {
-+		dev_warn(&pdev->dev,
-+			 "Couldn't set 64-bit consistent DMA mask\n");
-+		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
-+		if (err) {
-+			dev_err(&pdev->dev,
-+				"Failed to set consistent DMA mask\n");
-+			goto dma_consistent_mask_err;
-+		}
-+	}
-+
-+	err = nic_dev_init(pdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to initialize NIC device\n");
-+		goto nic_dev_init_err;
-+	}
-+
-+	dev_info(&pdev->dev, "HiNIC driver - probed\n");
 +	return 0;
-+
-+nic_dev_init_err:
-+dma_consistent_mask_err:
-+dma_mask_err:
-+	pci_release_regions(pdev);
-+
-+pci_regions_err:
-+	pci_disable_device(pdev);
-+	return err;
 +}
 +
-+static void hinic_remove(struct pci_dev *pdev)
++/**
++ * hinic_port_del_vlan - delete vlan from the nic device
++ * @nic_dev: nic device
++ * @vlan_id: the vlan number to delete
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_del_vlan(struct hinic_dev *nic_dev, u16 vlan_id)
 +{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct hinic_dev *nic_dev;
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_hwif *hwif = hwdev->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	struct hinic_port_vlan_cmd port_vlan_cmd;
++	int err;
 +
-+	if (!netdev)
-+		return;
++	port_vlan_cmd.func_idx = HINIC_HWIF_GLOB_IDX(hwif);
++	port_vlan_cmd.vlan_id = vlan_id;
 +
-+	unregister_netdev(netdev);
++	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_DEL_VLAN,
++				 &port_vlan_cmd, sizeof(port_vlan_cmd),
++				 NULL, NULL);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to delete vlan\n");
++		return err;
++	}
 +
-+	pci_set_drvdata(pdev, NULL);
-+
-+	nic_dev = netdev_priv(netdev);
-+
-+	hinic_free_hwdev(nic_dev->hwdev);
-+
-+	free_netdev(netdev);
-+
-+	pci_release_regions(pdev);
-+	pci_disable_device(pdev);
-+
-+	dev_info(&pdev->dev, "HiNIC driver - removed\n");
++	return 0;
 +}
-+
-+static const struct pci_device_id hinic_pci_table[] = {
-+	{ PCI_VDEVICE(HUAWEI, PCI_DEVICE_ID_HI1822_PF), 0},
-+	{ 0, 0}
-+};
-+MODULE_DEVICE_TABLE(pci, hinic_pci_table);
-+
-+static struct pci_driver hinic_driver = {
-+	.name           = HINIC_DRV_NAME,
-+	.id_table       = hinic_pci_table,
-+	.probe          = hinic_probe,
-+	.remove         = hinic_remove,
-+};
-+
-+static int __init hinic_init(void)
-+{
-+	return pci_register_driver(&hinic_driver);
-+}
-+
-+static void __exit hinic_exit(void)
-+{
-+	pci_unregister_driver(&hinic_driver);
-+}
-+
-+module_init(hinic_init);
-+module_exit(hinic_exit);
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h b/drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.h b/drivers/net/ethernet/huawei/hinic/hinic_port.h
 new file mode 100644
-index 0000000..1d92617
+index 0000000..4cafb94
 --- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h
-@@ -0,0 +1,27 @@
++++ b/drivers/net/ethernet/huawei/hinic/hinic_port.h
+@@ -0,0 +1,68 @@
 +/*
 + * Huawei HiNIC PCI Express Linux driver
 + * Copyright(c) 2017 Huawei Technologies Co., Ltd
@@ -1229,16 +676,57 @@ index 0000000..1d92617
 + *
 + */
 +
-+#ifndef HINIC_PCI_ID_TBL_H
-+#define HINIC_PCI_ID_TBL_H
++#ifndef HINIC_PORT_H
++#define HINIC_PORT_H
 +
-+#ifndef PCI_VENDOR_ID_HUAWEI
-+#define PCI_VENDOR_ID_HUAWEI            0x19e5
-+#endif
++#include <linux/types.h>
++#include <linux/etherdevice.h>
 +
-+#ifndef PCI_DEVICE_ID_HI1822_PF
-+#define PCI_DEVICE_ID_HI1822_PF         0x1822
-+#endif
++#include "hinic_dev.h"
++
++struct hinic_port_mac_cmd {
++	u8              status;
++	u8              version;
++	u8              rsvd0[6];
++
++	u16             func_idx;
++	u16             vlan_id;
++	u16             rsvd1;
++	unsigned char   mac[ETH_ALEN];
++};
++
++struct hinic_port_mtu_cmd {
++	u8      status;
++	u8      version;
++	u8      rsvd0[6];
++
++	u16     func_idx;
++	u16     rsvd1;
++	u32     mtu;
++};
++
++struct hinic_port_vlan_cmd {
++	u8      status;
++	u8      version;
++	u8      rsvd0[6];
++
++	u16     func_idx;
++	u16     vlan_id;
++};
++
++int hinic_port_add_mac(struct hinic_dev *nic_dev, const u8 *addr,
++		       u16 vlan_id);
++
++int hinic_port_del_mac(struct hinic_dev *nic_dev, const u8 *addr,
++		       u16 vlan_id);
++
++int hinic_port_get_mac(struct hinic_dev *nic_dev, u8 *addr);
++
++int hinic_port_set_mtu(struct hinic_dev *nic_dev, int new_mtu);
++
++int hinic_port_add_vlan(struct hinic_dev *nic_dev, u16 vlan_id);
++
++int hinic_port_del_vlan(struct hinic_dev *nic_dev, u16 vlan_id);
 +
 +#endif
 -- 
