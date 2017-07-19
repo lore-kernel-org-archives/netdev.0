@@ -1,12 +1,11 @@
 From: Philipp Zabel <p.zabel@pengutronix.de>
-Subject: [PATCH 044/102] net: dsa: mt7530: explicitly request exclusive reset control
-Date: Wed, 19 Jul 2017 17:25:48 +0200
-Message-ID: <20170719152646.25903-45-p.zabel@pengutronix.de>
+Subject: [PATCH 046/102] net: ethernet: hix5hd2_gmac: explicitly request exclusive reset control
+Date: Wed, 19 Jul 2017 17:25:50 +0200
+Message-ID: <20170719152646.25903-47-p.zabel@pengutronix.de>
 References: <20170719152646.25903-1-p.zabel@pengutronix.de>
 Cc: Philipp Zabel <p.zabel@pengutronix.de>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+        Yisen Zhuang <yisen.zhuang@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170719152646.25903-1-p.zabel@pengutronix.de>
@@ -21,28 +20,37 @@ explicit API call so the temporary transition helpers can be removed.
 
 No functional changes.
 
-Cc: Andrew Lunn <andrew@lunn.ch>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Yisen Zhuang <yisen.zhuang@huawei.com>
+Cc: Salil Mehta <salil.mehta@huawei.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
 ---
- drivers/net/dsa/mt7530.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/hisilicon/hix5hd2_gmac.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 1e46418a3b74c..657d06b3c6c47 100644
---- a/drivers/net/dsa/mt7530.c
-+++ b/drivers/net/dsa/mt7530.c
-@@ -1044,7 +1044,8 @@ mt7530_probe(struct mdio_device *mdiodev)
- 	if (priv->mcm) {
- 		dev_info(&mdiodev->dev, "MT7530 adapts as multi-chip module\n");
+diff --git a/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c b/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
+index 25a6c8722ecac..02b7e2f490099 100644
+--- a/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
+@@ -1161,16 +1161,16 @@ static int hix5hd2_dev_probe(struct platform_device *pdev)
+ 		goto out_disable_mac_core_clk;
+ 	}
  
--		priv->rstc = devm_reset_control_get(&mdiodev->dev, "mcm");
-+		priv->rstc = devm_reset_control_get_exclusive(&mdiodev->dev,
-+							      "mcm");
- 		if (IS_ERR(priv->rstc)) {
- 			dev_err(&mdiodev->dev, "Couldn't get our reset line\n");
- 			return PTR_ERR(priv->rstc);
+-	priv->mac_core_rst = devm_reset_control_get(dev, "mac_core");
++	priv->mac_core_rst = devm_reset_control_get_exclusive(dev, "mac_core");
+ 	if (IS_ERR(priv->mac_core_rst))
+ 		priv->mac_core_rst = NULL;
+ 	hix5hd2_mac_core_reset(priv);
+ 
+-	priv->mac_ifc_rst = devm_reset_control_get(dev, "mac_ifc");
++	priv->mac_ifc_rst = devm_reset_control_get_exclusive(dev, "mac_ifc");
+ 	if (IS_ERR(priv->mac_ifc_rst))
+ 		priv->mac_ifc_rst = NULL;
+ 
+-	priv->phy_rst = devm_reset_control_get(dev, "phy");
++	priv->phy_rst = devm_reset_control_get_exclusive(dev, "phy");
+ 	if (IS_ERR(priv->phy_rst)) {
+ 		priv->phy_rst = NULL;
+ 	} else {
 -- 
 2.11.0
