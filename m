@@ -1,27 +1,57 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 net-next] net: systemport: Support 64bit statistics
-Date: Thu, 20 Jul 2017 08:44:06 -0700
-Message-ID: <20170720084406.1ff2c446@xeon-e3>
-References: <1500423520-4169-1-git-send-email-jqiaoulk@gmail.com>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: Re: [PATCH 1/4] can: dev: Add support for limiting configured bitrate
+Date: Thu, 20 Jul 2017 10:55:51 -0500
+Message-ID: <055c00f5-0775-4e35-309c-0d1c8aa0afdf@ti.com>
+References: <20170719233654.25908-1-fcooper@ti.com>
+ <20170719233654.25908-2-fcooper@ti.com>
+ <f45ea1b4-0f46-0002-a89b-b997f2693bb5@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: "Jianming.qiao" <jqiaoulk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:32844 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934434AbdGTPoI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 11:44:08 -0400
-Received: by mail-pg0-f49.google.com with SMTP id k14so16590849pgr.0
-        for <netdev@vger.kernel.org>; Thu, 20 Jul 2017 08:44:08 -0700 (PDT)
-In-Reply-To: <1500423520-4169-1-git-send-email-jqiaoulk@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
+        <quentin.schulz@free-electrons.com>,
+        <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <f45ea1b4-0f46-0002-a89b-b997f2693bb5@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Jul 2017 01:18:40 +0100
-"Jianming.qiao" <jqiaoulk@gmail.com> wrote:
 
-> Signed-off-by: Jianming.qiao <kiki-good@hotmail.com>
+Hi Oliver
+On 07/20/2017 02:43 AM, Oliver Hartkopp wrote:
+> Hi Franklin,
+> 
+> On 07/20/2017 01:36 AM, Franklin S Cooper Jr wrote:
+> 
+>> +#ifdef CONFIG_OF
+>> +void of_transceiver_is_fixed(struct net_device *dev)
+>> +{
+> 
+> (..)
+> 
+>> +}
+>> +EXPORT_SYMBOL(of_transceiver_is_fixed);
+>> +#endif
+> 
+> I'm not sure about the naming here.
+> 
+> As this is a CAN transceiver related option it should be named accordingly:
+> 
+> E.g.
+> 
+>     can_transceiver_is_fixed
+>     of_can_transceiver_is_fixed
+>     ...
+> 
+> Especially as it is defined in include/linux/can/dev.h
 
-You may want to consider using per-cpu statistics.
+Thanks for the feedback. I'll go with of_can_transceiver_is_fixed
+
+> 
+> Regards,
+> Oliver
+> 
+> 
