@@ -1,50 +1,141 @@
-From: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-Subject: [PATCH] net: bonding: Fix transmit load balancing in balance-alb
- mode
-Date: Thu, 20 Jul 2017 05:20:40 +0000
-Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A0296FEF5@BPXM09GP.gisp.nec.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: ja-JP
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Philip Prindeville" <philipp@redfish-solutions.com>
+Subject: [PATCH v2 1/1] iroute2: Add support for GRE ignore-df knob
+Date: Wed, 19 Jul 2017 23:19:33 -0600
+Message-ID: <20170720051933.5051-1-philipp@redfish-solutions.com>
+Cc: Philip Prindeville <philipp@redfish-solutions.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Michele Lucini <mlucini@safearea.com.au>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:60690 "EHLO
+        mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933797AbdGTFgU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 01:36:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-balance-alb mode used to have transmit dynamic load balancing feature
-enabled by default.  However, transmit dynamic load balancing no longer
-works in balance-alb after commit 8b426dc54cf4 ("bonding: remove
-hardcoded value").
+From: Philip Prindeville <philipp@redfish-solutions.com>
 
-Both balance-tlb and balance-alb use the function bond_do_alb_xmit() to
-send packets.  This function uses the parameter tlb_dynamic_lb.
-tlb_dynamic_lb used to have the default value of 1 for balance-alb, but
-now the value is set to 0 except in balance-tlb.
+In the presence of firewalls which improperly block ICMP Unreachable
+(including Fragmentation Required) messages, Path MTU Discovery is
+prevented from working.
 
-Re-enable transmit dyanmic load balancing by initializing tlb_dynamic_lb
-for balance-alb similar to balance-tlb.
+The workaround is to handle IPv4 payloads opaquely, ignoring the DF bit.
 
-Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-Cc: stable@vger.kernel.org
+Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Philip Prindeville <philipp@redfish-solutions.com>
 ---
- drivers/net/bonding/bond_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ doc/ip-cref.tex      |  7 +++++++
+ ip/link_gre.c        | 16 ++++++++++++++++
+ man/man8/ip-tunnel.8 |  9 +++++++++
+ 3 files changed, 32 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 14ff622..181839d 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4596,7 +4596,7 @@ static int bond_check_params(struct bond_params *params)
- 	}
- 	ad_user_port_key = valptr->value;
+diff --git a/doc/ip-cref.tex b/doc/ip-cref.tex
+index 242cc266b7acd34adcf390e6272944e333d6160e..179baa2fb75e7013274f030d6ae47a0c64ff728a 100644
+--- a/doc/ip-cref.tex
++++ b/doc/ip-cref.tex
+@@ -2524,6 +2524,13 @@ It must be an address on another interface of this host.
+ 	It is enabled by default. Note that a fixed ttl is incompatible
+ 	with this option: tunnelling with a fixed ttl always makes pmtu discovery.
  
--	if (bond_mode == BOND_MODE_TLB) {
-+	if ((bond_mode == BOND_MODE_TLB) || (bond_mode == BOND_MODE_ALB)) {
- 		bond_opt_initstr(&newval, "default");
- 		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB),
- 					&newval);
++\item \verb|ignore-df|
++
++--- (only GRE tunnels) enable IPv4 DF flag suppression on this tunnel.
++	If is disabled by default. Enabling this option will cause IPv4
++	payloads to be handled like any other GRE payload,
++	regardless of the DF flag.
++
+ \item \verb|key K|, \verb|ikey K|, \verb|okey K|
+ 
+ --- (only GRE tunnels) use keyed GRE with key \verb|K|. \verb|K| is
+diff --git a/ip/link_gre.c b/ip/link_gre.c
+index 82df900614bfdb1aa53985e1d36d4b99d4990291..ad3a7ad44c8b610ff6bf6148bb9160afecad968d 100644
+--- a/ip/link_gre.c
++++ b/ip/link_gre.c
+@@ -34,6 +34,7 @@ static void print_usage(FILE *f)
+ 		"                            [ ttl TTL ]\n"
+ 		"                            [ tos TOS ]\n"
+ 		"                            [ [no]pmtudisc ]\n"
++		"                            [ [no]ignore-df ]\n"
+ 		"                            [ dev PHYS_DEV ]\n"
+ 		"                            [ noencap ]\n"
+ 		"                            [ encap { fou | gue | none } ]\n"
+@@ -93,6 +94,7 @@ static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	__u16 encapsport = 0;
+ 	__u16 encapdport = 0;
+ 	__u8 metadata = 0;
++	__u8 ignore_df = 0;
+ 	__u32 fwmark = 0;
+ 
+ 	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
+@@ -164,6 +166,9 @@ get_failed:
+ 		if (greinfo[IFLA_GRE_COLLECT_METADATA])
+ 			metadata = 1;
+ 
++		if (greinfo[IFLA_GRE_IGNORE_DF])
++			ignore_df = !!rta_getattr_u8(greinfo[IFLA_GRE_IGNORE_DF]);
++
+ 		if (greinfo[IFLA_GRE_FWMARK])
+ 			fwmark = rta_getattr_u32(greinfo[IFLA_GRE_FWMARK]);
+ 	}
+@@ -311,6 +316,11 @@ get_failed:
+ 			encapflags |= ~TUNNEL_ENCAP_FLAG_REMCSUM;
+ 		} else if (strcmp(*argv, "external") == 0) {
+ 			metadata = 1;
++		} else if (strcmp(*argv, "ignore-df") == 0) {
++			ignore_df = 1;
++		} else if (strcmp(*argv, "noignore-df") == 0) {
++			// only the lsb is significant, use 2 for presence */
++			ignore_df = 2;
+ 		} else if (strcmp(*argv, "fwmark") == 0) {
+ 			NEXT_ARG();
+ 			if (get_u32(&fwmark, *argv, 0))
+@@ -355,6 +365,9 @@ get_failed:
+ 	addattr16(n, 1024, IFLA_GRE_ENCAP_SPORT, htons(encapsport));
+ 	addattr16(n, 1024, IFLA_GRE_ENCAP_DPORT, htons(encapdport));
+ 
++	if (ignore_df)
++		addattr8(n, 1024, IFLA_GRE_IGNORE_DF, ignore_df & 1);
++
+ 	return 0;
+ }
+ 
+@@ -454,6 +467,9 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 	else
+ 		fputs("external ", f);
+ 
++	if (tb[IFLA_GRE_IGNORE_DF] && rta_getattr_u8(tb[IFLA_GRE_IGNORE_DF]))
++		fputs("ignore-df ", f);
++
+ 	if (tb[IFLA_GRE_ENCAP_TYPE] &&
+ 	    rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
+ 		__u16 type = rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]);
+diff --git a/man/man8/ip-tunnel.8 b/man/man8/ip-tunnel.8
+index 4938c7405ce850c0774837b8654cfe236344319c..7ddbffb23cff1b01a348f3b664d578ccaa8a52cb 100644
+--- a/man/man8/ip-tunnel.8
++++ b/man/man8/ip-tunnel.8
+@@ -49,6 +49,7 @@ ip-tunnel - tunnel configuration
+ .BR 6rd-reset " ]"
+ .br
+ .RB "[ [" no "]" pmtudisc " ]"
++.RB "[ [" no "]" ignore-df " ]"
+ .RB "[ " dev
+ .IR PHYS_DEV " ]"
+ 
+@@ -176,6 +177,14 @@ with this option: tunneling with a fixed ttl always makes pmtu
+ discovery.
+ 
+ .TP
++.B ignore-df
++enable IPv4 DF suppression on this tunnel.
++Normally datagrams that exceed the MTU will be fragmented; the presence
++of the DF flag inhibits this, resulting instead in an ICMP Unreachable
++(Fragmentation Required) message.  Enabling this attribute casues the
++DF flag to be ignored.
++
++.TP
+ .BI key " K"
+ .TP
+ .BI ikey " K"
+-- 
+2.9.4
