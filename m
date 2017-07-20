@@ -1,7 +1,7 @@
 From: <steven.la@riverbed.com>
-Subject: [git][98ed5bb] rvbd/rbt-kernel : axel_960_VSH_VCX_XX55_feature_branch
-Date: Thu, 20 Jul 2017 22:26:10 +0000
-Message-ID: <20170720222610.24973.69660@leafminer.lab.nbttech.com>
+Subject: [git][98ed5bb] rvbd/rbt-kernel : banks_970_bug_fix_dev_branch
+Date: Thu, 20 Jul 2017 22:26:29 +0000
+Message-ID: <20170720222629.24975.87549@leafminer.lab.nbttech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,10 +11,10 @@ To: Michael@vger.kernel.org, <konrad.wilk@oracle.com>,
         Konrad@vger.kernel.org, Wilk@vger.kernel.org,
         <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.riverbed.com ([208.70.196.45]:6042 "EHLO
+Received: from incomingmail.riverbed.com ([208.70.196.45]:18849 "EHLO
         smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965715AbdGTW0L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:26:11 -0400
+        with ESMTP id S965723AbdGTW03 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:26:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,7 +23,7 @@ List-ID: <netdev.vger.kernel.org>
 
 
 Repository: git@gitlab.lab.nbttech.com:rvbd/rbt-kernel.git
-Branch: axel_960_VSH_VCX_XX55_feature_branch
+Branch: banks_970_bug_fix_dev_branch
 Author: Steven La <steven.la@riverbed.com>
 Date: 2017-07-18T16:34:31-07:00
 New Revision: 98ed5bbc446dca588ab8a1a6edbfc870dc9d6933
