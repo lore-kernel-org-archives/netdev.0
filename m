@@ -1,7 +1,7 @@
 From: <arthur.kepner@riverbed.com>
-Subject: [git][a48a019] rvbd/rbt-kernel : sabre_600_ipv6_ic_feature_branch
-Date: Thu, 20 Jul 2017 22:25:41 +0000
-Message-ID: <20170720222541.24978.12551@leafminer.lab.nbttech.com>
+Subject: [git][a48a019] rvbd/rbt-kernel : axel_trpy_ipv6_dev
+Date: Thu, 20 Jul 2017 22:25:50 +0000
+Message-ID: <20170720222550.24976.7514@leafminer.lab.nbttech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,10 +11,10 @@ To: Michael@vger.kernel.org, <konrad.wilk@oracle.com>,
         Konrad@vger.kernel.org, Wilk@vger.kernel.org,
         <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.riverbed.com ([208.70.196.45]:29778 "EHLO
+Received: from smtp.riverbed.com ([208.70.196.45]:1993 "EHLO
         smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966002AbdGTW2t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:28:49 -0400
+        with ESMTP id S966002AbdGTW27 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:28:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,7 +23,7 @@ List-ID: <netdev.vger.kernel.org>
 
 
 Repository: git@gitlab.lab.nbttech.com:rvbd/rbt-kernel.git
-Branch: sabre_600_ipv6_ic_feature_branch
+Branch: axel_trpy_ipv6_dev
 Author: Arthur Kepner <arthur.kepner@riverbed.com>
 Date: 2017-07-20T15:22:12-07:00
 New Revision: a48a019e7afe2db8e74fda96507b82bafcfebe99
