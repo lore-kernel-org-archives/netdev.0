@@ -1,48 +1,60 @@
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Subject: [PATCH] tun/tap: Add the missed return value check of register_netdevice_notifier
-Date: Thu, 20 Jul 2017 02:41:34 -0700
-Message-ID: <1500543694-23465-1-git-send-email-xiangxia.m.yue@gmail.com>
-Cc: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/3] can: m_can: Make hclk optional
+Date: Thu, 20 Jul 2017 12:42:33 +0300
+Message-ID: <11cb765b-d69a-d7d5-b1e4-b55200764e63@cogentembedded.com>
+References: <20170719230926.10872-1-fcooper@ti.com>
+ <20170719230926.10872-2-fcooper@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Franklin S Cooper Jr <fcooper@ti.com>,
+        linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        wg@grandegger.com, mkl@pengutronix.de, robh+dt@kernel.org,
+        quentin.schulz@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33950 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934105AbdGTJlz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 05:41:55 -0400
-Received: by mail-pg0-f68.google.com with SMTP id v190so2328282pgv.1
-        for <netdev@vger.kernel.org>; Thu, 20 Jul 2017 02:41:55 -0700 (PDT)
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:34207 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935793AbdGTJmg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 05:42:36 -0400
+Received: by mail-lf0-f48.google.com with SMTP id g25so6101737lfh.1
+        for <netdev@vger.kernel.org>; Thu, 20 Jul 2017 02:42:35 -0700 (PDT)
+In-Reply-To: <20170719230926.10872-2-fcooper@ti.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is some codes of tun/tap module which did not check the return
-value of register_netdevice_notifier. Add the check now.
+Hello!
 
-Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
----
- drivers/net/tun.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+On 7/20/2017 2:09 AM, Franklin S Cooper Jr wrote:
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 3d4c245..32ad873 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -2598,8 +2598,16 @@ static int __init tun_init(void)
- 		goto err_misc;
- 	}
- 
--	register_netdevice_notifier(&tun_notifier_block);
-+	ret = register_netdevice_notifier(&tun_notifier_block);
-+	if (ret) {
-+		pr_err("Can't register netdevice notifier\n");
-+		goto err_notifier;
-+	}
-+
- 	return  0;
-+
-+err_notifier:
-+	misc_deregister(&tun_miscdev);
- err_misc:
- 	rtnl_link_unregister(&tun_link_ops);
- err_linkops:
--- 
-1.8.3.1
+> Hclk is the MCAN's interface clock. However, for OMAP based devices such as
+> DRA7 SoC family the interface clock is handled by hwmod. Therefore, this
+> interface clock is managed by hwmod driver via pm_runtime_get and
+> pm_runtime_put calls. Therefore, this interface clock isn't defined in DT
+> and thus the driver shouldn't fail if this clock isn't found.
+> 
+> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+> ---
+>   drivers/net/can/m_can/m_can.c | 9 +++++++--
+>   1 file changed, 7 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+> index f4947a7..7fe9145 100644
+> --- a/drivers/net/can/m_can/m_can.c
+> +++ b/drivers/net/can/m_can/m_can.c
+> @@ -1568,8 +1568,13 @@ static int m_can_plat_probe(struct platform_device *pdev)
+>   	hclk = devm_clk_get(&pdev->dev, "hclk");
+>   	cclk = devm_clk_get(&pdev->dev, "cclk");
+>   
+> -	if (IS_ERR(hclk) || IS_ERR(cclk)) {
+> -		dev_err(&pdev->dev, "no clock found\n");
+> +	if (IS_ERR(hclk)) {
+> +		dev_warn(&pdev->dev, "can't find hclk\n");
+> +		hclk = 0;
+
+    s/0/NULL/.
+
+[...]
+
+MBR, Sergei
