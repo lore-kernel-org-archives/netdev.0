@@ -1,50 +1,50 @@
 From: Philipp Zabel <p.zabel@pengutronix.de>
 Subject: Re: [PATCH 000/102] Convert drivers to explicit reset API
-Date: Thu, 20 Jul 2017 11:24:24 +0200
-Message-ID: <1500542664.2354.27.camel@pengutronix.de>
+Date: Thu, 20 Jul 2017 11:36:55 +0200
+Message-ID: <1500543415.2354.37.camel@pengutronix.de>
 References: <20170719152646.25903-1-p.zabel@pengutronix.de>
- <20170720081157.GA11630@kroah.com>
+         <20170719211515.46a1196c@windsurf>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Prashant Gaikwad <pgaikwad@nvidia.com>,
- Heiko Stuebner <heiko@sntech.de>, Peter Chen <Peter.Chen@nxp.com>,
- Linus Walleij <linus.walleij@linaro.org>, dri-devel@lists.freedesktop.org,
- Marc Dietrich <marvin24@gmx.de>, Rakesh Iyer <riyer@nvidia.com>,
- Peter Meerwald-Stadler <pmeerw@pmeerw.net>, linux-clk@vger.kernel.org,
- Wim Van Sebroeck <wim@iguana.be>, Wolfram Sang <wsa@the-dreams.de>,
- Xinliang Liu <z.liuxinliang@hisilicon.com>,
- Chanwoo Choi <cw00.choi@samsung.com>, Alan Stern <stern@rowland.harvard.edu>,
- Jiri Slaby <jslaby@suse.com>, Michael Turquette <mturquette@baylibre.com>,
- Guenter Roeck <linux@roeck-us.net>, Ohad Ben-Cohen <ohad@wizery.com>,
- linux-pm@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
- Vincent Abriou <vincent.abriou@st.com>, Bin Liu <b-liu@ti.com>,
- linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
- linux-kernel@
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170720081157.GA11630@kroah.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
-List-Post: <mailto:ath10k@lists.infradead.org>
-List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
-Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
-Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+        Prashant Gaikwad <pgaikwad@nvidia.com>,
+        Heiko Stuebner <heiko@sntech.de>,
+        Peter Chen <Peter.Chen@nxp.com>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        dri-devel@lists.freedesktop.org, Marc Dietrich <marvin24@gmx.de>,
+        Rakesh Iyer <riyer@nvidia.com>,
+        Peter Meerwald-Stadler <pmeerw@pmeerw.net>,
+        linux-clk@vger.kernel.org, Wim Van Sebroeck <wim@iguana.be>,
+        Wolfram Sang <wsa@the-dreams.de>,
+        Xinliang Liu <z.liuxinliang@hisilicon.com>,
+        Chanwoo Choi <cw00.choi@samsung.com>,
+        Alan Stern <stern@rowland.harvard.edu>,
+        Jiri Slaby <jslaby@suse.com>,
+        Michael Turquette <mturquette@baylibre.com>,
+        Guenter Roeck <linux@roeck-us.net>,
+        Ohad Ben-Cohen <ohad@wizery.com>, linux-pm@vger.kernel.org,
+        Thomas Gleixner <tglx
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <20170719211515.46a1196c@windsurf>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-Hi Greg,
+Hi Thomas,
 
-The patches in this series are completely independent of each other, and
-I would like the subsystem maintainers to apply them at their own
-leisure.
-Well, except for the last one, which I will apply only after there are
-no more users of the transition helpers.
-
-On Thu, 2017-07-20 at 10:11 +0200, Greg Kroah-Hartman wrote:
-> On Wed, Jul 19, 2017 at 05:25:04PM +0200, Philipp Zabel wrote:
+On Wed, 2017-07-19 at 21:15 +0200, Thomas Petazzoni wrote:
+> Hello,
+> 
+> On Wed, 19 Jul 2017 17:25:04 +0200, Philipp Zabel wrote:
 > > The reset control API has two modes: exclusive access, where the driver
 > > expects to have full and immediate control over the state of the reset
 > > line, and shared (clock-like) access, where drivers only request reset
@@ -59,42 +59,30 @@ On Thu, 2017-07-20 at 10:11 +0200, Greg Kroah-Hartman wrote:
 > > This series converts all drivers that currently implicitly request
 > > exclusive reset controls to the corresponding explicit API call. It is,
 > > for the most part, generated from the following semantic patch:
+> > 
+> > @@
+> > expression rstc, dev, id;
+> > @@
+> > -rstc = reset_control_get(dev, id);
+> > +rstc = reset_control_get_exclusive(dev, id);
 > 
-> Hey, I'm all for large api changes, but this really seems ackward, isn't
-> there a "better" way to do this?
-
-It is a bit awkward. I am sorry I haven't done this earlier. Quite a few
-new drivers started using the old API after the explicit requests were
-introduced last year.
-
-> Why not, as you say the "implicit" request is exclusive, just leave
-> everything alone and state that the "reset_control_get()" call is
-> exclusive 
-
-I think it is better to let the drivers explicitly state what they
-expect from the API, and using reset_control_get_exclusive vs _shared
-helps driver developers to make a conscious decision.
-
-Further, the implicit API call predates shared reset support, so it is
-not clear that all of the old users really need exclusive control.
-A few drivers have been switched to the shared API already.
-
-> and make the shared one the "odd" usage as that seems to not
-> be the normal case.
-
-I am not sure, there have been people arguing that the "clock-like" case
-really is the common one. I suppose some of those drivers touched by the
-100 patches in this series could also be changed to shared. But I don't
-dare to make this decision for each of them.
-
-> That should be a much smaller patch right?
+> I don't know if it has been discussed in the past, so forgive me if it
+> has been. Have you considered adding a "int flags" argument to the
+> existing reset_control_get_*() functions, rather than introducing
+> separate exclusive variants ?
 > 
-> That way you don't break everything here, and require 100+ patches to
-> just change the name of a function from one to another and do nothing
-> else.
+> Indeed, with a "int flags" argument you could in the future add more
+> variants/behaviors without actually multiplying the number of
+> functions. Something like the "flags" argument for request_irq() for
+> example.
 
-I don't break anything here, and I'm absolutely fine with squashing
-patches together per subsystem where that is preferable.
+I can't find the discussion right now, but I remember we had talked
+about this in the past.
+Behind the scenes, all the inline API functions already call common
+entry points with flags (well, currently separate bool parameters for
+shared and optional).
+One reason against exposing those as an int flags in the user facing API
+is the possibility to accidentally provide a wrong value.
 
 regards
 Philipp
