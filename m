@@ -1,39 +1,65 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: [PATCH] net: ethernet: mediatek: Explicitly include linux/interrupt.h
-Date: Thu, 20 Jul 2017 11:06:31 +0100
-Message-ID: <20170720100631.16040-1-broonie@kernel.org>
-Cc: netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        Mark Brown <broonie@kernel.org>
-To: Felix Fietkau <nbd@openwrt.org>, John Crispin <blogic@openwrt.org>,
-        "David S . Miller" <davem@davemloft.net>
+From: kiki good <jqiaoulk@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: systemport: Support 64bit statistics
+Date: Thu, 20 Jul 2017 11:13:57 +0100
+Message-ID: <CACM3AayYV-x1b8FpPCMdsSqkFEfJskkP0k9Dfsc5QjqTUbhKuA@mail.gmail.com>
+References: <1500423520-4169-1-git-send-email-jqiaoulk@gmail.com> <20170719.222516.1490852598794069450.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mezzanine.sirena.org.uk ([106.187.55.193]:52926 "EHLO
-        mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933887AbdGTKGs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 06:06:48 -0400
+Received: from mail-io0-f172.google.com ([209.85.223.172]:35710 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933320AbdGTKN6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 06:13:58 -0400
+Received: by mail-io0-f172.google.com with SMTP id m88so1321753iod.2
+        for <netdev@vger.kernel.org>; Thu, 20 Jul 2017 03:13:58 -0700 (PDT)
+In-Reply-To: <20170719.222516.1490852598794069450.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mediatek ethernet driver uses interrupts but does not explicitly
-include linux/interrupt.h, relying on implicit includes.  Fix this so we
-don't get build breaks as happened for ARM in next-20170720.
+Hi David:
 
-Signed-off-by: Mark Brown <broonie@kernel.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 1 +
- 1 file changed, 1 insertion(+)
+I am sorry for missing the commit log message;Since I did conversation
+with Florian Fainelli about this patch in another email thread
+"[PATCH] net: systemport: Support 64bit statistics", i incorrectly
+thought it was unnecessary to add the commit log again when submitting
+the revised patch.
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 7e95cf547ff1..95881ef6ee24 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -22,6 +22,7 @@
- #include <linux/if_vlan.h>
- #include <linux/reset.h>
- #include <linux/tcp.h>
-+#include <linux/interrupt.h>
- 
- #include "mtk_eth_soc.h"
- 
--- 
-2.13.2
+The reason for keeping both  .ndo_get_stats and 64-bit
+.ndo_get_stats64 comes from Florian, suggesting that because there is
+no harm in keeping bcm_sysport_get_stats and we can always deprecate
+it later, it is just to minimize the amount of changes to review.
+
+Why do we need this change ?
+When using Broadcom Systemport device in 32bit Platform, ifconfig can
+only report up to 4G tx,rx status, which will be wrapped to 0 when the
+number of incoming or outgoing packets exceeds 4G, only taking
+around 2 hours in busy network environment (such as streaming).
+Therefore, it makes hard for network diagnostic tool to get reliable
+statistical result, so the patch is used to add 64bit support for
+Broadcom Systemport device in 32bit Platform.
+
+Thanks
+Jmqiao
+
+On Thu, Jul 20, 2017 at 6:25 AM, David Miller <davem@davemloft.net> wrote:
+> From: "Jianming.qiao" <jqiaoulk@gmail.com>
+> Date: Wed, 19 Jul 2017 01:18:40 +0100
+>
+>> Signed-off-by: Jianming.qiao <kiki-good@hotmail.com>
+>
+> Supporting both deprecated .ndo_get_stats and 64-bit .ndo_get_stats64
+> at the same time makes no sense.
+>
+> .ndo_get_stats will never be called if .ndo_get_stats64 is non-NULL
+>
+> The lack of a commit log message, explaining in detail, why you are
+> doing this and why you are doing it this way, concerns me as well.
+>
+> This submission so far has been a bit of a mess.  You don't
+> communicate enough, your commit message is empty, and therefore we
+> have no idea why you are doing things, and in particular the reasons
+> for your decisions.
+>
+> I'm not applying this, sorry.
