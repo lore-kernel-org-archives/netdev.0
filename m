@@ -1,44 +1,61 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: commit 16ecba59 breaks 82574L under heavy load.
-Date: Thu, 20 Jul 2017 10:00:27 -0400
-Message-ID: <20170720140027.GR18556@csclub.uwaterloo.ca>
-References: <20170718142109.GO18556@csclub.uwaterloo.ca>
- <20170718231435.64us7vu67wtp6pwe@f1.synalogic.ca>
- <20170719141953.GQ18556@csclub.uwaterloo.ca>
- <20170720000747.4jiadqubv7hg5esz@f1.synalogic.ca>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] net: bonding: Fix transmit load balancing in balance-alb mode
+Date: Thu, 20 Jul 2017 10:07:44 -0400
+Message-ID: <CAHashqBi4Jz6r9X0Oa-Q4kJtEQpjSR+_AczDWhCi3FXpkBdMJQ@mail.gmail.com>
+References: <17EC94B0A072C34B8DCF0D30AD16044A0296FEF5@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        intel-wired-lan@lists.osuosl.org,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Benjamin Poirier <bpoirier@suse.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170720000747.4jiadqubv7hg5esz@f1.synalogic.ca>
+In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A0296FEF5@BPXM09GP.gisp.nec.co.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 19, 2017 at 05:07:47PM -0700, Benjamin Poirier wrote:
-> Are you sure about this? In my testing, while triggering the overrun
-> with the msleep, I read ICR when entering e1000_msix_other() and RXO is
-> consistently set.
+On Thu, Jul 20, 2017 at 1:20 AM, Kosuke Tatsukawa <tatsu@ab.jp.nec.com> wrote:
+> balance-alb mode used to have transmit dynamic load balancing feature
+> enabled by default.  However, transmit dynamic load balancing no longer
+> works in balance-alb after commit 8b426dc54cf4 ("bonding: remove
+> hardcoded value").
+>
+> Both balance-tlb and balance-alb use the function bond_do_alb_xmit() to
+> send packets.  This function uses the parameter tlb_dynamic_lb.
+> tlb_dynamic_lb used to have the default value of 1 for balance-alb, but
+> now the value is set to 0 except in balance-tlb.
+>
+> Re-enable transmit dyanmic load balancing by initializing tlb_dynamic_lb
+> for balance-alb similar to balance-tlb.
+>
+> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+> Cc: stable@vger.kernel.org
 
-I had thousands of calls to e1000_msix_other where the only bit set
-was OTHER.
+You probably should add:
 
-I don't know if the cause is overruns, it just seems plausible.
+Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value").
 
-> I'm working on a patch that uses that fact to handle the situation and
-> limit the interrupt.
+Otherwise this looks reasonable to me.
 
-Excellent.
+Acked-by: Andy Gospodarek <andy@greyhouse.net>
 
-Running in MSI mode rather than MSI-X seems to not have the problem of
-unexpected interrupts, but has other issues (such as loosing the IRQ
-affinity setting if you do ifconfig down;ifconfig up on the interface,
-which does not happen in MSI-X's case.)  That's rather annoying as you
-can't set the affinity before bringing up the interface which is rather
-undesirable.
 
--- 
-Len Sorensen
+> ---
+>  drivers/net/bonding/bond_main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 14ff622..181839d 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -4596,7 +4596,7 @@ static int bond_check_params(struct bond_params *params)
+>         }
+>         ad_user_port_key = valptr->value;
+>
+> -       if (bond_mode == BOND_MODE_TLB) {
+> +       if ((bond_mode == BOND_MODE_TLB) || (bond_mode == BOND_MODE_ALB)) {
+>                 bond_opt_initstr(&newval, "default");
+>                 valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB),
+>                                         &newval);
+>
