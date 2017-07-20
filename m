@@ -1,70 +1,107 @@
-From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH 000/102] Convert drivers to explicit reset API
-Date: Thu, 20 Jul 2017 10:11:57 +0200
-Message-ID: <20170720081157.GA11630@kroah.com>
-References: <20170719152646.25903-1-p.zabel@pengutronix.de>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: Re: [PATCH net-next v2 00/13] Change DSA's FDB API and perform
+ switchdev cleanup
+Date: Thu, 20 Jul 2017 12:04:46 +0300
+Message-ID: <099a0552-0139-20d4-2529-c1202303d772@mellanox.com>
+References: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
+ <87mv80ji63.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Prashant Gaikwad <pgaikwad-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
- Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>, Peter Chen <Peter.Chen-3arQi8VN3Tc@public.gmane.org>,
- Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
- Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>, Rakesh Iyer <riyer-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
- Peter Meerwald-Stadler <pmeerw-jW+XmwGofnusTnJN9+BGXg@public.gmane.org>, linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Wim Van Sebroeck <wim-IQzOog9fTRqzQB+pC5nmwQ@public.gmane.org>, Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>,
- Xinliang Liu <z.liuxinliang-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
- Chanwoo Choi <cw00.choi-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
- Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>, Michael Turquette <mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
- Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>, Ohad Ben-Cohen <ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
- linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
- Vincent Abriou <vincent.abriou-qxv4g6HH51o@public.gmane.org>, Bin Liu <b-liu-l0cyMroinI0@public.gmane.org>,
- linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel@
-To: Philipp Zabel <p.zabel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170719152646.25903-1-p.zabel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
+        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-eopbgr40084.outbound.protection.outlook.com ([40.107.4.84]:40540
+        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S934945AbdGTJE5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Jul 2017 05:04:57 -0400
+In-Reply-To: <87mv80ji63.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 19, 2017 at 05:25:04PM +0200, Philipp Zabel wrote:
-> The reset control API has two modes: exclusive access, where the driver
-> expects to have full and immediate control over the state of the reset
-> line, and shared (clock-like) access, where drivers only request reset
-> deassertion while active, but don't care about the state of the reset line
-> while inactive.
+
+
+On 07/19/2017 11:17 PM, Vivien Didelot wrote:
+> Hi Arkadi,
 > 
-> Commit a53e35db70d1 ("reset: Ensure drivers are explicit when requesting
-> reset lines") started to transition the reset control request API calls
-> to explicitly state whether the driver needs exclusive or shared reset
-> control behavior.
+> I am testing your patch series the behavior changes suspiciously:
 > 
-> This series converts all drivers that currently implicitly request
-> exclusive reset controls to the corresponding explicit API call. It is,
-> for the most part, generated from the following semantic patch:
+>     # brctl show br0
+>     bridge name	bridge id		STP enabled	interfaces
+>     br0		8000.f6d5ef06ccdd	no		lan0
+>                                                         lan1
+>                                                         lan2
+>                                                         lan3
+>                                                         lan4
+>                                                         lan5
+>                                                         lan6
+>                                                         lan7
+>                                                         lan8
+>                                                         optical3
+>                                                         optical4
+> 
+> Without the patchset I have this behavior:
+> 
+>     # bridge fdb add 00:11:22:33:44:55 dev lan4
+>     # bridge fdb add 22:33:44:55:66:77 dev lan2 self
+>     # bridge fdb show                               
+>     01:00:5e:00:00:01 dev eth0 self permanent
+>     01:00:5e:00:00:01 dev eth1 self permanent
+>     0a:3f:f6:06:a2:ee dev lan0 master br0 permanent
+>     22:33:44:55:66:77 dev lan2 self static
+>     00:11:22:33:44:55 dev lan4 self static
+>     01:00:5e:00:00:01 dev br0 self permanent
+> 
+> And now with the patchset applied I have:
+> 
+> # bridge fdb add 00:11:22:33:44:55 dev lan4
+> # bridge fdb add 22:33:44:55:66:77 dev lan2 self
+> # bridge fdb show
+> 01:00:5e:00:00:01 dev eth0 self permanent
+> 00:11:22:33:44:55 dev eth1 self permanent
+> 22:33:44:55:66:77 dev eth1 self permanent
+> 01:00:5e:00:00:01 dev eth1 self permanent
+> 0a:ca:c8:6b:05:65 dev lan0 master br0 permanent
+> 01:00:5e:00:00:01 dev br0 self permanent
+> 
+> 
+> It looks like the FDB entries are reported to be associated with the
+> master net device (eth1). Is the dump broken or is it the whole add?
+> 
+> Thanks,
+> 
+>         Vivien
+> 
 
-Hey, I'm all for large api changes, but this really seems ackward, isn't
-there a "better" way to do this?
+Hi, thanks for the test. If the fdb is marked as self its not in the
+bridge at all. So before my patch it was OK because you supported the
+self thing.
 
-Why not, as you say the "implicit" request is exclusive, just leave
-everything alone and state that the "reset_control_get()" call is
-exclusive and make the shared one the "odd" usage as that seems to not
-be the normal case.
+Please notice that both fdbs you added are marked the same because the
+default is self: vim bridge/fdb.c +499 (I think this is a bug because
+the man page states that master is the default). So in order to put it
+in the bridge you should specify "master":
 
-That should be a much smaller patch right?
+$bridge fdb add e4:1d:2d:a5:f0:4a dev sw1p7 master
+$bridge fdb show brport sw1p7
+e4:1d:2d:a5:f0:4a vlan 1 offload master br0 permanent <---also should
+e4:1d:2d:46:13:f1 vlan 1 master br0 permanent             be offloaded*
+e4:1d:2d:46:13:f1 master br0 permanent
+e4:1d:2d:a5:f0:4a offload master br0 permanent
+33:33:00:00:00:01 self permanent
+01:00:5e:00:00:01 self permanent
+33:33:ff:46:13:f1 self permanent
 
-That way you don't break everything here, and require 100+ patches to
-just change the name of a function from one to another and do nothing
-else.
+*you should take the latest iproute.
 
-thanks,
+Also it seems strange that I removed the self support from the driver
+but you still managed to configure it. The reason is the default
+self implementation:
 
-greg k-h
+vim net/core/rtnetlink.c +3112
+
+I think it is relevant for NICs mostly, so we can ignore it.
