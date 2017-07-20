@@ -1,111 +1,104 @@
-From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH 1/4] can: dev: Add support for limiting configured bitrate
-Date: Thu, 20 Jul 2017 10:59:36 -0500
-Message-ID: <79d11682-83d8-f56b-4c17-8de1beec70f3@ti.com>
-References: <20170719233654.25908-1-fcooper@ti.com>
- <20170719233654.25908-2-fcooper@ti.com>
- <b04fea5c-c47b-4643-5305-090f5f17afe1@cogentembedded.com>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH 1/2] net: mvneta: remove bogus use of
+Date: Thu, 20 Jul 2017 18:01:04 +0200
+Message-ID: <CAPv3WKdv4tO7p07w0Ynczq66z+Jq13wbYEwriNY19PWgTjdieQ@mail.gmail.com>
+References: <20170720142711.12847-1-robh@kernel.org> <8760en5es2.fsf@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        <dev.kurt-yI9piX4KPfawT/RRk36CISFp6vIno51x@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <b04fea5c-c47b-4643-5305-090f5f17afe1-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        netdev@vger.kernel.org,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>
+To: Rob Herring <robh@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:34685 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934497AbdGTQBF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 12:01:05 -0400
+Received: by mail-io0-f172.google.com with SMTP id l7so13427700iof.1
+        for <netdev@vger.kernel.org>; Thu, 20 Jul 2017 09:01:05 -0700 (PDT)
+In-Reply-To: <8760en5es2.fsf@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Rob,
 
+I somehow missed this patch.
 
-On 07/20/2017 04:52 AM, Sergei Shtylyov wrote:
-> Hello!
-> 
-> On 7/20/2017 2:36 AM, Franklin S Cooper Jr wrote:
-> 
->> Various CAN or CAN-FD IP may be able to run at a faster rate than
->> what the transceiver the CAN node is connected to. This can lead to
->> unexpected errors. However, CAN transceivers typically have fixed
->> limitations and provide no means to discover these limitations at
->> runtime. Therefore, add support for a fixed-transceiver node that
->> can be reused by other CAN peripheral drivers to determine for both
->> CAN and CAN-FD what the max bitrate that can be used. If the user
->> tries to configure CAN to pass these maximum bitrates it will throw
->> an error.
+2017-07-20 17:06 GMT+02:00 Gregory CLEMENT <gregory.clement@free-electrons.com>:
+> Hi Rob,
+>
+>  On jeu., juil. 20 2017, Rob Herring <robh@kernel.org> wrote:
+>
+> (Adding Marcin in CC who wrote this part of code)
+>
+>> Nothing sets ever sets data, so it is always NULL. Remove it as this is
+>> the only user of data ptr in the whole kernel, and it is going to be
+>> removed from struct device_node.
+>
+> Actually the use of device_node.data ptr is not bogus and it is set in
+> mvneta_bm_probe:
+> http://elixir.free-electrons.com/linux/latest/source/drivers/net/ethernet/marvell/mvneta_bm.c#L433
+>
+> Your patch will break the BM support on this driver. So if you need to
+> remove this data ptr, then you have to offer an alternative for it.
+
+Exactly, this breaks NETA operation with BM block. The data is set in:
+
+dn->data = priv;
+platform_set_drvdata(pdev, priv);
+
+At the time I couldn't have found out a nicer solution to make work
+two different HW blocks (network controller and buffer manager). There
+was once a patchset enabling calling another driver's probe basing on
+the phandle and of_node information, but after it reached ~v7 it
+eventually didn't make it to the tree. Do you any way for solving such
+dependencies, if you really want to get rid of this field?
+
+Best regards,
+Marcin
+
+>
+> Thanks,
+>
+> Gregory
+>
 >>
->> Signed-off-by: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+>> Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+>> Signed-off-by: Rob Herring <robh@kernel.org>
 >> ---
->>   drivers/net/can/dev.c   | 48
->> ++++++++++++++++++++++++++++++++++++++++++++++++
->>   include/linux/can/dev.h |  5 +++++
->>   2 files changed, 53 insertions(+)
+>> Probably there's a better fix here to actually enable the h/w buffer
+>> manager.
 >>
->> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
->> index 365a8cc..fbab87d 100644
->> --- a/drivers/net/can/dev.c
->> +++ b/drivers/net/can/dev.c
-> [...]
->> @@ -814,6 +830,38 @@ int open_candev(struct net_device *dev)
->>   }
->>   EXPORT_SYMBOL_GPL(open_candev);
->>   +#ifdef CONFIG_OF
->> +void of_transceiver_is_fixed(struct net_device *dev)
-> 
->    Strange name for a *void* function...
-
-Ok I see what you mean since I'm not actually returning anything. I'll
-go with of_can_transceiver_fixed based on your comment also Oliver's
-suggestion.
-
->    Also, I think 'struct net_device *' variables are typically called
-> 'ndev'.
-
-All other functions within this file uses struct net_device *dev. So I'm
-just following the style currently used.
-
-> 
->> +{
->> +    struct device_node *dn;
->> +    struct can_priv *priv = netdev_priv(dev);
->> +    u32 max_frequency;
->> +    struct device_node *np;
->> +
->> +    np = dev->dev.parent->of_node;
->> +
->> +    /* New binding */
->> +    dn = of_get_child_by_name(np, "fixed-transceiver");
->> +    if (!dn)
->> +        return;
->> +
->> +    of_property_read_u32(dn, "max-arbitration-speed", &max_frequency);
-> 
->    In case this function fails, 'max_frequency' will have no value --
-> you'd better initialize it...
-
-Thanks for catching this. Will fix.
-
-> 
->> +
->> +    if (max_frequency > 0)
->> +        priv->max_trans_arbitration_speed = max_frequency;
->> +    else
->> +        priv->max_trans_arbitration_speed = -1;
->> +
->> +    of_property_read_u32(dn, "max-data-speed", &max_frequency);
-> 
->    Again, when that function fails, the variable will keep the value
-> from the previous call...
-
-Will fix.
-
-> 
-> [...]
-> 
-> MBR, Sergei
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> I intend to take this thru the DT tree as patch 2 is dependent on this.
+>>
+>> Rob
+>>
+>>  drivers/net/ethernet/marvell/mvneta.c | 4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+>> index 0aab74c2a209..5624f4b49f9d 100644
+>> --- a/drivers/net/ethernet/marvell/mvneta.c
+>> +++ b/drivers/net/ethernet/marvell/mvneta.c
+>> @@ -4296,8 +4296,8 @@ static int mvneta_probe(struct platform_device *pdev)
+>>
+>>       /* Obtain access to BM resources if enabled and already initialized */
+>>       bm_node = of_parse_phandle(dn, "buffer-manager", 0);
+>> -     if (bm_node && bm_node->data) {
+>> -             pp->bm_priv = bm_node->data;
+>> +     if (bm_node) {
+>> +             pp->bm_priv = NULL;
+>>               err = mvneta_bm_port_init(pdev, pp);
+>>               if (err < 0) {
+>>                       dev_info(&pdev->dev, "use SW buffer management\n");
+>> --
+>> 2.11.0
+>>
+>
+> --
+> Gregory Clement, Free Electrons
+> Kernel, drivers, real-time and embedded Linux
+> development, consulting, training and support.
+> http://free-electrons.com
