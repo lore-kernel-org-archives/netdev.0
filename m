@@ -1,9 +1,10 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/3] can: m_can: Make hclk optional
-Date: Thu, 20 Jul 2017 12:42:33 +0300
-Message-ID: <11cb765b-d69a-d7d5-b1e4-b55200764e63@cogentembedded.com>
-References: <20170719230926.10872-1-fcooper@ti.com>
- <20170719230926.10872-2-fcooper@ti.com>
+Subject: Re: [PATCH 2/4] can: fixed-transceiver: Add documentation for CAN
+ fixed transceiver bindings
+Date: Thu, 20 Jul 2017 12:45:56 +0300
+Message-ID: <bd3e9fc0-9fee-d1ce-3118-7d3c865909a1@cogentembedded.com>
+References: <20170719233654.25908-1-fcooper@ti.com>
+ <20170719233654.25908-3-fcooper@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,50 +12,58 @@ To: Franklin S Cooper Jr <fcooper@ti.com>,
         linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
         netdev@vger.kernel.org, linux-can@vger.kernel.org,
         wg@grandegger.com, mkl@pengutronix.de, robh+dt@kernel.org,
-        quentin.schulz@free-electrons.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:34207 "EHLO
-        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935793AbdGTJmg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 05:42:36 -0400
-Received: by mail-lf0-f48.google.com with SMTP id g25so6101737lfh.1
-        for <netdev@vger.kernel.org>; Thu, 20 Jul 2017 02:42:35 -0700 (PDT)
-In-Reply-To: <20170719230926.10872-2-fcooper@ti.com>
+        quentin.schulz@free-electrons.com, dev.kurt@vandijck-laurijssen.be,
+        andrew@lunn.ch
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20170719233654.25908-3-fcooper@ti.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello!
 
-On 7/20/2017 2:09 AM, Franklin S Cooper Jr wrote:
+On 7/20/2017 2:36 AM, Franklin S Cooper Jr wrote:
 
-> Hclk is the MCAN's interface clock. However, for OMAP based devices such as
-> DRA7 SoC family the interface clock is handled by hwmod. Therefore, this
-> interface clock is managed by hwmod driver via pm_runtime_get and
-> pm_runtime_put calls. Therefore, this interface clock isn't defined in DT
-> and thus the driver shouldn't fail if this clock isn't found.
+> Add documentation to describe usage of the new fixed transceiver binding.
+> This new binding is applicable for any CAN device therefore it exist as
+
+    Exists.
+
+> its own document.
 > 
 > Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
 > ---
->   drivers/net/can/m_can/m_can.c | 9 +++++++--
->   1 file changed, 7 insertions(+), 2 deletions(-)
+>   .../bindings/net/can/fixed-transceiver.txt         | 31 ++++++++++++++++++++++
+>   1 file changed, 31 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
 > 
-> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-> index f4947a7..7fe9145 100644
-> --- a/drivers/net/can/m_can/m_can.c
-> +++ b/drivers/net/can/m_can/m_can.c
-> @@ -1568,8 +1568,13 @@ static int m_can_plat_probe(struct platform_device *pdev)
->   	hclk = devm_clk_get(&pdev->dev, "hclk");
->   	cclk = devm_clk_get(&pdev->dev, "cclk");
->   
-> -	if (IS_ERR(hclk) || IS_ERR(cclk)) {
-> -		dev_err(&pdev->dev, "no clock found\n");
-> +	if (IS_ERR(hclk)) {
-> +		dev_warn(&pdev->dev, "can't find hclk\n");
-> +		hclk = 0;
+> diff --git a/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+> new file mode 100644
+> index 0000000..7c093c3
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+> @@ -0,0 +1,31 @@
+> +Fixed transceiver Device Tree binding
+> +------------------------------
+> +
+> +CAN transceiver typically limits the max speed in standard CAN and CAN FD
+> +modes. Typically these limitations are static and the transceivers themselves
+> +provide no way to detect this limitation at runtime. For this situation,
+> +the "fixed-transceiver" node can be used.
+> +
+> +Properties:
+> +
+> +Optional:
+> + max-arbitration-speed: a positive value non 0 value that determines the max
 
-    s/0/NULL/.
+    Too many values. :-)
 
+> +			 speed CAN can run in non CAN-FD mode or during the
+> +			 arbitration phase in CAN-FD mode.
+> +
+> + max-data-speed:	 a positive value that determines the max data rate
+> +			 that can be used in CAN-FD mode. A value of 0
+> +			 implies CAN-FD is not supported by the transceiver.
 [...]
 
 MBR, Sergei
