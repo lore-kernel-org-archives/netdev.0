@@ -1,27 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dsa: b53: Add missing ARL entries for BCM53125
-Date: Thu, 20 Jul 2017 15:22:19 -0700 (PDT)
-Message-ID: <20170720.152219.1741032866987867477.davem@davemloft.net>
-References: <20170720192522.18048-1-f.fainelli@gmail.com>
+Subject: Re: [Patch net] rtnetlink: allocate more memory for
+ dev_set_mac_address()
+Date: Thu, 20 Jul 2017 15:23:51 -0700 (PDT)
+Message-ID: <20170720.152351.756381405791784095.davem@davemloft.net>
+References: <20170720182758.20204-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170720192522.18048-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dsahern@gmail.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37062 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965429AbdGTWXw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:23:52 -0400
+In-Reply-To: <20170720182758.20204-1-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 20 Jul 2017 12:25:22 -0700
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Thu, 20 Jul 2017 11:27:57 -0700
 
-> The BCM53125 entry was missing an arl_entries member which would
-> basically prevent the ARL search from terminating properly. This switch
-> has 4 ARL entries, so add that.
+> virtnet_set_mac_address() interprets mac address as struct
+> sockaddr, but upper layer only allocates dev->addr_len
+> which is ETH_ALEN + sizeof(sa_family_t) in this case.
 > 
-> Fixes: 1da6df85c6fb ("net: dsa: b53: Implement ARL add/del/dump operations")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> We lack a unified definition for mac address, so just fix
+> the upper layer, this also allows drivers to interpret it
+> to struct sockaddr freely.
+> 
+> Reported-by: David Ahern <dsahern@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied and queued up for -stable, thanks.
+Applied and queued up for -stable, thanks Cong.
