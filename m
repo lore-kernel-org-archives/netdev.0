@@ -1,91 +1,48 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: [IRDA PATCH] mcs7780: Fix initialization when CONFIG_VMAP_STACK is enabled
-Date: Sat, 22 Jul 2017 17:14:34 +0200
-Message-ID: <4316885.YzrCl4HEmB@pikkukde.a.i2n>
+From: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH 000/102] Convert drivers to explicit reset API
+Date: Thu, 20 Jul 2017 22:32:49 +0200
+Message-ID: <1687646.TMvigZNUOP__23329.3554898866$1500745025$gmane$org@phil>
+References: <20170719152646.25903-1-p.zabel@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs07.intra2net.com ([85.214.138.66]:45924 "EHLO
-        rs07.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750866AbdGVPWu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 11:22:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Prashant Gaikwad <pgaikwad-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
+ Peter Chen <Peter.Chen-3arQi8VN3Tc@public.gmane.org>, Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
+ Rakesh Iyer <riyer-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, Peter Meerwald-Stadler <pmeerw-jW+XmwGofnusTnJN9+BGXg@public.gmane.org>,
+ linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Wim Van Sebroeck <wim-IQzOog9fTRqzQB+pC5nmwQ@public.gmane.org>,
+ Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>, Xinliang Liu <z.liuxinliang-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+ Chanwoo Choi <cw00.choi-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+ Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>, Michael Turquette <mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+ Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>, Ohad Ben-Cohen <ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+ linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+ Vincent Abriou <vincent.abriou-qxv4g6HH51o@public.gmane.org>, Bin Liu <b-liu-l0cyMroinI0@public.gmane.org>,
+ Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+To: Philipp Zabel <p.zabel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <nouveau-bounces-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
+In-Reply-To: <20170719152646.25903-1-p.zabel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/nouveau>,
+ <mailto:nouveau-request-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/nouveau>
+List-Post: <mailto:nouveau-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
+List-Help: <mailto:nouveau-request-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/nouveau>,
+ <mailto:nouveau-request-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org?subject=subscribe>
+Errors-To: nouveau-bounces-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org
+Sender: "Nouveau" <nouveau-bounces-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-DMA transfers are not allowed to buffers that are on the stack.
-Therefore allocate a buffer to store the result of usb_control_message().
-
-Fixes these bugreports:
-https://bugzilla.kernel.org/show_bug.cgi?id=195217
-
-https://bugzilla.redhat.com/show_bug.cgi?id=1421387
-https://bugzilla.redhat.com/show_bug.cgi?id=1427398
-
-
-Shortened kernel backtrace from 4.11.9-200.fc25.x86_64:
-kernel: ------------[ cut here ]------------
-kernel: WARNING: CPU: 3 PID: 2957 at drivers/usb/core/hcd.c:1587
-kernel: transfer buffer not dma capable
-kernel: Call Trace:
-kernel: dump_stack+0x63/0x86
-kernel: __warn+0xcb/0xf0
-kernel: warn_slowpath_fmt+0x5a/0x80
-kernel: usb_hcd_map_urb_for_dma+0x37f/0x570
-kernel: ? try_to_del_timer_sync+0x53/0x80
-kernel: usb_hcd_submit_urb+0x34e/0xb90
-kernel: ? schedule_timeout+0x17e/0x300
-kernel: ? del_timer_sync+0x50/0x50
-kernel: ? __slab_free+0xa9/0x300
-kernel: usb_submit_urb+0x2f4/0x560
-kernel: ? urb_destroy+0x24/0x30
-kernel: usb_start_wait_urb+0x6e/0x170
-kernel: usb_control_msg+0xdc/0x120
-kernel: mcs_get_reg+0x36/0x40 [mcs7780]
-kernel: mcs_net_open+0xb5/0x5c0 [mcs7780]
-...
-
-Regression goes back to 4.9, so it's a good candidate for -stable.
-Though it's the decision of the maintainer.
-
-Thanks to Dan Williams for adding the "transfer buffer not dma capable"
-warning in the first place. It instantly pointed me in the right direction.
-
-Patch has been tested with transferring data from a Polar watch.
-
-Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
----
- drivers/net/irda/mcs7780.c | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
-index 6f6ed75b63c9..765de3bedb88 100644
---- a/drivers/net/irda/mcs7780.c
-+++ b/drivers/net/irda/mcs7780.c
-@@ -141,9 +141,19 @@ static int mcs_set_reg(struct mcs_cb *mcs, __u16 reg, __u16 val)
- static int mcs_get_reg(struct mcs_cb *mcs, __u16 reg, __u16 * val)
- {
- 	struct usb_device *dev = mcs->usbdev;
--	int ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), MCS_RDREQ,
--				  MCS_RD_RTYPE, 0, reg, val, 2,
--				  msecs_to_jiffies(MCS_CTRL_TIMEOUT));
-+	void *dmabuf;
-+	int ret;
-+
-+	dmabuf = kmalloc(sizeof(__u16), GFP_KERNEL);
-+	if (!dmabuf)
-+		return -ENOMEM;
-+
-+	ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), MCS_RDREQ,
-+			      MCS_RD_RTYPE, 0, reg, dmabuf, 2,
-+			      msecs_to_jiffies(MCS_CTRL_TIMEOUT));
-+
-+	memcpy(val, dmabuf, sizeof(__u16));
-+	kfree(dmabuf);
- 
- 	return ret;
- }
--- 
-2.11.1
+SGksCgo+ICAgY3J5cHRvOiByb2NrY2hpcDogZXhwbGljaXRseSByZXF1ZXN0IGV4Y2x1c2l2ZSBy
+ZXNldCBjb250cm9sCj4gICBpaW86IGFkYzogcm9ja2NoaXBfc2FyYWRjOiBleHBsaWNpdGx5IHJl
+cXVlc3QgZXhjbHVzaXZlIHJlc2V0IGNvbnRyb2wKPiAgIFBDSTogcm9ja2NoaXA6IGV4cGxpY2l0
+bHkgcmVxdWVzdCBleGNsdXNpdmUgcmVzZXQgY29udHJvbAo+ICAgcGh5OiByb2NrY2hpcC1wY2ll
+OiBleHBsaWNpdGx5IHJlcXVlc3QgZXhjbHVzaXZlIHJlc2V0IGNvbnRyb2wKPiAgIHBoeTogcm9j
+a2NoaXAtdHlwZWM6IGV4cGxpY2l0bHkgcmVxdWVzdCBleGNsdXNpdmUgcmVzZXQgY29udHJvbAo+
+ICAgcGh5OiByb2NrY2hpcC11c2I6IGV4cGxpY2l0bHkgcmVxdWVzdCBleGNsdXNpdmUgcmVzZXQg
+Y29udHJvbAo+ICAgdGhlcm1hbDogcm9ja2NoaXA6IGV4cGxpY2l0bHkgcmVxdWVzdCBleGNsdXNp
+dmUgcmVzZXQgY29udHJvbAoKZm9yIHRoZSBkcml2ZXItcmVsYXRlZCBSb2NrY2hpcCBjaGFuZ2Vz
+CgpBY2tlZC1ieTogSGVpa28gU3R1ZWJuZXIgPGhlaWtvQHNudGVjaC5kZT4KX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTm91dmVhdSBtYWlsaW5nIGxpc3QK
+Tm91dmVhdUBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5v
+cmcvbWFpbG1hbi9saXN0aW5mby9ub3V2ZWF1Cg==
