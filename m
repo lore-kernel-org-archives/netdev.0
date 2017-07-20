@@ -1,7 +1,7 @@
-From: <arthur.kepner@riverbed.com>
-Subject: [git][a48a019] rvbd/rbt-kernel : sabre_branch
-Date: Thu, 20 Jul 2017 22:25:35 +0000
-Message-ID: <20170720222535.24978.36486@leafminer.lab.nbttech.com>
+From: <steven.la@riverbed.com>
+Subject: [git][98ed5bb] rvbd/rbt-kernel : devon_dps_dataplane
+Date: Thu, 20 Jul 2017 22:28:31 +0000
+Message-ID: <20170720222831.24972.36167@leafminer.lab.nbttech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,10 +11,10 @@ To: Michael@vger.kernel.org, <konrad.wilk@oracle.com>,
         Konrad@vger.kernel.org, Wilk@vger.kernel.org,
         <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.riverbed.com ([208.70.196.45]:29778 "EHLO
+Received: from smtp.riverbed.com ([208.70.196.45]:5912 "EHLO
         smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965267AbdGTW2p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:28:45 -0400
+        with ESMTP id S965994AbdGTW2c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:28:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,17 +23,14 @@ List-ID: <netdev.vger.kernel.org>
 
 
 Repository: git@gitlab.lab.nbttech.com:rvbd/rbt-kernel.git
-Branch: sabre_branch
-Author: Arthur Kepner <arthur.kepner@riverbed.com>
-Date: 2017-07-20T15:22:12-07:00
-New Revision: a48a019e7afe2db8e74fda96507b82bafcfebe99
+Branch: devon_dps_dataplane
+Author: Steven La <steven.la@riverbed.com>
+Date: 2017-07-18T16:34:31-07:00
+New Revision: 98ed5bbc446dca588ab8a1a6edbfc870dc9d6933
 
 
 Log:
-Merge branch 'bnx2-fix' into 'master'
-
 Apply the following patches from upstream and port extra skbuff
-
 operating routines used the these patches.
 
     commit b7b6a688d217936459ff5cf1087b2361db952509
@@ -96,7 +93,6 @@ CC:
 Reviewed-By: akepner
 Approved-By:
 
-See merge request !35
 
 Open this commit in your browser:
-https://gitlab.lab.nbttech.com/rvbd/rbt-kernel/commit/a48a019e7afe2db8e74fda96507b82bafcfebe99
+https://gitlab.lab.nbttech.com/rvbd/rbt-kernel/commit/98ed5bbc446dca588ab8a1a6edbfc870dc9d6933
