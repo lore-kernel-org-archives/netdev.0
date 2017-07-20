@@ -1,48 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: tehuti: don't process data if it has not been
- copied from userspace
-Date: Wed, 19 Jul 2017 22:49:01 -0700 (PDT)
-Message-ID: <20170719.224901.2173661512386984465.davem@davemloft.net>
-References: <20170719174659.22646-1-colin.king@canonical.com>
+Subject: Re: [PATCH net] ipv6: avoid overflow of offset in
+ ip6_find_1stfragopt
+Date: Wed, 19 Jul 2017 22:50:51 -0700 (PDT)
+Message-ID: <20170719.225051.645203803095342.davem@davemloft.net>
+References: <0f29f7f5eeb18d49879cf18a868fd36dc4d87c52.1500479911.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andy@greyhouse.net, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52436 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52446 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754629AbdGTFtC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 01:49:02 -0400
-In-Reply-To: <20170719174659.22646-1-colin.king@canonical.com>
+        with ESMTP id S1750771AbdGTFuw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 01:50:52 -0400
+In-Reply-To: <0f29f7f5eeb18d49879cf18a868fd36dc4d87c52.1500479911.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Wed, 19 Jul 2017 18:46:59 +0100
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Wed, 19 Jul 2017 22:28:55 +0200
 
-> From: Colin Ian King <colin.king@canonical.com>
+> In some cases, offset can overflow and can cause an infinite loop in
+> ip6_find_1stfragopt(). Make it unsigned int to prevent the overflow, and
+> cap it at IPV6_MAXPLEN, since packets larger than that should be invalid.
 > 
-> The array data is only populated with valid information from userspace
-> if cmd != SIOCDEVPRIVATE, other cases the array contains garbage on
-> the stack. The subsequent switch statement acts on a subcommand in
-> data[0] which could be any garbage value if cmd is SIOCDEVPRIVATE which
-> seems incorrect to me.  Instead, just return EOPNOTSUPP for the case
-> where cmd == SIOCDEVPRIVATE to avoid this issue.
+> This problem has been here since before the beginning of git history.
 > 
-> As a side note, I suspect that the original intention of the code
-> was for this ioctl to work just for cmd == SIOCDEVPRIVATE (and the
-> current logic is reversed). However, I don't wont to change the current
-> semantics in case any userspace code relies on this existing behaviour.
-> 
-> Detected by CoverityScan, CID#139647 ("Uninitialized scalar variable")
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Yeah this is the safest change for now, applied.
-
-Francois added the register address range checking a year after the
-driver was added, so maybe someone used this facility.
-
-It should have been done via ethtool getregs...
+Applied and queued up for -stable, thanks.
