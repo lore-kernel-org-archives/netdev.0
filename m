@@ -1,44 +1,180 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] team: use a larger struct for mac address
-Date: Thu, 20 Jul 2017 16:42:38 -0700
-Message-ID: <CAM_iQpVEDq2iTURYYvUgr1vOgmZtRJ8-brD0gvZvBRw+OWjUKg@mail.gmail.com>
-References: <20170720230646.30364-1-xiyou.wangcong@gmail.com>
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: Re: commit 16ecba59 breaks 82574L under heavy load.
+Date: Thu, 20 Jul 2017 16:44:55 -0700
+Message-ID: <20170720234455.7nxtui7shmnzivxd@f1.synalogic.ca>
+References: <20170718142109.GO18556@csclub.uwaterloo.ca>
+ <20170718231435.64us7vu67wtp6pwe@f1.synalogic.ca>
+ <20170719141953.GQ18556@csclub.uwaterloo.ca>
+ <20170720000747.4jiadqubv7hg5esz@f1.synalogic.ca>
+ <20170720140027.GR18556@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33110 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964894AbdGTXm7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 19:42:59 -0400
-Received: by mail-wm0-f68.google.com with SMTP id 65so5234064wmf.0
-        for <netdev@vger.kernel.org>; Thu, 20 Jul 2017 16:42:59 -0700 (PDT)
-In-Reply-To: <20170720230646.30364-1-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170720140027.GR18556@csclub.uwaterloo.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 20, 2017 at 4:06 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> IPv6 tunnels use sizeof(struct in6_addr) as dev->addr_len,
-> but in many places especially bonding, we use struct sockaddr
-> to copy and set mac addr, this could lead to stack out-of-bounds
-> access.
->
-> Fix it by using a larger address storage like bonding.
->
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Cc: Jiri Pirko <jiri@resnulli.us>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+On 2017/07/20 10:00, Lennart Sorensen wrote:
+> On Wed, Jul 19, 2017 at 05:07:47PM -0700, Benjamin Poirier wrote:
+> > Are you sure about this? In my testing, while triggering the overrun
+> > with the msleep, I read ICR when entering e1000_msix_other() and RXO is
+> > consistently set.
+> 
+> I had thousands of calls to e1000_msix_other where the only bit set
+> was OTHER.
+> 
+> I don't know if the cause is overruns, it just seems plausible.
+> 
+> > I'm working on a patch that uses that fact to handle the situation and
+> > limit the interrupt.
+> 
+> Excellent.
+> 
 
-For DaveM:
+Could you please test the following patch and let me know if it:
+1) reduces the interrupt rate of the Other msi-x vector
+2) avoids the link flaps
+or
+3) logs some dmesg warnings of the form "Other interrupt with unhandled [...]"
+In this case, please paste icr values printed.
 
-This patch depends on my previous patch "net: check mac
-address length for dev_set_mac_address()", otherwise
-dev_set_mac_address() doesn't accept struct sockaddr_storage.
+Thanks
 
-I can add a cast there if you feel this is easier for backport, but
-I think we need to backport both.
-
-Sorry for any confusion.
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index 0641c0098738..afb7ebe20b24 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -398,6 +398,7 @@
+ #define E1000_ICR_LSC           0x00000004 /* Link Status Change */
+ #define E1000_ICR_RXSEQ         0x00000008 /* Rx sequence error */
+ #define E1000_ICR_RXDMT0        0x00000010 /* Rx desc min. threshold (0) */
++#define E1000_ICR_RXO           0x00000040 /* Receiver Overrun */
+ #define E1000_ICR_RXT0          0x00000080 /* Rx timer intr (ring 0) */
+ #define E1000_ICR_ECCER         0x00400000 /* Uncorrectable ECC Error */
+ /* If this bit asserted, the driver should claim the interrupt */
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index c7c994eb410e..f7b46eba3efb 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -351,6 +351,10 @@ struct e1000_adapter {
+ 	s32 ptp_delta;
+ 
+ 	u16 eee_advert;
++
++	unsigned int uh_count;
++	u32 uh_values[16];
++	unsigned int uh_values_nb;
+ };
+ 
+ struct e1000_info {
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index b3679728caac..46697338c0e1 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -46,6 +46,8 @@
+ 
+ #include "e1000.h"
+ 
++DEFINE_RATELIMIT_STATE(other_uh_ratelimit_state, HZ, 1);
++
+ #define DRV_EXTRAVERSION "-k"
+ 
+ #define DRV_VERSION "3.2.6" DRV_EXTRAVERSION
+@@ -1904,12 +1906,60 @@ static irqreturn_t e1000_msix_other(int __always_unused irq, void *data)
+ 	struct net_device *netdev = data;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
++	u32 icr;
++	bool enable = true;
++	bool handled = false;
++	unsigned int i;
+ 
+-	hw->mac.get_link_status = true;
++	icr = er32(ICR);
++	if (icr & E1000_ICR_RXO) {
++		ew32(ICR, E1000_ICR_RXO);
++		enable = false;
++		/* napi poll will re-enable Other, make sure it runs */
++		if (napi_schedule_prep(&adapter->napi)) {
++			adapter->total_rx_bytes = 0;
++			adapter->total_rx_packets = 0;
++			__napi_schedule(&adapter->napi);
++		}
++		handled = true;
++	}
++	if (icr & E1000_ICR_LSC) {
++		ew32(ICR, E1000_ICR_LSC);
++		hw->mac.get_link_status = true;
++		/* guard against interrupt when we're going down */
++		if (!test_bit(__E1000_DOWN, &adapter->state)) {
++			mod_timer(&adapter->watchdog_timer, jiffies + 1);
++		}
++		handled = true;
++	}
+ 
+-	/* guard against interrupt when we're going down */
+-	if (!test_bit(__E1000_DOWN, &adapter->state)) {
+-		mod_timer(&adapter->watchdog_timer, jiffies + 1);
++	if (!handled) {
++		adapter->uh_count++;
++		/* only print unseen icr values */
++		if (adapter->uh_values_nb < ARRAY_SIZE(adapter->uh_values)) {
++			for (i = 0; i < ARRAY_SIZE(adapter->uh_values); i++) {
++				if (adapter->uh_values[i] == icr) {
++					break;
++				}
++			}
++			if (i == ARRAY_SIZE(adapter->uh_values)) {
++				adapter->uh_values[adapter->uh_values_nb] =
++					icr;
++				adapter->uh_values_nb++;
++				netdev_warn(netdev,
++					    "Other interrupt with unhandled icr 0x%08x\n",
++					    icr);
++			}
++		}
++	}
++	if (adapter->uh_count && __ratelimit(&other_uh_ratelimit_state)) {
++		netdev_warn(netdev,
++			    "Other interrupt with unhandled cause, count %u\n",
++			    adapter->uh_count);
++		adapter->uh_count = 0;
++	}
++
++	if (enable && !test_bit(__E1000_DOWN, &adapter->state)) {
+ 		ew32(IMS, E1000_IMS_OTHER);
+ 	}
+ 
+@@ -2681,7 +2731,8 @@ static int e1000e_poll(struct napi_struct *napi, int weight)
+ 		napi_complete_done(napi, work_done);
+ 		if (!test_bit(__E1000_DOWN, &adapter->state)) {
+ 			if (adapter->msix_entries)
+-				ew32(IMS, adapter->rx_ring->ims_val);
++				ew32(IMS, adapter->rx_ring->ims_val |
++				     E1000_IMS_OTHER);
+ 			else
+ 				e1000_irq_enable(adapter);
+ 		}
+@@ -4197,7 +4248,7 @@ static void e1000e_trigger_lsc(struct e1000_adapter *adapter)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+ 	if (adapter->msix_entries)
+-		ew32(ICS, E1000_ICS_OTHER);
++		ew32(ICS, E1000_ICS_LSC | E1000_ICS_OTHER);
+ 	else
+ 		ew32(ICS, E1000_ICS_LSC);
+ }
+@@ -7572,6 +7623,8 @@ static int __init e1000_init_module(void)
+ 		e1000e_driver_version);
+ 	pr_info("Copyright(c) 1999 - 2015 Intel Corporation.\n");
+ 
++	ratelimit_set_flags(&other_uh_ratelimit_state, RATELIMIT_MSG_ON_RELEASE);
++
+ 	return pci_register_driver(&e1000_driver);
+ }
+ module_init(e1000_init_module);
