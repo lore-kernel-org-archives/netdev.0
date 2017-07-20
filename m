@@ -1,49 +1,93 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH 2/2] net: ethernet: nb8800: Fix RGMII TX clock delay setup
-Date: Thu, 20 Jul 2017 13:39:33 +0100
-Message-ID: <yw1xmv7zqo3e.fsf@mansr.com>
-References: <b332dc3e-4478-e34b-2b3f-226aad8a11d4@sigmadesigns.com>
-        <61b71d12-4e3a-edbe-1d69-c66e7cf46d8e@sigmadesigns.com>
-        <yw1xzic0qrcg.fsf@mansr.com>
-        <001a7afd-364d-359e-1478-e057c9083f73@free.fr>
-        <d8121f82-dffd-22c7-1209-a3c2329703e5@gmail.com>
-        <05cbc32e-a4af-1c81-128b-bc5d2206d24a@free.fr>
-        <bf484952-15ae-b385-6b54-4d07b3bc2b29@gmail.com>
-        <54f5bd21-766d-d9de-3b15-a01fd5ee6035@free.fr>
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Subject: Re: [PATCH 000/102] Convert drivers to explicit reset API
+Date: Thu, 20 Jul 2017 14:55:12 +0200
+Message-ID: <1500555312.2354.75.camel@pengutronix.de>
+References: <20170719152646.25903-1-p.zabel@pengutronix.de>
+         <20170719211515.46a1196c@windsurf>
+         <1500543415.2354.37.camel@pengutronix.de>
+         <20170720123640.43c2ce01@windsurf>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Timur Tabi <timur@codeaurora.org>,
-        Daniel Mack <zonque@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: Mason <slash.tmp@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:34504 "EHLO unicorn.mansr.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934643AbdGTMjg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 20 Jul 2017 08:39:36 -0400
-In-Reply-To: <54f5bd21-766d-d9de-3b15-a01fd5ee6035@free.fr> (Mason's message
-        of "Thu, 20 Jul 2017 14:33:00 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+        Prashant Gaikwad <pgaikwad@nvidia.com>,
+        Heiko Stuebner <heiko@sntech.de>,
+        Peter Chen <Peter.Chen@nxp.com>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        dri-devel@lists.freedesktop.org, Marc Dietrich <marvin24@gmx.de>,
+        Rakesh Iyer <riyer@nvidia.com>,
+        Peter Meerwald-Stadler <pmeerw@pmeerw.net>,
+        linux-clk@vger.kernel.org, Wim Van Sebroeck <wim@iguana.be>,
+        Wolfram Sang <wsa@the-dreams.de>,
+        Xinliang Liu <z.liuxinliang@hisilicon.com>,
+        Chanwoo Choi <cw00.choi@samsung.com>,
+        Alan Stern <stern@rowland.harvard.edu>,
+        Jiri Slaby <jslaby@suse.com>,
+        Michael Turquette <mturquette@baylibre.com>,
+        Guenter Roeck <linux@roeck-us.net>,
+        Ohad Ben-Cohen <ohad@wizery.com>, linux-pm@vger.kernel.org,
+        Thomas Gleixner <tglx
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <20170720123640.43c2ce01@windsurf>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-Mason <slash.tmp@free.fr> writes:
+Hi Thomas,
 
-> I will look for an inter-packet gap knob and FCS error counter.
+On Thu, 2017-07-20 at 12:36 +0200, Thomas Petazzoni wrote:
+> Hello,
+> 
+> On Thu, 20 Jul 2017 11:36:55 +0200, Philipp Zabel wrote:
+> 
+> > > I don't know if it has been discussed in the past, so forgive me if it
+> > > has been. Have you considered adding a "int flags" argument to the
+> > > existing reset_control_get_*() functions, rather than introducing
+> > > separate exclusive variants ?
+> > > 
+> > > Indeed, with a "int flags" argument you could in the future add more
+> > > variants/behaviors without actually multiplying the number of
+> > > functions. Something like the "flags" argument for request_irq() for
+> > > example.  
+> > 
+> > I can't find the discussion right now, but I remember we had talked
+> > about this in the past.
+> > Behind the scenes, all the inline API functions already call common
+> > entry points with flags (well, currently separate bool parameters for
+> > shared and optional).
+> > One reason against exposing those as an int flags in the user facing API
+> > is the possibility to accidentally provide a wrong value.
+> 
+> This is a quite strange argument. You could also accidentally use the
+> wrong variant of the function, just like you could use the wrong flag.
 
-There is an FCS error counter.  Use "ethtool -S" and look for
-rx_bad_fcs_frames.  Reading the stats counters automatically resets
-them to zero.
+You can't accidentally use no flag at all or a completely bogus value
+with the "plethora of inline functions" variant.
 
--- 
-Måns Rullgård
+> Once again, the next time you have another parameter for those reset
+> functions, beyond the exclusive/shared variant, you will multiply again
+> by two the number of functions ? You already have the  exclusive/shared
+> and optional/mandatory variants, so 4 variants. When you'll add a new
+> parameter, you'll have 8 variants. Doesn't seem really good.
+
+I'd rather avoid adding more variants, if possible. The complexity
+increases regardless of whether the API is expressed as a bunch of
+functions or as a single function with a bunch of flags.
+
+> What about reset_control_get(struct device *, const char *, int flags)
+> to replace all those variants ?
+
+While I like how this looks, unfortunately (devm_)reset_control_get
+already exists without the flags, so we can't change to that with a
+gentle transition.
+
+regards
+Philipp
