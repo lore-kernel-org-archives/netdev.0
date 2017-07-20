@@ -1,61 +1,38 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] net: bonding: Fix transmit load balancing in balance-alb mode
-Date: Thu, 20 Jul 2017 10:07:44 -0400
-Message-ID: <CAHashqBi4Jz6r9X0Oa-Q4kJtEQpjSR+_AczDWhCi3FXpkBdMJQ@mail.gmail.com>
-References: <17EC94B0A072C34B8DCF0D30AD16044A0296FEF5@BPXM09GP.gisp.nec.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A0296FEF5@BPXM09GP.gisp.nec.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rob Herring <robh@kernel.org>
+Subject: [PATCH 2/2] of: remove unused struct device_node.data ptr
+Date: Thu, 20 Jul 2017 09:27:11 -0500
+Message-ID: <20170720142711.12847-2-robh@kernel.org>
+References: <20170720142711.12847-1-robh@kernel.org>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        Frank Rowand <frowand.list@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:33886 "EHLO
+        mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755101AbdGTO1S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 10:27:18 -0400
+In-Reply-To: <20170720142711.12847-1-robh@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 20, 2017 at 1:20 AM, Kosuke Tatsukawa <tatsu@ab.jp.nec.com> wrote:
-> balance-alb mode used to have transmit dynamic load balancing feature
-> enabled by default.  However, transmit dynamic load balancing no longer
-> works in balance-alb after commit 8b426dc54cf4 ("bonding: remove
-> hardcoded value").
->
-> Both balance-tlb and balance-alb use the function bond_do_alb_xmit() to
-> send packets.  This function uses the parameter tlb_dynamic_lb.
-> tlb_dynamic_lb used to have the default value of 1 for balance-alb, but
-> now the value is set to 0 except in balance-tlb.
->
-> Re-enable transmit dyanmic load balancing by initializing tlb_dynamic_lb
-> for balance-alb similar to balance-tlb.
->
-> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-> Cc: stable@vger.kernel.org
+There are no users for data pointer in the kernel, so it can be removed.
 
-You probably should add:
+Signed-off-by: Rob Herring <robh@kernel.org>
+---
+ include/linux/of.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value").
-
-Otherwise this looks reasonable to me.
-
-Acked-by: Andy Gospodarek <andy@greyhouse.net>
-
-
-> ---
->  drivers/net/bonding/bond_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 14ff622..181839d 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -4596,7 +4596,7 @@ static int bond_check_params(struct bond_params *params)
->         }
->         ad_user_port_key = valptr->value;
->
-> -       if (bond_mode == BOND_MODE_TLB) {
-> +       if ((bond_mode == BOND_MODE_TLB) || (bond_mode == BOND_MODE_ALB)) {
->                 bond_opt_initstr(&newval, "default");
->                 valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB),
->                                         &newval);
->
+diff --git a/include/linux/of.h b/include/linux/of.h
+index 4a8a70916237..7312c8ac5221 100644
+--- a/include/linux/of.h
++++ b/include/linux/of.h
+@@ -60,7 +60,6 @@ struct device_node {
+ 	struct	device_node *sibling;
+ 	struct	kobject kobj;
+ 	unsigned long _flags;
+-	void	*data;
+ #if defined(CONFIG_SPARC)
+ 	const char *path_component_name;
+ 	unsigned int unique_id;
+-- 
+2.11.0
