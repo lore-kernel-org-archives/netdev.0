@@ -1,98 +1,32 @@
-From: <steven.la@riverbed.com>
-Subject: [git][98ed5bb] rvbd/rbt-kernel : devon_deterministic_ps
-Date: Thu, 20 Jul 2017 22:25:13 +0000
-Message-ID: <20170720222513.24975.80829@leafminer.lab.nbttech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] ipv4: initialize fib_trie prior to
+ register_netdev_notifier call.
+Date: Thu, 20 Jul 2017 15:25:17 -0700 (PDT)
+Message-ID: <20170720.152517.717593108697149907.davem@davemloft.net>
+References: <20170719224133.34666-1-mahesh@bandewar.net>
+        <20170719.225136.647816601138954194.davem@davemloft.net>
+        <CAF2d9jjWUAffQ9MEc4E1uYTFR1=6EzhABffbTYSDdBwtimsVZQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Michael@vger.kernel.org, <konrad.wilk@oracle.com>,
-        Chan@vger.kernel.org, <mchan@broadcom.com>,
-        akepner@vger.kernel.org, Rzeszutek@vger.kernel.org,
-        Konrad@vger.kernel.org, Wilk@vger.kernel.org,
-        <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: mahesh@bandewar.net, ebiederm@xmission.com, edumazet@google.com,
+        netdev@vger.kernel.org
+To: maheshb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.riverbed.com ([208.70.196.45]:25225 "EHLO
-        smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934851AbdGTWZO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:25:14 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:37088 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934851AbdGTWZR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:25:17 -0400
+In-Reply-To: <CAF2d9jjWUAffQ9MEc4E1uYTFR1=6EzhABffbTYSDdBwtimsVZQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-@new_changed_in []
-
-
-Repository: git@gitlab.lab.nbttech.com:rvbd/rbt-kernel.git
-Branch: devon_deterministic_ps
-Author: Steven La <steven.la@riverbed.com>
-Date: 2017-07-18T16:34:31-07:00
-New Revision: 98ed5bbc446dca588ab8a1a6edbfc870dc9d6933
-
-
-Log:
-Apply the following patches from upstream and port extra skbuff
-operating routines used the these patches.
-
-    commit b7b6a688d217936459ff5cf1087b2361db952509
-    Author: Ian Campbell <Ian.Campbell@citrix.com>
-    Date:   Wed Aug 24 22:28:12 2011 +0000
-
-        bnx2: convert to SKB paged frag API.
-
-        Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-        Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-        Cc: Michael Chan <mchan@broadcom.com>
-        Cc: netdev@vger.kernel.org
-        Signed-off-by: David S. Miller <davem@davemloft.net>
-
-    commit a1f4e8bcbccf50cf1894c263af4d677d4f566533
-    Author: Eric Dumazet <eric.dumazet@gmail.com>
-    Date:   Thu Oct 13 07:50:19 2011 +0000
-
-        bnx2: fix skb truesize underestimation
-
-        bnx2 allocates a full page per fragment. We must account PAGE_SIZE
-        increments on skb->truesize, not the actual frag length.
-
-        Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-        Signed-off-by: David S. Miller <davem@davemloft.net>
-
-    commit 9e903e085262ffbf1fc44a17ac06058aca03524a
-    Author: Eric Dumazet <eric.dumazet@gmail.com>
-    Date:   Tue Oct 18 21:00:24 2011 +0000
-
-        net: add skb frag size accessors
-
-        To ease skb->truesize sanitization, its better to be able to localize
-        all references to skb frags size.
-
-        Define accessors : skb_frag_size() to fetch frag size, and
-        skb_frag_size_{set|add|sub}() to manipulate it.
-
-        Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-        Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Root Issue Details:
-For bug285465, there are some issues for handling paged data.
-
-Fix Summary Details:
-Apply the above three patches taken from upstream's code. Since RiOS is
-Redhat 6.1 release base, these patches need additionally skbuff helper
-routines, porting those as well.
-
-Testing:
-Run stress test on the interface that uses this driver.
-
-Fix Complete: # Yes
-Risk of Fix: # Low
-
-BugID: 285465
-DesignID:
-ReviewID:
-CC:
-Reviewed-By: akepner
-Approved-By:
-
-
-Open this commit in your browser:
-https://gitlab.lab.nbttech.com/rvbd/rbt-kernel/commit/98ed5bbc446dca588ab8a1a6edbfc870dc9d6933
+RnJvbTogTWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSw
+KSA8bWFoZXNoYkBnb29nbGUuY29tPg0KRGF0ZTogVGh1LCAyMCBKdWwgMjAxNyAxMDoyMDowNiAt
+MDcwMA0KDQo+IE9uIFdlZCwgSnVsIDE5LCAyMDE3IGF0IDEwOjUxIFBNLCBEYXZpZCBNaWxsZXIg
+PGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOg0KPj4NCj4+IFdoZXJlIGFyZSBwYXRjaGVzICMy
+IGFuZCAjMz8NCj4gT29wcywgbXkgYmFkISBJIHdhbnRlZCB0byBkZXRhY2ggdGhpcyBmcm9tIHRo
+ZSBzZXJpZXMgYW5kIHNlbmQgaXQNCj4gaW5kZXBlbmRlbnRseSBidXQgZm9yZ290IHRvIHVwZGF0
+ZSB0aGUgaGVhZGVyIGluIHByb2Nlc3MuIERvIHlvdSB3YW50DQo+IG1lIHRvIHNlbmQgaXQgYWdh
+aW4gd2l0aCBqdXN0IHRoZSBoZWFkZXIgY2hhbmdlIFtQQVRDSCAxLzNdIHRvIFtQQVRDSA0KPiBu
+ZXh0XT8NCg0KTm8sIHRoYXQncyBub3QgbmVjZXNzYXJ5Lg0K
