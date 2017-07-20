@@ -1,7 +1,7 @@
 From: <steven.la@riverbed.com>
-Subject: [git][98ed5bb] rvbd/rbt-kernel : banks_trpy6
-Date: Thu, 20 Jul 2017 22:26:42 +0000
-Message-ID: <20170720222642.24977.60509@leafminer.lab.nbttech.com>
+Subject: [git][98ed5bb] rvbd/rbt-kernel : prod_trpy6_conclusion
+Date: Thu, 20 Jul 2017 22:26:43 +0000
+Message-ID: <20170720222643.24974.56494@leafminer.lab.nbttech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -13,17 +13,17 @@ To: Michael@vger.kernel.org, <konrad.wilk@oracle.com>,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp.riverbed.com ([208.70.196.45]:59807 "EHLO
         smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965935AbdGTW0n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:26:43 -0400
+        with ESMTP id S965950AbdGTW0o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:26:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-@new_changed_in [{"codename": "phantom", "train": "trpy6_ic", "build_number": 19, "branch": "banks_trpy6"}, {"codename": "banks", "train": "trpy6", "build_number": 22, "branch": "banks_trpy6"}]
+@new_changed_in [{"codename": "phantom", "train": "ic_prod_trpy6_conclusion", "build_number": 5, "branch": "prod_trpy6_conclusion"}, {"codename": "banks", "train": "prod_trpy6_conclusion", "build_number": 12, "branch": "prod_trpy6_conclusion"}]
 
 
 Repository: git@gitlab.lab.nbttech.com:rvbd/rbt-kernel.git
-Branch: banks_trpy6
+Branch: prod_trpy6_conclusion
 Author: Steven La <steven.la@riverbed.com>
 Date: 2017-07-18T16:34:31-07:00
 New Revision: 98ed5bbc446dca588ab8a1a6edbfc870dc9d6933
