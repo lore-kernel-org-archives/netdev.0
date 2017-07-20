@@ -1,58 +1,102 @@
-From: =?utf-8?Q?H=C3=A5kon_Bugge?= <haakon.bugge@oracle.com>
-Subject: Re: [PATCH net] rds: Make sure updates to cp_send_gen can be observed
-Date: Thu, 20 Jul 2017 13:24:11 +0200
-Message-ID: <0EE3287D-4537-4B43-9899-FCC2F50A666F@oracle.com>
-References: <20170720102855.21961-1-Haakon.Bugge@oracle.com> <20170720110254.GB14156@oracle.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        OFED mailing list <linux-rdma@vger.kernel.org>,
-        rds-devel@oss.oracle.com, linux-kernel@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+From: Keerthy <j-keerthy@ti.com>
+Subject: [PATCH] net: ethernet: ti: cpsw: Push the request_irq function to the end of probe
+Date: Thu, 20 Jul 2017 16:59:52 +0530
+Message-ID: <1500550192-6550-1-git-send-email-j-keerthy@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <johan@kernel.org>,
+        <ivan.khoronzhuk@linaro.org>, <t-kristo@ti.com>,
+        <grygorii.strashko@ti.com>, <nsekhar@ti.com>, <j-keerthy@ti.com>
+To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170720110254.GB14156@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Push the request_irq function to the end of probe so as
+to ensure all the required fields are populated in the event
+of an ISR getting executed right after requesting the irq.
 
-> On 20 Jul 2017, at 13:02, Sowmini Varadhan <sowmini.varadhan@oracle.com> wrote:
-> 
-> On (07/20/17 12:28), H??kon Bugge wrote:
->> cp->cp_send_gen is treated as a normal variable, although it may be
->> used by different threads.
-> 
-> I'm confused by that assertion. If you look at the comments right
-> above the change in your patch, there is a note that 
-> acquire_in_xmit/release_in_xmit are the synchronization/serialization 
-> points.
-> 
-> Can you please clarify?
+Currently while loading the crash kernel a crash was seen as
+soon as devm_request_threaded_irq was called. This was due to
+n->poll being NULL which is called as part of net_rx_action
+function.
 
-The way the original code works, is that it is allowed for the compiler to keep the value of “cp->cp_send_gen + 1” in a register. The compiler has no requirement to store this value to memory, before leaving the function or calling another one.
+Suggested-by: Sekhar Nori <nsekhar@ti.com>
+Signed-off-by: Keerthy <j-keerthy@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 49 +++++++++++++++++++++---------------------
+ 1 file changed, 25 insertions(+), 24 deletions(-)
 
-Further, said register can be used in the comparison outside the acquire_in_xmit/release_in_xmit, at which point another thread may have changed its value.
-
-
-Thxs, Håkon
-
-> 
->> --- a/net/rds/send.c
->> +++ b/net/rds/send.c
->> @@ -170,8 +170,8 @@ int rds_send_xmit(struct rds_conn_path *cp)
->> 	 * The acquire_in_xmit() check above ensures that only one
->> 	 * caller can increment c_send_gen at any time.
->> 	 */
->> -	cp->cp_send_gen++;
->> -	send_gen = cp->cp_send_gen;
->> +	send_gen = READ_ONCE(cp->cp_send_gen) + 1;
->> +	WRITE_ONCE(cp->cp_send_gen, send_gen);
->> 
-> 
-> --Sowmini
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 37fc165..94892d5 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -3085,6 +3085,31 @@ static int cpsw_probe(struct platform_device *pdev)
+ 			cpsw->quirk_irq = true;
+ 	}
+ 
++	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
++
++	ndev->netdev_ops = &cpsw_netdev_ops;
++	ndev->ethtool_ops = &cpsw_ethtool_ops;
++	netif_napi_add(ndev, &cpsw->napi_rx, cpsw_rx_poll, CPSW_POLL_WEIGHT);
++	netif_tx_napi_add(ndev, &cpsw->napi_tx, cpsw_tx_poll, CPSW_POLL_WEIGHT);
++	cpsw_split_res(ndev);
++
++	/* register the network device */
++	SET_NETDEV_DEV(ndev, &pdev->dev);
++	ret = register_netdev(ndev);
++	if (ret) {
++		dev_err(priv->dev, "error registering net device\n");
++		ret = -ENODEV;
++		goto clean_ale_ret;
++	}
++
++	if (cpsw->data.dual_emac) {
++		ret = cpsw_probe_dual_emac(priv);
++		if (ret) {
++			cpsw_err(priv, probe, "error probe slave 2 emac interface\n");
++			goto clean_unregister_netdev_ret;
++		}
++	}
++
+ 	/* Grab RX and TX IRQs. Note that we also have RX_THRESHOLD and
+ 	 * MISC IRQs which are always kept disabled with this driver so
+ 	 * we will not request them.
+@@ -3123,33 +3148,9 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
+ 	}
+ 
+-	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+-
+-	ndev->netdev_ops = &cpsw_netdev_ops;
+-	ndev->ethtool_ops = &cpsw_ethtool_ops;
+-	netif_napi_add(ndev, &cpsw->napi_rx, cpsw_rx_poll, CPSW_POLL_WEIGHT);
+-	netif_tx_napi_add(ndev, &cpsw->napi_tx, cpsw_tx_poll, CPSW_POLL_WEIGHT);
+-	cpsw_split_res(ndev);
+-
+-	/* register the network device */
+-	SET_NETDEV_DEV(ndev, &pdev->dev);
+-	ret = register_netdev(ndev);
+-	if (ret) {
+-		dev_err(priv->dev, "error registering net device\n");
+-		ret = -ENODEV;
+-		goto clean_ale_ret;
+-	}
+-
+ 	cpsw_notice(priv, probe,
+ 		    "initialized device (regs %pa, irq %d, pool size %d)\n",
+ 		    &ss_res->start, ndev->irq, dma_params.descs_pool_size);
+-	if (cpsw->data.dual_emac) {
+-		ret = cpsw_probe_dual_emac(priv);
+-		if (ret) {
+-			cpsw_err(priv, probe, "error probe slave 2 emac interface\n");
+-			goto clean_unregister_netdev_ret;
+-		}
+-	}
+ 
+ 	pm_runtime_put(&pdev->dev);
+ 
+-- 
+1.9.1
