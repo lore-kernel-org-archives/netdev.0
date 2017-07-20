@@ -1,50 +1,59 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 1/2] net: mvneta: remove bogus use of device_node.data ptr
-Date: Thu, 20 Jul 2017 09:27:10 -0500
-Message-ID: <20170720142711.12847-1-robh@kernel.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCH net] ipv6: no need to return rt->dst.error if it is not null entry.
+Date: Thu, 20 Jul 2017 22:51:26 +0800
+Message-ID: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>,
+        Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34671 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934805AbdGTOv4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 10:51:56 -0400
+Received: by mail-pg0-f66.google.com with SMTP id v190so2970350pgv.1
+        for <netdev@vger.kernel.org>; Thu, 20 Jul 2017 07:51:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nothing sets ever sets data, so it is always NULL. Remove it as this is
-the only user of data ptr in the whole kernel, and it is going to be
-removed from struct device_node.
+After commit 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib
+result when requested"). When we get a prohibit ertry, we will return
+-EACCES directly.
 
-Cc: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Signed-off-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Before:
++ ip netns exec client ip -6 route get 2003::1
+prohibit 2003::1 dev lo table unspec proto kernel src 2001::1 metric
+4294967295 error -13
+
+After:
++ ip netns exec server ip -6 route get 2002::1
+RTNETLINK answers: Network is unreachable
+
+Since we will check the ip6_null_entry later. There is not sense
+to check the dst.error after get rt.
+
+Fixes: 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib...")
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 ---
-Probably there's a better fix here to actually enable the h/w buffer 
-manager.
+ net/ipv6/route.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-I intend to take this thru the DT tree as patch 2 is dependent on this.
-
-Rob
-
- drivers/net/ethernet/marvell/mvneta.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 0aab74c2a209..5624f4b49f9d 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -4296,8 +4296,8 @@ static int mvneta_probe(struct platform_device *pdev)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4d30c96..8fc52de 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3637,12 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+ 		dst = ip6_route_lookup(net, &fl6, 0);
  
- 	/* Obtain access to BM resources if enabled and already initialized */
- 	bm_node = of_parse_phandle(dn, "buffer-manager", 0);
--	if (bm_node && bm_node->data) {
--		pp->bm_priv = bm_node->data;
-+	if (bm_node) {
-+		pp->bm_priv = NULL;
- 		err = mvneta_bm_port_init(pdev, pp);
- 		if (err < 0) {
- 			dev_info(&pdev->dev, "use SW buffer management\n");
+ 	rt = container_of(dst, struct rt6_info, dst);
+-	if (rt->dst.error) {
+-		err = rt->dst.error;
+-		ip6_rt_put(rt);
+-		goto errout;
+-	}
+-
+ 	if (rt == net->ipv6.ip6_null_entry) {
+ 		err = rt->dst.error;
+ 		ip6_rt_put(rt);
 -- 
-2.11.0
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.5.5
