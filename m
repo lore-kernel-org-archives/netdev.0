@@ -1,7 +1,7 @@
 From: <arthur.kepner@riverbed.com>
-Subject: [git][a48a019] rvbd/rbt-kernel : devon_netflow_ps
-Date: Thu, 20 Jul 2017 22:25:22 +0000
-Message-ID: <20170720222522.24972.44363@leafminer.lab.nbttech.com>
+Subject: [git][a48a019] rvbd/rbt-kernel : devon_netint_integration
+Date: Thu, 20 Jul 2017 22:25:25 +0000
+Message-ID: <20170720222525.24976.26034@leafminer.lab.nbttech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -13,7 +13,7 @@ To: Michael@vger.kernel.org, <konrad.wilk@oracle.com>,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp.riverbed.com ([208.70.196.45]:5912 "EHLO
         smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966000AbdGTW2c (ORCPT
+        with ESMTP id S965995AbdGTW2c (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:28:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,7 +23,7 @@ List-ID: <netdev.vger.kernel.org>
 
 
 Repository: git@gitlab.lab.nbttech.com:rvbd/rbt-kernel.git
-Branch: devon_netflow_ps
+Branch: devon_netint_integration
 Author: Arthur Kepner <arthur.kepner@riverbed.com>
 Date: 2017-07-20T15:22:12-07:00
 New Revision: a48a019e7afe2db8e74fda96507b82bafcfebe99
