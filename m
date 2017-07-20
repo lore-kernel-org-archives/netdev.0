@@ -1,7 +1,7 @@
 From: <steven.la@riverbed.com>
-Subject: [git][98ed5bb] rvbd/rbt-kernel : devon_netint_integration
-Date: Thu, 20 Jul 2017 22:25:25 +0000
-Message-ID: <20170720222525.24978.10667@leafminer.lab.nbttech.com>
+Subject: [git][98ed5bb] rvbd/rbt-kernel : sabre_branch
+Date: Thu, 20 Jul 2017 22:25:35 +0000
+Message-ID: <20170720222535.24973.73514@leafminer.lab.nbttech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,10 +11,10 @@ To: Michael@vger.kernel.org, <konrad.wilk@oracle.com>,
         Konrad@vger.kernel.org, Wilk@vger.kernel.org,
         <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.riverbed.com ([208.70.196.45]:19607 "EHLO
+Received: from eng.riverbed.com ([208.70.196.45]:10977 "EHLO
         smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965850AbdGTWZ0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:25:26 -0400
+        with ESMTP id S965850AbdGTWZh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:25:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -23,7 +23,7 @@ List-ID: <netdev.vger.kernel.org>
 
 
 Repository: git@gitlab.lab.nbttech.com:rvbd/rbt-kernel.git
-Branch: devon_netint_integration
+Branch: sabre_branch
 Author: Steven La <steven.la@riverbed.com>
 Date: 2017-07-18T16:34:31-07:00
 New Revision: 98ed5bbc446dca588ab8a1a6edbfc870dc9d6933
