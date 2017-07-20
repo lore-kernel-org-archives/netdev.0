@@ -1,95 +1,488 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net 4/5] bpf: add test for mixed signed and unsigned bounds checks
-Date: Fri, 21 Jul 2017 00:00:24 +0200
-Message-ID: <083043c3cb489973a1906c8bda2b4e8906ad22ec.1500586732.git.daniel@iogearbox.net>
+Subject: [PATCH net 1/5] bpf: fix mixed signed/unsigned derived min/max value bounds
+Date: Fri, 21 Jul 2017 00:00:21 +0200
+Message-ID: <463af4df5faf0a06ef9d8131727bb50eac8a7bf8.1500586732.git.daniel@iogearbox.net>
 References: <cover.1500586732.git.daniel@iogearbox.net>
 Cc: ast@fb.com, ecree@solarflare.com, josef@toxicpanda.com,
-        netdev@vger.kernel.org
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+        Josef Bacik <jbacik@fb.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45861 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:45850 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965350AbdGTWEG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:04:06 -0400
+        with ESMTP id S936168AbdGTWEE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 18:04:04 -0400
 In-Reply-To: <cover.1500586732.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1500586732.git.daniel@iogearbox.net>
 References: <cover.1500586732.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
+Edward reported that there's an issue in min/max value bounds
+tracking when signed and unsigned compares both provide hints
+on limits when having unknown variables. E.g. a program such
+as the following should have been rejected:
 
-These failed due to a bug in verifier bounds handling.
+   0: (7a) *(u64 *)(r10 -8) = 0
+   1: (bf) r2 = r10
+   2: (07) r2 += -8
+   3: (18) r1 = 0xffff8a94cda93400
+   5: (85) call bpf_map_lookup_elem#1
+   6: (15) if r0 == 0x0 goto pc+7
+  R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0 R10=fp
+   7: (7a) *(u64 *)(r10 -16) = -8
+   8: (79) r1 = *(u64 *)(r10 -16)
+   9: (b7) r2 = -1
+  10: (2d) if r1 > r2 goto pc+3
+  R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0 R1=inv,min_value=0
+  R2=imm-1,max_value=18446744073709551615,min_align=1 R10=fp
+  11: (65) if r1 s> 0x1 goto pc+2
+  R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0 R1=inv,min_value=0,max_value=1
+  R2=imm-1,max_value=18446744073709551615,min_align=1 R10=fp
+  12: (0f) r0 += r1
+  13: (72) *(u8 *)(r0 +0) = 0
+  R0=map_value_adj(ks=8,vs=8,id=0),min_value=0,max_value=1 R1=inv,min_value=0,max_value=1
+  R2=imm-1,max_value=18446744073709551615,min_align=1 R10=fp
+  14: (b7) r0 = 0
+  15: (95) exit
 
+What happens is that in the first part ...
+
+   8: (79) r1 = *(u64 *)(r10 -16)
+   9: (b7) r2 = -1
+  10: (2d) if r1 > r2 goto pc+3
+
+... r1 carries an unsigned value, and is compared as unsigned
+against a register carrying an immediate. Verifier deduces in
+reg_set_min_max() that since the compare is unsigned and operation
+is greater than (>), that in the fall-through/false case, r1's
+minimum bound must be 0 and maximum bound must be r2. Latter is
+larger than the bound and thus max value is reset back to being
+'invalid' aka BPF_REGISTER_MAX_RANGE. Thus, r1 state is now
+'R1=inv,min_value=0'. The subsequent test ...
+
+  11: (65) if r1 s> 0x1 goto pc+2
+
+... is a signed compare of r1 with immediate value 1. Here,
+verifier deduces in reg_set_min_max() that since the compare
+is signed this time and operation is greater than (>), that
+in the fall-through/false case, we can deduce that r1's maximum
+bound must be 1, meaning with prior test, we result in r1 having
+the following state: R1=inv,min_value=0,max_value=1. Given that
+the actual value this holds is -8, the bounds are wrongly deduced.
+When this is being added to r0 which holds the map_value(_adj)
+type, then subsequent store access in above case will go through
+check_mem_access() which invokes check_map_access_adj(), that
+will then probe whether the map memory is in bounds based
+on the min_value and max_value as well as access size since
+the actual unknown value is min_value <= x <= max_value; commit
+fce366a9dd0d ("bpf, verifier: fix alu ops against map_value{,
+_adj} register types") provides some more explanation on the
+semantics.
+
+It's worth to note in this context that in the current code,
+min_value and max_value tracking are used for two things, i)
+dynamic map value access via check_map_access_adj() and since
+commit 06c1c049721a ("bpf: allow helpers access to variable memory")
+ii) also enforced at check_helper_mem_access() when passing a
+memory address (pointer to packet, map value, stack) and length
+pair to a helper and the length in this case is an unknown value
+defining an access range through min_value/max_value in that
+case. The min_value/max_value tracking is /not/ used in the
+direct packet access case to track ranges. However, the issue
+also affects case ii), for example, the following crafted program
+based on the same principle must be rejected as well:
+
+   0: (b7) r2 = 0
+   1: (bf) r3 = r10
+   2: (07) r3 += -512
+   3: (7a) *(u64 *)(r10 -16) = -8
+   4: (79) r4 = *(u64 *)(r10 -16)
+   5: (b7) r6 = -1
+   6: (2d) if r4 > r6 goto pc+5
+  R1=ctx R2=imm0,min_value=0,max_value=0,min_align=2147483648 R3=fp-512
+  R4=inv,min_value=0 R6=imm-1,max_value=18446744073709551615,min_align=1 R10=fp
+   7: (65) if r4 s> 0x1 goto pc+4
+  R1=ctx R2=imm0,min_value=0,max_value=0,min_align=2147483648 R3=fp-512
+  R4=inv,min_value=0,max_value=1 R6=imm-1,max_value=18446744073709551615,min_align=1
+  R10=fp
+   8: (07) r4 += 1
+   9: (b7) r5 = 0
+  10: (6a) *(u16 *)(r10 -512) = 0
+  11: (85) call bpf_skb_load_bytes#26
+  12: (b7) r0 = 0
+  13: (95) exit
+
+Meaning, while we initialize the max_value stack slot that the
+verifier thinks we access in the [1,2] range, in reality we
+pass -7 as length which is interpreted as u32 in the helper.
+Thus, this issue is relevant also for the case of helper ranges.
+Resetting both bounds in check_reg_overflow() in case only one
+of them exceeds limits is also not enough as similar test can be
+created that uses values which are within range, thus also here
+learned min value in r1 is incorrect when mixed with later signed
+test to create a range:
+
+   0: (7a) *(u64 *)(r10 -8) = 0
+   1: (bf) r2 = r10
+   2: (07) r2 += -8
+   3: (18) r1 = 0xffff880ad081fa00
+   5: (85) call bpf_map_lookup_elem#1
+   6: (15) if r0 == 0x0 goto pc+7
+  R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0 R10=fp
+   7: (7a) *(u64 *)(r10 -16) = -8
+   8: (79) r1 = *(u64 *)(r10 -16)
+   9: (b7) r2 = 2
+  10: (3d) if r2 >= r1 goto pc+3
+  R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0 R1=inv,min_value=3
+  R2=imm2,min_value=2,max_value=2,min_align=2 R10=fp
+  11: (65) if r1 s> 0x4 goto pc+2
+  R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0
+  R1=inv,min_value=3,max_value=4 R2=imm2,min_value=2,max_value=2,min_align=2 R10=fp
+  12: (0f) r0 += r1
+  13: (72) *(u8 *)(r0 +0) = 0
+  R0=map_value_adj(ks=8,vs=8,id=0),min_value=3,max_value=4
+  R1=inv,min_value=3,max_value=4 R2=imm2,min_value=2,max_value=2,min_align=2 R10=fp
+  14: (b7) r0 = 0
+  15: (95) exit
+
+This leaves us with two options for fixing this: i) to invalidate
+all prior learned information once we switch signed context, ii)
+to track min/max signed and unsigned boundaries separately as
+done in [0]. (Given latter introduces major changes throughout
+the whole verifier, it's rather net-next material, thus this
+patch follows option i), meaning we can derive bounds either
+from only signed tests or only unsigned tests.) There is still the
+case of adjust_reg_min_max_vals(), where we adjust bounds on ALU
+operations, meaning programs like the following where boundaries
+on the reg get mixed in context later on when bounds are merged
+on the dst reg must get rejected, too:
+
+   0: (7a) *(u64 *)(r10 -8) = 0
+   1: (bf) r2 = r10
+   2: (07) r2 += -8
+   3: (18) r1 = 0xffff89b2bf87ce00
+   5: (85) call bpf_map_lookup_elem#1
+   6: (15) if r0 == 0x0 goto pc+6
+  R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0 R10=fp
+   7: (7a) *(u64 *)(r10 -16) = -8
+   8: (79) r1 = *(u64 *)(r10 -16)
+   9: (b7) r2 = 2
+  10: (3d) if r2 >= r1 goto pc+2
+  R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0 R1=inv,min_value=3
+  R2=imm2,min_value=2,max_value=2,min_align=2 R10=fp
+  11: (b7) r7 = 1
+  12: (65) if r7 s> 0x0 goto pc+2
+  R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0 R1=inv,min_value=3
+  R2=imm2,min_value=2,max_value=2,min_align=2 R7=imm1,max_value=0 R10=fp
+  13: (b7) r0 = 0
+  14: (95) exit
+
+  from 12 to 15: R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0
+  R1=inv,min_value=3 R2=imm2,min_value=2,max_value=2,min_align=2 R7=imm1,min_value=1 R10=fp
+  15: (0f) r7 += r1
+  16: (65) if r7 s> 0x4 goto pc+2
+  R0=map_value(ks=8,vs=8,id=0),min_value=0,max_value=0 R1=inv,min_value=3
+  R2=imm2,min_value=2,max_value=2,min_align=2 R7=inv,min_value=4,max_value=4 R10=fp
+  17: (0f) r0 += r7
+  18: (72) *(u8 *)(r0 +0) = 0
+  R0=map_value_adj(ks=8,vs=8,id=0),min_value=4,max_value=4 R1=inv,min_value=3
+  R2=imm2,min_value=2,max_value=2,min_align=2 R7=inv,min_value=4,max_value=4 R10=fp
+  19: (b7) r0 = 0
+  20: (95) exit
+
+Meaning, in adjust_reg_min_max_vals() we must also reset range
+values on the dst when src/dst registers have mixed signed/
+unsigned derived min/max value bounds with one unbounded value
+as otherwise they can be added together deducing false boundaries.
+Once both boundaries are established from either ALU ops or
+compare operations w/o mixing signed/unsigned insns, then they
+can safely be added to other regs also having both boundaries
+established. Adding regs with one unbounded side to a map value
+where the bounded side has been learned w/o mixing ops is
+possible, but the resulting map value won't recover from that,
+meaning such op is considered invalid on the time of actual
+access. Invalid bounds are set on the dst reg in case i) src reg,
+or ii) in case dst reg already had them. The only way to recover
+would be to perform i) ALU ops but only 'add' is allowed on map
+value types or ii) comparisons, but these are disallowed on
+pointers in case they span a range. This is fine as only BPF_JEQ
+and BPF_JNE may be performed on PTR_TO_MAP_VALUE_OR_NULL registers
+which potentially turn them into PTR_TO_MAP_VALUE type depending
+on the branch, so only here min/max value cannot be invalidated
+for them.
+
+In terms of state pruning, value_from_signed is considered
+as well in states_equal() when dealing with adjusted map values.
+With regards to breaking existing programs, there is a small
+risk, but use-cases are rather quite narrow where this could
+occur and mixing compares probably unlikely.
+
+Joint work with Josef and Edward.
+
+  [0] https://lists.iovisor.org/pipermail/iovisor-dev/2017-June/000822.html
+
+Fixes: 484611357c19 ("bpf: allow access into map value arrays")
+Reported-by: Edward Cree <ecree@solarflare.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Signed-off-by: Edward Cree <ecree@solarflare.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Josef Bacik <jbacik@fb.com>
 ---
- tools/testing/selftests/bpf/test_verifier.c | 52 +++++++++++++++++++++++++++++
- 1 file changed, 52 insertions(+)
+ include/linux/bpf_verifier.h |   1 +
+ kernel/bpf/verifier.c        | 108 +++++++++++++++++++++++++++++++++++++------
+ 2 files changed, 95 insertions(+), 14 deletions(-)
 
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 64b39d3..48b7997 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -5510,6 +5510,58 @@ struct test_val {
- 		.errstr = "invalid bpf_context access",
- 		.prog_type = BPF_PROG_TYPE_LWT_IN,
- 	},
-+	{
-+		"bounds checks mixing signed and unsigned, positive bounds",
-+		.insns = {
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				     BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 7),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -16, -8),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_1, BPF_REG_10, -16),
-+			BPF_MOV64_IMM(BPF_REG_2, 2),
-+			BPF_JMP_REG(BPF_JGE, BPF_REG_2, BPF_REG_1, 3),
-+			BPF_JMP_IMM(BPF_JSGT, BPF_REG_1, 4, 2),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1),
-+			BPF_ST_MEM(BPF_B, BPF_REG_0, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map1 = { 3 },
-+		.errstr_unpriv = "R0 pointer arithmetic prohibited",
-+		.errstr = "R0 min value is negative",
-+		.result = REJECT,
-+		.result_unpriv = REJECT,
-+	},
-+	{
-+		"bounds checks mixing signed and unsigned",
-+		.insns = {
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				     BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 7),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -16, -8),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_1, BPF_REG_10, -16),
-+			BPF_MOV64_IMM(BPF_REG_2, -1),
-+			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_2, 3),
-+			BPF_JMP_IMM(BPF_JSGT, BPF_REG_1, 1, 2),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1),
-+			BPF_ST_MEM(BPF_B, BPF_REG_0, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map1 = { 3 },
-+		.errstr_unpriv = "R0 pointer arithmetic prohibited",
-+		.errstr = "R0 min value is negative",
-+		.result = REJECT,
-+		.result_unpriv = REJECT,
-+	},
+diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+index 621076f..8e5d31f 100644
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -43,6 +43,7 @@ struct bpf_reg_state {
+ 	u32 min_align;
+ 	u32 aux_off;
+ 	u32 aux_off_align;
++	bool value_from_signed;
  };
  
- static int probe_filter_length(const struct bpf_insn *fp)
+ enum bpf_stack_slot_type {
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 6a86723..af9e84a 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -504,6 +504,7 @@ static void reset_reg_range_values(struct bpf_reg_state *regs, u32 regno)
+ {
+ 	regs[regno].min_value = BPF_REGISTER_MIN_RANGE;
+ 	regs[regno].max_value = BPF_REGISTER_MAX_RANGE;
++	regs[regno].value_from_signed = false;
+ 	regs[regno].min_align = 0;
+ }
+ 
+@@ -777,12 +778,13 @@ static int check_ctx_access(struct bpf_verifier_env *env, int insn_idx, int off,
+ 	return -EACCES;
+ }
+ 
+-static bool is_pointer_value(struct bpf_verifier_env *env, int regno)
++static bool __is_pointer_value(bool allow_ptr_leaks,
++			       const struct bpf_reg_state *reg)
+ {
+-	if (env->allow_ptr_leaks)
++	if (allow_ptr_leaks)
+ 		return false;
+ 
+-	switch (env->cur_state.regs[regno].type) {
++	switch (reg->type) {
+ 	case UNKNOWN_VALUE:
+ 	case CONST_IMM:
+ 		return false;
+@@ -791,6 +793,11 @@ static bool is_pointer_value(struct bpf_verifier_env *env, int regno)
+ 	}
+ }
+ 
++static bool is_pointer_value(struct bpf_verifier_env *env, int regno)
++{
++	return __is_pointer_value(env->allow_ptr_leaks, &env->cur_state.regs[regno]);
++}
++
+ static int check_pkt_ptr_alignment(const struct bpf_reg_state *reg,
+ 				   int off, int size, bool strict)
+ {
+@@ -1832,10 +1839,24 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
+ 	dst_align = dst_reg->min_align;
+ 
+ 	/* We don't know anything about what was done to this register, mark it
+-	 * as unknown.
++	 * as unknown. Also, if both derived bounds came from signed/unsigned
++	 * mixed compares and one side is unbounded, we cannot really do anything
++	 * with them as boundaries cannot be trusted. Thus, arithmetic of two
++	 * regs of such kind will get invalidated bounds on the dst side.
+ 	 */
+-	if (min_val == BPF_REGISTER_MIN_RANGE &&
+-	    max_val == BPF_REGISTER_MAX_RANGE) {
++	if ((min_val == BPF_REGISTER_MIN_RANGE &&
++	     max_val == BPF_REGISTER_MAX_RANGE) ||
++	    (BPF_SRC(insn->code) == BPF_X &&
++	     ((min_val != BPF_REGISTER_MIN_RANGE &&
++	       max_val == BPF_REGISTER_MAX_RANGE) ||
++	      (min_val == BPF_REGISTER_MIN_RANGE &&
++	       max_val != BPF_REGISTER_MAX_RANGE) ||
++	      (dst_reg->min_value != BPF_REGISTER_MIN_RANGE &&
++	       dst_reg->max_value == BPF_REGISTER_MAX_RANGE) ||
++	      (dst_reg->min_value == BPF_REGISTER_MIN_RANGE &&
++	       dst_reg->max_value != BPF_REGISTER_MAX_RANGE)) &&
++	     regs[insn->dst_reg].value_from_signed !=
++	     regs[insn->src_reg].value_from_signed)) {
+ 		reset_reg_range_values(regs, insn->dst_reg);
+ 		return;
+ 	}
+@@ -2023,6 +2044,7 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 			regs[insn->dst_reg].max_value = insn->imm;
+ 			regs[insn->dst_reg].min_value = insn->imm;
+ 			regs[insn->dst_reg].min_align = calc_align(insn->imm);
++			regs[insn->dst_reg].value_from_signed = false;
+ 		}
+ 
+ 	} else if (opcode > BPF_END) {
+@@ -2198,40 +2220,63 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
+ 			    struct bpf_reg_state *false_reg, u64 val,
+ 			    u8 opcode)
+ {
++	bool value_from_signed = true;
++	bool is_range = true;
++
+ 	switch (opcode) {
+ 	case BPF_JEQ:
+ 		/* If this is false then we know nothing Jon Snow, but if it is
+ 		 * true then we know for sure.
+ 		 */
+ 		true_reg->max_value = true_reg->min_value = val;
++		is_range = false;
+ 		break;
+ 	case BPF_JNE:
+ 		/* If this is true we know nothing Jon Snow, but if it is false
+ 		 * we know the value for sure;
+ 		 */
+ 		false_reg->max_value = false_reg->min_value = val;
++		is_range = false;
+ 		break;
+ 	case BPF_JGT:
+-		/* Unsigned comparison, the minimum value is 0. */
+-		false_reg->min_value = 0;
++		value_from_signed = false;
+ 		/* fallthrough */
+ 	case BPF_JSGT:
++		if (true_reg->value_from_signed != value_from_signed)
++			reset_reg_range_values(true_reg, 0);
++		if (false_reg->value_from_signed != value_from_signed)
++			reset_reg_range_values(false_reg, 0);
++		if (opcode == BPF_JGT) {
++			/* Unsigned comparison, the minimum value is 0. */
++			false_reg->min_value = 0;
++		}
+ 		/* If this is false then we know the maximum val is val,
+ 		 * otherwise we know the min val is val+1.
+ 		 */
+ 		false_reg->max_value = val;
++		false_reg->value_from_signed = value_from_signed;
+ 		true_reg->min_value = val + 1;
++		true_reg->value_from_signed = value_from_signed;
+ 		break;
+ 	case BPF_JGE:
+-		/* Unsigned comparison, the minimum value is 0. */
+-		false_reg->min_value = 0;
++		value_from_signed = false;
+ 		/* fallthrough */
+ 	case BPF_JSGE:
++		if (true_reg->value_from_signed != value_from_signed)
++			reset_reg_range_values(true_reg, 0);
++		if (false_reg->value_from_signed != value_from_signed)
++			reset_reg_range_values(false_reg, 0);
++		if (opcode == BPF_JGE) {
++			/* Unsigned comparison, the minimum value is 0. */
++			false_reg->min_value = 0;
++		}
+ 		/* If this is false then we know the maximum value is val - 1,
+ 		 * otherwise we know the mimimum value is val.
+ 		 */
+ 		false_reg->max_value = val - 1;
++		false_reg->value_from_signed = value_from_signed;
+ 		true_reg->min_value = val;
++		true_reg->value_from_signed = value_from_signed;
+ 		break;
+ 	default:
+ 		break;
+@@ -2239,6 +2284,12 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
+ 
+ 	check_reg_overflow(false_reg);
+ 	check_reg_overflow(true_reg);
++	if (is_range) {
++		if (__is_pointer_value(false, false_reg))
++			reset_reg_range_values(false_reg, 0);
++		if (__is_pointer_value(false, true_reg))
++			reset_reg_range_values(true_reg, 0);
++	}
+ }
+ 
+ /* Same as above, but for the case that dst_reg is a CONST_IMM reg and src_reg
+@@ -2248,41 +2299,64 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
+ 				struct bpf_reg_state *false_reg, u64 val,
+ 				u8 opcode)
+ {
++	bool value_from_signed = true;
++	bool is_range = true;
++
+ 	switch (opcode) {
+ 	case BPF_JEQ:
+ 		/* If this is false then we know nothing Jon Snow, but if it is
+ 		 * true then we know for sure.
+ 		 */
+ 		true_reg->max_value = true_reg->min_value = val;
++		is_range = false;
+ 		break;
+ 	case BPF_JNE:
+ 		/* If this is true we know nothing Jon Snow, but if it is false
+ 		 * we know the value for sure;
+ 		 */
+ 		false_reg->max_value = false_reg->min_value = val;
++		is_range = false;
+ 		break;
+ 	case BPF_JGT:
+-		/* Unsigned comparison, the minimum value is 0. */
+-		true_reg->min_value = 0;
++		value_from_signed = false;
+ 		/* fallthrough */
+ 	case BPF_JSGT:
++		if (true_reg->value_from_signed != value_from_signed)
++			reset_reg_range_values(true_reg, 0);
++		if (false_reg->value_from_signed != value_from_signed)
++			reset_reg_range_values(false_reg, 0);
++		if (opcode == BPF_JGT) {
++			/* Unsigned comparison, the minimum value is 0. */
++			true_reg->min_value = 0;
++		}
+ 		/*
+ 		 * If this is false, then the val is <= the register, if it is
+ 		 * true the register <= to the val.
+ 		 */
+ 		false_reg->min_value = val;
++		false_reg->value_from_signed = value_from_signed;
+ 		true_reg->max_value = val - 1;
++		true_reg->value_from_signed = value_from_signed;
+ 		break;
+ 	case BPF_JGE:
+-		/* Unsigned comparison, the minimum value is 0. */
+-		true_reg->min_value = 0;
++		value_from_signed = false;
+ 		/* fallthrough */
+ 	case BPF_JSGE:
++		if (true_reg->value_from_signed != value_from_signed)
++			reset_reg_range_values(true_reg, 0);
++		if (false_reg->value_from_signed != value_from_signed)
++			reset_reg_range_values(false_reg, 0);
++		if (opcode == BPF_JGE) {
++			/* Unsigned comparison, the minimum value is 0. */
++			true_reg->min_value = 0;
++		}
+ 		/* If this is false then constant < register, if it is true then
+ 		 * the register < constant.
+ 		 */
+ 		false_reg->min_value = val + 1;
++		false_reg->value_from_signed = value_from_signed;
+ 		true_reg->max_value = val;
++		true_reg->value_from_signed = value_from_signed;
+ 		break;
+ 	default:
+ 		break;
+@@ -2290,6 +2364,12 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
+ 
+ 	check_reg_overflow(false_reg);
+ 	check_reg_overflow(true_reg);
++	if (is_range) {
++		if (__is_pointer_value(false, false_reg))
++			reset_reg_range_values(false_reg, 0);
++		if (__is_pointer_value(false, true_reg))
++			reset_reg_range_values(true_reg, 0);
++	}
+ }
+ 
+ static void mark_map_reg(struct bpf_reg_state *regs, u32 regno, u32 id,
 -- 
 1.9.3
