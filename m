@@ -1,8 +1,7 @@
 From: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
-Subject: [PATCH 09/13] net: dsa: lan9303: Added
- Documentation/networking/dsa/lan9303.txt
-Date: Tue, 11 Jul 2017 13:48:25 +0200
-Message-ID: <60633305145b42d898e3cacd76216705@nooslMX1.zenitelcss.com>
+Subject: [PATCH 10/13] net: dsa: lan9303: Only allocate 3 ports
+Date: Thu, 20 Jul 2017 12:35:59 +0200
+Message-ID: <9c01203909bc4a89a719050ca80c4b58@nooslMX1.zenitelcss.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <egil.hjelmeland@zenitel.com>
@@ -15,66 +14,35 @@ Return-path: <linux-doc-owner@vger.kernel.org>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Saving 2628 bytes.
+
 Signed-off-by: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
 ---
- Documentation/networking/dsa/lan9303.txt | 48 ++++++++++++++++++++++++++++++++
- 1 file changed, 48 insertions(+)
- create mode 100644 Documentation/networking/dsa/lan9303.txt
+ drivers/net/dsa/lan9303-core.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/networking/dsa/lan9303.txt b/Documentation/networking/dsa/lan9303.txt
-new file mode 100644
-index 000000000000..1fd72ff4b492
---- /dev/null
-+++ b/Documentation/networking/dsa/lan9303.txt
-@@ -0,0 +1,48 @@
-+LAN9303 Ethernet switch driver
-+==============================
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index dc95973d62ed..ad7a4c72e1fb 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -23,6 +23,8 @@
+ 
+ #include "lan9303.h"
+ 
++#define LAN9303_NUM_PORTS 3
 +
-+The LAN9303 is a three port 10/100 ethernet switch with integrated phys
-+for the two external ethernet ports. The third port is an RMII/MII
-+interface to a host master network interface (e.g. fixed link).
-+
-+
-+Driver details
-+==============
-+
-+The driver is implemented as a DSA driver, see
-+Documentation/networking/dsa/dsa.txt.
-+
-+See Documentation/devicetree/bindings/net/dsa/lan9303.txt for device
-+tree binding.
-+
-+The LAN9303 can be managed both via MDIO and I2C, both supported by this
-+driver.
-+
-+At startup the driver configures the device to provide two separate
-+network interfaces (which is the default state of a DSA device).
-+
-+When both user ports are joined to the same bridge, the normal
-+HW MAC learning is enabled. This means that unicast traffic is forwarded
-+in HW. STP is also supported in this mode.
-+
-+If one of the user ports leave the bridge,
-+the ports goes back to the initial separated operation.
-+
-+The driver implements the port_fdb_xxx/port_mdb_xxx methods.
-+
-+
-+Sysfs nodes
-+===========
-+
-+When a user port is enabled, the driver creates sysfs directory
-+/sys/class/net/xxx/lan9303 with the following files:
-+
-+ - swe_bcst_throt (RW): Set/get 6.4.7 Broadcast Storm Control
-+      Throttle Level for the port. Accesses the corresponding bits of
-+      the SWE_BCST_THROT register (13.4.3.23).
-+
-+
-+Driver limitations
-+==================
-+
-+ - No support for VLAN
+ /* 13.2 System Control and Status Registers
+  * Multiply register number by 4 to get address offset.
+  */
+@@ -1361,7 +1363,7 @@ static struct dsa_switch_ops lan9303_switch_ops = {
+ 
+ static int lan9303_register_switch(struct lan9303 *chip)
+ {
+-	chip->ds = dsa_switch_alloc(chip->dev, DSA_MAX_PORTS);
++	chip->ds = dsa_switch_alloc(chip->dev, LAN9303_NUM_PORTS);
+ 	if (!chip->ds)
+ 		return -ENOMEM;
+ 
 -- 
 2.11.0
 
