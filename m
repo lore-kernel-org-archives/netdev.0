@@ -1,48 +1,37 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 1/4] can: dev: Add support for limiting configured bitrate
-Date: Thu, 20 Jul 2017 09:43:18 +0200
-Message-ID: <f45ea1b4-0f46-0002-a89b-b997f2693bb5@hartkopp.net>
-References: <20170719233654.25908-1-fcooper@ti.com>
- <20170719233654.25908-2-fcooper@ti.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH v2] netns: avoid directory traversal (was: ip netns: Make
+ sure netns name is sane)
+Date: Thu, 20 Jul 2017 09:44:10 +0200
+Message-ID: <20170720074410.GG16375@orbyte.nwl.cc>
+References: <20170718171230.084c804e@xeon-e3>
+ <20170719223632.4124-1-mcroce@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Franklin S Cooper Jr <fcooper@ti.com>,
-        linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        wg@grandegger.com, mkl@pengutronix.de, robh+dt@kernel.org,
-        quentin.schulz@free-electrons.com, dev.kurt@vandijck-laurijssen.be,
-        andrew@lunn.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170719233654.25908-2-fcooper@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Matteo Croce <mcroce@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:33561 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933883AbdGTHoL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Jul 2017 03:44:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20170719223632.4124-1-mcroce@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Franklin,
+Hi Matteo,
 
-On 07/20/2017 01:36 AM, Franklin S Cooper Jr wrote:
+I don't think git-am understands the subject change semantics you use
+here, so please drop the '(was: ...)' part from it.
 
-> +#ifdef CONFIG_OF
-> +void of_transceiver_is_fixed(struct net_device *dev)
-> +{
+On Thu, Jul 20, 2017 at 12:36:32AM +0200, Matteo Croce wrote:
+> v2: reword commit message
 
-(..)
+In my opinion, this belongs to patch meta info (below the three-dashes
+line), not the commit message.
 
-> +}
-> +EXPORT_SYMBOL(of_transceiver_is_fixed);
-> +#endif
+Please put the maintainer in Cc when submitting patches. It helps them
+to keep track of it. This counts for all upstream projects, not just
+iproute2.
 
-I'm not sure about the naming here.
-
-As this is a CAN transceiver related option it should be named accordingly:
-
-E.g.
-
-	can_transceiver_is_fixed
-	of_can_transceiver_is_fixed
-	...
-
-Especially as it is defined in include/linux/can/dev.h
-
-Regards,
-Oliver
+Thanks, Phil
