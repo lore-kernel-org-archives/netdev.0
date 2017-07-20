@@ -1,55 +1,48 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [PATCH net] net: ethernet: mediatek: avoid potential invalid
- memory access
-Date: Thu, 20 Jul 2017 09:04:01 +0200
-Message-ID: <78a7c50a-841b-cf23-558f-f5688692ef17@phrozen.org>
-References: <3a9d3ee4bcfd47487c5dbac4c658f10e0233b723.1500532842.git.sean.wang@mediatek.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH 1/4] can: dev: Add support for limiting configured bitrate
+Date: Thu, 20 Jul 2017 09:43:18 +0200
+Message-ID: <f45ea1b4-0f46-0002-a89b-b997f2693bb5@hartkopp.net>
+References: <20170719233654.25908-1-fcooper@ti.com>
+ <20170719233654.25908-2-fcooper@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nbd@openwrt.org,
-        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org
-To: sean.wang@mediatek.com, davem@davemloft.net
+To: Franklin S Cooper Jr <fcooper@ti.com>,
+        linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        wg@grandegger.com, mkl@pengutronix.de, robh+dt@kernel.org,
+        quentin.schulz@free-electrons.com, dev.kurt@vandijck-laurijssen.be,
+        andrew@lunn.ch
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3a9d3ee4bcfd47487c5dbac4c658f10e0233b723.1500532842.git.sean.wang@mediatek.com>
+In-Reply-To: <20170719233654.25908-2-fcooper@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Franklin,
 
+On 07/20/2017 01:36 AM, Franklin S Cooper Jr wrote:
 
-On 20/07/17 08:52, sean.wang@mediatek.com wrote:
-> From: Sean Wang <sean.wang@mediatek.com>
->
-> Potential dangerous invalid memory might be accessed if invalid mac value
-> reflected from the forward port field in rxd4 caused by possible potential
-> hardware defects. So added a simple sanity checker to avoid the kind of
-> situation happening.
->
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> +#ifdef CONFIG_OF
+> +void of_transceiver_is_fixed(struct net_device *dev)
+> +{
 
-Thanks, i ran into the same problem last week and was going to send a 
-fix shortly.
+(..)
 
-Acked-by: John Crispin <john@phrozen.org>
+> +}
+> +EXPORT_SYMBOL(of_transceiver_is_fixed);
+> +#endif
 
-> ---
->   drivers/net/ethernet/mediatek/mtk_eth_soc.c | 6 ++++++
->   1 file changed, 6 insertions(+)
->
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index c1dc08c..8175433 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -999,6 +999,12 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
->   		      RX_DMA_FPORT_MASK;
->   		mac--;
->   
-> +		if (unlikely(mac < 0 || mac >= MTK_MAC_COUNT ||
-> +			     !eth->netdev[mac])) {
-> +			netdev->stats.rx_dropped++;
-> +			goto release_desc;
-> +		}
-> +
->   		netdev = eth->netdev[mac];
->   
->   		if (unlikely(test_bit(MTK_RESETTING, &eth->state)))
+I'm not sure about the naming here.
+
+As this is a CAN transceiver related option it should be named accordingly:
+
+E.g.
+
+	can_transceiver_is_fixed
+	of_can_transceiver_is_fixed
+	...
+
+Especially as it is defined in include/linux/can/dev.h
+
+Regards,
+Oliver
