@@ -1,38 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: bonding: Fix transmit load balancing in
- balance-alb mode
-Date: Thu, 20 Jul 2017 15:35:04 -0700 (PDT)
-Message-ID: <20170720.153504.1900186208210668931.davem@davemloft.net>
-References: <17EC94B0A072C34B8DCF0D30AD16044A0296FEF5@BPXM09GP.gisp.nec.co.jp>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH] net: ethernet: ti: cpsw: Push the request_irq function to
+ the end of probe
+Date: Thu, 20 Jul 2017 17:44:51 -0500
+Message-ID: <0a5cdde6-5898-8f8c-5c56-d47fa9513958@ti.com>
+References: <1500550192-6550-1-git-send-email-j-keerthy@ti.com>
+ <5259f0e7-cc5d-35c9-8f09-94cf7b40f653@ti.com>
+ <20170720.152831.802536956243282259.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tatsu@ab.jp.nec.com
+Cc: <j-keerthy@ti.com>, <linux-omap@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <johan@kernel.org>, <ivan.khoronzhuk@linaro.org>,
+        <t-kristo@ti.com>, <nsekhar@ti.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A0296FEF5@BPXM09GP.gisp.nec.co.jp>
+In-Reply-To: <20170720.152831.802536956243282259.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-Date: Thu, 20 Jul 2017 05:20:40 +0000
 
-> balance-alb mode used to have transmit dynamic load balancing feature
-> enabled by default.  However, transmit dynamic load balancing no longer
-> works in balance-alb after commit 8b426dc54cf4 ("bonding: remove
-> hardcoded value").
-> 
-> Both balance-tlb and balance-alb use the function bond_do_alb_xmit() to
-> send packets.  This function uses the parameter tlb_dynamic_lb.
-> tlb_dynamic_lb used to have the default value of 1 for balance-alb, but
-> now the value is set to 0 except in balance-tlb.
-> 
-> Re-enable transmit dyanmic load balancing by initializing tlb_dynamic_lb
-> for balance-alb similar to balance-tlb.
-> 
-> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
 
-Applied and queued up for -stable, thanks.
+On 07/20/2017 05:28 PM, David Miller wrote:
+> From: Grygorii Strashko <grygorii.strashko@ti.com>
+> Date: Thu, 20 Jul 2017 11:08:09 -0500
+> 
+>> In general patch looks good to me, but it's really unexpected to
+>> receive IRQs while CPSW is probing ;(
+> 
+> This is a poor expectation.
+> 
+> Boot loaders and other entities can leave the device in any state
+> whatsoever.
+> 
+> Furthermore, enabling an IRQ whose handler cannot properly execute
+> without crashing is wrong fundamentally.  All data structures and
+> state must be set up properly before the IRQ is requested.
+> 
+> Therefore this patch is correct and I will apply it.
+> 
 
-Andy, thanks for the Fixes: tag.
+Thanks. Agree (it just has never triggered before, so I meant - unexpected
+ from current driver code point of view ;().
+And I'm just worry that it might not be enough :(, especially for am335x.
+
+-- 
+regards,
+-grygorii
