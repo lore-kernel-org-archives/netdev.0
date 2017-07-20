@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dsa: mv88e6xxx: Enable CMODE config support for
- 6390X
-Date: Wed, 19 Jul 2017 22:26:39 -0700 (PDT)
-Message-ID: <20170719.222639.581694657235005931.davem@davemloft.net>
-References: <20170719061702.7692-1-mnhu@prevas.dk>
+From: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+Subject: [PATCH] net: bonding: Fix transmit load balancing in balance-alb
+ mode
+Date: Thu, 20 Jul 2017 05:20:40 +0000
+Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A0296FEF5@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, andrew@lunn.ch
-To: mnhu@prevas.dk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52238 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933072AbdGTF0k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 01:26:40 -0400
-In-Reply-To: <20170719061702.7692-1-mnhu@prevas.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: ja-JP
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Martin Hundebøll <mnhu@prevas.dk>
-Date: Wed, 19 Jul 2017 08:17:02 +0200
+balance-alb mode used to have transmit dynamic load balancing feature
+enabled by default.  However, transmit dynamic load balancing no longer
+works in balance-alb after commit 8b426dc54cf4 ("bonding: remove
+hardcoded value").
 
-> Commit f39908d3b1c45 ('net: dsa: mv88e6xxx: Set the CMODE for mv88e6390
-> ports 9 & 10') added support for setting the CMODE for the 6390X family,
-> but only enabled it for 9290 and 6390 - and left out 6390X.
-> 
-> Fix support for setting the CMODE on 6390X also by assigning
-> mv88e6390x_port_set_cmode() to the .port_set_cmode function pointer in
-> mv88e6390x_ops too.
-> 
-> Signed-off-by: Martin Hundebøll <mnhu@prevas.dk>
+Both balance-tlb and balance-alb use the function bond_do_alb_xmit() to
+send packets.  This function uses the parameter tlb_dynamic_lb.
+tlb_dynamic_lb used to have the default value of 1 for balance-alb, but
+now the value is set to 0 except in balance-tlb.
 
-Applied and queued up for -stable, thanks.
+Re-enable transmit dyanmic load balancing by initializing tlb_dynamic_lb
+for balance-alb similar to balance-tlb.
+
+Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+Cc: stable@vger.kernel.org
+---
+ drivers/net/bonding/bond_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 14ff622..181839d 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4596,7 +4596,7 @@ static int bond_check_params(struct bond_params *params)
+ 	}
+ 	ad_user_port_key = valptr->value;
+ 
+-	if (bond_mode == BOND_MODE_TLB) {
++	if ((bond_mode == BOND_MODE_TLB) || (bond_mode == BOND_MODE_ALB)) {
+ 		bond_opt_initstr(&newval, "default");
+ 		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB),
+ 					&newval);
