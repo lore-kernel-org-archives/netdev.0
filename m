@@ -1,44 +1,38 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH net] rds: Make sure updates to cp_send_gen can be observed
-Date: Thu, 20 Jul 2017 09:50:03 -0700
-Message-ID: <1b3210e2-6701-733c-f7f4-5f1ab7581a99@oracle.com>
-References: <20170720102855.21961-1-Haakon.Bugge@oracle.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 1/2] net: mvneta: remove bogus use of device_node.data ptr
+Date: Thu, 20 Jul 2017 20:02:02 +0300
+Message-ID: <71674879-6373-8304-79df-f3cb4c1ac43f@cogentembedded.com>
+References: <20170720142711.12847-1-robh@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
-        linux-kernel@vger.kernel.org
-To: =?UTF-8?Q?H=c3=a5kon_Bugge?= <Haakon.Bugge@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170720102855.21961-1-Haakon.Bugge@oracle.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170720142711.12847-1-robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 7/20/2017 3:28 AM, Håkon Bugge wrote:
-> cp->cp_send_gen is treated as a normal variable, although it may be
-> used by different threads.
-> 
-> This is fixed by using {READ,WRITE}_ONCE when it is incremented and
-> READ_ONCE when it is read outside the {acquire,release}_in_xmit
-> protection.
+Hello!
+
+On 07/20/2017 05:27 PM, Rob Herring wrote:
+
+> Nothing sets ever sets data, so it is always NULL. Remove it as this is
+
+    "Sets" once is enough. :-)
+
+> the only user of data ptr in the whole kernel, and it is going to be
+> removed from struct device_node.
 >
-There is explicit memory barrier before the value is read outside
-the {acquire,release}_in_xmit so it takes care of load/store sync.
+> Cc: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+> Signed-off-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+[...]
 
-> Normative reference from the Linux-Kernel Memory Model:
-> 
->      Loads from and stores to shared (but non-atomic) variables should
->      be protected with the READ_ONCE(), WRITE_ONCE(), and
->      ACCESS_ONCE().
-> 
-> Clause 5.1.2.4/25 in the C standard is also relevant.
-> 
-> Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
-> Reviewed-by: Knut Omang <knut.omang@oracle.com>
-> ---
-Having said that, {READ,WRITE}_ONCE usages seems to make
-it clear and explicit. So its fine with me.
+MBR, Sergei
 
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
