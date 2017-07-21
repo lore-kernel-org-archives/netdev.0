@@ -1,37 +1,48 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: [PATCH 3/5] e1000e: Fix return value test
-Date: Fri, 21 Jul 2017 11:36:25 -0700
-Message-ID: <20170721183627.13373-3-bpoirier@suse.com>
-References: <20170721160937.GA22632@csclub.uwaterloo.ca>
- <20170721183627.13373-1-bpoirier@suse.com>
-Cc: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170721183627.13373-1-bpoirier@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
+ null entry.
+Date: Fri, 21 Jul 2017 11:42:46 -0700
+Message-ID: <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
+References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+ <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com> <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: network dev <netdev@vger.kernel.org>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Hangbin Liu <liuhangbin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:34563 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751504AbdGUSnH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 14:43:07 -0400
+Received: by mail-wm0-f50.google.com with SMTP id l81so5444662wmg.1
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 11:43:07 -0700 (PDT)
+In-Reply-To: <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-All the helpers return -E1000_ERR_PHY.
+On Thu, Jul 20, 2017 at 8:23 AM, Hangbin Liu <liuhangbin@gmail.com> wrote:
+> 2017-07-20 23:06 GMT+08:00 Hangbin Liu <liuhangbin@gmail.com>:
+>>> +++ b/net/ipv6/route.c
+>>> @@ -3637,12 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+>>>                 dst = ip6_route_lookup(net, &fl6, 0);
+>>>
+>>>         rt = container_of(dst, struct rt6_info, dst);
+>>> -       if (rt->dst.error) {
+>>> -               err = rt->dst.error;
+>>> -               ip6_rt_put(rt);
+>>> -               goto errout;
+>>> -       }
+>>
+>> hmm... or instead of remove this check, should we check all the entry? Like
+>> if ((rt->dst.error && rt != net->ipv6.ip6_null_entry && rt !=
+>                                                     ^^ mistake here
+>> net->ipv6.ip6_blk_hole_entry) ||
+>>      rt == net->ipv6.ip6_null_entry )
+>
+> Sorry,  there should be no need to check ip6_null_entry since the
+> error is already
+> -ENETUNREACH. So how about
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 58a87134d2e5..fc6a1d9999b2 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5099,7 +5099,7 @@ static bool e1000e_has_link(struct e1000_adapter *adapter)
- 		break;
- 	}
- 
--	if ((ret_val == E1000_ERR_PHY) && (hw->phy.type == e1000_phy_igp_3) &&
-+	if ((ret_val == -E1000_ERR_PHY) && (hw->phy.type == e1000_phy_igp_3) &&
- 	    (er32(CTRL) & E1000_PHY_CTRL_GBE_DISABLE)) {
- 		/* See e1000_kmrn_lock_loss_workaround_ich8lan() */
- 		e_info("Gigabit has been disabled, downgrading speed\n");
--- 
-2.13.2
+Hmm? All of these 3 entries have error set, right??
+So we should only check dst.error...
