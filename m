@@ -1,60 +1,97 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: A buggy behavior for Linux TCP Reno and HTCP
-Date: Fri, 21 Jul 2017 14:16:50 -0700
-Message-ID: <CAK6E8=d+-kA_PyVgAoe0dtGg--ek0CurehQZ7JXo=32em2Gv+Q@mail.gmail.com>
-References: <CANdGJ5Qp1MoGfeSyAnEqYeSeEyoiH8e1j_Ut3F4PnLRBnqNNZg@mail.gmail.com>
- <CAK6E8=eP3jwTD5t7Cj3h_m4JTJ61p=roqsr02WiSHUANse1ynw@mail.gmail.com>
- <CANdGJ5SOUV1OoonC-3i=5MLUWvoHPBZgp19c3mJTTYbNr2yLeQ@mail.gmail.com>
- <CAK6E8=eWYybZZxkjjVXC_K7DfYayEg7gx0bPqKpwi6iuE+bh8Q@mail.gmail.com>
- <dc5db0ec-0746-d42e-5418-f621e1840bc0@unl.edu> <CADVnQynG0MZcuAPpZ+hiK-9Ounx8JKPWxvb1n3t-OyyC7=es_Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Lisong Xu <xu@unl.edu>, Wei Sun <unlcsewsun@gmail.com>,
-        netdev <netdev@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
+From: thor.thayer@linux.intel.com
+Subject: [PATCH] net: stmmac: Adjust dump offset of DMA registers for ethtool
+Date: Fri, 21 Jul 2017 16:35:09 -0500
+Message-ID: <1500672909-24408-1-git-send-email-thor.thayer@linux.intel.com>
+Cc: netdev@vger.kernel.org, thor.thayer@linux.intel.com
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:36738 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752048AbdGUVRc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 17:17:32 -0400
-Received: by mail-wm0-f46.google.com with SMTP id w191so17193045wmw.1
-        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 14:17:31 -0700 (PDT)
-In-Reply-To: <CADVnQynG0MZcuAPpZ+hiK-9Ounx8JKPWxvb1n3t-OyyC7=es_Q@mail.gmail.com>
+Received: from mga05.intel.com ([192.55.52.43]:29788 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754654AbdGUVcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Jul 2017 17:32:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 21, 2017 at 1:46 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> On Fri, Jul 21, 2017 at 4:27 PM, Lisong Xu <xu@unl.edu> wrote:
->>
->> Hi Yuchung,
->>
->> This test scenario is only one example to trigger this bug. In general, as
->> long as cwnd <4, the undo function has this bug.
->
->
-> Yes, personally I agree that this seems like an issue that is general enough
-> to be worth fixing. In the sense that, if cwnd <4, then we may well be very
-> congested. So we don't want to get hit by this bug wherein an undo of a loss
-> recovery can cause cwnd to suddenly jump (from 1, 2, or 3) up to 4.
->
-> Seems like any of the several CCs that use tcp_reno_undo_cwnd() have this
-> bug.
->
-> I guess in my mind the only question is whether we want to add a
-> tcp_foo_undo_cwnd() and ca->loss_cwnd to every CC module to handle this
-> issue (i.e. make every CC module handle it the way CUBIC does), or (my
-I would prefer the former b/c loss_cwnd may not be universal TCP
-state, just like ssthresh carries no meaning in some CC (bbr). It also
-seems also more consistent with the recent change on undo
+From: Thor Thayer <thor.thayer@linux.intel.com>
 
-commit e97991832a4ea4a5f47d65f068a4c966a2eb5730
-Author: Florian Westphal <fw@strlen.de>
-Date:   Mon Nov 21 14:18:38 2016 +0100
+The commit fbf68229ffe7 ("net: stmmac: unify registers dumps methods")
 
-    tcp: make undo_cwnd mandatory for congestion modules
+in the Linux kernel modified the register dump to store the DMA registers
+at the DMA register offset (0x1000) but ethtool (stmmac.c) looks for the
+DMA registers after the MAC registers which is offset 55.
+This patch copies the DMA registers from the higher offset to the offset
+where ethtool expects them.
 
-> preference) just add a tp->loss_cwnd field so we can use shared code in
-> tcp_reno_undo_cwnd() to get this right across all CC modules.
->
-> neal
->
+Signed-off-by: Thor Thayer <thor.thayer@linux.intel.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c  | 2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c   | 2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h      | 3 +++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c | 5 +++++
+ 4 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+index cc4ea13..ec539f7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+@@ -205,7 +205,7 @@ static void dwmac1000_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < 23; i++)
++	for (i = 0; i < NUM_DWMAC1000_DMA_REGS; i++)
+ 		if ((i < 12) || (i > 17))
+ 			reg_space[DMA_BUS_MODE / 4 + i] =
+ 				readl(ioaddr + DMA_BUS_MODE + i * 4);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+index eef2f22..6502b9a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
+@@ -70,7 +70,7 @@ static void dwmac100_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < 9; i++)
++	for (i = 0; i < NUM_DWMAC100_DMA_REGS; i++)
+ 		reg_space[DMA_BUS_MODE / 4 + i] =
+ 			readl(ioaddr + DMA_BUS_MODE + i * 4);
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+index 56e485f..3107d19 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
+@@ -136,6 +136,9 @@
+ #define DMA_STATUS_TI	0x00000001	/* Transmit Interrupt */
+ #define DMA_CONTROL_FTF		0x00100000	/* Flush transmit FIFO */
+ 
++#define NUM_DWMAC100_DMA_REGS	9
++#define NUM_DWMAC1000_DMA_REGS	23
++
+ void dwmac_enable_dma_transmission(void __iomem *ioaddr);
+ void dwmac_enable_dma_irq(void __iomem *ioaddr);
+ void dwmac_disable_dma_irq(void __iomem *ioaddr);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 690b7c1..2ffb5b1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -33,6 +33,8 @@
+ #define MAC100_ETHTOOL_NAME	"st_mac100"
+ #define GMAC_ETHTOOL_NAME	"st_gmac"
+ 
++#define ETHTOOL_DMA_OFFSET	55
++
+ struct stmmac_stats {
+ 	char stat_string[ETH_GSTRING_LEN];
+ 	int sizeof_stat;
+@@ -443,6 +445,9 @@ static void stmmac_ethtool_gregs(struct net_device *dev,
+ 
+ 	priv->hw->mac->dump_regs(priv->hw, reg_space);
+ 	priv->hw->dma->dump_regs(priv->ioaddr, reg_space);
++	/* Copy DMA registers to where ethtool expects them */
++	memcpy(&reg_space[ETHTOOL_DMA_OFFSET], &reg_space[DMA_BUS_MODE / 4],
++	       NUM_DWMAC1000_DMA_REGS * 4);
+ }
+ 
+ static void
+-- 
+2.7.4
