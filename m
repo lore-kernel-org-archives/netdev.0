@@ -1,9 +1,9 @@
 From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v2 2/4] net: ethernet: nb8800: Set RGMII_MODE for all RGMII modes
-Date: Fri, 21 Jul 2017 14:00:57 +0100
-Message-ID: <yw1x379qq706.fsf@mansr.com>
+Subject: Re: [PATCH v2 3/4] net: ethernet: nb8800: Fix RGMII TX clock delay setup
+Date: Fri, 21 Jul 2017 14:04:07 +0100
+Message-ID: <yw1xy3riosag.fsf@mansr.com>
 References: <2617d673-ef81-5e7f-4730-ed3aa3f1c2c6@sigmadesigns.com>
-        <237905ff-385e-fa2f-bbbf-6c550a48e15c@sigmadesigns.com>
+        <5a68bec8-0b1d-bcfe-65fb-b10399ec75be@sigmadesigns.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8BIT
@@ -22,43 +22,62 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         Mason <slash.tmp@free.fr>
 To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:39244 "EHLO unicorn.mansr.com"
+Received: from unicorn.mansr.com ([81.2.72.234]:39292 "EHLO unicorn.mansr.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751400AbdGUNA7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Jul 2017 09:00:59 -0400
-In-Reply-To: <237905ff-385e-fa2f-bbbf-6c550a48e15c@sigmadesigns.com> (Marc
-        Gonzalez's message of "Fri, 21 Jul 2017 13:25:52 +0200")
+        id S1753424AbdGUNEJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Jul 2017 09:04:09 -0400
+In-Reply-To: <5a68bec8-0b1d-bcfe-65fb-b10399ec75be@sigmadesigns.com> (Marc
+        Gonzalez's message of "Fri, 21 Jul 2017 13:26:30 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Marc Gonzalez <marc_gonzalez@sigmadesigns.com> writes:
 
-> There are 4 RGMII phy-modes to handle.
+> According to commit e5f3a4a56ce2a707b2fb8ce37e4414dcac89c672
+> ("Documentation: devicetree: clarify usage of the RGMII phy-modes")
+> there are 4 RGMII modes to handle:
+>
+> "rgmii" (RX and TX delays are added by the MAC when required)
+> "rgmii-id" (RGMII with internal RX and TX delays provided by the PHY,
+> 	the MAC should not add the RX or TX delays in this case)
+> "rgmii-rxid" (RGMII with internal RX delay provided by the PHY,
+> 	the MAC should not add an RX delay in this case)
+> "rgmii-txid" (RGMII with internal TX delay provided by the PHY,
+> 	the MAC should not add an TX delay in this case)
+>
+> Add TX delay in the MAC only for rgmii and rgmii-rxid.
 >
 > Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
-
-Acked-by: Mans Rullgard <mans@mansr.com>
-
 > ---
->  drivers/net/ethernet/aurora/nb8800.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  drivers/net/ethernet/aurora/nb8800.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
 >
 > diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-> index 041cfb7952f8..ded041dbafe7 100644
+> index ded041dbafe7..f3ed320eb4ad 100644
 > --- a/drivers/net/ethernet/aurora/nb8800.c
 > +++ b/drivers/net/ethernet/aurora/nb8800.c
-> @@ -609,7 +609,7 @@ static void nb8800_mac_config(struct net_device *dev)
->  		mac_mode |= HALF_DUPLEX;
+> @@ -1268,11 +1268,13 @@ static int nb8800_tangox_init(struct net_device *dev)
+>  		break;
 >
->  	if (gigabit) {
-> -		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
-> +		if (phy_interface_is_rgmii(dev->phydev))
->  			mac_mode |= RGMII_MODE;
+>  	case PHY_INTERFACE_MODE_RGMII:
+> -		pad_mode = PAD_MODE_RGMII;
+> +	case PHY_INTERFACE_MODE_RGMII_RXID:
+> +		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
+>  		break;
 >
->  		mac_mode |= GMAC_MODE;
-> -- 
-> 2.11.0
+> +	case PHY_INTERFACE_MODE_RGMII_ID:
+>  	case PHY_INTERFACE_MODE_RGMII_TXID:
+> -		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
+> +		pad_mode = PAD_MODE_RGMII;
+>  		break;
 >
+>  	default:
+
+I still don't like this.  Having both the MAC and PHY drivers react to
+the phy-connection-type property is bound to cause trouble somewhere.
+
+The only way out of the current mess is to define new properties for
+both MAC and PHY that override the existing ones if present.
 
 -- 
 Måns Rullgård
