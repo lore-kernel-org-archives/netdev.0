@@ -1,84 +1,55 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net-next v2 1/6] net: add new netdevice feature for offload of RX port for UDP tunnels
-Date: Fri, 21 Jul 2017 12:49:28 +0200
-Message-ID: <7ce4d7e67952fd718f01deedf218c9e3eb130c08.1500632570.git.sd@queasysnail.net>
-References: <cover.1500632570.git.sd@queasysnail.net>
+Subject: [PATCH net-next v2 0/6] Allow to switch off UDP-based tunnel offloads per netdevice
+Date: Fri, 21 Jul 2017 12:49:27 +0200
+Message-ID: <cover.1500632570.git.sd@queasysnail.net>
 Cc: Jiri Benc <jbenc@redhat.com>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>,
         Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39308 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41632 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753509AbdGUKtx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Jul 2017 06:49:53 -0400
-In-Reply-To: <cover.1500632570.git.sd@queasysnail.net>
-In-Reply-To: <cover.1500632570.git.sd@queasysnail.net>
-References: <cover.1500632570.git.sd@queasysnail.net>
+        id S1753383AbdGUKtw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Jul 2017 06:49:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a new netdevice feature, so that the offloading of RX port for
-UDP tunnels can be disabled by the administrator on some netdevices,
-using the "rx-udp_tunnel-port-offload" feature in ethtool.
+This patchset adds a new netdevice feature to toggle RX offloads of
+UDP-based tunnel via ethtool. This is useful if the offload is causing
+issues, for example if the hardware is buggy.
 
-This feature is set for all devices that provide ndo_udp_tunnel_add.
+The feature is added to all devices providing the ->ndo_udp_tunnel_add
+op, and enabled by default to preserve current behavior.
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- include/linux/netdev_features.h | 2 ++
- net/core/dev.c                  | 6 ++++++
- net/core/ethtool.c              | 1 +
- 3 files changed, 9 insertions(+)
+When the administrator disables this feature on a device, all
+currently offloaded ports are cleared from the device.  When the
+feature is turned on, the stack notifies the device about all current
+ports.
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index ebd273627334..dc8b4896b77b 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -75,6 +75,7 @@ enum {
- 	NETIF_F_HW_TC_BIT,		/* Offload TC infrastructure */
- 	NETIF_F_HW_ESP_BIT,		/* Hardware ESP transformation offload */
- 	NETIF_F_HW_ESP_TX_CSUM_BIT,	/* ESP with TX checksum offload */
-+	NETIF_F_RX_UDP_TUNNEL_PORT_BIT, /* Offload of RX port for UDP tunnels */
- 
- 	/*
- 	 * Add your fresh new feature above and remember to update
-@@ -138,6 +139,7 @@ enum {
- #define NETIF_F_HW_TC		__NETIF_F(HW_TC)
- #define NETIF_F_HW_ESP		__NETIF_F(HW_ESP)
- #define NETIF_F_HW_ESP_TX_CSUM	__NETIF_F(HW_ESP_TX_CSUM)
-+#define	NETIF_F_RX_UDP_TUNNEL_PORT  __NETIF_F(RX_UDP_TUNNEL_PORT)
- 
- #define for_each_netdev_feature(mask_addr, bit)	\
- 	for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 509af6ce8831..9081134adc0d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7530,6 +7530,12 @@ int register_netdevice(struct net_device *dev)
- 	 */
- 	dev->hw_features |= NETIF_F_SOFT_FEATURES;
- 	dev->features |= NETIF_F_SOFT_FEATURES;
-+
-+	if (dev->netdev_ops->ndo_udp_tunnel_add) {
-+		dev->features |= NETIF_F_RX_UDP_TUNNEL_PORT;
-+		dev->hw_features |= NETIF_F_RX_UDP_TUNNEL_PORT;
-+	}
-+
- 	dev->wanted_features = dev->features & dev->hw_features;
- 
- 	if (!(dev->flags & IFF_LOOPBACK))
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 78408ab77a10..b987bc475fc8 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -105,6 +105,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_HW_TC_BIT] =		 "hw-tc-offload",
- 	[NETIF_F_HW_ESP_BIT] =		 "esp-hw-offload",
- 	[NETIF_F_HW_ESP_TX_CSUM_BIT] =	 "esp-tx-csum-hw-offload",
-+	[NETIF_F_RX_UDP_TUNNEL_PORT_BIT] =	 "rx-udp_tunnel-port-offload",
- };
- 
- static const char
+v2:
+ - rename feature bit to NETIF_F_RX_UDP_TUNNEL_PORT
+ - rename ethtool feature to rx-udp_tunnel-port-offload
+
+
+Sabrina Dubroca (6):
+  net: add new netdevice feature for offload of RX port for UDP tunnels
+  net: check UDP tunnel RX port offload feature before calling tunnel
+    ndo ndo
+  net: add infrastructure to un-offload UDP tunnel port
+  net: call udp_tunnel_get_rx_info when NETIF_F_RX_UDP_TUNNEL_PORT is
+    toggled
+  geneve/vxlan: add support for NETDEV_UDP_TUNNEL_DROP_INFO
+  geneve/vxlan: offload ports on register/unregister events
+
+ drivers/net/geneve.c            | 24 ++++++++++++++++++------
+ drivers/net/vxlan.c             | 31 ++++++++++++++++++++++---------
+ include/linux/netdev_features.h |  2 ++
+ include/linux/netdevice.h       |  1 +
+ include/net/udp_tunnel.h        |  8 ++++++++
+ net/core/dev.c                  | 28 +++++++++++++++++++++++++++-
+ net/core/ethtool.c              |  1 +
+ net/ipv4/udp_tunnel.c           | 25 ++++++++++++++++++++++++-
+ 8 files changed, 103 insertions(+), 17 deletions(-)
+
 -- 
 2.13.2
