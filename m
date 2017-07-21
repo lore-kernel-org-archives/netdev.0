@@ -1,37 +1,38 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: SELinux/IP_PASSSEC regression in 4.13-rcX
-Date: Fri, 21 Jul 2017 18:19:06 -0400
-Message-ID: <CAHC9VhS9QO8jGBodsSeQxxbgoxrmThRgbc3_m17h7gFmfP=GGw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 master 1/2] bpf: improve error reporting around
+ tail calls
+Date: Fri, 21 Jul 2017 16:28:25 -0700
+Message-ID: <20170721162825.0b42e9ba@xeon-e3>
+References: <cover.1500663605.git.daniel@iogearbox.net>
+        <b0bf43dac3babbb1a78fabeeb2a3a069db4f262c.1500663605.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: selinux@tycho.nsa.gov
-To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: ast@fb.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:38183 "EHLO
-        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753502AbdGUWTI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 18:19:08 -0400
-Received: by mail-lf0-f42.google.com with SMTP id y15so27877049lfd.5
-        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 15:19:08 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:35897 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753111AbdGUX2c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 19:28:32 -0400
+Received: by mail-pf0-f169.google.com with SMTP id o88so28849762pfk.3
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 16:28:32 -0700 (PDT)
+In-Reply-To: <b0bf43dac3babbb1a78fabeeb2a3a069db4f262c.1500663605.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, 21 Jul 2017 21:13:06 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-I've been seeing a SELinux regression with IP_PASSSEC on the v4.13-rcX
-kernels and finally tracked the problem down to the
-skb_release_head_state() call in __udp_queue_rcv_skb().  Looking at
-the code and the git log it would appear that the likely culprit is
-0a463c78d25b ("udp: avoid a cache miss on dequeue
-"); it looks similar to IP option problem fixed in 0ddf3fb2c43d2.
+> Currently, it's still quite hard to figure out if a prog passed the
+> verifier, but later gets rejected due to different tail call ownership.
+> Figure out whether that is the case and provide appropriate error
+> messages to the user.
+>=20
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
->From a SELinux/IP_PASSSEC point of view we need access to the skb->sp
-pointer to examine the SAs.  I'm posting this here without a patch
-because it isn't clear to me how you would like to fix the problem; my
-initial thought would be to simply make the skb_release_head_state()
-conditional on the skb->sp pointer, much like the IP options fix, but
-I'm not sure if you have a more clever idea.
+Sorry, dead code. Please fix and resubmit.
 
--- 
-paul moore
-www.paul-moore.com
+bpf.c:356:12: warning: =E2=80=98bpf_derive_prog_from_fdinfo=E2=80=99 define=
+d but not used [-Wunused-function]
+ static int bpf_derive_prog_from_fdinfo(int fd, struct bpf_prog_data *prog)
