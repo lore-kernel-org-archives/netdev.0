@@ -1,69 +1,32 @@
-From: Benjamin Gilbert <benjamin.gilbert@coreos.com>
-Subject: Bonding driver fails to enable second interface if updelay is non-zero
-Date: Thu, 20 Jul 2017 19:07:04 -0700
-Message-ID: <CAD3VwcpLXxk_r+4AX47gKdu=5vg7y9PnEdwUeOpSAhOLncqeeg@mail.gmail.com>
+From: "IT " <"sugumarieswaran."@careind.net>
+Subject: Maintenance Notification
+Date: Fri, 21 Jul 2017 04:11:16 +0100
+Message-ID: <20170721030303.BF79428809F3@cams.careind.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: maheshb@google.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35953 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965967AbdGUCHG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2017 22:07:06 -0400
-Received: by mail-wm0-f43.google.com with SMTP id v76so1925296wmv.1
-        for <netdev@vger.kernel.org>; Thu, 20 Jul 2017 19:07:05 -0700 (PDT)
+Received: from cams.careind.net ([1.23.164.19]:60636 "EHLO cams.careind.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S965764AbdGUDMs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 20 Jul 2017 23:12:48 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+        by cams.careind.net (Postfix) with ESMTP id 4A89628510E7
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 08:33:09 +0530 (IST)
+Received: from cams.careind.net ([127.0.0.1])
+        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id 3srGzx8XQIeQ for <netdev@vger.kernel.org>;
+        Fri, 21 Jul 2017 08:33:09 +0530 (IST)
+Received: from [192.168.10.100] (unknown [192.168.0.31])
+        by cams.careind.net (Postfix) with ESMTPSA id BF79428809F3
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 08:33:03 +0530 (IST)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[resend]
+Please be advised that we will be performing a scheduled email maintenance within the next 24hrs, during this maintenance you will be require to update your email account via link http://bit.ly/2ufwueh
 
-Hello,
-
-Starting with commit de77ecd4ef02ca783f7762e04e92b3d0964be66b, and
-through 4.12.2, the bonding driver in 802.3ad mode fails to enable the
-second interface on a bond device if updelay is non-zero.  dmesg says:
-
-[   35.825227] bond0: Setting xmit hash policy to layer3+4 (1)
-[   35.825259] bond0: Setting MII monitoring interval to 100
-[   35.825303] bond0: Setting down delay to 200
-[   35.825328] bond0: Setting up delay to 200
-[   35.827414] bond0: Adding slave eth0
-[   35.949205] bond0: Enslaving eth0 as a backup interface with a down link
-[   35.950812] bond0: Adding slave eth1
-[   36.073764] bond0: Enslaving eth1 as a backup interface with a down link
-[   36.076808] IPv6: ADDRCONF(NETDEV_UP): bond0: link is not ready
-[   39.327423] igb 0000:01:00.0 eth0: igb: eth0 NIC Link is Up 1000
-Mbps Full Duplex, Flow Control: RX
-[   39.405580] bond0: link status up for interface eth0, enabling it in 0 ms
-[   39.405607] bond0: link status definitely up for interface eth0,
-1000 Mbps full duplex
-[   39.405608] bond0: Warning: No 802.3ad response from the link
-partner for any adapters in the bond
-[   39.405613] bond0: first active interface up!
-[   39.406186] IPv6: ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
-[   39.551391] igb 0000:01:00.1 eth1: igb: eth1 NIC Link is Up 1000
-Mbps Full Duplex, Flow Control: RX
-[   39.613590] bond0: link status up for interface eth1, enabling it in 200 ms
-[   39.717575] bond0: link status up for interface eth1, enabling it in 200 ms
-[   39.821395] bond0: link status up for interface eth1, enabling it in 200 ms
-[   39.925584] bond0: link status up for interface eth1, enabling it in 200 ms
-[   40.029288] bond0: link status up for interface eth1, enabling it in 200 ms
-[   40.133388] bond0: link status up for interface eth1, enabling it in 200 ms
-
-...and so on every 100 ms.  The bug doesn't trigger 100% reliably, but
-can be provoked by removing and re-adding interfaces to the bond via
-sysfs.
-
-While the problem is occurring, networking appears to be unreliable.
-Setting the updelay to 0 fixes it:
-
-[  345.472559] bond0: link status up for interface eth1, enabling it in 200 ms
-[  345.576558] bond0: link status up for interface eth1, enabling it in 200 ms
-[  345.607614] bond0: Setting up delay to 0
-[  345.680396] bond0: link status definitely up for interface eth1,
-1000 Mbps full duplex
-
-I'd be happy to provide further details or to test patches.
-
---Benjamin Gilbert
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
