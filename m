@@ -1,109 +1,58 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v2 3/4] net: ethernet: nb8800: Fix RGMII TX clock delay setup
-Date: Fri, 21 Jul 2017 14:47:04 +0100
-Message-ID: <yw1xtw25q4vb.fsf@mansr.com>
-References: <2617d673-ef81-5e7f-4730-ed3aa3f1c2c6@sigmadesigns.com>
-        <5a68bec8-0b1d-bcfe-65fb-b10399ec75be@sigmadesigns.com>
-        <yw1xy3riosag.fsf@mansr.com>
-        <53fbf5e1-8d37-9734-be3f-77128ada9dfb@sigmadesigns.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Timur Tabi <timur@codeaurora.org>,
-        Daniel Mack <zonque@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
-        Mason <slash.tmp@free.fr>
-To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [RFC PATCH] IP: do not modify ingress packet IP option in ip_options_echo()
+Date: Fri, 21 Jul 2017 15:55:18 +0200
+Message-ID: <f5758b6b7199d2d2a218b0ad36f1e5ef108eac43.1500642854.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:39468 "EHLO unicorn.mansr.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42418 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750762AbdGUNrG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Jul 2017 09:47:06 -0400
-In-Reply-To: <53fbf5e1-8d37-9734-be3f-77128ada9dfb@sigmadesigns.com> (Marc
-        Gonzalez's message of "Fri, 21 Jul 2017 15:43:02 +0200")
+        id S1750858AbdGUNzb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Jul 2017 09:55:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marc Gonzalez <marc_gonzalez@sigmadesigns.com> writes:
+While computing the response option set for LRSS, ip_options_echo()
+also changes the ingress packet LRSS addresses list, setting
+the last one to the dst specific address for the ingress packet
+- via memset(start[ ...
+The only visible effect of such change - beyond possibly damaging
+shared/cloned skbs - is modifying the data carried by ICMP replies
+changing the header information for reported the ingress packet,
+whichi violates RFC1122 3.2.2.6.
+All the others call sites just ignore the ingress packet IP options
+after calling ip_options_echo().
+This behavior predates git history and apparently was present into
+the initial ip_options_echo() implementation in linux 1.3.30 but
+still looks wrong.
 
-> On 21/07/2017 15:04, Måns Rullgård wrote:
->
->> Marc Gonzalez wrote:
->> 
->>> According to commit e5f3a4a56ce2a707b2fb8ce37e4414dcac89c672
->>> ("Documentation: devicetree: clarify usage of the RGMII phy-modes")
->>> there are 4 RGMII modes to handle:
->>>
->>> "rgmii" (RX and TX delays are added by the MAC when required)
->>> "rgmii-id" (RGMII with internal RX and TX delays provided by the PHY,
->>> 	the MAC should not add the RX or TX delays in this case)
->>> "rgmii-rxid" (RGMII with internal RX delay provided by the PHY,
->>> 	the MAC should not add an RX delay in this case)
->>> "rgmii-txid" (RGMII with internal TX delay provided by the PHY,
->>> 	the MAC should not add an TX delay in this case)
->>>
->>> Add TX delay in the MAC only for rgmii and rgmii-rxid.
->>>
->>> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
->>> ---
->>>  drivers/net/ethernet/aurora/nb8800.c | 6 ++++--
->>>  1 file changed, 4 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
->>> index ded041dbafe7..f3ed320eb4ad 100644
->>> --- a/drivers/net/ethernet/aurora/nb8800.c
->>> +++ b/drivers/net/ethernet/aurora/nb8800.c
->>> @@ -1268,11 +1268,13 @@ static int nb8800_tangox_init(struct net_device *dev)
->>>  		break;
->>>
->>>  	case PHY_INTERFACE_MODE_RGMII:
->>> -		pad_mode = PAD_MODE_RGMII;
->>> +	case PHY_INTERFACE_MODE_RGMII_RXID:
->>> +		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
->>>  		break;
->>>
->>> +	case PHY_INTERFACE_MODE_RGMII_ID:
->>>  	case PHY_INTERFACE_MODE_RGMII_TXID:
->>> -		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
->>> +		pad_mode = PAD_MODE_RGMII;
->>>  		break;
->>>
->>>  	default:
->> 
->> I still don't like this.  Having both the MAC and PHY drivers react to
->> the phy-connection-type property is bound to cause trouble somewhere.
->> 
->> The only way out of the current mess is to define new properties for
->> both MAC and PHY that override the existing ones if present.
->
-> Do you mean defining 4 new bindings and their corresponding
-> phy_interface_t enum values? For example:
->
-> "rgmii-v2"
-> "rgmii-id-v2"
-> "rgmii-rxid-v2"
-> "rgmii-txid-v2"
->
-> 	PHY_INTERFACE_MODE_RGMII_V2,
-> 	PHY_INTERFACE_MODE_RGMII_ID_V2,
-> 	PHY_INTERFACE_MODE_RGMII_RXID_V2,
-> 	PHY_INTERFACE_MODE_RGMII_TXID_V2,
->
-> And then handling these new enums in the at803x and nb8800 drivers?
+Removing the fib_compute_spec_dst() call will allow completely
+removing, with a later patch, skb->dst usage in ip_options_echo(),
+so that we can release the dst entry early in the rx path and
+drop a couple of related hacks.
 
-It has already been suggested to add new properties specifying desired
-delays in picoseconds.  If present on the MAC node, the MAC driver
-should attempt to provide the delay, and if present on the PHY node, the
-PHY driver is responsible.
+This will evenutally target net-next.
 
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv4/ip_options.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+index 93157f2..fdda973 100644
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -174,9 +174,6 @@ int __ip_options_echo(struct ip_options *dopt, struct sk_buff *skb,
+ 				doffset -= 4;
+ 		}
+ 		if (doffset > 3) {
+-			__be32 daddr = fib_compute_spec_dst(skb);
+-
+-			memcpy(&start[doffset-1], &daddr, 4);
+ 			dopt->faddr = faddr;
+ 			dptr[0] = start[0];
+ 			dptr[1] = doffset+3;
 -- 
-Måns Rullgård
+2.9.4
