@@ -1,63 +1,57 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH] net: ethernet: ti: cpsw: Push the request_irq function to
- the end of probe
-Date: Fri, 21 Jul 2017 10:55:00 -0500
-Message-ID: <185e1781-d9b5-226d-2dde-26faaec7198d@ti.com>
-References: <1500550192-6550-1-git-send-email-j-keerthy@ti.com>
- <5259f0e7-cc5d-35c9-8f09-94cf7b40f653@ti.com>
- <20170720.152831.802536956243282259.davem@davemloft.net>
- <0a5cdde6-5898-8f8c-5c56-d47fa9513958@ti.com>
- <ca11fb55-b248-f912-ac63-46ba376e30cf@ti.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [RFC 1/2] net-next: add a dma_desc element to struct
+ skb_shared_info
+Date: Fri, 21 Jul 2017 17:56:39 +0200
+Message-ID: <1500652599.3924.10.camel@redhat.com>
+References: <20170721152035.6645-1-john@phrozen.org>
+         <20170721152035.6645-2-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <johan@kernel.org>,
-        <ivan.khoronzhuk@linaro.org>, <t-kristo@ti.com>, <nsekhar@ti.com>
-To: Keerthy <j-keerthy@ti.com>, David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: John Crispin <john@phrozen.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ca11fb55-b248-f912-ac63-46ba376e30cf@ti.com>
-Content-Language: en-US
+In-Reply-To: <20170721152035.6645-2-john@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
+On Fri, 2017-07-21 at 17:20 +0200, John Crispin wrote:
+> In order to make HW flow offloading work in latest MediaTek silicon we need
+> to propagate part of the RX DMS descriptor to the upper layers populating
+> the flow offload engines HW tables. This patch adds an extra element to
+> struct skb_shared_info allowing the ethernet drivers RX napi code to store
+> the required information and make it persistent for the lifecycle of the
+> skb and its clones.
+> 
+> Signed-off-by: John Crispin <john@phrozen.org>
+> ---
+>  include/linux/skbuff.h | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 4093552be1de..db9576cd946b 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -426,6 +426,7 @@ struct skb_shared_info {
+>  	unsigned int	gso_type;
+>  	u32		tskey;
+>  	__be32          ip6_frag_id;
+> +	u32		dma_desc;
+>  
+>  	/*
+>  	 * Warning : all fields before dataref are cleared in __alloc_skb()
 
-On 07/20/2017 11:45 PM, Keerthy wrote:
-> 
-> 
-> On Friday 21 July 2017 04:14 AM, Grygorii Strashko wrote:
->>
->>
->> On 07/20/2017 05:28 PM, David Miller wrote:
->>> From: Grygorii Strashko <grygorii.strashko@ti.com>
->>> Date: Thu, 20 Jul 2017 11:08:09 -0500
->>>
->>>> In general patch looks good to me, but it's really unexpected to
->>>> receive IRQs while CPSW is probing ;(
->>>
->>> This is a poor expectation.
->>>
->>> Boot loaders and other entities can leave the device in any state
->>> whatsoever.
->>>
->>> Furthermore, enabling an IRQ whose handler cannot properly execute
->>> without crashing is wrong fundamentally.  All data structures and
->>> state must be set up properly before the IRQ is requested.
->>>
->>> Therefore this patch is correct and I will apply it.
->>>
->>
->> Thanks. Agree (it just has never triggered before, so I meant - unexpected
->>   from current driver code point of view ;().
->> And I'm just worry that it might not be enough :(, especially for am335x.
-> 
-> I tried nfs boot on am335x-evm with this patch and it boots fine for me.
-> 
+This will increase the skb_shared_info struct size, which is already
+quite large, and can have several kind of performance drawback.
+AFAIK this is discouraged. 
 
-Thank you Keerthy, I've also simulated and tested it on am335x and dra7
-and see networking working and no crashes.
+I don't understand the use case; the driver will set this field, but
+who is going to consume it?
 
--- 
-regards,
--grygorii
+Thanks,
+
+Paolo
