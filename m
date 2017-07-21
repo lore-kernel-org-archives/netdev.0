@@ -1,7 +1,7 @@
 From: John Crispin <john@phrozen.org>
-Subject: [RFC 1/2] net-next: add a dma_desc element to struct skb_shared_info
-Date: Fri, 21 Jul 2017 17:20:34 +0200
-Message-ID: <20170721152035.6645-2-john@phrozen.org>
+Subject: [RFC 2/2] net-next: mediatek: populate the shared
+Date: Fri, 21 Jul 2017 17:20:35 +0200
+Message-ID: <20170721152035.6645-3-john@phrozen.org>
 References: <20170721152035.6645-1-john@phrozen.org>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
         John Crispin <john@phrozen.org>
@@ -12,29 +12,40 @@ In-Reply-To: <20170721152035.6645-1-john@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to make HW flow offloading work in latest MediaTek silicon we need
-to propagate part of the RX DMS descriptor to the upper layers populating
-the flow offload engines HW tables. This patch adds an extra element to
-struct skb_shared_info allowing the ethernet drivers RX napi code to store
-the required information and make it persistent for the lifecycle of the
-skb and its clones.
+When enabling HW flow offloading, the traffic coming in on either of the
+GMACs is first sent to the PPE for processing. Any traffic not offloaded
+at this point will then be forwarded to the normal RX DMA ring for SW path
+processing. In this case the PPE will send additional data inside RXD4
+that is later required by the upper layers to populate the flow offloading
+engines HW tables properly. This patch sets the skb_shared_info's dma_desc
+field so that we can use the value later on.
 
 Signed-off-by: John Crispin <john@phrozen.org>
 ---
- include/linux/skbuff.h | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4093552be1de..db9576cd946b 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -426,6 +426,7 @@ struct skb_shared_info {
- 	unsigned int	gso_type;
- 	u32		tskey;
- 	__be32          ip6_frag_id;
-+	u32		dma_desc;
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index a455d1b4f1d8..42d162cd6363 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -918,6 +918,7 @@ static void mtk_update_rx_cpu_idx(struct mtk_eth *eth)
+ static int mtk_poll_rx(struct napi_struct *napi, int budget,
+ 		       struct mtk_eth *eth)
+ {
++	struct skb_shared_info *sh;
+ 	struct mtk_rx_ring *ring;
+ 	int idx;
+ 	struct sk_buff *skb;
+@@ -1000,6 +1001,9 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
+ 		else
+ 			skb_checksum_none_assert(skb);
+ 		skb->protocol = eth_type_trans(skb, netdev);
++		sh = skb_shinfo(skb);
++
++		sh->dma_desc = trxd.rxd4;
  
- 	/*
- 	 * Warning : all fields before dataref are cleared in __alloc_skb()
+ 		if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX &&
+ 		    RX_DMA_VID(trxd.rxd3))
 -- 
 2.11.0
