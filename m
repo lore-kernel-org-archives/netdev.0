@@ -1,8 +1,7 @@
 From: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
-Subject: [PATCH v2 1/4] net: phy: at803x: Document RGMII RX and TX clock delay
- issues
-Date: Fri, 21 Jul 2017 13:25:05 +0200
-Message-ID: <051653a2-946f-6a0b-4cff-b403d1197038@sigmadesigns.com>
+Subject: [PATCH v2 3/4] net: ethernet: nb8800: Fix RGMII TX clock delay setup
+Date: Fri, 21 Jul 2017 13:26:30 +0200
+Message-ID: <5a68bec8-0b1d-bcfe-65fb-b10399ec75be@sigmadesigns.com>
 References: <2617d673-ef81-5e7f-4730-ed3aa3f1c2c6@sigmadesigns.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
@@ -21,56 +20,52 @@ To: Florian Fainelli <f.fainelli@gmail.com>,
         Timur Tabi <timur@codeaurora.org>,
         Daniel Mack <zonque@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us-smtp-delivery-107.mimecast.com ([216.205.24.107]:42736 "EHLO
+Received: from us-smtp-delivery-107.mimecast.com ([216.205.24.107]:48934 "EHLO
         us-smtp-delivery-107.mimecast.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752048AbdGULxF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 07:53:05 -0400
+        by vger.kernel.org with ESMTP id S1752433AbdGULxR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 07:53:17 -0400
 In-Reply-To: <2617d673-ef81-5e7f-4730-ed3aa3f1c2c6@sigmadesigns.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current code supports enabling RGMII RX and TX clock delays.
-The unstated assumption is that these settings are disabled by
-default at reset, which is not the case.
+According to commit e5f3a4a56ce2a707b2fb8ce37e4414dcac89c672
+("Documentation: devicetree: clarify usage of the RGMII phy-modes")
+there are 4 RGMII modes to handle:
 
-RX clock delay is enabled at reset. And TX clock delay "survives"
-across SW resets. Thus, if the bootloader enables TX clock delay,
-it will remain enabled at reset in Linux.
+"rgmii" (RX and TX delays are added by the MAC when required)
+"rgmii-id" (RGMII with internal RX and TX delays provided by the PHY,
+	the MAC should not add the RX or TX delays in this case)
+"rgmii-rxid" (RGMII with internal RX delay provided by the PHY,
+	the MAC should not add an RX delay in this case)
+"rgmii-txid" (RGMII with internal TX delay provided by the PHY,
+	the MAC should not add an TX delay in this case)
+
+Add TX delay in the MAC only for rgmii and rgmii-rxid.
 
 Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
 ---
- drivers/net/phy/at803x.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/aurora/nb8800.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index c1e52b9dc58d..7a0954513b91 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -283,6 +283,12 @@ static int at803x_config_init(struct phy_device *phydev)
- 	if (ret < 0)
- 		return ret;
+diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+index ded041dbafe7..f3ed320eb4ad 100644
+--- a/drivers/net/ethernet/aurora/nb8800.c
++++ b/drivers/net/ethernet/aurora/nb8800.c
+@@ -1268,11 +1268,13 @@ static int nb8800_tangox_init(struct net_device *dev)
+ 		break;
  
-+	/*
-+	 * NB: This code assumes that RGMII RX clock delay is disabled
-+	 * at reset, but actually, RX clock delay is enabled at reset.
-+	 * Disabling the delay if it has not been explicitly requested
-+	 * breaks boards that rely on the enabled-by-default behavior.
-+	 */
- 	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID ||
- 			phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
- 		ret = at803x_enable_rx_delay(phydev);
-@@ -290,6 +296,12 @@ static int at803x_config_init(struct phy_device *phydev)
- 			return ret;
- 	}
+ 	case PHY_INTERFACE_MODE_RGMII:
+-		pad_mode = PAD_MODE_RGMII;
++	case PHY_INTERFACE_MODE_RGMII_RXID:
++		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
+ 		break;
  
-+	/*
-+	 * NB: This code assumes that RGMII TX clock delay is disabled
-+	 * at reset, but actually, TX clock delay "survives" across SW
-+	 * resets. If the bootloader enables TX clock delay, Linux is
-+	 * stuck with that setting.
-+	 */
- 	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID ||
- 			phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) {
- 		ret = at803x_enable_tx_delay(phydev);
++	case PHY_INTERFACE_MODE_RGMII_ID:
+ 	case PHY_INTERFACE_MODE_RGMII_TXID:
+-		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
++		pad_mode = PAD_MODE_RGMII;
+ 		break;
+ 
+ 	default:
 -- 
 2.11.0
