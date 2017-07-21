@@ -1,43 +1,49 @@
-From: John Crispin <john@phrozen.org>
-Subject: [RFC 0/2] net-next: hw flow offloading
-Date: Fri, 21 Jul 2017 17:20:33 +0200
-Message-ID: <20170721152035.6645-1-john@phrozen.org>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: commit 16ecba59 breaks 82574L under heavy load.
+Date: Fri, 21 Jul 2017 11:27:09 -0400
+Message-ID: <20170721152709.GT18556@csclub.uwaterloo.ca>
+References: <20170718142109.GO18556@csclub.uwaterloo.ca>
+ <20170718231435.64us7vu67wtp6pwe@f1.synalogic.ca>
+ <20170719141953.GQ18556@csclub.uwaterloo.ca>
+ <20170720000747.4jiadqubv7hg5esz@f1.synalogic.ca>
+ <20170720140027.GR18556@csclub.uwaterloo.ca>
+ <20170720234455.7nxtui7shmnzivxd@f1.synalogic.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        John Crispin <john@phrozen.org>
-To: "David S . Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
+        intel-wired-lan@lists.osuosl.org,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Benjamin Poirier <bpoirier@suse.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170720234455.7nxtui7shmnzivxd@f1.synalogic.ca>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, Jul 20, 2017 at 04:44:55PM -0700, Benjamin Poirier wrote:
+> Could you please test the following patch and let me know if it:
+> 1) reduces the interrupt rate of the Other msi-x vector
+> 2) avoids the link flaps
+> or
+> 3) logs some dmesg warnings of the form "Other interrupt with unhandled [...]"
+> In this case, please paste icr values printed.
 
-I managed to bring up the flow offloading on latest MedieTek silicon.
+I will give it a try.
 
-When enabling HW flow offloading, the traffic coming in on either of the
-GMACs is first sent to the PPE for processing. Any traffic not offloaded
-at this point will then be forwarded to the normal RX DMA ring for SW path
-processing. In this case the PPE will send additional data inside RXD4
-that is later required by the upper layers to populate the flow offloading
-engines HW tables properly.
+Another odd behaviour I see is that the driver will hang in
+napi_synchronize on shutdown if there is traffic at the time (at least
+I think that's the trigger, maybe the trigger is if there has been an
+overload of traffic and the backlog in napi was used).
 
-This series is a RFC as i am not sure how to best propagate the additional
-info from the RX DMA descriptor. The driver is still using NF hooks and
-I plan to rebase it and send it upstream once the flow table offloading
-patches that folks are working on are upstream.
+>From doing some searching, this seems to be a problem that has plagued
+some people for years with this driver.
 
-I am right now trying to get rid of the remaning hacks in the code and
-wanted to know if this series would be a feasible solution.
-
-	John
-
-John Crispin (2):
-  net-next: add a dma_desc element to struct skb_shared_info
-  net-next: mediatek: populate the shared
-
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 4 ++++
- include/linux/skbuff.h                      | 1 +
- 2 files changed, 5 insertions(+)
+I am having trouble figuring out exactly what napi_synchronize is waiting
+for and who is supposed to toggle the flag it is waiting on.  The flag
+appears to work backwards from what I would have expected it to do.
+I see lots of places that can set the bit, but only napi_enable seems
+to clear it again, and I don't see how that would get called for all
+the places that potentially set the bit.
 
 -- 
-2.11.0
+Len Sorensen
