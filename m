@@ -1,46 +1,42 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [Patch net] wl1251: add a missing spin_lock_init()
-Date: Fri, 21 Jul 2017 11:00:44 +0300
-Message-ID: <87lgni2p8z.fsf@kamboji.qca.qualcomm.com>
-References: <1499378437-4971-1-git-send-email-xiyou.wangcong@gmail.com>
-        <20170721075407.GA21902@amd>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, davem@davemloft.net,
-        Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:37570 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752871AbdGUIAt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 04:00:49 -0400
-In-Reply-To: <20170721075407.GA21902@amd> (Pavel Machek's message of "Fri, 21
-        Jul 2017 09:54:07 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH V2 4/4] net-next: tag_mtk: add nh and proto offsets to the ops struct
+Date: Fri, 21 Jul 2017 10:58:13 +0200
+Message-ID: <20170721085813.30789-4-john@phrozen.org>
+References: <20170721085813.30789-1-john@phrozen.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        John Crispin <john@phrozen.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170721085813.30789-1-john@phrozen.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pavel Machek <pavel@ucw.cz> writes:
+The MT7530 inserts the 4 magic header in between the 802.3 address and
+protocol field. The patch defines these header such that the flow_disector
+can properly parse the packet and thus allows hashing to function properly.
 
-> On Thu 2017-07-06 15:00:37, Cong Wang wrote:
->> This fixes the following kernel warning:
->> 
->>   [ 5668.771453] BUG: spinlock bad magic on CPU#0, kworker/u2:3/9745
->>   [ 5668.771850]  lock: 0xce63ef20, .magic: 00000000, .owner: <none>/-1,
->>   .owner_cpu: 0
-> ...
->> by adding the missing spin_lock_init().
->> 
->> Reported-by: Pavel Machek <pavel@ucw.cz>
->> Cc: Kalle Valo <kvalo@codeaurora.org>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
->
-> Ping? This is pretty trivial bugfix for an ugly problem. It would be
-> nice to take it in.
+Signed-off-by: John Crispin <john@phrozen.org>
+---
+ net/dsa/tag_mtk.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-I was on vacation, catching up now but I have 300+ patches in patchwork
-so it will take a while before I have gone through all of them.
-
+diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
+index 2f32b7ea3365..142322988202 100644
+--- a/net/dsa/tag_mtk.c
++++ b/net/dsa/tag_mtk.c
+@@ -88,6 +88,8 @@ static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+ }
+ 
+ const struct dsa_device_ops mtk_netdev_ops = {
+-	.xmit	= mtk_tag_xmit,
+-	.rcv	= mtk_tag_rcv,
++	.xmit		= mtk_tag_xmit,
++	.rcv		= mtk_tag_rcv,
++	.hash_nh_off	= 4,
++	.hash_proto_off	= 2,
+ };
 -- 
-Kalle Valo
+2.11.0
