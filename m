@@ -1,76 +1,70 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: A buggy behavior for Linux TCP Reno and HTCP
-Date: Fri, 21 Jul 2017 10:59:54 -0700
-Message-ID: <CAK6E8=eWYybZZxkjjVXC_K7DfYayEg7gx0bPqKpwi6iuE+bh8Q@mail.gmail.com>
-References: <CANdGJ5Qp1MoGfeSyAnEqYeSeEyoiH8e1j_Ut3F4PnLRBnqNNZg@mail.gmail.com>
- <CAK6E8=eP3jwTD5t7Cj3h_m4JTJ61p=roqsr02WiSHUANse1ynw@mail.gmail.com> <CANdGJ5SOUV1OoonC-3i=5MLUWvoHPBZgp19c3mJTTYbNr2yLeQ@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 2/4] net: ethernet: nb8800: Set RGMII_MODE for all
+ RGMII modes
+Date: Fri, 21 Jul 2017 11:06:41 -0700
+Message-ID: <6db56e41-f617-125f-45b2-b3d35b8d4e9a@gmail.com>
+References: <2617d673-ef81-5e7f-4730-ed3aa3f1c2c6@sigmadesigns.com>
+ <237905ff-385e-fa2f-bbbf-6c550a48e15c@sigmadesigns.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>
-To: Wei Sun <unlcsewsun@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+        Mason <slash.tmp@free.fr>
+To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
+        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Timur Tabi <timur@codeaurora.org>,
+        Daniel Mack <zonque@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:36291 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750849AbdGUSAg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 14:00:36 -0400
-Received: by mail-wm0-f46.google.com with SMTP id w191so14208945wmw.1
-        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 11:00:36 -0700 (PDT)
-In-Reply-To: <CANdGJ5SOUV1OoonC-3i=5MLUWvoHPBZgp19c3mJTTYbNr2yLeQ@mail.gmail.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:38006 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750849AbdGUSGy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 14:06:54 -0400
+Received: by mail-wm0-f66.google.com with SMTP id 143so7765882wmu.5
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 11:06:54 -0700 (PDT)
+In-Reply-To: <237905ff-385e-fa2f-bbbf-6c550a48e15c@sigmadesigns.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 20, 2017 at 2:28 PM, Wei Sun <unlcsewsun@gmail.com> wrote:
-> Hi Yuchung,
->
-> Sorry for the confusion.  The test case was adapted from an old DSACK
-> test case (i.e., forget to remove something).
->
-> Attached is a new and simple one. Thanks
-Note that the test scenario is fairly rare IMO: the connection first
-experience timeouts, then its retransmission got acked, then the
-original packets get Acked (ack w/ val 1400 ecr 130). It can be really
-long reordering, or reordering plus packet loss.
+On 07/21/2017 04:25 AM, Marc Gonzalez wrote:
+> There are 4 RGMII phy-modes to handle.
 
-The Linux undo state machines may not handle this perfectly, but it's
-probably not worth extra state for such rare events.
+... so make sure that the MAC is configured to set the RGMII_MODE
+accordingly for all 4 RGMII mode.
 
->
->
->
-> On Wed, Jul 19, 2017 at 2:31 PM, Yuchung Cheng <ycheng@google.com> wrote:
->> On Tue, Jul 18, 2017 at 2:36 PM, Wei Sun <unlcsewsun@gmail.com> wrote:
->>> Hi there,
->>>
->>> We find a buggy behavior when using Linux TCP Reno and HTCP in low
->>> bandwidth or highly congested network environments.
->>>
->>> In a simple word, their undo functions may mistakenly double the cwnd,
->>> leading to a more aggressive behavior in a highly congested scenario.
->>>
->>>
->>> The detailed reason:
->>>
->>> The current reno undo function assumes cwnd halving (and thus doubles
->>> the cwnd), but it doesn't consider a corner case condition that
->>> ssthresh is at least 2.
->>>
->>> e.g.,
->>>                          cwnd              ssth
->>> An initial state:     2                    5
->>> A spurious loss:   1                    2
->>> Undo:                   4                    5
->>>
->>> Here the cwnd after undo is two times as that before undo. Attached is
->>> a simple script to reproduce it.
->> the packetdrill script is a bit confusing: it disables SACK but then
->> the client returns ACK w/ SACKs, also 3 dupacks happen after RTO so
->> the sender isn't technically going through a fast recovery...
->>
->> could you provide a better test?
->>
->>>
->>> A similar reason for HTCP, so we recommend to store the cwnd on loss
->>> in .ssthresh implementation and restore it again in .undo_cwnd for TCP
->>> Reno and HTCP implementations.
->>>
->>> Thanks
+> 
+> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+
+Fixes: 52dfc8301248 ("net: ethernet: add driver for Aurora VLSI NB8800
+Ethernet controller")
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/ethernet/aurora/nb8800.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+> index 041cfb7952f8..ded041dbafe7 100644
+> --- a/drivers/net/ethernet/aurora/nb8800.c
+> +++ b/drivers/net/ethernet/aurora/nb8800.c
+> @@ -609,7 +609,7 @@ static void nb8800_mac_config(struct net_device *dev)
+>  		mac_mode |= HALF_DUPLEX;
+>  
+>  	if (gigabit) {
+> -		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
+> +		if (phy_interface_is_rgmii(dev->phydev))
+>  			mac_mode |= RGMII_MODE;
+>  
+>  		mac_mode |= GMAC_MODE;
+> 
+
+
+-- 
+Florian
