@@ -1,10 +1,10 @@
 From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [PATCH 5/5] e1000e: Avoid receiver overrun interrupt bursts
-Date: Fri, 21 Jul 2017 14:48:48 -0400
-Message-ID: <20170721184848.GU18556@csclub.uwaterloo.ca>
+Subject: Re: [PATCH 4/5] e1000e: Separate signaling for link check/link up
+Date: Fri, 21 Jul 2017 14:50:02 -0400
+Message-ID: <20170721185002.GV18556@csclub.uwaterloo.ca>
 References: <20170721160937.GA22632@csclub.uwaterloo.ca>
  <20170721183627.13373-1-bpoirier@suse.com>
- <20170721183627.13373-5-bpoirier@suse.com>
+ <20170721183627.13373-4-bpoirier@suse.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
@@ -13,38 +13,38 @@ Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 To: Benjamin Poirier <bpoirier@suse.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170721183627.13373-5-bpoirier@suse.com>
+In-Reply-To: <20170721183627.13373-4-bpoirier@suse.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 21, 2017 at 11:36:27AM -0700, Benjamin Poirier wrote:
-> When e1000e_poll() is not fast enough to keep up with incoming traffic, the
-> adapter (when operating in msix mode) raises the Other interrupt to signal
-> Receiver Overrun.
+On Fri, Jul 21, 2017 at 11:36:26AM -0700, Benjamin Poirier wrote:
+> Lennart reported the following race condition:
 > 
-> This is a double problem because 1) at the moment e1000_msix_other()
-> assumes that it is only called in case of Link Status Change and 2) if the
-> condition persists, the interrupt is repeatedly raised again in quick
-> succession.
+> \ e1000_watchdog_task
+>     \ e1000e_has_link
+>         \ hw->mac.ops.check_for_link() === e1000e_check_for_copper_link
+>             /* link is up */
+>             mac->get_link_status = false;
 > 
-> Ideally we would configure the Other interrupt to not be raised in case of
-> receiver overrun but this doesn't seem possible on this adapter. Instead,
-> we handle the first part of the problem by reverting to the practice of
-> reading ICR in the other interrupt handler, like before commit 16ecba59bc33
-> ("e1000e: Do not read ICR in Other interrupt"). Thanks to commit
-> 0a8047ac68e5 ("e1000e: Fix msi-x interrupt automask") which cleared IAME
-> from CTRL_EXT, reading ICR doesn't interfere with RxQ0, TxQ0 interrupts
-> anymore. We handle the second part of the problem by not re-enabling the
-> Other interrupt right away when there is overrun. Instead, we wait until
-> traffic subsides, napi polling mode is exited and interrupts are
-> re-enabled.
+>                             /* interrupt */
+>                             \ e1000_msix_other
+>                                 hw->mac.get_link_status = true;
+> 
+>         link_active = !hw->mac.get_link_status
+>         /* link_active is false, wrongly */
+> 
+> This problem arises because the single flag get_link_status is used to
+> signal two different states: link status needs checking and link status is
+> down.
+> 
+> Avoid the problem by using the return value of .check_for_link to signal
+> the link status to e1000e_has_link().
 > 
 > Reported-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-> Fixes: 16ecba59bc33 ("e1000e: Do not read ICR in Other interrupt")
 > Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
 
-Any chance of this fix hitting -stable?  After all adapter reset under
-load is not nice.
+This too seems potentially -stable worthy, although with patch 5, the
+problem becomes much much less likely to occur.
 
 -- 
 Len Sorensen
