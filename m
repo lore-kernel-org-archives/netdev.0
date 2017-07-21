@@ -1,66 +1,173 @@
-From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita@gmail.com>
-Subject: [PATCH] iwlwifi: Demote messages about fw flags size to info
-Date: Fri, 21 Jul 2017 07:51:47 -0700
-Message-ID: <20170721145147.7572-1-jprvita@endlessm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux@endlessm.com,
-        =?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita@endlessm.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes.berg@intel.com>,
-        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-        Luca Coelho <luciano.coelho@intel.com>,
-        Intel Linux Wireless <linuxwifi@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH] lib: test_rhashtable: fix for large entry counts
+Date: Fri, 21 Jul 2017 16:51:31 +0200
+Message-ID: <20170721145131.25542-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Manuel Messner <mm@skelett.io>
+To: Thomas Graf <tgraf@suug.ch>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:50465 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753925AbdGUOvo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Jul 2017 10:51:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These messages are not reporting a real error, just the fact that the
-firmware knows about more flags then the driver.
+During concurrent access testing, threadfunc() concatenated thread ID
+and object index to create a unique key like so:
 
-Currently these messages are presented to the user during boot if there
-is no bootsplash covering the console, sometimes even if the boot splash
-is enabled but has not started yet by the time this message is shown.
+| tdata->objs[i].value = (tdata->id << 16) | i;
 
-Demoting it to the info level helps having a clean boot process.
+This breaks if a user passes an entries parameter of 64k or higher,
+since 'i' might use more than 16 bits then. Effectively, this will lead
+to duplicate keys in the table.
 
-Signed-off-by: João Paulo Rechi Vita <jprvita@endlessm.com>
+Fix the problem by introducing a struct holding object and thread ID and
+using that as key instead of a single integer type field.
+
+Fixes: f4a3e90ba5739 ("rhashtable-test: extend to test concurrency")
+Reported by: Manuel Messner <mm@skelett.io>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/wireless/intel/iwlwifi/iwl-drv.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ lib/test_rhashtable.c | 53 +++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 32 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-drv.c b/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
-index 6fdb5921e17f..557acd43d705 100644
---- a/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
-+++ b/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
-@@ -487,9 +487,9 @@ static int iwl_set_ucode_api_flags(struct iwl_drv *drv, const u8 *data,
- 	int i;
+diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
+index 64e899b633371..16949d219291a 100644
+--- a/lib/test_rhashtable.c
++++ b/lib/test_rhashtable.c
+@@ -56,8 +56,13 @@ static bool enomem_retry = false;
+ module_param(enomem_retry, bool, 0);
+ MODULE_PARM_DESC(enomem_retry, "Retry insert even if -ENOMEM was returned (default: off)");
  
- 	if (api_index >= DIV_ROUND_UP(NUM_IWL_UCODE_TLV_API, 32)) {
--		IWL_ERR(drv,
--			"api flags index %d larger than supported by driver\n",
--			api_index);
-+		IWL_INFO(drv,
-+			 "api flags index %d larger than supported by driver\n",
-+			 api_index);
- 		/* don't return an error so we can load FW that has more bits */
- 		return 0;
- 	}
-@@ -511,9 +511,9 @@ static int iwl_set_ucode_capabilities(struct iwl_drv *drv, const u8 *data,
- 	int i;
++struct test_obj_val {
++	int	id;
++	int	tid;
++};
++
+ struct test_obj {
+-	int			value;
++	struct test_obj_val	value;
+ 	struct rhash_head	node;
+ };
  
- 	if (api_index >= DIV_ROUND_UP(NUM_IWL_UCODE_TLV_CAPA, 32)) {
--		IWL_ERR(drv,
--			"capa flags index %d larger than supported by driver\n",
--			api_index);
-+		IWL_INFO(drv,
-+			 "capa flags index %d larger than supported by driver\n",
-+			 api_index);
- 		/* don't return an error so we can load FW that has more bits */
- 		return 0;
- 	}
+@@ -72,7 +77,7 @@ static struct test_obj array[MAX_ENTRIES];
+ static struct rhashtable_params test_rht_params = {
+ 	.head_offset = offsetof(struct test_obj, node),
+ 	.key_offset = offsetof(struct test_obj, value),
+-	.key_len = sizeof(int),
++	.key_len = sizeof(struct test_obj_val),
+ 	.hashfn = jhash,
+ 	.nulls_base = (3U << RHT_BASE_SHIFT),
+ };
+@@ -109,24 +114,26 @@ static int __init test_rht_lookup(struct rhashtable *ht)
+ 	for (i = 0; i < entries * 2; i++) {
+ 		struct test_obj *obj;
+ 		bool expected = !(i % 2);
+-		u32 key = i;
++		struct test_obj_val key = {
++			.id = i,
++		};
+ 
+-		if (array[i / 2].value == TEST_INSERT_FAIL)
++		if (array[i / 2].value.id == TEST_INSERT_FAIL)
+ 			expected = false;
+ 
+ 		obj = rhashtable_lookup_fast(ht, &key, test_rht_params);
+ 
+ 		if (expected && !obj) {
+-			pr_warn("Test failed: Could not find key %u\n", key);
++			pr_warn("Test failed: Could not find key %u\n", key.id);
+ 			return -ENOENT;
+ 		} else if (!expected && obj) {
+ 			pr_warn("Test failed: Unexpected entry found for key %u\n",
+-				key);
++				key.id);
+ 			return -EEXIST;
+ 		} else if (expected && obj) {
+-			if (obj->value != i) {
++			if (obj->value.id != i) {
+ 				pr_warn("Test failed: Lookup value mismatch %u!=%u\n",
+-					obj->value, i);
++					obj->value.id, i);
+ 				return -EINVAL;
+ 			}
+ 		}
+@@ -195,7 +202,7 @@ static s64 __init test_rhashtable(struct rhashtable *ht)
+ 	for (i = 0; i < entries; i++) {
+ 		struct test_obj *obj = &array[i];
+ 
+-		obj->value = i * 2;
++		obj->value.id = i * 2;
+ 		err = insert_retry(ht, &obj->node, test_rht_params);
+ 		if (err > 0)
+ 			insert_retries += err;
+@@ -218,7 +225,7 @@ static s64 __init test_rhashtable(struct rhashtable *ht)
+ 	for (i = 0; i < entries; i++) {
+ 		u32 key = i * 2;
+ 
+-		if (array[i].value != TEST_INSERT_FAIL) {
++		if (array[i].value.id != TEST_INSERT_FAIL) {
+ 			obj = rhashtable_lookup_fast(ht, &key, test_rht_params);
+ 			BUG_ON(!obj);
+ 
+@@ -242,18 +249,21 @@ static int thread_lookup_test(struct thread_data *tdata)
+ 
+ 	for (i = 0; i < entries; i++) {
+ 		struct test_obj *obj;
+-		int key = (tdata->id << 16) | i;
++		struct test_obj_val key = {
++			.id = i,
++			.tid = tdata->id,
++		};
+ 
+ 		obj = rhashtable_lookup_fast(&ht, &key, test_rht_params);
+-		if (obj && (tdata->objs[i].value == TEST_INSERT_FAIL)) {
+-			pr_err("  found unexpected object %d\n", key);
++		if (obj && (tdata->objs[i].value.id == TEST_INSERT_FAIL)) {
++			pr_err("  found unexpected object %d-%d\n", key.tid, key.id);
+ 			err++;
+-		} else if (!obj && (tdata->objs[i].value != TEST_INSERT_FAIL)) {
+-			pr_err("  object %d not found!\n", key);
++		} else if (!obj && (tdata->objs[i].value.id != TEST_INSERT_FAIL)) {
++			pr_err("  object %d-%d not found!\n", key.tid, key.id);
+ 			err++;
+-		} else if (obj && (obj->value != key)) {
+-			pr_err("  wrong object returned (got %d, expected %d)\n",
+-			       obj->value, key);
++		} else if (obj && memcmp(&obj->value, &key, sizeof(key))) {
++			pr_err("  wrong object returned (got %d-%d, expected %d-%d)\n",
++			       obj->value.tid, obj->value.id, key.tid, key.id);
+ 			err++;
+ 		}
+ 
+@@ -272,7 +282,8 @@ static int threadfunc(void *data)
+ 		pr_err("  thread[%d]: down_interruptible failed\n", tdata->id);
+ 
+ 	for (i = 0; i < entries; i++) {
+-		tdata->objs[i].value = (tdata->id << 16) | i;
++		tdata->objs[i].value.id = i;
++		tdata->objs[i].value.tid = tdata->id;
+ 		err = insert_retry(&ht, &tdata->objs[i].node, test_rht_params);
+ 		if (err > 0) {
+ 			insert_retries += err;
+@@ -295,7 +306,7 @@ static int threadfunc(void *data)
+ 
+ 	for (step = 10; step > 0; step--) {
+ 		for (i = 0; i < entries; i += step) {
+-			if (tdata->objs[i].value == TEST_INSERT_FAIL)
++			if (tdata->objs[i].value.id == TEST_INSERT_FAIL)
+ 				continue;
+ 			err = rhashtable_remove_fast(&ht, &tdata->objs[i].node,
+ 			                             test_rht_params);
+@@ -304,7 +315,7 @@ static int threadfunc(void *data)
+ 				       tdata->id);
+ 				goto out;
+ 			}
+-			tdata->objs[i].value = TEST_INSERT_FAIL;
++			tdata->objs[i].value.id = TEST_INSERT_FAIL;
+ 
+ 			cond_resched();
+ 		}
 -- 
-2.13.2
+2.13.1
