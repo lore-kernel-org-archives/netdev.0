@@ -1,7 +1,7 @@
 From: Lisong Xu <xu@unl.edu>
 Subject: Re: A buggy behavior for Linux TCP Reno and HTCP
-Date: Fri, 21 Jul 2017 15:26:56 -0500
-Message-ID: <64ab0f8a-e093-1adc-82f3-ffd8d6a30c7a@unl.edu>
+Date: Fri, 21 Jul 2017 15:27:09 -0500
+Message-ID: <dc5db0ec-0746-d42e-5418-f621e1840bc0@unl.edu>
 References: <CANdGJ5Qp1MoGfeSyAnEqYeSeEyoiH8e1j_Ut3F4PnLRBnqNNZg@mail.gmail.com>
  <CAK6E8=eP3jwTD5t7Cj3h_m4JTJ61p=roqsr02WiSHUANse1ynw@mail.gmail.com>
  <CANdGJ5SOUV1OoonC-3i=5MLUWvoHPBZgp19c3mJTTYbNr2yLeQ@mail.gmail.com>
@@ -12,11 +12,11 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
 To: Yuchung Cheng <ycheng@google.com>, Wei Sun <unlcsewsun@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03lp0020.outbound.protection.outlook.com ([216.32.181.20]:17568
+Received: from mail-co1nam03lp0016.outbound.protection.outlook.com ([216.32.181.16]:62624
         "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752048AbdGUU1C (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Jul 2017 16:27:02 -0400
+        id S1752811AbdGUU1O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 21 Jul 2017 16:27:14 -0400
 In-Reply-To: <CAK6E8=eWYybZZxkjjVXC_K7DfYayEg7gx0bPqKpwi6iuE+bh8Q@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
@@ -24,8 +24,8 @@ List-ID: <netdev.vger.kernel.org>
 
 Hi Yuchung,
 
-This test scenario is only one example to trigger this bug. In 
-generally, as long as cwnd <4, the undo function has this bug.
+This test scenario is only one example to trigger this bug. In general, 
+as long as cwnd <4, the undo function has this bug.
 
 This would not be a problem for a normal network. But might be an issue, 
 if the network is highly congested (e.g., many many TCP flows with small 
