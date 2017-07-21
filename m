@@ -1,63 +1,37 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
- null entry.
-Date: Fri, 21 Jul 2017 14:53:21 -0700
-Message-ID: <CAJieiUgQZbwj_xjKGQd6ibHDn87mgWxTgRNZs8g+rqONC6nX=A@mail.gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
- <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com> <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: SELinux/IP_PASSSEC regression in 4.13-rcX
+Date: Fri, 21 Jul 2017 18:19:06 -0400
+Message-ID: <CAHC9VhS9QO8jGBodsSeQxxbgoxrmThRgbc3_m17h7gFmfP=GGw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Hangbin Liu <liuhangbin@gmail.com>,
-        network dev <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: selinux@tycho.nsa.gov
+To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f175.google.com ([209.85.217.175]:37931 "EHLO
-        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752780AbdGUVxW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 17:53:22 -0400
-Received: by mail-ua0-f175.google.com with SMTP id w45so54205094uac.5
-        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 14:53:22 -0700 (PDT)
-In-Reply-To: <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:38183 "EHLO
+        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753502AbdGUWTI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 18:19:08 -0400
+Received: by mail-lf0-f42.google.com with SMTP id y15so27877049lfd.5
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 15:19:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 21, 2017 at 11:42 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Thu, Jul 20, 2017 at 8:23 AM, Hangbin Liu <liuhangbin@gmail.com> wrote:
->> 2017-07-20 23:06 GMT+08:00 Hangbin Liu <liuhangbin@gmail.com>:
->>>> +++ b/net/ipv6/route.c
->>>> @@ -3637,12 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
->>>>                 dst = ip6_route_lookup(net, &fl6, 0);
->>>>
->>>>         rt = container_of(dst, struct rt6_info, dst);
->>>> -       if (rt->dst.error) {
->>>> -               err = rt->dst.error;
->>>> -               ip6_rt_put(rt);
->>>> -               goto errout;
->>>> -       }
->>>
->>> hmm... or instead of remove this check, should we check all the entry? Like
->>> if ((rt->dst.error && rt != net->ipv6.ip6_null_entry && rt !=
->>                                                     ^^ mistake here
->>> net->ipv6.ip6_blk_hole_entry) ||
->>>      rt == net->ipv6.ip6_null_entry )
->>
->> Sorry,  there should be no need to check ip6_null_entry since the
->> error is already
->> -ENETUNREACH. So how about
->
-> Hmm? All of these 3 entries have error set, right??
-> So we should only check dst.error...
+Hello,
 
-removing the check seems ok to me. We can also make the check
-conditional to fibmatch code only
-to eliminate any change in behavior introduced by fibmatch.
+I've been seeing a SELinux regression with IP_PASSSEC on the v4.13-rcX
+kernels and finally tracked the problem down to the
+skb_release_head_state() call in __udp_queue_rcv_skb().  Looking at
+the code and the git log it would appear that the likely culprit is
+0a463c78d25b ("udp: avoid a cache miss on dequeue
+"); it looks similar to IP option problem fixed in 0ddf3fb2c43d2.
 
-ie if (fibmatch && rt->dst.error).
+>From a SELinux/IP_PASSSEC point of view we need access to the skb->sp
+pointer to examine the SAs.  I'm posting this here without a patch
+because it isn't clear to me how you would like to fix the problem; my
+initial thought would be to simply make the skb_release_head_state()
+conditional on the skb->sp pointer, much like the IP options fix, but
+I'm not sure if you have a more clever idea.
 
-Hangbin, can you also pls check that fibmatch works ok for such routes
-with your patch applied ?.
-
-ip netns exec client ip -6 route get fibmatch 2003::1     (with latest iproute2)
-
-thank you.
+-- 
+paul moore
+www.paul-moore.com
