@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 2/2] net: ethernet: ti: cpts: fix tx timestamping timeout
-Date: Fri, 21 Jul 2017 18:49:43 -0500
-Message-ID: <20170721234943.3841-3-grygorii.strashko@ti.com>
+Subject: [PATCH 1/2] net: ethernet: ti: cpts: convert to use kthread_worker
+Date: Fri, 21 Jul 2017 18:49:42 -0500
+Message-ID: <20170721234943.3841-2-grygorii.strashko@ti.com>
 References: <20170721234943.3841-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,198 +16,130 @@ In-Reply-To: <20170721234943.3841-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the low speed Ethernet connection CPDMA notification about packet
-processing can be received before CPTS TX timestamp event, which is set
-when packet actually left CPSW while cpdma notification is sent when packet
-pushed in CPSW fifo.  As result, when connection is slow and CPU is fast
-enough TX timestamping is not working properly.
-
-Fix it, by introducing TX SKB queue to store PTP SKBs for which Ethernet
-Transmit Event hasn't been received yet and then re-check this queue
-with new Ethernet Transmit Events by scheduling CPTS overflow
-work more often (every 1 jiffies) until TX SKB queue is not empty.
-
-Side effect of this change is:
- - User space tools require to take into account possible delay in TX
-timestamp processing (for example ptp4l works with tx_timestamp_timeout=400
-under net traffic and tx_timestamp_timeout=25 in idle).
+There could be significant delay in CPTS work schedule under high system
+load and on -RT which could cause CPTS misbehavior due to internal counter
+overflow. Usage of own kthread_worker allows to avoid such kind of issues
+and makes it possible to tune priority of CPTS kthread_worker thread on -RT
+(thread name "cpts").
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/cpts.c | 93 +++++++++++++++++++++++++++++++++++++++---
- drivers/net/ethernet/ti/cpts.h |  1 +
- 2 files changed, 88 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/ti/cpts.c | 23 +++++++++++++++++------
+ drivers/net/ethernet/ti/cpts.h |  4 +++-
+ 2 files changed, 20 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 6a520ae..746dd1d 100644
+index 32279d2..6a520ae 100644
 --- a/drivers/net/ethernet/ti/cpts.c
 +++ b/drivers/net/ethernet/ti/cpts.c
-@@ -31,9 +31,18 @@
+@@ -20,12 +20,12 @@
+ #include <linux/err.h>
+ #include <linux/if.h>
+ #include <linux/hrtimer.h>
++#include <linux/kthread.h>
+ #include <linux/module.h>
+ #include <linux/net_tstamp.h>
+ #include <linux/ptp_classify.h>
+ #include <linux/time.h>
+ #include <linux/uaccess.h>
+-#include <linux/workqueue.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_vlan.h>
  
- #include "cpts.h"
+@@ -238,14 +238,15 @@ static struct ptp_clock_info cpts_info = {
+ 	.enable		= cpts_ptp_enable,
+ };
  
-+#define CPTS_SKB_TX_WORK_TIMEOUT 1 /* jiffies */
-+
-+struct cpts_skb_cb_data {
-+	unsigned long tmo;
-+};
-+
- #define cpts_read32(c, r)	readl_relaxed(&c->reg->r)
- #define cpts_write32(c, v, r)	writel_relaxed(v, &c->reg->r)
- 
-+static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
-+		      u16 ts_seqid, u8 ts_msgtype);
-+
- static int event_expired(struct cpts_event *event)
+-static void cpts_overflow_check(struct work_struct *work)
++static void cpts_overflow_check(struct kthread_work *work)
  {
- 	return time_after(jiffies, event->tmo);
-@@ -77,6 +86,47 @@ static int cpts_purge_events(struct cpts *cpts)
- 	return removed ? 0 : -1;
- }
- 
-+static bool cpts_match_tx_ts(struct cpts *cpts, struct cpts_event *event)
-+{
-+	struct sk_buff *skb, *tmp;
-+	u16 seqid;
-+	u8 mtype;
-+	bool found = false;
-+
-+	mtype = (event->high >> MESSAGE_TYPE_SHIFT) & MESSAGE_TYPE_MASK;
-+	seqid = (event->high >> SEQUENCE_ID_SHIFT) & SEQUENCE_ID_MASK;
-+
-+	/* no need to grab txq.lock as access is always done under cpts->lock */
-+	skb_queue_walk_safe(&cpts->txq, skb, tmp) {
-+		struct skb_shared_hwtstamps ssh;
-+		unsigned int class = ptp_classify_raw(skb);
-+		struct cpts_skb_cb_data *skb_cb =
-+					(struct cpts_skb_cb_data *)skb->cb;
-+
-+		if (cpts_match(skb, class, seqid, mtype)) {
-+			u64 ns = timecounter_cyc2time(&cpts->tc, event->low);
-+
-+			memset(&ssh, 0, sizeof(ssh));
-+			ssh.hwtstamp = ns_to_ktime(ns);
-+			skb_tstamp_tx(skb, &ssh);
-+			found = true;
-+			__skb_unlink(skb, &cpts->txq);
-+			dev_consume_skb_any(skb);
-+			dev_dbg(cpts->dev, "match tx timestamp mtype %u seqid %04x\n",
-+				mtype, seqid);
-+		} else if (time_after(jiffies, skb_cb->tmo)) {
-+			/* timeout any expired skbs over 1s */
-+			dev_dbg(cpts->dev,
-+				"expiring tx timestamp mtype %u seqid %04x\n",
-+				mtype, seqid);
-+			__skb_unlink(skb, &cpts->txq);
-+			dev_consume_skb_any(skb);
-+		}
-+	}
-+
-+	return found;
-+}
-+
- /*
-  * Returns zero if matching event type was found.
-  */
-@@ -101,9 +151,15 @@ static int cpts_fifo_read(struct cpts *cpts, int match)
- 		event->low = lo;
- 		type = event_type(event);
- 		switch (type) {
-+		case CPTS_EV_TX:
-+			if (cpts_match_tx_ts(cpts, event)) {
-+				/* if the new event matches an existing skb,
-+				 * then don't queue it
-+				 */
-+				break;
-+			}
- 		case CPTS_EV_PUSH:
- 		case CPTS_EV_RX:
--		case CPTS_EV_TX:
- 			list_del_init(&event->list);
- 			list_add_tail(&event->list, &cpts->events);
- 			break;
-@@ -240,13 +296,20 @@ static struct ptp_clock_info cpts_info = {
- 
- static void cpts_overflow_check(struct kthread_work *work)
- {
--	struct timespec64 ts;
+ 	struct timespec64 ts;
  	struct cpts *cpts = container_of(work, struct cpts, overflow_work.work);
-+	unsigned long delay = cpts->ov_check_period;
-+	struct timespec64 ts;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&cpts->lock, flags);
-+	ts = ns_to_timespec64(timecounter_read(&cpts->tc));
-+
-+	if (!skb_queue_empty(&cpts->txq))
-+		delay = CPTS_SKB_TX_WORK_TIMEOUT;
-+	spin_unlock_irqrestore(&cpts->lock, flags);
  
--	cpts_ptp_gettime(&cpts->info, &ts);
+ 	cpts_ptp_gettime(&cpts->info, &ts);
  	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
--	kthread_queue_delayed_work(cpts->kworker, &cpts->overflow_work,
--				   cpts->ov_check_period);
-+	kthread_queue_delayed_work(cpts->kworker, &cpts->overflow_work, delay);
+-	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
++	kthread_queue_delayed_work(cpts->kworker, &cpts->overflow_work,
++				   cpts->ov_check_period);
  }
  
  static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
-@@ -300,7 +363,7 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
- 		return 0;
- 
- 	spin_lock_irqsave(&cpts->lock, flags);
--	cpts_fifo_read(cpts, CPTS_EV_PUSH);
-+	cpts_fifo_read(cpts, -1);
- 	list_for_each_safe(this, next, &cpts->events) {
- 		event = list_entry(this, struct cpts_event, list);
- 		if (event_expired(event)) {
-@@ -318,6 +381,20 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
- 			break;
- 		}
+@@ -378,7 +379,8 @@ int cpts_register(struct cpts *cpts)
  	}
-+
-+	if (ev_type == CPTS_EV_TX && !ns) {
-+		struct cpts_skb_cb_data *skb_cb =
-+				(struct cpts_skb_cb_data *)skb->cb;
-+		/* Not found, add frame to queue for processing later.
-+		 * The periodic FIFO check will handle this.
-+		 */
-+		skb_get(skb);
-+		/* get the timestamp for timeouts */
-+		skb_cb->tmo = jiffies + msecs_to_jiffies(100);
-+		__skb_queue_tail(&cpts->txq, skb);
-+		kthread_mod_delayed_work(cpts->kworker,
-+					 &cpts->overflow_work, 0);
+ 	cpts->phc_index = ptp_clock_index(cpts->clock);
+ 
+-	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
++	kthread_queue_delayed_work(cpts->kworker, &cpts->overflow_work,
++				   cpts->ov_check_period);
+ 	return 0;
+ 
+ err_ptp:
+@@ -392,7 +394,7 @@ void cpts_unregister(struct cpts *cpts)
+ 	if (WARN_ON(!cpts->clock))
+ 		return;
+ 
+-	cancel_delayed_work_sync(&cpts->overflow_work);
++	kthread_cancel_delayed_work_sync(&cpts->overflow_work);
+ 
+ 	ptp_clock_unregister(cpts->clock);
+ 	cpts->clock = NULL;
+@@ -476,7 +478,6 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
+ 	cpts->dev = dev;
+ 	cpts->reg = (struct cpsw_cpts __iomem *)regs;
+ 	spin_lock_init(&cpts->lock);
+-	INIT_DELAYED_WORK(&cpts->overflow_work, cpts_overflow_check);
+ 
+ 	ret = cpts_of_parse(cpts, node);
+ 	if (ret)
+@@ -488,6 +489,14 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
+ 		return ERR_PTR(PTR_ERR(cpts->refclk));
+ 	}
+ 
++	kthread_init_delayed_work(&cpts->overflow_work, cpts_overflow_check);
++	cpts->kworker = kthread_create_worker(0, "cpts");
++	if (IS_ERR(cpts->kworker)) {
++		dev_err(dev, "failed to create cpts overflow_work task %ld\n",
++			PTR_ERR(cpts->kworker));
++		return ERR_CAST(cpts->kworker);
 +	}
- 	spin_unlock_irqrestore(&cpts->lock, flags);
- 
- 	return ns;
-@@ -359,6 +436,7 @@ int cpts_register(struct cpts *cpts)
- {
- 	int err, i;
- 
-+	skb_queue_head_init(&cpts->txq);
- 	INIT_LIST_HEAD(&cpts->events);
- 	INIT_LIST_HEAD(&cpts->pool);
- 	for (i = 0; i < CPTS_MAX_EVENTS; i++)
-@@ -402,6 +480,9 @@ void cpts_unregister(struct cpts *cpts)
- 	cpts_write32(cpts, 0, int_enable);
- 	cpts_write32(cpts, 0, control);
- 
-+	/* Drop all packet */
-+	skb_queue_purge(&cpts->txq);
 +
- 	clk_disable(cpts->refclk);
+ 	clk_prepare(cpts->refclk);
+ 
+ 	cpts->cc.read = cpts_systim_read;
+@@ -513,6 +522,8 @@ void cpts_release(struct cpts *cpts)
+ 		return;
+ 
+ 	clk_unprepare(cpts->refclk);
++
++	kthread_destroy_worker(cpts->kworker);
  }
- EXPORT_SYMBOL_GPL(cpts_unregister);
+ EXPORT_SYMBOL_GPL(cpts_release);
+ 
 diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
-index e8128e8..e94b829 100644
+index 01ea82b..e8128e8 100644
 --- a/drivers/net/ethernet/ti/cpts.h
 +++ b/drivers/net/ethernet/ti/cpts.h
-@@ -128,6 +128,7 @@ struct cpts {
+@@ -27,6 +27,7 @@
+ #include <linux/clocksource.h>
+ #include <linux/device.h>
+ #include <linux/list.h>
++#include <linux/kthread.h>
+ #include <linux/of.h>
+ #include <linux/ptp_clock_kernel.h>
+ #include <linux/skbuff.h>
+@@ -119,13 +120,14 @@ struct cpts {
+ 	u32 cc_mult; /* for the nominal frequency */
+ 	struct cyclecounter cc;
+ 	struct timecounter tc;
+-	struct delayed_work overflow_work;
+ 	int phc_index;
+ 	struct clk *refclk;
+ 	struct list_head events;
+ 	struct list_head pool;
+ 	struct cpts_event pool_data[CPTS_MAX_EVENTS];
  	unsigned long ov_check_period;
- 	struct kthread_worker *kworker;
- 	struct kthread_delayed_work overflow_work;
-+	struct sk_buff_head txq;
++	struct kthread_worker *kworker;
++	struct kthread_delayed_work overflow_work;
  };
  
  void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
