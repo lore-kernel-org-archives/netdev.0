@@ -1,57 +1,44 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [RFC 1/2] net-next: add a dma_desc element to struct
- skb_shared_info
-Date: Fri, 21 Jul 2017 17:56:39 +0200
-Message-ID: <1500652599.3924.10.camel@redhat.com>
-References: <20170721152035.6645-1-john@phrozen.org>
-         <20170721152035.6645-2-john@phrozen.org>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
+ null entry.
+Date: Fri, 21 Jul 2017 09:53:36 -0600
+Message-ID: <2b230990-eeb5-9ea4-7dbc-212bf7ff61a5@gmail.com>
+References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+ <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
+ <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: John Crispin <john@phrozen.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170721152035.6645-2-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        WANG Cong <xiyou.wangcong@gmail.com>
+To: Hangbin Liu <liuhangbin@gmail.com>,
+        network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:34743 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753527AbdGUPxo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 11:53:44 -0400
+Received: by mail-pf0-f174.google.com with SMTP id q85so25588853pfq.1
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 08:53:44 -0700 (PDT)
+In-Reply-To: <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Fri, 2017-07-21 at 17:20 +0200, John Crispin wrote:
-> In order to make HW flow offloading work in latest MediaTek silicon we need
-> to propagate part of the RX DMS descriptor to the upper layers populating
-> the flow offload engines HW tables. This patch adds an extra element to
-> struct skb_shared_info allowing the ethernet drivers RX napi code to store
-> the required information and make it persistent for the lifecycle of the
-> skb and its clones.
+On 7/20/17 9:23 AM, Hangbin Liu wrote:
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 4d30c96..c290aa4 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -3637,13 +3637,8 @@ static int inet6_rtm_getroute(struct sk_buff
+> *in_skb, struct nlmsghdr *nlh,
+>                 dst = ip6_route_lookup(net, &fl6, 0);
 > 
-> Signed-off-by: John Crispin <john@phrozen.org>
-> ---
->  include/linux/skbuff.h | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 4093552be1de..db9576cd946b 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -426,6 +426,7 @@ struct skb_shared_info {
->  	unsigned int	gso_type;
->  	u32		tskey;
->  	__be32          ip6_frag_id;
-> +	u32		dma_desc;
->  
->  	/*
->  	 * Warning : all fields before dataref are cleared in __alloc_skb()
+>         rt = container_of(dst, struct rt6_info, dst);
+> -       if (rt->dst.error) {
+> -               err = rt->dst.error;
+> -               ip6_rt_put(rt);
+> -               goto errout;
+> -       }
 
-This will increase the skb_shared_info struct size, which is already
-quite large, and can have several kind of performance drawback.
-AFAIK this is discouraged. 
-
-I don't understand the use case; the driver will set this field, but
-who is going to consume it?
-
-Thanks,
-
-Paolo
+The above 5 lines introduced the change in behavior, so removing them
+should be sufficient.
