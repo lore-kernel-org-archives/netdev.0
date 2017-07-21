@@ -1,21 +1,25 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 1/2] rxrpc: Expose UAPI definitions to userspace
-Date: Fri, 21 Jul 2017 12:07:20 -0700
-Message-ID: <1500664040.14415.33.camel@perches.com>
-References: <150066178283.18902.5185801865257802317.stgit@warthog.procyon.org.uk>
-         <150066178969.18902.18414855274319475080.stgit@warthog.procyon.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 1/4] net-next: dsa: move struct dsa_device_ops to
+ the global header file
+Date: Fri, 21 Jul 2017 20:12:50 +0100 (WEST)
+Message-ID: <20170721.201250.1526351269103308231.davem@davemloft.net>
+References: <20170721085813.30789-1-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>, netdev@vger.kernel.org
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: john@phrozen.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <150066178969.18902.18414855274319475080.stgit@warthog.procyon.org.uk>
+In-Reply-To: <20170721085813.30789-1-john@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-07-21 at 19:29 +0100, David Howells wrote:
-> Move UAPI definitions from the internal header and place them in a UAPI
-> header file so that userspace can make use of them.
 
-Please use git format-patch -M to make the rename clearer.
+A proper patch series submission must always have a proper
+"[PATCH 0/N] ..." header posting that explains at a high level
+what the patch series does, how it is doing it, and why it is
+doing it that way.
+
+Thank you.
