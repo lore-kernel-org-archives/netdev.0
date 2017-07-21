@@ -1,54 +1,46 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC 1/2] net-next: add a dma_desc element to struct
- skb_shared_info
-Date: Fri, 21 Jul 2017 22:37:53 +0200
-Message-ID: <20170721203753.GA26175@breakpoint.cc>
-References: <20170721152035.6645-1-john@phrozen.org>
- <20170721152035.6645-2-john@phrozen.org>
- <1500652599.3924.10.camel@redhat.com>
- <6bcc6463-c2e7-5f56-22b0-f49bb369ce1c@phrozen.org>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: A buggy behavior for Linux TCP Reno and HTCP
+Date: Fri, 21 Jul 2017 16:49:14 -0400
+Message-ID: <CADVnQym8-0-jEaBYpHAodg5ODH6GUCS_tMQbKyWdPKLpxq7ATA@mail.gmail.com>
+References: <CANdGJ5Qp1MoGfeSyAnEqYeSeEyoiH8e1j_Ut3F4PnLRBnqNNZg@mail.gmail.com>
+ <CAK6E8=eP3jwTD5t7Cj3h_m4JTJ61p=roqsr02WiSHUANse1ynw@mail.gmail.com>
+ <CANdGJ5SOUV1OoonC-3i=5MLUWvoHPBZgp19c3mJTTYbNr2yLeQ@mail.gmail.com>
+ <CAK6E8=eWYybZZxkjjVXC_K7DfYayEg7gx0bPqKpwi6iuE+bh8Q@mail.gmail.com>
+ <dc5db0ec-0746-d42e-5418-f621e1840bc0@unl.edu> <CADVnQynG0MZcuAPpZ+hiK-9Ounx8JKPWxvb1n3t-OyyC7=es_Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paolo Abeni <pabeni@redhat.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: John Crispin <john@phrozen.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <6bcc6463-c2e7-5f56-22b0-f49bb369ce1c@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Yuchung Cheng <ycheng@google.com>, Wei Sun <unlcsewsun@gmail.com>,
+        netdev <netdev@vger.kernel.org>
+To: Lisong Xu <xu@unl.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:33987 "EHLO
+        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752780AbdGUUtp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 16:49:45 -0400
+Received: by mail-oi0-f46.google.com with SMTP id q4so61301173oif.1
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 13:49:45 -0700 (PDT)
+In-Reply-To: <CADVnQynG0MZcuAPpZ+hiK-9Ounx8JKPWxvb1n3t-OyyC7=es_Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-John Crispin <john@phrozen.org> wrote:
-> When the flow offloading engine forwards a packet to the DMA it will send
-> additional info to the sw path. this includes
-> * physical switch port
-> * internal flow hash - this is required to populate the correct flow table
-> entry
-> * ppe state - this indicates what state the PPEs internal table is in for
-> the flow
-> * the reason why the packet was forwarde - these are things like bind,
-> unbind, timed out, ...
-> 
-> once the flow table offloading patches are ready and upstream, the netfilter
-> layer will see the SKB and pass it o to the flow table offloading code,
+On Fri, Jul 21, 2017 at 4:27 PM, Lisong Xu <xu@unl.edu> wrote:
+>
+> Hi Yuchung,
+>
+> This test scenario is only one example to trigger this bug. In general, as long as cwnd <4, the undo function has this bug.
 
-If this is about conntrack offloading, then I prefer if this is done
-without changing any core network structure.
+Yes, personally I agree that this seems like an issue that is general
+enough to be worth fixing. In the sense that, if cwnd <4, then we may
+well be very congested. So we don't want to get hit by this bug
+wherein an undo of a loss recovery can cause cwnd to suddenly jump
+(from 1, 2, or 3) up to 4.
 
-What about adding a new conntrack extension to hold whatever info
-you need, and then allocate a conntrack entry in the driver?
+Seems like any of the several CCs that use tcp_reno_undo_cwnd() have this bug.
 
-This would obviously need core changes in conntrack (such as allowing
-calls into conntrack from drivers without hard module dependencies,
-and a thorough check if this causes backwards problems (e.g.
-right now a "-m conntrack" check in the raw table can only succeed for
-packets from lo interface).
+I guess in my mind the only question is whether we want to add a
+tcp_foo_undo_cwnd() and ca->loss_cwnd to every CC module to handle
+this issue (i.e. make every CC module handle it the way CUBIC does),
+or (my preference) just add a tp->loss_cwnd field so we can use shared
+code in tcp_reno_undo_cwnd() to get this right across all CC modules.
 
-But I think that could be worked around, esp. if we assume that we
-won't see such entries a lot (assuming sw is slowpath and hw handles
-most packets).
-
-Thanks,
-Florian
+neal
