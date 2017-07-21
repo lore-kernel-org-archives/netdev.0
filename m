@@ -1,44 +1,71 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
- null entry.
-Date: Fri, 21 Jul 2017 09:53:36 -0600
-Message-ID: <2b230990-eeb5-9ea4-7dbc-212bf7ff61a5@gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
- <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        WANG Cong <xiyou.wangcong@gmail.com>
-To: Hangbin Liu <liuhangbin@gmail.com>,
-        network dev <netdev@vger.kernel.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] mlxsw: spectrum_router: Don't offload routes next in list
+Date: Fri, 21 Jul 2017 18:04:28 +0200
+Message-ID: <20170721160428.23149-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:34743 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753527AbdGUPxo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 11:53:44 -0400
-Received: by mail-pf0-f174.google.com with SMTP id q85so25588853pfq.1
-        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 08:53:44 -0700 (PDT)
-In-Reply-To: <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35239 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752048AbdGUQEb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 12:04:31 -0400
+Received: by mail-wm0-f65.google.com with SMTP id m75so1146269wmb.2
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 09:04:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/20/17 9:23 AM, Hangbin Liu wrote:
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 4d30c96..c290aa4 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -3637,13 +3637,8 @@ static int inet6_rtm_getroute(struct sk_buff
-> *in_skb, struct nlmsghdr *nlh,
->                 dst = ip6_route_lookup(net, &fl6, 0);
-> 
->         rt = container_of(dst, struct rt6_info, dst);
-> -       if (rt->dst.error) {
-> -               err = rt->dst.error;
-> -               ip6_rt_put(rt);
-> -               goto errout;
-> -       }
+From: Ido Schimmel <idosch@mellanox.com>
 
-The above 5 lines introduced the change in behavior, so removing them
-should be sufficient.
+Each FIB node holds a linked list of routes sharing the same prefix and
+length. In the case of IPv4 it's ordered according to table ID, metric
+and TOS and only the first route in the list is actually programmed to
+the device.
+
+In case a gatewayed route is added somewhere in the list, then after its
+nexthop group will be refreshed and become valid (due to the resolution
+of its gateway), it'll mistakenly overwrite the existing entry.
+
+Example:
+192.168.200.0/24 dev enp3s0np3 scope link metric 1000 offload
+192.168.200.0/24 via 192.168.100.1 dev enp3s0np3 metric 1000 offload
+
+Both routes are marked as offloaded despite the fact only the first one
+should actually be present in the device's table.
+
+When refreshing the nexthop group, don't write the route to the device's
+table unless it's the first in its node.
+
+Fixes: 9aecce1c7d97 ("mlxsw: spectrum_router: Correctly handle identical routes")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 383fef5a..4b2e0fd 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -1512,6 +1512,10 @@ mlxsw_sp_nexthop_group_mac_update(struct mlxsw_sp *mlxsw_sp,
+ static int mlxsw_sp_fib_entry_update(struct mlxsw_sp *mlxsw_sp,
+ 				     struct mlxsw_sp_fib_entry *fib_entry);
+ 
++static bool
++mlxsw_sp_fib_node_entry_is_first(const struct mlxsw_sp_fib_node *fib_node,
++				 const struct mlxsw_sp_fib_entry *fib_entry);
++
+ static int
+ mlxsw_sp_nexthop_fib_entries_update(struct mlxsw_sp *mlxsw_sp,
+ 				    struct mlxsw_sp_nexthop_group *nh_grp)
+@@ -1520,6 +1524,9 @@ mlxsw_sp_nexthop_fib_entries_update(struct mlxsw_sp *mlxsw_sp,
+ 	int err;
+ 
+ 	list_for_each_entry(fib_entry, &nh_grp->fib_list, nexthop_group_node) {
++		if (!mlxsw_sp_fib_node_entry_is_first(fib_entry->fib_node,
++						      fib_entry))
++			continue;
+ 		err = mlxsw_sp_fib_entry_update(mlxsw_sp, fib_entry);
+ 		if (err)
+ 			return err;
+-- 
+2.9.3
