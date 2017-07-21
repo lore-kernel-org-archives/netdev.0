@@ -1,160 +1,84 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH v2 3/4] net: ethernet: nb8800: Fix RGMII TX clock delay setup
-Date: Fri, 21 Jul 2017 15:24:28 +0100
-Message-ID: <yw1xpoctq34z.fsf@mansr.com>
-References: <2617d673-ef81-5e7f-4730-ed3aa3f1c2c6@sigmadesigns.com>
-        <5a68bec8-0b1d-bcfe-65fb-b10399ec75be@sigmadesigns.com>
-        <yw1xy3riosag.fsf@mansr.com>
-        <53fbf5e1-8d37-9734-be3f-77128ada9dfb@sigmadesigns.com>
-        <yw1xtw25q4vb.fsf@mansr.com>
-        <168bfa24-1dfe-e389-ab75-367e6bd2141a@sigmadesigns.com>
+From: Daniel Borkmann via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH net 1/2] selftests/bpf: subtraction bounds
+	test
+Date: Fri, 21 Jul 2017 16:29:22 +0200
+Message-ID: <59720FC2.9070301@iogearbox.net>
+References: <2ebcb201-2f18-7276-f4f9-f2bbaffae179@solarflare.com>
+	<a12c5a59-d2e0-5866-d225-501d19a3ec7b@solarflare.com>
+Reply-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Timur Tabi <timur@codeaurora.org>,
-        Daniel Mack <zonque@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
-        Mason <slash.tmp@free.fr>
-To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:39654 "EHLO unicorn.mansr.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750861AbdGUOYb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Jul 2017 10:24:31 -0400
-In-Reply-To: <168bfa24-1dfe-e389-ab75-367e6bd2141a@sigmadesigns.com> (Marc
-        Gonzalez's message of "Fri, 21 Jul 2017 16:18:09 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josef-DigfWCa+lFGyeJad7bwFQA@public.gmane.org
+To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <a12c5a59-d2e0-5866-d225-501d19a3ec7b-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Marc Gonzalez <marc_gonzalez@sigmadesigns.com> writes:
+On 07/21/2017 03:36 PM, Edward Cree wrote:
+> There is a bug in the verifier's handling of BPF_SUB: [a,b] - [c,d] yields
+>   was [a-c, b-d] rather than the correct [a-d, b-c].  So here is a test
+>   which, with the bogus handling, will produce ranges of [0,0] and thus
+>   allowed accesses; whereas the correct handling will give a range of
+>   [-255, 255] (and hence the right-shift will give a range of [0, 255]) and
+>   the accesses will be rejected.
+>
+> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 
-> On 21/07/2017 15:47, Måns Rullgård wrote:
->
->> Marc Gonzalez wrote:
->> 
->>> On 21/07/2017 15:04, Måns Rullgård wrote:
->>>
->>>> Marc Gonzalez wrote:
->>>>
->>>>> According to commit e5f3a4a56ce2a707b2fb8ce37e4414dcac89c672
->>>>> ("Documentation: devicetree: clarify usage of the RGMII phy-modes")
->>>>> there are 4 RGMII modes to handle:
->>>>>
->>>>> "rgmii" (RX and TX delays are added by the MAC when required)
->>>>> "rgmii-id" (RGMII with internal RX and TX delays provided by the PHY,
->>>>> 	the MAC should not add the RX or TX delays in this case)
->>>>> "rgmii-rxid" (RGMII with internal RX delay provided by the PHY,
->>>>> 	the MAC should not add an RX delay in this case)
->>>>> "rgmii-txid" (RGMII with internal TX delay provided by the PHY,
->>>>> 	the MAC should not add an TX delay in this case)
->>>>>
->>>>> Add TX delay in the MAC only for rgmii and rgmii-rxid.
->>>>>
->>>>> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
->>>>> ---
->>>>>  drivers/net/ethernet/aurora/nb8800.c | 6 ++++--
->>>>>  1 file changed, 4 insertions(+), 2 deletions(-)
->>>>>
->>>>> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
->>>>> index ded041dbafe7..f3ed320eb4ad 100644
->>>>> --- a/drivers/net/ethernet/aurora/nb8800.c
->>>>> +++ b/drivers/net/ethernet/aurora/nb8800.c
->>>>> @@ -1268,11 +1268,13 @@ static int nb8800_tangox_init(struct net_device *dev)
->>>>>  		break;
->>>>>
->>>>>  	case PHY_INTERFACE_MODE_RGMII:
->>>>> -		pad_mode = PAD_MODE_RGMII;
->>>>> +	case PHY_INTERFACE_MODE_RGMII_RXID:
->>>>> +		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
->>>>>  		break;
->>>>>
->>>>> +	case PHY_INTERFACE_MODE_RGMII_ID:
->>>>>  	case PHY_INTERFACE_MODE_RGMII_TXID:
->>>>> -		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
->>>>> +		pad_mode = PAD_MODE_RGMII;
->>>>>  		break;
->>>>>
->>>>>  	default:
->>>>
->>>> I still don't like this.  Having both the MAC and PHY drivers react to
->>>> the phy-connection-type property is bound to cause trouble somewhere.
->>>>
->>>> The only way out of the current mess is to define new properties for
->>>> both MAC and PHY that override the existing ones if present.
->>>
->>> Do you mean defining 4 new bindings and their corresponding
->>> phy_interface_t enum values? For example:
->>>
->>> "rgmii-v2"
->>> "rgmii-id-v2"
->>> "rgmii-rxid-v2"
->>> "rgmii-txid-v2"
->>>
->>> 	PHY_INTERFACE_MODE_RGMII_V2,
->>> 	PHY_INTERFACE_MODE_RGMII_ID_V2,
->>> 	PHY_INTERFACE_MODE_RGMII_RXID_V2,
->>> 	PHY_INTERFACE_MODE_RGMII_TXID_V2,
->>>
->>> And then handling these new enums in the at803x and nb8800 drivers?
->> 
->> It has already been suggested to add new properties specifying desired
->> delays in picoseconds.  If present on the MAC node, the MAC driver
->> should attempt to provide the delay, and if present on the PHY node, the
->> PHY driver is responsible.
->
-> Sorry, I had already forgotten about Florian's suggestion:
->> If you introduced PHY and/or MAC specific properties to configure the
->> delays in the appropriate unit of time (say ps), you could use a
->> non-compliant 'phy-mode' just to satisfy the driver/PHY library and
->> still override the delays you need.
->
-> So we would need two properties (RX and TX).
-> "rgmii_rx_skew_ps" and "rgmii_tx_skew_ps"
->
-> but it's not clear to me how the MAC probe function communicates
-> the arguments to the phy driver. Looks like we would need to add
-> two fields to struct phy_device, and maybe define a new phy-mode
-> to instruct the PHY driver to look for the two fields.
+Acked-by: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 
-There's no need for the drivers to communicate.  The location of the
-properties in the device tree determines which driver should deal with
-it.
-
-> I don't have time to work on that for now, but I do need to
-> fix the nb8800 driver now. Can we apply the following patch
-> in the interim?
+>   tools/testing/selftests/bpf/test_verifier.c | 28 ++++++++++++++++++++++++++++
+>   1 file changed, 28 insertions(+)
 >
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-> index ded041dbafe7..e94159507847 100644
-> --- a/drivers/net/ethernet/aurora/nb8800.c
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-> @@ -1268,11 +1268,10 @@ static int nb8800_tangox_init(struct net_device *dev)
->                 break;
+> diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+> index af7d173..addea82 100644
+> --- a/tools/testing/selftests/bpf/test_verifier.c
+> +++ b/tools/testing/selftests/bpf/test_verifier.c
+> @@ -5980,6 +5980,34 @@ static struct bpf_test tests[] = {
+>   		.result = REJECT,
+>   		.result_unpriv = REJECT,
+>   	},
+> +	{
+> +		"subtraction bounds (map value)",
+> +		.insns = {
+> +			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
+> +			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+> +			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
+> +			BPF_LD_MAP_FD(BPF_REG_1, 0),
+> +			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
+> +				     BPF_FUNC_map_lookup_elem),
+> +			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 9),
+> +			BPF_LDX_MEM(BPF_B, BPF_REG_1, BPF_REG_0, 0),
+> +			BPF_JMP_IMM(BPF_JGT, BPF_REG_1, 0xff, 7),
+> +			BPF_LDX_MEM(BPF_B, BPF_REG_3, BPF_REG_0, 1),
+> +			BPF_JMP_IMM(BPF_JGT, BPF_REG_3, 0xff, 5),
+> +			BPF_ALU64_REG(BPF_SUB, BPF_REG_1, BPF_REG_3),
+> +			BPF_ALU64_IMM(BPF_RSH, BPF_REG_1, 56),
+> +			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1),
+> +			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_0, 0),
+> +			BPF_EXIT_INSN(),
+> +			BPF_MOV64_IMM(BPF_REG_0, 0),
+> +			BPF_EXIT_INSN(),
+> +		},
+> +		.fixup_map1 = { 3 },
+> +		.errstr_unpriv = "R0 pointer arithmetic prohibited",
+> +		.errstr = "R0 min value is negative, either use unsigned index or do a if (index >=0) check.",
+> +		.result = REJECT,
+> +		.result_unpriv = REJECT,
+> +	},
+>   };
 >
->         case PHY_INTERFACE_MODE_RGMII:
-> -               pad_mode = PAD_MODE_RGMII;
-> -               break;
-> -
-> +       case PHY_INTERFACE_MODE_RGMII_ID:
-> +       case PHY_INTERFACE_MODE_RGMII_RXID:
->         case PHY_INTERFACE_MODE_RGMII_TXID:
-> -               pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
-> +               pad_mode = PAD_MODE_RGMII;
->                 break;
+>   static int probe_filter_length(const struct bpf_insn *fp)
 >
->         default:
-
-Simply stop reacting to the delay aspect of the phy-connection-type
-property?  Yes, I'm fine with that.
-
--- 
-Måns Rullgård
