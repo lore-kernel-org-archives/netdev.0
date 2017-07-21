@@ -1,7 +1,7 @@
 From: Benjamin Poirier <bpoirier@suse.com>
-Subject: [PATCH 4/5] e1000e: Separate signaling for link check/link up
-Date: Fri, 21 Jul 2017 11:36:26 -0700
-Message-ID: <20170721183627.13373-4-bpoirier@suse.com>
+Subject: [PATCH 5/5] e1000e: Avoid receiver overrun interrupt bursts
+Date: Fri, 21 Jul 2017 11:36:27 -0700
+Message-ID: <20170721183627.13373-5-bpoirier@suse.com>
 References: <20170721160937.GA22632@csclub.uwaterloo.ca>
  <20170721183627.13373-1-bpoirier@suse.com>
 Cc: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
@@ -13,85 +13,105 @@ In-Reply-To: <20170721183627.13373-1-bpoirier@suse.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lennart reported the following race condition:
+When e1000e_poll() is not fast enough to keep up with incoming traffic, the
+adapter (when operating in msix mode) raises the Other interrupt to signal
+Receiver Overrun.
 
-\ e1000_watchdog_task
-    \ e1000e_has_link
-        \ hw->mac.ops.check_for_link() === e1000e_check_for_copper_link
-            /* link is up */
-            mac->get_link_status = false;
+This is a double problem because 1) at the moment e1000_msix_other()
+assumes that it is only called in case of Link Status Change and 2) if the
+condition persists, the interrupt is repeatedly raised again in quick
+succession.
 
-                            /* interrupt */
-                            \ e1000_msix_other
-                                hw->mac.get_link_status = true;
-
-        link_active = !hw->mac.get_link_status
-        /* link_active is false, wrongly */
-
-This problem arises because the single flag get_link_status is used to
-signal two different states: link status needs checking and link status is
-down.
-
-Avoid the problem by using the return value of .check_for_link to signal
-the link status to e1000e_has_link().
+Ideally we would configure the Other interrupt to not be raised in case of
+receiver overrun but this doesn't seem possible on this adapter. Instead,
+we handle the first part of the problem by reverting to the practice of
+reading ICR in the other interrupt handler, like before commit 16ecba59bc33
+("e1000e: Do not read ICR in Other interrupt"). Thanks to commit
+0a8047ac68e5 ("e1000e: Fix msi-x interrupt automask") which cleared IAME
+from CTRL_EXT, reading ICR doesn't interfere with RxQ0, TxQ0 interrupts
+anymore. We handle the second part of the problem by not re-enabling the
+Other interrupt right away when there is overrun. Instead, we wait until
+traffic subsides, napi polling mode is exited and interrupts are
+re-enabled.
 
 Reported-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Fixes: 16ecba59bc33 ("e1000e: Do not read ICR in Other interrupt")
 Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
 ---
- drivers/net/ethernet/intel/e1000e/mac.c    | 11 ++++++++---
- drivers/net/ethernet/intel/e1000e/netdev.c |  2 +-
- 2 files changed, 9 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/e1000e/defines.h |  1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c  | 33 +++++++++++++++++++++++------
+ 2 files changed, 27 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index b322011ec282..f457c5703d0c 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -410,6 +410,9 @@ void e1000e_clear_hw_cntrs_base(struct e1000_hw *hw)
-  *  Checks to see of the link status of the hardware has changed.  If a
-  *  change in link status has been detected, then we read the PHY registers
-  *  to get the current speed/duplex if link exists.
-+ *
-+ *  Returns a negative error code (-E1000_ERR_*) or 0 (link down) or 1 (link
-+ *  up).
-  **/
- s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
- {
-@@ -423,7 +426,7 @@ s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
- 	 * Change or Rx Sequence Error interrupt.
- 	 */
- 	if (!mac->get_link_status)
--		return 0;
-+		return 1;
- 
- 	/* First we want to see if the MII Status Register reports
- 	 * link.  If so, then we want to get the current speed/duplex
-@@ -461,10 +464,12 @@ s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
- 	 * different link partner.
- 	 */
- 	ret_val = e1000e_config_fc_after_link_up(hw);
--	if (ret_val)
-+	if (ret_val) {
- 		e_dbg("Error configuring flow control\n");
-+		return ret_val;
-+	}
- 
--	return ret_val;
-+	return 1;
- }
- 
- /**
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index 0641c0098738..afb7ebe20b24 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -398,6 +398,7 @@
+ #define E1000_ICR_LSC           0x00000004 /* Link Status Change */
+ #define E1000_ICR_RXSEQ         0x00000008 /* Rx sequence error */
+ #define E1000_ICR_RXDMT0        0x00000010 /* Rx desc min. threshold (0) */
++#define E1000_ICR_RXO           0x00000040 /* Receiver Overrun */
+ #define E1000_ICR_RXT0          0x00000080 /* Rx timer intr (ring 0) */
+ #define E1000_ICR_ECCER         0x00400000 /* Uncorrectable ECC Error */
+ /* If this bit asserted, the driver should claim the interrupt */
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index fc6a1d9999b2..5a8ab1136566 100644
+index 5a8ab1136566..803edd1a6401 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5081,7 +5081,7 @@ static bool e1000e_has_link(struct e1000_adapter *adapter)
- 	case e1000_media_type_copper:
- 		if (hw->mac.get_link_status) {
- 			ret_val = hw->mac.ops.check_for_link(hw);
--			link_active = !hw->mac.get_link_status;
-+			link_active = ret_val > 0;
- 		} else {
- 			link_active = true;
+@@ -1910,12 +1910,30 @@ static irqreturn_t e1000_msix_other(int __always_unused irq, void *data)
+ 	struct net_device *netdev = data;
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
++	u32 icr;
++	bool enable = true;
++
++	icr = er32(ICR);
++	if (icr & E1000_ICR_RXO) {
++		ew32(ICR, E1000_ICR_RXO);
++		enable = false;
++		/* napi poll will re-enable Other, make sure it runs */
++		if (napi_schedule_prep(&adapter->napi)) {
++			adapter->total_rx_bytes = 0;
++			adapter->total_rx_packets = 0;
++			__napi_schedule(&adapter->napi);
++		}
++	}
++	if (icr & E1000_ICR_LSC) {
++		ew32(ICR, E1000_ICR_LSC);
++		hw->mac.get_link_status = true;
++		/* guard against interrupt when we're going down */
++		if (!test_bit(__E1000_DOWN, &adapter->state)) {
++			mod_timer(&adapter->watchdog_timer, jiffies + 1);
++		}
++	}
+ 
+-	hw->mac.get_link_status = true;
+-
+-	/* guard against interrupt when we're going down */
+-	if (!test_bit(__E1000_DOWN, &adapter->state)) {
+-		mod_timer(&adapter->watchdog_timer, jiffies + 1);
++	if (enable && !test_bit(__E1000_DOWN, &adapter->state)) {
+ 		ew32(IMS, E1000_IMS_OTHER);
+ 	}
+ 
+@@ -2687,7 +2705,8 @@ static int e1000e_poll(struct napi_struct *napi, int weight)
+ 		napi_complete_done(napi, work_done);
+ 		if (!test_bit(__E1000_DOWN, &adapter->state)) {
+ 			if (adapter->msix_entries)
+-				ew32(IMS, adapter->rx_ring->ims_val);
++				ew32(IMS, adapter->rx_ring->ims_val |
++				     E1000_IMS_OTHER);
+ 			else
+ 				e1000_irq_enable(adapter);
  		}
+@@ -4204,7 +4223,7 @@ static void e1000e_trigger_lsc(struct e1000_adapter *adapter)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+ 	if (adapter->msix_entries)
+-		ew32(ICS, E1000_ICS_OTHER);
++		ew32(ICS, E1000_ICS_LSC | E1000_ICS_OTHER);
+ 	else
+ 		ew32(ICS, E1000_ICS_LSC);
+ }
 -- 
 2.13.2
