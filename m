@@ -1,97 +1,63 @@
-From: thor.thayer@linux.intel.com
-Subject: [PATCH] net: stmmac: Adjust dump offset of DMA registers for ethtool
-Date: Fri, 21 Jul 2017 16:35:09 -0500
-Message-ID: <1500672909-24408-1-git-send-email-thor.thayer@linux.intel.com>
-Cc: netdev@vger.kernel.org, thor.thayer@linux.intel.com
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
+ null entry.
+Date: Fri, 21 Jul 2017 14:53:21 -0700
+Message-ID: <CAJieiUgQZbwj_xjKGQd6ibHDn87mgWxTgRNZs8g+rqONC6nX=A@mail.gmail.com>
+References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+ <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
+ <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com> <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Hangbin Liu <liuhangbin@gmail.com>,
+        network dev <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:29788 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754654AbdGUVcE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Jul 2017 17:32:04 -0400
+Received: from mail-ua0-f175.google.com ([209.85.217.175]:37931 "EHLO
+        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752780AbdGUVxW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 17:53:22 -0400
+Received: by mail-ua0-f175.google.com with SMTP id w45so54205094uac.5
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 14:53:22 -0700 (PDT)
+In-Reply-To: <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thor Thayer <thor.thayer@linux.intel.com>
+On Fri, Jul 21, 2017 at 11:42 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Thu, Jul 20, 2017 at 8:23 AM, Hangbin Liu <liuhangbin@gmail.com> wrote:
+>> 2017-07-20 23:06 GMT+08:00 Hangbin Liu <liuhangbin@gmail.com>:
+>>>> +++ b/net/ipv6/route.c
+>>>> @@ -3637,12 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+>>>>                 dst = ip6_route_lookup(net, &fl6, 0);
+>>>>
+>>>>         rt = container_of(dst, struct rt6_info, dst);
+>>>> -       if (rt->dst.error) {
+>>>> -               err = rt->dst.error;
+>>>> -               ip6_rt_put(rt);
+>>>> -               goto errout;
+>>>> -       }
+>>>
+>>> hmm... or instead of remove this check, should we check all the entry? Like
+>>> if ((rt->dst.error && rt != net->ipv6.ip6_null_entry && rt !=
+>>                                                     ^^ mistake here
+>>> net->ipv6.ip6_blk_hole_entry) ||
+>>>      rt == net->ipv6.ip6_null_entry )
+>>
+>> Sorry,  there should be no need to check ip6_null_entry since the
+>> error is already
+>> -ENETUNREACH. So how about
+>
+> Hmm? All of these 3 entries have error set, right??
+> So we should only check dst.error...
 
-The commit fbf68229ffe7 ("net: stmmac: unify registers dumps methods")
+removing the check seems ok to me. We can also make the check
+conditional to fibmatch code only
+to eliminate any change in behavior introduced by fibmatch.
 
-in the Linux kernel modified the register dump to store the DMA registers
-at the DMA register offset (0x1000) but ethtool (stmmac.c) looks for the
-DMA registers after the MAC registers which is offset 55.
-This patch copies the DMA registers from the higher offset to the offset
-where ethtool expects them.
+ie if (fibmatch && rt->dst.error).
 
-Signed-off-by: Thor Thayer <thor.thayer@linux.intel.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c  | 2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c   | 2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h      | 3 +++
- drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c | 5 +++++
- 4 files changed, 10 insertions(+), 2 deletions(-)
+Hangbin, can you also pls check that fibmatch works ok for such routes
+with your patch applied ?.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index cc4ea13..ec539f7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -205,7 +205,7 @@ static void dwmac1000_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
- {
- 	int i;
- 
--	for (i = 0; i < 23; i++)
-+	for (i = 0; i < NUM_DWMAC1000_DMA_REGS; i++)
- 		if ((i < 12) || (i > 17))
- 			reg_space[DMA_BUS_MODE / 4 + i] =
- 				readl(ioaddr + DMA_BUS_MODE + i * 4);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-index eef2f22..6502b9a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-@@ -70,7 +70,7 @@ static void dwmac100_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
- {
- 	int i;
- 
--	for (i = 0; i < 9; i++)
-+	for (i = 0; i < NUM_DWMAC100_DMA_REGS; i++)
- 		reg_space[DMA_BUS_MODE / 4 + i] =
- 			readl(ioaddr + DMA_BUS_MODE + i * 4);
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index 56e485f..3107d19 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -136,6 +136,9 @@
- #define DMA_STATUS_TI	0x00000001	/* Transmit Interrupt */
- #define DMA_CONTROL_FTF		0x00100000	/* Flush transmit FIFO */
- 
-+#define NUM_DWMAC100_DMA_REGS	9
-+#define NUM_DWMAC1000_DMA_REGS	23
-+
- void dwmac_enable_dma_transmission(void __iomem *ioaddr);
- void dwmac_enable_dma_irq(void __iomem *ioaddr);
- void dwmac_disable_dma_irq(void __iomem *ioaddr);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 690b7c1..2ffb5b1 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -33,6 +33,8 @@
- #define MAC100_ETHTOOL_NAME	"st_mac100"
- #define GMAC_ETHTOOL_NAME	"st_gmac"
- 
-+#define ETHTOOL_DMA_OFFSET	55
-+
- struct stmmac_stats {
- 	char stat_string[ETH_GSTRING_LEN];
- 	int sizeof_stat;
-@@ -443,6 +445,9 @@ static void stmmac_ethtool_gregs(struct net_device *dev,
- 
- 	priv->hw->mac->dump_regs(priv->hw, reg_space);
- 	priv->hw->dma->dump_regs(priv->ioaddr, reg_space);
-+	/* Copy DMA registers to where ethtool expects them */
-+	memcpy(&reg_space[ETHTOOL_DMA_OFFSET], &reg_space[DMA_BUS_MODE / 4],
-+	       NUM_DWMAC1000_DMA_REGS * 4);
- }
- 
- static void
--- 
-2.7.4
+ip netns exec client ip -6 route get fibmatch 2003::1     (with latest iproute2)
+
+thank you.
