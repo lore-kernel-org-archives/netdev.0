@@ -1,70 +1,77 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net 1/2] selftests/bpf: subtraction bounds test
-Date: Fri, 21 Jul 2017 14:36:57 +0100
-Message-ID: <a12c5a59-d2e0-5866-d225-501d19a3ec7b@solarflare.com>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: [PATCH net 2/2] bpf/verifier: fix min/max handling in
+	BPF_SUB
+Date: Fri, 21 Jul 2017 14:37:34 +0100
+Message-ID: <e3fa964f-54f2-7310-59d1-41a4b7ad9a5b@solarflare.com>
 References: <2ebcb201-2f18-7276-f4f9-f2bbaffae179@solarflare.com>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>
-To: <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2ebcb201-2f18-7276-f4f9-f2bbaffae179@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <2ebcb201-2f18-7276-f4f9-f2bbaffae179-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-There is a bug in the verifier's handling of BPF_SUB: [a,b] - [c,d] yields
- was [a-c, b-d] rather than the correct [a-d, b-c].  So here is a test
- which, with the bogus handling, will produce ranges of [0,0] and thus
- allowed accesses; whereas the correct handling will give a range of
- [-255, 255] (and hence the right-shift will give a range of [0, 255]) and
- the accesses will be rejected.
+We have to subtract the src max from the dst min, and vice-versa, since
+ (e.g.) the smallest result comes from the largest subtrahend.
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
+Fixes: 484611357c19 ("bpf: allow access into map value arrays")
+Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 ---
- tools/testing/selftests/bpf/test_verifier.c | 28 ++++++++++++++++++++++++++++
- 1 file changed, 28 insertions(+)
+ kernel/bpf/verifier.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
 
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index af7d173..addea82 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -5980,6 +5980,34 @@ static struct bpf_test tests[] = {
- 		.result = REJECT,
- 		.result_unpriv = REJECT,
- 	},
-+	{
-+		"subtraction bounds (map value)",
-+		.insns = {
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				     BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 9),
-+			BPF_LDX_MEM(BPF_B, BPF_REG_1, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JGT, BPF_REG_1, 0xff, 7),
-+			BPF_LDX_MEM(BPF_B, BPF_REG_3, BPF_REG_0, 1),
-+			BPF_JMP_IMM(BPF_JGT, BPF_REG_3, 0xff, 5),
-+			BPF_ALU64_REG(BPF_SUB, BPF_REG_1, BPF_REG_3),
-+			BPF_ALU64_IMM(BPF_RSH, BPF_REG_1, 56),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1),
-+			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map1 = { 3 },
-+		.errstr_unpriv = "R0 pointer arithmetic prohibited",
-+		.errstr = "R0 min value is negative, either use unsigned index or do a if (index >=0) check.",
-+		.result = REJECT,
-+		.result_unpriv = REJECT,
-+	},
- };
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index af9e84a..664d939 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1865,10 +1865,12 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
+ 	 * do our normal operations to the register, we need to set the values
+ 	 * to the min/max since they are undefined.
+ 	 */
+-	if (min_val == BPF_REGISTER_MIN_RANGE)
+-		dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
+-	if (max_val == BPF_REGISTER_MAX_RANGE)
+-		dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
++	if (opcode != BPF_SUB) {
++		if (min_val == BPF_REGISTER_MIN_RANGE)
++			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
++		if (max_val == BPF_REGISTER_MAX_RANGE)
++			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
++	}
  
- static int probe_filter_length(const struct bpf_insn *fp)
+ 	switch (opcode) {
+ 	case BPF_ADD:
+@@ -1879,10 +1881,17 @@ static void adjust_reg_min_max_vals(struct bpf_verifier_env *env,
+ 		dst_reg->min_align = min(src_align, dst_align);
+ 		break;
+ 	case BPF_SUB:
++		/* If one of our values was at the end of our ranges, then the
++		 * _opposite_ value in the dst_reg goes to the end of our range.
++		 */
++		if (min_val == BPF_REGISTER_MIN_RANGE)
++			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
++		if (max_val == BPF_REGISTER_MAX_RANGE)
++			dst_reg->min_value = BPF_REGISTER_MIN_RANGE;
+ 		if (dst_reg->min_value != BPF_REGISTER_MIN_RANGE)
+-			dst_reg->min_value -= min_val;
++			dst_reg->min_value -= max_val;
+ 		if (dst_reg->max_value != BPF_REGISTER_MAX_RANGE)
+-			dst_reg->max_value -= max_val;
++			dst_reg->max_value -= min_val;
+ 		dst_reg->min_align = min(src_align, dst_align);
+ 		break;
+ 	case BPF_MUL:
