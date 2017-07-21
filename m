@@ -1,42 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] mlxsw: spectrum_router: Don't ignore IPv6 notifications
-Date: Fri, 21 Jul 2017 18:05:23 +0200
-Message-ID: <20170721160523.23228-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:36334 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751302AbdGUQF0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 12:05:26 -0400
-Received: by mail-wr0-f195.google.com with SMTP id y67so11807979wrb.3
-        for <netdev@vger.kernel.org>; Fri, 21 Jul 2017 09:05:25 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: commit 16ecba59 breaks 82574L under heavy load.
+Date: Fri, 21 Jul 2017 12:09:37 -0400
+Message-ID: <20170721160937.GA22632@csclub.uwaterloo.ca>
+References: <20170718142109.GO18556@csclub.uwaterloo.ca>
+ <20170718231435.64us7vu67wtp6pwe@f1.synalogic.ca>
+ <20170719141953.GQ18556@csclub.uwaterloo.ca>
+ <20170720000747.4jiadqubv7hg5esz@f1.synalogic.ca>
+ <20170720140027.GR18556@csclub.uwaterloo.ca>
+ <20170720234455.7nxtui7shmnzivxd@f1.synalogic.ca>
+ <20170721152709.GT18556@csclub.uwaterloo.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Benjamin Poirier <bpoirier@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170721152709.GT18556@csclub.uwaterloo.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+On Fri, Jul 21, 2017 at 11:27:09AM -0400,  wrote:
+> On Thu, Jul 20, 2017 at 04:44:55PM -0700, Benjamin Poirier wrote:
+> > Could you please test the following patch and let me know if it:
+> > 1) reduces the interrupt rate of the Other msi-x vector
+> > 2) avoids the link flaps
+> > or
+> > 3) logs some dmesg warnings of the form "Other interrupt with unhandled [...]"
+> > In this case, please paste icr values printed.
+> 
+> I will give it a try.
 
-We now have all the necessary IPv6 infrastructure in place, so stop
-ignoring these notifications.
+So test looks excellent.  Seems to only get interrupts when link state
+actually changes now.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Another odd behaviour I see is that the driver will hang in
+> napi_synchronize on shutdown if there is traffic at the time (at least
+> I think that's the trigger, maybe the trigger is if there has been an
+> overload of traffic and the backlog in napi was used).
+> 
+> From doing some searching, this seems to be a problem that has plagued
+> some people for years with this driver.
+> 
+> I am having trouble figuring out exactly what napi_synchronize is waiting
+> for and who is supposed to toggle the flag it is waiting on.  The flag
+> appears to work backwards from what I would have expected it to do.
+> I see lots of places that can set the bit, but only napi_enable seems
+> to clear it again, and I don't see how that would get called for all
+> the places that potentially set the bit.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 9adb239..fa15f17 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -3804,7 +3804,7 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
- 	struct fib_notifier_info *info = ptr;
- 	struct mlxsw_sp_router *router;
- 
--	if (!net_eq(info->net, &init_net) || info->family != AF_INET)
-+	if (!net_eq(info->net, &init_net))
- 		return NOTIFY_DONE;
- 
- 	fib_work = kzalloc(sizeof(*fib_work), GFP_ATOMIC);
+I just realized NAPI_STATE_SCHED and NAPIF_STATE_SCHED are the same
+thing and I need to look at both of those.
+
+Still something seems odd in some corner case where napi gets stuck and
+you can't close the port anymore due to napi_synchronize never being
+able to finish.  Some traffic pattern causes that SCHED state bit to
+get into the wrong state and nothing ever clears it.  Even managed to
+see it get stuck so it never passed traffic again and hung on shutdown.
+The napi poll was never called again.
+
 -- 
-2.9.3
+Len Sorensen
