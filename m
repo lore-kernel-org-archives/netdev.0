@@ -1,58 +1,59 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [RFC PATCH] IP: do not modify ingress packet IP option in ip_options_echo()
-Date: Fri, 21 Jul 2017 15:55:18 +0200
-Message-ID: <f5758b6b7199d2d2a218b0ad36f1e5ef108eac43.1500642854.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH v2 1/4] net: phy: at803x: Document RGMII RX and TX clock
+ delay issues
+Date: Fri, 21 Jul 2017 09:06:44 -0500
+Message-ID: <1c35e791-c181-2855-8463-b3b0ef5367a2@codeaurora.org>
+References: <2617d673-ef81-5e7f-4730-ed3aa3f1c2c6@sigmadesigns.com>
+ <051653a2-946f-6a0b-4cff-b403d1197038@sigmadesigns.com>
+ <a9d3777c-1752-d79b-8302-d09c5f736a9f@codeaurora.org>
+ <db666f79-5ee3-f136-527e-aeb9cc6425b7@sigmadesigns.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+        Mason <slash.tmp@free.fr>
+To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Daniel Mack <zonque@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42418 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750858AbdGUNzb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 21 Jul 2017 09:55:31 -0400
+Received: from smtp.codeaurora.org ([198.145.29.96]:58174 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751464AbdGUOGt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2017 10:06:49 -0400
+In-Reply-To: <db666f79-5ee3-f136-527e-aeb9cc6425b7@sigmadesigns.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While computing the response option set for LRSS, ip_options_echo()
-also changes the ingress packet LRSS addresses list, setting
-the last one to the dst specific address for the ingress packet
-- via memset(start[ ...
-The only visible effect of such change - beyond possibly damaging
-shared/cloned skbs - is modifying the data carried by ICMP replies
-changing the header information for reported the ingress packet,
-whichi violates RFC1122 3.2.2.6.
-All the others call sites just ignore the ingress packet IP options
-after calling ip_options_echo().
-This behavior predates git history and apparently was present into
-the initial ip_options_echo() implementation in linux 1.3.30 but
-still looks wrong.
+On 7/21/17 8:29 AM, Marc Gonzalez wrote:
+> I don't understand what you're saying.
+> 
+> It is a correct observation that the code enabling
+> RGMII RX clock delay is a NOP, since that bit will
+> always be set at that point.
+> 
+> The spec for the 8035 (I haven't checked for 8030 and 8031,
+> is that what you meant by "other systems"?) states that
+> Sel_clk125m_dsp, which is described as:
+> "Control bit for rgmii interface rx clock delay"
+> is 1 after HW reset, 1 after SW reset.
+> 
+> So my statement "RX clock delay is enabled at reset"
+> is universally true. It's not just on some systems.
 
-Removing the fib_compute_spec_dst() call will allow completely
-removing, with a later patch, skb->dst usage in ip_options_echo(),
-so that we can release the dst entry early in the rx path and
-drop a couple of related hacks.
+Ok, taken out of context, the comment doesn't really explain why the 
+code is the way it is.  I'm not really happy about the word "assumes". 
+Maybe you should add a sentence explaining when the code is NOT a no-op.
 
-This will evenutally target net-next.
-
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/ip_options.c | 3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index 93157f2..fdda973 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -174,9 +174,6 @@ int __ip_options_echo(struct ip_options *dopt, struct sk_buff *skb,
- 				doffset -= 4;
- 		}
- 		if (doffset > 3) {
--			__be32 daddr = fib_compute_spec_dst(skb);
--
--			memcpy(&start[doffset-1], &daddr, 4);
- 			dopt->faddr = faddr;
- 			dptr[0] = start[0];
- 			dptr[1] = doffset+3;
 -- 
-2.9.4
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
