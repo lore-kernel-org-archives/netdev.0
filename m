@@ -1,53 +1,51 @@
-From: <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 net] net: ethernet: mediatek: avoid potential invalid
- memory access
-Date: Sat, 22 Jul 2017 20:45:55 +0800
-Message-ID: <e5eab7347d0918d7f2aff2951e66f93ef19594cd.1500727290.git.sean.wang@mediatek.com>
+From: Johan Hovold <johan@kernel.org>
+Subject: Re: [PATCH] NFC: fix device-allocation error return
+Date: Sat, 22 Jul 2017 15:32:28 +0200
+Message-ID: <20170722133228.GE2729@localhost>
+References: <20170709110858.20331-1-johan@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        Dan Carpenter <dan.carpenter@oracle.com>,
+        Johan Hovold <johan@kernel.org>,
+        stable <stable@vger.kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Samuel Ortiz <sameo@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:35375 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750830AbdGVNcf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 09:32:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20170709110858.20331-1-johan@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+On Sun, Jul 09, 2017 at 01:08:58PM +0200, Johan Hovold wrote:
+> A recent change fixing NFC device allocation itself introduced an
+> error-handling bug by returning an error pointer in case device-id
+> allocation failed. This is clearly broken as the callers still expected
+> NULL to be returned on errors as detected by Dan's static checker.
+> 
+> Fix this up by returning NULL in the event that we've run out of memory
+> when allocating a new device id.
+> 
+> Note that the offending commit is marked for stable (3.8) so this fix
+> needs to be backported along with it.
+> 
+> Fixes: 20777bc57c34 ("NFC: fix broken device allocation")
+> Cc: stable <stable@vger.kernel.org>	# 3.8
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Johan Hovold <johan@kernel.org>
 
-Potential dangerous invalid memory might be accessed if invalid mac value
-reflected from the forward port field in rxd4 caused by possible potential
-hardware defects. So added a simple sanity checker to avoid the kind of
-situation happening.
+Samuel or David,
 
-Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Acked-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Could you apply this follow-up fix so that it can be backported along
+with the offending commit (which was just added to the stable queues)?
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index c1dc08c..e69524c 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -999,6 +999,10 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
- 		      RX_DMA_FPORT_MASK;
- 		mac--;
- 
-+		if (unlikely(mac < 0 || mac >= MTK_MAC_COUNT ||
-+			     !eth->netdev[mac]))
-+			goto release_desc;
-+
- 		netdev = eth->netdev[mac];
- 
- 		if (unlikely(test_bit(MTK_RESETTING, &eth->state)))
--- 
-2.7.4
+We would only hit this error path if an ida allocation fails due to OOM;
+so while this is not critical, it would still be nice to get it fixed.
+
+Thanks,
+Johan
