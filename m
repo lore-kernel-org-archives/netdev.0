@@ -1,11 +1,11 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH V3 net-next 2/8] net: hns3: Add support of the HNAE3
+Subject: RE: [PATCH V2 net-next 2/8] net: hns3: Add support of the HNAE3
  framework
-Date: Sat, 22 Jul 2017 23:30:11 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B81CC25@FRAEML521-MBX.china.huawei.com>
-References: <20170617172431.177044-1-salil.mehta@huawei.com>
- <20170617172431.177044-3-salil.mehta@huawei.com>
- <20170617194538.GD1974@lunn.ch>
+Date: Sat, 22 Jul 2017 23:31:10 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B81CC39@FRAEML521-MBX.china.huawei.com>
+References: <20170613231035.494020-1-salil.mehta@huawei.com>
+ <20170613231035.494020-3-salil.mehta@huawei.com>
+ <20170618145305.GA4025@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -19,63 +19,43 @@ Cc: "davem@davemloft.net" <davem@davemloft.net>,
         Linuxarm <linuxarm@huawei.com>
 To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170617194538.GD1974@lunn.ch>
+In-Reply-To: <20170618145305.GA4025@lunn.ch>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+
 
 > -----Original Message-----
 > From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Saturday, June 17, 2017 8:46 PM
+> Sent: Sunday, June 18, 2017 3:53 PM
 > To: Salil Mehta
 > Cc: davem@davemloft.net; Zhuangyuzeng (Yisen); huangdaode; lipeng (Y);
 > mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
 > kernel@vger.kernel.org; Linuxarm
-> Subject: Re: [PATCH V3 net-next 2/8] net: hns3: Add support of the
+> Subject: Re: [PATCH V2 net-next 2/8] net: hns3: Add support of the
 > HNAE3 framework
 > 
-> > +static void hnae3_list_add(spinlock_t *lock, struct list_head *node,
-> > +			   struct list_head *head)
-> > +{
-> > +	unsigned long flags;
-> > +
-> > +	spin_lock_irqsave(lock, flags);
-> > +	list_add_tail(node, head);
-> > +	spin_unlock_irqrestore(lock, flags);
-> > +}
-> > +
-> > +static void hnae3_list_del(spinlock_t *lock, struct list_head *node)
-> > +{
-> > +	unsigned long flags;
-> > +
-> > +	spin_lock_irqsave(lock, flags);
-> > +	list_del(node);
-> > +	spin_unlock_irqrestore(lock, flags);
-> > +}
-> > +
+> On Wed, Jun 14, 2017 at 12:10:29AM +0100, Salil Mehta wrote:
+> > This patch adds the support of the HNAE3 (Hisilicon Network
+> > Acceleration Engine 3) framework support to the HNS3 driver.
+> >
+> > Framework facilitates clients like ENET(HNS3 Ethernet Driver), RoCE
+> > and user-space Ethernet drivers (like ODP etc.) to register with
+> HNAE3
+> > devices and their associated operations.
 > 
-> > +int hnae3_register_client(struct hnae3_client *client)
-> > +{
-> > +	struct hnae3_client *client_tmp;
-> > +	struct hnae3_ae_dev *ae_dev;
-> > +	int ret;
-> > +
-> > +	/* One system should only have one client for every type */
-> > +	list_for_each_entry(client_tmp, &hnae3_client_list, node) {
-> > +		if (client_tmp->type == client->type)
-> > +			return 0;
-> > +	}
-> > +
-> > +	hnae3_list_add(&hnae3_list_client_lock, &client->node,
-> > +		       &hnae3_client_list);
+> checkpatch throws out one warning in this file
 > 
-> Please could you explain your locking scheme. I don't get it.
+> CHECK: Comparison to NULL could be written "pos"
+> #3508: FILE:
+> drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h:572:
+> +      for (pos = (head).ring; pos != NULL; pos = pos->next)
 > 
->        Thanks
-> 	Andrew
-Locking scheme has been fixed in the V4 patch. Please review it.
+> This one seems valid. Not all checkpatch warnings are.
+Agreed and fixed in V4 patch.
 
 Thanks
 Salil
+> 
+>      Andrew
