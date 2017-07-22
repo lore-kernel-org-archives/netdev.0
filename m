@@ -1,14 +1,14 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH V3 net-next 5/8] net: hns3: Add support of TX Scheduler
- & Shaper to HNS3 driver
-Date: Sat, 22 Jul 2017 23:38:26 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B81CCAF@FRAEML521-MBX.china.huawei.com>
+Subject: RE: [PATCH V3 net-next 1/8] net: hns3: Add support of HNS3 Ethernet
+ Driver for hip08 SoC
+Date: Sat, 22 Jul 2017 23:39:12 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B81CCC3@FRAEML521-MBX.china.huawei.com>
 References: <20170617172431.177044-1-salil.mehta@huawei.com>
- <20170617172431.177044-6-salil.mehta@huawei.com>
- <20170618164518.GA1685@localhost.localdomain>
+ <20170617172431.177044-2-salil.mehta@huawei.com>
+ <20170619005721.4x66u5mm35huqa4g@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "davem@davemloft.net" <davem@davemloft.net>,
         "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
         huangdaode <huangdaode@hisilicon.com>,
@@ -17,42 +17,61 @@ Cc: "davem@davemloft.net" <davem@davemloft.net>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         Linuxarm <linuxarm@huawei.com>
-To: Richard Cochran <richardcochran@gmail.com>
+To: Bo Yu <tsu.yubo@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170618164518.GA1685@localhost.localdomain>
+In-Reply-To: <20170619005721.4x66u5mm35huqa4g@debian>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Richard,
-
-> -----Original Message-----
-> From: Richard Cochran [mailto:richardcochran@gmail.com]
-> Sent: Sunday, June 18, 2017 5:45 PM
-> To: Salil Mehta
-> Cc: davem@davemloft.net; Zhuangyuzeng (Yisen); huangdaode; lipeng (Y);
-> mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; Linuxarm
-> Subject: Re: [PATCH V3 net-next 5/8] net: hns3: Add support of TX
-> Scheduler & Shaper to HNS3 driver
-> 
-> On Sat, Jun 17, 2017 at 06:24:28PM +0100, Salil Mehta wrote:
-> > +
-> > +int hclge_tm_schd_init(struct hclge_dev *hdev);
-> > +int hclge_tm_setup_tc(struct hclge_dev *hdev);
-> 
-> The definition of this function DNE.
-Sorry, I did not get what DNE means? Does Not Exist ?
-If yes, the I can see the definition of both the functions.
-
-Best regards
-Salil
-> 
-> > +int hclge_pause_setup_hw(struct hclge_dev *hdev);
-> > +
-> > +#endif
-> > --
-> > 2.7.4
-> 
-> Thanks,
-> Richard
+SGkgQm8gWXUsDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQm8gWXUg
+W21haWx0bzp0c3UueXVib0BnbWFpbC5jb21dDQo+IFNlbnQ6IE1vbmRheSwgSnVuZSAxOSwgMjAx
+NyAxOjU3IEFNDQo+IFRvOiBTYWxpbCBNZWh0YQ0KPiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsg
+Wmh1YW5neXV6ZW5nIChZaXNlbik7IGh1YW5nZGFvZGU7IGxpcGVuZyAoWSk7DQo+IG1laHRhLnNh
+bGlsLmxua0BnbWFpbC5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LQ0KPiBrZXJu
+ZWxAdmdlci5rZXJuZWwub3JnOyBMaW51eGFybQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIFYzIG5l
+dC1uZXh0IDEvOF0gbmV0OiBobnMzOiBBZGQgc3VwcG9ydCBvZiBITlMzDQo+IEV0aGVybmV0IERy
+aXZlciBmb3IgaGlwMDggU29DDQo+IA0KPiBIaSwNCj4gT24gU2F0LCBKdW4gMTcsIDIwMTcgYXQg
+MDY6MjQ6MjRQTSArMDEwMCwgU2FsaWwgTWVodGEgd3JvdGU6DQo+ID4rCXN0cnVjdCBub3RpZmll
+cl9ibG9jayBub3RpZmllcl9ibG9jazsNCj4gPisJLyogVnhsYW4vR2VuZXZlIGluZm9ybWF0aW9u
+ICovDQo+ID4rCXN0cnVjdCBobnMzX3VkcF90dW5uZWwgdWRwX3RubFtITlMzX1VEUF9UTkxfTUFY
+XTsNCj4gPit9Ow0KPiA+Kw0KPiA+Ky8qIHRoZSBkaXN0YW5jZSBiZXR3ZWVuIFtiZWdpbiwgZW5k
+KSBpbiBhIHJpbmcgYnVmZmVyDQo+ID4rICogbm90ZTogdGhlcmUgaXMgYSB1bnVzZSBzbG90IGJl
+dHdlZW4gdGhlIGJlZ2luIGFuZCB0aGUgZW5kDQo+ID4rICovDQo+ID4rc3RhdGljIGlubGluZSBp
+bnQgcmluZ19kaXN0KHN0cnVjdCBobnMzX2VuZXRfcmluZyAqcmluZywgaW50IGJlZ2luLA0KPiBp
+bnQgZW5kKQ0KPiA+K3sNCj4gPisJcmV0dXJuIChlbmQgLSBiZWdpbiArIHJpbmctPmRlc2NfbnVt
+KSAlIHJpbmctPmRlc2NfbnVtOw0KPiA+K30NCj4gPisNCj4gPitzdGF0aWMgaW5saW5lIGludCBy
+aW5nX3NwYWNlKHN0cnVjdCBobnMzX2VuZXRfcmluZyAqcmluZykNCj4gPit7DQo+ID4rCXJldHVy
+biByaW5nLT5kZXNjX251bSAtDQo+ID4rCQlyaW5nX2Rpc3QocmluZywgcmluZy0+bmV4dF90b19j
+bGVhbiwgcmluZy0+bmV4dF90b191c2UpIC0NCj4gMTsNCj4gPit9DQo+ID4rDQo+ID4rc3RhdGlj
+IGlubGluZSBpbnQgaXNfcmluZ19lbXB0eShzdHJ1Y3QgaG5zM19lbmV0X3JpbmcgKnJpbmcpDQo+
+ID4rew0KPiA+KwlyZXR1cm4gcmluZy0+bmV4dF90b191c2UgPT0gcmluZy0+bmV4dF90b19jbGVh
+bjsNCj4gPit9DQo+ID4rDQo+ID4rc3RhdGljIGlubGluZSB2b2lkIGhuczNfd3JpdGVfcmVnKHZv
+aWQgX19pb21lbSAqYmFzZSwgdTMyIHJlZywgdTMyDQo+IHZhbHVlKQ0KPiA+K3sNCj4gPisJdTgg
+X19pb21lbSAqcmVnX2FkZHIgPSBSRUFEX09OQ0UoYmFzZSk7DQo+ID4rDQo+ID4rCXdyaXRlbCh2
+YWx1ZSwgcmVnX2FkZHIgKyByZWcpOw0KPiA+K30NCj4gPisNCj4gPisjZGVmaW5lIGhuczNfd3Jp
+dGVfZGV2KGEsIHJlZywgdmFsdWUpIFwNCj4gPisJaG5zM193cml0ZV9yZWcoKGEpLT5pb19iYXNl
+LCAocmVnKSwgKHZhbHVlKSkNCj4gPisNCj4gPisjZGVmaW5lIGhuYWVfcXVldWVfeG1pdCh0cXAs
+IGJ1Zl9udW0pIHdyaXRlbF9yZWxheGVkKGJ1Zl9udW0sIFwNCj4gPisJCSh0cXApLT5pb19iYXNl
+ICsgSE5TM19SSU5HX1RYX1JJTkdfVEFJTF9SRUcpDQo+ID4rDQo+ID4rI2RlZmluZSByaW5nX3Rv
+X2RldihyaW5nKSAoJihyaW5nKS0+dHFwLT5oYW5kbGUtPnBkZXYtPmRldikNCj4gPisNCj4gPisj
+ZGVmaW5lIHJpbmdfdG9fZG1hX2RpcihyaW5nKSAoSE5BRTNfSVNfVFhfUklORyhyaW5nKSA/IFwN
+Cj4gPisJRE1BX1RPX0RFVklDRSA6IERNQV9GUk9NX0RFVklDRSkNCj4gPisNCj4gPisjZGVmaW5l
+IHR4X3JpbmdfZGF0YShwcml2LCBpZHgpICgocHJpdiktPnJpbmdfZGF0YVtpZHhdKQ0KPiA+Kw0K
+PiA+KyNkZWZpbmUgaG5hZV9idWZfc2l6ZShfcmluZykgKChfcmluZyktPmJ1Zl9zaXplKQ0KPiA+
+KyNkZWZpbmUgaG5hZV9wYWdlX29yZGVyKF9yaW5nKSAoZ2V0X29yZGVyKGhuYWVfYnVmX3NpemUo
+X3JpbmcpKSkNCj4gPisjZGVmaW5lIGhuYWVfcGFnZV9zaXplKF9yaW5nKSAoUEFHRV9TSVpFIDw8
+IGhuYWVfcGFnZV9vcmRlcihfcmluZykpDQo+ID4rDQo+ID4rLyogaXRlcmF0b3IgZm9yIGhhbmRs
+aW5nIHJpbmdzIGluIHJpbmcgZ3JvdXAgKi8NCj4gPisjZGVmaW5lIGhuczNfZm9yX2VhY2hfcmlu
+Zyhwb3MsIGhlYWQpIFwNCj4gPisJZm9yIChwb3MgPSAoaGVhZCkucmluZzsgcG9zICE9IE5VTEw7
+IHBvcyA9IHBvcy0+bmV4dCkNCj4gDQo+IE9ubHkgYSBwb3M/IENvbXBhcnNpb24gdG8gTlVMTCBj
+b3VsZCBiZSB3cml0dGVuICJwb3MiIG5vdGljZWQgYnkNCj4gY2hlY2twYXRjaC4NCkZpeGVkIGlu
+IHBhdGNoIFY0LiBUaGFua3MhDQoNClNhbGlsDQo+IA0KPiANCj4gPisNCj4gPit2b2lkIGhuczNf
+ZXRodG9vbF9zZXRfb3BzKHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KTsNCj4gPisNCj4gPitpbnQg
+aG5zM19uaWNfbmV0X3htaXRfaHcoDQo+ID4rCQkJCXN0cnVjdCBuZXRfZGV2aWNlICpuZGV2LA0K
+PiA+KwkJCQlzdHJ1Y3Qgc2tfYnVmZiAqc2tiLA0KPiA+KwkJCQlzdHJ1Y3QgaG5zM19uaWNfcmlu
+Z19kYXRhICpyaW5nX2RhdGEpOw0KPiA+K2ludCBobnMzX2NsZWFuX3R4X3Jpbmcoc3RydWN0IGhu
+czNfZW5ldF9yaW5nICpyaW5nLCBpbnQgYnVkZ2V0KTsNCj4gPitpbnQgaG5zM19jbGVhbl9yeF9y
+aW5nX2V4KA0KPiA+KwkJCQlzdHJ1Y3QgaG5zM19lbmV0X3JpbmcgKnJpbmcsDQo+ID4rCQkJCXN0
+cnVjdCBza19idWZmICoqc2tiX2V4LA0KPiA+KwkJCQlpbnQgYnVkZ2V0KTsNCj4gPisjZW5kaWYN
+Cj4gPi0tDQo+ID4yLjcuNA0KPiA+DQo+ID4NCg==
