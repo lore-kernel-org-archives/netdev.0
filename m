@@ -1,46 +1,127 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] bpf: dev_map_alloc() shouldn't return NULL
-Date: Sat, 22 Jul 2017 12:07:09 -0700
-Message-ID: <5973A25D.8030903@gmail.com>
-References: <20170722074004.3abeucov67n3sbqs@mwanda>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH V4 net-next 0/8] Hisilicon Network Subsystem 3 Ethernet Driver
+Date: Sat, 22 Jul 2017 23:09:34 +0100
+Message-ID: <20170722220942.78852-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        Alexei Starovoitov <ast@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33818 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750735AbdGVTHT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 15:07:19 -0400
-In-Reply-To: <20170722074004.3abeucov67n3sbqs@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
+        <linuxarm@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/22/2017 12:40 AM, Dan Carpenter wrote:
-> We forgot to set the error code on two error paths which means that we
-> return ERR_PTR(0) which is NULL.  The caller, find_and_alloc_map(), is
-> not expecting that and will have a NULL dereference.
-> 
-> Fixes: 546ac1ffb70d ("bpf: add devmap, a map for storing net device references")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/kernel/bpf/devmap.c b/kernel/bpf/devmap.c
-> index 899364d097f5..d439ee0eadb1 100644
-> --- a/kernel/bpf/devmap.c
-> +++ b/kernel/bpf/devmap.c
-> @@ -114,6 +114,7 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
->  	if (err)
->  		goto free_dtab;
->  
-> +	err = -ENOMEM;
->  	/* A per cpu bitfield with a bit per possible net device */
->  	dtab->flush_needed = __alloc_percpu(
->  				BITS_TO_LONGS(attr->max_entries) *
-> 
+This patch-set contains the support of the HNS3 (Hisilicon Network Subsystem 3)
+Ethernet driver for hip08 family of SoCs and future upcoming SoCs.
 
-Thanks.
+Hisilicon's new hip08 SoCs have integrated ethernet based on PCI Express and
+hence there was a need of new driver over the previous HNS driver which is 
+already part of the Linux mainline. This new driver is NOT backward
+compatible with HNS.
 
-Acked-by: John Fastabend <john.fastabend@gmail.com>
+This current driver is meant to control the Physical Function and there would
+soon be a support of a separate driver for Virtual Function once this base PF
+driver has been accepted. Also, this driver is the ongoing development work and
+HNS3 Ethernet driver would be incrementally enhanced with more new features.
+
+High Level Architecture:
+
+        [ Ethtool ]
+	   ^  |
+           |  | 
+      [Ethernet Client]  [ODP/UIO Client] . . . [ RoCE Client ]     
+                         |                            |
+                   [ HNAE Device ]                    |
+                         |                            |
+    ---------------------------------------------     |
+                         |                            |
+     [ HNAE3 Framework (Register/unregister) ]        |
+                         |                            |
+    ---------------------------------------------     |
+                         |                            |
+                   [ HCLGE Layer]                     |
+         ________________|_________________           |
+        |                |                 |          |
+    [ MDIO ]    [ Scheduler/Shaper ]  [ Debugfs* ]    |
+        |                |                 |          |
+        |________________|_________________|          |     
+                         |                            |
+             [ IMP command Interface ]                |
+    ---------------------------------------------     |
+              HIP08  H A R D W A R E                  *
+
+
+Current patch-set broadly adds the support of the following PF functionality:
+ 1. Basic Rx and Tx functionality 
+ 2. TSO support
+ 3. Ethtool support
+ 4. * Debugfs support -> this patch for now has been taken off.
+ 5. HNAE framework and hardware compatability layer
+ 6. Scheduler and Shaper support in transmit function
+ 7. MDIO support
+
+Change Log:
+V3->V4: Addressed below comments:
+        * Andrew Lunn: Various comments on MDIO, ethtool, ENET driver etc,
+        * Stephen Hemminger: change access and updation to 64 but statistics
+        * Bo You: some spelling mistakes and checkpatch.pl errors.
+V2->V3: Addressed comments
+        * Yuval Mintz: Removal of redundant userprio-to-tc code
+        * Stephen Hemminger: Ethtool & interuupt enable
+        * Andrew Lunn: On C45/C22 PHy support, HNAE, ethtool
+        * Florian Fainelli: C45/C22 and phy_connect/attach
+        * Intel kbuild errors
+V1->V2: Addressed some comments by kbuild, Yuval MIntz, Andrew Lunn &
+        Florian Fainelli in the following patches:
+        * Add support of HNS3 Ethernet Driver for hip08 SoC
+        * Add MDIO support to HNS3 Ethernet driver for hip08 SoC
+        * Add support of debugfs interface to HNS3 driver
+
+Salil Mehta (8):
+  net: hns3: Add support of HNS3 Ethernet Driver for hip08 SoC
+  net: hns3: Add support of the HNAE3 framework
+  net: hns3: Add HNS3 IMP(Integrated Mgmt Proc) Cmd Interface Support
+  net: hns3: Add HNS3 Acceleration Engine & Compatibility Layer Support
+  net: hns3: Add support of TX Scheduler & Shaper to HNS3 driver
+  net: hns3: Add MDIO support to HNS3 Ethernet driver for hip08 SoC
+  net: hns3: Add Ethtool support to HNS3 driver
+  net: hns3: Add HNS3 driver to kernel build framework & MAINTAINERS
+
+ MAINTAINERS                                        |    8 +
+ drivers/net/ethernet/hisilicon/Kconfig             |   27 +
+ drivers/net/ethernet/hisilicon/Makefile            |    1 +
+ drivers/net/ethernet/hisilicon/hns3/Makefile       |    7 +
+ drivers/net/ethernet/hisilicon/hns3/hnae3.c        |  319 ++
+ drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  449 +++
+ .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    |   11 +
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c |  347 ++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |  742 ++++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 4240 ++++++++++++++++++++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |  494 +++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c    |  230 ++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 1018 +++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  108 +
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 2894 +++++++++++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |  598 +++
+ .../ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c  |  543 +++
+ 17 files changed, 12036 insertions(+)
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/Makefile
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hnae3.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
+
+-- 
+2.11.0
