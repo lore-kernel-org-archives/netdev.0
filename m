@@ -1,48 +1,66 @@
-From: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH 000/102] Convert drivers to explicit reset API
-Date: Thu, 20 Jul 2017 22:32:49 +0200
-Message-ID: <1687646.TMvigZNUOP__23329.3554898866$1500745025$gmane$org@phil>
-References: <20170719152646.25903-1-p.zabel@pengutronix.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: af_packet: use after free in prb_retire_rx_blk_timer_expired
+Date: Sat, 22 Jul 2017 12:02:01 -0700
+Message-ID: <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com>
+References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy> <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
+ <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com> <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Prashant Gaikwad <pgaikwad-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
- Peter Chen <Peter.Chen-3arQi8VN3Tc@public.gmane.org>, Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
- dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
- Rakesh Iyer <riyer-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>, Peter Meerwald-Stadler <pmeerw-jW+XmwGofnusTnJN9+BGXg@public.gmane.org>,
- linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Wim Van Sebroeck <wim-IQzOog9fTRqzQB+pC5nmwQ@public.gmane.org>,
- Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>, Xinliang Liu <z.liuxinliang-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
- Chanwoo Choi <cw00.choi-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
- Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>, Michael Turquette <mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
- Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>, Ohad Ben-Cohen <ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
- linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
- Vincent Abriou <vincent.abriou-qxv4g6HH51o@public.gmane.org>, Bin Liu <b-liu-l0cyMroinI0@public.gmane.org>,
- Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-To: Philipp Zabel <p.zabel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <nouveau-bounces-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
-In-Reply-To: <20170719152646.25903-1-p.zabel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/nouveau>,
- <mailto:nouveau-request-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/nouveau>
-List-Post: <mailto:nouveau-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
-List-Help: <mailto:nouveau-request-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/nouveau>,
- <mailto:nouveau-request-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org?subject=subscribe>
-Errors-To: nouveau-bounces-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org
-Sender: "Nouveau" <nouveau-bounces-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Dave Jones <davej@codemonkey.org.uk>,
+        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "willemb@google.com" <willemb@google.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "liujian (CE)" <liujian56@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGksCgo+ICAgY3J5cHRvOiByb2NrY2hpcDogZXhwbGljaXRseSByZXF1ZXN0IGV4Y2x1c2l2ZSBy
-ZXNldCBjb250cm9sCj4gICBpaW86IGFkYzogcm9ja2NoaXBfc2FyYWRjOiBleHBsaWNpdGx5IHJl
-cXVlc3QgZXhjbHVzaXZlIHJlc2V0IGNvbnRyb2wKPiAgIFBDSTogcm9ja2NoaXA6IGV4cGxpY2l0
-bHkgcmVxdWVzdCBleGNsdXNpdmUgcmVzZXQgY29udHJvbAo+ICAgcGh5OiByb2NrY2hpcC1wY2ll
-OiBleHBsaWNpdGx5IHJlcXVlc3QgZXhjbHVzaXZlIHJlc2V0IGNvbnRyb2wKPiAgIHBoeTogcm9j
-a2NoaXAtdHlwZWM6IGV4cGxpY2l0bHkgcmVxdWVzdCBleGNsdXNpdmUgcmVzZXQgY29udHJvbAo+
-ICAgcGh5OiByb2NrY2hpcC11c2I6IGV4cGxpY2l0bHkgcmVxdWVzdCBleGNsdXNpdmUgcmVzZXQg
-Y29udHJvbAo+ICAgdGhlcm1hbDogcm9ja2NoaXA6IGV4cGxpY2l0bHkgcmVxdWVzdCBleGNsdXNp
-dmUgcmVzZXQgY29udHJvbAoKZm9yIHRoZSBkcml2ZXItcmVsYXRlZCBSb2NrY2hpcCBjaGFuZ2Vz
-CgpBY2tlZC1ieTogSGVpa28gU3R1ZWJuZXIgPGhlaWtvQHNudGVjaC5kZT4KX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTm91dmVhdSBtYWlsaW5nIGxpc3QK
-Tm91dmVhdUBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5v
-cmcvbWFpbG1hbi9saXN0aW5mby9ub3V2ZWF1Cg==
+Hello,
+
+On Sat, Jul 22, 2017 at 2:55 AM, liujian (CE) <liujian56@huawei.com> wrote:
+> I also hit this issue with trinity test:
+>
+> The call trace:
+>   [exception RIP: prb_retire_rx_blk_timer_expired+70]
+>     RIP: ffffffff81633be6  RSP: ffff8801bec03dc0  RFLAGS: 00010246
+>     RAX: 0000000000000000  RBX: ffff8801b49d0948  RCX: 0000000000000000
+>     RDX: ffff8801b31057a0  RSI: a56b6b6b6b6b6b6b  RDI: ffff8801b49d09ec
+>     RBP: ffff8801bec03dd8   R8: 0000000000000001   R9: ffffffff83e1bf80
+>     R10: 0000000000000002  R11: 0000000000000005  R12: ffff8801b49d09ec
+>     R13: 0000000000000100  R14: ffffffff81633ba0  R15: ffff8801b49d0948
+>     ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
+>  #7 [ffff8801bec03de0] call_timer_fn at ffffffff8108cb76
+>  #8 [ffff8801bec03e18] run_timer_softirq at ffffffff8108f87c
+>  #9 [ffff8801bec03e90] __do_softirq at ffffffff8108629f
+> #10 [ffff8801bec03f00] call_softirq at ffffffff8166a01c
+> #11 [ffff8801bec03f18] do_softirq at ffffffff810172ad
+> #12 [ffff8801bec03f30] irq_exit at ffffffff81086655
+> #13 [ffff8801bec03f48] msa_irq_exit at ffffffff810b1ab3
+> #14 [ffff8801bec03f88] smp_apic_timer_interrupt at ffffffff8166aeae
+> #15 [ffff8801bec03fb0] apic_timer_interrupt at ffffffff816692dd
+> --- <IRQ stack> ---
+>
+> And from vmcore, I can see the pointer GET_CURR_PBLOCK_DESC_FROM_CORE(pkc); is a56b6b6b6b6b6b6b
+>
+
+Does the following quick fix help?
+
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 008bb34ee324..09ec1640e5f7 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -4264,6 +4264,7 @@ static int packet_set_ring(struct sock *sk,
+union tpacket_req_u *req_u,
+                        /* Block transmit is not supported yet */
+                        if (!tx_ring) {
+                                init_prb_bdqc(po, rb, pg_vec, req_u);
++                               pg_vec = NULL;
+                        } else {
+                                struct tpacket_req3 *req3 = &req_u->req3;
