@@ -1,38 +1,115 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 master 1/2] bpf: improve error reporting around
- tail calls
-Date: Sat, 22 Jul 2017 10:06:37 +0200
-Message-ID: <5973078D.4080905@iogearbox.net>
-References: <cover.1500663605.git.daniel@iogearbox.net>        <b0bf43dac3babbb1a78fabeeb2a3a069db4f262c.1500663605.git.daniel@iogearbox.net> <20170721162825.0b42e9ba@xeon-e3>
+From: "liujian (CE)" <liujian56@huawei.com>
+Subject: RE: af_packet: use after free in prb_retire_rx_blk_timer_expired
+Date: Sat, 22 Jul 2017 09:55:06 +0000
+Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
+References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy>
+ <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
+ <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: ast@fb.com, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36125 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750989AbdGVIGm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 04:06:42 -0400
-In-Reply-To: <20170721162825.0b42e9ba@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Dave Jones <davej@codemonkey.org.uk>,
+        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "willemb@google.com" <willemb@google.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
+Content-Language: zh-CN
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/22/2017 01:28 AM, Stephen Hemminger wrote:
-> On Fri, 21 Jul 2017 21:13:06 +0200
-> Daniel Borkmann <daniel@iogearbox.net> wrote:
->
->> Currently, it's still quite hard to figure out if a prog passed the
->> verifier, but later gets rejected due to different tail call ownership.
->> Figure out whether that is the case and provide appropriate error
->> messages to the user.
->>
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->
-> Sorry, dead code. Please fix and resubmit.
->
-> bpf.c:356:12: warning: ‘bpf_derive_prog_from_fdinfo’ defined but not used [-Wunused-function]
->   static int bpf_derive_prog_from_fdinfo(int fd, struct bpf_prog_data *prog)
-
-Yeah, v2 coming later today. I didn't compile with !HAVE_ELF,
-where it's not in use indeed. Thanks!
+SSBhbHNvIGhpdCB0aGlzIGlzc3VlIHdpdGggdHJpbml0eSB0ZXN0Og0KDQpUaGUgY2FsbCB0cmFj
+ZToNCiAgW2V4Y2VwdGlvbiBSSVA6IHByYl9yZXRpcmVfcnhfYmxrX3RpbWVyX2V4cGlyZWQrNzBd
+DQogICAgUklQOiBmZmZmZmZmZjgxNjMzYmU2ICBSU1A6IGZmZmY4ODAxYmVjMDNkYzAgIFJGTEFH
+UzogMDAwMTAyNDYNCiAgICBSQVg6IDAwMDAwMDAwMDAwMDAwMDAgIFJCWDogZmZmZjg4MDFiNDlk
+MDk0OCAgUkNYOiAwMDAwMDAwMDAwMDAwMDAwDQogICAgUkRYOiBmZmZmODgwMWIzMTA1N2EwICBS
+U0k6IGE1NmI2YjZiNmI2YjZiNmIgIFJESTogZmZmZjg4MDFiNDlkMDllYw0KICAgIFJCUDogZmZm
+Zjg4MDFiZWMwM2RkOCAgIFI4OiAwMDAwMDAwMDAwMDAwMDAxICAgUjk6IGZmZmZmZmZmODNlMWJm
+ODANCiAgICBSMTA6IDAwMDAwMDAwMDAwMDAwMDIgIFIxMTogMDAwMDAwMDAwMDAwMDAwNSAgUjEy
+OiBmZmZmODgwMWI0OWQwOWVjDQogICAgUjEzOiAwMDAwMDAwMDAwMDAwMTAwICBSMTQ6IGZmZmZm
+ZmZmODE2MzNiYTAgIFIxNTogZmZmZjg4MDFiNDlkMDk0OA0KICAgIE9SSUdfUkFYOiBmZmZmZmZm
+ZmZmZmZmZmZmICBDUzogMDAxMCAgU1M6IDAwMTgNCiAjNyBbZmZmZjg4MDFiZWMwM2RlMF0gY2Fs
+bF90aW1lcl9mbiBhdCBmZmZmZmZmZjgxMDhjYjc2DQogIzggW2ZmZmY4ODAxYmVjMDNlMThdIHJ1
+bl90aW1lcl9zb2Z0aXJxIGF0IGZmZmZmZmZmODEwOGY4N2MNCiAjOSBbZmZmZjg4MDFiZWMwM2U5
+MF0gX19kb19zb2Z0aXJxIGF0IGZmZmZmZmZmODEwODYyOWYNCiMxMCBbZmZmZjg4MDFiZWMwM2Yw
+MF0gY2FsbF9zb2Z0aXJxIGF0IGZmZmZmZmZmODE2NmEwMWMNCiMxMSBbZmZmZjg4MDFiZWMwM2Yx
+OF0gZG9fc29mdGlycSBhdCBmZmZmZmZmZjgxMDE3MmFkDQojMTIgW2ZmZmY4ODAxYmVjMDNmMzBd
+IGlycV9leGl0IGF0IGZmZmZmZmZmODEwODY2NTUNCiMxMyBbZmZmZjg4MDFiZWMwM2Y0OF0gbXNh
+X2lycV9leGl0IGF0IGZmZmZmZmZmODEwYjFhYjMNCiMxNCBbZmZmZjg4MDFiZWMwM2Y4OF0gc21w
+X2FwaWNfdGltZXJfaW50ZXJydXB0IGF0IGZmZmZmZmZmODE2NmFlYWUNCiMxNSBbZmZmZjg4MDFi
+ZWMwM2ZiMF0gYXBpY190aW1lcl9pbnRlcnJ1cHQgYXQgZmZmZmZmZmY4MTY2OTJkZA0KLS0tIDxJ
+UlEgc3RhY2s+IC0tLQ0KDQpBbmQgZnJvbSB2bWNvcmUsIEkgY2FuIHNlZSB0aGUgcG9pbnRlciBH
+RVRfQ1VSUl9QQkxPQ0tfREVTQ19GUk9NX0NPUkUocGtjKTsgaXMgYTU2YjZiNmI2YjZiNmI2YiAN
+Cg0KDQpzdHJ1Y3QgcGFja2V0X3JpbmdfYnVmZmVyICByeF9yaW5nID0gew0KICAgIHBnX3ZlYyA9
+IDB4MCwgDQogICAgaGVhZCA9IDB4MCwgDQogICAgZnJhbWVzX3Blcl9ibG9jayA9IDB4NDAwLCAN
+CiAgICBmcmFtZV9zaXplID0gMHgwLCANCiAgICBmcmFtZV9tYXggPSAweGZmZmZmZmZmLCANCiAg
+ICBwZ192ZWNfb3JkZXIgPSAweDAsIA0KICAgIHBnX3ZlY19wYWdlcyA9IDB4MCwgDQogICAgcGdf
+dmVjX2xlbiA9IDB4MCwgDQogICAgcGVuZGluZ19yZWZjbnQgPSAweDAsIA0KICAgIHByYl9iZHFj
+ID0gew0KICAgICAgcGtiZHEgPSAweGZmZmY4ODAxYjMxMDU3YTAsIA0KICAgICAgZmVhdHVyZV9y
+ZXFfd29yZCA9IDB4MSwgDQogICAgICBoZHJsZW4gPSAweDQ0LCANCiAgICAgIHJlc2V0X3BlbmRp
+bmdfb25fY3Vycl9ibGsgPSAweDEsIA0KICAgICAgZGVsZXRlX2Jsa190aW1lciA9IDB4MCwgDQog
+ICAgICBrYWN0aXZlX2Jsa19udW0gPSAweDAsIA0KICAgICAgYmxrX3NpemVvZl9wcml2ID0gMHgw
+LCANCiAgICAgIGxhc3Rfa2FjdGl2ZV9ibGtfbnVtID0gMHgwLCANCiAgICAgIHBrYmxrX3N0YXJ0
+ID0gMHhmZmZmODgwMGE3MDAwMDAwIHN0cnVjdDogcGFnZSBleGNsdWRlZDoga2VybmVsIHZpcnR1
+YWwgYWRkcmVzczogZmZmZjg4MDBhNzAwMDAwMCAgdHlwZTogImdkYl9yZWFkbWVtX2NhbGxiYWNr
+Ig0Kc3RydWN0OiBwYWdlIGV4Y2x1ZGVkOiBrZXJuZWwgdmlydHVhbCBhZGRyZXNzOiBmZmZmODgw
+MGE3MDAwMDAwICB0eXBlOiAiZ2RiX3JlYWRtZW1fY2FsbGJhY2siDQo8QWRkcmVzcyAweGZmZmY4
+ODAwYTcwMDAwMDAgb3V0IG9mIGJvdW5kcz4sIA0KICAgICAgcGtibGtfZW5kID0gMHhmZmZmODgw
+MGE3MjAwMDAwICJcMDAyIiwgDQogICAgICBrYmxrX3NpemUgPSAweDIwMDAwMCwgDQogICAgICBt
+YXhfZnJhbWVfbGVuID0gMHgxZmZmZDAsIA0KICAgICAga251bV9ibG9ja3MgPSAweDEsIA0KICAg
+ICAga254dF9zZXFfbnVtID0gMHgyLCANCiAgICAgIHByZXYgPSAweGZmZmY4ODAwYTcwMDAwMzAg
+c3RydWN0OiBwYWdlIGV4Y2x1ZGVkOiBrZXJuZWwgdmlydHVhbCBhZGRyZXNzOiBmZmZmODgwMGE3
+MDAwMDMwICB0eXBlOiAiZ2RiX3JlYWRtZW1fY2FsbGJhY2siDQpzdHJ1Y3Q6IHBhZ2UgZXhjbHVk
+ZWQ6IGtlcm5lbCB2aXJ0dWFsIGFkZHJlc3M6IGZmZmY4ODAwYTcwMDAwMzAgIHR5cGU6ICJnZGJf
+cmVhZG1lbV9jYWxsYmFjayINCjxBZGRyZXNzIDB4ZmZmZjg4MDBhNzAwMDAzMCBvdXQgb2YgYm91
+bmRzPiwgDQogICAgICBueHRfb2Zmc2V0ID0gMHhmZmZmODgwMGE3MDAwMDMwIHN0cnVjdDogcGFn
+ZSBleGNsdWRlZDoga2VybmVsIHZpcnR1YWwgYWRkcmVzczogZmZmZjg4MDBhNzAwMDAzMCAgdHlw
+ZTogImdkYl9yZWFkbWVtX2NhbGxiYWNrIg0Kc3RydWN0OiBwYWdlIGV4Y2x1ZGVkOiBrZXJuZWwg
+dmlydHVhbCBhZGRyZXNzOiBmZmZmODgwMGE3MDAwMDMwICB0eXBlOiAiZ2RiX3JlYWRtZW1fY2Fs
+bGJhY2siDQo8QWRkcmVzcyAweGZmZmY4ODAwYTcwMDAwMzAgb3V0IG9mIGJvdW5kcz4sIA0KICAg
+ICAgc2tiID0gMHgwLCANCiAgICAgIGJsa19maWxsX2luX3Byb2cgPSB7DQogICAgICAgIGNvdW50
+ZXIgPSAweDANCg0KY3Jhc2g+IHN0cnVjdCBwZ3YgMHhmZmZmODgwMWIzMTA1N2EwDQpzdHJ1Y3Qg
+cGd2IHsNCiAgYnVmZmVyID0gMHhhNTZiNmI2YjZiNmI2YjZiIDxBZGRyZXNzIDB4YTU2YjZiNmI2
+YjZiNmI2YiBvdXQgb2YgYm91bmRzPg0KfQ0KDQoNCkJlc3QgUmVnYXJkcywNCmxpdWppYW4NCg0K
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IG5ldGRldi1vd25lckB2Z2Vy
+Lmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXQ0KPiBPbiBC
+ZWhhbGYgT2YgV2lsbGVtIGRlIEJydWlqbg0KPiBTZW50OiBXZWRuZXNkYXksIEFwcmlsIDEyLCAy
+MDE3IDc6MjMgQU0NCj4gVG86IERhdmUgSm9uZXM7IGFsZXhhbmRlci5sZXZpbkB2ZXJpem9uLmNv
+bTsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gZWR1bWF6ZXRAZ29vZ2xlLmNvbTsgd2lsbGVtYkBn
+b29nbGUuY29tOyBkYW5pZWxAaW9nZWFyYm94Lm5ldDsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9y
+ZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogYWZfcGFja2V0
+OiB1c2UgYWZ0ZXIgZnJlZSBpbiBwcmJfcmV0aXJlX3J4X2Jsa190aW1lcl9leHBpcmVkDQo+IA0K
+PiBPbiBNb24sIEFwciAxMCwgMjAxNyBhdCAzOjIzIFBNLCBEYXZlIEpvbmVzIDxkYXZlakBjb2Rl
+bW9ua2V5Lm9yZy51az4NCj4gd3JvdGU6DQo+ID4gT24gTW9uLCBBcHIgMTAsIDIwMTcgYXQgMDc6
+MDM6MzBQTSArMDAwMCwgYWxleGFuZGVyLmxldmluQHZlcml6b24uY29tDQo+IHdyb3RlOg0KPiA+
+ICA+IEhpIGFsbCwNCj4gPiAgPg0KPiA+ICA+IEkgc2VlbSB0byBiZSBoaXR0aW5nIHRoaXMgdXNl
+LWFmdGVyLWZyZWUgb24gYSAtbmV4dCBrZXJuZWwgdXNpbmcgdHJpbml0eToNCj4gPiAgPg0KPiA+
+ICA+IFsgIDUzMS4wMzYwNTRdIEJVRzogS0FTQU46IHVzZS1hZnRlci1mcmVlIGluDQo+ID4gcHJi
+X3JldGlyZV9yeF9ibGtfdGltZXJfZXhwaXJlZCAobmV0L3BhY2tldC9hZl9wYWNrZXQuYzo2ODgp
+DQo+IA0KPiBUaGUgcmV0aXJlX2Jsa190aW1lciBpcyBjYWxsZWQgYWZ0ZXIgdGhlIHBnX3ZlYyBz
+dHJ1Y3QgZm9yIHRoaXMgcmluZyB3YXMgZnJlZWQuDQo+IFRoaXMgc2hvdWxkIG5vdCBoYXBwZW4u
+IHBhY2tldF9zZXRfcmluZyBzdG9wcyB0aGUgdGltZXIgd2l0aCBkZWxfdGltZXJfc3luYw0KPiB3
+aGVuIHRlYXJpbmcgZG93biB0aGUgcmluZyBiZWZvcmUgZnJlZWluZyB0aGF0DQo+IHN0cnVjdDoN
+Cj4gDQo+ICAgICAgICAgaWYgKGNsb3NpbmcgJiYgKHBvLT50cF92ZXJzaW9uID4gVFBBQ0tFVF9W
+MikpIHsNCj4gICAgICAgICAgICAgICAgIC8qIEJlY2F1c2Ugd2UgZG9uJ3Qgc3VwcG9ydCBibG9j
+ay1iYXNlZCBWMyBvbiB0eC1yaW5nICovDQo+ICAgICAgICAgICAgICAgICBpZiAoIXR4X3Jpbmcp
+DQo+ICAgICAgICAgICAgICAgICAgICAgICAgIHByYl9zaHV0ZG93bl9yZXRpcmVfYmxrX3RpbWVy
+KHBvLCByYl9xdWV1ZSk7DQo+ICAgICAgICAgfQ0KPiANCj4gICAgICAgICBpZiAocGdfdmVjKQ0K
+PiAgICAgICAgICAgICAgICAgZnJlZV9wZ192ZWMocGdfdmVjLCBvcmRlciwgcmVxLT50cF9ibG9j
+a19ucik7DQo+IA0KPiBUaGlzIGlzIGEgc2ltaWxhciByYWNlIHRvIHRoZSB1c2UtYWZ0ZXItZnJl
+ZSBmaXhlZCBieSA4NGFjNzI2MDIzNmENCj4gKCJwYWNrZXQ6IGZpeCByYWNlIGNvbmRpdGlvbiBp
+biBwYWNrZXRfc2V0X3JpbmciKS4gVGhlIHByZXZpb3VzIHJhY2Ugd2FzDQo+IHRyaWdnZXJlZCBi
+eSBhIGNhbGwgdG8gc2V0c29ja29wdCBQQUNLRVRfVkVSU0lPTiBjaGFuZ2luZyB0cF92ZXJzaW9u
+IHdoaWxlDQo+IHRoZSByaW5nIGlzIGFjdGl2ZS4gSXQgaXMgbm90IGltbWVkaWF0ZWx5IG9idmlv
+dXMgd2hhdCBpcyB0aGUgY2F1c2Ugbm93LiBJDQo+IHN1cHBvc2UgdHJpbml0eSBkb2VzIG5vdCBn
+aXZlIGEgdHJhY2Ugb2Ygc3VjaCBzeXN0ZW0gY2FsbHMgb24gdGhpcyBmaWxlIGRlc2NyaXB0b3I/
+DQo+IFRoYXQgd291bGQgYmUgaGVscGZ1bC4NCj4gDQo+IFRoZSBidWcgcmVwb3J0IHNob3dzIGJv
+dGggYSB0aW1lciBmaXJpbmcgYWZ0ZXIgdGhlIHBhY2tldF9zZXRfcmluZyBjYWxsIHRoYXQNCj4g
+ZnJlZWQgdGhlIHBnX3ZlYywgYW5kIGxhdGVyIGEgQ09ORklHX0RFQlVHX09CSkVDVFNfRlJFRSB3
+YXJuaW5nIHRoYXQNCj4gdGhlIHRpbWVyIGlzIHN0aWxsIGFjdGl2ZSB3aGVuIHRoZSBzb2NrZXQg
+aXMgY2xvc2VkIG9uIHJlbGVhc2Ugb2YgdGhlIGxhc3QgZmlsZQ0KPiBkZXNjcmlwdG9yLg0K
