@@ -1,196 +1,90 @@
-From: elie@bouttier.eu
-Subject: [PATCH] ip route: replace exits with returns
-Date: Sun, 23 Jul 2017 00:42:02 +0200
-Message-ID: <20170722224202.5602-1-elie@bouttier.eu>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: RE: [PATCH V3 net-next 1/8] net: hns3: Add support of HNS3 Ethernet
+ Driver for hip08 SoC
+Date: Sat, 22 Jul 2017 23:17:13 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B81CBD6@FRAEML521-MBX.china.huawei.com>
+References: <20170617172431.177044-1-salil.mehta@huawei.com>
+ <20170617172431.177044-2-salil.mehta@huawei.com>
+ <20170617175418.GB1974@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?=C3=89lie=20Bouttier?= <elie@bouttier.eu>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cannelle.eu.org ([91.224.149.170]:52878 "EHLO
-        pigeon.cannelle.eu.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754501AbdGVWtq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 18:49:46 -0400
+Received: from lhrrgout.huawei.com ([194.213.3.17]:32162 "EHLO
+        lhrrgout.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751614AbdGVXRv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 19:17:51 -0400
+In-Reply-To: <20170617175418.GB1974@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Élie Bouttier <elie@bouttier.eu>
+Hi Andrew
 
-This patch replaces exits with returns in ip route
-commands.
+> -----Original Message-----
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: Saturday, June 17, 2017 6:54 PM
+> To: Salil Mehta
+> Cc: davem@davemloft.net; Zhuangyuzeng (Yisen); huangdaode; lipeng (Y);
+> mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; Linuxarm
+> Subject: Re: [PATCH V3 net-next 1/8] net: hns3: Add support of HNS3
+> Ethernet Driver for hip08 SoC
+> 
+> > +static int hns3_nic_net_up(struct net_device *ndev)
+> > +{
+> > +	struct hns3_nic_priv *priv = netdev_priv(ndev);
+> > +	struct hnae3_handle *h = priv->ae_handle;
+> > +	int i, j;
+> > +	int ret;
+> > +
+> > +	ret = hns3_nic_init_irq(priv);
+> > +	if (ret != 0) {
+> 
+>   	if (ret)
+> 
+> No need to compare with zero.
+Sure, changed in V4 patch. 
 
-Allows to continue when invoked with ip -batch.
+Thanks
+Salil
+> 
+> > +		netdev_err(ndev, "hns init irq failed! ret=%d\n", ret);
+> > +		return ret;
+> 
+> > +static int hns3_nic_net_open(struct net_device *ndev)
+> > +{
+> > +	struct hns3_nic_priv *priv = netdev_priv(ndev);
+> > +	struct hnae3_handle *h = priv->ae_handle;
+> > +	int ret;
+> > +
+> > +	netif_carrier_off(ndev);
+> > +
+> > +	ret = netif_set_real_num_tx_queues(ndev, h->kinfo.num_tqps);
+> > +	if (ret < 0) {
+> > +		netdev_err(ndev, "netif_set_real_num_tx_queues fail,
+> ret=%d!\n",
+> > +			   ret);
+> > +		return ret;
+> > +	}
+> 
+> In general, functions return 0 for success, and something else for an
+> error. So there is no need to do a comparison. Please remove all
+> comparisons, unless it is really needed. It also makes the code look
+> consistent. At the moment you sometime have < 0, sometime !=0, and
+> sometimes no comparison at all.
+Acknowledged, scanned and have changed in V4 patch. Please have a look.
 
-Signed-off-by: Élie Bouttier <elie@bouttier.eu>
----
- ip/iproute.c | 47 ++++++++++++++++++++++++++---------------------
- 1 file changed, 26 insertions(+), 21 deletions(-)
-
-diff --git a/ip/iproute.c b/ip/iproute.c
-index a735d281..cb695ad4 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -137,7 +137,7 @@ static int flush_update(void)
- {
- 	if (rtnl_send_check(&rth, filter.flushb, filter.flushp) < 0) {
- 		perror("Failed to send flush request");
--		return -1;
-+		return -2;
- 	}
- 	filter.flushp = 0;
- 	return 0;
-@@ -319,6 +319,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	struct rtattr *tb[RTA_MAX+1];
- 	int host_len, family;
- 	__u32 table;
-+	int ret;
- 
- 	SPRINT_BUF(b1);
- 	static int hz;
-@@ -348,8 +349,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		struct nlmsghdr *fn;
- 
- 		if (NLMSG_ALIGN(filter.flushp) + n->nlmsg_len > filter.flushe) {
--			if (flush_update())
--				return -1;
-+			if ((ret = flush_update()) < 0)
-+				return ret;
- 		}
- 		fn = (struct nlmsghdr *)(filter.flushb + NLMSG_ALIGN(filter.flushp));
- 		memcpy(fn, n, n->nlmsg_len);
-@@ -764,7 +765,7 @@ static int parse_one_nh(struct nlmsghdr *n, struct rtmsg *r,
- 			NEXT_ARG();
- 			if ((rtnh->rtnh_ifindex = ll_name_to_index(*argv)) == 0) {
- 				fprintf(stderr, "Cannot find device \"%s\"\n", *argv);
--				exit(1);
-+				return -1;
- 			}
- 		} else if (strcmp(*argv, "weight") == 0) {
- 			unsigned int w;
-@@ -1396,6 +1397,7 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
- 	char *od = NULL;
- 	unsigned int mark = 0;
- 	rtnl_filter_t filter_fn;
-+	int ret;
- 
- 	if (action == IPROUTE_SAVE) {
- 		if (save_route_prep())
-@@ -1604,12 +1606,12 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
- 		for (;;) {
- 			if (rtnl_wilddump_request(&rth, do_ipv6, RTM_GETROUTE) < 0) {
- 				perror("Cannot send dump request");
--				exit(1);
-+				return -2;
- 			}
- 			filter.flushed = 0;
- 			if (rtnl_dump_filter(&rth, filter_fn, stdout) < 0) {
- 				fprintf(stderr, "Flush terminated\n");
--				exit(1);
-+				return -2;
- 			}
- 			if (filter.flushed == 0) {
- 				if (show_stats) {
-@@ -1622,13 +1624,13 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
- 				return 0;
- 			}
- 			round++;
--			if (flush_update() < 0)
--				exit(1);
-+			if ((ret = flush_update()) < 0)
-+				return ret;
- 
- 			if (time(0) - start > 30) {
- 				printf("\n*** Flush not completed after %ld seconds, %d entries remain ***\n",
- 				       (long)(time(0) - start), filter.flushed);
--				exit(1);
-+				return -1;
- 			}
- 
- 			if (show_stats) {
-@@ -1641,21 +1643,21 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
- 	if (!filter.cloned) {
- 		if (rtnl_wilddump_request(&rth, do_ipv6, RTM_GETROUTE) < 0) {
- 			perror("Cannot send dump request");
--			exit(1);
-+			return -2;
- 		}
- 	} else {
- 		if (rtnl_rtcache_request(&rth, do_ipv6) < 0) {
- 			perror("Cannot send dump request");
--			exit(1);
-+			return -2;
- 		}
- 	}
- 
- 	if (rtnl_dump_filter(&rth, filter_fn, stdout) < 0) {
- 		fprintf(stderr, "Dump terminated\n");
--		exit(1);
-+		return -2;
- 	}
- 
--	exit(0);
-+	return 0;
- }
- 
- 
-@@ -1761,7 +1763,7 @@ static int iproute_get(int argc, char **argv)
- 
- 	if (req.r.rtm_dst_len == 0) {
- 		fprintf(stderr, "need at least a destination address\n");
--		exit(1);
-+		return -1;
- 	}
- 
- 	if (idev || odev)  {
-@@ -1918,12 +1920,12 @@ static int iproute_restore(void)
- 	int pos, prio;
- 
- 	if (route_dump_check_magic())
--		exit(-1);
-+		return -1;
- 
- 	pos = ftell(stdin);
- 	if (pos == -1) {
- 		perror("Failed to restore: ftell");
--		exit(-1);
-+		return -1;
- 	}
- 
- 	for (prio = 0; prio < 3; prio++) {
-@@ -1931,15 +1933,15 @@ static int iproute_restore(void)
- 
- 		err = rtnl_from_file(stdin, &restore_handler, &prio);
- 		if (err)
--			exit(err);
-+			return -2;
- 
- 		if (fseek(stdin, pos, SEEK_SET) == -1) {
- 			perror("Failed to restore: fseek");
--			exit(-1);
-+			return -1;
- 		}
- 	}
- 
--	exit(0);
-+	return 0;
- }
- 
- static int show_handler(const struct sockaddr_nl *nl,
-@@ -1953,9 +1955,12 @@ static int show_handler(const struct sockaddr_nl *nl,
- static int iproute_showdump(void)
- {
- 	if (route_dump_check_magic())
--		exit(-1);
-+		return -1;
- 
--	exit(rtnl_from_file(stdin, &show_handler, NULL));
-+	if (rtnl_from_file(stdin, &show_handler, NULL))
-+		return -2;
-+
-+	return 0;
- }
- 
- void iproute_reset_filter(int ifindex)
--- 
-2.13.0
+Thanks
+Salil
+> 
+> 	  Andrew
