@@ -1,51 +1,91 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH] NFC: fix device-allocation error return
-Date: Sat, 22 Jul 2017 15:32:28 +0200
-Message-ID: <20170722133228.GE2729@localhost>
-References: <20170709110858.20331-1-johan@kernel.org>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: [IRDA PATCH] mcs7780: Fix initialization when CONFIG_VMAP_STACK is enabled
+Date: Sat, 22 Jul 2017 17:14:34 +0200
+Message-ID: <4316885.YzrCl4HEmB@pikkukde.a.i2n>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        Johan Hovold <johan@kernel.org>,
-        stable <stable@vger.kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Samuel Ortiz <sameo@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:35375 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750830AbdGVNcf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 09:32:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20170709110858.20331-1-johan@kernel.org>
+Received: from rs07.intra2net.com ([85.214.138.66]:45924 "EHLO
+        rs07.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750866AbdGVPWu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 11:22:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 09, 2017 at 01:08:58PM +0200, Johan Hovold wrote:
-> A recent change fixing NFC device allocation itself introduced an
-> error-handling bug by returning an error pointer in case device-id
-> allocation failed. This is clearly broken as the callers still expected
-> NULL to be returned on errors as detected by Dan's static checker.
-> 
-> Fix this up by returning NULL in the event that we've run out of memory
-> when allocating a new device id.
-> 
-> Note that the offending commit is marked for stable (3.8) so this fix
-> needs to be backported along with it.
-> 
-> Fixes: 20777bc57c34 ("NFC: fix broken device allocation")
-> Cc: stable <stable@vger.kernel.org>	# 3.8
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Johan Hovold <johan@kernel.org>
+DMA transfers are not allowed to buffers that are on the stack.
+Therefore allocate a buffer to store the result of usb_control_message().
 
-Samuel or David,
+Fixes these bugreports:
+https://bugzilla.kernel.org/show_bug.cgi?id=195217
 
-Could you apply this follow-up fix so that it can be backported along
-with the offending commit (which was just added to the stable queues)?
+https://bugzilla.redhat.com/show_bug.cgi?id=1421387
+https://bugzilla.redhat.com/show_bug.cgi?id=1427398
 
-We would only hit this error path if an ida allocation fails due to OOM;
-so while this is not critical, it would still be nice to get it fixed.
 
-Thanks,
-Johan
+Shortened kernel backtrace from 4.11.9-200.fc25.x86_64:
+kernel: ------------[ cut here ]------------
+kernel: WARNING: CPU: 3 PID: 2957 at drivers/usb/core/hcd.c:1587
+kernel: transfer buffer not dma capable
+kernel: Call Trace:
+kernel: dump_stack+0x63/0x86
+kernel: __warn+0xcb/0xf0
+kernel: warn_slowpath_fmt+0x5a/0x80
+kernel: usb_hcd_map_urb_for_dma+0x37f/0x570
+kernel: ? try_to_del_timer_sync+0x53/0x80
+kernel: usb_hcd_submit_urb+0x34e/0xb90
+kernel: ? schedule_timeout+0x17e/0x300
+kernel: ? del_timer_sync+0x50/0x50
+kernel: ? __slab_free+0xa9/0x300
+kernel: usb_submit_urb+0x2f4/0x560
+kernel: ? urb_destroy+0x24/0x30
+kernel: usb_start_wait_urb+0x6e/0x170
+kernel: usb_control_msg+0xdc/0x120
+kernel: mcs_get_reg+0x36/0x40 [mcs7780]
+kernel: mcs_net_open+0xb5/0x5c0 [mcs7780]
+...
+
+Regression goes back to 4.9, so it's a good candidate for -stable.
+Though it's the decision of the maintainer.
+
+Thanks to Dan Williams for adding the "transfer buffer not dma capable"
+warning in the first place. It instantly pointed me in the right direction.
+
+Patch has been tested with transferring data from a Polar watch.
+
+Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
+---
+ drivers/net/irda/mcs7780.c | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
+index 6f6ed75b63c9..765de3bedb88 100644
+--- a/drivers/net/irda/mcs7780.c
++++ b/drivers/net/irda/mcs7780.c
+@@ -141,9 +141,19 @@ static int mcs_set_reg(struct mcs_cb *mcs, __u16 reg, __u16 val)
+ static int mcs_get_reg(struct mcs_cb *mcs, __u16 reg, __u16 * val)
+ {
+ 	struct usb_device *dev = mcs->usbdev;
+-	int ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), MCS_RDREQ,
+-				  MCS_RD_RTYPE, 0, reg, val, 2,
+-				  msecs_to_jiffies(MCS_CTRL_TIMEOUT));
++	void *dmabuf;
++	int ret;
++
++	dmabuf = kmalloc(sizeof(__u16), GFP_KERNEL);
++	if (!dmabuf)
++		return -ENOMEM;
++
++	ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), MCS_RDREQ,
++			      MCS_RD_RTYPE, 0, reg, dmabuf, 2,
++			      msecs_to_jiffies(MCS_CTRL_TIMEOUT));
++
++	memcpy(val, dmabuf, sizeof(__u16));
++	kfree(dmabuf);
+ 
+ 	return ret;
+ }
+-- 
+2.11.1
