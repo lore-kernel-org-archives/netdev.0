@@ -1,46 +1,57 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net] openvswitch: fix potential out of bound access in parse_ct
-Date: Sun, 23 Jul 2017 09:58:00 -0700
-Message-ID: <CAOrHB_AcMimVYEEwKdn_3w-R72SUg1fQFk9r18KkDagMKG6w-A@mail.gmail.com>
-References: <1500803543-7297-1-git-send-email-zlpnobody@163.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: af_packet: use after free in prb_retire_rx_blk_timer_expired
+Date: Sun, 23 Jul 2017 10:03:32 -0700
+Message-ID: <CAM_iQpXJZwFC3gG40UpCvt9GTcJ+ETaCKRvN7A=z7NB2CVtPRA@mail.gmail.com>
+References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy> <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
+ <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
+ <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com>
+ <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com> <CAM_iQpXdyNeeojLfh0ZPMy1LQwOoQZfV7Az2=Q5WALM00Za9SA@mail.gmail.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018CB6E0@DGGEMA502-MBS.china.huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Pravin Shelar <pshelar@nicira.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Liping Zhang <zlpnobody@gmail.com>
-To: Liping Zhang <zlpnobody@163.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:34130 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751440AbdGWQ6E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 12:58:04 -0400
-Received: from mfilter10-d.gandi.net (mfilter10-d.gandi.net [217.70.178.139])
-        by relay3-d.mail.gandi.net (Postfix) with ESMTP id 5946AA80C2
-        for <netdev@vger.kernel.org>; Sun, 23 Jul 2017 18:58:03 +0200 (CEST)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-        by mfilter10-d.gandi.net (mfilter10-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id dyAfkHh5ESJv for <netdev@vger.kernel.org>;
-        Sun, 23 Jul 2017 18:58:02 +0200 (CEST)
-Received: from mail-wr0-f174.google.com (mail-wr0-f174.google.com [209.85.128.174])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 0A162A80CF
-        for <netdev@vger.kernel.org>; Sun, 23 Jul 2017 18:58:01 +0200 (CEST)
-Received: by mail-wr0-f174.google.com with SMTP id k71so44428587wrc.2
-        for <netdev@vger.kernel.org>; Sun, 23 Jul 2017 09:58:01 -0700 (PDT)
-In-Reply-To: <1500803543-7297-1-git-send-email-zlpnobody@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dingtianhong <dingtianhong@huawei.com>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Dave Jones <davej@codemonkey.org.uk>,
+        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "willemb@google.com" <willemb@google.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "liujian (CE)" <liujian56@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4F88C5DDA1E80143B232E89585ACE27D018CB6E0@DGGEMA502-MBS.china.huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 23, 2017 at 2:52 AM, Liping Zhang <zlpnobody@163.com> wrote:
-> From: Liping Zhang <zlpnobody@gmail.com>
+On Sun, Jul 23, 2017 at 5:48 AM, liujian (CE) <liujian56@huawei.com> wrote:
+> Hi
 >
-> Before the 'type' is validated, we shouldn't use it to fetch the
-> ovs_ct_attr_lens's minlen and maxlen, else, out of bound access
-> may happen.
->
-> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
-> Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+> I find it caused by below steps:
+> 1. set tp_version to TPACKET_V3 and req->tp_block_nr to 1
+> 2. set tp_block_nr to 0
+> Then pg_vec was freed, and we did not delete the timer?
 
-Good catch!
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+Thanks for testing!
+
+Ah, I overlook the initialization case in my previous patch.
+
+How about the following one? Does it cover all the cases?
+
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 008bb34ee324..0615c2a950fa 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -4329,7 +4329,7 @@ static int packet_set_ring(struct sock *sk,
+union tpacket_req_u *req_u,
+                register_prot_hook(sk);
+        }
+        spin_unlock(&po->bind_lock);
+-       if (closing && (po->tp_version > TPACKET_V2)) {
++       if (pg_vec && (po->tp_version > TPACKET_V2)) {
+                /* Because we don't support block-based V3 on tx-ring */
+                if (!tx_ring)
+                        prb_shutdown_retire_blk_timer(po, rb_queue);
