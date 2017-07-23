@@ -1,47 +1,57 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
- null entry.
-Date: Sat, 22 Jul 2017 21:55:51 -0700
-Message-ID: <CAJieiUiZRkd81BVAkDdENu9T0uBZ31OQDUAFZ+jzNnBJaHx-+g@mail.gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: af_packet: use after free in prb_retire_rx_blk_timer_expired
+Date: Sat, 22 Jul 2017 22:59:08 -0700
+Message-ID: <CAM_iQpXdyNeeojLfh0ZPMy1LQwOoQZfV7Az2=Q5WALM00Za9SA@mail.gmail.com>
+References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy> <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
+ <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
+ <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com> <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        WANG Cong <xiyou.wangcong@gmail.com>
-To: Hangbin Liu <liuhangbin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f174.google.com ([209.85.217.174]:38827 "EHLO
-        mail-ua0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750758AbdGWEzw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 00:55:52 -0400
-Received: by mail-ua0-f174.google.com with SMTP id w45so61413858uac.5
-        for <netdev@vger.kernel.org>; Sat, 22 Jul 2017 21:55:52 -0700 (PDT)
-In-Reply-To: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "liujian (CE)" <liujian56@huawei.com>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Dave Jones <davej@codemonkey.org.uk>,
+        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "willemb@google.com" <willemb@google.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 20, 2017 at 7:51 AM, Hangbin Liu <liuhangbin@gmail.com> wrote:
-> After commit 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib
-> result when requested"). When we get a prohibit ertry, we will return
-> -EACCES directly.
+On Sat, Jul 22, 2017 at 8:40 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
+> Hi, Cong:
 >
-> Before:
-> + ip netns exec client ip -6 route get 2003::1
-> prohibit 2003::1 dev lo table unspec proto kernel src 2001::1 metric
-> 4294967295 error -13
->
-> After:
-> + ip netns exec server ip -6 route get 2002::1
-> RTNETLINK answers: Network is unreachable
->
-> Since we will check the ip6_null_entry later. There is not sense
-> to check the dst.error after get rt.
->
-> Fixes: 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib...")
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> ---
+> Thanks for your quirk solution, but I still has some doubts about it,
+> it looks like fix the problem in the packet_setsockopt->packet_set_ring processing,
+> but when in packet_release processing, it may could not release the
+> real pg_vec for the TPACKET_V3 ring, and then cause the mem leak,
+> maybe I miss something here, nice to hear from your feedback. :)
 
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Yes you miss that packet_release() has memset()'s so we won't hit
+that path. :)
+
+However, I missed the swap() in this messy function, actually I
+believe the bug is that we modify tpacket_kbdq_core inside rx_ring
+in non-closing case without actually stopping its timer. I feel
+more confident with the following patch:
 
 
-thanks.
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 008bb34ee324..267b181fef15 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -4263,6 +4263,7 @@ static int packet_set_ring(struct sock *sk,
+union tpacket_req_u *req_u,
+                case TPACKET_V3:
+                        /* Block transmit is not supported yet */
+                        if (!tx_ring) {
++                               prb_shutdown_retire_blk_timer(po, rb_queue);
+                                init_prb_bdqc(po, rb, pg_vec, req_u);
+                        } else {
+                                struct tpacket_req3 *req3 = &req_u->req3;
