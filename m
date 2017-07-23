@@ -1,97 +1,109 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 11/11] sctp: remove the typedef sctp_abort_chunk_t
-Date: Sun, 23 Jul 2017 09:34:36 +0800
-Message-ID: <e9d3e79325d75c9283d4d02944d6300bd9b8ac67.1500773578.git.lucien.xin@gmail.com>
-References: <cover.1500773578.git.lucien.xin@gmail.com>
- <daa1cc9a380f5a1eb37b3d30fd64942d310fe81d.1500773578.git.lucien.xin@gmail.com>
- <78a33af4a9d7ef7116637943dbd0ae1403d20114.1500773578.git.lucien.xin@gmail.com>
- <54eca4d5d79aae83b386754b4613edc388521d54.1500773578.git.lucien.xin@gmail.com>
- <303fa591073b161b9434fa7f81a8d9d119954359.1500773578.git.lucien.xin@gmail.com>
- <42fb936def0c9ef0522d2e3809c9c07dccb6974f.1500773578.git.lucien.xin@gmail.com>
- <94b6f03745317ab5c57639f2155a5e1503b4dfb3.1500773578.git.lucien.xin@gmail.com>
- <734295f5625300a5328c19e255dfbbf7d393e48f.1500773578.git.lucien.xin@gmail.com>
- <b38e31f3ac26b5aa2f8a6522b002846a03a70118.1500773578.git.lucien.xin@gmail.com>
- <5de5ee9134309f0111da5edd768faf7aaff1c9fc.1500773578.git.lucien.xin@gmail.com>
- <cff8b94db487caa09014f0de9e94e28a13a9e43d.1500773578.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34071 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752207AbdGWBgN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 21:36:13 -0400
-In-Reply-To: <cff8b94db487caa09014f0de9e94e28a13a9e43d.1500773578.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1500773578.git.lucien.xin@gmail.com>
-References: <cover.1500773578.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: af_packet: use after free in prb_retire_rx_blk_timer_expired
+Date: Sun, 23 Jul 2017 11:40:53 +0800
+Message-ID: <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com>
+References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy>
+ <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
+ <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
+ <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Dave Jones <davej@codemonkey.org.uk>,
+        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "willemb@google.com" <willemb@google.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        "liujian (CE)" <liujian56@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch is to remove the typedef sctp_abort_chunk_t, and
-replace with struct sctp_abort_chunk in the places where it's
-using this typedef.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/linux/sctp.h    | 4 ++--
- net/sctp/sm_statefuns.c | 8 ++++----
- 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-index bfda7c6..ba00716 100644
---- a/include/linux/sctp.h
-+++ b/include/linux/sctp.h
-@@ -408,9 +408,9 @@ struct sctp_heartbeat_chunk {
-  * common header. Just the common header is all that is needed with a
-  * chunk descriptor.
-  */
--typedef struct sctp_abort_chunk {
-+struct sctp_abort_chunk {
- 	struct sctp_chunkhdr uh;
--} sctp_abort_chunk_t;
-+};
- 
- 
- /* For the graceful shutdown we must carry the tag (in common header)
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 7bbee08..dc0c2c4 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -2164,7 +2164,7 @@ sctp_disposition_t sctp_sf_shutdown_pending_abort(
- 	 * as we do not know its true length.  So, to be safe, discard the
- 	 * packet.
- 	 */
--	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_abort_chunk_t)))
-+	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_abort_chunk)))
- 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
- 
- 	/* ADD-IP: Special case for ABORT chunks
-@@ -2206,7 +2206,7 @@ sctp_disposition_t sctp_sf_shutdown_sent_abort(struct net *net,
- 	 * as we do not know its true length.  So, to be safe, discard the
- 	 * packet.
- 	 */
--	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_abort_chunk_t)))
-+	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_abort_chunk)))
- 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
- 
- 	/* ADD-IP: Special case for ABORT chunks
-@@ -2470,7 +2470,7 @@ sctp_disposition_t sctp_sf_do_9_1_abort(struct net *net,
- 	 * as we do not know its true length.  So, to be safe, discard the
- 	 * packet.
- 	 */
--	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_abort_chunk_t)))
-+	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_abort_chunk)))
- 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
- 
- 	/* ADD-IP: Special case for ABORT chunks
-@@ -2546,7 +2546,7 @@ sctp_disposition_t sctp_sf_cookie_wait_abort(struct net *net,
- 	 * as we do not know its true length.  So, to be safe, discard the
- 	 * packet.
- 	 */
--	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_abort_chunk_t)))
-+	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_abort_chunk)))
- 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
- 
- 	/* See if we have an error cause code in the chunk.  */
--- 
-2.1.0
+On 2017/7/23 3:02, Cong Wang wrote:
+> Hello,
+> 
+> On Sat, Jul 22, 2017 at 2:55 AM, liujian (CE) <liujian56@huawei.com> wrote:
+>> I also hit this issue with trinity test:
+>>
+>> The call trace:
+>>   [exception RIP: prb_retire_rx_blk_timer_expired+70]
+>>     RIP: ffffffff81633be6  RSP: ffff8801bec03dc0  RFLAGS: 00010246
+>>     RAX: 0000000000000000  RBX: ffff8801b49d0948  RCX: 0000000000000000
+>>     RDX: ffff8801b31057a0  RSI: a56b6b6b6b6b6b6b  RDI: ffff8801b49d09ec
+>>     RBP: ffff8801bec03dd8   R8: 0000000000000001   R9: ffffffff83e1bf80
+>>     R10: 0000000000000002  R11: 0000000000000005  R12: ffff8801b49d09ec
+>>     R13: 0000000000000100  R14: ffffffff81633ba0  R15: ffff8801b49d0948
+>>     ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
+>>  #7 [ffff8801bec03de0] call_timer_fn at ffffffff8108cb76
+>>  #8 [ffff8801bec03e18] run_timer_softirq at ffffffff8108f87c
+>>  #9 [ffff8801bec03e90] __do_softirq at ffffffff8108629f
+>> #10 [ffff8801bec03f00] call_softirq at ffffffff8166a01c
+>> #11 [ffff8801bec03f18] do_softirq at ffffffff810172ad
+>> #12 [ffff8801bec03f30] irq_exit at ffffffff81086655
+>> #13 [ffff8801bec03f48] msa_irq_exit at ffffffff810b1ab3
+>> #14 [ffff8801bec03f88] smp_apic_timer_interrupt at ffffffff8166aeae
+>> #15 [ffff8801bec03fb0] apic_timer_interrupt at ffffffff816692dd
+>> --- <IRQ stack> ---
+>>
+>> And from vmcore, I can see the pointer GET_CURR_PBLOCK_DESC_FROM_CORE(pkc); is a56b6b6b6b6b6b6b
+>>
+> 
+> Does the following quick fix help?
+> 
+> 
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 008bb34ee324..09ec1640e5f7 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -4264,6 +4264,7 @@ static int packet_set_ring(struct sock *sk,
+> union tpacket_req_u *req_u,
+>                         /* Block transmit is not supported yet */
+>                         if (!tx_ring) {
+>                                 init_prb_bdqc(po, rb, pg_vec, req_u);
+> +                               pg_vec = NULL;
+>                         } else {
+>                                 struct tpacket_req3 *req3 = &req_u->req3;
+> 
+
+Hi, Cong:
+
+Thanks for your quirk solution, but I still has some doubts about it,
+it looks like fix the problem in the packet_setsockopt->packet_set_ring processing,
+but when in packet_release processing, it may could not release the
+real pg_vec for the TPACKET_V3 ring, and then cause the mem leak,
+maybe I miss something here, nice to hear from your feedback. :)
+
+what about fix it this way:
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -4335,9 +4335,13 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+                /* Because we don't support block-based V3 on tx-ring */
+                if (!tx_ring)
+                        prb_shutdown_retire_blk_timer(po, rb_queue);
++
++               if (pg_vec)
++                       free_pg_vec(pg_vec, order, req->tp_block_nr);
++
+        }
+
+-       if (pg_vec)
++       if (pg_vec && (po->tp_version < TPACKET_V3))
+                free_pg_vec(pg_vec, order, req->tp_block_nr);
+ out:
+        release_sock(sk);
+
+
+Regards
+Ding
+
+> .
+> 
