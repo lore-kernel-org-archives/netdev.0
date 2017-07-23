@@ -1,94 +1,89 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 02/11] sctp: remove the typedef sctp_cookie_param_t
-Date: Sun, 23 Jul 2017 09:34:27 +0800
-Message-ID: <78a33af4a9d7ef7116637943dbd0ae1403d20114.1500773578.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 01/11] sctp: remove the typedef sctp_initack_chunk_t
+Date: Sun, 23 Jul 2017 09:34:26 +0800
+Message-ID: <daa1cc9a380f5a1eb37b3d30fd64942d310fe81d.1500773578.git.lucien.xin@gmail.com>
 References: <cover.1500773578.git.lucien.xin@gmail.com>
- <daa1cc9a380f5a1eb37b3d30fd64942d310fe81d.1500773578.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:37449 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755172AbdGWBfB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 21:35:01 -0400
-In-Reply-To: <daa1cc9a380f5a1eb37b3d30fd64942d310fe81d.1500773578.git.lucien.xin@gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33889 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754501AbdGWBex (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 21:34:53 -0400
+In-Reply-To: <cover.1500773578.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1500773578.git.lucien.xin@gmail.com>
 References: <cover.1500773578.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to remove the typedef sctp_cookie_param_t, and
-replace with struct sctp_cookie_param in the places where it's
+This patch is to remove the typedef sctp_initack_chunk_t, and
+replace with struct sctp_initack_chunk in the places where it's
 using this typedef.
+
+It is also to use sizeof(variable) instead of sizeof(type).
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/linux/sctp.h     |  4 ++--
- net/sctp/sm_make_chunk.c | 18 ++++++++++--------
- 2 files changed, 12 insertions(+), 10 deletions(-)
+ include/linux/sctp.h    |  5 ++++-
+ net/sctp/sm_statefuns.c | 13 ++++++-------
+ 2 files changed, 10 insertions(+), 8 deletions(-)
 
 diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-index 05c2099..9e77abd 100644
+index 913474d..05c2099 100644
 --- a/include/linux/sctp.h
 +++ b/include/linux/sctp.h
-@@ -342,10 +342,10 @@ struct sctp_initack_chunk {
- };
- 
- /* Section 3.3.3.1 State Cookie (7) */
--typedef struct sctp_cookie_param {
-+struct sctp_cookie_param {
- 	struct sctp_paramhdr p;
- 	__u8 body[0];
--} sctp_cookie_param_t;
+@@ -336,7 +336,10 @@ struct sctp_hmac_algo_param {
+  *   The INIT ACK chunk is used to acknowledge the initiation of an SCTP
+  *   association.
+  */
+-typedef struct sctp_init_chunk sctp_initack_chunk_t;
++struct sctp_initack_chunk {
++	struct sctp_chunkhdr chunk_hdr;
++	struct sctp_inithdr init_hdr;
 +};
  
- /* Section 3.3.3.1 Unrecognized Parameters (8) */
- typedef struct sctp_unrecognized_param {
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 0b36e96..163004e 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -69,7 +69,8 @@ static struct sctp_chunk *sctp_make_data(const struct sctp_association *asoc,
- static struct sctp_chunk *_sctp_make_chunk(const struct sctp_association *asoc,
- 					   __u8 type, __u8 flags, int paylen,
- 					   gfp_t gfp);
--static sctp_cookie_param_t *sctp_pack_cookie(const struct sctp_endpoint *ep,
-+static struct sctp_cookie_param *sctp_pack_cookie(
-+					const struct sctp_endpoint *ep,
- 					const struct sctp_association *asoc,
- 					const struct sctp_chunk *init_chunk,
- 					int *cookie_len,
-@@ -387,7 +388,7 @@ struct sctp_chunk *sctp_make_init_ack(const struct sctp_association *asoc,
- 	union sctp_params addrs;
- 	struct sctp_sock *sp;
- 	int addrs_len;
--	sctp_cookie_param_t *cookie;
-+	struct sctp_cookie_param *cookie;
- 	int cookie_len;
- 	size_t chunksize;
- 	struct sctp_adaptation_ind_param aiparam;
-@@ -1595,14 +1596,15 @@ struct sctp_association *sctp_make_temp_asoc(const struct sctp_endpoint *ep,
- /* Build a cookie representing asoc.
-  * This INCLUDES the param header needed to put the cookie in the INIT ACK.
-  */
--static sctp_cookie_param_t *sctp_pack_cookie(const struct sctp_endpoint *ep,
--				      const struct sctp_association *asoc,
--				      const struct sctp_chunk *init_chunk,
--				      int *cookie_len,
--				      const __u8 *raw_addrs, int addrs_len)
-+static struct sctp_cookie_param *sctp_pack_cookie(
-+					const struct sctp_endpoint *ep,
-+					const struct sctp_association *asoc,
-+					const struct sctp_chunk *init_chunk,
-+					int *cookie_len,
-+					const __u8 *raw_addrs, int addrs_len)
- {
--	sctp_cookie_param_t *retval;
- 	struct sctp_signed_cookie *cookie;
-+	struct sctp_cookie_param *retval;
- 	int headersize, bodysize;
+ /* Section 3.3.3.1 State Cookie (7) */
+ typedef struct sctp_cookie_param {
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index ae4c48c..6568fc3 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -518,7 +518,7 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(struct net *net,
+ 		return sctp_sf_violation_chunk(net, ep, asoc, type, arg, commands);
  
- 	/* Header size is static data prior to the actual cookie, including
+ 	/* Make sure that the INIT-ACK chunk has a valid length */
+-	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_initack_chunk_t)))
++	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_initack_chunk)))
+ 		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
+ 						  commands);
+ 	/* Grab the INIT header.  */
+@@ -4453,11 +4453,10 @@ static sctp_disposition_t sctp_sf_abort_violation(
+ 		/* Treat INIT-ACK as a special case during COOKIE-WAIT. */
+ 		if (chunk->chunk_hdr->type == SCTP_CID_INIT_ACK &&
+ 		    !asoc->peer.i.init_tag) {
+-			sctp_initack_chunk_t *initack;
++			struct sctp_initack_chunk *initack;
+ 
+-			initack = (sctp_initack_chunk_t *)chunk->chunk_hdr;
+-			if (!sctp_chunk_length_valid(chunk,
+-						     sizeof(sctp_initack_chunk_t)))
++			initack = (struct sctp_initack_chunk *)chunk->chunk_hdr;
++			if (!sctp_chunk_length_valid(chunk, sizeof(*initack)))
+ 				abort->chunk_hdr->flags |= SCTP_CHUNK_FLAG_T;
+ 			else {
+ 				unsigned int inittag;
+@@ -6106,9 +6105,9 @@ static struct sctp_packet *sctp_ootb_pkt_new(struct net *net,
+ 		switch (chunk->chunk_hdr->type) {
+ 		case SCTP_CID_INIT_ACK:
+ 		{
+-			sctp_initack_chunk_t *initack;
++			struct sctp_initack_chunk *initack;
+ 
+-			initack = (sctp_initack_chunk_t *)chunk->chunk_hdr;
++			initack = (struct sctp_initack_chunk *)chunk->chunk_hdr;
+ 			vtag = ntohl(initack->init_hdr.init_tag);
+ 			break;
+ 		}
 -- 
 2.1.0
