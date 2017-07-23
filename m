@@ -1,106 +1,61 @@
-From: "liujian (CE)" <liujian56@huawei.com>
-Subject: RE: af_packet: use after free in prb_retire_rx_blk_timer_expired
-Date: Sun, 23 Jul 2017 08:21:31 +0000
-Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018C968B@DGGEMA502-MBS.china.huawei.com>
-References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy>
- <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
- <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
- <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
- <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com>
- <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com>
- <CAM_iQpXdyNeeojLfh0ZPMy1LQwOoQZfV7Az2=Q5WALM00Za9SA@mail.gmail.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: RE: [PATCH V4 net-next 5/8] net: hns3: Add support of TX Scheduler
+ & Shaper to HNS3 driver
+Date: Sun, 23 Jul 2017 09:31:46 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B81D3AE@FRAEML521-MBX.china.huawei.com>
+References: <20170722220942.78852-1-salil.mehta@huawei.com>
+ <20170722220942.78852-6-salil.mehta@huawei.com>
+ <20170723061655.sfwb4ugcprbhkmob@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Dave Jones <davej@codemonkey.org.uk>,
-        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "willemb@google.com" <willemb@google.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        Dingtianhong <dingtianhong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpXdyNeeojLfh0ZPMy1LQwOoQZfV7Az2=Q5WALM00Za9SA@mail.gmail.com>
-Content-Language: zh-CN
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lhrrgout.huawei.com ([194.213.3.17]:32173 "EHLO
+        lhrrgout.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750909AbdGWJcB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 05:32:01 -0400
+In-Reply-To: <20170723061655.sfwb4ugcprbhkmob@localhost.localdomain>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgV2FuZyBDb25nLA0KDQpXaXRoIHRoaXMgcGF0Y2ggLCB0aGUgc3lzdGVtIHdhcyBjcmFzaGVk
-IHdoZW4gc2V0c29ja29wdC4gDQoNClRoZSBjYWxsIHRyYWNlIGFzIGJlbG93OiAgDQoNCmNyYXNo
-PiBidA0KUElEOiAzMDY5ICAgVEFTSzogZmZmZjg4MDBhZmNjMDAwMCAgQ1BVOiAwICAgQ09NTUFO
-RDogInRyaW5pdHktbWFpbiINCiAjMCBbZmZmZjg4MDFiZWMwM2NlMF0gbWFjaGluZV9rZXhlYyBh
-dCBmZmZmZmZmZjgxMDUzNTRiDQogIzEgW2ZmZmY4ODAxYmVjMDNkNDBdIGNyYXNoX2tleGVjIGF0
-IGZmZmZmZmZmODEwZjdlODINCiAjMiBbZmZmZjg4MDFiZWMwM2UxMF0gcGFuaWMgYXQgZmZmZmZm
-ZmY4MTY1MDA1OA0KICMzIFtmZmZmODgwMWJlYzAzZTkwXSB3YXRjaGRvZ190aW1lcl9mbiBhdCBm
-ZmZmZmZmZjgxMTIyNTMzDQogIzQgW2ZmZmY4ODAxYmVjMDNlYzhdIF9faHJ0aW1lcl9ydW5fcXVl
-dWVzIGF0IGZmZmZmZmZmODEwYWJlYjINCiAjNSBbZmZmZjg4MDFiZWMwM2YyMF0gaHJ0aW1lcl9p
-bnRlcnJ1cHQgYXQgZmZmZmZmZmY4MTBhYzQ1MA0KICM2IFtmZmZmODgwMWJlYzAzZjcwXSBsb2Nh
-bF9hcGljX3RpbWVyX2ludGVycnVwdCBhdCBmZmZmZmZmZjgxMDRhNDU3DQogIzcgW2ZmZmY4ODAx
-YmVjMDNmODhdIHNtcF9hcGljX3RpbWVyX2ludGVycnVwdCBhdCBmZmZmZmZmZjgxNjZhZWQwDQog
-IzggW2ZmZmY4ODAxYmVjMDNmYjBdIGFwaWNfdGltZXJfaW50ZXJydXB0IGF0IGZmZmZmZmZmODE2
-NjkzMWQNCi0tLSA8SVJRIHN0YWNrPiAtLS0NCiAjOSBbZmZmZjg4MDFiMzAxZmNiOF0gYXBpY190
-aW1lcl9pbnRlcnJ1cHQgYXQgZmZmZmZmZmY4MTY2OTMxZA0KICAgIFtleGNlcHRpb24gUklQOiBs
-b2NrX3RpbWVyX2Jhc2UrNzddDQogICAgUklQOiBmZmZmZmZmZjgxMDhkY2VkICBSU1A6IGZmZmY4
-ODAxYjMwMWZkNjAgIFJGTEFHUzogMDAwMDAyNDYNCiAgICBSQVg6IDAwMDAwMDAwMDAwMDAwMDAg
-IFJCWDogZmZmZjg4MDBhZmNjMDAwMCAgUkNYOiAwMDAwMDAwMDAwMDAwMDAxDQogICAgUkRYOiBm
-ZmZmODgwMGFmY2MwMDAwICBSU0k6IGZmZmY4ODAxYjMwMWZkOTAgIFJESTogZmZmZjg4MDBiMGQ4
-NTNjOA0KICAgIFJCUDogZmZmZjg4MDFiMzAxZmQ4MCAgIFI4OiBmZmZmODgwMGFmY2MwMDAwICAg
-Ujk6IGZmZmZlYTAwMDI2ODAwMDANCiAgICBSMTA6IDAwMDAwMDAwMDAwMDAwM2MgIFIxMTogZmZm
-Zjg4MDFiMzAxZmIyZSAgUjEyOiBmZmZmODgwMGFmY2MwMDAwDQogICAgUjEzOiBmZmZmODgwMGFm
-Y2MwMDAwICBSMTQ6IDAwMDAwMDAwMDAwMDAwMDAgIFIxNTogZmZmZmZmZmY4M2QxYTM0MA0KICAg
-IE9SSUdfUkFYOiBmZmZmZmZmZmZmZmZmZjEwICBDUzogMDAxMCAgU1M6IDAwMTgNCiMxMCBbZmZm
-Zjg4MDFiMzAxZmQ4OF0gdHJ5X3RvX2RlbF90aW1lcl9zeW5jIGF0IGZmZmZmZmZmODEwOGYxOWYN
-CiMxMSBbZmZmZjg4MDFiMzAxZmRiOF0gZGVsX3RpbWVyX3N5bmMgYXQgZmZmZmZmZmY4MTA4ZjI1
-Mg0KIzEyIFtmZmZmODgwMWIzMDFmZGQwXSBwYWNrZXRfc2V0X3JpbmcgYXQgZmZmZmZmZmY4MTYz
-NWU2MA0KIzEzIFtmZmZmODgwMWIzMDFmZTk4XSBwYWNrZXRfc2V0c29ja29wdCBhdCBmZmZmZmZm
-ZjgxNjM2NzYwDQojMTQgW2ZmZmY4ODAxYjMwMWZmMzhdIHN5c19zZXRzb2Nrb3B0IGF0IGZmZmZm
-ZmZmODE1MzE4NjANCiMxNSBbZmZmZjg4MDFiMzAxZmY4MF0gdHJhY2VzeXMgYXQgZmZmZmZmZmY4
-MTY2ODdlZCAodmlhIHN5c3RlbV9jYWxsKQ0KICAgIFJJUDogMDAwMDdmY2M3OGIwM2UzYSAgUlNQ
-OiAwMDAwN2ZmZjE2ZjI0NmI4ICBSRkxBR1M6IDAwMDAwMjAyDQogICAgUkFYOiBmZmZmZmZmZmZm
-ZmZmZmRhICBSQlg6IGZmZmZmZmZmODE2Njg3ZWQgIFJDWDogZmZmZmZmZmZmZmZmZmZmZg0KICAg
-IFJEWDogMDAwMDAwMDAwMDAwMDAwNSAgUlNJOiAwMDAwMDAwMDAwMDAwMTA3ICBSREk6IDAwMDAw
-MDAwMDAwMDAxODANCiAgICBSQlA6IDAwMDAwMDAwMDAwMDAxODAgICBSODogMDAwMDAwMDAwMDAw
-MDAxYyAgIFI5OiAwMDAwN2ZjYzc4ZGM3MTYwDQogICAgUjEwOiAwMDAwMDAwMDAxZmQ2YmEwICBS
-MTE6IDAwMDAwMDAwMDAwMDAyMDIgIFIxMjogMDAwMDAwMDAwMDAwMDAwMA0KICAgIFIxMzogMDAw
-MDAwMDAwMDAwMDAxMSAgUjE0OiAwMDAwMDAwMDAxZmQ2YjYwICBSMTU6IDAwMDAwMDAwMDFmZDZi
-NzANCiAgICBPUklHX1JBWDogMDAwMDAwMDAwMDAwMDAzNiAgQ1M6IDAwMzMgIFNTOiAwMDJiDQoN
-Cg0KQmVzdCBSZWdhcmRzLA0KbGl1amlhbg0KDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
-LS0NCj4gRnJvbTogQ29uZyBXYW5nIFttYWlsdG86eGl5b3Uud2FuZ2NvbmdAZ21haWwuY29tXQ0K
-PiBTZW50OiBTdW5kYXksIEp1bHkgMjMsIDIwMTcgMTo1OSBQTQ0KPiBUbzogRGluZ3RpYW5ob25n
-DQo+IENjOiBsaXVqaWFuIChDRSk7IFdpbGxlbSBkZSBCcnVpam47IERhdmUgSm9uZXM7IGFsZXhh
-bmRlci5sZXZpbkB2ZXJpem9uLmNvbTsNCj4gZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgZWR1bWF6ZXRA
-Z29vZ2xlLmNvbTsgd2lsbGVtYkBnb29nbGUuY29tOw0KPiBkYW5pZWxAaW9nZWFyYm94Lm5ldDsg
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBT
-dWJqZWN0OiBSZTogYWZfcGFja2V0OiB1c2UgYWZ0ZXIgZnJlZSBpbiBwcmJfcmV0aXJlX3J4X2Js
-a190aW1lcl9leHBpcmVkDQo+IA0KPiBPbiBTYXQsIEp1bCAyMiwgMjAxNyBhdCA4OjQwIFBNLCBE
-aW5nIFRpYW5ob25nIDxkaW5ndGlhbmhvbmdAaHVhd2VpLmNvbT4NCj4gd3JvdGU6DQo+ID4gSGks
-IENvbmc6DQo+ID4NCj4gPiBUaGFua3MgZm9yIHlvdXIgcXVpcmsgc29sdXRpb24sIGJ1dCBJIHN0
-aWxsIGhhcyBzb21lIGRvdWJ0cyBhYm91dCBpdCwNCj4gPiBpdCBsb29rcyBsaWtlIGZpeCB0aGUg
-cHJvYmxlbSBpbiB0aGUNCj4gPiBwYWNrZXRfc2V0c29ja29wdC0+cGFja2V0X3NldF9yaW5nIHBy
-b2Nlc3NpbmcsIGJ1dCB3aGVuIGluDQo+ID4gcGFja2V0X3JlbGVhc2UgcHJvY2Vzc2luZywgaXQg
-bWF5IGNvdWxkIG5vdCByZWxlYXNlIHRoZSByZWFsIHBnX3ZlYw0KPiA+IGZvciB0aGUgVFBBQ0tF
-VF9WMyByaW5nLCBhbmQgdGhlbiBjYXVzZSB0aGUgbWVtIGxlYWssIG1heWJlIEkgbWlzcw0KPiA+
-IHNvbWV0aGluZyBoZXJlLCBuaWNlIHRvIGhlYXIgZnJvbSB5b3VyIGZlZWRiYWNrLiA6KQ0KPiAN
-Cj4gWWVzIHlvdSBtaXNzIHRoYXQgcGFja2V0X3JlbGVhc2UoKSBoYXMgbWVtc2V0KCkncyBzbyB3
-ZSB3b24ndCBoaXQgdGhhdCBwYXRoLiA6KQ0KPiANCj4gSG93ZXZlciwgSSBtaXNzZWQgdGhlIHN3
-YXAoKSBpbiB0aGlzIG1lc3N5IGZ1bmN0aW9uLCBhY3R1YWxseSBJIGJlbGlldmUgdGhlIGJ1Zw0K
-PiBpcyB0aGF0IHdlIG1vZGlmeSB0cGFja2V0X2tiZHFfY29yZSBpbnNpZGUgcnhfcmluZyBpbiBu
-b24tY2xvc2luZyBjYXNlIHdpdGhvdXQNCj4gYWN0dWFsbHkgc3RvcHBpbmcgaXRzIHRpbWVyLiBJ
-IGZlZWwgbW9yZSBjb25maWRlbnQgd2l0aCB0aGUgZm9sbG93aW5nIHBhdGNoOg0KPiANCj4gDQo+
-IGRpZmYgLS1naXQgYS9uZXQvcGFja2V0L2FmX3BhY2tldC5jIGIvbmV0L3BhY2tldC9hZl9wYWNr
-ZXQuYyBpbmRleA0KPiAwMDhiYjM0ZWUzMjQuLjI2N2IxODFmZWYxNSAxMDA2NDQNCj4gLS0tIGEv
-bmV0L3BhY2tldC9hZl9wYWNrZXQuYw0KPiArKysgYi9uZXQvcGFja2V0L2FmX3BhY2tldC5jDQo+
-IEBAIC00MjYzLDYgKzQyNjMsNyBAQCBzdGF0aWMgaW50IHBhY2tldF9zZXRfcmluZyhzdHJ1Y3Qg
-c29jayAqc2ssIHVuaW9uDQo+IHRwYWNrZXRfcmVxX3UgKnJlcV91LA0KPiAgICAgICAgICAgICAg
-ICAgY2FzZSBUUEFDS0VUX1YzOg0KPiAgICAgICAgICAgICAgICAgICAgICAgICAvKiBCbG9jayB0
-cmFuc21pdCBpcyBub3Qgc3VwcG9ydGVkIHlldCAqLw0KPiAgICAgICAgICAgICAgICAgICAgICAg
-ICBpZiAoIXR4X3JpbmcpIHsNCj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBwcmJf
-c2h1dGRvd25fcmV0aXJlX2Jsa190aW1lcihwbywNCj4gKyByYl9xdWV1ZSk7DQo+ICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgaW5pdF9wcmJfYmRxYyhwbywgcmIsIHBnX3ZlYywgcmVx
-X3UpOw0KPiAgICAgICAgICAgICAgICAgICAgICAgICB9IGVsc2Ugew0KPiAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgIHN0cnVjdCB0cGFja2V0X3JlcTMgKnJlcTMgPQ0KPiAmcmVxX3Ut
-PnJlcTM7DQo=
+Hi Richard,
+
+> -----Original Message-----
+> From: linux-rdma-owner@vger.kernel.org [mailto:linux-rdma-
+> owner@vger.kernel.org] On Behalf Of Richard Cochran
+> Sent: Sunday, July 23, 2017 7:17 AM
+> To: Salil Mehta
+> Cc: davem@davemloft.net; Zhuangyuzeng (Yisen); huangdaode; lipeng (Y);
+> mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; linux-rdma@vger.kernel.org; Linuxarm
+> Subject: Re: [PATCH V4 net-next 5/8] net: hns3: Add support of TX
+> Scheduler & Shaper to HNS3 driver
+> 
+> On Sat, Jul 22, 2017 at 11:09:39PM +0100, Salil Mehta wrote:
+> > +int hclge_tm_setup_tc(struct hclge_dev *hdev);
+> 
+> Like I said before, this function DNE.
+Sorry, it was removed, I mistakenly saw the old code.
+Will remove this prototype as well.
+
+Thanks
+Salil
+> 
+> Thanks,
+> Richard
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma"
+> in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
