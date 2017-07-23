@@ -1,204 +1,139 @@
-From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: Re: [PATCH V2 net-next 01/21] net-next/hinic: Initialize hw interface
-Date: Sun, 23 Jul 2017 13:30:53 +0300
-Message-ID: <33fbbf34-cdbe-81a8-dc33-2cd6cb6cf4ee@huawei.com>
-References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
- <0febc61414e7908a7c8c0c2fa7c2b06b0f7524f7.1500454998.git.aviad.krawczyk@huawei.com>
- <20170719222740.GA1755@electric-eye.fr.zoreil.com>
+From: "liujian (CE)" <liujian56@huawei.com>
+Subject: RE: af_packet: use after free in prb_retire_rx_blk_timer_expired
+Date: Sun, 23 Jul 2017 12:48:01 +0000
+Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018CB6E0@DGGEMA502-MBS.china.huawei.com>
+References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy>
+ <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
+ <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
+ <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com>
+ <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com>
+ <CAM_iQpXdyNeeojLfh0ZPMy1LQwOoQZfV7Az2=Q5WALM00Za9SA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <bc.y@huawei.com>,
-        <victor.gissin@huawei.com>, <zhaochen6@huawei.com>,
-        <tony.qu@huawei.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170719222740.GA1755@electric-eye.fr.zoreil.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Dave Jones <davej@codemonkey.org.uk>,
+        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "willemb@google.com" <willemb@google.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "liujian (CE)" <liujian56@huawei.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Dingtianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([45.249.212.187]:10252 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751641AbdGWNE1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 09:04:27 -0400
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Francois,
-
-ERR_PTR / IS ERR - we will change it
-
-err_xyz labels - we will change it according to other companies style.
-
-hinic_free_hwdev - It is there to mark us changes for VF code. We will remove it,
-it can't be failed.
-
-hinic_remove - If insmod failed and someone calls rmmod, we will get a crash because
-the resource are already free. Therefore we test if the device exists, please tell me
-if you meant to something different
-
-pci_id_tbl - will be moved to the .c file.
-
-void* - usually void * is something to avoid.
-
-The priv data is in type void * because the
-caller can use any struct that it wants, like the priv data in Linux
-(netdev, irq, tasklet, work..) -
-
-we can change it but if we will pass different struct
-in the future, we will have to change the prototype of the functions.
-
-According to the other void *:
-The wq struct is used for cmdq, sq and rq. Therefore the wqe is in type
-void *. There are 4 operations get_wqe, write_wqe, read_wqe and put_wqe - there
-is no option that one function will be fed with a wrong pointer because the caller
-should use what it got in get_wqe function.
-
-When something is used as multiple types, it can be used as void * or union.
-Usually, I would prefer union. But, in this case if we will use union, maybe there is a chance
-of using the wrong wqe type in the wrong work queue type.
-Another option is to use a wrapper for each wq type operations, so only the basic wq ops will
-use void *.
-
-Then, there will be cmdq, rq, sq operations with the correct wqe type and wq operations that
-will use void *.
-
-I will be glad to hear your opinion about the preferred style and about hinic_remove issue you mentioned
-above.
-
-Thanks for your time and review,
-Aviad
-
-
-
-On 7/20/2017 1:27 AM, Francois Romieu wrote:
-> Aviad Krawczyk <aviad.krawczyk@huawei.com> :
-> [...]
->> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
->> new file mode 100644
->> index 0000000..fbc9de4
->> --- /dev/null
->> +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-> [...]
->> +/**
->> + * hinic_init_hwdev - Initialize the NIC HW
->> + * @hwdev: the NIC HW device that is returned from the initialization
->> + * @pdev: the NIC pci device
->> + *
->> + * Return 0 - Success, negative - Failure
->> + *
->> + * Initialize the NIC HW device and return a pointer to it in the first arg
->> + **/
-> 
-> Return a pointer and use ERR_PTR / IS_ERR ?
-> 
->> +int hinic_init_hwdev(struct hinic_hwdev **hwdev, struct pci_dev *pdev)
->> +{
->> +	struct hinic_pfhwdev *pfhwdev;
->> +	struct hinic_hwif *hwif;
->> +	int err;
->> +
->> +	hwif = devm_kzalloc(&pdev->dev, sizeof(*hwif), GFP_KERNEL);
->> +	if (!hwif)
->> +		return -ENOMEM;
->> +
->> +	err = hinic_init_hwif(hwif, pdev);
->> +	if (err) {
->> +		dev_err(&pdev->dev, "Failed to init HW interface\n");
->> +		return err;
->> +	}
->> +
->> +	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
->> +		dev_err(&pdev->dev, "Unsupported PCI Function type\n");
->> +		err = -EFAULT;
->> +		goto func_type_err;
->> +	}
->> +
->> +	pfhwdev = devm_kzalloc(&pdev->dev, sizeof(*pfhwdev), GFP_KERNEL);
->> +	if (!pfhwdev) {
->> +		err = -ENOMEM;
->> +		goto pfhwdev_alloc_err;
-> 
-> Intel, Mellanox, Broadcom, Amazon and friends use "err_xyz" labels.
-> 
-> Please consider using the same style.
-> 
-> [...]
->> +void hinic_free_hwdev(struct hinic_hwdev *hwdev)
->> +{
->> +	struct hinic_hwif *hwif = hwdev->hwif;
->> +	struct pci_dev *pdev = hwif->pdev;
->> +	struct hinic_pfhwdev *pfhwdev;
->> +
->> +	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
->> +		dev_err(&pdev->dev, "unsupported PCI Function type\n");
->> +		return;
->> +	}
-> 
-> If it succeeded in hinic_init_hwdev, how could it fail here ?
-> 
-> If it failed in hinic_init_hwdev, hinic_free_hwdev should not even
-> be called.
-> 
-> -> remove ?
-> 
-> [...]
->> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
->> new file mode 100644
->> index 0000000..c61c769
->> --- /dev/null
->> +++ b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-> [...]
->> +static void hinic_remove(struct pci_dev *pdev)
->> +{
->> +	struct net_device *netdev = pci_get_drvdata(pdev);
->> +	struct hinic_dev *nic_dev;
->> +
->> +	if (!netdev)
->> +		return;
-> 
-> Your driver is flawed if this test can ever succeed.
-> 
-> [...]
->> +static int __init hinic_init(void)
->> +{
->> +	return pci_register_driver(&hinic_driver);
->> +}
->> +
->> +static void __exit hinic_exit(void)
->> +{
->> +	pci_unregister_driver(&hinic_driver);
->> +}
-> 
-> Use module_pci_driver(hinic_driver).
-> 
-> Remove hinic_init() and hinic_exit().
-> 
->> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h b/drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h
->> new file mode 100644
->> index 0000000..1d92617
->> --- /dev/null
->> +++ b/drivers/net/ethernet/huawei/hinic/hinic_pci_id_tbl.h
-> [...]
->> +#ifndef HINIC_PCI_ID_TBL_H
->> +#define HINIC_PCI_ID_TBL_H
->> +
->> +#ifndef PCI_VENDOR_ID_HUAWEI
->> +#define PCI_VENDOR_ID_HUAWEI            0x19e5
->> +#endif
-> 
-> Useless: it duplicates include/linux/pci_ids.h
-> 
->> +
->> +#ifndef PCI_DEVICE_ID_HI1822_PF
->> +#define PCI_DEVICE_ID_HI1822_PF         0x1822
->> +#endif
-> 
-> Please move it to the .c file where it is actually used.
-> 
-> 
-> Extra:
-> 
-> grep -E 'void\ \*' drivers/net/ethernet/huawei/hinic/* makes me nervous.
-> 
-> At some point one function will be fed with a wrong pointer and the
-> compiler won't notice it.
-> 
-> For instance hinic_sq_read_wqe is only called with &skb. There's no
-> reason to declare it using a 'void **' argument.
-> 
+SGkgDQoNCkkgZmluZCBpdCBjYXVzZWQgYnkgYmVsb3cgc3RlcHM6DQoxLiBzZXQgdHBfdmVyc2lv
+biB0byBUUEFDS0VUX1YzIGFuZCByZXEtPnRwX2Jsb2NrX25yIHRvIDENCjIuIHNldCB0cF9ibG9j
+a19uciB0byAwDQpUaGVuIHBnX3ZlYyB3YXMgZnJlZWQsIGFuZCB3ZSBkaWQgbm90IGRlbGV0ZSB0
+aGUgdGltZXI/DQoNCkJlc3QgUmVnYXJkcywNCmxpdWppYW4NCg0KDQo+IC0tLS0tT3JpZ2luYWwg
+TWVzc2FnZS0tLS0tDQo+IEZyb206IGxpdWppYW4gKENFKQ0KPiBTZW50OiBTdW5kYXksIEp1bHkg
+MjMsIDIwMTcgNTo0NyBQTQ0KPiBUbzogbGl1amlhbiAoQ0UpOyAnQ29uZyBXYW5nJzsgRGluZ3Rp
+YW5ob25nDQo+IENjOiAnV2lsbGVtIGRlIEJydWlqbic7ICdEYXZlIEpvbmVzJzsgJ2FsZXhhbmRl
+ci5sZXZpbkB2ZXJpem9uLmNvbSc7DQo+ICdkYXZlbUBkYXZlbWxvZnQubmV0JzsgJ2VkdW1hemV0
+QGdvb2dsZS5jb20nOyAnd2lsbGVtYkBnb29nbGUuY29tJzsNCj4gJ2RhbmllbEBpb2dlYXJib3gu
+bmV0JzsgJ25ldGRldkB2Z2VyLmtlcm5lbC5vcmcnOw0KPiAnbGludXgta2VybmVsQHZnZXIua2Vy
+bmVsLm9yZycNCj4gU3ViamVjdDogUkU6IGFmX3BhY2tldDogdXNlIGFmdGVyIGZyZWUgaW4gcHJi
+X3JldGlyZV9yeF9ibGtfdGltZXJfZXhwaXJlZA0KPiANCj4gSGksDQo+IA0KPiBEbyB3ZSBuZWVk
+IGRlbGV0ZSB0aGUgdjMgcmluZywgd2hlbiB0cF92ZXJzaW9uIGNoYW5nZWQgZnJvbSBUUEFDS0VU
+X1YzIHRvDQo+IFRQQUNLRVRfVjEgPw0KPiANCj4gDQo+IEJlc3QgUmVnYXJkcywNCj4gbGl1amlh
+bg0KPiANCj4gDQo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBsaXVq
+aWFuIChDRSkNCj4gPiBTZW50OiBTdW5kYXksIEp1bHkgMjMsIDIwMTcgNDoyMSBQTQ0KPiA+IFRv
+OiAnQ29uZyBXYW5nJzsgRGluZ3RpYW5ob25nDQo+ID4gQ2M6IFdpbGxlbSBkZSBCcnVpam47IERh
+dmUgSm9uZXM7IGFsZXhhbmRlci5sZXZpbkB2ZXJpem9uLmNvbTsNCj4gPiBkYXZlbUBkYXZlbWxv
+ZnQubmV0OyBlZHVtYXpldEBnb29nbGUuY29tOyB3aWxsZW1iQGdvb2dsZS5jb207DQo+ID4gZGFu
+aWVsQGlvZ2VhcmJveC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4gbGludXgta2Vy
+bmVsQHZnZXIua2VybmVsLm9yZw0KPiA+IFN1YmplY3Q6IFJFOiBhZl9wYWNrZXQ6IHVzZSBhZnRl
+ciBmcmVlIGluDQo+ID4gcHJiX3JldGlyZV9yeF9ibGtfdGltZXJfZXhwaXJlZA0KPiA+DQo+ID4g
+SGkgV2FuZyBDb25nLA0KPiA+DQo+ID4gV2l0aCB0aGlzIHBhdGNoICwgdGhlIHN5c3RlbSB3YXMg
+Y3Jhc2hlZCB3aGVuIHNldHNvY2tvcHQuDQo+ID4NCj4gPiBUaGUgY2FsbCB0cmFjZSBhcyBiZWxv
+dzoNCj4gPg0KPiA+IGNyYXNoPiBidA0KPiA+IFBJRDogMzA2OSAgIFRBU0s6IGZmZmY4ODAwYWZj
+YzAwMDAgIENQVTogMCAgIENPTU1BTkQ6ICJ0cmluaXR5LW1haW4iDQo+ID4gICMwIFtmZmZmODgw
+MWJlYzAzY2UwXSBtYWNoaW5lX2tleGVjIGF0IGZmZmZmZmZmODEwNTM1NGINCj4gPiAgIzEgW2Zm
+ZmY4ODAxYmVjMDNkNDBdIGNyYXNoX2tleGVjIGF0IGZmZmZmZmZmODEwZjdlODINCj4gPiAgIzIg
+W2ZmZmY4ODAxYmVjMDNlMTBdIHBhbmljIGF0IGZmZmZmZmZmODE2NTAwNTgNCj4gPiAgIzMgW2Zm
+ZmY4ODAxYmVjMDNlOTBdIHdhdGNoZG9nX3RpbWVyX2ZuIGF0IGZmZmZmZmZmODExMjI1MzMNCj4g
+PiAgIzQgW2ZmZmY4ODAxYmVjMDNlYzhdIF9faHJ0aW1lcl9ydW5fcXVldWVzIGF0IGZmZmZmZmZm
+ODEwYWJlYjINCj4gPiAgIzUgW2ZmZmY4ODAxYmVjMDNmMjBdIGhydGltZXJfaW50ZXJydXB0IGF0
+IGZmZmZmZmZmODEwYWM0NTANCj4gPiAgIzYgW2ZmZmY4ODAxYmVjMDNmNzBdIGxvY2FsX2FwaWNf
+dGltZXJfaW50ZXJydXB0IGF0IGZmZmZmZmZmODEwNGE0NTcNCj4gPiAgIzcgW2ZmZmY4ODAxYmVj
+MDNmODhdIHNtcF9hcGljX3RpbWVyX2ludGVycnVwdCBhdCBmZmZmZmZmZjgxNjZhZWQwDQo+ID4g
+ICM4IFtmZmZmODgwMWJlYzAzZmIwXSBhcGljX3RpbWVyX2ludGVycnVwdCBhdCBmZmZmZmZmZjgx
+NjY5MzFkDQo+ID4gLS0tIDxJUlEgc3RhY2s+IC0tLQ0KPiA+ICAjOSBbZmZmZjg4MDFiMzAxZmNi
+OF0gYXBpY190aW1lcl9pbnRlcnJ1cHQgYXQgZmZmZmZmZmY4MTY2OTMxZA0KPiA+ICAgICBbZXhj
+ZXB0aW9uIFJJUDogbG9ja190aW1lcl9iYXNlKzc3XQ0KPiA+ICAgICBSSVA6IGZmZmZmZmZmODEw
+OGRjZWQgIFJTUDogZmZmZjg4MDFiMzAxZmQ2MCAgUkZMQUdTOiAwMDAwMDI0Ng0KPiA+ICAgICBS
+QVg6IDAwMDAwMDAwMDAwMDAwMDAgIFJCWDogZmZmZjg4MDBhZmNjMDAwMCAgUkNYOg0KPiA+IDAw
+MDAwMDAwMDAwMDAwMDENCj4gPiAgICAgUkRYOiBmZmZmODgwMGFmY2MwMDAwICBSU0k6IGZmZmY4
+ODAxYjMwMWZkOTAgIFJESTogZmZmZjg4MDBiMGQ4NTNjOA0KPiA+ICAgICBSQlA6IGZmZmY4ODAx
+YjMwMWZkODAgICBSODogZmZmZjg4MDBhZmNjMDAwMCAgIFI5Og0KPiBmZmZmZWEwMDAyNjgwMDAw
+DQo+ID4gICAgIFIxMDogMDAwMDAwMDAwMDAwMDAzYyAgUjExOiBmZmZmODgwMWIzMDFmYjJlICBS
+MTI6DQo+IGZmZmY4ODAwYWZjYzAwMDANCj4gPiAgICAgUjEzOiBmZmZmODgwMGFmY2MwMDAwICBS
+MTQ6IDAwMDAwMDAwMDAwMDAwMDAgIFIxNToNCj4gZmZmZmZmZmY4M2QxYTM0MA0KPiA+ICAgICBP
+UklHX1JBWDogZmZmZmZmZmZmZmZmZmYxMCAgQ1M6IDAwMTAgIFNTOiAwMDE4DQo+ID4gIzEwIFtm
+ZmZmODgwMWIzMDFmZDg4XSB0cnlfdG9fZGVsX3RpbWVyX3N5bmMgYXQgZmZmZmZmZmY4MTA4ZjE5
+Zg0KPiA+ICMxMSBbZmZmZjg4MDFiMzAxZmRiOF0gZGVsX3RpbWVyX3N5bmMgYXQgZmZmZmZmZmY4
+MTA4ZjI1Mg0KPiA+ICMxMiBbZmZmZjg4MDFiMzAxZmRkMF0gcGFja2V0X3NldF9yaW5nIGF0IGZm
+ZmZmZmZmODE2MzVlNjANCj4gPiAjMTMgW2ZmZmY4ODAxYjMwMWZlOThdIHBhY2tldF9zZXRzb2Nr
+b3B0IGF0IGZmZmZmZmZmODE2MzY3NjANCj4gPiAjMTQgW2ZmZmY4ODAxYjMwMWZmMzhdIHN5c19z
+ZXRzb2Nrb3B0IGF0IGZmZmZmZmZmODE1MzE4NjANCj4gPiAjMTUgW2ZmZmY4ODAxYjMwMWZmODBd
+IHRyYWNlc3lzIGF0IGZmZmZmZmZmODE2Njg3ZWQgKHZpYSBzeXN0ZW1fY2FsbCkNCj4gPiAgICAg
+UklQOiAwMDAwN2ZjYzc4YjAzZTNhICBSU1A6IDAwMDA3ZmZmMTZmMjQ2YjggIFJGTEFHUzogMDAw
+MDAyMDINCj4gPiAgICAgUkFYOiBmZmZmZmZmZmZmZmZmZmRhICBSQlg6IGZmZmZmZmZmODE2Njg3
+ZWQgIFJDWDogZmZmZmZmZmZmZmZmZmZmZg0KPiA+ICAgICBSRFg6IDAwMDAwMDAwMDAwMDAwMDUg
+IFJTSTogMDAwMDAwMDAwMDAwMDEwNyAgUkRJOg0KPiA+IDAwMDAwMDAwMDAwMDAxODANCj4gPiAg
+ICAgUkJQOiAwMDAwMDAwMDAwMDAwMTgwICAgUjg6IDAwMDAwMDAwMDAwMDAwMWMgICBSOToNCj4g
+PiAwMDAwN2ZjYzc4ZGM3MTYwDQo+ID4gICAgIFIxMDogMDAwMDAwMDAwMWZkNmJhMCAgUjExOiAw
+MDAwMDAwMDAwMDAwMjAyICBSMTI6DQo+ID4gMDAwMDAwMDAwMDAwMDAwMA0KPiA+ICAgICBSMTM6
+IDAwMDAwMDAwMDAwMDAwMTEgIFIxNDogMDAwMDAwMDAwMWZkNmI2MCAgUjE1Og0KPiA+IDAwMDAw
+MDAwMDFmZDZiNzANCj4gPiAgICAgT1JJR19SQVg6IDAwMDAwMDAwMDAwMDAwMzYgIENTOiAwMDMz
+ICBTUzogMDAyYg0KPiA+DQo+ID4NCj4gPiBCZXN0IFJlZ2FyZHMsDQo+ID4gbGl1amlhbg0KPiA+
+DQo+ID4NCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiBGcm9tOiBDb25n
+IFdhbmcgW21haWx0bzp4aXlvdS53YW5nY29uZ0BnbWFpbC5jb21dDQo+ID4gPiBTZW50OiBTdW5k
+YXksIEp1bHkgMjMsIDIwMTcgMTo1OSBQTQ0KPiA+ID4gVG86IERpbmd0aWFuaG9uZw0KPiA+ID4g
+Q2M6IGxpdWppYW4gKENFKTsgV2lsbGVtIGRlIEJydWlqbjsgRGF2ZSBKb25lczsNCj4gPiA+IGFs
+ZXhhbmRlci5sZXZpbkB2ZXJpem9uLmNvbTsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gPiBlZHVt
+YXpldEBnb29nbGUuY29tOw0KPiA+ID4gd2lsbGVtYkBnb29nbGUuY29tOyBkYW5pZWxAaW9nZWFy
+Ym94Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gPiA+IGxpbnV4LWtlcm5lbEB2Z2Vy
+Lmtlcm5lbC5vcmcNCj4gPiA+IFN1YmplY3Q6IFJlOiBhZl9wYWNrZXQ6IHVzZSBhZnRlciBmcmVl
+IGluDQo+ID4gPiBwcmJfcmV0aXJlX3J4X2Jsa190aW1lcl9leHBpcmVkDQo+ID4gPg0KPiA+ID4g
+T24gU2F0LCBKdWwgMjIsIDIwMTcgYXQgODo0MCBQTSwgRGluZyBUaWFuaG9uZw0KPiA+ID4gPGRp
+bmd0aWFuaG9uZ0BodWF3ZWkuY29tPg0KPiA+ID4gd3JvdGU6DQo+ID4gPiA+IEhpLCBDb25nOg0K
+PiA+ID4gPg0KPiA+ID4gPiBUaGFua3MgZm9yIHlvdXIgcXVpcmsgc29sdXRpb24sIGJ1dCBJIHN0
+aWxsIGhhcyBzb21lIGRvdWJ0cyBhYm91dA0KPiA+ID4gPiBpdCwgaXQgbG9va3MgbGlrZSBmaXgg
+dGhlIHByb2JsZW0gaW4gdGhlDQo+ID4gPiA+IHBhY2tldF9zZXRzb2Nrb3B0LT5wYWNrZXRfc2V0
+X3JpbmcgcHJvY2Vzc2luZywgYnV0IHdoZW4gaW4NCj4gPiA+ID4gcGFja2V0X3JlbGVhc2UgcHJv
+Y2Vzc2luZywgaXQgbWF5IGNvdWxkIG5vdCByZWxlYXNlIHRoZSByZWFsDQo+ID4gPiA+IHBnX3Zl
+YyBmb3IgdGhlIFRQQUNLRVRfVjMgcmluZywgYW5kIHRoZW4gY2F1c2UgdGhlIG1lbSBsZWFrLCBt
+YXliZQ0KPiA+ID4gPiBJIG1pc3Mgc29tZXRoaW5nIGhlcmUsIG5pY2UgdG8gaGVhciBmcm9tIHlv
+dXIgZmVlZGJhY2suIDopDQo+ID4gPg0KPiA+ID4gWWVzIHlvdSBtaXNzIHRoYXQgcGFja2V0X3Jl
+bGVhc2UoKSBoYXMgbWVtc2V0KCkncyBzbyB3ZSB3b24ndCBoaXQNCj4gPiA+IHRoYXQgcGF0aC4g
+OikNCj4gPiA+DQo+ID4gPiBIb3dldmVyLCBJIG1pc3NlZCB0aGUgc3dhcCgpIGluIHRoaXMgbWVz
+c3kgZnVuY3Rpb24sIGFjdHVhbGx5IEkNCj4gPiA+IGJlbGlldmUgdGhlIGJ1ZyBpcyB0aGF0IHdl
+IG1vZGlmeSB0cGFja2V0X2tiZHFfY29yZSBpbnNpZGUgcnhfcmluZw0KPiA+ID4gaW4gbm9uLWNs
+b3NpbmcgY2FzZSB3aXRob3V0IGFjdHVhbGx5IHN0b3BwaW5nIGl0cyB0aW1lci4gSSBmZWVsIG1v
+cmUNCj4gPiA+IGNvbmZpZGVudA0KPiA+IHdpdGggdGhlIGZvbGxvd2luZyBwYXRjaDoNCj4gPiA+
+DQo+ID4gPg0KPiA+ID4gZGlmZiAtLWdpdCBhL25ldC9wYWNrZXQvYWZfcGFja2V0LmMgYi9uZXQv
+cGFja2V0L2FmX3BhY2tldC5jIGluZGV4DQo+ID4gPiAwMDhiYjM0ZWUzMjQuLjI2N2IxODFmZWYx
+NSAxMDA2NDQNCj4gPiA+IC0tLSBhL25ldC9wYWNrZXQvYWZfcGFja2V0LmMNCj4gPiA+ICsrKyBi
+L25ldC9wYWNrZXQvYWZfcGFja2V0LmMNCj4gPiA+IEBAIC00MjYzLDYgKzQyNjMsNyBAQCBzdGF0
+aWMgaW50IHBhY2tldF9zZXRfcmluZyhzdHJ1Y3Qgc29jayAqc2ssDQo+ID4gPiB1bmlvbiB0cGFj
+a2V0X3JlcV91ICpyZXFfdSwNCj4gPiA+ICAgICAgICAgICAgICAgICBjYXNlIFRQQUNLRVRfVjM6
+DQo+ID4gPiAgICAgICAgICAgICAgICAgICAgICAgICAvKiBCbG9jayB0cmFuc21pdCBpcyBub3Qg
+c3VwcG9ydGVkIHlldCAqLw0KPiA+ID4gICAgICAgICAgICAgICAgICAgICAgICAgaWYgKCF0eF9y
+aW5nKSB7DQo+ID4gPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHByYl9zaHV0ZG93
+bl9yZXRpcmVfYmxrX3RpbWVyKHBvLA0KPiA+ID4gKyByYl9xdWV1ZSk7DQo+ID4gPiAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgIGluaXRfcHJiX2JkcWMocG8sIHJiLCBwZ192ZWMsDQo+
+IHJlcV91KTsNCj4gPiA+ICAgICAgICAgICAgICAgICAgICAgICAgIH0gZWxzZSB7DQo+ID4gPiAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHN0cnVjdCB0cGFja2V0X3JlcTMgKnJlcTMg
+PQ0KPiA+ID4gJnJlcV91LT5yZXEzOw0K
