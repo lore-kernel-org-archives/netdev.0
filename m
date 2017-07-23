@@ -1,139 +1,187 @@
-From: "liujian (CE)" <liujian56@huawei.com>
-Subject: RE: af_packet: use after free in prb_retire_rx_blk_timer_expired
-Date: Sun, 23 Jul 2017 12:48:01 +0000
-Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018CB6E0@DGGEMA502-MBS.china.huawei.com>
-References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy>
- <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
- <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
- <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
- <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com>
- <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com>
- <CAM_iQpXdyNeeojLfh0ZPMy1LQwOoQZfV7Az2=Q5WALM00Za9SA@mail.gmail.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH V4 net-next 8/8] net: hns3: Add HNS3 driver to kernel
+ build framework & MAINTAINERS
+Date: Sun, 23 Jul 2017 16:12:09 +0300
+Message-ID: <20170723131209.GI3259@mtr-leonro.local>
+References: <20170722220942.78852-1-salil.mehta@huawei.com>
+ <20170722220942.78852-9-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Dave Jones <davej@codemonkey.org.uk>,
-        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "willemb@google.com" <willemb@google.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "liujian (CE)" <liujian56@huawei.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Dingtianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([45.249.212.187]:10252 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751641AbdGWNE1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 09:04:27 -0400
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="1fZJyN7nFm/tosmV"
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+        huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+        mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170722220942.78852-9-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-SGkgDQoNCkkgZmluZCBpdCBjYXVzZWQgYnkgYmVsb3cgc3RlcHM6DQoxLiBzZXQgdHBfdmVyc2lv
-biB0byBUUEFDS0VUX1YzIGFuZCByZXEtPnRwX2Jsb2NrX25yIHRvIDENCjIuIHNldCB0cF9ibG9j
-a19uciB0byAwDQpUaGVuIHBnX3ZlYyB3YXMgZnJlZWQsIGFuZCB3ZSBkaWQgbm90IGRlbGV0ZSB0
-aGUgdGltZXI/DQoNCkJlc3QgUmVnYXJkcywNCmxpdWppYW4NCg0KDQo+IC0tLS0tT3JpZ2luYWwg
-TWVzc2FnZS0tLS0tDQo+IEZyb206IGxpdWppYW4gKENFKQ0KPiBTZW50OiBTdW5kYXksIEp1bHkg
-MjMsIDIwMTcgNTo0NyBQTQ0KPiBUbzogbGl1amlhbiAoQ0UpOyAnQ29uZyBXYW5nJzsgRGluZ3Rp
-YW5ob25nDQo+IENjOiAnV2lsbGVtIGRlIEJydWlqbic7ICdEYXZlIEpvbmVzJzsgJ2FsZXhhbmRl
-ci5sZXZpbkB2ZXJpem9uLmNvbSc7DQo+ICdkYXZlbUBkYXZlbWxvZnQubmV0JzsgJ2VkdW1hemV0
-QGdvb2dsZS5jb20nOyAnd2lsbGVtYkBnb29nbGUuY29tJzsNCj4gJ2RhbmllbEBpb2dlYXJib3gu
-bmV0JzsgJ25ldGRldkB2Z2VyLmtlcm5lbC5vcmcnOw0KPiAnbGludXgta2VybmVsQHZnZXIua2Vy
-bmVsLm9yZycNCj4gU3ViamVjdDogUkU6IGFmX3BhY2tldDogdXNlIGFmdGVyIGZyZWUgaW4gcHJi
-X3JldGlyZV9yeF9ibGtfdGltZXJfZXhwaXJlZA0KPiANCj4gSGksDQo+IA0KPiBEbyB3ZSBuZWVk
-IGRlbGV0ZSB0aGUgdjMgcmluZywgd2hlbiB0cF92ZXJzaW9uIGNoYW5nZWQgZnJvbSBUUEFDS0VU
-X1YzIHRvDQo+IFRQQUNLRVRfVjEgPw0KPiANCj4gDQo+IEJlc3QgUmVnYXJkcywNCj4gbGl1amlh
-bg0KPiANCj4gDQo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBsaXVq
-aWFuIChDRSkNCj4gPiBTZW50OiBTdW5kYXksIEp1bHkgMjMsIDIwMTcgNDoyMSBQTQ0KPiA+IFRv
-OiAnQ29uZyBXYW5nJzsgRGluZ3RpYW5ob25nDQo+ID4gQ2M6IFdpbGxlbSBkZSBCcnVpam47IERh
-dmUgSm9uZXM7IGFsZXhhbmRlci5sZXZpbkB2ZXJpem9uLmNvbTsNCj4gPiBkYXZlbUBkYXZlbWxv
-ZnQubmV0OyBlZHVtYXpldEBnb29nbGUuY29tOyB3aWxsZW1iQGdvb2dsZS5jb207DQo+ID4gZGFu
-aWVsQGlvZ2VhcmJveC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4gbGludXgta2Vy
-bmVsQHZnZXIua2VybmVsLm9yZw0KPiA+IFN1YmplY3Q6IFJFOiBhZl9wYWNrZXQ6IHVzZSBhZnRl
-ciBmcmVlIGluDQo+ID4gcHJiX3JldGlyZV9yeF9ibGtfdGltZXJfZXhwaXJlZA0KPiA+DQo+ID4g
-SGkgV2FuZyBDb25nLA0KPiA+DQo+ID4gV2l0aCB0aGlzIHBhdGNoICwgdGhlIHN5c3RlbSB3YXMg
-Y3Jhc2hlZCB3aGVuIHNldHNvY2tvcHQuDQo+ID4NCj4gPiBUaGUgY2FsbCB0cmFjZSBhcyBiZWxv
-dzoNCj4gPg0KPiA+IGNyYXNoPiBidA0KPiA+IFBJRDogMzA2OSAgIFRBU0s6IGZmZmY4ODAwYWZj
-YzAwMDAgIENQVTogMCAgIENPTU1BTkQ6ICJ0cmluaXR5LW1haW4iDQo+ID4gICMwIFtmZmZmODgw
-MWJlYzAzY2UwXSBtYWNoaW5lX2tleGVjIGF0IGZmZmZmZmZmODEwNTM1NGINCj4gPiAgIzEgW2Zm
-ZmY4ODAxYmVjMDNkNDBdIGNyYXNoX2tleGVjIGF0IGZmZmZmZmZmODEwZjdlODINCj4gPiAgIzIg
-W2ZmZmY4ODAxYmVjMDNlMTBdIHBhbmljIGF0IGZmZmZmZmZmODE2NTAwNTgNCj4gPiAgIzMgW2Zm
-ZmY4ODAxYmVjMDNlOTBdIHdhdGNoZG9nX3RpbWVyX2ZuIGF0IGZmZmZmZmZmODExMjI1MzMNCj4g
-PiAgIzQgW2ZmZmY4ODAxYmVjMDNlYzhdIF9faHJ0aW1lcl9ydW5fcXVldWVzIGF0IGZmZmZmZmZm
-ODEwYWJlYjINCj4gPiAgIzUgW2ZmZmY4ODAxYmVjMDNmMjBdIGhydGltZXJfaW50ZXJydXB0IGF0
-IGZmZmZmZmZmODEwYWM0NTANCj4gPiAgIzYgW2ZmZmY4ODAxYmVjMDNmNzBdIGxvY2FsX2FwaWNf
-dGltZXJfaW50ZXJydXB0IGF0IGZmZmZmZmZmODEwNGE0NTcNCj4gPiAgIzcgW2ZmZmY4ODAxYmVj
-MDNmODhdIHNtcF9hcGljX3RpbWVyX2ludGVycnVwdCBhdCBmZmZmZmZmZjgxNjZhZWQwDQo+ID4g
-ICM4IFtmZmZmODgwMWJlYzAzZmIwXSBhcGljX3RpbWVyX2ludGVycnVwdCBhdCBmZmZmZmZmZjgx
-NjY5MzFkDQo+ID4gLS0tIDxJUlEgc3RhY2s+IC0tLQ0KPiA+ICAjOSBbZmZmZjg4MDFiMzAxZmNi
-OF0gYXBpY190aW1lcl9pbnRlcnJ1cHQgYXQgZmZmZmZmZmY4MTY2OTMxZA0KPiA+ICAgICBbZXhj
-ZXB0aW9uIFJJUDogbG9ja190aW1lcl9iYXNlKzc3XQ0KPiA+ICAgICBSSVA6IGZmZmZmZmZmODEw
-OGRjZWQgIFJTUDogZmZmZjg4MDFiMzAxZmQ2MCAgUkZMQUdTOiAwMDAwMDI0Ng0KPiA+ICAgICBS
-QVg6IDAwMDAwMDAwMDAwMDAwMDAgIFJCWDogZmZmZjg4MDBhZmNjMDAwMCAgUkNYOg0KPiA+IDAw
-MDAwMDAwMDAwMDAwMDENCj4gPiAgICAgUkRYOiBmZmZmODgwMGFmY2MwMDAwICBSU0k6IGZmZmY4
-ODAxYjMwMWZkOTAgIFJESTogZmZmZjg4MDBiMGQ4NTNjOA0KPiA+ICAgICBSQlA6IGZmZmY4ODAx
-YjMwMWZkODAgICBSODogZmZmZjg4MDBhZmNjMDAwMCAgIFI5Og0KPiBmZmZmZWEwMDAyNjgwMDAw
-DQo+ID4gICAgIFIxMDogMDAwMDAwMDAwMDAwMDAzYyAgUjExOiBmZmZmODgwMWIzMDFmYjJlICBS
-MTI6DQo+IGZmZmY4ODAwYWZjYzAwMDANCj4gPiAgICAgUjEzOiBmZmZmODgwMGFmY2MwMDAwICBS
-MTQ6IDAwMDAwMDAwMDAwMDAwMDAgIFIxNToNCj4gZmZmZmZmZmY4M2QxYTM0MA0KPiA+ICAgICBP
-UklHX1JBWDogZmZmZmZmZmZmZmZmZmYxMCAgQ1M6IDAwMTAgIFNTOiAwMDE4DQo+ID4gIzEwIFtm
-ZmZmODgwMWIzMDFmZDg4XSB0cnlfdG9fZGVsX3RpbWVyX3N5bmMgYXQgZmZmZmZmZmY4MTA4ZjE5
-Zg0KPiA+ICMxMSBbZmZmZjg4MDFiMzAxZmRiOF0gZGVsX3RpbWVyX3N5bmMgYXQgZmZmZmZmZmY4
-MTA4ZjI1Mg0KPiA+ICMxMiBbZmZmZjg4MDFiMzAxZmRkMF0gcGFja2V0X3NldF9yaW5nIGF0IGZm
-ZmZmZmZmODE2MzVlNjANCj4gPiAjMTMgW2ZmZmY4ODAxYjMwMWZlOThdIHBhY2tldF9zZXRzb2Nr
-b3B0IGF0IGZmZmZmZmZmODE2MzY3NjANCj4gPiAjMTQgW2ZmZmY4ODAxYjMwMWZmMzhdIHN5c19z
-ZXRzb2Nrb3B0IGF0IGZmZmZmZmZmODE1MzE4NjANCj4gPiAjMTUgW2ZmZmY4ODAxYjMwMWZmODBd
-IHRyYWNlc3lzIGF0IGZmZmZmZmZmODE2Njg3ZWQgKHZpYSBzeXN0ZW1fY2FsbCkNCj4gPiAgICAg
-UklQOiAwMDAwN2ZjYzc4YjAzZTNhICBSU1A6IDAwMDA3ZmZmMTZmMjQ2YjggIFJGTEFHUzogMDAw
-MDAyMDINCj4gPiAgICAgUkFYOiBmZmZmZmZmZmZmZmZmZmRhICBSQlg6IGZmZmZmZmZmODE2Njg3
-ZWQgIFJDWDogZmZmZmZmZmZmZmZmZmZmZg0KPiA+ICAgICBSRFg6IDAwMDAwMDAwMDAwMDAwMDUg
-IFJTSTogMDAwMDAwMDAwMDAwMDEwNyAgUkRJOg0KPiA+IDAwMDAwMDAwMDAwMDAxODANCj4gPiAg
-ICAgUkJQOiAwMDAwMDAwMDAwMDAwMTgwICAgUjg6IDAwMDAwMDAwMDAwMDAwMWMgICBSOToNCj4g
-PiAwMDAwN2ZjYzc4ZGM3MTYwDQo+ID4gICAgIFIxMDogMDAwMDAwMDAwMWZkNmJhMCAgUjExOiAw
-MDAwMDAwMDAwMDAwMjAyICBSMTI6DQo+ID4gMDAwMDAwMDAwMDAwMDAwMA0KPiA+ICAgICBSMTM6
-IDAwMDAwMDAwMDAwMDAwMTEgIFIxNDogMDAwMDAwMDAwMWZkNmI2MCAgUjE1Og0KPiA+IDAwMDAw
-MDAwMDFmZDZiNzANCj4gPiAgICAgT1JJR19SQVg6IDAwMDAwMDAwMDAwMDAwMzYgIENTOiAwMDMz
-ICBTUzogMDAyYg0KPiA+DQo+ID4NCj4gPiBCZXN0IFJlZ2FyZHMsDQo+ID4gbGl1amlhbg0KPiA+
-DQo+ID4NCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiBGcm9tOiBDb25n
-IFdhbmcgW21haWx0bzp4aXlvdS53YW5nY29uZ0BnbWFpbC5jb21dDQo+ID4gPiBTZW50OiBTdW5k
-YXksIEp1bHkgMjMsIDIwMTcgMTo1OSBQTQ0KPiA+ID4gVG86IERpbmd0aWFuaG9uZw0KPiA+ID4g
-Q2M6IGxpdWppYW4gKENFKTsgV2lsbGVtIGRlIEJydWlqbjsgRGF2ZSBKb25lczsNCj4gPiA+IGFs
-ZXhhbmRlci5sZXZpbkB2ZXJpem9uLmNvbTsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gPiBlZHVt
-YXpldEBnb29nbGUuY29tOw0KPiA+ID4gd2lsbGVtYkBnb29nbGUuY29tOyBkYW5pZWxAaW9nZWFy
-Ym94Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gPiA+IGxpbnV4LWtlcm5lbEB2Z2Vy
-Lmtlcm5lbC5vcmcNCj4gPiA+IFN1YmplY3Q6IFJlOiBhZl9wYWNrZXQ6IHVzZSBhZnRlciBmcmVl
-IGluDQo+ID4gPiBwcmJfcmV0aXJlX3J4X2Jsa190aW1lcl9leHBpcmVkDQo+ID4gPg0KPiA+ID4g
-T24gU2F0LCBKdWwgMjIsIDIwMTcgYXQgODo0MCBQTSwgRGluZyBUaWFuaG9uZw0KPiA+ID4gPGRp
-bmd0aWFuaG9uZ0BodWF3ZWkuY29tPg0KPiA+ID4gd3JvdGU6DQo+ID4gPiA+IEhpLCBDb25nOg0K
-PiA+ID4gPg0KPiA+ID4gPiBUaGFua3MgZm9yIHlvdXIgcXVpcmsgc29sdXRpb24sIGJ1dCBJIHN0
-aWxsIGhhcyBzb21lIGRvdWJ0cyBhYm91dA0KPiA+ID4gPiBpdCwgaXQgbG9va3MgbGlrZSBmaXgg
-dGhlIHByb2JsZW0gaW4gdGhlDQo+ID4gPiA+IHBhY2tldF9zZXRzb2Nrb3B0LT5wYWNrZXRfc2V0
-X3JpbmcgcHJvY2Vzc2luZywgYnV0IHdoZW4gaW4NCj4gPiA+ID4gcGFja2V0X3JlbGVhc2UgcHJv
-Y2Vzc2luZywgaXQgbWF5IGNvdWxkIG5vdCByZWxlYXNlIHRoZSByZWFsDQo+ID4gPiA+IHBnX3Zl
-YyBmb3IgdGhlIFRQQUNLRVRfVjMgcmluZywgYW5kIHRoZW4gY2F1c2UgdGhlIG1lbSBsZWFrLCBt
-YXliZQ0KPiA+ID4gPiBJIG1pc3Mgc29tZXRoaW5nIGhlcmUsIG5pY2UgdG8gaGVhciBmcm9tIHlv
-dXIgZmVlZGJhY2suIDopDQo+ID4gPg0KPiA+ID4gWWVzIHlvdSBtaXNzIHRoYXQgcGFja2V0X3Jl
-bGVhc2UoKSBoYXMgbWVtc2V0KCkncyBzbyB3ZSB3b24ndCBoaXQNCj4gPiA+IHRoYXQgcGF0aC4g
-OikNCj4gPiA+DQo+ID4gPiBIb3dldmVyLCBJIG1pc3NlZCB0aGUgc3dhcCgpIGluIHRoaXMgbWVz
-c3kgZnVuY3Rpb24sIGFjdHVhbGx5IEkNCj4gPiA+IGJlbGlldmUgdGhlIGJ1ZyBpcyB0aGF0IHdl
-IG1vZGlmeSB0cGFja2V0X2tiZHFfY29yZSBpbnNpZGUgcnhfcmluZw0KPiA+ID4gaW4gbm9uLWNs
-b3NpbmcgY2FzZSB3aXRob3V0IGFjdHVhbGx5IHN0b3BwaW5nIGl0cyB0aW1lci4gSSBmZWVsIG1v
-cmUNCj4gPiA+IGNvbmZpZGVudA0KPiA+IHdpdGggdGhlIGZvbGxvd2luZyBwYXRjaDoNCj4gPiA+
-DQo+ID4gPg0KPiA+ID4gZGlmZiAtLWdpdCBhL25ldC9wYWNrZXQvYWZfcGFja2V0LmMgYi9uZXQv
-cGFja2V0L2FmX3BhY2tldC5jIGluZGV4DQo+ID4gPiAwMDhiYjM0ZWUzMjQuLjI2N2IxODFmZWYx
-NSAxMDA2NDQNCj4gPiA+IC0tLSBhL25ldC9wYWNrZXQvYWZfcGFja2V0LmMNCj4gPiA+ICsrKyBi
-L25ldC9wYWNrZXQvYWZfcGFja2V0LmMNCj4gPiA+IEBAIC00MjYzLDYgKzQyNjMsNyBAQCBzdGF0
-aWMgaW50IHBhY2tldF9zZXRfcmluZyhzdHJ1Y3Qgc29jayAqc2ssDQo+ID4gPiB1bmlvbiB0cGFj
-a2V0X3JlcV91ICpyZXFfdSwNCj4gPiA+ICAgICAgICAgICAgICAgICBjYXNlIFRQQUNLRVRfVjM6
-DQo+ID4gPiAgICAgICAgICAgICAgICAgICAgICAgICAvKiBCbG9jayB0cmFuc21pdCBpcyBub3Qg
-c3VwcG9ydGVkIHlldCAqLw0KPiA+ID4gICAgICAgICAgICAgICAgICAgICAgICAgaWYgKCF0eF9y
-aW5nKSB7DQo+ID4gPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHByYl9zaHV0ZG93
-bl9yZXRpcmVfYmxrX3RpbWVyKHBvLA0KPiA+ID4gKyByYl9xdWV1ZSk7DQo+ID4gPiAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIGluaXRfcHJiX2JkcWMocG8sIHJiLCBwZ192ZWMsDQo+
-IHJlcV91KTsNCj4gPiA+ICAgICAgICAgICAgICAgICAgICAgICAgIH0gZWxzZSB7DQo+ID4gPiAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHN0cnVjdCB0cGFja2V0X3JlcTMgKnJlcTMg
-PQ0KPiA+ID4gJnJlcV91LT5yZXEzOw0K
+
+--1fZJyN7nFm/tosmV
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Sat, Jul 22, 2017 at 11:09:42PM +0100, Salil Mehta wrote:
+> This patch updates the MAINTAINERS file with HNS3 Ethernet driver
+> maintainers names and other details. This also introduces the new
+> Makefiles required to build the HNS3 Ethernet driver and updates
+> the existing Kconfig file in the hisilicon folder.
+>
+> Signed-off-by: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> ---
+> Patch V3: Addressed below errors:
+>  1. Intel kbuild: https://lkml.org/lkml/2017/6/14/313
+>  2. Intel Kbuild: https://lkml.org/lkml/2017/6/14/636
+> Patch V2: No change
+> Patch V1: Initial Submit
+> ---
+>  MAINTAINERS                                        |  8 +++++++
+>  drivers/net/ethernet/hisilicon/Kconfig             | 27 ++++++++++++++++++++++
+>  drivers/net/ethernet/hisilicon/Makefile            |  1 +
+>  drivers/net/ethernet/hisilicon/hns3/Makefile       |  7 ++++++
+>  .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    | 11 +++++++++
+>  5 files changed, 54 insertions(+)
+>  create mode 100644 drivers/net/ethernet/hisilicon/hns3/Makefile
+>  create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
+>
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 297e610c9163..a22d5b86c2b7 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -6197,6 +6197,14 @@ S:	Maintained
+>  F:	drivers/net/ethernet/hisilicon/
+>  F:	Documentation/devicetree/bindings/net/hisilicon*.txt
+>
+> +HISILICON NETWORK SUBSYSTEM 3 DRIVER (HNS3)
+> +M:	Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> +M:	Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> +L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> +W:	http://www.hisilicon.com
+> +S:	Maintained
+> +F:	drivers/net/ethernet/hisilicon/hns3/
+> +
+>  HISILICON ROCE DRIVER
+>  M:	Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>  M:	Wei Hu(Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
+> index d11287e11371..9f8ea283c531 100644
+> --- a/drivers/net/ethernet/hisilicon/Kconfig
+> +++ b/drivers/net/ethernet/hisilicon/Kconfig
+> @@ -76,4 +76,31 @@ config HNS_ENET
+>  	  This selects the general ethernet driver for HNS.  This module make
+>  	  use of any HNS AE driver, such as HNS_DSAF
+>
+> +config HNS3
+> +	tristate "Hisilicon Network Subsystem Support HNS3 (Framework)"
+> +    depends on PCI
+> +	---help---
+> +	  This selects the framework support for Hisilicon Network Subsystem 3.
+> +	  This layer facilitates clients like ENET, RoCE and user-space ethernet
+> +	  drivers(like ODP)to register with HNAE devices and their associated
+> +	  operations.
+> +
+> +config HNS3_HCLGE
+> +	tristate "Hisilicon HNS3 HCLGE Acceleration Engine & Compatibility Layer Support"
+> +    depends on PCI_MSI
+> +	select HNS3
+
+IMHO it should be "depends" and not "select".
+
+> +	---help---
+> +	  This selects the HNS3_HCLGE network acceleration engine & its hardware
+> +	  compatibility layer. The engine would be used in Hisilicon hip08 family of
+> +	  SoCs and further upcoming SoCs.
+> +
+> +config HNS3_ENET
+> +	tristate "Hisilicon HNS3 Ethernet Device Support"
+> +    depends on 64BIT && PCI
+> +	select HNS3
+
+Ditto
+
+> +	---help---
+> +	  This selects the Ethernet Driver for Hisilicon Network Subsystem 3 for hip08
+> +	  family of SoCs. This module depends upon HNAE3 driver to access the HNAE3
+> +	  devices and their associated operations.
+> +
+>  endif # NET_VENDOR_HISILICON
+> diff --git a/drivers/net/ethernet/hisilicon/Makefile b/drivers/net/ethernet/hisilicon/Makefile
+> index 8661695024dc..3828c435c18f 100644
+> --- a/drivers/net/ethernet/hisilicon/Makefile
+> +++ b/drivers/net/ethernet/hisilicon/Makefile
+> @@ -6,4 +6,5 @@ obj-$(CONFIG_HIX5HD2_GMAC) += hix5hd2_gmac.o
+>  obj-$(CONFIG_HIP04_ETH) += hip04_eth.o
+>  obj-$(CONFIG_HNS_MDIO) += hns_mdio.o
+>  obj-$(CONFIG_HNS) += hns/
+> +obj-$(CONFIG_HNS3) += hns3/
+>  obj-$(CONFIG_HISI_FEMAC) += hisi_femac.o
+> diff --git a/drivers/net/ethernet/hisilicon/hns3/Makefile b/drivers/net/ethernet/hisilicon/hns3/Makefile
+> new file mode 100644
+> index 000000000000..5e53735b2d4e
+> --- /dev/null
+> +++ b/drivers/net/ethernet/hisilicon/hns3/Makefile
+> @@ -0,0 +1,7 @@
+> +#
+> +# Makefile for the HISILICON network device drivers.
+> +#
+> +
+> +obj-$(CONFIG_HNS3) += hns3pf/
+> +
+> +obj-$(CONFIG_HNS3) +=hnae3.o
+
+There is a missing space after "+="
+
+> diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile b/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
+> new file mode 100644
+> index 000000000000..c0a92b5690a9
+> --- /dev/null
+> +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
+> @@ -0,0 +1,11 @@
+> +#
+> +# Makefile for the HISILICON network device drivers.
+> +#
+> +
+> +ccflags-y := -Idrivers/net/ethernet/hisilicon/hns3
+> +
+> +obj-$(CONFIG_HNS3_HCLGE) += hclge.o
+> +hclge-objs =hclge_main.o hclge_cmd.o hclge_mdio.o hclge_tm.o
+
+Missing space.
+
+> +
+> +obj-$(CONFIG_HNS3_ENET) += hns3.o
+> +hns3-objs = hns3_enet.o hns3_ethtool.o
+> --
+> 2.11.0
+>
+>
+
+--1fZJyN7nFm/tosmV
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAll0oKgACgkQ5GN7iDZy
+WKfxkxAAzH47Z1PwposFaXzW2mJad6BompBsoc6HgLJoqH0XkoLgIoCQjElsN46M
+IAl0aK2zrBTjMk+o/98dadHFIuqAHCJnaoiLeQmybxxdCe/bpicI+lgldrIKYST2
+EFjydk5TJ0at1XMFM05o1T0hRUu7noSDdxASQhSCYI7Oj4yo9bisMERPc1Qlcyh5
+C+6k2jO+8BKQNwQuGdf9cK5ALLpljzvu+xyJklRul6k3S2w451dxh/zSW6Ei98QH
+pCAp4RHeo0cQt0+MqE3KxtQ4R1N27kcYhID42qjYsXx71OE0C7dREnNfuKRheeR9
+hJv4U55ZBBIXMWz+Zbr5q4Ol7y80oXC2e2VvdF81iCoOBJNwfP3Nb9eWU+1fe3q5
+dXgKUL1B7+aeLgP8zdfmXO2mf4qUjEUjaQ6QWlkKn2oN/0yQFVnWPTbPv24wczV2
+Vhi6s723raGXTI5D1ggPU2NFVsvYQuXHYnvhqk6bssCiJhEwuMG0Xg6yCbm4Izfu
+sA5z3opYaa5u9dhs+YzfqXORDoy8+CLqfXeFyS6VTKB8KIc6I6PAeODx49PgrvA4
+sFDK5MEaP60/hAaQKH13goHuFvGZDW2IdCcSPbji4dsTbXQaXqD+NjNMw8dJBd9K
+YPXOuc3XZ5rTOicKa2Y81AiHBzMTS+9lVNCraYothTDpWPBdyIY=
+=4BJv
+-----END PGP SIGNATURE-----
+
+--1fZJyN7nFm/tosmV--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
