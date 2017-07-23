@@ -1,79 +1,56 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH 000/102] Convert drivers to explicit reset API
-Date: Sun, 23 Jul 2017 20:41:48 +0200
-Message-ID: <CACRpkdaXOv7mX+b-q1K34CB5w0SWPXCKa21wHaxL7qjf91PJXQ@mail.gmail.com>
-References: <20170719152646.25903-1-p.zabel@pengutronix.de>
- <20170719211515.46a1196c@windsurf> <1500543415.2354.37.camel@pengutronix.de>
- <20170720123640.43c2ce01@windsurf> <1500555312.2354.75.camel@pengutronix.de> <CAKdAkRTx8jd8UToz5_EgMmdW3V47i2uo++YvVB_yzytqSA=P1Q@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH] of_mdio: kill useless variable in of_phy_register_fixed_link()
+Date: Sun, 23 Jul 2017 21:45:47 +0300
+Message-ID: <20170723184612.321910595@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Philipp Zabel <p.zabel@pengutronix.de>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        lkml <linux-kernel@vger.kernel.org>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Prashant Gaikwad <pgaikwad@nvidia.com>,
-        Heiko Stuebner <heiko@sntech.de>,
-        Peter Chen <Peter.Chen@nxp.com>,
-        DRI <dri-devel@lists.freedesktop.org>,
-        Marc Dietrich <marvin24@gmx.de>,
-        Rakesh Iyer <riyer@nvidia.com>,
-        Peter Meerwald-Stadler <pmeerw@pmeerw.net>,
-        linux-clk <linux-clk@vger.kernel.org>,
-        Wim Van Sebroeck <wim@iguana.be>,
-        Wolfram Sang <wsa@the-dreams.de>,
-        Xinliang Liu <z.liuxinliang@hisilicon.com>,
-        Chanwoo Choi <cw00.choi@samsung.com>,
-        Alan Stern <stern@rowland.harvard.edu>,
-        Jiri Slaby <jslaby@suse.com>,
-        Michael Turquette <mturquette@baylibre.com>,
-        Guenter Roeck <linux@r
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <CAKdAkRTx8jd8UToz5_EgMmdW3V47i2uo++YvVB_yzytqSA=P1Q@mail.gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Content-Type: text/plain; charset=ISO-8859-15
+Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline; filename=of_mdio-kill-useless-variable-in-of_phy_register_fixed_link.patch
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 20, 2017 at 10:46 PM, Dmitry Torokhov
-<dmitry.torokhov@gmail.com> wrote:
-> On Thu, Jul 20, 2017 at 5:55 AM, Philipp Zabel <p.zabel@pengutronix.de> wrote:
+of_phy_register_fixed_link() declares the 'err' variable to hold the result
+of of_property_read_string() but only uses it once after that, while that
+function can be called directly from the *if* statement...
 
->>> What about reset_control_get(struct device *, const char *, int flags)
->>> to replace all those variants ?
->>
->> While I like how this looks, unfortunately (devm_)reset_control_get
->> already exists without the flags, so we can't change to that with a
->> gentle transition.
->
-> This was done for gpiod_get() and its flags argument with horrifying
-> #define-ry, which thankfully was completely hidden from users.
+Remove that variable and move/regroup 'link_gpio' and 'len' variables in
+order to sort the declarations in the reverse Xmas tree order -- to please
+DaveM. ;-)
 
-For your reference:
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
 
-commit bae48da237fcedd7ad09569025483b988635efb7
-"gpiolib: add gpiod_get() and gpiod_put() functions"
+---
+ drivers/of/of_mdio.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-commit 39b2bbe3d715cf5013b5c48695ccdd25bd3bf120
-"gpio: add flags argument to gpiod_get*() functions"
+Index: linux/drivers/of/of_mdio.c
+===================================================================
+--- linux.orig/drivers/of/of_mdio.c
++++ linux/drivers/of/of_mdio.c
+@@ -422,13 +422,11 @@ int of_phy_register_fixed_link(struct de
+ 	struct fixed_phy_status status = {};
+ 	struct device_node *fixed_link_node;
+ 	const __be32 *fixed_link_prop;
+-	int link_gpio;
+-	int len, err;
+ 	struct phy_device *phy;
+ 	const char *managed;
++	int link_gpio, len;
+ 
+-	err = of_property_read_string(np, "managed", &managed);
+-	if (err == 0) {
++	if (of_property_read_string(np, "managed", &managed) == 0) {
+ 		if (strcmp(managed, "in-band-status") == 0) {
+ 			/* status is zeroed, namely its .link member */
+ 			phy = fixed_phy_register(PHY_POLL, &status, -1, np);
 
-commit 0dbc8b7afef6e4fddcfebcbacbeb269a0a3b06d5
-"gpio: move varargs hack outside #ifdef GPIOLIB"
-
-commit b17d1bf16cc72a374a48d748940f700009d40ff4
-"gpio: make flags mandatory for gpiod_get functions"
-
-Retrospectively ... was that really a good idea... it was a LOT
-of trouble to add a flag, maybe it had been better to try and
-just slam all users in a single go.
-
-But it worked.
-
-Yours,
-Linus Walleij
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
