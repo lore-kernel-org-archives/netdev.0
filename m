@@ -1,57 +1,42 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: af_packet: use after free in prb_retire_rx_blk_timer_expired
-Date: Sat, 22 Jul 2017 22:59:08 -0700
-Message-ID: <CAM_iQpXdyNeeojLfh0ZPMy1LQwOoQZfV7Az2=Q5WALM00Za9SA@mail.gmail.com>
-References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy> <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
- <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
- <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
- <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com> <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH V3 net-next 5/8] net: hns3: Add support of TX Scheduler &
+ Shaper to HNS3 driver
+Date: Sun, 23 Jul 2017 08:13:32 +0200
+Message-ID: <20170723061332.wiubsmavqemcglmt@localhost.localdomain>
+References: <20170617172431.177044-1-salil.mehta@huawei.com>
+ <20170617172431.177044-6-salil.mehta@huawei.com>
+ <20170618164518.GA1685@localhost.localdomain>
+ <F4CC6FACFEB3C54C9141D49AD221F7F93B81CCAF@FRAEML521-MBX.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "liujian (CE)" <liujian56@huawei.com>,
-        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Dave Jones <davej@codemonkey.org.uk>,
-        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "willemb@google.com" <willemb@google.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: Salil Mehta <salil.mehta@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com>
+Content-Disposition: inline
+In-Reply-To: <F4CC6FACFEB3C54C9141D49AD221F7F93B81CCAF@FRAEML521-MBX.china.huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 22, 2017 at 8:40 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
-> Hi, Cong:
->
-> Thanks for your quirk solution, but I still has some doubts about it,
-> it looks like fix the problem in the packet_setsockopt->packet_set_ring processing,
-> but when in packet_release processing, it may could not release the
-> real pg_vec for the TPACKET_V3 ring, and then cause the mem leak,
-> maybe I miss something here, nice to hear from your feedback. :)
+On Sat, Jul 22, 2017 at 11:38:26PM +0000, Salil Mehta wrote:
+> > On Sat, Jun 17, 2017 at 06:24:28PM +0100, Salil Mehta wrote:
+> > > +
+> > > +int hclge_tm_schd_init(struct hclge_dev *hdev);
+> > > +int hclge_tm_setup_tc(struct hclge_dev *hdev);
+> > 
+> > The definition of this function DNE.
+> Sorry, I did not get what DNE means? Does Not Exist ?
+> If yes, the I can see the definition of both the functions.
 
-Yes you miss that packet_release() has memset()'s so we won't hit
-that path. :)
+Where in this series is hclge_tm_setup_tc() defined?
 
-However, I missed the swap() in this messy function, actually I
-believe the bug is that we modify tpacket_kbdq_core inside rx_ring
-in non-closing case without actually stopping its timer. I feel
-more confident with the following patch:
+Nowhere, AFAICT.
 
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 008bb34ee324..267b181fef15 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -4263,6 +4263,7 @@ static int packet_set_ring(struct sock *sk,
-union tpacket_req_u *req_u,
-                case TPACKET_V3:
-                        /* Block transmit is not supported yet */
-                        if (!tx_ring) {
-+                               prb_shutdown_retire_blk_timer(po, rb_queue);
-                                init_prb_bdqc(po, rb, pg_vec, req_u);
-                        } else {
-                                struct tpacket_req3 *req3 = &req_u->req3;
+Thanks,
+Richard
