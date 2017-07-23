@@ -1,119 +1,52 @@
-From: "liujian (CE)" <liujian56@huawei.com>
-Subject: RE: af_packet: use after free in prb_retire_rx_blk_timer_expired
-Date: Sun, 23 Jul 2017 09:47:20 +0000
-Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018CB6A9@DGGEMA502-MBS.china.huawei.com>
-References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy>
- <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
- <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
- <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
- <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com>
- <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com>
- <CAM_iQpXdyNeeojLfh0ZPMy1LQwOoQZfV7Az2=Q5WALM00Za9SA@mail.gmail.com>
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Subject: Re: [PATCH V2 net-next 12/21] net-next/hinic: Add qp resources
+Date: Sun, 23 Jul 2017 13:07:29 +0300
+Message-ID: <c3ca84a0-2e38-bd80-f513-45db5e6ae92b@huawei.com>
+References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
+ <493b105a36b5ddcf3570ed165aedfb4d6517ee6e.1500454998.git.aviad.krawczyk@huawei.com>
+ <20170719.161316.2138496537830668352.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Dave Jones <davej@codemonkey.org.uk>,
-        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "willemb@google.com" <willemb@google.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "liujian (CE)" <liujian56@huawei.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Dingtianhong <dingtianhong@huawei.com>
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
+        <zhaochen6@huawei.com>, <tony.qu@huawei.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: zh-CN
+In-Reply-To: <20170719.161316.2138496537830668352.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGksIA0KDQpEbyB3ZSBuZWVkIGRlbGV0ZSB0aGUgdjMgcmluZywgd2hlbiB0cF92ZXJzaW9uIGNo
-YW5nZWQgZnJvbSBUUEFDS0VUX1YzIHRvIFRQQUNLRVRfVjEgPw0KDQoNCkJlc3QgUmVnYXJkcywN
-CmxpdWppYW4NCg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IGxpdWpp
-YW4gKENFKQ0KPiBTZW50OiBTdW5kYXksIEp1bHkgMjMsIDIwMTcgNDoyMSBQTQ0KPiBUbzogJ0Nv
-bmcgV2FuZyc7IERpbmd0aWFuaG9uZw0KPiBDYzogV2lsbGVtIGRlIEJydWlqbjsgRGF2ZSBKb25l
-czsgYWxleGFuZGVyLmxldmluQHZlcml6b24uY29tOw0KPiBkYXZlbUBkYXZlbWxvZnQubmV0OyBl
-ZHVtYXpldEBnb29nbGUuY29tOyB3aWxsZW1iQGdvb2dsZS5jb207DQo+IGRhbmllbEBpb2dlYXJi
-b3gubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwu
-b3JnDQo+IFN1YmplY3Q6IFJFOiBhZl9wYWNrZXQ6IHVzZSBhZnRlciBmcmVlIGluIHByYl9yZXRp
-cmVfcnhfYmxrX3RpbWVyX2V4cGlyZWQNCj4gDQo+IEhpIFdhbmcgQ29uZywNCj4gDQo+IFdpdGgg
-dGhpcyBwYXRjaCAsIHRoZSBzeXN0ZW0gd2FzIGNyYXNoZWQgd2hlbiBzZXRzb2Nrb3B0Lg0KPiAN
-Cj4gVGhlIGNhbGwgdHJhY2UgYXMgYmVsb3c6DQo+IA0KPiBjcmFzaD4gYnQNCj4gUElEOiAzMDY5
-ICAgVEFTSzogZmZmZjg4MDBhZmNjMDAwMCAgQ1BVOiAwICAgQ09NTUFORDogInRyaW5pdHktbWFp
-biINCj4gICMwIFtmZmZmODgwMWJlYzAzY2UwXSBtYWNoaW5lX2tleGVjIGF0IGZmZmZmZmZmODEw
-NTM1NGINCj4gICMxIFtmZmZmODgwMWJlYzAzZDQwXSBjcmFzaF9rZXhlYyBhdCBmZmZmZmZmZjgx
-MGY3ZTgyDQo+ICAjMiBbZmZmZjg4MDFiZWMwM2UxMF0gcGFuaWMgYXQgZmZmZmZmZmY4MTY1MDA1
-OA0KPiAgIzMgW2ZmZmY4ODAxYmVjMDNlOTBdIHdhdGNoZG9nX3RpbWVyX2ZuIGF0IGZmZmZmZmZm
-ODExMjI1MzMNCj4gICM0IFtmZmZmODgwMWJlYzAzZWM4XSBfX2hydGltZXJfcnVuX3F1ZXVlcyBh
-dCBmZmZmZmZmZjgxMGFiZWIyDQo+ICAjNSBbZmZmZjg4MDFiZWMwM2YyMF0gaHJ0aW1lcl9pbnRl
-cnJ1cHQgYXQgZmZmZmZmZmY4MTBhYzQ1MA0KPiAgIzYgW2ZmZmY4ODAxYmVjMDNmNzBdIGxvY2Fs
-X2FwaWNfdGltZXJfaW50ZXJydXB0IGF0IGZmZmZmZmZmODEwNGE0NTcNCj4gICM3IFtmZmZmODgw
-MWJlYzAzZjg4XSBzbXBfYXBpY190aW1lcl9pbnRlcnJ1cHQgYXQgZmZmZmZmZmY4MTY2YWVkMA0K
-PiAgIzggW2ZmZmY4ODAxYmVjMDNmYjBdIGFwaWNfdGltZXJfaW50ZXJydXB0IGF0IGZmZmZmZmZm
-ODE2NjkzMWQNCj4gLS0tIDxJUlEgc3RhY2s+IC0tLQ0KPiAgIzkgW2ZmZmY4ODAxYjMwMWZjYjhd
-IGFwaWNfdGltZXJfaW50ZXJydXB0IGF0IGZmZmZmZmZmODE2NjkzMWQNCj4gICAgIFtleGNlcHRp
-b24gUklQOiBsb2NrX3RpbWVyX2Jhc2UrNzddDQo+ICAgICBSSVA6IGZmZmZmZmZmODEwOGRjZWQg
-IFJTUDogZmZmZjg4MDFiMzAxZmQ2MCAgUkZMQUdTOiAwMDAwMDI0Ng0KPiAgICAgUkFYOiAwMDAw
-MDAwMDAwMDAwMDAwICBSQlg6IGZmZmY4ODAwYWZjYzAwMDAgIFJDWDoNCj4gMDAwMDAwMDAwMDAw
-MDAwMQ0KPiAgICAgUkRYOiBmZmZmODgwMGFmY2MwMDAwICBSU0k6IGZmZmY4ODAxYjMwMWZkOTAg
-IFJESTogZmZmZjg4MDBiMGQ4NTNjOA0KPiAgICAgUkJQOiBmZmZmODgwMWIzMDFmZDgwICAgUjg6
-IGZmZmY4ODAwYWZjYzAwMDAgICBSOTogZmZmZmVhMDAwMjY4MDAwMA0KPiAgICAgUjEwOiAwMDAw
-MDAwMDAwMDAwMDNjICBSMTE6IGZmZmY4ODAxYjMwMWZiMmUgIFIxMjogZmZmZjg4MDBhZmNjMDAw
-MA0KPiAgICAgUjEzOiBmZmZmODgwMGFmY2MwMDAwICBSMTQ6IDAwMDAwMDAwMDAwMDAwMDAgIFIx
-NTogZmZmZmZmZmY4M2QxYTM0MA0KPiAgICAgT1JJR19SQVg6IGZmZmZmZmZmZmZmZmZmMTAgIENT
-OiAwMDEwICBTUzogMDAxOA0KPiAjMTAgW2ZmZmY4ODAxYjMwMWZkODhdIHRyeV90b19kZWxfdGlt
-ZXJfc3luYyBhdCBmZmZmZmZmZjgxMDhmMTlmDQo+ICMxMSBbZmZmZjg4MDFiMzAxZmRiOF0gZGVs
-X3RpbWVyX3N5bmMgYXQgZmZmZmZmZmY4MTA4ZjI1Mg0KPiAjMTIgW2ZmZmY4ODAxYjMwMWZkZDBd
-IHBhY2tldF9zZXRfcmluZyBhdCBmZmZmZmZmZjgxNjM1ZTYwDQo+ICMxMyBbZmZmZjg4MDFiMzAx
-ZmU5OF0gcGFja2V0X3NldHNvY2tvcHQgYXQgZmZmZmZmZmY4MTYzNjc2MA0KPiAjMTQgW2ZmZmY4
-ODAxYjMwMWZmMzhdIHN5c19zZXRzb2Nrb3B0IGF0IGZmZmZmZmZmODE1MzE4NjANCj4gIzE1IFtm
-ZmZmODgwMWIzMDFmZjgwXSB0cmFjZXN5cyBhdCBmZmZmZmZmZjgxNjY4N2VkICh2aWEgc3lzdGVt
-X2NhbGwpDQo+ICAgICBSSVA6IDAwMDA3ZmNjNzhiMDNlM2EgIFJTUDogMDAwMDdmZmYxNmYyNDZi
-OCAgUkZMQUdTOiAwMDAwMDIwMg0KPiAgICAgUkFYOiBmZmZmZmZmZmZmZmZmZmRhICBSQlg6IGZm
-ZmZmZmZmODE2Njg3ZWQgIFJDWDogZmZmZmZmZmZmZmZmZmZmZg0KPiAgICAgUkRYOiAwMDAwMDAw
-MDAwMDAwMDA1ICBSU0k6IDAwMDAwMDAwMDAwMDAxMDcgIFJESToNCj4gMDAwMDAwMDAwMDAwMDE4
-MA0KPiAgICAgUkJQOiAwMDAwMDAwMDAwMDAwMTgwICAgUjg6IDAwMDAwMDAwMDAwMDAwMWMgICBS
-OToNCj4gMDAwMDdmY2M3OGRjNzE2MA0KPiAgICAgUjEwOiAwMDAwMDAwMDAxZmQ2YmEwICBSMTE6
-IDAwMDAwMDAwMDAwMDAyMDIgIFIxMjoNCj4gMDAwMDAwMDAwMDAwMDAwMA0KPiAgICAgUjEzOiAw
-MDAwMDAwMDAwMDAwMDExICBSMTQ6IDAwMDAwMDAwMDFmZDZiNjAgIFIxNToNCj4gMDAwMDAwMDAw
-MWZkNmI3MA0KPiAgICAgT1JJR19SQVg6IDAwMDAwMDAwMDAwMDAwMzYgIENTOiAwMDMzICBTUzog
-MDAyYg0KPiANCj4gDQo+IEJlc3QgUmVnYXJkcywNCj4gbGl1amlhbg0KPiANCj4gDQo+ID4gLS0t
-LS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBDb25nIFdhbmcgW21haWx0bzp4aXlv
-dS53YW5nY29uZ0BnbWFpbC5jb21dDQo+ID4gU2VudDogU3VuZGF5LCBKdWx5IDIzLCAyMDE3IDE6
-NTkgUE0NCj4gPiBUbzogRGluZ3RpYW5ob25nDQo+ID4gQ2M6IGxpdWppYW4gKENFKTsgV2lsbGVt
-IGRlIEJydWlqbjsgRGF2ZSBKb25lczsNCj4gPiBhbGV4YW5kZXIubGV2aW5AdmVyaXpvbi5jb207
-IGRhdmVtQGRhdmVtbG9mdC5uZXQ7DQo+IGVkdW1hemV0QGdvb2dsZS5jb207DQo+ID4gd2lsbGVt
-YkBnb29nbGUuY29tOyBkYW5pZWxAaW9nZWFyYm94Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9y
-ZzsNCj4gPiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+ID4gU3ViamVjdDogUmU6IGFm
-X3BhY2tldDogdXNlIGFmdGVyIGZyZWUgaW4NCj4gPiBwcmJfcmV0aXJlX3J4X2Jsa190aW1lcl9l
-eHBpcmVkDQo+ID4NCj4gPiBPbiBTYXQsIEp1bCAyMiwgMjAxNyBhdCA4OjQwIFBNLCBEaW5nIFRp
-YW5ob25nDQo+ID4gPGRpbmd0aWFuaG9uZ0BodWF3ZWkuY29tPg0KPiA+IHdyb3RlOg0KPiA+ID4g
-SGksIENvbmc6DQo+ID4gPg0KPiA+ID4gVGhhbmtzIGZvciB5b3VyIHF1aXJrIHNvbHV0aW9uLCBi
-dXQgSSBzdGlsbCBoYXMgc29tZSBkb3VidHMgYWJvdXQNCj4gPiA+IGl0LCBpdCBsb29rcyBsaWtl
-IGZpeCB0aGUgcHJvYmxlbSBpbiB0aGUNCj4gPiA+IHBhY2tldF9zZXRzb2Nrb3B0LT5wYWNrZXRf
-c2V0X3JpbmcgcHJvY2Vzc2luZywgYnV0IHdoZW4gaW4NCj4gPiA+IHBhY2tldF9yZWxlYXNlIHBy
-b2Nlc3NpbmcsIGl0IG1heSBjb3VsZCBub3QgcmVsZWFzZSB0aGUgcmVhbCBwZ192ZWMNCj4gPiA+
-IGZvciB0aGUgVFBBQ0tFVF9WMyByaW5nLCBhbmQgdGhlbiBjYXVzZSB0aGUgbWVtIGxlYWssIG1h
-eWJlIEkgbWlzcw0KPiA+ID4gc29tZXRoaW5nIGhlcmUsIG5pY2UgdG8gaGVhciBmcm9tIHlvdXIg
-ZmVlZGJhY2suIDopDQo+ID4NCj4gPiBZZXMgeW91IG1pc3MgdGhhdCBwYWNrZXRfcmVsZWFzZSgp
-IGhhcyBtZW1zZXQoKSdzIHNvIHdlIHdvbid0IGhpdCB0aGF0DQo+ID4gcGF0aC4gOikNCj4gPg0K
-PiA+IEhvd2V2ZXIsIEkgbWlzc2VkIHRoZSBzd2FwKCkgaW4gdGhpcyBtZXNzeSBmdW5jdGlvbiwg
-YWN0dWFsbHkgSQ0KPiA+IGJlbGlldmUgdGhlIGJ1ZyBpcyB0aGF0IHdlIG1vZGlmeSB0cGFja2V0
-X2tiZHFfY29yZSBpbnNpZGUgcnhfcmluZyBpbg0KPiA+IG5vbi1jbG9zaW5nIGNhc2Ugd2l0aG91
-dCBhY3R1YWxseSBzdG9wcGluZyBpdHMgdGltZXIuIEkgZmVlbCBtb3JlIGNvbmZpZGVudA0KPiB3
-aXRoIHRoZSBmb2xsb3dpbmcgcGF0Y2g6DQo+ID4NCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9uZXQv
-cGFja2V0L2FmX3BhY2tldC5jIGIvbmV0L3BhY2tldC9hZl9wYWNrZXQuYyBpbmRleA0KPiA+IDAw
-OGJiMzRlZTMyNC4uMjY3YjE4MWZlZjE1IDEwMDY0NA0KPiA+IC0tLSBhL25ldC9wYWNrZXQvYWZf
-cGFja2V0LmMNCj4gPiArKysgYi9uZXQvcGFja2V0L2FmX3BhY2tldC5jDQo+ID4gQEAgLTQyNjMs
-NiArNDI2Myw3IEBAIHN0YXRpYyBpbnQgcGFja2V0X3NldF9yaW5nKHN0cnVjdCBzb2NrICpzaywN
-Cj4gPiB1bmlvbiB0cGFja2V0X3JlcV91ICpyZXFfdSwNCj4gPiAgICAgICAgICAgICAgICAgY2Fz
-ZSBUUEFDS0VUX1YzOg0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgIC8qIEJsb2NrIHRyYW5z
-bWl0IGlzIG5vdCBzdXBwb3J0ZWQgeWV0ICovDQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAg
-aWYgKCF0eF9yaW5nKSB7DQo+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBwcmJf
-c2h1dGRvd25fcmV0aXJlX2Jsa190aW1lcihwbywNCj4gPiArIHJiX3F1ZXVlKTsNCj4gPiAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgIGluaXRfcHJiX2JkcWMocG8sIHJiLCBwZ192ZWMs
-IHJlcV91KTsNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICB9IGVsc2Ugew0KPiA+ICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgc3RydWN0IHRwYWNrZXRfcmVxMyAqcmVxMyA9DQo+
-ID4gJnJlcV91LT5yZXEzOw0K
+Hi David,
+
+Strange that checkpatch.pl --strict didn't warn about it.
+We will fix it.
+
+Thanks for review,
+Aviad
+
+On 7/20/2017 2:13 AM, David Miller wrote:
+> From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+> Date: Wed, 19 Jul 2017 17:19:10 +0800
+> 
+>> diff --git a/drivers/net/ethernet/huawei/hinic/Makefile b/drivers/net/ethernet/huawei/hinic/Makefile
+>> index 519382b..24728f0 100644
+>> --- a/drivers/net/ethernet/huawei/hinic/Makefile
+>> +++ b/drivers/net/ethernet/huawei/hinic/Makefile
+>> @@ -1,5 +1,5 @@
+>>  obj-$(CONFIG_HINIC) += hinic.o
+>>  
+>>  hinic-y := hinic_main.o hinic_tx.o hinic_rx.o hinic_port.o hinic_hw_dev.o \
+>> -	   hinic_hw_io.o hinic_hw_wq.o hinic_hw_mgmt.o hinic_hw_api_cmd.o \
+>> -	   hinic_hw_eqs.o hinic_hw_if.o
+>> \ No newline at end of file
+>> +	   hinic_hw_io.o hinic_hw_qp.o hinic_hw_wq.o hinic_hw_mgmt.o \
+>> +	   hinic_hw_api_cmd.o hinic_hw_eqs.o hinic_hw_if.o
+>> \ No newline at end of file
+> 
+> Please add the missing newline to the end of this Makefile so that these patches
+> don't keep emitting this message.
+> 
+> .
+> 
