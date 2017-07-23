@@ -1,59 +1,62 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH-next] liquidio: fix implicit irq include causing build failures
-Date: Sun, 23 Jul 2017 10:44:52 -0400
-Message-ID: <20170723144452.16556-1-paul.gortmaker@windriver.com>
+From: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH-next] net: ethernet: mediatek: fix implicit irq include
+ causing build fails
+Date: Sun, 23 Jul 2017 10:56:13 -0400
+Message-ID: <20170723145613.14007-1-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: <linux-next@vger.kernel.org>,
-        Paul Gortmaker <paul.gortmaker@windriver.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.windriver.com ([192.103.53.11]:43218 "EHLO mail5.wrs.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751403AbdGWOpH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 23 Jul 2017 10:45:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
+ Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>, linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-To fix
+To fix:
 
-In file included from drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.c:24:0:
-drivers/net/ethernet/cavium/liquidio/octeon_device.h:216:2: error: expected specifier-qualifier-list before ‘irqreturn_t’
-  irqreturn_t (*process_interrupt_regs)(void *);
-  ^
+drivers/net/ethernet/mediatek/mtk_eth_soc.c:1685:1: error: unknown type name 'irqreturn_t'
+drivers/net/ethernet/mediatek/mtk_eth_soc.c: In function 'mtk_handle_irq_rx':
+drivers/net/ethernet/mediatek/mtk_eth_soc.c:1694:9: error: 'IRQ_HANDLED' undeclared (first use in this function)
+drivers/net/ethernet/mediatek/mtk_eth_soc.c:1694:9: note: each undeclared identifier is reported only once for each function it appears in
 
-as seen on arm64 allmodconfig builds.
+and similar follow-on errors as seen in arm allmodconfig builds.
 
-Cc: Derek Chickles <derek.chickles@caviumnetworks.com>
-Cc: Satanand Burla <satananda.burla@caviumnetworks.com>
-Cc: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-Cc: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Cc: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Cc: Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
 ---
 
 [Seen on current linux-next, where similar implicit irq includes
  were recently revealed by some header shuffle somewhere.]
 
- drivers/net/ethernet/cavium/liquidio/octeon_device.h | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index c90ed48ae8ab..ad464788c923 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -22,6 +22,8 @@
- #ifndef _OCTEON_DEVICE_H_
- #define  _OCTEON_DEVICE_H_
- 
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 7e95cf547ff1..ea15eb095d83 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -16,6 +16,7 @@
+ #include <linux/of_mdio.h>
+ #include <linux/of_net.h>
+ #include <linux/mfd/syscon.h>
 +#include <linux/interrupt.h>
-+
- /** PCI VendorId Device Id */
- #define  OCTEON_CN68XX_PCIID          0x91177d
- #define  OCTEON_CN66XX_PCIID          0x92177d
+ #include <linux/regmap.h>
+ #include <linux/clk.h>
+ #include <linux/pm_runtime.h>
 -- 
 2.11.0
