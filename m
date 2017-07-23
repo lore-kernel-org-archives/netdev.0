@@ -1,331 +1,46 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V4 net-next 6/8] net: hns3: Add MDIO support to HNS3
- Ethernet driver for hip08 SoC
-Date: Sun, 23 Jul 2017 09:53:51 -0700
-Message-ID: <24043b65-27d3-13b9-1a25-8692ea9467af@gmail.com>
-References: <20170722220942.78852-1-salil.mehta@huawei.com>
- <20170722220942.78852-7-salil.mehta@huawei.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net] openvswitch: fix potential out of bound access in parse_ct
+Date: Sun, 23 Jul 2017 09:58:00 -0700
+Message-ID: <CAOrHB_AcMimVYEEwKdn_3w-R72SUg1fQFk9r18KkDagMKG6w-A@mail.gmail.com>
+References: <1500803543-7297-1-git-send-email-zlpnobody@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
-        lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170722220942.78852-7-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Pravin Shelar <pshelar@nicira.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Liping Zhang <zlpnobody@gmail.com>
+To: Liping Zhang <zlpnobody@163.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:34130 "EHLO
+        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751440AbdGWQ6E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 12:58:04 -0400
+Received: from mfilter10-d.gandi.net (mfilter10-d.gandi.net [217.70.178.139])
+        by relay3-d.mail.gandi.net (Postfix) with ESMTP id 5946AA80C2
+        for <netdev@vger.kernel.org>; Sun, 23 Jul 2017 18:58:03 +0200 (CEST)
+Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
+        by mfilter10-d.gandi.net (mfilter10-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id dyAfkHh5ESJv for <netdev@vger.kernel.org>;
+        Sun, 23 Jul 2017 18:58:02 +0200 (CEST)
+Received: from mail-wr0-f174.google.com (mail-wr0-f174.google.com [209.85.128.174])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 0A162A80CF
+        for <netdev@vger.kernel.org>; Sun, 23 Jul 2017 18:58:01 +0200 (CEST)
+Received: by mail-wr0-f174.google.com with SMTP id k71so44428587wrc.2
+        for <netdev@vger.kernel.org>; Sun, 23 Jul 2017 09:58:01 -0700 (PDT)
+In-Reply-To: <1500803543-7297-1-git-send-email-zlpnobody@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, Jul 23, 2017 at 2:52 AM, Liping Zhang <zlpnobody@163.com> wrote:
+> From: Liping Zhang <zlpnobody@gmail.com>
+>
+> Before the 'type' is validated, we shouldn't use it to fetch the
+> ovs_ct_attr_lens's minlen and maxlen, else, out of bound access
+> may happen.
+>
+> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+> Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 
-
-On 07/22/2017 03:09 PM, Salil Mehta wrote:
-> This patch adds the support of MDIO bus interface for HNS3 driver.
-> Code provides various interfaces to start and stop the PHY layer
-> and to read and write the MDIO bus or PHY.
-> 
-> Signed-off-by: Daode Huang <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-> Signed-off-by: lipeng <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> ---
-> Patch V4: Addressed following comments:
->  1. Andrew Lunn:
->     https://lkml.org/lkml/2017/6/17/208
-> Patch V3: Addressed Below comments:
->  1. Florian Fainelli:
->     https://lkml.org/lkml/2017/6/13/963
->  2. Andrew Lunn:
->     https://lkml.org/lkml/2017/6/13/1039
-> Patch V2: Addressed below comments:
->  1. Florian Fainelli:
->     https://lkml.org/lkml/2017/6/10/130
->  2. Andrew Lunn:
->     https://lkml.org/lkml/2017/6/10/168
-> Patch V1: Initial Submit
-> ---
->  .../ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c    | 230 +++++++++++++++++++++
->  1 file changed, 230 insertions(+)
->  create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
-> 
-> diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
-> new file mode 100644
-> index 000000000000..6036a97f7de5
-> --- /dev/null
-> +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_mdio.c
-> @@ -0,0 +1,230 @@
-> +/*
-> + * Copyright (c) 2016~2017 Hisilicon Limited.
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License as published by
-> + * the Free Software Foundation; either version 2 of the License, or
-> + * (at your option) any later version.
-> + */
-> +
-> +#include <linux/etherdevice.h>
-> +#include <linux/kernel.h>
-> +
-> +#include "hclge_cmd.h"
-> +#include "hclge_main.h"
-> +
-> +enum hclge_mdio_c22_op_seq {
-> +	HCLGE_MDIO_C22_WRITE = 1,
-> +	HCLGE_MDIO_C22_READ = 2
-> +};
-> +
-> +#define HCLGE_MDIO_CTRL_START_B		0
-> +#define HCLGE_MDIO_CTRL_ST_S		1
-> +#define HCLGE_MDIO_CTRL_ST_M		(0x3 << HCLGE_MDIO_CTRL_ST_S)
-> +#define HCLGE_MDIO_CTRL_OP_S		3
-> +#define HCLGE_MDIO_CTRL_OP_M		(0x3 << HCLGE_MDIO_CTRL_OP_S)
-> +
-> +#define HCLGE_MDIO_PHYID_S		0
-> +#define HCLGE_MDIO_PHYID_M		(0x1f << HCLGE_MDIO_PHYID_S)
-> +
-> +#define HCLGE_MDIO_PHYREG_S		0
-> +#define HCLGE_MDIO_PHYREG_M		(0x1f << HCLGE_MDIO_PHYREG_S)
-> +
-> +#define HCLGE_MDIO_STA_B		0
-> +
-> +struct hclge_mdio_cfg_cmd {
-> +	u8 ctrl_bit;
-> +	u8 phyid;
-> +	u8 phyad;
-> +	u8 rsvd;
-> +	__le16 reserve;
-> +	__le16 data_wr;
-> +	__le16 data_rd;
-> +	__le16 sta;
-> +};
-> +
-> +static int hclge_mdio_write(struct mii_bus *bus, int phyid, int regnum,
-> +			    u16 data)
-> +{
-> +	struct hclge_dev *hdev = (struct hclge_dev *)bus->priv;
-
-Cast is not needed here since bus->priv is already a void *.
-
-> +	struct hclge_mdio_cfg_cmd *mdio_cmd;
-> +	enum hclge_cmd_status status;
-> +	struct hclge_desc desc;
-> +
-> +	if (!bus)
-> +		return -EINVAL;
-
-How can this be possible?
-
-> +
-> +	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_MDIO_CONFIG, false);
-> +
-> +	mdio_cmd = (struct hclge_mdio_cfg_cmd *)desc.data;
-
-Same here, can we not cast this into a struct hclge_mdio_cfg_cmd?
-
-> +
-> +	hnae_set_field(mdio_cmd->phyid, HCLGE_MDIO_PHYID_M,
-> +		       HCLGE_MDIO_PHYID_S, phyid);
-> +	hnae_set_field(mdio_cmd->phyad, HCLGE_MDIO_PHYREG_M,
-> +		       HCLGE_MDIO_PHYREG_S, regnum);
-> +
-> +	hnae_set_bit(mdio_cmd->ctrl_bit, HCLGE_MDIO_CTRL_START_B, 1);
-> +	hnae_set_field(mdio_cmd->ctrl_bit, HCLGE_MDIO_CTRL_ST_M,
-> +		       HCLGE_MDIO_CTRL_ST_S, 1);
-> +	hnae_set_field(mdio_cmd->ctrl_bit, HCLGE_MDIO_CTRL_OP_M,
-> +		       HCLGE_MDIO_CTRL_OP_S, HCLGE_MDIO_C22_WRITE);
-> +
-> +	mdio_cmd->data_wr = cpu_to_le16(data);
-> +
-> +	status = hclge_cmd_send(&hdev->hw, &desc, 1);
-> +	if (status) {
-> +		dev_err(&hdev->pdev->dev,
-> +			"mdio write fail when sending cmd, status is %d.\n",
-> +			status);
-> +		return -EIO;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int hclge_mdio_read(struct mii_bus *bus, int phyid, int regnum)
-> +{
-> +	struct hclge_dev *hdev = (struct hclge_dev *)bus->priv;
-
-Same here.
-
-> +	struct hclge_mdio_cfg_cmd *mdio_cmd;
-> +	enum hclge_cmd_status status;
-> +	struct hclge_desc desc;
-> +
-> +	if (!bus)
-> +		return -EINVAL;
-
-And here.
-
-> +
-> +	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_MDIO_CONFIG, true);
-> +
-> +	mdio_cmd = (struct hclge_mdio_cfg_cmd *)desc.data;
-
-And here.
-
-> +
-> +	hnae_set_field(mdio_cmd->phyid, HCLGE_MDIO_PHYID_M,
-> +		       HCLGE_MDIO_PHYID_S, phyid);
-> +	hnae_set_field(mdio_cmd->phyad, HCLGE_MDIO_PHYREG_M,
-> +		       HCLGE_MDIO_PHYREG_S, regnum);
-> +
-> +	hnae_set_bit(mdio_cmd->ctrl_bit, HCLGE_MDIO_CTRL_START_B, 1);
-> +	hnae_set_field(mdio_cmd->ctrl_bit, HCLGE_MDIO_CTRL_ST_M,
-> +		       HCLGE_MDIO_CTRL_ST_S, 1);
-> +	hnae_set_field(mdio_cmd->ctrl_bit, HCLGE_MDIO_CTRL_OP_M,
-> +		       HCLGE_MDIO_CTRL_OP_S, HCLGE_MDIO_C22_READ);
-> +
-> +	/* Read out phy data */
-> +	status = hclge_cmd_send(&hdev->hw, &desc, 1);
-> +	if (status) {
-> +		dev_err(&hdev->pdev->dev,
-> +			"mdio read fail when get data, status is %d.\n",
-> +			status);
-> +		return status;
-> +	}
-> +
-> +	if (hnae_get_bit(le16_to_cpu(mdio_cmd->sta), HCLGE_MDIO_STA_B)) {
-> +		dev_err(&hdev->pdev->dev, "mdio read data error\n");
-> +		return -EIO;
-> +	}
-> +
-> +	return le16_to_cpu(mdio_cmd->data_rd);
-> +}
-> +
-> +int hclge_mac_mdio_config(struct hclge_dev *hdev)
-> +{
-> +	struct hclge_mac *mac = &hdev->hw.mac;
-> +	struct phy_device *phydev;
-> +	struct mii_bus *mdio_bus;
-> +	int ret;
-> +
-> +	if (hdev->hw.mac.phy_addr >= PHY_MAX_ADDR)
-> +		return 0;
-
-Should not this be treated as a hard error instead?
-
-> +
-> +	mdio_bus = devm_mdiobus_alloc(&hdev->pdev->dev);
-> +	if (!mdio_bus)
-> +		return -ENOMEM;
-> +
-> +	mdio_bus->name = "hisilicon MII bus";
-> +	mdio_bus->read = hclge_mdio_read;
-> +	mdio_bus->write = hclge_mdio_write;
-> +	snprintf(mdio_bus->id, MII_BUS_ID_SIZE, "%s-%s", "mii",
-> +		 dev_name(&hdev->pdev->dev));
-> +
-> +	mdio_bus->parent = &hdev->pdev->dev;
-> +	mdio_bus->priv = hdev;
-> +	mdio_bus->phy_mask = ~(1 << mac->phy_addr);
-> +	ret = mdiobus_register(mdio_bus);
-> +	if (ret) {
-> +		dev_err(mdio_bus->parent,
-> +			"Failed to register MDIO bus ret = %#x\n", ret);
-> +		return ret;
-> +	}
-> +
-> +	phydev = mdiobus_get_phy(mdio_bus, mac->phy_addr);
-> +	if (!phydev || IS_ERR(phydev)) {
-> +		dev_err(mdio_bus->parent, "Failed to get phy device\n");
-> +		mdiobus_unregister(mdio_bus);
-> +		return -EIO;
-> +	}
-> +
-> +	mac->phydev = phydev;
-> +	mac->mdio_bus = mdio_bus;
-> +
-> +	return 0;
-> +}
-> +
-> +static void hclge_mac_adjust_link(struct net_device *netdev)
-> +{
-> +	struct hclge_mac *hw_mac;
-> +	struct hclge_dev *hdev;
-> +	struct hclge_hw *hw;
-> +	int duplex;
-> +	int speed;
-> +
-> +	if (!netdev)
-> +		return;
-
-This should not happen, don't let your drivers register unless the
-net_device object is fully set up.
-
-> +
-> +	hw_mac = container_of(netdev, struct hclge_mac, netdev);
-> +	hw = container_of(hw_mac, struct hclge_hw, mac);
-> +	hdev = hw->back;
-> +
-> +	speed = netdev->phydev->speed;
-> +	duplex = netdev->phydev->duplex;
-> +
-> +	/* update antoneg. */
-> +	hw_mac->autoneg = netdev->phydev->autoneg;
-> +
-> +	if ((hw_mac->speed != speed) || (hw_mac->duplex != duplex))
-> +		(void)hclge_cfg_mac_speed_dup(hdev, speed, !!duplex);
-> +}
-> +
-> +int hclge_mac_start_phy(struct hclge_dev *hdev)
-> +{
-> +	struct hclge_mac *mac = &hdev->hw.mac;
-> +	struct net_device *netdev = &mac->netdev;
-> +	struct phy_device *phydev = mac->phydev;
-> +	int ret;
-> +
-> +	if (!phydev)
-> +		return 0;
-
-Same thing here, this should not happen.
-
-> +
-> +	phydev->dev_flags = 0;
-
-This is the default.
-
-> +
-> +	ret = phy_connect_direct(netdev, phydev,
-> +				 hclge_mac_adjust_link,
-> +				 PHY_INTERFACE_MODE_SGMII);
-> +	if (ret) {
-> +		pr_info("phy_connect_direct err");
-> +		return ret;
-> +	}
-> +
-> +	phy_start(phydev);
-> +
-> +	return 0;
-> +}
-> +
-> +void hclge_mac_stop_phy(struct hclge_dev *hdev)
-> +{
-> +	struct hclge_mac *mac = &hdev->hw.mac;
-> +	struct net_device *netdev = &mac->netdev;
-> +	struct phy_device *phydev = netdev->phydev;
-> +
-> +	if (!phydev)
-> +		return;
-
-You should be symmetrical here, if you could phy_connect() + phy_start()
-then you should call phy_stop() + phy_disconnect().
-
-> +
-> +	phy_disconnect(phydev);
-> +}
-> 
-
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Good catch!
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
