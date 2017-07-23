@@ -1,85 +1,68 @@
-From: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH-next] net: ethernet: mediatek: fix implicit irq include
- causing build fails
-Date: Sun, 23 Jul 2017 11:43:53 -0400
-Message-ID: <20170723154353.GT28014@windriver.com>
-References: <20170723145613.14007-1-paul.gortmaker@windriver.com>
- <faa87d84-936f-8f09-0653-933ee6cccabc@phrozen.org>
+From: Dr Paul Benk <biuobenk@gmail.com>
+Subject: Greetings'''''
+Date: Sun, 23 Jul 2017 16:51:51 +0000
+Message-ID: <CAOzfzzzegPN07pHu2rpADBtEy7LXHRjjGK6rA_-V849_6KbJFg@mail.gmail.com>
+Reply-To: paulbenkbi@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-To: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <faa87d84-936f-8f09-0653-933ee6cccabc-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f193.google.com ([209.85.217.193]:37325 "EHLO
+        mail-ua0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751367AbdGWQvz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 12:51:55 -0400
+Received: by mail-ua0-f193.google.com with SMTP id 80so7781812uas.4
+        for <netdev@vger.kernel.org>; Sun, 23 Jul 2017 09:51:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Re: [PATCH-next] net: ethernet: mediatek: fix implicit irq include causing build fails] On 23/07/2017 (Sun 17:16) John Crispin wrote:
+Greetings!
 
-> Hi Paul
-> 
-> mark sent the same patch a couple of days ago [1]
+I have a proposal for you, this however is not mandatory nor will I in
+any manner compel you to honor against your will. I am Dr.Paul Benk a
+former executive director with Arab Tunisian Bank here in Tunis; I
+retired 1 year 7 months ago after putting in 28 years of meticulous
+service. During my days with Arab Tunisian Bank, I was the personal
+account officer and one of the financial advisers to Zine Al-Abidine
+Ben Ali the past Tunisian President in self exile at Saudi Arabia.
+During his trying period, he instructed me to move all his investment
+in my care which consists of US$115M and 767KG of gold out of the Gulf
+States for safe keeping; and that I successfully did by moving US$50
+Million to Madrid Spain, US$50 Million to Dubai United Arab Emirate,
+US$15 Million to Burkina Faso and the 767KG of gold to Burkina Faso in
+West Africa as an anonymous deposits, so that the funds will in no way
+be traced to him. He has instructed me to find an investor who would
+stand as the anonymous depositor of the fund and gold; and claim it
+for further investment.
 
-OK, thanks --  I searched for mediatek in my mail and scanned netdev
-patchworks for patches in "New" state but didn't see it because it is
-apparently already in "In review" state.
+Consequent upon the above, my proposal is that I would like you as a
+foreigner to stand in as the anonymous depositor of this fund and gold
+that I have successfully moved outside the country and provide an
+account overseas where this said fund will be transferred into. It is
+a careful network and my voluntary retirement from the Arab Tunisian
+Bank is to ensure a hitch-free operation as all modalities for you to
+stand as beneficiary and owner of the deposits has been perfected by
+me. Mr. Zine al-Abidine Ben Ali will be offering you 20% of the total
+investment if you can be the investor and claim this deposits in Spain
+and Burkina Faso as the anonymous depositor.
 
-Paul.
---
+Now my questions are:-
 
-> 
->     John
-> 
-> [1] https://patchwork.ozlabs.org/patch/791550/
-> 
-> 
-> On 23/07/17 16:56, Paul Gortmaker wrote:
-> >To fix:
-> >
-> >drivers/net/ethernet/mediatek/mtk_eth_soc.c:1685:1: error: unknown type name 'irqreturn_t'
-> >drivers/net/ethernet/mediatek/mtk_eth_soc.c: In function 'mtk_handle_irq_rx':
-> >drivers/net/ethernet/mediatek/mtk_eth_soc.c:1694:9: error: 'IRQ_HANDLED' undeclared (first use in this function)
-> >drivers/net/ethernet/mediatek/mtk_eth_soc.c:1694:9: note: each undeclared identifier is reported only once for each function it appears in
-> >
-> >and similar follow-on errors as seen in arm allmodconfig builds.
-> >
-> >Cc: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-> >Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-> >Cc: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-> >Cc: Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >Cc: linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> >Signed-off-by: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
-> >---
-> >
-> >[Seen on current linux-next, where similar implicit irq includes
-> >  were recently revealed by some header shuffle somewhere.]
-> >
-> >  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> >
-> >diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> >index 7e95cf547ff1..ea15eb095d83 100644
-> >--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> >+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> >@@ -16,6 +16,7 @@
-> >  #include <linux/of_mdio.h>
-> >  #include <linux/of_net.h>
-> >  #include <linux/mfd/syscon.h>
-> >+#include <linux/interrupt.h>
-> >  #include <linux/regmap.h>
-> >  #include <linux/clk.h>
-> >  #include <linux/pm_runtime.h>
-> 
+1. Can you handle this transaction?
+2. Can I give you this trust?
+
+Consider this and get back to me as soon as possible on my private
+email Only here: paulbenkbi@gmail.com, so that I can give you more
+details regarding this transaction. Finally, it is my humble request
+that the information as contained herein be accorded the necessary
+attention, urgency as well as the secrecy it deserves.
+
+I expect your urgent response if you can handle this project.
+
+Respectfully yours,
+
+From:Dr.Paul Benk.
+Email: paulbenkbi@gmail.com
+
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
