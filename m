@@ -1,7 +1,7 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 09/11] sctp: remove the typedef sctp_heartbeathdr_t
-Date: Sun, 23 Jul 2017 09:34:34 +0800
-Message-ID: <5de5ee9134309f0111da5edd768faf7aaff1c9fc.1500773578.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 10/11] sctp: remove the typedef sctp_heartbeat_chunk_t
+Date: Sun, 23 Jul 2017 09:34:35 +0800
+Message-ID: <cff8b94db487caa09014f0de9e94e28a13a9e43d.1500773578.git.lucien.xin@gmail.com>
 References: <cover.1500773578.git.lucien.xin@gmail.com>
  <daa1cc9a380f5a1eb37b3d30fd64942d310fe81d.1500773578.git.lucien.xin@gmail.com>
  <78a33af4a9d7ef7116637943dbd0ae1403d20114.1500773578.git.lucien.xin@gmail.com>
@@ -11,63 +11,61 @@ References: <cover.1500773578.git.lucien.xin@gmail.com>
  <94b6f03745317ab5c57639f2155a5e1503b4dfb3.1500773578.git.lucien.xin@gmail.com>
  <734295f5625300a5328c19e255dfbbf7d393e48f.1500773578.git.lucien.xin@gmail.com>
  <b38e31f3ac26b5aa2f8a6522b002846a03a70118.1500773578.git.lucien.xin@gmail.com>
+ <5de5ee9134309f0111da5edd768faf7aaff1c9fc.1500773578.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35461 "EHLO
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34050 "EHLO
         mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755288AbdGWBf5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 21:35:57 -0400
-In-Reply-To: <b38e31f3ac26b5aa2f8a6522b002846a03a70118.1500773578.git.lucien.xin@gmail.com>
+        with ESMTP id S1755288AbdGWBgF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2017 21:36:05 -0400
+In-Reply-To: <5de5ee9134309f0111da5edd768faf7aaff1c9fc.1500773578.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1500773578.git.lucien.xin@gmail.com>
 References: <cover.1500773578.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to remove the typedef sctp_heartbeathdr_t, and
-replace with struct sctp_heartbeathdr in the places where it's
+This patch is to remove the typedef sctp_heartbeat_chunk_t, and
+replace with struct sctp_heartbeat_chunk in the places where it's
 using this typedef.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/linux/sctp.h    | 6 +++---
- net/sctp/sm_statefuns.c | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ include/linux/sctp.h    | 4 ++--
+ net/sctp/sm_statefuns.c | 3 ++-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-index 48f6560..6e26b86 100644
+index 6e26b86..bfda7c6 100644
 --- a/include/linux/sctp.h
 +++ b/include/linux/sctp.h
-@@ -394,13 +394,13 @@ struct sctp_sack_chunk {
-  *  the present association.
-  */
- 
--typedef struct sctp_heartbeathdr {
-+struct sctp_heartbeathdr {
+@@ -398,10 +398,10 @@ struct sctp_heartbeathdr {
  	struct sctp_paramhdr info;
--} sctp_heartbeathdr_t;
+ };
+ 
+-typedef struct sctp_heartbeat_chunk {
++struct sctp_heartbeat_chunk {
+ 	struct sctp_chunkhdr chunk_hdr;
+ 	struct sctp_heartbeathdr hb_hdr;
+-} sctp_heartbeat_chunk_t;
 +};
  
- typedef struct sctp_heartbeat_chunk {
- 	struct sctp_chunkhdr chunk_hdr;
--	sctp_heartbeathdr_t hb_hdr;
-+	struct sctp_heartbeathdr hb_hdr;
- } sctp_heartbeat_chunk_t;
  
- 
+ /* For the abort and shutdown ACK we must carry the init tag in the
 diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 08ebe8c..32ac90b 100644
+index 32ac90b..7bbee08 100644
 --- a/net/sctp/sm_statefuns.c
 +++ b/net/sctp/sm_statefuns.c
-@@ -1096,7 +1096,7 @@ sctp_disposition_t sctp_sf_beat_8_3(struct net *net,
- 	 * respond with a HEARTBEAT ACK that contains the Heartbeat
- 	 * Information field copied from the received HEARTBEAT chunk.
- 	 */
--	chunk->subh.hb_hdr = (sctp_heartbeathdr_t *)chunk->skb->data;
-+	chunk->subh.hb_hdr = (struct sctp_heartbeathdr *)chunk->skb->data;
- 	param_hdr = (struct sctp_paramhdr *)chunk->subh.hb_hdr;
- 	paylen = ntohs(chunk->chunk_hdr->length) - sizeof(struct sctp_chunkhdr);
+@@ -1088,7 +1088,8 @@ sctp_disposition_t sctp_sf_beat_8_3(struct net *net,
+ 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
+ 
+ 	/* Make sure that the HEARTBEAT chunk has a valid length. */
+-	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_heartbeat_chunk_t)))
++	if (!sctp_chunk_length_valid(chunk,
++				     sizeof(struct sctp_heartbeat_chunk)))
+ 		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
+ 						  commands);
  
 -- 
 2.1.0
