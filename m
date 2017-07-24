@@ -1,49 +1,45 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 17/18] arm64: dts: marvell: 7040-db: enable the SFP port
-Date: Mon, 24 Jul 2017 15:48:47 +0200
-Message-ID: <20170724134848.19330-18-antoine.tenart@free-electrons.com>
-References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com, sebastian.hesselbarth@gmail.com
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: After a while of system running no incoming UDP any more?
+Date: Mon, 24 Jul 2017 16:19:10 +0200
+Message-ID: <1500905950.2458.6.camel@redhat.com>
+References: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: Marc Haber <mh+netdev@zugschlus.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:47366 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755890AbdGXNuJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 09:50:09 -0400
-In-Reply-To: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49454 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932079AbdGXOTM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Jul 2017 10:19:12 -0400
+In-Reply-To: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables the SFP port on the Armada 7040 DB as this port
-is now supported by the PPv2 driver (since the PHY is now optional).
+Hi,
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
+On Mon, 2017-07-24 at 14:09 +0200, Marc Haber wrote:
+> Before I begin running older kernels on productive systems, I would like
+> to ask wether there have been recent changes in the 4.11 => 4.12
+> development cycle that might cause an issue like that.
 
-@Dave: Hi! This patch should go through the mvebu tree. Thanks!
+While there has been some activity regarding the UDP protocol lately,
+almost nothing touched UDP in the 4.11 release cycle.
 
- arch/arm64/boot/dts/marvell/armada-7040-db.dts | 5 +++++
- 1 file changed, 5 insertions(+)
+The issue you describe looks similar to the bug fixed by the commit
+9bd780f5e066 ("udp: fix poll()"), but the bugged code is only in later
+kernels. 
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db.dts b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-index 92c761c380d3..fa55e49e228e 100644
---- a/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-@@ -176,6 +176,11 @@
- 	status = "okay";
- };
- 
-+&cpm_eth0 {
-+	status = "okay";
-+	phy-mode = "10gbase-kr";
-+};
-+
- &cpm_eth1 {
- 	status = "okay";
- 	phy = <&phy0>;
--- 
-2.13.3
+> Any idea what might be happening here and what else I could try?
+
+Once that a system enter the buggy status, do the packets reach the
+relevant socket's queue?
+
+ss -u
+nstat |grep -e Udp -e Ip
+
+will help checking that.
+
+Thanks,
+
+Paol
