@@ -1,82 +1,187 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next] bpf: add helper capable of reading out instructions
-Date: Mon, 24 Jul 2017 14:22:36 -0700
-Message-ID: <20170724212236.21903-2-jakub.kicinski@netronome.com>
-Cc: daniel@iogearbox.net, alexei.starovoitov@gmail.com,
-        oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:35780 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756015AbdGXVWu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 17:22:50 -0400
-Received: by mail-pf0-f180.google.com with SMTP id h29so16362156pfd.2
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 14:22:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next V2 5/5] virtio-net: switch off offloads on
+	demand if possible on XDP set
+Date: Tue, 25 Jul 2017 00:29:21 +0300
+Message-ID: <20170725002700-mutt-send-email-mst@kernel.org>
+References: <1500454489-16805-1-git-send-email-jasowang@redhat.com>
+	<1500454489-16805-6-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1500454489-16805-6-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-To read translated and jited instructions from the kernel,
-one has to set certain pointers of struct bpf_prog_info to
-pre-allocated user buffers.  Unfortunately, the existing
-bpf_obj_get_info_by_fd() helper zeros struct bpf_prog_info
-before passing it to the kernel.
+On Wed, Jul 19, 2017 at 04:54:49PM +0800, Jason Wang wrote:
+> Current XDP implementation wants guest offloads feature to be disabled
+> on device. This is inconvenient and means guest can't benefit from
+> offloads if XDP is not used. This patch tries to address this
+> limitation by disabling the offloads on demand through control guest
+> offloads. Guest offloads will be disabled and enabled on demand on XDP
+> set.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Keeping the zeroing seems like a good idea in general, since
-kernel will check if the structure was zeroed.  Add a new
-helper for those more advanced users who can be trusted to
-take care of zeroing themselves.
+Doesn't look like my comments on v1 were addressed.
+Copying here:
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
-I'm happy to change the name of the new function.
+In fact, since we no longer reset when XDP is set,
+here device might have offloads enabled, buffers are
+used but not consumed, then XDP is set.
 
- tools/lib/bpf/bpf.c | 10 ++++++++--
- tools/lib/bpf/bpf.h |  2 ++
- 2 files changed, 10 insertions(+), 2 deletions(-)
+This can result in
+- packet scattered across multiple buffers
+  (handled correctly but need to update the comment)
+- packet may have VIRTIO_NET_HDR_F_NEEDS_CSUM, in that case
+  the spec says "The checksum on the packet is incomplete".
+  (probably needs to be handled by calculating the checksum).
 
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index 412a7c82995a..2703fa282b65 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -308,13 +308,12 @@ int bpf_map_get_fd_by_id(__u32 id)
- 	return sys_bpf(BPF_MAP_GET_FD_BY_ID, &attr, sizeof(attr));
- }
- 
--int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
-+int __bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
- {
- 	union bpf_attr attr;
- 	int err;
- 
- 	bzero(&attr, sizeof(attr));
--	bzero(info, *info_len);
- 	attr.info.bpf_fd = prog_fd;
- 	attr.info.info_len = *info_len;
- 	attr.info.info = ptr_to_u64(info);
-@@ -325,3 +324,10 @@ int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
- 
- 	return err;
- }
-+
-+int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
-+{
-+	bzero(info, *info_len);
-+
-+	return __bpf_obj_get_info_by_fd(prog_fd, info, info_len);
-+}
-diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index 418c86e69bcb..e44b423ac07e 100644
---- a/tools/lib/bpf/bpf.h
-+++ b/tools/lib/bpf/bpf.h
-@@ -58,6 +58,8 @@ int bpf_prog_get_next_id(__u32 start_id, __u32 *next_id);
- int bpf_map_get_next_id(__u32 start_id, __u32 *next_id);
- int bpf_prog_get_fd_by_id(__u32 id);
- int bpf_map_get_fd_by_id(__u32 id);
-+/* Note: bpf_obj_get_info_by_fd() will init info to zeroes */
- int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len);
-+int __bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len);
- 
- #endif
--- 
-2.11.0
+Jason, as David applied this patch already, can you comment
+on the issues please?
+
+> ---
+>  drivers/net/virtio_net.c | 70 ++++++++++++++++++++++++++++++++++++++++++++----
+>  1 file changed, 65 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index b3fc01d..5fbd15e 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -57,6 +57,11 @@ DECLARE_EWMA(pkt_len, 0, 64)
+>  
+>  #define VIRTNET_DRIVER_VERSION "1.0.0"
+>  
+> +const unsigned long guest_offloads[] = { VIRTIO_NET_F_GUEST_TSO4,
+> +					 VIRTIO_NET_F_GUEST_TSO6,
+> +					 VIRTIO_NET_F_GUEST_ECN,
+> +					 VIRTIO_NET_F_GUEST_UFO };
+> +
+>  struct virtnet_stats {
+>  	struct u64_stats_sync tx_syncp;
+>  	struct u64_stats_sync rx_syncp;
+> @@ -164,10 +169,13 @@ struct virtnet_info {
+>  	u8 ctrl_promisc;
+>  	u8 ctrl_allmulti;
+>  	u16 ctrl_vid;
+> +	u64 ctrl_offloads;
+>  
+>  	/* Ethtool settings */
+>  	u8 duplex;
+>  	u32 speed;
+> +
+> +	unsigned long guest_offloads;
+>  };
+>  
+>  struct padded_vnet_hdr {
+> @@ -1896,6 +1904,47 @@ static int virtnet_restore_up(struct virtio_device *vdev)
+>  	return err;
+>  }
+>  
+> +static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
+> +{
+> +	struct scatterlist sg;
+> +	vi->ctrl_offloads = cpu_to_virtio64(vi->vdev, offloads);
+> +
+> +	sg_init_one(&sg, &vi->ctrl_offloads, sizeof(vi->ctrl_offloads));
+> +
+> +	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_GUEST_OFFLOADS,
+> +				  VIRTIO_NET_CTRL_GUEST_OFFLOADS_SET, &sg)) {
+> +		dev_warn(&vi->dev->dev, "Fail to set guest offload. \n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static int virtnet_clear_guest_offloads(struct virtnet_info *vi)
+> +{
+> +	u64 offloads = 0;
+> +
+> +	if (!vi->guest_offloads)
+> +		return 0;
+> +
+> +	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_CSUM))
+> +		offloads = 1ULL << VIRTIO_NET_F_GUEST_CSUM;
+> +
+> +	return virtnet_set_guest_offloads(vi, offloads);
+> +}
+> +
+> +static int virtnet_restore_guest_offloads(struct virtnet_info *vi)
+> +{
+> +	u64 offloads = vi->guest_offloads;
+> +
+> +	if (!vi->guest_offloads)
+> +		return 0;
+> +	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_CSUM))
+> +		offloads |= 1ULL << VIRTIO_NET_F_GUEST_CSUM;
+> +
+> +	return virtnet_set_guest_offloads(vi, offloads);
+> +}
+> +
+>  static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
+>  			   struct netlink_ext_ack *extack)
+>  {
+> @@ -1905,10 +1954,11 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
+>  	u16 xdp_qp = 0, curr_qp;
+>  	int i, err;
+>  
+> -	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+> -	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
+> -	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
+> -	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_UFO)) {
+> +	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS)
+> +	    && (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+> +	        virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
+> +	        virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
+> +		virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_UFO))) {
+>  		NL_SET_ERR_MSG_MOD(extack, "Can't set XDP while host is implementing LRO, disable LRO first");
+>  		return -EOPNOTSUPP;
+>  	}
+> @@ -1955,6 +2005,12 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
+>  	for (i = 0; i < vi->max_queue_pairs; i++) {
+>  		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
+>  		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
+> +		if (i == 0) {
+> +			if (!old_prog)
+> +				virtnet_clear_guest_offloads(vi);
+> +			if (!prog)
+> +				virtnet_restore_guest_offloads(vi);
+> +		}
+>  		if (old_prog)
+>  			bpf_prog_put(old_prog);
+>  		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
+> @@ -2588,6 +2644,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  		netif_carrier_on(dev);
+>  	}
+>  
+> +	for (i = 0; i < ARRAY_SIZE(guest_offloads); i++)
+> +		if (virtio_has_feature(vi->vdev, guest_offloads[i]))
+> +			set_bit(guest_offloads[i], &vi->guest_offloads);
+> +
+>  	pr_debug("virtnet: registered device %s with %d RX and TX vq's\n",
+>  		 dev->name, max_queue_pairs);
+>  
+> @@ -2684,7 +2744,7 @@ static struct virtio_device_id id_table[] = {
+>  	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN, \
+>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ, \
+>  	VIRTIO_NET_F_CTRL_MAC_ADDR, \
+> -	VIRTIO_NET_F_MTU
+> +	VIRTIO_NET_F_MTU, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS
+>  
+>  static unsigned int features[] = {
+>  	VIRTNET_FEATURES,
+> -- 
+> 2.7.4
