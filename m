@@ -1,184 +1,94 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: SELinux/IP_PASSSEC regression in 4.13-rcX
-Date: Mon, 24 Jul 2017 14:25:17 +0200
-Message-ID: <1500899117.2458.2.camel@redhat.com>
-References: <CAHC9VhS9QO8jGBodsSeQxxbgoxrmThRgbc3_m17h7gFmfP=GGw@mail.gmail.com>
+From: Marc Haber <mh+netdev@zugschlus.de>
+Subject: After a while of system running no incoming UDP any more?
+Date: Mon, 24 Jul 2017 14:09:01 +0200
+Message-ID: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: selinux@tycho.nsa.gov
-To: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45450 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753370AbdGXMZT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Jul 2017 08:25:19 -0400
-In-Reply-To: <CAHC9VhS9QO8jGBodsSeQxxbgoxrmThRgbc3_m17h7gFmfP=GGw@mail.gmail.com>
+Received: from torres.zugschlus.de ([85.214.131.164]:34402 "EHLO
+        torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753162AbdGXMqJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 08:46:09 -0400
+Received: from mh by torres.zugschlus.de with local (Exim 4.89)
+        (envelope-from <mh+netdev@zugschlus.de>)
+        id 1dZcAX-0005ct-BH
+        for netdev@vger.kernel.org; Mon, 24 Jul 2017 14:09:01 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-On Fri, 2017-07-21 at 18:19 -0400, Paul Moore wrote:
-> I've been seeing a SELinux regression with IP_PASSSEC on the v4.13-rcX
-> kernels and finally tracked the problem down to the
-> skb_release_head_state() call in __udp_queue_rcv_skb().  Looking at
-> the code and the git log it would appear that the likely culprit is
-> 0a463c78d25b ("udp: avoid a cache miss on dequeue
-> "); it looks similar to IP option problem fixed in 0ddf3fb2c43d2.
+I am running ~ 50 servers, most of them as KVM guests, some of them as
+Xen guests, and even less of them on hardware, and have recently updated
+to Debian stretch. I usually use kernels locally built from the latest
+vanille stable release.
 
-Thank you for the report!
-My bad, I completely missed that code path.
+Roughly since the upgrade to Debian stretch and kernel 4.12, some of my
+systems have begun to not forward UDP packets (such as incoming DNS
+replies) to the user space. When this happens, I see the packet coming
+in on tcpdump -p, but the application never sees it and eventuelly times
+out. An strace on the process sees the process waiting on the select()
+syscall and nothing happens when the system receives the UDP packet. I
+do also see the same phenomenon with ntp. A reboot always fixes the
+issue. 
 
-> From a SELinux/IP_PASSSEC point of view we need access to the skb->sp
-> pointer to examine the SAs.  I'm posting this here without a patch
-> because it isn't clear to me how you would like to fix the problem; my
-> initial thought would be to simply make the skb_release_head_state()
-> conditional on the skb->sp pointer, much like the IP options fix, but
-> I'm not sure if you have a more clever idea.
+Runnign wireshark on a pcap file obtained on an affected systems does
+show all checksums to be in order. Both IPv4 and IPv6 are affected, and
+in the DNS case, switching dig/drill or even the system resolver to TCP
+also fixes the issue.
 
-Unfortunately explicitly checking skb->sp at skb free time will defeat
-completely the intended optimization.
+This happens only after the system has been running for a few days, and
+I have seen this happen on both KVM and Xen guests, but not (yet) on
+real hardware. In my zoo of servers, this happens - over the entire
+sample - about twice a week, often enough to be annoying and seldomly
+enough to make debugging really difficult since you'll never know in
+advance which system will have the issue for the next time.
 
-To preserve it, something like the following patch is required, could
-you please test it in your environment?
+I have therefore been reluctant to downgrade kernel or system since that
+would mean days of work. Bisecting is probably out of the question since
+you'll never know when "git bisect good" is a sufficiently safe
+assumption.
 
-Such patch is still prone to a kind of race, as only UDP packets
-enqueued to the UDP socket after the setsockopt() will carry the
-relevant cmsg info.
+Before I begin running older kernels on productive systems, I would like
+to ask wether there have been recent changes in the 4.11 => 4.12
+development cycle that might cause an issue like that.
 
-e.g. with the following event sequence:
+Since I have never seen the issue on stretch systems when they were
+still running 4.11.8 (the latest 4.11 kernel that I had deployed before
+switching over to 4.12), I do really suspect the kernel, and I do also
+suspect that network interface offloading is probably not the culprit.
 
-<an UDP packet is enqueued to the revevant socket>
-setsockopt(...,IP_CMSG_PASSSEC)
-recvmsg(...);
+On the KVM guests, I use virtio-net, and I had that one high on my list
+until one of the two Xen guests that doesn't show any network modules
+loaded has been showing the phenomenon as well.
 
-the ancillary message data will not include the IP_CMSG_PASSSEC, while
-kernel pre 0a463c78d25b will provide it. Do you think such behavior
-will be acceptable?
+That Xen guest outputs the following to lshw -C network:
 
-If not, I fear a revert will be needed.
+that doesn't show any network modules loaded has been showing the
+phenomenon as well.
 
-Cheers,
+That Xen guest outputs the following to lshw -C network:
 
-Paolo
----
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 972ce4b..f109126 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -319,19 +319,24 @@ struct udp_dev_scratch {
- 	bool csum_unnecessary;
- };
- 
-+static inline struct udp_dev_scratch* udp_skb_scratch(struct sk_buff *skb)
-+{
-+	return (struct udp_dev_scratch *)&skb->dev_scratch;
-+}
-+
- static inline unsigned int udp_skb_len(struct sk_buff *skb)
- {
--	return ((struct udp_dev_scratch *)&skb->dev_scratch)->len;
-+	return udp_skb_scratch(skb)->len;
- }
- 
- static inline bool udp_skb_csum_unnecessary(struct sk_buff *skb)
- {
--	return ((struct udp_dev_scratch *)&skb->dev_scratch)->csum_unnecessary;
-+	return udp_skb_scratch(skb)->csum_unnecessary;
- }
- 
- static inline bool udp_skb_is_linear(struct sk_buff *skb)
- {
--	return ((struct udp_dev_scratch *)&skb->dev_scratch)->is_linear;
-+	return udp_skb_scratch(skb)->is_linear;
- }
- 
- #else
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index b057653..582c13e 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1163,32 +1163,47 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
- 	return ret;
- }
- 
-+#define UDP_SKB_IS_STATELESS 0x80000000
-+
- #if BITS_PER_LONG == 64
- static void udp_set_dev_scratch(struct sk_buff *skb)
- {
--	struct udp_dev_scratch *scratch;
-+	struct udp_dev_scratch *scratch = udp_skb_scratch(skb);
- 
- 	BUILD_BUG_ON(sizeof(struct udp_dev_scratch) > sizeof(long));
--	scratch = (struct udp_dev_scratch *)&skb->dev_scratch;
- 	scratch->truesize = skb->truesize;
- 	scratch->len = skb->len;
- 	scratch->csum_unnecessary = !!skb_csum_unnecessary(skb);
- 	scratch->is_linear = !skb_is_nonlinear(skb);
-+	if (likely(!skb->_skb_refdst))
-+		scratch->truesize |= UDP_SKB_IS_STATELESS;
- }
- 
- static int udp_skb_truesize(struct sk_buff *skb)
- {
--	return ((struct udp_dev_scratch *)&skb->dev_scratch)->truesize;
-+	return udp_skb_scratch(skb)->truesize & ~UDP_SKB_IS_STATELESS;
-+}
-+
-+static bool udp_skb_has_head_state(struct sk_buff *skb)
-+{
-+	return !(udp_skb_scratch(skb)->truesize & UDP_SKB_IS_STATELESS);
- }
- #else
- static void udp_set_dev_scratch(struct sk_buff *skb)
- {
- 	skb->dev_scratch = skb->truesize;
-+	if (likely(!skb->_skb_refdst))
-+		scratch->dev_scratch |= UDP_SKB_IS_STATELESS;
- }
- 
- static int udp_skb_truesize(struct sk_buff *skb)
- {
--	return skb->dev_scratch;
-+	return skb->dev_scratch & ~UDP_SKB_IS_STATELESS;
-+}
-+
-+static bool udp_skb_has_head_state(struct sk_buff *skb)
-+{
-+	return !(skb->dev_scratch & UDP_SKB_IS_STATELESS);
- }
- #endif
- 
-@@ -1388,10 +1403,10 @@ void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
- 		unlock_sock_fast(sk, slow);
- 	}
- 
--	/* we cleared the head states previously only if the skb lacks any IP
--	 * options, see __udp_queue_rcv_skb().
-+	/* In the more common cases we cleared the head states previously,
-+	 * see __udp_queue_rcv_skb().
- 	 */
--	if (unlikely(IPCB(skb)->opt.optlen > 0))
-+	if (unlikely(udp_skb_has_head_state(skb)))
- 		skb_release_head_state(skb);
- 	consume_stateless_skb(skb);
- }
-@@ -1784,11 +1799,12 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 		sk_mark_napi_id_once(sk, skb);
- 	}
- 
--	/* At recvmsg() time we need skb->dst to process IP options-related
--	 * cmsg, elsewhere can we clear all pending head states while they are
--	 * hot in the cache
-+	/* At recvmsg() time we may access skb->dst or skb->sp depending on
-+	 * the IP options and the cmsg flags, elsewhere can we clear all
-+	 * pending head states while they are hot in the cache
- 	 */
--	if (likely(IPCB(skb)->opt.optlen == 0))
-+	if (likely(IPCB(skb)->opt.optlen == 0 &&
-+	           !(inet_sk(sk)->cmsg_flags & IP_CMSG_PASSSEC)))
- 		skb_release_head_state(skb);
- 
- 	rc = __udp_enqueue_schedule_skb(sk, skb);
+  *-network
+       description: Ethernet interface
+       physical id: 1
+       logical name: eth0
+       serial: 0e:06:5f:74:48:97
+       capabilities: ethernet physical
+       configuration: broadcast=yes driver=vif ip=<redacted> link=yes multicast=yes
+
+So I assume that this one is not using virtio-net, so virtio-net seems
+safe as well.
+
+Any idea what might be happening here and what else I could try?
+
+Greetings
+Marc
+
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Leimen, Germany    |  lose things."    Winona Ryder | Fon: *49 6224 1600402
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 6224 1600421
