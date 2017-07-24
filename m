@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 01/18] net: mvpp2: unify register definitions coding style
-Date: Mon, 24 Jul 2017 15:48:31 +0200
-Message-ID: <20170724134848.19330-2-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 07/18] net: mvpp2: initialize the GoP
+Date: Mon, 24 Jul 2017 15:48:37 +0200
+Message-ID: <20170724134848.19330-8-antoine.tenart@free-electrons.com>
 References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -10,154 +10,234 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
 To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com, sebastian.hesselbarth@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:47360 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:47366 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755847AbdGXNuG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 09:50:06 -0400
+        with ESMTP id S1755785AbdGXNuF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 09:50:05 -0400
 In-Reply-To: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cosmetic patch to use the same formatting rules on all register
-definitions.
+The patch adds GoP (group of ports) initialization functions. The mvpp2
+driver was relying on the firmware/bootloader initialization; this patch
+moves this setup to the mvpp2 driver.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 88 ++++++++++++++++++------------------
- 1 file changed, 44 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 159 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 159 insertions(+)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 48d21c1e09f2..ee4ea195eb0b 100644
+index b3601561bbae..948f5bd4ab18 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -187,18 +187,18 @@
- #define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
- #define MVPP21_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
+@@ -18,6 +18,7 @@
+ #include <linux/inetdevice.h>
+ #include <linux/mbus.h>
+ #include <linux/module.h>
++#include <linux/mfd/syscon.h>
+ #include <linux/interrupt.h>
+ #include <linux/cpumask.h>
+ #include <linux/of.h>
+@@ -30,6 +31,7 @@
+ #include <linux/clk.h>
+ #include <linux/hrtimer.h>
+ #include <linux/ktime.h>
++#include <linux/regmap.h>
+ #include <uapi/linux/ppp_defs.h>
+ #include <net/ip.h>
+ #include <net/ipv6.h>
+@@ -381,6 +383,38 @@
+ #define MVPP2_QUEUE_NEXT_DESC(q, index) \
+ 	(((index) < (q)->last_desc) ? ((index) + 1) : 0)
  
--#define MVPP22_ISR_RXQ_GROUP_INDEX_REG          0x5400
-+#define MVPP22_ISR_RXQ_GROUP_INDEX_REG		0x5400
- #define MVPP22_ISR_RXQ_GROUP_INDEX_SUBGROUP_MASK 0xf
--#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_MASK   0x380
--#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET 7
-+#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_MASK	0x380
-+#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET	7
++/* XPCS registers. PPv2.2 only */
++#define MVPP22_MPCS_BASE(port)			(0x7000 + (port) * 0x1000)
++#define MVPP22_MPCS_CTRL			0x14
++#define     MVPP22_MPCS_CTRL_FWD_ERR_CONN	BIT(10)
++#define MVPP22_MPCS_CLK_RESET			0x14c
++#define     MAC_CLK_RESET_SD_TX			BIT(0)
++#define     MAC_CLK_RESET_SD_RX			BIT(1)
++#define     MAC_CLK_RESET_MAC			BIT(2)
++#define     MVPP22_MPCS_CLK_RESET_DIV_RATIO(n)	((n) << 4)
++#define     MVPP22_MPCS_CLK_RESET_DIV_SET	BIT(11)
++
++/* XPCS registers. PPv2.2 only */
++#define MVPP22_XPCS_BASE(port)			(0x7400 + (port) * 0x1000)
++#define MVPP22_XPCS_CFG0			0x0
++#define     MVPP22_XPCS_CFG0_PCS_MODE(n)	((n) << 3)
++#define     MVPP22_XPCS_CFG0_ACTIVE_LANE(n)	((n) << 5)
++
++/* System controller registers. Accessed through a regmap. */
++#define GENCONF_SOFT_RESET1				0x1108
++#define     GENCONF_SOFT_RESET1_GOP			BIT(6)
++#define GENCONF_PORT_CTRL0				0x1110
++#define     GENCONF_PORT_CTRL0_BUS_WIDTH_SELECT		BIT(1)
++#define     GENCONF_PORT_CTRL0_RX_DATA_SAMPLE		BIT(29)
++#define     GENCONF_PORT_CTRL0_CLK_DIV_PHASE_CLR	BIT(31)
++#define GENCONF_PORT_CTRL1				0x1114
++#define     GENCONF_PORT_CTRL1_EN(p)			BIT(p)
++#define     GENCONF_PORT_CTRL1_RESET(p)			(BIT(p) << 28)
++#define GENCONF_CTRL0					0x1120
++#define     GENCONF_CTRL0_PORT0_RGMII			BIT(0)
++#define     GENCONF_CTRL0_PORT1_RGMII_MII		BIT(1)
++#define     GENCONF_CTRL0_PORT1_RGMII			BIT(2)
++
+ /* Various constants */
  
- #define MVPP22_ISR_RXQ_GROUP_INDEX_SUBGROUP_MASK 0xf
--#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_MASK   0x380
-+#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_MASK	0x380
+ /* Coalescing */
+@@ -721,6 +755,11 @@ struct mvpp2 {
+ 	 */
+ 	void __iomem *cpu_base[MVPP2_MAX_CPUS];
  
--#define MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG     0x5404
--#define MVPP22_ISR_RXQ_SUB_GROUP_STARTQ_MASK    0x1f
--#define MVPP22_ISR_RXQ_SUB_GROUP_SIZE_MASK      0xf00
--#define MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET    8
-+#define MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG	0x5404
-+#define MVPP22_ISR_RXQ_SUB_GROUP_STARTQ_MASK	0x1f
-+#define MVPP22_ISR_RXQ_SUB_GROUP_SIZE_MASK	0xf00
-+#define MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET	8
++	/* On PPv2.2, some port control registers are located into the system
++	 * controller space. These registers are accessible through a regmap.
++	 */
++	struct regmap *sysctrl_base;
++
+ 	/* Common clocks */
+ 	struct clk *pp_clk;
+ 	struct clk *gop_clk;
+@@ -4185,6 +4224,112 @@ static void mvpp2_interrupts_unmask(void *arg)
  
- #define MVPP2_ISR_ENABLE_REG(port)		(0x5420 + 4 * (port))
- #define     MVPP2_ISR_ENABLE_INTERRUPT(mask)	((mask) & 0xffff)
-@@ -265,7 +265,7 @@
- #define MVPP2_BM_VIRT_RLS_REG			0x64c0
- #define MVPP22_BM_ADDR_HIGH_RLS_REG		0x64c4
- #define     MVPP22_BM_ADDR_HIGH_PHYS_RLS_MASK	0xff
--#define	    MVPP22_BM_ADDR_HIGH_VIRT_RLS_MASK	0xff00
-+#define     MVPP22_BM_ADDR_HIGH_VIRT_RLS_MASK	0xff00
- #define     MVPP22_BM_ADDR_HIGH_VIRT_RLS_SHIFT	8
+ /* Port configuration routines */
  
- /* TX Scheduler registers */
-@@ -307,57 +307,57 @@
++static void mvpp22_gop_init_rgmii(struct mvpp2_port *port)
++{
++	struct mvpp2 *priv = port->priv;
++	u32 val;
++
++	regmap_read(priv->sysctrl_base, GENCONF_CTRL0, &val);
++	val |= GENCONF_CTRL0_PORT1_RGMII;
++	regmap_write(priv->sysctrl_base, GENCONF_CTRL0, val);
++}
++
++static void mvpp22_gop_init_sgmii(struct mvpp2_port *port)
++{
++	struct mvpp2 *priv = port->priv;
++	u32 val;
++
++	regmap_read(priv->sysctrl_base, GENCONF_PORT_CTRL0, &val);
++	val |= GENCONF_PORT_CTRL0_BUS_WIDTH_SELECT |
++	       GENCONF_PORT_CTRL0_RX_DATA_SAMPLE;
++	regmap_write(priv->sysctrl_base, GENCONF_PORT_CTRL0, val);
++
++	if (port->gop_id > 1) {
++		regmap_read(priv->sysctrl_base, GENCONF_CTRL0, &val);
++		if (port->gop_id == 2)
++			val &= ~GENCONF_CTRL0_PORT0_RGMII;
++		else if (port->gop_id == 3)
++			val &= ~GENCONF_CTRL0_PORT1_RGMII_MII;
++		regmap_write(priv->sysctrl_base, GENCONF_CTRL0, val);
++	}
++}
++
++static void mvpp22_gop_init_10gkr(struct mvpp2_port *port)
++{
++	struct mvpp2 *priv = port->priv;
++	void __iomem *mpcs = priv->iface_base + MVPP22_MPCS_BASE(port->gop_id);
++	void __iomem *xpcs = priv->iface_base + MVPP22_XPCS_BASE(port->gop_id);
++	u32 val;
++
++	/* XPCS */
++	val = readl(xpcs + MVPP22_XPCS_CFG0);
++	val &= ~(MVPP22_XPCS_CFG0_PCS_MODE(0x3) |
++		 MVPP22_XPCS_CFG0_ACTIVE_LANE(0x3));
++	val |= MVPP22_XPCS_CFG0_ACTIVE_LANE(2);
++	writel(val, xpcs + MVPP22_XPCS_CFG0);
++
++	/* MPCS */
++	val = readl(mpcs + MVPP22_MPCS_CTRL);
++	val &= ~MVPP22_MPCS_CTRL_FWD_ERR_CONN;
++	writel(val, mpcs + MVPP22_MPCS_CTRL);
++
++	val = readl(mpcs + MVPP22_MPCS_CLK_RESET);
++	val &= ~(MVPP22_MPCS_CLK_RESET_DIV_RATIO(0x7) | MAC_CLK_RESET_MAC |
++		 MAC_CLK_RESET_SD_RX | MAC_CLK_RESET_SD_TX);
++	val |= MVPP22_MPCS_CLK_RESET_DIV_RATIO(1);
++	writel(val, mpcs + MVPP22_MPCS_CLK_RESET);
++
++	val &= ~MVPP22_MPCS_CLK_RESET_DIV_SET;
++	val |= MAC_CLK_RESET_MAC | MAC_CLK_RESET_SD_RX | MAC_CLK_RESET_SD_TX;
++	writel(val, mpcs + MVPP22_MPCS_CLK_RESET);
++}
++
++static int mvpp22_gop_init(struct mvpp2_port *port)
++{
++	struct mvpp2 *priv = port->priv;
++	u32 val;
++
++	if (!priv->sysctrl_base)
++		return 0;
++
++	switch (port->phy_interface) {
++	case PHY_INTERFACE_MODE_RGMII:
++		if (port->gop_id != 3)
++			goto invalid_conf;
++		mvpp22_gop_init_rgmii(port);
++	case PHY_INTERFACE_MODE_SGMII:
++		mvpp22_gop_init_sgmii(port);
++		break;
++	case PHY_INTERFACE_MODE_10GKR:
++		if (port->gop_id != 0)
++			goto invalid_conf;
++		mvpp22_gop_init_10gkr(port);
++		break;
++	default:
++		goto unsupported_conf;
++	}
++
++	regmap_read(priv->sysctrl_base, GENCONF_PORT_CTRL1, &val);
++	val |= GENCONF_PORT_CTRL1_RESET(port->gop_id);
++	val |= GENCONF_PORT_CTRL1_EN(port->gop_id);
++	regmap_write(priv->sysctrl_base, GENCONF_PORT_CTRL1, val);
++
++	regmap_read(priv->sysctrl_base, GENCONF_PORT_CTRL0, &val);
++	val |= GENCONF_PORT_CTRL0_CLK_DIV_PHASE_CLR;
++	regmap_write(priv->sysctrl_base, GENCONF_PORT_CTRL0, val);
++
++	regmap_read(priv->sysctrl_base, GENCONF_SOFT_RESET1, &val);
++	val |= GENCONF_SOFT_RESET1_GOP;
++	regmap_write(priv->sysctrl_base, GENCONF_SOFT_RESET1, val);
++
++unsupported_conf:
++	return 0;
++
++invalid_conf:
++	netdev_err(port->dev, "Invalid port configuration\n");
++	return -EINVAL;
++}
++
+ static void mvpp2_port_mii_gmac_configure_mode(struct mvpp2_port *port)
+ {
+ 	u32 val;
+@@ -5944,6 +6089,9 @@ static void mvpp2_start_dev(struct mvpp2_port *port)
+ 	/* Enable interrupts on all CPUs */
+ 	mvpp2_interrupts_enable(port);
  
- /* Per-port registers */
- #define MVPP2_GMAC_CTRL_0_REG			0x0
--#define      MVPP2_GMAC_PORT_EN_MASK		BIT(0)
--#define      MVPP2_GMAC_MAX_RX_SIZE_OFFS	2
--#define      MVPP2_GMAC_MAX_RX_SIZE_MASK	0x7ffc
--#define      MVPP2_GMAC_MIB_CNTR_EN_MASK	BIT(15)
-+#define     MVPP2_GMAC_PORT_EN_MASK		BIT(0)
-+#define     MVPP2_GMAC_MAX_RX_SIZE_OFFS		2
-+#define     MVPP2_GMAC_MAX_RX_SIZE_MASK		0x7ffc
-+#define     MVPP2_GMAC_MIB_CNTR_EN_MASK		BIT(15)
- #define MVPP2_GMAC_CTRL_1_REG			0x4
--#define      MVPP2_GMAC_PERIODIC_XON_EN_MASK	BIT(1)
--#define      MVPP2_GMAC_GMII_LB_EN_MASK		BIT(5)
--#define      MVPP2_GMAC_PCS_LB_EN_BIT		6
--#define      MVPP2_GMAC_PCS_LB_EN_MASK		BIT(6)
--#define      MVPP2_GMAC_SA_LOW_OFFS		7
-+#define     MVPP2_GMAC_PERIODIC_XON_EN_MASK	BIT(1)
-+#define     MVPP2_GMAC_GMII_LB_EN_MASK		BIT(5)
-+#define     MVPP2_GMAC_PCS_LB_EN_BIT		6
-+#define     MVPP2_GMAC_PCS_LB_EN_MASK		BIT(6)
-+#define     MVPP2_GMAC_SA_LOW_OFFS		7
- #define MVPP2_GMAC_CTRL_2_REG			0x8
--#define      MVPP2_GMAC_INBAND_AN_MASK		BIT(0)
--#define      MVPP2_GMAC_PCS_ENABLE_MASK		BIT(3)
--#define      MVPP2_GMAC_PORT_RGMII_MASK		BIT(4)
--#define      MVPP2_GMAC_PORT_RESET_MASK		BIT(6)
-+#define     MVPP2_GMAC_INBAND_AN_MASK		BIT(0)
-+#define     MVPP2_GMAC_PCS_ENABLE_MASK		BIT(3)
-+#define     MVPP2_GMAC_PORT_RGMII_MASK		BIT(4)
-+#define     MVPP2_GMAC_PORT_RESET_MASK		BIT(6)
- #define MVPP2_GMAC_AUTONEG_CONFIG		0xc
--#define      MVPP2_GMAC_FORCE_LINK_DOWN		BIT(0)
--#define      MVPP2_GMAC_FORCE_LINK_PASS		BIT(1)
--#define      MVPP2_GMAC_CONFIG_MII_SPEED	BIT(5)
--#define      MVPP2_GMAC_CONFIG_GMII_SPEED	BIT(6)
--#define      MVPP2_GMAC_AN_SPEED_EN		BIT(7)
--#define      MVPP2_GMAC_FC_ADV_EN		BIT(9)
--#define      MVPP2_GMAC_CONFIG_FULL_DUPLEX	BIT(12)
--#define      MVPP2_GMAC_AN_DUPLEX_EN		BIT(13)
-+#define     MVPP2_GMAC_FORCE_LINK_DOWN		BIT(0)
-+#define     MVPP2_GMAC_FORCE_LINK_PASS		BIT(1)
-+#define     MVPP2_GMAC_CONFIG_MII_SPEED	BIT(5)
-+#define     MVPP2_GMAC_CONFIG_GMII_SPEED	BIT(6)
-+#define     MVPP2_GMAC_AN_SPEED_EN		BIT(7)
-+#define     MVPP2_GMAC_FC_ADV_EN		BIT(9)
-+#define     MVPP2_GMAC_CONFIG_FULL_DUPLEX	BIT(12)
-+#define     MVPP2_GMAC_AN_DUPLEX_EN		BIT(13)
- #define MVPP2_GMAC_PORT_FIFO_CFG_1_REG		0x1c
--#define      MVPP2_GMAC_TX_FIFO_MIN_TH_OFFS	6
--#define      MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK	0x1fc0
--#define      MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)	(((v) << 6) & \
-+#define     MVPP2_GMAC_TX_FIFO_MIN_TH_OFFS	6
-+#define     MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK	0x1fc0
-+#define     MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)	(((v) << 6) & \
- 					MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK)
- #define MVPP22_GMAC_CTRL_4_REG			0x90
--#define      MVPP22_CTRL4_EXT_PIN_GMII_SEL	BIT(0)
--#define      MVPP22_CTRL4_DP_CLK_SEL		BIT(5)
--#define      MVPP22_CTRL4_SYNC_BYPASS		BIT(6)
--#define      MVPP22_CTRL4_QSGMII_BYPASS_ACTIVE	BIT(7)
-+#define     MVPP22_CTRL4_EXT_PIN_GMII_SEL	BIT(0)
-+#define     MVPP22_CTRL4_DP_CLK_SEL		BIT(5)
-+#define     MVPP22_CTRL4_SYNC_BYPASS		BIT(6)
-+#define     MVPP22_CTRL4_QSGMII_BYPASS_ACTIVE	BIT(7)
++	if (port->priv->hw_version == MVPP22)
++		mvpp22_gop_init(port);
++
+ 	mvpp2_port_mii_set(port);
+ 	mvpp2_port_enable(port);
+ 	phy_start(ndev->phydev);
+@@ -7013,6 +7161,17 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 		priv->iface_base = devm_ioremap_resource(&pdev->dev, res);
+ 		if (IS_ERR(priv->iface_base))
+ 			return PTR_ERR(priv->iface_base);
++
++		priv->sysctrl_base =
++			syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
++							"marvell,system-controller");
++		if (IS_ERR(priv->sysctrl_base))
++			/* The system controller regmap is optional for dt
++			 * compatibility reasons. When not provided, the
++			 * configuration of the GoP relies on the
++			 * firmware/bootloader.
++			 */
++			priv->sysctrl_base = NULL;
+ 	}
  
- /* Per-port XGMAC registers. PPv2.2 only, only for GOP port 0,
-  * relative to port->base.
-  */
- #define MVPP22_XLG_CTRL0_REG			0x100
--#define      MVPP22_XLG_CTRL0_PORT_EN		BIT(0)
--#define      MVPP22_XLG_CTRL0_MAC_RESET_DIS	BIT(1)
--#define      MVPP22_XLG_CTRL0_MIB_CNT_DIS	BIT(14)
-+#define     MVPP22_XLG_CTRL0_PORT_EN		BIT(0)
-+#define     MVPP22_XLG_CTRL0_MAC_RESET_DIS	BIT(1)
-+#define     MVPP22_XLG_CTRL0_MIB_CNT_DIS	BIT(14)
- 
- #define MVPP22_XLG_CTRL3_REG			0x11c
--#define      MVPP22_XLG_CTRL3_MACMODESELECT_MASK	(7 << 13)
--#define      MVPP22_XLG_CTRL3_MACMODESELECT_GMAC	(0 << 13)
--#define      MVPP22_XLG_CTRL3_MACMODESELECT_10G		(1 << 13)
-+#define     MVPP22_XLG_CTRL3_MACMODESELECT_MASK	(7 << 13)
-+#define     MVPP22_XLG_CTRL3_MACMODESELECT_GMAC	(0 << 13)
-+#define     MVPP22_XLG_CTRL3_MACMODESELECT_10G	(1 << 13)
- 
- /* SMI registers. PPv2.2 only, relative to priv->iface_base. */
- #define MVPP22_SMI_MISC_CFG_REG			0x1204
--#define      MVPP22_SMI_POLLING_EN		BIT(10)
-+#define     MVPP22_SMI_POLLING_EN		BIT(10)
- 
- #define MVPP22_GMAC_BASE(port)		(0x7000 + (port) * 0x1000 + 0xe00)
- 
+ 	for_each_present_cpu(cpu) {
 -- 
 2.13.3
