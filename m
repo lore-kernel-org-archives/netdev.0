@@ -1,71 +1,79 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] packet: fix use-after-free in prb_retire_rx_blk_timer_expired()
-Date: Mon, 24 Jul 2017 10:07:32 -0700
-Message-ID: <20170724170732.4905-1-xiyou.wangcong@gmail.com>
-Cc: alexander.levin@verizon.com, davej@codemonkey.org.uk,
-        liujian56@huawei.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Ding Tianhong <dingtianhong@huawei.com>,
-        Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36054 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753814AbdGXRHk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 13:07:40 -0400
-Received: by mail-pg0-f67.google.com with SMTP id y129so12256707pgy.3
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 10:07:39 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Roland Dreier <roland.dreier@gmail.com>
+Subject: Re: [PATCH] PCI: Update ACS quirk for more Intel 10G NICs
+Date: Mon, 24 Jul 2017 10:18:56 -0700
+Message-ID: <CAG4TOxNufQHj0nNwzw_yDMQfp+cAQuiQgEJg6KNX2ebiJDUuUw@mail.gmail.com>
+References: <20170720214101.7449-1-roland@kernel.org> <20170720161554.45ce1673@ul30vt.home>
+ <CAG4TOxOrF9aLyujrwNmSsxPBWBPTaLx2yXkOJ88gxCj0QUGDow@mail.gmail.com> <20170724104505.74c67861@w520.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Emil Tantilov <emil.s.tantilov@intel.com>
+To: Alex Williamson <alex.williamson@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20170724104505.74c67861@w520.home>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There are multiple reports showing we have a use-after-free in
-the timer prb_retire_rx_blk_timer_expired(), where we use struct
-tpacket_kbdq_core::pkbdq, a pg_vec, after it gets freed by
-free_pg_vec().
+> I think that the device implementing ACS and not implementing certain
+> features that are "must be implemented if..." is a positive indication
+> that the device does not have that behavior and therefore the ability
+> to control that behavior is unnecessary.  pci_acs_flags_enabled() is
+> coded with this intention:
+>
+> static bool pci_acs_flags_enabled(struct pci_dev *pdev, u16 acs_flags)
+> {
+>         int pos;
+>         u16 cap, ctrl;
+>
+>         pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_ACS);
+>         if (!pos)
+>                 return false;
+>
+>         /*
+>          * Except for egress control, capabilities are either required
+>          * or only required if controllable.  Features missing from the
+>          * capability field can therefore be assumed as hard-wired enabled.
+>          */
+>         pci_read_config_word(pdev, pos + PCI_ACS_CAP, &cap);
+>         acs_flags &= (cap | PCI_ACS_EC);
+>
+> <Remove any requested ACS flags which are not implemented, except EC>
+>
+>         pci_read_config_word(pdev, pos + PCI_ACS_CTRL, &ctrl);
+>         return (ctrl & acs_flags) == acs_flags;
+>
+> <Compare what remains>
 
-The interesting part is it is not freed via packet_release() but
-via packet_setsockopt(), which means we are not closing the socket.
-Looking into the big and fat function packet_set_ring(), this could
-happen if we satisfy the following conditions:
+I'm not sure it makes sense to look for the EC bit in the control register if
+the capability bit says it is not supported.  In fact I think it would
+violate the PCI spec to set the bit in the control register if it is zero in the
+capability register - the spec says:
 
-1. closing == 0, not on packet_release() path
-2. req->tp_block_nr == 0, we don't allocate a new pg_vec
-3. rx_ring->pg_vec is already set as V3, which means we already called
-   packet_set_ring() wtih req->tp_block_nr > 0 previously
-4. req->tp_frame_nr == 0, pass sanity check
-5. po->mapped == 0, never called mmap()
+  Default value of this bit is 0b. Must be hardwired to 0b if the ACS P2P
+  Egress Control functionality is not implemented.
 
-In this scenario we are clearing the old rx_ring->pg_vec, so we need
-to free this pg_vec, but we don't stop the timer on this path because
-of closing==0.
+I don't understand the reasoning behind forcing the EC bit in commit
+83db7e0bdb70.
 
-The timer has to be stopped as long as we need to free pg_vec, therefore
-the check on closing!=0 is wrong, we should check pg_vec!=NULL instead.
+I think the only reason this works is that nowhere in the kernel uses
+this function to check PCI_ACS_EC.
 
-Thanks to liujian for testing different fixes.
+> At least that's my interpretation and how I've indicated to folks at
+> Intel how things should work for a device that does not support p2p.
+> Of course this all hinges on having an ACS capability.  Without an ACS
+> capability we must assume any sort of p2p is possible unless we have a
+> quirk to tell us otherwise.  With ACS, the absence of capabilities is a
+> positive indication that those forms of p2p are not possible (depending
+> on the spec wording for that capability).  If the code doesn't behave
+> that way, let's fix it. Thanks,
 
-Reported-by: alexander.levin@verizon.com
-Reported-by: Dave Jones <davej@codemonkey.org.uk>
-Reported-by: liujian (CE) <liujian56@huawei.com>
-Tested-by: liujian (CE) <liujian56@huawei.com>
-Cc: Ding Tianhong <dingtianhong@huawei.com>
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/packet/af_packet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks - I'm looking more closely at what goes wrong with X550, since
+from reading the code it looks like it should work, but people have observed
+that it doesn't on our system.  However the issue might be elsewhere.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 008bb34ee324..0615c2a950fa 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -4329,7 +4329,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 		register_prot_hook(sk);
- 	}
- 	spin_unlock(&po->bind_lock);
--	if (closing && (po->tp_version > TPACKET_V2)) {
-+	if (pg_vec && (po->tp_version > TPACKET_V2)) {
- 		/* Because we don't support block-based V3 on tx-ring */
- 		if (!tx_ring)
- 			prb_shutdown_retire_blk_timer(po, rb_queue);
--- 
-2.13.0
+However I'll send a patch removing that "| PCI_ACS_EC" from the check if
+you agree - maybe I'm misunderstanding the logic but I don't see how it
+could work if it ever became relevant.
+
+ - R.
