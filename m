@@ -1,11 +1,8 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 4/6] netfilter: remove unused variable
-Date: Mon, 24 Jul 2017 10:25:21 -0700
-Message-ID: <20170724172523.13135-5-sthemmin@microsoft.com>
+Subject: [PATCH net-next 5/6] socket: fix set not used warning
+Date: Mon, 24 Jul 2017 10:25:22 -0700
+Message-ID: <20170724172523.13135-6-sthemmin@microsoft.com>
 References: <20170724172523.13135-1-sthemmin@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org,
         netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
         Stephen Hemminger <sthemmin@microsoft.com>
@@ -13,35 +10,62 @@ To: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
         davem@davemloft.net, pablo@netfilter.org, kadlec@blackhole.kfki.hu,
         fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:34970 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756106AbdGXRZg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 13:25:36 -0400
-Received: by mail-pg0-f48.google.com with SMTP id v190so59876246pgv.2
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 10:25:36 -0700 (PDT)
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:35566 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756122AbdGXRZh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 13:25:37 -0400
+Received: by mail-pf0-f170.google.com with SMTP id h29so14280276pfd.2
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 10:25:37 -0700 (PDT)
 In-Reply-To: <20170724172523.13135-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-warning: ‘recent_old_fops’ defined but not used
+The variable owned_by_user is always set, but only used
+when kernel is configured with LOCKDEP enabled.
+
+Get rid of the warning by moving the code to put the call
+to owned_by_user into the the rcu_protected call.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- net/netfilter/xt_recent.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/socket.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
-index 3f6c4fa78bdb..245fa350a7a8 100644
---- a/net/netfilter/xt_recent.c
-+++ b/net/netfilter/xt_recent.c
-@@ -106,7 +106,7 @@ static DEFINE_SPINLOCK(recent_lock);
- static DEFINE_MUTEX(recent_mutex);
+diff --git a/net/socket.c b/net/socket.c
+index bf2122691fba..79d9bb964cd8 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -3404,7 +3404,6 @@ u32 kernel_sock_ip_overhead(struct sock *sk)
+ 	struct inet_sock *inet;
+ 	struct ip_options_rcu *opt;
+ 	u32 overhead = 0;
+-	bool owned_by_user;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	struct ipv6_pinfo *np;
+ 	struct ipv6_txoptions *optv6 = NULL;
+@@ -3413,13 +3412,12 @@ u32 kernel_sock_ip_overhead(struct sock *sk)
+ 	if (!sk)
+ 		return overhead;
  
- #ifdef CONFIG_PROC_FS
--static const struct file_operations recent_old_fops, recent_mt_fops;
-+static const struct file_operations recent_mt_fops;
- #endif
- 
- static u_int32_t hash_rnd __read_mostly;
+-	owned_by_user = sock_owned_by_user(sk);
+ 	switch (sk->sk_family) {
+ 	case AF_INET:
+ 		inet = inet_sk(sk);
+ 		overhead += sizeof(struct iphdr);
+ 		opt = rcu_dereference_protected(inet->inet_opt,
+-						owned_by_user);
++						sock_owned_by_user(sk));
+ 		if (opt)
+ 			overhead += opt->opt.optlen;
+ 		return overhead;
+@@ -3429,7 +3427,7 @@ u32 kernel_sock_ip_overhead(struct sock *sk)
+ 		overhead += sizeof(struct ipv6hdr);
+ 		if (np)
+ 			optv6 = rcu_dereference_protected(np->opt,
+-							  owned_by_user);
++							  sock_owned_by_user(sk));
+ 		if (optv6)
+ 			overhead += (optv6->opt_flen + optv6->opt_nflen);
+ 		return overhead;
 -- 
 2.11.0
