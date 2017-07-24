@@ -1,50 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2 0/5] Refine virtio-net XDP
-Date: Mon, 24 Jul 2017 13:38:59 -0700 (PDT)
-Message-ID: <20170724.133859.192337723544942743.davem@davemloft.net>
-References: <1500454489-16805-1-git-send-email-jasowang@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net: Convert to using %pOF instead of full_name
+Date: Mon, 24 Jul 2017 13:41:44 -0700 (PDT)
+Message-ID: <20170724.134144.562191102829366953.davem@davemloft.net>
+References: <20170718214339.7774-39-robh@kernel.org>
+        <20170718.145146.1983238254018568174.davem@davemloft.net>
+        <CAL_JsqJbEq0_yQ-T8-SGTQbRRxHs-MMCuBrK6d8_2jGQ_-7QkA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1500454489-16805-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        andrew-g2DYL2Zd6BY@public.gmane.org, vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, madalin.bucur-3arQi8VN3Tc@public.gmane.org,
+        dougmill-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, grygorii.strashko-l0cyMroinI0@public.gmane.org,
+        michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL_JsqJbEq0_yQ-T8-SGTQbRRxHs-MMCuBrK6d8_2jGQ_-7QkA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed, 19 Jul 2017 16:54:44 +0800
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Date: Wed, 19 Jul 2017 10:09:13 -0500
 
-> Hi:
+> On Tue, Jul 18, 2017 at 4:51 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>> From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>> Date: Tue, 18 Jul 2017 16:43:19 -0500
+>>
+>>> Now that we have a custom printf format specifier, convert users of
+>>> full_name to use %pOF instead. This is preparation to remove storing
+>>> of the full path string for each node.
+>>>
+>>> Signed-off-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>>
+>> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 > 
-> This series brings two optimizations for virtio-net XDP:
-> 
-> - avoid reset during XDP set
-> - turn off offloads on demand
-> 
-> Changes from V1:
-> - Various tweaks on commit logs and comments
-> - Use virtnet_napi_enable() when enabling NAPI on XDP set
-> - Copy the small buffer packet only if xdp_headroom is smaller than
->   required
-> 
-> Please review.
+> The dependency went into 4.13. You can take this thru netdev.
 
-Series applied, thanks Jason.
-
-Michael, I gave you 4+ days to properly review this respin of this
-series.  I felt that was more than sufficient time, even with an
-intervening weekend.  So if you don't like that I applied this without
-your review, please be more punctual in the future.
-
-Thank you.
+Ok, applied to net-next.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
