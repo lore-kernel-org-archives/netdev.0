@@ -1,186 +1,148 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net-next v11 4/4] net sched actions: add time filter for action dumping
-Date: Sun, 23 Jul 2017 21:35:46 -0400
-Message-ID: <1500860146-26970-5-git-send-email-jhs@emojatatu.com>
-References: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
-        dsahern@gmail.com, eric.dumazet@gmail.com, mrv@mojatatu.com,
-        simon.horman@netronome.com, alex.aring@gmail.com,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:37985 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751916AbdGXBgM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 21:36:12 -0400
-Received: by mail-io0-f196.google.com with SMTP id l7so6586550iof.5
-        for <netdev@vger.kernel.org>; Sun, 23 Jul 2017 18:36:12 -0700 (PDT)
-In-Reply-To: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Yan, Zheng" <zyan@redhat.com>
+Subject: Re: [PATCH] ceph: kernel client startsync can be removed
+Date: Mon, 24 Jul 2017 09:47:05 +0800
+Message-ID: <65AC524D-4C8D-494B-904D-5285E5E8D052@redhat.com>
+References: <20170721092010.10918-1-gmayyyha@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Ilya Dryomov <idryomov@gmail.com>, Sage Weil <sage@redhat.com>,
+        Ceph Development <ceph-devel@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        davem@davemloft.net, netdev@vger.kernel.org
+To: Yanhu Cao <gmayyyha@gmail.com>
+Return-path: <ceph-devel-owner@vger.kernel.org>
+In-Reply-To: <20170721092010.10918-1-gmayyyha@gmail.com>
+Sender: ceph-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-This patch adds support for filtering based on time since last used.
-When we are dumping a large number of actions it is useful to
-have the option of filtering based on when the action was last
-used to reduce the amount of data crossing to user space.
+> On 21 Jul 2017, at 17:20, Yanhu Cao <gmayyyha@gmail.com> wrote:
+> 
+> kernel client is still sending write,startsync.
+> that startsync is a no-op (has been for years) and can probably be removed
+> 
+> Link: http://tracker.ceph.com/issues/20604
+> 
+> Signed-off-by: Yanhu Cao <gmayyyha@gmail.com>
+> ---
+> fs/ceph/addr.c             | 9 ++-------
+> fs/ceph/file.c             | 5 +----
+> include/linux/ceph/rados.h | 1 -
+> net/ceph/osd_client.c      | 5 -----
+> 4 files changed, 3 insertions(+), 17 deletions(-)
+> 
+> diff --git a/fs/ceph/addr.c b/fs/ceph/addr.c
+> index 5083628..f9a1805 100644
+> --- a/fs/ceph/addr.c
+> +++ b/fs/ceph/addr.c
+> @@ -939,7 +939,7 @@ static int ceph_writepages_start(struct address_space *mapping,
+> 					break;
+> 				}
+> 
+> -				num_ops = 1 + do_sync;
+> +				num_ops = 1;
+> 				strip_unit_end = page->index +
+> 					((len - 1) >> PAGE_SHIFT);
+> 
+> @@ -1045,7 +1045,7 @@ static int ceph_writepages_start(struct address_space *mapping,
+> 		for (i = 0; i < locked_pages; i++) {
+> 			u64 cur_offset = page_offset(pages[i]);
+> 			if (offset + len != cur_offset) {
+> -				if (op_idx + do_sync + 1 == req->r_num_ops)
+> +				if (op_idx + 1 == req->r_num_ops)
+> 					break;
+> 				osd_req_op_extent_dup_last(req, op_idx,
+> 							   cur_offset - offset);
+> @@ -1082,17 +1082,12 @@ static int ceph_writepages_start(struct address_space *mapping,
+> 						 0, !!pool, false);
+> 		osd_req_op_extent_update(req, op_idx, len);
+> 
+> -		if (do_sync) {
+> -			op_idx++;
+> -			osd_req_op_init(req, op_idx, CEPH_OSD_OP_STARTSYNC, 0);
+> -		}
+> 		BUG_ON(op_idx + 1 != req->r_num_ops);
+> 
+> 		pool = NULL;
+> 		if (i < locked_pages) {
+> 			BUG_ON(num_ops <= req->r_num_ops);
+> 			num_ops -= req->r_num_ops;
+> -			num_ops += do_sync;
+> 			locked_pages -= i;
+> 
+> 			/* allocate new pages array for next request */
+> diff --git a/fs/ceph/file.c b/fs/ceph/file.c
+> index 3d48c41..405c99b 100644
+> --- a/fs/ceph/file.c
+> +++ b/fs/ceph/file.c
+> @@ -800,7 +800,6 @@ static void ceph_aio_retry_work(struct work_struct *work)
+> 	}
+> 
+> 	req->r_ops[0] = orig_req->r_ops[0];
+> -	osd_req_op_init(req, 1, CEPH_OSD_OP_STARTSYNC, 0);
+> 
+> 	req->r_mtime = aio_req->mtime;
+> 	req->r_data_offset = req->r_ops[0].extent.offset;
+> @@ -874,8 +873,7 @@ static void ceph_aio_retry_work(struct work_struct *work)
+> 		vino = ceph_vino(inode);
+> 		req = ceph_osdc_new_request(&fsc->client->osdc, &ci->i_layout,
+> 					    vino, pos, &size, 0,
+> -					    /*include a 'startsync' command*/
+> -					    write ? 2 : 1,
+> +					    1,
+> 					    write ? CEPH_OSD_OP_WRITE :
+> 						    CEPH_OSD_OP_READ,
+> 					    flags, snapc,
+> @@ -922,7 +920,6 @@ static void ceph_aio_retry_work(struct work_struct *work)
+> 			truncate_inode_pages_range(inode->i_mapping, pos,
+> 					(pos+len) | (PAGE_SIZE - 1));
+> 
+> -			osd_req_op_init(req, 1, CEPH_OSD_OP_STARTSYNC, 0);
+> 			req->r_mtime = mtime;
+> 		}
+> 
+> diff --git a/include/linux/ceph/rados.h b/include/linux/ceph/rados.h
+> index 385db08..ba5adf0 100644
+> --- a/include/linux/ceph/rados.h
+> +++ b/include/linux/ceph/rados.h
+> @@ -226,7 +226,6 @@ struct ceph_eversion {
+> 									    \
+> 	/* fancy write */						    \
+> 	f(APPEND,	__CEPH_OSD_OP(WR, DATA, 6),	"append")	    \
+> -	f(STARTSYNC,	__CEPH_OSD_OP(WR, DATA, 7),	"startsync")	    \
+> 	f(SETTRUNC,	__CEPH_OSD_OP(WR, DATA, 8),	"settrunc")	    \
+> 	f(TRIMTRUNC,	__CEPH_OSD_OP(WR, DATA, 9),	"trimtrunc")	    \
+> 									    \
+> diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
+> index 901bb82..5c9d696 100644
+> --- a/net/ceph/osd_client.c
+> +++ b/net/ceph/osd_client.c
+> @@ -863,8 +863,6 @@ static u32 osd_req_encode_op(struct ceph_osd_op *dst,
+> 		dst->cls.method_len = src->cls.method_len;
+> 		dst->cls.indata_len = cpu_to_le32(src->cls.indata_len);
+> 		break;
+> -	case CEPH_OSD_OP_STARTSYNC:
+> -		break;
+> 	case CEPH_OSD_OP_WATCH:
+> 		dst->watch.cookie = cpu_to_le64(src->watch.cookie);
+> 		dst->watch.ver = cpu_to_le64(0);
+> @@ -916,9 +914,6 @@ static u32 osd_req_encode_op(struct ceph_osd_op *dst,
+>  * if the file was recently truncated, we include information about its
+>  * old and new size so that the object can be updated appropriately.  (we
+>  * avoid synchronously deleting truncated objects because it's slow.)
+> - *
+> - * if @do_sync, include a 'startsync' command so that the osd will flush
+> - * data quickly.
+>  */
+> struct ceph_osd_request *ceph_osdc_new_request(struct ceph_osd_client *osdc,
+> 					       struct ceph_file_layout *layout,
+> -- 
+> 1.8.3.1
+> 
 
-With this patch the user space app sets the TCA_ROOT_TIME_DELTA
-attribute with the value in milliseconds with "time of interest
-since now".  The kernel converts this to jiffies and does the
-filtering comparison matching entries that have seen activity
-since then and returns them to user space.
-Old kernels and old tc continue to work in legacy mode since
-they dont specify this attribute.
+Applied, thanks.
 
-Some example (we have 400 actions bound to 400 filters); at
-installation time using hacked tc setting the time of
-interest to 120 seconds earlier:
-prompt$ hackedtc actions ls action gact since 120000| grep index | wc -l
-400
+Yan, Zheng
 
-go get some coffee and wait for > 120 seconds and try again:
 
-prompt$ hackedtc actions ls action gact since 120000 | grep index | wc -l
-0
-
-Lets see a filter bound to one of these actions:
-..
-filter pref 10 u32
-filter pref 10 u32 fh 800: ht divisor 1
-filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 2 success 1)
-  match 7f000002/ffffffff at 12 (success 1 )
-    action order 1: gact action pass
-     random type none pass val 0
-     index 23 ref 2 bind 1 installed 1145 sec used 802 sec
-    Action statistics:
-    Sent 84 bytes 1 pkt (dropped 0, overlimits 0 requeues 0)
-    backlog 0b 0p requeues 0
-....
-
-that coffee took long, no? It was good.
-
-Now lets ping -c 1 127.0.0.2, then run the actions again:
-prompt$ hackedtc actions ls action gact since 120 | grep index | wc -l
-1
-
-More details please:
-
-prompt$ hackedtc -s actions ls action gact since 120000
-
-    action order 0: gact action pass
-     random type none pass val 0
-     index 23 ref 2 bind 1 installed 1270 sec used 30 sec
-    Action statistics:
-    Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
-    backlog 0b 0p requeues 0
-
-And the filter?
-
-filter pref 10 u32
-filter pref 10 u32 fh 800: ht divisor 1
-filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 4 success 2)
-  match 7f000002/ffffffff at 12 (success 2 )
-    action order 1: gact action pass
-     random type none pass val 0
-     index 23 ref 2 bind 1 installed 1324 sec used 84 sec
-    Action statistics:
-    Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
-    backlog 0b 0p requeues 0
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- include/uapi/linux/rtnetlink.h |  1 +
- net/sched/act_api.c            | 20 +++++++++++++++++++-
- 2 files changed, 20 insertions(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index bfa80a6..dab7dad 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -691,6 +691,7 @@ enum {
- #define TCAA_MAX TCA_ROOT_TAB
- 	TCA_ROOT_FLAGS,
- 	TCA_ROOT_COUNT,
-+	TCA_ROOT_TIME_DELTA, /* in msecs */
- 	__TCA_ROOT_MAX,
- #define	TCA_ROOT_MAX (__TCA_ROOT_MAX - 1)
- };
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 15d6c46..9ffad9c 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -111,6 +111,7 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
- {
- 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
- 	u32 act_flags = cb->args[2];
-+	unsigned long jiffy_since = cb->args[3];
- 	struct nlattr *nest;
- 
- 	spin_lock_bh(&hinfo->lock);
-@@ -128,6 +129,11 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
- 			if (index < s_i)
- 				continue;
- 
-+			if (jiffy_since &&
-+			    time_after(jiffy_since,
-+				       (unsigned long)p->tcfa_tm.lastuse))
-+				continue;
-+
- 			nest = nla_nest_start(skb, n_i);
- 			if (nest == NULL)
- 				goto nla_put_failure;
-@@ -145,9 +151,11 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
- 		}
- 	}
- done:
-+	if (index >= 0)
-+		cb->args[0] = index + 1;
-+
- 	spin_unlock_bh(&hinfo->lock);
- 	if (n_i) {
--		cb->args[0] += n_i;
- 		if (act_flags & TCA_FLAG_LARGE_DUMP_ON)
- 			cb->args[1] = n_i;
- 	}
-@@ -1077,6 +1085,7 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
- static const struct nla_policy tcaa_policy[TCA_ROOT_MAX + 1] = {
- 	[TCA_ROOT_FLAGS] = { .type = NLA_BITFIELD_32,
- 			     .validation_data = &tcaa_root_flags_allowed },
-+	[TCA_ROOT_TIME_DELTA]      = { .type = NLA_U32 },
- };
- 
- static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
-@@ -1167,7 +1176,9 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct nla_bitfield_32 fb;
- 	struct nlattr *count_attr = NULL;
- 	struct nlattr *tb[TCA_ROOT_MAX + 1];
-+	unsigned long jiffy_since = 0;
- 	struct nlattr *kind = NULL;
-+	u32 msecs_since = 0;
- 	u32 act_count = 0;
- 
- 	ret = nlmsg_parse(cb->nlh, sizeof(struct tcamsg), tb, TCA_ROOT_MAX,
-@@ -1188,12 +1199,19 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	if (tb[TCA_ROOT_FLAGS])
- 		fb = nla_get_bitfield_32(tb[TCA_ROOT_FLAGS]);
- 
-+	if (tb[TCA_ROOT_TIME_DELTA])
-+		msecs_since = nla_get_u32(tb[TCA_ROOT_TIME_DELTA]);
-+
- 	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
- 			cb->nlh->nlmsg_type, sizeof(*t), 0);
- 	if (!nlh)
- 		goto out_module_put;
- 
-+	if (msecs_since)
-+		jiffy_since = jiffies - msecs_to_jiffies(msecs_since);
-+
- 	cb->args[2] = fb.nla_value;
-+	cb->args[3] = jiffy_since;
- 	t = nlmsg_data(nlh);
- 	t->tca_family = AF_UNSPEC;
- 	t->tca__pad1 = 0;
--- 
-1.9.1
