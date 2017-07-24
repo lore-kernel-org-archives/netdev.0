@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: dev_map_alloc() shouldn't return NULL
-Date: Mon, 24 Jul 2017 16:23:26 -0700 (PDT)
-Message-ID: <20170724.162326.2235132369097751651.davem@davemloft.net>
-References: <20170722074004.3abeucov67n3sbqs@mwanda>
+Subject: Re: [PATCH net] openvswitch: fix potential out of bound access in
+ parse_ct
+Date: Mon, 24 Jul 2017 16:25:39 -0700 (PDT)
+Message-ID: <20170724.162539.1383941457781051443.davem@davemloft.net>
+References: <1500803543-7297-1-git-send-email-zlpnobody@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, john.fastabend@gmail.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: pshelar@nicira.com, netdev@vger.kernel.org, zlpnobody@gmail.com
+To: zlpnobody@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44586 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44600 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752558AbdGXXX1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 19:23:27 -0400
-In-Reply-To: <20170722074004.3abeucov67n3sbqs@mwanda>
+        with ESMTP id S1752071AbdGXXZk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 19:25:40 -0400
+In-Reply-To: <1500803543-7297-1-git-send-email-zlpnobody@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Sat, 22 Jul 2017 10:40:04 +0300
+From: Liping Zhang <zlpnobody@163.com>
+Date: Sun, 23 Jul 2017 17:52:23 +0800
 
-> We forgot to set the error code on two error paths which means that we
-> return ERR_PTR(0) which is NULL.  The caller, find_and_alloc_map(), is
-> not expecting that and will have a NULL dereference.
+> From: Liping Zhang <zlpnobody@gmail.com>
 > 
-> Fixes: 546ac1ffb70d ("bpf: add devmap, a map for storing net device references")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Before the 'type' is validated, we shouldn't use it to fetch the
+> ovs_ct_attr_lens's minlen and maxlen, else, out of bound access
+> may happen.
+> 
+> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+> Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 
-Applied, thanks Dan.
+Applied and queued up for -stable.
