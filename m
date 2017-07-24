@@ -1,65 +1,82 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next V2 0/5] Refine virtio-net XDP
-Date: Tue, 25 Jul 2017 00:41:06 +0300
-Message-ID: <20170725000830-mutt-send-email-mst@kernel.org>
-References: <1500454489-16805-1-git-send-email-jasowang@redhat.com>
-	<20170724.133859.192337723544942743.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 2/2] net: ethernet: nb8800: Fix RGMII TX clock delay setup
+Date: Mon, 24 Jul 2017 14:49:22 -0700
+Message-ID: <5c48496e-8c67-5af5-e0c5-7b0c298adc84@gmail.com>
+References: <b332dc3e-4478-e34b-2b3f-226aad8a11d4@sigmadesigns.com>
+ <61b71d12-4e3a-edbe-1d69-c66e7cf46d8e@sigmadesigns.com>
+ <yw1xzic0qrcg.fsf@mansr.com> <001a7afd-364d-359e-1478-e057c9083f73@free.fr>
+ <d8121f82-dffd-22c7-1209-a3c2329703e5@gmail.com>
+ <05cbc32e-a4af-1c81-128b-bc5d2206d24a@free.fr>
+ <bf484952-15ae-b385-6b54-4d07b3bc2b29@gmail.com>
+ <54f5bd21-766d-d9de-3b15-a01fd5ee6035@free.fr>
+ <54ca7197-780a-68b1-0cf2-88ccc7ce4201@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20170724.133859.192337723544942743.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Mans Rullgard <mans@mansr.com>,
+        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Timur Tabi <timur@codeaurora.org>,
+        Daniel Mack <zonque@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Mason <slash.tmp@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:37578 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752497AbdGXVt3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 17:49:29 -0400
+Received: by mail-wr0-f196.google.com with SMTP id 12so10420539wrb.4
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 14:49:29 -0700 (PDT)
+In-Reply-To: <54ca7197-780a-68b1-0cf2-88ccc7ce4201@free.fr>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 24, 2017 at 01:38:59PM -0700, David Miller wrote:
-> From: Jason Wang <jasowang@redhat.com>
-> Date: Wed, 19 Jul 2017 16:54:44 +0800
+On 07/24/2017 02:21 PM, Mason wrote:
+> On 20/07/2017 14:33, Mason wrote:
 > 
-> > Hi:
-> > 
-> > This series brings two optimizations for virtio-net XDP:
-> > 
-> > - avoid reset during XDP set
-> > - turn off offloads on demand
-> > 
-> > Changes from V1:
-> > - Various tweaks on commit logs and comments
-> > - Use virtnet_napi_enable() when enabling NAPI on XDP set
-> > - Copy the small buffer packet only if xdp_headroom is smaller than
-> >   required
-> > 
-> > Please review.
+>> As [Florian] pointed out, the spec states that the
+>> "Data to Clock input Skew (at Receiver)"
+>> must be within [ 1.0, 2.6 ] ns.
+>>
+>> I understand that 2 ns is 1/4 of a 125 MHz period,
+>> but it's not clear to me why the above interval is
+>> centered at 1.8 instead of 2.0 ns.
+>>
+>> Also, the AR8035 PHY offers 4 possible TX clock delays:
+>> { 0.25, 1.3, 2.4, 3.4 } according to their doc.
+>> The two extremes are outside the interval, when would
+>> they be useful? In case the transmitter adds "bad" skew?
+>>
+>> Why doesn't the PHY support 1.8/2.0? Is it perhaps
+>> unable to, because of PLL limitations?
 > 
-> Series applied, thanks Jason.
+> I haven't yet found answers for these questions.
 > 
-> Michael, I gave you 4+ days to properly review this respin of this
-> series.  I felt that was more than sufficient time, even with an
-> intervening weekend.  So if you don't like that I applied this without
-> your review, please be more punctual in the future.
+> - Why is the interval centered at 1.8 instead of 2.0 ns?
+
+Presumably because this is almost the middle of the available range and
+it still provides a value that is within the specification...
+
+> - What use are 0.25 ns and 3.4 ns skew?
+
+Accounting for extreme PCB traces lengths possibly, or just exposing the
+raw values that the HW supports by increments of 0.25 ns, just because
+the HW supports it.
+
+> - Why doesn't the PHY support a "recommended" value like 1.8 ns?
 > 
-> Thank you.
+> Does anyone have pointers to good resources?
 
-My bad - reviewed when I was offline and forgot to send it out.
-
-By luck this is not a big deal:
-
-- Patches 1-4 are good.
-- Patch 5 has some problems IMO, but all it does
-is try to enable a previously non-working configuration, so
-it seems ok to fix it up with follow-up patches as appropriate.
-
+The PHY datasheet and the RGMII specification really ought to be the
+starting points, there is not much more to it. Maybe go ask your support
+person at Qualcomm/Atheros about their PHY design?
 -- 
-MST
+Florian
