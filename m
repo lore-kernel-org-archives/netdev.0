@@ -1,34 +1,47 @@
-From: David Miller via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH net 0/2] bpf: fix verifier min/max
-	handling in BPF_SUB
-Date: Mon, 24 Jul 2017 14:03:38 -0700 (PDT)
-Message-ID: <20170724.140338.1602510670649992676.davem@davemloft.net>
-References: <2ebcb201-2f18-7276-f4f9-f2bbaffae179@solarflare.com>
-Reply-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [BUG] /net/hsr: prune_timer
+Date: Mon, 24 Jul 2017 14:03:30 -0700
+Message-ID: <CAM_iQpX96_Q_dQdoC4kEN4DXjmYgjgoLJY7JeT9qx_oLj++ZWg@mail.gmail.com>
+References: <op.y3kbi1pqlevu92@dandreev01.uni-eng.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ast-b10kYP2dOMg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <2ebcb201-2f18-7276-f4f9-f2bbaffae179-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Dmitry <d.andreev@uni-eng.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35165 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756314AbdGXVDx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 17:03:53 -0400
+Received: by mail-wm0-f67.google.com with SMTP id r77so921675wmd.2
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 14:03:52 -0700 (PDT)
+In-Reply-To: <op.y3kbi1pqlevu92@dandreev01.uni-eng.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Date: Fri, 21 Jul 2017 14:35:17 +0100
+On Tue, Jul 18, 2017 at 1:07 AM, Dmitry <d.andreev@uni-eng.ru> wrote:
+> Hello!
+>
+>
+> void hsr_prune_nodes(unsigned long data) called once by timer.
+>
+> hsr_prune_nodes must be called periodically every PRUNE_PERIOD (60s).
+>
+>
+>
+>
+> This code want be added to tail of hsr_prune_nodes function
+>
+> hsr->prune_timer.expires = jiffies + msecs_to_jiffies(PRUNE_PERIOD);
+> add_timer(&hsr->prune_timer);
+>
+> or
+>
+> mod_timer(&hsr->prune_timer, jiffies + msecs_to_jiffies(PRUNE_PERIOD));
 
-> I managed to come up with a test for the swapped bounds in BPF_SUB, so here
->  it is along with a patch that fixes it, separated out from my 'rewrite
->  everything' series so it can go to -stable.
+Please feel free to send a patch.
 
-Series applied and queued up for -stable, thanks.
+You can follow this doc:
+https://www.kernel.org/doc/html/v4.11/process/submitting-patches.html
+
+
+Thanks!
