@@ -1,50 +1,114 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netvsc: fix ptr_ret.cocci warnings
-Date: Mon, 24 Jul 2017 16:32:58 -0700 (PDT)
-Message-ID: <20170724.163258.1790925456750077892.davem@davemloft.net>
-References: <20170721185443.GA18015@lkp-g5.lkp.intel.com>
-        <20170724.162028.1773975039054477117.davem@davemloft.net>
-        <20170724162157.7a3b22fd@xeon-e3>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: A buggy behavior for Linux TCP Reno and HTCP
+Date: Mon, 24 Jul 2017 16:41:12 -0700
+Message-ID: <CAK6E8=djw-eD-JE3tkJsDjYb5UXR8scQRSnAvpt1d4p18GwHeA@mail.gmail.com>
+References: <CANdGJ5Qp1MoGfeSyAnEqYeSeEyoiH8e1j_Ut3F4PnLRBnqNNZg@mail.gmail.com>
+ <CAK6E8=eP3jwTD5t7Cj3h_m4JTJ61p=roqsr02WiSHUANse1ynw@mail.gmail.com>
+ <CANdGJ5SOUV1OoonC-3i=5MLUWvoHPBZgp19c3mJTTYbNr2yLeQ@mail.gmail.com>
+ <CAK6E8=eWYybZZxkjjVXC_K7DfYayEg7gx0bPqKpwi6iuE+bh8Q@mail.gmail.com>
+ <dc5db0ec-0746-d42e-5418-f621e1840bc0@unl.edu> <CADVnQynG0MZcuAPpZ+hiK-9Ounx8JKPWxvb1n3t-OyyC7=es_Q@mail.gmail.com>
+ <CAK6E8=d+-kA_PyVgAoe0dtGg--ek0CurehQZ7JXo=32em2Gv+Q@mail.gmail.com>
+ <CADVnQy=-m37Uxfg1=nJpkuy2CKTtW1fp2jG53Q+MNF7ifGvoHw@mail.gmail.com>
+ <CADVnQym0TdX=NgdP2YeF-OAMmLXZrmxt7HaitqxxCcDCMpWJmg@mail.gmail.com>
+ <CAK6E8=etPfZMy2ZiPJPFXF5wf9a2foU-Wummq3kLn_koL8wO+A@mail.gmail.com> <CADVnQymwOwWVr_Ln5+04pyiGWChf-K0XcXYP5s-+db+q1zGB9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, kbuild-all@01.org, sthemmin@microsoft.com,
-        kys@microsoft.com, haiyangz@microsoft.com,
-        devel@linuxdriverproject.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: stephen@networkplumber.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Lisong Xu <xu@unl.edu>, Wei Sun <unlcsewsun@gmail.com>,
+        netdev <netdev@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44720 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752081AbdGXXdA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 19:33:00 -0400
-In-Reply-To: <20170724162157.7a3b22fd@xeon-e3>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36129 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932840AbdGXXlz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 19:41:55 -0400
+Received: by mail-wm0-f47.google.com with SMTP id t201so31771344wmt.1
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 16:41:54 -0700 (PDT)
+In-Reply-To: <CADVnQymwOwWVr_Ln5+04pyiGWChf-K0XcXYP5s-+db+q1zGB9w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 24 Jul 2017 16:21:57 -0700
+On Mon, Jul 24, 2017 at 11:29 AM, Neal Cardwell <ncardwell@google.com> wrote:
+> On Mon, Jul 24, 2017 at 2:17 PM, Yuchung Cheng <ycheng@google.com> wrote:
+>> On Sun, Jul 23, 2017 at 7:37 PM, Neal Cardwell <ncardwell@google.com> wrote:
+>>> On Sun, Jul 23, 2017 at 10:36 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> ...
+>>>> What if we call the field tp->prior_cwnd? Then at least we'd have some
+>>>> nice symmetry:
+>>>>
+>>>> - tp->snd_cwnd,  which is saved in tp->prior_cwnd  (and restored upon undo)
+>>>> - tp->snd_ssthresh,  which is saved in tp-> prior_ssthresh  (and
+>>>> restored upon undo)
+>>>>
+>>>> That sounds appealing to me. WDYT?
+>>>
+>>> And, I should add, if we go with the tp->prior_cwnd approach, then we
+>>> can have a single "default"/CUBIC-style undo function, instead of 15
+>>> separate but identical implementations...
+>> you mean all CC modules share one ca_ops->undo_cwnd function? sounds a
+>> nice consolidation work.
+>
+> Yes, exactly.
+>
+> Right now we have 9 modules that have identical tcp_foo_cwnd_undo functions:
+>
+> tcp_bic.c:188:  return max(tp->snd_cwnd, ca->loss_cwnd);
+> tcp_cubic.c:378:        return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> tcp_dctcp.c:318:        return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> tcp_highspeed.c:165:    return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> tcp_illinois.c:309:     return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> tcp_nv.c:190:   return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> tcp_scalable.c:50:      return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> tcp_veno.c:210: return max(tcp_sk(sk)->snd_cwnd, veno->loss_cwnd);
+> tcp_yeah.c:232: return max(tcp_sk(sk)->snd_cwnd, yeah->loss_cwnd);
+>
+> And if we fix this bug in tcp_reno_undo_cwnd() by referring to
+> ca->loss_cwnd then we will add another 6 like this.
+>
+> So my proposal would be
+>
+> - tp->snd_cwnd,  which is saved in tp->prior_cwnd  (and restored upon undo)
+> - tp->snd_ssthresh,  which is saved in tp-> prior_ssthresh  (and
+>    restored upon undo)
+>
+> Actually, now that I re-read the code, we already do have a
+> prior_cwnd, which is used for the PRR code, and already set upon
+> entering CA_Recovery. So if we set prior_cwnd for CA_Loss, perhaps we
+> can do something like:
+>
+> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+> index fde983f6376b..c2b174469645 100644
+> --- a/net/ipv4/tcp_cong.c
+> +++ b/net/ipv4/tcp_cong.c
+> @@ -456,7 +456,7 @@ u32 tcp_reno_undo_cwnd(struct sock *sk)
+>  {
+>         const struct tcp_sock *tp = tcp_sk(sk);
+>
+> -       return max(tp->snd_cwnd, tp->snd_ssthresh << 1);
+> +       return max(tp->snd_cwnd, tp->prior_cwnd);
+>  }
+>  EXPORT_SYMBOL_GPL(tcp_reno_undo_cwnd);
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 2920e0cb09f8..ae790a84302d 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -1951,6 +1951,7 @@ void tcp_enter_loss(struct sock *sk)
+>             !after(tp->high_seq, tp->snd_una) ||
+>             (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
+>                 tp->prior_ssthresh = tcp_current_ssthresh(sk);
+> +               tp->prior_cwnd = tp->snd_cwnd;
+>                 tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+>                 tcp_ca_event(sk, CA_EVENT_LOSS);
+>                 tcp_init_undo(tp);
+>
+> And then change all the CC modules but BBR to use the
+> tcp_reno_undo_cwnd() instead of their own custom undo code.
+>
+> WDYT?
+Looks reasonable. But we might want to eventually refactor TCP undo
+code: the stats changes (prior_ssthresh, prior_cwnd, undo_marker,
+undo_retrans) are scattered in different helpers, making the code hard
+to audit.
 
-> On Mon, 24 Jul 2017 16:20:28 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
->> From: kbuild test robot <fengguang.wu@intel.com>
->> Date: Sat, 22 Jul 2017 02:54:43 +0800
->> 
->> > drivers/net/hyperv/netvsc_drv.c:737:8-14: WARNING: PTR_ERR_OR_ZERO can be used
->> > 
->> > 
->> >  Use PTR_ERR_OR_ZERO rather than if(IS_ERR(...)) + PTR_ERR
->> > 
->> > Generated by: scripts/coccinelle/api/ptr_ret.cocci
->> > 
->> > Fixes: 9749fed5d43d ("netvsc: use ERR_PTR to avoid dereference issues")
->> > CC: stephen hemminger <stephen@networkplumber.org>
->> > Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>  
->> 
->> Applied to net-next.
-> 
-> That function is gone in the later patches.
-
-I guess I'll deal with that when I apply that series or do a merge
-then :-)
+>
+> neal
