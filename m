@@ -1,58 +1,99 @@
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Subject: [PATCH 1/1] mlx4_en: remove unnecessary returned value
-Date: Sun, 23 Jul 2017 23:02:53 -0400
-Message-ID: <1500865373-32411-1-git-send-email-yanjun.zhu@oracle.com>
-To: tariqt@mellanox.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, yuval.shaia@oracle.com, leon@kernel.org
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
+ null entry.
+Date: Mon, 24 Jul 2017 11:09:07 +0800
+Message-ID: <20170724030907.GC2938@leo.usersys.redhat.com>
+References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+ <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
+ <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
+ <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:18066 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751853AbdGXDA5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 23:00:57 -0400
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36340 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752693AbdGXDJS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 23:09:18 -0400
+Received: by mail-pf0-f193.google.com with SMTP id 1so1295132pfi.3
+        for <netdev@vger.kernel.org>; Sun, 23 Jul 2017 20:09:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function mlx4_en_arm_cq always returns zero. So change the
-return type of the function mlx4_en_arm_cq to void.
+Hi Cong,
+On Fri, Jul 21, 2017 at 11:42:46AM -0700, Cong Wang wrote:
+> On Thu, Jul 20, 2017 at 8:23 AM, Hangbin Liu <liuhangbin@gmail.com> wrote:
+> > 2017-07-20 23:06 GMT+08:00 Hangbin Liu <liuhangbin@gmail.com>:
+> >>> +++ b/net/ipv6/route.c
+> >>> @@ -3637,12 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+> >>>                 dst = ip6_route_lookup(net, &fl6, 0);
+> >>>
+> >>>         rt = container_of(dst, struct rt6_info, dst);
+> >>> -       if (rt->dst.error) {
+> >>> -               err = rt->dst.error;
+> >>> -               ip6_rt_put(rt);
+> >>> -               goto errout;
+> >>> -       }
+> >>
+> >> hmm... or instead of remove this check, should we check all the entry? Like
+> >> if ((rt->dst.error && rt != net->ipv6.ip6_null_entry && rt !=
+> >                                                     ^^ mistake here
+> >> net->ipv6.ip6_blk_hole_entry) ||
+> >>      rt == net->ipv6.ip6_null_entry )
+> >
+> > Sorry,  there should be no need to check ip6_null_entry since the
+> > error is already
+> > -ENETUNREACH. So how about
+> 
+> Hmm? All of these 3 entries have error set, right??
+> So we should only check dst.error...
 
-CC: Joe Jin <joe.jin@oracle.com>
-CC: Junxiao Bi <junxiao.bi@oracle.com>
-Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_cq.c   | 4 +---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 2 +-
- 2 files changed, 2 insertions(+), 4 deletions(-)
+A question, since you have fixed the ip6_null_entry->rt6i_idev issue via
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index 85fe17e..87d1f4d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -208,12 +208,10 @@ int mlx4_en_set_cq_moder(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
- 			      cq->moder_cnt, cq->moder_time);
- }
- 
--int mlx4_en_arm_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
-+void mlx4_en_arm_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
- {
- 	mlx4_cq_arm(&cq->mcq, MLX4_CQ_DB_REQ_NOT, priv->mdev->uar_map,
- 		    &priv->mdev->uar_lock);
+  ipv6: initialize route null entry in addrconf_init()
+  ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf
+  ipv6: only call ip6_route_dev_notify() once for NETDEV_UNREGISTER
+  ipv6: avoid unregistering inet6_dev for loopback
+
+Do we still need this net->ipv6.ip6_null_entry check? How about remove all
+the checks?
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4d30c96..b5e3fe0 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3637,17 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+                dst = ip6_route_lookup(net, &fl6, 0);
+
+        rt = container_of(dst, struct rt6_info, dst);
+-       if (rt->dst.error) {
+-               err = rt->dst.error;
+-               ip6_rt_put(rt);
+-               goto errout;
+-       }
 -
--	return 0;
- }
- 
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index d350b21..fdb3ad0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -685,7 +685,7 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 			int cq_idx);
- void mlx4_en_deactivate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
- int mlx4_en_set_cq_moder(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
--int mlx4_en_arm_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
-+void mlx4_en_arm_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
- 
- void mlx4_en_tx_irq(struct mlx4_cq *mcq);
- u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb,
--- 
-2.7.4
+-       if (rt == net->ipv6.ip6_null_entry) {
+-               err = rt->dst.error;
+-               ip6_rt_put(rt);
+-               goto errout;
+-       }
+
+        skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+        if (!skb) {
+
+
+Before this patch:
++ ip netns exec client ip -6 route get 2003::1
+RTNETLINK answers: Network is unreachable
+
+After this patch:
++ ip netns exec client ip -6 route get 2003::1
+unreachable 2003::1 dev lo table unspec proto kernel src 2001::1 metric 4294967295 error -101
+
+
+Thanks
+Hangbin
