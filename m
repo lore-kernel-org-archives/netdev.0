@@ -1,103 +1,147 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: mlx5 still has lots of warnings
-Date: Mon, 24 Jul 2017 09:51:44 -0700
-Message-ID: <20170724095144.57f994ad@xeon-e3>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 11/13] net: dsa: lan9303: Added "alr_dump" sysfs port
+ attribute
+Date: Mon, 24 Jul 2017 09:54:17 -0700
+Message-ID: <e5a1cefd-1e26-3a24-2928-3fd7d970d8a6@gmail.com>
+References: <f69ce739a3aa42e9b1e03fc699282b3c@nooslMX1.zenitelcss.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:38599 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751521AbdGXQvw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 12:51:52 -0400
-Received: by mail-pg0-f47.google.com with SMTP id s4so59387625pgr.5
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 09:51:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Egil Hjelmeland <egil.hjelmeland@zenitel.com>, corbet@lwn.net,
+        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        davem@davemloft.net, kernel@pengutronix.de,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <f69ce739a3aa42e9b1e03fc699282b3c@nooslMX1.zenitelcss.com>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I sent patches for this, and you said you were going to solve this (back in=
- April).
-Still see lots of warnings from MLX5.
+On 07/20/2017 01:49 AM, Egil Hjelmeland wrote:
+> Added read only file /sys/class/net/<port>/lan9303/alr_dump,
+> that output 168 first ALR entires.
+> 
+> Currently "bridge fdb show" does not include the CPU port, while
+> "alr_dump" list all three ports per entry.
 
-  CC [M]  drivers/net/ethernet/mellanox/mlx5/core/en_rep.o
-drivers/net/ethernet/mellanox/mlx5/core/en_rep.c:767:35: warning: =E2=80=98=
-mlx5e_rep_switchdev_ops=E2=80=99 defined but not used [-Wunused-const-varia=
-ble=3D]
- static const struct switchdev_ops mlx5e_rep_switchdev_ops =3D {
-                                   ^~~~~~~~~~~~~~~~~~~~~~~
-In file included from drivers/net/ethernet/mellanox/mlx5/core/en_rep.c:41:0:
-drivers/net/ethernet/mellanox/mlx5/core/en.h:188:19: warning: =E2=80=98mlx5=
-e_priv_flags=E2=80=99 defined but not used [-Wunused-const-variable=3D]
- static const char mlx5e_priv_flags[][ETH_GSTRING_LEN] =3D {
-                   ^~~~~~~~~~~~~~~~
-In file included from drivers/net/ethernet/mellanox/mlx5/core/en.h:51:0,
-                 from drivers/net/ethernet/mellanox/mlx5/core/en_rep.c:41:
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:427:34: warning: =E2=80=
-=98mlx5e_pme_error_desc=E2=80=99 defined but not used [-Wunused-const-varia=
-ble=3D]
- static const struct counter_desc mlx5e_pme_error_desc[] =3D {
-                                  ^~~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:423:34: warning: =E2=80=
-=98mlx5e_pme_status_desc=E2=80=99 defined but not used [-Wunused-const-vari=
-able=3D]
- static const struct counter_desc mlx5e_pme_status_desc[] =3D {
-                                  ^~~~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:372:34: warning: =E2=80=
-=98sq_stats_desc=E2=80=99 defined but not used [-Wunused-const-variable=3D]
- static const struct counter_desc sq_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:331:34: warning: =E2=80=
-=98rq_stats_desc=E2=80=99 defined but not used [-Wunused-const-variable=3D]
- static const struct counter_desc rq_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:303:34: warning: =E2=80=
-=98pcie_perf_stats_desc=E2=80=99 defined but not used [-Wunused-const-varia=
-ble=3D]
- static const struct counter_desc pcie_perf_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:284:34: warning: =E2=80=
-=98pport_per_prio_pfc_stats_desc=E2=80=99 defined but not used [-Wunused-co=
-nst-variable=3D]
- static const struct counter_desc pport_per_prio_pfc_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:277:34: warning: =E2=80=
-=98pport_per_prio_traffic_stats_desc=E2=80=99 defined but not used [-Wunuse=
-d-const-variable=3D]
- static const struct counter_desc pport_per_prio_traffic_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:272:34: warning: =E2=80=
-=98pport_phy_statistical_stats_desc=E2=80=99 defined but not used [-Wunused=
--const-variable=3D]
- static const struct counter_desc pport_phy_statistical_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:256:34: warning: =E2=80=
-=98pport_2819_stats_desc=E2=80=99 defined but not used [-Wunused-const-vari=
-able=3D]
- static const struct counter_desc pport_2819_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:250:34: warning: =E2=80=
-=98pport_2863_stats_desc=E2=80=99 defined but not used [-Wunused-const-vari=
-able=3D]
- static const struct counter_desc pport_2863_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:229:34: warning: =E2=80=
-=98pport_802_3_stats_desc=E2=80=99 defined but not used [-Wunused-const-var=
-iable=3D]
- static const struct counter_desc pport_802_3_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:145:34: warning: =E2=80=
-=98vport_stats_desc=E2=80=99 defined but not used [-Wunused-const-variable=
-=3D]
- static const struct counter_desc vport_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:133:34: warning: =E2=80=
-=98q_stats_desc=E2=80=99 defined but not used [-Wunused-const-variable=3D]
- static const struct counter_desc q_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~
-drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:92:34: warning: =E2=80=
-=98sw_stats_desc=E2=80=99 defined but not used [-Wunused-const-variable=3D]
- static const struct counter_desc sw_stats_desc[] =3D {
-                                  ^~~~~~~~~~~~~
-  LD [M]  drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.o
+Agreed, and this is a limitation we would probably want to remove in the
+future, but duplicating what already exists with "bridge fdb show" into
+a sysfs node is a non-starter.
+> 
+> Example output:
+> 
+> 9c:57:ad:79:d0:84  1  l
+> 01:80:c2:00:00:00 0   s
+> 00:13:cb:0d:01:95 0   s
+> 10:f3:11:f5:6f:cf   2 l
+> 48:4d:7e:f4:59:a8   2 l
+> 01:00:5e:00:01:0a 0 2 s
+> ec:f4:bb:0f:e2:fd   2 l
+
+
+
+> 
+> Signed-off-by: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
+> ---
+>  Documentation/networking/dsa/lan9303.txt |  3 ++
+>  drivers/net/dsa/lan9303-core.c           | 58 ++++++++++++++++++++++++++++++++
+>  2 files changed, 61 insertions(+)
+> 
+> diff --git a/Documentation/networking/dsa/lan9303.txt b/Documentation/networking/dsa/lan9303.txt
+> index 1fd72ff4b492..ace91c821ce7 100644
+> --- a/Documentation/networking/dsa/lan9303.txt
+> +++ b/Documentation/networking/dsa/lan9303.txt
+> @@ -37,6 +37,9 @@ Sysfs nodes
+>  When a user port is enabled, the driver creates sysfs directory
+>  /sys/class/net/xxx/lan9303 with the following files:
+>  
+> + - alr_dump (RO): List the 168 first entries of the ALR table.
+> +      Including port 0 entires. This file is identical for both ports.
+> +      Format: MAC; list of ports; (l)earned / (s)tatic
+>   - swe_bcst_throt (RW): Set/get 6.4.7 Broadcast Storm Control
+>        Throttle Level for the port. Accesses the corresponding bits of
+>        the SWE_BCST_THROT register (13.4.3.23).
+> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+> index ad7a4c72e1fb..b682aa4f1fca 100644
+> --- a/drivers/net/dsa/lan9303-core.c
+> +++ b/drivers/net/dsa/lan9303-core.c
+> @@ -642,6 +642,47 @@ static void alr_loop_cb_fdb_port_dump(
+>  	dump_ctx->cb(&fdb->obj);
+>  }
+>  
+> +/* /sys/class/net/xxx/lan9303/alr_dump: display 168 first ALR entires,
+> + * including cpu port
+> + */
+> +struct port_sysfs_dump_ctx {
+> +	char *buf;
+> +	int pos;
+> +};
+> +
+> +static void alr_loop_cb_sysfs_dump(
+> +	struct lan9303 *chip, u32 dat0, u32 dat1, int portmap, void *ctx)
+> +{
+> +#	define LINE_LEN 24
+> +	struct port_sysfs_dump_ctx *dump_ctx = ctx;
+> +	char *buf = dump_ctx->buf;
+> +	int  pos =  dump_ctx->pos;
+> +
+> +	u8 mac[ETH_ALEN];
+> +	int p;
+> +	char ports[LAN9303_NUM_PORTS + 1];
+> +	const char trunc_txt[] = "Truncated!\n";
+> +
+> +	if (pos >= PAGE_SIZE - LINE_LEN - (sizeof(trunc_txt) - 1)) {
+> +		if (pos < PAGE_SIZE - LINE_LEN)
+> +			pos += sprintf(buf + pos, trunc_txt);
+> +		dump_ctx->pos = pos;
+> +		return;
+> +	}
+> +
+> +	_alr_reg_to_mac(dat0, dat1, mac);
+> +
+> +	/* print ports as list of port numbers: */
+> +	for (p = 0; p < LAN9303_NUM_PORTS; p++)
+> +		ports[p] = (portmap & BIT(p)) ? '0' + p : ' ';
+> +	ports[LAN9303_NUM_PORTS] = 0;
+> +
+> +	pos += sprintf(buf + pos, "%pM %s %s\n",
+> +	       mac, ports,
+> +	       (dat1 & ALR_DAT1_STATIC) ? "s" : "l");
+> +	dump_ctx->pos = pos;
+> +}
+> +
+>  /* ALR: Add/modify/delete ALR entries */
+>  
+>  /* Set a static ALR entry. Delete entry if port_map is zero */
+> @@ -931,8 +972,25 @@ swe_bcst_throt_store(struct device *dev, struct device_attribute *attr,
+>  
+>  static DEVICE_ATTR_RW(swe_bcst_throt);
+>  
+> +static ssize_t
+> +alr_dump_show(struct device *dev, struct device_attribute *attr,
+> +	      char *buf)
+> +{
+> +	struct dsa_port *dp = dsa_net_device_to_dsa_port(to_net_dev(dev));
+> +	struct lan9303 *chip = dp->ds->priv;
+> +	struct port_sysfs_dump_ctx dump_ctx = {
+> +		.buf = buf,
+> +		.pos = 0,
+> +	};
+> +
+> +	lan9303_alr_loop(chip, alr_loop_cb_sysfs_dump, &dump_ctx);
+> +	return dump_ctx.pos;
+> +}
+> +static DEVICE_ATTR_RO(alr_dump);
+> +
+>  static struct attribute *lan9303_attrs[] = {
+>  	&dev_attr_swe_bcst_throt.attr,
+> +	&dev_attr_alr_dump.attr,
+>  	NULL
+>  };
+>  
+> 
+
+
+-- 
+Florian
