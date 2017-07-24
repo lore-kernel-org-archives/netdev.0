@@ -1,40 +1,41 @@
-From: Dave Watson <davejwatson@fb.com>
-Subject: Re: Kernel TLS in 4.13-rc1
-Date: Mon, 24 Jul 2017 14:10:19 -0700
-Message-ID: <20170724211019.GA88539@davejwatson-mba.local>
-References: <1777546b-3ce0-7714-1388-fb2e6db9320f@sigma-star.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] IP: do not modify ingress packet IP option in
+ ip_options_echo()
+Date: Mon, 24 Jul 2017 14:12:53 -0700 (PDT)
+Message-ID: <20170724.141253.769254590231937263.davem@davemloft.net>
+References: <f5758b6b7199d2d2a218b0ad36f1e5ef108eac43.1500642854.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Richard Weinberger <richard@nod.at>
-To: David Oberhollenzer <david.oberhollenzer@sigma-star.at>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+        hannes@stressinduktion.org
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47913 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755920AbdGXVKc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 17:10:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1777546b-3ce0-7714-1388-fb2e6db9320f@sigma-star.at>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43164 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932718AbdGXVMy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 17:12:54 -0400
+In-Reply-To: <f5758b6b7199d2d2a218b0ad36f1e5ef108eac43.1500642854.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/23/17 09:39 PM, David Oberhollenzer wrote:
-> After fixing the benchmark/test tool that the patch description
-> linked to (https://github.com/Mellanox/tls-af_ktls_tool) to make
-> sure that the server and client actually *agree* on AES-128-GCM,
-> I simply ran the client program with the --verify-sendpage option.
-> 
-> The handshake and setting up of the sockets appears to work but
-> the program complains that the sent and received page contents
-> do not match (sent is 0x12 repeated all over and received looks
-> pretty random).
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Fri, 21 Jul 2017 15:55:18 +0200
 
-The --verify functions depend on the RX path as well, which has not
-been merged.  Any programs / tests using OpenSSL + patches should work
-fine.
+> diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+> index 93157f2..fdda973 100644
+> --- a/net/ipv4/ip_options.c
+> +++ b/net/ipv4/ip_options.c
+> @@ -174,9 +174,6 @@ int __ip_options_echo(struct ip_options *dopt, struct sk_buff *skb,
+>  				doffset -= 4;
+>  		}
+>  		if (doffset > 3) {
+> -			__be32 daddr = fib_compute_spec_dst(skb);
+> -
+> -			memcpy(&start[doffset-1], &daddr, 4);
+>  			dopt->faddr = faddr;
 
-If you want to use the tool, something like this should work, so that
-the receive path uses gnutls:
+This transformation is required, but in the destination not the source.
 
-./server --no-echo
-
-./client --server-port 12345 --sendfile some_file --server-host localhost
+The red flag is that we are indexing 'start' with 'doffset' instead of
+'soffset'.
