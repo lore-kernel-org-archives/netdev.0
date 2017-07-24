@@ -1,66 +1,71 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 13/13] net: dsa: lan9303: lan9303_port_mdb_del remove port
- 0
-Date: Mon, 24 Jul 2017 09:57:26 -0700
-Message-ID: <42090826-7498-4d90-f265-a7cf65a9e236@gmail.com>
-References: <3bf6b19359cc40939b2e075635ed55d2@nooslMX1.zenitelcss.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Egil Hjelmeland <egil.hjelmeland@zenitel.com>, corbet@lwn.net,
-        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        davem@davemloft.net, kernel@pengutronix.de,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <3bf6b19359cc40939b2e075635ed55d2@nooslMX1.zenitelcss.com>
-Content-Language: en-US
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] packet: fix use-after-free in prb_retire_rx_blk_timer_expired()
+Date: Mon, 24 Jul 2017 10:07:32 -0700
+Message-ID: <20170724170732.4905-1-xiyou.wangcong@gmail.com>
+Cc: alexander.levin@verizon.com, davej@codemonkey.org.uk,
+        liujian56@huawei.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        Ding Tianhong <dingtianhong@huawei.com>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36054 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753814AbdGXRHk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 13:07:40 -0400
+Received: by mail-pg0-f67.google.com with SMTP id y129so12256707pgy.3
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 10:07:39 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/20/2017 06:57 AM, Egil Hjelmeland wrote:
-> Workaround for dsa_switch_mdb_add adding CPU port to group,
-> but forgetting to remove it:
-> 
-> Remove port 0 if only port 0 is only port left.
-> 
-> Signed-off-by: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
-> ---
->  drivers/net/dsa/lan9303-core.c | 11 +++++++++++
->  1 file changed, 11 insertions(+)
-> 
-> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-> index 54646eb38185..61c915eed649 100644
-> --- a/drivers/net/dsa/lan9303-core.c
-> +++ b/drivers/net/dsa/lan9303-core.c
-> @@ -1424,6 +1424,17 @@ static int lan9303_port_mdb_del(
->  	if (mdb->vid)
->  		return -EOPNOTSUPP;
->  	lan9303_alr_del_port(chip, mdb->addr, port);
-> +
-> +	{
+There are multiple reports showing we have a use-after-free in
+the timer prb_retire_rx_blk_timer_expired(), where we use struct
+tpacket_kbdq_core::pkbdq, a pg_vec, after it gets freed by
+free_pg_vec().
 
-No need for curly braces here.
+The interesting part is it is not freed via packet_release() but
+via packet_setsockopt(), which means we are not closing the socket.
+Looking into the big and fat function packet_set_ring(), this could
+happen if we satisfy the following conditions:
 
-> +		/* Workaround for dsa_switch_mdb_add adding CPU port to
-> +		 * group, but forgetting to remove it. Remove port 0
-> +		 * if only port left
+1. closing == 0, not on packet_release() path
+2. req->tp_block_nr == 0, we don't allocate a new pg_vec
+3. rx_ring->pg_vec is already set as V3, which means we already called
+   packet_set_ring() wtih req->tp_block_nr > 0 previously
+4. req->tp_frame_nr == 0, pass sanity check
+5. po->mapped == 0, never called mmap()
 
-Should not we move this logic one layer above into DSA then such that
-insertions and removals are strictly symmetrical in which and how many
-ports are targeted?
+In this scenario we are clearing the old rx_ring->pg_vec, so we need
+to free this pg_vec, but we don't stop the timer on this path because
+of closing==0.
 
-> +		 **/
-> +		struct lan9303_alr_cache_entry *entr =
-> +			lan9303_alr_cache_find_mac(chip, mdb->addr);
-> +		if (entr && (entr->port_map == BIT(0)))
-> +			lan9303_alr_del_port(chip, mdb->addr, 0);
-> +	}
->  	return 0;
->  }
->  
-> 
+The timer has to be stopped as long as we need to free pg_vec, therefore
+the check on closing!=0 is wrong, we should check pg_vec!=NULL instead.
 
+Thanks to liujian for testing different fixes.
 
+Reported-by: alexander.levin@verizon.com
+Reported-by: Dave Jones <davej@codemonkey.org.uk>
+Reported-by: liujian (CE) <liujian56@huawei.com>
+Tested-by: liujian (CE) <liujian56@huawei.com>
+Cc: Ding Tianhong <dingtianhong@huawei.com>
+Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/packet/af_packet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 008bb34ee324..0615c2a950fa 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -4329,7 +4329,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+ 		register_prot_hook(sk);
+ 	}
+ 	spin_unlock(&po->bind_lock);
+-	if (closing && (po->tp_version > TPACKET_V2)) {
++	if (pg_vec && (po->tp_version > TPACKET_V2)) {
+ 		/* Because we don't support block-based V3 on tx-ring */
+ 		if (!tx_ring)
+ 			prb_shutdown_retire_blk_timer(po, rb_queue);
 -- 
-Florian
+2.13.0
