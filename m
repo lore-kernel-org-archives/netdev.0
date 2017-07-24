@@ -1,57 +1,61 @@
-From: <sean.wang@mediatek.com>
-Subject: [PATCH] net: dsa: fixup fail to get tag in mtk_get_tag_protocol
-Date: Mon, 24 Jul 2017 23:14:22 +0800
-Message-ID: <77d2e1bb09314a27a08d02dec9ec62e217b2b9d6.1500908869.git.sean.wang@mediatek.com>
+From: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
+Subject: [PATCH 00/13] net: dsa: lan9303: unicast offload, fdb,mdb,STP
+Date: Mon, 24 Jul 2017 16:47:51 +0200
+Message-ID: <525d9bb74bfa42c1b7a54930e14cf5ea@nooslMX1.zenitelcss.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>,
-        Sean Wang <sean.wang@mediatek.com>
-To: <davem@davemloft.net>, <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:59091 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932427AbdGXPO3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 11:14:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <egil.hjelmeland@zenitel.com>
+To: <corbet@lwn.net>, <andrew@lunn.ch>,
+        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
+        <davem@davemloft.net>, <kernel@pengutronix.de>,
+        <linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sean Wang <sean.wang@mediatek.com>
+This series extends the LAN9303 3 port switch DSA driver. Highlights:
+ - Make the MDIO interface work
+ - Bridging: Unicast offload
+ - Bridging: Added fdb/mdb handling
+ - Bridging: STP support
+ - Documentation
 
-dsa_is_cpu_port() checking ds->cpu_port_mask is not available in
-ds->ops->get_tag_protocol
+The last three patches are workarounds due to current kernel limitations.
 
-Since commit 14be36c2c96c ("net: dsa: Initialize all CPU and enabled
-ports masks in dsa_ds_parse()") So force returning DSA_TAG_PROTO_MTK
-inside mtk_get_tag_protocol call after that.
+This is my first patches submitted to the kernel, so I am looking
+forward to comments.
 
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
----
- drivers/net/dsa/mt7530.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 1e46418..c265e7e 100644
---- a/drivers/net/dsa/mt7530.c
-+++ b/drivers/net/dsa/mt7530.c
-@@ -892,15 +892,7 @@ mt7530_port_fdb_dump(struct dsa_switch *ds, int port,
- static enum dsa_tag_protocol
- mtk_get_tag_protocol(struct dsa_switch *ds)
- {
--	struct mt7530_priv *priv = ds->priv;
--
--	if (!dsa_is_cpu_port(ds, MT7530_CPU_PORT)) {
--		dev_warn(priv->dev,
--			 "port not matched with tagging CPU port\n");
--		return DSA_TAG_PROTO_NONE;
--	} else {
--		return DSA_TAG_PROTO_MTK;
--	}
-+	return DSA_TAG_PROTO_MTK;
- }
- 
- static int
+Egil Hjelmeland (13):
+  net: dsa: lan9303: Fixed MDIO interface
+  net: dsa: lan9303: Do not disable/enable switch fabric port 0 at
+    startup
+  net: dsa: lan9303: Refactor lan9303_enable_packet_processing()
+  net: dsa: lan9303: Added adjust_link() method
+  net: dsa: added dsa_net_device_to_dsa_port()
+  net: dsa: lan9303: added sysfs node swe_bcst_throt
+  net: dsa: lan9303: Added basic offloading of unicast traffic
+  net: dsa: lan9303: Added ALR/fdb/mdb handling
+  net: dsa: lan9303: Added Documentation/networking/dsa/lan9303.txt
+  net: dsa: lan9303: Only allocate 3 ports
+  net: dsa: lan9303: Added "alr_dump" sysfs port attribute
+  net: dsa: lan9303: Added "stp_enable" sysfs attribute
+  net: dsa: lan9303: lan9303_port_mdb_del remove port 0
+
+ Documentation/networking/dsa/lan9303.txt |  74 +++
+ drivers/net/dsa/lan9303-core.c           | 811 ++++++++++++++++++++++++++++---
+ drivers/net/dsa/lan9303.h                |  23 +
+ drivers/net/dsa/lan9303_i2c.c            |   2 +
+ drivers/net/dsa/lan9303_mdio.c           |  34 ++
+ include/net/dsa.h                        |   1 +
+ net/dsa/slave.c                          |  10 +
+ 7 files changed, 885 insertions(+), 70 deletions(-)
+ create mode 100644 Documentation/networking/dsa/lan9303.txt
+
 -- 
-2.7.4
+2.11.0
+
+
+DISCLAIMER:
+This e-mail may contain confidential and privileged material for the sole use of the intended recipient. Any review, use, distribution or disclosure by others is strictly prohibited. If you are not the intended recipient (or authorized to receive for the recipient), please contact the sender by reply e-mail and delete all copies of this message.
