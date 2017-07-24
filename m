@@ -1,102 +1,124 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: [PATCH 2/2] net: ethernet: nb8800: Fix RGMII TX clock delay setup
-Date: Tue, 25 Jul 2017 00:30:45 +0200
-Message-ID: <22140d1e-e9e2-314b-0927-50ed0d3b1b93@free.fr>
-References: <b332dc3e-4478-e34b-2b3f-226aad8a11d4@sigmadesigns.com>
- <61b71d12-4e3a-edbe-1d69-c66e7cf46d8e@sigmadesigns.com>
- <yw1xzic0qrcg.fsf@mansr.com> <001a7afd-364d-359e-1478-e057c9083f73@free.fr>
- <d8121f82-dffd-22c7-1209-a3c2329703e5@gmail.com>
- <05cbc32e-a4af-1c81-128b-bc5d2206d24a@free.fr>
- <bf484952-15ae-b385-6b54-4d07b3bc2b29@gmail.com>
- <54f5bd21-766d-d9de-3b15-a01fd5ee6035@free.fr>
- <54ca7197-780a-68b1-0cf2-88ccc7ce4201@free.fr>
- <5c48496e-8c67-5af5-e0c5-7b0c298adc84@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Problem with PHY state machine when using interrupts
+Date: Mon, 24 Jul 2017 15:36:11 -0700
+Message-ID: <62085f48-df18-f987-f521-dcdfbd7f574b@gmail.com>
+References: <65b9f1f5-724c-cd03-1c39-59405e773efa@free.fr>
+ <849513d9-c981-ec20-5a10-08c663d0aa37@free.fr>
+ <02e9e171-ec22-e491-5bc8-ef4b3ad7fec2@gmail.com>
+ <e6a7a5df-b735-6f9c-6a2b-cded86ec6525@free.fr>
+ <b0410a73-ff2d-ca06-93fa-17af2040c41c@gmail.com>
+ <0f56083f-d43e-a141-1470-b76546af6d58@gmail.com>
+ <c81e12bc-0f89-5eab-547e-f0c1ec389ad8@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Mans Rullgard <mans@mansr.com>,
-        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        Timur Tabi <timur@codeaurora.org>,
-        Daniel Mack <zonque@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Mason <slash.tmp@free.fr>, Andrew Lunn <andrew@lunn.ch>,
+        Mans Rullgard <mans@mansr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:62583 "EHLO smtp2-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754437AbdGXWbU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Jul 2017 18:31:20 -0400
-In-Reply-To: <5c48496e-8c67-5af5-e0c5-7b0c298adc84@gmail.com>
+Received: from mail-qt0-f180.google.com ([209.85.216.180]:34363 "EHLO
+        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752785AbdGXWgP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 18:36:15 -0400
+Received: by mail-qt0-f180.google.com with SMTP id s6so29277405qtc.1
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 15:36:15 -0700 (PDT)
+In-Reply-To: <c81e12bc-0f89-5eab-547e-f0c1ec389ad8@free.fr>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24/07/2017 23:49, Florian Fainelli wrote:
-> On 07/24/2017 02:21 PM, Mason wrote:
->> On 20/07/2017 14:33, Mason wrote:
->>
->>> As [Florian] pointed out, the spec states that the
->>> "Data to Clock input Skew (at Receiver)"
->>> must be within [ 1.0, 2.6 ] ns.
->>>
->>> I understand that 2 ns is 1/4 of a 125 MHz period,
->>> but it's not clear to me why the above interval is
->>> centered at 1.8 instead of 2.0 ns.
->>>
->>> Also, the AR8035 PHY offers 4 possible TX clock delays:
->>> { 0.25, 1.3, 2.4, 3.4 } according to their doc.
->>> The two extremes are outside the interval, when would
->>> they be useful? In case the transmitter adds "bad" skew?
->>>
->>> Why doesn't the PHY support 1.8/2.0? Is it perhaps
->>> unable to, because of PLL limitations?
->>
->> I haven't yet found answers for these questions.
->>
->> - Why is the interval centered at 1.8 instead of 2.0 ns?
+On 07/24/2017 02:20 PM, Mason wrote:
+> On 24/07/2017 21:53, Florian Fainelli wrote:
 > 
-> Presumably because this is almost the middle of the available range and
-> it still provides a value that is within the specification...
-
-I was talking about the RGMII spec.
-If - theoretically - the best results are achieved
-by having a 2 ns skew between clock and data,
-it seems odd for the RGMII spec to define an
-interval of [ 1.0, 2.6 ] ns for acceptable values.
-I would have expected [ 1.2, 2.8 ] ns.
-
->> - What use are 0.25 ns and 3.4 ns skew?
-> 
-> Accounting for extreme PCB traces lengths possibly, or just exposing the
-> raw values that the HW supports by increments of 0.25 ns, just because
-> the HW supports it.
-
-The AR8035 doesn't support increments of 0.25 ns,
-it supports just 4 values: 0.25, 1.3, 2.4, 3.4
-Two of which are outside the acceptable range
-defined in the RGMII spec. Odd.
-Giving it more thought, I don't think trace length
-factors in, unless the data and clock lines have
-very different length (signal propagation).
-
->> - Why doesn't the PHY support a "recommended" value like 1.8 ns?
+>> Well now that I see the possible interrupts generated, I indeed don't
+>> see how you can get a link down notification unless you somehow force
+>> the link down yourself, which would certainly happen in phy_suspend()
+>> when we set BMCR.pwrdwn, but that may be too late.
 >>
->> Does anyone have pointers to good resources?
+>> You should still expect the adjust_link() function to be called though
+>> with PHY_HALTED being set and that takes care of doing phydev->link = 0
+>> and netif_carrier_off(). If that still does not work, then see whether
+>> removing the call to phy_stop() does help (it really should).
 > 
-> The PHY datasheet and the RGMII specification really ought to be the
-> starting points, there is not much more to it. Maybe go ask your support
-> person at Qualcomm/Atheros about their PHY design?
+> The only functions setting phydev->state to PHY_HALTED
+> are phy_error() and phy_stop() AFAICT.
+> 
+> I am aware that when phy_state_machine() handles the
+> PHY_HALTED state, it will set phydev->link = 0;
+> and call netif_carrier_off() -- because that's where
+> I copied that code from.
+> 
+> My issue is that phy_state_machine() does not run when
+> I run 'ip set link dev eth0 down' from the command line.
 
-Sadly, I rarely have access to support for the blocks
-we use. I had to download the datasheet off the internet.
-But I was only asking out of personal curiosity, since
-this is outside my field. I don't think any customer
-has complained about the default settings.
+Yes, that much is clear, which is why I suggested earlier you try the
+patch at the end now.
 
-Regards.
+> 
+> If I'm reading the code right, phy_disconnect() actually
+> stops the state machine.
+> 
+> In interrupt mode, phy_state_machine() doesn't run
+> because no interrupt is generated.
+> 
+> In polling mode, phy_state_machine() doesn't run
+> because phy_disconnect() stops the state machine.
+> 
+> Introducing a sleep before phy_disconnect() gives
+> the state machine a chance to run in polling mode,
+> but it doesn't feel right, and doesn't fix the
+> other mode, which I'm using.
+
+There are several problems it seems:
+
+- the PHY state machine cannot move solely based on the PHY generating
+interrupts during phy_stop() if none of the changing conditions for the
+HW have changed, come to think about it, I doubt any PHY would be
+capable of doing something like that
+
+- there is an expectation from your driver to have adjust_link() run
+sometime during ndo_stop() to do something, but why?
+
+What is special about nb8800 that interrupts should be generated during
+ndo_stop(), and why do you think this is going to solve your problem?
+
+> 
+> Looking at bcm_enet_stop() it calls phy_stop() and
+> phy_disconnect() just like the nb8800 driver...
+> 
+> I'm stumped.
+
+My suggestion of not using phy_stop() was not a good one, but
+functionally there is little difference in doing phy_stop() +
+phy_disconnect() or just phy_disconnect() alone. What matters is that we
+restart the PHY properly when phy_connect() or phy_start() is called.
+
+What I understand now from your "bug report" is that you want
+adjust_link to run with phydev->link = 0 to do something during
+ndo_close() but you have not explained why, but I suspect such that upon
+ndo_open() things work again.
+
+What I suspect your bug is, is that the really was no change in link
+status, no interrupt was generated because there should not be one, yet
+some of what nb8800_stop() does is not properly balanced by
+nb8800_open(). How about the following patch:
+
+diff --git a/drivers/net/ethernet/aurora/nb8800.c
+b/drivers/net/ethernet/aurora/nb8800.c
+index 041cfb7952f8..b07dea3ab019 100644
+--- a/drivers/net/ethernet/aurora/nb8800.c
++++ b/drivers/net/ethernet/aurora/nb8800.c
+@@ -972,6 +972,10 @@ static int nb8800_open(struct net_device *dev)
+        nb8800_mac_rx(dev, true);
+        nb8800_mac_tx(dev, true);
+
++       priv->speed = -1;
++       priv->link = -1;
++       priv->duplex = -1;
++
+        phydev = of_phy_connect(dev, priv->phy_node,
+                                nb8800_link_reconfigure, 0,
+                                priv->phy_mode);
+-- 
+Florian
