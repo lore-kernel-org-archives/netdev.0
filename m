@@ -1,58 +1,506 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 07/10] bnxt_en: Set ETS min_bw parameter for older firmware.
-Date: Mon, 24 Jul 2017 12:34:26 -0400
-Message-ID: <1500914069-15724-8-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 08/10] bnxt_en: add support to enable VF-representors
+Date: Mon, 24 Jul 2017 12:34:27 -0400
+Message-ID: <1500914069-15724-9-git-send-email-michael.chan@broadcom.com>
 References: <1500914069-15724-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:34326 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754033AbdGXQev (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 12:34:51 -0400
-Received: by mail-qk0-f182.google.com with SMTP id t2so58628953qkc.1
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 09:34:51 -0700 (PDT)
+Received: from mail-qt0-f172.google.com ([209.85.216.172]:34034 "EHLO
+        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754119AbdGXQex (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 12:34:53 -0400
+Received: by mail-qt0-f172.google.com with SMTP id s6so24153153qtc.1
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 09:34:52 -0700 (PDT)
 In-Reply-To: <1500914069-15724-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In addition to the ETS weight, older firmware also requires the min_bw
-parameter to be set for it to work properly.
+From: Sathya Perla <sathya.perla@broadcom.com>
 
+This patch is a part of a patch-set that introduces support for
+VF-reps in the bnxt_en driver. The driver registers eswitch mode
+get/set methods with the devlink interface that allow a user to
+enable SRIOV switchdev mode. When enabled, the driver registers
+a VF-rep netdev object for each VF with the stack. This can
+essentially bring the VFs unders the management perview of the
+hypervisor and applications such as OVS.
+
+The next patch in the series, adds the RX/TX routines and a slim
+netdev implementation for the VF-reps.
+
+Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c | 6 ++++++
- drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h | 1 +
- 2 files changed, 7 insertions(+)
+ drivers/net/ethernet/broadcom/Kconfig           |   1 +
+ drivers/net/ethernet/broadcom/bnxt/Makefile     |   2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c       |   9 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h       |  32 ++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c |   6 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c   | 244 ++++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h   |  38 ++++
+ 7 files changed, 330 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
+ create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
-index c014589..aa1f3a2 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
-@@ -93,6 +93,12 @@ static int bnxt_hwrm_queue_cos2bw_cfg(struct bnxt *bp, struct ieee_ets *ets,
- 			cos2bw.tsa =
- 				QUEUE_COS2BW_QCFG_RESP_QUEUE_ID0_TSA_ASSIGN_ETS;
- 			cos2bw.bw_weight = ets->tc_tx_bw[i];
-+			/* older firmware requires min_bw to be set to the
-+			 * same weight value in percent.
-+			 */
-+			cos2bw.min_bw =
-+				cpu_to_le32((ets->tc_tx_bw[i] * 100) |
-+					    BW_VALUE_UNIT_PERCENT1_100);
- 		}
- 		memcpy(data, &cos2bw.queue_id, sizeof(cos2bw) - 4);
- 		if (i == 0) {
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
-index ecd0a5e..d2e0af9 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
-@@ -26,6 +26,7 @@ struct bnxt_cos2bw_cfg {
- 	u8			queue_id;
- 	__le32			min_bw;
- 	__le32			max_bw;
-+#define BW_VALUE_UNIT_PERCENT1_100		(0x1UL << 29)
- 	u8			tsa;
- 	u8			pri_lvl;
- 	u8			bw_weight;
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+index 9641380..285f8bc 100644
+--- a/drivers/net/ethernet/broadcom/Kconfig
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -193,6 +193,7 @@ config SYSTEMPORT
+ config BNXT
+ 	tristate "Broadcom NetXtreme-C/E support"
+ 	depends on PCI
++	depends on MAY_USE_DEVLINK
+ 	select FW_LOADER
+ 	select LIBCRC32C
+ 	---help---
+diff --git a/drivers/net/ethernet/broadcom/bnxt/Makefile b/drivers/net/ethernet/broadcom/bnxt/Makefile
+index a7ca45b..d141a22 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/Makefile
++++ b/drivers/net/ethernet/broadcom/bnxt/Makefile
+@@ -1,3 +1,3 @@
+ obj-$(CONFIG_BNXT) += bnxt_en.o
+ 
+-bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o bnxt_ulp.o bnxt_xdp.o
++bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o bnxt_ulp.o bnxt_xdp.o bnxt_vfr.o
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 95fea26..ebdeeb4 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -57,6 +57,7 @@
+ #include "bnxt_ethtool.h"
+ #include "bnxt_dcb.h"
+ #include "bnxt_xdp.h"
++#include "bnxt_vfr.h"
+ 
+ #define BNXT_TX_TIMEOUT		(5 * HZ)
+ 
+@@ -7539,8 +7540,10 @@ static void bnxt_remove_one(struct pci_dev *pdev)
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct bnxt *bp = netdev_priv(dev);
+ 
+-	if (BNXT_PF(bp))
++	if (BNXT_PF(bp)) {
+ 		bnxt_sriov_disable(bp);
++		bnxt_dl_unregister(bp);
++	}
+ 
+ 	pci_disable_pcie_error_reporting(pdev);
+ 	unregister_netdev(dev);
+@@ -7843,6 +7846,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ #ifdef CONFIG_BNXT_SRIOV
+ 	init_waitqueue_head(&bp->sriov_cfg_wait);
++	mutex_init(&bp->sriov_lock);
+ #endif
+ 	bp->gro_func = bnxt_gro_func_5730x;
+ 	if (BNXT_CHIP_P4_PLUS(bp))
+@@ -7934,6 +7938,9 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (rc)
+ 		goto init_err_clr_int;
+ 
++	if (BNXT_PF(bp))
++		bnxt_dl_register(bp);
++
+ 	netdev_info(dev, "%s found at mem %lx, node addr %pM\n",
+ 		    board_info[ent->driver_data].name,
+ 		    (long)pci_resource_start(pdev, 0), dev->dev_addr);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 6b781be..a7d5f42 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -19,6 +19,7 @@
+ #define DRV_VER_UPD	0
+ 
+ #include <linux/interrupt.h>
++#include <net/devlink.h>
+ 
+ struct tx_bd {
+ 	__le32 tx_bd_len_flags_type;
+@@ -618,6 +619,8 @@ struct bnxt_tpa_info {
+ 
+ #define BNXT_TPA_OUTER_L3_OFF(hdr_info)	\
+ 	((hdr_info) & 0x1ff)
++
++	u16			cfa_code; /* cfa_code in TPA start compl */
+ };
+ 
+ struct bnxt_rx_ring_info {
+@@ -928,6 +931,23 @@ struct bnxt_test_info {
+ #define BNXT_CAG_REG_LEGACY_INT_STATUS	0x4014
+ #define BNXT_CAG_REG_BASE		0x300000
+ 
++struct bnxt_vf_rep_stats {
++	u64			packets;
++	u64			bytes;
++	u64			dropped;
++};
++
++struct bnxt_vf_rep {
++	struct bnxt			*bp;
++	struct net_device		*dev;
++	u16				vf_idx;
++	u16				tx_cfa_action;
++	u16				rx_cfa_code;
++
++	struct bnxt_vf_rep_stats	rx_stats;
++	struct bnxt_vf_rep_stats	tx_stats;
++};
++
+ struct bnxt {
+ 	void __iomem		*bar0;
+ 	void __iomem		*bar1;
+@@ -1208,6 +1228,12 @@ struct bnxt {
+ 	wait_queue_head_t	sriov_cfg_wait;
+ 	bool			sriov_cfg;
+ #define BNXT_SRIOV_CFG_WAIT_TMO	msecs_to_jiffies(10000)
++
++	/* lock to protect VF-rep creation/cleanup via
++	 * multiple paths such as ->sriov_configure() and
++	 * devlink ->eswitch_mode_set()
++	 */
++	struct mutex		sriov_lock;
+ #endif
+ 
+ #define BNXT_NTP_FLTR_MAX_FLTR	4096
+@@ -1234,6 +1260,12 @@ struct bnxt {
+ 	struct bnxt_led_info	leds[BNXT_MAX_LED];
+ 
+ 	struct bpf_prog		*xdp_prog;
++
++	/* devlink interface and vf-rep structs */
++	struct devlink		*dl;
++	enum devlink_eswitch_mode eswitch_mode;
++	struct bnxt_vf_rep	**vf_reps; /* array of vf-rep ptrs */
++	u16			*cfa_code_map; /* cfa_code -> vf_idx map */
+ };
+ 
+ #define BNXT_RX_STATS_OFFSET(counter)			\
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+index fde7256..d37925a 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+@@ -18,6 +18,7 @@
+ #include "bnxt.h"
+ #include "bnxt_ulp.h"
+ #include "bnxt_sriov.h"
++#include "bnxt_vfr.h"
+ #include "bnxt_ethtool.h"
+ 
+ #ifdef CONFIG_BNXT_SRIOV
+@@ -587,6 +588,10 @@ void bnxt_sriov_disable(struct bnxt *bp)
+ 	if (!num_vfs)
+ 		return;
+ 
++	/* synchronize VF and VF-rep create and destroy */
++	mutex_lock(&bp->sriov_lock);
++	bnxt_vf_reps_destroy(bp);
++
+ 	if (pci_vfs_assigned(bp->pdev)) {
+ 		bnxt_hwrm_fwd_async_event_cmpl(
+ 			bp, NULL, ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD);
+@@ -597,6 +602,7 @@ void bnxt_sriov_disable(struct bnxt *bp)
+ 		/* Free the HW resources reserved for various VF's */
+ 		bnxt_hwrm_func_vf_resource_free(bp, num_vfs);
+ 	}
++	mutex_unlock(&bp->sriov_lock);
+ 
+ 	bnxt_free_vf_resources(bp);
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
+new file mode 100644
+index 0000000..eab358c
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
+@@ -0,0 +1,244 @@
++/* Broadcom NetXtreme-C/E network driver.
++ *
++ * Copyright (c) 2016-2017 Broadcom Limited
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation.
++ */
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/rtnetlink.h>
++#include <linux/jhash.h>
++
++#include "bnxt_hsi.h"
++#include "bnxt.h"
++#include "bnxt_vfr.h"
++
++#define CFA_HANDLE_INVALID		0xffff
++
++static void __bnxt_vf_reps_destroy(struct bnxt *bp)
++{
++	u16 num_vfs = pci_num_vf(bp->pdev);
++	struct bnxt_vf_rep *vf_rep;
++	int i;
++
++	for (i = 0; i < num_vfs; i++) {
++		vf_rep = bp->vf_reps[i];
++		if (vf_rep) {
++			if (vf_rep->dev) {
++				/* if register_netdev failed, then netdev_ops
++				 * would have been set to NULL
++				 */
++				if (vf_rep->dev->netdev_ops)
++					unregister_netdev(vf_rep->dev);
++				free_netdev(vf_rep->dev);
++			}
++		}
++	}
++
++	kfree(bp->vf_reps);
++	bp->vf_reps = NULL;
++}
++
++void bnxt_vf_reps_destroy(struct bnxt *bp)
++{
++	bool closed = false;
++
++	if (bp->eswitch_mode != DEVLINK_ESWITCH_MODE_SWITCHDEV)
++		return;
++
++	if (!bp->vf_reps)
++		return;
++
++	/* Ensure that parent PF's and VF-reps' RX/TX has been quiesced
++	 * before proceeding with VF-rep cleanup.
++	 */
++	rtnl_lock();
++	if (netif_running(bp->dev)) {
++		bnxt_close_nic(bp, false, false);
++		closed = true;
++	}
++	bp->eswitch_mode = DEVLINK_ESWITCH_MODE_LEGACY;
++
++	if (closed)
++		bnxt_open_nic(bp, false, false);
++	rtnl_unlock();
++
++	/* Need to call vf_reps_destroy() outside of rntl_lock
++	 * as unregister_netdev takes rtnl_lock
++	 */
++	__bnxt_vf_reps_destroy(bp);
++}
++
++/* Use the OUI of the PF's perm addr and report the same mac addr
++ * for the same VF-rep each time
++ */
++static void bnxt_vf_rep_eth_addr_gen(u8 *src_mac, u16 vf_idx, u8 *mac)
++{
++	u32 addr;
++
++	ether_addr_copy(mac, src_mac);
++
++	addr = jhash(src_mac, ETH_ALEN, 0) + vf_idx;
++	mac[3] = (u8)(addr & 0xFF);
++	mac[4] = (u8)((addr >> 8) & 0xFF);
++	mac[5] = (u8)((addr >> 16) & 0xFF);
++}
++
++static void bnxt_vf_rep_netdev_init(struct bnxt *bp, struct bnxt_vf_rep *vf_rep,
++				    struct net_device *dev)
++{
++	struct net_device *pf_dev = bp->dev;
++
++	/* Just inherit all the featues of the parent PF as the VF-R
++	 * uses the RX/TX rings of the parent PF
++	 */
++	dev->hw_features = pf_dev->hw_features;
++	dev->gso_partial_features = pf_dev->gso_partial_features;
++	dev->vlan_features = pf_dev->vlan_features;
++	dev->hw_enc_features = pf_dev->hw_enc_features;
++	dev->features |= pf_dev->features;
++	bnxt_vf_rep_eth_addr_gen(bp->pf.mac_addr, vf_rep->vf_idx,
++				 dev->perm_addr);
++	ether_addr_copy(dev->dev_addr, dev->perm_addr);
++}
++
++static int bnxt_vf_reps_create(struct bnxt *bp)
++{
++	u16 num_vfs = pci_num_vf(bp->pdev);
++	struct bnxt_vf_rep *vf_rep;
++	struct net_device *dev;
++	int rc, i;
++
++	bp->vf_reps = kcalloc(num_vfs, sizeof(vf_rep), GFP_KERNEL);
++	if (!bp->vf_reps)
++		return -ENOMEM;
++
++	for (i = 0; i < num_vfs; i++) {
++		dev = alloc_etherdev(sizeof(*vf_rep));
++		if (!dev) {
++			rc = -ENOMEM;
++			goto err;
++		}
++
++		vf_rep = netdev_priv(dev);
++		bp->vf_reps[i] = vf_rep;
++		vf_rep->dev = dev;
++		vf_rep->bp = bp;
++		vf_rep->vf_idx = i;
++		vf_rep->tx_cfa_action = CFA_HANDLE_INVALID;
++
++		bnxt_vf_rep_netdev_init(bp, vf_rep, dev);
++		rc = register_netdev(dev);
++		if (rc) {
++			/* no need for unregister_netdev in cleanup */
++			dev->netdev_ops = NULL;
++			goto err;
++		}
++	}
++
++	bp->eswitch_mode = DEVLINK_ESWITCH_MODE_SWITCHDEV;
++	return 0;
++
++err:
++	netdev_info(bp->dev, "%s error=%d", __func__, rc);
++	__bnxt_vf_reps_destroy(bp);
++	return rc;
++}
++
++/* Devlink related routines */
++static int bnxt_dl_eswitch_mode_get(struct devlink *devlink, u16 *mode)
++{
++	struct bnxt *bp = bnxt_get_bp_from_dl(devlink);
++
++	*mode = bp->eswitch_mode;
++	return 0;
++}
++
++static int bnxt_dl_eswitch_mode_set(struct devlink *devlink, u16 mode)
++{
++	struct bnxt *bp = bnxt_get_bp_from_dl(devlink);
++	int rc = 0;
++
++	mutex_lock(&bp->sriov_lock);
++	if (bp->eswitch_mode == mode) {
++		netdev_info(bp->dev, "already in %s eswitch mode",
++			    mode == DEVLINK_ESWITCH_MODE_LEGACY ?
++			    "legacy" : "switchdev");
++		rc = -EINVAL;
++		goto done;
++	}
++
++	switch (mode) {
++	case DEVLINK_ESWITCH_MODE_LEGACY:
++		bnxt_vf_reps_destroy(bp);
++		break;
++
++	case DEVLINK_ESWITCH_MODE_SWITCHDEV:
++		if (pci_num_vf(bp->pdev) == 0) {
++			netdev_info(bp->dev,
++				    "Enable VFs before setting swtichdev mode");
++			rc = -EPERM;
++			goto done;
++		}
++		rc = bnxt_vf_reps_create(bp);
++		break;
++
++	default:
++		rc = -EINVAL;
++		goto done;
++	}
++done:
++	mutex_unlock(&bp->sriov_lock);
++	return rc;
++}
++
++static const struct devlink_ops bnxt_dl_ops = {
++	.eswitch_mode_set = bnxt_dl_eswitch_mode_set,
++	.eswitch_mode_get = bnxt_dl_eswitch_mode_get
++};
++
++int bnxt_dl_register(struct bnxt *bp)
++{
++	struct devlink *dl;
++	int rc;
++
++	if (!pci_find_ext_capability(bp->pdev, PCI_EXT_CAP_ID_SRIOV))
++		return 0;
++
++	if (bp->hwrm_spec_code < 0x10800) {
++		netdev_warn(bp->dev, "Firmware does not support SR-IOV E-Switch SWITCHDEV mode.\n");
++		return -ENOTSUPP;
++	}
++
++	dl = devlink_alloc(&bnxt_dl_ops, sizeof(struct bnxt_dl));
++	if (!dl) {
++		netdev_warn(bp->dev, "devlink_alloc failed");
++		return -ENOMEM;
++	}
++
++	bnxt_link_bp_to_dl(dl, bp);
++	bp->eswitch_mode = DEVLINK_ESWITCH_MODE_LEGACY;
++	rc = devlink_register(dl, &bp->pdev->dev);
++	if (rc) {
++		bnxt_link_bp_to_dl(dl, NULL);
++		devlink_free(dl);
++		netdev_warn(bp->dev, "devlink_register failed. rc=%d", rc);
++		return rc;
++	}
++
++	return 0;
++}
++
++void bnxt_dl_unregister(struct bnxt *bp)
++{
++	struct devlink *dl = bp->dl;
++
++	if (!dl)
++		return;
++
++	devlink_unregister(dl);
++	devlink_free(dl);
++}
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h
+new file mode 100644
+index 0000000..310c9c5
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h
+@@ -0,0 +1,38 @@
++/* Broadcom NetXtreme-C/E network driver.
++ *
++ * Copyright (c) 2016-2017 Broadcom Limited
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation.
++ */
++
++#ifndef BNXT_VFR_H
++#define BNXT_VFR_H
++
++#define	MAX_CFA_CODE			65536
++
++/* Struct to hold housekeeping info needed by devlink interface */
++struct bnxt_dl {
++	struct bnxt *bp;	/* back ptr to the controlling dev */
++};
++
++static inline struct bnxt *bnxt_get_bp_from_dl(struct devlink *dl)
++{
++	return ((struct bnxt_dl *)devlink_priv(dl))->bp;
++}
++
++static inline void bnxt_link_bp_to_dl(struct devlink *dl, struct bnxt *bp)
++{
++	struct bnxt_dl *bp_dl = devlink_priv(dl);
++
++	bp_dl->bp = bp;
++	if (bp)
++		bp->dl = dl;
++}
++
++int bnxt_dl_register(struct bnxt *bp);
++void bnxt_dl_unregister(struct bnxt *bp);
++void bnxt_vf_reps_destroy(struct bnxt *bp);
++
++#endif /* BNXT_VFR_H */
 -- 
 1.8.3.1
