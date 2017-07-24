@@ -1,94 +1,73 @@
-From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: After a while of system running no incoming UDP any more?
-Date: Mon, 24 Jul 2017 14:09:01 +0200
-Message-ID: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [PATCH 1/1] mlx4_en: remove unnecessary error check
+Date: Mon, 24 Jul 2017 16:01:31 +0300
+Message-ID: <562db460-95d9-cc0f-9867-6b24022334d1@mellanox.com>
+References: <1500884564-310-1-git-send-email-yanjun.zhu@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Zhu Yanjun <yanjun.zhu@oracle.com>, tariqt@mellanox.com,
+        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        yuval.shaia@oracle.com, leon@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.131.164]:34402 "EHLO
-        torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753162AbdGXMqJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 08:46:09 -0400
-Received: from mh by torres.zugschlus.de with local (Exim 4.89)
-        (envelope-from <mh+netdev@zugschlus.de>)
-        id 1dZcAX-0005ct-BH
-        for netdev@vger.kernel.org; Mon, 24 Jul 2017 14:09:01 +0200
-Content-Disposition: inline
+Received: from mail-eopbgr40073.outbound.protection.outlook.com ([40.107.4.73]:28512
+        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752259AbdGXNB5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Jul 2017 09:01:57 -0400
+In-Reply-To: <1500884564-310-1-git-send-email-yanjun.zhu@oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I am running ~ 50 servers, most of them as KVM guests, some of them as
-Xen guests, and even less of them on hardware, and have recently updated
-to Debian stretch. I usually use kernels locally built from the latest
-vanille stable release.
 
-Roughly since the upgrade to Debian stretch and kernel 4.12, some of my
-systems have begun to not forward UDP packets (such as incoming DNS
-replies) to the user space. When this happens, I see the packet coming
-in on tcpdump -p, but the application never sees it and eventuelly times
-out. An strace on the process sees the process waiting on the select()
-syscall and nothing happens when the system receives the UDP packet. I
-do also see the same phenomenon with ntp. A reboot always fixes the
-issue. 
+On 24/07/2017 11:22 AM, Zhu Yanjun wrote:
+> The function mlx4_en_get_profile always return zero. So it is not
+> necessary to check its return value.
+> 
+> CC: Joe Jin <joe.jin@oracle.com>
+> CC: Junxiao Bi <junxiao.bi@oracle.com>
+> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/en_main.c | 9 ++-------
+>   1 file changed, 2 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+> index 2b0cbca..686e18d 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+> @@ -147,7 +147,7 @@ void mlx4_en_update_loopback_state(struct net_device *dev,
+>   	mutex_unlock(&priv->mdev->state_lock);
+>   }
+>   
+> -static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
+> +static void mlx4_en_get_profile(struct mlx4_en_dev *mdev)
+>   {
+>   	struct mlx4_en_profile *params = &mdev->profile;
+>   	int i;
+> @@ -176,8 +176,6 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
+>   		params->prof[i].rss_rings = 0;
+>   		params->prof[i].inline_thold = inline_thold;
+>   	}
+> -
+> -	return 0;
+>   }
+>   
+>   static void *mlx4_en_get_netdev(struct mlx4_dev *dev, void *ctx, u8 port)
+> @@ -309,10 +307,7 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
+>   	}
+>   
+>   	/* Build device profile according to supplied module parameters */
+> -	if (mlx4_en_get_profile(mdev)) {
+> -		mlx4_err(mdev, "Bad module parameters, aborting\n");
+> -		goto err_mr;
+> -	}
+> +	mlx4_en_get_profile(mdev);
+>   
+>   	/* Configure which ports to start according to module parameters */
+>   	mdev->port_cnt = 0;
+> 
+Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
 
-Runnign wireshark on a pcap file obtained on an affected systems does
-show all checksums to be in order. Both IPv4 and IPv6 are affected, and
-in the DNS case, switching dig/drill or even the system resolver to TCP
-also fixes the issue.
-
-This happens only after the system has been running for a few days, and
-I have seen this happen on both KVM and Xen guests, but not (yet) on
-real hardware. In my zoo of servers, this happens - over the entire
-sample - about twice a week, often enough to be annoying and seldomly
-enough to make debugging really difficult since you'll never know in
-advance which system will have the issue for the next time.
-
-I have therefore been reluctant to downgrade kernel or system since that
-would mean days of work. Bisecting is probably out of the question since
-you'll never know when "git bisect good" is a sufficiently safe
-assumption.
-
-Before I begin running older kernels on productive systems, I would like
-to ask wether there have been recent changes in the 4.11 => 4.12
-development cycle that might cause an issue like that.
-
-Since I have never seen the issue on stretch systems when they were
-still running 4.11.8 (the latest 4.11 kernel that I had deployed before
-switching over to 4.12), I do really suspect the kernel, and I do also
-suspect that network interface offloading is probably not the culprit.
-
-On the KVM guests, I use virtio-net, and I had that one high on my list
-until one of the two Xen guests that doesn't show any network modules
-loaded has been showing the phenomenon as well.
-
-That Xen guest outputs the following to lshw -C network:
-
-that doesn't show any network modules loaded has been showing the
-phenomenon as well.
-
-That Xen guest outputs the following to lshw -C network:
-
-  *-network
-       description: Ethernet interface
-       physical id: 1
-       logical name: eth0
-       serial: 0e:06:5f:74:48:97
-       capabilities: ethernet physical
-       configuration: broadcast=yes driver=vif ip=<redacted> link=yes multicast=yes
-
-So I assume that this one is not using virtio-net, so virtio-net seems
-safe as well.
-
-Any idea what might be happening here and what else I could try?
-
-Greetings
-Marc
-
--- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Leimen, Germany    |  lose things."    Winona Ryder | Fon: *49 6224 1600402
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 6224 1600421
+Thank you Zhu.
