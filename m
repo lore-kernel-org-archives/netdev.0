@@ -1,63 +1,39 @@
-From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: [PATCH v2 3/4] can: m_can: Update documentation to mention new fixed transceiver binding
-Date: Mon, 24 Jul 2017 18:05:20 -0500
-Message-ID: <20170724230521.1436-4-fcooper@ti.com>
-References: <20170724230521.1436-1-fcooper@ti.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH V2 net] net: fix tcp reset packet flowlabel for ipv6
+Date: Mon, 24 Jul 2017 16:12:53 -0700
+Message-ID: <CAM_iQpUGff36UigL39zoh7H=nuzh6EvB6bh4G+jSKsE96uw+aA@mail.gmail.com>
+References: <25a0abdf61ab4698773d417af9e49fcd6e6559a4.1500393028.git.shli@fb.com>
+ <20170724.133455.562898067272108474.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Franklin S Cooper Jr <fcooper@ti.com>
-To: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
-        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
-        <quentin.schulz@free-electrons.com>,
-        <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>,
-        <sergei.shtylyov@cogentembedded.com>, <socketcan@hartkopp.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Shaohua Li <shli@kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        kernel-team <Kernel-team@fb.com>, Shaohua Li <shli@fb.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>, flo@fourcot.fr
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:49159 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932996AbdGXXGL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 19:06:11 -0400
-In-Reply-To: <20170724230521.1436-1-fcooper@ti.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:34828 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753893AbdGXXNO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 19:13:14 -0400
+Received: by mail-wm0-f50.google.com with SMTP id c184so37787124wmd.0
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 16:13:14 -0700 (PDT)
+In-Reply-To: <20170724.133455.562898067272108474.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add information regarding fixed transceiver binding. This is especially
-important for MCAN since the IP allows CAN FD mode to run significantly
-faster than what most transceivers are capable of.
+On Mon, Jul 24, 2017 at 1:34 PM, David Miller <davem@davemloft.net> wrote:
+> From: Shaohua Li <shli@kernel.org>
+> Date: Tue, 18 Jul 2017 12:03:37 -0700
+>
+>> +     /* Since this is being sent on the wire obfuscate hash a bit
+>> +      * to minimize possbility that any useful information to an
+>> +      * attacker is leaked. Only lower 20 bits are relevant.
+>> +      */
+>> +     rol32(hash, 16);
+>
+> This doesn't help anything at all.
 
-Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
----
-Version 2 changes:
-Drop unit address
-
- Documentation/devicetree/bindings/net/can/m_can.txt | 10 ++++++++++
- 1 file changed, 10 insertions(+)
-
-diff --git a/Documentation/devicetree/bindings/net/can/m_can.txt b/Documentation/devicetree/bindings/net/can/m_can.txt
-index 9e33177..e4abd2c 100644
---- a/Documentation/devicetree/bindings/net/can/m_can.txt
-+++ b/Documentation/devicetree/bindings/net/can/m_can.txt
-@@ -43,6 +43,11 @@ Required properties:
- 			  Please refer to 2.4.1 Message RAM Configuration in
- 			  Bosch M_CAN user manual for details.
- 
-+Optional properties:
-+- fixed-transceiver	: Fixed-transceiver subnode describing maximum speed
-+			  that can be used for CAN and/or CAN-FD modes.  See
-+			  Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
-+			  for details.
- Example:
- SoC dtsi:
- m_can1: can@020e8000 {
-@@ -64,4 +69,9 @@ Board dts:
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&pinctrl_m_can1>;
- 	status = "enabled";
-+
-+	fixed-transceiver {
-+		max-arbitration-speed = <1000000>;
-+		max-data-speed = <5000000>;
-+	};
- };
--- 
-2.10.0
+I believe the above code is copy-n-pasted from ip6_make_flowlabel()
+(with few adjustments). Don't know why we can't refactor that function
+for reuse.
