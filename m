@@ -1,100 +1,78 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [PATCH] PCI: Update ACS quirk for more Intel 10G NICs
-Date: Mon, 24 Jul 2017 10:45:05 -0600
-Message-ID: <20170724104505.74c67861@w520.home>
-References: <20170720214101.7449-1-roland@kernel.org>
-        <20170720161554.45ce1673@ul30vt.home>
-        <CAG4TOxOrF9aLyujrwNmSsxPBWBPTaLx2yXkOJ88gxCj0QUGDow@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 09/18] net: mvpp2: use named interrupts
+Date: Mon, 24 Jul 2017 19:49:03 +0300
+Message-ID: <80d4b082-a5ed-73da-0634-8295996dc29d@cogentembedded.com>
+References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
+ <20170724134848.19330-10-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Emil Tantilov <emil.s.tantilov@intel.com>
-To: Roland Dreier <roland.dreier@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAG4TOxOrF9aLyujrwNmSsxPBWBPTaLx2yXkOJ88gxCj0QUGDow@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com, sebastian.hesselbarth@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:33780 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753780AbdGXQtH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 12:49:07 -0400
+Received: by mail-lf0-f47.google.com with SMTP id p2so30988125lfg.0
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 09:49:06 -0700 (PDT)
+In-Reply-To: <20170724134848.19330-10-antoine.tenart@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Jul 2017 15:53:04 -0700
-Roland Dreier <roland.dreier@gmail.com> wrote:
+On 07/24/2017 04:48 PM, Antoine Tenart wrote:
 
-> On Thu, Jul 20, 2017 at 3:15 PM, Alex Williamson
-> <alex.williamson@redhat.com> wrote:
-> 
-> > Most of the ACS capabilities are worded as "Must be implemented by
-> > devices that implement ..."  Shouldn't a hard-wired ACS capability
-> > sufficiently describe that, or is there something wrong with how
-> > they're hard wired?  
-> 
-> Interesting question.  I just looked at what the PCI spec says about
-> the various bits for ACS functions in multi-function devices.  Many of
-> the functions are "must not be implemented."  Of the ones that are
-> "must be implemented if..." the key is that the if is for devices that
-> support peer-to-peer traffic.
-> 
-> I think the Intel NICs are compliant with the spec - they don't
-> support any ACS mechanisms for controlling peer-to-peer traffic, but
-> they also don't implement peer-to-peer traffic.  This means that the
-> PCI standard way of knowing that it is safe to assign individual
-> functions does not prove it is safe - but with device-specific
-> knowledge we do know it is safe.  Hence a quirk to give that
-> device-specific information to the kernel.
+> This patch update the Marvell PPv2 driver to use named interrupts. A
+> compatibility path is kept to allow using device trees using the old dt
+> bindings. This change is needed as other interrupts will be used by the
+> PPv2 driver at some point.
+>
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+> ---
+>  drivers/net/ethernet/marvell/mvpp2.c | 18 ++++++++++++++----
+>  1 file changed, 14 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+> index f6eb98d38ced..77eef2cc40a1 100644
+> --- a/drivers/net/ethernet/marvell/mvpp2.c
+> +++ b/drivers/net/ethernet/marvell/mvpp2.c
+> @@ -6789,10 +6789,20 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+>
+>  	port = netdev_priv(dev);
+>
+> -	port->irq = irq_of_parse_and_map(port_node, 0);
+> -	if (port->irq <= 0) {
+> -		err = -EINVAL;
+> -		goto err_free_netdev;
+> +	if (of_get_property(port_node, "interrupt-names", NULL)) {
+> +		port->irq = of_irq_get_byname(port_node, "rx-shared");
+> +		if (port->irq <= 0) {
+> +			err = (port->irq == -EPROBE_DEFER) ?
+> +			      -EPROBE_DEFER : -EINVAL;
 
-I think that the device implementing ACS and not implementing certain
-features that are "must be implemented if..." is a positive indication
-that the device does not have that behavior and therefore the ability
-to control that behavior is unnecessary.  pci_acs_flags_enabled() is
-coded with this intention:
+    Perhaps better:
 
-static bool pci_acs_flags_enabled(struct pci_dev *pdev, u16 acs_flags)
-{
-        int pos;
-        u16 cap, ctrl;
+		err = port->irq ?: -EINVAL;
 
-        pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_ACS);
-        if (!pos)
-                return false;
+> +			goto err_free_netdev;
+> +		}
+> +	} else {
+> +		/* kept for dt compatibility */
+> +		port->irq = irq_of_parse_and_map(port_node, 0);
+> +		if (port->irq <= 0) {
 
-        /*
-         * Except for egress control, capabilities are either required
-         * or only required if controllable.  Features missing from the
-         * capability field can therefore be assumed as hard-wired enabled.
-         */
-        pci_read_config_word(pdev, pos + PCI_ACS_CAP, &cap);
-        acs_flags &= (cap | PCI_ACS_EC);
+    Note that irq_of_parse_and_map() returns *unsigned int*, so negative error 
+codes are not possible, 0 indicates bad IRQ.
 
-<Remove any requested ACS flags which are not implemented, except EC>
+> +			err = -EINVAL;
+> +			goto err_free_netdev;
+> +		}
+>  	}
+>
+>  	if (of_property_read_bool(port_node, "marvell,loopback"))
 
-        pci_read_config_word(pdev, pos + PCI_ACS_CTRL, &ctrl);
-        return (ctrl & acs_flags) == acs_flags;
-
-<Compare what remains>
-}
-
-For example, from the spec (rev 3.1a 6.12.1.2):
-
-  ACS P2P Request Redirect: must be implemented by Functions that
-  support peer-to-peer traffic with other Functions.
-
-<Therefore if this capability within ACS is not implemented, p2p is not
-supported.>
-
-  When ACS P2P Request Redirect is enabled in a multi-Function device,
-  peer-to-peer Requests (between Functions of the device) must be
-  redirected Upstream towards the RC.
-
-<If p2p is not supported, there's no need to control this, the behavior
-is the same is if p2p were supported and this control bit is enabled>
-
-At least that's my interpretation and how I've indicated to folks at
-Intel how things should work for a device that does not support p2p.
-Of course this all hinges on having an ACS capability.  Without an ACS
-capability we must assume any sort of p2p is possible unless we have a
-quirk to tell us otherwise.  With ACS, the absence of capabilities is a
-positive indication that those forms of p2p are not possible (depending
-on the spec wording for that capability).  If the code doesn't behave
-that way, let's fix it. Thanks,
-
-Alex
+MBR, Sergei
