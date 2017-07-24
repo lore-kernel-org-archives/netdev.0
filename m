@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 5/6] netvsc: include rtnetlink.h
-Date: Mon, 24 Jul 2017 10:57:29 -0700
-Message-ID: <20170724175730.31806-6-sthemmin@microsoft.com>
+Subject: [PATCH net-next 6/6] netvsc: remove no longer used max_num_rss queues
+Date: Mon, 24 Jul 2017 10:57:30 -0700
+Message-ID: <20170724175730.31806-7-sthemmin@microsoft.com>
 References: <20170724175730.31806-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,38 +23,45 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Since these files use rtnl_derefernce make sure and include rtnetlink.h
+This value has been calculated in rndis_device_attach since 4.11.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c   | 2 ++
- drivers/net/hyperv/rndis_filter.c | 1 +
- 2 files changed, 3 insertions(+)
+ drivers/net/hyperv/hyperv_net.h | 1 -
+ drivers/net/hyperv/netvsc_drv.c | 2 --
+ 2 files changed, 3 deletions(-)
 
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index afb65f753574..4e7ff348327e 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -147,7 +147,6 @@ struct hv_netvsc_packet {
+ struct netvsc_device_info {
+ 	unsigned char mac_adr[ETH_ALEN];
+ 	int  ring_size;
+-	u32  max_num_vrss_chns;
+ 	u32  num_chn;
+ };
+ 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 99ae7fb6ec11..b2b0a1f96940 100644
+index b2b0a1f96940..8136dd2d927f 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -33,6 +33,8 @@
- #include <linux/if_vlan.h>
- #include <linux/in.h>
- #include <linux/slab.h>
-+#include <linux/rtnetlink.h>
-+
- #include <net/arp.h>
- #include <net/route.h>
- #include <net/sock.h>
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index e439886f72c1..eaa3f0d5682a 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -28,6 +28,7 @@
- #include <linux/if_vlan.h>
- #include <linux/nls.h>
- #include <linux/vmalloc.h>
-+#include <linux/rtnetlink.h>
+@@ -754,7 +754,6 @@ static int netvsc_set_channels(struct net_device *net,
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.num_chn = count;
+ 	device_info.ring_size = ring_size;
+-	device_info.max_num_vrss_chns = count;
  
- #include "hyperv_net.h"
+ 	nvdev = rndis_filter_device_add(dev, &device_info);
+ 	if (!IS_ERR(nvdev)) {
+@@ -763,7 +762,6 @@ static int netvsc_set_channels(struct net_device *net,
+ 		ret = PTR_ERR(nvdev);
+ 	} else {
+ 		device_info.num_chn = orig;
+-		device_info.max_num_vrss_chns = count;
+ 		rndis_filter_device_add(dev, &device_info);
+ 	}
  
 -- 
 2.11.0
