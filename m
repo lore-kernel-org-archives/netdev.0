@@ -1,63 +1,41 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 1/1] mlx4_en: remove unnecessary returned value
-Date: Mon, 24 Jul 2017 09:33:09 +0300
-Message-ID: <20170724063309.GL3259@mtr-leonro.local>
-References: <1500865373-32411-1-git-send-email-yanjun.zhu@oracle.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: [PATCH 1/2] ftgmac100: Increase reset timeout
+Date: Mon, 24 Jul 2017 16:59:01 +1000
+Message-ID: <1500879541.10674.62.camel@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="9MdG657QzbOEWl1C"
-Cc: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-To: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1500865373-32411-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Joel Stanley <joel.stanley@au1.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:39715 "EHLO gate.crashing.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751389AbdGXG7K (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Jul 2017 02:59:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+We had reports of 50us not being sufficient to reset the MAC,
+thus hitting the "Hardware reset failed" error bringing the
+interface up on some AST2400 based machines.
 
---9MdG657QzbOEWl1C
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This bumps the timeout to 200us.
 
-On Sun, Jul 23, 2017 at 11:02:53PM -0400, Zhu Yanjun wrote:
-> The function mlx4_en_arm_cq always returns zero. So change the
-> return type of the function mlx4_en_arm_cq to void.
->
-> CC: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> CC: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_cq.c   | 4 +---
->  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 2 +-
->  2 files changed, 2 insertions(+), 4 deletions(-)
->
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+---
+ drivers/net/ethernet/faraday/ftgmac100.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-Reviewed-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-
---9MdG657QzbOEWl1C
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAll1lKUACgkQ5GN7iDZy
-WKdnqhAAp2IumcqLuegrVGpENH/T3P8NeLiIvd5hMsPiW4v2FZ3I3t8LYCtS5WZ1
-Bb4cFyHEXCP/DuuBZKRq1TCWQkkbGgGLLDw+nnHezZvCuOjiZDHTvMc7YHa1tUyK
-i8ohl1WSsno+wJ8zyNRUmCqvhLMbNQkvU8Z6bLYS38NwY7KWshZGUlzlfhvGmRT0
-vZsdaAf/vITd++LLH/sxVTBRDoPvXGTrfREk8MFp2eS0XYTX5eXqkHqu7jl+oe8j
-b23eTO/9av7gJWDMKsTylc/LCZ19TKoozmC4gEcXp7ecN1f3gVW66KLXIM7SDKmj
-F0pGa6jiBr1SIyPrJWvEiJRWGPy4ilyA5nsGmZbEjNeYAx+qmjYWQ2rtc+BkwATF
-v5sx0MqJKMDVGNjhS9AUtch7jtMPklrPgn7+q8nSGNFlrLRIgMqh8GPYSYkS6Oin
-3+pl3LeHWcQNDLudWTkurPMu064zc3fJygcNqs1aviX6BaoIdwRQoOVK/jlnxFYY
-I5D/tRYmmKnWgZ5iVmtWusCte6eeSMWdd1Y3pOUsCRMYHP6Rs4XfpHDbV/WmmmKz
-f8VBEcTocUaHbK+4w8hhFIuys5TnKFzuZbS/fI/m2aHVI/vogKv1XLr1EcH0PyyO
-0uFONF89mKzs2OvGa9JHDHJIEyUIOKKs1wKzqSL63RfKicZEGQY=
-=j2xI
------END PGP SIGNATURE-----
-
---9MdG657QzbOEWl1C--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+index b166666128d3..2b17f7023d91 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.c
++++ b/drivers/net/ethernet/faraday/ftgmac100.c
+@@ -125,7 +125,7 @@ static int ftgmac100_reset_mac(struct ftgmac100 *priv, u32 maccr)
+ 	iowrite32(maccr, priv->base + FTGMAC100_OFFSET_MACCR);
+ 	iowrite32(maccr | FTGMAC100_MACCR_SW_RST,
+ 		  priv->base + FTGMAC100_OFFSET_MACCR);
+-	for (i = 0; i < 50; i++) {
++	for (i = 0; i < 200; i++) {
+ 		unsigned int maccr;
+ 
+ 		maccr = ioread32(priv->base + FTGMAC100_OFFSET_MACCR);
