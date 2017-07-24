@@ -1,54 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/13] net: dsa: lan9303: unicast offload, fdb,mdb,STP
-Date: Mon, 24 Jul 2017 13:32:01 -0700 (PDT)
-Message-ID: <20170724.133201.1541272602104841059.davem@davemloft.net>
-References: <525d9bb74bfa42c1b7a54930e14cf5ea@nooslMX1.zenitelcss.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH V4 net-next 7/8] net: hns3: Add Ethtool support to HNS3
+ driver
+Date: Mon, 24 Jul 2017 20:32:07 +0000
+Message-ID: <D7C5EFE3-632C-468D-B8E0-82B448634B31@intel.com>
+References: <20170722220942.78852-1-salil.mehta@huawei.com>
+ <20170722220942.78852-8-salil.mehta@huawei.com>
+ <23ddbe00-8bef-a09b-5783-3a5438086bd6@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: corbet@lwn.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        kernel@pengutronix.de, linux-doc@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: egil.hjelmeland@zenitel.com
+Content-Type: multipart/signed;
+        boundary="Apple-Mail=_8826735D-3F14-4F03-BD30-C8A3C6E0187D";
+        protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: Salil Mehta <salil.mehta@huawei.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
+        "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+        "lipeng321@huawei.com" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42546 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751579AbdGXUcE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 16:32:04 -0400
-In-Reply-To: <525d9bb74bfa42c1b7a54930e14cf5ea@nooslMX1.zenitelcss.com>
+Received: from mga02.intel.com ([134.134.136.20]:61035 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753565AbdGXUcL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Jul 2017 16:32:11 -0400
+In-Reply-To: <23ddbe00-8bef-a09b-5783-3a5438086bd6@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
-Date: Mon, 24 Jul 2017 16:47:51 +0200
+--Apple-Mail=_8826735D-3F14-4F03-BD30-C8A3C6E0187D
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
 
-> This is my first patches submitted to the kernel, so I am looking
-> forward to comments.
 
-Please clean up how the dates are handled in your submission.
+> On Jul 23, 2017, at 10:05 AM, Florian Fainelli <f.fainelli@gmail.com> =
+wrote:
+>> +
+>> +	strncpy(drvinfo->version, HNAE_DRIVER_VERSION,
+>> +		sizeof(drvinfo->version));
+>> +	drvinfo->version[sizeof(drvinfo->version) - 1] =3D '\0';
+>=20
+> strlcpy() would probably do that for you.
 
-They are all over the place, over a period of 3 days.
+You need to be careful about strlcpy - it does not completely write the =
+destination buffer as strncpy does, and so can result in a kernel memory =
+leak if the destination is not known to already be cleared.
 
-Instead, they should be consequentive, near the moment the patch is
-submitted.
+>> +
+>> +	strncpy(drvinfo->driver, HNAE_DRIVER_NAME, =
+sizeof(drvinfo->driver));
+>> +	drvinfo->driver[sizeof(drvinfo->driver) - 1] =3D '\0';
+>=20
+> Same here
 
-We manage patches in patchwork, and there the patches are ordered in
-my queue based upon date.  So instead of a nice clean order of changes
-showing up recently at the top of my queue, your's got mixed in deep
-near the bottom of the queue, intermixed with other unrelated changes.
+Same here
 
-This seriously makes things more difficult for me.
+>> +
+>> +	strncpy(drvinfo->bus_info, priv->dev->bus->name,
+>> +		sizeof(drvinfo->bus_info));> +	=
+drvinfo->bus_info[ETHTOOL_BUSINFO_LEN - 1] =3D '\0';
+>=20
+> And here.
 
-The best thing to do is to apply your series into a fresh tree (which
-you pretty much _MUST_ do anyways, to make sure your changes apply,
-build and work properly in my GIT tree, right?) and then extract those
-commits for your patch series emails.
-
-You must also say in your subject line which of my two GIT networking
-trees ('net' or 'net-next') your changes are targetting.  If you don't
-know, you need to figure that out before submitting.
-
-I'm not applying this series until you fix your process up.
-
-Thank you.
+And here too. I haven't looked at this deeply enough to know whether a =
+leak could be created by strlcpy here, but I wanted to raise it as =
+something to be considered before switching to it. Blindly adopting =
+strlcpy is hazardous as are tools that unconditionally recommend it.
+--Apple-Mail=_8826735D-3F14-4F03-BD30-C8A3C6E0187D--
