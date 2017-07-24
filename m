@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] rxrpc: Rearrange headers
-Date: Mon, 24 Jul 2017 16:17:34 -0700 (PDT)
-Message-ID: <20170724.161734.314010681276806847.davem@davemloft.net>
-References: <150066178283.18902.5185801865257802317.stgit@warthog.procyon.org.uk>
+Subject: Re: [patch net-next] mlxsw: spectrum_router: Don't batch neighbour
+ deletion
+Date: Mon, 24 Jul 2017 16:17:41 -0700 (PDT)
+Message-ID: <20170724.161741.2070174806443778678.davem@davemloft.net>
+References: <20170721183138.23505-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <150066178283.18902.5185801865257802317.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44500 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932294AbdGXXRm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 19:17:42 -0400
+In-Reply-To: <20170721183138.23505-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 21 Jul 2017 19:29:42 +0100
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 21 Jul 2017 20:31:38 +0200
 
+> From: Ido Schimmel <idosch@mellanox.com>
 > 
-> Here's a pair of patches that rearrange some of the AF_RXRPC header files
-> that are outside of the net/rxrpc/ directory:
+> Current firmware supported by the driver doesn't support batch deletion
+> of IPv6 neighbours on a given router interface (RIF).
 > 
->  (1) The bits userspace need are moved to uapi/linux/rxrpc.h.  [Should this
->      be af_rxrpc.h instead, I wonder - but there doesn't seem to be
->      precedent for that in the other net UAPI headers.]
+> Until a new version that supports this functionality is made available,
+> delete neighbours one by one.
 > 
->  (2) For the most part, the contents of rxrpc/packet.h are no longer used
->      outside of the AF_RXRPC module, so move them to net/rxrpc/protocol.h
->      with the exception of the standard abort codes which are exposed to
->      userspace when an abort occurs and the security index values which are
->      needed when constructing keys.
-> 
-> The patches can be found here also:
-> 
-> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
-> 
-> Tagged thusly:
-> 
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-> 	rxrpc-rewrite-20170721
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Pulled, thanks David.
+Applied.
