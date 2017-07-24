@@ -1,118 +1,102 @@
-From: Nikhil Gajendrakumar <nikhil@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 net-next] bridge: this patch adds json support
- for bridge mdb show
-Date: Mon, 24 Jul 2017 15:29:18 -0700
-Message-ID: <7823F297-DB01-4C57-A8B8-296700A1184D@cumulusnetworks.com>
-References: <1499466256-13808-1-git-send-email-roopa@cumulusnetworks.com>
- <20170718173351.55cb566a@xeon-e3>
-Mime-Version: 1.0 (Mac OS X Mail 10.0 \(3226\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        nikolay@cumulusnetworks.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [PATCH 2/2] net: ethernet: nb8800: Fix RGMII TX clock delay setup
+Date: Tue, 25 Jul 2017 00:30:45 +0200
+Message-ID: <22140d1e-e9e2-314b-0927-50ed0d3b1b93@free.fr>
+References: <b332dc3e-4478-e34b-2b3f-226aad8a11d4@sigmadesigns.com>
+ <61b71d12-4e3a-edbe-1d69-c66e7cf46d8e@sigmadesigns.com>
+ <yw1xzic0qrcg.fsf@mansr.com> <001a7afd-364d-359e-1478-e057c9083f73@free.fr>
+ <d8121f82-dffd-22c7-1209-a3c2329703e5@gmail.com>
+ <05cbc32e-a4af-1c81-128b-bc5d2206d24a@free.fr>
+ <bf484952-15ae-b385-6b54-4d07b3bc2b29@gmail.com>
+ <54f5bd21-766d-d9de-3b15-a01fd5ee6035@free.fr>
+ <54ca7197-780a-68b1-0cf2-88ccc7ce4201@free.fr>
+ <5c48496e-8c67-5af5-e0c5-7b0c298adc84@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Mans Rullgard <mans@mansr.com>,
+        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>,
+        Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Timur Tabi <timur@codeaurora.org>,
+        Daniel Mack <zonque@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:33718 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751086AbdGXW3U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 18:29:20 -0400
-Received: by mail-pf0-f180.google.com with SMTP id s70so51959085pfs.0
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 15:29:20 -0700 (PDT)
-In-Reply-To: <20170718173351.55cb566a@xeon-e3>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:62583 "EHLO smtp2-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754437AbdGXWbU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Jul 2017 18:31:20 -0400
+In-Reply-To: <5c48496e-8c67-5af5-e0c5-7b0c298adc84@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Stephen,=20
+On 24/07/2017 23:49, Florian Fainelli wrote:
+> On 07/24/2017 02:21 PM, Mason wrote:
+>> On 20/07/2017 14:33, Mason wrote:
+>>
+>>> As [Florian] pointed out, the spec states that the
+>>> "Data to Clock input Skew (at Receiver)"
+>>> must be within [ 1.0, 2.6 ] ns.
+>>>
+>>> I understand that 2 ns is 1/4 of a 125 MHz period,
+>>> but it's not clear to me why the above interval is
+>>> centered at 1.8 instead of 2.0 ns.
+>>>
+>>> Also, the AR8035 PHY offers 4 possible TX clock delays:
+>>> { 0.25, 1.3, 2.4, 3.4 } according to their doc.
+>>> The two extremes are outside the interval, when would
+>>> they be useful? In case the transmitter adds "bad" skew?
+>>>
+>>> Why doesn't the PHY support 1.8/2.0? Is it perhaps
+>>> unable to, because of PLL limitations?
+>>
+>> I haven't yet found answers for these questions.
+>>
+>> - Why is the interval centered at 1.8 instead of 2.0 ns?
+> 
+> Presumably because this is almost the middle of the available range and
+> it still provides a value that is within the specification...
 
-Thanks you.
-I will send an incremental patch with updated usage message and man =
-page.
+I was talking about the RGMII spec.
+If - theoretically - the best results are achieved
+by having a 2 ns skew between clock and data,
+it seems odd for the RGMII spec to define an
+interval of [ 1.0, 2.6 ] ns for acceptable values.
+I would have expected [ 1.2, 2.8 ] ns.
 
--Nikhil
+>> - What use are 0.25 ns and 3.4 ns skew?
+> 
+> Accounting for extreme PCB traces lengths possibly, or just exposing the
+> raw values that the HW supports by increments of 0.25 ns, just because
+> the HW supports it.
 
-> On Jul 18, 2017, at 5:33 PM, Stephen Hemminger =
-<stephen@networkplumber.org> wrote:
->=20
-> On Fri,  7 Jul 2017 15:24:16 -0700
-> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
->=20
->> From: Nikhil Gajendrakumar <nikhil@cumulusnetworks.com>
->>=20
->> This patch adds json output to bridge mdb show
->>=20
->> Normal Output:
->> $ bridge -d -s mdb show
->> dev br0 port swp3 grp 239.0.0.1 temp  vid 128 172.26
->> dev br0 port swp3 grp 239.0.0.1 temp  vid 64 172.26
->> dev br0 port swp2 grp 239.0.0.2 temp  vid 1024 172.26
->> dev br0 port swp2 grp 239.0.0.2 temp  vid 256 172.26
->> dev br0 port swp2 grp 239.0.0.2 temp  vid 1 172.26
->> dev br0 port swp3 grp 239.0.0.1 temp  vid 1 172.26
->> router ports on br0: swp4    0.00 permanent
->> router ports on br0: swp5    0.00 permanent
->>=20
->> Json Output:
->> $ bridge -d -s -j mdb show
->> {
->>    "mdb": [{
->>            "dev": "br0",
->>            "port": "swp3",
->>            "grp": "239.0.0.1",
->>            "state": "temp",
->>            "vid": 128,
->>            "timer": " 166.74"
->>        },{
->>            "dev": "br0",
->>            "port": "swp3",
->>            "grp": "239.0.0.1",
->>            "state": "temp",
->>            "vid": 64,
->>            "timer": " 166.74"
->>        },{
->>            "dev": "br0",
->>            "port": "swp2",
->>            "grp": "239.0.0.2",
->>            "state": "temp",
->>            "vid": 1024,
->>            "timer": " 166.74"
->>        },{
->>            "dev": "br0",
->>            "port": "swp2",
->>            "grp": "239.0.0.2",
->>            "state": "temp",
->>            "vid": 256,
->>            "timer": " 166.74"
->>        },{
->>            "dev": "br0",
->>            "port": "swp2",
->>            "grp": "239.0.0.2",
->>            "state": "temp",
->>            "vid": 1,
->>            "timer": " 166.74"
->>        },{
->>            "dev": "br0",
->>            "port": "swp3",
->>            "grp": "239.0.0.1",
->>            "state": "temp",
->>            "vid": 1,
->>            "timer": " 166.74"
->>        }
->>    ],
->>    "router": {
->>        "br0": [{
->>                "port": "swp4",
->>                "timer": "   0.00",
->>                "type": "permanent"
->>            },{
->>                "port": "swp5",
->>                "timer": "   0.00",
->>                "type": "permanent"
->>            }
->>        ]
->>    }
->> }
->>=20
->> Signed-off-by: Nikhil Gajendrakumar <nikhil@cumulusnetworks.com>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->=20
-> Applied, you should also update usage message and man page.
+The AR8035 doesn't support increments of 0.25 ns,
+it supports just 4 values: 0.25, 1.3, 2.4, 3.4
+Two of which are outside the acceptable range
+defined in the RGMII spec. Odd.
+Giving it more thought, I don't think trace length
+factors in, unless the data and clock lines have
+very different length (signal propagation).
+
+>> - Why doesn't the PHY support a "recommended" value like 1.8 ns?
+>>
+>> Does anyone have pointers to good resources?
+> 
+> The PHY datasheet and the RGMII specification really ought to be the
+> starting points, there is not much more to it. Maybe go ask your support
+> person at Qualcomm/Atheros about their PHY design?
+
+Sadly, I rarely have access to support for the blocks
+we use. I had to download the datasheet off the internet.
+But I was only asking out of personal curiosity, since
+this is outside my field. I don't think any customer
+has complained about the default settings.
+
+Regards.
