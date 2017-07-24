@@ -1,73 +1,57 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH 1/1] mlx4_en: remove unnecessary error check
-Date: Mon, 24 Jul 2017 16:01:31 +0300
-Message-ID: <562db460-95d9-cc0f-9867-6b24022334d1@mellanox.com>
-References: <1500884564-310-1-git-send-email-yanjun.zhu@oracle.com>
+From: Joel Stanley <joel@jms.id.au>
+Subject: Re: [PATCH 1/2] ftgmac100: Increase reset timeout
+Date: Mon, 24 Jul 2017 22:39:52 +0930
+Message-ID: <CACPK8XdUJK8x7Zc1nLceSpM-Bt0zW13F-OGTJKrNgGGxFtY76w@mail.gmail.com>
+References: <20170724065917.5F9AEC6037@b03ledav006.gho.boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Zhu Yanjun <yanjun.zhu@oracle.com>, tariqt@mellanox.com,
-        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        yuval.shaia@oracle.com, leon@kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org, Joel Stanley <joel.stanley@au1.ibm.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr40073.outbound.protection.outlook.com ([40.107.4.73]:28512
-        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752259AbdGXNB5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Jul 2017 09:01:57 -0400
-In-Reply-To: <1500884564-310-1-git-send-email-yanjun.zhu@oracle.com>
-Content-Language: en-US
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:34972 "EHLO
+        mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753218AbdGXNKO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 09:10:14 -0400
+Received: by mail-yw0-f193.google.com with SMTP id l82so1471193ywc.2
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 06:10:13 -0700 (PDT)
+In-Reply-To: <20170724065917.5F9AEC6037@b03ledav006.gho.boulder.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jul 24, 2017 at 4:29 PM, Benjamin Herrenschmidt
+<benh@kernel.crashing.org> wrote:
+> We had reports of 50us not being sufficient to reset the MAC,
+> thus hitting the "Hardware reset failed" error bringing the
+> interface up on some AST2400 based machines.
+>
+> This bumps the timeout to 200us.
+>
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+
+I gave this a spin on the problematic hardware, as well as a few other
+machines. Looks good, thanks Ben.
+
+Tested-by: Joel Stanley <joel@jms.id.au>
+
+Cheers,
+
+Joel
 
 
-On 24/07/2017 11:22 AM, Zhu Yanjun wrote:
-> The function mlx4_en_get_profile always return zero. So it is not
-> necessary to check its return value.
-> 
-> CC: Joe Jin <joe.jin@oracle.com>
-> CC: Junxiao Bi <junxiao.bi@oracle.com>
-> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
 > ---
->   drivers/net/ethernet/mellanox/mlx4/en_main.c | 9 ++-------
->   1 file changed, 2 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-> index 2b0cbca..686e18d 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-> @@ -147,7 +147,7 @@ void mlx4_en_update_loopback_state(struct net_device *dev,
->   	mutex_unlock(&priv->mdev->state_lock);
->   }
->   
-> -static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
-> +static void mlx4_en_get_profile(struct mlx4_en_dev *mdev)
->   {
->   	struct mlx4_en_profile *params = &mdev->profile;
->   	int i;
-> @@ -176,8 +176,6 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
->   		params->prof[i].rss_rings = 0;
->   		params->prof[i].inline_thold = inline_thold;
->   	}
-> -
-> -	return 0;
->   }
->   
->   static void *mlx4_en_get_netdev(struct mlx4_dev *dev, void *ctx, u8 port)
-> @@ -309,10 +307,7 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
->   	}
->   
->   	/* Build device profile according to supplied module parameters */
-> -	if (mlx4_en_get_profile(mdev)) {
-> -		mlx4_err(mdev, "Bad module parameters, aborting\n");
-> -		goto err_mr;
-> -	}
-> +	mlx4_en_get_profile(mdev);
->   
->   	/* Configure which ports to start according to module parameters */
->   	mdev->port_cnt = 0;
-> 
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
-
-Thank you Zhu.
+>  drivers/net/ethernet/faraday/ftgmac100.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+> index b166666128d3..2b17f7023d91 100644
+> --- a/drivers/net/ethernet/faraday/ftgmac100.c
+> +++ b/drivers/net/ethernet/faraday/ftgmac100.c
+> @@ -125,7 +125,7 @@ static int ftgmac100_reset_mac(struct ftgmac100 *priv, u32 maccr)
+>         iowrite32(maccr, priv->base + FTGMAC100_OFFSET_MACCR);
+>         iowrite32(maccr | FTGMAC100_MACCR_SW_RST,
+>                   priv->base + FTGMAC100_OFFSET_MACCR);
+> -       for (i = 0; i < 50; i++) {
+> +       for (i = 0; i < 200; i++) {
+>                 unsigned int maccr;
+>
+>                 maccr = ioread32(priv->base + FTGMAC100_OFFSET_MACCR);
