@@ -1,39 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] skbuff: re-add check for NULL skb->head in
- kfree_skb path
-Date: Mon, 24 Jul 2017 16:28:05 -0700 (PDT)
-Message-ID: <20170724.162805.1216261982332186633.davem@davemloft.net>
-References: <20170723175447.28431-1-fw@strlen.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] of_mdio: kill useless variable in
+ of_phy_register_fixed_link()
+Date: Mon, 24 Jul 2017 16:28:21 -0700 (PDT)
+Message-ID: <20170724.162821.65962444296157910.davem@davemloft.net>
+References: <20170723184612.321910595@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44638 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751873AbdGXX2F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 19:28:05 -0400
-In-Reply-To: <20170723175447.28431-1-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170723184612.321910595-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Sun, 23 Jul 2017 19:54:47 +0200
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Date: Sun, 23 Jul 2017 21:45:47 +0300
 
-> A null check is needed after all.  netlink skbs can have skb->head be
-> backed by vmalloc.  The netlink destructor vfree()s head, then sets it to
-> NULL.  We then panic in skb_release_data with a NULL dereference.
+> of_phy_register_fixed_link() declares the 'err' variable to hold the result
+> of of_property_read_string() but only uses it once after that, while that
+> function can be called directly from the *if* statement...
 > 
-> Re-add such a test.
-> 
-> Alternative would be to switch to kvfree to free skb->head memory
-> and remove the special handling in netlink destructor.
-> 
-> Reported-by: kernel test robot <fengguang.wu@intel.com>
-> Fixes: 06dc75ab06943 ("net: Revert "net: add function to allocate sk_buff head without data area")
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Remove that variable and move/regroup 'link_gpio' and 'len' variables in
+> order to sort the declarations in the reverse Xmas tree order -- to please
+> DaveM. ;-)
 
-Ok, back it goes.
+Respect MY AUTHORITY! :-)
+
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
 
 Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
