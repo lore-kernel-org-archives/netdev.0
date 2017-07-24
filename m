@@ -1,41 +1,81 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: nf_nat_pptp 4.12.3 kernel lockup/reboot
-Date: Mon, 24 Jul 2017 17:12:50 +0300
-Message-ID: <69c0c47e920e763bce702521baae9caa@nuclearcat.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: SELinux/IP_PASSSEC regression in 4.13-rcX
+Date: Mon, 24 Jul 2017 10:42:47 -0400
+Message-ID: <CAHC9VhRjju-_3V21x+BogdRg-brDho1g_HzW+0CvU0PbhEtQqw@mail.gmail.com>
+References: <CAHC9VhS9QO8jGBodsSeQxxbgoxrmThRgbc3_m17h7gFmfP=GGw@mail.gmail.com>
+ <1500899117.2458.2.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:39734 "EHLO nuclearcat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753249AbdGXOcF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Jul 2017 10:32:05 -0400
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:37234 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755931AbdGXOmu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 10:42:50 -0400
+Received: by mail-lf0-f54.google.com with SMTP id m86so38083127lfi.4
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 07:42:49 -0700 (PDT)
+In-Reply-To: <1500899117.2458.2.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Mon, Jul 24, 2017 at 8:25 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> Hi,
+>
+> On Fri, 2017-07-21 at 18:19 -0400, Paul Moore wrote:
+>> I've been seeing a SELinux regression with IP_PASSSEC on the v4.13-rcX
+>> kernels and finally tracked the problem down to the
+>> skb_release_head_state() call in __udp_queue_rcv_skb().  Looking at
+>> the code and the git log it would appear that the likely culprit is
+>> 0a463c78d25b ("udp: avoid a cache miss on dequeue
+>> "); it looks similar to IP option problem fixed in 0ddf3fb2c43d2.
+>
+> Thank you for the report!
+> My bad, I completely missed that code path.
 
-I am trying to upgrade kernel 4.11.8 to 4.12.3 (it is a nat/router, 
-handling approx 2gbps of pppoe users traffic) and noticed that after 
-while server rebooting(i have set reboot on panic and etc).
-I can't run serial console, and in pstore / netconsole there is nothing.
-Best i got is some very short message about softlockup in ipmi, but as 
-storage very limited there - it is near useless.
+Hi Paolo,
 
-By preliminary testing (can't do it much, as it's production) - it seems 
-following lines causing issue, they worked in 4.11.8 and no more in 
-4.12.3.
+No problem, things get missed from time to time, especially when we
+deal with things that cross subsystems.
 
-iptables -t raw -A PREROUTING -p tcp -m tcp --dport 1723 -j CT --helper 
-pptp
-iptables -t raw -A PREROUTING -p tcp -m tcp --sport 1723 -j CT --helper 
-pptp
+>> From a SELinux/IP_PASSSEC point of view we need access to the skb->sp
+>> pointer to examine the SAs.  I'm posting this here without a patch
+>> because it isn't clear to me how you would like to fix the problem; my
+>> initial thought would be to simply make the skb_release_head_state()
+>> conditional on the skb->sp pointer, much like the IP options fix, but
+>> I'm not sure if you have a more clever idea.
+>
+> Unfortunately explicitly checking skb->sp at skb free time will defeat
+> completely the intended optimization.
+>
+> To preserve it, something like the following patch is required, could
+> you please test it in your environment?
+>
+> Such patch is still prone to a kind of race, as only UDP packets
+> enqueued to the UDP socket after the setsockopt() will carry the
+> relevant cmsg info.
+>
+> e.g. with the following event sequence:
+>
+> <an UDP packet is enqueued to the revevant socket>
+> setsockopt(...,IP_CMSG_PASSSEC)
+> recvmsg(...);
+>
+> the ancillary message data will not include the IP_CMSG_PASSSEC, while
+> kernel pre 0a463c78d25b will provide it. Do you think such behavior
+> will be acceptable?
+>
+> If not, I fear a revert will be needed.
 
-(there is no solid examples for helpers, not sure second line is 
-necessary)
+The change in behavior for userspace makes me a little nervous as
+there is no way of knowing how any random application may be coded.
+Even if we are confident that the majority of applications set
+IP_PASSSEC before calling bind(), we are likely still stuck with a few
+that will break, and that means a lot of hard to debug problem
+reports.
 
-I will try to do more tests tonight (lockdep debug and etc), but maybe 
-someone have idea what might be wrong?
+I would feel much more comfortable if we could preserve the existing behavior.
+
+-- 
+paul moore
+www.paul-moore.com
