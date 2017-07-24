@@ -1,13 +1,12 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 2/6] netvsc: Remove redundant use of ipv6_hdr()
-Date: Mon, 24 Jul 2017 10:57:26 -0700
-Message-ID: <20170724175730.31806-3-sthemmin@microsoft.com>
+Subject: [PATCH net-next 3/6] netvsc: prefetch the first incoming ring element
+Date: Mon, 24 Jul 2017 10:57:27 -0700
+Message-ID: <20170724175730.31806-4-sthemmin@microsoft.com>
 References: <20170724175730.31806-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, Mohammed Gamal <mgamal@redhat.com>,
- netdev@vger.kernel.org
+Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
 To: kys@microsoft.com,
 	haiyangz@microsoft.com,
 	sthemmin@microsoft.com
@@ -24,28 +23,42 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Mohammed Gamal <mgamal@redhat.com>
+In interrupt handler, prefetch the first incoming ring element
+so that it is in cache by the time NAPI poll gets to it.
 
-This condition already uses an object of type ipv6hdr in the line above.
-Use the object directly instead of calling ipv6_hdr
-
-Signed-off-by: Mohammed Gamal <mgamal@redhat.com>
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/hyperv/netvsc.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 1238600d717e..bc2af352d6dd 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -339,7 +339,7 @@ static u32 net_checksum_info(struct sk_buff *skb)
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 0a9d9feedc3f..06f39a99da7c 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -30,6 +30,7 @@
+ #include <linux/if_ether.h>
+ #include <linux/vmalloc.h>
+ #include <linux/rtnetlink.h>
++#include <linux/prefetch.h>
  
- 		if (ip6->nexthdr == IPPROTO_TCP)
- 			return TRANSPORT_INFO_IPV6_TCP;
--		else if (ipv6_hdr(skb)->nexthdr == IPPROTO_UDP)
-+		else if (ip6->nexthdr == IPPROTO_UDP)
- 			return TRANSPORT_INFO_IPV6_UDP;
+ #include <asm/sync_bitops.h>
+ 
+@@ -1265,10 +1266,15 @@ int netvsc_poll(struct napi_struct *napi, int budget)
+ void netvsc_channel_cb(void *context)
+ {
+ 	struct netvsc_channel *nvchan = context;
++	struct vmbus_channel *channel = nvchan->channel;
++	struct hv_ring_buffer_info *rbi = &channel->inbound;
++
++	/* preload first vmpacket descriptor */
++	prefetch(hv_get_ring_buffer(rbi) + rbi->priv_read_index);
+ 
+ 	if (napi_schedule_prep(&nvchan->napi)) {
+ 		/* disable interupts from host */
+-		hv_begin_read(&nvchan->channel->inbound);
++		hv_begin_read(rbi);
+ 
+ 		__napi_schedule(&nvchan->napi);
  	}
- 
 -- 
 2.11.0
