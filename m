@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] net: ethernet: mediatek: avoid potential
- invalid memory access
-Date: Mon, 24 Jul 2017 13:44:08 -0700 (PDT)
-Message-ID: <20170724.134408.1220348031618074380.davem@davemloft.net>
-References: <e5eab7347d0918d7f2aff2951e66f93ef19594cd.1500727290.git.sean.wang@mediatek.com>
+Subject: Re: [PATCH] tun/tap: Add the missed return value check of
+ register_netdevice_notifier
+Date: Mon, 24 Jul 2017 13:45:09 -0700 (PDT)
+Message-ID: <20170724.134509.1200121677424249511.davem@davemloft.net>
+References: <1500543694-23465-1-git-send-email-xiangxia.m.yue@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org
-To: sean.wang@mediatek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e5eab7347d0918d7f2aff2951e66f93ef19594cd.1500727290.git.sean.wang@mediatek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: xiangxia.m.yue@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42772 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755691AbdGXUpK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 16:45:10 -0400
+In-Reply-To: <1500543694-23465-1-git-send-email-xiangxia.m.yue@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <sean.wang@mediatek.com>
-Date: Sat, 22 Jul 2017 20:45:55 +0800
+From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Date: Thu, 20 Jul 2017 02:41:34 -0700
 
-> From: Sean Wang <sean.wang@mediatek.com>
+> There is some codes of tun/tap module which did not check the return
+> value of register_netdevice_notifier. Add the check now.
 > 
-> Potential dangerous invalid memory might be accessed if invalid mac value
-> reflected from the forward port field in rxd4 caused by possible potential
-> hardware defects. So added a simple sanity checker to avoid the kind of
-> situation happening.
-> 
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-> Acked-by: John Crispin <john@phrozen.org>
+> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
 
 Applied.
