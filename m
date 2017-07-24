@@ -1,47 +1,40 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [BUG] /net/hsr: prune_timer
-Date: Mon, 24 Jul 2017 14:03:30 -0700
-Message-ID: <CAM_iQpX96_Q_dQdoC4kEN4DXjmYgjgoLJY7JeT9qx_oLj++ZWg@mail.gmail.com>
-References: <op.y3kbi1pqlevu92@dandreev01.uni-eng.ru>
+From: Dave Watson <davejwatson@fb.com>
+Subject: Re: Kernel TLS in 4.13-rc1
+Date: Mon, 24 Jul 2017 14:10:19 -0700
+Message-ID: <20170724211019.GA88539@davejwatson-mba.local>
+References: <1777546b-3ce0-7714-1388-fb2e6db9320f@sigma-star.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Dmitry <d.andreev@uni-eng.ru>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Richard Weinberger <richard@nod.at>
+To: David Oberhollenzer <david.oberhollenzer@sigma-star.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35165 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756314AbdGXVDx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 17:03:53 -0400
-Received: by mail-wm0-f67.google.com with SMTP id r77so921675wmd.2
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 14:03:52 -0700 (PDT)
-In-Reply-To: <op.y3kbi1pqlevu92@dandreev01.uni-eng.ru>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47913 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755920AbdGXVKc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 17:10:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1777546b-3ce0-7714-1388-fb2e6db9320f@sigma-star.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 18, 2017 at 1:07 AM, Dmitry <d.andreev@uni-eng.ru> wrote:
-> Hello!
->
->
-> void hsr_prune_nodes(unsigned long data) called once by timer.
->
-> hsr_prune_nodes must be called periodically every PRUNE_PERIOD (60s).
->
->
->
->
-> This code want be added to tail of hsr_prune_nodes function
->
-> hsr->prune_timer.expires = jiffies + msecs_to_jiffies(PRUNE_PERIOD);
-> add_timer(&hsr->prune_timer);
->
-> or
->
-> mod_timer(&hsr->prune_timer, jiffies + msecs_to_jiffies(PRUNE_PERIOD));
+On 07/23/17 09:39 PM, David Oberhollenzer wrote:
+> After fixing the benchmark/test tool that the patch description
+> linked to (https://github.com/Mellanox/tls-af_ktls_tool) to make
+> sure that the server and client actually *agree* on AES-128-GCM,
+> I simply ran the client program with the --verify-sendpage option.
+> 
+> The handshake and setting up of the sockets appears to work but
+> the program complains that the sent and received page contents
+> do not match (sent is 0x12 repeated all over and received looks
+> pretty random).
 
-Please feel free to send a patch.
+The --verify functions depend on the RX path as well, which has not
+been merged.  Any programs / tests using OpenSSL + patches should work
+fine.
 
-You can follow this doc:
-https://www.kernel.org/doc/html/v4.11/process/submitting-patches.html
+If you want to use the tool, something like this should work, so that
+the receive path uses gnutls:
 
+./server --no-echo
 
-Thanks!
+./client --server-port 12345 --sendfile some_file --server-host localhost
