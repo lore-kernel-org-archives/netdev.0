@@ -1,103 +1,145 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [PATCH] PCI: Update ACS quirk for more Intel 10G NICs
-Date: Mon, 24 Jul 2017 13:01:59 -0600
-Message-ID: <20170724130159.309379e8@w520.home>
-References: <20170720214101.7449-1-roland@kernel.org>
-        <20170720161554.45ce1673@ul30vt.home>
-        <CAG4TOxOrF9aLyujrwNmSsxPBWBPTaLx2yXkOJ88gxCj0QUGDow@mail.gmail.com>
-        <20170724104505.74c67861@w520.home>
-        <CAG4TOxNufQHj0nNwzw_yDMQfp+cAQuiQgEJg6KNX2ebiJDUuUw@mail.gmail.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Problem with PHY state machine when using interrupts
+Date: Mon, 24 Jul 2017 21:13:12 +0200
+Message-ID: <e6a7a5df-b735-6f9c-6a2b-cded86ec6525@free.fr>
+References: <65b9f1f5-724c-cd03-1c39-59405e773efa@free.fr>
+ <849513d9-c981-ec20-5a10-08c663d0aa37@free.fr>
+ <02e9e171-ec22-e491-5bc8-ef4b3ad7fec2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Emil Tantilov <emil.s.tantilov@intel.com>
-To: Roland Dreier <roland.dreier@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35900 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754238AbdGXTCB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Jul 2017 15:02:01 -0400
-In-Reply-To: <CAG4TOxNufQHj0nNwzw_yDMQfp+cAQuiQgEJg6KNX2ebiJDUuUw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+ Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
+ Mans Rullgard <mans@mansr.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <02e9e171-ec22-e491-5bc8-ef4b3ad7fec2@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Jul 2017 10:18:56 -0700
-Roland Dreier <roland.dreier@gmail.com> wrote:
+On 24/07/2017 18:49, Florian Fainelli wrote:
 
-> > I think that the device implementing ACS and not implementing certain
-> > features that are "must be implemented if..." is a positive indication
-> > that the device does not have that behavior and therefore the ability
-> > to control that behavior is unnecessary.  pci_acs_flags_enabled() is
-> > coded with this intention:
-> >
-> > static bool pci_acs_flags_enabled(struct pci_dev *pdev, u16 acs_flags)
-> > {
-> >         int pos;
-> >         u16 cap, ctrl;
-> >
-> >         pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_ACS);
-> >         if (!pos)
-> >                 return false;
-> >
-> >         /*
-> >          * Except for egress control, capabilities are either required
-> >          * or only required if controllable.  Features missing from the
-> >          * capability field can therefore be assumed as hard-wired enabled.
-> >          */
-> >         pci_read_config_word(pdev, pos + PCI_ACS_CAP, &cap);
-> >         acs_flags &= (cap | PCI_ACS_EC);
-> >
-> > <Remove any requested ACS flags which are not implemented, except EC>
-> >
-> >         pci_read_config_word(pdev, pos + PCI_ACS_CTRL, &ctrl);
-> >         return (ctrl & acs_flags) == acs_flags;
-> >
-> > <Compare what remains>  
+> On 07/24/2017 08:01 AM, Mason wrote:
+>
+>>> When I set the link down via 'ip link set eth0 down'
+>>> (as opposed to pulling the Ethernet cable) things don't happen as expected:
+>>>
+>>> The driver's adjust_link() callback is never called, and doesn't
+>>> get a chance make some required changes. And when I set the link
+>>> up again, there is no network connectivity.
+>>>
+>>> I get this problem only if I enable interrupts on my PHY.
+>>> If I use polling, things work as expected.
+>>>
+>>>
+>>> When I set the link down, devinet_ioctl() eventually calls
+>>> ndo_set_rx_mode() and ndo_stop()
+>>>
+>>> In ndo_stop() the driver calls
+>>> phy_stop(phydev);
+>>> which disables interrupts and sets the state to HALTED.
+>>>
+>>> In phy_state_machine()
+>>> the PHY_HALTED case does call the adjust_link() callback:
+>>>
+>>> 		if (phydev->link) {
+>>> 			phydev->link = 0;
+>>> 			netif_carrier_off(phydev->attached_dev);
+>>> 			phy_adjust_link(phydev);
+>>> 			do_suspend = true;
+>>> 		}
+>>>
+>>> But it's not called when I use interrupts...
+>>>
+>>> Perhaps because there are no interrupts generated?
+>>> Or even if there were, they have been turned off by phy_stop?
+>>>
+>>> Basically, it seems like when I use interrupts,
+>>> the phy_state_machine() is not called on link down,
+>>> which breaks the MAC driver's expectations.
+>>>
+>>> Am I barking up the wrong tree?
+>>
+>> FWIW, the patch below solves my issue.
+>> Basically, we reset the MAC in open(), instead of probe().
+>>
+>> I also had to solve the issue of adjust_link() not being
+>> called by calling it explicitly in stop() instead of
+>> relying on phy_stop() to do it indirectly.
 > 
-> I'm not sure it makes sense to look for the EC bit in the control register if
-> the capability bit says it is not supported.  In fact I think it would
-> violate the PCI spec to set the bit in the control register if it is zero in the
-> capability register - the spec says:
+> Which is of course absolutely not how it is intended to be used.
+> phy_stop() does the following:
 > 
->   Default value of this bit is 0b. Must be hardwired to 0b if the ACS P2P
->   Egress Control functionality is not implemented.
+> - if the PHY was already HALTED do nothing and exit
+> - if it was not and an interrupt is valid for this PHY:  disable and
+> clear these interrupts
+> - set state to PHY_HALTED
 > 
-> I don't understand the reasoning behind forcing the EC bit in commit
-> 83db7e0bdb70.
-> 
-> I think the only reason this works is that nowhere in the kernel uses
-> this function to check PCI_ACS_EC.
+> somehow an interrupt should be generated from doing this such that
+> phy_change(), invoked from phy_interrupt() should have a chance to run
+> and make the PHY state machine transition properly to PHY_HALTED.
 
-Is there a misunderstanding of the code flow here?  We're never setting
-EC.  In the first code block we're just masking out requested
-capabilities where unimplemented capabilities is the same as
-implemented + enabled.  We're not adding EC to the request, we're
-just not removing it based on the implemented capabilities because we
-don't interpret it the same way.  Thus if someone wants to test a
-device for EC, it really needs to implement EC, we cannot assume it
-based on lack of support for EC in the ACS capability.  As you point
-out, nobody really cares about EC yet though.
+I'm totally confused. Are you saying that phy_stop itself
+should trigger an interrupt, or that the process of setting
+the link down should generate an interrupt *before* we reach
+phy_stop?
 
-> > At least that's my interpretation and how I've indicated to folks at
-> > Intel how things should work for a device that does not support p2p.
-> > Of course this all hinges on having an ACS capability.  Without an ACS
-> > capability we must assume any sort of p2p is possible unless we have a
-> > quirk to tell us otherwise.  With ACS, the absence of capabilities is a
-> > positive indication that those forms of p2p are not possible (depending
-> > on the spec wording for that capability).  If the code doesn't behave
-> > that way, let's fix it. Thanks,  
+I'm also perplex over this synchronous IRQ business.
+Should I be looking for a way to trigger an IRQ in
+software in the Atheros PHY?
+
+Before I forget: there is also an issue when using the PHY
+in polling mode. The ndo_stop callback runs through phy_stop
+and phy_disconnect too fast for the adjust_link() callback
+to be called. My patch fixed that too, by calling
+nb8800_link_reconfigure() explicitly.
+
+
+> So from there can you check a few things:
 > 
-> Thanks - I'm looking more closely at what goes wrong with X550, since
-> from reading the code it looks like it should work, but people have observed
-> that it doesn't on our system.  However the issue might be elsewhere.
-> 
-> However I'll send a patch removing that "| PCI_ACS_EC" from the check if
-> you agree - maybe I'm misunderstanding the logic but I don't see how it
-> could work if it ever became relevant.
+> - is such an interrupt actually generated?
+> - if you turn on dynamic debug prints for drivers/net/phy/phy.c where do
+> we leave the PHY state machine and what state is it in when you call
+> ifconfig up again?
 
-I don't yet see anything wrong with the EC handling, but please explain
-further if I'm just being dense.  Thanks,
+The only interrupts I've ever seen the PHY generate are
+on plugging/unplugging the Ethernet cable.
 
-Alex
+Looking at the driver and datasheet...
+http://elixir.free-electrons.com/linux/v4.13-rc2/source/drivers/net/phy/at803x.c#L312
+		value |= AT803X_INTR_ENABLE_AUTONEG_ERR;
+		value |= AT803X_INTR_ENABLE_SPEED_CHANGED;
+		value |= AT803X_INTR_ENABLE_DUPLEX_CHANGED;
+		value |= AT803X_INTR_ENABLE_LINK_FAIL;
+		value |= AT803X_INTR_ENABLE_LINK_SUCCESS;
+
+And the interrupts reasons supported by the PHY are:
+#define AT803X_INTR_ENABLE_AUTONEG_ERR		BIT(15)
+#define AT803X_INTR_ENABLE_SPEED_CHANGED	BIT(14)
+#define AT803X_INTR_ENABLE_DUPLEX_CHANGED	BIT(13)
+#define AT803X_INTR_ENABLE_PAGE_RECEIVED	BIT(12)
+#define AT803X_INTR_ENABLE_LINK_FAIL		BIT(11)
+#define AT803X_INTR_ENABLE_LINK_SUCCESS		BIT(10)
+#define AT803X_INTR_ENABLE_WIRESPEED_DOWNGRADE	BIT(5)
+#define AT803X_INTR_ENABLE_POLARITY_CHANGED	BIT(1)
+#define AT803X_INTR_ENABLE_WOL			BIT(0)
+
+These all seem to be external reasons (from the peer).
+
+I did enable debug logs in drivers/net/phy/phy.c
+to trace the state machine, and it is not called
+at all on set link down, so it remains in state
+RUNNING (both in polling and interrupt modes).
+
+IIRC, this used to work on the 2-core board, but breaks
+on the 4-core board. Could this be some kind of race?
+
+Regards.
