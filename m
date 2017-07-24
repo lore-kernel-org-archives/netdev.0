@@ -1,102 +1,176 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: af_packet: use after free in prb_retire_rx_blk_timer_expired
-Date: Mon, 24 Jul 2017 09:28:45 +0800
-Message-ID: <b1e9ee12-1f81-28ea-e872-d1133ce37288@huawei.com>
-References: <20170410190350.ngfw435zzr7gpw7e@sasha-lappy>
- <20170410192309.35x7ddya2cyyv4y6@codemonkey.org.uk>
- <CAF=yD-+MiyTvC=F=ApyF=+bCUgWWDT_4dTxPXsGRziuVTqQSiw@mail.gmail.com>
- <4F88C5DDA1E80143B232E89585ACE27D018C33F1@DGGEMA502-MBX.china.huawei.com>
- <CAM_iQpWHfUZGpf6dzT2kJ3fgtAiMeGbuwKYQ5ekGMxEOzm7ihQ@mail.gmail.com>
- <aa4874ba-3eaf-bf19-ea60-c7b76a972833@huawei.com>
- <CAM_iQpXdyNeeojLfh0ZPMy1LQwOoQZfV7Az2=Q5WALM00Za9SA@mail.gmail.com>
- <4F88C5DDA1E80143B232E89585ACE27D018CB6E0@DGGEMA502-MBS.china.huawei.com>
- <CAM_iQpXJZwFC3gG40UpCvt9GTcJ+ETaCKRvN7A=z7NB2CVtPRA@mail.gmail.com>
- <8f6c2fec-0ac4-1414-69da-462114a4481f@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Dave Jones <davej@codemonkey.org.uk>,
-        "alexander.levin@verizon.com" <alexander.levin@verizon.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "willemb@google.com" <willemb@google.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        "liujian (CE)" <liujian56@huawei.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next v11 0/4]  net sched actions: improve dump performance
+Date: Sun, 23 Jul 2017 21:35:42 -0400
+Message-ID: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
+        dsahern@gmail.com, eric.dumazet@gmail.com, mrv@mojatatu.com,
+        simon.horman@netronome.com, alex.aring@gmail.com,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:10338 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751839AbdGXBaZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 21:30:25 -0400
-In-Reply-To: <8f6c2fec-0ac4-1414-69da-462114a4481f@huawei.com>
+Received: from mail-it0-f68.google.com ([209.85.214.68]:35664 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751782AbdGXBgG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2017 21:36:06 -0400
+Received: by mail-it0-f68.google.com with SMTP id v127so6813918itd.2
+        for <netdev@vger.kernel.org>; Sun, 23 Jul 2017 18:36:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
 
-On 2017/7/24 9:09, Ding Tianhong wrote:
-> 
-> 
-> On 2017/7/24 1:03, Cong Wang wrote:
->> On Sun, Jul 23, 2017 at 5:48 AM, liujian (CE) <liujian56@huawei.com> wrote:
->>> Hi
->>>
->>> I find it caused by below steps:
->>> 1. set tp_version to TPACKET_V3 and req->tp_block_nr to 1
->>> 2. set tp_block_nr to 0
->>> Then pg_vec was freed, and we did not delete the timer?
->>
->> Thanks for testing!
->>
->> Ah, I overlook the initialization case in my previous patch.
->>
->> How about the following one? Does it cover all the cases?
->>
->>
->> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
->> index 008bb34ee324..0615c2a950fa 100644
->> --- a/net/packet/af_packet.c
->> +++ b/net/packet/af_packet.c
->> @@ -4329,7 +4329,7 @@ static int packet_set_ring(struct sock *sk,
->> union tpacket_req_u *req_u,
->>                 register_prot_hook(sk);
->>         }
->>         spin_unlock(&po->bind_lock);
->> -       if (closing && (po->tp_version > TPACKET_V2)) {
->> +       if (pg_vec && (po->tp_version > TPACKET_V2)) {
->>                 /* Because we don't support block-based V3 on tx-ring */
->>                 if (!tx_ring)
->>                         prb_shutdown_retire_blk_timer(po, rb_queue);
->>
->> .
-> 
-> Hi, Cong:
-> 
-> It looks like could not cover the case: req->tp_block_nr = 2 -> reg->tp_block_nr = 1 .
-> 
+Changes since v10:
+-----------------
+1) Jiri: move type->validate_content() to its own patch
+Jamal: decided to remove it altogether so we can get this patch set in.
 
-Oh, looks like this case would never happen, so I think your solution is ok.
+2) Change name of NLA_FLAG_BITS to NLA_BITFIELD_32 based on discussions
+with D. Ahern and Jiri. D. Ahern suggests to make this a variable bitmap size.
+My analysis at this point is it too complex and i only need a few bit
+flags. If we run out of bits someone else can create a new NLA_BITFIELD_XXX
+and start using that. So please let this go.
 
-> what about this way:
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -4331,13 +4331,17 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
->                 register_prot_hook(sk);
->         }
->         spin_unlock(&po->bind_lock);
-> -       if (closing && (po->tp_version > TPACKET_V2)) {
-> +       if ((closing || (pg_vec && !reg->tp_block_nr))&& (po->tp_version > TPACKET_V2)) {
->                 /* Because we don't support block-based V3 on tx-ring */
->                 if (!tx_ring)
->                         prb_shutdown_retire_blk_timer(po, rb_queue);
-> 
-> 
+3) Jamal - Add Suggested-by: Jiri for type NLA_BITFIELD_32
 
->>
-> 
-> 
-> .
-> 
+4) Jiri: Change name allowed_flags to tcaa_root_flags_allowed
+
+5) Jiri: Introduce nla_get_flag_bits_values() helper instead of using
+memcpy for retrieving nla_bitfield_32 fields.
+
+Changes since v9:
+-----------------
+
+1) General consensus:
+- remove again the use of BIT() to maintain uapi consistency ;->
+
+1) Jiri:
+- Add a new netlink type NLA_FLAG_BITS to check for valid bits 
+  and use it instead of inline vetting (patch 4/4 now)
+  
+Changes since v8:
+-----------------
+
+1) Jiri:
+- Add back the use of BIT(). Eventually fix iproute2 instead
+- Rename VALID_TCA_FLAGS to VALID_TCA_ROOT_FLAGS
+
+Changes since v7:
+-----------------
+
+Jamal:
+No changes.
+Patch 1 went out twice. Resend without two copies of patch 1
+
+changes since v6:
+-----------------
+
+1) DaveM:
+New rules for netlink messages. From now on we are going to start
+checking for bits that are not used and rejecting anything we dont
+understand. In the future this is going to require major changes
+to user space code (tc etc). This is just a start.
+
+To quote, David:
+"
+ Again, bits you aren't using now, make sure userspace doesn't
+   set them.  And if it does, reject.
+"
+Added checks for ensuring things work as above.
+
+2) Jiri:
+a)Fix the commit message to properly use "Fixes" description
+b)Align assignments for nla_policy
+
+Changes since v5:
+----------------
+
+0)
+Remove use of BIT() because it is kernel specific. Requires a separate
+patch (Jiri can submit that in his cleanups)
+
+1)To paraphrase Eric D.
+
+"memcpy(nla_data(count_attr), &cb->args[1], sizeof(u32));
+wont work on 64bit BE machines because cb->args[1]
+(which is 64 bit is larger in size than sizeof(u32))"
+
+Fixed
+
+2) Jiri Pirko
+
+i) Spotted a bug fix mixed in the patch for wrong TLV
+fix. Add patch 1/3 to address this. Make part of this
+series because of dependencies.
+
+ii) Rename ACT_LARGE_DUMP_ON -> TCA_FLAG_LARGE_DUMP_ON
+
+iii) Satisfy Jiri's obsession against the noun "tcaa"
+a)Rename struct nlattr *tcaa --> struct nlattr *tb
+b)Rename TCAA_ACT_XXX -> TCA_ROOT_XXX
+
+Changes since v4:
+-----------------
+
+1) Eric D.
+
+pointed out that when all skb space is used up by the dump
+there will be no space to insert the TCAA_ACT_COUNT attribute.
+
+2) Jiri:
+
+i) Change:
+
+enum {
+        TCAA_UNSPEC,
+        TCAA_ACT_TAB,
+        TCAA_ACT_FLAGS,
+        TCAA_ACT_COUNT,
+        TCAA_ACT_TIME_FILTER,
+        __TCAA_MAX
+};
+
+#define TCAA_MAX (__TCAA_MAX - 1)
+#define ACT_LARGE_DUMP_ON               (1 << 0)
+
+to:
+enum {
+       TCAA_UNSPEC,
+       TCAA_ACT_TAB,
+#define TCA_ACT_TAB TCAA_ACT_TAB
+       TCAA_ACT_FLAGS,
+       TCAA_ACT_COUNT,
+       __TCAA_MAX,
+#define        TCAA_MAX (__TCAA_MAX - 1)
+};
+
+#define ACT_LARGE_DUMP_ON              BIT(0)
+
+Jiri plans to followup with the rest of the code to make the
+style consistent.
+
+ii) Rename attribute TCAA_ACT_TIME_FILTER --> TCAA_ACT_TIME_DELTA
+
+iii) Rename variable jiffy_filter --> jiffy_since
+iv) Rename msecs_filter --> msecs_since
+v) get rid of unused cb->args[0] and rename cb->args[4] to cb->args[0]
+
+Earlier Changes
+----------------
+- Jiri mostly on names of things.
+
+Jamal Hadi Salim (4):
+  net netlink: Add new type NLA_BITFIELD_32
+  net sched actions: Use proper root attribute table for actions
+  net sched actions: dump more than TCA_ACT_MAX_PRIO actions per batch
+  net sched actions: add time filter for action dumping
+
+ include/net/netlink.h          | 16 ++++++++++
+ include/uapi/linux/netlink.h   | 17 +++++++++++
+ include/uapi/linux/rtnetlink.h | 23 ++++++++++++--
+ lib/nlattr.c                   | 21 +++++++++++++
+ net/sched/act_api.c            | 68 +++++++++++++++++++++++++++++++++++-------
+ 5 files changed, 132 insertions(+), 13 deletions(-)
+
+-- 
+1.9.1
