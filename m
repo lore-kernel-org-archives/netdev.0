@@ -1,116 +1,60 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] mlxsw: spectrum_router: Fix build when IPv6 isn't enabled
-Date: Mon, 24 Jul 2017 09:56:00 +0200
-Message-ID: <20170724075600.2798-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Zhu Yanjun <yanjun.zhu@oracle.com>
+Subject: [PATCH 1/1] mlx4_en: remove unnecessary error check
+Date: Mon, 24 Jul 2017 04:22:44 -0400
+Message-ID: <1500884564-310-1-git-send-email-yanjun.zhu@oracle.com>
+To: tariqt@mellanox.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, yuval.shaia@oracle.com, leon@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33954 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750970AbdGXH4D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 03:56:03 -0400
-Received: by mail-wm0-f68.google.com with SMTP id 79so4081209wmg.1
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 00:56:02 -0700 (PDT)
+Received: from userp1040.oracle.com ([156.151.31.81]:37021 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752746AbdGXIUs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 04:20:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+The function mlx4_en_get_profile always return zero. So it is not
+necessary to check its return value.
 
-When IPv6 isn't enabled the following error is generated:
-
-ERROR: "nd_tbl" [drivers/net/ethernet/mellanox/mlxsw/mlxsw_spectrum.ko]
-undefined!
-
-Fix it by replacing 'arp_tbl' and 'nd_tbl' with 'tbl->family' wherever
-possible and reference 'nd_tbl' only when IPV6 is enabled.
-
-Fixes: d5eb89cf68d6 ("mlxsw: spectrum_router: Reflect IPv6 neighbours to the device")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+CC: Joe Jin <joe.jin@oracle.com>
+CC: Junxiao Bi <junxiao.bi@oracle.com>
+Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 22 ++++++++++++++++++----
- 1 file changed, 18 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_main.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index e6d629f..274f72a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -43,6 +43,7 @@
- #include <linux/inetdevice.h>
- #include <linux/netdevice.h>
- #include <linux/if_bridge.h>
-+#include <linux/socket.h>
- #include <net/netevent.h>
- #include <net/neighbour.h>
- #include <net/arp.h>
-@@ -949,9 +950,13 @@ mlxsw_sp_router_neighs_update_interval_init(struct mlxsw_sp *mlxsw_sp)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+index 2b0cbca..686e18d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+@@ -147,7 +147,7 @@ void mlx4_en_update_loopback_state(struct net_device *dev,
+ 	mutex_unlock(&priv->mdev->state_lock);
+ }
+ 
+-static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
++static void mlx4_en_get_profile(struct mlx4_en_dev *mdev)
  {
- 	unsigned long interval;
- 
-+#if IS_ENABLED(CONFIG_IPV6)
- 	interval = min_t(unsigned long,
- 			 NEIGH_VAR(&arp_tbl.parms, DELAY_PROBE_TIME),
- 			 NEIGH_VAR(&nd_tbl.parms, DELAY_PROBE_TIME));
-+#else
-+	interval = NEIGH_VAR(&arp_tbl.parms, DELAY_PROBE_TIME);
-+#endif
- 	mlxsw_sp->router->neighs_update.interval = jiffies_to_msecs(interval);
+ 	struct mlx4_en_profile *params = &mdev->profile;
+ 	int i;
+@@ -176,8 +176,6 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
+ 		params->prof[i].rss_rings = 0;
+ 		params->prof[i].inline_thold = inline_thold;
+ 	}
+-
+-	return 0;
  }
  
-@@ -986,6 +991,7 @@ static void mlxsw_sp_router_neigh_ent_ipv4_process(struct mlxsw_sp *mlxsw_sp,
- 	neigh_release(n);
- }
+ static void *mlx4_en_get_netdev(struct mlx4_dev *dev, void *ctx, u8 port)
+@@ -309,10 +307,7 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
+ 	}
  
-+#if IS_ENABLED(IPV6)
- static void mlxsw_sp_router_neigh_ent_ipv6_process(struct mlxsw_sp *mlxsw_sp,
- 						   char *rauhtd_pl,
- 						   int rec_index)
-@@ -1015,6 +1021,13 @@ static void mlxsw_sp_router_neigh_ent_ipv6_process(struct mlxsw_sp *mlxsw_sp,
- 	neigh_event_send(n, NULL);
- 	neigh_release(n);
- }
-+#else
-+static void mlxsw_sp_router_neigh_ent_ipv6_process(struct mlxsw_sp *mlxsw_sp,
-+						   char *rauhtd_pl,
-+						   int rec_index)
-+{
-+}
-+#endif
+ 	/* Build device profile according to supplied module parameters */
+-	if (mlx4_en_get_profile(mdev)) {
+-		mlx4_err(mdev, "Bad module parameters, aborting\n");
+-		goto err_mr;
+-	}
++	mlx4_en_get_profile(mdev);
  
- static void mlxsw_sp_router_neigh_rec_ipv4_process(struct mlxsw_sp *mlxsw_sp,
- 						   char *rauhtd_pl,
-@@ -1260,10 +1273,10 @@ mlxsw_sp_neigh_entry_update(struct mlxsw_sp *mlxsw_sp,
- 	if (!adding && !neigh_entry->connected)
- 		return;
- 	neigh_entry->connected = adding;
--	if (neigh_entry->key.n->tbl == &arp_tbl) {
-+	if (neigh_entry->key.n->tbl->family == AF_INET) {
- 		mlxsw_sp_router_neigh_entry_op4(mlxsw_sp, neigh_entry,
- 						mlxsw_sp_rauht_op(adding));
--	} else if (neigh_entry->key.n->tbl == &nd_tbl) {
-+	} else if (neigh_entry->key.n->tbl->family == AF_INET6) {
- 		if (mlxsw_sp_neigh_ipv6_ignore(neigh_entry->key.n))
- 			return;
- 		mlxsw_sp_router_neigh_entry_op6(mlxsw_sp, neigh_entry,
-@@ -1339,7 +1352,8 @@ int mlxsw_sp_router_netevent_event(struct notifier_block *unused,
- 		p = ptr;
- 
- 		/* We don't care about changes in the default table. */
--		if (!p->dev || (p->tbl != &arp_tbl && p->tbl != &nd_tbl))
-+		if (!p->dev || (p->tbl->family != AF_INET &&
-+				p->tbl->family != AF_INET6))
- 			return NOTIFY_DONE;
- 
- 		/* We are in atomic context and can't take RTNL mutex,
-@@ -1358,7 +1372,7 @@ int mlxsw_sp_router_netevent_event(struct notifier_block *unused,
- 	case NETEVENT_NEIGH_UPDATE:
- 		n = ptr;
- 
--		if (n->tbl != &arp_tbl && n->tbl != &nd_tbl)
-+		if (n->tbl->family != AF_INET && n->tbl->family != AF_INET6)
- 			return NOTIFY_DONE;
- 
- 		mlxsw_sp_port = mlxsw_sp_port_lower_dev_hold(n->dev);
+ 	/* Configure which ports to start according to module parameters */
+ 	mdev->port_cnt = 0;
 -- 
-2.9.3
+2.7.4
