@@ -1,104 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH V2 net-next 01/21] net-next/hinic: Initialize hw interface
-Date: Tue, 25 Jul 2017 01:03:19 +0200
-Message-ID: <20170724230318.GA26260@electric-eye.fr.zoreil.com>
-References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
- <0febc61414e7908a7c8c0c2fa7c2b06b0f7524f7.1500454998.git.aviad.krawczyk@huawei.com>
- <20170719222740.GA1755@electric-eye.fr.zoreil.com>
- <33fbbf34-cdbe-81a8-dc33-2cd6cb6cf4ee@huawei.com>
+From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v2 0/4] can: Add new binding to limit bit rate used
+Date: Mon, 24 Jul 2017 18:05:17 -0500
+Message-ID: <20170724230521.1436-1-fcooper@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, bc.y@huawei.com, victor.gissin@huawei.com,
-        zhaochen6@huawei.com, tony.qu@huawei.com
-To: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:44077 "EHLO
-        violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752734AbdGXXDg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 19:03:36 -0400
-Content-Disposition: inline
-In-Reply-To: <33fbbf34-cdbe-81a8-dc33-2cd6cb6cf4ee@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        <dev.kurt-yI9piX4KPfawT/RRk36CISFp6vIno51x@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>, <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Aviad Krawczyk <aviad.krawczyk@huawei.com> :
-[...]
-> hinic_remove - If insmod failed and someone calls rmmod, we will get a
-> crash because the resource are already free. Therefore we test if the
-> device exists, please tell me if you meant to something different
+Add a new generic binding that CAN drivers can use to specify the max
+arbitration and data bit rate supported by a transceiver. This is
+useful since in some instances the maximum speeds may be limited by
+the transceiver used. However, transceivers may not provide a means
+to determine this limitation at runtime. Therefore, create a new binding
+that mimics "fixed-link" that allows a user to hardcode the max speeds
+that can be used.
 
-The module won't even proceed through the pci_driver remove method if
-the probe method failed. See drivers/pci/bus.c::pci_bus_add_device and
-track 'dev->is_added'. You don't need to believe me: try it.
+Also add support for this new binding in the MCAN driver.
 
-I have no idea where your crash comes from but something does not
-look quite right.
+Note this is an optional subnode so even if a driver adds support for
+parsing fixed-transceiver the user does not have to define it in their
+device tree.
 
-(use module_pci_driver() to save some boilerplate code btw)
+Version 2 changes:
+Rename function
+Define proper variable default
+Drop unit address
+Move check to changelink function
+Reword commit message
+Reword documentation
 
-[...]
-> The priv data is in type void * because the
-> caller can use any struct that it wants, like the priv data in Linux
-> (netdev, irq, tasklet, work..) -
+Franklin S Cooper Jr (4):
+  can: dev: Add support for limiting configured bitrate
+  can: fixed-transceiver: Add documentation for CAN fixed transceiver
+    bindings
+  can: m_can: Update documentation to mention new fixed transceiver
+    binding
+  can: m_can: Add call to of_can_transceiver_fixed
 
-I disagree. A driver is a piece of glue between hardware and software.
-It fills a kernel's contract. It is not supposed to introduce opaque
-data (even if it's hard to resist).
-
-> we can change it but if we will pass different struct
-> in the future, we will have to change the prototype of the functions.
-
-It's fine. If I do something wrong - and at some point I will - I'd
-rather have it detected at compile time. Nobody wants to waste precious
-hardware lab testing time because of excess void *.
-
-> According to the other void *:
-> The wq struct is used for cmdq, sq and rq. Therefore the wqe is in type
-> void *. There are 4 operations get_wqe, write_wqe, read_wqe and put_wqe - there
-> is no option that one function will be fed with a wrong pointer because the caller
-> should use what it got in get_wqe function.
-> 
-> When something is used as multiple types, it can be used as void * or union.
-> Usually, I would prefer union. But, in this case if we will use union, maybe
-> there is a chance of using the wrong wqe type in the wrong work queue type.
-
-union * will at least catch being fed a wrong type. void * won't notice.
-
-Let's take a practical example: hinic_sq_get_sges.
-
-void hinic_sq_get_sges(void *wqe, struct hinic_sge *sges, int nr_sges)
-                       ^^^^^^^^^
-{
-        struct hinic_sq_wqe *sq_wqe = (struct hinic_sq_wqe *)wqe;
-
-
-static void free_all_tx_skbs(struct hinic_txq *txq)
-{
-        struct hinic_dev *nic_dev = netdev_priv(txq->netdev);
-        struct hinic_sq *sq = txq->sq;
-        struct hinic_sq_wqe *wqe;
-[...]
-                hinic_sq_get_sges(wqe, txq->free_sges, nr_sges);
-
-
-static int free_tx_poll(struct napi_struct *napi, int budget)
-{
-[...]
-        struct hinic_sq_wqe *wqe;
-[...]
-                hinic_sq_get_sges(wqe, txq->free_sges, nr_sges);
-
-
-Why is it:
-
-void hinic_sq_get_sges(void *wqe, ...
-
-instead of:
-
-void hinic_sq_get_sges(struct hinic_sq_wqe *wqe, ...
-
-Because of a future change ?
+ .../bindings/net/can/fixed-transceiver.txt         | 42 +++++++++++++++
+ .../devicetree/bindings/net/can/m_can.txt          | 10 ++++
+ drivers/net/can/dev.c                              | 59 ++++++++++++++++++++++
+ drivers/net/can/m_can/m_can.c                      |  2 +
+ include/linux/can/dev.h                            |  5 ++
+ 5 files changed, 118 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
 
 -- 
-Ueimor
+2.10.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
