@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 3/6] netvsc: prefetch the first incoming ring element
-Date: Mon, 24 Jul 2017 10:57:27 -0700
-Message-ID: <20170724175730.31806-4-sthemmin@microsoft.com>
+Subject: [PATCH net-next 5/6] netvsc: include rtnetlink.h
+Date: Mon, 24 Jul 2017 10:57:29 -0700
+Message-ID: <20170724175730.31806-6-sthemmin@microsoft.com>
 References: <20170724175730.31806-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,42 +23,38 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-In interrupt handler, prefetch the first incoming ring element
-so that it is in cache by the time NAPI poll gets to it.
+Since these files use rtnl_derefernce make sure and include rtnetlink.h
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/hyperv/netvsc_drv.c   | 2 ++
+ drivers/net/hyperv/rndis_filter.c | 1 +
+ 2 files changed, 3 insertions(+)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 0a9d9feedc3f..06f39a99da7c 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -30,6 +30,7 @@
- #include <linux/if_ether.h>
- #include <linux/vmalloc.h>
- #include <linux/rtnetlink.h>
-+#include <linux/prefetch.h>
- 
- #include <asm/sync_bitops.h>
- 
-@@ -1265,10 +1266,15 @@ int netvsc_poll(struct napi_struct *napi, int budget)
- void netvsc_channel_cb(void *context)
- {
- 	struct netvsc_channel *nvchan = context;
-+	struct vmbus_channel *channel = nvchan->channel;
-+	struct hv_ring_buffer_info *rbi = &channel->inbound;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 99ae7fb6ec11..b2b0a1f96940 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -33,6 +33,8 @@
+ #include <linux/if_vlan.h>
+ #include <linux/in.h>
+ #include <linux/slab.h>
++#include <linux/rtnetlink.h>
 +
-+	/* preload first vmpacket descriptor */
-+	prefetch(hv_get_ring_buffer(rbi) + rbi->priv_read_index);
+ #include <net/arp.h>
+ #include <net/route.h>
+ #include <net/sock.h>
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index e439886f72c1..eaa3f0d5682a 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -28,6 +28,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/nls.h>
+ #include <linux/vmalloc.h>
++#include <linux/rtnetlink.h>
  
- 	if (napi_schedule_prep(&nvchan->napi)) {
- 		/* disable interupts from host */
--		hv_begin_read(&nvchan->channel->inbound);
-+		hv_begin_read(rbi);
+ #include "hyperv_net.h"
  
- 		__napi_schedule(&nvchan->napi);
- 	}
 -- 
 2.11.0
