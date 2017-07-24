@@ -1,121 +1,184 @@
-From: Ilya Matveychikov <matvejchikov@gmail.com>
-Subject: [PATCH] tcp: remove redundant argument from tcp_rcv_established()
-Date: Mon, 24 Jul 2017 16:02:12 +0400
-Message-ID: <187C550C-E5E9-45E7-BC6C-20431B6883E0@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-To: netdev@vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: SELinux/IP_PASSSEC regression in 4.13-rcX
+Date: Mon, 24 Jul 2017 14:25:17 +0200
+Message-ID: <1500899117.2458.2.camel@redhat.com>
+References: <CAHC9VhS9QO8jGBodsSeQxxbgoxrmThRgbc3_m17h7gFmfP=GGw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: selinux@tycho.nsa.gov
+To: Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33203 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751671AbdGXMCQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 08:02:16 -0400
-Received: by mail-wm0-f68.google.com with SMTP id q189so1172136wmd.0
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 05:02:16 -0700 (PDT)
-Received: from [10.1.0.103] (bba193486.alshamil.net.ae. [217.165.96.192])
-        by smtp.gmail.com with ESMTPSA id 90sm12656153wrk.38.2017.07.24.05.02.13
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 24 Jul 2017 05:02:14 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:45450 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753370AbdGXMZT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Jul 2017 08:25:19 -0400
+In-Reply-To: <CAHC9VhS9QO8jGBodsSeQxxbgoxrmThRgbc3_m17h7gFmfP=GGw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The last (4th) argument of tcp_rcv_established() is redundant as it
-always equals to skb->len and the skb itself is always passed as 2th
-agrument. There is no reason to have it.
+Hi,
 
-Signed-off-by: Ilya V. Matveychikov <matvejchikov@gmail.com>
+On Fri, 2017-07-21 at 18:19 -0400, Paul Moore wrote:
+> I've been seeing a SELinux regression with IP_PASSSEC on the v4.13-rcX
+> kernels and finally tracked the problem down to the
+> skb_release_head_state() call in __udp_queue_rcv_skb().  Looking at
+> the code and the git log it would appear that the likely culprit is
+> 0a463c78d25b ("udp: avoid a cache miss on dequeue
+> "); it looks similar to IP option problem fixed in 0ddf3fb2c43d2.
+
+Thank you for the report!
+My bad, I completely missed that code path.
+
+> From a SELinux/IP_PASSSEC point of view we need access to the skb->sp
+> pointer to examine the SAs.  I'm posting this here without a patch
+> because it isn't clear to me how you would like to fix the problem; my
+> initial thought would be to simply make the skb_release_head_state()
+> conditional on the skb->sp pointer, much like the IP options fix, but
+> I'm not sure if you have a more clever idea.
+
+Unfortunately explicitly checking skb->sp at skb free time will defeat
+completely the intended optimization.
+
+To preserve it, something like the following patch is required, could
+you please test it in your environment?
+
+Such patch is still prone to a kind of race, as only UDP packets
+enqueued to the UDP socket after the setsockopt() will carry the
+relevant cmsg info.
+
+e.g. with the following event sequence:
+
+<an UDP packet is enqueued to the revevant socket>
+setsockopt(...,IP_CMSG_PASSSEC)
+recvmsg(...);
+
+the ancillary message data will not include the IP_CMSG_PASSSEC, while
+kernel pre 0a463c78d25b will provide it. Do you think such behavior
+will be acceptable?
+
+If not, I fear a revert will be needed.
+
+Cheers,
+
+Paolo
 ---
- include/net/tcp.h    | 2 +-
- net/ipv4/tcp_input.c | 3 ++-
- net/ipv4/tcp_ipv4.c  | 2 +-
- net/ipv4/tcp_probe.c | 5 +++--
- net/ipv6/tcp_ipv6.c  | 2 +-
- 5 files changed, 8 insertions(+), 6 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 7048329..f4ae655 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -363,7 +363,7 @@ void tcp_delack_timer_handler(struct sock *sk);
- int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg);
- int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb);
- void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
--			 const struct tcphdr *th, unsigned int len);
-+			 const struct tcphdr *th);
- void tcp_rcv_space_adjust(struct sock *sk);
- int tcp_twsk_unique(struct sock *sk, struct sock *sktw, void *twp);
- void tcp_twsk_destructor(struct sock *sk);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 2920e0c..adc3f3e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5358,8 +5358,9 @@ static bool tcp_validate_incoming(struct sock *sk, =
-struct sk_buff *skb,
-  *	tcp_data_queue when everything is OK.
-  */
- void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
--			 const struct tcphdr *th, unsigned int len)
-+			 const struct tcphdr *th)
- {
-+	unsigned int len =3D skb->len;
- 	struct tcp_sock *tp =3D tcp_sk(sk);
-=20
- 	tcp_mstamp_refresh(tp);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a20e7f0..3a19ea2 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1458,7 +1458,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff =
-*skb)
- 				sk->sk_rx_dst =3D NULL;
- 			}
- 		}
--		tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len);
-+		tcp_rcv_established(sk, skb, tcp_hdr(skb));
- 		return 0;
- 	}
-=20
-diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
-index f6c50af..697f4c6 100644
---- a/net/ipv4/tcp_probe.c
-+++ b/net/ipv4/tcp_probe.c
-@@ -105,8 +105,9 @@ static inline int tcp_probe_avail(void)
-  * Note: arguments must match tcp_rcv_established()!
-  */
- static void jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
--				 const struct tcphdr *th, unsigned int =
-len)
-+				 const struct tcphdr *th)
- {
-+	unsigned int len =3D skb->len;
- 	const struct tcp_sock *tp =3D tcp_sk(sk);
- 	const struct inet_sock *inet =3D inet_sk(sk);
-=20
-@@ -145,7 +146,7 @@ static void jtcp_rcv_established(struct sock *sk, =
-struct sk_buff *skb,
- 				BUG();
- 			}
-=20
--			p->length =3D skb->len;
-+			p->length =3D len;
- 			p->snd_nxt =3D tp->snd_nxt;
- 			p->snd_una =3D tp->snd_una;
- 			p->snd_cwnd =3D tp->snd_cwnd;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 2521690..90a3257 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1296,7 +1296,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct =
-sk_buff *skb)
- 			}
- 		}
-=20
--		tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len);
-+		tcp_rcv_established(sk, skb, tcp_hdr(skb));
- 		if (opt_skb)
- 			goto ipv6_pktoptions;
- 		return 0;
---=20
-2.7.4
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 972ce4b..f109126 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -319,19 +319,24 @@ struct udp_dev_scratch {
+ 	bool csum_unnecessary;
+ };
+ 
++static inline struct udp_dev_scratch* udp_skb_scratch(struct sk_buff *skb)
++{
++	return (struct udp_dev_scratch *)&skb->dev_scratch;
++}
++
+ static inline unsigned int udp_skb_len(struct sk_buff *skb)
+ {
+-	return ((struct udp_dev_scratch *)&skb->dev_scratch)->len;
++	return udp_skb_scratch(skb)->len;
+ }
+ 
+ static inline bool udp_skb_csum_unnecessary(struct sk_buff *skb)
+ {
+-	return ((struct udp_dev_scratch *)&skb->dev_scratch)->csum_unnecessary;
++	return udp_skb_scratch(skb)->csum_unnecessary;
+ }
+ 
+ static inline bool udp_skb_is_linear(struct sk_buff *skb)
+ {
+-	return ((struct udp_dev_scratch *)&skb->dev_scratch)->is_linear;
++	return udp_skb_scratch(skb)->is_linear;
+ }
+ 
+ #else
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index b057653..582c13e 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1163,32 +1163,47 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
+ 	return ret;
+ }
+ 
++#define UDP_SKB_IS_STATELESS 0x80000000
++
+ #if BITS_PER_LONG == 64
+ static void udp_set_dev_scratch(struct sk_buff *skb)
+ {
+-	struct udp_dev_scratch *scratch;
++	struct udp_dev_scratch *scratch = udp_skb_scratch(skb);
+ 
+ 	BUILD_BUG_ON(sizeof(struct udp_dev_scratch) > sizeof(long));
+-	scratch = (struct udp_dev_scratch *)&skb->dev_scratch;
+ 	scratch->truesize = skb->truesize;
+ 	scratch->len = skb->len;
+ 	scratch->csum_unnecessary = !!skb_csum_unnecessary(skb);
+ 	scratch->is_linear = !skb_is_nonlinear(skb);
++	if (likely(!skb->_skb_refdst))
++		scratch->truesize |= UDP_SKB_IS_STATELESS;
+ }
+ 
+ static int udp_skb_truesize(struct sk_buff *skb)
+ {
+-	return ((struct udp_dev_scratch *)&skb->dev_scratch)->truesize;
++	return udp_skb_scratch(skb)->truesize & ~UDP_SKB_IS_STATELESS;
++}
++
++static bool udp_skb_has_head_state(struct sk_buff *skb)
++{
++	return !(udp_skb_scratch(skb)->truesize & UDP_SKB_IS_STATELESS);
+ }
+ #else
+ static void udp_set_dev_scratch(struct sk_buff *skb)
+ {
+ 	skb->dev_scratch = skb->truesize;
++	if (likely(!skb->_skb_refdst))
++		scratch->dev_scratch |= UDP_SKB_IS_STATELESS;
+ }
+ 
+ static int udp_skb_truesize(struct sk_buff *skb)
+ {
+-	return skb->dev_scratch;
++	return skb->dev_scratch & ~UDP_SKB_IS_STATELESS;
++}
++
++static bool udp_skb_has_head_state(struct sk_buff *skb)
++{
++	return !(skb->dev_scratch & UDP_SKB_IS_STATELESS);
+ }
+ #endif
+ 
+@@ -1388,10 +1403,10 @@ void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
+ 		unlock_sock_fast(sk, slow);
+ 	}
+ 
+-	/* we cleared the head states previously only if the skb lacks any IP
+-	 * options, see __udp_queue_rcv_skb().
++	/* In the more common cases we cleared the head states previously,
++	 * see __udp_queue_rcv_skb().
+ 	 */
+-	if (unlikely(IPCB(skb)->opt.optlen > 0))
++	if (unlikely(udp_skb_has_head_state(skb)))
+ 		skb_release_head_state(skb);
+ 	consume_stateless_skb(skb);
+ }
+@@ -1784,11 +1799,12 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		sk_mark_napi_id_once(sk, skb);
+ 	}
+ 
+-	/* At recvmsg() time we need skb->dst to process IP options-related
+-	 * cmsg, elsewhere can we clear all pending head states while they are
+-	 * hot in the cache
++	/* At recvmsg() time we may access skb->dst or skb->sp depending on
++	 * the IP options and the cmsg flags, elsewhere can we clear all
++	 * pending head states while they are hot in the cache
+ 	 */
+-	if (likely(IPCB(skb)->opt.optlen == 0))
++	if (likely(IPCB(skb)->opt.optlen == 0 &&
++	           !(inet_sk(sk)->cmsg_flags & IP_CMSG_PASSSEC)))
+ 		skb_release_head_state(skb);
+ 
+ 	rc = __udp_enqueue_schedule_skb(sk, skb);
