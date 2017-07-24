@@ -1,61 +1,101 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Mon, 24 Jul 2017 09:05:16 -0600
-Message-ID: <20170724090516.2e0f0d2a@w520.home>
-References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
-        <1499955692-26556-3-git-send-email-dingtianhong@huawei.com>
-        <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
-        <0260e398-bd8e-6615-6d5c-1f7c07b6fc09@huawei.com>
-        <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
-        <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 196445] New: Increasing RX packet drop issue with VT6130
+ Ethernet (VIA Velocity) and an VIA EPIA-3002 board
+Date: Mon, 24 Jul 2017 08:12:37 -0700
+Message-ID: <20170724081237.3155f05d@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Sinan Kaya <okaya@codeaurora.org>, <leedom@chelsio.com>,
-        <ashok.raj@intel.com>, <bhelgaas@google.com>, <helgaas@kernel.org>,
-        <werner@chelsio.com>, <ganeshgr@chelsio.com>,
-        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
-        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
-        <l.stach@pengutronix.de>, <amira@mellanox.com>,
-        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
-        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
-        <will.deacon@arm.com>, <mark.rutland@arm.com>,
-        <robin.murphy@arm.com>, <davem@davemloft.net>,
-        <alexander.duyck@gmail.com>,
-        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linuxarm@huawei.com>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:34859 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753689AbdGXPMo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 11:12:44 -0400
+Received: by mail-pg0-f51.google.com with SMTP id v190so58417782pgv.2
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 08:12:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 22 Jul 2017 12:19:38 +0800
-Ding Tianhong <dingtianhong@huawei.com> wrote:
 
-> Hi Sinan, Bjorn:
-> 
-> On 2017/7/14 21:54, Sinan Kaya wrote:
-> > On 7/13/2017 9:26 PM, Ding Tianhong wrote:  
-> >> There is no code to enable the PCIe Relaxed Ordering bit in the configuration space,
-> >> it is only be enable by default according to the PCIe Standard Specification, what we
-> >> do is to distinguish the RC problematic platform and clear the Relaxed Ordering bit
-> >> to tell the PCIe EP don't send any TLPs with Relaxed Ordering Attributes to the Root
-> >> Complex.  
-> > 
-> > Maybe, you should change the patch commit as 
-> > "Disable PCIe Relaxed Ordering if not supported"...  
-> 
-> I agree that to use the new commit title as your suggested, thanks. :)
-> 
-> @Bjorn do you want me to spawn a new patchset with the new commit title
-> and the Reviewed-by from Casey on the patch 3, or maybe you could pick this
-> up and modify it own ? thanks.
 
-Hi Ding,
+Begin forwarded message:
 
-Bjorn is currently on holiday so it might be a good idea to respin the
-series with any updates so nothing is lost.  Thanks,
+Date: Sat, 22 Jul 2017 21:38:01 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: stephen@networkplumber.org
+Subject: [Bug 196445] New: Increasing RX packet drop issue with VT6130 Ethernet (VIA Velocity) and an VIA EPIA-3002 board
 
-Alex
+
+https://bugzilla.kernel.org/show_bug.cgi?id=196445
+
+            Bug ID: 196445
+           Summary: Increasing RX packet drop issue with VT6130 Ethernet
+                    (VIA Velocity) and an VIA EPIA-3002 board
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.11.10-300.fc26.x86_64 (prior also concerned)
+          Hardware: x86-64
+                OS: Linux
+              Tree: Fedora
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: stephen@networkplumber.org
+          Reporter: patrick@reebs.org
+        Regression: No
+
+After I upgraded a Fedora (FC20) router to Fedora 26, I noticed issues in the
+networking.
+
+The transfer speed for files sent to the box via Samba or vsftpd was horribly
+slow at about 5 to 10mb/s while the other direction works perfectly.
+
+ifconfig shows a large amount of packet drops (RX dropped), both on the
+Internet adapter enp1s0 as on the network connected adapter enp2s0 hence packet
+routing to the network when surfing is enough to cause packet drops.
+
+To rule out a firewall issue, I set all default rules to allow and flushed the
+tables. This had no effect. I also changed the ACPI level in BIOS, but that did
+not have an impact either.
+
+Because I had a couple of system backups (done trough dd if=/dev/...) I
+restored the oldest backup I had, which was running Fedora 20 Kernel
+3.17.4-200.fc20.x86_64.
+
+There I saw that although there where also packets dropped, the amount of
+dropped packets was much lower (like 10 or more times) and the speed sending
+files to the box was much faster (20 to 30 Mb/s), why I eventually didn't
+notice. The latest fedora 20 backup before installing FC26 was
+3.19.8-100.fc20.x86_64 and behaved almost like the 3.17 kernel.
+
+One interesting thing I noticed is that when I run tcpdump, then the amount of
+doped RX packets drops significantly, sometime to no drops and the speed
+measured when moving files to the box goes from 5 to 10 mb/s to about 20 mb/s.
+Eventually showing an issue with the RX queue management?!
+
+Tests I have done so far:
+ - Disabled one of the two adapters
+ - Directly connected to the box without switch
+ - Changed the Cat6a cable and directly connected
+ - Started/Stopped/Disabled other services (VPN, named, dhcp, ...)
+ - Tested the write speed to the share drive directly on the box (was 110mb/s
+so no bottleneck)
+ - Ping: no losses until the network load rises, then some ICMPs are lost.
+ - Checked link speed and duplex mode (all of which are 1000TX and Full duplex,
+so OK.
+
+none of which gave any noticeable results.
+
+Running dropwatch under network load I get a lot of "drops at net_tx_action+0"
+which points to dev.c..
+
+By the way, VIA advertises the Network chip on their web page as VT6130G for
+the EPIA-3002 board. Not sure if it is the same as the usually found VT6130
+chip.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
