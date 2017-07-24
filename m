@@ -1,43 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 6/6] 6lowpan: fix set not used warning
-Date: Mon, 24 Jul 2017 10:25:23 -0700
-Message-ID: <20170724172523.13135-7-sthemmin@microsoft.com>
-References: <20170724172523.13135-1-sthemmin@microsoft.com>
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        Stephen Hemminger <sthemmin@microsoft.com>
-To: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
-        davem@davemloft.net, pablo@netfilter.org, kadlec@blackhole.kfki.hu,
-        fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:34680 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756198AbdGXRZi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 13:25:38 -0400
-Received: by mail-pf0-f174.google.com with SMTP id q85so49377524pfq.1
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 10:25:38 -0700 (PDT)
-In-Reply-To: <20170724172523.13135-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>
+Subject: [PATCH] qtfnmac: Tidy up DMA mask setting
+Date: Mon, 24 Jul 2017 18:41:30 +0100
+Message-ID: <2c3f47792b2e38d5584d641d98e82f8318fefc72.1500917445.git.robin.murphy@arm.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: imitsyanko-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org, avinashp-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org,
+        smatyukevich-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+As the only caller of dma_supported() outside of DMA API internals, the
+qtfnmac driver stands out and invites scrutiny. Thankfully, it's not
+being used for evil, but it is entirely redundant, since it open-codes a
+check that the DMA mask setting functions are going to perform anyway.
+In fact, the whole qtnf_pcie_init_dma_mask() function is nothing more
+than a rather long-winded implementation of dma_set_mask_and_coherent(),
+so let's just use that directly.
+
+Signed-off-by: Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>
 ---
- net/bluetooth/6lowpan.c | 3 ---
- 1 file changed, 3 deletions(-)
+ .../net/wireless/quantenna/qtnfmac/pearl/pcie.c    | 28 +---------------------
+ 1 file changed, 1 insertion(+), 27 deletions(-)
 
-diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
-index 2af4f1cc0ab4..4e2576fc0c59 100644
---- a/net/bluetooth/6lowpan.c
-+++ b/net/bluetooth/6lowpan.c
-@@ -273,9 +273,6 @@ static int iphc_decompress(struct sk_buff *skb, struct net_device *netdev,
- 			   struct lowpan_peer *peer)
- {
- 	const u8 *saddr;
--	struct lowpan_btle_dev *dev;
+diff --git a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
+index 7fc4f0d6a9ad..2c065ffda070 100644
+--- a/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
++++ b/drivers/net/wireless/quantenna/qtnfmac/pearl/pcie.c
+@@ -274,32 +274,6 @@ static int qtnf_pcie_init_memory(struct qtnf_pcie_bus_priv *priv)
+ 	return 0;
+ }
+ 
+-static int
+-qtnf_pcie_init_dma_mask(struct qtnf_pcie_bus_priv *priv, u64 dma_mask)
+-{
+-	int ret;
 -
--	dev = lowpan_btle_dev(netdev);
- 
- 	saddr = peer->lladdr;
- 
--- 
-2.11.0
+-	ret = dma_supported(&priv->pdev->dev, dma_mask);
+-	if (!ret) {
+-		pr_err("DMA mask %llu not supported\n", dma_mask);
+-		return ret;
+-	}
+-
+-	ret = pci_set_dma_mask(priv->pdev, dma_mask);
+-	if (ret) {
+-		pr_err("failed to set DMA mask %llu\n", dma_mask);
+-		return ret;
+-	}
+-
+-	ret = pci_set_consistent_dma_mask(priv->pdev, dma_mask);
+-	if (ret) {
+-		pr_err("failed to set consistent DMA mask %llu\n", dma_mask);
+-		return ret;
+-	}
+-
+-	return ret;
+-}
