@@ -1,153 +1,324 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: Problem with PHY state machine when using interrupts
-Date: Tue, 25 Jul 2017 00:53:44 +0200
-Message-ID: <843eb3cd-3cc0-0b06-2aa8-709f25308437@free.fr>
-References: <65b9f1f5-724c-cd03-1c39-59405e773efa@free.fr>
- <849513d9-c981-ec20-5a10-08c663d0aa37@free.fr>
- <02e9e171-ec22-e491-5bc8-ef4b3ad7fec2@gmail.com>
- <e6a7a5df-b735-6f9c-6a2b-cded86ec6525@free.fr>
- <b0410a73-ff2d-ca06-93fa-17af2040c41c@gmail.com>
- <0f56083f-d43e-a141-1470-b76546af6d58@gmail.com>
- <c81e12bc-0f89-5eab-547e-f0c1ec389ad8@free.fr>
- <62085f48-df18-f987-f521-dcdfbd7f574b@gmail.com>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH net-next 10/18] net: mvpp2: use the GoP interrupt for link
+ status changes
+Date: Tue, 25 Jul 2017 00:58:20 +0200
+Message-ID: <CAPv3WKcHtAKPKcfdC7xE-duhwMSRgSRW9_2B33Ru3KNfczZzMA@mail.gmail.com>
+References: <20170724134848.19330-1-antoine.tenart@free-electrons.com> <20170724134848.19330-11-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        =?UTF-8?Q?Gregory_Cl=C3=A9ment?=
+        <gregory.clement@free-electrons.com>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        nadavh@marvell.com,
+        Russell King - ARM Linux <linux@armlinux.org.uk>,
+        Stefan Chulski <stefanc@marvell.com>, netdev@vger.kernel.org,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:7982 "EHLO smtp2-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751860AbdGXWx6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Jul 2017 18:53:58 -0400
-In-Reply-To: <62085f48-df18-f987-f521-dcdfbd7f574b@gmail.com>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:32867 "EHLO
+        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752026AbdGXW6W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 18:58:22 -0400
+Received: by mail-io0-f179.google.com with SMTP id j32so28311854iod.0
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 15:58:22 -0700 (PDT)
+In-Reply-To: <20170724134848.19330-11-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25/07/2017 00:36, Florian Fainelli wrote:
-> On 07/24/2017 02:20 PM, Mason wrote:
->> On 24/07/2017 21:53, Florian Fainelli wrote:
->>
->>> Well now that I see the possible interrupts generated, I indeed don't
->>> see how you can get a link down notification unless you somehow force
->>> the link down yourself, which would certainly happen in phy_suspend()
->>> when we set BMCR.pwrdwn, but that may be too late.
->>>
->>> You should still expect the adjust_link() function to be called though
->>> with PHY_HALTED being set and that takes care of doing phydev->link = 0
->>> and netif_carrier_off(). If that still does not work, then see whether
->>> removing the call to phy_stop() does help (it really should).
->>
->> The only functions setting phydev->state to PHY_HALTED
->> are phy_error() and phy_stop() AFAICT.
->>
->> I am aware that when phy_state_machine() handles the
->> PHY_HALTED state, it will set phydev->link = 0;
->> and call netif_carrier_off() -- because that's where
->> I copied that code from.
->>
->> My issue is that phy_state_machine() does not run when
->> I run 'ip set link dev eth0 down' from the command line.
-> 
-> Yes, that much is clear, which is why I suggested earlier you try the
-> patch at the end now.
-> 
->>
->> If I'm reading the code right, phy_disconnect() actually
->> stops the state machine.
->>
->> In interrupt mode, phy_state_machine() doesn't run
->> because no interrupt is generated.
->>
->> In polling mode, phy_state_machine() doesn't run
->> because phy_disconnect() stops the state machine.
->>
->> Introducing a sleep before phy_disconnect() gives
->> the state machine a chance to run in polling mode,
->> but it doesn't feel right, and doesn't fix the
->> other mode, which I'm using.
-> 
-> There are several problems it seems:
-> 
-> - the PHY state machine cannot move solely based on the PHY generating
-> interrupts during phy_stop() if none of the changing conditions for the
-> HW have changed, come to think about it, I doubt any PHY would be
-> capable of doing something like that
-> 
-> - there is an expectation from your driver to have adjust_link() run
-> sometime during ndo_stop() to do something, but why?
-> 
-> What is special about nb8800 that interrupts should be generated during
-> ndo_stop(), and why do you think this is going to solve your problem?
-> 
->>
->> Looking at bcm_enet_stop() it calls phy_stop() and
->> phy_disconnect() just like the nb8800 driver...
->>
->> I'm stumped.
-> 
-> My suggestion of not using phy_stop() was not a good one, but
-> functionally there is little difference in doing phy_stop() +
-> phy_disconnect() or just phy_disconnect() alone. What matters is that we
-> restart the PHY properly when phy_connect() or phy_start() is called.
-> 
-> What I understand now from your "bug report" is that you want
-> adjust_link to run with phydev->link = 0 to do something during
-> ndo_close() but you have not explained why, but I suspect such that upon
-> ndo_open() things work again.
-> 
-> What I suspect your bug is, is that the really was no change in link
-> status, no interrupt was generated because there should not be one, yet
-> some of what nb8800_stop() does is not properly balanced by
-> nb8800_open(). How about the following patch:
-> 
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c
-> b/drivers/net/ethernet/aurora/nb8800.c
-> index 041cfb7952f8..b07dea3ab019 100644
-> --- a/drivers/net/ethernet/aurora/nb8800.c
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-> @@ -972,6 +972,10 @@ static int nb8800_open(struct net_device *dev)
->         nb8800_mac_rx(dev, true);
->         nb8800_mac_tx(dev, true);
-> 
-> +       priv->speed = -1;
-> +       priv->link = -1;
-> +       priv->duplex = -1;
+Hi Antoine,
+
+This patch requires also:
+
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c
+b/drivers/net/ethernet/marvell/mvpp2.c
+index 4694d4f..369819f 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -6625,6 +6625,7 @@ static int mvpp2_stop(struct net_device *dev)
+ {
+        struct mvpp2_port *port = netdev_priv(dev);
+        struct mvpp2_port_pcpu *port_pcpu;
++       struct mvpp2 *priv = port->priv;
+        int cpu;
+
+        mvpp2_stop_dev(port);
+@@ -6633,6 +6634,10 @@ static int mvpp2_stop(struct net_device *dev)
+        /* Mask interrupts on all CPUs */
+        on_each_cpu(mvpp2_interrupts_mask, port, 1);
+
++       if (priv->hw_version == MVPP22 && !port->phy_node && port->link_irq) {
++               free_irq(port->link_irq, port);
++       }
++
+        free_irq(port->irq, port);
+        for_each_present_cpu(cpu) {
+                port_pcpu = per_cpu_ptr(port->pcpu, cpu);
+
+Otherwise a sequence: ifconfig up/down/up results in faults.
+
+Best regards,
+Marcin
+
+2017-07-24 15:48 GMT+02:00 Antoine Tenart <antoine.tenart@free-electrons.com>:
+> This patch adds the GoP link interrupt support for when a port isn't
+> connected to a PHY. Because of this the phylib callback is never called
+> and the link status management isn't done. This patch use the GoP link
+> interrupt in such cases to still have a minimal link management. Without
+> this patch ports not connected to a PHY cannot work.
+>
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+> ---
+>  drivers/net/ethernet/marvell/mvpp2.c | 157 ++++++++++++++++++++++++++++++++++-
+>  1 file changed, 154 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+> index 77eef2cc40a1..33a7eb834855 100644
+> --- a/drivers/net/ethernet/marvell/mvpp2.c
+> +++ b/drivers/net/ethernet/marvell/mvpp2.c
+> @@ -339,16 +339,24 @@
+>  #define     MVPP2_GMAC_FLOW_CTRL_AUTONEG       BIT(11)
+>  #define     MVPP2_GMAC_CONFIG_FULL_DUPLEX      BIT(12)
+>  #define     MVPP2_GMAC_AN_DUPLEX_EN            BIT(13)
+> +#define MVPP2_GMAC_STATUS0                     0x10
+> +#define     MVPP2_GMAC_STATUS0_LINK_UP         BIT(0)
+>  #define MVPP2_GMAC_PORT_FIFO_CFG_1_REG         0x1c
+>  #define     MVPP2_GMAC_TX_FIFO_MIN_TH_OFFS     6
+>  #define     MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK 0x1fc0
+>  #define     MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)  (((v) << 6) & \
+>                                         MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK)
+> +#define MVPP22_GMAC_INT_STAT                   0x20
+> +#define     MVPP22_GMAC_INT_STAT_LINK          BIT(1)
+> +#define MVPP22_GMAC_INT_MASK                   0x24
+> +#define     MVPP22_GMAC_INT_MASK_LINK_STAT     BIT(1)
+>  #define MVPP22_GMAC_CTRL_4_REG                 0x90
+>  #define     MVPP22_CTRL4_EXT_PIN_GMII_SEL      BIT(0)
+>  #define     MVPP22_CTRL4_DP_CLK_SEL            BIT(5)
+>  #define     MVPP22_CTRL4_SYNC_BYPASS_DIS       BIT(6)
+>  #define     MVPP22_CTRL4_QSGMII_BYPASS_ACTIVE  BIT(7)
+> +#define MVPP22_GMAC_INT_SUM_MASK               0xa4
+> +#define     MVPP22_GMAC_INT_SUM_MASK_LINK_STAT BIT(1)
+>
+>  /* Per-port XGMAC registers. PPv2.2 only, only for GOP port 0,
+>   * relative to port->base.
+> @@ -358,12 +366,19 @@
+>  #define     MVPP22_XLG_CTRL0_MAC_RESET_DIS     BIT(1)
+>  #define     MVPP22_XLG_CTRL0_RX_FLOW_CTRL_EN   BIT(7)
+>  #define     MVPP22_XLG_CTRL0_MIB_CNT_DIS       BIT(14)
+> -
+> +#define MVPP22_XLG_STATUS                      0x10c
+> +#define     MVPP22_XLG_STATUS_LINK_UP          BIT(0)
+> +#define MVPP22_XLG_INT_STAT                    0x114
+> +#define     MVPP22_XLG_INT_STAT_LINK           BIT(1)
+> +#define MVPP22_XLG_INT_MASK                    0x118
+> +#define     MVPP22_XLG_INT_MASK_LINK           BIT(1)
+>  #define MVPP22_XLG_CTRL3_REG                   0x11c
+>  #define     MVPP22_XLG_CTRL3_MACMODESELECT_MASK        (7 << 13)
+>  #define     MVPP22_XLG_CTRL3_MACMODESELECT_GMAC        (0 << 13)
+>  #define     MVPP22_XLG_CTRL3_MACMODESELECT_10G (1 << 13)
+> -
+> +#define MVPP22_XLG_EXT_INT_MASK                        0x15c
+> +#define     MVPP22_XLG_EXT_INT_MASK_XLG                BIT(1)
+> +#define     MVPP22_XLG_EXT_INT_MASK_GIG                BIT(2)
+>  #define MVPP22_XLG_CTRL4_REG                   0x184
+>  #define     MVPP22_XLG_CTRL4_FWD_FC            BIT(5)
+>  #define     MVPP22_XLG_CTRL4_FWD_PFC           BIT(6)
+> @@ -814,6 +829,7 @@ struct mvpp2_port {
+>         int gop_id;
+>
+>         int irq;
+> +       int link_irq;
+>
+>         struct mvpp2 *priv;
+>
+> @@ -4330,6 +4346,63 @@ static int mvpp22_gop_init(struct mvpp2_port *port)
+>         return -EINVAL;
+>  }
+>
+> +static void mvpp22_gop_unmask_irq(struct mvpp2_port *port)
+> +{
+> +       u32 val;
 > +
->         phydev = of_phy_connect(dev, priv->phy_node,
->                                 nb8800_link_reconfigure, 0,
->                                 priv->phy_mode);
-> 
-
-I will test your two patches ASAP.
-
-For the record, I have two (maybe related) issues:
-
-1) After a sequence of
-ip set link dev eth0 up
-ip set link dev eth0 down
-ip set link dev eth0 up
-RX engine is hosed, thus network connectivity is borked.
-The work-around is resetting the MAC in ndo_open
-=> mac_init in my proposed patch.
-This is by far the biggest issue.
-Also, resetting the MAC in ndo_open will make it easy
-to implement suspend/resume, as I can just ndo_stop
-in suspend, and ndo_open in resume.
-
-2) The system does not print "Link down" when I run
-'ip set link dev eth0 down'
-This is a symptom of nb8800_link_reconfigure()
-not being called at all (or being called
-with phydev->link == priv->link when I tried
-skipping phy_stop)
-
-Again, thanks for your patches and suggestions,
-which I will test in the morning.
-
-I will also try to understand why I didn't have
-these issues on the other board...
-
-Regards.
+> +       if (port->phy_interface == PHY_INTERFACE_MODE_RGMII ||
+> +           port->phy_interface == PHY_INTERFACE_MODE_SGMII) {
+> +               /* Enable the GMAC link status irq for this port */
+> +               val = readl(port->base + MVPP22_GMAC_INT_SUM_MASK);
+> +               val |= MVPP22_GMAC_INT_SUM_MASK_LINK_STAT;
+> +               writel(val, port->base + MVPP22_GMAC_INT_SUM_MASK);
+> +       }
+> +
+> +       /* Enable the XLG/GIG irqs for this port */
+> +       val = readl(port->base + MVPP22_XLG_EXT_INT_MASK);
+> +       if (port->gop_id == 0 &&
+> +           port->phy_interface == PHY_INTERFACE_MODE_10GKR)
+> +               val |= MVPP22_XLG_EXT_INT_MASK_XLG;
+> +       else
+> +               val |= MVPP22_XLG_EXT_INT_MASK_GIG;
+> +       writel(val, port->base + MVPP22_XLG_EXT_INT_MASK);
+> +}
+> +
+> +static void mvpp22_gop_mask_irq(struct mvpp2_port *port)
+> +{
+> +       u32 val;
+> +
+> +       val = readl(port->base + MVPP22_XLG_EXT_INT_MASK);
+> +       val &= ~(MVPP22_XLG_EXT_INT_MASK_XLG |
+> +                MVPP22_XLG_EXT_INT_MASK_GIG);
+> +       writel(val, port->base + MVPP22_XLG_EXT_INT_MASK);
+> +
+> +       if (port->phy_interface == PHY_INTERFACE_MODE_RGMII ||
+> +           port->phy_interface == PHY_INTERFACE_MODE_SGMII) {
+> +               val = readl(port->base + MVPP22_GMAC_INT_SUM_MASK);
+> +               val &= ~MVPP22_GMAC_INT_SUM_MASK_LINK_STAT;
+> +               writel(val, port->base + MVPP22_GMAC_INT_SUM_MASK);
+> +       }
+> +}
+> +
+> +static void mvpp22_gop_setup_irq(struct mvpp2_port *port)
+> +{
+> +       u32 val;
+> +
+> +       if (port->phy_interface == PHY_INTERFACE_MODE_RGMII ||
+> +           port->phy_interface == PHY_INTERFACE_MODE_SGMII) {
+> +               val = readl(port->base + MVPP22_GMAC_INT_MASK);
+> +               val |= MVPP22_GMAC_INT_MASK_LINK_STAT;
+> +               writel(val, port->base + MVPP22_GMAC_INT_MASK);
+> +       }
+> +
+> +       val = readl(port->base + MVPP22_XLG_INT_MASK);
+> +       val |= MVPP22_XLG_INT_MASK_LINK;
+> +       writel(val, port->base + MVPP22_XLG_INT_MASK);
+> +
+> +       mvpp22_gop_unmask_irq(port);
+> +}
+> +
+>  static void mvpp2_port_mii_gmac_configure_mode(struct mvpp2_port *port)
+>  {
+>         u32 val;
+> @@ -5529,6 +5602,60 @@ static irqreturn_t mvpp2_isr(int irq, void *dev_id)
+>         return IRQ_HANDLED;
+>  }
+>
+> +/* Per-port interrupt for link status changes */
+> +static irqreturn_t mvpp2_link_status_isr(int irq, void *dev_id)
+> +{
+> +       struct mvpp2_port *port = (struct mvpp2_port *)dev_id;
+> +       struct net_device *dev = port->dev;
+> +       bool event = false, link = false;
+> +       u32 val;
+> +
+> +       mvpp22_gop_mask_irq(port);
+> +
+> +       if (port->gop_id == 0 &&
+> +           port->phy_interface == PHY_INTERFACE_MODE_10GKR) {
+> +               val = readl(port->base + MVPP22_XLG_INT_STAT);
+> +               if (val & MVPP22_XLG_INT_STAT_LINK) {
+> +                       event = true;
+> +                       val = readl(port->base + MVPP22_XLG_STATUS);
+> +                       if (val & MVPP22_XLG_STATUS_LINK_UP)
+> +                               link = true;
+> +               }
+> +       } else if (port->phy_interface == PHY_INTERFACE_MODE_RGMII ||
+> +                  port->phy_interface == PHY_INTERFACE_MODE_SGMII) {
+> +               val = readl(port->base + MVPP22_GMAC_INT_STAT);
+> +               if (val & MVPP22_GMAC_INT_STAT_LINK) {
+> +                       event = true;
+> +                       val = readl(port->base + MVPP2_GMAC_STATUS0);
+> +                       if (val & MVPP2_GMAC_STATUS0_LINK_UP)
+> +                               link = true;
+> +               }
+> +       }
+> +
+> +       if (!netif_running(dev) || !event)
+> +               goto handled;
+> +
+> +       if (link) {
+> +               mvpp2_interrupts_enable(port);
+> +
+> +               mvpp2_egress_enable(port);
+> +               mvpp2_ingress_enable(port);
+> +               netif_carrier_on(dev);
+> +               netif_tx_wake_all_queues(dev);
+> +       } else {
+> +               netif_tx_stop_all_queues(dev);
+> +               netif_carrier_off(dev);
+> +               mvpp2_ingress_disable(port);
+> +               mvpp2_egress_disable(port);
+> +
+> +               mvpp2_interrupts_disable(port);
+> +       }
+> +
+> +handled:
+> +       mvpp22_gop_unmask_irq(port);
+> +       return IRQ_HANDLED;
+> +}
+> +
+>  /* Adjust link */
+>  static void mvpp2_link_event(struct net_device *dev)
+>  {
+> @@ -6221,6 +6348,7 @@ static void mvpp2_phy_disconnect(struct mvpp2_port *port)
+>  static int mvpp2_open(struct net_device *dev)
+>  {
+>         struct mvpp2_port *port = netdev_priv(dev);
+> +       struct mvpp2 *priv = port->priv;
+>         unsigned char mac_bcast[ETH_ALEN] = {
+>                         0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+>         int err;
+> @@ -6266,12 +6394,24 @@ static int mvpp2_open(struct net_device *dev)
+>                 goto err_cleanup_txqs;
+>         }
+>
+> +       if (priv->hw_version == MVPP22 && !port->phy_node && port->link_irq) {
+> +               err = request_irq(port->link_irq, mvpp2_link_status_isr, 0,
+> +                                 dev->name, port);
+> +               if (err) {
+> +                       netdev_err(port->dev, "cannot request link IRQ %d\n",
+> +                                  port->link_irq);
+> +                       goto err_free_irq;
+> +               }
+> +
+> +               mvpp22_gop_setup_irq(port);
+> +       }
+> +
+>         /* In default link is down */
+>         netif_carrier_off(port->dev);
+>
+>         err = mvpp2_phy_connect(port);
+>         if (err < 0)
+> -               goto err_free_irq;
+> +               goto err_free_link_irq;
+>
+>         /* Unmask interrupts on all CPUs */
+>         on_each_cpu(mvpp2_interrupts_unmask, port, 1);
+> @@ -6280,6 +6420,8 @@ static int mvpp2_open(struct net_device *dev)
+>
+>         return 0;
+>
+> +err_free_link_irq:
+> +       free_irq(port->link_irq, port);
+>  err_free_irq:
+>         free_irq(port->irq, port);
+>  err_cleanup_txqs:
+> @@ -6796,6 +6938,15 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+>                               -EPROBE_DEFER : -EINVAL;
+>                         goto err_free_netdev;
+>                 }
+> +
+> +               port->link_irq = of_irq_get_byname(port_node, "link");
+> +               if (port->link_irq == -EPROBE_DEFER) {
+> +                       err = -EPROBE_DEFER;
+> +                       goto err_free_irq;
+> +               }
+> +               if (port->link_irq <= 0)
+> +                       /* the link irq is optional */
+> +                       port->link_irq = 0;
+>         } else {
+>                 /* kept for dt compatibility */
+>                 port->irq = irq_of_parse_and_map(port_node, 0);
+> --
+> 2.13.3
+>
