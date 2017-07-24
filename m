@@ -1,98 +1,62 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: dsa: fixup fail to get tag in mtk_get_tag_protocol
-Date: Mon, 24 Jul 2017 09:37:12 -0700
-Message-ID: <557d5c4b-118d-034f-5580-b57b06126965@gmail.com>
-References: <77d2e1bb09314a27a08d02dec9ec62e217b2b9d6.1500908869.git.sean.wang@mediatek.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 03/18] net: mvpp2: set the SMI PHY address when
+ connecting to the PHY
+Date: Mon, 24 Jul 2017 19:40:01 +0300
+Message-ID: <7ccc9080-5967-5728-bb1e-f41b9c91b254@cogentembedded.com>
+References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
+ <20170724134848.19330-4-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-mediatek@lists.infradead.org
-To: sean.wang@mediatek.com, davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <77d2e1bb09314a27a08d02dec9ec62e217b2b9d6.1500908869.git.sean.wang@mediatek.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com, sebastian.hesselbarth@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:33832 "EHLO
+        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755402AbdGXQkF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 12:40:05 -0400
+Received: by mail-lf0-f45.google.com with SMTP id g25so42761480lfh.1
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 09:40:04 -0700 (PDT)
+In-Reply-To: <20170724134848.19330-4-antoine.tenart@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/24/2017 08:14 AM, sean.wang@mediatek.com wrote:
-> From: Sean Wang <sean.wang@mediatek.com>
-> 
-> dsa_is_cpu_port() checking ds->cpu_port_mask is not available in
-> ds->ops->get_tag_protocol
-> 
-> Since commit 14be36c2c96c ("net: dsa: Initialize all CPU and enabled
-> ports masks in dsa_ds_parse()") So force returning DSA_TAG_PROTO_MTK
-> inside mtk_get_tag_protocol call after that.
+Hello!
 
-So a better fix could look like this then:
+On 07/24/2017 04:48 PM, Antoine Tenart wrote:
 
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 56e46090526b..c442051d5a55 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -509,21 +509,22 @@ static int dsa_cpu_parse(struct dsa_port *port,
-u32 index,
-                dst->cpu_dp->netdev = ethernet_dev;
-        }
-
-+       /* Initialize cpu_port_mask now for drv->setup()
-+        * to have access to a correct value, just like what
-+        * net/dsa/dsa.c::dsa_switch_setup_one does.
-+        */
-+       ds->cpu_port_mask |= BIT(index);
-+
-        tag_protocol = ds->ops->get_tag_protocol(ds);
-        dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
-        if (IS_ERR(dst->tag_ops)) {
-                dev_warn(ds->dev, "No tagger for this switch\n");
-+               ds->cpu_port_mask &= ~BIT(index);
-                return PTR_ERR(dst->tag_ops);
-        }
-
-        dst->rcv = dst->tag_ops->rcv;
-
--       /* Initialize cpu_port_mask now for drv->setup()
--        * to have access to a correct value, just like what
--        * net/dsa/dsa.c::dsa_switch_setup_one does.
--        */
--       ds->cpu_port_mask |= BIT(index);
--
-        return 0;
- }
-
-
-> 
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> When connecting to the PHY, explicitly set the SMI PHY address in the
+> controller registers to configure a given port to be connected to the
+> selected PHY.
+>
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 > ---
->  drivers/net/dsa/mt7530.c | 10 +---------
->  1 file changed, 1 insertion(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-> index 1e46418..c265e7e 100644
-> --- a/drivers/net/dsa/mt7530.c
-> +++ b/drivers/net/dsa/mt7530.c
-> @@ -892,15 +892,7 @@ mt7530_port_fdb_dump(struct dsa_switch *ds, int port,
->  static enum dsa_tag_protocol
->  mtk_get_tag_protocol(struct dsa_switch *ds)
->  {
-> -	struct mt7530_priv *priv = ds->priv;
-> -
-> -	if (!dsa_is_cpu_port(ds, MT7530_CPU_PORT)) {
-> -		dev_warn(priv->dev,
-> -			 "port not matched with tagging CPU port\n");
-> -		return DSA_TAG_PROTO_NONE;
-> -	} else {
-> -		return DSA_TAG_PROTO_MTK;
-> -	}
-> +	return DSA_TAG_PROTO_MTK;
->  }
->  
->  static int
-> 
+>  drivers/net/ethernet/marvell/mvpp2.c | 14 ++++++++++++++
+>  1 file changed, 14 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+> index 1e592abc9067..6ffff929b22a 100644
+> --- a/drivers/net/ethernet/marvell/mvpp2.c
+> +++ b/drivers/net/ethernet/marvell/mvpp2.c
+[...]
+> @@ -5954,6 +5958,16 @@ static int mvpp2_phy_connect(struct mvpp2_port *port)
+>  	port->duplex  = 0;
+>  	port->speed   = 0;
+>
+> +	if (priv->hw_version != MVPP22)
+> +		return 0;
+> +
+> +	/* Set the SMI PHY address */
+> +	if (of_property_read_u32(port->phy_node, "reg", &phy_addr)) {
+> +		netdev_err(port->dev, "cannot find the PHY address\n");
+> +		return -EINVAL;
 
+    Wny not propagte the error from of_property_read_u32()?
 
--- 
-Florian
+[...]
+
+MBR, Sergei
