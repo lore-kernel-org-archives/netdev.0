@@ -1,44 +1,40 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 0/6] netvsc: minor fixes
-Date: Mon, 24 Jul 2017 10:57:24 -0700
-Message-ID: <20170724175730.31806-1-sthemmin@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Subject: [PATCH net-next 1/6] netvsc: remove bogus rtnl_unlock
+Date: Mon, 24 Jul 2017 10:57:25 -0700
+Message-ID: <20170724175730.31806-2-sthemmin@microsoft.com>
+References: <20170724175730.31806-1-sthemmin@microsoft.com>
 Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com,
-	haiyangz@microsoft.com,
-	sthemmin@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:34096 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754320AbdGXR5k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 13:57:40 -0400
+Received: by mail-pg0-f41.google.com with SMTP id 123so60199816pgj.1
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 10:57:40 -0700 (PDT)
+In-Reply-To: <20170724175730.31806-1-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes fallout from previous patch related to RTNL and RCU
-annotaiton. Also one patch sent to wrong list.
+Remove accidental rtnl_unlock from earlier testing.
 
-Mohammed Gamal (1):
-  netvsc: Remove redundant use of ipv6_hdr()
+Fixes: 3962981f4822 ("netvsc: add rtnl annotations in rndis")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Stephen Hemminger (5):
-  netvsc: remove bogus rtnl_unlock
-  netvsc: prefetch the first incoming ring element
-  netvsc: fix netvsc_set_channels
-  netvsc: include rtnetlink.h
-  netvsc: remove no longer used max_num_rss queues
-
- drivers/net/hyperv/hyperv_net.h   |  1 -
- drivers/net/hyperv/netvsc.c       |  8 +++++-
- drivers/net/hyperv/netvsc_drv.c   | 54 +++++++++++++++------------------------
- drivers/net/hyperv/rndis_filter.c |  1 +
- 4 files changed, 28 insertions(+), 36 deletions(-)
-
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index a164981c15f7..1238600d717e 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1548,7 +1548,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 
+ 	netif_set_real_num_tx_queues(net, nvdev->num_chn);
+ 	netif_set_real_num_rx_queues(net, nvdev->num_chn);
+-	rtnl_unlock();
+ 
+ 	netdev_lockdep_set_classes(net);
+ 
 -- 
 2.11.0
