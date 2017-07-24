@@ -1,45 +1,41 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: After a while of system running no incoming UDP any more?
-Date: Mon, 24 Jul 2017 16:19:10 +0200
-Message-ID: <1500905950.2458.6.camel@redhat.com>
-References: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: nf_nat_pptp 4.12.3 kernel lockup/reboot
+Date: Mon, 24 Jul 2017 17:12:50 +0300
+Message-ID: <69c0c47e920e763bce702521baae9caa@nuclearcat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: Marc Haber <mh+netdev@zugschlus.de>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49454 "EHLO mx1.redhat.com"
+Received: from nuclearcat.com ([144.76.183.226]:39734 "EHLO nuclearcat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932079AbdGXOTM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 24 Jul 2017 10:19:12 -0400
-In-Reply-To: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
+        id S1753249AbdGXOcF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Jul 2017 10:32:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-On Mon, 2017-07-24 at 14:09 +0200, Marc Haber wrote:
-> Before I begin running older kernels on productive systems, I would like
-> to ask wether there have been recent changes in the 4.11 => 4.12
-> development cycle that might cause an issue like that.
+I am trying to upgrade kernel 4.11.8 to 4.12.3 (it is a nat/router, 
+handling approx 2gbps of pppoe users traffic) and noticed that after 
+while server rebooting(i have set reboot on panic and etc).
+I can't run serial console, and in pstore / netconsole there is nothing.
+Best i got is some very short message about softlockup in ipmi, but as 
+storage very limited there - it is near useless.
 
-While there has been some activity regarding the UDP protocol lately,
-almost nothing touched UDP in the 4.11 release cycle.
+By preliminary testing (can't do it much, as it's production) - it seems 
+following lines causing issue, they worked in 4.11.8 and no more in 
+4.12.3.
 
-The issue you describe looks similar to the bug fixed by the commit
-9bd780f5e066 ("udp: fix poll()"), but the bugged code is only in later
-kernels. 
+iptables -t raw -A PREROUTING -p tcp -m tcp --dport 1723 -j CT --helper 
+pptp
+iptables -t raw -A PREROUTING -p tcp -m tcp --sport 1723 -j CT --helper 
+pptp
 
-> Any idea what might be happening here and what else I could try?
+(there is no solid examples for helpers, not sure second line is 
+necessary)
 
-Once that a system enter the buggy status, do the packets reach the
-relevant socket's queue?
-
-ss -u
-nstat |grep -e Udp -e Ip
-
-will help checking that.
-
-Thanks,
-
-Paol
+I will try to do more tests tonight (lockdep debug and etc), but maybe 
+someone have idea what might be wrong?
