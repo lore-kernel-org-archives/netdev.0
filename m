@@ -1,71 +1,82 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next] bpf: install libbpf headers on 'make install'
-Date: Mon, 24 Jul 2017 14:22:35 -0700
-Message-ID: <20170724212236.21903-1-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next] bpf: add helper capable of reading out instructions
+Date: Mon, 24 Jul 2017 14:22:36 -0700
+Message-ID: <20170724212236.21903-2-jakub.kicinski@netronome.com>
 Cc: daniel@iogearbox.net, alexei.starovoitov@gmail.com,
         oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:32876 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755978AbdGXVWt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 17:22:49 -0400
-Received: by mail-pg0-f50.google.com with SMTP id g14so13356182pgu.0
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 14:22:48 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35780 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756015AbdGXVWu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 17:22:50 -0400
+Received: by mail-pf0-f180.google.com with SMTP id h29so16362156pfd.2
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 14:22:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Install the bpf.h header to $(prefix)/include/bpf/ directory.
-This is necessary to build standalone applications using libbpf,
-without the need to clone the kernel sources and point to them.
+To read translated and jited instructions from the kernel,
+one has to set certain pointers of struct bpf_prog_info to
+pre-allocated user buffers.  Unfortunately, the existing
+bpf_obj_get_info_by_fd() helper zeros struct bpf_prog_info
+before passing it to the kernel.
+
+Keeping the zeroing seems like a good idea in general, since
+kernel will check if the structure was zeroed.  Add a new
+helper for those more advanced users who can be trusted to
+take care of zeroing themselves.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
-I'm not 100% sure if it's OK to export the header file and which
-directory it should end up in (bpf/? libbpf/?).
+I'm happy to change the name of the new function.
 
- tools/lib/bpf/Makefile | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ tools/lib/bpf/bpf.c | 10 ++++++++--
+ tools/lib/bpf/bpf.h |  2 ++
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/tools/lib/bpf/Makefile b/tools/lib/bpf/Makefile
-index 1f5300e56b44..22dad416e0bd 100644
---- a/tools/lib/bpf/Makefile
-+++ b/tools/lib/bpf/Makefile
-@@ -46,6 +46,7 @@ else
- endif
+diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+index 412a7c82995a..2703fa282b65 100644
+--- a/tools/lib/bpf/bpf.c
++++ b/tools/lib/bpf/bpf.c
+@@ -308,13 +308,12 @@ int bpf_map_get_fd_by_id(__u32 id)
+ 	return sys_bpf(BPF_MAP_GET_FD_BY_ID, &attr, sizeof(attr));
+ }
  
- prefix ?= /usr/local
-+headerdir = $(prefix)/include/bpf/
- libdir = $(prefix)/$(libdir_relative)
- man_dir = $(prefix)/share/man
- man_dir_SQ = '$(subst ','\'',$(man_dir))'
-@@ -90,11 +91,13 @@ endif
- export prefix libdir src obj
+-int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
++int __bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
+ {
+ 	union bpf_attr attr;
+ 	int err;
  
- # Shell quotes
-+headerdir_SQ = $(subst ','\'',$(headerdir))
- libdir_SQ = $(subst ','\'',$(libdir))
- libdir_relative_SQ = $(subst ','\'',$(libdir_relative))
- plugin_dir_SQ = $(subst ','\'',$(plugin_dir))
+ 	bzero(&attr, sizeof(attr));
+-	bzero(info, *info_len);
+ 	attr.info.bpf_fd = prog_fd;
+ 	attr.info.info_len = *info_len;
+ 	attr.info.info = ptr_to_u64(info);
+@@ -325,3 +324,10 @@ int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
  
- LIB_FILE = libbpf.a libbpf.so
-+HEADER_FILE = bpf.h
- 
- VERSION		= $(BPF_VERSION)
- PATCHLEVEL	= $(BPF_PATCHLEVEL)
-@@ -189,7 +192,11 @@ install_lib: all_cmd
- 	$(call QUIET_INSTALL, $(LIB_FILE)) \
- 		$(call do_install,$(LIB_FILE),$(libdir_SQ))
- 
--install: install_lib
-+install_hdr: all_cmd
-+	$(call QUIET_INSTALL, $(HEADER_FILE)) \
-+		$(call do_install,$(HEADER_FILE),$(headerdir_SQ))
+ 	return err;
+ }
 +
-+install: install_lib install_hdr
++int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
++{
++	bzero(info, *info_len);
++
++	return __bpf_obj_get_info_by_fd(prog_fd, info, info_len);
++}
+diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+index 418c86e69bcb..e44b423ac07e 100644
+--- a/tools/lib/bpf/bpf.h
++++ b/tools/lib/bpf/bpf.h
+@@ -58,6 +58,8 @@ int bpf_prog_get_next_id(__u32 start_id, __u32 *next_id);
+ int bpf_map_get_next_id(__u32 start_id, __u32 *next_id);
+ int bpf_prog_get_fd_by_id(__u32 id);
+ int bpf_map_get_fd_by_id(__u32 id);
++/* Note: bpf_obj_get_info_by_fd() will init info to zeroes */
+ int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len);
++int __bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len);
  
- ### Cleaning rules
- 
+ #endif
 -- 
 2.11.0
