@@ -1,7 +1,7 @@
 From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN fixed transceiver bindings
-Date: Mon, 24 Jul 2017 18:05:19 -0500
-Message-ID: <20170724230521.1436-3-fcooper@ti.com>
+Subject: [PATCH v2 4/4] can: m_can: Add call to of_can_transceiver_fixed
+Date: Mon, 24 Jul 2017 18:05:21 -0500
+Message-ID: <20170724230521.1436-5-fcooper@ti.com>
 References: <20170724230521.1436-1-fcooper@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,70 +17,28 @@ In-Reply-To: <20170724230521.1436-1-fcooper-l0cyMroinI0@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add documentation to describe usage of the new fixed transceiver binding.
-This new binding is applicable for any CAN device therefore it exists as
-its own document.
+Add call to new generic functions that provides support via a binding
+to limit the arbitration rate and/or data rate imposed by the physical
+transceiver connected to the MCAN peripheral.
 
 Signed-off-by: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
 ---
-Version 2:
-Tweak commit message working
-Tweak wording for properties
-Drop unit addressing
-Give example if CAN-FD isn't supported
+ drivers/net/can/m_can/m_can.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
- .../bindings/net/can/fixed-transceiver.txt         | 42 ++++++++++++++++++++++
- 1 file changed, 42 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
-
-diff --git a/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
-new file mode 100644
-index 0000000..dc7e3eb
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
-@@ -0,0 +1,42 @@
-+Fixed transceiver Device Tree binding
-+------------------------------
+diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+index f4947a7..bd75df1 100644
+--- a/drivers/net/can/m_can/m_can.c
++++ b/drivers/net/can/m_can/m_can.c
+@@ -1649,6 +1649,8 @@ static int m_can_plat_probe(struct platform_device *pdev)
+ 
+ 	devm_can_led_init(dev);
+ 
++	of_can_transceiver_fixed(dev);
 +
-+CAN transceiver typically limits the max speed in standard CAN and CAN FD
-+modes. Typically these limitations are static and the transceivers themselves
-+provide no way to detect this limitation at runtime. For this situation,
-+the "fixed-transceiver" node can be used.
-+
-+Properties:
-+
-+Optional:
-+ max-arbitration-speed: a positive non 0 value that determines the max
-+			speed that CAN can run in non CAN-FD mode or during the
-+			arbitration phase in CAN-FD mode.
-+
-+ max-data-speed:	a positive non 0 value that determines the max data rate
-+			that can be used in CAN-FD mode. A value of -1 implies
-+			CAN-FD is not supported by the transceiver.
-+
-+Examples:
-+
-+Based on Texas Instrument's TCAN1042HGV CAN Transceiver
-+
-+m_can0 {
-+	....
-+	fixed-transceiver {
-+		max-arbitration-speed = <1000000>;
-+		max-data-speed = <5000000>;
-+	};
-+	...
-+};
-+
-+Based on a CAN Transceiver that doesn't support CAN-FD. Only needed if the
-+CAN IP supports CAN-FD but is using a transceiver that doesn't.
-+
-+m_can0 {
-+	....
-+	fixed-transceiver {
-+		max-data-speed = <(-1)>;
-+	};
-+	...
-+};
+ 	dev_info(&pdev->dev, "%s device registered (irq=%d, version=%d)\n",
+ 		 KBUILD_MODNAME, dev->irq, priv->version);
+ 
 -- 
 2.10.0
 
