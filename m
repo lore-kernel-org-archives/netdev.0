@@ -1,39 +1,43 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH V2 net] net: fix tcp reset packet flowlabel for ipv6
-Date: Mon, 24 Jul 2017 16:12:53 -0700
-Message-ID: <CAM_iQpUGff36UigL39zoh7H=nuzh6EvB6bh4G+jSKsE96uw+aA@mail.gmail.com>
-References: <25a0abdf61ab4698773d417af9e49fcd6e6559a4.1500393028.git.shli@fb.com>
- <20170724.133455.562898067272108474.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] rxrpc: Rearrange headers
+Date: Mon, 24 Jul 2017 16:17:34 -0700 (PDT)
+Message-ID: <20170724.161734.314010681276806847.davem@davemloft.net>
+References: <150066178283.18902.5185801865257802317.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Shaohua Li <shli@kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        kernel-team <Kernel-team@fb.com>, Shaohua Li <shli@fb.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>, flo@fourcot.fr
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:34828 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753893AbdGXXNO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 19:13:14 -0400
-Received: by mail-wm0-f50.google.com with SMTP id c184so37787124wmd.0
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 16:13:14 -0700 (PDT)
-In-Reply-To: <20170724.133455.562898067272108474.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <150066178283.18902.5185801865257802317.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 24, 2017 at 1:34 PM, David Miller <davem@davemloft.net> wrote:
-> From: Shaohua Li <shli@kernel.org>
-> Date: Tue, 18 Jul 2017 12:03:37 -0700
->
->> +     /* Since this is being sent on the wire obfuscate hash a bit
->> +      * to minimize possbility that any useful information to an
->> +      * attacker is leaked. Only lower 20 bits are relevant.
->> +      */
->> +     rol32(hash, 16);
->
-> This doesn't help anything at all.
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 21 Jul 2017 19:29:42 +0100
 
-I believe the above code is copy-n-pasted from ip6_make_flowlabel()
-(with few adjustments). Don't know why we can't refactor that function
-for reuse.
+> 
+> Here's a pair of patches that rearrange some of the AF_RXRPC header files
+> that are outside of the net/rxrpc/ directory:
+> 
+>  (1) The bits userspace need are moved to uapi/linux/rxrpc.h.  [Should this
+>      be af_rxrpc.h instead, I wonder - but there doesn't seem to be
+>      precedent for that in the other net UAPI headers.]
+> 
+>  (2) For the most part, the contents of rxrpc/packet.h are no longer used
+>      outside of the AF_RXRPC module, so move them to net/rxrpc/protocol.h
+>      with the exception of the standard abort codes which are exposed to
+>      userspace when an abort occurs and the security index values which are
+>      needed when constructing keys.
+> 
+> The patches can be found here also:
+> 
+> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+> 
+> Tagged thusly:
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+> 	rxrpc-rewrite-20170721
+
+Pulled, thanks David.
