@@ -1,125 +1,103 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: SELinux/IP_PASSSEC regression in 4.13-rcX
-Date: Mon, 24 Jul 2017 15:00:01 -0400
-Message-ID: <CAHC9VhSAifQtx3eaQD42XMx8beC08JBGQ9SaKFvkD9qVsT8VCg@mail.gmail.com>
-References: <CAHC9VhS9QO8jGBodsSeQxxbgoxrmThRgbc3_m17h7gFmfP=GGw@mail.gmail.com>
- <1500899117.2458.2.camel@redhat.com> <CAHC9VhRjju-_3V21x+BogdRg-brDho1g_HzW+0CvU0PbhEtQqw@mail.gmail.com>
- <1500912555.2458.12.camel@redhat.com>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [PATCH] PCI: Update ACS quirk for more Intel 10G NICs
+Date: Mon, 24 Jul 2017 13:01:59 -0600
+Message-ID: <20170724130159.309379e8@w520.home>
+References: <20170720214101.7449-1-roland@kernel.org>
+        <20170720161554.45ce1673@ul30vt.home>
+        <CAG4TOxOrF9aLyujrwNmSsxPBWBPTaLx2yXkOJ88gxCj0QUGDow@mail.gmail.com>
+        <20170724104505.74c67861@w520.home>
+        <CAG4TOxNufQHj0nNwzw_yDMQfp+cAQuiQgEJg6KNX2ebiJDUuUw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Emil Tantilov <emil.s.tantilov@intel.com>
+To: Roland Dreier <roland.dreier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:38719 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753523AbdGXTAE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 15:00:04 -0400
-Received: by mail-lf0-f54.google.com with SMTP id y15so47872485lfd.5
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 12:00:03 -0700 (PDT)
-In-Reply-To: <1500912555.2458.12.camel@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35900 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754238AbdGXTCB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Jul 2017 15:02:01 -0400
+In-Reply-To: <CAG4TOxNufQHj0nNwzw_yDMQfp+cAQuiQgEJg6KNX2ebiJDUuUw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 24, 2017 at 12:09 PM, Paolo Abeni <pabeni@redhat.com> wrote:
-> Hi,
->
-> On Mon, 2017-07-24 at 10:42 -0400, Paul Moore wrote:
->> The change in behavior for userspace makes me a little nervous as
->> there is no way of knowing how any random application may be coded.
->> Even if we are confident that the majority of applications set
->> IP_PASSSEC before calling bind(), we are likely still stuck with a few
->> that will break, and that means a lot of hard to debug problem
->> reports.
->>
->> I would feel much more comfortable if we could preserve the existing behavior.
->
-> I agree, we must preserve the original behavior.
->
-> Re-thinking about the problem, checking skb->sp in the BH, and storing
-> the status in the scratch area should both fix the issue in a sane way
-> and preserve the optimization.
->
-> Something like the code below. Could you please try in your
-> environment? (or point me to simple reproducer ;-)
+On Mon, 24 Jul 2017 10:18:56 -0700
+Roland Dreier <roland.dreier@gmail.com> wrote:
 
-I'm happy to test this, but if you are curious, you can find the
-selinux-testsuite at the link below; the "inet_socket" tests are the
-ones relevant to this problem.
+> > I think that the device implementing ACS and not implementing certain
+> > features that are "must be implemented if..." is a positive indication
+> > that the device does not have that behavior and therefore the ability
+> > to control that behavior is unnecessary.  pci_acs_flags_enabled() is
+> > coded with this intention:
+> >
+> > static bool pci_acs_flags_enabled(struct pci_dev *pdev, u16 acs_flags)
+> > {
+> >         int pos;
+> >         u16 cap, ctrl;
+> >
+> >         pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_ACS);
+> >         if (!pos)
+> >                 return false;
+> >
+> >         /*
+> >          * Except for egress control, capabilities are either required
+> >          * or only required if controllable.  Features missing from the
+> >          * capability field can therefore be assumed as hard-wired enabled.
+> >          */
+> >         pci_read_config_word(pdev, pos + PCI_ACS_CAP, &cap);
+> >         acs_flags &= (cap | PCI_ACS_EC);
+> >
+> > <Remove any requested ACS flags which are not implemented, except EC>
+> >
+> >         pci_read_config_word(pdev, pos + PCI_ACS_CTRL, &ctrl);
+> >         return (ctrl & acs_flags) == acs_flags;
+> >
+> > <Compare what remains>  
+> 
+> I'm not sure it makes sense to look for the EC bit in the control register if
+> the capability bit says it is not supported.  In fact I think it would
+> violate the PCI spec to set the bit in the control register if it is zero in the
+> capability register - the spec says:
+> 
+>   Default value of this bit is 0b. Must be hardwired to 0b if the ACS P2P
+>   Egress Control functionality is not implemented.
+> 
+> I don't understand the reasoning behind forcing the EC bit in commit
+> 83db7e0bdb70.
+> 
+> I think the only reason this works is that nowhere in the kernel uses
+> this function to check PCI_ACS_EC.
 
-* https://github.com/SELinuxProject/selinux-testsuite
+Is there a misunderstanding of the code flow here?  We're never setting
+EC.  In the first code block we're just masking out requested
+capabilities where unimplemented capabilities is the same as
+implemented + enabled.  We're not adding EC to the request, we're
+just not removing it based on the implemented capabilities because we
+don't interpret it the same way.  Thus if someone wants to test a
+device for EC, it really needs to implement EC, we cannot assume it
+based on lack of support for EC in the ACS capability.  As you point
+out, nobody really cares about EC yet though.
 
-However, I believe there is a problem with this patch, see below.
+> > At least that's my interpretation and how I've indicated to folks at
+> > Intel how things should work for a device that does not support p2p.
+> > Of course this all hinges on having an ACS capability.  Without an ACS
+> > capability we must assume any sort of p2p is possible unless we have a
+> > quirk to tell us otherwise.  With ACS, the absence of capabilities is a
+> > positive indication that those forms of p2p are not possible (depending
+> > on the spec wording for that capability).  If the code doesn't behave
+> > that way, let's fix it. Thanks,  
+> 
+> Thanks - I'm looking more closely at what goes wrong with X550, since
+> from reading the code it looks like it should work, but people have observed
+> that it doesn't on our system.  However the issue might be elsewhere.
+> 
+> However I'll send a patch removing that "| PCI_ACS_EC" from the check if
+> you agree - maybe I'm misunderstanding the logic but I don't see how it
+> could work if it ever became relevant.
 
-> ---
-> diff --git a/include/net/udp.h b/include/net/udp.h
-> index 972ce4b..8d2c406 100644
-> --- a/include/net/udp.h
-> +++ b/include/net/udp.h
-> @@ -305,33 +305,44 @@ struct sock *udp6_lib_lookup_skb(struct sk_buff *skb,
->  /* UDP uses skb->dev_scratch to cache as much information as possible and avoid
->   * possibly multiple cache miss on dequeue()
->   */
-> -#if BITS_PER_LONG == 64
-> -
-> -/* truesize, len and the bit needed to compute skb_csum_unnecessary will be on
-> - * cold cache lines at recvmsg time.
-> - * skb->len can be stored on 16 bits since the udp header has been already
-> - * validated and pulled.
-> - */
->  struct udp_dev_scratch {
-> -       u32 truesize;
-> +       /* skb->truesize and the stateless bit embeded in a single field;
-> +        * do not use a bitfield since the compiler emits better/smaller code
-> +        * this way
-> +        */
-> +       u32 _tsize_state;
-> +
-> +#if BITS_PER_LONG == 64
-> +       /* len and the bit needed to compute skb_csum_unnecessary
-> +        * will be on cold cache lines at recvmsg time.
-> +        * skb->len can be stored on 16 bits since the udp header has been
-> +        * already validated and pulled.
-> +        */
->         u16 len;
->         bool is_linear;
->         bool csum_unnecessary;
-> +#endif
->  };
+I don't yet see anything wrong with the EC handling, but please explain
+further if I'm just being dense.  Thanks,
 
-...
-
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index b057653..d243772 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1163,34 +1163,32 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
->         return ret;
->  }
->
-> -#if BITS_PER_LONG == 64
-> +#define UDP_SKB_IS_STATELESS 0x80000000
-> +
->  static void udp_set_dev_scratch(struct sk_buff *skb)
->  {
-> -       struct udp_dev_scratch *scratch;
-> +       struct udp_dev_scratch *scratch = udp_skb_scratch(skb);
->
->         BUILD_BUG_ON(sizeof(struct udp_dev_scratch) > sizeof(long));
-
-The BUILD_BUG_ON() assertion no longer appears to be correct with this patch.
-
-> -       scratch = (struct udp_dev_scratch *)&skb->dev_scratch;
-> -       scratch->truesize = skb->truesize;
-> +       scratch->_tsize_state = skb->truesize;
-> +#if BITS_PER_LONG == 64
->         scratch->len = skb->len;
->         scratch->csum_unnecessary = !!skb_csum_unnecessary(skb);
->         scratch->is_linear = !skb_is_nonlinear(skb);
-> +#endif
-> +       if (likely(!skb->_skb_refdst))
-> +               scratch->_tsize_state |= UDP_SKB_IS_STATELESS;
->  }
-
--- 
-paul moore
-www.paul-moore.com
+Alex
