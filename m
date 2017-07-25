@@ -1,68 +1,39 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 3/3] bnxt_en: fix switchdev port naming for external-port-rep and vf-reps
-Date: Tue, 25 Jul 2017 13:28:41 -0400
-Message-ID: <1501003721-12407-4-git-send-email-michael.chan@broadcom.com>
-References: <1501003721-12407-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
-To: davem@davemloft.net
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
+ null entry.
+Date: Tue, 25 Jul 2017 10:49:05 -0700
+Message-ID: <CAM_iQpXvyZR6EZ8s_P6JcKZhHN9t5N+2s4cTqHy0RLdGEMeg0A@mail.gmail.com>
+References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+ <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
+ <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
+ <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
+ <20170724030907.GC2938@leo.usersys.redhat.com> <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
+ <20170725000849.GD2938@leo.usersys.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: network dev <netdev@vger.kernel.org>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f171.google.com ([209.85.220.171]:37525 "EHLO
-        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751607AbdGYR27 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 13:28:59 -0400
-Received: by mail-qk0-f171.google.com with SMTP id q130so32025083qka.4
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 10:28:59 -0700 (PDT)
-In-Reply-To: <1501003721-12407-1-git-send-email-michael.chan@broadcom.com>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:37389 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751325AbdGYRt1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 13:49:27 -0400
+Received: by mail-wm0-f43.google.com with SMTP id c184so62586832wmd.0
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 10:49:26 -0700 (PDT)
+In-Reply-To: <20170725000849.GD2938@leo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@broadcom.com>
+On Mon, Jul 24, 2017 at 5:08 PM, Hangbin Liu <liuhangbin@gmail.com> wrote:
+> But what we want in inet6_rtm_getroute() and rt6_dump_route() is to
+> get/dump the route info. So we should get the info even it's unreachable or
+> prohibit.
 
-Fix the phys_port_name for the external physical port to be in
-"pA" format and that of VF-rep to be in "pCvfD" format as
-suggested by Jakub Kicinski.
 
-Fixes: c124a62ff2dd ("bnxt_en: add support for port_attr_get and get_phys_port_name")
-Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 6 +-----
- drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c | 4 +++-
- 2 files changed, 4 insertions(+), 6 deletions(-)
+If you want to dump prohibit/blackhole entry, then you have to check
+for null_entry, and rt->dst.error check is still needed because we
+could return error on other normal entries too, IOW, your v2 is correct
+if dumping prohibit/blackhole is expected.
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index badbc35..4b32cf0 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -7556,11 +7556,7 @@ static int bnxt_get_phys_port_name(struct net_device *dev, char *buf,
- 	if (!BNXT_PF(bp))
- 		return -EOPNOTSUPP;
- 
--	/* The switch-id that the pf belongs to is exported by
--	 * the switchdev ndo. This name is just to distinguish from the
--	 * vf-rep ports.
--	 */
--	rc = snprintf(buf, len, "pf%d", bp->pf.port_id);
-+	rc = snprintf(buf, len, "p%d", bp->pf.port_id);
- 
- 	if (rc >= len)
- 		return -EOPNOTSUPP;
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-index c00352a..b05c5d0 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-@@ -141,9 +141,11 @@ static int bnxt_vf_rep_get_phys_port_name(struct net_device *dev, char *buf,
- 					  size_t len)
- {
- 	struct bnxt_vf_rep *vf_rep = netdev_priv(dev);
-+	struct pci_dev *pf_pdev = vf_rep->bp->pdev;
- 	int rc;
- 
--	rc = snprintf(buf, len, "vfr%d", vf_rep->vf_idx);
-+	rc = snprintf(buf, len, "pf%dvf%d", PCI_FUNC(pf_pdev->devfn),
-+		      vf_rep->vf_idx);
- 	if (rc >= len)
- 		return -EOPNOTSUPP;
- 	return 0;
--- 
-1.8.3.1
+I thought we don't dump them. I am not sure about the behavior either.
