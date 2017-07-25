@@ -1,7 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RFC 07/13] net: phy: add I2C mdio bus
-Date: Tue, 25 Jul 2017 15:03:08 +0100
-Message-ID: <E1da0QW-0007Lg-BH@rmk-PC.armlinux.org.uk>
+Subject: [PATCH RFC 10/13] phylink: add module EEPROM support
+Date: Tue, 25 Jul 2017 15:03:23 +0100
+Message-ID: <E1da0Ql-0007M4-Op@rmk-PC.armlinux.org.uk>
 References: <20170725140138.GK31807@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,205 +10,76 @@ Cc: netdev@vger.kernel.org
 To: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:50886 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:50906 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752225AbdGYODQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 10:03:16 -0400
+        with ESMTP id S1752286AbdGYOD2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 10:03:28 -0400
 In-Reply-To: <20170725140138.GK31807@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add an I2C MDIO bus bridge library, to allow phylib to access PHYs which
-are connected to an I2C bus instead of the more conventional MDIO bus.
-Such PHYs can be found in SFP adapters and SFF modules.
+Add support for reading module EEPROMs through phylink.
 
-Since PHYs appear at I2C bus address 0x40..0x5f, and 0x50/0x51 are
-reserved for SFP EEPROMs/diagnostics, we must not allow the MDIO bus
-to access these I2C addresses.
-
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/phy/Kconfig    |  10 +++++
- drivers/net/phy/Makefile   |   1 +
- drivers/net/phy/mdio-i2c.c | 109 +++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/phy/mdio-i2c.h |  19 ++++++++
- 4 files changed, 139 insertions(+)
- create mode 100644 drivers/net/phy/mdio-i2c.c
- create mode 100644 drivers/net/phy/mdio-i2c.h
+ drivers/net/phy/phylink.c | 28 ++++++++++++++++++++++++++++
+ include/linux/phylink.h   |  3 +++
+ 2 files changed, 31 insertions(+)
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 2dda72004a7d..c025d274771e 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -98,6 +98,16 @@ config MDIO_HISI_FEMAC
- 	  This module provides a driver for the MDIO busses found in the
- 	  Hisilicon SoC that have an Fast Ethernet MAC.
+diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
+index 02082f4a8a95..026060c95b82 100644
+--- a/drivers/net/phy/phylink.c
++++ b/drivers/net/phy/phylink.c
+@@ -1020,6 +1020,34 @@ int phylink_ethtool_set_pauseparam(struct phylink *pl,
+ }
+ EXPORT_SYMBOL_GPL(phylink_ethtool_set_pauseparam);
  
-+config MDIO_I2C
-+	tristate
-+	depends on I2C
-+	help
-+	  Support I2C based PHYs.  This provides a MDIO bus bridged
-+	  to I2C to allow PHYs connected in I2C mode to be accessed
-+	  using the existing infrastructure.
-+
-+	  This is library mode.
-+
- config MDIO_MOXART
-         tristate "MOXA ART MDIO interface support"
-         depends on ARCH_MOXART
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 8e9b9f349384..113e8d525c5e 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -30,6 +30,7 @@ obj-$(CONFIG_MDIO_BUS_MUX_MMIOREG) += mdio-mux-mmioreg.o
- obj-$(CONFIG_MDIO_CAVIUM)	+= mdio-cavium.o
- obj-$(CONFIG_MDIO_GPIO)		+= mdio-gpio.o
- obj-$(CONFIG_MDIO_HISI_FEMAC)	+= mdio-hisi-femac.o
-+obj-$(CONFIG_MDIO_I2C)		+= mdio-i2c.o
- obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
- obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
- obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
-diff --git a/drivers/net/phy/mdio-i2c.c b/drivers/net/phy/mdio-i2c.c
-new file mode 100644
-index 000000000000..6d24fd13ca86
---- /dev/null
-+++ b/drivers/net/phy/mdio-i2c.c
-@@ -0,0 +1,109 @@
-+/*
-+ * MDIO I2C bridge
-+ *
-+ * Copyright (C) 2015-2016 Russell King
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ * Network PHYs can appear on I2C buses when they are part of SFP module.
-+ * This driver exposes these PHYs to the networking PHY code, allowing
-+ * our PHY drivers access to these PHYs, and so allowing configuration
-+ * of their settings.
-+ */
-+#include <linux/i2c.h>
-+#include <linux/phy.h>
-+
-+#include "mdio-i2c.h"
-+
-+/*
-+ * I2C bus addresses 0x50 and 0x51 are normally an EEPROM, which is
-+ * specified to be present in SFP modules.  These correspond with PHY
-+ * addresses 16 and 17.  Disallow access to these "phy" addresses.
-+ */
-+static bool i2c_mii_valid_phy_id(int phy_id)
++int phylink_ethtool_get_module_info(struct phylink *pl,
++				    struct ethtool_modinfo *modinfo)
 +{
-+	return phy_id != 0x10 && phy_id != 0x11;
-+}
++	int ret = -EOPNOTSUPP;
 +
-+static unsigned int i2c_mii_phy_addr(int phy_id)
++	WARN_ON(!lockdep_rtnl_is_held());
++
++	if (pl->sfp_bus)
++		ret = sfp_get_module_info(pl->sfp_bus, modinfo);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(phylink_ethtool_get_module_info);
++
++int phylink_ethtool_get_module_eeprom(struct phylink *pl,
++				      struct ethtool_eeprom *ee, u8 *buf)
 +{
-+	return phy_id + 0x40;
++	int ret = -EOPNOTSUPP;
++
++	WARN_ON(!lockdep_rtnl_is_held());
++
++	if (pl->sfp_bus)
++		ret = sfp_get_module_eeprom(pl->sfp_bus, ee, buf);
++
++	return ret;
 +}
++EXPORT_SYMBOL_GPL(phylink_ethtool_get_module_eeprom);
 +
-+static int i2c_mii_read(struct mii_bus *bus, int phy_id, int reg)
-+{
-+	struct i2c_adapter *i2c = bus->priv;
-+	struct i2c_msg msgs[2];
-+	u8 data[2], dev_addr = reg;
-+	int bus_addr, ret;
-+
-+	if (!i2c_mii_valid_phy_id(phy_id))
-+		return 0xffff;
-+
-+	bus_addr = i2c_mii_phy_addr(phy_id);
-+	msgs[0].addr = bus_addr;
-+	msgs[0].flags = 0;
-+	msgs[0].len = 1;
-+	msgs[0].buf = &dev_addr;
-+	msgs[1].addr = bus_addr;
-+	msgs[1].flags = I2C_M_RD;
-+	msgs[1].len = sizeof(data);
-+	msgs[1].buf = data;
-+
-+	ret = i2c_transfer(i2c, msgs, ARRAY_SIZE(msgs));
-+	if (ret != ARRAY_SIZE(msgs))
-+		return 0xffff;
-+
-+	return data[0] << 8 | data[1];
-+}
-+
-+static int i2c_mii_write(struct mii_bus *bus, int phy_id, int reg, u16 val)
-+{
-+	struct i2c_adapter *i2c = bus->priv;
-+	struct i2c_msg msg;
-+	int ret;
-+	u8 data[3];
-+
-+	if (!i2c_mii_valid_phy_id(phy_id))
-+		return 0;
-+
-+	data[0] = reg;
-+	data[1] = val >> 8;
-+	data[2] = val;
-+
-+	msg.addr = i2c_mii_phy_addr(phy_id);
-+	msg.flags = 0;
-+	msg.len = 3;
-+	msg.buf = data;
-+
-+	ret = i2c_transfer(i2c, &msg, 1);
-+
-+	return ret < 0 ? ret : 0;
-+}
-+
-+struct mii_bus *mdio_i2c_alloc(struct device *parent, struct i2c_adapter *i2c)
-+{
-+	struct mii_bus *mii;
-+
-+	if (!i2c_check_functionality(i2c, I2C_FUNC_I2C))
-+		return ERR_PTR(-EINVAL);
-+
-+	mii = mdiobus_alloc();
-+	if (!mii)
-+		return ERR_PTR(-ENOMEM);
-+
-+	snprintf(mii->id, MII_BUS_ID_SIZE, "i2c:%s", dev_name(parent));
-+	mii->parent = parent;
-+	mii->read = i2c_mii_read;
-+	mii->write = i2c_mii_write;
-+	mii->priv = i2c;
-+
-+	return mii;
-+}
-+EXPORT_SYMBOL_GPL(mdio_i2c_alloc);
-+
-+MODULE_AUTHOR("Russell King");
-+MODULE_DESCRIPTION("MDIO I2C bridge library");
-+MODULE_LICENSE("GPL v2");
-diff --git a/drivers/net/phy/mdio-i2c.h b/drivers/net/phy/mdio-i2c.h
-new file mode 100644
-index 000000000000..889ab57d7f3e
---- /dev/null
-+++ b/drivers/net/phy/mdio-i2c.h
-@@ -0,0 +1,19 @@
-+/*
-+ * MDIO I2C bridge
-+ *
-+ * Copyright (C) 2015 Russell King
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+#ifndef MDIO_I2C_H
-+#define MDIO_I2C_H
-+
-+struct device;
-+struct i2c_adapter;
-+struct mii_bus;
-+
-+struct mii_bus *mdio_i2c_alloc(struct device *parent, struct i2c_adapter *i2c);
-+
-+#endif
+ int phylink_init_eee(struct phylink *pl, bool clk_stop_enable)
+ {
+ 	int ret = -EPROTONOSUPPORT;
+diff --git a/include/linux/phylink.h b/include/linux/phylink.h
+index 76f054f39684..af67edd4ae38 100644
+--- a/include/linux/phylink.h
++++ b/include/linux/phylink.h
+@@ -125,6 +125,9 @@ void phylink_ethtool_get_pauseparam(struct phylink *,
+ 				    struct ethtool_pauseparam *);
+ int phylink_ethtool_set_pauseparam(struct phylink *,
+ 				   struct ethtool_pauseparam *);
++int phylink_ethtool_get_module_info(struct phylink *, struct ethtool_modinfo *);
++int phylink_ethtool_get_module_eeprom(struct phylink *,
++				      struct ethtool_eeprom *, u8 *);
+ int phylink_init_eee(struct phylink *, bool);
+ int phylink_get_eee_err(struct phylink *);
+ int phylink_ethtool_get_eee(struct phylink *, struct ethtool_eee *);
 -- 
 2.7.4
