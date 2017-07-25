@@ -1,55 +1,59 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: nf_nat_pptp 4.12.3 kernel lockup/reboot
-Date: Tue, 25 Jul 2017 10:27:01 +0300
-Message-ID: <9eb3225f893a3bbc9784d30dbf3259fd@nuclearcat.com>
-References: <69c0c47e920e763bce702521baae9caa@nuclearcat.com>
- <20170724161944.GB23964@breakpoint.cc>
- <20170724162039.GC23964@breakpoint.cc>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
+ null entry.
+Date: Tue, 25 Jul 2017 15:32:02 +0800
+Message-ID: <20170725073202.GE2938@leo.usersys.redhat.com>
+References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+ <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
+ <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
+ <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
+ <20170724030907.GC2938@leo.usersys.redhat.com>
+ <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
+ <20170725000849.GD2938@leo.usersys.redhat.com>
+ <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:53868 "EHLO nuclearcat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751086AbdGYH1E (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Jul 2017 03:27:04 -0400
-In-Reply-To: <20170724162039.GC23964@breakpoint.cc>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35222 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750769AbdGYHcN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 03:32:13 -0400
+Received: by mail-pg0-f65.google.com with SMTP id d193so13797454pgc.2
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 00:32:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-07-24 19:20, Florian Westphal wrote:
-> Florian Westphal <fw@strlen.de> wrote:
->> Denys Fedoryshchenko <nuclearcat@nuclearcat.com> wrote:
->> > Hi,
->> >
->> > I am trying to upgrade kernel 4.11.8 to 4.12.3 (it is a nat/router, handling
->> > approx 2gbps of pppoe users traffic) and noticed that after while server
->> > rebooting(i have set reboot on panic and etc).
->> > I can't run serial console, and in pstore / netconsole there is nothing.
->> > Best i got is some very short message about softlockup in ipmi, but as
->> > storage very limited there - it is near useless.
->> >
->> > By preliminary testing (can't do it much, as it's production) - it seems
->> > following lines causing issue, they worked in 4.11.8 and no more in 4.12.3.
->> 
->> Wild guess here, does this help?
->> 
->> diff --git a/net/netfilter/nf_conntrack_helper.c 
->> b/net/netfilter/nf_conntrack_helper.c
->> --- a/net/netfilter/nf_conntrack_helper.c
->> +++ b/net/netfilter/nf_conntrack_helper.c
->> @@ -266,6 +266,8 @@ int __nf_ct_try_assign_helper(struct nf_conn *ct, 
->> struct nf_conn *tmpl,
->>                 help = nf_ct_helper_ext_add(ct, helper, flags);
->>                 if (help == NULL)
->>                         return -ENOMEM;
->> +              	if (!nf_ct_ext_add(ct, NF_CT_EXT_NAT, flags));
+On Mon, Jul 24, 2017 at 09:28:07PM -0600, David Ahern wrote:
+> On 7/24/17 6:08 PM, Hangbin Liu wrote:
+> > That's why I think we should remove both rt->dst.error and ip6_null_entry
+> > check in inet6_rtm_getroute(). And even further, remove the ip6_null_entry
+> > check in rt6_dump_route().
 > 
-> sigh, stupid typo, should be no ';' at the end above.
+> git blame net/ipv6/route.c
+> 
+> find the commits and review.
 
-Tested, it looks like not hanging anymore (before it was hanging within 
-10 minutes)
-Probably i will wait 24h testing cycle.
+Hi David,
+
+Sorry, would you like to give me more hints?
+
+I saw your commit 1f17e2f2c8a8 ("net: ipv6: ignore null_entry on route
+dumps"). But I think this issue has been fixed by
+
+2f460933f58e ("ipv6: initialize route null entry in addrconf_init()") and
+242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
+
+I use a reproducer which add unreachable route in netns with lo down. And I
+could not trigger Panic in the fixed kernel. That's why I think we could
+remove ip6_null_entry check in rt6_dump_route().
+
+Please correct me if I make any mistake.
+
+Thanks
+Hangbin
