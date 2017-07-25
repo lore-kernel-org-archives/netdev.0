@@ -1,44 +1,115 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 master v2 0/2] Minor BPF updates
-Date: Tue, 25 Jul 2017 11:48:16 -0700
-Message-ID: <20170725114816.2c61df50@xeon-e3>
-References: <1500765739-10681-1-git-send-email-daniel@iogearbox.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: lan9303: Fixed MDIO interface
+Date: Tue, 25 Jul 2017 15:15:26 -0400
+Message-ID: <878tjc49bl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170725161553.30147-1-privat@egil-hjelmeland.no> <20170725161553.30147-2-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>, corbet@lwn.net,
+        andrew@lunn.ch, f.fainelli@gmail.com, davem@davemloft.net,
+        kernel@pengutronix.de, linux-doc@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35492 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750783AbdGYSsX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 14:48:23 -0400
-Received: by mail-pf0-f182.google.com with SMTP id h29so26561630pfd.2
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 11:48:23 -0700 (PDT)
-In-Reply-To: <1500765739-10681-1-git-send-email-daniel@iogearbox.net>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:36504 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751960AbdGYTSP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 15:18:15 -0400
+In-Reply-To: <20170725161553.30147-2-privat@egil-hjelmeland.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 23 Jul 2017 01:22:17 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+Hi Egil,
 
-> Two minor updates to the BPF code, first one makes use of the
-> recently exposed owner_jited in fdinfo to report whether a
-> load issue related to tail calls occured, and second one fixes
-> up custom mount of bpf fs when passed via env.
-> 
-> Thanks!
-> 
-> v1 -> v2:
->   - Moved bpf_derive_prog_from_fdinfo() under HAVE_ELF.
->   - Rest as is.
-> 
-> Daniel Borkmann (2):
->   bpf: improve error reporting around tail calls
->   bpf: fix mnt path when from env
-> 
->  lib/bpf.c | 281 +++++++++++++++++++++++++++++++++++++++++++++++---------------
->  1 file changed, 214 insertions(+), 67 deletions(-)
-> 
+Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
 
-Applied to master
+> Fixes after testing on actual HW:
+>
+> - lan9303_mdio_write()/_read() must multiply register number
+>   by 4 to get offset
+>
+> - Indirect access (PMI) to phy register only work in I2C mode. In
+>   MDIO mode phy registers must be accessed directly. Introduced
+>   struct lan9303_phy_ops to handle the two modes. Renamed functions
+>   to clarify.
+>
+> - lan9303_detect_phy_setup() : Failed MDIO read return 0xffff.
+>   Handle that.
+
+Small patch series when possible are better. Bullet points in commit
+messages are likely to describe how a patch or series may be split up
+;-)
+
+This patch seems to be the unique patch of the series resolving what is
+described in the cover letter as "Make the MDIO interface work".
+
+I'd suggest you to split up this one commit in several *atomic* and easy
+to review patches and send them separately as on thread named "net: dsa:
+lan9303: fix MDIO interface" (also note that imperative is prefered for
+subject lines, see: https://chris.beams.io/posts/git-commit/#imperative)
+
+<...>
+
+> -static int lan9303_port_phy_reg_wait_for_completion(struct lan9303 *chip)
+> +static int lan9303_indirect_phy_wait_for_completion(struct lan9303 *chip)
+
+For instance you can have a first commit only renaming the functions.
+The reason for it is to separate the functional changes from cosmetic
+changes, which makes it easier for review.
+
+<...>
+
+> -	if (reg != 0)
+> +	if ((reg != 0) && (reg != 0xffff))
+
+if (reg && reg != 0xffff) should be enough.
+
+>  		chip->phy_addr_sel_strap = 1;
+>  	else
+>  		chip->phy_addr_sel_strap = 0;
+
+<...>
+
+> +struct lan9303;
+> +
+> +struct lan9303_phy_ops {
+> +	/* PHY 1 &2 access*/
+
+The spacing is weird in the comment. "/* PHY 1 & 2 access */" maybe?
+
+<...>
+
+> +int lan9303_mdio_phy_write(struct lan9303 *chip, int phy, int regnum, u16 val)
+> +{
+> +	struct lan9303_mdio *sw_dev = dev_get_drvdata(chip->dev);
+> +	struct mdio_device *mdio = sw_dev->device;
+> +
+> +	mutex_lock(&mdio->bus->mdio_lock);
+> +	mdio->bus->write(mdio->bus, phy, regnum, val);
+> +	mutex_unlock(&mdio->bus->mdio_lock);
+
+This is exactly what mdiobus_write(mdio->bus, phy, regnum, val) is
+doing. There are very few valid reasons to go play in the mii_bus
+structure, using generic APIs are strongly prefered. Plus you have
+checks and traces for free!
+
+> +
+> +	return 0;
+> +}
+> +
+> +int lan9303_mdio_phy_read(struct lan9303 *chip, int phy,  int reg)
+> +{
+> +	struct lan9303_mdio *sw_dev = dev_get_drvdata(chip->dev);
+> +	struct mdio_device *mdio = sw_dev->device;
+> +	int val;
+> +
+> +	mutex_lock(&mdio->bus->mdio_lock);
+> +	val  =  mdio->bus->read(mdio->bus, phy, reg);
+> +	mutex_unlock(&mdio->bus->mdio_lock);
+
+Same here, mdiobus_read().
+
+
+Thanks,
+
+        Vivien
