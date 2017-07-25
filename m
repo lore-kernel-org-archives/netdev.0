@@ -1,31 +1,40 @@
-From: Matteo Croce <mcroce@redhat.com>
-Subject: Re: [PATCH] netns: more input validation
-Date: Tue, 25 Jul 2017 16:08:54 +0200
-Message-ID: <1500991734.2615.1.camel@redhat.com>
-References: <20170725133031.7735-1-mcroce@redhat.com>
-         <063D6719AE5E284EB5DD2968C1650D6DD003FE88@AcuExch.aculab.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next v11 1/4] net netlink: Add new type
+ NLA_BITFIELD_32
+Date: Tue, 25 Jul 2017 08:41:43 -0600
+Message-ID: <1a2578ca-35c6-884e-1daf-fcc47e5eb618@gmail.com>
+References: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
+ <1500860146-26970-2-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, mrv@mojatatu.com,
+        simon.horman@netronome.com, alex.aring@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37108 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750948AbdGYOI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Jul 2017 10:08:57 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD003FE88@AcuExch.aculab.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:38248 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751980AbdGYOlq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 10:41:46 -0400
+Received: by mail-pf0-f195.google.com with SMTP id c23so13079313pfe.5
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 07:41:46 -0700 (PDT)
+In-Reply-To: <1500860146-26970-2-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Il giorno mar, 25/07/2017 alle 13.47 +0000, David Laight ha scritto:
-> Think I'd check:
-> 	!name[0] || !memchr(name, 0, NAME_MAX) || strchr(name, '/') ||
-> 		(name[0] == '.' && (!name[1] || (name[1] == '.' &&
-> !name[2])))
+On 7/23/17 7:35 PM, Jamal Hadi Salim wrote:
+> In the most basic form, the user specifies the attribute policy as:
+> [ATTR_GOO] = { .type = NLA_BITFIELD_32, .validation_data = &myvalidflags },
 > 
-> 	David
+> where myvalidflags is the bit mask of the flags the kernel understands.
+> 
+> If the user _does not_ provide myvalidflags then the attribute will
+> also be rejected.
 
-Nice optimization, but as strchr() and strcmp() are builtin functions,
-at least in GCC, I don't know if there is any real advantage.
+No other netlink attribute has this requirement. Users of the attributes
+are the only ones that know if a value is valid or not (e.g, attribute
+passing a device index) and those are always checked in line.
+Furthermore, you are locking this attribute into a static meaning of
+what is a valid value when flags can be valid or invalid based on other
+attributes passed in the request.
