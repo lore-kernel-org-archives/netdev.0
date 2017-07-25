@@ -1,56 +1,48 @@
-From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
-Subject: Re: [PATCH net-next 6/6] 6lowpan: fix set not used warning
-Date: Tue, 25 Jul 2017 15:45:16 +0300
-Message-ID: <CABBYNZJES2ph8SkAisPEm-wsZ6iHjKTYkZ9wffhkk7X6=eKGoA@mail.gmail.com>
-References: <20170724172523.13135-1-sthemmin@microsoft.com> <20170724172523.13135-7-sthemmin@microsoft.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh: remove references to CPU_SUBTYPE_SH7764
+Date: Tue, 25 Jul 2017 15:54:23 +0300
+Message-ID: <6feee411-289a-51d9-f413-1f670fafa12a@cogentembedded.com>
+References: <1363002940.3137.65.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-        "Gustavo F. Padovan" <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        David Miller <davem@davemloft.net>, pablo@netfilter.org,
-        kadlec@blackhole.kfki.hu, fw@strlen.de,
-        "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-        "linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        Stephen Hemminger <sthemmin@microsoft.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:33376 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750980AbdGYMpS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 08:45:18 -0400
-In-Reply-To: <20170724172523.13135-7-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sh@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>, Paul Mundt <lethal@linux-sh.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1363002940.3137.65.camel@x61.thuisdomein>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+Hello!
 
-On Mon, Jul 24, 2017 at 8:25 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+On 03/11/2013 03:55 PM, Paul Bolle wrote:
+
+> Since release v2.6.29 the tree has a few references to the Kconfig
+> symbol CPU_SUBTYPE_SH7764 and the Kconfig macro
+> CONFIG_CPU_SUBTYPE_SH7764. But the actual symbol CPU_SUBTYPE_SH7764 was
+> never added to the tree. Perhaps no one noticed because these references
+> were never used alone. Anyhow, these references serve no purpose and
+> can be removed.
+>
+> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
 > ---
->  net/bluetooth/6lowpan.c | 3 ---
->  1 file changed, 3 deletions(-)
+> Untested: I don't have the hardware. Neither do I have the compiler for
+> this architecture at hand.
+[...]
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 33e9617..44a3d7b 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -1653,7 +1653,6 @@ static int sh_eth_open(struct net_device *ndev)
 >
-> diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
-> index 2af4f1cc0ab4..4e2576fc0c59 100644
-> --- a/net/bluetooth/6lowpan.c
-> +++ b/net/bluetooth/6lowpan.c
-> @@ -273,9 +273,6 @@ static int iphc_decompress(struct sk_buff *skb, struct net_device *netdev,
->                            struct lowpan_peer *peer)
->  {
->         const u8 *saddr;
-> -       struct lowpan_btle_dev *dev;
-> -
-> -       dev = lowpan_btle_dev(netdev);
->
->         saddr = peer->lladdr;
->
-> --
-> 2.11.0
+>  	ret = request_irq(ndev->irq, sh_eth_interrupt,
+>  #if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
+> -	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
+>  	defined(CONFIG_CPU_SUBTYPE_SH7757)
+>  				IRQF_SHARED,
+>  #else
 
-Acked-by: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>
+     This code is long gone -- what tree is your patch based upon?
 
--- 
-Luiz Augusto von Dentz
+MBR, Sergei
