@@ -1,76 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v11 3/4] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Tue, 25 Jul 2017 14:37:28 +0200
-Message-ID: <20170725123728.GC3186@nanopsycho>
-References: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
- <1500860146-26970-4-git-send-email-jhs@emojatatu.com>
- <20170724112750.GC1868@nanopsycho>
- <7057a692-7233-4632-4f66-2f57c98322ea@mojatatu.com>
- <20170725113352.GA3186@nanopsycho>
- <355f2140-d8e8-8a4e-1f31-cbbcbfd6821b@mojatatu.com>
+From: Luiz Augusto von Dentz <luiz.dentz@gmail.com>
+Subject: Re: [PATCH net-next 6/6] 6lowpan: fix set not used warning
+Date: Tue, 25 Jul 2017 15:45:16 +0300
+Message-ID: <CABBYNZJES2ph8SkAisPEm-wsZ6iHjKTYkZ9wffhkk7X6=eKGoA@mail.gmail.com>
+References: <20170724172523.13135-1-sthemmin@microsoft.com> <20170724172523.13135-7-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, dsahern@gmail.com,
-        eric.dumazet@gmail.com, mrv@mojatatu.com,
-        simon.horman@netronome.com, alex.aring@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+        "Gustavo F. Padovan" <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        David Miller <davem@davemloft.net>, pablo@netfilter.org,
+        kadlec@blackhole.kfki.hu, fw@strlen.de,
+        "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
+        "linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        Stephen Hemminger <sthemmin@microsoft.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36642 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750732AbdGYMhb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 08:37:31 -0400
-Received: by mail-wm0-f65.google.com with SMTP id 184so16101720wmo.3
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 05:37:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <355f2140-d8e8-8a4e-1f31-cbbcbfd6821b@mojatatu.com>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:33376 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750980AbdGYMpS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 08:45:18 -0400
+In-Reply-To: <20170724172523.13135-7-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jul 25, 2017 at 02:34:58PM CEST, jhs@mojatatu.com wrote:
->On 17-07-25 07:33 AM, Jiri Pirko wrote:
->> Tue, Jul 25, 2017 at 01:22:44PM CEST, jhs@mojatatu.com wrote:
->
->> > > fb? bf? nbf? Please make this synced within the patchset.
->> > > 
->> > > 
->> > 
->> > Ok, what do you like best? ;->
->> 
->> "bf"
->> 
->
->Ok.
->
->> 
->> > 
->> > > Don't you need to mask value with selector? In fact, I think that
->> > > nla_get_bitfield_32 could just return u32 which would be (value&selector).
->> > > The validation takes care of unsupported bits.
->> > 
->> > For my use case I dont need any of the above since I dont need to
->> > unset things. In other use cases you will need both selector and
->> > value in case someone wants a bit to be set to 0.
->> > Infact I think i will rename that helper to "nla_get_bitvalue_32"
->> > to be more precise.
->> 
->> The getter should contain name of the type, so "nla_get_bitfield32_val"
->> is much better.
->> 
->
->Actually I mispoke. I was returning the struct not the value. So
->nla_get_bitfield32() is a better name.
+Hi Stephen,
 
-ack
-
-
+On Mon, Jul 24, 2017 at 8:25 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> ---
+>  net/bluetooth/6lowpan.c | 3 ---
+>  1 file changed, 3 deletions(-)
 >
->> What if I pass val 0x1 and selector 0x0 from userspace. I don't have the
->> bit selected, so you should not process it in kernel, no?
->> 
+> diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
+> index 2af4f1cc0ab4..4e2576fc0c59 100644
+> --- a/net/bluetooth/6lowpan.c
+> +++ b/net/bluetooth/6lowpan.c
+> @@ -273,9 +273,6 @@ static int iphc_decompress(struct sk_buff *skb, struct net_device *netdev,
+>                            struct lowpan_peer *peer)
+>  {
+>         const u8 *saddr;
+> -       struct lowpan_btle_dev *dev;
+> -
+> -       dev = lowpan_btle_dev(netdev);
 >
->Yes, valid point. I am not sure - should we reject?
+>         saddr = peer->lladdr;
+>
+> --
+> 2.11.0
 
-I think that the validation might check this and reject. Makes sense to
-me.
+Acked-by: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>
+
+-- 
+Luiz Augusto von Dentz
