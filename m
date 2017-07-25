@@ -1,7 +1,8 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RFC 13/13] sfp: add SFP module support
-Date: Tue, 25 Jul 2017 15:03:39 +0100
-Message-ID: <E1da0R1-0007MP-68@rmk-PC.armlinux.org.uk>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH RFC 09/13] sfp: add sfp-bus to bridge between network devices
+ and sfp cages
+Date: Tue, 25 Jul 2017 15:03:18 +0100
+Message-ID: <E1da0Qg-0007Lx-KY@rmk-PC.armlinux.org.uk>
 References: <20170725140138.GK31807@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,986 +11,1216 @@ Cc: netdev@vger.kernel.org
 To: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:50924 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:50900 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752339AbdGYODm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 10:03:42 -0400
+        with ESMTP id S1752251AbdGYODZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 10:03:25 -0400
 In-Reply-To: <20170725140138.GK31807@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for SFP hotpluggable modules via sfp-bus and phylink.
-This supports both copper and optical SFP modules, which require
-different Serdes modes in order to properly negotiate the link.
-
-Optical SFP modules typically require the Serdes link to be talking
-1000BaseX mode - this is the gigabit ethernet mode defined by the
-802.3 standard.
-
-Copper SFP modules typically integrate a PHY in the module to convert
-from Serdes to copper, and the PHY will be configured by the vendor
-to either present a 1000BaseX Serdes link (for fixed 1000BaseT) or a
-SGMII Serdes link.  However, this is vendor defined, so we instead
-detect the PHY, switch the link to SGMII mode, and use traditional
-PHY based negotiation.
-
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/phy/Kconfig  |   5 +
- drivers/net/phy/Makefile |   1 +
- drivers/net/phy/sfp.c    | 915 +++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 921 insertions(+)
- create mode 100644 drivers/net/phy/sfp.c
+ drivers/net/phy/Makefile  |   3 +
+ drivers/net/phy/phylink.c | 157 +++++++++++++++
+ drivers/net/phy/sfp-bus.c | 475 ++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/sfp.h     |  28 +++
+ include/linux/sfp.h       | 434 ++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 1097 insertions(+)
+ create mode 100644 drivers/net/phy/sfp-bus.c
+ create mode 100644 drivers/net/phy/sfp.h
+ create mode 100644 include/linux/sfp.h
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 6df36bc1e330..855b4d8f4da4 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -193,6 +193,11 @@ config LED_TRIGGER_PHY
- 
- comment "MII PHY device drivers"
- 
-+config SFP
-+	tristate "SFP cage support"
-+	depends on I2C && PHYLINK
-+	select MDIO_I2C
-+
- config AMD_PHY
- 	tristate "AMD PHYs"
- 	---help---
 diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 4c16a10f420e..7237255bad68 100644
+index c43e5b99fda4..4c16a10f420e 100644
 --- a/drivers/net/phy/Makefile
 +++ b/drivers/net/phy/Makefile
-@@ -38,6 +38,7 @@ obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
+@@ -38,6 +38,9 @@ obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
  obj-$(CONFIG_MDIO_THUNDER)	+= mdio-thunder.o
  obj-$(CONFIG_MDIO_XGENE)	+= mdio-xgene.o
  
-+obj-$(CONFIG_SFP)		+= sfp.o
- sfp-obj-$(CONFIG_SFP)		+= sfp-bus.o
- obj-y				+= $(sfp-obj-y) $(sfp-obj-m)
++sfp-obj-$(CONFIG_SFP)		+= sfp-bus.o
++obj-y				+= $(sfp-obj-y) $(sfp-obj-m)
++
+ obj-$(CONFIG_AMD_PHY)		+= amd.o
+ obj-$(CONFIG_AQUANTIA_PHY)	+= aquantia.o
+ obj-$(CONFIG_AT803X_PHY)	+= at803x.o
+diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
+index af61d7d400af..02082f4a8a95 100644
+--- a/drivers/net/phy/phylink.c
++++ b/drivers/net/phy/phylink.c
+@@ -21,6 +21,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/workqueue.h>
  
-diff --git a/drivers/net/phy/sfp.c b/drivers/net/phy/sfp.c
-new file mode 100644
-index 000000000000..fb2cf4342f48
---- /dev/null
-+++ b/drivers/net/phy/sfp.c
-@@ -0,0 +1,915 @@
-+#include <linux/delay.h>
-+#include <linux/gpio.h>
-+#include <linux/i2c.h>
-+#include <linux/interrupt.h>
-+#include <linux/jiffies.h>
-+#include <linux/module.h>
-+#include <linux/mutex.h>
-+#include <linux/of.h>
-+#include <linux/phy.h>
-+#include <linux/platform_device.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/slab.h>
-+#include <linux/workqueue.h>
-+
-+#include "mdio-i2c.h"
 +#include "sfp.h"
-+#include "swphy.h"
+ #include "swphy.h"
+ 
+ #define SUPPORTED_INTERFACES \
+@@ -32,6 +33,7 @@
+ 
+ enum {
+ 	PHYLINK_DISABLE_STOPPED,
++	PHYLINK_DISABLE_LINK,
+ };
+ 
+ struct phylink {
+@@ -54,6 +56,8 @@ struct phylink {
+ 	struct work_struct resolve;
+ 
+ 	bool mac_link_dropped;
 +
-+enum {
-+	GPIO_MODDEF0,
-+	GPIO_LOS,
-+	GPIO_TX_FAULT,
-+	GPIO_TX_DISABLE,
-+	GPIO_RATE_SELECT,
-+	GPIO_MAX,
-+
-+	SFP_F_PRESENT = BIT(GPIO_MODDEF0),
-+	SFP_F_LOS = BIT(GPIO_LOS),
-+	SFP_F_TX_FAULT = BIT(GPIO_TX_FAULT),
-+	SFP_F_TX_DISABLE = BIT(GPIO_TX_DISABLE),
-+	SFP_F_RATE_SELECT = BIT(GPIO_RATE_SELECT),
-+
-+	SFP_E_INSERT = 0,
-+	SFP_E_REMOVE,
-+	SFP_E_DEV_DOWN,
-+	SFP_E_DEV_UP,
-+	SFP_E_TX_FAULT,
-+	SFP_E_TX_CLEAR,
-+	SFP_E_LOS_HIGH,
-+	SFP_E_LOS_LOW,
-+	SFP_E_TIMEOUT,
-+
-+	SFP_MOD_EMPTY = 0,
-+	SFP_MOD_PROBE,
-+	SFP_MOD_PRESENT,
-+	SFP_MOD_ERROR,
-+
-+	SFP_DEV_DOWN = 0,
-+	SFP_DEV_UP,
-+
-+	SFP_S_DOWN = 0,
-+	SFP_S_INIT,
-+	SFP_S_WAIT_LOS,
-+	SFP_S_LINK_UP,
-+	SFP_S_TX_FAULT,
-+	SFP_S_REINIT,
-+	SFP_S_TX_DISABLE,
-+};
-+
-+static const char *gpio_of_names[] = {
-+	"moddef0",
-+	"los",
-+	"tx-fault",
-+	"tx-disable",
-+	"rate-select",
-+};
-+
-+static const enum gpiod_flags gpio_flags[] = {
-+	GPIOD_IN,
-+	GPIOD_IN,
-+	GPIOD_IN,
-+	GPIOD_ASIS,
-+	GPIOD_ASIS,
-+};
-+
-+#define T_INIT_JIFFIES	msecs_to_jiffies(300)
-+#define T_RESET_US	10
-+#define T_FAULT_RECOVER	msecs_to_jiffies(1000)
-+
-+/* SFP module presence detection is poor: the three MOD DEF signals are
-+ * the same length on the PCB, which means it's possible for MOD DEF 0 to
-+ * connect before the I2C bus on MOD DEF 1/2.
-+ *
-+ * The SFP MSA specifies 300ms as t_init (the time taken for TX_FAULT to
-+ * be deasserted) but makes no mention of the earliest time before we can
-+ * access the I2C EEPROM.  However, Avago modules require 300ms.
-+ */
-+#define T_PROBE_INIT	msecs_to_jiffies(300)
-+#define T_PROBE_RETRY	msecs_to_jiffies(100)
-+
-+/*
-+ * SFP modules appear to always have their PHY configured for bus address
-+ * 0x56 (which with mdio-i2c, translates to a PHY address of 22).
-+ */
-+#define SFP_PHY_ADDR	22
-+
-+/*
-+ * Give this long for the PHY to reset.
-+ */
-+#define T_PHY_RESET_MS	50
-+
-+static DEFINE_MUTEX(sfp_mutex);
-+
-+struct sfp {
-+	struct device *dev;
-+	struct i2c_adapter *i2c;
-+	struct mii_bus *i2c_mii;
 +	struct sfp_bus *sfp_bus;
-+	struct phy_device *mod_phy;
+ };
+ 
+ static inline void linkmode_zero(unsigned long *dst)
+@@ -466,6 +470,24 @@ static void phylink_run_resolve(struct phylink *pl)
+ 		queue_work(system_power_efficient_wq, &pl->resolve);
+ }
+ 
++static const struct sfp_upstream_ops sfp_phylink_ops;
 +
-+	unsigned int (*get_state)(struct sfp *);
-+	void (*set_state)(struct sfp *, unsigned int);
-+	int (*read)(struct sfp *, bool, u8, void *, size_t);
-+
-+	struct gpio_desc *gpio[GPIO_MAX];
-+
-+	unsigned int state;
-+	struct delayed_work poll;
-+	struct delayed_work timeout;
-+	struct mutex sm_mutex;
-+	unsigned char sm_mod_state;
-+	unsigned char sm_dev_state;
-+	unsigned short sm_state;
-+	unsigned int sm_retries;
-+
-+	struct sfp_eeprom_id id;
-+};
-+
-+static unsigned long poll_jiffies;
-+
-+static unsigned int sfp_gpio_get_state(struct sfp *sfp)
++static int phylink_register_sfp(struct phylink *pl, struct device_node *np)
 +{
-+	unsigned int i, state, v;
-+
-+	for (i = state = 0; i < GPIO_MAX; i++) {
-+		if (gpio_flags[i] != GPIOD_IN || !sfp->gpio[i])
-+			continue;
-+
-+		v = gpiod_get_value_cansleep(sfp->gpio[i]);
-+		if (v)
-+			state |= BIT(i);
-+	}
-+
-+	return state;
-+}
-+
-+static void sfp_gpio_set_state(struct sfp *sfp, unsigned int state)
-+{
-+	if (state & SFP_F_PRESENT) {
-+		/* If the module is present, drive the signals */
-+		if (sfp->gpio[GPIO_TX_DISABLE])
-+			gpiod_direction_output(sfp->gpio[GPIO_TX_DISABLE],
-+						state & SFP_F_TX_DISABLE);
-+		if (state & SFP_F_RATE_SELECT)
-+			gpiod_direction_output(sfp->gpio[GPIO_RATE_SELECT],
-+						state & SFP_F_RATE_SELECT);
-+	} else {
-+		/* Otherwise, let them float to the pull-ups */
-+		if (sfp->gpio[GPIO_TX_DISABLE])
-+			gpiod_direction_input(sfp->gpio[GPIO_TX_DISABLE]);
-+		if (state & SFP_F_RATE_SELECT)
-+			gpiod_direction_input(sfp->gpio[GPIO_RATE_SELECT]);
-+	}
-+}
-+
-+static int sfp__i2c_read(struct i2c_adapter *i2c, u8 bus_addr, u8 dev_addr,
-+	void *buf, size_t len)
-+{
-+	struct i2c_msg msgs[2];
-+	int ret;
-+
-+	msgs[0].addr = bus_addr;
-+	msgs[0].flags = 0;
-+	msgs[0].len = 1;
-+	msgs[0].buf = &dev_addr;
-+	msgs[1].addr = bus_addr;
-+	msgs[1].flags = I2C_M_RD;
-+	msgs[1].len = len;
-+	msgs[1].buf = buf;
-+
-+	ret = i2c_transfer(i2c, msgs, ARRAY_SIZE(msgs));
-+	if (ret < 0)
-+		return ret;
-+
-+	return ret == ARRAY_SIZE(msgs) ? len : 0;
-+}
-+
-+static int sfp_i2c_read(struct sfp *sfp, bool a2, u8 addr, void *buf,
-+	size_t len)
-+{
-+	return sfp__i2c_read(sfp->i2c, a2 ? 0x51 : 0x50, addr, buf, len);
-+}
-+
-+static int sfp_i2c_configure(struct sfp *sfp, struct i2c_adapter *i2c)
-+{
-+	struct mii_bus *i2c_mii;
-+	int ret;
-+
-+	if (!i2c_check_functionality(i2c, I2C_FUNC_I2C))
-+		return -EINVAL;
-+
-+	sfp->i2c = i2c;
-+	sfp->read = sfp_i2c_read;
-+
-+	i2c_mii = mdio_i2c_alloc(sfp->dev, i2c);
-+	if (IS_ERR(i2c_mii))
-+		return PTR_ERR(i2c_mii);
-+
-+	i2c_mii->name = "SFP I2C Bus";
-+	i2c_mii->phy_mask = ~0;
-+
-+	ret = mdiobus_register(i2c_mii);
-+	if (ret < 0) {
-+		mdiobus_free(i2c_mii);
-+		return ret;
-+	}
-+
-+	sfp->i2c_mii = i2c_mii;
-+
-+	return 0;
-+}
-+
-+
-+/* Interface */
-+static unsigned int sfp_get_state(struct sfp *sfp)
-+{
-+	return sfp->get_state(sfp);
-+}
-+
-+static void sfp_set_state(struct sfp *sfp, unsigned int state)
-+{
-+	sfp->set_state(sfp, state);
-+}
-+
-+static int sfp_read(struct sfp *sfp, bool a2, u8 addr, void *buf, size_t len)
-+{
-+	return sfp->read(sfp, a2, addr, buf, len);
-+}
-+
-+static unsigned int sfp_check(void *buf, size_t len)
-+{
-+	u8 *p, check;
-+
-+	for (p = buf, check = 0; len; p++, len--)
-+		check += *p;
-+
-+	return check;
-+}
-+
-+/* Helpers */
-+static void sfp_module_tx_disable(struct sfp *sfp)
-+{
-+	dev_dbg(sfp->dev, "tx disable %u -> %u\n",
-+		sfp->state & SFP_F_TX_DISABLE ? 1 : 0, 1);
-+	sfp->state |= SFP_F_TX_DISABLE;
-+	sfp_set_state(sfp, sfp->state);
-+}
-+
-+static void sfp_module_tx_enable(struct sfp *sfp)
-+{
-+	dev_dbg(sfp->dev, "tx disable %u -> %u\n",
-+		sfp->state & SFP_F_TX_DISABLE ? 1 : 0, 0);
-+	sfp->state &= ~SFP_F_TX_DISABLE;
-+	sfp_set_state(sfp, sfp->state);
-+}
-+
-+static void sfp_module_tx_fault_reset(struct sfp *sfp)
-+{
-+	unsigned int state = sfp->state;
-+
-+	if (state & SFP_F_TX_DISABLE)
-+		return;
-+
-+	sfp_set_state(sfp, state | SFP_F_TX_DISABLE);
-+
-+	udelay(T_RESET_US);
-+
-+	sfp_set_state(sfp, state);
-+}
-+
-+/* SFP state machine */
-+static void sfp_sm_set_timer(struct sfp *sfp, unsigned int timeout)
-+{
-+	if (timeout)
-+		mod_delayed_work(system_power_efficient_wq, &sfp->timeout,
-+				 timeout);
-+	else
-+		cancel_delayed_work(&sfp->timeout);
-+}
-+
-+static void sfp_sm_next(struct sfp *sfp, unsigned int state,
-+			unsigned int timeout)
-+{
-+	sfp->sm_state = state;
-+	sfp_sm_set_timer(sfp, timeout);
-+}
-+
-+static void sfp_sm_ins_next(struct sfp *sfp, unsigned int state, unsigned int timeout)
-+{
-+	sfp->sm_mod_state = state;
-+	sfp_sm_set_timer(sfp, timeout);
-+}
-+
-+static void sfp_sm_phy_detach(struct sfp *sfp)
-+{
-+	phy_stop(sfp->mod_phy);
-+	sfp_remove_phy(sfp->sfp_bus);
-+	phy_device_remove(sfp->mod_phy);
-+	phy_device_free(sfp->mod_phy);
-+	sfp->mod_phy = NULL;
-+}
-+
-+static void sfp_sm_probe_phy(struct sfp *sfp)
-+{
-+	struct phy_device *phy;
-+	int err;
-+
-+	msleep(T_PHY_RESET_MS);
-+
-+	phy = mdiobus_scan(sfp->i2c_mii, SFP_PHY_ADDR);
-+	if (IS_ERR(phy)) {
-+		dev_err(sfp->dev, "mdiobus scan returned %ld\n", PTR_ERR(phy));
-+		return;
-+	}
-+	if (!phy) {
-+		dev_info(sfp->dev, "no PHY detected\n");
-+		return;
-+	}
-+
-+	err = sfp_add_phy(sfp->sfp_bus, phy);
-+	if (err) {
-+		phy_device_remove(phy);
-+		phy_device_free(phy);
-+		dev_err(sfp->dev, "sfp_add_phy failed: %d\n", err);
-+		return;
-+	}
-+
-+	sfp->mod_phy = phy;
-+	phy_start(phy);
-+}
-+
-+static void sfp_sm_link_up(struct sfp *sfp)
-+{
-+	sfp_link_up(sfp->sfp_bus);
-+	sfp_sm_next(sfp, SFP_S_LINK_UP, 0);
-+}
-+
-+static void sfp_sm_link_down(struct sfp *sfp)
-+{
-+	sfp_link_down(sfp->sfp_bus);
-+}
-+
-+static void sfp_sm_link_check_los(struct sfp *sfp)
-+{
-+	unsigned int los = sfp->state & SFP_F_LOS;
-+
-+	/* FIXME: what if neither SFP_OPTIONS_LOS_INVERTED nor
-+	 * SFP_OPTIONS_LOS_NORMAL are set?  For now, we assume
-+	 * the same as SFP_OPTIONS_LOS_NORMAL set.
-+	 */
-+	if (sfp->id.ext.options & SFP_OPTIONS_LOS_INVERTED)
-+		los ^= SFP_F_LOS;
-+
-+	if (los)
-+		sfp_sm_next(sfp, SFP_S_WAIT_LOS, 0);
-+	else
-+		sfp_sm_link_up(sfp);
-+}
-+
-+static void sfp_sm_fault(struct sfp *sfp, bool warn)
-+{
-+	if (sfp->sm_retries && !--sfp->sm_retries) {
-+		dev_err(sfp->dev, "module persistently indicates fault, disabling\n");
-+		sfp_sm_next(sfp, SFP_S_TX_DISABLE, 0);
-+	} else {
-+		if (warn)
-+			dev_err(sfp->dev, "module transmit fault indicated\n");
-+
-+		sfp_sm_next(sfp, SFP_S_TX_FAULT, T_FAULT_RECOVER);
-+	}
-+}
-+
-+static void sfp_sm_mod_init(struct sfp *sfp)
-+{
-+	sfp_module_tx_enable(sfp);
-+
-+	/* Wait t_init before indicating that the link is up, provided the
-+	 * current state indicates no TX_FAULT.  If TX_FAULT clears before
-+	 * this time, that's fine too.
-+	 */
-+	sfp_sm_next(sfp, SFP_S_INIT, T_INIT_JIFFIES);
-+	sfp->sm_retries = 5;
-+
-+	/* Setting the serdes link mode is guesswork: there's no
-+	 * field in the EEPROM which indicates what mode should
-+	 * be used.
-+	 *
-+	 * If it's a gigabit-only fiber module, it probably does
-+	 * not have a PHY, so switch to 802.3z negotiation mode.
-+	 * Otherwise, switch to SGMII mode (which is required to
-+	 * support non-gigabit speeds) and probe for a PHY.
-+	 */
-+	if (sfp->id.base.e1000_base_t ||
-+	    sfp->id.base.e100_base_lx ||
-+	    sfp->id.base.e100_base_fx)
-+		sfp_sm_probe_phy(sfp);
-+}
-+
-+static int sfp_sm_mod_probe(struct sfp *sfp)
-+{
-+	/* SFP module inserted - read I2C data */
-+	struct sfp_eeprom_id id;
-+	char vendor[17];
-+	char part[17];
-+	char sn[17];
-+	char date[9];
-+	char rev[5];
-+	u8 check;
-+	int err;
-+
-+	err = sfp_read(sfp, false, 0, &id, sizeof(id));
-+	if (err < 0) {
-+		dev_err(sfp->dev, "failed to read EEPROM: %d\n", err);
-+		return -EAGAIN;
-+	}
-+
-+	if (err != sizeof(id)) {
-+		dev_err(sfp->dev, "EEPROM short read: %d\n", err);
-+		return -EAGAIN;
-+	}
-+
-+	/* Validate the checksum over the base structure */
-+	check = sfp_check(&id.base, sizeof(id.base) - 1);
-+	if (check != id.base.cc_base) {
-+		dev_err(sfp->dev,
-+			"EEPROM base structure checksum failure: 0x%02x\n",
-+			check);
-+		print_hex_dump(KERN_ERR, "sfp EE: ", DUMP_PREFIX_OFFSET,
-+			       16, 1, &id, sizeof(id.base) - 1, true);
-+		return -EINVAL;
-+	}
-+
-+	check = sfp_check(&id.ext, sizeof(id.ext) - 1);
-+	if (check != id.ext.cc_ext) {
-+		dev_err(sfp->dev,
-+			"EEPROM extended structure checksum failure: 0x%02x\n",
-+			check);
-+		memset(&id.ext, 0, sizeof(id.ext));
-+	}
-+
-+	sfp->id = id;
-+
-+	memcpy(vendor, sfp->id.base.vendor_name, 16);
-+	vendor[16] = '\0';
-+	memcpy(part, sfp->id.base.vendor_pn, 16);
-+	part[16] = '\0';
-+	memcpy(rev, sfp->id.base.vendor_rev, 4);
-+	rev[4] = '\0';
-+	memcpy(sn, sfp->id.ext.vendor_sn, 16);
-+	sn[16] = '\0';
-+	memcpy(date, sfp->id.ext.datecode, 8);
-+	date[8] = '\0';
-+
-+	dev_info(sfp->dev, "module %s %s rev %s sn %s dc %s\n", vendor, part, rev, sn, date);
-+
-+	/* We only support SFP modules, not the legacy GBIC modules. */
-+	if (sfp->id.base.phys_id != SFP_PHYS_ID_SFP ||
-+	    sfp->id.base.phys_ext_id != SFP_PHYS_EXT_ID_SFP) {
-+		dev_err(sfp->dev, "module is not SFP - phys id 0x%02x 0x%02x\n",
-+			sfp->id.base.phys_id, sfp->id.base.phys_ext_id);
-+		return -EINVAL;
-+	}
-+
-+	return sfp_module_insert(sfp->sfp_bus, &sfp->id);
-+}
-+
-+static void sfp_sm_mod_remove(struct sfp *sfp)
-+{
-+	sfp_module_remove(sfp->sfp_bus);
-+
-+	if (sfp->mod_phy)
-+		sfp_sm_phy_detach(sfp);
-+
-+	sfp_module_tx_disable(sfp);
-+
-+	memset(&sfp->id, 0, sizeof(sfp->id));
-+
-+	dev_info(sfp->dev, "module removed\n");
-+}
-+
-+static void sfp_sm_event(struct sfp *sfp, unsigned int event)
-+{
-+	mutex_lock(&sfp->sm_mutex);
-+
-+	dev_dbg(sfp->dev, "SM: enter %u:%u:%u event %u\n",
-+		sfp->sm_mod_state, sfp->sm_dev_state, sfp->sm_state, event);
-+
-+	/* This state machine tracks the insert/remove state of
-+	 * the module, and handles probing the on-board EEPROM.
-+	 */
-+	switch (sfp->sm_mod_state) {
-+	default:
-+		if (event == SFP_E_INSERT) {
-+			sfp_module_tx_disable(sfp);
-+			sfp_sm_ins_next(sfp, SFP_MOD_PROBE, T_PROBE_INIT);
-+		}
-+		break;
-+
-+	case SFP_MOD_PROBE:
-+		if (event == SFP_E_REMOVE) {
-+			sfp_sm_ins_next(sfp, SFP_MOD_EMPTY, 0);
-+		} else if (event == SFP_E_TIMEOUT) {
-+			int err = sfp_sm_mod_probe(sfp);
-+
-+			if (err == 0)
-+				sfp_sm_ins_next(sfp, SFP_MOD_PRESENT, 0);
-+			else if (err == -EAGAIN)
-+				sfp_sm_set_timer(sfp, T_PROBE_RETRY);
-+			else
-+				sfp_sm_ins_next(sfp, SFP_MOD_ERROR, 0);
-+		}
-+		break;
-+
-+	case SFP_MOD_PRESENT:
-+	case SFP_MOD_ERROR:
-+		if (event == SFP_E_REMOVE) {
-+			sfp_sm_mod_remove(sfp);
-+			sfp_sm_ins_next(sfp, SFP_MOD_EMPTY, 0);
-+		}
-+		break;
-+	}
-+
-+	/* This state machine tracks the netdev up/down state */
-+	switch (sfp->sm_dev_state) {
-+	default:
-+		if (event == SFP_E_DEV_UP)
-+			sfp->sm_dev_state = SFP_DEV_UP;
-+		break;
-+
-+	case SFP_DEV_UP:
-+		if (event == SFP_E_DEV_DOWN) {
-+			/* If the module has a PHY, avoid raising TX disable
-+			 * as this resets the PHY. Otherwise, raise it to
-+			 * turn the laser off.
-+			 */
-+			if (!sfp->mod_phy)
-+				sfp_module_tx_disable(sfp);
-+			sfp->sm_dev_state = SFP_DEV_DOWN;
-+		}
-+		break;
-+	}
-+
-+	/* Some events are global */
-+	if (sfp->sm_state != SFP_S_DOWN &&
-+	    (sfp->sm_mod_state != SFP_MOD_PRESENT ||
-+	     sfp->sm_dev_state != SFP_DEV_UP)) {
-+		if (sfp->sm_state == SFP_S_LINK_UP &&
-+		    sfp->sm_dev_state == SFP_DEV_UP)
-+			sfp_sm_link_down(sfp);
-+		if (sfp->mod_phy)
-+			sfp_sm_phy_detach(sfp);
-+		sfp_sm_next(sfp, SFP_S_DOWN, 0);
-+		mutex_unlock(&sfp->sm_mutex);
-+		return;
-+	}
-+
-+	/* The main state machine */
-+	switch (sfp->sm_state) {
-+	case SFP_S_DOWN:
-+		if (sfp->sm_mod_state == SFP_MOD_PRESENT &&
-+		    sfp->sm_dev_state == SFP_DEV_UP)
-+			sfp_sm_mod_init(sfp);
-+		break;
-+
-+	case SFP_S_INIT:
-+		if (event == SFP_E_TIMEOUT && sfp->state & SFP_F_TX_FAULT)
-+			sfp_sm_fault(sfp, true);
-+		else if (event == SFP_E_TIMEOUT || event == SFP_E_TX_CLEAR)
-+			sfp_sm_link_check_los(sfp);
-+		break;
-+
-+	case SFP_S_WAIT_LOS:
-+		if (event == SFP_E_TX_FAULT)
-+			sfp_sm_fault(sfp, true);
-+		else if (event ==
-+			 (sfp->id.ext.options & SFP_OPTIONS_LOS_INVERTED ?
-+			  SFP_E_LOS_HIGH : SFP_E_LOS_LOW))
-+			sfp_sm_link_up(sfp);
-+		break;
-+
-+	case SFP_S_LINK_UP:
-+		if (event == SFP_E_TX_FAULT) {
-+			sfp_sm_link_down(sfp);
-+			sfp_sm_fault(sfp, true);
-+		} else if (event ==
-+			   (sfp->id.ext.options & SFP_OPTIONS_LOS_INVERTED ?
-+			    SFP_E_LOS_LOW : SFP_E_LOS_HIGH)) {
-+			sfp_sm_link_down(sfp);
-+			sfp_sm_next(sfp, SFP_S_WAIT_LOS, 0);
-+		}
-+		break;
-+
-+	case SFP_S_TX_FAULT:
-+		if (event == SFP_E_TIMEOUT) {
-+			sfp_module_tx_fault_reset(sfp);
-+			sfp_sm_next(sfp, SFP_S_REINIT, T_INIT_JIFFIES);
-+		}
-+		break;
-+
-+	case SFP_S_REINIT:
-+		if (event == SFP_E_TIMEOUT && sfp->state & SFP_F_TX_FAULT) {
-+			sfp_sm_fault(sfp, false);
-+		} else if (event == SFP_E_TIMEOUT || event == SFP_E_TX_CLEAR) {
-+			dev_info(sfp->dev, "module transmit fault recovered\n");
-+			sfp_sm_link_check_los(sfp);
-+		}
-+		break;
-+
-+	case SFP_S_TX_DISABLE:
-+		break;
-+	}
-+
-+	dev_dbg(sfp->dev, "SM: exit %u:%u:%u\n",
-+		sfp->sm_mod_state, sfp->sm_dev_state, sfp->sm_state);
-+
-+	mutex_unlock(&sfp->sm_mutex);
-+}
-+
-+static void sfp_start(struct sfp *sfp)
-+{
-+	sfp_sm_event(sfp, SFP_E_DEV_UP);
-+}
-+
-+static void sfp_stop(struct sfp *sfp)
-+{
-+	sfp_sm_event(sfp, SFP_E_DEV_DOWN);
-+}
-+
-+static int sfp_module_info(struct sfp *sfp, struct ethtool_modinfo *modinfo)
-+{
-+	/* locking... and check module is present */
-+
-+	if (sfp->id.ext.sff8472_compliance) {
-+		modinfo->type = ETH_MODULE_SFF_8472;
-+		modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
-+	} else {
-+		modinfo->type = ETH_MODULE_SFF_8079;
-+		modinfo->eeprom_len = ETH_MODULE_SFF_8079_LEN;
-+	}
-+	return 0;
-+}
-+
-+static int sfp_module_eeprom(struct sfp *sfp, struct ethtool_eeprom *ee,
-+	u8 *data)
-+{
-+	unsigned int first, last, len;
-+	int ret;
-+
-+	if (ee->len == 0)
-+		return -EINVAL;
-+
-+	first = ee->offset;
-+	last = ee->offset + ee->len;
-+	if (first < ETH_MODULE_SFF_8079_LEN) {
-+		len = min_t(unsigned int, last, ETH_MODULE_SFF_8079_LEN);
-+		len -= first;
-+
-+		ret = sfp->read(sfp, false, first, data, len);
-+		if (ret < 0)
-+			return ret;
-+
-+		first += len;
-+		data += len;
-+	}
-+	if (first >= ETH_MODULE_SFF_8079_LEN &&
-+	    first < ETH_MODULE_SFF_8472_LEN) {
-+		len = min_t(unsigned int, last, ETH_MODULE_SFF_8472_LEN);
-+		len -= first;
-+		first -= ETH_MODULE_SFF_8079_LEN;
-+
-+		ret = sfp->read(sfp, true, first, data, len);
-+		if (ret < 0)
-+			return ret;
-+	}
-+	return 0;
-+}
-+
-+static const struct sfp_socket_ops sfp_module_ops = {
-+	.start = sfp_start,
-+	.stop = sfp_stop,
-+	.module_info = sfp_module_info,
-+	.module_eeprom = sfp_module_eeprom,
-+};
-+
-+static void sfp_timeout(struct work_struct *work)
-+{
-+	struct sfp *sfp = container_of(work, struct sfp, timeout.work);
-+
-+	rtnl_lock();
-+	sfp_sm_event(sfp, SFP_E_TIMEOUT);
-+	rtnl_unlock();
-+}
-+
-+static void sfp_check_state(struct sfp *sfp)
-+{
-+	unsigned int state, i, changed;
-+
-+	state = sfp_get_state(sfp);
-+	changed = state ^ sfp->state;
-+	changed &= SFP_F_PRESENT | SFP_F_LOS | SFP_F_TX_FAULT;
-+
-+	for (i = 0; i < GPIO_MAX; i++)
-+		if (changed & BIT(i))
-+			dev_dbg(sfp->dev, "%s %u -> %u\n", gpio_of_names[i],
-+				!!(sfp->state & BIT(i)), !!(state & BIT(i)));
-+
-+	state |= sfp->state & (SFP_F_TX_DISABLE | SFP_F_RATE_SELECT);
-+	sfp->state = state;
-+
-+	rtnl_lock();
-+	if (changed & SFP_F_PRESENT)
-+		sfp_sm_event(sfp, state & SFP_F_PRESENT ?
-+				SFP_E_INSERT : SFP_E_REMOVE);
-+
-+	if (changed & SFP_F_TX_FAULT)
-+		sfp_sm_event(sfp, state & SFP_F_TX_FAULT ?
-+				SFP_E_TX_FAULT : SFP_E_TX_CLEAR);
-+
-+	if (changed & SFP_F_LOS)
-+		sfp_sm_event(sfp, state & SFP_F_LOS ?
-+				SFP_E_LOS_HIGH : SFP_E_LOS_LOW);
-+	rtnl_unlock();
-+}
-+
-+static irqreturn_t sfp_irq(int irq, void *data)
-+{
-+	struct sfp *sfp = data;
-+
-+	sfp_check_state(sfp);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static void sfp_poll(struct work_struct *work)
-+{
-+	struct sfp *sfp = container_of(work, struct sfp, poll.work);
-+
-+	sfp_check_state(sfp);
-+	mod_delayed_work(system_wq, &sfp->poll, poll_jiffies);
-+}
-+
-+static struct sfp *sfp_alloc(struct device *dev)
-+{
-+	struct sfp *sfp;
-+
-+	sfp = kzalloc(sizeof(*sfp), GFP_KERNEL);
-+	if (!sfp)
-+		return ERR_PTR(-ENOMEM);
-+
-+	sfp->dev = dev;
-+
-+	mutex_init(&sfp->sm_mutex);
-+	INIT_DELAYED_WORK(&sfp->poll, sfp_poll);
-+	INIT_DELAYED_WORK(&sfp->timeout, sfp_timeout);
-+
-+	return sfp;
-+}
-+
-+static void sfp_cleanup(void *data)
-+{
-+	struct sfp *sfp = data;
-+
-+	cancel_delayed_work_sync(&sfp->poll);
-+	cancel_delayed_work_sync(&sfp->timeout);
-+	if (sfp->i2c_mii) {
-+		mdiobus_unregister(sfp->i2c_mii);
-+		mdiobus_free(sfp->i2c_mii);
-+	}
-+	if (sfp->i2c)
-+		i2c_put_adapter(sfp->i2c);
-+	kfree(sfp);
-+}
-+
-+static int sfp_probe(struct platform_device *pdev)
-+{
-+	struct sfp *sfp;
-+	bool poll = false;
-+	int irq, err, i;
-+
-+	sfp = sfp_alloc(&pdev->dev);
-+	if (IS_ERR(sfp))
-+		return PTR_ERR(sfp);
-+
-+	platform_set_drvdata(pdev, sfp);
-+
-+	err = devm_add_action(sfp->dev, sfp_cleanup, sfp);
-+	if (err < 0)
-+		return err;
-+
-+	if (pdev->dev.of_node) {
-+		struct device_node *node = pdev->dev.of_node;
-+		struct device_node *np;
-+
-+		np = of_parse_phandle(node, "i2c-bus", 0);
-+		if (np) {
-+			struct i2c_adapter *i2c;
-+
-+			i2c = of_find_i2c_adapter_by_node(np);
-+			of_node_put(np);
-+			if (!i2c)
-+				return -EPROBE_DEFER;
-+
-+			err = sfp_i2c_configure(sfp, i2c);
-+			if (err < 0) {
-+				i2c_put_adapter(i2c);
-+				return err;
-+			}
-+		}
-+
-+		for (i = 0; i < GPIO_MAX; i++) {
-+			sfp->gpio[i] = devm_gpiod_get_optional(sfp->dev,
-+					   gpio_of_names[i], gpio_flags[i]);
-+			if (IS_ERR(sfp->gpio[i]))
-+				return PTR_ERR(sfp->gpio[i]);
-+		}
-+
-+		sfp->get_state = sfp_gpio_get_state;
-+		sfp->set_state = sfp_gpio_set_state;
-+	}
-+
-+	sfp->sfp_bus = sfp_register_socket(sfp->dev, sfp, &sfp_module_ops);
-+	if (!sfp->sfp_bus)
++	struct device_node *sfp_np;
++
++	sfp_np = of_parse_phandle(np, "sfp", 0);
++	if (!sfp_np)
++		return 0;
++
++	pl->sfp_bus = sfp_register_upstream(sfp_np, pl->netdev, pl,
++					    &sfp_phylink_ops);
++	if (!pl->sfp_bus)
 +		return -ENOMEM;
 +
-+	/* Get the initial state, and always signal TX disable,
-+	 * since the network interface will not be up.
-+	 */
-+	sfp->state = sfp_get_state(sfp) | SFP_F_TX_DISABLE;
++	return 0;
++}
 +
-+	if (sfp->gpio[GPIO_RATE_SELECT] &&
-+	    gpiod_get_value_cansleep(sfp->gpio[GPIO_RATE_SELECT]))
-+		sfp->state |= SFP_F_RATE_SELECT;
-+	sfp_set_state(sfp, sfp->state);
-+	sfp_module_tx_disable(sfp);
-+	rtnl_lock();
-+	if (sfp->state & SFP_F_PRESENT)
-+		sfp_sm_event(sfp, SFP_E_INSERT);
-+	rtnl_unlock();
-+
-+	for (i = 0; i < GPIO_MAX; i++) {
-+		if (gpio_flags[i] != GPIOD_IN || !sfp->gpio[i])
-+			continue;
-+
-+		irq = gpiod_to_irq(sfp->gpio[i]);
-+		if (!irq) {
-+			poll = true;
-+			continue;
-+		}
-+
-+		err = devm_request_threaded_irq(sfp->dev, irq, NULL, sfp_irq,
-+						IRQF_ONESHOT |
-+						IRQF_TRIGGER_RISING |
-+						IRQF_TRIGGER_FALLING,
-+						dev_name(sfp->dev), sfp);
-+		if (err)
-+			poll = true;
+ struct phylink *phylink_create(struct net_device *ndev, struct device_node *np,
+ 	phy_interface_t iface, const struct phylink_mac_ops *ops)
+ {
+@@ -507,12 +529,21 @@ struct phylink *phylink_create(struct net_device *ndev, struct device_node *np,
+ 		}
+ 	}
+ 
++	ret = phylink_register_sfp(pl, np);
++	if (ret < 0) {
++		kfree(pl);
++		return ERR_PTR(ret);
 +	}
 +
-+	if (poll)
-+		mod_delayed_work(system_wq, &sfp->poll, poll_jiffies);
+ 	return pl;
+ }
+ EXPORT_SYMBOL_GPL(phylink_create);
+ 
+ void phylink_destroy(struct phylink *pl)
+ {
++	if (pl->sfp_bus)
++		sfp_unregister_upstream(pl->sfp_bus);
 +
+ 	cancel_work_sync(&pl->resolve);
+ 	kfree(pl);
+ }
+@@ -706,6 +737,8 @@ void phylink_start(struct phylink *pl)
+ 	clear_bit(PHYLINK_DISABLE_STOPPED, &pl->phylink_disable_state);
+ 	phylink_run_resolve(pl);
+ 
++	if (pl->sfp_bus)
++		sfp_upstream_start(pl->sfp_bus);
+ 	if (pl->phydev)
+ 		phy_start(pl->phydev);
+ }
+@@ -717,6 +750,8 @@ void phylink_stop(struct phylink *pl)
+ 
+ 	if (pl->phydev)
+ 		phy_stop(pl->phydev);
++	if (pl->sfp_bus)
++		sfp_upstream_stop(pl->sfp_bus);
+ 
+ 	set_bit(PHYLINK_DISABLE_STOPPED, &pl->phylink_disable_state);
+ 	flush_work(&pl->resolve);
+@@ -1166,4 +1201,126 @@ int phylink_mii_ioctl(struct phylink *pl, struct ifreq *ifr, int cmd)
+ }
+ EXPORT_SYMBOL_GPL(phylink_mii_ioctl);
+ 
++
++
++static int phylink_sfp_module_insert(void *upstream,
++				     const struct sfp_eeprom_id *id)
++{
++	struct phylink *pl = upstream;
++	__ETHTOOL_DECLARE_LINK_MODE_MASK(support) = { 0, };
++	struct phylink_link_state config;
++	phy_interface_t iface;
++	int mode, ret = 0;
++	bool changed;
++	u8 port;
++
++	sfp_parse_support(pl->sfp_bus, id, support);
++	port = sfp_parse_port(pl->sfp_bus, id, support);
++	iface = sfp_parse_interface(pl->sfp_bus, id);
++
++	WARN_ON(!lockdep_rtnl_is_held());
++
++	switch (iface) {
++	case PHY_INTERFACE_MODE_SGMII:
++		mode = MLO_AN_SGMII;
++		break;
++	case PHY_INTERFACE_MODE_1000BASEX:
++		mode = MLO_AN_8023Z;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	memset(&config, 0, sizeof(config));
++	linkmode_copy(config.advertising, support);
++	config.interface = iface;
++	config.speed = SPEED_UNKNOWN;
++	config.duplex = DUPLEX_UNKNOWN;
++	config.pause = MLO_PAUSE_AN;
++	config.an_enabled = pl->link_config.an_enabled;
++
++	/* Ignore errors if we're expecting a PHY to attach later */
++	ret = phylink_validate(pl, support, &config);
++	if (ret) {
++		netdev_err(pl->netdev, "validation of %s/%s with support %*pb failed: %d\n",
++			   phylink_an_mode_str(mode), phy_modes(config.interface),
++			   __ETHTOOL_LINK_MODE_MASK_NBITS, support, ret);
++		return ret;
++	}
++
++	netdev_dbg(pl->netdev, "requesting link mode %s/%s with support %*pb\n",
++		   phylink_an_mode_str(mode), phy_modes(config.interface),
++		   __ETHTOOL_LINK_MODE_MASK_NBITS, support);
++
++	if (mode == MLO_AN_8023Z && pl->phydev)
++		return -EINVAL;
++
++	changed = !bitmap_equal(pl->supported, support,
++				__ETHTOOL_LINK_MODE_MASK_NBITS);
++	if (changed) {
++		linkmode_copy(pl->supported, support);
++		linkmode_copy(pl->link_config.advertising, config.advertising);
++	}
++
++	if (pl->link_an_mode != mode ||
++	    pl->link_config.interface != config.interface) {
++		pl->link_config.interface = config.interface;
++		pl->link_an_mode = mode;
++
++		changed = true;
++
++		netdev_info(pl->netdev, "switched to %s/%s link mode\n",
++			    phylink_an_mode_str(mode),
++			    phy_modes(config.interface));
++	}
++
++	pl->link_port = port;
++
++	if (changed && !test_bit(PHYLINK_DISABLE_STOPPED,
++				 &pl->phylink_disable_state))
++		phylink_mac_config(pl, &pl->link_config);
++
++	return ret;
++}
++
++static void phylink_sfp_link_down(void *upstream)
++{
++	struct phylink *pl = upstream;
++
++	WARN_ON(!lockdep_rtnl_is_held());
++
++	set_bit(PHYLINK_DISABLE_LINK, &pl->phylink_disable_state);
++	flush_work(&pl->resolve);
++
++	netif_carrier_off(pl->netdev);
++}
++
++static void phylink_sfp_link_up(void *upstream)
++{
++	struct phylink *pl = upstream;
++
++	WARN_ON(!lockdep_rtnl_is_held());
++
++	clear_bit(PHYLINK_DISABLE_LINK, &pl->phylink_disable_state);
++	phylink_run_resolve(pl);
++}
++
++static int phylink_sfp_connect_phy(void *upstream, struct phy_device *phy)
++{
++	return phylink_connect_phy(upstream, phy);
++}
++
++static void phylink_sfp_disconnect_phy(void *upstream)
++{
++	phylink_disconnect_phy(upstream);
++}
++
++static const struct sfp_upstream_ops sfp_phylink_ops = {
++	.module_insert = phylink_sfp_module_insert,
++	.link_up = phylink_sfp_link_up,
++	.link_down = phylink_sfp_link_down,
++	.connect_phy = phylink_sfp_connect_phy,
++	.disconnect_phy = phylink_sfp_disconnect_phy,
++};
++
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/net/phy/sfp-bus.c b/drivers/net/phy/sfp-bus.c
+new file mode 100644
+index 000000000000..5cb5384697ea
+--- /dev/null
++++ b/drivers/net/phy/sfp-bus.c
+@@ -0,0 +1,475 @@
++#include <linux/export.h>
++#include <linux/kref.h>
++#include <linux/list.h>
++#include <linux/mutex.h>
++#include <linux/phylink.h>
++#include <linux/rtnetlink.h>
++#include <linux/slab.h>
++
++#include "sfp.h"
++
++struct sfp_bus {
++	struct kref kref;
++	struct list_head node;
++	struct device_node *device_node;
++
++	const struct sfp_socket_ops *socket_ops;
++	struct device *sfp_dev;
++	struct sfp *sfp;
++
++	const struct sfp_upstream_ops *upstream_ops;
++	void *upstream;
++	struct net_device *netdev;
++	struct phy_device *phydev;
++
++	bool registered;
++	bool started;
++};
++
++
++int sfp_parse_port(struct sfp_bus *bus, const struct sfp_eeprom_id *id,
++		   unsigned long *support)
++{
++	int port;
++
++	/* port is the physical connector, set this from the connector field. */
++	switch (id->base.connector) {
++	case SFP_CONNECTOR_SC:
++	case SFP_CONNECTOR_FIBERJACK:
++	case SFP_CONNECTOR_LC:
++	case SFP_CONNECTOR_MT_RJ:
++	case SFP_CONNECTOR_MU:
++	case SFP_CONNECTOR_OPTICAL_PIGTAIL:
++		if (support)
++			phylink_set(support, FIBRE);
++		port = PORT_FIBRE;
++		break;
++
++	case SFP_CONNECTOR_RJ45:
++		if (support)
++			phylink_set(support, TP);
++		port = PORT_TP;
++		break;
++
++	case SFP_CONNECTOR_UNSPEC:
++		if (id->base.e1000_base_t) {
++			if (support)
++				phylink_set(support, TP);
++			port = PORT_TP;
++			break;
++		}
++		/* fallthrough */
++	case SFP_CONNECTOR_SG: /* guess */
++	case SFP_CONNECTOR_MPO_1X12:
++	case SFP_CONNECTOR_MPO_2X16:
++	case SFP_CONNECTOR_HSSDC_II:
++	case SFP_CONNECTOR_COPPER_PIGTAIL:
++	case SFP_CONNECTOR_NOSEPARATE:
++	case SFP_CONNECTOR_MXC_2X16:
++		port = PORT_OTHER;
++		break;
++	default:
++		dev_warn(bus->sfp_dev, "SFP: unknown connector id 0x%02x\n",
++			 id->base.connector);
++		port = PORT_OTHER;
++		break;
++	}
++
++	return port;
++}
++EXPORT_SYMBOL_GPL(sfp_parse_port);
++
++phy_interface_t sfp_parse_interface(struct sfp_bus *bus,
++				    const struct sfp_eeprom_id *id)
++{
++	phy_interface_t iface;
++
++	/* Setting the serdes link mode is guesswork: there's no field in
++	 * the EEPROM which indicates what mode should be used.
++	 *
++	 * If the module wants 64b66b, then it must be >= 10G.
++	 *
++	 * If it's a gigabit-only fiber module, it probably does not have
++	 * a PHY, so switch to 802.3z negotiation mode. Otherwise, switch
++	 * to SGMII mode (which is required to support non-gigabit speeds).
++	 */
++	switch (id->base.encoding) {
++	case SFP_ENCODING_8472_64B66B:
++		iface = PHY_INTERFACE_MODE_10GKR;
++		break;
++
++	case SFP_ENCODING_8B10B:
++		if (!id->base.e1000_base_t &&
++		    !id->base.e100_base_lx &&
++		    !id->base.e100_base_fx)
++			iface = PHY_INTERFACE_MODE_1000BASEX;
++		else
++			iface = PHY_INTERFACE_MODE_SGMII;
++		break;
++
++	default:
++		iface = PHY_INTERFACE_MODE_NA;
++		dev_err(bus->sfp_dev,
++			"SFP module encoding does not support 8b10b nor 64b66b\n");
++		break;
++	}
++
++	return iface;
++}
++EXPORT_SYMBOL_GPL(sfp_parse_interface);
++
++void sfp_parse_support(struct sfp_bus *bus, const struct sfp_eeprom_id *id,
++		       unsigned long *support)
++{
++	phylink_set(support, Autoneg);
++	phylink_set(support, Pause);
++	phylink_set(support, Asym_Pause);
++
++	/* Set ethtool support from the compliance fields. */
++	if (id->base.e10g_base_sr)
++		phylink_set(support, 10000baseSR_Full);
++	if (id->base.e10g_base_lr)
++		phylink_set(support, 10000baseLR_Full);
++	if (id->base.e10g_base_lrm)
++		phylink_set(support, 10000baseLRM_Full);
++	if (id->base.e10g_base_er)
++		phylink_set(support, 10000baseER_Full);
++	if (id->base.e1000_base_sx ||
++	    id->base.e1000_base_lx ||
++	    id->base.e1000_base_cx)
++		phylink_set(support, 1000baseX_Full);
++	if (id->base.e1000_base_t) {
++		phylink_set(support, 1000baseT_Half);
++		phylink_set(support, 1000baseT_Full);
++	}
++
++	switch (id->base.extended_cc) {
++	case 0x00: /* Unspecified */
++		break;
++	case 0x02: /* 100Gbase-SR4 or 25Gbase-SR */
++		phylink_set(support, 100000baseSR4_Full);
++		phylink_set(support, 25000baseSR_Full);
++		break;
++	case 0x03: /* 100Gbase-LR4 or 25Gbase-LR */
++	case 0x04: /* 100Gbase-ER4 or 25Gbase-ER */
++		phylink_set(support, 100000baseLR4_ER4_Full);
++		break;
++	case 0x0b: /* 100Gbase-CR4 or 25Gbase-CR CA-L */
++	case 0x0c: /* 25Gbase-CR CA-S */
++	case 0x0d: /* 25Gbase-CR CA-N */
++		phylink_set(support, 100000baseCR4_Full);
++		phylink_set(support, 25000baseCR_Full);
++		break;
++	default:
++		dev_warn(bus->sfp_dev,
++			 "Unknown/unsupported extended compliance code: 0x%02x\n",
++			 id->base.extended_cc);
++		break;
++	}
++
++	/* For fibre channel SFP, derive possible BaseX modes */
++	if (id->base.fc_speed_100 ||
++	    id->base.fc_speed_200 ||
++	    id->base.fc_speed_400) {
++		if (id->base.br_nominal >= 31)
++			phylink_set(support, 2500baseX_Full);
++		if (id->base.br_nominal >= 12)
++			phylink_set(support, 1000baseX_Full);
++	}
++
++	switch (id->base.connector) {
++	case SFP_CONNECTOR_SC:
++	case SFP_CONNECTOR_FIBERJACK:
++	case SFP_CONNECTOR_LC:
++	case SFP_CONNECTOR_MT_RJ:
++	case SFP_CONNECTOR_MU:
++	case SFP_CONNECTOR_OPTICAL_PIGTAIL:
++		break;
++
++	case SFP_CONNECTOR_UNSPEC:
++		if (id->base.e1000_base_t)
++			break;
++
++	case SFP_CONNECTOR_SG: /* guess */
++	case SFP_CONNECTOR_MPO_1X12:
++	case SFP_CONNECTOR_MPO_2X16:
++	case SFP_CONNECTOR_HSSDC_II:
++	case SFP_CONNECTOR_COPPER_PIGTAIL:
++	case SFP_CONNECTOR_NOSEPARATE:
++	case SFP_CONNECTOR_MXC_2X16:
++	default:
++		/* a guess at the supported link modes */
++		dev_warn(bus->sfp_dev,
++			 "Guessing link modes, please report...\n");
++		phylink_set(support, 1000baseT_Half);
++		phylink_set(support, 1000baseT_Full);
++		break;
++	}
++}
++EXPORT_SYMBOL_GPL(sfp_parse_support);
++
++
++static LIST_HEAD(sfp_buses);
++static DEFINE_MUTEX(sfp_mutex);
++
++static const struct sfp_upstream_ops *sfp_get_upstream_ops(struct sfp_bus *bus)
++{
++	return bus->registered ? bus->upstream_ops : NULL;
++}
++
++static struct sfp_bus *sfp_bus_get(struct device_node *np)
++{
++	struct sfp_bus *sfp, *new, *found = NULL;
++
++	new = kzalloc(sizeof(*new), GFP_KERNEL);
++
++	mutex_lock(&sfp_mutex);
++
++	list_for_each_entry(sfp, &sfp_buses, node) {
++		if (sfp->device_node == np) {
++			kref_get(&sfp->kref);
++			found = sfp;
++			break;
++		}
++	}
++
++	if (!found && new) {
++		kref_init(&new->kref);
++		new->device_node = np;
++		list_add(&new->node, &sfp_buses);
++		found = new;
++		new = NULL;
++	}
++
++	mutex_unlock(&sfp_mutex);
++
++	kfree(new);
++
++	return found;
++}
++
++static void sfp_bus_release(struct kref *kref) __releases(sfp_mutex)
++{
++	struct sfp_bus *bus = container_of(kref, struct sfp_bus, kref);
++
++	list_del(&bus->node);
++	mutex_unlock(&sfp_mutex);
++	kfree(bus);
++}
++
++static void sfp_bus_put(struct sfp_bus *bus)
++{
++	kref_put_mutex(&bus->kref, sfp_bus_release, &sfp_mutex);
++}
++
++static int sfp_register_bus(struct sfp_bus *bus)
++{
++	const struct sfp_upstream_ops *ops = bus->upstream_ops;
++	int ret;
++
++	if (ops) {
++		if (ops->link_down)
++			ops->link_down(bus->upstream);
++		if (ops->connect_phy && bus->phydev) {
++			ret = ops->connect_phy(bus->upstream, bus->phydev);
++			if (ret)
++				return ret;
++		}
++	}
++	if (bus->started)
++		bus->socket_ops->start(bus->sfp);
++	bus->registered = true;
 +	return 0;
 +}
 +
-+static int sfp_remove(struct platform_device *pdev)
++static void sfp_unregister_bus(struct sfp_bus *bus)
 +{
-+	struct sfp *sfp = platform_get_drvdata(pdev);
++	const struct sfp_upstream_ops *ops = bus->upstream_ops;
 +
-+	sfp_unregister_socket(sfp->sfp_bus);
-+
-+	return 0;
++	if (bus->registered) {
++		if (bus->started)
++			bus->socket_ops->stop(bus->sfp);
++		if (bus->phydev && ops && ops->disconnect_phy)
++			ops->disconnect_phy(bus->upstream);
++	}
++	bus->registered = false;
 +}
 +
-+static const struct of_device_id sfp_of_match[] = {
-+	{ .compatible = "sff,sfp", },
-+	{ },
++
++int sfp_get_module_info(struct sfp_bus *bus, struct ethtool_modinfo *modinfo)
++{
++	if (!bus->registered)
++		return -ENOIOCTLCMD;
++	return bus->socket_ops->module_info(bus->sfp, modinfo);
++}
++EXPORT_SYMBOL_GPL(sfp_get_module_info);
++
++int sfp_get_module_eeprom(struct sfp_bus *bus, struct ethtool_eeprom *ee,
++	u8 *data)
++{
++	if (!bus->registered)
++		return -ENOIOCTLCMD;
++	return bus->socket_ops->module_eeprom(bus->sfp, ee, data);
++}
++EXPORT_SYMBOL_GPL(sfp_get_module_eeprom);
++
++void sfp_upstream_start(struct sfp_bus *bus)
++{
++	if (bus->registered)
++		bus->socket_ops->start(bus->sfp);
++	bus->started = true;
++}
++EXPORT_SYMBOL_GPL(sfp_upstream_start);
++
++void sfp_upstream_stop(struct sfp_bus *bus)
++{
++	if (bus->registered)
++		bus->socket_ops->stop(bus->sfp);
++	bus->started = false;
++}
++EXPORT_SYMBOL_GPL(sfp_upstream_stop);
++
++struct sfp_bus *sfp_register_upstream(struct device_node *np,
++	struct net_device *ndev, void *upstream,
++	const struct sfp_upstream_ops *ops)
++{
++	struct sfp_bus *bus = sfp_bus_get(np);
++	int ret = 0;
++
++	if (bus) {
++		rtnl_lock();
++		bus->upstream_ops = ops;
++		bus->upstream = upstream;
++		bus->netdev = ndev;
++
++		if (bus->sfp)
++			ret = sfp_register_bus(bus);
++		rtnl_unlock();
++	}
++
++	if (ret) {
++		sfp_bus_put(bus);
++		bus = NULL;
++	}
++
++	return bus;
++}
++EXPORT_SYMBOL_GPL(sfp_register_upstream);
++
++void sfp_unregister_upstream(struct sfp_bus *bus)
++{
++	rtnl_lock();
++	sfp_unregister_bus(bus);
++	bus->upstream = NULL;
++	bus->netdev = NULL;
++	rtnl_unlock();
++
++	sfp_bus_put(bus);
++}
++EXPORT_SYMBOL_GPL(sfp_unregister_upstream);
++
++
++/* Socket driver entry points */
++int sfp_add_phy(struct sfp_bus *bus, struct phy_device *phydev)
++{
++	const struct sfp_upstream_ops *ops = sfp_get_upstream_ops(bus);
++	int ret = 0;
++
++	if (ops && ops->connect_phy)
++		ret = ops->connect_phy(bus->upstream, phydev);
++
++	if (ret == 0)
++		bus->phydev = phydev;
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(sfp_add_phy);
++
++void sfp_remove_phy(struct sfp_bus *bus)
++{
++	const struct sfp_upstream_ops *ops = sfp_get_upstream_ops(bus);
++
++	if (ops && ops->disconnect_phy)
++		ops->disconnect_phy(bus->upstream);
++	bus->phydev = NULL;
++}
++EXPORT_SYMBOL_GPL(sfp_remove_phy);
++
++
++void sfp_link_up(struct sfp_bus *bus)
++{
++	const struct sfp_upstream_ops *ops = sfp_get_upstream_ops(bus);
++
++	if (ops && ops->link_up)
++		ops->link_up(bus->upstream);
++}
++EXPORT_SYMBOL_GPL(sfp_link_up);
++
++void sfp_link_down(struct sfp_bus *bus)
++{
++	const struct sfp_upstream_ops *ops = sfp_get_upstream_ops(bus);
++
++	if (ops && ops->link_down)
++		ops->link_down(bus->upstream);
++}
++EXPORT_SYMBOL_GPL(sfp_link_down);
++
++int sfp_module_insert(struct sfp_bus *bus, const struct sfp_eeprom_id *id)
++{
++	const struct sfp_upstream_ops *ops = sfp_get_upstream_ops(bus);
++	int ret = 0;
++
++	if (ops && ops->module_insert)
++		ret = ops->module_insert(bus->upstream, id);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(sfp_module_insert);
++
++void sfp_module_remove(struct sfp_bus *bus)
++{
++	const struct sfp_upstream_ops *ops = sfp_get_upstream_ops(bus);
++
++	if (ops && ops->module_remove)
++		ops->module_remove(bus->upstream);
++}
++EXPORT_SYMBOL_GPL(sfp_module_remove);
++
++struct sfp_bus *sfp_register_socket(struct device *dev, struct sfp *sfp,
++				    const struct sfp_socket_ops *ops)
++{
++	struct sfp_bus *bus = sfp_bus_get(dev->of_node);
++	int ret = 0;
++
++	if (bus) {
++		rtnl_lock();
++		bus->sfp_dev = dev;
++		bus->sfp = sfp;
++		bus->socket_ops = ops;
++
++		if (bus->netdev)
++			ret = sfp_register_bus(bus);
++		rtnl_unlock();
++	}
++
++	if (ret) {
++		sfp_bus_put(bus);
++		bus = NULL;
++	}
++
++	return bus;
++}
++EXPORT_SYMBOL_GPL(sfp_register_socket);
++
++void sfp_unregister_socket(struct sfp_bus *bus)
++{
++	rtnl_lock();
++	sfp_unregister_bus(bus);
++	bus->sfp_dev = NULL;
++	bus->sfp = NULL;
++	bus->socket_ops = NULL;
++	rtnl_unlock();
++
++	sfp_bus_put(bus);
++}
++EXPORT_SYMBOL_GPL(sfp_unregister_socket);
+diff --git a/drivers/net/phy/sfp.h b/drivers/net/phy/sfp.h
+new file mode 100644
+index 000000000000..31b0acf337e2
+--- /dev/null
++++ b/drivers/net/phy/sfp.h
+@@ -0,0 +1,28 @@
++#ifndef SFP_H
++#define SFP_H
++
++#include <linux/ethtool.h>
++#include <linux/sfp.h>
++
++struct sfp;
++
++struct sfp_socket_ops {
++	void (*start)(struct sfp *sfp);
++	void (*stop)(struct sfp *sfp);
++	int (*module_info)(struct sfp *sfp, struct ethtool_modinfo *modinfo);
++	int (*module_eeprom)(struct sfp *sfp, struct ethtool_eeprom *ee,
++			     u8 *data);
 +};
-+MODULE_DEVICE_TABLE(of, sfp_of_match);
 +
-+static struct platform_driver sfp_driver = {
-+	.probe = sfp_probe,
-+	.remove = sfp_remove,
-+	.driver = {
-+		.name = "sfp",
-+		.of_match_table = sfp_of_match,
-+	},
++int sfp_add_phy(struct sfp_bus *bus, struct phy_device *phydev);
++void sfp_remove_phy(struct sfp_bus *bus);
++void sfp_link_up(struct sfp_bus *bus);
++void sfp_link_down(struct sfp_bus *bus);
++int sfp_module_insert(struct sfp_bus *bus, const struct sfp_eeprom_id *id);
++void sfp_module_remove(struct sfp_bus *bus);
++int sfp_link_configure(struct sfp_bus *bus, const struct sfp_eeprom_id *id);
++struct sfp_bus *sfp_register_socket(struct device *dev, struct sfp *sfp,
++				    const struct sfp_socket_ops *ops);
++void sfp_unregister_socket(struct sfp_bus *bus);
++
++#endif
+diff --git a/include/linux/sfp.h b/include/linux/sfp.h
+new file mode 100644
+index 000000000000..4a906f560817
+--- /dev/null
++++ b/include/linux/sfp.h
+@@ -0,0 +1,434 @@
++#ifndef LINUX_SFP_H
++#define LINUX_SFP_H
++
++#include <linux/phy.h>
++
++struct __packed sfp_eeprom_base {
++	u8 phys_id;
++	u8 phys_ext_id;
++	u8 connector;
++#if defined __BIG_ENDIAN_BITFIELD
++	u8 e10g_base_er:1;
++	u8 e10g_base_lrm:1;
++	u8 e10g_base_lr:1;
++	u8 e10g_base_sr:1;
++	u8 if_1x_sx:1;
++	u8 if_1x_lx:1;
++	u8 if_1x_copper_active:1;
++	u8 if_1x_copper_passive:1;
++
++	u8 escon_mmf_1310_led:1;
++	u8 escon_smf_1310_laser:1;
++	u8 sonet_oc192_short_reach:1;
++	u8 sonet_reach_bit1:1;
++	u8 sonet_reach_bit2:1;
++	u8 sonet_oc48_long_reach:1;
++	u8 sonet_oc48_intermediate_reach:1;
++	u8 sonet_oc48_short_reach:1;
++
++	u8 unallocated_5_7:1;
++	u8 sonet_oc12_smf_long_reach:1;
++	u8 sonet_oc12_smf_intermediate_reach:1;
++	u8 sonet_oc12_short_reach:1;
++	u8 unallocated_5_3:1;
++	u8 sonet_oc3_smf_long_reach:1;
++	u8 sonet_oc3_smf_intermediate_reach:1;
++	u8 sonet_oc3_short_reach:1;
++
++	u8 e_base_px:1;
++	u8 e_base_bx10:1;
++	u8 e100_base_fx:1;
++	u8 e100_base_lx:1;
++	u8 e1000_base_t:1;
++	u8 e1000_base_cx:1;
++	u8 e1000_base_lx:1;
++	u8 e1000_base_sx:1;
++
++	u8 fc_ll_v:1;
++	u8 fc_ll_s:1;
++	u8 fc_ll_i:1;
++	u8 fc_ll_l:1;
++	u8 fc_ll_m:1;
++	u8 fc_tech_sa:1;
++	u8 fc_tech_lc:1;
++	u8 fc_tech_electrical_inter_enclosure:1;
++
++	u8 fc_tech_electrical_intra_enclosure:1;
++	u8 fc_tech_sn:1;
++	u8 fc_tech_sl:1;
++	u8 fc_tech_ll:1;
++	u8 sfp_ct_active:1;
++	u8 sfp_ct_passive:1;
++	u8 unallocated_8_1:1;
++	u8 unallocated_8_0:1;
++
++	u8 fc_media_tw:1;
++	u8 fc_media_tp:1;
++	u8 fc_media_mi:1;
++	u8 fc_media_tv:1;
++	u8 fc_media_m6:1;
++	u8 fc_media_m5:1;
++	u8 unallocated_9_1:1;
++	u8 fc_media_sm:1;
++
++	u8 fc_speed_1200:1;
++	u8 fc_speed_800:1;
++	u8 fc_speed_1600:1;
++	u8 fc_speed_400:1;
++	u8 fc_speed_3200:1;
++	u8 fc_speed_200:1;
++	u8 unallocated_10_1:1;
++	u8 fc_speed_100:1;
++#elif defined __LITTLE_ENDIAN_BITFIELD
++	u8 if_1x_copper_passive:1;
++	u8 if_1x_copper_active:1;
++	u8 if_1x_lx:1;
++	u8 if_1x_sx:1;
++	u8 e10g_base_sr:1;
++	u8 e10g_base_lr:1;
++	u8 e10g_base_lrm:1;
++	u8 e10g_base_er:1;
++
++	u8 sonet_oc3_short_reach:1;
++	u8 sonet_oc3_smf_intermediate_reach:1;
++	u8 sonet_oc3_smf_long_reach:1;
++	u8 unallocated_5_3:1;
++	u8 sonet_oc12_short_reach:1;
++	u8 sonet_oc12_smf_intermediate_reach:1;
++	u8 sonet_oc12_smf_long_reach:1;
++	u8 unallocated_5_7:1;
++
++	u8 sonet_oc48_short_reach:1;
++	u8 sonet_oc48_intermediate_reach:1;
++	u8 sonet_oc48_long_reach:1;
++	u8 sonet_reach_bit2:1;
++	u8 sonet_reach_bit1:1;
++	u8 sonet_oc192_short_reach:1;
++	u8 escon_smf_1310_laser:1;
++	u8 escon_mmf_1310_led:1;
++
++	u8 e1000_base_sx:1;
++	u8 e1000_base_lx:1;
++	u8 e1000_base_cx:1;
++	u8 e1000_base_t:1;
++	u8 e100_base_lx:1;
++	u8 e100_base_fx:1;
++	u8 e_base_bx10:1;
++	u8 e_base_px:1;
++
++	u8 fc_tech_electrical_inter_enclosure:1;
++	u8 fc_tech_lc:1;
++	u8 fc_tech_sa:1;
++	u8 fc_ll_m:1;
++	u8 fc_ll_l:1;
++	u8 fc_ll_i:1;
++	u8 fc_ll_s:1;
++	u8 fc_ll_v:1;
++
++	u8 unallocated_8_0:1;
++	u8 unallocated_8_1:1;
++	u8 sfp_ct_passive:1;
++	u8 sfp_ct_active:1;
++	u8 fc_tech_ll:1;
++	u8 fc_tech_sl:1;
++	u8 fc_tech_sn:1;
++	u8 fc_tech_electrical_intra_enclosure:1;
++
++	u8 fc_media_sm:1;
++	u8 unallocated_9_1:1;
++	u8 fc_media_m5:1;
++	u8 fc_media_m6:1;
++	u8 fc_media_tv:1;
++	u8 fc_media_mi:1;
++	u8 fc_media_tp:1;
++	u8 fc_media_tw:1;
++
++	u8 fc_speed_100:1;
++	u8 unallocated_10_1:1;
++	u8 fc_speed_200:1;
++	u8 fc_speed_3200:1;
++	u8 fc_speed_400:1;
++	u8 fc_speed_1600:1;
++	u8 fc_speed_800:1;
++	u8 fc_speed_1200:1;
++#else
++#error Unknown Endian
++#endif
++	u8 encoding;
++	u8 br_nominal;
++	u8 rate_id;
++	u8 link_len[6];
++	char vendor_name[16];
++	u8 extended_cc;
++	char vendor_oui[3];
++	char vendor_pn[16];
++	char vendor_rev[4];
++	union {
++		__be16 optical_wavelength;
++		u8 cable_spec;
++	};
++	u8 reserved62;
++	u8 cc_base;
 +};
 +
-+static int sfp_init(void)
++struct __packed sfp_eeprom_ext {
++	__be16 options;
++	u8 br_max;
++	u8 br_min;
++	char vendor_sn[16];
++	char datecode[8];
++	u8 diagmon;
++	u8 enhopts;
++	u8 sff8472_compliance;
++	u8 cc_ext;
++};
++
++struct __packed sfp_eeprom_id {
++	struct sfp_eeprom_base base;
++	struct sfp_eeprom_ext ext;
++};
++
++/* SFP EEPROM registers */
++enum {
++	SFP_PHYS_ID			= 0x00,
++	SFP_PHYS_EXT_ID			= 0x01,
++	SFP_CONNECTOR			= 0x02,
++	SFP_COMPLIANCE			= 0x03,
++	SFP_ENCODING			= 0x0b,
++	SFP_BR_NOMINAL			= 0x0c,
++	SFP_RATE_ID			= 0x0d,
++	SFP_LINK_LEN_SM_KM		= 0x0e,
++	SFP_LINK_LEN_SM_100M		= 0x0f,
++	SFP_LINK_LEN_50UM_OM2_10M	= 0x10,
++	SFP_LINK_LEN_62_5UM_OM1_10M	= 0x11,
++	SFP_LINK_LEN_COPPER_1M		= 0x12,
++	SFP_LINK_LEN_50UM_OM4_10M	= 0x12,
++	SFP_LINK_LEN_50UM_OM3_10M	= 0x13,
++	SFP_VENDOR_NAME			= 0x14,
++	SFP_VENDOR_OUI			= 0x25,
++	SFP_VENDOR_PN			= 0x28,
++	SFP_VENDOR_REV			= 0x38,
++	SFP_OPTICAL_WAVELENGTH_MSB	= 0x3c,
++	SFP_OPTICAL_WAVELENGTH_LSB	= 0x3d,
++	SFP_CABLE_SPEC			= 0x3c,
++	SFP_CC_BASE			= 0x3f,
++	SFP_OPTIONS			= 0x40,	/* 2 bytes, MSB, LSB */
++	SFP_BR_MAX			= 0x42,
++	SFP_BR_MIN			= 0x43,
++	SFP_VENDOR_SN			= 0x44,
++	SFP_DATECODE			= 0x54,
++	SFP_DIAGMON			= 0x5c,
++	SFP_ENHOPTS			= 0x5d,
++	SFP_SFF8472_COMPLIANCE		= 0x5e,
++	SFP_CC_EXT			= 0x5f,
++
++	SFP_PHYS_ID_SFP			= 0x03,
++	SFP_PHYS_EXT_ID_SFP		= 0x04,
++	SFP_CONNECTOR_UNSPEC		= 0x00,
++	/* codes 01-05 not supportable on SFP, but some modules have single SC */
++	SFP_CONNECTOR_SC		= 0x01,
++	SFP_CONNECTOR_FIBERJACK		= 0x06,
++	SFP_CONNECTOR_LC		= 0x07,
++	SFP_CONNECTOR_MT_RJ		= 0x08,
++	SFP_CONNECTOR_MU		= 0x09,
++	SFP_CONNECTOR_SG		= 0x0a,
++	SFP_CONNECTOR_OPTICAL_PIGTAIL	= 0x0b,
++	SFP_CONNECTOR_MPO_1X12		= 0x0c,
++	SFP_CONNECTOR_MPO_2X16		= 0x0d,
++	SFP_CONNECTOR_HSSDC_II		= 0x20,
++	SFP_CONNECTOR_COPPER_PIGTAIL	= 0x21,
++	SFP_CONNECTOR_RJ45		= 0x22,
++	SFP_CONNECTOR_NOSEPARATE	= 0x23,
++	SFP_CONNECTOR_MXC_2X16		= 0x24,
++	SFP_ENCODING_UNSPEC		= 0x00,
++	SFP_ENCODING_8B10B		= 0x01,
++	SFP_ENCODING_4B5B		= 0x02,
++	SFP_ENCODING_NRZ		= 0x03,
++	SFP_ENCODING_8472_MANCHESTER	= 0x04,
++	SFP_ENCODING_8472_SONET		= 0x05,
++	SFP_ENCODING_8472_64B66B	= 0x06,
++	SFP_ENCODING_256B257B		= 0x07,
++	SFP_ENCODING_PAM4		= 0x08,
++	SFP_OPTIONS_HIGH_POWER_LEVEL	= BIT(13),
++	SFP_OPTIONS_PAGING_A2		= BIT(12),
++	SFP_OPTIONS_RETIMER		= BIT(11),
++	SFP_OPTIONS_COOLED_XCVR		= BIT(10),
++	SFP_OPTIONS_POWER_DECL		= BIT(9),
++	SFP_OPTIONS_RX_LINEAR_OUT	= BIT(8),
++	SFP_OPTIONS_RX_DECISION_THRESH	= BIT(7),
++	SFP_OPTIONS_TUNABLE_TX		= BIT(6),
++	SFP_OPTIONS_RATE_SELECT		= BIT(5),
++	SFP_OPTIONS_TX_DISABLE		= BIT(4),
++	SFP_OPTIONS_TX_FAULT		= BIT(3),
++	SFP_OPTIONS_LOS_INVERTED	= BIT(2),
++	SFP_OPTIONS_LOS_NORMAL		= BIT(1),
++	SFP_DIAGMON_DDM			= BIT(6),
++	SFP_DIAGMON_INT_CAL		= BIT(5),
++	SFP_DIAGMON_EXT_CAL		= BIT(4),
++	SFP_DIAGMON_RXPWR_AVG		= BIT(3),
++	SFP_DIAGMON_ADDRMODE		= BIT(2),
++	SFP_ENHOPTS_ALARMWARN		= BIT(7),
++	SFP_ENHOPTS_SOFT_TX_DISABLE	= BIT(6),
++	SFP_ENHOPTS_SOFT_TX_FAULT	= BIT(5),
++	SFP_ENHOPTS_SOFT_RX_LOS		= BIT(4),
++	SFP_ENHOPTS_SOFT_RATE_SELECT	= BIT(3),
++	SFP_ENHOPTS_APP_SELECT_SFF8079	= BIT(2),
++	SFP_ENHOPTS_SOFT_RATE_SFF8431	= BIT(1),
++	SFP_SFF8472_COMPLIANCE_NONE	= 0x00,
++	SFP_SFF8472_COMPLIANCE_REV9_3	= 0x01,
++	SFP_SFF8472_COMPLIANCE_REV9_5	= 0x02,
++	SFP_SFF8472_COMPLIANCE_REV10_2	= 0x03,
++	SFP_SFF8472_COMPLIANCE_REV10_4	= 0x04,
++	SFP_SFF8472_COMPLIANCE_REV11_0	= 0x05,
++	SFP_SFF8472_COMPLIANCE_REV11_3	= 0x06,
++	SFP_SFF8472_COMPLIANCE_REV11_4	= 0x07,
++	SFP_SFF8472_COMPLIANCE_REV12_0	= 0x08,
++};
++
++/* SFP Diagnostics */
++enum {
++	/* Alarm and warnings stored MSB at lower address then LSB */
++	SFP_TEMP_HIGH_ALARM		= 0x00,
++	SFP_TEMP_LOW_ALARM		= 0x02,
++	SFP_TEMP_HIGH_WARN		= 0x04,
++	SFP_TEMP_LOW_WARN		= 0x06,
++	SFP_VOLT_HIGH_ALARM		= 0x08,
++	SFP_VOLT_LOW_ALARM		= 0x0a,
++	SFP_VOLT_HIGH_WARN		= 0x0c,
++	SFP_VOLT_LOW_WARN		= 0x0e,
++	SFP_BIAS_HIGH_ALARM		= 0x10,
++	SFP_BIAS_LOW_ALARM		= 0x12,
++	SFP_BIAS_HIGH_WARN		= 0x14,
++	SFP_BIAS_LOW_WARN		= 0x16,
++	SFP_TXPWR_HIGH_ALARM		= 0x18,
++	SFP_TXPWR_LOW_ALARM		= 0x1a,
++	SFP_TXPWR_HIGH_WARN		= 0x1c,
++	SFP_TXPWR_LOW_WARN		= 0x1e,
++	SFP_RXPWR_HIGH_ALARM		= 0x20,
++	SFP_RXPWR_LOW_ALARM		= 0x22,
++	SFP_RXPWR_HIGH_WARN		= 0x24,
++	SFP_RXPWR_LOW_WARN		= 0x26,
++	SFP_LASER_TEMP_HIGH_ALARM	= 0x28,
++	SFP_LASER_TEMP_LOW_ALARM	= 0x2a,
++	SFP_LASER_TEMP_HIGH_WARN	= 0x2c,
++	SFP_LASER_TEMP_LOW_WARN		= 0x2e,
++	SFP_TEC_CUR_HIGH_ALARM		= 0x30,
++	SFP_TEC_CUR_LOW_ALARM		= 0x32,
++	SFP_TEC_CUR_HIGH_WARN		= 0x34,
++	SFP_TEC_CUR_LOW_WARN		= 0x36,
++	SFP_CAL_RXPWR4			= 0x38,
++	SFP_CAL_RXPWR3			= 0x3c,
++	SFP_CAL_RXPWR2			= 0x40,
++	SFP_CAL_RXPWR1			= 0x44,
++	SFP_CAL_RXPWR0			= 0x48,
++	SFP_CAL_TXI_SLOPE		= 0x4c,
++	SFP_CAL_TXI_OFFSET		= 0x4e,
++	SFP_CAL_TXPWR_SLOPE		= 0x50,
++	SFP_CAL_TXPWR_OFFSET		= 0x52,
++	SFP_CAL_T_SLOPE			= 0x54,
++	SFP_CAL_T_OFFSET		= 0x56,
++	SFP_CAL_V_SLOPE			= 0x58,
++	SFP_CAL_V_OFFSET		= 0x5a,
++	SFP_CHKSUM			= 0x5f,
++
++	SFP_TEMP			= 0x60,
++	SFP_VCC				= 0x62,
++	SFP_TX_BIAS			= 0x64,
++	SFP_TX_POWER			= 0x66,
++	SFP_RX_POWER			= 0x68,
++	SFP_LASER_TEMP			= 0x6a,
++	SFP_TEC_CUR			= 0x6c,
++
++	SFP_STATUS			= 0x6e,
++	SFP_ALARM			= 0x70,
++
++	SFP_EXT_STATUS			= 0x76,
++	SFP_VSL				= 0x78,
++	SFP_PAGE			= 0x7f,
++};
++
++struct device_node;
++struct ethtool_eeprom;
++struct ethtool_modinfo;
++struct net_device;
++struct sfp_bus;
++
++struct sfp_upstream_ops {
++	int (*module_insert)(void *, const struct sfp_eeprom_id *id);
++	void (*module_remove)(void *);
++	void (*link_down)(void *);
++	void (*link_up)(void *);
++	int (*connect_phy)(void *, struct phy_device *);
++	void (*disconnect_phy)(void *);
++};
++
++#if IS_ENABLED(CONFIG_SFP)
++int sfp_parse_port(struct sfp_bus *bus, const struct sfp_eeprom_id *id,
++		   unsigned long *support);
++phy_interface_t sfp_parse_interface(struct sfp_bus *bus,
++				    const struct sfp_eeprom_id *id);
++void sfp_parse_support(struct sfp_bus *bus, const struct sfp_eeprom_id *id,
++		       unsigned long *support);
++
++int sfp_get_module_info(struct sfp_bus *bus, struct ethtool_modinfo *modinfo);
++int sfp_get_module_eeprom(struct sfp_bus *bus, struct ethtool_eeprom *ee,
++			  u8 *data);
++void sfp_upstream_start(struct sfp_bus *bus);
++void sfp_upstream_stop(struct sfp_bus *bus);
++struct sfp_bus *sfp_register_upstream(struct device_node *np,
++				      struct net_device *ndev, void *upstream,
++				      const struct sfp_upstream_ops *ops);
++void sfp_unregister_upstream(struct sfp_bus *bus);
++#else
++static inline int sfp_parse_port(struct sfp_bus *bus,
++				 const struct sfp_eeprom_id *id,
++				 unsigned long *support)
 +{
-+	poll_jiffies = msecs_to_jiffies(100);
-+
-+	return platform_driver_register(&sfp_driver);
++	return PORT_OTHER;
 +}
-+module_init(sfp_init);
 +
-+static void sfp_exit(void)
++static inline phy_interface_t sfp_parse_interface(struct sfp_bus *bus,
++						const struct sfp_eeprom_id *id)
 +{
-+	platform_driver_unregister(&sfp_driver);
++	return PHY_INTERFACE_MODE_NA;
 +}
-+module_exit(sfp_exit);
 +
-+MODULE_ALIAS("platform:sfp");
-+MODULE_AUTHOR("Russell King");
-+MODULE_LICENSE("GPL v2");
++static inline void sfp_parse_support(struct sfp_bus *bus,
++				     const struct sfp_eeprom_id *id,
++				     unsigned long *support)
++{
++}
++
++static inline int sfp_get_module_info(struct sfp_bus *bus,
++				      struct ethtool_modinfo *modinfo)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int sfp_get_module_eeprom(struct sfp_bus *bus,
++					struct ethtool_eeprom *ee, u8 *data)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline void sfp_upstream_start(struct sfp_bus *bus)
++{
++}
++
++static inline void sfp_upstream_stop(struct sfp_bus *bus)
++{
++}
++
++static inline struct sfp_bus *sfp_register_upstream(struct device_node *np,
++	struct net_device *ndev, void *upstream,
++	const struct sfp_upstream_ops *ops)
++{
++	return (struct sfp_bus *)-1;
++}
++
++static inline void sfp_unregister_upstream(struct sfp_bus *bus)
++{
++}
++#endif
++
++#endif
 -- 
 2.7.4
