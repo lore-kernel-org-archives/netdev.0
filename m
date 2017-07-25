@@ -1,49 +1,37 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 1/5] netvsc: fix return value for set_channels
-Date: Tue, 25 Jul 2017 13:04:18 -0700
-Message-ID: <20170725200422.13795-2-sthemmin@microsoft.com>
-References: <20170725200422.13795-1-sthemmin@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Subject: [PATCH net-next 0/5] netvsc: fixes and performance related changes
+Date: Tue, 25 Jul 2017 13:04:17 -0700
+Message-ID: <20170725200422.13795-1-sthemmin@microsoft.com>
 Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com,
-	haiyangz@microsoft.com,
-	sthemmin@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170725200422.13795-1-sthemmin@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:35842 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753562AbdGYUEZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 16:04:25 -0400
+Received: by mail-pf0-f169.google.com with SMTP id z129so22712522pfb.3
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 13:04:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The error and normal case got swapped.
+The first two are more fixes to problems introduced in
+latest net-next changes.  The rest are changes to improve performance
+and reduce memory footprint.  The driver used to allocate large
+amounts of memory (33M) per interface, this reduces that down to
+about 7M.
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Stephen Hemminger (5):
+  netvsc: fix return value for set_channels
+  netvsc: fix warnings reported by lockdep
+  netvsc: optimize receive completions
+  netvsc: signal host if receive ring is emptied
+  netvsc: allow smaller send/recv buffer size
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 262486ce8e2a..f1eaf675d2e9 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -758,8 +758,8 @@ static int netvsc_set_channels(struct net_device *net,
- 	if (!IS_ERR(nvdev)) {
- 		netif_set_real_num_tx_queues(net, nvdev->num_chn);
- 		netif_set_real_num_rx_queues(net, nvdev->num_chn);
--		ret = PTR_ERR(nvdev);
- 	} else {
-+		ret = PTR_ERR(nvdev);
- 		device_info.num_chn = orig;
- 		rndis_filter_device_add(dev, &device_info);
- 	}
+ drivers/net/hyperv/hyperv_net.h   |  24 ++--
+ drivers/net/hyperv/netvsc.c       | 293 ++++++++++++++++----------------------
+ drivers/net/hyperv/netvsc_drv.c   |  48 ++++++-
+ drivers/net/hyperv/rndis_filter.c | 104 +++++++-------
+ 4 files changed, 228 insertions(+), 241 deletions(-)
+
 -- 
 2.11.0
