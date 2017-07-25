@@ -1,66 +1,48 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH] dt-bindings: add device tree binding for Allwinner XR819 SDIO Wi-Fi
-Date: Tue, 25 Jul 2017 16:14:28 +0300
-Message-ID: <87bmo8irpn.fsf@codeaurora.org>
-References: <20170718072940.17872-1-icenowy@aosc.io>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH net-next 10/18] net: mvpp2: use the GoP interrupt for
+ link status changes
+Date: Tue, 25 Jul 2017 15:17:48 +0200
+Message-ID: <20170725151748.22268390@windsurf.lan>
+References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
+        <20170724134848.19330-11-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170718072940.17872-1-icenowy-h8G6r0blFSE@public.gmane.org> (Icenowy Zheng's message
-        of "Tue, 18 Jul 2017 15:29:40 +0800")
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:54002 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751097AbdGYNRu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 09:17:50 -0400
+In-Reply-To: <20170724134848.19330-11-antoine.tenart@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org> writes:
+Hello,
 
-> Allwinner XR819 is a SDIO Wi-Fi chip, which has the functionality to use
-> an out-of-band interrupt pin instead of SDIO in-band interrupt.
->
-> Add the device tree binding of this chip, in order to make it possible
-> to add this interrupt pin to device trees.
->
-> Signed-off-by: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
-> ---
->  .../bindings/net/wireless/allwinner,xr819.txt      | 37 ++++++++++++++++++++++
->  1 file changed, 37 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
->
-> diff --git
-> a/Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
-> b/Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
-> new file mode 100644
-> index 000000000000..64dd9c1c0584
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
-> @@ -0,0 +1,37 @@
-> +Allwinner XRadio wireless SDIO devices
+On Mon, 24 Jul 2017 15:48:40 +0200, Antoine Tenart wrote:
 > +
-> +This node provides properties for controlling the XRadio wireless device. The
-> +node is expected to be specified as a child node to the SDIO controller that
-> +connects the device to the system.
-> +
-> +Required properties:
-> +
-> + - compatible : Should be "allwinner,xr819".
-> +
-> +Optional properties:
-> + - interrupt-parent : the phandle for the interrupt controller to which the
-> +	device interrupts are connected.
-> + - interrupts : specifies attributes for the out-of-band interrupt (host-wake).
-> +	When not specified the device will use in-band SDIO interrupts.
+> +		port->link_irq = of_irq_get_byname(port_node, "link");
+> +		if (port->link_irq == -EPROBE_DEFER) {
+> +			err = -EPROBE_DEFER;
+> +			goto err_free_irq;
+> +		}
+> +		if (port->link_irq <= 0)
+> +			/* the link irq is optional */
+> +			port->link_irq = 0;
 
-Where is the driver which uses this? I don't see it in
-drivers/net/wireless but I guess that's not a blocker for the bindings?
+You need to add the irq_dispose_mapping() call corresponding to this
+of_irq_get_by_name() in the error path and in the remove path.
 
+Best regards,
+
+Thomas
 -- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
