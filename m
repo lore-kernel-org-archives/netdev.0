@@ -1,71 +1,64 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v11 3/4] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Tue, 25 Jul 2017 08:34:58 -0400
-Message-ID: <355f2140-d8e8-8a4e-1f31-cbbcbfd6821b@mojatatu.com>
-References: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
- <1500860146-26970-4-git-send-email-jhs@emojatatu.com>
- <20170724112750.GC1868@nanopsycho>
- <7057a692-7233-4632-4f66-2f57c98322ea@mojatatu.com>
- <20170725113352.GA3186@nanopsycho>
+From: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+Subject: [PATCH v3] net: ethernet: nb8800: Handle all 4 RGMII modes
+ identically
+Date: Tue, 25 Jul 2017 14:35:03 +0200
+Message-ID: <40478d08-8612-b3ab-63eb-24d12da0423f@sigmadesigns.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, dsahern@gmail.com,
-        eric.dumazet@gmail.com, mrv@mojatatu.com,
-        simon.horman@netronome.com, alex.aring@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>, Mason <slash.tmp@free.fr>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Mans Rullgard <mans@mansr.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:37369 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750861AbdGYMfB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 08:35:01 -0400
-Received: by mail-io0-f195.google.com with SMTP id c74so755081iod.4
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 05:35:01 -0700 (PDT)
-In-Reply-To: <20170725113352.GA3186@nanopsycho>
-Content-Language: en-GB
+Received: from us-smtp-delivery-107.mimecast.com ([63.128.21.107]:21722 "EHLO
+        us-smtp-delivery-107.mimecast.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750861AbdGYMfM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 08:35:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-07-25 07:33 AM, Jiri Pirko wrote:
-> Tue, Jul 25, 2017 at 01:22:44PM CEST, jhs@mojatatu.com wrote:
+Before commit bf8f6952a233 ("Add blurb about RGMII") it was unclear
+whose responsibility it was to insert the required clock skew, and
+in hindsight, some PHY drivers got it wrong. The solution forward
+is to introduce a new property, explicitly requiring skew from the
+node to which it is attached. In the interim, this driver will handle
+all 4 RGMII modes identically (no skew).
 
->>> fb? bf? nbf? Please make this synced within the patchset.
->>>
->>>
->>
->> Ok, what do you like best? ;->
-> 
-> "bf"
-> 
+Fixes: 52dfc8301248 ("net: ethernet: add driver for Aurora VLSI NB8800 Ethernet controller")
+Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+---
+ drivers/net/ethernet/aurora/nb8800.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-Ok.
-
-> 
->>
->>> Don't you need to mask value with selector? In fact, I think that
->>> nla_get_bitfield_32 could just return u32 which would be (value&selector).
->>> The validation takes care of unsupported bits.
->>
->> For my use case I dont need any of the above since I dont need to
->> unset things. In other use cases you will need both selector and
->> value in case someone wants a bit to be set to 0.
->> Infact I think i will rename that helper to "nla_get_bitvalue_32"
->> to be more precise.
-> 
-> The getter should contain name of the type, so "nla_get_bitfield32_val"
-> is much better.
-> 
-
-Actually I mispoke. I was returning the struct not the value. So
-nla_get_bitfield32() is a better name.
-
-> What if I pass val 0x1 and selector 0x0 from userspace. I don't have the
-> bit selected, so you should not process it in kernel, no?
->
-
-Yes, valid point. I am not sure - should we reject?
-
-cheers,
-jamal
+diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+index 041cfb7952f8..e94159507847 100644
+--- a/drivers/net/ethernet/aurora/nb8800.c
++++ b/drivers/net/ethernet/aurora/nb8800.c
+@@ -609,7 +609,7 @@ static void nb8800_mac_config(struct net_device *dev)
+ 		mac_mode |= HALF_DUPLEX;
+ 
+ 	if (gigabit) {
+-		if (priv->phy_mode == PHY_INTERFACE_MODE_RGMII)
++		if (phy_interface_is_rgmii(dev->phydev))
+ 			mac_mode |= RGMII_MODE;
+ 
+ 		mac_mode |= GMAC_MODE;
+@@ -1268,11 +1268,10 @@ static int nb8800_tangox_init(struct net_device *dev)
+ 		break;
+ 
+ 	case PHY_INTERFACE_MODE_RGMII:
+-		pad_mode = PAD_MODE_RGMII;
+-		break;
+-
++	case PHY_INTERFACE_MODE_RGMII_ID:
++	case PHY_INTERFACE_MODE_RGMII_RXID:
+ 	case PHY_INTERFACE_MODE_RGMII_TXID:
+-		pad_mode = PAD_MODE_RGMII | PAD_MODE_GTX_CLK_DELAY;
++		pad_mode = PAD_MODE_RGMII;
+ 		break;
+ 
+ 	default:
+-- 
+2.11.0
