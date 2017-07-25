@@ -1,52 +1,42 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: After a while of system running no incoming UDP any more?
-Date: Tue, 25 Jul 2017 14:17:52 +0200
-Message-ID: <1500985072.13149.4.camel@redhat.com>
-References: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
-         <1500905950.2458.6.camel@redhat.com>
-         <20170725115745.bbguoecrcsfhbm7f@torres.zugschlus.de>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] mwifiex: fix compile warning of unused variable
+Date: Tue, 25 Jul 2017 15:33:31 +0300
+Message-ID: <87vamgitlw.fsf@codeaurora.org>
+References: <1499327433-70786-1-git-send-email-shawn.lin@rock-chips.com>
+        <20170706171152.GA120202@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Marc Haber <mh+netdev@zugschlus.de>
+Content-Type: text/plain
+Cc: Shawn Lin <shawn.lin@rock-chips.com>,
+        Amitkumar Karwar <amitkarwar@gmail.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Xinming Hu <huxm@marvell.com>
+To: Brian Norris <briannorris@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38344 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751776AbdGYMRz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Jul 2017 08:17:55 -0400
-In-Reply-To: <20170725115745.bbguoecrcsfhbm7f@torres.zugschlus.de>
+Received: from smtp.codeaurora.org ([198.145.29.96]:41624 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750861AbdGYMdg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 08:33:36 -0400
+In-Reply-To: <20170706171152.GA120202@google.com> (Brian Norris's message of
+        "Thu, 6 Jul 2017 10:11:53 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-07-25 at 13:57 +0200, Marc Haber wrote:
-> On Mon, Jul 24, 2017 at 04:19:10PM +0200, Paolo Abeni wrote:
-> > Once that a system enter the buggy status, do the packets reach the
-> > relevant socket's queue?
-> > 
-> > ss -u
-> 
-> That one only shows table headers on an unaffected system in normal
-> operation, right?
+Brian Norris <briannorris@chromium.org> writes:
 
-This one shows the current lenght of the socket receive queue (Recv-Q,
-the first column). If the packets land into the skbuff (and the user
-space reader for some reason is not woken up) such value will grow over
-time.
+> On Thu, Jul 06, 2017 at 03:50:33PM +0800, Shawn Lin wrote:
+>> We got a compile warning shows below:
+>> 
+>> drivers/net/wireless/marvell/mwifiex/sdio.c: In function
+>> 'mwifiex_sdio_remove':
+>> drivers/net/wireless/marvell/mwifiex/sdio.c:377:6: warning: variable
+>> 'ret' set but not used [-Wunused-but-set-variable]
+>
+> It's probably worth noting that this is not a default warning [1],
+> especially if you resend. It already confused Kalle.
 
-> > nstat |grep -e Udp -e Ip
-> > 
-> > will help checking that.
-> 
-> An unaffected system will show UdpInDatagrams, right?
-> 
-> But where is the connection to the relevant socket's queue?
+Exactly, that way I can prioritise the patch accordingly. (W=1 warnings
+are not that important so they go automatically to -next)
 
-If the socket queue lenght (as reported above) does not increase,
-IP/UDP stats could give an hint of where and why the packets stop
-traversing the network stack.
-
-Beyond that, you can try using perf probes or kprobe/systemtap to [try
-to] track the relevant packets inside the kernel.
-
-/P
+-- 
+Kalle Valo
