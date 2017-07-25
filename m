@@ -1,580 +1,234 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [RFC PATCH 03/10] net: ipv4: Convert inet socket lookups to new struct
-Date: Tue, 25 Jul 2017 08:38:34 -0700
-Message-ID: <1500997121-3218-4-git-send-email-dsahern@gmail.com>
+Subject: [RFC PATCH 10/10] net: ipv6: Support for sockets bound to enslaved device
+Date: Tue, 25 Jul 2017 08:38:41 -0700
+Message-ID: <1500997121-3218-11-git-send-email-dsahern@gmail.com>
 References: <1500997121-3218-1-git-send-email-dsahern@gmail.com>
 Cc: David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33517 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752745AbdGYPiy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 11:38:54 -0400
-Received: by mail-pf0-f196.google.com with SMTP id k72so9809099pfj.0
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 08:38:54 -0700 (PDT)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36044 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752758AbdGYPjB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 11:39:01 -0400
+Received: by mail-pf0-f193.google.com with SMTP id 1so5095138pfi.3
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 08:39:01 -0700 (PDT)
 In-Reply-To: <1500997121-3218-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert the various inet_lookup functions to use the new sk_lookup
-struct.
+Add support for sockets bound to a network interface enslaved to an
+L3 Master device (e.g, VRF). Currently for VRF, skb->dev points to the
+VRF device meaning socket lookups only consider this device index. The
+real ingress device index is saved to IP6CB(skb)->iif and the VRF driver
+marks the skb with IP6SKB_L3SLAVE to know that the real ingress device
+is an enslaved one without having to lookup the iif.
+
+Use those flags to add the enslaved device index to the socket lookup
+and allow sk->sk_bound_dev_if to match either dif (VRF device) or sdif
+(enslaved device).
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- include/net/inet_hashtables.h       | 57 ++++++++++++++--------------------
- net/dccp/ipv4.c                     | 19 +++++++++---
- net/ipv4/inet_diag.c                | 33 ++++++++++++++------
- net/ipv4/inet_hashtables.c          | 54 ++++++++++++++++++--------------
- net/ipv4/netfilter/nf_socket_ipv4.c |  5 ++-
- net/ipv4/tcp_ipv4.c                 | 62 +++++++++++++++++++++++++++----------
- net/ipv4/udp_diag.c                 |  3 ++
- net/netfilter/xt_TPROXY.c           | 10 +++---
- 8 files changed, 145 insertions(+), 98 deletions(-)
+ include/linux/ipv6.h           | 8 ++++++++
+ include/net/inet6_hashtables.h | 5 +++--
+ include/net/tcp.h              | 7 +++++++
+ net/ipv6/inet6_hashtables.c    | 6 +++---
+ net/ipv6/raw.c                 | 5 ++++-
+ net/ipv6/tcp_ipv6.c            | 3 +++
+ net/ipv6/udp.c                 | 8 ++++++--
+ 7 files changed, 34 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 5026b1f08bb8..fabb8dd8fdb1 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -218,19 +218,16 @@ void inet_unhash(struct sock *sk);
- struct sock *__inet_lookup_listener(struct net *net,
- 				    struct inet_hashinfo *hashinfo,
- 				    struct sk_buff *skb, int doff,
--				    const __be32 saddr, const __be16 sport,
--				    const __be32 daddr,
--				    const unsigned short hnum,
--				    const int dif);
-+				    struct sk_lookup *params);
- 
- static inline struct sock *inet_lookup_listener(struct net *net,
- 		struct inet_hashinfo *hashinfo,
- 		struct sk_buff *skb, int doff,
--		__be32 saddr, __be16 sport,
--		__be32 daddr, __be16 dport, int dif)
-+		struct sk_lookup *params)
- {
--	return __inet_lookup_listener(net, hashinfo, skb, doff, saddr, sport,
--				      daddr, ntohs(dport), dif);
-+	params->hnum = ntohs(params->dport);
-+
-+	return __inet_lookup_listener(net, hashinfo, skb, doff, params);
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index e1b442996f81..094357907b45 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -153,6 +153,14 @@ static inline int inet6_iif(const struct sk_buff *skb)
  }
  
- /* Socket demux engine toys. */
-@@ -286,53 +283,44 @@ static inline struct sock *inet_lookup_listener(struct net *net,
-  */
- struct sock *__inet_lookup_established(struct net *net,
- 				       struct inet_hashinfo *hashinfo,
--				       const __be32 saddr, const __be16 sport,
--				       const __be32 daddr, const u16 hnum,
--				       const int dif);
-+				       const struct sk_lookup *params);
- 
- static inline struct sock *
- 	inet_lookup_established(struct net *net, struct inet_hashinfo *hashinfo,
--				const __be32 saddr, const __be16 sport,
--				const __be32 daddr, const __be16 dport,
--				const int dif)
-+				struct sk_lookup *params)
- {
--	return __inet_lookup_established(net, hashinfo, saddr, sport, daddr,
--					 ntohs(dport), dif);
-+	params->hnum = ntohs(params->dport);
+ /* can not be used in TCP layer after tcp_v6_fill_cb */
++static inline int inet6_sdif(const struct sk_buff *skb)
++{
++	bool l3_slave = ipv6_l3mdev_skb(IP6CB(skb)->flags);
 +
-+	return __inet_lookup_established(net, hashinfo, params);
++	return l3_slave ? IP6CB(skb)->iif : 0;
++}
++
++/* can not be used in TCP layer after tcp_v6_fill_cb */
+ static inline bool inet6_exact_dif_match(struct net *net, struct sk_buff *skb)
+ {
+ #if defined(CONFIG_NET_L3_MASTER_DEV)
+diff --git a/include/net/inet6_hashtables.h b/include/net/inet6_hashtables.h
+index 15db41272ff2..0fc5a2fe4ad3 100644
+--- a/include/net/inet6_hashtables.h
++++ b/include/net/inet6_hashtables.h
+@@ -94,13 +94,14 @@ struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
+ int inet6_hash(struct sock *sk);
+ #endif /* IS_ENABLED(CONFIG_IPV6) */
+ 
+-#define INET6_MATCH(__sk, __net, __saddr, __daddr, __ports, __dif)	\
++#define INET6_MATCH(__sk, __net, __saddr, __daddr, __ports, __dif, __sdif) \
+ 	(((__sk)->sk_portpair == (__ports))			&&	\
+ 	 ((__sk)->sk_family == AF_INET6)			&&	\
+ 	 ipv6_addr_equal(&(__sk)->sk_v6_daddr, (__saddr))		&&	\
+ 	 ipv6_addr_equal(&(__sk)->sk_v6_rcv_saddr, (__daddr))	&&	\
+ 	 (!(__sk)->sk_bound_dev_if	||				\
+-	   ((__sk)->sk_bound_dev_if == (__dif))) 		&&	\
++	   ((__sk)->sk_bound_dev_if == (__dif))	||			\
++	   ((__sk)->sk_bound_dev_if == (__sdif)))		&&	\
+ 	 net_eq(sock_net(__sk), (__net)))
+ 
+ #endif /* _INET6_HASHTABLES_H */
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 1a66ab82988b..3bc0bc4daa05 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -848,6 +848,13 @@ static inline int tcp_v6_iif(const struct sk_buff *skb)
+ 
+ 	return l3_slave ? skb->skb_iif : TCP_SKB_CB(skb)->header.h6.iif;
  }
- 
- static inline struct sock *__inet_lookup(struct net *net,
- 					 struct inet_hashinfo *hashinfo,
- 					 struct sk_buff *skb, int doff,
--					 const __be32 saddr, const __be16 sport,
--					 const __be32 daddr, const __be16 dport,
--					 const int dif,
-+					 struct sk_lookup *params,
- 					 bool *refcounted)
- {
--	u16 hnum = ntohs(dport);
- 	struct sock *sk;
- 
--	sk = __inet_lookup_established(net, hashinfo, saddr, sport,
--				       daddr, hnum, dif);
-+	params->hnum = ntohs(params->dport);
 +
-+	sk = __inet_lookup_established(net, hashinfo, params);
- 	*refcounted = true;
- 	if (sk)
- 		return sk;
- 	*refcounted = false;
--	return __inet_lookup_listener(net, hashinfo, skb, doff, saddr,
--				      sport, daddr, hnum, dif);
-+	return __inet_lookup_listener(net, hashinfo, skb, doff, params);
- }
- 
- static inline struct sock *inet_lookup(struct net *net,
- 				       struct inet_hashinfo *hashinfo,
- 				       struct sk_buff *skb, int doff,
--				       const __be32 saddr, const __be16 sport,
--				       const __be32 daddr, const __be16 dport,
--				       const int dif)
-+				       struct sk_lookup *params)
- {
- 	struct sock *sk;
- 	bool refcounted;
- 
--	sk = __inet_lookup(net, hashinfo, skb, doff, saddr, sport, daddr,
--			   dport, dif, &refcounted);
-+	sk = __inet_lookup(net, hashinfo, skb, doff, params, &refcounted);
- 
- 	if (sk && !refcounted && !refcount_inc_not_zero(&sk->sk_refcnt))
- 		sk = NULL;
-@@ -342,21 +330,22 @@ static inline struct sock *inet_lookup(struct net *net,
- static inline struct sock *__inet_lookup_skb(struct inet_hashinfo *hashinfo,
- 					     struct sk_buff *skb,
- 					     int doff,
--					     const __be16 sport,
--					     const __be16 dport,
-+					     struct sk_lookup *params,
- 					     bool *refcounted)
- {
- 	struct sock *sk = skb_steal_sock(skb);
- 	const struct iphdr *iph = ip_hdr(skb);
- 
-+	params->dif   = inet_iif(skb),
-+	params->saddr.ipv4 = iph->saddr,
-+	params->daddr.ipv4 = iph->daddr,
++static inline int tcp_v6_sdif(const struct sk_buff *skb)
++{
++	bool l3_slave = ipv6_l3mdev_skb(TCP_SKB_CB(skb)->header.h6.flags);
 +
- 	*refcounted = true;
- 	if (sk)
- 		return sk;
++	return l3_slave ? TCP_SKB_CB(skb)->header.h6.iif : 0;
++}
+ #endif
  
- 	return __inet_lookup(dev_net(skb_dst(skb)->dev), hashinfo, skb,
--			     doff, iph->saddr, sport,
--			     iph->daddr, dport, inet_iif(skb),
--			     refcounted);
-+			     doff, params, refcounted);
- }
- 
- u32 inet6_ehashfn(const struct net *net,
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index f85d901f4e3f..f98a65fa5f5e 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -244,6 +244,11 @@ static void dccp_v4_err(struct sk_buff *skb, u32 info)
- 	__u64 seq;
- 	int err;
- 	struct net *net = dev_net(skb->dev);
-+	struct sk_lookup params = {
-+		.saddr.ipv4 = iph->daddr,
-+		.daddr.ipv4 = iph->saddr,
-+		.dif = inet_iif(skb),
-+	};
- 
- 	/* Only need dccph_dport & dccph_sport which are the first
- 	 * 4 bytes in dccp header.
-@@ -253,10 +258,11 @@ static void dccp_v4_err(struct sk_buff *skb, u32 info)
- 	BUILD_BUG_ON(offsetofend(struct dccp_hdr, dccph_dport) > 8);
- 	dh = (struct dccp_hdr *)(skb->data + offset);
- 
--	sk = __inet_lookup_established(net, &dccp_hashinfo,
--				       iph->daddr, dh->dccph_dport,
--				       iph->saddr, ntohs(dh->dccph_sport),
--				       inet_iif(skb));
-+	params.sport = dh->dccph_dport;
-+	params.dport = dh->dccph_sport;
-+	params.hnum = ntohs(dh->dccph_sport);
-+
-+	sk = inet_lookup_established(net, &dccp_hashinfo, &params);
- 	if (!sk) {
- 		__ICMP_INC_STATS(net, ICMP_MIB_INERRORS);
- 		return;
-@@ -763,6 +769,7 @@ EXPORT_SYMBOL_GPL(dccp_invalid_packet);
- /* this is called when real data arrives */
- static int dccp_v4_rcv(struct sk_buff *skb)
- {
-+	struct sk_lookup params = {};
- 	const struct dccp_hdr *dh;
- 	const struct iphdr *iph;
- 	bool refcounted;
-@@ -801,9 +808,11 @@ static int dccp_v4_rcv(struct sk_buff *skb)
- 				  DCCP_SKB_CB(skb)->dccpd_ack_seq);
- 	}
- 
-+	params.sport = dh->dccph_sport;
-+	params.dport = dh->dccph_dport;
- lookup:
- 	sk = __inet_lookup_skb(&dccp_hashinfo, skb, __dccp_hdr_len(dh),
--			       dh->dccph_sport, dh->dccph_dport, &refcounted);
-+			       &params, &refcounted);
- 	if (!sk) {
- 		dccp_pr_debug("failed to look up flow ID in table and "
- 			      "get corresponding socket\n");
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 3828b3a805cd..6c3bc4e408d0 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -396,18 +396,33 @@ struct sock *inet_diag_find_one_icsk(struct net *net,
- 	struct sock *sk;
- 
- 	rcu_read_lock();
--	if (req->sdiag_family == AF_INET)
--		sk = inet_lookup(net, hashinfo, NULL, 0, req->id.idiag_dst[0],
--				 req->id.idiag_dport, req->id.idiag_src[0],
--				 req->id.idiag_sport, req->id.idiag_if);
-+	if (req->sdiag_family == AF_INET) {
-+		struct sk_lookup params = {
-+			.saddr.ipv4 = req->id.idiag_dst[0],
-+			.daddr.ipv4 = req->id.idiag_src[0],
-+			.sport = req->id.idiag_dport,
-+			.dport = req->id.idiag_sport,
-+			.hnum = ntohs(req->id.idiag_sport),
-+			.dif = req->id.idiag_if,
-+		};
-+
-+		sk = inet_lookup(net, hashinfo, NULL, 0, &params);
-+	}
- #if IS_ENABLED(CONFIG_IPV6)
- 	else if (req->sdiag_family == AF_INET6) {
- 		if (ipv6_addr_v4mapped((struct in6_addr *)req->id.idiag_dst) &&
--		    ipv6_addr_v4mapped((struct in6_addr *)req->id.idiag_src))
--			sk = inet_lookup(net, hashinfo, NULL, 0, req->id.idiag_dst[3],
--					 req->id.idiag_dport, req->id.idiag_src[3],
--					 req->id.idiag_sport, req->id.idiag_if);
--		else
-+		    ipv6_addr_v4mapped((struct in6_addr *)req->id.idiag_src)) {
-+			struct sk_lookup params = {
-+				.saddr.ipv4 = req->id.idiag_dst[3],
-+				.daddr.ipv4 = req->id.idiag_src[3],
-+				.sport = req->id.idiag_dport,
-+				.dport = req->id.idiag_sport,
-+				.hnum = ntohs(req->id.idiag_sport),
-+				.dif = req->id.idiag_if,
-+			};
-+
-+			sk = inet_lookup(net, hashinfo, NULL, 0, &params);
-+		} else
- 			sk = inet6_lookup(net, hashinfo, NULL, 0,
- 					  (struct in6_addr *)req->id.idiag_dst,
- 					  req->id.idiag_dport,
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 2e3389d614d1..e581e200d01d 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -169,26 +169,28 @@ int __inet_inherit_port(const struct sock *sk, struct sock *child)
- EXPORT_SYMBOL_GPL(__inet_inherit_port);
- 
- static inline int compute_score(struct sock *sk, struct net *net,
--				const unsigned short hnum, const __be32 daddr,
--				const int dif, bool exact_dif)
-+				const struct sk_lookup *params)
- {
- 	int score = -1;
- 	struct inet_sock *inet = inet_sk(sk);
- 
--	if (net_eq(sock_net(sk), net) && inet->inet_num == hnum &&
--			!ipv6_only_sock(sk)) {
-+	if (net_eq(sock_net(sk), net) &&
-+	    inet->inet_num == params->hnum &&
-+	    !ipv6_only_sock(sk)) {
- 		__be32 rcv_saddr = inet->inet_rcv_saddr;
-+		int rc;
-+
- 		score = sk->sk_family == PF_INET ? 2 : 1;
- 		if (rcv_saddr) {
--			if (rcv_saddr != daddr)
-+			if (rcv_saddr != params->daddr.ipv4)
- 				return -1;
- 			score += 4;
- 		}
--		if (sk->sk_bound_dev_if || exact_dif) {
--			if (sk->sk_bound_dev_if != dif)
--				return -1;
-+		rc = sk_lookup_device_cmp(sk, params);
-+		if (rc < 0)
-+			return -1;
-+		if (rc > 0)
- 			score += 4;
--		}
- 		if (sk->sk_incoming_cpu == raw_smp_processor_id())
- 			score++;
- 	}
-@@ -206,24 +208,25 @@ static inline int compute_score(struct sock *sk, struct net *net,
- struct sock *__inet_lookup_listener(struct net *net,
- 				    struct inet_hashinfo *hashinfo,
- 				    struct sk_buff *skb, int doff,
--				    const __be32 saddr, __be16 sport,
--				    const __be32 daddr, const unsigned short hnum,
--				    const int dif)
-+				    struct sk_lookup *params)
- {
--	unsigned int hash = inet_lhashfn(net, hnum);
-+	unsigned int hash = inet_lhashfn(net, params->hnum);
- 	struct inet_listen_hashbucket *ilb = &hashinfo->listening_hash[hash];
- 	int score, hiscore = 0, matches = 0, reuseport = 0;
--	bool exact_dif = inet_exact_dif_match(net, skb);
- 	struct sock *sk, *result = NULL;
- 	u32 phash = 0;
- 
-+	params->exact_dif = inet_exact_dif_match(net, skb);
-+
- 	sk_for_each_rcu(sk, &ilb->head) {
--		score = compute_score(sk, net, hnum, daddr, dif, exact_dif);
-+		score = compute_score(sk, net, params);
- 		if (score > hiscore) {
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
--				phash = inet_ehashfn(net, daddr, hnum,
--						     saddr, sport);
-+				phash = inet_ehashfn(net, params->daddr.ipv4,
-+						     params->hnum,
-+						     params->saddr.ipv4,
-+						     params->sport);
- 				result = reuseport_select_sock(sk, phash,
- 							       skb, doff);
- 				if (result)
-@@ -265,11 +268,13 @@ void sock_edemux(struct sk_buff *skb)
- EXPORT_SYMBOL(sock_edemux);
- 
- struct sock *__inet_lookup_established(struct net *net,
--				  struct inet_hashinfo *hashinfo,
--				  const __be32 saddr, const __be16 sport,
--				  const __be32 daddr, const u16 hnum,
--				  const int dif)
-+				       struct inet_hashinfo *hashinfo,
-+				       const struct sk_lookup *params)
- {
-+	const __be32 saddr = params->saddr.ipv4;
-+	const __be32 daddr = params->daddr.ipv4;
-+	const __be16 sport = params->sport;
-+	const u16 hnum = params->hnum;
- 	INET_ADDR_COOKIE(acookie, saddr, daddr);
- 	const __portpair ports = INET_COMBINED_PORTS(sport, hnum);
- 	struct sock *sk;
-@@ -285,12 +290,13 @@ struct sock *__inet_lookup_established(struct net *net,
- 	sk_nulls_for_each_rcu(sk, node, &head->chain) {
+ /* TCP_SKB_CB reference means this can not be used from early demux */
+diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+index 878c03094f2e..2af34af36110 100644
+--- a/net/ipv6/inet6_hashtables.c
++++ b/net/ipv6/inet6_hashtables.c
+@@ -74,13 +74,13 @@ struct sock *__inet6_lookup_established(struct net *net,
  		if (sk->sk_hash != hash)
  			continue;
--		if (likely(INET_MATCH(sk, net, acookie,
--				      saddr, daddr, ports, dif))) {
-+		if (likely(INET_MATCH(sk, net, acookie, saddr, daddr,
-+				      ports, params->dif))) {
- 			if (unlikely(!refcount_inc_not_zero(&sk->sk_refcnt)))
- 				goto out;
- 			if (unlikely(!INET_MATCH(sk, net, acookie,
--						 saddr, daddr, ports, dif))) {
-+						 saddr, daddr, ports,
-+						 params->dif))) {
- 				sock_gen_put(sk);
- 				goto begin;
- 			}
-diff --git a/net/ipv4/netfilter/nf_socket_ipv4.c b/net/ipv4/netfilter/nf_socket_ipv4.c
-index 121767b36763..b0f9954712f9 100644
---- a/net/ipv4/netfilter/nf_socket_ipv4.c
-+++ b/net/ipv4/netfilter/nf_socket_ipv4.c
-@@ -86,14 +86,13 @@ nf_socket_get_sock_v4(struct net *net, struct sk_buff *skb, const int doff,
- 		.daddr.ipv4 = daddr,
- 		.sport = sport,
- 		.dport = dport,
-+		.hnum = ntohs(dport),
- 		.dif = in->ifindex,
- 	};
- 
- 	switch (protocol) {
- 	case IPPROTO_TCP:
--		return inet_lookup(net, &tcp_hashinfo, skb, doff,
--				   saddr, sport, daddr, dport,
--				   in->ifindex);
-+		return inet_lookup(net, &tcp_hashinfo, skb, doff, &params);
- 	case IPPROTO_UDP:
- 		return udp4_lib_lookup(net, &params);
- 	}
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a20e7f03d5f7..89a0d166e677 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -382,10 +382,16 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
- 	u32 delta_us;
- 	int err;
- 	struct net *net = dev_net(icmp_skb->dev);
--
--	sk = __inet_lookup_established(net, &tcp_hashinfo, iph->daddr,
--				       th->dest, iph->saddr, ntohs(th->source),
--				       inet_iif(icmp_skb));
-+	struct sk_lookup params = {
-+		.daddr.ipv4 = iph->saddr,
-+		.saddr.ipv4 = iph->daddr,
-+		.sport = th->dest,
-+		.dport = th->source,
-+		.hnum  = ntohs(th->source),
-+		.dif   = inet_iif(icmp_skb),
-+	};
-+
-+	sk = inet_lookup_established(net, &tcp_hashinfo, &params);
- 	if (!sk) {
- 		__ICMP_INC_STATS(net, ICMP_MIB_INERRORS);
- 		return;
-@@ -651,6 +657,14 @@ static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
- 		key = tcp_md5_do_lookup(sk, (union tcp_md5_addr *)
- 					&ip_hdr(skb)->saddr, AF_INET);
- 	} else if (hash_location) {
-+		struct sk_lookup params = {
-+			.saddr.ipv4 = ip_hdr(skb)->saddr,
-+			.daddr.ipv4 = ip_hdr(skb)->daddr,
-+			.hnum  = ntohs(th->source),
-+			.sport = th->source,
-+			.dif = inet_iif(skb),
-+		};
-+
- 		/*
- 		 * active side is lost. Try to find listening socket through
- 		 * source port, and then find md5 key through listening socket.
-@@ -658,10 +672,8 @@ static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
- 		 * Incoming packet is checked with md5 hash with finding key,
- 		 * no RST generated if md5 hash doesn't match.
- 		 */
--		sk1 = __inet_lookup_listener(net, &tcp_hashinfo, NULL, 0,
--					     ip_hdr(skb)->saddr,
--					     th->source, ip_hdr(skb)->daddr,
--					     ntohs(th->source), inet_iif(skb));
-+		sk1 = inet_lookup_listener(net, &tcp_hashinfo, NULL, 0,
-+					   &params);
- 		/* don't send rst if it can't find key */
- 		if (!sk1)
+ 		if (!INET6_MATCH(sk, net, saddr, daddr, ports,
+-				 params->dif))
++				 params->dif, params->sdif))
+ 			continue;
+ 		if (unlikely(!refcount_inc_not_zero(&sk->sk_refcnt)))
  			goto out;
-@@ -1509,6 +1521,10 @@ void tcp_v4_early_demux(struct sk_buff *skb)
- 	const struct iphdr *iph;
- 	const struct tcphdr *th;
+ 
+ 		if (unlikely(!INET6_MATCH(sk, net, saddr, daddr, ports,
+-				 params->dif))) {
++				 params->dif, params->sdif))) {
+ 			sock_gen_put(sk);
+ 			goto begin;
+ 		}
+@@ -205,7 +205,7 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
+ 			continue;
+ 
+ 		if (likely(INET6_MATCH(sk2, net, saddr, daddr, ports,
+-				       dif))) {
++				       dif, 0))) {
+ 			if (sk2->sk_state == TCP_TIME_WAIT) {
+ 				tw = inet_twsk(sk2);
+ 				if (twsk_unique(sk, sk2, twp))
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 51e651f18ffb..bab365214d17 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -87,7 +87,8 @@ struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
+ 				continue;
+ 
+ 			if (sk->sk_bound_dev_if &&
+-			    sk->sk_bound_dev_if != params->dif)
++			    sk->sk_bound_dev_if != params->dif &&
++			    sk->sk_bound_dev_if != params->sdif)
+ 				continue;
+ 
+ 			if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
+@@ -165,6 +166,7 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
+ 		.daddr.ipv6 = &ipv6_hdr(skb)->daddr,
+ 		.hnum = nexthdr,
+ 		.dif  = inet6_iif(skb),
++		.sdif = inet6_sdif(skb),
+ 	};
  	struct sock *sk;
-+	struct sk_lookup params = {
-+		.dif   = skb->skb_iif,
-+	};
-+
+ 	bool delivered = false;
+@@ -375,6 +377,7 @@ void raw6_icmp_error(struct sk_buff *skb, int nexthdr,
+ 		struct sk_lookup params = {
+ 			.hnum = nexthdr,
+ 			.dif  = inet6_iif(skb),
++			.sdif = inet6_sdif(skb),
+ 		};
+ 		/* Note: ipv6_hdr(skb) != skb->data */
+ 		const struct ipv6hdr *ip6h = (const struct ipv6hdr *)skb->data;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 154886daba7b..55a7256211ca 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -917,6 +917,7 @@ static void tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb)
+ 			.sport = th->source,
+ 			.hnum = ntohs(th->source),
+ 			.dif  = tcp_v6_iif(skb),
++			.sdif = tcp_v6_sdif(skb),
+ 		};
+ 
+ 		/*
+@@ -1414,6 +1415,7 @@ static int tcp_v6_rcv(struct sk_buff *skb)
+ 	struct net *net = dev_net(skb->dev);
+ 	struct sk_lookup params = {
+ 		.dif = inet6_iif(skb),
++		.sdif = inet6_sdif(skb),
+ 	};
  
  	if (skb->pkt_type != PACKET_HOST)
- 		return;
-@@ -1522,10 +1538,13 @@ void tcp_v4_early_demux(struct sk_buff *skb)
- 	if (th->doff < sizeof(struct tcphdr) / 4)
- 		return;
- 
--	sk = __inet_lookup_established(dev_net(skb->dev), &tcp_hashinfo,
--				       iph->saddr, th->source,
--				       iph->daddr, ntohs(th->dest),
--				       skb->skb_iif);
-+	params.saddr.ipv4 = iph->saddr;
-+	params.daddr.ipv4 = iph->daddr;
-+	params.sport = th->source;
-+	params.dport = th->dest;
-+	params.hnum  = ntohs(th->dest),
-+
-+	sk = inet_lookup_established(dev_net(skb->dev), &tcp_hashinfo, &params);
- 	if (sk) {
- 		skb->sk = sk;
- 		skb->destructor = sock_edemux;
-@@ -1645,6 +1664,7 @@ EXPORT_SYMBOL(tcp_filter);
- int tcp_v4_rcv(struct sk_buff *skb)
- {
- 	struct net *net = dev_net(skb->dev);
-+	struct sk_lookup params = { };
- 	const struct iphdr *iph;
- 	const struct tcphdr *th;
- 	bool refcounted;
-@@ -1693,9 +1713,11 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	TCP_SKB_CB(skb)->ip_dsfield = ipv4_get_dsfield(iph);
- 	TCP_SKB_CB(skb)->sacked	 = 0;
- 
-+	params.sport = th->source;
-+	params.dport = th->dest;
- lookup:
--	sk = __inet_lookup_skb(&tcp_hashinfo, skb, __tcp_hdrlen(th), th->source,
--			       th->dest, &refcounted);
-+	sk = __inet_lookup_skb(&tcp_hashinfo, skb, __tcp_hdrlen(th), &params,
-+			       &refcounted);
- 	if (!sk)
- 		goto no_tcp_socket;
- 
-@@ -1819,12 +1841,18 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	}
- 	switch (tcp_timewait_state_process(inet_twsk(sk), skb, th)) {
- 	case TCP_TW_SYN: {
-+		struct sk_lookup params = {
-+			.saddr.ipv4 = iph->saddr,
-+			.daddr.ipv4 = iph->daddr,
-+			.sport = th->source,
-+			.dport = th->dest,
-+			.hnum  = ntohs(th->dest),
-+			.dif   = inet_iif(skb),
-+		};
- 		struct sock *sk2 = inet_lookup_listener(dev_net(skb->dev),
- 							&tcp_hashinfo, skb,
- 							__tcp_hdrlen(th),
--							iph->saddr, th->source,
--							iph->daddr, th->dest,
--							inet_iif(skb));
-+							&params);
- 		if (sk2) {
- 			inet_twsk_deschedule_put(inet_twsk(sk));
- 			sk = sk2;
-diff --git a/net/ipv4/udp_diag.c b/net/ipv4/udp_diag.c
-index 5e0640877536..d7f6af42ebcc 100644
---- a/net/ipv4/udp_diag.c
-+++ b/net/ipv4/udp_diag.c
-@@ -47,6 +47,7 @@ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
- 			.daddr.ipv4 = req->id.idiag_dst[0],
- 			.sport = req->id.idiag_sport,
- 			.dport = req->id.idiag_dport,
-+			.hnum  = ntohs(req->id.idiag_dport),
- 			.dif   =  req->id.idiag_if,
+@@ -1577,6 +1579,7 @@ static int tcp_v6_rcv(struct sk_buff *skb)
+ 			.sport = th->source,
+ 			.hnum = ntohs(th->dest),
+ 			.dif  = tcp_v6_iif(skb),
++			.sdif = tcp_v6_sdif(skb),
  		};
+ 		struct sock *sk2;
  
-@@ -190,6 +191,7 @@ static int __udp_diag_destroy(struct sk_buff *in_skb,
- 			.daddr.ipv4 = req->id.idiag_src[0],
- 			.sport = req->id.idiag_dport,
- 			.dport = req->id.idiag_sport,
-+			.hnum  = ntohs(req->id.idiag_sport),
- 			.dif   = req->id.idiag_if,
- 		};
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 5c4fdbe52c24..bb72a480d169 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -220,6 +220,7 @@ struct sock *__udp6_lib_lookup(struct net *net, struct sk_lookup *params,
+ 	u32 hash = 0;
  
-@@ -204,6 +206,7 @@ static int __udp_diag_destroy(struct sk_buff *in_skb,
- 				.daddr.ipv4 = req->id.idiag_src[3],
- 				.sport = req->id.idiag_dport,
- 				.dport = req->id.idiag_sport,
-+				.hnum  = ntohs(req->id.idiag_sport),
- 				.dif   = req->id.idiag_if,
- 			};
+ 	params->hnum = hnum;
++	params->sdif = inet6_sdif(skb);
+ 	params->exact_dif = udp6_lib_exact_dif_match(net, skb);
  
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index 972a0e40c59a..5cce7eb7dea2 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -117,6 +117,7 @@ nf_tproxy_get_sock_v4(struct net *net, struct sk_buff *skb, void *hp,
- 		.daddr.ipv4 = daddr,
- 		.sport = sport,
- 		.dport = dport,
-+		.hnum  = ntohs(dport),
- 		.dif   = in->ifindex,
+ 	if (hslot->count > 10) {
+@@ -673,7 +674,8 @@ static bool __udp_v6_is_mcast_sock(struct net *net, struct sock *sk,
+ 	    (inet->inet_dport && inet->inet_dport != params->sport) ||
+ 	    (!ipv6_addr_any(&sk->sk_v6_daddr) &&
+ 		    !ipv6_addr_equal(&sk->sk_v6_daddr, rmt_addr)) ||
+-	    (sk->sk_bound_dev_if && sk->sk_bound_dev_if != params->dif) ||
++	    (sk->sk_bound_dev_if && sk->sk_bound_dev_if != params->dif &&
++	     sk->sk_bound_dev_if != params->sdif) ||
+ 	    (!ipv6_addr_any(&sk->sk_v6_rcv_saddr) &&
+ 		    !ipv6_addr_equal(&sk->sk_v6_rcv_saddr, loc_addr)))
+ 		return false;
+@@ -715,6 +717,7 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 		.dport = uh->dest,
+ 		.hnum  = hnum,
+ 		.dif   = inet6_iif(skb),
++		.sdif  = inet6_sdif(skb),
  	};
  
-@@ -129,11 +130,9 @@ nf_tproxy_get_sock_v4(struct net *net, struct sk_buff *skb, void *hp,
- 		case NFT_LOOKUP_LISTENER:
- 			tcph = hp;
- 			sk = inet_lookup_listener(net, &tcp_hashinfo, skb,
--						    ip_hdrlen(skb) +
-+						  ip_hdrlen(skb) +
- 						      __tcp_hdrlen(tcph),
--						    saddr, sport,
--						    daddr, dport,
--						    in->ifindex);
-+						  &params);
+ 	if (use_hash2) {
+@@ -893,7 +896,7 @@ static struct sock *__udp6_lib_demux_lookup(struct net *net,
+ 		if (sk->sk_state == TCP_ESTABLISHED &&
+ 		    INET6_MATCH(sk, net, params->saddr.ipv6,
+ 				params->daddr.ipv6, ports,
+-				params->dif))
++				params->dif, params->sdif))
+ 			return sk;
  
- 			if (sk && !refcount_inc_not_zero(&sk->sk_refcnt))
- 				sk = NULL;
-@@ -145,8 +144,7 @@ nf_tproxy_get_sock_v4(struct net *net, struct sk_buff *skb, void *hp,
- 			break;
- 		case NFT_LOOKUP_ESTABLISHED:
- 			sk = inet_lookup_established(net, &tcp_hashinfo,
--						    saddr, sport, daddr, dport,
--						    in->ifindex);
-+						     &params);
- 			break;
- 		default:
- 			BUG();
+ 		/* Only check first socket in chain */
+@@ -910,6 +913,7 @@ static void udp_v6_early_demux(struct sk_buff *skb)
+ 	struct dst_entry *dst;
+ 	struct sk_lookup params = {
+ 		.dif = skb->dev->ifindex,
++		.sdif = inet6_sdif(skb),
+ 	};
+ 
+ 	if (skb->pkt_type != PACKET_HOST)
 -- 
 2.1.4
