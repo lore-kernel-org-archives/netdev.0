@@ -1,8 +1,8 @@
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH RFC 02/13] net: phy: split out PHY speed and duplex string
- generation
-Date: Tue, 25 Jul 2017 15:02:42 +0100
-Message-ID: <E1da0Q6-0007Kv-Mc@rmk-PC.armlinux.org.uk>
+Subject: [PATCH RFC 01/13] net: phy: allow settings table to support more than
+ 32 link modes
+Date: Tue, 25 Jul 2017 15:02:37 +0100
+Message-ID: <E1da0Q1-0007Ko-Fu@rmk-PC.armlinux.org.uk>
 References: <20170725140138.GK31807@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,154 +11,171 @@ Cc: netdev@vger.kernel.org
 To: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:50840 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:50836 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751651AbdGYOCq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 10:02:46 -0400
+        with ESMTP id S1751651AbdGYOCk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 10:02:40 -0400
 In-Reply-To: <20170725140138.GK31807@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Other code would like to make use of this, so make the speed and duplex
-string generation visible, and place it in a separate file.
+Allow the phy settings table to support more than 32 link modes by
+switching to the ethtool link mode bit number representation, rather
+than storing the mask.  This will allow phylink and other ethtool
+code to share the settings table to look up settings.
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/phy/phy-core.c | 49 ++++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/phy/phy.c      | 38 +----------------------------------
- include/linux/phy.h        |  3 +++
- 3 files changed, 53 insertions(+), 37 deletions(-)
+ drivers/net/phy/phy.c | 44 ++++++++++++++++++++++++++------------------
+ 1 file changed, 26 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
-index 6739b738bbaf..bf01a24f21ce 100644
---- a/drivers/net/phy/phy-core.c
-+++ b/drivers/net/phy/phy-core.c
-@@ -9,6 +9,55 @@
- #include <linux/export.h>
- #include <linux/phy.h>
- 
-+const char *phy_speed_to_str(int speed)
-+{
-+	switch (speed) {
-+	case SPEED_10:
-+		return "10Mbps";
-+	case SPEED_100:
-+		return "100Mbps";
-+	case SPEED_1000:
-+		return "1Gbps";
-+	case SPEED_2500:
-+		return "2.5Gbps";
-+	case SPEED_5000:
-+		return "5Gbps";
-+	case SPEED_10000:
-+		return "10Gbps";
-+	case SPEED_14000:
-+		return "14Gbps";
-+	case SPEED_20000:
-+		return "20Gbps";
-+	case SPEED_25000:
-+		return "25Gbps";
-+	case SPEED_40000:
-+		return "40Gbps";
-+	case SPEED_50000:
-+		return "50Gbps";
-+	case SPEED_56000:
-+		return "56Gbps";
-+	case SPEED_100000:
-+		return "100Gbps";
-+	case SPEED_UNKNOWN:
-+		return "Unknown";
-+	default:
-+		return "Unsupported (update phy-core.c)";
-+	}
-+}
-+EXPORT_SYMBOL_GPL(phy_speed_to_str);
-+
-+const char *phy_duplex_to_str(unsigned int duplex)
-+{
-+	if (duplex == DUPLEX_HALF)
-+		return "Half";
-+	if (duplex == DUPLEX_FULL)
-+		return "Full";
-+	if (duplex == DUPLEX_UNKNOWN)
-+		return "Unknown";
-+	return "Unsupported (update phy-core.c)";
-+}
-+EXPORT_SYMBOL_GPL(phy_duplex_to_str);
-+
- static void mmd_phy_indirect(struct mii_bus *bus, int phy_addr, int devad,
- 			     u16 regnum)
- {
 diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 0fe478002908..f128a538388f 100644
+index d0626bf5c540..0fe478002908 100644
 --- a/drivers/net/phy/phy.c
 +++ b/drivers/net/phy/phy.c
-@@ -39,42 +39,6 @@
- 
- #include <asm/irq.h>
- 
--static const char *phy_speed_to_str(int speed)
--{
--	switch (speed) {
--	case SPEED_10:
--		return "10Mbps";
--	case SPEED_100:
--		return "100Mbps";
--	case SPEED_1000:
--		return "1Gbps";
--	case SPEED_2500:
--		return "2.5Gbps";
--	case SPEED_5000:
--		return "5Gbps";
--	case SPEED_10000:
--		return "10Gbps";
--	case SPEED_14000:
--		return "14Gbps";
--	case SPEED_20000:
--		return "20Gbps";
--	case SPEED_25000:
--		return "25Gbps";
--	case SPEED_40000:
--		return "40Gbps";
--	case SPEED_50000:
--		return "50Gbps";
--	case SPEED_56000:
--		return "56Gbps";
--	case SPEED_100000:
--		return "100Gbps";
--	case SPEED_UNKNOWN:
--		return "Unknown";
--	default:
--		return "Unsupported (update phy.c)";
--	}
--}
--
- #define PHY_STATE_STR(_state)			\
- 	case PHY_##_state:			\
- 		return __stringify(_state);	\
-@@ -110,7 +74,7 @@ void phy_print_status(struct phy_device *phydev)
- 		netdev_info(phydev->attached_dev,
- 			"Link is Up - %s/%s - flow control %s\n",
- 			phy_speed_to_str(phydev->speed),
--			DUPLEX_FULL == phydev->duplex ? "Full" : "Half",
-+			phy_duplex_to_str(phydev->duplex),
- 			phydev->pause ? "rx/tx" : "off");
- 	} else	{
- 		netdev_info(phydev->attached_dev, "Link is Down\n");
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 2a9567bb8186..755793c29ad1 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -667,6 +667,9 @@ struct phy_fixup {
- 	int (*run)(struct phy_device *phydev);
+@@ -200,7 +200,7 @@ EXPORT_SYMBOL(phy_aneg_done);
+ struct phy_setting {
+ 	int speed;
+ 	int duplex;
+-	u32 setting;
++	int bit;
  };
  
-+const char *phy_speed_to_str(int speed);
-+const char *phy_duplex_to_str(unsigned int duplex);
+ /* A mapping of all SUPPORTED settings to speed/duplex.  This table
+@@ -210,57 +210,57 @@ static const struct phy_setting settings[] = {
+ 	{
+ 		.speed = SPEED_10000,
+ 		.duplex = DUPLEX_FULL,
+-		.setting = SUPPORTED_10000baseKR_Full,
++		.bit = ETHTOOL_LINK_MODE_10000baseKR_Full_BIT,
+ 	},
+ 	{
+ 		.speed = SPEED_10000,
+ 		.duplex = DUPLEX_FULL,
+-		.setting = SUPPORTED_10000baseKX4_Full,
++		.bit = ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT,
+ 	},
+ 	{
+ 		.speed = SPEED_10000,
+ 		.duplex = DUPLEX_FULL,
+-		.setting = SUPPORTED_10000baseT_Full,
++		.bit = ETHTOOL_LINK_MODE_10000baseT_Full_BIT,
+ 	},
+ 	{
+ 		.speed = SPEED_2500,
+ 		.duplex = DUPLEX_FULL,
+-		.setting = SUPPORTED_2500baseX_Full,
++		.bit = ETHTOOL_LINK_MODE_2500baseX_Full_BIT,
+ 	},
+ 	{
+ 		.speed = SPEED_1000,
+ 		.duplex = DUPLEX_FULL,
+-		.setting = SUPPORTED_1000baseKX_Full,
++		.bit = ETHTOOL_LINK_MODE_1000baseKX_Full_BIT,
+ 	},
+ 	{
+ 		.speed = SPEED_1000,
+ 		.duplex = DUPLEX_FULL,
+-		.setting = SUPPORTED_1000baseT_Full,
++		.bit = ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
+ 	},
+ 	{
+ 		.speed = SPEED_1000,
+ 		.duplex = DUPLEX_HALF,
+-		.setting = SUPPORTED_1000baseT_Half,
++		.bit = ETHTOOL_LINK_MODE_1000baseT_Half_BIT,
+ 	},
+ 	{
+ 		.speed = SPEED_100,
+ 		.duplex = DUPLEX_FULL,
+-		.setting = SUPPORTED_100baseT_Full,
++		.bit = ETHTOOL_LINK_MODE_100baseT_Full_BIT,
+ 	},
+ 	{
+ 		.speed = SPEED_100,
+ 		.duplex = DUPLEX_HALF,
+-		.setting = SUPPORTED_100baseT_Half,
++		.bit = ETHTOOL_LINK_MODE_100baseT_Half_BIT,
+ 	},
+ 	{
+ 		.speed = SPEED_10,
+ 		.duplex = DUPLEX_FULL,
+-		.setting = SUPPORTED_10baseT_Full,
++		.bit = ETHTOOL_LINK_MODE_10baseT_Full_BIT,
+ 	},
+ 	{
+ 		.speed = SPEED_10,
+ 		.duplex = DUPLEX_HALF,
+-		.setting = SUPPORTED_10baseT_Half,
++		.bit = ETHTOOL_LINK_MODE_10baseT_Half_BIT,
+ 	},
+ };
+ 
+@@ -268,7 +268,8 @@ static const struct phy_setting settings[] = {
+  * phy_lookup_setting - lookup a PHY setting
+  * @speed: speed to match
+  * @duplex: duplex to match
+- * @features: allowed link modes
++ * @mask: allowed link modes
++ * @maxbit: bit size of link modes
+  * @exact: an exact match is required
+  *
+  * Search the settings array for a setting that matches the speed and
+@@ -282,13 +283,14 @@ static const struct phy_setting settings[] = {
+  * they all fail, %NULL will be returned.
+  */
+ static const struct phy_setting *
+-phy_lookup_setting(int speed, int duplex, u32 features, bool exact)
++phy_lookup_setting(int speed, int duplex, const unsigned long *mask,
++		   size_t maxbit, bool exact)
+ {
+ 	const struct phy_setting *p, *match = NULL, *last = NULL;
+ 	int i;
+ 
+ 	for (i = 0, p = settings; i < ARRAY_SIZE(settings); i++, p++) {
+-		if (p->setting & features) {
++		if (p->bit < maxbit && test_bit(p->bit, mask)) {
+ 			last = p;
+ 			if (p->speed == speed && p->duplex == duplex) {
+ 				/* Exact match for speed and duplex */
+@@ -327,7 +329,9 @@ phy_lookup_setting(int speed, int duplex, u32 features, bool exact)
+ static const struct phy_setting *
+ phy_find_valid(int speed, int duplex, u32 supported)
+ {
+-	return phy_lookup_setting(speed, duplex, supported, false);
++	unsigned long mask = supported;
 +
++	return phy_lookup_setting(speed, duplex, &mask, BITS_PER_LONG, false);
+ }
+ 
  /**
-  * phy_read_mmd - Convenience function for reading a register
-  * from an MMD on a given PHY.
+@@ -344,12 +348,14 @@ unsigned int phy_supported_speeds(struct phy_device *phy,
+ 				  unsigned int *speeds,
+ 				  unsigned int size)
+ {
++	unsigned long supported = phy->supported;
+ 	unsigned int count = 0;
+ 	unsigned int idx = 0;
+ 
+ 	for (idx = 0; idx < ARRAY_SIZE(settings) && count < size; idx++)
+ 		/* Assumes settings are grouped by speed */
+-		if ((settings[idx].setting & phy->supported) &&
++		if (settings[idx].bit < BITS_PER_LONG &&
++		    !test_bit(settings[idx].bit, &supported) &&
+ 		    (count == 0 || speeds[count - 1] != settings[idx].speed))
+ 			speeds[count++] = settings[idx].speed;
+ 
+@@ -367,7 +373,9 @@ unsigned int phy_supported_speeds(struct phy_device *phy,
+  */
+ static inline bool phy_check_valid(int speed, int duplex, u32 features)
+ {
+-	return !!phy_lookup_setting(speed, duplex, features, true);
++	unsigned long mask = features;
++
++	return !!phy_lookup_setting(speed, duplex, &mask, BITS_PER_LONG, true);
+ }
+ 
+ /**
 -- 
 2.7.4
