@@ -1,28 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tun/tap: Add the missed return value check of
- register_netdevice_notifier
-Date: Mon, 24 Jul 2017 20:49:02 -0700 (PDT)
-Message-ID: <20170724.204902.702236719746923248.davem@davemloft.net>
-References: <1500543694-23465-1-git-send-email-xiangxia.m.yue@gmail.com>
-        <20170724.134509.1200121677424249511.davem@davemloft.net>
-        <1EE7E264-429A-4E31-8F9B-B59965940497@gmail.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next 10/10] bnxt_en: add support for port_attr_get
+ and and get_phys_port_name
+Date: Mon, 24 Jul 2017 21:06:17 -0700
+Message-ID: <20170724210617.651cd495@cakuba.netronome.com>
+References: <1500914069-15724-11-git-send-email-michael.chan@broadcom.com>
+        <201707251020.bDXHsX68%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiangxia.m.yue@gmail.com
+Cc: kbuild-all@01.org, davem@davemloft.net, netdev@vger.kernel.org,
+        Sathya Perla <sathya.perla@broadcom.com>
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47356 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751917AbdGYDtF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 23:49:05 -0400
-In-Reply-To: <1EE7E264-429A-4E31-8F9B-B59965940497@gmail.com>
+Received: from mx4.wp.pl ([212.77.101.12]:28837 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751196AbdGYEGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Jul 2017 00:06:25 -0400
+In-Reply-To: <201707251020.bDXHsX68%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Date: Tue, 25 Jul 2017 10:43:26 +0800
+On Tue, 25 Jul 2017 10:44:49 +0800, kbuild test robot wrote:
+>    drivers/net/ethernet/broadcom/bnxt/bnxt.c: In function 'bnxt_init_one':
+> >> drivers/net/ethernet/broadcom/bnxt/bnxt.c:7897:5: error: 'struct net_device' has no member named 'switchdev_ops'; did you mean 'netdev_ops'?  
+>      dev->switchdev_ops = &bnxt_switchdev_ops;
+>         ^~
 
-> One question, this type bugfix will be applied to net-next ?
-
-'net' is periodically merged into 'net-next', so yes.
+Check out SWITCHDEV_SET_OPS() from commit d643a75ac2bc ("net: switchdev:
+add SET_SWITCHDEV_OPS helper").
