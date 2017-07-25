@@ -1,61 +1,55 @@
-From: Trevor Cordes <trevor@tecnopolis.ca>
-Subject: Re: c21b48 causes nfs client to hang and kernel BUG at
- ./include/linux/mm.h:432 (bisected)
-Date: Tue, 25 Jul 2017 02:02:26 -0500
-Message-ID: <20170725020226.6a824cbc@pog.tecnopolis.ca>
-References: <20170723123504.GA4312@pog.tecnopolis.ca>
-        <CANn89iLQ6CiTCSQcvoPRvodzt4cSBkSfH+YGJuspoL0=vZG8kg@mail.gmail.com>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: nf_nat_pptp 4.12.3 kernel lockup/reboot
+Date: Tue, 25 Jul 2017 10:27:01 +0300
+Message-ID: <9eb3225f893a3bbc9784d30dbf3259fd@nuclearcat.com>
+References: <69c0c47e920e763bce702521baae9caa@nuclearcat.com>
+ <20170724161944.GB23964@breakpoint.cc>
+ <20170724162039.GC23964@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ewordofmouth.com ([72.3.247.85]:52224 "EHLO ewordofmouth.com"
+Received: from nuclearcat.com ([144.76.183.226]:53868 "EHLO nuclearcat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750746AbdGYHYe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Jul 2017 03:24:34 -0400
-In-Reply-To: <CANn89iLQ6CiTCSQcvoPRvodzt4cSBkSfH+YGJuspoL0=vZG8kg@mail.gmail.com>
+        id S1751086AbdGYH1E (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Jul 2017 03:27:04 -0400
+In-Reply-To: <20170724162039.GC23964@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-07-24 Eric Dumazet wrote:
-> On Sun, Jul 23, 2017 at 5:35 AM, Trevor Cordes <trevor@tecnopolis.ca>
-> wrote:
-> > Hi!  I've bisected a bug I'm seeing to:
-> > c21b48cc1bbf2f5af3ef54ada559f7fadf8b508b
-> > net: adjust skb->truesize in ___pskb_trim()
-> >
-> > The bug manifests as my NFS4 (TCP) client mount hanging after 5-10s
-> > of heavy read data transfer, which also produces: kernel BUG at
-> > ./include/linux/mm.h:462 (see full trace at bottom)
+On 2017-07-24 19:20, Florian Westphal wrote:
+> Florian Westphal <fw@strlen.de> wrote:
+>> Denys Fedoryshchenko <nuclearcat@nuclearcat.com> wrote:
+>> > Hi,
+>> >
+>> > I am trying to upgrade kernel 4.11.8 to 4.12.3 (it is a nat/router, handling
+>> > approx 2gbps of pppoe users traffic) and noticed that after while server
+>> > rebooting(i have set reboot on panic and etc).
+>> > I can't run serial console, and in pstore / netconsole there is nothing.
+>> > Best i got is some very short message about softlockup in ipmi, but as
+>> > storage very limited there - it is near useless.
+>> >
+>> > By preliminary testing (can't do it much, as it's production) - it seems
+>> > following lines causing issue, they worked in 4.11.8 and no more in 4.12.3.
+>> 
+>> Wild guess here, does this help?
+>> 
+>> diff --git a/net/netfilter/nf_conntrack_helper.c 
+>> b/net/netfilter/nf_conntrack_helper.c
+>> --- a/net/netfilter/nf_conntrack_helper.c
+>> +++ b/net/netfilter/nf_conntrack_helper.c
+>> @@ -266,6 +266,8 @@ int __nf_ct_try_assign_helper(struct nf_conn *ct, 
+>> struct nf_conn *tmpl,
+>>                 help = nf_ct_helper_ext_add(ct, helper, flags);
+>>                 if (help == NULL)
+>>                         return -ENOMEM;
+>> +              	if (!nf_ct_ext_add(ct, NF_CT_EXT_NAT, flags));
 > 
-> Hi Trevor, thanks for the report and bisection !
-> 
-> This commit exposed at least one bug, have you tried the following
-> fix :
-> 
-> e44699d2c28067f69698ccb68dd3ddeacfebc434 ("net: handle
-> NAPI_GRO_FREE_STOLEN_HEAD case also in napi_frags_finish()")
-> 
-> If this commit does not help, please provide what kind of NIC you are
-> using.
+> sigh, stupid typo, should be no ';' at the end above.
 
-Hi!  e44699d2c28067f69698ccb68dd3ddeacfebc434 I just compiled into
-stock fedora 24 4.11.10 (and removed my kludge c21b48 back-out patch).
-Indeed it does solve my bug!
-
-Is there a way to find out what version of the kernel that e44699 will
-show up in so I can watch for it in stock Fedora?  i.e. 4.11.55 or
-4.12.55?
-
-I'll update the rhbz so maybe Fedora can get rebased or include e44699
-as a patch.
-
-My NIC is Intel 82545GM
-
-Thanks!!  (Hmmm... I wonder if e44699 also solves the smb client
-hanging I've been seeing since last year...)
+Tested, it looks like not hanging anymore (before it was hanging within 
+10 minutes)
+Probably i will wait 24h testing cycle.
