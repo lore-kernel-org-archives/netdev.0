@@ -1,176 +1,66 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [RFC PATCH 07/10] net: ipv6: Convert raw sockets to sk_lookup
-Date: Tue, 25 Jul 2017 08:38:38 -0700
-Message-ID: <1500997121-3218-8-git-send-email-dsahern@gmail.com>
+Subject: [RFC PATCH 08/10] net: Add sdif to sk_lookup
+Date: Tue, 25 Jul 2017 08:38:39 -0700
+Message-ID: <1500997121-3218-9-git-send-email-dsahern@gmail.com>
 References: <1500997121-3218-1-git-send-email-dsahern@gmail.com>
 Cc: David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34720 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752756AbdGYPi6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 11:38:58 -0400
-Received: by mail-pg0-f66.google.com with SMTP id v190so14808721pgv.1
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 08:38:58 -0700 (PDT)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34724 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752510AbdGYPi7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 11:38:59 -0400
+Received: by mail-pg0-f65.google.com with SMTP id v190so14808746pgv.1
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 08:38:59 -0700 (PDT)
 In-Reply-To: <1500997121-3218-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert __raw_v6_lookup to use the new sk_lookup struct
+Add a second device index, sdif, to the socket lookup struct. sdif
+will be the device index for devices enslaved to an l3mdev. It allows
+the lookups to consider the enslaved device as well as the L3 master
+device when searching for a socket.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- include/net/rawv6.h |  3 +--
- net/ipv4/raw_diag.c | 15 ++++++++++-----
- net/ipv6/raw.c      | 41 +++++++++++++++++++++++------------------
- 3 files changed, 34 insertions(+), 25 deletions(-)
+ include/net/sock.h | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/rawv6.h b/include/net/rawv6.h
-index cbe4e9de1894..406268324d26 100644
---- a/include/net/rawv6.h
-+++ b/include/net/rawv6.h
-@@ -5,8 +5,7 @@
+diff --git a/include/net/sock.h b/include/net/sock.h
+index a2db5fd30192..c5d93a4bcd0a 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -507,23 +507,27 @@ struct sk_lookup {
+ 	unsigned short hnum;
  
- extern struct raw_hashinfo raw_v6_hashinfo;
- struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
--			     unsigned short num, const struct in6_addr *loc_addr,
--			     const struct in6_addr *rmt_addr, int dif);
-+			     const struct sk_lookup *params);
+ 	int dif;
++	int sdif;
+ 	bool exact_dif;
+ };
  
- int raw_abort(struct sock *sk, int err);
- 
-diff --git a/net/ipv4/raw_diag.c b/net/ipv4/raw_diag.c
-index a708de070cc6..2314993f6294 100644
---- a/net/ipv4/raw_diag.c
-+++ b/net/ipv4/raw_diag.c
-@@ -53,11 +53,16 @@ static struct sock *raw_lookup(struct net *net, struct sock *from,
- 		sk = __raw_v4_lookup(net, from, &params);
- 	}
- #if IS_ENABLED(CONFIG_IPV6)
--	else
--		sk = __raw_v6_lookup(net, from, r->sdiag_raw_protocol,
--				     (const struct in6_addr *)r->id.idiag_src,
--				     (const struct in6_addr *)r->id.idiag_dst,
--				     r->id.idiag_if);
-+	else {
-+		struct sk_lookup params = {
-+			.saddr.ipv6 = (const struct in6_addr *)r->id.idiag_dst,
-+			.daddr.ipv6 = (const struct in6_addr *)r->id.idiag_src,
-+			.hnum = r->sdiag_raw_protocol,
-+			.dif = r->id.idiag_if,
-+		};
-+
-+		sk = __raw_v6_lookup(net, from, &params);
-+	}
- #endif
- 	return sk;
- }
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 60be012fe708..51e651f18ffb 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -71,14 +71,14 @@ struct raw_hashinfo raw_v6_hashinfo = {
- EXPORT_SYMBOL_GPL(raw_v6_hashinfo);
- 
- struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
--		unsigned short num, const struct in6_addr *loc_addr,
--		const struct in6_addr *rmt_addr, int dif)
-+			     const struct sk_lookup *params)
- {
-+	const struct in6_addr *loc_addr = params->daddr.ipv6;
-+	const struct in6_addr *rmt_addr = params->saddr.ipv6;
- 	bool is_multicast = ipv6_addr_is_multicast(loc_addr);
- 
- 	sk_for_each_from(sk)
--		if (inet_sk(sk)->inet_num == num) {
--
-+		if (inet_sk(sk)->inet_num == params->hnum) {
- 			if (!net_eq(sock_net(sk), net))
- 				continue;
- 
-@@ -86,7 +86,8 @@ struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
- 			    !ipv6_addr_equal(&sk->sk_v6_daddr, rmt_addr))
- 				continue;
- 
--			if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
-+			if (sk->sk_bound_dev_if &&
-+			    sk->sk_bound_dev_if != params->dif)
- 				continue;
- 
- 			if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
-@@ -159,15 +160,17 @@ EXPORT_SYMBOL(rawv6_mh_filter_unregister);
+-/* Compare sk_bound_dev_if to socket lookup dif
++/* Compare sk_bound_dev_if to socket lookup dif and sdif
+  * Returns:
+  *   -1   exact dif required and not met
+  *    0   sk_bound_dev_if is either not set or does not match
+- *    1   sk_bound_dev_if is set and matches dif
++ *    1   sk_bound_dev_if is set and matches dif or sdif
   */
- static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
+ static inline int sk_lookup_device_cmp(const struct sock *sk,
+ 				       const struct sk_lookup *params)
  {
--	const struct in6_addr *saddr;
--	const struct in6_addr *daddr;
-+	struct sk_lookup params = {
-+		.saddr.ipv6 = &ipv6_hdr(skb)->saddr,
-+		.daddr.ipv6 = &ipv6_hdr(skb)->daddr,
-+		.hnum = nexthdr,
-+		.dif  = inet6_iif(skb),
-+	};
- 	struct sock *sk;
- 	bool delivered = false;
- 	__u8 hash;
- 	struct net *net;
- 
--	saddr = &ipv6_hdr(skb)->saddr;
--	daddr = saddr + 1;
- 
- 	hash = nexthdr & (RAW_HTABLE_SIZE - 1);
- 
-@@ -178,7 +181,7 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
- 		goto out;
- 
- 	net = dev_net(skb->dev);
--	sk = __raw_v6_lookup(net, sk, nexthdr, daddr, saddr, inet6_iif(skb));
-+	sk = __raw_v6_lookup(net, sk, &params);
- 
- 	while (sk) {
- 		int filtered;
-@@ -221,8 +224,7 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
- 				rawv6_rcv(sk, clone);
- 			}
- 		}
--		sk = __raw_v6_lookup(net, sk_next(sk), nexthdr, daddr, saddr,
--				     inet6_iif(skb));
-+		sk = __raw_v6_lookup(net, sk_next(sk), &params);
- 	}
- out:
- 	read_unlock(&raw_v6_hashinfo.lock);
-@@ -362,23 +364,26 @@ void raw6_icmp_error(struct sk_buff *skb, int nexthdr,
- 		u8 type, u8 code, int inner_offset, __be32 info)
- {
- 	struct sock *sk;
--	int hash;
--	const struct in6_addr *saddr, *daddr;
- 	struct net *net;
-+	int hash;
- 
- 	hash = nexthdr & (RAW_HTABLE_SIZE - 1);
- 
- 	read_lock(&raw_v6_hashinfo.lock);
- 	sk = sk_head(&raw_v6_hashinfo.ht[hash]);
- 	if (sk) {
-+		struct sk_lookup params = {
-+			.hnum = nexthdr,
-+			.dif  = inet6_iif(skb),
-+		};
- 		/* Note: ipv6_hdr(skb) != skb->data */
- 		const struct ipv6hdr *ip6h = (const struct ipv6hdr *)skb->data;
--		saddr = &ip6h->saddr;
--		daddr = &ip6h->daddr;
++	bool dev_match = (sk->sk_bound_dev_if == params->dif ||
++			  sk->sk_bound_dev_if == params->sdif);
 +
-+		params.daddr.ipv6 = &ip6h->saddr;
-+		params.saddr.ipv6 = &ip6h->daddr;
- 		net = dev_net(skb->dev);
+ 	/* exact_dif true == l3mdev case */
+-	if (params->exact_dif && sk->sk_bound_dev_if != params->dif)
++	if (params->exact_dif && !dev_match)
+ 		return -1;
  
--		while ((sk = __raw_v6_lookup(net, sk, nexthdr, saddr, daddr,
--						inet6_iif(skb)))) {
-+		while ((sk = __raw_v6_lookup(net, sk, &params))) {
- 			rawv6_err(sk, skb, NULL, type, code,
- 					inner_offset, info);
- 			sk = sk_next(sk);
+-	if (sk->sk_bound_dev_if && sk->sk_bound_dev_if == params->dif)
++	if (sk->sk_bound_dev_if && dev_match)
+ 		return 1;
+ 
+ 	return 0;
 -- 
 2.1.4
