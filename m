@@ -1,75 +1,111 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [RFC] switchdev: clarify ndo_get_phys_port_name() formats
-Date: Tue, 25 Jul 2017 11:22:41 -0400
-Message-ID: <20170725152241.GA71091@C02RW35GFVH8.dhcp.broadcom.net>
-References: <20170725051344.2040-1-jakub.kicinski@netronome.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [RFC PATCH] IP: do not modify ingress packet IP option in
+ ip_options_echo()
+Date: Tue, 25 Jul 2017 17:26:16 +0200
+Message-ID: <1500996376.13149.10.camel@redhat.com>
+References: <f5758b6b7199d2d2a218b0ad36f1e5ef108eac43.1500642854.git.pabeni@redhat.com>
+         <20170724.141253.769254590231937263.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        simon.horman@netronome.com, davem@davemloft.net
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+        hannes@stressinduktion.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:34118 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752466AbdGYPWr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 11:22:47 -0400
-Received: by mail-qk0-f194.google.com with SMTP id q66so12927346qki.1
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 08:22:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170725051344.2040-1-jakub.kicinski@netronome.com>
+Received: from mx1.redhat.com ([209.132.183.28]:54416 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752089AbdGYP0T (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Jul 2017 11:26:19 -0400
+In-Reply-To: <20170724.141253.769254590231937263.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 24, 2017 at 10:13:44PM -0700, Jakub Kicinski wrote:
-> We are still in position where we can suggest uniform naming
-> convention for ndo_get_phys_port_name().  switchdev.txt file
-> already contained a suggestion of how to name external ports.
-> Since the use of switchdev for SR-IOV NIC's eswitches is growing,
-> establish a format for ports of those devices as well.
+On Mon, 2017-07-24 at 14:12 -0700, David Miller wrote:
+> From: Paolo Abeni <pabeni@redhat.com>
+> Date: Fri, 21 Jul 2017 15:55:18 +0200
 > 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-
-This is a nice addition and I suspect there could be even more done to
-update this file to cover the VF rep usage.
-
-> ---
->  Documentation/networking/switchdev.txt | 14 +++++++++++---
->  1 file changed, 11 insertions(+), 3 deletions(-)
+> > diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+> > index 93157f2..fdda973 100644
+> > --- a/net/ipv4/ip_options.c
+> > +++ b/net/ipv4/ip_options.c
+> > @@ -174,9 +174,6 @@ int __ip_options_echo(struct ip_options *dopt, struct sk_buff *skb,
+> >                               doffset -= 4;
+> >               }
+> >               if (doffset > 3) {
+> > -                     __be32 daddr = fib_compute_spec_dst(skb);
+> > -
+> > -                     memcpy(&start[doffset-1], &daddr, 4);
+> >                       dopt->faddr = faddr;
 > 
-> diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
-> index 3e7b946dea27..7c4b6025fb4b 100644
-> --- a/Documentation/networking/switchdev.txt
-> +++ b/Documentation/networking/switchdev.txt
-> @@ -119,9 +119,17 @@ into 4 10G ports, resulting in 4 port netdevs, the device can give a unique
->  SUBSYSTEM=="net", ACTION=="add", ATTR{phys_switch_id}=="<phys_switch_id>", \
->  	ATTR{phys_port_name}!="", NAME="swX$attr{phys_port_name}"
->  
-> -Suggested naming convention is "swXpYsZ", where X is the switch name or ID, Y
-> -is the port name or ID, and Z is the sub-port name or ID.  For example, sw1p1s0
-> -would be sub-port 0 on port 1 on switch 1.
-> +Suggested formats of the port name returned by ndo_get_phys_port_name are:
-> + - pA     for external ports;
-> + - pAsB   for split external ports;
-> + - pfC    for PF ports (so called PF representors);
-> + - pfCvfD for VF ports (so called VF representors).
+> This transformation is required, but in the destination not the source.
+> 
+> The red flag is that we are indexing 'start' with 'doffset' instead of
+> 'soffset'.
 
-I hate to clutter this up, but might be also need to add:
+Thank you for your reply. I spent some time trying to understand the
+reasoning behind the code above, but still it baffles me. 
 
- - pfCsB    for split PF ports (so called PF representors);
- - pfCsBvfD for split VF ports (so called VF representors).
+I have a reproducer sending TCP syns to a closed port using LSRR
+routing towards different namespaces without any explicit route for the
+server address nor for the way back.
+With the vanilla kernel, the ICMP port unreachable replyes contain a
+corrupted version of the ingress packet, with the last item of LSRR IP
+option addresses list changed to the TCP server endpoint's IP.
+With the patched kernel, ICMP port unreachable packets look correct.
+The LSRR addresses list used for the backward path is unchanged and
+looks correct in both cases (replies are correctly received from the
+sender).
 
-or are we comfortable that these additions to the name for split ports
-are implied?
+Please allow me to articulate a bit more longer.
 
-> +Where A is the port name or ID; B is the sub-port name or ID; C is PCIe
-> +Physical Function name or ID and D is PCIe Virtual Function name or ID.
-> +
-> +Suggested naming convention for switches is "swX", where X is the switch name
-> +or ID, plus the port name.  For example, sw1p1s0 would be sub-port 0 on port 1
-> +on switch 1.
->  
->  Port Features
->  ^^^^^^^^^^^^^
+In the above context 'start' is:
+
+     unsigned char *start = sptr+sopt->srr; // ip_options.c line 156
+
+and sptr is:
+
+     sptr = skb_network_header(skb); // ip_options.c line 94
+
+The patche code is effectively updating the ingress packet source
+routing option list. Specifically it's overwriting the last item
+('doffset') with the preferred local address used to reach ip_hdr-
+>saddr - that is, with the source host address for the backward path.
+
+Updating the last item of the return/echoed source route option list
+looks doubtful: at this stage such item should contain the last hop to
+be used to reach ip_hdr->saddr on the backward path. The destination
+address will be added to LSRR list later by ip_options_build().
+
+According to RFC 1812, section 4.2.2.1:
+
+"The option as received (the recorded route) MUST be passed up to the
+transport layer (or to ICMP message processing)."
+
+The ingress packet source route list must not be modified.
+
+"A router MUST provide a means whereby transport protocols and
+applications can reverse the source route in a received datagram.  This
+reversed source route MUST be inserted into datagrams they originate
+(see [INTRO:2] for details) when the router is unaware of policy
+constraints"
+
+The return/echoed source route list must be the reverse of the ingress
+one, plus:
+
+"When a source route option is created (which would happen when
+the router is originating a source routed datagram or is
+inserting a source route option as a result of a special
+filter), it MUST be correctly formed even if it is being
+created by reversing a recorded route that erroneously includes
+the source host"
+
+AFACS this is exactly what the code is currently doing in lines 166-
+174 of ip_options.c. We must not include the source host address in the
+source route address list, as replacing 'start' with 'dptr' would do.
+
+According to all the above I think we should just drop the lines
+reported in the patch, am I missing something?
+
+Thanks!
+
+Paolo
