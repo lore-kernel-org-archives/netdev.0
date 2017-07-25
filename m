@@ -1,40 +1,39 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [patch net-next] mlxsw: spectrum_router: Fix build when IPv6
- isn't enabled
-Date: Mon, 24 Jul 2017 18:35:36 -0600
-Message-ID: <6038dc49-5cd9-6169-8193-b473024c168a@gmail.com>
-References: <20170724075600.2798-1-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: dsa: Initialize ds->cpu_port_mask earlier
+Date: Mon, 24 Jul 2017 17:36:54 -0700 (PDT)
+Message-ID: <20170724.173654.774517488532007368.davem@davemloft.net>
+References: <20170724174923.29156-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, sean.wang@mediatek.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36036 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752990AbdGYAfk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 20:35:40 -0400
-Received: by mail-pf0-f171.google.com with SMTP id z129so13242840pfb.3
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 17:35:39 -0700 (PDT)
-In-Reply-To: <20170724075600.2798-1-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45416 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752458AbdGYAg4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 20:36:56 -0400
+In-Reply-To: <20170724174923.29156-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/24/17 1:56 AM, Jiri Pirko wrote:
-> @@ -949,9 +950,13 @@ mlxsw_sp_router_neighs_update_interval_init(struct mlxsw_sp *mlxsw_sp)
->  {
->  	unsigned long interval;
->  
-> +#if IS_ENABLED(CONFIG_IPV6)
->  	interval = min_t(unsigned long,
->  			 NEIGH_VAR(&arp_tbl.parms, DELAY_PROBE_TIME),
->  			 NEIGH_VAR(&nd_tbl.parms, DELAY_PROBE_TIME));
-> +#else
-> +	interval = NEIGH_VAR(&arp_tbl.parms, DELAY_PROBE_TIME);
-> +#endif
->  	mlxsw_sp->router->neighs_update.interval = jiffies_to_msecs(interval);
->  }
->  
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 24 Jul 2017 10:49:23 -0700
 
-arp and ndisc should have accessors for those rather than exporting the
-tables to drivers.
+> The mt7530 driver has its dsa_switch_ops::get_tag_protocol function
+> check ds->cpu_port_mask to issue a warning in case the configured CPU
+> port is not capable of supporting tags.
+> 
+> After commit 14be36c2c96c ("net: dsa: Initialize all CPU and enabled
+> ports masks in dsa_ds_parse()") we slightly re-arranged the
+> initialization such that this was no longer working. Just make sure that
+> ds->cpu_port_mask is set prior to the first call to get_tag_protocol,
+> thus restoring the expected contract. In case of error, the CPU port bit
+> is cleared.
+> 
+> Fixes: 14be36c2c96c ("net: dsa: Initialize all CPU and enabled ports masks in dsa_ds_parse()")
+> Reported-by: Sean Wang <sean.wang@mediatek.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Applied, thanks Florian.
