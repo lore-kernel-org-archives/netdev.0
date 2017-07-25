@@ -1,65 +1,40 @@
-From: Mao Wenan <maowenan@huawei.com>
-Subject: [PATCH net-next] TLP: Don't reschedule PTO when there's one outstanding TLP retransmission.
-Date: Tue, 25 Jul 2017 16:35:35 +0800
-Message-ID: <1500971735-21852-1-git-send-email-maowenan@huawei.com>
+From: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
+Subject: Re: [PATCH 11/13] net: dsa: lan9303: Added "alr_dump" sysfs port
+ attribute
+Date: Tue, 25 Jul 2017 10:36:06 +0200
+Message-ID: <5efaa5f5-851b-418d-173b-837daa41307c@zenitel.com>
+References: <f69ce739a3aa42e9b1e03fc699282b3c@nooslMX1.zenitelcss.com>
+ <e5a1cefd-1e26-3a24-2928-3fd7d970d8a6@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-        <weiyongjun1@huawei.com>, <chenweilong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([45.249.212.187]:10261 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750880AbdGYIgF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 04:36:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, <corbet@lwn.net>,
+        <andrew@lunn.ch>, <vivien.didelot@savoirfairelinux.com>,
+        <davem@davemloft.net>, <kernel@pengutronix.de>,
+        <linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e5a1cefd-1e26-3a24-2928-3fd7d970d8a6@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If there is one TLP probe went out(TLP use the write_queue_tail packet
-as TLP probe, we assume this first TLP probe named A), and this TLP
-probe was not acked by receive side.
+On 24. juli 2017 18:54, Florian Fainelli wrote:
+> On 07/20/2017 01:49 AM, Egil Hjelmeland wrote:
+>> Added read only file /sys/class/net/<port>/lan9303/alr_dump,
+>> that output 168 first ALR entires.
+>>
+>> Currently "bridge fdb show" does not include the CPU port, while
+>> "alr_dump" list all three ports per entry.
+> 
+> Agreed, and this is a limitation we would probably want to remove in the
+> future, but duplicating what already exists with "bridge fdb show" into
+> a sysfs node is a non-starter.
 
-Then the transmit side sent the next two packetes out(named B,C), but
-unfortunately these two packets are also not acked by receive side.
+OK, I will keep this for my self then.
 
-And then there is one data packet with ack_seq A arrive, in tcp_ack() 
-will call tcp_schedule_loss_probe() to rearm PTO, the handler 
-tcp_send_loss_probe() pass if(tp->tlp_high_seq)(because there is 
-one outstanding TLP named A,tp->tlp_high_seq is not zero),
-so the new TLP probe can't be went out and need to rearm the RTO
-timer(timeout is relative to the transmit time of the write queue head).
+Egil
 
-After this, another data packet with ack_seq A is received,
-if the tlp_time_stamp is after rto_time_stamp, it will reset the
-TLP timeout with delta value, which is before previous RTO timeout, 
-so PTO is rearm and previous RTO is cleared. This TLP probe also can't 
-be sent out because of tp->tlp_high_seq != 0, so there is no way(or need 
-very long time)to retransmit the packet because of TLP A is lost.
 
-This fix is not to pass the if(tp->tlp_high_seq) in tcp_schedule_loss_probe()
-when TLP PTO is after RTO, It is no need to reschedule PTO when there
-is one outstanding TLP retransmission, so if the TLP A is lost then RTO can
-retransmit that packet, and tp->tlp_high_seq will be set to 0. After this TLP
-will go to the normal work process.
-
-Signed-off-by: Mao Wenan <maowenan@huawei.com>
----
- net/ipv4/tcp_output.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 886d874..0c8da1c 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2423,6 +2423,10 @@ bool tcp_schedule_loss_probe(struct sock *sk)
- 	tlp_time_stamp = tcp_jiffies32 + timeout;
- 	rto_time_stamp = (u32)inet_csk(sk)->icsk_timeout;
- 	if ((s32)(tlp_time_stamp - rto_time_stamp) > 0) {
-+		/*It is no need to reschedule PTO when there is one outstanding TLP retransmission*/
-+		if (tp->tlp_high_seq) {
-+			return false;
-+		}
- 		s32 delta = rto_time_stamp - tcp_jiffies32;
- 		if (delta > 0)
- 			timeout = delta;
--- 
-2.5.0
+DISCLAIMER:
+This e-mail may contain confidential and privileged material for the sole use of the intended recipient. Any review, use, distribution or disclosure by others is strictly prohibited. If you are not the intended recipient (or authorized to receive for the recipient), please contact the sender by reply e-mail and delete all copies of this message.
