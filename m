@@ -1,112 +1,121 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net 1/1] Revert "netvsc: optimize calculation of number of
- slots"
-Date: Mon, 24 Jul 2017 21:03:19 -0700
-Message-ID: <20170725040319.5969-2-sthemmin@microsoft.com>
-References: <20170725040319.5969-1-sthemmin@microsoft.com>
+Subject: Re: A buggy behavior for Linux TCP Reno and HTCP
+Date: Mon, 24 Jul 2017 21:19:57 -0700
+Message-ID: <20170724211957.24b4c43f@xeon-e3>
+References: <CANdGJ5Qp1MoGfeSyAnEqYeSeEyoiH8e1j_Ut3F4PnLRBnqNNZg@mail.gmail.com>
+        <CAK6E8=eP3jwTD5t7Cj3h_m4JTJ61p=roqsr02WiSHUANse1ynw@mail.gmail.com>
+        <CANdGJ5SOUV1OoonC-3i=5MLUWvoHPBZgp19c3mJTTYbNr2yLeQ@mail.gmail.com>
+        <CAK6E8=eWYybZZxkjjVXC_K7DfYayEg7gx0bPqKpwi6iuE+bh8Q@mail.gmail.com>
+        <dc5db0ec-0746-d42e-5418-f621e1840bc0@unl.edu>
+        <CADVnQynG0MZcuAPpZ+hiK-9Ounx8JKPWxvb1n3t-OyyC7=es_Q@mail.gmail.com>
+        <CAK6E8=d+-kA_PyVgAoe0dtGg--ek0CurehQZ7JXo=32em2Gv+Q@mail.gmail.com>
+        <CADVnQy=-m37Uxfg1=nJpkuy2CKTtW1fp2jG53Q+MNF7ifGvoHw@mail.gmail.com>
+        <CADVnQym0TdX=NgdP2YeF-OAMmLXZrmxt7HaitqxxCcDCMpWJmg@mail.gmail.com>
+        <CAK6E8=etPfZMy2ZiPJPFXF5wf9a2foU-Wummq3kLn_koL8wO+A@mail.gmail.com>
+        <CADVnQymwOwWVr_Ln5+04pyiGWChf-K0XcXYP5s-+db+q1zGB9w@mail.gmail.com>
+        <CAK6E8=djw-eD-JE3tkJsDjYb5UXR8scQRSnAvpt1d4p18GwHeA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com,
-	haiyangz@microsoft.com,
-	sthemmin@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170725040319.5969-1-sthemmin@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: Neal Cardwell <ncardwell@google.com>, Lisong Xu <xu@unl.edu>,
+        Wei Sun <unlcsewsun@gmail.com>, netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:36315 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750757AbdGYEUG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 00:20:06 -0400
+Received: by mail-pg0-f41.google.com with SMTP id 125so65487227pgi.3
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 21:20:06 -0700 (PDT)
+In-Reply-To: <CAK6E8=djw-eD-JE3tkJsDjYb5UXR8scQRSnAvpt1d4p18GwHeA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The logic for computing page buffer scatter does not take into
-account the impact of compound pages. Therefore the optimization
-to compute number of slots was incorrect and could cause stack
-corruption a skb was sent with lots of fragments from huge pages.
+On Mon, 24 Jul 2017 16:41:12 -0700
+Yuchung Cheng <ycheng@google.com> wrote:
 
-This reverts commit 60b86665af0dfbeebda8aae43f0ba451cd2dcfe5.
+> On Mon, Jul 24, 2017 at 11:29 AM, Neal Cardwell <ncardwell@google.com> wrote:
+> > On Mon, Jul 24, 2017 at 2:17 PM, Yuchung Cheng <ycheng@google.com> wrote:  
+> >> On Sun, Jul 23, 2017 at 7:37 PM, Neal Cardwell <ncardwell@google.com> wrote:  
+> >>> On Sun, Jul 23, 2017 at 10:36 PM, Neal Cardwell <ncardwell@google.com> wrote:  
+> > ...  
+> >>>> What if we call the field tp->prior_cwnd? Then at least we'd have some
+> >>>> nice symmetry:
+> >>>>
+> >>>> - tp->snd_cwnd,  which is saved in tp->prior_cwnd  (and restored upon undo)
+> >>>> - tp->snd_ssthresh,  which is saved in tp-> prior_ssthresh  (and
+> >>>> restored upon undo)
+> >>>>
+> >>>> That sounds appealing to me. WDYT?  
+> >>>
+> >>> And, I should add, if we go with the tp->prior_cwnd approach, then we
+> >>> can have a single "default"/CUBIC-style undo function, instead of 15
+> >>> separate but identical implementations...  
+> >> you mean all CC modules share one ca_ops->undo_cwnd function? sounds a
+> >> nice consolidation work.  
+> >
+> > Yes, exactly.
+> >
+> > Right now we have 9 modules that have identical tcp_foo_cwnd_undo functions:
+> >
+> > tcp_bic.c:188:  return max(tp->snd_cwnd, ca->loss_cwnd);
+> > tcp_cubic.c:378:        return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> > tcp_dctcp.c:318:        return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> > tcp_highspeed.c:165:    return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> > tcp_illinois.c:309:     return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> > tcp_nv.c:190:   return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> > tcp_scalable.c:50:      return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
+> > tcp_veno.c:210: return max(tcp_sk(sk)->snd_cwnd, veno->loss_cwnd);
+> > tcp_yeah.c:232: return max(tcp_sk(sk)->snd_cwnd, yeah->loss_cwnd);
+> >
+> > And if we fix this bug in tcp_reno_undo_cwnd() by referring to
+> > ca->loss_cwnd then we will add another 6 like this.
+> >
+> > So my proposal would be
+> >
+> > - tp->snd_cwnd,  which is saved in tp->prior_cwnd  (and restored upon undo)
+> > - tp->snd_ssthresh,  which is saved in tp-> prior_ssthresh  (and
+> >    restored upon undo)
+> >
+> > Actually, now that I re-read the code, we already do have a
+> > prior_cwnd, which is used for the PRR code, and already set upon
+> > entering CA_Recovery. So if we set prior_cwnd for CA_Loss, perhaps we
+> > can do something like:
+> >
+> > diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+> > index fde983f6376b..c2b174469645 100644
+> > --- a/net/ipv4/tcp_cong.c
+> > +++ b/net/ipv4/tcp_cong.c
+> > @@ -456,7 +456,7 @@ u32 tcp_reno_undo_cwnd(struct sock *sk)
+> >  {
+> >         const struct tcp_sock *tp = tcp_sk(sk);
+> >
+> > -       return max(tp->snd_cwnd, tp->snd_ssthresh << 1);
+> > +       return max(tp->snd_cwnd, tp->prior_cwnd);
+> >  }
+> >  EXPORT_SYMBOL_GPL(tcp_reno_undo_cwnd);
+> >
+> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> > index 2920e0cb09f8..ae790a84302d 100644
+> > --- a/net/ipv4/tcp_input.c
+> > +++ b/net/ipv4/tcp_input.c
+> > @@ -1951,6 +1951,7 @@ void tcp_enter_loss(struct sock *sk)
+> >             !after(tp->high_seq, tp->snd_una) ||
+> >             (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
+> >                 tp->prior_ssthresh = tcp_current_ssthresh(sk);
+> > +               tp->prior_cwnd = tp->snd_cwnd;
+> >                 tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+> >                 tcp_ca_event(sk, CA_EVENT_LOSS);
+> >                 tcp_init_undo(tp);
+> >
+> > And then change all the CC modules but BBR to use the
+> > tcp_reno_undo_cwnd() instead of their own custom undo code.
+> >
+> > WDYT?  
+> Looks reasonable. But we might want to eventually refactor TCP undo
+> code: the stats changes (prior_ssthresh, prior_cwnd, undo_marker,
+> undo_retrans) are scattered in different helpers, making the code hard
+> to audit.
 
-Fixes: 60b86665af0d ("netvsc: optimize calculation of number of slots")
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c | 43 +++++++++++++++++++++++++++++++----------
- 1 file changed, 33 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 63c98bbbc596..0d78727f1a14 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -315,14 +315,34 @@ static u32 init_page_array(void *hdr, u32 len, struct sk_buff *skb,
- 	return slots_used;
- }
- 
--/* Estimate number of page buffers neede to transmit
-- * Need at most 2 for RNDIS header plus skb body and fragments.
-- */
--static unsigned int netvsc_get_slots(const struct sk_buff *skb)
-+static int count_skb_frag_slots(struct sk_buff *skb)
-+{
-+	int i, frags = skb_shinfo(skb)->nr_frags;
-+	int pages = 0;
-+
-+	for (i = 0; i < frags; i++) {
-+		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-+		unsigned long size = skb_frag_size(frag);
-+		unsigned long offset = frag->page_offset;
-+
-+		/* Skip unused frames from start of page */
-+		offset &= ~PAGE_MASK;
-+		pages += PFN_UP(offset + size);
-+	}
-+	return pages;
-+}
-+
-+static int netvsc_get_slots(struct sk_buff *skb)
- {
--	return PFN_UP(offset_in_page(skb->data) + skb_headlen(skb))
--		+ skb_shinfo(skb)->nr_frags
--		+ 2;
-+	char *data = skb->data;
-+	unsigned int offset = offset_in_page(data);
-+	unsigned int len = skb_headlen(skb);
-+	int slots;
-+	int frag_slots;
-+
-+	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE);
-+	frag_slots = count_skb_frag_slots(skb);
-+	return slots + frag_slots;
- }
- 
- static u32 net_checksum_info(struct sk_buff *skb)
-@@ -360,18 +380,21 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
- 	struct hv_page_buffer *pb = page_buf;
- 
--	/* We can only transmit MAX_PAGE_BUFFER_COUNT number
-+	/* We will atmost need two pages to describe the rndis
-+	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
- 	 * of pages in a single packet. If skb is scattered around
- 	 * more pages we try linearizing it.
- 	 */
--	num_data_pgs = netvsc_get_slots(skb);
-+
-+	num_data_pgs = netvsc_get_slots(skb) + 2;
-+
- 	if (unlikely(num_data_pgs > MAX_PAGE_BUFFER_COUNT)) {
- 		++net_device_ctx->eth_stats.tx_scattered;
- 
- 		if (skb_linearize(skb))
- 			goto no_memory;
- 
--		num_data_pgs = netvsc_get_slots(skb);
-+		num_data_pgs = netvsc_get_slots(skb) + 2;
- 		if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
- 			++net_device_ctx->eth_stats.tx_too_big;
- 			goto drop;
--- 
-2.11.0
+I like having common code as much as possible,
+having per CC undo means more variations and sources of errors.
