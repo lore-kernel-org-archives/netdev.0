@@ -1,163 +1,53 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH net-next v2 03/10] net: dsa: lan9303: Refactor lan9303_enable_packet_processing()
-Date: Tue, 25 Jul 2017 18:15:46 +0200
-Message-ID: <20170725161553.30147-4-privat@egil-hjelmeland.no>
-References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: corbet@lwn.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        davem@davemloft.net, kernel@pengutronix.de,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170725161553.30147-1-privat@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] bonding: commit link status change after propose
+Date: Tue, 25 Jul 2017 09:44:25 -0700
+Message-ID: <20170725164425.9112-1-xiyou.wangcong@gmail.com>
+Cc: benjamin.gilbert@coreos.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:38697 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750851AbdGYQou (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 12:44:50 -0400
+Received: by mail-pf0-f195.google.com with SMTP id c23so13304339pfe.5
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 09:44:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-lan9303_enable_packet_processing, lan9303_disable_packet_processing()
-Pass port number (0,1,2) as parameter instead of port offset.
-Simplify accordingly.
+Commit de77ecd4ef02 ("bonding: improve link-status update in mii-monitoring")
+moves link status commitment into bond_mii_monitor(), but it still relies
+on the return value of bond_miimon_inspect() as the hint. We need to return
+non-zero as long as we propose a link status change.
 
-Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Fixes: de77ecd4ef02 ("bonding: improve link-status update in mii-monitoring")
+Reported-by: Benjamin Gilbert <benjamin.gilbert@coreos.com>
+Tested-by: Benjamin Gilbert <benjamin.gilbert@coreos.com>
+Cc: Mahesh Bandewar <maheshb@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- drivers/net/dsa/lan9303-core.c | 66 ++++++++++++++++++++----------------------
- 1 file changed, 32 insertions(+), 34 deletions(-)
+ drivers/net/bonding/bond_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index c2b53659f58f..0806a0684d55 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -159,9 +159,7 @@
- # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT1 (BIT(9) | BIT(8))
- # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0 (BIT(1) | BIT(0))
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 181839d6fbea..9bee6c1c70cc 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2050,6 +2050,7 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 				continue;
  
--#define LAN9303_PORT_0_OFFSET 0x400
--#define LAN9303_PORT_1_OFFSET 0x800
--#define LAN9303_PORT_2_OFFSET 0xc00
-+#define LAN9303_SWITCH_PORT_REG(port, reg0) (0x400 * (port) + (reg0))
+ 			bond_propose_link_state(slave, BOND_LINK_FAIL);
++			commit++;
+ 			slave->delay = bond->params.downdelay;
+ 			if (slave->delay) {
+ 				netdev_info(bond->dev, "link status down for %sinterface %s, disabling it in %d ms\n",
+@@ -2088,6 +2089,7 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 				continue;
  
- /* the built-in PHYs are of type LAN911X */
- #define MII_LAN911X_SPECIAL_MODES 0x12
-@@ -457,24 +455,25 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
- 	return 0;
- }
+ 			bond_propose_link_state(slave, BOND_LINK_BACK);
++			commit++;
+ 			slave->delay = bond->params.updelay;
  
--#define LAN9303_MAC_RX_CFG_OFFS (LAN9303_MAC_RX_CFG_0 - LAN9303_PORT_0_OFFSET)
--#define LAN9303_MAC_TX_CFG_OFFS (LAN9303_MAC_TX_CFG_0 - LAN9303_PORT_0_OFFSET)
--
- static int lan9303_disable_packet_processing(struct lan9303 *chip,
- 					     unsigned int port)
- {
- 	int ret;
- 
- 	/* disable RX, but keep register reset default values else */
--	ret = lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_OFFS + port,
--				       LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES);
-+	ret = lan9303_write_switch_reg(
-+			chip,
-+			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_RX_CFG_0),
-+			LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES);
- 	if (ret)
- 		return ret;
- 
- 	/* disable TX, but keep register reset default values else */
--	return lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_OFFS + port,
--				LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
--				LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE);
-+	return lan9303_write_switch_reg(
-+			chip,
-+			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_TX_CFG_0),
-+			LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
-+			LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE);
- }
- 
- static int lan9303_enable_packet_processing(struct lan9303 *chip,
-@@ -483,17 +482,21 @@ static int lan9303_enable_packet_processing(struct lan9303 *chip,
- 	int ret;
- 
- 	/* enable RX and keep register reset default values else */
--	ret = lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_OFFS + port,
--				       LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES |
--				       LAN9303_MAC_RX_CFG_X_RX_ENABLE);
-+	ret = lan9303_write_switch_reg(
-+			chip,
-+			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_RX_CFG_0),
-+			LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES |
-+			LAN9303_MAC_RX_CFG_X_RX_ENABLE);
- 	if (ret)
- 		return ret;
- 
- 	/* enable TX and keep register reset default values else */
--	return lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_OFFS + port,
--				LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
--				LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE |
--				LAN9303_MAC_TX_CFG_X_TX_ENABLE);
-+	return lan9303_write_switch_reg(
-+			chip,
-+			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_TX_CFG_0),
-+			LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
-+			LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE |
-+			LAN9303_MAC_TX_CFG_X_TX_ENABLE);
- }
- 
- /* We want a special working switch:
-@@ -555,12 +558,14 @@ static int lan9303_handle_reset(struct lan9303 *chip)
- /* stop processing packets for all ports */
- static int lan9303_disable_processing(struct lan9303 *chip)
- {
--	int ret;
-+	int ret, p;
- 
--	ret = lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
--	if (ret)
--		return ret;
--	return lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
-+	for (p = 1; p <= 2; p++) {
-+		ret = lan9303_disable_packet_processing(chip, p);
-+		if (ret)
-+			return ret;
-+	}
-+	return 0;
- }
- 
- static int lan9303_check_device(struct lan9303 *chip)
-@@ -696,7 +701,7 @@ static void lan9303_get_ethtool_stats(struct dsa_switch *ds, int port,
- 	unsigned int u, poff;
- 	int ret;
- 
--	poff = port * 0x400;
-+	poff = LAN9303_SWITCH_PORT_REG(port, 0);
- 
- 	for (u = 0; u < ARRAY_SIZE(lan9303_mib); u++) {
- 		ret = lan9303_read_switch_reg(chip,
-@@ -749,11 +754,8 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
- 	/* enable internal packet processing */
- 	switch (port) {
- 	case 1:
--		return lan9303_enable_packet_processing(chip,
--							LAN9303_PORT_1_OFFSET);
- 	case 2:
--		return lan9303_enable_packet_processing(chip,
--							LAN9303_PORT_2_OFFSET);
-+		return lan9303_enable_packet_processing(chip, port);
- 	default:
- 		dev_dbg(chip->dev,
- 			"Error: request to power up invalid port %d\n", port);
-@@ -770,13 +772,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
- 	/* disable internal packet processing */
- 	switch (port) {
- 	case 1:
--		lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
--		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
--				  MII_BMCR, BMCR_PDOWN);
--		break;
- 	case 2:
--		lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
--		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
-+		lan9303_disable_packet_processing(chip, port);
-+		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
- 				  MII_BMCR, BMCR_PDOWN);
- 		break;
- 	default:
+ 			if (slave->delay) {
 -- 
-2.11.0
+2.13.0
