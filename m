@@ -1,229 +1,77 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH net-next v2 07/10] net: dsa: lan9303: Added basic offloading of unicast traffic
-Date: Tue, 25 Jul 2017 18:15:50 +0200
-Message-ID: <20170725161553.30147-8-privat@egil-hjelmeland.no>
-References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: corbet@lwn.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        davem@davemloft.net, kernel@pengutronix.de,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] bpf: install libbpf headers on 'make install'
+Date: Tue, 25 Jul 2017 18:51:20 +0200
+Message-ID: <59777708.7000707@iogearbox.net>
+References: <20170724212236.21903-1-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, oss-drivers@netronome.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
         netdev@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20170725161553.30147-1-privat@egil-hjelmeland.no>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:60733 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750732AbdGYQvW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 12:51:22 -0400
+In-Reply-To: <20170724212236.21903-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When both user ports are joined to the same bridge, the normal
-HW MAC learning is enabled. This means that unicast traffic is forwarded
-in HW. Support for STP is also added.
+On 07/24/2017 11:22 PM, Jakub Kicinski wrote:
+> Install the bpf.h header to $(prefix)/include/bpf/ directory.
+> This is necessary to build standalone applications using libbpf,
+> without the need to clone the kernel sources and point to them.
+>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> ---
+> I'm not 100% sure if it's OK to export the header file and which
+> directory it should end up in (bpf/? libbpf/?).
 
-If one of the user ports leave the bridge,
-the ports goes back to the initial separated operation.
+Given the Makefile is heavily derived from tools/lib/traceevent/,
+we should probably have a similar install_headers target instead,
+in order to keep semantics similar. /include/bpf/ should be good.
 
-Added brigde methods port_bridge_join, port_bridge_leave and
-port_stp_state_set.
-
-Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
----
- drivers/net/dsa/lan9303-core.c | 115 ++++++++++++++++++++++++++++++++++-------
- drivers/net/dsa/lan9303.h      |   1 +
- 2 files changed, 98 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index b70acb73aad6..426a75bd89f4 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -18,6 +18,7 @@
- #include <linux/mutex.h>
- #include <linux/mii.h>
- #include <linux/phy.h>
-+#include <linux/if_bridge.h>
- 
- #include "lan9303.h"
- 
-@@ -143,6 +144,7 @@
- # define LAN9303_SWE_PORT_STATE_FORWARDING_PORT0 (0)
- # define LAN9303_SWE_PORT_STATE_LEARNING_PORT0 BIT(1)
- # define LAN9303_SWE_PORT_STATE_BLOCKING_PORT0 BIT(0)
-+# define LAN9303_SWE_PORT_STATE_DISABLED_PORT0 (3)
- #define LAN9303_SWE_PORT_MIRROR 0x1846
- # define LAN9303_SWE_PORT_MIRROR_SNIFF_ALL BIT(8)
- # define LAN9303_SWE_PORT_MIRROR_SNIFFER_PORT2 BIT(7)
-@@ -515,11 +517,30 @@ static int lan9303_enable_packet_processing(struct lan9303 *chip,
- 			LAN9303_MAC_TX_CFG_X_TX_ENABLE);
- }
- 
-+/* forward special tagged packets from port 0 to port 1 *or* port 2 */
-+static int lan9303_setup_tagging(struct lan9303 *chip)
-+{
-+	int ret;
-+	/* enable defining the destination port via special VLAN tagging
-+	 * for port 0
-+	 */
-+	ret = lan9303_write_switch_reg(chip, LAN9303_SWE_INGRESS_PORT_TYPE,
-+				       0x03);
-+	if (ret)
-+		return ret;
-+
-+	/* tag incoming packets at port 1 and 2 on their way to port 0 to be
-+	 * able to discover their source port
-+	 */
-+	return lan9303_write_switch_reg(
-+		chip, LAN9303_BM_EGRSS_PORT_TYPE,
-+		LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0);
-+}
-+
- /* We want a special working switch:
-  * - do not forward packets between port 1 and 2
-  * - forward everything from port 1 to port 0
-  * - forward everything from port 2 to port 0
-- * - forward special tagged packets from port 0 to port 1 *or* port 2
-  */
- static int lan9303_separate_ports(struct lan9303 *chip)
- {
-@@ -534,22 +555,6 @@ static int lan9303_separate_ports(struct lan9303 *chip)
- 	if (ret)
- 		return ret;
- 
--	/* enable defining the destination port via special VLAN tagging
--	 * for port 0
--	 */
--	ret = lan9303_write_switch_reg(chip, LAN9303_SWE_INGRESS_PORT_TYPE,
--				       0x03);
--	if (ret)
--		return ret;
--
--	/* tag incoming packets at port 1 and 2 on their way to port 0 to be
--	 * able to discover their source port
--	 */
--	ret = lan9303_write_switch_reg(chip, LAN9303_BM_EGRSS_PORT_TYPE,
--			LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0);
--	if (ret)
--		return ret;
--
- 	/* prevent port 1 and 2 from forwarding packets by their own */
- 	return lan9303_write_switch_reg(chip, LAN9303_SWE_PORT_STATE,
- 				LAN9303_SWE_PORT_STATE_FORWARDING_PORT0 |
-@@ -557,6 +562,12 @@ static int lan9303_separate_ports(struct lan9303 *chip)
- 				LAN9303_SWE_PORT_STATE_BLOCKING_PORT2);
- }
- 
-+static void lan9303_bridge_ports(struct lan9303 *chip)
-+{
-+	/* ports bridged: remove mirroring */
-+	lan9303_write_switch_reg(chip, LAN9303_SWE_PORT_MIRROR, 0);
-+}
-+
- static int lan9303_handle_reset(struct lan9303 *chip)
- {
- 	if (!chip->reset_gpio)
-@@ -707,6 +718,10 @@ static int lan9303_setup(struct dsa_switch *ds)
- 		return -EINVAL;
- 	}
- 
-+	ret = lan9303_setup_tagging(chip);
-+	if (ret)
-+		dev_err(chip->dev, "failed to setup port tagging %d\n", ret);
-+
- 	ret = lan9303_separate_ports(chip);
- 	if (ret)
- 		dev_err(chip->dev, "failed to separate ports %d\n", ret);
-@@ -898,17 +913,81 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
- 	}
- }
- 
-+static int lan9303_port_bridge_join(struct dsa_switch *ds, int port,
-+				    struct net_device *br)
-+{
-+	struct lan9303 *chip = ds->priv;
-+
-+	dev_dbg(chip->dev, "%s(port %d)\n", __func__, port);
-+	if (ds->ports[1].bridge_dev ==  ds->ports[2].bridge_dev) {
-+		lan9303_bridge_ports(chip);
-+		chip->is_bridged = true;  /* unleash stp_state_set() */
-+	}
-+
-+	return 0;
-+}
-+
-+static void lan9303_port_bridge_leave(struct dsa_switch *ds, int port,
-+				      struct net_device *br)
-+{
-+	struct lan9303 *chip = ds->priv;
-+
-+	dev_dbg(chip->dev, "%s(port %d)\n", __func__, port);
-+	if (chip->is_bridged) {
-+		lan9303_separate_ports(chip);
-+		chip->is_bridged = false;
-+	}
-+}
-+
-+static void lan9303_port_stp_state_set(struct dsa_switch *ds, int port,
-+				       u8 state)
-+{
-+	int portmask, portstate;
-+	struct lan9303 *chip = ds->priv;
-+
-+	dev_dbg(chip->dev, "%s(port %d, state %d)\n",
-+		__func__, port, state);
-+	if (!chip->is_bridged)
-+		return;
-+
-+	switch (state) {
-+	case BR_STATE_DISABLED:
-+		portstate = LAN9303_SWE_PORT_STATE_DISABLED_PORT0;
-+		break;
-+	case BR_STATE_BLOCKING:
-+	case BR_STATE_LISTENING:
-+		portstate = LAN9303_SWE_PORT_STATE_BLOCKING_PORT0;
-+		break;
-+	case BR_STATE_LEARNING:
-+		portstate = LAN9303_SWE_PORT_STATE_LEARNING_PORT0;
-+		break;
-+	case BR_STATE_FORWARDING:
-+		portstate = LAN9303_SWE_PORT_STATE_FORWARDING_PORT0;
-+		break;
-+	default:
-+		dev_err(chip->dev, "%s(port %d, state %d)\n",
-+			__func__, port, state);
-+	}
-+	portmask = 0x3 << (port * 2);
-+	portstate     <<= (port * 2);
-+	lan9303_write_switch_reg_mask(chip, LAN9303_SWE_PORT_STATE,
-+				      portstate, portmask);
-+}
-+
- static struct dsa_switch_ops lan9303_switch_ops = {
- 	.get_tag_protocol = lan9303_get_tag_protocol,
- 	.setup = lan9303_setup,
--	.get_strings = lan9303_get_strings,
- 	.phy_read = lan9303_phy_read,
- 	.phy_write = lan9303_phy_write,
- 	.adjust_link = lan9303_adjust_link,
-+	.get_strings = lan9303_get_strings,
- 	.get_ethtool_stats = lan9303_get_ethtool_stats,
- 	.get_sset_count = lan9303_get_sset_count,
- 	.port_enable = lan9303_port_enable,
- 	.port_disable = lan9303_port_disable,
-+	.port_bridge_join       = lan9303_port_bridge_join,
-+	.port_bridge_leave      = lan9303_port_bridge_leave,
-+	.port_stp_state_set     = lan9303_port_stp_state_set,
- };
- 
- static int lan9303_register_switch(struct lan9303 *chip)
-diff --git a/drivers/net/dsa/lan9303.h b/drivers/net/dsa/lan9303.h
-index 444d00b460e1..2d74d02c9cef 100644
---- a/drivers/net/dsa/lan9303.h
-+++ b/drivers/net/dsa/lan9303.h
-@@ -21,6 +21,7 @@ struct lan9303 {
- 	struct dsa_switch *ds;
- 	struct mutex indirect_mutex; /* protect indexed register access */
- 	const struct lan9303_phy_ops *ops;
-+	bool is_bridged; /* true if port 1 and 2 is bridged */
- };
- 
- extern const struct regmap_access_table lan9303_register_set;
--- 
-2.11.0
-
+>   tools/lib/bpf/Makefile | 9 ++++++++-
+>   1 file changed, 8 insertions(+), 1 deletion(-)
+>
+> diff --git a/tools/lib/bpf/Makefile b/tools/lib/bpf/Makefile
+> index 1f5300e56b44..22dad416e0bd 100644
+> --- a/tools/lib/bpf/Makefile
+> +++ b/tools/lib/bpf/Makefile
+> @@ -46,6 +46,7 @@ else
+>   endif
+>
+>   prefix ?= /usr/local
+> +headerdir = $(prefix)/include/bpf/
+>   libdir = $(prefix)/$(libdir_relative)
+>   man_dir = $(prefix)/share/man
+>   man_dir_SQ = '$(subst ','\'',$(man_dir))'
+> @@ -90,11 +91,13 @@ endif
+>   export prefix libdir src obj
+>
+>   # Shell quotes
+> +headerdir_SQ = $(subst ','\'',$(headerdir))
+>   libdir_SQ = $(subst ','\'',$(libdir))
+>   libdir_relative_SQ = $(subst ','\'',$(libdir_relative))
+>   plugin_dir_SQ = $(subst ','\'',$(plugin_dir))
+>
+>   LIB_FILE = libbpf.a libbpf.so
+> +HEADER_FILE = bpf.h
+>
+>   VERSION		= $(BPF_VERSION)
+>   PATCHLEVEL	= $(BPF_PATCHLEVEL)
+> @@ -189,7 +192,11 @@ install_lib: all_cmd
+>   	$(call QUIET_INSTALL, $(LIB_FILE)) \
+>   		$(call do_install,$(LIB_FILE),$(libdir_SQ))
+>
+> -install: install_lib
+> +install_hdr: all_cmd
+> +	$(call QUIET_INSTALL, $(HEADER_FILE)) \
+> +		$(call do_install,$(HEADER_FILE),$(headerdir_SQ))
+> +
+> +install: install_lib install_hdr
+>
+>   ### Cleaning rules
+>
+>
