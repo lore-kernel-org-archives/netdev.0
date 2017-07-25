@@ -1,80 +1,79 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] TLP: Don't reschedule PTO when there's one
- outstanding TLP retransmission.
-Date: Tue, 25 Jul 2017 12:54:31 +0300
-Message-ID: <549b181d-b925-35ca-193c-2bc641ab901a@cogentembedded.com>
-References: <1500971735-21852-1-git-send-email-maowenan@huawei.com>
+From: Sathya Perla <sathya.perla@broadcom.com>
+Subject: Re: [PATCH net-next 10/10] bnxt_en: add support for port_attr_get and
+ and get_phys_port_name
+Date: Tue, 25 Jul 2017 15:25:19 +0530
+Message-ID: <CAKvpyk3=R-ER74wfwNE3yM19EgU+h2TUdp8epRUKEQ69=kco1g@mail.gmail.com>
+References: <1500914069-15724-1-git-send-email-michael.chan@broadcom.com>
+ <1500914069-15724-11-git-send-email-michael.chan@broadcom.com> <20170724214521.75bf5857@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Mao Wenan <maowenan@huawei.com>, netdev@vger.kernel.org,
-        davem@davemloft.net, weiyongjun1@huawei.com, chenweilong@huawei.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: Michael Chan <michael.chan@broadcom.com>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:32851 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750790AbdGYJyd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 05:54:33 -0400
-Received: by mail-lf0-f54.google.com with SMTP id p2so38613602lfg.0
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 02:54:32 -0700 (PDT)
-In-Reply-To: <1500971735-21852-1-git-send-email-maowenan@huawei.com>
-Content-Language: en-US
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:36476 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750790AbdGYJzU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 05:55:20 -0400
+Received: by mail-pf0-f172.google.com with SMTP id z129so17239861pfb.3
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 02:55:20 -0700 (PDT)
+In-Reply-To: <20170724214521.75bf5857@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Tue, Jul 25, 2017 at 10:15 AM, Jakub Kicinski <kubakici@wp.pl> wrote:
+...
+>> +static int bnxt_get_phys_port_name(struct net_device *dev, char *buf,
+>> +                                size_t len)
+>> +{
+>> +     struct bnxt *bp = netdev_priv(dev);
+>> +     int rc;
+>> +
+>> +     /* The PF and it's VF-reps only support the switchdev framework */
+>> +     if (!BNXT_PF(bp))
+>> +             return -EOPNOTSUPP;
+>> +
+>> +     /* The switch-id that the pf belongs to is exported by
+>> +      * the switchdev ndo. This name is just to distinguish from the
+>> +      * vf-rep ports.
+>> +      */
+>> +     rc = snprintf(buf, len, "pf%d", bp->pf.port_id);
+>
+> This is worrisome.  What do you mean by PF?  In my experience, since
+> for years PFs had one-to-one association with physical ports people use
+> the terms interchangeably.  This causes a lot of headaches in proper
+> eswitch modelling.
+>
+> I'm not sure whether this is a HW limitation or engineers trying to
+> make things "easy for users" but most VF-representor patchsets we've
+> seen on netdev don't include PF representors.  NICs have 3 types of
+> ports - PFs, VFs and external ports/MACs.  For some reason there is a
+> tendency to keep pretending PF and physical port is the same entity,
+> which among other things makes it impossible to install VF->PF rules
+> (as in from VF to the host, not to the network).
+>
+> Most high performance NIC vendors also have multi-PF NICs, even though
+> those are not deployed by wider public.  If we keep pretending PF is
+> the external port, those will get very awkward to model.  This is a bit
+> of a pet peeve of mine :)
 
-On 7/25/2017 11:35 AM, Mao Wenan wrote:
+Jakub, we'll consider implementing a PF-rep as an add-on feature...
 
-> If there is one TLP probe went out(TLP use the write_queue_tail packet
-> as TLP probe, we assume this first TLP probe named A), and this TLP
-> probe was not acked by receive side.
-> 
-> Then the transmit side sent the next two packetes out(named B,C), but
-> unfortunately these two packets are also not acked by receive side.
-> 
-> And then there is one data packet with ack_seq A arrive, in tcp_ack()
-> will call tcp_schedule_loss_probe() to rearm PTO, the handler
-> tcp_send_loss_probe() pass if(tp->tlp_high_seq)(because there is
-> one outstanding TLP named A,tp->tlp_high_seq is not zero),
-> so the new TLP probe can't be went out and need to rearm the RTO
-> timer(timeout is relative to the transmit time of the write queue head).
-> 
-> After this, another data packet with ack_seq A is received,
-> if the tlp_time_stamp is after rto_time_stamp, it will reset the
-> TLP timeout with delta value, which is before previous RTO timeout,
-> so PTO is rearm and previous RTO is cleared. This TLP probe also can't
-> be sent out because of tp->tlp_high_seq != 0, so there is no way(or need
-> very long time)to retransmit the packet because of TLP A is lost.
-> 
-> This fix is not to pass the if(tp->tlp_high_seq) in tcp_schedule_loss_probe()
-> when TLP PTO is after RTO, It is no need to reschedule PTO when there
-> is one outstanding TLP retransmission, so if the TLP A is lost then RTO can
-> retransmit that packet, and tp->tlp_high_seq will be set to 0. After this TLP
-> will go to the normal work process.
-> 
-> Signed-off-by: Mao Wenan <maowenan@huawei.com>
-> ---
->   net/ipv4/tcp_output.c | 4 ++++
->   1 file changed, 4 insertions(+)
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 886d874..0c8da1c 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2423,6 +2423,10 @@ bool tcp_schedule_loss_probe(struct sock *sk)
->   	tlp_time_stamp = tcp_jiffies32 + timeout;
->   	rto_time_stamp = (u32)inet_csk(sk)->icsk_timeout;
->   	if ((s32)(tlp_time_stamp - rto_time_stamp) > 0) {
-> +		/*It is no need to reschedule PTO when there is one outstanding TLP retransmission*/
+>
+> If this bnxt_get_phys_port_name() relates to the external port, please
+> change your implementation to comply with
+> Documentation/networking/switchdev.txt, in particular:
+>
+>> Suggested naming convention is "swXpYsZ", where X is the switch name or ID, Y
+>> is the port name or ID, and Z is the sub-port name or ID.  For example, sw1p1s0
+>> would be sub-port 0 on port 1 on switch 1.
+>
+> So for physical ports the convention is p<port_id>, and in case of
+> breakout p<port_id>s<subport_id>.
 
-    Please add space after /* and before */
+I'm sending a follow-up patch that fixes the naming for both the
+external port and the VF-reps as proposed in your RFC ( switchdev:
+clarify ndo_get_phys_port_name() formats)
 
-> +		if (tp->tlp_high_seq) {
-> +			return false;
-> +		}
-
-    {} not needed.
-
-[...]
-
-MBR, Sergei
+thanks,
+-Sathya
