@@ -1,49 +1,106 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] netns: more input validation
-Date: Tue, 25 Jul 2017 13:47:25 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD003FE88@AcuExch.aculab.com>
-References: <20170725133031.7735-1-mcroce@redhat.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: [PATCH RFC 00/13] phylink and sfp support
+Date: Tue, 25 Jul 2017 15:01:39 +0100
+Message-ID: <20170725140138.GK31807@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-To: 'Matteo Croce' <mcroce@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:64783 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751843AbdGYNr2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 09:47:28 -0400
-In-Reply-To: <20170725133031.7735-1-mcroce@redhat.com>
-Content-Language: en-US
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:50818 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751810AbdGYOBs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 10:01:48 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matteo Croce
-> Sent: 25 July 2017 14:31
-> ip netns accepts invalid input as namespace name like an empty string or a
-> string longer than the maximum file name length.
-> Check that the netns name is not empty and less than or equal to NAME_MAX.
-> 
-> Signed-off-by: Matteo Croce <mcroce@redhat.com>
-> ---
->  ip/ipnetns.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-> index 42549944..198e9de8 100644
-> --- a/ip/ipnetns.c
-> +++ b/ip/ipnetns.c
-> @@ -768,7 +768,8 @@ static int netns_monitor(int argc, char **argv)
-> 
->  static int invalid_name(const char *name)
->  {
-> -	return strchr(name, '/') || !strcmp(name, ".") || !strcmp(name, "..");
-> +	return !*name || strlen(name) > NAME_MAX ||
-> +		strchr(name, '/') || !strcmp(name, ".") || !strcmp(name, "..");
+Hi,
 
-Think I'd check:
-	!name[0] || !memchr(name, 0, NAME_MAX) || strchr(name, '/') ||
-		(name[0] == '.' && (!name[1] || (name[1] == '.' && !name[2])))
+This patch series introduces generic support for SFP sockets found on
+various Marvell based platforms.  The idea here is to provide common
+SFP socket support which can be re-used by network drivers as
+appropriate, rather than each network driver having to re-implement
+SFP socket support.
 
-	David
+SFP sockets typically use other system resources, eg, I2C buses to read
+identifying information, and GPIOs to monitor socket state and control
+the socket.  Meanwhile, some network drivers drive multiple ethernet
+ports from one instantiation of the driver.
+
+It is not desirable to block the initialisation of a network driver
+(thus denying other ports from being operational) if the resources
+for the SFP socket are not yet available.  This means that an element
+of independence between the SFP support code and the driver is
+required.
+
+More than that, SFP modules effectively bring hotplug PHYs to
+networking - SFP copper modules normally contain a standard PHY
+accessed over the I2C bus, and it is desirable to read their state
+so network drivers can be appropriately configured.
+
+To add to the complexity, SFP modules can be connected in at least
+two places:
+
+1. Directly to the serdes output of a MAC with no intervening PHY.
+   For example:
+
+     mvneta ----> SFP socket
+
+2. To a PHY, for example:
+
+     mvpp2 ---> PHY ---> copper
+                 |
+                 `-----> SFP socket
+
+This code supports both setups, although it's not fully implemented
+with scenario (2).
+
+Moreover, the link presented by the SFP module can be one of the
+10Gbase-R family (for SFP+ sockets), SGMII or 1000base-X (for SFP
+sockets) depending on the module, and network drivers need to
+reconfigure themselves accordingly for the link to come up.
+
+For example, if the MAC is configured for SGMII and a fibre module
+is plugged in, the link won't come up until the MAC is reconfigured
+for 1000base-X mode.
+
+The SFP code manages the SFP socket - detecting the module, reading
+the identifying information, and managing the control and status
+signals.  Importantly, it disables the SFP module transmitter when
+the MAC is down, so that the laser is turned off (but that is not
+a guarantee.)
+
+phylink provides the mechanisms necessary to manage the link modes,
+based on the SFP module type, and supports hot-plugging of the PHY
+without needing the MAC driver to be brought up and down on
+transitions.  phylink also supports the classical static PHY and
+fixed-link modes.
+
+I currently (but not included in this series) have code to convert
+mvneta to use phylink, and the out of tree mvpp2x driver.  I have
+nothing for the mvpp2 driver at present as that driver is only
+recently becoming functional on 10G hardware, and is missing a lot
+of features that are necessary to make things work correctly.
+
+ drivers/net/phy/Kconfig      |   25 +
+ drivers/net/phy/Makefile     |    6 +
+ drivers/net/phy/mdio-i2c.c   |  109 ++++
+ drivers/net/phy/mdio-i2c.h   |   19 +
+ drivers/net/phy/phy-core.c   |  180 ++++++
+ drivers/net/phy/phy.c        |  217 +------
+ drivers/net/phy/phy_device.c |   15 +
+ drivers/net/phy/phylink.c    | 1462 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/sfp-bus.c    |  475 ++++++++++++++
+ drivers/net/phy/sfp.c        |  915 ++++++++++++++++++++++++++
+ drivers/net/phy/sfp.h        |   28 +
+ include/linux/phy.h          |   21 +
+ include/linux/phylink.h      |  148 +++++
+ include/linux/sfp.h          |  434 +++++++++++++
+ 14 files changed, 3867 insertions(+), 187 deletions(-)
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
