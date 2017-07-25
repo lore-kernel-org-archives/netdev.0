@@ -1,83 +1,107 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 1/2] net: ethernet: ti: cpts: convert to use
- kthread_worker
-Date: Tue, 25 Jul 2017 06:31:34 +0200
-Message-ID: <20170725043134.dxootdk66iqov7jh@localhost.localdomain>
-References: <20170721234943.3841-1-grygorii.strashko@ti.com>
- <20170721234943.3841-2-grygorii.strashko@ti.com>
- <20170722052914.yo62jqdqsdv4hc5q@localhost.localdomain>
- <bc4bf624-e58e-657c-0520-9fd50d6666a6@ti.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next 10/10] bnxt_en: add support for port_attr_get
+ and and get_phys_port_name
+Date: Mon, 24 Jul 2017 21:45:21 -0700
+Message-ID: <20170724214521.75bf5857@cakuba.netronome.com>
+References: <1500914069-15724-1-git-send-email-michael.chan@broadcom.com>
+        <1500914069-15724-11-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org, Wingman Kwok <w-kwok2@ti.com>,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: Grygorii Strashko <grygorii.strashko@ti.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        Sathya Perla <sathya.perla@broadcom.com>
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:38531 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750780AbdGYEbj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 00:31:39 -0400
-Content-Disposition: inline
-In-Reply-To: <bc4bf624-e58e-657c-0520-9fd50d6666a6@ti.com>
+Received: from mx4.wp.pl ([212.77.101.11]:16215 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750811AbdGYEp2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Jul 2017 00:45:28 -0400
+In-Reply-To: <1500914069-15724-11-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 24, 2017 at 07:34:38PM -0500, Grygorii Strashko wrote:
-> Below if pure TBD/RFC version of patch which add kthread worker to PTP core.
-> I'm sending it to get you opinion about implementation in general, before 
-> continue with more changes. Pls, take a look if you have time?
-> - are you ok with names (API, callbacks, ptp structs members)?
-
-The API and naming looks good to me.
- 
-> I can prepare, update and resend proper patches tom if feedback is positive.
-
-Please do.
-
-> I also can convert dp83640 driver to use new feature, but I can't test it.
-
-No need for that.  It would be enough to have cpts as the first user
-and example.
- 
-> +	if (ptp->info->do_aux_work) {
-> +		struct sched_param param = {
-> +			.sched_priority = MAX_RT_PRIO - 1 };
-> +
-> +		kthread_init_delayed_work(&ptp->aux_work, ptp_aux_kworker);
-> +		ptp->kworker = kthread_create_worker(0, info->name);
-> +		if (IS_ERR(ptp->kworker)) {
-> +			pr_err("failed to create ptp aux_worker task %ld\n",
-> +			       PTR_ERR(ptp->kworker));
-> +			return ERR_CAST(ptp->kworker);
-> +		}
-> +		err = sched_setscheduler_nocheck(ptp->kworker->task,
-> +						 SCHED_FIFO, &param);
-
-I think we should not hard code the scheduler and priority here but
-rather leave it to the sysadmin to configure these using chrt(1).
-After all, a normal work item is has served just in many situations.
-
-> +		if (err)
-> +			pr_err("sched_setscheduler_nocheck err %d\n", err);
-> +	}
-> +
->  	err = ptp_populate_pin_groups(ptp);
->  	if (err)
->  		goto no_pin_groups;
-> @@ -274,6 +305,9 @@ int ptp_clock_unregister(struct ptp_clock *ptp)
->  	ptp->defunct = 1;
->  	wake_up_interruptible(&ptp->tsev_wq);
+On Mon, 24 Jul 2017 12:34:29 -0400, Michael Chan wrote:
+> From: Sathya Perla <sathya.perla@broadcom.com>
+> 
+> This patch adds support for the switchdev_port_attr_get() and
+> ndo_get_phys_port_name() methods for the PF and the VF-reps.
+> Using this support a user application can deduce that the PF
+> (when in the ESWITCH_SWDEV mode) and it's VF-reps form a switch.
+> 
+> Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
+> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 57 +++++++++++++++++++++++++++
+>  drivers/net/ethernet/broadcom/bnxt/bnxt.h     |  2 +
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c | 31 ++++++++++++++-
+>  3 files changed, 89 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> index f262fe6..82cbe18 100644
+> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+> @@ -7546,6 +7546,61 @@ static int bnxt_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh,
+>  	return rc;
+>  }
 >  
-> +	kthread_cancel_delayed_work_sync(&ptp->aux_work);
-> +	kthread_destroy_worker(ptp->kworker);
+> +static int bnxt_get_phys_port_name(struct net_device *dev, char *buf,
+> +				   size_t len)
+> +{
+> +	struct bnxt *bp = netdev_priv(dev);
+> +	int rc;
+> +
+> +	/* The PF and it's VF-reps only support the switchdev framework */
+> +	if (!BNXT_PF(bp))
+> +		return -EOPNOTSUPP;
+> +
+> +	/* The switch-id that the pf belongs to is exported by
+> +	 * the switchdev ndo. This name is just to distinguish from the
+> +	 * vf-rep ports.
+> +	 */
+> +	rc = snprintf(buf, len, "pf%d", bp->pf.port_id);
 
-These can't be called unconditionally.
+This is worrisome.  What do you mean by PF?  In my experience, since
+for years PFs had one-to-one association with physical ports people use
+the terms interchangeably.  This causes a lot of headaches in proper
+eswitch modelling.
 
->  	/* Release the clock's resources. */
->  	if (ptp->pps_source)
->  		pps_unregister_source(ptp->pps_source);
+I'm not sure whether this is a HW limitation or engineers trying to
+make things "easy for users" but most VF-representor patchsets we've
+seen on netdev don't include PF representors.  NICs have 3 types of
+ports - PFs, VFs and external ports/MACs.  For some reason there is a
+tendency to keep pretending PF and physical port is the same entity,
+which among other things makes it impossible to install VF->PF rules
+(as in from VF to the host, not to the network).
 
-Thanks,
-Richard
+Most high performance NIC vendors also have multi-PF NICs, even though
+those are not deployed by wider public.  If we keep pretending PF is
+the external port, those will get very awkward to model.  This is a bit
+of a pet peeve of mine :)
+
+If this bnxt_get_phys_port_name() relates to the external port, please
+change your implementation to comply with
+Documentation/networking/switchdev.txt, in particular:
+
+> Suggested naming convention is "swXpYsZ", where X is the switch name or ID, Y
+> is the port name or ID, and Z is the sub-port name or ID.  For example, sw1p1s0
+> would be sub-port 0 on port 1 on switch 1.
+
+So for physical ports the convention is p<port_id>, and in case of
+breakout p<port_id>s<subport_id>.
+
+> +static int bnxt_vf_rep_get_phys_port_name(struct net_device *dev, char *buf,
+> +					  size_t len)
+> +{
+> +	struct bnxt_vf_rep *vf_rep = netdev_priv(dev);
+> +	int rc;
+> +
+> +	rc = snprintf(buf, len, "vfr%d", vf_rep->vf_idx);
+
+This is even worse.  We already have two naming conventions in the
+kernel, mlx5 uses "%d" for legacy reasons.  nfp uses pf%dvf%d for vfs,
+which is better for two reasons: (a) it works with multi-PF devices;
+(b) naming something representor from switchdev perspective is
+pointless, you're not calling the external port netdev a physical port
+representor, even though it has the exact same relation to the port as
+with VFs (i.e. egressing traffic on the netdev will cause the switch
+to send to the given port).
