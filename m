@@ -1,121 +1,67 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: A buggy behavior for Linux TCP Reno and HTCP
-Date: Mon, 24 Jul 2017 21:19:57 -0700
-Message-ID: <20170724211957.24b4c43f@xeon-e3>
-References: <CANdGJ5Qp1MoGfeSyAnEqYeSeEyoiH8e1j_Ut3F4PnLRBnqNNZg@mail.gmail.com>
-        <CAK6E8=eP3jwTD5t7Cj3h_m4JTJ61p=roqsr02WiSHUANse1ynw@mail.gmail.com>
-        <CANdGJ5SOUV1OoonC-3i=5MLUWvoHPBZgp19c3mJTTYbNr2yLeQ@mail.gmail.com>
-        <CAK6E8=eWYybZZxkjjVXC_K7DfYayEg7gx0bPqKpwi6iuE+bh8Q@mail.gmail.com>
-        <dc5db0ec-0746-d42e-5418-f621e1840bc0@unl.edu>
-        <CADVnQynG0MZcuAPpZ+hiK-9Ounx8JKPWxvb1n3t-OyyC7=es_Q@mail.gmail.com>
-        <CAK6E8=d+-kA_PyVgAoe0dtGg--ek0CurehQZ7JXo=32em2Gv+Q@mail.gmail.com>
-        <CADVnQy=-m37Uxfg1=nJpkuy2CKTtW1fp2jG53Q+MNF7ifGvoHw@mail.gmail.com>
-        <CADVnQym0TdX=NgdP2YeF-OAMmLXZrmxt7HaitqxxCcDCMpWJmg@mail.gmail.com>
-        <CAK6E8=etPfZMy2ZiPJPFXF5wf9a2foU-Wummq3kLn_koL8wO+A@mail.gmail.com>
-        <CADVnQymwOwWVr_Ln5+04pyiGWChf-K0XcXYP5s-+db+q1zGB9w@mail.gmail.com>
-        <CAK6E8=djw-eD-JE3tkJsDjYb5UXR8scQRSnAvpt1d4p18GwHeA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 10/10] bnxt_en: add support for port_attr_get
+ and and get_phys_port_name
+Date: Mon, 24 Jul 2017 21:21:44 -0700 (PDT)
+Message-ID: <20170724.212144.2149933616576079754.davem@davemloft.net>
+References: <1500914069-15724-11-git-send-email-michael.chan@broadcom.com>
+        <201707251020.bDXHsX68%fengguang.wu@intel.com>
+        <20170724210617.651cd495@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>, Lisong Xu <xu@unl.edu>,
-        Wei Sun <unlcsewsun@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+Cc: michael.chan@broadcom.com, kbuild-all@01.org,
+        netdev@vger.kernel.org, sathya.perla@broadcom.com
+To: kubakici@wp.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:36315 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750757AbdGYEUG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 00:20:06 -0400
-Received: by mail-pg0-f41.google.com with SMTP id 125so65487227pgi.3
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 21:20:06 -0700 (PDT)
-In-Reply-To: <CAK6E8=djw-eD-JE3tkJsDjYb5UXR8scQRSnAvpt1d4p18GwHeA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47612 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750950AbdGYEVp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 00:21:45 -0400
+In-Reply-To: <20170724210617.651cd495@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 24 Jul 2017 16:41:12 -0700
-Yuchung Cheng <ycheng@google.com> wrote:
+From: Jakub Kicinski <kubakici@wp.pl>
+Date: Mon, 24 Jul 2017 21:06:17 -0700
 
-> On Mon, Jul 24, 2017 at 11:29 AM, Neal Cardwell <ncardwell@google.com> wrote:
-> > On Mon, Jul 24, 2017 at 2:17 PM, Yuchung Cheng <ycheng@google.com> wrote:  
-> >> On Sun, Jul 23, 2017 at 7:37 PM, Neal Cardwell <ncardwell@google.com> wrote:  
-> >>> On Sun, Jul 23, 2017 at 10:36 PM, Neal Cardwell <ncardwell@google.com> wrote:  
-> > ...  
-> >>>> What if we call the field tp->prior_cwnd? Then at least we'd have some
-> >>>> nice symmetry:
-> >>>>
-> >>>> - tp->snd_cwnd,  which is saved in tp->prior_cwnd  (and restored upon undo)
-> >>>> - tp->snd_ssthresh,  which is saved in tp-> prior_ssthresh  (and
-> >>>> restored upon undo)
-> >>>>
-> >>>> That sounds appealing to me. WDYT?  
-> >>>
-> >>> And, I should add, if we go with the tp->prior_cwnd approach, then we
-> >>> can have a single "default"/CUBIC-style undo function, instead of 15
-> >>> separate but identical implementations...  
-> >> you mean all CC modules share one ca_ops->undo_cwnd function? sounds a
-> >> nice consolidation work.  
-> >
-> > Yes, exactly.
-> >
-> > Right now we have 9 modules that have identical tcp_foo_cwnd_undo functions:
-> >
-> > tcp_bic.c:188:  return max(tp->snd_cwnd, ca->loss_cwnd);
-> > tcp_cubic.c:378:        return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
-> > tcp_dctcp.c:318:        return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
-> > tcp_highspeed.c:165:    return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
-> > tcp_illinois.c:309:     return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
-> > tcp_nv.c:190:   return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
-> > tcp_scalable.c:50:      return max(tcp_sk(sk)->snd_cwnd, ca->loss_cwnd);
-> > tcp_veno.c:210: return max(tcp_sk(sk)->snd_cwnd, veno->loss_cwnd);
-> > tcp_yeah.c:232: return max(tcp_sk(sk)->snd_cwnd, yeah->loss_cwnd);
-> >
-> > And if we fix this bug in tcp_reno_undo_cwnd() by referring to
-> > ca->loss_cwnd then we will add another 6 like this.
-> >
-> > So my proposal would be
-> >
-> > - tp->snd_cwnd,  which is saved in tp->prior_cwnd  (and restored upon undo)
-> > - tp->snd_ssthresh,  which is saved in tp-> prior_ssthresh  (and
-> >    restored upon undo)
-> >
-> > Actually, now that I re-read the code, we already do have a
-> > prior_cwnd, which is used for the PRR code, and already set upon
-> > entering CA_Recovery. So if we set prior_cwnd for CA_Loss, perhaps we
-> > can do something like:
-> >
-> > diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-> > index fde983f6376b..c2b174469645 100644
-> > --- a/net/ipv4/tcp_cong.c
-> > +++ b/net/ipv4/tcp_cong.c
-> > @@ -456,7 +456,7 @@ u32 tcp_reno_undo_cwnd(struct sock *sk)
-> >  {
-> >         const struct tcp_sock *tp = tcp_sk(sk);
-> >
-> > -       return max(tp->snd_cwnd, tp->snd_ssthresh << 1);
-> > +       return max(tp->snd_cwnd, tp->prior_cwnd);
-> >  }
-> >  EXPORT_SYMBOL_GPL(tcp_reno_undo_cwnd);
-> >
-> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> > index 2920e0cb09f8..ae790a84302d 100644
-> > --- a/net/ipv4/tcp_input.c
-> > +++ b/net/ipv4/tcp_input.c
-> > @@ -1951,6 +1951,7 @@ void tcp_enter_loss(struct sock *sk)
-> >             !after(tp->high_seq, tp->snd_una) ||
-> >             (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
-> >                 tp->prior_ssthresh = tcp_current_ssthresh(sk);
-> > +               tp->prior_cwnd = tp->snd_cwnd;
-> >                 tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
-> >                 tcp_ca_event(sk, CA_EVENT_LOSS);
-> >                 tcp_init_undo(tp);
-> >
-> > And then change all the CC modules but BBR to use the
-> > tcp_reno_undo_cwnd() instead of their own custom undo code.
-> >
-> > WDYT?  
-> Looks reasonable. But we might want to eventually refactor TCP undo
-> code: the stats changes (prior_ssthresh, prior_cwnd, undo_marker,
-> undo_retrans) are scattered in different helpers, making the code hard
-> to audit.
+> On Tue, 25 Jul 2017 10:44:49 +0800, kbuild test robot wrote:
+>>    drivers/net/ethernet/broadcom/bnxt/bnxt.c: In function 'bnxt_init_one':
+>> >> drivers/net/ethernet/broadcom/bnxt/bnxt.c:7897:5: error: 'struct net_device' has no member named 'switchdev_ops'; did you mean 'netdev_ops'?  
+>>      dev->switchdev_ops = &bnxt_switchdev_ops;
+>>         ^~
+> 
+> Check out SWITCHDEV_SET_OPS() from commit d643a75ac2bc ("net: switchdev:
+> add SET_SWITCHDEV_OPS helper").
 
-I like having common code as much as possible,
-having per CC undo means more variations and sources of errors.
+This was easy enough so I just pushed out:
+
+====================
+>From bc88055ab72c0eaa080926c888628b77d2055513 Mon Sep 17 00:00:00 2001
+From: "David S. Miller" <davem@davemloft.net>
+Date: Mon, 24 Jul 2017 21:20:16 -0700
+Subject: [PATCH] bnxt_en: Use SWITCHDEV_SET_OPS().
+
+Suggested by Jakub Kicinski.
+
+Fixes: c124a62ff2dd ("bnxt_en: add support for port_attr_get and and get_phys_port_name")
+Reported-by: kbuild test robot <lkp@intel.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 82cbe1804821..badbc3550338 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -7894,7 +7894,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dev->netdev_ops = &bnxt_netdev_ops;
+ 	dev->watchdog_timeo = BNXT_TX_TIMEOUT;
+ 	dev->ethtool_ops = &bnxt_ethtool_ops;
+-	dev->switchdev_ops = &bnxt_switchdev_ops;
++	SWITCHDEV_SET_OPS(dev, &bnxt_switchdev_ops);
+ 	pci_set_drvdata(pdev, dev);
+ 
+ 	rc = bnxt_alloc_hwrm_resources(bp);
+-- 
+2.13.3
