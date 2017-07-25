@@ -1,67 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 10/10] bnxt_en: add support for port_attr_get
- and and get_phys_port_name
-Date: Mon, 24 Jul 2017 21:21:44 -0700 (PDT)
-Message-ID: <20170724.212144.2149933616576079754.davem@davemloft.net>
-References: <1500914069-15724-11-git-send-email-michael.chan@broadcom.com>
-        <201707251020.bDXHsX68%fengguang.wu@intel.com>
-        <20170724210617.651cd495@cakuba.netronome.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/2] net: ethernet: ti: cpts: convert to use
+ kthread_worker
+Date: Tue, 25 Jul 2017 06:31:34 +0200
+Message-ID: <20170725043134.dxootdk66iqov7jh@localhost.localdomain>
+References: <20170721234943.3841-1-grygorii.strashko@ti.com>
+ <20170721234943.3841-2-grygorii.strashko@ti.com>
+ <20170722052914.yo62jqdqsdv4hc5q@localhost.localdomain>
+ <bc4bf624-e58e-657c-0520-9fd50d6666a6@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: michael.chan@broadcom.com, kbuild-all@01.org,
-        netdev@vger.kernel.org, sathya.perla@broadcom.com
-To: kubakici@wp.pl
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org, Wingman Kwok <w-kwok2@ti.com>,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47612 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750950AbdGYEVp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 00:21:45 -0400
-In-Reply-To: <20170724210617.651cd495@cakuba.netronome.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:38531 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750780AbdGYEbj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 00:31:39 -0400
+Content-Disposition: inline
+In-Reply-To: <bc4bf624-e58e-657c-0520-9fd50d6666a6@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <kubakici@wp.pl>
-Date: Mon, 24 Jul 2017 21:06:17 -0700
+On Mon, Jul 24, 2017 at 07:34:38PM -0500, Grygorii Strashko wrote:
+> Below if pure TBD/RFC version of patch which add kthread worker to PTP core.
+> I'm sending it to get you opinion about implementation in general, before 
+> continue with more changes. Pls, take a look if you have time?
+> - are you ok with names (API, callbacks, ptp structs members)?
 
-> On Tue, 25 Jul 2017 10:44:49 +0800, kbuild test robot wrote:
->>    drivers/net/ethernet/broadcom/bnxt/bnxt.c: In function 'bnxt_init_one':
->> >> drivers/net/ethernet/broadcom/bnxt/bnxt.c:7897:5: error: 'struct net_device' has no member named 'switchdev_ops'; did you mean 'netdev_ops'?  
->>      dev->switchdev_ops = &bnxt_switchdev_ops;
->>         ^~
-> 
-> Check out SWITCHDEV_SET_OPS() from commit d643a75ac2bc ("net: switchdev:
-> add SET_SWITCHDEV_OPS helper").
-
-This was easy enough so I just pushed out:
-
-====================
->From bc88055ab72c0eaa080926c888628b77d2055513 Mon Sep 17 00:00:00 2001
-From: "David S. Miller" <davem@davemloft.net>
-Date: Mon, 24 Jul 2017 21:20:16 -0700
-Subject: [PATCH] bnxt_en: Use SWITCHDEV_SET_OPS().
-
-Suggested by Jakub Kicinski.
-
-Fixes: c124a62ff2dd ("bnxt_en: add support for port_attr_get and and get_phys_port_name")
-Reported-by: kbuild test robot <lkp@intel.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 82cbe1804821..badbc3550338 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -7894,7 +7894,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->netdev_ops = &bnxt_netdev_ops;
- 	dev->watchdog_timeo = BNXT_TX_TIMEOUT;
- 	dev->ethtool_ops = &bnxt_ethtool_ops;
--	dev->switchdev_ops = &bnxt_switchdev_ops;
-+	SWITCHDEV_SET_OPS(dev, &bnxt_switchdev_ops);
- 	pci_set_drvdata(pdev, dev);
+The API and naming looks good to me.
  
- 	rc = bnxt_alloc_hwrm_resources(bp);
--- 
-2.13.3
+> I can prepare, update and resend proper patches tom if feedback is positive.
+
+Please do.
+
+> I also can convert dp83640 driver to use new feature, but I can't test it.
+
+No need for that.  It would be enough to have cpts as the first user
+and example.
+ 
+> +	if (ptp->info->do_aux_work) {
+> +		struct sched_param param = {
+> +			.sched_priority = MAX_RT_PRIO - 1 };
+> +
+> +		kthread_init_delayed_work(&ptp->aux_work, ptp_aux_kworker);
+> +		ptp->kworker = kthread_create_worker(0, info->name);
+> +		if (IS_ERR(ptp->kworker)) {
+> +			pr_err("failed to create ptp aux_worker task %ld\n",
+> +			       PTR_ERR(ptp->kworker));
+> +			return ERR_CAST(ptp->kworker);
+> +		}
+> +		err = sched_setscheduler_nocheck(ptp->kworker->task,
+> +						 SCHED_FIFO, &param);
+
+I think we should not hard code the scheduler and priority here but
+rather leave it to the sysadmin to configure these using chrt(1).
+After all, a normal work item is has served just in many situations.
+
+> +		if (err)
+> +			pr_err("sched_setscheduler_nocheck err %d\n", err);
+> +	}
+> +
+>  	err = ptp_populate_pin_groups(ptp);
+>  	if (err)
+>  		goto no_pin_groups;
+> @@ -274,6 +305,9 @@ int ptp_clock_unregister(struct ptp_clock *ptp)
+>  	ptp->defunct = 1;
+>  	wake_up_interruptible(&ptp->tsev_wq);
+>  
+> +	kthread_cancel_delayed_work_sync(&ptp->aux_work);
+> +	kthread_destroy_worker(ptp->kworker);
+
+These can't be called unconditionally.
+
+>  	/* Release the clock's resources. */
+>  	if (ptp->pps_source)
+>  		pps_unregister_source(ptp->pps_source);
+
+Thanks,
+Richard
