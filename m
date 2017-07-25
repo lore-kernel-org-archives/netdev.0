@@ -1,58 +1,79 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v4 0/5][pull request] 10GbE Intel Wired LAN Driver Updates 2017-07-25
-Date: Tue, 25 Jul 2017 16:41:33 -0700
-Message-ID: <20170725234138.42283-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next v4 2/5] ixgbe: Enable LASI interrupts for X552 devices
+Date: Tue, 25 Jul 2017 16:41:35 -0700
+Message-ID: <20170725234138.42283-3-jeffrey.t.kirsher@intel.com>
+References: <20170725234138.42283-1-jeffrey.t.kirsher@intel.com>
+Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:19869 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751427AbdGYXlp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Jul 2017 19:41:45 -0400
+        id S1751717AbdGYXlq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Jul 2017 19:41:46 -0400
+In-Reply-To: <20170725234138.42283-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe only.
+From: Tony Nguyen <anthony.l.nguyen@intel.com>
 
-Tony provides all of the changes in the series, starting with adding a
-check to ensure that adding a MAC filter was successful, before setting the
-MACVLAN.  In order to receive notifications of link configurations of the
-external PHY and support the configuration of the internal iXFI link on
-X552 devices, Tony enables LASI interrupts.  Update the iXFI driver code
-flow, since the MAC register NW_MNG_IF_SEL fields have been redefined for
-X553 devices, so add MAC checks for iXFI flows.  Added additional checks
-for flow control autonegotiation, since it is not support for X553 fiber
- and XFI devices.
+Enable LASI interrupts on X552 devices in order to receive notifications of
+link configurations of the external PHY and support the configuration of
+the internal iXFI link since iXFI does not support auto-negotiation.  This
+is not required for X553 devices; add a check to avoid enabling LASI
+interrupts for X553 devices.
 
-v2: removed unnecessary parens noticed by David Miller in patch 6 of the
-    series.
-v3: dropped patch 6 of the original series, while we work out a more
-    generic solution for malicious driver detection (MDD) support.
-v4: updated patch 1 of the series with the comments from Joe Perches which
-    were:
-      - switched logic to return on error
-      - return 0 on success
-      - declare retval as an integer
+Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 31 +++++++++++++++++++--------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
-The following are changes since commit 34c8c10a766c8daf42293664f5c9ca5516fa3f41:
-  Merge branch 'bnxt_en-Fix-kbuild-errors-and-rename-phys_port_name'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
-
-Tony Nguyen (5):
-  ixgbe: Ensure MAC filter was added before setting MACVLAN
-  ixgbe: Enable LASI interrupts for X552 devices
-  ixgbe: Update NW_MNG_IF_SEL support for X553
-  ixgbe: Do not support flow control autonegotiation for X553
-  ixgbe: Disable flow control for XFI
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  30 +++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c  |   9 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 102 +++++++++++++++---------
- 5 files changed, 96 insertions(+), 51 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 72d84a065e34..aa34e0b131bb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2404,17 +2404,30 @@ static s32 ixgbe_enable_lasi_ext_t_x550em(struct ixgbe_hw *hw)
+ 	status = ixgbe_get_lasi_ext_t_x550em(hw, &lsc);
+ 
+ 	/* Enable link status change alarm */
+-	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
+-				      MDIO_MMD_AN, &reg);
+-	if (status)
+-		return status;
+ 
+-	reg |= IXGBE_MDIO_PMA_TX_VEN_LASI_INT_EN;
++	/* Enable the LASI interrupts on X552 devices to receive notifications
++	 * of the link configurations of the external PHY and correspondingly
++	 * support the configuration of the internal iXFI link, since iXFI does
++	 * not support auto-negotiation. This is not required for X553 devices
++	 * having KR support, which performs auto-negotiations and which is used
++	 * as the internal link to the external PHY. Hence adding a check here
++	 * to avoid enabling LASI interrupts for X553 devices.
++	 */
++	if (hw->mac.type != ixgbe_mac_x550em_a) {
++		status = hw->phy.ops.read_reg(hw,
++					    IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
++					    MDIO_MMD_AN, &reg);
++		if (status)
++			return status;
++
++		reg |= IXGBE_MDIO_PMA_TX_VEN_LASI_INT_EN;
+ 
+-	status = hw->phy.ops.write_reg(hw, IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
+-				       MDIO_MMD_AN, reg);
+-	if (status)
+-		return status;
++		status = hw->phy.ops.write_reg(hw,
++					    IXGBE_MDIO_PMA_TX_VEN_LASI_INT_MASK,
++					    MDIO_MMD_AN, reg);
++		if (status)
++			return status;
++	}
+ 
+ 	/* Enable high temperature failure and global fault alarms */
+ 	status = hw->phy.ops.read_reg(hw, IXGBE_MDIO_GLOBAL_INT_MASK,
 -- 
 2.13.3
