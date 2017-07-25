@@ -1,60 +1,34 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH net-next v2 05/10] net: dsa: added dsa_net_device_to_dsa_port()
-Date: Tue, 25 Jul 2017 18:15:48 +0200
-Message-ID: <20170725161553.30147-6-privat@egil-hjelmeland.no>
-References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: corbet@lwn.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        davem@davemloft.net, kernel@pengutronix.de,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20170725161553.30147-1-privat@egil-hjelmeland.no>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next 0/3] bnxt_en: Fix kbuild errors and rename phys_port_name.
+Date: Tue, 25 Jul 2017 13:28:38 -0400
+Message-ID: <1501003721-12407-1-git-send-email-michael.chan@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:37494 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751549AbdGYR2y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 13:28:54 -0400
+Received: by mail-qk0-f182.google.com with SMTP id q130so32023824qka.4
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 10:28:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Allowing dsa drivers to attach sysfs nodes.
+Fix 2 more kbuild errors (the first one already fixed by DaveM), and rename
+the physical port name.
 
-Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
----
- include/net/dsa.h |  1 +
- net/dsa/slave.c   | 10 ++++++++++
- 2 files changed, 11 insertions(+)
+Sathya Perla (3):
+  bnxt_en: include bnxt_vfr.c code under CONFIG_BNXT_SRIOV switch
+  bnxt_en: use SWITCHDEV_SET_OPS() for setting vf_rep_switchdev_ops
+  bnxt_en: fix switchdev port naming for external-port-rep and vf-reps
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 88da272d20d0..a71c0a2401ee 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -450,6 +450,7 @@ void unregister_switch_driver(struct dsa_switch_driver *type);
- struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
- 
- struct net_device *dsa_dev_to_net_device(struct device *dev);
-+struct dsa_port *dsa_net_device_to_dsa_port(struct net_device *dev);
- 
- /* Keep inline for faster access in hot path */
- static inline bool netdev_uses_dsa(struct net_device *dev)
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 9507bd38cf04..40410f1740de 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -209,6 +209,16 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	return -EOPNOTSUPP;
- }
- 
-+struct dsa_port *dsa_net_device_to_dsa_port(struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+
-+	if (!dsa_slave_dev_check(dev))
-+		return NULL;
-+	return p->dp;
-+}
-+EXPORT_SYMBOL_GPL(dsa_net_device_to_dsa_port);
-+
- static int dsa_slave_port_attr_set(struct net_device *dev,
- 				   const struct switchdev_attr *attr,
- 				   struct switchdev_trans *trans)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c     |  6 +-----
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c | 10 +++++++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h | 30 +++++++++++++++++++++++++++
+ 3 files changed, 39 insertions(+), 7 deletions(-)
+
 -- 
-2.11.0
-
+1.8.3.1
