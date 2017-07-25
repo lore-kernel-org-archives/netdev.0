@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v4 5/5] ixgbe: Disable flow control for XFI
-Date: Tue, 25 Jul 2017 16:41:38 -0700
-Message-ID: <20170725234138.42283-6-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v4 4/5] ixgbe: Do not support flow control autonegotiation for X553
+Date: Tue, 25 Jul 2017 16:41:37 -0700
+Message-ID: <20170725234138.42283-5-jeffrey.t.kirsher@intel.com>
 References: <20170725234138.42283-1-jeffrey.t.kirsher@intel.com>
 Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -11,118 +11,68 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:2692 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751737AbdGYXls (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Jul 2017 19:41:48 -0400
+        id S1751718AbdGYXlr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Jul 2017 19:41:47 -0400
 In-Reply-To: <20170725234138.42283-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tony Nguyen <anthony.l.nguyen@intel.com>
 
-Flow control autonegotiation is not supported for XFI.  Make sure that
-ixgbe_device_supports_autoneg_fc() returns false and
-hw->fc.disable_fc_autoneg is set to true to avoid running the fc_autoneg
-function for that device.
+Flow control autonegotiation is not supported for fiber on X553.  Add
+device ID checks in ixgbe_device_supports_autoneg_fc() to return the
+appropriate value.
 
 Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  5 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 57 ++++++++++++++-----------
- 2 files changed, 35 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 25 +++++++++++++++++++------
+ 1 file changed, 19 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 40ae7db468ea..2c19070d2a0b 100644
+index 4e35e7017f3d..40ae7db468ea 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -97,7 +97,10 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
+@@ -79,13 +79,22 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
  
+ 	switch (hw->phy.media_type) {
+ 	case ixgbe_media_type_fiber:
+-		hw->mac.ops.check_link(hw, &speed, &link_up, false);
+-		/* if link is down, assume supported */
+-		if (link_up)
+-			supported = speed == IXGBE_LINK_SPEED_1GB_FULL ?
++		/* flow control autoneg black list */
++		switch (hw->device_id) {
++		case IXGBE_DEV_ID_X550EM_A_SFP:
++		case IXGBE_DEV_ID_X550EM_A_SFP_N:
++			supported = false;
++			break;
++		default:
++			hw->mac.ops.check_link(hw, &speed, &link_up, false);
++			/* if link is down, assume supported */
++			if (link_up)
++				supported = speed == IXGBE_LINK_SPEED_1GB_FULL ?
+ 				true : false;
+-		else
+-			supported = true;
++			else
++				supported = true;
++		}
++
  		break;
  	case ixgbe_media_type_backplane:
--		supported = true;
-+		if (hw->device_id == IXGBE_DEV_ID_X550EM_X_XFI)
-+			supported = false;
-+		else
-+			supported = true;
+ 		supported = true;
+@@ -111,6 +120,10 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
  		break;
- 	case ixgbe_media_type_copper:
- 		/* only some copper devices support flow control autoneg */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 95adbda36235..19fbb2f28ea4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -2843,7 +2843,7 @@ static s32 ixgbe_setup_fc_x550em(struct ixgbe_hw *hw)
- {
- 	bool pause, asm_dir;
- 	u32 reg_val;
--	s32 rc;
-+	s32 rc = 0;
- 
- 	/* Validate the requested mode */
- 	if (hw->fc.strict_ieee && hw->fc.requested_mode == ixgbe_fc_rx_pause) {
-@@ -2886,32 +2886,37 @@ static s32 ixgbe_setup_fc_x550em(struct ixgbe_hw *hw)
- 		return IXGBE_ERR_CONFIG;
  	}
  
--	if (hw->device_id != IXGBE_DEV_ID_X550EM_X_KR &&
--	    hw->device_id != IXGBE_DEV_ID_X550EM_A_KR &&
--	    hw->device_id != IXGBE_DEV_ID_X550EM_A_KR_L)
--		return 0;
--
--	rc = hw->mac.ops.read_iosf_sb_reg(hw,
--					  IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
--					  IXGBE_SB_IOSF_TARGET_KR_PHY,
--					  &reg_val);
--	if (rc)
--		return rc;
--
--	reg_val &= ~(IXGBE_KRM_AN_CNTL_1_SYM_PAUSE |
--		     IXGBE_KRM_AN_CNTL_1_ASM_PAUSE);
--	if (pause)
--		reg_val |= IXGBE_KRM_AN_CNTL_1_SYM_PAUSE;
--	if (asm_dir)
--		reg_val |= IXGBE_KRM_AN_CNTL_1_ASM_PAUSE;
--	rc = hw->mac.ops.write_iosf_sb_reg(hw,
--					   IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
--					   IXGBE_SB_IOSF_TARGET_KR_PHY,
--					   reg_val);
--
--	/* This device does not fully support AN. */
--	hw->fc.disable_fc_autoneg = true;
-+	switch (hw->device_id) {
-+	case IXGBE_DEV_ID_X550EM_X_KR:
-+	case IXGBE_DEV_ID_X550EM_A_KR:
-+	case IXGBE_DEV_ID_X550EM_A_KR_L:
-+		rc = hw->mac.ops.read_iosf_sb_reg(hw,
-+					    IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
-+					    IXGBE_SB_IOSF_TARGET_KR_PHY,
-+					    &reg_val);
-+		if (rc)
-+			return rc;
- 
-+		reg_val &= ~(IXGBE_KRM_AN_CNTL_1_SYM_PAUSE |
-+			     IXGBE_KRM_AN_CNTL_1_ASM_PAUSE);
-+		if (pause)
-+			reg_val |= IXGBE_KRM_AN_CNTL_1_SYM_PAUSE;
-+		if (asm_dir)
-+			reg_val |= IXGBE_KRM_AN_CNTL_1_ASM_PAUSE;
-+		rc = hw->mac.ops.write_iosf_sb_reg(hw,
-+					    IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
-+					    IXGBE_SB_IOSF_TARGET_KR_PHY,
-+					    reg_val);
++	if (!supported)
++		hw_dbg(hw, "Device %x does not support flow control autoneg\n",
++		       hw->device_id);
 +
-+		/* This device does not fully support AN. */
-+		hw->fc.disable_fc_autoneg = true;
-+		break;
-+	case IXGBE_DEV_ID_X550EM_X_XFI:
-+		hw->fc.disable_fc_autoneg = true;
-+		break;
-+	default:
-+		break;
-+	}
- 	return rc;
+ 	return supported;
  }
  
 -- 
