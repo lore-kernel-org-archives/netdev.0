@@ -1,149 +1,63 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH net-next v2 06/10] net: dsa: lan9303: added sysfs node swe_bcst_throt
-Date: Tue, 25 Jul 2017 18:15:49 +0200
-Message-ID: <20170725161553.30147-7-privat@egil-hjelmeland.no>
-References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: corbet@lwn.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        davem@davemloft.net, kernel@pengutronix.de,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170725161553.30147-1-privat@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
+ fixed transceiver bindings
+Date: Tue, 25 Jul 2017 13:14:26 -0500
+Message-ID: <04e3986b-bbeb-50ad-30e0-fb74bb534aa6@ti.com>
+References: <20170724230521.1436-1-fcooper@ti.com>
+ <20170724230521.1436-3-fcooper@ti.com>
+ <29df7e04-01c6-a09b-491e-1354dab98cd0@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        <dev.kurt-yI9piX4KPfawT/RRk36CISFp6vIno51x@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <29df7e04-01c6-a09b-491e-1354dab98cd0-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Allowing per-port access to Switch Engine Broadcast Throttling Register
 
-Also added lan9303_write_switch_reg_mask()
 
-Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
----
- drivers/net/dsa/lan9303-core.c | 83 ++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 83 insertions(+)
+On 07/25/2017 11:32 AM, Oliver Hartkopp wrote:
+> 
+>> + max-data-speed:    a positive non 0 value that determines the max
+>> data rate
+>> +            that can be used in CAN-FD mode. A value of -1 implies
+>> +            CAN-FD is not supported by the transceiver.
+>> +
+>> +Examples:
+> 
+> (..)
+> 
+>> +    fixed-transceiver {
+>> +        max-data-speed = <(-1)>;
+> 
+> Looks ugly IMHO.
+> 
+> Why didn't you stay on '0' for 'not supported'??
 
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index be6d78f45a5f..b70acb73aad6 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -154,6 +154,7 @@
- # define LAN9303_SWE_PORT_MIRROR_ENABLE_RX_MIRRORING BIT(1)
- # define LAN9303_SWE_PORT_MIRROR_ENABLE_TX_MIRRORING BIT(0)
- #define LAN9303_SWE_INGRESS_PORT_TYPE 0x1847
-+#define LAN9303_SWE_BCST_THROT 0x1848
- #define LAN9303_BM_CFG 0x1c00
- #define LAN9303_BM_EGRSS_PORT_TYPE 0x1c0c
- # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT2 (BIT(17) | BIT(16))
-@@ -426,6 +427,20 @@ static int lan9303_read_switch_reg(struct lan9303 *chip, u16 regnum, u32 *val)
- 	return ret;
- }
- 
-+static int lan9303_write_switch_reg_mask(
-+	struct lan9303 *chip, u16 regnum, u32 val, u32 mask)
-+{
-+	int ret;
-+	u32 reg;
-+
-+	ret = lan9303_read_switch_reg(chip, regnum, &reg);
-+	if (ret)
-+		return ret;
-+	reg = (reg & ~mask) | val;
-+
-+	return lan9303_write_switch_reg(chip, regnum, reg);
-+}
-+
- static int lan9303_detect_phy_setup(struct lan9303 *chip)
- {
- 	int reg;
-@@ -614,6 +629,66 @@ static int lan9303_check_device(struct lan9303 *chip)
- 	return 0;
- }
- 
-+/* ---------------------- Sysfs on slave port --------------------------*/
-+/*13.4.3.23 Switch Engine Broadcast Throttling Register (SWE_BCST_THROT)*/
-+static ssize_t
-+swe_bcst_throt_show(struct device *dev, struct device_attribute *attr,
-+		    char *buf)
-+{
-+	struct dsa_port *dp = dsa_net_device_to_dsa_port(to_net_dev(dev));
-+	struct lan9303 *chip = dp->ds->priv;
-+	int port = dp->index;
-+	int reg;
-+
-+	if (lan9303_read_switch_reg(chip, LAN9303_SWE_BCST_THROT, &reg))
-+		return 0;
-+
-+	reg = (reg >> (9 * port)) & 0x1ff; /*extract port N*/
-+	if (reg & 0x100)
-+		reg &= 0xff; /* remove enable bit */
-+	else
-+		reg = 0;     /* not enabled*/
-+
-+	return scnprintf(buf, PAGE_SIZE, "%d\n", reg);
-+}
-+
-+static ssize_t
-+swe_bcst_throt_store(struct device *dev, struct device_attribute *attr,
-+		     const char *buf, size_t len)
-+{
-+	struct dsa_port *dp = dsa_net_device_to_dsa_port(to_net_dev(dev));
-+	struct lan9303 *chip = dp->ds->priv;
-+	int port = dp->index;
-+	int ret;
-+	unsigned long level;
-+
-+	ret = kstrtoul(buf, 0, &level);
-+	if (ret)
-+		return ret;
-+	level &= 0xff; /* ensure valid range */
-+	if (level)
-+		level |= 0x100; /* Set enable bit  */
-+
-+	ret = lan9303_write_switch_reg_mask(chip, LAN9303_SWE_BCST_THROT,
-+					    level << (9 * port),
-+					    0x1ff << (9 * port));
-+	if (ret)
-+		return ret;
-+	return len;
-+}
-+
-+static DEVICE_ATTR_RW(swe_bcst_throt);
-+
-+static struct attribute *lan9303_attrs[] = {
-+	&dev_attr_swe_bcst_throt.attr,
-+	NULL
-+};
-+
-+static struct attribute_group lan9303_group = {
-+	.name = "lan9303",
-+	.attrs = lan9303_attrs,
-+};
-+
- /* ---------------------------- DSA -----------------------------------*/
- 
- static enum dsa_tag_protocol lan9303_get_tag_protocol(struct dsa_switch *ds)
-@@ -787,6 +862,11 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
- 	switch (port) {
- 	case 1:
- 	case 2:
-+		/* lan9303_setup is too early to attach sysfs nodes... */
-+		if (sysfs_create_group(
-+				&ds->ports[port].netdev->dev.kobj,
-+				&lan9303_group))
-+			dev_dbg(chip->dev, "cannot create sysfs group\n");
- 		return lan9303_enable_packet_processing(chip, port);
- 	default:
- 		dev_dbg(chip->dev,
-@@ -805,6 +885,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
- 	switch (port) {
- 	case 1:
- 	case 2:
-+		sysfs_remove_group(&ds->ports[port].netdev->dev.kobj,
-+				   &lan9303_group);
-+
- 		lan9303_disable_packet_processing(chip, port);
- 		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
- 				  MII_BMCR, BMCR_PDOWN);
--- 
-2.11.0
+Unless a driver specifically calls of_can_transceiver_fixed
+priv->max_trans_data_speed will be by default 0. Therefore, all drivers
+that support CAN-FD will claim that the transceiver indicates that it
+isn't supported. So one option was to update every single driver to set
+this property by default which I started to do but it end up becoming a
+massive patch and it was risky in case I missed a driver which would of
+resulted in major regressions. Its also problematic for new drivers that
+miss this property or the many out of tree CAN drivers. The other option
+was to create another variable to track to see if
+of_can_transceiver_fixed was called but I didn't think that was the
+better solution. So using signed values in DT is a bit ugly due to
+syntax but was valid and I made sure I documented it so its clear.
+> 
+> Regards,
+> Oliver
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
