@@ -1,59 +1,44 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
- null entry.
-Date: Tue, 25 Jul 2017 15:32:02 +0800
-Message-ID: <20170725073202.GE2938@leo.usersys.redhat.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
- <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
- <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
- <20170724030907.GC2938@leo.usersys.redhat.com>
- <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
- <20170725000849.GD2938@leo.usersys.redhat.com>
- <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
+From: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
+Subject: Re: [PATCH 00/13] net: dsa: lan9303: unicast offload, fdb,mdb,STP
+Date: Tue, 25 Jul 2017 09:34:15 +0200
+Message-ID: <75675e48-c7d7-794b-f610-7b775cc9bf50@zenitel.com>
+References: <525d9bb74bfa42c1b7a54930e14cf5ea@nooslMX1.zenitelcss.com>
+ <db9b265a-ed4a-c6f7-8959-21c9314a6ec0@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35222 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750769AbdGYHcN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 03:32:13 -0400
-Received: by mail-pg0-f65.google.com with SMTP id d193so13797454pgc.2
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 00:32:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, <corbet@lwn.net>,
+        <andrew@lunn.ch>, <vivien.didelot@savoirfairelinux.com>,
+        <davem@davemloft.net>, <kernel@pengutronix.de>,
+        <linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <db9b265a-ed4a-c6f7-8959-21c9314a6ec0@gmail.com>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 24, 2017 at 09:28:07PM -0600, David Ahern wrote:
-> On 7/24/17 6:08 PM, Hangbin Liu wrote:
-> > That's why I think we should remove both rt->dst.error and ip6_null_entry
-> > check in inet6_rtm_getroute(). And even further, remove the ip6_null_entry
-> > check in rt6_dump_route().
+On 24. juli 2017 18:54, Florian Fainelli wrote:
 > 
-> git blame net/ipv6/route.c
+> First thing would be to get your patch submissions square, because the
+> patches do not appear to have been sent as a reply to this cover letter,
+> and worse yet, they are all appearing with their commit date, which is
+> highly confusing since that makes them go back in time for some of them.
 > 
-> find the commits and review.
 
-Hi David,
+Hi all!
 
-Sorry, would you like to give me more hints?
+I am very sorry for the email-thread mess. Once the emails showed up on 
+the spinics mirror I realized I had made a fool of my self. I see now 
+that I have to add --thread to "git format-patch", when _not_ using 
+"git send-email" as the backend. (I did not get "git send-email" to work
+with the company email server.)
 
-I saw your commit 1f17e2f2c8a8 ("net: ipv6: ignore null_entry on route
-dumps"). But I think this issue has been fixed by
+I had noted that "git format-patch" preserved commit dates, but I
+wrongly thought that was "a feature, not a bug". From now on I will
+make sure to "git rebase --ignore-date master".
 
-2f460933f58e ("ipv6: initialize route null entry in addrconf_init()") and
-242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
+Egil
 
-I use a reproducer which add unreachable route in netns with lo down. And I
-could not trigger Panic in the fixed kernel. That's why I think we could
-remove ip6_null_entry check in rt6_dump_route().
-
-Please correct me if I make any mistake.
-
-Thanks
-Hangbin
+DISCLAIMER:
+This e-mail may contain confidential and privileged material for the sole use of the intended recipient. Any review, use, distribution or disclosure by others is strictly prohibited. If you are not the intended recipient (or authorized to receive for the recipient), please contact the sender by reply e-mail and delete all copies of this message.
