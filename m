@@ -1,30 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ftgmac100: Make the MDIO bus a child of the
- ethernet device
-Date: Mon, 24 Jul 2017 17:24:21 -0700 (PDT)
-Message-ID: <20170724.172421.90770433856634318.davem@davemloft.net>
-References: <1500879547.10674.63.camel@kernel.crashing.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/1] mlx4_en: remove unnecessary error check
+Date: Mon, 24 Jul 2017 17:26:55 -0700 (PDT)
+Message-ID: <20170724.172655.1394304381943215522.davem@davemloft.net>
+References: <1500884564-310-1-git-send-email-yanjun.zhu@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joel.stanley@au1.ibm.com
-To: benh@kernel.crashing.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45296 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755525AbdGYAYW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 20:24:22 -0400
-In-Reply-To: <1500879547.10674.63.camel@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1500884564-310-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Mon, 24 Jul 2017 16:59:07 +1000
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Mon, 24 Jul 2017 04:22:44 -0400
 
-> Populate mii_bus->parent with our own platform device before
-> registering, which makes it easier to locate the MDIO bus
-> in sysfs when trying to diagnose problems.
+> The function mlx4_en_get_profile always return zero. So it is not
+> necessary to check its return value.
 > 
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> CC: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> CC: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-Applied.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
