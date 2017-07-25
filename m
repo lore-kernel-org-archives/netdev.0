@@ -1,71 +1,37 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [RFC] switchdev: clarify ndo_get_phys_port_name() formats
-Date: Tue, 25 Jul 2017 15:26:47 -0700
-Message-ID: <20170725152647.571d1af3@cakuba.netronome.com>
-References: <20170725051344.2040-1-jakub.kicinski@netronome.com>
-        <20170725152241.GA71091@C02RW35GFVH8.dhcp.broadcom.net>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next 10/10] bnxt_en: add support for port_attr_get
+ and and get_phys_port_name
+Date: Tue, 25 Jul 2017 15:27:54 -0700
+Message-ID: <20170725152754.1cab06a6@cakuba.netronome.com>
+References: <1500914069-15724-1-git-send-email-michael.chan@broadcom.com>
+        <1500914069-15724-11-git-send-email-michael.chan@broadcom.com>
+        <20170724214521.75bf5857@cakuba.netronome.com>
+        <CAKvpyk3=R-ER74wfwNE3yM19EgU+h2TUdp8epRUKEQ69=kco1g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        simon.horman@netronome.com, davem@davemloft.net
-To: Andy Gospodarek <andy@greyhouse.net>
+Cc: Michael Chan <michael.chan@broadcom.com>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Sathya Perla <sathya.perla@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:34314 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750857AbdGYW0v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 18:26:51 -0400
-Received: by mail-pg0-f43.google.com with SMTP id 123so75721968pgj.1
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 15:26:51 -0700 (PDT)
-In-Reply-To: <20170725152241.GA71091@C02RW35GFVH8.dhcp.broadcom.net>
+Received: from mx4.wp.pl ([212.77.101.12]:28898 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750857AbdGYW2B (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Jul 2017 18:28:01 -0400
+In-Reply-To: <CAKvpyk3=R-ER74wfwNE3yM19EgU+h2TUdp8epRUKEQ69=kco1g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 25 Jul 2017 11:22:41 -0400, Andy Gospodarek wrote:
-> On Mon, Jul 24, 2017 at 10:13:44PM -0700, Jakub Kicinski wrote:
-> > We are still in position where we can suggest uniform naming
-> > convention for ndo_get_phys_port_name().  switchdev.txt file
-> > already contained a suggestion of how to name external ports.
-> > Since the use of switchdev for SR-IOV NIC's eswitches is growing,
-> > establish a format for ports of those devices as well.
-> > 
-> > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>  
+On Tue, 25 Jul 2017 15:25:19 +0530, Sathya Perla wrote:
+> >> Suggested naming convention is "swXpYsZ", where X is the switch name or ID, Y
+> >> is the port name or ID, and Z is the sub-port name or ID.  For example, sw1p1s0
+> >> would be sub-port 0 on port 1 on switch 1.  
+> >
+> > So for physical ports the convention is p<port_id>, and in case of
+> > breakout p<port_id>s<subport_id>.  
 > 
-> This is a nice addition and I suspect there could be even more done to
-> update this file to cover the VF rep usage.
-> 
-> > ---
-> >  Documentation/networking/switchdev.txt | 14 +++++++++++---
-> >  1 file changed, 11 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
-> > index 3e7b946dea27..7c4b6025fb4b 100644
-> > --- a/Documentation/networking/switchdev.txt
-> > +++ b/Documentation/networking/switchdev.txt
-> > @@ -119,9 +119,17 @@ into 4 10G ports, resulting in 4 port netdevs, the device can give a unique
-> >  SUBSYSTEM=="net", ACTION=="add", ATTR{phys_switch_id}=="<phys_switch_id>", \
-> >  	ATTR{phys_port_name}!="", NAME="swX$attr{phys_port_name}"
-> >  
-> > -Suggested naming convention is "swXpYsZ", where X is the switch name or ID, Y
-> > -is the port name or ID, and Z is the sub-port name or ID.  For example, sw1p1s0
-> > -would be sub-port 0 on port 1 on switch 1.
-> > +Suggested formats of the port name returned by ndo_get_phys_port_name are:
-> > + - pA     for external ports;
-> > + - pAsB   for split external ports;
-> > + - pfC    for PF ports (so called PF representors);
-> > + - pfCvfD for VF ports (so called VF representors).  
-> 
-> I hate to clutter this up, but might be also need to add:
-> 
->  - pfCsB    for split PF ports (so called PF representors);
->  - pfCsBvfD for split VF ports (so called VF representors).
-> 
-> or are we comfortable that these additions to the name for split ports
-> are implied?
+> I'm sending a follow-up patch that fixes the naming for both the
+> external port and the VF-reps as proposed in your RFC ( switchdev:
+> clarify ndo_get_phys_port_name() formats)
 
-Hm..  What is a split PF port?  Splits happen on the physical port - see
-my rant on the thread this is a reply to ;)  PFs are PCIe functions,
-on the opposite side of the eswitch from the wires.
+Thanks!
