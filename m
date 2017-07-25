@@ -1,61 +1,58 @@
-From: Joel Stanley <joel@jms.id.au>
-Subject: [PATCH] ftgmac100: return error in ftgmac100_alloc_rx_buf
-Date: Tue, 25 Jul 2017 10:19:01 +0930
-Message-ID: <20170725004901.13406-1-joel@jms.id.au>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        netdev@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: [PATCH net-next] i40e: limit lan queue count in large cpu count machine
+Date: Mon, 24 Jul 2017 18:17:42 -0700
+Message-ID: <1500945462-33176-1-git-send-email-shannon.nelson@oracle.com>
+Cc: intel-wired-lan@lists.osuosl.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33868 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751869AbdGYAtO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 20:49:14 -0400
-Received: by mail-pg0-f66.google.com with SMTP id v190so13085217pgv.1
-        for <netdev@vger.kernel.org>; Mon, 24 Jul 2017 17:49:13 -0700 (PDT)
+Received: from aserp1040.oracle.com ([141.146.126.69]:51706 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756883AbdGYBPL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 21:15:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The error paths set err, but it's not returned.
+When a machine has more cpus than queuepairs, e.g. 512 cores, the
+counting gets a little funky and turns off Flow Director with the
+message:
+  not enough queues for Flow Director. Flow Director feature is disabled
 
-I wondered if we should fix all of the callers to check the returned
-value, but Ben explains why the code is this way:
+This patch limits the number of lan queues initially allocated to
+be sure we have some left for FD and other features.
 
-> Most call sites ignore it on purpose. There's nothing we can do if
-> we fail to get a buffer at interrupt time, so we point the buffer to
-> the scratch page so the HW doesn't DMA into lalaland and lose the
-> packet.
->
-> The one call site that tests and can fail is the one used when brining
-> the interface up. If we fail to allocate at that point, we fail the
-> ifup. But as you noticed, I do have a bug not returning the error.
-
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Signed-off-by: Joel Stanley <joel@jms.id.au>
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index fce0aa4f78b7..33b5c8eb9961 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -392,7 +392,7 @@ static int ftgmac100_alloc_rx_buf(struct ftgmac100 *priv, unsigned int entry,
- 	struct net_device *netdev = priv->netdev;
- 	struct sk_buff *skb;
- 	dma_addr_t map;
--	int err;
-+	int err = 0;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 2db93d3..a694e99 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -11059,6 +11059,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
+ static void i40e_determine_queue_usage(struct i40e_pf *pf)
+ {
+ 	int queues_left;
++	int q_max;
  
- 	skb = netdev_alloc_skb_ip_align(netdev, RX_BUF_SIZE);
- 	if (unlikely(!skb)) {
-@@ -428,7 +428,7 @@ static int ftgmac100_alloc_rx_buf(struct ftgmac100 *priv, unsigned int entry,
- 	else
- 		rxdes->rxdes0 = 0;
+ 	pf->num_lan_qps = 0;
  
--	return 0;
-+	return err;
- }
+@@ -11105,10 +11106,12 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
+ 					I40E_FLAG_DCB_ENABLED);
+ 			dev_info(&pf->pdev->dev, "not enough queues for DCB. DCB is disabled.\n");
+ 		}
+-		pf->num_lan_qps = max_t(int, pf->rss_size_max,
+-					num_online_cpus());
+-		pf->num_lan_qps = min_t(int, pf->num_lan_qps,
+-					pf->hw.func_caps.num_tx_qp);
++
++		/* limit lan qps to the smaller of qps, cpus or msix */
++		q_max = max_t(int, pf->rss_size_max, num_online_cpus());
++		q_max = min_t(int, q_max, pf->hw.func_caps.num_tx_qp);
++		q_max = min_t(int, q_max, pf->hw.func_caps.num_msix_vectors);
++		pf->num_lan_qps = q_max;
  
- static unsigned int ftgmac100_next_rx_pointer(struct ftgmac100 *priv,
+ 		queues_left -= pf->num_lan_qps;
+ 	}
 -- 
-2.13.3
+1.7.1
