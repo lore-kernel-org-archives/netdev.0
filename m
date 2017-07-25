@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: Remove trailing semicolon in macro definition
-Date: Tue, 25 Jul 2017 12:33:54 -0700 (PDT)
-Message-ID: <20170725.123354.362507897865464813.davem@davemloft.net>
-References: <d1f4d4f1-e60b-6b4d-6f98-3be70da859b5@sigmadesigns.com>
+Subject: Re: [PATCH] lib: test_rhashtable: Fix KASAN warning
+Date: Tue, 25 Jul 2017 12:36:07 -0700 (PDT)
+Message-ID: <20170725.123607.1589301148475463278.davem@davemloft.net>
+References: <20170725113621.1425-1-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        slash.tmp@free.fr
-To: marc_gonzalez@sigmadesigns.com
+Cc: herbert@gondor.apana.org.au, tgraf@suug.ch, netdev@vger.kernel.org
+To: phil@nwl.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60190 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60216 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753275AbdGYTdz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 15:33:55 -0400
-In-Reply-To: <d1f4d4f1-e60b-6b4d-6f98-3be70da859b5@sigmadesigns.com>
+        with ESMTP id S1751927AbdGYTgI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 15:36:08 -0400
+In-Reply-To: <20170725113621.1425-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
-Date: Tue, 25 Jul 2017 11:08:15 +0200
+From: Phil Sutter <phil@nwl.cc>
+Date: Tue, 25 Jul 2017 13:36:21 +0200
 
-> Commit e5a03bfd873c2 ("phy: Add an mdio_device structure")
-> introduced a spurious trailing semicolon. Remove it.
+> I forgot one spot when introducing struct test_obj_val.
 > 
-> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+> Fixes: e859afe1ee0c5 ("lib: test_rhashtable: fix for large entry counts")
+> Reported by: kernel test robot <fengguang.wu@intel.com>
+> 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-Good catch, applied, thanks.
+Please don't put empty lines in the middle of a set of tags like that.
+I fixed it up this time :)
+
+Applied, thanks.
