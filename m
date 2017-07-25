@@ -1,106 +1,164 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: [PATCH RFC 00/13] phylink and sfp support
-Date: Tue, 25 Jul 2017 15:01:39 +0100
-Message-ID: <20170725140138.GK31807@n2100.armlinux.org.uk>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH RFC 02/13] net: phy: split out PHY speed and duplex string
+ generation
+Date: Tue, 25 Jul 2017 15:02:42 +0100
+Message-ID: <E1da0Q6-0007Kv-Mc@rmk-PC.armlinux.org.uk>
+References: <20170725140138.GK31807@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org
 To: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:50818 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:50840 "EHLO
         pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751810AbdGYOBs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 10:01:48 -0400
+        with ESMTP id S1751651AbdGYOCq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 10:02:46 -0400
+In-Reply-To: <20170725140138.GK31807@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Other code would like to make use of this, so make the speed and duplex
+string generation visible, and place it in a separate file.
 
-This patch series introduces generic support for SFP sockets found on
-various Marvell based platforms.  The idea here is to provide common
-SFP socket support which can be re-used by network drivers as
-appropriate, rather than each network driver having to re-implement
-SFP socket support.
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+ drivers/net/phy/phy-core.c | 49 ++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/phy.c      | 38 +----------------------------------
+ include/linux/phy.h        |  3 +++
+ 3 files changed, 53 insertions(+), 37 deletions(-)
 
-SFP sockets typically use other system resources, eg, I2C buses to read
-identifying information, and GPIOs to monitor socket state and control
-the socket.  Meanwhile, some network drivers drive multiple ethernet
-ports from one instantiation of the driver.
-
-It is not desirable to block the initialisation of a network driver
-(thus denying other ports from being operational) if the resources
-for the SFP socket are not yet available.  This means that an element
-of independence between the SFP support code and the driver is
-required.
-
-More than that, SFP modules effectively bring hotplug PHYs to
-networking - SFP copper modules normally contain a standard PHY
-accessed over the I2C bus, and it is desirable to read their state
-so network drivers can be appropriately configured.
-
-To add to the complexity, SFP modules can be connected in at least
-two places:
-
-1. Directly to the serdes output of a MAC with no intervening PHY.
-   For example:
-
-     mvneta ----> SFP socket
-
-2. To a PHY, for example:
-
-     mvpp2 ---> PHY ---> copper
-                 |
-                 `-----> SFP socket
-
-This code supports both setups, although it's not fully implemented
-with scenario (2).
-
-Moreover, the link presented by the SFP module can be one of the
-10Gbase-R family (for SFP+ sockets), SGMII or 1000base-X (for SFP
-sockets) depending on the module, and network drivers need to
-reconfigure themselves accordingly for the link to come up.
-
-For example, if the MAC is configured for SGMII and a fibre module
-is plugged in, the link won't come up until the MAC is reconfigured
-for 1000base-X mode.
-
-The SFP code manages the SFP socket - detecting the module, reading
-the identifying information, and managing the control and status
-signals.  Importantly, it disables the SFP module transmitter when
-the MAC is down, so that the laser is turned off (but that is not
-a guarantee.)
-
-phylink provides the mechanisms necessary to manage the link modes,
-based on the SFP module type, and supports hot-plugging of the PHY
-without needing the MAC driver to be brought up and down on
-transitions.  phylink also supports the classical static PHY and
-fixed-link modes.
-
-I currently (but not included in this series) have code to convert
-mvneta to use phylink, and the out of tree mvpp2x driver.  I have
-nothing for the mvpp2 driver at present as that driver is only
-recently becoming functional on 10G hardware, and is missing a lot
-of features that are necessary to make things work correctly.
-
- drivers/net/phy/Kconfig      |   25 +
- drivers/net/phy/Makefile     |    6 +
- drivers/net/phy/mdio-i2c.c   |  109 ++++
- drivers/net/phy/mdio-i2c.h   |   19 +
- drivers/net/phy/phy-core.c   |  180 ++++++
- drivers/net/phy/phy.c        |  217 +------
- drivers/net/phy/phy_device.c |   15 +
- drivers/net/phy/phylink.c    | 1462 ++++++++++++++++++++++++++++++++++++++++++
- drivers/net/phy/sfp-bus.c    |  475 ++++++++++++++
- drivers/net/phy/sfp.c        |  915 ++++++++++++++++++++++++++
- drivers/net/phy/sfp.h        |   28 +
- include/linux/phy.h          |   21 +
- include/linux/phylink.h      |  148 +++++
- include/linux/sfp.h          |  434 +++++++++++++
- 14 files changed, 3867 insertions(+), 187 deletions(-)
-
+diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
+index 6739b738bbaf..bf01a24f21ce 100644
+--- a/drivers/net/phy/phy-core.c
++++ b/drivers/net/phy/phy-core.c
+@@ -9,6 +9,55 @@
+ #include <linux/export.h>
+ #include <linux/phy.h>
+ 
++const char *phy_speed_to_str(int speed)
++{
++	switch (speed) {
++	case SPEED_10:
++		return "10Mbps";
++	case SPEED_100:
++		return "100Mbps";
++	case SPEED_1000:
++		return "1Gbps";
++	case SPEED_2500:
++		return "2.5Gbps";
++	case SPEED_5000:
++		return "5Gbps";
++	case SPEED_10000:
++		return "10Gbps";
++	case SPEED_14000:
++		return "14Gbps";
++	case SPEED_20000:
++		return "20Gbps";
++	case SPEED_25000:
++		return "25Gbps";
++	case SPEED_40000:
++		return "40Gbps";
++	case SPEED_50000:
++		return "50Gbps";
++	case SPEED_56000:
++		return "56Gbps";
++	case SPEED_100000:
++		return "100Gbps";
++	case SPEED_UNKNOWN:
++		return "Unknown";
++	default:
++		return "Unsupported (update phy-core.c)";
++	}
++}
++EXPORT_SYMBOL_GPL(phy_speed_to_str);
++
++const char *phy_duplex_to_str(unsigned int duplex)
++{
++	if (duplex == DUPLEX_HALF)
++		return "Half";
++	if (duplex == DUPLEX_FULL)
++		return "Full";
++	if (duplex == DUPLEX_UNKNOWN)
++		return "Unknown";
++	return "Unsupported (update phy-core.c)";
++}
++EXPORT_SYMBOL_GPL(phy_duplex_to_str);
++
+ static void mmd_phy_indirect(struct mii_bus *bus, int phy_addr, int devad,
+ 			     u16 regnum)
+ {
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 0fe478002908..f128a538388f 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -39,42 +39,6 @@
+ 
+ #include <asm/irq.h>
+ 
+-static const char *phy_speed_to_str(int speed)
+-{
+-	switch (speed) {
+-	case SPEED_10:
+-		return "10Mbps";
+-	case SPEED_100:
+-		return "100Mbps";
+-	case SPEED_1000:
+-		return "1Gbps";
+-	case SPEED_2500:
+-		return "2.5Gbps";
+-	case SPEED_5000:
+-		return "5Gbps";
+-	case SPEED_10000:
+-		return "10Gbps";
+-	case SPEED_14000:
+-		return "14Gbps";
+-	case SPEED_20000:
+-		return "20Gbps";
+-	case SPEED_25000:
+-		return "25Gbps";
+-	case SPEED_40000:
+-		return "40Gbps";
+-	case SPEED_50000:
+-		return "50Gbps";
+-	case SPEED_56000:
+-		return "56Gbps";
+-	case SPEED_100000:
+-		return "100Gbps";
+-	case SPEED_UNKNOWN:
+-		return "Unknown";
+-	default:
+-		return "Unsupported (update phy.c)";
+-	}
+-}
+-
+ #define PHY_STATE_STR(_state)			\
+ 	case PHY_##_state:			\
+ 		return __stringify(_state);	\
+@@ -110,7 +74,7 @@ void phy_print_status(struct phy_device *phydev)
+ 		netdev_info(phydev->attached_dev,
+ 			"Link is Up - %s/%s - flow control %s\n",
+ 			phy_speed_to_str(phydev->speed),
+-			DUPLEX_FULL == phydev->duplex ? "Full" : "Half",
++			phy_duplex_to_str(phydev->duplex),
+ 			phydev->pause ? "rx/tx" : "off");
+ 	} else	{
+ 		netdev_info(phydev->attached_dev, "Link is Down\n");
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 2a9567bb8186..755793c29ad1 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -667,6 +667,9 @@ struct phy_fixup {
+ 	int (*run)(struct phy_device *phydev);
+ };
+ 
++const char *phy_speed_to_str(int speed);
++const char *phy_duplex_to_str(unsigned int duplex);
++
+ /**
+  * phy_read_mmd - Convenience function for reading a register
+  * from an MMD on a given PHY.
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.7.4
