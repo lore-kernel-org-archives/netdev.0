@@ -1,43 +1,32 @@
-From: Shaohua Li <shli@kernel.org>
-Subject: Re: [PATCH V2 net] net: fix tcp reset packet flowlabel for ipv6
-Date: Tue, 25 Jul 2017 14:35:06 -0700
-Message-ID: <20170725213506.jfnbinozo6mzyzpc@kernel.org>
-References: <25a0abdf61ab4698773d417af9e49fcd6e6559a4.1500393028.git.shli@fb.com>
- <20170724.133455.562898067272108474.davem@davemloft.net>
+From: Sergey Matyukevich <sergey.matyukevich.os-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>
+Subject: Re: [PATCH] qtfnmac: Tidy up DMA mask setting
+Date: Wed, 26 Jul 2017 01:00:52 +0300
+Message-ID: <20170725220050.eksg3j53lemrhgdd@bars>
+References: <2c3f47792b2e38d5584d641d98e82f8318fefc72.1500917445.git.robin.murphy@arm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Kernel-team@fb.com, shli@fb.com,
-        eric.dumazet@gmail.com, flo@fourcot.fr
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:48702 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751202AbdGYVfI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 25 Jul 2017 17:35:08 -0400
+Cc: imitsyanko-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org, avinashp-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org,
+        smatyukevich-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170724.133455.562898067272108474.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <2c3f47792b2e38d5584d641d98e82f8318fefc72.1500917445.git.robin.murphy-5wv7dgnIgG8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 24, 2017 at 01:34:55PM -0700, David Miller wrote:
-> From: Shaohua Li <shli@kernel.org>
-> Date: Tue, 18 Jul 2017 12:03:37 -0700
+> As the only caller of dma_supported() outside of DMA API internals, the
+> qtfnmac driver stands out and invites scrutiny. Thankfully, it's not
+> being used for evil, but it is entirely redundant, since it open-codes a
+> check that the DMA mask setting functions are going to perform anyway.
+> In fact, the whole qtnf_pcie_init_dma_mask() function is nothing more
+> than a rather long-winded implementation of dma_set_mask_and_coherent(),
+> so let's just use that directly.
 > 
-> > +	/* Since this is being sent on the wire obfuscate hash a bit
-> > +	 * to minimize possbility that any useful information to an
-> > +	 * attacker is leaked. Only lower 20 bits are relevant.
-> > +	 */
-> > +	rol32(hash, 16);
-> 
-> This doesn't help anything at all.
-> 
-> I don't like things that try to give a sense of security (however
-> little) but actually don't give any at all.
-> 
-> I'd rather, therefore, that you remove this altogether.
+> Signed-off-by: Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>
 
-ok, so you suggest removing the rol32() for ip6_make_flowlabel too, right? just
-want to make sure.
 
-Thanks,
-Shaohua
+Nice, thanks you !
+
+Acked-by: Sergey Matyukevich <sergey.matyukevich.os-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>
