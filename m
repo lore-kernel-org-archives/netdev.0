@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH 4/8] net: mvpp2: move from cpu-centric naming to "software thread" naming
-Date: Tue, 25 Jul 2017 17:55:05 +0200
-Message-ID: <20170725155509.10574-5-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH 8/8] arm64: dts: marvell: add TX interrupts for PPv2.2
+Date: Tue, 25 Jul 2017 17:55:09 +0200
+Message-ID: <20170725155509.10574-9-thomas.petazzoni@free-electrons.com>
 References: <20170725155509.10574-1-thomas.petazzoni@free-electrons.com>
 Cc: Russell King <linux@arm.linux.org.uk>,
         Antoine Tenart <antoine.tenart@free-electrons.com>,
@@ -19,118 +19,124 @@ Cc: Russell King <linux@arm.linux.org.uk>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:60457 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:60466 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752417AbdGYPzl (ORCPT
+        with ESMTP id S1752653AbdGYPzl (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 11:55:41 -0400
 In-Reply-To: <20170725155509.10574-1-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PPv2.2 IP has a concept of "software thread", with all registers
-of the PPv2.2 mapped 8 times, for concurrent accesses by 8 "software
-threads". In addition, interrupts on RX queues are associated to such
-"software thread".
-
-For most cases, we map a "software thread" to the more conventional
-concept of CPU, but we will soon have one exception: we will have a
-model where we have one TX interrupt per CPU (each using one software
-thread), and all RX events mapped to another software thread
-(associated to another interrupt).
-
-In preparation for this change, it makes sense to change the naming
-from MVPP2_MAX_CPUS to MVPP2_MAX_THREADS, and plan for 8 software
-threads instead of 4 currently.
+This commit updates the Marvell Armada 7K/8K Device Tree to describe
+the TX interrupts of the Ethernet controllers, in both the master and
+slave CP110s.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 25 +++++++++++++------------
- 1 file changed, 13 insertions(+), 12 deletions(-)
+Dave: please do *not* apply this patch. It will go through the ARM
+mvebu maintainers. Thanks!
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 8479269..7d37869 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -748,7 +748,7 @@ enum mvpp2_prs_l3_cast {
- #define MVPP21_ADDR_SPACE_SZ		0
- #define MVPP22_ADDR_SPACE_SZ		SZ_64K
+ .../arm64/boot/dts/marvell/armada-cp110-master.dtsi | 21 ++++++++++++++++++---
+ arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi | 21 ++++++++++++++++++---
+ 2 files changed, 36 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+index 9278ba6..d192cea 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+@@ -71,8 +71,13 @@
  
--#define MVPP2_MAX_CPUS			4
-+#define MVPP2_MAX_THREADS		8
+ 				cpm_eth0: eth0 {
+ 					interrupts = <ICU_GRP_NSR 39 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 43 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 47 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 51 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 55 IRQ_TYPE_LEVEL_HIGH>,
+ 						     <ICU_GRP_NSR 129 IRQ_TYPE_LEVEL_HIGH>;
+-					interrupt-names = "rx-shared", "link";
++					interrupt-names = "tx-cpu0", "tx-cpu1", "tx-cpu2",
++							  "tx-cpu3", "rx-shared", "link";
+ 					port-id = <0>;
+ 					gop-port-id = <0>;
+ 					status = "disabled";
+@@ -80,8 +85,13 @@
  
- enum mvpp2_bm_type {
- 	MVPP2_BM_FREE,
-@@ -764,11 +764,12 @@ struct mvpp2 {
- 	void __iomem *lms_base;
- 	void __iomem *iface_base;
+ 				cpm_eth1: eth1 {
+ 					interrupts = <ICU_GRP_NSR 40 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 44 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 48 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 52 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 56 IRQ_TYPE_LEVEL_HIGH>,
+ 						     <ICU_GRP_NSR 128 IRQ_TYPE_LEVEL_HIGH>;
+-					interrupt-names = "rx-shared", "link";
++					interrupt-names = "tx-cpu0", "tx-cpu1", "tx-cpu2",
++							  "tx-cpu3", "rx-shared", "link";
+ 					port-id = <1>;
+ 					gop-port-id = <2>;
+ 					status = "disabled";
+@@ -89,8 +99,13 @@
  
--	/* On PPv2.2, each CPU can access the base register through a
--	 * separate address space, each 64 KB apart from each
--	 * other.
-+	/* On PPv2.2, each "software thread" can access the base
-+	 * register through a separate address space, each 64 KB apart
-+	 * from each other. Typically, such address spaces will be
-+	 * used per CPU.
- 	 */
--	void __iomem *cpu_base[MVPP2_MAX_CPUS];
-+	void __iomem *swth_base[MVPP2_MAX_THREADS];
+ 				cpm_eth2: eth2 {
+ 					interrupts = <ICU_GRP_NSR 41 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 45 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 49 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 53 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 57 IRQ_TYPE_LEVEL_HIGH>,
+ 						     <ICU_GRP_NSR 127 IRQ_TYPE_LEVEL_HIGH>;
+-					interrupt-names = "rx-shared", "link";
++					interrupt-names = "tx-cpu0", "tx-cpu1", "tx-cpu2",
++							  "tx-cpu3", "rx-shared", "link";
+ 					port-id = <2>;
+ 					gop-port-id = <3>;
+ 					status = "disabled";
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+index 3515817..8bde91b 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+@@ -78,8 +78,13 @@
  
- 	/* On PPv2.2, some port control registers are located into the system
- 	 * controller space. These registers are accessible through a regmap.
-@@ -1140,12 +1141,12 @@ struct mvpp2_bm_pool {
+ 				cps_eth0: eth0 {
+ 					interrupts = <ICU_GRP_NSR 39 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 43 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 47 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 51 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 55 IRQ_TYPE_LEVEL_HIGH>,
+ 						     <ICU_GRP_NSR 129 IRQ_TYPE_LEVEL_HIGH>;
+-					interrupt-names = "rx-shared", "link";
++					interrupt-names = "tx-cpu0", "tx-cpu1", "tx-cpu2",
++							  "tx-cpu3", "rx-shared", "link";
+ 					port-id = <0>;
+ 					gop-port-id = <0>;
+ 					status = "disabled";
+@@ -87,8 +92,13 @@
  
- static void mvpp2_write(struct mvpp2 *priv, u32 offset, u32 data)
- {
--	writel(data, priv->cpu_base[0] + offset);
-+	writel(data, priv->swth_base[0] + offset);
- }
+ 				cps_eth1: eth1 {
+ 					interrupts = <ICU_GRP_NSR 40 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 44 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 48 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 52 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 56 IRQ_TYPE_LEVEL_HIGH>,
+ 						     <ICU_GRP_NSR 128 IRQ_TYPE_LEVEL_HIGH>;
+-					interrupt-names = "rx-shared", "link";
++					interrupt-names = "tx-cpu0", "tx-cpu1", "tx-cpu2",
++							  "tx-cpu3", "rx-shared", "link";
+ 					port-id = <1>;
+ 					gop-port-id = <2>;
+ 					status = "disabled";
+@@ -96,8 +106,13 @@
  
- static u32 mvpp2_read(struct mvpp2 *priv, u32 offset)
- {
--	return readl(priv->cpu_base[0] + offset);
-+	return readl(priv->swth_base[0] + offset);
- }
- 
- /* These accessors should be used to access:
-@@ -1187,13 +1188,13 @@ static u32 mvpp2_read(struct mvpp2 *priv, u32 offset)
- static void mvpp2_percpu_write(struct mvpp2 *priv, int cpu,
- 			       u32 offset, u32 data)
- {
--	writel(data, priv->cpu_base[cpu] + offset);
-+	writel(data, priv->swth_base[cpu] + offset);
- }
- 
- static u32 mvpp2_percpu_read(struct mvpp2 *priv, int cpu,
- 			     u32 offset)
- {
--	return readl(priv->cpu_base[cpu] + offset);
-+	return readl(priv->swth_base[cpu] + offset);
- }
- 
- static dma_addr_t mvpp2_txdesc_dma_addr_get(struct mvpp2_port *port,
-@@ -7282,7 +7283,7 @@ static int mvpp2_probe(struct platform_device *pdev)
- 	struct mvpp2 *priv;
- 	struct resource *res;
- 	void __iomem *base;
--	int port_count, cpu;
-+	int port_count, i;
- 	int err;
- 
- 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
-@@ -7320,12 +7321,12 @@ static int mvpp2_probe(struct platform_device *pdev)
- 			priv->sysctrl_base = NULL;
- 	}
- 
--	for_each_present_cpu(cpu) {
-+	for (i = 0; i < MVPP2_MAX_THREADS; i++) {
- 		u32 addr_space_sz;
- 
- 		addr_space_sz = (priv->hw_version == MVPP21 ?
- 				 MVPP21_ADDR_SPACE_SZ : MVPP22_ADDR_SPACE_SZ);
--		priv->cpu_base[cpu] = base + cpu * addr_space_sz;
-+		priv->swth_base[i] = base + i * addr_space_sz;
- 	}
- 
- 	if (priv->hw_version == MVPP21)
+ 				cps_eth2: eth2 {
+ 					interrupts = <ICU_GRP_NSR 41 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 45 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 49 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 53 IRQ_TYPE_LEVEL_HIGH>,
++						     <ICU_GRP_NSR 57 IRQ_TYPE_LEVEL_HIGH>,
+ 						     <ICU_GRP_NSR 127 IRQ_TYPE_LEVEL_HIGH>;
+-					interrupt-names = "rx-shared", "link";
++					interrupt-names = "tx-cpu0", "tx-cpu1", "tx-cpu2",
++							  "tx-cpu3", "rx-shared", "link";
+ 					port-id = <2>;
+ 					gop-port-id = <3>;
+ 					status = "disabled";
 -- 
 2.9.4
