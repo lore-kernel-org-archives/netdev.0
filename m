@@ -1,69 +1,73 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next] virtio-net: mark PM functions as __maybe_unused
-Date: Tue, 25 Jul 2017 17:35:50 +0200
-Message-ID: <20170725153600.211694-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-        Eric Dumazet <edumazet@google.com>,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: SELinux/IP_PASSSEC regression in 4.13-rcX
+Date: Tue, 25 Jul 2017 17:36:59 +0200
+Message-ID: <1500997019.13149.12.camel@redhat.com>
+References: <CAHC9VhS9QO8jGBodsSeQxxbgoxrmThRgbc3_m17h7gFmfP=GGw@mail.gmail.com>
+         <1500899117.2458.2.camel@redhat.com>
+         <CAHC9VhRjju-_3V21x+BogdRg-brDho1g_HzW+0CvU0PbhEtQqw@mail.gmail.com>
+         <1500912555.2458.12.camel@redhat.com>
+         <CAHC9VhSAifQtx3eaQD42XMx8beC08JBGQ9SaKFvkD9qVsT8VCg@mail.gmail.com>
+         <CAHC9VhQC1Bpm9VdE2sBC4VLmnzu_B7kLEkgBtnDKvwKf5w1HyA@mail.gmail.com>
+         <1500976778.2929.5.camel@redhat.com>
+         <CAHC9VhTe71CM4i+c86ckbV1GUPdNs1R5sByamZRqLwdYaWcMmw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38344 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752186AbdGYPhC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Jul 2017 11:37:02 -0400
+In-Reply-To: <CAHC9VhTe71CM4i+c86ckbV1GUPdNs1R5sByamZRqLwdYaWcMmw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After removing the reset function, the freeze and restore functions
-are now unused when CONFIG_PM_SLEEP is disabled:
+On Tue, 2017-07-25 at 10:45 -0400, Paul Moore wrote:
+> On Tue, Jul 25, 2017 at 5:59 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> > On Mon, 2017-07-24 at 22:00 -0400, Paul Moore wrote:
+> > > > I'm happy to test this, but if you are curious, you can find the
+> > > > selinux-testsuite at the link below; the "inet_socket" tests are the
+> > > > ones relevant to this problem.
+> > > > 
+> > > > * https://github.com/SELinuxProject/selinux-testsuite
+> > 
+> > Thanks, I'll have a look.
+> > 
+> > > > However, I believe there is a problem with this patch, see below.
+> > 
+> > [...]
+> > 
+> > > > > -#if BITS_PER_LONG == 64
+> > > > > +#define UDP_SKB_IS_STATELESS 0x80000000
+> > > > > +
+> > > > >  static void udp_set_dev_scratch(struct sk_buff *skb)
+> > > > >  {
+> > > > > -       struct udp_dev_scratch *scratch;
+> > > > > +       struct udp_dev_scratch *scratch = udp_skb_scratch(skb);
+> > > > > 
+> > > > >         BUILD_BUG_ON(sizeof(struct udp_dev_scratch) > sizeof(long));
+> > > > 
+> > > > The BUILD_BUG_ON() assertion no longer appears to be correct with this patch.
+> > > 
+> > > Nevermind, I just took a closer look at this and realized I made a
+> > > mistake when applying your patch (had to apply manually for some
+> > > reason).  I'm building a test kernel now.
+> > 
+> > Yup, I compile-tested the code, plus some basic sanity checks, so the
+> > build breakage felt unexpected.
+> > 
+> > Thanks for testing,
+> 
+> I just did a quick run through the selinux-testsuite and the
+> regression would appear to be fixed, thanks!  I'm guessing you'll send
+> this to DaveM so we can get this fixed before v4.13 is released?
+> 
+> Tested-by: Paul Moore <paul@paul-moore.com>
 
-drivers/net/virtio_net.c:1881:12: error: 'virtnet_restore_up' defined but not used [-Werror=unused-function]
- static int virtnet_restore_up(struct virtio_device *vdev)
-drivers/net/virtio_net.c:1859:13: error: 'virtnet_freeze_down' defined but not used [-Werror=unused-function]
- static void virtnet_freeze_down(struct virtio_device *vdev)
+Sure. I'll submit soon for -net.
 
-A more robust way to do this is to remove the #ifdef around the callers
-and instead mark them as __maybe_unused. The compiler will now just
-silently drop the unused code.
+Cheers,
 
-Fixes: 4941d472bf95 ("virtio-net: do not reset during XDP set")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/virtio_net.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index d4751ce23b4f..1902701e15a9 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -2702,8 +2702,7 @@ static void virtnet_remove(struct virtio_device *vdev)
- 	free_netdev(vi->dev);
- }
- 
--#ifdef CONFIG_PM_SLEEP
--static int virtnet_freeze(struct virtio_device *vdev)
-+static __maybe_unused int virtnet_freeze(struct virtio_device *vdev)
- {
- 	struct virtnet_info *vi = vdev->priv;
- 
-@@ -2714,7 +2713,7 @@ static int virtnet_freeze(struct virtio_device *vdev)
- 	return 0;
- }
- 
--static int virtnet_restore(struct virtio_device *vdev)
-+static __maybe_unused int virtnet_restore(struct virtio_device *vdev)
- {
- 	struct virtnet_info *vi = vdev->priv;
- 	int err;
-@@ -2730,7 +2729,6 @@ static int virtnet_restore(struct virtio_device *vdev)
- 
- 	return 0;
- }
--#endif
- 
- static struct virtio_device_id id_table[] = {
- 	{ VIRTIO_ID_NET, VIRTIO_DEV_ANY_ID },
--- 
-2.9.0
+Paolo
