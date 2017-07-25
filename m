@@ -1,72 +1,82 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next 2/2] bnxt_en: define sriov_lock unconditionally
-Date: Tue, 25 Jul 2017 17:29:52 +0200
-Message-ID: <20170725153046.44726-2-arnd@arndb.de>
-References: <20170725153046.44726-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Deepak Khungar <deepak.khungar@broadcom.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Michael Chan <michael.chan@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170725153046.44726-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tyler Bautista <tylerbautista@gmail.com>
+Subject: TC-pedit man page examples error
+Date: Tue, 25 Jul 2017 08:33:40 -0700
+Message-ID: <CAEPezq43wKM1ivHAUu6pFoGqz9+nCJ1FT9xQV702S_BCQvropA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:37986 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752299AbdGYPdl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 11:33:41 -0400
+Received: by mail-pg0-f50.google.com with SMTP id k190so6141057pgk.5
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 08:33:41 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The sriov_lock is used to serialize the sriov code with the vfr code.
-However, when SRIOV is disabled, the lock is not there at all, leading
-to a build error:
+To whom it may concern,
+I recently attempted to use simple tc action pedit commands on the man
+page and I ran into some errors. The following is some information
+about my version of iproute and my machine:
+----------------------------
+the following is my iproute package information
 
-drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c: In function 'bnxt_dl_eswitch_mode_set':
-drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c:410:16: error: 'struct bnxt' has no member named 'sriov_lock'
+Loaded plugins: fastestmirror, langpacks
+iproute-3.10.0-74.el7.x86_64
+     changed_by = 0
+     checksum_data =
+f18d9a19e6531081a605086e5003422a87846854a10a306d122b59ff7bebb9d7
+     checksum_type = sha256
+     command_line = update
+     from_repo = base
+     from_repo_revision = 1480942829
+     from_repo_timestamp = 1480942901
+     installed_by = 4294967295
+     origin_url =
+http://mirror.confluxtech.com/centos/7/os/x86_64/Packages/iproute-3.10.0-74.el7.x86_64.rpm
+     reason = user
+     releasever = 7
+     var_uuid = df8acb3e-a9df-4ffe-b95f-0311b19b2d33
+---------------------------------------------------------------------------------
+I am running the latest version of Centos 7 with kernel version:
 
-We can either provide the mutex in this configuration, too, or
-disable both SRIOV and VFR together. This implements the first
-approach, since it seems like a reasonable configuration for
-guest kernels to have, and the extra lock will be harmless when
-there is no contention.
+3.10.0-514.26.2.el7.x86_64
 
-Fixes: 4ab0c6a8ffd7 ("bnxt_en: add support to enable VF-representors")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.h | 3 +--
- 2 files changed, 2 insertions(+), 3 deletions(-)
+-------------
+The following are the first three commands of the man page that I run
+and their output
+---------------------------------------------------------------------------------
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 82cbe1804821..9a9f5f394341 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -7949,8 +7949,8 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- #ifdef CONFIG_BNXT_SRIOV
- 	init_waitqueue_head(&bp->sriov_cfg_wait);
--	mutex_init(&bp->sriov_lock);
- #endif
-+	mutex_init(&bp->sriov_lock);
- 	bp->gro_func = bnxt_gro_func_5730x;
- 	if (BNXT_CHIP_P4_PLUS(bp))
- 		bp->gro_func = bnxt_gro_func_5731x;
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 2d84d5719b70..a31ef843977a 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1239,13 +1239,12 @@ struct bnxt {
- 	wait_queue_head_t	sriov_cfg_wait;
- 	bool			sriov_cfg;
- #define BNXT_SRIOV_CFG_WAIT_TMO	msecs_to_jiffies(10000)
--
-+#endif
- 	/* lock to protect VF-rep creation/cleanup via
- 	 * multiple paths such as ->sriov_configure() and
- 	 * devlink ->eswitch_mode_set()
- 	 */
- 	struct mutex		sriov_lock;
--#endif
- 
- #define BNXT_NTP_FLTR_MAX_FLTR	4096
- #define BNXT_NTP_FLTR_HASH_SIZE	512
--- 
-2.9.0
+tc qdisc replace dev eth0 root handle 1: htb
+tc qdisc add dev eth0 ingress handle ffff:
+tc filter add dev eth0 parent 1: u32 \
+>                    match ip dport 23 0xffff \
+>                    action pedit pedit munge ip dport set 22
+bad pedit parsing
+Illegal pedit construct (ip)
+Usage: ... pedit munge <MUNGE>
+Where: MUNGE := <RAW>|<LAYERED>
+<RAW>:= <OFFSETC>[ATC]<CMD>
+  OFFSETC:= offset <offval> <u8|u16|u32>
+  ATC:= at <atval> offmask <maskval> shift <shiftval>
+  NOTE: offval is byte offset, must be multiple of 4
+  NOTE: maskval is a 32 bit hex number
+  NOTE: shiftval is a is a shift value
+  CMD:= clear | invert | set <setval>| retain
+  <LAYERED>:= ip <ipdata> | ip6 <ip6data>
+  | udp <udpdata> | tcp <tcpdata> | icmp <icmpdata>
+For Example usage look at the examples directory
+bad action parsing
+parse_action: bad value (7:pedit)!
+Illegal "action"
+---------------------------------------------
+
+The first two commands run without error. However the third command fails.
+
+It apparently does not recognize the ip command. This seems strange to
+me since the commands I run are on the tc-pedit man page. Any help on
+this issue would be appreciated.
+Sincerely,
+
+Tyler Bautista
