@@ -1,7 +1,7 @@
 From: martinbj2008@gmail.com
-Subject: [PATCH v2 net-next 2/5] drop_monitor: let dm trace state support ns
-Date: Tue, 25 Jul 2017 19:38:56 +0800
-Message-ID: <1500982739-15805-2-git-send-email-zhangjunweimartin@didichuxing.com>
+Subject: [PATCH v2 net-next 4/5] drop_monitor: let drop stat support net ns
+Date: Tue, 25 Jul 2017 19:38:58 +0800
+Message-ID: <1500982739-15805-4-git-send-email-zhangjunweimartin@didichuxing.com>
 References: <1499855478-29736-1-git-send-email-zhangjunweimartin@didichuxing.com>
  <1500982739-15805-1-git-send-email-zhangjunweimartin@didichuxing.com>
 Cc: netdev@vger.kernel.org,
@@ -9,198 +9,261 @@ Cc: netdev@vger.kernel.org,
 To: martinbj2008@gmail.com, davem@davemloft.net, nhorman@tuxdriver.com,
         xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:37179 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751549AbdGYLjN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 07:39:13 -0400
-Received: by mail-pg0-f67.google.com with SMTP id g14so9610325pgu.4
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 04:39:12 -0700 (PDT)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:38141 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751703AbdGYLjV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 07:39:21 -0400
+Received: by mail-pg0-f65.google.com with SMTP id 125so795883pgi.5
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 04:39:21 -0700 (PDT)
 In-Reply-To: <1500982739-15805-1-git-send-email-zhangjunweimartin@didichuxing.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: martin Zhang <zhangjunweimartin@didichuxing.com>
 
-Every net ns has its own trace_state,
-and use a ref to control trace state of whole kernel.
+move the detail drop stat to per net ns.
+A net ns has its per cpu stat.
 
-trace_state in struct per_ns_dm_cb:
-Just like the previous trace state, record the trace state for
-every net ns. Possible values are ON/OFF.
+keep the work under per cpu to send netlink alter message.
 
-dm_trace_ref: record how many net namespace is set to
-TRACE_ON. increase when a net ns change to ON,
-and decrease for OFF.
+all the net ns share a work under a CPU, the work will be scheduled
+by any ns, and will send message in all the ns.
 
 Signed-off-by: martin Zhang <zhangjunweimartin@didichuxing.com>
 ---
- net/core/drop_monitor.c | 88 +++++++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 75 insertions(+), 13 deletions(-)
+ net/core/drop_monitor.c | 123 +++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 91 insertions(+), 32 deletions(-)
 
 diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index 6a75e04..0cf25c3 100644
+index 875e8b4..da0c88b 100644
 --- a/net/core/drop_monitor.c
 +++ b/net/core/drop_monitor.c
-@@ -49,10 +49,16 @@
+@@ -47,6 +47,10 @@
+  */
+ 
  struct ns_pcpu_dm_data {
++	spinlock_t	lock;
++	struct sk_buff	*skb;
++	struct net	*net;
++	struct timer_list	send_timer;
  };
  
-+/**
-+ * struct per_ns_dm_cb  - drop monitor control block in per net ns.
-+ * @trace_state:    the trace state.
-+ * @ns_dm_mutex:    protect whole per_ns_dm_cb.
-+ */
- struct per_ns_dm_cb {
-+	int trace_state;
-+	struct mutex ns_dm_mutex;
+ /**
+@@ -59,15 +63,13 @@ struct per_ns_dm_cb {
+ 	int trace_state;
+ 	struct mutex ns_dm_mutex;
+ 	struct list_head hw_stats_list;
++	struct ns_pcpu_dm_data __percpu *pcpu_data;
  };
  
--static int trace_state = TRACE_OFF;
  static DEFINE_MUTEX(trace_state_mutex);
  
  struct per_cpu_dm_data {
-@@ -70,6 +76,7 @@ struct dm_hw_stat_delta {
- 	unsigned long last_drop_val;
+-	spinlock_t		lock;
+-	struct sk_buff		*skb;
+ 	struct work_struct	dm_alert_work;
+-	struct timer_list	send_timer;
  };
  
-+int dm_trace_ref;
- static int dm_net_id __read_mostly;
- static struct genl_family net_drop_monitor_family;
+ struct dm_hw_stat_delta {
+@@ -88,7 +90,7 @@ struct dm_hw_stat_delta {
+ static int dm_delay = 1;
+ static unsigned long dm_hw_check_delta = 2*HZ;
  
-@@ -254,9 +261,16 @@ static int set_all_monitor_traces(int state)
- 
- 	mutex_lock(&trace_state_mutex);
- 
--	if (state == trace_state) {
--		rc = -EAGAIN;
--		goto out_unlock;
-+	//Cases: Only inc/dec reference value.
-+	if (state == TRACE_ON && dm_trace_ref > 0)
-+		goto skip_register_trace;
-+	else if (state == TRACE_OFF && dm_trace_ref > 1)
-+		goto skip_register_trace;
-+
-+	//Bad cases.
-+	if (dm_trace_ref < 0 || (dm_trace_ref == 0 && state == TRACE_OFF)) {
-+		rc = -EINPROGRESS;
-+		goto skip_register_trace;
- 	}
- 
- 	switch (state) {
-@@ -294,12 +308,15 @@ static int set_all_monitor_traces(int state)
- 		break;
- 	}
- 
--	if (!rc)
--		trace_state = state;
--	else
-+skip_register_trace:
-+	if (!rc) {
-+		if (state == TRACE_ON)
-+			dm_trace_ref++;
-+		else if (state == TRACE_OFF)
-+			dm_trace_ref--;
-+	} else
- 		rc = -EINPROGRESS;
- 
--out_unlock:
- 	mutex_unlock(&trace_state_mutex);
- 
- 	return rc;
-@@ -315,22 +332,65 @@ static int net_dm_cmd_config(struct sk_buff *skb,
- static int net_dm_cmd_trace(struct sk_buff *skb,
- 			struct genl_info *info)
+-static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
++static struct sk_buff *reset_per_cpu_data(struct ns_pcpu_dm_data *ns_dm_data)
  {
-+	int state;
-+	struct net *net;
-+	struct per_ns_dm_cb *ns_dm_cb;
-+
-+	if (!skb->sk)
-+		return -ENOTSUPP;
-+	net = sock_net(skb->sk);
-+	ns_dm_cb = net_generic(net, dm_net_id);
-+
-+	if (!ns_dm_cb)
-+		return -ENOMEM;
-+
- 	switch (info->genlhdr->cmd) {
- 	case NET_DM_CMD_START:
--		return set_all_monitor_traces(TRACE_ON);
-+		state = TRACE_ON;
-+		break;
-+
- 	case NET_DM_CMD_STOP:
--		return set_all_monitor_traces(TRACE_OFF);
-+		state = TRACE_OFF;
-+		break;
-+
-+	default:
-+		return -ENOTSUPP;
- 	}
+ 	size_t al;
+ 	struct net_dm_alert_msg *msg;
+@@ -125,11 +127,11 @@ static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
+ 	goto out;
  
--	return -ENOTSUPP;
-+	mutex_lock(&ns_dm_cb->ns_dm_mutex);
-+	if (state == ns_dm_cb->trace_state) {
-+		mutex_unlock(&ns_dm_cb->ns_dm_mutex);
-+		return -EAGAIN;
+ err:
+-	mod_timer(&data->send_timer, jiffies + HZ / 10);
++	mod_timer(&ns_dm_data->send_timer, jiffies + HZ / 10);
+ out:
+-	spin_lock_irqsave(&data->lock, flags);
+-	swap(data->skb, skb);
+-	spin_unlock_irqrestore(&data->lock, flags);
++	spin_lock_irqsave(&ns_dm_data->lock, flags);
++	swap(ns_dm_data->skb, skb);
++	spin_unlock_irqrestore(&ns_dm_data->lock, flags);
+ 
+ 	if (skb) {
+ 		struct nlmsghdr *nlh = (struct nlmsghdr *)skb->data;
+@@ -147,16 +149,30 @@ static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
+ 
+ static void send_dm_alert(struct work_struct *work)
+ {
++	struct net *net;
+ 	struct sk_buff *skb;
+-	struct per_cpu_dm_data *data;
+-
+-	data = container_of(work, struct per_cpu_dm_data, dm_alert_work);
+-
+-	skb = reset_per_cpu_data(data);
+-
+-	if (skb)
+-		genlmsg_multicast(&net_drop_monitor_family, skb, 0,
+-				  0, GFP_KERNEL);
++	struct ns_pcpu_dm_data *pcpu_data;
++	struct per_ns_dm_cb *ns_dm_net;
++	struct ns_pcpu_dm_data *data;
++
++	for_each_net_rcu(net) {
++		ns_dm_net = net_generic(net, dm_net_id);
++		if (!ns_dm_net)
++			continue;
++		if (ns_dm_net->trace_state == TRACE_OFF)
++			continue;
++
++		pcpu_data = ns_dm_net->pcpu_data;
++		if (!pcpu_data)
++			continue;
++
++		data = (struct ns_pcpu_dm_data *)this_cpu_ptr(pcpu_data);
++		WARN_ON(data->net != net);
++		skb = reset_per_cpu_data(data);
++		if (skb)
++			genlmsg_multicast_netns(&net_drop_monitor_family, net,
++						skb, 0, 0, GFP_KERNEL);
 +	}
-+
-+	if (set_all_monitor_traces(state) != 0) {
-+		mutex_unlock(&ns_dm_cb->ns_dm_mutex);
-+		return -ENOTSUPP;
-+	}
-+
-+	ns_dm_cb->trace_state = state;
-+	mutex_unlock(&ns_dm_cb->ns_dm_mutex);
-+
-+	return 0;
  }
  
- static int dropmon_net_event(struct notifier_block *ev_block,
- 			     unsigned long event, void *ptr)
+ /*
+@@ -166,9 +182,15 @@ static void send_dm_alert(struct work_struct *work)
+  */
+ static void sched_send_work(unsigned long _data)
  {
--	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+-	struct per_cpu_dm_data *data = (struct per_cpu_dm_data *)_data;
++	int cpu;
++	struct per_cpu_dm_data *dm_data;
+ 
+-	schedule_work(&data->dm_alert_work);
++	cpu = (int)_data;
++	if (unlikely(cpu < 0))
++		return;
++
++	dm_data = &per_cpu(dm_cpu_data, cpu);
++	schedule_work(&dm_data->dm_alert_work);
+ }
+ 
+ static void trace_drop_common(struct sk_buff *skb, void *location)
+@@ -178,14 +200,30 @@ static void trace_drop_common(struct sk_buff *skb, void *location)
+ 	struct nlattr *nla;
+ 	int i;
+ 	struct sk_buff *dskb;
+-	struct per_cpu_dm_data *data;
++	struct ns_pcpu_dm_data *data;
+ 	unsigned long flags;
 +	struct net *net;
-+	struct net_device *dev;
- 	struct dm_hw_stat_delta *new_stat = NULL;
- 	struct dm_hw_stat_delta *tmp;
-+	struct per_ns_dm_cb *ns_dm_cb;
++	struct per_ns_dm_cb *ns_dm_net;
 +
-+	dev = netdev_notifier_info_to_dev(ptr);
-+	if (!dev)
-+		goto out;
++	if (skb->sk)
++		net = sock_net(skb->sk);
++	else if (skb->dev)
++		net = dev_net(skb->dev);
++	else
++		return;
 +
-+	net = dev_net(dev);
-+	ns_dm_cb = net_generic(net, dm_net_id);
-+	if (!ns_dm_cb)
-+		goto out;
++	ns_dm_net = net_generic(net, dm_net_id);
++	if (unlikely(!ns_dm_net))
++		return;
++
++	data = this_cpu_ptr(ns_dm_net->pcpu_data);
++	if (unlikely(!data))
++		return;
  
- 	switch (event) {
- 	case NETDEV_REGISTER:
-@@ -350,7 +410,7 @@ static int dropmon_net_event(struct notifier_block *ev_block,
- 		list_for_each_entry_safe(new_stat, tmp, &hw_stats_list, list) {
- 			if (new_stat->dev == dev) {
- 				new_stat->dev = NULL;
--				if (trace_state == TRACE_OFF) {
-+				if (ns_dm_cb->trace_state == TRACE_OFF) {
- 					list_del_rcu(&new_stat->list);
- 					kfree_rcu(new_stat, rcu);
- 					break;
-@@ -402,6 +462,7 @@ static int __net_init dm_net_init(struct net *net)
+ 	local_irq_save(flags);
+-	data = this_cpu_ptr(&dm_cpu_data);
+ 	spin_lock(&data->lock);
+-	dskb = data->skb;
+ 
++	dskb = data->skb;
+ 	if (!dskb)
+ 		goto out;
+ 
+@@ -465,7 +503,10 @@ static int dropmon_net_event(struct notifier_block *ev_block,
+ 
+ static int __net_init dm_net_init(struct net *net)
+ {
++	int cpu;
++	struct ns_pcpu_dm_data *pcpu_data;
+ 	struct per_ns_dm_cb *ns_dm_cb;
++	struct ns_pcpu_dm_data *data;
+ 
+ 	ns_dm_cb = net_generic(net, dm_net_id);
  	if (!ns_dm_cb)
- 		return -ENOMEM;
+@@ -474,17 +515,45 @@ static int __net_init dm_net_init(struct net *net)
+ 	mutex_init(&ns_dm_cb->ns_dm_mutex);
+ 	ns_dm_cb->trace_state = TRACE_OFF;
+ 	INIT_LIST_HEAD(&ns_dm_cb->hw_stats_list);
++	pcpu_data = alloc_percpu(struct ns_pcpu_dm_data);
++	ns_dm_cb->pcpu_data = pcpu_data;
++	if (!pcpu_data)
++		return -ENOMEM;
++
++	for_each_possible_cpu(cpu) {
++		data = (struct ns_pcpu_dm_data *)per_cpu_ptr(pcpu_data, cpu);
++		spin_lock_init(&data->lock);
++		data->skb = NULL;
++		data->net = net;
++		setup_timer(&data->send_timer, sched_send_work,
++			    (unsigned long)cpu);
++		reset_per_cpu_data(data);
++	}
  
-+	ns_dm_cb->trace_state = TRACE_OFF;
  	return 0;
  }
  
-@@ -432,6 +493,7 @@ static int __init init_net_drop_monitor(void)
- 		pr_err("Unable to store program counters on this arch, Drop monitor failed\n");
- 		return -ENOSPC;
- 	}
-+	dm_trace_ref = 0;
- 	rc = register_pernet_subsys(&dm_net_ops);
+ static void __net_exit dm_net_exit(struct net *net)
+ {
++	int cpu;
++	struct ns_pcpu_dm_data *pcpu_data;
+ 	struct per_ns_dm_cb *ns_dm_cb;
++	struct ns_pcpu_dm_data *data;
  
- 	rc = genl_register_family(&net_drop_monitor_family);
+ 	ns_dm_cb = net_generic(net, dm_net_id);
+ 	if (!ns_dm_cb)
+ 		return;
++
++	pcpu_data = ns_dm_cb->pcpu_data;
++	if (!pcpu_data)
++		return;
++
++	for_each_possible_cpu(cpu) {
++		data = (struct ns_pcpu_dm_data *)per_cpu_ptr(pcpu_data, cpu);
++		if (data->skb)
++			kfree_skb(data->skb);
++		del_timer_sync(&data->send_timer);
++	}
+ }
+ 
+ static struct pernet_operations dm_net_ops = {
+@@ -526,10 +595,6 @@ static int __init init_net_drop_monitor(void)
+ 	for_each_possible_cpu(cpu) {
+ 		data = &per_cpu(dm_cpu_data, cpu);
+ 		INIT_WORK(&data->dm_alert_work, send_dm_alert);
+-		setup_timer(&data->send_timer, sched_send_work,
+-			    (unsigned long)data);
+-		spin_lock_init(&data->lock);
+-		reset_per_cpu_data(data);
+ 	}
+ 
+ 
+@@ -558,13 +623,7 @@ static void exit_net_drop_monitor(void)
+ 	unregister_pernet_subsys(&dm_net_ops);
+ 	for_each_possible_cpu(cpu) {
+ 		data = &per_cpu(dm_cpu_data, cpu);
+-		del_timer_sync(&data->send_timer);
+ 		cancel_work_sync(&data->dm_alert_work);
+-		/*
+-		 * At this point, we should have exclusive access
+-		 * to this struct and can free the skb inside it
+-		 */
+-		kfree_skb(data->skb);
+ 	}
+ 
+ 	BUG_ON(genl_unregister_family(&net_drop_monitor_family));
 -- 
 1.8.3.1
