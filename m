@@ -1,82 +1,69 @@
-From: Tyler Bautista <tylerbautista@gmail.com>
-Subject: TC-pedit man page examples error
-Date: Tue, 25 Jul 2017 08:33:40 -0700
-Message-ID: <CAEPezq43wKM1ivHAUu6pFoGqz9+nCJ1FT9xQV702S_BCQvropA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:37986 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752299AbdGYPdl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 11:33:41 -0400
-Received: by mail-pg0-f50.google.com with SMTP id k190so6141057pgk.5
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 08:33:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH net-next] virtio-net: mark PM functions as __maybe_unused
+Date: Tue, 25 Jul 2017 17:35:50 +0200
+Message-ID: <20170725153600.211694-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+        Eric Dumazet <edumazet@google.com>,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-To whom it may concern,
-I recently attempted to use simple tc action pedit commands on the man
-page and I ran into some errors. The following is some information
-about my version of iproute and my machine:
-----------------------------
-the following is my iproute package information
+After removing the reset function, the freeze and restore functions
+are now unused when CONFIG_PM_SLEEP is disabled:
 
-Loaded plugins: fastestmirror, langpacks
-iproute-3.10.0-74.el7.x86_64
-     changed_by = 0
-     checksum_data =
-f18d9a19e6531081a605086e5003422a87846854a10a306d122b59ff7bebb9d7
-     checksum_type = sha256
-     command_line = update
-     from_repo = base
-     from_repo_revision = 1480942829
-     from_repo_timestamp = 1480942901
-     installed_by = 4294967295
-     origin_url =
-http://mirror.confluxtech.com/centos/7/os/x86_64/Packages/iproute-3.10.0-74.el7.x86_64.rpm
-     reason = user
-     releasever = 7
-     var_uuid = df8acb3e-a9df-4ffe-b95f-0311b19b2d33
----------------------------------------------------------------------------------
-I am running the latest version of Centos 7 with kernel version:
+drivers/net/virtio_net.c:1881:12: error: 'virtnet_restore_up' defined but not used [-Werror=unused-function]
+ static int virtnet_restore_up(struct virtio_device *vdev)
+drivers/net/virtio_net.c:1859:13: error: 'virtnet_freeze_down' defined but not used [-Werror=unused-function]
+ static void virtnet_freeze_down(struct virtio_device *vdev)
 
-3.10.0-514.26.2.el7.x86_64
+A more robust way to do this is to remove the #ifdef around the callers
+and instead mark them as __maybe_unused. The compiler will now just
+silently drop the unused code.
 
--------------
-The following are the first three commands of the man page that I run
-and their output
----------------------------------------------------------------------------------
+Fixes: 4941d472bf95 ("virtio-net: do not reset during XDP set")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/virtio_net.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-tc qdisc replace dev eth0 root handle 1: htb
-tc qdisc add dev eth0 ingress handle ffff:
-tc filter add dev eth0 parent 1: u32 \
->                    match ip dport 23 0xffff \
->                    action pedit pedit munge ip dport set 22
-bad pedit parsing
-Illegal pedit construct (ip)
-Usage: ... pedit munge <MUNGE>
-Where: MUNGE := <RAW>|<LAYERED>
-<RAW>:= <OFFSETC>[ATC]<CMD>
-  OFFSETC:= offset <offval> <u8|u16|u32>
-  ATC:= at <atval> offmask <maskval> shift <shiftval>
-  NOTE: offval is byte offset, must be multiple of 4
-  NOTE: maskval is a 32 bit hex number
-  NOTE: shiftval is a is a shift value
-  CMD:= clear | invert | set <setval>| retain
-  <LAYERED>:= ip <ipdata> | ip6 <ip6data>
-  | udp <udpdata> | tcp <tcpdata> | icmp <icmpdata>
-For Example usage look at the examples directory
-bad action parsing
-parse_action: bad value (7:pedit)!
-Illegal "action"
----------------------------------------------
-
-The first two commands run without error. However the third command fails.
-
-It apparently does not recognize the ip command. This seems strange to
-me since the commands I run are on the tc-pedit man page. Any help on
-this issue would be appreciated.
-Sincerely,
-
-Tyler Bautista
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index d4751ce23b4f..1902701e15a9 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -2702,8 +2702,7 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 	free_netdev(vi->dev);
+ }
+ 
+-#ifdef CONFIG_PM_SLEEP
+-static int virtnet_freeze(struct virtio_device *vdev)
++static __maybe_unused int virtnet_freeze(struct virtio_device *vdev)
+ {
+ 	struct virtnet_info *vi = vdev->priv;
+ 
+@@ -2714,7 +2713,7 @@ static int virtnet_freeze(struct virtio_device *vdev)
+ 	return 0;
+ }
+ 
+-static int virtnet_restore(struct virtio_device *vdev)
++static __maybe_unused int virtnet_restore(struct virtio_device *vdev)
+ {
+ 	struct virtnet_info *vi = vdev->priv;
+ 	int err;
+@@ -2730,7 +2729,6 @@ static int virtnet_restore(struct virtio_device *vdev)
+ 
+ 	return 0;
+ }
+-#endif
+ 
+ static struct virtio_device_id id_table[] = {
+ 	{ VIRTIO_ID_NET, VIRTIO_DEV_ANY_ID },
+-- 
+2.9.0
