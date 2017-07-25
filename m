@@ -1,95 +1,163 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: add helper capable of reading out instructions
-Date: Tue, 25 Jul 2017 18:40:23 +0200
-Message-ID: <59777477.7050609@iogearbox.net>
-References: <20170724212236.21903-2-jakub.kicinski@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, oss-drivers@netronome.com,
-        kafai@fb.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: [PATCH net-next v2 03/10] net: dsa: lan9303: Refactor lan9303_enable_packet_processing()
+Date: Tue, 25 Jul 2017 18:15:46 +0200
+Message-ID: <20170725161553.30147-4-privat@egil-hjelmeland.no>
+References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: corbet@lwn.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        davem@davemloft.net, kernel@pengutronix.de,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59196 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753016AbdGYQkZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 12:40:25 -0400
-In-Reply-To: <20170724212236.21903-2-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170725161553.30147-1-privat@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[ +Martin ]
+lan9303_enable_packet_processing, lan9303_disable_packet_processing()
+Pass port number (0,1,2) as parameter instead of port offset.
+Simplify accordingly.
 
-On 07/24/2017 11:22 PM, Jakub Kicinski wrote:
-> To read translated and jited instructions from the kernel,
-> one has to set certain pointers of struct bpf_prog_info to
-> pre-allocated user buffers.  Unfortunately, the existing
-> bpf_obj_get_info_by_fd() helper zeros struct bpf_prog_info
-> before passing it to the kernel.
->
-> Keeping the zeroing seems like a good idea in general, since
-> kernel will check if the structure was zeroed.  Add a new
-> helper for those more advanced users who can be trusted to
-> take care of zeroing themselves.
->
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
-> I'm happy to change the name of the new function.
->
->   tools/lib/bpf/bpf.c | 10 ++++++++--
->   tools/lib/bpf/bpf.h |  2 ++
->   2 files changed, 10 insertions(+), 2 deletions(-)
->
-> diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-> index 412a7c82995a..2703fa282b65 100644
-> --- a/tools/lib/bpf/bpf.c
-> +++ b/tools/lib/bpf/bpf.c
-> @@ -308,13 +308,12 @@ int bpf_map_get_fd_by_id(__u32 id)
->   	return sys_bpf(BPF_MAP_GET_FD_BY_ID, &attr, sizeof(attr));
->   }
->
-> -int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
-> +int __bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
->   {
->   	union bpf_attr attr;
->   	int err;
->
->   	bzero(&attr, sizeof(attr));
-> -	bzero(info, *info_len);
+Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+---
+ drivers/net/dsa/lan9303-core.c | 66 ++++++++++++++++++++----------------------
+ 1 file changed, 32 insertions(+), 34 deletions(-)
 
-Looks a bit unintentional to me, e.g. 95b9afd3987f ("bpf: Test for bpf
-ID") did set up pointers in test_bpf_obj_id(), but later only checked
-for the {jited,xlated}_prog_len.
-
-Clearing out the pointers looks not to useful. Lets just push the need
-for bzero() to call-sites in general in this case.
-
->   	attr.info.bpf_fd = prog_fd;
->   	attr.info.info_len = *info_len;
->   	attr.info.info = ptr_to_u64(info);
-> @@ -325,3 +324,10 @@ int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
->
->   	return err;
->   }
-> +
-> +int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len)
-> +{
-> +	bzero(info, *info_len);
-> +
-> +	return __bpf_obj_get_info_by_fd(prog_fd, info, info_len);
-> +}
-> diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-> index 418c86e69bcb..e44b423ac07e 100644
-> --- a/tools/lib/bpf/bpf.h
-> +++ b/tools/lib/bpf/bpf.h
-> @@ -58,6 +58,8 @@ int bpf_prog_get_next_id(__u32 start_id, __u32 *next_id);
->   int bpf_map_get_next_id(__u32 start_id, __u32 *next_id);
->   int bpf_prog_get_fd_by_id(__u32 id);
->   int bpf_map_get_fd_by_id(__u32 id);
-> +/* Note: bpf_obj_get_info_by_fd() will init info to zeroes */
->   int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len);
-> +int __bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len);
->
->   #endif
->
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index c2b53659f58f..0806a0684d55 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -159,9 +159,7 @@
+ # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT1 (BIT(9) | BIT(8))
+ # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0 (BIT(1) | BIT(0))
+ 
+-#define LAN9303_PORT_0_OFFSET 0x400
+-#define LAN9303_PORT_1_OFFSET 0x800
+-#define LAN9303_PORT_2_OFFSET 0xc00
++#define LAN9303_SWITCH_PORT_REG(port, reg0) (0x400 * (port) + (reg0))
+ 
+ /* the built-in PHYs are of type LAN911X */
+ #define MII_LAN911X_SPECIAL_MODES 0x12
+@@ -457,24 +455,25 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+ 	return 0;
+ }
+ 
+-#define LAN9303_MAC_RX_CFG_OFFS (LAN9303_MAC_RX_CFG_0 - LAN9303_PORT_0_OFFSET)
+-#define LAN9303_MAC_TX_CFG_OFFS (LAN9303_MAC_TX_CFG_0 - LAN9303_PORT_0_OFFSET)
+-
+ static int lan9303_disable_packet_processing(struct lan9303 *chip,
+ 					     unsigned int port)
+ {
+ 	int ret;
+ 
+ 	/* disable RX, but keep register reset default values else */
+-	ret = lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_OFFS + port,
+-				       LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES);
++	ret = lan9303_write_switch_reg(
++			chip,
++			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_RX_CFG_0),
++			LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES);
+ 	if (ret)
+ 		return ret;
+ 
+ 	/* disable TX, but keep register reset default values else */
+-	return lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_OFFS + port,
+-				LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
+-				LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE);
++	return lan9303_write_switch_reg(
++			chip,
++			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_TX_CFG_0),
++			LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
++			LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE);
+ }
+ 
+ static int lan9303_enable_packet_processing(struct lan9303 *chip,
+@@ -483,17 +482,21 @@ static int lan9303_enable_packet_processing(struct lan9303 *chip,
+ 	int ret;
+ 
+ 	/* enable RX and keep register reset default values else */
+-	ret = lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_OFFS + port,
+-				       LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES |
+-				       LAN9303_MAC_RX_CFG_X_RX_ENABLE);
++	ret = lan9303_write_switch_reg(
++			chip,
++			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_RX_CFG_0),
++			LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES |
++			LAN9303_MAC_RX_CFG_X_RX_ENABLE);
+ 	if (ret)
+ 		return ret;
+ 
+ 	/* enable TX and keep register reset default values else */
+-	return lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_OFFS + port,
+-				LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
+-				LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE |
+-				LAN9303_MAC_TX_CFG_X_TX_ENABLE);
++	return lan9303_write_switch_reg(
++			chip,
++			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_TX_CFG_0),
++			LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
++			LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE |
++			LAN9303_MAC_TX_CFG_X_TX_ENABLE);
+ }
+ 
+ /* We want a special working switch:
+@@ -555,12 +558,14 @@ static int lan9303_handle_reset(struct lan9303 *chip)
+ /* stop processing packets for all ports */
+ static int lan9303_disable_processing(struct lan9303 *chip)
+ {
+-	int ret;
++	int ret, p;
+ 
+-	ret = lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
+-	if (ret)
+-		return ret;
+-	return lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
++	for (p = 1; p <= 2; p++) {
++		ret = lan9303_disable_packet_processing(chip, p);
++		if (ret)
++			return ret;
++	}
++	return 0;
+ }
+ 
+ static int lan9303_check_device(struct lan9303 *chip)
+@@ -696,7 +701,7 @@ static void lan9303_get_ethtool_stats(struct dsa_switch *ds, int port,
+ 	unsigned int u, poff;
+ 	int ret;
+ 
+-	poff = port * 0x400;
++	poff = LAN9303_SWITCH_PORT_REG(port, 0);
+ 
+ 	for (u = 0; u < ARRAY_SIZE(lan9303_mib); u++) {
+ 		ret = lan9303_read_switch_reg(chip,
+@@ -749,11 +754,8 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
+ 	/* enable internal packet processing */
+ 	switch (port) {
+ 	case 1:
+-		return lan9303_enable_packet_processing(chip,
+-							LAN9303_PORT_1_OFFSET);
+ 	case 2:
+-		return lan9303_enable_packet_processing(chip,
+-							LAN9303_PORT_2_OFFSET);
++		return lan9303_enable_packet_processing(chip, port);
+ 	default:
+ 		dev_dbg(chip->dev,
+ 			"Error: request to power up invalid port %d\n", port);
+@@ -770,13 +772,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
+ 	/* disable internal packet processing */
+ 	switch (port) {
+ 	case 1:
+-		lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
+-		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
+-				  MII_BMCR, BMCR_PDOWN);
+-		break;
+ 	case 2:
+-		lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
+-		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
++		lan9303_disable_packet_processing(chip, port);
++		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
+ 				  MII_BMCR, BMCR_PDOWN);
+ 		break;
+ 	default:
+-- 
+2.11.0
