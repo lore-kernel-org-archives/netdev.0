@@ -1,65 +1,46 @@
 From: Sathya Perla <sathya.perla@broadcom.com>
-Subject: [PATCH net-next 3/3] bnxt_en: fix switchdev port naming for external-port-rep and vf-reps
-Date: Tue, 25 Jul 2017 06:49:33 -0400
-Message-ID: <20170725104933.9633-3-sathya.perla@broadcom.com>
+Subject: [PATCH net-next 2/3] bnxt_en: use SWITCHDEV_SET_OPS() for setting vf_rep_switchdev_ops
+Date: Tue, 25 Jul 2017 06:49:32 -0400
+Message-ID: <20170725104933.9633-2-sathya.perla@broadcom.com>
 References: <20170725104933.9633-1-sathya.perla@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lpdvsmtp02.broadcom.com ([192.19.232.149]:44492 "EHLO
+Received: from lpdvsmtp02.broadcom.com ([192.19.232.149]:44494 "EHLO
         relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751636AbdGYKzd (ORCPT
+        with ESMTP id S1751648AbdGYKzd (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 06:55:33 -0400
 Received: from Sathya-S84.localdomain (unknown [10.192.238.84])
-        by relay.smtp.broadcom.com (Postfix) with ESMTP id 523501A002C
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 03:49:38 -0700 (PDT)
+        by relay.smtp.broadcom.com (Postfix) with ESMTP id 23E0F1A0029
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 03:49:36 -0700 (PDT)
 In-Reply-To: <20170725104933.9633-1-sathya.perla@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the phys_port_name for the external physical port to be in
-"pA" format and that of VF-rep to be in "pCvfD" format as
-suggested by Jakub Kicinski.
+This fixes the build error:
+‘struct net_device’ has no member named ‘switchdev_ops’
 
-Fixes: c124a62ff2dd ("bnxt_en: add support for port_attr_get and get_phys_port_name")
+Reported-by: kbuild test robot <lkp@intel.com>
+Fixes: c124a62ff2dd ("bnxt_en: add support for port_attr_get and and get_phys_port_name")
 Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 6 +-----
- drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c | 4 +++-
- 2 files changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index badbc35..4b32cf0 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -7556,11 +7556,7 @@ static int bnxt_get_phys_port_name(struct net_device *dev, char *buf,
- 	if (!BNXT_PF(bp))
- 		return -EOPNOTSUPP;
- 
--	/* The switch-id that the pf belongs to is exported by
--	 * the switchdev ndo. This name is just to distinguish from the
--	 * vf-rep ports.
--	 */
--	rc = snprintf(buf, len, "pf%d", bp->pf.port_id);
-+	rc = snprintf(buf, len, "p%d", bp->pf.port_id);
- 
- 	if (rc >= len)
- 		return -EOPNOTSUPP;
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-index 9ba505f..9419590 100644
+index 86850ae..9ba505f 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-@@ -141,9 +141,11 @@ static int bnxt_vf_rep_get_phys_port_name(struct net_device *dev, char *buf,
- 					  size_t len)
- {
- 	struct bnxt_vf_rep *vf_rep = netdev_priv(dev);
-+	struct pci_dev *pf_pdev = vf_rep->bp->pdev;
- 	int rc;
+@@ -304,7 +304,7 @@ static void bnxt_vf_rep_netdev_init(struct bnxt *bp, struct bnxt_vf_rep *vf_rep,
  
--	rc = snprintf(buf, len, "vfr%d", vf_rep->vf_idx);
-+	rc = snprintf(buf, len, "pf%dvf%d", PCI_FUNC(pf_pdev->devfn),
-+		      vf_rep->vf_idx);
- 	if (rc >= len)
- 		return -EOPNOTSUPP;
- 	return 0;
+ 	dev->netdev_ops = &bnxt_vf_rep_netdev_ops;
+ 	dev->ethtool_ops = &bnxt_vf_rep_ethtool_ops;
+-	dev->switchdev_ops = &bnxt_vf_rep_switchdev_ops;
++	SWITCHDEV_SET_OPS(dev, &bnxt_vf_rep_switchdev_ops);
+ 	/* Just inherit all the featues of the parent PF as the VF-R
+ 	 * uses the RX/TX rings of the parent PF
+ 	 */
 -- 
 1.8.3.1
