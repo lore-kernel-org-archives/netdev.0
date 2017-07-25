@@ -1,39 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] mlxsw: spectrum_router: Fix build when IPv6
- isn't enabled
-Date: Mon, 24 Jul 2017 17:15:40 -0700 (PDT)
-Message-ID: <20170724.171540.1740509445778265155.davem@davemloft.net>
-References: <20170724075600.2798-1-jiri@resnulli.us>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH v2 net-next 0/2] liquidio: standardization and cleanup
+Date: Mon, 24 Jul 2017 17:15:59 -0700
+Message-ID: <20170725001559.GA1146@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com
-To: jiri@resnulli.us
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45184 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753401AbdGYAPo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2017 20:15:44 -0400
-In-Reply-To: <20170724075600.2798-1-jiri@resnulli.us>
+Received: from mail-dm3nam03on0054.outbound.protection.outlook.com ([104.47.41.54]:4593
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753953AbdGYAQG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 24 Jul 2017 20:16:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 24 Jul 2017 09:56:00 +0200
+From: Rick Farrington <ricardo.farrington@cavium.com>
 
-> From: Ido Schimmel <idosch@mellanox.com>
-> 
-> When IPv6 isn't enabled the following error is generated:
-> 
-> ERROR: "nd_tbl" [drivers/net/ethernet/mellanox/mlxsw/mlxsw_spectrum.ko]
-> undefined!
-> 
-> Fix it by replacing 'arp_tbl' and 'nd_tbl' with 'tbl->family' wherever
-> possible and reference 'nd_tbl' only when IPV6 is enabled.
-> 
-> Fixes: d5eb89cf68d6 ("mlxsw: spectrum_router: Reflect IPv6 neighbours to the device")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+This patchset corrects some non-standard macro usage.
 
-Applied.
+1. Replaced custom MIN macro with use of standard 'min_t'.
+2. Removed cryptic and misleading macro 'CAST_ULL'.
+
+change log:
+V1 -> V2:
+1. Added driver cleanup of macro 'CAST_ULL'.
+
+Rick Farrington (2):
+  liquidio: standardization: use min_t instead of custom macro
+  liquidio: cleanup: removed cryptic and misleading macro
+
+ drivers/net/ethernet/cavium/liquidio/octeon_console.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+-- 
+2.9.0
