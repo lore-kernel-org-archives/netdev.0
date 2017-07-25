@@ -1,33 +1,52 @@
-From: Mis Lillian Popover <peter.kedogo11@gmail.com>
-Subject: Dear Beloved!!
-Date: Tue, 25 Jul 2017 00:08:51 -1200
-Message-ID: <CAH3rPkTEDzJUMKURg9A3BBQ36i0b7iY+4arv+78J6d=Tffwpew@mail.gmail.com>
-Reply-To: lillianpopover111@gmail.com
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: After a while of system running no incoming UDP any more?
+Date: Tue, 25 Jul 2017 14:17:52 +0200
+Message-ID: <1500985072.13149.4.camel@redhat.com>
+References: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
+         <1500905950.2458.6.camel@redhat.com>
+         <20170725115745.bbguoecrcsfhbm7f@torres.zugschlus.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-To: undisclosed-recipients:;
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Marc Haber <mh+netdev@zugschlus.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:38369 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750732AbdGYMIy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 08:08:54 -0400
-Received: by mail-wm0-f66.google.com with SMTP id r123so6716070wmb.5
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 05:08:53 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:38344 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751776AbdGYMRz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 25 Jul 2017 08:17:55 -0400
+In-Reply-To: <20170725115745.bbguoecrcsfhbm7f@torres.zugschlus.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Beloved!!
+On Tue, 2017-07-25 at 13:57 +0200, Marc Haber wrote:
+> On Mon, Jul 24, 2017 at 04:19:10PM +0200, Paolo Abeni wrote:
+> > Once that a system enter the buggy status, do the packets reach the
+> > relevant socket's queue?
+> > 
+> > ss -u
+> 
+> That one only shows table headers on an unaffected system in normal
+> operation, right?
 
-Greetings from  my heart,How are you dear?
+This one shows the current lenght of the socket receive queue (Recv-Q,
+the first column). If the packets land into the skbuff (and the user
+space reader for some reason is not woken up) such value will grow over
+time.
 
-Reverend Faith Ashley directed me to contact you . She is diagnosed
-with cancer and the doctor has said she has little time to live. She
-want to donate her inherited fund of ($2.4 million )to you for charity
-mission in your country.
+> > nstat |grep -e Udp -e Ip
+> > 
+> > will help checking that.
+> 
+> An unaffected system will show UdpInDatagrams, right?
+> 
+> But where is the connection to the relevant socket's queue?
 
-contact her   ( Email : lillianpopover111@gmail.com )
+If the socket queue lenght (as reported above) does not increase,
+IP/UDP stats could give an hint of where and why the packets stop
+traversing the network stack.
 
+Beyond that, you can try using perf probes or kprobe/systemtap to [try
+to] track the relevant packets inside the kernel.
 
-Thanks
-Reverend sister
-Lillian Popover
+/P
