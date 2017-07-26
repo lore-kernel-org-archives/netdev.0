@@ -1,69 +1,55 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
- fixed transceiver bindings
-Date: Wed, 26 Jul 2017 19:05:47 +0200
-Message-ID: <355b90b3-97ce-1057-6617-d5d709449c48@hartkopp.net>
-References: <20170724230521.1436-1-fcooper@ti.com>
- <20170724230521.1436-3-fcooper@ti.com> <20170726164124.GL12049@lunn.ch>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: TCP fast retransmit issues
+Date: Wed, 26 Jul 2017 13:06:40 -0400
+Message-ID: <CADVnQykEX-LzhsqyfHNmV6fF9-d_2R0v+mOX-PnyagUhC1qQzQ@mail.gmail.com>
+References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk> <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk> <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170726134242.GB1737@1wt.eu> <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170726145059.GE1737@1wt.eu> <CADVnQymKZAc+SFD7X-FoP9UwHgB2MBCY48=dL8mH6XuKumkx4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        wg@grandegger.com, mkl@pengutronix.de, robh+dt@kernel.org,
-        quentin.schulz@free-electrons.com, dev.kurt@vandijck-laurijssen.be,
-        sergei.shtylyov@cogentembedded.com
-To: Andrew Lunn <andrew@lunn.ch>, Franklin S Cooper Jr <fcooper@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170726164124.GL12049@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Klavs Klavsen <kl@vsen.dk>,
+        Netdev <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:36137 "EHLO
+        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751202AbdGZRHL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 13:07:11 -0400
+Received: by mail-oi0-f53.google.com with SMTP id g131so85884815oic.3
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 10:07:11 -0700 (PDT)
+In-Reply-To: <CADVnQymKZAc+SFD7X-FoP9UwHgB2MBCY48=dL8mH6XuKumkx4g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/26/2017 06:41 PM, Andrew Lunn wrote:
-> On Mon, Jul 24, 2017 at 06:05:19PM -0500, Franklin S Cooper Jr wrote:
-
->> +
->> +Optional:
->> + max-arbitration-speed: a positive non 0 value that determines the max
->> +			speed that CAN can run in non CAN-FD mode or during the
->> +			arbitration phase in CAN-FD mode.
+On Wed, Jul 26, 2017 at 12:43 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> (1) Because the connection negotiated SACK, the Linux TCP sender does
+> not get to its tcp_add_reno_sack() code to count dupacks and enter
+> fast recovery on the 3rd dupack. The sender keeps waiting for specific
+> packets to be SACKed that would signal that something has probably
+> been lost. We could probably mitigate this by having the sender turn
+> off SACK once it sees SACKed ranges that are completely invalid (way
+> out of window). Then it should use the old non-SACK "Recovery on 3rd
+> dupack" path.
 >
-> Hi Franklin
->
-> Since this and the next property are optional, it is good to document
-> what happens when they are not in the DT blob. Also document what 0
-> means.
->
->> +
->> + max-data-speed:	a positive non 0 value that determines the max data rate
->> +			that can be used in CAN-FD mode. A value of -1 implies
->> +			CAN-FD is not supported by the transceiver.
->
-> -1 is ugly. I think it would be better to have a missing
-> max-data-speed property indicate that CAN-FD is not supported.
+> (2) It looks like there is a bug in the sender code where it seems to
+> be repeatedly using a TLP timer firing 211ms after every ACK is
+> received to transmit another TLP probe (a new packet in this case).
+> Somehow these weird invalid SACKs seem to be triggering a code path
+> that makes us think we can send another TLP, when we probably should
+> be firing an RTO. That's my interpretation, anyway. I will try to
+> reproduce this with packetdrill.
 
-Thanks Andrew! I had the same feeling about '-1' :-)
+Hmm. It looks like this might be a general issue, where any time we
+get an ACK that doesn't ACK/SACK anything new (whether because it's
+incoming data in a bi-directional flow, or a middlebox breaking the
+SACKs), then we schedule a TLP timer further out in time. Probably we
+should only push the TLP timer out if something is cumulatively ACKed.
 
-> And
-> maybe put 'fd' into the property name.
+But that's not a trivial thing to do, because by the time we are
+deciding whether to schedule another TLP, we have already canceled the
+previous TLP and reinstalled an RTO. Hmm.
 
-Good point. In fact the common naming to set bitrates for CAN(FD) 
-controllers are 'bitrate' and 'data bitrate'.
-
-'speed' is not really a good word for that.
-
-Finally, @Franklin:
-
-A CAN transceiver is limited in bandwidth. But you only have one RX and 
-one TX line between the CAN controller and the CAN transceiver. The 
-transceiver does not know about CAN FD - it has just a physical(!) layer 
-with a limited bandwidth. This is ONE limitation.
-
-So I tend to specify only ONE 'max-bitrate' property for the 
-fixed-transceiver binding.
-
-The fact whether the CAN controller is CAN FD capable or not is provided 
-by the netlink configuration interface for CAN controllers.
-
-Regards,
-Oliver
+neal
