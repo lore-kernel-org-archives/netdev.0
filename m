@@ -1,116 +1,42 @@
-From: ChunYu Wang <chunyu.wang.1995@gmail.com>
-Subject: Re: netlink: NULL timer crash
-Date: Wed, 26 Jul 2017 22:35:17 +0800
-Message-ID: <CAPu2Jx345SQCdeOzVQpyHL=_ODPsTJtEoia3x+S7EoJHJs6zJg@mail.gmail.com>
-References: <CACT4Y+Yb9BvzcRT84EriUCqx6hnz_kciYNHjHNX56y1jDb70vw@mail.gmail.com>
- <380e2478-4251-47d5-833c-2be5437ab0f0@googlegroups.com> <CACT4Y+b0+zHMCCzB=GZDe5_i7EMmkcuwH_Dis0bY-2gxf-+Vdg@mail.gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: TCP fast retransmit issues
+Date: Wed, 26 Jul 2017 16:38:27 +0200
+Message-ID: <20170726143827.GD1737@1wt.eu>
+References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk>
+ <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk>
+ <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
+ <fd335e0a0c914b9c42a754da2d24b1c3@vsen.dk>
+ <20170726141847.GC1737@1wt.eu>
+ <0b60368890bdb9aa1cf1df4bd0bf21cf@vsen.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: syzkaller <syzkaller@googlegroups.com>,
-        David Miller <davem@davemloft.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Alexei Starovoitov <ast@kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+b0+zHMCCzB=GZDe5_i7EMmkcuwH_Dis0bY-2gxf-+Vdg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Klavs Klavsen <kl@vsen.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:34242 "EHLO 1wt.eu"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751772AbdGZOia (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 10:38:30 -0400
+Content-Disposition: inline
+In-Reply-To: <0b60368890bdb9aa1cf1df4bd0bf21cf@vsen.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wo, thanks!
+On Wed, Jul 26, 2017 at 04:25:29PM +0200, Klavs Klavsen wrote:
+> Thank you very much guys for your insight.. its highly appreciated.
+> 
+> Next up for me, is waiting till the network guys come back from summer
+> vacation, and convince them to sniff on the devices in between to pinpoint
+> the culprit :)
 
-On Wed, Jul 26, 2017 at 9:13 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Wed, Jul 26, 2017 at 3:09 PM,  <chunyu.wang.1995@gmail.com> wrote:
->> Hi Dmitry,
->>
->> By trying to apply your reproducer to normal kernels, this scenery can not
->> be reproduced (on fedora). Does this C source only for  KASAN kernels?
->
-> No, NULL derefs are detected without KASAN.
->
->
->> On Thursday, March 23, 2017 at 8:55:52 PM UTC+8, Dmitry Vyukov wrote:
->>>
->>> Hello,
->>>
->>> The following program triggers call of NULL timer func:
->>>
->>>
->>> https://gist.githubusercontent.com/dvyukov/c210d01c74b911273469a93862ea7788/raw/2a3182772a6a6e20af3e71c02c2a1c2895d803fb/gistfile1.txt
->>>
->>>
->>> BUG: unable to handle kernel NULL pointer dereference at           (null)
->>> IP:           (null)
->>> PGD 0
->>> Oops: 0010 [#1] SMP KASAN
->>> Modules linked in:
->>> CPU: 2 PID: 0 Comm: swapper/2 Not tainted 4.11.0-rc3+ #365
->>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
->>> 01/01/2011
->>> task: ffff88006c634300 task.stack: ffff88006c640000
->>> RIP: 0010:          (null)
->>> RSP: 0018:ffff88006d1077c8 EFLAGS: 00010246
->>> RAX: dffffc0000000000 RBX: ffff880062bddb00 RCX: ffffffff8154e161
->>> RDX: 1ffffffff090c1f1 RSI: 0000000000000000 RDI: ffff880062bddb00
->>> RBP: ffff88006d1077e8 R08: fffffbfff0a936a8 R09: 0000000000000001
->>> R10: 0000000000000001 R11: fffffbfff0a936a7 R12: ffffffff84860f80
->>> R13: 0000000000000000 R14: ffff880062bddb60 R15: 1ffff1000da20f05
->>> FS:  0000000000000000(0000) GS:ffff88006d100000(0000)
->>> knlGS:0000000000000000
->>> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->>> CR2: 0000000000000000 CR3: 0000000004e21000 CR4: 00000000001406e0
->>> Call Trace:
->>>  <IRQ>
->>>  neigh_timer_handler+0x365/0xd40 net/core/neighbour.c:944
->>>  call_timer_fn+0x232/0x8c0 kernel/time/timer.c:1268
->>>  expire_timers kernel/time/timer.c:1307 [inline]
->>>  __run_timers+0x6f7/0xbd0 kernel/time/timer.c:1601
->>>  run_timer_softirq+0x21/0x80 kernel/time/timer.c:1614
->>>  __do_softirq+0x2d6/0xb54 kernel/softirq.c:284
->>>  invoke_softirq kernel/softirq.c:364 [inline]
->>>  irq_exit+0x1b1/0x1e0 kernel/softirq.c:405
->>>  exiting_irq arch/x86/include/asm/apic.h:657 [inline]
->>>  smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:962
->>>  apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:487
->>> RIP: 0010:native_safe_halt+0x6/0x10 arch/x86/include/asm/irqflags.h:53
->>> RSP: 0018:ffff88006c647dc0 EFLAGS: 00000286 ORIG_RAX: ffffffffffffff10
->>> RAX: dffffc0000000000 RBX: 1ffff1000d8c8fbb RCX: 0000000000000000
->>> RDX: 1ffffffff09d8ed4 RSI: 0000000000000001 RDI: ffffffff84ec76a0
->>> RBP: ffff88006c647dc0 R08: ffffed000d8c6861 R09: 0000000000000000
->>> R10: 0000000000000000 R11: 0000000000000000 R12: fffffbfff09d8ed2
->>> R13: ffff88006c647e78 R14: ffffffff84ec7690 R15: 0000000000000002
->>>  </IRQ>
->>>  arch_safe_halt arch/x86/include/asm/paravirt.h:98 [inline]
->>>  default_idle+0xba/0x450 arch/x86/kernel/process.c:275
->>>  arch_cpu_idle+0xa/0x10 arch/x86/kernel/process.c:266
->>>  default_idle_call+0x37/0x80 kernel/sched/idle.c:97
->>>  cpuidle_idle_call kernel/sched/idle.c:155 [inline]
->>>  do_idle+0x230/0x380 kernel/sched/idle.c:244
->>>  cpu_startup_entry+0x18/0x20 kernel/sched/idle.c:346
->>>  start_secondary+0x2a7/0x340 arch/x86/kernel/smpboot.c:275
->>>  start_cpu+0x14/0x14 arch/x86/kernel/head_64.S:306
->>> Code:  Bad RIP value.
->>> RIP:           (null) RSP: ffff88006d1077c8
->>> CR2: 0000000000000000
->>> ---[ end trace 845120b8a0d21411 ]---
->>>
->>> On commit 093b995e3b55a0ae0670226ddfcb05bfbf0099ae
->>
->> --
->> You received this message because you are subscribed to the Google Groups
->> "syzkaller" group.
->> To unsubscribe from this group and stop receiving emails from it, send an
->> email to syzkaller+unsubscribe@googlegroups.com.
->> For more options, visit https://groups.google.com/d/optout.
+That said, Eric, I'm a bit surprized that it completely stalls. Shouldn't
+the sender end up retransmitting unacked segments after seeing a certain
+number of ACKs not making progress ? Or maybe this is disabled when SACKs
+are in use but it seems to me that once invalid SACKs are ignored we should
+ideally fall back to the normal way to deal with losses. Here the server
+ACKed 3903858556 for the first time at 15:59:54.292743 and repeated this
+one 850 times till 16:01:17.296407 but the client kept sending past this
+point probably due to a huge window, so this looks suboptimal to me.
 
-
-
--- 
-CHUNYU WANG
-
-ASSOCIATE QE
-
-KERNEL ENG
+Willy
