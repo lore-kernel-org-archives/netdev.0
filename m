@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v3 1/3] ptp: introduce ptp auxiliary worker
-Date: Wed, 26 Jul 2017 17:11:36 -0500
-Message-ID: <20170726221138.12986-2-grygorii.strashko@ti.com>
+Subject: [PATCH v3 3/3] net: ethernet: ti: cpts: fix tx timestamping timeout
+Date: Wed, 26 Jul 2017 17:11:38 -0500
+Message-ID: <20170726221138.12986-4-grygorii.strashko@ti.com>
 References: <20170726221138.12986-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,213 +13,196 @@ Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
         Grygorii Strashko <grygorii.strashko@ti.com>
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx210.ext.ti.com ([198.47.19.17]:55980 "EHLO
-        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751009AbdGZWLx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 18:11:53 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170726221138.12986-1-grygorii.strashko@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Many PTP drivers required to perform some asynchronous or periodic work,
-like periodically handling PHC counter overflow or handle delayed timestamp
-for RX/TX network packets. In most of the cases, such work is implemented
-using workqueues. Unfortunately, Kernel workqueues might introduce
-significant delay in work scheduling under high system load and on -RT,
-which could cause misbehavior of PTP drivers due to internal counter
-overflow, for example, and there is no way to tune its execution policy and
-priority manually.
+With the low speed Ethernet connection CPDMA notification about packet
+processing can be received before CPTS TX timestamp event, which is set
+when packet actually left CPSW while cpdma notification is sent when packet
+pushed in CPSW fifo.  As result, when connection is slow and CPU is fast
+enough TX timestamping is not working properly.
 
-Hence, The kthread_worker can be used instead of workqueues, as it creates
-separate named kthread for each worker and its its execution policy and
-priority can be configured using chrt tool.
+Fix it, by introducing TX SKB queue to store PTP SKBs for which Ethernet
+Transmit Event hasn't been received yet and then re-check this queue
+with new Ethernet Transmit Events by scheduling CPTS overflow
+work more often (every 1 jiffies) until TX SKB queue is not empty.
 
-This problem was reported for two drivers TI CPSW CPTS and dp83640, so
-instead of modifying each of these driver it was proposed to add PTP
-auxiliary worker to the PHC subsystem [1].
+Side effect of this change is:
+ - User space tools require to take into account possible delay in TX
+timestamp processing (for example ptp4l works with tx_timestamp_timeout=400
+under net traffic and tx_timestamp_timeout=25 in idle).
 
-The patch adds PTP auxiliary worker in PHC subsystem using kthread_worker
-and kthread_delayed_work and introduces two new PHC subsystem APIs:
-
-- long (*do_aux_work)(struct ptp_clock_info *ptp) callback in
-ptp_clock_info structure, which driver should assign if it require to
-perform asynchronous or periodic work. Driver should return the delay of
-the PTP next auxiliary work scheduling time (>=0) or negative value in case
-further scheduling is not required.
-
-- int ptp_schedule_worker(struct ptp_clock *ptp, unsigned long delay) which
-allows schedule PTP auxiliary work.
-
-The name of kthread_worker thread corresponds PTP PHC device name "ptp%d".
-
-[1] https://www.spinics.net/lists/netdev/msg445392.html
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/ptp/ptp_clock.c          | 41 ++++++++++++++++++++++++++++++++++++++++
- drivers/ptp/ptp_private.h        |  3 +++
- include/linux/ptp_clock_kernel.h | 20 ++++++++++++++++++++
- 3 files changed, 64 insertions(+)
+ drivers/net/ethernet/ti/cpts.c | 86 ++++++++++++++++++++++++++++++++++++++++--
+ drivers/net/ethernet/ti/cpts.h |  1 +
+ 2 files changed, 84 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-index b774357..899433c 100644
---- a/drivers/ptp/ptp_clock.c
-+++ b/drivers/ptp/ptp_clock.c
-@@ -28,6 +28,7 @@
- #include <linux/slab.h>
- #include <linux/syscalls.h>
- #include <linux/uaccess.h>
-+#include <uapi/linux/sched/types.h>
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index 3ed438e..c2121d2 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -31,9 +31,18 @@
  
- #include "ptp_private.h"
+ #include "cpts.h"
  
-@@ -184,6 +185,19 @@ static void delete_ptp_clock(struct posix_clock *pc)
- 	kfree(ptp);
++#define CPTS_SKB_TX_WORK_TIMEOUT 1 /* jiffies */
++
++struct cpts_skb_cb_data {
++	unsigned long tmo;
++};
++
+ #define cpts_read32(c, r)	readl_relaxed(&c->reg->r)
+ #define cpts_write32(c, v, r)	writel_relaxed(v, &c->reg->r)
+ 
++static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
++		      u16 ts_seqid, u8 ts_msgtype);
++
+ static int event_expired(struct cpts_event *event)
+ {
+ 	return time_after(jiffies, event->tmo);
+@@ -77,6 +86,47 @@ static int cpts_purge_events(struct cpts *cpts)
+ 	return removed ? 0 : -1;
  }
  
-+static void ptp_aux_kworker(struct kthread_work *work)
++static bool cpts_match_tx_ts(struct cpts *cpts, struct cpts_event *event)
 +{
-+	struct ptp_clock *ptp = container_of(work, struct ptp_clock,
-+					     aux_work.work);
-+	struct ptp_clock_info *info = ptp->info;
-+	long delay;
++	struct sk_buff *skb, *tmp;
++	u16 seqid;
++	u8 mtype;
++	bool found = false;
 +
-+	delay = info->do_aux_work(info);
++	mtype = (event->high >> MESSAGE_TYPE_SHIFT) & MESSAGE_TYPE_MASK;
++	seqid = (event->high >> SEQUENCE_ID_SHIFT) & SEQUENCE_ID_MASK;
 +
-+	if (delay >= 0)
-+		kthread_queue_delayed_work(ptp->kworker, &ptp->aux_work, delay);
-+}
++	/* no need to grab txq.lock as access is always done under cpts->lock */
++	skb_queue_walk_safe(&cpts->txq, skb, tmp) {
++		struct skb_shared_hwtstamps ssh;
++		unsigned int class = ptp_classify_raw(skb);
++		struct cpts_skb_cb_data *skb_cb =
++					(struct cpts_skb_cb_data *)skb->cb;
 +
- /* public interface */
- 
- struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
-@@ -217,6 +231,19 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
- 	mutex_init(&ptp->pincfg_mux);
- 	init_waitqueue_head(&ptp->tsev_wq);
- 
-+	if (ptp->info->do_aux_work) {
-+		char *worker_name = kasprintf(GFP_KERNEL, "ptp%d", ptp->index);
++		if (cpts_match(skb, class, seqid, mtype)) {
++			u64 ns = timecounter_cyc2time(&cpts->tc, event->low);
 +
-+		kthread_init_delayed_work(&ptp->aux_work, ptp_aux_kworker);
-+		ptp->kworker = kthread_create_worker(0, worker_name ?
-+						     worker_name : info->name);
-+		if (IS_ERR(ptp->kworker)) {
-+			err = PTR_ERR(ptp->kworker);
-+			pr_err("failed to create ptp aux_worker %d\n", err);
-+			goto kworker_err;
++			memset(&ssh, 0, sizeof(ssh));
++			ssh.hwtstamp = ns_to_ktime(ns);
++			skb_tstamp_tx(skb, &ssh);
++			found = true;
++			__skb_unlink(skb, &cpts->txq);
++			dev_consume_skb_any(skb);
++			dev_dbg(cpts->dev, "match tx timestamp mtype %u seqid %04x\n",
++				mtype, seqid);
++		} else if (time_after(jiffies, skb_cb->tmo)) {
++			/* timeout any expired skbs over 1s */
++			dev_dbg(cpts->dev,
++				"expiring tx timestamp mtype %u seqid %04x\n",
++				mtype, seqid);
++			__skb_unlink(skb, &cpts->txq);
++			dev_consume_skb_any(skb);
 +		}
 +	}
 +
- 	err = ptp_populate_pin_groups(ptp);
- 	if (err)
- 		goto no_pin_groups;
-@@ -259,6 +286,9 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
- no_device:
- 	ptp_cleanup_pin_groups(ptp);
- no_pin_groups:
-+	if (ptp->kworker)
-+		kthread_destroy_worker(ptp->kworker);
-+kworker_err:
- 	mutex_destroy(&ptp->tsevq_mux);
- 	mutex_destroy(&ptp->pincfg_mux);
- 	ida_simple_remove(&ptp_clocks_map, index);
-@@ -274,6 +304,11 @@ int ptp_clock_unregister(struct ptp_clock *ptp)
- 	ptp->defunct = 1;
- 	wake_up_interruptible(&ptp->tsev_wq);
- 
-+	if (ptp->kworker) {
-+		kthread_cancel_delayed_work_sync(&ptp->aux_work);
-+		kthread_destroy_worker(ptp->kworker);
-+	}
-+
- 	/* Release the clock's resources. */
- 	if (ptp->pps_source)
- 		pps_unregister_source(ptp->pps_source);
-@@ -339,6 +374,12 @@ int ptp_find_pin(struct ptp_clock *ptp,
- }
- EXPORT_SYMBOL(ptp_find_pin);
- 
-+int ptp_schedule_worker(struct ptp_clock *ptp, unsigned long delay)
-+{
-+	return kthread_mod_delayed_work(ptp->kworker, &ptp->aux_work, delay);
++	return found;
 +}
-+EXPORT_SYMBOL(ptp_schedule_worker);
 +
- /* module operations */
- 
- static void __exit ptp_exit(void)
-diff --git a/drivers/ptp/ptp_private.h b/drivers/ptp/ptp_private.h
-index d958889..b86f1bf 100644
---- a/drivers/ptp/ptp_private.h
-+++ b/drivers/ptp/ptp_private.h
-@@ -22,6 +22,7 @@
- 
- #include <linux/cdev.h>
- #include <linux/device.h>
-+#include <linux/kthread.h>
- #include <linux/mutex.h>
- #include <linux/posix-clock.h>
- #include <linux/ptp_clock.h>
-@@ -56,6 +57,8 @@ struct ptp_clock {
- 	struct attribute_group pin_attr_group;
- 	/* 1st entry is a pointer to the real group, 2nd is NULL terminator */
- 	const struct attribute_group *pin_attr_groups[2];
-+	struct kthread_worker *kworker;
-+	struct kthread_delayed_work aux_work;
- };
- 
  /*
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-index a026bfd..51349d1 100644
---- a/include/linux/ptp_clock_kernel.h
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -99,6 +99,11 @@ struct system_device_crosststamp;
-  *            parameter func: the desired function to use.
-  *            parameter chan: the function channel index to use.
-  *
-+ * @do_work:  Request driver to perform auxiliary (periodic) operations
-+ *	      Driver should return delay of the next auxiliary work scheduling
-+ *	      time (>=0) or negative value in case further scheduling
-+ *	      is not required.
-+ *
-  * Drivers should embed their ptp_clock_info within a private
-  * structure, obtaining a reference to it using container_of().
-  *
-@@ -126,6 +131,7 @@ struct ptp_clock_info {
- 		      struct ptp_clock_request *request, int on);
- 	int (*verify)(struct ptp_clock_info *ptp, unsigned int pin,
- 		      enum ptp_pin_function func, unsigned int chan);
-+	long (*do_aux_work)(struct ptp_clock_info *ptp);
+  * Returns zero if matching event type was found.
+  */
+@@ -101,9 +151,15 @@ static int cpts_fifo_read(struct cpts *cpts, int match)
+ 		event->low = lo;
+ 		type = event_type(event);
+ 		switch (type) {
++		case CPTS_EV_TX:
++			if (cpts_match_tx_ts(cpts, event)) {
++				/* if the new event matches an existing skb,
++				 * then don't queue it
++				 */
++				break;
++			}
+ 		case CPTS_EV_PUSH:
+ 		case CPTS_EV_RX:
+-		case CPTS_EV_TX:
+ 			list_del_init(&event->list);
+ 			list_add_tail(&event->list, &cpts->events);
+ 			break;
+@@ -229,8 +285,15 @@ static long cpts_overflow_check(struct ptp_clock_info *ptp)
+ 	struct cpts *cpts = container_of(ptp, struct cpts, info);
+ 	unsigned long delay = cpts->ov_check_period;
+ 	struct timespec64 ts;
++	unsigned long flags;
++
++	spin_lock_irqsave(&cpts->lock, flags);
++	ts = ns_to_timespec64(timecounter_read(&cpts->tc));
++
++	if (!skb_queue_empty(&cpts->txq))
++		delay = CPTS_SKB_TX_WORK_TIMEOUT;
++	spin_unlock_irqrestore(&cpts->lock, flags);
+ 
+-	cpts_ptp_gettime(&cpts->info, &ts);
+ 	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
+ 	return (long)delay;
+ }
+@@ -301,7 +364,7 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
+ 		return 0;
+ 
+ 	spin_lock_irqsave(&cpts->lock, flags);
+-	cpts_fifo_read(cpts, CPTS_EV_PUSH);
++	cpts_fifo_read(cpts, -1);
+ 	list_for_each_safe(this, next, &cpts->events) {
+ 		event = list_entry(this, struct cpts_event, list);
+ 		if (event_expired(event)) {
+@@ -319,6 +382,19 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
+ 			break;
+ 		}
+ 	}
++
++	if (ev_type == CPTS_EV_TX && !ns) {
++		struct cpts_skb_cb_data *skb_cb =
++				(struct cpts_skb_cb_data *)skb->cb;
++		/* Not found, add frame to queue for processing later.
++		 * The periodic FIFO check will handle this.
++		 */
++		skb_get(skb);
++		/* get the timestamp for timeouts */
++		skb_cb->tmo = jiffies + msecs_to_jiffies(100);
++		__skb_queue_tail(&cpts->txq, skb);
++		ptp_schedule_worker(cpts->clock, 0);
++	}
+ 	spin_unlock_irqrestore(&cpts->lock, flags);
+ 
+ 	return ns;
+@@ -360,6 +436,7 @@ int cpts_register(struct cpts *cpts)
+ {
+ 	int err, i;
+ 
++	skb_queue_head_init(&cpts->txq);
+ 	INIT_LIST_HEAD(&cpts->events);
+ 	INIT_LIST_HEAD(&cpts->pool);
+ 	for (i = 0; i < CPTS_MAX_EVENTS; i++)
+@@ -400,6 +477,9 @@ void cpts_unregister(struct cpts *cpts)
+ 	cpts_write32(cpts, 0, int_enable);
+ 	cpts_write32(cpts, 0, control);
+ 
++	/* Drop all packet */
++	skb_queue_purge(&cpts->txq);
++
+ 	clk_disable(cpts->refclk);
+ }
+ EXPORT_SYMBOL_GPL(cpts_unregister);
+diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
+index 586edd9..73d73fa 100644
+--- a/drivers/net/ethernet/ti/cpts.h
++++ b/drivers/net/ethernet/ti/cpts.h
+@@ -125,6 +125,7 @@ struct cpts {
+ 	struct list_head pool;
+ 	struct cpts_event pool_data[CPTS_MAX_EVENTS];
+ 	unsigned long ov_check_period;
++	struct sk_buff_head txq;
  };
  
- struct ptp_clock;
-@@ -211,6 +217,16 @@ extern int ptp_clock_index(struct ptp_clock *ptp);
- int ptp_find_pin(struct ptp_clock *ptp,
- 		 enum ptp_pin_function func, unsigned int chan);
- 
-+/**
-+ * ptp_schedule_worker() - schedule ptp auxiliary work
-+ *
-+ * @ptp:    The clock obtained from ptp_clock_register().
-+ * @delay:  number of jiffies to wait before queuing
-+ *          See kthread_queue_delayed_work() for more info.
-+ */
-+
-+int ptp_schedule_worker(struct ptp_clock *ptp, unsigned long delay);
-+
- #else
- static inline struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
- 						   struct device *parent)
-@@ -225,6 +241,10 @@ static inline int ptp_clock_index(struct ptp_clock *ptp)
- static inline int ptp_find_pin(struct ptp_clock *ptp,
- 			       enum ptp_pin_function func, unsigned int chan)
- { return -1; }
-+static inline int ptp_schedule_worker(struct ptp_clock *ptp,
-+				      unsigned long delay)
-+{ return -EOPNOTSUPP; }
-+
- #endif
- 
- #endif
+ void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
 -- 
 2.10.1
