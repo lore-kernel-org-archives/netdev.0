@@ -1,95 +1,54 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
- null entry.
-Date: Wed, 26 Jul 2017 12:38:25 -0700
-Message-ID: <CAJieiUiKqXYkH56xH2Kk5-33kZbpkTsJCzAsRintwhstPsOw=Q@mail.gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
- <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
- <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
- <20170724030907.GC2938@leo.usersys.redhat.com> <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
- <20170725000849.GD2938@leo.usersys.redhat.com> <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
- <20170725073202.GE2938@leo.usersys.redhat.com> <9e198c2a-c026-f4bd-f190-8d5a887efe7f@gmail.com>
- <CAJieiUgyHDksxVjoCSz9pxbDy-ZZR9uUWWZXdth0diSKAcvx4Q@mail.gmail.com>
- <64377a01-38df-6d43-16a4-401d426fb9b2@gmail.com> <CAJieiUi+Me_wXDz0A1oLH2LgBw9DsMoxctV56SjEwGpusFGt4Q@mail.gmail.com>
- <2d75317c-160c-01c2-5a5b-bc6111c099c6@gmail.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH net-next 10/18] net: mvpp2: use the GoP interrupt for
+ link status changes
+Date: Wed, 26 Jul 2017 20:38:20 +0100
+Message-ID: <20170726193820.GR31807@n2100.armlinux.org.uk>
+References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
+ <20170724134848.19330-11-antoine.tenart@free-electrons.com>
+ <20170726162648.GK12049@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Hangbin Liu <liuhangbin@gmail.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        network dev <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, jason@lakedaemon.net,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f182.google.com ([209.85.217.182]:34842 "EHLO
-        mail-ua0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751053AbdGZTi0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 15:38:26 -0400
-Received: by mail-ua0-f182.google.com with SMTP id d29so115382864uai.2
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 12:38:26 -0700 (PDT)
-In-Reply-To: <2d75317c-160c-01c2-5a5b-bc6111c099c6@gmail.com>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:43826 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751022AbdGZTil (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 15:38:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20170726162648.GK12049@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 26, 2017 at 12:00 PM, David Ahern <dsahern@gmail.com> wrote:
-> On 7/26/17 12:55 PM, Roopa Prabhu wrote:
->> On Wed, Jul 26, 2017 at 11:49 AM, David Ahern <dsahern@gmail.com> wrote:
->>> On 7/26/17 12:27 PM, Roopa Prabhu wrote:
->>>> agreed...so looks like the check in v3 should be
->>>>
->>>>
->>>> +       if ( rt == net->ipv6.ip6_null_entry ||
->>>> +            (rt->dst.error &&
->>>> + #ifdef CONFIG_IPV6_MULTIPLE_TABLES
->>>> +              rt != net->ipv6.ip6_prohibit_entry &&
->>>> +              rt != net->ipv6.ip6_blk_hole_entry &&
->>>> +#endif
->>>> +             )) {
->>>>                 err = rt->dst.error;
->>>>                 ip6_rt_put(rt);
->>>>                 goto errout;
->>>>
->>>
->>> I don't think so. If I add a prohibit route and use the fibmatch
->>> attribute, I want to see the route from the FIB that was matched.
->>
->>
->> yes, exactly. wouldn't  'rt != net->ipv6.ip6_prohibit_entry' above let
->> it fall through to the route fill code ?
->>
->> ah...but i guess you are saying that they will have rt6_info's of
->> their own and will not match. got it. ack.
->>
->
-> This:
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 4d30c96a819d..24de81c804c2 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -3637,11 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff
-> *in_skb, struct nlmsghdr *nlh,
->                 dst = ip6_route_lookup(net, &fl6, 0);
->
->         rt = container_of(dst, struct rt6_info, dst);
-> -       if (rt->dst.error) {
-> -               err = rt->dst.error;
-> -               ip6_rt_put(rt);
-> -               goto errout;
-> -       }
->
->         if (rt == net->ipv6.ip6_null_entry) {
->                 err = rt->dst.error;
->
-> Puts back the original behavior. In that case, only rt == null_entry
-> drops to the error path which is correct. All other rt values will drop
-> to rt6_fill_node and return rt data.
+On Wed, Jul 26, 2017 at 06:26:48PM +0200, Andrew Lunn wrote:
+> And this is another bit of code you probably need to change in a while
+> with phylink lands.
 
-yes, i thought so too and hence acked v1. But, following congs
-comment, realized that it may mask some real errors for fibmatch ?
+The way the MAC driver handles link up/down and configuration events
+changes significantly when a MAC driver switches to phylink, since
+a directly connected SFP cage needs to have the MAC reconfigured
+between SGMII and 1000base-X modes.  If you add SFP+ into that, also
+10Gbase-KR as well.
 
-I just tested a case of unreachable route with just the above patch
-you posted, and I do get the error correctly.
+Note also that the "link up" condition for SFP (and probably SFF) is
+more complex than just "is the module reporting that it's receiving
+a signal" - especially with 1000base-X, there's negotiation to be
+performed, so you also need to know (if the module is connected
+directly to the MAC) whether the Serdes is in sync and has finished
+negotiation (and itself says it has link with the remote end.)
 
-so, I guess you are saying all real errors for fibmatch will have "rt
-== net->ipv6.ip6_null_entry" and we should be ok.
-sounds good to me.
+With the Marvell 88x3310 PHY, the MAC driver already needs to switch
+between 10Gbase-KR and SGMII modes, as the 88x3310 automatically
+makes that switch on its MAC facing interface without software
+intervention.
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
