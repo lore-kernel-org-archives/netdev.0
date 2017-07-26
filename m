@@ -1,35 +1,37 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 04/13] net: phy: add 1000Base-X to phy settings table
-Date: Wed, 26 Jul 2017 23:52:55 +0200
-Message-ID: <20170726215255.GC7966@lunn.ch>
-References: <20170725140138.GK31807@n2100.armlinux.org.uk>
- <E1da0QG-0007LL-Vj@rmk-PC.armlinux.org.uk>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: inet: diag: expose sockets cgroup classid
+Date: Wed, 26 Jul 2017 15:01:32 -0700
+Message-ID: <CAM_iQpWJur_+hFZwj8bLa3bZwEd=aT5mWdhfapd5E9h9Q0HVUg@mail.gmail.com>
+References: <20170726172153.23436-1-alexander.levin@verizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Russell King <rmk+kernel@armlinux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41534 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750952AbdGZVw4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Jul 2017 17:52:56 -0400
-Content-Disposition: inline
-In-Reply-To: <E1da0QG-0007LL-Vj@rmk-PC.armlinux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170726172153.23436-1-alexander.levin@verizon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 25, 2017 at 03:02:52PM +0100, Russell King wrote:
-> Add the missing 1000Base-X entry to the phy settings table.  This was
-> not included because the original code could not cope with more than
-> 32 bits of link mode mask.
-> 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+On Wed, Jul 26, 2017 at 10:22 AM, Levin, Alexander (Sasha Levin)
+<alexander.levin@verizon.com> wrote:
+> +       if (ext & (1 << (INET_DIAG_CLASS_ID - 1))) {
+> +               u32 classid = 0;
+> +
+> +#ifdef CONFIG_SOCK_CGROUP_DATA
+> +               classid = sock_cgroup_classid(&sk->sk_cgrp_data);
+> +#endif
 
-Hi Russell
 
-Looks like there are another 15 to add to the table. But that can wait
-for another time when somebody needs them.
+If CONFIG_SOCK_CGROUP_DATA is not enabled, should we put 0
+or put nothing (that is, skipping this nla_put())?
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> +
+> +               nla_put(skb, INET_DIAG_CLASS_ID, sizeof(classid), &classid);
 
-    Andrew
+nla_put_u32()
+
+Thanks.
