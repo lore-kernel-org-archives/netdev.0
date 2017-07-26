@@ -1,84 +1,101 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH V2 net-next] TLP: Don't reschedule PTO when there's one
- outstanding TLP retransmission
-Date: Wed, 26 Jul 2017 13:02:51 +0300
-Message-ID: <71ae9007-aedb-2b4e-6aee-b365cb28b0fb@cogentembedded.com>
-References: <1501062285-9648-1-git-send-email-maowenan@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Mao Wenan <maowenan@huawei.com>, netdev@vger.kernel.org,
-        davem@davemloft.net, ncardwell@google.com, ycheng@google.com,
-        nanditad@google.com, weiyongjun1@huawei.com,
-        chenweilong@huawei.com, wangkefeng.wang@huawei.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/14][pull request] 40GbE Intel Wired LAN Driver Updates 2017-07-25
+Date: Wed, 26 Jul 2017 03:31:09 -0700
+Message-ID: <20170726103123.76743-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:35124 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750989AbdGZKCz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 06:02:55 -0400
-Received: by mail-lf0-f54.google.com with SMTP id t128so36307860lff.2
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 03:02:55 -0700 (PDT)
-In-Reply-To: <1501062285-9648-1-git-send-email-maowenan@huawei.com>
-Content-Language: en-US
+Received: from mga01.intel.com ([192.55.52.88]:17153 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751615AbdGZKbp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 06:31:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/26/2017 12:44 PM, Mao Wenan wrote:
+This series contains updates to i40e and i40evf only.
 
-> If there is one TLP probe went out(TLP use the write_queue_tail packet
-> as TLP probe, we assume this first TLP probe named A), and this TLP
-> probe was not acked by receive side.
-> 
-> Then the transmit side sent the next two packetes out(named B,C), but
-> unfortunately these two packets are also not acked by receive side.
-> 
-> And then there is one data packet with ack_seq A arrive
-> at transmit side, in tcp_ack() will call tcp_schedule_loss_probe()
-> to rearm PTO, the handler tcp_send_loss_probe() is to check
-> if(tp->tlp_high_seq) then go to rearm_timer(because there is
-> one outstanding TLP named A),
-> so the new TLP probe can't be sent out and it needs to rearm the RTO
-> timer(timeout is relative to the transmit time of the write queue head).
-> 
-> After that, there is another data packet with ack_seq A is received,
-> if the tlp_time_stamp is greater than rto_time_stamp, it will reset the
-> TLP timeout, which is before previous RTO timeout, so PTO is rearm and previous
-> RTO is cleared. Because there is no retransmission packet was sent or
-> no TLP sack receive, tp->tlp_high_seq can't be reset to zero and the next
-> TLP probe also can't be sent out, so there is no way(or very long time)
-> to retransmit the lost packet.
-> 
-> This fix is to check(tp->tlp_high_seq) in tcp_schedule_loss_probe()
-> when TLP PTO is after RTO, It is not needed to reschedule PTO when there
-> is one outstanding TLP retransmission, so if the TLP A is lost RTO can
-> retransmit lost packet, then tp->tlp_high_seq will be set to 0, and TLP
-> will go to the normal work process.
-> 
-> v1->v2
-> 	refine some words of code and patch comments.
-> 	
-> Signed-off-by: Mao Wenan <maowenan@huawei.com>
-> ---
->   net/ipv4/tcp_output.c | 6 ++++++
->   1 file changed, 6 insertions(+)
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 886d874..f85c7ef 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2423,6 +2423,12 @@ bool tcp_schedule_loss_probe(struct sock *sk)
->   	tlp_time_stamp = tcp_jiffies32 + timeout;
->   	rto_time_stamp = (u32)inet_csk(sk)->icsk_timeout;
->   	if ((s32)(tlp_time_stamp - rto_time_stamp) > 0) {
-> +		/* It is not needed to reschedule PTO when there
-> +		 * is one outstanding TLP retransmission.
-> +		 */
-> +		if (tp->tlp_high_seq) {
-> +			return false;
-> +		}
+Gustavo Silva fixes a variable assignment, where the incorrect variable
+was being used to store the error parameter.
 
-    I have already told you to remove the needless {}... :-/
+Carolyn provides a fix for a problem found in systems when entering S4
+state, by ensuring that the misc vector's IRQ is disabled as well.
 
-[...]
+Jake removes the single-threaded restriction on the module workqueue,
+which was causing issues with events such as CORER.  Does some future
+proofing, by changing how the driver displays the UDP tunnel type.
 
-MBR, Sergei
+Paul adds a retry in releasing resources if the admin queue times out
+during the first attempt to release the resources.
+
+Jesse fixes up references to 32bit timspec, since there are a small set
+of errors on 32 bit, so we need to be using the right calls for dealing
+with timespec64 variables.  Cleaned up code indentation and corrected
+an "if" conditional check, as well as making the code flow more clear.
+Cast or changed the types to remove warnings for comparing signed and
+unsigned types.  Adds missing includes in i40evf, which were being used
+but were not being directly included.
+
+Daniel Borkmann fixes i40e to fill the XDP prog_id with the id just like
+other XDP enabled drivers, so that on dump we can retrieve the attached
+program based on the id and dump BPF insns, opcodes, etc back to user
+space.
+
+Tushar Dave adds le32_to_cpu while evaluating the hardware descriptor
+fields, since they are in little-endian format.  Also removed
+unnecessary "__packed" to a couple of i40evf structures.
+
+Stefan Assmann fixes an issue when an administratively set MAC was set
+and should now be switched back to 00:00:00:00:00:00, the pf_set_mac
+flag is not being toggled back to false.
+
+The following are changes since commit 34c8c10a766c8daf42293664f5c9ca5516fa3f41:
+  Merge branch 'bnxt_en-Fix-kbuild-errors-and-rename-phys_port_name'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+
+Carolyn Wyborny (1):
+  i40e: Fix for trace found with S4 state
+
+Daniel Borkmann (1):
+  i40e: report BPF prog id during XDP_QUERY_PROG
+
+Gustavo A R Silva (1):
+  i40e: fix incorrect variable assignment
+
+Jacob Keller (2):
+  i40e: remove WQ_UNBOUND and the task limit of our workqueue
+  i40e: display correct UDP tunnel type name
+
+Jesse Brandeburg (5):
+  i40e: fix up 32 bit timespec references
+  i40e: fix odd formatting and indent
+  i40e/i40evf: make IPv6 ATR code clearer
+  i40e/i40evf: remove mismatched type warnings
+  i40evf: add some missing includes
+
+Paul M Stillwell Jr (1):
+  i40e: Handle admin Q timeout when releasing NVM
+
+Stefan Assmann (1):
+  i40e: handle setting administratively set MAC address back to zero
+
+Tushar Dave (2):
+  i40evf: Use le32_to_cpu before evaluating HW desc fields
+  i40evf: remove unnecessary __packed
+
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  6 +--
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 57 ++++++++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         | 21 +++++++-
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  5 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 18 ++++---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 32 +++++++-----
+ drivers/net/ethernet/intel/i40evf/i40e_osdep.h     |  4 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  6 +--
+ drivers/net/ethernet/intel/i40evf/i40evf.h         | 11 +++++
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  4 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 14 +++---
+ 11 files changed, 122 insertions(+), 56 deletions(-)
+
+-- 
+2.13.3
