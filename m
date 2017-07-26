@@ -1,97 +1,70 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next] TLP: Don't reschedule PTO when there's one
- outstanding TLP retransmission.
-Date: Wed, 26 Jul 2017 09:45:06 -0700
-Message-ID: <CAK6E8=ciCn1MFkoPXmBV3k34QxzhwK-yLC5_2hd=bb12dG2jRA@mail.gmail.com>
-References: <1500971735-21852-1-git-send-email-maowenan@huawei.com>
- <CADVnQykr0YTB7YD=9n04bA8WFBQWku4qsPUZpqgKK6YGmd9xBA@mail.gmail.com> <F95AC9340317A84688A5F0DF0246F3F202929B17@DGGEMI512-MBX.china.huawei.com>
+From: Tyler Bautista <tylerbautista@gmail.com>
+Subject: Re: TC-pedit man page examples error
+Date: Wed, 26 Jul 2017 09:47:51 -0700
+Message-ID: <CAEPezq4Emc=D7zspWqLOq=80WGUjVdfT0xkqoJ1XQPXqaL3w6w@mail.gmail.com>
+References: <CAEPezq43wKM1ivHAUu6pFoGqz9+nCJ1FT9xQV702S_BCQvropA@mail.gmail.com>
+ <20170726084338.GH2235@orbyte.nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Neal Cardwell <ncardwell@google.com>,
-        Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Chenweilong <chenweilong@huawei.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>
-To: maowenan <maowenan@huawei.com>
+To: Phil Sutter <phil@nwl.cc>,
+        Tyler Bautista <tylerbautista@gmail.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:33044 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750826AbdGZQpt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 12:45:49 -0400
-Received: by mail-wr0-f170.google.com with SMTP id v105so103722354wrb.0
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 09:45:48 -0700 (PDT)
-In-Reply-To: <F95AC9340317A84688A5F0DF0246F3F202929B17@DGGEMI512-MBX.china.huawei.com>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:38284 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751446AbdGZQrw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 12:47:52 -0400
+Received: by mail-pg0-f53.google.com with SMTP id k190so21070649pgk.5
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 09:47:51 -0700 (PDT)
+In-Reply-To: <20170726084338.GH2235@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 25, 2017 at 7:12 PM, maowenan <maowenan@huawei.com> wrote:
->
->
->
-> > -----Original Message-----
-> > From: Neal Cardwell [mailto:ncardwell@google.com]
-> > Sent: Tuesday, July 25, 2017 9:30 PM
-> > To: maowenan
-> > Cc: Netdev; David Miller; weiyongjun (A); Chenweilong; Yuchung Cheng;
-> > Nandita Dukkipati
-> > Subject: Re: [PATCH net-next] TLP: Don't reschedule PTO when there's one
-> > outstanding TLP retransmission.
-> >
-> > On Tue, Jul 25, 2017 at 4:35 AM, Mao Wenan <maowenan@huawei.com>
-> > wrote:
-> > > If there is one TLP probe went out(TLP use the write_queue_tail packet
-> > > as TLP probe, we assume this first TLP probe named A), and this TLP
-> > > probe was not acked by receive side.
-> > >
-> > > Then the transmit side sent the next two packetes out(named B,C), but
-> > > unfortunately these two packets are also not acked by receive side.
-> > >
-> > > And then there is one data packet with ack_seq A arrive, in tcp_ack()
-> > > will call tcp_schedule_loss_probe() to rearm PTO, the handler
-> > > tcp_send_loss_probe() pass if(tp->tlp_high_seq)(because there is one
-> > > outstanding TLP named A,tp->tlp_high_seq is not zero), so the new TLP
-> > > probe can't be went out and need to rearm the RTO timer(timeout is
-> > > relative to the transmit time of the write queue head).
-> > >
-> > > After this, another data packet with ack_seq A is received, if the
-> > > tlp_time_stamp is after rto_time_stamp, it will reset the TLP timeout
-> > > with delta value, which is before previous RTO timeout, so PTO is
-> > > rearm and previous RTO is cleared. This TLP probe also can't be sent
-> > > out because of tp->tlp_high_seq != 0, so there is no way(or need very
-> > > long time)to retransmit the packet because of TLP A is lost.
-> > >
-> > > This fix is not to pass the if(tp->tlp_high_seq) in
-> > > tcp_schedule_loss_probe() when TLP PTO is after RTO, It is no need to
-> > > reschedule PTO when there is one outstanding TLP retransmission, so if
-> > > the TLP A is lost then RTO can retransmit that packet, and
-> > > tp->tlp_high_seq will be set to 0. After this TLP will go to the normal work
-> > process.
-> > >
-> > > Signed-off-by: Mao Wenan <maowenan@huawei.com>
-> >
-> > Thanks for posting this. This is a pretty involved scenario. To help
-> > document/test precisely what the behavior is before and after your patch,
-> > would you be able to post a packetdrill ( https://github.com/google/packetdrill )
-> > test case for this scenario?
-> >
-> > Can I ask if you saw this scenario in an actual trace, or noticed this by
-> > inspection?
-> [Mao Wenan] It is my actual product scenario, from some debug trace info
-> I found that PTO is always rescheduled before RTO, this is PTO is trigged
-> by receiving one tcp_ack packets. After this patch, the product works well and
-> there is no previous issue happen. The packet can retransmit with RTO if TLP probe
-> is lost.
-> I will say sorry that my local test can't reproduce because i can't build successfully the same
-> complex scenario, I don't have mature test case to reproduce now but I will do my best to try
-> in local test environment.
-tcpdump output of an example trace also helps. Feel free to remove IP
-address, ports, or payload information. We only need the timing and
-TCP header info.
+Hello Phil,
 
+Thank you for taking my message. I have gotten a solution working so
+feel free to ignore the rest of this email. By vanilla iproute2 do you
+mean the latest package through the yum or apt repository? All I can
+tell you is that in the example I gave the iproute2 package was the
+latest one through the RHEL 7 yum repository. Otherwise I will need
+clarification on what vanilla means. I attempted the above example
+code on two other Ubuntu machines, one of which I can confirm is
+Ubuntu 16.04 LTS. Unfortunately I am not at that machine right now so
+I cannot give you the output. Both machines gave similar error
+messages. The reason I emailed you via netdev was because the example
+code I used was taken verbatim from the tc-pedit man page on my
+machine. The man page also gave me email addresses to contact in case
+an error was found with the man page, which is what I did. I did get
+the code to work when using the latest version of iproute2, so I
+assume the only practical solution is to manually install the latest
+version of iproute2 or wait for the various distros of Linux to use
+updated iproute2. I appreciate your help. Have a nice day.
 
-> Thank you.
-> >
-> > thanks,
-> > neal
+Tyler Bautista
+
+On Wed, Jul 26, 2017 at 1:43 AM, Phil Sutter <phil@nwl.cc> wrote:
+> Hi Tyler,
+>
+> On Tue, Jul 25, 2017 at 08:33:40AM -0700, Tyler Bautista wrote:
+>> To whom it may concern,
+>> I recently attempted to use simple tc action pedit commands on the man
+>> page and I ran into some errors. The following is some information
+>> about my version of iproute and my machine:
+>> ----------------------------
+>> the following is my iproute package information
+>>
+>> Loaded plugins: fastestmirror, langpacks
+>> iproute-3.10.0-74.el7.x86_64
+>
+> This mailing list is for upstream issues only. Can you reproduce the
+> problem with vanilla iproute2?
+>
+> You are using RHEL7's iproute package, which has a number of known
+> issues in pedit action:
+>
+> https://bugzilla.redhat.com/show_bug.cgi?id=1322406
+>
+> These are planned to be resolved for RHEL7.5, not sure when it will land
+> in CentOS.
+>
+> Cheers, Phil
