@@ -1,93 +1,133 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 04/10] net: dsa: lan9303: Added adjust_link()
- method
-Date: Wed, 26 Jul 2017 19:09:28 +0200
-Message-ID: <20170726170928.GP12049@lunn.ch>
-References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
- <20170725161553.30147-5-privat@egil-hjelmeland.no>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCHv3 net] ipv6: no need to return rt->dst.error if it is
+ prohibit entry
+Date: Wed, 26 Jul 2017 11:09:39 -0600
+Message-ID: <07c66e6f-5b78-3317-18c6-bd2f955d5f90@gmail.com>
+References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+ <1501060829-11928-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, davem@davemloft.net, kernel@pengutronix.de,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170725161553.30147-5-privat@egil-hjelmeland.no>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:37597 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750921AbdGZRJm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 13:09:42 -0400
+Received: by mail-pg0-f66.google.com with SMTP id k190so2155805pgk.4
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 10:09:42 -0700 (PDT)
+In-Reply-To: <1501060829-11928-1-git-send-email-liuhangbin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 25, 2017 at 06:15:47PM +0200, Egil Hjelmeland wrote:
-> This makes the driver react to device tree "fixed-link" declaration
-> on CPU port.
+On 7/26/17 3:20 AM, Hangbin Liu wrote:
+> After commit 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib
+> result when requested"). When we get a prohibit ertry, we will return
+> -EACCES directly.
 > 
-> - turn off autonegotiation
-> - force speed 10 or 100 mb/s
-> - force duplex mode
+> Before:
+
+Do you mean "Before commit 18c3a61c4264?"
+
+> + ip netns exec client ip -6 route get 2003::1
+> prohibit 2003::1 dev lo table unspec proto kernel src 2001::1 metric
+> 4294967295 error -13
 > 
-> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+> After:
+
+And "After commit 18c3a61c4264?"
+
+> + ip netns exec server ip -6 route get 2002::1
+> RTNETLINK answers: Permission denied
+> 
+> Fix this by add prohibit and blk hole check.
+> 
+> At the same time, after commit
+> 2f460933f58e ("ipv6: initialize route null entry in addrconf_init()") and
+> 242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
+> We will init rt6i_idev correctly. So we could dump ip6_null_entry
+> (unreachable route entry) safely now.
+> 
+> Fixes: 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib...")
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 > ---
->  drivers/net/dsa/lan9303-core.c | 33 +++++++++++++++++++++++++++++++++
->  1 file changed, 33 insertions(+)
+>  net/ipv6/route.c | 13 ++++++-------
+>  1 file changed, 6 insertions(+), 7 deletions(-)
 > 
-> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-> index 0806a0684d55..be6d78f45a5f 100644
-> --- a/drivers/net/dsa/lan9303-core.c
-> +++ b/drivers/net/dsa/lan9303-core.c
-> @@ -17,6 +17,7 @@
->  #include <linux/regmap.h>
->  #include <linux/mutex.h>
->  #include <linux/mii.h>
-> +#include <linux/phy.h>
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 4d30c96..b05da74 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -3637,13 +3637,12 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+>  		dst = ip6_route_lookup(net, &fl6, 0);
 >  
->  #include "lan9303.h"
->  
-> @@ -746,6 +747,37 @@ static int lan9303_phy_write(struct dsa_switch *ds, int phy, int regnum,
->  	return chip->ops->phy_write(chip, phy, regnum, val);
->  }
->  
-> +static void lan9303_adjust_link(struct dsa_switch *ds, int port,
-> +				struct phy_device *phydev)
-> +{
-> +	struct lan9303 *chip = ds->priv;
-> +
-> +	int ctl, res;
-> +
-> +	ctl = lan9303_phy_read(ds, port, MII_BMCR);
-> +
-> +	if (!phy_is_pseudo_fixed_link(phydev))
-> +		return;
-> +
+>  	rt = container_of(dst, struct rt6_info, dst);
+> -	if (rt->dst.error) {
+> -		err = rt->dst.error;
+> -		ip6_rt_put(rt);
+> -		goto errout;
+> -	}
+> -
+> -	if (rt == net->ipv6.ip6_null_entry) {
+> +	if (rt->dst.error &&
+> +#ifdef CONFIG_IPV6_MULTIPLE_TABLES
+> +	    rt != net->ipv6.ip6_prohibit_entry &&
+> +	    rt != net->ipv6.ip6_blk_hole_entry &&
+> +#endif
+> +	    rt != net->ipv6.ip6_null_entry) {
+>  		err = rt->dst.error;
+>  		ip6_rt_put(rt);
+>  		goto errout;
+> 
 
-Hi Egil
+This is what I see with your patch:
 
-Maybe do this check before reading MII_BMCR?
+# ip -6 ro ls vrf red
+2001:db8:1::/120 dev eth1 proto kernel metric 256  pref medium
+prohibit 5000::/120 dev lo metric 1024  error -13 pref medium
+fe80::/64 dev eth1 proto kernel metric 256  pref medium
+ff00::/8 dev eth1 metric 256  pref medium
+unreachable default dev lo metric 8192  error -113 pref medium
 
-> +	ctl &= ~BMCR_ANENABLE;
+ie., I added a prohibit route for 5000:/120
 
-Should this also mask out BMCR_SPEED100 and DUPLEX_FULL? Otherwise how
-do you select 10/Half if it is already configured for 100/Full?
+and then running:
+# ip -6 ro get vrf red 5000::1
+RTNETLINK answers: Permission denied
 
-> +	if (phydev->speed == SPEED_100)
-> +		ctl |= BMCR_SPEED100;
-> +
-> +	if (phydev->duplex == DUPLEX_FULL)
-> +		ctl |= BMCR_FULLDPLX;
-> +
-> +	res =  lan9303_phy_write(ds, port, MII_BMCR, ctl);
-> +
-> +	if (port == chip->phy_addr_sel_strap) {
-> +		/* Virtual Phy: Remove Turbo 200Mbit mode */
-> +		lan9303_read(chip->regmap, LAN9303_VIRT_SPECIAL_CTRL, &ctl);
-> +
-> +		ctl &= ~(1 << 10); // TURBO BIT
+Which is the behavior without your patch.
 
-BIT(10), or better still something like BIT(LAN9303_VIRT_SPECIAL_TURBO)
+Now if I delete just the first bit:
 
-> +		res =  regmap_write(chip->regmap,
-> +				    LAN9303_VIRT_SPECIAL_CTRL, ctl);
-> +	}
-> +}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4d30c96a819d..8fc52de40175 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3637,12 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff
+*in_skb, struct nlmsghdr *nlh,
+                dst = ip6_route_lookup(net, &fl6, 0);
 
-  Andrew
+        rt = container_of(dst, struct rt6_info, dst);
+-       if (rt->dst.error) {
+-               err = rt->dst.error;
+-               ip6_rt_put(rt);
+-               goto errout;
+-       }
+-
+        if (rt == net->ipv6.ip6_null_entry) {
+                err = rt->dst.error;
+                ip6_rt_put(rt);
+
+Then I get:
+
+# ip -6 ro get vrf red 5000::1
+prohibit 5000::1 from :: dev lo table red src 2001:db8::2 metric 1024
+error -13 pref medium
+
+which seems to be your objective.
+
+I don't understand why you are focused on the built-in null and prohibit
+route entries. When I add a default unreachable or prohibit route those
+are different rt6_info entries. Take a look at ip6_route_info_create.
