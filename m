@@ -1,76 +1,95 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] net: phy: Run state machine to completion
-Date: Wed, 26 Jul 2017 12:34:52 -0700
-Message-ID: <8413cb0c-a304-7698-5cbe-94a420b74cb7@gmail.com>
-References: <20170726192446.32045-1-f.fainelli@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
+ null entry.
+Date: Wed, 26 Jul 2017 12:38:25 -0700
+Message-ID: <CAJieiUiKqXYkH56xH2Kk5-33kZbpkTsJCzAsRintwhstPsOw=Q@mail.gmail.com>
+References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+ <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
+ <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
+ <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
+ <20170724030907.GC2938@leo.usersys.redhat.com> <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
+ <20170725000849.GD2938@leo.usersys.redhat.com> <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
+ <20170725073202.GE2938@leo.usersys.redhat.com> <9e198c2a-c026-f4bd-f190-8d5a887efe7f@gmail.com>
+ <CAJieiUgyHDksxVjoCSz9pxbDy-ZZR9uUWWZXdth0diSKAcvx4Q@mail.gmail.com>
+ <64377a01-38df-6d43-16a4-401d426fb9b2@gmail.com> <CAJieiUi+Me_wXDz0A1oLH2LgBw9DsMoxctV56SjEwGpusFGt4Q@mail.gmail.com>
+ <2d75317c-160c-01c2-5a5b-bc6111c099c6@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: rmk+kernel@armlinux.org.uk, slash.tmp@free.fr, zach.brown@ni.com,
-        nathan.sullivan@ni.com, Andrew Lunn <andrew@lunn.ch>,
-        open list <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170726192446.32045-1-f.fainelli@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Hangbin Liu <liuhangbin@gmail.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        network dev <netdev@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f182.google.com ([209.85.217.182]:34842 "EHLO
+        mail-ua0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751053AbdGZTi0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 15:38:26 -0400
+Received: by mail-ua0-f182.google.com with SMTP id d29so115382864uai.2
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 12:38:26 -0700 (PDT)
+In-Reply-To: <2d75317c-160c-01c2-5a5b-bc6111c099c6@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/26/2017 12:24 PM, Florian Fainelli wrote:
-> Marc reported that he was not getting the PHY library adjust_link()
-> callback function to run when calling phy_stop() + phy_disconnect()
-> which does not indeed happen because we don't make sure we flush the
-> PHYLIB delayed work and let it run to completion. We also need to have
-> a synchronous call to phy_state_machine() in order to have the state
-> machine actually act on PHY_HALTED, set the PHY device's link down, turn
-> the network device's carrier off and finally call the adjust_link()
-> function.
-> 
-> Reported-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
-> Fixes: a390d1f379cf ("phylib: convert state_queue work to delayed_work")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> David, this dates back from before the commit mentioned in Fixes but it would
-> be hard to backport to earlier kernels if we flagged the original design flaw
-> that used timers. Also, I am not clear on the timer API whether there was a way
-> to ensure timers would run to completion before they would be cancelled.
-> 
-> Marc, please add your Signed-off-by tag since you contributed the second line.
-> 
-> Thanks!
+On Wed, Jul 26, 2017 at 12:00 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 7/26/17 12:55 PM, Roopa Prabhu wrote:
+>> On Wed, Jul 26, 2017 at 11:49 AM, David Ahern <dsahern@gmail.com> wrote:
+>>> On 7/26/17 12:27 PM, Roopa Prabhu wrote:
+>>>> agreed...so looks like the check in v3 should be
+>>>>
+>>>>
+>>>> +       if ( rt == net->ipv6.ip6_null_entry ||
+>>>> +            (rt->dst.error &&
+>>>> + #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+>>>> +              rt != net->ipv6.ip6_prohibit_entry &&
+>>>> +              rt != net->ipv6.ip6_blk_hole_entry &&
+>>>> +#endif
+>>>> +             )) {
+>>>>                 err = rt->dst.error;
+>>>>                 ip6_rt_put(rt);
+>>>>                 goto errout;
+>>>>
+>>>
+>>> I don't think so. If I add a prohibit route and use the fibmatch
+>>> attribute, I want to see the route from the FIB that was matched.
+>>
+>>
+>> yes, exactly. wouldn't  'rt != net->ipv6.ip6_prohibit_entry' above let
+>> it fall through to the route fill code ?
+>>
+>> ah...but i guess you are saying that they will have rt6_info's of
+>> their own and will not match. got it. ack.
+>>
+>
+> This:
+>
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 4d30c96a819d..24de81c804c2 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -3637,11 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff
+> *in_skb, struct nlmsghdr *nlh,
+>                 dst = ip6_route_lookup(net, &fl6, 0);
+>
+>         rt = container_of(dst, struct rt6_info, dst);
+> -       if (rt->dst.error) {
+> -               err = rt->dst.error;
+> -               ip6_rt_put(rt);
+> -               goto errout;
+> -       }
+>
+>         if (rt == net->ipv6.ip6_null_entry) {
+>                 err = rt->dst.error;
+>
+> Puts back the original behavior. In that case, only rt == null_entry
+> drops to the error path which is correct. All other rt values will drop
+> to rt6_fill_node and return rt data.
 
-David, please hold off before applying this, I found a corner case with
-power management where we may be accessing clock gated registers and
-cause bus errors, will report back here.
+yes, i thought so too and hence acked v1. But, following congs
+comment, realized that it may mask some real errors for fibmatch ?
 
-> 
->  drivers/net/phy/phy.c | 5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index d0626bf5c540..30e7c43e0d87 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -743,12 +743,17 @@ void phy_trigger_machine(struct phy_device *phydev, bool sync)
->   */
->  void phy_stop_machine(struct phy_device *phydev)
->  {
-> +	/* Run the state machine to completion */
-> +	flush_delayed_work(&phydev->state_queue);
->  	cancel_delayed_work_sync(&phydev->state_queue);
->  
->  	mutex_lock(&phydev->lock);
->  	if (phydev->state > PHY_UP && phydev->state != PHY_HALTED)
->  		phydev->state = PHY_UP;
->  	mutex_unlock(&phydev->lock);
-> +
-> +	/* Now we can run the state machine synchronously */
-> +	phy_state_machine(&phydev->state_queue.work);
->  }
->  
->  /**
-> 
+I just tested a case of unreachable route with just the above patch
+you posted, and I do get the error correctly.
 
-
--- 
-Florian
+so, I guess you are saying all real errors for fibmatch will have "rt
+== net->ipv6.ip6_null_entry" and we should be ok.
+sounds good to me.
