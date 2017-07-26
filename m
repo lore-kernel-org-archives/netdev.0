@@ -1,61 +1,64 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
- null entry.
-Date: Wed, 26 Jul 2017 11:18:10 -0600
-Message-ID: <9e198c2a-c026-f4bd-f190-8d5a887efe7f@gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
- <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
- <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
- <20170724030907.GC2938@leo.usersys.redhat.com>
- <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
- <20170725000849.GD2938@leo.usersys.redhat.com>
- <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
- <20170725073202.GE2938@leo.usersys.redhat.com>
+From: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
+Subject: [PATCH] net: inet: diag: expose sockets cgroup classid
+Date: Wed, 26 Jul 2017 17:22:05 +0000
+Message-ID: <20170726172153.23436-1-alexander.levin@verizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Hangbin Liu <liuhangbin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:37101 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751103AbdGZRSM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 13:18:12 -0400
-Received: by mail-pf0-f194.google.com with SMTP id y25so8559974pfk.4
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 10:18:12 -0700 (PDT)
-In-Reply-To: <20170725073202.GE2938@leo.usersys.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/25/17 1:32 AM, Hangbin Liu wrote:
-> On Mon, Jul 24, 2017 at 09:28:07PM -0600, David Ahern wrote:
->> On 7/24/17 6:08 PM, Hangbin Liu wrote:
->>> That's why I think we should remove both rt->dst.error and ip6_null_entry
->>> check in inet6_rtm_getroute(). And even further, remove the ip6_null_entry
->>> check in rt6_dump_route().
->>
->> git blame net/ipv6/route.c
->>
->> find the commits and review.
-> 
-> Hi David,
-> 
-> Sorry, would you like to give me more hints?
-> 
-> I saw your commit 1f17e2f2c8a8 ("net: ipv6: ignore null_entry on route
-> dumps"). But I think this issue has been fixed by
-> 
-> 2f460933f58e ("ipv6: initialize route null entry in addrconf_init()") and
-> 242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
-> 
-> I use a reproducer which add unreachable route in netns with lo down. And I
-> could not trigger Panic in the fixed kernel. That's why I think we could
-> remove ip6_null_entry check in rt6_dump_route().
+This is useful for directly looking up a task based on class id rather than
+having to scan through all open file descriptors.
 
-Understood. Cong's patch to fix the intialization order (lo device
-before route init) makes sure the idev is not null. That said, the
-null_entry route is internal ipv6 logic and is not a route entry to be
-returned to userspace.
+Signed-off-by: Sasha Levin <alexander.levin@verizon.com>
+---
+ include/uapi/linux/inet_diag.h |  1 +
+ net/ipv4/inet_diag.c           | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.=
+h
+index bbe201047df6..678496897a68 100644
+--- a/include/uapi/linux/inet_diag.h
++++ b/include/uapi/linux/inet_diag.h
+@@ -142,6 +142,7 @@ enum {
+ 	INET_DIAG_PAD,
+ 	INET_DIAG_MARK,
+ 	INET_DIAG_BBRINFO,
++	INET_DIAG_CLASS_ID,
+ 	__INET_DIAG_MAX,
+ };
+=20
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 3828b3a805cd..ffc6dad9780a 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -274,6 +274,16 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_con=
+nection_sock *icsk,
+ 			goto errout;
+ 	}
+=20
++	if (ext & (1 << (INET_DIAG_CLASS_ID - 1))) {
++		u32 classid =3D 0;
++
++#ifdef CONFIG_SOCK_CGROUP_DATA
++		classid =3D sock_cgroup_classid(&sk->sk_cgrp_data);
++#endif
++
++		nla_put(skb, INET_DIAG_CLASS_ID, sizeof(classid), &classid);
++	}
++
+ out:
+ 	nlmsg_end(skb, nlh);
+ 	return 0;
+--=20
+2.11.0
