@@ -1,85 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] i40e: display correct UDP tunnel type name
-Date: Wed, 26 Jul 2017 03:31:18 -0700
-Message-ID: <20170726103123.76743-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/14] i40evf: add some missing includes
+Date: Wed, 26 Jul 2017 03:31:19 -0700
+Message-ID: <20170726103123.76743-11-jeffrey.t.kirsher@intel.com>
 References: <20170726103123.76743-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64140 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:42590 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751565AbdGZKfP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Jul 2017 06:35:15 -0400
+        id S1751565AbdGZKf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 06:35:26 -0400
 In-Reply-To: <20170726103123.76743-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-The i40e driver attempts to display the UDP tunnel name by doing a check
-against the type, where for non-zero types we use "vxlan" and for zero
-type we use "geneve". This is not future proof, because if new tunnel
-types get added, we'll incorrectly label them. It also depends on the
-value of UDP_TUNNEL_TYPE_GENEVE == 0, which is brittle.
+These includes were all being used in the driver, but weren't
+being directly included.
 
-Instead, replace this with a function that can return a constant string
-depending on the type. For now we'll use "unknown" for types we don't
-know about, and we can expand this in the future if new types get added.
+Since the current advised method is to directly include anything
+that you need, this implements that.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 28 ++++++++++++++++++++--------
- 1 file changed, 20 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf.h | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index a2d665161def..2b115b0c5296 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7520,6 +7520,18 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
- 	i40e_flush(hw);
- }
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index 6cc92089fecb..7901cc85cbe5 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -39,6 +39,17 @@
+ #include <linux/tcp.h>
+ #include <linux/sctp.h>
+ #include <linux/ipv6.h>
++#include <linux/kernel.h>
++#include <linux/bitops.h>
++#include <linux/timer.h>
++#include <linux/workqueue.h>
++#include <linux/delay.h>
++#include <linux/gfp.h>
++#include <linux/skbuff.h>
++#include <linux/dma-mapping.h>
++#include <linux/etherdevice.h>
++#include <linux/socket.h>
++#include <linux/jiffies.h>
+ #include <net/ip6_checksum.h>
+ #include <net/udp.h>
  
-+static const char *i40e_tunnel_name(struct i40e_udp_port_config *port)
-+{
-+	switch (port->type) {
-+	case UDP_TUNNEL_TYPE_VXLAN:
-+		return "vxlan";
-+	case UDP_TUNNEL_TYPE_GENEVE:
-+		return "geneve";
-+	default:
-+		return "unknown";
-+	}
-+}
-+
- /**
-  * i40e_sync_udp_filters - Trigger a sync event for existing UDP filters
-  * @pf: board private structure
-@@ -7565,14 +7577,14 @@ static void i40e_sync_udp_filters_subtask(struct i40e_pf *pf)
- 				ret = i40e_aq_del_udp_tunnel(hw, i, NULL);
- 
- 			if (ret) {
--				dev_dbg(&pf->pdev->dev,
--					"%s %s port %d, index %d failed, err %s aq_err %s\n",
--					pf->udp_ports[i].type ? "vxlan" : "geneve",
--					port ? "add" : "delete",
--					port, i,
--					i40e_stat_str(&pf->hw, ret),
--					i40e_aq_str(&pf->hw,
--						    pf->hw.aq.asq_last_status));
-+				dev_info(&pf->pdev->dev,
-+					 "%s %s port %d, index %d failed, err %s aq_err %s\n",
-+					 i40e_tunnel_name(&pf->udp_ports[i]),
-+					 port ? "add" : "delete",
-+					 port, i,
-+					 i40e_stat_str(&pf->hw, ret),
-+					 i40e_aq_str(&pf->hw,
-+						     pf->hw.aq.asq_last_status));
- 				pf->udp_ports[i].port = 0;
- 			}
- 		}
 -- 
 2.13.3
