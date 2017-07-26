@@ -1,296 +1,63 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next v2 10/10] netvsc: remove bonding setup script
-Date: Wed, 26 Jul 2017 16:40:29 -0700
-Message-ID: <20170726234029.7342-11-sthemmin@microsoft.com>
-References: <20170726234029.7342-1-sthemmin@microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/14][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2017-07-25
+Date: Wed, 26 Jul 2017 16:59:04 -0700 (PDT)
+Message-ID: <20170726.165904.261037349393344966.davem@davemloft.net>
+References: <20170726103123.76743-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org,
- linux-doc@vger.kernel.org
-To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
- corbet@lwn.net
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170726234029.7342-1-sthemmin@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56930 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751538AbdGZX7G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 19:59:06 -0400
+In-Reply-To: <20170726103123.76743-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-No longer needed, now all managed by transparent VF logic.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 26 Jul 2017 03:31:09 -0700
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- tools/hv/bondvf.sh | 255 -----------------------------------------------------
- 1 file changed, 255 deletions(-)
- delete mode 100755 tools/hv/bondvf.sh
+> This series contains updates to i40e and i40evf only.
+> 
+> Gustavo Silva fixes a variable assignment, where the incorrect variable
+> was being used to store the error parameter.
+> 
+> Carolyn provides a fix for a problem found in systems when entering S4
+> state, by ensuring that the misc vector's IRQ is disabled as well.
+> 
+> Jake removes the single-threaded restriction on the module workqueue,
+> which was causing issues with events such as CORER.  Does some future
+> proofing, by changing how the driver displays the UDP tunnel type.
+> 
+> Paul adds a retry in releasing resources if the admin queue times out
+> during the first attempt to release the resources.
+> 
+> Jesse fixes up references to 32bit timspec, since there are a small set
+> of errors on 32 bit, so we need to be using the right calls for dealing
+> with timespec64 variables.  Cleaned up code indentation and corrected
+> an "if" conditional check, as well as making the code flow more clear.
+> Cast or changed the types to remove warnings for comparing signed and
+> unsigned types.  Adds missing includes in i40evf, which were being used
+> but were not being directly included.
+> 
+> Daniel Borkmann fixes i40e to fill the XDP prog_id with the id just like
+> other XDP enabled drivers, so that on dump we can retrieve the attached
+> program based on the id and dump BPF insns, opcodes, etc back to user
+> space.
+> 
+> Tushar Dave adds le32_to_cpu while evaluating the hardware descriptor
+> fields, since they are in little-endian format.  Also removed
+> unnecessary "__packed" to a couple of i40evf structures.
+> 
+> Stefan Assmann fixes an issue when an administratively set MAC was set
+> and should now be switched back to 00:00:00:00:00:00, the pf_set_mac
+> flag is not being toggled back to false.
+ ...
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
 
-diff --git a/tools/hv/bondvf.sh b/tools/hv/bondvf.sh
-deleted file mode 100755
-index 80f102860cf8..000000000000
---- a/tools/hv/bondvf.sh
-+++ /dev/null
-@@ -1,255 +0,0 @@
--#!/bin/bash
--
--# This example script creates bonding network devices based on synthetic NIC
--# (the virtual network adapter usually provided by Hyper-V) and the matching
--# VF NIC (SRIOV virtual function). So the synthetic NIC and VF NIC can
--# function as one network device, and fail over to the synthetic NIC if VF is
--# down.
--#
--# Usage:
--# - After configured vSwitch and vNIC with SRIOV, start Linux virtual
--#   machine (VM)
--# - Run this scripts on the VM. It will create configuration files in
--#   distro specific directory.
--# - Reboot the VM, so that the bonding config are enabled.
--#
--# The config files are DHCP by default. You may edit them if you need to change
--# to Static IP or change other settings.
--#
--
--sysdir=/sys/class/net
--netvsc_cls={f8615163-df3e-46c5-913f-f2d2f965ed0e}
--bondcnt=0
--
--# Detect Distro
--if [ -f /etc/redhat-release ];
--then
--	cfgdir=/etc/sysconfig/network-scripts
--	distro=redhat
--elif grep -q 'Ubuntu' /etc/issue
--then
--	cfgdir=/etc/network
--	distro=ubuntu
--elif grep -q 'SUSE' /etc/issue
--then
--	cfgdir=/etc/sysconfig/network
--	distro=suse
--else
--	echo "Unsupported Distro"
--	exit 1
--fi
--
--echo Detected Distro: $distro, or compatible
--
--# Get a list of ethernet names
--list_eth=(`cd $sysdir && ls -d */ | cut -d/ -f1 | grep -v bond`)
--eth_cnt=${#list_eth[@]}
--
--echo List of net devices:
--
--# Get the MAC addresses
--for (( i=0; i < $eth_cnt; i++ ))
--do
--	list_mac[$i]=`cat $sysdir/${list_eth[$i]}/address`
--	echo ${list_eth[$i]}, ${list_mac[$i]}
--done
--
--# Find NIC with matching MAC
--for (( i=0; i < $eth_cnt-1; i++ ))
--do
--	for (( j=i+1; j < $eth_cnt; j++ ))
--	do
--		if [ "${list_mac[$i]}" = "${list_mac[$j]}" ]
--		then
--			list_match[$i]=${list_eth[$j]}
--			break
--		fi
--	done
--done
--
--function create_eth_cfg_redhat {
--	local fn=$cfgdir/ifcfg-$1
--
--	rm -f $fn
--	echo DEVICE=$1 >>$fn
--	echo TYPE=Ethernet >>$fn
--	echo BOOTPROTO=none >>$fn
--	echo UUID=`uuidgen` >>$fn
--	echo ONBOOT=yes >>$fn
--	echo PEERDNS=yes >>$fn
--	echo IPV6INIT=yes >>$fn
--	echo MASTER=$2 >>$fn
--	echo SLAVE=yes >>$fn
--}
--
--function create_eth_cfg_pri_redhat {
--	create_eth_cfg_redhat $1 $2
--}
--
--function create_bond_cfg_redhat {
--	local fn=$cfgdir/ifcfg-$1
--
--	rm -f $fn
--	echo DEVICE=$1 >>$fn
--	echo TYPE=Bond >>$fn
--	echo BOOTPROTO=dhcp >>$fn
--	echo UUID=`uuidgen` >>$fn
--	echo ONBOOT=yes >>$fn
--	echo PEERDNS=yes >>$fn
--	echo IPV6INIT=yes >>$fn
--	echo BONDING_MASTER=yes >>$fn
--	echo BONDING_OPTS=\"mode=active-backup miimon=100 primary=$2\" >>$fn
--}
--
--function del_eth_cfg_ubuntu {
--	local mainfn=$cfgdir/interfaces
--	local fnlist=( $mainfn )
--
--	local dirlist=(`awk '/^[ \t]*source/{print $2}' $mainfn`)
--
--	local i
--	for i in "${dirlist[@]}"
--	do
--		fnlist+=(`ls $i 2>/dev/null`)
--	done
--
--	local tmpfl=$(mktemp)
--
--	local nic_start='^[ \t]*(auto|iface|mapping|allow-.*)[ \t]+'$1
--	local nic_end='^[ \t]*(auto|iface|mapping|allow-.*|source)'
--
--	local fn
--	for fn in "${fnlist[@]}"
--	do
--		awk "/$nic_end/{x=0} x{next} /$nic_start/{x=1;next} 1" \
--			$fn >$tmpfl
--
--		cp $tmpfl $fn
--	done
--
--	rm $tmpfl
--}
--
--function create_eth_cfg_ubuntu {
--	local fn=$cfgdir/interfaces
--
--	del_eth_cfg_ubuntu $1
--	echo $'\n'auto $1 >>$fn
--	echo iface $1 inet manual >>$fn
--	echo bond-master $2 >>$fn
--}
--
--function create_eth_cfg_pri_ubuntu {
--	local fn=$cfgdir/interfaces
--
--	del_eth_cfg_ubuntu $1
--	echo $'\n'allow-hotplug $1 >>$fn
--	echo iface $1 inet manual >>$fn
--	echo bond-master $2 >>$fn
--	echo bond-primary $1 >>$fn
--}
--
--function create_bond_cfg_ubuntu {
--	local fn=$cfgdir/interfaces
--
--	del_eth_cfg_ubuntu $1
--
--	echo $'\n'auto $1 >>$fn
--	echo iface $1 inet dhcp >>$fn
--	echo bond-mode active-backup >>$fn
--	echo bond-miimon 100 >>$fn
--	echo bond-slaves none >>$fn
--}
--
--function create_eth_cfg_suse {
--        local fn=$cfgdir/ifcfg-$1
--
--        rm -f $fn
--	echo BOOTPROTO=none >>$fn
--	echo STARTMODE=auto >>$fn
--}
--
--function create_eth_cfg_pri_suse {
--	local fn=$cfgdir/ifcfg-$1
--
--	rm -f $fn
--	echo BOOTPROTO=none >>$fn
--	echo STARTMODE=hotplug >>$fn
--}
--
--function create_bond_cfg_suse {
--	local fn=$cfgdir/ifcfg-$1
--
--	rm -f $fn
--	echo BOOTPROTO=dhcp >>$fn
--	echo STARTMODE=auto >>$fn
--	echo BONDING_MASTER=yes >>$fn
--	echo BONDING_SLAVE_0=$2 >>$fn
--	echo BONDING_SLAVE_1=$3 >>$fn
--	echo BONDING_MODULE_OPTS=\'mode=active-backup miimon=100 primary=$2\' >>$fn
--}
--
--function create_bond {
--	local bondname=bond$bondcnt
--	local primary
--	local secondary
--
--	local class_id1=`cat $sysdir/$1/device/class_id 2>/dev/null`
--	local class_id2=`cat $sysdir/$2/device/class_id 2>/dev/null`
--
--	if [ "$class_id1" = "$netvsc_cls" ]
--	then
--		primary=$2
--		secondary=$1
--	elif [ "$class_id2" = "$netvsc_cls" ]
--	then
--		primary=$1
--		secondary=$2
--	else
--		return 0
--	fi
--
--	echo $'\nBond name:' $bondname
--
--	if [ $distro == ubuntu ]
--	then
--		local mainfn=$cfgdir/interfaces
--		local s="^[ \t]*(auto|iface|mapping|allow-.*)[ \t]+${bondname}"
--
--		grep -E "$s" $mainfn
--		if [ $? -eq 0 ]
--		then
--			echo "WARNING: ${bondname} has been configured already"
--			return
--		fi
--	elif [ $distro == redhat ] || [ $distro == suse ]
--	then
--		local fn=$cfgdir/ifcfg-$bondname
--		if [ -f $fn ]
--		then
--			echo "WARNING: ${bondname} has been configured already"
--			return
--		fi
--	else
--		echo "Unsupported Distro: ${distro}"
--		return
--	fi
--
--	echo configuring $primary
--	create_eth_cfg_pri_$distro $primary $bondname
--
--	echo configuring $secondary
--	create_eth_cfg_$distro $secondary $bondname
--
--	echo creating: $bondname with primary slave: $primary
--	create_bond_cfg_$distro $bondname $primary $secondary
--}
--
--for (( i=0; i < $eth_cnt-1; i++ ))
--do
--        if [ -n "${list_match[$i]}" ]
--        then
--		create_bond ${list_eth[$i]} ${list_match[$i]}
--		let bondcnt=bondcnt+1
--        fi
--done
--- 
-2.11.0
+Also pulled, thanks Jeff.
