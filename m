@@ -1,41 +1,118 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] Revert "vhost: cache used event for better
-	performance"
-Date: Wed, 26 Jul 2017 19:56:09 +0800
-Message-ID: <f52acfca-adf1-fffc-946c-675ce9e033ae@redhat.com>
-References: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
-	<da300d74-ca7a-a636-0ed6-6aa78e6a5510@de.ibm.com>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: lan9303: Fixed MDIO interface
+Date: Wed, 26 Jul 2017 14:18:09 +0200
+Message-ID: <87999a6c-4ea8-ba4c-e2db-cdb37c1c8c8a@egil-hjelmeland.no>
+References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
+ <20170725161553.30147-2-privat@egil-hjelmeland.no>
+ <878tjc49bl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Christian Borntraeger <borntraeger@de.ibm.com>, mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <da300d74-ca7a-a636-0ed6-6aa78e6a5510@de.ibm.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        corbet@lwn.net, andrew@lunn.ch, f.fainelli@gmail.com,
+        davem@davemloft.net, kernel@pengutronix.de,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <878tjc49bl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE35bm0MDfmnIgyNuaXpSAxODo1MywgQ2hyaXN0aWFuIEJvcm50cmFlZ2VyIHdyb3Rl
-Ogo+IE9uIDA3LzI2LzIwMTcgMTA6MDMgQU0sIEphc29uIFdhbmcgd3JvdGU6Cj4+IFRoaXMgcmV2
-ZXJ0cyBjb21taXQgODA5ZWNiOWJjYTZhOTQyNGNjZDM5MmQ2N2UzNjgxNjBmOGI3NmM5Mi4gU2lu
-Y2UgaXQKPj4gd2FzIHJlcG9ydGVkIHRvIGJyZWFrIHZob3N0X25ldC4gV2Ugd2FudCB0byBjYWNo
-ZSB1c2VkIGV2ZW50IGFuZCB1c2UKPj4gaXQgdG8gY2hlY2sgZm9yIG5vdGlmaWNhdGlvbi4gV2Ug
-dHJ5IHRvIHZhbGlkIGNhY2hlZCB1c2VkIGV2ZW50IGJ5Cj4+IGNoZWNraW5nIHdoZXRoZXIgb3Ig
-bm90IGl0IHdhcyBhaGVhZCBvZiBuZXcsIGJ1dCB0aGlzIGlzIG5vdCBjb3JyZWN0Cj4+IGFsbCB0
-aGUgdGltZSwgaXQgY291bGQgYmUgc3RhbGUgYW5kIHRoZXJlJ3Mgbm8gd2F5IHRvIGtub3cgYWJv
-dXQgdGhpcy4KPj4KPj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0
-LmNvbT4KPiBUaGlzIHdvdWxkIHRoZW4gcXVhbGlmeSBmb3Igc3RhYmxlID8KPgoKWWVzIGl0IGlz
-LgoKVGhhbmtzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-ClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1m
-b3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9s
-aXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+On 25. juli 2017 21:15, Vivien Didelot wrote:
+> Hi Egil,
+> 
+> Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
+> 
+>> Fixes after testing on actual HW:
+>>
+>> - lan9303_mdio_write()/_read() must multiply register number
+>>    by 4 to get offset
+>>
+>> - Indirect access (PMI) to phy register only work in I2C mode. In
+>>    MDIO mode phy registers must be accessed directly. Introduced
+>>    struct lan9303_phy_ops to handle the two modes. Renamed functions
+>>    to clarify.
+>>
+>> - lan9303_detect_phy_setup() : Failed MDIO read return 0xffff.
+>>    Handle that.
+> 
+> Small patch series when possible are better. Bullet points in commit
+> messages are likely to describe how a patch or series may be split up
+> ;-)
+> 
+> This patch seems to be the unique patch of the series resolving what is
+> described in the cover letter as "Make the MDIO interface work".
+> 
+> I'd suggest you to split up this one commit in several *atomic* and easy
+> to review patches and send them separately as on thread named "net: dsa:
+> lan9303: fix MDIO interface" (also note that imperative is prefered for
+> subject lines, see: https://chris.beams.io/posts/git-commit/#imperative)
+> 
+> <...>
+> 
+>> -static int lan9303_port_phy_reg_wait_for_completion(struct lan9303 *chip)
+>> +static int lan9303_indirect_phy_wait_for_completion(struct lan9303 *chip)
+> 
+> For instance you can have a first commit only renaming the functions.
+> The reason for it is to separate the functional changes from cosmetic
+> changes, which makes it easier for review.
+> 
+> <...>
+
+Thank you for reviewing.
+
+I can split the first patch.
+
+I can also split the patch series to more digestible series. But
+since most of the patches touches the same file, I assume that each
+series must be completed and applied before starting on a new one.
+So I really want to group the patches into only a few series in order
+to not spend months on the process.
+
+
+>> +	if ((reg != 0) && (reg != 0xffff))
+> 
+> if (reg && reg != 0xffff) should be enough.
+
+Of course.
+
+>> +struct lan9303_phy_ops {
+>> +	/* PHY 1 &2 access*/
+> 
+> The spacing is weird in the comment. "/* PHY 1 & 2 access */" maybe?
+> 
+
+Yes.
+
+>> +int lan9303_mdio_phy_write(struct lan9303 *chip, int phy, int regnum, u16 val)
+>> +{
+>> +	struct lan9303_mdio *sw_dev = dev_get_drvdata(chip->dev);
+>> +	struct mdio_device *mdio = sw_dev->device;
+>> +
+>> +	mutex_lock(&mdio->bus->mdio_lock);
+>> +	mdio->bus->write(mdio->bus, phy, regnum, val);
+>> +	mutex_unlock(&mdio->bus->mdio_lock);
+> 
+> This is exactly what mdiobus_write(mdio->bus, phy, regnum, val) is
+> doing. There are very few valid reasons to go play in the mii_bus
+> structure, using generic APIs are strongly prefered. Plus you have
+> checks and traces for free!
+> 
+
+Lack of oversight was the only reason. I just adapted stuff from
+lan9303_mdio_phy_write above. Will switch to mdiobus_write of course.
+
+> Same here, mdiobus_read().
+> 
+Ditto.
+
+> 
+> Thanks,
+> 
+>          Vivien
+> 
+
+Appreciated,
+Egil
+
