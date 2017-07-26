@@ -1,53 +1,74 @@
-From: Klavs Klavsen <kl@vsen.dk>
-Subject: Re: TCP fast retransmit issues
-Date: Wed, 26 Jul 2017 16:08:19 +0200
-Message-ID: <fd335e0a0c914b9c42a754da2d24b1c3@vsen.dk>
-References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk>
- <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
- <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk>
- <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [patch net-next 2/2] mlxsw: spectrum: Add support for access
+ cable info via ethtool
+Date: Wed, 26 Jul 2017 16:18:33 +0200
+Message-ID: <20170726141833.GB12049@lunn.ch>
+References: <20170614072740.1243-1-jiri@resnulli.us>
+ <20170614072740.1243-3-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+        arkadis@mellanox.com, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jaina.enableit.dk ([109.238.49.194]:50730 "EHLO
-        kolab01.enableit.idk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750781AbdGZOIe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 10:08:34 -0400
-In-Reply-To: <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:40831 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752037AbdGZOSh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 10:18:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20170614072740.1243-3-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Grabbed on both ends.
+> +static int mlxsw_sp_get_module_info(struct net_device *netdev,
+> +				    struct ethtool_modinfo *modinfo)
+> +{
+> +	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(netdev);
+> +	u8 module_info[MLXSW_SP_EEPROM_MODULE_INFO_SIZE];
+> +	u8 module_rev_id, module_id;
+> +	unsigned int read_size;
+> +	int err;
+> +
+> +	err = mlxsw_sp_query_module_eeprom(mlxsw_sp_port, 0,
+> +					   MLXSW_SP_EEPROM_MODULE_INFO_SIZE,
+> +					   module_info, &read_size);
+> +	if (err)
+> +		return err;
+> +
+> +	if (read_size < MLXSW_SP_EEPROM_MODULE_INFO_SIZE)
+> +		return -EIO;
+> +
+> +	module_rev_id = module_info[MLXSW_SP_EEPROM_MODULE_INFO_REV_ID];
+> +	module_id = module_info[MLXSW_SP_EEPROM_MODULE_INFO_ID];
+> +
+> +	switch (module_id) {
+> +	case MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP:
+> +		modinfo->type       = ETH_MODULE_SFF_8436;
+> +		modinfo->eeprom_len = ETH_MODULE_SFF_8436_LEN;
+> +		break;
+> +	case MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP_PLUS:
+> +	case MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP28:
+> +		if (module_id  == MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP28 ||
+> +		    module_rev_id >= MLXSW_SP_EEPROM_MODULE_INFO_REV_ID_8636) {
+> +			modinfo->type       = ETH_MODULE_SFF_8636;
+> +			modinfo->eeprom_len = ETH_MODULE_SFF_8636_LEN;
+> +		} else {
+> +			modinfo->type       = ETH_MODULE_SFF_8436;
+> +			modinfo->eeprom_len = ETH_MODULE_SFF_8436_LEN;
+> +		}
+> +		break;
+> +	case MLXSW_SP_EEPROM_MODULE_INFO_ID_SFP:
+> +		modinfo->type       = ETH_MODULE_SFF_8472;
+> +		modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
+> +		break;
+> +	default:
+> +		return -EINVAL;
 
-http://blog.klavsen.info/fast-retransmit-problem-junos-linux (updated to 
-new dump - from client scp'ing)
-http://blog.klavsen.info/fast-retransmit-problem-junos-linux-receiving-side 
-(receiving host)
+Hi Jiri
 
+I remember seeing a few different implementations of this function in
+various drivers. Could you pull it out into a helper, passing in the
+array of bytes and mod info? bnxt, mlx4, mlx5, igb, ixgbe and sfc
+could then use the helper.
 
-Eric Dumazet skrev den 2017-07-26 15:31:
-> On Wed, 2017-07-26 at 14:18 +0200, Klavs Klavsen wrote:
->> the 192.168.32.44 is a Centos 7 box.
-> 
-> Could you grab a capture on this box, to see if the bogus packets are
-> sent by it, or later mangled by a middle box ?
-> 
-[CUT]
-> 3012336703:3012338051 is clearly outside of the window.
-> Receiver claims to have received bytes that were never sent.
-> 
-Thank you very much..
-
-[CUT]
-
--- 
-Regards,
-Klavs Klavsen, GSEC - kl@vsen.dk - http://blog.klavsen.info - Tlf. 
-61281200
-
-"Those who do not understand Unix are condemned to reinvent it, poorly."
-   --Henry Spencer
+      Andrew
