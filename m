@@ -1,66 +1,58 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: mark PM functions as __maybe_unused
-Date: Wed, 26 Jul 2017 11:21:46 +0800
-Message-ID: <964aa12c-37cc-749f-e4a2-abb26d953517@redhat.com>
-References: <20170725153600.211694-1-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 2/2] liquidio: cleanup: removed cryptic and
+ misleading macro
+Date: Tue, 25 Jul 2017 21:20:45 -0700 (PDT)
+Message-ID: <20170725.212045.1610374225574402504.davem@davemloft.net>
+References: <20170725001559.GA1146@felix-thinkpad.cavium.com>
+        <20170725001727.GA1170@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	John Fastabend <john.fastabend@gmail.com>, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>, "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170725153600.211694-1-arnd@arndb.de>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: felix.manlunas@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39066 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750732AbdGZEUq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 00:20:46 -0400
+In-Reply-To: <20170725001727.GA1170@felix-thinkpad.cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDfmnIgyNeaXpSAyMzozNSwgQXJuZCBCZXJnbWFubiB3cm90ZToKPiBBZnRl
-ciByZW1vdmluZyB0aGUgcmVzZXQgZnVuY3Rpb24sIHRoZSBmcmVlemUgYW5kIHJlc3RvcmUgZnVu
-Y3Rpb25zCj4gYXJlIG5vdyB1bnVzZWQgd2hlbiBDT05GSUdfUE1fU0xFRVAgaXMgZGlzYWJsZWQ6
-Cj4KPiBkcml2ZXJzL25ldC92aXJ0aW9fbmV0LmM6MTg4MToxMjogZXJyb3I6ICd2aXJ0bmV0X3Jl
-c3RvcmVfdXAnIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV2Vycm9yPXVudXNlZC1mdW5jdGlvbl0K
-PiAgIHN0YXRpYyBpbnQgdmlydG5ldF9yZXN0b3JlX3VwKHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2
-ZGV2KQo+IGRyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYzoxODU5OjEzOiBlcnJvcjogJ3ZpcnRuZXRf
-ZnJlZXplX2Rvd24nIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV2Vycm9yPXVudXNlZC1mdW5jdGlv
-bl0KPiAgIHN0YXRpYyB2b2lkIHZpcnRuZXRfZnJlZXplX2Rvd24oc3RydWN0IHZpcnRpb19kZXZp
-Y2UgKnZkZXYpCj4KPiBBIG1vcmUgcm9idXN0IHdheSB0byBkbyB0aGlzIGlzIHRvIHJlbW92ZSB0
-aGUgI2lmZGVmIGFyb3VuZCB0aGUgY2FsbGVycwo+IGFuZCBpbnN0ZWFkIG1hcmsgdGhlbSBhcyBf
-X21heWJlX3VudXNlZC4gVGhlIGNvbXBpbGVyIHdpbGwgbm93IGp1c3QKPiBzaWxlbnRseSBkcm9w
-IHRoZSB1bnVzZWQgY29kZS4KPgo+IEZpeGVzOiA0OTQxZDQ3MmJmOTUgKCJ2aXJ0aW8tbmV0OiBk
-byBub3QgcmVzZXQgZHVyaW5nIFhEUCBzZXQiKQo+IFNpZ25lZC1vZmYtYnk6IEFybmQgQmVyZ21h
-bm4gPGFybmRAYXJuZGIuZGU+Cj4gLS0tCj4gICBkcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgfCA2
-ICsrLS0tLQo+ICAgMSBmaWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgNCBkZWxldGlvbnMo
-LSkKPgo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgYi9kcml2ZXJzL25l
-dC92aXJ0aW9fbmV0LmMKPiBpbmRleCBkNDc1MWNlMjNiNGYuLjE5MDI3MDFlMTVhOSAxMDA2NDQK
-PiAtLS0gYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPiArKysgYi9kcml2ZXJzL25ldC92aXJ0
-aW9fbmV0LmMKPiBAQCAtMjcwMiw4ICsyNzAyLDcgQEAgc3RhdGljIHZvaWQgdmlydG5ldF9yZW1v
-dmUoc3RydWN0IHZpcnRpb19kZXZpY2UgKnZkZXYpCj4gICAJZnJlZV9uZXRkZXYodmktPmRldik7
-Cj4gICB9Cj4gICAKPiAtI2lmZGVmIENPTkZJR19QTV9TTEVFUAo+IC1zdGF0aWMgaW50IHZpcnRu
-ZXRfZnJlZXplKHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2ZGV2KQo+ICtzdGF0aWMgX19tYXliZV91
-bnVzZWQgaW50IHZpcnRuZXRfZnJlZXplKHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2ZGV2KQo+ICAg
-ewo+ICAgCXN0cnVjdCB2aXJ0bmV0X2luZm8gKnZpID0gdmRldi0+cHJpdjsKPiAgIAo+IEBAIC0y
-NzE0LDcgKzI3MTMsNyBAQCBzdGF0aWMgaW50IHZpcnRuZXRfZnJlZXplKHN0cnVjdCB2aXJ0aW9f
-ZGV2aWNlICp2ZGV2KQo+ICAgCXJldHVybiAwOwo+ICAgfQo+ICAgCj4gLXN0YXRpYyBpbnQgdmly
-dG5ldF9yZXN0b3JlKHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2ZGV2KQo+ICtzdGF0aWMgX19tYXli
-ZV91bnVzZWQgaW50IHZpcnRuZXRfcmVzdG9yZShzdHJ1Y3QgdmlydGlvX2RldmljZSAqdmRldikK
-PiAgIHsKPiAgIAlzdHJ1Y3QgdmlydG5ldF9pbmZvICp2aSA9IHZkZXYtPnByaXY7Cj4gICAJaW50
-IGVycjsKPiBAQCAtMjczMCw3ICsyNzI5LDYgQEAgc3RhdGljIGludCB2aXJ0bmV0X3Jlc3RvcmUo
-c3RydWN0IHZpcnRpb19kZXZpY2UgKnZkZXYpCj4gICAKPiAgIAlyZXR1cm4gMDsKPiAgIH0KPiAt
-I2VuZGlmCj4gICAKPiAgIHN0YXRpYyBzdHJ1Y3QgdmlydGlvX2RldmljZV9pZCBpZF90YWJsZVtd
-ID0gewo+ICAgCXsgVklSVElPX0lEX05FVCwgVklSVElPX0RFVl9BTllfSUQgfSwKCkFja2VkLWJ5
-OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgoKX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZp
-cnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGlu
-dXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Mon, 24 Jul 2017 17:17:27 -0700
+
+> From: Rick Farrington <ricardo.farrington@cavium.com>
+> 
+> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> ---
+>  drivers/net/ethernet/cavium/liquidio/octeon_console.c | 4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+> index 501ad95..0770183 100644
+> --- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+> +++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+> @@ -42,8 +42,6 @@ module_param(console_bitmask, int, 0644);
+>  MODULE_PARM_DESC(console_bitmask,
+>  		 "Bitmask indicating which consoles have debug output redirected to syslog.");
+>  
+> -#define CAST_ULL(v) ((u64)(v))
+> -
+>  #define BOOTLOADER_PCI_READ_BUFFER_DATA_ADDR    0x0006c008
+>  #define BOOTLOADER_PCI_READ_BUFFER_LEN_ADDR     0x0006c004
+>  #define BOOTLOADER_PCI_READ_BUFFER_OWNER_ADDR   0x0006c000
+> @@ -233,7 +231,7 @@ static int __cvmx_bootmem_check_version(struct octeon_device *oct,
+>  	    (exact_match && major_version != exact_match)) {
+>  		dev_err(&oct->pci_dev->dev, "bootmem ver mismatch %d.%d addr:0x%llx\n",
+>  			major_version, minor_version,
+> -			CAST_ULL(oct->bootmem_desc_addr));
+> +			(long long)(oct->bootmem_desc_addr));
+
+Too many parenthesis.
+
+When oct->bootmem_desc_addr was the argument to a macro/function, yes
+the parenthesis were necessary.  But now they should be removed.
