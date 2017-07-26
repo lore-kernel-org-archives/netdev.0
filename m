@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] hamradio: dmascc: avoid -Wformat-overflow warning
-Date: Wed, 26 Jul 2017 09:41:29 -0700 (PDT)
-Message-ID: <20170726.094129.1536229682167646914.davem@davemloft.net>
-References: <20170726075548.2736340-1-arnd@arndb.de>
+Subject: Re: [PATCH net] udp: unbreak build lacking CONFIG_XFRM
+Date: Wed, 26 Jul 2017 09:43:18 -0700 (PDT)
+Message-ID: <20170726.094318.104159181289035095.davem@davemloft.net>
+References: <201707260327.pfv8cNFg%fengguang.wu@intel.com>
+        <b8448ef348e62558d3ab92468e1e5ed076d66afe.1501061474.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jreuter@yaina.de, dhowells@redhat.com, linux-hams@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170726075548.2736340-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, paul@paul-moore.com, kbuild-all@01.org
+To: pabeni@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49654 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750970AbdGZQnS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 12:43:18 -0400
+In-Reply-To: <b8448ef348e62558d3ab92468e1e5ed076d66afe.1501061474.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 26 Jul 2017 09:55:33 +0200
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Wed, 26 Jul 2017 11:33:49 +0200
 
-> gcc warns that the device name might overflow:
+> We must use pre-processor conditional block or suitable accessors to
+> manipulate skb->sp elsewhere builds lacking the CONFIG_XFRM will break.
 > 
-> drivers/net/hamradio/dmascc.c: In function 'dmascc_init':
-> drivers/net/hamradio/dmascc.c:584:22: error: 'sprintf' may write a terminating nul past the end of the destination [-Werror=format-overflow=]
->    sprintf(dev->name, "dmascc%i", 2 * n + i);
-> drivers/net/hamradio/dmascc.c:584:3: note: 'sprintf' output between 8 and 17 bytes into a destination of size 16
->    sprintf(dev->name, "dmascc%i", 2 * n + i);
-> 
-> From the static data in this file, I can tell that the index is
-> strictly limited to 16, so it won't overflow. This simply changes
-> the sprintf() to snprintf(), which is a good idea in general,
-> and shuts up this warning.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: dce4551cb2ad ("udp: preserve head state for IP_CMSG_PASSSEC")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Applied to net-next.
+Applied, thank you.
