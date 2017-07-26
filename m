@@ -1,73 +1,127 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
- null entry.
-Date: Wed, 26 Jul 2017 11:27:07 -0700
-Message-ID: <CAJieiUgyHDksxVjoCSz9pxbDy-ZZR9uUWWZXdth0diSKAcvx4Q@mail.gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
- <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
- <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
- <20170724030907.GC2938@leo.usersys.redhat.com> <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
- <20170725000849.GD2938@leo.usersys.redhat.com> <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
- <20170725073202.GE2938@leo.usersys.redhat.com> <9e198c2a-c026-f4bd-f190-8d5a887efe7f@gmail.com>
+From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
+ fixed transceiver bindings
+Date: Wed, 26 Jul 2017 13:29:19 -0500
+Message-ID: <a77fe395-33c7-9405-b51a-5d3372e5c58b@ti.com>
+References: <20170724230521.1436-1-fcooper@ti.com>
+ <20170724230521.1436-3-fcooper@ti.com> <20170726164124.GL12049@lunn.ch>
+ <355b90b3-97ce-1057-6617-d5d709449c48@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Hangbin Liu <liuhangbin@gmail.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        network dev <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f180.google.com ([209.85.217.180]:35389 "EHLO
-        mail-ua0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750942AbdGZS1I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 14:27:08 -0400
-Received: by mail-ua0-f180.google.com with SMTP id d29so113974296uai.2
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 11:27:08 -0700 (PDT)
-In-Reply-To: <9e198c2a-c026-f4bd-f190-8d5a887efe7f@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Wed, Jul 26, 2017 at 10:18 AM, David Ahern <dsahern@gmail.com> wrote:
-> On 7/25/17 1:32 AM, Hangbin Liu wrote:
->> On Mon, Jul 24, 2017 at 09:28:07PM -0600, David Ahern wrote:
->>> On 7/24/17 6:08 PM, Hangbin Liu wrote:
->>>> That's why I think we should remove both rt->dst.error and ip6_null_entry
->>>> check in inet6_rtm_getroute(). And even further, remove the ip6_null_entry
->>>> check in rt6_dump_route().
->>>
->>> git blame net/ipv6/route.c
->>>
->>> find the commits and review.
->>
->> Hi David,
->>
->> Sorry, would you like to give me more hints?
->>
->> I saw your commit 1f17e2f2c8a8 ("net: ipv6: ignore null_entry on route
->> dumps"). But I think this issue has been fixed by
->>
->> 2f460933f58e ("ipv6: initialize route null entry in addrconf_init()") and
->> 242d3a49a2a1 ("ipv6: reorder ip6_route_dev_notifier after ipv6_dev_notf")
->>
->> I use a reproducer which add unreachable route in netns with lo down. And I
->> could not trigger Panic in the fixed kernel. That's why I think we could
->> remove ip6_null_entry check in rt6_dump_route().
->
-> Understood. Cong's patch to fix the intialization order (lo device
-> before route init) makes sure the idev is not null. That said, the
-> null_entry route is internal ipv6 logic and is not a route entry to be
-> returned to userspace.
-
-agreed...so looks like the check in v3 should be
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        <dev.kurt-yI9piX4KPfawT/RRk36CISFp6vIno51x@public.gmane.org>,
+        <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <355b90b3-97ce-1057-6617-d5d709449c48-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-+       if ( rt == net->ipv6.ip6_null_entry ||
-+            (rt->dst.error &&
-+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
-+              rt != net->ipv6.ip6_prohibit_entry &&
-+              rt != net->ipv6.ip6_blk_hole_entry &&
-+#endif
-+             )) {
-                err = rt->dst.error;
-                ip6_rt_put(rt);
-                goto errout;
+
+On 07/26/2017 12:05 PM, Oliver Hartkopp wrote:
+> On 07/26/2017 06:41 PM, Andrew Lunn wrote:
+>> On Mon, Jul 24, 2017 at 06:05:19PM -0500, Franklin S Cooper Jr wrote:
+> 
+>>> +
+>>> +Optional:
+>>> + max-arbitration-speed: a positive non 0 value that determines the max
+>>> +            speed that CAN can run in non CAN-FD mode or during the
+>>> +            arbitration phase in CAN-FD mode.
+>>
+>> Hi Franklin
+>>
+>> Since this and the next property are optional, it is good to document
+>> what happens when they are not in the DT blob. Also document what 0
+>> means.
+
+The driver ignores values less than 0 with the exception being
+max-data-speed which supports a value of -1. Not sure what I'm
+documenting when the binding specifically says to use a positive non
+zero value. Its the same reason I don't document what happens if you
+give it a negative value.
+
+>>
+>>> +
+>>> + max-data-speed:    a positive non 0 value that determines the max
+>>> data rate
+>>> +            that can be used in CAN-FD mode. A value of -1 implies
+>>> +            CAN-FD is not supported by the transceiver.
+>>
+>> -1 is ugly. I think it would be better to have a missing
+>> max-data-speed property indicate that CAN-FD is not supported.
+> 
+
+Although this leads to your later point I don't think this is the right
+approach. Its an optional property. Not including the property should
+not assume it isn't supported.
+
+> Thanks Andrew! I had the same feeling about '-1' :-)
+
+Ok I'll go back to having 0 = not supported. Which will handle the
+documentation comment above.
+
+> 
+>> And
+>> maybe put 'fd' into the property name.
+> 
+> Good point. In fact the common naming to set bitrates for CAN(FD)
+> controllers are 'bitrate' and 'data bitrate'.
+> 
+> 'speed' is not really a good word for that.
+
+I'm fine with switching to using bitrate instead of speed. Kurk was
+originally the one that suggested to use the term arbitration and data
+since thats how the spec refers to it. Which I do agree with. But your
+right that in the drivers (struct can_priv) we just use bittiming and
+data_bittiming (CAN-FD timings). I don't think adding "fd" into the
+property name makes sense unless we are calling it something like
+"max-canfd-bitrate" which I would agree is the easiest to understand.
+
+So what is the preference if we end up sticking with two properties?
+Option 1 or 2?
+
+1)
+max-bitrate
+max-data-bitrate
+
+2)
+max-bitrate
+max-canfd-bitrate
+
+
+
+> 
+> Finally, @Franklin:
+> 
+> A CAN transceiver is limited in bandwidth. But you only have one RX and
+> one TX line between the CAN controller and the CAN transceiver. The
+> transceiver does not know about CAN FD - it has just a physical(!) layer
+> with a limited bandwidth. This is ONE limitation.
+> 
+> So I tend to specify only ONE 'max-bitrate' property for the
+> fixed-transceiver binding.
+> 
+> The fact whether the CAN controller is CAN FD capable or not is provided
+> by the netlink configuration interface for CAN controllers.
+
+Part of the reasoning to have two properties is to indicate that you
+don't support CAN FD while limiting the "arbitration" bit rate. With one
+property you can not determine this and end up having to make some
+assumptions that can quickly end up biting people.
+
+
+
+> 
+> Regards,
+> Oliver
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
