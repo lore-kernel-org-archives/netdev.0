@@ -1,43 +1,46 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [PATCH iproute2] bridge: Assume master at FDB modification
-Date: Wed, 26 Jul 2017 19:21:49 +0300
-Message-ID: <b8516b28-bdab-9b6a-539a-d069d100b579@mellanox.com>
-References: <1501083394-26180-1-git-send-email-arkadis@mellanox.com>
- <20170726090820.0252da7e@xeon-e3>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 10/18] net: mvpp2: use the GoP interrupt for
+ link status changes
+Date: Wed, 26 Jul 2017 18:26:48 +0200
+Message-ID: <20170726162648.GK12049@lunn.ch>
+References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
+ <20170724134848.19330-11-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        nikolay@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
-        mlxsw@mellanox.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jason@lakedaemon.net,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0065.outbound.protection.outlook.com ([104.47.0.65]:49096
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750893AbdGZQV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Jul 2017 12:21:56 -0400
-In-Reply-To: <20170726090820.0252da7e@xeon-e3>
+Received: from vps0.lunn.ch ([178.209.37.122]:41029 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750867AbdGZQ04 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 12:26:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20170724134848.19330-11-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jul 24, 2017 at 03:48:40PM +0200, Antoine Tenart wrote:
+> This patch adds the GoP link interrupt support for when a port isn't
+> connected to a PHY. Because of this the phylib callback is never called
+> and the link status management isn't done. This patch use the GoP link
+> interrupt in such cases to still have a minimal link management. Without
+> this patch ports not connected to a PHY cannot work.
 
+Hi Antoine
 
-On 07/26/2017 07:08 PM, Stephen Hemminger wrote:
-> On Wed, 26 Jul 2017 18:36:34 +0300
-> Arkadi Sharshevsky <arkadis@mellanox.com> wrote:
-> 
->> According to the man page the master flag should be the default, yet, the
->> current code assumes otherwise.
->>
->> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-> 
-> Agree that the documentation and code don't match.
-> But your change could break users with existing scripts by changing behavior.
-> 
-> It would be safer to change the man page not the code.
-> 
+When is a GoP link interrupt signalled? When is a port without a PHY
+actually up/down?
 
-Can we maybe set master and self by default. It doesn't make
-sense by default to not include the bridge, it will not cause
-regression in this case.
+With SFF/SFP ports, you generally need a gpio line the fibre module
+can use to indicate if it has link. Fixed-phy has such support, and
+your link_change function will get called when the link changes.
+
+And this is another bit of code you probably need to change in a while
+with phylink lands.
+
+     Andrew
