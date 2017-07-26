@@ -1,55 +1,93 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: TCP fast retransmit issues
-Date: Wed, 26 Jul 2017 13:06:40 -0400
-Message-ID: <CADVnQykEX-LzhsqyfHNmV6fF9-d_2R0v+mOX-PnyagUhC1qQzQ@mail.gmail.com>
-References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk> <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
- <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk> <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170726134242.GB1737@1wt.eu> <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170726145059.GE1737@1wt.eu> <CADVnQymKZAc+SFD7X-FoP9UwHgB2MBCY48=dL8mH6XuKumkx4g@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 04/10] net: dsa: lan9303: Added adjust_link()
+ method
+Date: Wed, 26 Jul 2017 19:09:28 +0200
+Message-ID: <20170726170928.GP12049@lunn.ch>
+References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
+ <20170725161553.30147-5-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Klavs Klavsen <kl@vsen.dk>,
-        Netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:36137 "EHLO
-        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751202AbdGZRHL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 13:07:11 -0400
-Received: by mail-oi0-f53.google.com with SMTP id g131so85884815oic.3
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 10:07:11 -0700 (PDT)
-In-Reply-To: <CADVnQymKZAc+SFD7X-FoP9UwHgB2MBCY48=dL8mH6XuKumkx4g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, davem@davemloft.net, kernel@pengutronix.de,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170725161553.30147-5-privat@egil-hjelmeland.no>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 26, 2017 at 12:43 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> (1) Because the connection negotiated SACK, the Linux TCP sender does
-> not get to its tcp_add_reno_sack() code to count dupacks and enter
-> fast recovery on the 3rd dupack. The sender keeps waiting for specific
-> packets to be SACKed that would signal that something has probably
-> been lost. We could probably mitigate this by having the sender turn
-> off SACK once it sees SACKed ranges that are completely invalid (way
-> out of window). Then it should use the old non-SACK "Recovery on 3rd
-> dupack" path.
->
-> (2) It looks like there is a bug in the sender code where it seems to
-> be repeatedly using a TLP timer firing 211ms after every ACK is
-> received to transmit another TLP probe (a new packet in this case).
-> Somehow these weird invalid SACKs seem to be triggering a code path
-> that makes us think we can send another TLP, when we probably should
-> be firing an RTO. That's my interpretation, anyway. I will try to
-> reproduce this with packetdrill.
+On Tue, Jul 25, 2017 at 06:15:47PM +0200, Egil Hjelmeland wrote:
+> This makes the driver react to device tree "fixed-link" declaration
+> on CPU port.
+> 
+> - turn off autonegotiation
+> - force speed 10 or 100 mb/s
+> - force duplex mode
+> 
+> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+> ---
+>  drivers/net/dsa/lan9303-core.c | 33 +++++++++++++++++++++++++++++++++
+>  1 file changed, 33 insertions(+)
+> 
+> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+> index 0806a0684d55..be6d78f45a5f 100644
+> --- a/drivers/net/dsa/lan9303-core.c
+> +++ b/drivers/net/dsa/lan9303-core.c
+> @@ -17,6 +17,7 @@
+>  #include <linux/regmap.h>
+>  #include <linux/mutex.h>
+>  #include <linux/mii.h>
+> +#include <linux/phy.h>
+>  
+>  #include "lan9303.h"
+>  
+> @@ -746,6 +747,37 @@ static int lan9303_phy_write(struct dsa_switch *ds, int phy, int regnum,
+>  	return chip->ops->phy_write(chip, phy, regnum, val);
+>  }
+>  
+> +static void lan9303_adjust_link(struct dsa_switch *ds, int port,
+> +				struct phy_device *phydev)
+> +{
+> +	struct lan9303 *chip = ds->priv;
+> +
+> +	int ctl, res;
+> +
+> +	ctl = lan9303_phy_read(ds, port, MII_BMCR);
+> +
+> +	if (!phy_is_pseudo_fixed_link(phydev))
+> +		return;
+> +
 
-Hmm. It looks like this might be a general issue, where any time we
-get an ACK that doesn't ACK/SACK anything new (whether because it's
-incoming data in a bi-directional flow, or a middlebox breaking the
-SACKs), then we schedule a TLP timer further out in time. Probably we
-should only push the TLP timer out if something is cumulatively ACKed.
+Hi Egil
 
-But that's not a trivial thing to do, because by the time we are
-deciding whether to schedule another TLP, we have already canceled the
-previous TLP and reinstalled an RTO. Hmm.
+Maybe do this check before reading MII_BMCR?
 
-neal
+> +	ctl &= ~BMCR_ANENABLE;
+
+Should this also mask out BMCR_SPEED100 and DUPLEX_FULL? Otherwise how
+do you select 10/Half if it is already configured for 100/Full?
+
+> +	if (phydev->speed == SPEED_100)
+> +		ctl |= BMCR_SPEED100;
+> +
+> +	if (phydev->duplex == DUPLEX_FULL)
+> +		ctl |= BMCR_FULLDPLX;
+> +
+> +	res =  lan9303_phy_write(ds, port, MII_BMCR, ctl);
+> +
+> +	if (port == chip->phy_addr_sel_strap) {
+> +		/* Virtual Phy: Remove Turbo 200Mbit mode */
+> +		lan9303_read(chip->regmap, LAN9303_VIRT_SPECIAL_CTRL, &ctl);
+> +
+> +		ctl &= ~(1 << 10); // TURBO BIT
+
+BIT(10), or better still something like BIT(LAN9303_VIRT_SPECIAL_TURBO)
+
+> +		res =  regmap_write(chip->regmap,
+> +				    LAN9303_VIRT_SPECIAL_CTRL, ctl);
+> +	}
+> +}
+
+  Andrew
