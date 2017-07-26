@@ -1,66 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP fast retransmit issues
-Date: Wed, 26 Jul 2017 04:49:16 -0700
-Message-ID: <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] Revert "vhost: cache used event for better
+	performance"
+Date: Wed, 26 Jul 2017 19:56:09 +0800
+Message-ID: <f52acfca-adf1-fffc-946c-675ce9e033ae@redhat.com>
+References: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
+	<da300d74-ca7a-a636-0ed6-6aa78e6a5510@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Klavs Klavsen <kl@vsen.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:35703 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751495AbdGZLtV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 07:49:21 -0400
-Received: by mail-wm0-f47.google.com with SMTP id c184so76205310wmd.0
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 04:49:20 -0700 (PDT)
-In-Reply-To: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Christian Borntraeger <borntraeger@de.ibm.com>, mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <da300d74-ca7a-a636-0ed6-6aa78e6a5510@de.ibm.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-07-26 at 13:07 +0200, Klavs Klavsen wrote:
-> Hi guys,
-> 
-> Me and my colleagues have an annoying issue with our Linux desktops and 
-> the company's Junos VPN.
-> 
-> We connect with openconnect (some use the official Pulse client) - which 
-> then opens up a tun0 device - and traffic runs through that.
-> 
-> If we try to scp a file of ~100MB (f.ex. linux-4.12.3.tar.xz :) - it 
-> stalls after sending 20-30% typicly.. then starts again after some time, 
-> and typicly dies before finishing. I've captured it with tcpdump (its a 
-> large 77Mb file - thats how far it got before it died :) - 
-> http://blog.klavsen.info/fast-retransmit-problem-junos-linux
-> 
-> I've attached an image of wireshark - where the (AFAIK) interesting part 
-> starts.. Where my client starts getting DUP ACK's.. but my Linux client 
-> does nothing :(
-> I've tried to upgrade to latest Ubuntu-mainline kernel build (4.12.3) 
-> and it changed nothing.
-> 
-> The problem goes away, if I do:
-> sysctl -w net.ipv4.tcp_sack=0
-> 
-> I've tried specificly enabling net.ipv4.tcp_fack=1 - but that did not 
-> help.
-> 
-> This is not an issue on Mac OSX or Windows clients.
-> 
-> None of the Linux users here figured, that could be a Linux kernel issue 
-> - but the evidence seems to suggest it - and all my googleing and 
-> reading does not lead me to any other conclusion.
-> 
-> It may ofcourse be that Junos has implemented the standard badly/wrongly 
-> - and Windows/Mac has done a workaround for that?
-> 
-> I hope you can help me figure out whats going wrong.
-> 
-
-sack blocks returned by the remote peer are completely bogus.
-
-Maybe a firewall is messing with them ?
-
-I suspect ACK packets might be simply dropped because of invalid SACK
-information.
+CgpPbiAyMDE35bm0MDfmnIgyNuaXpSAxODo1MywgQ2hyaXN0aWFuIEJvcm50cmFlZ2VyIHdyb3Rl
+Ogo+IE9uIDA3LzI2LzIwMTcgMTA6MDMgQU0sIEphc29uIFdhbmcgd3JvdGU6Cj4+IFRoaXMgcmV2
+ZXJ0cyBjb21taXQgODA5ZWNiOWJjYTZhOTQyNGNjZDM5MmQ2N2UzNjgxNjBmOGI3NmM5Mi4gU2lu
+Y2UgaXQKPj4gd2FzIHJlcG9ydGVkIHRvIGJyZWFrIHZob3N0X25ldC4gV2Ugd2FudCB0byBjYWNo
+ZSB1c2VkIGV2ZW50IGFuZCB1c2UKPj4gaXQgdG8gY2hlY2sgZm9yIG5vdGlmaWNhdGlvbi4gV2Ug
+dHJ5IHRvIHZhbGlkIGNhY2hlZCB1c2VkIGV2ZW50IGJ5Cj4+IGNoZWNraW5nIHdoZXRoZXIgb3Ig
+bm90IGl0IHdhcyBhaGVhZCBvZiBuZXcsIGJ1dCB0aGlzIGlzIG5vdCBjb3JyZWN0Cj4+IGFsbCB0
+aGUgdGltZSwgaXQgY291bGQgYmUgc3RhbGUgYW5kIHRoZXJlJ3Mgbm8gd2F5IHRvIGtub3cgYWJv
+dXQgdGhpcy4KPj4KPj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0
+LmNvbT4KPiBUaGlzIHdvdWxkIHRoZW4gcXVhbGlmeSBmb3Igc3RhYmxlID8KPgoKWWVzIGl0IGlz
+LgoKVGhhbmtzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+ClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1m
+b3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9s
+aXN0aW5mby92aXJ0dWFsaXphdGlvbg==
