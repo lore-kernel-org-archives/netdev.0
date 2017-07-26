@@ -1,43 +1,55 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 10/10] bnxt_en: add support for port_attr_get and
- and get_phys_port_name
-Date: Wed, 26 Jul 2017 12:13:35 +0300
-Message-ID: <CAJ3xEMj4OznaiaxT6sSuS9aUxoTDJmJbKKa=WyX_=Xhd8RVs2A@mail.gmail.com>
-References: <1500914069-15724-1-git-send-email-michael.chan@broadcom.com>
- <1500914069-15724-11-git-send-email-michael.chan@broadcom.com> <20170724214521.75bf5857@cakuba.netronome.com>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
+ null entry.
+Date: Wed, 26 Jul 2017 17:18:53 +0800
+Message-ID: <20170726091853.GB5465@leo.usersys.redhat.com>
+References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+ <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
+ <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
+ <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
+ <20170724030907.GC2938@leo.usersys.redhat.com>
+ <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
+ <20170725000849.GD2938@leo.usersys.redhat.com>
+ <CAM_iQpXvyZR6EZ8s_P6JcKZhHN9t5N+2s4cTqHy0RLdGEMeg0A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Michael Chan <michael.chan@broadcom.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        David Ahern <dsahern@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:37590 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750826AbdGZJNh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 05:13:37 -0400
-Received: by mail-oi0-f68.google.com with SMTP id j194so6661691oib.4
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 02:13:36 -0700 (PDT)
-In-Reply-To: <20170724214521.75bf5857@cakuba.netronome.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36027 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750964AbdGZJTF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 05:19:05 -0400
+Received: by mail-pg0-f67.google.com with SMTP id y129so16851243pgy.3
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 02:19:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpXvyZR6EZ8s_P6JcKZhHN9t5N+2s4cTqHy0RLdGEMeg0A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 25, 2017 at 7:45 AM, Jakub Kicinski <kubakici@wp.pl> wrote:
+On Tue, Jul 25, 2017 at 10:49:05AM -0700, Cong Wang wrote:
+> On Mon, Jul 24, 2017 at 5:08 PM, Hangbin Liu <liuhangbin@gmail.com> wrote:
+> > But what we want in inet6_rtm_getroute() and rt6_dump_route() is to
+> > get/dump the route info. So we should get the info even it's unreachable or
+> > prohibit.
+> 
+> If you want to dump prohibit/blackhole entry, then you have to check
+> for null_entry, and rt->dst.error check is still needed because we
 
-> This is even worse.  We already have two naming conventions in the
-> kernel, mlx5 uses "%d" for legacy reasons.  nfp uses pf%dvf%d for vfs,
+I could not reproduce the NULL rt6i_idev issue after you route init fix, So
+I think it's also safe to dump null_entry now. There is a v3 patch. After
+the patch, we could dump unreachable route info like:
 
-To make it clear, in mlx5 this is used only for the offloads/switchdev mode
-and not for legacy mode, in the latter mode, a  VF probed to VM doesn't
-have host side representation so there's no where to use that.
++ ip netns exec client ip -6 route get 2003::1
+unreachable 2003::1 dev lo table unspec proto kernel metric 4294967295 error -101
 
-Or.
+> could return error on other normal entries too, IOW, your v2 is correct
+> if dumping prohibit/blackhole is expected.
 
-> which is better for two reasons: (a) it works with multi-PF devices;
-> (b) naming something representor from switchdev perspective is
-> pointless, you're not calling the external port netdev a physical port
-> representor, even though it has the exact same relation to the port as
-> with VFs (i.e. egressing traffic on the netdev will cause the switch
-> to send to the given port).
+Would you hlep review the v3 patch? I prepare not touch the check in
+function rt6_dump_route() now.
+
+Thanks
+Hangbin
