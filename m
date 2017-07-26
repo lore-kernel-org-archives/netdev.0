@@ -1,43 +1,47 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next v2 01/10] netvsc: fix return value for set_channels
-Date: Wed, 26 Jul 2017 16:40:20 -0700
-Message-ID: <20170726234029.7342-2-sthemmin@microsoft.com>
+Subject: [PATCH net-next v2 03/10] netvsc: don't print pointer value in error message
+Date: Wed, 26 Jul 2017 16:40:22 -0700
+Message-ID: <20170726234029.7342-4-sthemmin@microsoft.com>
 References: <20170726234029.7342-1-sthemmin@microsoft.com>
 Cc: devel@linuxdriverproject.org, linux-doc@vger.kernel.org,
         netdev@vger.kernel.org
 To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
         corbet@lwn.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:32913 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751466AbdGZXkp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 19:40:45 -0400
-Received: by mail-pg0-f45.google.com with SMTP id b8so13649640pgn.0
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 16:40:44 -0700 (PDT)
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:34040 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751517AbdGZXks (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 19:40:48 -0400
+Received: by mail-pg0-f48.google.com with SMTP id 123so90267067pgj.1
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 16:40:48 -0700 (PDT)
 In-Reply-To: <20170726234029.7342-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The error and normal case got swapped.
+Using %p to print pointer to packet meta-data doesn't give any
+good info, and exposes kernel memory offsets.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/hyperv/netvsc.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 262486ce8e2a..f1eaf675d2e9 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -758,8 +758,8 @@ static int netvsc_set_channels(struct net_device *net,
- 	if (!IS_ERR(nvdev)) {
- 		netif_set_real_num_tx_queues(net, nvdev->num_chn);
- 		netif_set_real_num_rx_queues(net, nvdev->num_chn);
--		ret = PTR_ERR(nvdev);
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 94c00acac58a..f0c15e782ce0 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -805,8 +805,10 @@ static inline int netvsc_send_pkt(
+ 			ret = -ENOSPC;
+ 		}
  	} else {
-+		ret = PTR_ERR(nvdev);
- 		device_info.num_chn = orig;
- 		rndis_filter_device_add(dev, &device_info);
+-		netdev_err(ndev, "Unable to send packet %p ret %d\n",
+-			   packet, ret);
++		netdev_err(ndev,
++			   "Unable to send packet pages %u len %u, ret %d\n",
++			   packet->page_buf_cnt, packet->total_data_buflen,
++			   ret);
  	}
+ 
+ 	return ret;
 -- 
 2.11.0
