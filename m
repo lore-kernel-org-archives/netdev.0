@@ -1,88 +1,36 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
- null entry.
-Date: Wed, 26 Jul 2017 13:00:26 -0600
-Message-ID: <2d75317c-160c-01c2-5a5b-bc6111c099c6@gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
- <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
- <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
- <20170724030907.GC2938@leo.usersys.redhat.com>
- <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
- <20170725000849.GD2938@leo.usersys.redhat.com>
- <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
- <20170725073202.GE2938@leo.usersys.redhat.com>
- <9e198c2a-c026-f4bd-f190-8d5a887efe7f@gmail.com>
- <CAJieiUgyHDksxVjoCSz9pxbDy-ZZR9uUWWZXdth0diSKAcvx4Q@mail.gmail.com>
- <64377a01-38df-6d43-16a4-401d426fb9b2@gmail.com>
- <CAJieiUi+Me_wXDz0A1oLH2LgBw9DsMoxctV56SjEwGpusFGt4Q@mail.gmail.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: TCP fast retransmit issues
+Date: Wed, 26 Jul 2017 15:02:34 -0400
+Message-ID: <CADVnQynVfm0V=16sr+rHsJhtHx9b+kM7Vn2edW2GJ7qMaAtDJg@mail.gmail.com>
+References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk> <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk> <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170726134242.GB1737@1wt.eu> <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170726145059.GE1737@1wt.eu> <CADVnQymKZAc+SFD7X-FoP9UwHgB2MBCY48=dL8mH6XuKumkx4g@mail.gmail.com>
+ <CADVnQykEX-LzhsqyfHNmV6fF9-d_2R0v+mOX-PnyagUhC1qQzQ@mail.gmail.com> <CADVnQynR8dUuUBDfeFR2xpL-wKzd+7TgbMv-CXe3TT-T0_PXyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Hangbin Liu <liuhangbin@gmail.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        network dev <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Klavs Klavsen <kl@vsen.dk>,
+        Netdev <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:38329 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750930AbdGZTA2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 15:00:28 -0400
-Received: by mail-pg0-f67.google.com with SMTP id 125so4662994pgi.5
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 12:00:28 -0700 (PDT)
-In-Reply-To: <CAJieiUi+Me_wXDz0A1oLH2LgBw9DsMoxctV56SjEwGpusFGt4Q@mail.gmail.com>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:35083 "EHLO
+        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750996AbdGZTDG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 15:03:06 -0400
+Received: by mail-oi0-f47.google.com with SMTP id e124so128274351oig.2
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 12:03:06 -0700 (PDT)
+In-Reply-To: <CADVnQynR8dUuUBDfeFR2xpL-wKzd+7TgbMv-CXe3TT-T0_PXyQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/26/17 12:55 PM, Roopa Prabhu wrote:
-> On Wed, Jul 26, 2017 at 11:49 AM, David Ahern <dsahern@gmail.com> wrote:
->> On 7/26/17 12:27 PM, Roopa Prabhu wrote:
->>> agreed...so looks like the check in v3 should be
->>>
->>>
->>> +       if ( rt == net->ipv6.ip6_null_entry ||
->>> +            (rt->dst.error &&
->>> + #ifdef CONFIG_IPV6_MULTIPLE_TABLES
->>> +              rt != net->ipv6.ip6_prohibit_entry &&
->>> +              rt != net->ipv6.ip6_blk_hole_entry &&
->>> +#endif
->>> +             )) {
->>>                 err = rt->dst.error;
->>>                 ip6_rt_put(rt);
->>>                 goto errout;
->>>
->>
->> I don't think so. If I add a prohibit route and use the fibmatch
->> attribute, I want to see the route from the FIB that was matched.
-> 
-> 
-> yes, exactly. wouldn't  'rt != net->ipv6.ip6_prohibit_entry' above let
-> it fall through to the route fill code ?
-> 
-> ah...but i guess you are saying that they will have rt6_info's of
-> their own and will not match. got it. ack.
-> 
+On Wed, Jul 26, 2017 at 2:38 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> Yeah, it looks like I can reproduce this issue with (1) bad sacks
+> causing repeated TLPs, and (2) TLPs timers being pushed out to later
+> times due to incoming data. Scripts are attached.
 
-This:
+I'm testing a fix of only scheduling a TLP if (flag & FLAG_DATA_ACKED)
+is true...
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4d30c96a819d..24de81c804c2 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -3637,11 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff
-*in_skb, struct nlmsghdr *nlh,
-                dst = ip6_route_lookup(net, &fl6, 0);
-
-        rt = container_of(dst, struct rt6_info, dst);
--       if (rt->dst.error) {
--               err = rt->dst.error;
--               ip6_rt_put(rt);
--               goto errout;
--       }
-
-        if (rt == net->ipv6.ip6_null_entry) {
-                err = rt->dst.error;
-
-Puts back the original behavior. In that case, only rt == null_entry
-drops to the error path which is correct. All other rt values will drop
-to rt6_fill_node and return rt data.
+neal
