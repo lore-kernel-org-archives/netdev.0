@@ -1,71 +1,43 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next 2/2] bnxt_en: define sriov_lock unconditionally
-Date: Wed, 26 Jul 2017 11:05:57 +0200
-Message-ID: <CAK8P3a3UBfg6=GJ5UKEENnN-qoFuxaO4yo2Lqy65gN0zP4Nw-w@mail.gmail.com>
-References: <20170725153046.44726-1-arnd@arndb.de> <20170725153046.44726-2-arnd@arndb.de>
- <CACKFLimnZx7v9jV7v27XMP62BWG577D8=zkTijQYa6Pi1Ct7yA@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 10/10] bnxt_en: add support for port_attr_get and
+ and get_phys_port_name
+Date: Wed, 26 Jul 2017 12:13:35 +0300
+Message-ID: <CAJ3xEMj4OznaiaxT6sSuS9aUxoTDJmJbKKa=WyX_=Xhd8RVs2A@mail.gmail.com>
+References: <1500914069-15724-1-git-send-email-michael.chan@broadcom.com>
+ <1500914069-15724-11-git-send-email-michael.chan@broadcom.com> <20170724214521.75bf5857@cakuba.netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
+Cc: Michael Chan <michael.chan@broadcom.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
         Sathya Perla <sathya.perla@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Deepak Khungar <deepak.khungar@broadcom.com>,
-        Netdev <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Michael Chan <michael.chan@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACKFLimnZx7v9jV7v27XMP62BWG577D8=zkTijQYa6Pi1Ct7yA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Jiri Pirko <jiri@mellanox.com>
+To: Jakub Kicinski <kubakici@wp.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:37590 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750826AbdGZJNh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 05:13:37 -0400
+Received: by mail-oi0-f68.google.com with SMTP id j194so6661691oib.4
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 02:13:36 -0700 (PDT)
+In-Reply-To: <20170724214521.75bf5857@cakuba.netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 25, 2017 at 6:36 PM, Michael Chan <michael.chan@broadcom.com> wrote:
-> On Tue, Jul 25, 2017 at 8:29 AM, Arnd Bergmann <arnd@arndb.de> wrote:
->> The sriov_lock is used to serialize the sriov code with the vfr code.
->> However, when SRIOV is disabled, the lock is not there at all, leading
->> to a build error:
->>
->> drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c: In function 'bnxt_dl_eswitch_mode_set':
->> drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c:410:16: error: 'struct bnxt' has no member named 'sriov_lock'
->>
->> We can either provide the mutex in this configuration, too, or
->> disable both SRIOV and VFR together. This implements the first
->> approach, since it seems like a reasonable configuration for
->> guest kernels to have, and the extra lock will be harmless when
->> there is no contention.
->>
->> Fixes: 4ab0c6a8ffd7 ("bnxt_en: add support to enable VF-representors")
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->
-> Sathya already sent 3 patches to fix some of these issues.  But I need
-> to rework one of his patch and resend.
+On Tue, Jul 25, 2017 at 7:45 AM, Jakub Kicinski <kubakici@wp.pl> wrote:
 
-Ok, thanks. I just ran into one more issue, and don't know if that's included
-as well. If not, please also add the patch below (or fold it into the one
-that adds the switchdev dependency to the ethernet driver):
+> This is even worse.  We already have two naming conventions in the
+> kernel, mlx5 uses "%d" for legacy reasons.  nfp uses pf%dvf%d for vfs,
 
-8<----------
-Subject: [PATCH] RDMA/bnxt_re: add NET_SWITCHDEV dependency
+To make it clear, in mlx5 this is used only for the offloads/switchdev mode
+and not for legacy mode, in the latter mode, a  VF probed to VM doesn't
+have host side representation so there's no where to use that.
 
-The rdma side of BNXT enables the ethernet driver and has a list
-of its dependencies. However, the ethernet driver now also depends
-on NET_SWITCHDEV, so we have to add that dependency for both:
+Or.
 
-warning: (INFINIBAND_BNXT_RE) selects BNXT which has unmet direct
-dependencies (NETDEVICES && ETHERNET && NET_VENDOR_BROADCOM && PCI &&
-MAY_USE_DEVLINK && NET_SWITCHDEV)
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-diff --git a/drivers/infiniband/hw/bnxt_re/Kconfig
-b/drivers/infiniband/hw/bnxt_re/Kconfig
-index 19982a4a9bba..0c296f00e74f 100644
---- a/drivers/infiniband/hw/bnxt_re/Kconfig
-+++ b/drivers/infiniband/hw/bnxt_re/Kconfig
-@@ -1,6 +1,7 @@
- config INFINIBAND_BNXT_RE
-     tristate "Broadcom Netxtreme HCA support"
-     depends on ETHERNET && NETDEVICES && PCI && INET && DCB
-+    depends on NET_SWITCHDEV
-     select NET_VENDOR_BROADCOM
-     select BNXT
-     ---help---
+> which is better for two reasons: (a) it works with multi-PF devices;
+> (b) naming something representor from switchdev perspective is
+> pointless, you're not calling the external port netdev a physical port
+> representor, even though it has the exact same relation to the port as
+> with VFs (i.e. egressing traffic on the netdev will cause the switch
+> to send to the given port).
