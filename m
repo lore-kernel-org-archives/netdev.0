@@ -1,79 +1,42 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Wed, 26 Jul 2017 19:05:49 +0000
-Message-ID: <MWHPR12MB16007782C422082A92F4765DC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
-References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
- <1499955692-26556-3-git-send-email-dingtianhong@huawei.com>
- <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
- <0260e398-bd8e-6615-6d5c-1f7c07b6fc09@huawei.com>
- <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
- <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
- <20170724090516.2e0f0d2a@w520.home>
- <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
- <CAKgT0UeAad6WArvrE71MFJywDs1wOnCF-iJRnbNLrL+knqhXeA@mail.gmail.com>
- <CAKgT0Uf5hdXUXja_jUB6_kBg6pyX8zXuOMOGzCVNgeBFMUsWqQ@mail.gmail.com>,<CAKgT0Udn2vh6NaqZyiF69nXVnz2sT=e0ZgiDjWznhGZz-Gk+qQ@mail.gmail.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH v3 net-next 0/2] liquidio: standardization and cleanup
+Date: Wed, 26 Jul 2017 12:09:45 -0700
+Message-ID: <20170726190945.GA1152@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Netdev <netdev@vger.kernel.org>,
-        Bjorn Helgaas <helgaas@kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "David.Laight@aculab.com" <David.Laight@aculab.com>,
-        "ashok.raj@intel.com" <ashok.raj@intel.com>,
-        "Alex Williamson" <alex.williamson@redhat.com>,
-        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
-        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        Sinan Kaya <okaya@codeaurora.org>,
-        "robin.murphy@arm.com" <robin.murphy@arm.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Ganesh GR <g
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0Udn2vh6NaqZyiF69nXVnz2sT=e0ZgiDjWznhGZz-Gk+qQ@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0056.outbound.protection.outlook.com ([104.47.37.56]:31928
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750970AbdGZTJw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 15:09:52 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-| From: Alexander Duyck <alexander.duyck@gmail.com>
-| Sent: Wednesday, July 26, 2017 11:44 AM
-|=20
-| On Jul 26, 2017 11:26 AM, "Casey Leedom" <leedom@chelsio.com> wrote:
-| |
-| | =A0 =A0 I think that the patch will need to be extended to modify
-| | =A0 =A0 drivers/pci.c/iov.c:sriov_enable() to explicitly turn off
-| | =A0 =A0 Relaxed Ordering Enable if the Root Complex is marked
-| =A0 =A0 for no RO TLPs.
-|=20
-| I'm not sure that would be an issue. Wouldn't most VFs inherit the PF's s=
-ettings?
+From: Rick Farrington <ricardo.farrington@cavium.com>
 
-Ah yes, you're right.  This is covered in section 3.5.4 of the Single Root =
-I/O
-Virtualization and Sharing Specification, Revision 1.0 (September 11, 2007)=
-,
-governing the PCIe Capability Device Control register.  It states that the =
-VF
-version of that register shall follow the setting of the corresponding PF.
+This patchset corrects some non-standard macro usage.
 
-So we should enhance the cxgb4vf/sge.c:t4vf_sge_alloc_rxq() in the same
-way we did for the cxgb4 driver, but that's not critical since the Relaxed
-Ordering Enable supersedes the internal chip's desire to use the Relaxed
-Ordering Attribute.
+1. Replaced custom MIN macro with use of standard 'min_t'.
+2. Removed cryptic and misleading macro 'CAST_ULL'.
 
-Ding, send me a note if you'd like me to work that up for you.
+change log:
+V1 -> V2:
+  1. Add driver cleanup of macro 'CAST_ULL'.
+V2 -> V3:
+  1. Remove extra parentheses from previous usage of macro 'CAST_ULL'.
 
-| Also I thought most of the VF configuration space is read only.
+Rick Farrington (2):
+  liquidio: standardization: use min_t instead of custom macro
+  liquidio: cleanup: removed cryptic and misleading macro
 
-Yes, but not all of it.  And when a VF is exported to a Virtual Machine,
-then the Hypervisor captures and interprets all accesses to the VF's
-PCIe Configuration Space from the VM.
+ drivers/net/ethernet/cavium/liquidio/octeon_console.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-Thanks again for reminding me of the subtle aspect of the SR_IOV
-specification that I forgot.
-
-Casey=
+-- 
+2.9.0
