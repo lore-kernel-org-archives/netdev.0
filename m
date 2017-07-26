@@ -1,55 +1,32 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH v3 net-next 2/2] liquidio: cleanup: removed cryptic and
- misleading macro
-Date: Wed, 26 Jul 2017 12:11:09 -0700
-Message-ID: <20170726191109.GA1176@felix-thinkpad.cavium.com>
-References: <20170726190945.GA1152@felix-thinkpad.cavium.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: phy: Remove stale comments referencing
+ timer
+Date: Wed, 26 Jul 2017 21:19:46 +0200
+Message-ID: <20170726191946.GV12049@lunn.ch>
+References: <20170726190538.27674-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        ricardo.farrington@cavium.com
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, davem@davemloft.net, slash.tmp@free.fr
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0073.outbound.protection.outlook.com ([104.47.32.73]:7771
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750970AbdGZTLP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Jul 2017 15:11:15 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:41382 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751011AbdGZTTu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 15:19:50 -0400
 Content-Disposition: inline
-In-Reply-To: <20170726190945.GA1152@felix-thinkpad.cavium.com>
+In-Reply-To: <20170726190538.27674-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Farrington <ricardo.farrington@cavium.com>
+On Wed, Jul 26, 2017 at 12:05:38PM -0700, Florian Fainelli wrote:
+> Since commit a390d1f379cf ("phylib: convert state_queue work to
+> delayed_work"), the PHYLIB state machine was converted to use delayed
+> workqueues, yet some functions were still referencing the PHY library
+> timer in their comments, fix that and remove the now unused
+> linux/timer.h include.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/octeon_console.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-index 501ad95..15ad1ab 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-@@ -42,8 +42,6 @@ module_param(console_bitmask, int, 0644);
- MODULE_PARM_DESC(console_bitmask,
- 		 "Bitmask indicating which consoles have debug output redirected to syslog.");
- 
--#define CAST_ULL(v) ((u64)(v))
--
- #define BOOTLOADER_PCI_READ_BUFFER_DATA_ADDR    0x0006c008
- #define BOOTLOADER_PCI_READ_BUFFER_LEN_ADDR     0x0006c004
- #define BOOTLOADER_PCI_READ_BUFFER_OWNER_ADDR   0x0006c000
-@@ -233,7 +231,7 @@ static int __cvmx_bootmem_check_version(struct octeon_device *oct,
- 	    (exact_match && major_version != exact_match)) {
- 		dev_err(&oct->pci_dev->dev, "bootmem ver mismatch %d.%d addr:0x%llx\n",
- 			major_version, minor_version,
--			CAST_ULL(oct->bootmem_desc_addr));
-+			(long long)oct->bootmem_desc_addr);
- 		return -1;
- 	} else {
- 		return 0;
--- 
-2.9.0
+    Andrew
