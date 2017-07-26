@@ -1,54 +1,44 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/2] phy: bcm-ns-usb3: fix MDIO_BUS dependency
-Date: Wed, 26 Jul 2017 17:14:00 +0200
-Message-ID: <20170726151442.3913622-2-arnd@arndb.de>
-References: <20170726151442.3913622-1-arnd@arndb.de>
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        linux-kernel@vger.kernel.org,
-        Raviteja Garimella <raviteja.garimella@broadcom.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-To: netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] Revert "vhost: cache used event for better
+ performance"
+Date: Wed, 26 Jul 2017 18:21:56 +0300
+Message-ID: <20170726162557-mutt-send-email-mst@kernel.org>
+References: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
+ <20170726155435-mutt-send-email-mst@kernel.org>
+ <117542fc-eef9-c043-7c9e-daafceb7db4e@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170726151442.3913622-1-arnd@arndb.de>
+Content-Disposition: inline
+In-Reply-To: <117542fc-eef9-c043-7c9e-daafceb7db4e@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver attempts to 'select MDIO_DEVICE', but the code
-is actually a loadable module when PHYLIB=m:
+On Wed, Jul 26, 2017 at 09:18:02PM +0800, Jason Wang wrote:
+> 
+> 
+> On 2017年07月26日 20:57, Michael S. Tsirkin wrote:
+> > On Wed, Jul 26, 2017 at 04:03:17PM +0800, Jason Wang wrote:
+> > > This reverts commit 809ecb9bca6a9424ccd392d67e368160f8b76c92. Since it
+> > > was reported to break vhost_net. We want to cache used event and use
+> > > it to check for notification. We try to valid cached used event by
+> > > checking whether or not it was ahead of new, but this is not correct
+> > > all the time, it could be stale and there's no way to know about this.
+> > > 
+> > > Signed-off-by: Jason Wang<jasowang@redhat.com>
+> > Could you supply a bit more data here please?  How does it get stale?
+> > What does guest need to do to make it stale?  This will be helpful if
+> > anyone wants to bring it back, or if we want to extend the protocol.
+> > 
+> 
+> The problem we don't know whether or not guest has published a new used
+> event. The check vring_need_event(vq->last_used_event, new + vq->num, new)
+> is not sufficient to check for this.
+> 
+> Thanks
 
-drivers/phy/broadcom/phy-bcm-ns-usb3.o: In function `bcm_ns_usb3_mdiodev_phy_write':
-phy-bcm-ns-usb3.c:(.text.bcm_ns_usb3_mdiodev_phy_write+0x28): undefined reference to `mdiobus_write'
-drivers/phy/broadcom/phy-bcm-ns-usb3.o: In function `bcm_ns_usb3_module_exit':
-phy-bcm-ns-usb3.c:(.exit.text+0x18): undefined reference to `mdio_driver_unregister'
-drivers/phy/broadcom/phy-bcm-ns-usb3.o: In function `bcm_ns_usb3_module_init':
-phy-bcm-ns-usb3.c:(.init.text+0x18): undefined reference to `mdio_driver_register'
-phy-bcm-ns-usb3.c:(.init.text+0x38): undefined reference to `mdio_driver_unregister'
-
-Using 'depends on MDIO_BUS' instead will avoid the link error.
-
-Fixes: af850e14a7ae ("phy: bcm-ns-usb3: add MDIO driver using proper bus layer")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/phy/broadcom/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/phy/broadcom/Kconfig b/drivers/phy/broadcom/Kconfig
-index 37371b89b14f..64fc59c3ae6d 100644
---- a/drivers/phy/broadcom/Kconfig
-+++ b/drivers/phy/broadcom/Kconfig
-@@ -30,8 +30,8 @@ config PHY_BCM_NS_USB3
- 	tristate "Broadcom Northstar USB 3.0 PHY Driver"
- 	depends on ARCH_BCM_IPROC || COMPILE_TEST
- 	depends on HAS_IOMEM && OF
-+	depends on MDIO_BUS
- 	select GENERIC_PHY
--	select MDIO_DEVICE
- 	help
- 	  Enable this to support Broadcom USB 3.0 PHY connected to the USB
- 	  controller on Northstar family.
--- 
-2.9.0
+Figured it out after an offline discussion.
