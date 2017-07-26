@@ -1,63 +1,35 @@
-From: Kurt Van Dijck <dev.kurt@vandijck-laurijssen.be>
-Subject: Re: [PATCH 1/4] can: dev: Add support for limiting configured bitrate
-Date: Wed, 26 Jul 2017 22:04:03 +0200
-Message-ID: <20170726200403.GD6873@airbook.vandijck-laurijssen.be>
-References: <20170719233654.25908-1-fcooper@ti.com>
- <20170719233654.25908-2-fcooper@ti.com>
- <f45ea1b4-0f46-0002-a89b-b997f2693bb5@hartkopp.net>
- <055c00f5-0775-4e35-309c-0d1c8aa0afdf@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: lan9303: Fixed MDIO
+ interface
+Date: Wed, 26 Jul 2017 13:07:47 -0700 (PDT)
+Message-ID: <20170726.130747.9593997952509805.davem@davemloft.net>
+References: <87999a6c-4ea8-ba4c-e2db-cdb37c1c8c8a@egil-hjelmeland.no>
+        <87lgnbgtiq.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+        <20170726175224.GT12049@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-        linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        wg@grandegger.com, mkl@pengutronix.de, robh+dt@kernel.org,
-        quentin.schulz@free-electrons.com, andrew@lunn.ch
-To: Franklin S Cooper Jr <fcooper@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay-b02.edpnet.be ([212.71.1.222]:51743 "EHLO
-        relay-b02.edpnet.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750930AbdGZUF2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 16:05:28 -0400
-Content-Disposition: inline
-In-Reply-To: <055c00f5-0775-4e35-309c-0d1c8aa0afdf@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vivien.didelot@savoirfairelinux.com, privat@egil-hjelmeland.no,
+        corbet@lwn.net, f.fainelli@gmail.com, kernel@pengutronix.de,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: andrew@lunn.ch
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20170726175224.GT12049@lunn.ch>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 26 Jul 2017 19:52:24 +0200
 
-I know my response is late ...
+>> > So I really want to group the patches into only a few series in order
+>> > to not spend months on the process.
+> 
+> I strongly agree with Vivien here. Good patches get accepted in about
+> 3 days. You should expect feedback within a day or two. That allows
+> you to have fast cycle times for getting patches in.
 
-> Hi Oliver
-> On 07/20/2017 02:43 AM, Oliver Hartkopp wrote:
-> > Hi Franklin,
-> > 
-> > On 07/20/2017 01:36 AM, Franklin S Cooper Jr wrote:
-> > 
-> >> +#ifdef CONFIG_OF
-> >> +void of_transceiver_is_fixed(struct net_device *dev)
-> >> +{
-> > 
-> > (..)
-> > 
-> >> +}
-> >> +EXPORT_SYMBOL(of_transceiver_is_fixed);
-> >> +#endif
-> > 
-> > I'm not sure about the naming here.
-> > 
-> > As this is a CAN transceiver related option it should be named accordingly:
++1
 
-I contest the the name too:
-1) the can transceiver isn't fixed at all, it limited to the higher
-bitrates.
-
-2) of_can_transceiver_is_fixed suggests to test if a transceiver is
-fixed, it does not suggest to load some properties from the device tree.
-of_can_load_transceiver looks way more clear to me.
-
-That's my opinion.
-The important things, like the contents of the functions, look good.
-
-Kind regards,
-Kurt Van Dijck
+Small simple patches will get everything in 10 times fast than if
+you clump everything together into larger, harder to review ones.
