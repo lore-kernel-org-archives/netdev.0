@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v4 2/3] net: ethernet: ti: cpts: convert to use ptp auxiliary worker
-Date: Wed, 26 Jul 2017 17:11:37 -0500
-Message-ID: <20170726221138.12986-3-grygorii.strashko@ti.com>
+Subject: [PATCH v3 1/3] ptp: introduce ptp auxiliary worker
+Date: Wed, 26 Jul 2017 17:11:36 -0500
+Message-ID: <20170726221138.12986-2-grygorii.strashko@ti.com>
 References: <20170726221138.12986-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,104 +13,213 @@ Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
         Grygorii Strashko <grygorii.strashko@ti.com>
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:55980 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751009AbdGZWLx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 18:11:53 -0400
 In-Reply-To: <20170726221138.12986-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There could be significant delay in CPTS work schedule under high system
-load and on -RT which could cause CPTS misbehavior due to internal counter
-overflow. Usage of own kthread_worker allows to avoid such kind of issues
-and makes it possible to tune priority of CPTS kthread_worker thread on -RT.
+Many PTP drivers required to perform some asynchronous or periodic work,
+like periodically handling PHC counter overflow or handle delayed timestamp
+for RX/TX network packets. In most of the cases, such work is implemented
+using workqueues. Unfortunately, Kernel workqueues might introduce
+significant delay in work scheduling under high system load and on -RT,
+which could cause misbehavior of PTP drivers due to internal counter
+overflow, for example, and there is no way to tune its execution policy and
+priority manually.
 
-Hence, the CPTS driver is converted to use PTP auxiliary worker as PHC
-subsystem implements such functionality in a generic way now.
+Hence, The kthread_worker can be used instead of workqueues, as it creates
+separate named kthread for each worker and its its execution policy and
+priority can be configured using chrt tool.
 
+This problem was reported for two drivers TI CPSW CPTS and dp83640, so
+instead of modifying each of these driver it was proposed to add PTP
+auxiliary worker to the PHC subsystem [1].
+
+The patch adds PTP auxiliary worker in PHC subsystem using kthread_worker
+and kthread_delayed_work and introduces two new PHC subsystem APIs:
+
+- long (*do_aux_work)(struct ptp_clock_info *ptp) callback in
+ptp_clock_info structure, which driver should assign if it require to
+perform asynchronous or periodic work. Driver should return the delay of
+the PTP next auxiliary work scheduling time (>=0) or negative value in case
+further scheduling is not required.
+
+- int ptp_schedule_worker(struct ptp_clock *ptp, unsigned long delay) which
+allows schedule PTP auxiliary work.
+
+The name of kthread_worker thread corresponds PTP PHC device name "ptp%d".
+
+[1] https://www.spinics.net/lists/netdev/msg445392.html
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/cpts.c | 27 +++++++++++++--------------
- drivers/net/ethernet/ti/cpts.h |  1 -
- 2 files changed, 13 insertions(+), 15 deletions(-)
+ drivers/ptp/ptp_clock.c          | 41 ++++++++++++++++++++++++++++++++++++++++
+ drivers/ptp/ptp_private.h        |  3 +++
+ include/linux/ptp_clock_kernel.h | 20 ++++++++++++++++++++
+ 3 files changed, 64 insertions(+)
 
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 32279d2..3ed438e 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -224,6 +224,17 @@ static int cpts_ptp_enable(struct ptp_clock_info *ptp,
- 	return -EOPNOTSUPP;
+diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+index b774357..899433c 100644
+--- a/drivers/ptp/ptp_clock.c
++++ b/drivers/ptp/ptp_clock.c
+@@ -28,6 +28,7 @@
+ #include <linux/slab.h>
+ #include <linux/syscalls.h>
+ #include <linux/uaccess.h>
++#include <uapi/linux/sched/types.h>
+ 
+ #include "ptp_private.h"
+ 
+@@ -184,6 +185,19 @@ static void delete_ptp_clock(struct posix_clock *pc)
+ 	kfree(ptp);
  }
  
-+static long cpts_overflow_check(struct ptp_clock_info *ptp)
++static void ptp_aux_kworker(struct kthread_work *work)
 +{
-+	struct cpts *cpts = container_of(ptp, struct cpts, info);
-+	unsigned long delay = cpts->ov_check_period;
-+	struct timespec64 ts;
++	struct ptp_clock *ptp = container_of(work, struct ptp_clock,
++					     aux_work.work);
++	struct ptp_clock_info *info = ptp->info;
++	long delay;
 +
-+	cpts_ptp_gettime(&cpts->info, &ts);
-+	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
-+	return (long)delay;
++	delay = info->do_aux_work(info);
++
++	if (delay >= 0)
++		kthread_queue_delayed_work(ptp->kworker, &ptp->aux_work, delay);
 +}
 +
- static struct ptp_clock_info cpts_info = {
- 	.owner		= THIS_MODULE,
- 	.name		= "CTPS timer",
-@@ -236,18 +247,9 @@ static struct ptp_clock_info cpts_info = {
- 	.gettime64	= cpts_ptp_gettime,
- 	.settime64	= cpts_ptp_settime,
- 	.enable		= cpts_ptp_enable,
-+	.do_aux_work	= cpts_overflow_check,
+ /* public interface */
+ 
+ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+@@ -217,6 +231,19 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+ 	mutex_init(&ptp->pincfg_mux);
+ 	init_waitqueue_head(&ptp->tsev_wq);
+ 
++	if (ptp->info->do_aux_work) {
++		char *worker_name = kasprintf(GFP_KERNEL, "ptp%d", ptp->index);
++
++		kthread_init_delayed_work(&ptp->aux_work, ptp_aux_kworker);
++		ptp->kworker = kthread_create_worker(0, worker_name ?
++						     worker_name : info->name);
++		if (IS_ERR(ptp->kworker)) {
++			err = PTR_ERR(ptp->kworker);
++			pr_err("failed to create ptp aux_worker %d\n", err);
++			goto kworker_err;
++		}
++	}
++
+ 	err = ptp_populate_pin_groups(ptp);
+ 	if (err)
+ 		goto no_pin_groups;
+@@ -259,6 +286,9 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+ no_device:
+ 	ptp_cleanup_pin_groups(ptp);
+ no_pin_groups:
++	if (ptp->kworker)
++		kthread_destroy_worker(ptp->kworker);
++kworker_err:
+ 	mutex_destroy(&ptp->tsevq_mux);
+ 	mutex_destroy(&ptp->pincfg_mux);
+ 	ida_simple_remove(&ptp_clocks_map, index);
+@@ -274,6 +304,11 @@ int ptp_clock_unregister(struct ptp_clock *ptp)
+ 	ptp->defunct = 1;
+ 	wake_up_interruptible(&ptp->tsev_wq);
+ 
++	if (ptp->kworker) {
++		kthread_cancel_delayed_work_sync(&ptp->aux_work);
++		kthread_destroy_worker(ptp->kworker);
++	}
++
+ 	/* Release the clock's resources. */
+ 	if (ptp->pps_source)
+ 		pps_unregister_source(ptp->pps_source);
+@@ -339,6 +374,12 @@ int ptp_find_pin(struct ptp_clock *ptp,
+ }
+ EXPORT_SYMBOL(ptp_find_pin);
+ 
++int ptp_schedule_worker(struct ptp_clock *ptp, unsigned long delay)
++{
++	return kthread_mod_delayed_work(ptp->kworker, &ptp->aux_work, delay);
++}
++EXPORT_SYMBOL(ptp_schedule_worker);
++
+ /* module operations */
+ 
+ static void __exit ptp_exit(void)
+diff --git a/drivers/ptp/ptp_private.h b/drivers/ptp/ptp_private.h
+index d958889..b86f1bf 100644
+--- a/drivers/ptp/ptp_private.h
++++ b/drivers/ptp/ptp_private.h
+@@ -22,6 +22,7 @@
+ 
+ #include <linux/cdev.h>
+ #include <linux/device.h>
++#include <linux/kthread.h>
+ #include <linux/mutex.h>
+ #include <linux/posix-clock.h>
+ #include <linux/ptp_clock.h>
+@@ -56,6 +57,8 @@ struct ptp_clock {
+ 	struct attribute_group pin_attr_group;
+ 	/* 1st entry is a pointer to the real group, 2nd is NULL terminator */
+ 	const struct attribute_group *pin_attr_groups[2];
++	struct kthread_worker *kworker;
++	struct kthread_delayed_work aux_work;
  };
  
--static void cpts_overflow_check(struct work_struct *work)
--{
--	struct timespec64 ts;
--	struct cpts *cpts = container_of(work, struct cpts, overflow_work.work);
--
--	cpts_ptp_gettime(&cpts->info, &ts);
--	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
--	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
--}
--
- static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
- 		      u16 ts_seqid, u8 ts_msgtype)
- {
-@@ -378,7 +380,7 @@ int cpts_register(struct cpts *cpts)
- 	}
- 	cpts->phc_index = ptp_clock_index(cpts->clock);
+ /*
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index a026bfd..51349d1 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -99,6 +99,11 @@ struct system_device_crosststamp;
+  *            parameter func: the desired function to use.
+  *            parameter chan: the function channel index to use.
+  *
++ * @do_work:  Request driver to perform auxiliary (periodic) operations
++ *	      Driver should return delay of the next auxiliary work scheduling
++ *	      time (>=0) or negative value in case further scheduling
++ *	      is not required.
++ *
+  * Drivers should embed their ptp_clock_info within a private
+  * structure, obtaining a reference to it using container_of().
+  *
+@@ -126,6 +131,7 @@ struct ptp_clock_info {
+ 		      struct ptp_clock_request *request, int on);
+ 	int (*verify)(struct ptp_clock_info *ptp, unsigned int pin,
+ 		      enum ptp_pin_function func, unsigned int chan);
++	long (*do_aux_work)(struct ptp_clock_info *ptp);
+ };
  
--	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
-+	ptp_schedule_worker(cpts->clock, cpts->ov_check_period);
- 	return 0;
+ struct ptp_clock;
+@@ -211,6 +217,16 @@ extern int ptp_clock_index(struct ptp_clock *ptp);
+ int ptp_find_pin(struct ptp_clock *ptp,
+ 		 enum ptp_pin_function func, unsigned int chan);
  
- err_ptp:
-@@ -392,8 +394,6 @@ void cpts_unregister(struct cpts *cpts)
- 	if (WARN_ON(!cpts->clock))
- 		return;
++/**
++ * ptp_schedule_worker() - schedule ptp auxiliary work
++ *
++ * @ptp:    The clock obtained from ptp_clock_register().
++ * @delay:  number of jiffies to wait before queuing
++ *          See kthread_queue_delayed_work() for more info.
++ */
++
++int ptp_schedule_worker(struct ptp_clock *ptp, unsigned long delay);
++
+ #else
+ static inline struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+ 						   struct device *parent)
+@@ -225,6 +241,10 @@ static inline int ptp_clock_index(struct ptp_clock *ptp)
+ static inline int ptp_find_pin(struct ptp_clock *ptp,
+ 			       enum ptp_pin_function func, unsigned int chan)
+ { return -1; }
++static inline int ptp_schedule_worker(struct ptp_clock *ptp,
++				      unsigned long delay)
++{ return -EOPNOTSUPP; }
++
+ #endif
  
--	cancel_delayed_work_sync(&cpts->overflow_work);
--
- 	ptp_clock_unregister(cpts->clock);
- 	cpts->clock = NULL;
- 
-@@ -476,7 +476,6 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
- 	cpts->dev = dev;
- 	cpts->reg = (struct cpsw_cpts __iomem *)regs;
- 	spin_lock_init(&cpts->lock);
--	INIT_DELAYED_WORK(&cpts->overflow_work, cpts_overflow_check);
- 
- 	ret = cpts_of_parse(cpts, node);
- 	if (ret)
-diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
-index 01ea82b..586edd9 100644
---- a/drivers/net/ethernet/ti/cpts.h
-+++ b/drivers/net/ethernet/ti/cpts.h
-@@ -119,7 +119,6 @@ struct cpts {
- 	u32 cc_mult; /* for the nominal frequency */
- 	struct cyclecounter cc;
- 	struct timecounter tc;
--	struct delayed_work overflow_work;
- 	int phc_index;
- 	struct clk *refclk;
- 	struct list_head events;
+ #endif
 -- 
 2.10.1
