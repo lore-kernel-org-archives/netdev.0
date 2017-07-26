@@ -1,82 +1,76 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH net-next 10/18] net: mvpp2: use the GoP interrupt for
- link status changes
-Date: Wed, 26 Jul 2017 02:07:03 +0200
-Message-ID: <20170726000703.GI2860@kwain>
-References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
- <20170724134848.19330-11-antoine.tenart@free-electrons.com>
- <20170725151748.22268390@windsurf.lan>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH net-next] TLP: Don't reschedule PTO when there's one
+ outstanding TLP retransmission.
+Date: Wed, 26 Jul 2017 01:26:17 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F202929AA2@DGGEMI512-MBX.china.huawei.com>
+References: <1500971735-21852-1-git-send-email-maowenan@huawei.com>
+ <549b181d-b925-35ca-193c-2bc641ab901a@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="MZf7D3rAEoQgPanC"
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Chenweilong <chenweilong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:41843 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751446AbdGZAKJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 20:10:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20170725151748.22268390@windsurf.lan>
+Received: from szxga02-in.huawei.com ([45.249.212.188]:10347 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751741AbdGZB3o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 21:29:44 -0400
+In-Reply-To: <549b181d-b925-35ca-193c-2bc641ab901a@cogentembedded.com>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---MZf7D3rAEoQgPanC
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi Thomas,
-
-On Tue, Jul 25, 2017 at 03:17:48PM +0200, Thomas Petazzoni wrote:
-> On Mon, 24 Jul 2017 15:48:40 +0200, Antoine Tenart wrote:
-> > +
-> > +		port->link_irq =3D of_irq_get_byname(port_node, "link");
-> > +		if (port->link_irq =3D=3D -EPROBE_DEFER) {
-> > +			err =3D -EPROBE_DEFER;
-> > +			goto err_free_irq;
-> > +		}
-> > +		if (port->link_irq <=3D 0)
-> > +			/* the link irq is optional */
-> > +			port->link_irq =3D 0;
->=20
-> You need to add the irq_dispose_mapping() call corresponding to this
-> of_irq_get_by_name() in the error path and in the remove path.
-
-That's right. I'll fix that in v2.
-
-Thanks!
-Antoine
-
---=20
-Antoine T=E9nart, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---MZf7D3rAEoQgPanC
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEEM7Tg8N8kXOlT7hOhXE2LyK3bvNgFAll33SMACgkQXE2LyK3b
-vNjJ0BAAgD9N85kft7ix0bwcDqYqMbPy8S7NxAwG3BTZEFFGxSfKcu9WWiRZ7P7z
-aoH1eJcWFk69tRxA5J+udCniDP4DcZ3BMmvGONfs52Y2grQQiA1p2W2A5Iehgy4E
-HsAin7SuKz06WX1LCmOA7Z2+U3AMAtqfCfkMaBUni65sa4GdFDAOUTZ5gX50nFoI
-kGIUzaw4n4u8pRNt0trJ1KxMOTngdhs1wdLx1iAbpIDpxyerQt9f/6Sp8ZxgkpKc
-ip/dkhATAPRIjtTdpzKk6OtPPTt4p5f2h19KtOsn/8rMk3i+QpY4PPhhCvaIo11g
-c7MwErymUF2nWxykimLVO2X0rusSZ8JZx6NcvjxWKGL/lOyqCOAd9RXQFWUIornU
-+v80HCOzNI1vIS3RYVGbg61/AUfNt12wgD7RNgDxvIHQBznrjAxgpL5E3fudN9hU
-fK0yY968tnr98uf99jw974ODmI1sTljct8WPWG+r80XviTZFY6FMNU+62g4ubVCR
-86gVER+1XCIB4H30TeNhZ47TqjJq4zjfCfxI4i5PWKKHKSus6cMD8OJwAeXlxtAm
-HglK5UcokA/EVl+P+oEQCLBrRTg23Dk8eHjslk7vg0gp/pcWCaBXUnHGfRc1yDfr
-edoyfFEuDSB+lS+v0fzPq9/a/KyGBqHPsV5k06qTZbmWBxyjMgQ=
-=veuj
------END PGP SIGNATURE-----
-
---MZf7D3rAEoQgPanC--
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2VyZ2VpIFNodHlseW92
+IFttYWlsdG86c2VyZ2VpLnNodHlseW92QGNvZ2VudGVtYmVkZGVkLmNvbV0NCj4gU2VudDogVHVl
+c2RheSwgSnVseSAyNSwgMjAxNyA1OjU1IFBNDQo+IFRvOiBtYW93ZW5hbjsgbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgd2VpeW9uZ2p1bg0KPiAoQSk7IENoZW53
+ZWlsb25nDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHRdIFRMUDogRG9uJ3QgcmVzY2hl
+ZHVsZSBQVE8gd2hlbiB0aGVyZSdzIG9uZQ0KPiBvdXRzdGFuZGluZyBUTFAgcmV0cmFuc21pc3Np
+b24uDQo+IA0KPiBIZWxsbyENCj4gDQo+IE9uIDcvMjUvMjAxNyAxMTozNSBBTSwgTWFvIFdlbmFu
+IHdyb3RlOg0KPiANCj4gPiBJZiB0aGVyZSBpcyBvbmUgVExQIHByb2JlIHdlbnQgb3V0KFRMUCB1
+c2UgdGhlIHdyaXRlX3F1ZXVlX3RhaWwgcGFja2V0DQo+ID4gYXMgVExQIHByb2JlLCB3ZSBhc3N1
+bWUgdGhpcyBmaXJzdCBUTFAgcHJvYmUgbmFtZWQgQSksIGFuZCB0aGlzIFRMUA0KPiA+IHByb2Jl
+IHdhcyBub3QgYWNrZWQgYnkgcmVjZWl2ZSBzaWRlLg0KPiA+DQo+ID4gVGhlbiB0aGUgdHJhbnNt
+aXQgc2lkZSBzZW50IHRoZSBuZXh0IHR3byBwYWNrZXRlcyBvdXQobmFtZWQgQixDKSwgYnV0DQo+
+ID4gdW5mb3J0dW5hdGVseSB0aGVzZSB0d28gcGFja2V0cyBhcmUgYWxzbyBub3QgYWNrZWQgYnkg
+cmVjZWl2ZSBzaWRlLg0KPiA+DQo+ID4gQW5kIHRoZW4gdGhlcmUgaXMgb25lIGRhdGEgcGFja2V0
+IHdpdGggYWNrX3NlcSBBIGFycml2ZSwgaW4gdGNwX2FjaygpDQo+ID4gd2lsbCBjYWxsIHRjcF9z
+Y2hlZHVsZV9sb3NzX3Byb2JlKCkgdG8gcmVhcm0gUFRPLCB0aGUgaGFuZGxlcg0KPiA+IHRjcF9z
+ZW5kX2xvc3NfcHJvYmUoKSBwYXNzIGlmKHRwLT50bHBfaGlnaF9zZXEpKGJlY2F1c2UgdGhlcmUg
+aXMgb25lDQo+ID4gb3V0c3RhbmRpbmcgVExQIG5hbWVkIEEsdHAtPnRscF9oaWdoX3NlcSBpcyBu
+b3QgemVybyksIHNvIHRoZSBuZXcgVExQDQo+ID4gcHJvYmUgY2FuJ3QgYmUgd2VudCBvdXQgYW5k
+IG5lZWQgdG8gcmVhcm0gdGhlIFJUTyB0aW1lcih0aW1lb3V0IGlzDQo+ID4gcmVsYXRpdmUgdG8g
+dGhlIHRyYW5zbWl0IHRpbWUgb2YgdGhlIHdyaXRlIHF1ZXVlIGhlYWQpLg0KPiA+DQo+ID4gQWZ0
+ZXIgdGhpcywgYW5vdGhlciBkYXRhIHBhY2tldCB3aXRoIGFja19zZXEgQSBpcyByZWNlaXZlZCwg
+aWYgdGhlDQo+ID4gdGxwX3RpbWVfc3RhbXAgaXMgYWZ0ZXIgcnRvX3RpbWVfc3RhbXAsIGl0IHdp
+bGwgcmVzZXQgdGhlIFRMUCB0aW1lb3V0DQo+ID4gd2l0aCBkZWx0YSB2YWx1ZSwgd2hpY2ggaXMg
+YmVmb3JlIHByZXZpb3VzIFJUTyB0aW1lb3V0LCBzbyBQVE8gaXMNCj4gPiByZWFybSBhbmQgcHJl
+dmlvdXMgUlRPIGlzIGNsZWFyZWQuIFRoaXMgVExQIHByb2JlIGFsc28gY2FuJ3QgYmUgc2VudA0K
+PiA+IG91dCBiZWNhdXNlIG9mIHRwLT50bHBfaGlnaF9zZXEgIT0gMCwgc28gdGhlcmUgaXMgbm8g
+d2F5KG9yIG5lZWQgdmVyeQ0KPiA+IGxvbmcgdGltZSl0byByZXRyYW5zbWl0IHRoZSBwYWNrZXQg
+YmVjYXVzZSBvZiBUTFAgQSBpcyBsb3N0Lg0KPiA+DQo+ID4gVGhpcyBmaXggaXMgbm90IHRvIHBh
+c3MgdGhlIGlmKHRwLT50bHBfaGlnaF9zZXEpIGluDQo+ID4gdGNwX3NjaGVkdWxlX2xvc3NfcHJv
+YmUoKSB3aGVuIFRMUCBQVE8gaXMgYWZ0ZXIgUlRPLCBJdCBpcyBubyBuZWVkIHRvDQo+ID4gcmVz
+Y2hlZHVsZSBQVE8gd2hlbiB0aGVyZSBpcyBvbmUgb3V0c3RhbmRpbmcgVExQIHJldHJhbnNtaXNz
+aW9uLCBzbyBpZg0KPiA+IHRoZSBUTFAgQSBpcyBsb3N0IHRoZW4gUlRPIGNhbiByZXRyYW5zbWl0
+IHRoYXQgcGFja2V0LCBhbmQNCj4gPiB0cC0+dGxwX2hpZ2hfc2VxIHdpbGwgYmUgc2V0IHRvIDAu
+IEFmdGVyIHRoaXMgVExQIHdpbGwgZ28gdG8gdGhlIG5vcm1hbCB3b3JrDQo+IHByb2Nlc3MuDQo+
+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBNYW8gV2VuYW4gPG1hb3dlbmFuQGh1YXdlaS5jb20+DQo+
+ID4gLS0tDQo+ID4gICBuZXQvaXB2NC90Y3Bfb3V0cHV0LmMgfCA0ICsrKysNCj4gPiAgIDEgZmls
+ZSBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9uZXQvaXB2
+NC90Y3Bfb3V0cHV0LmMgYi9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMgaW5kZXgNCj4gPiA4ODZkODc0
+Li4wYzhkYTFjIDEwMDY0NA0KPiA+IC0tLSBhL25ldC9pcHY0L3RjcF9vdXRwdXQuYw0KPiA+ICsr
+KyBiL25ldC9pcHY0L3RjcF9vdXRwdXQuYw0KPiA+IEBAIC0yNDIzLDYgKzI0MjMsMTAgQEAgYm9v
+bCB0Y3Bfc2NoZWR1bGVfbG9zc19wcm9iZShzdHJ1Y3Qgc29jayAqc2spDQo+ID4gICAJdGxwX3Rp
+bWVfc3RhbXAgPSB0Y3BfamlmZmllczMyICsgdGltZW91dDsNCj4gPiAgIAlydG9fdGltZV9zdGFt
+cCA9ICh1MzIpaW5ldF9jc2soc2spLT5pY3NrX3RpbWVvdXQ7DQo+ID4gICAJaWYgKChzMzIpKHRs
+cF90aW1lX3N0YW1wIC0gcnRvX3RpbWVfc3RhbXApID4gMCkgew0KPiA+ICsJCS8qSXQgaXMgbm8g
+bmVlZCB0byByZXNjaGVkdWxlIFBUTyB3aGVuIHRoZXJlIGlzIG9uZSBvdXRzdGFuZGluZyBUTFAN
+Cj4gPiArcmV0cmFuc21pc3Npb24qLw0KPiANCj4gICAgIFBsZWFzZSBhZGQgc3BhY2UgYWZ0ZXIg
+LyogYW5kIGJlZm9yZSAqLw0KT2ssIHRoYW5rIHlvdS4NCj4gDQo+ID4gKwkJaWYgKHRwLT50bHBf
+aGlnaF9zZXEpIHsNCj4gPiArCQkJcmV0dXJuIGZhbHNlOw0KPiA+ICsJCX0NCj4gDQo+ICAgICB7
+fSBub3QgbmVlZGVkLg0KT2ssIEkgd2lsbCBzZW5kIHRoZSBWMi4NCg0KPiANCj4gWy4uLl0NCj4g
+DQo+IE1CUiwgU2VyZ2VpDQo=
