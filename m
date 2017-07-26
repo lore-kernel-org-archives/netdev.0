@@ -1,71 +1,83 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH V2 3/4] net-next: dsa: fix flow dissection
-Date: Wed, 26 Jul 2017 17:10:13 +0200
-Message-ID: <20170726151013.GD12049@lunn.ch>
-References: <20170721085813.30789-1-john@phrozen.org>
- <20170721085813.30789-3-john@phrozen.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: John Crispin <john@phrozen.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 1/2] net: phy: rework Kconfig settings for MDIO_BUS
+Date: Wed, 26 Jul 2017 17:13:59 +0200
+Message-ID: <20170726151442.3913622-1-arnd@arndb.de>
+Cc: linux-kernel@vger.kernel.org,
+        Raviteja Garimella <raviteja.garimella@broadcom.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170721085813.30789-3-john@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 21, 2017 at 10:58:12AM +0200, John Crispin wrote:
-> RPS and probably other kernel features are currently broken on some if not
-> all DSA devices. The root cause of this is that skb_hash will call the
-> flow_dissector. At this point the skb still contains the magic switch header
-> and the skb->protocol field is not set up to the correct 802.3 value yet.
-> By the time the tag specific code is called, removing the header and
-> properly setting the protocol an invalid hash is already set. In the case
-> of the mt7530 this will result in all flows always having the same hash.
-> 
-> This patch makes the flow dissector honour the nh and protocol offset
-> defined by the dsa tag driver thus fixing dissection, hashing and RPS.
-> 
-> Signed-off-by: John Crispin <john@phrozen.org>
-> ---
->  net/core/flow_dissector.c | 12 ++++++++++++
->  1 file changed, 12 insertions(+)
-> 
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index fc5fc4594c90..1268ae75c3b3 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -4,6 +4,7 @@
->  #include <linux/ip.h>
->  #include <linux/ipv6.h>
->  #include <linux/if_vlan.h>
-> +#include <net/dsa.h>
->  #include <net/ip.h>
->  #include <net/ipv6.h>
->  #include <net/gre.h>
-> @@ -440,6 +441,17 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
->  			 skb->vlan_proto : skb->protocol;
->  		nhoff = skb_network_offset(skb);
->  		hlen = skb_headlen(skb);
-> +
-> +		if (unlikely(netdev_uses_dsa(skb->dev))) {
-> +			const struct dsa_device_ops *ops;
-> +			u8 *p = (u8 *)data;
-> +
-> +			ops = skb->dev->dsa_ptr->tag_ops;
-> +			if (ops->hash_proto_off)
-> +				proto = (u16)p[ops->hash_proto_off];
+I still see build errors in randconfig builds and have had this
+patch for a while to locally work around it:
 
-Hi John
+drivers/built-in.o: In function `xgene_mdio_probe':
+mux-core.c:(.text+0x352154): undefined reference to `of_mdiobus_register'
+mux-core.c:(.text+0x352168): undefined reference to `mdiobus_free'
+mux-core.c:(.text+0x3521c0): undefined reference to `mdiobus_alloc_size'
 
-Unfortunately, this is not generic enough to work for DSA and EDSA
-tagging. With these tagging protocols, the size of the tag depends on
-the presence or not of a VLAN header.
+The idea is that CONFIG_MDIO_BUS now reflects whether the mdio_bus
+code is built-in or a module, and other drivers that use the core
+code can simply depend on that, instead of having a complex
+dependency line.
 
-To make this work for all tagging protocols, we are going to need to
-add an a new op to tag_ops.
+Fixes: 90eff9096c01 ("net: phy: Allow splitting MDIO bus/device support from PHYs")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Submitted this version on June 22 2017 originally as RFC, resending
+for inclusion this time.
 
-    Andrew
+Who should pick up the two patches? I guess they could go either
+through netdev or the generic-phy tree, but they should stay together
+as a series.
+---
+ drivers/net/phy/Kconfig | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 2dda72004a7d..928fd892f167 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -7,7 +7,16 @@ menuconfig MDIO_DEVICE
+ 	help
+ 	   MDIO devices and driver infrastructure code.
+ 
+-if MDIO_DEVICE
++config MDIO_BUS
++	tristate
++	default m if PHYLIB=m
++	default MDIO_DEVICE
++	help
++	  This internal symbol is used for link time dependencies and it
++	  reflects whether the mdio_bus/mdio_device code is built as a
++	  loadable module or built-in.
++
++if MDIO_BUS
+ 
+ config MDIO_BCM_IPROC
+ 	tristate "Broadcom iProc MDIO bus controller"
+@@ -28,7 +37,6 @@ config MDIO_BCM_UNIMAC
+ 
+ config MDIO_BITBANG
+ 	tristate "Bitbanged MDIO buses"
+-	depends on !(MDIO_DEVICE=y && PHYLIB=m)
+ 	help
+ 	  This module implements the MDIO bus protocol in software,
+ 	  for use by low level drivers that export the ability to
+@@ -127,7 +135,6 @@ config MDIO_THUNDER
+ 	tristate "ThunderX SOCs MDIO buses"
+ 	depends on 64BIT
+ 	depends on PCI
+-	depends on !(MDIO_DEVICE=y && PHYLIB=m)
+ 	select MDIO_CAVIUM
+ 	help
+ 	  This driver supports the MDIO interfaces found on Cavium
+-- 
+2.9.0
