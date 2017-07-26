@@ -1,36 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH V2 net-next 20/21] net-next/hinic: Add ethtool and stats
-Date: Thu, 27 Jul 2017 00:33:27 +0200
-Message-ID: <20170726223327.GG7966@lunn.ch>
-References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
- <b66411dd204e8989f58e70bea8ae11d2cbe5cd1b.1500454998.git.aviad.krawczyk@huawei.com>
- <1500460074.25934.33.camel@perches.com>
- <9df7d969-6706-d702-a674-9207f5b1c3df@huawei.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC 07/13] net: phy: add I2C mdio bus
+Date: Wed, 26 Jul 2017 15:35:11 -0700
+Message-ID: <9e0332af-cc08-1452-2fd7-aaa112d85bf4@gmail.com>
+References: <20170725140138.GK31807@n2100.armlinux.org.uk>
+ <E1da0QW-0007Lg-BH@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        bc.y@huawei.com, victor.gissin@huawei.com, zhaochen6@huawei.com,
-        tony.qu@huawei.com
-To: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9df7d969-6706-d702-a674-9207f5b1c3df@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Russell King <rmk+kernel@arm.linux.org.uk>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:38046 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751022AbdGZWfQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 18:35:16 -0400
+Received: by mail-wr0-f194.google.com with SMTP id g32so5835881wrd.5
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 15:35:15 -0700 (PDT)
+In-Reply-To: <E1da0QW-0007Lg-BH@rmk-PC.armlinux.org.uk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 19, 2017 at 03:36:28PM +0300, Aviad Krawczyk wrote:
-> Hi Joe,
+On 07/25/2017 07:03 AM, Russell King wrote:
+> Add an I2C MDIO bus bridge library, to allow phylib to access PHYs which
+> are connected to an I2C bus instead of the more conventional MDIO bus.
+> Such PHYs can be found in SFP adapters and SFF modules.
 > 
-> I tried to be consistent with the comments before, that requested
-> that we will use dev_err exclude some special cases for use netif.
+> Since PHYs appear at I2C bus address 0x40..0x5f, and 0x50/0x51 are
+> reserved for SFP EEPROMs/diagnostics, we must not allow the MDIO bus
+> to access these I2C addresses.
 > 
-> We will replace the dev_err(&netdev->dev,.. to netdev_err in the
-> next fix.
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
-netdev_err() should be used when possible. You just have to be careful
-in the probe() function, before netdev exists and you get "(NULL
-net_device):" or before it is registered and you get "(unnamed
-net_device)" instead of "eth42" etc.
-
-	      Andrew
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
