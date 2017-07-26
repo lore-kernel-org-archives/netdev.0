@@ -1,81 +1,84 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [PATCH net-next] TLP: Don't reschedule PTO when there's one
- outstanding TLP retransmission.
-Date: Wed, 26 Jul 2017 02:12:29 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F202929B17@DGGEMI512-MBX.china.huawei.com>
-References: <1500971735-21852-1-git-send-email-maowenan@huawei.com>
- <CADVnQykr0YTB7YD=9n04bA8WFBQWku4qsPUZpqgKK6YGmd9xBA@mail.gmail.com>
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: Re: [PATCH net] net: dsa: Initialize ds->cpu_port_mask earlier
+Date: Wed, 26 Jul 2017 10:13:28 +0800
+Message-ID: <1501035208.27236.2.camel@mtkswgap22>
+References: <20170724174923.29156-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Chenweilong <chenweilong@huawei.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        "Nandita Dukkipati" <nanditad@google.com>,
-        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <andrew@lunn.ch>,
+        <vivien.didelot@savoirfairelinux.com>, <davem@davemloft.net>,
+        <linux-mediatek@lists.infradead.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([45.249.212.187]:10268 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751427AbdGZCMs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 22:12:48 -0400
-In-Reply-To: <CADVnQykr0YTB7YD=9n04bA8WFBQWku4qsPUZpqgKK6YGmd9xBA@mail.gmail.com>
-Content-Language: zh-CN
+Received: from mailgw01.mediatek.com ([210.61.82.183]:29446 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750885AbdGZCNd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 22:13:33 -0400
+In-Reply-To: <20170724174923.29156-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogTmVhbCBDYXJkd2VsbCBb
-bWFpbHRvOm5jYXJkd2VsbEBnb29nbGUuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBKdWx5IDI1LCAy
-MDE3IDk6MzAgUE0NCj4gVG86IG1hb3dlbmFuDQo+IENjOiBOZXRkZXY7IERhdmlkIE1pbGxlcjsg
-d2VpeW9uZ2p1biAoQSk7IENoZW53ZWlsb25nOyBZdWNodW5nIENoZW5nOw0KPiBOYW5kaXRhIER1
-a2tpcGF0aQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0XSBUTFA6IERvbid0IHJlc2No
-ZWR1bGUgUFRPIHdoZW4gdGhlcmUncyBvbmUNCj4gb3V0c3RhbmRpbmcgVExQIHJldHJhbnNtaXNz
-aW9uLg0KPiANCj4gT24gVHVlLCBKdWwgMjUsIDIwMTcgYXQgNDozNSBBTSwgTWFvIFdlbmFuIDxt
-YW93ZW5hbkBodWF3ZWkuY29tPg0KPiB3cm90ZToNCj4gPiBJZiB0aGVyZSBpcyBvbmUgVExQIHBy
-b2JlIHdlbnQgb3V0KFRMUCB1c2UgdGhlIHdyaXRlX3F1ZXVlX3RhaWwgcGFja2V0DQo+ID4gYXMg
-VExQIHByb2JlLCB3ZSBhc3N1bWUgdGhpcyBmaXJzdCBUTFAgcHJvYmUgbmFtZWQgQSksIGFuZCB0
-aGlzIFRMUA0KPiA+IHByb2JlIHdhcyBub3QgYWNrZWQgYnkgcmVjZWl2ZSBzaWRlLg0KPiA+DQo+
-ID4gVGhlbiB0aGUgdHJhbnNtaXQgc2lkZSBzZW50IHRoZSBuZXh0IHR3byBwYWNrZXRlcyBvdXQo
-bmFtZWQgQixDKSwgYnV0DQo+ID4gdW5mb3J0dW5hdGVseSB0aGVzZSB0d28gcGFja2V0cyBhcmUg
-YWxzbyBub3QgYWNrZWQgYnkgcmVjZWl2ZSBzaWRlLg0KPiA+DQo+ID4gQW5kIHRoZW4gdGhlcmUg
-aXMgb25lIGRhdGEgcGFja2V0IHdpdGggYWNrX3NlcSBBIGFycml2ZSwgaW4gdGNwX2FjaygpDQo+
-ID4gd2lsbCBjYWxsIHRjcF9zY2hlZHVsZV9sb3NzX3Byb2JlKCkgdG8gcmVhcm0gUFRPLCB0aGUg
-aGFuZGxlcg0KPiA+IHRjcF9zZW5kX2xvc3NfcHJvYmUoKSBwYXNzIGlmKHRwLT50bHBfaGlnaF9z
-ZXEpKGJlY2F1c2UgdGhlcmUgaXMgb25lDQo+ID4gb3V0c3RhbmRpbmcgVExQIG5hbWVkIEEsdHAt
-PnRscF9oaWdoX3NlcSBpcyBub3QgemVybyksIHNvIHRoZSBuZXcgVExQDQo+ID4gcHJvYmUgY2Fu
-J3QgYmUgd2VudCBvdXQgYW5kIG5lZWQgdG8gcmVhcm0gdGhlIFJUTyB0aW1lcih0aW1lb3V0IGlz
-DQo+ID4gcmVsYXRpdmUgdG8gdGhlIHRyYW5zbWl0IHRpbWUgb2YgdGhlIHdyaXRlIHF1ZXVlIGhl
-YWQpLg0KPiA+DQo+ID4gQWZ0ZXIgdGhpcywgYW5vdGhlciBkYXRhIHBhY2tldCB3aXRoIGFja19z
-ZXEgQSBpcyByZWNlaXZlZCwgaWYgdGhlDQo+ID4gdGxwX3RpbWVfc3RhbXAgaXMgYWZ0ZXIgcnRv
-X3RpbWVfc3RhbXAsIGl0IHdpbGwgcmVzZXQgdGhlIFRMUCB0aW1lb3V0DQo+ID4gd2l0aCBkZWx0
-YSB2YWx1ZSwgd2hpY2ggaXMgYmVmb3JlIHByZXZpb3VzIFJUTyB0aW1lb3V0LCBzbyBQVE8gaXMN
-Cj4gPiByZWFybSBhbmQgcHJldmlvdXMgUlRPIGlzIGNsZWFyZWQuIFRoaXMgVExQIHByb2JlIGFs
-c28gY2FuJ3QgYmUgc2VudA0KPiA+IG91dCBiZWNhdXNlIG9mIHRwLT50bHBfaGlnaF9zZXEgIT0g
-MCwgc28gdGhlcmUgaXMgbm8gd2F5KG9yIG5lZWQgdmVyeQ0KPiA+IGxvbmcgdGltZSl0byByZXRy
-YW5zbWl0IHRoZSBwYWNrZXQgYmVjYXVzZSBvZiBUTFAgQSBpcyBsb3N0Lg0KPiA+DQo+ID4gVGhp
-cyBmaXggaXMgbm90IHRvIHBhc3MgdGhlIGlmKHRwLT50bHBfaGlnaF9zZXEpIGluDQo+ID4gdGNw
-X3NjaGVkdWxlX2xvc3NfcHJvYmUoKSB3aGVuIFRMUCBQVE8gaXMgYWZ0ZXIgUlRPLCBJdCBpcyBu
-byBuZWVkIHRvDQo+ID4gcmVzY2hlZHVsZSBQVE8gd2hlbiB0aGVyZSBpcyBvbmUgb3V0c3RhbmRp
-bmcgVExQIHJldHJhbnNtaXNzaW9uLCBzbyBpZg0KPiA+IHRoZSBUTFAgQSBpcyBsb3N0IHRoZW4g
-UlRPIGNhbiByZXRyYW5zbWl0IHRoYXQgcGFja2V0LCBhbmQNCj4gPiB0cC0+dGxwX2hpZ2hfc2Vx
-IHdpbGwgYmUgc2V0IHRvIDAuIEFmdGVyIHRoaXMgVExQIHdpbGwgZ28gdG8gdGhlIG5vcm1hbCB3
-b3JrDQo+IHByb2Nlc3MuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBNYW8gV2VuYW4gPG1hb3dl
-bmFuQGh1YXdlaS5jb20+DQo+IA0KPiBUaGFua3MgZm9yIHBvc3RpbmcgdGhpcy4gVGhpcyBpcyBh
-IHByZXR0eSBpbnZvbHZlZCBzY2VuYXJpby4gVG8gaGVscA0KPiBkb2N1bWVudC90ZXN0IHByZWNp
-c2VseSB3aGF0IHRoZSBiZWhhdmlvciBpcyBiZWZvcmUgYW5kIGFmdGVyIHlvdXIgcGF0Y2gsDQo+
-IHdvdWxkIHlvdSBiZSBhYmxlIHRvIHBvc3QgYSBwYWNrZXRkcmlsbCAoIGh0dHBzOi8vZ2l0aHVi
-LmNvbS9nb29nbGUvcGFja2V0ZHJpbGwgKQ0KPiB0ZXN0IGNhc2UgZm9yIHRoaXMgc2NlbmFyaW8/
-DQo+IA0KPiBDYW4gSSBhc2sgaWYgeW91IHNhdyB0aGlzIHNjZW5hcmlvIGluIGFuIGFjdHVhbCB0
-cmFjZSwgb3Igbm90aWNlZCB0aGlzIGJ5DQo+IGluc3BlY3Rpb24/DQpbTWFvIFdlbmFuXSBJdCBp
-cyBteSBhY3R1YWwgcHJvZHVjdCBzY2VuYXJpbywgZnJvbSBzb21lIGRlYnVnIHRyYWNlIGluZm8g
-DQpJIGZvdW5kIHRoYXQgUFRPIGlzIGFsd2F5cyByZXNjaGVkdWxlZCBiZWZvcmUgUlRPLCB0aGlz
-IGlzIFBUTyBpcyB0cmlnZ2VkIA0KYnkgcmVjZWl2aW5nIG9uZSB0Y3BfYWNrIHBhY2tldHMuIEFm
-dGVyIHRoaXMgcGF0Y2gsIHRoZSBwcm9kdWN0IHdvcmtzIHdlbGwgYW5kIA0KdGhlcmUgaXMgbm8g
-cHJldmlvdXMgaXNzdWUgaGFwcGVuLiBUaGUgcGFja2V0IGNhbiByZXRyYW5zbWl0IHdpdGggUlRP
-IGlmIFRMUCBwcm9iZSANCmlzIGxvc3QuIA0KSSB3aWxsIHNheSBzb3JyeSB0aGF0IG15IGxvY2Fs
-IHRlc3QgY2FuJ3QgcmVwcm9kdWNlIGJlY2F1c2UgaSBjYW4ndCBidWlsZCBzdWNjZXNzZnVsbHkg
-dGhlIHNhbWUgDQpjb21wbGV4IHNjZW5hcmlvLCBJIGRvbid0IGhhdmUgbWF0dXJlIHRlc3QgY2Fz
-ZSB0byByZXByb2R1Y2Ugbm93IGJ1dCBJIHdpbGwgZG8gbXkgYmVzdCB0byB0cnkNCmluIGxvY2Fs
-IHRlc3QgZW52aXJvbm1lbnQuIA0KVGhhbmsgeW91Lg0KPiANCj4gdGhhbmtzLA0KPiBuZWFsDQo=
+Hi, Florian
+
+the solution is better and also can fix the problem I originally
+reported. Thank for your immediate help :-)
+
+Sean
+
+
+On Mon, 2017-07-24 at 10:49 -0700, Florian Fainelli wrote:
+> The mt7530 driver has its dsa_switch_ops::get_tag_protocol function
+> check ds->cpu_port_mask to issue a warning in case the configured CPU
+> port is not capable of supporting tags.
+> 
+> After commit 14be36c2c96c ("net: dsa: Initialize all CPU and enabled
+> ports masks in dsa_ds_parse()") we slightly re-arranged the
+> initialization such that this was no longer working. Just make sure that
+> ds->cpu_port_mask is set prior to the first call to get_tag_protocol,
+> thus restoring the expected contract. In case of error, the CPU port bit
+> is cleared.
+> 
+> Fixes: 14be36c2c96c ("net: dsa: Initialize all CPU and enabled ports masks in dsa_ds_parse()")
+> Reported-by: Sean Wang <sean.wang@mediatek.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+> Sean, can you check this does fix the problem you originally reported
+> correctly for you? Thanks!
+> 
+>  net/dsa/dsa2.c | 13 +++++++------
+>  1 file changed, 7 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+> index 56e46090526b..c442051d5a55 100644
+> --- a/net/dsa/dsa2.c
+> +++ b/net/dsa/dsa2.c
+> @@ -509,21 +509,22 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
+>  		dst->cpu_dp->netdev = ethernet_dev;
+>  	}
+>  
+> +	/* Initialize cpu_port_mask now for drv->setup()
+> +	 * to have access to a correct value, just like what
+> +	 * net/dsa/dsa.c::dsa_switch_setup_one does.
+> +	 */
+> +	ds->cpu_port_mask |= BIT(index);
+> +
+>  	tag_protocol = ds->ops->get_tag_protocol(ds);
+>  	dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
+>  	if (IS_ERR(dst->tag_ops)) {
+>  		dev_warn(ds->dev, "No tagger for this switch\n");
+> +		ds->cpu_port_mask &= ~BIT(index);
+>  		return PTR_ERR(dst->tag_ops);
+>  	}
+>  
+>  	dst->rcv = dst->tag_ops->rcv;
+>  
+> -	/* Initialize cpu_port_mask now for drv->setup()
+> -	 * to have access to a correct value, just like what
+> -	 * net/dsa/dsa.c::dsa_switch_setup_one does.
+> -	 */
+> -	ds->cpu_port_mask |= BIT(index);
+> -
+>  	return 0;
+>  }
+>  
