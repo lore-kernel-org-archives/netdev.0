@@ -1,127 +1,122 @@
-From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
- fixed transceiver bindings
-Date: Wed, 26 Jul 2017 13:29:19 -0500
-Message-ID: <a77fe395-33c7-9405-b51a-5d3372e5c58b@ti.com>
-References: <20170724230521.1436-1-fcooper@ti.com>
- <20170724230521.1436-3-fcooper@ti.com> <20170726164124.GL12049@lunn.ch>
- <355b90b3-97ce-1057-6617-d5d709449c48@hartkopp.net>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: TCP fast retransmit issues
+Date: Wed, 26 Jul 2017 14:38:18 -0400
+Message-ID: <CADVnQynR8dUuUBDfeFR2xpL-wKzd+7TgbMv-CXe3TT-T0_PXyQ@mail.gmail.com>
+References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk> <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk> <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170726134242.GB1737@1wt.eu> <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170726145059.GE1737@1wt.eu> <CADVnQymKZAc+SFD7X-FoP9UwHgB2MBCY48=dL8mH6XuKumkx4g@mail.gmail.com>
+ <CADVnQykEX-LzhsqyfHNmV6fF9-d_2R0v+mOX-PnyagUhC1qQzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        <dev.kurt-yI9piX4KPfawT/RRk36CISFp6vIno51x@public.gmane.org>,
-        <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <355b90b3-97ce-1057-6617-d5d709449c48-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="001a11c160b63e96a505553cc24b"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Klavs Klavsen <kl@vsen.dk>,
+        Netdev <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:33330 "EHLO
+        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750925AbdGZSit (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 14:38:49 -0400
+Received: by mail-oi0-f47.google.com with SMTP id a9so87575434oih.0
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 11:38:49 -0700 (PDT)
+In-Reply-To: <CADVnQykEX-LzhsqyfHNmV6fF9-d_2R0v+mOX-PnyagUhC1qQzQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+--001a11c160b63e96a505553cc24b
+Content-Type: text/plain; charset="UTF-8"
 
+On Wed, Jul 26, 2017 at 1:06 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> On Wed, Jul 26, 2017 at 12:43 PM, Neal Cardwell <ncardwell@google.com> wrote:
+>> (2) It looks like there is a bug in the sender code where it seems to
+>> be repeatedly using a TLP timer firing 211ms after every ACK is
+>> received to transmit another TLP probe (a new packet in this case).
+>> Somehow these weird invalid SACKs seem to be triggering a code path
+>> that makes us think we can send another TLP, when we probably should
+>> be firing an RTO. That's my interpretation, anyway. I will try to
+>> reproduce this with packetdrill.
+>
+> Hmm. It looks like this might be a general issue, where any time we
+> get an ACK that doesn't ACK/SACK anything new (whether because it's
+> incoming data in a bi-directional flow, or a middlebox breaking the
+> SACKs), then we schedule a TLP timer further out in time. Probably we
+> should only push the TLP timer out if something is cumulatively ACKed.
+>
+> But that's not a trivial thing to do, because by the time we are
+> deciding whether to schedule another TLP, we have already canceled the
+> previous TLP and reinstalled an RTO. Hmm.
 
-On 07/26/2017 12:05 PM, Oliver Hartkopp wrote:
-> On 07/26/2017 06:41 PM, Andrew Lunn wrote:
->> On Mon, Jul 24, 2017 at 06:05:19PM -0500, Franklin S Cooper Jr wrote:
-> 
->>> +
->>> +Optional:
->>> + max-arbitration-speed: a positive non 0 value that determines the max
->>> +            speed that CAN can run in non CAN-FD mode or during the
->>> +            arbitration phase in CAN-FD mode.
->>
->> Hi Franklin
->>
->> Since this and the next property are optional, it is good to document
->> what happens when they are not in the DT blob. Also document what 0
->> means.
+Yeah, it looks like I can reproduce this issue with (1) bad sacks
+causing repeated TLPs, and (2) TLPs timers being pushed out to later
+times due to incoming data. Scripts are attached.
 
-The driver ignores values less than 0 with the exception being
-max-data-speed which supports a value of -1. Not sure what I'm
-documenting when the binding specifically says to use a positive non
-zero value. Its the same reason I don't document what happens if you
-give it a negative value.
+neal
 
->>
->>> +
->>> + max-data-speed:    a positive non 0 value that determines the max
->>> data rate
->>> +            that can be used in CAN-FD mode. A value of -1 implies
->>> +            CAN-FD is not supported by the transceiver.
->>
->> -1 is ugly. I think it would be better to have a missing
->> max-data-speed property indicate that CAN-FD is not supported.
-> 
+--001a11c160b63e96a505553cc24b
+Content-Type: application/octet-stream; name="tlp-bad-sacks.pkt"
+Content-Disposition: attachment; filename="tlp-bad-sacks.pkt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j5lcs5xx0
 
-Although this leads to your later point I don't think this is the right
-approach. Its an optional property. Not including the property should
-not assume it isn't supported.
+Ly8gVGVzdCBmb3IgVExQIGJlaGF2aW9yIHdoZW4gYWxsIFNBQ0tzIHRoYXQgY29tZSBiYWNrIGFy
+ZSBpbnZhbGlkCi8vIChlLmcuIGJlY2F1c2Ugb2YgYSBtaWRkbGVib3gpLgovLyAoT29wcy4uLiBp
+dCBzZWVtcyBpbnZhbGlkIFNBQ0tzIGNhbiBjYXVzZSB1cyB0byBzZW5kIFRMUHMgZm9yZXZlci4p
+CgovLyBTZXQgdXAgcHJvZHVjdGlvbiBjb25maWcuCmAuLi9jb21tb24vZGVmYXVsdHMuc2hgCgov
+LyBFc3RhYmxpc2ggYSBjb25uZWN0aW9uLgowICAgICBzb2NrZXQoLi4uLCBTT0NLX1NUUkVBTSwg
+SVBQUk9UT19UQ1ApID0gMworMCAgICBzZXRzb2Nrb3B0KDMsIFNPTF9TT0NLRVQsIFNPX1JFVVNF
+QUREUiwgWzFdLCA0KSA9IDAKKzAgICAgYmluZCgzLCAuLi4sIC4uLikgPSAwCiswICAgIGxpc3Rl
+bigzLCAxKSA9IDAKCiswICAgIDwgUyAwOjAoMCkgd2luIDMyNzkyIDxtc3MgMTAwMCxzYWNrT0ss
+bm9wLG5vcCxub3Asd3NjYWxlIDc+CiswICAgID4gUy4gMDowKDApIGFjayAxIDxtc3MgMTQ2MCxu
+b3Asbm9wLHNhY2tPSyxub3Asd3NjYWxlIDg+CisuMDIwIDwgLiAxOjEoMCkgYWNrIDEgd2luIDI1
+NworMCAgICBhY2NlcHQoMywgLi4uLCAuLi4pID0gNAoKLy8gU2VuZCAxMCBNU1MuCiswICAgIHdy
+aXRlKDQsIC4uLiwgMjAwMDApID0gMjAwMDAKKzAgICAgPiAuIDE6MTAwMDEoMTAwMDApIGFjayAx
+CgovLyBGaXJzdCByb3VuZDoKCi8vIEFuIEFDSyBhcnJpdmVzIHdpdGggYSBib2d1cyBTQUNLLgor
+LjAyMCA8IC4gMToxKDApIGFjayAxIHdpbiAyNTcgPHNhY2sgMTAwMDAwMDAwMToxMDAwMDAxMDAx
+LG5vcCxub3A+CgovLyBBdCAyKlJUVCwgc2VuZCBhIFRMUCBsb3NzIHByb2JlIHRoYXQgaXMgYSBu
+ZXcgcGFja2V0LgorLjA0MCA+IC4gMTAwMDE6MTEwMDEoMTAwMCkgYWNrIDEKICAgKzAgJXsKYXNz
+ZXJ0IHRjcGlfc25kX2N3bmQgPT0gMTAsIHRjcGlfc25kX2N3bmQKYXNzZXJ0IHRjcGlfdW5hY2tl
+ZCA9PSAxMSwgdGNwaV91bmFja2VkCn0lCgovLyBTZWNvbmQgcm91bmQgKHNhbWUgYXMgdGhlIGZp
+cnN0KToKCi8vIEFuIEFDSyBhcnJpdmVzIHdpdGggYW5vdGhlciBib2d1cyBTQUNLLgorLjAyMCA8
+IC4gMToxKDApIGFjayAxIHdpbiAyNTcgPHNhY2sgMTAwMDAwMDAwMToxMDAwMDAyMDAxLG5vcCxu
+b3A+CgovLyBBdCAyKlJUVCwgc2VuZCBhIFRMUCBsb3NzIHByb2JlIHRoYXQgaXMgYSBuZXcgcGFj
+a2V0LgorLjA0MCA+IC4gMTEwMDE6MTIwMDEoMTAwMCkgYWNrIDEKICAgKzAgJXsKYXNzZXJ0IHRj
+cGlfc25kX2N3bmQgPT0gMTAsIHRjcGlfc25kX2N3bmQKYXNzZXJ0IHRjcGlfdW5hY2tlZCA9PSAx
+MiwgdGNwaV91bmFja2VkCn0lCgovLyBUaGlyZCByb3VuZCAoc2FtZSBhcyB0aGUgZmlyc3QpOgoK
+Ly8gQW4gQUNLIGFycml2ZXMgd2l0aCBhbm90aGVyIGJvZ3VzIFNBQ0suCisuMDIwIDwgLiAxOjEo
+MCkgYWNrIDEgd2luIDI1NyA8c2FjayAxMDAwMDAwMDAxOjEwMDAwMDMwMDEsbm9wLG5vcD4KCi8v
+IEF0IDIqUlRULCBzZW5kIGEgVExQIGxvc3MgcHJvYmUgdGhhdCBpcyBhIG5ldyBwYWNrZXQuCisu
+MDQwID4gLiAxMjAwMToxMzAwMSgxMDAwKSBhY2sgMQogICArMCAlewphc3NlcnQgdGNwaV9zbmRf
+Y3duZCA9PSAxMCwgdGNwaV9zbmRfY3duZAphc3NlcnQgdGNwaV91bmFja2VkID09IDEzLCB0Y3Bp
+X3VuYWNrZWQKfSUK
+--001a11c160b63e96a505553cc24b
+Content-Type: application/octet-stream; name="tlp-bidirectional.pkt"
+Content-Disposition: attachment; filename="tlp-bidirectional.pkt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j5lcs9w91
 
-> Thanks Andrew! I had the same feeling about '-1' :-)
-
-Ok I'll go back to having 0 = not supported. Which will handle the
-documentation comment above.
-
-> 
->> And
->> maybe put 'fd' into the property name.
-> 
-> Good point. In fact the common naming to set bitrates for CAN(FD)
-> controllers are 'bitrate' and 'data bitrate'.
-> 
-> 'speed' is not really a good word for that.
-
-I'm fine with switching to using bitrate instead of speed. Kurk was
-originally the one that suggested to use the term arbitration and data
-since thats how the spec refers to it. Which I do agree with. But your
-right that in the drivers (struct can_priv) we just use bittiming and
-data_bittiming (CAN-FD timings). I don't think adding "fd" into the
-property name makes sense unless we are calling it something like
-"max-canfd-bitrate" which I would agree is the easiest to understand.
-
-So what is the preference if we end up sticking with two properties?
-Option 1 or 2?
-
-1)
-max-bitrate
-max-data-bitrate
-
-2)
-max-bitrate
-max-canfd-bitrate
-
-
-
-> 
-> Finally, @Franklin:
-> 
-> A CAN transceiver is limited in bandwidth. But you only have one RX and
-> one TX line between the CAN controller and the CAN transceiver. The
-> transceiver does not know about CAN FD - it has just a physical(!) layer
-> with a limited bandwidth. This is ONE limitation.
-> 
-> So I tend to specify only ONE 'max-bitrate' property for the
-> fixed-transceiver binding.
-> 
-> The fact whether the CAN controller is CAN FD capable or not is provided
-> by the netlink configuration interface for CAN controllers.
-
-Part of the reasoning to have two properties is to indicate that you
-don't support CAN FD while limiting the "arbitration" bit rate. With one
-property you can not determine this and end up having to make some
-assumptions that can quickly end up biting people.
-
-
-
-> 
-> Regards,
-> Oliver
-> 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ly8gVGVzdCBmb3IgVExQIGJlaGF2aW9yIHdpdGggYmktZGlyZWN0aW9uYWwgdHJhZmZpYyAoaW5j
+b21pbmcgZGF0YSkuCi8vIE1ha2Ugc3VyZSB0aGF0IGluY29taW5nIGRhdGEgZG9lcyBub3QgcHVz
+aCBiYWNrIHRoZSBUTFAgdGltZXIuCi8vIChPb3BzLi4uIGN1cnJlbnRseSBpdCBkb2VzIHNlZW0g
+dGhhdCBpbmNvbWluZyBkYXRhIHB1c2hlcyBiYWNrCi8vIHRoZSBUTFAgdGltZXIuKQoKLy8gU2V0
+IHVwIHByb2R1Y3Rpb24gY29uZmlnLgpgLi4vY29tbW9uL2RlZmF1bHRzLnNoYAoKLy8gRXN0YWJs
+aXNoIGEgY29ubmVjdGlvbi4KMCAgICAgc29ja2V0KC4uLiwgU09DS19TVFJFQU0sIElQUFJPVE9f
+VENQKSA9IDMKKzAgICAgc2V0c29ja29wdCgzLCBTT0xfU09DS0VULCBTT19SRVVTRUFERFIsIFsx
+XSwgNCkgPSAwCiswICAgIGJpbmQoMywgLi4uLCAuLi4pID0gMAorMCAgICBsaXN0ZW4oMywgMSkg
+PSAwCgorMCAgICA8IFMgMDowKDApIHdpbiAzMjc5MiA8bXNzIDEwMDAsc2Fja09LLG5vcCxub3As
+bm9wLHdzY2FsZSA3PgorMCAgICA+IFMuIDA6MCgwKSBhY2sgMSA8bXNzIDE0NjAsbm9wLG5vcCxz
+YWNrT0ssbm9wLHdzY2FsZSA4PgorLjAyMCA8IC4gMToxKDApIGFjayAxIHdpbiAyNTcKKzAgICAg
+YWNjZXB0KDMsIC4uLiwgLi4uKSA9IDQKCi8vIFNlbmQgMTAgTVNTLgorMCAgICB3cml0ZSg0LCAu
+Li4sIDIwMDAwKSA9IDIwMDAwCiswICAgID4gLiAxOjEwMDAxKDEwMDAwKSBhY2sgMQoKLy8gSW5j
+b21pbmcgZGF0YSBhcnJpdmVzCisuMDEwIDwgLiAxOjEwMDEoMTAwMCkgYWNrIDEgd2luIDI1Nwor
+MCAgICA+IC4gMTAwMDE6MTAwMDEoMCkgYWNrIDEwMDEKCisuMDEwIDwgLiAxMDAxOjIwMDEoMTAw
+MCkgYWNrIDEgd2luIDI1NworMCAgICA+IC4gMTAwMDE6MTAwMDEoMCkgYWNrIDIwMDEKCisuMDEw
+IDwgLiAyMDAxOjMwMDEoMTAwMCkgYWNrIDEgd2luIDI1NworMCAgICA+IC4gMTAwMDE6MTAwMDEo
+MCkgYWNrIDMwMDEKCisuMDEwIDwgLiAzMDAxOjQwMDEoMTAwMCkgYWNrIDEgd2luIDI1NworMCAg
+ICA+IC4gMTAwMDE6MTAwMDEoMCkgYWNrIDQwMDEKCi8vIEF0IDIqUlRUIGFmdGVyIHRoZSBsYXN0
+IHRyYW5zbWl0LCBzZW5kIGEgVExQIGxvc3MgcHJvYmUKLy8gdGhhdCBpcyBhIG5ldyBwYWNrZXQu
+CisuMDMyID4gLiAxMDAwMToxMTAwMSgxMDAwKSBhY2sgNDAwMQogICArMCAlewphc3NlcnQgdGNw
+aV9zbmRfY3duZCA9PSAxMCwgdGNwaV9zbmRfY3duZAphc3NlcnQgdGNwaV91bmFja2VkID09IDEx
+LCB0Y3BpX3VuYWNrZWQKfSUK
+--001a11c160b63e96a505553cc24b--
