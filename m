@@ -1,66 +1,65 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: fix the check for _sctp_walk_params and _sctp_walk_errors
-Date: Wed, 26 Jul 2017 16:24:59 +0800
-Message-ID: <81a6fb647ad305525c840eae623c41b7ba52c975.1501057499.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>, glider@google.com
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: After a while of system running no incoming UDP any more?
+Date: Wed, 26 Jul 2017 10:33:04 +0200
+Message-ID: <1501057984.4993.1.camel@redhat.com>
+References: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
+         <1500905950.2458.6.camel@redhat.com>
+         <20170725115745.bbguoecrcsfhbm7f@torres.zugschlus.de>
+         <1500985072.13149.4.camel@redhat.com>
+         <20170726081047.562anntu5uhwirze@torres.zugschlus.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Marc Haber <mh+netdev@zugschlus.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:37235 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750816AbdGZIZI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 04:25:08 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:54860 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751574AbdGZIdG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 04:33:06 -0400
+In-Reply-To: <20170726081047.562anntu5uhwirze@torres.zugschlus.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit b1f5bfc27a19 ("sctp: don't dereference ptr before leaving
-_sctp_walk_{params, errors}()") tried to fix the issue that it
-may overstep the chunk end for _sctp_walk_{params, errors} with
-'chunk_end > offset(length) + sizeof(length)'.
+On Wed, 2017-07-26 at 10:10 +0200, Marc Haber wrote:
+> On Tue, Jul 25, 2017 at 02:17:52PM +0200, Paolo Abeni wrote:
+> > On Tue, 2017-07-25 at 13:57 +0200, Marc Haber wrote:
+> > > On Mon, Jul 24, 2017 at 04:19:10PM +0200, Paolo Abeni wrote:
+> > > > Once that a system enter the buggy status, do the packets reach the
+> > > > relevant socket's queue?
+> > > > 
+> > > > ss -u
+> > > 
+> > > That one only shows table headers on an unaffected system in normal
+> > > operation, right?
+> > 
+> > This one shows the current lenght of the socket receive queue (Recv-Q,
+> > the first column). If the packets land into the skbuff (and the user
+> > space reader for some reason is not woken up) such value will grow over
+> > time.
+> 
+> Only that there is no value:
+> [4/4992]mh@swivel:~ $ ss -u
+> Recv-Q Send-Q Local Address:Port                 Peer Address:Port              
+> [5/4992]mh@swivel:~ $
+> 
+> (is that the intended behavior on a system thiat is not affected by the
+> issue?)
 
-But it introduced a side effect: When processing INIT, it verifies
-the chunks with 'param.v == chunk_end' after iterating all params
-by sctp_walk_params(). With the check 'chunk_end > offset(length)
-+ sizeof(length)', it would return when the last param is not yet
-accessed. Because the last param usually is fwdtsn supported param
-whose size is 4 and 'chunk_end == offset(length) + sizeof(length)'
+That means there are no open UDP connected sockets in the system at the
+moment you  run ss -u. I forgot to specify you must add also the '-a'
+command line option to the 'ss' tool to show all udp sockets regardless
+theis state:
 
-This is a badly issue even causing sctp couldn't process 4-shakes.
-Client would always get abort when connecting to server, due to
-the failure of INIT chunk verification on server.
+ss -ua
 
-The patch is to use 'chunk_end <= offset(length) + sizeof(length)'
-instead of 'chunk_end < offset(length) + sizeof(length)' for both
-_sctp_walk_params and _sctp_walk_errors.
+Anyway this issue looks quite similar to:
 
-Fixes: b1f5bfc27a19 ("sctp: don't dereference ptr before leaving _sctp_walk_{params, errors}()")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/net/sctp/sctp.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+https://bugzilla.kernel.org/show_bug.cgi?id=196469
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 980807d..45fd4c6 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -469,7 +469,7 @@ _sctp_walk_params((pos), (chunk), ntohs((chunk)->chunk_hdr.length), member)
- 
- #define _sctp_walk_params(pos, chunk, end, member)\
- for (pos.v = chunk->member;\
--     (pos.v + offsetof(struct sctp_paramhdr, length) + sizeof(pos.p->length) <\
-+     (pos.v + offsetof(struct sctp_paramhdr, length) + sizeof(pos.p->length) <=\
-       (void *)chunk + end) &&\
-      pos.v <= (void *)chunk + end - ntohs(pos.p->length) &&\
-      ntohs(pos.p->length) >= sizeof(struct sctp_paramhdr);\
-@@ -481,7 +481,7 @@ _sctp_walk_errors((err), (chunk_hdr), ntohs((chunk_hdr)->length))
- #define _sctp_walk_errors(err, chunk_hdr, end)\
- for (err = (sctp_errhdr_t *)((void *)chunk_hdr + \
- 	    sizeof(struct sctp_chunkhdr));\
--     ((void *)err + offsetof(sctp_errhdr_t, length) + sizeof(err->length) <\
-+     ((void *)err + offsetof(sctp_errhdr_t, length) + sizeof(err->length) <=\
-       (void *)chunk_hdr + end) &&\
-      (void *)err <= (void *)chunk_hdr + end - ntohs(err->length) &&\
-      ntohs(err->length) >= sizeof(sctp_errhdr_t); \
--- 
-2.1.0
+Which contains some more information. I suggest to follow-up on such
+bz.
+
+Cheers,
+
+Paolo
