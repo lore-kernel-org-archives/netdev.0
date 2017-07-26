@@ -1,7 +1,7 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
 Subject: Re: [PATCH v2 00/10] Constify attribute_group structures
-Date: Wed, 26 Jul 2017 12:05:16 +0530
-Message-ID: <9af8fd47-ca11-1308-d526-e08eb7998d85@gmail.com>
+Date: Wed, 26 Jul 2017 12:06:09 +0530
+Message-ID: <4242536c-4888-e119-f95c-6d8a5413cdd1@gmail.com>
 References: <1499758370-24871-1-git-send-email-arvind.yadav.cs@gmail.com>
  <87fudkiskz.fsf@codeaurora.org>
 Mime-Version: 1.0
@@ -38,6 +38,7 @@ On Tuesday 25 July 2017 06:25 PM, Kalle Valo wrote:
 > Via which tree were you planning to push these? Is it ok if I take the
 > wireless patches to my tree?
 >
-I have push these changes to linux-branch. you can take this to your branch.
+I have push these changes to linux-next branch. you can take this to 
+your branch.
 
 ~arvind
