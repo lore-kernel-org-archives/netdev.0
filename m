@@ -1,42 +1,60 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: TCP fast retransmit issues
-Date: Wed, 26 Jul 2017 16:38:27 +0200
-Message-ID: <20170726143827.GD1737@1wt.eu>
-References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk>
- <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
- <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk>
- <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
- <fd335e0a0c914b9c42a754da2d24b1c3@vsen.dk>
- <20170726141847.GC1737@1wt.eu>
- <0b60368890bdb9aa1cf1df4bd0bf21cf@vsen.dk>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: lan9303: Fixed MDIO interface
+Date: Wed, 26 Jul 2017 16:50:16 +0200
+Message-ID: <d3fc8c2e-6fba-78b6-ca27-2535de600279@egil-hjelmeland.no>
+References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
+ <20170725161553.30147-2-privat@egil-hjelmeland.no>
+ <878tjc49bl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <87999a6c-4ea8-ba4c-e2db-cdb37c1c8c8a@egil-hjelmeland.no>
+ <87lgnbgtiq.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Klavs Klavsen <kl@vsen.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:34242 "EHLO 1wt.eu"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751772AbdGZOia (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Jul 2017 10:38:30 -0400
-Content-Disposition: inline
-In-Reply-To: <0b60368890bdb9aa1cf1df4bd0bf21cf@vsen.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        corbet@lwn.net, andrew@lunn.ch, f.fainelli@gmail.com,
+        davem@davemloft.net, kernel@pengutronix.de,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87lgnbgtiq.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 26, 2017 at 04:25:29PM +0200, Klavs Klavsen wrote:
-> Thank you very much guys for your insight.. its highly appreciated.
+On 26. juli 2017 16:30, Vivien Didelot wrote:
+> Hi Egil,
 > 
-> Next up for me, is waiting till the network guys come back from summer
-> vacation, and convince them to sniff on the devices in between to pinpoint
-> the culprit :)
+> Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
+> 
+>>> I'd suggest you to split up this one commit in several *atomic* and easy
+>>> to review patches and send them separately as on thread named "net: dsa:
+>>> lan9303: fix MDIO interface" (also note that imperative is prefered for
+>>> subject lines, see: https://chris.beams.io/posts/git-commit/#imperative)
+>>
+>> I can split the first patch.
+>>
+>> I can also split the patch series to more digestible series. But
+>> since most of the patches touches the same file, I assume that each
+>> series must be completed and applied before starting on a new one.
+>> So I really want to group the patches into only a few series in order
+>> to not spend months on the process.
+> 
+> I understand. But believe me, your patches are very likely to land
+> mainline faster if you send them in small chunks. This might not be true
+> for every subsystems, but netdev is very responsive. This is even more
+> true since this series has no-no (such as the sysfs entries) which
+> guarantees the whole patch series to be rejected.
+> 
+> Sending portions of your local work branch then rebase it against
+> net-next/master is a usual development process.
+> 
+> 
+> Thanks,
+> 
+>          Vivien
+> 
 
-That said, Eric, I'm a bit surprized that it completely stalls. Shouldn't
-the sender end up retransmitting unacked segments after seeing a certain
-number of ACKs not making progress ? Or maybe this is disabled when SACKs
-are in use but it seems to me that once invalid SACKs are ignored we should
-ideally fall back to the normal way to deal with losses. Here the server
-ACKed 3903858556 for the first time at 15:59:54.292743 and repeated this
-one 850 times till 16:01:17.296407 but the client kept sending past this
-point probably due to a huge window, so this looks suboptimal to me.
+Thank you for the advice. I got some other NMIs today that I have to
+serve. Hope to come back with MDIO patch series soon.
 
-Willy
+Egil
