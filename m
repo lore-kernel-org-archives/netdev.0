@@ -1,119 +1,132 @@
-From: <momofr@free.fr>
-Subject: (unknown)
-Date: Wed, 26 Jul 2017 12:48:42 -0000
-Message-ID: <150107332251.2160.3905255490820729980@telkomsa.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] Revert "vhost: cache used event for better
+	performance"
+Date: Wed, 26 Jul 2017 15:57:23 +0300
+Message-ID: <20170726155435-mutt-send-email-mst@kernel.org>
+References: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_632952_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 105-185-15-134.apn.mobile.telkomsa.net ([105.185.15.134]:56760
-        "HELO telkomsa.net" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751697AbdGZMsv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 08:48:51 -0400
-Subject: 
-Content-Disposition: attachment
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-UEsDBAoAAAAAAKxk+krwF+/zsBUAALAVAAAJAAAAMjUwMDQuemlwUEsDBBQAAAAIAKxk+kos0u3m
-GhUAAJelAAAIAAAAMjUwMDQuanPFXW1zU1UQ/u6M/6GTmYzt6GBI1bbD8CFp0xZsKbSBljp+SNPb
-JkyaxCRtWh3/m6AyoIgoKiqIFhChgm+gICJ6q473Ocmuz5406gzDnJvel3N29+zu2bPP2aefvvb6
-+S9OXzh+4rt3fjn53qU3H26e2rp+5dN7l+88uPb6o80bF2/dvX367NZPr126d/Xhie/P/3Dq9ZPX
-v7y/de7jd1+7cvPTN2/9+PCdR9/funzx+Gtv3Xvj3InNCx+c+eLK/Y+u3vn49PVvbr5/8eTrW6fO
-3b917acbZx9eOvPb+Qvfn330/amrJz4+f/Kbux/e/+2Hn+9du/7VB1vv3Pn5rc1Tv3z53tufHb93
-9cblEx++++D+oy8u3Xzth9NX710889XxT059c2HzwYnzW5dOnn3vrXN3H3z+xsPL1y6e+vjdzftv
-f3D8o/dv/nD+9pdf/3LmtQdXPjr+4bs//Xzr7PmTl06/d+3uJ7fvnPjsxMm7V77Z/PHcJ2/+euGr
-129snT/1+Z1vf7r33gcXf3345d1Pb97evPXFdn++uvz51rkz3x3/5M2rJz/46MKt4xdPn/nstxub
-D965+evnv/z4882zn1758tr7b393+fy961vvXHzz9qNTX9x44/HHmsP7UtPHRucPjiyvFsoLY9nG
-3thy7MlY0Aj/OxqE/+VqsT09lZXCwvj8WvXw3KHpYKo0MjyzN5YM/5jYPRDb8/hjhyfGay/N7y+N
-FZansgfm8j17e57YP3t05tjhfc8HpZGFYjq6KEfNsahZXY3aR5qz0UX9+aidjZqFqDkTNQ9FzbAL
-8KWg2RNdpKJmvhG1i1FzLYjac1MLxwL5id6oGYuaTeg8PFcrVrO7oK/jUTMzUYr17elpHVP7fSLp
-clFzX9R8efZodDG/MQWDBooeiJrAouk1pCO097ucHHO5FrVn689nKYd2wQeD5Wlglji2RZnu4zCa
-iag5KbLmSegT8LFWhEEtQw+XapXoamUYxC9Xg6uK2MtA7PBQ1Ez2iT2L1eHNS1G70QS61Fq+0z7U
-GXjSHSAQHl7/D0ONLoYriwEOxhlCDF4gTqt8rYJjE7vRgNE8KYqQxrioCSw0jDVqOqOGu4c7ZXDU
-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
-AAAAAA==
+On Wed, Jul 26, 2017 at 04:03:17PM +0800, Jason Wang wrote:
+> This reverts commit 809ecb9bca6a9424ccd392d67e368160f8b76c92. Since it
+> was reported to break vhost_net. We want to cache used event and use
+> it to check for notification. We try to valid cached used event by
+> checking whether or not it was ahead of new, but this is not correct
+> all the time, it could be stale and there's no way to know about this.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+
+Could you supply a bit more data here please?  How does it get stale?
+What does guest need to do to make it stale?  This will be helpful if
+anyone wants to bring it back, or if we want to extend the protocol.
+
+> ---
+>  drivers/vhost/vhost.c | 28 ++++++----------------------
+>  drivers/vhost/vhost.h |  3 ---
+>  2 files changed, 6 insertions(+), 25 deletions(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index e4613a3..9cb3f72 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -308,7 +308,6 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+>  	vq->avail = NULL;
+>  	vq->used = NULL;
+>  	vq->last_avail_idx = 0;
+> -	vq->last_used_event = 0;
+>  	vq->avail_idx = 0;
+>  	vq->last_used_idx = 0;
+>  	vq->signalled_used = 0;
+> @@ -1402,7 +1401,7 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
+>  			r = -EINVAL;
+>  			break;
+>  		}
+> -		vq->last_avail_idx = vq->last_used_event = s.num;
+> +		vq->last_avail_idx = s.num;
+>  		/* Forget the cached index value. */
+>  		vq->avail_idx = vq->last_avail_idx;
+>  		break;
+> @@ -2241,6 +2240,10 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  	__u16 old, new;
+>  	__virtio16 event;
+>  	bool v;
+> +	/* Flush out used index updates. This is paired
+> +	 * with the barrier that the Guest executes when enabling
+> +	 * interrupts. */
+> +	smp_mb();
+>  
+>  	if (vhost_has_feature(vq, VIRTIO_F_NOTIFY_ON_EMPTY) &&
+>  	    unlikely(vq->avail_idx == vq->last_avail_idx))
+> @@ -2248,10 +2251,6 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  
+>  	if (!vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX)) {
+>  		__virtio16 flags;
+> -		/* Flush out used index updates. This is paired
+> -		 * with the barrier that the Guest executes when enabling
+> -		 * interrupts. */
+> -		smp_mb();
+>  		if (vhost_get_avail(vq, flags, &vq->avail->flags)) {
+>  			vq_err(vq, "Failed to get flags");
+>  			return true;
+> @@ -2266,26 +2265,11 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+>  	if (unlikely(!v))
+>  		return true;
+>  
+> -	/* We're sure if the following conditions are met, there's no
+> -	 * need to notify guest:
+> -	 * 1) cached used event is ahead of new
+> -	 * 2) old to new updating does not cross cached used event. */
+> -	if (vring_need_event(vq->last_used_event, new + vq->num, new) &&
+> -	    !vring_need_event(vq->last_used_event, new, old))
+> -		return false;
+> -
+> -	/* Flush out used index updates. This is paired
+> -	 * with the barrier that the Guest executes when enabling
+> -	 * interrupts. */
+> -	smp_mb();
+> -
+>  	if (vhost_get_avail(vq, event, vhost_used_event(vq))) {
+>  		vq_err(vq, "Failed to get used event idx");
+>  		return true;
+>  	}
+> -	vq->last_used_event = vhost16_to_cpu(vq, event);
+> -
+> -	return vring_need_event(vq->last_used_event, new, old);
+> +	return vring_need_event(vhost16_to_cpu(vq, event), new, old);
+>  }
+>  
+>  /* This actually signals the guest, using eventfd. */
+> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> index f720958..bb7c29b 100644
+> --- a/drivers/vhost/vhost.h
+> +++ b/drivers/vhost/vhost.h
+> @@ -115,9 +115,6 @@ struct vhost_virtqueue {
+>  	/* Last index we used. */
+>  	u16 last_used_idx;
+>  
+> -	/* Last used evet we've seen */
+> -	u16 last_used_event;
+> -
+>  	/* Used flags */
+>  	u16 used_flags;
+>  
+> -- 
+> 2.7.4
