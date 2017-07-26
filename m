@@ -1,52 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 04/18] net: mvpp2: move the mii configuration in
- the ndo_open path
-Date: Wed, 26 Jul 2017 18:11:11 +0200
-Message-ID: <20170726161111.GG12049@lunn.ch>
-References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
- <20170724134848.19330-5-antoine.tenart@free-electrons.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost: fixes, cleanups
+Date: Wed, 26 Jul 2017 19:11:34 +0300
+Message-ID: <20170726191134-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jason@lakedaemon.net,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40963 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750918AbdGZQLS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Jul 2017 12:11:18 -0400
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        andriy.shevchenko@linux.intel.com, bigeasy@linutronix.de,
+        drjones@redhat.com, jasowang@redhat.com, liang.z.li@intel.com,
+        mst@redhat.com, wei.w.wang@intel.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170724134848.19330-5-antoine.tenart@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 24, 2017 at 03:48:34PM +0200, Antoine Tenart wrote:
-> This moves the mii configuration in the ndo_open path, to allow handling
-> different mii configurations later and to switch between these
-> configurations at runtime.
-> 
-> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-> ---
->  drivers/net/ethernet/marvell/mvpp2.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-> index 6ffff929b22a..9d204ffb9b89 100644
-> --- a/drivers/net/ethernet/marvell/mvpp2.c
-> +++ b/drivers/net/ethernet/marvell/mvpp2.c
-> @@ -5862,6 +5862,7 @@ static void mvpp2_start_dev(struct mvpp2_port *port)
->  	/* Enable interrupts on all CPUs */
->  	mvpp2_interrupts_enable(port);
->  
-> +	mvpp2_port_mii_set(port);
+All's quiet here this cycle, just some minor fixes.  A block printk
+message bugfix is still pending for the next pull, didn't want to delay
+this one as people are getting impatient.
 
-Hi Antoine
+The following changes since commit 520eccdfe187591a51ea9ab4c1a024ae4d0f68d9:
 
-You probably should take a look at mvpp2_port_mii_set() and have it
-handle all PHY_INTERFACE_MODE_RGMII variants.
+  Linux 4.13-rc2 (2017-07-23 16:15:17 -0700)
 
-       Andrew
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to cfa0ebc9d6d6308564f5174ecb655b9d504b2be5:
+
+  virtio-net: fix module unloading (2017-07-25 16:37:36 +0300)
+
+----------------------------------------------------------------
+virtio: fixes, cleanups
+
+Fixes some minor issues all over the codebase.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Andrew Jones (1):
+      virtio-net: fix module unloading
+
+Andy Shevchenko (1):
+      virtio_blk: Use sysfs_match_string() helper
+
+Liang Li (1):
+      virtio-balloon: deflate via a page list
+
+Wei Wang (1):
+      virtio-balloon: coding format cleanup
+
+ drivers/block/virtio_blk.c      |  7 ++-----
+ drivers/net/virtio_net.c        |  2 +-
+ drivers/virtio/virtio_balloon.c | 28 ++++++++++++----------------
+ 3 files changed, 15 insertions(+), 22 deletions(-)
