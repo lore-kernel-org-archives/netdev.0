@@ -1,44 +1,51 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: Re: [PATCH v2 00/10] Constify attribute_group structures
-Date: Wed, 26 Jul 2017 12:06:09 +0530
-Message-ID: <4242536c-4888-e119-f95c-6d8a5413cdd1@gmail.com>
-References: <1499758370-24871-1-git-send-email-arvind.yadav.cs@gmail.com>
- <87fudkiskz.fsf@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: sgruszka@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] hamradio: dmascc: avoid -Wformat-overflow warning
+Date: Wed, 26 Jul 2017 09:55:33 +0200
+Message-ID: <20170726075548.2736340-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>,
+        linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Joerg Reuter <jreuter@yaina.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87fudkiskz.fsf@codeaurora.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Kalle,
+gcc warns that the device name might overflow:
 
+drivers/net/hamradio/dmascc.c: In function 'dmascc_init':
+drivers/net/hamradio/dmascc.c:584:22: error: 'sprintf' may write a terminating nul past the end of the destination [-Werror=format-overflow=]
+   sprintf(dev->name, "dmascc%i", 2 * n + i);
+drivers/net/hamradio/dmascc.c:584:3: note: 'sprintf' output between 8 and 17 bytes into a destination of size 16
+   sprintf(dev->name, "dmascc%i", 2 * n + i);
 
-On Tuesday 25 July 2017 06:25 PM, Kalle Valo wrote:
-> Arvind Yadav <arvind.yadav.cs@gmail.com> writes:
->
->> attribute_groups are not supposed to change at runtime. So mark the
->> non-const structs as const.
->>
->> Arvind Yadav (10):
->>    [PATCH v2 01/10] net: cdc_ncm: constify attribute_group structures.
->>    [PATCH v2 02/10] net: can: at91_can: constify attribute_group structures.
->>    [PATCH v2 03/10] net: can: janz-ican3: constify attribute_group structures.
->>    [PATCH v2 04/10] wireless: ipw2200: constify attribute_group structures.
->>    [PATCH v2 05/10] wireless: ipw2100: constify attribute_group structures.
->>    [PATCH v2 06/10] wireless: iwlegacy: constify attribute_group structures.
->>    [PATCH v2 07/10] wireless: iwlegacy: Constify attribute_group structures.
->>    [PATCH v2 08/10] arcnet: com20020-pci: constify attribute_group structures.
->>    [PATCH v2 09/10] net: bonding: constify attribute_group structures.
->>    [PATCH v2 10/10] net: chelsio: cxgb3: constify attribute_group structures.
-> Via which tree were you planning to push these? Is it ok if I take the
-> wireless patches to my tree?
->
-I have push these changes to linux-next branch. you can take this to 
-your branch.
+>From the static data in this file, I can tell that the index is
+strictly limited to 16, so it won't overflow. This simply changes
+the sprintf() to snprintf(), which is a good idea in general,
+and shuts up this warning.
 
-~arvind
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+I ran into this for the first time today on linux-next randconfig
+builds, but couldn't find an obvious commit that introduced it.
+
+I guess it's just a very rare randconfig warning, so this can go
+into net-next rather than net fixes.
+---
+ drivers/net/hamradio/dmascc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
+index dec6b76bc0fb..cde41200f40a 100644
+--- a/drivers/net/hamradio/dmascc.c
++++ b/drivers/net/hamradio/dmascc.c
+@@ -581,7 +581,7 @@ static int __init setup_adapter(int card_base, int type, int n)
+ 		priv->param.dma = -1;
+ 		INIT_WORK(&priv->rx_work, rx_bh);
+ 		dev->ml_priv = priv;
+-		sprintf(dev->name, "dmascc%i", 2 * n + i);
++		snprintf(dev->name, sizeof(dev->name), "dmascc%i", 2 * n + i);
+ 		dev->base_addr = card_base;
+ 		dev->irq = irq;
+ 		dev->netdev_ops = &scc_netdev_ops;
+-- 
+2.9.0
