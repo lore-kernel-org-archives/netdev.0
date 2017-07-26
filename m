@@ -1,60 +1,55 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next v2 01/10] net: dsa: lan9303: Fixed MDIO interface
-Date: Wed, 26 Jul 2017 16:50:16 +0200
-Message-ID: <d3fc8c2e-6fba-78b6-ca27-2535de600279@egil-hjelmeland.no>
-References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
- <20170725161553.30147-2-privat@egil-hjelmeland.no>
- <878tjc49bl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <87999a6c-4ea8-ba4c-e2db-cdb37c1c8c8a@egil-hjelmeland.no>
- <87lgnbgtiq.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: TCP fast retransmit issues
+Date: Wed, 26 Jul 2017 16:50:59 +0200
+Message-ID: <20170726145059.GE1737@1wt.eu>
+References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk>
+ <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk>
+ <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170726134242.GB1737@1wt.eu>
+ <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        corbet@lwn.net, andrew@lunn.ch, f.fainelli@gmail.com,
-        davem@davemloft.net, kernel@pengutronix.de,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87lgnbgtiq.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Klavs Klavsen <kl@vsen.dk>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:34245 "EHLO 1wt.eu"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751452AbdGZOvC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 10:51:02 -0400
+Content-Disposition: inline
+In-Reply-To: <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 26. juli 2017 16:30, Vivien Didelot wrote:
-> Hi Egil,
+On Wed, Jul 26, 2017 at 07:32:12AM -0700, Eric Dumazet wrote:
+> On Wed, 2017-07-26 at 15:42 +0200, Willy Tarreau wrote:
+> > On Wed, Jul 26, 2017 at 06:31:21AM -0700, Eric Dumazet wrote:
+> > > On Wed, 2017-07-26 at 14:18 +0200, Klavs Klavsen wrote:
+> > > > the 192.168.32.44 is a Centos 7 box.
+> > > 
+> > > Could you grab a capture on this box, to see if the bogus packets are
+> > > sent by it, or later mangled by a middle box ?
+> > 
+> > Given the huge difference between the window and the ranges of the
+> > values in the SACK field, I'm pretty sure there's a firewall doing
+> > some sequence numbers randomization in the middle, not aware of SACK
+> > and not converting these ones. I've had to disable such broken
+> > features more than once in field after similar observations! Probably
+> > that the Mac doesn't advertise SACK support and doesn't experience the
+> > problem.
 > 
-> Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
-> 
->>> I'd suggest you to split up this one commit in several *atomic* and easy
->>> to review patches and send them separately as on thread named "net: dsa:
->>> lan9303: fix MDIO interface" (also note that imperative is prefered for
->>> subject lines, see: https://chris.beams.io/posts/git-commit/#imperative)
->>
->> I can split the first patch.
->>
->> I can also split the patch series to more digestible series. But
->> since most of the patches touches the same file, I assume that each
->> series must be completed and applied before starting on a new one.
->> So I really want to group the patches into only a few series in order
->> to not spend months on the process.
-> 
-> I understand. But believe me, your patches are very likely to land
-> mainline faster if you send them in small chunks. This might not be true
-> for every subsystems, but netdev is very responsive. This is even more
-> true since this series has no-no (such as the sysfs entries) which
-> guarantees the whole patch series to be rejected.
-> 
-> Sending portions of your local work branch then rebase it against
-> net-next/master is a usual development process.
-> 
-> 
-> Thanks,
-> 
->          Vivien
-> 
+> We need to check RFC if such invalid SACK blocks should be ignored (DUP
+> ACK would be processed and trigger fast retransmit anyway), or strongly
+> validated (as I suspect we currently do), leading to a total freeze.
 
-Thank you for the advice. I got some other NMIs today that I have to
-serve. Hope to come back with MDIO patch series soon.
+RFC2883 #4.3 talks about interaction with PAWS and only suggests that
+since the sequence numbers can wrap the sender should be aware that a
+reported segment can in fact relate to a value within the prior seq
+number space before cycling, but that they don't expect any side effect.
+So that more or less means to me "you should consider that some of these
+segments might be old, meaningless and should be ignored". But as you
+can see the recommendation lacks a bit of strength given that no issue
+was expected in such a situation.
 
-Egil
+Willy
