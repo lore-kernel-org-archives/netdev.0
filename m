@@ -1,197 +1,66 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V2 5/5] virtio-net: switch off offloads on demand
- if possible on XDP set
-Date: Wed, 26 Jul 2017 11:19:47 +0800
-Message-ID: <2a9b8132-4438-bf65-6421-b6b3b4630cb4@redhat.com>
-References: <1500454489-16805-1-git-send-email-jasowang@redhat.com>
- <1500454489-16805-6-git-send-email-jasowang@redhat.com>
- <20170725002700-mutt-send-email-mst@kernel.org>
+Subject: Re: [PATCH net-next] virtio-net: mark PM functions as __maybe_unused
+Date: Wed, 26 Jul 2017 11:21:46 +0800
+Message-ID: <964aa12c-37cc-749f-e4a2-abb26d953517@redhat.com>
+References: <20170725153600.211694-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170725002700-mutt-send-email-mst@kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	John Fastabend <john.fastabend@gmail.com>, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>, "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170725153600.211694-1-arnd@arndb.de>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 2017年07月25日 05:29, Michael S. Tsirkin wrote:
-> On Wed, Jul 19, 2017 at 04:54:49PM +0800, Jason Wang wrote:
->> Current XDP implementation wants guest offloads feature to be disabled
->> on device. This is inconvenient and means guest can't benefit from
->> offloads if XDP is not used. This patch tries to address this
->> limitation by disabling the offloads on demand through control guest
->> offloads. Guest offloads will be disabled and enabled on demand on XDP
->> set.
->>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> Doesn't look like my comments on v1 were addressed.
-> Copying here:
->
-> In fact, since we no longer reset when XDP is set,
-> here device might have offloads enabled, buffers are
-> used but not consumed, then XDP is set.
->
-> This can result in
-> - packet scattered across multiple buffers
->    (handled correctly but need to update the comment)
-
-We drop all gso packet now, so this won't happen.
-
-> - packet may have VIRTIO_NET_HDR_F_NEEDS_CSUM, in that case
->    the spec says "The checksum on the packet is incomplete".
->    (probably needs to be handled by calculating the checksum).
-
-This needs to be fixed, but it was not introduced by this commit but:
-
-b00f70b0dacb virtio-net: unbreak csumed packets for XDP_PASS which 
-allows NEEDS_CSUM for mergeable buffer
-bb91accf2733 virtio-net: XDP support for small buffers which forbid 
-checksumed packet for small buffer
-
-Will post a patch to checksum the packet.
-
-Thanks
-
->
-> Jason, as David applied this patch already, can you comment
-> on the issues please?
->
->> ---
->>   drivers/net/virtio_net.c | 70 ++++++++++++++++++++++++++++++++++++++++++++----
->>   1 file changed, 65 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index b3fc01d..5fbd15e 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -57,6 +57,11 @@ DECLARE_EWMA(pkt_len, 0, 64)
->>   
->>   #define VIRTNET_DRIVER_VERSION "1.0.0"
->>   
->> +const unsigned long guest_offloads[] = { VIRTIO_NET_F_GUEST_TSO4,
->> +					 VIRTIO_NET_F_GUEST_TSO6,
->> +					 VIRTIO_NET_F_GUEST_ECN,
->> +					 VIRTIO_NET_F_GUEST_UFO };
->> +
->>   struct virtnet_stats {
->>   	struct u64_stats_sync tx_syncp;
->>   	struct u64_stats_sync rx_syncp;
->> @@ -164,10 +169,13 @@ struct virtnet_info {
->>   	u8 ctrl_promisc;
->>   	u8 ctrl_allmulti;
->>   	u16 ctrl_vid;
->> +	u64 ctrl_offloads;
->>   
->>   	/* Ethtool settings */
->>   	u8 duplex;
->>   	u32 speed;
->> +
->> +	unsigned long guest_offloads;
->>   };
->>   
->>   struct padded_vnet_hdr {
->> @@ -1896,6 +1904,47 @@ static int virtnet_restore_up(struct virtio_device *vdev)
->>   	return err;
->>   }
->>   
->> +static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
->> +{
->> +	struct scatterlist sg;
->> +	vi->ctrl_offloads = cpu_to_virtio64(vi->vdev, offloads);
->> +
->> +	sg_init_one(&sg, &vi->ctrl_offloads, sizeof(vi->ctrl_offloads));
->> +
->> +	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_GUEST_OFFLOADS,
->> +				  VIRTIO_NET_CTRL_GUEST_OFFLOADS_SET, &sg)) {
->> +		dev_warn(&vi->dev->dev, "Fail to set guest offload. \n");
->> +		return -EINVAL;
->> +	}
->> +
->> +	return 0;
->> +}
->> +
->> +static int virtnet_clear_guest_offloads(struct virtnet_info *vi)
->> +{
->> +	u64 offloads = 0;
->> +
->> +	if (!vi->guest_offloads)
->> +		return 0;
->> +
->> +	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_CSUM))
->> +		offloads = 1ULL << VIRTIO_NET_F_GUEST_CSUM;
->> +
->> +	return virtnet_set_guest_offloads(vi, offloads);
->> +}
->> +
->> +static int virtnet_restore_guest_offloads(struct virtnet_info *vi)
->> +{
->> +	u64 offloads = vi->guest_offloads;
->> +
->> +	if (!vi->guest_offloads)
->> +		return 0;
->> +	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_CSUM))
->> +		offloads |= 1ULL << VIRTIO_NET_F_GUEST_CSUM;
->> +
->> +	return virtnet_set_guest_offloads(vi, offloads);
->> +}
->> +
->>   static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
->>   			   struct netlink_ext_ack *extack)
->>   {
->> @@ -1905,10 +1954,11 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
->>   	u16 xdp_qp = 0, curr_qp;
->>   	int i, err;
->>   
->> -	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
->> -	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
->> -	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
->> -	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_UFO)) {
->> +	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS)
->> +	    && (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
->> +	        virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
->> +	        virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
->> +		virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_UFO))) {
->>   		NL_SET_ERR_MSG_MOD(extack, "Can't set XDP while host is implementing LRO, disable LRO first");
->>   		return -EOPNOTSUPP;
->>   	}
->> @@ -1955,6 +2005,12 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog,
->>   	for (i = 0; i < vi->max_queue_pairs; i++) {
->>   		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
->>   		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
->> +		if (i == 0) {
->> +			if (!old_prog)
->> +				virtnet_clear_guest_offloads(vi);
->> +			if (!prog)
->> +				virtnet_restore_guest_offloads(vi);
->> +		}
->>   		if (old_prog)
->>   			bpf_prog_put(old_prog);
->>   		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
->> @@ -2588,6 +2644,10 @@ static int virtnet_probe(struct virtio_device *vdev)
->>   		netif_carrier_on(dev);
->>   	}
->>   
->> +	for (i = 0; i < ARRAY_SIZE(guest_offloads); i++)
->> +		if (virtio_has_feature(vi->vdev, guest_offloads[i]))
->> +			set_bit(guest_offloads[i], &vi->guest_offloads);
->> +
->>   	pr_debug("virtnet: registered device %s with %d RX and TX vq's\n",
->>   		 dev->name, max_queue_pairs);
->>   
->> @@ -2684,7 +2744,7 @@ static struct virtio_device_id id_table[] = {
->>   	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN, \
->>   	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ, \
->>   	VIRTIO_NET_F_CTRL_MAC_ADDR, \
->> -	VIRTIO_NET_F_MTU
->> +	VIRTIO_NET_F_MTU, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS
->>   
->>   static unsigned int features[] = {
->>   	VIRTNET_FEATURES,
->> -- 
->> 2.7.4
+CgpPbiAyMDE35bm0MDfmnIgyNeaXpSAyMzozNSwgQXJuZCBCZXJnbWFubiB3cm90ZToKPiBBZnRl
+ciByZW1vdmluZyB0aGUgcmVzZXQgZnVuY3Rpb24sIHRoZSBmcmVlemUgYW5kIHJlc3RvcmUgZnVu
+Y3Rpb25zCj4gYXJlIG5vdyB1bnVzZWQgd2hlbiBDT05GSUdfUE1fU0xFRVAgaXMgZGlzYWJsZWQ6
+Cj4KPiBkcml2ZXJzL25ldC92aXJ0aW9fbmV0LmM6MTg4MToxMjogZXJyb3I6ICd2aXJ0bmV0X3Jl
+c3RvcmVfdXAnIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV2Vycm9yPXVudXNlZC1mdW5jdGlvbl0K
+PiAgIHN0YXRpYyBpbnQgdmlydG5ldF9yZXN0b3JlX3VwKHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2
+ZGV2KQo+IGRyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYzoxODU5OjEzOiBlcnJvcjogJ3ZpcnRuZXRf
+ZnJlZXplX2Rvd24nIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV2Vycm9yPXVudXNlZC1mdW5jdGlv
+bl0KPiAgIHN0YXRpYyB2b2lkIHZpcnRuZXRfZnJlZXplX2Rvd24oc3RydWN0IHZpcnRpb19kZXZp
+Y2UgKnZkZXYpCj4KPiBBIG1vcmUgcm9idXN0IHdheSB0byBkbyB0aGlzIGlzIHRvIHJlbW92ZSB0
+aGUgI2lmZGVmIGFyb3VuZCB0aGUgY2FsbGVycwo+IGFuZCBpbnN0ZWFkIG1hcmsgdGhlbSBhcyBf
+X21heWJlX3VudXNlZC4gVGhlIGNvbXBpbGVyIHdpbGwgbm93IGp1c3QKPiBzaWxlbnRseSBkcm9w
+IHRoZSB1bnVzZWQgY29kZS4KPgo+IEZpeGVzOiA0OTQxZDQ3MmJmOTUgKCJ2aXJ0aW8tbmV0OiBk
+byBub3QgcmVzZXQgZHVyaW5nIFhEUCBzZXQiKQo+IFNpZ25lZC1vZmYtYnk6IEFybmQgQmVyZ21h
+bm4gPGFybmRAYXJuZGIuZGU+Cj4gLS0tCj4gICBkcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgfCA2
+ICsrLS0tLQo+ICAgMSBmaWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgNCBkZWxldGlvbnMo
+LSkKPgo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgYi9kcml2ZXJzL25l
+dC92aXJ0aW9fbmV0LmMKPiBpbmRleCBkNDc1MWNlMjNiNGYuLjE5MDI3MDFlMTVhOSAxMDA2NDQK
+PiAtLS0gYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPiArKysgYi9kcml2ZXJzL25ldC92aXJ0
+aW9fbmV0LmMKPiBAQCAtMjcwMiw4ICsyNzAyLDcgQEAgc3RhdGljIHZvaWQgdmlydG5ldF9yZW1v
+dmUoc3RydWN0IHZpcnRpb19kZXZpY2UgKnZkZXYpCj4gICAJZnJlZV9uZXRkZXYodmktPmRldik7
+Cj4gICB9Cj4gICAKPiAtI2lmZGVmIENPTkZJR19QTV9TTEVFUAo+IC1zdGF0aWMgaW50IHZpcnRu
+ZXRfZnJlZXplKHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2ZGV2KQo+ICtzdGF0aWMgX19tYXliZV91
+bnVzZWQgaW50IHZpcnRuZXRfZnJlZXplKHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2ZGV2KQo+ICAg
+ewo+ICAgCXN0cnVjdCB2aXJ0bmV0X2luZm8gKnZpID0gdmRldi0+cHJpdjsKPiAgIAo+IEBAIC0y
+NzE0LDcgKzI3MTMsNyBAQCBzdGF0aWMgaW50IHZpcnRuZXRfZnJlZXplKHN0cnVjdCB2aXJ0aW9f
+ZGV2aWNlICp2ZGV2KQo+ICAgCXJldHVybiAwOwo+ICAgfQo+ICAgCj4gLXN0YXRpYyBpbnQgdmly
+dG5ldF9yZXN0b3JlKHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2ZGV2KQo+ICtzdGF0aWMgX19tYXli
+ZV91bnVzZWQgaW50IHZpcnRuZXRfcmVzdG9yZShzdHJ1Y3QgdmlydGlvX2RldmljZSAqdmRldikK
+PiAgIHsKPiAgIAlzdHJ1Y3QgdmlydG5ldF9pbmZvICp2aSA9IHZkZXYtPnByaXY7Cj4gICAJaW50
+IGVycjsKPiBAQCAtMjczMCw3ICsyNzI5LDYgQEAgc3RhdGljIGludCB2aXJ0bmV0X3Jlc3RvcmUo
+c3RydWN0IHZpcnRpb19kZXZpY2UgKnZkZXYpCj4gICAKPiAgIAlyZXR1cm4gMDsKPiAgIH0KPiAt
+I2VuZGlmCj4gICAKPiAgIHN0YXRpYyBzdHJ1Y3QgdmlydGlvX2RldmljZV9pZCBpZF90YWJsZVtd
+ID0gewo+ICAgCXsgVklSVElPX0lEX05FVCwgVklSVElPX0RFVl9BTllfSUQgfSwKCkFja2VkLWJ5
+OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgoKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZp
+cnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGlu
+dXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
