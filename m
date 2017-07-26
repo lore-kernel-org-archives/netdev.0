@@ -1,29 +1,36 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 12/13] phylink: add in-band autonegotiation support
- for 10GBase-KR mode.
-Date: Thu, 27 Jul 2017 00:23:55 +0200
-Message-ID: <20170726222355.GF7966@lunn.ch>
-References: <20170725140138.GK31807@n2100.armlinux.org.uk>
- <E1da0Qw-0007MI-20@rmk-PC.armlinux.org.uk>
+Subject: Re: [PATCH V2 net-next 20/21] net-next/hinic: Add ethtool and stats
+Date: Thu, 27 Jul 2017 00:33:27 +0200
+Message-ID: <20170726223327.GG7966@lunn.ch>
+References: <cover.1500454998.git.aviad.krawczyk@huawei.com>
+ <b66411dd204e8989f58e70bea8ae11d2cbe5cd1b.1500454998.git.aviad.krawczyk@huawei.com>
+ <1500460074.25934.33.camel@perches.com>
+ <9df7d969-6706-d702-a674-9207f5b1c3df@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Russell King <rmk+kernel@armlinux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41563 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751420AbdGZWX4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Jul 2017 18:23:56 -0400
+Cc: Joe Perches <joe@perches.com>, davem@davemloft.net,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        bc.y@huawei.com, victor.gissin@huawei.com, zhaochen6@huawei.com,
+        tony.qu@huawei.com
+To: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <E1da0Qw-0007MI-20@rmk-PC.armlinux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <9df7d969-6706-d702-a674-9207f5b1c3df@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 25, 2017 at 03:03:34PM +0100, Russell King wrote:
-> Add in-band autonegotation support for 10GBase-KR mode.
+On Wed, Jul 19, 2017 at 03:36:28PM +0300, Aviad Krawczyk wrote:
+> Hi Joe,
 > 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> I tried to be consistent with the comments before, that requested
+> that we will use dev_err exclude some special cases for use netif.
+> 
+> We will replace the dev_err(&netdev->dev,.. to netdev_err in the
+> next fix.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+netdev_err() should be used when possible. You just have to be careful
+in the probe() function, before netdev exists and you get "(NULL
+net_device):" or before it is registered and you get "(unnamed
+net_device)" instead of "eth42" etc.
 
-    Andrew
+	      Andrew
