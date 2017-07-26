@@ -1,70 +1,283 @@
-From: Tyler Bautista <tylerbautista@gmail.com>
-Subject: Re: TC-pedit man page examples error
-Date: Wed, 26 Jul 2017 09:47:51 -0700
-Message-ID: <CAEPezq4Emc=D7zspWqLOq=80WGUjVdfT0xkqoJ1XQPXqaL3w6w@mail.gmail.com>
-References: <CAEPezq43wKM1ivHAUu6pFoGqz9+nCJ1FT9xQV702S_BCQvropA@mail.gmail.com>
- <20170726084338.GH2235@orbyte.nwl.cc>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: lan9303: Fixed MDIO interface
+Date: Wed, 26 Jul 2017 18:55:50 +0200
+Message-ID: <20170726165550.GN12049@lunn.ch>
+References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
+ <20170725161553.30147-2-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: Phil Sutter <phil@nwl.cc>,
-        Tyler Bautista <tylerbautista@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, davem@davemloft.net, kernel@pengutronix.de,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:38284 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751446AbdGZQrw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 12:47:52 -0400
-Received: by mail-pg0-f53.google.com with SMTP id k190so21070649pgk.5
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 09:47:51 -0700 (PDT)
-In-Reply-To: <20170726084338.GH2235@orbyte.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170725161553.30147-2-privat@egil-hjelmeland.no>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Phil,
+On Tue, Jul 25, 2017 at 06:15:44PM +0200, Egil Hjelmeland wrote:
+> Fixes after testing on actual HW:
+> 
+> - lan9303_mdio_write()/_read() must multiply register number
+>   by 4 to get offset
+> 
+> - Indirect access (PMI) to phy register only work in I2C mode. In
+>   MDIO mode phy registers must be accessed directly. Introduced
+>   struct lan9303_phy_ops to handle the two modes. Renamed functions
+>   to clarify.
+> 
+> - lan9303_detect_phy_setup() : Failed MDIO read return 0xffff.
+>   Handle that.
+> 
+> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+> ---
+>  drivers/net/dsa/lan9303-core.c | 42 +++++++++++++++++++++++++++---------------
+>  drivers/net/dsa/lan9303.h      | 11 +++++++++++
+>  drivers/net/dsa/lan9303_i2c.c  |  2 ++
+>  drivers/net/dsa/lan9303_mdio.c | 34 ++++++++++++++++++++++++++++++++++
+>  4 files changed, 74 insertions(+), 15 deletions(-)
+> 
+> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+> index cd76e61f1fca..e622db586c3d 100644
+> --- a/drivers/net/dsa/lan9303-core.c
+> +++ b/drivers/net/dsa/lan9303-core.c
+> @@ -20,6 +20,9 @@
+>  
+>  #include "lan9303.h"
+>  
+> +/* 13.2 System Control and Status Registers
+> + * Multiply register number by 4 to get address offset.
+> + */
+>  #define LAN9303_CHIP_REV 0x14
+>  # define LAN9303_CHIP_ID 0x9303
+>  #define LAN9303_IRQ_CFG 0x15
+> @@ -53,6 +56,9 @@
+>  #define LAN9303_VIRT_PHY_BASE 0x70
+>  #define LAN9303_VIRT_SPECIAL_CTRL 0x77
+>  
+> +/*13.4 Switch Fabric Control and Status Registers
+> + * Accessed indirectly via SWITCH_CSR_CMD, SWITCH_CSR_DATA.
+> + */
+>  #define LAN9303_SW_DEV_ID 0x0000
+>  #define LAN9303_SW_RESET 0x0001
+>  #define LAN9303_SW_RESET_RESET BIT(0)
+> @@ -242,7 +248,7 @@ static int lan9303_virt_phy_reg_write(struct lan9303 *chip, int regnum, u16 val)
+>  	return regmap_write(chip->regmap, LAN9303_VIRT_PHY_BASE + regnum, val);
+>  }
+>  
+> -static int lan9303_port_phy_reg_wait_for_completion(struct lan9303 *chip)
+> +static int lan9303_indirect_phy_wait_for_completion(struct lan9303 *chip)
+>  {
+>  	int ret, i;
+>  	u32 reg;
+> @@ -262,7 +268,7 @@ static int lan9303_port_phy_reg_wait_for_completion(struct lan9303 *chip)
+>  	return -EIO;
+>  }
+>  
+> -static int lan9303_port_phy_reg_read(struct lan9303 *chip, int addr, int regnum)
+> +static int lan9303_indirect_phy_read(struct lan9303 *chip, int addr, int regnum)
+>  {
+>  	int ret;
+>  	u32 val;
+> @@ -272,7 +278,7 @@ static int lan9303_port_phy_reg_read(struct lan9303 *chip, int addr, int regnum)
+>  
+>  	mutex_lock(&chip->indirect_mutex);
+>  
+> -	ret = lan9303_port_phy_reg_wait_for_completion(chip);
+> +	ret = lan9303_indirect_phy_wait_for_completion(chip);
+>  	if (ret)
+>  		goto on_error;
+>  
+> @@ -281,7 +287,7 @@ static int lan9303_port_phy_reg_read(struct lan9303 *chip, int addr, int regnum)
+>  	if (ret)
+>  		goto on_error;
+>  
+> -	ret = lan9303_port_phy_reg_wait_for_completion(chip);
+> +	ret = lan9303_indirect_phy_wait_for_completion(chip);
+>  	if (ret)
+>  		goto on_error;
+>  
+> @@ -299,8 +305,8 @@ static int lan9303_port_phy_reg_read(struct lan9303 *chip, int addr, int regnum)
+>  	return ret;
+>  }
+>  
+> -static int lan9303_phy_reg_write(struct lan9303 *chip, int addr, int regnum,
+> -				 unsigned int val)
+> +static int lan9303_indirect_phy_write(struct lan9303 *chip, int addr,
+> +				      int regnum, u16 val)
+>  {
+>  	int ret;
+>  	u32 reg;
+> @@ -311,7 +317,7 @@ static int lan9303_phy_reg_write(struct lan9303 *chip, int addr, int regnum,
+>  
+>  	mutex_lock(&chip->indirect_mutex);
+>  
+> -	ret = lan9303_port_phy_reg_wait_for_completion(chip);
+> +	ret = lan9303_indirect_phy_wait_for_completion(chip);
+>  	if (ret)
+>  		goto on_error;
+>  
+> @@ -328,6 +334,11 @@ static int lan9303_phy_reg_write(struct lan9303 *chip, int addr, int regnum,
+>  	return ret;
+>  }
+>  
+> +const struct lan9303_phy_ops lan9303_indirect_phy_ops = {
+> +	.phy_read = lan9303_indirect_phy_read,
+> +	.phy_write = lan9303_indirect_phy_write,
+> +};
+> +
+>  static int lan9303_switch_wait_for_completion(struct lan9303 *chip)
+>  {
+>  	int ret, i;
+> @@ -427,14 +438,15 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+>  	 * Special reg 18 of phy 3 reads as 0x0000, if 'phy_addr_sel_strap' is 0
+>  	 * and the IDs are 0-1-2, else it contains something different from
+>  	 * 0x0000, which means 'phy_addr_sel_strap' is 1 and the IDs are 1-2-3.
+> +	 * 0xffff is returned for failed MDIO access.
 
-Thank you for taking my message. I have gotten a solution working so
-feel free to ignore the rest of this email. By vanilla iproute2 do you
-mean the latest package through the yum or apt repository? All I can
-tell you is that in the example I gave the iproute2 package was the
-latest one through the RHEL 7 yum repository. Otherwise I will need
-clarification on what vanilla means. I attempted the above example
-code on two other Ubuntu machines, one of which I can confirm is
-Ubuntu 16.04 LTS. Unfortunately I am not at that machine right now so
-I cannot give you the output. Both machines gave similar error
-messages. The reason I emailed you via netdev was because the example
-code I used was taken verbatim from the tc-pedit man page on my
-machine. The man page also gave me email addresses to contact in case
-an error was found with the man page, which is what I did. I did get
-the code to work when using the latest version of iproute2, so I
-assume the only practical solution is to manually install the latest
-version of iproute2 or wait for the various distros of Linux to use
-updated iproute2. I appreciate your help. Have a nice day.
+Hi Egil
 
-Tyler Bautista
+0xffff is not really a failure. It just means there is nothing on the
+bus at that address. The bus has a weak pull-up, so defaults to one.
 
-On Wed, Jul 26, 2017 at 1:43 AM, Phil Sutter <phil@nwl.cc> wrote:
-> Hi Tyler,
->
-> On Tue, Jul 25, 2017 at 08:33:40AM -0700, Tyler Bautista wrote:
->> To whom it may concern,
->> I recently attempted to use simple tc action pedit commands on the man
->> page and I ran into some errors. The following is some information
->> about my version of iproute and my machine:
->> ----------------------------
->> the following is my iproute package information
->>
->> Loaded plugins: fastestmirror, langpacks
->> iproute-3.10.0-74.el7.x86_64
->
-> This mailing list is for upstream issues only. Can you reproduce the
-> problem with vanilla iproute2?
->
-> You are using RHEL7's iproute package, which has a number of known
-> issues in pedit action:
->
-> https://bugzilla.redhat.com/show_bug.cgi?id=1322406
->
-> These are planned to be resolved for RHEL7.5, not sure when it will land
-> in CentOS.
->
-> Cheers, Phil
+>  	 */
+> -	reg = lan9303_port_phy_reg_read(chip, 3, MII_LAN911X_SPECIAL_MODES);
+> +	reg = chip->ops->phy_read(chip, 3, MII_LAN911X_SPECIAL_MODES);
+>  	if (reg < 0) {
+>  		dev_err(chip->dev, "Failed to detect phy config: %d\n", reg);
+>  		return reg;
+>  	}
+>  
+> -	if (reg != 0)
+> +	if ((reg != 0) && (reg != 0xffff))
+>  		chip->phy_addr_sel_strap = 1;
+>  	else
+>  		chip->phy_addr_sel_strap = 0;
+> @@ -719,7 +731,7 @@ static int lan9303_phy_read(struct dsa_switch *ds, int phy, int regnum)
+>  	if (phy > phy_base + 2)
+>  		return -ENODEV;
+>  
+> -	return lan9303_port_phy_reg_read(chip, phy, regnum);
+> +	return chip->ops->phy_read(chip, phy, regnum);
+>  }
+>  
+>  static int lan9303_phy_write(struct dsa_switch *ds, int phy, int regnum,
+> @@ -733,7 +745,7 @@ static int lan9303_phy_write(struct dsa_switch *ds, int phy, int regnum,
+>  	if (phy > phy_base + 2)
+>  		return -ENODEV;
+>  
+> -	return lan9303_phy_reg_write(chip, phy, regnum, val);
+> +	return chip->ops->phy_write(chip, phy, regnum, val);
+>  }
+>  
+>  static int lan9303_port_enable(struct dsa_switch *ds, int port,
+> @@ -766,13 +778,13 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
+>  	switch (port) {
+>  	case 1:
+>  		lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
+> -		lan9303_phy_reg_write(chip, chip->phy_addr_sel_strap + 1,
+> -				      MII_BMCR, BMCR_PDOWN);
+> +		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
+> +				  MII_BMCR, BMCR_PDOWN);
+>  		break;
+>  	case 2:
+>  		lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
+> -		lan9303_phy_reg_write(chip, chip->phy_addr_sel_strap + 2,
+> -				      MII_BMCR, BMCR_PDOWN);
+> +		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
+> +				  MII_BMCR, BMCR_PDOWN);
+>  		break;
+>  	default:
+>  		dev_dbg(chip->dev,
+> diff --git a/drivers/net/dsa/lan9303.h b/drivers/net/dsa/lan9303.h
+> index d1512dad2d90..444d00b460e1 100644
+> --- a/drivers/net/dsa/lan9303.h
+> +++ b/drivers/net/dsa/lan9303.h
+> @@ -2,6 +2,15 @@
+>  #include <linux/device.h>
+>  #include <net/dsa.h>
+>  
+> +struct lan9303;
+> +
+> +struct lan9303_phy_ops {
+> +	/* PHY 1 &2 access*/
+
+A space would be nice here after the &.
+
+> +	int	(*phy_read)(struct lan9303 *chip, int port, int regnum);
+> +	int	(*phy_write)(struct lan9303 *chip, int port,
+> +			     int regnum, u16 val);
+> +};
+> +
+>  struct lan9303 {
+>  	struct device *dev;
+>  	struct regmap *regmap;
+> @@ -11,9 +20,11 @@ struct lan9303 {
+>  	bool phy_addr_sel_strap;
+>  	struct dsa_switch *ds;
+>  	struct mutex indirect_mutex; /* protect indexed register access */
+> +	const struct lan9303_phy_ops *ops;
+>  };
+>  
+>  extern const struct regmap_access_table lan9303_register_set;
+> +extern const struct lan9303_phy_ops lan9303_indirect_phy_ops;
+>  
+>  int lan9303_probe(struct lan9303 *chip, struct device_node *np);
+>  int lan9303_remove(struct lan9303 *chip);
+> diff --git a/drivers/net/dsa/lan9303_i2c.c b/drivers/net/dsa/lan9303_i2c.c
+> index ab3ce0da5071..24ec20f7f444 100644
+> --- a/drivers/net/dsa/lan9303_i2c.c
+> +++ b/drivers/net/dsa/lan9303_i2c.c
+> @@ -63,6 +63,8 @@ static int lan9303_i2c_probe(struct i2c_client *client,
+>  	i2c_set_clientdata(client, sw_dev);
+>  	sw_dev->chip.dev = &client->dev;
+>  
+> +	sw_dev->chip.ops = &lan9303_indirect_phy_ops;
+> +
+>  	ret = lan9303_probe(&sw_dev->chip, client->dev.of_node);
+>  	if (ret != 0)
+>  		return ret;
+> diff --git a/drivers/net/dsa/lan9303_mdio.c b/drivers/net/dsa/lan9303_mdio.c
+> index 93c36c0541cf..94df12c5362f 100644
+> --- a/drivers/net/dsa/lan9303_mdio.c
+> +++ b/drivers/net/dsa/lan9303_mdio.c
+> @@ -39,6 +39,7 @@ static void lan9303_mdio_real_write(struct mdio_device *mdio, int reg, u16 val)
+>  static int lan9303_mdio_write(void *ctx, uint32_t reg, uint32_t val)
+>  {
+>  	struct lan9303_mdio *sw_dev = (struct lan9303_mdio *)ctx;
+> +	reg <<= 2; /* reg num to offset */
+>  
+>  	mutex_lock(&sw_dev->device->bus->mdio_lock);
+>  	lan9303_mdio_real_write(sw_dev->device, reg, val & 0xffff);
+> @@ -56,6 +57,7 @@ static u16 lan9303_mdio_real_read(struct mdio_device *mdio, int reg)
+>  static int lan9303_mdio_read(void *ctx, uint32_t reg, uint32_t *val)
+>  {
+>  	struct lan9303_mdio *sw_dev = (struct lan9303_mdio *)ctx;
+> +	reg <<= 2; /* reg num to offset */
+>  
+>  	mutex_lock(&sw_dev->device->bus->mdio_lock);
+>  	*val = lan9303_mdio_real_read(sw_dev->device, reg);
+> @@ -65,6 +67,36 @@ static int lan9303_mdio_read(void *ctx, uint32_t reg, uint32_t *val)
+>  	return 0;
+>  }
+>  
+> +int lan9303_mdio_phy_write(struct lan9303 *chip, int phy, int regnum, u16 val)
+> +{
+> +	struct lan9303_mdio *sw_dev = dev_get_drvdata(chip->dev);
+> +	struct mdio_device *mdio = sw_dev->device;
+> +
+> +	mutex_lock(&mdio->bus->mdio_lock);
+> +	mdio->bus->write(mdio->bus, phy, regnum, val);
+> +	mutex_unlock(&mdio->bus->mdio_lock);
+
+It is better to use mdiobus_read/write or if you are nesting mdio
+busses, mdiobus_read_nested/mdiobus_write_nested. Please test this
+code with lockdep enabled.
+
+And as others have pointed out, there are too many changes in this one
+patch.
+
+Thanks
+	Andrew
