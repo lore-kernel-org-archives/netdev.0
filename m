@@ -1,110 +1,75 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] Revert "vhost: cache used event for better performance"
-Date: Wed, 26 Jul 2017 16:03:17 +0800
-Message-ID: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
-Cc: virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mst@redhat.com, jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marc Haber <mh+netdev@zugschlus.de>
+Subject: Re: After a while of system running no incoming UDP any more?
+Date: Wed, 26 Jul 2017 10:10:47 +0200
+Message-ID: <20170726081047.562anntu5uhwirze@torres.zugschlus.de>
+References: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
+ <1500905950.2458.6.camel@redhat.com>
+ <20170725115745.bbguoecrcsfhbm7f@torres.zugschlus.de>
+ <1500985072.13149.4.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from torres.zugschlus.de ([85.214.131.164]:42992 "EHLO
+        torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750813AbdGZIKt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 04:10:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1500985072.13149.4.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 809ecb9bca6a9424ccd392d67e368160f8b76c92. Since it
-was reported to break vhost_net. We want to cache used event and use
-it to check for notification. We try to valid cached used event by
-checking whether or not it was ahead of new, but this is not correct
-all the time, it could be stale and there's no way to know about this.
+On Tue, Jul 25, 2017 at 02:17:52PM +0200, Paolo Abeni wrote:
+> On Tue, 2017-07-25 at 13:57 +0200, Marc Haber wrote:
+> > On Mon, Jul 24, 2017 at 04:19:10PM +0200, Paolo Abeni wrote:
+> > > Once that a system enter the buggy status, do the packets reach the
+> > > relevant socket's queue?
+> > > 
+> > > ss -u
+> > 
+> > That one only shows table headers on an unaffected system in normal
+> > operation, right?
+> 
+> This one shows the current lenght of the socket receive queue (Recv-Q,
+> the first column). If the packets land into the skbuff (and the user
+> space reader for some reason is not woken up) such value will grow over
+> time.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/vhost.c | 28 ++++++----------------------
- drivers/vhost/vhost.h |  3 ---
- 2 files changed, 6 insertions(+), 25 deletions(-)
+Only that there is no value:
+[4/4992]mh@swivel:~ $ ss -u
+Recv-Q Send-Q Local Address:Port                 Peer Address:Port              
+[5/4992]mh@swivel:~ $
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index e4613a3..9cb3f72 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -308,7 +308,6 @@ static void vhost_vq_reset(struct vhost_dev *dev,
- 	vq->avail = NULL;
- 	vq->used = NULL;
- 	vq->last_avail_idx = 0;
--	vq->last_used_event = 0;
- 	vq->avail_idx = 0;
- 	vq->last_used_idx = 0;
- 	vq->signalled_used = 0;
-@@ -1402,7 +1401,7 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
- 			r = -EINVAL;
- 			break;
- 		}
--		vq->last_avail_idx = vq->last_used_event = s.num;
-+		vq->last_avail_idx = s.num;
- 		/* Forget the cached index value. */
- 		vq->avail_idx = vq->last_avail_idx;
- 		break;
-@@ -2241,6 +2240,10 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 	__u16 old, new;
- 	__virtio16 event;
- 	bool v;
-+	/* Flush out used index updates. This is paired
-+	 * with the barrier that the Guest executes when enabling
-+	 * interrupts. */
-+	smp_mb();
- 
- 	if (vhost_has_feature(vq, VIRTIO_F_NOTIFY_ON_EMPTY) &&
- 	    unlikely(vq->avail_idx == vq->last_avail_idx))
-@@ -2248,10 +2251,6 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 
- 	if (!vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX)) {
- 		__virtio16 flags;
--		/* Flush out used index updates. This is paired
--		 * with the barrier that the Guest executes when enabling
--		 * interrupts. */
--		smp_mb();
- 		if (vhost_get_avail(vq, flags, &vq->avail->flags)) {
- 			vq_err(vq, "Failed to get flags");
- 			return true;
-@@ -2266,26 +2265,11 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 	if (unlikely(!v))
- 		return true;
- 
--	/* We're sure if the following conditions are met, there's no
--	 * need to notify guest:
--	 * 1) cached used event is ahead of new
--	 * 2) old to new updating does not cross cached used event. */
--	if (vring_need_event(vq->last_used_event, new + vq->num, new) &&
--	    !vring_need_event(vq->last_used_event, new, old))
--		return false;
--
--	/* Flush out used index updates. This is paired
--	 * with the barrier that the Guest executes when enabling
--	 * interrupts. */
--	smp_mb();
--
- 	if (vhost_get_avail(vq, event, vhost_used_event(vq))) {
- 		vq_err(vq, "Failed to get used event idx");
- 		return true;
- 	}
--	vq->last_used_event = vhost16_to_cpu(vq, event);
--
--	return vring_need_event(vq->last_used_event, new, old);
-+	return vring_need_event(vhost16_to_cpu(vq, event), new, old);
- }
- 
- /* This actually signals the guest, using eventfd. */
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index f720958..bb7c29b 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -115,9 +115,6 @@ struct vhost_virtqueue {
- 	/* Last index we used. */
- 	u16 last_used_idx;
- 
--	/* Last used evet we've seen */
--	u16 last_used_event;
--
- 	/* Used flags */
- 	u16 used_flags;
- 
+(is that the intended behavior on a system thiat is not affected by the
+issue?)
+
+> > > nstat |grep -e Udp -e Ip
+> > > 
+> > > will help checking that.
+> > 
+> > An unaffected system will show UdpInDatagrams, right?
+> > 
+> > But where is the connection to the relevant socket's queue?
+> 
+> If the socket queue lenght (as reported above) does not increase,
+> IP/UDP stats could give an hint of where and why the packets stop
+> traversing the network stack.
+
+We'll see. Still waiting for the phenomenon to show up again.
+
+> Beyond that, you can try using perf probes or kprobe/systemtap to [try
+> to] track the relevant packets inside the kernel.
+
+That's way beyond my kernel foo, I'm afraid.
+
+Thanks for helping, I'll report back.
+
+Greetings
+Marc
+
 -- 
-2.7.4
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Leimen, Germany    |  lose things."    Winona Ryder | Fon: *49 6224 1600402
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 6224 1600421
