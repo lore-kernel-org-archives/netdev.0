@@ -1,62 +1,41 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [RFC] switchdev: clarify ndo_get_phys_port_name() formats
-Date: Wed, 26 Jul 2017 12:23:17 +0300
-Message-ID: <CAJ3xEMg6jn-x5+bwh--P2nz26T91R0Af64hnc30p-k+_BjcuPQ@mail.gmail.com>
-References: <20170724214521.75bf5857@cakuba.netronome.com> <20170725051344.2040-1-jakub.kicinski@netronome.com>
- <20170726054840.GA1845@nanopsycho> <20170726011310.5db489ed@cakuba.netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>
-To: Jakub Kicinski <kubakici@wp.pl>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] udp: unbreak build lacking CONFIG_XFRM
+Date: Wed, 26 Jul 2017 11:33:49 +0200
+Message-ID: <b8448ef348e62558d3ab92468e1e5ed076d66afe.1501061474.git.pabeni@redhat.com>
+References: <201707260327.pfv8cNFg%fengguang.wu@intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Paul Moore <paul@paul-moore.com>, kbuild-all@01.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:36609 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750813AbdGZJXS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 05:23:18 -0400
-Received: by mail-oi0-f68.google.com with SMTP id m65so10548364oik.3
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 02:23:18 -0700 (PDT)
-In-Reply-To: <20170726011310.5db489ed@cakuba.netronome.com>
+Received: from mx1.redhat.com ([209.132.183.28]:39368 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751540AbdGZJfC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 05:35:02 -0400
+In-Reply-To: <201707260327.pfv8cNFg%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 26, 2017 at 11:13 AM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> On Wed, 26 Jul 2017 07:48:40 +0200, Jiri Pirko wrote:
+We must use pre-processor conditional block or suitable accessors to
+manipulate skb->sp elsewhere builds lacking the CONFIG_XFRM will break.
 
->> I think it would make sense if the driver would just fill-up a struct in
->> the ndo call and core would generate the string.
+Fixes: dce4551cb2ad ("udp: preserve head state for IP_CMSG_PASSSEC")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv4/udp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> I do like the idea of core generating the string.  I have a temptation
-> to try to involve devlink in this somehow, since port id and split info
-> is already available there.  Perhaps that would only overcomplicate
-> things.
-
-> The other question is: can we remove the option to generate an arbitrary
-> string completely?  I think Or and mlx5 folks may object since it would
-> mean mlx5 VF repr names would change.
-
-What we have today is the representor driver instance setting the VF index as
-the of phys port name and we're telling users to have this sort of udev rule:
-
-SUBSYSTEM=="net", ACTION=="add",
-ATTR{phys_switch_id}=="<phys_switch_id>", \ ATTR{phys_port_name}!="",
-NAME="$PF_NIC$attr{phys_port_name}"
-
-that has affiliation to  the PF where this VF belongs. AFAIK this
-model/assumption is now under push to
-higher level (open stack), so lets see if/what we want to change here
-w.r.t to sriov offloading drivers.
-
-I would opt for an approach where the value returned by the kernel is
-the minimal possible and
-user-space has flexibility to further orchestrate that with udev
-rules. I wasn't fully clear on Jakub's suggestion
-which parts must come from the kernel. Do we have any length
-limitation for the phys port name?
-
-Or.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index d243772f6efc..fac7cb9e3b0f 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1786,7 +1786,7 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	 * the IP options and the cmsg flags, elsewhere can we clear all
+ 	 * pending head states while they are hot in the cache
+ 	 */
+-	if (likely(IPCB(skb)->opt.optlen == 0 && !skb->sp))
++	if (likely(IPCB(skb)->opt.optlen == 0 && !skb_sec_path(skb)))
+ 		skb_release_head_state(skb);
+ 
+ 	rc = __udp_enqueue_schedule_skb(sk, skb);
+-- 
+2.13.3
