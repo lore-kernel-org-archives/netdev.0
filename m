@@ -1,91 +1,59 @@
-From: Marcin Wojtas <mw@semihalf.com>
-Subject: Re: [PATCH 0/8] net: mvpp2: add TX interrupts support
-Date: Wed, 26 Jul 2017 08:18:18 +0200
-Message-ID: <CAPv3WKeC4Ry+cR5FMh5BGgp=+UdzkxRf6=EqKBmWMNQtb+YLdg@mail.gmail.com>
-References: <20170725155509.10574-1-thomas.petazzoni@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Russell King <linux@arm.linux.org.uk>,
-        Antoine Tenart <antoine.tenart@free-electrons.com>,
-        =?UTF-8?Q?Miqu=C3=A8l_Raynal?= <miquel.raynal@free-electrons.com>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Stefan Chulski <stefanc@marvell.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] dccp: fix a memleak that dccp_ipv6 doesn't put reqsk properly
+Date: Wed, 26 Jul 2017 14:19:09 +0800
+Message-ID: <17b2008535695e5885775418a31ee74f3ca704f5.1501049949.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:34775 "EHLO
-        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750772AbdGZGST (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 02:18:19 -0400
-Received: by mail-io0-f179.google.com with SMTP id l7so64393854iof.1
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 23:18:19 -0700 (PDT)
-In-Reply-To: <20170725155509.10574-1-thomas.petazzoni@free-electrons.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:38119 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751527AbdGZGTT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 02:19:19 -0400
+Received: by mail-pf0-f193.google.com with SMTP id c23so14672754pfe.5
+        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 23:19:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Thomas,
+In dccp_v6_conn_request, after reqsk gets alloced and hashed into
+ehash table, reqsk's refcnt is set 3. one is for req->rsk_timer,
+one is for hlist, and the other one is for current using.
 
-I tested patchset on A8040-DB, everything seems fine.
+The problem is when dccp_v6_conn_request returns and finishes using
+reqsk, it doesn't put reqsk. This will cause reqsk refcnt leaks and
+reqsk obj never gets freed.
 
-Best regards,
-Marcin
+Jianlin found this issue when running dccp_memleak.c in a loop, the
+system memory would run out.
 
-2017-07-25 17:55 GMT+02:00 Thomas Petazzoni
-<thomas.petazzoni@free-electrons.com>:
-> Hello,
->
-> So far, the mvpp2 driver was using an hrtimer to handle TX
-> completion. This patch series adds support for using TX interrupts
-> (for each CPU) on PPv2.2, the variant of the IP used on Marvell Armada
-> 7K/8K.
->
-> This series has been tested on Marvell Armada 7K (PPv2.2) and Armada
-> 375 (PPv2.1).
->
-> Dave:
->
->  - This series depends on the previous series sent by Antoine T=C3=A9nart
->    "net: mvpp2: MAC/GoP configuration and optional PHYs". Functionally
->    speaking there is no real dependency, but we touch in a few areas
->    the same piece of code, so I based my patch series on top of
->    Antoine's.
->
->  - Please do not apply the last patch of this series "arm64: dts:
->    marvell: add TX interrupts for PPv2.2", it will be taken by the ARM
->    mvebu maintainers.
->
-> Thanks!
->
-> Thomas
->
-> Thomas Petazzoni (8):
->   net: mvpp2: fix MVPP21_ISR_RXQ_GROUP_REG definition
->   net: mvpp2: remove RX queue group reset code
->   net: mvpp2: introduce per-port nrxqs/ntxqs variables
->   net: mvpp2: move from cpu-centric naming to "software thread" naming
->   net: mvpp2: introduce queue_vector concept
->   net: mvpp2: add support for TX interrupts and RX queue distribution
->     modes
->   dt-bindings: net: marvell-pp2: update interrupt-names with TX
->     interrupts
->   arm64: dts: marvell: add TX interrupts for PPv2.2
->
->  .../devicetree/bindings/net/marvell-pp2.txt        |  33 +-
->  .../boot/dts/marvell/armada-cp110-master.dtsi      |  21 +-
->  .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi |  21 +-
->  drivers/net/ethernet/marvell/mvpp2.c               | 638 +++++++++++++++=
-------
->  4 files changed, 534 insertions(+), 179 deletions(-)
->
-> --
-> 2.9.4
->
+dccp_memleak.c:
+  int s1 = socket(PF_INET6, 6, IPPROTO_IP);
+  bind(s1, &sa1, 0x20);
+  listen(s1, 0x9);
+  int s2 = socket(PF_INET6, 6, IPPROTO_IP);
+  connect(s2, &sa1, 0x20);
+  close(s1);
+  close(s2);
+
+This patch is to put the reqsk before dccp_v6_conn_request returns,
+just as what tcp_conn_request does.
+
+Reported-by: Jianlin Shi <jishi@redhat.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/dccp/ipv6.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index c376af5..1b58eac 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -380,6 +380,7 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		goto drop_and_free;
+ 
+ 	inet_csk_reqsk_queue_hash_add(sk, req, DCCP_TIMEOUT_INIT);
++	reqsk_put(req);
+ 	return 0;
+ 
+ drop_and_free:
+-- 
+2.1.0
