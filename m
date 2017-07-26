@@ -1,45 +1,72 @@
-From: "Rosen, Rami" <rami.rosen@intel.com>
-Subject: RE: linux-next: Tree for Jul 26
-Date: Wed, 26 Jul 2017 13:09:19 +0000
-Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F93DA513FA@HASMSX110.ger.corp.intel.com>
-References: <20170726161203.1dfbcff9@canb.auug.org.au>
- <20170726104856.GA5755@jagdpanzerIV.localdomain>
+From: Manish Chopra <manish.chopra@cavium.com>
+Subject: [PATCH v2 net-next 0/7] qed/qede: Enhancements
+Date: Wed, 26 Jul 2017 06:07:08 -0700
+Message-ID: <20170726130715.12976-1-manish.chopra@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-        Paul Moore <paul@paul-moore.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170726104856.GA5755@jagdpanzerIV.localdomain>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>,
+        <rahul.verma@cavium.com>, <sudarsana.kalluru@cavium.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0069.outbound.protection.outlook.com ([104.47.32.69]:6295
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750783AbdGZNHV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 09:07:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgU2VyZ2V5LA0KUGFvbG8gQWJlbmkgaGFkIHNlbnQgYSBwYXRjaDoNCmh0dHBzOi8vd3d3Lm1h
-aWwtYXJjaGl2ZS5jb20vbmV0ZGV2QHZnZXIua2VybmVsLm9yZy9tc2cxNzkxOTIuaHRtbA0KDQpS
-ZWdhcmRzLA0KUmFtaSBSb3Nlbg0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTog
-bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtl
-cm5lbC5vcmddIE9uIEJlaGFsZiBPZiBTZXJnZXkgU2Vub3poYXRza3kNClNlbnQ6IFdlZG5lc2Rh
-eSwgSnVseSAyNiwgMjAxNyAxMzo0OQ0KVG86IFBhb2xvIEFiZW5pIDxwYWJlbmlAcmVkaGF0LmNv
-bT47IFN0ZXBoZW4gUm90aHdlbGwgPHNmckBjYW5iLmF1dWcub3JnLmF1Pg0KQ2M6IExpbnV4LU5l
-eHQgTWFpbGluZyBMaXN0IDxsaW51eC1uZXh0QHZnZXIua2VybmVsLm9yZz47IExpbnV4IEtlcm5l
-bCBNYWlsaW5nIExpc3QgPGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc+OyBQYXVsIE1vb3Jl
-IDxwYXVsQHBhdWwtbW9vcmUuY29tPjsgRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQu
-bmV0PjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUmU6IGxpbnV4LW5leHQ6IFRy
-ZWUgZm9yIEp1bCAyNg0KDQpIZWxsbywNCg0KT24gKDA3LzI2LzE3IDE2OjEyKSwgU3RlcGhlbiBS
-b3Rod2VsbCB3cm90ZToNCj4gSGkgYWxsLA0KPiANCj4gQ2hhbmdlcyBzaW5jZSAyMDE3MDcyNToN
-Cj4gDQo+IE5vbi1tZXJnZSBjb21taXRzIChyZWxhdGl2ZSB0byBMaW51cycgdHJlZSk6IDIzNTgN
-Cj4gIDI0NjYgZmlsZXMgY2hhbmdlZCwgODY5OTQgaW5zZXJ0aW9ucygrKSwgNDQ2NTUgZGVsZXRp
-b25zKC0pDQoNCg0KZGNlNDU1MWNiMmFkYjFhYyAoInVkcDogcHJlc2VydmUgaGVhZCBzdGF0ZSBm
-b3IgSVBfQ01TR19QQVNTU0VDIikgY2F1c2VzIGEgYnVpbGQgZXJyb3INCg0KbmV0L2lwdjQvdWRw
-LmM6IEluIGZ1bmN0aW9uIOKAmF9fdWRwX3F1ZXVlX3Jjdl9za2LigJk6DQpuZXQvaXB2NC91ZHAu
-YzoxNzg5OjQ5OiBlcnJvcjog4oCYc3RydWN0IHNrX2J1ZmbigJkgaGFzIG5vIG1lbWJlciBuYW1l
-ZCDigJhzcOKAmTsgZGlkIHlvdSBtZWFuIOKAmHNr4oCZPw0KICBpZiAobGlrZWx5KElQQ0Ioc2ti
-KS0+b3B0Lm9wdGxlbiA9PSAwICYmICFza2ItPnNwKSkNCiAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICBeDQoNCgktc3MNCg==
+Hi David,
+
+This patch series adds these below features support in qed/qede
+
+1) Ntuple filter configuration [via ethtool -n/N]
+2) EEE (energy efficient ethernet) support [ethtool --set-eee/show-eee]
+3) Coalescing configuration support for VFs [via ethtool -c/C]
+
+Please consider applying this to "net-next"
+
+V1->V2:
+* Fixes below Kbuild test robot warning.
+
+drivers/net//ethernet/qlogic/qed/qed_l2.c:
+In function 'qed_get_queue_coalesce':
+drivers/net//ethernet/qlogic/qed/qed_l2.c:2137:8: error:
+implicit declaration of function 'qed_vf_pf_get_coalesce'
+[-Werror=implicit-function-declaration]
+
+Thanks,
+Manish
+
+Manish Chopra (2):
+  qede: Add getter APIs support for RX flow classification
+  qed/qede: Add setter APIs support for RX flow classification
+
+Rahul Verma (3):
+  qed: Add support for vf coalesce configuration.
+  qed: Read per queue coalesce from hardware
+  qed: enhanced per queue max coalesce value.
+
+Sudarsana Reddy Kalluru (2):
+  qed: Add support for Energy efficient ethernet.
+  qede: Add ethtool support for Energy efficient ethernet.
+
+ drivers/net/ethernet/qlogic/qed/qed_dev.c       |  145 ++++++--
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h   |   43 +--
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h       |   49 +++
+ drivers/net/ethernet/qlogic/qed/qed_l2.c        |  115 ++++++
+ drivers/net/ethernet/qlogic/qed/qed_l2.h        |   18 +-
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |   58 +--
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c       |   66 +++
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h       |   37 ++-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c     |  157 ++++++++
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h     |    3 +
+ drivers/net/ethernet/qlogic/qed/qed_vf.c        |   75 ++++
+ drivers/net/ethernet/qlogic/qed/qed_vf.h        |   53 +++-
+ drivers/net/ethernet/qlogic/qede/qede.h         |   19 +-
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  205 +++++++++-
+ drivers/net/ethernet/qlogic/qede/qede_filter.c  |  483 +++++++++++++++++++++--
+ drivers/net/ethernet/qlogic/qede/qede_main.c    |    9 +-
+ include/linux/qed/qed_eth_if.h                  |    1 +
+ include/linux/qed/qed_if.h                      |   37 ++-
+ 18 files changed, 1393 insertions(+), 180 deletions(-)
