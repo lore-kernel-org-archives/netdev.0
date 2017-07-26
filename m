@@ -1,35 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] bridge: Assume master at FDB modification
-Date: Wed, 26 Jul 2017 09:08:20 -0700
-Message-ID: <20170726090820.0252da7e@xeon-e3>
-References: <1501083394-26180-1-git-send-email-arkadis@mellanox.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] Revert "vhost: cache used event for better
+	performance"
+Date: Wed, 26 Jul 2017 19:08:26 +0300
+Message-ID: <20170726190745-mutt-send-email-mst@kernel.org>
+References: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
+	<20170726155435-mutt-send-email-mst@kernel.org>
+	<117542fc-eef9-c043-7c9e-daafceb7db4e@redhat.com>
+	<6b3a9a98-c095-1729-3528-dd521f136797@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        nikolay@cumulusnetworks.com, vivien.didelot@savoirfairelinux.com,
-        mlxsw@mellanox.com
-To: Arkadi Sharshevsky <arkadis@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:33750 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751726AbdGZQIX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 12:08:23 -0400
-Received: by mail-pg0-f46.google.com with SMTP id b8so9536615pgn.0
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 09:08:23 -0700 (PDT)
-In-Reply-To: <1501083394-26180-1-git-send-email-arkadis@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <6b3a9a98-c095-1729-3528-dd521f136797@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Jul 2017 18:36:34 +0300
-Arkadi Sharshevsky <arkadis@mellanox.com> wrote:
-
-> According to the man page the master flag should be the default, yet, the
-> current code assumes otherwise.
-> 
-> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-
-Agree that the documentation and code don't match.
-But your change could break users with existing scripts by changing behavior.
-
-It would be safer to change the man page not the code.
+T24gV2VkLCBKdWwgMjYsIDIwMTcgYXQgMDk6Mzc6MTVQTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
+ZToKPiAKPiAKPiBPbiAyMDE35bm0MDfmnIgyNuaXpSAyMToxOCwgSmFzb24gV2FuZyB3cm90ZToK
+PiA+IAo+ID4gCj4gPiBPbiAyMDE35bm0MDfmnIgyNuaXpSAyMDo1NywgTWljaGFlbCBTLiBUc2ly
+a2luIHdyb3RlOgo+ID4gPiBPbiBXZWQsIEp1bCAyNiwgMjAxNyBhdCAwNDowMzoxN1BNICswODAw
+LCBKYXNvbiBXYW5nIHdyb3RlOgo+ID4gPiA+IFRoaXMgcmV2ZXJ0cyBjb21taXQgODA5ZWNiOWJj
+YTZhOTQyNGNjZDM5MmQ2N2UzNjgxNjBmOGI3NmM5Mi4gU2luY2UgaXQKPiA+ID4gPiB3YXMgcmVw
+b3J0ZWQgdG8gYnJlYWsgdmhvc3RfbmV0LiBXZSB3YW50IHRvIGNhY2hlIHVzZWQgZXZlbnQgYW5k
+IHVzZQo+ID4gPiA+IGl0IHRvIGNoZWNrIGZvciBub3RpZmljYXRpb24uIFdlIHRyeSB0byB2YWxp
+ZCBjYWNoZWQgdXNlZCBldmVudCBieQo+ID4gPiA+IGNoZWNraW5nIHdoZXRoZXIgb3Igbm90IGl0
+IHdhcyBhaGVhZCBvZiBuZXcsIGJ1dCB0aGlzIGlzIG5vdCBjb3JyZWN0Cj4gPiA+ID4gYWxsIHRo
+ZSB0aW1lLCBpdCBjb3VsZCBiZSBzdGFsZSBhbmQgdGhlcmUncyBubyB3YXkgdG8ga25vdyBhYm91
+dCB0aGlzLgo+ID4gPiA+IAo+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IEphc29uIFdhbmc8amFzb3dh
+bmdAcmVkaGF0LmNvbT4KPiA+ID4gQ291bGQgeW91IHN1cHBseSBhIGJpdCBtb3JlIGRhdGEgaGVy
+ZSBwbGVhc2U/ICBIb3cgZG9lcyBpdCBnZXQgc3RhbGU/Cj4gPiA+IFdoYXQgZG9lcyBndWVzdCBu
+ZWVkIHRvIGRvIHRvIG1ha2UgaXQgc3RhbGU/ICBUaGlzIHdpbGwgYmUgaGVscGZ1bCBpZgo+ID4g
+PiBhbnlvbmUgd2FudHMgdG8gYnJpbmcgaXQgYmFjaywgb3IgaWYgd2Ugd2FudCB0byBleHRlbmQg
+dGhlIHByb3RvY29sLgo+ID4gPiAKPiA+IAo+ID4gVGhlIHByb2JsZW0gd2UgZG9uJ3Qga25vdyB3
+aGV0aGVyIG9yIG5vdCBndWVzdCBoYXMgcHVibGlzaGVkIGEgbmV3IHVzZWQKPiA+IGV2ZW50LiBU
+aGUgY2hlY2sgdnJpbmdfbmVlZF9ldmVudCh2cS0+bGFzdF91c2VkX2V2ZW50LCBuZXcgKyB2cS0+
+bnVtLAo+ID4gbmV3KSBpcyBub3Qgc3VmZmljaWVudCB0byBjaGVjayBmb3IgdGhpcy4KPiA+IAo+
+ID4gVGhhbmtzCj4gCj4gTW9yZSBub3RlcywgdGhlIHByZXZpb3VzIGFzc3VtcHRpb24gaXMgdGhh
+dCB3ZSBkb24ndCBtb3ZlIHVzZWQgZXZlbnQgYmFjaywKPiBidXQgdGhpcyBjb3VsZCBoYXBwZW4g
+aW4gZmFjdCBpZiBpZHggaXMgd3JhcHBlciBhcm91bmQuCgpZb3UgbWVhbiBpZiB0aGUgMTYgYml0
+IGluZGV4IHdyYXBzIGFyb3VuZCBhZnRlciA2NEsgZW50cmllcy4KTWFrZXMgc2Vuc2UuCgo+IFdp
+bGwgcmVwb3N0IGFuZCBhZGQKPiB0aGlzIGludG8gY29tbWl0IGxvZy4KPiAKPiBUaGFua3MKX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRp
+b24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3Jn
+Cmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1
+YWxpemF0aW9u
