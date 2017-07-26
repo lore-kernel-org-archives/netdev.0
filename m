@@ -1,369 +1,170 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next v2 02/10] netvsc: fix warnings reported by lockdep
-Date: Wed, 26 Jul 2017 16:40:21 -0700
-Message-ID: <20170726234029.7342-3-sthemmin@microsoft.com>
+Subject: [PATCH net-next v2 07/10] netvsc: allow smaller send/recv buffer size
+Date: Wed, 26 Jul 2017 16:40:26 -0700
+Message-ID: <20170726234029.7342-8-sthemmin@microsoft.com>
 References: <20170726234029.7342-1-sthemmin@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org,
- linux-doc@vger.kernel.org
+Cc: devel@linuxdriverproject.org, linux-doc@vger.kernel.org,
+        netdev@vger.kernel.org
 To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
- corbet@lwn.net
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+        corbet@lwn.net
+Return-path: <linux-doc-owner@vger.kernel.org>
 In-Reply-To: <20170726234029.7342-1-sthemmin@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This includes a bunch of fixups for issues reported by
-lockdep.
-   * ethtool routines can assume RTNL
-   * send is done with RCU lock (and BH disable)
-   * avoid refetching internal device struct (netvsc)
-     instead pass it as a parameter.
+The default value of send and receive buffer area for host DMA
+is much larger than it needs to be. Experimentation shows that
+4M receive and 1M send is sufficient.
+
+Make the size a module parameter so that it can be adjusted
+as needed for testing or special needs.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   |  3 +-
- drivers/net/hyperv/netvsc.c       |  2 +-
- drivers/net/hyperv/netvsc_drv.c   | 15 ++++---
- drivers/net/hyperv/rndis_filter.c | 84 +++++++++++++++++++--------------------
- 4 files changed, 54 insertions(+), 50 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |  2 ++
+ drivers/net/hyperv/netvsc.c     | 18 ++++++++++++------
+ drivers/net/hyperv/netvsc_drv.c | 31 ++++++++++++++++++++++++++++++-
+ 3 files changed, 44 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 4e7ff348327e..fb62ea632914 100644
+index f2cef5aaed1f..4779422868cf 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -217,7 +217,8 @@ int rndis_filter_receive(struct net_device *ndev,
- 			 struct vmbus_channel *channel,
- 			 void *data, u32 buflen);
+@@ -148,6 +148,8 @@ struct netvsc_device_info {
+ 	unsigned char mac_adr[ETH_ALEN];
+ 	int  ring_size;
+ 	u32  num_chn;
++	u32  recv_buf_size;
++	u32  send_buf_size;
+ };
  
--int rndis_filter_set_device_mac(struct net_device *ndev, char *mac);
-+int rndis_filter_set_device_mac(struct netvsc_device *ndev,
-+				const char *mac);
- 
- void netvsc_switch_datapath(struct net_device *nv_dev, bool vf);
- 
+ enum rndis_device_state {
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 06f39a99da7c..94c00acac58a 100644
+index c5e6f7fc4f2b..dd64227c736c 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -832,7 +832,7 @@ int netvsc_send(struct net_device_context *ndev_ctx,
- 		struct sk_buff *skb)
+@@ -482,14 +482,16 @@ static int negotiate_nvsp_ver(struct hv_device *device,
+ }
+ 
+ static int netvsc_connect_vsp(struct hv_device *device,
+-			      struct netvsc_device *net_device)
++			      struct netvsc_device *net_device,
++			      const struct netvsc_device_info *device_info)
  {
- 	struct netvsc_device *net_device
--		= rcu_dereference_rtnl(ndev_ctx->nvdev);
-+		= rcu_dereference_bh(ndev_ctx->nvdev);
- 	struct hv_device *device = ndev_ctx->device_ctx;
- 	int ret = 0;
- 	struct netvsc_channel *nvchan;
+ 	const u32 ver_list[] = {
+ 		NVSP_PROTOCOL_VERSION_1, NVSP_PROTOCOL_VERSION_2,
+ 		NVSP_PROTOCOL_VERSION_4, NVSP_PROTOCOL_VERSION_5
+ 	};
+ 	struct nvsp_message *init_packet;
+-	int ndis_version, i, ret;
++	u32 max_recv_buf_size, ndis_version;
++	int i, ret;
+ 
+ 	init_packet = &net_device->channel_init_pkt;
+ 
+@@ -534,10 +536,14 @@ static int netvsc_connect_vsp(struct hv_device *device,
+ 
+ 	/* Post the big receive buffer to NetVSP */
+ 	if (net_device->nvsp_version <= NVSP_PROTOCOL_VERSION_2)
+-		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE_LEGACY;
++		max_recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE_LEGACY;
+ 	else
+-		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE;
+-	net_device->send_buf_size = NETVSC_SEND_BUFFER_SIZE;
++		max_recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE;
++
++	net_device->recv_buf_size = min(max_recv_buf_size,
++					device_info->recv_buf_size);
++	net_device->send_buf_size = min_t(u32, NETVSC_SEND_BUFFER_SIZE,
++					  device_info->send_buf_size);
+ 
+ 	ret = netvsc_init_buf(device, net_device);
+ 
+@@ -1302,7 +1308,7 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 	rcu_assign_pointer(net_device_ctx->nvdev, net_device);
+ 
+ 	/* Connect with the NetVsp */
+-	ret = netvsc_connect_vsp(device, net_device);
++	ret = netvsc_connect_vsp(device, net_device, device_info);
+ 	if (ret != 0) {
+ 		netdev_err(ndev,
+ 			"unable to connect to NetVSP - %d\n", ret);
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index f1eaf675d2e9..a04f2efbbc25 100644
+index 8ff4cbf582cc..b662c0198807 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -923,6 +923,8 @@ static void netvsc_get_stats64(struct net_device *net,
+@@ -44,13 +44,23 @@
  
- static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
- {
-+	struct net_device_context *ndc = netdev_priv(ndev);
-+	struct netvsc_device *nvdev = rtnl_dereference(ndc->nvdev);
- 	struct sockaddr *addr = p;
- 	char save_adr[ETH_ALEN];
- 	unsigned char save_aatype;
-@@ -935,7 +937,10 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
- 	if (err != 0)
- 		return err;
+ #include "hyperv_net.h"
  
--	err = rndis_filter_set_device_mac(ndev, addr->sa_data);
-+	if (!nvdev)
-+		return -ENODEV;
+-#define RING_SIZE_MIN 64
++#define RING_SIZE_MIN	 64
++#define RECV_BUFFER_MIN	 16
++#define SEND_BUFFER_MIN	 4
+ #define LINKCHANGE_INT (2 * HZ)
+ 
+ static int ring_size = 128;
+ module_param(ring_size, int, S_IRUGO);
+ MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
+ 
++static unsigned int recv_buffer_size = (4 * 1024 * 1024) / PAGE_SIZE;
++module_param(recv_buffer_size, uint, S_IRUGO);
++MODULE_PARM_DESC(recv_buffer_size, "Receive buffer size (# of pages)");
 +
-+	err = rndis_filter_set_device_mac(nvdev, addr->sa_data);
- 	if (err != 0) {
- 		/* roll back to saved MAC */
- 		memcpy(ndev->dev_addr, save_adr, ETH_ALEN);
-@@ -981,7 +986,7 @@ static void netvsc_get_ethtool_stats(struct net_device *dev,
- 				     struct ethtool_stats *stats, u64 *data)
- {
- 	struct net_device_context *ndc = netdev_priv(dev);
--	struct netvsc_device *nvdev = rcu_dereference(ndc->nvdev);
-+	struct netvsc_device *nvdev = rtnl_dereference(ndc->nvdev);
- 	const void *nds = &ndc->eth_stats;
- 	const struct netvsc_stats *qstats;
- 	unsigned int start;
-@@ -1019,7 +1024,7 @@ static void netvsc_get_ethtool_stats(struct net_device *dev,
- static void netvsc_get_strings(struct net_device *dev, u32 stringset, u8 *data)
- {
- 	struct net_device_context *ndc = netdev_priv(dev);
--	struct netvsc_device *nvdev = rcu_dereference(ndc->nvdev);
-+	struct netvsc_device *nvdev = rtnl_dereference(ndc->nvdev);
- 	u8 *p = data;
- 	int i;
++static unsigned int send_buffer_size = (1024 * 1024) / PAGE_SIZE;
++module_param(send_buffer_size, uint, S_IRUGO);
++MODULE_PARM_DESC(send_buffer_size, "Send buffer size (# of pages)");
++
+ static const u32 default_msg = NETIF_MSG_DRV | NETIF_MSG_PROBE |
+ 				NETIF_MSG_LINK | NETIF_MSG_IFUP |
+ 				NETIF_MSG_IFDOWN | NETIF_MSG_RX_ERR |
+@@ -751,6 +761,8 @@ static int netvsc_set_channels(struct net_device *net,
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.num_chn = count;
+ 	device_info.ring_size = ring_size;
++	device_info.send_buf_size = nvdev->send_buf_size;
++	device_info.recv_buf_size = nvdev->recv_buf_size;
  
-@@ -1077,7 +1082,7 @@ netvsc_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
- 		 u32 *rules)
- {
- 	struct net_device_context *ndc = netdev_priv(dev);
--	struct netvsc_device *nvdev = rcu_dereference(ndc->nvdev);
-+	struct netvsc_device *nvdev = rtnl_dereference(ndc->nvdev);
+ 	nvdev = rndis_filter_device_add(dev, &device_info);
+ 	if (!IS_ERR(nvdev)) {
+@@ -848,6 +860,8 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+ 	device_info.num_chn = nvdev->num_chn;
++	device_info.send_buf_size = nvdev->send_buf_size;
++	device_info.recv_buf_size = nvdev->recv_buf_size;
  
- 	if (!nvdev)
- 		return -ENODEV;
-@@ -1127,7 +1132,7 @@ static int netvsc_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
- 			   u8 *hfunc)
- {
- 	struct net_device_context *ndc = netdev_priv(dev);
--	struct netvsc_device *ndev = rcu_dereference(ndc->nvdev);
-+	struct netvsc_device *ndev = rtnl_dereference(ndc->nvdev);
- 	struct rndis_device *rndis_dev;
- 	int i;
+ 	rndis_filter_device_remove(hdev, nvdev);
  
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index eaa3f0d5682a..bf21ea92c743 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -85,14 +85,6 @@ static struct rndis_device *get_rndis_device(void)
- 	return device;
- }
+@@ -1518,6 +1532,8 @@ static int netvsc_probe(struct hv_device *dev,
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+ 	device_info.num_chn = VRSS_CHANNEL_DEFAULT;
++	device_info.send_buf_size = send_buffer_size * PAGE_SIZE;
++	device_info.recv_buf_size = recv_buffer_size * PAGE_SIZE;
  
--static struct netvsc_device *
--net_device_to_netvsc_device(struct net_device *ndev)
--{
--	struct net_device_context *net_device_ctx = netdev_priv(ndev);
--
--	return rtnl_dereference(net_device_ctx->nvdev);
--}
--
- static struct rndis_request *get_rndis_request(struct rndis_device *dev,
- 					     u32 msg_type,
- 					     u32 msg_len)
-@@ -252,7 +244,10 @@ static int rndis_filter_send_request(struct rndis_device *dev,
- 			pb[0].len;
+ 	nvdev = rndis_filter_device_add(dev, &device_info);
+ 	if (IS_ERR(nvdev)) {
+@@ -1669,6 +1685,19 @@ static int __init netvsc_drv_init(void)
+ 		pr_info("Increased ring_size to %d (min allowed)\n",
+ 			ring_size);
  	}
- 
-+	rcu_read_lock_bh();
- 	ret = netvsc_send(net_device_ctx, packet, NULL, &pb, NULL);
-+	rcu_read_unlock_bh();
 +
- 	return ret;
- }
++	if (recv_buffer_size < RECV_BUFFER_MIN) {
++		recv_buffer_size = RECV_BUFFER_MIN;
++		pr_notice("Increased receive buffer size to %u (min allowed)\n",
++			  recv_buffer_size);
++	}
++
++	if (send_buffer_size < SEND_BUFFER_MIN) {
++		send_buffer_size = SEND_BUFFER_MIN;
++		pr_notice("Increased receive buffer size to %u (min allowed)\n",
++			  send_buffer_size);
++	}
++
+ 	ret = vmbus_driver_register(&netvsc_drv);
  
-@@ -452,8 +447,9 @@ int rndis_filter_receive(struct net_device *ndev,
- 	return 0;
- }
- 
--static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
--				  void *result, u32 *result_size)
-+static int rndis_filter_query_device(struct rndis_device *dev,
-+				     struct netvsc_device *nvdev,
-+				     u32 oid, void *result, u32 *result_size)
- {
- 	struct rndis_request *request;
- 	u32 inresult_size = *result_size;
-@@ -480,8 +476,6 @@ static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
- 	query->dev_vc_handle = 0;
- 
- 	if (oid == OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES) {
--		struct net_device_context *ndevctx = netdev_priv(dev->ndev);
--		struct netvsc_device *nvdev = rtnl_dereference(ndevctx->nvdev);
- 		struct ndis_offload *hwcaps;
- 		u32 nvsp_version = nvdev->nvsp_version;
- 		u8 ndis_rev;
-@@ -550,14 +544,15 @@ static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
- 
- /* Get the hardware offload capabilities */
- static int
--rndis_query_hwcaps(struct rndis_device *dev, struct ndis_offload *caps)
-+rndis_query_hwcaps(struct rndis_device *dev, struct netvsc_device *net_device,
-+		   struct ndis_offload *caps)
- {
- 	u32 caps_len = sizeof(*caps);
- 	int ret;
- 
- 	memset(caps, 0, sizeof(*caps));
- 
--	ret = rndis_filter_query_device(dev,
-+	ret = rndis_filter_query_device(dev, net_device,
- 					OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES,
- 					caps, &caps_len);
  	if (ret)
-@@ -586,11 +581,12 @@ rndis_query_hwcaps(struct rndis_device *dev, struct ndis_offload *caps)
- 	return 0;
- }
- 
--static int rndis_filter_query_device_mac(struct rndis_device *dev)
-+static int rndis_filter_query_device_mac(struct rndis_device *dev,
-+					 struct netvsc_device *net_device)
- {
- 	u32 size = ETH_ALEN;
- 
--	return rndis_filter_query_device(dev,
-+	return rndis_filter_query_device(dev, net_device,
- 				      RNDIS_OID_802_3_PERMANENT_ADDRESS,
- 				      dev->hw_mac_adr, &size);
- }
-@@ -598,9 +594,9 @@ static int rndis_filter_query_device_mac(struct rndis_device *dev)
- #define NWADR_STR "NetworkAddress"
- #define NWADR_STRLEN 14
- 
--int rndis_filter_set_device_mac(struct net_device *ndev, char *mac)
-+int rndis_filter_set_device_mac(struct netvsc_device *nvdev,
-+				const char *mac)
- {
--	struct netvsc_device *nvdev = net_device_to_netvsc_device(ndev);
- 	struct rndis_device *rdev = nvdev->extension;
- 	struct rndis_request *request;
- 	struct rndis_set_request *set;
-@@ -654,11 +650,8 @@ int rndis_filter_set_device_mac(struct net_device *ndev, char *mac)
- 	wait_for_completion(&request->wait_event);
- 
- 	set_complete = &request->response_msg.msg.set_complete;
--	if (set_complete->status != RNDIS_STATUS_SUCCESS) {
--		netdev_err(ndev, "Fail to set MAC on host side:0x%x\n",
--			   set_complete->status);
--		ret = -EINVAL;
--	}
-+	if (set_complete->status != RNDIS_STATUS_SUCCESS)
-+		ret = -EIO;
- 
- cleanup:
- 	put_rndis_request(rdev, request);
-@@ -791,27 +784,27 @@ int rndis_filter_set_rss_param(struct rndis_device *rdev,
- 	return ret;
- }
- 
--static int rndis_filter_query_device_link_status(struct rndis_device *dev)
-+static int rndis_filter_query_device_link_status(struct rndis_device *dev,
-+						 struct netvsc_device *net_device)
- {
- 	u32 size = sizeof(u32);
- 	u32 link_status;
--	int ret;
- 
--	ret = rndis_filter_query_device(dev,
--				      RNDIS_OID_GEN_MEDIA_CONNECT_STATUS,
--				      &link_status, &size);
--
--	return ret;
-+	return rndis_filter_query_device(dev, net_device,
-+					 RNDIS_OID_GEN_MEDIA_CONNECT_STATUS,
-+					 &link_status, &size);
- }
- 
--static int rndis_filter_query_link_speed(struct rndis_device *dev)
-+static int rndis_filter_query_link_speed(struct rndis_device *dev,
-+					 struct netvsc_device *net_device)
- {
- 	u32 size = sizeof(u32);
- 	u32 link_speed;
- 	struct net_device_context *ndc;
- 	int ret;
- 
--	ret = rndis_filter_query_device(dev, RNDIS_OID_GEN_LINK_SPEED,
-+	ret = rndis_filter_query_device(dev, net_device,
-+					RNDIS_OID_GEN_LINK_SPEED,
- 					&link_speed, &size);
- 
- 	if (!ret) {
-@@ -880,14 +873,14 @@ void rndis_filter_update(struct netvsc_device *nvdev)
- 	schedule_work(&rdev->mcast_work);
- }
- 
--static int rndis_filter_init_device(struct rndis_device *dev)
-+static int rndis_filter_init_device(struct rndis_device *dev,
-+				    struct netvsc_device *nvdev)
- {
- 	struct rndis_request *request;
- 	struct rndis_initialize_request *init;
- 	struct rndis_initialize_complete *init_complete;
- 	u32 status;
- 	int ret;
--	struct netvsc_device *nvdev = net_device_to_netvsc_device(dev->ndev);
- 
- 	request = get_rndis_request(dev, RNDIS_MSG_INIT,
- 			RNDIS_MESSAGE_SIZE(struct rndis_initialize_request));
-@@ -1024,12 +1017,17 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
- {
- 	struct net_device *ndev =
- 		hv_get_drvdata(new_sc->primary_channel->device_obj);
--	struct netvsc_device *nvscdev = net_device_to_netvsc_device(ndev);
-+	struct net_device_context *ndev_ctx = netdev_priv(ndev);
-+	struct netvsc_device *nvscdev;
- 	u16 chn_index = new_sc->offermsg.offer.sub_channel_index;
- 	struct netvsc_channel *nvchan;
- 	int ret;
- 
--	if (chn_index >= nvscdev->num_chn)
-+	/* This is safe because this callback only happens when
-+	 * new device is being setup and waiting on the channel_init_wait.
-+	 */
-+	nvscdev = rcu_dereference_raw(ndev_ctx->nvdev);
-+	if (!nvscdev || chn_index >= nvscdev->num_chn)
- 		return;
- 
- 	nvchan = nvscdev->chan_table + chn_index;
-@@ -1104,27 +1102,27 @@ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
- 	rndis_device->ndev = net;
- 
- 	/* Send the rndis initialization message */
--	ret = rndis_filter_init_device(rndis_device);
-+	ret = rndis_filter_init_device(rndis_device, net_device);
- 	if (ret != 0)
- 		goto err_dev_remv;
- 
- 	/* Get the MTU from the host */
- 	size = sizeof(u32);
--	ret = rndis_filter_query_device(rndis_device,
-+	ret = rndis_filter_query_device(rndis_device, net_device,
- 					RNDIS_OID_GEN_MAXIMUM_FRAME_SIZE,
- 					&mtu, &size);
- 	if (ret == 0 && size == sizeof(u32) && mtu < net->mtu)
- 		net->mtu = mtu;
- 
- 	/* Get the mac address */
--	ret = rndis_filter_query_device_mac(rndis_device);
-+	ret = rndis_filter_query_device_mac(rndis_device, net_device);
- 	if (ret != 0)
- 		goto err_dev_remv;
- 
- 	memcpy(device_info->mac_adr, rndis_device->hw_mac_adr, ETH_ALEN);
- 
- 	/* Find HW offload capabilities */
--	ret = rndis_query_hwcaps(rndis_device, &hwcaps);
-+	ret = rndis_query_hwcaps(rndis_device, net_device, &hwcaps);
- 	if (ret != 0)
- 		goto err_dev_remv;
- 
-@@ -1185,7 +1183,7 @@ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
- 	if (ret)
- 		goto err_dev_remv;
- 
--	rndis_filter_query_device_link_status(rndis_device);
-+	rndis_filter_query_device_link_status(rndis_device, net_device);
- 
- 	netdev_dbg(net, "Device MAC %pM link state %s\n",
- 		   rndis_device->hw_mac_adr,
-@@ -1194,11 +1192,11 @@ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
- 	if (net_device->nvsp_version < NVSP_PROTOCOL_VERSION_5)
- 		return net_device;
- 
--	rndis_filter_query_link_speed(rndis_device);
-+	rndis_filter_query_link_speed(rndis_device, net_device);
- 
- 	/* vRSS setup */
- 	memset(&rsscap, 0, rsscap_size);
--	ret = rndis_filter_query_device(rndis_device,
-+	ret = rndis_filter_query_device(rndis_device, net_device,
- 					OID_GEN_RECEIVE_SCALE_CAPABILITIES,
- 					&rsscap, &rsscap_size);
- 	if (ret || rsscap.num_recv_que < 2)
 -- 
 2.11.0
+
