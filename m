@@ -1,46 +1,43 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] dccp: fix a memleak for dccp_feat_init err process
-Date: Wed, 26 Jul 2017 14:20:15 +0800
-Message-ID: <62b8165447ec57830c1199af42a3490d896fbc26.1501050015.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35835 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751756AbdGZGUW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 02:20:22 -0400
-Received: by mail-pg0-f66.google.com with SMTP id d193so16442525pgc.2
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 23:20:22 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: Re: [PATCH v2 00/10] Constify attribute_group structures
+Date: Wed, 26 Jul 2017 12:05:16 +0530
+Message-ID: <9af8fd47-ca11-1308-d526-e08eb7998d85@gmail.com>
+References: <1499758370-24871-1-git-send-email-arvind.yadav.cs@gmail.com>
+ <87fudkiskz.fsf@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sgruszka@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87fudkiskz.fsf@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In dccp_feat_init, when ccid_get_builtin_ccids failsto alloc
-memory for rx.val, it should free tx.val before returning an
-error.
+Hi Kalle,
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/dccp/feat.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/net/dccp/feat.c b/net/dccp/feat.c
-index 1704948..f227f00 100644
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -1471,9 +1471,12 @@ int dccp_feat_init(struct sock *sk)
- 	 * singleton values (which always leads to failure).
- 	 * These settings can still (later) be overridden via sockopts.
- 	 */
--	if (ccid_get_builtin_ccids(&tx.val, &tx.len) ||
--	    ccid_get_builtin_ccids(&rx.val, &rx.len))
-+	if (ccid_get_builtin_ccids(&tx.val, &tx.len))
- 		return -ENOBUFS;
-+	if (ccid_get_builtin_ccids(&rx.val, &rx.len)) {
-+		kfree(tx.val);
-+		return -ENOBUFS;
-+	}
- 
- 	if (!dccp_feat_prefer(sysctl_dccp_tx_ccid, tx.val, tx.len) ||
- 	    !dccp_feat_prefer(sysctl_dccp_rx_ccid, rx.val, rx.len))
--- 
-2.1.0
+On Tuesday 25 July 2017 06:25 PM, Kalle Valo wrote:
+> Arvind Yadav <arvind.yadav.cs@gmail.com> writes:
+>
+>> attribute_groups are not supposed to change at runtime. So mark the
+>> non-const structs as const.
+>>
+>> Arvind Yadav (10):
+>>    [PATCH v2 01/10] net: cdc_ncm: constify attribute_group structures.
+>>    [PATCH v2 02/10] net: can: at91_can: constify attribute_group structures.
+>>    [PATCH v2 03/10] net: can: janz-ican3: constify attribute_group structures.
+>>    [PATCH v2 04/10] wireless: ipw2200: constify attribute_group structures.
+>>    [PATCH v2 05/10] wireless: ipw2100: constify attribute_group structures.
+>>    [PATCH v2 06/10] wireless: iwlegacy: constify attribute_group structures.
+>>    [PATCH v2 07/10] wireless: iwlegacy: Constify attribute_group structures.
+>>    [PATCH v2 08/10] arcnet: com20020-pci: constify attribute_group structures.
+>>    [PATCH v2 09/10] net: bonding: constify attribute_group structures.
+>>    [PATCH v2 10/10] net: chelsio: cxgb3: constify attribute_group structures.
+> Via which tree were you planning to push these? Is it ok if I take the
+> wireless patches to my tree?
+>
+I have push these changes to linux-branch. you can take this to your branch.
+
+~arvind
