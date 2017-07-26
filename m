@@ -1,36 +1,66 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: TCP fast retransmit issues
-Date: Wed, 26 Jul 2017 15:02:34 -0400
-Message-ID: <CADVnQynVfm0V=16sr+rHsJhtHx9b+kM7Vn2edW2GJ7qMaAtDJg@mail.gmail.com>
-References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk> <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
- <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk> <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170726134242.GB1737@1wt.eu> <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170726145059.GE1737@1wt.eu> <CADVnQymKZAc+SFD7X-FoP9UwHgB2MBCY48=dL8mH6XuKumkx4g@mail.gmail.com>
- <CADVnQykEX-LzhsqyfHNmV6fF9-d_2R0v+mOX-PnyagUhC1qQzQ@mail.gmail.com> <CADVnQynR8dUuUBDfeFR2xpL-wKzd+7TgbMv-CXe3TT-T0_PXyQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Klavs Klavsen <kl@vsen.dk>,
-        Netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>
-To: Willy Tarreau <w@1wt.eu>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: phy: Remove stale comments referencing timer
+Date: Wed, 26 Jul 2017 12:05:38 -0700
+Message-ID: <20170726190538.27674-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, slash.tmp@free.fr,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:35083 "EHLO
-        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750996AbdGZTDG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 15:03:06 -0400
-Received: by mail-oi0-f47.google.com with SMTP id e124so128274351oig.2
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 12:03:06 -0700 (PDT)
-In-Reply-To: <CADVnQynR8dUuUBDfeFR2xpL-wKzd+7TgbMv-CXe3TT-T0_PXyQ@mail.gmail.com>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:37585 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751089AbdGZTFr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 15:05:47 -0400
+Received: by mail-wr0-f193.google.com with SMTP id 12so14767356wrb.4
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 12:05:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 26, 2017 at 2:38 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> Yeah, it looks like I can reproduce this issue with (1) bad sacks
-> causing repeated TLPs, and (2) TLPs timers being pushed out to later
-> times due to incoming data. Scripts are attached.
+Since commit a390d1f379cf ("phylib: convert state_queue work to
+delayed_work"), the PHYLIB state machine was converted to use delayed
+workqueues, yet some functions were still referencing the PHY library
+timer in their comments, fix that and remove the now unused
+linux/timer.h include.
 
-I'm testing a fix of only scheduling a TLP if (flag & FLAG_DATA_ACKED)
-is true...
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/phy.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-neal
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index d0626bf5c540..ac1dcf0289fa 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -30,7 +30,6 @@
+ #include <linux/ethtool.h>
+ #include <linux/phy.h>
+ #include <linux/phy_led_triggers.h>
+-#include <linux/timer.h>
+ #include <linux/workqueue.h>
+ #include <linux/mdio.h>
+ #include <linux/io.h>
+@@ -705,8 +704,8 @@ EXPORT_SYMBOL(phy_start_aneg);
+  *
+  * Description: The PHY infrastructure can run a state machine
+  *   which tracks whether the PHY is starting up, negotiating,
+- *   etc.  This function starts the timer which tracks the state
+- *   of the PHY.  If you want to maintain your own state machine,
++ *   etc.  This function starts the delayed workqueue which tracks
++ *   the state of the PHY. If you want to maintain your own state machine,
+  *   do not call this function.
+  */
+ void phy_start_machine(struct phy_device *phydev)
+@@ -737,9 +736,9 @@ void phy_trigger_machine(struct phy_device *phydev, bool sync)
+  * phy_stop_machine - stop the PHY state machine tracking
+  * @phydev: target phy_device struct
+  *
+- * Description: Stops the state machine timer, sets the state to UP
+- *   (unless it wasn't up yet). This function must be called BEFORE
+- *   phy_detach.
++ * Description: Stops the state machine delayed workqueue, sets the
++ *   state to UP (unless it wasn't up yet). This function must be
++ *   called BEFORE phy_detach.
+  */
+ void phy_stop_machine(struct phy_device *phydev)
+ {
+-- 
+2.9.3
