@@ -1,50 +1,44 @@
-From: Willy Tarreau <w@1wt.eu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: TCP fast retransmit issues
-Date: Wed, 26 Jul 2017 16:18:47 +0200
-Message-ID: <20170726141847.GC1737@1wt.eu>
+Date: Wed, 26 Jul 2017 07:32:12 -0700
+Message-ID: <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk>
- <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
- <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk>
- <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
- <fd335e0a0c914b9c42a754da2d24b1c3@vsen.dk>
+         <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
+         <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk>
+         <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170726134242.GB1737@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Klavs Klavsen <kl@vsen.dk>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Klavs Klavsen <kl@vsen.dk>, netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:34239 "EHLO 1wt.eu"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752094AbdGZOSu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Jul 2017 10:18:50 -0400
-Content-Disposition: inline
-In-Reply-To: <fd335e0a0c914b9c42a754da2d24b1c3@vsen.dk>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:35546 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752059AbdGZOcR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 10:32:17 -0400
+Received: by mail-wm0-f51.google.com with SMTP id c184so80460793wmd.0
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 07:32:16 -0700 (PDT)
+In-Reply-To: <20170726134242.GB1737@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 26, 2017 at 04:08:19PM +0200, Klavs Klavsen wrote:
-> Grabbed on both ends.
+On Wed, 2017-07-26 at 15:42 +0200, Willy Tarreau wrote:
+> On Wed, Jul 26, 2017 at 06:31:21AM -0700, Eric Dumazet wrote:
+> > On Wed, 2017-07-26 at 14:18 +0200, Klavs Klavsen wrote:
+> > > the 192.168.32.44 is a Centos 7 box.
+> > 
+> > Could you grab a capture on this box, to see if the bogus packets are
+> > sent by it, or later mangled by a middle box ?
 > 
-> http://blog.klavsen.info/fast-retransmit-problem-junos-linux (updated to new
-> dump - from client scp'ing)
-> http://blog.klavsen.info/fast-retransmit-problem-junos-linux-receiving-side
-> (receiving host)
+> Given the huge difference between the window and the ranges of the
+> values in the SACK field, I'm pretty sure there's a firewall doing
+> some sequence numbers randomization in the middle, not aware of SACK
+> and not converting these ones. I've had to disable such broken
+> features more than once in field after similar observations! Probably
+> that the Mac doesn't advertise SACK support and doesn't experience the
+> problem.
 
-So bingo, Eric guessed right, the client's sequence numbers are translated
-on their way to/from the server, but the SACK fields are not :
-
-Server :
-15:59:54.292867 IP (tos 0x8, ttl 64, id 15878, offset 0, flags [DF], proto TCP (6), length 64)
-    192.168.32.44.22 > 62.242.222.50.35002: Flags [.], cksum 0xfe2b (incorrect -> 0xce0e), seq 1568063538, ack 3903858556,
-    win 10965, options [nop,nop,TS val 529899820 ecr 774272020,nop,nop,sack 1 {3903859904:3903861252}], length 0
-
-Client :
-15:59:54.297388 IP (tos 0x8, ttl 56, id 15878, offset 0, flags [DF], proto TCP (6), length 64)
-    192.168.32.44.22 > 62.242.222.50.35002: Flags [.], cksum 0xbb2c (correct), seq 1568063538, ack 2684453645,
-    win 10965, options [nop,nop,TS val 529899820 ecr 774272020,nop,nop,sack 1 {3903859904:3903861252}], length 0
-
-To there's very likely a broken firewall in the middle that is waiting for
-a bug fix, or to have its feature disabled. Sometimes it can also happen
-on firewalls performing some SYN proxying except that it would mangle the
-server's sequence numbers instead of the client ones.
-
-Willy
+We need to check RFC if such invalid SACK blocks should be ignored (DUP
+ACK would be processed and trigger fast retransmit anyway), or strongly
+validated (as I suspect we currently do), leading to a total freeze.
