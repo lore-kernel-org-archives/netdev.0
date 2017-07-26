@@ -1,56 +1,53 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v2] net: check dev->addr_len for dev_set_mac_address()
-Date: Wed, 26 Jul 2017 15:22:06 -0700
-Message-ID: <20170726222207.5922-1-xiyou.wangcong@gmail.com>
+Subject: [Patch net v2] team: use a larger struct for mac address
+Date: Wed, 26 Jul 2017 15:22:07 -0700
+Message-ID: <20170726222207.5922-2-xiyou.wangcong@gmail.com>
 Cc: andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
         Jiri Pirko <jiri@resnulli.us>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36919 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751009AbdGZWWZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 18:22:25 -0400
-Received: by mail-pf0-f194.google.com with SMTP id y25so9078101pfk.4
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 15:22:25 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36266 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751009AbdGZWW1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 18:22:27 -0400
+Received: by mail-pf0-f195.google.com with SMTP id m21so2122022pfj.3
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 15:22:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Historically, dev_ifsioc() uses struct sockaddr as mac
-address definition, this is why dev_set_mac_address()
-accepts a struct sockaddr pointer as input but now we
-have various types of mac addresse whose lengths
-are up to MAX_ADDR_LEN, longer than struct sockaddr,
-and saved in dev->addr_len.
+IPv6 tunnels use sizeof(struct in6_addr) as dev->addr_len,
+but in many places especially bonding, we use struct sockaddr
+to copy and set mac addr, this could lead to stack out-of-bounds
+access.
 
-It is too late to fix dev_ifsioc() due to API
-compatibility, so just reject those larger than
-sizeof(struct sockaddr), otherwise we would read
-and use some random bytes from kernel stack.
+Fix it by using a larger address storage like bonding.
 
-Fortunately, only a few IPv6 tunnel devices have addr_len
-larger than sizeof(struct sockaddr) and they don't support
-ndo_set_mac_addr(). But with team driver, in lb mode, they
-can still be enslaved to a team master and make its mac addr
-length as the same.
-
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
 Cc: Jiri Pirko <jiri@resnulli.us>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/core/dev_ioctl.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/team/team.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
-index 06b147d7d9e2..709a4e6fb447 100644
---- a/net/core/dev_ioctl.c
-+++ b/net/core/dev_ioctl.c
-@@ -263,6 +263,8 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- 		return dev_set_mtu(dev, ifr->ifr_mtu);
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 464570409796..ae53e899259f 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -60,11 +60,11 @@ static struct team_port *team_port_get_rtnl(const struct net_device *dev)
+ static int __set_port_dev_addr(struct net_device *port_dev,
+ 			       const unsigned char *dev_addr)
+ {
+-	struct sockaddr addr;
++	struct sockaddr_storage addr;
  
- 	case SIOCSIFHWADDR:
-+		if (dev->addr_len > sizeof(struct sockaddr))
-+			return -EINVAL;
- 		return dev_set_mac_address(dev, &ifr->ifr_hwaddr);
+-	memcpy(addr.sa_data, dev_addr, port_dev->addr_len);
+-	addr.sa_family = port_dev->type;
+-	return dev_set_mac_address(port_dev, &addr);
++	memcpy(addr.__data, dev_addr, port_dev->addr_len);
++	addr.ss_family = port_dev->type;
++	return dev_set_mac_address(port_dev, (struct sockaddr *)&addr);
+ }
  
- 	case SIOCSIFHWBROADCAST:
+ static int team_port_set_orig_dev_addr(struct team_port *port)
 -- 
 2.13.0
