@@ -1,83 +1,81 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [RFC] switchdev: clarify ndo_get_phys_port_name() formats
-Date: Tue, 25 Jul 2017 21:48:15 -0400
-Message-ID: <20170726014815.GA73972@C02RW35GFVH8.greyhouse.net>
-References: <20170725051344.2040-1-jakub.kicinski@netronome.com>
- <20170725152241.GA71091@C02RW35GFVH8.dhcp.broadcom.net>
- <20170725152647.571d1af3@cakuba.netronome.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH net-next] TLP: Don't reschedule PTO when there's one
+ outstanding TLP retransmission.
+Date: Wed, 26 Jul 2017 02:12:29 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F202929B17@DGGEMI512-MBX.china.huawei.com>
+References: <1500971735-21852-1-git-send-email-maowenan@huawei.com>
+ <CADVnQykr0YTB7YD=9n04bA8WFBQWku4qsPUZpqgKK6YGmd9xBA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        simon.horman@netronome.com, davem@davemloft.net
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Chenweilong <chenweilong@huawei.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        "Nandita Dukkipati" <nanditad@google.com>,
+        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:34121 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751695AbdGZBsT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 21:48:19 -0400
-Received: by mail-qk0-f195.google.com with SMTP id q66so14274694qki.1
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2017 18:48:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170725152647.571d1af3@cakuba.netronome.com>
+Received: from szxga01-in.huawei.com ([45.249.212.187]:10268 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751427AbdGZCMs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2017 22:12:48 -0400
+In-Reply-To: <CADVnQykr0YTB7YD=9n04bA8WFBQWku4qsPUZpqgKK6YGmd9xBA@mail.gmail.com>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 25, 2017 at 03:26:47PM -0700, Jakub Kicinski wrote:
-> On Tue, 25 Jul 2017 11:22:41 -0400, Andy Gospodarek wrote:
-> > On Mon, Jul 24, 2017 at 10:13:44PM -0700, Jakub Kicinski wrote:
-> > > We are still in position where we can suggest uniform naming
-> > > convention for ndo_get_phys_port_name().  switchdev.txt file
-> > > already contained a suggestion of how to name external ports.
-> > > Since the use of switchdev for SR-IOV NIC's eswitches is growing,
-> > > establish a format for ports of those devices as well.
-> > > 
-> > > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>  
-> > 
-> > This is a nice addition and I suspect there could be even more done to
-> > update this file to cover the VF rep usage.
-> > 
-> > > ---
-> > >  Documentation/networking/switchdev.txt | 14 +++++++++++---
-> > >  1 file changed, 11 insertions(+), 3 deletions(-)
-> > > 
-> > > diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
-> > > index 3e7b946dea27..7c4b6025fb4b 100644
-> > > --- a/Documentation/networking/switchdev.txt
-> > > +++ b/Documentation/networking/switchdev.txt
-> > > @@ -119,9 +119,17 @@ into 4 10G ports, resulting in 4 port netdevs, the device can give a unique
-> > >  SUBSYSTEM=="net", ACTION=="add", ATTR{phys_switch_id}=="<phys_switch_id>", \
-> > >  	ATTR{phys_port_name}!="", NAME="swX$attr{phys_port_name}"
-> > >  
-> > > -Suggested naming convention is "swXpYsZ", where X is the switch name or ID, Y
-> > > -is the port name or ID, and Z is the sub-port name or ID.  For example, sw1p1s0
-> > > -would be sub-port 0 on port 1 on switch 1.
-> > > +Suggested formats of the port name returned by ndo_get_phys_port_name are:
-> > > + - pA     for external ports;
-> > > + - pAsB   for split external ports;
-> > > + - pfC    for PF ports (so called PF representors);
-> > > + - pfCvfD for VF ports (so called VF representors).  
-> > 
-> > I hate to clutter this up, but might be also need to add:
-> > 
-> >  - pfCsB    for split PF ports (so called PF representors);
-> >  - pfCsBvfD for split VF ports (so called VF representors).
-> > 
-> > or are we comfortable that these additions to the name for split ports
-> > are implied?
-> 
-> Hm..  What is a split PF port?  Splits happen on the physical port - see
-> my rant on the thread this is a reply to ;)  PFs are PCIe functions,
-> on the opposite side of the eswitch from the wires.
-
-I'm with you that I think there is value in separate netdevs to
-represent "PFs, VFs and external ports/MACs" -- particularly for the
-use-case you to create rules to control PF<->VF traffic.
-
-So while I'm not saying it is a _great_ idea to support such a thing as
-port-splitting of PFs, I suggested this addition as I'm not willing to restrict
-such a design/implementation if a vendor or customer desired.  It seemed
-useful to provde some guidance on how to name them -- even if we do not
-like them.  :-)
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogTmVhbCBDYXJkd2VsbCBb
+bWFpbHRvOm5jYXJkd2VsbEBnb29nbGUuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBKdWx5IDI1LCAy
+MDE3IDk6MzAgUE0NCj4gVG86IG1hb3dlbmFuDQo+IENjOiBOZXRkZXY7IERhdmlkIE1pbGxlcjsg
+d2VpeW9uZ2p1biAoQSk7IENoZW53ZWlsb25nOyBZdWNodW5nIENoZW5nOw0KPiBOYW5kaXRhIER1
+a2tpcGF0aQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0XSBUTFA6IERvbid0IHJlc2No
+ZWR1bGUgUFRPIHdoZW4gdGhlcmUncyBvbmUNCj4gb3V0c3RhbmRpbmcgVExQIHJldHJhbnNtaXNz
+aW9uLg0KPiANCj4gT24gVHVlLCBKdWwgMjUsIDIwMTcgYXQgNDozNSBBTSwgTWFvIFdlbmFuIDxt
+YW93ZW5hbkBodWF3ZWkuY29tPg0KPiB3cm90ZToNCj4gPiBJZiB0aGVyZSBpcyBvbmUgVExQIHBy
+b2JlIHdlbnQgb3V0KFRMUCB1c2UgdGhlIHdyaXRlX3F1ZXVlX3RhaWwgcGFja2V0DQo+ID4gYXMg
+VExQIHByb2JlLCB3ZSBhc3N1bWUgdGhpcyBmaXJzdCBUTFAgcHJvYmUgbmFtZWQgQSksIGFuZCB0
+aGlzIFRMUA0KPiA+IHByb2JlIHdhcyBub3QgYWNrZWQgYnkgcmVjZWl2ZSBzaWRlLg0KPiA+DQo+
+ID4gVGhlbiB0aGUgdHJhbnNtaXQgc2lkZSBzZW50IHRoZSBuZXh0IHR3byBwYWNrZXRlcyBvdXQo
+bmFtZWQgQixDKSwgYnV0DQo+ID4gdW5mb3J0dW5hdGVseSB0aGVzZSB0d28gcGFja2V0cyBhcmUg
+YWxzbyBub3QgYWNrZWQgYnkgcmVjZWl2ZSBzaWRlLg0KPiA+DQo+ID4gQW5kIHRoZW4gdGhlcmUg
+aXMgb25lIGRhdGEgcGFja2V0IHdpdGggYWNrX3NlcSBBIGFycml2ZSwgaW4gdGNwX2FjaygpDQo+
+ID4gd2lsbCBjYWxsIHRjcF9zY2hlZHVsZV9sb3NzX3Byb2JlKCkgdG8gcmVhcm0gUFRPLCB0aGUg
+aGFuZGxlcg0KPiA+IHRjcF9zZW5kX2xvc3NfcHJvYmUoKSBwYXNzIGlmKHRwLT50bHBfaGlnaF9z
+ZXEpKGJlY2F1c2UgdGhlcmUgaXMgb25lDQo+ID4gb3V0c3RhbmRpbmcgVExQIG5hbWVkIEEsdHAt
+PnRscF9oaWdoX3NlcSBpcyBub3QgemVybyksIHNvIHRoZSBuZXcgVExQDQo+ID4gcHJvYmUgY2Fu
+J3QgYmUgd2VudCBvdXQgYW5kIG5lZWQgdG8gcmVhcm0gdGhlIFJUTyB0aW1lcih0aW1lb3V0IGlz
+DQo+ID4gcmVsYXRpdmUgdG8gdGhlIHRyYW5zbWl0IHRpbWUgb2YgdGhlIHdyaXRlIHF1ZXVlIGhl
+YWQpLg0KPiA+DQo+ID4gQWZ0ZXIgdGhpcywgYW5vdGhlciBkYXRhIHBhY2tldCB3aXRoIGFja19z
+ZXEgQSBpcyByZWNlaXZlZCwgaWYgdGhlDQo+ID4gdGxwX3RpbWVfc3RhbXAgaXMgYWZ0ZXIgcnRv
+X3RpbWVfc3RhbXAsIGl0IHdpbGwgcmVzZXQgdGhlIFRMUCB0aW1lb3V0DQo+ID4gd2l0aCBkZWx0
+YSB2YWx1ZSwgd2hpY2ggaXMgYmVmb3JlIHByZXZpb3VzIFJUTyB0aW1lb3V0LCBzbyBQVE8gaXMN
+Cj4gPiByZWFybSBhbmQgcHJldmlvdXMgUlRPIGlzIGNsZWFyZWQuIFRoaXMgVExQIHByb2JlIGFs
+c28gY2FuJ3QgYmUgc2VudA0KPiA+IG91dCBiZWNhdXNlIG9mIHRwLT50bHBfaGlnaF9zZXEgIT0g
+MCwgc28gdGhlcmUgaXMgbm8gd2F5KG9yIG5lZWQgdmVyeQ0KPiA+IGxvbmcgdGltZSl0byByZXRy
+YW5zbWl0IHRoZSBwYWNrZXQgYmVjYXVzZSBvZiBUTFAgQSBpcyBsb3N0Lg0KPiA+DQo+ID4gVGhp
+cyBmaXggaXMgbm90IHRvIHBhc3MgdGhlIGlmKHRwLT50bHBfaGlnaF9zZXEpIGluDQo+ID4gdGNw
+X3NjaGVkdWxlX2xvc3NfcHJvYmUoKSB3aGVuIFRMUCBQVE8gaXMgYWZ0ZXIgUlRPLCBJdCBpcyBu
+byBuZWVkIHRvDQo+ID4gcmVzY2hlZHVsZSBQVE8gd2hlbiB0aGVyZSBpcyBvbmUgb3V0c3RhbmRp
+bmcgVExQIHJldHJhbnNtaXNzaW9uLCBzbyBpZg0KPiA+IHRoZSBUTFAgQSBpcyBsb3N0IHRoZW4g
+UlRPIGNhbiByZXRyYW5zbWl0IHRoYXQgcGFja2V0LCBhbmQNCj4gPiB0cC0+dGxwX2hpZ2hfc2Vx
+IHdpbGwgYmUgc2V0IHRvIDAuIEFmdGVyIHRoaXMgVExQIHdpbGwgZ28gdG8gdGhlIG5vcm1hbCB3
+b3JrDQo+IHByb2Nlc3MuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBNYW8gV2VuYW4gPG1hb3dl
+bmFuQGh1YXdlaS5jb20+DQo+IA0KPiBUaGFua3MgZm9yIHBvc3RpbmcgdGhpcy4gVGhpcyBpcyBh
+IHByZXR0eSBpbnZvbHZlZCBzY2VuYXJpby4gVG8gaGVscA0KPiBkb2N1bWVudC90ZXN0IHByZWNp
+c2VseSB3aGF0IHRoZSBiZWhhdmlvciBpcyBiZWZvcmUgYW5kIGFmdGVyIHlvdXIgcGF0Y2gsDQo+
+IHdvdWxkIHlvdSBiZSBhYmxlIHRvIHBvc3QgYSBwYWNrZXRkcmlsbCAoIGh0dHBzOi8vZ2l0aHVi
+LmNvbS9nb29nbGUvcGFja2V0ZHJpbGwgKQ0KPiB0ZXN0IGNhc2UgZm9yIHRoaXMgc2NlbmFyaW8/
+DQo+IA0KPiBDYW4gSSBhc2sgaWYgeW91IHNhdyB0aGlzIHNjZW5hcmlvIGluIGFuIGFjdHVhbCB0
+cmFjZSwgb3Igbm90aWNlZCB0aGlzIGJ5DQo+IGluc3BlY3Rpb24/DQpbTWFvIFdlbmFuXSBJdCBp
+cyBteSBhY3R1YWwgcHJvZHVjdCBzY2VuYXJpbywgZnJvbSBzb21lIGRlYnVnIHRyYWNlIGluZm8g
+DQpJIGZvdW5kIHRoYXQgUFRPIGlzIGFsd2F5cyByZXNjaGVkdWxlZCBiZWZvcmUgUlRPLCB0aGlz
+IGlzIFBUTyBpcyB0cmlnZ2VkIA0KYnkgcmVjZWl2aW5nIG9uZSB0Y3BfYWNrIHBhY2tldHMuIEFm
+dGVyIHRoaXMgcGF0Y2gsIHRoZSBwcm9kdWN0IHdvcmtzIHdlbGwgYW5kIA0KdGhlcmUgaXMgbm8g
+cHJldmlvdXMgaXNzdWUgaGFwcGVuLiBUaGUgcGFja2V0IGNhbiByZXRyYW5zbWl0IHdpdGggUlRP
+IGlmIFRMUCBwcm9iZSANCmlzIGxvc3QuIA0KSSB3aWxsIHNheSBzb3JyeSB0aGF0IG15IGxvY2Fs
+IHRlc3QgY2FuJ3QgcmVwcm9kdWNlIGJlY2F1c2UgaSBjYW4ndCBidWlsZCBzdWNjZXNzZnVsbHkg
+dGhlIHNhbWUgDQpjb21wbGV4IHNjZW5hcmlvLCBJIGRvbid0IGhhdmUgbWF0dXJlIHRlc3QgY2Fz
+ZSB0byByZXByb2R1Y2Ugbm93IGJ1dCBJIHdpbGwgZG8gbXkgYmVzdCB0byB0cnkNCmluIGxvY2Fs
+IHRlc3QgZW52aXJvbm1lbnQuIA0KVGhhbmsgeW91Lg0KPiANCj4gdGhhbmtzLA0KPiBuZWFsDQo=
