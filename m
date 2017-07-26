@@ -1,9 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 07/18] net: mvpp2: initialize the GoP
-Date: Wed, 26 Jul 2017 18:16:17 +0200
-Message-ID: <20170726161617.GI12049@lunn.ch>
+Subject: Re: [PATCH net-next 08/18] net: mvpp2: make the phy optional
+Date: Wed, 26 Jul 2017 18:20:00 +0200
+Message-ID: <20170726162000.GJ12049@lunn.ch>
 References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
- <20170724134848.19330-8-antoine.tenart@free-electrons.com>
+ <20170724134848.19330-9-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, jason@lakedaemon.net,
@@ -14,18 +14,31 @@ Cc: davem@davemloft.net, jason@lakedaemon.net,
         netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40989 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:41005 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750893AbdGZQQW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 26 Jul 2017 12:16:22 -0400
+        id S1751653AbdGZQUH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 26 Jul 2017 12:20:07 -0400
 Content-Disposition: inline
-In-Reply-To: <20170724134848.19330-8-antoine.tenart@free-electrons.com>
+In-Reply-To: <20170724134848.19330-9-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +	switch (port->phy_interface) {
-> +	case PHY_INTERFACE_MODE_RGMII:
+On Mon, Jul 24, 2017 at 03:48:38PM +0200, Antoine Tenart wrote:
+> SFP ports do not necessarily need to have an Ethernet PHY between the
+> SoC and the actual physical port. However, the driver currently makes
+> the "phy" property mandatory, contrary to what is stated in the Device
+> Tree binding.
+> 
+> To allow handling the PPv2 controller on those boards, this patch makes
+> the PHY optional, and aligns the PPv2 driver on its device tree
+> documentation.
 
-Here as well,
+It is an architectural question...
 
-     Andrew
+but with the boards i have with an SFF port, i actually use a
+fixed-phy to represent the SFF. Then nothing special is needed.
+
+Also, Russell King posted his phylink patches. Once accepted, you are
+going to want to re-write some of this to make use of that code.
+
+      Andrew
