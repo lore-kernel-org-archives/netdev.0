@@ -1,20 +1,71 @@
-From: "venkatvenkatsubra" <venkatvenkatsubra@the.savant-inside.com>
-Subject: (unknown)
-Date: Wed, 26 Jul 2017 17:35:21 +0300
-Message-ID: <gyq107fhv2k7ss5kpv6p8qd4.15010797219453@email.android.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH V2 3/4] net-next: dsa: fix flow dissection
+Date: Wed, 26 Jul 2017 17:10:13 +0200
+Message-ID: <20170726151013.GD12049@lunn.ch>
+References: <20170721085813.30789-1-john@phrozen.org>
+ <20170721085813.30789-3-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from users145.heteml.jp ([157.7.188.164]:55996 "EHLO
-        users45.heteml.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751656AbdGZOyD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 10:54:03 -0400
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: John Crispin <john@phrozen.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170721085813.30789-3-john@phrozen.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-R3JlZXRpbmdzIE5ldGRldg0KDQpodHRwOi8vbW9uZGVzaWduLmpwL2xpc3Qtdmlldy5waHA/cmVz
+On Fri, Jul 21, 2017 at 10:58:12AM +0200, John Crispin wrote:
+> RPS and probably other kernel features are currently broken on some if not
+> all DSA devices. The root cause of this is that skb_hash will call the
+> flow_dissector. At this point the skb still contains the magic switch header
+> and the skb->protocol field is not set up to the correct 802.3 value yet.
+> By the time the tag specific code is called, removing the header and
+> properly setting the protocol an invalid hash is already set. In the case
+> of the mt7530 this will result in all flows always having the same hash.
+> 
+> This patch makes the flow dissector honour the nh and protocol offset
+> defined by the dsa tag driver thus fixing dissection, hashing and RPS.
+> 
+> Signed-off-by: John Crispin <john@phrozen.org>
+> ---
+>  net/core/flow_dissector.c | 12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+> 
+> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+> index fc5fc4594c90..1268ae75c3b3 100644
+> --- a/net/core/flow_dissector.c
+> +++ b/net/core/flow_dissector.c
+> @@ -4,6 +4,7 @@
+>  #include <linux/ip.h>
+>  #include <linux/ipv6.h>
+>  #include <linux/if_vlan.h>
+> +#include <net/dsa.h>
+>  #include <net/ip.h>
+>  #include <net/ipv6.h>
+>  #include <net/gre.h>
+> @@ -440,6 +441,17 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+>  			 skb->vlan_proto : skb->protocol;
+>  		nhoff = skb_network_offset(skb);
+>  		hlen = skb_headlen(skb);
+> +
+> +		if (unlikely(netdev_uses_dsa(skb->dev))) {
+> +			const struct dsa_device_ops *ops;
+> +			u8 *p = (u8 *)data;
+> +
+> +			ops = skb->dev->dsa_ptr->tag_ops;
+> +			if (ops->hash_proto_off)
+> +				proto = (u16)p[ops->hash_proto_off];
 
-dWx0PTJiN2Y1eDNmYzRneHVzc2RuDQoNCg0KDQoNCg0KdmVua2F0dmVua2F0c3VicmE=
+Hi John
+
+Unfortunately, this is not generic enough to work for DSA and EDSA
+tagging. With these tagging protocols, the size of the tag depends on
+the presence or not of a VLAN header.
+
+To make this work for all tagging protocols, we are going to need to
+add an a new op to tag_ops.
+
+    Andrew
