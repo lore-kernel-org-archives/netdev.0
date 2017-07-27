@@ -1,68 +1,42 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCHv4 net] ipv6: no need to check rt->dst.error when get route info
-Date: Fri, 28 Jul 2017 00:25:36 +0800
-Message-ID: <1501172736-13685-1-git-send-email-liuhangbin@gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        David Ahern <dsahern@gmail.com>,
-        Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] xen-netback: correctly schedule rate-limited queues
+Date: Thu, 27 Jul 2017 09:35:44 -0700 (PDT)
+Message-ID: <20170727.093544.904406679221141579.davem@davemloft.net>
+References: <20170621092122.694-1-wei.liu2@citrix.com>
+        <20170622.111648.301858879592718577.davem@davemloft.net>
+        <ba4a971ce2c0891a6e911ef09b6a5d6e@dupond.be>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: wei.liu2@citrix.com, netdev@vger.kernel.org,
+        xen-devel@lists.xenproject.org, Paul.Durrant@citrix.com
+To: jean-louis@dupond.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34016 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751607AbdG0Q0R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 12:26:17 -0400
-Received: by mail-pf0-f196.google.com with SMTP id u17so105635pfa.1
-        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 09:26:17 -0700 (PDT)
-In-Reply-To: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42650 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750981AbdG0Qfr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 12:35:47 -0400
+In-Reply-To: <ba4a971ce2c0891a6e911ef09b6a5d6e@dupond.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib
-result when requested"). When we get a prohibit ertry, we will return
--EACCES directly instead of dump route info.
+From: Jean-Louis Dupond <jean-louis@dupond.be>
+Date: Thu, 27 Jul 2017 10:21:56 +0200
 
-Fix it by remove the rt->dst.error check.
+> Op 2017-06-22 17:16, schreef David Miller:
+>> From: Wei Liu <wei.liu2@citrix.com>
+>> Date: Wed, 21 Jun 2017 10:21:22 +0100
+>> 
+>>> Add a flag to indicate if a queue is rate-limited. Test the flag in
+>>> NAPI poll handler and avoid rescheduling the queue if true, otherwise
+>>> we risk locking up the host. The rescheduling will be done in the
+>>> timer callback function.
+>>> Reported-by: Jean-Louis Dupond <jean-louis@dupond.be>
+>>> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+>>> Tested-by: Jean-Louis Dupond <jean-louis@dupond.be>
+>> Applied.
+> 
+> Could this get applied to stable & LTS kernels also?
+> Seems important enough in my opinion.
 
-Before fix:
-\# ip -6 route add prohibit 2003::/64 dev eth1
-\# ip -6 route get fibmatch 2003::1
-RTNETLINK answers: Permission denied
-\# ip -6 route add unreachable 2004::/64 dev eth1
-\# ip -6 route get fibmatch 2004::1
-RTNETLINK answers: No route to host
-
-After fix:
-\# ip -6 route add prohibit 2003::/64 dev eth1
-\# ip -6 route get fibmatch 2003::1
-prohibit 2003::/64 dev lo metric 1024 error -13 pref medium
-\# ip -6 route add unreachable 2004::/64 dev eth1
-\# ip -6 route get fibmatch 2004::1
-unreachable 2004::/64 dev lo metric 1024 error -113 pref medium
-
-Fixes: 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib...")
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- net/ipv6/route.c | 6 ------
- 1 file changed, 6 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4d30c96..8fc52de 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -3637,12 +3637,6 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
- 		dst = ip6_route_lookup(net, &fl6, 0);
- 
- 	rt = container_of(dst, struct rt6_info, dst);
--	if (rt->dst.error) {
--		err = rt->dst.error;
--		ip6_rt_put(rt);
--		goto errout;
--	}
--
- 	if (rt == net->ipv6.ip6_null_entry) {
- 		err = rt->dst.error;
- 		ip6_rt_put(rt);
--- 
-2.5.5
+Sure, queued up.
