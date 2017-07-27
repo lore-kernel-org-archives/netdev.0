@@ -1,64 +1,53 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net V2 03/14] net/mlx5: Fix command completion after timeout access invalid structure
-Date: Thu, 27 Jul 2017 16:56:06 +0300
-Message-ID: <20170727135617.18559-4-saeedm@mellanox.com>
+Subject: [net V2 14/14] net/mlx5: Fix mlx5_add_flow_rules call with correct num of dests
+Date: Thu, 27 Jul 2017 16:56:17 +0300
+Message-ID: <20170727135617.18559-15-saeedm@mellanox.com>
 References: <20170727135617.18559-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Moshe Shemesh <moshe@mellanox.com>,
-        kernel-team@fb.com, Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Paul Blakey <paulb@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40140 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40136 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751607AbdG0N5Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 09:57:16 -0400
+        with ESMTP id S1751606AbdG0N5P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 09:57:15 -0400
 In-Reply-To: <20170727135617.18559-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Moshe Shemesh <moshe@mellanox.com>
+From: Paul Blakey <paulb@mellanox.com>
 
-Completion on timeout should not free the driver command entry structure
-as it will need to access it again once real completion event from FW
-will occur.
+When adding ethtool steering rule with action DISCARD we wrongly
+pass a NULL dest with dest_num 1 to mlx5_add_flow_rules().
+What this error seems to have caused is sending VPORT 0
+(MLX5_FLOW_DESTINATION_TYPE_VPORT) as the fte dest instead of no dests.
+We have fte action correctly set to DROP so it might been ignored
+anyways.
 
-Fixes: 73dd3a4839c1 ('net/mlx5: Avoid using pending command interface slots')
-Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
-Cc: kernel-team@fb.com
+To reproduce use:
+ # sudo ethtool --config-nfc <dev> flow-type ether \
+   dst aa:bb:cc:dd:ee:ff action -1
+
+Fixes: 74491de93712 ("net/mlx5: Add multi dest support")
+Signed-off-by: Paul Blakey <paulb@mellanox.com>
+Reviewed-by: Mark Bloch <markb@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index f5a2c605749f..25fd32fcdf79 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -967,7 +967,7 @@ static int mlx5_cmd_invoke(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *in,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
+index 22fb993987b4..eafc59280ada 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
+@@ -320,7 +320,7 @@ add_ethtool_flow_rule(struct mlx5e_priv *priv,
  
- 	err = wait_func(dev, ent);
- 	if (err == -ETIMEDOUT)
--		goto out_free;
-+		goto out;
- 
- 	ds = ent->ts2 - ent->ts1;
- 	op = MLX5_GET(mbox_in, in->first.data, opcode);
-@@ -1430,6 +1430,7 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced)
- 					mlx5_core_err(dev, "Command completion arrived after timeout (entry idx = %d).\n",
- 						      ent->idx);
- 					free_ent(cmd, ent->idx);
-+					free_cmd(ent);
- 				}
- 				continue;
- 			}
-@@ -1488,7 +1489,8 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced)
- 				free_msg(dev, ent->in);
- 
- 				err = err ? err : ent->status;
--				free_cmd(ent);
-+				if (!forced)
-+					free_cmd(ent);
- 				callback(err, context);
- 			} else {
- 				complete(&ent->done);
+ 	spec->match_criteria_enable = (!outer_header_zero(spec->match_criteria));
+ 	flow_act.flow_tag = MLX5_FS_DEFAULT_FLOW_TAG;
+-	rule = mlx5_add_flow_rules(ft, spec, &flow_act, dst, 1);
++	rule = mlx5_add_flow_rules(ft, spec, &flow_act, dst, dst ? 1 : 0);
+ 	if (IS_ERR(rule)) {
+ 		err = PTR_ERR(rule);
+ 		netdev_err(priv->netdev, "%s: failed to add ethtool steering rule: %d\n",
 -- 
 2.13.0
