@@ -1,88 +1,40 @@
-From: Nathaniel Roach <nroach44@gmail.com>
-Subject: qmi_wwan: Null pointer dereference when removing driver
-Date: Thu, 27 Jul 2017 13:31:00 +0800
-Message-ID: <0d39998a-dfa9-48c5-0c7f-19354f16a7c0@gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: TC-pedit man page examples error
+Date: Thu, 27 Jul 2017 08:08:08 +0200
+Message-ID: <20170727060808.GK2235@orbyte.nwl.cc>
+References: <CAEPezq43wKM1ivHAUu6pFoGqz9+nCJ1FT9xQV702S_BCQvropA@mail.gmail.com>
+ <20170726084338.GH2235@orbyte.nwl.cc>
+ <CAEPezq4Emc=D7zspWqLOq=80WGUjVdfT0xkqoJ1XQPXqaL3w6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Tyler Bautista <tylerbautista@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34160 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750765AbdG0FbH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 01:31:07 -0400
-Received: by mail-pf0-f180.google.com with SMTP id q85so79319820pfq.1
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 22:31:06 -0700 (PDT)
-Received: from [10.1.10.49] ([210.8.123.55])
-        by smtp.gmail.com with ESMTPSA id z8sm12754991pfk.130.2017.07.26.22.31.03
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 26 Jul 2017 22:31:05 -0700 (PDT)
-Content-Language: en-US
+Received: from orbyte.nwl.cc ([151.80.46.58]:49961 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751042AbdG0GIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Jul 2017 02:08:09 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEPezq4Emc=D7zspWqLOq=80WGUjVdfT0xkqoJ1XQPXqaL3w6w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unsure at which point was added, but issue not present in stock debian 4.11 kernel.
+Hi Tyler,
 
-Running on a Thinkpad X220 with coreboot.
+On Wed, Jul 26, 2017 at 09:47:51AM -0700, Tyler Bautista wrote:
+> Thank you for taking my message. I have gotten a solution working so
+> feel free to ignore the rest of this email. By vanilla iproute2 do you
+> mean the latest package through the yum or apt repository? All I can
+> tell you is that in the example I gave the iproute2 package was the
+> latest one through the RHEL 7 yum repository.
 
-I'm building from upstream. When I attempt to remove the qmi_wwan module (which also happens pre-suspend) the rmmod process gets killed, and the following shows in dmesg:
+'Vanilla' is a widely used term[1], I meant using latest iproute2 from
+upstream[2], ideally from Git. You have to report problems with RHEL
+packages in Red Hat bugzilla[3].
 
-[   59.979791] usb 2-1.4: USB disconnect, device number 4
-[   59.980102] qmi_wwan 2-1.4:1.6 wwp0s29u1u4i6: unregister 'qmi_wwan' usb-0000:00:1d.0-1.4, WWAN/QMI device
-[   60.006821] BUG: unable to handle kernel NULL pointer dereference at 00000000000000e0
-[   60.006879] IP: qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
-[   60.006911] PGD 0
-[   60.006911] P4D 0
-[   60.006957] Oops: 0000 [#1] SMP
-[   60.006978] Modules linked in: fuse(E) ccm(E) rfcomm(E) cmac(E) bnep(E) qmi_wwan(E) cdc_wdm(E) cdc_ether(E) usbnet(E) mii(E) btusb(E) btrtl(E) btbcm(E) btintel(E) bluetooth(E) joydev(E) xpad(E) ecdh_generic(E) ff_memless(E) binfmt_misc(E) snd_hda_codec_hdmi(E) snd_hda_codec_conexant(E) snd_hda_codec_generic(E) arc4(E) iTCO_wdt(E) iTCO_vendor_support(E) intel_rapl(E) x86_pkg_temp_thermal(E) kvm_intel(E) kvm(E) irqbypass(E) crct10dif_pclmul(E) crc32_pclmul(E) crc32c_intel(E) ghash_clmulni_intel(E) aesni_intel(E) iwlmvm(E) aes_x86_64(E) crypto_simd(E) mac80211(E) cryptd(E) glue_helper(E) snd_hda_intel(E) snd_hda_codec(E) iwlwifi(E) snd_hwdep(E) psmouse(E) snd_hda_core(E) snd_pcm(E) serio_raw(E) sdhci_pci(E) pcspkr(E) snd_timer(E) ehci_pci(E) e1000e(E) i2c_i801(E) ehci_hcd(E) snd(E) sg(E) i
- 915(E) lpc_ich(E)
-[   60.007366]  ptp(E) usbcore(E) cfg80211(E) mfd_core(E) pps_core(E) shpchp(E) ac(E) battery(E) tpm_tis(E) tpm_tis_core(E) evdev(E) tpm(E) parport_pc(E) ppdev(E) lp(E) parport(E) ip_tables(E) x_tables(E) autofs4(E)
-[   60.007474] CPU: 2 PID: 33 Comm: kworker/2:1 Tainted: G            E   4.12.3-nr44-normandy-r1500619820+ #1
-[   60.007524] Hardware name: LENOVO 4291LR7/4291LR7, BIOS CBET4000 4.6-810-g50522254fb 07/21/2017
-[   60.007580] Workqueue: usb_hub_wq hub_event [usbcore]
-[   60.007609] task: ffff8c882b716040 task.stack: ffffb8e800d84000
-[   60.007644] RIP: 0010:qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
-[   60.007678] RSP: 0018:ffffb8e800d87b38 EFLAGS: 00010246
-[   60.007711] RAX: 0000000000000000 RBX: 0000000000000000 RCX: 0000000000000000
-[   60.007752] RDX: 0000000000000001 RSI: ffff8c8824f3f1d0 RDI: ffff8c8824ef6400
-[   60.007792] RBP: ffff8c8824ef6400 R08: 0000000000000000 R09: 0000000000000000
-[   60.007833] R10: ffffb8e800d87780 R11: 0000000000000011 R12: ffffffffc07ea0e8
-[   60.007874] R13: ffff8c8824e2e000 R14: ffff8c8824e2e098 R15: 0000000000000000
-[   60.007915] FS:  0000000000000000(0000) GS:ffff8c8835300000(0000) knlGS:0000000000000000
-[   60.007960] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   60.007994] CR2: 00000000000000e0 CR3: 0000000229ca5000 CR4: 00000000000406e0
-[   60.008035] Call Trace:
-[   60.008065]  ? usb_unbind_interface+0x71/0x270 [usbcore]
-[   60.008101]  ? device_release_driver_internal+0x154/0x210
-[   60.008135]  ? qmi_wwan_unbind+0x6d/0xc0 [qmi_wwan]
-[   60.008168]  ? usbnet_disconnect+0x6c/0xf0 [usbnet]
-[   60.008194]  ? qmi_wwan_disconnect+0x87/0xc0 [qmi_wwan]
-[   60.008232]  ? usb_unbind_interface+0x71/0x270 [usbcore]
-[   60.008264]  ? device_release_driver_internal+0x154/0x210
-[   60.008296]  ? bus_remove_device+0xf5/0x160
-[   60.008324]  ? device_del+0x1dc/0x310
-[   60.008355]  ? usb_remove_ep_devs+0x1b/0x30 [usbcore]
-[   60.008393]  ? usb_disable_device+0x93/0x250 [usbcore]
-[   60.008430]  ? usb_disconnect+0x90/0x260 [usbcore]
-[   60.008468]  ? hub_event+0x1d9/0x14a0 [usbcore]
-[   60.008500]  ? process_one_work+0x175/0x370
-[   60.008528]  ? worker_thread+0x4a/0x380
-[   60.008555]  ? kthread+0xfc/0x130
-[   60.008579]  ? process_one_work+0x370/0x370
-[   60.008606]  ? kthread_park+0x60/0x60
-[   60.008631]  ? ret_from_fork+0x22/0x30
-[   60.008656] Code: 66 0f 1f 44 00 00 66 66 66 66 90 55 48 89 fd 53 48 83 ec 10 48 8b 9f c8 00 00 00 65 48 8b 04 25 28 00 00 00 48 89 44 24 08 31 c0 <f6> 83 e0 00 00 00 02 74 51 e8 0d b3 2b cd 85 c0 74 67 48 8b bb
-[   60.011925] RIP: qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan] RSP: ffffb8e800d87b38
-[   60.013564] CR2: 00000000000000e0
-[   60.022125] ---[ end trace e536b59f45bc0f25 ]---
-[   60.025385] IPv6: ADDRCONF(NETDEV_UP): wlp2s0: link is not ready
+Cheers, Phil
 
-If I attempt a second rmmod, the process hangs. If I attempt it on 4.11.x it works as expected:
 
-[   16.897783] fuse init (API version 7.26)
-[   68.073552] usbcore: deregistering interface driver qmi_wwan
-[   68.075808] qmi_wwan 2-1.4:1.6 wwp0s29u1u4i6: unregister 'qmi_wwan' usb-0000:00:1d.0-1.4, WWAN/QMI device
-[   72.431403] e1000e: enp0s25 NIC Link is Down
-
-So I'm pretty certain it's not coreboot causing the issue.
+[1] https://en.wikipedia.org/wiki/Vanilla_software
+[2] https://wiki.linuxfoundation.org/networking/iproute2
+[3] https://bugzilla.redhat.com/
