@@ -1,77 +1,36 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 05/11] net: stmmac: dwmac-rk: Add internal phy support
-Date: Thu, 27 Jul 2017 09:54:01 -0700
-Message-ID: <65ae1747-4dff-b1d8-8aa3-684fc8c7809a@gmail.com>
-References: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
- <1501160540-30662-1-git-send-email-david.wu@rock-chips.com>
- <20170727134834.GD18666@lunn.ch>
+From: Seth Forshee <seth.forshee@canonical.com>
+Subject: Performance regression with virtio_net
+Date: Thu, 27 Jul 2017 12:09:42 -0500
+Message-ID: <20170727170942.ub24lwgrl3x2outp@ubuntu-hedt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, heiko@sntech.de, robh+dt@kernel.org,
-        mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
-        olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, hwg@rock-chips.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>, David Wu <david.wu@rock-chips.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170727134834.GD18666@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f44.google.com ([209.85.214.44]:33508 "EHLO
+        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751122AbdG0RJo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 13:09:44 -0400
+Received: by mail-it0-f44.google.com with SMTP id v127so2520717itd.0
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 10:09:44 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/27/2017 06:48 AM, Andrew Lunn wrote:
-> On Thu, Jul 27, 2017 at 09:02:16PM +0800, David Wu wrote:
->> To make internal phy work, need to configure the phy_clock,
->> phy cru_reset and related registers.
->>
->> Signed-off-by: David Wu <david.wu@rock-chips.com>
->> ---
->> changes in v2:
->>  - Use the standard "phy-mode" property for internal phy. (Florian)
-> 
-> I think we need to discuss this. This PHY appears to be on an MDIO
-> bus, it uses a standard PHY driver, and it appears to be using an RMII
-> interface. So it is just an ordinary PHY.
+I'm seeing a performance regression with virtio_net that looks to have
+started in 4.12-rc1. I only see it in one context though, downloading
+snap packages from the Ubuntu snap store. For example:
 
-First, the fact that the internal PHY also appears through MDIO is
-orthogonal to the fact that it is internal or external. Plenty of
-designs have internal PHYs exposed through MDIO because that is
-convenient. What matters though is how the data/clock lines are wired
-internally, which is what "phy-mode" describes.
+ https://api.snapcraft.io/api/v1/snaps/download/b8X2psL1ryVrPt5WEmpYiqfr5emixTd7_1797.snap
 
-> 
-> Internal is supposed to be something which is not ordinary, does not
-> use one of the standard phy modes, needs something special to make it
-> work.
-> 
-> Florain, it appears to be your suggestion to use internal. What do you
-> say?
+which redirects to Internap's CDN. Normally this downloads in a few
+seconds at ~10 MB/s, but with 4.12 and 4.13 it takes minutes with a rate
+of ~150 KB/s. Everything else I've tried downloads as normal speeds.
 
-phy-mode = "internal" really means that it is not a standard MII variant
-to connect the data/clock lines between the Ethernet MAC and the PHY,
-and this can happen in some designs (although quite unlikely). So from
-there we could do several things depending on the requirements:
+I bisected this to 680557cf79f8 "virtio_net: rework mergeable buffer
+handling". If I revert this on top of 4.13-rc2 (along with other changes
+needed to successfully revert it) speeds return to normal.
 
-- if you can have your Ethernet MAC driver perform the necessary
-configuration *after* you have been able to bind the PHY device with its
-PHY driver, then the PHY driver should have PHY_IS_INTERNAL in its
-flags, and you can use phy_is_internal() from PHYLIB to tell you that
-and we could imagine using: phy-mode = "rmii" because that would not too
-much of a stretch
-
-- if you need knowledge about this PHY connection type prior to binding
-the PHY device and its driver (that is, before of_phy_connect()) we
-could add a boolean property e.g: "phy-is-internal" that allows us to
-know that, or we can have a new phy-mode value, e.g: "internal-rmii"
-which describes that, either way would probably be fine, but the former
-scales better
-
-Then again, using phy-mode = "internal" even though this is Reduced MII
-is not big of a deal IMHO as long as there is no loss of information and
-that internal de-facto means internal reduced MII for instance.
--- 
-Florian
+Thanks,
+Seth
