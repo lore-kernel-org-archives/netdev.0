@@ -1,85 +1,58 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] igb: support BCM54616 PHY
-Date: Thu, 27 Jul 2017 18:35:31 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B626504A900F@ORSMSX102.amr.corp.intel.com>
-References: <b5d586566a1b523b9be65567b52898e33058a1cf.1500660210.git.>
- <309B89C4C689E141A5FF6A0C5FB2118B8C663B22@ORSMSX101.amr.corp.intel.com>
- <20170727153713.GG18666@lunn.ch>
- <76c8ea56-8e4e-a85c-abe5-695b46c99308@gmail.com>
+From: "Raj, Ashok" <ashok.raj@intel.com>
+Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
+Date: Thu, 27 Jul 2017 11:42:51 -0700
+Message-ID: <20170727184251.GA205508@otc-nc-03>
+References: <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
+ <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
+ <20170724090516.2e0f0d2a@w520.home>
+ <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <CAKgT0UeAad6WArvrE71MFJywDs1wOnCF-iJRnbNLrL+knqhXeA@mail.gmail.com>
+ <CAKgT0Uf5hdXUXja_jUB6_kBg6pyX8zXuOMOGzCVNgeBFMUsWqQ@mail.gmail.com>
+ <CAKgT0Udn2vh6NaqZyiF69nXVnz2sT=e0ZgiDjWznhGZz-Gk+qQ@mail.gmail.com>
+ <MWHPR12MB16007782C422082A92F4765DC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <2feff1a5-25b7-eb6c-7628-7c2257c56e95@huawei.com>
+ <MWHPR12MB1600556FFDCE3EC810D97591C8BE0@MWHPR12MB1600.namprd12.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        "Brown, Aaron F" <aaron.f.brown@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:25865 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750981AbdG0Sfd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jul 2017 14:35:33 -0400
-In-Reply-To: <76c8ea56-8e4e-a85c-abe5-695b46c99308@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Bjorn Helgaas <helgaas@kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        Alex Williamson <alex.williamson@redhat.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "will.deacon@arm.com" <will.deacon@arm.com>,
+        Sinan Kaya <okaya@codeaurora.org>,
+        "robin.murphy@arm.com" <robin.murphy@arm.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "davem@davemloft.n
+To: Casey Leedom <leedom@chelsio.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <MWHPR12MB1600556FFDCE3EC810D97591C8BE0@MWHPR12MB1600.namprd12.prod.outlook.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBGbG9yaWFuIEZhaW5lbGxpDQo+IFNlbnQ6IFRodXJzZGF5LCBKdWx5IDI3LCAyMDE3
-IDEwOjU4IEFNDQo+IFRvOiBBbmRyZXcgTHVubiA8YW5kcmV3QGx1bm4uY2g+OyBCcm93biwgQWFy
-b24gRg0KPiA8YWFyb24uZi5icm93bkBpbnRlbC5jb20+DQo+IENjOiBKb2huIFcuIExpbnZpbGxl
-IDxsaW52aWxsZUB0dXhkcml2ZXIuY29tPjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgaW50ZWwt
-DQo+IHdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+IFN1YmplY3Q6IFJlOiBbSW50ZWwtd2ly
-ZWQtbGFuXSBbUEFUQ0hdIGlnYjogc3VwcG9ydCBCQ001NDYxNiBQSFkNCj4gDQo+IE9uIDA3LzI3
-LzIwMTcgMDg6MzcgQU0sIEFuZHJldyBMdW5uIHdyb3RlOg0KPiA+IE9uIFRodSwgSnVsIDI3LCAy
-MDE3IGF0IDEyOjQwOjAxQU0gKzAwMDAsIEJyb3duLCBBYXJvbiBGIHdyb3RlOg0KPiA+Pj4gRnJv
-bTogSW50ZWwtd2lyZWQtbGFuIFttYWlsdG86aW50ZWwtd2lyZWQtbGFuLWJvdW5jZXNAb3N1b3Ns
-Lm9yZ10gT24NCj4gQmVoYWxmDQo+ID4+PiBPZiBKb2huIFcuIExpbnZpbGxlDQo+ID4+PiBTZW50
-OiBGcmlkYXksIEp1bHkgMjEsIDIwMTcgMTE6MTIgQU0NCj4gPj4+IFRvOiBuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnDQo+ID4+PiBDYzogaW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmc7IEpv
-aG4gVy4gTGludmlsbGUNCj4gPj4+IDxsaW52aWxsZUB0dXhkcml2ZXIuY29tPg0KPiA+Pj4gU3Vi
-amVjdDogW0ludGVsLXdpcmVkLWxhbl0gW1BBVENIXSBpZ2I6IHN1cHBvcnQgQkNNNTQ2MTYgUEhZ
-DQo+ID4+Pg0KPiA+Pj4gVGhlIG1hbmFnZW1lbnQgcG9ydCBvbiBhbiBFZGdlY29yZSBBUzc3MTIt
-MzIgc3dpdGNoIHVzZXMgYW4gaWdiIE1BQywNCj4gPj4+IGJ1dA0KPiA+Pj4gaXQgdXNlcyBhIEJD
-TTU0NjE2IFBIWS4gV2l0aG91dCBhIHBhdGNoIGxpa2UgdGhpcywgbG9hZGluZyB0aGUgaWdiDQo+
-ID4+PiBtb2R1bGUgcHJvZHVjZXMgZG1lc2cgb3V0cHV0IGxpa2UgdGhpczoNCj4gPj4+DQo+ID4+
-PiBbICAgIDMuNDM5MTI1XSBpZ2I6IENvcHlyaWdodCAoYykgMjAwNy0yMDE0IEludGVsIENvcnBv
-cmF0aW9uLg0KPiA+Pj4gWyAgICAzLjQzOTg2Nl0gaWdiOiBwcm9iZSBvZiAwMDAwOjAwOjE0LjAg
-ZmFpbGVkIHdpdGggZXJyb3IgLTINCj4gPj4+DQo+ID4+PiBTaWduZWQtb2ZmLWJ5OiBKb2huIFcu
-IExpbnZpbGxlIDxsaW52aWxsZUB0dXhkcml2ZXIuY29tPg0KPiA+Pj4gQ2M6IEplZmYgS2lyc2hl
-ciA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiA+Pj4gLS0tDQo+ID4+PiAgZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2UxMDAwXzgyNTc1LmMgICB8IDYgKysrKysrDQo+ID4+
-PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2UxMDAwX2RlZmluZXMuaCB8IDEgKw0K
-PiA+Pj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9lMTAwMF9ody5oICAgICAgfCAx
-ICsNCj4gPj4+ICAzIGZpbGVzIGNoYW5nZWQsIDggaW5zZXJ0aW9ucygrKQ0KPiA+Pg0KPiA+PiBJ
-IGRvIG5vdCBoYXZlIHRoZSBzcGVjaWZpYyBoYXJkd2FyZSAoRWRnZWNvcmUgc3dpdGNoKSBidXQg
-YXMgZmFyIGFzDQo+IHJlZ3Jlc3Npb24gdGVzdHMgZ28gdGhpcyB3b3JrcyBmaW5lLg0KPiA+PiBU
-ZXN0ZWQtYnk6IEFhcm9uIEJyb3duIDxhYXJvbi5mLmJyb3duQGludGVsLmNvbT4NCj4gPg0KPiA+
-IFNvcnJ5LCBtaXNzZWQgdGhlIGluaXRpYWwgcG9zdCwgc28gcmVwbHlpbmcgdG8gYSByZXBseS4N
-Cj4gPg0KPiA+IExpbnV4IGhhcyBzdXBwb3J0ZWQgdGhlIEJDTTU0NjE2IFBIWSBzaW5jZSBBcHJp
-bCAyMDE1LiBJZiB0aGUgSW50ZWwNCj4gPiBkcml2ZXJzIHVzZWQgdGhlIExpbnV4IFBIWSBkcml2
-ZXJzLCB5b3Ugd291bGQgbm90IG9mIGhhZCB0aGlzIHByb2JsZW0uDQo+ID4NCj4gPiBJdCB3b3Vs
-ZCBiZSBnb29kIGlmIHNvbWVib2R5IHNwZW50IHRoZSB0aW1lIHRvIG1pZ3JhdGUgdGhlc2UgTUFD
-DQo+ID4gZHJpdmVycyB0byB1c2UgdGhlIGNvbW1vbiBMaW51eCBQSFkgaW5mcmFzdHJ1Y3R1cmUu
-DQo+IA0KPiBJIHN1c3BlY3QgdGhlcmUgaXMgYSBkZXNpZ24gcGF0dGVybiB3aXRoaW4gdGhlIElu
-dGVsIGRyaXZlcnMgdG8gc2hhcmUgYXMNCj4gbXVjaCBsb3ctbGV2ZWwgY29kZSBhcyBwb3NzaWJs
-ZSBiZXR3ZWVuIE9TZXMgYW5kIG9ubHkgaGF2ZSBzb21lDQo+IExpbnV4LWlzbSB3aGVyZSBuZWNl
-c3NhcnkgKGUuZzogbmV0X2RldmljZSwgZXRodG9vbCBldGMuKS4NCj4gDQo+IFBIWSBjb2RlIGlz
-IGEgcGFpbiBpbiBnZW5lcmFsLCBlc3BlY2lhbGx5IGlmIHlvdSBhcmUgc2VyaW91cyBhYm91dA0K
-PiB0ZXN0aW5nIGludGVyb3BlcmFiaWxpdHkgKHdoaWNoIGlzIHdoZXJlIHlvdSBjYW4gc3BlbmQg
-dG9ucyBvZiAkJCQgd2l0aA0KPiBsaXR0bGUgcmV3YXJkIGJ1dCBqdXN0IHNheTogeWVzIGl0IHdv
-cmtzKSwgc28gaXQgbWF5IG1ha2Ugc2Vuc2UgdG8gc2hhcmUNCj4gaXQgYWNyb3NzIGRpZmZlcmVu
-dCBPU2VzLg0KPiANCj4gSSB0b28sIHdpc2ggdGhlcmUgd2FzIG1vcmUgc2hhcmluZywgYnV0IGNv
-bnNpZGVyaW5nIHRoYXQgdGhpcyB3b3JrcyBmb3INCj4gdGhlIEludGVsIGRyaXZlciwgdGhlcmUg
-aXMgbGl0dGxlIGluY2VudGl2ZSBpbiBkb2luZyB0aGlzIEkgc3VwcG9zZS4uLg0KPiAtLQ0KPiBG
-bG9yaWFuDQoNClllcyBGbG9yaWFuIHlvdSBhcmUgY29ycmVjdCBnZW5lcmFsbHksIGJ1dCBmdXR1
-cmUgaW1wbGVtZW50YXRpb25zIGhhdmUgbm90IGJlZW4gcnVsZWQgb3V0LiAgV2l0aCB0aGlzIGRy
-aXZlciwgd2UgaGFkIG91ciBjdXN0b20gcGh5IGluaXQgY29kZSB0ZXN0ZWQgYW5kIHJlbGVhc2Vk
-IGZvciBzZXZlcmFsIHByb2R1Y3RzIGJlZm9yZSBwaHlsaWIgZXhpc3RlZC4gIEkgYmVnYW4gcmVz
-ZWFyY2ggb24gYSBwaHlsaWIgaW1wbGVtZW50YXRpb24gZm9yIGl0IGF0IG9uZSBwb2ludCwgYnV0
-IGludGVybmFsIHByb2R1Y3QgZGVjaXNpb25zIGVuZGVkIHVwIGxvd2VyaW5nIHRoZSBwcmlvcml0
-eSBvZiB0aGF0IHdvcmsuDQoNClRoYW5rcywNCg0KQ2Fyb2x5bg0KDQpDYXJvbHluIFd5Ym9ybnkg
-DQpMaW51eCBEZXZlbG9wbWVudCANCk5ldHdvcmtpbmcgRGl2aXNpb24gDQpJbnRlbCBDb3Jwb3Jh
-dGlvbiANCg0KDQo=
+Hi Casey
+
+> | Still no Intel and AMD guys has ack this, this is what I am worried about,
+> | should I ping some man again ?
+
+
+I can ack the patch set for Intel specific changes. Now that the doc is made
+public :-).
+
+Can you/Ding resend the patch series, i do have the most recent v7, some
+of the commit message wasn't easy to ready. Seems like this patch has
+gotten bigger than originally intended, but seems to be for the overall
+good :-).
+
+Sorry for staying silent up until now.
+
+Cheers,
+Ashok
