@@ -1,80 +1,77 @@
 From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH v2 09/11] ARM: dts: rk3228-evb: Enable the internal phy for
- gmac
-Date: Thu, 27 Jul 2017 21:02:20 +0800
-Message-ID: <1501160540-30662-5-git-send-email-david.wu@rock-chips.com>
+Subject: [PATCH v2 10/11] ARM64: dts: rockchip: Add gmac2phy node support for rk3328
+Date: Thu, 27 Jul 2017 21:08:48 +0800
+Message-ID: <1501160928-30783-1-git-send-email-david.wu@rock-chips.com>
 References: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
- <1501160540-30662-1-git-send-email-david.wu@rock-chips.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
- devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
- will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1501160540-30662-1-git-send-email-david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1501160156-30328-1-git-send-email-david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch enables the internal phy for rk3228 evb board
-by default.
-To use the external 1000M phy on evb board, need to make
-some switch of evb board to be on.
+The gmac2phy controller of rk3328 is connected to internal phy
+directly inside, add the node for the internal phy support.
 
 Signed-off-by: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
 ---
- arch/arm/boot/dts/rk3228-evb.dts | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+ arch/arm64/boot/dts/rockchip/rk3328.dtsi | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-diff --git a/arch/arm/boot/dts/rk3228-evb.dts b/arch/arm/boot/dts/rk3228-evb.dts
-index 5883433..73b88d3 100644
---- a/arch/arm/boot/dts/rk3228-evb.dts
-+++ b/arch/arm/boot/dts/rk3228-evb.dts
-@@ -50,6 +50,16 @@
- 		device_type = "memory";
- 		reg = <0x60000000 0x40000000>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328.dtsi b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
+index 0be96ce..4349492 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
+@@ -63,6 +63,8 @@
+ 		i2c1 = &i2c1;
+ 		i2c2 = &i2c2;
+ 		i2c3 = &i2c3;
++		ethernet0 = &gmac2io;
++		ethernet1 = &gmac2phy;
  	};
-+
-+	vcc_phy: vcc-phy-regulator {
-+		compatible = "regulator-fixed";
-+		enable-active-high;
-+		regulator-name = "vcc_phy";
-+		regulator-min-microvolt = <1800000>;
-+		regulator-max-microvolt = <1800000>;
-+		regulator-always-on;
-+		regulator-boot-on;
+ 
+ 	cpus {
+@@ -424,6 +426,28 @@
+ 		status = "disabled";
+ 	};
+ 
++	gmac2phy: eth@ff550000 {
++		compatible = "rockchip,rk3328-gmac";
++		reg = <0x0 0xff550000 0x0 0x10000>;
++		rockchip,grf = <&grf>;
++		interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
++		interrupt-names = "macirq";
++		clocks = <&cru SCLK_MAC2PHY_SRC>, <&cru SCLK_MAC2PHY_RXTX>,
++			 <&cru SCLK_MAC2PHY_RXTX>, <&cru SCLK_MAC2PHY_REF>,
++			 <&cru ACLK_MAC2PHY>, <&cru PCLK_MAC2PHY>,
++			 <&cru SCLK_MAC2PHY_OUT>;
++		clock-names = "stmmaceth", "mac_clk_rx",
++			      "mac_clk_tx", "clk_mac_ref",
++			      "aclk_mac", "pclk_mac",
++			      "clk_macphy";
++		resets = <&cru SRST_GMAC2PHY_A>, <&cru SRST_MACPHY>;
++		reset-names = "stmmaceth", "mac-phy";
++		phy-mode = "internal";
++		pinctrl-names = "default";
++		pinctrl-0 = <&fephyled_rxm1 &fephyled_linkm1>;
++		status = "disabled";
 +	};
- };
- 
- &emmc {
-@@ -60,6 +70,15 @@
- 	status = "okay";
- };
- 
-+&gmac {
-+	assigned-clocks = <&cru SCLK_MAC_SRC>;
-+	assigned-clock-rates = <50000000>;
-+	clock_in_out = "output";
-+	phy-supply = <&vcc_phy>;
-+	phy-mode = "internal";
-+	status = "okay";
-+};
 +
- &tsadc {
- 	status = "okay";
- 
+ 	gic: interrupt-controller@ff811000 {
+ 		compatible = "arm,gic-400";
+ 		#interrupt-cells = <3>;
 -- 
 1.9.1
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
