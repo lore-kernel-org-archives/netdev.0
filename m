@@ -1,109 +1,120 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next v2 04/10] net: dsa: lan9303: Added adjust_link()
- method
-Date: Thu, 27 Jul 2017 12:45:59 +0200
-Message-ID: <e5de6f96-b37f-ad63-7541-a2f894b6127d@egil-hjelmeland.no>
-References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
- <20170725161553.30147-5-privat@egil-hjelmeland.no>
- <20170726170928.GP12049@lunn.ch>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: mlx5 still has lots of warnings
+Date: Thu, 27 Jul 2017 13:55:44 +0300
+Message-ID: <CALzJLG9ZKK=ggtzHx9kiBiafbo3KdKemEN-nskPaHYmwehz=YQ@mail.gmail.com>
+References: <20170724095144.57f994ad@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, davem@davemloft.net, kernel@pengutronix.de,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20170726170928.GP12049@lunn.ch>
-Content-Language: en-US
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f174.google.com ([209.85.216.174]:33223 "EHLO
+        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751028AbdG0K4F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 06:56:05 -0400
+Received: by mail-qt0-f174.google.com with SMTP id a18so42358515qta.0
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 03:56:05 -0700 (PDT)
+In-Reply-To: <20170724095144.57f994ad@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 26. juli 2017 19:09, Andrew Lunn wrote:
-> On Tue, Jul 25, 2017 at 06:15:47PM +0200, Egil Hjelmeland wrote:
->> This makes the driver react to device tree "fixed-link" declaration
->> on CPU port.
->>
->> - turn off autonegotiation
->> - force speed 10 or 100 mb/s
->> - force duplex mode
->>
->> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
->> ---
->>   drivers/net/dsa/lan9303-core.c | 33 +++++++++++++++++++++++++++++++++
->>   1 file changed, 33 insertions(+)
->>
->> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
->> index 0806a0684d55..be6d78f45a5f 100644
->> --- a/drivers/net/dsa/lan9303-core.c
->> +++ b/drivers/net/dsa/lan9303-core.c
->> @@ -17,6 +17,7 @@
->>   #include <linux/regmap.h>
->>   #include <linux/mutex.h>
->>   #include <linux/mii.h>
->> +#include <linux/phy.h>
->>   
->>   #include "lan9303.h"
->>   
->> @@ -746,6 +747,37 @@ static int lan9303_phy_write(struct dsa_switch *ds, int phy, int regnum,
->>   	return chip->ops->phy_write(chip, phy, regnum, val);
->>   }
->>   
->> +static void lan9303_adjust_link(struct dsa_switch *ds, int port,
->> +				struct phy_device *phydev)
->> +{
->> +	struct lan9303 *chip = ds->priv;
->> +
->> +	int ctl, res;
->> +
->> +	ctl = lan9303_phy_read(ds, port, MII_BMCR);
->> +
->> +	if (!phy_is_pseudo_fixed_link(phydev))
->> +		return;
->> +
-> 
-> Hi Egil
-> 
-> Maybe do this check before reading MII_BMCR?
-> 
+On Mon, Jul 24, 2017 at 7:51 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> I sent patches for this, and you said you were going to solve this (back =
+in April).
+> Still see lots of warnings from MLX5.
+>
 
-OK
+Hi Stephen,
 
->> +	ctl &= ~BMCR_ANENABLE;
-> 
-> Should this also mask out BMCR_SPEED100 and DUPLEX_FULL? Otherwise how
-> do you select 10/Half if it is already configured for 100/Full?
-> 
+What gcc version are you using ? what special Cflags to use?
+I am failing to see the below warning with "-Wall" and gcc 5.4 at least.
 
-Yes you are right. I started out with setting ctl to the fixed default
-value, and later changed code to start by reading it from HW.
-
-
->> +	if (phydev->speed == SPEED_100)
->> +		ctl |= BMCR_SPEED100;
->> +
->> +	if (phydev->duplex == DUPLEX_FULL)
->> +		ctl |= BMCR_FULLDPLX;
->> +
->> +	res =  lan9303_phy_write(ds, port, MII_BMCR, ctl);
->> +
->> +	if (port == chip->phy_addr_sel_strap) {
->> +		/* Virtual Phy: Remove Turbo 200Mbit mode */
->> +		lan9303_read(chip->regmap, LAN9303_VIRT_SPECIAL_CTRL, &ctl);
->> +
->> +		ctl &= ~(1 << 10); // TURBO BIT
-> 
-> BIT(10), or better still something like BIT(LAN9303_VIRT_SPECIAL_TURBO)
-> 
-
-Agree
-
->> +		res =  regmap_write(chip->regmap,
->> +				    LAN9303_VIRT_SPECIAL_CTRL, ctl);
->> +	}
->> +}
-> 
->    Andrew
-> 
-
+>   CC [M]  drivers/net/ethernet/mellanox/mlx5/core/en_rep.o
+> drivers/net/ethernet/mellanox/mlx5/core/en_rep.c:767:35: warning: =E2=80=
+=98mlx5e_rep_switchdev_ops=E2=80=99 defined but not used [-Wunused-const-va=
+riable=3D]
+>  static const struct switchdev_ops mlx5e_rep_switchdev_ops =3D {
+>                                    ^~~~~~~~~~~~~~~~~~~~~~~
+> In file included from drivers/net/ethernet/mellanox/mlx5/core/en_rep.c:41=
+:0:
+> drivers/net/ethernet/mellanox/mlx5/core/en.h:188:19: warning: =E2=80=98ml=
+x5e_priv_flags=E2=80=99 defined but not used [-Wunused-const-variable=3D]
+>  static const char mlx5e_priv_flags[][ETH_GSTRING_LEN] =3D {
+>                    ^~~~~~~~~~~~~~~~
+> In file included from drivers/net/ethernet/mellanox/mlx5/core/en.h:51:0,
+>                  from drivers/net/ethernet/mellanox/mlx5/core/en_rep.c:41=
+:
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:427:34: warning: =E2=
+=80=98mlx5e_pme_error_desc=E2=80=99 defined but not used [-Wunused-const-va=
+riable=3D]
+>  static const struct counter_desc mlx5e_pme_error_desc[] =3D {
+>                                   ^~~~~~~~~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:423:34: warning: =E2=
+=80=98mlx5e_pme_status_desc=E2=80=99 defined but not used [-Wunused-const-v=
+ariable=3D]
+>  static const struct counter_desc mlx5e_pme_status_desc[] =3D {
+>                                   ^~~~~~~~~~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:372:34: warning: =E2=
+=80=98sq_stats_desc=E2=80=99 defined but not used [-Wunused-const-variable=
+=3D]
+>  static const struct counter_desc sq_stats_desc[] =3D {
+>                                   ^~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:331:34: warning: =E2=
+=80=98rq_stats_desc=E2=80=99 defined but not used [-Wunused-const-variable=
+=3D]
+>  static const struct counter_desc rq_stats_desc[] =3D {
+>                                   ^~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:303:34: warning: =E2=
+=80=98pcie_perf_stats_desc=E2=80=99 defined but not used [-Wunused-const-va=
+riable=3D]
+>  static const struct counter_desc pcie_perf_stats_desc[] =3D {
+>                                   ^~~~~~~~~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:284:34: warning: =E2=
+=80=98pport_per_prio_pfc_stats_desc=E2=80=99 defined but not used [-Wunused=
+-const-variable=3D]
+>  static const struct counter_desc pport_per_prio_pfc_stats_desc[] =3D {
+>                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:277:34: warning: =E2=
+=80=98pport_per_prio_traffic_stats_desc=E2=80=99 defined but not used [-Wun=
+used-const-variable=3D]
+>  static const struct counter_desc pport_per_prio_traffic_stats_desc[] =3D=
+ {
+>                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:272:34: warning: =E2=
+=80=98pport_phy_statistical_stats_desc=E2=80=99 defined but not used [-Wunu=
+sed-const-variable=3D]
+>  static const struct counter_desc pport_phy_statistical_stats_desc[] =3D =
+{
+>                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:256:34: warning: =E2=
+=80=98pport_2819_stats_desc=E2=80=99 defined but not used [-Wunused-const-v=
+ariable=3D]
+>  static const struct counter_desc pport_2819_stats_desc[] =3D {
+>                                   ^~~~~~~~~~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:250:34: warning: =E2=
+=80=98pport_2863_stats_desc=E2=80=99 defined but not used [-Wunused-const-v=
+ariable=3D]
+>  static const struct counter_desc pport_2863_stats_desc[] =3D {
+>                                   ^~~~~~~~~~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:229:34: warning: =E2=
+=80=98pport_802_3_stats_desc=E2=80=99 defined but not used [-Wunused-const-=
+variable=3D]
+>  static const struct counter_desc pport_802_3_stats_desc[] =3D {
+>                                   ^~~~~~~~~~~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:145:34: warning: =E2=
+=80=98vport_stats_desc=E2=80=99 defined but not used [-Wunused-const-variab=
+le=3D]
+>  static const struct counter_desc vport_stats_desc[] =3D {
+>                                   ^~~~~~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:133:34: warning: =E2=
+=80=98q_stats_desc=E2=80=99 defined but not used [-Wunused-const-variable=
+=3D]
+>  static const struct counter_desc q_stats_desc[] =3D {
+>                                   ^~~~~~~~~~~~
+> drivers/net/ethernet/mellanox/mlx5/core/en_stats.h:92:34: warning: =E2=80=
+=98sw_stats_desc=E2=80=99 defined but not used [-Wunused-const-variable=3D]
+>  static const struct counter_desc sw_stats_desc[] =3D {
+>                                   ^~~~~~~~~~~~~
+>   LD [M]  drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.o
