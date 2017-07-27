@@ -1,7 +1,7 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 1/3] net: ethtool: add support for forward error correction modes
-Date: Thu, 27 Jul 2017 16:47:26 -0700
-Message-ID: <1501199248-24695-2-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 3/3] cxgb4: ethtool forward error correction management support
+Date: Thu, 27 Jul 2017 16:47:28 -0700
+Message-ID: <1501199248-24695-4-git-send-email-roopa@cumulusnetworks.com>
 References: <1501199248-24695-1-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, vidya.chowdary@gmail.com,
         dustin@cumulusnetworks.com, olson@cumulusnetworks.com,
@@ -11,261 +11,140 @@ Cc: netdev@vger.kernel.org, vidya.chowdary@gmail.com,
         jeffrey.t.kirsher@intel.com
 To: davem@davemloft.net, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:37081 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751767AbdG0Xrh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 19:47:37 -0400
-Received: by mail-pg0-f48.google.com with SMTP id y129so103813949pgy.4
-        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 16:47:37 -0700 (PDT)
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:34664 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751767AbdG0Xrk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 19:47:40 -0400
+Received: by mail-pg0-f51.google.com with SMTP id 123so103866699pgj.1
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 16:47:40 -0700 (PDT)
 In-Reply-To: <1501199248-24695-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vidya Sagar Ravipati <vidya.chowdary@gmail.com>
+From: Casey Leedom <leedom@chelsio.com>
 
-Forward Error Correction (FEC) modes i.e Base-R
-and Reed-Solomon modes are introduced in 25G/40G/100G standards
-for providing good BER at high speeds. Various networking devices
-which support 25G/40G/100G provides ability to manage supported FEC
-modes and the lack of FEC encoding control and reporting today is a
-source for interoperability issues for many vendors.
-FEC capability as well as specific FEC mode i.e. Base-R
-or RS modes can be requested or advertised through bits D44:47 of
-base link codeword.
-
-This patch set intends to provide option under ethtool to manage
-and report FEC encoding settings for networking devices as per
-IEEE 802.3 bj, bm and by specs.
-
-set-fec/show-fec option(s) are designed to provide control and
-report the FEC encoding on the link.
-
-SET FEC option:
-root@tor: ethtool --set-fec  swp1 encoding [off | RS | BaseR | auto]
-
-Encoding: Types of encoding
-Off    :  Turning off any encoding
-RS     :  enforcing RS-FEC encoding on supported speeds
-BaseR  :  enforcing Base R encoding on supported speeds
-Auto   :  IEEE defaults for the speed/medium combination
-
-Here are a few examples of what we would expect if encoding=auto:
-- if autoneg is on, we are  expecting FEC to be negotiated as on or off
-  as long as protocol supports it
-- if the hardware is capable of detecting the FEC encoding on it's
-      receiver it will reconfigure its encoder to match
-- in absence of the above, the configuration would be set to IEEE
-  defaults.
-
->From our  understanding , this is essentially what most hardware/driver
-combinations are doing today in the absence of a way for users to
-control the behavior.
-
-SHOW FEC option:
-root@tor: ethtool --show-fec  swp1
-FEC parameters for swp1:
-Active FEC encodings: RS
-Configured FEC encodings:  RS | BaseR
-
-ETHTOOL DEVNAME output modification:
-
-ethtool devname output:
-root@tor:~# ethtool swp1
-Settings for swp1:
-root@hpe-7712-03:~# ethtool swp18
-Settings for swp18:
-    Supported ports: [ FIBRE ]
-    Supported link modes:   40000baseCR4/Full
-                            40000baseSR4/Full
-                            40000baseLR4/Full
-                            100000baseSR4/Full
-                            100000baseCR4/Full
-                            100000baseLR4_ER4/Full
-    Supported pause frame use: No
-    Supports auto-negotiation: Yes
-    Supported FEC modes: [RS | BaseR | None | Not reported]
-    Advertised link modes:  Not reported
-    Advertised pause frame use: No
-    Advertised auto-negotiation: No
-    Advertised FEC modes: [RS | BaseR | None | Not reported]
-<<<< One or more FEC modes
-    Speed: 100000Mb/s
-    Duplex: Full
-    Port: FIBRE
-    PHYAD: 106
-    Transceiver: internal
-    Auto-negotiation: off
-    Link detected: yes
-
-This patch includes following changes
-a) New ETHTOOL_SFECPARAM/SFECPARAM API, handled by
-  the new get_fecparam/set_fecparam callbacks, provides support
-  for configuration of forward error correction modes.
-b) Link mode bits for FEC modes i.e. None (No FEC mode), RS, BaseR/FC
-  are defined so that users can configure these fec modes for supported
-  and advertising fields as part of link autonegotiation.
-
-Signed-off-by: Vidya Sagar Ravipati <vidya.chowdary@gmail.com>
-Signed-off-by: Dustin Byford <dustin@cumulusnetworks.com>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
 ---
- include/linux/ethtool.h      |  4 ++++
- include/uapi/linux/ethtool.h | 48 +++++++++++++++++++++++++++++++++++++++++++-
- net/core/ethtool.c           | 34 +++++++++++++++++++++++++++++++
- 3 files changed, 85 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 100 +++++++++++++++++++++
+ 1 file changed, 100 insertions(+)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 83cc986..afdbb70 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -374,5 +374,9 @@ struct ethtool_ops {
- 				      struct ethtool_link_ksettings *);
- 	int	(*set_link_ksettings)(struct net_device *,
- 				      const struct ethtool_link_ksettings *);
-+	int	(*get_fecparam)(struct net_device *,
-+				      struct ethtool_fecparam *);
-+	int	(*set_fecparam)(struct net_device *,
-+				      struct ethtool_fecparam *);
- };
- #endif /* _LINUX_ETHTOOL_H */
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 7d4a594..9c041da 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1238,6 +1238,47 @@ struct ethtool_per_queue_op {
- 	char	data[];
- };
- 
-+/**
-+ * struct ethtool_fecparam - Ethernet forward error correction(fec) parameters
-+ * @cmd: Command number = %ETHTOOL_GFECPARAM or %ETHTOOL_SFECPARAM
-+ * @active_fec: FEC mode which is active on porte
-+ * @fec: Bitmask of supported/configured FEC modes
-+ * @rsvd: Reserved for future extensions. i.e FEC bypass feature.
-+ *
-+ * Drivers should reject a non-zero setting of @autoneg when
-+ * autoneogotiation is disabled (or not supported) for the link.
-+ *
-+ */
-+struct ethtool_fecparam {
-+	__u32   cmd;
-+	/* bitmask of FEC modes */
-+	__u32   active_fec;
-+	__u32   fec;
-+	__u32   reserved;
-+};
-+
-+/**
-+ * enum ethtool_fec_config_bits - flags definition of ethtool_fec_configuration
-+ * @ETHTOOL_FEC_NONE: FEC mode configuration is not supported
-+ * @ETHTOOL_FEC_AUTO: Default/Best FEC mode provided by driver
-+ * @ETHTOOL_FEC_OFF: No FEC Mode
-+ * @ETHTOOL_FEC_RS: Reed-Solomon Forward Error Detection mode
-+ * @ETHTOOL_FEC_BASER: Base-R/Reed-Solomon Forward Error Detection mode
-+ */
-+enum ethtool_fec_config_bits {
-+	ETHTOOL_FEC_NONE_BIT,
-+	ETHTOOL_FEC_AUTO_BIT,
-+	ETHTOOL_FEC_OFF_BIT,
-+	ETHTOOL_FEC_RS_BIT,
-+	ETHTOOL_FEC_BASER_BIT,
-+};
-+
-+#define ETHTOOL_FEC_NONE		(1 << ETHTOOL_FEC_NONE_BIT)
-+#define ETHTOOL_FEC_AUTO		(1 << ETHTOOL_FEC_AUTO_BIT)
-+#define ETHTOOL_FEC_OFF			(1 << ETHTOOL_FEC_OFF_BIT)
-+#define ETHTOOL_FEC_RS			(1 << ETHTOOL_FEC_RS_BIT)
-+#define ETHTOOL_FEC_BASER		(1 << ETHTOOL_FEC_BASER_BIT)
-+
- /* CMDs currently supported */
- #define ETHTOOL_GSET		0x00000001 /* DEPRECATED, Get settings.
- 					    * Please use ETHTOOL_GLINKSETTINGS
-@@ -1330,6 +1371,8 @@ struct ethtool_per_queue_op {
- #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings */
- #define ETHTOOL_PHY_GTUNABLE	0x0000004e /* Get PHY tunable configuration */
- #define ETHTOOL_PHY_STUNABLE	0x0000004f /* Set PHY tunable configuration */
-+#define ETHTOOL_GFECPARAM	0x00000050 /* Get FEC settings */
-+#define ETHTOOL_SFECPARAM	0x00000051 /* Set FEC settings */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-@@ -1387,6 +1430,9 @@ enum ethtool_link_mode_bit_indices {
- 	ETHTOOL_LINK_MODE_2500baseT_Full_BIT	= 47,
- 	ETHTOOL_LINK_MODE_5000baseT_Full_BIT	= 48,
- 
-+	ETHTOOL_LINK_MODE_FEC_NONE_BIT	= 49,
-+	ETHTOOL_LINK_MODE_FEC_RS_BIT	= 50,
-+	ETHTOOL_LINK_MODE_FEC_BASER_BIT	= 51,
- 
- 	/* Last allowed bit for __ETHTOOL_LINK_MODE_LEGACY_MASK is bit
- 	 * 31. Please do NOT define any SUPPORTED_* or ADVERTISED_*
-@@ -1395,7 +1441,7 @@ enum ethtool_link_mode_bit_indices {
- 	 */
- 
- 	__ETHTOOL_LINK_MODE_LAST
--	  = ETHTOOL_LINK_MODE_5000baseT_Full_BIT,
-+	  = ETHTOOL_LINK_MODE_FEC_BASER_BIT,
- };
- 
- #define __ETHTOOL_LINK_MODE_LEGACY_MASK(base_name)	\
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index b987bc4..6a582ae 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -2512,6 +2512,33 @@ static int set_phy_tunable(struct net_device *dev, void __user *useraddr)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+index 26eb00a..03f593e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+@@ -801,6 +801,104 @@ static int set_link_ksettings(struct net_device *dev,
  	return ret;
  }
  
-+static int ethtool_get_fecparam(struct net_device *dev, void __user *useraddr)
++/* Translate the Firmware FEC value into the ethtool value. */
++static inline unsigned int fwcap_to_eth_fec(unsigned int fw_fec)
 +{
-+	struct ethtool_fecparam fecparam = { ETHTOOL_GFECPARAM };
++	unsigned int eth_fec = 0;
 +
-+	if (!dev->ethtool_ops->get_fecparam)
-+		return -EOPNOTSUPP;
++	if (fw_fec & FW_PORT_CAP_FEC_RS)
++		eth_fec |= ETHTOOL_FEC_RS;
++	if (fw_fec & FW_PORT_CAP_FEC_BASER_RS)
++		eth_fec |= ETHTOOL_FEC_BASER;
 +
-+	dev->ethtool_ops->get_fecparam(dev, &fecparam);
++	/* if nothing is set, then FEC is off */
++	if (!eth_fec)
++		eth_fec = ETHTOOL_FEC_OFF;
 +
-+	if (copy_to_user(useraddr, &fecparam, sizeof(fecparam)))
-+		return -EFAULT;
++	return eth_fec;
++}
++
++/* Translate Common Code FEC value into ethtool value. */
++static inline unsigned int cc_to_eth_fec(unsigned int cc_fec)
++{
++	unsigned int eth_fec = 0;
++
++	if (cc_fec & FEC_AUTO)
++		eth_fec |= ETHTOOL_FEC_AUTO;
++	if (cc_fec & FEC_RS)
++		eth_fec |= ETHTOOL_FEC_RS;
++	if (cc_fec & FEC_BASER_RS)
++		eth_fec |= ETHTOOL_FEC_BASER;
++
++	/* if nothing is set, then FEC is off */
++	if (!eth_fec)
++		eth_fec = ETHTOOL_FEC_OFF;
++
++	return eth_fec;
++}
++
++/* Translate ethtool FEC value into Common Code value. */
++static inline unsigned int eth_to_cc_fec(unsigned int eth_fec)
++{
++	unsigned int cc_fec = 0;
++
++	if (eth_fec & ETHTOOL_FEC_OFF)
++		return cc_fec;
++
++	if (eth_fec & ETHTOOL_FEC_AUTO)
++		cc_fec |= FEC_AUTO;
++	if (eth_fec & ETHTOOL_FEC_RS)
++		cc_fec |= FEC_RS;
++	if (eth_fec & ETHTOOL_FEC_BASER)
++		cc_fec |= FEC_BASER_RS;
++
++	return cc_fec;
++}
++
++static int get_fecparam(struct net_device *dev, struct ethtool_fecparam *fec)
++{
++	const struct port_info *pi = netdev_priv(dev);
++	const struct link_config *lc = &pi->link_cfg;
++
++	/* Translate the Firmware FEC Support into the ethtool value.  We
++	 * always support IEEE 802.3 "automatic" selection of Link FEC type if
++	 * any FEC is supported.
++	 */
++	fec->fec = fwcap_to_eth_fec(lc->supported);
++	if (fec->fec != ETHTOOL_FEC_OFF)
++		fec->fec |= ETHTOOL_FEC_AUTO;
++
++	/* Translate the current internal FEC parameters into the
++	 * ethtool values.
++	 */
++	fec->active_fec = cc_to_eth_fec(lc->fec);
++
 +	return 0;
 +}
 +
-+static int ethtool_set_fecparam(struct net_device *dev, void __user *useraddr)
++static int set_fecparam(struct net_device *dev, struct ethtool_fecparam *fec)
 +{
-+	struct ethtool_fecparam fecparam;
++	struct port_info *pi = netdev_priv(dev);
++	struct link_config *lc = &pi->link_cfg;
++	struct link_config old_lc;
++	int ret;
 +
-+	if (!dev->ethtool_ops->set_fecparam)
-+		return -EOPNOTSUPP;
++	/* Save old Link Configuration in case the L1 Configure below
++	 * fails.
++	 */
++	old_lc = *lc;
 +
-+	if (copy_from_user(&fecparam, useraddr, sizeof(fecparam)))
-+		return -EFAULT;
-+
-+	return dev->ethtool_ops->set_fecparam(dev, &fecparam);
++	/* Try to perform the L1 Configure and return the result of that
++	 * effort.  If it fails, revert the attempted change.
++	 */
++	lc->requested_fec = eth_to_cc_fec(fec->fec);
++	ret = t4_link_l1cfg(pi->adapter, pi->adapter->mbox,
++			    pi->tx_chan, lc);
++	if (ret)
++		*lc = old_lc;
++	return ret;
 +}
 +
- /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -2570,6 +2597,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GTUNABLE:
- 	case ETHTOOL_PHY_GTUNABLE:
- 	case ETHTOOL_GLINKSETTINGS:
-+	case ETHTOOL_GFECPARAM:
- 		break;
- 	default:
- 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
-@@ -2779,6 +2807,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_PHY_STUNABLE:
- 		rc = set_phy_tunable(dev, useraddr);
- 		break;
-+	case ETHTOOL_GFECPARAM:
-+		rc = ethtool_get_fecparam(dev, useraddr);
-+		break;
-+	case ETHTOOL_SFECPARAM:
-+		rc = ethtool_set_fecparam(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
+ static void get_pauseparam(struct net_device *dev,
+ 			   struct ethtool_pauseparam *epause)
+ {
+@@ -1255,6 +1353,8 @@ static int get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
+ static const struct ethtool_ops cxgb_ethtool_ops = {
+ 	.get_link_ksettings = get_link_ksettings,
+ 	.set_link_ksettings = set_link_ksettings,
++	.get_fecparam      = get_fecparam,
++	.set_fecparam      = set_fecparam,
+ 	.get_drvinfo       = get_drvinfo,
+ 	.get_msglevel      = get_msglevel,
+ 	.set_msglevel      = set_msglevel,
 -- 
 2.1.4
