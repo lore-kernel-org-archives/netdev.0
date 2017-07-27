@@ -1,57 +1,36 @@
-From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH v2 11/11] ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb
-Date: Thu, 27 Jul 2017 21:10:54 +0800
-Message-ID: <1501161054-30863-1-git-send-email-david.wu@rock-chips.com>
-References: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, hwg@rock-chips.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Wu <david.wu@rock-chips.com>
-To: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch,
-        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
-        linux@armlinux.org.uk, arnd@arndb.de
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 06/10] net: dsa: lan9303: added sysfs node
+ swe_bcst_throt
+Date: Thu, 27 Jul 2017 15:26:25 +0200
+Message-ID: <20170727132625.GA18666@lunn.ch>
+References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
+ <20170725161553.30147-7-privat@egil-hjelmeland.no>
+ <20170726171423.GQ12049@lunn.ch>
+ <f0105583-9363-e8a6-79fc-675bb8dbadcf@egil-hjelmeland.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, davem@davemloft.net, kernel@pengutronix.de,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
+Content-Disposition: inline
+In-Reply-To: <f0105583-9363-e8a6-79fc-675bb8dbadcf@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Enable the gmac2phy, make the gmac2phy work on
-the rk3328-evb board.
+> Yes, this setting can be used to reduce effect of broadcast storms.
 
-Signed-off-by: David Wu <david.wu@rock-chips.com>
----
- arch/arm64/boot/dts/rockchip/rk3328-evb.dts | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+So one way to solve this is to teach the software bridge about
+broadcast storm control. Put some rate limiting into its broadcast
+flood handling. Then add a switchdev call which passes this down into
+the switch.
 
-diff --git a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
-index cf27239..b9f36da 100644
---- a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
-+++ b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
-@@ -50,6 +50,23 @@
- 	chosen {
- 		stdout-path = "serial2:1500000n8";
- 	};
-+
-+	vcc_phy: vcc-phy-regulator {
-+		compatible = "regulator-fixed";
-+		regulator-name = "vcc_phy";
-+		regulator-always-on;
-+		regulator-boot-on;
-+	};
-+};
-+
-+&gmac2phy {
-+	phy-supply = <&vcc_phy>;
-+	clock_in_out = "output";
-+	assigned-clocks = <&cru SCLK_MAC2PHY_SRC>;
-+	assigned-clock-rate = <50000000>;
-+	assigned-clocks = <&cru SCLK_MAC2PHY>;
-+	assigned-clock-parents = <&cru SCLK_MAC2PHY_SRC>;
-+	status = "okay";
- };
- 
- &uart2 {
--- 
-1.9.1
+Or look at doing it via TC. It is just a filter selecting broadcast
+traffic and applying some shaping, which is what TC is all about.
+
+Generic solutions which can be used by all switches are likely to be
+accepted.
+
+	Andrew
