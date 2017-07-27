@@ -1,88 +1,86 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net 02/14] net/mlx5: Consider tx_enabled in all modes on remap
-Date: Thu, 27 Jul 2017 14:55:23 +0300
-Message-ID: <a88eb0e5-9164-1d7a-5077-eb90848e129b@cogentembedded.com>
-References: <20170727102532.2317-1-saeedm@mellanox.com>
- <20170727102532.2317-3-saeedm@mellanox.com>
+From: Mao Wenan <maowenan@huawei.com>
+Subject: [PATCH V3 net-next] TLP: Don't reschedule PTO when there's one outstanding TLP retransmission
+Date: Thu, 27 Jul 2017 20:08:57 +0800
+Message-ID: <1501157337-10900-1-git-send-email-maowenan@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Aviv Heller <avivh@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <ncardwell@google.com>, <ycheng@google.com>, <nanditad@google.com>,
+        <weiyongjun1@huawei.com>, <chenweilong@huawei.com>,
+        <wangkefeng.wang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:35610 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750997AbdG0Lz1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 07:55:27 -0400
-Received: by mail-lf0-f50.google.com with SMTP id t128so49220588lff.2
-        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 04:55:27 -0700 (PDT)
-In-Reply-To: <20170727102532.2317-3-saeedm@mellanox.com>
+Received: from szxga03-in.huawei.com ([45.249.212.189]:9864 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751428AbdG0MJW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 08:09:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+If there is one TLP probe went out(TLP use the write_queue_tail
+packet as TLP probe, we assume this first TLP probe named A), and
+this TLP probe was not acked by receive side.
 
-On 07/27/2017 01:25 PM, Saeed Mahameed wrote:
+Then the transmit side sent the next two packetes out(named B,C),
+but unfortunately these two packets are also not acked by receive side.
 
-> From: Aviv Heller <avivh@mellanox.com>
->
-> The tx_enabled lag event field is used to determine whether a slave is
-> active.
-> Current logic uses this value only if the mode is active-backup.
->
-> However, LACP mode, although considered a load balancing mode, can mark
-> a slave as inactive in certain situations (e.g., LACP timeout).
->
-> This fix takes the tx_enabled value into account when remapping, with
-> no respect to the LAG mode (this should not affect the behavior in XOR
-> mode, since in this mode both slaves are marked as active).
->
-> Fixes: 7907f23adc18 (net/mlx5: Implement RoCE LAG feature)
-> Signed-off-by: Aviv Heller <avivh@mellanox.com>
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/lag.c | 26 +++++++++++---------------
->  1 file changed, 11 insertions(+), 15 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lag.c b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
-> index a3a836bdcfd2..654b02e7d1aa 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/lag.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
-> @@ -162,21 +162,17 @@ static bool mlx5_lag_is_bonded(struct mlx5_lag *ldev)
->  static void mlx5_infer_tx_affinity_mapping(struct lag_tracker *tracker,
->  					   u8 *port1, u8 *port2)
->  {
-> -	if (tracker->tx_type == NETDEV_LAG_TX_TYPE_ACTIVEBACKUP) {
-> -		if (tracker->netdev_state[0].tx_enabled) {
-> -			*port1 = 1;
-> -			*port2 = 1;
-> -		} else {
-> -			*port1 = 2;
-> -			*port2 = 2;
-> -		}
-> -	} else {
-> -		*port1 = 1;
-> -		*port2 = 2;
-> -		if (!tracker->netdev_state[0].link_up)
-> -			*port1 = 2;
-> -		else if (!tracker->netdev_state[1].link_up)
-> -			*port2 = 1;
-> +	*port1 = 1;
-> +	*port2 = 2;
-> +	if (!tracker->netdev_state[0].tx_enabled ||
-> +	    !tracker->netdev_state[0].link_up) {
-> +		*port1 = 2;
-> +		return;
-> +	}
-> +
-> +	if (!tracker->netdev_state[1].tx_enabled ||
-> +	    !tracker->netdev_state[1].link_up) {
-> +		*port2 = 1;
->  	}
+And then there is one data packet with ack_seq A arrive at transmit
+side, in tcp_ack() will call tcp_schedule_loss_probe() to rearm PTO,
+the handler tcp_send_loss_probe() is to check
+if(tp->tlp_high_seq) then go to rearm_timer(because there is one
+outstanding TLP named A), so the new TLP probe can't be sent out and
+it needs to rearm the RTO timer(timeout is relative to the transmit
+time of the write queue head).
 
-    {} not needed here.
+After that, there is another data packet with ack_seq A is received,
+if the tlp_time_stamp is greater than rto_time_stamp, it will reset
+the TLP timeout, which is before previous RTO timeout, so PTO is
+rearm and previous RTO is cleared. Because there is no
+retransmission packet was sent or no TLP sack receive,
+tp->tlp_high_seq can't be reset to zero and the next TLP probe also
+can't be sent out, so there is no way(or very long time)
+to retransmit the lost packet.
 
-[...]
+This fix is to check(tp->tlp_high_seq) in tcp_schedule_loss_probe()
+when TLP PTO is after RTO, It is not needed to reschedule PTO when
+there is one outstanding TLP retransmission, so if the TLP A is lost
+RTO can retransmit lost packet, then tp->tlp_high_seq will be set to
+0, and TLP will go to the normal work process.
 
-MBR, Sergei
+v1->v2
+	refine some words of code and patch comments.
+v2->v3
+	delete senseless "{" and "}" in if clause.
+
+Signed-off-by: Mao Wenan <maowenan@huawei.com>
+---
+ net/ipv4/tcp_output.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 886d874..b59975f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2377,6 +2377,7 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	u32 timeout, tlp_time_stamp, rto_time_stamp;
++	s32 delta;
+ 
+ 	/* No consecutive loss probes. */
+ 	if (WARN_ON(icsk->icsk_pending == ICSK_TIME_LOSS_PROBE)) {
+@@ -2423,7 +2424,12 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+ 	tlp_time_stamp = tcp_jiffies32 + timeout;
+ 	rto_time_stamp = (u32)inet_csk(sk)->icsk_timeout;
+ 	if ((s32)(tlp_time_stamp - rto_time_stamp) > 0) {
+-		s32 delta = rto_time_stamp - tcp_jiffies32;
++		/* It is not needed to reschedule PTO when there 
++		 * is one outstanding TLP retransmission. 
++		 */
++		if (tp->tlp_high_seq)
++			return false;
++		delta = rto_time_stamp - tcp_jiffies32;
+ 		if (delta > 0)
+ 			timeout = delta;
+ 	}
+-- 
+2.5.0
