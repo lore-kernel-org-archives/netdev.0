@@ -1,42 +1,55 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCHv2 iproute2] utils: return default family when rtm_family
- is not RTNL_FAMILY_IPMR/IP6MR
-Date: Thu, 27 Jul 2017 12:03:02 +0200
-Message-ID: <20170727100302.GP2235@orbyte.nwl.cc>
-References: <1501146109-30032-1-git-send-email-liuhangbin@gmail.com>
- <1501148655-32629-1-git-send-email-liuhangbin@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/3] nfp: look for firmware image by device
+ serial number and PCI name
+Date: Thu, 27 Jul 2017 10:15:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0043824@AcuExch.aculab.com>
+References: <20170726180948.3220-1-jakub.kicinski@netronome.com>
+        <20170726180948.3220-3-jakub.kicinski@netronome.com>
+        <063D6719AE5E284EB5DD2968C1650D6DD0043717@AcuExch.aculab.com>
+ <20170727022546.1fe8d1ea@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Hangbin Liu <liuhangbin@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "oss-drivers@netronome.com" <oss-drivers@netronome.com>
+To: 'Jakub Kicinski' <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:51381 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750965AbdG0KDD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jul 2017 06:03:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1501148655-32629-1-git-send-email-liuhangbin@gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.186]:54628 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750836AbdG0KPj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 06:15:39 -0400
+In-Reply-To: <20170727022546.1fe8d1ea@cakuba.netronome.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 27, 2017 at 05:44:15PM +0800, Hangbin Liu wrote:
-> When we get a multicast route, the rtm_type is RTN_MULTICAST, but the
-> rtm_family may be AF_INET. If we only check the type with RTNL_FAMILY_IPMR,
-> we will get malformed address. e.g.
+From: Jakub Kicinski
+> Sent: 27 July 2017 10:26
+...
+> > - use snprintf().
 > 
-> + ip -4 route add multicast 172.111.1.1 dev em1 table main
-> 
-> Before fix:
-> + ip route list type multicast table main
-> multicast ac6f:101:800:400:400:0:3c00:0 dev em1 scope link
-> 
-> After fix:
-> + ip route list type multicast table main
-> multicast 172.111.1.1 dev em1 scope link
-> 
-> Fixes: 56e3eb4c3400 ("ip: route: fix multicast route dumps")
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> To effectively print an integer into an amply sized array?  I need to
+> guarantee that the string will fit otherwise I would request a FW image
+> with a wrong name.  snprintf() would only mask such a bug.
 
-Acked-by: Phil Sutter <phil@nwl.cc>
+Eh?
+If, for any reason, the buffer isn't long enough snprintf() won't
+write over random memory - sprint() will, and you may not notice.
+
+> > - kill those hh, the arguments are of type 'int'.
+> 
+> It doesn't matter.  I will be more careful in the future, though.
+> 
+> > In fact make 'interface' 'unsigned int' as well.
+> 
+> It's a value read from the hardware, and it's 16 bits wide, therefore
+> my preference it to explicitly size the variable.
+
+Right, so you keep asking the compiler to generate code to mask
+any arithmetic results (written into the variable) back down to
+16 bits.
+
+OTOH, looking at some of the functions in nfp_cppcore.c you don't
+care about performance at all.
+
+	David
