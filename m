@@ -1,99 +1,112 @@
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH V4 net-next 7/8] net: hns3: Add Ethtool support to HNS3
- driver
-Date: Thu, 27 Jul 2017 20:46:29 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B8286C5@FRAEML521-MBX.china.huawei.com>
-References: <20170722220942.78852-1-salil.mehta@huawei.com>
- <20170722220942.78852-8-salil.mehta@huawei.com>
- <23ddbe00-8bef-a09b-5783-3a5438086bd6@gmail.com>
- <F4CC6FACFEB3C54C9141D49AD221F7F93B8283E1@FRAEML521-MBX.china.huawei.com>
- <0fa12c08-8d20-5bb2-5e56-c083c57922e2@gmail.com>
+From: Laura Abbott <labbott@redhat.com>
+Subject: Re: [PATCH net] xgene: Don't fail probe, if there is no clk resource
+ for SGMII interfaces
+Date: Thu, 27 Jul 2017 14:03:42 -0700
+Message-ID: <22ee6284-7b23-7664-d6cf-23687f09a3be@redhat.com>
+References: <20170713092144.31751508094@solo.franken.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        huangdaode <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
-        "lipeng (Y)" <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0fa12c08-8d20-5bb2-5e56-c083c57922e2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
+        isubramanian@apm.com, kchudgar@apm.com, qnguyen@apm.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170713092144.31751508094@solo.franken.de>
 Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgRmxvcmlhbiwNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9y
-aWFuIEZhaW5lbGxpIFttYWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFRodXJz
-ZGF5LCBKdWx5IDI3LCAyMDE3IDc6MDUgUE0NCj4gVG86IFNhbGlsIE1laHRhOyBkYXZlbUBkYXZl
-bWxvZnQubmV0DQo+IENjOiBaaHVhbmd5dXplbmcgKFlpc2VuKTsgaHVhbmdkYW9kZTsgbGlwZW5n
-IChZKTsNCj4gbWVodGEuc2FsaWwubG5rQGdtYWlsLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9y
-ZzsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LXJkbWFAdmdlci5rZXJu
-ZWwub3JnOyBMaW51eGFybQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIFY0IG5ldC1uZXh0IDcvOF0g
-bmV0OiBobnMzOiBBZGQgRXRodG9vbCBzdXBwb3J0IHRvDQo+IEhOUzMgZHJpdmVyDQo+IA0KPiBP
-biAwNy8yNy8yMDE3IDExOjAxIEFNLCBTYWxpbCBNZWh0YSB3cm90ZToNCj4gPiBIaSBGbG9yaWFu
-LA0KPiA+DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IEZsb3Jp
-YW4gRmFpbmVsbGkgW21haWx0bzpmLmZhaW5lbGxpQGdtYWlsLmNvbV0NCj4gPj4gU2VudDogU3Vu
-ZGF5LCBKdWx5IDIzLCAyMDE3IDY6MDUgUE0NCj4gPj4gVG86IFNhbGlsIE1laHRhOyBkYXZlbUBk
-YXZlbWxvZnQubmV0DQo+ID4+IENjOiBaaHVhbmd5dXplbmcgKFlpc2VuKTsgaHVhbmdkYW9kZTsg
-bGlwZW5nIChZKTsNCj4gPj4gbWVodGEuc2FsaWwubG5rQGdtYWlsLmNvbTsgbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZzsgbGludXgtDQo+ID4+IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LXJk
-bWFAdmdlci5rZXJuZWwub3JnOyBMaW51eGFybQ0KPiA+PiBTdWJqZWN0OiBSZTogW1BBVENIIFY0
-IG5ldC1uZXh0IDcvOF0gbmV0OiBobnMzOiBBZGQgRXRodG9vbCBzdXBwb3J0DQo+IHRvDQo+ID4+
-IEhOUzMgZHJpdmVyDQo+ID4+DQo+ID4+DQo+ID4+DQo+ID4+IE9uIDA3LzIyLzIwMTcgMDM6MDkg
-UE0sIFNhbGlsIE1laHRhIHdyb3RlOg0KPiA+Pj4gVGhpcyBwYXRjaCBhZGRzIHRoZSBzdXBwb3J0
-IG9mIHRoZSBFdGh0b29sIGludGVyZmFjZSB0bw0KPiA+Pj4gdGhlIEhOUzMgRXRoZXJuZXQgZHJp
-dmVyLiBWYXJpb3VzIGNvbW1hbmRzIHRvIHJlYWQgdGhlDQo+ID4+PiBzdGF0aXN0aWNzLCBjb25m
-aWd1cmUgdGhlIG9mZmxvYWRpbmcsIGxvb3BiYWNrIHNlbGZ0ZXN0IGV0Yy4NCj4gPj4+IGFyZSBz
-dXBwb3J0ZWQuDQo+ID4+Pg0KPiA+Pj4gU2lnbmVkLW9mZi1ieTogRGFvZGUgSHVhbmcgPGh1YW5n
-ZGFvZGVAaGlzaWxpY29uLmNvbT4NCj4gPj4+IFNpZ25lZC1vZmYtYnk6IGxpcGVuZyA8bGlwZW5n
-MzIxQGh1YXdlaS5jb20+DQo+ID4+PiBTaWduZWQtb2ZmLWJ5OiBTYWxpbCBNZWh0YSA8c2FsaWwu
-bWVodGFAaHVhd2VpLmNvbT4NCj4gPj4+IFNpZ25lZC1vZmYtYnk6IFlpc2VuIFpodWFuZyA8eWlz
-ZW4uemh1YW5nQGh1YXdlaS5jb20+DQo+ID4+PiAtLS0NCj4gPj4+IFBhdGNoIFY0OiBhZGRyZXNz
-ZWQgYmVsb3cgY29tbWVudHMNCj4gPj4+ICAxLiBBbmRyZXcgTHVubg0KPiA+Pj4gICAgIFJlbW92
-ZWQgdGhlIHN1cHBvcnQgb2YgbG9vcCBQSFkgYmFjayBmb3Igbm93DQo+ID4+PiBQYXRjaCBWMzog
-QWRkcmVzcyBiZWxvdyBjb21tZW50cw0KPiA+Pj4gIDEuIFN0ZXBoZW4gSGVtbWluZ2VyDQo+ID4+
-PiAgICAgaHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTcvNi8xMy85NzQNCj4gPj4+ICAyLiBBbmRy
-ZXcgTHVubg0KPiA+Pj4gICAgIGh0dHBzOi8vbGttbC5vcmcvbGttbC8yMDE3LzYvMTMvMTAzNw0K
-PiA+Pj4gUGF0Y2ggVjI6IE5vIGNoYW5nZQ0KPiA+Pj4gUGF0Y2ggVjE6IEluaXRpYWwgU3VibWl0
-DQo+ID4+PiAtLS0NCj4gPj4+ICAuLi4vZXRoZXJuZXQvaGlzaWxpY29uL2huczMvaG5zM3BmL2hu
-czNfZXRodG9vbC5jICB8IDU0Mw0KPiA+PiArKysrKysrKysrKysrKysrKysrKysNCj4gPj4+ICAx
-IGZpbGUgY2hhbmdlZCwgNTQzIGluc2VydGlvbnMoKykNCj4gPj4+ICBjcmVhdGUgbW9kZSAxMDA2
-NDQNCj4gPj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvaGlzaWxpY29uL2huczMvaG5zM3BmL2huczNf
-ZXRodG9vbC5jDQo+ID4+Pg0KPiA+Pj4gZGlmZiAtLWdpdA0KPiA+PiBhL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L2hpc2lsaWNvbi9obnMzL2huczNwZi9obnMzX2V0aHRvb2wuYw0KPiA+PiBiL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMzL2huczNwZi9obnMzX2V0aHRvb2wuYw0KPiA+
-Pj4gbmV3IGZpbGUgbW9kZSAxMDA2NDQNCj4gPj4+IGluZGV4IDAwMDAwMDAwMDAwMC4uODJiMGQ0
-ZDgyOWY4DQo+ID4+PiAtLS0gL2Rldi9udWxsDQo+ID4+PiArKysgYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9oaXNpbGljb24vaG5zMy9obnMzcGYvaG5zM19ldGh0b29sLmMNCj4gPj4+IEBAIC0wLDAg
-KzEsNTQzIEBADQo+ID4+PiArLyoNCj4gPj4+ICsgKiBDb3B5cmlnaHQgKGMpIDIwMTZ+MjAxNyBI
-aXNpbGljb24gTGltaXRlZC4NCj4gPj4+ICsgKg0KPiA+Pj4gKyAqIFRoaXMgcHJvZ3JhbSBpcyBm
-cmVlIHNvZnR3YXJlOyB5b3UgY2FuIHJlZGlzdHJpYnV0ZSBpdCBhbmQvb3INCj4gPj4gbW9kaWZ5
-DQo+ID4+PiArICogaXQgdW5kZXIgdGhlIHRlcm1zIG9mIHRoZSBHTlUgR2VuZXJhbCBQdWJsaWMg
-TGljZW5zZSBhcw0KPiBwdWJsaXNoZWQNCj4gPj4gYnkNCj4gPj4+ICsgKiB0aGUgRnJlZSBTb2Z0
-d2FyZSBGb3VuZGF0aW9uOyBlaXRoZXIgdmVyc2lvbiAyIG9mIHRoZSBMaWNlbnNlLA0KPiBvcg0K
-PiA+Pj4gKyAqIChhdCB5b3VyIG9wdGlvbikgYW55IGxhdGVyIHZlcnNpb24uDQo+ID4+PiArICov
-DQo+ID4+PiArDQo+ID4+PiArI2luY2x1ZGUgPGxpbnV4L2V0aGVyZGV2aWNlLmg+DQo+ID4+PiAr
-I2luY2x1ZGUgImhuczNfZW5ldC5oIg0KPiA+Pj4gKw0KPiA+Pj4gK3N0cnVjdCBobnMzX3N0YXRz
-IHsNCj4gPj4+ICsJY2hhciBzdGF0c19zdHJpbmdbRVRIX0dTVFJJTkdfTEVOXTsNCj4gPj4+ICsJ
-aW50IHN0YXRzX3NpemU7DQo+ID4+PiArCWludCBzdGF0c19vZmZzZXQ7DQo+ID4+PiArfTsNCj4g
-Pj4+ICsNCj4gPj4+ICsvKiBuZXRkZXYgcmVsYXRlZCBzdGF0cyAqLw0KPiA+Pj4gKyNkZWZpbmUg
-SE5TM19ORVRERVZfU1RBVChfc3RyaW5nLCBfbWVtYmVyKQkJCVwNCj4gPj4+ICsJeyBfc3RyaW5n
-LAkJCQkJCVwNCj4gPj4+ICsJICBGSUVMRF9TSVpFT0Yoc3RydWN0IHJ0bmxfbGlua19zdGF0czY0
-LCBfbWVtYmVyKSwJXA0KPiA+Pj4gKwkgIG9mZnNldG9mKHN0cnVjdCBydG5sX2xpbmtfc3RhdHM2
-NCwgX21lbWJlciksCQlcDQo+ID4+PiArCX0NCj4gPj4NCj4gPj4gQ2FuIHlvdSBtYWtlIHRoaXMg
-bWFjcm8gdXNlIG5hbWVkIGluaXRpYWxpemVycz8NCj4gPiBDYW4geW91IHBsZWFzZSBleHBsYWlu
-IGJpdCBtb3JlIG9yIHBvaW50IG91dCBzb21lDQo+ID4gZXhhbXBsZS4gVGhpcyB3b3VsZCBiZSB2
-ZXJ5IGhhbmR5Lg0KPiANCj4gCS5zdGF0X3N0cmluZyA9IF9zdHJpbmcsDQo+IAkuc3RhdHNfc2l6
-ZSA9IEZJRUxEX1NJWkVPRihzdHJ1Y3QgcnRubF9saW5rX3N0YXQ2NCwgX21lbWJlciksDQo+IAku
-c3RhdHNfb2Zmc2V0ID0gb2Zmc2V0b2Yoc3RydWN0IHJ0bmxfbGlua19zdGF0czY0LCBfbWVtYmVy
-KSwNCj4gDQo+IGh0dHBzOi8vZ2NjLmdudS5vcmcvb25saW5lZG9jcy9nY2MvRGVzaWduYXRlZC1J
-bml0cy5odG1sDQoNCk9rIGdvdCBpdCwgdGhhbmtzIQ0KDQo+IC0tDQo+IEZsb3JpYW4NCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 07/13/2017 01:57 AM, Thomas Bogendoerfer wrote:
+> From: Thomas Bogendoerfer <tbogendoerfer@suse.de>
+> 
+> This change fixes following problem
+> 
+> [    1.827940] xgene-enet: probe of 1f210030.ethernet failed with error -2
+> 
+> which leads to a missing ethernet interface (reproducable at least on
+> Gigabyte MP30-AR0 and APM Mustang systems).
+> 
+> The check for a valid clk resource fails, because DT doesn't provide a
+> clock for sgenet1. But the driver doesn't use this clk, if the ethernet
+> port is connected via SGMII. Therefore this patch avoids probing for clk
+> on SGMII interfaces.
+> 
+> Fixes: 9aea7779b764 drivers: net: xgene: Fix crash on DT systems
+> Signed-off-by: Thomas Bogendoerfer <tbogendoerfer@suse.de>
+> ---
+>  drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 22 ++++++++++++----------
+>  1 file changed, 12 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> index d3906f6b01bd..86058a9f3417 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> @@ -1785,16 +1785,18 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+>  
+>  	xgene_enet_gpiod_get(pdata);
+>  
+> -	pdata->clk = devm_clk_get(&pdev->dev, NULL);
+> -	if (IS_ERR(pdata->clk)) {
+> -		/* Abort if the clock is defined but couldn't be retrived.
+> -		 * Always abort if the clock is missing on DT system as
+> -		 * the driver can't cope with this case.
+> -		 */
+> -		if (PTR_ERR(pdata->clk) != -ENOENT || dev->of_node)
+> -			return PTR_ERR(pdata->clk);
+> -		/* Firmware may have set up the clock already. */
+> -		dev_info(dev, "clocks have been setup already\n");
+> +	if (pdata->phy_mode != PHY_INTERFACE_MODE_SGMII) {
+> +		pdata->clk = devm_clk_get(&pdev->dev, NULL);
+> +		if (IS_ERR(pdata->clk)) {
+> +			/* Abort if the clock is defined but couldn't be
+> +			 * retrived. Always abort if the clock is missing on
+> +			 * DT system as the driver can't cope with this case.
+> +			 */
+> +			if (PTR_ERR(pdata->clk) != -ENOENT || dev->of_node)
+> +				return PTR_ERR(pdata->clk);
+> +			/* Firmware may have set up the clock already. */
+> +			dev_info(dev, "clocks have been setup already\n");
+> +		}
+>  	}
+>  
+>  	if (pdata->phy_mode != PHY_INTERFACE_MODE_XGMII)
+> 
+
+This change causes boot failures for me on my APM Mustang system running
+Fedora rawhide:
+
+[   16.669089] Synchronous External Abort: synchronous external abort (0x9600000
+[   16.669099] Internal error: : 96000010 [#1] SMP                              
+[   16.669103] Modules linked in: xgene_enet(+) at803x realtek mdio_xgene xgenes
+[   16.669127] CPU: 2 PID: 534 Comm: systemd-udevd Not tainted 4.13.0-0.rc1.git1
+[   16.669128] Hardware name: AppliedMicro X-Gene Mustang Board/X-Gene Mustang 6
+[   16.669131] task: ffff8003e6f8ce00 task.stack: ffff8003e4fd8000              
+[   16.669144] PC is at xgene_enet_wr_mac+0xa0/0x128 [xgene_enet]               
+[   16.669152] LR is at xgene_enet_wr_mac+0x64/0x128 [xgene_enet] 
+
+<snip>
+           
+[   16.669345] [<ffff000000de19f0>] xgene_enet_wr_mac+0xa0/0x128 [xgene_enet]   
+[   16.669354] [<ffff000000de2fc0>] xgene_sgmac_reset+0x28/0x48 [xgene_enet]    
+[   16.669362] [<ffff000000de3b50>] xgene_sgmac_init+0x1e0/0x2e8 [xgene_enet]   
+[   16.669370] [<ffff000000de8564>] xgene_enet_probe+0xfa4/0x1368 [xgene_enet]  
+[   16.669376] [<ffff0000086f14f0>] platform_drv_probe+0x60/0xc0                
+[   16.669379] [<ffff0000086ee86c>] driver_probe_device+0x31c/0x458             
+[   16.669381] [<ffff0000086eea8c>] __driver_attach+0xe4/0x130                  
+[   16.669384] [<ffff0000086ebfd4>] bus_for_each_dev+0x5c/0xa8                  
+[   16.669386] [<ffff0000086edf30>] driver_attach+0x30/0x40                     
+[   16.669388] [<ffff0000086ed8d0>] bus_add_driver+0x220/0x2c0                  
+[   16.669390] [<ffff0000086efd04>] driver_register+0x6c/0x118                  
+[   16.669392] [<ffff0000086f142c>] __platform_driver_register+0x54/0x60        
+[   16.669400] [<ffff000000e05014>] xgene_enet_driver_init+0x14/0x1000 [xgene_e]
+[   16.669404] [<ffff000008083834>] do_one_initcall+0x44/0x138                  
+[   16.669408] [<ffff0000081a327c>] do_init_module+0x64/0x1d0                   
+[   16.669410] [<ffff0000081a1dc4>] load_module+0x151c/0x1770                   
+[   16.669413] [<ffff0000081a2330>] SyS_finit_module+0xd8/0xf0                  
+[   16.669415] [<ffff00000808364c>] __sys_trace_return+0x0/0x4                  
+[   16.669418] Code: 14000004 d503201f d28218e0 95f24031 (b94002a2)     
+
+I suspect the clock is actually needed on some systems.
+
+Thanks,
+Laura
