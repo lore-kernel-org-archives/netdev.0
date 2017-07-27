@@ -1,50 +1,64 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 06/14] net/mlx5e: Fix outer_header_zero() check size
-Date: Thu, 27 Jul 2017 13:25:24 +0300
-Message-ID: <20170727102532.2317-7-saeedm@mellanox.com>
+Subject: [net 03/14] net/mlx5: Fix command completion after timeout access invalid structure
+Date: Thu, 27 Jul 2017 13:25:21 +0300
+Message-ID: <20170727102532.2317-4-saeedm@mellanox.com>
 References: <20170727102532.2317-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Ilan Tayari <ilant@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Moshe Shemesh <moshe@mellanox.com>,
+        kernel-team@fb.com, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44987 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44935 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751125AbdG0K1O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 06:27:14 -0400
+        with ESMTP id S1750981AbdG0K1N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 06:27:13 -0400
 In-Reply-To: <20170727102532.2317-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ilan Tayari <ilant@mellanox.com>
+From: Moshe Shemesh <moshe@mellanox.com>
 
-outer_header_zero() routine checks if the outer_headers match of a
-flow-table entry are all zero.
+Completion on timeout should not free the driver command entry structure
+as it will need to access it again once real completion event from FW
+will occur.
 
-This function uses the size of whole fte_match_param, instead of just
-the outer_headers member, causing failure to detect all-zeros if
-any other members of the fte_match_param are non-zero.
-
-Use the correct size for zero check.
-
-Fixes: 6dc6071cfcde ("net/mlx5e: Add ethtool flow steering support")
-Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+Fixes: 73dd3a4839c1 ('net/mlx5: Avoid using pending command interface slots')
+Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
+Cc: kernel-team@fb.com
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-index bdd82c9b3992..22fb993987b4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-@@ -276,7 +276,7 @@ static void add_rule_to_list(struct mlx5e_priv *priv,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index f5a2c605749f..25fd32fcdf79 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -967,7 +967,7 @@ static int mlx5_cmd_invoke(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *in,
  
- static bool outer_header_zero(u32 *match_criteria)
- {
--	int size = MLX5_ST_SZ_BYTES(fte_match_param);
-+	int size = MLX5_FLD_SZ_BYTES(fte_match_param, outer_headers);
- 	char *outer_headers_c = MLX5_ADDR_OF(fte_match_param, match_criteria,
- 					     outer_headers);
+ 	err = wait_func(dev, ent);
+ 	if (err == -ETIMEDOUT)
+-		goto out_free;
++		goto out;
  
+ 	ds = ent->ts2 - ent->ts1;
+ 	op = MLX5_GET(mbox_in, in->first.data, opcode);
+@@ -1430,6 +1430,7 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced)
+ 					mlx5_core_err(dev, "Command completion arrived after timeout (entry idx = %d).\n",
+ 						      ent->idx);
+ 					free_ent(cmd, ent->idx);
++					free_cmd(ent);
+ 				}
+ 				continue;
+ 			}
+@@ -1488,7 +1489,8 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced)
+ 				free_msg(dev, ent->in);
+ 
+ 				err = err ? err : ent->status;
+-				free_cmd(ent);
++				if (!forced)
++					free_cmd(ent);
+ 				callback(err, context);
+ 			} else {
+ 				complete(&ent->done);
 -- 
 2.13.0
