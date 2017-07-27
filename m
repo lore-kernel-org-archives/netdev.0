@@ -1,146 +1,59 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] udp6: fix socket leak on early demux
-Date: Thu, 27 Jul 2017 11:31:33 +0200
-Message-ID: <1501147893.3930.1.camel@redhat.com>
-References: <fa8561e5d814bfcd8aeb20f09732a716ffca772c.1501082940.git.pabeni@redhat.com>
-         <1501139161.12695.20.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Sam Edwards <CFSworks@gmail.com>,
-        Marc Haber <mh+netdev@zugschlus.de>,
-        Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCHv2 iproute2] utils: return default family when rtm_family is not RTNL_FAMILY_IPMR/IP6MR
+Date: Thu, 27 Jul 2017 17:44:15 +0800
+Message-ID: <1501148655-32629-1-git-send-email-liuhangbin@gmail.com>
+References: <1501146109-30032-1-git-send-email-liuhangbin@gmail.com>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41388 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750878AbdG0Jbg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jul 2017 05:31:36 -0400
-In-Reply-To: <1501139161.12695.20.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33089 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751454AbdG0Jox (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 05:44:53 -0400
+Received: by mail-pg0-f68.google.com with SMTP id 123so9423632pgj.0
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 02:44:53 -0700 (PDT)
+In-Reply-To: <1501146109-30032-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-07-27 at 00:06 -0700, Eric Dumazet wrote:
-> On Wed, 2017-07-26 at 17:29 +0200, Paolo Abeni wrote:
-> > When an early demuxed packet reaches __udp6_lib_lookup_skb(), the
-> > sk reference is retrieved and used, but the relevant reference
-> > count is leaked and the socket destructor is never called.
-> > Beyond leaking the sk memory, if there are pending UDP packets
-> > in the receive queue, even the related accounted memory is leaked.
-> > 
-> > In the long run, this will cause persistent forward allocation errors
-> > and no UDP skbs (both ipv4 and ipv6) will be able to reach the
-> > user-space.
-> > 
-> > Fix this by explicitly accessing the early demux reference before
-> > the lookup, and properly decreasing the socket reference count
-> > after usage.
-> > 
-> > Also drop the skb_steal_sock() in __udp6_lib_lookup_skb(), and
-> > the now obsoleted comment about "socket cache".
-> > 
-> > The newly added code is derived from the current ipv4 code for the
-> > similar path.
-> 
-> 
-> Nice catch Paolo.
-> 
-> I believe there is one point to discuss, see below.
-> 
-> > 
-> > Reported-by: Sam Edwards <CFSworks@gmail.com>
-> > Reported-by: Marc Haber <mh+netdev@zugschlus.de>
-> > Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast")
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> > ---
-> >  include/net/udp.h |  1 +
-> >  net/ipv4/udp.c    |  3 ++-
-> >  net/ipv6/udp.c    | 28 +++++++++++++++++++---------
-> >  3 files changed, 22 insertions(+), 10 deletions(-)
-> > 
-> > diff --git a/include/net/udp.h b/include/net/udp.h
-> > index 56ce2d2a612d..cc8036987dcb 100644
-> > --- a/include/net/udp.h
-> > +++ b/include/net/udp.h
-> > @@ -260,6 +260,7 @@ static inline struct sk_buff *skb_recv_udp(struct sock *sk, unsigned int flags,
-> >  }
-> >  
-> >  void udp_v4_early_demux(struct sk_buff *skb);
-> > +void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst);
-> >  int udp_get_port(struct sock *sk, unsigned short snum,
-> >  		 int (*saddr_cmp)(const struct sock *,
-> >  				  const struct sock *));
-> > diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> > index fac7cb9e3b0f..e6276fa3750b 100644
-> > --- a/net/ipv4/udp.c
-> > +++ b/net/ipv4/udp.c
-> > @@ -1928,7 +1928,7 @@ static int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
-> >  /* For TCP sockets, sk_rx_dst is protected by socket lock
-> >   * For UDP, we use xchg() to guard against concurrent changes.
-> >   */
-> > -static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
-> > +void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
-> >  {
-> >  	struct dst_entry *old;
-> >  
-> > @@ -1937,6 +1937,7 @@ static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
-> >  		dst_release(old);
-> >  	}
-> >  }
-> > +EXPORT_SYMBOL(udp_sk_rx_dst_set);
-> >  
-> >  /*
-> >   *	Multicasts and broadcasts go to each listener.
-> > diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-> > index 4a3e65626e8b..e74fe497d823 100644
-> > --- a/net/ipv6/udp.c
-> > +++ b/net/ipv6/udp.c
-> > @@ -291,11 +291,7 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
-> >  					  struct udp_table *udptable)
-> >  {
-> >  	const struct ipv6hdr *iph = ipv6_hdr(skb);
-> > -	struct sock *sk;
-> >  
-> > -	sk = skb_steal_sock(skb);
-> > -	if (unlikely(sk))
-> > -		return sk;
-> >  	return __udp6_lib_lookup(dev_net(skb->dev), &iph->saddr, sport,
-> >  				 &iph->daddr, dport, inet6_iif(skb),
-> >  				 udptable, skb);
-> > @@ -804,6 +800,25 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
-> >  	if (udp6_csum_init(skb, uh, proto))
-> >  		goto csum_error;
-> >  
-> > +	/* Check if the socket is already available, e.g. due to early demux */
-> > +	sk = skb_steal_sock(skb);
-> > +	if (sk) {
-> > +		struct dst_entry *dst = skb_dst(skb);
-> > +		int ret;
-> > +
-> > +		if (unlikely(sk->sk_rx_dst != dst))
-> > +			udp_sk_rx_dst_set(sk, dst);
-> > +
-> > +		ret = udpv6_queue_rcv_skb(sk, skb);
-> > +		sock_put(sk);
-> > +		/* a return value > 0 means to resubmit the input, but
-> > +		 * it wants the return to be -protocol, or 0
-> > +		 */
-> > +		if (ret > 0)
-> > +			return -ret;
-> 
-> IPv6 and IPv4 have different behavior for resubmit
-> 
-> I believe "return ret;"  would be more appropriate here.
+When we get a multicast route, the rtm_type is RTN_MULTICAST, but the
+rtm_family may be AF_INET. If we only check the type with RTNL_FAMILY_IPMR,
+we will get malformed address. e.g.
 
-Thank you for the feedback!
++ ip -4 route add multicast 172.111.1.1 dev em1 table main
 
-You are very right. I stared at the correct UDPv6 code for unicast
-packets, a few lines below, for a lot of time before noticing the
-difference :-(
+Before fix:
++ ip route list type multicast table main
+multicast ac6f:101:800:400:400:0:3c00:0 dev em1 scope link
 
-I'll resubmit a v2 soon, thanks!
+After fix:
++ ip route list type multicast table main
+multicast 172.111.1.1 dev em1 scope link
 
-Paolo
+Fixes: 56e3eb4c3400 ("ip: route: fix multicast route dumps")
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+---
+ lib/utils.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/lib/utils.c b/lib/utils.c
+index e77bd30..9aa3219 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -1215,5 +1215,11 @@ int get_real_family(int rtm_type, int rtm_family)
+ 	if (rtm_type != RTN_MULTICAST)
+ 		return rtm_family;
  
+-	return rtm_family == RTNL_FAMILY_IPMR ? AF_INET : AF_INET6;
++	if (rtm_family == RTNL_FAMILY_IPMR)
++		return AF_INET;
++
++	if (rtm_family == RTNL_FAMILY_IP6MR)
++		return AF_INET6;
++
++	return rtm_family;
+ }
+-- 
+2.5.5
