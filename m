@@ -1,75 +1,44 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next v2 08/10] net: dsa: lan9303: Added ALR/fdb/mdb
- handling
-Date: Thu, 27 Jul 2017 13:04:44 +0200
-Message-ID: <8c7c8f00-9a6a-6f68-5459-58ef59ff6c78@egil-hjelmeland.no>
-References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
- <20170725161553.30147-9-privat@egil-hjelmeland.no>
- <20170726174154.GS12049@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, davem@davemloft.net, kernel@pengutronix.de,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20170726174154.GS12049@lunn.ch>
-Content-Language: en-US
-Sender: linux-doc-owner@vger.kernel.org
+From: Stefano Brivio <sbrivio-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net] intersil/hostap: Fix outdated comment about dev->destructor
+Date: Thu, 27 Jul 2017 13:20:15 +0200
+Message-ID: <0824ed85fd45846da65fc919ae22df9d7ebf2f97.1501150507.git.sbrivio@redhat.com>
+Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Jouni Malinen <j@w1.fi>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 26. juli 2017 19:41, Andrew Lunn wrote:
-> Hi Egil
-> 
->> +/* This function will wait a while until mask & reg == value */
->> +/* Otherwise, return timeout */
->> +static int lan9303_csr_reg_wait(struct lan9303 *chip, int regno,
->> +				int mask, char value)
->> +{
->> +	int i;
->> +
->> +	for (i = 0; i < 0x1000; i++) {
->> +		u32 reg;
->> +
->> +		lan9303_read_switch_reg(chip, regno, &reg);
->> +		if ((reg & mask) == value)
->> +			return 0;
->> +	}
->> +	return -ETIMEDOUT;
-> 
-> Busy looping is probably not a good idea. Can you add a usleep()?
-> 
+After commit cf124db566e6 ("net: Fix inconsistent teardown and
+release of private netdev state."), setting
+'dev->needs_free_netdev' ensures device data is released, and
+'dev->destructor' is not used anymore.
 
-Yes
+Fixes: cf124db566e6 ("net: Fix inconsistent teardown and release of private netdev state.")
+Signed-off-by: Stefano Brivio <sbrivio-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+Despite checkpatch.pl warning against unnecessary changes, this
+outdated comment might lead to confusion -- making this change
+actually necessary, perhaps.
 
->> +}
->> +
->> +static int _lan9303_alr_make_entry_raw(struct lan9303 *chip, u32 dat0, u32 dat1)
-> 
-> What does the _ indicate. I could understand having it when you have
-> lan9303_alr_make_entry_raw() call _lan9303_alr_make_entry_raw() after
-> taking a lock, but i don't see anything like that here.
-> 
-Just my sloppy convention for something private, deep down. I can remove
-the _.
+ drivers/net/wireless/intersil/hostap/hostap_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
->> +{
->> +	struct lan9303_alr_cache_entry *entr = lan9303_alr_cache_find_mac(
->> +		chip, mac);
-> 
-> A long line like this should be split into a declaration and an
-> assignment.
-> 
-
-OK
-
-
-> 
-> I would probably make this a separate patch.
-> 
->    Andrew
-> 
-
-Got it.
+diff --git a/drivers/net/wireless/intersil/hostap/hostap_main.c b/drivers/net/wireless/intersil/hostap/hostap_main.c
+index a3c066f90afc..012930d35434 100644
+--- a/drivers/net/wireless/intersil/hostap/hostap_main.c
++++ b/drivers/net/wireless/intersil/hostap/hostap_main.c
+@@ -125,8 +125,8 @@ void hostap_remove_interface(struct net_device *dev, int rtnl_locked,
+ 	else
+ 		unregister_netdev(dev);
+ 
+-	/* dev->destructor = free_netdev() will free the device data, including
+-	 * private data, when removing the device */
++	/* 'dev->needs_free_netdev = true' implies device data, including
++	 * private data, will be freed when the device is removed */
+ }
+ 
+ 
+-- 
+2.9.4
