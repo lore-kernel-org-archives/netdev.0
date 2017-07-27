@@ -1,64 +1,109 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 03/14] net/mlx5: Fix command completion after timeout access invalid structure
-Date: Thu, 27 Jul 2017 13:25:21 +0300
-Message-ID: <20170727102532.2317-4-saeedm@mellanox.com>
+Subject: [net 05/14] net/mlx5e: IPoIB, Modify add/remove underlay QPN flows
+Date: Thu, 27 Jul 2017 13:25:23 +0300
+Message-ID: <20170727102532.2317-6-saeedm@mellanox.com>
 References: <20170727102532.2317-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Moshe Shemesh <moshe@mellanox.com>,
-        kernel-team@fb.com, Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Alex Vesker <valex@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44935 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44973 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750981AbdG0K1N (ORCPT
+        with ESMTP id S1751042AbdG0K1N (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 06:27:13 -0400
 In-Reply-To: <20170727102532.2317-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Moshe Shemesh <moshe@mellanox.com>
+From: Alex Vesker <valex@mellanox.com>
 
-Completion on timeout should not free the driver command entry structure
-as it will need to access it again once real completion event from FW
-will occur.
+On interface remove, the clean-up was done incorrectly causing
+an error in the log:
+"SET_FLOW_TABLE_ROOT(0x92f) op_mod(0x0) failed...syndrome (0x7e9f14)"
 
-Fixes: 73dd3a4839c1 ('net/mlx5: Avoid using pending command interface slots')
-Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
-Cc: kernel-team@fb.com
+This was caused by the following flow:
+-ndo_uninit:
+ Move QP state to RST (this disconnects the QP from FT),
+ the QP cannot be attached to any FT unless it is in RTS.
+
+-mlx5_rdma_netdev_free:
+ cleanup_rx: Destroy FT
+ cleanup_tx: Destroy QP and remove QPN from FT
+
+This caused a problem when destroying current FT we tried to
+re-attach the QP to the next FT which is not needed.
+
+The correct flow is:
+-mlx5_rdma_netdev_free:
+	cleanup_rx: remove QPN from FT & Destroy FT
+	cleanup_tx: Destroy QP
+
+Fixes: 508541146af1 ("net/mlx5: Use underlay QPN from the root name space")
+Signed-off-by: Alex Vesker <valex@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index f5a2c605749f..25fd32fcdf79 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -967,7 +967,7 @@ static int mlx5_cmd_invoke(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *in,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+index 1ee5bce85901..85298051a3e4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+@@ -178,8 +178,6 @@ static int mlx5i_create_underlay_qp(struct mlx5_core_dev *mdev, struct mlx5_core
  
- 	err = wait_func(dev, ent);
- 	if (err == -ETIMEDOUT)
--		goto out_free;
-+		goto out;
+ static void mlx5i_destroy_underlay_qp(struct mlx5_core_dev *mdev, struct mlx5_core_qp *qp)
+ {
+-	mlx5_fs_remove_rx_underlay_qpn(mdev, qp->qpn);
+-
+ 	mlx5_core_destroy_qp(mdev, qp);
+ }
  
- 	ds = ent->ts2 - ent->ts1;
- 	op = MLX5_GET(mbox_in, in->first.data, opcode);
-@@ -1430,6 +1430,7 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced)
- 					mlx5_core_err(dev, "Command completion arrived after timeout (entry idx = %d).\n",
- 						      ent->idx);
- 					free_ent(cmd, ent->idx);
-+					free_cmd(ent);
- 				}
- 				continue;
- 			}
-@@ -1488,7 +1489,8 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec, bool forced)
- 				free_msg(dev, ent->in);
+@@ -194,8 +192,6 @@ static int mlx5i_init_tx(struct mlx5e_priv *priv)
+ 		return err;
+ 	}
  
- 				err = err ? err : ent->status;
--				free_cmd(ent);
-+				if (!forced)
-+					free_cmd(ent);
- 				callback(err, context);
- 			} else {
- 				complete(&ent->done);
+-	mlx5_fs_add_rx_underlay_qpn(priv->mdev, ipriv->qp.qpn);
+-
+ 	err = mlx5e_create_tis(priv->mdev, 0 /* tc */, ipriv->qp.qpn, &priv->tisn[0]);
+ 	if (err) {
+ 		mlx5_core_warn(priv->mdev, "create tis failed, %d\n", err);
+@@ -253,6 +249,7 @@ static void mlx5i_destroy_flow_steering(struct mlx5e_priv *priv)
+ 
+ static int mlx5i_init_rx(struct mlx5e_priv *priv)
+ {
++	struct mlx5i_priv *ipriv  = priv->ppriv;
+ 	int err;
+ 
+ 	err = mlx5e_create_indirect_rqt(priv);
+@@ -271,12 +268,18 @@ static int mlx5i_init_rx(struct mlx5e_priv *priv)
+ 	if (err)
+ 		goto err_destroy_indirect_tirs;
+ 
+-	err = mlx5i_create_flow_steering(priv);
++	err = mlx5_fs_add_rx_underlay_qpn(priv->mdev, ipriv->qp.qpn);
+ 	if (err)
+ 		goto err_destroy_direct_tirs;
+ 
++	err = mlx5i_create_flow_steering(priv);
++	if (err)
++		goto err_remove_rx_underlay_qpn;
++
+ 	return 0;
+ 
++err_remove_rx_underlay_qpn:
++	mlx5_fs_remove_rx_underlay_qpn(priv->mdev, ipriv->qp.qpn);
+ err_destroy_direct_tirs:
+ 	mlx5e_destroy_direct_tirs(priv);
+ err_destroy_indirect_tirs:
+@@ -290,6 +293,9 @@ static int mlx5i_init_rx(struct mlx5e_priv *priv)
+ 
+ static void mlx5i_cleanup_rx(struct mlx5e_priv *priv)
+ {
++	struct mlx5i_priv *ipriv  = priv->ppriv;
++
++	mlx5_fs_remove_rx_underlay_qpn(priv->mdev, ipriv->qp.qpn);
+ 	mlx5i_destroy_flow_steering(priv);
+ 	mlx5e_destroy_direct_tirs(priv);
+ 	mlx5e_destroy_indirect_tirs(priv);
 -- 
 2.13.0
