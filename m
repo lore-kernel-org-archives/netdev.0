@@ -1,87 +1,87 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 05/11] net: stmmac: dwmac-rk: Add internal phy support
-Date: Thu, 27 Jul 2017 19:31:52 +0200
-Message-ID: <20170727173152.GA16362@Red>
-References: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
- <1501160540-30662-1-git-send-email-david.wu@rock-chips.com>
- <20170727134834.GD18666@lunn.ch>
- <65ae1747-4dff-b1d8-8aa3-684fc8c7809a@gmail.com>
+From: Jonathan Toppins <jtoppins@redhat.com>
+Subject: Re: [Intel-wired-lan] [PATCH] igb: support BCM54616 PHY
+Date: Thu, 27 Jul 2017 13:41:08 -0400
+Message-ID: <211b5efd-f8d5-cf44-4e0d-dc661c144b7d@redhat.com>
+References: <b5d586566a1b523b9be65567b52898e33058a1cf.1500660210.git.>
+ <309B89C4C689E141A5FF6A0C5FB2118B8C663B22@ORSMSX101.amr.corp.intel.com>
+ <20170727153713.GG18666@lunn.ch>
+Reply-To: jtoppins@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-        heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <65ae1747-4dff-b1d8-8aa3-684fc8c7809a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        "Brown, Aaron F" <aaron.f.brown@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41388 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751122AbdG0RlJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Jul 2017 13:41:09 -0400
+In-Reply-To: <20170727153713.GG18666@lunn.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 27, 2017 at 09:54:01AM -0700, Florian Fainelli wrote:
-> On 07/27/2017 06:48 AM, Andrew Lunn wrote:
-> > On Thu, Jul 27, 2017 at 09:02:16PM +0800, David Wu wrote:
-> >> To make internal phy work, need to configure the phy_clock,
-> >> phy cru_reset and related registers.
-> >>
-> >> Signed-off-by: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-> >> ---
-> >> changes in v2:
-> >>  - Use the standard "phy-mode" property for internal phy. (Florian)
-> > 
-> > I think we need to discuss this. This PHY appears to be on an MDIO
-> > bus, it uses a standard PHY driver, and it appears to be using an RMII
-> > interface. So it is just an ordinary PHY.
+On 07/27/2017 11:37 AM, Andrew Lunn wrote:
+> On Thu, Jul 27, 2017 at 12:40:01AM +0000, Brown, Aaron F wrote:
+>>> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On Behalf
+>>> Of John W. Linville
+>>> Sent: Friday, July 21, 2017 11:12 AM
+>>> To: netdev@vger.kernel.org
+>>> Cc: intel-wired-lan@lists.osuosl.org; John W. Linville
+>>> <linville@tuxdriver.com>
+>>> Subject: [Intel-wired-lan] [PATCH] igb: support BCM54616 PHY
+>>>
+>>> The management port on an Edgecore AS7712-32 switch uses an igb MAC,
+>>> but
+>>> it uses a BCM54616 PHY. Without a patch like this, loading the igb
+>>> module produces dmesg output like this:
+>>>
+>>> [    3.439125] igb: Copyright (c) 2007-2014 Intel Corporation.
+>>> [    3.439866] igb: probe of 0000:00:14.0 failed with error -2
+>>>
+>>> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+>>> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>> ---
+>>>  drivers/net/ethernet/intel/igb/e1000_82575.c   | 6 ++++++
+>>>  drivers/net/ethernet/intel/igb/e1000_defines.h | 1 +
+>>>  drivers/net/ethernet/intel/igb/e1000_hw.h      | 1 +
+>>>  3 files changed, 8 insertions(+)
+>>
+>> I do not have the specific hardware (Edgecore switch) but as far as regression tests go this works fine.
+>> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 > 
-> First, the fact that the internal PHY also appears through MDIO is
-> orthogonal to the fact that it is internal or external. Plenty of
-> designs have internal PHYs exposed through MDIO because that is
-> convenient. What matters though is how the data/clock lines are wired
-> internally, which is what "phy-mode" describes.
+> Sorry, missed the initial post, so replying to a reply.
 > 
-> > 
-> > Internal is supposed to be something which is not ordinary, does not
-> > use one of the standard phy modes, needs something special to make it
-> > work.
-> > 
-> > Florain, it appears to be your suggestion to use internal. What do you
-> > say?
+> Linux has supported the BCM54616 PHY since April 2015. If the Intel
+> drivers used the Linux PHY drivers, you would not of had this problem.
 > 
-> phy-mode = "internal" really means that it is not a standard MII variant
-> to connect the data/clock lines between the Ethernet MAC and the PHY,
-> and this can happen in some designs (although quite unlikely). So from
-> there we could do several things depending on the requirements:
+> It would be good if somebody spent the time to migrate these MAC
+> drivers to use the common Linux PHY infrastructure.
 > 
-> - if you can have your Ethernet MAC driver perform the necessary
-> configuration *after* you have been able to bind the PHY device with its
-> PHY driver, then the PHY driver should have PHY_IS_INTERNAL in its
-> flags, and you can use phy_is_internal() from PHYLIB to tell you that
-> and we could imagine using: phy-mode = "rmii" because that would not too
-> much of a stretch
-> 
-> - if you need knowledge about this PHY connection type prior to binding
-> the PHY device and its driver (that is, before of_phy_connect()) we
-> could add a boolean property e.g: "phy-is-internal" that allows us to
-> know that, or we can have a new phy-mode value, e.g: "internal-rmii"
-> which describes that, either way would probably be fine, but the former
-> scales better
+> 	Andrew
 > 
 
-Hello
+Thank you. This was a point I made in 2015 when I posted the original
+patch for igb to support this phy.
 
-We have the same problem on Allwinner SoCs for dwmac-sun8i, we need to set a syscon for chossing between internal/external PHY.
-Having this phy-is-internal would be very helpfull. (adding internal-xmii will add too many flags in our case)
+http://marc.info/?l=linux-netdev&m=142870703206646&w=2
+http://marc.info/?l=linux-netdev&m=142870703806647&w=2
+http://marc.info/?l=linux-netdev&m=142870703806648&w=2
 
-Thanks
-Regards
-Corentin Labbe
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+http://marc.info/?l=linux-netdev&m=142930225730399&w=2
+http://marc.info/?l=linux-netdev&m=142930226230400&w=2
+
+It would be good to accept this patch and then later work to port older
+drivers to use phylib.
+
+It might be worthwhile to start beating up on new driver submissions
+that don't use phylib.
+
+I recall someone mentioning that there were plans to have phylib support
+[Q]SFP[+] modules as well. I am very interested in that work, if someone
+has patches/plans I would like to take a look.
+
+-Jon
