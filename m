@@ -1,70 +1,79 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net V2 13/14] net/mlx5e: Schedule overflow check work to mlx5e workqueue
-Date: Thu, 27 Jul 2017 16:56:16 +0300
-Message-ID: <20170727135617.18559-14-saeedm@mellanox.com>
+Subject: [net V2 04/14] net/mlx5: Fix command bad flow on command entry allocation failure
+Date: Thu, 27 Jul 2017 16:56:07 +0300
+Message-ID: <20170727135617.18559-5-saeedm@mellanox.com>
 References: <20170727135617.18559-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Eugenia Emantayev <eugenia@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Moshe Shemesh <moshe@mellanox.com>,
+        kernel-team@fb.com, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40250 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40318 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751767AbdG0N5S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 09:57:18 -0400
+        with ESMTP id S1751534AbdG0N51 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 09:57:27 -0400
 In-Reply-To: <20170727135617.18559-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+From: Moshe Shemesh <moshe@mellanox.com>
 
-This is done in order to ensure that work will not run after the cleanup.
+When driver fail to allocate an entry to send command to FW, it must
+notify the calling function and release the memory allocated for
+this command.
 
-Fixes: ef9814deafd0 ('net/mlx5e: Add HW timestamping (TS) support')
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Fixes: e126ba97dba9e ('mlx5: Add driver for Mellanox Connect-IB adapters')
+Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
+Cc: kernel-team@fb.com
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_clock.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-index cde8e8e772ec..84dd63e74041 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
-@@ -114,13 +114,14 @@ static void mlx5e_timestamp_overflow(struct work_struct *work)
- 	struct delayed_work *dwork = to_delayed_work(work);
- 	struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp,
- 						   overflow_work);
-+	struct mlx5e_priv *priv = container_of(tstamp, struct mlx5e_priv, tstamp);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 25fd32fcdf79..31cbe5e86a01 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -786,6 +786,10 @@ static void cb_timeout_handler(struct work_struct *work)
+ 	mlx5_cmd_comp_handler(dev, 1UL << ent->idx, true);
+ }
+ 
++static void free_msg(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *msg);
++static void mlx5_free_cmd_msg(struct mlx5_core_dev *dev,
++			      struct mlx5_cmd_msg *msg);
++
+ static void cmd_work_handler(struct work_struct *work)
+ {
+ 	struct mlx5_cmd_work_ent *ent = container_of(work, struct mlx5_cmd_work_ent, work);
+@@ -796,17 +800,28 @@ static void cmd_work_handler(struct work_struct *work)
+ 	struct semaphore *sem;
  	unsigned long flags;
+ 	bool poll_cmd = ent->polling;
++	int alloc_ret;
  
- 	write_lock_irqsave(&tstamp->lock, flags);
- 	timecounter_read(&tstamp->clock);
- 	write_unlock_irqrestore(&tstamp->lock, flags);
--	schedule_delayed_work(&tstamp->overflow_work,
--			      msecs_to_jiffies(tstamp->overflow_period * 1000));
-+	queue_delayed_work(priv->wq, &tstamp->overflow_work,
-+			   msecs_to_jiffies(tstamp->overflow_period * 1000));
- }
  
- int mlx5e_hwstamp_set(struct mlx5e_priv *priv, struct ifreq *ifr)
-@@ -577,7 +578,7 @@ void mlx5e_timestamp_init(struct mlx5e_priv *priv)
- 	INIT_WORK(&tstamp->pps_info.out_work, mlx5e_pps_out);
- 	INIT_DELAYED_WORK(&tstamp->overflow_work, mlx5e_timestamp_overflow);
- 	if (tstamp->overflow_period)
--		schedule_delayed_work(&tstamp->overflow_work, 0);
-+		queue_delayed_work(priv->wq, &tstamp->overflow_work, 0);
- 	else
- 		mlx5_core_warn(priv->mdev, "invalid overflow period, overflow_work is not scheduled\n");
- 
-@@ -613,8 +614,6 @@ void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv)
- 	}
- 
- 	cancel_work_sync(&tstamp->pps_info.out_work);
--
--	kfree(tstamp->ptp_info.pin_config);
--
- 	cancel_delayed_work_sync(&tstamp->overflow_work);
-+	kfree(tstamp->ptp_info.pin_config);
- }
+ 	sem = ent->page_queue ? &cmd->pages_sem : &cmd->sem;
+ 	down(sem);
+ 	if (!ent->page_queue) {
+-		ent->idx = alloc_ent(cmd);
+-		if (ent->idx < 0) {
++		alloc_ret = alloc_ent(cmd);
++		if (alloc_ret < 0) {
+ 			mlx5_core_err(dev, "failed to allocate command entry\n");
++			if (ent->callback) {
++				ent->callback(-EAGAIN, ent->context);
++				mlx5_free_cmd_msg(dev, ent->out);
++				free_msg(dev, ent->in);
++				free_cmd(ent);
++			} else {
++				ent->ret = -EAGAIN;
++				complete(&ent->done);
++			}
+ 			up(sem);
+ 			return;
+ 		}
++		ent->idx = alloc_ret;
+ 	} else {
+ 		ent->idx = cmd->max_reg_cmds;
+ 		spin_lock_irqsave(&cmd->alloc_lock, flags);
 -- 
 2.13.0
