@@ -1,58 +1,61 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH v3 1/3] ptp: introduce ptp auxiliary worker
-Date: Thu, 27 Jul 2017 17:36:51 -0500
-Message-ID: <74a827c9-467e-8791-3c97-9fc4c591435f@ti.com>
-References: <20170726221138.12986-1-grygorii.strashko@ti.com>
- <20170726221138.12986-2-grygorii.strashko@ti.com>
- <20170727200829.cqe2gb6kl4lfzyux@localhost.localdomain>
+From: Laura Abbott <labbott@redhat.com>
+Subject: Re: [PATCH net] xgene: Don't fail probe, if there is no clk resource
+ for SGMII interfaces
+Date: Thu, 27 Jul 2017 15:39:58 -0700
+Message-ID: <1b3391f2-2fae-2a9a-719d-3f8358e39c71@redhat.com>
+References: <20170713092144.31751508094@solo.franken.de>
+ <22ee6284-7b23-7664-d6cf-23687f09a3be@redhat.com>
+ <20170727213915.GA4902@alpha.franken.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>, Wingman Kwok <w-kwok2@ti.com>,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        John Stultz <john.stultz@linaro.org>,
-        Thomas Gleixner <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: isubramanian@apm.com, kchudgar@apm.com, qnguyen@apm.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tom Bogendoerfer <tsbogend@alpha.franken.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170727200829.cqe2gb6kl4lfzyux@localhost.localdomain>
+In-Reply-To: <20170727213915.GA4902@alpha.franken.de>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 07/27/2017 03:08 PM, Richard Cochran wrote:
-> On Wed, Jul 26, 2017 at 05:11:36PM -0500, Grygorii Strashko wrote:
->> @@ -217,6 +231,19 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
->>   	mutex_init(&ptp->pincfg_mux);
->>   	init_waitqueue_head(&ptp->tsev_wq);
->>   
->> +	if (ptp->info->do_aux_work) {
->> +		char *worker_name = kasprintf(GFP_KERNEL, "ptp%d", ptp->index);
+On 07/27/2017 02:39 PM, Tom Bogendoerfer wrote:
+> On Thu, Jul 27, 2017 at 02:03:42PM -0700, Laura Abbott wrote:
+>> This change causes boot failures for me on my APM Mustang system running
+>> Fedora rawhide:
+>>
+>> [   16.669089] Synchronous External Abort: synchronous external abort (0x9600000
+>> [   16.669099] Internal error: : 96000010 [#1] SMP                              
+>> [   16.669103] Modules linked in: xgene_enet(+) at803x realtek mdio_xgene xgenes
+>> [   16.669127] CPU: 2 PID: 534 Comm: systemd-udevd Not tainted 4.13.0-0.rc1.git1
+>> [   16.669128] Hardware name: AppliedMicro X-Gene Mustang Board/X-Gene Mustang 6
+>> [   16.669131] task: ffff8003e6f8ce00 task.stack: ffff8003e4fd8000              
+>> [   16.669144] PC is at xgene_enet_wr_mac+0xa0/0x128 [xgene_enet]               
+>> [   16.669152] LR is at xgene_enet_wr_mac+0x64/0x128 [xgene_enet] 
 > 
-> This string is allocated but never freed.
-> 
->> +		kthread_init_delayed_work(&ptp->aux_work, ptp_aux_kworker);
->> +		ptp->kworker = kthread_create_worker(0, worker_name ?
->> +						     worker_name : info->name);
-
-Ops. Right need to add kfree(worker_name) here.
-
-
->> +		if (IS_ERR(ptp->kworker)) {
->> +			err = PTR_ERR(ptp->kworker);
->> +			pr_err("failed to create ptp aux_worker %d\n", err);
->> +			goto kworker_err;
->> +		}
->> +	}
->> +
-> 
-> Thanks,
-> Richard
+> on the first glance I don't see anything clock related there.
 > 
 
--- 
-regards,
--grygorii
+I don't know the intricacies of the Mustang hardware but external
+aborts have been a symptom of missing clocks on other hardware.
+
+> What firmware version is installed on your mustang board ? I saw
+> ethernet related crashes with mustang boards because the device tree
+> in firmware was too old for the xgene ethernet driver.
+> 
+> Thoms.
+> 
+
+TianoCore 3.06.12 UEFI 2.4.0 Aug 12 2016 13:30:51
+CPU: APM ARM 64-bit Potenza Rev B0 2400MHz PCP 2400MHz
+     32 KB ICACHE, 32 KB DCACHE
+     SOC 2000MHz IOBAXI 400MHz AXI 250MHz AHB 200MHz GFC 125MHz
+Board: X-Gene Mustang Board
+Little Endian build
+Slimpro FW:
+        Ver: 3.5 (build 03.06.12.00 2016/08/12)
+        PMD: 1000 mV
+        SOC: 950 mV
+
+
+Thanks,
+Laura
