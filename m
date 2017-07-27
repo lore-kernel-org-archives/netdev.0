@@ -1,15 +1,15 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net V2 07/14] net/mlx5: Fix mlx5_ifc_mtpps_reg_bits structure size
-Date: Thu, 27 Jul 2017 16:56:10 +0300
-Message-ID: <20170727135617.18559-8-saeedm@mellanox.com>
+Subject: [net V2 12/14] net/mlx5e: Fix wrong delay calculation for overflow check scheduling
+Date: Thu, 27 Jul 2017 16:56:15 +0300
+Message-ID: <20170727135617.18559-13-saeedm@mellanox.com>
 References: <20170727135617.18559-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Eugenia Emantayev <eugenia@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40171 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40172 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751742AbdG0N5Q (ORCPT
+        with ESMTP id S1751743AbdG0N5Q (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 09:57:16 -0400
 In-Reply-To: <20170727135617.18559-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,27 +17,29 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Eugenia Emantayev <eugenia@mellanox.com>
 
-Fix miscalculation in reserved_at_1a0 field.
+The overflow_period is calculated in seconds. In order to use it
+for delayed work scheduling translation to jiffies is needed.
 
-Fixes: ee7f12205abc ('net/mlx5e: Implement 1PPS support')
+Fixes: ef9814deafd0 ('net/mlx5e: Add HW timestamping (TS) support')
 Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/linux/mlx5/mlx5_ifc.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_clock.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 87869c04849a..fd98aef4545c 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -8175,7 +8175,7 @@ struct mlx5_ifc_mtpps_reg_bits {
- 	u8         out_pulse_duration[0x10];
- 	u8         out_periodic_adjustment[0x10];
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+index ba355c6b6e1f..cde8e8e772ec 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_clock.c
+@@ -119,7 +119,8 @@ static void mlx5e_timestamp_overflow(struct work_struct *work)
+ 	write_lock_irqsave(&tstamp->lock, flags);
+ 	timecounter_read(&tstamp->clock);
+ 	write_unlock_irqrestore(&tstamp->lock, flags);
+-	schedule_delayed_work(&tstamp->overflow_work, tstamp->overflow_period);
++	schedule_delayed_work(&tstamp->overflow_work,
++			      msecs_to_jiffies(tstamp->overflow_period * 1000));
+ }
  
--	u8         reserved_at_1a0[0x60];
-+	u8         reserved_at_1a0[0x40];
- };
- 
- struct mlx5_ifc_mtppse_reg_bits {
+ int mlx5e_hwstamp_set(struct mlx5e_priv *priv, struct ifreq *ifr)
 -- 
 2.13.0
