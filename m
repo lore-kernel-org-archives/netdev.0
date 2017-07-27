@@ -1,46 +1,38 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 3/3] tap: XDP support
-Date: Fri, 28 Jul 2017 07:05:03 +0300
-Message-ID: <20170728070329-mutt-send-email-mst@kernel.org>
-References: <1501147533-12368-1-git-send-email-jasowang@redhat.com>
- <1501147533-12368-4-git-send-email-jasowang@redhat.com>
- <20170727201338.65d56b2a@cakuba.netronome.com>
- <7d1cb7bf-43c1-3993-be00-04e4676dd917@redhat.com>
- <20170728064603-mutt-send-email-mst@kernel.org>
- <a53d61f5-584c-db8a-be1f-ddec0666d7df@redhat.com>
+From: Kim Sharma <imarkulin@ifs.hr>
+Subject: Dear Talented
+Date: Thu, 27 Jul 2017 15:11:29 +0530
+Message-ID: <20170727214158.524C1A8BD1@jung.ifs.hr>
+Reply-To: blueskyfilmstudio@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jakub Kicinski <kubakici@wp.pl>, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a53d61f5-584c-db8a-be1f-ddec0666d7df@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <imarkulin@ifs.hr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from jung.ifs.hr ([161.53.9.120]:55516 "EHLO jung.ifs.hr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750935AbdG1EV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Jul 2017 00:21:56 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 28, 2017 at 11:50:45AM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年07月28日 11:46, Michael S. Tsirkin wrote:
-> > On Fri, Jul 28, 2017 at 11:28:54AM +0800, Jason Wang wrote:
-> > > > > +	old_prog = rtnl_dereference(tun->xdp_prog);
-> > > > > +	if (old_prog)
-> > > > > +		bpf_prog_put(old_prog);
-> > > > > +	rcu_assign_pointer(tun->xdp_prog, prog);
-> > > > Is this OK?  Could this lead to the program getting freed and then
-> > > > datapath accessing a stale pointer?  I mean in the scenario where the
-> > > > process gets pre-empted between the bpf_prog_put() and
-> > > > rcu_assign_pointer()?
-> > > Will call bpf_prog_put() after rcu_assign_pointer().
-> > I suspect you need to sync RCU or something before that.
-> 
-> __bpf_prog_put() will do call_rcu(), so looks like it was ok.
-> 
-> Thanks
+Dear Talented,
 
-True - I missed that.
+I am Talent Scout For BLUE SKY FILM STUDIO, Present Blue sky Studio a
+Film Corporation Located in the United State, is Soliciting for the
+Right to use Your Photo/Face and Personality as One of the Semi -Major
+Role/ Character in our Upcoming ANIMATED Stereoscope 3D Movie-The Story
+of Anubis (Anubis 2018) The Movie is Currently Filming (In
+Production) Please Note That There Will Be No Auditions, Traveling or
+Any Special / Professional Acting Skills, Since the Production of This
+Movie Will Be Done with our State of Art Computer -Generating Imagery
+Equipment. We Are Prepared to Pay the Total Sum of $620,000.00 USD. For
+More Information/Understanding, Please Write us on the E-Mail Below.
+CONTACT EMAIL: Blueskyanimatedstudio@usa.com
+All Reply to: Blueskyanimatedstudio@usa.com
+Note: Only the Response send to this mail will be Given a Prior
+Consideration.
 
--- 
-MST
+
+Talent Scout
+Kim Sharma
