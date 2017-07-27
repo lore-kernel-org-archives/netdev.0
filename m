@@ -1,36 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [Intel-wired-lan] [PATCH] igb: support BCM54616 PHY
-Date: Thu, 27 Jul 2017 20:15:41 +0200
-Message-ID: <20170727181541.GB9517@lunn.ch>
-References: <b5d586566a1b523b9be65567b52898e33058a1cf.1500660210.git.>
- <309B89C4C689E141A5FF6A0C5FB2118B8C663B22@ORSMSX101.amr.corp.intel.com>
- <20170727153713.GG18666@lunn.ch>
- <211b5efd-f8d5-cf44-4e0d-dc661c144b7d@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] geneve: support for modifying geneve device
+Date: Thu, 27 Jul 2017 11:24:37 -0700
+Message-ID: <20170727112437.4e548cdc@xeon-e3>
+References: <1501035103-3090-1-git-send-email-girish.moodalbail@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Brown, Aaron F" <aaron.f.brown@intel.com>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: Jonathan Toppins <jtoppins@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Girish Moodalbail <girish.moodalbail@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42824 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751413AbdG0SPs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jul 2017 14:15:48 -0400
-Content-Disposition: inline
-In-Reply-To: <211b5efd-f8d5-cf44-4e0d-dc661c144b7d@redhat.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:32780 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751458AbdG0SYj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 14:24:39 -0400
+Received: by mail-pf0-f172.google.com with SMTP id d67so18656383pfc.0
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 11:24:39 -0700 (PDT)
+In-Reply-To: <1501035103-3090-1-git-send-email-girish.moodalbail@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I recall someone mentioning that there were plans to have phylib support
-> [Q]SFP[+] modules as well. I am very interested in that work, if someone
-> has patches/plans I would like to take a look.
+On Tue, 25 Jul 2017 19:11:43 -0700
+Girish Moodalbail <girish.moodalbail@oracle.com> wrote:
 
-Hi Jon
+> Ability to change geneve device attributes was added to kernel through
+> commit 5b861f6baa3a ("geneve: add rtnl changelink support"), however one
+> cannot do the same through ip-link(8) command.  Changing the allowed
+> geneve device attributes using 'ip link set <geneve_name> type geneve id
+> <geneve_id> <allowed_attributes>' currently fails with 'operation not
+> supported' error.  This patch adds support for it.
+> 
+> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
 
-The first part was posted yesterday:
-
-https://www.spinics.net/lists/netdev/msg445767.html
-
-	Andrew
+Looks good, applied.
+Please send a follow on patch to update usage help and man page.
