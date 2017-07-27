@@ -1,299 +1,102 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 3/3] tap: XDP support
-Date: Thu, 27 Jul 2017 17:25:33 +0800
-Message-ID: <1501147533-12368-4-git-send-email-jasowang@redhat.com>
-References: <1501147533-12368-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net-next 2/3] nfp: look for firmware image by device
+ serial number and PCI name
+Date: Thu, 27 Jul 2017 02:25:46 -0700
+Message-ID: <20170727022546.1fe8d1ea@cakuba.netronome.com>
+References: <20170726180948.3220-1-jakub.kicinski@netronome.com>
+        <20170726180948.3220-3-jakub.kicinski@netronome.com>
+        <063D6719AE5E284EB5DD2968C1650D6DD0043717@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "oss-drivers@netronome.com" <oss-drivers@netronome.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51226 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751814AbdG0JZv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jul 2017 05:25:51 -0400
-In-Reply-To: <1501147533-12368-1-git-send-email-jasowang@redhat.com>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:33081 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751796AbdG0JZv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 05:25:51 -0400
+Received: by mail-pg0-f51.google.com with SMTP id c14so3154470pgn.0
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 02:25:50 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0043717@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch tries to implement XDP for tun. The implementation was
-split into two parts:
+On Thu, 27 Jul 2017 08:20:22 +0000, David Laight wrote:
+> From: Jakub Kicinski
+> > Sent: 26 July 2017 19:10
+> > We generally look up firmware by card type, but that doesn't allow
+> > users who have more than one card of the same type in their system
+> > to select firmware per adapter.
+> > 
+> > Unfortunately user space firmware helper seems fraught with
+> > difficulties and to be on its way out.  In particular support for
+> > handling firmware uevents have been dropped from systemd and most
+> > distributions don't enable the FW fallback by default any more.
+> > 
+> > To allow users selecting firmware for a particular device look up
+> > firmware names by serial and pci_name().  Use the direct lookup to
+> > disable generating uevents when enabled in Kconfig and not print
+> > any warnings to logs if adapter-specific files are missing.  Users
+> > can place in /lib/firmware/netronome files named:
+> > 
+> > pci-${pci_name}.nffw
+> > serial-${serial}.nffw
+> > 
+> > to target a specific card.  E.g.:
+> > 
+> > pci-0000:04:00.0.nffw
+> > pci-0000:82:00.0.nffw
+> > serial-00-aa-bb-11-22-33-10-ff.nffw
+> > 
+> > We use the full serial number including the interface id, as it
+> > appears in lspci output (bytes separated by '-').  
+> 
+> Where does lspci get that from?
 
-- fast path: small and no gso packet. We try to do XDP at page level
-  before build_skb(). For XDP_TX, since creating/destroying queues
-  were completely under control of userspace, it was implemented
-  through generic XDP helper after skb has been built. This could be
-  optimized in the future.
-- slow path: big or gso packet. We try to do it after skb was created
-  through generic XDP helpers.
+Extended capability type 3, Device Serial Number.
 
-XDP_REDIRECT was not implemented, it could be done on top.
+> > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> > ---
+> >  drivers/net/ethernet/netronome/nfp/nfp_main.c | 20 +++++++++++++++++++-
+> >  1 file changed, 19 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c
+> > b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+> > index d67969d3e484..13d056da0765 100644
+> > --- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
+> > +++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+> > @@ -188,9 +188,27 @@ nfp_net_fw_find(struct pci_dev *pdev, struct nfp_pf *pf)
+> >  	struct nfp_eth_table_port *port;
+> >  	const char *fw_model;
+> >  	char fw_name[256];
+> > +	const u8 *serial;
+> >  	int spc, err = 0;
+> > +	u16 interface;
+> >  	int i, j;
+> > 
+> > +	/* First try to find a firmware image specific for this device */
+> > +	interface = nfp_cpp_interface(pf->cpp);
+> > +	nfp_cpp_serial(pf->cpp, &serial);
+> > +	sprintf(fw_name, "netronome/serial-%pMF-%02hhx-%02hhx.nffw",
+> > +		serial, interface >> 8, interface & 0xff);  
+> 
+> WTF???
 
-xdp1 test shows 47.6% improvement:
+Please be civil.
 
-Before: ~2.1Mpps
-After:  ~3.1Mpps
+> - use snprintf().
 
-Suggested-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c | 149 +++++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 142 insertions(+), 7 deletions(-)
+To effectively print an integer into an amply sized array?  I need to
+guarantee that the string will fit otherwise I would request a FW image
+with a wrong name.  snprintf() would only mask such a bug.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index de1a2ef..13abe23 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -73,6 +73,8 @@
- #include <linux/seq_file.h>
- #include <linux/uio.h>
- #include <linux/skb_array.h>
-+#include <linux/bpf.h>
-+#include <linux/bpf_trace.h>
- 
- #include <linux/uaccess.h>
- 
-@@ -105,7 +107,8 @@ do {								\
- } while (0)
- #endif
- 
--#define TUN_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD)
-+#define TUN_HEADROOM 256
-+#define TUN_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD + TUN_HEADROOM)
- 
- /* TUN device flags */
- 
-@@ -224,6 +227,7 @@ struct tun_struct {
- 	u32 flow_count;
- 	u32 rx_batched;
- 	struct tun_pcpu_stats __percpu *pcpu_stats;
-+	struct bpf_prog __rcu *xdp_prog;
- };
- 
- #ifdef CONFIG_TUN_VNET_CROSS_LE
-@@ -590,6 +594,7 @@ static void tun_detach(struct tun_file *tfile, bool clean)
- static void tun_detach_all(struct net_device *dev)
- {
- 	struct tun_struct *tun = netdev_priv(dev);
-+	struct bpf_prog *xdp_prog = rtnl_dereference(tun->xdp_prog);
- 	struct tun_file *tfile, *tmp;
- 	int i, n = tun->numqueues;
- 
-@@ -622,6 +627,9 @@ static void tun_detach_all(struct net_device *dev)
- 	}
- 	BUG_ON(tun->numdisabled != 0);
- 
-+	if (xdp_prog)
-+		bpf_prog_put(xdp_prog);
-+
- 	if (tun->flags & IFF_PERSIST)
- 		module_put(THIS_MODULE);
- }
-@@ -1008,6 +1016,56 @@ tun_net_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 	stats->tx_dropped = tx_dropped;
- }
- 
-+static int tun_xdp_set(struct net_device *dev, struct bpf_prog *prog,
-+		       struct netlink_ext_ack *extack)
-+{
-+	struct tun_struct *tun = netdev_priv(dev);
-+	struct bpf_prog *old_prog;
-+
-+	/* We will shift the packet that can't be handled to generic
-+	 * XDP layer.
-+	 */
-+
-+	old_prog = rtnl_dereference(tun->xdp_prog);
-+	if (old_prog)
-+		bpf_prog_put(old_prog);
-+	rcu_assign_pointer(tun->xdp_prog, prog);
-+
-+	if (prog) {
-+		prog = bpf_prog_add(prog, 1);
-+		if (IS_ERR(prog))
-+			return PTR_ERR(prog);
-+	}
-+
-+	return 0;
-+}
-+
-+static u32 tun_xdp_query(struct net_device *dev)
-+{
-+	struct tun_struct *tun = netdev_priv(dev);
-+	const struct bpf_prog *xdp_prog;
-+
-+	xdp_prog = rtnl_dereference(tun->xdp_prog);
-+	if (xdp_prog)
-+		return xdp_prog->aux->id;
-+
-+	return 0;
-+}
-+
-+static int tun_xdp(struct net_device *dev, struct netdev_xdp *xdp)
-+{
-+	switch (xdp->command) {
-+	case XDP_SETUP_PROG:
-+		return tun_xdp_set(dev, xdp->prog, xdp->extack);
-+	case XDP_QUERY_PROG:
-+		xdp->prog_id = tun_xdp_query(dev);
-+		xdp->prog_attached = !!xdp->prog_id;
-+		return 0;
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
- static const struct net_device_ops tun_netdev_ops = {
- 	.ndo_uninit		= tun_net_uninit,
- 	.ndo_open		= tun_net_open,
-@@ -1038,6 +1096,7 @@ static const struct net_device_ops tap_netdev_ops = {
- 	.ndo_features_check	= passthru_features_check,
- 	.ndo_set_rx_headroom	= tun_set_headroom,
- 	.ndo_get_stats64	= tun_net_get_stats64,
-+	.ndo_xdp		= tun_xdp,
- };
- 
- static void tun_flow_init(struct tun_struct *tun)
-@@ -1217,16 +1276,21 @@ static bool tun_can_build_skb(struct tun_struct *tun, struct tun_file *tfile,
- 	return true;
- }
- 
--static struct sk_buff *tun_build_skb(struct tun_file *tfile,
-+static struct sk_buff *tun_build_skb(struct tun_struct *tun,
-+				     struct tun_file *tfile,
- 				     struct iov_iter *from,
--				     int len)
-+				     struct virtio_net_hdr *hdr,
-+				     int len, int *generic_xdp)
- {
- 	struct page_frag *alloc_frag = &tfile->alloc_frag;
- 	struct sk_buff *skb;
-+	struct bpf_prog *xdp_prog;
- 	int buflen = SKB_DATA_ALIGN(len + TUN_RX_PAD) +
- 		     SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+	unsigned int delta = 0;
- 	char *buf;
- 	size_t copied;
-+	bool xdp_xmit = false;
- 
- 	if (unlikely(!skb_page_frag_refill(buflen, alloc_frag, GFP_KERNEL)))
- 		return ERR_PTR(-ENOMEM);
-@@ -1238,16 +1302,68 @@ static struct sk_buff *tun_build_skb(struct tun_file *tfile,
- 	if (copied != len)
- 		return ERR_PTR(-EFAULT);
- 
-+	if (hdr->gso_type)
-+		*generic_xdp = 1;
-+	else
-+		*generic_xdp = 0;
-+
-+	rcu_read_lock();
-+	xdp_prog = rcu_dereference(tun->xdp_prog);
-+	if (xdp_prog && !*generic_xdp) {
-+		struct xdp_buff xdp;
-+		void *orig_data;
-+		u32 act;
-+
-+		xdp.data_hard_start = buf;
-+		xdp.data = buf + TUN_RX_PAD;
-+		xdp.data_end = xdp.data + len;
-+		orig_data = xdp.data;
-+		act = bpf_prog_run_xdp(xdp_prog, &xdp);
-+
-+		switch (act) {
-+		case XDP_TX:
-+			xdp_xmit = true;
-+			/* fall through */
-+		case XDP_PASS:
-+			delta = orig_data - xdp.data;
-+			break;
-+		default:
-+			bpf_warn_invalid_xdp_action(act);
-+			/* fall through */
-+		case XDP_ABORTED:
-+			trace_xdp_exception(tun->dev, xdp_prog, act);
-+			/* fall through */
-+		case XDP_DROP:
-+			goto err_xdp;
-+		}
-+	}
-+
- 	skb = build_skb(buf, buflen);
--	if (!skb)
-+	if (!skb) {
-+		rcu_read_unlock();
- 		return ERR_PTR(-ENOMEM);
-+	}
- 
--	skb_reserve(skb, TUN_RX_PAD);
--	skb_put(skb, len);
-+	skb_reserve(skb, TUN_RX_PAD - delta);
-+	skb_put(skb, len + delta);
- 	get_page(alloc_frag->page);
- 	alloc_frag->offset += buflen;
- 
-+	if (xdp_xmit) {
-+		skb->dev = tun->dev;
-+		generic_xdp_tx(skb, xdp_prog);
-+		rcu_read_lock();
-+		return NULL;
-+	}
-+
-+	rcu_read_unlock();
-+
- 	return skb;
-+
-+err_xdp:
-+	rcu_read_unlock();
-+	this_cpu_inc(tun->pcpu_stats->rx_dropped);
-+	return NULL;
- }
- 
- /* Get packet from user space buffer */
-@@ -1266,6 +1382,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	bool zerocopy = false;
- 	int err;
- 	u32 rxhash;
-+	int generic_xdp = 1;
- 
- 	if (!(tun->dev->flags & IFF_UP))
- 		return -EIO;
-@@ -1324,11 +1441,13 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	}
- 
- 	if (tun_can_build_skb(tun, tfile, len, noblock, zerocopy)) {
--		skb = tun_build_skb(tfile, from, len);
-+		skb = tun_build_skb(tun, tfile, from, &gso, len, &generic_xdp);
- 		if (IS_ERR(skb)) {
- 			this_cpu_inc(tun->pcpu_stats->rx_dropped);
- 			return PTR_ERR(skb);
- 		}
-+		if (!skb)
-+			return total_len;
- 	} else {
- 		if (!zerocopy) {
- 			copylen = len;
-@@ -1402,6 +1521,22 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	skb_reset_network_header(skb);
- 	skb_probe_transport_header(skb, 0);
- 
-+	if (generic_xdp) {
-+		struct bpf_prog *xdp_prog;
-+		int ret;
-+
-+		rcu_read_lock();
-+		xdp_prog = rcu_dereference(tun->xdp_prog);
-+		if (xdp_prog) {
-+			ret = do_xdp_generic(xdp_prog, skb);
-+			if (ret != XDP_PASS) {
-+				rcu_read_unlock();
-+				return total_len;
-+			}
-+		}
-+		rcu_read_unlock();
-+	}
-+
- 	rxhash = __skb_get_hash_symmetric(skb);
- #ifndef CONFIG_4KSTACKS
- 	tun_rx_batched(tun, tfile, skb, more);
--- 
-2.7.4
+> - kill those hh, the arguments are of type 'int'.
+
+It doesn't matter.  I will be more careful in the future, though.
+
+> In fact make 'interface' 'unsigned int' as well.
+
+It's a value read from the hardware, and it's 16 bits wide, therefore
+my preference it to explicitly size the variable.
