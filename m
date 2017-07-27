@@ -1,31 +1,140 @@
-From: "David.Wu" <david.wu@rock-chips.com>
-Subject: Re: [PATCH 05/11] net: stmmac: dwmac-rk: Add internal phy support
-Date: Thu, 27 Jul 2017 20:44:42 +0800
-Message-ID: <24bc9102-d37f-1a63-ad7b-f69e8e38d848@rock-chips.com>
-References: <1498192929-7519-1-git-send-email-david.wu@rock-chips.com>
- <1498193947-8011-1-git-send-email-david.wu@rock-chips.com>
- <20170624022954.GD4875@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, heiko@sntech.de, robh+dt@kernel.org,
-        mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
-        olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de,
-        f.fainelli@gmail.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, huangtao@rock-chips.com,
-        hwg@rock-chips.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170624022954.GD4875@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] udp6: fix socket leak on early demux
+Date: Thu, 27 Jul 2017 14:45:09 +0200
+Message-ID: <714e32ad7eb21b0b791ecc314cfcc16765c96cd9.1501159497.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Sam Edwards <CFSworks@gmail.com>,
+        Marc Haber <mh+netdev@zugschlus.de>,
+        Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55304 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751503AbdG0Mqg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Jul 2017 08:46:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+When an early demuxed packet reaches __udp6_lib_lookup_skb(), the
+sk reference is retrieved and used, but the relevant reference
+count is leaked and the socket destructor is never called.
+Beyond leaking the sk memory, if there are pending UDP packets
+in the receive queue, even the related accounted memory is leaked.
 
-ÔÚ 2017/6/24 10:29, Andrew Lunn Ð´µÀ:
-> If this is the PHY clock, should it actually be specified in the PHY
-> binding? Can you read the PHY ID registers with this clock off?
-If the phy clock is closed, we can not read the PHYID.
+In the long run, this will cause persistent forward allocation errors
+and no UDP skbs (both ipv4 and ipv6) will be able to reach the
+user-space.
+
+Fix this by explicitly accessing the early demux reference before
+the lookup, and properly decreasing the socket reference count
+after usage.
+
+Also drop the skb_steal_sock() in __udp6_lib_lookup_skb(), and
+the now obsoleted comment about "socket cache".
+
+The newly added code is derived from the current ipv4 code for the
+similar path.
+
+v1 -> v2:
+  fixed the __udp6_lib_rcv() return code for resubmission,
+  as suggested by Eric
+
+Reported-by: Sam Edwards <CFSworks@gmail.com>
+Reported-by: Marc Haber <mh+netdev@zugschlus.de>
+Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ include/net/udp.h |  1 +
+ net/ipv4/udp.c    |  3 ++-
+ net/ipv6/udp.c    | 27 ++++++++++++++++++---------
+ 3 files changed, 21 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 56ce2d2a612d..cc8036987dcb 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -260,6 +260,7 @@ static inline struct sk_buff *skb_recv_udp(struct sock *sk, unsigned int flags,
+ }
+ 
+ void udp_v4_early_demux(struct sk_buff *skb);
++void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst);
+ int udp_get_port(struct sock *sk, unsigned short snum,
+ 		 int (*saddr_cmp)(const struct sock *,
+ 				  const struct sock *));
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index fac7cb9e3b0f..e6276fa3750b 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1928,7 +1928,7 @@ static int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ /* For TCP sockets, sk_rx_dst is protected by socket lock
+  * For UDP, we use xchg() to guard against concurrent changes.
+  */
+-static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
++void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
+ {
+ 	struct dst_entry *old;
+ 
+@@ -1937,6 +1937,7 @@ static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
+ 		dst_release(old);
+ 	}
+ }
++EXPORT_SYMBOL(udp_sk_rx_dst_set);
+ 
+ /*
+  *	Multicasts and broadcasts go to each listener.
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 4a3e65626e8b..98fe4560e24c 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -291,11 +291,7 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
+ 					  struct udp_table *udptable)
+ {
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
+-	struct sock *sk;
+ 
+-	sk = skb_steal_sock(skb);
+-	if (unlikely(sk))
+-		return sk;
+ 	return __udp6_lib_lookup(dev_net(skb->dev), &iph->saddr, sport,
+ 				 &iph->daddr, dport, inet6_iif(skb),
+ 				 udptable, skb);
+@@ -804,6 +800,24 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	if (udp6_csum_init(skb, uh, proto))
+ 		goto csum_error;
+ 
++	/* Check if the socket is already available, e.g. due to early demux */
++	sk = skb_steal_sock(skb);
++	if (sk) {
++		struct dst_entry *dst = skb_dst(skb);
++		int ret;
++
++		if (unlikely(sk->sk_rx_dst != dst))
++			udp_sk_rx_dst_set(sk, dst);
++
++		ret = udpv6_queue_rcv_skb(sk, skb);
++		sock_put(sk);
++
++		/* a return value > 0 means to resubmit the input */
++		if (ret > 0)
++			return ret;
++		return 0;
++	}
++
+ 	/*
+ 	 *	Multicast receive code
+ 	 */
+@@ -812,11 +826,6 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 				saddr, daddr, udptable, proto);
+ 
+ 	/* Unicast */
+-
+-	/*
+-	 * check socket cache ... must talk to Alan about his plans
+-	 * for sock caches... i'll skip this for now.
+-	 */
+ 	sk = __udp6_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 	if (sk) {
+ 		int ret;
+-- 
+2.13.3
