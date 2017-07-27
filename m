@@ -1,140 +1,56 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] udp6: fix socket leak on early demux
-Date: Thu, 27 Jul 2017 14:45:09 +0200
-Message-ID: <714e32ad7eb21b0b791ecc314cfcc16765c96cd9.1501159497.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Sam Edwards <CFSworks@gmail.com>,
-        Marc Haber <mh+netdev@zugschlus.de>,
-        Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55304 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751503AbdG0Mqg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jul 2017 08:46:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [PATCH v2 00/11] Add the internal phy support
+Date: Thu, 27 Jul 2017 20:55:45 +0800
+Message-ID: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When an early demuxed packet reaches __udp6_lib_lookup_skb(), the
-sk reference is retrieved and used, but the relevant reference
-count is leaked and the socket destructor is never called.
-Beyond leaking the sk memory, if there are pending UDP packets
-in the receive queue, even the related accounted memory is leaked.
+The rk3228 and rk3328 support internal phy inside, let's enable
+it to work. And the internal phy need to do some special setting, so
+register the rockchip internal phy driver.
 
-In the long run, this will cause persistent forward allocation errors
-and no UDP skbs (both ipv4 and ipv6) will be able to reach the
-user-space.
+David Wu (11):
+  net: phy: Add rockchip phy driver support
+  multi_v7_defconfig: Make rockchip phy built-in
+  arm64: defconfig: Enable CONFIG_ROCKCHIP_PHY
+  net: stmmac: dwmac-rk: Remove unwanted code for rk3328_set_to_rmii()
+  net: stmmac: dwmac-rk: Add internal phy support
+  net: stmmac: dwmac-rk: Add internal phy support for rk3228
+  net: stmmac: dwmac-rk: Add internal phy supprot for rk3328
+  ARM: dts: rk322x: Add support internal phy for gmac
+  ARM: dts: rk3228-evb: Enable the internal phy for gmac
+  ARM64: dts: rockchip: Add gmac2phy node support for rk3328
+  ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb
 
-Fix this by explicitly accessing the early demux reference before
-the lookup, and properly decreasing the socket reference count
-after usage.
+ .../devicetree/bindings/net/rockchip-dwmac.txt     |   4 +-
+ arch/arm/boot/dts/rk3228-evb.dts                   |  19 +++
+ arch/arm/boot/dts/rk322x.dtsi                      |   8 +-
+ arch/arm/configs/multi_v7_defconfig                |   1 +
+ arch/arm64/boot/dts/rockchip/rk3328-evb.dts        |  17 +++
+ arch/arm64/boot/dts/rockchip/rk3328.dtsi           |  24 ++++
+ arch/arm64/configs/defconfig                       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 135 +++++++++++++++++++--
+ drivers/net/phy/Kconfig                            |   5 +
+ drivers/net/phy/Makefile                           |   1 +
+ drivers/net/phy/rockchip.c                         | 128 +++++++++++++++++++
+ 11 files changed, 328 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/net/phy/rockchip.c
 
-Also drop the skb_steal_sock() in __udp6_lib_lookup_skb(), and
-the now obsoleted comment about "socket cache".
-
-The newly added code is derived from the current ipv4 code for the
-similar path.
-
-v1 -> v2:
-  fixed the __udp6_lib_rcv() return code for resubmission,
-  as suggested by Eric
-
-Reported-by: Sam Edwards <CFSworks@gmail.com>
-Reported-by: Marc Haber <mh+netdev@zugschlus.de>
-Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast")
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- include/net/udp.h |  1 +
- net/ipv4/udp.c    |  3 ++-
- net/ipv6/udp.c    | 27 ++++++++++++++++++---------
- 3 files changed, 21 insertions(+), 10 deletions(-)
-
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 56ce2d2a612d..cc8036987dcb 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -260,6 +260,7 @@ static inline struct sk_buff *skb_recv_udp(struct sock *sk, unsigned int flags,
- }
- 
- void udp_v4_early_demux(struct sk_buff *skb);
-+void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst);
- int udp_get_port(struct sock *sk, unsigned short snum,
- 		 int (*saddr_cmp)(const struct sock *,
- 				  const struct sock *));
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index fac7cb9e3b0f..e6276fa3750b 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1928,7 +1928,7 @@ static int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- /* For TCP sockets, sk_rx_dst is protected by socket lock
-  * For UDP, we use xchg() to guard against concurrent changes.
-  */
--static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
-+void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
- {
- 	struct dst_entry *old;
- 
-@@ -1937,6 +1937,7 @@ static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
- 		dst_release(old);
- 	}
- }
-+EXPORT_SYMBOL(udp_sk_rx_dst_set);
- 
- /*
-  *	Multicasts and broadcasts go to each listener.
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 4a3e65626e8b..98fe4560e24c 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -291,11 +291,7 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
- 					  struct udp_table *udptable)
- {
- 	const struct ipv6hdr *iph = ipv6_hdr(skb);
--	struct sock *sk;
- 
--	sk = skb_steal_sock(skb);
--	if (unlikely(sk))
--		return sk;
- 	return __udp6_lib_lookup(dev_net(skb->dev), &iph->saddr, sport,
- 				 &iph->daddr, dport, inet6_iif(skb),
- 				 udptable, skb);
-@@ -804,6 +800,24 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	if (udp6_csum_init(skb, uh, proto))
- 		goto csum_error;
- 
-+	/* Check if the socket is already available, e.g. due to early demux */
-+	sk = skb_steal_sock(skb);
-+	if (sk) {
-+		struct dst_entry *dst = skb_dst(skb);
-+		int ret;
-+
-+		if (unlikely(sk->sk_rx_dst != dst))
-+			udp_sk_rx_dst_set(sk, dst);
-+
-+		ret = udpv6_queue_rcv_skb(sk, skb);
-+		sock_put(sk);
-+
-+		/* a return value > 0 means to resubmit the input */
-+		if (ret > 0)
-+			return ret;
-+		return 0;
-+	}
-+
- 	/*
- 	 *	Multicast receive code
- 	 */
-@@ -812,11 +826,6 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 				saddr, daddr, udptable, proto);
- 
- 	/* Unicast */
--
--	/*
--	 * check socket cache ... must talk to Alan about his plans
--	 * for sock caches... i'll skip this for now.
--	 */
- 	sk = __udp6_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
- 	if (sk) {
- 		int ret;
 -- 
-2.13.3
+1.9.1
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
