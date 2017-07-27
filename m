@@ -1,108 +1,79 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [pull request][net 00/14] Mellanox, mlx5 fixes 2017-07-27
-Date: Thu, 27 Jul 2017 13:25:18 +0300
-Message-ID: <20170727102532.2317-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net 04/14] net/mlx5: Fix command bad flow on command entry allocation failure
+Date: Thu, 27 Jul 2017 13:25:22 +0300
+Message-ID: <20170727102532.2317-5-saeedm@mellanox.com>
+References: <20170727102532.2317-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Moshe Shemesh <moshe@mellanox.com>,
+        kernel-team@fb.com, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44929 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44950 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750965AbdG0K1N (ORCPT
+        with ESMTP id S1751098AbdG0K1N (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 06:27:13 -0400
+In-Reply-To: <20170727102532.2317-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Moshe Shemesh <moshe@mellanox.com>
 
-This series contains some misc fixes to the mlx5 driver.
+When driver fail to allocate an entry to send command to FW, it must
+notify the calling function and release the memory allocated for
+this command.
 
-Please pull and let me know if there's any problem.
-
-for -stable:
-4.7
-net/mlx5: Fix command bad flow on command entry allocation failure
-
-4.9
-net/mlx5: Consider tx_enabled in all modes on remap
-net/mlx5e: Fix outer_header_zero() check size
-
-4.10
-net/mlx5: Fix mlx5_add_flow_rules call with correct num of dests
-
-4.11
-net/mlx5: Fix mlx5_ifc_mtpps_reg_bits structure size
-net/mlx5e: Add field select to MTPPS register
-net/mlx5e: Fix broken disable 1PPS flow
-net/mlx5e: Change 1PPS out scheme
-net/mlx5e: Add missing support for PTP_CLK_REQ_PPS request
-net/mlx5e: Fix wrong delay calculation for overflow check scheduling
-net/mlx5e: Schedule overflow check work to mlx5e workqueue
-
-4.12
-net/mlx5: Fix command completion after timeout access invalid structure
-net/mlx5e: IPoIB, Modify add/remove underlay QPN flows
-
-I hope this is not too much, but most of the patches do apply cleanly on -stable.
-
-Thanks,
-Saeed.
-
+Fixes: e126ba97dba9e ('mlx5: Add driver for Mellanox Connect-IB adapters')
+Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
+Cc: kernel-team@fb.com
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
 
-The following changes since commit 6b84202c946cd3da3a8daa92c682510e9ed80321:
-
-  sctp: fix the check for _sctp_walk_params and _sctp_walk_errors (2017-07-27 00:03:12 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-fixes-2017-07-27
-
-for you to fetch changes up to db1e7fa982d0b183501f95010118a1c6f796c838:
-
-  net/mlx5: Fix mlx5_add_flow_rules call with correct num of dests (2017-07-27 11:11:37 +0300)
-
-----------------------------------------------------------------
-mlx5-fixes-2017-07-27
-
-----------------------------------------------------------------
-Alex Vesker (1):
-      net/mlx5e: IPoIB, Modify add/remove underlay QPN flows
-
-Aviv Heller (1):
-      net/mlx5: Consider tx_enabled in all modes on remap
-
-Eran Ben Elisha (1):
-      net/mlx5: Clean SRIOV eswitch resources upon VF creation failure
-
-Eugenia Emantayev (7):
-      net/mlx5: Fix mlx5_ifc_mtpps_reg_bits structure size
-      net/mlx5e: Add field select to MTPPS register
-      net/mlx5e: Fix broken disable 1PPS flow
-      net/mlx5e: Change 1PPS out scheme
-      net/mlx5e: Add missing support for PTP_CLK_REQ_PPS request
-      net/mlx5e: Fix wrong delay calculation for overflow check scheduling
-      net/mlx5e: Schedule overflow check work to mlx5e workqueue
-
-Ilan Tayari (1):
-      net/mlx5e: Fix outer_header_zero() check size
-
-Moshe Shemesh (2):
-      net/mlx5: Fix command completion after timeout access invalid structure
-      net/mlx5: Fix command bad flow on command entry allocation failure
-
-Paul Blakey (1):
-      net/mlx5: Fix mlx5_add_flow_rules call with correct num of dests
-
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |  25 ++-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  10 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_clock.c | 222 +++++++++++++++------
- .../ethernet/mellanox/mlx5/core/en_fs_ethtool.c    |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   1 -
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |   3 +-
- .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c  |  16 +-
- drivers/net/ethernet/mellanox/mlx5/core/lag.c      |  26 +--
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   5 +
- drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |   5 +
- include/linux/mlx5/mlx5_ifc.h                      |  10 +-
- 12 files changed, 233 insertions(+), 96 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 25fd32fcdf79..31cbe5e86a01 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -786,6 +786,10 @@ static void cb_timeout_handler(struct work_struct *work)
+ 	mlx5_cmd_comp_handler(dev, 1UL << ent->idx, true);
+ }
+ 
++static void free_msg(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *msg);
++static void mlx5_free_cmd_msg(struct mlx5_core_dev *dev,
++			      struct mlx5_cmd_msg *msg);
++
+ static void cmd_work_handler(struct work_struct *work)
+ {
+ 	struct mlx5_cmd_work_ent *ent = container_of(work, struct mlx5_cmd_work_ent, work);
+@@ -796,17 +800,28 @@ static void cmd_work_handler(struct work_struct *work)
+ 	struct semaphore *sem;
+ 	unsigned long flags;
+ 	bool poll_cmd = ent->polling;
++	int alloc_ret;
+ 
+ 
+ 	sem = ent->page_queue ? &cmd->pages_sem : &cmd->sem;
+ 	down(sem);
+ 	if (!ent->page_queue) {
+-		ent->idx = alloc_ent(cmd);
+-		if (ent->idx < 0) {
++		alloc_ret = alloc_ent(cmd);
++		if (alloc_ret < 0) {
+ 			mlx5_core_err(dev, "failed to allocate command entry\n");
++			if (ent->callback) {
++				ent->callback(-EAGAIN, ent->context);
++				mlx5_free_cmd_msg(dev, ent->out);
++				free_msg(dev, ent->in);
++				free_cmd(ent);
++			} else {
++				ent->ret = -EAGAIN;
++				complete(&ent->done);
++			}
+ 			up(sem);
+ 			return;
+ 		}
++		ent->idx = alloc_ret;
+ 	} else {
+ 		ent->idx = cmd->max_reg_cmds;
+ 		spin_lock_irqsave(&cmd->alloc_lock, flags);
+-- 
+2.13.0
