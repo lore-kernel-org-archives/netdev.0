@@ -1,53 +1,50 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: bump up driver version to match newer NIC
- firmware
-Date: Thu, 27 Jul 2017 12:32:28 -0700
-Message-ID: <20170727193228.GA1918@felix-thinkpad.cavium.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCHv4 net] ipv6: no need to check rt->dst.error when get route info
+Date: Thu, 27 Jul 2017 12:52:37 -0700
+Message-ID: <CAJieiUhQfj-ZVNuQc6o_DZTrcZn++BJArhjZsG_m6J0otGPj6A@mail.gmail.com>
+References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com> <1501172736-13685-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        David Ahern <dsahern@gmail.com>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0042.outbound.protection.outlook.com ([104.47.38.42]:8994
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751461AbdG0Tci (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jul 2017 15:32:38 -0400
-Content-Disposition: inline
+Received: from mail-ua0-f173.google.com ([209.85.217.173]:36530 "EHLO
+        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751597AbdG0Twj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 15:52:39 -0400
+Received: by mail-ua0-f173.google.com with SMTP id k43so112258263uaf.3
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 12:52:38 -0700 (PDT)
+In-Reply-To: <1501172736-13685-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bump up driver version to match newer NIC firmware.  Also update
-nic_rx_stats (a struct common to host driver and firmware) by adding a new
-field:  fw_total_fwd_bytes.
+On Thu, Jul 27, 2017 at 9:25 AM, Hangbin Liu <liuhangbin@gmail.com> wrote:
+> After commit 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib
+> result when requested"). When we get a prohibit ertry, we will return
+> -EACCES directly instead of dump route info.
+>
+> Fix it by remove the rt->dst.error check.
+>
+> Before fix:
+> \# ip -6 route add prohibit 2003::/64 dev eth1
+> \# ip -6 route get fibmatch 2003::1
+> RTNETLINK answers: Permission denied
+> \# ip -6 route add unreachable 2004::/64 dev eth1
+> \# ip -6 route get fibmatch 2004::1
+> RTNETLINK answers: No route to host
+>
+> After fix:
+> \# ip -6 route add prohibit 2003::/64 dev eth1
+> \# ip -6 route get fibmatch 2003::1
+> prohibit 2003::/64 dev lo metric 1024 error -13 pref medium
+> \# ip -6 route add unreachable 2004::/64 dev eth1
+> \# ip -6 route get fibmatch 2004::1
+> unreachable 2004::/64 dev lo metric 1024 error -113 pref medium
+>
+> Fixes: 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib...")
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> ---
 
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/liquidio_common.h | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index 53aaf41..3b9e364 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -27,8 +27,8 @@
- 
- #define LIQUIDIO_PACKAGE ""
- #define LIQUIDIO_BASE_MAJOR_VERSION 1
--#define LIQUIDIO_BASE_MINOR_VERSION 5
--#define LIQUIDIO_BASE_MICRO_VERSION 1
-+#define LIQUIDIO_BASE_MINOR_VERSION 6
-+#define LIQUIDIO_BASE_MICRO_VERSION 0
- #define LIQUIDIO_BASE_VERSION   __stringify(LIQUIDIO_BASE_MAJOR_VERSION) "." \
- 				__stringify(LIQUIDIO_BASE_MINOR_VERSION)
- #define LIQUIDIO_MICRO_VERSION  "." __stringify(LIQUIDIO_BASE_MICRO_VERSION)
-@@ -768,6 +768,7 @@ struct nic_rx_stats {
- 	/* firmware stats */
- 	u64 fw_total_rcvd;
- 	u64 fw_total_fwd;
-+	u64 fw_total_fwd_bytes;
- 	u64 fw_err_pko;
- 	u64 fw_err_link;
- 	u64 fw_err_drop;
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
