@@ -1,85 +1,44 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [patch net-next 2/2] mlxsw: spectrum: Add support for access
- cable info via ethtool
-Date: Thu, 27 Jul 2017 11:28:26 +0300
-Message-ID: <682f2f10-3f5b-eab0-a252-8cf94841c432@mellanox.com>
-References: <20170614072740.1243-1-jiri@resnulli.us>
- <20170614072740.1243-3-jiri@resnulli.us> <20170726141833.GB12049@lunn.ch>
+From: Sathya Perla <sathya.perla@broadcom.com>
+Subject: Re: [PATCH net-next 2/2] bnxt_en: define sriov_lock unconditionally
+Date: Thu, 27 Jul 2017 14:30:10 +0530
+Message-ID: <CAKvpyk1BYhLKPRcATLx58ACA-+SpjbNXKVuvedpf7wdAhONZww@mail.gmail.com>
+References: <20170725153046.44726-1-arnd@arndb.de> <20170725153046.44726-2-arnd@arndb.de>
+ <CACKFLimnZx7v9jV7v27XMP62BWG577D8=zkTijQYa6Pi1Ct7yA@mail.gmail.com>
+ <CAK8P3a3UBfg6=GJ5UKEENnN-qoFuxaO4yo2Lqy65gN0zP4Nw-w@mail.gmail.com>
+ <CAKvpyk3hyoAj0w9v1ZDfBs=8s4c=3kbDT8ZpDEUTb1yJnRvzuA@mail.gmail.com>
+ <CAK8P3a2crDS+D4C0cOBbr+RpcgH=YqotPovfNZVsXR0HbW382g@mail.gmail.com> <CAK8P3a1hiEwZrPoEsCXbATM2RZPKPnhkMFjyX0t6Yee+px9afQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0071.outbound.protection.outlook.com ([104.47.1.71]:39859
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750965AbdG0I2g (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jul 2017 04:28:36 -0400
-In-Reply-To: <20170726141833.GB12049@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Michael Chan <michael.chan@broadcom.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Netdev <netdev@vger.kernel.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAK8P3a1hiEwZrPoEsCXbATM2RZPKPnhkMFjyX0t6Yee+px9afQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Jul 27, 2017 at 1:18 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+[...]
+>
+> On today's linux-next:
+>
+> drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.o: In function `bnxt_dl_register':
+> bnxt_vfr.c:(.text+0x1440): undefined reference to `devlink_alloc'
+> bnxt_vfr.c:(.text+0x14c0): undefined reference to `devlink_register'
+> bnxt_vfr.c:(.text+0x14e0): undefined reference to `devlink_free'
+> drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.o: In function `bnxt_dl_unregister':
+> bnxt_vfr.c:(.text+0x1534): undefined reference to `devlink_unregister'
+> bnxt_vfr.c:(.text+0x153c): undefined reference to `devlink_free'
+>
+> I think you are just missing a "depends on MAY_USE_DEVLINK"
+> in INFINIBAND_BNXT_RE, which uses 'select BNXT'.
+>
+> This is a tricky corner case for Kconfig, where the MAY_USE_DEVLINK
+> dependency is silently ignored for BNXT as long as MAY_USE_DEVLINK
+> is not "=n".
 
-
-On 07/26/2017 05:18 PM, Andrew Lunn wrote:
->> +static int mlxsw_sp_get_module_info(struct net_device *netdev,
->> +				    struct ethtool_modinfo *modinfo)
->> +{
->> +	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(netdev);
->> +	u8 module_info[MLXSW_SP_EEPROM_MODULE_INFO_SIZE];
->> +	u8 module_rev_id, module_id;
->> +	unsigned int read_size;
->> +	int err;
->> +
->> +	err = mlxsw_sp_query_module_eeprom(mlxsw_sp_port, 0,
->> +					   MLXSW_SP_EEPROM_MODULE_INFO_SIZE,
->> +					   module_info, &read_size);
->> +	if (err)
->> +		return err;
->> +
->> +	if (read_size < MLXSW_SP_EEPROM_MODULE_INFO_SIZE)
->> +		return -EIO;
->> +
->> +	module_rev_id = module_info[MLXSW_SP_EEPROM_MODULE_INFO_REV_ID];
->> +	module_id = module_info[MLXSW_SP_EEPROM_MODULE_INFO_ID];
->> +
->> +	switch (module_id) {
->> +	case MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP:
->> +		modinfo->type       = ETH_MODULE_SFF_8436;
->> +		modinfo->eeprom_len = ETH_MODULE_SFF_8436_LEN;
->> +		break;
->> +	case MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP_PLUS:
->> +	case MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP28:
->> +		if (module_id  == MLXSW_SP_EEPROM_MODULE_INFO_ID_QSFP28 ||
->> +		    module_rev_id >= MLXSW_SP_EEPROM_MODULE_INFO_REV_ID_8636) {
->> +			modinfo->type       = ETH_MODULE_SFF_8636;
->> +			modinfo->eeprom_len = ETH_MODULE_SFF_8636_LEN;
->> +		} else {
->> +			modinfo->type       = ETH_MODULE_SFF_8436;
->> +			modinfo->eeprom_len = ETH_MODULE_SFF_8436_LEN;
->> +		}
->> +		break;
->> +	case MLXSW_SP_EEPROM_MODULE_INFO_ID_SFP:
->> +		modinfo->type       = ETH_MODULE_SFF_8472;
->> +		modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
->> +		break;
->> +	default:
->> +		return -EINVAL;
-> 
-> Hi Jiri
-> 
-> I remember seeing a few different implementations of this function in
-> various drivers. Could you pull it out into a helper, passing in the
-> array of bytes and mod info? bnxt, mlx4, mlx5, igb, ixgbe and sfc
-> could then use the helper.
-> 
->       Andrew
-> 
-
-Yeah, it seems generic for all modules, it can be moved into ethtool
-I think.
-
-Thanks,
-Arkadi
+Can you pls share your .config so that I can reproduce this issue and
+ensure that my fix really works...
