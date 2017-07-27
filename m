@@ -1,50 +1,76 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net V2 06/14] net/mlx5e: Fix outer_header_zero() check size
-Date: Thu, 27 Jul 2017 16:56:09 +0300
-Message-ID: <20170727135617.18559-7-saeedm@mellanox.com>
+Subject: [net V2 01/14] net/mlx5: Clean SRIOV eswitch resources upon VF creation failure
+Date: Thu, 27 Jul 2017 16:56:04 +0300
+Message-ID: <20170727135617.18559-2-saeedm@mellanox.com>
 References: <20170727135617.18559-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Ilan Tayari <ilant@mellanox.com>,
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Noa Osherovich <noaos@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40090 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40200 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751446AbdG0N5P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 09:57:15 -0400
+        with ESMTP id S1751596AbdG0N5R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 09:57:17 -0400
 In-Reply-To: <20170727135617.18559-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ilan Tayari <ilant@mellanox.com>
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-outer_header_zero() routine checks if the outer_headers match of a
-flow-table entry are all zero.
+Upon sriov enable, eswitch is always enabled.
+Currently, if enable hca failed over all VFs, we would skip eswitch
+disable as part of sriov disable, which will lead to resources leak.
 
-This function uses the size of whole fte_match_param, instead of just
-the outer_headers member, causing failure to detect all-zeros if
-any other members of the fte_match_param are non-zero.
+Fix it by disabling eswitch if it was enabled (use indication from
+eswitch mode).
 
-Use the correct size for zero check.
-
-Fixes: 6dc6071cfcde ("net/mlx5e: Add ethtool flow steering support")
-Signed-off-by: Ilan Tayari <ilant@mellanox.com>
+Fixes: 6b6adee3dad2 ('net/mlx5: SRIOV core code refactoring')
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Noa Osherovich <noaos@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 3 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c   | 5 +++++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-index bdd82c9b3992..22fb993987b4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-@@ -276,7 +276,7 @@ static void add_rule_to_list(struct mlx5e_priv *priv,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 89bfda419efe..8b18cc9ec026 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1668,7 +1668,8 @@ void mlx5_eswitch_disable_sriov(struct mlx5_eswitch *esw)
+ 	int i;
  
- static bool outer_header_zero(u32 *match_criteria)
- {
--	int size = MLX5_ST_SZ_BYTES(fte_match_param);
-+	int size = MLX5_FLD_SZ_BYTES(fte_match_param, outer_headers);
- 	char *outer_headers_c = MLX5_ADDR_OF(fte_match_param, match_criteria,
- 					     outer_headers);
+ 	if (!esw || !MLX5_CAP_GEN(esw->dev, vport_group_manager) ||
+-	    MLX5_CAP_GEN(esw->dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
++	    MLX5_CAP_GEN(esw->dev, port_type) != MLX5_CAP_PORT_TYPE_ETH ||
++	    esw->mode == SRIOV_NONE)
+ 		return;
+ 
+ 	esw_info(esw->dev, "disable SRIOV: active vports(%d) mode(%d)\n",
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+index bcdf7779c48d..bf99d40e30b4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+@@ -88,7 +88,11 @@ static void mlx5_device_disable_sriov(struct mlx5_core_dev *dev)
+ 	int vf;
+ 
+ 	if (!sriov->enabled_vfs)
++#ifdef CONFIG_MLX5_CORE_EN
++		goto disable_sriov_resources;
++#else
+ 		return;
++#endif
+ 
+ 	for (vf = 0; vf < sriov->num_vfs; vf++) {
+ 		if (!sriov->vfs_ctx[vf].enabled)
+@@ -103,6 +107,7 @@ static void mlx5_device_disable_sriov(struct mlx5_core_dev *dev)
+ 	}
+ 
+ #ifdef CONFIG_MLX5_CORE_EN
++disable_sriov_resources:
+ 	mlx5_eswitch_disable_sriov(dev->priv.eswitch);
+ #endif
  
 -- 
 2.13.0
