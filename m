@@ -1,45 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 07/10] net: dsa: lan9303: Added basic
- offloading of unicast traffic
-Date: Thu, 27 Jul 2017 15:31:13 +0200
-Message-ID: <20170727133113.GB18666@lunn.ch>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2 06/10] net: dsa: lan9303: added sysfs node
+ swe_bcst_throt
+Date: Thu, 27 Jul 2017 15:32:02 +0200
+Message-ID: <20170727133202.GA1875@nanopsycho>
 References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
- <20170725161553.30147-8-privat@egil-hjelmeland.no>
- <20170726172443.GR12049@lunn.ch>
- <19cbabee-a0e5-03f1-d2fa-eea3521311a8@egil-hjelmeland.no>
+ <20170725161553.30147-7-privat@egil-hjelmeland.no>
+ <20170726171423.GQ12049@lunn.ch>
+ <f0105583-9363-e8a6-79fc-675bb8dbadcf@egil-hjelmeland.no>
+ <20170727132625.GA18666@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, davem@davemloft.net, kernel@pengutronix.de,
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>, corbet@lwn.net,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        davem@davemloft.net, kernel@pengutronix.de,
         linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <19cbabee-a0e5-03f1-d2fa-eea3521311a8@egil-hjelmeland.no>
+In-Reply-To: <20170727132625.GA18666@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> >I think you are over-simplifying here. Say i have a layer 2 VPN and i
-> >bridge port 1 and the VPN? The software bridge still wants to do STP
-> >on port 1, in order to solve loops.
-> >
-> 
-> Problem is that the mainline lan9303_separate_ports() does its
-> work by setting port 1 & 2 in STP BLOCKING state (and port 0 in
-> FORWARDING state). So my understanding is that it would break port
-> separation if LAN9303_SWE_PORT_STATE is written while the driver
-> is in the non-bridged state.
+Thu, Jul 27, 2017 at 03:26:25PM CEST, andrew@lunn.ch wrote:
+>> Yes, this setting can be used to reduce effect of broadcast storms.
+>
+>So one way to solve this is to teach the software bridge about
+>broadcast storm control. Put some rate limiting into its broadcast
+>flood handling. Then add a switchdev call which passes this down into
+>the switch.
+>
+>Or look at doing it via TC. It is just a filter selecting broadcast
+>traffic and applying some shaping, which is what TC is all about.
 
-If the hardware cannot do it, that is a different matter. But if the
-hardware can do STP states per port, you should try to make use of it
-here.
+Ack. This is probably the way to do this. Definitelly no sysfs knob...
 
-> I thought the SW bridge would carry doing its STP work even if
-> there is a port_stp_state_set method on a DSA port?
-
-It will, but it means you are dropping frames in software, adding
-extra load to the CPU, reducing the available bandwidth for the other
-port, etc.
-
-       Andrew
+>
+>Generic solutions which can be used by all switches are likely to be
+>accepted.
+>
+>	Andrew
