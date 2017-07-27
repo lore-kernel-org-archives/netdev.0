@@ -1,83 +1,83 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [PATCH V2 net-next] TLP: Don't reschedule PTO when there's one
- outstanding TLP retransmission
-Date: Thu, 27 Jul 2017 01:33:51 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F20292A335@DGGEMI512-MBX.china.huawei.com>
-References: <1501062285-9648-1-git-send-email-maowenan@huawei.com>
- <71ae9007-aedb-2b4e-6aee-b365cb28b0fb@cogentembedded.com>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: Re: [PATCH 1/4] can: dev: Add support for limiting configured bitrate
+Date: Wed, 26 Jul 2017 20:44:33 -0500
+Message-ID: <05ca373b-977c-1a59-69fe-c17e5ec4ae75@ti.com>
+References: <20170719233654.25908-1-fcooper@ti.com>
+ <20170719233654.25908-2-fcooper@ti.com>
+ <f45ea1b4-0f46-0002-a89b-b997f2693bb5@hartkopp.net>
+ <055c00f5-0775-4e35-309c-0d1c8aa0afdf@ti.com>
+ <20170726200403.GD6873@airbook.vandijck-laurijssen.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "ncardwell@google.com" <ncardwell@google.com>,
-        "ycheng@google.com" <ycheng@google.com>,
-        "nanditad@google.com" <nanditad@google.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Chenweilong <chenweilong@huawei.com>,
-        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([45.249.212.189]:9862 "EHLO
-        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751228AbdG0BeJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 21:34:09 -0400
-In-Reply-To: <71ae9007-aedb-2b4e-6aee-b365cb28b0fb@cogentembedded.com>
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
+        <quentin.schulz@free-electrons.com>, <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170726200403.GD6873@airbook.vandijck-laurijssen.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU2VyZ2VpIFNodHlseW92
-IFttYWlsdG86c2VyZ2VpLnNodHlseW92QGNvZ2VudGVtYmVkZGVkLmNvbV0NCj4gU2VudDogV2Vk
-bmVzZGF5LCBKdWx5IDI2LCAyMDE3IDY6MDMgUE0NCj4gVG86IG1hb3dlbmFuOyBuZXRkZXZAdmdl
-ci5rZXJuZWwub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0Ow0KPiBuY2FyZHdlbGxAZ29vZ2xlLmNv
-bTsgeWNoZW5nQGdvb2dsZS5jb207IG5hbmRpdGFkQGdvb2dsZS5jb207DQo+IHdlaXlvbmdqdW4g
-KEEpOyBDaGVud2VpbG9uZzsgV2FuZ2tlZmVuZyAoS2V2aW4pDQo+IFN1YmplY3Q6IFJlOiBbUEFU
-Q0ggVjIgbmV0LW5leHRdIFRMUDogRG9uJ3QgcmVzY2hlZHVsZSBQVE8gd2hlbiB0aGVyZSdzIG9u
-ZQ0KPiBvdXRzdGFuZGluZyBUTFAgcmV0cmFuc21pc3Npb24NCj4gDQo+IE9uIDcvMjYvMjAxNyAx
-Mjo0NCBQTSwgTWFvIFdlbmFuIHdyb3RlOg0KPiANCj4gPiBJZiB0aGVyZSBpcyBvbmUgVExQIHBy
-b2JlIHdlbnQgb3V0KFRMUCB1c2UgdGhlIHdyaXRlX3F1ZXVlX3RhaWwgcGFja2V0DQo+ID4gYXMg
-VExQIHByb2JlLCB3ZSBhc3N1bWUgdGhpcyBmaXJzdCBUTFAgcHJvYmUgbmFtZWQgQSksIGFuZCB0
-aGlzIFRMUA0KPiA+IHByb2JlIHdhcyBub3QgYWNrZWQgYnkgcmVjZWl2ZSBzaWRlLg0KPiA+DQo+
-ID4gVGhlbiB0aGUgdHJhbnNtaXQgc2lkZSBzZW50IHRoZSBuZXh0IHR3byBwYWNrZXRlcyBvdXQo
-bmFtZWQgQixDKSwgYnV0DQo+ID4gdW5mb3J0dW5hdGVseSB0aGVzZSB0d28gcGFja2V0cyBhcmUg
-YWxzbyBub3QgYWNrZWQgYnkgcmVjZWl2ZSBzaWRlLg0KPiA+DQo+ID4gQW5kIHRoZW4gdGhlcmUg
-aXMgb25lIGRhdGEgcGFja2V0IHdpdGggYWNrX3NlcSBBIGFycml2ZSBhdCB0cmFuc21pdA0KPiA+
-IHNpZGUsIGluIHRjcF9hY2soKSB3aWxsIGNhbGwgdGNwX3NjaGVkdWxlX2xvc3NfcHJvYmUoKSB0
-byByZWFybSBQVE8sDQo+ID4gdGhlIGhhbmRsZXIgdGNwX3NlbmRfbG9zc19wcm9iZSgpIGlzIHRv
-IGNoZWNrDQo+ID4gaWYodHAtPnRscF9oaWdoX3NlcSkgdGhlbiBnbyB0byByZWFybV90aW1lcihi
-ZWNhdXNlIHRoZXJlIGlzIG9uZQ0KPiA+IG91dHN0YW5kaW5nIFRMUCBuYW1lZCBBKSwgc28gdGhl
-IG5ldyBUTFAgcHJvYmUgY2FuJ3QgYmUgc2VudCBvdXQgYW5kDQo+ID4gaXQgbmVlZHMgdG8gcmVh
-cm0gdGhlIFJUTyB0aW1lcih0aW1lb3V0IGlzIHJlbGF0aXZlIHRvIHRoZSB0cmFuc21pdA0KPiA+
-IHRpbWUgb2YgdGhlIHdyaXRlIHF1ZXVlIGhlYWQpLg0KPiA+DQo+ID4gQWZ0ZXIgdGhhdCwgdGhl
-cmUgaXMgYW5vdGhlciBkYXRhIHBhY2tldCB3aXRoIGFja19zZXEgQSBpcyByZWNlaXZlZCwNCj4g
-PiBpZiB0aGUgdGxwX3RpbWVfc3RhbXAgaXMgZ3JlYXRlciB0aGFuIHJ0b190aW1lX3N0YW1wLCBp
-dCB3aWxsIHJlc2V0DQo+ID4gdGhlIFRMUCB0aW1lb3V0LCB3aGljaCBpcyBiZWZvcmUgcHJldmlv
-dXMgUlRPIHRpbWVvdXQsIHNvIFBUTyBpcyByZWFybQ0KPiA+IGFuZCBwcmV2aW91cyBSVE8gaXMg
-Y2xlYXJlZC4gQmVjYXVzZSB0aGVyZSBpcyBubyByZXRyYW5zbWlzc2lvbiBwYWNrZXQNCj4gPiB3
-YXMgc2VudCBvciBubyBUTFAgc2FjayByZWNlaXZlLCB0cC0+dGxwX2hpZ2hfc2VxIGNhbid0IGJl
-IHJlc2V0IHRvDQo+ID4gemVybyBhbmQgdGhlIG5leHQgVExQIHByb2JlIGFsc28gY2FuJ3QgYmUg
-c2VudCBvdXQsIHNvIHRoZXJlIGlzIG5vDQo+ID4gd2F5KG9yIHZlcnkgbG9uZyB0aW1lKSB0byBy
-ZXRyYW5zbWl0IHRoZSBsb3N0IHBhY2tldC4NCj4gPg0KPiA+IFRoaXMgZml4IGlzIHRvIGNoZWNr
-KHRwLT50bHBfaGlnaF9zZXEpIGluIHRjcF9zY2hlZHVsZV9sb3NzX3Byb2JlKCkNCj4gPiB3aGVu
-IFRMUCBQVE8gaXMgYWZ0ZXIgUlRPLCBJdCBpcyBub3QgbmVlZGVkIHRvIHJlc2NoZWR1bGUgUFRP
-IHdoZW4NCj4gPiB0aGVyZSBpcyBvbmUgb3V0c3RhbmRpbmcgVExQIHJldHJhbnNtaXNzaW9uLCBz
-byBpZiB0aGUgVExQIEEgaXMgbG9zdA0KPiA+IFJUTyBjYW4gcmV0cmFuc21pdCBsb3N0IHBhY2tl
-dCwgdGhlbiB0cC0+dGxwX2hpZ2hfc2VxIHdpbGwgYmUgc2V0IHRvDQo+ID4gMCwgYW5kIFRMUCB3
-aWxsIGdvIHRvIHRoZSBub3JtYWwgd29yayBwcm9jZXNzLg0KPiA+DQo+ID4gdjEtPnYyDQo+ID4g
-CXJlZmluZSBzb21lIHdvcmRzIG9mIGNvZGUgYW5kIHBhdGNoIGNvbW1lbnRzLg0KPiA+DQo+ID4g
-U2lnbmVkLW9mZi1ieTogTWFvIFdlbmFuIDxtYW93ZW5hbkBodWF3ZWkuY29tPg0KPiA+IC0tLQ0K
-PiA+ICAgbmV0L2lwdjQvdGNwX291dHB1dC5jIHwgNiArKysrKysNCj4gPiAgIDEgZmlsZSBjaGFu
-Z2VkLCA2IGluc2VydGlvbnMoKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9uZXQvaXB2NC90Y3Bf
-b3V0cHV0LmMgYi9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMgaW5kZXgNCj4gPiA4ODZkODc0Li5mODVj
-N2VmIDEwMDY0NA0KPiA+IC0tLSBhL25ldC9pcHY0L3RjcF9vdXRwdXQuYw0KPiA+ICsrKyBiL25l
-dC9pcHY0L3RjcF9vdXRwdXQuYw0KPiA+IEBAIC0yNDIzLDYgKzI0MjMsMTIgQEAgYm9vbCB0Y3Bf
-c2NoZWR1bGVfbG9zc19wcm9iZShzdHJ1Y3Qgc29jayAqc2spDQo+ID4gICAJdGxwX3RpbWVfc3Rh
-bXAgPSB0Y3BfamlmZmllczMyICsgdGltZW91dDsNCj4gPiAgIAlydG9fdGltZV9zdGFtcCA9ICh1
-MzIpaW5ldF9jc2soc2spLT5pY3NrX3RpbWVvdXQ7DQo+ID4gICAJaWYgKChzMzIpKHRscF90aW1l
-X3N0YW1wIC0gcnRvX3RpbWVfc3RhbXApID4gMCkgew0KPiA+ICsJCS8qIEl0IGlzIG5vdCBuZWVk
-ZWQgdG8gcmVzY2hlZHVsZSBQVE8gd2hlbiB0aGVyZQ0KPiA+ICsJCSAqIGlzIG9uZSBvdXRzdGFu
-ZGluZyBUTFAgcmV0cmFuc21pc3Npb24uDQo+ID4gKwkJICovDQo+ID4gKwkJaWYgKHRwLT50bHBf
-aGlnaF9zZXEpIHsNCj4gPiArCQkJcmV0dXJuIGZhbHNlOw0KPiA+ICsJCX0NCj4gDQo+ICAgICBJ
-IGhhdmUgYWxyZWFkeSB0b2xkIHlvdSB0byByZW1vdmUgdGhlIG5lZWRsZXNzIHt9Li4uIDotLw0K
-VGhhbmtzLCBzb3JyeSBmb3IgdGhpcy4NCj4gDQo+IFsuLi5dDQo+IA0KPiBNQlIsIFNlcmdlaQ0K
+
+Hi Kurt,
+On 07/26/2017 03:04 PM, Kurt Van Dijck wrote:
+> Hi,
+> 
+> I know my response is late ...
+> 
+>> Hi Oliver
+>> On 07/20/2017 02:43 AM, Oliver Hartkopp wrote:
+>>> Hi Franklin,
+>>>
+>>> On 07/20/2017 01:36 AM, Franklin S Cooper Jr wrote:
+>>>
+>>>> +#ifdef CONFIG_OF
+>>>> +void of_transceiver_is_fixed(struct net_device *dev)
+>>>> +{
+>>>
+>>> (..)
+>>>
+>>>> +}
+>>>> +EXPORT_SYMBOL(of_transceiver_is_fixed);
+>>>> +#endif
+>>>
+>>> I'm not sure about the naming here.
+>>>
+>>> As this is a CAN transceiver related option it should be named accordingly:
+> 
+> I contest the the name too:
+> 1) the can transceiver isn't fixed at all, it limited to the higher
+> bitrates.
+
+Its "possible" that this subnode may have additional properties beyond
+bitrates in the future. But your right as of now it is specifically
+addressing max bit rates. The naming of this function and subnode is
+based on "fixed-link". So "fixed" is just implying that certain
+properties can't be changed.
+
+> 
+> 2) of_can_transceiver_is_fixed suggests to test if a transceiver is
+> fixed, it does not suggest to load some properties from the device tree.
+> of_can_load_transceiver looks way more clear to me.
+
+I address this partially in my rev 2 that I've already sent. I'm now
+using of_can_transceiver_fixed. The fact its of_ already implies it is
+loading properties from device tree. So I don't think
+of_can_load_transceiver really makes things clearer.
+
+> 
+> That's my opinion.
+> The important things, like the contents of the functions, look good.
+
+You mind throwing your two cents in the thread for my latest patch?
+Specifically the conversation regarding naming the properties. A couple
+of people prefer to not use "arbitration" in one of the property names.
+Currently I believe there are two options on property names that can be
+used and I'm open to a majority vote on which one to go with.
+
+> 
+> Kind regards,
+> Kurt Van Dijck
+> 
