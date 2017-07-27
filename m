@@ -1,40 +1,53 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] bpf: don't indicate success when copy_from_user fails
-Date: Thu, 27 Jul 2017 21:02:46 +0200
-Message-ID: <af76c90679bef1488ffb97b9b80f250b6738db57.1501182003.git.daniel@iogearbox.net>
-Cc: kafai@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: bump up driver version to match newer NIC
+ firmware
+Date: Thu, 27 Jul 2017 12:32:28 -0700
+Message-ID: <20170727193228.GA1918@felix-thinkpad.cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34152 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751648AbdG0TC5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 15:02:57 -0400
+Received: from mail-bl2nam02on0042.outbound.protection.outlook.com ([104.47.38.42]:8994
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751461AbdG0Tci (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Jul 2017 15:32:38 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-err in bpf_prog_get_info_by_fd() still holds 0 at that time from prior
-check_uarg_tail_zero() check. Explicitly return -EFAULT instead, so
-user space can be notified of buggy behavior.
+Bump up driver version to match newer NIC firmware.  Also update
+nic_rx_stats (a struct common to host driver and firmware) by adding a new
+field:  fw_total_fwd_bytes.
 
-Fixes: 1e2709769086 ("bpf: Add BPF_OBJ_GET_INFO_BY_FD")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
 ---
- kernel/bpf/syscall.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/cavium/liquidio/liquidio_common.h | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 045646d..84bb399 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -1289,7 +1289,7 @@ static int bpf_prog_get_info_by_fd(struct bpf_prog *prog,
- 	info_len = min_t(u32, sizeof(info), info_len);
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index 53aaf41..3b9e364 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -27,8 +27,8 @@
  
- 	if (copy_from_user(&info, uinfo, info_len))
--		return err;
-+		return -EFAULT;
- 
- 	info.type = prog->type;
- 	info.id = prog->aux->id;
--- 
-1.9.3
+ #define LIQUIDIO_PACKAGE ""
+ #define LIQUIDIO_BASE_MAJOR_VERSION 1
+-#define LIQUIDIO_BASE_MINOR_VERSION 5
+-#define LIQUIDIO_BASE_MICRO_VERSION 1
++#define LIQUIDIO_BASE_MINOR_VERSION 6
++#define LIQUIDIO_BASE_MICRO_VERSION 0
+ #define LIQUIDIO_BASE_VERSION   __stringify(LIQUIDIO_BASE_MAJOR_VERSION) "." \
+ 				__stringify(LIQUIDIO_BASE_MINOR_VERSION)
+ #define LIQUIDIO_MICRO_VERSION  "." __stringify(LIQUIDIO_BASE_MICRO_VERSION)
+@@ -768,6 +768,7 @@ struct nic_rx_stats {
+ 	/* firmware stats */
+ 	u64 fw_total_rcvd;
+ 	u64 fw_total_fwd;
++	u64 fw_total_fwd_bytes;
+ 	u64 fw_err_pko;
+ 	u64 fw_err_link;
+ 	u64 fw_err_drop;
