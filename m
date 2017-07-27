@@ -1,42 +1,42 @@
-From: Tom Bogendoerfer <tsbogend@alpha.franken.de>
-Subject: Re: [PATCH net] xgene: Don't fail probe, if there is no clk resource
- for SGMII interfaces
-Date: Thu, 27 Jul 2017 23:39:15 +0200
-Message-ID: <20170727213915.GA4902@alpha.franken.de>
-References: <20170713092144.31751508094@solo.franken.de>
- <22ee6284-7b23-7664-d6cf-23687f09a3be@redhat.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] mwifiex: fix spelling mistake: "Insuffient" -> "Insufficient"
+Date: Thu, 27 Jul 2017 23:06:22 +0100
+Message-ID: <20170727220622.11957-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: isubramanian@apm.com, kchudgar@apm.com, qnguyen@apm.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Laura Abbott <labbott@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Amitkumar Karwar <amitkarwar@gmail.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Ganapathi Bhat <gbhat@marvell.com>,
+        Xinming Hu <huxm@marvell.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <22ee6284-7b23-7664-d6cf-23687f09a3be@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 27, 2017 at 02:03:42PM -0700, Laura Abbott wrote:
-> This change causes boot failures for me on my APM Mustang system running
-> Fedora rawhide:
-> 
-> [   16.669089] Synchronous External Abort: synchronous external abort (0x9600000
-> [   16.669099] Internal error: : 96000010 [#1] SMP                              
-> [   16.669103] Modules linked in: xgene_enet(+) at803x realtek mdio_xgene xgenes
-> [   16.669127] CPU: 2 PID: 534 Comm: systemd-udevd Not tainted 4.13.0-0.rc1.git1
-> [   16.669128] Hardware name: AppliedMicro X-Gene Mustang Board/X-Gene Mustang 6
-> [   16.669131] task: ffff8003e6f8ce00 task.stack: ffff8003e4fd8000              
-> [   16.669144] PC is at xgene_enet_wr_mac+0xa0/0x128 [xgene_enet]               
-> [   16.669152] LR is at xgene_enet_wr_mac+0x64/0x128 [xgene_enet] 
+From: Colin Ian King <colin.king@canonical.com>
 
-on the first glance I don't see anything clock related there.
+Trivial fix to spelling mistake in mwifiex_dbg debug message
 
-What firmware version is installed on your mustang board ? I saw
-ethernet related crashes with mustang boards because the device tree
-in firmware was too old for the xgene ethernet driver.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/marvell/mwifiex/tdls.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thoms.
-
+diff --git a/drivers/net/wireless/marvell/mwifiex/tdls.c b/drivers/net/wireless/marvell/mwifiex/tdls.c
+index 39cd677d4159..e76af2866a19 100644
+--- a/drivers/net/wireless/marvell/mwifiex/tdls.c
++++ b/drivers/net/wireless/marvell/mwifiex/tdls.c
+@@ -130,7 +130,7 @@ mwifiex_tdls_append_rates_ie(struct mwifiex_private *priv,
+ 
+ 	if (skb_tailroom(skb) < rates_size + 4) {
+ 		mwifiex_dbg(priv->adapter, ERROR,
+-			    "Insuffient space while adding rates\n");
++			    "Insufficient space while adding rates\n");
+ 		return -ENOMEM;
+ 	}
+ 
 -- 
-Crap can work. Given enough thrust pigs will fly, but it's not necessarily a
-good idea.                                                [ RFC1925, 2.3 ]
+2.11.0
