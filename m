@@ -1,102 +1,146 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net-next 2/3] nfp: look for firmware image by device
- serial number and PCI name
-Date: Thu, 27 Jul 2017 02:25:46 -0700
-Message-ID: <20170727022546.1fe8d1ea@cakuba.netronome.com>
-References: <20170726180948.3220-1-jakub.kicinski@netronome.com>
-        <20170726180948.3220-3-jakub.kicinski@netronome.com>
-        <063D6719AE5E284EB5DD2968C1650D6DD0043717@AcuExch.aculab.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net] udp6: fix socket leak on early demux
+Date: Thu, 27 Jul 2017 11:31:33 +0200
+Message-ID: <1501147893.3930.1.camel@redhat.com>
+References: <fa8561e5d814bfcd8aeb20f09732a716ffca772c.1501082940.git.pabeni@redhat.com>
+         <1501139161.12695.20.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "oss-drivers@netronome.com" <oss-drivers@netronome.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Sam Edwards <CFSworks@gmail.com>,
+        Marc Haber <mh+netdev@zugschlus.de>,
+        Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:33081 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751796AbdG0JZv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 05:25:51 -0400
-Received: by mail-pg0-f51.google.com with SMTP id c14so3154470pgn.0
-        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 02:25:50 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0043717@AcuExch.aculab.com>
+Received: from mx1.redhat.com ([209.132.183.28]:41388 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750878AbdG0Jbg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Jul 2017 05:31:36 -0400
+In-Reply-To: <1501139161.12695.20.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 27 Jul 2017 08:20:22 +0000, David Laight wrote:
-> From: Jakub Kicinski
-> > Sent: 26 July 2017 19:10
-> > We generally look up firmware by card type, but that doesn't allow
-> > users who have more than one card of the same type in their system
-> > to select firmware per adapter.
+On Thu, 2017-07-27 at 00:06 -0700, Eric Dumazet wrote:
+> On Wed, 2017-07-26 at 17:29 +0200, Paolo Abeni wrote:
+> > When an early demuxed packet reaches __udp6_lib_lookup_skb(), the
+> > sk reference is retrieved and used, but the relevant reference
+> > count is leaked and the socket destructor is never called.
+> > Beyond leaking the sk memory, if there are pending UDP packets
+> > in the receive queue, even the related accounted memory is leaked.
 > > 
-> > Unfortunately user space firmware helper seems fraught with
-> > difficulties and to be on its way out.  In particular support for
-> > handling firmware uevents have been dropped from systemd and most
-> > distributions don't enable the FW fallback by default any more.
+> > In the long run, this will cause persistent forward allocation errors
+> > and no UDP skbs (both ipv4 and ipv6) will be able to reach the
+> > user-space.
 > > 
-> > To allow users selecting firmware for a particular device look up
-> > firmware names by serial and pci_name().  Use the direct lookup to
-> > disable generating uevents when enabled in Kconfig and not print
-> > any warnings to logs if adapter-specific files are missing.  Users
-> > can place in /lib/firmware/netronome files named:
+> > Fix this by explicitly accessing the early demux reference before
+> > the lookup, and properly decreasing the socket reference count
+> > after usage.
 > > 
-> > pci-${pci_name}.nffw
-> > serial-${serial}.nffw
+> > Also drop the skb_steal_sock() in __udp6_lib_lookup_skb(), and
+> > the now obsoleted comment about "socket cache".
 > > 
-> > to target a specific card.  E.g.:
-> > 
-> > pci-0000:04:00.0.nffw
-> > pci-0000:82:00.0.nffw
-> > serial-00-aa-bb-11-22-33-10-ff.nffw
-> > 
-> > We use the full serial number including the interface id, as it
-> > appears in lspci output (bytes separated by '-').  
+> > The newly added code is derived from the current ipv4 code for the
+> > similar path.
 > 
-> Where does lspci get that from?
-
-Extended capability type 3, Device Serial Number.
-
-> > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> 
+> Nice catch Paolo.
+> 
+> I believe there is one point to discuss, see below.
+> 
+> > 
+> > Reported-by: Sam Edwards <CFSworks@gmail.com>
+> > Reported-by: Marc Haber <mh+netdev@zugschlus.de>
+> > Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast")
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 > > ---
-> >  drivers/net/ethernet/netronome/nfp/nfp_main.c | 20 +++++++++++++++++++-
-> >  1 file changed, 19 insertions(+), 1 deletion(-)
+> >  include/net/udp.h |  1 +
+> >  net/ipv4/udp.c    |  3 ++-
+> >  net/ipv6/udp.c    | 28 +++++++++++++++++++---------
+> >  3 files changed, 22 insertions(+), 10 deletions(-)
 > > 
-> > diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-> > b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-> > index d67969d3e484..13d056da0765 100644
-> > --- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-> > +++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-> > @@ -188,9 +188,27 @@ nfp_net_fw_find(struct pci_dev *pdev, struct nfp_pf *pf)
-> >  	struct nfp_eth_table_port *port;
-> >  	const char *fw_model;
-> >  	char fw_name[256];
-> > +	const u8 *serial;
-> >  	int spc, err = 0;
-> > +	u16 interface;
-> >  	int i, j;
-> > 
-> > +	/* First try to find a firmware image specific for this device */
-> > +	interface = nfp_cpp_interface(pf->cpp);
-> > +	nfp_cpp_serial(pf->cpp, &serial);
-> > +	sprintf(fw_name, "netronome/serial-%pMF-%02hhx-%02hhx.nffw",
-> > +		serial, interface >> 8, interface & 0xff);  
+> > diff --git a/include/net/udp.h b/include/net/udp.h
+> > index 56ce2d2a612d..cc8036987dcb 100644
+> > --- a/include/net/udp.h
+> > +++ b/include/net/udp.h
+> > @@ -260,6 +260,7 @@ static inline struct sk_buff *skb_recv_udp(struct sock *sk, unsigned int flags,
+> >  }
+> >  
+> >  void udp_v4_early_demux(struct sk_buff *skb);
+> > +void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst);
+> >  int udp_get_port(struct sock *sk, unsigned short snum,
+> >  		 int (*saddr_cmp)(const struct sock *,
+> >  				  const struct sock *));
+> > diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> > index fac7cb9e3b0f..e6276fa3750b 100644
+> > --- a/net/ipv4/udp.c
+> > +++ b/net/ipv4/udp.c
+> > @@ -1928,7 +1928,7 @@ static int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+> >  /* For TCP sockets, sk_rx_dst is protected by socket lock
+> >   * For UDP, we use xchg() to guard against concurrent changes.
+> >   */
+> > -static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
+> > +void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
+> >  {
+> >  	struct dst_entry *old;
+> >  
+> > @@ -1937,6 +1937,7 @@ static void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
+> >  		dst_release(old);
+> >  	}
+> >  }
+> > +EXPORT_SYMBOL(udp_sk_rx_dst_set);
+> >  
+> >  /*
+> >   *	Multicasts and broadcasts go to each listener.
+> > diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> > index 4a3e65626e8b..e74fe497d823 100644
+> > --- a/net/ipv6/udp.c
+> > +++ b/net/ipv6/udp.c
+> > @@ -291,11 +291,7 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
+> >  					  struct udp_table *udptable)
+> >  {
+> >  	const struct ipv6hdr *iph = ipv6_hdr(skb);
+> > -	struct sock *sk;
+> >  
+> > -	sk = skb_steal_sock(skb);
+> > -	if (unlikely(sk))
+> > -		return sk;
+> >  	return __udp6_lib_lookup(dev_net(skb->dev), &iph->saddr, sport,
+> >  				 &iph->daddr, dport, inet6_iif(skb),
+> >  				 udptable, skb);
+> > @@ -804,6 +800,25 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+> >  	if (udp6_csum_init(skb, uh, proto))
+> >  		goto csum_error;
+> >  
+> > +	/* Check if the socket is already available, e.g. due to early demux */
+> > +	sk = skb_steal_sock(skb);
+> > +	if (sk) {
+> > +		struct dst_entry *dst = skb_dst(skb);
+> > +		int ret;
+> > +
+> > +		if (unlikely(sk->sk_rx_dst != dst))
+> > +			udp_sk_rx_dst_set(sk, dst);
+> > +
+> > +		ret = udpv6_queue_rcv_skb(sk, skb);
+> > +		sock_put(sk);
+> > +		/* a return value > 0 means to resubmit the input, but
+> > +		 * it wants the return to be -protocol, or 0
+> > +		 */
+> > +		if (ret > 0)
+> > +			return -ret;
 > 
-> WTF???
+> IPv6 and IPv4 have different behavior for resubmit
+> 
+> I believe "return ret;"  would be more appropriate here.
 
-Please be civil.
+Thank you for the feedback!
 
-> - use snprintf().
+You are very right. I stared at the correct UDPv6 code for unicast
+packets, a few lines below, for a lot of time before noticing the
+difference :-(
 
-To effectively print an integer into an amply sized array?  I need to
-guarantee that the string will fit otherwise I would request a FW image
-with a wrong name.  snprintf() would only mask such a bug.
+I'll resubmit a v2 soon, thanks!
 
-> - kill those hh, the arguments are of type 'int'.
-
-It doesn't matter.  I will be more careful in the future, though.
-
-> In fact make 'interface' 'unsigned int' as well.
-
-It's a value read from the hardware, and it's 16 bits wide, therefore
-my preference it to explicitly size the variable.
+Paolo
+ 
