@@ -1,69 +1,226 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [net] wl1251: add a missing spin_lock_init()
-Date: Thu, 27 Jul 2017 10:59:59 +0000 (UTC)
-Message-ID: <20170727105959.4B7B0607A3@smtp.codeaurora.org>
-References: <1499378437-4971-1-git-send-email-xiyou.wangcong@gmail.com>
+From: kiki good <jqiaoulk@gmail.com>
+Subject: Re: [PATCH v3 net-next] net: systemport: Support 64bit statistics
+Date: Thu, 27 Jul 2017 12:03:32 +0100
+Message-ID: <CACM3AazDgNZg5x320+42LYK759oeeOesj+4KaWw2c3LZLFAp2A@mail.gmail.com>
+References: <1501116036-24881-1-git-send-email-jqiaoulk@gmail.com> <504e7936-c0a3-068d-8151-e4347ab7b559@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pavel@ucw.cz,
-        linux-wireless@vger.kernel.org,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:55694 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751670AbdG0K77 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 06:59:59 -0400
-In-Reply-To: <1499378437-4971-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36110 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751042AbdG0LDd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 07:03:33 -0400
+Received: by mail-io0-f193.google.com with SMTP id j32so7316940iod.3
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 04:03:33 -0700 (PDT)
+In-Reply-To: <504e7936-c0a3-068d-8151-e4347ab7b559@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <xiyou.wangcong@gmail.com> wrote:
+How about the changes below then ? of course, we need to remove
+bcm_sysport_free_cb(cb) from bcm_sysport_tx_reclaim_one() as well.
 
-> This fixes the following kernel warning:
-> 
->   [ 5668.771453] BUG: spinlock bad magic on CPU#0, kworker/u2:3/9745
->   [ 5668.771850]  lock: 0xce63ef20, .magic: 00000000, .owner: <none>/-1,
->   .owner_cpu: 0
->   [ 5668.772277] CPU: 0 PID: 9745 Comm: kworker/u2:3 Tainted: G        W
->   4.12.0-03002-gec979a4-dirty #40
->   [ 5668.772796] Hardware name: Nokia RX-51 board
->   [ 5668.773071] Workqueue: phy1 wl1251_irq_work
->   [ 5668.773345] [<c010c9e4>] (unwind_backtrace) from [<c010a274>]
->   (show_stack+0x10/0x14)
->   [ 5668.773803] [<c010a274>] (show_stack) from [<c01545a4>]
->   (do_raw_spin_lock+0x6c/0xa0)
->   [ 5668.774230] [<c01545a4>] (do_raw_spin_lock) from [<c06ca578>]
->   (_raw_spin_lock_irqsave+0x10/0x18)
->   [ 5668.774658] [<c06ca578>] (_raw_spin_lock_irqsave) from [<c048c010>]
->   (wl1251_op_tx+0x38/0x5c)
->   [ 5668.775115] [<c048c010>] (wl1251_op_tx) from [<c06a12e8>]
->   (ieee80211_tx_frags+0x188/0x1c0)
->   [ 5668.775543] [<c06a12e8>] (ieee80211_tx_frags) from [<c06a138c>]
->   (__ieee80211_tx+0x6c/0x130)
->   [ 5668.775970] [<c06a138c>] (__ieee80211_tx) from [<c06a3dbc>]
->   (ieee80211_tx+0xdc/0x104)
->   [ 5668.776367] [<c06a3dbc>] (ieee80211_tx) from [<c06a4af0>]
->   (__ieee80211_subif_start_xmit+0x454/0x8c8)
->   [ 5668.776824] [<c06a4af0>] (__ieee80211_subif_start_xmit) from
->   [<c06a4f94>] (ieee80211_subif_start_xmit+0x30/0x2fc)
->   [ 5668.777343] [<c06a4f94>] (ieee80211_subif_start_xmit) from
->   [<c0578848>] (dev_hard_start_xmit+0x80/0x118)
->   ...
-> 
-> by adding the missing spin_lock_init().
-> 
-> Reported-by: Pavel Machek <pavel@ucw.cz>
-> Cc: Kalle Valo <kvalo@codeaurora.org>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Acked-by: Pavel Machek <pavel@ucw.cz>
+       u64_stats_update_begin(&stats64->syncp);
+       ring->bytes += len;
+       if (cb->skb)
+       {
+               ring->packets++;
+     +        bcm_sysport_free_cb(cb);
+       }
+       u64_stats_update_end(&stats64->syncp);
 
-Patch applied to wireless-drivers-next.git, thanks.
+Thanks
+Jmqiao
 
-6e9aae179f29 wl1251: add a missing spin_lock_init()
-
--- 
-https://patchwork.kernel.org/patch/9829083/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+On Thu, Jul 27, 2017 at 1:44 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 07/26/2017 05:40 PM, Jianming.qiao wrote:
+>> When using Broadcom Systemport device in 32bit Platform, ifconfig can
+>> only report up to 4G tx,rx status, which will be wrapped to 0 when the
+>> number of incoming or outgoing packets exceeds 4G, only taking
+>> around 2 hours in busy network environment (such as streaming).
+>> Therefore, it makes hard for network diagnostic tool to get reliable
+>> statistical result, so the patch is used to add 64bit support for
+>> Broadcom Systemport device in 32bit Platform.
+>>
+>> Signed-off-by: Jianming.qiao <kiki-good@hotmail.com>
+>> ---
+>>  drivers/net/ethernet/broadcom/bcmsysport.c | 71 ++++++++++++++++++++----------
+>>  drivers/net/ethernet/broadcom/bcmsysport.h |  9 +++-
+>>  2 files changed, 55 insertions(+), 25 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+>> index 5274501..967221f 100644
+>> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
+>> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+>> @@ -662,6 +662,7 @@ static int bcm_sysport_alloc_rx_bufs(struct bcm_sysport_priv *priv)
+>>  static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+>>                                       unsigned int budget)
+>>  {
+>> +     struct bcm_sysport_stats *stats64 = &priv->stats64;
+>>       struct net_device *ndev = priv->netdev;
+>>       unsigned int processed = 0, to_process;
+>>       struct bcm_sysport_cb *cb;
+>> @@ -765,6 +766,10 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+>>               skb->protocol = eth_type_trans(skb, ndev);
+>>               ndev->stats.rx_packets++;
+>>               ndev->stats.rx_bytes += len;
+>> +             u64_stats_update_begin(&stats64->syncp);
+>> +             stats64->rx_packets++;
+>> +             stats64->rx_bytes += len;
+>> +             u64_stats_update_end(&stats64->syncp);
+>>
+>>               napi_gro_receive(&priv->napi, skb);
+>>  next:
+>> @@ -784,24 +789,31 @@ static void bcm_sysport_tx_reclaim_one(struct bcm_sysport_tx_ring *ring,
+>>                                      unsigned int *pkts_compl)
+>>  {
+>>       struct bcm_sysport_priv *priv = ring->priv;
+>> +     struct bcm_sysport_stats *stats64 = &priv->stats64;
+>>       struct device *kdev = &priv->pdev->dev;
+>> +     unsigned int len = 0;
+>>
+>>       if (cb->skb) {
+>> -             ring->bytes += cb->skb->len;
+>> -             *bytes_compl += cb->skb->len;
+>> +             len = cb->skb->len;
+>> +             *bytes_compl += len;
+>>               dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
+>>                                dma_unmap_len(cb, dma_len),
+>>                                DMA_TO_DEVICE);
+>> -             ring->packets++;
+>>               (*pkts_compl)++;
+>>               bcm_sysport_free_cb(cb);
+>>       /* SKB fragment */
+>>       } else if (dma_unmap_addr(cb, dma_addr)) {
+>> -             ring->bytes += dma_unmap_len(cb, dma_len);
+>> +             len = dma_unmap_len(cb, dma_len);
+>>               dma_unmap_page(kdev, dma_unmap_addr(cb, dma_addr),
+>>                              dma_unmap_len(cb, dma_len), DMA_TO_DEVICE);
+>>               dma_unmap_addr_set(cb, dma_addr, 0);
+>>       }
+>> +
+>> +     u64_stats_update_begin(&stats64->syncp);
+>> +     ring->bytes += len;
+>> +     if (cb->skb)
+>> +             ring->packets++;
+>
+> How can this be safe now with bcm_sysport_free_cb() doing cb->skb =
+> NULL? I know I recommended moving the 64-bit statistics update out of
+> the if () else () clause before but still, it sounds like we are no
+> longer able to count the ring packets here.
+>
+>> +     u64_stats_update_end(&stats64->syncp);
+>>  }
+>>
+>>  /* Reclaim queued SKBs for transmission completion, lockless version */
+>> @@ -1671,24 +1683,6 @@ static int bcm_sysport_change_mac(struct net_device *dev, void *p)
+>>       return 0;
+>>  }
+>>
+>> -static struct net_device_stats *bcm_sysport_get_nstats(struct net_device *dev)
+>> -{
+>> -     struct bcm_sysport_priv *priv = netdev_priv(dev);
+>> -     unsigned long tx_bytes = 0, tx_packets = 0;
+>> -     struct bcm_sysport_tx_ring *ring;
+>> -     unsigned int q;
+>> -
+>> -     for (q = 0; q < dev->num_tx_queues; q++) {
+>> -             ring = &priv->tx_rings[q];
+>> -             tx_bytes += ring->bytes;
+>> -             tx_packets += ring->packets;
+>> -     }
+>> -
+>> -     dev->stats.tx_bytes = tx_bytes;
+>> -     dev->stats.tx_packets = tx_packets;
+>> -     return &dev->stats;
+>> -}
+>> -
+>>  static void bcm_sysport_netif_start(struct net_device *dev)
+>>  {
+>>       struct bcm_sysport_priv *priv = netdev_priv(dev);
+>> @@ -1923,6 +1917,37 @@ static int bcm_sysport_stop(struct net_device *dev)
+>>       return 0;
+>>  }
+>>
+>> +static void bcm_sysport_get_stats64(struct net_device *dev,
+>> +                                 struct rtnl_link_stats64 *stats)
+>> +{
+>> +     struct bcm_sysport_priv *priv = netdev_priv(dev);
+>> +     struct bcm_sysport_stats *stats64 = &priv->stats64;
+>> +     struct bcm_sysport_tx_ring *ring;
+>> +     u64 tx_packets = 0, tx_bytes = 0;
+>> +     unsigned int start;
+>> +     unsigned int q;
+>> +
+>> +     netdev_stats_to_stats64(stats, &dev->stats);
+>> +
+>> +     for (q = 0; q < dev->num_tx_queues; q++) {
+>> +             ring = &priv->tx_rings[q];
+>> +             do {
+>> +                     start = u64_stats_fetch_begin_irq(&stats64->syncp);
+>> +                     tx_bytes += ring->bytes;
+>> +                     tx_packets += ring->packets;
+>> +             } while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
+>> +     }
+>> +
+>> +     stats->tx_packets = tx_packets;
+>> +     stats->tx_bytes = tx_bytes;
+>> +
+>> +     do {
+>> +             start = u64_stats_fetch_begin_irq(&stats64->syncp);
+>> +             stats->rx_packets = stats64->rx_packets;
+>> +             stats->rx_bytes = stats64->rx_bytes;
+>> +     } while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
+>> +}
+>> +
+>>  static const struct ethtool_ops bcm_sysport_ethtool_ops = {
+>>       .get_drvinfo            = bcm_sysport_get_drvinfo,
+>>       .get_msglevel           = bcm_sysport_get_msglvl,
+>> @@ -1950,7 +1975,7 @@ static int bcm_sysport_stop(struct net_device *dev)
+>>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>>       .ndo_poll_controller    = bcm_sysport_poll_controller,
+>>  #endif
+>> -     .ndo_get_stats          = bcm_sysport_get_nstats,
+>> +     .ndo_get_stats64        = bcm_sysport_get_stats64,
+>>  };
+>>
+>>  #define REV_FMT      "v%2x.%02x"
+>> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
+>> index 77a51c1..c03a176 100644
+>> --- a/drivers/net/ethernet/broadcom/bcmsysport.h
+>> +++ b/drivers/net/ethernet/broadcom/bcmsysport.h
+>> @@ -657,6 +657,9 @@ struct bcm_sysport_stats {
+>>       enum bcm_sysport_stat_type type;
+>>       /* reg offset from UMAC base for misc counters */
+>>       u16 reg_offset;
+>> +     u64     rx_packets;
+>> +     u64     rx_bytes;
+>> +     struct u64_stats_sync   syncp;
+>>  };
+>>
+>>  /* Software house keeping helper structure */
+>> @@ -693,8 +696,8 @@ struct bcm_sysport_tx_ring {
+>>       struct bcm_sysport_cb *cbs;     /* Transmit control blocks */
+>>       struct dma_desc *desc_cpu;      /* CPU view of the descriptor */
+>>       struct bcm_sysport_priv *priv;  /* private context backpointer */
+>> -     unsigned long   packets;        /* packets statistics */
+>> -     unsigned long   bytes;          /* bytes statistics */
+>> +     u64     packets;                /* packets statistics */
+>> +     u64     bytes;                  /* bytes statistics */
+>>  };
+>>
+>>  /* Driver private structure */
+>> @@ -743,5 +746,7 @@ struct bcm_sysport_priv {
+>>
+>>       /* Ethtool */
+>>       u32                     msg_enable;
+>> +     /* 64bit stats on 32bit/64bit Machine */
+>> +     struct bcm_sysport_stats stats64;
+>>  };
+>>  #endif /* __BCM_SYSPORT_H */
+>>
+>
+>
+> --
+> Florian
