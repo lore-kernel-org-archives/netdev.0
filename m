@@ -1,207 +1,299 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 1/3] tap: use build_skb() for small packet
-Date: Thu, 27 Jul 2017 17:25:31 +0800
-Message-ID: <1501147533-12368-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next 3/3] tap: XDP support
+Date: Thu, 27 Jul 2017 17:25:33 +0800
+Message-ID: <1501147533-12368-4-git-send-email-jasowang@redhat.com>
 References: <1501147533-12368-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51226 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751814AbdG0JZv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Jul 2017 05:25:51 -0400
 In-Reply-To: <1501147533-12368-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We use tun_alloc_skb() which calls sock_alloc_send_pskb() to allocate
-skb in the past. This socket based method is not suitable for high
-speed userspace like virtualization which usually:
+This patch tries to implement XDP for tun. The implementation was
+split into two parts:
 
-- ignore sk_sndbuf (INT_MAX) and expect to receive the packet as fast as
-  possible
-- don't want to be block at sendmsg()
+- fast path: small and no gso packet. We try to do XDP at page level
+  before build_skb(). For XDP_TX, since creating/destroying queues
+  were completely under control of userspace, it was implemented
+  through generic XDP helper after skb has been built. This could be
+  optimized in the future.
+- slow path: big or gso packet. We try to do it after skb was created
+  through generic XDP helpers.
 
-To eliminate the above overheads, this patch tries to use build_skb()
-for small packet. We will do this only when the following conditions
-are all met:
+XDP_REDIRECT was not implemented, it could be done on top.
 
-- TAP instead of TUN
-- sk_sndbuf is INT_MAX
-- caller don't want to be blocked
-- zerocopy is not used
-- packet size is smaller enough to use build_skb()
+xdp1 test shows 47.6% improvement:
 
-Pktgen from guest to host shows ~15% improvement for rx pps of tap:
+Before: ~2.1Mpps
+After:  ~3.1Mpps
 
-Before: ~1.9Mpps
-After : ~2.2Mpps
-
-What's more important, this makes it possible to implement XDP for tap
-before creating skbs.
-
+Suggested-by: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/tun.c | 112 ++++++++++++++++++++++++++++++++++++++++++++----------
- 1 file changed, 91 insertions(+), 21 deletions(-)
+ drivers/net/tun.c | 149 +++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 142 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index a93392d..de1a2ef 100644
+index de1a2ef..13abe23 100644
 --- a/drivers/net/tun.c
 +++ b/drivers/net/tun.c
-@@ -105,6 +105,8 @@ do {								\
+@@ -73,6 +73,8 @@
+ #include <linux/seq_file.h>
+ #include <linux/uio.h>
+ #include <linux/skb_array.h>
++#include <linux/bpf.h>
++#include <linux/bpf_trace.h>
+ 
+ #include <linux/uaccess.h>
+ 
+@@ -105,7 +107,8 @@ do {								\
  } while (0)
  #endif
  
-+#define TUN_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD)
-+
+-#define TUN_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD)
++#define TUN_HEADROOM 256
++#define TUN_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD + TUN_HEADROOM)
+ 
  /* TUN device flags */
  
- /* IFF_ATTACH_QUEUE is never stored in device flags,
-@@ -170,6 +172,7 @@ struct tun_file {
- 	struct list_head next;
- 	struct tun_struct *detached;
- 	struct skb_array tx_array;
-+	struct page_frag alloc_frag;
+@@ -224,6 +227,7 @@ struct tun_struct {
+ 	u32 flow_count;
+ 	u32 rx_batched;
+ 	struct tun_pcpu_stats __percpu *pcpu_stats;
++	struct bpf_prog __rcu *xdp_prog;
  };
  
- struct tun_flow_entry {
-@@ -571,6 +574,8 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 		}
- 		if (tun)
- 			skb_array_cleanup(&tfile->tx_array);
-+		if (tfile->alloc_frag.page)
-+			put_page(tfile->alloc_frag.page);
- 		sock_put(&tfile->sk);
+ #ifdef CONFIG_TUN_VNET_CROSS_LE
+@@ -590,6 +594,7 @@ static void tun_detach(struct tun_file *tfile, bool clean)
+ static void tun_detach_all(struct net_device *dev)
+ {
+ 	struct tun_struct *tun = netdev_priv(dev);
++	struct bpf_prog *xdp_prog = rtnl_dereference(tun->xdp_prog);
+ 	struct tun_file *tfile, *tmp;
+ 	int i, n = tun->numqueues;
+ 
+@@ -622,6 +627,9 @@ static void tun_detach_all(struct net_device *dev)
  	}
+ 	BUG_ON(tun->numdisabled != 0);
+ 
++	if (xdp_prog)
++		bpf_prog_put(xdp_prog);
++
+ 	if (tun->flags & IFF_PERSIST)
+ 		module_put(THIS_MODULE);
  }
-@@ -1190,6 +1195,61 @@ static void tun_rx_batched(struct tun_struct *tun, struct tun_file *tfile,
- 	}
+@@ -1008,6 +1016,56 @@ tun_net_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ 	stats->tx_dropped = tx_dropped;
  }
  
-+static bool tun_can_build_skb(struct tun_struct *tun, struct tun_file *tfile,
-+			      int len, int noblock, bool zerocopy)
++static int tun_xdp_set(struct net_device *dev, struct bpf_prog *prog,
++		       struct netlink_ext_ack *extack)
 +{
-+	if ((tun->flags & TUN_TYPE_MASK) != IFF_TAP)
-+		return false;
++	struct tun_struct *tun = netdev_priv(dev);
++	struct bpf_prog *old_prog;
 +
-+	if (tfile->socket.sk->sk_sndbuf != INT_MAX)
-+		return false;
++	/* We will shift the packet that can't be handled to generic
++	 * XDP layer.
++	 */
 +
-+	if (!noblock)
-+		return false;
++	old_prog = rtnl_dereference(tun->xdp_prog);
++	if (old_prog)
++		bpf_prog_put(old_prog);
++	rcu_assign_pointer(tun->xdp_prog, prog);
 +
-+	if (zerocopy)
-+		return false;
++	if (prog) {
++		prog = bpf_prog_add(prog, 1);
++		if (IS_ERR(prog))
++			return PTR_ERR(prog);
++	}
 +
-+	if (SKB_DATA_ALIGN(len + TUN_RX_PAD) +
-+	    SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) > PAGE_SIZE)
-+		return false;
-+
-+	return true;
++	return 0;
 +}
 +
-+static struct sk_buff *tun_build_skb(struct tun_file *tfile,
-+				     struct iov_iter *from,
-+				     int len)
++static u32 tun_xdp_query(struct net_device *dev)
 +{
-+	struct page_frag *alloc_frag = &tfile->alloc_frag;
-+	struct sk_buff *skb;
-+	int buflen = SKB_DATA_ALIGN(len + TUN_RX_PAD) +
-+		     SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+	char *buf;
-+	size_t copied;
++	struct tun_struct *tun = netdev_priv(dev);
++	const struct bpf_prog *xdp_prog;
 +
-+	if (unlikely(!skb_page_frag_refill(buflen, alloc_frag, GFP_KERNEL)))
-+		return ERR_PTR(-ENOMEM);
++	xdp_prog = rtnl_dereference(tun->xdp_prog);
++	if (xdp_prog)
++		return xdp_prog->aux->id;
 +
-+	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
-+	copied = copy_page_from_iter(alloc_frag->page,
-+				     alloc_frag->offset + TUN_RX_PAD,
-+				     len, from);
-+	if (copied != len)
-+		return ERR_PTR(-EFAULT);
-+
-+	skb = build_skb(buf, buflen);
-+	if (!skb)
-+		return ERR_PTR(-ENOMEM);
-+
-+	skb_reserve(skb, TUN_RX_PAD);
-+	skb_put(skb, len);
-+	get_page(alloc_frag->page);
-+	alloc_frag->offset += buflen;
-+
-+	return skb;
++	return 0;
 +}
 +
++static int tun_xdp(struct net_device *dev, struct netdev_xdp *xdp)
++{
++	switch (xdp->command) {
++	case XDP_SETUP_PROG:
++		return tun_xdp_set(dev, xdp->prog, xdp->extack);
++	case XDP_QUERY_PROG:
++		xdp->prog_id = tun_xdp_query(dev);
++		xdp->prog_attached = !!xdp->prog_id;
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
+ static const struct net_device_ops tun_netdev_ops = {
+ 	.ndo_uninit		= tun_net_uninit,
+ 	.ndo_open		= tun_net_open,
+@@ -1038,6 +1096,7 @@ static const struct net_device_ops tap_netdev_ops = {
+ 	.ndo_features_check	= passthru_features_check,
+ 	.ndo_set_rx_headroom	= tun_set_headroom,
+ 	.ndo_get_stats64	= tun_net_get_stats64,
++	.ndo_xdp		= tun_xdp,
+ };
+ 
+ static void tun_flow_init(struct tun_struct *tun)
+@@ -1217,16 +1276,21 @@ static bool tun_can_build_skb(struct tun_struct *tun, struct tun_file *tfile,
+ 	return true;
+ }
+ 
+-static struct sk_buff *tun_build_skb(struct tun_file *tfile,
++static struct sk_buff *tun_build_skb(struct tun_struct *tun,
++				     struct tun_file *tfile,
+ 				     struct iov_iter *from,
+-				     int len)
++				     struct virtio_net_hdr *hdr,
++				     int len, int *generic_xdp)
+ {
+ 	struct page_frag *alloc_frag = &tfile->alloc_frag;
+ 	struct sk_buff *skb;
++	struct bpf_prog *xdp_prog;
+ 	int buflen = SKB_DATA_ALIGN(len + TUN_RX_PAD) +
+ 		     SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++	unsigned int delta = 0;
+ 	char *buf;
+ 	size_t copied;
++	bool xdp_xmit = false;
+ 
+ 	if (unlikely(!skb_page_frag_refill(buflen, alloc_frag, GFP_KERNEL)))
+ 		return ERR_PTR(-ENOMEM);
+@@ -1238,16 +1302,68 @@ static struct sk_buff *tun_build_skb(struct tun_file *tfile,
+ 	if (copied != len)
+ 		return ERR_PTR(-EFAULT);
+ 
++	if (hdr->gso_type)
++		*generic_xdp = 1;
++	else
++		*generic_xdp = 0;
++
++	rcu_read_lock();
++	xdp_prog = rcu_dereference(tun->xdp_prog);
++	if (xdp_prog && !*generic_xdp) {
++		struct xdp_buff xdp;
++		void *orig_data;
++		u32 act;
++
++		xdp.data_hard_start = buf;
++		xdp.data = buf + TUN_RX_PAD;
++		xdp.data_end = xdp.data + len;
++		orig_data = xdp.data;
++		act = bpf_prog_run_xdp(xdp_prog, &xdp);
++
++		switch (act) {
++		case XDP_TX:
++			xdp_xmit = true;
++			/* fall through */
++		case XDP_PASS:
++			delta = orig_data - xdp.data;
++			break;
++		default:
++			bpf_warn_invalid_xdp_action(act);
++			/* fall through */
++		case XDP_ABORTED:
++			trace_xdp_exception(tun->dev, xdp_prog, act);
++			/* fall through */
++		case XDP_DROP:
++			goto err_xdp;
++		}
++	}
++
+ 	skb = build_skb(buf, buflen);
+-	if (!skb)
++	if (!skb) {
++		rcu_read_unlock();
+ 		return ERR_PTR(-ENOMEM);
++	}
+ 
+-	skb_reserve(skb, TUN_RX_PAD);
+-	skb_put(skb, len);
++	skb_reserve(skb, TUN_RX_PAD - delta);
++	skb_put(skb, len + delta);
+ 	get_page(alloc_frag->page);
+ 	alloc_frag->offset += buflen;
+ 
++	if (xdp_xmit) {
++		skb->dev = tun->dev;
++		generic_xdp_tx(skb, xdp_prog);
++		rcu_read_lock();
++		return NULL;
++	}
++
++	rcu_read_unlock();
++
+ 	return skb;
++
++err_xdp:
++	rcu_read_unlock();
++	this_cpu_inc(tun->pcpu_stats->rx_dropped);
++	return NULL;
+ }
+ 
  /* Get packet from user space buffer */
- static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 			    void *msg_control, struct iov_iter *from,
-@@ -1263,30 +1323,38 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 			zerocopy = true;
+@@ -1266,6 +1382,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	bool zerocopy = false;
+ 	int err;
+ 	u32 rxhash;
++	int generic_xdp = 1;
+ 
+ 	if (!(tun->dev->flags & IFF_UP))
+ 		return -EIO;
+@@ -1324,11 +1441,13 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
  	}
  
--	if (!zerocopy) {
--		copylen = len;
--		if (tun16_to_cpu(tun, gso.hdr_len) > good_linear)
--			linear = good_linear;
--		else
--			linear = tun16_to_cpu(tun, gso.hdr_len);
--	}
--
--	skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
--	if (IS_ERR(skb)) {
--		if (PTR_ERR(skb) != -EAGAIN)
-+	if (tun_can_build_skb(tun, tfile, len, noblock, zerocopy)) {
-+		skb = tun_build_skb(tfile, from, len);
-+		if (IS_ERR(skb)) {
+ 	if (tun_can_build_skb(tun, tfile, len, noblock, zerocopy)) {
+-		skb = tun_build_skb(tfile, from, len);
++		skb = tun_build_skb(tun, tfile, from, &gso, len, &generic_xdp);
+ 		if (IS_ERR(skb)) {
  			this_cpu_inc(tun->pcpu_stats->rx_dropped);
--		return PTR_ERR(skb);
--	}
-+			return PTR_ERR(skb);
-+		}
-+	} else {
-+		if (!zerocopy) {
-+			copylen = len;
-+			if (tun16_to_cpu(tun, gso.hdr_len) > good_linear)
-+				linear = good_linear;
-+			else
-+				linear = tun16_to_cpu(tun, gso.hdr_len);
-+		}
+ 			return PTR_ERR(skb);
+ 		}
++		if (!skb)
++			return total_len;
+ 	} else {
+ 		if (!zerocopy) {
+ 			copylen = len;
+@@ -1402,6 +1521,22 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	skb_reset_network_header(skb);
+ 	skb_probe_transport_header(skb, 0);
  
--	if (zerocopy)
--		err = zerocopy_sg_from_iter(skb, from);
--	else
--		err = skb_copy_datagram_from_iter(skb, 0, from, len);
-+		skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
-+		if (IS_ERR(skb)) {
-+			if (PTR_ERR(skb) != -EAGAIN)
-+				this_cpu_inc(tun->pcpu_stats->rx_dropped);
-+			return PTR_ERR(skb);
-+		}
- 
--	if (err) {
--		this_cpu_inc(tun->pcpu_stats->rx_dropped);
--		kfree_skb(skb);
--		return -EFAULT;
-+		if (zerocopy)
-+			err = zerocopy_sg_from_iter(skb, from);
-+		else
-+			err = skb_copy_datagram_from_iter(skb, 0, from, len);
++	if (generic_xdp) {
++		struct bpf_prog *xdp_prog;
++		int ret;
 +
-+		if (err) {
-+			this_cpu_inc(tun->pcpu_stats->rx_dropped);
-+			kfree_skb(skb);
-+			return -EFAULT;
++		rcu_read_lock();
++		xdp_prog = rcu_dereference(tun->xdp_prog);
++		if (xdp_prog) {
++			ret = do_xdp_generic(xdp_prog, skb);
++			if (ret != XDP_PASS) {
++				rcu_read_unlock();
++				return total_len;
++			}
 +		}
- 	}
- 
- 	if (virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun))) {
-@@ -2377,6 +2445,8 @@ static int tun_chr_open(struct inode *inode, struct file * file)
- 	tfile->sk.sk_write_space = tun_sock_write_space;
- 	tfile->sk.sk_sndbuf = INT_MAX;
- 
-+	tfile->alloc_frag.page = NULL;
++		rcu_read_unlock();
++	}
 +
- 	file->private_data = tfile;
- 	INIT_LIST_HEAD(&tfile->next);
- 
+ 	rxhash = __skb_get_hash_symmetric(skb);
+ #ifndef CONFIG_4KSTACKS
+ 	tun_rx_batched(tun, tfile, skb, more);
 -- 
 2.7.4
