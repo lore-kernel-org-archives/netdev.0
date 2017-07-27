@@ -1,40 +1,58 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: TC-pedit man page examples error
-Date: Thu, 27 Jul 2017 08:08:08 +0200
-Message-ID: <20170727060808.GK2235@orbyte.nwl.cc>
-References: <CAEPezq43wKM1ivHAUu6pFoGqz9+nCJ1FT9xQV702S_BCQvropA@mail.gmail.com>
- <20170726084338.GH2235@orbyte.nwl.cc>
- <CAEPezq4Emc=D7zspWqLOq=80WGUjVdfT0xkqoJ1XQPXqaL3w6w@mail.gmail.com>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: nf_nat_pptp 4.12.3 kernel lockup/reboot
+Date: Thu, 27 Jul 2017 09:29:29 +0300
+Message-ID: <d5222f4a33e7098cc250ecaf22bd9508@nuclearcat.com>
+References: <69c0c47e920e763bce702521baae9caa@nuclearcat.com>
+ <20170724161944.GB23964@breakpoint.cc>
+ <20170724162039.GC23964@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tyler Bautista <tylerbautista@gmail.com>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:49961 "EHLO mail.nwl.cc"
+Received: from nuclearcat.com ([144.76.183.226]:52400 "EHLO nuclearcat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751042AbdG0GIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jul 2017 02:08:09 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEPezq4Emc=D7zspWqLOq=80WGUjVdfT0xkqoJ1XQPXqaL3w6w@mail.gmail.com>
+        id S1750965AbdG0G3b (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Jul 2017 02:29:31 -0400
+In-Reply-To: <20170724162039.GC23964@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tyler,
+On 2017-07-24 19:20, Florian Westphal wrote:
+> Florian Westphal <fw@strlen.de> wrote:
+>> Denys Fedoryshchenko <nuclearcat@nuclearcat.com> wrote:
+>> > Hi,
+>> >
+>> > I am trying to upgrade kernel 4.11.8 to 4.12.3 (it is a nat/router, handling
+>> > approx 2gbps of pppoe users traffic) and noticed that after while server
+>> > rebooting(i have set reboot on panic and etc).
+>> > I can't run serial console, and in pstore / netconsole there is nothing.
+>> > Best i got is some very short message about softlockup in ipmi, but as
+>> > storage very limited there - it is near useless.
+>> >
+>> > By preliminary testing (can't do it much, as it's production) - it seems
+>> > following lines causing issue, they worked in 4.11.8 and no more in 4.12.3.
+>> 
+>> Wild guess here, does this help?
+>> 
+>> diff --git a/net/netfilter/nf_conntrack_helper.c 
+>> b/net/netfilter/nf_conntrack_helper.c
+>> --- a/net/netfilter/nf_conntrack_helper.c
+>> +++ b/net/netfilter/nf_conntrack_helper.c
+>> @@ -266,6 +266,8 @@ int __nf_ct_try_assign_helper(struct nf_conn *ct, 
+>> struct nf_conn *tmpl,
+>>                 help = nf_ct_helper_ext_add(ct, helper, flags);
+>>                 if (help == NULL)
+>>                         return -ENOMEM;
+>> +              	if (!nf_ct_ext_add(ct, NF_CT_EXT_NAT, flags));
+> 
+> sigh, stupid typo, should be no ';' at the end above.
 
-On Wed, Jul 26, 2017 at 09:47:51AM -0700, Tyler Bautista wrote:
-> Thank you for taking my message. I have gotten a solution working so
-> feel free to ignore the rest of this email. By vanilla iproute2 do you
-> mean the latest package through the yum or apt repository? All I can
-> tell you is that in the example I gave the iproute2 package was the
-> latest one through the RHEL 7 yum repository.
+Tested-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 
-'Vanilla' is a widely used term[1], I meant using latest iproute2 from
-upstream[2], ideally from Git. You have to report problems with RHEL
-packages in Red Hat bugzilla[3].
+Tested and no more hangs for 2 days, definitely improvement.
+Any chance it will go to stable 4.12.x and new kernel?
 
-Cheers, Phil
-
-
-[1] https://en.wikipedia.org/wiki/Vanilla_software
-[2] https://wiki.linuxfoundation.org/networking/iproute2
-[3] https://bugzilla.redhat.com/
+Thank you very much!
