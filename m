@@ -1,40 +1,50 @@
 From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH v2 03/11] arm64: defconfig: Enable CONFIG_ROCKCHIP_PHY
-Date: Thu, 27 Jul 2017 20:55:48 +0800
-Message-ID: <1501160156-30328-4-git-send-email-david.wu@rock-chips.com>
+Subject: [PATCH v2 02/11] multi_v7_defconfig: Make rockchip phy built-in
+Date: Thu, 27 Jul 2017 20:55:47 +0800
+Message-ID: <1501160156-30328-3-git-send-email-david.wu@rock-chips.com>
 References: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, hwg@rock-chips.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Wu <david.wu@rock-chips.com>
-To: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch,
-        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
-        linux@armlinux.org.uk, arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: huangtao@rock-chips.com, hwg@rock-chips.com, alexandre.torgue@st.com,
+ devicetree@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
+ David Wu <david.wu@rock-chips.com>, peppe.cavallaro@st.com,
+ linux-arm-kernel@lists.infradead.org
+To: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch, f.fainelli@gmail.com,
+ robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
+ will.deacon@arm.com, olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Make the rockchip phy driver built into the kernel.
+Enable the rockchip phy for multi_v7_defconfig builds.
 
 Signed-off-by: David Wu <david.wu@rock-chips.com>
 ---
- arch/arm64/configs/defconfig | 1 +
+ arch/arm/configs/multi_v7_defconfig | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
-index 6c7d147..925bd478 100644
---- a/arch/arm64/configs/defconfig
-+++ b/arch/arm64/configs/defconfig
-@@ -203,6 +203,7 @@ CONFIG_MARVELL_PHY=m
- CONFIG_MESON_GXL_PHY=m
+diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
+index 4d19c1b..94d7e71 100644
+--- a/arch/arm/configs/multi_v7_defconfig
++++ b/arch/arm/configs/multi_v7_defconfig
+@@ -270,6 +270,7 @@ CONFIG_ICPLUS_PHY=y
+ CONFIG_REALTEK_PHY=y
  CONFIG_MICREL_PHY=y
- CONFIG_REALTEK_PHY=m
+ CONFIG_FIXED_PHY=y
 +CONFIG_ROCKCHIP_PHY=y
- CONFIG_USB_PEGASUS=m
- CONFIG_USB_RTL8150=m
+ CONFIG_USB_PEGASUS=y
  CONFIG_USB_RTL8152=m
+ CONFIG_USB_USBNET=y
 -- 
 1.9.1
