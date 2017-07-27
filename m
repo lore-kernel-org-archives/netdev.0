@@ -1,57 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] udp6: fix socket leak on early demux
-Date: Thu, 27 Jul 2017 06:35:39 -0700
-Message-ID: <1501162539.12695.21.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <714e32ad7eb21b0b791ecc314cfcc16765c96cd9.1501159497.git.pabeni@redhat.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH v2 01/11] net: phy: Add rockchip phy driver support
+Date: Thu, 27 Jul 2017 15:38:00 +0200
+Message-ID: <20170727133800.GC18666@lunn.ch>
+References: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
+ <1501160156-30328-2-git-send-email-david.wu@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Sam Edwards <CFSworks@gmail.com>,
-        Marc Haber <mh+netdev@zugschlus.de>,
-        Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:38122 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751533AbdG0Nfn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 09:35:43 -0400
-Received: by mail-wr0-f170.google.com with SMTP id f21so87331648wrf.5
-        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 06:35:43 -0700 (PDT)
-In-Reply-To: <714e32ad7eb21b0b791ecc314cfcc16765c96cd9.1501159497.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+        arnd-r2nGTMty4D4@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1501160156-30328-2-git-send-email-david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-07-27 at 14:45 +0200, Paolo Abeni wrote:
-> When an early demuxed packet reaches __udp6_lib_lookup_skb(), the
-> sk reference is retrieved and used, but the relevant reference
-> count is leaked and the socket destructor is never called.
-> Beyond leaking the sk memory, if there are pending UDP packets
-> in the receive queue, even the related accounted memory is leaked.
-> 
-> In the long run, this will cause persistent forward allocation errors
-> and no UDP skbs (both ipv4 and ipv6) will be able to reach the
-> user-space.
-> 
-> Fix this by explicitly accessing the early demux reference before
-> the lookup, and properly decreasing the socket reference count
-> after usage.
-> 
-> Also drop the skb_steal_sock() in __udp6_lib_lookup_skb(), and
-> the now obsoleted comment about "socket cache".
-> 
-> The newly added code is derived from the current ipv4 code for the
-> similar path.
-> 
-> v1 -> v2:
->   fixed the __udp6_lib_rcv() return code for resubmission,
->   as suggested by Eric
-> 
-> Reported-by: Sam Edwards <CFSworks@gmail.com>
-> Reported-by: Marc Haber <mh+netdev@zugschlus.de>
-> Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
+> +	/*
+> +	 * If mode switch happens from 10BT to 100BT, all DSP/AFE
+> +	 * registers are set to default values. So any AFE/DSP
+> +	 * registers have to be re-initialized in this case.
+> +	 */
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Hi David
+
+Are they also lost on suspend and resume?
+
+    Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
