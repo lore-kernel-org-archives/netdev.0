@@ -1,59 +1,127 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [Intel-wired-lan] [PATCH] igb: support BCM54616 PHY
-Date: Thu, 27 Jul 2017 17:37:13 +0200
-Message-ID: <20170727153713.GG18666@lunn.ch>
-References: <b5d586566a1b523b9be65567b52898e33058a1cf.1500660210.git.>
- <309B89C4C689E141A5FF6A0C5FB2118B8C663B22@ORSMSX101.amr.corp.intel.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: qmi_wwan: Null pointer dereference when removing driver
+Date: Thu, 27 Jul 2017 10:39:06 -0500
+Message-ID: <1501169946.7169.1.camel@redhat.com>
+References: <0d39998a-dfa9-48c5-0c7f-19354f16a7c0@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: Nathaniel Roach <nroach44@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42678 "EHLO vps0.lunn.ch"
+Received: from mx1.redhat.com ([209.132.183.28]:48470 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751030AbdG0PhV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 27 Jul 2017 11:37:21 -0400
-Content-Disposition: inline
-In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B8C663B22@ORSMSX101.amr.corp.intel.com>
+        id S1751428AbdG0PkG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Jul 2017 11:40:06 -0400
+In-Reply-To: <0d39998a-dfa9-48c5-0c7f-19354f16a7c0@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 27, 2017 at 12:40:01AM +0000, Brown, Aaron F wrote:
-> > From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On Behalf
-> > Of John W. Linville
-> > Sent: Friday, July 21, 2017 11:12 AM
-> > To: netdev@vger.kernel.org
-> > Cc: intel-wired-lan@lists.osuosl.org; John W. Linville
-> > <linville@tuxdriver.com>
-> > Subject: [Intel-wired-lan] [PATCH] igb: support BCM54616 PHY
-> > 
-> > The management port on an Edgecore AS7712-32 switch uses an igb MAC,
-> > but
-> > it uses a BCM54616 PHY. Without a patch like this, loading the igb
-> > module produces dmesg output like this:
-> > 
-> > [    3.439125] igb: Copyright (c) 2007-2014 Intel Corporation.
-> > [    3.439866] igb: probe of 0000:00:14.0 failed with error -2
-> > 
-> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> >  drivers/net/ethernet/intel/igb/e1000_82575.c   | 6 ++++++
-> >  drivers/net/ethernet/intel/igb/e1000_defines.h | 1 +
-> >  drivers/net/ethernet/intel/igb/e1000_hw.h      | 1 +
-> >  3 files changed, 8 insertions(+)
+On Thu, 2017-07-27 at 13:31 +0800, Nathaniel Roach wrote:
+> Unsure at which point was added, but issue not present in stock
+> debian 4.11 kernel.
 > 
-> I do not have the specific hardware (Edgecore switch) but as far as regression tests go this works fine.
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Running on a Thinkpad X220 with coreboot.
+> 
+> I'm building from upstream. When I attempt to remove the qmi_wwan
+> module (which also happens pre-suspend) the rmmod process gets
+> killed, and the following shows in dmesg:
 
-Sorry, missed the initial post, so replying to a reply.
+Unrelated to the crash (which should be fixed), why do you need to
+remove the module pre-suspend?  Typically on a laptop the device will
+either have all power cut to it over suspend and thus it'll get
+reprobed on resume, or else suspend gets handled OK by the driver.  I'm
+curious what the problem was that required an rmmod over suspend.
 
-Linux has supported the BCM54616 PHY since April 2015. If the Intel
-drivers used the Linux PHY drivers, you would not of had this problem.
+Dan
 
-It would be good if somebody spent the time to migrate these MAC
-drivers to use the common Linux PHY infrastructure.
-
-	Andrew
+> [   59.979791] usb 2-1.4: USB disconnect, device number 4
+> [   59.980102] qmi_wwan 2-1.4:1.6 wwp0s29u1u4i6: unregister
+> 'qmi_wwan' usb-0000:00:1d.0-1.4, WWAN/QMI device
+> [   60.006821] BUG: unable to handle kernel NULL pointer dereference
+> at 00000000000000e0
+> [   60.006879] IP: qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
+> [   60.006911] PGD 0
+> [   60.006911] P4D 0
+> [   60.006957] Oops: 0000 [#1] SMP
+> [   60.006978] Modules linked in: fuse(E) ccm(E) rfcomm(E) cmac(E)
+> bnep(E) qmi_wwan(E) cdc_wdm(E) cdc_ether(E) usbnet(E) mii(E) btusb(E)
+> btrtl(E) btbcm(E) btintel(E) bluetooth(E) joydev(E) xpad(E)
+> ecdh_generic(E) ff_memless(E) binfmt_misc(E) snd_hda_codec_hdmi(E)
+> snd_hda_codec_conexant(E) snd_hda_codec_generic(E) arc4(E)
+> iTCO_wdt(E) iTCO_vendor_support(E) intel_rapl(E)
+> x86_pkg_temp_thermal(E) kvm_intel(E) kvm(E) irqbypass(E)
+> crct10dif_pclmul(E) crc32_pclmul(E) crc32c_intel(E)
+> ghash_clmulni_intel(E) aesni_intel(E) iwlmvm(E) aes_x86_64(E)
+> crypto_simd(E) mac80211(E) cryptd(E) glue_helper(E) snd_hda_intel(E)
+> snd_hda_codec(E) iwlwifi(E) snd_hwdep(E) psmouse(E) snd_hda_core(E)
+> snd_pcm(E) serio_raw(E) sdhci_pci(E) pcspkr(E) snd_timer(E)
+> ehci_pci(E) e1000e(E) i2c_i801(E) ehci_hcd(E) snd(E) sg(E) i915(E)
+> lpc_ich(E)
+> [   60.007366]  ptp(E) usbcore(E) cfg80211(E) mfd_core(E) pps_core(E)
+> shpchp(E) ac(E) battery(E) tpm_tis(E) tpm_tis_core(E) evdev(E) tpm(E)
+> parport_pc(E) ppdev(E) lp(E) parport(E) ip_tables(E) x_tables(E)
+> autofs4(E)
+> [   60.007474] CPU: 2 PID: 33 Comm: kworker/2:1 Tainted:
+> G            E   4.12.3-nr44-normandy-r1500619820+ #1
+> [   60.007524] Hardware name: LENOVO 4291LR7/4291LR7, BIOS CBET4000
+> 4.6-810-g50522254fb 07/21/2017
+> [   60.007580] Workqueue: usb_hub_wq hub_event [usbcore]
+> [   60.007609] task: ffff8c882b716040 task.stack: ffffb8e800d84000
+> [   60.007644] RIP: 0010:qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
+> [   60.007678] RSP: 0018:ffffb8e800d87b38 EFLAGS: 00010246
+> [   60.007711] RAX: 0000000000000000 RBX: 0000000000000000 RCX:
+> 0000000000000000
+> [   60.007752] RDX: 0000000000000001 RSI: ffff8c8824f3f1d0 RDI:
+> ffff8c8824ef6400
+> [   60.007792] RBP: ffff8c8824ef6400 R08: 0000000000000000 R09:
+> 0000000000000000
+> [   60.007833] R10: ffffb8e800d87780 R11: 0000000000000011 R12:
+> ffffffffc07ea0e8
+> [   60.007874] R13: ffff8c8824e2e000 R14: ffff8c8824e2e098 R15:
+> 0000000000000000
+> [   60.007915] FS:  0000000000000000(0000) GS:ffff8c8835300000(0000)
+> knlGS:0000000000000000
+> [   60.007960] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [   60.007994] CR2: 00000000000000e0 CR3: 0000000229ca5000 CR4:
+> 00000000000406e0
+> [   60.008035] Call Trace:
+> [   60.008065]  ? usb_unbind_interface+0x71/0x270 [usbcore]
+> [   60.008101]  ? device_release_driver_internal+0x154/0x210
+> [   60.008135]  ? qmi_wwan_unbind+0x6d/0xc0 [qmi_wwan]
+> [   60.008168]  ? usbnet_disconnect+0x6c/0xf0 [usbnet]
+> [   60.008194]  ? qmi_wwan_disconnect+0x87/0xc0 [qmi_wwan]
+> [   60.008232]  ? usb_unbind_interface+0x71/0x270 [usbcore]
+> [   60.008264]  ? device_release_driver_internal+0x154/0x210
+> [   60.008296]  ? bus_remove_device+0xf5/0x160
+> [   60.008324]  ? device_del+0x1dc/0x310
+> [   60.008355]  ? usb_remove_ep_devs+0x1b/0x30 [usbcore]
+> [   60.008393]  ? usb_disable_device+0x93/0x250 [usbcore]
+> [   60.008430]  ? usb_disconnect+0x90/0x260 [usbcore]
+> [   60.008468]  ? hub_event+0x1d9/0x14a0 [usbcore]
+> [   60.008500]  ? process_one_work+0x175/0x370
+> [   60.008528]  ? worker_thread+0x4a/0x380
+> [   60.008555]  ? kthread+0xfc/0x130
+> [   60.008579]  ? process_one_work+0x370/0x370
+> [   60.008606]  ? kthread_park+0x60/0x60
+> [   60.008631]  ? ret_from_fork+0x22/0x30
+> [   60.008656] Code: 66 0f 1f 44 00 00 66 66 66 66 90 55 48 89 fd 53
+> 48 83 ec 10 48 8b 9f c8 00 00 00 65 48 8b 04 25 28 00 00 00 48 89 44
+> 24 08 31 c0 <f6> 83 e0 00 00 00 02 74 51 e8 0d b3 2b cd 85 c0 74 67
+> 48 8b bb
+> [   60.011925] RIP: qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan] RSP:
+> ffffb8e800d87b38
+> [   60.013564] CR2: 00000000000000e0
+> [   60.022125] ---[ end trace e536b59f45bc0f25 ]---
+> [   60.025385] IPv6: ADDRCONF(NETDEV_UP): wlp2s0: link is not ready
+> 
+> If I attempt a second rmmod, the process hangs. If I attempt it on
+> 4.11.x it works as expected:
+> 
+> [   16.897783] fuse init (API version 7.26)
+> [   68.073552] usbcore: deregistering interface driver qmi_wwan
+> [   68.075808] qmi_wwan 2-1.4:1.6 wwp0s29u1u4i6: unregister
+> 'qmi_wwan' usb-0000:00:1d.0-1.4, WWAN/QMI device
+> [   72.431403] e1000e: enp0s25 NIC Link is Down
+> 
+> So I'm pretty certain it's not coreboot causing the issue.
+> 
