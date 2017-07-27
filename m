@@ -1,7 +1,7 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 3/3] cxgb4: ethtool forward error correction management support
-Date: Thu, 27 Jul 2017 16:47:28 -0700
-Message-ID: <1501199248-24695-4-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 2/3] cxgb4: core hardware/firmware support for Forward Error Correction on a link
+Date: Thu, 27 Jul 2017 16:47:27 -0700
+Message-ID: <1501199248-24695-3-git-send-email-roopa@cumulusnetworks.com>
 References: <1501199248-24695-1-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, vidya.chowdary@gmail.com,
         dustin@cumulusnetworks.com, olson@cumulusnetworks.com,
@@ -11,12 +11,12 @@ Cc: netdev@vger.kernel.org, vidya.chowdary@gmail.com,
         jeffrey.t.kirsher@intel.com
 To: davem@davemloft.net, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:34664 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751767AbdG0Xrk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 19:47:40 -0400
-Received: by mail-pg0-f51.google.com with SMTP id 123so103866699pgj.1
-        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 16:47:40 -0700 (PDT)
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:35612 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751697AbdG0Xrj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 19:47:39 -0400
+Received: by mail-pg0-f52.google.com with SMTP id v190so103887315pgv.2
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 16:47:39 -0700 (PDT)
 In-Reply-To: <1501199248-24695-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,126 +25,247 @@ From: Casey Leedom <leedom@chelsio.com>
 
 Signed-off-by: Casey Leedom <leedom@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 100 +++++++++++++++++++++
- 1 file changed, 100 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 152 ++++++++++++++++++++++-------
+ 1 file changed, 117 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-index 26eb00a..03f593e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-@@ -801,6 +801,104 @@ static int set_link_ksettings(struct net_device *dev,
- 	return ret;
- }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index db41b3e..24087c8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3840,11 +3840,64 @@ void t4_ulprx_read_la(struct adapter *adap, u32 *la_buf)
+ 		     FW_PORT_CAP_SPEED_40G | FW_PORT_CAP_SPEED_100G | \
+ 		     FW_PORT_CAP_ANEG)
  
-+/* Translate the Firmware FEC value into the ethtool value. */
-+static inline unsigned int fwcap_to_eth_fec(unsigned int fw_fec)
++/* Translate Firmware Port Capabilities Pause specification to Common Code */
++static inline unsigned int fwcap_to_cc_pause(unsigned int fw_pause)
 +{
-+	unsigned int eth_fec = 0;
++	unsigned int cc_pause = 0;
 +
-+	if (fw_fec & FW_PORT_CAP_FEC_RS)
-+		eth_fec |= ETHTOOL_FEC_RS;
-+	if (fw_fec & FW_PORT_CAP_FEC_BASER_RS)
-+		eth_fec |= ETHTOOL_FEC_BASER;
++	if (fw_pause & FW_PORT_CAP_FC_RX)
++		cc_pause |= PAUSE_RX;
++	if (fw_pause & FW_PORT_CAP_FC_TX)
++		cc_pause |= PAUSE_TX;
 +
-+	/* if nothing is set, then FEC is off */
-+	if (!eth_fec)
-+		eth_fec = ETHTOOL_FEC_OFF;
-+
-+	return eth_fec;
++	return cc_pause;
 +}
 +
-+/* Translate Common Code FEC value into ethtool value. */
-+static inline unsigned int cc_to_eth_fec(unsigned int cc_fec)
++/* Translate Common Code Pause specification into Firmware Port Capabilities */
++static inline unsigned int cc_to_fwcap_pause(unsigned int cc_pause)
 +{
-+	unsigned int eth_fec = 0;
++	unsigned int fw_pause = 0;
 +
-+	if (cc_fec & FEC_AUTO)
-+		eth_fec |= ETHTOOL_FEC_AUTO;
-+	if (cc_fec & FEC_RS)
-+		eth_fec |= ETHTOOL_FEC_RS;
-+	if (cc_fec & FEC_BASER_RS)
-+		eth_fec |= ETHTOOL_FEC_BASER;
++	if (cc_pause & PAUSE_RX)
++		fw_pause |= FW_PORT_CAP_FC_RX;
++	if (cc_pause & PAUSE_TX)
++		fw_pause |= FW_PORT_CAP_FC_TX;
 +
-+	/* if nothing is set, then FEC is off */
-+	if (!eth_fec)
-+		eth_fec = ETHTOOL_FEC_OFF;
-+
-+	return eth_fec;
++	return fw_pause;
 +}
 +
-+/* Translate ethtool FEC value into Common Code value. */
-+static inline unsigned int eth_to_cc_fec(unsigned int eth_fec)
++/* Translate Firmware Forward Error Correction specification to Common Code */
++static inline unsigned int fwcap_to_cc_fec(unsigned int fw_fec)
 +{
 +	unsigned int cc_fec = 0;
 +
-+	if (eth_fec & ETHTOOL_FEC_OFF)
-+		return cc_fec;
-+
-+	if (eth_fec & ETHTOOL_FEC_AUTO)
-+		cc_fec |= FEC_AUTO;
-+	if (eth_fec & ETHTOOL_FEC_RS)
++	if (fw_fec & FW_PORT_CAP_FEC_RS)
 +		cc_fec |= FEC_RS;
-+	if (eth_fec & ETHTOOL_FEC_BASER)
++	if (fw_fec & FW_PORT_CAP_FEC_BASER_RS)
 +		cc_fec |= FEC_BASER_RS;
 +
 +	return cc_fec;
 +}
 +
-+static int get_fecparam(struct net_device *dev, struct ethtool_fecparam *fec)
++/* Translate Common Code Forward Error Correction specification to Firmware */
++static inline unsigned int cc_to_fwcap_fec(unsigned int cc_fec)
 +{
-+	const struct port_info *pi = netdev_priv(dev);
-+	const struct link_config *lc = &pi->link_cfg;
++	unsigned int fw_fec = 0;
 +
-+	/* Translate the Firmware FEC Support into the ethtool value.  We
-+	 * always support IEEE 802.3 "automatic" selection of Link FEC type if
-+	 * any FEC is supported.
-+	 */
-+	fec->fec = fwcap_to_eth_fec(lc->supported);
-+	if (fec->fec != ETHTOOL_FEC_OFF)
-+		fec->fec |= ETHTOOL_FEC_AUTO;
++	if (cc_fec & FEC_RS)
++		fw_fec |= FW_PORT_CAP_FEC_RS;
++	if (cc_fec & FEC_BASER_RS)
++		fw_fec |= FW_PORT_CAP_FEC_BASER_RS;
 +
-+	/* Translate the current internal FEC parameters into the
-+	 * ethtool values.
-+	 */
-+	fec->active_fec = cc_to_eth_fec(lc->fec);
-+
-+	return 0;
++	return fw_fec;
 +}
 +
-+static int set_fecparam(struct net_device *dev, struct ethtool_fecparam *fec)
-+{
-+	struct port_info *pi = netdev_priv(dev);
-+	struct link_config *lc = &pi->link_cfg;
-+	struct link_config old_lc;
-+	int ret;
-+
-+	/* Save old Link Configuration in case the L1 Configure below
-+	 * fails.
-+	 */
-+	old_lc = *lc;
-+
-+	/* Try to perform the L1 Configure and return the result of that
-+	 * effort.  If it fails, revert the attempted change.
-+	 */
-+	lc->requested_fec = eth_to_cc_fec(fec->fec);
-+	ret = t4_link_l1cfg(pi->adapter, pi->adapter->mbox,
-+			    pi->tx_chan, lc);
-+	if (ret)
-+		*lc = old_lc;
-+	return ret;
-+}
-+
- static void get_pauseparam(struct net_device *dev,
- 			   struct ethtool_pauseparam *epause)
+ /**
+  *	t4_link_l1cfg - apply link configuration to MAC/PHY
+- *	@phy: the PHY to setup
+- *	@mac: the MAC to setup
+- *	@lc: the requested link configuration
++ *	@adapter: the adapter
++ *	@mbox: the Firmware Mailbox to use
++ *	@port: the Port ID
++ *	@lc: the Port's Link Configuration
+  *
+  *	Set up a port's MAC and PHY according to a desired link configuration.
+  *	- If the PHY can auto-negotiate first decide what to advertise, then
+@@ -3857,22 +3910,46 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
+ 		  struct link_config *lc)
  {
-@@ -1255,6 +1353,8 @@ static int get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
- static const struct ethtool_ops cxgb_ethtool_ops = {
- 	.get_link_ksettings = get_link_ksettings,
- 	.set_link_ksettings = set_link_ksettings,
-+	.get_fecparam      = get_fecparam,
-+	.set_fecparam      = set_fecparam,
- 	.get_drvinfo       = get_drvinfo,
- 	.get_msglevel      = get_msglevel,
- 	.set_msglevel      = set_msglevel,
+ 	struct fw_port_cmd c;
+-	unsigned int mdi = FW_PORT_CAP_MDI_V(FW_PORT_CAP_MDI_AUTO);
+-	unsigned int fc = 0, fec = 0, fw_fec = 0;
++	unsigned int fw_mdi = FW_PORT_CAP_MDI_V(FW_PORT_CAP_MDI_AUTO);
++	unsigned int fw_fc, cc_fec, fw_fec;
++	unsigned int rcap;
+ 
+ 	lc->link_ok = 0;
+-	if (lc->requested_fc & PAUSE_RX)
+-		fc |= FW_PORT_CAP_FC_RX;
+-	if (lc->requested_fc & PAUSE_TX)
+-		fc |= FW_PORT_CAP_FC_TX;
+ 
+-	fec = lc->requested_fec & FEC_AUTO ? lc->auto_fec : lc->requested_fec;
++	/* Convert driver coding of Pause Frame Flow Control settings into the
++	 * Firmware's API.
++	 */
++	fw_fc = cc_to_fwcap_pause(lc->requested_fc);
++
++	/* Convert Common Code Forward Error Control settings into the
++	 * Firmware's API.  If the current Requested FEC has "Automatic"
++	 * (IEEE 802.3) specified, then we use whatever the Firmware
++	 * sent us as part of it's IEEE 802.3-based interpratation of
++	 * the Transceiver Module EPROM FEC parameters.  Otherwise we
++	 * use whatever is in the current Requested FEC settings.
++	 */
++	if (lc->requested_fec & FEC_AUTO)
++		cc_fec = lc->auto_fec;
++	else
++		cc_fec = lc->requested_fec;
++	fw_fec = cc_to_fwcap_fec(cc_fec);
+ 
+-	if (fec & FEC_RS)
+-		fw_fec |= FW_PORT_CAP_FEC_RS;
+-	if (fec & FEC_BASER_RS)
+-		fw_fec |= FW_PORT_CAP_FEC_BASER_RS;
++	/* Figure out what our Requested Port Capabilities are going to be.
++	 */
++	if (!(lc->supported & FW_PORT_CAP_ANEG)) {
++		rcap = (lc->supported & ADVERT_MASK) | fw_fc | fw_fec;
++		lc->fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
++		lc->fec = cc_fec;
++	} else if (lc->autoneg == AUTONEG_DISABLE) {
++		rcap = lc->requested_speed | fw_fc | fw_fec | fw_mdi;
++		lc->fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
++		lc->fec = cc_fec;
++	} else {
++		rcap = lc->advertising | fw_fc | fw_fec | fw_mdi;
++	}
+ 
++	/* And send that on to the Firmware ...
++	 */
+ 	memset(&c, 0, sizeof(c));
+ 	c.op_to_portid = cpu_to_be32(FW_CMD_OP_V(FW_PORT_CMD) |
+ 				     FW_CMD_REQUEST_F | FW_CMD_EXEC_F |
+@@ -3880,19 +3957,7 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
+ 	c.action_to_len16 =
+ 		cpu_to_be32(FW_PORT_CMD_ACTION_V(FW_PORT_ACTION_L1_CFG) |
+ 			    FW_LEN16(c));
+-
+-	if (!(lc->supported & FW_PORT_CAP_ANEG)) {
+-		c.u.l1cfg.rcap = cpu_to_be32((lc->supported & ADVERT_MASK) |
+-					     fc | fw_fec);
+-		lc->fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
+-	} else if (lc->autoneg == AUTONEG_DISABLE) {
+-		c.u.l1cfg.rcap = cpu_to_be32(lc->requested_speed | fc |
+-					     fw_fec | mdi);
+-		lc->fc = lc->requested_fc & (PAUSE_RX | PAUSE_TX);
+-	} else
+-		c.u.l1cfg.rcap = cpu_to_be32(lc->advertising | fc |
+-					     fw_fec | mdi);
+-
++	c.u.l1cfg.rcap = cpu_to_be32(rcap);
+ 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+ }
+ 
+@@ -7630,19 +7695,28 @@ static const char *t4_link_down_rc_str(unsigned char link_down_rc)
+ void t4_handle_get_port_info(struct port_info *pi, const __be64 *rpl)
+ {
+ 	const struct fw_port_cmd *p = (const void *)rpl;
++	unsigned int acaps = be16_to_cpu(p->u.info.acap);
+ 	struct adapter *adap = pi->adapter;
+ 
+ 	/* link/module state change message */
+-	int speed = 0, fc = 0;
++	int speed = 0, fc, fec;
+ 	struct link_config *lc;
+ 	u32 stat = be32_to_cpu(p->u.info.lstatus_to_modtype);
+ 	int link_ok = (stat & FW_PORT_CMD_LSTATUS_F) != 0;
+ 	u32 mod = FW_PORT_CMD_MODTYPE_G(stat);
+ 
++	/* Unfortunately the format of the Link Status returned by the
++	 * Firmware isn't the same as the Firmware Port Capabilities bitfield
++	 * used everywhere else ...
++	 */
++	fc = 0;
+ 	if (stat & FW_PORT_CMD_RXPAUSE_F)
+ 		fc |= PAUSE_RX;
+ 	if (stat & FW_PORT_CMD_TXPAUSE_F)
+ 		fc |= PAUSE_TX;
++
++	fec = fwcap_to_cc_fec(acaps);
++
+ 	if (stat & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_100M))
+ 		speed = 100;
+ 	else if (stat & FW_PORT_CMD_LSPEED_V(FW_PORT_CAP_SPEED_1G))
+@@ -7659,11 +7733,20 @@ void t4_handle_get_port_info(struct port_info *pi, const __be64 *rpl)
+ 	lc = &pi->link_cfg;
+ 
+ 	if (mod != pi->mod_type) {
++		/* When a new Transceiver Module is inserted, the Firmware
++		 * will examine any Forward Error Correction parameters
++		 * present in the Transceiver Module i2c EPROM and determine
++		 * the supported and recommended FEC settings from those
++		 * based on IEEE 802.3 standards.  We always record the
++		 * IEEE 802.3 recommended "automatic" settings.
++		 */
++		lc->auto_fec = fec;
++
+ 		pi->mod_type = mod;
+ 		t4_os_portmod_changed(adap, pi->port_id);
+ 	}
+ 	if (link_ok != lc->link_ok || speed != lc->speed ||
+-	    fc != lc->fc) {	/* something changed */
++	    fc != lc->fc || fec != lc->fec) {	/* something changed */
+ 		if (!link_ok && lc->link_ok) {
+ 			unsigned char rc = FW_PORT_CMD_LINKDNRC_G(stat);
+ 
+@@ -7675,6 +7758,8 @@ void t4_handle_get_port_info(struct port_info *pi, const __be64 *rpl)
+ 		lc->link_ok = link_ok;
+ 		lc->speed = speed;
+ 		lc->fc = fc;
++		lc->fec = fec;
++
+ 		lc->supported = be16_to_cpu(p->u.info.pcap);
+ 		lc->lp_advertising = be16_to_cpu(p->u.info.lpacap);
+ 
+@@ -7764,7 +7849,8 @@ static void get_pci_mode(struct adapter *adapter, struct pci_params *p)
+ /**
+  *	init_link_config - initialize a link's SW state
+  *	@lc: structure holding the link state
+- *	@caps: link capabilities
++ *	@pcaps: link Port Capabilities
++ *	@acaps: link current Advertised Port Capabilities
+  *
+  *	Initializes the SW state maintained for each link, including the link's
+  *	capabilities and default speed/flow-control/autonegotiation settings.
+@@ -7777,15 +7863,11 @@ static void init_link_config(struct link_config *lc, unsigned int pcaps,
+ 	lc->requested_speed = 0;
+ 	lc->speed = 0;
+ 	lc->requested_fc = lc->fc = PAUSE_RX | PAUSE_TX;
+-	lc->auto_fec = 0;
+ 
+ 	/* For Forward Error Control, we default to whatever the Firmware
+ 	 * tells us the Link is currently advertising.
+ 	 */
+-	if (acaps & FW_PORT_CAP_FEC_RS)
+-		lc->auto_fec |= FEC_RS;
+-	if (acaps & FW_PORT_CAP_FEC_BASER_RS)
+-		lc->auto_fec |= FEC_BASER_RS;
++	lc->auto_fec = fwcap_to_cc_fec(acaps);
+ 	lc->requested_fec = FEC_AUTO;
+ 	lc->fec = lc->auto_fec;
+ 
 -- 
 2.1.4
