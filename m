@@ -1,66 +1,67 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Thu, 27 Jul 2017 09:08:20 +0800
-Message-ID: <75213fca-4522-2297-3cb8-338e643d3552@huawei.com>
-References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
- <1499955692-26556-3-git-send-email-dingtianhong@huawei.com>
- <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
- <0260e398-bd8e-6615-6d5c-1f7c07b6fc09@huawei.com>
- <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
- <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
- <20170724090516.2e0f0d2a@w520.home>
- <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
+From: <info@staremestopl.cz>
+Subject: (unknown)
+Date: Thu, 27 Jul 2017 01:25:26 -0000
+Message-ID: <150111872651.7190.1782127924846400152@u16563822.onlinehome-server.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "mark.rutland@arm.com" <mark.rutland@arm.com>,
- "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
- "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
- "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
- "will.deacon@arm.com" <will.deacon@arm.com>,
- "linuxarm@huawei.com" <linuxarm@huawei.com>,
- "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
- Sinan Kaya <okaya@codeaurora.org>, "ashok.raj@intel.com" <ashok.raj@intel.com>,
- "helgaas@kernel.org" <helgaas@kernel.org>,
- "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
- "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
- Ganesh GR <ganeshgr@chelsio.com>, "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
- "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
- "bhelgaas@google.com" <bhelgaas@google.com>,
- Michael Werner <werner@chelsio.com>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.
-To: Casey Leedom <leedom@chelsio.com>, Alex Williamson
- <alex.williamson@redhat.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="EMAIL_852332459197961_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ip2.pool1.shared.clients.juba.rcswimax.com ([154.73.88.2]:54228
+        "HELO u16563822.onlinehome-server.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with SMTP id S1751103AbdG0BZd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 21:25:33 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2017/7/27 2:26, Casey Leedom wrote:
->   By the way Ding, two issues:
-> 
->  1. Did we ever get any acknowledgement from either Intel or AMD
->     on this patch?  I know that we can't ensure that, but it sure would
->     be nice since the PCI Quirks that we're putting in affect their
->     products.
-> 
-
-Still no Intel and AMD guys has ack this, this is what I am worried about, should I
-ping some man again ?
-
-Thanks
-Ding
-> 
-> Casey
-> .
-> 
+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
