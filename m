@@ -1,55 +1,42 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next 2/2] bnxt_en: define sriov_lock unconditionally
-Date: Thu, 27 Jul 2017 11:53:33 +0200
-Message-ID: <CAK8P3a0aNc0wn0ofhC+fdAA4TeKdWB75545uPAnAi=OQnN572Q@mail.gmail.com>
-References: <20170725153046.44726-1-arnd@arndb.de> <20170725153046.44726-2-arnd@arndb.de>
- <CACKFLimnZx7v9jV7v27XMP62BWG577D8=zkTijQYa6Pi1Ct7yA@mail.gmail.com>
- <CAK8P3a3UBfg6=GJ5UKEENnN-qoFuxaO4yo2Lqy65gN0zP4Nw-w@mail.gmail.com>
- <CAKvpyk3hyoAj0w9v1ZDfBs=8s4c=3kbDT8ZpDEUTb1yJnRvzuA@mail.gmail.com>
- <CAK8P3a2crDS+D4C0cOBbr+RpcgH=YqotPovfNZVsXR0HbW382g@mail.gmail.com>
- <CAK8P3a1hiEwZrPoEsCXbATM2RZPKPnhkMFjyX0t6Yee+px9afQ@mail.gmail.com> <CAKvpyk1BYhLKPRcATLx58ACA-+SpjbNXKVuvedpf7wdAhONZww@mail.gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCHv2 iproute2] utils: return default family when rtm_family
+ is not RTNL_FAMILY_IPMR/IP6MR
+Date: Thu, 27 Jul 2017 12:03:02 +0200
+Message-ID: <20170727100302.GP2235@orbyte.nwl.cc>
+References: <1501146109-30032-1-git-send-email-liuhangbin@gmail.com>
+ <1501148655-32629-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Michael Chan <michael.chan@broadcom.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Netdev <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Sathya Perla <sathya.perla@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKvpyk1BYhLKPRcATLx58ACA-+SpjbNXKVuvedpf7wdAhONZww@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Hangbin Liu <liuhangbin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:51381 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750965AbdG0KDD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Jul 2017 06:03:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1501148655-32629-1-git-send-email-liuhangbin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 27, 2017 at 11:00 AM, Sathya Perla
-<sathya.perla@broadcom.com> wrote:
-> On Thu, Jul 27, 2017 at 1:18 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> [...]
->>
->> On today's linux-next:
->>
->> drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.o: In function `bnxt_dl_register':
->> bnxt_vfr.c:(.text+0x1440): undefined reference to `devlink_alloc'
->> bnxt_vfr.c:(.text+0x14c0): undefined reference to `devlink_register'
->> bnxt_vfr.c:(.text+0x14e0): undefined reference to `devlink_free'
->> drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.o: In function `bnxt_dl_unregister':
->> bnxt_vfr.c:(.text+0x1534): undefined reference to `devlink_unregister'
->> bnxt_vfr.c:(.text+0x153c): undefined reference to `devlink_free'
->>
->> I think you are just missing a "depends on MAY_USE_DEVLINK"
->> in INFINIBAND_BNXT_RE, which uses 'select BNXT'.
->>
->> This is a tricky corner case for Kconfig, where the MAY_USE_DEVLINK
->> dependency is silently ignored for BNXT as long as MAY_USE_DEVLINK
->> is not "=n".
->
-> Can you pls share your .config so that I can reproduce this issue and
-> ensure that my fix really works...
+On Thu, Jul 27, 2017 at 05:44:15PM +0800, Hangbin Liu wrote:
+> When we get a multicast route, the rtm_type is RTN_MULTICAST, but the
+> rtm_family may be AF_INET. If we only check the type with RTNL_FAMILY_IPMR,
+> we will get malformed address. e.g.
+> 
+> + ip -4 route add multicast 172.111.1.1 dev em1 table main
+> 
+> Before fix:
+> + ip route list type multicast table main
+> multicast ac6f:101:800:400:400:0:3c00:0 dev em1 scope link
+> 
+> After fix:
+> + ip route list type multicast table main
+> multicast 172.111.1.1 dev em1 scope link
+> 
+> Fixes: 56e3eb4c3400 ("ip: route: fix multicast route dumps")
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 
-The configuration I used happened to be for arm64, I've pasted it to
-https://pastebin.com/dl/rSJ6jCQM now.
-
-You should be able to reproduce it on x86 as well, with anything using
-CONFIG_NET_DEVLINK=m and INFINIBAND_BNXT_RE=y.
-
-        Arnd
+Acked-by: Phil Sutter <phil@nwl.cc>
