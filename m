@@ -1,31 +1,195 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] bpf: testing: fix devmap tests
-Date: Thu, 27 Jul 2017 02:40:28 +0200
-Message-ID: <5979367C.4020408@iogearbox.net>
-References: <20170727003206.16649.50637.stgit@john-Precision-Tower-5810>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, jakub.kicinski@netronome.com
-To: John Fastabend <john.fastabend@gmail.com>, netdev@vger.kernel.org
+From: "Jianming.qiao" <jqiaoulk@gmail.com>
+Subject: [PATCH v3 net-next] net: systemport: Support 64bit statistics
+Date: Thu, 27 Jul 2017 01:40:36 +0100
+Message-ID: <1501116036-24881-1-git-send-email-jqiaoulk@gmail.com>
+To: f.fainelli@gmail.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48119 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751202AbdG0Aka (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 20:40:30 -0400
-In-Reply-To: <20170727003206.16649.50637.stgit@john-Precision-Tower-5810>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34997 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751472AbdG0AlH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2017 20:41:07 -0400
+Received: by mail-wr0-f193.google.com with SMTP id c24so19681346wra.2
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2017 17:41:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/27/2017 02:32 AM, John Fastabend wrote:
-> Apparently through one of my revisions of the initial patches
-> series I lost the devmap test. We can add more testing later but
-> for now lets fix the simple one we have.
->
-> Fixes: 546ac1ffb70d "bpf: add devmap, a map for storing net device references"
-> Reported-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+When using Broadcom Systemport device in 32bit Platform, ifconfig can
+only report up to 4G tx,rx status, which will be wrapped to 0 when the
+number of incoming or outgoing packets exceeds 4G, only taking
+around 2 hours in busy network environment (such as streaming).
+Therefore, it makes hard for network diagnostic tool to get reliable
+statistical result, so the patch is used to add 64bit support for
+Broadcom Systemport device in 32bit Platform.
 
-Looks good, thanks!
+Signed-off-by: Jianming.qiao <kiki-good@hotmail.com>
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 71 ++++++++++++++++++++----------
+ drivers/net/ethernet/broadcom/bcmsysport.h |  9 +++-
+ 2 files changed, 55 insertions(+), 25 deletions(-)
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 5274501..967221f 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -662,6 +662,7 @@ static int bcm_sysport_alloc_rx_bufs(struct bcm_sysport_priv *priv)
+ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 					unsigned int budget)
+ {
++	struct bcm_sysport_stats *stats64 = &priv->stats64;
+ 	struct net_device *ndev = priv->netdev;
+ 	unsigned int processed = 0, to_process;
+ 	struct bcm_sysport_cb *cb;
+@@ -765,6 +766,10 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 		skb->protocol = eth_type_trans(skb, ndev);
+ 		ndev->stats.rx_packets++;
+ 		ndev->stats.rx_bytes += len;
++		u64_stats_update_begin(&stats64->syncp);
++		stats64->rx_packets++;
++		stats64->rx_bytes += len;
++		u64_stats_update_end(&stats64->syncp);
+ 
+ 		napi_gro_receive(&priv->napi, skb);
+ next:
+@@ -784,24 +789,31 @@ static void bcm_sysport_tx_reclaim_one(struct bcm_sysport_tx_ring *ring,
+ 				       unsigned int *pkts_compl)
+ {
+ 	struct bcm_sysport_priv *priv = ring->priv;
++	struct bcm_sysport_stats *stats64 = &priv->stats64;
+ 	struct device *kdev = &priv->pdev->dev;
++	unsigned int len = 0;
+ 
+ 	if (cb->skb) {
+-		ring->bytes += cb->skb->len;
+-		*bytes_compl += cb->skb->len;
++		len = cb->skb->len;
++		*bytes_compl += len;
+ 		dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
+ 				 dma_unmap_len(cb, dma_len),
+ 				 DMA_TO_DEVICE);
+-		ring->packets++;
+ 		(*pkts_compl)++;
+ 		bcm_sysport_free_cb(cb);
+ 	/* SKB fragment */
+ 	} else if (dma_unmap_addr(cb, dma_addr)) {
+-		ring->bytes += dma_unmap_len(cb, dma_len);
++		len = dma_unmap_len(cb, dma_len);
+ 		dma_unmap_page(kdev, dma_unmap_addr(cb, dma_addr),
+ 			       dma_unmap_len(cb, dma_len), DMA_TO_DEVICE);
+ 		dma_unmap_addr_set(cb, dma_addr, 0);
+ 	}
++
++	u64_stats_update_begin(&stats64->syncp);
++	ring->bytes += len;
++	if (cb->skb)
++		ring->packets++;
++	u64_stats_update_end(&stats64->syncp);
+ }
+ 
+ /* Reclaim queued SKBs for transmission completion, lockless version */
+@@ -1671,24 +1683,6 @@ static int bcm_sysport_change_mac(struct net_device *dev, void *p)
+ 	return 0;
+ }
+ 
+-static struct net_device_stats *bcm_sysport_get_nstats(struct net_device *dev)
+-{
+-	struct bcm_sysport_priv *priv = netdev_priv(dev);
+-	unsigned long tx_bytes = 0, tx_packets = 0;
+-	struct bcm_sysport_tx_ring *ring;
+-	unsigned int q;
+-
+-	for (q = 0; q < dev->num_tx_queues; q++) {
+-		ring = &priv->tx_rings[q];
+-		tx_bytes += ring->bytes;
+-		tx_packets += ring->packets;
+-	}
+-
+-	dev->stats.tx_bytes = tx_bytes;
+-	dev->stats.tx_packets = tx_packets;
+-	return &dev->stats;
+-}
+-
+ static void bcm_sysport_netif_start(struct net_device *dev)
+ {
+ 	struct bcm_sysport_priv *priv = netdev_priv(dev);
+@@ -1923,6 +1917,37 @@ static int bcm_sysport_stop(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static void bcm_sysport_get_stats64(struct net_device *dev,
++				    struct rtnl_link_stats64 *stats)
++{
++	struct bcm_sysport_priv *priv = netdev_priv(dev);
++	struct bcm_sysport_stats *stats64 = &priv->stats64;
++	struct bcm_sysport_tx_ring *ring;
++	u64 tx_packets = 0, tx_bytes = 0;
++	unsigned int start;
++	unsigned int q;
++
++	netdev_stats_to_stats64(stats, &dev->stats);
++
++	for (q = 0; q < dev->num_tx_queues; q++) {
++		ring = &priv->tx_rings[q];
++		do {
++			start = u64_stats_fetch_begin_irq(&stats64->syncp);
++			tx_bytes += ring->bytes;
++			tx_packets += ring->packets;
++		} while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
++	}
++
++	stats->tx_packets = tx_packets;
++	stats->tx_bytes = tx_bytes;
++
++	do {
++		start = u64_stats_fetch_begin_irq(&stats64->syncp);
++		stats->rx_packets = stats64->rx_packets;
++		stats->rx_bytes = stats64->rx_bytes;
++	} while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
++}
++
+ static const struct ethtool_ops bcm_sysport_ethtool_ops = {
+ 	.get_drvinfo		= bcm_sysport_get_drvinfo,
+ 	.get_msglevel		= bcm_sysport_get_msglvl,
+@@ -1950,7 +1975,7 @@ static int bcm_sysport_stop(struct net_device *dev)
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= bcm_sysport_poll_controller,
+ #endif
+-	.ndo_get_stats		= bcm_sysport_get_nstats,
++	.ndo_get_stats64	= bcm_sysport_get_stats64,
+ };
+ 
+ #define REV_FMT	"v%2x.%02x"
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
+index 77a51c1..c03a176 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.h
++++ b/drivers/net/ethernet/broadcom/bcmsysport.h
+@@ -657,6 +657,9 @@ struct bcm_sysport_stats {
+ 	enum bcm_sysport_stat_type type;
+ 	/* reg offset from UMAC base for misc counters */
+ 	u16 reg_offset;
++	u64     rx_packets;
++	u64     rx_bytes;
++	struct u64_stats_sync   syncp;
+ };
+ 
+ /* Software house keeping helper structure */
+@@ -693,8 +696,8 @@ struct bcm_sysport_tx_ring {
+ 	struct bcm_sysport_cb *cbs;	/* Transmit control blocks */
+ 	struct dma_desc	*desc_cpu;	/* CPU view of the descriptor */
+ 	struct bcm_sysport_priv *priv;	/* private context backpointer */
+-	unsigned long	packets;	/* packets statistics */
+-	unsigned long	bytes;		/* bytes statistics */
++	u64	packets;		/* packets statistics */
++	u64	bytes;			/* bytes statistics */
+ };
+ 
+ /* Driver private structure */
+@@ -743,5 +746,7 @@ struct bcm_sysport_priv {
+ 
+ 	/* Ethtool */
+ 	u32			msg_enable;
++	/* 64bit stats on 32bit/64bit Machine */
++	struct bcm_sysport_stats stats64;
+ };
+ #endif /* __BCM_SYSPORT_H */
+-- 
+1.9.1
