@@ -1,11 +1,11 @@
 From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next v2 02/10] net: dsa: lan9303: Do not
- disable/enable switch fabric port 0 at startup
-Date: Thu, 27 Jul 2017 12:39:10 +0200
-Message-ID: <226cd9be-0e4c-f88a-046d-3d3e0f3ce47a@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next v2 04/10] net: dsa: lan9303: Added adjust_link()
+ method
+Date: Thu, 27 Jul 2017 12:45:59 +0200
+Message-ID: <e5de6f96-b37f-ad63-7541-a2f894b6127d@egil-hjelmeland.no>
 References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
- <20170725161553.30147-3-privat@egil-hjelmeland.no>
- <20170726165853.GO12049@lunn.ch>
+ <20170725161553.30147-5-privat@egil-hjelmeland.no>
+ <20170726170928.GP12049@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -14,61 +14,96 @@ Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
         linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
 To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170726165853.GO12049@lunn.ch>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20170726170928.GP12049@lunn.ch>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 26. juli 2017 18:58, Andrew Lunn wrote:
-> On Tue, Jul 25, 2017 at 06:15:45PM +0200, Egil Hjelmeland wrote:
->> For some mysterious reason enable switch fabric port 0 TX fails to
->> work, when the TX has previous been disabled. Resolved by not
->> disable/enable switch fabric port 0 at startup. Port 1 and 2 are
->> still disabled in early init.
+On 26. juli 2017 19:09, Andrew Lunn wrote:
+> On Tue, Jul 25, 2017 at 06:15:47PM +0200, Egil Hjelmeland wrote:
+>> This makes the driver react to device tree "fixed-link" declaration
+>> on CPU port.
+>>
+>> - turn off autonegotiation
+>> - force speed 10 or 100 mb/s
+>> - force duplex mode
 >>
 >> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
 >> ---
->>   drivers/net/dsa/lan9303-core.c | 7 -------
->>   1 file changed, 7 deletions(-)
+>>   drivers/net/dsa/lan9303-core.c | 33 +++++++++++++++++++++++++++++++++
+>>   1 file changed, 33 insertions(+)
 >>
 >> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
->> index e622db586c3d..c2b53659f58f 100644
+>> index 0806a0684d55..be6d78f45a5f 100644
 >> --- a/drivers/net/dsa/lan9303-core.c
 >> +++ b/drivers/net/dsa/lan9303-core.c
->> @@ -557,9 +557,6 @@ static int lan9303_disable_processing(struct lan9303 *chip)
->>   {
->>   	int ret;
+>> @@ -17,6 +17,7 @@
+>>   #include <linux/regmap.h>
+>>   #include <linux/mutex.h>
+>>   #include <linux/mii.h>
+>> +#include <linux/phy.h>
 >>   
->> -	ret = lan9303_disable_packet_processing(chip, LAN9303_PORT_0_OFFSET);
->> -	if (ret)
->> -		return ret;
->>   	ret = lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
->>   	if (ret)
->>   		return ret;
->> @@ -633,10 +630,6 @@ static int lan9303_setup(struct dsa_switch *ds)
->>   	if (ret)
->>   		dev_err(chip->dev, "failed to separate ports %d\n", ret);
+>>   #include "lan9303.h"
 >>   
->> -	ret = lan9303_enable_packet_processing(chip, LAN9303_PORT_0_OFFSET);
->> -	if (ret)
->> -		dev_err(chip->dev, "failed to re-enable switching %d\n", ret);
->> -
+>> @@ -746,6 +747,37 @@ static int lan9303_phy_write(struct dsa_switch *ds, int phy, int regnum,
+>>   	return chip->ops->phy_write(chip, phy, regnum, val);
+>>   }
+>>   
+>> +static void lan9303_adjust_link(struct dsa_switch *ds, int port,
+>> +				struct phy_device *phydev)
+>> +{
+>> +	struct lan9303 *chip = ds->priv;
+>> +
+>> +	int ctl, res;
+>> +
+>> +	ctl = lan9303_phy_read(ds, port, MII_BMCR);
+>> +
+>> +	if (!phy_is_pseudo_fixed_link(phydev))
+>> +		return;
+>> +
 > 
-> Does this mean you are relying on something else enabling port 0? The
-> bootloader?
+> Hi Egil
 > 
-> I'm wondering if it is better to keep the enable, but remove the
-> disable?
-> 
-> 	Andrew
+> Maybe do this check before reading MII_BMCR?
 > 
 
-The (switch engine) ports are enabled by default. The only thing our
-bootloader does is to set gpo so the lan9303 is kept in reset until
-the linux driver starts. When I test with the next-next kernel I just
-specify the reset-gpo in DTS and the driver pulls it out of reset.
+OK
 
-Keeping the enable does no harm, as far as I recall, but I can
-double check that when I get time. I have no idea why the original
-mainline code does not work for me. Maybe it is a timing issue?
+>> +	ctl &= ~BMCR_ANENABLE;
+> 
+> Should this also mask out BMCR_SPEED100 and DUPLEX_FULL? Otherwise how
+> do you select 10/Half if it is already configured for 100/Full?
+> 
+
+Yes you are right. I started out with setting ctl to the fixed default
+value, and later changed code to start by reading it from HW.
+
+
+>> +	if (phydev->speed == SPEED_100)
+>> +		ctl |= BMCR_SPEED100;
+>> +
+>> +	if (phydev->duplex == DUPLEX_FULL)
+>> +		ctl |= BMCR_FULLDPLX;
+>> +
+>> +	res =  lan9303_phy_write(ds, port, MII_BMCR, ctl);
+>> +
+>> +	if (port == chip->phy_addr_sel_strap) {
+>> +		/* Virtual Phy: Remove Turbo 200Mbit mode */
+>> +		lan9303_read(chip->regmap, LAN9303_VIRT_SPECIAL_CTRL, &ctl);
+>> +
+>> +		ctl &= ~(1 << 10); // TURBO BIT
+> 
+> BIT(10), or better still something like BIT(LAN9303_VIRT_SPECIAL_TURBO)
+> 
+
+Agree
+
+>> +		res =  regmap_write(chip->regmap,
+>> +				    LAN9303_VIRT_SPECIAL_CTRL, ctl);
+>> +	}
+>> +}
+> 
+>    Andrew
+> 
+
