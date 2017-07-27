@@ -1,39 +1,48 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [-next] rtlwifi: kfree entry until after entry->bssid has been
- accessed
-Date: Thu, 27 Jul 2017 10:58:35 +0000 (UTC)
-Message-ID: <20170727105836.02AB5607C8@smtp.codeaurora.org>
-References: <20170630100843.9188-1-colin.king@canonical.com>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next v2 06/10] net: dsa: lan9303: added sysfs node
+ swe_bcst_throt
+Date: Thu, 27 Jul 2017 12:59:44 +0200
+Message-ID: <f0105583-9363-e8a6-79fc-675bb8dbadcf@egil-hjelmeland.no>
+References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
+ <20170725161553.30147-7-privat@egil-hjelmeland.no>
+ <20170726171423.GQ12049@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin Ian King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170630100843.9188-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, davem@davemloft.net, kernel@pengutronix.de,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20170726171423.GQ12049@lunn.ch>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Colin Ian King <colin.king@canonical.com> wrote:
-
-> From: Colin Ian King <colin.king@canonical.com>
+On 26. juli 2017 19:14, Andrew Lunn wrote:
+> On Tue, Jul 25, 2017 at 06:15:49PM +0200, Egil Hjelmeland wrote:
+>> Allowing per-port access to Switch Engine Broadcast Throttling Register
 > 
-> The current code kfree's entry and then dereferences it by accessing
-> entry->bssid.  Avoid the dereference-after-free by moving the kfree
-> after the access to entry->bssid.
+> Hi Egil
 > 
-> Detected by CoverityScan, CID#1448600 ("Read from pointer after free")
+> In general, we are against using sysfs. If there is a generic
+> mechanism, that applies for all sorts of network interfaces, it should
+> be used instead of sysfs.
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Is this intended to reduce the effect of broadcast storms?
+> 
+>     Andrew
+> 
 
-Patch applied to wireless-drivers-next.git, thanks.
+Yes, this setting can be used to reduce effect of broadcast storms.
 
-d0116f6f7b30 rtlwifi: kfree entry until after entry->bssid has been accessed
+I knew you all dislike using sysfs. Still I had a hope you could accept
+the dsa_net_device_to_dsa_port() function it the previous patch.
+I feel it would be convenient to be able to add driver sysfs nodes in
+private branches for own debug and fine tuning, without having to patch
+the networking core.
 
--- 
-https://patchwork.kernel.org/patch/9819083/
 
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+
+Egil
