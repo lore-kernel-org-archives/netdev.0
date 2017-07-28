@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: phy: Remove stale comments referencing
- timer
-Date: Thu, 27 Jul 2017 17:27:57 -0700 (PDT)
-Message-ID: <20170727.172757.99045256740169790.davem@davemloft.net>
-References: <20170726190538.27674-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH v3 net-next 0/2] liquidio: standardization and cleanup
+Date: Thu, 27 Jul 2017 17:29:47 -0700 (PDT)
+Message-ID: <20170727.172947.1222445087917230592.davem@davemloft.net>
+References: <20170726190945.GA1152@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, slash.tmp@free.fr
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39064 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39088 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751551AbdG1A17 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 20:27:59 -0400
-In-Reply-To: <20170726190538.27674-1-f.fainelli@gmail.com>
+        with ESMTP id S1751563AbdG1A3t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 20:29:49 -0400
+In-Reply-To: <20170726190945.GA1152@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 26 Jul 2017 12:05:38 -0700
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Wed, 26 Jul 2017 12:09:45 -0700
 
-> Since commit a390d1f379cf ("phylib: convert state_queue work to
-> delayed_work"), the PHYLIB state machine was converted to use delayed
-> workqueues, yet some functions were still referencing the PHY library
-> timer in their comments, fix that and remove the now unused
-> linux/timer.h include.
+> From: Rick Farrington <ricardo.farrington@cavium.com>
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> This patchset corrects some non-standard macro usage.
+> 
+> 1. Replaced custom MIN macro with use of standard 'min_t'.
+> 2. Removed cryptic and misleading macro 'CAST_ULL'.
+> 
+> change log:
+> V1 -> V2:
+>   1. Add driver cleanup of macro 'CAST_ULL'.
+> V2 -> V3:
+>   1. Remove extra parentheses from previous usage of macro 'CAST_ULL'.
 
-Applied.
+Series applied, thank you.
