@@ -1,7 +1,8 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v4 0/4] net: ethernet: ti: cpts: fix tx timestamping timeout
-Date: Fri, 28 Jul 2017 17:30:01 -0500
-Message-ID: <20170728223005.21420-1-grygorii.strashko@ti.com>
+Subject: [PATCH v4 2/4] net: ethernet: ti: cpts: convert to use ptp auxiliary worker
+Date: Fri, 28 Jul 2017 17:30:03 -0500
+Message-ID: <20170728223005.21420-3-grygorii.strashko@ti.com>
+References: <20170728223005.21420-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
@@ -13,65 +14,104 @@ Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Richard Cochran <richardcochran@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170728223005.21420-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+There could be significant delay in CPTS work schedule under high system
+load and on -RT which could cause CPTS misbehavior due to internal counter
+overflow. Usage of own kthread_worker allows to avoid such kind of issues
+and makes it possible to tune priority of CPTS kthread_worker thread on -RT
+(thread name "cpts").
 
-With the low Ethernet connection speed cpdma notification about packet
-processing can be received before CPTS TX timestamp event, which is set
-when packet actually left CPSW while cpdma notification is sent when packet
-pushed in CPSW fifo. As result, when connection is slow and CPU is fast
-enough TX timestamping is not working properly.
-Issue was discovered using timestamping tool on am57x boards with Ethernet link
-speed forced to 100M and on am335x-evm with Ethernet link speed forced to 10M.
+Hence, the CPTS driver is converted to use PTP auxiliary worker as PHC
+subsystem implements such functionality in a generic way now.
 
-Patch3 - This series fixes it by introducing TX SKB queue to store PTP SKBs for
-which Ethernet Transmit Event hasn't been received yet and then re-check this
-queue with new Ethernet Transmit Events by scheduling CPTS overflow
-work more often until TX SKB queue is not empty.
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/cpts.c | 27 +++++++++++++--------------
+ drivers/net/ethernet/ti/cpts.h |  1 -
+ 2 files changed, 13 insertions(+), 15 deletions(-)
 
-Patch 1,2 - As CPTS overflow work is time critical task it important to ensure
-that its scheduling is not delayed. Unfortunately, There could be significant
-delay in CPTS work schedule under high system load and on -RT which could cause
-CPTS misbehavior due to internal counter overflow and there is no way to tune
-CPTS overflow work execution policy and priority manually. The kthread_worker
-can be used instead of workqueues, as it creates separate named kthread for
-each worker and its its execution policy and priority can be configured
-using chrt tool. Instead of modifying CPTS driver itself it was proposed to
-it was proposed to add PTP auxiliary worker to the PHC subsystem [1], so
-other drivers can benefit from this feature also.
-
-[1] https://www.spinics.net/lists/netdev/msg445392.html
-
-changes in v4:
-- fixed memleak in ptp_clock_register()
-- undocumented change in cpts_find_ts() moved to separate patch (minor fix)
-
-changes in v3:
-- patch 1: added proper error handling in ptp_clock_register. 
-  minor comments applied.
-
-changes in v2:
-- added PTP auxiliary worker to the PHC subsystem
-
-Links
-v3: https://www.spinics.net/lists/netdev/msg446058.html
-v2: https://www.spinics.net/lists/netdev/msg445859.html
-v1: https://www.spinics.net/lists/netdev/msg445387.html
-
-Grygorii Strashko (4):
-  ptp: introduce ptp auxiliary worker
-  net: ethernet: ti: cpts: convert to use ptp auxiliary worker
-  net: ethernet: ti: cpts: fix tx timestamping timeout
-  net: ethernet: ti: cpts: fix fifo read in cpts_find_ts
-
- drivers/net/ethernet/ti/cpts.c   | 111 +++++++++++++++++++++++++++++++++------
- drivers/net/ethernet/ti/cpts.h   |   2 +-
- drivers/ptp/ptp_clock.c          |  42 +++++++++++++++
- drivers/ptp/ptp_private.h        |   3 ++
- include/linux/ptp_clock_kernel.h |  20 +++++++
- 5 files changed, 161 insertions(+), 17 deletions(-)
-
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index 32279d2..3ed438e 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -224,6 +224,17 @@ static int cpts_ptp_enable(struct ptp_clock_info *ptp,
+ 	return -EOPNOTSUPP;
+ }
+ 
++static long cpts_overflow_check(struct ptp_clock_info *ptp)
++{
++	struct cpts *cpts = container_of(ptp, struct cpts, info);
++	unsigned long delay = cpts->ov_check_period;
++	struct timespec64 ts;
++
++	cpts_ptp_gettime(&cpts->info, &ts);
++	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
++	return (long)delay;
++}
++
+ static struct ptp_clock_info cpts_info = {
+ 	.owner		= THIS_MODULE,
+ 	.name		= "CTPS timer",
+@@ -236,18 +247,9 @@ static struct ptp_clock_info cpts_info = {
+ 	.gettime64	= cpts_ptp_gettime,
+ 	.settime64	= cpts_ptp_settime,
+ 	.enable		= cpts_ptp_enable,
++	.do_aux_work	= cpts_overflow_check,
+ };
+ 
+-static void cpts_overflow_check(struct work_struct *work)
+-{
+-	struct timespec64 ts;
+-	struct cpts *cpts = container_of(work, struct cpts, overflow_work.work);
+-
+-	cpts_ptp_gettime(&cpts->info, &ts);
+-	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
+-	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
+-}
+-
+ static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
+ 		      u16 ts_seqid, u8 ts_msgtype)
+ {
+@@ -378,7 +380,7 @@ int cpts_register(struct cpts *cpts)
+ 	}
+ 	cpts->phc_index = ptp_clock_index(cpts->clock);
+ 
+-	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
++	ptp_schedule_worker(cpts->clock, cpts->ov_check_period);
+ 	return 0;
+ 
+ err_ptp:
+@@ -392,8 +394,6 @@ void cpts_unregister(struct cpts *cpts)
+ 	if (WARN_ON(!cpts->clock))
+ 		return;
+ 
+-	cancel_delayed_work_sync(&cpts->overflow_work);
+-
+ 	ptp_clock_unregister(cpts->clock);
+ 	cpts->clock = NULL;
+ 
+@@ -476,7 +476,6 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
+ 	cpts->dev = dev;
+ 	cpts->reg = (struct cpsw_cpts __iomem *)regs;
+ 	spin_lock_init(&cpts->lock);
+-	INIT_DELAYED_WORK(&cpts->overflow_work, cpts_overflow_check);
+ 
+ 	ret = cpts_of_parse(cpts, node);
+ 	if (ret)
+diff --git a/drivers/net/ethernet/ti/cpts.h b/drivers/net/ethernet/ti/cpts.h
+index 01ea82b..586edd9 100644
+--- a/drivers/net/ethernet/ti/cpts.h
++++ b/drivers/net/ethernet/ti/cpts.h
+@@ -119,7 +119,6 @@ struct cpts {
+ 	u32 cc_mult; /* for the nominal frequency */
+ 	struct cyclecounter cc;
+ 	struct timecounter tc;
+-	struct delayed_work overflow_work;
+ 	int phc_index;
+ 	struct clk *refclk;
+ 	struct list_head events;
 -- 
 2.10.1
