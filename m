@@ -1,55 +1,33 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/3] net-next: stmmac: support future
- possible different internal phy mode
-Date: Fri, 28 Jul 2017 16:44:24 +0200
-Message-ID: <20170728144424.GB7221@Red>
-References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
- <20170728135544.GD32230@lunn.ch>
- <20170728142508.GA7221@Red>
- <20170728143600.GB2132@lunn.ch>
-Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH net] mcs7780: Silence uninitialized variable warning
+Date: Fri, 28 Jul 2017 17:45:11 +0300
+Message-ID: <20170728144511.tf7nc672hwo35rnn@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	icenowy-h8G6r0blFSE@public.gmane.org
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBUE35XFQKGQE7VTSH7I-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170728143600.GB2132-g2DYL2Zd6BY@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2017 at 04:36:00PM +0200, Andrew Lunn wrote:
-> > > I've probably asked this before: Does the internal PHY use a different
-> > > PHY ID in registers 2 and 3?
-> > > 
-> > 
-> > yes
-> > 
-> > reg2: 0x0044
-> > reg3: 0X1500
+My static checker complains that, if the allocation in mcs_get_reg()
+fails, it means we use "rval" without initializing it.  Small
+allocations never fail in current kernels so it's not a major concern
+but it's simple enough to silence the warning.
 
-Copy/paste error, its 1400
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-> 
-> So this is not about loading the correct PHY driver. You can already
-> do this based on the PHY IDs...
-> 
-> This is about selecting which PHY to use. Internal or External?	
-> 
->      Andrew
-
-It is too late when we know the PHY ID.
-We need to set a syscon for choosing external/internal PHY.
-So we can rely only on DT.
+diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
+index 765de3bedb88..64b29880e534 100644
+--- a/drivers/net/irda/mcs7780.c
++++ b/drivers/net/irda/mcs7780.c
+@@ -585,7 +585,7 @@ static int mcs_speed_change(struct mcs_cb *mcs)
+ 	int rst = 0;
+ 	int cnt = 0;
+ 	__u16 nspeed;
+-	__u16 rval;
++	__u16 rval = -1;
+ 
+ 	nspeed = mcs_speed_set[(mcs->new_speed >> 8) & 0x0f];
+ 
