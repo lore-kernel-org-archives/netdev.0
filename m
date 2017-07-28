@@ -1,100 +1,62 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 16/20] net: sched: cls_bpf: no need to call tcf_exts_change for newly allocated struct
-Date: Fri, 28 Jul 2017 16:40:38 +0200
-Message-ID: <20170728144042.6380-17-jiri@resnulli.us>
-References: <20170728144042.6380-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36399 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752210AbdG1Olg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:41:36 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 184so27681721wmo.3
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:41:36 -0700 (PDT)
-In-Reply-To: <20170728144042.6380-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH net] tcp: avoid bogus gcc-7 array-bounds warning
+Date: Fri, 28 Jul 2017 16:41:37 +0200
+Message-ID: <20170728144153.2024234-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, Eric Dumazet <edumazet@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Yuchung Cheng <ycheng@google.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+When using CONFIG_UBSAN_SANITIZE_ALL, the TCP code produces a
+false-positive warning:
 
-As the prog struct was allocated right before cls_bpf_set_parms call,
-no need to use tcf_exts_change to do atomic change, and we can just
-fill-up the unused exts struct directly by tcf_exts_validate.
+net/ipv4/tcp_output.c: In function 'tcp_connect':
+net/ipv4/tcp_output.c:2207:40: error: array subscript is below array bounds [-Werror=array-bounds]
+   tp->chrono_stat[tp->chrono_type - 1] += now - tp->chrono_start;
+                                        ^~
+net/ipv4/tcp_output.c:2207:40: error: array subscript is below array bounds [-Werror=array-bounds]
+   tp->chrono_stat[tp->chrono_type - 1] += now - tp->chrono_start;
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+I have opened a gcc bug for this, but distros have already shipped
+compilers with this problem, and it's not clear yet whether there is
+a way for gcc to avoid the warning. As the problem is related to the
+bitfield access, this introduces a temporary variable to store the old
+enum value.
+
+I did not notice this warning earlier, since UBSAN is disabled when
+building with COMPILE_TEST, and that was always turned on in both
+allmodconfig and randconfig tests.
+
+Link: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81601
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- net/sched/cls_bpf.c | 25 +++++++------------------
- 1 file changed, 7 insertions(+), 18 deletions(-)
+ net/ipv4/tcp_output.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 929cae9..d8bc3ec 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -387,7 +387,6 @@ static int cls_bpf_set_parms(struct net *net, struct tcf_proto *tp,
- 			     struct nlattr **tb, struct nlattr *est, bool ovr)
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 886d874775df..bb901297a369 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2202,9 +2202,10 @@ static bool tcp_small_queue_check(struct sock *sk, const struct sk_buff *skb,
+ static void tcp_chrono_set(struct tcp_sock *tp, const enum tcp_chrono new)
  {
- 	bool is_bpf, is_ebpf, have_exts = false;
--	struct tcf_exts exts;
- 	u32 gen_flags = 0;
- 	int ret;
+ 	const u32 now = tcp_jiffies32;
++	enum tcp_chrono old = tp->chrono_type;
  
-@@ -396,28 +395,23 @@ static int cls_bpf_set_parms(struct net *net, struct tcf_proto *tp,
- 	if ((!is_bpf && !is_ebpf) || (is_bpf && is_ebpf))
- 		return -EINVAL;
- 
--	tcf_exts_init(&exts, TCA_BPF_ACT, TCA_BPF_POLICE);
--	ret = tcf_exts_validate(net, tp, tb, est, &exts, ovr);
-+	ret = tcf_exts_validate(net, tp, tb, est, &prog->exts, ovr);
- 	if (ret < 0)
--		goto errout;
-+		return ret;
- 
- 	if (tb[TCA_BPF_FLAGS]) {
- 		u32 bpf_flags = nla_get_u32(tb[TCA_BPF_FLAGS]);
- 
--		if (bpf_flags & ~TCA_BPF_FLAG_ACT_DIRECT) {
--			ret = -EINVAL;
--			goto errout;
--		}
-+		if (bpf_flags & ~TCA_BPF_FLAG_ACT_DIRECT)
-+			return -EINVAL;
- 
- 		have_exts = bpf_flags & TCA_BPF_FLAG_ACT_DIRECT;
- 	}
- 	if (tb[TCA_BPF_FLAGS_GEN]) {
- 		gen_flags = nla_get_u32(tb[TCA_BPF_FLAGS_GEN]);
- 		if (gen_flags & ~CLS_BPF_SUPPORTED_GEN_FLAGS ||
--		    !tc_flags_valid(gen_flags)) {
--			ret = -EINVAL;
--			goto errout;
--		}
-+		    !tc_flags_valid(gen_flags))
-+			return -EINVAL;
- 	}
- 
- 	prog->exts_integrated = have_exts;
-@@ -426,19 +420,14 @@ static int cls_bpf_set_parms(struct net *net, struct tcf_proto *tp,
- 	ret = is_bpf ? cls_bpf_prog_from_ops(tb, prog) :
- 		       cls_bpf_prog_from_efd(tb, prog, tp);
- 	if (ret < 0)
--		goto errout;
-+		return ret;
- 
- 	if (tb[TCA_BPF_CLASSID]) {
- 		prog->res.classid = nla_get_u32(tb[TCA_BPF_CLASSID]);
- 		tcf_bind_filter(tp, &prog->res, base);
- 	}
- 
--	tcf_exts_change(&prog->exts, &exts);
- 	return 0;
--
--errout:
--	tcf_exts_destroy(&exts);
--	return ret;
+-	if (tp->chrono_type > TCP_CHRONO_UNSPEC)
+-		tp->chrono_stat[tp->chrono_type - 1] += now - tp->chrono_start;
++	if (old > TCP_CHRONO_UNSPEC)
++		tp->chrono_stat[old - 1] += now - tp->chrono_start;
+ 	tp->chrono_start = now;
+ 	tp->chrono_type = new;
  }
- 
- static u32 cls_bpf_grab_new_handle(struct tcf_proto *tp,
 -- 
-2.9.3
+2.9.0
