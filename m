@@ -1,31 +1,34 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: refcount_t + (resend to wider audience)
-Date: Fri, 28 Jul 2017 23:23:49 +0200
-Message-ID: <20170728212349.GA11564@lunn.ch>
-References: <adaee9d9-1d35-921c-36b3-e32e6c8ce9e3@android.com>
- <20170728174117.GL2132@lunn.ch>
- <48b0c119-5277-1eca-d5d6-f2539ad3a7e8@android.com>
- <20170728.123139.1354715651678675641.davem@davemloft.net>
- <0eba17bc-218e-c45c-5a49-9313126cd018@android.com>
+Subject: Re: [PATCH V2 3/4] net-next: dsa: fix flow dissection
+Date: Fri, 28 Jul 2017 23:25:55 +0200
+Message-ID: <20170728212555.GB11564@lunn.ch>
+References: <20170721085813.30789-1-john@phrozen.org>
+ <20170721085813.30789-3-john@phrozen.org>
+ <20170726151013.GD12049@lunn.ch>
+ <82b46393-6c63-eedf-25e4-2bd2278c0d16@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        stable@vger.kernel.org
-To: Mark Salyzyn <salyzyn@android.com>
-Return-path: <stable-owner@vger.kernel.org>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: John Crispin <john@phrozen.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:44348 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752569AbdG1V0E (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Jul 2017 17:26:04 -0400
 Content-Disposition: inline
-In-Reply-To: <0eba17bc-218e-c45c-5a49-9313126cd018@android.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <82b46393-6c63-eedf-25e4-2bd2278c0d16@phrozen.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Please, guidance on where I can go from here.
+> thanks for the feedback. should I add 2 callbacks for each of the 2
+> parameters ?
 
-Hi Mark
+Hi John
 
-Real fixes will be accepted. So check if there are any refcount fixes
-which are not in stable. If so, ask for the fix to be added to stable.
+A single callback is better. We don't want to have to peek into the
+packet twice to determine two values.
 
-A fix should be independent of the infrastructure used to find there
-is an issue.
-
-   Andrew
+       Andrew
