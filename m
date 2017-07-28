@@ -1,68 +1,123 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 17/20] net: sched: cls_cgroup: no need to call tcf_exts_change for newly allocated struct
-Date: Fri, 28 Jul 2017 16:40:39 +0200
-Message-ID: <20170728144042.6380-18-jiri@resnulli.us>
+Subject: [patch net-next 19/20] net: sched: cls_route: no need to call tcf_exts_change for newly allocated struct
+Date: Fri, 28 Jul 2017 16:40:41 +0200
+Message-ID: <20170728144042.6380-20-jiri@resnulli.us>
 References: <20170728144042.6380-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35329 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752215AbdG1Olh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:41:37 -0400
-Received: by mail-wm0-f66.google.com with SMTP id r77so14582242wmd.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:41:37 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:38387 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752215AbdG1Olk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:41:40 -0400
+Received: by mail-wr0-f194.google.com with SMTP id g32so9460250wrd.5
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:41:40 -0700 (PDT)
 In-Reply-To: <20170728144042.6380-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-As the new struct just was allocated, so no need to use tcf_exts_change
-to do atomic change, and we can just fill-up the unused exts struct
-directly by tcf_exts_validate.
+As the f struct was allocated right before route4_set_parms call,
+no need to use tcf_exts_change to do atomic change, and we can just
+fill-up the unused exts struct directly by tcf_exts_validate.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_cgroup.c | 14 +++-----------
- 1 file changed, 3 insertions(+), 11 deletions(-)
+ net/sched/cls_route.c | 30 ++++++++++--------------------
+ 1 file changed, 10 insertions(+), 20 deletions(-)
 
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index f6f302a..676855f 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -76,7 +76,6 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
- 	struct nlattr *tb[TCA_CGROUP_MAX + 1];
- 	struct cls_cgroup_head *head = rtnl_dereference(tp->root);
- 	struct cls_cgroup_head *new;
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index 60be2c4..a3a09fc 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -372,35 +372,32 @@ static int route4_set_parms(struct net *net, struct tcf_proto *tp,
+ 	struct route4_filter *fp;
+ 	unsigned int h1;
+ 	struct route4_bucket *b;
 -	struct tcf_exts e;
  	int err;
  
- 	if (!tca[TCA_OPTIONS])
-@@ -100,20 +99,13 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
+-	tcf_exts_init(&e, TCA_ROUTE4_ACT, TCA_ROUTE4_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
++	err = tcf_exts_validate(net, tp, tb, est, &f->exts, ovr);
  	if (err < 0)
- 		goto errout;
+-		goto errout;
++		return err;
  
--	tcf_exts_init(&e, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
--	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, ovr);
--	if (err < 0) {
--		tcf_exts_destroy(&e);
-+	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &new->exts, ovr);
-+	if (err < 0)
- 		goto errout;
--	}
+-	err = -EINVAL;
+ 	if (tb[TCA_ROUTE4_TO]) {
+ 		if (new && handle & 0x8000)
+-			goto errout;
++			return -EINVAL;
+ 		to = nla_get_u32(tb[TCA_ROUTE4_TO]);
+ 		if (to > 0xFF)
+-			goto errout;
++			return -EINVAL;
+ 		nhandle = to;
+ 	}
  
- 	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &new->ematches);
--	if (err < 0) {
--		tcf_exts_destroy(&e);
-+	if (err < 0)
- 		goto errout;
--	}
+ 	if (tb[TCA_ROUTE4_FROM]) {
+ 		if (tb[TCA_ROUTE4_IIF])
+-			goto errout;
++			return -EINVAL;
+ 		id = nla_get_u32(tb[TCA_ROUTE4_FROM]);
+ 		if (id > 0xFF)
+-			goto errout;
++			return -EINVAL;
+ 		nhandle |= id << 16;
+ 	} else if (tb[TCA_ROUTE4_IIF]) {
+ 		id = nla_get_u32(tb[TCA_ROUTE4_IIF]);
+ 		if (id > 0x7FFF)
+-			goto errout;
++			return -EINVAL;
+ 		nhandle |= (id | 0x8000) << 16;
+ 	} else
+ 		nhandle |= 0xFFFF << 16;
+@@ -408,27 +405,25 @@ static int route4_set_parms(struct net *net, struct tcf_proto *tp,
+ 	if (handle && new) {
+ 		nhandle |= handle & 0x7F00;
+ 		if (nhandle != handle)
+-			goto errout;
++			return -EINVAL;
+ 	}
+ 
+ 	h1 = to_hash(nhandle);
+ 	b = rtnl_dereference(head->table[h1]);
+ 	if (!b) {
+-		err = -ENOBUFS;
+ 		b = kzalloc(sizeof(struct route4_bucket), GFP_KERNEL);
+ 		if (b == NULL)
+-			goto errout;
++			return -ENOBUFS;
+ 
+ 		rcu_assign_pointer(head->table[h1], b);
+ 	} else {
+ 		unsigned int h2 = from_hash(nhandle >> 16);
+ 
+-		err = -EEXIST;
+ 		for (fp = rtnl_dereference(b->ht[h2]);
+ 		     fp;
+ 		     fp = rtnl_dereference(fp->next))
+ 			if (fp->handle == f->handle)
+-				goto errout;
++				return -EEXIST;
+ 	}
+ 
+ 	if (tb[TCA_ROUTE4_TO])
+@@ -448,12 +443,7 @@ static int route4_set_parms(struct net *net, struct tcf_proto *tp,
+ 		tcf_bind_filter(tp, &f->res, base);
+ 	}
+ 
+-	tcf_exts_change(&f->exts, &e);
 -
--	tcf_exts_change(&new->exts, &e);
+ 	return 0;
+-errout:
+-	tcf_exts_destroy(&e);
+-	return err;
+ }
  
- 	rcu_assign_pointer(tp->root, new);
- 	if (head)
+ static int route4_change(struct net *net, struct sk_buff *in_skb,
 -- 
 2.9.3
