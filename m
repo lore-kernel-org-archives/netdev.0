@@ -1,64 +1,59 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 00/10] net/smc: get rid of unsafe_global_rkey
-Date: Fri, 28 Jul 2017 13:56:12 +0200
-Message-ID: <20170728115622.17247-1-ubraun@linux.vnet.ibm.com>
-Cc: hch@lst.de, netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:43677 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751725AbdG1L4b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 07:56:31 -0400
-Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v6SBtTfp004533
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:56:31 -0400
-Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2c0465jaje-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:56:31 -0400
-Received: from localhost
-        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Fri, 28 Jul 2017 12:56:28 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH net-next 01/10] net/smc: serialize connection creation in all cases
+Date: Fri, 28 Jul 2017 13:56:13 +0200
+Message-ID: <20170728115622.17247-2-ubraun@linux.vnet.ibm.com>
+References: <20170728115622.17247-1-ubraun@linux.vnet.ibm.com>
+Cc: hch-jcswGhMUV9g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+        schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+        raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170728115622.17247-1-ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dave,
+If a link group for a new server connection exists already, the mutex
+serializing the determination of link groups is given up early.
+The coming registration of memory regions benefits from the serialization
+as well, if the mutex is held till connection creation is finished.
+This patch postpones the unlocking of the link group creation mutex.
 
-The smc code uses the unsafe_global_rkey, exposing all memory for
-remote reads and writes once a connection is established.
-Here is now a patch series to get rid of unsafe_global_rkey usage.
-Main idea is to switch to SG-logic and separate memory regions for RMBs.
+Signed-off-by: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+---
+ net/smc/af_smc.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-Thanks, Ursula
-
-Ursula Braun (10):
-  net/smc: serialize connection creation in all cases
-  net/smc: shorten local bufsize variables
-  net/smc: introduce sg-logic for RMBs
-  net/smc: use separate memory regions for RMBs
-  net/smc: register RMB-related memory region
-  net/smc: remove Kconfig warning
-  net/smc: introduce sg-logic for send buffers
-  net/smc: common functions for RMBs and send buffers
-  net/smc: cleanup function __smc_buf_create()
-  net/smc: synchronize buffer usage with device
-
- net/smc/Kconfig    |   4 -
- net/smc/af_smc.c   |  64 ++++++---
- net/smc/smc_clc.c  |  12 +-
- net/smc/smc_core.c | 388 +++++++++++++++++++++++++++++------------------------
- net/smc/smc_core.h |  31 +++--
- net/smc/smc_ib.c   | 128 +++++++++++++++---
- net/smc/smc_ib.h   |  19 ++-
- net/smc/smc_rx.c   |   3 +
- net/smc/smc_tx.c   |   9 +-
- net/smc/smc_wr.c   |  63 +++++++++
- net/smc/smc_wr.h   |   1 +
- 11 files changed, 477 insertions(+), 245 deletions(-)
-
+diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
+index 6793d7348cc8..120a7b9b4d8e 100644
+--- a/net/smc/af_smc.c
++++ b/net/smc/af_smc.c
+@@ -779,11 +779,6 @@ static void smc_listen_work(struct work_struct *work)
+ 	mutex_lock(&smc_create_lgr_pending);
+ 	local_contact = smc_conn_create(new_smc, peeraddr.sin_addr.s_addr,
+ 					smcibdev, ibport, &pclc.lcl, 0);
+-	if (local_contact == SMC_REUSE_CONTACT)
+-		/* lock no longer needed, free it due to following
+-		 * smc_clc_wait_msg() call
+-		 */
+-		mutex_unlock(&smc_create_lgr_pending);
+ 	if (local_contact < 0) {
+ 		rc = local_contact;
+ 		if (rc == -ENOMEM)
+@@ -853,8 +848,7 @@ static void smc_listen_work(struct work_struct *work)
+ 	if (newsmcsk->sk_state == SMC_INIT)
+ 		newsmcsk->sk_state = SMC_ACTIVE;
+ enqueue:
+-	if (local_contact == SMC_FIRST_CONTACT)
+-		mutex_unlock(&smc_create_lgr_pending);
++	mutex_unlock(&smc_create_lgr_pending);
+ 	lock_sock_nested(&lsmc->sk, SINGLE_DEPTH_NESTING);
+ 	if (lsmc->sk.sk_state == SMC_LISTEN) {
+ 		smc_accept_enqueue(&lsmc->sk, newsmcsk);
 -- 
 2.11.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
