@@ -1,56 +1,45 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: rt2x00: make const array glrt_table static
-Date: Fri, 28 Jul 2017 19:51:11 +0300
-Message-ID: <877eyswlmo.fsf@purkki.adurom.net>
-References: <20170711114733.15387-1-colin.king@canonical.com>
-        <20170728150130.336D06095E@smtp.codeaurora.org>
+Subject: Re: [v3,04/10] ipw2200: constify attribute_group structures
+Date: Fri, 28 Jul 2017 19:54:56 +0300
+Message-ID: <87379gwlgf.fsf@purkki.adurom.net>
+References: <1500371102-14758-1-git-send-email-arvind.yadav.cs@gmail.com>
+        <20170728150611.96B1A60884@smtp.codeaurora.org>
+        <87inicwqe2.fsf@purkki.adurom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-        Helmut Schaa <helmut.schaa@googlemail.com>,
-        linux-wireless@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Colin Ian King <colin.king@canonical.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20170728150130.336D06095E@smtp.codeaurora.org> (Kalle Valo's
-        message of "Fri, 28 Jul 2017 15:01:30 +0000 (UTC)")
-Sender: kernel-janitors-owner@vger.kernel.org
+Cc: davem@davemloft.net, stas.yakovlev@gmail.com, sgruszka@redhat.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-wireless@vger.kernel.org
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87inicwqe2.fsf@purkki.adurom.net> (Kalle Valo's message of "Fri,
+        28 Jul 2017 18:08:21 +0300")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Kalle Valo <kvalo@codeaurora.org> writes:
 
-> Colin Ian King <colin.king@canonical.com> wrote:
+> Kalle Valo <kvalo@codeaurora.org> writes:
 >
->> From: Colin Ian King <colin.king@canonical.com>
->> 
->> Don't populate array glrt_table on the stack but make it static.
->> Makes the object code a smaller by over 670 bytes:
->> 
->> Before:
->>    text	   data	    bss	    dec	    hex	filename
->>  131772	   4733	      0	 136505	  21539	rt2800lib.o
->> 
->> After:
->>    text	   data	    bss	    dec	    hex	filename
->>  131043	   4789	      0	 135832	  21298	rt2800lib.o
->> 
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->> Acked-by: Stanislaw Gruszka <sgruszka@redhat.com>
+>> Arvind Yadav <arvind.yadav.cs@gmail.com> wrote:
+>>
+>>> attribute_group are not supposed to change at runtime. All functions
+>>> working with attribute_group provided by <linux/sysfs.h> work
+>>> with const attribute_group. So mark the non-const structs as const.
+>>> 
+>>> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+>>
+>> 4 patches applied to wireless-drivers-next.git, thanks.
+>>
+>> 17830147c40a mwifiex: fix spelling mistake: "Insuffient" -> "Insufficient"
+>> 185ffc194800 ipw2100: don't return positive values to PCI probe on error
+>> af643fe9bbe0 zd1211rw: fix spelling mistake 'hybernate' -> 'hibernate'
+>> e66d70b789d1 brcmfmac: constify pci_device_id
 >
-> Patch applied to wireless-drivers-next.git, thanks.
->
-> 17830147c40a mwifiex: fix spelling mistake: "Insuffient" -> "Insufficient"
+> Please ignore this mail, I have a bug in my patchwork script.
 
-Dave had applied this earlier and my script failed to detect that. Hence
-the commit above is wrong.
-
-commit bf98bd0be1ba509c5e6d77524ffac192f1edb2dd
-Author:     Colin Ian King <colin.king@canonical.com>
-AuthorDate: Tue Jul 11 12:47:33 2017 +0100
-Commit:     David S. Miller <davem@davemloft.net>
-CommitDate: Thu Jul 13 09:23:56 2017 -0700
-
-    rt2x00: make const array glrt_table static
+The reason was that Dave had already applied these patches but my script
+failed to detect that. I need to fix my script.
 
 -- 
 Kalle Valo
