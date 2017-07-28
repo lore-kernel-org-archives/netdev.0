@@ -1,86 +1,141 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 20/20] net: sched: cls_u32: no need to call tcf_exts_change for newly allocated struct
-Date: Fri, 28 Jul 2017 16:40:42 +0200
-Message-ID: <20170728144042.6380-21-jiri@resnulli.us>
+Subject: [patch net-next 18/20] net: sched: cls_flow: no need to call tcf_exts_change for newly allocated struct
+Date: Fri, 28 Jul 2017 16:40:40 +0200
+Message-ID: <20170728144042.6380-19-jiri@resnulli.us>
 References: <20170728144042.6380-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33303 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752229AbdG1Olm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:41:42 -0400
-Received: by mail-wm0-f66.google.com with SMTP id q189so16544747wmd.0
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:41:41 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34239 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752223AbdG1Olj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:41:39 -0400
+Received: by mail-wm0-f68.google.com with SMTP id x64so3366880wmg.1
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:41:38 -0700 (PDT)
 In-Reply-To: <20170728144042.6380-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-As the n struct was allocated right before u32_set_parms call,
-no need to use tcf_exts_change to do atomic change, and we can just
-fill-up the unused exts struct directly by tcf_exts_validate.
+As the fnew struct just was allocated, so no need to use tcf_exts_change
+to do atomic change, and we can just fill-up the unused exts struct
+directly by tcf_exts_validate.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_u32.c | 18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
+ net/sched/cls_flow.c | 36 ++++++++++++++----------------------
+ 1 file changed, 14 insertions(+), 22 deletions(-)
 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 2c834f3..b8b0786 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -723,27 +723,24 @@ static int u32_set_parms(struct net *net, struct tcf_proto *tp,
- 			 struct tc_u_knode *n, struct nlattr **tb,
- 			 struct nlattr *est, bool ovr)
- {
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index a2441c0..232f30b 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -388,7 +388,6 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 	struct flow_filter *fold, *fnew;
+ 	struct nlattr *opt = tca[TCA_OPTIONS];
+ 	struct nlattr *tb[TCA_FLOW_MAX + 1];
 -	struct tcf_exts e;
- 	int err;
+ 	unsigned int nkeys = 0;
+ 	unsigned int perturb_period = 0;
+ 	u32 baseclass = 0;
+@@ -424,27 +423,24 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 			return -EOPNOTSUPP;
+ 	}
  
--	tcf_exts_init(&e, TCA_U32_ACT, TCA_U32_POLICE);
--	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
-+	err = tcf_exts_validate(net, tp, tb, est, &n->exts, ovr);
+-	tcf_exts_init(&e, TCA_FLOW_ACT, TCA_FLOW_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, ovr);
+-	if (err < 0)
+-		goto err1;
+-
+-	err = -ENOBUFS;
+ 	fnew = kzalloc(sizeof(*fnew), GFP_KERNEL);
+ 	if (!fnew)
+-		goto err1;
++		return -ENOBUFS;
+ 
+ 	err = tcf_em_tree_validate(tp, tb[TCA_FLOW_EMATCHES], &fnew->ematches);
  	if (err < 0)
--		goto errout;
-+		return err;
+-		goto err2;
++		goto err1;
  
--	err = -EINVAL;
- 	if (tb[TCA_U32_LINK]) {
- 		u32 handle = nla_get_u32(tb[TCA_U32_LINK]);
- 		struct tc_u_hnode *ht_down = NULL, *ht_old;
+ 	tcf_exts_init(&fnew->exts, TCA_FLOW_ACT, TCA_FLOW_POLICE);
++	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &fnew->exts, ovr);
++	if (err < 0)
++		goto err2;
  
- 		if (TC_U32_KEY(handle))
--			goto errout;
-+			return -EINVAL;
+ 	fold = (struct flow_filter *)*arg;
+ 	if (fold) {
+ 		err = -EINVAL;
+ 		if (fold->handle != handle && handle)
+-			goto err3;
++			goto err2;
  
- 		if (handle) {
- 			ht_down = u32_lookup_ht(ht->tp_c, handle);
+ 		/* Copy fold into fnew */
+ 		fnew->tp = fold->tp;
+@@ -464,31 +460,31 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 		if (tb[TCA_FLOW_MODE])
+ 			mode = nla_get_u32(tb[TCA_FLOW_MODE]);
+ 		if (mode != FLOW_MODE_HASH && nkeys > 1)
+-			goto err3;
++			goto err2;
  
- 			if (ht_down == NULL)
--				goto errout;
-+				return -EINVAL;
- 			ht_down->refcnt++;
+ 		if (mode == FLOW_MODE_HASH)
+ 			perturb_period = fold->perturb_period;
+ 		if (tb[TCA_FLOW_PERTURB]) {
+ 			if (mode != FLOW_MODE_HASH)
+-				goto err3;
++				goto err2;
+ 			perturb_period = nla_get_u32(tb[TCA_FLOW_PERTURB]) * HZ;
+ 		}
+ 	} else {
+ 		err = -EINVAL;
+ 		if (!handle)
+-			goto err3;
++			goto err2;
+ 		if (!tb[TCA_FLOW_KEYS])
+-			goto err3;
++			goto err2;
+ 
+ 		mode = FLOW_MODE_MAP;
+ 		if (tb[TCA_FLOW_MODE])
+ 			mode = nla_get_u32(tb[TCA_FLOW_MODE]);
+ 		if (mode != FLOW_MODE_HASH && nkeys > 1)
+-			goto err3;
++			goto err2;
+ 
+ 		if (tb[TCA_FLOW_PERTURB]) {
+ 			if (mode != FLOW_MODE_HASH)
+-				goto err3;
++				goto err2;
+ 			perturb_period = nla_get_u32(tb[TCA_FLOW_PERTURB]) * HZ;
  		}
  
-@@ -763,16 +760,11 @@ static int u32_set_parms(struct net *net, struct tcf_proto *tp,
- 		int ret;
- 		ret = tcf_change_indev(net, tb[TCA_U32_INDEV]);
- 		if (ret < 0)
--			goto errout;
-+			return -EINVAL;
- 		n->ifindex = ret;
- 	}
- #endif
--	tcf_exts_change(&n->exts, &e);
+@@ -506,8 +502,6 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 	setup_deferrable_timer(&fnew->perturb_timer, flow_perturbation,
+ 			       (unsigned long)fnew);
+ 
+-	tcf_exts_change(&fnew->exts, &e);
 -
+ 	netif_keep_dst(qdisc_dev(tp->q));
+ 
+ 	if (tb[TCA_FLOW_KEYS]) {
+@@ -546,13 +540,11 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 		call_rcu(&fold->rcu, flow_destroy_filter);
  	return 0;
--errout:
+ 
+-err3:
++err2:
+ 	tcf_exts_destroy(&fnew->exts);
+ 	tcf_em_tree_destroy(&fnew->ematches);
+-err2:
+-	kfree(fnew);
+ err1:
 -	tcf_exts_destroy(&e);
--	return err;
++	kfree(fnew);
+ 	return err;
  }
  
- static void u32_replace_knode(struct tcf_proto *tp, struct tc_u_common *tp_c,
 -- 
 2.9.3
