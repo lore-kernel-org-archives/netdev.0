@@ -1,45 +1,66 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH V5 net-next 6/8] net: hns3: Add MDIO support to HNS3
- Ethernet driver for hip08 SoC
-Date: Sat, 29 Jul 2017 01:28:59 +0200
-Message-ID: <20170728232859.GB16080@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH V5 net-next 7/8] net: hns3: Add Ethtool support to HNS3
+ driver
+Date: Sat, 29 Jul 2017 01:49:22 +0200
+Message-ID: <20170728234922.GC16080@lunn.ch>
 References: <20170728222652.118448-1-salil.mehta@huawei.com>
- <20170728222652.118448-7-salil.mehta@huawei.com>
+ <20170728222652.118448-8-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-        huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-        mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: davem@davemloft.net, yisen.zhuang@huawei.com,
+        huangdaode@hisilicon.com, lipeng321@huawei.com,
+        mehta.salil.lnk@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-rdma@vger.kernel.org,
+        linuxarm@huawei.com
+To: Salil Mehta <salil.mehta@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170728222652.118448-7-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20170728222652.118448-8-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +int hclge_mac_mdio_config(struct hclge_dev *hdev)
-> +{
-..
+On Fri, Jul 28, 2017 at 11:26:51PM +0100, Salil Mehta wrote:
+> +static const struct hns3_link_mode_mapping hns3_lm_map[] = {
+> +	{HNS3_LM_FIBRE_BIT, ETHTOOL_LINK_MODE_FIBRE_BIT, FLG},
+> +	{HNS3_LM_AUTONEG_BIT, ETHTOOL_LINK_MODE_Autoneg_BIT, FLG},
+> +	{HNS3_LM_TP_BIT, ETHTOOL_LINK_MODE_TP_BIT, FLG},
+> +	{HNS3_LM_PAUSE_BIT, ETHTOOL_LINK_MODE_Pause_BIT, FLG},
+> +	{HNS3_LM_BACKPLANE_BIT, ETHTOOL_LINK_MODE_Backplane_BIT, FLG},
+> +	{HNS3_LM_10BASET_HALF_BIT, ETHTOOL_LINK_MODE_10baseT_Half_BIT, FLG},
+> +	{HNS3_LM_10BASET_FULL_BIT, ETHTOOL_LINK_MODE_10baseT_Full_BIT, FLG},
+> +	{HNS3_LM_100BASET_HALF_BIT, ETHTOOL_LINK_MODE_100baseT_Half_BIT, FLG},
+> +	{HNS3_LM_100BASET_FULL_BIT, ETHTOOL_LINK_MODE_100baseT_Full_BIT, FLG},
+> +	{HNS3_LM_1000BASET_FULL_BIT, ETHTOOL_LINK_MODE_1000baseT_Full_BIT, FLG},
+> +};
 
-> +}
+It seems like all entries have link_mode_ksettings set to FLG. Which
+probably indicates it is pointless.
+
 > +
-> +int hclge_mac_start_phy(struct hclge_dev *hdev)
-> +{
+> +static inline void hns3_driv_to_eth_caps(u32 caps,
+> +					 struct ethtool_link_ksettings *cmd)
 
-> +}
+Please don't use inline anywhere except in header file stub
+functions. Let the compiler decide.
+
+> +static int hns3_get_link_ksettings(struct net_device *netdev,
+> +				   struct ethtool_link_ksettings *cmd)
+> +{
+> +	struct hns3_nic_priv *priv = netdev_priv(netdev);
+> +	struct hnae3_handle *h = priv->ae_handle;
+> +	u32 supported_caps;
+> +	u32 advertised_caps;
+> +	u8 media_type;
+> +	u8 link_stat;
+> +	u8 auto_neg;
+> +	u8 duplex;
+> +	u32 speed;
 > +
-> +void hclge_mac_stop_phy(struct hclge_dev *hdev)
-> +{
-> +}
-> -- 
+> +	if (!h->ae_algo || !h->ae_algo->ops)
+> +		return -ESRCH;
 
-These are not static functions. So i would expect them to be in a
-header file somewhere....
+#define	ESRCH	 3	/* No such process */
 
-       Andrew
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+No such process ????
+
+   Andrew
