@@ -1,67 +1,44 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [PATCH] Cipso: cipso_v4_optptr enter infinite loop
-Date: Fri, 28 Jul 2017 11:12:43 -0400
-Message-ID: <CAGH-KgtXtM1q2h8k--Gi7buYfdXsuXh1ZbJcSF_eL71kPdfBPA@mail.gmail.com>
-References: <1501241408-19129-1-git-send-email-yujuan.qi@mediatek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        linux-kernel@vger.kernel.org, Ryder Lee <ryder.lee@mediatek.com>
-To: Yujuan Qi <yujuan.qi@mediatek.com>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: [PATCH net-next 1/4] net: dsa: lan9303: Fix lan9303_detect_phy_setup() for MDIO
+Date: Fri, 28 Jul 2017 17:11:54 +0200
+Message-ID: <20170728151157.28983-2-privat@egil-hjelmeland.no>
+References: <20170728151157.28983-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel@pengutronix.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501241408-19129-1-git-send-email-yujuan.qi@mediatek.com>
+In-Reply-To: <20170728151157.28983-1-privat@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2017 at 7:30 AM, Yujuan Qi <yujuan.qi@mediatek.com> wrote:
-> From: "yujuan.qi" <yujuan.qi@mediatek.com>
->
-> in for(),if((optlen > 0) && (optptr[1] == 0)), enter infinite loop.
->
-> Test: receive a packet which the ip length > 20 and the first byte of ip option is 0, produce this issue
->
-> Signed-off-by: yujuan.qi <yujuan.qi@mediatek.com>
-> ---
->  net/ipv4/cipso_ipv4.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-> index ae20616..b3d97c7 100644
-> --- a/net/ipv4/cipso_ipv4.c
-> +++ b/net/ipv4/cipso_ipv4.c
-> @@ -1528,6 +1528,8 @@ unsigned char *cipso_v4_optptr(const struct sk_buff *skb)
->                 taglen = optptr[1];
->                 optlen -= taglen;
->                 optptr += taglen;
-> +               if (!taglen)
-> +                       break;
->         }
->
->         return NULL;
+Handle that MDIO read with no response return 0xffff.
 
-Thanks for catching this and submitting a patch.  Unfortunately
-checking taglen/optptr[1] isn't going to help with the NOP and EOL
-options as they are single byte options.  I think a for-loop like the
-following, or something similar, is probably the better solution:
+Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+---
+ drivers/net/dsa/lan9303-core.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-  for (optlen = iph->ihl*4 - sizeof(struct iphdr); optlen > 0; ) {
-         switch (optptr[0]) {
-         case IPOPT_CIPSO:
-                 return optptr;
-         case IPOPT_END:
-                 return NULL;
-         case IPOPT_NOOP:
-                 taglen = 1;
-                 break;
-         default:
-                 taglen = optptr[1];
-         }
-         optlen -= taglen;
-         optptr += taglen;
-  }
-
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index cd76e61f1fca..9d0ab77edb4a 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -427,6 +427,7 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+ 	 * Special reg 18 of phy 3 reads as 0x0000, if 'phy_addr_sel_strap' is 0
+ 	 * and the IDs are 0-1-2, else it contains something different from
+ 	 * 0x0000, which means 'phy_addr_sel_strap' is 1 and the IDs are 1-2-3.
++	 * 0xffff is returned on MDIO read with no response.
+ 	 */
+ 	reg = lan9303_port_phy_reg_read(chip, 3, MII_LAN911X_SPECIAL_MODES);
+ 	if (reg < 0) {
+@@ -434,7 +435,7 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+ 		return reg;
+ 	}
+ 
+-	if (reg != 0)
++	if ((reg != 0) && (reg != 0xffff))
+ 		chip->phy_addr_sel_strap = 1;
+ 	else
+ 		chip->phy_addr_sel_strap = 0;
 -- 
-paul moore
-security @ redhat
+2.11.0
