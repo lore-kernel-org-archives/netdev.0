@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: refcount_t + (resend to wider audience)
-Date: Fri, 28 Jul 2017 12:29:03 -0700 (PDT)
-Message-ID: <20170728.122903.348617535192252512.davem@davemloft.net>
-References: <cc109bec-d4bb-8965-3169-fe36d85e6e19@android.com>
-        <adaee9d9-1d35-921c-36b3-e32e6c8ce9e3@android.com>
+Subject: Re: STABLE: net: reduce skb_warn_bad_offload() noise
+Date: Fri, 28 Jul 2017 12:30:10 -0700 (PDT)
+Message-ID: <20170728.123010.242124876818464581.davem@davemloft.net>
+References: <4b5d320a-a12e-b27b-cc58-332614684bf2@android.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org
+Cc: stable@vger.kernel.org, netdev@vger.kernel.org
 To: salyzyn@android.com
 Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <adaee9d9-1d35-921c-36b3-e32e6c8ce9e3@android.com>
+In-Reply-To: <4b5d320a-a12e-b27b-cc58-332614684bf2@android.com>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Mark Salyzyn <salyzyn@android.com>
-Date: Fri, 28 Jul 2017 10:15:23 -0700
+Date: Fri, 28 Jul 2017 10:29:57 -0700
 
-> (Resend to wider audience to comply with
-> Documentation/networking/netdev-FAQ.txt)
-> 
-> Please apply/backport the following upstream feature and followup
-> grouped fixes patches to the stable trees (expect included in at least
+> Please backport the upstream patch to the stable trees (including
 > 3.10.y, 3.18.y, 4.4.y and 4.9.y):
+> 
+> b2504a5dbef3305ef41988ad270b0e8ec289331c net: reduce
+> skb_warn_bad_offload() noise
+> 
+> Impacting performance or creating unnecessary alarm, and will result
+> in kernel panic for panic_on_warn configuration.
 
-I totally disagree, this is too invasive for -stable.
-
-No way.
+Yeah this is fine.
