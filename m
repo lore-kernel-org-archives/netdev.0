@@ -1,70 +1,94 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 0/3] ethtool: support for forward error
- correction mode setting on a link
-Date: Fri, 28 Jul 2017 07:53:01 -0700
-Message-ID: <CAJieiUiXuN9s0ndJ4K6UVE2pomRi0aD9PH6uYHe12qCzL0+wSg@mail.gmail.com>
-References: <1501199248-24695-1-git-send-email-roopa@cumulusnetworks.com> <20170727193320.308e86c3@cakuba.netronome.com>
+From: Anton Volkov <avolkov@ispras.ru>
+Subject: [PATCH] hysdn: fix to a race condition in put_log_buffer
+Date: Fri, 28 Jul 2017 17:53:51 +0300
+Message-ID: <fd42b4de-416a-4e1b-046a-378aa66f7486@ispras.ru>
+References: <8178d591-2b1a-334d-fdd1-4c6b98abad72@ispras.ru>
+ <2f35ddaf-88d9-e848-f83b-3001b36b2883@linux-pingi.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Vidya Sagar Ravipati <vidya.chowdary@gmail.com>,
-        Dustin Byford <dustin@cumulusnetworks.com>,
-        Dave Olson <olson@cumulusnetworks.com>,
-        Casey Leedom <leedom@chelsio.com>,
-        Gal Pressman <galp@mellanox.com>, Andrew Lunn <andrew@lunn.ch>,
-        Manoj Malviya <manojmalviya@chelsio.com>,
-        Santosh Rastapur <santosh@chelsio.com>, yuval.mintz@qlogic.com,
-        odedw@mellanox.com, Ariel Almog <ariela@mellanox.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        ldv-project@linuxtesting.org, khoroshilov@ispras.ru
+To: isdn@linux-pingi.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f175.google.com ([209.85.217.175]:38293 "EHLO
-        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751937AbdG1OxC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:53:02 -0400
-Received: by mail-ua0-f175.google.com with SMTP id w45so165334093uac.5
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:53:02 -0700 (PDT)
-In-Reply-To: <20170727193320.308e86c3@cakuba.netronome.com>
+Received: from mail.ispras.ru ([83.149.199.45]:42232 "EHLO mail.ispras.ru"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751822AbdG1Oxy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Jul 2017 10:53:54 -0400
+In-Reply-To: <2f35ddaf-88d9-e848-f83b-3001b36b2883@linux-pingi.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 27, 2017 at 7:33 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> On Thu, 27 Jul 2017 16:47:25 -0700, Roopa Prabhu wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> Forward Error Correction (FEC) modes i.e Base-R
->> and Reed-Solomon modes are introduced in 25G/40G/100G standards
->> for providing good BER at high speeds. Various networking devices
->> which support 25G/40G/100G provides ability to manage supported FEC
->> modes and the lack of FEC encoding control and reporting today is a
->> source for interoperability issues for many vendors.
->> FEC capability as well as specific FEC mode i.e. Base-R
->> or RS modes can be requested or advertised through bits D44:47 of base link
->> codeword.
->>
->> This patch set intends to provide option under ethtool to manage and
->> report FEC encoding settings for networking devices as per IEEE 802.3
->> bj, bm and by specs.
->>
->> v2 :
->>         - minor patch format fixes and typos pointed out by Andrew
->>         - there was a pending discussion on the use of 'auto' vs
->>           'automatic' for fec settings. I have left it as 'auto'
->>           because in most cases today auto is used in place of
->>           automatic to represent automatically generated values.
->>           We use it in other networking config too. I would prefer
->>           leaving it as auto.
->
-> On the subject of resetting the values when module is replugged I
-> assume what was previously described remains:
->  - we always allow users to set the FEC regardless of the module type;
->  - if user set an incorrect FEC for the module type (or module gets
->    swapped) the link will be administratively taken down by either
->    the driver or FW.
->
-> Is that correct?  Am I misremembering?
+The synchronization type that was used earlier to guard the loop that
+deletes unused log buffers may have lead to a situation that prevents 
+any thread from going through the loop.
 
-yes, correct. And possible future sfp hotplug events can give user-space
-more info to react to module type changes etc.
+The patch deletes previously used synchronization mechanism and moves
+the loop under the spin_lock so the similar cases won't be feasible in
+the future.
+
+Found by by Linux Driver Verification project (linuxtesting.org).
+
+Signed-off-by: Anton Volkov <avolkov@ispras.ru>
+---
+  drivers/isdn/hysdn/hysdn_proclog.c | 27 ++++++++++++---------------
+  1 file changed, 12 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/isdn/hysdn/hysdn_proclog.c 
+b/drivers/isdn/hysdn/hysdn_proclog.c
+index 7b5fd8fb1761..b152c6ca444b 100644
+--- a/drivers/isdn/hysdn/hysdn_proclog.c
++++ b/drivers/isdn/hysdn/hysdn_proclog.c
+@@ -44,7 +44,6 @@ struct procdata {
+  	char log_name[15];	/* log filename */
+  	struct log_data *log_head, *log_tail;	/* head and tail for queue */
+  	int if_used;		/* open count for interface */
+-	int volatile del_lock;	/* lock for delete operations */
+  	unsigned char logtmp[LOG_MAX_LINELEN];
+  	wait_queue_head_t rd_queue;
+  };
+@@ -102,7 +101,6 @@ put_log_buffer(hysdn_card *card, char *cp)
+  {
+  	struct log_data *ib;
+  	struct procdata *pd = card->proclog;
+-	int i;
+  	unsigned long flags;
+
+  	if (!pd)
+@@ -126,21 +124,20 @@ put_log_buffer(hysdn_card *card, char *cp)
+  	else
+  		pd->log_tail->next = ib;	/* follows existing messages */
+  	pd->log_tail = ib;	/* new tail */
+-	i = pd->del_lock++;	/* get lock state */
+-	spin_unlock_irqrestore(&card->hysdn_lock, flags);
+
+  	/* delete old entrys */
+-	if (!i)
+-		while (pd->log_head->next) {
+-			if ((pd->log_head->usage_cnt <= 0) &&
+-			    (pd->log_head->next->usage_cnt <= 0)) {
+-				ib = pd->log_head;
+-				pd->log_head = pd->log_head->next;
+-				kfree(ib);
+-			} else
+-				break;
+-		}		/* pd->log_head->next */
+-	pd->del_lock--;		/* release lock level */
++	while (pd->log_head->next) {
++		if ((pd->log_head->usage_cnt <= 0) &&
++		    (pd->log_head->next->usage_cnt <= 0)) {
++			ib = pd->log_head;
++			pd->log_head = pd->log_head->next;
++			kfree(ib);
++		} else
++			break;
++	}		/* pd->log_head->next */
++
++	spin_unlock_irqrestore(&card->hysdn_lock, flags);
++
+  	wake_up_interruptible(&(pd->rd_queue));		/* announce new entry */
+  }				/* put_log_buffer */
+
+-- 
+2.11.0
