@@ -1,34 +1,31 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC] net: make net.core.{r,w}mem_{default,max} namespaced
-Date: Fri, 28 Jul 2017 16:51:23 -0400
-Message-ID: <87vamcs2t0.fsf@stressinduktion.org>
-References: <20170726170333.24580-1-mcroce@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: refcount_t + (resend to wider audience)
+Date: Fri, 28 Jul 2017 23:23:49 +0200
+Message-ID: <20170728212349.GA11564@lunn.ch>
+References: <adaee9d9-1d35-921c-36b3-e32e6c8ce9e3@android.com>
+ <20170728174117.GL2132@lunn.ch>
+ <48b0c119-5277-1eca-d5d6-f2539ad3a7e8@android.com>
+ <20170728.123139.1354715651678675641.davem@davemloft.net>
+ <0eba17bc-218e-c45c-5a49-9313126cd018@android.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: Matteo Croce <mcroce@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:37647 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752614AbdG1UvY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 16:51:24 -0400
-In-Reply-To: <20170726170333.24580-1-mcroce@redhat.com> (Matteo Croce's
-        message of "Wed, 26 Jul 2017 19:03:33 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        stable@vger.kernel.org
+To: Mark Salyzyn <salyzyn@android.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <0eba17bc-218e-c45c-5a49-9313126cd018@android.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Matteo Croce <mcroce@redhat.com> writes:
+> Please, guidance on where I can go from here.
 
-> The following sysctl are global and can't be read or set from a netns:
->
-> net.core.rmem_default
-> net.core.rmem_max
-> net.core.wmem_default
-> net.core.wmem_max
+Hi Mark
 
-[...]
+Real fixes will be accepted. So check if there are any refcount fixes
+which are not in stable. If so, ask for the fix to be added to stable.
 
-I think a sensible addition to those sysctls would be
-tcp_moderate_rcvbuf to disable autotuning.
+A fix should be independent of the infrastructure used to find there
+is an issue.
 
-Thanks!
+   Andrew
