@@ -1,74 +1,57 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v11 3/4] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Fri, 28 Jul 2017 09:41:44 -0400
-Message-ID: <27472f41-1dd3-66a0-d4fc-6b7290c14b27@mojatatu.com>
-References: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
- <1500860146-26970-4-git-send-email-jhs@emojatatu.com>
- <20170724112750.GC1868@nanopsycho>
- <7057a692-7233-4632-4f66-2f57c98322ea@mojatatu.com>
- <20170725113352.GA3186@nanopsycho>
- <355f2140-d8e8-8a4e-1f31-cbbcbfd6821b@mojatatu.com>
- <20170725123728.GC3186@nanopsycho>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH 0/3] net-next: stmmac: support future
+ possible different internal phy mode
+Date: Fri, 28 Jul 2017 15:47:36 +0200
+Message-ID: <20170728134736.GC32230@lunn.ch>
+References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
+ <CAGb2v66=h_5df=B0Us-kvvFg9r_qSUroDzn-xvQLSpD1d8DhBQ@mail.gmail.com>
+Reply-To: andrew-g2DYL2Zd6BY@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, dsahern@gmail.com,
-        eric.dumazet@gmail.com, mrv@mojatatu.com,
-        simon.horman@netronome.com, alex.aring@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:34940 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751782AbdG1Nlx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 09:41:53 -0400
-Received: by mail-it0-f65.google.com with SMTP id v127so15569745itd.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 06:41:53 -0700 (PDT)
-In-Reply-To: <20170725123728.GC3186@nanopsycho>
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Return-path: <linux-sunxi+bncBDJNHL5JSEOBB7UA5XFQKGQEZUHRSRY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <CAGb2v66=h_5df=B0Us-kvvFg9r_qSUroDzn-xvQLSpD1d8DhBQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On 17-07-25 08:37 AM, Jiri Pirko wrote:
-> Tue, Jul 25, 2017 at 02:34:58PM CEST, jhs@mojatatu.com wrote:
->> On 17-07-25 07:33 AM, Jiri Pirko wrote:
->>> Tue, Jul 25, 2017 at 01:22:44PM CEST, jhs@mojatatu.com wrote:
-
-[..]
->>> What if I pass val 0x1 and selector 0x0 from userspace. I don't have the
->>> bit selected, so you should not process it in kernel, no?
->>>
->>
->> Yes, valid point. I am not sure - should we reject?
+On Fri, Jul 28, 2017 at 05:53:40PM +0800, Chen-Yu Tsai wrote:
+> On Fri, Jul 28, 2017 at 5:28 PM, Corentin Labbe
+> <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > Hello
+> >
+> > The current way to find if the phy is internal is to compare DT phy-mode
+> > and emac_variant/internal_phy.
+> > But it will negate a possible future SoC where an external PHY use the
+> > same phy mode than the internal one.
+> >
+> > This patchs series adds a new way to find if the PHY is internal, via its
+> > compatible.
 > 
-> I think that the validation might check this and reject. Makes sense to
-> me.
-> 
+> You've already joined in on the discussion for the patch "net: stmmac:
+> dwmac-rk: Add internal phy support". It is pretty much the same issue.
+> Please wait for it to come to a proper conclusion. At least then we can
+> agree on something so different platforms with the same problem don't
+> have diverging solutions.
 
-How does this look? I havent tested it but covers all angles
-I can think of.
+Yes, this is important.
 
-static int validate_nla_bitfield32(const struct nlattr *nla,
-                                     void *valid_flags_allowed)
-{
-         const struct nla_bitfield32 *bf = nla_data(nla);
-         u32 *valid_flags_mask = valid_flags_allowed;
-
-         if (!valid_flags_allowed)
-                 return -EINVAL;
-         /*disallow invalid selector */
-         if ((bf->selector & valid_flags_allowed) >*valid_flags_allowed)
-                 return -EINVAL;
-         /*disallow invalid bit values */
-         if (bf->value & ~*valid_flags_mask)
-                 return -EINVAL;
-         /*disallow valid bit values that are not selected*/
-         if (bf->value & ~nbf->selector)
-                 return -EINVAL;
-
-         return 0;
-}
-
-cheers,
-jamal
+     Andrew
