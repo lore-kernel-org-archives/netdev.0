@@ -1,42 +1,74 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 01/10] net: dsa: lan9303: Fixed MDIO interface
-Date: Fri, 28 Jul 2017 15:36:37 +0200
-Message-ID: <20170728133637.GB32230@lunn.ch>
-References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
- <20170725161553.30147-2-privat@egil-hjelmeland.no>
- <20170726165550.GN12049@lunn.ch>
- <4e36827f-fdcc-d55a-3559-e080883c715c@egil-hjelmeland.no>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v11 3/4] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Fri, 28 Jul 2017 09:41:44 -0400
+Message-ID: <27472f41-1dd3-66a0-d4fc-6b7290c14b27@mojatatu.com>
+References: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
+ <1500860146-26970-4-git-send-email-jhs@emojatatu.com>
+ <20170724112750.GC1868@nanopsycho>
+ <7057a692-7233-4632-4f66-2f57c98322ea@mojatatu.com>
+ <20170725113352.GA3186@nanopsycho>
+ <355f2140-d8e8-8a4e-1f31-cbbcbfd6821b@mojatatu.com>
+ <20170725123728.GC3186@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, davem@davemloft.net, kernel@pengutronix.de,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4e36827f-fdcc-d55a-3559-e080883c715c@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, dsahern@gmail.com,
+        eric.dumazet@gmail.com, mrv@mojatatu.com,
+        simon.horman@netronome.com, alex.aring@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:34940 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751782AbdG1Nlx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 09:41:53 -0400
+Received: by mail-it0-f65.google.com with SMTP id v127so15569745itd.2
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 06:41:53 -0700 (PDT)
+In-Reply-To: <20170725123728.GC3186@nanopsycho>
+Content-Language: en-GB
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 28, 2017 at 01:08:25PM +0200, Egil Hjelmeland wrote:
-> On 26. juli 2017 18:55, Andrew Lunn wrote:
-> >On Tue, Jul 25, 2017 at 06:15:44PM +0200, Egil Hjelmeland wrote:
-> >It is better to use mdiobus_read/write or if you are nesting mdio
-> >busses, mdiobus_read_nested/mdiobus_write_nested. Please test this
-> >code with lockdep enabled.
-> >
+On 17-07-25 08:37 AM, Jiri Pirko wrote:
+> Tue, Jul 25, 2017 at 02:34:58PM CEST, jhs@mojatatu.com wrote:
+>> On 17-07-25 07:33 AM, Jiri Pirko wrote:
+>>> Tue, Jul 25, 2017 at 01:22:44PM CEST, jhs@mojatatu.com wrote:
+
+[..]
+>>> What if I pass val 0x1 and selector 0x0 from userspace. I don't have the
+>>> bit selected, so you should not process it in kernel, no?
+>>>
+>>
+>> Yes, valid point. I am not sure - should we reject?
 > 
-> I have CONFIG_DEBUG_SPINLOCK, CONFIG_DEBUG_MUTEXES. Should I enable
-> more?
+> I think that the validation might check this and reject. Makes sense to
+> me.
+> 
 
-Hi Egil
+How does this look? I havent tested it but covers all angles
+I can think of.
 
-Enable CONFIG_LOCKDEP and CONFIG_PROVE_LOCKING.
+static int validate_nla_bitfield32(const struct nlattr *nla,
+                                     void *valid_flags_allowed)
+{
+         const struct nla_bitfield32 *bf = nla_data(nla);
+         u32 *valid_flags_mask = valid_flags_allowed;
 
-Any lockdep splat you get while accessing the mdio bus at this point
-are probably false positives, since it is a different mutex. Using the
-_nested() version should avoid these false positives. But you might
-find other places your locking is not right.
+         if (!valid_flags_allowed)
+                 return -EINVAL;
+         /*disallow invalid selector */
+         if ((bf->selector & valid_flags_allowed) >*valid_flags_allowed)
+                 return -EINVAL;
+         /*disallow invalid bit values */
+         if (bf->value & ~*valid_flags_mask)
+                 return -EINVAL;
+         /*disallow valid bit values that are not selected*/
+         if (bf->value & ~nbf->selector)
+                 return -EINVAL;
 
-	Andrew
+         return 0;
+}
+
+cheers,
+jamal
