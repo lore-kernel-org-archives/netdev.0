@@ -1,59 +1,251 @@
-From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH net-next 01/10] net/smc: serialize connection creation in all cases
-Date: Fri, 28 Jul 2017 13:56:13 +0200
-Message-ID: <20170728115622.17247-2-ubraun@linux.vnet.ibm.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 03/10] net/smc: introduce sg-logic for RMBs
+Date: Fri, 28 Jul 2017 13:56:15 +0200
+Message-ID: <20170728115622.17247-4-ubraun@linux.vnet.ibm.com>
 References: <20170728115622.17247-1-ubraun@linux.vnet.ibm.com>
-Cc: hch-jcswGhMUV9g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-        schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-        raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170728115622.17247-1-ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: hch@lst.de, netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:40943 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751941AbdG1L4g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 07:56:36 -0400
+Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v6SBuaT3115010
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:56:36 -0400
+Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2byyjgfp7s-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:56:36 -0400
+Received: from localhost
+        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Fri, 28 Jul 2017 12:56:33 +0100
+In-Reply-To: <20170728115622.17247-1-ubraun@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If a link group for a new server connection exists already, the mutex
-serializing the determination of link groups is given up early.
-The coming registration of memory regions benefits from the serialization
-as well, if the mutex is held till connection creation is finished.
-This patch postpones the unlocking of the link group creation mutex.
+The follow-on patch makes use of ib_map_mr_sg() when introducing
+separate memory regions for RMBs. This function is based on
+scatterlists; thus this patch introduces scatterlists for RMBs.
 
-Signed-off-by: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- net/smc/af_smc.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ net/smc/smc_clc.c  | 12 ++++++------
+ net/smc/smc_core.c | 47 +++++++++++++++++++++++++++++++----------------
+ net/smc/smc_core.h |  6 ++----
+ net/smc/smc_ib.c   | 31 +++++++++++++++++++++++++++++++
+ net/smc/smc_ib.h   |  6 ++++++
+ 5 files changed, 76 insertions(+), 26 deletions(-)
 
-diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index 6793d7348cc8..120a7b9b4d8e 100644
---- a/net/smc/af_smc.c
-+++ b/net/smc/af_smc.c
-@@ -779,11 +779,6 @@ static void smc_listen_work(struct work_struct *work)
- 	mutex_lock(&smc_create_lgr_pending);
- 	local_contact = smc_conn_create(new_smc, peeraddr.sin_addr.s_addr,
- 					smcibdev, ibport, &pclc.lcl, 0);
--	if (local_contact == SMC_REUSE_CONTACT)
--		/* lock no longer needed, free it due to following
--		 * smc_clc_wait_msg() call
--		 */
--		mutex_unlock(&smc_create_lgr_pending);
- 	if (local_contact < 0) {
- 		rc = local_contact;
- 		if (rc == -ENOMEM)
-@@ -853,8 +848,7 @@ static void smc_listen_work(struct work_struct *work)
- 	if (newsmcsk->sk_state == SMC_INIT)
- 		newsmcsk->sk_state = SMC_ACTIVE;
- enqueue:
--	if (local_contact == SMC_FIRST_CONTACT)
--		mutex_unlock(&smc_create_lgr_pending);
-+	mutex_unlock(&smc_create_lgr_pending);
- 	lock_sock_nested(&lsmc->sk, SINGLE_DEPTH_NESTING);
- 	if (lsmc->sk.sk_state == SMC_LISTEN) {
- 		smc_accept_enqueue(&lsmc->sk, newsmcsk);
+diff --git a/net/smc/smc_clc.c b/net/smc/smc_clc.c
+index 03ec058d18df..15cb76019009 100644
+--- a/net/smc/smc_clc.c
++++ b/net/smc/smc_clc.c
+@@ -204,13 +204,13 @@ int smc_clc_send_confirm(struct smc_sock *smc)
+ 	memcpy(&cclc.lcl.mac, &link->smcibdev->mac[link->ibport - 1], ETH_ALEN);
+ 	hton24(cclc.qpn, link->roce_qp->qp_num);
+ 	cclc.rmb_rkey =
+-		htonl(conn->rmb_desc->rkey[SMC_SINGLE_LINK]);
++		htonl(link->roce_pd->unsafe_global_rkey);
+ 	cclc.conn_idx = 1; /* for now: 1 RMB = 1 RMBE */
+ 	cclc.rmbe_alert_token = htonl(conn->alert_token_local);
+ 	cclc.qp_mtu = min(link->path_mtu, link->peer_mtu);
+ 	cclc.rmbe_size = conn->rmbe_size_short;
+-	cclc.rmb_dma_addr =
+-		cpu_to_be64((u64)conn->rmb_desc->dma_addr[SMC_SINGLE_LINK]);
++	cclc.rmb_dma_addr = cpu_to_be64(
++		(u64)sg_dma_address(conn->rmb_desc->sgt[SMC_SINGLE_LINK].sgl));
+ 	hton24(cclc.psn, link->psn_initial);
+ 
+ 	memcpy(cclc.trl.eyecatcher, SMC_EYECATCHER, sizeof(SMC_EYECATCHER));
+@@ -256,13 +256,13 @@ int smc_clc_send_accept(struct smc_sock *new_smc, int srv_first_contact)
+ 	memcpy(&aclc.lcl.mac, link->smcibdev->mac[link->ibport - 1], ETH_ALEN);
+ 	hton24(aclc.qpn, link->roce_qp->qp_num);
+ 	aclc.rmb_rkey =
+-		htonl(conn->rmb_desc->rkey[SMC_SINGLE_LINK]);
++		htonl(link->roce_pd->unsafe_global_rkey);
+ 	aclc.conn_idx = 1;			/* as long as 1 RMB = 1 RMBE */
+ 	aclc.rmbe_alert_token = htonl(conn->alert_token_local);
+ 	aclc.qp_mtu = link->path_mtu;
+ 	aclc.rmbe_size = conn->rmbe_size_short,
+-	aclc.rmb_dma_addr =
+-		cpu_to_be64((u64)conn->rmb_desc->dma_addr[SMC_SINGLE_LINK]);
++	aclc.rmb_dma_addr = cpu_to_be64(
++		(u64)sg_dma_address(conn->rmb_desc->sgt[SMC_SINGLE_LINK].sgl));
+ 	hton24(aclc.psn, link->psn_initial);
+ 	memcpy(aclc.trl.eyecatcher, SMC_EYECATCHER, sizeof(SMC_EYECATCHER));
+ 
+diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
+index 6159488cb94b..bfdbda795f67 100644
+--- a/net/smc/smc_core.c
++++ b/net/smc/smc_core.c
+@@ -266,17 +266,16 @@ static void smc_lgr_free_sndbufs(struct smc_link_group *lgr)
+ 
+ static void smc_lgr_free_rmbs(struct smc_link_group *lgr)
+ {
+-	struct smc_buf_desc *rmb_desc, *bf_desc;
+ 	struct smc_link *lnk = &lgr->lnk[SMC_SINGLE_LINK];
++	struct smc_buf_desc *rmb_desc, *bf_desc;
+ 	int i;
+ 
+ 	for (i = 0; i < SMC_RMBE_SIZES; i++) {
+ 		list_for_each_entry_safe(rmb_desc, bf_desc, &lgr->rmbs[i],
+ 					 list) {
+ 			list_del(&rmb_desc->list);
+-			smc_ib_buf_unmap(lnk->smcibdev,
+-					 smc_uncompress_bufsize(i),
+-					 rmb_desc, DMA_FROM_DEVICE);
++			smc_ib_buf_unmap_sg(lnk->smcibdev, rmb_desc,
++					    DMA_FROM_DEVICE);
+ 			kfree(rmb_desc->cpu_addr);
+ 			kfree(rmb_desc);
+ 		}
+@@ -580,38 +579,54 @@ int smc_rmb_create(struct smc_sock *smc)
+ 	for (bufsize_short = smc_compress_bufsize(smc->sk.sk_rcvbuf / 2);
+ 	     bufsize_short >= 0; bufsize_short--) {
+ 		bufsize = smc_uncompress_bufsize(bufsize_short);
++		if ((1 << get_order(bufsize)) > SG_MAX_SINGLE_ALLOC)
++			continue;
++
+ 		/* check for reusable rmb_slot in the link group */
+ 		rmb_desc = smc_rmb_get_slot(lgr, bufsize_short);
+ 		if (rmb_desc) {
+ 			memset(rmb_desc->cpu_addr, 0, bufsize);
+ 			break; /* found reusable slot */
+ 		}
++
+ 		/* try to alloc a new RMB */
+ 		rmb_desc = kzalloc(sizeof(*rmb_desc), GFP_KERNEL);
+ 		if (!rmb_desc)
+ 			break; /* give up with -ENOMEM */
+-		rmb_desc->cpu_addr = kzalloc(bufsize,
+-					     GFP_KERNEL | __GFP_NOWARN |
+-					     __GFP_NOMEMALLOC |
+-					     __GFP_NORETRY);
++		rmb_desc->cpu_addr =
++			(void *)__get_free_pages(GFP_KERNEL | __GFP_NOWARN |
++						 __GFP_NOMEMALLOC |
++						 __GFP_NORETRY | __GFP_ZERO,
++						 get_order(bufsize));
+ 		if (!rmb_desc->cpu_addr) {
+ 			kfree(rmb_desc);
+ 			rmb_desc = NULL;
+-			/* if RMB allocation has failed,
+-			 * try a smaller one
+-			 */
+ 			continue;
+ 		}
+-		rc = smc_ib_buf_map(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
+-				    bufsize, rmb_desc, DMA_FROM_DEVICE);
++		rmb_desc->order = get_order(bufsize);
++
++		rc = sg_alloc_table(&rmb_desc->sgt[SMC_SINGLE_LINK], 1,
++				    GFP_KERNEL);
+ 		if (rc) {
+-			kfree(rmb_desc->cpu_addr);
++			free_pages((unsigned long)rmb_desc->cpu_addr,
++				   rmb_desc->order);
++			kfree(rmb_desc);
++			rmb_desc = NULL;
++			continue;
++		}
++		sg_set_buf(rmb_desc->sgt[SMC_SINGLE_LINK].sgl,
++			   rmb_desc->cpu_addr, bufsize);
++
++		rc = smc_ib_buf_map_sg(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
++				       rmb_desc, DMA_FROM_DEVICE);
++		if (rc != 1)  {
++			sg_free_table(&rmb_desc->sgt[SMC_SINGLE_LINK]);
++			free_pages((unsigned long)rmb_desc->cpu_addr,
++				   rmb_desc->order);
+ 			kfree(rmb_desc);
+ 			rmb_desc = NULL;
+ 			continue; /* if mapping failed, try smaller one */
+ 		}
+-		rmb_desc->rkey[SMC_SINGLE_LINK] =
+-			lgr->lnk[SMC_SINGLE_LINK].roce_pd->unsafe_global_rkey;
+ 		rmb_desc->used = 1;
+ 		write_lock_bh(&lgr->rmbs_lock);
+ 		list_add(&rmb_desc->list, &lgr->rmbs[bufsize_short]);
+diff --git a/net/smc/smc_core.h b/net/smc/smc_core.h
+index b013cb43a327..0ee450d69907 100644
+--- a/net/smc/smc_core.h
++++ b/net/smc/smc_core.h
+@@ -93,10 +93,8 @@ struct smc_buf_desc {
+ 	u64			dma_addr[SMC_LINKS_PER_LGR_MAX];
+ 						/* mapped address of buffer */
+ 	void			*cpu_addr;	/* virtual address of buffer */
+-	u32			rkey[SMC_LINKS_PER_LGR_MAX];
+-						/* for rmb only:
+-						 * rkey provided to peer
+-						 */
++	struct sg_table		sgt[SMC_LINKS_PER_LGR_MAX];/* virtual buffer */
++	u32			order;		/* allocation order */
+ 	u32			used;		/* currently used / unused */
+ };
+ 
+diff --git a/net/smc/smc_ib.c b/net/smc/smc_ib.c
+index b31715505a35..fcfeb89b05d9 100644
+--- a/net/smc/smc_ib.c
++++ b/net/smc/smc_ib.c
+@@ -283,6 +283,37 @@ void smc_ib_buf_unmap(struct smc_ib_device *smcibdev, int buf_size,
+ 	buf_slot->dma_addr[SMC_SINGLE_LINK] = 0;
+ }
+ 
++/* Map a new TX or RX buffer SG-table to DMA */
++int smc_ib_buf_map_sg(struct smc_ib_device *smcibdev,
++		      struct smc_buf_desc *buf_slot,
++		      enum dma_data_direction data_direction)
++{
++	int mapped_nents;
++
++	mapped_nents = ib_dma_map_sg(smcibdev->ibdev,
++				     buf_slot->sgt[SMC_SINGLE_LINK].sgl,
++				     buf_slot->sgt[SMC_SINGLE_LINK].orig_nents,
++				     data_direction);
++	if (!mapped_nents)
++		return -ENOMEM;
++
++	return mapped_nents;
++}
++
++void smc_ib_buf_unmap_sg(struct smc_ib_device *smcibdev,
++			 struct smc_buf_desc *buf_slot,
++			 enum dma_data_direction data_direction)
++{
++	if (!buf_slot->sgt[SMC_SINGLE_LINK].sgl->dma_address)
++		return; /* already unmapped */
++
++	ib_dma_unmap_sg(smcibdev->ibdev,
++			buf_slot->sgt[SMC_SINGLE_LINK].sgl,
++			buf_slot->sgt[SMC_SINGLE_LINK].orig_nents,
++			data_direction);
++	buf_slot->sgt[SMC_SINGLE_LINK].sgl->dma_address = 0;
++}
++
+ static int smc_ib_fill_gid_and_mac(struct smc_ib_device *smcibdev, u8 ibport)
+ {
+ 	struct net_device *ndev;
+diff --git a/net/smc/smc_ib.h b/net/smc/smc_ib.h
+index b567152a526d..b30e387854b6 100644
+--- a/net/smc/smc_ib.h
++++ b/net/smc/smc_ib.h
+@@ -57,6 +57,12 @@ int smc_ib_buf_map(struct smc_ib_device *smcibdev, int buf_size,
+ void smc_ib_buf_unmap(struct smc_ib_device *smcibdev, int bufsize,
+ 		      struct smc_buf_desc *buf_slot,
+ 		      enum dma_data_direction data_direction);
++int smc_ib_buf_map_sg(struct smc_ib_device *smcibdev,
++		      struct smc_buf_desc *buf_slot,
++		      enum dma_data_direction data_direction);
++void smc_ib_buf_unmap_sg(struct smc_ib_device *smcibdev,
++			 struct smc_buf_desc *buf_slot,
++			 enum dma_data_direction data_direction);
+ void smc_ib_dealloc_protection_domain(struct smc_link *lnk);
+ int smc_ib_create_protection_domain(struct smc_link *lnk);
+ void smc_ib_destroy_queue_pair(struct smc_link *lnk);
 -- 
 2.11.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
