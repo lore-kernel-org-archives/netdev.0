@@ -1,57 +1,64 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v2] net: phy: Correctly process PHY_HALTED in phy_stop_machine()
-Date: Fri, 28 Jul 2017 11:58:36 -0700
-Message-ID: <20170728185836.28759-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, slash.tmp@free.fr,
-        marc_gonzalez@sigmadesigns.com, rmk+kernel@armlinux.org.uk,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [v4.12 regression] netns: NULL deref in fib_sync_down_dev()
+Date: Fri, 28 Jul 2017 22:08:53 +0300
+Message-ID: <20170728190853.GA20495@splinter>
+References: <20170728160047.7tzapklj7zrgxktq@qmqm.qmqm.pl>
+ <20170728164331.GA5268@splinter>
+ <CAM_iQpXmUfdUzsu7Xpc2EjkePQCEjcP+irMkpc4bTDaWfAOVLw@mail.gmail.com>
+ <20170728173602.GA30482@splinter>
+ <20170728180437.s4pwdyguihmgjrjp@qmqm.qmqm.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:37376 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752204AbdG1TAn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 15:00:43 -0400
-Received: by mail-wr0-f196.google.com with SMTP id 12so19132364wrb.4
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 12:00:42 -0700 (PDT)
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:53387 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752450AbdG1TI5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 15:08:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20170728180437.s4pwdyguihmgjrjp@qmqm.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marc reported that he was not getting the PHY library adjust_link()
-callback function to run when calling phy_stop() + phy_disconnect()
-which does not indeed happen because we set the state machine to
-PHY_HALTED but we don't get to run it to process this state past that
-point.
+On Fri, Jul 28, 2017 at 08:04:37PM +0200, Michał Mirosław wrote:
+> On Fri, Jul 28, 2017 at 08:36:02PM +0300, Ido Schimmel wrote:
+> > On Fri, Jul 28, 2017 at 10:28:16AM -0700, Cong Wang wrote:
+> > > On Fri, Jul 28, 2017 at 9:43 AM, Ido Schimmel <idosch@idosch.org> wrote:
+> > > > On Fri, Jul 28, 2017 at 06:00:47PM +0200, Michał Mirosław wrote:
+> > > >> Dear NetDevs,
+> > > >>
+> > > >> Before I go to bisecting, have you seen a following NULL dereference,
+> > > >> yet?  Where should I start looking?  It is triggered by deleting netns
+> > > >> (cut-down script attached - triggers every time).  This was working
+> > > >> correctly under v4.11.x.
+> > > > Thanks for the report. I just reproduced this on my system. I believe
+> > > > the problem is a missing NULL check for 'in_dev' in
+> > > > call_fib_nh_notifiers(). I'll test a fix.
+> > > But your commit 982acb97560c8118c2109504a22b0d78a580547d
+> > > is merged in v4.11-rc1. How could 4.11.x work correctly?
+> > It doesn't. I just reproduced this on v4.11.
+> 
+> Thanks for looking into this.  I was sure that I ran v4.11.7 last time,
+> but it turns out I worked on this earlier than that.  I'll be glad to
+> test patches for this issue when you have it.
 
-Fix this with a synchronous call to phy_state_machine() in order to have
-the state machine actually act on PHY_HALTED, set the PHY device's link
-down, turn the network device's carrier off and finally call the
-adjust_link() function.
+I've a working patch, but I tried to understand why we didn't see it
+until now. I believe the problem is the fact that you have an interface
+with no IP address and a route pointing to it.
 
-Reported-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
-Fixes: a390d1f379cf ("phylib: convert state_queue work to delayed_work")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes in v2:
+When it goes down, inetdev_destroy() is called, which sets dev->ip_ptr to
+NULL. Then the netdev notification block in the FIB is called and the
+NULL dereference occurs.
 
-- reword subject and commit message based on changes
-- dropped flush_scheduled_work() since it is redundant
+If an IP address was assigned, then before NULLing dev->ip_ptr, all the
+IP addresses would be flushed and the inetaddr notification block in the
+FIB would be called, which in turn would flush all the routes. Since all
+the routes were already flushed, no NULL dereference would occur when
+the FIB's netdev notification block is called.
 
- drivers/net/phy/phy.c | 3 +++
- 1 file changed, 3 insertions(+)
+I'll post the patch shortly.
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index d0626bf5c540..5068c582d502 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -749,6 +749,9 @@ void phy_stop_machine(struct phy_device *phydev)
- 	if (phydev->state > PHY_UP && phydev->state != PHY_HALTED)
- 		phydev->state = PHY_UP;
- 	mutex_unlock(&phydev->lock);
-+
-+	/* Now we can run the state machine synchronously */
-+	phy_state_machine(&phydev->state_queue.work);
- }
- 
- /**
--- 
-2.9.3
+Thanks again.
