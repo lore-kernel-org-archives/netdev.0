@@ -1,43 +1,29 @@
 From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next 4/4] net: dsa: lan9303: MDIO access phy registers
- directly
-Date: Fri, 28 Jul 2017 18:24:07 +0200
-Message-ID: <50d2d34c-c1a5-7f0a-90f1-44b1be1775b7@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next 0/4] net: dsa: lan9303: Fix MDIO issues.
+Date: Fri, 28 Jul 2017 18:33:19 +0200
+Message-ID: <c8ce8b4a-5024-4f09-9688-6d24aed1161a@egil-hjelmeland.no>
 References: <20170728151157.28983-1-privat@egil-hjelmeland.no>
- <20170728151157.28983-5-privat@egil-hjelmeland.no>
- <87fudglget.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170728152455.GI2132@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87fudglget.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, kernel@pengutronix.de
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aibo.runbox.com ([91.220.196.211]:53656 "EHLO aibo.runbox.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752115AbdG1Qdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Jul 2017 12:33:45 -0400
+In-Reply-To: <20170728152455.GI2132@lunn.ch>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Den 28. juli 2017 17:39, skrev Vivien Didelot:
-> Hi Egil,
+Den 28. juli 2017 17:24, skrev Andrew Lunn:
+> Thanks for breaking the patch up. It was much easier to understand and
+> review.
 > 
-> Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
-> 
->> +const struct lan9303_phy_ops lan9303_indirect_phy_ops = {
->> +	.phy_read = lan9303_indirect_phy_read,
->> +	.phy_write = lan9303_indirect_phy_write,
->> +};
->> +EXPORT_SYMBOL(lan9303_indirect_phy_ops);
-> 
-> Isn't EXPORT_SYMBOL_GPL prefered over EXPORT_SYMBOL?
-> 
-> 
-> Thanks,
-> 
->          Vivien
-> 
-
-I have no opinion. I just used the same variant as the other EXPORTS in
-the file.
+I do see for my self too.
 
 Egil
