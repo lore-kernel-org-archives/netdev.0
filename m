@@ -1,52 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 06/20] net: sched: fix return value of tcf_exts_exec
-Date: Fri, 28 Jul 2017 16:40:28 +0200
-Message-ID: <20170728144042.6380-7-jiri@resnulli.us>
-References: <20170728144042.6380-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:36675 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752101AbdG1OlM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:41:12 -0400
-Received: by mail-wr0-f195.google.com with SMTP id y67so25909435wrb.3
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:41:11 -0700 (PDT)
-In-Reply-To: <20170728144042.6380-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/3] net-next: stmmac: support future
+ possible different internal phy mode
+Date: Fri, 28 Jul 2017 16:44:24 +0200
+Message-ID: <20170728144424.GB7221@Red>
+References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
+ <20170728135544.GD32230@lunn.ch>
+ <20170728142508.GA7221@Red>
+ <20170728143600.GB2132@lunn.ch>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	icenowy-h8G6r0blFSE@public.gmane.org
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBUE35XFQKGQE7VTSH7I-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <20170728143600.GB2132-g2DYL2Zd6BY@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Fri, Jul 28, 2017 at 04:36:00PM +0200, Andrew Lunn wrote:
+> > > I've probably asked this before: Does the internal PHY use a different
+> > > PHY ID in registers 2 and 3?
+> > > 
+> > 
+> > yes
+> > 
+> > reg2: 0x0044
+> > reg3: 0X1500
 
-Return the defined TC_ACT_OK instead of 0.
+Copy/paste error, its 1400
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/pkt_cls.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> So this is not about loading the correct PHY driver. You can already
+> do this based on the PHY IDs...
+> 
+> This is about selecting which PHY to use. Internal or External?	
+> 
+>      Andrew
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 817badf..61ce521 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -182,7 +182,7 @@ static inline bool tcf_exts_has_one_action(struct tcf_exts *exts)
-  * @exts: tc filter extensions handle
-  * @res: desired result
-  *
-- * Executes all configured extensions. Returns 0 on a normal execution,
-+ * Executes all configured extensions. Returns TC_ACT_OK on a normal execution,
-  * a negative number if the filter must be considered unmatched or
-  * a positive action code (TC_ACT_*) which must be returned to the
-  * underlying layer.
-@@ -196,7 +196,7 @@ tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
- 		return tcf_action_exec(skb, exts->actions, exts->nr_actions,
- 				       res);
- #endif
--	return 0;
-+	return TC_ACT_OK;
- }
- 
- int tcf_exts_validate(struct net *net, struct tcf_proto *tp,
--- 
-2.9.3
+It is too late when we know the PHY ID.
+We need to set a syscon for choosing external/internal PHY.
+So we can rely only on DT.
