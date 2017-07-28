@@ -1,97 +1,65 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
- fixed transceiver bindings
-Date: Fri, 28 Jul 2017 20:33:28 +0200
-Message-ID: <c7d4c364-1ed9-ca73-2571-d04297ac3788@hartkopp.net>
-References: <20170728130231.GA10680@airbook.vandijck-laurijssen.be>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH net] xgene: Don't fail probe, if there is no clk resource
+ for SGMII interfaces
+Date: Fri, 28 Jul 2017 11:40:30 -0700
+Message-ID: <CAKh23FmRBqgc7Yi0ANhkUMk=NZteRuT3UbK1DffzdjYWDX5fbg@mail.gmail.com>
+References: <20170713092144.31751508094@solo.franken.de> <22ee6284-7b23-7664-d6cf-23687f09a3be@redhat.com>
+ <20170727213915.GA4902@alpha.franken.de> <1b3391f2-2fae-2a9a-719d-3f8358e39c71@redhat.com>
+ <20170728142318.GA20368@alpha.franken.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Franklin S Cooper Jr <fcooper@ti.com>,
-        Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-can@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
-        robh+dt@kernel.org, quentin.schulz@free-electrons.com,
-        sergei.shtylyov@cogentembedded.com, dev.kurt@vandijck-laurijssen.be
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20170728130231.GA10680@airbook.vandijck-laurijssen.be>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Laura Abbott <labbott@redhat.com>,
+        Keyur Chudgar <kchudgar@apm.com>,
+        Quan Nguyen <qnguyen@apm.com>, netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Tom Bogendoerfer <tsbogend@alpha.franken.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170728142318.GA20368@alpha.franken.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Kurt,
+On Fri, Jul 28, 2017 at 7:23 AM, Tom Bogendoerfer
+<tsbogend@alpha.franken.de> wrote:
+> On Thu, Jul 27, 2017 at 03:39:58PM -0700, Laura Abbott wrote:
+>> I don't know the intricacies of the Mustang hardware but external
+>> aborts have been a symptom of missing clocks on other hardware.
+>
+> you are right, it's a missing clock. For SGMII ports the driver
+> doesn't really use the clock source other then doing the one
+> devm_clk_get(), but this is enough to get the clock going.
+>
+> Below patch fixes the crash and brings back the second SGMII port
+> (even without a clock source in device tree, I guess it uses clock
+> from first port).  From a correctness standpoint there should probably
+> be a clk_prepare_enable(), if port is SGMII.
+>
+> Could you test the patch ? If it works, I'll submit it.
+>
+> Thomas.
+>
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> index 86058a9f3417..1d307f2def2d 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> @@ -1785,9 +1785,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+>
+>         xgene_enet_gpiod_get(pdata);
+>
+> -       if (pdata->phy_mode != PHY_INTERFACE_MODE_SGMII) {
+> -               pdata->clk = devm_clk_get(&pdev->dev, NULL);
+> -               if (IS_ERR(pdata->clk)) {
+> +       pdata->clk = devm_clk_get(&pdev->dev, NULL);
+> +       if (IS_ERR(pdata->clk)) {
+> +               if (pdata->phy_mode != PHY_INTERFACE_MODE_SGMII) {
+>                         /* Abort if the clock is defined but couldn't be
+>                          * retrived. Always abort if the clock is missing on
+>                          * DT system as the driver can't cope with this case.
+>
+> --
 
-On 07/28/2017 03:02 PM, Kurt Van Dijck wrote:
+Thanks for the patch.
 
->>> The word 'max-arbitration-bitrate' makes the difference very clear.
->>
->> I think you are mixing up ISO layer 1 and ISO layer 2.
-> 
-> In order to provide higher data throughput without putting extra limits
-> on transceiver & wire, the requirement for the round-trip delay to be
-> within 1 bittime has been eliminated, but only for the data phase when
-> arbitration is over.
-> So layer 2 (CAN FD) has been adapted to circumvent the layer 1
-> (transceiver + wire) limitations.
-> 
-> In fact, the round-trip delay requirement never actually did matter for
-> plain CAN during data bits either. CAN FD just makes use of that,
-> but is therefore incompatible on the wire.
-> 
-> I forgot the precise wording, but this is the principle that Bosch
-> explained on the CAN conference in Nurnberg several years ago, or at
-> least this is how I remembered it :-)
+Acked-by: Iyappan Subramanian <isubramanian@apm.com>
 
-I just checked an example for a CAN FD qualified transceiver
-
-http://www.nxp.com/products/automotive-products/energy-power-management/can-transceivers/high-speed-can-transceiver-with-standby-mode:TJA1044
-
-where it states:
-
-The TJA1044T is specified for data rates up to 1 Mbit/s. Pending the 
-release of ISO11898-2:2016 including CAN FD and SAE-J2284-4/5, 
-additional timing parameters defining loop delay symmetry are specified 
-for the TJA1044GT and TJA1044GTK. This implementation enables reliable 
-communication in the CAN FD fast phase at data rates up to 5 Mbit/s.
-
-and
-
-TJA1044GT/TJA1044GTK
-
-- Timing guaranteed for data rates up to 5 Mbit/s
-- Improved TXD to RXD propagation delay of 210 ns
-
-> I haven't followed the developments of transceivers, but with the above
-> principle in mind, it's obvious that any transceiver allows higher
-> bitrates during the data segment because the TX-to-RX line delay must
-> not scale with the bitrate.
-> In reality, maybe not all transceivers will mention this in their
-> datasheet.
-> 
-> So whether you call it 'max-arbitration-bitrate' & 'max-data-bitrate'
-> or 'max-bitrate' & 'max-data-bitrate' does not really matter (I prefer
-> 1st) but you will one day need 2 bitrates.
-
-The question to me is whether it is right option to specify two bitrates 
-OR to specify one maximum bitrate and provide a property that a CAN FD 
-capable propagation delay is available.
-
-E.g.
-
-	max-bitrate
-	max-data-bitrate
-
-or
-
-	max-bitrate
-	canfd-capable	// CAN FD capable propagation delay available
-
-
-I assume the optimized propagation delay is 'always on' as the 
-transceiver is not able to detect which kind of bits it is processing.
-That's why I think providing two bitrates leads to a wrong view on the 
-transceiver.
-
-Regards,
-Oliver
-
+> Crap can work. Given enough thrust pigs will fly, but it's not necessarily a
+> good idea.                                                [ RFC1925, 2.3 ]
