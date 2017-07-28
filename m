@@ -1,73 +1,46 @@
-From: Seth Forshee <seth.forshee@canonical.com>
-Subject: Re: Performance regression with virtio_net
-Date: Fri, 28 Jul 2017 08:12:56 -0500
-Message-ID: <20170728131256.ap6h4a57csnj3vag@ubuntu-xps13>
-References: <20170727170942.ub24lwgrl3x2outp@ubuntu-hedt>
- <20170727233244-mutt-send-email-mst@kernel.org>
- <20170727211430.viki2jcxbzk2u62c@ubuntu-hedt>
- <20170728002913-mutt-send-email-mst@kernel.org>
+From: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+Subject: [PATCH v3] ARM: dts: tango4: Request RGMII RX and TX clock delays
+Date: Fri, 28 Jul 2017 15:27:49 +0200
+Message-ID: <d669e207-ae47-4c9e-67c5-75424fde501f@sigmadesigns.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Mans Rullgard <mans@mansr.com>, Mason <slash.tmp@free.fr>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: arm-soc <arm@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:33769 "EHLO
-        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751071AbdG1NM6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 09:12:58 -0400
-Received: by mail-io0-f179.google.com with SMTP id j32so69117750iod.0
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 06:12:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170728002913-mutt-send-email-mst@kernel.org>
+Received: from us-smtp-delivery-107.mimecast.com ([63.128.21.107]:34243 "EHLO
+        us-smtp-delivery-107.mimecast.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751668AbdG1N1z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 09:27:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 28, 2017 at 12:30:54AM +0300, Michael S. Tsirkin wrote:
-> On Thu, Jul 27, 2017 at 04:14:30PM -0500, Seth Forshee wrote:
-> > On Thu, Jul 27, 2017 at 11:38:52PM +0300, Michael S. Tsirkin wrote:
-> > > On Thu, Jul 27, 2017 at 12:09:42PM -0500, Seth Forshee wrote:
-> > > > I'm seeing a performance regression with virtio_net that looks to have
-> > > > started in 4.12-rc1. I only see it in one context though, downloading
-> > > > snap packages from the Ubuntu snap store. For example:
-> > > > 
-> > > >  https://api.snapcraft.io/api/v1/snaps/download/b8X2psL1ryVrPt5WEmpYiqfr5emixTd7_1797.snap
-> > > > 
-> > > > which redirects to Internap's CDN. Normally this downloads in a few
-> > > > seconds at ~10 MB/s, but with 4.12 and 4.13 it takes minutes with a rate
-> > > > of ~150 KB/s. Everything else I've tried downloads as normal speeds.
-> > > 
-> > > So just wget that URL should be enough?
-> > 
-> > Yes. Note that sometimes it starts out faster then slows down.
-> > > > I bisected this to 680557cf79f8 "virtio_net: rework mergeable buffer
-> > > > handling". If I revert this on top of 4.13-rc2 (along with other changes
-> > > > needed to successfully revert it) speeds return to normal.
-> > > > 
-> > > > Thanks,
-> > > > Seth
-> > > 
-> > > 
-> > > Interesting. A more likely suspect would be
-> > > e377fcc8486d40867c6c217077ad0fa40977e060 - could you please try
-> > > reverting that one instead?
-> > 
-> > I tried it, and I still get slow download speeds. I did test at
-> > 680557cf79f82623e2c4fd42733077d60a843513 during the bisect so I'm
-> > reasonably confident that this is the one where things went bad.
-> > > Also, could you please look at mergeable_rx_buffer_size in sysfs with
-> > > and without the change?
-> > 
-> > In all cases (stock 4.13-rc2, 680557cf79f8 reverted, and e377fcc8486d
-> > reverted) mergeable_rx_buffer_size was 1536.
-> > 
-> > Thanks,
-> > Seth
-> 
-> Do you see any error counters incrementing after it slows down?
+RX and TX clock delays are required. Request them explicitly.
 
-I see rx_dropped and rx_length_errors increasing in lockstep once it
-slows down.
+Fixes: cad008b8a77e6 ("ARM: dts: tango4: Initial device trees")
+Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+---
+Arnd, Kevin, Olof, can one of you take this patch through arm-soc?
+Greg will apply it to all stable branches, right?
+---
+ arch/arm/boot/dts/tango4-vantage-1172.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-Seth
+diff --git a/arch/arm/boot/dts/tango4-vantage-1172.dts b/arch/arm/boot/dts/tango4-vantage-1172.dts
+index 86d8df98802f..13bcc460bcb2 100644
+--- a/arch/arm/boot/dts/tango4-vantage-1172.dts
++++ b/arch/arm/boot/dts/tango4-vantage-1172.dts
+@@ -22,7 +22,7 @@
+ };
+ 
+ &eth0 {
+-	phy-connection-type = "rgmii";
++	phy-connection-type = "rgmii-id";
+ 	phy-handle = <&eth0_phy>;
+ 	#address-cells = <1>;
+ 	#size-cells = <0>;
+-- 
+2.11.0
