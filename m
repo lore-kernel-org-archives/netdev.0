@@ -1,81 +1,36 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v11 3/4] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Fri, 28 Jul 2017 10:52:02 -0400
-Message-ID: <4e835ac7-0700-726d-7f6c-6e584ff073eb@mojatatu.com>
-References: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
- <1500860146-26970-4-git-send-email-jhs@emojatatu.com>
- <20170724112750.GC1868@nanopsycho>
- <7057a692-7233-4632-4f66-2f57c98322ea@mojatatu.com>
- <20170725113352.GA3186@nanopsycho>
- <355f2140-d8e8-8a4e-1f31-cbbcbfd6821b@mojatatu.com>
- <20170725123728.GC3186@nanopsycho>
- <27472f41-1dd3-66a0-d4fc-6b7290c14b27@mojatatu.com>
- <20170728141234.GD1857@nanopsycho>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: mwifiex: usb: fix spelling mistake: "aggreataon"-> "aggregation"
+Date: Fri, 28 Jul 2017 14:52:23 +0000 (UTC)
+Message-ID: <20170728145223.B243260128@smtp.codeaurora.org>
+References: <20170724222623.16652-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, dsahern@gmail.com,
-        eric.dumazet@gmail.com, mrv@mojatatu.com,
-        simon.horman@netronome.com, alex.aring@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35710 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752035AbdG1OwE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:52:04 -0400
-Received: by mail-it0-f65.google.com with SMTP id v127so15689125itd.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:52:04 -0700 (PDT)
-In-Reply-To: <20170728141234.GD1857@nanopsycho>
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Amitkumar Karwar <amitkarwar@gmail.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Ganapathi Bhat <gbhat@marvell.com>,
+        Xinming Hu <huxm@marvell.com>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin Ian King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170724222623.16652-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-07-28 10:12 AM, Jiri Pirko wrote:
-> Fri, Jul 28, 2017 at 03:41:44PM CEST, jhs@mojatatu.com wrote:
-[..]
+Colin Ian King <colin.king@canonical.com> wrote:
+
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Looks like a big mess to be honest. Mixing up u32* u32 void*. I don't
-> understand ****. Would be probably good to first apply my review comment
-> on the function itselt, then to add the checks :)
+> Trivial fix to spelling mistake in aggr_ctrl module parameter
+> message text.
 > 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-I havent even compiled/test that Jiri.
-Just ignore the void * and assume it is a u32 *.
+Patch applied to wireless-drivers-next.git, thanks.
 
-I am trying to avoid doing unlucky number 13 patch.
-So feedback on this is good. Just look at what it is disallowing
-first.
+c55971726c40 mwifiex: usb: fix spelling mistake: "aggreataon"-> "aggregation"
 
-back later.
+-- 
+https://patchwork.kernel.org/patch/9860753/
 
-cheers,
-jamal
-
-> 
->> I can think of.
->>
->> static int validate_nla_bitfield32(const struct nlattr *nla,
->>                                     void *valid_flags_allowed)
->> {
->>         const struct nla_bitfield32 *bf = nla_data(nla);
->>         u32 *valid_flags_mask = valid_flags_allowed;
->>
->>         if (!valid_flags_allowed)
->>                 return -EINVAL;
->>         /*disallow invalid selector */
->>         if ((bf->selector & valid_flags_allowed) >*valid_flags_allowed)
->>                 return -EINVAL;
->>         /*disallow invalid bit values */
->>         if (bf->value & ~*valid_flags_mask)
->>                 return -EINVAL;
->>         /*disallow valid bit values that are not selected*/
->>         if (bf->value & ~nbf->selector)
->>                 return -EINVAL;
->>
->>         return 0;
->> }
->>
->> cheers,
->> jamal
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
