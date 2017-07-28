@@ -1,49 +1,80 @@
-From: "David.Wu" <david.wu@rock-chips.com>
-Subject: Re: [PATCH v2 01/11] net: phy: Add rockchip phy driver support
-Date: Fri, 28 Jul 2017 16:19:52 +0800
-Message-ID: <c92ffbe9-dfb0-0fd7-680d-699c31902534@rock-chips.com>
-References: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
- <1501160156-30328-2-git-send-email-david.wu@rock-chips.com>
- <807c43ee-8421-c0b3-8aea-6091bef07a4c@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: After a while of system running no incoming UDP any more?
+Date: Fri, 28 Jul 2017 01:41:05 -0700
+Message-ID: <1501231265.12695.25.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
+         <1500905950.2458.6.camel@redhat.com>
+         <20170728062644.bp7agcf6bh7g6yfw@torres.zugschlus.de>
+         <1501229105.12695.23.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1501229702.2597.3.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, hwg@rock-chips.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
-        heiko@sntech.de, andrew@lunn.ch, robh+dt@kernel.org,
-        mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
-        olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marc Haber <mh+netdev@zugschlus.de>, netdev@vger.kernel.org
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lucky1.263xmail.com ([211.157.147.135]:54850 "EHLO
-        lucky1.263xmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751007AbdG1IUC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 04:20:02 -0400
-In-Reply-To: <807c43ee-8421-c0b3-8aea-6091bef07a4c@gmail.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36404 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751677AbdG1IlN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 04:41:13 -0400
+Received: by mail-wm0-f45.google.com with SMTP id t201so119415976wmt.1
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 01:41:09 -0700 (PDT)
+In-Reply-To: <1501229702.2597.3.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
-
-在 2017/7/28 0:51, Florian Fainelli 写道:
->> +}
->> +
->> +static int rockchip_internal_phy_config_init(struct phy_device *phydev)
->> +{
->> +	int val;
->> +
->> +	/*
->> +	 * The auto MIDX has linked problem on some board,
->> +	 * workround to disable auto MDIX.
->> +	 */
-> If this a board-specific problem you may consider register a PHY fixup
-> for the affected boards, or introduce a specific property to illustrate
-> that MDI-X is broken.
-
-You mean is that if I need disable Auto-mdix, then I'm going to add a 
-property to DTS, from here to decide whether or not to close Auto-mdix?
-
+On Fri, 2017-07-28 at 10:15 +0200, Paolo Abeni wrote:
+> Hi,
 > 
+> On Fri, 2017-07-28 at 01:05 -0700, Eric Dumazet wrote:
+
+> I think that the leaked sockets are still unhashed on close() (via
+> udp_lib_close() -> sk_common_release() ->sk_proto->unhash()), so they
+> should not be listed there ?!? (Rush answer, subject to lack of coffee
+> issues)
+
+If the daemon is still running, sockets are not closed and we can watch
+refcount being increased.
+
+We can see this even on an UDP_RR workload (no UDP flood at all)
+
+lpk51:~# while :
+> do
+> ./super_netperf 10 -H 2002:af6:b34:: -t UDP_RR -l 1 -- -N
+> done
+
+
+lpk52:~# cat /proc/net/udp6|grep -v " 2 "
+  sl  local_address                         remote_address
+st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode ref
+pointer drops
+  293: F60A02200000340B0000000000000000:F0A9
+F60A02200000330B0000000000000000:AB11 01 00000000:00000000 00:00000000
+00000000     0        0 583763 387 ffff880ddb862c00 0
+ 3251: F60A02200000340B0000000000000000:FC37
+F60A02200000330B0000000000000000:EA7F 01 00000000:00000000 00:00000000
+00000000     0        0 586126 356 ffff880dd25a7940 0
+ 4043: F60A02200000340B0000000000000000:FF4F
+F60A02200000330B0000000000000000:9A35 01 00000500:00000000 00:00000000
+00000000     0        0 583760 409 ffff880ddb863180 0
+ 7832: F60A02200000340B0000000000000000:8E1C
+F60A02200000330B0000000000000000:DEC1 01 00000000:00000000 00:00000000
+00000000     0        0 583766 387 ffff880ddb863700 0
+ 8568: F60A02200000340B0000000000000000:90FC
+F60A02200000330B0000000000000000:8A60 01 00000000:00000000 00:00000000
+00000000     0        0 580369 379 ffff880d9e7b2700 0
+13085: F60A02200000340B0000000000000000:A2A1
+F60A02200000330B0000000000000000:CDB3 01 00000000:00000000 00:00000000
+00000000     0        0 586915 397 ffff880e31994140 0
+14975: F60A02200000340B0000000000000000:AA03
+F60A02200000330B0000000000000000:9C71 01 00000000:00000000 00:00000000
+00000000     0        0 586123 355 ffff880d9d1baec0 0
+15155: F60A02200000340B0000000000000000:AAB7
+F60A02200000330B0000000000000000:D324 01 00000000:00000000 00:00000000
+00000000     0        0 583769 367 ffff880dd88141c0 0
+25421: F60A02200000340B0000000000000000:D2D1
+F60A02200000330B0000000000000000:CA33 01 00000000:00000000 00:00000000
+00000000     0        0 586120 424 ffff880dfda4b0c0 0
+28774: F60A02200000340B0000000000000000:DFEA
+F60A02200000330B0000000000000000:DD05 01 00000500:00000000 00:00000000
+00000000     0        0 583757 411 ffff880ddb862680 0
