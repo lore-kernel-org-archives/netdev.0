@@ -1,85 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: refcount_t + (resend to wider audience)
-Date: Fri, 28 Jul 2017 12:31:39 -0700 (PDT)
-Message-ID: <20170728.123139.1354715651678675641.davem@davemloft.net>
-References: <adaee9d9-1d35-921c-36b3-e32e6c8ce9e3@android.com>
-        <20170728174117.GL2132@lunn.ch>
-        <48b0c119-5277-1eca-d5d6-f2539ad3a7e8@android.com>
+From: John Crispin <john@phrozen.org>
+Subject: Re: [PATCH V2 3/4] net-next: dsa: fix flow dissection
+Date: Fri, 28 Jul 2017 21:40:42 +0200
+Message-ID: <82b46393-6c63-eedf-25e4-2bd2278c0d16@phrozen.org>
+References: <20170721085813.30789-1-john@phrozen.org>
+ <20170721085813.30789-3-john@phrozen.org> <20170726151013.GD12049@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, netdev@vger.kernel.org, stable@vger.kernel.org
-To: salyzyn@android.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52746 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752488AbdG1Tbk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 15:31:40 -0400
-In-Reply-To: <48b0c119-5277-1eca-d5d6-f2539ad3a7e8@android.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170726151013.GD12049@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mark Salyzyn <salyzyn@android.com>
-Date: Fri, 28 Jul 2017 11:07:53 -0700
 
-> On 07/28/2017 10:41 AM, Andrew Lunn wrote:
->> On Fri, Jul 28, 2017 at 10:15:23AM -0700, Mark Salyzyn wrote:
->>> (Resend to wider audience to comply with
->>> Documentation/networking/netdev-FAQ.txt)
->>>
->>> Please apply/backport the following upstream feature and followup
->>> grouped fixes patches to the stable trees (expect included in at least
->>> 3.10.y, 3.18.y, 4.4.y and 4.9.y):
->> .. _stable_kernel_rules:
->>
->> Hi Mark
->>
->> Everything you ever wanted to know about Linux -stable releases
->> ===============================================================
->>
->> Rules on what kind of patches are accepted, and which ones are not,
->> into the
->> "-stable" tree:
->>
->>   - It must be obviously correct and tested.
->>   - It cannot be bigger than 100 lines, with context.
->>
->> The first patch you list is 342 lines. The second one is 634.
->>
->> Please could you read the rules and then provide some justification
->> for ignoring many of the rules.
->>
->>      Andrew
-> 
-> The first four patches add a new dependent upstream API and type,
-> refcount_t. New APIs will notoriously cause a large number of lines to
-> be adjusted. They are complete (ToT will/should match stable),
-> orthogonal, and without CONFIG_REFCOUNT_FULL completely inert in all
-> places where atomic_t reference counters used, and are replaced with
-> refcount_t in the followup patches that take advantage of this new
-> type.
-> 
-> The first four do _nothing_ at all to the kernel as-is, but represent
-> a dependency for the following changes.
-> 
-> The remaining patches (for the most part) take advantage of this new
-> API to mostly fix, or report/warn when they can not, Use-After-Free
-> (KASAN) bugs which can lead to root attack exploits. atomic_t are
-> subject to unbounded attacks, refcount_t are relatively immune to
-> unbounded attacks. It is admittedly not a complete fix, but greatly
-> reduce the chances of the security issues. The recommendation is to
-> turn on CONFIG_REFCOUNT_FULL, but that is a decision to balance
-> between security and performance.
-> 
-> For any platform that requires the latest security updates, refcount_t
-> is going to be a requirement. I urge you to overlook the first four
-> patch sizes because of their status as an orthogonal type and API,
-> necessary dependency for security improvements.
 
-Sorry, even with this explanation this -stable require is completely
-and totally inappropriate.
+On 26/07/17 17:10, Andrew Lunn wrote:
+> On Fri, Jul 21, 2017 at 10:58:12AM +0200, John Crispin wrote:
+>> RPS and probably other kernel features are currently broken on some if not
+>> all DSA devices. The root cause of this is that skb_hash will call the
+>> flow_dissector. At this point the skb still contains the magic switch header
+>> and the skb->protocol field is not set up to the correct 802.3 value yet.
+>> By the time the tag specific code is called, removing the header and
+>> properly setting the protocol an invalid hash is already set. In the case
+>> of the mt7530 this will result in all flows always having the same hash.
+>>
+>> This patch makes the flow dissector honour the nh and protocol offset
+>> defined by the dsa tag driver thus fixing dissection, hashing and RPS.
+>>
+>> Signed-off-by: John Crispin <john@phrozen.org>
+>> ---
+>>   net/core/flow_dissector.c | 12 ++++++++++++
+>>   1 file changed, 12 insertions(+)
+>>
+>> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>> index fc5fc4594c90..1268ae75c3b3 100644
+>> --- a/net/core/flow_dissector.c
+>> +++ b/net/core/flow_dissector.c
+>> @@ -4,6 +4,7 @@
+>>   #include <linux/ip.h>
+>>   #include <linux/ipv6.h>
+>>   #include <linux/if_vlan.h>
+>> +#include <net/dsa.h>
+>>   #include <net/ip.h>
+>>   #include <net/ipv6.h>
+>>   #include <net/gre.h>
+>> @@ -440,6 +441,17 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+>>   			 skb->vlan_proto : skb->protocol;
+>>   		nhoff = skb_network_offset(skb);
+>>   		hlen = skb_headlen(skb);
+>> +
+>> +		if (unlikely(netdev_uses_dsa(skb->dev))) {
+>> +			const struct dsa_device_ops *ops;
+>> +			u8 *p = (u8 *)data;
+>> +
+>> +			ops = skb->dev->dsa_ptr->tag_ops;
+>> +			if (ops->hash_proto_off)
+>> +				proto = (u16)p[ops->hash_proto_off];
+> Hi John
+>
+> Unfortunately, this is not generic enough to work for DSA and EDSA
+> tagging. With these tagging protocols, the size of the tag depends on
+> the presence or not of a VLAN header.
+>
+> To make this work for all tagging protocols, we are going to need to
+> add an a new op to tag_ops.
+>
+>      Andrew
+Hi Andrew,
 
-You guys are really pushing things way too far with this refcount_t
-stuff, seriously.
+thanks for the feedback. should I add 2 callbacks for each of the 2 
+parameters ?
 
-NACK.
+     John
