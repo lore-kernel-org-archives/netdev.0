@@ -1,178 +1,210 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/20] net: sched: remove unneeded tcf_em_tree_change
-Date: Fri, 28 Jul 2017 16:40:24 +0200
-Message-ID: <20170728144042.6380-3-jiri@resnulli.us>
+Subject: [patch net-next 03/20] net: sched: change names of action number helpers to be aligned with the rest
+Date: Fri, 28 Jul 2017 16:40:25 +0200
+Message-ID: <20170728144042.6380-4-jiri@resnulli.us>
 References: <20170728144042.6380-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:34830 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751761AbdG1Okt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:40:49 -0400
-Received: by mail-wr0-f193.google.com with SMTP id c24so23178393wra.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:40:48 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:32962 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751893AbdG1Oku (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:40:50 -0400
+Received: by mail-wm0-f66.google.com with SMTP id q189so16542094wmd.0
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:40:49 -0700 (PDT)
 In-Reply-To: <20170728144042.6380-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Since tcf_em_tree_validate could be always called on a newly created
-filter, there is no need for this change function.
+The rest of the helpers are named tcf_exts_*, so change the name of
+the action number helpers to be aligned. While at it, change to inline
+functions.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/pkt_cls.h  | 21 ---------------------
- net/sched/cls_basic.c  |  4 +---
- net/sched/cls_cgroup.c |  4 +---
- net/sched/cls_flow.c   | 12 +++++-------
- 4 files changed, 7 insertions(+), 34 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  4 +--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  2 +-
+ .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |  2 +-
+ drivers/net/ethernet/netronome/nfp/bpf/offload.c   |  4 +--
+ include/net/pkt_cls.h                              | 36 ++++++++++++++++------
+ net/dsa/slave.c                                    |  2 +-
+ net/sched/cls_api.c                                |  2 +-
+ 9 files changed, 37 insertions(+), 19 deletions(-)
 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
+index ef06ce8..6f734c5 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
+@@ -96,7 +96,7 @@ static int fill_action_fields(struct adapter *adap,
+ 	LIST_HEAD(actions);
+ 
+ 	exts = cls->knode.exts;
+-	if (tc_no_actions(exts))
++	if (!tcf_exts_has_actions(exts))
+ 		return -EINVAL;
+ 
+ 	tcf_exts_to_list(exts, &actions);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 0f867dc..89d9aba 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8953,7 +8953,7 @@ static int parse_tc_actions(struct ixgbe_adapter *adapter,
+ 	LIST_HEAD(actions);
+ 	int err;
+ 
+-	if (tc_no_actions(exts))
++	if (!tcf_exts_has_actions(exts))
+ 		return -EINVAL;
+ 
+ 	tcf_exts_to_list(exts, &actions);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 3c536f5..78f50d9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -1326,7 +1326,7 @@ static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 	LIST_HEAD(actions);
+ 	int err;
+ 
+-	if (tc_no_actions(exts))
++	if (!tcf_exts_has_actions(exts))
+ 		return -EINVAL;
+ 
+ 	attr->flow_tag = MLX5_FS_DEFAULT_FLOW_TAG;
+@@ -1839,7 +1839,7 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 	bool encap = false;
+ 	int err = 0;
+ 
+-	if (tc_no_actions(exts))
++	if (!tcf_exts_has_actions(exts))
+ 		return -EINVAL;
+ 
+ 	memset(attr, 0, sizeof(*attr));
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 88b668b..66d511d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1626,7 +1626,7 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	LIST_HEAD(actions);
+ 	int err;
+ 
+-	if (!tc_single_action(cls->exts)) {
++	if (!tcf_exts_has_one_action(cls->exts)) {
+ 		netdev_err(mlxsw_sp_port->dev, "only singular actions are supported\n");
+ 		return -EOPNOTSUPP;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+index 400ad40..9be48d2e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+@@ -53,7 +53,7 @@ static int mlxsw_sp_flower_parse_actions(struct mlxsw_sp *mlxsw_sp,
+ 	LIST_HEAD(actions);
+ 	int err;
+ 
+-	if (tc_no_actions(exts))
++	if (!tcf_exts_has_actions(exts))
+ 		return 0;
+ 
+ 	/* Count action is inserted first */
+diff --git a/drivers/net/ethernet/netronome/nfp/bpf/offload.c b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+index 78d80a3..a88bb5b 100644
+--- a/drivers/net/ethernet/netronome/nfp/bpf/offload.c
++++ b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+@@ -115,14 +115,14 @@ nfp_net_bpf_get_act(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
+ 
+ 	/* TC direct action */
+ 	if (cls_bpf->exts_integrated) {
+-		if (tc_no_actions(cls_bpf->exts))
++		if (!tcf_exts_has_actions(cls_bpf->exts))
+ 			return NN_ACT_DIRECT;
+ 
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+ 	/* TC legacy mode */
+-	if (!tc_single_action(cls_bpf->exts))
++	if (!tcf_exts_has_one_action(cls_bpf->exts))
+ 		return -EOPNOTSUPP;
+ 
+ 	tcf_exts_to_list(cls_bpf->exts, &actions);
 diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 537d0a0..f4462ec 100644
+index f4462ec..7f25636 100644
 --- a/include/net/pkt_cls.h
 +++ b/include/net/pkt_cls.h
-@@ -333,26 +333,6 @@ int __tcf_em_tree_match(struct sk_buff *, struct tcf_ematch_tree *,
- 			struct tcf_pkt_info *);
- 
- /**
-- * tcf_em_tree_change - replace ematch tree of a running classifier
-- *
-- * @tp: classifier kind handle
-- * @dst: destination ematch tree variable
-- * @src: source ematch tree (temporary tree from tcf_em_tree_validate)
-- *
-- * This functions replaces the ematch tree in @dst with the ematch
-- * tree in @src. The classifier in charge of the ematch tree may be
-- * running.
-- */
--static inline void tcf_em_tree_change(struct tcf_proto *tp,
--				      struct tcf_ematch_tree *dst,
--				      struct tcf_ematch_tree *src)
--{
--	tcf_tree_lock(tp);
--	memcpy(dst, src, sizeof(*dst));
--	tcf_tree_unlock(tp);
--}
--
--/**
-  * tcf_em_tree_match - evaulate an ematch tree
-  *
-  * @skb: socket buffer of the packet in question
-@@ -386,7 +366,6 @@ struct tcf_ematch_tree {
- #define tcf_em_tree_validate(tp, tb, t) ((void)(t), 0)
- #define tcf_em_tree_destroy(t) do { (void)(t); } while(0)
- #define tcf_em_tree_dump(skb, t, tlv) (0)
--#define tcf_em_tree_change(tp, dst, src) do { } while(0)
- #define tcf_em_tree_match(skb, t, info) ((void)(info), 1)
- 
- #endif /* CONFIG_NET_EMATCH */
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index c4fd63a..979cd26 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -130,7 +130,6 @@ static int basic_set_parms(struct net *net, struct tcf_proto *tp,
- {
- 	int err;
- 	struct tcf_exts e;
--	struct tcf_ematch_tree t;
- 
- 	err = tcf_exts_init(&e, TCA_BASIC_ACT, TCA_BASIC_POLICE);
- 	if (err < 0)
-@@ -139,7 +138,7 @@ static int basic_set_parms(struct net *net, struct tcf_proto *tp,
- 	if (err < 0)
- 		goto errout;
- 
--	err = tcf_em_tree_validate(tp, tb[TCA_BASIC_EMATCHES], &t);
-+	err = tcf_em_tree_validate(tp, tb[TCA_BASIC_EMATCHES], &f->ematches);
- 	if (err < 0)
- 		goto errout;
- 
-@@ -149,7 +148,6 @@ static int basic_set_parms(struct net *net, struct tcf_proto *tp,
- 	}
- 
- 	tcf_exts_change(tp, &f->exts, &e);
--	tcf_em_tree_change(tp, &f->ematches, &t);
- 	f->tp = tp;
- 
+@@ -199,17 +199,35 @@ tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
  	return 0;
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index 12ce547..ce7d38b 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -76,7 +76,6 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
- 	struct nlattr *tb[TCA_CGROUP_MAX + 1];
- 	struct cls_cgroup_head *head = rtnl_dereference(tp->root);
- 	struct cls_cgroup_head *new;
--	struct tcf_ematch_tree t;
- 	struct tcf_exts e;
- 	int err;
+ }
  
-@@ -112,14 +111,13 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
- 		goto errout;
- 	}
++/**
++ * tcf_exts_has_actions - check if at least one action is present
++ * @exts: tc filter extensions handle
++ *
++ * Returns true if at least one action is present.
++ */
++static inline bool tcf_exts_has_actions(struct tcf_exts *exts)
++{
+ #ifdef CONFIG_NET_CLS_ACT
++	return exts->nr_actions;
++#else
++	return false;
++#endif
++}
  
--	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &t);
-+	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &new->ematches);
- 	if (err < 0) {
- 		tcf_exts_destroy(&e);
- 		goto errout;
- 	}
- 
- 	tcf_exts_change(tp, &new->exts, &e);
--	tcf_em_tree_change(tp, &new->ematches, &t);
- 
- 	rcu_assign_pointer(tp->root, new);
- 	if (head)
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 3065752..71fd1af 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -389,7 +389,6 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
- 	struct nlattr *opt = tca[TCA_OPTIONS];
- 	struct nlattr *tb[TCA_FLOW_MAX + 1];
- 	struct tcf_exts e;
--	struct tcf_ematch_tree t;
- 	unsigned int nkeys = 0;
- 	unsigned int perturb_period = 0;
- 	u32 baseclass = 0;
-@@ -432,13 +431,13 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
- 	if (err < 0)
- 		goto err1;
- 
--	err = tcf_em_tree_validate(tp, tb[TCA_FLOW_EMATCHES], &t);
--	if (err < 0)
--		goto err1;
+-#define tc_no_actions(_exts)  ((_exts)->nr_actions == 0)
+-#define tc_single_action(_exts) ((_exts)->nr_actions == 1)
 -
- 	err = -ENOBUFS;
- 	fnew = kzalloc(sizeof(*fnew), GFP_KERNEL);
- 	if (!fnew)
-+		goto err1;
-+
-+	err = tcf_em_tree_validate(tp, tb[TCA_FLOW_EMATCHES], &fnew->ematches);
-+	if (err < 0)
- 		goto err2;
+-#else /* CONFIG_NET_CLS_ACT */
+-
+-#define tc_no_actions(_exts) true
+-#define tc_single_action(_exts) false
+-
+-#endif /* CONFIG_NET_CLS_ACT */
++/**
++ * tcf_exts_has_one_action - check if exactly one action is present
++ * @exts: tc filter extensions handle
++ *
++ * Returns true if exactly one action is present.
++ */
++static inline bool tcf_exts_has_one_action(struct tcf_exts *exts)
++{
++#ifdef CONFIG_NET_CLS_ACT
++	return exts->nr_actions == 1;
++#else
++	return false;
++#endif
++}
  
- 	err = tcf_exts_init(&fnew->exts, TCA_FLOW_ACT, TCA_FLOW_POLICE);
-@@ -512,7 +511,6 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
- 			       (unsigned long)fnew);
+ int tcf_exts_validate(struct net *net, struct tcf_proto *tp,
+ 		      struct nlattr **tb, struct nlattr *rate_tlv,
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 9507bd3..9f15fcc 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -765,7 +765,7 @@ static int dsa_slave_add_cls_matchall(struct net_device *dev,
+ 	if (!ds->ops->port_mirror_add)
+ 		return err;
  
- 	tcf_exts_change(tp, &fnew->exts, &e);
--	tcf_em_tree_change(tp, &fnew->ematches, &t);
+-	if (!tc_single_action(cls->exts))
++	if (!tcf_exts_has_one_action(cls->exts))
+ 		return err;
  
- 	netif_keep_dst(qdisc_dev(tp->q));
+ 	tcf_exts_to_list(cls->exts, &actions);
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 39da0c5..287ae6c 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -972,7 +972,7 @@ int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
+ 	const struct tc_action *a;
+ 	LIST_HEAD(actions);
  
-@@ -554,8 +552,8 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+-	if (tc_no_actions(exts))
++	if (!tcf_exts_has_actions(exts))
+ 		return -EINVAL;
  
- err3:
- 	tcf_exts_destroy(&fnew->exts);
-+	tcf_em_tree_destroy(&fnew->ematches);
- err2:
--	tcf_em_tree_destroy(&t);
- 	kfree(fnew);
- err1:
- 	tcf_exts_destroy(&e);
+ 	tcf_exts_to_list(exts, &actions);
 -- 
 2.9.3
