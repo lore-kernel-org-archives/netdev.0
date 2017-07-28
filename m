@@ -1,71 +1,73 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Long stalls creating a new netns after a netns with a SMB client exits
-Date: Fri, 28 Jul 2017 10:49:57 -0700
-Message-ID: <CAM_iQpW+gSgCDWdGoHvN0wObda_g40FcyCBem5VVJ4XLHNMRaQ@mail.gmail.com>
-References: <CA+pO-2cm7bz861KvPMpugP8rVwf6rU8QYrVq7PVO-ZXx2kh1fw@mail.gmail.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/3] net-next: stmmac: support future possible different
+ internal phy mode
+Date: Fri, 28 Jul 2017 10:54:30 -0700
+Message-ID: <f8fe754c-8b46-a9f6-4020-f7db6c985773@gmail.com>
+References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
+ <20170728135544.GD32230@lunn.ch> <20170728142508.GA7221@Red>
+ <20170728143600.GB2132@lunn.ch> <20170728144424.GB7221@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Rolf Neugebauer <rolf.neugebauer@docker.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:35415 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752513AbdG1RuS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 13:50:18 -0400
-Received: by mail-wm0-f44.google.com with SMTP id m85so28085376wma.0
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 10:50:18 -0700 (PDT)
-In-Reply-To: <CA+pO-2cm7bz861KvPMpugP8rVwf6rU8QYrVq7PVO-ZXx2kh1fw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        icenowy-h8G6r0blFSE@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170728144424.GB7221@Red>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On 07/28/2017 07:44 AM, Corentin Labbe wrote:
+> On Fri, Jul 28, 2017 at 04:36:00PM +0200, Andrew Lunn wrote:
+>>>> I've probably asked this before: Does the internal PHY use a different
+>>>> PHY ID in registers 2 and 3?
+>>>>
+>>>
+>>> yes
+>>>
+>>> reg2: 0x0044
+>>> reg3: 0X1500
+> 
+> Copy/paste error, its 1400
+> 
+>>
+>> So this is not about loading the correct PHY driver. You can already
+>> do this based on the PHY IDs...
+>>
+>> This is about selecting which PHY to use. Internal or External?	
+>>
+>>      Andrew
+> 
+> It is too late when we know the PHY ID.
 
-On Fri, Jul 28, 2017 at 9:47 AM, Rolf Neugebauer
-<rolf.neugebauer@docker.com> wrote:
-> Creating the new namespace is stalling for around 200 seconds and
-> there 20 odd messages on the console, like:
->
-> [   67.372603] unregister_netdevice: waiting for lo to become free.
-> Usage count = 1
->
+> We need to set a syscon for choosing external/internal PHY.
+> So we can rely only on DT.
 
-Sounds like another netdev refcnt leak.
+Since the Device Tree needs to be correct to identify which PHY to use
+(internal or external), if you use the standard compatible string for
+the PHY that contains its OUI, e.g:
 
-> Adding a 'sleep 1' before deleting the original network namespace
-> "solves" the issue, but that doesn't sound like a good fix. Not using
-> unmount also does not help (understandable).
+compatible = "ethernet-phy-id0044.1400", "ethernet-phy-ieee802.3-c22"
 
+then you can have your Ethernet MAC identify whether this is an internal
+PHY by having a list of compatible strings to match against.
 
-Interesting, if sleeping for 1sec help, why did you see the stall for
-200sec? The "leak" should go away eventually without 'sleep 1',
-right?
+Corentin, can you make sure you copy netdev, Andrew and myself on the
+next submissions so we don't have to keep track of seemingly identical
+threads (this one + the rockchip dwmac changes) and we can work towards
+one solution?
 
->
-> While the creation of the new namespace is stalled, I used 'sysrq' a
-> few times to dump the work queues. There is an example below. Also,
-> the hung task detection kicks in after 120 seconds (also below)
-
-Yeah, the net_mutex is held by cleanup_net().
-
->
-> I can readily reproduce this on 4.9.39, 4.11.12 and another user
-> repro-ed it on 4.12.3. It seems to happen every time. At least one
-> user reported issues with NFS mounts as well, but we were not able to
-> reproduce it. It's not clear to me if this is directly related to
-> 'mount.cifs' or if that just happens to reliably repro it.
-
-OK, so commit d747a7a51b00984127a88113c does not help this case
-either.
-
->
-> It would be great if someone more familiar with the code could take a
-> look. I'm happy to provide additional info (perf traces etc) or test
-> patches if needed.
->
-
-The last time I debugged this kind of netdev refcnt leak problem,
-I added a few trace_printk() to dev_hold() and dev_put(),
-so you can try it too. I will see if I can use your reproducer
-here.
-
-Thanks.
+Thanks
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
