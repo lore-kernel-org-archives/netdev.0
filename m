@@ -1,94 +1,96 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/20] net: sched: summer cleanup part 1, mainly in exts area
-Date: Fri, 28 Jul 2017 16:40:22 +0200
-Message-ID: <20170728144042.6380-1-jiri@resnulli.us>
+Subject: [patch net-next 01/20] net: sched: sch_atm: use Qdisc_class_common structure
+Date: Fri, 28 Jul 2017 16:40:23 +0200
+Message-ID: <20170728144042.6380-2-jiri@resnulli.us>
+References: <20170728144042.6380-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35006 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751761AbdG1Okp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:40:45 -0400
-Received: by mail-wm0-f66.google.com with SMTP id r77so14579703wmd.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:40:45 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35014 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751893AbdG1Okr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:40:47 -0400
+Received: by mail-wm0-f65.google.com with SMTP id r77so14579778wmd.2
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:40:46 -0700 (PDT)
+In-Reply-To: <20170728144042.6380-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This patchset is one of the couple cleanup patchsets I have in queue.
-The motivation aside the obvious need to "make things nicer" is also
-to prepare for shared filter blocks introduction. That requires tp->q
-removal, and therefore removal of all tp->q users.
+Even if it is only for classid now, use this common struct a be aligned
+with the rest of the classful qdiscs.
 
-Patch 1 is just some small thing I spotted on the way
-Patch 2 removes one user of tp->q, namely tcf_em_tree_change
-Patches 3-8 do preparations for exts->nr_actions removal
-Patch 9 does the conversion of action array into rcuized list. This is also
-        one tp->q user removal.
-Patches 10-11 do simple renames of functions in cls*
-The rest of the patches remove unnecessary calls of tcf_exts_change helper.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/sched/sch_atm.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-Tested by tools/testing/selftests/tc-testing
-
-Jiri Pirko (20):
-  net: sched: sch_atm: use Qdisc_class_common structure
-  net: sched: remove unneeded tcf_em_tree_change
-  net: sched: change names of action number helpers to be aligned with
-    the rest
-  net: sched: use tcf_exts_has_actions in tcf_exts_exec
-  net: sched: remove redundant helpers tcf_exts_is_predicative and
-    tcf_exts_is_available
-  net: sched: fix return value of tcf_exts_exec
-  net: sched: remove check for number of actions in tcf_exts_exec
-  net: sched: use tcf_exts_has_actions instead of exts->nr_actions
-  net: sched: convert actions array into rcu list
-  net: sched: cls_bpf: rename cls_bpf_modify_existing function
-  net: sched: cls_fw: rename fw_change_attrs function
-  net: sched: cls_flower: no need to call tcf_exts_change for newly
-    allocated struct
-  net: sched: cls_fw: no need to call tcf_exts_change for newly
-    allocated struct
-  net: sched: cls_matchall: no need to call tcf_exts_change for newly
-    allocated struct
-  net: sched: cls_basic: no need to call tcf_exts_change for newly
-    allocated struct
-  net: sched: cls_bpf: no need to call tcf_exts_change for newly
-    allocated struct
-  net: sched: cls_cgroup: no need to call tcf_exts_change for newly
-    allocated struct
-  net: sched: cls_flow: no need to call tcf_exts_change for newly
-    allocated struct
-  net: sched: cls_route: no need to call tcf_exts_change for newly
-    allocated struct
-  net: sched: cls_u32: no need to call tcf_exts_change for newly
-    allocated struct
-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |   4 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   2 +-
- .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |   2 +-
- drivers/net/ethernet/netronome/nfp/bpf/offload.c   |   4 +-
- include/net/act_api.h                              |  11 +-
- include/net/pkt_cls.h                              | 143 ++++++++-------------
- net/dsa/slave.c                                    |   2 +-
- net/sched/act_api.c                                |  17 ++-
- net/sched/cls_api.c                                |  35 +++--
- net/sched/cls_basic.c                              |  21 +--
- net/sched/cls_bpf.c                                |  39 ++----
- net/sched/cls_cgroup.c                             |  22 +---
- net/sched/cls_flow.c                               |  48 +++----
- net/sched/cls_flower.c                             |  17 +--
- net/sched/cls_fw.c                                 |  44 ++-----
- net/sched/cls_matchall.c                           |  19 +--
- net/sched/cls_route.c                              |  36 ++----
- net/sched/cls_rsvp.h                               |  18 +--
- net/sched/cls_tcindex.c                            |  55 +++-----
- net/sched/cls_u32.c                                |  27 +---
- net/sched/sch_atm.c                                |  12 +-
- 23 files changed, 192 insertions(+), 390 deletions(-)
-
+diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+index 572fe25..0af4b1c 100644
+--- a/net/sched/sch_atm.c
++++ b/net/sched/sch_atm.c
+@@ -41,6 +41,7 @@
+ #define VCC2FLOW(vcc) ((struct atm_flow_data *) ((vcc)->user_back))
+ 
+ struct atm_flow_data {
++	struct Qdisc_class_common common;
+ 	struct Qdisc		*q;	/* FIFO, TBF, etc. */
+ 	struct tcf_proto __rcu	*filter_list;
+ 	struct tcf_block	*block;
+@@ -49,7 +50,6 @@ struct atm_flow_data {
+ 					   struct sk_buff *skb); /* chaining */
+ 	struct atm_qdisc_data	*parent;	/* parent qdisc */
+ 	struct socket		*sock;		/* for closing */
+-	u32			classid;	/* x:y type ID */
+ 	int			ref;		/* reference count */
+ 	struct gnet_stats_basic_packed	bstats;
+ 	struct gnet_stats_queue	qstats;
+@@ -75,7 +75,7 @@ static inline struct atm_flow_data *lookup_flow(struct Qdisc *sch, u32 classid)
+ 	struct atm_flow_data *flow;
+ 
+ 	list_for_each_entry(flow, &p->flows, list) {
+-		if (flow->classid == classid)
++		if (flow->common.classid == classid)
+ 			return flow;
+ 	}
+ 	return NULL;
+@@ -293,7 +293,7 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
+ 	flow->old_pop = flow->vcc->pop;
+ 	flow->parent = p;
+ 	flow->vcc->pop = sch_atm_pop;
+-	flow->classid = classid;
++	flow->common.classid = classid;
+ 	flow->ref = 1;
+ 	flow->excess = excess;
+ 	list_add(&flow->list, &p->link.list);
+@@ -549,7 +549,7 @@ static int atm_tc_init(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	p->link.vcc = NULL;
+ 	p->link.sock = NULL;
+-	p->link.classid = sch->handle;
++	p->link.common.classid = sch->handle;
+ 	p->link.ref = 1;
+ 	tasklet_init(&p->task, sch_atm_dequeue, (unsigned long)sch);
+ 	return 0;
+@@ -594,7 +594,7 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
+ 		sch, p, flow, skb, tcm);
+ 	if (list_empty(&flow->list))
+ 		return -EINVAL;
+-	tcm->tcm_handle = flow->classid;
++	tcm->tcm_handle = flow->common.classid;
+ 	tcm->tcm_info = flow->q->handle;
+ 
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
+@@ -619,7 +619,7 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
+ 			goto nla_put_failure;
+ 	}
+ 	if (flow->excess) {
+-		if (nla_put_u32(skb, TCA_ATM_EXCESS, flow->classid))
++		if (nla_put_u32(skb, TCA_ATM_EXCESS, flow->common.classid))
+ 			goto nla_put_failure;
+ 	} else {
+ 		if (nla_put_u32(skb, TCA_ATM_EXCESS, 0))
 -- 
 2.9.3
