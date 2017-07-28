@@ -1,119 +1,258 @@
-From: Kurt Van Dijck <dev.kurt@vandijck-laurijssen.be>
-Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
- fixed transceiver bindings
-Date: Fri, 28 Jul 2017 06:57:24 +0200
-Message-ID: <20170728045724.GA27903@airbook.vandijck-laurijssen.be>
-References: <20170724230521.1436-1-fcooper@ti.com>
- <20170724230521.1436-3-fcooper@ti.com>
- <20170726164124.GL12049@lunn.ch>
- <355b90b3-97ce-1057-6617-d5d709449c48@hartkopp.net>
- <a77fe395-33c7-9405-b51a-5d3372e5c58b@ti.com>
- <fe99189e-d077-ba65-4dfc-a4d8beee62b3@hartkopp.net>
- <932602fe-d06a-7a17-5a0c-24265cf2e643@ti.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC] switchdev: generate phys_port_name in the core
+Date: Fri, 28 Jul 2017 07:35:07 +0200
+Message-ID: <20170728053507.GA1857@nanopsycho>
+References: <CAJ3xEMhUs0DfMioSU=gqR_hEs=ZFjUM1bA3nA9LwtTgH93ygDQ@mail.gmail.com>
+ <20170728023122.1674-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-        Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-can@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
-        robh+dt@kernel.org, quentin.schulz@free-electrons.com,
-        sergei.shtylyov@cogentembedded.com
-To: Franklin S Cooper Jr <fcooper@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Or Gerlitz <gerlitz.or@gmail.com>, netdev@vger.kernel.org,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Sathya Perla <sathya.perla@broadcom.com>,
+        David Miller <davem@davemloft.net>, simon.horman@netronome.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34988 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750888AbdG1FfK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 01:35:10 -0400
+Received: by mail-wm0-f66.google.com with SMTP id r77so12951287wmd.2
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 22:35:10 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <932602fe-d06a-7a17-5a0c-24265cf2e643@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170728023122.1674-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Fri, Jul 28, 2017 at 04:31:22AM CEST, jakub.kicinski@netronome.com wrote:
+>On Thu, 27 Jul 2017 13:30:44 +0300, Or Gerlitz wrote:
+>> > want to add port splitting support, for example, reporting the name on
+>> > physical ports will become more of a necessity.  
+>> 
+>> > If we adopt Jiri's suggestion of returning structured data it will be
+>> > very easy to give user space type and indexes separately, but we should
+>> > probably still return the string for backwards compatibility.  
+>> 
+>> I am not still clear how the structured data would look like
+>
+>I decided to just quickly write the code, that should be easier to 
+>understand.  We can probably leave out the netlink part of the API
+>if there is no need for it right now, but that's what I ment by
+>returning the information in a more structured way.
+>
+>Tested-by: nobody :)
+>Suggested-by: Jiri (if I understood correctly)
+
+Yes, you did :) Couple of nits inlined.
 
 
+>---
+> drivers/net/ethernet/mellanox/mlx5/core/en_rep.c |  8 ++-
+> drivers/net/ethernet/mellanox/mlxsw/switchx2.c   | 10 ++--
+> drivers/net/ethernet/netronome/nfp/nfp_port.c    | 26 ++++-----
+> drivers/net/ethernet/netronome/nfp/nfp_port.h    |  4 +-
+> include/linux/netdevice.h                        | 18 ++++++-
+> include/uapi/linux/if_link.h                     | 16 ++++++
+> net/core/dev.c                                   | 31 +++++++++--
+> net/core/rtnetlink.c                             | 69 ++++++++++++++++++++++++
+> 8 files changed, 153 insertions(+), 29 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+>index 45e60be9c277..7a71291b8ec3 100644
+>--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+>+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+>@@ -637,16 +637,14 @@ static int mlx5e_rep_close(struct net_device *dev)
+> }
 > 
-> On 07/27/2017 01:47 PM, Oliver Hartkopp wrote:
-> > On 07/26/2017 08:29 PM, Franklin S Cooper Jr wrote:
-> >>
-> > 
-> >> I'm fine with switching to using bitrate instead of speed. Kurk was
-> >> originally the one that suggested to use the term arbitration and data
-> >> since thats how the spec refers to it. Which I do agree with. But your
-> >> right that in the drivers (struct can_priv) we just use bittiming and
-> >> data_bittiming (CAN-FD timings). I don't think adding "fd" into the
-> >> property name makes sense unless we are calling it something like
-> >> "max-canfd-bitrate" which I would agree is the easiest to understand.
-> >>
-> >> So what is the preference if we end up sticking with two properties?
-> >> Option 1 or 2?
-> >>
-> >> 1)
-> >> max-bitrate
-> >> max-data-bitrate
-> >>
-> >> 2)
-> >> max-bitrate
-> >> max-canfd-bitrate
-> >>
-> >>
-> > 
-> > 1
-> > 
-> >>> A CAN transceiver is limited in bandwidth. But you only have one RX and
-> >>> one TX line between the CAN controller and the CAN transceiver. The
-> >>> transceiver does not know about CAN FD - it has just a physical(!) layer
-> >>> with a limited bandwidth. This is ONE limitation.
-> >>>
-> >>> So I tend to specify only ONE 'max-bitrate' property for the
-> >>> fixed-transceiver binding.
-> >>>
-> >>> The fact whether the CAN controller is CAN FD capable or not is provided
-> >>> by the netlink configuration interface for CAN controllers.
-> >>
-> >> Part of the reasoning to have two properties is to indicate that you
-> >> don't support CAN FD while limiting the "arbitration" bit rate.
-> > 
-> > ??
-> > 
-> > It's a physical layer device which only has a bandwidth limitation.
-> > The transceiver does not know about CAN FD.
-> > 
-> >> With one
-> >> property you can not determine this and end up having to make some
-> >> assumptions that can quickly end up biting people.
-> > 
-> > Despite the fact that the transceiver does not know anything about ISO
-> > layer 2 (CAN/CAN FD) the properties should look like
-> > 
-> >     max-bitrate
-> >     canfd-capable
-> > 
-> > then.
-> > 
-> > But when the tranceiver is 'canfd-capable' agnostic, why provide a
-> > property for it?
-> > 
-> > Maybe I'm wrong but I still can't follow your argumentation ideas.
+> static int mlx5e_rep_get_phys_port_name(struct net_device *dev,
+>-					char *buf, size_t len)
+>+					struct netdev_port_info *info)
+
+Either we rename ndo to something like ndo_get_port_info or you rename
+the struct to netdev_port_name_info. These 2 should be in sync
+
+
+> {
+> 	struct mlx5e_priv *priv = netdev_priv(dev);
+> 	struct mlx5e_rep_priv *rpriv = priv->ppriv;
+> 	struct mlx5_eswitch_rep *rep = rpriv->rep;
+>-	int ret;
 > 
+>-	ret = snprintf(buf, len, "%d", rep->vport - 1);
+>-	if (ret >= len)
+>-		return -EOPNOTSUPP;
+>+	info->type = NETDEV_PORT_PCI_VF;
 
-The transceiver does not know about CAN FD, but CAN FD uses
-the different restrictions of the arbitration & data phase in the CAN
-frame, i.e. during arbitration, the RX must indicate the wire
-(dominant/recessive) within 1 bit time, during data in CAN FD, this is
-not necessary.
+NETDEV_PORT_TYPE_PCI_VF
+or
+NETDEV_PORT_NAME_TYPE_PCI_VF
+depends on the option you chose above.
 
-So while _a_ transceiver may be spec'd to 1MBit during arbitration,
-CAN FD packets may IMHO exceed that speed during data phase.
-That was the whole point of CAN FD: exceed the limits required for
-correct arbitration on transceiver & wire.
 
-So I do not agree on the single bandwidth limitation.
-
-The word 'max-arbitration-bitrate' makes the difference very clear.
-
-> Your right. I spoke to our CAN transceiver team and I finally get your
-> points.
+>+	info->pci.vf_id = rep->vport - 1;
 > 
-> So yes using "max-bitrate" alone is all we need. Sorry for the confusion
-> and I'll create a new rev using this approach.
-> > 
-> > Regards,
-> > Oliver
+> 	return 0;
+> }
+>diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+>index 3b0f72455681..383b8b5f41cf 100644
+>--- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+>+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+>@@ -413,15 +413,13 @@ mlxsw_sx_port_get_stats64(struct net_device *dev,
+> 	stats->tx_dropped	= tx_dropped;
+> }
+> 
+>-static int mlxsw_sx_port_get_phys_port_name(struct net_device *dev, char *name,
+>-					    size_t len)
+>+static int mlxsw_sx_port_get_phys_port_name(struct net_device *dev,
+>+					    struct netdev_port_info *info)
+> {
+> 	struct mlxsw_sx_port *mlxsw_sx_port = netdev_priv(dev);
+>-	int err;
+> 
+>-	err = snprintf(name, len, "p%d", mlxsw_sx_port->mapping.module + 1);
+>-	if (err >= len)
+>-		return -EINVAL;
+>+	info->type = NETDEV_PORT_EXTERNAL;
+>+	info->port.id = mlxsw_sx_port->mapping.module + 1;
+> 
+> 	return 0;
+> }
+>diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.c b/drivers/net/ethernet/netronome/nfp/nfp_port.c
+>index d16a7b78ba9b..8f5c37b9a79c 100644
+>--- a/drivers/net/ethernet/netronome/nfp/nfp_port.c
+>+++ b/drivers/net/ethernet/netronome/nfp/nfp_port.c
+>@@ -143,11 +143,11 @@ struct nfp_eth_table_port *nfp_port_get_eth_port(struct nfp_port *port)
+> }
+> 
+> int
+>-nfp_port_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
+>+nfp_port_get_phys_port_name(struct net_device *netdev,
+>+			    struct netdev_port_info *info)
+> {
+> 	struct nfp_eth_table_port *eth_port;
+> 	struct nfp_port *port;
+>-	int n;
+> 
+> 	port = nfp_port_from_netdev(netdev);
+> 	if (!port)
+>@@ -159,25 +159,27 @@ nfp_port_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
+> 		if (!eth_port)
+> 			return -EOPNOTSUPP;
+> 
+>-		if (!eth_port->is_split)
+>-			n = snprintf(name, len, "p%d", eth_port->label_port);
+>-		else
+>-			n = snprintf(name, len, "p%ds%d", eth_port->label_port,
+>-				     eth_port->label_subport);
+>+		info->type = NETDEV_PORT_EXTERNAL;
+>+		info->external.id = eth_port->label_port;
+>+
+>+		if (eth_port->is_split) {
+>+			info->type = NETDEV_PORT_EXTERNAL_SPLIT;
+>+			info->external.split_id = eth_port->label_subport;
+>+		}
+> 		break;
+> 	case NFP_PORT_PF_PORT:
+>-		n = snprintf(name, len, "pf%d", port->pf_id);
+>+		info->type = NETDEV_PORT_PCI_PF;
+>+		info->pci.pf_id = port->pf_id;
+> 		break;
+> 	case NFP_PORT_VF_PORT:
+>-		n = snprintf(name, len, "pf%dvf%d", port->pf_id, port->vf_id);
+>+		info->type = NETDEV_PORT_PCI_VF;
+>+		info->pci.pf_id = port->pf_id;
+>+		info->pci.vf_id = port->vf_id;
+> 		break;
+> 	default:
+> 		return -EOPNOTSUPP;
+> 	}
+> 
+>-	if (n >= len)
+>-		return -EINVAL;
+>-
+> 	return 0;
+> }
+> 
+>diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.h b/drivers/net/ethernet/netronome/nfp/nfp_port.h
+>index 56c76926c82a..03b8746feb29 100644
+>--- a/drivers/net/ethernet/netronome/nfp/nfp_port.h
+>+++ b/drivers/net/ethernet/netronome/nfp/nfp_port.h
+>@@ -118,8 +118,8 @@ nfp_port_from_id(struct nfp_pf *pf, enum nfp_port_type type, unsigned int id);
+> struct nfp_eth_table_port *__nfp_port_get_eth_port(struct nfp_port *port);
+> struct nfp_eth_table_port *nfp_port_get_eth_port(struct nfp_port *port);
+> 
+>-int
+>-nfp_port_get_phys_port_name(struct net_device *netdev, char *name, size_t len);
+>+int nfp_port_get_phys_port_name(struct net_device *netdev,
+>+				struct netdev_port_info *info);
+> int nfp_port_configure(struct net_device *netdev, bool configed);
+> 
+> struct nfp_port *
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index 3a3cdc1b1f31..0a055df701ef 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -845,6 +845,22 @@ struct xfrmdev_ops {
+> };
+> #endif
+> 
+>+struct netdev_port_info {
+>+	int type;
 
-Kind regards,
-Kurt
+enum please
+
+
+>+
+>+	union {
+>+		struct {
+>+			u32 id;
+>+			u32 split_id;
+>+		} external;
+>+
+>+		struct {
+>+			u32 pf_id;
+>+			u32 vf_id;
+>+		} pci;
+>+	};
+>+};
+>+
+> /*
+>  * This structure defines the management hooks for network devices.
+>  * The following hooks can be defined; unless noted otherwise, they are
+>@@ -1306,7 +1322,7 @@ struct net_device_ops {
+> 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
+> 							struct netdev_phys_item_id *ppid);
+> 	int			(*ndo_get_phys_port_name)(struct net_device *dev,
+>-							  char *name, size_t len);
+>+							  struct netdev_port_info *info);
+> 	void			(*ndo_udp_tunnel_add)(struct net_device *dev,
+> 						      struct udp_tunnel_info *ti);
+> 	void			(*ndo_udp_tunnel_del)(struct net_device *dev,
+>diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+>index 8d062c58d5cb..e00ff0333e3f 100644
+>--- a/include/uapi/linux/if_link.h
+>+++ b/include/uapi/linux/if_link.h
+>@@ -158,6 +158,7 @@ enum {
+> 	IFLA_PAD,
+> 	IFLA_XDP,
+> 	IFLA_EVENT,
+>+	IFLA_PORT_INFO,
+> 	__IFLA_MAX
+> };
+> 
+>@@ -927,4 +928,19 @@ enum {
+> 	IFLA_EVENT_BONDING_OPTIONS,	/* change in bonding options */
+> };
+> 
+>+enum {
+>+	NETDEV_PORT_EXTERNAL,
+>+	NETDEV_PORT_EXTERNAL_SPLIT,
+>+	NETDEV_PORT_PCI_PF,
+
+Isn't PF also EXTERNAL? Cant VF be split? What I'm getting at, shoudn't
+these be flags?
+
+
+>+	NETDEV_PORT_PCI_VF,
+>+};
+>+
