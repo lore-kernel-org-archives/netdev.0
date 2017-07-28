@@ -1,115 +1,78 @@
-From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
- fixed transceiver bindings
-Date: Fri, 28 Jul 2017 13:53:18 -0500
-Message-ID: <80c167a2-7eb5-8076-04fc-0989981a523d@ti.com>
-References: <20170728130231.GA10680@airbook.vandijck-laurijssen.be>
- <c7d4c364-1ed9-ca73-2571-d04297ac3788@hartkopp.net>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [RFC PATCH v1] net: ethernet: nb8800: Reset HW block in ndo_open
+Date: Fri, 28 Jul 2017 19:56:17 +0100
+Message-ID: <yw1xfudgl7am.fsf@mansr.com>
+References: <823b1540-b528-bbd7-7f99-5dc39a08868a@sigmadesigns.com>
+        <yw1xk22slemx.fsf@mansr.com>
+        <c1bf54ee-8634-23a1-abda-55bc3fafe2a8@sigmadesigns.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        Andrew Lunn <andrew@lunn.ch>, <linux-kernel@vger.kernel.org>,
-        <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-can@vger.kernel.org>, <wg@grandegger.com>,
-        <mkl@pengutronix.de>, <robh+dt@kernel.org>,
-        <quentin.schulz@free-electrons.com>,
-        <sergei.shtylyov@cogentembedded.com>,
-        <dev.kurt@vandijck-laurijssen.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c7d4c364-1ed9-ca73-2571-d04297ac3788@hartkopp.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        Mason <slash.tmp@free.fr>
+To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from unicorn.mansr.com ([81.2.72.234]:44944 "EHLO unicorn.mansr.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752204AbdG1S4U (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Jul 2017 14:56:20 -0400
+In-Reply-To: <c1bf54ee-8634-23a1-abda-55bc3fafe2a8@sigmadesigns.com> (Marc
+        Gonzalez's message of "Fri, 28 Jul 2017 18:43:42 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Marc Gonzalez <marc_gonzalez@sigmadesigns.com> writes:
 
+> On 28/07/2017 18:17, Måns Rullgård wrote:
+>
+>> Marc Gonzalez wrote:
+>> 
+>>> ndo_stop breaks RX in a way that ndo_open is unable to undo.
+>> 
+>> Please elaborate.  Why can't it be fixed in a less heavy-handed way?
+>
+> I'm not sure what "elaborate" means. After we've been through
+> ndo_stop once, the board can send packets, but it doesn't see
+> any replies from remote systems. RX is wedged.
 
-On 07/28/2017 01:33 PM, Oliver Hartkopp wrote:
-> Hi Kurt,
-> 
-> On 07/28/2017 03:02 PM, Kurt Van Dijck wrote:
-> 
->>>> The word 'max-arbitration-bitrate' makes the difference very clear.
+So you say, but you have not explained why this happens.  Until we know
+why, we can't decide on the proper fix.
+
+> I think ndo_stop is rare enough an event that doing a full
+> reset is not an issue, in terms of performance.
+
+Performance isn't the issue.  Doing the right thing is.
+
+> Also I will need this infrastructure anyway for suspend/resume
+> support.
+
+> It might also make sense to put the HW in reset at close
+> (to save power). I will try measuring the power savings,
+> if any.
+>
+>>> Work around the issue by resetting the HW in ndo_open.
+>>> This will provide the basis for suspend/resume support.
 >>>
->>> I think you are mixing up ISO layer 1 and ISO layer 2.
->>
->> In order to provide higher data throughput without putting extra limits
->> on transceiver & wire, the requirement for the round-trip delay to be
->> within 1 bittime has been eliminated, but only for the data phase when
->> arbitration is over.
->> So layer 2 (CAN FD) has been adapted to circumvent the layer 1
->> (transceiver + wire) limitations.
->>
->> In fact, the round-trip delay requirement never actually did matter for
->> plain CAN during data bits either. CAN FD just makes use of that,
->> but is therefore incompatible on the wire.
->>
->> I forgot the precise wording, but this is the principle that Bosch
->> explained on the CAN conference in Nurnberg several years ago, or at
->> least this is how I remembered it :-)
-> 
-> I just checked an example for a CAN FD qualified transceiver
-> 
-> http://www.nxp.com/products/automotive-products/energy-power-management/can-transceivers/high-speed-can-transceiver-with-standby-mode:TJA1044
-> 
-> 
-> where it states:
-> 
-> The TJA1044T is specified for data rates up to 1 Mbit/s. Pending the
-> release of ISO11898-2:2016 including CAN FD and SAE-J2284-4/5,
-> additional timing parameters defining loop delay symmetry are specified
-> for the TJA1044GT and TJA1044GTK. This implementation enables reliable
-> communication in the CAN FD fast phase at data rates up to 5 Mbit/s.
-> 
-> and
-> 
-> TJA1044GT/TJA1044GTK
-> 
-> - Timing guaranteed for data rates up to 5 Mbit/s
-> - Improved TXD to RXD propagation delay of 210 ns
-> 
->> I haven't followed the developments of transceivers, but with the above
->> principle in mind, it's obvious that any transceiver allows higher
->> bitrates during the data segment because the TX-to-RX line delay must
->> not scale with the bitrate.
->> In reality, maybe not all transceivers will mention this in their
->> datasheet.
->>
->> So whether you call it 'max-arbitration-bitrate' & 'max-data-bitrate'
->> or 'max-bitrate' & 'max-data-bitrate' does not really matter (I prefer
->> 1st) but you will one day need 2 bitrates.
-> 
-> The question to me is whether it is right option to specify two bitrates
-> OR to specify one maximum bitrate and provide a property that a CAN FD
-> capable propagation delay is available.
-> 
-> E.g.
-> 
->     max-bitrate
->     max-data-bitrate
-> 
-> or
-> 
->     max-bitrate
->     canfd-capable    // CAN FD capable propagation delay available
-> 
-> 
-> I assume the optimized propagation delay is 'always on' as the
-> transceiver is not able to detect which kind of bits it is processing.
-> That's why I think providing two bitrates leads to a wrong view on the
-> transceiver.
+>>> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+>>> ---
+>>>  drivers/net/ethernet/aurora/nb8800.c | 40 +++++++++++++++++-------------------
+>>>  drivers/net/ethernet/aurora/nb8800.h |  1 +
+>>>  2 files changed, 20 insertions(+), 21 deletions(-)
+>> 
+>> I'm pretty sure this doesn't preserve everything it should.
+>
+> Hmmm, we're supposed to start fresh ("full reset").
+> What could there be to preserve?
+> You mentioned flow control and multicast elsewhere.
+> I will take a closer look. Thanks for the heads up.
 
-I agree with this.
+Yes, those settings are definitely lost with your patch.  Now I'm not
+sure whether the networking core expects these to survive a stop/start
+cycle, so please check that.  There might also be other less obvious
+things that need to be preserved.
 
-The transceiver is an analog device that needs to support faster
-switching frequency (FETs) including minimizing delay to support CAN-FD
-ie higher bitrate. From the transceiver perspective the bits for
-"arbitration" and "data" look exactly the same. Since it can't
-differentiate between the two (at the physical layer) then the actual
-limit isn't specific to which part/type of the CAN message is being
-sent. Rather its just a single overall max bitrate limit.
-
-> 
-> Regards,
-> Oliver
-> 
+-- 
+Måns Rullgård
