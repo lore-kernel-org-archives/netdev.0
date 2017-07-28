@@ -1,62 +1,79 @@
-From: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
-Subject: Re: [RFC PATCH v1] net: ethernet: nb8800: Reset HW block in ndo_open
-Date: Fri, 28 Jul 2017 18:43:42 +0200
-Message-ID: <c1bf54ee-8634-23a1-abda-55bc3fafe2a8@sigmadesigns.com>
-References: <823b1540-b528-bbd7-7f99-5dc39a08868a@sigmadesigns.com>
- <yw1xk22slemx.fsf@mansr.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next v2 0/3] ethtool: support for forward error
+ correction mode setting on a link
+Date: Fri, 28 Jul 2017 09:46:20 -0700
+Message-ID: <20170728094620.525ba156@cakuba.netronome.com>
+References: <1501199248-24695-1-git-send-email-roopa@cumulusnetworks.com>
+        <20170727193320.308e86c3@cakuba.netronome.com>
+        <CAJieiUiXuN9s0ndJ4K6UVE2pomRi0aD9PH6uYHe12qCzL0+wSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>,
-        Mason <slash.tmp@free.fr>
-To: Mans Rullgard <mans@mansr.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Vidya Sagar Ravipati <vidya.chowdary@gmail.com>,
+        Dustin Byford <dustin@cumulusnetworks.com>,
+        Dave Olson <olson@cumulusnetworks.com>,
+        Casey Leedom <leedom@chelsio.com>,
+        Gal Pressman <galp@mellanox.com>, Andrew Lunn <andrew@lunn.ch>,
+        Manoj Malviya <manojmalviya@chelsio.com>,
+        Santosh Rastapur <santosh@chelsio.com>, yuval.mintz@qlogic.com,
+        odedw@mellanox.com, Ariel Almog <ariela@mellanox.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us-smtp-delivery-107.mimecast.com ([63.128.21.107]:52323 "EHLO
-        us-smtp-delivery-107.mimecast.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752115AbdG1Qns (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 12:43:48 -0400
-In-Reply-To: <yw1xk22slemx.fsf@mansr.com>
+Received: from mx3.wp.pl ([212.77.101.9]:50436 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751882AbdG1Qqa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Jul 2017 12:46:30 -0400
+In-Reply-To: <CAJieiUiXuN9s0ndJ4K6UVE2pomRi0aD9PH6uYHe12qCzL0+wSg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/07/2017 18:17, Måns Rullgård wrote:
-
-> Marc Gonzalez wrote:
+On Fri, 28 Jul 2017 07:53:01 -0700, Roopa Prabhu wrote:
+> On Thu, Jul 27, 2017 at 7:33 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
+> > On Thu, 27 Jul 2017 16:47:25 -0700, Roopa Prabhu wrote:  
+> >> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> >>
+> >> Forward Error Correction (FEC) modes i.e Base-R
+> >> and Reed-Solomon modes are introduced in 25G/40G/100G standards
+> >> for providing good BER at high speeds. Various networking devices
+> >> which support 25G/40G/100G provides ability to manage supported FEC
+> >> modes and the lack of FEC encoding control and reporting today is a
+> >> source for interoperability issues for many vendors.
+> >> FEC capability as well as specific FEC mode i.e. Base-R
+> >> or RS modes can be requested or advertised through bits D44:47 of base link
+> >> codeword.
+> >>
+> >> This patch set intends to provide option under ethtool to manage and
+> >> report FEC encoding settings for networking devices as per IEEE 802.3
+> >> bj, bm and by specs.
+> >>
+> >> v2 :
+> >>         - minor patch format fixes and typos pointed out by Andrew
+> >>         - there was a pending discussion on the use of 'auto' vs
+> >>           'automatic' for fec settings. I have left it as 'auto'
+> >>           because in most cases today auto is used in place of
+> >>           automatic to represent automatically generated values.
+> >>           We use it in other networking config too. I would prefer
+> >>           leaving it as auto.  
+> >
+> > On the subject of resetting the values when module is replugged I
+> > assume what was previously described remains:
+> >  - we always allow users to set the FEC regardless of the module type;
+> >  - if user set an incorrect FEC for the module type (or module gets
+> >    swapped) the link will be administratively taken down by either
+> >    the driver or FW.
+> >
+> > Is that correct?  Am I misremembering?  
 > 
->> ndo_stop breaks RX in a way that ndo_open is unable to undo.
-> 
-> Please elaborate.  Why can't it be fixed in a less heavy-handed way?
+> yes, correct. And possible future sfp hotplug events can give user-space
+> more info to react to module type changes etc.
 
-I'm not sure what "elaborate" means. After we've been through
-ndo_stop once, the board can send packets, but it doesn't see
-any replies from remote systems. RX is wedged.
-
-I think ndo_stop is rare enough an event that doing a full
-reset is not an issue, in terms of performance. Also I will
-need this infrastructure anyway for suspend/resume support.
-
-It might also make sense to put the HW in reset at close
-(to save power). I will try measuring the power savings,
-if any.
-
-
->> Work around the issue by resetting the HW in ndo_open.
->> This will provide the basis for suspend/resume support.
->>
->> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
->> ---
->>  drivers/net/ethernet/aurora/nb8800.c | 40 +++++++++++++++++-------------------
->>  drivers/net/ethernet/aurora/nb8800.h |  1 +
->>  2 files changed, 20 insertions(+), 21 deletions(-)
-> 
-> I'm pretty sure this doesn't preserve everything it should.
-
-Hmmm, we're supposed to start fresh ("full reset").
-What could there be to preserve?
-You mentioned flow control and multicast elsewhere.
-I will take a closer look. Thanks for the heads up.
-
-Regards.
+OK, if nobody else objects and we go with that - lets make sure we
+document clearly those are expected :)  My concern is that if there is
+ever 10G + RS FEC standard we don't want to end up in a situation where
+some drivers silently ignore FEC settings in 10G and other apply it.
+So let's make it clear what the intended Linux behaviour is.  It could
+be in the ethtool man page, or the kernel somewhere.
