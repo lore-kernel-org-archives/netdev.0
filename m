@@ -1,48 +1,71 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next v11 1/4] net netlink: Add new type
- NLA_BITFIELD_32
-Date: Fri, 28 Jul 2017 09:13:22 -0600
-Message-ID: <5a568b1f-a311-f97b-f5d0-5361b33cf6bc@gmail.com>
-References: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
- <1500860146-26970-2-git-send-email-jhs@emojatatu.com>
- <1a2578ca-35c6-884e-1daf-fcc47e5eb618@gmail.com>
- <7c17a575-53bb-1f25-4a9a-7418f99660f2@mojatatu.com>
- <886e9fe5-d523-4841-1a81-e5671447933a@gmail.com>
- <b82ef71c-3231-fa71-44f5-8882750822d9@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, mrv@mojatatu.com,
-        simon.horman@netronome.com, alex.aring@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36090 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752167AbdG1PNU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 11:13:20 -0400
-Received: by mail-pf0-f195.google.com with SMTP id m21so6605533pfj.3
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 08:13:20 -0700 (PDT)
-In-Reply-To: <b82ef71c-3231-fa71-44f5-8882750822d9@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: [PATCH net-next 2/4] net: dsa: lan9303: Multiply by 4 to get MDIO register
+Date: Fri, 28 Jul 2017 17:11:55 +0200
+Message-ID: <20170728151157.28983-3-privat@egil-hjelmeland.no>
+References: <20170728151157.28983-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel@pengutronix.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170728151157.28983-1-privat@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/28/17 9:04 AM, Jamal Hadi Salim wrote:
-> 
-> Kernel side checking for device ifindex must know what a device
-> ifindex means.
-> That doesnt disqualify that the generic code checks that it
-> is of the same size as a signed 32b, etc. That is generic
-> stuff that can be factored out.
-> 
-> In this case:
-> Checking for whether bits selected are in the allowed range
-> that the kernel understands, that the bit value are set in
-> the right bit position, that the bits set in the correct bit
-> value position are also selected in the transaction.
-> That is generic code (which the content validation does).
+lan9303_mdio_write()/_read() must multiply register number by 4 to get
+offset.
 
-Create a helper function then. It's the validation of attribute content
-in 2 places that I object to. 1 attribute is validated in 1 place
-(generic infra for this bitfield attribute), the others are validated in
-line. Asymmetric validations is not a good design.
+Added some commments to the register definitions.
+
+Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+---
+ drivers/net/dsa/lan9303-core.c | 6 ++++++
+ drivers/net/dsa/lan9303_mdio.c | 2 ++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index 9d0ab77edb4a..96ebeb9bd59a 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -20,6 +20,9 @@
+ 
+ #include "lan9303.h"
+ 
++/* 13.2 System Control and Status Registers
++ * Multiply register number by 4 to get address offset.
++ */
+ #define LAN9303_CHIP_REV 0x14
+ # define LAN9303_CHIP_ID 0x9303
+ #define LAN9303_IRQ_CFG 0x15
+@@ -53,6 +56,9 @@
+ #define LAN9303_VIRT_PHY_BASE 0x70
+ #define LAN9303_VIRT_SPECIAL_CTRL 0x77
+ 
++/*13.4 Switch Fabric Control and Status Registers
++ * Accessed indirectly via SWITCH_CSR_CMD, SWITCH_CSR_DATA.
++ */
+ #define LAN9303_SW_DEV_ID 0x0000
+ #define LAN9303_SW_RESET 0x0001
+ #define LAN9303_SW_RESET_RESET BIT(0)
+diff --git a/drivers/net/dsa/lan9303_mdio.c b/drivers/net/dsa/lan9303_mdio.c
+index 93c36c0541cf..2db7970fc88c 100644
+--- a/drivers/net/dsa/lan9303_mdio.c
++++ b/drivers/net/dsa/lan9303_mdio.c
+@@ -40,6 +40,7 @@ static int lan9303_mdio_write(void *ctx, uint32_t reg, uint32_t val)
+ {
+ 	struct lan9303_mdio *sw_dev = (struct lan9303_mdio *)ctx;
+ 
++	reg <<= 2; /* reg num to offset */
+ 	mutex_lock(&sw_dev->device->bus->mdio_lock);
+ 	lan9303_mdio_real_write(sw_dev->device, reg, val & 0xffff);
+ 	lan9303_mdio_real_write(sw_dev->device, reg + 2, (val >> 16) & 0xffff);
+@@ -57,6 +58,7 @@ static int lan9303_mdio_read(void *ctx, uint32_t reg, uint32_t *val)
+ {
+ 	struct lan9303_mdio *sw_dev = (struct lan9303_mdio *)ctx;
+ 
++	reg <<= 2; /* reg num to offset */
+ 	mutex_lock(&sw_dev->device->bus->mdio_lock);
+ 	*val = lan9303_mdio_real_read(sw_dev->device, reg);
+ 	*val |= (lan9303_mdio_real_read(sw_dev->device, reg + 2) << 16);
+-- 
+2.11.0
