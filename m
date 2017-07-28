@@ -1,277 +1,94 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v4 net-next] net: systemport: Support 64bit statistics
-Date: Thu, 27 Jul 2017 17:55:58 -0700
-Message-ID: <d51f7f39-246d-28f3-04c3-f34ed4afac84@gmail.com>
-References: <1501202621-2407-1-git-send-email-jqiaoulk@gmail.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH net-next 04/18] net: mvpp2: move the mii configuration in
+ the ndo_open path
+Date: Thu, 27 Jul 2017 18:44:21 -0700
+Message-ID: <20170728014421.GB24728@kwain>
+References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
+ <20170724134848.19330-5-antoine.tenart@free-electrons.com>
+ <20170726161111.GG12049@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: "Jianming.qiao" <jqiaoulk@gmail.com>, davem@davemloft.net,
-        netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="SkvwRMAIpAhPCcCJ"
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, jason@lakedaemon.net,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35207 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751651AbdG1A4D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 20:56:03 -0400
-Received: by mail-wm0-f68.google.com with SMTP id r77so12501331wmd.2
-        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 17:56:03 -0700 (PDT)
-In-Reply-To: <1501202621-2407-1-git-send-email-jqiaoulk@gmail.com>
-Content-Language: en-US
+Received: from mail.free-electrons.com ([62.4.15.54]:33098 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751622AbdG1BoZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 21:44:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20170726161111.GG12049@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/27/2017 05:43 PM, Jianming.qiao wrote:
-> When using Broadcom Systemport device in 32bit Platform, ifconfig can
-> only report up to 4G tx,rx status, which will be wrapped to 0 when the
-> number of incoming or outgoing packets exceeds 4G, only taking
-> around 2 hours in busy network environment (such as streaming).
-> Therefore, it makes hard for network diagnostic tool to get reliable
-> statistical result, so the patch is used to add 64bit support for
-> Broadcom Systemport device in 32bit Platform.
-> 
-> Signed-off-by: Jianming.qiao <kiki-good@hotmail.com>
-> ---
->  drivers/net/ethernet/broadcom/bcmsysport.c | 74 ++++++++++++++++++++----------
->  drivers/net/ethernet/broadcom/bcmsysport.h |  9 +++-
->  2 files changed, 57 insertions(+), 26 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-> index 5274501..16cd8a6 100644
-> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
-> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-> @@ -662,6 +662,7 @@ static int bcm_sysport_alloc_rx_bufs(struct bcm_sysport_priv *priv)
->  static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
->  					unsigned int budget)
->  {
-> +	struct bcm_sysport_stats *stats64 = &priv->stats64;
->  	struct net_device *ndev = priv->netdev;
->  	unsigned int processed = 0, to_process;
->  	struct bcm_sysport_cb *cb;
-> @@ -765,6 +766,10 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
->  		skb->protocol = eth_type_trans(skb, ndev);
->  		ndev->stats.rx_packets++;
->  		ndev->stats.rx_bytes += len;
-> +		u64_stats_update_begin(&stats64->syncp);
-> +		stats64->rx_packets++;
-> +		stats64->rx_bytes += len;
-> +		u64_stats_update_end(&stats64->syncp);
->  
->  		napi_gro_receive(&priv->napi, skb);
->  next:
-> @@ -784,24 +789,32 @@ static void bcm_sysport_tx_reclaim_one(struct bcm_sysport_tx_ring *ring,
->  				       unsigned int *pkts_compl)
->  {
->  	struct bcm_sysport_priv *priv = ring->priv;
-> +	struct bcm_sysport_stats *stats64 = &priv->stats64;
->  	struct device *kdev = &priv->pdev->dev;
-> +	unsigned int len = 0;
->  
->  	if (cb->skb) {
-> -		ring->bytes += cb->skb->len;
-> -		*bytes_compl += cb->skb->len;
-> +		len = cb->skb->len;
-> +		*bytes_compl += len;
->  		dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
->  				 dma_unmap_len(cb, dma_len),
->  				 DMA_TO_DEVICE);
-> -		ring->packets++;
->  		(*pkts_compl)++;
-> -		bcm_sysport_free_cb(cb);
->  	/* SKB fragment */
->  	} else if (dma_unmap_addr(cb, dma_addr)) {
-> -		ring->bytes += dma_unmap_len(cb, dma_len);
-> +		len = dma_unmap_len(cb, dma_len);
->  		dma_unmap_page(kdev, dma_unmap_addr(cb, dma_addr),
->  			       dma_unmap_len(cb, dma_len), DMA_TO_DEVICE);
->  		dma_unmap_addr_set(cb, dma_addr, 0);
->  	}
-> +
-> +	u64_stats_update_begin(&stats64->syncp);
-> +	ring->bytes += len;
-> +	if (cb->skb) {
-> +		ring->packets++;
-> +		bcm_sysport_free_cb(cb);
 
-This does look better, but we should probably just call
-bcm_sysport_free_cb() outside of the statistics update, so something
-like this instead:
+--SkvwRMAIpAhPCcCJ
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-	u64_stats_update_being(&stats64->syncp);
-	ring->bytes += len;
-	if (cb->skb)
-		ring->packets++;
-	u64_stats_update_end(&stats64->syncp);
+Hi Andrew,
 
-	if (cb->skb)
-		bcm_sysport_free_cb(cb);
+On Wed, Jul 26, 2017 at 06:11:11PM +0200, Andrew Lunn wrote:
+> On Mon, Jul 24, 2017 at 03:48:34PM +0200, Antoine Tenart wrote:
+> > This moves the mii configuration in the ndo_open path, to allow handling
+> > different mii configurations later and to switch between these
+> > configurations at runtime.
+> >=20
+> > Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+> > ---
+> >  drivers/net/ethernet/marvell/mvpp2.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >=20
+> > diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/etherne=
+t/marvell/mvpp2.c
+> > index 6ffff929b22a..9d204ffb9b89 100644
+> > --- a/drivers/net/ethernet/marvell/mvpp2.c
+> > +++ b/drivers/net/ethernet/marvell/mvpp2.c
+> > @@ -5862,6 +5862,7 @@ static void mvpp2_start_dev(struct mvpp2_port *po=
+rt)
+> >  	/* Enable interrupts on all CPUs */
+> >  	mvpp2_interrupts_enable(port);
+> > =20
+> > +	mvpp2_port_mii_set(port);
+>=20
+> You probably should take a look at mvpp2_port_mii_set() and have it
+> handle all PHY_INTERFACE_MODE_RGMII variants.
 
-Or maybe just do the 64-bit statistics update outside of
-bcm_sysport_tx_reclaim_one() and do the following since for a given TX
-clean run, we can't possibly be wrapping these two 32-bit counters
-(pkts_compl and bytes_compl) since we have up to 1536 TX descriptors max
-and if they were all 9000 bytes that would still be well within 4GB, so
-something like this maybe:
+I'll have a look at these variants (and update the whole series).
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c
-b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 5333601f855f..c085deef61ee 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -787,17 +787,14 @@ static void bcm_sysport_tx_reclaim_one(struct
-bcm_sysport_tx_ring *ring,
-        struct device *kdev = &priv->pdev->dev;
+Thanks!
+Antoine
 
-        if (cb->skb) {
--               ring->bytes += cb->skb->len;
-                *bytes_compl += cb->skb->len;
-                dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
-                                 dma_unmap_len(cb, dma_len),
-                                 DMA_TO_DEVICE);
--               ring->packets++;
-                (*pkts_compl)++;
-                bcm_sysport_free_cb(cb);
-        /* SKB fragment */
-        } else if (dma_unmap_addr(cb, dma_addr)) {
--               ring->bytes += dma_unmap_len(cb, dma_len);
-                dma_unmap_page(kdev, dma_unmap_addr(cb, dma_addr),
-                               dma_unmap_len(cb, dma_len), DMA_TO_DEVICE);
-                dma_unmap_addr_set(cb, dma_addr, 0);
-@@ -811,6 +808,7 @@ static unsigned int __bcm_sysport_tx_reclaim(struct
-bcm_sysport_priv *priv,
-        struct net_device *ndev = priv->netdev;
-        unsigned int c_index, last_c_index, last_tx_cn, num_tx_cbs;
-        unsigned int pkts_compl = 0, bytes_compl = 0;
-+       struct bcm_sysport_stats *stats64 = &priv->stats64;
-        struct bcm_sysport_cb *cb;
-        u32 hw_ind;
+--=20
+Antoine T=E9nart, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
 
-@@ -849,6 +847,11 @@ static unsigned int __bcm_sysport_tx_reclaim(struct
-bcm_sysport_priv *priv,
-                last_c_index &= (num_tx_cbs - 1);
-        }
+--SkvwRMAIpAhPCcCJ
+Content-Type: application/pgp-signature; name="signature.asc"
 
-+       u64_stats_begin_update(&stats64->syncp);
-+       ring->packets += pkts_compl;
-+       ring->bytes += bytes_compl;
-+       u64_stats_update_end(&stats64->syncp);
-+
-        ring->c_index = c_index;
+-----BEGIN PGP SIGNATURE-----
 
-        netif_dbg(priv, tx_done, ndev,
+iQIzBAABCgAdFiEEM7Tg8N8kXOlT7hOhXE2LyK3bvNgFAll6lvUACgkQXE2LyK3b
+vNhZ3w//b+RC7P6ecMvrhZa68sLQ30GvIXrh+nWw/07FJqJNaVDeFiKbuhNSgyJ6
+/QYxQoWNtVPoxM70ohyuQWu+pjOdHYdTXKRydym9PQ+97MXHN7MtTSAQPBZoQFJ2
+foSrptJ3prvxvvdJePhr80laTHA6gwNCH0yeT/aS7IGRKiUfYxb0/qPu+el1rlTR
+loKqIVzdyQ1xRS1PJawIfBKZvrXSEEbz6aLwzlPpvaBVaGpz0elyoCxqbvMROV7T
+64BwEJQroe4Vjx3h6RF0q8nucBLIUEnM/7gzFGmfuvh3l6DIIGKs3p82iIZKQUJy
+rtT8gANfqFA57gm4lUb278868sAYZahRajlqaCz+whwGchB3vRXY81kpUnBVeDHV
+5XUwu+DdwOI8VGHyLTwYpif8X4bBoKtm5H2PCsXg8yuBuzRQwNgbTz+cXaE6zAqg
+YT6/zWy+6VQF0eafx3gn1n7aC6EvRoa9PUhUaENOstzmLEr7+Y3f+1zZfzwQMiXI
+lMc7cbW0r4tduTi6CgYHFiW1Bvo5z1WkFG0VUHEcZLhDZkOnxanOEV4GOAKlpdLb
+tGpIxdzmzY5Wg/Zhteh1nvg+nog2vBgBNPA6dmgmyZSd1Sb6nGz766tRTDfpoHYZ
+DLAX+LGXB54XV/74QHiwhz+pBPweBQIWvCHPwRFhIFq2Whg1gMo=
+=R/4p
+-----END PGP SIGNATURE-----
 
-
-> +	}
-> +	u64_stats_update_end(&stats64->syncp);
->  }
->  
->  /* Reclaim queued SKBs for transmission completion, lockless version */
-> @@ -1671,24 +1684,6 @@ static int bcm_sysport_change_mac(struct net_device *dev, void *p)
->  	return 0;
->  }
->  
-> -static struct net_device_stats *bcm_sysport_get_nstats(struct net_device *dev)
-> -{
-> -	struct bcm_sysport_priv *priv = netdev_priv(dev);
-> -	unsigned long tx_bytes = 0, tx_packets = 0;
-> -	struct bcm_sysport_tx_ring *ring;
-> -	unsigned int q;
-> -
-> -	for (q = 0; q < dev->num_tx_queues; q++) {
-> -		ring = &priv->tx_rings[q];
-> -		tx_bytes += ring->bytes;
-> -		tx_packets += ring->packets;
-> -	}
-> -
-> -	dev->stats.tx_bytes = tx_bytes;
-> -	dev->stats.tx_packets = tx_packets;
-> -	return &dev->stats;
-> -}
-> -
->  static void bcm_sysport_netif_start(struct net_device *dev)
->  {
->  	struct bcm_sysport_priv *priv = netdev_priv(dev);
-> @@ -1923,6 +1918,37 @@ static int bcm_sysport_stop(struct net_device *dev)
->  	return 0;
->  }
->  
-> +static void bcm_sysport_get_stats64(struct net_device *dev,
-> +				    struct rtnl_link_stats64 *stats)
-> +{
-> +	struct bcm_sysport_priv *priv = netdev_priv(dev);
-> +	struct bcm_sysport_stats *stats64 = &priv->stats64;
-> +	struct bcm_sysport_tx_ring *ring;
-> +	u64 tx_packets = 0, tx_bytes = 0;
-> +	unsigned int start;
-> +	unsigned int q;
-> +
-> +	netdev_stats_to_stats64(stats, &dev->stats);
-> +
-> +	for (q = 0; q < dev->num_tx_queues; q++) {
-> +		ring = &priv->tx_rings[q];
-> +		do {
-> +			start = u64_stats_fetch_begin_irq(&stats64->syncp);
-> +			tx_bytes += ring->bytes;
-> +			tx_packets += ring->packets;
-> +		} while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
-> +	}
-> +
-> +	stats->tx_packets = tx_packets;
-> +	stats->tx_bytes = tx_bytes;
-> +
-> +	do {
-> +		start = u64_stats_fetch_begin_irq(&stats64->syncp);
-> +		stats->rx_packets = stats64->rx_packets;
-> +		stats->rx_bytes = stats64->rx_bytes;
-> +	} while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
-> +}
-> +
->  static const struct ethtool_ops bcm_sysport_ethtool_ops = {
->  	.get_drvinfo		= bcm_sysport_get_drvinfo,
->  	.get_msglevel		= bcm_sysport_get_msglvl,
-> @@ -1950,7 +1976,7 @@ static int bcm_sysport_stop(struct net_device *dev)
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  	.ndo_poll_controller	= bcm_sysport_poll_controller,
->  #endif
-> -	.ndo_get_stats		= bcm_sysport_get_nstats,
-> +	.ndo_get_stats64	= bcm_sysport_get_stats64,
->  };
->  
->  #define REV_FMT	"v%2x.%02x"
-> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
-> index 77a51c1..c03a176 100644
-> --- a/drivers/net/ethernet/broadcom/bcmsysport.h
-> +++ b/drivers/net/ethernet/broadcom/bcmsysport.h
-> @@ -657,6 +657,9 @@ struct bcm_sysport_stats {
->  	enum bcm_sysport_stat_type type;
->  	/* reg offset from UMAC base for misc counters */
->  	u16 reg_offset;
-> +	u64     rx_packets;
-> +	u64     rx_bytes;
-> +	struct u64_stats_sync   syncp;
->  };
->  
->  /* Software house keeping helper structure */
-> @@ -693,8 +696,8 @@ struct bcm_sysport_tx_ring {
->  	struct bcm_sysport_cb *cbs;	/* Transmit control blocks */
->  	struct dma_desc	*desc_cpu;	/* CPU view of the descriptor */
->  	struct bcm_sysport_priv *priv;	/* private context backpointer */
-> -	unsigned long	packets;	/* packets statistics */
-> -	unsigned long	bytes;		/* bytes statistics */
-> +	u64	packets;		/* packets statistics */
-> +	u64	bytes;			/* bytes statistics */
->  };
->  
->  /* Driver private structure */
-> @@ -743,5 +746,7 @@ struct bcm_sysport_priv {
->  
->  	/* Ethtool */
->  	u32			msg_enable;
-> +	/* 64bit stats on 32bit/64bit Machine */
-> +	struct bcm_sysport_stats stats64;
->  };
->  #endif /* __BCM_SYSPORT_H */
-> 
-
-
--- 
-Florian
+--SkvwRMAIpAhPCcCJ--
