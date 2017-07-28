@@ -1,10 +1,10 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 3/4] net: dsa: lan9303: Renamed indirect phy
- access functions
-Date: Fri, 28 Jul 2017 17:22:01 +0200
-Message-ID: <20170728152201.GG2132@lunn.ch>
+Subject: Re: [PATCH net-next 4/4] net: dsa: lan9303: MDIO access phy
+ registers directly
+Date: Fri, 28 Jul 2017 17:24:03 +0200
+Message-ID: <20170728152403.GH2132@lunn.ch>
 References: <20170728151157.28983-1-privat@egil-hjelmeland.no>
- <20170728151157.28983-4-privat@egil-hjelmeland.no>
+ <20170728151157.28983-5-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
@@ -13,27 +13,14 @@ Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
 To: Egil Hjelmeland <privat@egil-hjelmeland.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170728151157.28983-4-privat@egil-hjelmeland.no>
+In-Reply-To: <20170728151157.28983-5-privat@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2017 at 05:11:56PM +0200, Egil Hjelmeland wrote:
-> Preparing for the following fix of MDIO phy access:
-> 
-> Renamed functions that access PHY 1 and 2 indirectly through PMI
-> registers.
-> 
->  lan9303_port_phy_reg_wait_for_completion() to
->  lan9303_indirect_phy_wait_for_completion()
-> 
->  lan9303_port_phy_reg_read() to
->  lan9303_indirect_phy_read()
-> 
->  lan9303_port_phy_reg_write() to
->  lan9303_indirect_phy_write()
-> 
-> Also changed "val" parameter of lan9303_indirect_phy_write() to u16,
-> for clarity.
+On Fri, Jul 28, 2017 at 05:11:57PM +0200, Egil Hjelmeland wrote:
+> Indirect access (PMI) to phy register only work in I2C mode. In
+> MDIO mode phy registers must be accessed directly. Introduced
+> struct lan9303_phy_ops to handle the two modes.
 > 
 > Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
 
