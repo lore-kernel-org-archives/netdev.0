@@ -1,8 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/3] dt-bindings: net: add compatible for
- internal sun8i-h3/sun8i-v3s PHYs
-Date: Fri, 28 Jul 2017 11:28:16 +0200
-Message-ID: <20170728092818.23419-2-clabbe.montjoie@gmail.com>
+Subject: [PATCH 2/3] ARM: sunxi: h3/h5: Add sun8i-h3-ephy compatible
+Date: Fri, 28 Jul 2017 11:28:17 +0200
+Message-ID: <20170728092818.23419-3-clabbe.montjoie@gmail.com>
 References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -21,7 +20,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
 	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
 	alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBTUI5TFQKGQEA3TFSII-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBUEI5TFQKGQE2E7VMUQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170728092818.23419-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -32,28 +31,26 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-The internal PHYs for H3 ans V3S now need to have their own compatible.
-This patch rename them in the binding documentation.
+This patch adds the sun8i-h3-ephy compatible to the internal PHY.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- Documentation/devicetree/bindings/net/dwmac-sun8i.txt | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-index 725f3b187886..851e89052424 100644
---- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-+++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-@@ -49,8 +49,8 @@ The device node referenced by "phy" or "phy-handle" should be a child node
- of the mdio node. See phy.txt for the generic PHY bindings.
- 
- Required properties of the phy node with the following compatibles:
--  - "allwinner,sun8i-h3-emac",
--  - "allwinner,sun8i-v3s-emac":
-+  - "allwinner,sun8i-h3-ephy",
-+  - "allwinner,sun8i-v3s-ephy":
- - clocks: a phandle to the reference clock for the EPHY
- - resets: a phandle to the reset control for the EPHY
- 
+diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+index 4b599b5d26f6..7aaa837c2388 100644
+--- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
++++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+@@ -421,7 +421,8 @@
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+ 				int_mii_phy: ethernet-phy@1 {
+-					compatible = "ethernet-phy-ieee802.3-c22";
++					compatible = "allwinner,sun8i-h3-ephy",
++							"ethernet-phy-ieee802.3-c22";
+ 					reg = <1>;
+ 					clocks = <&ccu CLK_BUS_EPHY>;
+ 					resets = <&ccu RST_BUS_EPHY>;
 -- 
 2.13.0
