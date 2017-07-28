@@ -1,45 +1,37 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [v3,04/10] ipw2200: constify attribute_group structures
-Date: Fri, 28 Jul 2017 19:54:56 +0300
-Message-ID: <87379gwlgf.fsf@purkki.adurom.net>
-References: <1500371102-14758-1-git-send-email-arvind.yadav.cs@gmail.com>
-        <20170728150611.96B1A60884@smtp.codeaurora.org>
-        <87inicwqe2.fsf@purkki.adurom.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 4/4] net: dsa: lan9303: MDIO access phy registers directly
+Date: Fri, 28 Jul 2017 12:55:59 -0400
+Message-ID: <87fudgqz4w.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170728151157.28983-1-privat@egil-hjelmeland.no> <20170728151157.28983-5-privat@egil-hjelmeland.no> <87fudglget.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <50d2d34c-c1a5-7f0a-90f1-44b1be1775b7@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, stas.yakovlev@gmail.com, sgruszka@redhat.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Content-Type: text/plain
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>, andrew@lunn.ch,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel@pengutronix.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87inicwqe2.fsf@purkki.adurom.net> (Kalle Valo's message of "Fri,
-        28 Jul 2017 18:08:21 +0300")
+In-Reply-To: <50d2d34c-c1a5-7f0a-90f1-44b1be1775b7@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kalle Valo <kvalo@codeaurora.org> writes:
+Hi Egil,
 
-> Kalle Valo <kvalo@codeaurora.org> writes:
+Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
+
+>>> +const struct lan9303_phy_ops lan9303_indirect_phy_ops = {
+>>> +	.phy_read = lan9303_indirect_phy_read,
+>>> +	.phy_write = lan9303_indirect_phy_write,
+>>> +};
+>>> +EXPORT_SYMBOL(lan9303_indirect_phy_ops);
+>> 
+>> Isn't EXPORT_SYMBOL_GPL prefered over EXPORT_SYMBOL?
 >
->> Arvind Yadav <arvind.yadav.cs@gmail.com> wrote:
->>
->>> attribute_group are not supposed to change at runtime. All functions
->>> working with attribute_group provided by <linux/sysfs.h> work
->>> with const attribute_group. So mark the non-const structs as const.
->>> 
->>> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
->>
->> 4 patches applied to wireless-drivers-next.git, thanks.
->>
->> 17830147c40a mwifiex: fix spelling mistake: "Insuffient" -> "Insufficient"
->> 185ffc194800 ipw2100: don't return positive values to PCI probe on error
->> af643fe9bbe0 zd1211rw: fix spelling mistake 'hybernate' -> 'hibernate'
->> e66d70b789d1 brcmfmac: constify pci_device_id
->
-> Please ignore this mail, I have a bug in my patchwork script.
+> I have no opinion. I just used the same variant as the other EXPORTS
+> in the file.
 
-The reason was that Dave had already applied these patches but my script
-failed to detect that. I need to fix my script.
+If there is no concern from others about this, LGTM too:
 
--- 
-Kalle Valo
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+Thanks,
+
+        Vivien
