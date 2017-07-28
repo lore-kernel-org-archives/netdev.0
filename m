@@ -1,58 +1,57 @@
-From: Tom Bogendoerfer <tsbogend@alpha.franken.de>
-Subject: Re: [PATCH net] xgene: Don't fail probe, if there is no clk resource
- for SGMII interfaces
-Date: Fri, 28 Jul 2017 16:23:19 +0200
-Message-ID: <20170728142318.GA20368@alpha.franken.de>
-References: <20170713092144.31751508094@solo.franken.de>
- <22ee6284-7b23-7664-d6cf-23687f09a3be@redhat.com>
- <20170727213915.GA4902@alpha.franken.de>
- <1b3391f2-2fae-2a9a-719d-3f8358e39c71@redhat.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/3] net-next: stmmac: support future
+ possible different internal phy mode
+Date: Fri, 28 Jul 2017 16:25:08 +0200
+Message-ID: <20170728142508.GA7221@Red>
+References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
+ <20170728135544.GD32230@lunn.ch>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: isubramanian@apm.com, kchudgar@apm.com, qnguyen@apm.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Laura Abbott <labbott@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	icenowy-h8G6r0blFSE@public.gmane.org
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBTES5XFQKGQENG6DXHI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <1b3391f2-2fae-2a9a-719d-3f8358e39c71@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20170728135544.GD32230-g2DYL2Zd6BY@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 27, 2017 at 03:39:58PM -0700, Laura Abbott wrote:
-> I don't know the intricacies of the Mustang hardware but external
-> aborts have been a symptom of missing clocks on other hardware.
+On Fri, Jul 28, 2017 at 03:55:44PM +0200, Andrew Lunn wrote:
+> On Fri, Jul 28, 2017 at 11:28:15AM +0200, Corentin Labbe wrote:
+> > Hello
+> > 
+> > The current way to find if the phy is internal is to compare DT phy-mode
+> > and emac_variant/internal_phy.
+> > But it will negate a possible future SoC where an external PHY use the
+> > same phy mode than the internal one.
+> > 
+> > This patchs series adds a new way to find if the PHY is internal, via its
+> > compatible.
+> 
+> http://elixir.free-electrons.com/linux/latest/source/drivers/of/of_mdio.c#L144
+> 
+> Since you also have "ethernet-phy-ieee802.3-c22", you won't get the
+> warning. But still, your device tree gives the wrong idea.
+> 
+> I've probably asked this before: Does the internal PHY use a different
+> PHY ID in registers 2 and 3?
+> 
 
-you are right, it's a missing clock. For SGMII ports the driver
-doesn't really use the clock source other then doing the one
-devm_clk_get(), but this is enough to get the clock going.
+yes
 
-Below patch fixes the crash and brings back the second SGMII port
-(even without a clock source in device tree, I guess it uses clock
-from first port).  From a correctness standpoint there should probably 
-be a clk_prepare_enable(), if port is SGMII.
+reg2: 0x0044
+reg3: 0X1500
 
-Could you test the patch ? If it works, I'll submit it.
-
-Thomas.
-
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 86058a9f3417..1d307f2def2d 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1785,9 +1785,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 
- 	xgene_enet_gpiod_get(pdata);
- 
--	if (pdata->phy_mode != PHY_INTERFACE_MODE_SGMII) {
--		pdata->clk = devm_clk_get(&pdev->dev, NULL);
--		if (IS_ERR(pdata->clk)) {
-+	pdata->clk = devm_clk_get(&pdev->dev, NULL);
-+	if (IS_ERR(pdata->clk)) {
-+		if (pdata->phy_mode != PHY_INTERFACE_MODE_SGMII) {
- 			/* Abort if the clock is defined but couldn't be
- 			 * retrived. Always abort if the clock is missing on
- 			 * DT system as the driver can't cope with this case.
-
--- 
-Crap can work. Given enough thrust pigs will fly, but it's not necessarily a
-good idea.                                                [ RFC1925, 2.3 ]
+Regards
