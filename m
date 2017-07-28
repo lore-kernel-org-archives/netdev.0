@@ -1,31 +1,62 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [v4.12 regression] netns: NULL deref in fib_sync_down_dev()
-Date: Fri, 28 Jul 2017 19:43:31 +0300
-Message-ID: <20170728164331.GA5268@splinter>
-References: <20170728160047.7tzapklj7zrgxktq@qmqm.qmqm.pl>
+From: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+Subject: Re: [RFC PATCH v1] net: ethernet: nb8800: Reset HW block in ndo_open
+Date: Fri, 28 Jul 2017 18:43:42 +0200
+Message-ID: <c1bf54ee-8634-23a1-abda-55bc3fafe2a8@sigmadesigns.com>
+References: <823b1540-b528-bbd7-7f99-5dc39a08868a@sigmadesigns.com>
+ <yw1xk22slemx.fsf@mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=WINDOWS-1252
+Content-Transfer-Encoding: 8BIT
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>,
+        Mason <slash.tmp@free.fr>
+To: Mans Rullgard <mans@mansr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:41637 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752459AbdG1Qnh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 12:43:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20170728160047.7tzapklj7zrgxktq@qmqm.qmqm.pl>
+Received: from us-smtp-delivery-107.mimecast.com ([63.128.21.107]:52323 "EHLO
+        us-smtp-delivery-107.mimecast.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752115AbdG1Qns (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 12:43:48 -0400
+In-Reply-To: <yw1xk22slemx.fsf@mansr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 28, 2017 at 06:00:47PM +0200, MichaÅ‚ MirosÅ‚aw wrote:
-> Dear NetDevs,
-> 
-> Before I go to bisecting, have you seen a following NULL dereference,
-> yet?  Where should I start looking?  It is triggered by deleting netns
-> (cut-down script attached - triggers every time).  This was working
-> correctly under v4.11.x.
+On 28/07/2017 18:17, Måns Rullgård wrote:
 
-Thanks for the report. I just reproduced this on my system. I believe
-the problem is a missing NULL check for 'in_dev' in
-call_fib_nh_notifiers(). I'll test a fix.
+> Marc Gonzalez wrote:
+> 
+>> ndo_stop breaks RX in a way that ndo_open is unable to undo.
+> 
+> Please elaborate.  Why can't it be fixed in a less heavy-handed way?
+
+I'm not sure what "elaborate" means. After we've been through
+ndo_stop once, the board can send packets, but it doesn't see
+any replies from remote systems. RX is wedged.
+
+I think ndo_stop is rare enough an event that doing a full
+reset is not an issue, in terms of performance. Also I will
+need this infrastructure anyway for suspend/resume support.
+
+It might also make sense to put the HW in reset at close
+(to save power). I will try measuring the power savings,
+if any.
+
+
+>> Work around the issue by resetting the HW in ndo_open.
+>> This will provide the basis for suspend/resume support.
+>>
+>> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+>> ---
+>>  drivers/net/ethernet/aurora/nb8800.c | 40 +++++++++++++++++-------------------
+>>  drivers/net/ethernet/aurora/nb8800.h |  1 +
+>>  2 files changed, 20 insertions(+), 21 deletions(-)
+> 
+> I'm pretty sure this doesn't preserve everything it should.
+
+Hmmm, we're supposed to start fresh ("full reset").
+What could there be to preserve?
+You mentioned flow control and multicast elsewhere.
+I will take a closer look. Thanks for the heads up.
+
+Regards.
