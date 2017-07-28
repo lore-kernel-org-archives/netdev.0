@@ -1,55 +1,90 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: TCP fast retransmit issues
-Date: Fri, 28 Jul 2017 09:27:50 +0200
-Message-ID: <20170728072750.GA6437@1wt.eu>
-References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk>
- <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
- <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk>
- <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
- <fd335e0a0c914b9c42a754da2d24b1c3@vsen.dk>
- <20170726141847.GC1737@1wt.eu>
- <0b60368890bdb9aa1cf1df4bd0bf21cf@vsen.dk>
- <20170726143827.GD1737@1wt.eu>
- <0d41553d-69ac-651c-9c41-743391619a40@vsen.dk>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [RFC] switchdev: generate phys_port_name in the core
+Date: Fri, 28 Jul 2017 00:28:57 -0700
+Message-ID: <20170728002857.164d128d@cakuba.netronome.com>
+References: <CAJ3xEMhUs0DfMioSU=gqR_hEs=ZFjUM1bA3nA9LwtTgH93ygDQ@mail.gmail.com>
+        <20170728023122.1674-1-jakub.kicinski@netronome.com>
+        <20170728053507.GA1857@nanopsycho>
+        <20170728055815.GB1857@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Klavs Klavsen <kl@vsen.dk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <gerlitz.or@gmail.com>, netdev@vger.kernel.org,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Sathya Perla <sathya.perla@broadcom.com>,
+        David Miller <davem@davemloft.net>, simon.horman@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:34329 "EHLO 1wt.eu"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751740AbdG1H1x (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Jul 2017 03:27:53 -0400
-Content-Disposition: inline
-In-Reply-To: <0d41553d-69ac-651c-9c41-743391619a40@vsen.dk>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:35844 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751554AbdG1H3E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 03:29:04 -0400
+Received: by mail-pg0-f51.google.com with SMTP id 125so107935068pgi.3
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 00:29:03 -0700 (PDT)
+In-Reply-To: <20170728055815.GB1857@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 28, 2017 at 08:36:49AM +0200, Klavs Klavsen wrote:
-> The network guys know what caused it.
+On Fri, 28 Jul 2017 07:58:15 +0200, Jiri Pirko wrote:
+> Fri, Jul 28, 2017 at 07:35:07AM CEST, jiri@resnulli.us wrote:
+> >Fri, Jul 28, 2017 at 04:31:22AM CEST, jakub.kicinski@netronome.com wrote:  
+> >>On Thu, 27 Jul 2017 13:30:44 +0300, Or Gerlitz wrote:  
+> >>> > want to add port splitting support, for example, reporting the name on
+> >>> > physical ports will become more of a necessity.    
+> >>>   
+> >>> > If we adopt Jiri's suggestion of returning structured data it will be
+> >>> > very easy to give user space type and indexes separately, but we should
+> >>> > probably still return the string for backwards compatibility.    
+> >>> 
+> >>> I am not still clear how the structured data would look like  
+> >>
+> >>I decided to just quickly write the code, that should be easier to 
+> >>understand.  We can probably leave out the netlink part of the API
+> >>if there is no need for it right now, but that's what I ment by
+> >>returning the information in a more structured way.
+> >>
+> >>Tested-by: nobody :)
+> >>Suggested-by: Jiri (if I understood correctly)  
+> >
+> >Yes, you did :) Couple of nits inlined.
+> >
+> >  
+> >>---
+> >> drivers/net/ethernet/mellanox/mlx5/core/en_rep.c |  8 ++-
+> >> drivers/net/ethernet/mellanox/mlxsw/switchx2.c   | 10 ++--
+> >> drivers/net/ethernet/netronome/nfp/nfp_port.c    | 26 ++++-----
+> >> drivers/net/ethernet/netronome/nfp/nfp_port.h    |  4 +-
+> >> include/linux/netdevice.h                        | 18 ++++++-
+> >> include/uapi/linux/if_link.h                     | 16 ++++++
+> >> net/core/dev.c                                   | 31 +++++++++--
+> >> net/core/rtnetlink.c                             | 69 ++++++++++++++++++++++++
+> >> 8 files changed, 153 insertions(+), 29 deletions(-)
+> >>
+> >>diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+> >>index 45e60be9c277..7a71291b8ec3 100644
+> >>--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+> >>+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+> >>@@ -637,16 +637,14 @@ static int mlx5e_rep_close(struct net_device *dev)
+> >> }
+> >> 
+> >> static int mlx5e_rep_get_phys_port_name(struct net_device *dev,
+> >>-					char *buf, size_t len)
+> >>+					struct netdev_port_info *info)  
+> >
+> >Either we rename ndo to something like ndo_get_port_info or you rename
+> >the struct to netdev_port_name_info. These 2 should be in sync  
 > 
-> Appearently on (atleast some) Cisco equipment the feature:
+> As this is strictly related to port name, I think it should be:
+> struct netdev_phys_port_name_info
 > 
-> TCP Sequence Number Randomization
-> 
-> is enabled by default.
+> And the rest named in-sync with this
 
-I didn't want to suggest names but since you did it first ;-) Indeed it's
-mostly on the same device that I've been bothered a lot by their annoying
-randomization. I used to know by memory the exact command to type to disable
-it, but I don't anymore (something along "no randomization"). The other
-trouble it causes is retransmits of the first SYN when your source ports
-wrap too fast (ie when installed after a proxy). The SYNs reaching the
-other end find a session in TIME_WAIT, but the SYN sometimes lands in
-the previous window and leads to an ACK instead of a SYN-ACK, which the
-firewall blocks. This was easily worked around using timestamps on both
-sides thanks to PAWS. But disabling the broken feature is better. And no,
-"more secure" is not an excuse for "broken".
+Hm..  Since we would return the type and IDs via netlink, I was
+actually leaning towards ndo_get_port_info.  "Name" somehow implies a
+string in my mind.  Perhaps the "info" part is where I went wrong, could
+we go with netdev_port_label?  Or netdev_port_ident?  I would also
+prefer to avoid the phys in name, since it doesn't sit well with PFs
+vs VFs.
 
-> It would most definetely be beneficial if Linux handled SACK "not working"
-> better than it does - but then I might never have found the culprit who
-> destroyed SACK :)
-
-Yep ;-)
-
-Willy
+Ah, naming things...
