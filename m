@@ -1,7 +1,7 @@
 From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH net-next 2/4] net: dsa: lan9303: Multiply by 4 to get MDIO register
-Date: Fri, 28 Jul 2017 17:11:55 +0200
-Message-ID: <20170728151157.28983-3-privat@egil-hjelmeland.no>
+Subject: [PATCH net-next 4/4] net: dsa: lan9303: MDIO access phy registers directly
+Date: Fri, 28 Jul 2017 17:11:57 +0200
+Message-ID: <20170728151157.28983-5-privat@egil-hjelmeland.no>
 References: <20170728151157.28983-1-privat@egil-hjelmeland.no>
 Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
 To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
@@ -12,60 +12,163 @@ In-Reply-To: <20170728151157.28983-1-privat@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-lan9303_mdio_write()/_read() must multiply register number by 4 to get
-offset.
-
-Added some commments to the register definitions.
+Indirect access (PMI) to phy register only work in I2C mode. In
+MDIO mode phy registers must be accessed directly. Introduced
+struct lan9303_phy_ops to handle the two modes.
 
 Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
 ---
- drivers/net/dsa/lan9303-core.c | 6 ++++++
- drivers/net/dsa/lan9303_mdio.c | 2 ++
- 2 files changed, 8 insertions(+)
+ drivers/net/dsa/lan9303-core.c | 20 +++++++++++++-------
+ drivers/net/dsa/lan9303.h      | 11 +++++++++++
+ drivers/net/dsa/lan9303_i2c.c  |  2 ++
+ drivers/net/dsa/lan9303_mdio.c | 21 +++++++++++++++++++++
+ 4 files changed, 47 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index 9d0ab77edb4a..96ebeb9bd59a 100644
+index 9427c3b0ced2..9910fc9d5dd6 100644
 --- a/drivers/net/dsa/lan9303-core.c
 +++ b/drivers/net/dsa/lan9303-core.c
-@@ -20,6 +20,9 @@
+@@ -334,6 +334,12 @@ static int lan9303_indirect_phy_write(struct lan9303 *chip, int addr,
+ 	return ret;
+ }
  
- #include "lan9303.h"
++const struct lan9303_phy_ops lan9303_indirect_phy_ops = {
++	.phy_read = lan9303_indirect_phy_read,
++	.phy_write = lan9303_indirect_phy_write,
++};
++EXPORT_SYMBOL(lan9303_indirect_phy_ops);
++
+ static int lan9303_switch_wait_for_completion(struct lan9303 *chip)
+ {
+ 	int ret, i;
+@@ -435,7 +441,7 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+ 	 * 0x0000, which means 'phy_addr_sel_strap' is 1 and the IDs are 1-2-3.
+ 	 * 0xffff is returned on MDIO read with no response.
+ 	 */
+-	reg = lan9303_indirect_phy_read(chip, 3, MII_LAN911X_SPECIAL_MODES);
++	reg = chip->ops->phy_read(chip, 3, MII_LAN911X_SPECIAL_MODES);
+ 	if (reg < 0) {
+ 		dev_err(chip->dev, "Failed to detect phy config: %d\n", reg);
+ 		return reg;
+@@ -726,7 +732,7 @@ static int lan9303_phy_read(struct dsa_switch *ds, int phy, int regnum)
+ 	if (phy > phy_base + 2)
+ 		return -ENODEV;
  
-+/* 13.2 System Control and Status Registers
-+ * Multiply register number by 4 to get address offset.
-+ */
- #define LAN9303_CHIP_REV 0x14
- # define LAN9303_CHIP_ID 0x9303
- #define LAN9303_IRQ_CFG 0x15
-@@ -53,6 +56,9 @@
- #define LAN9303_VIRT_PHY_BASE 0x70
- #define LAN9303_VIRT_SPECIAL_CTRL 0x77
+-	return lan9303_indirect_phy_read(chip, phy, regnum);
++	return chip->ops->phy_read(chip, phy, regnum);
+ }
  
-+/*13.4 Switch Fabric Control and Status Registers
-+ * Accessed indirectly via SWITCH_CSR_CMD, SWITCH_CSR_DATA.
-+ */
- #define LAN9303_SW_DEV_ID 0x0000
- #define LAN9303_SW_RESET 0x0001
- #define LAN9303_SW_RESET_RESET BIT(0)
+ static int lan9303_phy_write(struct dsa_switch *ds, int phy, int regnum,
+@@ -740,7 +746,7 @@ static int lan9303_phy_write(struct dsa_switch *ds, int phy, int regnum,
+ 	if (phy > phy_base + 2)
+ 		return -ENODEV;
+ 
+-	return lan9303_indirect_phy_write(chip, phy, regnum, val);
++	return chip->ops->phy_write(chip, phy, regnum, val);
+ }
+ 
+ static int lan9303_port_enable(struct dsa_switch *ds, int port,
+@@ -773,13 +779,13 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
+ 	switch (port) {
+ 	case 1:
+ 		lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
+-		lan9303_indirect_phy_write(chip, chip->phy_addr_sel_strap + 1,
+-					   MII_BMCR, BMCR_PDOWN);
++		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
++				  MII_BMCR, BMCR_PDOWN);
+ 		break;
+ 	case 2:
+ 		lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
+-		lan9303_indirect_phy_write(chip, chip->phy_addr_sel_strap + 2,
+-					   MII_BMCR, BMCR_PDOWN);
++		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
++				  MII_BMCR, BMCR_PDOWN);
+ 		break;
+ 	default:
+ 		dev_dbg(chip->dev,
+diff --git a/drivers/net/dsa/lan9303.h b/drivers/net/dsa/lan9303.h
+index d1512dad2d90..4d8be555ff4d 100644
+--- a/drivers/net/dsa/lan9303.h
++++ b/drivers/net/dsa/lan9303.h
+@@ -2,6 +2,15 @@
+ #include <linux/device.h>
+ #include <net/dsa.h>
+ 
++struct lan9303;
++
++struct lan9303_phy_ops {
++	/* PHY 1 and 2 access*/
++	int	(*phy_read)(struct lan9303 *chip, int port, int regnum);
++	int	(*phy_write)(struct lan9303 *chip, int port,
++			     int regnum, u16 val);
++};
++
+ struct lan9303 {
+ 	struct device *dev;
+ 	struct regmap *regmap;
+@@ -11,9 +20,11 @@ struct lan9303 {
+ 	bool phy_addr_sel_strap;
+ 	struct dsa_switch *ds;
+ 	struct mutex indirect_mutex; /* protect indexed register access */
++	const struct lan9303_phy_ops *ops;
+ };
+ 
+ extern const struct regmap_access_table lan9303_register_set;
++extern const struct lan9303_phy_ops lan9303_indirect_phy_ops;
+ 
+ int lan9303_probe(struct lan9303 *chip, struct device_node *np);
+ int lan9303_remove(struct lan9303 *chip);
+diff --git a/drivers/net/dsa/lan9303_i2c.c b/drivers/net/dsa/lan9303_i2c.c
+index ab3ce0da5071..24ec20f7f444 100644
+--- a/drivers/net/dsa/lan9303_i2c.c
++++ b/drivers/net/dsa/lan9303_i2c.c
+@@ -63,6 +63,8 @@ static int lan9303_i2c_probe(struct i2c_client *client,
+ 	i2c_set_clientdata(client, sw_dev);
+ 	sw_dev->chip.dev = &client->dev;
+ 
++	sw_dev->chip.ops = &lan9303_indirect_phy_ops;
++
+ 	ret = lan9303_probe(&sw_dev->chip, client->dev.of_node);
+ 	if (ret != 0)
+ 		return ret;
 diff --git a/drivers/net/dsa/lan9303_mdio.c b/drivers/net/dsa/lan9303_mdio.c
-index 93c36c0541cf..2db7970fc88c 100644
+index 2db7970fc88c..fc16668a487f 100644
 --- a/drivers/net/dsa/lan9303_mdio.c
 +++ b/drivers/net/dsa/lan9303_mdio.c
-@@ -40,6 +40,7 @@ static int lan9303_mdio_write(void *ctx, uint32_t reg, uint32_t val)
- {
- 	struct lan9303_mdio *sw_dev = (struct lan9303_mdio *)ctx;
+@@ -67,6 +67,25 @@ static int lan9303_mdio_read(void *ctx, uint32_t reg, uint32_t *val)
+ 	return 0;
+ }
  
-+	reg <<= 2; /* reg num to offset */
- 	mutex_lock(&sw_dev->device->bus->mdio_lock);
- 	lan9303_mdio_real_write(sw_dev->device, reg, val & 0xffff);
- 	lan9303_mdio_real_write(sw_dev->device, reg + 2, (val >> 16) & 0xffff);
-@@ -57,6 +58,7 @@ static int lan9303_mdio_read(void *ctx, uint32_t reg, uint32_t *val)
- {
- 	struct lan9303_mdio *sw_dev = (struct lan9303_mdio *)ctx;
++int lan9303_mdio_phy_write(struct lan9303 *chip, int phy, int reg, u16 val)
++{
++	struct lan9303_mdio *sw_dev = dev_get_drvdata(chip->dev);
++
++	return mdiobus_write_nested(sw_dev->device->bus, phy, reg, val);
++}
++
++int lan9303_mdio_phy_read(struct lan9303 *chip, int phy,  int reg)
++{
++	struct lan9303_mdio *sw_dev = dev_get_drvdata(chip->dev);
++
++	return mdiobus_read_nested(sw_dev->device->bus, phy, reg);
++}
++
++static const struct lan9303_phy_ops lan9303_mdio_phy_ops = {
++	.phy_read = lan9303_mdio_phy_read,
++	.phy_write = lan9303_mdio_phy_write,
++};
++
+ static const struct regmap_config lan9303_mdio_regmap_config = {
+ 	.reg_bits = 8,
+ 	.val_bits = 32,
+@@ -108,6 +127,8 @@ static int lan9303_mdio_probe(struct mdio_device *mdiodev)
+ 	dev_set_drvdata(&mdiodev->dev, sw_dev);
+ 	sw_dev->chip.dev = &mdiodev->dev;
  
-+	reg <<= 2; /* reg num to offset */
- 	mutex_lock(&sw_dev->device->bus->mdio_lock);
- 	*val = lan9303_mdio_real_read(sw_dev->device, reg);
- 	*val |= (lan9303_mdio_real_read(sw_dev->device, reg + 2) << 16);
++	sw_dev->chip.ops = &lan9303_mdio_phy_ops;
++
+ 	ret = lan9303_probe(&sw_dev->chip, mdiodev->dev.of_node);
+ 	if (ret != 0)
+ 		return ret;
 -- 
 2.11.0
