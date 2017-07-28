@@ -1,60 +1,119 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
- null entry.
-Date: Thu, 27 Jul 2017 21:56:08 -0700
-Message-ID: <CAM_iQpU5EZr1rtgY8sCBjD=utzmi9c6MQ2xb36iXLk++qSk3WA@mail.gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
- <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
- <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
- <20170724030907.GC2938@leo.usersys.redhat.com> <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
- <20170725000849.GD2938@leo.usersys.redhat.com> <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
- <20170725073202.GE2938@leo.usersys.redhat.com> <9e198c2a-c026-f4bd-f190-8d5a887efe7f@gmail.com>
- <CAJieiUgyHDksxVjoCSz9pxbDy-ZZR9uUWWZXdth0diSKAcvx4Q@mail.gmail.com> <64377a01-38df-6d43-16a4-401d426fb9b2@gmail.com>
+From: Kurt Van Dijck <dev.kurt@vandijck-laurijssen.be>
+Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
+ fixed transceiver bindings
+Date: Fri, 28 Jul 2017 06:57:24 +0200
+Message-ID: <20170728045724.GA27903@airbook.vandijck-laurijssen.be>
+References: <20170724230521.1436-1-fcooper@ti.com>
+ <20170724230521.1436-3-fcooper@ti.com>
+ <20170726164124.GL12049@lunn.ch>
+ <355b90b3-97ce-1057-6617-d5d709449c48@hartkopp.net>
+ <a77fe395-33c7-9405-b51a-5d3372e5c58b@ti.com>
+ <fe99189e-d077-ba65-4dfc-a4d8beee62b3@hartkopp.net>
+ <932602fe-d06a-7a17-5a0c-24265cf2e643@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Hangbin Liu <liuhangbin@gmail.com>,
-        network dev <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34149 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751758AbdG1E43 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 00:56:29 -0400
-Received: by mail-wm0-f66.google.com with SMTP id x64so1664237wmg.1
-        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 21:56:29 -0700 (PDT)
-In-Reply-To: <64377a01-38df-6d43-16a4-401d426fb9b2@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+        Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
+        devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-can@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
+        robh+dt@kernel.org, quentin.schulz@free-electrons.com,
+        sergei.shtylyov@cogentembedded.com
+To: Franklin S Cooper Jr <fcooper@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <932602fe-d06a-7a17-5a0c-24265cf2e643@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 26, 2017 at 11:49 AM, David Ahern <dsahern@gmail.com> wrote:
-> On 7/26/17 12:27 PM, Roopa Prabhu wrote:
->> agreed...so looks like the check in v3 should be
->>
->>
->> +       if ( rt == net->ipv6.ip6_null_entry ||
->> +            (rt->dst.error &&
->> + #ifdef CONFIG_IPV6_MULTIPLE_TABLES
->> +              rt != net->ipv6.ip6_prohibit_entry &&
->> +              rt != net->ipv6.ip6_blk_hole_entry &&
->> +#endif
->> +             )) {
->>                 err = rt->dst.error;
->>                 ip6_rt_put(rt);
->>                 goto errout;
->>
->
-> I don't think so. If I add a prohibit route and use the fibmatch
-> attribute, I want to see the route from the FIB that was matched.
 
-But net->ipv6.ip6_prohibit_entry is not the prohibit route you can
-add in user-space, it is only used by rule actions. So do you really
-want to dump it?? My gut feeling is no, but I am definitely not sure.
+> 
+> On 07/27/2017 01:47 PM, Oliver Hartkopp wrote:
+> > On 07/26/2017 08:29 PM, Franklin S Cooper Jr wrote:
+> >>
+> > 
+> >> I'm fine with switching to using bitrate instead of speed. Kurk was
+> >> originally the one that suggested to use the term arbitration and data
+> >> since thats how the spec refers to it. Which I do agree with. But your
+> >> right that in the drivers (struct can_priv) we just use bittiming and
+> >> data_bittiming (CAN-FD timings). I don't think adding "fd" into the
+> >> property name makes sense unless we are calling it something like
+> >> "max-canfd-bitrate" which I would agree is the easiest to understand.
+> >>
+> >> So what is the preference if we end up sticking with two properties?
+> >> Option 1 or 2?
+> >>
+> >> 1)
+> >> max-bitrate
+> >> max-data-bitrate
+> >>
+> >> 2)
+> >> max-bitrate
+> >> max-canfd-bitrate
+> >>
+> >>
+> > 
+> > 1
+> > 
+> >>> A CAN transceiver is limited in bandwidth. But you only have one RX and
+> >>> one TX line between the CAN controller and the CAN transceiver. The
+> >>> transceiver does not know about CAN FD - it has just a physical(!) layer
+> >>> with a limited bandwidth. This is ONE limitation.
+> >>>
+> >>> So I tend to specify only ONE 'max-bitrate' property for the
+> >>> fixed-transceiver binding.
+> >>>
+> >>> The fact whether the CAN controller is CAN FD capable or not is provided
+> >>> by the netlink configuration interface for CAN controllers.
+> >>
+> >> Part of the reasoning to have two properties is to indicate that you
+> >> don't support CAN FD while limiting the "arbitration" bit rate.
+> > 
+> > ??
+> > 
+> > It's a physical layer device which only has a bandwidth limitation.
+> > The transceiver does not know about CAN FD.
+> > 
+> >> With one
+> >> property you can not determine this and end up having to make some
+> >> assumptions that can quickly end up biting people.
+> > 
+> > Despite the fact that the transceiver does not know anything about ISO
+> > layer 2 (CAN/CAN FD) the properties should look like
+> > 
+> >     max-bitrate
+> >     canfd-capable
+> > 
+> > then.
+> > 
+> > But when the tranceiver is 'canfd-capable' agnostic, why provide a
+> > property for it?
+> > 
+> > Maybe I'm wrong but I still can't follow your argumentation ideas.
+> 
 
-When you add a prohibit route, a new rt is allocated dynamically,
-net->ipv6.ip6_prohibit_entry is relatively static, internal and is the
-only one per netns. (Same for net->ipv6.ip6_blk_hole_entry)
+The transceiver does not know about CAN FD, but CAN FD uses
+the different restrictions of the arbitration & data phase in the CAN
+frame, i.e. during arbitration, the RX must indicate the wire
+(dominant/recessive) within 1 bit time, during data in CAN FD, this is
+not necessary.
 
-I think Hangbin's example doesn't have ip rules, so this case
-is not shown up.
+So while _a_ transceiver may be spec'd to 1MBit during arbitration,
+CAN FD packets may IMHO exceed that speed during data phase.
+That was the whole point of CAN FD: exceed the limits required for
+correct arbitration on transceiver & wire.
+
+So I do not agree on the single bandwidth limitation.
+
+The word 'max-arbitration-bitrate' makes the difference very clear.
+
+> Your right. I spoke to our CAN transceiver team and I finally get your
+> points.
+> 
+> So yes using "max-bitrate" alone is all we need. Sorry for the confusion
+> and I'll create a new rev using this approach.
+> > 
+> > Regards,
+> > Oliver
+
+Kind regards,
+Kurt
