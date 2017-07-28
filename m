@@ -1,173 +1,60 @@
-From: Natale Patriciello <natale.patriciello@gmail.com>
-Subject: [RFC PATCH v1 2/5] tcp: Implemented the timing-based operations
-Date: Fri, 28 Jul 2017 21:59:16 +0200
-Message-ID: <20170728195919.10099-3-natale.patriciello@gmail.com>
-References: <20170728195919.10099-1-natale.patriciello@gmail.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Ahmed Said <ahmed.said@uniroma2.it>,
-        Natale Patriciello <natale.patriciello@gmail.com>,
-        Francesco Zampognaro <zampognaro@ing.uniroma2.it>,
-        Cesare Roseti <roseti@ing.uniroma2.it>
-To: "David S . Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: [PATCH net] ipv4: fib: Fix NULL pointer deref during fib_sync_down_dev()
+Date: Fri, 28 Jul 2017 23:27:44 +0300
+Message-ID: <20170728202744.2729-1-idosch@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, mirq-linux@rere.qmqm.pl,
+        xiyou.wangcong@gmail.com, Ido Schimmel <idosch@mellanox.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:32850 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752836AbdG1UAx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 16:00:53 -0400
-Received: by mail-wr0-f194.google.com with SMTP id y43so27202772wrd.0
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 13:00:53 -0700 (PDT)
-In-Reply-To: <20170728195919.10099-1-natale.patriciello@gmail.com>
+Received: from mail-he1eur01on0066.outbound.protection.outlook.com ([104.47.0.66]:64384
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752596AbdG1U2J (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Jul 2017 16:28:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Timing the TCP operation based on the timer returned by the congestion control.
-If the congestion control does not implement the timing interface, the TCP
-behaves as usual, by sending down segments as soon as it is possible. Otherwise,
-it will wait until the timer expires (and so respecting the timing constraint
-set by the congestion control).
+Michał reported a NULL pointer deref during fib_sync_down_dev() when
+unregistering a netdevice. The problem is that we don't check for
+'in_dev' being NULL, which can happen in very specific cases.
 
-Signed-off-by: Natale Patriciello <natale.patriciello@gmail.com>
-Tested-by: Ahmed Said <ahmed.said@uniroma2.it>
+Usually routes are flushed upon NETDEV_DOWN sent in either the netdev or
+the inetaddr notification chains. However, if an interface isn't
+configured with any IP address, then it's possible for host routes to be
+flushed following NETDEV_UNREGISTER, after NULLing dev->ip_ptr in
+inetdev_destroy().
+
+To reproduce:
+$ ip link add type dummy
+$ ip route add local 1.1.1.0/24 dev dummy0
+$ ip link del dev dummy0
+
+Fix this by checking for the presence of 'in_dev' before referencing it.
+
+Fixes: 982acb97560c ("ipv4: fib: Notify about nexthop status changes")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Reported-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
 ---
- include/linux/tcp.h   |  3 +++
- net/ipv4/tcp_ipv4.c   |  2 ++
- net/ipv4/tcp_output.c | 56 ++++++++++++++++++++++++++++++++++++++++++++++++---
- 3 files changed, 58 insertions(+), 3 deletions(-)
+Please consider this for -stable.
+---
+ net/ipv4/fib_semantics.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index b6d5adcee8fc..140bc20ec17e 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -369,6 +369,9 @@ struct tcp_sock {
- 	 */
- 	struct request_sock *fastopen_rsk;
- 	u32	*saved_syn;
-+
-+/* TCP send timer */
-+	struct timer_list send_timer;
- };
- 
- enum tsq_enum {
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5ab2aac5ca19..ef5fdba096e8 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1351,6 +1351,8 @@ struct sock *tcp_v4_syn_recv_sock(const struct sock *sk, struct sk_buff *skb,
- 	if (*own_req)
- 		tcp_move_syn(newtp, req);
- 
-+	init_timer(&newtp->send_timer);
-+
- 	return newsk;
- 
- exit_overflow:
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 4858e190f6ac..357b9cd5019e 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2187,6 +2187,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 			   int push_one, gfp_t gfp)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	const struct tcp_congestion_ops *ca_ops;
- 	struct sk_buff *skb;
- 	unsigned int tso_segs, sent_pkts;
- 	int cwnd_quota;
-@@ -2194,6 +2195,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 	bool is_cwnd_limited = false, is_rwnd_limited = false;
- 	u32 max_segs;
- 
-+	ca_ops = inet_csk(sk)->icsk_ca_ops;
- 	sent_pkts = 0;
- 
- 	if (!push_one) {
-@@ -2292,8 +2294,16 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 			tcp_schedule_loss_probe(sk);
- 		is_cwnd_limited |= (tcp_packets_in_flight(tp) >= tp->snd_cwnd);
- 		tcp_cwnd_validate(sk, is_cwnd_limited);
-+
-+		/* Duplicated because of tp->prr_out value */
-+		if (ca_ops && ca_ops->segment_sent)
-+			ca_ops->segment_sent(sk, sent_pkts);
- 		return false;
- 	}
-+
-+	if (ca_ops && ca_ops->segment_sent)
-+		ca_ops->segment_sent(sk, 0);
-+
- 	return !tp->packets_out && tcp_send_head(sk);
- }
- 
-@@ -2433,6 +2443,15 @@ void tcp_send_loss_probe(struct sock *sk)
- 	tcp_rearm_rto(sk);
- }
- 
-+static void __tcp_push_pending_frames_handler(unsigned long data)
-+{
-+	struct sock *sk = (struct sock *)data;
-+
-+	lock_sock(sk);
-+	tcp_push_pending_frames(sk);
-+	release_sock(sk);
-+}
-+
- /* Push out any pending frames which were held back due to
-  * TCP_CORK or attempt at coalescing tiny packets.
-  * The socket must be locked by the caller.
-@@ -2440,6 +2459,8 @@ void tcp_send_loss_probe(struct sock *sk)
- void __tcp_push_pending_frames(struct sock *sk, unsigned int cur_mss,
- 			       int nonagle)
- {
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
- 	/* If we are closed, the bytes will have to remain here.
- 	 * In time closedown will finish, we empty the write queue and
- 	 * all will be happy.
-@@ -2447,9 +2468,38 @@ void __tcp_push_pending_frames(struct sock *sk, unsigned int cur_mss,
- 	if (unlikely(sk->sk_state == TCP_CLOSE))
- 		return;
- 
--	if (tcp_write_xmit(sk, cur_mss, nonagle, 0,
--			   sk_gfp_mask(sk, GFP_ATOMIC)))
--		tcp_check_probe_timer(sk);
-+	if (timer_pending(&tp->send_timer) == 0) {
-+		/* Timer is not running, push data out */
-+		int ret;
-+		const struct tcp_congestion_ops *ca_ops;
-+
-+		ca_ops = inet_csk(sk)->icsk_ca_ops;
-+
-+		if (ca_ops && ca_ops->send_timer_expired)
-+			ca_ops->send_timer_expired(sk);
-+
-+		if (tcp_write_xmit(sk, cur_mss, nonagle, 0, sk_gfp_mask(sk, GFP_ATOMIC)))
-+			tcp_check_probe_timer(sk);
-+
-+		/* And now let's init the timer only if we have data */
-+		if (tcp_send_head(sk)) {
-+			if (ca_ops && ca_ops->get_send_timer_exp_time) {
-+				unsigned long expiration;
-+
-+				setup_timer(&tp->send_timer,
-+					    __tcp_push_pending_frames_handler,
-+					    (unsigned long)sk);
-+				expiration = ca_ops->get_send_timer_exp_time(sk);
-+				ret = mod_timer(&tp->send_timer,
-+						jiffies + expiration);
-+				BUG_ON(ret != 0);
-+			}
-+		} else {
-+			del_timer(&tp->send_timer);
-+			if (ca_ops && ca_ops->no_data_to_transmit)
-+				ca_ops->no_data_to_transmit(sk);
-+		}
-+	}
- }
- 
- /* Send _single_ skb sitting at the send head. This function requires
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 22210010..b8d1817 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1452,7 +1452,7 @@ static int call_fib_nh_notifiers(struct fib_nh *fib_nh,
+ 		return call_fib_notifiers(dev_net(fib_nh->nh_dev), event_type,
+ 					  &info.info);
+ 	case FIB_EVENT_NH_DEL:
+-		if ((IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
++		if ((in_dev && IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
+ 		     fib_nh->nh_flags & RTNH_F_LINKDOWN) ||
+ 		    (fib_nh->nh_flags & RTNH_F_DEAD))
+ 			return call_fib_notifiers(dev_net(fib_nh->nh_dev),
 -- 
-2.13.2
+2.9.4
