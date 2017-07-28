@@ -1,49 +1,77 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next 4/4] net: dsa: lan9303: MDIO access phy registers
- directly
-Date: Sat, 29 Jul 2017 00:30:59 +0200
-Message-ID: <e3a85e90-32c3-057f-f448-67bf1304ef91@egil-hjelmeland.no>
-References: <20170728151157.28983-1-privat@egil-hjelmeland.no>
- <20170728151157.28983-5-privat@egil-hjelmeland.no>
- <87fudglget.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <50d2d34c-c1a5-7f0a-90f1-44b1be1775b7@egil-hjelmeland.no>
- <87fudgqz4w.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <1250382a-1c17-8e82-8c5c-fe14786c84db@gmail.com>
- <a8ff8b7b-5aff-f25b-5ad3-944fcc867e40@egil-hjelmeland.no>
- <20170728212840.GC11564@lunn.ch>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH v4 0/4] net: ethernet: ti: cpts: fix tx timestamping timeout
+Date: Fri, 28 Jul 2017 17:30:01 -0500
+Message-ID: <20170728223005.21420-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@pengutronix.de
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>, Wingman Kwok <w-kwok2@ti.com>,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+        John Stultz <john.stultz@linaro.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170728212840.GC11564@lunn.ch>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Den 28. juli 2017 23:28, skrev Andrew Lunn:
->>> Since the kernel module license is GPL, EXPORT_SYMBOL_GPL() would seem
->>> to be appropriate, which can be done as a subsequent patch.
->>>
->>> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
->>>
->> I have no idea how these legalities work. But for the record,
->> I give consent to change to EXPORT_SYMBOL_GPL at any time.
-> 
-> Hi Egil
-> 
-> What is better, is that when somebody posts such a patch, send an
-> Acked-by: It will get added to the patch, leaving a record in git that
-> you agreed to the change.
-> 
->      Andrew
-> 
+Hi
 
-In case I think I prefer to get off the hook now by issuing
-a PATCH v2 adding "_GPL" when I show up in office Monday.
+With the low Ethernet connection speed cpdma notification about packet
+processing can be received before CPTS TX timestamp event, which is set
+when packet actually left CPSW while cpdma notification is sent when packet
+pushed in CPSW fifo. As result, when connection is slow and CPU is fast
+enough TX timestamping is not working properly.
+Issue was discovered using timestamping tool on am57x boards with Ethernet link
+speed forced to 100M and on am335x-evm with Ethernet link speed forced to 10M.
 
-Egil
+Patch3 - This series fixes it by introducing TX SKB queue to store PTP SKBs for
+which Ethernet Transmit Event hasn't been received yet and then re-check this
+queue with new Ethernet Transmit Events by scheduling CPTS overflow
+work more often until TX SKB queue is not empty.
+
+Patch 1,2 - As CPTS overflow work is time critical task it important to ensure
+that its scheduling is not delayed. Unfortunately, There could be significant
+delay in CPTS work schedule under high system load and on -RT which could cause
+CPTS misbehavior due to internal counter overflow and there is no way to tune
+CPTS overflow work execution policy and priority manually. The kthread_worker
+can be used instead of workqueues, as it creates separate named kthread for
+each worker and its its execution policy and priority can be configured
+using chrt tool. Instead of modifying CPTS driver itself it was proposed to
+it was proposed to add PTP auxiliary worker to the PHC subsystem [1], so
+other drivers can benefit from this feature also.
+
+[1] https://www.spinics.net/lists/netdev/msg445392.html
+
+changes in v4:
+- fixed memleak in ptp_clock_register()
+- undocumented change in cpts_find_ts() moved to separate patch (minor fix)
+
+changes in v3:
+- patch 1: added proper error handling in ptp_clock_register. 
+  minor comments applied.
+
+changes in v2:
+- added PTP auxiliary worker to the PHC subsystem
+
+Links
+v3: https://www.spinics.net/lists/netdev/msg446058.html
+v2: https://www.spinics.net/lists/netdev/msg445859.html
+v1: https://www.spinics.net/lists/netdev/msg445387.html
+
+Grygorii Strashko (4):
+  ptp: introduce ptp auxiliary worker
+  net: ethernet: ti: cpts: convert to use ptp auxiliary worker
+  net: ethernet: ti: cpts: fix tx timestamping timeout
+  net: ethernet: ti: cpts: fix fifo read in cpts_find_ts
+
+ drivers/net/ethernet/ti/cpts.c   | 111 +++++++++++++++++++++++++++++++++------
+ drivers/net/ethernet/ti/cpts.h   |   2 +-
+ drivers/ptp/ptp_clock.c          |  42 +++++++++++++++
+ drivers/ptp/ptp_private.h        |   3 ++
+ include/linux/ptp_clock_kernel.h |  20 +++++++
+ 5 files changed, 161 insertions(+), 17 deletions(-)
+
+-- 
+2.10.1
