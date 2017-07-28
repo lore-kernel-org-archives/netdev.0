@@ -1,44 +1,60 @@
-From: "David.Wu" <david.wu@rock-chips.com>
-Subject: Re: [PATCH v2 05/11] net: stmmac: dwmac-rk: Add internal phy support
-Date: Fri, 28 Jul 2017 14:56:03 +0800
-Message-ID: <69ad9443-ff65-8e49-df68-7e5e6c812d45@rock-chips.com>
-References: <1501160156-30328-1-git-send-email-david.wu@rock-chips.com>
- <1501160540-30662-1-git-send-email-david.wu@rock-chips.com>
- <20170727134834.GD18666@lunn.ch>
- <65ae1747-4dff-b1d8-8aa3-684fc8c7809a@gmail.com>
+From: Christoph Paasch <christoph.paasch@gmail.com>
+Subject: Re: TCP fast retransmit issues
+Date: Thu, 27 Jul 2017 23:53:35 -0700
+Message-ID: <CALMXkpYB8TOR+3Av3rX+GJhuvfDob8wkNyXysUQDOJgOM8OLxQ@mail.gmail.com>
+References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk> <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk> <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170726134242.GB1737@1wt.eu> <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, heiko@sntech.de, robh+dt@kernel.org,
-        mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
-        olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, hwg@rock-chips.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <65ae1747-4dff-b1d8-8aa3-684fc8c7809a@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Willy Tarreau <w@1wt.eu>, Klavs Klavsen <kl@vsen.dk>,
+        netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:35824 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751693AbdG1Gxh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 02:53:37 -0400
+Received: by mail-pf0-f174.google.com with SMTP id e75so14260656pfj.2
+        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 23:53:36 -0700 (PDT)
+In-Reply-To: <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+Hello,
 
-在 2017/7/28 0:54, Florian Fainelli 写道:
-> - if you need knowledge about this PHY connection type prior to binding
-> the PHY device and its driver (that is, before of_phy_connect()) we
-> could add a boolean property e.g: "phy-is-internal" that allows us to
-> know that, or we can have a new phy-mode value, e.g: "internal-rmii"
-> which describes that, either way would probably be fine, but the former
-> scales better
-> 
+On Wed, Jul 26, 2017 at 7:32 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2017-07-26 at 15:42 +0200, Willy Tarreau wrote:
+>> On Wed, Jul 26, 2017 at 06:31:21AM -0700, Eric Dumazet wrote:
+>> > On Wed, 2017-07-26 at 14:18 +0200, Klavs Klavsen wrote:
+>> > > the 192.168.32.44 is a Centos 7 box.
+>> >
+>> > Could you grab a capture on this box, to see if the bogus packets are
+>> > sent by it, or later mangled by a middle box ?
+>>
+>> Given the huge difference between the window and the ranges of the
+>> values in the SACK field, I'm pretty sure there's a firewall doing
+>> some sequence numbers randomization in the middle, not aware of SACK
+>> and not converting these ones. I've had to disable such broken
+>> features more than once in field after similar observations! Probably
+>> that the Mac doesn't advertise SACK support and doesn't experience the
+>> problem.
+>
+> We need to check RFC if such invalid SACK blocks should be ignored (DUP
+> ACK would be processed and trigger fast retransmit anyway), or strongly
+> validated (as I suspect we currently do), leading to a total freeze.
 
-Using "phy-is-internal" is very helpful, but it is easy to confuse with 
-the real internal PHY, may we use the other words like phy is inlined🙂.
+quite some time ago this issue with sequence number randomizing
+middleboxes came already up
+(http://marc.info/?l=netfilter-devel&m=137691623129822&w=2). From what
+I remember, the RFC does not say that invalid SACK blocks should  be
+strongly validated. So, trigger dup-ack retransmission seems fine.
 
-> Then again, using phy-mode = "internal" even though this is Reduced MII
-> is not big of a deal IMHO as long as there is no loss of information and
-> that internal de-facto means internal reduced MII for instance.
-> -- 
+I had some patches at the time that ignored invalid sack-blocks and
+allowed fast-retransmit to happen thanks to the duplicate acks:
+https://patchwork.ozlabs.org/patch/268297/
+https://patchwork.ozlabs.org/patch/268298/
+
+
+Cheers,
+Christoph
