@@ -1,53 +1,49 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v4 4/4] net: ethernet: ti: cpts: fix fifo read in cpts_find_ts
-Date: Fri, 28 Jul 2017 17:30:05 -0500
-Message-ID: <20170728223005.21420-5-grygorii.strashko@ti.com>
-References: <20170728223005.21420-1-grygorii.strashko@ti.com>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next 4/4] net: dsa: lan9303: MDIO access phy registers
+ directly
+Date: Sat, 29 Jul 2017 00:30:59 +0200
+Message-ID: <e3a85e90-32c3-057f-f448-67bf1304ef91@egil-hjelmeland.no>
+References: <20170728151157.28983-1-privat@egil-hjelmeland.no>
+ <20170728151157.28983-5-privat@egil-hjelmeland.no>
+ <87fudglget.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <50d2d34c-c1a5-7f0a-90f1-44b1be1775b7@egil-hjelmeland.no>
+ <87fudgqz4w.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <1250382a-1c17-8e82-8c5c-fe14786c84db@gmail.com>
+ <a8ff8b7b-5aff-f25b-5ad3-944fcc867e40@egil-hjelmeland.no>
+ <20170728212840.GC11564@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>, Wingman Kwok <w-kwok2@ti.com>,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        John Stultz <john.stultz@linaro.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@pengutronix.de
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170728223005.21420-1-grygorii.strashko@ti.com>
+In-Reply-To: <20170728212840.GC11564@lunn.ch>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now the call chain
- cpts_find_ts()
-  |- cpts_fifo_read(cpts, CPTS_EV_PUSH)
+Den 28. juli 2017 23:28, skrev Andrew Lunn:
+>>> Since the kernel module license is GPL, EXPORT_SYMBOL_GPL() would seem
+>>> to be appropriate, which can be done as a subsequent patch.
+>>>
+>>> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+>>>
+>> I have no idea how these legalities work. But for the record,
+>> I give consent to change to EXPORT_SYMBOL_GPL at any time.
+> 
+> Hi Egil
+> 
+> What is better, is that when somebody posts such a patch, send an
+> Acked-by: It will get added to the patch, leaving a record in git that
+> you agreed to the change.
+> 
+>      Andrew
+> 
 
-will stop reading CPTS FIFO if PUSH event is found. But this is not
-expected and CPTS FIFI should be completely drained here. This is most
-probably copy-paste error and it has no negative impact as CPTS_EV_PUSH
-should not be present in FIFO without TS_PUSH request and
-cpts_systim_read() and cpts_find_ts() synchronized by spin_lock.
+In case I think I prefer to get off the hook now by issuing
+a PATCH v2 adding "_GPL" when I show up in office Monday.
 
-Correct above by calling cpts_fifo_read() with -1 parameter, so it will
-read all CPTS event from FIFO.
-
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
----
- drivers/net/ethernet/ti/cpts.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 95a0076..c2121d2 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -364,7 +364,7 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
- 		return 0;
- 
- 	spin_lock_irqsave(&cpts->lock, flags);
--	cpts_fifo_read(cpts, CPTS_EV_PUSH);
-+	cpts_fifo_read(cpts, -1);
- 	list_for_each_safe(this, next, &cpts->events) {
- 		event = list_entry(this, struct cpts_event, list);
- 		if (event_expired(event)) {
--- 
-2.10.1
+Egil
