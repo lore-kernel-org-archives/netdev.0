@@ -1,69 +1,68 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 15/20] net: sched: cls_basic: no need to call tcf_exts_change for newly allocated struct
-Date: Fri, 28 Jul 2017 16:40:37 +0200
-Message-ID: <20170728144042.6380-16-jiri@resnulli.us>
+Subject: [patch net-next 17/20] net: sched: cls_cgroup: no need to call tcf_exts_change for newly allocated struct
+Date: Fri, 28 Jul 2017 16:40:39 +0200
+Message-ID: <20170728144042.6380-18-jiri@resnulli.us>
 References: <20170728144042.6380-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35038 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752205AbdG1Olf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:41:35 -0400
-Received: by mail-wr0-f195.google.com with SMTP id c24so23179982wra.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:41:34 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35329 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752215AbdG1Olh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:41:37 -0400
+Received: by mail-wm0-f66.google.com with SMTP id r77so14582242wmd.2
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:41:37 -0700 (PDT)
 In-Reply-To: <20170728144042.6380-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-As the f struct was allocated right before basic_set_parms call, no need
-to use tcf_exts_change to do atomic change, and we can just fill-up
-the unused exts struct directly by tcf_exts_validate.
+As the new struct just was allocated, so no need to use tcf_exts_change
+to do atomic change, and we can just fill-up the unused exts struct
+directly by tcf_exts_validate.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_basic.c | 13 +++----------
- 1 file changed, 3 insertions(+), 10 deletions(-)
+ net/sched/cls_cgroup.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
 
-diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
-index dc12d79..0a35cb5 100644
---- a/net/sched/cls_basic.c
-+++ b/net/sched/cls_basic.c
-@@ -129,29 +129,22 @@ static int basic_set_parms(struct net *net, struct tcf_proto *tp,
- 			   struct nlattr *est, bool ovr)
- {
- 	int err;
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index f6f302a..676855f 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -76,7 +76,6 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
+ 	struct nlattr *tb[TCA_CGROUP_MAX + 1];
+ 	struct cls_cgroup_head *head = rtnl_dereference(tp->root);
+ 	struct cls_cgroup_head *new;
 -	struct tcf_exts e;
+ 	int err;
  
--	tcf_exts_init(&e, TCA_BASIC_ACT, TCA_BASIC_POLICE);
--	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
-+	err = tcf_exts_validate(net, tp, tb, est, &f->exts, ovr);
+ 	if (!tca[TCA_OPTIONS])
+@@ -100,20 +99,13 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
  	if (err < 0)
--		goto errout;
-+		return err;
+ 		goto errout;
  
- 	err = tcf_em_tree_validate(tp, tb[TCA_BASIC_EMATCHES], &f->ematches);
- 	if (err < 0)
--		goto errout;
-+		return err;
+-	tcf_exts_init(&e, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, ovr);
+-	if (err < 0) {
+-		tcf_exts_destroy(&e);
++	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &new->exts, ovr);
++	if (err < 0)
+ 		goto errout;
+-	}
  
- 	if (tb[TCA_BASIC_CLASSID]) {
- 		f->res.classid = nla_get_u32(tb[TCA_BASIC_CLASSID]);
- 		tcf_bind_filter(tp, &f->res, base);
- 	}
- 
--	tcf_exts_change(&f->exts, &e);
- 	f->tp = tp;
+ 	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &new->ematches);
+-	if (err < 0) {
+-		tcf_exts_destroy(&e);
++	if (err < 0)
+ 		goto errout;
+-	}
 -
- 	return 0;
--errout:
--	tcf_exts_destroy(&e);
--	return err;
- }
+-	tcf_exts_change(&new->exts, &e);
  
- static int basic_change(struct net *net, struct sk_buff *in_skb,
+ 	rcu_assign_pointer(tp->root, new);
+ 	if (head)
 -- 
 2.9.3
