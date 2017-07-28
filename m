@@ -1,77 +1,73 @@
-From: Kurt Van Dijck <dev.kurt@vandijck-laurijssen.be>
-Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
- fixed transceiver bindings
-Date: Fri, 28 Jul 2017 15:02:31 +0200
-Message-ID: <20170728130231.GA10680@airbook.vandijck-laurijssen.be>
+From: Seth Forshee <seth.forshee@canonical.com>
+Subject: Re: Performance regression with virtio_net
+Date: Fri, 28 Jul 2017 08:12:56 -0500
+Message-ID: <20170728131256.ap6h4a57csnj3vag@ubuntu-xps13>
+References: <20170727170942.ub24lwgrl3x2outp@ubuntu-hedt>
+ <20170727233244-mutt-send-email-mst@kernel.org>
+ <20170727211430.viki2jcxbzk2u62c@ubuntu-hedt>
+ <20170728002913-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Franklin S Cooper Jr <fcooper@ti.com>,
-        Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-can@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
-        robh+dt@kernel.org, quentin.schulz@free-electrons.com,
-        sergei.shtylyov@cogentembedded.com
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:33769 "EHLO
+        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751071AbdG1NM6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 09:12:58 -0400
+Received: by mail-io0-f179.google.com with SMTP id j32so69117750iod.0
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 06:12:58 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170728002913-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jul 28, 2017 at 12:30:54AM +0300, Michael S. Tsirkin wrote:
+> On Thu, Jul 27, 2017 at 04:14:30PM -0500, Seth Forshee wrote:
+> > On Thu, Jul 27, 2017 at 11:38:52PM +0300, Michael S. Tsirkin wrote:
+> > > On Thu, Jul 27, 2017 at 12:09:42PM -0500, Seth Forshee wrote:
+> > > > I'm seeing a performance regression with virtio_net that looks to have
+> > > > started in 4.12-rc1. I only see it in one context though, downloading
+> > > > snap packages from the Ubuntu snap store. For example:
+> > > > 
+> > > >  https://api.snapcraft.io/api/v1/snaps/download/b8X2psL1ryVrPt5WEmpYiqfr5emixTd7_1797.snap
+> > > > 
+> > > > which redirects to Internap's CDN. Normally this downloads in a few
+> > > > seconds at ~10 MB/s, but with 4.12 and 4.13 it takes minutes with a rate
+> > > > of ~150 KB/s. Everything else I've tried downloads as normal speeds.
+> > > 
+> > > So just wget that URL should be enough?
+> > 
+> > Yes. Note that sometimes it starts out faster then slows down.
+> > > > I bisected this to 680557cf79f8 "virtio_net: rework mergeable buffer
+> > > > handling". If I revert this on top of 4.13-rc2 (along with other changes
+> > > > needed to successfully revert it) speeds return to normal.
+> > > > 
+> > > > Thanks,
+> > > > Seth
+> > > 
+> > > 
+> > > Interesting. A more likely suspect would be
+> > > e377fcc8486d40867c6c217077ad0fa40977e060 - could you please try
+> > > reverting that one instead?
+> > 
+> > I tried it, and I still get slow download speeds. I did test at
+> > 680557cf79f82623e2c4fd42733077d60a843513 during the bisect so I'm
+> > reasonably confident that this is the one where things went bad.
+> > > Also, could you please look at mergeable_rx_buffer_size in sysfs with
+> > > and without the change?
+> > 
+> > In all cases (stock 4.13-rc2, 680557cf79f8 reverted, and e377fcc8486d
+> > reverted) mergeable_rx_buffer_size was 1536.
+> > 
+> > Thanks,
+> > Seth
 > 
-> On 07/28/2017 06:57 AM, Kurt Van Dijck wrote:
-> 
-> >So while _a_ transceiver may be spec'd to 1MBit during arbitration,
-> >CAN FD packets may IMHO exceed that speed during data phase.
-> 
-> When the bitrate is limited to 1Mbit/s you are ONLY allowed to use 1Mbit/s
-> in the data section too (either with CAN or CAN FD).
+> Do you see any error counters incrementing after it slows down?
 
-My point is that the requirements posed to a transceiver
-differ between arbitration & data phase for CAN FD.
-So while a transceiver does not know about CAN FD, it may allow
-higher bitrates for the data phase.
+I see rx_dropped and rx_length_errors increasing in lockstep once it
+slows down.
 
-> 
-> >That was the whole point of CAN FD: exceed the limits required for
-> >correct arbitration on transceiver & wire.
-> 
-> No. CAN FD is about a different frame format with up to 64 bytes AND the
-> possibility to increase the bitrate in the data section of the frame.
-> 
-> >So I do not agree on the single bandwidth limitation.
-> 
-> The transceiver provides a single maximum bandwidth. It's an ISO Layer 1
-> device.
-> 
-> >The word 'max-arbitration-bitrate' makes the difference very clear.
-> 
-> I think you are mixing up ISO layer 1 and ISO layer 2.
-
-In order to provide higher data throughput without putting extra limits
-on transceiver & wire, the requirement for the round-trip delay to be
-within 1 bittime has been eliminated, but only for the data phase when
-arbitration is over.
-So layer 2 (CAN FD) has been adapted to circumvent the layer 1
-(transceiver + wire) limitations.
-
-In fact, the round-trip delay requirement never actually did matter for
-plain CAN during data bits either. CAN FD just makes use of that,
-but is therefore incompatible on the wire.
-
-I forgot the precise wording, but this is the principle that Bosch
-explained on the CAN conference in Nurnberg several years ago, or at
-least this is how I remembered it :-)
-
-I haven't followed the developments of transceivers, but with the above
-principle in mind, it's obvious that any transceiver allows higher
-bitrates during the data segment because the TX-to-RX line delay must
-not scale with the bitrate.
-In reality, maybe not all transceivers will mention this in their
-datasheet.
-
-So whether you call it 'max-arbitration-bitrate' & 'max-data-bitrate'
-or 'max-bitrate' & 'max-data-bitrate' does not really matter (I prefer
-1st) but you will one day need 2 bitrates.
-
-Kind regards,
-Kurt
+Thanks,
+Seth
