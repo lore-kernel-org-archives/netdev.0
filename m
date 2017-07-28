@@ -1,279 +1,179 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 05/10] net/smc: register RMB-related memory region
-Date: Fri, 28 Jul 2017 13:56:17 +0200
-Message-ID: <20170728115622.17247-6-ubraun@linux.vnet.ibm.com>
+From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH net-next 09/10] net/smc: cleanup function __smc_buf_create()
+Date: Fri, 28 Jul 2017 13:56:21 +0200
+Message-ID: <20170728115622.17247-10-ubraun@linux.vnet.ibm.com>
 References: <20170728115622.17247-1-ubraun@linux.vnet.ibm.com>
-Cc: hch@lst.de, netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:52964 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751823AbdG1L4j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 07:56:39 -0400
-Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v6SBrnIH078578
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:56:39 -0400
-Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2c01jn2264-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:56:38 -0400
-Received: from localhost
-        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Fri, 28 Jul 2017 12:56:37 +0100
-In-Reply-To: <20170728115622.17247-1-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hch-jcswGhMUV9g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+        schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+        raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170728115622.17247-1-ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-A memory region created for a new RMB must be registered explicitly,
-before the peer can make use of it for remote DMA transfer.
+Split function __smc_buf_create() for better readability.
 
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Signed-off-by: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
 ---
- net/smc/af_smc.c   | 38 ++++++++++++++++++++++++++++++++
- net/smc/smc_core.c |  1 -
- net/smc/smc_core.h | 12 +++++++++++
- net/smc/smc_ib.c   |  2 +-
- net/smc/smc_wr.c   | 63 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/smc/smc_wr.h   |  1 +
- 6 files changed, 115 insertions(+), 2 deletions(-)
+ net/smc/smc_core.c | 114 +++++++++++++++++++++++++++++------------------------
+ 1 file changed, 63 insertions(+), 51 deletions(-)
 
-diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index 120a7b9b4d8e..e0a95d50bf87 100644
---- a/net/smc/af_smc.c
-+++ b/net/smc/af_smc.c
-@@ -338,6 +338,12 @@ static int smc_clnt_conf_first_link(struct smc_sock *smc, union ib_gid *gid)
- 		return SMC_CLC_DECL_INTERR;
- 
- 	smc_wr_remember_qp_attr(link);
-+
-+	rc = smc_wr_reg_send(link,
-+			     smc->conn.rmb_desc->mr_rx[SMC_SINGLE_LINK]);
-+	if (rc)
-+		return SMC_CLC_DECL_INTERR;
-+
- 	/* send CONFIRM LINK response over RoCE fabric */
- 	rc = smc_llc_send_confirm_link(link,
- 				       link->smcibdev->mac[link->ibport - 1],
-@@ -459,6 +465,18 @@ static int smc_connect_rdma(struct smc_sock *smc)
- 			reason_code = SMC_CLC_DECL_INTERR;
- 			goto decline_rdma_unlock;
- 		}
-+	} else {
-+		struct smc_buf_desc *buf_desc = smc->conn.rmb_desc;
-+
-+		if (!buf_desc->reused) {
-+			/* register memory region for new rmb */
-+			rc = smc_wr_reg_send(link,
-+					     buf_desc->mr_rx[SMC_SINGLE_LINK]);
-+			if (rc) {
-+				reason_code = SMC_CLC_DECL_INTERR;
-+				goto decline_rdma_unlock;
-+			}
-+		}
- 	}
- 
- 	rc = smc_clc_send_confirm(smc);
-@@ -692,6 +710,12 @@ static int smc_serv_conf_first_link(struct smc_sock *smc)
- 	int rc;
- 
- 	link = &lgr->lnk[SMC_SINGLE_LINK];
-+
-+	rc = smc_wr_reg_send(link,
-+			     smc->conn.rmb_desc->mr_rx[SMC_SINGLE_LINK]);
-+	if (rc)
-+		return SMC_CLC_DECL_INTERR;
-+
- 	/* send CONFIRM LINK request to client over the RoCE fabric */
- 	rc = smc_llc_send_confirm_link(link,
- 				       link->smcibdev->mac[link->ibport - 1],
-@@ -803,6 +827,20 @@ static void smc_listen_work(struct work_struct *work)
- 	smc_close_init(new_smc);
- 	smc_rx_init(new_smc);
- 
-+	if (local_contact != SMC_FIRST_CONTACT) {
-+		struct smc_buf_desc *buf_desc = new_smc->conn.rmb_desc;
-+
-+		if (!buf_desc->reused) {
-+			/* register memory region for new rmb */
-+			rc = smc_wr_reg_send(link,
-+					     buf_desc->mr_rx[SMC_SINGLE_LINK]);
-+			if (rc) {
-+				reason_code = SMC_CLC_DECL_INTERR;
-+				goto decline_rdma;
-+			}
-+		}
-+	}
-+
- 	rc = smc_clc_send_accept(new_smc, local_contact);
- 	if (rc)
- 		goto out_err;
 diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
-index f1dd4e1cd3e1..87bb3e4771a8 100644
+index ab8cdac5edb3..447bd52da0e2 100644
 --- a/net/smc/smc_core.c
 +++ b/net/smc/smc_core.c
-@@ -175,7 +175,6 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
- 	rc = smc_wr_alloc_link_mem(lnk);
- 	if (rc)
- 		goto free_lgr;
--	init_waitqueue_head(&lnk->wr_tx_wait);
- 	rc = smc_ib_create_protection_domain(lnk);
- 	if (rc)
- 		goto free_link_mem;
-diff --git a/net/smc/smc_core.h b/net/smc/smc_core.h
-index 17b5fea09901..f7b40bdbf24c 100644
---- a/net/smc/smc_core.h
-+++ b/net/smc/smc_core.h
-@@ -37,6 +37,14 @@ struct smc_wr_buf {
- 	u8	raw[SMC_WR_BUF_SIZE];
- };
- 
-+#define SMC_WR_REG_MR_WAIT_TIME	(5 * HZ)/* wait time for ib_wr_reg_mr result */
-+
-+enum smc_wr_reg_state {
-+	POSTED,		/* ib_wr_reg_mr request posted */
-+	CONFIRMED,	/* ib_wr_reg_mr response: successful */
-+	FAILED		/* ib_wr_reg_mr response: failure */
-+};
-+
- struct smc_link {
- 	struct smc_ib_device	*smcibdev;	/* ib-device */
- 	u8			ibport;		/* port - values 1 | 2 */
-@@ -65,6 +73,10 @@ struct smc_link {
- 	u64			wr_rx_id;	/* seq # of last recv WR */
- 	u32			wr_rx_cnt;	/* number of WR recv buffers */
- 
-+	struct ib_reg_wr	wr_reg;		/* WR register memory region */
-+	wait_queue_head_t	wr_reg_wait;	/* wait for wr_reg result */
-+	enum smc_wr_reg_state	wr_reg_state;	/* state of wr_reg request */
-+
- 	union ib_gid		gid;		/* gid matching used vlan id */
- 	u32			peer_qpn;	/* QP number of peer */
- 	enum ib_mtu		path_mtu;	/* used mtu */
-diff --git a/net/smc/smc_ib.c b/net/smc/smc_ib.c
-index 08233492ec45..85e1831f591e 100644
---- a/net/smc/smc_ib.c
-+++ b/net/smc/smc_ib.c
-@@ -231,10 +231,10 @@ int smc_ib_create_queue_pair(struct smc_link *lnk)
- 		.recv_cq = lnk->smcibdev->roce_cq_recv,
- 		.srq = NULL,
- 		.cap = {
--			.max_send_wr = SMC_WR_BUF_CNT,
- 				/* include unsolicited rdma_writes as well,
- 				 * there are max. 2 RDMA_WRITE per 1 WR_SEND
- 				 */
-+			.max_send_wr = SMC_WR_BUF_CNT * 3,
- 			.max_recv_wr = SMC_WR_BUF_CNT * 3,
- 			.max_send_sge = SMC_IB_MAX_SEND_SGE,
- 			.max_recv_sge = 1,
-diff --git a/net/smc/smc_wr.c b/net/smc/smc_wr.c
-index 874ee9f9d796..ab56bda66783 100644
---- a/net/smc/smc_wr.c
-+++ b/net/smc/smc_wr.c
-@@ -68,6 +68,16 @@ static inline void smc_wr_tx_process_cqe(struct ib_wc *wc)
- 	int i;
- 
- 	link = wc->qp->qp_context;
-+
-+	if (wc->opcode == IB_WC_REG_MR) {
-+		if (wc->status)
-+			link->wr_reg_state = FAILED;
-+		else
-+			link->wr_reg_state = CONFIRMED;
-+		wake_up(&link->wr_reg_wait);
-+		return;
-+	}
-+
- 	pnd_snd_idx = smc_wr_tx_find_pending_index(link, wc->wr_id);
- 	if (pnd_snd_idx == link->wr_tx_cnt)
- 		return;
-@@ -243,6 +253,52 @@ int smc_wr_tx_send(struct smc_link *link, struct smc_wr_tx_pend_priv *priv)
- 	return rc;
+@@ -487,6 +487,64 @@ static inline int smc_rmb_wnd_update_limit(int rmbe_size)
+ 	return min_t(int, rmbe_size / 10, SOCK_MIN_SNDBUF / 2);
  }
  
-+/* Register a memory region and wait for result. */
-+int smc_wr_reg_send(struct smc_link *link, struct ib_mr *mr)
++static struct smc_buf_desc *smc_new_buf_create(struct smc_link_group *lgr,
++					       bool is_rmb, int bufsize)
 +{
-+	struct ib_send_wr *failed_wr = NULL;
++	struct smc_buf_desc *buf_desc;
++	struct smc_link *lnk;
 +	int rc;
 +
-+	ib_req_notify_cq(link->smcibdev->roce_cq_send,
-+			 IB_CQ_NEXT_COMP | IB_CQ_REPORT_MISSED_EVENTS);
-+	link->wr_reg_state = POSTED;
-+	link->wr_reg.wr.wr_id = (u64)(uintptr_t)mr;
-+	link->wr_reg.mr = mr;
-+	link->wr_reg.key = mr->rkey;
-+	failed_wr = &link->wr_reg.wr;
-+	rc = ib_post_send(link->roce_qp, &link->wr_reg.wr, &failed_wr);
-+	WARN_ON(failed_wr != &link->wr_reg.wr);
-+	if (rc)
-+		return rc;
++	/* try to alloc a new buffer */
++	buf_desc = kzalloc(sizeof(*buf_desc), GFP_KERNEL);
++	if (!buf_desc)
++		return ERR_PTR(-ENOMEM);
 +
-+	rc = wait_event_interruptible_timeout(link->wr_reg_wait,
-+					      (link->wr_reg_state != POSTED),
-+					      SMC_WR_REG_MR_WAIT_TIME);
-+	if (!rc) {
-+		/* timeout - terminate connections */
-+		struct smc_link_group *lgr;
++	buf_desc->cpu_addr =
++		(void *)__get_free_pages(GFP_KERNEL | __GFP_NOWARN |
++					 __GFP_NOMEMALLOC |
++					 __GFP_NORETRY | __GFP_ZERO,
++					 get_order(bufsize));
++	if (!buf_desc->cpu_addr) {
++		kfree(buf_desc);
++		return ERR_PTR(-EAGAIN);
++	}
++	buf_desc->order = get_order(bufsize);
 +
-+		lgr = container_of(link, struct smc_link_group,
-+				   lnk[SMC_SINGLE_LINK]);
-+		smc_lgr_terminate(lgr);
-+		return -EPIPE;
++	/* build the sg table from the pages */
++	lnk = &lgr->lnk[SMC_SINGLE_LINK];
++	rc = sg_alloc_table(&buf_desc->sgt[SMC_SINGLE_LINK], 1,
++			    GFP_KERNEL);
++	if (rc) {
++		smc_buf_free(buf_desc, lnk, is_rmb);
++		return ERR_PTR(rc);
 +	}
-+	if (rc == -ERESTARTSYS)
-+		return -EINTR;
-+	switch (link->wr_reg_state) {
-+	case CONFIRMED:
-+		rc = 0;
-+		break;
-+	case FAILED:
-+		rc = -EIO;
-+		break;
-+	case POSTED:
-+		rc = -EPIPE;
-+		break;
++	sg_set_buf(buf_desc->sgt[SMC_SINGLE_LINK].sgl,
++		   buf_desc->cpu_addr, bufsize);
++
++	/* map sg table to DMA address */
++	rc = smc_ib_buf_map_sg(lnk->smcibdev, buf_desc,
++			       is_rmb ? DMA_FROM_DEVICE : DMA_TO_DEVICE);
++	/* SMC protocol depends on mapping to one DMA address only */
++	if (rc != 1)  {
++		smc_buf_free(buf_desc, lnk, is_rmb);
++		return ERR_PTR(-EAGAIN);
 +	}
-+	return rc;
++
++	/* create a new memory region for the RMB */
++	if (is_rmb) {
++		rc = smc_ib_get_memory_region(lnk->roce_pd,
++					      IB_ACCESS_REMOTE_WRITE |
++					      IB_ACCESS_LOCAL_WRITE,
++					      buf_desc);
++		if (rc) {
++			smc_buf_free(buf_desc, lnk, is_rmb);
++			return ERR_PTR(rc);
++		}
++	}
++
++	return buf_desc;
 +}
 +
- void smc_wr_tx_dismiss_slots(struct smc_link *link, u8 wr_rx_hdr_type,
- 			     smc_wr_tx_filter filter,
- 			     smc_wr_tx_dismisser dismisser,
-@@ -458,6 +514,11 @@ static void smc_wr_init_sge(struct smc_link *lnk)
- 		lnk->wr_rx_ibs[i].sg_list = &lnk->wr_rx_sges[i];
- 		lnk->wr_rx_ibs[i].num_sge = 1;
+ static int __smc_buf_create(struct smc_sock *smc, bool is_rmb)
+ {
+ 	struct smc_connection *conn = &smc->conn;
+@@ -494,12 +552,9 @@ static int __smc_buf_create(struct smc_sock *smc, bool is_rmb)
+ 	struct smc_buf_desc *buf_desc = NULL;
+ 	struct list_head *buf_list;
+ 	int bufsize, bufsize_short;
+-	struct smc_link *lnk;
+ 	int sk_buf_size;
+ 	rwlock_t *lock;
+-	int rc;
+ 
+-	lnk = &lgr->lnk[SMC_SINGLE_LINK];
+ 	if (is_rmb)
+ 		/* use socket recv buffer size (w/o overhead) as start value */
+ 		sk_buf_size = smc->sk.sk_rcvbuf / 2;
+@@ -528,54 +583,11 @@ static int __smc_buf_create(struct smc_sock *smc, bool is_rmb)
+ 			break; /* found reusable slot */
+ 		}
+ 
+-		/* try to allocate the determined number of pages */
+-		buf_desc = kzalloc(sizeof(*buf_desc), GFP_KERNEL);
+-		if (!buf_desc)
+-			break; /* give up with -ENOMEM */
+-
+-		buf_desc->cpu_addr =
+-			(void *)__get_free_pages(GFP_KERNEL | __GFP_NOWARN |
+-						 __GFP_NOMEMALLOC |
+-						 __GFP_NORETRY | __GFP_ZERO,
+-						 get_order(bufsize));
+-		if (!buf_desc->cpu_addr) {
+-			kfree(buf_desc);
+-			buf_desc = NULL;
+-			continue;
+-		}
+-
+-		rc = sg_alloc_table(&buf_desc->sgt[SMC_SINGLE_LINK], 1,
+-				    GFP_KERNEL);
+-		if (rc) {
+-			smc_buf_free(buf_desc, lnk, is_rmb);
+-			buf_desc = NULL;
++		buf_desc = smc_new_buf_create(lgr, is_rmb, bufsize);
++		if (PTR_ERR(buf_desc) == -ENOMEM)
++			break;
++		if (IS_ERR(buf_desc))
+ 			continue;
+-		}
+-		sg_set_buf(buf_desc->sgt[SMC_SINGLE_LINK].sgl,
+-			   buf_desc->cpu_addr, bufsize);
+-
+-		/* map sg table to DMA address */
+-		rc = smc_ib_buf_map_sg(lnk->smcibdev, buf_desc, is_rmb ?
+-				       DMA_FROM_DEVICE : DMA_TO_DEVICE);
+-		/* SMC protocol depends on mapping to one DMA address only */
+-		if (rc != 1)  {
+-			smc_buf_free(buf_desc, lnk, is_rmb);
+-			buf_desc = NULL;
+-		continue; /* if mapping failed, try smaller one */
+-		}
+-
+-		/* create a new memory region for the RMB */
+-		if (is_rmb) {
+-			rc = smc_ib_get_memory_region(lnk->roce_pd,
+-						      IB_ACCESS_REMOTE_WRITE |
+-						      IB_ACCESS_LOCAL_WRITE,
+-						      buf_desc);
+-			if (rc) {
+-				smc_buf_free(buf_desc, lnk, is_rmb);
+-				buf_desc = NULL;
+-				continue;
+-			}
+-		}
+ 
+ 		buf_desc->used = 1;
+ 		write_lock_bh(lock);
+@@ -584,7 +596,7 @@ static int __smc_buf_create(struct smc_sock *smc, bool is_rmb)
+ 		break; /* found */
  	}
-+	lnk->wr_reg.wr.next = NULL;
-+	lnk->wr_reg.wr.num_sge = 0;
-+	lnk->wr_reg.wr.send_flags = IB_SEND_SIGNALED;
-+	lnk->wr_reg.wr.opcode = IB_WR_REG_MR;
-+	lnk->wr_reg.access = IB_ACCESS_LOCAL_WRITE | IB_ACCESS_REMOTE_WRITE;
- }
  
- void smc_wr_free_link(struct smc_link *lnk)
-@@ -602,6 +663,8 @@ int smc_wr_create_link(struct smc_link *lnk)
- 	smc_wr_init_sge(lnk);
- 	memset(lnk->wr_tx_mask, 0,
- 	       BITS_TO_LONGS(SMC_WR_BUF_CNT) * sizeof(*lnk->wr_tx_mask));
-+	init_waitqueue_head(&lnk->wr_tx_wait);
-+	init_waitqueue_head(&lnk->wr_reg_wait);
- 	return rc;
+-	if (!buf_desc || !buf_desc->cpu_addr)
++	if (IS_ERR(buf_desc))
+ 		return -ENOMEM;
  
- dma_unmap:
-diff --git a/net/smc/smc_wr.h b/net/smc/smc_wr.h
-index 0b9beeda6053..45eb53833052 100644
---- a/net/smc/smc_wr.h
-+++ b/net/smc/smc_wr.h
-@@ -102,5 +102,6 @@ void smc_wr_tx_dismiss_slots(struct smc_link *lnk, u8 wr_rx_hdr_type,
- int smc_wr_rx_register_handler(struct smc_wr_rx_handler *handler);
- int smc_wr_rx_post_init(struct smc_link *link);
- void smc_wr_rx_cq_handler(struct ib_cq *ib_cq, void *cq_context);
-+int smc_wr_reg_send(struct smc_link *link, struct ib_mr *mr);
- 
- #endif /* SMC_WR_H */
+ 	if (is_rmb) {
 -- 
 2.11.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
