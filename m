@@ -1,52 +1,54 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
- fixed transceiver bindings
-Date: Fri, 28 Jul 2017 10:41:40 +0200
-Message-ID: <b6ee18fa-a72b-9596-00d8-f6bd4a993293@hartkopp.net>
-References: <20170724230521.1436-1-fcooper@ti.com>
- <20170724230521.1436-3-fcooper@ti.com> <20170726164124.GL12049@lunn.ch>
- <355b90b3-97ce-1057-6617-d5d709449c48@hartkopp.net>
- <a77fe395-33c7-9405-b51a-5d3372e5c58b@ti.com>
- <fe99189e-d077-ba65-4dfc-a4d8beee62b3@hartkopp.net>
- <932602fe-d06a-7a17-5a0c-24265cf2e643@ti.com>
- <20170728045724.GA27903@airbook.vandijck-laurijssen.be>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 0/3] net-next: stmmac: support future possible
+ different internal phy mode
+Date: Fri, 28 Jul 2017 11:28:15 +0200
+Message-ID: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Franklin S Cooper Jr <fcooper@ti.com>,
-        Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-can@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
-        robh+dt@kernel.org, quentin.schulz@free-electrons.com,
-        sergei.shtylyov@cogentembedded.com
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20170728045724.GA27903@airbook.vandijck-laurijssen.be>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: icenowy-h8G6r0blFSE@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBTMI5TFQKGQEOXHPMJQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-On 07/28/2017 06:57 AM, Kurt Van Dijck wrote:
+Hello
 
-> So while _a_ transceiver may be spec'd to 1MBit during arbitration,
-> CAN FD packets may IMHO exceed that speed during data phase.
+The current way to find if the phy is internal is to compare DT phy-mode
+and emac_variant/internal_phy.
+But it will negate a possible future SoC where an external PHY use the
+same phy mode than the internal one.
 
-When the bitrate is limited to 1Mbit/s you are ONLY allowed to use 
-1Mbit/s in the data section too (either with CAN or CAN FD).
+This patchs series adds a new way to find if the PHY is internal, via its
+compatible.
 
-> That was the whole point of CAN FD: exceed the limits required for
-> correct arbitration on transceiver & wire.
+Corentin Labbe (3):
+  dt-bindings: net: add compatible for internal sun8i-h3/sun8i-v3s PHYs
+  ARM: sunxi: h3/h5: Add sun8i-h3-ephy compatible
+  net-next: stmmac: dwmac-sun8i: choose internal PHY via compatible
 
-No. CAN FD is about a different frame format with up to 64 bytes AND the 
-possibility to increase the bitrate in the data section of the frame.
+ Documentation/devicetree/bindings/net/dwmac-sun8i.txt |  4 ++--
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi                    |  3 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c     | 16 ++++++++++------
+ 3 files changed, 14 insertions(+), 9 deletions(-)
 
-> So I do not agree on the single bandwidth limitation.
-
-The transceiver provides a single maximum bandwidth. It's an ISO Layer 1 
-device.
-
-> The word 'max-arbitration-bitrate' makes the difference very clear.
-
-I think you are mixing up ISO layer 1 and ISO layer 2.
-
-Regards,
-Oliver
-
+-- 
+2.13.0
