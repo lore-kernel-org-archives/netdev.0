@@ -1,60 +1,57 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH net] ipv4: fib: Fix NULL pointer deref during fib_sync_down_dev()
-Date: Fri, 28 Jul 2017 23:27:44 +0300
-Message-ID: <20170728202744.2729-1-idosch@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, mirq-linux@rere.qmqm.pl,
-        xiyou.wangcong@gmail.com, Ido Schimmel <idosch@mellanox.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0066.outbound.protection.outlook.com ([104.47.0.66]:64384
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752596AbdG1U2J (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Jul 2017 16:28:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 0/2] constify inet6_protocol structures
+Date: Fri, 28 Jul 2017 22:18:56 +0200
+Message-ID: <1501273138-22771-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, bhumirks@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Michał reported a NULL pointer deref during fib_sync_down_dev() when
-unregistering a netdevice. The problem is that we don't check for
-'in_dev' being NULL, which can happen in very specific cases.
+The inet6_protocol structure is only passed as the first argument to
+inet6_add_protocol or inet6_del_protocol, both of which are declared as
+const.  Thus the inet6_protocol structure itself can be const.
 
-Usually routes are flushed upon NETDEV_DOWN sent in either the netdev or
-the inetaddr notification chains. However, if an interface isn't
-configured with any IP address, then it's possible for host routes to be
-flushed following NETDEV_UNREGISTER, after NULLing dev->ip_ptr in
-inetdev_destroy().
+Done with the help of Coccinelle.
 
-To reproduce:
-$ ip link add type dummy
-$ ip route add local 1.1.1.0/24 dev dummy0
-$ ip link del dev dummy0
+// <smpl>
+@r disable optional_qualifier@
+identifier i;
+position p;
+@@
 
-Fix this by checking for the presence of 'in_dev' before referencing it.
+static struct inet6_protocol i@p = { ... };
 
-Fixes: 982acb97560c ("ipv4: fib: Notify about nexthop status changes")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reported-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+@ok1@
+identifier r.i;
+expression e1;
+position p;
+@@
+
+ \(inet6_add_protocol\|inet6_del_protocol\)(&i@p,...)
+
+@bad@
+position p != {r.p,ok1.p};
+identifier r.i;
+struct inet6_protocol e;
+@@
+
+e@i@p
+
+@depends on !bad disable optional_qualifier@
+identifier r.i;
+@@
+
+static
++const
+ struct inet6_protocol i = { ... };
+// </smpl>
+
 ---
-Please consider this for -stable.
----
- net/ipv4/fib_semantics.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 22210010..b8d1817 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1452,7 +1452,7 @@ static int call_fib_nh_notifiers(struct fib_nh *fib_nh,
- 		return call_fib_notifiers(dev_net(fib_nh->nh_dev), event_type,
- 					  &info.info);
- 	case FIB_EVENT_NH_DEL:
--		if ((IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
-+		if ((in_dev && IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
- 		     fib_nh->nh_flags & RTNH_F_LINKDOWN) ||
- 		    (fib_nh->nh_flags & RTNH_F_DEAD))
- 			return call_fib_notifiers(dev_net(fib_nh->nh_dev),
--- 
-2.9.4
+ net/ipv6/ip6_gre.c  |    2 +-
+ net/ipv6/tcp_ipv6.c |    2 +-
+ net/ipv6/udp.c      |    2 +-
+ net/l2tp/l2tp_ip6.c |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
