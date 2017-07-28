@@ -1,51 +1,71 @@
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH V5 net-next 3/8] net: hns3: Add HNS3 IMP(Integrated Mgmt Proc) Cmd Interface Support
-Date: Fri, 28 Jul 2017 23:26:47 +0100
-Message-ID: <20170728222652.118448-4-salil.mehta@huawei.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH V5 net-next 1/8] net: hns3: Add support of HNS3 Ethernet Driver for hip08 SoC
+Date: Fri, 28 Jul 2017 23:26:45 +0100
+Message-ID: <20170728222652.118448-2-salil.mehta@huawei.com>
 References: <20170728222652.118448-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170728222652.118448-1-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
+        <linuxarm@huawei.com>, Wei Hu <xavier.huwei@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170728222652.118448-1-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the support of IMP (Integrated Management Processor)
-command interface to the HNS3 driver.
+This patch adds the support of Hisilicon Network Subsystem 3
+Ethernet driver to hip08 family of SoCs.
 
-Each PF/VF has support of CQP(Command Queue Pair) ring interface.
-Each CQP consis of send queue CSQ and receive queue CRQ.
-There are various commands a PF/VF may support, like for Flow Table
-manipulation, Device management, Packet buffer allocation, Forwarding,
-VLANs config, Tunneling/Overlays etc.
+This driver includes basic Rx/Tx functionality. It also includes
+the client registration code with the HNAE3(Hisilicon Network
+Acceleration Engine 3) framework.
 
-This patch contains code to initialize the command queue, manage the
-command queue descriptors and Rx/Tx protocol with the command processor
-in the form of various commands/results and acknowledgements.
+This work provides the initial support to the hip08 SoC and
+would incrementally add features or enhancements.
 
-Signed-off-by: Daode Huang <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Signed-off-by: lipeng <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+Signed-off-by: lipeng <lipeng321@huawei.com>
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Signed-off-by: Wei Hu (Xavier) <xavier.huwei@huawei.com>
 ---
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c | 365 ++++++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h | 741 +++++++++++++++++++++
- 2 files changed, 1106 insertions(+)
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+Patch V5: addressed comments by:
+  1. Florian Fainelli
+     https://lkml.org/lkml/2017/7/23/100
+Patch V4: addressed comments by:
+  1. Andrew Lunn:
+     https://lkml.org/lkml/2017/6/17/222
+     https://lkml.org/lkml/2017/6/17/232
+  2. Bo Yu:
+     https://lkml.org/lkml/2017/6/18/110
+     https://lkml.org/lkml/2017/6/18/115
+Patch V3: Addresed below comments:
+  1. Stephen Hemminger:
+     https://lkml.org/lkml/2017/6/13/972
+  2. Yuval Mintz:
+     https://lkml.org/lkml/2017/6/14/151
+Patch V2: Addressed below comments:
+  1. Kbuild:
+     https://lkml.org/lkml/2017/6/11/73
+  2. Yuval Mintz:
+     https://lkml.org/lkml/2017/6/10/78
+Patch V1: Initial Submit
+---
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 2838 ++++++++++++++++++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |  595 ++++
+ 2 files changed, 3433 insertions(+)
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
 new file mode 100644
-index 0000000..1e06f91
+index 0000000..366c906
 --- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
-@@ -0,0 +1,365 @@
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -0,0 +1,2838 @@
 +/*
 + * Copyright (c) 2016~2017 Hisilicon Limited.
 + *
@@ -56,40 +76,1473 @@ index 0000000..1e06f91
 + */
 +
 +#include <linux/dma-mapping.h>
-+#include <linux/slab.h>
++#include <linux/etherdevice.h>
++#include <linux/interrupt.h>
++#include <linux/if_vlan.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include <linux/module.h>
 +#include <linux/pci.h>
-+#include <linux/device.h>
-+#include <linux/err.h>
-+#include <linux/dma-direction.h>
-+#include "hclge_cmd.h"
++#include <linux/skbuff.h>
++#include <linux/sctp.h>
++#include <linux/vermagic.h>
++#include <net/gre.h>
++#include <net/vxlan.h>
++
 +#include "hnae3.h"
-+#include "hclge_main.h"
++#include "hns3_enet.h"
 +
-+#define hclge_is_csq(ring) ((ring)->flag & HCLGE_TYPE_CSQ)
-+#define hclge_ring_to_dma_dir(ring) (hclge_is_csq(ring) ? \
-+	DMA_TO_DEVICE : DMA_FROM_DEVICE)
-+#define cmq_ring_to_dev(ring)   (&(ring)->dev->pdev->dev)
++const char hns3_driver_name[] = "hns3";
++const char hns3_driver_version[] = VERMAGIC_STRING;
++static const char hns3_driver_string[] =
++			"Hisilicon Ethernet Network Driver for Hip08 Family";
++static const char hns3_copyright[] = "Copyright (c) 2017 Huawei Corporation.";
++static struct hnae3_client client;
 +
-+static int hclge_ring_space(struct hclge_cmq_ring *ring)
++/* hns3_pci_tbl - PCI Device ID Table
++ *
++ * Last entry must be all 0s
++ *
++ * { Vendor ID, Device ID, SubVendor ID, SubDevice ID,
++ *   Class, Class Mask, private data (not used) }
++ */
++static const struct pci_device_id hns3_pci_tbl[] = {
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_GE), 0},
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_25GE), 0},
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_25GE_RDMA), 0},
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_25GE_RDMA_MACSEC), 0},
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_50GE_RDMA), 0},
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_50GE_RDMA_MACSEC), 0},
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_100G_RDMA_MACSEC), 0},
++	/* required last entry */
++	{0, }
++};
++MODULE_DEVICE_TABLE(pci, hns3_pci_tbl);
++
++static irqreturn_t hns3_irq_handle(int irq, void *dev)
 +{
-+	int ntu = ring->next_to_use;
-+	int ntc = ring->next_to_clean;
-+	int used = (ntu - ntc + ring->desc_num) % ring->desc_num;
++	struct hns3_enet_tqp_vector *tqp_vector = dev;
 +
-+	return ring->desc_num - used - 1;
++	napi_schedule(&tqp_vector->napi);
++
++	return IRQ_HANDLED;
 +}
 +
-+static int hclge_alloc_cmd_desc(struct hclge_cmq_ring *ring)
++static void hns3_nic_uninit_irq(struct hns3_nic_priv *priv)
 +{
-+	int size  = ring->desc_num * sizeof(struct hclge_desc);
++	struct hns3_enet_tqp_vector *tqp_vectors;
++	unsigned int i;
++
++	for (i = 0; i < priv->vector_num; i++) {
++		tqp_vectors = &priv->tqp_vector[i];
++
++		if (tqp_vectors->irq_init_flag != HNS3_VECTOR_INITED)
++			continue;
++
++		/* release the irq resource */
++		free_irq(tqp_vectors->vector_irq, tqp_vectors);
++		tqp_vectors->irq_init_flag = HNS3_VECTOR_NOT_INITED;
++	}
++}
++
++static int hns3_nic_init_irq(struct hns3_nic_priv *priv)
++{
++	struct hns3_enet_tqp_vector *tqp_vectors;
++	int txrx_int_idx = 0;
++	int rx_int_idx = 0;
++	int tx_int_idx = 0;
++	unsigned int i;
++	int ret;
++
++	for (i = 0; i < priv->vector_num; i++) {
++		tqp_vectors = &priv->tqp_vector[i];
++
++		if (tqp_vectors->irq_init_flag == HNS3_VECTOR_INITED)
++			continue;
++
++		if (tqp_vectors->tx_group.ring && tqp_vectors->rx_group.ring) {
++			snprintf(tqp_vectors->name, HNAE3_INT_NAME_LEN - 1,
++				 "%s-%s-%d", priv->netdev->name, "TxRx",
++				 txrx_int_idx++);
++			txrx_int_idx++;
++		} else if (tqp_vectors->rx_group.ring) {
++			snprintf(tqp_vectors->name, HNAE3_INT_NAME_LEN - 1,
++				 "%s-%s-%d", priv->netdev->name, "Rx",
++				 rx_int_idx++);
++		} else if (tqp_vectors->tx_group.ring) {
++			snprintf(tqp_vectors->name, HNAE3_INT_NAME_LEN - 1,
++				 "%s-%s-%d", priv->netdev->name, "Tx",
++				 tx_int_idx++);
++		} else {
++			/* Skip this unused q_vector */
++			continue;
++		}
++
++		tqp_vectors->name[HNAE3_INT_NAME_LEN - 1] = '\0';
++
++		ret = request_irq(tqp_vectors->vector_irq, hns3_irq_handle, 0,
++				  tqp_vectors->name,
++				       tqp_vectors);
++		if (ret) {
++			netdev_err(priv->netdev, "request irq(%d) fail\n",
++				   tqp_vectors->vector_irq);
++			return ret;
++		}
++
++		tqp_vectors->irq_init_flag = HNS3_VECTOR_INITED;
++	}
++
++	return 0;
++}
++
++static void hns3_mask_vector_irq(struct hns3_enet_tqp_vector *tqp_vector,
++				 u32 mask_en)
++{
++	writel(mask_en, tqp_vector->mask_addr);
++}
++
++static void hns3_vector_enable(struct hns3_enet_tqp_vector *tqp_vector)
++{
++	napi_enable(&tqp_vector->napi);
++
++	/* enable vector */
++	hns3_mask_vector_irq(tqp_vector, 1);
++}
++
++static void hns3_vector_disable(struct hns3_enet_tqp_vector *tqp_vector)
++{
++	/* disable vector */
++	hns3_mask_vector_irq(tqp_vector, 0);
++
++	disable_irq(tqp_vector->vector_irq);
++	napi_disable(&tqp_vector->napi);
++}
++
++static void hns3_set_vector_coalesc_gl(struct hns3_enet_tqp_vector *tqp_vector,
++				       u32 gl_value)
++{
++	/* this defines the configuration for GL (Interrupt Gap Limiter)
++	 * GL defines inter interrupt gap.
++	 * GL and RL(Rate Limiter) are 2 ways to acheive interrupt coalescing
++	 */
++	writel(gl_value, tqp_vector->mask_addr + HNS3_VECTOR_GL0_OFFSET);
++	writel(gl_value, tqp_vector->mask_addr + HNS3_VECTOR_GL1_OFFSET);
++	writel(gl_value, tqp_vector->mask_addr + HNS3_VECTOR_GL2_OFFSET);
++}
++
++static void hns3_set_vector_coalesc_rl(struct hns3_enet_tqp_vector *tqp_vector,
++				       u32 rl_value)
++{
++	/* this defines the configuration for RL (Interrupt Rate Limiter).
++	 * Rl defines rate of interrupts i.e. number of interrupts-per-second
++	 * GL and RL(Rate Limiter) are 2 ways to acheive interrupt coalescing
++	 */
++	writel(rl_value, tqp_vector->mask_addr + HNS3_VECTOR_RL_OFFSET);
++}
++
++static void hns3_vector_gl_rl_init(struct hns3_enet_tqp_vector *tqp_vector)
++{
++	/* initialize the configuration for interrupt coalescing.
++	 * 1. GL (Interrupt Gap Limiter)
++	 * 2. RL (Interrupt Rate Limiter)
++	 */
++
++	/* Default :enable interrupt coalesce */
++	tqp_vector->rx_group.int_gl = HNS3_INT_GL_50K;
++	tqp_vector->tx_group.int_gl = HNS3_INT_GL_50K;
++	hns3_set_vector_coalesc_gl(tqp_vector, HNS3_INT_GL_50K);
++	/* for now we are disabling Interrupt RL - we
++	 * will re-enable later
++	 */
++	hns3_set_vector_coalesc_rl(tqp_vector, 0);
++	tqp_vector->rx_group.flow_level = HNS3_FLOW_LOW;
++	tqp_vector->tx_group.flow_level = HNS3_FLOW_LOW;
++}
++
++static int hns3_nic_net_up(struct net_device *netdev)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	int i, j;
++	int ret;
++
++	/* get irq resource for all vectors */
++	ret = hns3_nic_init_irq(priv);
++	if (ret) {
++		netdev_err(netdev, "hns init irq failed! ret=%d\n", ret);
++		return ret;
++	}
++
++	/* enable the vectors */
++	for (i = 0; i < priv->vector_num; i++)
++		hns3_vector_enable(&priv->tqp_vector[i]);
++
++	/* start the ae_dev */
++	ret = h->ae_algo->ops->start ? h->ae_algo->ops->start(h) : 0;
++	if (ret)
++		goto out_start_err;
++
++	return 0;
++
++out_start_err:
++	for (j = i - 1; j >= 0; j--)
++		hns3_vector_disable(&priv->tqp_vector[j]);
++
++	hns3_nic_uninit_irq(priv);
++
++	return ret;
++}
++
++static int hns3_nic_net_open(struct net_device *netdev)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	int ret;
++
++	netif_carrier_off(netdev);
++
++	ret = netif_set_real_num_tx_queues(netdev, h->kinfo.num_tqps);
++	if (ret) {
++		netdev_err(netdev,
++			   "netif_set_real_num_tx_queues fail, ret=%d!\n",
++			   ret);
++		return ret;
++	}
++
++	ret = netif_set_real_num_rx_queues(netdev, h->kinfo.num_tqps);
++	if (ret) {
++		netdev_err(netdev,
++			   "netif_set_real_num_rx_queues fail, ret=%d!\n", ret);
++		return ret;
++	}
++
++	ret = hns3_nic_net_up(netdev);
++	if (ret) {
++		netdev_err(netdev,
++			   "hns net up fail, ret=%d!\n", ret);
++		return ret;
++	}
++
++	return 0;
++}
++
++static void hns3_nic_net_down(struct net_device *netdev)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	const struct hnae3_ae_ops *ops;
++	int i;
++
++	/* stop ae_dev */
++	ops = priv->ae_handle->ae_algo->ops;
++	if (ops->stop)
++		ops->stop(priv->ae_handle);
++
++	/* disable vectors */
++	for (i = 0; i < priv->vector_num; i++)
++		hns3_vector_disable(&priv->tqp_vector[i]);
++
++	/* free irq resources */
++	hns3_nic_uninit_irq(priv);
++}
++
++static int hns3_nic_net_stop(struct net_device *netdev)
++{
++	netif_tx_stop_all_queues(netdev);
++	netif_carrier_off(netdev);
++
++	hns3_nic_net_down(netdev);
++
++	return 0;
++}
++
++void hns3_set_multicast_list(struct net_device *netdev)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	struct netdev_hw_addr *ha = NULL;
++
++	if (h->ae_algo->ops->set_mc_addr) {
++		netdev_for_each_mc_addr(ha, netdev)
++			if (h->ae_algo->ops->set_mc_addr(h, ha->addr))
++				netdev_err(netdev, "set multicast fail\n");
++	}
++}
++
++static int hns3_nic_uc_sync(struct net_device *netdev,
++			    const unsigned char *addr)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (h->ae_algo->ops->add_uc_addr)
++		return h->ae_algo->ops->add_uc_addr(h, addr);
++
++	return 0;
++}
++
++static int hns3_nic_uc_unsync(struct net_device *netdev,
++			      const unsigned char *addr)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (h->ae_algo->ops->rm_uc_addr)
++		return h->ae_algo->ops->rm_uc_addr(h, addr);
++
++	return 0;
++}
++
++static int hns3_nic_mc_sync(struct net_device *netdev,
++			    const unsigned char *addr)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (h->ae_algo->ops->add_uc_addr)
++		return h->ae_algo->ops->add_mc_addr(h, addr);
++
++	return 0;
++}
++
++static int hns3_nic_mc_unsync(struct net_device *netdev,
++			      const unsigned char *addr)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (h->ae_algo->ops->rm_uc_addr)
++		return h->ae_algo->ops->rm_mc_addr(h, addr);
++
++	return 0;
++}
++
++void hns3_nic_set_rx_mode(struct net_device *netdev)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (h->ae_algo->ops->set_promisc_mode) {
++		if (netdev->flags & IFF_PROMISC)
++			h->ae_algo->ops->set_promisc_mode(h, 1);
++		else
++			h->ae_algo->ops->set_promisc_mode(h, 0);
++	}
++	if (__dev_uc_sync(netdev, hns3_nic_uc_sync, hns3_nic_uc_unsync))
++		netdev_err(netdev, "sync uc address fail\n");
++	if (netdev->flags & IFF_MULTICAST)
++		if (__dev_mc_sync(netdev, hns3_nic_mc_sync, hns3_nic_mc_unsync))
++			netdev_err(netdev, "sync mc address fail\n");
++}
++
++static int hns3_set_tso(struct sk_buff *skb, u32 *paylen,
++			u16 *mss, u32 *type_cs_vlan_tso)
++{
++	u32 l4_offset, hdr_len;
++	union l3_hdr_info l3;
++	union l4_hdr_info l4;
++	u32 l4_paylen;
++	int ret;
++
++	if (!skb_is_gso(skb))
++		return 0;
++
++	ret = skb_cow_head(skb, 0);
++	if (ret)
++		return ret;
++
++	l3.hdr = skb_network_header(skb);
++	l4.hdr = skb_transport_header(skb);
++
++	/* Software should clear the IPv4's checksum field when tso is
++	 * needed.
++	 */
++	if (l3.v4->version == 4)
++		l3.v4->check = 0;
++
++	/* tunnel packet.*/
++	if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
++					 SKB_GSO_GRE_CSUM |
++					 SKB_GSO_UDP_TUNNEL |
++					 SKB_GSO_UDP_TUNNEL_CSUM)) {
++		if ((!(skb_shinfo(skb)->gso_type &
++		    SKB_GSO_PARTIAL)) &&
++		    (skb_shinfo(skb)->gso_type &
++		    SKB_GSO_UDP_TUNNEL_CSUM)) {
++			/* Software should clear the udp's checksum
++			 * field when tso is needed.
++			 */
++			l4.udp->check = 0;
++		}
++		/* reset l3&l4 pointers from outer to inner headers */
++		l3.hdr = skb_inner_network_header(skb);
++		l4.hdr = skb_inner_transport_header(skb);
++
++		/* Software should clear the IPv4's checksum field when
++		 * tso is needed.
++		 */
++		if (l3.v4->version == 4)
++			l3.v4->check = 0;
++	}
++
++	/* normal or tunnel packet*/
++	l4_offset = l4.hdr - skb->data;
++	hdr_len = (l4.tcp->doff * 4) + l4_offset;
++
++	/* remove payload length from inner pseudo checksum when tso*/
++	l4_paylen = skb->len - l4_offset;
++	csum_replace_by_diff(&l4.tcp->check,
++			     (__force __wsum)htonl(l4_paylen));
++
++	/* find the txbd field values */
++	*paylen = skb->len - hdr_len;
++	hnae_set_bit(*type_cs_vlan_tso,
++		     HNS3_TXD_TSO_B, 1);
++
++	/* get MSS for TSO */
++	*mss = skb_shinfo(skb)->gso_size;
++
++	return 0;
++}
++
++static void hns3_get_l4_protocol(struct sk_buff *skb, u8 *ol4_proto,
++				 u8 *il4_proto)
++{
++	union {
++		struct iphdr *v4;
++		struct ipv6hdr *v6;
++		unsigned char *hdr;
++	} l3;
++	unsigned char *l4_hdr;
++	unsigned char *exthdr;
++	u8 l4_proto_tmp;
++	__be16 frag_off;
++
++	/* find outer header point */
++	l3.hdr = skb_network_header(skb);
++	l4_hdr = skb_inner_transport_header(skb);
++
++	if (skb->protocol == htons(ETH_P_IPV6)) {
++		exthdr = l3.hdr + sizeof(*l3.v6);
++		l4_proto_tmp = l3.v6->nexthdr;
++		if (l4_hdr != exthdr)
++			ipv6_skip_exthdr(skb, exthdr - skb->data,
++					 &l4_proto_tmp, &frag_off);
++	} else if (skb->protocol == htons(ETH_P_IP)) {
++		l4_proto_tmp = l3.v4->protocol;
++	}
++
++	*ol4_proto = l4_proto_tmp;
++
++	/* tunnel packet */
++	if (!skb->encapsulation) {
++		*il4_proto = 0;
++		return;
++	}
++
++	/* find inner header point */
++	l3.hdr = skb_inner_network_header(skb);
++	l4_hdr = skb_inner_transport_header(skb);
++
++	if (l3.v6->version == 6) {
++		exthdr = l3.hdr + sizeof(*l3.v6);
++		l4_proto_tmp = l3.v6->nexthdr;
++		if (l4_hdr != exthdr)
++			ipv6_skip_exthdr(skb, exthdr - skb->data,
++					 &l4_proto_tmp, &frag_off);
++	} else if (l3.v4->version == 4) {
++		l4_proto_tmp = l3.v4->protocol;
++	}
++
++	*il4_proto = l4_proto_tmp;
++}
++
++static void hns3_set_l2l3l4_len(struct sk_buff *skb, u8 ol4_proto,
++				u8 il4_proto, u32 *type_cs_vlan_tso,
++				u32 *ol_type_vlan_len_msec)
++{
++	union {
++		struct iphdr *v4;
++		struct ipv6hdr *v6;
++		unsigned char *hdr;
++	} l3;
++	union {
++		struct tcphdr *tcp;
++		struct udphdr *udp;
++		struct gre_base_hdr *gre;
++		unsigned char *hdr;
++	} l4;
++	unsigned char *l2_hdr;
++	u8 l4_proto = ol4_proto;
++	u32 ol2_len;
++	u32 ol3_len;
++	u32 ol4_len;
++	u32 l2_len;
++	u32 l3_len;
++
++	l3.hdr = skb_network_header(skb);
++	l4.hdr = skb_transport_header(skb);
++
++	/* compute L2 header size for normal packet, defined in 2 Bytes */
++	l2_len = l3.hdr - skb->data;
++	hnae_set_field(*type_cs_vlan_tso, HNS3_TXD_L2LEN_M,
++		       HNS3_TXD_L2LEN_S, l2_len >> 1);
++
++	/* tunnel packet*/
++	if (skb->encapsulation) {
++		/* compute OL2 header size, defined in 2 Bytes */
++		ol2_len = l2_len;
++		hnae_set_field(*ol_type_vlan_len_msec,
++			       HNS3_TXD_L2LEN_M,
++			       HNS3_TXD_L2LEN_S, ol2_len >> 1);
++
++		/* compute OL3 header size, defined in 4 Bytes */
++		ol3_len = l4.hdr - l3.hdr;
++		hnae_set_field(*ol_type_vlan_len_msec, HNS3_TXD_L3LEN_M,
++			       HNS3_TXD_L3LEN_S, ol3_len >> 2);
++
++		/* MAC in UDP, MAC in GRE (0x6558)*/
++		if ((ol4_proto == IPPROTO_UDP) || (ol4_proto == IPPROTO_GRE)) {
++			/* switch MAC header ptr from outer to inner header.*/
++			l2_hdr = skb_inner_mac_header(skb);
++
++			/* compute OL4 header size, defined in 4 Bytes. */
++			ol4_len = l2_hdr - l4.hdr;
++			hnae_set_field(*ol_type_vlan_len_msec, HNS3_TXD_L4LEN_M,
++				       HNS3_TXD_L4LEN_S, ol4_len >> 2);
++
++			/* switch IP header ptr from outer to inner header */
++			l3.hdr = skb_inner_network_header(skb);
++
++			/* compute inner l2 header size, defined in 2 Bytes. */
++			l2_len = l3.hdr - l2_hdr;
++			hnae_set_field(*type_cs_vlan_tso, HNS3_TXD_L2LEN_M,
++				       HNS3_TXD_L2LEN_S, l2_len >> 1);
++		} else {
++			/* skb packet types not supported by hardware,
++			 * txbd len fild doesn't be filled.
++			 */
++			return;
++		}
++
++		/* switch L4 header pointer from outer to inner */
++		l4.hdr = skb_inner_transport_header(skb);
++
++		l4_proto = il4_proto;
++	}
++
++	/* compute inner(/normal) L3 header size, defined in 4 Bytes */
++	l3_len = l4.hdr - l3.hdr;
++	hnae_set_field(*type_cs_vlan_tso, HNS3_TXD_L3LEN_M,
++		       HNS3_TXD_L3LEN_S, l3_len >> 2);
++
++	/* compute inner(/normal) L4 header size, defined in 4 Bytes */
++	switch (l4_proto) {
++	case IPPROTO_TCP:
++		hnae_set_field(*type_cs_vlan_tso, HNS3_TXD_L4LEN_M,
++			       HNS3_TXD_L4LEN_S, l4.tcp->doff);
++		break;
++	case IPPROTO_SCTP:
++		hnae_set_field(*type_cs_vlan_tso, HNS3_TXD_L4LEN_M,
++			       HNS3_TXD_L4LEN_S, (sizeof(struct sctphdr) >> 2));
++		break;
++	case IPPROTO_UDP:
++		hnae_set_field(*type_cs_vlan_tso, HNS3_TXD_L4LEN_M,
++			       HNS3_TXD_L4LEN_S, (sizeof(struct udphdr) >> 2));
++		break;
++	default:
++		/* skb packet types not supported by hardware,
++		 * txbd len fild doesn't be filled.
++		 */
++		return;
++	}
++}
++
++static int hns3_set_l3l4_type_csum(struct sk_buff *skb, u8 ol4_proto,
++				   u8 il4_proto, u32 *type_cs_vlan_tso,
++				   u32 *ol_type_vlan_len_msec)
++{
++	union {
++		struct iphdr *v4;
++		struct ipv6hdr *v6;
++		unsigned char *hdr;
++	} l3;
++	u32 l4_proto = ol4_proto;
++
++	l3.hdr = skb_network_header(skb);
++
++	/* define OL3 type and tunnel type(OL4).*/
++	if (skb->encapsulation) {
++		/* define outer network header type.*/
++		if (skb->protocol == htons(ETH_P_IP)) {
++			if (skb_is_gso(skb))
++				hnae_set_field(*ol_type_vlan_len_msec,
++					       HNS3_TXD_OL3T_M, HNS3_TXD_OL3T_S,
++					       HNS3_OL3T_IPV4_CSUM);
++			else
++				hnae_set_field(*ol_type_vlan_len_msec,
++					       HNS3_TXD_OL3T_M, HNS3_TXD_OL3T_S,
++					       HNS3_OL3T_IPV4_NO_CSUM);
++
++		} else if (skb->protocol == htons(ETH_P_IPV6)) {
++			hnae_set_field(*ol_type_vlan_len_msec, HNS3_TXD_OL3T_M,
++				       HNS3_TXD_OL3T_S, HNS3_OL3T_IPV6);
++		}
++
++		/* define tunnel type(OL4).*/
++		switch (l4_proto) {
++		case IPPROTO_UDP:
++			hnae_set_field(*ol_type_vlan_len_msec,
++				       HNS3_TXD_TUNTYPE_M,
++				       HNS3_TXD_TUNTYPE_S,
++				       HNS3_TUN_MAC_IN_UDP);
++			break;
++		case IPPROTO_GRE:
++			hnae_set_field(*ol_type_vlan_len_msec,
++				       HNS3_TXD_TUNTYPE_M,
++				       HNS3_TXD_TUNTYPE_S,
++				       HNS3_TUN_NVGRE);
++			break;
++		default:
++			/* drop the skb tunnel packet if hardware don't support,
++			 * because hardware can't calculate csum when TSO.
++			 */
++			if (skb_is_gso(skb))
++				return -EDOM;
++
++			/* the stack computes the IP header already,
++			 * driver calculate l4 checksum when not TSO.
++			 */
++			skb_checksum_help(skb);
++			return 0;
++		}
++
++		l3.hdr = skb_inner_network_header(skb);
++		l4_proto = il4_proto;
++	}
++
++	if (l3.v4->version == 4) {
++		hnae_set_field(*type_cs_vlan_tso, HNS3_TXD_L3T_M,
++			       HNS3_TXD_L3T_S, HNS3_L3T_IPV4);
++
++		/* the stack computes the IP header already, the only time we
++		 * need the hardware to recompute it is in the case of TSO.
++		 */
++		if (skb_is_gso(skb))
++			hnae_set_bit(*type_cs_vlan_tso, HNS3_TXD_L3CS_B, 1);
++
++		hnae_set_bit(*type_cs_vlan_tso, HNS3_TXD_L4CS_B, 1);
++	} else if (l3.v6->version == 6) {
++		hnae_set_field(*type_cs_vlan_tso, HNS3_TXD_L3T_M,
++			       HNS3_TXD_L3T_S, HNS3_L3T_IPV6);
++		hnae_set_bit(*type_cs_vlan_tso, HNS3_TXD_L4CS_B, 1);
++	}
++
++	switch (l4_proto) {
++	case IPPROTO_TCP:
++		hnae_set_field(*type_cs_vlan_tso,
++			       HNS3_TXD_L4T_M,
++			       HNS3_TXD_L4T_S,
++			       HNS3_L4T_TCP);
++		break;
++	case IPPROTO_UDP:
++		hnae_set_field(*type_cs_vlan_tso,
++			       HNS3_TXD_L4T_M,
++			       HNS3_TXD_L4T_S,
++			       HNS3_L4T_UDP);
++		break;
++	case IPPROTO_SCTP:
++		hnae_set_field(*type_cs_vlan_tso,
++			       HNS3_TXD_L4T_M,
++			       HNS3_TXD_L4T_S,
++			       HNS3_L4T_SCTP);
++		break;
++	default:
++		/* drop the skb tunnel packet if hardware don't support,
++		 * because hardware can't calculate csum when TSO.
++		 */
++		if (skb_is_gso(skb))
++			return -EDOM;
++
++		/* the stack computes the IP header already,
++		 * driver calculate l4 checksum when not TSO.
++		 */
++		skb_checksum_help(skb);
++		return 0;
++	}
++
++	return 0;
++}
++
++static void hns3_set_txbd_baseinfo(u16 *bdtp_fe_sc_vld_ra_ri, int frag_end)
++{
++	/* Config bd buffer end */
++	hnae_set_field(*bdtp_fe_sc_vld_ra_ri, HNS3_TXD_BDTYPE_M,
++		       HNS3_TXD_BDTYPE_M, 0);
++	hnae_set_bit(*bdtp_fe_sc_vld_ra_ri, HNS3_TXD_FE_B, !!frag_end);
++	hnae_set_bit(*bdtp_fe_sc_vld_ra_ri, HNS3_TXD_VLD_B, 1);
++	hnae_set_field(*bdtp_fe_sc_vld_ra_ri, HNS3_TXD_SC_M, HNS3_TXD_SC_S, 1);
++}
++
++static int hns3_fill_desc(struct hns3_enet_ring *ring, void *priv,
++			  int size, dma_addr_t dma, int frag_end,
++			  enum hns_desc_type type)
++{
++	struct hns3_desc_cb *desc_cb = &ring->desc_cb[ring->next_to_use];
++	struct hns3_desc *desc = &ring->desc[ring->next_to_use];
++	u32 ol_type_vlan_len_msec = 0;
++	u16 bdtp_fe_sc_vld_ra_ri = 0;
++	u32 type_cs_vlan_tso = 0;
++	struct sk_buff *skb;
++	u32 paylen = 0;
++	u16 mss = 0;
++	__be16 protocol;
++	u8 ol4_proto;
++	u8 il4_proto;
++	int ret;
++
++	/* The txbd's baseinfo of DESC_TYPE_PAGE & DESC_TYPE_SKB */
++	desc_cb->priv = priv;
++	desc_cb->length = size;
++	desc_cb->dma = dma;
++	desc_cb->type = type;
++
++	/* now, fill the descriptor */
++	desc->addr = cpu_to_le64(dma);
++	desc->tx.send_size = cpu_to_le16((u16)size);
++	hns3_set_txbd_baseinfo(&bdtp_fe_sc_vld_ra_ri, frag_end);
++	desc->tx.bdtp_fe_sc_vld_ra_ri = cpu_to_le16(bdtp_fe_sc_vld_ra_ri);
++
++	if (type == DESC_TYPE_SKB) {
++		skb = (struct sk_buff *)priv;
++		paylen = cpu_to_le16(skb->len);
++
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			skb_reset_mac_len(skb);
++			protocol = skb->protocol;
++
++			/* vlan packet*/
++			if (protocol == htons(ETH_P_8021Q)) {
++				protocol = vlan_get_protocol(skb);
++				skb->protocol = protocol;
++			}
++			hns3_get_l4_protocol(skb, &ol4_proto, &il4_proto);
++			hns3_set_l2l3l4_len(skb, ol4_proto, il4_proto,
++					    &type_cs_vlan_tso,
++					    &ol_type_vlan_len_msec);
++			ret = hns3_set_l3l4_type_csum(skb, ol4_proto, il4_proto,
++						      &type_cs_vlan_tso,
++						      &ol_type_vlan_len_msec);
++			if (ret)
++				return ret;
++
++			ret = hns3_set_tso(skb, &paylen, &mss,
++					   &type_cs_vlan_tso);
++			if (ret)
++				return ret;
++		}
++
++		/* Set txbd */
++		desc->tx.ol_type_vlan_len_msec =
++			cpu_to_le32(ol_type_vlan_len_msec);
++		desc->tx.type_cs_vlan_tso_len =
++			cpu_to_le32(type_cs_vlan_tso);
++		desc->tx.paylen = cpu_to_le16(paylen);
++		desc->tx.mss = cpu_to_le16(mss);
++	}
++
++	/* move ring pointer to next.*/
++	ring_ptr_move_fw(ring, next_to_use);
++
++	return 0;
++}
++
++static int hns3_fill_desc_tso(struct hns3_enet_ring *ring, void *priv,
++			      int size, dma_addr_t dma, int frag_end,
++			      enum hns_desc_type type)
++{
++	unsigned int frag_buf_num;
++	unsigned int k;
++	int sizeoflast;
++	int ret;
++
++	frag_buf_num = (size + HNS3_MAX_BD_SIZE - 1) / HNS3_MAX_BD_SIZE;
++	sizeoflast = size % HNS3_MAX_BD_SIZE;
++	sizeoflast = sizeoflast ? sizeoflast : HNS3_MAX_BD_SIZE;
++
++	/* When the frag size is bigger than hardware, split this frag */
++	for (k = 0; k < frag_buf_num; k++) {
++		ret = hns3_fill_desc(ring, priv,
++				     (k == frag_buf_num - 1) ?
++				sizeoflast : HNS3_MAX_BD_SIZE,
++				dma + HNS3_MAX_BD_SIZE * k,
++				frag_end && (k == frag_buf_num - 1) ? 1 : 0,
++				(type == DESC_TYPE_SKB && !k) ?
++					DESC_TYPE_SKB : DESC_TYPE_PAGE);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hns3_nic_maybe_stop_tso(struct sk_buff **out_skb, int *bnum,
++				   struct hns3_enet_ring *ring)
++{
++	struct sk_buff *skb = *out_skb;
++	struct skb_frag_struct *frag;
++	int bdnum_for_frag;
++	int frag_num;
++	int buf_num;
++	int size;
++	int i;
++
++	size = skb_headlen(skb);
++	buf_num = (size + HNS3_MAX_BD_SIZE - 1) / HNS3_MAX_BD_SIZE;
++
++	frag_num = skb_shinfo(skb)->nr_frags;
++	for (i = 0; i < frag_num; i++) {
++		frag = &skb_shinfo(skb)->frags[i];
++		size = skb_frag_size(frag);
++		bdnum_for_frag =
++			(size + HNS3_MAX_BD_SIZE - 1) / HNS3_MAX_BD_SIZE;
++		if (bdnum_for_frag > HNS3_MAX_BD_PER_FRAG)
++			return -ENOMEM;
++
++		buf_num += bdnum_for_frag;
++	}
++
++	if (buf_num > ring_space(ring))
++		return -EBUSY;
++
++	*bnum = buf_num;
++	return 0;
++}
++
++static int hns3_nic_maybe_stop_tx(struct sk_buff **out_skb, int *bnum,
++				  struct hns3_enet_ring *ring)
++{
++	struct sk_buff *skb = *out_skb;
++	int buf_num;
++
++	/* No. of segments (plus a header) */
++	buf_num = skb_shinfo(skb)->nr_frags + 1;
++
++	if (buf_num > ring_space(ring))
++		return -EBUSY;
++
++	*bnum = buf_num;
++
++	return 0;
++}
++
++static void hns_nic_dma_unmap(struct hns3_enet_ring *ring, int next_to_use_orig)
++{
++	struct device *dev = ring_to_dev(ring);
++	unsigned int i;
++
++	for (i = 0; i < ring->desc_num; i++) {
++		/* check if this is where we started */
++		if (ring->next_to_use == next_to_use_orig)
++			break;
++
++		/* unmap the descriptor dma address */
++		if (ring->desc_cb[ring->next_to_use].type == DESC_TYPE_SKB)
++			dma_unmap_single(dev,
++					 ring->desc_cb[ring->next_to_use].dma,
++					ring->desc_cb[ring->next_to_use].length,
++					DMA_TO_DEVICE);
++		else
++			dma_unmap_page(dev,
++				       ring->desc_cb[ring->next_to_use].dma,
++				       ring->desc_cb[ring->next_to_use].length,
++				       DMA_TO_DEVICE);
++
++		/* rollback one */
++		ring_ptr_move_bw(ring, next_to_use);
++	}
++}
++
++static netdev_tx_t hns3_nic_net_xmit(struct sk_buff *skb,
++				     struct net_device *netdev)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hns3_nic_ring_data *ring_data =
++		&tx_ring_data(priv, skb->queue_mapping);
++	struct hns3_enet_ring *ring = ring_data->ring;
++	struct device *dev = priv->dev;
++	struct netdev_queue *dev_queue;
++	struct skb_frag_struct *frag;
++	int next_to_use_head;
++	int next_to_use_frag;
++	dma_addr_t dma;
++	int buf_num;
++	int seg_num;
++	int size;
++	int ret;
++	int i;
++
++	/* Prefetch the data used later */
++	prefetch(skb->data);
++
++	switch (priv->ops.maybe_stop_tx(&skb, &buf_num, ring)) {
++	case -EBUSY:
++		u64_stats_update_begin(&ring->syncp);
++		ring->stats.tx_busy++;
++		u64_stats_update_end(&ring->syncp);
++
++		goto out_net_tx_busy;
++	case -ENOMEM:
++		u64_stats_update_begin(&ring->syncp);
++		ring->stats.sw_err_cnt++;
++		u64_stats_update_end(&ring->syncp);
++		netdev_err(netdev, "no memory to xmit!\n");
++
++		goto out_err_tx_ok;
++	default:
++		break;
++	}
++
++	/* No. of segments (plus a header) */
++	seg_num = skb_shinfo(skb)->nr_frags + 1;
++	/* Fill the first part */
++	size = skb_headlen(skb);
++
++	next_to_use_head = ring->next_to_use;
++
++	dma = dma_map_single(dev, skb->data, size, DMA_TO_DEVICE);
++	if (dma_mapping_error(dev, dma)) {
++		netdev_err(netdev, "TX head DMA map failed\n");
++		ring->stats.sw_err_cnt++;
++		goto out_err_tx_ok;
++	}
++
++	ret = priv->ops.fill_desc(ring, skb, size, dma, seg_num == 1 ? 1 : 0,
++			   DESC_TYPE_SKB);
++	if (ret)
++		goto head_dma_map_err;
++
++	next_to_use_frag = ring->next_to_use;
++	/* Fill the fragments */
++	for (i = 1; i < seg_num; i++) {
++		frag = &skb_shinfo(skb)->frags[i - 1];
++		size = skb_frag_size(frag);
++		dma = skb_frag_dma_map(dev, frag, 0, size, DMA_TO_DEVICE);
++		if (dma_mapping_error(dev, dma)) {
++			netdev_err(netdev, "TX frag(%d) DMA map failed\n", i);
++			ring->stats.sw_err_cnt++;
++			goto frag_dma_map_err;
++		}
++		ret = priv->ops.fill_desc(ring, skb_frag_page(frag), size, dma,
++				    seg_num - 1 == i ? 1 : 0,
++				    DESC_TYPE_PAGE);
++
++		if (ret)
++			goto frag_dma_map_err;
++	}
++
++	/* Complete translate all packets */
++	dev_queue = netdev_get_tx_queue(netdev, ring_data->queue_index);
++	netdev_tx_sent_queue(dev_queue, skb->len);
++
++	wmb(); /* Commit all data before submit */
++
++	hnae_queue_xmit(ring->tqp, buf_num);
++
++	return NETDEV_TX_OK;
++
++frag_dma_map_err:
++	hns_nic_dma_unmap(ring, next_to_use_frag);
++
++head_dma_map_err:
++	hns_nic_dma_unmap(ring, next_to_use_head);
++
++out_err_tx_ok:
++	dev_kfree_skb_any(skb);
++	return NETDEV_TX_OK;
++
++out_net_tx_busy:
++	netif_stop_subqueue(netdev, ring_data->queue_index);
++	smp_mb(); /* Commit all data before submit */
++
++	return NETDEV_TX_BUSY;
++}
++
++static int hns3_nic_net_set_mac_address(struct net_device *netdev, void *p)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	struct sockaddr *mac_addr = p;
++	int ret;
++
++	if (!mac_addr || !is_valid_ether_addr((const u8 *)mac_addr->sa_data))
++		return -EADDRNOTAVAIL;
++
++	ret = h->ae_algo->ops->set_mac_addr(h, mac_addr->sa_data);
++	if (ret) {
++		netdev_err(netdev, "set_mac_address fail, ret=%d!\n", ret);
++		return ret;
++	}
++
++	ether_addr_copy(netdev->dev_addr, mac_addr->sa_data);
++
++	return 0;
++}
++
++static int hns3_nic_set_features(struct net_device *netdev,
++				 netdev_features_t features)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++
++	if (features & (NETIF_F_TSO | NETIF_F_TSO6)) {
++		priv->ops.fill_desc = hns3_fill_desc_tso;
++		priv->ops.maybe_stop_tx = hns3_nic_maybe_stop_tso;
++	} else {
++		priv->ops.fill_desc = hns3_fill_desc;
++		priv->ops.maybe_stop_tx = hns3_nic_maybe_stop_tx;
++	}
++
++	netdev->features = features;
++	return 0;
++}
++
++static void
++hns3_nic_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	int queue_num = priv->ae_handle->kinfo.num_tqps;
++	struct hns3_enet_ring *ring;
++	unsigned int start;
++	unsigned int idx;
++	u64 tx_bytes = 0;
++	u64 rx_bytes = 0;
++	u64 tx_pkts = 0;
++	u64 rx_pkts = 0;
++
++	for (idx = 0; idx < queue_num; idx++) {
++		/* fetch the tx stats */
++		ring = priv->ring_data[idx].ring;
++		do {
++			tx_bytes += ring->stats.tx_bytes;
++			tx_pkts += ring->stats.tx_pkts;
++		} while (u64_stats_fetch_retry_irq(&ring->syncp, start));
++
++		/* fetch the rx stats */
++		ring = priv->ring_data[idx + queue_num].ring;
++		do {
++			rx_bytes += ring->stats.rx_bytes;
++			rx_pkts += ring->stats.rx_pkts;
++		} while (u64_stats_fetch_retry_irq(&ring->syncp, start));
++	}
++
++	stats->tx_bytes = tx_bytes;
++	stats->tx_packets = tx_pkts;
++	stats->rx_bytes = rx_bytes;
++	stats->rx_packets = rx_pkts;
++
++	stats->rx_errors = netdev->stats.rx_errors;
++	stats->multicast = netdev->stats.multicast;
++	stats->rx_length_errors = netdev->stats.rx_length_errors;
++	stats->rx_crc_errors = netdev->stats.rx_crc_errors;
++	stats->rx_missed_errors = netdev->stats.rx_missed_errors;
++
++	stats->tx_errors = netdev->stats.tx_errors;
++	stats->rx_dropped = netdev->stats.rx_dropped;
++	stats->tx_dropped = netdev->stats.tx_dropped;
++	stats->collisions = netdev->stats.collisions;
++	stats->rx_over_errors = netdev->stats.rx_over_errors;
++	stats->rx_frame_errors = netdev->stats.rx_frame_errors;
++	stats->rx_fifo_errors = netdev->stats.rx_fifo_errors;
++	stats->tx_aborted_errors = netdev->stats.tx_aborted_errors;
++	stats->tx_carrier_errors = netdev->stats.tx_carrier_errors;
++	stats->tx_fifo_errors = netdev->stats.tx_fifo_errors;
++	stats->tx_heartbeat_errors = netdev->stats.tx_heartbeat_errors;
++	stats->tx_window_errors = netdev->stats.tx_window_errors;
++	stats->rx_compressed = netdev->stats.rx_compressed;
++	stats->tx_compressed = netdev->stats.tx_compressed;
++}
++
++static void hns3_add_tunnel_port(struct net_device *netdev, u16 port,
++				 enum hns3_udp_tnl_type type)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hns3_udp_tunnel *udp_tnl = &priv->udp_tnl[type];
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (udp_tnl->used && udp_tnl->dst_port == port) {
++		udp_tnl->used++;
++		return;
++	}
++
++	if (udp_tnl->used) {
++		netdev_warn(netdev,
++			    "UDP tunnel [%d], port [%d] offload\n", type, port);
++		return;
++	}
++
++	udp_tnl->dst_port = port;
++	udp_tnl->used = 1;
++	/* TBD send command to hardware to add port */
++	if (h->ae_algo->ops->add_tunnel_udp)
++		h->ae_algo->ops->add_tunnel_udp(h, port);
++}
++
++static void hns3_del_tunnel_port(struct net_device *netdev, u16 port,
++				 enum hns3_udp_tnl_type type)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hns3_udp_tunnel *udp_tnl = &priv->udp_tnl[type];
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (!udp_tnl->used || udp_tnl->dst_port != port) {
++		netdev_warn(netdev,
++			    "Invalid UDP tunnel port %d\n", port);
++		return;
++	}
++
++	udp_tnl->used--;
++	if (udp_tnl->used)
++		return;
++
++	udp_tnl->dst_port = 0;
++	/* TBD send command to hardware to del port  */
++	if (h->ae_algo->ops->del_tunnel_udp)
++		h->ae_algo->ops->add_tunnel_udp(h, port);
++}
++
++/* hns3_nic_udp_tunnel_add - Get notifiacetion about UDP tunnel ports
++ * @netdev: This physical ports's netdev
++ * @ti: Tunnel information
++ */
++static void hns3_nic_udp_tunnel_add(struct net_device *netdev,
++				    struct udp_tunnel_info *ti)
++{
++	u16 port_n = ntohs(ti->port);
++
++	switch (ti->type) {
++	case UDP_TUNNEL_TYPE_VXLAN:
++		hns3_add_tunnel_port(netdev, port_n, HNS3_UDP_TNL_VXLAN);
++		break;
++	case UDP_TUNNEL_TYPE_GENEVE:
++		hns3_add_tunnel_port(netdev, port_n, HNS3_UDP_TNL_GENEVE);
++		break;
++	default:
++		netdev_err(netdev, "unsupported tunnel type %d\n", ti->type);
++		break;
++	}
++}
++
++static void hns3_nic_udp_tunnel_del(struct net_device *netdev,
++				    struct udp_tunnel_info *ti)
++{
++	u16 port_n = ntohs(ti->port);
++
++	switch (ti->type) {
++	case UDP_TUNNEL_TYPE_VXLAN:
++		hns3_del_tunnel_port(netdev, port_n, HNS3_UDP_TNL_VXLAN);
++		break;
++	case UDP_TUNNEL_TYPE_GENEVE:
++		hns3_del_tunnel_port(netdev, port_n, HNS3_UDP_TNL_GENEVE);
++		break;
++	default:
++		break;
++	}
++}
++
++static int hns3_setup_tc(struct net_device *netdev, u8 tc)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	struct hnae3_knic_private_info *kinfo = &h->kinfo;
++	unsigned int i;
++	int ret;
++
++	if (tc > HNAE3_MAX_TC)
++		return -EINVAL;
++
++	if (kinfo->num_tc == tc)
++		return 0;
++
++	if (!netdev)
++		return -EINVAL;
++
++	if (!tc) {
++		netdev_reset_tc(netdev);
++		return 0;
++	}
++
++	/* Set num_tc for netdev */
++	ret = netdev_set_num_tc(netdev, tc);
++	if (ret)
++		return ret;
++
++	/* Set per TC queues for the VSI */
++	for (i = 0; i < HNAE3_MAX_TC; i++) {
++		if (kinfo->tc_info[i].enable)
++			netdev_set_tc_queue(netdev,
++					    kinfo->tc_info[i].tc,
++					    kinfo->tc_info[i].tqp_count,
++					    kinfo->tc_info[i].tqp_offset);
++	}
++
++	return 0;
++}
++
++static int hns3_nic_setup_tc(struct net_device *dev, u32 handle,
++			     u32 chain_index, __be16 protocol,
++			     struct tc_to_netdev *tc)
++{
++	if (handle != TC_H_ROOT || tc->type != TC_SETUP_MQPRIO)
++		return -EINVAL;
++
++	return hns3_setup_tc(dev, tc->mqprio->num_tc);
++}
++
++static int hns3_vlan_rx_add_vid(struct net_device *netdev,
++				__be16 proto, u16 vid)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	int ret = -EIO;
++
++	if (h->ae_algo->ops->set_vlan_filter)
++		ret = h->ae_algo->ops->set_vlan_filter(h, proto, vid, false);
++
++	return ret;
++}
++
++static int hns3_vlan_rx_kill_vid(struct net_device *netdev,
++				 __be16 proto, u16 vid)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	int ret = -EIO;
++
++	if (h->ae_algo->ops->set_vlan_filter)
++		ret = h->ae_algo->ops->set_vlan_filter(h, proto, vid, true);
++
++	return ret;
++}
++
++static int hns3_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan,
++				u8 qos, __be16 vlan_proto)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	int ret = -EIO;
++
++	if (h->ae_algo->ops->set_vf_vlan_filter)
++		ret = h->ae_algo->ops->set_vf_vlan_filter(h, vf, vlan,
++						   qos, vlan_proto);
++
++	return ret;
++}
++
++static const struct net_device_ops hns3_nic_netdev_ops = {
++	.ndo_open		= hns3_nic_net_open,
++	.ndo_stop		= hns3_nic_net_stop,
++	.ndo_start_xmit		= hns3_nic_net_xmit,
++	.ndo_set_mac_address	= hns3_nic_net_set_mac_address,
++	.ndo_set_features	= hns3_nic_set_features,
++	.ndo_get_stats64	= hns3_nic_get_stats64,
++	.ndo_setup_tc		= hns3_nic_setup_tc,
++	.ndo_set_rx_mode	= hns3_nic_set_rx_mode,
++	.ndo_udp_tunnel_add	= hns3_nic_udp_tunnel_add,
++	.ndo_udp_tunnel_del	= hns3_nic_udp_tunnel_del,
++	.ndo_vlan_rx_add_vid	= hns3_vlan_rx_add_vid,
++	.ndo_vlan_rx_kill_vid	= hns3_vlan_rx_kill_vid,
++	.ndo_set_vf_vlan	= hns3_ndo_set_vf_vlan,
++};
++
++/* hns3_probe - Device initialization routine
++ * @pdev: PCI device information struct
++ * @ent: entry in hns3_pci_tbl
++ *
++ * hns3_probe initializes a PF identified by a pci_dev structure.
++ * The OS initialization, configuring of the PF private structure,
++ * and a hardware reset occur.
++ *
++ * Returns 0 on success, negative on failure
++ */
++static int hns3_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++{
++	struct hnae3_ae_dev *ae_dev;
++	int ret;
++
++	ae_dev = devm_kzalloc(&pdev->dev, sizeof(*ae_dev),
++			      GFP_KERNEL);
++	if (!ae_dev) {
++		ret = -ENOMEM;
++		return ret;
++	}
++
++	ae_dev->pdev = pdev;
++	ae_dev->dev_type = HNAE3_DEV_KNIC;
++	pci_set_drvdata(pdev, ae_dev);
++
++	return hnae3_register_ae_dev(ae_dev);
++}
++
++/* hns3_remove - Device removal routine
++ * @pdev: PCI device information struct
++ */
++static void hns3_remove(struct pci_dev *pdev)
++{
++	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(pdev);
++
++	hnae3_unregister_ae_dev(ae_dev);
++
++	devm_kfree(&pdev->dev, ae_dev);
++
++	pci_set_drvdata(pdev, NULL);
++}
++
++static struct pci_driver hns3_driver = {
++	.name     = hns3_driver_name,
++	.id_table = hns3_pci_tbl,
++	.probe    = hns3_probe,
++	.remove   = hns3_remove,
++};
++
++/* set default feature to hns3 */
++static void hns3_set_default_feature(struct net_device *netdev)
++{
++	netdev->priv_flags |= IFF_UNICAST_FLT;
++
++	netdev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++		NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_GSO |
++		NETIF_F_GRO | NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_GSO_GRE |
++		NETIF_F_GSO_GRE_CSUM | NETIF_F_GSO_UDP_TUNNEL |
++		NETIF_F_GSO_UDP_TUNNEL_CSUM;
++
++	netdev->hw_enc_features |= NETIF_F_TSO_MANGLEID;
++
++	netdev->gso_partial_features |= NETIF_F_GSO_GRE_CSUM;
++
++	netdev->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++		NETIF_F_HW_VLAN_CTAG_FILTER |
++		NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_GSO |
++		NETIF_F_GRO | NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_GSO_GRE |
++		NETIF_F_GSO_GRE_CSUM | NETIF_F_GSO_UDP_TUNNEL |
++		NETIF_F_GSO_UDP_TUNNEL_CSUM;
++
++	netdev->vlan_features |=
++		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM |
++		NETIF_F_SG | NETIF_F_GSO | NETIF_F_GRO |
++		NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_GSO_GRE |
++		NETIF_F_GSO_GRE_CSUM | NETIF_F_GSO_UDP_TUNNEL |
++		NETIF_F_GSO_UDP_TUNNEL_CSUM;
++
++	netdev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++		NETIF_F_HW_VLAN_CTAG_FILTER |
++		NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_GSO |
++		NETIF_F_GRO | NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_GSO_GRE |
++		NETIF_F_GSO_GRE_CSUM | NETIF_F_GSO_UDP_TUNNEL |
++		NETIF_F_GSO_UDP_TUNNEL_CSUM;
++}
++
++static int hns3_alloc_buffer(struct hns3_enet_ring *ring,
++			     struct hns3_desc_cb *cb)
++{
++	unsigned int order = hnae_page_order(ring);
++	struct page *p;
++
++	p = dev_alloc_pages(order);
++	if (!p)
++		return -ENOMEM;
++
++	cb->priv = p;
++	cb->page_offset = 0;
++	cb->reuse_flag = 0;
++	cb->buf  = page_address(p);
++	cb->length = hnae_page_size(ring);
++	cb->type = DESC_TYPE_PAGE;
++
++	memset(cb->buf, 0, cb->length);
++
++	return 0;
++}
++
++static void hns3_free_buffer(struct hns3_enet_ring *ring,
++			     struct hns3_desc_cb *cb)
++{
++	if (cb->type == DESC_TYPE_SKB)
++		dev_kfree_skb_any((struct sk_buff *)cb->priv);
++	else if (!HNAE3_IS_TX_RING(ring))
++		put_page((struct page *)cb->priv);
++	memset(cb, 0, sizeof(*cb));
++}
++
++static int hns3_map_buffer(struct hns3_enet_ring *ring, struct hns3_desc_cb *cb)
++{
++	cb->dma = dma_map_page(ring_to_dev(ring), cb->priv, 0,
++			       cb->length, ring_to_dma_dir(ring));
++
++	if (dma_mapping_error(ring_to_dev(ring), cb->dma))
++		return -EIO;
++
++	return 0;
++}
++
++static void hns3_unmap_buffer(struct hns3_enet_ring *ring,
++			      struct hns3_desc_cb *cb)
++{
++	if (cb->type == DESC_TYPE_SKB)
++		dma_unmap_single(ring_to_dev(ring), cb->dma, cb->length,
++				 ring_to_dma_dir(ring));
++	else
++		dma_unmap_page(ring_to_dev(ring), cb->dma, cb->length,
++			       ring_to_dma_dir(ring));
++}
++
++static void hns3_buffer_detach(struct hns3_enet_ring *ring, int i)
++{
++	hns3_unmap_buffer(ring, &ring->desc_cb[i]);
++	ring->desc[i].addr = 0;
++}
++
++static void hns3_free_buffer_detach(struct hns3_enet_ring *ring, int i)
++{
++	struct hns3_desc_cb *cb = &ring->desc_cb[i];
++
++	if (!ring->desc_cb[i].dma)
++		return;
++
++	hns3_buffer_detach(ring, i);
++	hns3_free_buffer(ring, cb);
++}
++
++static void hns3_free_buffers(struct hns3_enet_ring *ring)
++{
++	int i;
++
++	for (i = 0; i < ring->desc_num; i++)
++		hns3_free_buffer_detach(ring, i);
++}
++
++/* free desc along with its attached buffer */
++static void hns3_free_desc(struct hns3_enet_ring *ring)
++{
++	hns3_free_buffers(ring);
++
++	dma_unmap_single(ring_to_dev(ring), ring->desc_dma_addr,
++			 ring->desc_num * sizeof(ring->desc[0]),
++			 DMA_BIDIRECTIONAL);
++	ring->desc_dma_addr = 0;
++	kfree(ring->desc);
++	ring->desc = NULL;
++}
++
++static int hns3_alloc_desc(struct hns3_enet_ring *ring)
++{
++	int size = ring->desc_num * sizeof(ring->desc[0]);
 +
 +	ring->desc = kzalloc(size, GFP_KERNEL);
 +	if (!ring->desc)
 +		return -ENOMEM;
 +
-+	ring->desc_dma_addr = dma_map_single(cmq_ring_to_dev(ring), ring->desc,
++	ring->desc_dma_addr = dma_map_single(ring_to_dev(ring), ring->desc,
 +					     size, DMA_BIDIRECTIONAL);
-+	if (dma_mapping_error(cmq_ring_to_dev(ring), ring->desc_dma_addr)) {
++	if (dma_mapping_error(ring_to_dev(ring), ring->desc_dma_addr)) {
 +		ring->desc_dma_addr = 0;
 +		kfree(ring->desc);
 +		ring->desc = NULL;
@@ -99,326 +1552,1366 @@ index 0000000..1e06f91
 +	return 0;
 +}
 +
-+static void hclge_free_cmd_desc(struct hclge_cmq_ring *ring)
++static int hns3_reserve_buffer_map(struct hns3_enet_ring *ring,
++				   struct hns3_desc_cb *cb)
 +{
-+	dma_unmap_single(cmq_ring_to_dev(ring), ring->desc_dma_addr,
-+			 ring->desc_num * sizeof(ring->desc[0]),
-+			 DMA_BIDIRECTIONAL);
-+
-+	ring->desc_dma_addr = 0;
-+	kfree(ring->desc);
-+	ring->desc = NULL;
-+}
-+
-+static int hclge_init_cmd_queue(struct hclge_dev *hdev, int ring_type)
-+{
-+	struct hclge_hw *hw = &hdev->hw;
-+	struct hclge_cmq_ring *ring =
-+		(ring_type == HCLGE_TYPE_CSQ) ? &hw->cmq.csq : &hw->cmq.crq;
 +	int ret;
 +
-+	ring->flag = ring_type;
-+	ring->dev = hdev;
++	ret = hns3_alloc_buffer(ring, cb);
++	if (ret)
++		goto out;
 +
-+	ret = hclge_alloc_cmd_desc(ring);
-+	if (ret) {
-+		dev_err(&hdev->pdev->dev, "descriptor %s alloc error %d\n",
-+			(ring_type == HCLGE_TYPE_CSQ) ? "CSQ" : "CRQ", ret);
++	ret = hns3_map_buffer(ring, cb);
++	if (ret)
++		goto out_with_buf;
++
++	return 0;
++
++out_with_buf:
++	hns3_free_buffers(ring);
++out:
++	return ret;
++}
++
++static int hns3_alloc_buffer_attach(struct hns3_enet_ring *ring, int i)
++{
++	int ret = hns3_reserve_buffer_map(ring, &ring->desc_cb[i]);
++
++	if (ret)
 +		return ret;
-+	}
 +
-+	ring->next_to_clean = 0;
-+	ring->next_to_use = 0;
++	ring->desc[i].addr = cpu_to_le64(ring->desc_cb[i].dma);
 +
 +	return 0;
 +}
 +
-+void hclge_cmd_reuse_desc(struct hclge_desc *desc, bool is_read)
++/* Allocate memory for raw pkg, and map with dma */
++static int hns3_alloc_ring_buffers(struct hns3_enet_ring *ring)
 +{
-+	desc->flag = cpu_to_le16(HCLGE_CMD_FLAG_NO_INTR | HCLGE_CMD_FLAG_IN);
-+	if (is_read)
-+		desc->flag |= cpu_to_le16(HCLGE_CMD_FLAG_WR);
-+	else
-+		desc->flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
-+}
++	int i, j, ret;
 +
-+void hclge_cmd_setup_basic_desc(struct hclge_desc *desc,
-+				enum hclge_opcode_type opcode, bool is_read)
-+{
-+	memset((void *)desc, 0, sizeof(struct hclge_desc));
-+	desc->opcode = cpu_to_le16(opcode);
-+	desc->flag = cpu_to_le16(HCLGE_CMD_FLAG_NO_INTR | HCLGE_CMD_FLAG_IN);
-+
-+	if (is_read)
-+		desc->flag |= cpu_to_le16(HCLGE_CMD_FLAG_WR);
-+	else
-+		desc->flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
-+}
-+
-+static void hclge_cmd_config_regs(struct hclge_cmq_ring *ring)
-+{
-+	dma_addr_t dma = ring->desc_dma_addr;
-+	struct hclge_dev *hdev = ring->dev;
-+	struct hclge_hw *hw = &hdev->hw;
-+
-+	if (ring->flag == HCLGE_TYPE_CSQ) {
-+		hclge_write_dev(hw, HCLGE_NIC_CSQ_BASEADDR_L_REG,
-+				(u32)dma);
-+		hclge_write_dev(hw, HCLGE_NIC_CSQ_BASEADDR_H_REG,
-+				(u32)((dma >> 31) >> 1));
-+		hclge_write_dev(hw, HCLGE_NIC_CSQ_DEPTH_REG,
-+				(ring->desc_num >> HCLGE_NIC_CMQ_DESC_NUM_S) |
-+				HCLGE_NIC_CMQ_ENABLE);
-+		hclge_write_dev(hw, HCLGE_NIC_CSQ_TAIL_REG, 0);
-+		hclge_write_dev(hw, HCLGE_NIC_CSQ_HEAD_REG, 0);
-+	} else {
-+		hclge_write_dev(hw, HCLGE_NIC_CRQ_BASEADDR_L_REG,
-+				(u32)dma);
-+		hclge_write_dev(hw, HCLGE_NIC_CRQ_BASEADDR_H_REG,
-+				(u32)((dma >> 31) >> 1));
-+		hclge_write_dev(hw, HCLGE_NIC_CRQ_DEPTH_REG,
-+				(ring->desc_num >> HCLGE_NIC_CMQ_DESC_NUM_S) |
-+				HCLGE_NIC_CMQ_ENABLE);
-+		hclge_write_dev(hw, HCLGE_NIC_CRQ_TAIL_REG, 0);
-+		hclge_write_dev(hw, HCLGE_NIC_CRQ_HEAD_REG, 0);
-+	}
-+}
-+
-+static void hclge_cmd_init_regs(struct hclge_hw *hw)
-+{
-+	hclge_cmd_config_regs(&hw->cmq.csq);
-+	hclge_cmd_config_regs(&hw->cmq.crq);
-+}
-+
-+static int hclge_cmd_csq_clean(struct hclge_hw *hw)
-+{
-+	struct hclge_cmq_ring *csq = &hw->cmq.csq;
-+	u16 ntc = csq->next_to_clean;
-+	struct hclge_desc *desc;
-+	int clean = 0;
-+	u32 head;
-+
-+	desc = &csq->desc[ntc];
-+	head = hclge_read_dev(hw, HCLGE_NIC_CSQ_HEAD_REG);
-+
-+	while (head != ntc) {
-+		memset(desc, 0, sizeof(*desc));
-+		ntc++;
-+		if (ntc == csq->desc_num)
-+			ntc = 0;
-+		desc = &csq->desc[ntc];
-+		clean++;
-+	}
-+	csq->next_to_clean = ntc;
-+
-+	return clean;
-+}
-+
-+static int hclge_cmd_csq_done(struct hclge_hw *hw)
-+{
-+	u32 head = hclge_read_dev(hw, HCLGE_NIC_CSQ_HEAD_REG);
-+	return head == hw->cmq.csq.next_to_use;
-+}
-+
-+static bool hclge_is_special_opcode(u16 opcode)
-+{
-+	u16 spec_opcode[3] = {0x0030, 0x0031, 0x0032};
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(spec_opcode); i++) {
-+		if (spec_opcode[i] == opcode)
-+			return true;
++	for (i = 0; i < ring->desc_num; i++) {
++		ret = hns3_alloc_buffer_attach(ring, i);
++		if (ret)
++			goto out_buffer_fail;
 +	}
 +
-+	return false;
++	return 0;
++
++out_buffer_fail:
++	for (j = i - 1; j >= 0; j--)
++		hns3_free_buffer_detach(ring, j);
++	return ret;
 +}
 +
-+/**
-+ * hclge_cmd_send - send command to command queue
-+ * @hw: pointer to the hw struct
-+ * @desc: prefilled descriptor for describing the command
-+ * @num : the number of descriptors to be sent
-+ *
-+ * This is the main send command for command queue, it
-+ * sends the queue, cleans the queue, etc
-+ **/
-+int hclge_cmd_send(struct hclge_hw *hw, struct hclge_desc *desc, int num)
++/* detach a in-used buffer and replace with a reserved one  */
++static void hns3_replace_buffer(struct hns3_enet_ring *ring, int i,
++				struct hns3_desc_cb *res_cb)
 +{
-+	struct hclge_dev *hdev = (struct hclge_dev *)hw->back;
-+	struct hclge_desc *desc_to_use;
-+	bool complete = false;
-+	u32 timeout = 0;
-+	int handle = 0;
-+	int retval = 0;
-+	u16 opcode, desc_ret;
-+	int ntc;
++	hns3_map_buffer(ring, &ring->desc_cb[i]);
++	ring->desc_cb[i] = *res_cb;
++	ring->desc[i].addr = cpu_to_le64(ring->desc_cb[i].dma);
++}
 +
-+	spin_lock_bh(&hw->cmq.csq.lock);
++static void hns3_reuse_buffer(struct hns3_enet_ring *ring, int i)
++{
++	ring->desc_cb[i].reuse_flag = 0;
++	ring->desc[i].addr = cpu_to_le64(ring->desc_cb[i].dma
++		+ ring->desc_cb[i].page_offset);
++}
 +
-+	if (num > hclge_ring_space(&hw->cmq.csq)) {
-+		spin_unlock_bh(&hw->cmq.csq.lock);
-+		return -EBUSY;
++static void hns3_nic_reclaim_one_desc(struct hns3_enet_ring *ring, int *bytes,
++				      int *pkts)
++{
++	struct hns3_desc_cb *desc_cb = &ring->desc_cb[ring->next_to_clean];
++
++	(*pkts) += (desc_cb->type == DESC_TYPE_SKB);
++	(*bytes) += desc_cb->length;
++	/* desc_cb will be cleaned, after hnae_free_buffer_detach*/
++	hns3_free_buffer_detach(ring, ring->next_to_clean);
++
++	ring_ptr_move_fw(ring, next_to_clean);
++}
++
++static int is_valid_clean_head(struct hns3_enet_ring *ring, int h)
++{
++	int u = ring->next_to_use;
++	int c = ring->next_to_clean;
++
++	if (unlikely(h > ring->desc_num))
++		return 0;
++
++	return u > c ? (h > c && h <= u) : (h > c || h <= u);
++}
++
++int hns3_clean_tx_ring(struct hns3_enet_ring *ring, int budget)
++{
++	struct net_device *netdev = ring->tqp->handle->kinfo.netdev;
++	struct netdev_queue *dev_queue;
++	int bytes, pkts;
++	int head;
++
++	head = readl_relaxed(ring->tqp->io_base + HNS3_RING_TX_RING_HEAD_REG);
++	rmb(); /* Make sure head is ready before touch any data */
++
++	if (is_ring_empty(ring) || head == ring->next_to_clean)
++		return 0; /* no data to poll */
++
++	if (!is_valid_clean_head(ring, head)) {
++		netdev_err(netdev, "wrong head (%d, %d-%d)\n", head,
++			   ring->next_to_use, ring->next_to_clean);
++
++		u64_stats_update_begin(&ring->syncp);
++		ring->stats.io_err_cnt++;
++		u64_stats_update_end(&ring->syncp);
++		return -EIO;
 +	}
 +
-+	/**
-+	 * Record the location of desc in the ring for this time
-+	 * which will be use for hardware to write back
-+	 */
-+	ntc = hw->cmq.csq.next_to_use;
-+	opcode = desc[0].opcode;
-+	while (handle < num) {
-+		desc_to_use = &hw->cmq.csq.desc[hw->cmq.csq.next_to_use];
-+		*desc_to_use = desc[handle];
-+		(hw->cmq.csq.next_to_use)++;
-+		if (hw->cmq.csq.next_to_use == hw->cmq.csq.desc_num)
-+			hw->cmq.csq.next_to_use = 0;
-+		handle++;
++	bytes = 0;
++	pkts = 0;
++	while (head != ring->next_to_clean && budget) {
++		hns3_nic_reclaim_one_desc(ring, &bytes, &pkts);
++		/* Issue prefetch for next Tx descriptor */
++		prefetch(&ring->desc_cb[ring->next_to_clean]);
++		budget--;
 +	}
 +
-+	/* Write to hardware */
-+	hclge_write_dev(hw, HCLGE_NIC_CSQ_TAIL_REG, hw->cmq.csq.next_to_use);
++	ring->tqp_vector->tx_group.total_bytes += bytes;
++	ring->tqp_vector->tx_group.total_packets += pkts;
 +
-+	/**
-+	 * If the command is sync, wait for the firmware to write back,
-+	 * if multi descriptors to be sent, use the first one to check
-+	 */
-+	if (HCLGE_SEND_SYNC(desc->flag)) {
-+		do {
-+			if (hclge_cmd_csq_done(hw))
++	u64_stats_update_begin(&ring->syncp);
++	ring->stats.tx_bytes += bytes;
++	ring->stats.tx_pkts += pkts;
++	u64_stats_update_end(&ring->syncp);
++
++	dev_queue = netdev_get_tx_queue(netdev, ring->tqp->tqp_index);
++	netdev_tx_completed_queue(dev_queue, pkts, bytes);
++
++	return !!budget;
++}
++
++static int hns3_desc_unused(struct hns3_enet_ring *ring)
++{
++	int ntc = ring->next_to_clean;
++	int ntu = ring->next_to_use;
++
++	return ((ntc >= ntu) ? 0 : ring->desc_num) + ntc - ntu;
++}
++
++static void
++hns3_nic_alloc_rx_buffers(struct hns3_enet_ring *ring, int cleand_count)
++{
++	struct hns3_desc_cb *desc_cb;
++	struct hns3_desc_cb res_cbs;
++	int i, ret;
++
++	for (i = 0; i < cleand_count; i++) {
++		desc_cb = &ring->desc_cb[ring->next_to_use];
++		if (desc_cb->reuse_flag) {
++			u64_stats_update_begin(&ring->syncp);
++			ring->stats.reuse_pg_cnt++;
++			u64_stats_update_end(&ring->syncp);
++
++			hns3_reuse_buffer(ring, ring->next_to_use);
++		} else {
++			ret = hns3_reserve_buffer_map(ring, &res_cbs);
++			if (ret) {
++				u64_stats_update_begin(&ring->syncp);
++				ring->stats.sw_err_cnt++;
++				u64_stats_update_end(&ring->syncp);
++
++				netdev_err(ring->tqp->handle->kinfo.netdev,
++					   "hnae reserve buffer map failed.\n");
 +				break;
-+			udelay(1);
-+			timeout++;
-+		} while (timeout < hw->cmq.tx_timeout);
++			}
++			hns3_replace_buffer(ring, ring->next_to_use, &res_cbs);
++		}
++
++		ring_ptr_move_fw(ring, next_to_use);
 +	}
 +
-+	if (hclge_cmd_csq_done(hw)) {
-+		complete = true;
-+		handle = 0;
-+		while (handle < num) {
-+			/* Get the result of hardware write back */
-+			desc_to_use = &hw->cmq.csq.desc[ntc];
-+			desc[handle] = *desc_to_use;
-+			pr_debug("Get cmd desc:\n");
++	wmb(); /* Make all data has been write before submit */
++	writel_relaxed(i, ring->tqp->io_base + HNS3_RING_RX_RING_HEAD_REG);
++}
 +
-+			if (likely(!hclge_is_special_opcode(opcode)))
-+				desc_ret = desc[handle].retval;
-+			else
-+				desc_ret = desc[0].retval;
++/* hns3_nic_get_headlen - determine size of header for LRO/GRO
++ * @data: pointer to the start of the headers
++ * @max: total length of section to find headers in
++ *
++ * This function is meant to determine the length of headers that will
++ * be recognized by hardware for LRO, GRO, and RSC offloads.  The main
++ * motivation of doing this is to only perform one pull for IPv4 TCP
++ * packets so that we can do basic things like calculating the gso_size
++ * based on the average data per packet.
++ */
++static unsigned int hns3_nic_get_headlen(unsigned char *data, u32 flag,
++					 unsigned int max_size)
++{
++	unsigned char *network;
++	u8 hlen;
 +
-+			if ((enum hclge_cmd_return_status)desc_ret ==
-+			    HCLGE_CMD_EXEC_SUCCESS)
-+				retval = 0;
-+			else
-+				retval = -EIO;
-+			hw->cmq.last_status = (enum hclge_cmd_status)desc_ret;
-+			ntc++;
-+			handle++;
-+			if (ntc == hw->cmq.csq.desc_num)
-+				ntc = 0;
++	/* This should never happen, but better safe than sorry */
++	if (max_size < ETH_HLEN)
++		return max_size;
++
++	/* Initialize network frame pointer */
++	network = data;
++
++	/* Set first protocol and move network header forward */
++	network += ETH_HLEN;
++
++	/* Handle any vlan tag if present */
++	if (hnae_get_field(flag, HNS3_RXD_VLAN_M, HNS3_RXD_VLAN_S)
++		== HNS3_RX_FLAG_VLAN_PRESENT) {
++		if ((typeof(max_size))(network - data) > (max_size - VLAN_HLEN))
++			return max_size;
++
++		network += VLAN_HLEN;
++	}
++
++	/* Handle L3 protocols */
++	if (hnae_get_field(flag, HNS3_RXD_L3ID_M, HNS3_RXD_L3ID_S)
++		== HNS3_RX_FLAG_L3ID_IPV4) {
++		if ((typeof(max_size))(network - data) >
++		    (max_size - sizeof(struct iphdr)))
++			return max_size;
++
++		/* Access ihl as a u8 to avoid unaligned access on ia64 */
++		hlen = (network[0] & 0x0F) << 2;
++
++		/* Verify hlen meets minimum size requirements */
++		if (hlen < sizeof(struct iphdr))
++			return network - data;
++
++		/* Record next protocol if header is present */
++	} else if (hnae_get_field(flag, HNS3_RXD_L3ID_M, HNS3_RXD_L3ID_S)
++		== HNS3_RX_FLAG_L3ID_IPV6) {
++		if ((typeof(max_size))(network - data) >
++		    (max_size - sizeof(struct ipv6hdr)))
++			return max_size;
++
++		/* Record next protocol */
++		hlen = sizeof(struct ipv6hdr);
++	} else {
++		return network - data;
++	}
++
++	/* Relocate pointer to start of L4 header */
++	network += hlen;
++
++	/* Finally sort out TCP/UDP */
++	if (hnae_get_field(flag, HNS3_RXD_L4ID_M, HNS3_RXD_L4ID_S)
++		== HNS3_RX_FLAG_L4ID_TCP) {
++		if ((typeof(max_size))(network - data) >
++		    (max_size - sizeof(struct tcphdr)))
++			return max_size;
++
++		/* Access doff as a u8 to avoid unaligned access on ia64 */
++		hlen = (network[12] & 0xF0) >> 2;
++
++		/* Verify hlen meets minimum size requirements */
++		if (hlen < sizeof(struct tcphdr))
++			return network - data;
++
++		network += hlen;
++	} else if (hnae_get_field(flag, HNS3_RXD_L4ID_M, HNS3_RXD_L4ID_S)
++		== HNS3_RX_FLAG_L4ID_UDP) {
++		if ((typeof(max_size))(network - data) >
++		    (max_size - sizeof(struct udphdr)))
++			return max_size;
++
++		network += sizeof(struct udphdr);
++	}
++
++	/* If everything has gone correctly network should be the
++	 * data section of the packet and will be the end of the header.
++	 * If not then it probably represents the end of the last recognized
++	 * header.
++	 */
++	if ((typeof(max_size))(network - data) < max_size)
++		return network - data;
++	else
++		return max_size;
++}
++
++static void hns3_nic_reuse_page(struct sk_buff *skb, int i,
++				struct hns3_enet_ring *ring, int pull_len,
++				struct hns3_desc_cb *desc_cb)
++{
++	struct hns3_desc *desc;
++	int truesize, size;
++	int last_offset;
++	bool twobufs;
++
++	twobufs = ((PAGE_SIZE < 8192) &&
++		hnae_buf_size(ring) == HNS3_BUFFER_SIZE_2048);
++
++	desc = &ring->desc[ring->next_to_clean];
++	size = le16_to_cpu(desc->rx.size);
++
++	if (twobufs) {
++		truesize = hnae_buf_size(ring);
++	} else {
++		truesize = ALIGN(size, L1_CACHE_BYTES);
++		last_offset = hnae_page_size(ring) - hnae_buf_size(ring);
++	}
++
++	skb_add_rx_frag(skb, i, desc_cb->priv, desc_cb->page_offset + pull_len,
++			size - pull_len, truesize - pull_len);
++
++	 /* Avoid re-using remote pages,flag default unreuse */
++	if (unlikely(page_to_nid(desc_cb->priv) != numa_node_id()))
++		return;
++
++	if (twobufs) {
++		/* If we are only owner of page we can reuse it */
++		if (likely(page_count(desc_cb->priv) == 1)) {
++			/* Flip page offset to other buffer */
++			desc_cb->page_offset ^= truesize;
++
++			desc_cb->reuse_flag = 1;
++			/* bump ref count on page before it is given*/
++			get_page(desc_cb->priv);
++		}
++		return;
++	}
++
++	/* Move offset up to the next cache line */
++	desc_cb->page_offset += truesize;
++
++	if (desc_cb->page_offset <= last_offset) {
++		desc_cb->reuse_flag = 1;
++		/* Bump ref count on page before it is given*/
++		get_page(desc_cb->priv);
++	}
++}
++
++static void hns3_rx_checksum(struct hns3_enet_ring *ring, struct sk_buff *skb,
++			     struct hns3_desc *desc)
++{
++	struct net_device *netdev = ring->tqp->handle->kinfo.netdev;
++	int l3_type, l4_type;
++	u32 bd_base_info;
++	int ol4_type;
++	u32 l234info;
++
++	bd_base_info = le32_to_cpu(desc->rx.bd_base_info);
++	l234info = le32_to_cpu(desc->rx.l234_info);
++
++	skb->ip_summed = CHECKSUM_NONE;
++
++	skb_checksum_none_assert(skb);
++
++	if (!(netdev->features & NETIF_F_RXCSUM))
++		return;
++
++	/* check if hardware has done checksum */
++	if (!hnae_get_bit(bd_base_info, HNS3_RXD_L3L4P_B))
++		return;
++
++	if (unlikely(hnae_get_bit(l234info, HNS3_RXD_L3E_B) ||
++		     hnae_get_bit(l234info, HNS3_RXD_L4E_B) ||
++		     hnae_get_bit(l234info, HNS3_RXD_OL3E_B) ||
++		     hnae_get_bit(l234info, HNS3_RXD_OL4E_B))) {
++		netdev_err(netdev, "L3/L4 error pkt\n");
++		u64_stats_update_begin(&ring->syncp);
++		ring->stats.l3l4_csum_err++;
++		u64_stats_update_end(&ring->syncp);
++
++		return;
++	}
++
++	l3_type = hnae_get_field(l234info, HNS3_RXD_L3ID_M,
++				 HNS3_RXD_L3ID_S);
++	l4_type = hnae_get_field(l234info, HNS3_RXD_L4ID_M,
++				 HNS3_RXD_L4ID_S);
++
++	ol4_type = hnae_get_field(l234info, HNS3_RXD_OL4ID_M, HNS3_RXD_OL4ID_S);
++	switch (ol4_type) {
++	case HNS3_OL4_TYPE_MAC_IN_UDP:
++	case HNS3_OL4_TYPE_NVGRE:
++		skb->csum_level = 1;
++	case HNS3_OL4_TYPE_NO_TUN:
++		/* Can checksum ipv4 or ipv6 + UDP/TCP/SCTP packets */
++		if (l3_type == HNS3_L3_TYPE_IPV4 ||
++		    (l3_type == HNS3_L3_TYPE_IPV6 &&
++		     (l4_type == HNS3_L4_TYPE_UDP ||
++		      l4_type == HNS3_L4_TYPE_TCP ||
++		      l4_type == HNS3_L4_TYPE_SCTP)))
++			skb->ip_summed = CHECKSUM_UNNECESSARY;
++		break;
++	}
++}
++
++static int hns3_handle_rx_bd(struct hns3_enet_ring *ring,
++			     struct sk_buff **out_skb, int *out_bnum)
++{
++	struct net_device *netdev = ring->tqp->handle->kinfo.netdev;
++	struct hns3_desc_cb *desc_cb;
++	struct hns3_desc *desc;
++	struct sk_buff *skb;
++	unsigned char *va;
++	u32 bd_base_info;
++	int pull_len;
++	u32 l234info;
++	int length;
++	int bnum;
++
++	desc = &ring->desc[ring->next_to_clean];
++	desc_cb = &ring->desc_cb[ring->next_to_clean];
++
++	prefetch(desc);
++
++	length = le16_to_cpu(desc->rx.pkt_len);
++	bd_base_info = le32_to_cpu(desc->rx.bd_base_info);
++	l234info = le32_to_cpu(desc->rx.l234_info);
++
++	/* Check valid BD */
++	if (!hnae_get_bit(bd_base_info, HNS3_RXD_VLD_B))
++		return -EFAULT;
++
++	va = (unsigned char *)desc_cb->buf + desc_cb->page_offset;
++
++	/* Prefetch first cache line of first page
++	 * Idea is to cache few bytes of the header of the packet. Our L1 Cache
++	 * line size is 64B so need to prefetch twice to make it 128B. But in
++	 * actual we can have greater size of caches with 128B Level 1 cache
++	 * lines. In such a case, single fetch would suffice to cache in the
++	 * relevant part of the header.
++	 */
++	prefetch(va);
++#if L1_CACHE_BYTES < 128
++	prefetch(va + L1_CACHE_BYTES);
++#endif
++
++	skb = *out_skb = napi_alloc_skb(&ring->tqp_vector->napi,
++					HNS3_RX_HEAD_SIZE);
++	if (unlikely(!skb)) {
++		netdev_err(netdev, "alloc rx skb fail\n");
++
++		u64_stats_update_begin(&ring->syncp);
++		ring->stats.sw_err_cnt++;
++		u64_stats_update_end(&ring->syncp);
++
++		return -ENOMEM;
++	}
++
++	prefetchw(skb->data);
++
++	bnum = 1;
++	if (length <= HNS3_RX_HEAD_SIZE) {
++		memcpy(__skb_put(skb, length), va, ALIGN(length, sizeof(long)));
++
++		/* We can reuse buffer as-is, just make sure it is local */
++		if (likely(page_to_nid(desc_cb->priv) == numa_node_id()))
++			desc_cb->reuse_flag = 1;
++		else /* This page cannot be reused so discard it */
++			put_page(desc_cb->priv);
++
++		ring_ptr_move_fw(ring, next_to_clean);
++	} else {
++		u64_stats_update_begin(&ring->syncp);
++		ring->stats.seg_pkt_cnt++;
++		u64_stats_update_end(&ring->syncp);
++
++		pull_len = hns3_nic_get_headlen(va, l234info,
++						HNS3_RX_HEAD_SIZE);
++		memcpy(__skb_put(skb, pull_len), va,
++		       ALIGN(pull_len, sizeof(long)));
++
++		hns3_nic_reuse_page(skb, 0, ring, pull_len, desc_cb);
++		ring_ptr_move_fw(ring, next_to_clean);
++
++		while (!hnae_get_bit(bd_base_info, HNS3_RXD_FE_B)) {
++			desc = &ring->desc[ring->next_to_clean];
++			desc_cb = &ring->desc_cb[ring->next_to_clean];
++			bd_base_info = le32_to_cpu(desc->rx.bd_base_info);
++			hns3_nic_reuse_page(skb, bnum, ring, 0, desc_cb);
++			ring_ptr_move_fw(ring, next_to_clean);
++			bnum++;
 +		}
 +	}
 +
-+	if (!complete)
-+		retval = -EAGAIN;
++	*out_bnum = bnum;
 +
-+	/* Clean the command send queue */
-+	handle = hclge_cmd_csq_clean(hw);
-+	if (handle != num) {
-+		dev_warn(&hdev->pdev->dev,
-+			 "cleaned %d, need to clean %d\n", handle, num);
++	if (unlikely(!hnae_get_bit(bd_base_info, HNS3_RXD_VLD_B))) {
++		netdev_err(netdev, "no valid bd,%016llx,%016llx\n",
++			   ((u64 *)desc)[0], ((u64 *)desc)[1]);
++		u64_stats_update_begin(&ring->syncp);
++		ring->stats.non_vld_descs++;
++		u64_stats_update_end(&ring->syncp);
++
++		dev_kfree_skb_any(skb);
++		return -EINVAL;
 +	}
 +
-+	spin_unlock_bh(&hw->cmq.csq.lock);
++	if (unlikely((!desc->rx.pkt_len) ||
++		     hnae_get_bit(l234info, HNS3_RXD_TRUNCAT_B))) {
++		netdev_err(netdev, "truncated pkt\n");
++		u64_stats_update_begin(&ring->syncp);
++		ring->stats.err_pkt_len++;
++		u64_stats_update_end(&ring->syncp);
 +
-+	return retval;
++		dev_kfree_skb_any(skb);
++		return -EFAULT;
++	}
++
++	if (unlikely(hnae_get_bit(l234info, HNS3_RXD_L2E_B))) {
++		netdev_err(netdev, "L2 error pkt\n");
++		u64_stats_update_begin(&ring->syncp);
++		ring->stats.l2_err++;
++		u64_stats_update_end(&ring->syncp);
++
++		dev_kfree_skb_any(skb);
++		return -EFAULT;
++	}
++
++	u64_stats_update_begin(&ring->syncp);
++	ring->stats.rx_pkts++;
++	ring->stats.rx_bytes += skb->len;
++	u64_stats_update_end(&ring->syncp);
++
++	ring->tqp_vector->rx_group.total_bytes += skb->len;
++
++	hns3_rx_checksum(ring, skb, desc);
++	return 0;
 +}
 +
-+enum hclge_cmd_status hclge_cmd_query_firmware_version(struct hclge_hw *hw,
-+						       u32 *version)
++static int hns3_clean_rx_ring(struct hns3_enet_ring *ring, int budget)
 +{
-+	struct hclge_query_version *resp;
-+	struct hclge_desc desc;
-+	int ret;
++#define RCB_NOF_ALLOC_RX_BUFF_ONCE 16
++	struct net_device *netdev = ring->tqp->handle->kinfo.netdev;
++	int recv_pkts, recv_bds, clean_count, err;
++	int unused_count = hns3_desc_unused(ring);
++	struct sk_buff *skb = NULL;
++	int num, bnum = 0;
 +
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_QUERY_FW_VER, 1);
-+	resp = (struct hclge_query_version *)desc.data;
++	num = readl_relaxed(ring->tqp->io_base + HNS3_RING_RX_RING_FBDNUM_REG);
++	rmb(); /* Make sure num taken effect before the other data is touched */
 +
-+	ret = hclge_cmd_send(hw, &desc, 1);
-+	if (!ret)
-+		*version = le32_to_cpu(resp->firmware);
++	recv_pkts = 0, recv_bds = 0, clean_count = 0;
++	num -= unused_count;
 +
-+	return ret;
++	while (recv_pkts < budget && recv_bds < num) {
++		/* Reuse or realloc buffers */
++		if (clean_count + unused_count >= RCB_NOF_ALLOC_RX_BUFF_ONCE) {
++			hns3_nic_alloc_rx_buffers(ring,
++						  clean_count + unused_count);
++			clean_count = 0;
++			unused_count = hns3_desc_unused(ring);
++		}
++
++		/* Poll one pkt */
++		err = hns3_handle_rx_bd(ring, &skb, &bnum);
++		if (unlikely(!skb)) /* This fault cannot be repaired */
++			goto out;
++
++		recv_bds += bnum;
++		clean_count += bnum;
++		if (unlikely(err)) {  /* Do jump the err */
++			recv_pkts++;
++			continue;
++		}
++
++		/* Do update ip stack process */
++		skb->protocol = eth_type_trans(skb, netdev);
++		(void)napi_gro_receive(&ring->tqp_vector->napi, skb);
++
++		recv_pkts++;
++	}
++
++out:
++	/* Make all data has been write before submit */
++	if (clean_count + unused_count > 0)
++		hns3_nic_alloc_rx_buffers(ring,
++					  clean_count + unused_count);
++
++	return recv_pkts;
 +}
 +
-+int hclge_cmd_init(struct hclge_dev *hdev)
++static bool hns3_get_new_int_gl(struct hns3_enet_ring_group *ring_group)
 +{
-+	u32 version;
-+	int ret;
++#define HNS3_RX_ULTRA_PACKET_RATE 40000
++	enum hns3_flow_level_range new_flow_level;
++	struct hns3_enet_tqp_vector *tqp_vector;
++	int packets_per_secs;
++	int bytes_per_usecs;
++	u16 new_int_gl;
++	int usecs;
 +
-+	/* Setup the queue entries for use cmd queue */
-+	hdev->hw.cmq.csq.desc_num = HCLGE_NIC_CMQ_DESC_NUM;
-+	hdev->hw.cmq.crq.desc_num = HCLGE_NIC_CMQ_DESC_NUM;
++	if (!ring_group->int_gl)
++		return false;
 +
-+	/* Setup the lock for command queue */
-+	spin_lock_init(&hdev->hw.cmq.csq.lock);
-+	spin_lock_init(&hdev->hw.cmq.crq.lock);
-+
-+	/* Setup Tx write back timeout */
-+	hdev->hw.cmq.tx_timeout = HCLGE_CMDQ_TX_TIMEOUT;
-+
-+	/* Setup queue rings */
-+	ret = hclge_init_cmd_queue(hdev, HCLGE_TYPE_CSQ);
-+	if (ret) {
-+		dev_err(&hdev->pdev->dev,
-+			"CSQ ring setup error %d\n", ret);
-+		return ret;
++	if (ring_group->total_packets == 0) {
++		ring_group->int_gl = HNS3_INT_GL_50K;
++		ring_group->flow_level = HNS3_FLOW_LOW;
++		return true;
 +	}
 +
-+	ret = hclge_init_cmd_queue(hdev, HCLGE_TYPE_CRQ);
-+	if (ret) {
-+		dev_err(&hdev->pdev->dev,
-+			"CRQ ring setup error %d\n", ret);
-+		goto err_csq;
++	/* Simple throttlerate management
++	 * 0-10MB/s   lower     (50000 ints/s)
++	 * 10-20MB/s   middle    (20000 ints/s)
++	 * 20-1249MB/s high      (18000 ints/s)
++	 * > 40000pps  ultra     (8000 ints/s)
++	 */
++	new_flow_level = ring_group->flow_level;
++	new_int_gl = ring_group->int_gl;
++	tqp_vector = ring_group->ring->tqp_vector;
++	usecs = (ring_group->int_gl << 1);
++	bytes_per_usecs = ring_group->total_bytes / usecs;
++	/* 1000000 microseconds */
++	packets_per_secs = ring_group->total_packets * 1000000 / usecs;
++
++	switch (new_flow_level) {
++	case HNS3_FLOW_LOW:
++		if (bytes_per_usecs > 10)
++			new_flow_level = HNS3_FLOW_MID;
++		break;
++	case HNS3_FLOW_MID:
++		if (bytes_per_usecs > 20)
++			new_flow_level = HNS3_FLOW_HIGH;
++		else if (bytes_per_usecs <= 10)
++			new_flow_level = HNS3_FLOW_LOW;
++		break;
++	case HNS3_FLOW_HIGH:
++	case HNS3_FLOW_ULTRA:
++	default:
++		if (bytes_per_usecs <= 20)
++			new_flow_level = HNS3_FLOW_MID;
++		break;
 +	}
 +
-+	hclge_cmd_init_regs(&hdev->hw);
++	if ((packets_per_secs > HNS3_RX_ULTRA_PACKET_RATE) &&
++	    (&tqp_vector->rx_group == ring_group))
++		new_flow_level = HNS3_FLOW_ULTRA;
 +
-+	ret = hclge_cmd_query_firmware_version(&hdev->hw, &version);
-+	if (ret) {
-+		dev_err(&hdev->pdev->dev,
-+			"firmware version query failed %d\n", ret);
-+		return ret;
++	switch (new_flow_level) {
++	case HNS3_FLOW_LOW:
++		new_int_gl = HNS3_INT_GL_50K;
++		break;
++	case HNS3_FLOW_MID:
++		new_int_gl = HNS3_INT_GL_20K;
++		break;
++	case HNS3_FLOW_HIGH:
++		new_int_gl = HNS3_INT_GL_18K;
++		break;
++	case HNS3_FLOW_ULTRA:
++		new_int_gl = HNS3_INT_GL_8K;
++		break;
++	default:
++		break;
 +	}
-+	hdev->fw_version = version;
 +
-+	dev_info(&hdev->pdev->dev, "The firware version is %08x\n", version);
++	ring_group->total_bytes = 0;
++	ring_group->total_packets = 0;
++	ring_group->flow_level = new_flow_level;
++	if (new_int_gl != ring_group->int_gl) {
++		ring_group->int_gl = new_int_gl;
++		return true;
++	}
++	return false;
++}
++
++static void hns3_update_new_int_gl(struct hns3_enet_tqp_vector *tqp_vector)
++{
++	u16 rx_int_gl, tx_int_gl;
++	bool rx, tx;
++
++	rx = hns3_get_new_int_gl(&tqp_vector->rx_group);
++	tx = hns3_get_new_int_gl(&tqp_vector->tx_group);
++	rx_int_gl = tqp_vector->rx_group.int_gl;
++	tx_int_gl = tqp_vector->tx_group.int_gl;
++	if (rx && tx) {
++		if (rx_int_gl > tx_int_gl) {
++			tqp_vector->tx_group.int_gl = rx_int_gl;
++			tqp_vector->tx_group.flow_level =
++				tqp_vector->rx_group.flow_level;
++			hns3_set_vector_coalesc_gl(tqp_vector, rx_int_gl);
++		} else {
++			tqp_vector->rx_group.int_gl = tx_int_gl;
++			tqp_vector->rx_group.flow_level =
++				tqp_vector->tx_group.flow_level;
++			hns3_set_vector_coalesc_gl(tqp_vector, tx_int_gl);
++		}
++	}
++}
++
++static int hns3_nic_common_poll(struct napi_struct *napi, int budget)
++{
++	struct hns3_enet_ring *ring;
++	int rx_pkt_total = 0;
++
++	struct hns3_enet_tqp_vector *tqp_vector =
++		container_of(napi, struct hns3_enet_tqp_vector, napi);
++	bool clean_complete = true;
++	int rx_budget;
++
++	/* Since the actual Tx work is minimal, we can give the Tx a larger
++	 * budget and be more aggressive about cleaning up the Tx descriptors.
++	 */
++	hns3_for_each_ring(ring, tqp_vector->tx_group) {
++		if (!hns3_clean_tx_ring(ring, budget)) {
++			clean_complete = false;
++			continue;
++		}
++	}
++
++	/* make sure rx ring budget not smaller than 1 */
++	rx_budget = max(budget / tqp_vector->num_tqps, 1);
++
++	hns3_for_each_ring(ring, tqp_vector->rx_group) {
++		int rx_cleaned = hns3_clean_rx_ring(ring, rx_budget);
++
++		if (rx_cleaned >= rx_budget)
++			clean_complete = false;
++
++		rx_pkt_total += rx_cleaned;
++	}
++
++	tqp_vector->rx_group.total_packets += rx_pkt_total;
++
++	if (!clean_complete)
++		return budget;
++
++	napi_complete(napi);
++	hns3_update_new_int_gl(tqp_vector);
++	hns3_mask_vector_irq(tqp_vector, 1);
++
++	return rx_pkt_total;
++}
++
++static int hns3_get_vector_ring_chain(struct hns3_enet_tqp_vector *tqp_vector,
++				      struct hnae3_ring_chain_node *head)
++{
++	struct pci_dev *pdev = tqp_vector->handle->pdev;
++	struct hnae3_ring_chain_node *cur_chain = head;
++	struct hnae3_ring_chain_node *chain;
++	struct hns3_enet_ring *tx_ring;
++	struct hns3_enet_ring *rx_ring;
++
++	tx_ring = tqp_vector->tx_group.ring;
++	if (tx_ring) {
++		cur_chain->tqp_index = tx_ring->tqp->tqp_index;
++		hnae_set_bit(cur_chain->flag, HNAE3_RING_TYPE_B,
++			     HNAE3_RING_TYPE_TX);
++
++		cur_chain->next = NULL;
++
++		while (tx_ring->next) {
++			tx_ring = tx_ring->next;
++
++			chain = devm_kzalloc(&pdev->dev, sizeof(*chain),
++					     GFP_KERNEL);
++			if (!chain)
++				return -ENOMEM;
++
++			cur_chain->next = chain;
++			chain->tqp_index = tx_ring->tqp->tqp_index;
++			hnae_set_bit(chain->flag, HNAE3_RING_TYPE_B,
++				     HNAE3_RING_TYPE_TX);
++
++			cur_chain = chain;
++		}
++	}
++
++	rx_ring = tqp_vector->rx_group.ring;
++	if (!tx_ring && rx_ring) {
++		cur_chain->next = NULL;
++		cur_chain->tqp_index = rx_ring->tqp->tqp_index;
++		hnae_set_bit(cur_chain->flag, HNAE3_RING_TYPE_B,
++			     HNAE3_RING_TYPE_RX);
++
++		rx_ring = rx_ring->next;
++	}
++
++	while (rx_ring) {
++		chain = devm_kzalloc(&pdev->dev, sizeof(*chain), GFP_KERNEL);
++		if (!chain)
++			return -ENOMEM;
++
++		cur_chain->next = chain;
++		chain->tqp_index = rx_ring->tqp->tqp_index;
++		hnae_set_bit(chain->flag, HNAE3_RING_TYPE_B,
++			     HNAE3_RING_TYPE_RX);
++		cur_chain = chain;
++
++		rx_ring = rx_ring->next;
++	}
 +
 +	return 0;
-+err_csq:
-+	hclge_free_cmd_desc(&hdev->hw.cmq.csq);
++}
++
++static void hns3_free_vector_ring_chain(struct hns3_enet_tqp_vector *tqp_vector,
++					struct hnae3_ring_chain_node *head)
++{
++	struct pci_dev *pdev = tqp_vector->handle->pdev;
++	struct hnae3_ring_chain_node *chain_tmp, *chain;
++
++	chain = head->next;
++
++	while (chain) {
++		chain_tmp = chain->next;
++		devm_kfree(&pdev->dev, chain);
++		chain = chain_tmp;
++	}
++}
++
++static void hns3_add_ring_to_group(struct hns3_enet_ring_group *group,
++				   struct hns3_enet_ring *ring)
++{
++	ring->next = group->ring;
++	group->ring = ring;
++
++	group->count++;
++}
++
++static int hns3_nic_init_vector_data(struct hns3_nic_priv *priv)
++{
++	struct hnae3_ring_chain_node vector_ring_chain;
++	struct hnae3_handle *h = priv->ae_handle;
++	struct hns3_enet_tqp_vector *tqp_vector;
++	struct hnae3_vector_info *vector;
++	struct pci_dev *pdev = h->pdev;
++	u16 tqp_num = h->kinfo.num_tqps;
++	u16 vector_num;
++	int ret = 0;
++	u16 i;
++
++	/* RSS size, cpu online and vector_num should be the same */
++	/* Should consider 2p/4p later */
++	vector_num = min_t(u16, num_online_cpus(), tqp_num);
++	vector = devm_kcalloc(&pdev->dev, vector_num, sizeof(*vector),
++			      GFP_KERNEL);
++	if (!vector)
++		return -ENOMEM;
++
++	vector_num = h->ae_algo->ops->get_vector(h, vector_num, vector);
++
++	priv->vector_num = vector_num;
++	priv->tqp_vector = (struct hns3_enet_tqp_vector *)
++		devm_kcalloc(&pdev->dev, vector_num, sizeof(*priv->tqp_vector),
++			     GFP_KERNEL);
++	if (!priv->tqp_vector)
++		return -ENOMEM;
++
++	for (i = 0; i < tqp_num; i++) {
++		u16 vector_i = i % vector_num;
++
++		tqp_vector = &priv->tqp_vector[vector_i];
++
++		hns3_add_ring_to_group(&tqp_vector->tx_group,
++				       priv->ring_data[i].ring);
++
++		hns3_add_ring_to_group(&tqp_vector->rx_group,
++				       priv->ring_data[i + tqp_num].ring);
++
++		tqp_vector->idx = vector_i;
++		tqp_vector->mask_addr = vector[vector_i].io_addr;
++		tqp_vector->vector_irq = vector[vector_i].vector;
++		tqp_vector->num_tqps++;
++
++		priv->ring_data[i].ring->tqp_vector = tqp_vector;
++		priv->ring_data[i + tqp_num].ring->tqp_vector = tqp_vector;
++	}
++
++	for (i = 0; i < vector_num; i++) {
++		tqp_vector = &priv->tqp_vector[i];
++
++		tqp_vector->rx_group.total_bytes = 0;
++		tqp_vector->rx_group.total_packets = 0;
++		tqp_vector->tx_group.total_bytes = 0;
++		tqp_vector->tx_group.total_packets = 0;
++		hns3_vector_gl_rl_init(tqp_vector);
++		tqp_vector->handle = h;
++
++		ret = hns3_get_vector_ring_chain(tqp_vector,
++						 &vector_ring_chain);
++		if (ret)
++			goto out;
++
++		ret = h->ae_algo->ops->map_ring_to_vector(h,
++			tqp_vector->vector_irq, &vector_ring_chain);
++		if (ret)
++			goto out;
++
++		hns3_free_vector_ring_chain(tqp_vector, &vector_ring_chain);
++
++		netif_napi_add(priv->netdev, &tqp_vector->napi,
++			       hns3_nic_common_poll, NAPI_POLL_WEIGHT);
++	}
++
++out:
++	devm_kfree(&pdev->dev, vector);
 +	return ret;
 +}
 +
-+static void hclge_destroy_queue(struct hclge_cmq_ring *ring)
++static int hns3_nic_uninit_vector_data(struct hns3_nic_priv *priv)
 +{
-+	spin_lock_bh(&ring->lock);
-+	hclge_free_cmd_desc(ring);
-+	spin_unlock_bh(&ring->lock);
++	struct hnae3_ring_chain_node vector_ring_chain;
++	struct hnae3_handle *h = priv->ae_handle;
++	struct hns3_enet_tqp_vector *tqp_vector;
++	struct pci_dev *pdev = h->pdev;
++	int i, ret;
++
++	for (i = 0; i < priv->vector_num; i++) {
++		tqp_vector = &priv->tqp_vector[i];
++
++		ret = hns3_get_vector_ring_chain(tqp_vector,
++						 &vector_ring_chain);
++		if (ret)
++			return ret;
++
++		ret = h->ae_algo->ops->unmap_ring_from_vector(h,
++			tqp_vector->vector_irq, &vector_ring_chain);
++		if (ret)
++			return ret;
++
++		hns3_free_vector_ring_chain(tqp_vector, &vector_ring_chain);
++
++		if (priv->tqp_vector[i].irq_init_flag == HNS3_VECTOR_INITED) {
++			(void)irq_set_affinity_hint(
++				priv->tqp_vector[i].vector_irq,
++						    NULL);
++			devm_free_irq(&pdev->dev,
++				      priv->tqp_vector[i].vector_irq,
++				      &priv->tqp_vector[i]);
++		}
++
++		priv->ring_data[i].ring->irq_init_flag = HNS3_VECTOR_NOT_INITED;
++
++		netif_napi_del(&priv->tqp_vector[i].napi);
++	}
++
++	devm_kfree(&pdev->dev, priv->tqp_vector);
++
++	return 0;
 +}
 +
-+void hclge_destroy_cmd_queue(struct hclge_hw *hw)
++static int hns3_ring_get_cfg(struct hnae3_queue *q, struct hns3_nic_priv *priv,
++			     int ring_type)
 +{
-+	hclge_destroy_queue(&hw->cmq.csq);
-+	hclge_destroy_queue(&hw->cmq.crq);
++	struct hns3_nic_ring_data *ring_data = priv->ring_data;
++	int queue_num = priv->ae_handle->kinfo.num_tqps;
++	struct pci_dev *pdev = priv->ae_handle->pdev;
++	struct hns3_enet_ring *ring;
++
++	ring = devm_kzalloc(&pdev->dev, sizeof(*ring), GFP_KERNEL);
++	if (!ring)
++		return -ENOMEM;
++
++	if (ring_type == HNAE3_RING_TYPE_TX) {
++		ring_data[q->tqp_index].ring = ring;
++		ring->io_base = (u8 __iomem *)q->io_base + HNS3_TX_REG_OFFSET;
++	} else {
++		ring_data[q->tqp_index + queue_num].ring = ring;
++		ring->io_base = q->io_base;
++	}
++
++	hnae_set_bit(ring->flag, HNAE3_RING_TYPE_B, ring_type);
++
++	ring_data[q->tqp_index].queue_index = q->tqp_index;
++
++	ring->tqp = q;
++	ring->desc = NULL;
++	ring->desc_cb = NULL;
++	ring->dev = priv->dev;
++	ring->desc_dma_addr = 0;
++	ring->buf_size = q->buf_size;
++	ring->desc_num = q->desc_num;
++	ring->next_to_use = 0;
++	ring->next_to_clean = 0;
++
++	return 0;
 +}
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
++
++static int hns3_queue_to_ring(struct hnae3_queue *tqp,
++			      struct hns3_nic_priv *priv)
++{
++	int ret;
++
++	ret = hns3_ring_get_cfg(tqp, priv, HNAE3_RING_TYPE_TX);
++	if (ret)
++		return ret;
++
++	ret = hns3_ring_get_cfg(tqp, priv, HNAE3_RING_TYPE_RX);
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
++static int hns3_get_ring_config(struct hns3_nic_priv *priv)
++{
++	struct hnae3_handle *h = priv->ae_handle;
++	struct pci_dev *pdev = h->pdev;
++	int i, ret;
++
++	priv->ring_data =  devm_kzalloc(&pdev->dev, h->kinfo.num_tqps *
++					sizeof(*priv->ring_data) * 2,
++					GFP_KERNEL);
++	if (!priv->ring_data)
++		return -ENOMEM;
++
++	for (i = 0; i < h->kinfo.num_tqps; i++) {
++		ret = hns3_queue_to_ring(h->kinfo.tqp[i], priv);
++		if (ret)
++			goto err;
++	}
++
++	return 0;
++err:
++	devm_kfree(&pdev->dev, priv->ring_data);
++	return ret;
++}
++
++static int hns3_alloc_ring_memory(struct hns3_enet_ring *ring)
++{
++	int ret;
++
++	if (ring->desc_num <= 0 || ring->buf_size <= 0)
++		return -EINVAL;
++
++	ring->desc_cb = kcalloc(ring->desc_num, sizeof(ring->desc_cb[0]),
++				GFP_KERNEL);
++	if (!ring->desc_cb) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	ret = hns3_alloc_desc(ring);
++	if (ret)
++		goto out_with_desc_cb;
++
++	if (!HNAE3_IS_TX_RING(ring)) {
++		ret = hns3_alloc_ring_buffers(ring);
++		if (ret)
++			goto out_with_desc;
++	}
++
++	return 0;
++
++out_with_desc:
++	hns3_free_desc(ring);
++out_with_desc_cb:
++	kfree(ring->desc_cb);
++	ring->desc_cb = NULL;
++out:
++	return ret;
++}
++
++static void hns3_fini_ring(struct hns3_enet_ring *ring)
++{
++	hns3_free_desc(ring);
++	kfree(ring->desc_cb);
++	ring->desc_cb = NULL;
++	ring->next_to_clean = 0;
++	ring->next_to_use = 0;
++}
++
++int hns3_buf_size2type(u32 buf_size)
++{
++	int bd_size_type;
++
++	switch (buf_size) {
++	case 512:
++		bd_size_type = HNS3_BD_SIZE_512_TYPE;
++		break;
++	case 1024:
++		bd_size_type = HNS3_BD_SIZE_1024_TYPE;
++		break;
++	case 2048:
++		bd_size_type = HNS3_BD_SIZE_2048_TYPE;
++		break;
++	case 4096:
++		bd_size_type = HNS3_BD_SIZE_4096_TYPE;
++		break;
++	default:
++		bd_size_type = HNS3_BD_SIZE_2048_TYPE;
++	}
++
++	return bd_size_type;
++}
++
++static void hns3_init_ring_hw(struct hns3_enet_ring *ring)
++{
++	dma_addr_t dma = ring->desc_dma_addr;
++	struct hnae3_queue *q = ring->tqp;
++
++	if (!HNAE3_IS_TX_RING(ring)) {
++		hns3_write_dev(q, HNS3_RING_RX_RING_BASEADDR_L_REG,
++			       (u32)dma);
++		hns3_write_dev(q, HNS3_RING_RX_RING_BASEADDR_H_REG,
++			       (u32)((dma >> 31) >> 1));
++
++		hns3_write_dev(q, HNS3_RING_RX_RING_BD_LEN_REG,
++			       hns3_buf_size2type(ring->buf_size));
++		hns3_write_dev(q, HNS3_RING_RX_RING_BD_NUM_REG,
++			       ring->desc_num / 8 - 1);
++
++	} else {
++		hns3_write_dev(q, HNS3_RING_TX_RING_BASEADDR_L_REG,
++			       (u32)dma);
++		hns3_write_dev(q, HNS3_RING_TX_RING_BASEADDR_H_REG,
++			       (u32)((dma >> 31) >> 1));
++
++		hns3_write_dev(q, HNS3_RING_TX_RING_BD_LEN_REG,
++			       hns3_buf_size2type(ring->buf_size));
++		hns3_write_dev(q, HNS3_RING_TX_RING_BD_NUM_REG,
++			       ring->desc_num / 8 - 1);
++	}
++}
++
++static int hns3_init_all_ring(struct hns3_nic_priv *priv)
++{
++	struct hnae3_handle *h = priv->ae_handle;
++	int ring_num = h->kinfo.num_tqps * 2;
++	int i, j;
++	int ret;
++
++	for (i = 0; i < ring_num; i++) {
++		ret = hns3_alloc_ring_memory(priv->ring_data[i].ring);
++		if (ret) {
++			dev_err(priv->dev,
++				"Alloc ring memory fail! ret=%d\n", ret);
++			goto out_when_alloc_ring_memory;
++		}
++
++		hns3_init_ring_hw(priv->ring_data[i].ring);
++
++		u64_stats_init(&priv->ring_data[i].ring->syncp);
++	}
++
++	return 0;
++
++out_when_alloc_ring_memory:
++	for (j = i - 1; j >= 0; j--)
++		hns3_fini_ring(priv->ring_data[i].ring);
++
++	return -ENOMEM;
++}
++
++static int hns3_uninit_all_ring(struct hns3_nic_priv *priv)
++{
++	struct hnae3_handle *h = priv->ae_handle;
++	int i;
++
++	for (i = 0; i < h->kinfo.num_tqps; i++) {
++		if (h->ae_algo->ops->reset_queue)
++			h->ae_algo->ops->reset_queue(h, i);
++
++		hns3_fini_ring(priv->ring_data[i].ring);
++		hns3_fini_ring(priv->ring_data[i + h->kinfo.num_tqps].ring);
++	}
++
++	return 0;
++}
++
++/* Set mac addr if it is configured. or leave it to the AE driver */
++static void hns3_init_mac_addr(struct net_device *netdev)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	u8 mac_addr_temp[ETH_ALEN];
++
++	if (h->ae_algo->ops->get_mac_addr) {
++		h->ae_algo->ops->get_mac_addr(h, mac_addr_temp);
++		ether_addr_copy(netdev->dev_addr, mac_addr_temp);
++	}
++
++	/* Check if the MAC address is valid, if not get a random one */
++	if (!is_valid_ether_addr(netdev->dev_addr)) {
++		eth_hw_addr_random(netdev);
++		dev_warn(priv->dev, "using random MAC address %pM\n",
++			 netdev->dev_addr);
++		/* Also copy this new MAC address into hdev */
++		if (h->ae_algo->ops->set_mac_addr)
++			h->ae_algo->ops->set_mac_addr(h, netdev->dev_addr);
++	}
++}
++
++static void hns3_nic_set_priv_ops(struct net_device *netdev)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++
++	if ((netdev->features & NETIF_F_TSO) ||
++	    (netdev->features & NETIF_F_TSO6)) {
++		priv->ops.fill_desc = hns3_fill_desc_tso;
++		priv->ops.maybe_stop_tx = hns3_nic_maybe_stop_tso;
++	} else {
++		priv->ops.fill_desc = hns3_fill_desc;
++		priv->ops.maybe_stop_tx = hns3_nic_maybe_stop_tx;
++	}
++}
++
++static int hns3_client_init(struct hnae3_handle *handle)
++{
++	struct pci_dev *pdev = handle->pdev;
++	struct hns3_nic_priv *priv;
++	struct net_device *netdev;
++	int ret;
++
++	netdev = alloc_etherdev_mq(sizeof(struct hns3_nic_priv),
++				   handle->kinfo.num_tqps);
++	if (!netdev)
++		return -ENOMEM;
++
++	priv = netdev_priv(netdev);
++	priv->dev = &pdev->dev;
++	priv->netdev = netdev;
++	priv->ae_handle = handle;
++
++	handle->kinfo.netdev = netdev;
++	handle->priv = (void *)priv;
++
++	hns3_init_mac_addr(netdev);
++
++	hns3_set_default_feature(netdev);
++
++	netdev->watchdog_timeo = HNS3_TX_TIMEOUT;
++	netdev->priv_flags |= IFF_UNICAST_FLT;
++	netdev->netdev_ops = &hns3_nic_netdev_ops;
++	SET_NETDEV_DEV(netdev, &pdev->dev);
++	hns3_ethtool_set_ops(netdev);
++	hns3_nic_set_priv_ops(netdev);
++
++	/* Carrier off reporting is important to ethtool even BEFORE open */
++	netif_carrier_off(netdev);
++
++	ret = hns3_get_ring_config(priv);
++	if (ret) {
++		ret = -ENOMEM;
++		goto out_get_ring_cfg;
++	}
++
++	ret = hns3_nic_init_vector_data(priv);
++	if (ret) {
++		ret = -ENOMEM;
++		goto out_init_vector_data;
++	}
++
++	ret = hns3_init_all_ring(priv);
++	if (ret) {
++		ret = -ENOMEM;
++		goto out_init_ring_data;
++	}
++
++	ret = register_netdev(netdev);
++	if (ret) {
++		dev_err(priv->dev, "probe register netdev fail!\n");
++		goto out_reg_netdev_fail;
++	}
++
++	return ret;
++
++out_reg_netdev_fail:
++out_init_ring_data:
++	(void)hns3_nic_uninit_vector_data(priv);
++	priv->ring_data = NULL;
++out_init_vector_data:
++out_get_ring_cfg:
++	priv->ae_handle = NULL;
++	free_netdev(netdev);
++	return ret;
++}
++
++static void hns3_client_uninit(struct hnae3_handle *handle, bool reset)
++{
++	struct net_device *netdev = handle->kinfo.netdev;
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	int ret;
++
++	if (netdev->reg_state != NETREG_UNINITIALIZED)
++		unregister_netdev(netdev);
++
++	ret = hns3_nic_uninit_vector_data(priv);
++	if (ret)
++		netdev_err(netdev, "uninit vector error\n");
++
++	ret = hns3_uninit_all_ring(priv);
++	if (ret)
++		netdev_err(netdev, "uninit ring error\n");
++
++	priv->ring_data = NULL;
++
++	free_netdev(netdev);
++}
++
++static void hns3_link_status_change(struct hnae3_handle *handle, bool linkup)
++{
++	struct net_device *netdev = handle->kinfo.netdev;
++
++	if (!netdev)
++		return;
++
++	if (linkup) {
++		netif_carrier_on(netdev);
++		netif_tx_wake_all_queues(netdev);
++		netdev_info(netdev, "link up\n");
++	} else {
++		netif_carrier_off(netdev);
++		netif_tx_stop_all_queues(netdev);
++		netdev_info(netdev, "link down\n");
++	}
++}
++
++const struct hnae3_client_ops client_ops = {
++	.init_instance = hns3_client_init,
++	.uninit_instance = hns3_client_uninit,
++	.link_status_change = hns3_link_status_change,
++};
++
++/* hns3_init_module - Driver registration routine
++ * hns3_init_module is the first routine called when the driver is
++ * loaded. All it does is register with the PCI subsystem.
++ */
++static int __init hns3_init_module(void)
++{
++	int ret;
++
++	pr_info("%s: %s - version\n", hns3_driver_name, hns3_driver_string);
++	pr_info("%s: %s\n", hns3_driver_name, hns3_copyright);
++
++	client.type = HNAE3_CLIENT_KNIC;
++	snprintf(client.name, HNAE3_CLIENT_NAME_LENGTH - 1, "%s",
++		 hns3_driver_name);
++
++	client.ops = &client_ops;
++
++	ret = hnae3_register_client(&client);
++	if (ret)
++		return ret;
++
++	ret = pci_register_driver(&hns3_driver);
++	if (ret)
++		hnae3_unregister_client(&client);
++
++	return ret;
++}
++module_init(hns3_init_module);
++
++/* hns3_exit_module - Driver exit cleanup routine
++ * hns3_exit_module is called just before the driver is removed
++ * from memory.
++ */
++static void __exit hns3_exit_module(void)
++{
++	pci_unregister_driver(&hns3_driver);
++	hnae3_unregister_client(&client);
++}
++module_exit(hns3_exit_module);
++
++MODULE_DESCRIPTION("HNS3: Hisilicon Ethernet Driver");
++MODULE_AUTHOR("Huawei Tech. Co., Ltd.");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("pci:hns-nic");
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
 new file mode 100644
-index 0000000..11a2ae6
+index 0000000..da86505
 --- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-@@ -0,0 +1,741 @@
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+@@ -0,0 +1,595 @@
 +/*
-+ * Copyright (c) 2016~2017 Hisilicon Limited.
++ * Copyright (c) 2016 Hisilicon Limited.
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
@@ -426,743 +2919,591 @@ index 0000000..11a2ae6
 + * (at your option) any later version.
 + */
 +
-+#ifndef __HCLGE_CMD_H
-+#define __HCLGE_CMD_H
-+#include <linux/types.h>
-+#include <linux/io.h>
++#ifndef __HNS3_ENET_H
++#define __HNS3_ENET_H
 +
-+#define HCLGE_CMDQ_TX_TIMEOUT		1000
++#include "hnae3.h"
 +
-+struct hclge_dev;
-+struct hclge_desc {
-+	__le16 opcode;
++extern const char hns3_driver_version[];
 +
-+#define HCLGE_CMDQ_RX_INVLD_B		0
-+#define HCLGE_CMDQ_RX_OUTVLD_B		1
-+
-+	__le16 flag;
-+	__le16 retval;
-+	__le16 rsv;
-+	__le32 data[6];
++enum hns3_nic_state {
++	HNS3_NIC_STATE_TESTING,
++	HNS3_NIC_STATE_RESETTING,
++	HNS3_NIC_STATE_REINITING,
++	HNS3_NIC_STATE_DOWN,
++	HNS3_NIC_STATE_DISABLED,
++	HNS3_NIC_STATE_REMOVING,
++	HNS3_NIC_STATE_SERVICE_INITED,
++	HNS3_NIC_STATE_SERVICE_SCHED,
++	HNS3_NIC_STATE2_RESET_REQUESTED,
++	HNS3_NIC_STATE_MAX
 +};
 +
-+struct hclge_desc_cb {
-+	dma_addr_t dma;
-+	void *va;
-+	u32 length;
++#define HNS3_RING_RX_RING_BASEADDR_L_REG	0x00000
++#define HNS3_RING_RX_RING_BASEADDR_H_REG	0x00004
++#define HNS3_RING_RX_RING_BD_NUM_REG		0x00008
++#define HNS3_RING_RX_RING_BD_LEN_REG		0x0000C
++#define HNS3_RING_RX_RING_TAIL_REG		0x00018
++#define HNS3_RING_RX_RING_HEAD_REG		0x0001C
++#define HNS3_RING_RX_RING_FBDNUM_REG		0x00020
++#define HNS3_RING_RX_RING_PKTNUM_RECORD_REG	0x0002C
++
++#define HNS3_RING_TX_RING_BASEADDR_L_REG	0x00040
++#define HNS3_RING_TX_RING_BASEADDR_H_REG	0x00044
++#define HNS3_RING_TX_RING_BD_NUM_REG		0x00048
++#define HNS3_RING_TX_RING_BD_LEN_REG		0x0004C
++#define HNS3_RING_TX_RING_TAIL_REG		0x00058
++#define HNS3_RING_TX_RING_HEAD_REG		0x0005C
++#define HNS3_RING_TX_RING_FBDNUM_REG		0x00060
++#define HNS3_RING_TX_RING_OFFSET_REG		0x00064
++#define HNS3_RING_TX_RING_PKTNUM_RECORD_REG	0x0006C
++
++#define HNS3_RING_PREFETCH_EN_REG		0x0007C
++#define HNS3_RING_CFG_VF_NUM_REG		0x00080
++#define HNS3_RING_ASID_REG			0x0008C
++#define HNS3_RING_RX_VM_REG			0x00090
++#define HNS3_RING_T0_BE_RST			0x00094
++#define HNS3_RING_COULD_BE_RST			0x00098
++#define HNS3_RING_WRR_WEIGHT_REG		0x0009c
++
++#define HNS3_RING_INTMSK_RXWL_REG		0x000A0
++#define HNS3_RING_INTSTS_RX_RING_REG		0x000A4
++#define HNS3_RX_RING_INT_STS_REG		0x000A8
++#define HNS3_RING_INTMSK_TXWL_REG		0x000AC
++#define HNS3_RING_INTSTS_TX_RING_REG		0x000B0
++#define HNS3_TX_RING_INT_STS_REG		0x000B4
++#define HNS3_RING_INTMSK_RX_OVERTIME_REG	0x000B8
++#define HNS3_RING_INTSTS_RX_OVERTIME_REG	0x000BC
++#define HNS3_RING_INTMSK_TX_OVERTIME_REG	0x000C4
++#define HNS3_RING_INTSTS_TX_OVERTIME_REG	0x000C8
++
++#define HNS3_RING_MB_CTRL_REG			0x00100
++#define HNS3_RING_MB_DATA_BASE_REG		0x00200
++
++#define HNS3_TX_REG_OFFSET			0x40
++
++#define HNS3_RX_HEAD_SIZE			256
++
++#define HNS3_TX_TIMEOUT (5 * HZ)
++#define HNS3_RING_NAME_LEN			16
++#define HNS3_BUFFER_SIZE_2048			2048
++#define HNS3_RING_MAX_PENDING			32768
++
++#define HNS3_BD_SIZE_512_TYPE			0
++#define HNS3_BD_SIZE_1024_TYPE			1
++#define HNS3_BD_SIZE_2048_TYPE			2
++#define HNS3_BD_SIZE_4096_TYPE			3
++
++#define HNS3_RX_FLAG_VLAN_PRESENT		0x1
++#define HNS3_RX_FLAG_L3ID_IPV4			0x0
++#define HNS3_RX_FLAG_L3ID_IPV6			0x1
++#define HNS3_RX_FLAG_L4ID_UDP			0x0
++#define HNS3_RX_FLAG_L4ID_TCP			0x1
++
++#define HNS3_RXD_DMAC_S				0
++#define HNS3_RXD_DMAC_M				(0x3 << HNS3_RXD_DMAC_S)
++#define HNS3_RXD_VLAN_S				2
++#define HNS3_RXD_VLAN_M				(0x3 << HNS3_RXD_VLAN_S)
++#define HNS3_RXD_L3ID_S				4
++#define HNS3_RXD_L3ID_M				(0xf << HNS3_RXD_L3ID_S)
++#define HNS3_RXD_L4ID_S				8
++#define HNS3_RXD_L4ID_M				(0xf << HNS3_RXD_L4ID_S)
++#define HNS3_RXD_FRAG_B				12
++#define HNS3_RXD_L2E_B				16
++#define HNS3_RXD_L3E_B				17
++#define HNS3_RXD_L4E_B				18
++#define HNS3_RXD_TRUNCAT_B			19
++#define HNS3_RXD_HOI_B				20
++#define HNS3_RXD_DOI_B				21
++#define HNS3_RXD_OL3E_B				22
++#define HNS3_RXD_OL4E_B				23
++
++#define HNS3_RXD_ODMAC_S			0
++#define HNS3_RXD_ODMAC_M			(0x3 << HNS3_RXD_ODMAC_S)
++#define HNS3_RXD_OVLAN_S			2
++#define HNS3_RXD_OVLAN_M			(0x3 << HNS3_RXD_OVLAN_S)
++#define HNS3_RXD_OL3ID_S			4
++#define HNS3_RXD_OL3ID_M			(0xf << HNS3_RXD_OL3ID_S)
++#define HNS3_RXD_OL4ID_S			8
++#define HNS3_RXD_OL4ID_M			(0xf << HNS3_RXD_OL4ID_S)
++#define HNS3_RXD_FBHI_S				12
++#define HNS3_RXD_FBHI_M				(0x3 << HNS3_RXD_FBHI_S)
++#define HNS3_RXD_FBLI_S				14
++#define HNS3_RXD_FBLI_M				(0x3 << HNS3_RXD_FBLI_S)
++
++#define HNS3_RXD_BDTYPE_S			0
++#define HNS3_RXD_BDTYPE_M			(0xf << HNS3_RXD_BDTYPE_S)
++#define HNS3_RXD_VLD_B				4
++#define HNS3_RXD_UDP0_B				5
++#define HNS3_RXD_EXTEND_B			7
++#define HNS3_RXD_FE_B				8
++#define HNS3_RXD_LUM_B				9
++#define HNS3_RXD_CRCP_B				10
++#define HNS3_RXD_L3L4P_B			11
++#define HNS3_RXD_TSIND_S			12
++#define HNS3_RXD_TSIND_M			(0x7 << HNS3_RXD_TSIND_S)
++#define HNS3_RXD_LKBK_B				15
++#define HNS3_RXD_HDL_S				16
++#define HNS3_RXD_HDL_M				(0x7ff << HNS3_RXD_HDL_S)
++#define HNS3_RXD_HSIND_B			31
++
++#define HNS3_TXD_L3T_S				0
++#define HNS3_TXD_L3T_M				(0x3 << HNS3_TXD_L3T_S)
++#define HNS3_TXD_L4T_S				2
++#define HNS3_TXD_L4T_M				(0x3 << HNS3_TXD_L4T_S)
++#define HNS3_TXD_L3CS_B				4
++#define HNS3_TXD_L4CS_B				5
++#define HNS3_TXD_VLAN_B				6
++#define HNS3_TXD_TSO_B				7
++
++#define HNS3_TXD_L2LEN_S			8
++#define HNS3_TXD_L2LEN_M			(0xff << HNS3_TXD_L2LEN_S)
++#define HNS3_TXD_L3LEN_S			16
++#define HNS3_TXD_L3LEN_M			(0xff << HNS3_TXD_L3LEN_S)
++#define HNS3_TXD_L4LEN_S			24
++#define HNS3_TXD_L4LEN_M			(0xff << HNS3_TXD_L4LEN_S)
++
++#define HNS3_TXD_OL3T_S				0
++#define HNS3_TXD_OL3T_M				(0x3 << HNS3_TXD_OL3T_S)
++#define HNS3_TXD_OVLAN_B			2
++#define HNS3_TXD_MACSEC_B			3
++#define HNS3_TXD_TUNTYPE_S			4
++#define HNS3_TXD_TUNTYPE_M			(0xf << HNS3_TXD_TUNTYPE_S)
++
++#define HNS3_TXD_BDTYPE_S			0
++#define HNS3_TXD_BDTYPE_M			(0xf << HNS3_TXD_BDTYPE_S)
++#define HNS3_TXD_FE_B				4
++#define HNS3_TXD_SC_S				5
++#define HNS3_TXD_SC_M				(0x3 << HNS3_TXD_SC_S)
++#define HNS3_TXD_EXTEND_B			7
++#define HNS3_TXD_VLD_B				8
++#define HNS3_TXD_RI_B				9
++#define HNS3_TXD_RA_B				10
++#define HNS3_TXD_TSYN_B				11
++#define HNS3_TXD_DECTTL_S			12
++#define HNS3_TXD_DECTTL_M			(0xf << HNS3_TXD_DECTTL_S)
++
++#define HNS3_TXD_MSS_S				0
++#define HNS3_TXD_MSS_M				(0x3fff << HNS3_TXD_MSS_S)
++
++#define HNS3_VECTOR_TX_IRQ			BIT_ULL(0)
++#define HNS3_VECTOR_RX_IRQ			BIT_ULL(1)
++
++#define HNS3_VECTOR_NOT_INITED			0
++#define HNS3_VECTOR_INITED			1
++
++#define HNS3_MAX_BD_SIZE			65535
++#define HNS3_MAX_BD_PER_FRAG			8
++
++#define HNS3_VECTOR_GL0_OFFSET			0x100
++#define HNS3_VECTOR_GL1_OFFSET			0x200
++#define HNS3_VECTOR_GL2_OFFSET			0x300
++#define HNS3_VECTOR_RL_OFFSET			0x900
++#define HNS3_VECTOR_RL_EN_B			6
++
++enum hns3_pkt_l3t_type {
++	HNS3_L3T_NONE,
++	HNS3_L3T_IPV6,
++	HNS3_L3T_IPV4,
++	HNS3_L3T_RESERVED
 +};
 +
-+struct hclge_cmq_ring {
++enum hns3_pkt_l4t_type {
++	HNS3_L4T_UNKNOWN,
++	HNS3_L4T_TCP,
++	HNS3_L4T_UDP,
++	HNS3_L4T_SCTP
++};
++
++enum hns3_pkt_ol3t_type {
++	HNS3_OL3T_NONE,
++	HNS3_OL3T_IPV6,
++	HNS3_OL3T_IPV4_NO_CSUM,
++	HNS3_OL3T_IPV4_CSUM
++};
++
++enum hns3_pkt_tun_type {
++	HNS3_TUN_NONE,
++	HNS3_TUN_MAC_IN_UDP,
++	HNS3_TUN_NVGRE,
++	HNS3_TUN_OTHER
++};
++
++/* hardware spec ring buffer format */
++struct __packed hns3_desc {
++	__le64 addr;
++	union {
++		struct {
++			__le16 vlan_tag;
++			__le16 send_size;
++			union {
++				__le32 type_cs_vlan_tso_len;
++				struct {
++					__u8 type_cs_vlan_tso;
++					__u8 l2_len;
++					__u8 l3_len;
++					__u8 l4_len;
++				};
++			};
++			__le16 outer_vlan_tag;
++			__le16 tv;
++
++		union {
++			__le32 ol_type_vlan_len_msec;
++			struct {
++				__u8 ol_type_vlan_msec;
++				__u8 ol2_len;
++				__u8 ol3_len;
++				__u8 ol4_len;
++			};
++		};
++
++			__le32 paylen;
++			__le16 bdtp_fe_sc_vld_ra_ri;
++			__le16 mss;
++		} tx;
++
++		struct {
++			__le32 l234_info;
++			__le16 pkt_len;
++			__le16 size;
++
++			__le32 rss_hash;
++			__le16 fd_id;
++			__le16 vlan_tag;
++
++			union {
++				__le32 ol_info;
++				struct {
++					__le16 o_dm_vlan_id_fb;
++					__le16 ot_vlan_tag;
++				};
++			};
++
++			__le32 bd_base_info;
++		} rx;
++	};
++};
++
++struct hns3_desc_cb {
++	dma_addr_t dma; /* dma address of this desc */
++	void *buf;      /* cpu addr for a desc */
++
++	/* priv data for the desc, e.g. skb when use with ip stack*/
++	void *priv;
++	u16 page_offset;
++	u16 reuse_flag;
++
++	u16 length;     /* length of the buffer */
++
++       /* desc type, used by the ring user to mark the type of the priv data */
++	u16 type;
++};
++
++enum hns3_pkt_l3type {
++	HNS3_L3_TYPE_IPV4,
++	HNS3_L3_TYPE_IPV6,
++	HNS3_L3_TYPE_ARP,
++	HNS3_L3_TYPE_RARP,
++	HNS3_L3_TYPE_IPV4_OPT,
++	HNS3_L3_TYPE_IPV6_EXT,
++	HNS3_L3_TYPE_LLDP,
++	HNS3_L3_TYPE_BPDU,
++	HNS3_L3_TYPE_MAC_PAUSE,
++	HNS3_L3_TYPE_PFC_PAUSE,/* 0x9*/
++
++	/* reserved for 0xA~0xB*/
++
++	HNS3_L3_TYPE_CNM = 0xc,
++
++	/* reserved for 0xD~0xE*/
++
++	HNS3_L3_TYPE_PARSE_FAIL	= 0xf /* must be last */
++};
++
++enum hns3_pkt_l4type {
++	HNS3_L4_TYPE_UDP,
++	HNS3_L4_TYPE_TCP,
++	HNS3_L4_TYPE_GRE,
++	HNS3_L4_TYPE_SCTP,
++	HNS3_L4_TYPE_IGMP,
++	HNS3_L4_TYPE_ICMP,
++
++	/* reserved for 0x6~0xE */
++
++	HNS3_L4_TYPE_PARSE_FAIL	= 0xf /* must be last */
++};
++
++enum hns3_pkt_ol3type {
++	HNS3_OL3_TYPE_IPV4 = 0,
++	HNS3_OL3_TYPE_IPV6,
++	/* reserved for 0x2~0x3 */
++	HNS3_OL3_TYPE_IPV4_OPT = 4,
++	HNS3_OL3_TYPE_IPV6_EXT,
++
++	/* reserved for 0x6~0xE*/
++
++	HNS3_OL3_TYPE_PARSE_FAIL = 0xf	/* must be last */
++};
++
++enum hns3_pkt_ol4type {
++	HNS3_OL4_TYPE_NO_TUN,
++	HNS3_OL4_TYPE_MAC_IN_UDP,
++	HNS3_OL4_TYPE_NVGRE,
++	HNS3_OL4_TYPE_UNKNOWN
++};
++
++struct ring_stats {
++	u64 io_err_cnt;
++	u64 sw_err_cnt;
++	u64 seg_pkt_cnt;
++	union {
++		struct {
++			u64 tx_pkts;
++			u64 tx_bytes;
++			u64 tx_err_cnt;
++			u64 restart_queue;
++			u64 tx_busy;
++		};
++		struct {
++			u64 rx_pkts;
++			u64 rx_bytes;
++			u64 rx_err_cnt;
++			u64 reuse_pg_cnt;
++			u64 err_pkt_len;
++			u64 non_vld_descs;
++			u64 err_bd_num;
++			u64 l2_err;
++			u64 l3l4_csum_err;
++		};
++	};
++};
++
++struct hns3_enet_ring {
++	u8 __iomem *io_base; /* base io address for the ring */
++	struct hns3_desc *desc; /* dma map address space */
++	struct hns3_desc_cb *desc_cb;
++	struct hns3_enet_ring *next;
++	struct hns3_enet_tqp_vector *tqp_vector;
++	struct hnae3_queue *tqp;
++	char ring_name[HNS3_RING_NAME_LEN];
++	struct device *dev; /* will be used for DMA mapping of descriptors */
++
++	/* statistic */
++	struct ring_stats stats;
++	struct u64_stats_sync syncp;
++
 +	dma_addr_t desc_dma_addr;
-+	struct hclge_desc *desc;
-+	struct hclge_desc_cb *desc_cb;
-+	struct hclge_dev  *dev;
-+	u32 head;
-+	u32 tail;
++	u32 buf_size;       /* size for hnae_desc->addr, preset by AE */
++	u16 desc_num;       /* total number of desc */
++	u16 max_desc_num_per_pkt;
++	u16 max_raw_data_sz_per_desc;
++	u16 max_pkt_size;
++	int next_to_use;    /* idx of next spare desc */
 +
-+	u16 buf_size;
-+	u16 desc_num;
-+	int next_to_use;
++	/* idx of lastest sent desc, the ring is empty when equal to
++	 * next_to_use
++	 */
 +	int next_to_clean;
-+	u8 flag;
-+	spinlock_t lock; /* Command queue lock */
++
++	u32 flag;          /* ring attribute */
++	int irq_init_flag;
++
++	int numa_node;
++	cpumask_t affinity_mask;
 +};
 +
-+enum hclge_cmd_return_status {
-+	HCLGE_CMD_EXEC_SUCCESS	= 0,
-+	HCLGE_CMD_NO_AUTH	= 1,
-+	HCLGE_CMD_NOT_EXEC	= 2,
-+	HCLGE_CMD_QUEUE_FULL	= 3,
++struct hns_queue;
++
++struct hns3_nic_ring_data {
++	struct hns3_enet_ring *ring;
++	struct napi_struct napi;
++	int queue_index;
++	int (*poll_one)(struct hns3_nic_ring_data *, int, void *);
++	void (*ex_process)(struct hns3_nic_ring_data *, struct sk_buff *);
++	void (*fini_process)(struct hns3_nic_ring_data *);
 +};
 +
-+enum hclge_cmd_status {
-+	HCLGE_STATUS_SUCCESS	= 0,
-+	HCLGE_ERR_CSQ_FULL	= -1,
-+	HCLGE_ERR_CSQ_TIMEOUT	= -2,
-+	HCLGE_ERR_CSQ_ERROR	= -3,
++struct hns3_nic_ops {
++	int (*fill_desc)(struct hns3_enet_ring *ring, void *priv,
++			 int size, dma_addr_t dma, int frag_end,
++			 enum hns_desc_type type);
++	int (*maybe_stop_tx)(struct sk_buff **out_skb,
++			     int *bnum, struct hns3_enet_ring *ring);
++	void (*get_rxd_bnum)(u32 bnum_flag, int *out_bnum);
 +};
 +
-+struct hclge_cmq {
-+	struct hclge_cmq_ring csq;
-+	struct hclge_cmq_ring crq;
-+	u16 tx_timeout; /* Tx timeout */
-+	enum hclge_cmd_status last_status;
++enum hns3_flow_level_range {
++	HNS3_FLOW_LOW = 0,
++	HNS3_FLOW_MID = 1,
++	HNS3_FLOW_HIGH = 2,
++	HNS3_FLOW_ULTRA = 3,
 +};
 +
-+#define HCLGE_CMD_FLAG_IN_VALID_SHIFT	0
-+#define HCLGE_CMD_FLAG_OUT_VALID_SHIFT	1
-+#define HCLGE_CMD_FLAG_NEXT_SHIFT	2
-+#define HCLGE_CMD_FLAG_WR_OR_RD_SHIFT	3
-+#define HCLGE_CMD_FLAG_NO_INTR_SHIFT	4
-+#define HCLGE_CMD_FLAG_ERR_INTR_SHIFT	5
-+
-+#define HCLGE_CMD_FLAG_IN	BIT(HCLGE_CMD_FLAG_IN_VALID_SHIFT)
-+#define HCLGE_CMD_FLAG_OUT	BIT(HCLGE_CMD_FLAG_OUT_VALID_SHIFT)
-+#define HCLGE_CMD_FLAG_NEXT	BIT(HCLGE_CMD_FLAG_NEXT_SHIFT)
-+#define HCLGE_CMD_FLAG_WR	BIT(HCLGE_CMD_FLAG_WR_OR_RD_SHIFT)
-+#define HCLGE_CMD_FLAG_NO_INTR	BIT(HCLGE_CMD_FLAG_NO_INTR_SHIFT)
-+#define HCLGE_CMD_FLAG_ERR_INTR	BIT(HCLGE_CMD_FLAG_ERR_INTR_SHIFT)
-+
-+enum hclge_opcode_type {
-+	/* Generic command */
-+	HCLGE_OPC_QUERY_FW_VER		= 0x0001,
-+	HCLGE_OPC_CFG_RST_TRIGGER	= 0x0020,
-+	HCLGE_OPC_GBL_RST_STATUS	= 0x0021,
-+	HCLGE_OPC_QUERY_FUNC_STATUS	= 0x0022,
-+	HCLGE_OPC_QUERY_PF_RSRC		= 0x0023,
-+	HCLGE_OPC_QUERY_VF_RSRC		= 0x0024,
-+	HCLGE_OPC_GET_CFG_PARAM		= 0x0025,
-+
-+	HCLGE_OPC_STATS_64_BIT		= 0x0030,
-+	HCLGE_OPC_STATS_32_BIT		= 0x0031,
-+	HCLGE_OPC_STATS_MAC		= 0x0032,
-+	/* Device management command */
-+
-+	/* MAC commond */
-+	HCLGE_OPC_CONFIG_MAC_MODE	= 0x0301,
-+	HCLGE_OPC_CONFIG_AN_MODE	= 0x0304,
-+	HCLGE_OPC_QUERY_AN_RESULT	= 0x0306,
-+	HCLGE_OPC_QUERY_LINK_STATUS	= 0x0307,
-+	HCLGE_OPC_CONFIG_MAX_FRM_SIZE	= 0x0308,
-+	HCLGE_OPC_CONFIG_SPEED_DUP	= 0x0309,
-+	/* MACSEC command */
-+
-+	/* PFC/Pause CMD*/
-+	HCLGE_OPC_CFG_MAC_PAUSE_EN      = 0x0701,
-+	HCLGE_OPC_CFG_PFC_PAUSE_EN      = 0x0702,
-+	HCLGE_OPC_CFG_MAC_PARA          = 0x0703,
-+	HCLGE_OPC_CFG_PFC_PARA          = 0x0704,
-+	HCLGE_OPC_QUERY_MAC_TX_PKT_CNT  = 0x0705,
-+	HCLGE_OPC_QUERY_MAC_RX_PKT_CNT  = 0x0706,
-+	HCLGE_OPC_QUERY_PFC_TX_PKT_CNT  = 0x0707,
-+	HCLGE_OPC_QUERY_PFC_RX_PKT_CNT  = 0x0708,
-+	HCLGE_OPC_PRI_TO_TC_MAPPING     = 0x0709,
-+	HCLGE_OPC_QOS_MAP               = 0x070A,
-+
-+	/* ETS/scheduler commands */
-+	HCLGE_OPC_TM_PG_TO_PRI_LINK	= 0x0804,
-+	HCLGE_OPC_TM_QS_TO_PRI_LINK     = 0x0805,
-+	HCLGE_OPC_TM_NQ_TO_QS_LINK      = 0x0806,
-+	HCLGE_OPC_TM_RQ_TO_QS_LINK      = 0x0807,
-+	HCLGE_OPC_TM_PORT_WEIGHT        = 0x0808,
-+	HCLGE_OPC_TM_PG_WEIGHT          = 0x0809,
-+	HCLGE_OPC_TM_QS_WEIGHT          = 0x080A,
-+	HCLGE_OPC_TM_PRI_WEIGHT         = 0x080B,
-+	HCLGE_OPC_TM_PRI_C_SHAPPING     = 0x080C,
-+	HCLGE_OPC_TM_PRI_P_SHAPPING     = 0x080D,
-+	HCLGE_OPC_TM_PG_C_SHAPPING      = 0x080E,
-+	HCLGE_OPC_TM_PG_P_SHAPPING      = 0x080F,
-+	HCLGE_OPC_TM_PORT_SHAPPING      = 0x0810,
-+	HCLGE_OPC_TM_PG_SCH_MODE_CFG    = 0x0812,
-+	HCLGE_OPC_TM_PRI_SCH_MODE_CFG   = 0x0813,
-+	HCLGE_OPC_TM_QS_SCH_MODE_CFG    = 0x0814,
-+	HCLGE_OPC_TM_BP_TO_QSET_MAPPING = 0x0815,
-+
-+	/* Packet buffer allocate command */
-+	HCLGE_OPC_TX_BUFF_ALLOC		= 0x0901,
-+	HCLGE_OPC_RX_PRIV_BUFF_ALLOC	= 0x0902,
-+	HCLGE_OPC_RX_PRIV_WL_ALLOC	= 0x0903,
-+	HCLGE_OPC_RX_COM_THRD_ALLOC	= 0x0904,
-+	HCLGE_OPC_RX_COM_WL_ALLOC	= 0x0905,
-+	HCLGE_OPC_RX_GBL_PKT_CNT	= 0x0906,
-+
-+	/* PTP command */
-+	/* TQP management command */
-+	HCLGE_OPC_SET_TQP_MAP		= 0x0A01,
-+
-+	/* TQP command */
-+	HCLGE_OPC_CFG_TX_QUEUE		= 0x0B01,
-+	HCLGE_OPC_QUERY_TX_POINTER	= 0x0B02,
-+	HCLGE_OPC_QUERY_TX_STATUS	= 0x0B03,
-+	HCLGE_OPC_CFG_RX_QUEUE		= 0x0B11,
-+	HCLGE_OPC_QUERY_RX_POINTER	= 0x0B12,
-+	HCLGE_OPC_QUERY_RX_STATUS	= 0x0B13,
-+	HCLGE_OPC_STASH_RX_QUEUE_LRO	= 0x0B16,
-+	HCLGE_OPC_CFG_RX_QUEUE_LRO	= 0x0B17,
-+	HCLGE_OPC_CFG_COM_TQP_QUEUE	= 0x0B20,
-+	HCLGE_OPC_RESET_TQP_QUEUE	= 0x0B22,
-+
-+	/* TSO cmd */
-+	HCLGE_OPC_TSO_GENERIC_CONFIG	= 0x0C01,
-+
-+	/* RSS cmd */
-+	HCLGE_OPC_RSS_GENERIC_CONFIG	= 0x0D01,
-+	HCLGE_OPC_RSS_INDIR_TABLE	= 0x0D07,
-+	HCLGE_OPC_RSS_TC_MODE		= 0x0D08,
-+	HCLGE_OPC_RSS_INPUT_TUPLE	= 0x0D02,
-+
-+	/* Promisuous mode command */
-+	HCLGE_OPC_CFG_PROMISC_MODE	= 0x0E01,
-+
-+	/* Interrupts cmd */
-+	HCLGE_OPC_ADD_RING_TO_VECTOR	= 0x1503,
-+	HCLGE_OPC_DEL_RING_TO_VECTOR	= 0x1504,
-+
-+	/* MAC command */
-+	HCLGE_OPC_MAC_VLAN_ADD		    = 0x1000,
-+	HCLGE_OPC_MAC_VLAN_REMOVE	    = 0x1001,
-+	HCLGE_OPC_MAC_VLAN_TYPE_ID	    = 0x1002,
-+	HCLGE_OPC_MAC_VLAN_INSERT	    = 0x1003,
-+	HCLGE_OPC_MAC_ETHTYPE_ADD	    = 0x1010,
-+	HCLGE_OPC_MAC_ETHTYPE_REMOVE	= 0x1011,
-+
-+	/* Multicast linear table cmd */
-+	HCLGE_OPC_MTA_MAC_MODE_CFG	    = 0x1020,
-+	HCLGE_OPC_MTA_MAC_FUNC_CFG	    = 0x1021,
-+	HCLGE_OPC_MTA_TBL_ITEM_CFG	    = 0x1022,
-+	HCLGE_OPC_MTA_TBL_ITEM_QUERY	= 0x1023,
-+
-+	/* VLAN command */
-+	HCLGE_OPC_VLAN_FILTER_CTRL	    = 0x1100,
-+	HCLGE_OPC_VLAN_FILTER_PF_CFG	= 0x1101,
-+	HCLGE_OPC_VLAN_FILTER_VF_CFG	= 0x1102,
-+
-+	/* MDIO command */
-+	HCLGE_OPC_MDIO_CONFIG		= 0x1900,
-+
-+	/* QCN command */
-+	HCLGE_OPC_QCN_MOD_CFG		= 0x1A01,
-+	HCLGE_OPC_QCN_GRP_TMPLT_CFG	= 0x1A02,
-+	HCLGE_OPC_QCN_SHAPPING_IR_CFG	= 0x1A03,
-+	HCLGE_OPC_QCN_SHAPPING_BS_CFG	= 0x1A04,
-+	HCLGE_OPC_QCN_QSET_LINK_CFG	= 0x1A05,
-+	HCLGE_OPC_QCN_RP_STATUS_GET	= 0x1A06,
-+	HCLGE_OPC_QCN_AJUST_INIT	= 0x1A07,
-+	HCLGE_OPC_QCN_DFX_CNT_STATUS    = 0x1A08,
-+
-+	/* Mailbox cmd */
-+	HCLGEVF_OPC_MBX_PF_TO_VF	= 0x2000,
++enum hns3_link_mode_bits {
++	HNS3_LM_FIBRE_BIT = BIT(0),
++	HNS3_LM_AUTONEG_BIT = BIT(1),
++	HNS3_LM_TP_BIT = BIT(2),
++	HNS3_LM_PAUSE_BIT = BIT(3),
++	HNS3_LM_BACKPLANE_BIT = BIT(4),
++	HNS3_LM_10BASET_HALF_BIT = BIT(5),
++	HNS3_LM_10BASET_FULL_BIT = BIT(6),
++	HNS3_LM_100BASET_HALF_BIT = BIT(7),
++	HNS3_LM_100BASET_FULL_BIT = BIT(8),
++	HNS3_LM_1000BASET_FULL_BIT = BIT(9),
++	HNS3_LM_10000BASEKR_FULL_BIT = BIT(10),
++	HNS3_LM_25000BASEKR_FULL_BIT = BIT(11),
++	HNS3_LM_40000BASELR4_FULL_BIT = BIT(12),
++	HNS3_LM_50000BASEKR2_FULL_BIT = BIT(13),
++	HNS3_LM_100000BASEKR4_FULL_BIT = BIT(14),
++	HNS3_LM_COUNT = 15
 +};
 +
-+#define HCLGE_TQP_REG_OFFSET		0x80000
-+#define HCLGE_TQP_REG_SIZE		0x200
++#define HNS3_INT_GL_50K		0x000A
++#define HNS3_INT_GL_20K		0x0019
++#define HNS3_INT_GL_18K		0x001B
++#define HNS3_INT_GL_8K		0x003E
 +
-+#define HCLGE_RCB_INIT_QUERY_TIMEOUT	10
-+#define HCLGE_RCB_INIT_FLAG_EN_B	0
-+#define HCLGE_RCB_INIT_FLAG_FINI_B	8
-+struct hclge_config_rcb_init {
-+	__le16 rcb_init_flag;
-+	u8 rsv[22];
++struct hns3_enet_ring_group {
++	/* array of pointers to rings */
++	struct hns3_enet_ring *ring;
++	u64 total_bytes;	/* total bytes processed this group */
++	u64 total_packets;	/* total packets processed this group */
++	u16 count;
++	enum hns3_flow_level_range flow_level;
++	u16 int_gl;
 +};
 +
-+struct hclge_tqp_map {
-+	__le16 tqp_id;	/* Absolute tqp id for in this pf */
-+	u8 tqp_vf;	/* VF id */
-+#define HCLGE_TQP_MAP_TYPE_PF		0
-+#define HCLGE_TQP_MAP_TYPE_VF		1
-+#define HCLGE_TQP_MAP_TYPE_B		0
-+#define HCLGE_TQP_MAP_EN_B		1
-+	u8 tqp_flag;	/* Indicate it's pf or vf tqp */
-+	__le16 tqp_vid; /* Virtual id in this pf/vf */
-+	u8 rsv[18];
++struct hns3_enet_tqp_vector {
++	struct hnae3_handle *handle;
++	u8 __iomem *mask_addr;
++	int vector_irq;
++	int irq_init_flag;
++
++	u16 idx;		/* index in the TQP vector array per handle. */
++
++	struct napi_struct napi;
++
++	struct hns3_enet_ring_group rx_group;
++	struct hns3_enet_ring_group tx_group;
++
++	u16 num_tqps;	/* total number of tqps in TQP vector */
++
++	cpumask_t affinity_mask;
++	char name[HNAE3_INT_NAME_LEN];
++
++	/* when 0 should adjust interrupt coalesce parameter */
++	u8 int_adapt_down;
++} ____cacheline_internodealigned_in_smp;
++
++enum hns3_udp_tnl_type {
++	HNS3_UDP_TNL_VXLAN,
++	HNS3_UDP_TNL_GENEVE,
++	HNS3_UDP_TNL_MAX,
 +};
 +
-+#define HCLGE_VECTOR_ELEMENTS_PER_CMD	11
-+
-+enum hclge_int_type {
-+	HCLGE_INT_TX,
-+	HCLGE_INT_RX,
-+	HCLGE_INT_EVENT,
++struct hns3_udp_tunnel {
++	u16 dst_port;
++	int used;
 +};
 +
-+struct hclge_ctrl_vector_chain {
-+	u8 int_vector_id;
-+	u8 int_cause_num;
-+#define HCLGE_INT_TYPE_S	0
-+#define HCLGE_INT_TYPE_M	0x3
-+#define HCLGE_TQP_ID_S		2
-+#define HCLGE_TQP_ID_M		(0x3fff << HCLGE_TQP_ID_S)
-+	__le16 tqp_type_and_id[HCLGE_VECTOR_ELEMENTS_PER_CMD];
++struct hns3_nic_priv {
++	struct hnae3_handle *ae_handle;
++	u32 enet_ver;
++	u32 port_id;
++	struct net_device *netdev;
++	struct device *dev;
++	struct hns3_nic_ops ops;
++
++	/**
++	 * the cb for nic to manage the ring buffer, the first half of the
++	 * array is for tx_ring and vice versa for the second half
++	 */
++	struct hns3_nic_ring_data *ring_data;
++	struct hns3_enet_tqp_vector *tqp_vector;
++	u16 vector_num;
++
++	/* The most recently read link state */
++	int link;
++	u64 tx_timeout_count;
++
++	unsigned long state;
++
++	struct timer_list service_timer;
++
++	struct work_struct service_task;
++
++	struct notifier_block notifier_block;
++	/* Vxlan/Geneve information */
++	struct hns3_udp_tunnel udp_tnl[HNS3_UDP_TNL_MAX];
 +};
 +
-+#define HCLGE_TC_NUM		8
-+#define HCLGE_TC0_PRI_BUF_EN_B	15 /* Bit 15 indicate enable or not */
-+#define HCLGE_BUF_UNIT_S	7  /* Buf size is united by 128 bytes */
-+struct hclge_tx_buff_alloc {
-+	__le16 tx_pkt_buff[HCLGE_TC_NUM];
-+	u8 tx_buff_rsv[8];
++union l3_hdr_info {
++	struct iphdr *v4;
++	struct ipv6hdr *v6;
++	unsigned char *hdr;
 +};
 +
-+struct hclge_rx_priv_buff {
-+	__le16 buf_num[HCLGE_TC_NUM];
-+	u8 rsv[8];
++union l4_hdr_info {
++	struct tcphdr *tcp;
++	struct udphdr *udp;
++	unsigned char *hdr;
 +};
 +
-+struct hclge_query_version {
-+	__le32 firmware;
-+	__le32 firmware_rsv[5];
-+};
-+
-+#define HCLGE_RX_PRIV_EN_B	15
-+#define HCLGE_TC_NUM_ONE_DESC	4
-+struct hclge_priv_wl {
-+	__le16 high;
-+	__le16 low;
-+};
-+
-+struct hclge_rx_priv_wl_buf {
-+	struct hclge_priv_wl tc_wl[HCLGE_TC_NUM_ONE_DESC];
-+};
-+
-+struct hclge_rx_com_thrd {
-+	struct hclge_priv_wl com_thrd[HCLGE_TC_NUM_ONE_DESC];
-+};
-+
-+struct hclge_rx_com_wl {
-+	struct hclge_priv_wl com_wl;
-+};
-+
-+struct hclge_waterline {
-+	u32 low;
-+	u32 high;
-+};
-+
-+struct hclge_tc_thrd {
-+	u32 low;
-+	u32 high;
-+};
-+
-+struct hclge_priv_buf {
-+	struct hclge_waterline wl;	/* Waterline for low and high*/
-+	u32 buf_size;	/* TC private buffer size */
-+	u32 enable;	/* Enable TC private buffer or not */
-+};
-+
-+#define HCLGE_MAX_TC_NUM	8
-+struct hclge_shared_buf {
-+	struct hclge_waterline self;
-+	struct hclge_tc_thrd tc_thrd[HCLGE_MAX_TC_NUM];
-+	u32 buf_size;
-+};
-+
-+#define HCLGE_RX_COM_WL_EN_B	15
-+struct hclge_rx_com_wl_buf {
-+	__le16 high_wl;
-+	__le16 low_wl;
-+	u8 rsv[20];
-+};
-+
-+#define HCLGE_RX_PKT_EN_B	15
-+struct hclge_rx_pkt_buf {
-+	__le16 high_pkt;
-+	__le16 low_pkt;
-+	u8 rsv[20];
-+};
-+
-+#define HCLGE_PF_STATE_DONE_B	0
-+#define HCLGE_PF_STATE_MAIN_B	1
-+#define HCLGE_PF_STATE_BOND_B	2
-+#define HCLGE_PF_STATE_MAC_N_B	6
-+#define HCLGE_PF_MAC_NUM_MASK	0x3
-+#define HCLGE_PF_STATE_MAIN	BIT(HCLGE_PF_STATE_MAIN_B)
-+#define HCLGE_PF_STATE_DONE	BIT(HCLGE_PF_STATE_DONE_B)
-+struct hclge_func_status {
-+	__le32  vf_rst_state[4];
-+	u8 pf_state;
-+	u8 mac_id;
-+	u8 rsv1;
-+	u8 pf_cnt_in_mac;
-+	u8 pf_num;
-+	u8 vf_num;
-+	u8 rsv[2];
-+};
-+
-+struct hclge_pf_res {
-+	__le16 tqp_num;
-+	__le16 buf_size;
-+	__le16 msixcap_localid_ba_nic;
-+	__le16 msixcap_localid_ba_rocee;
-+#define HCLGE_PF_VEC_NUM_S		0
-+#define HCLGE_PF_VEC_NUM_M		(0xff << HCLGE_PF_VEC_NUM_S)
-+	__le16 pf_intr_vector_number;
-+	__le16 pf_own_fun_number;
-+	__le32 rsv[3];
-+};
-+
-+#define HCLGE_CFG_OFFSET_S	0
-+#define HCLGE_CFG_OFFSET_M	0xfffff /* Byte (8-10.3) */
-+#define HCLGE_CFG_RD_LEN_S	24
-+#define HCLGE_CFG_RD_LEN_M	(0xf << HCLGE_CFG_RD_LEN_S)
-+#define HCLGE_CFG_RD_LEN_BYTES	16
-+#define HCLGE_CFG_RD_LEN_UNIT	4
-+
-+#define HCLGE_CFG_VMDQ_S	0
-+#define HCLGE_CFG_VMDQ_M	(0xff << HCLGE_CFG_VMDQ_S)
-+#define HCLGE_CFG_TC_NUM_S	8
-+#define HCLGE_CFG_TC_NUM_M	(0xff << HCLGE_CFG_TC_NUM_S)
-+#define HCLGE_CFG_TQP_DESC_N_S	16
-+#define HCLGE_CFG_TQP_DESC_N_M	(0xffff << HCLGE_CFG_TQP_DESC_N_S)
-+#define HCLGE_CFG_PHY_ADDR_S	0
-+#define HCLGE_CFG_PHY_ADDR_M	(0x1f << HCLGE_CFG_PHY_ADDR_S)
-+#define HCLGE_CFG_MEDIA_TP_S	8
-+#define HCLGE_CFG_MEDIA_TP_M	(0xff << HCLGE_CFG_MEDIA_TP_S)
-+#define HCLGE_CFG_RX_BUF_LEN_S	16
-+#define HCLGE_CFG_RX_BUF_LEN_M	(0xffff << HCLGE_CFG_RX_BUF_LEN_S)
-+#define HCLGE_CFG_MAC_ADDR_H_S	0
-+#define HCLGE_CFG_MAC_ADDR_H_M	(0xffff << HCLGE_CFG_MAC_ADDR_H_S)
-+#define HCLGE_CFG_DEFAULT_SPEED_S	16
-+#define HCLGE_CFG_DEFAULT_SPEED_M	(0xff << HCLGE_CFG_DEFAULT_SPEED_S)
-+
-+struct hclge_cfg_param {
-+	__le32 offset;
-+	__le32 rsv;
-+	__le32 param[4];
-+};
-+
-+#define HCLGE_MAC_MODE		0x0
-+#define HCLGE_DESC_NUM		0x40
-+
-+#define HCLGE_ALLOC_VALID_B	0
-+struct hclge_vf_num {
-+	u8 alloc_valid;
-+	u8 rsv[23];
-+};
-+
-+#define HCLGE_RSS_DEFAULT_OUTPORT_B	4
-+#define HCLGE_RSS_HASH_KEY_OFFSET_B	4
-+#define HCLGE_RSS_HASH_KEY_NUM		16
-+struct hclge_rss_config {
-+	u8 hash_config;
-+	u8 rsv[7];
-+	u8 hash_key[HCLGE_RSS_HASH_KEY_NUM];
-+};
-+
-+struct hclge_rss_input_tuple {
-+	u8 ipv4_tcp_en;
-+	u8 ipv4_udp_en;
-+	u8 ipv4_sctp_en;
-+	u8 ipv4_fragment_en;
-+	u8 ipv6_tcp_en;
-+	u8 ipv6_udp_en;
-+	u8 ipv6_sctp_en;
-+	u8 ipv6_fragment_en;
-+	u8 rsv[16];
-+};
-+
-+#define HCLGE_RSS_CFG_TBL_SIZE	16
-+
-+struct hclge_rss_indirection_table {
-+	u16 start_table_index;
-+	u16 rss_set_bitmap;
-+	u8 rsv[4];
-+	u8 rss_result[HCLGE_RSS_CFG_TBL_SIZE];
-+};
-+
-+#define HCLGE_RSS_TC_OFFSET_S		0
-+#define HCLGE_RSS_TC_OFFSET_M		(0x3ff << HCLGE_RSS_TC_OFFSET_S)
-+#define HCLGE_RSS_TC_SIZE_S		12
-+#define HCLGE_RSS_TC_SIZE_M		(0x7 << HCLGE_RSS_TC_SIZE_S)
-+#define HCLGE_RSS_TC_VALID_B		15
-+struct hclge_rss_tc_mode {
-+	u16 rss_tc_mode[HCLGE_MAX_TC_NUM];
-+	u8 rsv[8];
-+};
-+
-+#define HCLGE_LINK_STS_B	0
-+#define HCLGE_LINK_STATUS	BIT(HCLGE_LINK_STS_B)
-+struct hclge_link_status {
-+	u8 status;
-+	u8 rsv[23];
-+};
-+
-+struct hclge_promisc_param {
-+	u8 vf_id;
-+	u8 enable;
-+};
-+
-+#define HCLGE_PROMISC_EN_B	1
-+#define HCLGE_PROMISC_EN_ALL	0x7
-+#define HCLGE_PROMISC_EN_UC	0x1
-+#define HCLGE_PROMISC_EN_MC	0x2
-+#define HCLGE_PROMISC_EN_BC	0x4
-+struct hclge_promisc_cfg {
-+	u8 flag;
-+	u8 vf_id;
-+	__le16 rsv0;
-+	u8 rsv1[20];
-+};
-+
-+enum hclge_promisc_type {
-+	HCLGE_UNICAST	= 1,
-+	HCLGE_MULTICAST	= 2,
-+	HCLGE_BROADCAST	= 3,
-+};
-+
-+#define HCLGE_MAC_TX_EN_B	6
-+#define HCLGE_MAC_RX_EN_B	7
-+#define HCLGE_MAC_PAD_TX_B	11
-+#define HCLGE_MAC_PAD_RX_B	12
-+#define HCLGE_MAC_1588_TX_B	13
-+#define HCLGE_MAC_1588_RX_B	14
-+#define HCLGE_MAC_APP_LP_B	15
-+#define HCLGE_MAC_LINE_LP_B	16
-+#define HCLGE_MAC_FCS_TX_B	17
-+#define HCLGE_MAC_RX_OVERSIZE_TRUNCATE_B	18
-+#define HCLGE_MAC_RX_FCS_STRIP_B	19
-+#define HCLGE_MAC_RX_FCS_B	20
-+#define HCLGE_MAC_TX_UNDER_MIN_ERR_B		21
-+#define HCLGE_MAC_TX_OVERSIZE_TRUNCATE_B	22
-+
-+struct hclge_config_mac_mode {
-+	__le32 txrx_pad_fcs_loop_en;
-+	u8 rsv[20];
-+};
-+
-+#define HCLGE_CFG_SPEED_S		0
-+#define HCLGE_CFG_SPEED_M		(0x3f << HCLGE_CFG_SPEED_S)
-+
-+#define HCLGE_CFG_DUPLEX_B		7
-+#define HCLGE_CFG_DUPLEX_M		BIT(HCLGE_CFG_DUPLEX_B)
-+
-+struct hclge_config_mac_speed_dup {
-+	u8 speed_dup;
-+
-+#define HCLGE_CFG_MAC_SPEED_CHANGE_EN_B	0
-+	u8 mac_change_fec_en;
-+	u8 rsv[22];
-+};
-+
-+#define HCLGE_QUERY_SPEED_S		3
-+#define HCLGE_QUERY_AN_B		0
-+#define HCLGE_QUERY_DUPLEX_B		2
-+
-+#define HCLGE_QUERY_SPEED_M		(0x1f << HCLGE_QUERY_SPEED_S)
-+#define HCLGE_QUERY_AN_M		BIT(HCLGE_QUERY_AN_B)
-+#define HCLGE_QUERY_DUPLEX_M		BIT(HCLGE_QUERY_DUPLEX_B)
-+
-+struct hclge_query_an_speed_dup {
-+	u8 an_syn_dup_speed;
-+	u8 pause;
-+	u8 rsv[23];
-+};
-+
-+#define HCLGE_RING_ID_MASK		0x3ff
-+#define HCLGE_TQP_ENABLE_B		0
-+
-+#define HCLGE_MAC_CFG_AN_EN_B		0
-+#define HCLGE_MAC_CFG_AN_INT_EN_B	1
-+#define HCLGE_MAC_CFG_AN_INT_MSK_B	2
-+#define HCLGE_MAC_CFG_AN_INT_CLR_B	3
-+#define HCLGE_MAC_CFG_AN_RST_B		4
-+
-+#define HCLGE_MAC_CFG_AN_EN	BIT(HCLGE_MAC_CFG_AN_EN_B)
-+
-+struct hclge_config_auto_neg {
-+	__le32  cfg_an_cmd_flag;
-+	u8      rsv[20];
-+};
-+
-+#define HCLGE_MAC_MIN_MTU		64
-+#define HCLGE_MAC_MAX_MTU		9728
-+#define HCLGE_MAC_UPLINK_PORT		0x100
-+
-+struct hclge_config_max_frm_size {
-+	__le16  max_frm_size;
-+	u8      rsv[22];
-+};
-+
-+enum hclge_mac_vlan_tbl_opcode {
-+	HCLGE_MAC_VLAN_ADD,	/* Add new or modify mac_vlan */
-+	HCLGE_MAC_VLAN_UPDATE,  /* Modify other fields of this table */
-+	HCLGE_MAC_VLAN_REMOVE,  /* Remove a entry through mac_vlan key */
-+	HCLGE_MAC_VLAN_LKUP,    /* Lookup a entry through mac_vlan key */
-+};
-+
-+#define HCLGE_MAC_VLAN_BIT0_EN_B	0x0
-+#define HCLGE_MAC_VLAN_BIT1_EN_B	0x1
-+#define HCLGE_MAC_EPORT_SW_EN_B		0xc
-+#define HCLGE_MAC_EPORT_TYPE_B		0xb
-+#define HCLGE_MAC_EPORT_VFID_S		0x3
-+#define HCLGE_MAC_EPORT_VFID_M		(0xff << HCLGE_MAC_EPORT_VFID_S)
-+#define HCLGE_MAC_EPORT_PFID_S		0x0
-+#define HCLGE_MAC_EPORT_PFID_M		(0x7 << HCLGE_MAC_EPORT_PFID_S)
-+struct hclge_mac_vlan_tbl_entry {
-+	u8	flags;
-+	u8      resp_code;
-+	__le16  vlan_tag;
-+	__le32  mac_addr_hi32;
-+	__le16  mac_addr_lo16;
-+	__le16  rsv1;
-+	u8      entry_type;
-+	u8      mc_mac_en;
-+	__le16  egress_port;
-+	__le16  egress_queue;
-+	u8      rsv2[6];
-+};
-+
-+#define HCLGE_CFG_MTA_MAC_SEL_S		0x0
-+#define HCLGE_CFG_MTA_MAC_SEL_M		(0x3 << HCLGE_CFG_MTA_MAC_SEL_S)
-+#define HCLGE_CFG_MTA_MAC_EN_B		0x7
-+struct hclge_mta_filter_mode {
-+	u8	dmac_sel_en; /* Use lowest 2 bit as sel_mode, bit 7 as enable */
-+	u8      rsv[23];
-+};
-+
-+#define HCLGE_CFG_FUNC_MTA_ACCEPT_B	0x0
-+struct hclge_cfg_func_mta_filter {
-+	u8	accept; /* Only used lowest 1 bit */
-+	u8      function_id;
-+	u8      rsv[22];
-+};
-+
-+#define HCLGE_CFG_MTA_ITEM_ACCEPT_B	0x0
-+#define HCLGE_CFG_MTA_ITEM_IDX_S	0x0
-+#define HCLGE_CFG_MTA_ITEM_IDX_M	(0xfff << HCLGE_CFG_MTA_ITEM_IDX_S)
-+struct hclge_cfg_func_mta_item {
-+	u16	item_idx; /* Only used lowest 12 bit */
-+	u8      accept;   /* Only used lowest 1 bit */
-+	u8      rsv[21];
-+};
-+
-+struct hclge_mac_vlan_add {
-+	__le16  flags;
-+	__le16  mac_addr_hi16;
-+	__le32  mac_addr_lo32;
-+	__le32  mac_addr_msk_hi32;
-+	__le16  mac_addr_msk_lo16;
-+	__le16  vlan_tag;
-+	__le16  ingress_port;
-+	__le16  egress_port;
-+	u8      rsv[4];
-+};
-+
-+#define HNS3_MAC_VLAN_CFG_FLAG_BIT 0
-+struct hclge_mac_vlan_remove {
-+	__le16  flags;
-+	__le16  mac_addr_hi16;
-+	__le32  mac_addr_lo32;
-+	__le32  mac_addr_msk_hi32;
-+	__le16  mac_addr_msk_lo16;
-+	__le16  vlan_tag;
-+	__le16  ingress_port;
-+	__le16  egress_port;
-+	u8      rsv[4];
-+};
-+
-+struct hclge_vlan_filter_ctrl {
-+	u8 vlan_type;
-+	u8 vlan_fe;
-+	u8 rsv[22];
-+};
-+
-+struct hclge_vlan_filter_pf_cfg {
-+	u8 vlan_offset;
-+	u8 vlan_cfg;
-+	u8 rsv[2];
-+	u8 vlan_offset_bitmap[20];
-+};
-+
-+struct hclge_vlan_filter_vf_cfg {
-+	u16 vlan_id;
-+	u8  resp_code;
-+	u8  rsv;
-+	u8  vlan_cfg;
-+	u8  rsv1[3];
-+	u8  vf_bitmap[16];
-+};
-+
-+struct hclge_cfg_com_tqp_queue {
-+	__le16 tqp_id;
-+	__le16 stream_id;
-+	u8 enable;
-+	u8 rsv[19];
-+};
-+
-+struct hclge_cfg_tx_queue_pointer {
-+	__le16 tqp_id;
-+	__le16 tx_tail;
-+	__le16 tx_head;
-+	__le16 fbd_num;
-+	__le16 ring_offset;
-+	u8 rsv[14];
-+};
-+
-+#define HCLGE_TSO_MSS_MIN_S	0
-+#define HCLGE_TSO_MSS_MIN_M	(0x3FFF << HCLGE_TSO_MSS_MIN_S)
-+
-+#define HCLGE_TSO_MSS_MAX_S	16
-+#define HCLGE_TSO_MSS_MAX_M	(0x3FFF << HCLGE_TSO_MSS_MAX_S)
-+
-+struct hclge_cfg_tso_status {
-+	__le16 tso_mss_min;
-+	__le16 tso_mss_max;
-+	u8 rsv[20];
-+};
-+
-+#define HCLGE_TSO_MSS_MIN	256
-+#define HCLGE_TSO_MSS_MAX	9668
-+
-+#define HCLGE_TQP_RESET_B	0
-+struct hclge_reset_tqp_queue {
-+	__le16 tqp_id;
-+	u8 reset_req;
-+	u8 ready_to_reset;
-+	u8 rsv[20];
-+};
-+
-+#define HCLGE_DEFAULT_TX_BUF		0x4000	 /* 16k  bytes */
-+#define HCLGE_TOTAL_PKT_BUF		0x108000 /* 1.03125M bytes */
-+#define HCLGE_DEFAULT_DV		0xA000	 /* 40k byte */
-+
-+#define HCLGE_TYPE_CRQ			0
-+#define HCLGE_TYPE_CSQ			1
-+#define HCLGE_NIC_CSQ_BASEADDR_L_REG	0x27000
-+#define HCLGE_NIC_CSQ_BASEADDR_H_REG	0x27004
-+#define HCLGE_NIC_CSQ_DEPTH_REG		0x27008
-+#define HCLGE_NIC_CSQ_TAIL_REG		0x27010
-+#define HCLGE_NIC_CSQ_HEAD_REG		0x27014
-+#define HCLGE_NIC_CRQ_BASEADDR_L_REG	0x27018
-+#define HCLGE_NIC_CRQ_BASEADDR_H_REG	0x2701c
-+#define HCLGE_NIC_CRQ_DEPTH_REG		0x27020
-+#define HCLGE_NIC_CRQ_TAIL_REG		0x27024
-+#define HCLGE_NIC_CRQ_HEAD_REG		0x27028
-+#define HCLGE_NIC_CMQ_EN_B		16
-+#define HCLGE_NIC_CMQ_ENABLE		BIT(HCLGE_NIC_CMQ_EN_B)
-+#define HCLGE_NIC_CMQ_DESC_NUM		1024
-+#define HCLGE_NIC_CMQ_DESC_NUM_S	3
-+
-+int hclge_cmd_init(struct hclge_dev *hdev);
-+static inline void hclge_write_reg(void __iomem *base, u32 reg, u32 value)
++/* the distance between [begin, end) in a ring buffer
++ * note: there is a unuse slot between the begin and the end
++ */
++static inline int ring_dist(struct hns3_enet_ring *ring, int begin, int end)
 +{
-+	writel(value, base + reg);
++	return (end - begin + ring->desc_num) % ring->desc_num;
 +}
 +
-+#define hclge_write_dev(a, reg, value) \
-+	hclge_write_reg((a)->io_base, (reg), (value))
-+#define hclge_read_dev(a, reg) \
-+	hclge_read_reg((a)->io_base, (reg))
++static inline int ring_space(struct hns3_enet_ring *ring)
++{
++	return ring->desc_num -
++		ring_dist(ring, ring->next_to_clean, ring->next_to_use) - 1;
++}
 +
-+static inline u32 hclge_read_reg(u8 __iomem *base, u32 reg)
++static inline int is_ring_empty(struct hns3_enet_ring *ring)
++{
++	return ring->next_to_use == ring->next_to_clean;
++}
++
++static inline void hns3_write_reg(void __iomem *base, u32 reg, u32 value)
 +{
 +	u8 __iomem *reg_addr = READ_ONCE(base);
 +
-+	return readl(reg_addr + reg);
++	writel(value, reg_addr + reg);
 +}
 +
-+#define HCLGE_SEND_SYNC(flag) \
-+	((flag) & HCLGE_CMD_FLAG_NO_INTR)
++#define hns3_write_dev(a, reg, value) \
++	hns3_write_reg((a)->io_base, (reg), (value))
 +
-+struct hclge_hw;
-+int hclge_cmd_send(struct hclge_hw *hw, struct hclge_desc *desc, int num);
-+void hclge_cmd_setup_basic_desc(struct hclge_desc *desc,
-+				enum hclge_opcode_type opcode, bool is_read);
++#define hnae_queue_xmit(tqp, buf_num) writel_relaxed(buf_num, \
++		(tqp)->io_base + HNS3_RING_TX_RING_TAIL_REG)
 +
-+void hclge_cmd_reuse_desc(struct hclge_desc *desc, bool is_read);
-+int hclge_cmd_set_promisc_mode(struct hclge_dev *hdev,
-+			       struct hclge_promisc_param *param);
++#define ring_to_dev(ring) (&(ring)->tqp->handle->pdev->dev)
 +
-+enum hclge_cmd_status hclge_cmd_mdio_write(struct hclge_hw *hw,
-+					   struct hclge_desc *desc);
-+enum hclge_cmd_status hclge_cmd_mdio_read(struct hclge_hw *hw,
-+					  struct hclge_desc *desc);
++#define ring_to_dma_dir(ring) (HNAE3_IS_TX_RING(ring) ? \
++	DMA_TO_DEVICE : DMA_FROM_DEVICE)
 +
-+void hclge_destroy_cmd_queue(struct hclge_hw *hw);
++#define tx_ring_data(priv, idx) ((priv)->ring_data[idx])
++
++#define hnae_buf_size(_ring) ((_ring)->buf_size)
++#define hnae_page_order(_ring) (get_order(hnae_buf_size(_ring)))
++#define hnae_page_size(_ring) (PAGE_SIZE << hnae_page_order(_ring))
++
++/* iterator for handling rings in ring group */
++#define hns3_for_each_ring(pos, head) \
++	for (pos = (head).ring; pos; pos = pos->next)
++
++void hns3_ethtool_set_ops(struct net_device *netdev);
++
++int hns3_nic_net_xmit_hw(
++				struct net_device *netdev,
++				struct sk_buff *skb,
++				struct hns3_nic_ring_data *ring_data);
++int hns3_clean_tx_ring(struct hns3_enet_ring *ring, int budget);
 +#endif
 -- 
 2.7.4
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
