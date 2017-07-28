@@ -1,34 +1,40 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH V2 3/4] net-next: dsa: fix flow dissection
-Date: Fri, 28 Jul 2017 23:25:55 +0200
-Message-ID: <20170728212555.GB11564@lunn.ch>
-References: <20170721085813.30789-1-john@phrozen.org>
- <20170721085813.30789-3-john@phrozen.org>
- <20170726151013.GD12049@lunn.ch>
- <82b46393-6c63-eedf-25e4-2bd2278c0d16@phrozen.org>
+Subject: Re: [PATCH net-next 4/4] net: dsa: lan9303: MDIO access phy
+ registers directly
+Date: Fri, 28 Jul 2017 23:28:40 +0200
+Message-ID: <20170728212840.GC11564@lunn.ch>
+References: <20170728151157.28983-1-privat@egil-hjelmeland.no>
+ <20170728151157.28983-5-privat@egil-hjelmeland.no>
+ <87fudglget.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <50d2d34c-c1a5-7f0a-90f1-44b1be1775b7@egil-hjelmeland.no>
+ <87fudgqz4w.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <1250382a-1c17-8e82-8c5c-fe14786c84db@gmail.com>
+ <a8ff8b7b-5aff-f25b-5ad3-944fcc867e40@egil-hjelmeland.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: John Crispin <john@phrozen.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44348 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752569AbdG1V0E (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Jul 2017 17:26:04 -0400
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@pengutronix.de
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <82b46393-6c63-eedf-25e4-2bd2278c0d16@phrozen.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <a8ff8b7b-5aff-f25b-5ad3-944fcc867e40@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> thanks for the feedback. should I add 2 callbacks for each of the 2
-> parameters ?
+> >Since the kernel module license is GPL, EXPORT_SYMBOL_GPL() would seem
+> >to be appropriate, which can be done as a subsequent patch.
+> >
+> >Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> >
+> I have no idea how these legalities work. But for the record,
+> I give consent to change to EXPORT_SYMBOL_GPL at any time.
 
-Hi John
+Hi Egil
 
-A single callback is better. We don't want to have to peek into the
-packet twice to determine two values.
+What is better, is that when somebody posts such a patch, send an
+Acked-by: It will get added to the patch, leaving a record in git that
+you agreed to the change.
 
-       Andrew
+    Andrew
