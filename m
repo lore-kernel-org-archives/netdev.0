@@ -1,7 +1,7 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 07/10] net/smc: introduce sg-logic for send buffers
-Date: Fri, 28 Jul 2017 13:56:19 +0200
-Message-ID: <20170728115622.17247-8-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 08/10] net/smc: common functions for RMBs and send buffers
+Date: Fri, 28 Jul 2017 13:56:20 +0200
+Message-ID: <20170728115622.17247-9-ubraun@linux.vnet.ibm.com>
 References: <20170728115622.17247-1-ubraun@linux.vnet.ibm.com>
 Cc: hch@lst.de, netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
@@ -9,223 +9,540 @@ Cc: hch@lst.de, netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:57416 "EHLO
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:44524 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751956AbdG1L4n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 07:56:43 -0400
-Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v6SBt5WM032657
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:56:42 -0400
-Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2c0466j9ns-1
+        by vger.kernel.org with ESMTP id S1751963AbdG1L4s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 07:56:48 -0400
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v6SBu46Q005857
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:56:48 -0400
+Received: from e06smtp15.uk.ibm.com (e06smtp15.uk.ibm.com [195.75.94.111])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2c0465jaw4-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:56:42 -0400
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:56:43 -0400
 Received: from localhost
-        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Fri, 28 Jul 2017 12:56:39 +0100
+        Fri, 28 Jul 2017 12:56:40 +0100
 In-Reply-To: <20170728115622.17247-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SMC send buffers are processed the same way as RMBs. Since RMBs have
-been converted to sg-logic, do the same for send buffers.
+Creation and deletion of SMC receive and send buffers shares a high
+amount of common code . This patch introduces common functions to get
+rid of duplicate code.
 
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- net/smc/smc_core.c | 46 +++++++++++++++++++++++++++++++++++-----------
- net/smc/smc_core.h |  2 --
- net/smc/smc_ib.c   | 29 -----------------------------
- net/smc/smc_ib.h   |  6 ------
- net/smc/smc_tx.c   |  6 +++---
- 5 files changed, 38 insertions(+), 51 deletions(-)
+ net/smc/af_smc.c   |  16 +--
+ net/smc/smc_core.c | 348 ++++++++++++++++++++++-------------------------------
+ net/smc/smc_core.h |   3 +-
+ 3 files changed, 148 insertions(+), 219 deletions(-)
 
+diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
+index e0a95d50bf87..75518879b68a 100644
+--- a/net/smc/af_smc.c
++++ b/net/smc/af_smc.c
+@@ -436,12 +436,8 @@ static int smc_connect_rdma(struct smc_sock *smc)
+ 
+ 	smc_conn_save_peer_info(smc, &aclc);
+ 
+-	rc = smc_sndbuf_create(smc);
+-	if (rc) {
+-		reason_code = SMC_CLC_DECL_MEM;
+-		goto decline_rdma_unlock;
+-	}
+-	rc = smc_rmb_create(smc);
++	/* create send buffer and rmb */
++	rc = smc_buf_create(smc);
+ 	if (rc) {
+ 		reason_code = SMC_CLC_DECL_MEM;
+ 		goto decline_rdma_unlock;
+@@ -813,12 +809,8 @@ static void smc_listen_work(struct work_struct *work)
+ 	}
+ 	link = &new_smc->conn.lgr->lnk[SMC_SINGLE_LINK];
+ 
+-	rc = smc_sndbuf_create(new_smc);
+-	if (rc) {
+-		reason_code = SMC_CLC_DECL_MEM;
+-		goto decline_rdma;
+-	}
+-	rc = smc_rmb_create(new_smc);
++	/* create send buffer and rmb */
++	rc = smc_buf_create(new_smc);
+ 	if (rc) {
+ 		reason_code = SMC_CLC_DECL_MEM;
+ 		goto decline_rdma;
 diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
-index 87bb3e4771a8..8795c7ed9ce4 100644
+index 8795c7ed9ce4..ab8cdac5edb3 100644
 --- a/net/smc/smc_core.c
 +++ b/net/smc/smc_core.c
-@@ -248,6 +248,7 @@ static void smc_link_clear(struct smc_link *lnk)
- 
- static void smc_lgr_free_sndbufs(struct smc_link_group *lgr)
- {
-+	struct smc_link *lnk = &lgr->lnk[SMC_SINGLE_LINK];
- 	struct smc_buf_desc *sndbuf_desc, *bf_desc;
- 	int i;
- 
-@@ -255,10 +256,11 @@ static void smc_lgr_free_sndbufs(struct smc_link_group *lgr)
- 		list_for_each_entry_safe(sndbuf_desc, bf_desc, &lgr->sndbufs[i],
- 					 list) {
- 			list_del(&sndbuf_desc->list);
--			smc_ib_buf_unmap(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
--					 smc_uncompress_bufsize(i),
--					 sndbuf_desc, DMA_TO_DEVICE);
--			kfree(sndbuf_desc->cpu_addr);
-+			smc_ib_buf_unmap_sg(lnk->smcibdev, sndbuf_desc,
-+					    DMA_TO_DEVICE);
-+			sg_free_table(&sndbuf_desc->sgt[SMC_SINGLE_LINK]);
-+			free_pages((unsigned long)sndbuf_desc->cpu_addr,
-+				   sndbuf_desc->order);
- 			kfree(sndbuf_desc);
- 		}
- 	}
-@@ -517,6 +519,9 @@ int smc_sndbuf_create(struct smc_sock *smc)
- 	for (bufsize_short = smc_compress_bufsize(smc->sk.sk_sndbuf / 2);
- 	     bufsize_short >= 0; bufsize_short--) {
- 		bufsize = smc_uncompress_bufsize(bufsize_short);
-+		if ((1 << get_order(bufsize)) > SG_MAX_SINGLE_ALLOC)
-+			continue;
-+
- 		/* check for reusable sndbuf_slot in the link group */
- 		sndbuf_desc = smc_sndbuf_get_slot(lgr, bufsize_short);
- 		if (sndbuf_desc) {
-@@ -527,10 +532,12 @@ int smc_sndbuf_create(struct smc_sock *smc)
- 		sndbuf_desc = kzalloc(sizeof(*sndbuf_desc), GFP_KERNEL);
- 		if (!sndbuf_desc)
- 			break; /* give up with -ENOMEM */
--		sndbuf_desc->cpu_addr = kzalloc(bufsize,
--						GFP_KERNEL | __GFP_NOWARN |
--						__GFP_NOMEMALLOC |
--						__GFP_NORETRY);
-+
-+		sndbuf_desc->cpu_addr =
-+			(void *)__get_free_pages(GFP_KERNEL | __GFP_NOWARN |
-+						 __GFP_NOMEMALLOC |
-+						 __GFP_NORETRY | __GFP_ZERO,
-+						 get_order(bufsize));
- 		if (!sndbuf_desc->cpu_addr) {
- 			kfree(sndbuf_desc);
- 			sndbuf_desc = NULL;
-@@ -539,14 +546,31 @@ int smc_sndbuf_create(struct smc_sock *smc)
- 			 */
- 			continue;
- 		}
--		rc = smc_ib_buf_map(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
--				    bufsize, sndbuf_desc, DMA_TO_DEVICE);
-+		sndbuf_desc->order = get_order(bufsize);
-+
-+		rc = sg_alloc_table(&sndbuf_desc->sgt[SMC_SINGLE_LINK], 1,
-+				    GFP_KERNEL);
- 		if (rc) {
--			kfree(sndbuf_desc->cpu_addr);
-+			free_pages((unsigned long)sndbuf_desc->cpu_addr,
-+				   sndbuf_desc->order);
-+			kfree(sndbuf_desc);
-+			sndbuf_desc = NULL;
-+			continue;
-+		}
-+		sg_set_buf(sndbuf_desc->sgt[SMC_SINGLE_LINK].sgl,
-+			   sndbuf_desc->cpu_addr, bufsize);
-+
-+		rc = smc_ib_buf_map_sg(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
-+				       sndbuf_desc, DMA_TO_DEVICE);
-+		if (rc != 1) {
-+			sg_free_table(&sndbuf_desc->sgt[SMC_SINGLE_LINK]);
-+			free_pages((unsigned long)sndbuf_desc->cpu_addr,
-+				   sndbuf_desc->order);
- 			kfree(sndbuf_desc);
- 			sndbuf_desc = NULL;
- 			continue; /* if mapping failed, try smaller one */
- 		}
-+
- 		sndbuf_desc->used = 1;
- 		write_lock_bh(&lgr->sndbufs_lock);
- 		list_add(&sndbuf_desc->list, &lgr->sndbufs[bufsize_short]);
-diff --git a/net/smc/smc_core.h b/net/smc/smc_core.h
-index f7b40bdbf24c..72c25cb3eb89 100644
---- a/net/smc/smc_core.h
-+++ b/net/smc/smc_core.h
-@@ -102,8 +102,6 @@ struct smc_link {
- /* tx/rx buffer list element for sndbufs list and rmbs list of a lgr */
- struct smc_buf_desc {
- 	struct list_head	list;
--	u64			dma_addr[SMC_LINKS_PER_LGR_MAX];
--						/* mapped address of buffer */
- 	void			*cpu_addr;	/* virtual address of buffer */
- 	struct sg_table		sgt[SMC_LINKS_PER_LGR_MAX];/* virtual buffer */
- 	struct ib_mr		*mr_rx[SMC_LINKS_PER_LGR_MAX];
-diff --git a/net/smc/smc_ib.c b/net/smc/smc_ib.c
-index 85e1831f591e..021f061609f5 100644
---- a/net/smc/smc_ib.c
-+++ b/net/smc/smc_ib.c
-@@ -295,35 +295,6 @@ int smc_ib_get_memory_region(struct ib_pd *pd, int access_flags,
- 	return 0;
+@@ -206,16 +206,12 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	return rc;
  }
  
--/* map a new TX or RX buffer to DMA */
--int smc_ib_buf_map(struct smc_ib_device *smcibdev, int buf_size,
--		   struct smc_buf_desc *buf_slot,
--		   enum dma_data_direction data_direction)
--{
--	int rc = 0;
--
--	if (buf_slot->dma_addr[SMC_SINGLE_LINK])
--		return rc; /* already mapped */
--	buf_slot->dma_addr[SMC_SINGLE_LINK] =
--		ib_dma_map_single(smcibdev->ibdev, buf_slot->cpu_addr,
--				  buf_size, data_direction);
--	if (ib_dma_mapping_error(smcibdev->ibdev,
--				 buf_slot->dma_addr[SMC_SINGLE_LINK]))
--		rc = -EIO;
--	return rc;
+-static void smc_sndbuf_unuse(struct smc_connection *conn)
++static void smc_buf_unuse(struct smc_connection *conn)
+ {
+ 	if (conn->sndbuf_desc) {
+ 		conn->sndbuf_desc->used = 0;
+ 		conn->sndbuf_size = 0;
+ 	}
 -}
 -
--void smc_ib_buf_unmap(struct smc_ib_device *smcibdev, int buf_size,
--		      struct smc_buf_desc *buf_slot,
--		      enum dma_data_direction data_direction)
+-static void smc_rmb_unuse(struct smc_connection *conn)
 -{
--	if (!buf_slot->dma_addr[SMC_SINGLE_LINK])
--		return; /* already unmapped */
--	ib_dma_unmap_single(smcibdev->ibdev, *buf_slot->dma_addr, buf_size,
--			    data_direction);
--	buf_slot->dma_addr[SMC_SINGLE_LINK] = 0;
--}
+ 	if (conn->rmb_desc) {
+ 		conn->rmb_desc->reused = true;
+ 		conn->rmb_desc->used = 0;
+@@ -232,8 +228,7 @@ void smc_conn_free(struct smc_connection *conn)
+ 		return;
+ 	smc_cdc_tx_dismiss_slots(conn);
+ 	smc_lgr_unregister_conn(conn);
+-	smc_rmb_unuse(conn);
+-	smc_sndbuf_unuse(conn);
++	smc_buf_unuse(conn);
+ }
+ 
+ static void smc_link_clear(struct smc_link *lnk)
+@@ -246,51 +241,57 @@ static void smc_link_clear(struct smc_link *lnk)
+ 	smc_wr_free_link_mem(lnk);
+ }
+ 
+-static void smc_lgr_free_sndbufs(struct smc_link_group *lgr)
++static void smc_buf_free(struct smc_buf_desc *buf_desc, struct smc_link *lnk,
++			 bool is_rmb)
+ {
+-	struct smc_link *lnk = &lgr->lnk[SMC_SINGLE_LINK];
+-	struct smc_buf_desc *sndbuf_desc, *bf_desc;
+-	int i;
 -
- /* Map a new TX or RX buffer SG-table to DMA */
- int smc_ib_buf_map_sg(struct smc_ib_device *smcibdev,
- 		      struct smc_buf_desc *buf_slot,
-diff --git a/net/smc/smc_ib.h b/net/smc/smc_ib.h
-index b57d29f29042..72acb19ffc67 100644
---- a/net/smc/smc_ib.h
-+++ b/net/smc/smc_ib.h
-@@ -51,12 +51,6 @@ int smc_ib_register_client(void) __init;
- void smc_ib_unregister_client(void);
- bool smc_ib_port_active(struct smc_ib_device *smcibdev, u8 ibport);
- int smc_ib_remember_port_attr(struct smc_ib_device *smcibdev, u8 ibport);
--int smc_ib_buf_map(struct smc_ib_device *smcibdev, int buf_size,
--		   struct smc_buf_desc *buf_slot,
--		   enum dma_data_direction data_direction);
--void smc_ib_buf_unmap(struct smc_ib_device *smcibdev, int bufsize,
--		      struct smc_buf_desc *buf_slot,
--		      enum dma_data_direction data_direction);
- int smc_ib_buf_map_sg(struct smc_ib_device *smcibdev,
- 		      struct smc_buf_desc *buf_slot,
- 		      enum dma_data_direction data_direction);
-diff --git a/net/smc/smc_tx.c b/net/smc/smc_tx.c
-index 21ec1832ab51..f4d58e2dd559 100644
---- a/net/smc/smc_tx.c
-+++ b/net/smc/smc_tx.c
-@@ -277,6 +277,7 @@ static int smc_tx_rdma_writes(struct smc_connection *conn)
+-	for (i = 0; i < SMC_RMBE_SIZES; i++) {
+-		list_for_each_entry_safe(sndbuf_desc, bf_desc, &lgr->sndbufs[i],
+-					 list) {
+-			list_del(&sndbuf_desc->list);
+-			smc_ib_buf_unmap_sg(lnk->smcibdev, sndbuf_desc,
+-					    DMA_TO_DEVICE);
+-			sg_free_table(&sndbuf_desc->sgt[SMC_SINGLE_LINK]);
+-			free_pages((unsigned long)sndbuf_desc->cpu_addr,
+-				   sndbuf_desc->order);
+-			kfree(sndbuf_desc);
+-		}
++	if (is_rmb) {
++		if (buf_desc->mr_rx[SMC_SINGLE_LINK])
++			smc_ib_put_memory_region(
++					buf_desc->mr_rx[SMC_SINGLE_LINK]);
++		smc_ib_buf_unmap_sg(lnk->smcibdev, buf_desc,
++				    DMA_FROM_DEVICE);
++	} else {
++		smc_ib_buf_unmap_sg(lnk->smcibdev, buf_desc,
++				    DMA_TO_DEVICE);
+ 	}
++	sg_free_table(&buf_desc->sgt[SMC_SINGLE_LINK]);
++	if (buf_desc->cpu_addr)
++		free_pages((unsigned long)buf_desc->cpu_addr, buf_desc->order);
++	kfree(buf_desc);
+ }
+ 
+-static void smc_lgr_free_rmbs(struct smc_link_group *lgr)
++static void __smc_lgr_free_bufs(struct smc_link_group *lgr, bool is_rmb)
+ {
+ 	struct smc_link *lnk = &lgr->lnk[SMC_SINGLE_LINK];
+-	struct smc_buf_desc *rmb_desc, *bf_desc;
++	struct smc_buf_desc *buf_desc, *bf_desc;
++	struct list_head *buf_list;
+ 	int i;
+ 
+ 	for (i = 0; i < SMC_RMBE_SIZES; i++) {
+-		list_for_each_entry_safe(rmb_desc, bf_desc, &lgr->rmbs[i],
++		if (is_rmb)
++			buf_list = &lgr->rmbs[i];
++		else
++			buf_list = &lgr->sndbufs[i];
++		list_for_each_entry_safe(buf_desc, bf_desc, buf_list,
+ 					 list) {
+-			list_del(&rmb_desc->list);
+-			smc_ib_put_memory_region(
+-					rmb_desc->mr_rx[SMC_SINGLE_LINK]);
+-			smc_ib_buf_unmap_sg(lnk->smcibdev, rmb_desc,
+-					    DMA_FROM_DEVICE);
+-			kfree(rmb_desc->cpu_addr);
+-			kfree(rmb_desc);
++			list_del(&buf_desc->list);
++			smc_buf_free(buf_desc, lnk, is_rmb);
+ 		}
+ 	}
+ }
+ 
++static void smc_lgr_free_bufs(struct smc_link_group *lgr)
++{
++	/* free send buffers */
++	__smc_lgr_free_bufs(lgr, false);
++	/* free rmbs */
++	__smc_lgr_free_bufs(lgr, true);
++}
++
+ /* remove a link group */
+ void smc_lgr_free(struct smc_link_group *lgr)
+ {
+-	smc_lgr_free_rmbs(lgr);
+-	smc_lgr_free_sndbufs(lgr);
++	smc_lgr_free_bufs(lgr);
+ 	smc_link_clear(&lgr->lnk[SMC_SINGLE_LINK]);
+ 	kfree(lgr);
+ }
+@@ -455,45 +456,25 @@ int smc_conn_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	return rc ? rc : local_contact;
+ }
+ 
+-/* try to reuse a sndbuf description slot of the sndbufs list for a certain
+- * buf_size; if not available, return NULL
++/* try to reuse a sndbuf or rmb description slot for a certain
++ * buffer size; if not available, return NULL
+  */
+ static inline
+-struct smc_buf_desc *smc_sndbuf_get_slot(struct smc_link_group *lgr,
+-					 int compressed_bufsize)
++struct smc_buf_desc *smc_buf_get_slot(struct smc_link_group *lgr,
++				      int compressed_bufsize,
++				      rwlock_t *lock,
++				      struct list_head *buf_list)
+ {
+-	struct smc_buf_desc *sndbuf_slot;
+-
+-	read_lock_bh(&lgr->sndbufs_lock);
+-	list_for_each_entry(sndbuf_slot, &lgr->sndbufs[compressed_bufsize],
+-			    list) {
+-		if (cmpxchg(&sndbuf_slot->used, 0, 1) == 0) {
+-			read_unlock_bh(&lgr->sndbufs_lock);
+-			return sndbuf_slot;
+-		}
+-	}
+-	read_unlock_bh(&lgr->sndbufs_lock);
+-	return NULL;
+-}
++	struct smc_buf_desc *buf_slot;
+ 
+-/* try to reuse an rmb description slot of the rmbs list for a certain
+- * rmbe_size; if not available, return NULL
+- */
+-static inline
+-struct smc_buf_desc *smc_rmb_get_slot(struct smc_link_group *lgr,
+-				      int compressed_bufsize)
+-{
+-	struct smc_buf_desc *rmb_slot;
+-
+-	read_lock_bh(&lgr->rmbs_lock);
+-	list_for_each_entry(rmb_slot, &lgr->rmbs[compressed_bufsize],
+-			    list) {
+-		if (cmpxchg(&rmb_slot->used, 0, 1) == 0) {
+-			read_unlock_bh(&lgr->rmbs_lock);
+-			return rmb_slot;
++	read_lock_bh(lock);
++	list_for_each_entry(buf_slot, buf_list, list) {
++		if (cmpxchg(&buf_slot->used, 0, 1) == 0) {
++			read_unlock_bh(lock);
++			return buf_slot;
+ 		}
+ 	}
+-	read_unlock_bh(&lgr->rmbs_lock);
++	read_unlock_bh(lock);
+ 	return NULL;
+ }
+ 
+@@ -506,185 +487,142 @@ static inline int smc_rmb_wnd_update_limit(int rmbe_size)
+ 	return min_t(int, rmbe_size / 10, SOCK_MIN_SNDBUF / 2);
+ }
+ 
+-/* create the tx buffer for an SMC socket */
+-int smc_sndbuf_create(struct smc_sock *smc)
++static int __smc_buf_create(struct smc_sock *smc, bool is_rmb)
+ {
+ 	struct smc_connection *conn = &smc->conn;
  	struct smc_link_group *lgr = conn->lgr;
- 	int to_send, rmbespace;
- 	struct smc_link *link;
-+	dma_addr_t dma_addr;
- 	int num_sges;
+-	struct smc_buf_desc *sndbuf_desc;
++	struct smc_buf_desc *buf_desc = NULL;
++	struct list_head *buf_list;
+ 	int bufsize, bufsize_short;
++	struct smc_link *lnk;
++	int sk_buf_size;
++	rwlock_t *lock;
  	int rc;
  
-@@ -334,12 +335,11 @@ static int smc_tx_rdma_writes(struct smc_connection *conn)
- 		src_len = conn->sndbuf_size - sent.count;
+-	/* use socket send buffer size (w/o overhead) as start value */
++	lnk = &lgr->lnk[SMC_SINGLE_LINK];
++	if (is_rmb)
++		/* use socket recv buffer size (w/o overhead) as start value */
++		sk_buf_size = smc->sk.sk_rcvbuf / 2;
++	else
++		/* use socket send buffer size (w/o overhead) as start value */
++		sk_buf_size = smc->sk.sk_sndbuf / 2;
++
+ 	for (bufsize_short = smc_compress_bufsize(smc->sk.sk_sndbuf / 2);
+ 	     bufsize_short >= 0; bufsize_short--) {
+-		bufsize = smc_uncompress_bufsize(bufsize_short);
+-		if ((1 << get_order(bufsize)) > SG_MAX_SINGLE_ALLOC)
+-			continue;
+-
+-		/* check for reusable sndbuf_slot in the link group */
+-		sndbuf_desc = smc_sndbuf_get_slot(lgr, bufsize_short);
+-		if (sndbuf_desc) {
+-			memset(sndbuf_desc->cpu_addr, 0, bufsize);
+-			break; /* found reusable slot */
+-		}
+-		/* try to alloc a new send buffer */
+-		sndbuf_desc = kzalloc(sizeof(*sndbuf_desc), GFP_KERNEL);
+-		if (!sndbuf_desc)
+-			break; /* give up with -ENOMEM */
+ 
+-		sndbuf_desc->cpu_addr =
+-			(void *)__get_free_pages(GFP_KERNEL | __GFP_NOWARN |
+-						 __GFP_NOMEMALLOC |
+-						 __GFP_NORETRY | __GFP_ZERO,
+-						 get_order(bufsize));
+-		if (!sndbuf_desc->cpu_addr) {
+-			kfree(sndbuf_desc);
+-			sndbuf_desc = NULL;
+-			/* if send buffer allocation has failed,
+-			 * try a smaller one
+-			 */
+-			continue;
+-		}
+-		sndbuf_desc->order = get_order(bufsize);
+-
+-		rc = sg_alloc_table(&sndbuf_desc->sgt[SMC_SINGLE_LINK], 1,
+-				    GFP_KERNEL);
+-		if (rc) {
+-			free_pages((unsigned long)sndbuf_desc->cpu_addr,
+-				   sndbuf_desc->order);
+-			kfree(sndbuf_desc);
+-			sndbuf_desc = NULL;
+-			continue;
++		if (is_rmb) {
++			lock = &lgr->rmbs_lock;
++			buf_list = &lgr->rmbs[bufsize_short];
++		} else {
++			lock = &lgr->sndbufs_lock;
++			buf_list = &lgr->sndbufs[bufsize_short];
+ 		}
+-		sg_set_buf(sndbuf_desc->sgt[SMC_SINGLE_LINK].sgl,
+-			   sndbuf_desc->cpu_addr, bufsize);
+-
+-		rc = smc_ib_buf_map_sg(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
+-				       sndbuf_desc, DMA_TO_DEVICE);
+-		if (rc != 1) {
+-			sg_free_table(&sndbuf_desc->sgt[SMC_SINGLE_LINK]);
+-			free_pages((unsigned long)sndbuf_desc->cpu_addr,
+-				   sndbuf_desc->order);
+-			kfree(sndbuf_desc);
+-			sndbuf_desc = NULL;
+-			continue; /* if mapping failed, try smaller one */
+-		}
+-
+-		sndbuf_desc->used = 1;
+-		write_lock_bh(&lgr->sndbufs_lock);
+-		list_add(&sndbuf_desc->list, &lgr->sndbufs[bufsize_short]);
+-		write_unlock_bh(&lgr->sndbufs_lock);
+-		break;
+-	}
+-	if (sndbuf_desc && sndbuf_desc->cpu_addr) {
+-		conn->sndbuf_desc = sndbuf_desc;
+-		conn->sndbuf_size = bufsize;
+-		smc->sk.sk_sndbuf = bufsize * 2;
+-		atomic_set(&conn->sndbuf_space, bufsize);
+-		return 0;
+-	} else {
+-		return -ENOMEM;
+-	}
+-}
+-
+-/* create the RMB for an SMC socket (even though the SMC protocol
+- * allows more than one RMB-element per RMB, the Linux implementation
+- * uses just one RMB-element per RMB, i.e. uses an extra RMB for every
+- * connection in a link group
+- */
+-int smc_rmb_create(struct smc_sock *smc)
+-{
+-	struct smc_connection *conn = &smc->conn;
+-	struct smc_link_group *lgr = conn->lgr;
+-	struct smc_buf_desc *rmb_desc;
+-	int bufsize, bufsize_short;
+-	int rc;
+-
+-	/* use socket recv buffer size (w/o overhead) as start value */
+-	for (bufsize_short = smc_compress_bufsize(smc->sk.sk_rcvbuf / 2);
+-	     bufsize_short >= 0; bufsize_short--) {
+ 		bufsize = smc_uncompress_bufsize(bufsize_short);
+ 		if ((1 << get_order(bufsize)) > SG_MAX_SINGLE_ALLOC)
+ 			continue;
+ 
+-		/* check for reusable rmb_slot in the link group */
+-		rmb_desc = smc_rmb_get_slot(lgr, bufsize_short);
+-		if (rmb_desc) {
+-			memset(rmb_desc->cpu_addr, 0, bufsize);
++		/* check for reusable slot in the link group */
++		buf_desc = smc_buf_get_slot(lgr, bufsize_short, lock, buf_list);
++		if (buf_desc) {
++			memset(buf_desc->cpu_addr, 0, bufsize);
+ 			break; /* found reusable slot */
+ 		}
+ 
+-		/* try to alloc a new RMB */
+-		rmb_desc = kzalloc(sizeof(*rmb_desc), GFP_KERNEL);
+-		if (!rmb_desc)
++		/* try to allocate the determined number of pages */
++		buf_desc = kzalloc(sizeof(*buf_desc), GFP_KERNEL);
++		if (!buf_desc)
+ 			break; /* give up with -ENOMEM */
+-		rmb_desc->cpu_addr =
++
++		buf_desc->cpu_addr =
+ 			(void *)__get_free_pages(GFP_KERNEL | __GFP_NOWARN |
+ 						 __GFP_NOMEMALLOC |
+ 						 __GFP_NORETRY | __GFP_ZERO,
+ 						 get_order(bufsize));
+-		if (!rmb_desc->cpu_addr) {
+-			kfree(rmb_desc);
+-			rmb_desc = NULL;
++		if (!buf_desc->cpu_addr) {
++			kfree(buf_desc);
++			buf_desc = NULL;
+ 			continue;
+ 		}
+-		rmb_desc->order = get_order(bufsize);
+ 
+-		rc = sg_alloc_table(&rmb_desc->sgt[SMC_SINGLE_LINK], 1,
++		rc = sg_alloc_table(&buf_desc->sgt[SMC_SINGLE_LINK], 1,
+ 				    GFP_KERNEL);
+ 		if (rc) {
+-			free_pages((unsigned long)rmb_desc->cpu_addr,
+-				   rmb_desc->order);
+-			kfree(rmb_desc);
+-			rmb_desc = NULL;
++			smc_buf_free(buf_desc, lnk, is_rmb);
++			buf_desc = NULL;
+ 			continue;
+ 		}
+-		sg_set_buf(rmb_desc->sgt[SMC_SINGLE_LINK].sgl,
+-			   rmb_desc->cpu_addr, bufsize);
++		sg_set_buf(buf_desc->sgt[SMC_SINGLE_LINK].sgl,
++			   buf_desc->cpu_addr, bufsize);
+ 
+-		rc = smc_ib_buf_map_sg(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
+-				       rmb_desc, DMA_FROM_DEVICE);
++		/* map sg table to DMA address */
++		rc = smc_ib_buf_map_sg(lnk->smcibdev, buf_desc, is_rmb ?
++				       DMA_FROM_DEVICE : DMA_TO_DEVICE);
++		/* SMC protocol depends on mapping to one DMA address only */
+ 		if (rc != 1)  {
+-			sg_free_table(&rmb_desc->sgt[SMC_SINGLE_LINK]);
+-			free_pages((unsigned long)rmb_desc->cpu_addr,
+-				   rmb_desc->order);
+-			kfree(rmb_desc);
+-			rmb_desc = NULL;
+-			continue; /* if mapping failed, try smaller one */
++			smc_buf_free(buf_desc, lnk, is_rmb);
++			buf_desc = NULL;
++		continue; /* if mapping failed, try smaller one */
+ 		}
+-		rc = smc_ib_get_memory_region(lgr->lnk[SMC_SINGLE_LINK].roce_pd,
+-					      IB_ACCESS_REMOTE_WRITE |
+-					      IB_ACCESS_LOCAL_WRITE,
+-					      rmb_desc);
+-		if (rc) {
+-			smc_ib_buf_unmap_sg(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
+-					    rmb_desc, DMA_FROM_DEVICE);
+-			sg_free_table(&rmb_desc->sgt[SMC_SINGLE_LINK]);
+-			free_pages((unsigned long)rmb_desc->cpu_addr,
+-				   rmb_desc->order);
+-			kfree(rmb_desc);
+-			rmb_desc = NULL;
+-			continue;
++
++		/* create a new memory region for the RMB */
++		if (is_rmb) {
++			rc = smc_ib_get_memory_region(lnk->roce_pd,
++						      IB_ACCESS_REMOTE_WRITE |
++						      IB_ACCESS_LOCAL_WRITE,
++						      buf_desc);
++			if (rc) {
++				smc_buf_free(buf_desc, lnk, is_rmb);
++				buf_desc = NULL;
++				continue;
++			}
+ 		}
+ 
+-		rmb_desc->used = 1;
+-		write_lock_bh(&lgr->rmbs_lock);
+-		list_add(&rmb_desc->list, &lgr->rmbs[bufsize_short]);
+-		write_unlock_bh(&lgr->rmbs_lock);
+-		break;
++		buf_desc->used = 1;
++		write_lock_bh(lock);
++		list_add(&buf_desc->list, buf_list);
++		write_unlock_bh(lock);
++		break; /* found */
  	}
- 	src_len_sum = src_len;
-+	dma_addr = sg_dma_address(conn->sndbuf_desc->sgt[SMC_SINGLE_LINK].sgl);
- 	for (dstchunk = 0; dstchunk < 2; dstchunk++) {
- 		num_sges = 0;
- 		for (srcchunk = 0; srcchunk < 2; srcchunk++) {
--			sges[srcchunk].addr =
--				conn->sndbuf_desc->dma_addr[SMC_SINGLE_LINK] +
--				src_off;
-+			sges[srcchunk].addr = dma_addr + src_off;
- 			sges[srcchunk].length = src_len;
- 			sges[srcchunk].lkey = link->roce_pd->local_dma_lkey;
- 			num_sges++;
+-	if (rmb_desc && rmb_desc->cpu_addr) {
+-		conn->rmb_desc = rmb_desc;
++
++	if (!buf_desc || !buf_desc->cpu_addr)
++		return -ENOMEM;
++
++	if (is_rmb) {
++		conn->rmb_desc = buf_desc;
+ 		conn->rmbe_size = bufsize;
+ 		conn->rmbe_size_short = bufsize_short;
+ 		smc->sk.sk_rcvbuf = bufsize * 2;
+ 		atomic_set(&conn->bytes_to_rcv, 0);
+ 		conn->rmbe_update_limit = smc_rmb_wnd_update_limit(bufsize);
+-		return 0;
+ 	} else {
+-		return -ENOMEM;
++		conn->sndbuf_desc = buf_desc;
++		conn->sndbuf_size = bufsize;
++		smc->sk.sk_sndbuf = bufsize * 2;
++		atomic_set(&conn->sndbuf_space, bufsize);
+ 	}
++	return 0;
++}
++
++/* create the send and receive buffer for an SMC socket;
++ * receive buffers are called RMBs;
++ * (even though the SMC protocol allows more than one RMB-element per RMB,
++ * the Linux implementation uses just one RMB-element per RMB, i.e. uses an
++ * extra RMB for every connection in a link group
++ */
++int smc_buf_create(struct smc_sock *smc)
++{
++	int rc;
++
++	/* create send buffer */
++	rc = __smc_buf_create(smc, false);
++	if (rc)
++		return rc;
++	/* create rmb */
++	rc = __smc_buf_create(smc, true);
++	if (rc)
++		smc_buf_free(smc->conn.sndbuf_desc,
++			     &smc->conn.lgr->lnk[SMC_SINGLE_LINK], false);
++	return rc;
+ }
+ 
+ static inline int smc_rmb_reserve_rtoken_idx(struct smc_link_group *lgr)
+diff --git a/net/smc/smc_core.h b/net/smc/smc_core.h
+index 72c25cb3eb89..1d713e8e067c 100644
+--- a/net/smc/smc_core.h
++++ b/net/smc/smc_core.h
+@@ -186,8 +186,7 @@ struct smc_clc_msg_accept_confirm;
+ 
+ void smc_lgr_free(struct smc_link_group *lgr);
+ void smc_lgr_terminate(struct smc_link_group *lgr);
+-int smc_sndbuf_create(struct smc_sock *smc);
+-int smc_rmb_create(struct smc_sock *smc);
++int smc_buf_create(struct smc_sock *smc);
+ int smc_rmb_rtoken_handling(struct smc_connection *conn,
+ 			    struct smc_clc_msg_accept_confirm *clc);
+ #endif
 -- 
 2.11.2
