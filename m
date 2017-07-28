@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] nfp: extend firmware request logic
-Date: Thu, 27 Jul 2017 17:26:43 -0700 (PDT)
-Message-ID: <20170727.172643.2063365377965177727.davem@davemloft.net>
-References: <20170726180948.3220-1-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net-next] net: phy: Remove stale comments referencing
+ timer
+Date: Thu, 27 Jul 2017 17:27:57 -0700 (PDT)
+Message-ID: <20170727.172757.99045256740169790.davem@davemloft.net>
+References: <20170726190538.27674-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: jakub.kicinski@netronome.com
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, slash.tmp@free.fr
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39048 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39064 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751524AbdG1A0o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 20:26:44 -0400
-In-Reply-To: <20170726180948.3220-1-jakub.kicinski@netronome.com>
+        with ESMTP id S1751551AbdG1A17 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2017 20:27:59 -0400
+In-Reply-To: <20170726190538.27674-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Wed, 26 Jul 2017 11:09:45 -0700
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 26 Jul 2017 12:05:38 -0700
 
-> We have been pondering for some time how to support loading different
-> application firmwares onto NFP.  We want to support both users selecting
-> one of the firmware images provided by Netronome (which are optimized
-> for different use cases each) as well as firmware images created  by 
-> users themselves or other companies.
+> Since commit a390d1f379cf ("phylib: convert state_queue work to
+> delayed_work"), the PHYLIB state machine was converted to use delayed
+> workqueues, yet some functions were still referencing the PHY library
+> timer in their comments, fix that and remove the now unused
+> linux/timer.h include.
 > 
-> In the end we decided to go with the simplest solution - depending on
-> the right firmware image being placed in /lib/firmware.  This vastly
-> simplifies driver logic and also doesn't require any new API.
-> 
-> Different NICs on one system may want to run different applications
-> therefore we first try to load firmware specific to the device (by 
-> serial number of PCI slot) and if not present try the device model
-> based name we have been using so far.
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Series applied, thanks Jakub.
+Applied.
