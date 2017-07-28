@@ -1,87 +1,81 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Fri, 28 Jul 2017 11:00:49 +0800
-Message-ID: <14218972-553d-eb60-0207-460ac7f4b064@huawei.com>
-References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
- <1499955692-26556-3-git-send-email-dingtianhong@huawei.com>
- <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
- <0260e398-bd8e-6615-6d5c-1f7c07b6fc09@huawei.com>
- <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
- <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
- <20170724090516.2e0f0d2a@w520.home>
- <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
- <75213fca-4522-2297-3cb8-338e643d3552@huawei.com>
- <CAKgT0UcqdRCwDDxD=22Q_jLuqz8KVHwH1-V45Aq-1WzQw=agcA@mail.gmail.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next 3/3] tap: XDP support
+Date: Thu, 27 Jul 2017 20:13:38 -0700
+Message-ID: <20170727201338.65d56b2a@cakuba.netronome.com>
+References: <1501147533-12368-1-git-send-email-jasowang@redhat.com>
+        <1501147533-12368-4-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "mark.rutland@arm.com" <mark.rutland@arm.com>,
- "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
- "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
- "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
- "will.deacon@arm.com" <will.deacon@arm.com>,
- "linuxarm@huawei.com" <linuxarm@huawei.com>, Sinan Kaya <okaya@codeaurora.org>,
- "ashok.raj@intel.com" <ashok.raj@intel.com>,
- "helgaas@kernel.org" <helgaas@kernel.org>,
- "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
- "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
- Ganesh GR <ganeshgr@chelsio.com>, "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
- Casey Leedom <leedom@chelsio.com>,
- "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
- Alex Williamson <alex.williamson@redhat.com>,
- "bhelgaas@google.com" <bhelgaas@google.com>, Michael
- Werner <werner@chelsio.com>,
- "linux-arm-kernel@lists.infradead.org"
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAKgT0UcqdRCwDDxD=22Q_jLuqz8KVHwH1-V45Aq-1WzQw=agcA@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.wp.pl ([212.77.101.10]:42751 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751605AbdG1DNp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 27 Jul 2017 23:13:45 -0400
+In-Reply-To: <1501147533-12368-4-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, 27 Jul 2017 17:25:33 +0800, Jason Wang wrote:
+> This patch tries to implement XDP for tun. The implementation was
+> split into two parts:
+> 
+> - fast path: small and no gso packet. We try to do XDP at page level
+>   before build_skb(). For XDP_TX, since creating/destroying queues
+>   were completely under control of userspace, it was implemented
+>   through generic XDP helper after skb has been built. This could be
+>   optimized in the future.
+> - slow path: big or gso packet. We try to do it after skb was created
+>   through generic XDP helpers.
+> 
+> XDP_REDIRECT was not implemented, it could be done on top.
+> 
+> xdp1 test shows 47.6% improvement:
+> 
+> Before: ~2.1Mpps
+> After:  ~3.1Mpps
+> 
+> Suggested-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
+> @@ -1008,6 +1016,56 @@ tun_net_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+>  	stats->tx_dropped = tx_dropped;
+>  }
+>  
+> +static int tun_xdp_set(struct net_device *dev, struct bpf_prog *prog,
+> +		       struct netlink_ext_ack *extack)
+> +{
+> +	struct tun_struct *tun = netdev_priv(dev);
+> +	struct bpf_prog *old_prog;
+> +
+> +	/* We will shift the packet that can't be handled to generic
+> +	 * XDP layer.
+> +	 */
+> +
+> +	old_prog = rtnl_dereference(tun->xdp_prog);
+> +	if (old_prog)
+> +		bpf_prog_put(old_prog);
+> +	rcu_assign_pointer(tun->xdp_prog, prog);
 
-On 2017/7/28 1:49, Alexander Duyck wrote:
-> On Wed, Jul 26, 2017 at 6:08 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
->>
->>
->> On 2017/7/27 2:26, Casey Leedom wrote:
->>>   By the way Ding, two issues:
->>>
->>>  1. Did we ever get any acknowledgement from either Intel or AMD
->>>     on this patch?  I know that we can't ensure that, but it sure would
->>>     be nice since the PCI Quirks that we're putting in affect their
->>>     products.
->>>
->>
->> Still no Intel and AMD guys has ack this, this is what I am worried about, should I
->> ping some man again ?
->>
->> Thanks
->> Ding
-> 
-> 
-> I probably wouldn't worry about it too much. If anything all this
-> patch is doing is disabling relaxed ordering on the platforms we know
-> have issues based on what Casey originally had. If nothing else we can
-> follow up once the patches are in the kernel and if somebody has an
-> issue then.
-> 
-> You can include my acked-by, but it is mostly related to how this
-> interacts with NICs, and not so much about the PCI chipsets
-> themselves.
-> 
-> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
+Is this OK?  Could this lead to the program getting freed and then
+datapath accessing a stale pointer?  I mean in the scenario where the
+process gets pre-empted between the bpf_prog_put() and
+rcu_assign_pointer()?
 
-Thanks, Alex. :)
+> +	if (prog) {
+> +		prog = bpf_prog_add(prog, 1);
+> +		if (IS_ERR(prog))
+> +			return PTR_ERR(prog);
+> +	}
 
-> .
-> 
+I don't think you need this extra reference here.  dev_change_xdp_fd()
+will call bpf_prog_get_type() which means driver gets the program with
+a reference already taken, drivers does have to free that reference when
+program is removed (or device is freed, as you correctly do).
+
+> +	return 0;
+> +}
+> +
