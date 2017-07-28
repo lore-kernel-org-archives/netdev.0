@@ -1,100 +1,84 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] ipv6: no need to return rt->dst.error if it is not
- null entry.
-Date: Fri, 28 Jul 2017 10:13:25 -0700
-Message-ID: <CAJieiUgxQ+okYAffbb6dqA-=U9qn1QA7A3-ZJ8=HC=o1bkF3ow@mail.gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <CAPwn2JQHyj5gxqTFcJ-u9ABe544ivTBWskQfMgk2a2NirCF5rg@mail.gmail.com>
- <CAPwn2JTF+j84+Bv4Zn=pqju2tnMuuJrhTr9Un786-PZ0D6af3w@mail.gmail.com>
- <CAM_iQpUM6m=GvUU0OfwZAFsOGsf1UZmTjmuM9FH2P1iOZP=Svw@mail.gmail.com>
- <20170724030907.GC2938@leo.usersys.redhat.com> <CAM_iQpW4qj2N77QrCvt9jd6jhOGvyRye8eyBzzk+vXeUi_FaoQ@mail.gmail.com>
- <20170725000849.GD2938@leo.usersys.redhat.com> <01b1cd24-ab81-3276-f253-70eef20e550b@gmail.com>
- <20170725073202.GE2938@leo.usersys.redhat.com> <9e198c2a-c026-f4bd-f190-8d5a887efe7f@gmail.com>
- <CAJieiUgyHDksxVjoCSz9pxbDy-ZZR9uUWWZXdth0diSKAcvx4Q@mail.gmail.com>
- <64377a01-38df-6d43-16a4-401d426fb9b2@gmail.com> <CAM_iQpU5EZr1rtgY8sCBjD=utzmi9c6MQ2xb36iXLk++qSk3WA@mail.gmail.com>
- <7f404f61-0b9a-b25b-3c15-83395d30641d@gmail.com>
+From: Mark Salyzyn <salyzyn@android.com>
+Subject: refcount_t + (resend to wider audience)
+Date: Fri, 28 Jul 2017 10:15:23 -0700
+Message-ID: <adaee9d9-1d35-921c-36b3-e32e6c8ce9e3@android.com>
+References: <cc109bec-d4bb-8965-3169-fe36d85e6e19@android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Hangbin Liu <liuhangbin@gmail.com>,
-        network dev <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f174.google.com ([209.85.217.174]:34837 "EHLO
-        mail-ua0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752027AbdG1RN0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 13:13:26 -0400
-Received: by mail-ua0-f174.google.com with SMTP id d29so158951309uai.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 10:13:26 -0700 (PDT)
-In-Reply-To: <7f404f61-0b9a-b25b-3c15-83395d30641d@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: stable@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <cc109bec-d4bb-8965-3169-fe36d85e6e19@android.com>
+Content-Language: en-US
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2017 at 8:10 AM, David Ahern <dsahern@gmail.com> wrote:
-> On 7/27/17 10:56 PM, Cong Wang wrote:
->> On Wed, Jul 26, 2017 at 11:49 AM, David Ahern <dsahern@gmail.com> wrote:
->>> On 7/26/17 12:27 PM, Roopa Prabhu wrote:
->>>> agreed...so looks like the check in v3 should be
->>>>
->>>>
->>>> +       if ( rt == net->ipv6.ip6_null_entry ||
->>>> +            (rt->dst.error &&
->>>> + #ifdef CONFIG_IPV6_MULTIPLE_TABLES
->>>> +              rt != net->ipv6.ip6_prohibit_entry &&
->>>> +              rt != net->ipv6.ip6_blk_hole_entry &&
->>>> +#endif
->>>> +             )) {
->>>>                 err = rt->dst.error;
->>>>                 ip6_rt_put(rt);
->>>>                 goto errout;
->>>>
->>>
->>> I don't think so. If I add a prohibit route and use the fibmatch
->>> attribute, I want to see the route from the FIB that was matched.
->>
->> But net->ipv6.ip6_prohibit_entry is not the prohibit route you can
->> add in user-space, it is only used by rule actions. So do you really
->> want to dump it?? My gut feeling is no, but I am definitely not sure.
->>
->> When you add a prohibit route, a new rt is allocated dynamically,
->> net->ipv6.ip6_prohibit_entry is relatively static, internal and is the
->> only one per netns. (Same for net->ipv6.ip6_blk_hole_entry)
->>
->> I think Hangbin's example doesn't have ip rules, so this case
->> is not shown up.
->>
->
-> Understood. The v4 patch returns getroute to the original behavior. The
-> original behavior returned a route entry not just an error code. The
-> following is at 5dafc87f40d7 which the commit before roopa's patch set:
->
-> # ip -6 ru add to 6000::/120 prohibit
-> # ip -6 ro get 6000::1
-> prohibit 6000::1 from :: dev lo proto kernel src 2001:db8::3 metric
-> 4294967295  error -13 pref medium
->
-> # ip -6 ro add vrf red prohibit 5000::1/120
-> # ip -6 ro get vrf red 5000::1
-> prohibit 5000::1 from :: dev lo table red src 2001:db8::3 metric 1024
-> error -13 pref medium
->
-> Generically, the only time you get just an error response is when the
-> lookup fails to find a match and returns the null_entry which has
-> dst.error = -ENETUNREACH.
->
->
-> Now to your point about the new fibmatch option I have gone back and
-> forth but in the end I think returning the route associated with the FIB
-> rule is better than just failing with an error code.
->
-> Roopa?
+(Resend to wider audience to comply with 
+Documentation/networking/netdev-FAQ.txt)
 
-for fibmatch, my original intent was to return with an error code.
-This is similar
-to the ipv4 behavior. One option is to keep the check in there and put
-the 'fibmatch'
-condition around it. But, i do want to make sure that for the fibmatch case,
-it does not return an error directly on an existing prohibit route
-entry in the fib.
-This is probably doable by checking for appropriate
-net->ipv6.ip6_prohibit_entry entries.
+Please apply/backport the following upstream feature and followup
+grouped fixes patches to the stable trees (expect included in at least
+3.10.y, 3.18.y, 4.4.y and 4.9.y):
+
+
+GROUP 1: refcount_t feature:
+
+f405df5de3170c00e5c54f8b7cf4766044a032ba refcount_t: Introduce a special
+purpose refcount type
+29dee3c03abce04cd527878ef5f9e5f91b7b83f4 locking/refcounts: Out-of-line
+everything
+bd174169c7a12a37b3b4aa2221f084ade010b182 locking/refcount: Add
+refcount_t API kernel-doc comments
+fd25d19f6b8da315332bb75936605fb45d3ea981 locking/refcount: Create
+unchecked atomic_t implementation
+
+They should merge cleanly as they are orthogonal, except for the last
+one which will have a trivial merge conflict to arch/Kconfig.
+
+Following these that add the refcount_t upstream API, the following
+groups of
+upsteam patches are requested because we are experiencing KASAN errors:
+
+
+GROUP 2: sk_buff.users:
+
+3889a803e1da9bd7cd10d6504bf281ee7e55dfd6 net: factor out a helper to
+decrement the skb refcount
+7608894e43d071ef2322a01c79522954c070ac6c net: use skb_unref() in
+napi_consume_skb()
+9899886d5e8ec5b343b1efe44f185a0e68dc6454 net: core: Prevent from
+dereferencing null pointer when releasing SKB
+633547973ffc32fd2c815639d4675e1531f0896f net: convert sk_buff.users from
+atomic_t to refcount_t
+
+They appear to merge trivially (4.9), but the last one will likely need
+#include
+<linux/refcount.h> added after the #include <lunux/atomic.h> in
+include/linux/skbuff.h to facilitate compilation.
+
+
+GROUP 3: sec_path.refcnt:
+
+b0fcee825c0ad05057a97d1f4685e1b9e9d00c53 xfrm: Add a secpath_set helper.
+55eabed60a68e918abc44f6beb64f38cc008b29d net, xfrm: convert
+sec_path.refcnt from atomic_t to refcount_t
+
+They merged with zero conflict on 4.9.
+
+
+GROUP 4: sock.sk_wmem_alloc
+
+14afee4b6092fde451ee17604e5f5c89da33e71e net: convert sock.sk_wmem_alloc
+from atomic_t to refcount_t
+
+This did not merge entirely cleanly (4.9), appears fragments for
+net/ipv4/esp4.c and net/ipv6/esp6.c need to be dropped as well as minor
+conflicts in two other files.
+
+
+There may be more related to follow as our investigations continue, but
+this is already turning into a tall order so we stop here.
+
+
+Sincerely -- Mark Salyzyn
