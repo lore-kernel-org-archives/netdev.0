@@ -1,81 +1,64 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: [RFC PATCH v1] net: ethernet: nb8800: Reset HW block in ndo_open
-Date: Fri, 28 Jul 2017 23:53:49 +0200
-Message-ID: <446e3a95-80c3-0742-9cb1-69a8dfc9b1ae@free.fr>
-References: <823b1540-b528-bbd7-7f99-5dc39a08868a@sigmadesigns.com>
- <yw1xk22slemx.fsf@mansr.com>
- <c1bf54ee-8634-23a1-abda-55bc3fafe2a8@sigmadesigns.com>
- <yw1xfudgl7am.fsf@mansr.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v11 1/4] net netlink: Add new type
+ NLA_BITFIELD_32
+Date: Fri, 28 Jul 2017 17:55:08 -0400
+Message-ID: <71eeb58e-b73c-ad27-51b3-69755883c2ed@mojatatu.com>
+References: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
+ <1500860146-26970-2-git-send-email-jhs@emojatatu.com>
+ <1a2578ca-35c6-884e-1daf-fcc47e5eb618@gmail.com>
+ <7c17a575-53bb-1f25-4a9a-7418f99660f2@mojatatu.com>
+ <886e9fe5-d523-4841-1a81-e5671447933a@gmail.com>
+ <b82ef71c-3231-fa71-44f5-8882750822d9@mojatatu.com>
+ <5a568b1f-a311-f97b-f5d0-5361b33cf6bc@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 8bit
-Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mans Rullgard <mans@mansr.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, mrv@mojatatu.com,
+        simon.horman@netronome.com, alex.aring@gmail.com
+To: David Ahern <dsahern@gmail.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:2512 "EHLO smtp2-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752628AbdG1VyA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Jul 2017 17:54:00 -0400
-In-Reply-To: <yw1xfudgl7am.fsf@mansr.com>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:35820 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752628AbdG1VzL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 17:55:11 -0400
+Received: by mail-it0-f66.google.com with SMTP id v127so16317837itd.2
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 14:55:10 -0700 (PDT)
+In-Reply-To: <5a568b1f-a311-f97b-f5d0-5361b33cf6bc@gmail.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/07/2017 20:56, Måns Rullgård wrote:
-
-> Marc Gonzalez writes:
-> 
->> On 28/07/2017 18:17, Måns Rullgård wrote:
+On 17-07-28 11:13 AM, David Ahern wrote:
+> On 7/28/17 9:04 AM, Jamal Hadi Salim wrote:
 >>
->>> Marc Gonzalez wrote:
->>>
->>>> ndo_stop breaks RX in a way that ndo_open is unable to undo.
->>>
->>> Please elaborate.  Why can't it be fixed in a less heavy-handed way?
+>> Kernel side checking for device ifindex must know what a device
+>> ifindex means.
+>> That doesnt disqualify that the generic code checks that it
+>> is of the same size as a signed 32b, etc. That is generic
+>> stuff that can be factored out.
 >>
->> I'm not sure what "elaborate" means. After we've been through
->> ndo_stop once, the board can send packets, but it doesn't see
->> any replies from remote systems. RX is wedged.
+>> In this case:
+>> Checking for whether bits selected are in the allowed range
+>> that the kernel understands, that the bit value are set in
+>> the right bit position, that the bits set in the correct bit
+>> value position are also selected in the transaction.
+>> That is generic code (which the content validation does).
 > 
-> So you say, but you have not explained why this happens.  Until we know
-> why, we can't decide on the proper fix.
-
-I'll try adding delays in strategic places, and see if
-I can trigger the same bug on tango4. If I can't, then
-this work around is all we've got.
-
-And I need nb8800_init for resume anyway, so I might
-as well use it in ndo_open.
-
-TODO: test power savings from holding HW in reset.
-
->> I think ndo_stop is rare enough an event that doing a full
->> reset is not an issue, in terms of performance.
+> Create a helper function then. It's the validation of attribute content
+> in 2 places that I object to. 1 attribute is validated in 1 place
+> (generic infra for this bitfield attribute), the others are validated in
+> line. Asymmetric validations is not a good design.
 > 
-> Performance isn't the issue.  Doing the right thing is.
 
-I don't have always have time to figure out exactly how
-broken HW is broken. It's already bad enough that disabling
-DMA requires sending a fake packet through the loop back...
+What is not generic in what is being validated though?
+Content validation is when you say "This bit means the sky is blue".
+You have to know the meaning of the bit.
+The generic validation is opaque; "this bit is not supposed to be here".
+I would argue that "this is bit is not supposed to be here unless
+this other bit is present" is had to generalize but would be infra
+as well (why i provided the ops for it, but removed it so we could
+move on).
 
-
->>> I'm pretty sure this doesn't preserve everything it should.
->>
->> Hmmm, we're supposed to start fresh ("full reset").
->> What could there be to preserve?
->> You mentioned flow control and multicast elsewhere.
->> I will take a closer look. Thanks for the heads up.
-> 
-> Yes, those settings are definitely lost with your patch.  Now I'm not
-> sure whether the networking core expects these to survive a stop/start
-> cycle, so please check that.  There might also be other less obvious
-> things that need to be preserved.
-
-The original code calls nb8800_pause_config() every
-time the link comes up. The proposed patch doesn't
-change that.
-
-Regards.
+cheers,
+jamal
