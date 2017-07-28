@@ -1,97 +1,53 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH V3 net-next] TLP: Don't reschedule PTO when there's one
- outstanding TLP retransmission
-Date: Fri, 28 Jul 2017 18:48:24 -0400
-Message-ID: <CADVnQy=Dw__BrTHwoUrn0Wxu8=Xb7NqZ9bAuEeM8SrNhzd_2SA@mail.gmail.com>
-References: <1501157337-10900-1-git-send-email-maowenan@huawei.com>
+Subject: Re: TCP fast retransmit issues
+Date: Fri, 28 Jul 2017 18:54:41 -0400
+Message-ID: <CADVnQym9JpC+vDVPVjP0ibhPQu3NhxsynRYA--FNzAgKJUJQSg@mail.gmail.com>
+References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk> <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk> <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170726134242.GB1737@1wt.eu> <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170726145059.GE1737@1wt.eu> <CADVnQymKZAc+SFD7X-FoP9UwHgB2MBCY48=dL8mH6XuKumkx4g@mail.gmail.com>
+ <CADVnQykEX-LzhsqyfHNmV6fF9-d_2R0v+mOX-PnyagUhC1qQzQ@mail.gmail.com>
+ <CADVnQynR8dUuUBDfeFR2xpL-wKzd+7TgbMv-CXe3TT-T0_PXyQ@mail.gmail.com> <CADVnQynVfm0V=16sr+rHsJhtHx9b+kM7Vn2edW2GJ7qMaAtDJg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Klavs Klavsen <kl@vsen.dk>,
+        Netdev <netdev@vger.kernel.org>,
         Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        weiyongjun1@huawei.com, Weilong Chen <chenweilong@huawei.com>,
-        wangkefeng.wang@huawei.com
-To: Mao Wenan <maowenan@huawei.com>
+        Nandita Dukkipati <nanditad@google.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:35365 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752849AbdG1Ws4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 18:48:56 -0400
-Received: by mail-oi0-f51.google.com with SMTP id e124so184579409oig.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 15:48:55 -0700 (PDT)
-In-Reply-To: <1501157337-10900-1-git-send-email-maowenan@huawei.com>
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:34582 "EHLO
+        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752763AbdG1WzM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 18:55:12 -0400
+Received: by mail-oi0-f43.google.com with SMTP id x3so140491009oia.1
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 15:55:12 -0700 (PDT)
+In-Reply-To: <CADVnQynVfm0V=16sr+rHsJhtHx9b+kM7Vn2edW2GJ7qMaAtDJg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 27, 2017 at 8:08 AM, Mao Wenan <maowenan@huawei.com> wrote:
-> If there is one TLP probe went out(TLP use the write_queue_tail
-> packet as TLP probe, we assume this first TLP probe named A), and
-> this TLP probe was not acked by receive side.
+On Wed, Jul 26, 2017 at 3:02 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> On Wed, Jul 26, 2017 at 2:38 PM, Neal Cardwell <ncardwell@google.com> wrote:
+>> Yeah, it looks like I can reproduce this issue with (1) bad sacks
+>> causing repeated TLPs, and (2) TLPs timers being pushed out to later
+>> times due to incoming data. Scripts are attached.
 >
-> Then the transmit side sent the next two packetes out(named B,C),
-> but unfortunately these two packets are also not acked by receive side.
->
-> And then there is one data packet with ack_seq A arrive at transmit
-> side, in tcp_ack() will call tcp_schedule_loss_probe() to rearm PTO,
-> the handler tcp_send_loss_probe() is to check
-> if(tp->tlp_high_seq) then go to rearm_timer(because there is one
-> outstanding TLP named A), so the new TLP probe can't be sent out and
-> it needs to rearm the RTO timer(timeout is relative to the transmit
-> time of the write queue head).
->
-> After that, there is another data packet with ack_seq A is received,
-> if the tlp_time_stamp is greater than rto_time_stamp, it will reset
-> the TLP timeout, which is before previous RTO timeout, so PTO is
-> rearm and previous RTO is cleared. Because there is no
-> retransmission packet was sent or no TLP sack receive,
-> tp->tlp_high_seq can't be reset to zero and the next TLP probe also
-> can't be sent out, so there is no way(or very long time)
-> to retransmit the lost packet.
->
-> This fix is to check(tp->tlp_high_seq) in tcp_schedule_loss_probe()
-> when TLP PTO is after RTO, It is not needed to reschedule PTO when
-> there is one outstanding TLP retransmission, so if the TLP A is lost
-> RTO can retransmit lost packet, then tp->tlp_high_seq will be set to
-> 0, and TLP will go to the normal work process.
->
-> v1->v2
->         refine some words of code and patch comments.
-> v2->v3
->         delete senseless "{" and "}" in if clause.
->
-> Signed-off-by: Mao Wenan <maowenan@huawei.com>
+> I'm testing a fix of only scheduling a TLP if (flag & FLAG_DATA_ACKED)
+> is true...
 
-Thanks for posting this patch with a detailed problem description, as
-well as a trace in the thread for v1 of the patch. This was very
-helpful!
+An update for the TLP aspect of this thread: our team has a proposed
+fix for this RTO/TLP reschedule issue that we have reviewed internally
+and tested with our packetdrill test suite, including some new tests.
+The basic approach in the fix is as follows:
 
-Thinking about the problem you describe, and looking at the trace,
-AFAICT I don't think this is the patch we want.
+a) only reschedule the xmit timer once per ACK
 
-We can still have this problem of improperly/repeatedly rescheduling a
-PTO even when the TLPs are new data. When the TLPs are new data
-tp->tlp_high_seq is not set, and so the patch above will not help.
+b) only reschedule the xmit timer if tcp_clean_rtx_queue() deems this
+is safe (a packet was cumulatively ACKed, or we got a SACK for a
+packet that was sent before the most recent retransmit of the write
+queue head).
 
-I think the broader problem is hinted at in this part of your commit
-description:
+After further review and testing we will post it. Hopefully next week.
 
-> After that, there is another data packet with ack_seq A is received,
-> if the tlp_time_stamp is greater than rto_time_stamp, it will reset
-> the TLP timeout
-
-The broader problem here is that an incoming data packet (with no new
-ACK/SACK info) affected the TLP for our outbound data. That is a
-problem because such incoming data can cause us to delay the TLP when
-there is no reason to.
-
-I think this is basically the same as the TLP issue from the "TCP fast
-retransmit issues" thread on netdev from July 26. Our TCP team at
-Google has a proposed fix for this more general issue that we have
-tested and reviewed. I will post a quick summary of the proposed patch
-in the "TCP fast retransmit issues" thread. Once the patch has
-undergone a little more testing we will send it to the list, hopefully
-next week.
-
-Thanks!
+thanks,
 neal
