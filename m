@@ -1,33 +1,49 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH net] mcs7780: Silence uninitialized variable warning
-Date: Fri, 28 Jul 2017 17:45:11 +0300
-Message-ID: <20170728144511.tf7nc672hwo35rnn@mwanda>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: mwifiex: fix compile warning of unused variable
+Date: Fri, 28 Jul 2017 14:50:02 +0000 (UTC)
+Message-ID: <20170728145002.5F3C860128@smtp.codeaurora.org>
+References: <1499327433-70786-1-git-send-email-shawn.lin@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Amitkumar Karwar <amitkarwar@gmail.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Xinming Hu <huxm@marvell.com>,
+        Shawn Lin <shawn.lin@rock-chips.com>
+To: Shawn Lin <shawn.lin@rock-chips.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:49614 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751904AbdG1OuC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:50:02 -0400
+In-Reply-To: <1499327433-70786-1-git-send-email-shawn.lin@rock-chips.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-My static checker complains that, if the allocation in mcs_get_reg()
-fails, it means we use "rval" without initializing it.  Small
-allocations never fail in current kernels so it's not a major concern
-but it's simple enough to silence the warning.
+Shawn Lin <shawn.lin@rock-chips.com> wrote:
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> We got a compile warning shows below:
+> 
+> drivers/net/wireless/marvell/mwifiex/sdio.c: In function
+> 'mwifiex_sdio_remove':
+> drivers/net/wireless/marvell/mwifiex/sdio.c:377:6: warning: variable
+> 'ret' set but not used [-Wunused-but-set-variable]
+> 
+> Per the code, it didn't check if mwifiex_sdio_read_fw_status
+> finish successfully. We should at least check the return of
+> mwifiex_sdio_read_fw_status, otherwise the following check of
+> firmware_stat and adapter->mfg_mode is pointless as the device
+> is probably dead.
+> 
+> Signed-off-by: Shawn Lin <shawn.lin@rock-chips.com>
+> Reviewed-by: Brian Norris <briannorris@chromium.org>
 
-diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
-index 765de3bedb88..64b29880e534 100644
---- a/drivers/net/irda/mcs7780.c
-+++ b/drivers/net/irda/mcs7780.c
-@@ -585,7 +585,7 @@ static int mcs_speed_change(struct mcs_cb *mcs)
- 	int rst = 0;
- 	int cnt = 0;
- 	__u16 nspeed;
--	__u16 rval;
-+	__u16 rval = -1;
- 
- 	nspeed = mcs_speed_set[(mcs->new_speed >> 8) & 0x0f];
- 
+Patch applied to wireless-drivers-next.git, thanks.
+
+f46a5b0156b1 mwifiex: fix compile warning of unused variable
+
+-- 
+https://patchwork.kernel.org/patch/9827585/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
