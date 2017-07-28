@@ -1,9 +1,9 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCH 3/3] net-next: stmmac: dwmac-sun8i: choose
- internal PHY via compatible
-Date: Fri, 28 Jul 2017 17:49:55 +0800
-Message-ID: <CAGb2v64w-KCmYExN7OqvuLj42-pHN-BN5iKpxA+KW84v+RfCDQ@mail.gmail.com>
-References: <20170728092818.23419-1-clabbe.montjoie@gmail.com> <20170728092818.23419-4-clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH 0/3] net-next: stmmac: support future
+ possible different internal phy mode
+Date: Fri, 28 Jul 2017 17:53:40 +0800
+Message-ID: <CAGb2v66=h_5df=B0Us-kvvFg9r_qSUroDzn-xvQLSpD1d8DhBQ@mail.gmail.com>
+References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
 Reply-To: wens-jdAy2FN1RRM@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -15,9 +15,9 @@ Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Mark Rutland 
 	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
 	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBW4R5TFQKGQEGO4XDAA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBPET5TFQKGQETAAF2VI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20170728092818.23419-4-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <20170728092818.23419-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Archive: <https://groups.google.com/group/linux-sunxi
@@ -28,35 +28,35 @@ List-Id: netdev.vger.kernel.org
 
 On Fri, Jul 28, 2017 at 5:28 PM, Corentin Labbe
 <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Hello
+>
 > The current way to find if the phy is internal is to compare DT phy-mode
 > and emac_variant/internal_phy.
 > But it will negate a possible future SoC where an external PHY use the
 > same phy mode than the internal one.
 >
-> This patch adds a new way to find if the PHY is internal, via its
+> This patchs series adds a new way to find if the PHY is internal, via its
 > compatible.
->
-> Since the phy_mode of the internal PHY does need to be know, the
-> variant internal_phy member is converted to a boolean.
->
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 16 ++++++++++------
->  1 file changed, 10 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> index fffd6d5fc907..04f7ddd802b0 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> @@ -48,7 +48,7 @@
->   */
->  struct emac_variant {
->         u32 default_syscon_value;
-> -       int internal_phy;
-> +       bool internal_phy;
 
-Nit: please add a verb to the name, like "has_internal_phy",
-or even "soc_has_internal_phy". This makes it clear what this
-property represents.
+You've already joined in on the discussion for the patch "net: stmmac:
+dwmac-rk: Add internal phy support". It is pretty much the same issue.
+Please wait for it to come to a proper conclusion. At least then we can
+agree on something so different platforms with the same problem don't
+have diverging solutions.
 
 ChenYu
+
+>
+> Corentin Labbe (3):
+>   dt-bindings: net: add compatible for internal sun8i-h3/sun8i-v3s PHYs
+>   ARM: sunxi: h3/h5: Add sun8i-h3-ephy compatible
+>   net-next: stmmac: dwmac-sun8i: choose internal PHY via compatible
+>
+>  Documentation/devicetree/bindings/net/dwmac-sun8i.txt |  4 ++--
+>  arch/arm/boot/dts/sunxi-h3-h5.dtsi                    |  3 ++-
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c     | 16 ++++++++++------
+>  3 files changed, 14 insertions(+), 9 deletions(-)
+>
+> --
+> 2.13.0
+>
