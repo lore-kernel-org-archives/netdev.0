@@ -1,91 +1,208 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 0/3] ethtool: support for forward error
- correction mode setting on a link
-Date: Fri, 28 Jul 2017 19:29:57 +0200
-Message-ID: <20170728172957.GK2132@lunn.ch>
-References: <1501199248-24695-1-git-send-email-roopa@cumulusnetworks.com>
- <20170727193320.308e86c3@cakuba.netronome.com>
- <CAJieiUiXuN9s0ndJ4K6UVE2pomRi0aD9PH6uYHe12qCzL0+wSg@mail.gmail.com>
- <20170728094620.525ba156@cakuba.netronome.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH v3 3/3] net: ethernet: ti: cpts: fix tx timestamping
+ timeout
+Date: Fri, 28 Jul 2017 12:30:42 -0500
+Message-ID: <b9cf2261-e451-9bc9-f22e-871292bd4621@ti.com>
+References: <20170726221138.12986-1-grygorii.strashko@ti.com>
+ <20170726221138.12986-4-grygorii.strashko@ti.com>
+ <20170728170233.GA19760@khorivan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Vidya Sagar Ravipati <vidya.chowdary@gmail.com>,
-        Dustin Byford <dustin@cumulusnetworks.com>,
-        Dave Olson <olson@cumulusnetworks.com>,
-        Casey Leedom <leedom@chelsio.com>,
-        Gal Pressman <galp@mellanox.com>,
-        Manoj Malviya <manojmalviya@chelsio.com>,
-        Santosh Rastapur <santosh@chelsio.com>, yuval.mintz@qlogic.com,
-        odedw@mellanox.com, Ariel Almog <ariela@mellanox.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Jakub Kicinski <kubakici@wp.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44174 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752385AbdG1RaI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Jul 2017 13:30:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20170728094620.525ba156@cakuba.netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>, Wingman Kwok <w-kwok2@ti.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170728170233.GA19760@khorivan>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2017 at 09:46:20AM -0700, Jakub Kicinski wrote:
-> On Fri, 28 Jul 2017 07:53:01 -0700, Roopa Prabhu wrote:
-> > On Thu, Jul 27, 2017 at 7:33 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> > > On Thu, 27 Jul 2017 16:47:25 -0700, Roopa Prabhu wrote:  
-> > >> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> > >>
-> > >> Forward Error Correction (FEC) modes i.e Base-R
-> > >> and Reed-Solomon modes are introduced in 25G/40G/100G standards
-> > >> for providing good BER at high speeds. Various networking devices
-> > >> which support 25G/40G/100G provides ability to manage supported FEC
-> > >> modes and the lack of FEC encoding control and reporting today is a
-> > >> source for interoperability issues for many vendors.
-> > >> FEC capability as well as specific FEC mode i.e. Base-R
-> > >> or RS modes can be requested or advertised through bits D44:47 of base link
-> > >> codeword.
-> > >>
-> > >> This patch set intends to provide option under ethtool to manage and
-> > >> report FEC encoding settings for networking devices as per IEEE 802.3
-> > >> bj, bm and by specs.
-> > >>
-> > >> v2 :
-> > >>         - minor patch format fixes and typos pointed out by Andrew
-> > >>         - there was a pending discussion on the use of 'auto' vs
-> > >>           'automatic' for fec settings. I have left it as 'auto'
-> > >>           because in most cases today auto is used in place of
-> > >>           automatic to represent automatically generated values.
-> > >>           We use it in other networking config too. I would prefer
-> > >>           leaving it as auto.  
-> > >
-> > > On the subject of resetting the values when module is replugged I
-> > > assume what was previously described remains:
-> > >  - we always allow users to set the FEC regardless of the module type;
-> > >  - if user set an incorrect FEC for the module type (or module gets
-> > >    swapped) the link will be administratively taken down by either
-> > >    the driver or FW.
-> > >
-> > > Is that correct?  Am I misremembering?  
-> > 
-> > yes, correct. And possible future sfp hotplug events can give user-space
-> > more info to react to module type changes etc.
+
+
+On 07/28/2017 12:02 PM, Ivan Khoronzhuk wrote:
+> On Wed, Jul 26, 2017 at 05:11:38PM -0500, Grygorii Strashko wrote:
+>> With the low speed Ethernet connection CPDMA notification about packet
+>> processing can be received before CPTS TX timestamp event, which is set
+>> when packet actually left CPSW while cpdma notification is sent when packet
+>> pushed in CPSW fifo.  As result, when connection is slow and CPU is fast
+>> enough TX timestamping is not working properly.
+>>
+>> Fix it, by introducing TX SKB queue to store PTP SKBs for which Ethernet
+>> Transmit Event hasn't been received yet and then re-check this queue
+>> with new Ethernet Transmit Events by scheduling CPTS overflow
+>> work more often (every 1 jiffies) until TX SKB queue is not empty.
+>>
+>> Side effect of this change is:
+>>   - User space tools require to take into account possible delay in TX
+>> timestamp processing (for example ptp4l works with tx_timestamp_timeout=400
+>> under net traffic and tx_timestamp_timeout=25 in idle).
+>>
+>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 > 
-> OK, if nobody else objects and we go with that - lets make sure we
-> document clearly those are expected :)  My concern is that if there is
-> ever 10G + RS FEC standard we don't want to end up in a situation where
-> some drivers silently ignore FEC settings in 10G and other apply it.
-> So let's make it clear what the intended Linux behaviour is.  It could
-> be in the ethtool man page, or the kernel somewhere.
+> 
+>> ---
+>>   drivers/net/ethernet/ti/cpts.c | 86 ++++++++++++++++++++++++++++++++++++++++--
+>>   drivers/net/ethernet/ti/cpts.h |  1 +
+>>   2 files changed, 84 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+>> index 3ed438e..c2121d2 100644
+>> --- a/drivers/net/ethernet/ti/cpts.c
+>> +++ b/drivers/net/ethernet/ti/cpts.c
+>> @@ -31,9 +31,18 @@
+>>   
+>>   #include "cpts.h"
+>>   
+>> +#define CPTS_SKB_TX_WORK_TIMEOUT 1 /* jiffies */
+>> +
+>> +struct cpts_skb_cb_data {
+>> +	unsigned long tmo;
+>> +};
+>> +
+>>   #define cpts_read32(c, r)	readl_relaxed(&c->reg->r)
+>>   #define cpts_write32(c, v, r)	writel_relaxed(v, &c->reg->r)
+>>   
+>> +static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
+>> +		      u16 ts_seqid, u8 ts_msgtype);
+>> +
+>>   static int event_expired(struct cpts_event *event)
+>>   {
+>>   	return time_after(jiffies, event->tmo);
+>> @@ -77,6 +86,47 @@ static int cpts_purge_events(struct cpts *cpts)
+>>   	return removed ? 0 : -1;
+>>   }
+>>   
+>> +static bool cpts_match_tx_ts(struct cpts *cpts, struct cpts_event *event)
+>> +{
+>> +	struct sk_buff *skb, *tmp;
+>> +	u16 seqid;
+>> +	u8 mtype;
+>> +	bool found = false;
+>> +
+>> +	mtype = (event->high >> MESSAGE_TYPE_SHIFT) & MESSAGE_TYPE_MASK;
+>> +	seqid = (event->high >> SEQUENCE_ID_SHIFT) & SEQUENCE_ID_MASK;
+>> +
+>> +	/* no need to grab txq.lock as access is always done under cpts->lock */
+>> +	skb_queue_walk_safe(&cpts->txq, skb, tmp) {
+>> +		struct skb_shared_hwtstamps ssh;
+>> +		unsigned int class = ptp_classify_raw(skb);
+>> +		struct cpts_skb_cb_data *skb_cb =
+>> +					(struct cpts_skb_cb_data *)skb->cb;
+>> +
+>> +		if (cpts_match(skb, class, seqid, mtype)) {
+>> +			u64 ns = timecounter_cyc2time(&cpts->tc, event->low);
+>> +
+>> +			memset(&ssh, 0, sizeof(ssh));
+>> +			ssh.hwtstamp = ns_to_ktime(ns);
+>> +			skb_tstamp_tx(skb, &ssh);
+>> +			found = true;
+>> +			__skb_unlink(skb, &cpts->txq);
+>> +			dev_consume_skb_any(skb);
+>> +			dev_dbg(cpts->dev, "match tx timestamp mtype %u seqid %04x\n",
+>> +				mtype, seqid);
+>> +		} else if (time_after(jiffies, skb_cb->tmo)) {
+>> +			/* timeout any expired skbs over 1s */
+>> +			dev_dbg(cpts->dev,
+>> +				"expiring tx timestamp mtype %u seqid %04x\n",
+>> +				mtype, seqid);
+>> +			__skb_unlink(skb, &cpts->txq);
+>> +			dev_consume_skb_any(skb);
+>> +		}
+>> +	}
+>> +
+>> +	return found;
+>> +}
+>> +
+>>   /*
+>>    * Returns zero if matching event type was found.
+>>    */
+>> @@ -101,9 +151,15 @@ static int cpts_fifo_read(struct cpts *cpts, int match)
+>>   		event->low = lo;
+>>   		type = event_type(event);
+>>   		switch (type) {
+>> +		case CPTS_EV_TX:
+>> +			if (cpts_match_tx_ts(cpts, event)) {
+>> +				/* if the new event matches an existing skb,
+>> +				 * then don't queue it
+>> +				 */
+>> +				break;
+>> +			}
+>>   		case CPTS_EV_PUSH:
+>>   		case CPTS_EV_RX:
+>> -		case CPTS_EV_TX:
+>>   			list_del_init(&event->list);
+>>   			list_add_tail(&event->list, &cpts->events);
+>>   			break;
+>> @@ -229,8 +285,15 @@ static long cpts_overflow_check(struct ptp_clock_info *ptp)
+>>   	struct cpts *cpts = container_of(ptp, struct cpts, info);
+>>   	unsigned long delay = cpts->ov_check_period;
+>>   	struct timespec64 ts;
+>> +	unsigned long flags;
+>> +
+>> +	spin_lock_irqsave(&cpts->lock, flags);
+>> +	ts = ns_to_timespec64(timecounter_read(&cpts->tc));
+>> +
+>> +	if (!skb_queue_empty(&cpts->txq))
+>> +		delay = CPTS_SKB_TX_WORK_TIMEOUT;
+>> +	spin_unlock_irqrestore(&cpts->lock, flags);
+>>   
+>> -	cpts_ptp_gettime(&cpts->info, &ts);
+>>   	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
+>>   	return (long)delay;
+>>   }
+>> @@ -301,7 +364,7 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
+>>   		return 0;
+>>   
+>>   	spin_lock_irqsave(&cpts->lock, flags);
+>> -	cpts_fifo_read(cpts, CPTS_EV_PUSH);
+>> +	cpts_fifo_read(cpts, -1);
+> Seems it should be explained or send as separate patch before this one.
+> Not sure, but smth like "Don't stop read fifo if PUSH event is found",
+> but how it can happen that push event is present w/o TS_PUSH request..,
+> anyway, if there is some valuable reason for that - should be explained.
 
-You might also find this interesting:
+ok. I'll drop it from this series.
 
-https://py3.patchwork.dja.id.au/patch/42846/
+> 
+>>   	list_for_each_safe(this, next, &cpts->events) {
+>>   		event = list_entry(this, struct cpts_event, list);
+>>   		if (event_expired(event)) {
+>> @@ -319,6 +382,19 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
+>>   			break;
+>>   		}
+>>   	}
+>> +
+>> +	if (ev_type == CPTS_EV_TX && !ns) {
+>> +		struct cpts_skb_cb_data *skb_cb =
+>> +				(struct cpts_skb_cb_data *)skb->cb;
+>> +		/* Not found, add frame to queue for processing later.
+>> +		 * The periodic FIFO check will handle this.
+>> +		 */
+>> +		skb_get(skb);
+>> +		/* get the timestamp for timeouts */
+>> +		skb_cb->tmo = jiffies + msecs_to_jiffies(100);
+>> +		__skb_queue_tail(&cpts->txq, skb);
+>> +		ptp_schedule_worker(cpts->clock, 0);
+>> +	}
+> As I see no need in separate irq handler for cpts events after this.
+> Is that caused by h/w limitations on keystone2?
 
-Most of the rest of the series has been reviewed, so i don't think it
-will be too long before it is in the kernel.
+It's still required for proper support of HW_TS_PUSH events.
+This fixes current issue which blocks CPTS usage.
 
-	Andrew
+> 
+> And what about rx path introduced in RFC, is it not needed any more or are
+> you going to send additional series?
+
+And I'm still trying to work on enabling CPTS IRQs and if it will be 
+enabled - the RX path will also need to be modified.
+
+
+
+-- 
+regards,
+-grygorii
