@@ -1,96 +1,178 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 01/20] net: sched: sch_atm: use Qdisc_class_common structure
-Date: Fri, 28 Jul 2017 16:40:23 +0200
-Message-ID: <20170728144042.6380-2-jiri@resnulli.us>
+Subject: [patch net-next 02/20] net: sched: remove unneeded tcf_em_tree_change
+Date: Fri, 28 Jul 2017 16:40:24 +0200
+Message-ID: <20170728144042.6380-3-jiri@resnulli.us>
 References: <20170728144042.6380-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35014 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751893AbdG1Okr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:40:47 -0400
-Received: by mail-wm0-f65.google.com with SMTP id r77so14579778wmd.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:40:46 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34830 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751761AbdG1Okt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:40:49 -0400
+Received: by mail-wr0-f193.google.com with SMTP id c24so23178393wra.2
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:40:48 -0700 (PDT)
 In-Reply-To: <20170728144042.6380-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Even if it is only for classid now, use this common struct a be aligned
-with the rest of the classful qdiscs.
+Since tcf_em_tree_validate could be always called on a newly created
+filter, there is no need for this change function.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/sch_atm.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ include/net/pkt_cls.h  | 21 ---------------------
+ net/sched/cls_basic.c  |  4 +---
+ net/sched/cls_cgroup.c |  4 +---
+ net/sched/cls_flow.c   | 12 +++++-------
+ 4 files changed, 7 insertions(+), 34 deletions(-)
 
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 572fe25..0af4b1c 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -41,6 +41,7 @@
- #define VCC2FLOW(vcc) ((struct atm_flow_data *) ((vcc)->user_back))
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 537d0a0..f4462ec 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -333,26 +333,6 @@ int __tcf_em_tree_match(struct sk_buff *, struct tcf_ematch_tree *,
+ 			struct tcf_pkt_info *);
  
- struct atm_flow_data {
-+	struct Qdisc_class_common common;
- 	struct Qdisc		*q;	/* FIFO, TBF, etc. */
- 	struct tcf_proto __rcu	*filter_list;
- 	struct tcf_block	*block;
-@@ -49,7 +50,6 @@ struct atm_flow_data {
- 					   struct sk_buff *skb); /* chaining */
- 	struct atm_qdisc_data	*parent;	/* parent qdisc */
- 	struct socket		*sock;		/* for closing */
--	u32			classid;	/* x:y type ID */
- 	int			ref;		/* reference count */
- 	struct gnet_stats_basic_packed	bstats;
- 	struct gnet_stats_queue	qstats;
-@@ -75,7 +75,7 @@ static inline struct atm_flow_data *lookup_flow(struct Qdisc *sch, u32 classid)
- 	struct atm_flow_data *flow;
+ /**
+- * tcf_em_tree_change - replace ematch tree of a running classifier
+- *
+- * @tp: classifier kind handle
+- * @dst: destination ematch tree variable
+- * @src: source ematch tree (temporary tree from tcf_em_tree_validate)
+- *
+- * This functions replaces the ematch tree in @dst with the ematch
+- * tree in @src. The classifier in charge of the ematch tree may be
+- * running.
+- */
+-static inline void tcf_em_tree_change(struct tcf_proto *tp,
+-				      struct tcf_ematch_tree *dst,
+-				      struct tcf_ematch_tree *src)
+-{
+-	tcf_tree_lock(tp);
+-	memcpy(dst, src, sizeof(*dst));
+-	tcf_tree_unlock(tp);
+-}
+-
+-/**
+  * tcf_em_tree_match - evaulate an ematch tree
+  *
+  * @skb: socket buffer of the packet in question
+@@ -386,7 +366,6 @@ struct tcf_ematch_tree {
+ #define tcf_em_tree_validate(tp, tb, t) ((void)(t), 0)
+ #define tcf_em_tree_destroy(t) do { (void)(t); } while(0)
+ #define tcf_em_tree_dump(skb, t, tlv) (0)
+-#define tcf_em_tree_change(tp, dst, src) do { } while(0)
+ #define tcf_em_tree_match(skb, t, info) ((void)(info), 1)
  
- 	list_for_each_entry(flow, &p->flows, list) {
--		if (flow->classid == classid)
-+		if (flow->common.classid == classid)
- 			return flow;
+ #endif /* CONFIG_NET_EMATCH */
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index c4fd63a..979cd26 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -130,7 +130,6 @@ static int basic_set_parms(struct net *net, struct tcf_proto *tp,
+ {
+ 	int err;
+ 	struct tcf_exts e;
+-	struct tcf_ematch_tree t;
+ 
+ 	err = tcf_exts_init(&e, TCA_BASIC_ACT, TCA_BASIC_POLICE);
+ 	if (err < 0)
+@@ -139,7 +138,7 @@ static int basic_set_parms(struct net *net, struct tcf_proto *tp,
+ 	if (err < 0)
+ 		goto errout;
+ 
+-	err = tcf_em_tree_validate(tp, tb[TCA_BASIC_EMATCHES], &t);
++	err = tcf_em_tree_validate(tp, tb[TCA_BASIC_EMATCHES], &f->ematches);
+ 	if (err < 0)
+ 		goto errout;
+ 
+@@ -149,7 +148,6 @@ static int basic_set_parms(struct net *net, struct tcf_proto *tp,
  	}
- 	return NULL;
-@@ -293,7 +293,7 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
- 	flow->old_pop = flow->vcc->pop;
- 	flow->parent = p;
- 	flow->vcc->pop = sch_atm_pop;
--	flow->classid = classid;
-+	flow->common.classid = classid;
- 	flow->ref = 1;
- 	flow->excess = excess;
- 	list_add(&flow->list, &p->link.list);
-@@ -549,7 +549,7 @@ static int atm_tc_init(struct Qdisc *sch, struct nlattr *opt)
  
- 	p->link.vcc = NULL;
- 	p->link.sock = NULL;
--	p->link.classid = sch->handle;
-+	p->link.common.classid = sch->handle;
- 	p->link.ref = 1;
- 	tasklet_init(&p->task, sch_atm_dequeue, (unsigned long)sch);
+ 	tcf_exts_change(tp, &f->exts, &e);
+-	tcf_em_tree_change(tp, &f->ematches, &t);
+ 	f->tp = tp;
+ 
  	return 0;
-@@ -594,7 +594,7 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
- 		sch, p, flow, skb, tcm);
- 	if (list_empty(&flow->list))
- 		return -EINVAL;
--	tcm->tcm_handle = flow->classid;
-+	tcm->tcm_handle = flow->common.classid;
- 	tcm->tcm_info = flow->q->handle;
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 12ce547..ce7d38b 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -76,7 +76,6 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
+ 	struct nlattr *tb[TCA_CGROUP_MAX + 1];
+ 	struct cls_cgroup_head *head = rtnl_dereference(tp->root);
+ 	struct cls_cgroup_head *new;
+-	struct tcf_ematch_tree t;
+ 	struct tcf_exts e;
+ 	int err;
  
- 	nest = nla_nest_start(skb, TCA_OPTIONS);
-@@ -619,7 +619,7 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
- 			goto nla_put_failure;
+@@ -112,14 +111,13 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
+ 		goto errout;
  	}
- 	if (flow->excess) {
--		if (nla_put_u32(skb, TCA_ATM_EXCESS, flow->classid))
-+		if (nla_put_u32(skb, TCA_ATM_EXCESS, flow->common.classid))
- 			goto nla_put_failure;
- 	} else {
- 		if (nla_put_u32(skb, TCA_ATM_EXCESS, 0))
+ 
+-	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &t);
++	err = tcf_em_tree_validate(tp, tb[TCA_CGROUP_EMATCHES], &new->ematches);
+ 	if (err < 0) {
+ 		tcf_exts_destroy(&e);
+ 		goto errout;
+ 	}
+ 
+ 	tcf_exts_change(tp, &new->exts, &e);
+-	tcf_em_tree_change(tp, &new->ematches, &t);
+ 
+ 	rcu_assign_pointer(tp->root, new);
+ 	if (head)
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index 3065752..71fd1af 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -389,7 +389,6 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 	struct nlattr *opt = tca[TCA_OPTIONS];
+ 	struct nlattr *tb[TCA_FLOW_MAX + 1];
+ 	struct tcf_exts e;
+-	struct tcf_ematch_tree t;
+ 	unsigned int nkeys = 0;
+ 	unsigned int perturb_period = 0;
+ 	u32 baseclass = 0;
+@@ -432,13 +431,13 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 	if (err < 0)
+ 		goto err1;
+ 
+-	err = tcf_em_tree_validate(tp, tb[TCA_FLOW_EMATCHES], &t);
+-	if (err < 0)
+-		goto err1;
+-
+ 	err = -ENOBUFS;
+ 	fnew = kzalloc(sizeof(*fnew), GFP_KERNEL);
+ 	if (!fnew)
++		goto err1;
++
++	err = tcf_em_tree_validate(tp, tb[TCA_FLOW_EMATCHES], &fnew->ematches);
++	if (err < 0)
+ 		goto err2;
+ 
+ 	err = tcf_exts_init(&fnew->exts, TCA_FLOW_ACT, TCA_FLOW_POLICE);
+@@ -512,7 +511,6 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 			       (unsigned long)fnew);
+ 
+ 	tcf_exts_change(tp, &fnew->exts, &e);
+-	tcf_em_tree_change(tp, &fnew->ematches, &t);
+ 
+ 	netif_keep_dst(qdisc_dev(tp->q));
+ 
+@@ -554,8 +552,8 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 
+ err3:
+ 	tcf_exts_destroy(&fnew->exts);
++	tcf_em_tree_destroy(&fnew->ematches);
+ err2:
+-	tcf_em_tree_destroy(&t);
+ 	kfree(fnew);
+ err1:
+ 	tcf_exts_destroy(&e);
 -- 
 2.9.3
