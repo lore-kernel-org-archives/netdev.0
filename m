@@ -1,61 +1,38 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCHv4 net] ipv6: no need to check rt->dst.error when get route
- info
-Date: Fri, 28 Jul 2017 11:23:06 -0600
-Message-ID: <7a1cbc32-34de-a3c3-ee4b-09c3c714a952@gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <1501172736-13685-1-git-send-email-liuhangbin@gmail.com>
- <9e5d3137-c84d-91f7-6c82-813519964513@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [v4.12 regression] netns: NULL deref in fib_sync_down_dev()
+Date: Fri, 28 Jul 2017 10:28:16 -0700
+Message-ID: <CAM_iQpXmUfdUzsu7Xpc2EjkePQCEjcP+irMkpc4bTDaWfAOVLw@mail.gmail.com>
+References: <20170728160047.7tzapklj7zrgxktq@qmqm.qmqm.pl> <20170728164331.GA5268@splinter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        David Miller <davem@davemloft.net>
-To: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35928 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751882AbdG1RXJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 13:23:09 -0400
-Received: by mail-pg0-f67.google.com with SMTP id y129so24184231pgy.3
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 10:23:09 -0700 (PDT)
-In-Reply-To: <9e5d3137-c84d-91f7-6c82-813519964513@gmail.com>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:33864 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752115AbdG1R2i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 13:28:38 -0400
+Received: by mail-wm0-f48.google.com with SMTP id t138so11267143wmt.1
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 10:28:37 -0700 (PDT)
+In-Reply-To: <20170728164331.GA5268@splinter>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/27/17 12:03 PM, David Ahern wrote:
-> On 7/27/17 10:25 AM, Hangbin Liu wrote:
->> After commit 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib
->> result when requested"). When we get a prohibit ertry, we will return
->> -EACCES directly instead of dump route info.
+On Fri, Jul 28, 2017 at 9:43 AM, Ido Schimmel <idosch@idosch.org> wrote:
+> On Fri, Jul 28, 2017 at 06:00:47PM +0200, Micha=C5=82 Miros=C5=82aw wrote=
+:
+>> Dear NetDevs,
 >>
->> Fix it by remove the rt->dst.error check.
->>
->> Before fix:
->> \# ip -6 route add prohibit 2003::/64 dev eth1
->> \# ip -6 route get fibmatch 2003::1
->> RTNETLINK answers: Permission denied
->> \# ip -6 route add unreachable 2004::/64 dev eth1
->> \# ip -6 route get fibmatch 2004::1
->> RTNETLINK answers: No route to host
->>
->> After fix:
->> \# ip -6 route add prohibit 2003::/64 dev eth1
->> \# ip -6 route get fibmatch 2003::1
->> prohibit 2003::/64 dev lo metric 1024 error -13 pref medium
->> \# ip -6 route add unreachable 2004::/64 dev eth1
->> \# ip -6 route get fibmatch 2004::1
->> unreachable 2004::/64 dev lo metric 1024 error -113 pref medium
->>
->> Fixes: 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib...")
->> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
->> ---
->>  net/ipv6/route.c | 6 ------
->>  1 file changed, 6 deletions(-)
->>
-> 
-> Acked-by: David Ahern <dsahern@gmail.com>
-> 
+>> Before I go to bisecting, have you seen a following NULL dereference,
+>> yet?  Where should I start looking?  It is triggered by deleting netns
+>> (cut-down script attached - triggers every time).  This was working
+>> correctly under v4.11.x.
+>
+> Thanks for the report. I just reproduced this on my system. I believe
+> the problem is a missing NULL check for 'in_dev' in
+> call_fib_nh_notifiers(). I'll test a fix.
 
-Dave: please hold off on applying this patch.
+But your commit 982acb97560c8118c2109504a22b0d78a580547d
+is merged in v4.11-rc1. How could 4.11.x work correctly?
