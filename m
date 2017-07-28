@@ -1,35 +1,41 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 3/3] tap: XDP support
-Date: Fri, 28 Jul 2017 17:11:38 +0200
-Message-ID: <597B542A.7070704@iogearbox.net>
-References: <1501147533-12368-1-git-send-email-jasowang@redhat.com> <1501147533-12368-4-git-send-email-jasowang@redhat.com> <20170727201338.65d56b2a@cakuba.netronome.com> <7d1cb7bf-43c1-3993-be00-04e4676dd917@redhat.com> <20170728064603-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <kubakici@wp.pl>, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170728064603-mutt-send-email-mst@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: [PATCH net-next 0/4] net: dsa: lan9303: Fix MDIO issues.
+Date: Fri, 28 Jul 2017 17:11:53 +0200
+Message-ID: <20170728151157.28983-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aibo.runbox.com ([91.220.196.211]:54734 "EHLO aibo.runbox.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752477AbdG1PMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 28 Jul 2017 11:12:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/28/2017 05:46 AM, Michael S. Tsirkin wrote:
-> On Fri, Jul 28, 2017 at 11:28:54AM +0800, Jason Wang wrote:
->>>> +	old_prog = rtnl_dereference(tun->xdp_prog);
->>>> +	if (old_prog)
->>>> +		bpf_prog_put(old_prog);
->>>> +	rcu_assign_pointer(tun->xdp_prog, prog);
->>> Is this OK?  Could this lead to the program getting freed and then
->>> datapath accessing a stale pointer?  I mean in the scenario where the
->>> process gets pre-empted between the bpf_prog_put() and
->>> rcu_assign_pointer()?
->>
->> Will call bpf_prog_put() after rcu_assign_pointer().
+This series fix the MDIO interface for the lan9303 DSA driver.
+Bugs found after testing on actual HW.
 
-+1, good catch Jakub.
+This series is extracted from the first patch of my first large
+series. Significant changes from that version are:
+ - use mdiobus_write_nested, mdiobus_read_nested.
+ - EXPORT lan9303_indirect_phy_ops
 
-> I suspect you need to sync RCU or something before that.
+Unfortunately I do not have access to i2c based system for
+testing.
 
-No, see for example generic_xdp_install().
+Egil Hjelmeland (4):
+  net: dsa: lan9303: Fix lan9303_detect_phy_setup() for MDIO
+  net: dsa: lan9303: Multiply by 4 to get MDIO register
+  net: dsa: lan9303: Renamed indirect phy access functions
+  net: dsa: lan9303: MDIO access phy registers directly
+
+ drivers/net/dsa/lan9303-core.c | 43 +++++++++++++++++++++++++++---------------
+ drivers/net/dsa/lan9303.h      | 11 +++++++++++
+ drivers/net/dsa/lan9303_i2c.c  |  2 ++
+ drivers/net/dsa/lan9303_mdio.c | 23 ++++++++++++++++++++++
+ 4 files changed, 64 insertions(+), 15 deletions(-)
+
+-- 
+2.11.0
