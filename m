@@ -1,44 +1,59 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next v3 6/7] netvsc: fix error unwind on device setup failure
-Date: Fri, 28 Jul 2017 08:59:46 -0700
-Message-ID: <20170728155947.10062-7-sthemmin@microsoft.com>
+Subject: [PATCH net-next v3 7/7] netvsc: signal host if receive ring is emptied
+Date: Fri, 28 Jul 2017 08:59:47 -0700
+Message-ID: <20170728155947.10062-8-sthemmin@microsoft.com>
 References: <20170728155947.10062-1-sthemmin@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35190 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752246AbdG1P76 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 11:59:58 -0400
-Received: by mail-pf0-f169.google.com with SMTP id e75so19203026pfj.2
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 08:59:58 -0700 (PDT)
+To: kys@microsoft.com,
+	haiyangz@microsoft.com,
+	sthemmin@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <20170728155947.10062-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-If setting receive buffer fails, the error unwind would cause
-kernel panic because it was not correctly doing RCU and NAPI
-unwind.  RCU'd pointer needs to be reset to NULL, and NAPI needs
-to be disabled not deleted.
+Latency improvement related to NAPI conversion.
+If all packets are processed from receive ring then need
+to signal host.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/hyperv/netvsc.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 4c709b454d34..db95487807fd 100644
+index db95487807fd..c64934c64dca 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -1307,7 +1307,8 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
- 	return net_device;
+@@ -1195,10 +1195,15 @@ int netvsc_poll(struct napi_struct *napi, int budget)
+ 		nvchan->desc = hv_pkt_iter_next(channel, nvchan->desc);
+ 	}
  
- close:
--	netif_napi_del(&net_device->chan_table[0].napi);
-+	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
-+	napi_disable(&net_device->chan_table[0].napi);
- 
- 	/* Now, we can close the channel safely */
- 	vmbus_close(device->channel);
+-	/* If send of  pending receive completions suceeded
+-	 *   and did not exhaust NAPI budget
++	/* if ring is empty, signal host */
++	if (!nvchan->desc)
++		hv_pkt_iter_close(channel);
++
++	/* If send of pending receive completions suceeded
++	 *   and did not exhaust NAPI budget this time
+ 	 *   and not doing busy poll
+-	 * then reschedule if more data has arrived from host
++	 * then re-enable host interrupts
++	 *     and reschedule if ring is not empty.
+ 	 */
+ 	if (send_recv_completions(nvchan) == 0 &&
+ 	    work_done < budget &&
 -- 
 2.11.0
