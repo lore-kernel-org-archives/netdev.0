@@ -1,70 +1,76 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 1/2] ipv6: constify inet6_protocol structures
-Date: Fri, 28 Jul 2017 22:18:57 +0200
-Message-ID: <1501273138-22771-2-git-send-email-Julia.Lawall@lip6.fr>
-References: <1501273138-22771-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, bhumirks@gmail.com,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501273138-22771-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH] IP: do not modify ingress packet IP option in ip_options_echo()
+Date: Fri, 28 Jul 2017 16:47:42 -0400
+Message-ID: <87a83othjl.fsf@stressinduktion.org>
+References: <f5758b6b7199d2d2a218b0ad36f1e5ef108eac43.1500642854.git.pabeni@redhat.com>
+        <20170724.141253.769254590231937263.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: pabeni@redhat.com, netdev@vger.kernel.org, edumazet@google.com,
+        kuznet@ms2.inr.ac.ru
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:35771 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752494AbdG1Urn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 16:47:43 -0400
+In-Reply-To: <20170724.141253.769254590231937263.davem@davemloft.net> (David
+        Miller's message of "Mon, 24 Jul 2017 14:12:53 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The inet6_protocol structure is only passed as the first argument to
-inet6_add_protocol or inet6_del_protocol, both of which are declared as
-const.  Thus the inet6_protocol structure itself can be const.
+Hello,
 
-Also drop __read_mostly where present on the newly const structures.
+David Miller <davem@davemloft.net> writes:
 
-Done with the help of Coccinelle.
+> From: Paolo Abeni <pabeni@redhat.com>
+> Date: Fri, 21 Jul 2017 15:55:18 +0200
+>
+>> diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+>> index 93157f2..fdda973 100644
+>> --- a/net/ipv4/ip_options.c
+>> +++ b/net/ipv4/ip_options.c
+>> @@ -174,9 +174,6 @@ int __ip_options_echo(struct ip_options *dopt, struct sk_buff *skb,
+>>  				doffset -= 4;
+>>  		}
+>>  		if (doffset > 3) {
+>> -			__be32 daddr = fib_compute_spec_dst(skb);
+>> -
+>> -			memcpy(&start[doffset-1], &daddr, 4);
+>>  			dopt->faddr = faddr;
+>
+> This transformation is required, but in the destination not the source.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+We put a lot of effort trying to figure out why this code is needed,
+what intend it has and couldn't still figure out why things are how they
+are.
 
----
- net/ipv6/ip6_gre.c  |    2 +-
- net/ipv6/tcp_ipv6.c |    2 +-
- net/ipv6/udp.c      |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+Above, I think you are referring to the update in the options header
+that directs the packet to the final hosts, such closing the loop and
+allowing the packet to reach its final destination.
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 67ff2aa..33865d6 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1080,7 +1080,7 @@ static void ip6gre_fb_tunnel_init(struct net_device *dev)
- }
- 
- 
--static struct inet6_protocol ip6gre_protocol __read_mostly = {
-+static const struct inet6_protocol ip6gre_protocol = {
- 	.handler     = gre_rcv,
- 	.err_handler = ip6gre_err,
- 	.flags       = INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 90a3257..2968a33 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1945,7 +1945,7 @@ struct proto tcpv6_prot = {
- 	.diag_destroy		= tcp_abort,
- };
- 
--static struct inet6_protocol tcpv6_protocol = {
-+static const struct inet6_protocol tcpv6_protocol = {
- 	.early_demux	=	tcp_v6_early_demux,
- 	.early_demux_handler =  tcp_v6_early_demux,
- 	.handler	=	tcp_v6_rcv,
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 4a3e656..5f8b8d7 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1448,7 +1448,7 @@ int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
- }
- #endif
- 
--static struct inet6_protocol udpv6_protocol = {
-+static const struct inet6_protocol udpv6_protocol = {
- 	.early_demux	=	udp_v6_early_demux,
- 	.early_demux_handler =  udp_v6_early_demux,
- 	.handler	=	udpv6_rcv,
+This update to the header happens in another function, later in the
+stack in ip_options_build:
+
+|	if (opt->srr)
+|		memcpy(iph+opt->srr+iph[opt->srr+1]-4, &daddr, 4);
+
+Here we correctly copy the destination address into the last option
+field.
+
+> The red flag is that we are indexing 'start' with 'doffset' instead of
+> 'soffset'.
+
+As Paolo pointed out, we should not put our own source address into the
+options array.
+
+Do you have any idea why this code was added in the first place? I read
+through 2.0.33 code and even in context of this version, I couldn't
+figure that out.
+
+Because it seems the code and update is dead anyways (besides
+incorrectly updating the ICMP reflected payload) I don't see any problem
+with removing this code. Do you?
+
+Thanks,
+Hannes
