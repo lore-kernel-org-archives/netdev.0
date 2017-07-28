@@ -1,41 +1,81 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 0/3] net-next: stmmac: support future
- possible different internal phy mode
-Date: Fri, 28 Jul 2017 16:51:01 +0200
-Message-ID: <20170728145101.GC2132@lunn.ch>
-References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
- <20170728135544.GD32230@lunn.ch>
- <20170728142508.GA7221@Red>
- <20170728143600.GB2132@lunn.ch>
- <20170728144424.GB7221@Red>
-Reply-To: andrew-g2DYL2Zd6BY@public.gmane.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v11 3/4] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Fri, 28 Jul 2017 10:52:02 -0400
+Message-ID: <4e835ac7-0700-726d-7f6c-6e584ff073eb@mojatatu.com>
+References: <1500860146-26970-1-git-send-email-jhs@emojatatu.com>
+ <1500860146-26970-4-git-send-email-jhs@emojatatu.com>
+ <20170724112750.GC1868@nanopsycho>
+ <7057a692-7233-4632-4f66-2f57c98322ea@mojatatu.com>
+ <20170725113352.GA3186@nanopsycho>
+ <355f2140-d8e8-8a4e-1f31-cbbcbfd6821b@mojatatu.com>
+ <20170725123728.GC3186@nanopsycho>
+ <27472f41-1dd3-66a0-d4fc-6b7290c14b27@mojatatu.com>
+ <20170728141234.GD1857@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	icenowy-h8G6r0blFSE@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDJNHL5JSEOBBYE65XFQKGQESTDVCLI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20170728144424.GB7221@Red>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, dsahern@gmail.com,
+        eric.dumazet@gmail.com, mrv@mojatatu.com,
+        simon.horman@netronome.com, alex.aring@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35710 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752035AbdG1OwE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 10:52:04 -0400
+Received: by mail-it0-f65.google.com with SMTP id v127so15689125itd.2
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 07:52:04 -0700 (PDT)
+In-Reply-To: <20170728141234.GD1857@nanopsycho>
+Content-Language: en-GB
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> It is too late when we know the PHY ID.
-> We need to set a syscon for choosing external/internal PHY.
-> So we can rely only on DT.
+On 17-07-28 10:12 AM, Jiri Pirko wrote:
+> Fri, Jul 28, 2017 at 03:41:44PM CEST, jhs@mojatatu.com wrote:
+[..]
+> 
+> Looks like a big mess to be honest. Mixing up u32* u32 void*. I don't
+> understand ****. Would be probably good to first apply my review comment
+> on the function itselt, then to add the checks :)
+> 
 
-The point is, its not a property of the PHY. It is a syscon or a MAC
-property. Having it as a MAC property would be more generic.
+I havent even compiled/test that Jiri.
+Just ignore the void * and assume it is a u32 *.
 
-   Andrew
+I am trying to avoid doing unlucky number 13 patch.
+So feedback on this is good. Just look at what it is disallowing
+first.
+
+back later.
+
+cheers,
+jamal
+
+> 
+>> I can think of.
+>>
+>> static int validate_nla_bitfield32(const struct nlattr *nla,
+>>                                     void *valid_flags_allowed)
+>> {
+>>         const struct nla_bitfield32 *bf = nla_data(nla);
+>>         u32 *valid_flags_mask = valid_flags_allowed;
+>>
+>>         if (!valid_flags_allowed)
+>>                 return -EINVAL;
+>>         /*disallow invalid selector */
+>>         if ((bf->selector & valid_flags_allowed) >*valid_flags_allowed)
+>>                 return -EINVAL;
+>>         /*disallow invalid bit values */
+>>         if (bf->value & ~*valid_flags_mask)
+>>                 return -EINVAL;
+>>         /*disallow valid bit values that are not selected*/
+>>         if (bf->value & ~nbf->selector)
+>>                 return -EINVAL;
+>>
+>>         return 0;
+>> }
+>>
+>> cheers,
+>> jamal
