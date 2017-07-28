@@ -1,60 +1,113 @@
-From: Christoph Paasch <christoph.paasch@gmail.com>
-Subject: Re: TCP fast retransmit issues
-Date: Thu, 27 Jul 2017 23:53:35 -0700
-Message-ID: <CALMXkpYB8TOR+3Av3rX+GJhuvfDob8wkNyXysUQDOJgOM8OLxQ@mail.gmail.com>
-References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk> <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
- <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk> <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170726134242.GB1737@1wt.eu> <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Willy Tarreau <w@1wt.eu>, Klavs Klavsen <kl@vsen.dk>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next] igb: add function to get maximum RSS queues
+Date: Fri, 28 Jul 2017 15:03:26 +0800
+Message-ID: <1501225406-43554-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35824 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751693AbdG1Gxh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 02:53:37 -0400
-Received: by mail-pf0-f174.google.com with SMTP id e75so14260656pfj.2
-        for <netdev@vger.kernel.org>; Thu, 27 Jul 2017 23:53:36 -0700 (PDT)
-In-Reply-To: <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from cmccmta1.chinamobile.com ([221.176.66.79]:15971 "EHLO
+        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751958AbdG1HNE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 03:13:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This patch adds a new function igb_get_max_rss_queues() to get maximum
+RSS queues, this will reduce duplicate code and facilitate future
+maintenance.
 
-On Wed, Jul 26, 2017 at 7:32 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-07-26 at 15:42 +0200, Willy Tarreau wrote:
->> On Wed, Jul 26, 2017 at 06:31:21AM -0700, Eric Dumazet wrote:
->> > On Wed, 2017-07-26 at 14:18 +0200, Klavs Klavsen wrote:
->> > > the 192.168.32.44 is a Centos 7 box.
->> >
->> > Could you grab a capture on this box, to see if the bogus packets are
->> > sent by it, or later mangled by a middle box ?
->>
->> Given the huge difference between the window and the ranges of the
->> values in the SACK field, I'm pretty sure there's a firewall doing
->> some sequence numbers randomization in the middle, not aware of SACK
->> and not converting these ones. I've had to disable such broken
->> features more than once in field after similar observations! Probably
->> that the Mac doesn't advertise SACK support and doesn't experience the
->> problem.
->
-> We need to check RFC if such invalid SACK blocks should be ignored (DUP
-> ACK would be processed and trigger fast retransmit anyway), or strongly
-> validated (as I suspect we currently do), leading to a total freeze.
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ drivers/net/ethernet/intel/igb/igb.h         |  1 +
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 32 +---------------------------
+ drivers/net/ethernet/intel/igb/igb_main.c    | 12 +++++++++--
+ 3 files changed, 12 insertions(+), 33 deletions(-)
 
-quite some time ago this issue with sequence number randomizing
-middleboxes came already up
-(http://marc.info/?l=netfilter-devel&m=137691623129822&w=2). From what
-I remember, the RFC does not say that invalid SACK blocks should  be
-strongly validated. So, trigger dup-ack retransmission seems fine.
-
-I had some patches at the time that ignored invalid sack-blocks and
-allowed fast-retransmit to happen thanks to the duplicate acks:
-https://patchwork.ozlabs.org/patch/268297/
-https://patchwork.ozlabs.org/patch/268298/
-
-
-Cheers,
-Christoph
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 06ffb2b..ca94eff 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -684,6 +684,7 @@ void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector, void *va,
+ int igb_ptp_set_ts_config(struct net_device *netdev, struct ifreq *ifr);
+ int igb_ptp_get_ts_config(struct net_device *netdev, struct ifreq *ifr);
+ void igb_set_flag_queue_pairs(struct igb_adapter *, const u32);
++unsigned int igb_get_max_rss_queues(struct igb_adapter *);
+ #ifdef CONFIG_IGB_HWMON
+ void igb_sysfs_exit(struct igb_adapter *adapter);
+ int igb_sysfs_init(struct igb_adapter *adapter);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index d06a8db..606e676 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -3338,37 +3338,7 @@ static int igb_set_rxfh(struct net_device *netdev, const u32 *indir,
+ 
+ static unsigned int igb_max_channels(struct igb_adapter *adapter)
+ {
+-	struct e1000_hw *hw = &adapter->hw;
+-	unsigned int max_combined = 0;
+-
+-	switch (hw->mac.type) {
+-	case e1000_i211:
+-		max_combined = IGB_MAX_RX_QUEUES_I211;
+-		break;
+-	case e1000_82575:
+-	case e1000_i210:
+-		max_combined = IGB_MAX_RX_QUEUES_82575;
+-		break;
+-	case e1000_i350:
+-		if (!!adapter->vfs_allocated_count) {
+-			max_combined = 1;
+-			break;
+-		}
+-		/* fall through */
+-	case e1000_82576:
+-		if (!!adapter->vfs_allocated_count) {
+-			max_combined = 2;
+-			break;
+-		}
+-		/* fall through */
+-	case e1000_82580:
+-	case e1000_i354:
+-	default:
+-		max_combined = IGB_MAX_RX_QUEUES;
+-		break;
+-	}
+-
+-	return max_combined;
++	return igb_get_max_rss_queues(adapter);
+ }
+ 
+ static void igb_get_channels(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index ec62410..e6cc6b5 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3026,10 +3026,10 @@ static void igb_probe_vfs(struct igb_adapter *adapter)
+ #endif /* CONFIG_PCI_IOV */
+ }
+ 
+-static void igb_init_queue_configuration(struct igb_adapter *adapter)
++unsigned int igb_get_max_rss_queues(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+-	u32 max_rss_queues;
++	unsigned int max_rss_queues;
+ 
+ 	/* Determine the maximum number of RSS queues supported. */
+ 	switch (hw->mac.type) {
+@@ -3060,6 +3060,14 @@ static void igb_init_queue_configuration(struct igb_adapter *adapter)
+ 		break;
+ 	}
+ 
++	return max_rss_queues;
++}
++
++static void igb_init_queue_configuration(struct igb_adapter *adapter)
++{
++	u32 max_rss_queues;
++
++	max_rss_queues = igb_get_max_rss_queues(adapter);
+ 	adapter->rss_queues = min_t(u32, max_rss_queues, num_online_cpus());
+ 
+ 	igb_set_flag_queue_pairs(adapter, max_rss_queues);
+-- 
+1.8.3.1
