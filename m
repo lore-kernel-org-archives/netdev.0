@@ -1,46 +1,42 @@
-From: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
-Subject: [PATCH v3] ARM: dts: tango4: Request RGMII RX and TX clock delays
-Date: Fri, 28 Jul 2017 15:27:49 +0200
-Message-ID: <d669e207-ae47-4c9e-67c5-75424fde501f@sigmadesigns.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: lan9303: Fixed MDIO interface
+Date: Fri, 28 Jul 2017 15:36:37 +0200
+Message-ID: <20170728133637.GB32230@lunn.ch>
+References: <20170725161553.30147-1-privat@egil-hjelmeland.no>
+ <20170725161553.30147-2-privat@egil-hjelmeland.no>
+ <20170726165550.GN12049@lunn.ch>
+ <4e36827f-fdcc-d55a-3559-e080883c715c@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Mans Rullgard <mans@mansr.com>, Mason <slash.tmp@free.fr>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: arm-soc <arm@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from us-smtp-delivery-107.mimecast.com ([63.128.21.107]:34243 "EHLO
-        us-smtp-delivery-107.mimecast.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751668AbdG1N1z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 09:27:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: corbet@lwn.net, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, davem@davemloft.net, kernel@pengutronix.de,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4e36827f-fdcc-d55a-3559-e080883c715c@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RX and TX clock delays are required. Request them explicitly.
+On Fri, Jul 28, 2017 at 01:08:25PM +0200, Egil Hjelmeland wrote:
+> On 26. juli 2017 18:55, Andrew Lunn wrote:
+> >On Tue, Jul 25, 2017 at 06:15:44PM +0200, Egil Hjelmeland wrote:
+> >It is better to use mdiobus_read/write or if you are nesting mdio
+> >busses, mdiobus_read_nested/mdiobus_write_nested. Please test this
+> >code with lockdep enabled.
+> >
+> 
+> I have CONFIG_DEBUG_SPINLOCK, CONFIG_DEBUG_MUTEXES. Should I enable
+> more?
 
-Fixes: cad008b8a77e6 ("ARM: dts: tango4: Initial device trees")
-Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
----
-Arnd, Kevin, Olof, can one of you take this patch through arm-soc?
-Greg will apply it to all stable branches, right?
----
- arch/arm/boot/dts/tango4-vantage-1172.dts | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi Egil
 
-diff --git a/arch/arm/boot/dts/tango4-vantage-1172.dts b/arch/arm/boot/dts/tango4-vantage-1172.dts
-index 86d8df98802f..13bcc460bcb2 100644
---- a/arch/arm/boot/dts/tango4-vantage-1172.dts
-+++ b/arch/arm/boot/dts/tango4-vantage-1172.dts
-@@ -22,7 +22,7 @@
- };
- 
- &eth0 {
--	phy-connection-type = "rgmii";
-+	phy-connection-type = "rgmii-id";
- 	phy-handle = <&eth0_phy>;
- 	#address-cells = <1>;
- 	#size-cells = <0>;
--- 
-2.11.0
+Enable CONFIG_LOCKDEP and CONFIG_PROVE_LOCKING.
+
+Any lockdep splat you get while accessing the mdio bus at this point
+are probably false positives, since it is a different mutex. Using the
+_nested() version should avoid these false positives. But you might
+find other places your locking is not right.
+
+	Andrew
