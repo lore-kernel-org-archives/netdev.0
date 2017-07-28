@@ -1,66 +1,43 @@
-From: <doctornina@abv.bg>
-Subject: (unknown)
-Date: Fri, 28 Jul 2017 07:17:19 -0000
-Message-ID: <150122623995.2158.14833554179499965285@hinet.net>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [RFC] switchdev: generate phys_port_name in the core
+Date: Fri, 28 Jul 2017 00:27:43 -0700
+Message-ID: <20170728002743.48042821@cakuba.netronome.com>
+References: <CAJ3xEMhUs0DfMioSU=gqR_hEs=ZFjUM1bA3nA9LwtTgH93ygDQ@mail.gmail.com>
+        <20170728023122.1674-1-jakub.kicinski@netronome.com>
+        <20170728053507.GA1857@nanopsycho>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_47501615459_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <gerlitz.or@gmail.com>, netdev@vger.kernel.org,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Sathya Perla <sathya.perla@broadcom.com>,
+        David Miller <davem@davemloft.net>, simon.horman@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 114-24-153-220.dynamic-ip.hinet.net ([114.24.153.220]:40660
-        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751071AbdG1HR1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 03:17:27 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34809 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751045AbdG1H1r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 03:27:47 -0400
+Received: by mail-pf0-f177.google.com with SMTP id q85so92794542pfq.1
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 00:27:47 -0700 (PDT)
+In-Reply-To: <20170728053507.GA1857@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+On Fri, 28 Jul 2017 07:35:07 +0200, Jiri Pirko wrote:
+> >+enum {
+> >+	NETDEV_PORT_EXTERNAL,
+> >+	NETDEV_PORT_EXTERNAL_SPLIT,
+> >+	NETDEV_PORT_PCI_PF,  
+> 
+> Isn't PF also EXTERNAL? Cant VF be split? What I'm getting at, shoudn't
+> these be flags?
+
+By external PF do you mean not connected to the current host?  Yes we
+could make a flag like that.  Right now I have picked "external" to
+avoid too specific names like MAC/PHY/Ethernet...  There could be a
+MAC-to-MAC connection for instance, so no PHY involved.  Should we go
+with NETDEV_PORT_ETH?
+
+I will make SPLIT into a flag.
