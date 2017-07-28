@@ -1,85 +1,60 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [RFC PATCH v1 5/5] wave: Added basic version of TCP Wave
-Date: Fri, 28 Jul 2017 19:15:07 -0400
-Message-ID: <CADVnQynbZcHSUffbiW8WU1-s6js0zkh3jz-z949xQm2ePmGg6w@mail.gmail.com>
-References: <20170728195919.10099-1-natale.patriciello@gmail.com> <20170728195919.10099-6-natale.patriciello@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        Ahmed Said <ahmed.said@uniroma2.it>,
-        Francesco Zampognaro <zampognaro@ing.uniroma2.it>,
-        Cesare Roseti <roseti@ing.uniroma2.it>
-To: Natale Patriciello <natale.patriciello@gmail.com>
+From: Tom Herbert <tom@quantonium.net>
+Subject: [PATCH net-next 0/3] net: Infrastructure changes for [kz]proxy
+Date: Fri, 28 Jul 2017 16:22:40 -0700
+Message-ID: <20170728232243.3040-1-tom@quantonium.net>
+Cc: rohit@quantonium.net, john.fastabend@gmail.com,
+        Tom Herbert <tom@quantonium.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:33153 "EHLO
-        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753038AbdG1XPi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 19:15:38 -0400
-Received: by mail-oi0-f49.google.com with SMTP id a9so145124461oih.0
-        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 16:15:38 -0700 (PDT)
-In-Reply-To: <20170728195919.10099-6-natale.patriciello@gmail.com>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35915 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753061AbdG1XXK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 19:23:10 -0400
+Received: by mail-pf0-f175.google.com with SMTP id z129so61339714pfb.3
+        for <netdev@vger.kernel.org>; Fri, 28 Jul 2017 16:23:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 28, 2017 at 3:59 PM, Natale Patriciello
-<natale.patriciello@gmail.com> wrote:
-> TCP Wave (TCPW) replaces the window-based transmission paradigm of the
-> standard TCP with a burst-based transmission, the ACK-clock scheduling
-> with a self-managed timer and the RTT-based congestion control loop
-> with an Ack-based Capacity and Congestion Estimation (ACCE) module. In
-> non-technical words, it sends data down the stack when its internal
-> timer expires, and the timing of the received ACKs contribute to
-> updating this timer regularly.
->
-> It is the first TCP congestion control that uses the timing constraint
-> developed in the Linux kernel.
->
-> Signed-off-by: Natale Patriciello <natale.patriciello@gmail.com>
-> Tested-by: Ahmed Said <ahmed.said@uniroma2.it>
-> ---
->  MAINTAINERS           |   6 +
->  net/ipv4/Kconfig      |  16 +
->  net/ipv4/Makefile     |   1 +
->  net/ipv4/tcp_output.c |   4 +-
->  net/ipv4/tcp_wave.c   | 914 ++++++++++++++++++++++++++++++++++++++++++++++++++
->  5 files changed, 940 insertions(+), 1 deletion(-)
->  create mode 100644 net/ipv4/tcp_wave.c
->
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 767e9d202adf..39c57bdc417d 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -12427,6 +12427,12 @@ W:     http://tcp-lp-mod.sourceforge.net/
->  S:     Maintained
->  F:     net/ipv4/tcp_lp.c
->
-> +TCP WAVE MODULE
-> +M:     "Natale Patriciello" <natale.patriciello@gmail.com>
-> +W:     http://tcp-lp-mod.sourceforge.net/
+This patch set contains some general infrastructure enhancements that
+will be used by kernel proxy and zero proxy.
 
-This URL does not work for me... I get "Unable to connect to database server".
+The changes are:
+  - proto_ops: Add locked versions of sendmsg and sendpage
+  - skb_send_sock: Allow sending and skb on a socket within the
+    kernel
+  - Generalize strparser. Allow it to be used in other contexts than
+    just in the read_sock path. This will be used in the transmit
+    path of zero proxy.
 
-> @@ -2522,7 +2522,9 @@ void tcp_push_one(struct sock *sk, unsigned int mss_now)
->  {
->         struct sk_buff *skb = tcp_send_head(sk);
->
-> -       BUG_ON(!skb || skb->len < mss_now);
-> +       /* Don't be forced to send not meaningful data */
-> +       if (!skb || skb->len < mss_now)
-> +               return;
->
->         tcp_write_xmit(sk, mss_now, TCP_NAGLE_PUSH, 1, sk->sk_allocation);
->  }
+Some nice future work (which I've been discussing with John Fastabend)
+will be to make some of the related functions to allow gifting of skbs
+We should be able to do that with skb_send_sock and strp_process. I'd
+also like this feature in the read_sock callbeck.
 
-This seems unrelated to the rest of the patch, and should probably be
-its own patch? Also, IMHO it would be better to leave at least a
-WARN_ON or WARN_ON_ONCE here, rather than completely turning this into
-a silent failure.
+Tested: Ran modified kernel without incident. Tested new functionality
+using zero proxy (in development).
 
-thanks,
-neal
+
+Tom Herbert (3):
+  proto_ops: Add locked held versions of sendmsg and sendpage
+  skbuff: Function to send an skbuf on a socket
+  strparser: Generalize strparser
+
+ Documentation/networking/strparser.txt | 207 +++++++++++++++-------
+ include/linux/net.h                    |  12 ++
+ include/linux/skbuff.h                 |   3 +
+ include/net/sock.h                     |   3 +
+ include/net/strparser.h                | 119 +++++++------
+ include/net/tcp.h                      |   3 +
+ net/core/skbuff.c                      | 101 +++++++++++
+ net/core/sock.c                        |  22 +++
+ net/ipv4/af_inet.c                     |   2 +
+ net/ipv4/tcp.c                         |  39 ++--
+ net/kcm/kcmproc.c                      |  34 ++--
+ net/kcm/kcmsock.c                      |  38 ++--
+ net/socket.c                           |  27 +++
+ net/strparser/strparser.c              | 313 ++++++++++++++++++++-------------
+ 14 files changed, 623 insertions(+), 300 deletions(-)
+
+-- 
+2.11.0
