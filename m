@@ -1,36 +1,36 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [v3,04/10] ipw2200: constify attribute_group structures
-Date: Fri, 28 Jul 2017 15:06:11 +0000 (UTC)
-Message-ID: <20170728150611.96B1A60884@smtp.codeaurora.org>
-References: <1500371102-14758-1-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: Re: wl3501_cs: fix spelling mistake: "Insupported" -> "Unsupported"
+Date: Fri, 28 Jul 2017 15:07:07 +0000 (UTC)
+Message-ID: <20170728150707.E230B60884@smtp.codeaurora.org>
+References: <20170727220954.12105-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, stas.yakovlev@gmail.com, sgruszka@redhat.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1500371102-14758-1-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin Ian King <colin.king@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:58746 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751897AbdG1PHI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 11:07:08 -0400
+In-Reply-To: <20170727220954.12105-1-colin.king@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arvind Yadav <arvind.yadav.cs@gmail.com> wrote:
+Colin Ian King <colin.king@canonical.com> wrote:
 
-> attribute_group are not supposed to change at runtime. All functions
-> working with attribute_group provided by <linux/sysfs.h> work
-> with const attribute_group. So mark the non-const structs as const.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+> Trivial fix to spelling mistake in printk message
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-4 patches applied to wireless-drivers-next.git, thanks.
+Patch applied to wireless-drivers-next.git, thanks.
 
-17830147c40a mwifiex: fix spelling mistake: "Insuffient" -> "Insufficient"
-185ffc194800 ipw2100: don't return positive values to PCI probe on error
-af643fe9bbe0 zd1211rw: fix spelling mistake 'hybernate' -> 'hibernate'
-e66d70b789d1 brcmfmac: constify pci_device_id
+fcc870d76a2c wl3501_cs: fix spelling mistake: "Insupported" -> "Unsupported"
 
 -- 
-https://patchwork.kernel.org/patch/9847373/
+https://patchwork.kernel.org/patch/9867579/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
