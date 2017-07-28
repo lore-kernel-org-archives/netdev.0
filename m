@@ -1,49 +1,53 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 0/3] net-next: stmmac: support future
- possible different internal phy mode
-Date: Fri, 28 Jul 2017 15:55:44 +0200
-Message-ID: <20170728135544.GD32230@lunn.ch>
-References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
-Reply-To: andrew-g2DYL2Zd6BY@public.gmane.org
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers-next 2017-07-28
+Date: Fri, 28 Jul 2017 17:02:24 +0300
+Message-ID: <87h8xwvevj.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	icenowy-h8G6r0blFSE@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDJNHL5JSEOBBZ4E5XFQKGQER7KD7TA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20170728092818.23419-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Content-Type: text/plain
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2017 at 11:28:15AM +0200, Corentin Labbe wrote:
-> Hello
-> 
-> The current way to find if the phy is internal is to compare DT phy-mode
-> and emac_variant/internal_phy.
-> But it will negate a possible future SoC where an external PHY use the
-> same phy mode than the internal one.
-> 
-> This patchs series adds a new way to find if the PHY is internal, via its
-> compatible.
+Hi Dave,
 
-http://elixir.free-electrons.com/linux/latest/source/drivers/of/of_mdio.c#L144
+here's a pull request for net, more info the signed tag below. Please
+let me know if there are any problems.
 
-Since you also have "ethernet-phy-ieee802.3-c22", you won't get the
-warning. But still, your device tree gives the wrong idea.
+Kalle
 
-I've probably asked this before: Does the internal PHY use a different
-PHY ID in registers 2 and 3?
+The following changes since commit d755cbc26e8295ae8e5d30425364e093b4247a85:
 
-    Andrew
+  Merge tag 'iwlwifi-for-kalle-2017-07-21' of git://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2017-07-21 14:33:27 +0300)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2017-07-28
+
+for you to fetch changes up to 5f5d03143de5e0c593da4ab18fc6393c2815e108:
+
+  brcmfmac: fix memleak due to calling brcmf_sdiod_sgtable_alloc() twice (2017-07-27 14:03:14 +0300)
+
+----------------------------------------------------------------
+wireless-drivers fixes for 4.13
+
+Two fixes for for brcmfmac, the crash was reported by two people
+already so it's a high priority fix.
+
+brcmfmac
+
+* fix a crash in skb headroom handling in v4.13-rc1
+* fix a memory leak due to a merge error in v4.6
+
+----------------------------------------------------------------
+Arend Van Spriel (1):
+      brcmfmac: fix memleak due to calling brcmf_sdiod_sgtable_alloc() twice
+
+Daniel Stone (1):
+      brcmfmac: Don't grow SKB by negative size
+
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c | 2 +-
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c | 5 -----
+ 2 files changed, 1 insertion(+), 6 deletions(-)
