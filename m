@@ -1,31 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/10] net/smc: get rid of unsafe_global_rkey
-Date: Sat, 29 Jul 2017 11:23:16 -0700 (PDT)
-Message-ID: <20170729.112316.596199895398096388.davem@davemloft.net>
-References: <20170728115622.17247-1-ubraun@linux.vnet.ibm.com>
+Subject: Re: [Patch net v2] net: check dev->addr_len for
+ dev_set_mac_address()
+Date: Sat, 29 Jul 2017 11:25:52 -0700 (PDT)
+Message-ID: <20170729.112552.37407845739598905.davem@davemloft.net>
+References: <20170726222207.5922-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hch@lst.de, netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        raspl@linux.vnet.ibm.com
-To: ubraun@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, andreyknvl@google.com, jiri@resnulli.us
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40078 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40112 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752947AbdG2SXY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 14:23:24 -0400
-In-Reply-To: <20170728115622.17247-1-ubraun@linux.vnet.ibm.com>
+        with ESMTP id S1752948AbdG2SZx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 14:25:53 -0400
+In-Reply-To: <20170726222207.5922-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Fri, 28 Jul 2017 13:56:12 +0200
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed, 26 Jul 2017 15:22:06 -0700
 
-> The smc code uses the unsafe_global_rkey, exposing all memory for
-> remote reads and writes once a connection is established.
-> Here is now a patch series to get rid of unsafe_global_rkey usage.
-> Main idea is to switch to SG-logic and separate memory regions for RMBs.
+> Historically, dev_ifsioc() uses struct sockaddr as mac
+> address definition, this is why dev_set_mac_address()
+> accepts a struct sockaddr pointer as input but now we
+> have various types of mac addresse whose lengths
+> are up to MAX_ADDR_LEN, longer than struct sockaddr,
+> and saved in dev->addr_len.
+> 
+> It is too late to fix dev_ifsioc() due to API
+> compatibility, so just reject those larger than
+> sizeof(struct sockaddr), otherwise we would read
+> and use some random bytes from kernel stack.
+> 
+> Fortunately, only a few IPv6 tunnel devices have addr_len
+> larger than sizeof(struct sockaddr) and they don't support
+> ndo_set_mac_addr(). But with team driver, in lb mode, they
+> can still be enslaved to a team master and make its mac addr
+> length as the same.
+> 
+> Cc: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Series applied, thanks.
+Applied.
