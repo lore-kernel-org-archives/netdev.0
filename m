@@ -1,78 +1,45 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 1/2] ipv4: constify net_protocol structures
-Date: Sat, 29 Jul 2017 08:16:55 +0200
-Message-ID: <1501309016-16059-2-git-send-email-Julia.Lawall@lip6.fr>
-References: <1501309016-16059-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: bhumirks@gmail.com, kernel-janitors@vger.kernel.org,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501309016-16059-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: STABLE: net: reduce skb_warn_bad_offload() noise
+Date: Sat, 29 Jul 2017 08:46:26 +0200
+Message-ID: <20170729064626.GD7774@1wt.eu>
+References: <4b5d320a-a12e-b27b-cc58-332614684bf2@android.com>
+ <20170728.123010.242124876818464581.davem@davemloft.net>
+ <1501305772.1876.0.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, salyzyn@android.com,
+        stable@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:34393 "EHLO 1wt.eu"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750912AbdG2Gqc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 29 Jul 2017 02:46:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1501305772.1876.0.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The net_protocol structures are only passed as the first argument to
-inet_add_protocol, which is declared as const.  Thus the net_protocol
-structures themselves can be const.
-
-Done with the help of Coccinelle.
-
-// <smpl>
-@r disable optional_qualifier@
-identifier i;
-position p;
-@@
-static struct net_protocol i@p = { ... };
-
-@ok1@
-identifier r.i;
-expression e1;
-position p;
-@@
- inet_add_protocol(&i@p,...)
-
-@bad@
-position p != {r.p,ok1.p};
-identifier r.i;
-struct net_protocol e;
-@@
-e@i@p
-
-@depends on !bad disable optional_qualifier@
-identifier r.i;
-@@
-static
-+const
- struct net_protocol i = { ... };
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- net/ipv4/af_inet.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 5ce44fb..2e38624 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1594,7 +1594,7 @@ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
- };
- #endif
+On Fri, Jul 28, 2017 at 10:22:52PM -0700, Eric Dumazet wrote:
+> On Fri, 2017-07-28 at 12:30 -0700, David Miller wrote:
+> > From: Mark Salyzyn <salyzyn@android.com>
+> > Date: Fri, 28 Jul 2017 10:29:57 -0700
+> > 
+> > > Please backport the upstream patch to the stable trees (including
+> > > 3.10.y, 3.18.y, 4.4.y and 4.9.y):
+> > > 
+> > > b2504a5dbef3305ef41988ad270b0e8ec289331c net: reduce
+> > > skb_warn_bad_offload() noise
+> > > 
+> > > Impacting performance or creating unnecessary alarm, and will result
+> > > in kernel panic for panic_on_warn configuration.
+> > 
+> > Yeah this is fine.
+> 
+> If you do so, also backport 6e7bc478c9a006c701c14476ec9d389a484b4864
+> ("net: skb_needs_check() accepts CHECKSUM_NONE for tx")
  
--static struct net_protocol tcp_protocol = {
-+static const struct net_protocol tcp_protocol = {
- 	.early_demux	=	tcp_v4_early_demux,
- 	.early_demux_handler =  tcp_v4_early_demux,
- 	.handler	=	tcp_v4_rcv,
-@@ -1604,7 +1604,7 @@ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
- 	.icmp_strict_tag_validation = 1,
- };
- 
--static struct net_protocol udp_protocol = {
-+static const struct net_protocol udp_protocol = {
- 	.early_demux =	udp_v4_early_demux,
- 	.early_demux_handler =	udp_v4_early_demux,
- 	.handler =	udp_rcv,
+OK, noted for next 3.10 as well.
+
+thanks!
+Willy
