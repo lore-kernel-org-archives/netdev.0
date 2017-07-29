@@ -1,90 +1,156 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [RFC PATCH v1] net: ethernet: nb8800: Reset HW block in ndo_open
-Date: Sat, 29 Jul 2017 12:24:39 +0100
-Message-ID: <yw1x7eyrlc3s.fsf@mansr.com>
-References: <823b1540-b528-bbd7-7f99-5dc39a08868a@sigmadesigns.com>
-        <yw1xk22slemx.fsf@mansr.com>
-        <c1bf54ee-8634-23a1-abda-55bc3fafe2a8@sigmadesigns.com>
-        <yw1xfudgl7am.fsf@mansr.com>
-        <446e3a95-80c3-0742-9cb1-69a8dfc9b1ae@free.fr>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v11 3/4] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Sat, 29 Jul 2017 07:21:17 -0400
+Message-ID: <be72204f-e9b5-2b73-1a43-16802d7e5be0@mojatatu.com>
+References: <7057a692-7233-4632-4f66-2f57c98322ea@mojatatu.com>
+ <20170725113352.GA3186@nanopsycho>
+ <355f2140-d8e8-8a4e-1f31-cbbcbfd6821b@mojatatu.com>
+ <20170725123728.GC3186@nanopsycho>
+ <27472f41-1dd3-66a0-d4fc-6b7290c14b27@mojatatu.com>
+ <20170728141234.GD1857@nanopsycho>
+ <4e835ac7-0700-726d-7f6c-6e584ff073eb@mojatatu.com>
+ <fc91ce4d-b7d1-7e95-7e9a-9265aed68424@mojatatu.com>
+ <20170728154547.GG1857@nanopsycho>
+ <12475aaa-eba1-1c9a-0eec-17c908a627f1@mojatatu.com>
+ <20170729071958.GA1858@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mason <slash.tmp@free.fr>
+Content-Type: multipart/mixed;
+ boundary="------------DFBC2648FBEA2244095738AE"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, dsahern@gmail.com,
+        eric.dumazet@gmail.com, mrv@mojatatu.com,
+        simon.horman@netronome.com, alex.aring@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:47000 "EHLO unicorn.mansr.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753179AbdG2LYm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Jul 2017 07:24:42 -0400
-In-Reply-To: <446e3a95-80c3-0742-9cb1-69a8dfc9b1ae@free.fr> (Mason's message
-        of "Fri, 28 Jul 2017 23:53:49 +0200")
+Received: from mail-it0-f47.google.com ([209.85.214.47]:38194 "EHLO
+        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753166AbdG2LV2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 07:21:28 -0400
+Received: by mail-it0-f47.google.com with SMTP id h199so107195945ith.1
+        for <netdev@vger.kernel.org>; Sat, 29 Jul 2017 04:21:28 -0700 (PDT)
+In-Reply-To: <20170729071958.GA1858@nanopsycho>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mason <slash.tmp@free.fr> writes:
+This is a multi-part message in MIME format.
+--------------DFBC2648FBEA2244095738AE
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> On 28/07/2017 20:56, Måns Rullgård wrote:
->
->> Marc Gonzalez writes:
->> 
->>> On 28/07/2017 18:17, Måns Rullgård wrote:
->>>
->>>> Marc Gonzalez wrote:
->>>>
->>>>> ndo_stop breaks RX in a way that ndo_open is unable to undo.
->>>>
->>>> Please elaborate.  Why can't it be fixed in a less heavy-handed way?
->>>
->>> I'm not sure what "elaborate" means. After we've been through
->>> ndo_stop once, the board can send packets, but it doesn't see
->>> any replies from remote systems. RX is wedged.
->> 
->> So you say, but you have not explained why this happens.  Until we know
->> why, we can't decide on the proper fix.
->
-> I'll try adding delays in strategic places, and see if
-> I can trigger the same bug on tango4. If I can't, then
-> this work around is all we've got.
->
-> And I need nb8800_init for resume anyway, so I might
-> as well use it in ndo_open.
->
-> TODO: test power savings from holding HW in reset.
->
->>> I think ndo_stop is rare enough an event that doing a full
->>> reset is not an issue, in terms of performance.
->> 
->> Performance isn't the issue.  Doing the right thing is.
->
-> I don't have always have time to figure out exactly how
-> broken HW is broken. It's already bad enough that disabling
-> DMA requires sending a fake packet through the loop back...
+On 17-07-29 03:19 AM, Jiri Pirko wrote:
 
-Until you figure out why it's getting stuck, we can't be sure it isn't
-caused by something that could trigger at any time.
+> That is what the code I wrote above do. And I think that your code does
+> not (if you don't assume that allowed flags are always starting from the
+> least significant bit)
 
->>>> I'm pretty sure this doesn't preserve everything it should.
->>>
->>> Hmmm, we're supposed to start fresh ("full reset").
->>> What could there be to preserve?
->>> You mentioned flow control and multicast elsewhere.
->>> I will take a closer look. Thanks for the heads up.
->> 
->> Yes, those settings are definitely lost with your patch.  Now I'm not
->> sure whether the networking core expects these to survive a stop/start
->> cycle, so please check that.  There might also be other less obvious
->> things that need to be preserved.
->
-> The original code calls nb8800_pause_config() every
-> time the link comes up. The proposed patch doesn't
-> change that.
+Ok, here's how it looks now..
+I still have to move things around in the other patches and do testing
+but i think this looks good.
 
-Yes, but by then you've reset those parameters to the defaults.
+cheers,
+jamal
 
--- 
-Måns Rullgård
+
+--------------DFBC2648FBEA2244095738AE
+Content-Type: text/plain; charset=UTF-8;
+ name="patchlet"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="patchlet"
+
+Y29tbWl0IDc5ZTNlMmE5ZDI5MjE3OTUxM2RmMTU5MWZiNTBiNWJiZTNiZjhjYzMKQXV0aG9y
+OiBKYW1hbCBIYWRpIFNhbGltIDxqaHNAbW9qYXRhdHUuY29tPgpEYXRlOiAgIFN1biBKdWwg
+MjMgMDg6NTg6MDQgMjAxNyAtMDQwMAoKICAgIG5ldCBuZXRsaW5rOiBBZGQgbmV3IHR5cGUg
+TkxBX0JJVEZJRUxEMzIKICAgIAogICAgR2VuZXJpYyBiaXRmbGFncyBhdHRyaWJ1dGUgY29u
+dGVudCBzZW50IHRvIHRoZSBrZXJuZWwgYnkgdXNlci4KICAgIFdpdGggdGhpcyBuZXRsaW5r
+IGF0dHIgdHlwZSB0aGUgdXNlciBjYW4gZWl0aGVyIHNldCBvciB1bnNldCBhCiAgICBmbGFn
+IGluIHRoZSBrZXJuZWwuCiAgICAKICAgIFRoZSB2YWx1ZSBpcyBhIGJpdG1hcCB0aGF0IGRl
+ZmluZXMgdGhlIGJpdCB2YWx1ZXMgYmVpbmcgc2V0CiAgICBUaGUgc2VsZWN0b3IgaXMgYSBi
+aXRtYXNrIHRoYXQgZGVmaW5lcyB3aGljaCB2YWx1ZSBiaXQgaXMgdG8gYmUKICAgIGNvbnNp
+ZGVyZWQuCiAgICAKICAgIEEgY2hlY2sgaXMgbWFkZSB0byBlbnN1cmUgdGhlIHJ1bGVzIHRo
+YXQgYSBrZXJuZWwgc3Vic3lzdGVtIGFsd2F5cwogICAgY29uZm9ybXMgdG8gYml0ZmxhZ3Mg
+dGhlIGtlcm5lbCBhbHJlYWR5IGtub3dzIGFib3V0LiBpLmUKICAgIGlmIHRoZSB1c2VyIHRy
+aWVzIHRvIHNldCBhIGJpdCBmbGFnIHRoYXQgaXMgbm90IHVuZGVyc3Rvb2QgdGhlbgogICAg
+dGhlIF9pdCB3aWxsIGJlIHJlamVjdGVkXy4KICAgIAogICAgSW4gdGhlIG1vc3QgYmFzaWMg
+Zm9ybSwgdGhlIHVzZXIgc3BlY2lmaWVzIHRoZSBhdHRyaWJ1dGUgcG9saWN5IGFzOgogICAg
+W0FUVFJfR09PXSA9IHsgLnR5cGUgPSBOTEFfQklURklFTEQzMiwgLnZhbGlkYXRpb25fZGF0
+YSA9ICZteXZhbGlkZmxhZ3MgfSwKICAgIAogICAgd2hlcmUgbXl2YWxpZGZsYWdzIGlzIHRo
+ZSBiaXQgbWFzayBvZiB0aGUgZmxhZ3MgdGhlIGtlcm5lbCB1bmRlcnN0YW5kcy4KICAgIAog
+ICAgSWYgdGhlIHVzZXIgX2RvZXMgbm90XyBwcm92aWRlIG15dmFsaWRmbGFncyB0aGVuIHRo
+ZSBhdHRyaWJ1dGUgd2lsbAogICAgYWxzbyBiZSByZWplY3RlZC4KICAgIAogICAgRXhhbXBs
+ZXM6CiAgICB2YWx1ZSA9IDB4MCwgYW5kIHNlbGVjdG9yID0gMHgxCiAgICBpbXBsaWVzIHdl
+IGFyZSBzZWxlY3RpbmcgYml0IDEgYW5kIHdlIHdhbnQgdG8gc2V0IGl0cyB2YWx1ZSB0byAw
+LgogICAgCiAgICB2YWx1ZSA9IDB4MiwgYW5kIHNlbGVjdG9yID0gMHgyCiAgICBpbXBsaWVz
+IHdlIGFyZSBzZWxlY3RpbmcgYml0IDIgYW5kIHdlIHdhbnQgdG8gc2V0IGl0cyB2YWx1ZSB0
+byAxLgogICAgCiAgICBTdWdnZXN0ZWQtYnk6IEppcmkgUGlya28gPGppcmlAbWVsbGFub3gu
+Y29tPgogICAgU2lnbmVkLW9mZi1ieTogSmFtYWwgSGFkaSBTYWxpbSA8amhzQG1vamF0YXR1
+LmNvbT4KCmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9uZXRsaW5rLmggYi9pbmNsdWRlL25l
+dC9uZXRsaW5rLmgKaW5kZXggZWY4ZTZjMy4uODJkZDI5OCAxMDA2NDQKLS0tIGEvaW5jbHVk
+ZS9uZXQvbmV0bGluay5oCisrKyBiL2luY2x1ZGUvbmV0L25ldGxpbmsuaApAQCAtMTc4LDYg
+KzE3OCw3IEBAIGVudW0gewogCU5MQV9TMTYsCiAJTkxBX1MzMiwKIAlOTEFfUzY0LAorCU5M
+QV9CSVRGSUVMRDMyLAogCV9fTkxBX1RZUEVfTUFYLAogfTsKIApAQCAtMjA2LDYgKzIwNyw3
+IEBAIGVudW0gewogICogICAgTkxBX01TRUNTICAgICAgICAgICAgTGVhdmluZyB0aGUgbGVu
+Z3RoIGZpZWxkIHplcm8gd2lsbCB2ZXJpZnkgdGhlCiAgKiAgICAgICAgICAgICAgICAgICAg
+ICAgICBnaXZlbiB0eXBlIGZpdHMsIHVzaW5nIGl0IHZlcmlmaWVzIG1pbmltdW0gbGVuZ3Ro
+CiAgKiAgICAgICAgICAgICAgICAgICAgICAgICBqdXN0IGxpa2UgIkFsbCBvdGhlciIKKyAq
+ICAgIE5MQV9CSVRGSUVMRDMyICAgICAgQSAzMi1iaXQgYml0bWFwL2JpdHNlbGVjdG9yIGF0
+dHJpYnV0ZQogICogICAgQWxsIG90aGVyICAgICAgICAgICAgTWluaW11bSBsZW5ndGggb2Yg
+YXR0cmlidXRlIHBheWxvYWQKICAqCiAgKiBFeGFtcGxlOgpAQCAtMjEzLDExICsyMTUsMTMg
+QEAgZW51bSB7CiAgKiAJW0FUVFJfRk9PXSA9IHsgLnR5cGUgPSBOTEFfVTE2IH0sCiAgKglb
+QVRUUl9CQVJdID0geyAudHlwZSA9IE5MQV9TVFJJTkcsIC5sZW4gPSBCQVJTSVogfSwKICAq
+CVtBVFRSX0JBWl0gPSB7IC5sZW4gPSBzaXplb2Yoc3RydWN0IG15c3RydWN0KSB9LAorICoJ
+W0FUVFJfR09PXSA9IHsgLnR5cGUgPSBOTEFfQklURklFTEQzMiwgLnZhbGlkYXRpb25fZGF0
+YSA9ICZteXZhbGlkZmxhZ3MgfSwKICAqIH07CiAgKi8KIHN0cnVjdCBubGFfcG9saWN5IHsK
+IAl1MTYJCXR5cGU7CiAJdTE2CQlsZW47CisJdm9pZCAgICAgICAgICAgICp2YWxpZGF0aW9u
+X2RhdGE7CiB9OwogCiAvKioKQEAgLTEyMDMsNiArMTIwNywxOCBAQCBzdGF0aWMgaW5saW5l
+IHN0cnVjdCBpbjZfYWRkciBubGFfZ2V0X2luNl9hZGRyKGNvbnN0IHN0cnVjdCBubGF0dHIg
+Km5sYSkKIH0KIAogLyoqCisgKiBubGFfZ2V0X2JpdGZpZWxkMzIgLSByZXR1cm4gcGF5bG9h
+ZCBvZiAzMiBiaXRmaWVsZCBhdHRyaWJ1dGUKKyAqIEBubGE6IG5sYV9iaXRmaWVsZDMyIGF0
+dHJpYnV0ZQorICovCitzdGF0aWMgaW5saW5lIHN0cnVjdCBubGFfYml0ZmllbGQzMiBubGFf
+Z2V0X2JpdGZpZWxkMzIoY29uc3Qgc3RydWN0IG5sYXR0ciAqbmxhKQoreworCXN0cnVjdCBu
+bGFfYml0ZmllbGQzMiB0bXA7CisKKwlubGFfbWVtY3B5KCZ0bXAsIG5sYSwgc2l6ZW9mKHRt
+cCkpOworCXJldHVybiB0bXA7Cit9CisKKy8qKgogICogbmxhX21lbWR1cCAtIGR1cGxpY2F0
+ZSBhdHRyaWJ1dGUgbWVtb3J5IChrbWVtZHVwKQogICogQHNyYzogbmV0bGluayBhdHRyaWJ1
+dGUgdG8gZHVwbGljYXRlIGZyb20KICAqIEBnZnA6IEdGUCBtYXNrCmRpZmYgLS1naXQgYS9p
+bmNsdWRlL3VhcGkvbGludXgvbmV0bGluay5oIGIvaW5jbHVkZS91YXBpL2xpbnV4L25ldGxp
+bmsuaAppbmRleCBmODYxMjdhLi5mNGZjOWM5IDEwMDY0NAotLS0gYS9pbmNsdWRlL3VhcGkv
+bGludXgvbmV0bGluay5oCisrKyBiL2luY2x1ZGUvdWFwaS9saW51eC9uZXRsaW5rLmgKQEAg
+LTIyNiw1ICsyMjYsMjIgQEAgc3RydWN0IG5sYXR0ciB7CiAjZGVmaW5lIE5MQV9BTElHTihs
+ZW4pCQkoKChsZW4pICsgTkxBX0FMSUdOVE8gLSAxKSAmIH4oTkxBX0FMSUdOVE8gLSAxKSkK
+ICNkZWZpbmUgTkxBX0hEUkxFTgkJKChpbnQpIE5MQV9BTElHTihzaXplb2Yoc3RydWN0IG5s
+YXR0cikpKQogCisvKiBHZW5lcmljIDMyIGJpdGZsYWdzIGF0dHJpYnV0ZSBjb250ZW50IHNl
+bnQgdG8gdGhlIGtlcm5lbC4KKyAqCisgKiBUaGUgdmFsdWUgaXMgYSBiaXRtYXAgdGhhdCBk
+ZWZpbmVzIHRoZSB2YWx1ZXMgYmVpbmcgc2V0CisgKiBUaGUgc2VsZWN0b3IgaXMgYSBiaXRt
+YXNrIHRoYXQgZGVmaW5lcyB3aGljaCB2YWx1ZSBpcyBsZWdpdAorICoKKyAqIEV4YW1wbGVz
+OgorICogIHZhbHVlID0gMHgwLCBhbmQgc2VsZWN0b3IgPSAweDEKKyAqICBpbXBsaWVzIHdl
+IGFyZSBzZWxlY3RpbmcgYml0IDEgYW5kIHdlIHdhbnQgdG8gc2V0IGl0cyB2YWx1ZSB0byAw
+LgorICoKKyAqICB2YWx1ZSA9IDB4MiwgYW5kIHNlbGVjdG9yID0gMHgyCisgKiAgaW1wbGll
+cyB3ZSBhcmUgc2VsZWN0aW5nIGJpdCAyIGFuZCB3ZSB3YW50IHRvIHNldCBpdHMgdmFsdWUg
+dG8gMS4KKyAqCisgKi8KK3N0cnVjdCBubGFfYml0ZmllbGQzMiB7CisJX191MzIgdmFsdWU7
+CisJX191MzIgc2VsZWN0b3I7Cit9OwogCiAjZW5kaWYgLyogX1VBUElfX0xJTlVYX05FVExJ
+TktfSCAqLwpkaWZmIC0tZ2l0IGEvbGliL25sYXR0ci5jIGIvbGliL25sYXR0ci5jCmluZGV4
+IGZiNTI0MzUuLmVlNzliN2EgMTAwNjQ0Ci0tLSBhL2xpYi9ubGF0dHIuYworKysgYi9saWIv
+bmxhdHRyLmMKQEAgLTI3LDYgKzI3LDMwIEBACiAJW05MQV9TNjRdCT0gc2l6ZW9mKHM2NCks
+CiB9OwogCitzdGF0aWMgaW50IHZhbGlkYXRlX25sYV9iaXRmaWVsZDMyKGNvbnN0IHN0cnVj
+dCBubGF0dHIgKm5sYSwKKwkJCQkgICB1MzIgKnZhbGlkX2ZsYWdzX2FsbG93ZWQpCit7CisJ
+Y29uc3Qgc3RydWN0IG5sYV9iaXRmaWVsZDMyICpiZiA9IG5sYV9kYXRhKG5sYSk7CisJdTMy
+ICp2YWxpZF9mbGFnc19tYXNrID0gdmFsaWRfZmxhZ3NfYWxsb3dlZDsKKworCWlmICghdmFs
+aWRfZmxhZ3NfYWxsb3dlZCkKKwkJcmV0dXJuIC1FSU5WQUw7CisKKwkvKmRpc2FsbG93IGlu
+dmFsaWQgYml0IHNlbGVjdG9yICovCisJaWYgKGJmLT5zZWxlY3RvciAmIH4qdmFsaWRfZmxh
+Z3NfbWFzaykKKwkJcmV0dXJuIC1FSU5WQUw7CisKKwkvKmRpc2FsbG93IGludmFsaWQgYml0
+IHZhbHVlcyAqLworCWlmIChiZi0+dmFsdWUgJiB+KnZhbGlkX2ZsYWdzX21hc2spCisJCXJl
+dHVybiAtRUlOVkFMOworCisJLypkaXNhbGxvdyB2YWxpZCBiaXQgdmFsdWVzIHRoYXQgYXJl
+IG5vdCBzZWxlY3RlZCovCisJaWYgKGJmLT52YWx1ZSAmIH5iZi0+c2VsZWN0b3IpCisJCXJl
+dHVybiAtRUlOVkFMOworCisJcmV0dXJuIDA7Cit9CisKIHN0YXRpYyBpbnQgdmFsaWRhdGVf
+bmxhKGNvbnN0IHN0cnVjdCBubGF0dHIgKm5sYSwgaW50IG1heHR5cGUsCiAJCQljb25zdCBz
+dHJ1Y3QgbmxhX3BvbGljeSAqcG9saWN5KQogewpAQCAtNDYsNiArNzAsMTIgQEAgc3RhdGlj
+IGludCB2YWxpZGF0ZV9ubGEoY29uc3Qgc3RydWN0IG5sYXR0ciAqbmxhLCBpbnQgbWF4dHlw
+ZSwKIAkJCXJldHVybiAtRVJBTkdFOwogCQlicmVhazsKIAorCWNhc2UgTkxBX0JJVEZJRUxE
+MzI6CisJCWlmIChhdHRybGVuICE9IHNpemVvZihzdHJ1Y3QgbmxhX2JpdGZpZWxkMzIpKQor
+CQkJcmV0dXJuIC1FUkFOR0U7CisKKwkJcmV0dXJuIHZhbGlkYXRlX25sYV9iaXRmaWVsZDMy
+KG5sYSwgcHQtPnZhbGlkYXRpb25fZGF0YSk7CisKIAljYXNlIE5MQV9OVUxfU1RSSU5HOgog
+CQlpZiAocHQtPmxlbikKIAkJCW1pbmxlbiA9IG1pbl90KGludCwgYXR0cmxlbiwgcHQtPmxl
+biArIDEpOwo=
+--------------DFBC2648FBEA2244095738AE--
