@@ -1,15 +1,16 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 1/2] decnet: dn_rtmsg: constify nf_hook_ops structures
-Date: Sat, 29 Jul 2017 08:40:53 +0200
-Message-ID: <1501310455-7896-2-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 2/2] netfilter: ipt_CLUSTERIP: constify nf_hook_ops structures
+Date: Sat, 29 Jul 2017 08:40:54 +0200
+Message-ID: <1501310455-7896-3-git-send-email-Julia.Lawall@lip6.fr>
 References: <1501310455-7896-1-git-send-email-Julia.Lawall@lip6.fr>
 Cc: bhumirks@gmail.com, kernel-janitors@vger.kernel.org,
         Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
         Florian Westphal <fw@strlen.de>,
         "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
         netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1501310455-7896-1-git-send-email-Julia.Lawall@lip6.fr>
@@ -55,19 +56,19 @@ static
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- net/decnet/netfilter/dn_rtmsg.c |    2 +-
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
-index aa8ffec..ab395e5 100644
---- a/net/decnet/netfilter/dn_rtmsg.c
-+++ b/net/decnet/netfilter/dn_rtmsg.c
-@@ -115,7 +115,7 @@ static inline void dnrmg_receive_user_skb(struct sk_buff *skb)
- 	RCV_SKB_FAIL(-EINVAL);
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index efaa04d..17b4ca5 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -625,7 +625,7 @@ static void arp_print(struct arp_payload *payload)
+ 	return NF_ACCEPT;
  }
  
--static struct nf_hook_ops dnrmg_ops __read_mostly = {
-+static const struct nf_hook_ops dnrmg_ops = {
- 	.hook		= dnrmg_hook,
- 	.pf		= NFPROTO_DECNET,
- 	.hooknum	= NF_DN_ROUTE,
+-static struct nf_hook_ops cip_arp_ops __read_mostly = {
++static const struct nf_hook_ops cip_arp_ops = {
+ 	.hook = arp_mangle,
+ 	.pf = NFPROTO_ARP,
+ 	.hooknum = NF_ARP_OUT,
