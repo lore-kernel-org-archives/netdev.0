@@ -1,74 +1,58 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/2] netfilter: ipt_CLUSTERIP: constify nf_hook_ops structures
-Date: Sat, 29 Jul 2017 08:40:54 +0200
-Message-ID: <1501310455-7896-3-git-send-email-Julia.Lawall@lip6.fr>
-References: <1501310455-7896-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: bhumirks@gmail.com, kernel-janitors@vger.kernel.org,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501310455-7896-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v11 3/4] net sched actions: dump more than
+ TCA_ACT_MAX_PRIO actions per batch
+Date: Sat, 29 Jul 2017 09:19:58 +0200
+Message-ID: <20170729071958.GA1858@nanopsycho>
+References: <7057a692-7233-4632-4f66-2f57c98322ea@mojatatu.com>
+ <20170725113352.GA3186@nanopsycho>
+ <355f2140-d8e8-8a4e-1f31-cbbcbfd6821b@mojatatu.com>
+ <20170725123728.GC3186@nanopsycho>
+ <27472f41-1dd3-66a0-d4fc-6b7290c14b27@mojatatu.com>
+ <20170728141234.GD1857@nanopsycho>
+ <4e835ac7-0700-726d-7f6c-6e584ff073eb@mojatatu.com>
+ <fc91ce4d-b7d1-7e95-7e9a-9265aed68424@mojatatu.com>
+ <20170728154547.GG1857@nanopsycho>
+ <12475aaa-eba1-1c9a-0eec-17c908a627f1@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, dsahern@gmail.com,
+        eric.dumazet@gmail.com, mrv@mojatatu.com,
+        simon.horman@netronome.com, alex.aring@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:38690 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752170AbdG2HUC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 03:20:02 -0400
+Received: by mail-wm0-f53.google.com with SMTP id m85so132166282wma.1
+        for <netdev@vger.kernel.org>; Sat, 29 Jul 2017 00:20:01 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <12475aaa-eba1-1c9a-0eec-17c908a627f1@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The nf_hook_ops structure is only passed as the second argument to
-nf_register_net_hook or nf_unregister_net_hook, both of which are
-declared as const.  Thus the nf_hook_ops structure itself can be
-const.
+Sat, Jul 29, 2017 at 12:10:20AM CEST, jhs@mojatatu.com wrote:
+>On 17-07-28 11:45 AM, Jiri Pirko wrote:
+>> Fri, Jul 28, 2017 at 05:08:10PM CEST, jhs@mojatatu.com wrote:
+>> > On 17-07-28 10:52 AM, Jamal Hadi Salim wrote:
+>> > > On 17-07-28 10:12 AM, Jiri Pirko wrote:
+>
+>
+>> >         /*disallow invalid selector */
+>> >         if ((bf->selector & *valid_flags_allowed) > *valid_flags_allowed)
+>> 
+>> I don't get the ">"....
+>> Just (bf->selector & ~*valid_flags_allowed) should be enought, no?
+>> 
+>
+>It may be enough - I will try it out tommorow.
+>I was worried about the selector having more bits than the allowed flags.
 
-Done with the help of Coccinelle.
+That is what the code I wrote above do. And I think that your code does
+not (if you don't assume that allowed flags are always starting from the
+least significant bit)
 
-// <smpl>
-@r disable optional_qualifier@
-identifier i;
-position p;
-@@
-static struct nf_hook_ops i@p = { ... };
-
-@ok1@
-identifier r.i;
-expression e;
-position p;
-@@
- \(nf_register_net_hook\|nf_unregister_net_hook\)(e,&i@p)
-
-@bad@
-position p != {r.p,ok1.p};
-identifier r.i;
-struct nf_hook_ops e;
-@@
-e@i@p
-
-@depends on !bad disable optional_qualifier@
-identifier r.i;
-@@
-static
-+const
- struct nf_hook_ops i = { ... };
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- net/ipv4/netfilter/ipt_CLUSTERIP.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index efaa04d..17b4ca5 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -625,7 +625,7 @@ static void arp_print(struct arp_payload *payload)
- 	return NF_ACCEPT;
- }
- 
--static struct nf_hook_ops cip_arp_ops __read_mostly = {
-+static const struct nf_hook_ops cip_arp_ops = {
- 	.hook = arp_mangle,
- 	.pf = NFPROTO_ARP,
- 	.hooknum = NF_ARP_OUT,
+>
+>cheers,
+>jamal
