@@ -1,45 +1,79 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: STABLE: net: reduce skb_warn_bad_offload() noise
-Date: Sat, 29 Jul 2017 08:46:26 +0200
-Message-ID: <20170729064626.GD7774@1wt.eu>
-References: <4b5d320a-a12e-b27b-cc58-332614684bf2@android.com>
- <20170728.123010.242124876818464581.davem@davemloft.net>
- <1501305772.1876.0.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/3] net-next: stmmac: support future possible different
+ internal phy mode
+Date: Sat, 29 Jul 2017 08:48:15 +0200
+Message-ID: <20170729064815.GA2024@Red>
+References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
+ <20170728135544.GD32230@lunn.ch>
+ <20170728142508.GA7221@Red>
+ <20170728143600.GB2132@lunn.ch>
+ <20170728144424.GB7221@Red>
+ <f8fe754c-8b46-a9f6-4020-f7db6c985773@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, salyzyn@android.com,
-        stable@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:34393 "EHLO 1wt.eu"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750912AbdG2Gqc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 29 Jul 2017 02:46:32 -0400
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        icenowy-h8G6r0blFSE@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1501305772.1876.0.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <f8fe754c-8b46-a9f6-4020-f7db6c985773-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2017 at 10:22:52PM -0700, Eric Dumazet wrote:
-> On Fri, 2017-07-28 at 12:30 -0700, David Miller wrote:
-> > From: Mark Salyzyn <salyzyn@android.com>
-> > Date: Fri, 28 Jul 2017 10:29:57 -0700
+On Fri, Jul 28, 2017 at 10:54:30AM -0700, Florian Fainelli wrote:
+> On 07/28/2017 07:44 AM, Corentin Labbe wrote:
+> > On Fri, Jul 28, 2017 at 04:36:00PM +0200, Andrew Lunn wrote:
+> >>>> I've probably asked this before: Does the internal PHY use a different
+> >>>> PHY ID in registers 2 and 3?
+> >>>>
+> >>>
+> >>> yes
+> >>>
+> >>> reg2: 0x0044
+> >>> reg3: 0X1500
 > > 
-> > > Please backport the upstream patch to the stable trees (including
-> > > 3.10.y, 3.18.y, 4.4.y and 4.9.y):
-> > > 
-> > > b2504a5dbef3305ef41988ad270b0e8ec289331c net: reduce
-> > > skb_warn_bad_offload() noise
-> > > 
-> > > Impacting performance or creating unnecessary alarm, and will result
-> > > in kernel panic for panic_on_warn configuration.
+> > Copy/paste error, its 1400
 > > 
-> > Yeah this is fine.
+> >>
+> >> So this is not about loading the correct PHY driver. You can already
+> >> do this based on the PHY IDs...
+> >>
+> >> This is about selecting which PHY to use. Internal or External?	
+> >>
+> >>      Andrew
+> > 
+> > It is too late when we know the PHY ID.
 > 
-> If you do so, also backport 6e7bc478c9a006c701c14476ec9d389a484b4864
-> ("net: skb_needs_check() accepts CHECKSUM_NONE for tx")
- 
-OK, noted for next 3.10 as well.
+> > We need to set a syscon for choosing external/internal PHY.
+> > So we can rely only on DT.
+> 
+> Since the Device Tree needs to be correct to identify which PHY to use
+> (internal or external), if you use the standard compatible string for
+> the PHY that contains its OUI, e.g:
+> 
+> compatible = "ethernet-phy-id0044.1400", "ethernet-phy-ieee802.3-c22"
+> 
+> then you can have your Ethernet MAC identify whether this is an internal
+> PHY by having a list of compatible strings to match against.
 
-thanks!
-Willy
+So basicly, I replace sun8i-h3-ephy by ethernet-phy-id0044.1400 and it is good ?
+
+> 
+> Corentin, can you make sure you copy netdev, Andrew and myself on the
+> next submissions so we don't have to keep track of seemingly identical
+> threads (this one + the rockchip dwmac changes) and we can work towards
+> one solution?
+
+Ok
+
+Thanks
+Corentin Labbe
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
