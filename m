@@ -1,54 +1,32 @@
-From: Martin KaFai Lau <iamkafai@gmail.com>
-Subject: Re: [PATCH net] bpf: fix bpf_prog_get_info_by_fd to dump correct xlated_prog_len
-Date: Sat, 29 Jul 2017 16:18:45 +0800
-Message-ID: <CABx7vpXpGxQmEOz70m_W8Wv8czFr2sXj9fDFpSL4Sdb6n3m+RA@mail.gmail.com>
-References: <a88afb3f19e16a937683bc2bfa80100144fb3792.1501254197.git.daniel@iogearbox.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 0/2] constify nf_hook_ops structures
+Date: Sat, 29 Jul 2017 10:44:29 +0200
+Message-ID: <20170729084429.GE28392@breakpoint.cc>
+References: <1501310455-7896-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: davem@davemloft.net, kafai@fb.com, alexei.starovoitov@gmail.com,
-        netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33033 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753356AbdG2ISr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 04:18:47 -0400
-Received: by mail-wm0-f65.google.com with SMTP id q189so18670646wmd.0
-        for <netdev@vger.kernel.org>; Sat, 29 Jul 2017 01:18:46 -0700 (PDT)
-In-Reply-To: <a88afb3f19e16a937683bc2bfa80100144fb3792.1501254197.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-decnet-user@lists.sourceforge.net, bhumirks@gmail.com,
+        kernel-janitors@vger.kernel.org,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julia Lawall <Julia.Lawall@lip6.fr>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1501310455-7896-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2017 at 11:05 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> bpf_prog_size(prog->len) is not the correct length we want to dump
-> back to user space. The code in bpf_prog_get_info_by_fd() uses this
-> to copy prog->insnsi to user space, but bpf_prog_size(prog->len) also
-> includes the size of struct bpf_prog itself plus program instructions
-> and is usually used either in context of accounting or for bpf_prog_alloc()
-> et al, thus we copy out of bounds in bpf_prog_get_info_by_fd()
-> potentially. Use the correct bpf_prog_insn_size() instead.
-Acked-by: Martin KaFai Lau <kafai@fb.com>
+Julia Lawall <Julia.Lawall@lip6.fr> wrote:
+> The nf_hook_ops structure is only passed as the second argument to
+> nf_register_net_hook or nf_unregister_net_hook, both of which are
+> declared as const.  Thus the nf_hook_ops structure itself can be
+> const.
 
->
-> Fixes: 1e2709769086 ("bpf: Add BPF_OBJ_GET_INFO_BY_FD")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  kernel/bpf/syscall.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index 84bb399..6c772ad 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -1312,7 +1312,7 @@ static int bpf_prog_get_info_by_fd(struct bpf_prog *prog,
->         }
->
->         ulen = info.xlated_prog_len;
-> -       info.xlated_prog_len = bpf_prog_size(prog->len);
-> +       info.xlated_prog_len = bpf_prog_insn_size(prog);
->         if (info.xlated_prog_len && ulen) {
->                 uinsns = u64_to_user_ptr(info.xlated_prog_insns);
->                 ulen = min_t(u32, info.xlated_prog_len, ulen);
-> --
-> 1.9.3
->
+Right, also see
+http://patchwork.ozlabs.org/patch/793767/
+
+This series misses most of them (all arrays perhaps)?
