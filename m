@@ -1,31 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: don't indicate success when copy_from_user
- fails
-Date: Sat, 29 Jul 2017 14:29:27 -0700 (PDT)
-Message-ID: <20170729.142927.2190618754602693982.davem@davemloft.net>
-References: <af76c90679bef1488ffb97b9b80f250b6738db57.1501182003.git.daniel@iogearbox.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 196529] New: NULL pointer deref in networking
+Date: Sat, 29 Jul 2017 14:33:20 -0700
+Message-ID: <20170729143320.347eb4d1@xeon-e3>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kafai@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42146 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751530AbdG2V33 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 17:29:29 -0400
-In-Reply-To: <af76c90679bef1488ffb97b9b80f250b6738db57.1501182003.git.daniel@iogearbox.net>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:36079 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751612AbdG2VdX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 17:33:23 -0400
+Received: by mail-pg0-f42.google.com with SMTP id 125so123902936pgi.3
+        for <netdev@vger.kernel.org>; Sat, 29 Jul 2017 14:33:23 -0700 (PDT)
+Received: from xeon-e3 (76-14-207-240.or.wavecable.com. [76.14.207.240])
+        by smtp.gmail.com with ESMTPSA id q24sm53218120pfg.167.2017.07.29.14.33.22
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Sat, 29 Jul 2017 14:33:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu, 27 Jul 2017 21:02:46 +0200
 
-> err in bpf_prog_get_info_by_fd() still holds 0 at that time from prior
-> check_uarg_tail_zero() check. Explicitly return -EFAULT instead, so
-> user space can be notified of buggy behavior.
-> 
-> Fixes: 1e2709769086 ("bpf: Add BPF_OBJ_GET_INFO_BY_FD")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Applied, thanks.
+Begin forwarded message:
+
+Date: Sat, 29 Jul 2017 01:52:42 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: stephen@networkplumber.org
+Subject: [Bug 196529] New: NULL pointer deref in networking
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=196529
+
+            Bug ID: 196529
+           Summary: NULL pointer deref in networking
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.13rc2
+          Hardware: x86-64
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: stephen@networkplumber.org
+          Reporter: rcepeda1993@gmail.com
+        Regression: No
+
+Created attachment 257749
+  --> https://bugzilla.kernel.org/attachment.cgi?id=257749&action=edit  
+dmesg output
+
+Just upgraded to 4.13rc2, rebooted, and my system crashed at my netmount init
+script; says RIP is NULL, I am guessing a bad func call. I immediately thought
+missing firmware in kernel, my kernel builds firmware in it, so I upgraded my
+firmware to latest on git.kernel and made sure I had no warnings in dmesg about
+missing firmware. Still, I receive this NULL pointer in the IP. If I disable my
+netmount on boot, I can login, but can not bring up my interfaces, still get a
+RIP err in kernel logs and cpu load sky-rockets.
+
+I am willing to help and provide as much info as possible, thank you.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
