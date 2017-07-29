@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bpf: testing: fix devmap tests
-Date: Sat, 29 Jul 2017 14:13:50 -0700 (PDT)
-Message-ID: <20170729.141350.234393708636508572.davem@davemloft.net>
-References: <20170727003206.16649.50637.stgit@john-Precision-Tower-5810>
-        <5979355D.60807@gmail.com>
+Subject: Re: [PATCH V2 net] Revert "vhost: cache used event for better
+ performance"
+Date: Sat, 29 Jul 2017 14:16:13 -0700 (PDT)
+Message-ID: <20170729.141613.128128727353289484.davem@davemloft.net>
+References: <1501125725-24529-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
-        daniel@iogearbox.net
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41980 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751612AbdG2VNv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 17:13:51 -0400
-In-Reply-To: <5979355D.60807@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, kvm@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1501125725-24529-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Wed, 26 Jul 2017 17:35:41 -0700
+From: Jason Wang <jasowang@redhat.com>
+Date: Thu, 27 Jul 2017 11:22:05 +0800
 
-> On 07/26/2017 05:32 PM, John Fastabend wrote:
->> Apparently through one of my revisions of the initial patches
->> series I lost the devmap test. We can add more testing later but
->> for now lets fix the simple one we have.
->> 
->> Fixes: 546ac1ffb70d "bpf: add devmap, a map for storing net device references"
->> Reported-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
->> ---
+> This reverts commit 809ecb9bca6a9424ccd392d67e368160f8b76c92. Since it
+> was reported to break vhost_net. We want to cache used event and use
+> it to check for notification. The assumption was that guest won't move
+> the event idx back, but this could happen in fact when 16 bit index
+> wraps around after 64K entries.
 > 
-> Forgot prefix, this is for net-next. Sorry about that.
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-It's ok.
-
-Aplpied, thanks John.
+Applied, thanks.
