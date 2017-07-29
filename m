@@ -1,30 +1,98 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net v2] MAINTAINERS: Add more files to the PHY LIBRARY
- section
-Date: Sat, 29 Jul 2017 03:28:26 +0200
-Message-ID: <20170729012826.GE16080@lunn.ch>
-References: <20170729004317.31525-1-f.fainelli@gmail.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH V3 net-next] TLP: Don't reschedule PTO when there's one
+ outstanding TLP retransmission
+Date: Sat, 29 Jul 2017 01:39:01 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F2029326B6@DGGEMI512-MBX.china.huawei.com>
+References: <1501157337-10900-1-git-send-email-maowenan@huawei.com>
+ <CADVnQy=Dw__BrTHwoUrn0Wxu8=Xb7NqZ9bAuEeM8SrNhzd_2SA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Chenweilong <chenweilong@huawei.com>,
+        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44498 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752849AbdG2B2a (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 28 Jul 2017 21:28:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20170729004317.31525-1-f.fainelli@gmail.com>
+Received: from szxga02-in.huawei.com ([45.249.212.188]:10799 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752884AbdG2BjS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2017 21:39:18 -0400
+In-Reply-To: <CADVnQy=Dw__BrTHwoUrn0Wxu8=Xb7NqZ9bAuEeM8SrNhzd_2SA@mail.gmail.com>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 28, 2017 at 05:43:17PM -0700, Florian Fainelli wrote:
-> Include missing files that are provided by, used, or directly maintained
-> within the PHY LIBRARY, this include uapi header, header files used by
-> Device Tree code etc.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogTmVhbCBDYXJkd2VsbCBb
+bWFpbHRvOm5jYXJkd2VsbEBnb29nbGUuY29tXQ0KPiBTZW50OiBTYXR1cmRheSwgSnVseSAyOSwg
+MjAxNyA2OjQ4IEFNDQo+IFRvOiBtYW93ZW5hbg0KPiBDYzogTmV0ZGV2OyBEYXZpZCBNaWxsZXI7
+IFl1Y2h1bmcgQ2hlbmc7IE5hbmRpdGEgRHVra2lwYXRpOyB3ZWl5b25nanVuIChBKTsNCj4gQ2hl
+bndlaWxvbmc7IFdhbmdrZWZlbmcgKEtldmluKQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIFYzIG5l
+dC1uZXh0XSBUTFA6IERvbid0IHJlc2NoZWR1bGUgUFRPIHdoZW4gdGhlcmUncyBvbmUNCj4gb3V0
+c3RhbmRpbmcgVExQIHJldHJhbnNtaXNzaW9uDQo+IA0KPiBPbiBUaHUsIEp1bCAyNywgMjAxNyBh
+dCA4OjA4IEFNLCBNYW8gV2VuYW4gPG1hb3dlbmFuQGh1YXdlaS5jb20+DQo+IHdyb3RlOg0KPiA+
+IElmIHRoZXJlIGlzIG9uZSBUTFAgcHJvYmUgd2VudCBvdXQoVExQIHVzZSB0aGUgd3JpdGVfcXVl
+dWVfdGFpbCBwYWNrZXQNCj4gPiBhcyBUTFAgcHJvYmUsIHdlIGFzc3VtZSB0aGlzIGZpcnN0IFRM
+UCBwcm9iZSBuYW1lZCBBKSwgYW5kIHRoaXMgVExQDQo+ID4gcHJvYmUgd2FzIG5vdCBhY2tlZCBi
+eSByZWNlaXZlIHNpZGUuDQo+ID4NCj4gPiBUaGVuIHRoZSB0cmFuc21pdCBzaWRlIHNlbnQgdGhl
+IG5leHQgdHdvIHBhY2tldGVzIG91dChuYW1lZCBCLEMpLCBidXQNCj4gPiB1bmZvcnR1bmF0ZWx5
+IHRoZXNlIHR3byBwYWNrZXRzIGFyZSBhbHNvIG5vdCBhY2tlZCBieSByZWNlaXZlIHNpZGUuDQo+
+ID4NCj4gPiBBbmQgdGhlbiB0aGVyZSBpcyBvbmUgZGF0YSBwYWNrZXQgd2l0aCBhY2tfc2VxIEEg
+YXJyaXZlIGF0IHRyYW5zbWl0DQo+ID4gc2lkZSwgaW4gdGNwX2FjaygpIHdpbGwgY2FsbCB0Y3Bf
+c2NoZWR1bGVfbG9zc19wcm9iZSgpIHRvIHJlYXJtIFBUTywNCj4gPiB0aGUgaGFuZGxlciB0Y3Bf
+c2VuZF9sb3NzX3Byb2JlKCkgaXMgdG8gY2hlY2sNCj4gPiBpZih0cC0+dGxwX2hpZ2hfc2VxKSB0
+aGVuIGdvIHRvIHJlYXJtX3RpbWVyKGJlY2F1c2UgdGhlcmUgaXMgb25lDQo+ID4gb3V0c3RhbmRp
+bmcgVExQIG5hbWVkIEEpLCBzbyB0aGUgbmV3IFRMUCBwcm9iZSBjYW4ndCBiZSBzZW50IG91dCBh
+bmQNCj4gPiBpdCBuZWVkcyB0byByZWFybSB0aGUgUlRPIHRpbWVyKHRpbWVvdXQgaXMgcmVsYXRp
+dmUgdG8gdGhlIHRyYW5zbWl0DQo+ID4gdGltZSBvZiB0aGUgd3JpdGUgcXVldWUgaGVhZCkuDQo+
+ID4NCj4gPiBBZnRlciB0aGF0LCB0aGVyZSBpcyBhbm90aGVyIGRhdGEgcGFja2V0IHdpdGggYWNr
+X3NlcSBBIGlzIHJlY2VpdmVkLA0KPiA+IGlmIHRoZSB0bHBfdGltZV9zdGFtcCBpcyBncmVhdGVy
+IHRoYW4gcnRvX3RpbWVfc3RhbXAsIGl0IHdpbGwgcmVzZXQNCj4gPiB0aGUgVExQIHRpbWVvdXQs
+IHdoaWNoIGlzIGJlZm9yZSBwcmV2aW91cyBSVE8gdGltZW91dCwgc28gUFRPIGlzIHJlYXJtDQo+
+ID4gYW5kIHByZXZpb3VzIFJUTyBpcyBjbGVhcmVkLiBCZWNhdXNlIHRoZXJlIGlzIG5vIHJldHJh
+bnNtaXNzaW9uIHBhY2tldA0KPiA+IHdhcyBzZW50IG9yIG5vIFRMUCBzYWNrIHJlY2VpdmUsDQo+
+ID4gdHAtPnRscF9oaWdoX3NlcSBjYW4ndCBiZSByZXNldCB0byB6ZXJvIGFuZCB0aGUgbmV4dCBU
+TFAgcHJvYmUgYWxzbw0KPiA+IGNhbid0IGJlIHNlbnQgb3V0LCBzbyB0aGVyZSBpcyBubyB3YXko
+b3IgdmVyeSBsb25nIHRpbWUpIHRvIHJldHJhbnNtaXQNCj4gPiB0aGUgbG9zdCBwYWNrZXQuDQo+
+ID4NCj4gPiBUaGlzIGZpeCBpcyB0byBjaGVjayh0cC0+dGxwX2hpZ2hfc2VxKSBpbiB0Y3Bfc2No
+ZWR1bGVfbG9zc19wcm9iZSgpDQo+ID4gd2hlbiBUTFAgUFRPIGlzIGFmdGVyIFJUTywgSXQgaXMg
+bm90IG5lZWRlZCB0byByZXNjaGVkdWxlIFBUTyB3aGVuDQo+ID4gdGhlcmUgaXMgb25lIG91dHN0
+YW5kaW5nIFRMUCByZXRyYW5zbWlzc2lvbiwgc28gaWYgdGhlIFRMUCBBIGlzIGxvc3QNCj4gPiBS
+VE8gY2FuIHJldHJhbnNtaXQgbG9zdCBwYWNrZXQsIHRoZW4gdHAtPnRscF9oaWdoX3NlcSB3aWxs
+IGJlIHNldCB0bw0KPiA+IDAsIGFuZCBUTFAgd2lsbCBnbyB0byB0aGUgbm9ybWFsIHdvcmsgcHJv
+Y2Vzcy4NCj4gPg0KPiA+IHYxLT52Mg0KPiA+ICAgICAgICAgcmVmaW5lIHNvbWUgd29yZHMgb2Yg
+Y29kZSBhbmQgcGF0Y2ggY29tbWVudHMuDQo+ID4gdjItPnYzDQo+ID4gICAgICAgICBkZWxldGUg
+c2Vuc2VsZXNzICJ7IiBhbmQgIn0iIGluIGlmIGNsYXVzZS4NCj4gPg0KPiA+IFNpZ25lZC1vZmYt
+Ynk6IE1hbyBXZW5hbiA8bWFvd2VuYW5AaHVhd2VpLmNvbT4NCj4gDQo+IFRoYW5rcyBmb3IgcG9z
+dGluZyB0aGlzIHBhdGNoIHdpdGggYSBkZXRhaWxlZCBwcm9ibGVtIGRlc2NyaXB0aW9uLCBhcyB3
+ZWxsIGFzIGENCj4gdHJhY2UgaW4gdGhlIHRocmVhZCBmb3IgdjEgb2YgdGhlIHBhdGNoLiBUaGlz
+IHdhcyB2ZXJ5IGhlbHBmdWwhDQo+IA0KPiBUaGlua2luZyBhYm91dCB0aGUgcHJvYmxlbSB5b3Ug
+ZGVzY3JpYmUsIGFuZCBsb29raW5nIGF0IHRoZSB0cmFjZSwgQUZBSUNUIEkNCj4gZG9uJ3QgdGhp
+bmsgdGhpcyBpcyB0aGUgcGF0Y2ggd2Ugd2FudC4NCj4gDQo+IFdlIGNhbiBzdGlsbCBoYXZlIHRo
+aXMgcHJvYmxlbSBvZiBpbXByb3Blcmx5L3JlcGVhdGVkbHkgcmVzY2hlZHVsaW5nIGEgUFRPDQo+
+IGV2ZW4gd2hlbiB0aGUgVExQcyBhcmUgbmV3IGRhdGEuIFdoZW4gdGhlIFRMUHMgYXJlIG5ldyBk
+YXRhDQo+IHRwLT50bHBfaGlnaF9zZXEgaXMgbm90IHNldCwgYW5kIHNvIHRoZSBwYXRjaCBhYm92
+ZSB3aWxsIG5vdCBoZWxwLg0KW01hbyBXZW5hbl1vaywgV2UgaGF2ZSByZXByb2R1Y2VkIHRoaXMg
+aXNzdWUgd2l0aCBwYWNrZXRkcmlsbCB5ZXN0ZXJkYXksIA0KdGhlcmUgaXMgbm8gdGhlIHNhbWUg
+aXNzdWUgd2hlbiBUTFAgc2VuZCBuZXcgZGF0YSBwYWNrZXQsIFJUTyB3aWxsIGJlIGZpcmVkIGFu
+ZCANCnJldHJhbnNtaXQgcGFja2V0Lg0KPiANCj4gSSB0aGluayB0aGUgYnJvYWRlciBwcm9ibGVt
+IGlzIGhpbnRlZCBhdCBpbiB0aGlzIHBhcnQgb2YgeW91ciBjb21taXQNCj4gZGVzY3JpcHRpb246
+DQo+IA0KPiA+IEFmdGVyIHRoYXQsIHRoZXJlIGlzIGFub3RoZXIgZGF0YSBwYWNrZXQgd2l0aCBh
+Y2tfc2VxIEEgaXMgcmVjZWl2ZWQsDQo+ID4gaWYgdGhlIHRscF90aW1lX3N0YW1wIGlzIGdyZWF0
+ZXIgdGhhbiBydG9fdGltZV9zdGFtcCwgaXQgd2lsbCByZXNldA0KPiA+IHRoZSBUTFAgdGltZW91
+dA0KPiANCj4gVGhlIGJyb2FkZXIgcHJvYmxlbSBoZXJlIGlzIHRoYXQgYW4gaW5jb21pbmcgZGF0
+YSBwYWNrZXQgKHdpdGggbm8gbmV3DQo+IEFDSy9TQUNLIGluZm8pIGFmZmVjdGVkIHRoZSBUTFAg
+Zm9yIG91ciBvdXRib3VuZCBkYXRhLiBUaGF0IGlzIGEgcHJvYmxlbQ0KPiBiZWNhdXNlIHN1Y2gg
+aW5jb21pbmcgZGF0YSBjYW4gY2F1c2UgdXMgdG8gZGVsYXkgdGhlIFRMUCB3aGVuIHRoZXJlIGlz
+IG5vDQo+IHJlYXNvbiB0by4NCj4gDQo+IEkgdGhpbmsgdGhpcyBpcyBiYXNpY2FsbHkgdGhlIHNh
+bWUgYXMgdGhlIFRMUCBpc3N1ZSBmcm9tIHRoZSAiVENQIGZhc3QgcmV0cmFuc21pdA0KPiBpc3N1
+ZXMiIHRocmVhZCBvbiBuZXRkZXYgZnJvbSBKdWx5IDI2LiBPdXIgVENQIHRlYW0gYXQgR29vZ2xl
+IGhhcyBhIHByb3Bvc2VkDQo+IGZpeCBmb3IgdGhpcyBtb3JlIGdlbmVyYWwgaXNzdWUgdGhhdCB3
+ZSBoYXZlIHRlc3RlZCBhbmQgcmV2aWV3ZWQuIEkgd2lsbCBwb3N0IGENCj4gcXVpY2sgc3VtbWFy
+eSBvZiB0aGUgcHJvcG9zZWQgcGF0Y2ggaW4gdGhlICJUQ1AgZmFzdCByZXRyYW5zbWl0IGlzc3Vl
+cyINCj4gdGhyZWFkLiBPbmNlIHRoZSBwYXRjaCBoYXMgdW5kZXJnb25lIGEgbGl0dGxlIG1vcmUg
+dGVzdGluZyB3ZSB3aWxsIHNlbmQgaXQgdG8NCj4gdGhlIGxpc3QsIGhvcGVmdWxseSBuZXh0IHdl
+ZWsuDQpbTWFvIFdlbmFuXU9LLg0KPiANCj4gVGhhbmtzIQ0KPiBuZWFsDQo=
