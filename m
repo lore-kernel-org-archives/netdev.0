@@ -1,41 +1,51 @@
 From: SZ Lin <sz.lin@moxa.com>
-Subject: [PATCH 4/6] net: moxa: Remove extra space after a cast
-Date: Sat, 29 Jul 2017 18:42:37 +0800
-Message-ID: <20170729104239.14999-5-sz.lin@moxa.com>
+Subject: [PATCH 6/6] net: moxa: Add spaces preferred around that '{+,-}'
+Date: Sat, 29 Jul 2017 18:42:39 +0800
+Message-ID: <20170729104239.14999-7-sz.lin@moxa.com>
 References: <20170729104239.14999-1-sz.lin@moxa.com>
 Cc: jarod@redhat.com, jonas.jensen@gmail.com, edumazet@google.com,
         bhumirks@gmail.com, tklauser@distanz.ch, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, SZ Lin <sz.lin@moxa.com>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34686 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753781AbdG2Kn6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 06:43:58 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170729104239.14999-1-sz.lin@moxa.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-No space is necessary after a cast
-This warning is found using checkpatch.pl
+This patch fixes all checkpatch occurences of
+"CHECK: spaces preferred around that '{+,-}' (ctx:VxV)"
+in moxart_ether code.
 
 Signed-off-by: SZ Lin <sz.lin@moxa.com>
 ---
- drivers/net/ethernet/moxa/moxart_ether.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/moxa/moxart_ether.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-index 1d6384873393..31e179a651ae 100644
---- a/drivers/net/ethernet/moxa/moxart_ether.c
-+++ b/drivers/net/ethernet/moxa/moxart_ether.c
-@@ -311,7 +311,7 @@ static void moxart_tx_finished(struct net_device *ndev)
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.h b/drivers/net/ethernet/moxa/moxart_ether.h
+index 686b8957d5cf..bee608b547d1 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.h
++++ b/drivers/net/ethernet/moxa/moxart_ether.h
+@@ -55,17 +55,17 @@
+ #define RX_DESC2_ADDRESS_VIRT	4
  
- static irqreturn_t moxart_mac_interrupt(int irq, void *dev_id)
- {
--	struct net_device *ndev = (struct net_device *) dev_id;
-+	struct net_device *ndev = (struct net_device *)dev_id;
- 	struct moxart_mac_priv_t *priv = netdev_priv(ndev);
- 	unsigned int ists = readl(priv->base + REG_INTERRUPT_STATUS);
+ #define TX_DESC_NUM		64
+-#define TX_DESC_NUM_MASK	(TX_DESC_NUM-1)
++#define TX_DESC_NUM_MASK	(TX_DESC_NUM - 1)
+ #define TX_NEXT(N)		(((N) + 1) & (TX_DESC_NUM_MASK))
+ #define TX_BUF_SIZE		1600
+-#define TX_BUF_SIZE_MAX		(TX_DESC1_BUF_SIZE_MASK+1)
++#define TX_BUF_SIZE_MAX		(TX_DESC1_BUF_SIZE_MASK + 1)
+ #define TX_WAKE_THRESHOLD	16
  
+ #define RX_DESC_NUM		64
+-#define RX_DESC_NUM_MASK	(RX_DESC_NUM-1)
++#define RX_DESC_NUM_MASK	(RX_DESC_NUM - 1)
+ #define RX_NEXT(N)		(((N) + 1) & (RX_DESC_NUM_MASK))
+ #define RX_BUF_SIZE		1600
+-#define RX_BUF_SIZE_MAX		(RX_DESC1_BUF_SIZE_MASK+1)
++#define RX_BUF_SIZE_MAX		(RX_DESC1_BUF_SIZE_MASK + 1)
+ 
+ #define REG_INTERRUPT_STATUS	0
+ #define REG_INTERRUPT_MASK	4
 -- 
 2.13.3
