@@ -1,32 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/7] netvsc: minor fixes and optimization
-Date: Sat, 29 Jul 2017 15:26:44 -0700 (PDT)
-Message-ID: <20170729.152644.1642770487758929777.davem@davemloft.net>
-References: <20170728155947.10062-1-sthemmin@microsoft.com>
+Subject: Re: pull-request: wireless-drivers-next 2017-07-28
+Date: Sat, 29 Jul 2017 15:30:42 -0700 (PDT)
+Message-ID: <20170729.153042.505134537790079396.davem@davemloft.net>
+References: <87h8xwvevj.fsf@kamboji.qca.qualcomm.com>
+        <87d18kvepm.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
-        devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42932 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751668AbdG2W0p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 18:26:45 -0400
-In-Reply-To: <20170728155947.10062-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: kvalo@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87d18kvepm.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 28 Jul 2017 08:59:40 -0700
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Date: Fri, 28 Jul 2017 14:05:59 +0000
 
-> This is a subset of earlier submission with a few more fixes
-> found during testing. The are two small optimizations, one is to
-> better manage the receive completion ring, and the other is removing
-> one unneeded level of indirection.
+> Kalle Valo <kvalo@codeaurora.org> writes:
 > 
-> Will submit the improved VF support and buffer sizing in a later
-> patch so they get more review.
+>> Hi Dave,
+>>
+>> here's a pull request for net, more info the signed tag below. Please
+>> let me know if there are any problems.
+>>
+>> Kalle
+>>
+>> The following changes since commit d755cbc26e8295ae8e5d30425364e093b4247a85:
+>>
+>>   Merge tag 'iwlwifi-for-kalle-2017-07-21' of git://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2017-07-21 14:33:27 +0300)
+>>
+>> are available in the git repository at:
+>>
+>>   git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2017-07-28
+> 
+> Argh, the subject is of course wrong and it should be:
+> 
+> pull-request: wireless-drivers 2017-07-28
 
-Series applied, thanks Stephen.
+Yeah that makes more sense. :)
+
+> So this pull request is for net tree to get these two brcmfmac fixes to
+> 4.13. Otherwise the pull request is correct so I don't submit a new one
+> (but let me know if you prefer that).
+
+Pulled, thanks Kalle.
