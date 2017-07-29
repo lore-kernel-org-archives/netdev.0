@@ -1,58 +1,76 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v11 3/4] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Sat, 29 Jul 2017 09:19:58 +0200
-Message-ID: <20170729071958.GA1858@nanopsycho>
-References: <7057a692-7233-4632-4f66-2f57c98322ea@mojatatu.com>
- <20170725113352.GA3186@nanopsycho>
- <355f2140-d8e8-8a4e-1f31-cbbcbfd6821b@mojatatu.com>
- <20170725123728.GC3186@nanopsycho>
- <27472f41-1dd3-66a0-d4fc-6b7290c14b27@mojatatu.com>
- <20170728141234.GD1857@nanopsycho>
- <4e835ac7-0700-726d-7f6c-6e584ff073eb@mojatatu.com>
- <fc91ce4d-b7d1-7e95-7e9a-9265aed68424@mojatatu.com>
- <20170728154547.GG1857@nanopsycho>
- <12475aaa-eba1-1c9a-0eec-17c908a627f1@mojatatu.com>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: Re: [PATCH][V2] batman-adv: fix various spelling
+ mistakes
+Date: Sat, 29 Jul 2017 10:03:22 +0200
+Message-ID: <4991063.NmyrSCcBdl@sven-edge>
+References: <20170626102644.11337-1-colin.king@canonical.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, dsahern@gmail.com,
-        eric.dumazet@gmail.com, mrv@mojatatu.com,
-        simon.horman@netronome.com, alex.aring@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:38690 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752170AbdG2HUC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 03:20:02 -0400
-Received: by mail-wm0-f53.google.com with SMTP id m85so132166282wma.1
-        for <netdev@vger.kernel.org>; Sat, 29 Jul 2017 00:20:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <12475aaa-eba1-1c9a-0eec-17c908a627f1@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="nextPart5024426.Dpppdgdvap";
+ micalg="pgp-sha512"; protocol="application/pgp-signature"
+Cc: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Antonio Quartulli <a@unstable.cc>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+ "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20170626102644.11337-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Sat, Jul 29, 2017 at 12:10:20AM CEST, jhs@mojatatu.com wrote:
->On 17-07-28 11:45 AM, Jiri Pirko wrote:
->> Fri, Jul 28, 2017 at 05:08:10PM CEST, jhs@mojatatu.com wrote:
->> > On 17-07-28 10:52 AM, Jamal Hadi Salim wrote:
->> > > On 17-07-28 10:12 AM, Jiri Pirko wrote:
->
->
->> >         /*disallow invalid selector */
->> >         if ((bf->selector & *valid_flags_allowed) > *valid_flags_allowed)
->> 
->> I don't get the ">"....
->> Just (bf->selector & ~*valid_flags_allowed) should be enought, no?
->> 
->
->It may be enough - I will try it out tommorow.
->I was worried about the selector having more bits than the allowed flags.
+--nextPart5024426.Dpppdgdvap
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-That is what the code I wrote above do. And I think that your code does
-not (if you don't assume that allowed flags are always starting from the
-least significant bit)
+On Montag, 26. Juni 2017 11:26:44 CEST Colin King wrote:
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> 
+> Trivial fix to spelling mistakes in batadv_dbg debug messages and
+> also in a comment and ensure comment line is not wider than 80
+> characters
+> 
+> "ourselve" -> "ourselves"
+> "surpressed" -> "suppressed"
+> "troughput" -> "throughput"
+> 
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
->
->cheers,
->jamal
+
+Applied as f25cbb2a6ac1ce702d8c39222bc13c24a69bb5ef [1]
+
+Thanks,
+	Sven
+
+[1] https://git.open-mesh.org/linux-merge.git/commit/f25cbb2a6ac1ce702d8c39222bc13c24a69bb5ef
+--nextPart5024426.Dpppdgdvap
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEEF10rh2Elc9zjMuACXYcKB8Eme0YFAll8QUoACgkQXYcKB8Em
+e0arqw//dcdX0zc2CVhh4gZWIbHsw2y+ESYqOtfkSXxi19zCdtSzev+Aif4RBIZT
+0J4xdd+h1GgL1aPnpIYLDaLnmY6qYaVbZAAbmcgWyrK7peg5ZmKtZPsXh/+RaZoU
+lueHE+6kq1fGqn1SYgwr/H1G7mR0hbg/uHkyNP60NYQ3VRMoGAUfv5+k6aS0n219
+lqAOt+UUh8OQY4ypy2KibPWgVv9Z/QeHyKE1DZOcqfdhw02JEcMqHwhhTI4oWgYG
+tnxisp7EzMHApnuaCLGJKFusEyUvRhAuUYgTIhOnUAD+8qeHdiV1so3NNj1x3D8M
+l8q4KnuvNB6qF0d4NMj9U0P5NgXKgsGGAUejic0/bQwA3wn4DtxyWn/uWX4kh8/s
+WJMGj4wRevCPK/V/KFsPS0PlpqzTEWfnqcYx6AvQqLbuClSgZKRjFCrSRXRSxnVf
+SukfxGpn+gtPqG+YCqbFnrJDcsuy5XxiCjsQGsBbLji7wPqUKsysYrsJ0F34y7TU
+nAlmdKRUpettO/czjgjIfg04xadO5dnvQxD6hkEpS0JCDjna6mlpsLvi7QBp/n7p
+pcm0glmWcKQPa1ZWRYU3R/QtHlf5D319D3BKTK0QfF/TX2+vQaS3XFhpMGlo4Hmb
+pE29+tB+P0T//LINnXg5n7qdfXVarUPTJ+AJspjVpcWZEmInaPY=
+=iKfX
+-----END PGP SIGNATURE-----
+
+--nextPart5024426.Dpppdgdvap--
