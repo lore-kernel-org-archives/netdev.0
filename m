@@ -1,266 +1,73 @@
-From: =?UTF-8?q?Niklas=20S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-Subject: [PATCH v2] ravb: add wake-on-lan support via magic packet
-Date: Sun, 30 Jul 2017 16:06:46 +0200
-Message-ID: <20170730140646.11781-1-niklas.soderlund+renesas@ragnatech.se>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [RFC PATCH net-next 1/5] ipv6: sr: allow SRH insertion with arbitrary segments_left value
+Date: Sun, 30 Jul 2017 18:14:32 +0200
+Message-ID: <20170730161436.29967-2-david.lebrun@uclouvain.be>
+References: <20170730161436.29967-1-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org,
-        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:40795 "EHLO
+        smtp4.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754222AbdG3QU4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 12:20:56 -0400
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp4.sgsi.ucl.ac.be (Postfix) with ESMTPS id 20B4B67DC77
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 18:14:29 +0200 (CEST)
+In-Reply-To: <20170730161436.29967-1-david.lebrun@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-WoL is enabled in the suspend callback by setting MagicPacket detection
-and disabling all interrupts expect MagicPacket. In the resume path the
-driver needs to reset the hardware to rearm the WoL logic, this prevents
-the driver from simply restoring the registers and to take advantage of
-that ravb was not suspended to reduce resume time. To reset the
-hardware the driver closes the device, sets it in reset mode and reopens
-the device just like it would do in a normal suspend/resume scenario
-without WoL enabled, but it both closes and opens the device in the
-resume callback since the device needs to be reset for WoL to work.
+The seg6_validate_srh() function only allows SRHs whose active segment is
+the first segment of the path. However, an application may insert an SRH
+whose active segment is not the first one. Such an application might be
+for example an SR-aware Virtual Network Function.
 
-One quirk needed for WoL is that the module clock needs to be prevented
-from being switched off by Runtime PM. To keep the clock alive the
-suspend callback need to call clk_enable() directly to increase the
-usage count of the clock. Then when Runtime PM decreases the clock usage
-count it won't reach 0 and be switched off.
+This patch enables to insert SRHs with an arbitrary active segment.
 
-Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- drivers/net/ethernet/renesas/ravb.h      |   2 +
- drivers/net/ethernet/renesas/ravb_main.c | 130 ++++++++++++++++++++++++++++++-
- 2 files changed, 128 insertions(+), 4 deletions(-)
+ net/ipv6/exthdrs.c | 4 ++--
+ net/ipv6/seg6.c    | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-Changes from v1
-- Fix issue where device would fail to resume from PSCI suspend if WoL 
-  was enabled, reported by Geert. The fault was that the clock driver 
-  thinks the clock is on, but PSCI have disabled it, added workaround 
-  for this in ravb driver which can be removed once the clock driver is 
-  aware of the PSCI behavior.
-- Only try to restore from wol wake up if netif is running, since this 
-  is a condition to enable wol in the first place this was a bug in v1.
-
-
-diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
-index 0525bd696d5d02e5..96a27b00c90e212a 100644
---- a/drivers/net/ethernet/renesas/ravb.h
-+++ b/drivers/net/ethernet/renesas/ravb.h
-@@ -991,6 +991,7 @@ struct ravb_private {
- 	struct net_device *ndev;
- 	struct platform_device *pdev;
- 	void __iomem *addr;
-+	struct clk *clk;
- 	struct mdiobb_ctrl mdiobb;
- 	u32 num_rx_ring[NUM_RX_QUEUE];
- 	u32 num_tx_ring[NUM_TX_QUEUE];
-@@ -1033,6 +1034,7 @@ struct ravb_private {
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 4996d73..3b7d369 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -881,7 +881,7 @@ static void ipv6_push_rthdr4(struct sk_buff *skb, u8 *proto,
+ 	       (hops - 1) * sizeof(struct in6_addr));
  
- 	unsigned no_avb_link:1;
- 	unsigned avb_link_active_low:1;
-+	unsigned wol_enabled:1;
- };
+ 	sr_phdr->segments[0] = **addr_p;
+-	*addr_p = &sr_ihdr->segments[hops - 1];
++	*addr_p = &sr_ihdr->segments[sr_ihdr->segments_left];
  
- static inline u32 ravb_read(struct net_device *ndev, enum ravb_reg reg)
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 5931e859876c2aee..3d399f85417a83cf 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -680,6 +680,9 @@ static void ravb_emac_interrupt_unlocked(struct net_device *ndev)
+ #ifdef CONFIG_IPV6_SEG6_HMAC
+ 	if (sr_has_hmac(sr_phdr)) {
+@@ -1173,7 +1173,7 @@ struct in6_addr *fl6_update_dst(struct flowi6 *fl6,
+ 	{
+ 		struct ipv6_sr_hdr *srh = (struct ipv6_sr_hdr *)opt->srcrt;
  
- 	ecsr = ravb_read(ndev, ECSR);
- 	ravb_write(ndev, ecsr, ECSR);	/* clear interrupt */
-+
-+	if (ecsr & ECSR_MPD)
-+		pm_wakeup_event(&priv->pdev->dev, 0);
- 	if (ecsr & ECSR_ICD)
- 		ndev->stats.tx_carrier_errors++;
- 	if (ecsr & ECSR_LCHNG) {
-@@ -1330,6 +1333,33 @@ static int ravb_get_ts_info(struct net_device *ndev,
- 	return 0;
- }
+-		fl6->daddr = srh->segments[srh->first_segment];
++		fl6->daddr = srh->segments[srh->segments_left];
+ 		break;
+ 	}
+ 	default:
+diff --git a/net/ipv6/seg6.c b/net/ipv6/seg6.c
+index 15fba55..81c2339 100644
+--- a/net/ipv6/seg6.c
++++ b/net/ipv6/seg6.c
+@@ -40,7 +40,7 @@ bool seg6_validate_srh(struct ipv6_sr_hdr *srh, int len)
+ 	if (((srh->hdrlen + 1) << 3) != len)
+ 		return false;
  
-+static void ravb_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
-+{
-+	struct ravb_private *priv = netdev_priv(ndev);
-+
-+	wol->supported = 0;
-+	wol->wolopts = 0;
-+
-+	if (priv->clk) {
-+		wol->supported = WAKE_MAGIC;
-+		wol->wolopts = priv->wol_enabled ? WAKE_MAGIC : 0;
-+	}
-+}
-+
-+static int ravb_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
-+{
-+	struct ravb_private *priv = netdev_priv(ndev);
-+
-+	if (!priv->clk || wol->wolopts & ~WAKE_MAGIC)
-+		return -EOPNOTSUPP;
-+
-+	priv->wol_enabled = !!(wol->wolopts & WAKE_MAGIC);
-+
-+	device_set_wakeup_enable(&priv->pdev->dev, priv->wol_enabled);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops ravb_ethtool_ops = {
- 	.nway_reset		= ravb_nway_reset,
- 	.get_msglevel		= ravb_get_msglevel,
-@@ -1343,6 +1373,8 @@ static const struct ethtool_ops ravb_ethtool_ops = {
- 	.get_ts_info		= ravb_get_ts_info,
- 	.get_link_ksettings	= ravb_get_link_ksettings,
- 	.set_link_ksettings	= ravb_set_link_ksettings,
-+	.get_wol		= ravb_get_wol,
-+	.set_wol		= ravb_set_wol,
- };
+-	if (srh->segments_left != srh->first_segment)
++	if (srh->segments_left > srh->first_segment)
+ 		return false;
  
- static inline int ravb_hook_irq(unsigned int irq, irq_handler_t handler,
-@@ -2041,6 +2073,11 @@ static int ravb_probe(struct platform_device *pdev)
- 
- 	priv->chip_id = chip_id;
- 
-+	/* Get clock, if not found that's OK but Wake-On-Lan is unavailable */
-+	priv->clk = devm_clk_get(&pdev->dev, NULL);
-+	if (IS_ERR(priv->clk))
-+		priv->clk = NULL;
-+
- 	/* Set function */
- 	ndev->netdev_ops = &ravb_netdev_ops;
- 	ndev->ethtool_ops = &ravb_ethtool_ops;
-@@ -2107,6 +2144,9 @@ static int ravb_probe(struct platform_device *pdev)
- 	if (error)
- 		goto out_napi_del;
- 
-+	if (priv->clk)
-+		device_set_wakeup_capable(&pdev->dev, 1);
-+
- 	/* Print device information */
- 	netdev_info(ndev, "Base address at %#x, %pM, IRQ %d.\n",
- 		    (u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
-@@ -2160,15 +2200,66 @@ static int ravb_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
-+static int ravb_wol_setup(struct net_device *ndev)
-+{
-+	struct ravb_private *priv = netdev_priv(ndev);
-+
-+	/* Disable interrupts by clearing the interrupt masks. */
-+	ravb_write(ndev, 0, RIC0);
-+	ravb_write(ndev, 0, RIC2);
-+	ravb_write(ndev, 0, TIC);
-+
-+	/* Only allow ECI interrupts */
-+	synchronize_irq(priv->emac_irq);
-+	napi_disable(&priv->napi[RAVB_NC]);
-+	napi_disable(&priv->napi[RAVB_BE]);
-+	ravb_write(ndev, ECSIPR_MPDIP, ECSIPR);
-+
-+	/* Enable MagicPacket */
-+	ravb_modify(ndev, ECMR, ECMR_MPDE, ECMR_MPDE);
-+
-+	/* Increased clock usage so device won't be suspended */
-+	clk_enable(priv->clk);
-+
-+	return enable_irq_wake(priv->emac_irq);
-+}
-+
-+static int ravb_wol_restore(struct net_device *ndev)
-+{
-+	struct ravb_private *priv = netdev_priv(ndev);
-+	int ret;
-+
-+	napi_enable(&priv->napi[RAVB_NC]);
-+	napi_enable(&priv->napi[RAVB_BE]);
-+
-+	/* Disable MagicPacket */
-+	ravb_modify(ndev, ECMR, ECMR_MPDE, 0);
-+
-+	ret = ravb_close(ndev);
-+	if (ret < 0)
-+		return ret;
-+
-+	/* Restore clock usage count */
-+	clk_disable(priv->clk);
-+
-+	return disable_irq_wake(priv->emac_irq);
-+}
-+
- static int __maybe_unused ravb_suspend(struct device *dev)
- {
- 	struct net_device *ndev = dev_get_drvdata(dev);
--	int ret = 0;
-+	struct ravb_private *priv = netdev_priv(ndev);
-+	int ret;
- 
--	if (netif_running(ndev)) {
--		netif_device_detach(ndev);
-+	if (!netif_running(ndev))
-+		return 0;
-+
-+	netif_device_detach(ndev);
-+
-+	if (priv->wol_enabled)
-+		ret = ravb_wol_setup(ndev);
-+	else
- 		ret = ravb_close(ndev);
--	}
- 
- 	return ret;
- }
-@@ -2179,6 +2270,32 @@ static int __maybe_unused ravb_resume(struct device *dev)
- 	struct ravb_private *priv = netdev_priv(ndev);
- 	int ret = 0;
- 
-+	/* Reduce the usecount of the clock to zero and then
-+	 * restore it to its original value. This is done to force
-+	 * the clock to be re-enabled which is a workaround
-+	 * for renesas-cpg-mssr driver which do not enable clocks
-+	 * when resuming from PSCI suspend/resume.
-+	 *
-+	 * Without this workaround the driver fails to communicate
-+	 * with the hardware if WoL was enabled when the system
-+	 * entered PSCI suspend. This is due to that if WoL is enabled
-+	 * we explicitly keep the clock from being turned off when
-+	 * suspending, but in PSCI sleep power is cut so the clock
-+	 * is disabled anyhow, the clock driver is not aware of this
-+	 * so the clock is not turned back on when resuming.
-+	 *
-+	 * TODO: once the renesas-cpg-mssr suspend/resume is working
-+	 *       this clock dance should be removed.
-+	 */
-+	clk_disable(priv->clk);
-+	clk_disable(priv->clk);
-+	clk_enable(priv->clk);
-+	clk_enable(priv->clk);
-+
-+	/* If WoL is enabled set reset mode to rearm the WoL logic */
-+	if (priv->wol_enabled)
-+		ravb_write(ndev, CCC_OPC_RESET, CCC);
-+
- 	/* All register have been reset to default values.
- 	 * Restore all registers which where setup at probe time and
- 	 * reopen device if it was running before system suspended.
-@@ -2202,6 +2319,11 @@ static int __maybe_unused ravb_resume(struct device *dev)
- 	ravb_write(ndev, priv->desc_bat_dma, DBAT);
- 
- 	if (netif_running(ndev)) {
-+		if (priv->wol_enabled) {
-+			ret = ravb_wol_restore(ndev);
-+			if (ret)
-+				return ret;
-+		}
- 		ret = ravb_open(ndev);
- 		if (ret < 0)
- 			return ret;
+ 	tlv_offset = sizeof(*srh) + ((srh->first_segment + 1) << 4);
 -- 
-2.13.3
+2.10.2
