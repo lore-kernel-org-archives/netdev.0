@@ -1,57 +1,186 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net-next v12 2/4] net sched actions: Use proper root attribute table for actions
-Date: Sun, 30 Jul 2017 13:24:50 -0400
-Message-ID: <1501435492-28301-3-git-send-email-jhs@emojatatu.com>
-References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+Subject: [PATCH net-next v12 0/4] net sched actions: improve dump performance
+Date: Sun, 30 Jul 2017 13:24:48 -0400
+Message-ID: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
         eric.dumazet@gmail.com, horms@verge.net.au, dsahern@gmail.com,
         Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:36309 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754316AbdG3RZF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 13:25:05 -0400
-Received: by mail-io0-f193.google.com with SMTP id j32so12129932iod.3
-        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 10:25:05 -0700 (PDT)
-In-Reply-To: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-it0-f68.google.com ([209.85.214.68]:33516 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754239AbdG3RZC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 13:25:02 -0400
+Received: by mail-it0-f68.google.com with SMTP id t6so18333947itb.0
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 10:25:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Bug fix for an issue which has been around for about a decade.
-We got away with it because the enumeration was larger than needed.
+Changes since v11:
+------------------
+1) Jiri - renames: nla_value to value and nla_selector to selector
+2) Jiri - rename: validate_nla_bitfield_32 to validate_nla_bitfield_32
+3) Jiri - rename: NLA_BITFIELD_32 to NLA_BITFIELD32
+4) Jiri - remove unnecessary break when we return in case statement
+5) Jiri - rename and move nla_get_bitfield_32 to an earlier patch
+6) Jiri - xmas tree alignment of var declaration
+7) Jiri - rename all declarations of bitfield 32 vars to be consistent ("bf")
+8) Jiri - improve validate_nla_bitfield32() validation to disallow valid
+          bit values that are not selected by the selector
 
-Fixes: 7ba699c604ab ("[NET_SCHED]: Convert actions from rtnetlink to new netlink API")
-Suggested-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/sched/act_api.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Changes since v10:
+-----------------
+1) Jiri: move type->validate_content() to its own patch
+Jamal: decided to remove it altogether so we can get this patch set in.
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index f2e9ed3..848370e 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -1072,7 +1072,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
- 			 struct netlink_ext_ack *extack)
- {
- 	struct net *net = sock_net(skb->sk);
--	struct nlattr *tca[TCA_ACT_MAX + 1];
-+	struct nlattr *tca[TCAA_MAX + 1];
- 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
- 	int ret = 0, ovr = 0;
- 
-@@ -1080,7 +1080,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
- 	    !netlink_capable(skb, CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ACT_MAX, NULL,
-+	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, NULL,
- 			  extack);
- 	if (ret < 0)
- 		return ret;
+2) Change name of NLA_FLAG_BITS to NLA_BITFIELD_32 based on discussions
+with D. Ahern and Jiri. D. Ahern suggests to make this a variable bitmap size.
+My analysis at this point is it too complex and i only need a few bit
+flags. If we run out of bits someone else can create a new NLA_BITFIELD_XXX
+and start using that. So please let this go.
+
+3) Jamal - Add Suggested-by: Jiri for type NLA_BITFIELD_32
+
+4) Jiri: Change name allowed_flags to tcaa_root_flags_allowed
+
+5) Jiri: Introduce nla_get_flag_bits_values() helper instead of using
+memcpy for retrieving nla_bitfield_32 fields.
+
+Changes since v9:
+-----------------
+
+1) General consensus:
+- remove again the use of BIT() to maintain uapi consistency ;->
+
+1) Jiri:
+- Add a new netlink type NLA_FLAG_BITS to check for valid bits 
+  and use it instead of inline vetting (patch 4/4 now)
+  
+Changes since v8:
+-----------------
+
+1) Jiri:
+- Add back the use of BIT(). Eventually fix iproute2 instead
+- Rename VALID_TCA_FLAGS to VALID_TCA_ROOT_FLAGS
+
+Changes since v7:
+-----------------
+
+Jamal:
+No changes.
+Patch 1 went out twice. Resend without two copies of patch 1
+
+changes since v6:
+-----------------
+
+1) DaveM:
+New rules for netlink messages. From now on we are going to start
+checking for bits that are not used and rejecting anything we dont
+understand. In the future this is going to require major changes
+to user space code (tc etc). This is just a start.
+
+To quote, David:
+"
+ Again, bits you aren't using now, make sure userspace doesn't
+   set them.  And if it does, reject.
+"
+Added checks for ensuring things work as above.
+
+2) Jiri:
+a)Fix the commit message to properly use "Fixes" description
+b)Align assignments for nla_policy
+
+Changes since v5:
+----------------
+
+0)
+Remove use of BIT() because it is kernel specific. Requires a separate
+patch (Jiri can submit that in his cleanups)
+
+1)To paraphrase Eric D.
+
+"memcpy(nla_data(count_attr), &cb->args[1], sizeof(u32));
+wont work on 64bit BE machines because cb->args[1]
+(which is 64 bit is larger in size than sizeof(u32))"
+
+Fixed
+
+2) Jiri Pirko
+
+i) Spotted a bug fix mixed in the patch for wrong TLV
+fix. Add patch 1/3 to address this. Make part of this
+series because of dependencies.
+
+ii) Rename ACT_LARGE_DUMP_ON -> TCA_FLAG_LARGE_DUMP_ON
+
+iii) Satisfy Jiri's obsession against the noun "tcaa"
+a)Rename struct nlattr *tcaa --> struct nlattr *tb
+b)Rename TCAA_ACT_XXX -> TCA_ROOT_XXX
+
+Changes since v4:
+-----------------
+
+1) Eric D.
+
+pointed out that when all skb space is used up by the dump
+there will be no space to insert the TCAA_ACT_COUNT attribute.
+
+2) Jiri:
+
+i) Change:
+
+enum {
+        TCAA_UNSPEC,
+        TCAA_ACT_TAB,
+        TCAA_ACT_FLAGS,
+        TCAA_ACT_COUNT,
+        TCAA_ACT_TIME_FILTER,
+        __TCAA_MAX
+};
+
+#define TCAA_MAX (__TCAA_MAX - 1)
+#define ACT_LARGE_DUMP_ON               (1 << 0)
+
+to:
+enum {
+       TCAA_UNSPEC,
+       TCAA_ACT_TAB,
+#define TCA_ACT_TAB TCAA_ACT_TAB
+       TCAA_ACT_FLAGS,
+       TCAA_ACT_COUNT,
+       __TCAA_MAX,
+#define        TCAA_MAX (__TCAA_MAX - 1)
+};
+
+#define ACT_LARGE_DUMP_ON              BIT(0)
+
+Jiri plans to followup with the rest of the code to make the
+style consistent.
+
+ii) Rename attribute TCAA_ACT_TIME_FILTER --> TCAA_ACT_TIME_DELTA
+
+iii) Rename variable jiffy_filter --> jiffy_since
+iv) Rename msecs_filter --> msecs_since
+v) get rid of unused cb->args[0] and rename cb->args[4] to cb->args[0]
+
+Earlier Changes
+----------------
+- Jiri mostly on names of things.
+
+Jamal Hadi Salim (4):
+  net netlink: Add new type NLA_BITFIELD32
+  net sched actions: Use proper root attribute table for actions
+  net sched actions: dump more than TCA_ACT_MAX_PRIO actions per batch
+  net sched actions: add time filter for action dumping
+
+ include/net/netlink.h          | 16 ++++++++++
+ include/uapi/linux/netlink.h   | 17 ++++++++++
+ include/uapi/linux/rtnetlink.h | 23 ++++++++++++--
+ lib/nlattr.c                   | 30 ++++++++++++++++++
+ net/sched/act_api.c            | 71 +++++++++++++++++++++++++++++++++++-------
+ 5 files changed, 144 insertions(+), 13 deletions(-)
+
 -- 
 1.9.1
