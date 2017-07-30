@@ -1,469 +1,85 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 1/6] tcp: remove prequeue support
-Date: Sun, 30 Jul 2017 03:57:18 +0200
-Message-ID: <20170730015723.25587-2-fw@strlen.de>
+Subject: [PATCH net-next 3/6] tcp: remove low_latency sysctl
+Date: Sun, 30 Jul 2017 03:57:20 +0200
+Message-ID: <20170730015723.25587-4-fw@strlen.de>
 References: <20170730015723.25587-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:45056 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:45064 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752485AbdG3B5J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 21:57:09 -0400
+        by vger.kernel.org with ESMTP id S1753324AbdG3B5Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 21:57:16 -0400
 In-Reply-To: <20170730015723.25587-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-prequeue is a tcp receive optimization that moves part of rx processing
-from bh to process context.
-
-This only works if the socket being processed belongs to a process that
-is blocked in recv on that socket.
-
-In practice, this doesn't happen anymore that often because nowadays
-servers tend to use an event driven (epoll) model.
-
-Even normal client applications (web browsers) commonly use many tcp
-connections in parallel.
-
-This has measureable impact only in netperf (which uses plain recv and
-thus allows prequeue use) from host to locally running vm (~4%), however,
-there were no changes when using netperf between two physical hosts with
-ixgbe interfaces.
+Was only checked by the removed prequeue code.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- include/linux/tcp.h      |   9 ----
- include/net/tcp.h        |  11 -----
- net/ipv4/tcp.c           | 105 -----------------------------------------------
- net/ipv4/tcp_input.c     |  62 ----------------------------
- net/ipv4/tcp_ipv4.c      |  61 +--------------------------
- net/ipv4/tcp_minisocks.c |   1 -
- net/ipv4/tcp_timer.c     |  12 ------
- net/ipv6/tcp_ipv6.c      |   3 +-
- 8 files changed, 2 insertions(+), 262 deletions(-)
+ Documentation/networking/ip-sysctl.txt | 7 +------
+ include/net/tcp.h                      | 1 -
+ net/ipv4/sysctl_net_ipv4.c             | 3 +++
+ net/ipv4/tcp_ipv4.c                    | 2 --
+ 4 files changed, 4 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 542ca1ae02c4..32fb37cfb0d1 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -192,15 +192,6 @@ struct tcp_sock {
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index f485d553e65c..84c9b8cee780 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -353,12 +353,7 @@ tcp_l3mdev_accept - BOOLEAN
+ 	compiled with CONFIG_NET_L3_MASTER_DEV.
  
- 	struct list_head tsq_node; /* anchor in tsq_tasklet.head list */
+ tcp_low_latency - BOOLEAN
+-	If set, the TCP stack makes decisions that prefer lower
+-	latency as opposed to higher throughput.  By default, this
+-	option is not set meaning that higher throughput is preferred.
+-	An example of an application where this default should be
+-	changed would be a Beowulf compute cluster.
+-	Default: 0
++	This is a legacy option, it has no effect anymore.
  
--	/* Data for direct copy to user */
--	struct {
--		struct sk_buff_head	prequeue;
--		struct task_struct	*task;
--		struct msghdr		*msg;
--		int			memory;
--		int			len;
--	} ucopy;
--
- 	u32	snd_wl1;	/* Sequence for window update		*/
- 	u32	snd_wnd;	/* The window we expect to receive	*/
- 	u32	max_window;	/* Maximal window ever seen from peer	*/
+ tcp_max_orphans - INTEGER
+ 	Maximal number of TCP sockets not attached to any user file handle,
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 12d68335acd4..93f115cfc8f8 100644
+index 93f115cfc8f8..8507c81fb0e9 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -1244,17 +1244,6 @@ static inline bool tcp_checksum_complete(struct sk_buff *skb)
- 		__tcp_checksum_complete(skb);
- }
+@@ -256,7 +256,6 @@ extern int sysctl_tcp_rmem[3];
+ extern int sysctl_tcp_app_win;
+ extern int sysctl_tcp_adv_win_scale;
+ extern int sysctl_tcp_frto;
+-extern int sysctl_tcp_low_latency;
+ extern int sysctl_tcp_nometrics_save;
+ extern int sysctl_tcp_moderate_rcvbuf;
+ extern int sysctl_tcp_tso_win_divisor;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 9bf809726066..0d3c038d7b04 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -45,6 +45,9 @@ static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
+ static int ip_ping_group_range_min[] = { 0, 0 };
+ static int ip_ping_group_range_max[] = { GID_T_MAX, GID_T_MAX };
  
--/* Prequeue for VJ style copy to user, combined with checksumming. */
--
--static inline void tcp_prequeue_init(struct tcp_sock *tp)
--{
--	tp->ucopy.task = NULL;
--	tp->ucopy.len = 0;
--	tp->ucopy.memory = 0;
--	skb_queue_head_init(&tp->ucopy.prequeue);
--}
--
--bool tcp_prequeue(struct sock *sk, struct sk_buff *skb);
- bool tcp_add_backlog(struct sock *sk, struct sk_buff *skb);
- int tcp_filter(struct sock *sk, struct sk_buff *skb);
- 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 71ce33decd97..62018ea6f45f 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -400,7 +400,6 @@ void tcp_init_sock(struct sock *sk)
- 
- 	tp->out_of_order_queue = RB_ROOT;
- 	tcp_init_xmit_timers(sk);
--	tcp_prequeue_init(tp);
- 	INIT_LIST_HEAD(&tp->tsq_node);
- 
- 	icsk->icsk_rto = TCP_TIMEOUT_INIT;
-@@ -1525,20 +1524,6 @@ static void tcp_cleanup_rbuf(struct sock *sk, int copied)
- 		tcp_send_ack(sk);
- }
- 
--static void tcp_prequeue_process(struct sock *sk)
--{
--	struct sk_buff *skb;
--	struct tcp_sock *tp = tcp_sk(sk);
--
--	NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPPREQUEUED);
--
--	while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--		sk_backlog_rcv(sk, skb);
--
--	/* Clear memory counter. */
--	tp->ucopy.memory = 0;
--}
--
- static struct sk_buff *tcp_recv_skb(struct sock *sk, u32 seq, u32 *off)
++/* obsolete */
++static int sysctl_tcp_low_latency __read_mostly;
++
+ /* Update system visible IP port range */
+ static void set_local_port_range(struct net *net, int range[2])
  {
- 	struct sk_buff *skb;
-@@ -1671,7 +1656,6 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
- 	int err;
- 	int target;		/* Read at least this many bytes */
- 	long timeo;
--	struct task_struct *user_recv = NULL;
- 	struct sk_buff *skb, *last;
- 	u32 urg_hole = 0;
- 
-@@ -1806,51 +1790,6 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
- 
- 		tcp_cleanup_rbuf(sk, copied);
- 
--		if (!sysctl_tcp_low_latency && tp->ucopy.task == user_recv) {
--			/* Install new reader */
--			if (!user_recv && !(flags & (MSG_TRUNC | MSG_PEEK))) {
--				user_recv = current;
--				tp->ucopy.task = user_recv;
--				tp->ucopy.msg = msg;
--			}
--
--			tp->ucopy.len = len;
--
--			WARN_ON(tp->copied_seq != tp->rcv_nxt &&
--				!(flags & (MSG_PEEK | MSG_TRUNC)));
--
--			/* Ugly... If prequeue is not empty, we have to
--			 * process it before releasing socket, otherwise
--			 * order will be broken at second iteration.
--			 * More elegant solution is required!!!
--			 *
--			 * Look: we have the following (pseudo)queues:
--			 *
--			 * 1. packets in flight
--			 * 2. backlog
--			 * 3. prequeue
--			 * 4. receive_queue
--			 *
--			 * Each queue can be processed only if the next ones
--			 * are empty. At this point we have empty receive_queue.
--			 * But prequeue _can_ be not empty after 2nd iteration,
--			 * when we jumped to start of loop because backlog
--			 * processing added something to receive_queue.
--			 * We cannot release_sock(), because backlog contains
--			 * packets arrived _after_ prequeued ones.
--			 *
--			 * Shortly, algorithm is clear --- to process all
--			 * the queues in order. We could make it more directly,
--			 * requeueing packets from backlog to prequeue, if
--			 * is not empty. It is more elegant, but eats cycles,
--			 * unfortunately.
--			 */
--			if (!skb_queue_empty(&tp->ucopy.prequeue))
--				goto do_prequeue;
--
--			/* __ Set realtime policy in scheduler __ */
--		}
--
- 		if (copied >= target) {
- 			/* Do not sleep, just process backlog. */
- 			release_sock(sk);
-@@ -1859,31 +1798,6 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
- 			sk_wait_data(sk, &timeo, last);
- 		}
- 
--		if (user_recv) {
--			int chunk;
--
--			/* __ Restore normal policy in scheduler __ */
--
--			chunk = len - tp->ucopy.len;
--			if (chunk != 0) {
--				NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPDIRECTCOPYFROMBACKLOG, chunk);
--				len -= chunk;
--				copied += chunk;
--			}
--
--			if (tp->rcv_nxt == tp->copied_seq &&
--			    !skb_queue_empty(&tp->ucopy.prequeue)) {
--do_prequeue:
--				tcp_prequeue_process(sk);
--
--				chunk = len - tp->ucopy.len;
--				if (chunk != 0) {
--					NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPDIRECTCOPYFROMPREQUEUE, chunk);
--					len -= chunk;
--					copied += chunk;
--				}
--			}
--		}
- 		if ((flags & MSG_PEEK) &&
- 		    (peek_seq - copied - urg_hole != tp->copied_seq)) {
- 			net_dbg_ratelimited("TCP(%s:%d): Application bug, race in MSG_PEEK\n",
-@@ -1955,25 +1869,6 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
- 		break;
- 	} while (len > 0);
- 
--	if (user_recv) {
--		if (!skb_queue_empty(&tp->ucopy.prequeue)) {
--			int chunk;
--
--			tp->ucopy.len = copied > 0 ? len : 0;
--
--			tcp_prequeue_process(sk);
--
--			if (copied > 0 && (chunk = len - tp->ucopy.len) != 0) {
--				NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPDIRECTCOPYFROMPREQUEUE, chunk);
--				len -= chunk;
--				copied += chunk;
--			}
--		}
--
--		tp->ucopy.task = NULL;
--		tp->ucopy.len = 0;
--	}
--
- 	/* According to UNIX98, msg_name/msg_namelen are ignored
- 	 * on connected socket. I was just happy when found this 8) --ANK
- 	 */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index adc3f3e9468c..770ce6cb3eca 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4611,22 +4611,6 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
- 			goto out_of_window;
- 
- 		/* Ok. In sequence. In window. */
--		if (tp->ucopy.task == current &&
--		    tp->copied_seq == tp->rcv_nxt && tp->ucopy.len &&
--		    sock_owned_by_user(sk) && !tp->urg_data) {
--			int chunk = min_t(unsigned int, skb->len,
--					  tp->ucopy.len);
--
--			__set_current_state(TASK_RUNNING);
--
--			if (!skb_copy_datagram_msg(skb, 0, tp->ucopy.msg, chunk)) {
--				tp->ucopy.len -= chunk;
--				tp->copied_seq += chunk;
--				eaten = (chunk == skb->len);
--				tcp_rcv_space_adjust(sk);
--			}
--		}
--
- 		if (eaten <= 0) {
- queue_and_out:
- 			if (eaten < 0) {
-@@ -5186,26 +5170,6 @@ static void tcp_urg(struct sock *sk, struct sk_buff *skb, const struct tcphdr *t
- 	}
- }
- 
--static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
--{
--	struct tcp_sock *tp = tcp_sk(sk);
--	int chunk = skb->len - hlen;
--	int err;
--
--	if (skb_csum_unnecessary(skb))
--		err = skb_copy_datagram_msg(skb, hlen, tp->ucopy.msg, chunk);
--	else
--		err = skb_copy_and_csum_datagram_msg(skb, hlen, tp->ucopy.msg);
--
--	if (!err) {
--		tp->ucopy.len -= chunk;
--		tp->copied_seq += chunk;
--		tcp_rcv_space_adjust(sk);
--	}
--
--	return err;
--}
--
- /* Accept RST for rcv_nxt - 1 after a FIN.
-  * When tcp connections are abruptly terminated from Mac OSX (via ^C), a
-  * FIN is sent followed by a RST packet. The RST is sent with the same
-@@ -5446,32 +5410,6 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 			int eaten = 0;
- 			bool fragstolen = false;
- 
--			if (tp->ucopy.task == current &&
--			    tp->copied_seq == tp->rcv_nxt &&
--			    len - tcp_header_len <= tp->ucopy.len &&
--			    sock_owned_by_user(sk)) {
--				__set_current_state(TASK_RUNNING);
--
--				if (!tcp_copy_to_iovec(sk, skb, tcp_header_len)) {
--					/* Predicted packet is in window by definition.
--					 * seq == rcv_nxt and rcv_wup <= rcv_nxt.
--					 * Hence, check seq<=rcv_wup reduces to:
--					 */
--					if (tcp_header_len ==
--					    (sizeof(struct tcphdr) +
--					     TCPOLEN_TSTAMP_ALIGNED) &&
--					    tp->rcv_nxt == tp->rcv_wup)
--						tcp_store_ts_recent(tp);
--
--					tcp_rcv_rtt_measure_ts(sk, skb);
--
--					__skb_pull(skb, tcp_header_len);
--					tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
--					NET_INC_STATS(sock_net(sk),
--							LINUX_MIB_TCPHPHITSTOUSER);
--					eaten = 1;
--				}
--			}
- 			if (!eaten) {
- 				if (tcp_checksum_complete(skb))
- 					goto csum_error;
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 3a19ea28339f..a68eb4577d36 100644
+index a68eb4577d36..9b51663cd5a4 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -1541,61 +1541,6 @@ void tcp_v4_early_demux(struct sk_buff *skb)
- 	}
- }
+@@ -85,8 +85,6 @@
+ #include <crypto/hash.h>
+ #include <linux/scatterlist.h>
  
--/* Packet is added to VJ-style prequeue for processing in process
-- * context, if a reader task is waiting. Apparently, this exciting
-- * idea (VJ's mail "Re: query about TCP header on tcp-ip" of 07 Sep 93)
-- * failed somewhere. Latency? Burstiness? Well, at least now we will
-- * see, why it failed. 8)8)				  --ANK
-- *
-- */
--bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
--{
--	struct tcp_sock *tp = tcp_sk(sk);
+-int sysctl_tcp_low_latency __read_mostly;
 -
--	if (sysctl_tcp_low_latency || !tp->ucopy.task)
--		return false;
--
--	if (skb->len <= tcp_hdrlen(skb) &&
--	    skb_queue_len(&tp->ucopy.prequeue) == 0)
--		return false;
--
--	/* Before escaping RCU protected region, we need to take care of skb
--	 * dst. Prequeue is only enabled for established sockets.
--	 * For such sockets, we might need the skb dst only to set sk->sk_rx_dst
--	 * Instead of doing full sk_rx_dst validity here, let's perform
--	 * an optimistic check.
--	 */
--	if (likely(sk->sk_rx_dst))
--		skb_dst_drop(skb);
--	else
--		skb_dst_force_safe(skb);
--
--	__skb_queue_tail(&tp->ucopy.prequeue, skb);
--	tp->ucopy.memory += skb->truesize;
--	if (skb_queue_len(&tp->ucopy.prequeue) >= 32 ||
--	    tp->ucopy.memory + atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf) {
--		struct sk_buff *skb1;
--
--		BUG_ON(sock_owned_by_user(sk));
--		__NET_ADD_STATS(sock_net(sk), LINUX_MIB_TCPPREQUEUEDROPPED,
--				skb_queue_len(&tp->ucopy.prequeue));
--
--		while ((skb1 = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--			sk_backlog_rcv(sk, skb1);
--
--		tp->ucopy.memory = 0;
--	} else if (skb_queue_len(&tp->ucopy.prequeue) == 1) {
--		wake_up_interruptible_sync_poll(sk_sleep(sk),
--					   POLLIN | POLLRDNORM | POLLRDBAND);
--		if (!inet_csk_ack_scheduled(sk))
--			inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
--						  (3 * tcp_rto_min(sk)) / 4,
--						  TCP_RTO_MAX);
--	}
--	return true;
--}
--EXPORT_SYMBOL(tcp_prequeue);
--
- bool tcp_add_backlog(struct sock *sk, struct sk_buff *skb)
- {
- 	u32 limit = sk->sk_rcvbuf + sk->sk_sndbuf;
-@@ -1770,8 +1715,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	tcp_segs_in(tcp_sk(sk), skb);
- 	ret = 0;
- 	if (!sock_owned_by_user(sk)) {
--		if (!tcp_prequeue(sk, skb))
--			ret = tcp_v4_do_rcv(sk, skb);
-+		ret = tcp_v4_do_rcv(sk, skb);
- 	} else if (tcp_add_backlog(sk, skb)) {
- 		goto discard_and_relse;
- 	}
-@@ -1936,9 +1880,6 @@ void tcp_v4_destroy_sock(struct sock *sk)
- 	}
- #endif
- 
--	/* Clean prequeue, it must be empty really */
--	__skb_queue_purge(&tp->ucopy.prequeue);
--
- 	/* Clean up a referenced TCP bind bucket. */
- 	if (inet_csk(sk)->icsk_bind_hash)
- 		inet_put_port(sk);
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 0ff83c1637d8..188a6f31356d 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -445,7 +445,6 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
- 		newtp->snd_sml = newtp->snd_una =
- 		newtp->snd_nxt = newtp->snd_up = treq->snt_isn + 1;
- 
--		tcp_prequeue_init(newtp);
- 		INIT_LIST_HEAD(&newtp->tsq_node);
- 
- 		tcp_init_wl(newtp, treq->rcv_isn);
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index c0feeeef962a..f753f9d2fee3 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -239,7 +239,6 @@ static int tcp_write_timeout(struct sock *sk)
- /* Called with BH disabled */
- void tcp_delack_timer_handler(struct sock *sk)
- {
--	struct tcp_sock *tp = tcp_sk(sk);
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 
- 	sk_mem_reclaim_partial(sk);
-@@ -254,17 +253,6 @@ void tcp_delack_timer_handler(struct sock *sk)
- 	}
- 	icsk->icsk_ack.pending &= ~ICSK_ACK_TIMER;
- 
--	if (!skb_queue_empty(&tp->ucopy.prequeue)) {
--		struct sk_buff *skb;
--
--		__NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPSCHEDULERFAILED);
--
--		while ((skb = __skb_dequeue(&tp->ucopy.prequeue)) != NULL)
--			sk_backlog_rcv(sk, skb);
--
--		tp->ucopy.memory = 0;
--	}
--
- 	if (inet_csk_ack_scheduled(sk)) {
- 		if (!icsk->icsk_ack.pingpong) {
- 			/* Delayed ACK missed: inflate ATO. */
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 2968a33cca7d..39ee8e7fc4bd 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1505,8 +1505,7 @@ static int tcp_v6_rcv(struct sk_buff *skb)
- 	tcp_segs_in(tcp_sk(sk), skb);
- 	ret = 0;
- 	if (!sock_owned_by_user(sk)) {
--		if (!tcp_prequeue(sk, skb))
--			ret = tcp_v6_do_rcv(sk, skb);
-+		ret = tcp_v6_do_rcv(sk, skb);
- 	} else if (tcp_add_backlog(sk, skb)) {
- 		goto discard_and_relse;
- 	}
+ #ifdef CONFIG_TCP_MD5SIG
+ static int tcp_v4_md5_hash_hdr(char *md5_hash, const struct tcp_md5sig_key *key,
+ 			       __be32 daddr, __be32 saddr, const struct tcphdr *th);
 -- 
 2.13.0
