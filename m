@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: fix bpf_prog_get_info_by_fd to dump correct
- xlated_prog_len
-Date: Sat, 29 Jul 2017 23:30:37 -0700 (PDT)
-Message-ID: <20170729.233037.568661796030410786.davem@davemloft.net>
-References: <a88afb3f19e16a937683bc2bfa80100144fb3792.1501254197.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kafai@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47736 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750943AbdG3Gaj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 02:30:39 -0400
-In-Reply-To: <a88afb3f19e16a937683bc2bfa80100144fb3792.1501254197.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH] netfilter: ipvs: Fix space before '[' error.
+Date: Sun, 30 Jul 2017 12:29:25 +0530
+Message-ID: <3b2fae111371a2abd12d6838e825452a3c9bd4fa.1501397734.git.arvind.yadav.cs@gmail.com>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        linux-kernel@vger.kernel.org
+To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
+        pablo@netfilter.org, kadlec@blackhole.kfki.hu, fw@strlen.de,
+        davem@davemloft.ne
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 28 Jul 2017 17:05:25 +0200
+Fix checkpatch.pl error:
+ERROR: space prohibited before open square bracket '['.
 
-> bpf_prog_size(prog->len) is not the correct length we want to dump
-> back to user space. The code in bpf_prog_get_info_by_fd() uses this
-> to copy prog->insnsi to user space, but bpf_prog_size(prog->len) also
-> includes the size of struct bpf_prog itself plus program instructions
-> and is usually used either in context of accounting or for bpf_prog_alloc()
-> et al, thus we copy out of bounds in bpf_prog_get_info_by_fd()
-> potentially. Use the correct bpf_prog_insn_size() instead.
-> 
-> Fixes: 1e2709769086 ("bpf: Add BPF_OBJ_GET_INFO_BY_FD")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+---
+ net/netfilter/ipvs/ip_vs_proto_tcp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Applied, thanks Daniel.
+diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+index 12dc8d5..4fc17fc 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+@@ -439,7 +439,7 @@ static bool tcp_state_active(int state)
+ 	return tcp_state_active_table[state];
+ }
+ 
+-static struct tcp_states_t tcp_states [] = {
++static struct tcp_states_t tcp_states[] = {
+ /*	INPUT */
+ /*        sNO, sES, sSS, sSR, sFW, sTW, sCL, sCW, sLA, sLI, sSA	*/
+ /*syn*/ {{sSR, sES, sES, sSR, sSR, sSR, sSR, sSR, sSR, sSR, sSR }},
+@@ -462,7 +462,7 @@ static struct tcp_states_t tcp_states [] = {
+ /*rst*/ {{sCL, sCL, sCL, sSR, sCL, sCL, sCL, sCL, sLA, sLI, sCL }},
+ };
+ 
+-static struct tcp_states_t tcp_states_dos [] = {
++static struct tcp_states_t tcp_states_dos[] = {
+ /*	INPUT */
+ /*        sNO, sES, sSS, sSR, sFW, sTW, sCL, sCW, sLA, sLI, sSA	*/
+ /*syn*/ {{sSR, sES, sES, sSR, sSR, sSR, sSR, sSR, sSR, sSR, sSA }},
+-- 
+2.7.4
