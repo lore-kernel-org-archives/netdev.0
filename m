@@ -1,107 +1,53 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next 04/20] net: sched: use tcf_exts_has_actions in
- tcf_exts_exec
-Date: Sun, 30 Jul 2017 15:48:24 -0400
-Message-ID: <c157148b-2e6c-6934-2d54-04d42a0a262c@mojatatu.com>
-References: <20170728144042.6380-1-jiri@resnulli.us>
- <20170728144042.6380-5-jiri@resnulli.us>
+From: "Niklas =?iso-8859-1?Q?S=F6derlund?=" <niklas.soderlund@ragnatech.se>
+Subject: Re: [PATCH v2] ravb: add wake-on-lan support via magic packet
+Date: Sun, 30 Jul 2017 21:51:54 +0200
+Message-ID: <20170730195154.GE1382@bigcity.dyn.berto.se>
+References: <20170730140646.11781-1-niklas.soderlund+renesas@ragnatech.se>
+ <20170730170738.GA29373@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:36977 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754308AbdG3Ts0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 15:48:26 -0400
-Received: by mail-io0-f195.google.com with SMTP id c74so9461040iod.4
-        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 12:48:26 -0700 (PDT)
-In-Reply-To: <20170728144042.6380-5-jiri@resnulli.us>
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170730170738.GA29373@lunn.ch>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I am probably missing something. All those changes to just
-replace "if (exts->nr_actions)" with "if (tcf_exts_has_actions(exts))" ?
+Hi Andrew,
 
-cheers,
-jamal
+On 2017-07-30 19:07:38 +0200, Andrew Lunn wrote:
+> Hi Niklas
+> 
+> > @@ -2041,6 +2073,11 @@ static int ravb_probe(struct platform_device *pdev)
+> >  
+> >  	priv->chip_id = chip_id;
+> >  
+> > +	/* Get clock, if not found that's OK but Wake-On-Lan is unavailable */
+> > +	priv->clk = devm_clk_get(&pdev->dev, NULL);
+> > +	if (IS_ERR(priv->clk))
+> > +		priv->clk = NULL;
+> 
+> Can you get EPROBE_DEFER returned?
 
-On 17-07-28 10:40 AM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
+I don't think so, but I'm not sure :-)
+
+The clock I'm trying to get is the module clock of the ravb itself, so 
+if that clock is not available (and enabled) no register writes to the 
+ravb would be possible in the first place, so i guess it's safe to 
+assume -EPROBE_DEFER can not happen here?
+
+I'm just trying to play it safe here since the clock is only needed to 
+support WoL, I though it best to not change behavior here. Try to get 
+the clock, if we can great we can do WoL if not then user-space will be 
+prevented from enabling WoL and nothing in the current behavior changes.
+
 > 
-> Use the tcf_exts_has_actions helper instead or directly testing
-> exts->nr_actions in tcf_exts_exec.
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->   include/net/pkt_cls.h | 46 +++++++++++++++++++++++-----------------------
->   1 file changed, 23 insertions(+), 23 deletions(-)
-> 
-> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-> index 7f25636..322a282 100644
-> --- a/include/net/pkt_cls.h
-> +++ b/include/net/pkt_cls.h
-> @@ -177,29 +177,6 @@ tcf_exts_stats_update(const struct tcf_exts *exts,
->   }
->   
->   /**
-> - * tcf_exts_exec - execute tc filter extensions
-> - * @skb: socket buffer
-> - * @exts: tc filter extensions handle
-> - * @res: desired result
-> - *
-> - * Executes all configured extensions. Returns 0 on a normal execution,
-> - * a negative number if the filter must be considered unmatched or
-> - * a positive action code (TC_ACT_*) which must be returned to the
-> - * underlying layer.
-> - */
-> -static inline int
-> -tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
-> -	       struct tcf_result *res)
-> -{
-> -#ifdef CONFIG_NET_CLS_ACT
-> -	if (exts->nr_actions)
-> -		return tcf_action_exec(skb, exts->actions, exts->nr_actions,
-> -				       res);
-> -#endif
-> -	return 0;
-> -}
-> -
-> -/**
->    * tcf_exts_has_actions - check if at least one action is present
->    * @exts: tc filter extensions handle
->    *
-> @@ -229,6 +206,29 @@ static inline bool tcf_exts_has_one_action(struct tcf_exts *exts)
->   #endif
->   }
->   
-> +/**
-> + * tcf_exts_exec - execute tc filter extensions
-> + * @skb: socket buffer
-> + * @exts: tc filter extensions handle
-> + * @res: desired result
-> + *
-> + * Executes all configured extensions. Returns 0 on a normal execution,
-> + * a negative number if the filter must be considered unmatched or
-> + * a positive action code (TC_ACT_*) which must be returned to the
-> + * underlying layer.
-> + */
-> +static inline int
-> +tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
-> +	      struct tcf_result *res)
-> +{
-> +#ifdef CONFIG_NET_CLS_ACT
-> +	if (tcf_exts_has_actions(exts))
-> +		return tcf_action_exec(skb, exts->actions, exts->nr_actions,
-> +				       res);
-> +#endif
-> +	return 0;
-> +}
-> +
->   int tcf_exts_validate(struct net *net, struct tcf_proto *tp,
->   		      struct nlattr **tb, struct nlattr *rate_tlv,
->   		      struct tcf_exts *exts, bool ovr);
-> 
+>     Andrew
+
+-- 
+Regards,
+Niklas Söderlund
