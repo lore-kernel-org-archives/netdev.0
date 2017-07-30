@@ -1,32 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2] ravb: add wake-on-lan support via magic packet
-Date: Sun, 30 Jul 2017 19:07:38 +0200
-Message-ID: <20170730170738.GA29373@lunn.ch>
-References: <20170730140646.11781-1-niklas.soderlund+renesas@ragnatech.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: Niklas =?iso-8859-1?Q?S=F6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170730140646.11781-1-niklas.soderlund+renesas@ragnatech.se>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next v12 2/4] net sched actions: Use proper root attribute table for actions
+Date: Sun, 30 Jul 2017 13:24:50 -0400
+Message-ID: <1501435492-28301-3-git-send-email-jhs@emojatatu.com>
+References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, horms@verge.net.au, dsahern@gmail.com,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36309 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754316AbdG3RZF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 13:25:05 -0400
+Received: by mail-io0-f193.google.com with SMTP id j32so12129932iod.3
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 10:25:05 -0700 (PDT)
+In-Reply-To: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Niklas
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-> @@ -2041,6 +2073,11 @@ static int ravb_probe(struct platform_device *pdev)
->  
->  	priv->chip_id = chip_id;
->  
-> +	/* Get clock, if not found that's OK but Wake-On-Lan is unavailable */
-> +	priv->clk = devm_clk_get(&pdev->dev, NULL);
-> +	if (IS_ERR(priv->clk))
-> +		priv->clk = NULL;
+Bug fix for an issue which has been around for about a decade.
+We got away with it because the enumeration was larger than needed.
 
-Can you get EPROBE_DEFER returned?
+Fixes: 7ba699c604ab ("[NET_SCHED]: Convert actions from rtnetlink to new netlink API")
+Suggested-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/sched/act_api.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-    Andrew
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index f2e9ed3..848370e 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -1072,7 +1072,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+ 			 struct netlink_ext_ack *extack)
+ {
+ 	struct net *net = sock_net(skb->sk);
+-	struct nlattr *tca[TCA_ACT_MAX + 1];
++	struct nlattr *tca[TCAA_MAX + 1];
+ 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
+ 	int ret = 0, ovr = 0;
+ 
+@@ -1080,7 +1080,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
+ 	    !netlink_capable(skb, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ACT_MAX, NULL,
++	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, NULL,
+ 			  extack);
+ 	if (ret < 0)
+ 		return ret;
+-- 
+1.9.1
