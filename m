@@ -1,68 +1,89 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] ipv6: set fc_protocol with 0 when rtm_protocol is RTPROT_REDIRECT
-Date: Sun, 30 Jul 2017 20:51:37 +0800
-Message-ID: <e9342d18b97fc227cacc19db1b43f4c7350eed3f.1501419097.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, grawity@gmail.com
-To: network dev <netdev@vger.kernel.org>
+From: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
+Subject: Re: [net-next PATCH 11/12] net: add notifier hooks for devmap bpf map
+Date: Sun, 30 Jul 2017 13:28:11 +0000
+Message-ID: <20170730132931.gmzb6r4qaxxpsuir@sasha-lappy>
+References: <20170717160759.24315.7464.stgit@john-Precision-Tower-5810>
+ <20170717163002.24315.38734.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "ast@fb.com" <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "brouer@redhat.com" <brouer@redhat.com>,
+        "andy@greyhouse.net" <andy@greyhouse.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:37861 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750991AbdG3Mvr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 08:51:47 -0400
-Received: by mail-pf0-f194.google.com with SMTP id 72so3584213pfl.4
-        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 05:51:47 -0700 (PDT)
+Received: from omzsmtpe01.verizonbusiness.com ([199.249.25.210]:3165 "EHLO
+        omzsmtpe01.verizonbusiness.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751360AbdG3N2j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 09:28:39 -0400
+In-Reply-To: <20170717163002.24315.38734.stgit@john-Precision-Tower-5810>
+Content-Language: en-US
+Content-ID: <6249583DE801B443AC5C2C3427BCBAF5@vzwcorp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit c2ed1880fd61 ("net: ipv6: check route protocol when
-deleting routes"), ipv6 route checks rt protocol when trying to
-remove a rt entry.
+On Mon, Jul 17, 2017 at 09:30:02AM -0700, John Fastabend wrote:
+>@@ -341,9 +368,11 @@ static int dev_map_update_elem(struct bpf_map *map, v=
+oid *key, void *value,
+> 	 * Remembering the driver side flush operation will happen before the
+> 	 * net device is removed.
+> 	 */
+>+	mutex_lock(&dev_map_list_mutex);
+> 	old_dev =3D xchg(&dtab->netdev_map[i], dev);
+> 	if (old_dev)
+> 		call_rcu(&old_dev->rcu, __dev_map_entry_free);
+>+	mutex_unlock(&dev_map_list_mutex);
+>
+> 	return 0;
+> }
 
-It introduced a side effect when flushing caches with iproute, in
-which all route caches get dumped from kernel then removed one by
-one by sending RTM_DELROUTE requests to kernel for each cache.
+This function gets called under rcu critical section, where we can't grab m=
+utexes:
 
-The thing is iproute sends the request with the cache whose proto
-is set with RTPROT_REDIRECT by rt6_fill_node() when kernel dumps
-it. But in kernel the rt_cache protocol is still 0, which causes
-the cache not to be found and removed.
+BUG: sleeping function called from invalid context at kernel/locking/mutex.=
+c:747
+in_atomic(): 1, irqs_disabled(): 0, pid: 16315, name: syz-executor1
+1 lock held by syz-executor1/16315:
+ #0:  (rcu_read_lock){......}, at: [<ffffffff8c363bc2>] map_delete_elem ker=
+nel/bpf/syscall.c:577 [inline]
+ #0:  (rcu_read_lock){......}, at: [<ffffffff8c363bc2>] SYSC_bpf kernel/bpf=
+/syscall.c:1427 [inline]
+ #0:  (rcu_read_lock){......}, at: [<ffffffff8c363bc2>] SyS_bpf+0x1d32/0x4b=
+a0 kernel/bpf/syscall.c:1388
+Preemption disabled at:
+[<ffffffff8c363bd1>] map_delete_elem kernel/bpf/syscall.c:582 [inline]
+[<ffffffff8c363bd1>] SYSC_bpf kernel/bpf/syscall.c:1427 [inline]
+[<ffffffff8c363bd1>] SyS_bpf+0x1d41/0x4ba0 kernel/bpf/syscall.c:1388
+CPU: 2 PID: 16315 Comm: syz-executor1 Not tainted 4.13.0-rc2-next-20170727 =
+#235
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.10.1-1ubuntu1=
+ 04/01/2014
+Call Trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x11d/0x1e5 lib/dump_stack.c:52
+ ___might_sleep+0x3cc/0x520 kernel/sched/core.c:6001
+ __might_sleep+0x95/0x190 kernel/sched/core.c:5954
+ __mutex_lock_common kernel/locking/mutex.c:747 [inline]
+ __mutex_lock+0x146/0x19b0 kernel/locking/mutex.c:893
+ mutex_lock_nested+0x16/0x20 kernel/locking/mutex.c:908
+ dev_map_delete_elem+0x82/0x110 kernel/bpf/devmap.c:325
+ map_delete_elem kernel/bpf/syscall.c:585 [inline]
+ SYSC_bpf kernel/bpf/syscall.c:1427 [inline]
+ SyS_bpf+0x1deb/0x4ba0 kernel/bpf/syscall.c:1388
+ do_syscall_64+0x26a/0x800 arch/x86/entry/common.c:287
+ entry_SYSCALL64_slow_path+0x25/0x25
+RIP: 0033:0x452309
+RSP: 002b:00007f8d83d66c08 EFLAGS: 00000216 ORIG_RAX: 0000000000000141
+RAX: ffffffffffffffda RBX: 0000000000718000 RCX: 0000000000452309
+RDX: 0000000000000010 RSI: 0000000020007000 RDI: 0000000000000003
+RBP: 0000000000000270 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000216 R12: 00000000004b85e4
+R13: 00000000ffffffff R14: 0000000000000003 R15: 0000000020007000
 
-As rt6_fill_node always sets rtm proto with RTPROT_REDIRECT when
-rt cache info goes to rtmsg, the reverse process is needed when
-users remove a route cache and rtmsg goes to cfg.
+--=20
 
-This patch is to fix it by keeping cfg proto as 0 when rtm proto
-is REDIRECT. It's a safe fix as rtm proto is set with REDIRECT
-only if rt flag has RTF_DYNAMIC which is set when creating a rt
-cache in rt6_do_redirect where the cache's proto is always 0.
-
-Note that this issue can also be avoided in iproute by changing
-rtm proto back to 0 before sending DELROUTE requests for cache.
-But in kernel part, the fix is still necessary as kernel should
-do the reverse conversion when rtm goes to cfg.
-
-Fixes: c2ed1880fd61 ("net: ipv6: check route protocol when deleting routes")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/ipv6/route.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4d30c96..187580f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2912,9 +2912,11 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	cfg->fc_dst_len = rtm->rtm_dst_len;
- 	cfg->fc_src_len = rtm->rtm_src_len;
- 	cfg->fc_flags = RTF_UP;
--	cfg->fc_protocol = rtm->rtm_protocol;
- 	cfg->fc_type = rtm->rtm_type;
- 
-+	if (rtm->rtm_protocol != RTPROT_REDIRECT)
-+		cfg->fc_protocol = rtm->rtm_protocol;
-+
- 	if (rtm->rtm_type == RTN_UNREACHABLE ||
- 	    rtm->rtm_type == RTN_BLACKHOLE ||
- 	    rtm->rtm_type == RTN_PROHIBIT ||
--- 
-2.1.0
+Thanks,
+Sasha=
