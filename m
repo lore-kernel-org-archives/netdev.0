@@ -1,98 +1,54 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [RFC net-next 0/6] tcp: remove prequeue and header prediction
-Date: Sat, 29 Jul 2017 22:25:23 -0400
-Message-ID: <CADVnQym-aDwv-NhcwM5eTW4XQZcKMS+64-VwObKFxT5maT=TGg@mail.gmail.com>
-References: <20170727233117.29695-1-fw@strlen.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/3] ethtool: support for forward error
+ correction mode setting on a link
+Date: Sat, 29 Jul 2017 23:24:04 -0700 (PDT)
+Message-ID: <20170729.232404.59056988159960653.davem@davemloft.net>
+References: <1501199248-24695-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Wei Wang <weiwan@google.com>, Lawrence Brakmo <brakmo@fb.com>,
-        David Miller <davem@davemloft.net>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
+        vidya.chowdary@gmail.com, dustin@cumulusnetworks.com,
+        olson@cumulusnetworks.com, leedom@chelsio.com, kubakici@wp.pl,
+        galp@mellanox.com, andrew@lunn.ch, manojmalviya@chelsio.com,
+        santosh@chelsio.com, yuval.mintz@qlogic.com, odedw@mellanox.com,
+        ariela@mellanox.com, jeffrey.t.kirsher@intel.com
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:33286 "EHLO
-        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753176AbdG3CZy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 22:25:54 -0400
-Received: by mail-oi0-f52.google.com with SMTP id a9so159949266oih.0
-        for <netdev@vger.kernel.org>; Sat, 29 Jul 2017 19:25:54 -0700 (PDT)
-In-Reply-To: <20170727233117.29695-1-fw@strlen.de>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47654 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750939AbdG3GYM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 02:24:12 -0400
+In-Reply-To: <1501199248-24695-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 27, 2017 at 7:31 PM, Florian Westphal <fw@strlen.de> wrote:
-> This RFC removes tcp prequeueing and header prediction support.
->
-> After a hallway discussion with Eric Dumazet some
-> maybe-not-so-useful-anymore TCP stack features came up, HP and
-> Prequeue among these.
->
-> So this RFC proposes to axe both.
->
-> In brief, TCP prequeue assumes a single-process-blocking-read
-> design, which is not that common anymore, and the most frequently
-> used high-performance networking program that does this is netperf :)
->
-> With more commong (e)poll designs, prequeue doesn't work.
->
-> The idea behind prequeueing isn't so bad in itself; it moves
-> part of tcp processing -- including ack processing (including
-> retransmit queue processing) into process context.
-> However, removing it would not just avoid some code, for most
-> programs it elimiates dead code.
->
-> As processing then always occurs in BH context, it would allow us
-> to experiment e.g. with bulk-freeing of skb heads when a packet acks
-> data on the retransmit queue.
->
-> Header prediction is also less useful nowadays.
-> For packet trains, GRO will aggregate packets so we do not get
-> a per-packet benefit.
-> Header prediction will also break down with light packet loss due to SACK.
->
-> So, In short: What do others think?
->
-> Florian Westphal (6):
->       tcp: remove prequeue support
->       tcp: reindent two spots after prequeue removal
->       tcp: remove low_latency sysctl
->       tcp: remove header prediction
->       tcp: remove CA_ACK_SLOWPATH
->       tcp: remove unused mib counters
->
->  Documentation/networking/ip-sysctl.txt |    7
->  include/linux/tcp.h                    |   15 -
->  include/net/tcp.h                      |   40 ----
->  include/uapi/linux/snmp.h              |    8
->  net/ipv4/proc.c                        |    8
->  net/ipv4/sysctl_net_ipv4.c             |    3
->  net/ipv4/tcp.c                         |  109 -----------
->  net/ipv4/tcp_input.c                   |  303 +++------------------------------
->  net/ipv4/tcp_ipv4.c                    |   63 ------
->  net/ipv4/tcp_minisocks.c               |    3
->  net/ipv4/tcp_output.c                  |    2
->  net/ipv4/tcp_timer.c                   |   12 -
->  net/ipv4/tcp_westwood.c                |   31 ---
->  net/ipv6/tcp_ipv6.c                    |    3
->  14 files changed, 43 insertions(+), 564 deletions(-)
->
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Thu, 27 Jul 2017 16:47:25 -0700
 
-I unconditionally support the removal of prequeue support.
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> Forward Error Correction (FEC) modes i.e Base-R
+> and Reed-Solomon modes are introduced in 25G/40G/100G standards
+> for providing good BER at high speeds. Various networking devices
+> which support 25G/40G/100G provides ability to manage supported FEC
+> modes and the lack of FEC encoding control and reporting today is a
+> source for interoperability issues for many vendors.
+> FEC capability as well as specific FEC mode i.e. Base-R
+> or RS modes can be requested or advertised through bits D44:47 of base link
+> codeword.
+> 
+> This patch set intends to provide option under ethtool to manage and
+> report FEC encoding settings for networking devices as per IEEE 802.3
+> bj, bm and by specs.
+> 
+> v2 :
+>         - minor patch format fixes and typos pointed out by Andrew
+>         - there was a pending discussion on the use of 'auto' vs
+>           'automatic' for fec settings. I have left it as 'auto'
+>           because in most cases today auto is used in place of
+>           automatic to represent automatically generated values.
+>           We use it in other networking config too. I would prefer
+>           leaving it as auto.
 
-For the header prediction code: IMHO before removing the header
-prediction code it would be useful to do some kind of before-and-after
-benchmarking on a low-powered device where battery life is the main
-concern. I am thinking about ARM-based cell phones, IoT/embedded
-devices, raspberry pi, etc. You mention GRO helping to make header
-prediction obsolete, but in those devices packets arrive so slowly
-that probably GRO does not help. With slow CPUs and battery life the
-main concern, it seems conceivable to me that header prediction might
-still be a win (and worth keeping, since the complexity cost is
-largely in the past; the maintenance overhead has been low). Just a
-thought.
-
-thanks,
-neal
+Series applied to net-next, thank you.
