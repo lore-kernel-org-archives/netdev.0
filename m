@@ -1,71 +1,40 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v12 3/4] net sched actions: dump more than
- TCA_ACT_MAX_PRIO actions per batch
-Date: Sun, 30 Jul 2017 21:05:34 +0200
-Message-ID: <20170730190534.GC1872@nanopsycho>
-References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
- <1501435492-28301-4-git-send-email-jhs@emojatatu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next 03/20] net: sched: change names of action number
+ helpers to be aligned with the rest
+Date: Sun, 30 Jul 2017 15:46:21 -0400
+Message-ID: <4ddf5e09-4051-c8fa-df9e-725e2ccacba4@mojatatu.com>
+References: <20170728144042.6380-1-jiri@resnulli.us>
+ <20170728144042.6380-4-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        horms@verge.net.au, dsahern@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        daniel@iogearbox.net, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:38408 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754479AbdG3TFo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 15:05:44 -0400
-Received: by mail-wr0-f194.google.com with SMTP id g32so12820179wrd.5
-        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 12:05:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1501435492-28301-4-git-send-email-jhs@emojatatu.com>
+Received: from mail-it0-f68.google.com ([209.85.214.68]:36013 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754529AbdG3TqY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 15:46:24 -0400
+Received: by mail-it0-f68.google.com with SMTP id r9so17645874ita.3
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 12:46:24 -0700 (PDT)
+In-Reply-To: <20170728144042.6380-4-jiri@resnulli.us>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Jul 30, 2017 at 07:24:51PM CEST, jhs@mojatatu.com wrote:
->From: Jamal Hadi Salim <jhs@mojatatu.com>
->
->When you dump hundreds of thousands of actions, getting only 32 per
->dump batch even when the socket buffer and memory allocations allow
->is inefficient.
->
->With this change, the user will get as many as possibly fitting
->within the given constraints available to the kernel.
->
->The top level action TLV space is extended. An attribute
->TCA_ROOT_FLAGS is used to carry flags; flag TCA_FLAG_LARGE_DUMP_ON
->is set by the user indicating the user is capable of processing
->these large dumps. Older user space which doesnt set this flag
->doesnt get the large (than 32) batches.
->The kernel uses the TCA_ROOT_COUNT attribute to tell the user how many
->actions are put in a single batch. As such user space app knows how long
->to iterate (independent of the type of action being dumped)
->instead of hardcoded maximum of 32 thus maintaining backward compat.
->
->Some results dumping 1.5M actions below:
->first an unpatched tc which doesnt understand these features...
->
->prompt$ time -p tc actions ls action gact | grep index | wc -l
->1500000
->real 1388.43
->user 2.07
->sys 1386.79
->
->Now lets see a patched tc which sets the correct flags when requesting
->a dump:
->
->prompt$ time -p updatedtc actions ls action gact | grep index | wc -l
->1500000
->real 178.13
->user 2.02
->sys 176.96
->
->That is about 8x performance improvement for tc app which sets its
->receive buffer to about 32K.
->
->Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+On 17-07-28 10:40 AM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> The rest of the helpers are named tcf_exts_*, so change the name of
+> the action number helpers to be aligned. While at it, change to inline
+> functions.
+> 
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-If DavidA is ok with the "validation_data", I am fine with this patch.
+Looks reasonable.
 
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+cheers,
+jamal
