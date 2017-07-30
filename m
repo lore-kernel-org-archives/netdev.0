@@ -1,49 +1,39 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next] net: fec: Issue error for missing but expected PHY
-Date: Sun, 30 Jul 2017 22:11:06 +0200
-Message-ID: <1501445466-23518-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Fugang Duan <fugang.duan@nxp.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next 09/20] net: sched: convert actions array into rcu
+ list
+Date: Sun, 30 Jul 2017 16:17:24 -0400
+Message-ID: <e4e5c83c-d016-ee72-4e68-0966ccf9aaad@mojatatu.com>
+References: <20170728144042.6380-1-jiri@resnulli.us>
+ <20170728144042.6380-10-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+        daniel@iogearbox.net, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45236 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754192AbdG3UL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 30 Jul 2017 16:11:29 -0400
+Received: from mail-io0-f194.google.com ([209.85.223.194]:36504 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754239AbdG3UR2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 16:17:28 -0400
+Received: by mail-io0-f194.google.com with SMTP id j32so12284529iod.3
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 13:17:28 -0700 (PDT)
+In-Reply-To: <20170728144042.6380-10-jiri@resnulli.us>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the PHY is missing but expected, e.g. because of a typ0 in the dt
-file, it is not possible to open the interface. ip link returns:
+On 17-07-28 10:40 AM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Currently the actions are stored in array with array size. To traverse
+> this array in fastpath, tcf_tree_lock is taken to protect it. Convert
+> the array into a singly linked list, similar to the filter chains style
+> and allow traversal protected by rcu.
+> 
 
-RTNETLINK answers: No such device
+Looks sane. But lets have Cong provide an opinion (since he said he was
+trying to rcu the actions).
 
-It is not very obvious what the problem is. Add a netdev_err() in this
-case to make it easier to debug the issue.
-
-[   21.409385] fec 2188000.ethernet eth0: Unable to connect to phy
-RTNETLINK answers: No such device
-
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/ethernet/freescale/fec_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index cc0c2a58c4de..c5995f07f821 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1907,8 +1907,10 @@ static int fec_enet_mii_probe(struct net_device *ndev)
- 		phy_dev = of_phy_connect(ndev, fep->phy_node,
- 					 &fec_enet_adjust_link, 0,
- 					 fep->phy_interface);
--		if (!phy_dev)
-+		if (!phy_dev) {
-+			netdev_err(ndev, "Unable to connect to phy\n");
- 			return -ENODEV;
-+		}
- 	} else {
- 		/* check for attached phy */
- 		for (phy_id = 0; (phy_id < PHY_MAX_ADDR); phy_id++) {
--- 
-2.13.2
+cheers,
+jamal
