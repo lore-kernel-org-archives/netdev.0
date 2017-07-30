@@ -1,67 +1,47 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next] net: fec: Allow reception of frames bigger than 1522 bytes
-Date: Sun, 30 Jul 2017 19:36:05 +0200
-Message-ID: <1501436165-20259-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Fugang Duan <fugang.duan@nxp.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45136 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754193AbdG3Rge (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 30 Jul 2017 13:36:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: [PATCH v2 net-next 1/4] net: dsa: lan9303: Fix lan9303_detect_phy_setup() for MDIO
+Date: Sun, 30 Jul 2017 19:58:53 +0200
+Message-ID: <20170730175856.4784-2-privat@egil-hjelmeland.no>
+References: <20170730175856.4784-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel@pengutronix.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170730175856.4784-1-privat@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The FEC Receive Control Register has a 14 bit field indicating the
-longest frame that my be received. It is being set to 1522. Frames
-longer than this are discarded, but counted as being in error.
+Handle that MDIO read with no response return 0xffff.
 
-When using DSA, frames from the switch has an additional header,
-either 4 or 8 bytes if a Marvell switch is used. Thus a full MTU frame
-of 1522 bytes received by the switch on a port becomes 1530 bytes when
-passed to the host via the FEC interface.
-
-Change the maximum receive size to 2048 - 64, where 64 is the maximum
-rx_alignment applied on the receive buffer for AVB capable FEC
-cores. Use this value also for the maximum receive buffer size. The
-driver is already allocating a receive SKB of 2048 bytes, so this
-change should not have any significant effects.
-
-Tested on imx51, imx6, vf610.
-
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/dsa/lan9303-core.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index a6e323f15637..47ee74a17a9f 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -173,10 +173,12 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- #endif /* CONFIG_M5272 */
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index cd76e61f1fca..9d0ab77edb4a 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -427,6 +427,7 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+ 	 * Special reg 18 of phy 3 reads as 0x0000, if 'phy_addr_sel_strap' is 0
+ 	 * and the IDs are 0-1-2, else it contains something different from
+ 	 * 0x0000, which means 'phy_addr_sel_strap' is 1 and the IDs are 1-2-3.
++	 * 0xffff is returned on MDIO read with no response.
+ 	 */
+ 	reg = lan9303_port_phy_reg_read(chip, 3, MII_LAN911X_SPECIAL_MODES);
+ 	if (reg < 0) {
+@@ -434,7 +435,7 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+ 		return reg;
+ 	}
  
- /* The FEC stores dest/src/type/vlan, data, and checksum for receive packets.
-+ *
-+ * 2048 byte skbufs are allocated. However, alignment requirements
-+ * varies between FEC variants. Worst case is 64, so round down by 64.
-  */
--#define PKT_MAXBUF_SIZE		1522
-+#define PKT_MAXBUF_SIZE		(round_down(2048 - 64, 64))
- #define PKT_MINBUF_SIZE		64
--#define PKT_MAXBLR_SIZE		1536
- 
- /* FEC receive acceleration */
- #define FEC_RACC_IPDIS		(1 << 1)
-@@ -851,7 +853,7 @@ static void fec_enet_enable_ring(struct net_device *ndev)
- 	for (i = 0; i < fep->num_rx_queues; i++) {
- 		rxq = fep->rx_queue[i];
- 		writel(rxq->bd.dma, fep->hwp + FEC_R_DES_START(i));
--		writel(PKT_MAXBLR_SIZE, fep->hwp + FEC_R_BUFF_SIZE(i));
-+		writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_R_BUFF_SIZE(i));
- 
- 		/* enable DMA1/2 */
- 		if (i)
+-	if (reg != 0)
++	if ((reg != 0) && (reg != 0xffff))
+ 		chip->phy_addr_sel_strap = 1;
+ 	else
+ 		chip->phy_addr_sel_strap = 0;
 -- 
-2.13.2
+2.11.0
