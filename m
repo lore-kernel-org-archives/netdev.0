@@ -1,85 +1,101 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 3/6] tcp: remove low_latency sysctl
-Date: Sun, 30 Jul 2017 03:57:20 +0200
-Message-ID: <20170730015723.25587-4-fw@strlen.de>
+Subject: [PATCH net-next 2/6] tcp: reindent two spots after prequeue removal
+Date: Sun, 30 Jul 2017 03:57:19 +0200
+Message-ID: <20170730015723.25587-3-fw@strlen.de>
 References: <20170730015723.25587-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:45064 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:45058 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753324AbdG3B5Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 21:57:16 -0400
+        by vger.kernel.org with ESMTP id S1752485AbdG3B5M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2017 21:57:12 -0400
 In-Reply-To: <20170730015723.25587-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Was only checked by the removed prequeue code.
+These two branches are now always true, remove the conditional.
+objdiff shows no changes.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- Documentation/networking/ip-sysctl.txt | 7 +------
- include/net/tcp.h                      | 1 -
- net/ipv4/sysctl_net_ipv4.c             | 3 +++
- net/ipv4/tcp_ipv4.c                    | 2 --
- 4 files changed, 4 insertions(+), 9 deletions(-)
+ net/ipv4/tcp_input.c | 50 +++++++++++++++++++++++---------------------------
+ 1 file changed, 23 insertions(+), 27 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index f485d553e65c..84c9b8cee780 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -353,12 +353,7 @@ tcp_l3mdev_accept - BOOLEAN
- 	compiled with CONFIG_NET_L3_MASTER_DEV.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 770ce6cb3eca..87efde9f5a90 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4611,16 +4611,14 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 			goto out_of_window;
  
- tcp_low_latency - BOOLEAN
--	If set, the TCP stack makes decisions that prefer lower
--	latency as opposed to higher throughput.  By default, this
--	option is not set meaning that higher throughput is preferred.
--	An example of an application where this default should be
--	changed would be a Beowulf compute cluster.
--	Default: 0
-+	This is a legacy option, it has no effect anymore.
+ 		/* Ok. In sequence. In window. */
+-		if (eaten <= 0) {
+ queue_and_out:
+-			if (eaten < 0) {
+-				if (skb_queue_len(&sk->sk_receive_queue) == 0)
+-					sk_forced_mem_schedule(sk, skb->truesize);
+-				else if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
+-					goto drop;
+-			}
+-			eaten = tcp_queue_rcv(sk, skb, 0, &fragstolen);
++		if (eaten < 0) {
++			if (skb_queue_len(&sk->sk_receive_queue) == 0)
++				sk_forced_mem_schedule(sk, skb->truesize);
++			else if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
++				goto drop;
+ 		}
++		eaten = tcp_queue_rcv(sk, skb, 0, &fragstolen);
+ 		tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
+ 		if (skb->len)
+ 			tcp_event_data_recv(sk, skb);
+@@ -5410,30 +5408,28 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 			int eaten = 0;
+ 			bool fragstolen = false;
  
- tcp_max_orphans - INTEGER
- 	Maximal number of TCP sockets not attached to any user file handle,
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 93f115cfc8f8..8507c81fb0e9 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -256,7 +256,6 @@ extern int sysctl_tcp_rmem[3];
- extern int sysctl_tcp_app_win;
- extern int sysctl_tcp_adv_win_scale;
- extern int sysctl_tcp_frto;
--extern int sysctl_tcp_low_latency;
- extern int sysctl_tcp_nometrics_save;
- extern int sysctl_tcp_moderate_rcvbuf;
- extern int sysctl_tcp_tso_win_divisor;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 9bf809726066..0d3c038d7b04 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -45,6 +45,9 @@ static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
- static int ip_ping_group_range_min[] = { 0, 0 };
- static int ip_ping_group_range_max[] = { GID_T_MAX, GID_T_MAX };
+-			if (!eaten) {
+-				if (tcp_checksum_complete(skb))
+-					goto csum_error;
++			if (tcp_checksum_complete(skb))
++				goto csum_error;
  
-+/* obsolete */
-+static int sysctl_tcp_low_latency __read_mostly;
-+
- /* Update system visible IP port range */
- static void set_local_port_range(struct net *net, int range[2])
- {
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a68eb4577d36..9b51663cd5a4 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -85,8 +85,6 @@
- #include <crypto/hash.h>
- #include <linux/scatterlist.h>
+-				if ((int)skb->truesize > sk->sk_forward_alloc)
+-					goto step5;
++			if ((int)skb->truesize > sk->sk_forward_alloc)
++				goto step5;
  
--int sysctl_tcp_low_latency __read_mostly;
--
- #ifdef CONFIG_TCP_MD5SIG
- static int tcp_v4_md5_hash_hdr(char *md5_hash, const struct tcp_md5sig_key *key,
- 			       __be32 daddr, __be32 saddr, const struct tcphdr *th);
+-				/* Predicted packet is in window by definition.
+-				 * seq == rcv_nxt and rcv_wup <= rcv_nxt.
+-				 * Hence, check seq<=rcv_wup reduces to:
+-				 */
+-				if (tcp_header_len ==
+-				    (sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED) &&
+-				    tp->rcv_nxt == tp->rcv_wup)
+-					tcp_store_ts_recent(tp);
++			/* Predicted packet is in window by definition.
++			 * seq == rcv_nxt and rcv_wup <= rcv_nxt.
++			 * Hence, check seq<=rcv_wup reduces to:
++			 */
++			if (tcp_header_len ==
++			    (sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED) &&
++			    tp->rcv_nxt == tp->rcv_wup)
++				tcp_store_ts_recent(tp);
+ 
+-				tcp_rcv_rtt_measure_ts(sk, skb);
++			tcp_rcv_rtt_measure_ts(sk, skb);
+ 
+-				NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPHPHITS);
++			NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPHPHITS);
+ 
+-				/* Bulk data transfer: receiver */
+-				eaten = tcp_queue_rcv(sk, skb, tcp_header_len,
+-						      &fragstolen);
+-			}
++			/* Bulk data transfer: receiver */
++			eaten = tcp_queue_rcv(sk, skb, tcp_header_len,
++					      &fragstolen);
+ 
+ 			tcp_event_data_recv(sk, skb);
+ 
 -- 
 2.13.0
