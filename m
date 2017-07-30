@@ -1,230 +1,229 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v12 1/4] net netlink: Add new type NLA_BITFIELD32
-Date: Sun, 30 Jul 2017 15:59:10 -0400
-Message-ID: <98edc93f-b5d9-e73f-ff00-9403e8362f80@mojatatu.com>
-References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
- <1501435492-28301-2-git-send-email-jhs@emojatatu.com>
- <20170730184242.GA1872@nanopsycho>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        horms@verge.net.au, dsahern@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:34973 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754481AbdG3T7N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 15:59:13 -0400
-Received: by mail-it0-f66.google.com with SMTP id v127so18510518itd.2
-        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 12:59:13 -0700 (PDT)
-In-Reply-To: <20170730184242.GA1872@nanopsycho>
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 0/1 v2] constify nf_conntrack_l3/4proto parameters
+Date: Sun, 30 Jul 2017 21:38:43 +0200
+Message-ID: <1501443524-13201-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: bhumirks@gmail.com, kernel-janitors@vger.kernel.org,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jiri,
+When a nf_conntrack_l3/4proto parameter is not on the left hand side
+of an assignment, its address is not taken, and it is not passed to a
+function that may modify its fields, then it can be declared as const.
 
-This is getting exhausting, seriously.
-I posted the code you are commenting one two days ago so i dont have to
-repost.
+This change is useful from a documentation point of view, and can
+possibly facilitate making some nf_conntrack_l4proto structures const
+subsequently.
 
-On D. Ahern: I dont think we are disagreeing anymore on the need to
-generalize the check. He is saying it should be a helper and I already
-had the validation data; either works. I dont see the gapping need
-to remove the validation data.
+Done with the help of Coccinelle.  The following semantic patch shows
+the nf_conntrack_l4proto case.
 
-cheers,
-jamal
+// <smpl>
+virtual update_results
+virtual after_start
 
-On 17-07-30 02:42 PM, Jiri Pirko wrote:
-> Sun, Jul 30, 2017 at 07:24:49PM CEST, jhs@mojatatu.com wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->> Generic bitflags attribute content sent to the kernel by user.
->> With this netlink attr type the user can either set or unset a
->> flag in the kernel.
->>
->> The value is a bitmap that defines the bit values being set
->> The selector is a bitmask that defines which value bit is to be
->> considered.
->>
->> A check is made to ensure the rules that a kernel subsystem always
->> conforms to bitflags the kernel already knows about. i.e
->> if the user tries to set a bit flag that is not understood then
->> the _it will be rejected_.
->>
->> In the most basic form, the user specifies the attribute policy as:
->> [ATTR_GOO] = { .type = NLA_BITFIELD32, .validation_data = &myvalidflags },
->>
->> where myvalidflags is the bit mask of the flags the kernel understands.
->>
->> If the user _does not_ provide myvalidflags then the attribute will
->> also be rejected.
->>
->> Examples:
->> value = 0x0, and selector = 0x1
->> implies we are selecting bit 1 and we want to set its value to 0.
->>
->> value = 0x2, and selector = 0x2
->> implies we are selecting bit 2 and we want to set its value to 1.
->>
->> Suggested-by: Jiri Pirko <jiri@mellanox.com>
->> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
->> ---
->> include/net/netlink.h        | 16 ++++++++++++++++
->> include/uapi/linux/netlink.h | 17 +++++++++++++++++
->> lib/nlattr.c                 | 30 ++++++++++++++++++++++++++++++
->> 3 files changed, 63 insertions(+)
->>
->> diff --git a/include/net/netlink.h b/include/net/netlink.h
->> index ef8e6c3..82dd298 100644
->> --- a/include/net/netlink.h
->> +++ b/include/net/netlink.h
->> @@ -178,6 +178,7 @@ enum {
->> 	NLA_S16,
->> 	NLA_S32,
->> 	NLA_S64,
->> +	NLA_BITFIELD32,
->> 	__NLA_TYPE_MAX,
->> };
->>
->> @@ -206,6 +207,7 @@ enum {
->>   *    NLA_MSECS            Leaving the length field zero will verify the
->>   *                         given type fits, using it verifies minimum length
->>   *                         just like "All other"
->> + *    NLA_BITFIELD32      A 32-bit bitmap/bitselector attribute
->>   *    All other            Minimum length of attribute payload
->>   *
->>   * Example:
->> @@ -213,11 +215,13 @@ enum {
->>   * 	[ATTR_FOO] = { .type = NLA_U16 },
->>   *	[ATTR_BAR] = { .type = NLA_STRING, .len = BARSIZ },
->>   *	[ATTR_BAZ] = { .len = sizeof(struct mystruct) },
->> + *	[ATTR_GOO] = { .type = NLA_BITFIELD32, .validation_data = &myvalidflags },
-> 
-> Checkpatch warns you about the line to long, please wrap it.
-> 
-> Btw, I did not see you reached a consensus with DavidA regarding this.
-> Did I miss it?
-> 
-> 
->>   * };
->>   */
->> struct nla_policy {
->> 	u16		type;
->> 	u16		len;
->> +	void            *validation_data;
->> };
->>
->> /**
->> @@ -1203,6 +1207,18 @@ static inline struct in6_addr nla_get_in6_addr(const struct nlattr *nla)
->> }
->>
->> /**
->> + * nla_get_bitfield32 - return payload of 32 bitfield attribute
->> + * @nla: nla_bitfield32 attribute
->> + */
->> +static inline struct nla_bitfield32 nla_get_bitfield32(const struct nlattr *nla)
->> +{
->> +	struct nla_bitfield32 tmp;
->> +
->> +	nla_memcpy(&tmp, nla, sizeof(tmp));
->> +	return tmp;
->> +}
->> +
->> +/**
->>   * nla_memdup - duplicate attribute memory (kmemdup)
->>   * @src: netlink attribute to duplicate from
->>   * @gfp: GFP mask
->> diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
->> index f86127a..f4fc9c9 100644
->> --- a/include/uapi/linux/netlink.h
->> +++ b/include/uapi/linux/netlink.h
->> @@ -226,5 +226,22 @@ struct nlattr {
->> #define NLA_ALIGN(len)		(((len) + NLA_ALIGNTO - 1) & ~(NLA_ALIGNTO - 1))
->> #define NLA_HDRLEN		((int) NLA_ALIGN(sizeof(struct nlattr)))
->>
->> +/* Generic 32 bitflags attribute content sent to the kernel.
->> + *
->> + * The value is a bitmap that defines the values being set
->> + * The selector is a bitmask that defines which value is legit
->> + *
->> + * Examples:
->> + *  value = 0x0, and selector = 0x1
->> + *  implies we are selecting bit 1 and we want to set its value to 0.
->> + *
->> + *  value = 0x2, and selector = 0x2
->> + *  implies we are selecting bit 2 and we want to set its value to 1.
->> + *
->> + */
->> +struct nla_bitfield32 {
->> +	__u32 value;
->> +	__u32 selector;
->> +};
->>
->> #endif /* _UAPI__LINUX_NETLINK_H */
->> diff --git a/lib/nlattr.c b/lib/nlattr.c
->> index fb52435..ee79b7a 100644
->> --- a/lib/nlattr.c
->> +++ b/lib/nlattr.c
->> @@ -27,6 +27,30 @@
->> 	[NLA_S64]	= sizeof(s64),
->> };
->>
->> +static int validate_nla_bitfield32(const struct nlattr *nla,
->> +				   u32 *valid_flags_allowed)
->> +{
->> +	const struct nla_bitfield32 *bf = nla_data(nla);
->> +	u32 *valid_flags_mask = valid_flags_allowed;
-> 
-> I pointed this out already. This weird.
-> You do *u32 = *u32, just with different name. Just use valid_flags_allowed
-> directly.
-> 
-> 
->> +
->> +	if (!valid_flags_allowed)
->> +		return -EINVAL;
->> +
->> +	/*disallow invalid bit selector */
-> 
-> Fix all the comments in this function. Should be
-> 	/* something */
-> with spaces in front and at the end.
-> 
-> 
->> +	if (bf->selector & ~*valid_flags_mask)
->> +		return -EINVAL;
->> +
->> +	/*disallow invalid bit values */
->> +	if (bf->value & ~*valid_flags_mask)
->> +		return -EINVAL;
->> +
->> +	/*disallow valid bit values that are not selected*/
->> +	if (bf->value & ~bf->selector)
->> +		return -EINVAL;
->> +
->> +	return 0;
->> +}
->> +
->> static int validate_nla(const struct nlattr *nla, int maxtype,
->> 			const struct nla_policy *policy)
->> {
->> @@ -46,6 +70,12 @@ static int validate_nla(const struct nlattr *nla, int maxtype,
->> 			return -ERANGE;
->> 		break;
->>
->> +	case NLA_BITFIELD32:
->> +		if (attrlen != sizeof(struct nla_bitfield32))
->> +			return -ERANGE;
->> +
->> +		return validate_nla_bitfield32(nla, pt->validation_data);
->> +
->> 	case NLA_NUL_STRING:
->> 		if (pt->len)
->> 			minlen = min_t(int, attrlen, pt->len + 1);
->> -- 
->> 1.9.1
->>
+@initialize:ocaml@
+@@
+
+let unsafe = Hashtbl.create 101
+
+let is_unsafe f = Hashtbl.mem unsafe f
+
+let changed = ref false
+
+
+(* The next three rules relate to the fact that we do not know the type of
+void * variables.  Fortunately this is only neede on the first iteration,
+but it still means that the whole kernel will end up being considered. *)
+
+@has depends on !after_start && !update_results@
+identifier f,x;
+position p;
+@@
+
+f@p(...,struct nf_conntrack_l3proto *x,...) { ... }
+
+@hasa depends on !after_start@
+identifier f,x;
+position p;
+@@
+
+f@p(...,struct nf_conntrack_l3proto *x[],...) { ... }
+
+@others depends on !after_start && !update_results@
+position p != {has.p,hasa.p};
+identifier f,x;
+@@
+
+f@p(...,void *x,...) { ... }
+
+@script:ocaml@
+f << others.f;
+@@
+
+changed := true;
+Hashtbl.add unsafe f ()
+
+
+@fpb depends on !update_results disable optional_qualifier, drop_cast exists@
+identifier f : script:ocaml() { not(is_unsafe(f)) };
+identifier x,fld;
+identifier bad : script:ocaml() { is_unsafe(bad) };
+assignment operator aop;
+expression e;
+local idexpression fp;
+type T;
+@@
+
+f(...,struct nf_conntrack_l3proto *x,...)
+{
+...
+(
+  return x;
+|
+  (<+...x...+>) aop e
+|
+  e aop x
+|
+  (T)x
+|
+  &(<+...x...+>)
+|
+  bad(...,x,...)
+|
+  fp(...,x,...)
+|
+  (<+...e->fld...+>)(...,x,...)
+)
+...when any
+ }
+
+@script:ocaml@
+f << fpb.f;
+@@
+
+changed := true;
+Printf.eprintf "%s is unsafe\n" f;
+Hashtbl.add unsafe f ()
+
+@fpba depends on !update_results disable optional_qualifier, drop_cast exists@
+identifier f : script:ocaml() { not(is_unsafe(f)) };
+identifier x,fld;
+identifier bad : script:ocaml() { is_unsafe(bad) };
+assignment operator aop;
+expression e;
+local idexpression fp;
+type T;
+@@
+
+f(...,struct nf_conntrack_l3proto *x[],...)
+{
+...
+(
+  return \(x\|x[...]\);
+|
+  (<+...x...+>) aop e
+|
+  e aop \(x\|x[...]\)
+|
+  (T)\(x\|x[...]\)
+|
+  &(<+...x...+>)
+|
+  bad(...,\(x\|x[...]\),...)
+|
+  fp(...,\(x\|x[...]\),...)
+|
+  (<+...e->fld...+>)(...,\(x\|x[...]\),...)
+)
+... when any
+ }
+
+@script:ocaml@
+f << fpba.f;
+@@
+
+changed := true;
+Printf.eprintf "%s is unsafe\n" f;
+Hashtbl.add unsafe f ()
+
+@finalize:ocaml depends on !update_results@
+tbls << merge.unsafe;
+c << merge.changed;
+@@
+
+List.iter
+    (fun t ->
+      Hashtbl.iter
+	(fun k v ->
+	  if not (Hashtbl.mem unsafe k) then Hashtbl.add unsafe k ()) t)
+    tbls;
+changed := false;
+let changed = List.exists (fun x -> !x) c in
+let it = new iteration() in
+it#add_virtual_rule After_start;
+(if not changed
+then it#add_virtual_rule Update_results);
+it#register()
+
+@depends on update_results disable optional_qualifier@
+identifier f : script:ocaml() { not(is_unsafe(f)) };
+identifier x;
+@@
+
+f(...,
++ const
+  struct nf_conntrack_l3proto *x,...) { ... }
+
+@depends on update_results disable optional_qualifier@
+identifier f : script:ocaml() { not(is_unsafe(f)) };
+identifier x;
+type T;
+@@
+
+T f(...,
++ const
+  struct nf_conntrack_l3proto *x,...);
+
+@depends on update_results disable optional_qualifier@
+identifier f : script:ocaml() { not(is_unsafe(f)) };
+identifier x;
+@@
+
+f(...,
++ const
+  struct nf_conntrack_l3proto *x[],...) { ... }
+
+@depends on update_results disable optional_qualifier@
+identifier f : script:ocaml() { not(is_unsafe(f)) };
+identifier x;
+type T;
+@@
+
+T f(...,
++ const
+  struct nf_conntrack_l3proto *x[],...);
+// </smpl>
+
+---
+
+v2: Added consideration of array parameters.  This adds transformation of
+nf_ct_l4proto_pernet_register and nf_ct_l4proto_pernet_unregister.
+
+This patch also adds transformation of ctnl_timeout_parse_policy that was
+somehow overlooked previously.
+
+ include/net/netfilter/nf_conntrack_l3proto.h |    6 ++---
+ include/net/netfilter/nf_conntrack_l4proto.h |   14 ++++++------
+ include/net/netfilter/nf_conntrack_timeout.h |    2 -
+ net/netfilter/nf_conntrack_core.c            |    8 +++----
+ net/netfilter/nf_conntrack_netlink.c         |    6 ++---
+ net/netfilter/nf_conntrack_proto.c           |   30 +++++++++++++--------------
+ net/netfilter/nfnetlink_cttimeout.c          |    5 ++--
+ 7 files changed, 36 insertions(+), 35 deletions(-)
