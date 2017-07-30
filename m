@@ -1,77 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] hyperv: netvsc: Neaten netvsc_send_pkt by using a temporary
-Date: Sun, 30 Jul 2017 14:19:30 -0700
-Message-ID: <963fb1dd54804ccd30b1e1249aad4e55ff8d5300.1501449550.git.joe@perches.com>
-Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "K. Y. Srinivasan" <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Stephen Hemminger <sthemmin@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Euan Kemp <euan.kemp@coreos.com>
+Subject: Re: Performance regression with virtio_net
+Date: Sun, 30 Jul 2017 15:25:52 -0700
+Message-ID: <20170730222552.4fxxnx3jxg4yv65g@multivac.euank.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: mst@redhat.com, seth.forshee@canonical.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:37462 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751651AbdG3WZy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 18:25:54 -0400
+Received: by mail-pg0-f45.google.com with SMTP id y129so130709473pgy.4
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 15:25:54 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Repeated dereference of nvmsg.msg.v1_msg.send_rndis_pkt can be
-shortened by using a temporary.  Do so.
+I've also observed this performance regression.
 
-No change in object code.
+The minimal fix for me is removing the two
+> if (unlikely(len > (unsigned long)ctx))
+checks added in 680557c.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/hyperv/netvsc.c | 24 ++++++++++--------------
- 1 file changed, 10 insertions(+), 14 deletions(-)
+After digging a little more, the reason that check can fail appears to
+be that add_recvbuf_mergeable sometimes includes a hole at the end,
+which is included in len but not ctx.
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 06f39a99da7c..fede1546cdc6 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -743,6 +743,7 @@ static inline int netvsc_send_pkt(
- 	struct sk_buff *skb)
- {
- 	struct nvsp_message nvmsg;
-+	struct nvsp_1_message_send_rndis_packet *rpkt;
- 	struct netvsc_channel *nvchan
- 		= &net_device->chan_table[packet->q_idx];
- 	struct vmbus_channel *out_channel = nvchan->channel;
-@@ -754,21 +755,17 @@ static inline int netvsc_send_pkt(
- 	u32 ring_avail = hv_ringbuf_avail_percent(&out_channel->outbound);
- 
- 	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
--	if (skb != NULL) {
--		/* 0 is RMC_DATA; */
--		nvmsg.msg.v1_msg.send_rndis_pkt.channel_type = 0;
--	} else {
--		/* 1 is RMC_CONTROL; */
--		nvmsg.msg.v1_msg.send_rndis_pkt.channel_type = 1;
--	}
-+	rpkt = &nvmsg.msg.v1_msg.send_rndis_pkt;
-+	if (skb != NULL)
-+		rpkt->channel_type = 0;		/* 0 is RMC_DATA */
-+	else
-+		rpkt->channel_type = 1;		/* 1 is RMC_CONTROL */
- 
--	nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_index =
--		packet->send_buf_index;
-+	rpkt->send_buf_section_index = packet->send_buf_index;
- 	if (packet->send_buf_index == NETVSC_INVALID_INDEX)
--		nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_size = 0;
-+		rpkt->send_buf_section_size = 0;
- 	else
--		nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_size =
--			packet->total_data_buflen;
-+		rpkt->send_buf_section_size = packet->total_data_buflen;
- 
- 	req_id = (ulong)skb;
- 
-@@ -776,8 +773,7 @@ static inline int netvsc_send_pkt(
- 		return -ENODEV;
- 
- 	if (packet->page_buf_cnt) {
--		pgbuf = packet->cp_partial ? (*pb) +
--			packet->rmsg_pgcnt : (*pb);
-+		pgbuf = packet->cp_partial ? *pb + packet->rmsg_pgcnt : *pb;
- 		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
- 						      pgbuf,
- 						      packet->page_buf_cnt,
--- 
-2.10.0.rc2.1.g053435c
+I'd send a patch removing those conditions, but I'm not certain
+whether "truesize" in receive_mergeable should also be changed back to
+be the max of len/ctx, or should remain as-is.
+
+- Euan
