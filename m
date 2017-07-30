@@ -1,237 +1,67 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net-next v12 3/4] net sched actions: dump more than TCA_ACT_MAX_PRIO actions per batch
-Date: Sun, 30 Jul 2017 13:24:51 -0400
-Message-ID: <1501435492-28301-4-git-send-email-jhs@emojatatu.com>
-References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
-        eric.dumazet@gmail.com, horms@verge.net.au, dsahern@gmail.com,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next] net: fec: Allow reception of frames bigger than 1522 bytes
+Date: Sun, 30 Jul 2017 19:36:05 +0200
+Message-ID: <1501436165-20259-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, Fugang Duan <fugang.duan@nxp.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34181 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754351AbdG3RZG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 13:25:06 -0400
-Received: by mail-io0-f193.google.com with SMTP id m88so12989405iod.1
-        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 10:25:06 -0700 (PDT)
-In-Reply-To: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:45136 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754193AbdG3Rge (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 30 Jul 2017 13:36:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+The FEC Receive Control Register has a 14 bit field indicating the
+longest frame that my be received. It is being set to 1522. Frames
+longer than this are discarded, but counted as being in error.
 
-When you dump hundreds of thousands of actions, getting only 32 per
-dump batch even when the socket buffer and memory allocations allow
-is inefficient.
+When using DSA, frames from the switch has an additional header,
+either 4 or 8 bytes if a Marvell switch is used. Thus a full MTU frame
+of 1522 bytes received by the switch on a port becomes 1530 bytes when
+passed to the host via the FEC interface.
 
-With this change, the user will get as many as possibly fitting
-within the given constraints available to the kernel.
+Change the maximum receive size to 2048 - 64, where 64 is the maximum
+rx_alignment applied on the receive buffer for AVB capable FEC
+cores. Use this value also for the maximum receive buffer size. The
+driver is already allocating a receive SKB of 2048 bytes, so this
+change should not have any significant effects.
 
-The top level action TLV space is extended. An attribute
-TCA_ROOT_FLAGS is used to carry flags; flag TCA_FLAG_LARGE_DUMP_ON
-is set by the user indicating the user is capable of processing
-these large dumps. Older user space which doesnt set this flag
-doesnt get the large (than 32) batches.
-The kernel uses the TCA_ROOT_COUNT attribute to tell the user how many
-actions are put in a single batch. As such user space app knows how long
-to iterate (independent of the type of action being dumped)
-instead of hardcoded maximum of 32 thus maintaining backward compat.
+Tested on imx51, imx6, vf610.
 
-Some results dumping 1.5M actions below:
-first an unpatched tc which doesnt understand these features...
-
-prompt$ time -p tc actions ls action gact | grep index | wc -l
-1500000
-real 1388.43
-user 2.07
-sys 1386.79
-
-Now lets see a patched tc which sets the correct flags when requesting
-a dump:
-
-prompt$ time -p updatedtc actions ls action gact | grep index | wc -l
-1500000
-real 178.13
-user 2.02
-sys 176.96
-
-That is about 8x performance improvement for tc app which sets its
-receive buffer to about 32K.
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- include/uapi/linux/rtnetlink.h | 22 +++++++++++++++++--
- net/sched/act_api.c            | 50 +++++++++++++++++++++++++++++++++---------
- 2 files changed, 60 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index d148505..bfa80a6 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -683,10 +683,28 @@ struct tcamsg {
- 	unsigned char	tca__pad1;
- 	unsigned short	tca__pad2;
- };
-+
-+enum {
-+	TCA_ROOT_UNSPEC,
-+	TCA_ROOT_TAB,
-+#define TCA_ACT_TAB TCA_ROOT_TAB
-+#define TCAA_MAX TCA_ROOT_TAB
-+	TCA_ROOT_FLAGS,
-+	TCA_ROOT_COUNT,
-+	__TCA_ROOT_MAX,
-+#define	TCA_ROOT_MAX (__TCA_ROOT_MAX - 1)
-+};
-+
- #define TA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct tcamsg))))
- #define TA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct tcamsg))
--#define TCA_ACT_TAB 1 /* attr type must be >=1 */	
--#define TCAA_MAX 1
-+/* tcamsg flags stored in attribute TCA_ROOT_FLAGS
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index a6e323f15637..47ee74a17a9f 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -173,10 +173,12 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ #endif /* CONFIG_M5272 */
+ 
+ /* The FEC stores dest/src/type/vlan, data, and checksum for receive packets.
 + *
-+ * TCA_FLAG_LARGE_DUMP_ON user->kernel to request for larger than TCA_ACT_MAX_PRIO
-+ * actions in a dump. All dump responses will contain the number of actions
-+ * being dumped stored in for user app's consumption in TCA_ROOT_COUNT
-+ *
-+ */
-+#define TCA_FLAG_LARGE_DUMP_ON		(1 << 0)
++ * 2048 byte skbufs are allocated. However, alignment requirements
++ * varies between FEC variants. Worst case is 64, so round down by 64.
+  */
+-#define PKT_MAXBUF_SIZE		1522
++#define PKT_MAXBUF_SIZE		(round_down(2048 - 64, 64))
+ #define PKT_MINBUF_SIZE		64
+-#define PKT_MAXBLR_SIZE		1536
  
- /* New extended info filters for IFLA_EXT_MASK */
- #define RTEXT_FILTER_VF		(1 << 0)
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 848370e..d53653a 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -110,6 +110,7 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
- 			   struct netlink_callback *cb)
- {
- 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
-+	u32 act_flags = cb->args[2];
- 	struct nlattr *nest;
+ /* FEC receive acceleration */
+ #define FEC_RACC_IPDIS		(1 << 1)
+@@ -851,7 +853,7 @@ static void fec_enet_enable_ring(struct net_device *ndev)
+ 	for (i = 0; i < fep->num_rx_queues; i++) {
+ 		rxq = fep->rx_queue[i];
+ 		writel(rxq->bd.dma, fep->hwp + FEC_R_DES_START(i));
+-		writel(PKT_MAXBLR_SIZE, fep->hwp + FEC_R_BUFF_SIZE(i));
++		writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_R_BUFF_SIZE(i));
  
- 	spin_lock_bh(&hinfo->lock);
-@@ -138,14 +139,18 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
- 			}
- 			nla_nest_end(skb, nest);
- 			n_i++;
--			if (n_i >= TCA_ACT_MAX_PRIO)
-+			if (!(act_flags & TCA_FLAG_LARGE_DUMP_ON) &&
-+			    n_i >= TCA_ACT_MAX_PRIO)
- 				goto done;
- 		}
- 	}
- done:
- 	spin_unlock_bh(&hinfo->lock);
--	if (n_i)
-+	if (n_i) {
- 		cb->args[0] += n_i;
-+		if (act_flags & TCA_FLAG_LARGE_DUMP_ON)
-+			cb->args[1] = n_i;
-+	}
- 	return n_i;
- 
- nla_put_failure:
-@@ -1068,11 +1073,17 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
- 	return tcf_add_notify(net, n, &actions, portid);
- }
- 
-+static u32 tcaa_root_flags_allowed = TCA_FLAG_LARGE_DUMP_ON;
-+static const struct nla_policy tcaa_policy[TCA_ROOT_MAX + 1] = {
-+	[TCA_ROOT_FLAGS] = { .type = NLA_BITFIELD32,
-+			     .validation_data = &tcaa_root_flags_allowed },
-+};
-+
- static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
- 			 struct netlink_ext_ack *extack)
- {
- 	struct net *net = sock_net(skb->sk);
--	struct nlattr *tca[TCAA_MAX + 1];
-+	struct nlattr *tca[TCA_ROOT_MAX + 1];
- 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
- 	int ret = 0, ovr = 0;
- 
-@@ -1080,7 +1091,7 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
- 	    !netlink_capable(skb, CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCAA_MAX, NULL,
-+	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ROOT_MAX, NULL,
- 			  extack);
- 	if (ret < 0)
- 		return ret;
-@@ -1121,16 +1132,12 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
- 	return ret;
- }
- 
--static struct nlattr *find_dump_kind(const struct nlmsghdr *n)
-+static struct nlattr *find_dump_kind(struct nlattr **nla)
- {
- 	struct nlattr *tb1, *tb2[TCA_ACT_MAX + 1];
- 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
--	struct nlattr *nla[TCAA_MAX + 1];
- 	struct nlattr *kind;
- 
--	if (nlmsg_parse(n, sizeof(struct tcamsg), nla, TCAA_MAX,
--			NULL, NULL) < 0)
--		return NULL;
- 	tb1 = nla[TCA_ACT_TAB];
- 	if (tb1 == NULL)
- 		return NULL;
-@@ -1157,8 +1164,18 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct tc_action_ops *a_o;
- 	int ret = 0;
- 	struct tcamsg *t = (struct tcamsg *) nlmsg_data(cb->nlh);
--	struct nlattr *kind = find_dump_kind(cb->nlh);
-+	struct nlattr *tb[TCA_ROOT_MAX + 1];
-+	struct nlattr *count_attr = NULL;
-+	struct nlattr *kind = NULL;
-+	struct nla_bitfield32 bf;
-+	u32 act_count = 0;
-+
-+	ret = nlmsg_parse(cb->nlh, sizeof(struct tcamsg), tb, TCA_ROOT_MAX,
-+			  tcaa_policy, NULL);
-+	if (ret < 0)
-+		return ret;
- 
-+	kind = find_dump_kind(tb);
- 	if (kind == NULL) {
- 		pr_info("tc_dump_action: action bad kind\n");
- 		return 0;
-@@ -1168,14 +1185,24 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	if (a_o == NULL)
- 		return 0;
- 
-+	cb->args[2] = 0;
-+	if (tb[TCA_ROOT_FLAGS]) {
-+		bf = nla_get_bitfield32(tb[TCA_ROOT_FLAGS]);
-+		cb->args[2] = bf.value;
-+	}
-+
- 	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
- 			cb->nlh->nlmsg_type, sizeof(*t), 0);
- 	if (!nlh)
- 		goto out_module_put;
-+
- 	t = nlmsg_data(nlh);
- 	t->tca_family = AF_UNSPEC;
- 	t->tca__pad1 = 0;
- 	t->tca__pad2 = 0;
-+	count_attr = nla_reserve(skb, TCA_ROOT_COUNT, sizeof(u32));
-+	if (!count_attr)
-+		goto out_module_put;
- 
- 	nest = nla_nest_start(skb, TCA_ACT_TAB);
- 	if (nest == NULL)
-@@ -1188,6 +1215,9 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	if (ret > 0) {
- 		nla_nest_end(skb, nest);
- 		ret = skb->len;
-+		act_count = cb->args[1];
-+		memcpy(nla_data(count_attr), &act_count, sizeof(u32));
-+		cb->args[1] = 0;
- 	} else
- 		nlmsg_trim(skb, b);
- 
+ 		/* enable DMA1/2 */
+ 		if (i)
 -- 
-1.9.1
+2.13.2
