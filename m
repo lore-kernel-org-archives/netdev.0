@@ -1,189 +1,188 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net-next v12 4/4] net sched actions: add time filter for action dumping
-Date: Sun, 30 Jul 2017 13:24:52 -0400
-Message-ID: <1501435492-28301-5-git-send-email-jhs@emojatatu.com>
+Subject: [PATCH net-next v12 1/4] net netlink: Add new type NLA_BITFIELD32
+Date: Sun, 30 Jul 2017 13:24:49 -0400
+Message-ID: <1501435492-28301-2-git-send-email-jhs@emojatatu.com>
 References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
         eric.dumazet@gmail.com, horms@verge.net.au, dsahern@gmail.com,
         Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:34182 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754249AbdG3RZI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 13:25:08 -0400
-Received: by mail-io0-f196.google.com with SMTP id m88so12989429iod.1
-        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 10:25:07 -0700 (PDT)
+Received: from mail-io0-f195.google.com ([209.85.223.195]:38893 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754298AbdG3RZE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 13:25:04 -0400
+Received: by mail-io0-f195.google.com with SMTP id l7so17765197iof.5
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 10:25:03 -0700 (PDT)
 In-Reply-To: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-This patch adds support for filtering based on time since last used.
-When we are dumping a large number of actions it is useful to
-have the option of filtering based on when the action was last
-used to reduce the amount of data crossing to user space.
+Generic bitflags attribute content sent to the kernel by user.
+With this netlink attr type the user can either set or unset a
+flag in the kernel.
 
-With this patch the user space app sets the TCA_ROOT_TIME_DELTA
-attribute with the value in milliseconds with "time of interest
-since now".  The kernel converts this to jiffies and does the
-filtering comparison matching entries that have seen activity
-since then and returns them to user space.
-Old kernels and old tc continue to work in legacy mode since
-they dont specify this attribute.
+The value is a bitmap that defines the bit values being set
+The selector is a bitmask that defines which value bit is to be
+considered.
 
-Some example (we have 400 actions bound to 400 filters); at
-installation time. Using updated when tc setting the time of
-interest to 120 seconds earlier (we see 400 actions):
-prompt$ hackedtc actions ls action gact since 120000| grep index | wc -l
-400
+A check is made to ensure the rules that a kernel subsystem always
+conforms to bitflags the kernel already knows about. i.e
+if the user tries to set a bit flag that is not understood then
+the _it will be rejected_.
 
-go get some coffee and wait for > 120 seconds and try again:
+In the most basic form, the user specifies the attribute policy as:
+[ATTR_GOO] = { .type = NLA_BITFIELD32, .validation_data = &myvalidflags },
 
-prompt$ hackedtc actions ls action gact since 120000 | grep index | wc -l
-0
+where myvalidflags is the bit mask of the flags the kernel understands.
 
-Lets see a filter bound to one of these actions:
-....
-filter pref 10 u32
-filter pref 10 u32 fh 800: ht divisor 1
-filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 2 success 1)
-  match 7f000002/ffffffff at 12 (success 1 )
-    action order 1: gact action pass
-     random type none pass val 0
-     index 23 ref 2 bind 1 installed 1145 sec used 802 sec
-    Action statistics:
-    Sent 84 bytes 1 pkt (dropped 0, overlimits 0 requeues 0)
-    backlog 0b 0p requeues 0
-....
+If the user _does not_ provide myvalidflags then the attribute will
+also be rejected.
 
-that coffee took long, no? It was good.
+Examples:
+value = 0x0, and selector = 0x1
+implies we are selecting bit 1 and we want to set its value to 0.
 
-Now lets ping -c 1 127.0.0.2, then run the actions again:
-prompt$ hackedtc actions ls action gact since 120 | grep index | wc -l
-1
+value = 0x2, and selector = 0x2
+implies we are selecting bit 2 and we want to set its value to 1.
 
-More details please:
-prompt$ hackedtc -s actions ls action gact since 120000
-
-    action order 0: gact action pass
-     random type none pass val 0
-     index 23 ref 2 bind 1 installed 1270 sec used 30 sec
-    Action statistics:
-    Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
-    backlog 0b 0p requeues 0
-
-And the filter?
-
-filter pref 10 u32
-filter pref 10 u32 fh 800: ht divisor 1
-filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 4 success 2)
-  match 7f000002/ffffffff at 12 (success 2 )
-    action order 1: gact action pass
-     random type none pass val 0
-     index 23 ref 2 bind 1 installed 1324 sec used 84 sec
-    Action statistics:
-    Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
-    backlog 0b 0p requeues 0
-
+Suggested-by: Jiri Pirko <jiri@mellanox.com>
 Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- include/uapi/linux/rtnetlink.h |  1 +
- net/sched/act_api.c            | 21 ++++++++++++++++++++-
- 2 files changed, 21 insertions(+), 1 deletion(-)
+ include/net/netlink.h        | 16 ++++++++++++++++
+ include/uapi/linux/netlink.h | 17 +++++++++++++++++
+ lib/nlattr.c                 | 30 ++++++++++++++++++++++++++++++
+ 3 files changed, 63 insertions(+)
 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index bfa80a6..dab7dad 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -691,6 +691,7 @@ enum {
- #define TCAA_MAX TCA_ROOT_TAB
- 	TCA_ROOT_FLAGS,
- 	TCA_ROOT_COUNT,
-+	TCA_ROOT_TIME_DELTA, /* in msecs */
- 	__TCA_ROOT_MAX,
- #define	TCA_ROOT_MAX (__TCA_ROOT_MAX - 1)
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index ef8e6c3..82dd298 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -178,6 +178,7 @@ enum {
+ 	NLA_S16,
+ 	NLA_S32,
+ 	NLA_S64,
++	NLA_BITFIELD32,
+ 	__NLA_TYPE_MAX,
  };
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index d53653a..f19b118 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -111,6 +111,7 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
+ 
+@@ -206,6 +207,7 @@ enum {
+  *    NLA_MSECS            Leaving the length field zero will verify the
+  *                         given type fits, using it verifies minimum length
+  *                         just like "All other"
++ *    NLA_BITFIELD32      A 32-bit bitmap/bitselector attribute
+  *    All other            Minimum length of attribute payload
+  *
+  * Example:
+@@ -213,11 +215,13 @@ enum {
+  * 	[ATTR_FOO] = { .type = NLA_U16 },
+  *	[ATTR_BAR] = { .type = NLA_STRING, .len = BARSIZ },
+  *	[ATTR_BAZ] = { .len = sizeof(struct mystruct) },
++ *	[ATTR_GOO] = { .type = NLA_BITFIELD32, .validation_data = &myvalidflags },
+  * };
+  */
+ struct nla_policy {
+ 	u16		type;
+ 	u16		len;
++	void            *validation_data;
+ };
+ 
+ /**
+@@ -1203,6 +1207,18 @@ static inline struct in6_addr nla_get_in6_addr(const struct nlattr *nla)
+ }
+ 
+ /**
++ * nla_get_bitfield32 - return payload of 32 bitfield attribute
++ * @nla: nla_bitfield32 attribute
++ */
++static inline struct nla_bitfield32 nla_get_bitfield32(const struct nlattr *nla)
++{
++	struct nla_bitfield32 tmp;
++
++	nla_memcpy(&tmp, nla, sizeof(tmp));
++	return tmp;
++}
++
++/**
+  * nla_memdup - duplicate attribute memory (kmemdup)
+  * @src: netlink attribute to duplicate from
+  * @gfp: GFP mask
+diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+index f86127a..f4fc9c9 100644
+--- a/include/uapi/linux/netlink.h
++++ b/include/uapi/linux/netlink.h
+@@ -226,5 +226,22 @@ struct nlattr {
+ #define NLA_ALIGN(len)		(((len) + NLA_ALIGNTO - 1) & ~(NLA_ALIGNTO - 1))
+ #define NLA_HDRLEN		((int) NLA_ALIGN(sizeof(struct nlattr)))
+ 
++/* Generic 32 bitflags attribute content sent to the kernel.
++ *
++ * The value is a bitmap that defines the values being set
++ * The selector is a bitmask that defines which value is legit
++ *
++ * Examples:
++ *  value = 0x0, and selector = 0x1
++ *  implies we are selecting bit 1 and we want to set its value to 0.
++ *
++ *  value = 0x2, and selector = 0x2
++ *  implies we are selecting bit 2 and we want to set its value to 1.
++ *
++ */
++struct nla_bitfield32 {
++	__u32 value;
++	__u32 selector;
++};
+ 
+ #endif /* _UAPI__LINUX_NETLINK_H */
+diff --git a/lib/nlattr.c b/lib/nlattr.c
+index fb52435..ee79b7a 100644
+--- a/lib/nlattr.c
++++ b/lib/nlattr.c
+@@ -27,6 +27,30 @@
+ 	[NLA_S64]	= sizeof(s64),
+ };
+ 
++static int validate_nla_bitfield32(const struct nlattr *nla,
++				   u32 *valid_flags_allowed)
++{
++	const struct nla_bitfield32 *bf = nla_data(nla);
++	u32 *valid_flags_mask = valid_flags_allowed;
++
++	if (!valid_flags_allowed)
++		return -EINVAL;
++
++	/*disallow invalid bit selector */
++	if (bf->selector & ~*valid_flags_mask)
++		return -EINVAL;
++
++	/*disallow invalid bit values */
++	if (bf->value & ~*valid_flags_mask)
++		return -EINVAL;
++
++	/*disallow valid bit values that are not selected*/
++	if (bf->value & ~bf->selector)
++		return -EINVAL;
++
++	return 0;
++}
++
+ static int validate_nla(const struct nlattr *nla, int maxtype,
+ 			const struct nla_policy *policy)
  {
- 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
- 	u32 act_flags = cb->args[2];
-+	unsigned long jiffy_since = cb->args[3];
- 	struct nlattr *nest;
+@@ -46,6 +70,12 @@ static int validate_nla(const struct nlattr *nla, int maxtype,
+ 			return -ERANGE;
+ 		break;
  
- 	spin_lock_bh(&hinfo->lock);
-@@ -128,6 +129,11 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
- 			if (index < s_i)
- 				continue;
- 
-+			if (jiffy_since &&
-+			    time_after(jiffy_since,
-+				       (unsigned long)p->tcfa_tm.lastuse))
-+				continue;
++	case NLA_BITFIELD32:
++		if (attrlen != sizeof(struct nla_bitfield32))
++			return -ERANGE;
 +
- 			nest = nla_nest_start(skb, n_i);
- 			if (nest == NULL)
- 				goto nla_put_failure;
-@@ -145,9 +151,11 @@ static int tcf_dump_walker(struct tcf_hashinfo *hinfo, struct sk_buff *skb,
- 		}
- 	}
- done:
-+	if (index >= 0)
-+		cb->args[0] = index + 1;
++		return validate_nla_bitfield32(nla, pt->validation_data);
 +
- 	spin_unlock_bh(&hinfo->lock);
- 	if (n_i) {
--		cb->args[0] += n_i;
- 		if (act_flags & TCA_FLAG_LARGE_DUMP_ON)
- 			cb->args[1] = n_i;
- 	}
-@@ -1077,6 +1085,7 @@ static int tcf_action_add(struct net *net, struct nlattr *nla,
- static const struct nla_policy tcaa_policy[TCA_ROOT_MAX + 1] = {
- 	[TCA_ROOT_FLAGS] = { .type = NLA_BITFIELD32,
- 			     .validation_data = &tcaa_root_flags_allowed },
-+	[TCA_ROOT_TIME_DELTA]      = { .type = NLA_U32 },
- };
- 
- static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n,
-@@ -1166,8 +1175,10 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct tcamsg *t = (struct tcamsg *) nlmsg_data(cb->nlh);
- 	struct nlattr *tb[TCA_ROOT_MAX + 1];
- 	struct nlattr *count_attr = NULL;
-+	unsigned long jiffy_since = 0;
- 	struct nlattr *kind = NULL;
- 	struct nla_bitfield32 bf;
-+	u32 msecs_since = 0;
- 	u32 act_count = 0;
- 
- 	ret = nlmsg_parse(cb->nlh, sizeof(struct tcamsg), tb, TCA_ROOT_MAX,
-@@ -1191,15 +1202,23 @@ static int tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 		cb->args[2] = bf.value;
- 	}
- 
-+	if (tb[TCA_ROOT_TIME_DELTA]) {
-+		msecs_since = nla_get_u32(tb[TCA_ROOT_TIME_DELTA]);
-+	}
-+
- 	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
- 			cb->nlh->nlmsg_type, sizeof(*t), 0);
- 	if (!nlh)
- 		goto out_module_put;
- 
-+	if (msecs_since)
-+		jiffy_since = jiffies - msecs_to_jiffies(msecs_since);
-+
- 	t = nlmsg_data(nlh);
- 	t->tca_family = AF_UNSPEC;
- 	t->tca__pad1 = 0;
- 	t->tca__pad2 = 0;
-+	cb->args[3] = jiffy_since;
- 	count_attr = nla_reserve(skb, TCA_ROOT_COUNT, sizeof(u32));
- 	if (!count_attr)
- 		goto out_module_put;
+ 	case NLA_NUL_STRING:
+ 		if (pt->len)
+ 			minlen = min_t(int, attrlen, pt->len + 1);
 -- 
 1.9.1
