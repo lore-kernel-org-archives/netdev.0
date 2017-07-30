@@ -1,116 +1,68 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: [PATCH] b43legacy: Fix a sleep-in-atomic bug in
- b43legacy_attr_interfmode_store
-Date: Sun, 30 Jul 2017 12:24:04 +0200
-Message-ID: <20170730122404.63efba2c@wiggum>
-References: <1496226547-5921-1-git-send-email-baijiaju1990@163.com>
- <85905124-7167-aeb0-8aff-4ceec09e9542@lwfinger.net>
- <592F6843.9000204@163.com> <20170601101113.6dd30d6d@lwn.net>
- <5930BCD6.9010306@163.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4513910749438051528=="
-Cc: Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
- Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-To: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <5930BCD6.9010306-9Onoh4P/yGk@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] ipv6: set fc_protocol with 0 when rtm_protocol is RTPROT_REDIRECT
+Date: Sun, 30 Jul 2017 20:51:37 +0800
+Message-ID: <e9342d18b97fc227cacc19db1b43f4c7350eed3f.1501419097.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, grawity@gmail.com
+To: network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:37861 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750991AbdG3Mvr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 08:51:47 -0400
+Received: by mail-pf0-f194.google.com with SMTP id 72so3584213pfl.4
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 05:51:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============4513910749438051528==
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/o===srDRiiW1PDtn2cFa5Ky"; protocol="application/pgp-signature"
+After commit c2ed1880fd61 ("net: ipv6: check route protocol when
+deleting routes"), ipv6 route checks rt protocol when trying to
+remove a rt entry.
 
---Sig_/o===srDRiiW1PDtn2cFa5Ky
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+It introduced a side effect when flushing caches with iproute, in
+which all route caches get dumped from kernel then removed one by
+one by sending RTM_DELROUTE requests to kernel for each cache.
 
-On Fri, 02 Jun 2017 09:18:14 +0800
-Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org> wrote:
+The thing is iproute sends the request with the cache whose proto
+is set with RTPROT_REDIRECT by rt6_fill_node() when kernel dumps
+it. But in kernel the rt_cache protocol is still 0, which causes
+the cache not to be found and removed.
 
-> On 06/02/2017 12:11 AM, Jonathan Corbet wrote:
-> > On Thu, 01 Jun 2017 09:05:07 +0800
-> > Jia-Ju Bai<baijiaju1990-9Onoh4P/yGk@public.gmane.org>  wrote:
-> > =20
-> >> I admit my patches are not well tested, and they may not well fix the =
-bugs.
-> >> I am looking forward to opinions and suggestions :) =20
-> > May I politely suggest that sending out untested locking changes is a
-> > dangerous thing to do?  You really should not be changing the locking i=
-n a
-> > piece of kernel code without understanding very well what the lock is
-> > protecting and being able to say why your changes are safe.  Without th=
-at,
-> > the risk of introducing subtle bugs is very high.
-> >
-> > It looks like you have written a useful tool that could help us to make
-> > the kernel more robust.  If you are interested in my suggestion, I would
-> > recommend that you post the sleep-in-atomic scenarios that you are
-> > finding, but refrain from "fixing" them in any case where you cannot of=
-fer
-> > a strong explanation of why your fix is correct.
-> >
-> > Thanks for working to find bugs in the kernel!
-> >
-> > jon =20
-> Hi,
->=20
-> Thanks for your good and helpful advice. I am sorry for my improper patch=
-es.
-> I will only report bugs instead of sending improper patches when I have=20
-> no good solution of fixing the bugs.
+As rt6_fill_node always sets rtm proto with RTPROT_REDIRECT when
+rt cache info goes to rtmsg, the reverse process is needed when
+users remove a route cache and rtmsg goes to cfg.
 
+This patch is to fix it by keeping cfg proto as 0 when rtm proto
+is REDIRECT. It's a safe fix as rtm proto is set with REDIRECT
+only if rt flag has RTF_DYNAMIC which is set when creating a rt
+cache in rt6_do_redirect where the cache's proto is always 0.
 
-Is somebody still working on these fixes?
-I think I found my old b43-legacy based 4306, so that I will
-be able to get these patches into properly tested shape.
+Note that this issue can also be avoided in iproute by changing
+rtm proto back to 0 before sending DELROUTE requests for cache.
+But in kernel part, the fix is still necessary as kernel should
+do the reverse conversion when rtm goes to cfg.
 
---=20
-Michael
+Fixes: c2ed1880fd61 ("net: ipv6: check route protocol when deleting routes")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/ipv6/route.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
---Sig_/o===srDRiiW1PDtn2cFa5Ky
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEihRzkKVZOnT2ipsS9TK+HZCNiw4FAll9s8QACgkQ9TK+HZCN
-iw7bmg/9GbO+izZ4mMTv991NLq8nG53lQ+CEFsML4CAl8fkwawrFOUAgKNu5sgX7
-TrXTrmym+355axVwWDy6ovV6iiU9jNoi8qko+7S2UxVwu7QRDbKyPRBQcxMLLxWX
-9koq1jhuBWbwDjbLVJ8NivcfuEUltB/5ZUvtxKf73uLoBm0Zo/AR7VbAk36RVnoi
-LvRFFRDJIz3gDDBTj6ABXKo2AETbY3e5DSaNTI0EhMdQ7EXoVGkY1wgYs90Mwget
-PnSWM9M5CsKvr7pvsnPjSvDi3v5rlYmPCYMR3qz1puhFOihgY5Erd0E500KxjVwY
-74mgNAJ9382ixg6CWwjhG2kIW8QUC78EMxnCXSp3CRXsAYGRLwzw6Lk4Q2lUOFsD
-GWSOwF/5V20GnQ6NtElS6VSfpd9mDIFqbGQGaA+OckPRBGyemeeU38ERSYQeLeVf
-BXJufN51Rme/cOlf6VJHoC1MvOVDKqzLibzJ0mqvTiGTbXfhFsyy+3YVqQHWAotL
-cx/CiPQd2SJfIK+5PXAK5j67+VivWr9XUUjKNmCVrt3ItjJhZpnf0YB+7EMiQE09
-42E6vPOtO50JbCGi8+z+Ec042heUaD9Km7CaroNpLS3I9n7MrJyZ6md2/jxY9Ess
-6zMsHLrmImFknkm7Lx2baCt3vbaXag/WALw+KrXxL0Q9xUGUbow=
-=BqBB
------END PGP SIGNATURE-----
-
---Sig_/o===srDRiiW1PDtn2cFa5Ky--
-
-
---===============4513910749438051528==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-b43-dev mailing list
-b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-http://lists.infradead.org/mailman/listinfo/b43-dev
-
---===============4513910749438051528==--
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4d30c96..187580f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2912,9 +2912,11 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	cfg->fc_dst_len = rtm->rtm_dst_len;
+ 	cfg->fc_src_len = rtm->rtm_src_len;
+ 	cfg->fc_flags = RTF_UP;
+-	cfg->fc_protocol = rtm->rtm_protocol;
+ 	cfg->fc_type = rtm->rtm_type;
+ 
++	if (rtm->rtm_protocol != RTPROT_REDIRECT)
++		cfg->fc_protocol = rtm->rtm_protocol;
++
+ 	if (rtm->rtm_type == RTN_UNREACHABLE ||
+ 	    rtm->rtm_type == RTN_BLACKHOLE ||
+ 	    rtm->rtm_type == RTN_PROHIBIT ||
+-- 
+2.1.0
