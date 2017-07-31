@@ -1,95 +1,66 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] hyperv: netvsc: Neaten netvsc_send_pkt by using a
- temporary
-Date: Mon, 31 Jul 2017 10:05:21 -0700
-Message-ID: <20170731100521.63ef6120@xeon-e3>
-References: <963fb1dd54804ccd30b1e1249aad4e55ff8d5300.1501449550.git.joe@perches.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Long stalls creating a new netns after a netns with a SMB client exits
+Date: Mon, 31 Jul 2017 10:06:41 -0700
+Message-ID: <CAM_iQpWascP6-6x824S60q1WUcLPBgjKrDh+hhyz7EjhYY=q7Q@mail.gmail.com>
+References: <CA+pO-2cm7bz861KvPMpugP8rVwf6rU8QYrVq7PVO-ZXx2kh1fw@mail.gmail.com>
+ <CAM_iQpW+gSgCDWdGoHvN0wObda_g40FcyCBem5VVJ4XLHNMRaQ@mail.gmail.com> <CA+pO-2cUUy=_Krwnvt5GL-DUsu+oBOHwhF-TE8sqW=7PFMBrbA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        devel@linuxdriverproject.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <963fb1dd54804ccd30b1e1249aad4e55ff8d5300.1501449550.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Rolf Neugebauer <rolf.neugebauer@docker.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36752 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750947AbdGaRHD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 13:07:03 -0400
+Received: by mail-wm0-f53.google.com with SMTP id t201so185287452wmt.1
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 10:07:02 -0700 (PDT)
+In-Reply-To: <CA+pO-2cUUy=_Krwnvt5GL-DUsu+oBOHwhF-TE8sqW=7PFMBrbA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 30 Jul 2017 14:19:30 -0700
-Joe Perches <joe@perches.com> wrote:
+On Fri, Jul 28, 2017 at 11:58 AM, Rolf Neugebauer
+<rolf.neugebauer@docker.com> wrote:
+> On Fri, Jul 28, 2017 at 6:49 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> Hello,
+>>
+>> On Fri, Jul 28, 2017 at 9:47 AM, Rolf Neugebauer
+>> <rolf.neugebauer@docker.com> wrote:
+>>> Creating the new namespace is stalling for around 200 seconds and
+>>> there 20 odd messages on the console, like:
+>>>
+>>> [   67.372603] unregister_netdevice: waiting for lo to become free.
+>>> Usage count = 1
+>>>
+>>
+>> Sounds like another netdev refcnt leak.
+>
+> I don't think it's a leak as such because the system eventually
+> recovers after around 200 seconds.
+>
+>>
+>>> Adding a 'sleep 1' before deleting the original network namespace
+>>> "solves" the issue, but that doesn't sound like a good fix. Not using
+>>> unmount also does not help (understandable).
+>>
+>>
+>> Interesting, if sleeping for 1sec help, why did you see the stall for
+>> 200sec? The "leak" should go away eventually without 'sleep 1',
+>> right?
+>
+> Yes. I suspect, that with a sleep some cleanup code (maybe umount)
+> gets run and the ref count gets decremented within the second. Without
+> the sleep, something gets yanked, and whatever operation needs to be
+> done can't get performed, times out after 200s and then the ref count
+> gets decremented.
 
-> Repeated dereference of nvmsg.msg.v1_msg.send_rndis_pkt can be
-> shortened by using a temporary.  Do so.
-> 
-> No change in object code.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
 
-Looks good, several other places also suffer from to long.variable.name.wordiness.
+This reminds me of
 
-Please rebase this on net-next.
+commit f186ce61bb8235d80068c390dc2aad7ca427a4c2
+Author: Krister Johansen <kjlx@templeofstupid.com>
+Date:   Thu Jun 8 13:12:38 2017 -0700
 
-> ---
->  drivers/net/hyperv/netvsc.c | 24 ++++++++++--------------
->  1 file changed, 10 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-> index 06f39a99da7c..fede1546cdc6 100644
-> --- a/drivers/net/hyperv/netvsc.c
-> +++ b/drivers/net/hyperv/netvsc.c
-> @@ -743,6 +743,7 @@ static inline int netvsc_send_pkt(
->  	struct sk_buff *skb)
->  {
->  	struct nvsp_message nvmsg;
-> +	struct nvsp_1_message_send_rndis_packet *rpkt;
+    Fix an intermittent pr_emerg warning about lo becoming free.
 
-const?
-
->  	struct netvsc_channel *nvchan
->  		= &net_device->chan_table[packet->q_idx];
->  	struct vmbus_channel *out_channel = nvchan->channel;
-> @@ -754,21 +755,17 @@ static inline int netvsc_send_pkt(
->  	u32 ring_avail = hv_ringbuf_avail_percent(&out_channel->outbound);
->  
->  	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
-> -	if (skb != NULL) {
-> -		/* 0 is RMC_DATA; */
-> -		nvmsg.msg.v1_msg.send_rndis_pkt.channel_type = 0;
-> -	} else {
-> -		/* 1 is RMC_CONTROL; */
-> -		nvmsg.msg.v1_msg.send_rndis_pkt.channel_type = 1;
-> -	}
-> +	rpkt = &nvmsg.msg.v1_msg.send_rndis_pkt;
-> +	if (skb != NULL)
-> +		rpkt->channel_type = 0;		/* 0 is RMC_DATA */
-> +	else
-> +		rpkt->channel_type = 1;		/* 1 is RMC_CONTROL */
->  
-> -	nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_index =
-> -		packet->send_buf_index;
-> +	rpkt->send_buf_section_index = packet->send_buf_index;
->  	if (packet->send_buf_index == NETVSC_INVALID_INDEX)
-> -		nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_size = 0;
-> +		rpkt->send_buf_section_size = 0;
->  	else
-> -		nvmsg.msg.v1_msg.send_rndis_pkt.send_buf_section_size =
-> -			packet->total_data_buflen;
-> +		rpkt->send_buf_section_size = packet->total_data_buflen;
->  
->  	req_id = (ulong)skb;
->  
-> @@ -776,8 +773,7 @@ static inline int netvsc_send_pkt(
->  		return -ENODEV;
->  
->  	if (packet->page_buf_cnt) {
-> -		pgbuf = packet->cp_partial ? (*pb) +
-> -			packet->rmsg_pgcnt : (*pb);
-> +		pgbuf = packet->cp_partial ? *pb + packet->rmsg_pgcnt : *pb;
->  		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
->  						      pgbuf,
->  						      packet->page_buf_cnt,
-
-This part just changed (got rid of indirection) in net-next.
+but this one is merged in 4.12 too, so must be something else.
