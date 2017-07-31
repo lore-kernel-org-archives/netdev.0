@@ -1,70 +1,45 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Performance regression with virtio_net
-Date: Mon, 31 Jul 2017 16:26:08 +0300
-Message-ID: <20170731161903-mutt-send-email-mst@kernel.org>
-References: <20170730222552.4fxxnx3jxg4yv65g@multivac.euank.com>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next 0/2] Refactor lan9303_xxx_packet_processing
+Date: Mon, 31 Jul 2017 15:32:15 +0200
+Message-ID: <7885564f-2e67-c034-20e6-0377101ff4a7@egil-hjelmeland.no>
+References: <20170731113355.4284-1-privat@egil-hjelmeland.no>
+ <20170731132236.GB24562@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: seth.forshee@canonical.com, netdev@vger.kernel.org
-To: Euan Kemp <euan.kemp@coreos.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41234 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751827AbdGaN0K (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Jul 2017 09:26:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20170730222552.4fxxnx3jxg4yv65g@multivac.euank.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@pengutronix.de
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170731132236.GB24562@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 30, 2017 at 03:25:52PM -0700, Euan Kemp wrote:
-> I've also observed this performance regression.
+On 31. juli 2017 15:22, Andrew Lunn wrote:
+> On Mon, Jul 31, 2017 at 01:33:53PM +0200, Egil Hjelmeland wrote:
+>> First patch:
+>> Change lan9303_enable_packet_processing,
+>> lan9303_disable_packet_processing():
+>> Pass port number (0,1,2) as parameter instead of port offset.
+>> Plus replaced a constant 0x400 with LAN9303_SWITCH_PORT_REG()
 > 
-> The minimal fix for me is removing the two
-> > if (unlikely(len > (unsigned long)ctx))
-> checks added in 680557c.
+> Hi Egil
 > 
-> After digging a little more, the reason that check can fail appears to
-> be that add_recvbuf_mergeable sometimes includes a hole at the end,
-> which is included in len but not ctx.
+> The cover note and the commit message should concentrate on the Why,
+> not the What. I can see the What by reading the patch.
 > 
-> I'd send a patch removing those conditions, but I'm not certain
-> whether "truesize" in receive_mergeable should also be changed back to
-> be the max of len/ctx, or should remain as-is.
+> Why do you want to pass port numbers?
 > 
-> - Euan
+Because other functions in the module pass port numbers. And to enable
+the simplifications.
 
-Thanks a lot for looking into it!
+> Note that for netdev, the cover note also ends up in git as part of
+> the history.
+> 
 
-I kept this around unchanged from
-ab7db91705e95ed1bba1304388936fccfa58c992.  That commit had an internal
-reason not to account for that space: not enough bits to do it.  No
-longer true so let's account for length exactly.  I'll send a proper
-patch after a bit of testing, would appreciate reports reports of
-whether this helps very much.
+OK, I did not know that netdev does that.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index f41ab0e..782c33f 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -889,7 +889,6 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi,
- 
- 	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
- 	buf += headroom; /* advance address leaving hole at front of pkt */
--	ctx = (void *)(unsigned long)len;
- 	get_page(alloc_frag->page);
- 	alloc_frag->offset += len + headroom;
- 	hole = alloc_frag->size - alloc_frag->offset;
-@@ -904,6 +903,7 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi,
- 	}
- 
- 	sg_init_one(rq->sg, buf, len);
-+	ctx = (void *)(unsigned long)len;
- 	err = virtqueue_add_inbuf_ctx(rq->vq, rq->sg, 1, buf, ctx, gfp);
- 	if (err < 0)
- 		put_page(virt_to_head_page(buf));
--- 
-MST
+>     Andrew
+> 
