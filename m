@@ -1,189 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/2] net: dsa: lan9303: Refactor
- lan9303_xxx_packet_processing()
-Date: Mon, 31 Jul 2017 15:36:53 +0200
-Message-ID: <20170731133653.GC24562@lunn.ch>
-References: <20170731113355.4284-1-privat@egil-hjelmeland.no>
- <20170731113355.4284-2-privat@egil-hjelmeland.no>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC PATCH v1 5/5] wave: Added basic version of TCP Wave
+Date: Mon, 31 Jul 2017 13:39:07 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD004745C@AcuExch.aculab.com>
+References: <20170728195919.10099-1-natale.patriciello@gmail.com>
+ <20170728195919.10099-6-natale.patriciello@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@pengutronix.de
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170731113355.4284-2-privat@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+        Ahmed Said <ahmed.said@uniroma2.it>,
+        Francesco Zampognaro <zampognaro@ing.uniroma2.it>,
+        Cesare Roseti <roseti@ing.uniroma2.it>
+To: 'Natale Patriciello' <natale.patriciello@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        "Patrick McHardy" <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.194]:60273 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751328AbdGaNjN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 09:39:13 -0400
+In-Reply-To: <20170728195919.10099-6-natale.patriciello@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 31, 2017 at 01:33:54PM +0200, Egil Hjelmeland wrote:
-> lan9303_enable_packet_processing, lan9303_disable_packet_processing()
-> Pass port number (0,1,2) as parameter instead of port offset.
-> 
-> Plus replaced a constant 0x400 with LAN9303_SWITCH_PORT_REG().
-> 
-> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
-> ---
->  drivers/net/dsa/lan9303-core.c | 59 +++++++++++++++++++++---------------------
->  1 file changed, 30 insertions(+), 29 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-> index 8e430d1ee297..4d2bb8144c15 100644
-> --- a/drivers/net/dsa/lan9303-core.c
-> +++ b/drivers/net/dsa/lan9303-core.c
-> @@ -159,9 +159,7 @@
->  # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT1 (BIT(9) | BIT(8))
->  # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0 (BIT(1) | BIT(0))
->  
-> -#define LAN9303_PORT_0_OFFSET 0x400
-> -#define LAN9303_PORT_1_OFFSET 0x800
-> -#define LAN9303_PORT_2_OFFSET 0xc00
-> +#define LAN9303_SWITCH_PORT_REG(port, reg0) (0x400 * (port) + (reg0))
->  
->  /* the built-in PHYs are of type LAN911X */
->  #define MII_LAN911X_SPECIAL_MODES 0x12
-> @@ -458,24 +456,25 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
->  	return 0;
->  }
->  
-> -#define LAN9303_MAC_RX_CFG_OFFS (LAN9303_MAC_RX_CFG_0 - LAN9303_PORT_0_OFFSET)
-> -#define LAN9303_MAC_TX_CFG_OFFS (LAN9303_MAC_TX_CFG_0 - LAN9303_PORT_0_OFFSET)
-> -
->  static int lan9303_disable_packet_processing(struct lan9303 *chip,
->  					     unsigned int port)
->  {
->  	int ret;
->  
->  	/* disable RX, but keep register reset default values else */
-> -	ret = lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_OFFS + port,
-> -				       LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES);
-> +	ret = lan9303_write_switch_reg(
-> +			chip,
-> +			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_RX_CFG_0),
-> +			LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES);
+From: Natale Patriciello
+> Sent: 28 July 2017 20:59
+..
+> +static __always_inline bool test_flag(u8 value, const u8 *flags)
+> +{
+> +	return (*flags & value) == value;
+> +}
+...
+> +	if (!test_flag(FLAG_INIT, &ca->flags))
+> +		return;
+...
 
-Hi Egil
+That is a completely unnecessary 'helper'.
+It has its arguments in the wrong order.
+Doesn't need to pass by reference.
+Since you only ever check one bit you don't need the '=='.
+Any error seems to be silently ignored.
+I bet they can't actually happen at all.
 
-As you can see from the indentation change, this is rather long. What
-we have in mv88e6xxx are functions which act on a port. You could have
-a function:
-
-lan9303_write_switch_port(struct lan9303 chip, unsigned int port, u16 reg,
-			  u32 val)
-
-
->  	if (ret)
->  		return ret;
->  
->  	/* disable TX, but keep register reset default values else */
-> -	return lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_OFFS + port,
-> -				LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
-> -				LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE);
-> +	return lan9303_write_switch_reg(
-> +			chip,
-> +			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_TX_CFG_0),
-> +			LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
-> +			LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE);
->  }
->  
->  static int lan9303_enable_packet_processing(struct lan9303 *chip,
-> @@ -484,17 +483,21 @@ static int lan9303_enable_packet_processing(struct lan9303 *chip,
->  	int ret;
->  
->  	/* enable RX and keep register reset default values else */
-> -	ret = lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_OFFS + port,
-> -				       LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES |
-> -				       LAN9303_MAC_RX_CFG_X_RX_ENABLE);
-> +	ret = lan9303_write_switch_reg(
-> +			chip,
-> +			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_RX_CFG_0),
-> +			LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES |
-> +			LAN9303_MAC_RX_CFG_X_RX_ENABLE);
->  	if (ret)
->  		return ret;
->  
->  	/* enable TX and keep register reset default values else */
-> -	return lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_OFFS + port,
-> -				LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
-> -				LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE |
-> -				LAN9303_MAC_TX_CFG_X_TX_ENABLE);
-> +	return lan9303_write_switch_reg(
-> +			chip,
-> +			LAN9303_SWITCH_PORT_REG(port, LAN9303_MAC_TX_CFG_0),
-> +			LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
-> +			LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE |
-> +			LAN9303_MAC_TX_CFG_X_TX_ENABLE);
->  }
->  
->  /* We want a special working switch:
-> @@ -558,13 +561,13 @@ static int lan9303_disable_processing(struct lan9303 *chip)
->  {
->  	int ret;
->  
-> -	ret = lan9303_disable_packet_processing(chip, LAN9303_PORT_0_OFFSET);
-> +	ret = lan9303_disable_packet_processing(chip, 0);
->  	if (ret)
->  		return ret;
-> -	ret = lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
-> +	ret = lan9303_disable_packet_processing(chip, 1);
->  	if (ret)
->  		return ret;
-> -	return lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
-> +	return lan9303_disable_packet_processing(chip, 2);
->  }
->  
->  static int lan9303_check_device(struct lan9303 *chip)
-> @@ -634,7 +637,7 @@ static int lan9303_setup(struct dsa_switch *ds)
->  	if (ret)
->  		dev_err(chip->dev, "failed to separate ports %d\n", ret);
->  
-> -	ret = lan9303_enable_packet_processing(chip, LAN9303_PORT_0_OFFSET);
-> +	ret = lan9303_enable_packet_processing(chip, 0);
->  	if (ret)
->  		dev_err(chip->dev, "failed to re-enable switching %d\n", ret);
->  
-> @@ -704,7 +707,7 @@ static void lan9303_get_ethtool_stats(struct dsa_switch *ds, int port,
->  	unsigned int u, poff;
->  	int ret;
->  
-> -	poff = port * 0x400;
-> +	poff = LAN9303_SWITCH_PORT_REG(port, 0);
->  
->  	for (u = 0; u < ARRAY_SIZE(lan9303_mib); u++) {
->  		ret = lan9303_read_switch_reg(chip,
-> @@ -757,11 +760,9 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
->  	/* enable internal packet processing */
->  	switch (port) {
->  	case 1:
-> -		return lan9303_enable_packet_processing(chip,
-> -							LAN9303_PORT_1_OFFSET);
-> +		return lan9303_enable_packet_processing(chip, port);
->  	case 2:
-> -		return lan9303_enable_packet_processing(chip,
-> -							LAN9303_PORT_2_OFFSET);
-> +		return lan9303_enable_packet_processing(chip, port);
-
-case 1 and 2 are now identical. So you can simplify this.
-
->  	default:
->  		dev_dbg(chip->dev,
->  			"Error: request to power up invalid port %d\n", port);
-> @@ -778,12 +779,12 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
->  	/* disable internal packet processing */
->  	switch (port) {
->  	case 1:
-> -		lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
-> +		lan9303_disable_packet_processing(chip, port);
->  		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
->  				  MII_BMCR, BMCR_PDOWN);
->  		break;
->  	case 2:
-> -		lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
-> +		lan9303_disable_packet_processing(chip, port);
->  		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
->  				  MII_BMCR, BMCR_PDOWN);
-
-And this can also be simplified.
-
-    Andrew
+	David
