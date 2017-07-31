@@ -1,72 +1,67 @@
-Return-Path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0099.outbound.protection.outlook.com ([104.47.40.99]:45074
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751210AbdGHAaO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 7 Jul 2017 20:30:14 -0400
-From: Casey Leedom <leedom@chelsio.com>
-To: Ding Tianhong <dingtianhong@huawei.com>,
-        "ashok.raj@intel.com" <ashok.raj@intel.com>,
-        "helgaas@kernel.org" <helgaas@kernel.org>,
-        "Michael Werner" <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
-        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
-        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
-        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
-        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-        "amira@mellanox.com" <amira@mellanox.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "David.Laight@aculab.com" <David.Laight@aculab.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "mark.rutland@arm.com" <mark.rutland@arm.com>,
-        "robin.murphy@arm.com" <robin.murphy@arm.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Subject: Re: [PATCH v6 0/3] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
-Date: Sat, 8 Jul 2017 00:30:12 +0000
-Message-ID: <MWHPR12MB160006024D920ED58126048AC8AB0@MWHPR12MB1600.namprd12.prod.outlook.com>
-References: <1498133721-21152-1-git-send-email-dingtianhong@huawei.com>,<MWHPR12MB160087E9E0B17F7A17609714C8AA0@MWHPR12MB1600.namprd12.prod.outlook.com>
-In-Reply-To: <MWHPR12MB160087E9E0B17F7A17609714C8AA0@MWHPR12MB1600.namprd12.prod.outlook.com>
-Content-Language: en-US
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-MIME-Version: 1.0
+From: Dave Watson <davejwatson@fb.com>
+Subject: Re: Kernel TLS in 4.13-rc1
+Date: Mon, 31 Jul 2017 15:00:00 -0700
+Message-ID: <20170731220000.GA93172@dhcp-172-20-173-153.dhcp.thefacebook.com>
+References: <1777546b-3ce0-7714-1388-fb2e6db9320f@sigma-star.at>
+ <20170724211019.GA88539@davejwatson-mba.local>
+ <d68c8999-277e-9eb1-0a5c-ee5eb32e0ef5@sigma-star.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Richard Weinberger <richard@nod.at>
+To: David Oberhollenzer <david.oberhollenzer@sigma-star.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51365 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751157AbdGaWAS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 18:00:18 -0400
+Content-Disposition: inline
+In-Reply-To: <d68c8999-277e-9eb1-0a5c-ee5eb32e0ef5@sigma-star.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  By the way, it ~seems~ like the patch set confuses the idea of the PCIe C=
-apability Device Control[Relaxed Ordering Enable] with the device's ability=
- to handle incoming TLPs with the Relaxed Ordering Attribute set.  These ar=
-e completely different things.  The PCIe Capability Device Control[Relaxed =
-Ordering Enable] solely governs the ability of the device to _send_ TLPs wi=
-th the Relaxed Ordering Attribute set.  It has nothing whatsoever to do wit=
-h the handling of incoming TLPs with the Relaxed Ordering Attribute set.  I=
-n fact, there is any standard way to disable receipt processing of such TLP=
-s.  That's kind of the whole point of the majority of the patch.  If there =
-was a separate "Ignore Incoming Relaxed Ordering Attributes" then we'd most=
-ly just have a quirk which would set that for problematic devices.
+On 07/30/17 11:14 PM, David Oberhollenzer wrote:
+> On 07/24/2017 11:10 PM, Dave Watson wrote:
+> > On 07/23/17 09:39 PM, David Oberhollenzer wrote:
+> >> After fixing the benchmark/test tool that the patch description
+> >> linked to (https://github.com/Mellanox/tls-af_ktls_tool) to make
+> >> sure that the server and client actually *agree* on AES-128-GCM,
+> >> I simply ran the client program with the --verify-sendpage option.
+> >>
+> >> The handshake and setting up of the sockets appears to work but
+> >> the program complains that the sent and received page contents
+> >> do not match (sent is 0x12 repeated all over and received looks
+> >> pretty random).
+> > 
+> > The --verify functions depend on the RX path as well, which has not
+> > been merged.  Any programs / tests using OpenSSL + patches should work
+> > fine.
+> > 
+> > If you want to use the tool, something like this should work, so that
+> > the receive path uses gnutls:
+> > 
+> > ./server --no-echo
+> > 
+> > ./client --server-port 12345 --sendfile some_file --server-host localhost
+> > 
+> 
+> Thanks! This appears to work as expected (output from the server matches the
+> input from the client and the pcap dumps look fine).
+> 
+> From briefly browsing through the code of the test tool I was initially under
+> the impression that it would generate an error message and terminate if an
+> attempt was made at configuring ktls for the RX path.
+> 
+> Anyway, I already read in the patch description that RX wasn't included yet,
+> still requires a few cleanups and would follow at some point.
+> 
+> Is there currently a "not-so-clean" version of the RX patches floating around
+> somewhere that we could take a look at?
 
-  Worse yet, if I'm reading the patch right, it _is_ turning off the PCIe C=
-apability Device Control[Relaxed Ordering Enable] for the devices that we'v=
-e identified with problematic receive handling.  Not only does this not sol=
-ve the problem that we've been talking about, it actually almost certainly =
-introduces a huge Graphics Performance Bug.  The Relaxed Ordering Attribute=
- was originally developed for Graphics Device support in order to download =
-textures, etc. to a graphics devices as fast as possible and only ensure or=
-dering at points where needed.  For instance, as far as I know, the Intel R=
-oot Complexes that we've been talking about have no issues whatsoever in ge=
-nerating downstream TLPs with the Relaxed Ordering Attribute set.  By turni=
-ng off the PCIe Capability Device Control[Relaxed Ordering Enable] on these=
- Root Complexes, this patch prevents the generation of downstream TLPs with=
- the Relaxed Ordering Attribute set targeted at devices like graphics adapt=
-ers.
+I dumped the current state here.  Still plenty rough but at least passes
+--verify-transmission for me.
 
-Casey=
+https://github.com/ktls/net_next_ktls/tree/tls_recv_net_next
+
+and config changes to af_ktls-tool
+
+https://github.com/ktls/af_ktls-tool/tree/RX
