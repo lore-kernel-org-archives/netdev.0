@@ -1,71 +1,65 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH] ss: Enclose IPv6 address in brackets
-Date: Mon, 31 Jul 2017 18:43:28 +0200
-Message-ID: <20170731164328.GW16375@orbyte.nwl.cc>
-References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
- <20170731103010.GU16375@orbyte.nwl.cc>
- <20170731092755.26270be3@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Lehner <dev@der-flo.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net v3] MAINTAINERS: Add more files to the PHY LIBRARY section
+Date: Mon, 31 Jul 2017 09:47:50 -0700
+Message-ID: <20170731164750.16544-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, joe@perches.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:42671 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751718AbdGaQna (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Jul 2017 12:43:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20170731092755.26270be3@xeon-e3>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33159 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750881AbdGaQsR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 12:48:17 -0400
+Received: by mail-wm0-f65.google.com with SMTP id q189so25456122wmd.0
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 09:48:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 31, 2017 at 09:27:55AM -0700, Stephen Hemminger wrote:
-> On Mon, 31 Jul 2017 12:30:10 +0200
-> Phil Sutter <phil@nwl.cc> wrote:
-> 
-> > On Sat, Jul 29, 2017 at 02:29:10PM +0200, Florian Lehner wrote:
-> > > This patch adds support for RFC2732 IPv6 address format with brackets
-> > > for the tool ss. So output for ss changes from
-> > > 2a00:1450:400a:804::200e:443 to [2a00:1450:400a:804::200e]:443 for IPv6
-> > > addresses with attached port number.
-> > > 
-> > > Signed-off-by: Lehner Florian <dev@der-flo.net>
-> > > ---
-> > >  misc/ss.c | 6 +++++-
-> > >  1 file changed, 5 insertions(+), 1 deletion(-)
-> > > 
-> > > diff --git a/misc/ss.c b/misc/ss.c
-> > > index 12763c9..db39c93 100644
-> > > --- a/misc/ss.c
-> > > +++ b/misc/ss.c
-> > > @@ -1059,7 +1059,11 @@ static void inet_addr_print(const inet_prefix *a,
-> > > int port, unsigned int ifindex
-> > >  			ap = format_host(AF_INET, 4, a->data);
-> > >  		}
-> > >  	} else {
-> > > -		ap = format_host(a->family, 16, a->data);
-> > > +		if (a->family == AF_INET6) {
-> > > +			sprintf(buf, "[%s]", format_host(a->family, 16, a->data));
-> > > +		} else {
-> > > +			ap = format_host(a->family, 16, a->data);
-> > > +		}
-> > >  		est_len = strlen(ap);
-> > >  		if (est_len <= addr_width)
-> > >  			est_len = addr_width;  
-> > 
-> > Note that this will enclosed resolved hostnames in brackets as well, not
-> > sure if that's intended. Looks like fixing that is not exactly trivial:
-> > Hostname resolution is buried in format_host() which resides in
-> > lib/utils.c so is shared code with ip, tc, etc. Hence, adding the
-> > brackets in rt_addr_n2a_r() is not an option, either. Adding a 'bool *'
-> > param to format_host() and format_host_r() indicating that name
-> > resolution has happened might help here.
-> > 
-> > Cheers, Phil
-> 
-> Also, this code should return "*" for IN6ADDR_ANY
+Include missing files that are provided by, used, or directly maintained
+within the PHY LIBRARY, this include uapi header, header files used by
+Device Tree code etc.
 
-Oh, really? It doesn't do that currently, and I always thought the IPv6
-all-zero address was written '::' (or '[::]:1234' if a port is present).
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changes in v3:
 
-Cheers, Phil
+- use wildcards suggested by Joe
+
+Changes in v2:
+
+- added the files Andrew identified and a few more
+- sort by alphabetical order
+
+ MAINTAINERS | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 297e610c9163..a7a392a74859 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5138,12 +5138,20 @@ M:	Andrew Lunn <andrew@lunn.ch>
+ M:	Florian Fainelli <f.fainelli@gmail.com>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+-F:	include/linux/phy.h
+-F:	include/linux/phy_fixed.h
+-F:	drivers/net/phy/
++F:	Documentation/ABI/testing/sysfs-bus-mdio
++F:	Documentation/devicetree/bindings/net/mdio*
+ F:	Documentation/networking/phy.txt
++F:	drivers/net/phy/
+ F:	drivers/of/of_mdio.c
+ F:	drivers/of/of_net.c
++F:	include/linux/*mdio*.h
++F:	include/linux/of_net.h
++F:	include/linux/phy.h
++F:	include/linux/phy_fixed.h
++F:	include/linux/platform_data/mdio-gpio.h
++F:	include/trace/events/mdio.h
++F:	include/uapi/linux/mdio.h
++F:	include/uapi/linux/mii.h
+ 
+ EXT2 FILE SYSTEM
+ M:	Jan Kara <jack@suse.com>
+-- 
+2.9.3
