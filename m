@@ -1,31 +1,76 @@
 From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH net-next 0/2] Refactor lan9303_xxx_packet_processing
-Date: Mon, 31 Jul 2017 13:33:53 +0200
-Message-ID: <20170731113355.4284-1-privat@egil-hjelmeland.no>
+Subject: [PATCH net-next 2/2] net: dsa: lan9303: Simplify lan9303_xxx_packet_processing() usage
+Date: Mon, 31 Jul 2017 13:33:55 +0200
+Message-ID: <20170731113355.4284-3-privat@egil-hjelmeland.no>
+References: <20170731113355.4284-1-privat@egil-hjelmeland.no>
 Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
 To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
         f.fainelli@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, kernel@pengutronix.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170731113355.4284-1-privat@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-First patch: 
-Change lan9303_enable_packet_processing,
-lan9303_disable_packet_processing():
-Pass port number (0,1,2) as parameter instead of port offset.
-Plus replaced a constant 0x400 with LAN9303_SWITCH_PORT_REG()
+Simplify usage of lan9303_enable_packet_processing,
+lan9303_disable_packet_processing()
 
-Second patch: Simplify accordingly.
+Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+---
+ drivers/net/dsa/lan9303-core.c | 24 ++++++++++--------------
+ 1 file changed, 10 insertions(+), 14 deletions(-)
 
-Comments welcome!
-
-Egil Hjelmeland (2):
-  net: dsa: lan9303: Refactor lan9303_xxx_packet_processing()
-  net: dsa: lan9303: Simplify lan9303_xxx_packet_processing() usage
-
- drivers/net/dsa/lan9303-core.c | 73 ++++++++++++++++++++----------------------
- 1 file changed, 35 insertions(+), 38 deletions(-)
-
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index 4d2bb8144c15..705267a1d2ba 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -559,15 +559,16 @@ static int lan9303_handle_reset(struct lan9303 *chip)
+ /* stop processing packets for all ports */
+ static int lan9303_disable_processing(struct lan9303 *chip)
+ {
+-	int ret;
++	int p;
+ 
+-	ret = lan9303_disable_packet_processing(chip, 0);
+-	if (ret)
+-		return ret;
+-	ret = lan9303_disable_packet_processing(chip, 1);
+-	if (ret)
+-		return ret;
+-	return lan9303_disable_packet_processing(chip, 2);
++	for (p = 0; p <= 2; p++) {
++		int ret;
++
++		ret = lan9303_disable_packet_processing(chip, p);
++		if (ret)
++			return ret;
++	}
++	return 0;
+ }
+ 
+ static int lan9303_check_device(struct lan9303 *chip)
+@@ -760,7 +761,6 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
+ 	/* enable internal packet processing */
+ 	switch (port) {
+ 	case 1:
+-		return lan9303_enable_packet_processing(chip, port);
+ 	case 2:
+ 		return lan9303_enable_packet_processing(chip, port);
+ 	default:
+@@ -779,13 +779,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
+ 	/* disable internal packet processing */
+ 	switch (port) {
+ 	case 1:
+-		lan9303_disable_packet_processing(chip, port);
+-		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
+-				  MII_BMCR, BMCR_PDOWN);
+-		break;
+ 	case 2:
+ 		lan9303_disable_packet_processing(chip, port);
+-		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
++		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
+ 				  MII_BMCR, BMCR_PDOWN);
+ 		break;
+ 	default:
 -- 
 2.11.0
