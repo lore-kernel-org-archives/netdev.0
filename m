@@ -1,7 +1,7 @@
 From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
 Subject: Re: [RFC PATCH v1] net: ethernet: nb8800: Reset HW block in ndo_open
-Date: Mon, 31 Jul 2017 16:18:42 +0100
-Message-ID: <yw1xshhciqi5.fsf@mansr.com>
+Date: Mon, 31 Jul 2017 16:28:14 +0100
+Message-ID: <yw1xo9s0iq29.fsf@mansr.com>
 References: <823b1540-b528-bbd7-7f99-5dc39a08868a@sigmadesigns.com>
         <yw1xk22slemx.fsf@mansr.com>
         <c1bf54ee-8634-23a1-abda-55bc3fafe2a8@sigmadesigns.com>
@@ -13,6 +13,7 @@ References: <823b1540-b528-bbd7-7f99-5dc39a08868a@sigmadesigns.com>
         <a5ef2294-2adf-743b-f877-144a8f3958b4@free.fr>
         <yw1x60e8kebc.fsf@mansr.com>
         <31792688-7720-1d1e-4fd4-a0f96ac8af59@free.fr>
+        <b1a6cd1d-ce02-708f-6c8e-defe0d8f3cd8@free.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8BIT
@@ -22,95 +23,92 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         Linux ARM <linux-arm-kernel@lists.infradead.org>
 To: Mason <slash.tmp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:56200 "EHLO unicorn.mansr.com"
+Received: from unicorn.mansr.com ([81.2.72.234]:56252 "EHLO unicorn.mansr.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752156AbdGaPSp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Jul 2017 11:18:45 -0400
-In-Reply-To: <31792688-7720-1d1e-4fd4-a0f96ac8af59@free.fr> (Mason's message
-        of "Mon, 31 Jul 2017 16:08:31 +0200")
+        id S1752096AbdGaP2P (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Jul 2017 11:28:15 -0400
+In-Reply-To: <b1a6cd1d-ce02-708f-6c8e-defe0d8f3cd8@free.fr> (Mason's message
+        of "Mon, 31 Jul 2017 17:18:02 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Mason <slash.tmp@free.fr> writes:
 
-> On 31/07/2017 13:59, Måns Rullgård wrote:
+> On 31/07/2017 16:08, Mason wrote:
 >
->> Mason writes:
+>> Other things make no sense to me, for example in nb8800_dma_stop()
+>> there is a polling loop:
 >> 
->>> On 29/07/2017 17:18, Florian Fainelli wrote:
->>>
->>>> On 07/29/2017 05:02 AM, Mason wrote:
->>>>
->>>>> I have identified a 100% reproducible flaw.
->>>>> I have proposed a work-around that brings this down to 0
->>>>> (tested 1000 cycles of link up / ping / link down).
->>>>
->>>> Can you also try to get help from your HW resources to eventually help
->>>> you find out what is going on here?
->>>
->>> The patch I proposed /is/ based on the feedback from the HW team :-(
->>> "Just reset the HW block, and everything will work as expected."
+>> 	do {
+>> 		mdelay(100);
+>> 		nb8800_writel(priv, NB8800_TX_DESC_ADDR, txb->dma_desc);
+>> 		wmb();
+>> 		mdelay(100);
+>> 		nb8800_writel(priv, NB8800_TXC_CR, txcr | TCR_EN);
 >> 
->> Nobody is saying a reset won't recover the lockup.  The problem is that
->> we don't know what caused it to lock up in the first place.  How do we
->> know it can't happen during normal operation?  If we knew the cause, it
->> might also be possible to avoid the situation entirely.
+>> 		mdelay(5500);
+>> 
+>> 		err = readl_poll_timeout_atomic(priv->base + NB8800_RXC_CR,
+>> 						rxcr, !(rxcr & RCR_EN),
+>> 						1000, 100000);
+>> 		printk("err=%d retry=%d\n", err, retry);
+>> 	} while (err && --retry);
+>> 
+>> 
+>> (It was me who added the delays.)
+>> 
+>> *Whatever* delays I insert, it always goes 3 times through the loop.
+>> 
+>> [   29.654492] ++ETH++ gw32 reg=f002610c val=9ecc8000
+>> [   29.759320] ++ETH++ gw32 reg=f0026100 val=005c0aff
+>> [   35.364705] err=-110 retry=5
+>> [   35.467609] ++ETH++ gw32 reg=f002610c val=9ecc8000
+>> [   35.572436] ++ETH++ gw32 reg=f0026100 val=005c0aff
+>> [   41.177822] err=-110 retry=4
+>> [   41.280726] ++ETH++ gw32 reg=f002610c val=9ecc8000
+>> [   41.385553] ++ETH++ gw32 reg=f0026100 val=005c0aff
+>> [   46.890907] err=0 retry=3
+>> 
+>> How is that possible?
 >
-> How does one prove that something "can't happen during normal operation"?
+> First time through the loop, it doesn't matter how long we poll,
+> it *always* times out. Second time as well (only on BOARD B).
+>
+> Third time, it succeeds quickly (first or second poll).
+> (This explains why various delays had no impact.)
+>
+> In fact, requesting the transfer 3 times *before* polling
+> makes the polling succeed quickly:
+>
+> 	nb8800_writel(priv, NB8800_TX_DESC_ADDR, txb->dma_desc);
+> 	wmb();
+> 	nb8800_writel(priv, NB8800_TXC_CR, txcr | TCR_EN);
+>
+> [   16.464596] ++ETH++ gw32 reg=f002610c val=9ef28000
+> [   16.469414] ++ETH++ gw32 reg=f0026100 val=005c0aff
+> [   16.474231] ++ETH++ gw32 reg=f002610c val=9ef28000
+> [   16.479048] ++ETH++ gw32 reg=f0026100 val=005c0aff
+> [   16.483865] ++ETH++ gw32 reg=f002610c val=9ef28000
+> [   16.488682] ++ETH++ gw32 reg=f0026100 val=005c0aff
+> [   16.493500] ++ETH++ POLL reg=f0026200 val=06100a8f
+> [   16.499317] ++ETH++ POLL reg=f0026200 val=06100a8e
+> [   16.504134] err=0 retry=5
 
-One figures out what conditions cause the something and ensures they
-never arise.
+That strengthens my theory that the hardware has an internal queue of
+three descriptors that are pre-loaded from memory.  Your hardware people
+should be able to confirm this.
 
-> The "put adapter in loop-back mode so we can send ourselves fake packets"
-> shenanigans seems completely insane, if you ask me.
+> With my changes, I get *exactly* the same logs on BOARD A
+> and BOARD B (modulo the descriptors addresses).
+>
+> Yet BOARD A stays functional, but BOARD B is hosed...
 
-Blame the hardware designers.  The *only* way to stop the rx dma is to
-have it receive a packet into a descriptor with the end of chain flag
-set.  Thankfully the loopback mode means this can be made to happen at
-will rather than waiting for actual network traffic.
+What's the difference between board A and board B?
 
-> Other things make no sense to me, for example in nb8800_dma_stop()
-> there is a polling loop:
->
-> 	do {
-> 		mdelay(100);
-> 		nb8800_writel(priv, NB8800_TX_DESC_ADDR, txb->dma_desc);
-> 		wmb();
-> 		mdelay(100);
-> 		nb8800_writel(priv, NB8800_TXC_CR, txcr | TCR_EN);
->
-> 		mdelay(5500);
->
-> 		err = readl_poll_timeout_atomic(priv->base + NB8800_RXC_CR,
-> 						rxcr, !(rxcr & RCR_EN),
-> 						1000, 100000);
-> 		printk("err=%d retry=%d\n", err, retry);
-> 	} while (err && --retry);
->
-> (It was me who added the delays.)
->
-> *Whatever* delays I insert, it always goes 3 times through the loop.
->
-> [   29.654492] ++ETH++ gw32 reg=f002610c val=9ecc8000
-> [   29.759320] ++ETH++ gw32 reg=f0026100 val=005c0aff
-> [   35.364705] err=-110 retry=5
-> [   35.467609] ++ETH++ gw32 reg=f002610c val=9ecc8000
-> [   35.572436] ++ETH++ gw32 reg=f0026100 val=005c0aff
-> [   41.177822] err=-110 retry=4
-> [   41.280726] ++ETH++ gw32 reg=f002610c val=9ecc8000
-> [   41.385553] ++ETH++ gw32 reg=f0026100 val=005c0aff
-> [   46.890907] err=0 retry=3
->
-> How is that possible?
+> Depressing. I've run out of ideas.
 
-One possibility is that the hardware loads three descriptors in advance
-and doesn't see the newly set end of chain flag until its internal queue
-has been used up.
-
-> I've tried using spinlocks and delays to get parallel execution
-> down to a minimum, and have the same logs on both boards.
->
-> Regards.
+Get your hardware people involved.  Perhaps they can run some test in a
+simulator.
 
 -- 
 Måns Rullgård
