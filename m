@@ -1,59 +1,58 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH] ss: Enclose IPv6 address in brackets
-Date: Mon, 31 Jul 2017 12:30:10 +0200
-Message-ID: <20170731103010.GU16375@orbyte.nwl.cc>
-References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
+From: John Crispin <john@phrozen.org>
+Subject: Re: [PATCH net-next v3 4/4] MAINTAINERS: add Sean/Nelson as MediaTek
+ ethernet maintainers
+Date: Mon, 31 Jul 2017 13:27:58 +0200
+Message-ID: <20bbc086-58c2-637d-2040-edd72e2b43c2@phrozen.org>
+References: <cover.1501494522.git.sean.wang@mediatek.com>
+ <68f201bdb4a45d376611b036b611a1d6bbdbe336.1501494522.git.sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Florian Lehner <dev@der-flo.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:35105 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750810AbdGaKaM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Jul 2017 06:30:12 -0400
-Content-Disposition: inline
-In-Reply-To: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nbd@openwrt.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        keyhaede@gmail.com, Nelson Chang <nelson.chang@mediatek.com>
+To: sean.wang@mediatek.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <68f201bdb4a45d376611b036b611a1d6bbdbe336.1501494522.git.sean.wang@mediatek.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 29, 2017 at 02:29:10PM +0200, Florian Lehner wrote:
-> This patch adds support for RFC2732 IPv6 address format with brackets
-> for the tool ss. So output for ss changes from
-> 2a00:1450:400a:804::200e:443 to [2a00:1450:400a:804::200e]:443 for IPv6
-> addresses with attached port number.
-> 
-> Signed-off-by: Lehner Florian <dev@der-flo.net>
+
+
+On 31/07/17 12:05, sean.wang@mediatek.com wrote:
+> From: Sean Wang <sean.wang@mediatek.com>
+>
+> Sean and Nelson work for MediaTek on maintaining the MediaTek ethernet
+> driver for the existing SoCs and adding support for the following SoCs.
+> In the past, Sean has been active at making most of the qualifications
+> , stress test and submitting a lot of patches for the driver while
+> Nelson was looking into the aspects more on hardware additions and details
+> such as introducing PDMA with Hardware LRO to the driver. Also update
+> John's up-to-date mail address in the patch.
+>
+> Cc: John Crispin <john@phrozen.org>
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
+
+Acked-by: John Crispin <john@phrozen.org>
+
 > ---
->  misc/ss.c | 6 +++++-
->  1 file changed, 5 insertions(+), 1 deletion(-)
-> 
-> diff --git a/misc/ss.c b/misc/ss.c
-> index 12763c9..db39c93 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -1059,7 +1059,11 @@ static void inet_addr_print(const inet_prefix *a,
-> int port, unsigned int ifindex
->  			ap = format_host(AF_INET, 4, a->data);
->  		}
->  	} else {
-> -		ap = format_host(a->family, 16, a->data);
-> +		if (a->family == AF_INET6) {
-> +			sprintf(buf, "[%s]", format_host(a->family, 16, a->data));
-> +		} else {
-> +			ap = format_host(a->family, 16, a->data);
-> +		}
->  		est_len = strlen(ap);
->  		if (est_len <= addr_width)
->  			est_len = addr_width;
-
-Note that this will enclosed resolved hostnames in brackets as well, not
-sure if that's intended. Looks like fixing that is not exactly trivial:
-Hostname resolution is buried in format_host() which resides in
-lib/utils.c so is shared code with ip, tc, etc. Hence, adding the
-brackets in rt_addr_n2a_r() is not an option, either. Adding a 'bool *'
-param to format_host() and format_host_r() indicating that name
-resolution has happened might help here.
-
-Cheers, Phil
+>   MAINTAINERS | 4 +++-
+>   1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index bd22d07..22faf704 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -8431,7 +8431,9 @@ F:	include/uapi/linux/uvcvideo.h
+>   
+>   MEDIATEK ETHERNET DRIVER
+>   M:	Felix Fietkau <nbd@openwrt.org>
+> -M:	John Crispin <blogic@openwrt.org>
+> +M:	John Crispin <john@phrozen.org>
+> +M:	Sean Wang <sean.wang@mediatek.com>
+> +M:	Nelson Chang <nelson.chang@mediatek.com>
+>   L:	netdev@vger.kernel.org
+>   S:	Maintained
+>   F:	drivers/net/ethernet/mediatek/
