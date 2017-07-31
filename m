@@ -1,64 +1,35 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net-next] net: fec: Issue error for missing but expected
- PHY
-Date: Mon, 31 Jul 2017 01:42:48 +0000
-Message-ID: <VI1PR0401MB22711000D5299C323189FD0BFFB20@VI1PR0401MB2271.eurprd04.prod.outlook.com>
-References: <1501445466-23518-1-git-send-email-andrew@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/4] net: dsa: lan9303: Fix MDIO issues.
+Date: Sun, 30 Jul 2017 19:23:45 -0700 (PDT)
+Message-ID: <20170730.192345.2215743860694319208.davem@davemloft.net>
+References: <20170730175856.4784-1-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0048.outbound.protection.outlook.com ([104.47.2.48]:11461
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751246AbdGaBmv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 30 Jul 2017 21:42:51 -0400
-In-Reply-To: <1501445466-23518-1-git-send-email-andrew@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel@pengutronix.de
+To: privat@egil-hjelmeland.no
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170730175856.4784-1-privat@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch> Sent: Monday, July 31, 2017 4:11 AM
->If the PHY is missing but expected, e.g. because of a typ0 in the dt file,=
- it is not
->possible to open the interface. ip link returns:
->
->RTNETLINK answers: No such device
->
->It is not very obvious what the problem is. Add a netdev_err() in this cas=
-e to
->make it easier to debug the issue.
->
->[   21.409385] fec 2188000.ethernet eth0: Unable to connect to phy
->RTNETLINK answers: No such device
->
->Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Date: Sun, 30 Jul 2017 19:58:52 +0200
 
-Acked-by: Fugang Duan <fugang.duan@nxp.com>
+> This series fix the MDIO interface for the lan9303 DSA driver.
+> Bugs found after testing on actual HW.
+> 
+> This series is extracted from the first patch of my first large
+> series. Significant changes from that version are:
+>  - use mdiobus_write_nested, mdiobus_read_nested.
+>  - EXPORT lan9303_indirect_phy_ops
+> 
+> Unfortunately I do not have access to i2c based system for
+> testing.
+> 
+> Changes from first version:
+>  - Change EXPORT_SYMBOL to EXPORT_SYMBOL_GPL
 
->---
-> drivers/net/ethernet/freescale/fec_main.c | 4 +++-
-> 1 file changed, 3 insertions(+), 1 deletion(-)
->
->diff --git a/drivers/net/ethernet/freescale/fec_main.c
->b/drivers/net/ethernet/freescale/fec_main.c
->index cc0c2a58c4de..c5995f07f821 100644
->--- a/drivers/net/ethernet/freescale/fec_main.c
->+++ b/drivers/net/ethernet/freescale/fec_main.c
->@@ -1907,8 +1907,10 @@ static int fec_enet_mii_probe(struct net_device
->*ndev)
-> 		phy_dev =3D of_phy_connect(ndev, fep->phy_node,
-> 					 &fec_enet_adjust_link, 0,
-> 					 fep->phy_interface);
->-		if (!phy_dev)
->+		if (!phy_dev) {
->+			netdev_err(ndev, "Unable to connect to phy\n");
-> 			return -ENODEV;
->+		}
-> 	} else {
-> 		/* check for attached phy */
-> 		for (phy_id =3D 0; (phy_id < PHY_MAX_ADDR); phy_id++) {
->--
->2.13.2
+Series applied, thanks.
