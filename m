@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 02/11] net: dsa: qca8k: fix EEE init
-Date: Mon, 31 Jul 2017 18:17:10 -0400
-Message-ID: <20170731221719.16695-3-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 05/11] net: dsa: qca8k: remove qca8k_get_eee
+Date: Mon, 31 Jul 2017 18:17:13 -0400
+Message-ID: <20170731221719.16695-6-vivien.didelot@savoirfairelinux.com>
 References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,51 +9,53 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:33576 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751176AbdGaWUS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 18:20:18 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The qca8k obviously copied code from the sf2 driver as how to set EEE:
-
-    if (e->eee_enabled) {
-        p->eee_enabled = qca8k_eee_init(ds, port, phydev);
-        if (!p->eee_enabled)
-            ret = -EOPNOTSUPP;
-    }
-
-But it did not use the same logic for the EEE init routine, which is
-"Returns 0 if EEE was not enabled, or 1 otherwise". This results in
-returning -EOPNOTSUPP on success and caching EEE enabled on failure.
-
-This patch fixes the returned value of qca8k_eee_init.
+phy_ethtool_get_eee is already called by the DSA layer, thus remove the
+duplicated call in the qca8k driver. qca8k_get_eee becomes unnecessary.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/qca8k.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/dsa/qca8k.c | 17 -----------------
+ 1 file changed, 17 deletions(-)
 
 diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index b3bee7eab45f..e076ab23d4df 100644
+index c316c55aabc6..b5f2710064e5 100644
 --- a/drivers/net/dsa/qca8k.c
 +++ b/drivers/net/dsa/qca8k.c
-@@ -666,11 +666,11 @@ qca8k_eee_init(struct dsa_switch *ds, int port,
- 
- 	ret = phy_init_eee(phy, 0);
- 	if (ret)
--		return ret;
-+		return 0;
- 
- 	qca8k_eee_enable_set(ds, port, true);
- 
--	return 0;
-+	return 1;
+@@ -691,22 +691,6 @@ qca8k_set_eee(struct dsa_switch *ds, int port,
+ 	return ret;
  }
  
- static int
+-static int
+-qca8k_get_eee(struct dsa_switch *ds, int port,
+-	      struct ethtool_eee *e)
+-{
+-	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
+-	struct ethtool_eee *p = &priv->port_sts[port].eee;
+-	struct net_device *netdev = ds->ports[port].netdev;
+-	int ret;
+-
+-	ret = phy_ethtool_get_eee(netdev->phydev, p);
+-	e->eee_active = p->eee_active;
+-	e->eee_enabled = p->eee_enabled;
+-
+-	return ret;
+-}
+-
+ static void
+ qca8k_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
+ {
+@@ -906,7 +890,6 @@ static const struct dsa_switch_ops qca8k_switch_ops = {
+ 	.phy_write		= qca8k_phy_write,
+ 	.get_ethtool_stats	= qca8k_get_ethtool_stats,
+ 	.get_sset_count		= qca8k_get_sset_count,
+-	.get_eee		= qca8k_get_eee,
+ 	.set_eee		= qca8k_set_eee,
+ 	.port_enable		= qca8k_port_enable,
+ 	.port_disable		= qca8k_port_disable,
 -- 
 2.13.3
