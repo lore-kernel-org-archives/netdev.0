@@ -1,37 +1,29 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Simplify
- lan9303_xxx_packet_processing() usage
-Date: Mon, 31 Jul 2017 15:46:40 +0200
-Message-ID: <20170731134640.GD24562@lunn.ch>
-References: <20170731113355.4284-1-privat@egil-hjelmeland.no>
- <20170731113355.4284-3-privat@egil-hjelmeland.no>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Simplify lan9303_xxx_packet_processing() usage
+Date: Mon, 31 Jul 2017 10:00:53 -0400
+Message-ID: <87379c4sfe.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170731113355.4284-1-privat@egil-hjelmeland.no> <20170731113355.4284-3-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@pengutronix.de
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+Content-Type: text/plain
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>, andrew@lunn.ch,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:57188 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750987AbdGaODs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 10:03:48 -0400
 In-Reply-To: <20170731113355.4284-3-privat@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 31, 2017 at 01:33:55PM +0200, Egil Hjelmeland wrote:
-> Simplify usage of lan9303_enable_packet_processing,
-> lan9303_disable_packet_processing()
-> 
-> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
-> ---
->  drivers/net/dsa/lan9303-core.c | 24 ++++++++++--------------
->  1 file changed, 10 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-> index 4d2bb8144c15..705267a1d2ba 100644
-> --- a/drivers/net/dsa/lan9303-core.c
-> +++ b/drivers/net/dsa/lan9303-core.c
-> @@ -559,15 +559,16 @@ static int lan9303_handle_reset(struct lan9303 *chip)
->  /* stop processing packets for all ports */
+Hi Egil,
+
+A few nitpicks below for lan9303_disable_processing.
+
+Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
+
 >  static int lan9303_disable_processing(struct lan9303 *chip)
 >  {
 > -	int ret;
@@ -45,12 +37,22 @@ On Mon, Jul 31, 2017 at 01:33:55PM +0200, Egil Hjelmeland wrote:
 > -		return ret;
 > -	return lan9303_disable_packet_processing(chip, 2);
 > +	for (p = 0; p <= 2; p++) {
+
+Exclusive limits are often prefer, i.e. 'p < 3'.
+
 > +		int ret;
 > +
 > +		ret = lan9303_disable_packet_processing(chip, p);
 > +		if (ret)
 > +			return ret;
+
+When any non-zero return code means an error, we usually see 'err'
+instead of 'ret'.
+
 > +	}
+
+blank line before return statments are appreciated.
+
 > +	return 0;
 >  }
 >  
@@ -60,6 +62,14 @@ On Mon, Jul 31, 2017 at 01:33:55PM +0200, Egil Hjelmeland wrote:
 >  	switch (port) {
 >  	case 1:
 > -		return lan9303_enable_packet_processing(chip, port);
+
+Is this deletion intentional? The commit message does not explain this.
+
+When possible, it is appreciated to separate functional from
+non-functional changes. For example one commit adding the loop in
+lan9303_disable_processing and another one to not enable/disable packet
+processing on port 1.
+
 >  	case 2:
 >  		return lan9303_enable_packet_processing(chip, port);
 >  	default:
@@ -77,21 +87,7 @@ On Mon, Jul 31, 2017 at 01:33:55PM +0200, Egil Hjelmeland wrote:
 > +		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
 >  				  MII_BMCR, BMCR_PDOWN);
 >  		break;
->  	default:
 
-:-)
+Thanks,
 
-So maybe i would squash this part into the previous patch. You were
-touching the functions anyway, and the change is obvious, so easy to
-review.
-
-But it is also O.K. this way. The cover note could of helped. You
-could of said something like: "Changes made in the first patch allow
-some simplifications to be made in the same code in the second patch.
-
-Breaking changes up is hard, and you cannot please everybody, all the
-time.
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+        Vivien
