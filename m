@@ -1,95 +1,113 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: [RFC PATCH v1] net: ethernet: nb8800: Reset HW block in ndo_open
-Date: Mon, 31 Jul 2017 16:08:31 +0200
-Message-ID: <31792688-7720-1d1e-4fd4-a0f96ac8af59@free.fr>
-References: <823b1540-b528-bbd7-7f99-5dc39a08868a@sigmadesigns.com>
- <yw1xk22slemx.fsf@mansr.com>
- <c1bf54ee-8634-23a1-abda-55bc3fafe2a8@sigmadesigns.com>
- <yw1xfudgl7am.fsf@mansr.com> <446e3a95-80c3-0742-9cb1-69a8dfc9b1ae@free.fr>
- <yw1x7eyrlc3s.fsf@mansr.com> <f04a0cba-6c09-e9e4-f2d1-d8b2a7e276c9@free.fr>
- <4ff343de-41c7-c309-04dc-983b5fe3e066@gmail.com>
- <a5ef2294-2adf-743b-f877-144a8f3958b4@free.fr> <yw1x60e8kebc.fsf@mansr.com>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Simplify
+ lan9303_xxx_packet_processing() usage
+Date: Mon, 31 Jul 2017 16:09:10 +0200
+Message-ID: <83b3fb27-97dd-a9ea-e0db-017d616f93fe@egil-hjelmeland.no>
+References: <20170731113355.4284-1-privat@egil-hjelmeland.no>
+ <20170731113355.4284-3-privat@egil-hjelmeland.no>
+ <20170731134640.GD24562@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mans Rullgard <mans@mansr.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:39645 "EHLO smtp5-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751647AbdGaOIo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Jul 2017 10:08:44 -0400
-In-Reply-To: <yw1x60e8kebc.fsf@mansr.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@pengutronix.de
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170731134640.GD24562@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 31/07/2017 13:59, Måns Rullgård wrote:
-
-> Mason writes:
-> 
->> On 29/07/2017 17:18, Florian Fainelli wrote:
+On 31. juli 2017 15:46, Andrew Lunn wrote:
+> On Mon, Jul 31, 2017 at 01:33:55PM +0200, Egil Hjelmeland wrote:
+>> Simplify usage of lan9303_enable_packet_processing,
+>> lan9303_disable_packet_processing()
 >>
->>> On 07/29/2017 05:02 AM, Mason wrote:
->>>
->>>> I have identified a 100% reproducible flaw.
->>>> I have proposed a work-around that brings this down to 0
->>>> (tested 1000 cycles of link up / ping / link down).
->>>
->>> Can you also try to get help from your HW resources to eventually help
->>> you find out what is going on here?
+>> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+>> ---
+>>   drivers/net/dsa/lan9303-core.c | 24 ++++++++++--------------
+>>   1 file changed, 10 insertions(+), 14 deletions(-)
 >>
->> The patch I proposed /is/ based on the feedback from the HW team :-(
->> "Just reset the HW block, and everything will work as expected."
+>> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+>> index 4d2bb8144c15..705267a1d2ba 100644
+>> --- a/drivers/net/dsa/lan9303-core.c
+>> +++ b/drivers/net/dsa/lan9303-core.c
+>> @@ -559,15 +559,16 @@ static int lan9303_handle_reset(struct lan9303 *chip)
+>>   /* stop processing packets for all ports */
+>>   static int lan9303_disable_processing(struct lan9303 *chip)
+>>   {
+>> -	int ret;
+>> +	int p;
+>>   
+>> -	ret = lan9303_disable_packet_processing(chip, 0);
+>> -	if (ret)
+>> -		return ret;
+>> -	ret = lan9303_disable_packet_processing(chip, 1);
+>> -	if (ret)
+>> -		return ret;
+>> -	return lan9303_disable_packet_processing(chip, 2);
+>> +	for (p = 0; p <= 2; p++) {
+>> +		int ret;
+>> +
+>> +		ret = lan9303_disable_packet_processing(chip, p);
+>> +		if (ret)
+>> +			return ret;
+>> +	}
+>> +	return 0;
+>>   }
+>>   
+>>   static int lan9303_check_device(struct lan9303 *chip)
+>> @@ -760,7 +761,6 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
+>>   	/* enable internal packet processing */
+>>   	switch (port) {
+>>   	case 1:
+>> -		return lan9303_enable_packet_processing(chip, port);
+>>   	case 2:
+>>   		return lan9303_enable_packet_processing(chip, port);
+>>   	default:
+>> @@ -779,13 +779,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
+>>   	/* disable internal packet processing */
+>>   	switch (port) {
+>>   	case 1:
+>> -		lan9303_disable_packet_processing(chip, port);
+>> -		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
+>> -				  MII_BMCR, BMCR_PDOWN);
+>> -		break;
+>>   	case 2:
+>>   		lan9303_disable_packet_processing(chip, port);
+>> -		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
+>> +		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
+>>   				  MII_BMCR, BMCR_PDOWN);
+>>   		break;
+>>   	default:
 > 
-> Nobody is saying a reset won't recover the lockup.  The problem is that
-> we don't know what caused it to lock up in the first place.  How do we
-> know it can't happen during normal operation?  If we knew the cause, it
-> might also be possible to avoid the situation entirely.
+> :-)
+> 
+> So maybe i would squash this part into the previous patch. You were
+> touching the functions anyway, and the change is obvious, so easy to
+> review.
+> 
+> But it is also O.K. this way. The cover note could of helped. You
+> could of said something like: "Changes made in the first patch allow
+> some simplifications to be made in the same code in the second patch.
+> 
+> Breaking changes up is hard, and you cannot please everybody, all the
+> time.
+> 
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> 
+>      Andrew
+> 
 
-How does one prove that something "can't happen during normal operation"?
+Hi Andrew
 
-The "put adapter in loop-back mode so we can send ourselves fake packets"
-shenanigans seems completely insane, if you ask me.
+This time I took the extra effort to split my  original patch...
 
-Other things make no sense to me, for example in nb8800_dma_stop()
-there is a polling loop:
+Your lan9303_write_switch_port suggestion (in previous reply) is fine.
+And I can improve the coverletter.
 
-	do {
-		mdelay(100);
-		nb8800_writel(priv, NB8800_TX_DESC_ADDR, txb->dma_desc);
-		wmb();
-		mdelay(100);
-		nb8800_writel(priv, NB8800_TXC_CR, txcr | TCR_EN);
+So I will do a v2 of the patch. But what is your advice:
+Should I squash the patch?
 
-		mdelay(5500);
-
-		err = readl_poll_timeout_atomic(priv->base + NB8800_RXC_CR,
-						rxcr, !(rxcr & RCR_EN),
-						1000, 100000);
-		printk("err=%d retry=%d\n", err, retry);
-	} while (err && --retry);
-
-
-(It was me who added the delays.)
-
-*Whatever* delays I insert, it always goes 3 times through the loop.
-
-[   29.654492] ++ETH++ gw32 reg=f002610c val=9ecc8000
-[   29.759320] ++ETH++ gw32 reg=f0026100 val=005c0aff
-[   35.364705] err=-110 retry=5
-[   35.467609] ++ETH++ gw32 reg=f002610c val=9ecc8000
-[   35.572436] ++ETH++ gw32 reg=f0026100 val=005c0aff
-[   41.177822] err=-110 retry=4
-[   41.280726] ++ETH++ gw32 reg=f002610c val=9ecc8000
-[   41.385553] ++ETH++ gw32 reg=f0026100 val=005c0aff
-[   46.890907] err=0 retry=3
-
-How is that possible?
-
-I've tried using spinlocks and delays to get parallel execution
-down to a minimum, and have the same logs on both boards.
-
-Regards.
+Egil
