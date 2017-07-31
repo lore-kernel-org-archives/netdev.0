@@ -1,49 +1,36 @@
-From: Koichiro Den <den@klaipeden.com>
-Subject: [PATCH net 2/2] gue: fix remcsum when GRO on and CHECKSUM_PARTIAL boundary is outer UDP
-Date: Tue,  1 Aug 2017 01:05:39 +0900
-Message-ID: <20170731160539.6013-1-den@klaipeden.com>
-Cc: tom@herbertland.com
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Massimo Sala <massimo.sala.71@gmail.com>
+Subject: new sysctl tunable knob : tcp_retries2_time
+Date: Mon, 31 Jul 2017 18:17:48 +0200
+Message-ID: <CAKv20-UNHrR-WwWYsPH4AHdbu+Qd2o7X5TXDDnJMA5-w7G9E9A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender-of-o52.zoho.com ([135.84.80.217]:21407 "EHLO
-        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752063AbdGaQGu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 12:06:50 -0400
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:37187 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752446AbdGaQRv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 12:17:51 -0400
+Received: by mail-lf0-f47.google.com with SMTP id m86so108796487lfi.4
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 09:17:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the case that GRO is turned on and the original received packet is
-CHECKSUM_PARTIAL, if the outer UDP header is exactly at the last
-csum-unnecessary point, which for instance could occur if the packet
-comes from another Linux guest on the same Linux host, we have to do
-either remcsum_adjust or set up CHECKSUM_PARTIAL again with its
-csum_start properly reset considering RCO.
+I wish to suggest to developers to add this new knob :
 
-However, since b7fe10e5ebac ("gro: Fix remcsum offload to deal with frags
-in GRO") that barrier in such case could be skipped if GRO turned on,
-hence we pass over it and the inner L4 validation mistakenly reckons
-it as a bad csum.
+tcp_retries2_time - INTEGER
+	This value influences the timeout (seconds) of an alive TCP connection,
+	when RTO retransmissions remain unacknowledged.
+        RFC 1122 recommends at least 100 seconds for the timeout,
+	which corresponds to a value of at least 8.
 
-This patch makes remcsum_offload being reset at the same time of GRO
-remcsum cleanup, so as to make it work in such case as before.
 
-Fixes: b7fe10e5ebac ("gro: Fix remcsum offload to deal with frags in GRO")
-Signed-off-by: Koichiro Den <den@klaipeden.com>
----
- net/ipv4/fou.c | 1 +
- 1 file changed, 1 insertion(+)
+Rationale :
+* I see a lot of misuse of tcp_retries2, because even if you check the
+RTO, it will change with different connections, routing, etc... and so
+tcp_retries2 timeout will change.
 
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 8e0257d01200..1540db65241a 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -450,6 +450,7 @@ static struct sk_buff **gue_gro_receive(struct sock *sk,
- out:
- 	NAPI_GRO_CB(skb)->flush |= flush;
- 	skb_gro_remcsum_cleanup(skb, &grc);
-+	skb->remcsum_offload = 0;
- 
- 	return pp;
- }
--- 
-2.9.4
+* An absolute value will be friendly and better ton read and document.
+See other parameters with two knobs ( example : dirty_ratio,
+dirty_ratio_bytes ).
+
+Best regards, Sala
