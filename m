@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 08/11] net: dsa: call phy_init_eee in DSA layer
-Date: Mon, 31 Jul 2017 18:17:16 -0400
-Message-ID: <20170731221719.16695-9-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 09/11] net: dsa: remove PHY device argument from .set_eee
+Date: Mon, 31 Jul 2017 18:17:17 -0400
+Message-ID: <20170731221719.16695-10-vivien.didelot@savoirfairelinux.com>
 References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,132 +14,108 @@ In-Reply-To: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All DSA drivers are calling phy_init_eee if eee_enabled is true.
+The DSA switch operations for EEE are only meant to configure a port's
+MAC EEE settings. The port's PHY EEE settings are accessed by the DSA
+layer and must be made available via a proper PHY driver.
 
-Move up this statement in the DSA layer to simplify the DSA drivers.
-qca8k does not require to cache the ethtool_eee structures from now on.
+In order to reduce this confusion, remove the phy_device argument from
+the .set_eee operation.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/bcm_sf2.c        |  9 +--------
- drivers/net/dsa/mv88e6xxx/chip.c |  6 ------
- drivers/net/dsa/qca8k.c          | 31 ++-----------------------------
- drivers/net/dsa/qca8k.h          |  1 -
- net/dsa/slave.c                  |  6 ++++++
- 5 files changed, 9 insertions(+), 44 deletions(-)
+ drivers/net/dsa/bcm_sf2.c        |  1 -
+ drivers/net/dsa/mv88e6xxx/chip.c |  2 +-
+ drivers/net/dsa/qca8k.c          | 14 +++-----------
+ include/net/dsa.h                |  1 -
+ net/dsa/slave.c                  |  2 +-
+ 5 files changed, 5 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index aef475f1ce06..9d10aac8f241 100644
+index 9d10aac8f241..ce886345d8d2 100644
 --- a/drivers/net/dsa/bcm_sf2.c
 +++ b/drivers/net/dsa/bcm_sf2.c
-@@ -360,14 +360,7 @@ static int bcm_sf2_sw_set_eee(struct dsa_switch *ds, int port,
- 	struct ethtool_eee *p = &priv->port_sts[port].eee;
- 
- 	p->eee_enabled = e->eee_enabled;
--
--	if (!p->eee_enabled) {
--		bcm_sf2_eee_enable_set(ds, port, false);
--	} else {
--		p->eee_enabled = bcm_sf2_eee_init(ds, port, phydev);
--		if (!p->eee_enabled)
--			return -EOPNOTSUPP;
--	}
-+	bcm_sf2_eee_enable_set(ds, port, e->eee_enabled);
- 
- 	return 0;
+@@ -353,7 +353,6 @@ static int bcm_sf2_sw_get_eee(struct dsa_switch *ds, int port,
  }
+ 
+ static int bcm_sf2_sw_set_eee(struct dsa_switch *ds, int port,
+-			      struct phy_device *phydev,
+ 			      struct ethtool_eee *e)
+ {
+ 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index b531d4a3bab5..647d5d45c1d6 100644
+index 647d5d45c1d6..aaa96487f21f 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -855,12 +855,6 @@ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
- 	struct mv88e6xxx_chip *chip = ds->priv;
- 	int err;
- 
--	if (e->eee_enabled) {
--		err = phy_init_eee(phydev, 0);
--		if (err)
--			return err;
--	}
--
- 	mutex_lock(&chip->reg_lock);
- 	err = mv88e6xxx_energy_detect_write(chip, port, e);
- 	mutex_unlock(&chip->reg_lock);
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index b5f2710064e5..038a895d9a96 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -655,40 +655,13 @@ qca8k_eee_enable_set(struct dsa_switch *ds, int port, bool enable)
+@@ -850,7 +850,7 @@ static int mv88e6xxx_get_eee(struct dsa_switch *ds, int port,
  }
  
- static int
--qca8k_eee_init(struct dsa_switch *ds, int port,
--	       struct phy_device *phy)
--{
--	int ret;
--
--	ret = phy_init_eee(phy, 0);
--	if (ret)
--		return 0;
--
--	qca8k_eee_enable_set(ds, port, true);
--
--	return 1;
+ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+-			     struct phy_device *phydev, struct ethtool_eee *e)
++			     struct ethtool_eee *e)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+ 	int err;
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index 038a895d9a96..400333077a9f 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -637,8 +637,8 @@ qca8k_get_sset_count(struct dsa_switch *ds)
+ 	return ARRAY_SIZE(ar8327_mib);
+ }
+ 
+-static void
+-qca8k_eee_enable_set(struct dsa_switch *ds, int port, bool enable)
++static int
++qca8k_set_eee(struct dsa_switch *ds, int port, struct ethtool_eee *eee)
+ {
+ 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
+ 	u32 lpi_en = QCA8K_REG_EEE_CTRL_LPI_EN(port);
+@@ -646,20 +646,12 @@ qca8k_eee_enable_set(struct dsa_switch *ds, int port, bool enable)
+ 
+ 	mutex_lock(&priv->reg_mutex);
+ 	reg = qca8k_read(priv, QCA8K_REG_EEE_CTRL);
+-	if (enable)
++	if (eee->eee_enabled)
+ 		reg |= lpi_en;
+ 	else
+ 		reg &= ~lpi_en;
+ 	qca8k_write(priv, QCA8K_REG_EEE_CTRL, reg);
+ 	mutex_unlock(&priv->reg_mutex);
 -}
 -
 -static int
- qca8k_set_eee(struct dsa_switch *ds, int port,
- 	      struct phy_device *phydev,
- 	      struct ethtool_eee *e)
- {
--	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
--	struct ethtool_eee *p = &priv->port_sts[port].eee;
--	int ret = 0;
-+	qca8k_eee_enable_set(ds, port, e->eee_enabled);
+-qca8k_set_eee(struct dsa_switch *ds, int port,
+-	      struct phy_device *phydev,
+-	      struct ethtool_eee *e)
+-{
+-	qca8k_eee_enable_set(ds, port, e->eee_enabled);
  
--	p->eee_enabled = e->eee_enabled;
--
--	if (!p->eee_enabled) {
--		qca8k_eee_enable_set(ds, port, false);
--	} else {
--		p->eee_enabled = qca8k_eee_init(ds, port, phydev);
--		if (!p->eee_enabled)
--			ret = -EOPNOTSUPP;
--	}
--
--	return ret;
-+	return 0;
+ 	return 0;
  }
- 
- static void
-diff --git a/drivers/net/dsa/qca8k.h b/drivers/net/dsa/qca8k.h
-index 1ed4fac6cd6d..1cf8a920d4ff 100644
---- a/drivers/net/dsa/qca8k.h
-+++ b/drivers/net/dsa/qca8k.h
-@@ -156,7 +156,6 @@ enum qca8k_fdb_cmd {
- };
- 
- struct ar8xxx_port_status {
--	struct ethtool_eee eee;
- 	int enabled;
- };
- 
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 88da272d20d0..ce46db323394 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -335,7 +335,6 @@ struct dsa_switch_ops {
+ 	 * EEE setttings
+ 	 */
+ 	int	(*set_eee)(struct dsa_switch *ds, int port,
+-			   struct phy_device *phydev,
+ 			   struct ethtool_eee *e);
+ 	int	(*get_eee)(struct dsa_switch *ds, int port,
+ 			   struct ethtool_eee *e);
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 518145ced434..bf71c206fe8f 100644
+index bf71c206fe8f..6bc75ab438e8 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -655,6 +655,12 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
- 	}
+@@ -649,7 +649,7 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	int err = -ENODEV;
  
- 	if (p->phy) {
-+		if (e->eee_enabled) {
-+			err = phy_init_eee(p->phy, 0);
-+			if (err)
-+				return err;
-+		}
-+
- 		err = phy_ethtool_set_eee(p->phy, e);
+ 	if (ds->ops->set_eee) {
+-		err = ds->ops->set_eee(ds, p->dp->index, p->phy, e);
++		err = ds->ops->set_eee(ds, p->dp->index, e);
  		if (err)
  			return err;
+ 	}
 -- 
 2.13.3
