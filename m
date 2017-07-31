@@ -1,113 +1,59 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Simplify
- lan9303_xxx_packet_processing() usage
-Date: Mon, 31 Jul 2017 16:09:10 +0200
-Message-ID: <83b3fb27-97dd-a9ea-e0db-017d616f93fe@egil-hjelmeland.no>
-References: <20170731113355.4284-1-privat@egil-hjelmeland.no>
- <20170731113355.4284-3-privat@egil-hjelmeland.no>
- <20170731134640.GD24562@lunn.ch>
+From: Seth Forshee <seth.forshee@canonical.com>
+Subject: Re: Performance regression with virtio_net
+Date: Mon, 31 Jul 2017 09:29:34 -0500
+Message-ID: <20170731142934.wcn22fyvjcqyauda@ubuntu-xps13>
+References: <20170730222552.4fxxnx3jxg4yv65g@multivac.euank.com>
+ <20170731161903-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@pengutronix.de
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170731134640.GD24562@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Euan Kemp <euan.kemp@coreos.com>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:38301 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751951AbdGaO3g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 10:29:36 -0400
+Received: by mail-it0-f46.google.com with SMTP id h199so126163574ith.1
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 07:29:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170731161903-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 31. juli 2017 15:46, Andrew Lunn wrote:
-> On Mon, Jul 31, 2017 at 01:33:55PM +0200, Egil Hjelmeland wrote:
->> Simplify usage of lan9303_enable_packet_processing,
->> lan9303_disable_packet_processing()
->>
->> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
->> ---
->>   drivers/net/dsa/lan9303-core.c | 24 ++++++++++--------------
->>   1 file changed, 10 insertions(+), 14 deletions(-)
->>
->> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
->> index 4d2bb8144c15..705267a1d2ba 100644
->> --- a/drivers/net/dsa/lan9303-core.c
->> +++ b/drivers/net/dsa/lan9303-core.c
->> @@ -559,15 +559,16 @@ static int lan9303_handle_reset(struct lan9303 *chip)
->>   /* stop processing packets for all ports */
->>   static int lan9303_disable_processing(struct lan9303 *chip)
->>   {
->> -	int ret;
->> +	int p;
->>   
->> -	ret = lan9303_disable_packet_processing(chip, 0);
->> -	if (ret)
->> -		return ret;
->> -	ret = lan9303_disable_packet_processing(chip, 1);
->> -	if (ret)
->> -		return ret;
->> -	return lan9303_disable_packet_processing(chip, 2);
->> +	for (p = 0; p <= 2; p++) {
->> +		int ret;
->> +
->> +		ret = lan9303_disable_packet_processing(chip, p);
->> +		if (ret)
->> +			return ret;
->> +	}
->> +	return 0;
->>   }
->>   
->>   static int lan9303_check_device(struct lan9303 *chip)
->> @@ -760,7 +761,6 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
->>   	/* enable internal packet processing */
->>   	switch (port) {
->>   	case 1:
->> -		return lan9303_enable_packet_processing(chip, port);
->>   	case 2:
->>   		return lan9303_enable_packet_processing(chip, port);
->>   	default:
->> @@ -779,13 +779,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
->>   	/* disable internal packet processing */
->>   	switch (port) {
->>   	case 1:
->> -		lan9303_disable_packet_processing(chip, port);
->> -		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
->> -				  MII_BMCR, BMCR_PDOWN);
->> -		break;
->>   	case 2:
->>   		lan9303_disable_packet_processing(chip, port);
->> -		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
->> +		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
->>   				  MII_BMCR, BMCR_PDOWN);
->>   		break;
->>   	default:
+On Mon, Jul 31, 2017 at 04:26:08PM +0300, Michael S. Tsirkin wrote:
+> On Sun, Jul 30, 2017 at 03:25:52PM -0700, Euan Kemp wrote:
+> > I've also observed this performance regression.
+> > 
+> > The minimal fix for me is removing the two
+> > > if (unlikely(len > (unsigned long)ctx))
+> > checks added in 680557c.
+> > 
+> > After digging a little more, the reason that check can fail appears to
+> > be that add_recvbuf_mergeable sometimes includes a hole at the end,
+> > which is included in len but not ctx.
+> > 
+> > I'd send a patch removing those conditions, but I'm not certain
+> > whether "truesize" in receive_mergeable should also be changed back to
+> > be the max of len/ctx, or should remain as-is.
+> > 
+> > - Euan
 > 
-> :-)
+> Thanks a lot for looking into it!
 > 
-> So maybe i would squash this part into the previous patch. You were
-> touching the functions anyway, and the change is obvious, so easy to
-> review.
+> I kept this around unchanged from
+> ab7db91705e95ed1bba1304388936fccfa58c992.  That commit had an internal
+> reason not to account for that space: not enough bits to do it.  No
+> longer true so let's account for length exactly.  I'll send a proper
+> patch after a bit of testing, would appreciate reports reports of
+> whether this helps very much.
 > 
-> But it is also O.K. this way. The cover note could of helped. You
-> could of said something like: "Changes made in the first patch allow
-> some simplifications to be made in the same code in the second patch.
-> 
-> Breaking changes up is hard, and you cannot please everybody, all the
-> time.
-> 
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> 
->      Andrew
-> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Hi Andrew
+This fixes the issue for me, downloads are faster and rx_length_errors
+does not show any errors.
 
-This time I took the extra effort to split my  original patch...
+Tested-by: Seth Forshee <seth.forshee@canonical.com>
 
-Your lan9303_write_switch_port suggestion (in previous reply) is fine.
-And I can improve the coverletter.
+Thanks!
 
-So I will do a v2 of the patch. But what is your advice:
-Should I squash the patch?
-
-Egil
+Seth
