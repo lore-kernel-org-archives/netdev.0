@@ -1,66 +1,80 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1 v2] netfilter: constify nf_conntrack_l3/4proto
- parameters
-Date: Mon, 31 Jul 2017 20:44:37 +0200
-Message-ID: <20170731184437.GA12928@salvia>
-References: <1501443524-13201-1-git-send-email-Julia.Lawall@lip6.fr>
- <1501443524-13201-2-git-send-email-Julia.Lawall@lip6.fr>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH net] virtio_net: fix truesize for mergeable buffers
+Date: Mon, 31 Jul 2017 21:49:49 +0300
+Message-ID: <1501526948-5285-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, bhumirks@gmail.com,
-        kernel-janitors@vger.kernel.org,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Seth Forshee <seth.forshee@canonical.com>,
+	David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1501443524-13201-2-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Julia,
+Seth Forshee noticed a performance degradation with some workloads.
+This turns out to be due to packet drops.  Euan Kemp noticed that this
+is because we drop all packets where length exceeds the truesize, but
+for some packets we add in extra memory without updating the truesize.
+This in turn was kept around unchanged from ab7db91705e95 ("virtio-net:
+auto-tune mergeable rx buffer size for improved performance").  That
+commit had an internal reason not to account for the extra space: not
+enough bits to do it.  No longer true so let's account for the allocated
+length exactly.
 
-On Sun, Jul 30, 2017 at 09:38:44PM +0200, Julia Lawall wrote:
-> When a nf_conntrack_l3/4proto parameter is not on the left hand side
-> of an assignment, its address is not taken, and it is not passed to a
-> function that may modify its fields, then it can be declared as const.
-> 
-> This change is useful from a documentation point of view, and can
-> possibly facilitate making some nf_conntrack_l3/4proto structures const
-> subsequently.
-> 
-> Done with the help of Coccinelle.
-> 
-> Some spacing adjusted to fit within 80 characters.
+Many thanks to Seth Forshee for the report and bisecting and Euan Kemp
+for debugging the issue.
 
-patching file include/net/netfilter/nf_conntrack_l3proto.h
-Hunk #1 FAILED at 76.
-1 out of 1 hunk FAILED -- saving rejects to file
-include/net/netfilter/nf_conntrack_l3proto.h.rej
-patching file include/net/netfilter/nf_conntrack_l4proto.h
-patching file include/net/netfilter/nf_conntrack_timeout.h
-patching file net/netfilter/nf_conntrack_core.c
-Hunk #1 succeeded at 1176 (offset -7 lines).
-Hunk #2 succeeded at 1288 (offset -7 lines).
-patching file net/netfilter/nf_conntrack_netlink.c
-patching file net/netfilter/nf_conntrack_proto.c
-Hunk #2 FAILED at 242.
-Hunk #3 FAILED at 271.
-Hunk #4 succeeded at 257 with fuzz 1 (offset -29 lines).
-Hunk #5 succeeded at 272 (offset -29 lines).
-Hunk #6 succeeded at 295 (offset -29 lines).
-Hunk #7 succeeded at 366 (offset -29 lines).
-Hunk #8 succeeded at 391 (offset -29 lines).
-Hunk #9 succeeded at 404 (offset -29 lines).
-Hunk #10 succeeded at 415 (offset -29 lines).
-Hunk #11 succeeded at 449 (offset -29 lines).
-Hunk #12 succeeded at 485 (offset -29 lines).
-2 out of 12 hunks FAILED -- saving rejects to file
-net/netfilter/nf_conntrack_proto.c.rej
-patching file net/netfilter/nfnetlink_cttimeout.c
+Fixes: 680557cf79f8 ("virtio_net: rework mergeable buffer handling")
+Reported-by: Euan Kemp <euan.kemp@coreos.com>
+Tested-by: Euan Kemp <euan.kemp@coreos.com>
+Reported-by: Seth Forshee <seth.forshee@canonical.com>
+Tested-by: Seth Forshee <seth.forshee@canonical.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-Could you rebase on top of nf-next git tree?
+This patch is needed on stable as well.
 
-Thanks a lot!
+ drivers/net/virtio_net.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index f41ab0e..98f17b0 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -889,21 +889,20 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi,
+ 
+ 	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
+ 	buf += headroom; /* advance address leaving hole at front of pkt */
+-	ctx = (void *)(unsigned long)len;
+ 	get_page(alloc_frag->page);
+ 	alloc_frag->offset += len + headroom;
+ 	hole = alloc_frag->size - alloc_frag->offset;
+ 	if (hole < len + headroom) {
+ 		/* To avoid internal fragmentation, if there is very likely not
+ 		 * enough space for another buffer, add the remaining space to
+-		 * the current buffer. This extra space is not included in
+-		 * the truesize stored in ctx.
++		 * the current buffer.
+ 		 */
+ 		len += hole;
+ 		alloc_frag->offset += hole;
+ 	}
+ 
+ 	sg_init_one(rq->sg, buf, len);
++	ctx = (void *)(unsigned long)len;
+ 	err = virtqueue_add_inbuf_ctx(rq->vq, rq->sg, 1, buf, ctx, gfp);
+ 	if (err < 0)
+ 		put_page(virt_to_head_page(buf));
+-- 
+MST
