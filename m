@@ -1,60 +1,38 @@
-From: Yujuan Qi <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH] Cipso: cipso_v4_optptr enter infinite loop
-Date: Mon, 31 Jul 2017 11:23:01 +0800
-Message-ID: <1501471381-12808-1-git-send-email-yujuan.qi@mediatek.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v5 net-next] net: systemport: Support 64bit statistics
+Date: Sun, 30 Jul 2017 20:45:46 -0700
+Message-ID: <BB135D88-36F0-40AB-84D0-EF3A36B5AC2F@gmail.com>
+References: <1501459275-7635-1-git-send-email-jqiaoulk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ryder Lee <ryder.lee-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, "yujuan.qi" <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>
-To: Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+To: "Jianming.qiao" <jqiaoulk@gmail.com>, davem@davemloft.net,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33703 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751674AbdGaDrr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 23:47:47 -0400
+Received: by mail-pg0-f66.google.com with SMTP id u185so6966694pgb.0
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 20:47:47 -0700 (PDT)
+In-Reply-To: <1501459275-7635-1-git-send-email-jqiaoulk@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "yujuan.qi" <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+On July 30, 2017 5:01:15 PM PDT, "Jianming=2Eqiao" <jqiaoulk@gmail=2Ecom> w=
+rote:
+>When using Broadcom Systemport device in 32bit Platform, ifconfig can
+>only report up to 4G tx,rx status, which will be wrapped to 0 when the
+>number of incoming or outgoing packets exceeds 4G, only taking
+>around 2 hours in busy network environment (such as streaming)=2E
+>Therefore, it makes hard for network diagnostic tool to get reliable
+>statistical result, so the patch is used to add 64bit support for
+>Broadcom Systemport device in 32bit Platform=2E
+>
+>Signed-off-by: Jianming=2Eqiao <kiki-good@hotmail=2Ecom>
 
-in for(),if((optlen > 0) && (optptr[1] == 0)), enter infinite loop.
+Reviewed-by: Florian Fainelli <f=2Efainelli@gmail=2Ecom>
 
-Test: receive a packet which the ip length > 20 and the first byte of ip option is 0, produce this issue
-
-Signed-off-by: yujuan.qi <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
----
- net/ipv4/cipso_ipv4.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index ae20616..0d1e07d 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -1523,9 +1523,17 @@ unsigned char *cipso_v4_optptr(const struct sk_buff *skb)
- 	int taglen;
- 
- 	for (optlen = iph->ihl*4 - sizeof(struct iphdr); optlen > 0; ) {
--		if (optptr[0] == IPOPT_CIPSO)
-+		switch (optptr[0]) {
-+		case IPOPT_CIPSO:
- 			return optptr;
--		taglen = optptr[1];
-+		case IPOPT_END:
-+			return NULL;
-+		case IPOPT_NOOP:
-+			taglen = 1;
-+			break;
-+		default:
-+			taglen = optptr[1];
-+		}
- 		optlen -= taglen;
- 		optptr += taglen;
- 	}
--- 
-1.9.1
+--=20
+Florian
