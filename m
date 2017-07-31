@@ -1,43 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fec: Allow reception of frames bigger
- than 1522 bytes
-Date: Sun, 30 Jul 2017 19:26:29 -0700 (PDT)
-Message-ID: <20170730.192629.124814765201077334.davem@davemloft.net>
-References: <1501436165-20259-1-git-send-email-andrew@lunn.ch>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next v12 1/4] net netlink: Add new type NLA_BITFIELD32
+Date: Sun, 30 Jul 2017 20:27:25 -0600
+Message-ID: <c65cfbc7-8ead-bad4-7d75-f2dd7361bebf@gmail.com>
+References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+ <1501435492-28301-2-git-send-email-jhs@emojatatu.com>
+ <20170730184242.GA1872@nanopsycho>
+ <98edc93f-b5d9-e73f-ff00-9403e8362f80@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fugang.duan@nxp.com
-To: andrew@lunn.ch
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        horms@verge.net.au
+To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59262 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751789AbdGaC0a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 22:26:30 -0400
-In-Reply-To: <1501436165-20259-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:37111 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751760AbdGaC1X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 22:27:23 -0400
+Received: by mail-pg0-f66.google.com with SMTP id k190so13435460pgk.4
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 19:27:23 -0700 (PDT)
+In-Reply-To: <98edc93f-b5d9-e73f-ff00-9403e8362f80@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Sun, 30 Jul 2017 19:36:05 +0200
+On 7/30/17 1:59 PM, Jamal Hadi Salim wrote:
+> On D. Ahern: I dont think we are disagreeing anymore on the need to
+> generalize the check. He is saying it should be a helper and I already
+> had the validation data; either works. I dont see the gapping need
+> to remove the validation data.
 
-> The FEC Receive Control Register has a 14 bit field indicating the
-> longest frame that my be received. It is being set to 1522. Frames
-> longer than this are discarded, but counted as being in error.
-> 
-> When using DSA, frames from the switch has an additional header,
-> either 4 or 8 bytes if a Marvell switch is used. Thus a full MTU frame
-> of 1522 bytes received by the switch on a port becomes 1530 bytes when
-> passed to the host via the FEC interface.
-> 
-> Change the maximum receive size to 2048 - 64, where 64 is the maximum
-> rx_alignment applied on the receive buffer for AVB capable FEC
-> cores. Use this value also for the maximum receive buffer size. The
-> driver is already allocating a receive SKB of 2048 bytes, so this
-> change should not have any significant effects.
-> 
-> Tested on imx51, imx6, vf610.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-
-Applied with commit log message typo fixed.
+I never disagreed on general code; I have always disagreed on validating
+values as part of the policy check.
