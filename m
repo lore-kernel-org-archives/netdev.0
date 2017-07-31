@@ -1,76 +1,41 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH net-next 2/2] net: dsa: lan9303: Simplify lan9303_xxx_packet_processing() usage
-Date: Mon, 31 Jul 2017 13:33:55 +0200
-Message-ID: <20170731113355.4284-3-privat@egil-hjelmeland.no>
-References: <20170731113355.4284-1-privat@egil-hjelmeland.no>
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@pengutronix.de
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 4/4] net: dsa: lan9303: MDIO access phy
+ registers directly
+Date: Mon, 31 Jul 2017 11:44:15 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0047300@AcuExch.aculab.com>
+References: <20170728151157.28983-1-privat@egil-hjelmeland.no>
+ <20170728151157.28983-5-privat@egil-hjelmeland.no>
+ <87fudglget.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <50d2d34c-c1a5-7f0a-90f1-44b1be1775b7@egil-hjelmeland.no>
+ <87fudgqz4w.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <1250382a-1c17-8e82-8c5c-fe14786c84db@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: 'Florian Fainelli' <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel@pengutronix.de" <kernel@pengutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170731113355.4284-1-privat@egil-hjelmeland.no>
+In-Reply-To: <1250382a-1c17-8e82-8c5c-fe14786c84db@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simplify usage of lan9303_enable_packet_processing,
-lan9303_disable_packet_processing()
-
-Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
----
- drivers/net/dsa/lan9303-core.c | 24 ++++++++++--------------
- 1 file changed, 10 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index 4d2bb8144c15..705267a1d2ba 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -559,15 +559,16 @@ static int lan9303_handle_reset(struct lan9303 *chip)
- /* stop processing packets for all ports */
- static int lan9303_disable_processing(struct lan9303 *chip)
- {
--	int ret;
-+	int p;
- 
--	ret = lan9303_disable_packet_processing(chip, 0);
--	if (ret)
--		return ret;
--	ret = lan9303_disable_packet_processing(chip, 1);
--	if (ret)
--		return ret;
--	return lan9303_disable_packet_processing(chip, 2);
-+	for (p = 0; p <= 2; p++) {
-+		int ret;
-+
-+		ret = lan9303_disable_packet_processing(chip, p);
-+		if (ret)
-+			return ret;
-+	}
-+	return 0;
- }
- 
- static int lan9303_check_device(struct lan9303 *chip)
-@@ -760,7 +761,6 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
- 	/* enable internal packet processing */
- 	switch (port) {
- 	case 1:
--		return lan9303_enable_packet_processing(chip, port);
- 	case 2:
- 		return lan9303_enable_packet_processing(chip, port);
- 	default:
-@@ -779,13 +779,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
- 	/* disable internal packet processing */
- 	switch (port) {
- 	case 1:
--		lan9303_disable_packet_processing(chip, port);
--		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
--				  MII_BMCR, BMCR_PDOWN);
--		break;
- 	case 2:
- 		lan9303_disable_packet_processing(chip, port);
--		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
-+		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
- 				  MII_BMCR, BMCR_PDOWN);
- 		break;
- 	default:
--- 
-2.11.0
+RnJvbTogRmxvcmlhbiBGYWluZWxsaQ0KPiBTZW50OiAyOCBKdWx5IDIwMTcgMTg6MDUNCi4uLg0K
+PiA+Pj4+ICtFWFBPUlRfU1lNQk9MKGxhbjkzMDNfaW5kaXJlY3RfcGh5X29wcyk7DQo+ID4+Pg0K
+PiA+Pj4gSXNuJ3QgRVhQT1JUX1NZTUJPTF9HUEwgcHJlZmVyZWQgb3ZlciBFWFBPUlRfU1lNQk9M
+Pw0KPiA+Pg0KPiA+PiBJIGhhdmUgbm8gb3Bpbmlvbi4gSSBqdXN0IHVzZWQgdGhlIHNhbWUgdmFy
+aWFudCBhcyB0aGUgb3RoZXIgRVhQT1JUUw0KPiA+PiBpbiB0aGUgZmlsZS4NCj4gPg0KPiA+IElm
+IHRoZXJlIGlzIG5vIGNvbmNlcm4gZnJvbSBvdGhlcnMgYWJvdXQgdGhpcywgTEdUTSB0b286DQo+
+IA0KPiBTaW5jZSB0aGUga2VybmVsIG1vZHVsZSBsaWNlbnNlIGlzIEdQTCwgRVhQT1JUX1NZTUJP
+TF9HUEwoKSB3b3VsZCBzZWVtDQo+IHRvIGJlIGFwcHJvcHJpYXRlLCB3aGljaCBjYW4gYmUgZG9u
+ZSBhcyBhIHN1YnNlcXVlbnQgcGF0Y2guDQoNCkl0IGRlcGVuZHMgb24gd2hldGhlciB0aGUgZnVu
+Y3Rpb24gbmVlZHMgdG8gYmUgdXNhYmxlIGJ5ICdvdXQgb2YgdHJlZScNCm5vbi1HUEwgbW9kdWxl
+cy4NClRoaXMgbG9va3MgbGlrZSBhICdwcml2YXRlJyBleHBvcnQgYmV0d2VlbiByZWxhdGVkIG1v
+ZHVsZXMuDQpUaGUgcHJvYmxlbXMgYXJpc2Ugd2l0aCBmdW5jdGlvbnMgbGlrZSBwdXRfbnMoKSBh
+bmQgcHV0X3BpZCgpDQp3aGljaCBjYW4gZWFzaWx5IGJlIG5lZWRlZCBieSBub24tR1BMIGNvZGUu
+DQoNCglEYXZpZA0KDQo=
