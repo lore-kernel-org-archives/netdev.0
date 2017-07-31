@@ -1,114 +1,51 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [RFC PATCH v1] net: ethernet: nb8800: Reset HW block in ndo_open
-Date: Mon, 31 Jul 2017 16:28:14 +0100
-Message-ID: <yw1xo9s0iq29.fsf@mansr.com>
-References: <823b1540-b528-bbd7-7f99-5dc39a08868a@sigmadesigns.com>
-        <yw1xk22slemx.fsf@mansr.com>
-        <c1bf54ee-8634-23a1-abda-55bc3fafe2a8@sigmadesigns.com>
-        <yw1xfudgl7am.fsf@mansr.com>
-        <446e3a95-80c3-0742-9cb1-69a8dfc9b1ae@free.fr>
-        <yw1x7eyrlc3s.fsf@mansr.com>
-        <f04a0cba-6c09-e9e4-f2d1-d8b2a7e276c9@free.fr>
-        <4ff343de-41c7-c309-04dc-983b5fe3e066@gmail.com>
-        <a5ef2294-2adf-743b-f877-144a8f3958b4@free.fr>
-        <yw1x60e8kebc.fsf@mansr.com>
-        <31792688-7720-1d1e-4fd4-a0f96ac8af59@free.fr>
-        <b1a6cd1d-ce02-708f-6c8e-defe0d8f3cd8@free.fr>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH V3 net-next] TLP: Don't reschedule PTO when there's one
+ outstanding TLP retransmission
+Date: Mon, 31 Jul 2017 11:49:13 -0400
+Message-ID: <CADVnQymVniXHxEDW8aA8z+M=G_qNfo+jJfUBrfHycM4-voiDJw@mail.gmail.com>
+References: <1501157337-10900-1-git-send-email-maowenan@huawei.com>
+ <CADVnQy=Dw__BrTHwoUrn0Wxu8=Xb7NqZ9bAuEeM8SrNhzd_2SA@mail.gmail.com>
+ <F95AC9340317A84688A5F0DF0246F3F2029326B6@DGGEMI512-MBX.china.huawei.com>
+ <CADVnQykeDvPCQqvoox-oQkm5FdCvLQRvxZKC+TVmG7g-9CEoxw@mail.gmail.com> <F95AC9340317A84688A5F0DF0246F3F202932CA2@DGGEMI512-MBX.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mason <slash.tmp@free.fr>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Chenweilong <chenweilong@huawei.com>,
+        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>
+To: maowenan <maowenan@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:56252 "EHLO unicorn.mansr.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752096AbdGaP2P (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Jul 2017 11:28:15 -0400
-In-Reply-To: <b1a6cd1d-ce02-708f-6c8e-defe0d8f3cd8@free.fr> (Mason's message
-        of "Mon, 31 Jul 2017 17:18:02 +0200")
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:33161 "EHLO
+        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751046AbdGaPtp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 11:49:45 -0400
+Received: by mail-oi0-f45.google.com with SMTP id a9so187968932oih.0
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 08:49:45 -0700 (PDT)
+In-Reply-To: <F95AC9340317A84688A5F0DF0246F3F202932CA2@DGGEMI512-MBX.china.huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mason <slash.tmp@free.fr> writes:
+On Sun, Jul 30, 2017 at 11:29 PM, maowenan <maowenan@huawei.com> wrote:
+> [Mao Wenan]please refer to the attachment, test.pkt is packetdrill script.
+> In test.pcap, packet number 17 is the TLP probe, packet number 218 is the
+> retransmission packet because client don't send data packet to server.
+> From the capture time, there are about 6 seconds the retransmission
+> packet can be sent, and this time can be added more as long as client
+> send data packet continually.
+> I have reproduced this issue in Linux 4.13-rc3, 3.10, 4.1. Please check the timing
+> When you use test.pkt to reproduce in your environment.
 
-> On 31/07/2017 16:08, Mason wrote:
->
->> Other things make no sense to me, for example in nb8800_dma_stop()
->> there is a polling loop:
->> 
->> 	do {
->> 		mdelay(100);
->> 		nb8800_writel(priv, NB8800_TX_DESC_ADDR, txb->dma_desc);
->> 		wmb();
->> 		mdelay(100);
->> 		nb8800_writel(priv, NB8800_TXC_CR, txcr | TCR_EN);
->> 
->> 		mdelay(5500);
->> 
->> 		err = readl_poll_timeout_atomic(priv->base + NB8800_RXC_CR,
->> 						rxcr, !(rxcr & RCR_EN),
->> 						1000, 100000);
->> 		printk("err=%d retry=%d\n", err, retry);
->> 	} while (err && --retry);
->> 
->> 
->> (It was me who added the delays.)
->> 
->> *Whatever* delays I insert, it always goes 3 times through the loop.
->> 
->> [   29.654492] ++ETH++ gw32 reg=f002610c val=9ecc8000
->> [   29.759320] ++ETH++ gw32 reg=f0026100 val=005c0aff
->> [   35.364705] err=-110 retry=5
->> [   35.467609] ++ETH++ gw32 reg=f002610c val=9ecc8000
->> [   35.572436] ++ETH++ gw32 reg=f0026100 val=005c0aff
->> [   41.177822] err=-110 retry=4
->> [   41.280726] ++ETH++ gw32 reg=f002610c val=9ecc8000
->> [   41.385553] ++ETH++ gw32 reg=f0026100 val=005c0aff
->> [   46.890907] err=0 retry=3
->> 
->> How is that possible?
->
-> First time through the loop, it doesn't matter how long we poll,
-> it *always* times out. Second time as well (only on BOARD B).
->
-> Third time, it succeeds quickly (first or second poll).
-> (This explains why various delays had no impact.)
->
-> In fact, requesting the transfer 3 times *before* polling
-> makes the polling succeed quickly:
->
-> 	nb8800_writel(priv, NB8800_TX_DESC_ADDR, txb->dma_desc);
-> 	wmb();
-> 	nb8800_writel(priv, NB8800_TXC_CR, txcr | TCR_EN);
->
-> [   16.464596] ++ETH++ gw32 reg=f002610c val=9ef28000
-> [   16.469414] ++ETH++ gw32 reg=f0026100 val=005c0aff
-> [   16.474231] ++ETH++ gw32 reg=f002610c val=9ef28000
-> [   16.479048] ++ETH++ gw32 reg=f0026100 val=005c0aff
-> [   16.483865] ++ETH++ gw32 reg=f002610c val=9ef28000
-> [   16.488682] ++ETH++ gw32 reg=f0026100 val=005c0aff
-> [   16.493500] ++ETH++ POLL reg=f0026200 val=06100a8f
-> [   16.499317] ++ETH++ POLL reg=f0026200 val=06100a8e
-> [   16.504134] err=0 retry=5
+Thank you for your very nice packetdrill test case illustrating this
+problem! And thanks for verifying that the problem shows up in those
+kernel versions.
 
-That strengthens my theory that the hardware has an internal queue of
-three descriptors that are pre-loaded from memory.  Your hardware people
-should be able to confirm this.
+We are able to run the script in our environment and both verify that
+the bug is the one we hypothesized, and verify our  proposed patch
+fixes it (the RTO for the TLP happens 221ms after the TLP, instead of
+~5 secs later). We will send out our proposed patches ASAP.
 
-> With my changes, I get *exactly* the same logs on BOARD A
-> and BOARD B (modulo the descriptors addresses).
->
-> Yet BOARD A stays functional, but BOARD B is hosed...
-
-What's the difference between board A and board B?
-
-> Depressing. I've run out of ideas.
-
-Get your hardware people involved.  Perhaps they can run some test in a
-simulator.
-
--- 
-Måns Rullgård
+Thanks!
+neal
