@@ -1,8 +1,7 @@
 From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH V5 2/2] brcmfmac: don't warn user about NVRAM if fallback to the platform one succeeds
-Date: Mon, 31 Jul 2017 17:09:45 +0200
-Message-ID: <20170731150945.8925-2-zajec5@gmail.com>
-References: <20170731150945.8925-1-zajec5@gmail.com>
+Subject: [PATCH V5 1/2] firmware: add more flexible request_firmware_async function
+Date: Mon, 31 Jul 2017 17:09:44 +0200
+Message-ID: <20170731150945.8925-1-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -24,85 +23,150 @@ Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
         Franky Lin <franky.li
 To: "Luis R . Rodriguez" <mcgrof@kernel.org>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:35137 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752291AbdGaPLY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 11:11:24 -0400
-In-Reply-To: <20170731150945.8925-1-zajec5@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Rafał Miłecki <rafal@milecki.pl>
 
-Failing to load NVRAM *file* isn't critical if we manage to get platform
-NVRAM in the fallback path. It means warnings like:
-[   10.801506] brcmfmac 0000:01:00.0: Direct firmware load for brcm/brcmfmac43602-pcie.txt failed with error -2
-are unnecessary & disturbing for people with *platform* NVRAM as they
-are not expected to have NVRAM file. This is a very common case for
-Broadcom home routers.
+So far we got only one function for loading firmware asynchronously:
+request_firmware_nowait. It didn't allow much customization of firmware
+loading process - there is only one bool uevent argument. Moreover this
+bool also controls user helper in an unclear way.
 
-Instead of printing warning immediately within the firmware subsystem
-let's try our fallback code first. If that fails as well, then it's a
-right moment to print an error.
+Some drivers need more flexible helper providing more options. This
+includes control over uevent or warning for the missing firmware. Of
+course this list may grow up in the future.
 
-This should reduce amount of false reports from users seeing this
-warning while having wireless working perfectly fine with the platform
-NVRAM.
+To handle this easily this patch adds a generic request_firmware_async
+function. It takes struct with options as an argument which will allow
+extending it in the future without massive changes.
+
+This is a really cheap change (no new independent API) which works
+nicely with the existing code. The old request_firmware_nowait is kept
+as a simple helper calling new helper.
 
 Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
 ---
-V2: Update commit message as it wasn't clear enough (thanks Andy) & add extra
-    messages to the firmware.c.
-V3: Set FW_OPT_UEVENT to don't change behavior
-V4: Switch to the new request_firmware_async syntax
+V3: Don't expose all FW_OPT_* flags.
+    As Luis noted we want a struct so add struct firmware_opts for real
+    flexibility.
+    Thank you Luis for your review!
 V5: Rebase, update commit message, resend after drvdata discussion
 ---
- .../wireless/broadcom/brcm80211/brcmfmac/firmware.c    | 18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
+ drivers/base/firmware_class.c | 43 ++++++++++++++++++++++++++++++++++---------
+ include/linux/firmware.h      | 15 ++++++++++++++-
+ 2 files changed, 48 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/firmware.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/firmware.c
-index d231042f19d6..524442b3870f 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/firmware.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/firmware.c
-@@ -462,8 +462,14 @@ static void brcmf_fw_request_nvram_done(const struct firmware *fw, void *ctx)
- 		raw_nvram = false;
- 	} else {
- 		data = bcm47xx_nvram_get_contents(&data_len);
--		if (!data && !(fwctx->flags & BRCMF_FW_REQ_NV_OPTIONAL))
--			goto fail;
-+		if (!data) {
-+			brcmf_dbg(TRACE, "Failed to get platform NVRAM\n");
-+			if (!(fwctx->flags & BRCMF_FW_REQ_NV_OPTIONAL)) {
-+				brcmf_err("Loading NVRAM from %s and using platform one both failed\n",
-+					  fwctx->nvram_name);
-+				goto fail;
-+			}
-+		}
- 		raw_nvram = true;
- 	}
+diff --git a/drivers/base/firmware_class.c b/drivers/base/firmware_class.c
+index b9f907eedbf7..cde85b05e4cb 100644
+--- a/drivers/base/firmware_class.c
++++ b/drivers/base/firmware_class.c
+@@ -1375,7 +1375,7 @@ static void request_firmware_work_func(struct work_struct *work)
+ 	_request_firmware(&fw, fw_work->name, fw_work->device, NULL, 0,
+ 			  fw_work->opt_flags);
+ 	fw_work->cont(fw, fw_work->context);
+-	put_device(fw_work->device); /* taken in request_firmware_nowait() */
++	put_device(fw_work->device); /* taken in __request_firmware_nowait() */
  
-@@ -491,6 +497,9 @@ static void brcmf_fw_request_nvram_done(const struct firmware *fw, void *ctx)
- static void brcmf_fw_request_code_done(const struct firmware *fw, void *ctx)
+ 	module_put(fw_work->module);
+ 	kfree_const(fw_work->name);
+@@ -1383,10 +1383,9 @@ static void request_firmware_work_func(struct work_struct *work)
+ }
+ 
+ /**
+- * request_firmware_nowait - asynchronous version of request_firmware
++ * __request_firmware_nowait - asynchronous version of request_firmware
+  * @module: module requesting the firmware
+- * @uevent: sends uevent to copy the firmware image if this flag
+- *	is non-zero else the firmware copy must be done manually.
++ * @opt_flags: flags that control firmware loading process, see FW_OPT_*
+  * @name: name of firmware file
+  * @device: device for which firmware is being loaded
+  * @gfp: allocation flags
+@@ -1405,9 +1404,9 @@ static void request_firmware_work_func(struct work_struct *work)
+  *
+  *		- can't sleep at all if @gfp is GFP_ATOMIC.
+  **/
+-int
+-request_firmware_nowait(
+-	struct module *module, bool uevent,
++static int
++__request_firmware_nowait(
++	struct module *module, unsigned int opt_flags,
+ 	const char *name, struct device *device, gfp_t gfp, void *context,
+ 	void (*cont)(const struct firmware *fw, void *context))
  {
- 	struct brcmf_fw *fwctx = ctx;
-+	struct firmware_opts fw_opts = {
-+		.optional = true,
-+	};
- 	int ret = 0;
+@@ -1426,8 +1425,7 @@ request_firmware_nowait(
+ 	fw_work->device = device;
+ 	fw_work->context = context;
+ 	fw_work->cont = cont;
+-	fw_work->opt_flags = FW_OPT_NOWAIT | FW_OPT_FALLBACK |
+-		(uevent ? FW_OPT_UEVENT : FW_OPT_USERHELPER);
++	fw_work->opt_flags = FW_OPT_NOWAIT | opt_flags;
  
- 	brcmf_dbg(TRACE, "enter: dev=%s\n", dev_name(fwctx->dev));
-@@ -503,9 +512,8 @@ static void brcmf_fw_request_code_done(const struct firmware *fw, void *ctx)
- 		goto done;
+ 	if (!try_module_get(module)) {
+ 		kfree_const(fw_work->name);
+@@ -1440,8 +1438,35 @@ request_firmware_nowait(
+ 	schedule_work(&fw_work->work);
+ 	return 0;
+ }
++
++int request_firmware_nowait(struct module *module, bool uevent,
++			    const char *name, struct device *device, gfp_t gfp,
++			    void *context,
++			    void (*cont)(const struct firmware *fw, void *context))
++{
++	unsigned int opt_flags = FW_OPT_FALLBACK |
++		(uevent ? FW_OPT_UEVENT : FW_OPT_USERHELPER);
++
++	return __request_firmware_nowait(module, opt_flags, name, device, gfp,
++					 context, cont);
++}
+ EXPORT_SYMBOL(request_firmware_nowait);
  
- 	fwctx->code = fw;
--	ret = request_firmware_nowait(THIS_MODULE, true, fwctx->nvram_name,
--				      fwctx->dev, GFP_KERNEL, fwctx,
--				      brcmf_fw_request_nvram_done);
-+	ret = request_firmware_async(fwctx->nvram_name, &fw_opts, fwctx->dev,
-+				     fwctx, brcmf_fw_request_nvram_done);
++int __request_firmware_async(struct module *module, const char *name,
++			     struct firmware_opts *fw_opts, struct device *dev,
++			     void *context,
++			     void (*cont)(const struct firmware *fw, void *context))
++{
++	unsigned int opt_flags = FW_OPT_UEVENT;
++
++	if (fw_opts->optional)
++		opt_flags |= FW_OPT_NO_WARN;
++
++	return __request_firmware_nowait(module, opt_flags, name, dev,
++					 GFP_KERNEL, context, cont);
++}
++EXPORT_SYMBOL(__request_firmware_async);
++
+ #ifdef CONFIG_PM_SLEEP
+ static ASYNC_DOMAIN_EXCLUSIVE(fw_cache_domain);
  
- 	/* pass NULL to nvram callback for bcm47xx fallback */
- 	if (ret)
+diff --git a/include/linux/firmware.h b/include/linux/firmware.h
+index b1f9f0ccb8ac..a32b6e67462d 100644
+--- a/include/linux/firmware.h
++++ b/include/linux/firmware.h
+@@ -82,6 +82,19 @@ static inline int request_firmware_into_buf(const struct firmware **firmware_p,
+ {
+ 	return -EINVAL;
+ }
+-
+ #endif
++
++struct firmware_opts {
++	bool optional;
++};
++
++int __request_firmware_async(struct module *module, const char *name,
++			     struct firmware_opts *fw_opts, struct device *dev,
++			     void *context,
++			     void (*cont)(const struct firmware *fw, void *context));
++
++#define request_firmware_async(name, fw_opts, dev, context, cont)	\
++	__request_firmware_async(THIS_MODULE, name, fw_opts, dev,	\
++				 context, cont)
++
+ #endif
 -- 
 2.11.0
