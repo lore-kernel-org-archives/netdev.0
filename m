@@ -1,62 +1,60 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] ipv6: set fc_protocol with 0 when rtm_protocol is RTPROT_REDIRECT
-Date: Mon, 31 Jul 2017 15:31:32 +1200
-Message-ID: <CADvbK_ew8tD=sQQkZ03ijGafFQEzR0sf69DZ1_rNkX9E5mFpuw@mail.gmail.com>
-References: <e9342d18b97fc227cacc19db1b43f4c7350eed3f.1501419097.git.lucien.xin@gmail.com>
- <9fcbffcb-4a14-764c-7fe4-2108b8944c17@gmail.com>
+From: Yujuan Qi <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH] Cipso: cipso_v4_optptr enter infinite loop
+Date: Mon, 31 Jul 2017 11:23:01 +0800
+Message-ID: <1501471381-12808-1-git-send-email-yujuan.qi@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
-        =?UTF-8?Q?Mantas_Mikul=C4=97nas?= <grawity@gmail.com>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:35523 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751700AbdGaDbd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 23:31:33 -0400
-Received: by mail-qk0-f196.google.com with SMTP id a77so8153773qkb.2
-        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 20:31:33 -0700 (PDT)
-In-Reply-To: <9fcbffcb-4a14-764c-7fe4-2108b8944c17@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Ryder Lee <ryder.lee-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, "yujuan.qi" <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>
+To: Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 31, 2017 at 2:35 PM, David Ahern <dsahern@gmail.com> wrote:
-> On 7/30/17 6:51 AM, Xin Long wrote:
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index 4d30c96..187580f 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -2912,9 +2912,11 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
->>       cfg->fc_dst_len = rtm->rtm_dst_len;
->>       cfg->fc_src_len = rtm->rtm_src_len;
->>       cfg->fc_flags = RTF_UP;
->> -     cfg->fc_protocol = rtm->rtm_protocol;
->>       cfg->fc_type = rtm->rtm_type;
->>
->> +     if (rtm->rtm_protocol != RTPROT_REDIRECT)
->> +             cfg->fc_protocol = rtm->rtm_protocol;
->> +
->>       if (rtm->rtm_type == RTN_UNREACHABLE ||
->>           rtm->rtm_type == RTN_BLACKHOLE ||
->>           rtm->rtm_type == RTN_PROHIBIT ||
-Hi, David
->
-> Did you look at removing this hunk from rt6_fill_node:
->
->         if (rt->rt6i_flags & RTF_DYNAMIC)
->                 rtm->rtm_protocol = RTPROT_REDIRECT;
->         else if (rt->rt6i_flags & RTF_ADDRCONF) {
->                 if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ROUTEINFO))
->                         rtm->rtm_protocol = RTPROT_RA;
->                 else
->                         rtm->rtm_protocol = RTPROT_KERNEL;
->         }
-The issue seems to affect "ip -6 route flush all" as well, not only cache
-since 'else if {}' also  causes rtm proto being different from rt6 proto.
+From: "yujuan.qi" <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
->
-> And have rtm_protocol set properly on the route when it is installed?
-The codes not keeping rtm proto consistent with rt6 proto day 1,
-any idea on why it didn't use rt6 proto in kernel properly?
+in for(),if((optlen > 0) && (optptr[1] == 0)), enter infinite loop.
 
-Thanks.
+Test: receive a packet which the ip length > 20 and the first byte of ip option is 0, produce this issue
+
+Signed-off-by: yujuan.qi <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+---
+ net/ipv4/cipso_ipv4.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
+index ae20616..0d1e07d 100644
+--- a/net/ipv4/cipso_ipv4.c
++++ b/net/ipv4/cipso_ipv4.c
+@@ -1523,9 +1523,17 @@ unsigned char *cipso_v4_optptr(const struct sk_buff *skb)
+ 	int taglen;
+ 
+ 	for (optlen = iph->ihl*4 - sizeof(struct iphdr); optlen > 0; ) {
+-		if (optptr[0] == IPOPT_CIPSO)
++		switch (optptr[0]) {
++		case IPOPT_CIPSO:
+ 			return optptr;
+-		taglen = optptr[1];
++		case IPOPT_END:
++			return NULL;
++		case IPOPT_NOOP:
++			taglen = 1;
++			break;
++		default:
++			taglen = optptr[1];
++		}
+ 		optlen -= taglen;
+ 		optptr += taglen;
+ 	}
+-- 
+1.9.1
