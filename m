@@ -1,261 +1,93 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH-net-next] net: add skb_frag_foreach_page and use with kmap_atomic
-Date: Mon, 31 Jul 2017 08:15:47 -0400
-Message-ID: <20170731121547.23736-1-willemdebruijn.kernel@gmail.com>
-Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:34945 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750923AbdGaMPv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 08:15:51 -0400
-Received: by mail-qt0-f194.google.com with SMTP id t37so14923281qtg.2
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 05:15:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: Re: [PATCH 0/3] net-next: stmmac: support future possible different
+ internal phy mode
+Date: Mon, 31 Jul 2017 20:19:40 +0800
+Message-ID: <CAGb2v6626KDmww5u_-ogMJHgfdxTHQLCnUF4bmcUt35f2JJgLg@mail.gmail.com>
+References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
+ <20170728135544.GD32230@lunn.ch> <20170728142508.GA7221@Red>
+ <20170728143600.GB2132@lunn.ch> <20170728144424.GB7221@Red>
+ <f8fe754c-8b46-a9f6-4020-f7db6c985773@gmail.com> <20170729064815.GA2024@Red>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170729064815.GA2024@Red>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+On Sat, Jul 29, 2017 at 2:48 PM, Corentin Labbe
+<clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Fri, Jul 28, 2017 at 10:54:30AM -0700, Florian Fainelli wrote:
+>> On 07/28/2017 07:44 AM, Corentin Labbe wrote:
+>> > On Fri, Jul 28, 2017 at 04:36:00PM +0200, Andrew Lunn wrote:
+>> >>>> I've probably asked this before: Does the internal PHY use a different
+>> >>>> PHY ID in registers 2 and 3?
+>> >>>>
+>> >>>
+>> >>> yes
+>> >>>
+>> >>> reg2: 0x0044
+>> >>> reg3: 0X1500
+>> >
+>> > Copy/paste error, its 1400
+>> >
+>> >>
+>> >> So this is not about loading the correct PHY driver. You can already
+>> >> do this based on the PHY IDs...
+>> >>
+>> >> This is about selecting which PHY to use. Internal or External?
+>> >>
+>> >>      Andrew
+>> >
+>> > It is too late when we know the PHY ID.
+>>
+>> > We need to set a syscon for choosing external/internal PHY.
+>> > So we can rely only on DT.
+>>
+>> Since the Device Tree needs to be correct to identify which PHY to use
+>> (internal or external), if you use the standard compatible string for
+>> the PHY that contains its OUI, e.g:
+>>
+>> compatible = "ethernet-phy-id0044.1400", "ethernet-phy-ieee802.3-c22"
+>>
+>> then you can have your Ethernet MAC identify whether this is an internal
+>> PHY by having a list of compatible strings to match against.
+>
+> So basicly, I replace sun8i-h3-ephy by ethernet-phy-id0044.1400 and it is good ?
 
-Skb frags may contain compound pages. Various operations map frags
-temporarily using kmap_atomic, but this function works on single
-pages, not whole compound pages. The distinction is only relevant
-for high mem pages that require temporary mappings.
+IIRC you mentioned some time ago the PHY in the AC200 also has this ID?
+Do you remember if this is true?
 
-Introduce a looping mechanism that for compound highmem pages maps
-one page at a time, does not change behavior on other pages.
-Use the loop in the kmap_atomic callers in net/core/skbuff.c.
+If someone were crazy enough to hook that up to the H3, then we still
+wouldn't be able to tell if it's the internal or external one.
 
-Verified by triggering skb_copy_bits with
+ChenYu
 
-    tcpdump -n -c 100 -i ${DEV} -w /dev/null &
-    netperf -t TCP_STREAM -H ${HOST}
-
-  and by triggering __skb_checksum with
-
-    ethtool -K ${DEV} tx off
-
-  repeated the tests with looping on a non-highmem platform
-  (x86_64) by making skb_frag_must_loop always return true.
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-
----
-
-Changes
-  RFC -> v1: rebased only
----
- include/linux/skbuff.h | 36 +++++++++++++++++++++
- net/core/skbuff.c      | 88 +++++++++++++++++++++++++++++++++-----------------
- 2 files changed, 95 insertions(+), 29 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4093552be1de..e8c855be453a 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -345,6 +345,42 @@ static inline void skb_frag_size_sub(skb_frag_t *frag, int delta)
- 	frag->size -= delta;
- }
- 
-+static inline bool skb_frag_must_loop(struct page *p)
-+{
-+#if defined(CONFIG_HIGHMEM)
-+	if (PageHighMem(p))
-+		return true;
-+#endif
-+	return false;
-+}
-+
-+/**
-+ *	skb_frag_foreach_page - loop over pages in a fragment
-+ *
-+ *	@f:		skb frag to operate on
-+ *	@f_off:		offset from start of f->page.p
-+ *	@f_len:		length from f_off to loop over
-+ *	@p:		(temp var) current page
-+ *	@p_off:		(temp var) offset from start of current page,
-+ *	                           non-zero only on first page.
-+ *	@p_len:		(temp var) length in current page,
-+ *				   < PAGE_SIZE only on first and last page.
-+ *	@copied:	(temp var) length so far, excluding current p_len.
-+ *
-+ *	A fragment can hold a compound page, in which case per-page
-+ *	operations, notably kmap_atomic, must be called for each
-+ *	regular page.
-+ */
-+#define skb_frag_foreach_page(f, f_off, f_len, p, p_off, p_len, copied)	\
-+	for (p = skb_frag_page(f) + ((f_off) >> PAGE_SHIFT),		\
-+	     p_off = (f_off) & (PAGE_SIZE - 1),				\
-+	     p_len = skb_frag_must_loop(p) ?				\
-+	     min_t(u32, f_len, PAGE_SIZE - p_off) : f_len,		\
-+	     copied = 0;						\
-+	     copied < f_len;						\
-+	     copied += p_len, p++, p_off = 0,				\
-+	     p_len = min_t(u32, f_len - copied, PAGE_SIZE))		\
-+
- #define HAVE_HW_TIME_STAMP
- 
- /**
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index c27da51d14e4..fe4ebbaed8c4 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -938,8 +938,10 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 	struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
- 
- 	for (i = 0; i < num_frags; i++) {
--		u8 *vaddr;
- 		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
-+		u32 p_off, p_len, copied;
-+		struct page *p;
-+		u8 *vaddr;
- 
- 		page = alloc_page(gfp_mask);
- 		if (!page) {
-@@ -950,10 +952,15 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 			}
- 			return -ENOMEM;
- 		}
--		vaddr = kmap_atomic(skb_frag_page(f));
--		memcpy(page_address(page),
--		       vaddr + f->page_offset, skb_frag_size(f));
--		kunmap_atomic(vaddr);
-+
-+		skb_frag_foreach_page(f, f->page_offset, skb_frag_size(f),
-+				      p, p_off, p_len, copied) {
-+			vaddr = kmap_atomic(p);
-+			memcpy(page_address(page) + copied, vaddr + p_off,
-+			       p_len);
-+			kunmap_atomic(vaddr);
-+		}
-+
- 		set_page_private(page, (unsigned long)head);
- 		head = page;
- 	}
-@@ -1753,16 +1760,20 @@ int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len)
- 
- 		end = start + skb_frag_size(f);
- 		if ((copy = end - offset) > 0) {
-+			u32 p_off, p_len, copied;
-+			struct page *p;
- 			u8 *vaddr;
- 
- 			if (copy > len)
- 				copy = len;
- 
--			vaddr = kmap_atomic(skb_frag_page(f));
--			memcpy(to,
--			       vaddr + f->page_offset + offset - start,
--			       copy);
--			kunmap_atomic(vaddr);
-+			skb_frag_foreach_page(f,
-+					      f->page_offset + offset - start,
-+					      copy, p, p_off, p_len, copied) {
-+				vaddr = kmap_atomic(p);
-+				memcpy(to + copied, vaddr + p_off, p_len);
-+				kunmap_atomic(vaddr);
-+			}
- 
- 			if ((len -= copy) == 0)
- 				return 0;
-@@ -2021,15 +2032,20 @@ int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len)
- 
- 		end = start + skb_frag_size(frag);
- 		if ((copy = end - offset) > 0) {
-+			u32 p_off, p_len, copied;
-+			struct page *p;
- 			u8 *vaddr;
- 
- 			if (copy > len)
- 				copy = len;
- 
--			vaddr = kmap_atomic(skb_frag_page(frag));
--			memcpy(vaddr + frag->page_offset + offset - start,
--			       from, copy);
--			kunmap_atomic(vaddr);
-+			skb_frag_foreach_page(frag,
-+					      frag->page_offset + offset - start,
-+					      copy, p, p_off, p_len, copied) {
-+				vaddr = kmap_atomic(p);
-+				memcpy(vaddr + p_off, from + copied, p_len);
-+				kunmap_atomic(vaddr);
-+			}
- 
- 			if ((len -= copy) == 0)
- 				return 0;
-@@ -2094,20 +2110,27 @@ __wsum __skb_checksum(const struct sk_buff *skb, int offset, int len,
- 
- 		end = start + skb_frag_size(frag);
- 		if ((copy = end - offset) > 0) {
-+			u32 p_off, p_len, copied;
-+			struct page *p;
- 			__wsum csum2;
- 			u8 *vaddr;
- 
- 			if (copy > len)
- 				copy = len;
--			vaddr = kmap_atomic(skb_frag_page(frag));
--			csum2 = ops->update(vaddr + frag->page_offset +
--					    offset - start, copy, 0);
--			kunmap_atomic(vaddr);
--			csum = ops->combine(csum, csum2, pos, copy);
-+
-+			skb_frag_foreach_page(frag,
-+					      frag->page_offset + offset - start,
-+					      copy, p, p_off, p_len, copied) {
-+				vaddr = kmap_atomic(p);
-+				csum2 = ops->update(vaddr + p_off, p_len, 0);
-+				kunmap_atomic(vaddr);
-+				csum = ops->combine(csum, csum2, pos, p_len);
-+				pos += p_len;
-+			}
-+
- 			if (!(len -= copy))
- 				return csum;
- 			offset += copy;
--			pos    += copy;
- 		}
- 		start = end;
- 	}
-@@ -2180,24 +2203,31 @@ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset,
- 
- 		end = start + skb_frag_size(&skb_shinfo(skb)->frags[i]);
- 		if ((copy = end - offset) > 0) {
-+			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+			u32 p_off, p_len, copied;
-+			struct page *p;
- 			__wsum csum2;
- 			u8 *vaddr;
--			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
- 			if (copy > len)
- 				copy = len;
--			vaddr = kmap_atomic(skb_frag_page(frag));
--			csum2 = csum_partial_copy_nocheck(vaddr +
--							  frag->page_offset +
--							  offset - start, to,
--							  copy, 0);
--			kunmap_atomic(vaddr);
--			csum = csum_block_add(csum, csum2, pos);
-+
-+			skb_frag_foreach_page(frag,
-+					      frag->page_offset + offset - start,
-+					      copy, p, p_off, p_len, copied) {
-+				vaddr = kmap_atomic(p);
-+				csum2 = csum_partial_copy_nocheck(vaddr + p_off,
-+								  to + copied,
-+								  p_len, 0);
-+				kunmap_atomic(vaddr);
-+				csum = csum_block_add(csum, csum2, pos);
-+				pos += p_len;
-+			}
-+
- 			if (!(len -= copy))
- 				return csum;
- 			offset += copy;
- 			to     += copy;
--			pos    += copy;
- 		}
- 		start = end;
- 	}
--- 
-2.14.0.rc0.400.g1c36432dff-goog
+>
+>>
+>> Corentin, can you make sure you copy netdev, Andrew and myself on the
+>> next submissions so we don't have to keep track of seemingly identical
+>> threads (this one + the rockchip dwmac changes) and we can work towards
+>> one solution?
+>
+> Ok
+>
+> Thanks
+> Corentin Labbe
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
