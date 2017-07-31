@@ -1,59 +1,113 @@
-From: Seth Forshee <seth.forshee@canonical.com>
-Subject: Re: Performance regression with virtio_net
-Date: Mon, 31 Jul 2017 09:29:34 -0500
-Message-ID: <20170731142934.wcn22fyvjcqyauda@ubuntu-xps13>
-References: <20170730222552.4fxxnx3jxg4yv65g@multivac.euank.com>
- <20170731161903-mutt-send-email-mst@kernel.org>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Simplify
+ lan9303_xxx_packet_processing() usage
+Date: Mon, 31 Jul 2017 16:32:21 +0200
+Message-ID: <3207fcff-8318-9b17-c546-026ab1a1511b@egil-hjelmeland.no>
+References: <20170731113355.4284-1-privat@egil-hjelmeland.no>
+ <20170731113355.4284-3-privat@egil-hjelmeland.no>
+ <87379c4sfe.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Euan Kemp <euan.kemp@coreos.com>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:38301 "EHLO
-        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751951AbdGaO3g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 10:29:36 -0400
-Received: by mail-it0-f46.google.com with SMTP id h199so126163574ith.1
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 07:29:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170731161903-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel@pengutronix.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87379c4sfe.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 31, 2017 at 04:26:08PM +0300, Michael S. Tsirkin wrote:
-> On Sun, Jul 30, 2017 at 03:25:52PM -0700, Euan Kemp wrote:
-> > I've also observed this performance regression.
-> > 
-> > The minimal fix for me is removing the two
-> > > if (unlikely(len > (unsigned long)ctx))
-> > checks added in 680557c.
-> > 
-> > After digging a little more, the reason that check can fail appears to
-> > be that add_recvbuf_mergeable sometimes includes a hole at the end,
-> > which is included in len but not ctx.
-> > 
-> > I'd send a patch removing those conditions, but I'm not certain
-> > whether "truesize" in receive_mergeable should also be changed back to
-> > be the max of len/ctx, or should remain as-is.
-> > 
-> > - Euan
+On 31. juli 2017 16:00, Vivien Didelot wrote:
+> Hi Egil,
 > 
-> Thanks a lot for looking into it!
+> A few nitpicks below for lan9303_disable_processing.
 > 
-> I kept this around unchanged from
-> ab7db91705e95ed1bba1304388936fccfa58c992.  That commit had an internal
-> reason not to account for that space: not enough bits to do it.  No
-> longer true so let's account for length exactly.  I'll send a proper
-> patch after a bit of testing, would appreciate reports reports of
-> whether this helps very much.
+> Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>>   static int lan9303_disable_processing(struct lan9303 *chip)
+>>   {
+>> -	int ret;
+>> +	int p;
+>>   
+>> -	ret = lan9303_disable_packet_processing(chip, 0);
+>> -	if (ret)
+>> -		return ret;
+>> -	ret = lan9303_disable_packet_processing(chip, 1);
+>> -	if (ret)
+>> -		return ret;
+>> -	return lan9303_disable_packet_processing(chip, 2);
+>> +	for (p = 0; p <= 2; p++) {
+> 
+> Exclusive limits are often prefer, i.e. 'p < 3'.
+> 
+OK, that can be nice when I later introduce LAN9303_NUM_PORTS = 3.
 
-This fixes the issue for me, downloads are faster and rx_length_errors
-does not show any errors.
+>> +		int ret;
+>> +
+>> +		ret = lan9303_disable_packet_processing(chip, p);
+>> +		if (ret)
+>> +			return ret;
+> 
+> When any non-zero return code means an error, we usually see 'err'
+> instead of 'ret'.
+> 
 
-Tested-by: Seth Forshee <seth.forshee@canonical.com>
+But 'ret' is used throughout the rest of the file. Is it not better to
+be locally consistent?
 
-Thanks!
+>> +	}
+> 
+> blank line before return statments are appreciated.
+> 
+OK
 
-Seth
+>> +	return 0;
+>>   }
+>>   
+>>   static int lan9303_check_device(struct lan9303 *chip)
+>> @@ -760,7 +761,6 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
+>>   	/* enable internal packet processing */
+>>   	switch (port) {
+>>   	case 1:
+>> -		return lan9303_enable_packet_processing(chip, port);
+> 
+> Is this deletion intentional? The commit message does not explain this.
+> 
+> When possible, it is appreciated to separate functional from
+> non-functional changes. For example one commit adding the loop in
+> lan9303_disable_processing and another one to not enable/disable packet
+> processing on port 1.
+> 
+
+Case fall through, the change is purely non-functional.
+
+You are perhaps thinking of the patch in my first series where I removed
+disable of port 0. I have put that on hold. Juergen says that the
+mainline driver works out of the box for him. So I will investigate
+that problem bit more.
+
+
+>>   	case 2:
+>>   		return lan9303_enable_packet_processing(chip, port);
+>>   	default:
+>> @@ -779,13 +779,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
+>>   	/* disable internal packet processing */
+>>   	switch (port) {
+>>   	case 1:
+>> -		lan9303_disable_packet_processing(chip, port);
+>> -		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
+>> -				  MII_BMCR, BMCR_PDOWN);
+>> -		break;
+>>   	case 2:
+>>   		lan9303_disable_packet_processing(chip, port);
+>> -		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
+>> +		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
+>>   				  MII_BMCR, BMCR_PDOWN);
+>>   		break;
+> 
+> Thanks,
+> 
+>          Vivien
+> 
+Egil
