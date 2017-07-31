@@ -1,113 +1,296 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 2/4] netvsc: add documentation
-Date: Mon, 31 Jul 2017 16:37:10 -0700
-Message-ID: <20170731233712.12087-3-sthemmin@microsoft.com>
+Subject: [PATCH net-next 3/4] netvsc: remove bonding setup script
+Date: Mon, 31 Jul 2017 16:37:11 -0700
+Message-ID: <20170731233712.12087-4-sthemmin@microsoft.com>
 References: <20170731233712.12087-1-sthemmin@microsoft.com>
-Cc: devel@linuxdriverproject.org, linux-doc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-pci@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org,
+ linux-pci@vger.kernel.org, linux-doc@vger.kernel.org
 To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
-        corbet@lwn.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35178 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751563AbdGaXhT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 19:37:19 -0400
-Received: by mail-pf0-f169.google.com with SMTP id t86so372764pfe.2
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 16:37:19 -0700 (PDT)
+ corbet@lwn.net
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <20170731233712.12087-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Add some background documentation on netvsc device options
-and limitations.
+No longer needed, now all managed by transparent VF logic.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- Documentation/networking/netvsc.txt | 63 +++++++++++++++++++++++++++++++++++++
- MAINTAINERS                         |  1 +
- 2 files changed, 64 insertions(+)
- create mode 100644 Documentation/networking/netvsc.txt
+ tools/hv/bondvf.sh | 255 -----------------------------------------------------
+ 1 file changed, 255 deletions(-)
+ delete mode 100755 tools/hv/bondvf.sh
 
-diff --git a/Documentation/networking/netvsc.txt b/Documentation/networking/netvsc.txt
-new file mode 100644
-index 000000000000..4ddb4e4b0426
---- /dev/null
-+++ b/Documentation/networking/netvsc.txt
-@@ -0,0 +1,63 @@
-+Hyper-V network driver
-+======================
-+
-+Compatibility
-+=============
-+
-+This driver is compatible with Windows Server 2012 R2, 2016 and
-+Windows 10.
-+
-+Features
-+========
-+
-+  Checksum offload
-+  ----------------
-+  The netvsc driver supports checksum offload as long as the
-+  Hyper-V host version does. Windows Server 2016 and Azure
-+  support checksum offload for TCP and UDP for both IPv4 and
-+  IPv6. Windows Server 2012 only supports checksum offload for TCP.
-+
-+  Receive Side Scaling
-+  --------------------
-+  Hyper-V supports receive side scaling. For TCP, packets are
-+  distributed among available queues based on IP address and port
-+  number. Current versions of Hyper-V host, only distribute UDP
-+  packets based on the IP source and destination address.
-+  The port number is not used as part of the hash value for UDP.
-+  Fragmented IP packets are not distributed between queues;
-+  all fragmented packets arrive on the first channel.
-+
-+  Generic Receive Offload, aka GRO
-+  --------------------------------
-+  The driver supports GRO and it is enabled by default. GRO coalesces
-+  like packets and significantly reduces CPU usage under heavy Rx
-+  load.
-+
-+  SR-IOV support
-+  --------------
-+  Hyper-V supports SR-IOV as a hardware acceleration option. If SR-IOV
-+  is enabled in both the vSwitch and the guest configuration, then the
-+  Virtual Function (VF) device is passed to the guest as a PCI
-+  device. In this case, both a synthetic (netvsc) and VF device are
-+  visible in the guest OS and both NIC's have the same MAC address.
-+
-+  The VF is enslaved by netvsc device.  The netvsc driver will transparently
-+  switch the data path to the VF when it is available and up.
-+  Network state (addresses, firewall, etc) should be applied only to the
-+  netvsc device; the slave device should not be accessed directly in
-+  most cases.  The exceptions are if some special queue discipline or
-+  flow direction is desired, these should be applied directly to the
-+  VF slave device.
-+
-+  Receive Buffer
-+  --------------
-+  Packets are received into a receive area which is created when device
-+  is probed. The receive area is broken into MTU sized chunks and each may
-+  contain one or more packets. The number of receive sections may be changed
-+  via ethtool Rx ring parameters.
-+
-+  There is a similar send buffer which is used to aggregate packets for sending.
-+  The send area is broken into chunks of 6144 bytes, each of section may
-+  contain one or more packets. The send buffer is an optimization, the driver
-+  will use slower method to handle very large packets or if the send buffer
-+  area is exhausted.
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 297e610c9163..d30c17df1deb 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -6294,6 +6294,7 @@ M:	Haiyang Zhang <haiyangz@microsoft.com>
- M:	Stephen Hemminger <sthemmin@microsoft.com>
- L:	devel@linuxdriverproject.org
- S:	Maintained
-+F:	Documentation/networking/netvsc.txt
- F:	arch/x86/include/asm/mshyperv.h
- F:	arch/x86/include/uapi/asm/hyperv.h
- F:	arch/x86/kernel/cpu/mshyperv.c
+diff --git a/tools/hv/bondvf.sh b/tools/hv/bondvf.sh
+deleted file mode 100755
+index 80f102860cf8..000000000000
+--- a/tools/hv/bondvf.sh
++++ /dev/null
+@@ -1,255 +0,0 @@
+-#!/bin/bash
+-
+-# This example script creates bonding network devices based on synthetic NIC
+-# (the virtual network adapter usually provided by Hyper-V) and the matching
+-# VF NIC (SRIOV virtual function). So the synthetic NIC and VF NIC can
+-# function as one network device, and fail over to the synthetic NIC if VF is
+-# down.
+-#
+-# Usage:
+-# - After configured vSwitch and vNIC with SRIOV, start Linux virtual
+-#   machine (VM)
+-# - Run this scripts on the VM. It will create configuration files in
+-#   distro specific directory.
+-# - Reboot the VM, so that the bonding config are enabled.
+-#
+-# The config files are DHCP by default. You may edit them if you need to change
+-# to Static IP or change other settings.
+-#
+-
+-sysdir=/sys/class/net
+-netvsc_cls={f8615163-df3e-46c5-913f-f2d2f965ed0e}
+-bondcnt=0
+-
+-# Detect Distro
+-if [ -f /etc/redhat-release ];
+-then
+-	cfgdir=/etc/sysconfig/network-scripts
+-	distro=redhat
+-elif grep -q 'Ubuntu' /etc/issue
+-then
+-	cfgdir=/etc/network
+-	distro=ubuntu
+-elif grep -q 'SUSE' /etc/issue
+-then
+-	cfgdir=/etc/sysconfig/network
+-	distro=suse
+-else
+-	echo "Unsupported Distro"
+-	exit 1
+-fi
+-
+-echo Detected Distro: $distro, or compatible
+-
+-# Get a list of ethernet names
+-list_eth=(`cd $sysdir && ls -d */ | cut -d/ -f1 | grep -v bond`)
+-eth_cnt=${#list_eth[@]}
+-
+-echo List of net devices:
+-
+-# Get the MAC addresses
+-for (( i=0; i < $eth_cnt; i++ ))
+-do
+-	list_mac[$i]=`cat $sysdir/${list_eth[$i]}/address`
+-	echo ${list_eth[$i]}, ${list_mac[$i]}
+-done
+-
+-# Find NIC with matching MAC
+-for (( i=0; i < $eth_cnt-1; i++ ))
+-do
+-	for (( j=i+1; j < $eth_cnt; j++ ))
+-	do
+-		if [ "${list_mac[$i]}" = "${list_mac[$j]}" ]
+-		then
+-			list_match[$i]=${list_eth[$j]}
+-			break
+-		fi
+-	done
+-done
+-
+-function create_eth_cfg_redhat {
+-	local fn=$cfgdir/ifcfg-$1
+-
+-	rm -f $fn
+-	echo DEVICE=$1 >>$fn
+-	echo TYPE=Ethernet >>$fn
+-	echo BOOTPROTO=none >>$fn
+-	echo UUID=`uuidgen` >>$fn
+-	echo ONBOOT=yes >>$fn
+-	echo PEERDNS=yes >>$fn
+-	echo IPV6INIT=yes >>$fn
+-	echo MASTER=$2 >>$fn
+-	echo SLAVE=yes >>$fn
+-}
+-
+-function create_eth_cfg_pri_redhat {
+-	create_eth_cfg_redhat $1 $2
+-}
+-
+-function create_bond_cfg_redhat {
+-	local fn=$cfgdir/ifcfg-$1
+-
+-	rm -f $fn
+-	echo DEVICE=$1 >>$fn
+-	echo TYPE=Bond >>$fn
+-	echo BOOTPROTO=dhcp >>$fn
+-	echo UUID=`uuidgen` >>$fn
+-	echo ONBOOT=yes >>$fn
+-	echo PEERDNS=yes >>$fn
+-	echo IPV6INIT=yes >>$fn
+-	echo BONDING_MASTER=yes >>$fn
+-	echo BONDING_OPTS=\"mode=active-backup miimon=100 primary=$2\" >>$fn
+-}
+-
+-function del_eth_cfg_ubuntu {
+-	local mainfn=$cfgdir/interfaces
+-	local fnlist=( $mainfn )
+-
+-	local dirlist=(`awk '/^[ \t]*source/{print $2}' $mainfn`)
+-
+-	local i
+-	for i in "${dirlist[@]}"
+-	do
+-		fnlist+=(`ls $i 2>/dev/null`)
+-	done
+-
+-	local tmpfl=$(mktemp)
+-
+-	local nic_start='^[ \t]*(auto|iface|mapping|allow-.*)[ \t]+'$1
+-	local nic_end='^[ \t]*(auto|iface|mapping|allow-.*|source)'
+-
+-	local fn
+-	for fn in "${fnlist[@]}"
+-	do
+-		awk "/$nic_end/{x=0} x{next} /$nic_start/{x=1;next} 1" \
+-			$fn >$tmpfl
+-
+-		cp $tmpfl $fn
+-	done
+-
+-	rm $tmpfl
+-}
+-
+-function create_eth_cfg_ubuntu {
+-	local fn=$cfgdir/interfaces
+-
+-	del_eth_cfg_ubuntu $1
+-	echo $'\n'auto $1 >>$fn
+-	echo iface $1 inet manual >>$fn
+-	echo bond-master $2 >>$fn
+-}
+-
+-function create_eth_cfg_pri_ubuntu {
+-	local fn=$cfgdir/interfaces
+-
+-	del_eth_cfg_ubuntu $1
+-	echo $'\n'allow-hotplug $1 >>$fn
+-	echo iface $1 inet manual >>$fn
+-	echo bond-master $2 >>$fn
+-	echo bond-primary $1 >>$fn
+-}
+-
+-function create_bond_cfg_ubuntu {
+-	local fn=$cfgdir/interfaces
+-
+-	del_eth_cfg_ubuntu $1
+-
+-	echo $'\n'auto $1 >>$fn
+-	echo iface $1 inet dhcp >>$fn
+-	echo bond-mode active-backup >>$fn
+-	echo bond-miimon 100 >>$fn
+-	echo bond-slaves none >>$fn
+-}
+-
+-function create_eth_cfg_suse {
+-        local fn=$cfgdir/ifcfg-$1
+-
+-        rm -f $fn
+-	echo BOOTPROTO=none >>$fn
+-	echo STARTMODE=auto >>$fn
+-}
+-
+-function create_eth_cfg_pri_suse {
+-	local fn=$cfgdir/ifcfg-$1
+-
+-	rm -f $fn
+-	echo BOOTPROTO=none >>$fn
+-	echo STARTMODE=hotplug >>$fn
+-}
+-
+-function create_bond_cfg_suse {
+-	local fn=$cfgdir/ifcfg-$1
+-
+-	rm -f $fn
+-	echo BOOTPROTO=dhcp >>$fn
+-	echo STARTMODE=auto >>$fn
+-	echo BONDING_MASTER=yes >>$fn
+-	echo BONDING_SLAVE_0=$2 >>$fn
+-	echo BONDING_SLAVE_1=$3 >>$fn
+-	echo BONDING_MODULE_OPTS=\'mode=active-backup miimon=100 primary=$2\' >>$fn
+-}
+-
+-function create_bond {
+-	local bondname=bond$bondcnt
+-	local primary
+-	local secondary
+-
+-	local class_id1=`cat $sysdir/$1/device/class_id 2>/dev/null`
+-	local class_id2=`cat $sysdir/$2/device/class_id 2>/dev/null`
+-
+-	if [ "$class_id1" = "$netvsc_cls" ]
+-	then
+-		primary=$2
+-		secondary=$1
+-	elif [ "$class_id2" = "$netvsc_cls" ]
+-	then
+-		primary=$1
+-		secondary=$2
+-	else
+-		return 0
+-	fi
+-
+-	echo $'\nBond name:' $bondname
+-
+-	if [ $distro == ubuntu ]
+-	then
+-		local mainfn=$cfgdir/interfaces
+-		local s="^[ \t]*(auto|iface|mapping|allow-.*)[ \t]+${bondname}"
+-
+-		grep -E "$s" $mainfn
+-		if [ $? -eq 0 ]
+-		then
+-			echo "WARNING: ${bondname} has been configured already"
+-			return
+-		fi
+-	elif [ $distro == redhat ] || [ $distro == suse ]
+-	then
+-		local fn=$cfgdir/ifcfg-$bondname
+-		if [ -f $fn ]
+-		then
+-			echo "WARNING: ${bondname} has been configured already"
+-			return
+-		fi
+-	else
+-		echo "Unsupported Distro: ${distro}"
+-		return
+-	fi
+-
+-	echo configuring $primary
+-	create_eth_cfg_pri_$distro $primary $bondname
+-
+-	echo configuring $secondary
+-	create_eth_cfg_$distro $secondary $bondname
+-
+-	echo creating: $bondname with primary slave: $primary
+-	create_bond_cfg_$distro $bondname $primary $secondary
+-}
+-
+-for (( i=0; i < $eth_cnt-1; i++ ))
+-do
+-        if [ -n "${list_match[$i]}" ]
+-        then
+-		create_bond ${list_eth[$i]} ${list_match[$i]}
+-		let bondcnt=bondcnt+1
+-        fi
+-done
 -- 
 2.11.0
