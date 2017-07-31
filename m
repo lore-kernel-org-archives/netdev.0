@@ -1,93 +1,79 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCH 0/3] net-next: stmmac: support future possible different
- internal phy mode
-Date: Mon, 31 Jul 2017 20:19:40 +0800
-Message-ID: <CAGb2v6626KDmww5u_-ogMJHgfdxTHQLCnUF4bmcUt35f2JJgLg@mail.gmail.com>
-References: <20170728092818.23419-1-clabbe.montjoie@gmail.com>
- <20170728135544.GD32230@lunn.ch> <20170728142508.GA7221@Red>
- <20170728143600.GB2132@lunn.ch> <20170728144424.GB7221@Red>
- <f8fe754c-8b46-a9f6-4020-f7db6c985773@gmail.com> <20170729064815.GA2024@Red>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v12 1/4] net netlink: Add new type NLA_BITFIELD32
+Date: Mon, 31 Jul 2017 14:21:06 +0200
+Message-ID: <20170731122106.GD1883@nanopsycho>
+References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+ <1501435492-28301-2-git-send-email-jhs@emojatatu.com>
+ <20170730184242.GA1872@nanopsycho>
+ <98edc93f-b5d9-e73f-ff00-9403e8362f80@mojatatu.com>
+ <20170731063833.GB1883@nanopsycho>
+ <fa171203-adab-9950-8241-dd5b3a70fe0a@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170729064815.GA2024@Red>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        horms@verge.net.au, dsahern@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:33405 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751199AbdGaMVI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 08:21:08 -0400
+Received: by mail-wr0-f194.google.com with SMTP id y43so31357511wrd.0
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 05:21:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <fa171203-adab-9950-8241-dd5b3a70fe0a@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 29, 2017 at 2:48 PM, Corentin Labbe
-<clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Fri, Jul 28, 2017 at 10:54:30AM -0700, Florian Fainelli wrote:
->> On 07/28/2017 07:44 AM, Corentin Labbe wrote:
->> > On Fri, Jul 28, 2017 at 04:36:00PM +0200, Andrew Lunn wrote:
->> >>>> I've probably asked this before: Does the internal PHY use a different
->> >>>> PHY ID in registers 2 and 3?
->> >>>>
->> >>>
->> >>> yes
->> >>>
->> >>> reg2: 0x0044
->> >>> reg3: 0X1500
->> >
->> > Copy/paste error, its 1400
->> >
->> >>
->> >> So this is not about loading the correct PHY driver. You can already
->> >> do this based on the PHY IDs...
->> >>
->> >> This is about selecting which PHY to use. Internal or External?
->> >>
->> >>      Andrew
->> >
->> > It is too late when we know the PHY ID.
->>
->> > We need to set a syscon for choosing external/internal PHY.
->> > So we can rely only on DT.
->>
->> Since the Device Tree needs to be correct to identify which PHY to use
->> (internal or external), if you use the standard compatible string for
->> the PHY that contains its OUI, e.g:
->>
->> compatible = "ethernet-phy-id0044.1400", "ethernet-phy-ieee802.3-c22"
->>
->> then you can have your Ethernet MAC identify whether this is an internal
->> PHY by having a list of compatible strings to match against.
+Mon, Jul 31, 2017 at 02:03:55PM CEST, jhs@mojatatu.com wrote:
+>On 17-07-31 02:38 AM, Jiri Pirko wrote:
+>> Sun, Jul 30, 2017 at 09:59:10PM CEST, jhs@mojatatu.com wrote:
+>> > Jiri,
+>> > 
+>> > This is getting exhausting, seriously.
+>> > I posted the code you are commenting one two days ago so i dont have to
+>> > repost.
+>> 
+>> And I commented on the "*u32 = *u32" thing. But you ignored it. Pardon
+>> me for mentioning that again now :/
+>> 
 >
-> So basicly, I replace sun8i-h3-ephy by ethernet-phy-id0044.1400 and it is good ?
+>You commented on *u32 assignment from *void which i fixed. I
+>intentionally selected the different assignment names to reflect
+>meaning. Had you commented earlier - although I would have found
 
-IIRC you mentioned some time ago the PHY in the AC200 also has this ID?
-Do you remember if this is true?
+Yep, I don't understand why the function arg cannot have the desired
+name right away. Also, I don't understand why you don't just have u32
+instead of pointer as a local variable, if you really needed this local
+variable. Ok, I admit that ":)" is probably not intuitive comment.
+Will be more blunt next time.
 
-If someone were crazy enough to hook that up to the H3, then we still
-wouldn't be able to tell if it's the internal or external one.
 
-ChenYu
+>it disagreable - I would have fixed that too. Jiri, you need to be
+>more tolerant so progress can be made at times.
+
+I don't think so. I believe that it is really important that code can be
+read nicely. If we don't do it, it will be just mess (like it is in lot
+of net/sched/ places).
+
 
 >
->>
->> Corentin, can you make sure you copy netdev, Andrew and myself on the
->> next submissions so we don't have to keep track of seemingly identical
->> threads (this one + the rockchip dwmac changes) and we can work towards
->> one solution?
+>> 
+>> > 
+>> > On D. Ahern: I dont think we are disagreeing anymore on the need to
+>> > generalize the check. He is saying it should be a helper and I already
+>> > had the validation data; either works. I dont see the gapping need
+>> > to remove the validation data.
+>> 
+>> DavidA? Your opinion.
+>> 
 >
-> Ok
->
-> Thanks
-> Corentin Labbe
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>With DavidA(reading his response) - the issue is one of taste.
+>Again either approach is fine. You can call helpers for every user
+>or make them invoked behind the scenes.
+>Again - like all your comments on code taste which I addressed, I
+>would have made that change if the comment had come in earlier. I got
+>exhausted. Imagine how a newbie corporate guy wouldve felt after this.
+
+That's how it is. 
