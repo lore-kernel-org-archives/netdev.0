@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/4] net: dsa: lan9303: Fix MDIO issues.
-Date: Sun, 30 Jul 2017 19:23:45 -0700 (PDT)
-Message-ID: <20170730.192345.2215743860694319208.davem@davemloft.net>
-References: <20170730175856.4784-1-privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next] net: fec: Issue error for missing but
+ expected PHY
+Date: Sun, 30 Jul 2017 19:26:17 -0700 (PDT)
+Message-ID: <20170730.192617.1177576067292281322.davem@davemloft.net>
+References: <1501445466-23518-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@pengutronix.de
-To: privat@egil-hjelmeland.no
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170730175856.4784-1-privat@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, fugang.duan@nxp.com
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59250 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751574AbdGaC0S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 22:26:18 -0400
+In-Reply-To: <1501445466-23518-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Date: Sun, 30 Jul 2017 19:58:52 +0200
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Sun, 30 Jul 2017 22:11:06 +0200
 
-> This series fix the MDIO interface for the lan9303 DSA driver.
-> Bugs found after testing on actual HW.
+> If the PHY is missing but expected, e.g. because of a typ0 in the dt
+> file, it is not possible to open the interface. ip link returns:
 > 
-> This series is extracted from the first patch of my first large
-> series. Significant changes from that version are:
->  - use mdiobus_write_nested, mdiobus_read_nested.
->  - EXPORT lan9303_indirect_phy_ops
+> RTNETLINK answers: No such device
 > 
-> Unfortunately I do not have access to i2c based system for
-> testing.
+> It is not very obvious what the problem is. Add a netdev_err() in this
+> case to make it easier to debug the issue.
 > 
-> Changes from first version:
->  - Change EXPORT_SYMBOL to EXPORT_SYMBOL_GPL
+> [   21.409385] fec 2188000.ethernet eth0: Unable to connect to phy
+> RTNETLINK answers: No such device
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Series applied, thanks.
+Applied.
