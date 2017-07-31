@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 3/4] netvsc: remove bonding setup script
-Date: Mon, 31 Jul 2017 16:37:11 -0700
-Message-ID: <20170731233712.12087-4-sthemmin@microsoft.com>
+Subject: [PATCH net-next 4/4] pci-hyperv: do not sleep in compose_msi_msg
+Date: Mon, 31 Jul 2017 16:37:12 -0700
+Message-ID: <20170731233712.12087-5-sthemmin@microsoft.com>
 References: <20170731233712.12087-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,274 +23,54 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-No longer needed, now all managed by transparent VF logic.
+The setup of MSI with Hyper-V host was sleeping with locks held.
+This error is reported when doing SR-IOV hotplug with kernel built with lockdep.
+
+    BUG: sleeping function called from invalid context at kernel/sched/completion.c:93
+    in_atomic(): 1, irqs_disabled(): 1, pid: 1405, name: ip
+    3 locks held by ip/1405:
+   #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff976b10bb>] rtnetlink_rcv+0x1b/0x40
+   #1:  (&desc->request_mutex){+.+...}, at: [<ffffffff970ddd33>] __setup_irq+0xb3/0x720
+   #2:  (&irq_desc_lock_class){-.-...}, at: [<ffffffff970ddd65>] __setup_irq+0xe5/0x720
+   irq event stamp: 3476
+   hardirqs last  enabled at (3475): [<ffffffff971b3005>] get_page_from_freelist+0x225/0xc90
+   hardirqs last disabled at (3476): [<ffffffff978024e7>] _raw_spin_lock_irqsave+0x27/0x90
+   softirqs last  enabled at (2446): [<ffffffffc05ef0b0>] ixgbevf_configure+0x380/0x7c0 [ixgbevf]
+   softirqs last disabled at (2444): [<ffffffffc05ef08d>] ixgbevf_configure+0x35d/0x7c0 [ixgbevf]
+
+The workaround is to poll for host response instead of blocking on
+completion.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- tools/hv/bondvf.sh | 255 -----------------------------------------------------
- 1 file changed, 255 deletions(-)
- delete mode 100755 tools/hv/bondvf.sh
+ drivers/pci/host/pci-hyperv.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/tools/hv/bondvf.sh b/tools/hv/bondvf.sh
-deleted file mode 100755
-index 80f102860cf8..000000000000
---- a/tools/hv/bondvf.sh
-+++ /dev/null
-@@ -1,255 +0,0 @@
--#!/bin/bash
--
--# This example script creates bonding network devices based on synthetic NIC
--# (the virtual network adapter usually provided by Hyper-V) and the matching
--# VF NIC (SRIOV virtual function). So the synthetic NIC and VF NIC can
--# function as one network device, and fail over to the synthetic NIC if VF is
--# down.
--#
--# Usage:
--# - After configured vSwitch and vNIC with SRIOV, start Linux virtual
--#   machine (VM)
--# - Run this scripts on the VM. It will create configuration files in
--#   distro specific directory.
--# - Reboot the VM, so that the bonding config are enabled.
--#
--# The config files are DHCP by default. You may edit them if you need to change
--# to Static IP or change other settings.
--#
--
--sysdir=/sys/class/net
--netvsc_cls={f8615163-df3e-46c5-913f-f2d2f965ed0e}
--bondcnt=0
--
--# Detect Distro
--if [ -f /etc/redhat-release ];
--then
--	cfgdir=/etc/sysconfig/network-scripts
--	distro=redhat
--elif grep -q 'Ubuntu' /etc/issue
--then
--	cfgdir=/etc/network
--	distro=ubuntu
--elif grep -q 'SUSE' /etc/issue
--then
--	cfgdir=/etc/sysconfig/network
--	distro=suse
--else
--	echo "Unsupported Distro"
--	exit 1
--fi
--
--echo Detected Distro: $distro, or compatible
--
--# Get a list of ethernet names
--list_eth=(`cd $sysdir && ls -d */ | cut -d/ -f1 | grep -v bond`)
--eth_cnt=${#list_eth[@]}
--
--echo List of net devices:
--
--# Get the MAC addresses
--for (( i=0; i < $eth_cnt; i++ ))
--do
--	list_mac[$i]=`cat $sysdir/${list_eth[$i]}/address`
--	echo ${list_eth[$i]}, ${list_mac[$i]}
--done
--
--# Find NIC with matching MAC
--for (( i=0; i < $eth_cnt-1; i++ ))
--do
--	for (( j=i+1; j < $eth_cnt; j++ ))
--	do
--		if [ "${list_mac[$i]}" = "${list_mac[$j]}" ]
--		then
--			list_match[$i]=${list_eth[$j]}
--			break
--		fi
--	done
--done
--
--function create_eth_cfg_redhat {
--	local fn=$cfgdir/ifcfg-$1
--
--	rm -f $fn
--	echo DEVICE=$1 >>$fn
--	echo TYPE=Ethernet >>$fn
--	echo BOOTPROTO=none >>$fn
--	echo UUID=`uuidgen` >>$fn
--	echo ONBOOT=yes >>$fn
--	echo PEERDNS=yes >>$fn
--	echo IPV6INIT=yes >>$fn
--	echo MASTER=$2 >>$fn
--	echo SLAVE=yes >>$fn
--}
--
--function create_eth_cfg_pri_redhat {
--	create_eth_cfg_redhat $1 $2
--}
--
--function create_bond_cfg_redhat {
--	local fn=$cfgdir/ifcfg-$1
--
--	rm -f $fn
--	echo DEVICE=$1 >>$fn
--	echo TYPE=Bond >>$fn
--	echo BOOTPROTO=dhcp >>$fn
--	echo UUID=`uuidgen` >>$fn
--	echo ONBOOT=yes >>$fn
--	echo PEERDNS=yes >>$fn
--	echo IPV6INIT=yes >>$fn
--	echo BONDING_MASTER=yes >>$fn
--	echo BONDING_OPTS=\"mode=active-backup miimon=100 primary=$2\" >>$fn
--}
--
--function del_eth_cfg_ubuntu {
--	local mainfn=$cfgdir/interfaces
--	local fnlist=( $mainfn )
--
--	local dirlist=(`awk '/^[ \t]*source/{print $2}' $mainfn`)
--
--	local i
--	for i in "${dirlist[@]}"
--	do
--		fnlist+=(`ls $i 2>/dev/null`)
--	done
--
--	local tmpfl=$(mktemp)
--
--	local nic_start='^[ \t]*(auto|iface|mapping|allow-.*)[ \t]+'$1
--	local nic_end='^[ \t]*(auto|iface|mapping|allow-.*|source)'
--
--	local fn
--	for fn in "${fnlist[@]}"
--	do
--		awk "/$nic_end/{x=0} x{next} /$nic_start/{x=1;next} 1" \
--			$fn >$tmpfl
--
--		cp $tmpfl $fn
--	done
--
--	rm $tmpfl
--}
--
--function create_eth_cfg_ubuntu {
--	local fn=$cfgdir/interfaces
--
--	del_eth_cfg_ubuntu $1
--	echo $'\n'auto $1 >>$fn
--	echo iface $1 inet manual >>$fn
--	echo bond-master $2 >>$fn
--}
--
--function create_eth_cfg_pri_ubuntu {
--	local fn=$cfgdir/interfaces
--
--	del_eth_cfg_ubuntu $1
--	echo $'\n'allow-hotplug $1 >>$fn
--	echo iface $1 inet manual >>$fn
--	echo bond-master $2 >>$fn
--	echo bond-primary $1 >>$fn
--}
--
--function create_bond_cfg_ubuntu {
--	local fn=$cfgdir/interfaces
--
--	del_eth_cfg_ubuntu $1
--
--	echo $'\n'auto $1 >>$fn
--	echo iface $1 inet dhcp >>$fn
--	echo bond-mode active-backup >>$fn
--	echo bond-miimon 100 >>$fn
--	echo bond-slaves none >>$fn
--}
--
--function create_eth_cfg_suse {
--        local fn=$cfgdir/ifcfg-$1
--
--        rm -f $fn
--	echo BOOTPROTO=none >>$fn
--	echo STARTMODE=auto >>$fn
--}
--
--function create_eth_cfg_pri_suse {
--	local fn=$cfgdir/ifcfg-$1
--
--	rm -f $fn
--	echo BOOTPROTO=none >>$fn
--	echo STARTMODE=hotplug >>$fn
--}
--
--function create_bond_cfg_suse {
--	local fn=$cfgdir/ifcfg-$1
--
--	rm -f $fn
--	echo BOOTPROTO=dhcp >>$fn
--	echo STARTMODE=auto >>$fn
--	echo BONDING_MASTER=yes >>$fn
--	echo BONDING_SLAVE_0=$2 >>$fn
--	echo BONDING_SLAVE_1=$3 >>$fn
--	echo BONDING_MODULE_OPTS=\'mode=active-backup miimon=100 primary=$2\' >>$fn
--}
--
--function create_bond {
--	local bondname=bond$bondcnt
--	local primary
--	local secondary
--
--	local class_id1=`cat $sysdir/$1/device/class_id 2>/dev/null`
--	local class_id2=`cat $sysdir/$2/device/class_id 2>/dev/null`
--
--	if [ "$class_id1" = "$netvsc_cls" ]
--	then
--		primary=$2
--		secondary=$1
--	elif [ "$class_id2" = "$netvsc_cls" ]
--	then
--		primary=$1
--		secondary=$2
--	else
--		return 0
--	fi
--
--	echo $'\nBond name:' $bondname
--
--	if [ $distro == ubuntu ]
--	then
--		local mainfn=$cfgdir/interfaces
--		local s="^[ \t]*(auto|iface|mapping|allow-.*)[ \t]+${bondname}"
--
--		grep -E "$s" $mainfn
--		if [ $? -eq 0 ]
--		then
--			echo "WARNING: ${bondname} has been configured already"
--			return
--		fi
--	elif [ $distro == redhat ] || [ $distro == suse ]
--	then
--		local fn=$cfgdir/ifcfg-$bondname
--		if [ -f $fn ]
--		then
--			echo "WARNING: ${bondname} has been configured already"
--			return
--		fi
--	else
--		echo "Unsupported Distro: ${distro}"
--		return
--	fi
--
--	echo configuring $primary
--	create_eth_cfg_pri_$distro $primary $bondname
--
--	echo configuring $secondary
--	create_eth_cfg_$distro $secondary $bondname
--
--	echo creating: $bondname with primary slave: $primary
--	create_bond_cfg_$distro $bondname $primary $secondary
--}
--
--for (( i=0; i < $eth_cnt-1; i++ ))
--do
--        if [ -n "${list_match[$i]}" ]
--        then
--		create_bond ${list_eth[$i]} ${list_match[$i]}
--		let bondcnt=bondcnt+1
--        fi
--done
+diff --git a/drivers/pci/host/pci-hyperv.c b/drivers/pci/host/pci-hyperv.c
+index 415dcc69a502..334c9a7b8991 100644
+--- a/drivers/pci/host/pci-hyperv.c
++++ b/drivers/pci/host/pci-hyperv.c
+@@ -50,6 +50,7 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/pci.h>
++#include <linux/delay.h>
+ #include <linux/semaphore.h>
+ #include <linux/irqdomain.h>
+ #include <asm/irqdomain.h>
+@@ -1159,7 +1160,12 @@ static void hv_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
+ 		goto free_int_desc;
+ 	}
+ 
+-	wait_for_completion(&comp.comp_pkt.host_event);
++	/*
++	 * Since this function is called with IRQ locks held, can't
++	 * do normal wait for completion; instead poll.
++	 */
++	while (!try_wait_for_completion(&comp.comp_pkt.host_event))
++		udelay(100);
+ 
+ 	if (comp.comp_pkt.completion_status < 0) {
+ 		dev_err(&hbus->hdev->device,
 -- 
 2.11.0
