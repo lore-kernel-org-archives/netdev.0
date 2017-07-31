@@ -1,50 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] net: bcmgenet: utilize MDIO unimac driver
-Date: Mon, 31 Jul 2017 14:41:19 -0700 (PDT)
-Message-ID: <20170731.144119.1261443747903049163.davem@davemloft.net>
-References: <20170731190429.24204-1-f.fainelli@gmail.com>
+Subject: Re: [patch net-next 0/8] mlxsw: Various small fixes
+Date: Mon, 31 Jul 2017 14:49:58 -0700 (PDT)
+Message-ID: <20170731.144958.952752995137554669.davem@davemloft.net>
+References: <20170731072730.3256-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, opendmb@gmail.com, jaedon.shin@gmail.com,
-        pgynther@google.com
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, petrm@mellanox.com,
+        mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45996 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46066 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751017AbdGaVlU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 17:41:20 -0400
-In-Reply-To: <20170731190429.24204-1-f.fainelli@gmail.com>
+        with ESMTP id S1751017AbdGaVt7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 17:49:59 -0400
+In-Reply-To: <20170731072730.3256-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon, 31 Jul 2017 12:04:21 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 31 Jul 2017 09:27:22 +0200
 
-> Hi all,
-> 
-> This patch series migrates the Broadcom GENET driver to use the mdio-bcm-unimac
-> driver. This MDIO HW is the same as the one GENET internally embedds, yet for
-> historical reasons the two drivers lived their own lives. Because of the GENET
-> interrupt situation, we let it specify how it wants to signal MDIO operations
-> completion using its driver-private waitqueue.
-> 
-> The diffstat is not super impressive, but it's still negative! This would
-> make it easier in the future to absorb possible workarounds/bugs/features
-> within the same location.
-> 
-> This was tested on BCM7260 (GENETv5, single instance), BCM7439 (GENETv4, triple
-> instance) and BCM7445 (bcm_sf2 + mdio-bcm-unimac).
-> 
-> We also now have a nice /proc/iomem output:
-> 
-> f0b00000-f0b0fc4b : /rdb/ethernet@f0b00000
->   f0b00e14-f0b00e1c : unimac-mdio.0
-> f0b20000-f0b2fc4b : /rdb/ethernet@f0b20000
->   f0b20e14-f0b20e1c : unimac-mdio.1
-> f0b40000-f0b4fc4b : /rdb/ethernet@f0b40000
->   f0b40e14-f0b40e1c : unimac-mdio.2
+> This patch series is to contribute several fixes for nits that I noticed while
+> working on mlxsw. The changes range from typo fixes to local improvements of
+> the code and have little in common besides being small in scope.
 
-I love cleanups like this... even if the diffstat breaks even :-)
-
-Applied, thanks.
+Series applied, thanks Jiri.
