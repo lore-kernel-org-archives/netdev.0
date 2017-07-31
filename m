@@ -1,59 +1,114 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 11/12] net: add notifier hooks for devmap bpf
- map
-Date: Mon, 31 Jul 2017 07:47:43 -0700
-Message-ID: <597F430F.3050000@gmail.com>
-References: <20170717160759.24315.7464.stgit@john-Precision-Tower-5810> <20170717163002.24315.38734.stgit@john-Precision-Tower-5810> <20170730132931.gmzb6r4qaxxpsuir@sasha-lappy> <597EF067.1090605@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "ast@fb.com" <ast@fb.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "brouer@redhat.com" <brouer@redhat.com>,
-        "andy@greyhouse.net" <andy@greyhouse.net>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] udp6: fix jumbogram reception
+Date: Mon, 31 Jul 2017 16:52:36 +0200
+Message-ID: <70ca36ffa44fb8d6c369a1ab2866220916e2904a.1501512228.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        David Lebrun <david.lebrun@uclouvain.be>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33243 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751951AbdGaOr6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 10:47:58 -0400
-Received: by mail-pf0-f194.google.com with SMTP id k72so23084944pfj.0
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 07:47:58 -0700 (PDT)
-In-Reply-To: <597EF067.1090605@iogearbox.net>
+Received: from mx1.redhat.com ([209.132.183.28]:60506 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750987AbdGaOxG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Jul 2017 10:53:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/31/2017 01:55 AM, Daniel Borkmann wrote:
-> On 07/30/2017 03:28 PM, Levin, Alexander (Sasha Levin) wrote:
->> On Mon, Jul 17, 2017 at 09:30:02AM -0700, John Fastabend wrote:
->>> @@ -341,9 +368,11 @@ static int dev_map_update_elem(struct bpf_map *map, void *key, void *value,
->>>      * Remembering the driver side flush operation will happen before the
->>>      * net device is removed.
->>>      */
->>> +    mutex_lock(&dev_map_list_mutex);
->>>     old_dev = xchg(&dtab->netdev_map[i], dev);
->>>     if (old_dev)
->>>         call_rcu(&old_dev->rcu, __dev_map_entry_free);
->>> +    mutex_unlock(&dev_map_list_mutex);
->>>
->>>     return 0;
->>> }
->>
->> This function gets called under rcu critical section, where we can't grab mutexes:
-> 
-> Agree, same goes for the delete callback that mutex is not allowed
-> in this context. If I recall, this was for the devmap netdev notifier
-> in order to check whether we need to purge dev entries from the map,
-> so that the device can be unregistered gracefully. Given that devmap
-> ops like update/delete are only allowed from user space, we could
-> look into whether this map type actually needs to hold RCU at all
-> here, or other option is to try and get rid of the mutex altogether.
-> John, could you take a look for a fix?
-> 
-> Thanks a lot,
-> Daniel
-> 
+Since commit 67a51780aebb ("ipv6: udp: leverage scratch area
+helpers") udp6_recvmsg() read the skb len from the scratch area,
+to avoid a cache miss.
+But the UDP6 rx path support RFC 2675 UDPv6 jumbograms, and their
+length exceeds the 16 bits available in the scratch area. As a side
+effect the length returned by recvmsg() is:
+<ingress datagram len> % (1<<16)
 
-I'll work up a fix today/tomorrow. Thanks.
+This commit addresses the issue allocating one more bit in the
+IP6CB flags field and setting it for incoming jumbograms.
+Such field is still in the first cacheline, so at recvmsg()
+time we can check it and fallback to access skb->len if
+required, without a measurable overhead.
+
+Fixes: 67a51780aebb ("ipv6: udp: leverage scratch area helpers")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+This is possibly a theoretical only issue: I've been unable to
+find an in kernel driver suitable to trigger the issue -
+e.g. supporting a max mtu larger than 64K, and I have to resort
+using a patched veth driver allowing very large mtu.
+Anyway I think this is worth fixing, since pre 67a51780aebb the
+IPv6/UDP rx path was able to cope correctly with jumbograms.
+---
+ include/linux/ipv6.h |  6 ++++++
+ net/ipv6/exthdrs.c   |  1 +
+ net/ipv6/udp.c       | 11 ++++++++++-
+ 3 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index e1b442996f81..474d6bbc158c 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -128,6 +128,7 @@ struct inet6_skb_parm {
+ #define IP6SKB_FRAGMENTED      16
+ #define IP6SKB_HOPBYHOP        32
+ #define IP6SKB_L3SLAVE         64
++#define IP6SKB_JUMBOGRAM      128
+ };
+ 
+ #if defined(CONFIG_NET_L3_MASTER_DEV)
+@@ -152,6 +153,11 @@ static inline int inet6_iif(const struct sk_buff *skb)
+ 	return l3_slave ? skb->skb_iif : IP6CB(skb)->iif;
+ }
+ 
++static inline bool inet6_is_jumbogram(const struct sk_buff *skb)
++{
++	return !!(IP6CB(skb)->flags & IP6SKB_JUMBOGRAM);
++}
++
+ /* can not be used in TCP layer after tcp_v6_fill_cb */
+ static inline bool inet6_exact_dif_match(struct net *net, struct sk_buff *skb)
+ {
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 4996d734f1d2..3cec529c6113 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -756,6 +756,7 @@ static bool ipv6_hop_jumbo(struct sk_buff *skb, int optoff)
+ 	if (pskb_trim_rcsum(skb, pkt_len + sizeof(struct ipv6hdr)))
+ 		goto drop;
+ 
++	IP6CB(skb)->flags |= IP6SKB_JUMBOGRAM;
+ 	return true;
+ 
+ drop:
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 98fe4560e24c..578142b7ca3e 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -328,6 +328,15 @@ struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be
+ EXPORT_SYMBOL_GPL(udp6_lib_lookup);
+ #endif
+ 
++/* do not use the scratch area len for jumbogram: their length execeeds the
++ * scratch area space; note that the IP6CB flags is still in the first
++ * cacheline, so checking for jumbograms is cheap
++ */
++static int udp6_skb_len(struct sk_buff *skb)
++{
++	return unlikely(inet6_is_jumbogram(skb)) ? skb->len : udp_skb_len(skb);
++}
++
+ /*
+  *	This should be easy, if there is something there we
+  *	return it, otherwise we block.
+@@ -358,7 +367,7 @@ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
+ 	if (!skb)
+ 		return err;
+ 
+-	ulen = udp_skb_len(skb);
++	ulen = udp6_skb_len(skb);
+ 	copied = len;
+ 	if (copied > ulen - off)
+ 		copied = ulen - off;
+-- 
+2.13.3
