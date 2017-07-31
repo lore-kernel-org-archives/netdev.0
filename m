@@ -1,48 +1,47 @@
-From: Shaohua Li <shli@kernel.org>
-Subject: [PATCH V4 net 1/2] net: remove unnecessary rotation
-Date: Mon, 31 Jul 2017 15:19:22 -0700
-Message-ID: <0ffd86784b6bc5209d592ea57c0b14f51bfbdc24.1501539150.git.shli@fb.com>
-References: <cover.1501539150.git.shli@fb.com>
-Cc: Shaohua Li <shli@fb.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 06/11] net: dsa: bcm_sf2: remove unneeded supported flags
+Date: Mon, 31 Jul 2017 18:17:14 -0400
+Message-ID: <20170731221719.16695-7-vivien.didelot@savoirfairelinux.com>
+References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:47166 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751339AbdGaWT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Jul 2017 18:19:27 -0400
-In-Reply-To: <cover.1501539150.git.shli@fb.com>
-In-Reply-To: <cover.1501539150.git.shli@fb.com>
-References: <cover.1501539150.git.shli@fb.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:33608 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751352AbdGaWUT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 18:20:19 -0400
+In-Reply-To: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shaohua Li <shli@fb.com>
+The SF2 driver is masking the supported bitfield of its private copy of
+the ports' ethtool_eee structures. It is used nowhere, thus remove it.
 
-According to David Miller, the rotation doesn't really help avoid
-security problem, so delte it.
-
-Suggested-by: David Miller <davem@davemloft.net>
-Signed-off-by: Shaohua Li <shli@fb.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/ipv6.h | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/dsa/bcm_sf2.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 6eac5cf..7548367 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -790,12 +790,6 @@ static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 648f91b58d1e..aef475f1ce06 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -327,12 +327,8 @@ static void bcm_sf2_port_disable(struct dsa_switch *ds, int port,
+ static int bcm_sf2_eee_init(struct dsa_switch *ds, int port,
+ 			    struct phy_device *phy)
+ {
+-	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
+-	struct ethtool_eee *p = &priv->port_sts[port].eee;
+ 	int ret;
  
- 	hash = skb_get_hash_flowi6(skb, fl6);
- 
--	/* Since this is being sent on the wire obfuscate hash a bit
--	 * to minimize possbility that any useful information to an
--	 * attacker is leaked. Only lower 20 bits are relevant.
--	 */
--	rol32(hash, 16);
+-	p->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full);
 -
- 	flowlabel = (__force __be32)hash & IPV6_FLOWLABEL_MASK;
- 
- 	if (net->ipv6.sysctl.flowlabel_state_ranges)
+ 	ret = phy_init_eee(phy, 0);
+ 	if (ret)
+ 		return 0;
 -- 
-2.9.3
+2.13.3
