@@ -1,60 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 net] ipv6: no need to check rt->dst.error when get
- route info
-Date: Mon, 31 Jul 2017 16:39:14 -0700 (PDT)
-Message-ID: <20170731.163914.1369233353113528757.davem@davemloft.net>
-References: <1501172736-13685-1-git-send-email-liuhangbin@gmail.com>
-        <20170731.162237.142502126102802813.davem@davemloft.net>
-        <f1e0a300-b4f1-edcb-5e00-2762609d5582@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 4/4] pci-hyperv: do not sleep in
+ compose_msi_msg
+Date: Mon, 31 Jul 2017 16:40:38 -0700
+Message-ID: <20170731164038.49bc878a@xeon-e3>
+References: <20170731233712.12087-1-sthemmin@microsoft.com>
+        <20170731233712.12087-5-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: liuhangbin@gmail.com, netdev@vger.kernel.org,
-        xiyou.wangcong@gmail.com, roopa@cumulusnetworks.com
-To: dsahern@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47614 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751537AbdGaXjP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 19:39:15 -0400
-In-Reply-To: <f1e0a300-b4f1-edcb-5e00-2762609d5582@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@linuxdriverproject.org, linux-doc@vger.kernel.org,
+        netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
+        corbet@lwn.net
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20170731233712.12087-5-sthemmin@microsoft.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsahern@gmail.com>
-Date: Mon, 31 Jul 2017 17:34:09 -0600
+On Mon, 31 Jul 2017 16:37:12 -0700
+Stephen Hemminger <stephen@networkplumber.org> wrote:
 
-> On 7/31/17 5:22 PM, David Miller wrote:
->> From: Hangbin Liu <liuhangbin@gmail.com>
->> Date: Fri, 28 Jul 2017 00:25:36 +0800
->> 
->>> After commit 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib
->>> result when requested"). When we get a prohibit ertry, we will return
->>> -EACCES directly instead of dump route info.
->>>
->>> Fix it by remove the rt->dst.error check.
->> ...
->>> Fixes: 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib...")
->>> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
->> 
->> David A., where are we on this?
->> 
+> The setup of MSI with Hyper-V host was sleeping with locks held.
+> This error is reported when doing SR-IOV hotplug with kernel built with lockdep.
 > 
-> Dizzy from running in circles.
-
-:-)
-
-> Question I posed to you Saturday morning, 8:41 MDT [1]:
+>     BUG: sleeping function called from invalid context at kernel/sched/completion.c:93
+>     in_atomic(): 1, irqs_disabled(): 1, pid: 1405, name: ip
+>     3 locks held by ip/1405:
+>    #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff976b10bb>] rtnetlink_rcv+0x1b/0x40
+>    #1:  (&desc->request_mutex){+.+...}, at: [<ffffffff970ddd33>] __setup_irq+0xb3/0x720
+>    #2:  (&irq_desc_lock_class){-.-...}, at: [<ffffffff970ddd65>] __setup_irq+0xe5/0x720
+>    irq event stamp: 3476
+>    hardirqs last  enabled at (3475): [<ffffffff971b3005>] get_page_from_freelist+0x225/0xc90
+>    hardirqs last disabled at (3476): [<ffffffff978024e7>] _raw_spin_lock_irqsave+0x27/0x90
+>    softirqs last  enabled at (2446): [<ffffffffc05ef0b0>] ixgbevf_configure+0x380/0x7c0 [ixgbevf]
+>    softirqs last disabled at (2444): [<ffffffffc05ef08d>] ixgbevf_configure+0x35d/0x7c0 [ixgbevf]
 > 
-> "... Roopa's fibmatch patches caused a change in user behavior in IPv6
-> getroute for prohibit, blackhole and unreachable route entries. Opinions
-> on whether we should limit that new behavior to just the fibmatch lookup
-> in which case a patch is needed or take the new behavior and consistency
-> in which case nothing is needed?"
+> The workaround is to poll for host response instead of blocking on
+> completion.
 > 
-> Personally, after all the discussion I think the behavior as it is right
-> now is best.
-> 
-> [1] https://www.spinics.net/lists/netdev/msg446571.html
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-I agree with you that we should keep the behavior as is.
+This patch is not directly network related. It needs to go through PCI.
+
+I will resend the series.
