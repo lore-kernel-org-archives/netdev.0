@@ -1,56 +1,117 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCHv4 net] ipv6: no need to check rt->dst.error when get route
- info
-Date: Mon, 31 Jul 2017 17:34:09 -0600
-Message-ID: <f1e0a300-b4f1-edcb-5e00-2762609d5582@gmail.com>
-References: <1500562286-14312-1-git-send-email-liuhangbin@gmail.com>
- <1501172736-13685-1-git-send-email-liuhangbin@gmail.com>
- <20170731.162237.142502126102802813.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 0/4] netvsc: transparent SR-IOV VF support
+Date: Mon, 31 Jul 2017 16:37:08 -0700
+Message-ID: <20170731233712.12087-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-        roopa@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>, liuhangbin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35651 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751199AbdGaXeL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 19:34:11 -0400
-Received: by mail-pf0-f196.google.com with SMTP id q85so90618pfq.2
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 16:34:11 -0700 (PDT)
-In-Reply-To: <20170731.162237.142502126102802813.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: devel@linuxdriverproject.org, linux-doc@vger.kernel.org,
+        netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
+        corbet@lwn.net
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/31/17 5:22 PM, David Miller wrote:
-> From: Hangbin Liu <liuhangbin@gmail.com>
-> Date: Fri, 28 Jul 2017 00:25:36 +0800
-> 
->> After commit 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib
->> result when requested"). When we get a prohibit ertry, we will return
->> -EACCES directly instead of dump route info.
->>
->> Fix it by remove the rt->dst.error check.
-> ...
->> Fixes: 18c3a61c4264 ("net: ipv6: RTM_GETROUTE: return matched fib...")
->> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> 
-> David A., where are we on this?
-> 
+This patch set changes how SR-IOV Virtual Function devices are managed
+in the Hyper-V network driver. It was part of earlier bundle, but
+is now updated.
 
-Dizzy from running in circles.
+Background
+In Hyper-V SR-IOV can be enabled (and disabled) by changing guest settings
+on host. When SR-IOV is enabled a matching PCI device is hot plugged and
+visible on guest. The VF device is an add-on to an existing netvsc
+device, and has the same MAC address.
+
+How is this different?
+
+The original support of VF relied on using bonding driver in active
+standby mode to handle the VF device.
+
+With the new netvsc VF logic, the Linux hyper-V network
+virtual driver will directly manage the link to SR-IOV VF device.
+When VF device is detected (hot plug) it is automatically made a
+slave device of the netvsc device. The VF device state reflects
+the state of the netvsc device; i.e. if netvsc is set down, then
+VF is set down. If netvsc is set up, then VF is brought up.
+ 
+Packet flow is independent of VF status; all packets are sent and
+received as if they were associated with the netvsc device. If VF is
+removed or link is down then the synthetic VMBUS path is used.
+ 
+What was wrong with using bonding script?
+
+A lot of work went into getting the bonding script to work on all
+distributions, but it was a major struggle. Linux network devices
+can be configured many, many ways and there is no one solution from
+userspace to make it all work. What is really hard is when
+configuration is attached to synthetic device during boot (eth0) and
+then the same addresses and firewall rules needs to also work later if
+doing bonding. The new code gets around all of this.
+ 
+How does VF work during initialization?
+
+Since all packets are sent and received through the logical netvsc
+device, initialization is much easier. Just configure the regular
+netvsc Ethernet device; when/if SR-IOV is enabled it just
+works. Provisioning and cloud init only need to worry about setting up
+netvsc device (eth0). If SR-IOV is enabled (even as a later step), the
+address and rules stay the same.
+ 
+What devices show up?
+
+Both netvsc and PCI devices are visible in the system. The netvsc
+device is active and named in usual manner (eth0). The PCI device is
+visible to Linux and gets renamed by udev to a persistent name
+(enP2p3s0). The PCI device name is now irrelevant now.
+
+The logic also sets the PCI VF device SLAVE flag on the network
+device so network tools can see the relationship if they are smart
+enough to understand how layered devices work.
+ 
+This is a lot like how I see Windows working.
+The VF device is visible in Device Manager, but is not configured.
+ 
+Is there any performance impact?
+There is no visible change in performance. The bonding
+and netvsc driver both have equivalent steps.
+ 
+Is it compatible with old bonding script?
+
+It turns out that if you use the old bonding script, then everything
+still works but in a sub-optimum manner. What happens is that bonding
+is unable to steal the VF from the netvsc device so it creates a one
+legged bond.  Packet flow then is:
+	bond0 <--> eth0 <- -> VF (enP2p3s0).
+In other words, if you get it wrong it still works, just
+awkward and slower.
+ 
+What if I add address or firewall rule onto the VF?
+
+Same problems occur with now as already occur with bonding, bridging,
+teaming on Linux if user incorrectly does configuration onto
+an underlying slave device. It will sort of work, packets will come in
+and out but the Linux kernel gets confused and things like ARP don’t
+work right.  There is no way to block manipulation of the slave
+device, and I am sure someone will find some special use case where
+they want it.
 
 
-Question I posed to you Saturday morning, 8:41 MDT [1]:
+Stephen Hemminger (4):
+  netvsc: transparent VF management
+  netvsc: add documentation
+  netvsc: remove bonding setup script
+  pci-hyperv: do not sleep in compose_msi_msg
 
-"... Roopa's fibmatch patches caused a change in user behavior in IPv6
-getroute for prohibit, blackhole and unreachable route entries. Opinions
-on whether we should limit that new behavior to just the fibmatch lookup
-in which case a patch is needed or take the new behavior and consistency
-in which case nothing is needed?"
+ Documentation/networking/netvsc.txt |  63 ++++++
+ MAINTAINERS                         |   1 +
+ drivers/net/hyperv/hyperv_net.h     |  12 ++
+ drivers/net/hyperv/netvsc_drv.c     | 419 ++++++++++++++++++++++++++++--------
+ drivers/pci/host/pci-hyperv.c       |   8 +-
+ tools/hv/bondvf.sh                  | 255 ----------------------
+ 6 files changed, 413 insertions(+), 345 deletions(-)
+ create mode 100644 Documentation/networking/netvsc.txt
+ delete mode 100755 tools/hv/bondvf.sh
 
-Personally, after all the discussion I think the behavior as it is right
-now is best.
-
-[1] https://www.spinics.net/lists/netdev/msg446571.html
+-- 
+2.11.0
