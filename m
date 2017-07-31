@@ -1,40 +1,59 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Simplify
- lan9303_xxx_packet_processing() usage
-Date: Mon, 31 Jul 2017 16:47:00 +0200
-Message-ID: <20170731144700.GG24562@lunn.ch>
-References: <20170731113355.4284-1-privat@egil-hjelmeland.no>
- <20170731113355.4284-3-privat@egil-hjelmeland.no>
- <20170731134640.GD24562@lunn.ch>
- <83b3fb27-97dd-a9ea-e0db-017d616f93fe@egil-hjelmeland.no>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 11/12] net: add notifier hooks for devmap bpf
+ map
+Date: Mon, 31 Jul 2017 07:47:43 -0700
+Message-ID: <597F430F.3050000@gmail.com>
+References: <20170717160759.24315.7464.stgit@john-Precision-Tower-5810> <20170717163002.24315.38734.stgit@john-Precision-Tower-5810> <20170730132931.gmzb6r4qaxxpsuir@sasha-lappy> <597EF067.1090605@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@pengutronix.de
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <83b3fb27-97dd-a9ea-e0db-017d616f93fe@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "ast@fb.com" <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "brouer@redhat.com" <brouer@redhat.com>,
+        "andy@greyhouse.net" <andy@greyhouse.net>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33243 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751951AbdGaOr6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 10:47:58 -0400
+Received: by mail-pf0-f194.google.com with SMTP id k72so23084944pfj.0
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 07:47:58 -0700 (PDT)
+In-Reply-To: <597EF067.1090605@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> >
-> >     Andrew
-> >
+On 07/31/2017 01:55 AM, Daniel Borkmann wrote:
+> On 07/30/2017 03:28 PM, Levin, Alexander (Sasha Levin) wrote:
+>> On Mon, Jul 17, 2017 at 09:30:02AM -0700, John Fastabend wrote:
+>>> @@ -341,9 +368,11 @@ static int dev_map_update_elem(struct bpf_map *map, void *key, void *value,
+>>>      * Remembering the driver side flush operation will happen before the
+>>>      * net device is removed.
+>>>      */
+>>> +    mutex_lock(&dev_map_list_mutex);
+>>>     old_dev = xchg(&dtab->netdev_map[i], dev);
+>>>     if (old_dev)
+>>>         call_rcu(&old_dev->rcu, __dev_map_entry_free);
+>>> +    mutex_unlock(&dev_map_list_mutex);
+>>>
+>>>     return 0;
+>>> }
+>>
+>> This function gets called under rcu critical section, where we can't grab mutexes:
 > 
-> Hi Andrew
+> Agree, same goes for the delete callback that mutex is not allowed
+> in this context. If I recall, this was for the devmap netdev notifier
+> in order to check whether we need to purge dev entries from the map,
+> so that the device can be unregistered gracefully. Given that devmap
+> ops like update/delete are only allowed from user space, we could
+> look into whether this map type actually needs to hold RCU at all
+> here, or other option is to try and get rid of the mutex altogether.
+> John, could you take a look for a fix?
 > 
-> This time I took the extra effort to split my  original patch...
+> Thanks a lot,
+> Daniel
 > 
-> Your lan9303_write_switch_port suggestion (in previous reply) is fine.
-> And I can improve the coverletter.
-> 
-> So I will do a v2 of the patch. But what is your advice:
-> Should I squash the patch?
 
-I already gave my Reviewed-by:, meaning i don't really care. Merged or
-squashed is a minor point in this case.
-
-	 Andrew
+I'll work up a fix today/tomorrow. Thanks.
