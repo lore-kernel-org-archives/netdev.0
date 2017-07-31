@@ -1,102 +1,59 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 01/11] net: dsa: make EEE ops optional
-Date: Mon, 31 Jul 2017 18:17:09 -0400
-Message-ID: <20170731221719.16695-2-vivien.didelot@savoirfairelinux.com>
-References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH V4 net 2/2] net: fix tcp reset packet flowlabel for ipv6
+Date: Mon, 31 Jul 2017 15:35:02 -0700
+Message-ID: <CAM_iQpXOaP4JmGW4-AcL6JYbzKq_Co_Z4pWiSh1B1i=4MsakEQ@mail.gmail.com>
+References: <cover.1501539150.git.shli@fb.com> <373e23f5295ee4cb725109a9e58152451a9fb4cc.1501539150.git.shli@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, Shaohua Li <shli@fb.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Florent Fourcot <flo@fourcot.fr>
+To: Shaohua Li <shli@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33519 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751017AbdGaWfY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 18:35:24 -0400
+Received: by mail-wm0-f68.google.com with SMTP id q189so554541wmd.0
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 15:35:23 -0700 (PDT)
+In-Reply-To: <373e23f5295ee4cb725109a9e58152451a9fb4cc.1501539150.git.shli@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Even though EEE implies the port's PHY and MAC of both ends, a switch
-may not need to do anything to configure the port's MAC.
+On Mon, Jul 31, 2017 at 3:19 PM, Shaohua Li <shli@kernel.org> wrote:
+>  static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
+>                                         __be32 flowlabel, bool autolabel,
+> -                                       struct flowi6 *fl6)
+> +                                       struct flowi6 *fl6, u32 hash)
+>  {
+> -       u32 hash;
+> -
+>         /* @flowlabel may include more than a flow label, eg, the traffic class.
+>          * Here we want only the flow label value.
+>          */
+> @@ -788,7 +786,8 @@ static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
+>              net->ipv6.sysctl.auto_flowlabels != IP6_AUTO_FLOW_LABEL_FORCED))
+>                 return flowlabel;
+>
+> -       hash = skb_get_hash_flowi6(skb, fl6);
+> +       if (skb)
+> +               hash = skb_get_hash_flowi6(skb, fl6);
 
-This makes it impossible for the DSA layer to distinguish e.g. this case
-from a disabled EEE when a driver returns 0 from the get EEE operation.
 
-For this reason, make the EEE ops optional and call them only when
-provided. Calling it first allows a switch driver to stop the whole
-operation at runtime if a given switch does not support the EEE setting.
+Why not just move skb_get_hash_flowi6() to its caller?
+This check is not necessary. If you don't want to touch
+existing callers, you can just introduce a wrapper:
 
-If both the MAC operation and PHY are not present, -ENODEV is returned.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/slave.c | 44 ++++++++++++++++++++++++--------------------
- 1 file changed, 24 insertions(+), 20 deletions(-)
+static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
+                                        __be32 flowlabel, bool autolabel,
+                                        struct flowi6 *fl6)
+{
+  u32 hash = skb_get_hash_flowi6(skb, fl6);
+  return __ip6_make_flowlabel(net, flowlabel, autolabel, hash);
+}
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 9507bd38cf04..518145ced434 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -646,38 +646,42 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->dp->ds;
--	int ret;
-+	int err = -ENODEV;
- 
--	if (!ds->ops->set_eee)
--		return -EOPNOTSUPP;
-+	if (ds->ops->set_eee) {
-+		err = ds->ops->set_eee(ds, p->dp->index, p->phy, e);
-+		if (err)
-+			return err;
-+	}
- 
--	ret = ds->ops->set_eee(ds, p->dp->index, p->phy, e);
--	if (ret)
--		return ret;
-+	if (p->phy) {
-+		err = phy_ethtool_set_eee(p->phy, e);
-+		if (err)
-+			return err;
-+	}
- 
--	if (p->phy)
--		ret = phy_ethtool_set_eee(p->phy, e);
--
--	return ret;
-+	return err;
- }
- 
- static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->dp->ds;
--	int ret;
-+	int err = -ENODEV;
- 
--	if (!ds->ops->get_eee)
--		return -EOPNOTSUPP;
-+	if (ds->ops->get_eee) {
-+		err = ds->ops->get_eee(ds, p->dp->index, e);
-+		if (err)
-+			return err;
-+	}
- 
--	ret = ds->ops->get_eee(ds, p->dp->index, e);
--	if (ret)
--		return ret;
-+	if (p->phy) {
-+		err = phy_ethtool_get_eee(p->phy, e);
-+		if (err)
-+			return err;
-+	}
- 
--	if (p->phy)
--		ret = phy_ethtool_get_eee(p->phy, e);
--
--	return ret;
-+	return err;
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
--- 
-2.13.3
+And your code can just call:
+
+__ip6_make_flowlabel(net, flowlabel, autolabel, sk->sk_txhash);
