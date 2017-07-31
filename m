@@ -1,51 +1,49 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH V3 net-next] TLP: Don't reschedule PTO when there's one
- outstanding TLP retransmission
-Date: Mon, 31 Jul 2017 11:49:13 -0400
-Message-ID: <CADVnQymVniXHxEDW8aA8z+M=G_qNfo+jJfUBrfHycM4-voiDJw@mail.gmail.com>
-References: <1501157337-10900-1-git-send-email-maowenan@huawei.com>
- <CADVnQy=Dw__BrTHwoUrn0Wxu8=Xb7NqZ9bAuEeM8SrNhzd_2SA@mail.gmail.com>
- <F95AC9340317A84688A5F0DF0246F3F2029326B6@DGGEMI512-MBX.china.huawei.com>
- <CADVnQykeDvPCQqvoox-oQkm5FdCvLQRvxZKC+TVmG7g-9CEoxw@mail.gmail.com> <F95AC9340317A84688A5F0DF0246F3F202932CA2@DGGEMI512-MBX.china.huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Chenweilong <chenweilong@huawei.com>,
-        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>
-To: maowenan <maowenan@huawei.com>
+From: Koichiro Den <den@klaipeden.com>
+Subject: [PATCH net 1/2] vxlan: fix remcsum when GRO on and CHECKSUM_PARTIAL boundary is outer UDP
+Date: Tue,  1 Aug 2017 01:05:20 +0900
+Message-ID: <20170731160520.5957-1-den@klaipeden.com>
+Cc: tom@herbertland.com
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:33161 "EHLO
-        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751046AbdGaPtp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 11:49:45 -0400
-Received: by mail-oi0-f45.google.com with SMTP id a9so187968932oih.0
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 08:49:45 -0700 (PDT)
-In-Reply-To: <F95AC9340317A84688A5F0DF0246F3F202932CA2@DGGEMI512-MBX.china.huawei.com>
+Received: from sender-of-o52.zoho.com ([135.84.80.217]:21471 "EHLO
+        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751951AbdGaQFg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 12:05:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 30, 2017 at 11:29 PM, maowenan <maowenan@huawei.com> wrote:
-> [Mao Wenan]please refer to the attachment, test.pkt is packetdrill script.
-> In test.pcap, packet number 17 is the TLP probe, packet number 218 is the
-> retransmission packet because client don't send data packet to server.
-> From the capture time, there are about 6 seconds the retransmission
-> packet can be sent, and this time can be added more as long as client
-> send data packet continually.
-> I have reproduced this issue in Linux 4.13-rc3, 3.10, 4.1. Please check the timing
-> When you use test.pkt to reproduce in your environment.
+In the case that GRO is turned on and the original received packet is
+CHECKSUM_PARTIAL, if the outer UDP header is exactly at the last
+csum-unnecessary point, which for instance could occur if the packet
+comes from another Linux guest on the same Linux host, we have to do
+either remcsum_adjust or set up CHECKSUM_PARTIAL again with its
+csum_start properly reset considering RCO.
 
-Thank you for your very nice packetdrill test case illustrating this
-problem! And thanks for verifying that the problem shows up in those
-kernel versions.
+However, since b7fe10e5ebac("gro: Fix remcsum offload to deal with frags
+in GRO") that barrier in such case could be skipped if GRO turned on,
+hence we pass over it and the inner L4 validation mistakenly reckons
+it as a bad csum.
 
-We are able to run the script in our environment and both verify that
-the bug is the one we hypothesized, and verify our  proposed patch
-fixes it (the RTO for the TLP happens 221ms after the TLP, instead of
-~5 secs later). We will send out our proposed patches ASAP.
+This patch makes remcsum_offload being reset at the same time of GRO
+remcsum cleanup, so as to make it work in such case as before.
 
-Thanks!
-neal
+Fixes: b7fe10e5ebac ("gro: Fix remcsum offload to deal with frags in GRO")
+Signed-off-by: Koichiro Den <den@klaipeden.com>
+---
+ drivers/net/vxlan.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 96aa7e6cf214..e17baac70f43 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -623,6 +623,7 @@ static struct sk_buff **vxlan_gro_receive(struct sock *sk,
+ 
+ out:
+ 	skb_gro_remcsum_cleanup(skb, &grc);
++	skb->remcsum_offload = 0;
+ 	NAPI_GRO_CB(skb)->flush |= flush;
+ 
+ 	return pp;
+-- 
+2.9.4
