@@ -1,38 +1,45 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH net] mcs7780: Silence uninitialized variable warning
-Date: Mon, 31 Jul 2017 10:41:40 +0300
-Message-ID: <20170731070925.ztlfbyd7pvoz46wh@mwanda>
-References: <20170728144511.tf7nc672hwo35rnn@mwanda>
- <20170729.232855.1831311386560187695.davem@davemloft.net>
+From: Juergen Borleis <jbe@pengutronix.de>
+Subject: Re: [PATCH v2 net-next 0/4] net: dsa: lan9303: Fix MDIO issues.
+Date: Mon, 31 Jul 2017 09:51:06 +0200
+Message-ID: <201707310951.07834.jbe@pengutronix.de>
+References: <20170730175856.4784-1-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:29198 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751027AbdGaHmY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 03:42:24 -0400
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 8BIT
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: kernel@pengutronix.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170730175856.4784-1-privat@egil-hjelmeland.no>
 Content-Disposition: inline
-In-Reply-To: <20170729.232855.1831311386560187695.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 29, 2017 at 11:28:55PM -0700, David Miller wrote:
-> From: Dan Carpenter <dan.carpenter@oracle.com>
-> Date: Fri, 28 Jul 2017 17:45:11 +0300
-> 
-> > -	__u16 rval;
-> > +	__u16 rval = -1;
-> 
-> Fixing a bogus warning by assigning a signed constant to an
-> unsigned variable doesn't really make me all that happy.
-> 
-> I don't think I'll apply this, sorry.
+Hi Egil,
 
-There's no guarantee that small kmallocs will always succeed in future
-kernels so it's not *totally* bogus.
+On Sunday 30 July 2017 19:58:52 Egil Hjelmeland wrote:
+> This series fix the MDIO interface for the lan9303 DSA driver.
+> Bugs found after testing on actual HW.
+>
+> This series is extracted from the first patch of my first large
+> series. Significant changes from that version are:
+>  - use mdiobus_write_nested, mdiobus_read_nested.
+>  - EXPORT lan9303_indirect_phy_ops
+>
+> Unfortunately I do not have access to i2c based system for
+> testing.
 
-regards,
-dan carpenter
+A little bit late - the series is already applied...
+I have just tested it on my LAN9303 connected via I2C and my setup still 
+works.
+
+Tested-by: Juergen Borleis <jbe@pengutronix.de>
+
+Cheers
+Juergen
+
+-- 
+Pengutronix e.K.                             | Juergen Borleis             |
+Industrial Linux Solutions                   | http://www.pengutronix.de/  |
