@@ -1,122 +1,104 @@
-From: isdn@linux-pingi.de
-Subject: Re: [PATCH] ISDN: eicon: fix array-bounds warning properly
-Date: Mon, 31 Jul 2017 21:38:25 +0200
-Message-ID: <3d83ad3f-d47a-f43f-4180-d46fdae54bd7@linux-pingi.de>
-References: <20170731090438.458392-1-arnd@arndb.de>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] ravb: add wake-on-lan support via magic packet
+Date: Mon, 31 Jul 2017 22:47:12 +0300
+Message-ID: <111b5ae4-5517-7a07-3077-96ced89db407@cogentembedded.com>
+References: <20170730140646.11781-1-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>, Armin Schindler <mac@melware.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170731090438.458392-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:35077 "EHLO
+        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750999AbdGaTrQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 15:47:16 -0400
+Received: by mail-lf0-f46.google.com with SMTP id t128so88232619lff.2
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 12:47:16 -0700 (PDT)
+In-Reply-To: <20170730140646.11781-1-niklas.soderlund+renesas@ragnatech.se>
+Content-Language: en-MW
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
+Hello!
 
-I think you are right, but removing this is maybe the wrong fix.
+On 07/30/2017 05:06 PM, Niklas Söderlund wrote:
 
-The issue is, that CAPI messages are packed byte streams and yes the
-64bit extension of CAPI is not very good designed for modern CPU
-constrains with alignment, since the data pointer for the buffer is not
-on a 64bit boundary. All hardware controller implementations I know do
-ignore the data pointer, they are simple awaiting the data of the given
-length directly after the message. Only the application interface on 64
-bit systems really need the 64 bit data pointer value, which is usually
-set in the HW driver to the mapped user space address of the used data
-buffer if the user space process is 64bit.
-The user space CAPI library correctly use byte stream access functions
-to read/write the values. So the correct solution for this driver would
-be to use stream access functions as well here and not add a 64 bit
-pointer.
+> WoL is enabled in the suspend callback by setting MagicPacket detection
+> and disabling all interrupts expect MagicPacket. In the resume path the
+> driver needs to reset the hardware to rearm the WoL logic, this prevents
+> the driver from simply restoring the registers and to take advantage of
+> that ravb was not suspended to reduce resume time. To reset the
+> hardware the driver closes the device, sets it in reset mode and reopens
+> the device just like it would do in a normal suspend/resume scenario
+> without WoL enabled, but it both closes and opens the device in the
+> resume callback since the device needs to be reset for WoL to work.
 
-On the other hand I do not think the any people use this driver on 64
-bit systems today, because they would run into this issue.
+> One quirk needed for WoL is that the module clock needs to be prevented
+> from being switched off by Runtime PM. To keep the clock alive the
+> suspend callback need to call clk_enable() directly to increase the
+> usage count of the clock. Then when Runtime PM decreases the clock usage
+> count it won't reach 0 and be switched off.
+> 
+> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+[...]
+> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> index 5931e859876c2aee..3d399f85417a83cf 100644
+> --- a/drivers/net/ethernet/renesas/ravb_main.c
+> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+[...]
+> @@ -2179,6 +2270,32 @@ static int __maybe_unused ravb_resume(struct device *dev)
+>   	struct ravb_private *priv = netdev_priv(ndev);
+>   	int ret = 0;
+>   
+> +	/* Reduce the usecount of the clock to zero and then
+> +	 * restore it to its original value. This is done to force
+> +	 * the clock to be re-enabled which is a workaround
+> +	 * for renesas-cpg-mssr driver which do not enable clocks
+> +	 * when resuming from PSCI suspend/resume.
+> +	 *
+> +	 * Without this workaround the driver fails to communicate
+> +	 * with the hardware if WoL was enabled when the system
+> +	 * entered PSCI suspend. This is due to that if WoL is enabled
+> +	 * we explicitly keep the clock from being turned off when
+> +	 * suspending, but in PSCI sleep power is cut so the clock
+> +	 * is disabled anyhow, the clock driver is not aware of this
+> +	 * so the clock is not turned back on when resuming.
+> +	 *
+> +	 * TODO: once the renesas-cpg-mssr suspend/resume is working
+> +	 *       this clock dance should be removed.
+> +	 */
+> +	clk_disable(priv->clk);
+> +	clk_disable(priv->clk);
+> +	clk_enable(priv->clk);
+> +	clk_enable(priv->clk);
 
-Best
-Karsten
+    After a small chat with Niklas, it became clear that this dance should be 
+behind the *if* that follows. I'd also like to see this workaround as a 
+separate patch since the isse it addresses is R-Car gen3 specific (and thus 
+can be reverted once the CPG/MMSR driver is fixed)...
 
-Am 31.07.2017 um 11:04 schrieb Arnd Bergmann:
-> I patched a variant of this warning before, but now saw it come back
-> in a different configuration with gcc-7 and UBSAN:
-> 
-> drivers/isdn/hardware/eicon/message.c: In function 'mixer_notify_update':
-> drivers/isdn/hardware/eicon/message.c:11162:54: error: array subscript is above array bounds [-Werror=array-bounds]
->      ((CAPI_MSG *) msg)->info.facility_req.structs[1] = LI_REQ_SILENT_UPDATE & 0xff;
->      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-> drivers/isdn/hardware/eicon/message.c:11163:54: error: array subscript is above array bounds [-Werror=array-bounds]
->      ((CAPI_MSG *) msg)->info.facility_req.structs[2] = LI_REQ_SILENT_UPDATE >> 8;
->      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~
-> drivers/isdn/hardware/eicon/message.c:11164:54: error: array subscript is above array bounds [-Werror=array-bounds]
->      ((CAPI_MSG *) msg)->info.facility_req.structs[3] = 0;
->      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
-> 
-> I spent a long time narrowing down what caused this, as I suspected
-> yet another false-positive warning in gcc. However, this time it
-> turned out to be an ancient kernel bug, which probably prevented
-> this from ever working on 64-bit machines, causing a stack
-> buffer overflow as indicated by the warning originally.
-> 
-> The problem is that having a 64-bit pointer inside of the CAPI_MSG->info
-> union leads to the start of the union to become 64-bit aligned by adding
-> four padding bytes. The structure is however aliased to a fixed-length
-> array on the stack in mixer_notify_update(), and later copied directly
-> to the hardware, so both go wrong.
-> 
-> This just removes the fields that were apparently added in a misguided
-> attempt to make the driver work on 64-bit machines but never actually
-> used.
-> 
-> Fixes: 950eabbd6dde ("ISDN: eicon: silence misleading array-bounds warning")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  drivers/isdn/hardware/eicon/capi20.h | 18 ------------------
->  1 file changed, 18 deletions(-)
-> 
-> diff --git a/drivers/isdn/hardware/eicon/capi20.h b/drivers/isdn/hardware/eicon/capi20.h
-> index 391e4175b0b5..7b97cd576485 100644
-> --- a/drivers/isdn/hardware/eicon/capi20.h
-> +++ b/drivers/isdn/hardware/eicon/capi20.h
-> @@ -301,14 +301,6 @@ typedef struct {
->  	word          Number;
->  	word          Flags;
->  } _DAT_B3_REQP;
-> -/* DATA-B3-REQUEST 64 BIT Systems                           */
-> -typedef struct {
-> -	dword         Data;
-> -	word          Data_Length;
-> -	word          Number;
-> -	word          Flags;
-> -	void          *pData;
-> -} _DAT_B3_REQ64P;
->  /* DATA-B3-CONFIRM                                          */
->  typedef struct {
->  	word          Number;
-> @@ -321,14 +313,6 @@ typedef struct {
->  	word          Number;
->  	word          Flags;
->  } _DAT_B3_INDP;
-> -/* DATA-B3-INDICATION  64 BIT Systems                       */
-> -typedef struct {
-> -	dword         Data;
-> -	word          Data_Length;
-> -	word          Number;
-> -	word          Flags;
-> -	void          *pData;
-> -} _DAT_B3_IND64P;
->  /* DATA-B3-RESPONSE                                         */
->  typedef struct {
->  	word          Number;
-> @@ -409,10 +393,8 @@ struct _API_MSG {
->  		_DIS_B3_INDP        disconnect_b3_ind;
->  		_DIS_B3_RESP        disconnect_b3_res;
->  		_DAT_B3_REQP        data_b3_req;
-> -		_DAT_B3_REQ64P      data_b3_req64;
->  		_DAT_B3_CONP        data_b3_con;
->  		_DAT_B3_INDP        data_b3_ind;
-> -		_DAT_B3_IND64P      data_b3_ind64;
->  		_DAT_B3_RESP        data_b3_res;
->  		_RES_B3_REQP        reset_b3_req;
->  		_RES_B3_CONP        reset_b3_con;
-> 
+> +
+> +	/* If WoL is enabled set reset mode to rearm the WoL logic */
+> +	if (priv->wol_enabled)
+> +		ravb_write(ndev, CCC_OPC_RESET, CCC);
+> +
+>   	/* All register have been reset to default values.
+>   	 * Restore all registers which where setup at probe time and
+>   	 * reopen device if it was running before system suspended.
+> @@ -2202,6 +2319,11 @@ static int __maybe_unused ravb_resume(struct device *dev)
+>  	ravb_write(ndev, priv->desc_bat_dma, DBAT);
+>  
+>  	if (netif_running(ndev)) {
+> +		if (priv->wol_enabled) {
+> +			ret = ravb_wol_restore(ndev);
+> +			if (ret)
+> +				return ret;
+> +		}
+>  		ret = ravb_open(ndev);
+
+    Hm, perhaps worth calling sh_eth_open() outside sh_eth_wol_restore() as well?
+
+MBR, Sergei
