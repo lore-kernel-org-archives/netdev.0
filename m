@@ -1,45 +1,44 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 4/4] pci-hyperv: do not sleep in
- compose_msi_msg
-Date: Mon, 31 Jul 2017 16:40:38 -0700
-Message-ID: <20170731164038.49bc878a@xeon-e3>
-References: <20170731233712.12087-1-sthemmin@microsoft.com>
-        <20170731233712.12087-5-sthemmin@microsoft.com>
+Subject: Re: [PATCH net-next v12 0/4] net sched actions: improve dump
+ performance
+Date: Mon, 31 Jul 2017 16:43:45 -0700
+Message-ID: <20170731164345.697d75c9@xeon-e3>
+References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+        <20170730.192836.370680005861016480.davem@davemloft.net>
+        <466dd890-ffae-4cdb-dc97-d173bd390148@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, linux-doc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
-        corbet@lwn.net
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20170731233712.12087-5-sthemmin@microsoft.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        jiri@resnulli.us, xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        horms@verge.net.au, dsahern@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:33447 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751102AbdGaXnr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 19:43:47 -0400
+Received: by mail-pg0-f51.google.com with SMTP id c14so496279pgn.0
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 16:43:47 -0700 (PDT)
+In-Reply-To: <466dd890-ffae-4cdb-dc97-d173bd390148@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 31 Jul 2017 16:37:12 -0700
-Stephen Hemminger <stephen@networkplumber.org> wrote:
+On Mon, 31 Jul 2017 08:06:42 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-> The setup of MSI with Hyper-V host was sleeping with locks held.
-> This error is reported when doing SR-IOV hotplug with kernel built with lockdep.
+> On 17-07-30 10:28 PM, David Miller wrote:
+> > 
+> > Series applied, thanks.
+> >   
 > 
->     BUG: sleeping function called from invalid context at kernel/sched/completion.c:93
->     in_atomic(): 1, irqs_disabled(): 1, pid: 1405, name: ip
->     3 locks held by ip/1405:
->    #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff976b10bb>] rtnetlink_rcv+0x1b/0x40
->    #1:  (&desc->request_mutex){+.+...}, at: [<ffffffff970ddd33>] __setup_irq+0xb3/0x720
->    #2:  (&irq_desc_lock_class){-.-...}, at: [<ffffffff970ddd65>] __setup_irq+0xe5/0x720
->    irq event stamp: 3476
->    hardirqs last  enabled at (3475): [<ffffffff971b3005>] get_page_from_freelist+0x225/0xc90
->    hardirqs last disabled at (3476): [<ffffffff978024e7>] _raw_spin_lock_irqsave+0x27/0x90
->    softirqs last  enabled at (2446): [<ffffffffc05ef0b0>] ixgbevf_configure+0x380/0x7c0 [ixgbevf]
->    softirqs last disabled at (2444): [<ffffffffc05ef08d>] ixgbevf_configure+0x35d/0x7c0 [ixgbevf]
+> Thanks David.
 > 
-> The workaround is to poll for host response instead of blocking on
-> completion.
+> Attaching the iproute2 patch. I will submit an official one with
+> man page  changes later. Stephen - you take net-next changes?
 > 
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> cheers,
+> jamal
 
-This patch is not directly network related. It needs to go through PCI.
-
-I will resend the series.
+I will fix this up. The kernel headers for iproute2 come from sanitized
+kernel headers (not direct copy).
