@@ -1,51 +1,202 @@
-From: Office File <wuheadoffice2000@gmail.com>
-Subject: I am Mrs Kivi Kangas, citizen of Finland and 68 years old.
-Date: Mon, 31 Jul 2017 00:36:34 +0100
-Message-ID: <CAK4dTkTciaMe8+U7uQnzzRTpDtO1F=qvj5Oy5RLZqw9AsRpsWQ@mail.gmail.com>
-Reply-To: fileoffice005@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: undisclosed-recipients:;
+From: "Jianming.qiao" <jqiaoulk@gmail.com>
+Subject: [PATCH v5 net-next] net: systemport: Support 64bit statistics
+Date: Mon, 31 Jul 2017 01:01:15 +0100
+Message-ID: <1501459275-7635-1-git-send-email-jqiaoulk@gmail.com>
+To: f.fainelli@gmail.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32994 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751217AbdG3Xgg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 19:36:36 -0400
-Received: by mail-wm0-f68.google.com with SMTP id q189so22582064wmd.0
-        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 16:36:35 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:38371 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751099AbdGaABl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2017 20:01:41 -0400
+Received: by mail-wr0-f194.google.com with SMTP id g32so13105547wrd.5
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2017 17:01:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Beloved One.
+When using Broadcom Systemport device in 32bit Platform, ifconfig can
+only report up to 4G tx,rx status, which will be wrapped to 0 when the
+number of incoming or outgoing packets exceeds 4G, only taking
+around 2 hours in busy network environment (such as streaming).
+Therefore, it makes hard for network diagnostic tool to get reliable
+statistical result, so the patch is used to add 64bit support for
+Broadcom Systemport device in 32bit Platform.
 
-I am writing this mail with tears and sorrow seeking your assistance
-due to my medical situation here in London. I am Mrs Kivi Kangas,
-citizen of Finland and 68 years old. I was an Orphan, adopted by my
-late father, Engr. Grain Kangas, Chairman/CEO of Grainkangas Oil and
-Gas Services. After the death of my father, I took over his company
-management and also decided not to get married since I am his only
-Child.
+Signed-off-by: Jianming.qiao <kiki-good@hotmail.com>
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 68 ++++++++++++++++++++----------
+ drivers/net/ethernet/broadcom/bcmsysport.h |  9 +++-
+ 2 files changed, 52 insertions(+), 25 deletions(-)
 
-Since then, I started suffering from Coronary heart disease which has
-cost me a lot and also affected every part of my body and brain cells
-due to complications. Just 5 days ago, the British doctors told me
-that I may die any time because my condition has gotten to a critical
-and life threatening stage. Having known my medical critical status, I
-therefore decided to seek for your urgent assistance/ cooperation to
-use my inheritance $18.3 Million USD, to Build Orphanage homes in
-memory of me when am gone.
-
-I took this bold decision because I do not have husband, family or
-children that can inherit these funds when am gone. If interested, you
-shall take 25% out of the total money for your assistance, and also
-use the balance to build Orphanage homes in memory of me.  I
-interested, get back to me urgently for more details and to
-proceed.Immediately I hearing from you through this email (
-mrskivikangas68@gmail.com ), I shall issue you Certificate of
-Deposit and my father death certificate for your confirmation before
-we proceed, to establish you as my legal beneficiary in receiving the
-money on my behalf.
-
-I am waiting to hearing from you urgently.
-Regards,
-Mrs Kivi Kangas
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 5333601..c0df4f9 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -662,6 +662,7 @@ static int bcm_sysport_alloc_rx_bufs(struct bcm_sysport_priv *priv)
+ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 					unsigned int budget)
+ {
++	struct bcm_sysport_stats *stats64 = &priv->stats64;
+ 	struct net_device *ndev = priv->netdev;
+ 	unsigned int processed = 0, to_process;
+ 	struct bcm_sysport_cb *cb;
+@@ -765,6 +766,10 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
+ 		skb->protocol = eth_type_trans(skb, ndev);
+ 		ndev->stats.rx_packets++;
+ 		ndev->stats.rx_bytes += len;
++		u64_stats_update_begin(&stats64->syncp);
++		stats64->rx_packets++;
++		stats64->rx_bytes += len;
++		u64_stats_update_end(&stats64->syncp);
+ 
+ 		napi_gro_receive(&priv->napi, skb);
+ next:
+@@ -787,17 +792,15 @@ static void bcm_sysport_tx_reclaim_one(struct bcm_sysport_tx_ring *ring,
+ 	struct device *kdev = &priv->pdev->dev;
+ 
+ 	if (cb->skb) {
+-		ring->bytes += cb->skb->len;
+ 		*bytes_compl += cb->skb->len;
+ 		dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
+ 				 dma_unmap_len(cb, dma_len),
+ 				 DMA_TO_DEVICE);
+-		ring->packets++;
+ 		(*pkts_compl)++;
+ 		bcm_sysport_free_cb(cb);
+ 	/* SKB fragment */
+ 	} else if (dma_unmap_addr(cb, dma_addr)) {
+-		ring->bytes += dma_unmap_len(cb, dma_len);
++		*bytes_compl += dma_unmap_len(cb, dma_len);
+ 		dma_unmap_page(kdev, dma_unmap_addr(cb, dma_addr),
+ 			       dma_unmap_len(cb, dma_len), DMA_TO_DEVICE);
+ 		dma_unmap_addr_set(cb, dma_addr, 0);
+@@ -808,9 +811,10 @@ static void bcm_sysport_tx_reclaim_one(struct bcm_sysport_tx_ring *ring,
+ static unsigned int __bcm_sysport_tx_reclaim(struct bcm_sysport_priv *priv,
+ 					     struct bcm_sysport_tx_ring *ring)
+ {
+-	struct net_device *ndev = priv->netdev;
+ 	unsigned int c_index, last_c_index, last_tx_cn, num_tx_cbs;
++	struct bcm_sysport_stats *stats64 = &priv->stats64;
+ 	unsigned int pkts_compl = 0, bytes_compl = 0;
++	struct net_device *ndev = priv->netdev;
+ 	struct bcm_sysport_cb *cb;
+ 	u32 hw_ind;
+ 
+@@ -849,6 +853,11 @@ static unsigned int __bcm_sysport_tx_reclaim(struct bcm_sysport_priv *priv,
+ 		last_c_index &= (num_tx_cbs - 1);
+ 	}
+ 
++	u64_stats_update_begin(&stats64->syncp);
++	ring->packets += pkts_compl;
++	ring->bytes += bytes_compl;
++	u64_stats_update_end(&stats64->syncp);
++
+ 	ring->c_index = c_index;
+ 
+ 	netif_dbg(priv, tx_done, ndev,
+@@ -1671,24 +1680,6 @@ static int bcm_sysport_change_mac(struct net_device *dev, void *p)
+ 	return 0;
+ }
+ 
+-static struct net_device_stats *bcm_sysport_get_nstats(struct net_device *dev)
+-{
+-	struct bcm_sysport_priv *priv = netdev_priv(dev);
+-	unsigned long tx_bytes = 0, tx_packets = 0;
+-	struct bcm_sysport_tx_ring *ring;
+-	unsigned int q;
+-
+-	for (q = 0; q < dev->num_tx_queues; q++) {
+-		ring = &priv->tx_rings[q];
+-		tx_bytes += ring->bytes;
+-		tx_packets += ring->packets;
+-	}
+-
+-	dev->stats.tx_bytes = tx_bytes;
+-	dev->stats.tx_packets = tx_packets;
+-	return &dev->stats;
+-}
+-
+ static void bcm_sysport_netif_start(struct net_device *dev)
+ {
+ 	struct bcm_sysport_priv *priv = netdev_priv(dev);
+@@ -1923,6 +1914,37 @@ static int bcm_sysport_stop(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static void bcm_sysport_get_stats64(struct net_device *dev,
++				    struct rtnl_link_stats64 *stats)
++{
++	struct bcm_sysport_priv *priv = netdev_priv(dev);
++	struct bcm_sysport_stats *stats64 = &priv->stats64;
++	struct bcm_sysport_tx_ring *ring;
++	u64 tx_packets = 0, tx_bytes = 0;
++	unsigned int start;
++	unsigned int q;
++
++	netdev_stats_to_stats64(stats, &dev->stats);
++
++	for (q = 0; q < dev->num_tx_queues; q++) {
++		ring = &priv->tx_rings[q];
++		do {
++			start = u64_stats_fetch_begin_irq(&stats64->syncp);
++			tx_bytes += ring->bytes;
++			tx_packets += ring->packets;
++		} while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
++	}
++
++	stats->tx_packets = tx_packets;
++	stats->tx_bytes = tx_bytes;
++
++	do {
++		start = u64_stats_fetch_begin_irq(&stats64->syncp);
++		stats->rx_packets = stats64->rx_packets;
++		stats->rx_bytes = stats64->rx_bytes;
++	} while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
++}
++
+ static const struct ethtool_ops bcm_sysport_ethtool_ops = {
+ 	.get_drvinfo		= bcm_sysport_get_drvinfo,
+ 	.get_msglevel		= bcm_sysport_get_msglvl,
+@@ -1950,7 +1972,7 @@ static int bcm_sysport_stop(struct net_device *dev)
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= bcm_sysport_poll_controller,
+ #endif
+-	.ndo_get_stats		= bcm_sysport_get_nstats,
++	.ndo_get_stats64	= bcm_sysport_get_stats64,
+ };
+ 
+ #define REV_FMT	"v%2x.%02x"
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
+index 77a51c1..c03a176 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.h
++++ b/drivers/net/ethernet/broadcom/bcmsysport.h
+@@ -657,6 +657,9 @@ struct bcm_sysport_stats {
+ 	enum bcm_sysport_stat_type type;
+ 	/* reg offset from UMAC base for misc counters */
+ 	u16 reg_offset;
++	u64     rx_packets;
++	u64     rx_bytes;
++	struct u64_stats_sync   syncp;
+ };
+ 
+ /* Software house keeping helper structure */
+@@ -693,8 +696,8 @@ struct bcm_sysport_tx_ring {
+ 	struct bcm_sysport_cb *cbs;	/* Transmit control blocks */
+ 	struct dma_desc	*desc_cpu;	/* CPU view of the descriptor */
+ 	struct bcm_sysport_priv *priv;	/* private context backpointer */
+-	unsigned long	packets;	/* packets statistics */
+-	unsigned long	bytes;		/* bytes statistics */
++	u64	packets;		/* packets statistics */
++	u64	bytes;			/* bytes statistics */
+ };
+ 
+ /* Driver private structure */
+@@ -743,5 +746,7 @@ struct bcm_sysport_priv {
+ 
+ 	/* Ethtool */
+ 	u32			msg_enable;
++	/* 64bit stats on 32bit/64bit Machine */
++	struct bcm_sysport_stats stats64;
+ };
+ #endif /* __BCM_SYSPORT_H */
+-- 
+1.9.1
