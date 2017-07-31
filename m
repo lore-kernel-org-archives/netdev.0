@@ -1,30 +1,37 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [patch net-next 10/20] net: sched: cls_bpf: rename cls_bpf_modify_existing
- function
-Date: Mon, 31 Jul 2017 11:30:45 +0200
-Message-ID: <597EF8C5.3050504@iogearbox.net>
-References: <20170728144042.6380-1-jiri@resnulli.us> <20170728144042.6380-11-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v5 net-next] net: systemport: Support 64bit statistics
+Date: Mon, 31 Jul 2017 02:37:56 -0700
+Message-ID: <1501493876.1876.6.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1501459275-7635-1-git-send-email-jqiaoulk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: f.fainelli@gmail.com, davem@davemloft.net, netdev@vger.kernel.org
+To: "Jianming.qiao" <jqiaoulk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40523 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750748AbdGaJaw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 05:30:52 -0400
-In-Reply-To: <20170728144042.6380-11-jiri@resnulli.us>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:37392 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750923AbdGaJiA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 05:38:00 -0400
+Received: by mail-wm0-f67.google.com with SMTP id t138so16004699wmt.4
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 02:37:59 -0700 (PDT)
+In-Reply-To: <1501459275-7635-1-git-send-email-jqiaoulk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/28/2017 04:40 PM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> The name cls_bpf_modify_existing is highly misleading, as it indeed does
-> not modify anything existing. It does not modify at all.
->
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+On Mon, 2017-07-31 at 01:01 +0100, Jianming.qiao wrote:
+...
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> +	for (q = 0; q < dev->num_tx_queues; q++) {
+> +		ring = &priv->tx_rings[q];
+> +		do {
+> +			start = u64_stats_fetch_begin_irq(&stats64->syncp);
+> +			tx_bytes += ring->bytes;
+> +			tx_packets += ring->packets;
+> +		} while (u64_stats_fetch_retry_irq(&stats64->syncp, start));
+> +	}
+
+
+This is broken.
+
+If the retry loop is ever done, tx_bytes and tx_packets get wrong value.
