@@ -1,54 +1,65 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [RFC PATCH v1] net: ethernet: nb8800: Reset HW block in ndo_open
-Date: Mon, 31 Jul 2017 12:59:03 +0100
-Message-ID: <yw1x60e8kebc.fsf@mansr.com>
-References: <823b1540-b528-bbd7-7f99-5dc39a08868a@sigmadesigns.com>
-        <yw1xk22slemx.fsf@mansr.com>
-        <c1bf54ee-8634-23a1-abda-55bc3fafe2a8@sigmadesigns.com>
-        <yw1xfudgl7am.fsf@mansr.com>
-        <446e3a95-80c3-0742-9cb1-69a8dfc9b1ae@free.fr>
-        <yw1x7eyrlc3s.fsf@mansr.com>
-        <f04a0cba-6c09-e9e4-f2d1-d8b2a7e276c9@free.fr>
-        <4ff343de-41c7-c309-04dc-983b5fe3e066@gmail.com>
-        <a5ef2294-2adf-743b-f877-144a8f3958b4@free.fr>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v12 1/4] net netlink: Add new type NLA_BITFIELD32
+Date: Mon, 31 Jul 2017 08:03:55 -0400
+Message-ID: <fa171203-adab-9950-8241-dd5b3a70fe0a@mojatatu.com>
+References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+ <1501435492-28301-2-git-send-email-jhs@emojatatu.com>
+ <20170730184242.GA1872@nanopsycho>
+ <98edc93f-b5d9-e73f-ff00-9403e8362f80@mojatatu.com>
+ <20170731063833.GB1883@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mason <slash.tmp@free.fr>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        horms@verge.net.au, dsahern@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:55186 "EHLO unicorn.mansr.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750933AbdGaL7F (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Jul 2017 07:59:05 -0400
-In-Reply-To: <a5ef2294-2adf-743b-f877-144a8f3958b4@free.fr> (Mason's message
-        of "Mon, 31 Jul 2017 13:49:45 +0200")
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36955 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751950AbdGaMD6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 08:03:58 -0400
+Received: by mail-io0-f193.google.com with SMTP id c74so10530192iod.4
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 05:03:58 -0700 (PDT)
+In-Reply-To: <20170731063833.GB1883@nanopsycho>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mason <slash.tmp@free.fr> writes:
-
-> On 29/07/2017 17:18, Florian Fainelli wrote:
->
->> On 07/29/2017 05:02 AM, Mason wrote:
+On 17-07-31 02:38 AM, Jiri Pirko wrote:
+> Sun, Jul 30, 2017 at 09:59:10PM CEST, jhs@mojatatu.com wrote:
+>> Jiri,
 >>
->>> I have identified a 100% reproducible flaw.
->>> I have proposed a work-around that brings this down to 0
->>> (tested 1000 cycles of link up / ping / link down).
->> 
->> Can you also try to get help from your HW resources to eventually help
->> you find out what is going on here?
->
-> The patch I proposed /is/ based on the feedback from the HW team :-(
-> "Just reset the HW block, and everything will work as expected."
+>> This is getting exhausting, seriously.
+>> I posted the code you are commenting one two days ago so i dont have to
+>> repost.
+> 
+> And I commented on the "*u32 = *u32" thing. But you ignored it. Pardon
+> me for mentioning that again now :/
+> 
 
-Nobody is saying a reset won't recover the lockup.  The problem is that
-we don't know what caused it to lock up in the first place.  How do we
-know it can't happen during normal operation?  If we knew the cause, it
-might also be possible to avoid the situation entirely.
+You commented on *u32 assignment from *void which i fixed. I
+intentionally selected the different assignment names to reflect
+meaning. Had you commented earlier - although I would have found
+it disagreable - I would have fixed that too. Jiri, you need to be
+more tolerant so progress can be made at times.
 
--- 
-Måns Rullgård
+> 
+>>
+>> On D. Ahern: I dont think we are disagreeing anymore on the need to
+>> generalize the check. He is saying it should be a helper and I already
+>> had the validation data; either works. I dont see the gapping need
+>> to remove the validation data.
+> 
+> DavidA? Your opinion.
+> 
+
+With DavidA(reading his response) - the issue is one of taste.
+Again either approach is fine. You can call helpers for every user
+or make them invoked behind the scenes.
+Again - like all your comments on code taste which I addressed, I
+would have made that change if the comment had come in earlier. I got
+exhausted. Imagine how a newbie corporate guy wouldve felt after this.
+
+cheers,
+jamal
