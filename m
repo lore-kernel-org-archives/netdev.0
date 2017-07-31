@@ -1,51 +1,48 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] ISDN: eicon: fix array-bounds warning properly
-Date: Mon, 31 Jul 2017 22:29:50 +0200
-Message-ID: <CAK8P3a2Tw9_L2Nd_J4vRKn0BGvw9R5opkj4eWGMS09qrJUSnug@mail.gmail.com>
-References: <20170731090438.458392-1-arnd@arndb.de> <3d83ad3f-d47a-f43f-4180-d46fdae54bd7@linux-pingi.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [patch net-next 04/20] net: sched: use tcf_exts_has_actions in tcf_exts_exec
+Date: Mon, 31 Jul 2017 13:37:21 -0700
+Message-ID: <CAM_iQpWRo1HG8WpZ-0zNferBe44yFpwoLpNWn5CKv9YuD9TKBQ@mail.gmail.com>
+References: <20170728144042.6380-1-jiri@resnulli.us> <20170728144042.6380-5-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Armin Schindler <mac@melware.de>,
-        Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3d83ad3f-d47a-f43f-4180-d46fdae54bd7@linux-pingi.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35311 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751046AbdGaUhn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 16:37:43 -0400
+Received: by mail-wm0-f66.google.com with SMTP id r77so225331wmd.2
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 13:37:42 -0700 (PDT)
+In-Reply-To: <20170728144042.6380-5-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 31, 2017 at 9:38 PM,  <isdn@linux-pingi.de> wrote:
-> Hi Arnd,
->
-> I think you are right, but removing this is maybe the wrong fix.
->
-> The issue is, that CAPI messages are packed byte streams and yes the
-> 64bit extension of CAPI is not very good designed for modern CPU
-> constrains with alignment, since the data pointer for the buffer is not
-> on a 64bit boundary.
+On Fri, Jul 28, 2017 at 7:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> +static inline int
+> +tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
+> +             struct tcf_result *res)
+> +{
+> +#ifdef CONFIG_NET_CLS_ACT
+> +       if (tcf_exts_has_actions(exts))
+> +               return tcf_action_exec(skb, exts->actions, exts->nr_actions,
+> +                                      res);
+> +#endif
+> +       return 0;
+> +}
 
-I also attempted to just mark the pointer as __packed, which would address
-the warning as well, but then I saw that no code refers to it.
 
-> All hardware controller implementations I know do
-> ignore the data pointer, they are simple awaiting the data of the given
-> length directly after the message. Only the application interface on 64
-> bit systems really need the 64 bit data pointer value, which is usually
-> set in the HW driver to the mapped user space address of the used data
-> buffer if the user space process is 64bit.
-> The user space CAPI library correctly use byte stream access functions
-> to read/write the values. So the correct solution for this driver would
-> be to use stream access functions as well here and not add a 64 bit
-> pointer.
+While you are on it, can we get rid of this macro too?
 
-I'm not sure what change you are proposing here.
+tcf_action_exec() is only defined with CONFIG_NET_CLS_ACT,
+not sure if compiler is kind enough to eliminate the false branch
+for us:
 
-> On the other hand I do not think the any people use this driver on 64
-> bit systems today, because they would run into this issue.
+if (false)
+    return tcf_action_exec(...); // not defined but the branch is dead
 
-Right. Another way of addressing the warning would be to add a
-'depends on BROKEN || !64BIT' dependency in Kconfig, which
-would serve to document the fact that it's broken and prevent
-us from running into it.
-
-        Arnd
+At least you can add a wrapper for tcf_action_exec() to just
+return 0.
