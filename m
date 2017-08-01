@@ -1,72 +1,86 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 1/2] Revert "ipv6: constify inet6_protocol structures"
-Date: Tue,  1 Aug 2017 18:27:28 +0200
-Message-ID: <1501604849-19443-2-git-send-email-Julia.Lawall@lip6.fr>
-References: <1501604849-19443-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, bhumirks@gmail.com,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        David Ahern <dsahern@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501604849-19443-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Lehner <dev@der-flo.net>
+Subject: [PATCH v4] ss: Enclose IPv6 address in brackets
+Date: Tue, 1 Aug 2017 18:54:33 +0200
+Message-ID: <821a72fb-3758-8a44-2b1e-727a73208e14@der-flo.net>
+References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.der-flo.net ([193.160.39.236]:45948 "EHLO mx.der-flo.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751804AbdHAQyf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Aug 2017 12:54:35 -0400
+Received: from [IPv6:2a02:1205:c693:af80:5ee0:c5ff:fe8a:a179] (unknown [IPv6:2a02:1205:c693:af80:5ee0:c5ff:fe8a:a179])
+        (using TLSv1.2 with cipher ECDHE-ECDSA-AES128-GCM-SHA256 (128/128 bits))
+        (No client certificate requested)
+        by mx.der-flo.net (Postfix) with ESMTPSA id 50AE545A48
+        for <netdev@vger.kernel.org>; Tue,  1 Aug 2017 18:54:34 +0200 (CEST)
+In-Reply-To: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 3a3a4e3054137c5ff5d4d306ec834f6d25d7f95b.
+This updated patch adds support for RFC2732 IPv6 address format with
+brackets for the tool ss.
 
-inet6_add_protocol and inet6_del_protocol include casts that remove the
-effect of the const annotation on their parameter, leading to possible
-runtime crashes.
+Following the advice by David Laight I used strchr().
+Also, IN6ADDR_ANY and INADDR_ANY will return "*".
 
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
+Signed-off-by: Lehner Florian <dev@der-flo.net>
 ---
+ misc/ss.c | 28 +++++++++++++++++-----------
+ 1 file changed, 17 insertions(+), 11 deletions(-)
 
- net/ipv6/ip6_gre.c  |    2 +-
- net/ipv6/tcp_ipv6.c |    2 +-
- net/ipv6/udp.c      |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+diff --git a/misc/ss.c b/misc/ss.c
+index 12763c9..d40ad00 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1046,25 +1046,31 @@ do_numeric:
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 33865d6..67ff2aa 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1080,7 +1080,7 @@ static void ip6gre_fb_tunnel_init(struct net_device *dev)
- }
- 
- 
--static const struct inet6_protocol ip6gre_protocol = {
-+static struct inet6_protocol ip6gre_protocol __read_mostly = {
- 	.handler     = gre_rcv,
- 	.err_handler = ip6gre_err,
- 	.flags       = INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 39ee8e7..ced5dcf 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1944,7 +1944,7 @@ struct proto tcpv6_prot = {
- 	.diag_destroy		= tcp_abort,
- };
- 
--static const struct inet6_protocol tcpv6_protocol = {
-+static struct inet6_protocol tcpv6_protocol = {
- 	.early_demux	=	tcp_v6_early_demux,
- 	.early_demux_handler =  tcp_v6_early_demux,
- 	.handler	=	tcp_v6_rcv,
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 7e6d7f5..98fe456 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1457,7 +1457,7 @@ int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
- }
- #endif
- 
--static const struct inet6_protocol udpv6_protocol = {
-+static struct inet6_protocol udpv6_protocol = {
- 	.early_demux	=	udp_v6_early_demux,
- 	.early_demux_handler =  udp_v6_early_demux,
- 	.handler	=	udpv6_rcv,
+ static void inet_addr_print(const inet_prefix *a, int port, unsigned
+int ifindex)
+ {
+-	char buf[1024];
++	char buf[1024], buf2[1024];
+ 	const char *ap = buf;
++	char *c = NULL;
+ 	int est_len = addr_width;
+ 	const char *ifname = NULL;
+
+-	if (a->family == AF_INET) {
+-		if (a->data[0] == 0) {
++	if (a->data[0] == 0) {
+ 			buf[0] = '*';
+ 			buf[1] = 0;
+-		} else {
++	} else {
++		if (a->family == AF_INET) {
+ 			ap = format_host(AF_INET, 4, a->data);
++		} else {
++			ap = format_host(a->family, 16, a->data);
++			c = strchr(ap, ':');
++			if (c != NULL && a->family == AF_INET6) {
++				sprintf(buf2, "[%s]", ap);
++				ap = buf2;
++			}
++			est_len = strlen(ap);
++			if (est_len <= addr_width)
++				est_len = addr_width;
++			else
++				est_len = addr_width + ((est_len-addr_width+3)/4)*4;
+ 		}
+-	} else {
+-		ap = format_host(a->family, 16, a->data);
+-		est_len = strlen(ap);
+-		if (est_len <= addr_width)
+-			est_len = addr_width;
+-		else
+-			est_len = addr_width + ((est_len-addr_width+3)/4)*4;
+ 	}
+
+ 	if (ifindex) {
+-- 
+2.9.4
