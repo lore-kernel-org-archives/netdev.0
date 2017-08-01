@@ -1,56 +1,48 @@
-From: Juergen Borleis <jbe@pengutronix.de>
-Subject: Re: [PATCH v2 net-next 2/3] net: dsa: lan9303: define LAN9303_NUM_PORTS 3
-Date: Tue, 1 Aug 2017 13:49:51 +0200
-Message-ID: <201708011349.52529.jbe@pengutronix.de>
-References: <20170801111439.1143-1-privat@egil-hjelmeland.no> <20170801111439.1143-3-privat@egil-hjelmeland.no>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 8BIT
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH net-next] net: bcmgenet: drop COMPILE_TEST dependency
+Date: Tue,  1 Aug 2017 13:50:56 +0200
+Message-ID: <20170801115121.1246540-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Sathya Perla <sathya.perla@broadcom.com>,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kernel@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:57359 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751595AbdHALt5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 07:49:57 -0400
-In-Reply-To: <20170801111439.1143-3-privat@egil-hjelmeland.no>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Egil,
+The last patch added the dependency on 'OF && HAS_IOMEM' but left
+COMPILE_TEST as an alternative, which kind of defeats the purpose
+of adding the dependency, we still get randconfig build warnings:
 
-On Tuesday 01 August 2017 13:14:38 Egil Hjelmeland wrote:
-> Will be used instead of '3' in upcomming patches.
->
-> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
-> ---
->  drivers/net/dsa/lan9303-core.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/dsa/lan9303-core.c
-> b/drivers/net/dsa/lan9303-core.c index 4c514d3b9f68..2a3c6bf473dd 100644
-> --- a/drivers/net/dsa/lan9303-core.c
-> +++ b/drivers/net/dsa/lan9303-core.c
-> @@ -20,6 +20,8 @@
->
->  #include "lan9303.h"
->
-> +#define LAN9303_NUM_PORTS 3
-> +
->  /* 13.2 System Control and Status Registers
->   * Multiply register number by 4 to get address offset.
->   */
+warning: (NET_DSA_BCM_SF2 && BCMGENET) selects MDIO_BCM_UNIMAC which has unmet direct dependencies (NETDEVICES && MDIO_BUS && HAS_IOMEM && OF_MDIO)
 
-Maybe we should put this macro into a shared location because 
-in "net/dsa/tag_lan9303.c" there is already a "#define LAN9303_MAX_PORTS 
-3".
+For compile-testing purposes, we don't really need this anyway,
+as CONFIG_OF can be enabled on all architectures, and HAS_IOMEM
+is present on all architectures we do meaningful compile-testing on
+(the exception being arch/um).
 
-jb
+This makes both OF and HAS_IOMEM hard dependencies.
 
+Fixes: 5af74bb4fcf8 ("net: bcmgenet: Add dependency on HAS_IOMEM && OF")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/broadcom/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+index 45775399cab6..1456cb18f830 100644
+--- a/drivers/net/ethernet/broadcom/Kconfig
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -61,7 +61,7 @@ config BCM63XX_ENET
+ 
+ config BCMGENET
+ 	tristate "Broadcom GENET internal MAC support"
+-	depends on (OF && HAS_IOMEM) || COMPILE_TEST
++	depends on OF && HAS_IOMEM
+ 	select MII
+ 	select PHYLIB
+ 	select FIXED_PHY
 -- 
-Pengutronix e.K.                             | Juergen Borleis             |
-Industrial Linux Solutions                   | http://www.pengutronix.de/  |
+2.9.0
