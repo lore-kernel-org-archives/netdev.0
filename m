@@ -1,68 +1,47 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/2] [for 4.13] net: qcom/emac: disable flow control
- autonegotiation by default
-Date: Wed, 2 Aug 2017 01:15:54 +0200
-Message-ID: <20170801231554.GA8415@lunn.ch>
-References: <1501623460-3575-1-git-send-email-timur@codeaurora.org>
- <1501623460-3575-2-git-send-email-timur@codeaurora.org>
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Subject: [PATCH 1/2] atm: adummy: constify attribute_group structure
+Date: Tue, 1 Aug 2017 19:57:38 -0400
+Message-ID: <20170801235738.GA13517@amitoj-Inspiron-3542>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Timur Tabi <timur@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48381 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751681AbdHAXQA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Aug 2017 19:16:00 -0400
+To: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1501623460-3575-2-git-send-email-timur@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 01, 2017 at 04:37:39PM -0500, Timur Tabi wrote:
-> The EMAC has a curious qwirk when RX flow control is enabled and the
-> kernel hangs.  With the kernel hung, the EMAC's RX queue soon fills.
-> If RX flow control is enabled, the EMAC will then send a non-stop
-> stream of pause frames until the system is reset.  The EMAC does not
-> have a built-in watchdog.
-> 
-> In various tests, the pause frame stream sometimes overloads nearby
-> switches, effectively disabling the network.  Since the RX queue is
-> large and the host processor is more than capable of handling incoming
-> packets quickly, the only time the EMAC will send any pause frames is
-> when the kernel is hung and unrecoverable.
-> 
-> To avoid all these problems, we disable flow control autonegotiation
-> by default, and only enable receiving pause frames.
-> 
-> Cc: stable@vger.kernel.org # 4.11.x
-> Signed-off-by: Timur Tabi <timur@codeaurora.org>
-> ---
->  drivers/net/ethernet/qualcomm/emac/emac.c | 9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
-> index 60850bfa3d32..475c0ea29235 100644
-> --- a/drivers/net/ethernet/qualcomm/emac/emac.c
-> +++ b/drivers/net/ethernet/qualcomm/emac/emac.c
-> @@ -441,8 +441,13 @@ static void emac_init_adapter(struct emac_adapter *adpt)
->  	/* others */
->  	adpt->preamble = EMAC_PREAMBLE_DEF;
->  
-> -	/* default to automatic flow control */
-> -	adpt->automatic = true;
-> +	/* Disable transmission of pause frames by default, to avoid the
-> +	 * risk of a pause frame flood that can occur if the kernel hangs.
-> +	 * We still want to be able to respond to them, however.
-> +	 */
-> +	adpt->automatic = false;
-> +	adpt->tx_flow_control = false;
-> +	adpt->rx_flow_control = true;
+Functions working with attribute_groups provided by <linux/sysfs.h>
+work with const attribute_group. These attribute_group structures do not
+change at runtime so mark them as const.
 
-Hi Timur
+File size before:
+ text      data     bss     dec     hex filename
+ 2033      1448       0    3481     d99 drivers/atm/adummy.o
 
-Pause frames are something you can auto-negotiate at the PHY
-level. Should you also be clearing some bits in the phydev, so the
-peer knows pause frames are not supported?
+File size after:
+ text      data     bss     dec     hex filename
+ 2129      1352       0    3481     d99 drivers/atm/adummy.o
 
-     Andrew
+This change was made with the help of Coccinelle.
+
+Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+---
+ drivers/atm/adummy.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/atm/adummy.c b/drivers/atm/adummy.c
+index 1fd25e8..da27ddf 100644
+--- a/drivers/atm/adummy.c
++++ b/drivers/atm/adummy.c
+@@ -71,7 +71,7 @@ static struct attribute *adummy_attrs[] = {
+ 	NULL
+ };
+ 
+-static struct attribute_group adummy_group_attrs = {
++static const struct attribute_group adummy_group_attrs = {
+ 	.name = NULL, /* We want them in dev's root folder */
+ 	.attrs = adummy_attrs
+ };
+-- 
+2.7.4
