@@ -1,87 +1,67 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] Really fix get_addr() and get_prefix() error messages
-Date: Tue,  1 Aug 2017 18:36:11 +0200
-Message-ID: <20170801163611.10094-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:33187 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751769AbdHAQgY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Aug 2017 12:36:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 10/11] net: dsa: mv88e6xxx: remove EEE support
+Date: Tue, 01 Aug 2017 12:34:18 -0400
+Message-ID: <87h8xrfdrp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com> <20170731221719.16695-11-vivien.didelot@savoirfairelinux.com> <20170801142843.GE23157@lunn.ch> <87r2wv2tci.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170801160628.GJ23157@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170801160628.GJ23157@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Both functions take the desired address family as a parameter. So using
-that to notify the user what address family was expected is correct,
-unlike using dst->family which will tell the user only what address
-family was specified.
+Hi Andrew,
 
-The situation which commit 334af76143368 tried to fix was when 'ip'
-would accept addresses from multiple families. In that case, the family
-parameter is set to AF_UNSPEC so that get_addr_1() may accept any valid
-address.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-This patch introduces a wrapper around family_name() which returns the
-string "any valid" for AF_UNSPEC instead of the three question marks
-unsuitable for use in error messages.
+>> >> The PHY's EEE settings are already accessed by the DSA layer through the
+>> >> Marvell PHY driver and there is nothing to be done for switch's MACs.
+>> >
+>> > I'm confused, or missing something. Does not patch #1 mean that if the
+>> > DSA driver does not have a set_eee function, we always return -ENODEV
+>> > in slave.c?
+>> 
+>> If there is a PHY, phy_init_eee (if eee_enabled is true) and
+>> phy_ethtool_set_eee is called. If there is a .set_eee op, it is
+>> called. If both are absent, -ENODEV is returned.
+>
+> O.K, i don't think that is correct. EEE should only be enabled if both
+> the MAC and the PHY supports it. We need some way for the MAC to
+> indicate it does not support EEE.
+>
+> If set_eee is optional the meaning of a NULL pointer is that the MAC
+> does support EEE. So for mv88e6060, lan9303, microchip and mt7530
+> which currently don't support EEE, you need to add a set_eee which
+> returns -ENODEV.
+>
+> Having to implement the op to say you don't implement the feature just
+> seems wrong.
 
-Tests for AF_UNSPEC:
+Agreed, above I simply described how this patchset currently behaves.
 
-| # ip a a 256.10.166.1/24 dev d0
-| Error: any valid prefix is expected rather than "256.10.166.1/24".
+I suggested in the previous mail to define a DSA noop so that the driver
+can indicate that its MACs supports EEE, even though there's nothing to
+do (and the DSA layer can learn about that):
 
-| # ip neighbor add proxy 2001:db8::g dev d0
-| Error: any valid address is expected rather than "2001:db8::g".
+    static inline int dsa_set_mac_eee_noop(struct dsa_switch *ds,
+                                           int port,
+                                           struct ethtool_eee *e)
+    {
+        dev_dbg(ds->dev, "nothing to do for port %d's MAC\n", port);
+        return 0;
+    }
 
-Tests for explicit address family:
+(and the respective dsa_get_mac_eee_noop() for sure.)
 
-| # ip -6 addrlabel add prefix 1.1.1.1/24 label 123
-| Error: inet6 prefix is expected rather than "1.1.1.1/24".
+Second option is: we keep it KISS and let the driver define its noop,
+but as I explain, it is confusion, especially for the get operation.
 
-| # ip -4 addrlabel add prefix dead:beef::1/24 label 123
-| Error: inet prefix is expected rather than "dead:beef::1/24".
 
-Reported-by: Jaroslav Aster <jaster@redhat.com>
-Fixes: 334af76143368 ("fix get_addr() and get_prefix() error messages")
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- lib/utils.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+Thanks,
 
-diff --git a/lib/utils.c b/lib/utils.c
-index 9aa3219c5547d..9143ed2284870 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -616,12 +616,19 @@ done:
- 	return err;
- }
- 
-+static const char *family_name_verbose(int family)
-+{
-+	if (family == AF_UNSPEC)
-+		return "any valid";
-+	return family_name(family);
-+}
-+
- int get_addr(inet_prefix *dst, const char *arg, int family)
- {
- 	if (get_addr_1(dst, arg, family)) {
- 		fprintf(stderr,
- 			"Error: %s address is expected rather than \"%s\".\n",
--			family_name(dst->family), arg);
-+			family_name_verbose(family), arg);
- 		exit(1);
- 	}
- 	return 0;
-@@ -639,7 +646,7 @@ int get_prefix(inet_prefix *dst, char *arg, int family)
- 	if (get_prefix_1(dst, arg, family)) {
- 		fprintf(stderr,
- 			"Error: %s prefix is expected rather than \"%s\".\n",
--			family_name(dst->family), arg);
-+			family_name_verbose(family), arg);
- 		exit(1);
- 	}
- 	return 0;
--- 
-2.13.1
+        Vivien
