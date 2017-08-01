@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 02/11] net: dsa: qca8k: fix EEE init
-Date: Tue,  1 Aug 2017 16:32:32 -0400
-Message-ID: <20170801203241.22294-3-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 06/11] net: dsa: bcm_sf2: remove unneeded supported flags
+Date: Tue,  1 Aug 2017 16:32:36 -0400
+Message-ID: <20170801203241.22294-7-vivien.didelot@savoirfairelinux.com>
 References: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,42 +14,30 @@ In-Reply-To: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The qca8k obviously copied code from the sf2 driver as how to set EEE:
-
-    if (e->eee_enabled) {
-        p->eee_enabled = qca8k_eee_init(ds, port, phydev);
-        if (!p->eee_enabled)
-            ret = -EOPNOTSUPP;
-    }
-
-But it did not use the same logic for the EEE init routine, which is
-"Returns 0 if EEE was not enabled, or 1 otherwise". This results in
-returning -EOPNOTSUPP on success and caching EEE enabled on failure.
-
-This patch fixes the returned value of qca8k_eee_init.
+The SF2 driver is masking the supported bitfield of its private copy of
+the ports' ethtool_eee structures. It is used nowhere, thus remove it.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/qca8k.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/dsa/bcm_sf2.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index b3bee7eab45f..e076ab23d4df 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -666,11 +666,11 @@ qca8k_eee_init(struct dsa_switch *ds, int port,
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 648f91b58d1e..aef475f1ce06 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -327,12 +327,8 @@ static void bcm_sf2_port_disable(struct dsa_switch *ds, int port,
+ static int bcm_sf2_eee_init(struct dsa_switch *ds, int port,
+ 			    struct phy_device *phy)
+ {
+-	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
+-	struct ethtool_eee *p = &priv->port_sts[port].eee;
+ 	int ret;
  
+-	p->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full);
+-
  	ret = phy_init_eee(phy, 0);
  	if (ret)
--		return ret;
-+		return 0;
- 
- 	qca8k_eee_enable_set(ds, port, true);
- 
--	return 0;
-+	return 1;
- }
- 
- static int
+ 		return 0;
 -- 
 2.13.3
