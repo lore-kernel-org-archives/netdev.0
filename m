@@ -1,40 +1,55 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net] ipv6: set fc_protocol with 0 when rtm_protocol is
- RTPROT_REDIRECT
-Date: Mon, 31 Jul 2017 20:01:32 -0600
-Message-ID: <b0edcf05-9ce4-94d4-3662-767e6ff86843@gmail.com>
-References: <e9342d18b97fc227cacc19db1b43f4c7350eed3f.1501419097.git.lucien.xin@gmail.com>
- <9fcbffcb-4a14-764c-7fe4-2108b8944c17@gmail.com>
- <CADvbK_ew8tD=sQQkZ03ijGafFQEzR0sf69DZ1_rNkX9E5mFpuw@mail.gmail.com>
- <11af493f-1128-cae6-d1a3-0d3d962da269@gmail.com>
- <CADvbK_dWwZU1EXf4ehAyV9cWOK-7b4hn=mGrytGTYACrCUUQ6g@mail.gmail.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: Re: [PATCH V2 net-next 0/2] liquidio: Add support for managing
+ liquidio adapter
+Date: Mon, 31 Jul 2017 19:09:08 -0700
+Message-ID: <20170801020908.GB1449@felix-thinkpad.cavium.com>
+References: <20170729061707.GA1134@felix-thinkpad.cavium.com>
+ <20170730202103.GA8969@vergenet.net>
+ <20170731.175937.1373949013417491840.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
-        =?UTF-8?Q?Mantas_Mikul=c4=97nas?= <grawity@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: simon.horman@netronome.com, netdev@vger.kernel.org,
+        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
+        satananda.burla@cavium.com, veerasenareddy.burru@cavium.com,
+        jakub.kicinski@netronome.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:36877 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751806AbdHACBe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 22:01:34 -0400
-Received: by mail-pg0-f52.google.com with SMTP id y129so1559892pgy.4
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 19:01:34 -0700 (PDT)
-In-Reply-To: <CADvbK_dWwZU1EXf4ehAyV9cWOK-7b4hn=mGrytGTYACrCUUQ6g@mail.gmail.com>
+Received: from mail-bl2nam02on0053.outbound.protection.outlook.com ([104.47.38.53]:62544
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751296AbdHACJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Jul 2017 22:09:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20170731.175937.1373949013417491840.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/31/17 7:40 PM, Xin Long wrote:
-> To respect the old code more, setting RTPROT_RA only when
-> it's with the flag (ADDRCONF | DEFAULT | ROUTEINFO),
-> shouldn't it be:
+On Mon, Jul 31, 2017 at 05:59:37PM -0700, David Miller wrote:
+> From: Simon Horman <simon.horman@netronome.com>
+> Date: Sun, 30 Jul 2017 22:21:04 +0200
+> 
+> > On Fri, Jul 28, 2017 at 11:17:07PM -0700, Felix Manlunas wrote:
+> >> From: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
+> >> 
+> >> The LiquidIO adapter has processor cores that can run Linux. This patch
+> >> set adds support to create a virtual Ethernet interface on host to
+> >> communicate with applications running on Linux in the LiquidIO adapter.
+> >> The virtual Ethernet interface also provides login access to Linux on
+> >> LiquidIO through ssh for management and debugging.
+> > 
+> > As per the somewhat more detailed feedback provided by my colleague Jakub
+> > Kicinski to v1 of this patchset[1] I am concerned that this patchset breaks down
+> > the long standing practice of not granting direct access to firmware from
+> > userspace.
+> > 
+> > [1] https://www.spinics.net/lists/netdev/msg444929.html
+> 
+> Agreed, I've seen no attempt to address this important feedback, which
+> I agree with.
 
-Look at rtm_fill_info:
+We posted a response to the original comment on Friday 28-July.
+but for some reason, it did not make to the mailing list outside
+cavium domain. our apologies, we did not double check before submitting
+V2 patch. Please find below the response reposted on original thread
 
-	if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ROUTEINFO))
-                        rtm->rtm_protocol = RTPROT_RA;
-
-
-If either flag is set the protocol should be RTPROT_RA and looking at
-both places that seems correct to me.
+http://marc.info/?l=linux-netdev&m=150155273724386&w=2
