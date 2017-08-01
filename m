@@ -1,49 +1,44 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 10/11] net: dsa: mv88e6xxx: remove EEE support
-Date: Tue, 1 Aug 2017 11:53:14 -0700
-Message-ID: <9b9b2268-7409-fa37-f26f-3206a450c94a@gmail.com>
-References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
- <20170731221719.16695-11-vivien.didelot@savoirfairelinux.com>
- <20170801142843.GE23157@lunn.ch>
- <87r2wv2tci.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <20170801160628.GJ23157@lunn.ch>
- <17c26dee-c285-4dd5-1be0-286c0126d4db@gmail.com>
- <20170801172757.GL23157@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170801172757.GL23157@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH net 0/7] drivers: net: Fix 64-bit statistics seqcount init
+Date: Tue,  1 Aug 2017 12:11:05 -0700
+Message-ID: <20170801191113.8754-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, edumazet@google.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34249 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751983AbdHATLX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 15:11:23 -0400
+Received: by mail-wm0-f67.google.com with SMTP id x64so4410103wmg.1
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 12:11:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/01/2017 10:27 AM, Andrew Lunn wrote:
->> If the MAC does not support EEE but the PHY does I think you can still
->> allow EEE to be advertised and enabled, you just won't have the MAC be
->> able to leverage the power savings that EEE brings. AFAICT this is still
->> a valid mode whereby the PHY is put in a lower power mode, just not the
->> whole transmit path (MAC + PHY).
-> 
-> Hi Florian
-> 
-> I read a couple of datasheets for a few phys doing EEE. Both said the
-> same, the MAC has to indicate to the PHY when low power should be
-> entered and existed. The PHY itself does not appear to do anything on
-> its own.
+Hi all,
 
-Oh you are right, the LPI signal has to come from the MAC for the PHY to
-decide how to do the idle signaling, my bad.
+This patch series fixes a bunch of drivers to have their 64-bit statistics
+seqcount cookie be initialized correctly. Most of these drivers (except b44,
+gtp) are probably used on 64-bit only hosts and so the lockdep splat might have
+never been seen.
 
-> 
-> It would be good to read the standards about this. But i don't think
-> we should tell userspace EEE is enabled, if the PHY has it enabled,
-> but the MAC is not capable and hence EEE is not actually being used at
-> all.
+Florian Fainelli (7):
+  b44: Initialize 64-bit stats seqcount
+  i40e: Initialize 64-bit statistics TX ring seqcount
+  ixgbe: Initialize 64-bit stats seqcounts
+  nfp: Initialize RX and TX ring 64-bit stats seqcounts
+  gtp: Initialize 64-bit per-cpu stats correctly
+  netvsc: Initialize 64-bit stats seqcount
+  ipvlan: Fix 64-bit statistics seqcount initialization
+
+ drivers/net/ethernet/broadcom/b44.c                 | 1 +
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c         | 2 ++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c   | 4 ++++
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 2 ++
+ drivers/net/gtp.c                                   | 2 +-
+ drivers/net/hyperv/netvsc.c                         | 2 ++
+ drivers/net/ipvlan/ipvlan_main.c                    | 2 +-
+ 7 files changed, 13 insertions(+), 2 deletions(-)
+
 -- 
-Florian
+2.9.3
