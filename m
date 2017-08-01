@@ -1,164 +1,161 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH 1/6] [net-next]net: sched: act_mirred: Extend redirect
- action to accept a traffic class
-Date: Tue, 1 Aug 2017 13:12:03 +0200
-Message-ID: <20170801111203.GI1939@nanopsycho>
-References: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
- <150154785793.4135.15194023552358061083.stgit@anamdev.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-        alexander.h.duyck@intel.com, kiran.patil@intel.com,
-        netdev@vger.kernel.org, mitch.a.williams@intel.com,
-        alexander.duyck@gmail.com, neerav.parikh@intel.com,
-        sridhar.samudrala@intel.com, carolyn.wyborny@intel.com
-To: Amritha Nambiar <amritha.nambiar@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36730 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751352AbdHALMG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 07:12:06 -0400
-Received: by mail-wm0-f67.google.com with SMTP id d40so2504768wma.3
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 04:12:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <150154785793.4135.15194023552358061083.stgit@anamdev.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH nf-next] netfilter: constify nf_loginfo structures
+Date: Tue,  1 Aug 2017 12:48:03 +0200
+Message-ID: <1501584483-999-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, coreteam@netfilter.org,
+        netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Aug 01, 2017 at 02:37:37AM CEST, amritha.nambiar@intel.com wrote:
->The Mirred/redirect action is extended to forward to a traffic
->class on the device. The traffic class index needs to be
->provided in addition to the device's ifindex.
->
->Example:
-># tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
->  dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
->  skip_sw indev eth0 action mirred ingress redirect dev eth0 tc 1
+The nf_loginfo structures are only passed as the seventh argument to
+nf_log_trace, which is declared as const or stored in a local const
+variable.  Thus the nf_loginfo structures themselves can be const.
 
-You need to make sure that the current offloaders fill forbid to add
-this rule, not just silently ignore the tc value.
+Done with the help of Coccinelle.
 
+// <smpl>
+@r disable optional_qualifier@
+identifier i;
+position p;
+@@
+static struct nf_loginfo i@p = { ... };
 
->
->Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
->---
-> include/net/tc_act/tc_mirred.h        |    7 +++++++
-> include/uapi/linux/tc_act/tc_mirred.h |    5 +++++
-> net/sched/act_mirred.c                |   17 +++++++++++++++++
-> 3 files changed, 29 insertions(+)
->
->diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
->index 604bc31..60058c4 100644
->--- a/include/net/tc_act/tc_mirred.h
->+++ b/include/net/tc_act/tc_mirred.h
->@@ -9,6 +9,8 @@ struct tcf_mirred {
-> 	int			tcfm_eaction;
-> 	int			tcfm_ifindex;
-> 	bool			tcfm_mac_header_xmit;
->+	u8			tcfm_tc;
->+	u32			flags;
-> 	struct net_device __rcu	*tcfm_dev;
-> 	struct list_head	tcfm_list;
-> };
->@@ -37,4 +39,9 @@ static inline int tcf_mirred_ifindex(const struct tc_action *a)
-> 	return to_mirred(a)->tcfm_ifindex;
-> }
-> 
->+static inline int tcf_mirred_tc(const struct tc_action *a)
->+{
->+	return to_mirred(a)->tcfm_tc;
->+}
->+
-> #endif /* __NET_TC_MIR_H */
->diff --git a/include/uapi/linux/tc_act/tc_mirred.h b/include/uapi/linux/tc_act/tc_mirred.h
->index 3d7a2b3..8ff4d76 100644
->--- a/include/uapi/linux/tc_act/tc_mirred.h
->+++ b/include/uapi/linux/tc_act/tc_mirred.h
->@@ -9,6 +9,10 @@
-> #define TCA_EGRESS_MIRROR 2 /* mirror packet to EGRESS */
-> #define TCA_INGRESS_REDIR 3  /* packet redirect to INGRESS*/
-> #define TCA_INGRESS_MIRROR 4 /* mirror packet to INGRESS */
->+
->+#define MIRRED_F_TC_MAP		0x1
->+#define MIRRED_TC_MAP_MAX	0x10
->+#define MIRRED_TC_MAP_MASK	0xF
+@ok1@
+identifier r.i;
+expression list[6] es;
+position p;
+@@
+ nf_log_trace(es,&i@p,...)
 
-I'm completely lost. Why do you have these values here? and in fact one
-twice?
+@ok2@
+identifier r.i;
+const struct nf_loginfo *e;
+position p;
+@@
+ e = &i@p
 
+@bad@
+position p != {r.p,ok1.p,ok2.p};
+identifier r.i;
+struct nf_loginfo e;
+@@
+e@i@p
 
->                                                                                 
-> struct tc_mirred {
-> 	tc_gen;
->@@ -21,6 +25,7 @@ enum {
-> 	TCA_MIRRED_TM,
-> 	TCA_MIRRED_PARMS,
-> 	TCA_MIRRED_PAD,
->+	TCA_MIRRED_TC_MAP,
-> 	__TCA_MIRRED_MAX
-> };
-> #define TCA_MIRRED_MAX (__TCA_MIRRED_MAX - 1)
->diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
->index 1b5549a..f9801de 100644
->--- a/net/sched/act_mirred.c
->+++ b/net/sched/act_mirred.c
->@@ -67,6 +67,7 @@ static void tcf_mirred_release(struct tc_action *a, int bind)
-> 
-> static const struct nla_policy mirred_policy[TCA_MIRRED_MAX + 1] = {
-> 	[TCA_MIRRED_PARMS]	= { .len = sizeof(struct tc_mirred) },
->+	[TCA_MIRRED_TC_MAP]	= { .type = NLA_U8 },
-> };
-> 
-> static unsigned int mirred_net_id;
->@@ -83,6 +84,8 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
-> 	struct tcf_mirred *m;
-> 	struct net_device *dev;
-> 	bool exists = false;
->+	u8 *tc_map = NULL;
->+	u32 flags = 0;
-> 	int ret;
-> 
-> 	if (nla == NULL)
->@@ -92,6 +95,14 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
-> 		return ret;
-> 	if (tb[TCA_MIRRED_PARMS] == NULL)
-> 		return -EINVAL;
->+
->+	if (tb[TCA_MIRRED_TC_MAP]) {
->+		tc_map = nla_data(tb[TCA_MIRRED_TC_MAP]);
->+		if (*tc_map >= MIRRED_TC_MAP_MAX)
->+			return -EINVAL;
->+		flags |= MIRRED_F_TC_MAP;
->+	}
->+
-> 	parm = nla_data(tb[TCA_MIRRED_PARMS]);
-> 
-> 	exists = tcf_hash_check(tn, parm->index, a, bind);
->@@ -139,6 +150,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
-> 	ASSERT_RTNL();
-> 	m->tcf_action = parm->action;
-> 	m->tcfm_eaction = parm->eaction;
->+	m->flags = flags;
-> 	if (dev != NULL) {
-> 		m->tcfm_ifindex = parm->ifindex;
-> 		if (ret != ACT_P_CREATED)
->@@ -146,6 +158,8 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
-> 		dev_hold(dev);
-> 		rcu_assign_pointer(m->tcfm_dev, dev);
-> 		m->tcfm_mac_header_xmit = mac_header_xmit;
->+		if (flags & MIRRED_F_TC_MAP)
->+			m->tcfm_tc = *tc_map & MIRRED_TC_MAP_MASK;
-> 	}
-> 
-> 	if (ret == ACT_P_CREATED) {
->@@ -259,6 +273,9 @@ static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind,
-> 
-> 	if (nla_put(skb, TCA_MIRRED_PARMS, sizeof(opt), &opt))
-> 		goto nla_put_failure;
->+	if ((m->flags & MIRRED_F_TC_MAP) &&
->+	    nla_put_u8(skb, TCA_MIRRED_TC_MAP, m->tcfm_tc))
->+		goto nla_put_failure;
-> 
-> 	tcf_tm_dump(&t, &m->tcf_tm);
-> 	if (nla_put_64bit(skb, TCA_MIRRED_TM, sizeof(t), &t, TCA_MIRRED_PAD))
->
+@depends on !bad disable optional_qualifier@
+identifier r.i;
+@@
+static
++const
+ struct nf_loginfo i = { ... };
+// </smpl>
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+ net/ipv4/netfilter/ip_tables.c   |    2 +-
+ net/ipv4/netfilter/nf_log_arp.c  |    2 +-
+ net/ipv4/netfilter/nf_log_ipv4.c |    2 +-
+ net/ipv6/netfilter/ip6_tables.c  |    2 +-
+ net/ipv6/netfilter/nf_log_ipv6.c |    2 +-
+ net/netfilter/nf_tables_core.c   |    2 +-
+ net/netfilter/nfnetlink_log.c    |    2 +-
+ 7 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
+index c5bab08..dfd0bf3 100644
+--- a/net/netfilter/nf_tables_core.c
++++ b/net/netfilter/nf_tables_core.c
+@@ -29,7 +29,7 @@
+ 	[NFT_TRACETYPE_RULE]	= "rule",
+ };
+ 
+-static struct nf_loginfo trace_loginfo = {
++static const struct nf_loginfo trace_loginfo = {
+ 	.type = NF_LOG_TYPE_LOG,
+ 	.u = {
+ 		.log = {
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index c684ba9..cad6498 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -606,7 +606,7 @@ static void nfulnl_instance_free_rcu(struct rcu_head *head)
+ 	return -1;
+ }
+ 
+-static struct nf_loginfo default_loginfo = {
++static const struct nf_loginfo default_loginfo = {
+ 	.type =		NF_LOG_TYPE_ULOG,
+ 	.u = {
+ 		.ulog = {
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 2a55a40..96a289c 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -151,7 +151,7 @@ enum nf_ip_trace_comments {
+ 	[NF_IP_TRACE_COMMENT_POLICY]	= "policy",
+ };
+ 
+-static struct nf_loginfo trace_loginfo = {
++static const struct nf_loginfo trace_loginfo = {
+ 	.type = NF_LOG_TYPE_LOG,
+ 	.u = {
+ 		.log = {
+diff --git a/net/ipv4/netfilter/nf_log_arp.c b/net/ipv4/netfilter/nf_log_arp.c
+index 2f3895d..df5c2a2 100644
+--- a/net/ipv4/netfilter/nf_log_arp.c
++++ b/net/ipv4/netfilter/nf_log_arp.c
+@@ -25,7 +25,7 @@
+ #include <linux/netfilter/xt_LOG.h>
+ #include <net/netfilter/nf_log.h>
+ 
+-static struct nf_loginfo default_loginfo = {
++static const struct nf_loginfo default_loginfo = {
+ 	.type	= NF_LOG_TYPE_LOG,
+ 	.u = {
+ 		.log = {
+diff --git a/net/ipv4/netfilter/nf_log_ipv4.c b/net/ipv4/netfilter/nf_log_ipv4.c
+index c83a996..4388de0 100644
+--- a/net/ipv4/netfilter/nf_log_ipv4.c
++++ b/net/ipv4/netfilter/nf_log_ipv4.c
+@@ -24,7 +24,7 @@
+ #include <linux/netfilter/xt_LOG.h>
+ #include <net/netfilter/nf_log.h>
+ 
+-static struct nf_loginfo default_loginfo = {
++static const struct nf_loginfo default_loginfo = {
+ 	.type	= NF_LOG_TYPE_LOG,
+ 	.u = {
+ 		.log = {
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 1f90644..9f66449 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -176,7 +176,7 @@ enum nf_ip_trace_comments {
+ 	[NF_IP6_TRACE_COMMENT_POLICY]	= "policy",
+ };
+ 
+-static struct nf_loginfo trace_loginfo = {
++static const struct nf_loginfo trace_loginfo = {
+ 	.type = NF_LOG_TYPE_LOG,
+ 	.u = {
+ 		.log = {
+diff --git a/net/ipv6/netfilter/nf_log_ipv6.c b/net/ipv6/netfilter/nf_log_ipv6.c
+index 97c7242..b397a8f 100644
+--- a/net/ipv6/netfilter/nf_log_ipv6.c
++++ b/net/ipv6/netfilter/nf_log_ipv6.c
+@@ -25,7 +25,7 @@
+ #include <linux/netfilter/xt_LOG.h>
+ #include <net/netfilter/nf_log.h>
+ 
+-static struct nf_loginfo default_loginfo = {
++static const struct nf_loginfo default_loginfo = {
+ 	.type	= NF_LOG_TYPE_LOG,
+ 	.u = {
+ 		.log = {
