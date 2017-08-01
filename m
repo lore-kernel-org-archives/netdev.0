@@ -1,39 +1,68 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 00/10] net: l3mdev: Support for sockets bound
- to enslaved device
-Date: Tue, 1 Aug 2017 14:15:05 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00482E4@AcuExch.aculab.com>
-References: <1501557206-27503-1-git-send-email-dsahern@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'David Ahern' <dsahern@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Koichiro Den <den@klaipeden.com>
+Subject: [PATCH net] xfrm: fix null pointer dereference on state and tmpl sort
+Date: Tue,  1 Aug 2017 23:21:46 +0900
+Message-ID: <20170801142146.8588-1-den@klaipeden.com>
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+        davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.186]:52098 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751599AbdHAOPL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:15:11 -0400
-In-Reply-To: <1501557206-27503-1-git-send-email-dsahern@gmail.com>
-Content-Language: en-US
+Received: from sender-of-o52.zoho.com ([135.84.80.217]:21455 "EHLO
+        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751811AbdHAOWL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:22:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern
-> Sent: 01 August 2017 04:13
-...
-> Existing code for socket lookups already pass in 6+ arguments. Rather
-> than add another for the enslaved device index, the existing lookups
-> are converted to use a new sk_lookup struct. From there, the enslaved
-> device index becomes another element of the struct.
-> 
-> Patch 1 introduces sk_lookup struct and helper.
+Creating sub policy that matches the same outer flow as main policy does
+leads to a null pointer dereference if the outer mode's family is ipv4.
+For userspace compatibility, this patch just eliminates the crash i.e.,
+does not introduce any new sorting rule, which would fruitlessly affect
+all but the aforementioned case.
 
-I guess that socket lookup happens quite often!
-Passing the lookup parameters in a structure might have a
-measurable negative effect on performance - especially if the
-structure isn't passed through to other functions.
+Signed-off-by: Koichiro Den <den@klaipeden.com>
+---
+ net/xfrm/xfrm_state.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-Have you made any performance mearurements?
-
-	David
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 6c0956d10db6..a792effdb0b5 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1620,6 +1620,7 @@ int
+ xfrm_tmpl_sort(struct xfrm_tmpl **dst, struct xfrm_tmpl **src, int n,
+ 	       unsigned short family, struct net *net)
+ {
++	int i;
+ 	int err = 0;
+ 	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
+ 	if (!afinfo)
+@@ -1628,6 +1629,9 @@ xfrm_tmpl_sort(struct xfrm_tmpl **dst, struct xfrm_tmpl **src, int n,
+ 	spin_lock_bh(&net->xfrm.xfrm_state_lock); /*FIXME*/
+ 	if (afinfo->tmpl_sort)
+ 		err = afinfo->tmpl_sort(dst, src, n);
++	else
++		for (i = 0; i < n; i++)
++			dst[i] = src[i];
+ 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+ 	rcu_read_unlock();
+ 	return err;
+@@ -1638,6 +1642,7 @@ int
+ xfrm_state_sort(struct xfrm_state **dst, struct xfrm_state **src, int n,
+ 		unsigned short family)
+ {
++	int i;
+ 	int err = 0;
+ 	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
+ 	struct net *net = xs_net(*src);
+@@ -1648,6 +1653,9 @@ xfrm_state_sort(struct xfrm_state **dst, struct xfrm_state **src, int n,
+ 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
+ 	if (afinfo->state_sort)
+ 		err = afinfo->state_sort(dst, src, n);
++	else
++		for (i = 0; i < n; i++)
++			dst[i] = src[i];
+ 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+ 	rcu_read_unlock();
+ 	return err;
+-- 
+2.9.4
