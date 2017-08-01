@@ -1,70 +1,49 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] netfilter: fix stringop-overflow warning with UBSAN
-Date: Tue, 1 Aug 2017 09:25:13 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0047F28@AcuExch.aculab.com>
-References: <20170731100913.465530-1-arnd@arndb.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC] net: make net.core.{r,w}mem_{default,max} namespaced
+Date: Tue, 01 Aug 2017 11:33:00 +0200
+Message-ID: <1501579980.1163602.1059346360.66293F3A@webmail.messagingengine.com>
+References: <20170726170333.24580-1-mcroce@redhat.com>
+ <1501495652.1876.17.camel@edumazet-glaptop3.roam.corp.google.com>
+ <87wp6nerrj.fsf@stressinduktion.org>
+ <1501571907.1876.27.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Johannes Berg <johannes.berg@intel.com>,
-        Alexey Dobriyan <adobriyan@gmail.com>,
-        Aaron Conole <aconole@bytheb.org>,
-        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-        "coreteam@netfilter.org" <coreteam@netfilter.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Arnd Bergmann' <arnd@arndb.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170731100913.465530-1-arnd@arndb.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Matteo Croce <mcroce@redhat.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:47283 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751056AbdHAJdB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 05:33:01 -0400
+In-Reply-To: <1501571907.1876.27.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann
-> Sent: 31 July 2017 11:09
-> Using gcc-7 with UBSAN enabled, we get this false-positive warning:
+On Tue, Aug 1, 2017, at 09:18, Eric Dumazet wrote:
+> On Tue, 2017-08-01 at 02:17 -0400, Hannes Frederic Sowa wrote:
 > 
-> net/netfilter/ipset/ip_set_core.c: In function 'ip_set_sockfn_get':
-> net/netfilter/ipset/ip_set_core.c:1998:3: error: 'strncpy' writing 32 bytes into a region of size 2
-> overflows the destination [-Werror=stringop-overflow=]
->    strncpy(req_get->set.name, set ? set->name : "",
->    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
->     sizeof(req_get->set.name));
->     ~~~~~~~~~~~~~~~~~~~~~~~~~~
+> > We do account rmem as well as wmem allocated memory to the apropriate
+> > mem_cgs. In theory this should be okay.
 > 
-> This seems completely bogus, and I could not find a nice workaround.
-> To work around it in a less elegant way, I change the ?: operator
-> into an if()/else() construct.
+> Last time I checked, rmem was not memcg ready yet.
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  net/netfilter/ipset/ip_set_core.c | 8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-> index e495b5e484b1..d7ebb021003b 100644
-> --- a/net/netfilter/ipset/ip_set_core.c
-> +++ b/net/netfilter/ipset/ip_set_core.c
-> @@ -1995,8 +1995,12 @@ ip_set_sockfn_get(struct sock *sk, int optval, void __user *user, int *len)
->  		}
->  		nfnl_lock(NFNL_SUBSYS_IPSET);
->  		set = ip_set(inst, req_get->set.index);
-> -		strncpy(req_get->set.name, ,
-> -			IPSET_MAXNAMELEN);
-> +		if (set)
-> +			strncpy(req_get->set.name, set->name,
-> +				sizeof(req_get->set.name));
-> +		else
-> +			memset(req_get->set.name, '\0',
-> +			       sizeof(req_get->set.name));
+> Can you describe the details ?
 
-If you use strncpy() here, the compiler might optimise the code
-back to 'how it was before'.
+As long as our packets pass __sock_queue_rcv_skb (what we do with udp,
+raw, packet) we call down to sk_rmem_schedule, which in
+__sk_mem_schedule -> sk_mem_raise_allocated will charge the mem_cg or
+suppress the allocation.
 
-Or, maybe an explicit temporary: 'const char *name = set ? set->name : "";
+For tcp, as I remember from the last discussion, we simply drop packets
+and don't handle that very sensible, albeit we should not get out of the
+mem_cg limits.
 
-	David
+tcp_try_rmem_schedule in front of the ofo as well as the data queue
+should make sure of that. Did I overlook anything?
+
+OTOH, I am not too fond of the change. I just think that it shouldn't
+deplete memory but rather stall connections.
+
+Thanks,
+Hannes
