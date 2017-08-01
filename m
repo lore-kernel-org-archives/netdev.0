@@ -1,132 +1,83 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH V4 net 2/2] net: fix tcp reset packet flowlabel for ipv6
-Date: Tue, 1 Aug 2017 14:17:58 -0700
-Message-ID: <CAM_iQpWiw6CJOr2+zvxdoCht1DRERmZfZCCZiE36_6RiumEOVA@mail.gmail.com>
-References: <cover.1501539150.git.shli@fb.com> <373e23f5295ee4cb725109a9e58152451a9fb4cc.1501539150.git.shli@fb.com>
- <CAM_iQpXOaP4JmGW4-AcL6JYbzKq_Co_Z4pWiSh1B1i=4MsakEQ@mail.gmail.com> <20170731230002.ercfotm7qhfubbbv@kernel.org>
+From: Arend van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH V5 2/2] brcmfmac: don't warn user about NVRAM if fallback
+ to the platform one succeeds
+Date: Tue, 1 Aug 2017 23:20:32 +0200
+Message-ID: <d50d2577-b9d3-27f1-6e3d-8e0dc4ec2024@broadcom.com>
+References: <20170731150945.8925-1-zajec5@gmail.com>
+ <20170731150945.8925-2-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, Shaohua Li <shli@fb.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Florent Fourcot <flo@fourcot.fr>
-To: Shaohua Li <shli@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:37009 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751546AbdHAVSU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 17:18:20 -0400
-Received: by mail-wm0-f66.google.com with SMTP id t138so4787900wmt.4
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 14:18:20 -0700 (PDT)
-In-Reply-To: <20170731230002.ercfotm7qhfubbbv@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Daniel Wagner <wagi@monom.org>,
+        David Woodhouse <dwmw2@infradead.org>,
+        "Rafael J . Wysocki" <rjw@rjwysocki.net>, yi1.li@linux.intel.com,
+        atull@kernel.org, Moritz Fischer <moritz.fischer@ettus.com>,
+        pmladek@suse.com, Johannes Berg <johannes.berg@intel.com>,
+        emmanuel.grumbach@intel.com, luciano.coelho@intel.com,
+        Kalle Valo <kvalo@codeaurora.org>, luto@kernel.org,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Kees Cook <keescook@chromium.org>,
+        AKASHI Takahiro <takahiro.akashi@linaro.org>,
+        David Howells <dhowells@redhat.com>, pjones@redhat.com,
+        Hans de Goede <hdegoede@redhat.com>, alan@linux.intel.com,
+        tytso@mit.edu, lkml <linux-kernel@vger.kernel.org>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@b
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+        "Luis R . Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170731150945.8925-2-zajec5@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 31, 2017 at 4:00 PM, Shaohua Li <shli@kernel.org> wrote:
-> On Mon, Jul 31, 2017 at 03:35:02PM -0700, Cong Wang wrote:
->> On Mon, Jul 31, 2017 at 3:19 PM, Shaohua Li <shli@kernel.org> wrote:
->> >  static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
->> >                                         __be32 flowlabel, bool autolabel,
->> > -                                       struct flowi6 *fl6)
->> > +                                       struct flowi6 *fl6, u32 hash)
->> >  {
->> > -       u32 hash;
->> > -
->> >         /* @flowlabel may include more than a flow label, eg, the traffic class.
->> >          * Here we want only the flow label value.
->> >          */
->> > @@ -788,7 +786,8 @@ static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
->> >              net->ipv6.sysctl.auto_flowlabels != IP6_AUTO_FLOW_LABEL_FORCED))
->> >                 return flowlabel;
->> >
->> > -       hash = skb_get_hash_flowi6(skb, fl6);
->> > +       if (skb)
->> > +               hash = skb_get_hash_flowi6(skb, fl6);
->>
->>
->> Why not just move skb_get_hash_flowi6() to its caller?
->> This check is not necessary. If you don't want to touch
->> existing callers, you can just introduce a wrapper:
->>
->>
->> static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
->>                                         __be32 flowlabel, bool autolabel,
->>                                         struct flowi6 *fl6)
->> {
->>   u32 hash = skb_get_hash_flowi6(skb, fl6);
->>   return __ip6_make_flowlabel(net, flowlabel, autolabel, hash);
->> }
->
-> this will always call skb_get_hash_flowi6 for the fast path even auto flowlabel
-> is disabled. I thought we should avoid this.
+On 31-07-17 17:09, Rafał Miłecki wrote:
+> From: Rafał Miłecki <rafal@milecki.pl>
+> 
+> Failing to load NVRAM *file* isn't critical if we manage to get platform
+> NVRAM in the fallback path. It means warnings like:
+> [   10.801506] brcmfmac 0000:01:00.0: Direct firmware load for brcm/brcmfmac43602-pcie.txt failed with error -2
+> are unnecessary & disturbing for people with *platform* NVRAM as they
+> are not expected to have NVRAM file. This is a very common case for
+> Broadcom home routers.
+> 
+> Instead of printing warning immediately within the firmware subsystem
+> let's try our fallback code first. If that fails as well, then it's a
+> right moment to print an error.
+> 
+> This should reduce amount of false reports from users seeing this
+> warning while having wireless working perfectly fine with the platform
+> NVRAM.
 
-Yeah, but you can move the check out too,
-something like:
+Reviewed-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
+> ---
+> V2: Update commit message as it wasn't clear enough (thanks Andy) & add extra
+>     messages to the firmware.c.
+> V3: Set FW_OPT_UEVENT to don't change behavior
+> V4: Switch to the new request_firmware_async syntax
+> V5: Rebase, update commit message, resend after drvdata discussion
+> ---
+>  .../wireless/broadcom/brcm80211/brcmfmac/firmware.c    | 18 +++++++++++++-----
+>  1 file changed, 13 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/firmware.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/firmware.c
+> index d231042f19d6..524442b3870f 100644
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/firmware.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/firmware.c
+> @@ -462,8 +462,14 @@ static void brcmf_fw_request_nvram_done(const struct firmware *fw, void *ctx)
+>  		raw_nvram = false;
+>  	} else {
+>  		data = bcm47xx_nvram_get_contents(&data_len);
+> -		if (!data && !(fwctx->flags & BRCMF_FW_REQ_NV_OPTIONAL))
+> -			goto fail;
+> +		if (!data) {
+> +			brcmf_dbg(TRACE, "Failed to get platform NVRAM\n");
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 6eac5cf8f1e6..18ffa824c00a 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -771,31 +771,22 @@ static inline void
-iph_to_flow_copy_v6addrs(struct flow_keys *flow,
+Better make this INFO level instead of TRACE. The intent of TRACE level
+is for entry/exit points in functions.
 
- #define IP6_DEFAULT_AUTO_FLOW_LABELS   IP6_AUTO_FLOW_LABEL_OPTOUT
-
--static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
--                                       __be32 flowlabel, bool autolabel,
--                                       struct flowi6 *fl6)
-+static inline bool ip6_need_flowlabel(struct net *net, __be32
-flowlabel, bool autolabel)
- {
--       u32 hash;
--
-        /* @flowlabel may include more than a flow label, eg, the traffic class.
-         * Here we want only the flow label value.
-         */
--       flowlabel &= IPV6_FLOWLABEL_MASK;
--
--       if (flowlabel ||
-+       if ((flowlabel & IPV6_FLOWLABEL_MASK) ||
-            net->ipv6.sysctl.auto_flowlabels == IP6_AUTO_FLOW_LABEL_OFF ||
-            (!autolabel &&
-             net->ipv6.sysctl.auto_flowlabels != IP6_AUTO_FLOW_LABEL_FORCED))
--               return flowlabel;
--
--       hash = skb_get_hash_flowi6(skb, fl6);
-+               return false;
-
--       /* Since this is being sent on the wire obfuscate hash a bit
--        * to minimize possbility that any useful information to an
--        * attacker is leaked. Only lower 20 bits are relevant.
--        */
--       rol32(hash, 16);
-+       return true;
-+}
-
-+static inline __be32 __ip6_make_flowlabel(struct net *net, __be32
-flowlabel, u32 hash)
-+{
-        flowlabel = (__force __be32)hash & IPV6_FLOWLABEL_MASK;
-
-        if (net->ipv6.sysctl.flowlabel_state_ranges)
-@@ -804,6 +795,19 @@ static inline __be32 ip6_make_flowlabel(struct
-net *net, struct sk_buff *skb,
-        return flowlabel;
- }
-
-+static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
-+                                       __be32 flowlabel, bool autolabel,
-+                                       struct flowi6 *fl6)
-+{
-+       u32 hash;
-+
-+       if (!ip6_need_flowlabel(net, flowlabel, autolabel))
-+               return flowlabel & IPV6_FLOWLABEL_MASK;
-+
-+       hash = skb_get_hash_flowi6(skb, fl6);
-+       return __ip6_make_flowlabel(net, flowlabel, hash);
-+}
-+
- static inline int ip6_default_np_autolabel(struct net *net)
- {
-        switch (net->ipv6.sysctl.auto_flowlabels) {
+Regards,
+Arend
