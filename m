@@ -1,98 +1,42 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] iplink: Notify user if EEXIST error might be spurious
-Date: Tue,  1 Aug 2017 19:27:47 +0200
-Message-ID: <20170801172747.2817-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:34975 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751860AbdHAR17 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Aug 2017 13:27:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 10/11] net: dsa: mv88e6xxx: remove EEE support
+Date: Tue, 1 Aug 2017 19:27:57 +0200
+Message-ID: <20170801172757.GL23157@lunn.ch>
+References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
+ <20170731221719.16695-11-vivien.didelot@savoirfairelinux.com>
+ <20170801142843.GE23157@lunn.ch>
+ <87r2wv2tci.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170801160628.GJ23157@lunn.ch>
+ <17c26dee-c285-4dd5-1be0-286c0126d4db@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <17c26dee-c285-4dd5-1be0-286c0126d4db@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Back in the days when RTM_NEWLINK wasn't yet implemented, people had to
-rely upon kernel modules to create (virtual) interfaces for them. The
-number of those was usually defined via module parameter, and a sane
-default value was chosen. Now that iproute2 allows users to instantiate
-new interfaces at will, this is no longer required - though for
-backwards compatibility reasons, we're stuck with both methods which
-collide at the point when one tries to create an interface with a
-standard name for a type which exists in a kernel module: The kernel
-will load the module, which instantiates the interface and the following
-RTM_NEWLINK request will fail since the interface exists already. For
-instance:
+> If the MAC does not support EEE but the PHY does I think you can still
+> allow EEE to be advertised and enabled, you just won't have the MAC be
+> able to leverage the power savings that EEE brings. AFAICT this is still
+> a valid mode whereby the PHY is put in a lower power mode, just not the
+> whole transmit path (MAC + PHY).
 
-| # lsmod | grep dummy
-| # ip link show | grep dummy0
-| # ip link add dummy0 type dummy
-| RTNETLINK answers: File exists
-| # ip link show | grep -c dummy0
-| 1
+Hi Florian
 
-There is no race-free solution in userspace for this dilemma as far as I
-can tell, so try to detect whether a user might have run into this and
-notify that the given error message might be irrelevant.
+I read a couple of datasheets for a few phys doing EEE. Both said the
+same, the MAC has to indicate to the PHY when low power should be
+entered and existed. The PHY itself does not appear to do anything on
+its own.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/iplink.c | 35 ++++++++++++++++++++++++++++++++++-
- 1 file changed, 34 insertions(+), 1 deletion(-)
+It would be good to read the standards about this. But i don't think
+we should tell userspace EEE is enabled, if the PHY has it enabled,
+but the MAC is not capable and hence EEE is not actually being used at
+all.
 
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 5aff2fde38dae..f94fa96668d21 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -867,6 +867,33 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 	return ret - argc;
- }
- 
-+static bool link_name_is_standard(const char *type, const char *name)
-+{
-+	const struct {
-+		const char *type;
-+		const char *name;
-+	} standard_links[] = {
-+		{ "dummy", "dummy0" },
-+		{ "ifb", "ifb0" },
-+		{ "ifb", "ifb1" },
-+		{ "bond", "bond0" },
-+		{ "ipip", "tunl0" },
-+		{ "gre", "gre0" },
-+		{ "gretap", "gretap0" },
-+		{ "vti", "ip_vti0" },
-+		{ "sit", "sit0" },
-+	};
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(standard_links); i++) {
-+		if (strcmp(type, standard_links[i].type) ||
-+		    strcmp(name, standard_links[i].name))
-+			continue;
-+		return true;
-+	}
-+	return false;
-+}
-+
- static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- {
- 	int len;
-@@ -1007,8 +1034,14 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 		return -1;
- 	}
- 
--	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
-+	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0) {
-+		if (errno == EEXIST &&
-+		    flags & NLM_F_CREATE &&
-+		    link_name_is_standard(type, name))
-+			fprintf(stderr,
-+				"Note: Kernel might have created interface upon module load.\n");
- 		return -2;
-+	}
- 
- 	return 0;
- }
--- 
-2.13.1
+	Andrew
