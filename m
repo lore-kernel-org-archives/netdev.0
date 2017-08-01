@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: [PATCH net 6/7] netvsc: Initialize 64-bit stats seqcount
-Date: Tue,  1 Aug 2017 12:11:12 -0700
-Message-ID: <20170801191113.8754-8-f.fainelli@gmail.com>
+Date: Tue,  1 Aug 2017 12:11:11 -0700
+Message-ID: <20170801191113.8754-7-f.fainelli@gmail.com>
 References: <20170801191113.8754-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
