@@ -1,25 +1,30 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: sysctl, argument parsing, possible bug
-Date: Tue, 1 Aug 2017 14:27:37 -0700
-Message-ID: <CAM_iQpXtHACnD8kmmHd4bcg+Khy5Y0K=HMmc08avTSHov4zN1A@mail.gmail.com>
-References: <CAKv20-VuR4J0PJOOfsRmEPMhB+vKYMdPsp5wDgVkoYwrHxgLGw@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 06/11] net: dsa: bcm_sf2: remove unneeded
+ supported flags
+Date: Tue, 1 Aug 2017 14:29:31 -0700
+Message-ID: <a5a270a1-2567-4d5e-e047-58ccaa1a37e9@gmail.com>
+References: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
+ <20170801203241.22294-7-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Massimo Sala <massimo.sala.71@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>, John Crispin <john@phrozen.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKv20-VuR4J0PJOOfsRmEPMhB+vKYMdPsp5wDgVkoYwrHxgLGw@mail.gmail.com>
+In-Reply-To: <20170801203241.22294-7-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 1, 2017 at 1:47 PM, Massimo Sala <massimo.sala.71@gmail.com> wrote:
-> cat /proc/sys/net/ipv4/conf/eth0.100/forwarding
-> 0
->
-> sysctl net.ipv4.conf.eth0.100.forwarding
-> error: "net.ipv4.conf.eth0.100.forwarding" is an unknown key
->
+On 08/01/2017 01:32 PM, Vivien Didelot wrote:
+> The SF2 driver is masking the supported bitfield of its private copy of
+> the ports' ethtool_eee structures. It is used nowhere, thus remove it.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Use echo instead, sysctl doesn't understand eth0.100
-is a netdev name, sigh.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
