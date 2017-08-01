@@ -1,51 +1,82 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC net-next] net ipv6: convert fib6_table rwlock to a percpu
- lock
-Date: Tue, 1 Aug 2017 07:45:28 -0700
-Message-ID: <20170801074528.289fc520@xeon-e3>
-References: <1a5ad2f0585aa66496b27e123d1c38b75552df4c.1501520674.git.shli@fb.com>
-        <20170731161007.61c2d958@xeon-e3>
-        <20170801025704.fuhxll23d3eenwrz@kernel.org>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next 00/10] net: l3mdev: Support for sockets bound to
+ enslaved device
+Date: Tue, 1 Aug 2017 08:45:29 -0600
+Message-ID: <7169d6d7-d0a7-5f17-185d-f95fe2d5f5ba@gmail.com>
+References: <1501557206-27503-1-git-send-email-dsahern@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD00482E4@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, Kernel-team@fb.com,
-        Shaohua Li <shli@fb.com>, Wei Wang <weiwan@google.com>
-To: Shaohua Li <shli@kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:35880 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751368AbdHAOpb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:45:31 -0400
-Received: by mail-pg0-f48.google.com with SMTP id v77so3160181pgb.3
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 07:45:31 -0700 (PDT)
-In-Reply-To: <20170801025704.fuhxll23d3eenwrz@kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:38321 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751368AbdHAOpd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:45:33 -0400
+Received: by mail-pg0-f65.google.com with SMTP id 123so1234062pga.5
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 07:45:33 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD00482E4@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 31 Jul 2017 19:57:04 -0700
-Shaohua Li <shli@kernel.org> wrote:
+On 8/1/17 8:15 AM, David Laight wrote:
+> From: David Ahern
+>> Sent: 01 August 2017 04:13
+> ...
+>> Existing code for socket lookups already pass in 6+ arguments. Rather
+>> than add another for the enslaved device index, the existing lookups
+>> are converted to use a new sk_lookup struct. From there, the enslaved
+>> device index becomes another element of the struct.
+>>
+>> Patch 1 introduces sk_lookup struct and helper.
+> 
+> I guess that socket lookup happens quite often!
+> Passing the lookup parameters in a structure might have a
+> measurable negative effect on performance - especially if the
+> structure isn't passed through to other functions.
+> 
+> Have you made any performance mearurements?
 
-> On Mon, Jul 31, 2017 at 04:10:07PM -0700, Stephen Hemminger wrote:
-> > On Mon, 31 Jul 2017 10:18:57 -0700
-> > Shaohua Li <shli@kernel.org> wrote:
-> >   
-> > > From: Shaohua Li <shli@fb.com>
-> > > 
-> > > In a syn flooding test, the fib6_table rwlock is a significant
-> > > bottleneck. While converting the rwlock to rcu sounds straighforward,
-> > > but is very challenging if it's possible. A percpu spinlock is quite
-> > > trival for this problem since updating the routing table is a rare
-> > > event. In my test, the server receives around 1.5 Mpps in syn flooding
-> > > test without the patch in a dual sockets and 56-CPU system. With the
-> > > patch, the server receives around 3.8Mpps, and perf report doesn't show
-> > > the locking issue.
-> > > 
-> > > Cc: Wei Wang <weiwan@google.com>  
-> > 
-> > You just reinvented brlock...
 
-It was a long time ago (2.4) that brlock came in
- https://lwn.net/Articles/378781/
+Before patches:
 
-I removed it in 2.5.64 or so.
+IPv4
+   Test   TCP_RR       23769.42     23862.59     23867.69  sum
+71499.70  avg      23833
+   Test  TCP_CRR        8649.29      8650.94      8661.24  sum
+25961.47  avg       8653
+   Test   UDP_RR       26935.38     26813.30     26747.88  sum
+80496.56  avg      26832
+
+IPv6
+   Test   TCP_RR       24708.10     24629.43     24593.75  sum
+73931.28  avg      24643
+   Test  TCP_CRR        8432.82      8489.26      8474.82  sum
+25396.90  avg       8465
+   Test   UDP_RR       23607.57     23722.37     23713.80  sum
+71043.74  avg      23681
+
+
+#################################################################
+After patches:
+
+IPv4
+   Test   TCP_RR       24204.41     23993.05     24129.18  sum
+72326.64  avg      24108
+   Test  TCP_CRR        8690.31      8630.12      8620.88  sum
+25941.31  avg       8647
+   Test   UDP_RR       26653.26     26725.76     26587.70  sum
+79966.72  avg      26655
+
+IPv6
+   Test   TCP_RR       24807.54     24698.30     24849.84  sum
+74355.68  avg      24785
+   Test  TCP_CRR        8573.22      8640.02      8624.09  sum
+25837.33  avg       8612
+   Test   UDP_RR       23800.14     23747.01     23814.94  sum
+71362.09  avg      23787
+
+The middle columns are the results of each 30-second run and then the
+average of the 3 is on the end.
