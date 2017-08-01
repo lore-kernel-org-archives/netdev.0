@@ -1,72 +1,70 @@
-From: yujuan.qi <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH] Cipso: cipso_v4_optptr enter infinite loop
-Date: Tue, 1 Aug 2017 16:54:04 +0800
-Message-ID: <1501577644.32665.25.camel@mwhsdaap41>
-References: <1501471381-12808-1-git-send-email-yujuan.qi@mediatek.com>
- <CAGH-KguiiVTyxHp0Z3Z==6b5n2h3Lm4SmU=ruydMpGgctdhYSw@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] netfilter: fix stringop-overflow warning with UBSAN
+Date: Tue, 1 Aug 2017 09:25:13 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0047F28@AcuExch.aculab.com>
+References: <20170731100913.465530-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ryder Lee <ryder.lee-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <CAGH-KguiiVTyxHp0Z3Z==6b5n2h3Lm4SmU=ruydMpGgctdhYSw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Johannes Berg <johannes.berg@intel.com>,
+        Alexey Dobriyan <adobriyan@gmail.com>,
+        Aaron Conole <aconole@bytheb.org>,
+        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+        "coreteam@netfilter.org" <coreteam@netfilter.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Arnd Bergmann' <arnd@arndb.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170731100913.465530-1-arnd@arndb.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
-On Mon, 2017-07-31 at 16:13 -0400, Paul Moore wrote:
-> On Sun, Jul 30, 2017 at 11:23 PM, Yujuan Qi <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org> wrote:
-> > From: "yujuan.qi" <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-> >
-> > in for(),if((optlen > 0) && (optptr[1] == 0)), enter infinite loop.
-> >
-> > Test: receive a packet which the ip length > 20 and t he first byte of ip option is 0, produce this issue
-> >
-> > Signed-off-by: yujuan.qi <yujuan.qi-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-> > ---
-> >  net/ipv4/cipso_ipv4.c | 12 ++++++++++--
-> >  1 file changed, 10 insertions(+), 2 deletions(-)
+From: Arnd Bergmann
+> Sent: 31 July 2017 11:09
+> Using gcc-7 with UBSAN enabled, we get this false-positive warning:
 > 
-> Considering I gave you the code below I should probably ack it, right? ;)
+> net/netfilter/ipset/ip_set_core.c: In function 'ip_set_sockfn_get':
+> net/netfilter/ipset/ip_set_core.c:1998:3: error: 'strncpy' writing 32 bytes into a region of size 2
+> overflows the destination [-Werror=stringop-overflow=]
+>    strncpy(req_get->set.name, set ? set->name : "",
+>    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+>     sizeof(req_get->set.name));
+>     ~~~~~~~~~~~~~~~~~~~~~~~~~~
 > 
-> Acked-by: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
+> This seems completely bogus, and I could not find a nice workaround.
+> To work around it in a less elegant way, I change the ?: operator
+> into an if()/else() construct.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  net/netfilter/ipset/ip_set_core.c | 8 ++++++--
+>  1 file changed, 6 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+> index e495b5e484b1..d7ebb021003b 100644
+> --- a/net/netfilter/ipset/ip_set_core.c
+> +++ b/net/netfilter/ipset/ip_set_core.c
+> @@ -1995,8 +1995,12 @@ ip_set_sockfn_get(struct sock *sk, int optval, void __user *user, int *len)
+>  		}
+>  		nfnl_lock(NFNL_SUBSYS_IPSET);
+>  		set = ip_set(inst, req_get->set.index);
+> -		strncpy(req_get->set.name, ,
+> -			IPSET_MAXNAMELEN);
+> +		if (set)
+> +			strncpy(req_get->set.name, set->name,
+> +				sizeof(req_get->set.name));
+> +		else
+> +			memset(req_get->set.name, '\0',
+> +			       sizeof(req_get->set.name));
 
-Yes! Thanks for your suggestions!
+If you use strncpy() here, the compiler might optimise the code
+back to 'how it was before'.
 
-> > diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-> > index ae20616..0d1e07d 100644
-> > --- a/net/ipv4/cipso_ipv4.c
-> > +++ b/net/ipv4/cipso_ipv4.c
-> > @@ -1523,9 +1523,17 @@ unsigned char *cipso_v4_optptr(const struct sk_buff *skb)
-> >         int taglen;
-> >
-> >         for (optlen = iph->ihl*4 - sizeof(struct iphdr); optlen > 0; ) {
-> > -               if (optptr[0] == IPOPT_CIPSO)
-> > +               switch (optptr[0]) {
-> > +               case IPOPT_CIPSO:
-> >                         return optptr;
-> > -               taglen = optptr[1];
-> > +               case IPOPT_END:
-> > +                       return NULL;
-> > +               case IPOPT_NOOP:
-> > +                       taglen = 1;
-> > +                       break;
-> > +               default:
-> > +                       taglen = optptr[1];
-> > +               }
-> >                 optlen -= taglen;
-> >                 optptr += taglen;
-> >         }
-> 
+Or, maybe an explicit temporary: 'const char *name = set ? set->name : "";
+
+	David
