@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 04/11] net: dsa: qca8k: do not cache unneeded EEE fields
-Date: Tue,  1 Aug 2017 16:32:34 -0400
-Message-ID: <20170801203241.22294-5-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 02/11] net: dsa: qca8k: fix EEE init
+Date: Tue,  1 Aug 2017 16:32:32 -0400
+Message-ID: <20170801203241.22294-3-vivien.didelot@savoirfairelinux.com>
 References: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,50 +14,42 @@ In-Reply-To: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The qca8k driver is currently caching a bitfield of the supported member
-of a ethtool_eee private structure, which is unused.
+The qca8k obviously copied code from the sf2 driver as how to set EEE:
 
-Only the eee_enabled field of the private ethtool_eee copy is updated,
-thus using p->advertised and p->lp_advertised is also erroneous.
+    if (e->eee_enabled) {
+        p->eee_enabled = qca8k_eee_init(ds, port, phydev);
+        if (!p->eee_enabled)
+            ret = -EOPNOTSUPP;
+    }
 
-Remove the usage of these private ethtool_eee members and only rely on
-phy_ethtool_get_eee to assign the eee_active member.
+But it did not use the same logic for the EEE init routine, which is
+"Returns 0 if EEE was not enabled, or 1 otherwise". This results in
+returning -EOPNOTSUPP on success and caching EEE enabled on failure.
+
+This patch fixes the returned value of qca8k_eee_init.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/qca8k.c | 11 +----------
- 1 file changed, 1 insertion(+), 10 deletions(-)
+ drivers/net/dsa/qca8k.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index 9d6b5d2f7a4a..c316c55aabc6 100644
+index b3bee7eab45f..e076ab23d4df 100644
 --- a/drivers/net/dsa/qca8k.c
 +++ b/drivers/net/dsa/qca8k.c
-@@ -658,12 +658,8 @@ static int
- qca8k_eee_init(struct dsa_switch *ds, int port,
- 	       struct phy_device *phy)
- {
--	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
--	struct ethtool_eee *p = &priv->port_sts[port].eee;
- 	int ret;
+@@ -666,11 +666,11 @@ qca8k_eee_init(struct dsa_switch *ds, int port,
  
--	p->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full);
--
  	ret = phy_init_eee(phy, 0);
  	if (ret)
- 		return 0;
-@@ -705,12 +701,7 @@ qca8k_get_eee(struct dsa_switch *ds, int port,
- 	int ret;
+-		return ret;
++		return 0;
  
- 	ret = phy_ethtool_get_eee(netdev->phydev, p);
--	if (!ret)
--		e->eee_active =
--			!!(p->supported & p->advertised & p->lp_advertised);
--	else
--		e->eee_active = 0;
--
-+	e->eee_active = p->eee_active;
- 	e->eee_enabled = p->eee_enabled;
+ 	qca8k_eee_enable_set(ds, port, true);
  
- 	return ret;
+-	return 0;
++	return 1;
+ }
+ 
+ static int
 -- 
 2.13.3
