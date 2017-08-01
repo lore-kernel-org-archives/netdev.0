@@ -1,40 +1,32 @@
-From: Casey Callendrello <casey.callendrello@coreos.com>
-Subject: [PATCH iproute2] netns: make /var/run/netns bind-mount recursive
-Date: Tue,  1 Aug 2017 17:46:09 +0200
-Message-ID: <20170801154609.29895-1-casey.callendrello@coreos.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:38746 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751599AbdHAPqM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 11:46:12 -0400
-Received: by mail-wm0-f48.google.com with SMTP id m85so18634351wma.1
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 08:46:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hector Martin <marcan@marcan.st>
+Subject: [PATCH 2/2] usb: qmi_wwan: add D-Link DWM-222 device ID
+Date: Wed,  2 Aug 2017 00:45:44 +0900
+Message-ID: <20170801154544.1104-1-marcan@marcan.st>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Hector Martin <marcan@marcan.st>,
+        stable@vger.kernel.org
+To: bjorn@mork.no
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When ip netns {add|delete} is first run, it bind-mounts /var/run/netns
-on top of itself, then marks it as shared. However, if there are already
-bind-mounts in the directory from other tools, these would not be
-propagated. Fix this by recursively bind-mounting.
-
-Signed-off-by: Casey Callendrello <casey.callendrello@coreos.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Hector Martin <marcan@marcan.st>
 ---
- ip/ipnetns.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/usb/qmi_wwan.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 198e9de8..9ee1fe6a 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -636,7 +636,7 @@ static int netns_add(int argc, char **argv)
- 		}
- 
- 		/* Upgrade NETNS_RUN_DIR to a mount point */
--		if (mount(NETNS_RUN_DIR, NETNS_RUN_DIR, "none", MS_BIND, NULL)) {
-+		if (mount(NETNS_RUN_DIR, NETNS_RUN_DIR, "none", MS_BIND | MS_REC, NULL)) {
- 			fprintf(stderr, "mount --bind %s %s failed: %s\n",
- 				NETNS_RUN_DIR, NETNS_RUN_DIR, strerror(errno));
- 			return -1;
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 5894e3c9468f..ff6f39fe6c00 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -1175,6 +1175,7 @@ static const struct usb_device_id products[] = {
+ 	{QMI_FIXED_INTF(0x19d2, 0x1428, 2)},	/* Telewell TW-LTE 4G v2 */
+ 	{QMI_FIXED_INTF(0x19d2, 0x2002, 4)},	/* ZTE (Vodafone) K3765-Z */
+ 	{QMI_FIXED_INTF(0x2001, 0x7e19, 4)},	/* D-Link DWM-221 B1 */
++	{QMI_FIXED_INTF(0x2001, 0x7e35, 4)},	/* D-Link DWM-222 */
+ 	{QMI_FIXED_INTF(0x0f3d, 0x68a2, 8)},    /* Sierra Wireless MC7700 */
+ 	{QMI_FIXED_INTF(0x114f, 0x68a2, 8)},    /* Sierra Wireless MC7750 */
+ 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI mode */
 -- 
 2.13.3
