@@ -1,29 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Cipso: cipso_v4_optptr enter infinite loop
-Date: Tue, 01 Aug 2017 15:31:58 -0700 (PDT)
-Message-ID: <20170801.153158.1079818266452638846.davem@davemloft.net>
-References: <1501471381-12808-1-git-send-email-yujuan.qi@mediatek.com>
+From: administrador <kepala.kanwil-sumbagsel@customs.go.id>
+Subject: admin
+Date: Tue, 01 Aug 2017 23:47:09 +0530
+Message-ID: <20170801181957.75BFFDC800A@mail.customs.go.id>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pmoore@redhat.com, casey@schaufler-ca.com, netdev@vger.kernel.org,
-        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-        ryder.lee@mediatek.com
-To: yujuan.qi@mediatek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501471381-12808-1-git-send-email-yujuan.qi@mediatek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Recipients <kepala.kanwil-sumbagsel@customs.go.id>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [103.12.81.54] ([103.12.81.54]:55746 "EHLO
+        zimbra01.customs.go.id" rhost-flags-FAIL-FAIL-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751035AbdHAWkM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 18:40:12 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yujuan Qi <yujuan.qi@mediatek.com>
-Date: Mon, 31 Jul 2017 11:23:01 +0800
+ATENCI=D3N;
 
-> From: "yujuan.qi" <yujuan.qi@mediatek.com>
-> 
-> in for(),if((optlen > 0) && (optptr[1] == 0)), enter infinite loop.
-> 
-> Test: receive a packet which the ip length > 20 and the first byte of ip option is 0, produce this issue
-> 
-> Signed-off-by: yujuan.qi <yujuan.qi@mediatek.com>
+Su buz=F3n ha superado el l=EDmite de almacenamiento, que es de 5 GB defini=
+dos por el administrador, quien actualmente est=E1 ejecutando en 10.9GB, no=
+ puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a valida=
+r su buz=F3n de correo electr=F3nico. Para revalidar su buz=F3n de correo, =
+env=EDe la siguiente informaci=F3n a continuaci=F3n:
 
-Applied, thanks.
+nombre:
+Nombre de usuario:
+contrase=F1a:
+Confirmar contrase=F1a:
+E-mail:
+tel=E9fono:
+Si usted no puede revalidar su buz=F3n, el buz=F3n se deshabilitar=E1!
+
+Disculpa las molestias.
+C=F3digo de verificaci=F3n: es: 006524
+Correo Soporte T=E9cnico =A9 2017
+
+=A1gracias
+Sistemas administrador
