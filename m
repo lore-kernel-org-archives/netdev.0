@@ -1,48 +1,72 @@
-From: Shaohua Li <shli@kernel.org>
-Subject: Re: [RFC net-next] net ipv6: convert fib6_table rwlock to a percpu
- lock
-Date: Mon, 31 Jul 2017 19:57:04 -0700
-Message-ID: <20170801025704.fuhxll23d3eenwrz@kernel.org>
-References: <1a5ad2f0585aa66496b27e123d1c38b75552df4c.1501520674.git.shli@fb.com>
- <20170731161007.61c2d958@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, Kernel-team@fb.com,
-        Shaohua Li <shli@fb.com>, Wei Wang <weiwan@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net 1/3] tcp: introduce tcp_rto_delta_us() helper for xmit timer fix
+Date: Mon, 31 Jul 2017 22:58:12 -0400
+Message-ID: <20170801025814.31206-2-ncardwell@google.com>
+References: <20170801025814.31206-1-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:46918 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751809AbdHAC5G (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 31 Jul 2017 22:57:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20170731161007.61c2d958@xeon-e3>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:37515 "EHLO
+        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751725AbdHAC63 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 22:58:29 -0400
+Received: by mail-qk0-f181.google.com with SMTP id z18so2127171qka.4
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 19:58:29 -0700 (PDT)
+In-Reply-To: <20170801025814.31206-1-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 31, 2017 at 04:10:07PM -0700, Stephen Hemminger wrote:
-> On Mon, 31 Jul 2017 10:18:57 -0700
-> Shaohua Li <shli@kernel.org> wrote:
-> 
-> > From: Shaohua Li <shli@fb.com>
-> > 
-> > In a syn flooding test, the fib6_table rwlock is a significant
-> > bottleneck. While converting the rwlock to rcu sounds straighforward,
-> > but is very challenging if it's possible. A percpu spinlock is quite
-> > trival for this problem since updating the routing table is a rare
-> > event. In my test, the server receives around 1.5 Mpps in syn flooding
-> > test without the patch in a dual sockets and 56-CPU system. With the
-> > patch, the server receives around 3.8Mpps, and perf report doesn't show
-> > the locking issue.
-> > 
-> > Cc: Wei Wang <weiwan@google.com>
-> 
-> You just reinvented brlock...
+Pure refactor. This helper will be required in the xmit timer fix
+later in the patch series. (Because the TLP logic will want to make
+this calculation.)
 
-you mean lglock? It has been removed from kernel.
+Fixes: 6ba8a3b19e76 ("tcp: Tail loss probe (TLP)")
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Nandita Dukkipati <nanditad@google.com>
+---
+ include/net/tcp.h    | 10 ++++++++++
+ net/ipv4/tcp_input.c |  5 +----
+ 2 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 70483296157f..ada65e767b28 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1916,6 +1916,16 @@ extern void tcp_rack_advance(struct tcp_sock *tp, u8 sacked, u32 end_seq,
+ 			     u64 xmit_time);
+ extern void tcp_rack_reo_timeout(struct sock *sk);
  
-> RCU is not that hard, why not do it right?
-
-Maybe. But don't think it's the reason why we shouldn't do the percpu lock now,
-this is a simple change, if some smart guys find a way of RCU, we can easily
-remove this.
++/* At how many usecs into the future should the RTO fire? */
++static inline s64 tcp_rto_delta_us(const struct sock *sk)
++{
++	const struct sk_buff *skb = tcp_write_queue_head(sk);
++	u32 rto = inet_csk(sk)->icsk_rto;
++	u64 rto_time_stamp_us = skb->skb_mstamp + jiffies_to_usecs(rto);
++
++	return rto_time_stamp_us - tcp_sk(sk)->tcp_mstamp;
++}
++
+ /*
+  * Save and compile IPv4 options, return a pointer to it
+  */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2920e0cb09f8..345febf0a46e 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3004,10 +3004,7 @@ void tcp_rearm_rto(struct sock *sk)
+ 		/* Offset the time elapsed after installing regular RTO */
+ 		if (icsk->icsk_pending == ICSK_TIME_REO_TIMEOUT ||
+ 		    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
+-			struct sk_buff *skb = tcp_write_queue_head(sk);
+-			u64 rto_time_stamp = skb->skb_mstamp +
+-					     jiffies_to_usecs(rto);
+-			s64 delta_us = rto_time_stamp - tp->tcp_mstamp;
++			s64 delta_us = tcp_rto_delta_us(sk);
+ 			/* delta_us may not be positive if the socket is locked
+ 			 * when the retrans timer fires and is rescheduled.
+ 			 */
+-- 
+2.14.0.rc0.400.g1c36432dff-goog
