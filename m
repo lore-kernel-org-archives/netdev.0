@@ -1,37 +1,51 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH 1/2] ipv6: constify inet6_protocol structures
-Date: Tue, 1 Aug 2017 10:03:41 -0600
-Message-ID: <63118b71-c196-efcd-0700-7c7c0025c577@gmail.com>
-References: <1501273138-22771-1-git-send-email-Julia.Lawall@lip6.fr>
- <1501273138-22771-2-git-send-email-Julia.Lawall@lip6.fr>
- <1501495011.1876.12.camel@edumazet-glaptop3.roam.corp.google.com>
- <alpine.DEB.2.20.1708010759050.2671@hadrien>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 10/11] net: dsa: mv88e6xxx: remove EEE support
+Date: Tue, 1 Aug 2017 18:06:28 +0200
+Message-ID: <20170801160628.GJ23157@lunn.ch>
+References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
+ <20170731221719.16695-11-vivien.didelot@savoirfairelinux.com>
+ <20170801142843.GE23157@lunn.ch>
+ <87r2wv2tci.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, bhumirks@gmail.com,
-        netdev <netdev@vger.kernel.org>
-To: Julia Lawall <julia.lawall@lip6.fr>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35969 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751944AbdHAQDo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 12:03:44 -0400
-Received: by mail-pf0-f169.google.com with SMTP id z129so9535780pfb.3
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 09:03:44 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.20.1708010759050.2671@hadrien>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87r2wv2tci.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/31/17 11:59 PM, Julia Lawall wrote:
->> This change breaks the kernel if one of these sysctls are changed:
->> tcp_early_demux, udp_early_demux
+On Tue, Aug 01, 2017 at 11:36:13AM -0400, Vivien Didelot wrote:
+> Hi Andrew,
 > 
-> The other patch in the series has the same problem and should be dropped
-> too.
+> Andrew Lunn <andrew@lunn.ch> writes:
 > 
-> julia
+> > On Mon, Jul 31, 2017 at 06:17:18PM -0400, Vivien Didelot wrote:
+> >> The PHY's EEE settings are already accessed by the DSA layer through the
+> >> Marvell PHY driver and there is nothing to be done for switch's MACs.
+> >
+> > I'm confused, or missing something. Does not patch #1 mean that if the
+> > DSA driver does not have a set_eee function, we always return -ENODEV
+> > in slave.c?
+> 
+> If there is a PHY, phy_init_eee (if eee_enabled is true) and
+> phy_ethtool_set_eee is called. If there is a .set_eee op, it is
+> called. If both are absent, -ENODEV is returned.
 
-Julia: are you going to send a revert patch? Right now I have to do that
-manually before launching test scripts.
+O.K, i don't think that is correct. EEE should only be enabled if both
+the MAC and the PHY supports it. We need some way for the MAC to
+indicate it does not support EEE.
+
+If set_eee is optional the meaning of a NULL pointer is that the MAC
+does support EEE. So for mv88e6060, lan9303, microchip and mt7530
+which currently don't support EEE, you need to add a set_eee which
+returns -ENODEV.
+
+Having to implement the op to say you don't implement the feature just
+seems wrong.
+
+      Andrew
