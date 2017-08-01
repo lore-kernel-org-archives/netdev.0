@@ -1,9 +1,8 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 10/11] net: dsa: mv88e6xxx: remove EEE support
-Date: Tue, 1 Aug 2017 16:28:43 +0200
-Message-ID: <20170801142843.GE23157@lunn.ch>
+Subject: Re: [PATCH net-next 00/11] net: dsa: rework EEE support
+Date: Tue, 1 Aug 2017 16:31:13 +0200
+Message-ID: <20170801143113.GF23157@lunn.ch>
 References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
- <20170731221719.16695-11-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -13,21 +12,25 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170731221719.16695-11-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 31, 2017 at 06:17:18PM -0400, Vivien Didelot wrote:
-> The PHY's EEE settings are already accessed by the DSA layer through the
-> Marvell PHY driver and there is nothing to be done for switch's MACs.
+On Mon, Jul 31, 2017 at 06:17:08PM -0400, Vivien Didelot wrote:
+> EEE implies configuring the port's PHY and MAC of both ends of the wire.
+> 
+> The current EEE support in DSA mixes PHY and MAC configuration, which is
+> bad because PHYs must be configured through a proper PHY driver. The DSA
+> switch operations for EEE are only meant for configuring the port's MAC,
+> which are integrated in the Ethernet switch device.
+> 
+> This patchset fixes the EEE support in qca8k driver, makes the DSA layer
+> call phy_init_eee for all drivers, and remove the EEE support from the
+> mv88e6xxx driver since the Marvell PHY driver should be enough for it.
 
-I'm confused, or missing something. Does not patch #1 mean that if the
-DSA driver does not have a set_eee function, we always return -ENODEV
-in slave.c?
+Hi Vivien
 
-There might be nothing to configure here, but some of the switches do
-support EEE. So we need at least a NOP set_eee. Better still it should
-return -ENODEV for those switches which don't actually support EEE,
-and 0 for those that do?
+Thanks for working on this. I like the general direction this takes,
+moving the repeated code into slave.c
 
-    Andrew
+       Andrew
