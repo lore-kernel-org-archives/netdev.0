@@ -1,55 +1,78 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC] net: make net.core.{r,w}mem_{default,max} namespaced
-Date: Tue, 01 Aug 2017 02:17:20 -0400
-Message-ID: <87wp6nerrj.fsf@stressinduktion.org>
-References: <20170726170333.24580-1-mcroce@redhat.com>
-        <1501495652.1876.17.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Kurt Van Dijck <dev.kurt@vandijck-laurijssen.be>
+Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
+ fixed transceiver bindings
+Date: Tue, 1 Aug 2017 09:12:43 +0200
+Message-ID: <20170801071243.GA21203@airbook.vandijck-laurijssen.be>
+References: <20170728130231.GA10680@airbook.vandijck-laurijssen.be>
+ <c7d4c364-1ed9-ca73-2571-d04297ac3788@hartkopp.net>
+ <80c167a2-7eb5-8076-04fc-0989981a523d@ti.com>
+ <20170728194143.GA10599@airbook.vandijck-laurijssen.be>
+ <91879489-87de-21b9-0227-650c0001e6a3@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Matteo Croce <mcroce@redhat.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:49991 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750763AbdHAGRY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 02:17:24 -0400
-In-Reply-To: <1501495652.1876.17.camel@edumazet-glaptop3.roam.corp.google.com>
-        (Eric Dumazet's message of "Mon, 31 Jul 2017 03:07:32 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Franklin S Cooper Jr <fcooper@ti.com>,
+        Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
+        devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-can@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
+        robh+dt@kernel.org, quentin.schulz@free-electrons.com,
+        sergei.shtylyov@cogentembedded.com
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <91879489-87de-21b9-0227-650c0001e6a3@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+> Hi Kurt,
+> 
+> On 07/28/2017 09:41 PM, Kurt Van Dijck wrote:
+> 
+> >>The transceiver is an analog device that needs to support faster
+> >>switching frequency (FETs) including minimizing delay to support CAN-FD
+> >>ie higher bitrate. From the transceiver perspective the bits for
+> >>"arbitration" and "data" look exactly the same. Since it can't
+> >>differentiate between the two (at the physical layer) then the actual
+> >>limit isn't specific to which part/type of the CAN message is being
+> >>sent. Rather its just a single overall max bitrate limit.
+> >
+> >I must disagree here.
+> >The transceiver is an analog device that performs 2 functions:
+> >propagate tx bits to CAN wire, and propagate CAN wire state
+> >(dominant/recesive) to rx bits.
+> >
+> >I'll rephrase the above explanation to fit your argument:
+> >During arbitration, both directions are required, and needs to propagate
+> >within 1 bit time. The transceiver doesn't know, it just performs to
+> >best effort.
+> >During data, the round-trip timing requirement of layer2 is relaxed.
+> >The transceiver still doesn't know, it still performs to best effort.
+> >Due to the relaxed round-trip timing requirement, the same transceiver
+> >can suddenly allow higher bitrates. The transceiver didn't change, the
+> >requirement did change.
+> >This is what I meant earlier with "layer2 has been adapted to circumvent
+> >layer1 limitations"
+> >
 
-> On Wed, 2017-07-26 at 19:03 +0200, Matteo Croce wrote:
->> The following sysctl are global and can't be read or set from a netns:
->> 
->> net.core.rmem_default
->> net.core.rmem_max
->> net.core.wmem_default
->> net.core.wmem_max
->> 
->> Make the following sysctl parameters available from within a network
->> namespace, allowing to set unique values per network namespace.
->> 
->> My concern is about the initial value of this sysctl in the newly
->> creates netns: I'm not sure if is better to copy them from the init
->> namespace or set them to the default values.
->> 
->> Setting them to the default value has the advantage that a new namespace
->> behaves like a freshly booted system, while copying them from the init
->> netns has the advantage of keeping the current behaviour as the values
->> from the init netns are used.
->> 
->> Signed-off-by: Matteo Croce <mcroce@redhat.com>
->> ---
->
-> It looks that these sysctls were giving some kind of isolation.
->
-> If we make them per namespace, a malicious usage could eat all memory
-> and hurt other namespaces.
+> I talked to our CAN transceiver & CAN physical layer specialist who was
+> involved in the ISO activities too.
+> 
+> We just need ONE value: max-bitrate
+> 
+> The CAN transceiver is qualified to provide this bitrate. That's it.
+> There's nothing special with the arbitration bitrate - we don't even need to
+> outline any CAN FD capability.
+> 
+> The other things like 'loop delay compensation' are done in the CAN
+> controller. The better the transceiver get's the bits 'in shape' the higher
+> it can be qualified. But from the SoC/Controller/Linux view we only need the
+> max-bitrate value to double check with the CAN controllers bitrate
+> configuration request (which was Franklins intention).
 
-We do account rmem as well as wmem allocated memory to the apropriate
-mem_cgs. In theory this should be okay.
+I bet your physical layer specialist understands the details way better
+than I do :-)
 
-Bye,
-Hannes
+1 value it is then.
+
+Kind regards,
+Kurt
+
