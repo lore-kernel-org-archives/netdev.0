@@ -1,46 +1,51 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH RFC, iproute2] tc/mirred: Extend the mirred/redirect
- action to accept additional traffic class parameter
-Date: Mon, 31 Jul 2017 20:51:33 -0700
-Message-ID: <20170731205133.5e58e47c@xeon-e3>
-References: <150154805003.4819.12498976860683140342.stgit@anamdev.jf.intel.com>
+Subject: Re: [PATCH net-next v12 0/4] net sched actions: improve dump
+ performance
+Date: Mon, 31 Jul 2017 20:54:19 -0700
+Message-ID: <20170731205419.6710fe11@xeon-e3>
+References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+        <20170730.192836.370680005861016480.davem@davemloft.net>
+        <466dd890-ffae-4cdb-dc97-d173bd390148@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.h.duyck@intel.com,
-        kiran.patil@intel.com, sridhar.samudrala@intel.com,
-        mitch.a.williams@intel.com, alexander.duyck@gmail.com,
-        neerav.parikh@intel.com, carolyn.wyborny@intel.com,
-        jeffrey.t.kirsher@intel.com
-To: Amritha Nambiar <amritha.nambiar@intel.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        jiri@resnulli.us, xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        horms@verge.net.au, dsahern@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:37288 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751776AbdHADvg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 23:51:36 -0400
-Received: by mail-pg0-f50.google.com with SMTP id y129so2550438pgy.4
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 20:51:36 -0700 (PDT)
-In-Reply-To: <150154805003.4819.12498976860683140342.stgit@anamdev.jf.intel.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:33922 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751776AbdHADyW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 23:54:22 -0400
+Received: by mail-pg0-f49.google.com with SMTP id u185so2616540pgb.1
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 20:54:22 -0700 (PDT)
+In-Reply-To: <466dd890-ffae-4cdb-dc97-d173bd390148@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 31 Jul 2017 17:40:50 -0700
-Amritha Nambiar <amritha.nambiar@intel.com> wrote:
-The concept is fine, bu t the code looks different than the rest which
-is never a good sign.
+On Mon, 31 Jul 2017 08:06:42 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+
+> On 17-07-30 10:28 PM, David Miller wrote:
+> > 
+> > Series applied, thanks.
+> >   
+> 
+> Thanks David.
+> 
+> Attaching the iproute2 patch. I will submit an official one with
+> man page  changes later. Stephen - you take net-next changes?
+> 
+> cheers,
+> jamal
+
+Please cleanup and resubmit for net-next.
+
+The header files have been updated in iproute2 net-next branch.
+
+It is not clear to me that the new code is backward compatiable.
+Will new versions of tc work on old kernels and vice/versa?
 
 
-> +				if ((argc > 0) && (matches(*argv, "tc") == 0)) {
-
-Extra () are unnecessary in compound conditional.
-
-> +					tc = atoi(*argv);
-
-Prefer using strtoul since it has better error handling than atoi()
-
-> +					argc--;
-> +					argv++;
-> +				}
-
-
-Use NEXT_ARG() construct like rest of the code.
+Also, no #ifdef's
