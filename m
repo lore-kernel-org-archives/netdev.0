@@ -1,76 +1,51 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH v2 net-next 1/3] net: dsa: lan9303: Refactor
- lan9303_xxx_packet_processing()
-Date: Tue, 1 Aug 2017 16:43:06 +0200
-Message-ID: <9f06fee2-563a-cbef-4913-fd3f24306a68@egil-hjelmeland.no>
-References: <20170801111439.1143-1-privat@egil-hjelmeland.no>
- <20170801111439.1143-2-privat@egil-hjelmeland.no>
- <20170801133934.GB23157@lunn.ch>
- <faf9e431-c5e4-7fcc-0341-6fc46e3561fb@egil-hjelmeland.no>
- <20170801140203.GC23157@lunn.ch>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC net-next] net ipv6: convert fib6_table rwlock to a percpu
+ lock
+Date: Tue, 1 Aug 2017 07:45:28 -0700
+Message-ID: <20170801074528.289fc520@xeon-e3>
+References: <1a5ad2f0585aa66496b27e123d1c38b75552df4c.1501520674.git.shli@fb.com>
+        <20170731161007.61c2d958@xeon-e3>
+        <20170801025704.fuhxll23d3eenwrz@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@pengutronix.de
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170801140203.GC23157@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, Kernel-team@fb.com,
+        Shaohua Li <shli@fb.com>, Wei Wang <weiwan@google.com>
+To: Shaohua Li <shli@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:35880 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751368AbdHAOpb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:45:31 -0400
+Received: by mail-pg0-f48.google.com with SMTP id v77so3160181pgb.3
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 07:45:31 -0700 (PDT)
+In-Reply-To: <20170801025704.fuhxll23d3eenwrz@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01. aug. 2017 16:02, Andrew Lunn wrote:
-> On Tue, Aug 01, 2017 at 03:50:14PM +0200, Egil Hjelmeland wrote:
->> On 01. aug. 2017 15:39, Andrew Lunn wrote:
->>>> @@ -704,7 +710,7 @@ static void lan9303_get_ethtool_stats(struct dsa_switch *ds, int port,
->>>>   	unsigned int u, poff;
->>>>   	int ret;
->>>> -	poff = port * 0x400;
->>>> +	poff = LAN9303_SWITCH_PORT_REG(port, 0);
->>>>   	for (u = 0; u < ARRAY_SIZE(lan9303_mib); u++) {
->>>>   		ret = lan9303_read_switch_reg(chip,
->>>
->>> So the actual code is:
->>>
->>> 	for (u = 0; u < ARRAY_SIZE(lan9303_mib); u++) {
->>>         		ret = lan9303_read_switch_reg(chip,
->>> 			      		      lan9303_mib[u].offset + poff,
->>> 					      &reg);
->>>
->>> Could this be written as
->>>
->>> 	for (u = 0; u < ARRAY_SIZE(lan9303_mib); u++) {
->>> 		ret = lan9303_read_switch_port(chip, port, lan9303_mib[u].offset, &reg);
->>>
->>> It is then clear you are reading the statistics from a port register.
->>>
->>>     Andrew
->>>
->>
->> Yes it can. Since it is (insignificantly) less efficient, I
->> chose not to touch it. But I can do it if you like.
-> 
-> I doubt it is less efficient. The compiler has seen
-> lan9303_read_switch_port() and will probably inline it.  So what the
-> optimiser gets to see is probably the same in both cases.
-> 
-> Try generating the assembler listing in both cases, and compare them
-> 
-> make drivers/net/dsa/lan9303-core.lst
-> 
->       Andrew
-> 
+On Mon, 31 Jul 2017 19:57:04 -0700
+Shaohua Li <shli@kernel.org> wrote:
 
-Thanks for the tips about generating assembler listing, can be useful
-another time. But in this case I trust you :-)
-And in this case it does not really matter, because its not in the
-data path.
+> On Mon, Jul 31, 2017 at 04:10:07PM -0700, Stephen Hemminger wrote:
+> > On Mon, 31 Jul 2017 10:18:57 -0700
+> > Shaohua Li <shli@kernel.org> wrote:
+> >   
+> > > From: Shaohua Li <shli@fb.com>
+> > > 
+> > > In a syn flooding test, the fib6_table rwlock is a significant
+> > > bottleneck. While converting the rwlock to rcu sounds straighforward,
+> > > but is very challenging if it's possible. A percpu spinlock is quite
+> > > trival for this problem since updating the routing table is a rare
+> > > event. In my test, the server receives around 1.5 Mpps in syn flooding
+> > > test without the patch in a dual sockets and 56-CPU system. With the
+> > > patch, the server receives around 3.8Mpps, and perf report doesn't show
+> > > the locking issue.
+> > > 
+> > > Cc: Wei Wang <weiwan@google.com>  
+> > 
+> > You just reinvented brlock...
 
-I did try to look at the listing. But I did not quite understand it.
-Looks like it is doing both inlining and unrolling.
+It was a long time ago (2.4) that brlock came in
+ https://lwn.net/Articles/378781/
 
-Anyway, you just decide how you like to have it in this series.
-
-Egil
+I removed it in 2.5.64 or so.
