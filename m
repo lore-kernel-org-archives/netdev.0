@@ -1,98 +1,74 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 01/11] net: dsa: make EEE ops optional
-Date: Tue, 1 Aug 2017 16:07:20 +0200
-Message-ID: <20170801140720.GD23157@lunn.ch>
-References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
- <20170731221719.16695-2-vivien.didelot@savoirfairelinux.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH v3] ss: Enclose IPv6 address in brackets
+Date: Tue, 1 Aug 2017 16:11:12 +0200
+Message-ID: <20170801141112.GZ16375@orbyte.nwl.cc>
+References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
+ <17aba498-3d75-2659-5fdc-4c95b0d214fa@der-flo.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Florian Lehner <dev@der-flo.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:58713 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751750AbdHAOLN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Aug 2017 10:11:13 -0400
 Content-Disposition: inline
-In-Reply-To: <20170731221719.16695-2-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <17aba498-3d75-2659-5fdc-4c95b0d214fa@der-flo.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vivien
-
-> @@ -646,38 +646,42 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
->  {
->  	struct dsa_slave_priv *p = netdev_priv(dev);
->  	struct dsa_switch *ds = p->dp->ds;
-> -	int ret;
-> +	int err = -ENODEV;
->  
-> -	if (!ds->ops->set_eee)
-> -		return -EOPNOTSUPP;
-> +	if (ds->ops->set_eee) {
-> +		err = ds->ops->set_eee(ds, p->dp->index, p->phy, e);
-> +		if (err)
-> +			return err;
-> +	}
->  
-> -	ret = ds->ops->set_eee(ds, p->dp->index, p->phy, e);
-> -	if (ret)
-> -		return ret;
-> +	if (p->phy) {
-> +		err = phy_ethtool_set_eee(p->phy, e);
-> +		if (err)
-> +			return err;
-
-I don't think you need this if (err). You unconditionally return err
-as you exit the function.
-
-> +	}
->  
-> -	if (p->phy)
-> -		ret = phy_ethtool_set_eee(p->phy, e);
-> -
-> -	return ret;
-> +	return err;
-
-
-
-
->  }
->  
->  static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
->  {
->  	struct dsa_slave_priv *p = netdev_priv(dev);
->  	struct dsa_switch *ds = p->dp->ds;
-> -	int ret;
-> +	int err = -ENODEV;
->  
-> -	if (!ds->ops->get_eee)
-> -		return -EOPNOTSUPP;
-> +	if (ds->ops->get_eee) {
-> +		err = ds->ops->get_eee(ds, p->dp->index, e);
-> +		if (err)
-> +			return err;
-> +	}
->  
-> -	ret = ds->ops->get_eee(ds, p->dp->index, e);
-> -	if (ret)
-> -		return ret;
-> +	if (p->phy) {
-> +		err = phy_ethtool_get_eee(p->phy, e);
-> +		if (err)
-> +			return err;
-
-Same here.
-
-> +	}
->  
-> -	if (p->phy)
-> -		ret = phy_ethtool_get_eee(p->phy, e);
-> -
-> -	return ret;
-> +	return err;
->  }
->  
->  #ifdef CONFIG_NET_POLL_CONTROLLER
-> -- 
-> 2.13.3
+On Tue, Aug 01, 2017 at 12:05:13PM +0200, Florian Lehner wrote:
+[...]
+> @@ -114,9 +114,13 @@ int addr64_n2a(__u64 addr, char *buff, size_t len);
+>  int af_bit_len(int af);
+>  int af_byte_len(int af);
 > 
+> -const char *format_host_r(int af, int len, const void *addr,
+> -			       char *buf, int buflen);
+> -const char *format_host(int af, int lne, const void *addr);
+> +const char *format_host_rb(int af, int len, const void *addr,
+> +			       char *buf, int buflen, bool *resolved);
+> +#define format_host_r(af, len, addr, buf, buflen) \
+> +	format_host_rb(af, len, addr, buf, buflen, NULL)
+> +const char *format_host_b(int af, int lne, const void *addr, bool
+> *resolved);
+> +#define format_host(af, lne, addr) \
+> +	format_host_b(af, lne, addr, NULL)
+>  #define format_host_rta(af, rta) \
+>  	format_host(af, RTA_PAYLOAD(rta), RTA_DATA(rta))
+>  const char *rt_addr_n2a_r(int af, int len, const void *addr,
+> diff --git a/lib/utils.c b/lib/utils.c
+> index 9aa3219..42c3bf5 100644
+> --- a/lib/utils.c
+> +++ b/lib/utils.c
+> @@ -898,8 +898,8 @@ static const char *resolve_address(const void *addr,
+> int len, int af)
+>  }
+>  #endif
+> 
+> -const char *format_host_r(int af, int len, const void *addr,
+> -			char *buf, int buflen)
+> +const char *format_host_rb(int af, int len, const void *addr,
+> +			char *buf, int buflen, bool *resolved)
+>  {
+>  #ifdef RESOLVE_HOSTNAMES
+>  	if (resolve_hosts) {
+> @@ -909,17 +909,20 @@ const char *format_host_r(int af, int len, const
+> void *addr,
+> 
+>  		if (len > 0 &&
+>  		    (n = resolve_address(addr, len, af)) != NULL)
+> +		{
+> +			*resolved = true;
+>  			return n;
+> +		}
+>  	}
+>  #endif
+>  	return rt_addr_n2a_r(af, len, addr, buf, buflen);
+>  }
+
+Did you test that? I guess calling format_host() will lead to
+dereference of a NULL pointer.
+
+Cheers, Phil
