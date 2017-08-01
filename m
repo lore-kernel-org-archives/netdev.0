@@ -1,48 +1,229 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next] net: bcmgenet: drop COMPILE_TEST dependency
-Date: Tue,  1 Aug 2017 13:50:56 +0200
-Message-ID: <20170801115121.1246540-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data
+ ACKed/SACKed
+Date: Tue, 1 Aug 2017 12:20:03 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F202933A7F@DGGEMI512-MBX.china.huawei.com>
+References: <20170801025814.31206-1-ncardwell@google.com>
+ <20170801025814.31206-4-ncardwell@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>
+To: Neal Cardwell <ncardwell@google.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([45.249.212.188]:10810 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751994AbdHAMXb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 08:23:31 -0400
+In-Reply-To: <20170801025814.31206-4-ncardwell@google.com>
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The last patch added the dependency on 'OF && HAS_IOMEM' but left
-COMPILE_TEST as an alternative, which kind of defeats the purpose
-of adding the dependency, we still get randconfig build warnings:
 
-warning: (NET_DSA_BCM_SF2 && BCMGENET) selects MDIO_BCM_UNIMAC which has unmet direct dependencies (NETDEVICES && MDIO_BUS && HAS_IOMEM && OF_MDIO)
 
-For compile-testing purposes, we don't really need this anyway,
-as CONFIG_OF can be enabled on all architectures, and HAS_IOMEM
-is present on all architectures we do meaningful compile-testing on
-(the exception being arch/um).
-
-This makes both OF and HAS_IOMEM hard dependencies.
-
-Fixes: 5af74bb4fcf8 ("net: bcmgenet: Add dependency on HAS_IOMEM && OF")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/broadcom/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
-index 45775399cab6..1456cb18f830 100644
---- a/drivers/net/ethernet/broadcom/Kconfig
-+++ b/drivers/net/ethernet/broadcom/Kconfig
-@@ -61,7 +61,7 @@ config BCM63XX_ENET
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Neal Cardwell
+> Sent: Tuesday, August 01, 2017 10:58 AM
+> To: David Miller
+> Cc: netdev@vger.kernel.org; Neal Cardwell; Yuchung Cheng; Nandita Dukkipati
+> Subject: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data
+> ACKed/SACKed
+> 
+> Fix a TCP loss recovery performance bug raised recently on the netdev list, in
+> two threads:
+> 
+> (i)  July 26, 2017: netdev thread "TCP fast retransmit issues"
+> (ii) July 26, 2017: netdev thread:
+>      "[PATCH V2 net-next] TLP: Don't reschedule PTO when there's one
+>      outstanding TLP retransmission"
+> 
+> The basic problem is that incoming TCP packets that did not indicate forward
+> progress could cause the xmit timer (TLP or RTO) to be rearmed and pushed
+> back in time. In certain corner cases this could result in the following problems
+> noted in these threads:
+> 
+>  - Repeated ACKs coming in with bogus SACKs corrupted by middleboxes
+>    could cause TCP to repeatedly schedule TLPs forever. We kept
+>    sending TLPs after every ~200ms, which elicited bogus SACKs, which
+>    caused more TLPs, ad infinitum; we never fired an RTO to fill in
+>    the holes.
+> 
+>  - Incoming data segments could, in some cases, cause us to reschedule
+>    our RTO or TLP timer further out in time, for no good reason. This
+>    could cause repeated inbound data to result in stalls in outbound
+>    data, in the presence of packet loss.
+> 
+> This commit fixes these bugs by changing the TLP and RTO ACK processing to:
+> 
+>  (a) Only reschedule the xmit timer once per ACK.
+> 
+>  (b) Only reschedule the xmit timer if tcp_clean_rtx_queue() deems the
+>      ACK indicates sufficient forward progress (a packet was
+>      cumulatively ACKed, or we got a SACK for a packet that was sent
+>      before the most recent retransmit of the write queue head).
+> 
+> This brings us back into closer compliance with the RFCs, since, as the
+> comment for tcp_rearm_rto() notes, we should only restart the RTO timer
+> after forward progress on the connection. Previously we were restarting the
+> xmit timer even in these cases where there was no forward progress.
+> 
+> As a side benefit, this commit simplifies and speeds up the TCP timer arming
+> logic. We had been calling inet_csk_reset_xmit_timer() three times on normal
+> ACKs that cumulatively acknowledged some data:
+> 
+> 1) Once near the top of tcp_ack() to switch from TLP timer to RTO:
+>         if (icsk->icsk_pending == ICSK_TIME_LOSS_PROBE)
+>                tcp_rearm_rto(sk);
+> 
+> 2) Once in tcp_clean_rtx_queue(), to update the RTO:
+>         if (flag & FLAG_ACKED) {
+>                tcp_rearm_rto(sk);
+> 
+> 3) Once in tcp_ack() after tcp_fastretrans_alert() to switch from RTO
+>    to TLP:
+>         if (icsk->icsk_pending == ICSK_TIME_RETRANS)
+>                tcp_schedule_loss_probe(sk);
+> 
+> This commit, by only rescheduling the xmit timer once per ACK, simplifies the
+> code and reduces CPU overhead.
+> 
+> This commit was tested in an A/B test with Google web server traffic. SNMP
+> stats and request latency metrics were within noise levels, substantiating that
+> for normal web traffic patterns this is a rare issue. This commit was also tested
+> with packetdrill tests to verify that it fixes the timer behavior in the corner
+> cases discussed in the netdev threads mentioned above.
+> 
+> This patch is a bug fix patch intended to be queued for -stable relases.
+> 
+> Fixes: 6ba8a3b19e76 ("tcp: Tail loss probe (TLP)")
+> Reported-by: Klavs Klavsen <kl@vsen.dk>
+> Reported-by: Mao Wenan <maowenan@huawei.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Nandita Dukkipati <nanditad@google.com>
+> ---
+>  net/ipv4/tcp_input.c  | 25 ++++++++++++++++---------
+> net/ipv4/tcp_output.c |  9 ---------
+>  2 files changed, 16 insertions(+), 18 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c index
+> 345febf0a46e..3e777cfbba56 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -107,6 +107,7 @@ int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
+>  #define FLAG_ORIG_SACK_ACKED	0x200 /* Never retransmitted data are
+> (s)acked	*/
+>  #define FLAG_SND_UNA_ADVANCED	0x400 /* Snd_una was changed (!=
+> FLAG_DATA_ACKED) */
+>  #define FLAG_DSACKING_ACK	0x800 /* SACK blocks contained D-SACK info
+> */
+> +#define FLAG_SET_XMIT_TIMER	0x1000 /* Set TLP or RTO timer */
+>  #define FLAG_SACK_RENEGING	0x2000 /* snd_una advanced to a sacked
+> seq */
+>  #define FLAG_UPDATE_TS_RECENT	0x4000 /* tcp_replace_ts_recent() */
+>  #define FLAG_NO_CHALLENGE_ACK	0x8000 /* do not call
+> tcp_send_challenge_ack()	*/
+> @@ -3016,6 +3017,13 @@ void tcp_rearm_rto(struct sock *sk)
+>  	}
+>  }
+> 
+> +/* Try to schedule a loss probe; if that doesn't work, then schedule an
+> +RTO. */ static void tcp_set_xmit_timer(struct sock *sk) {
+> +	if (!tcp_schedule_loss_probe(sk))
+> +		tcp_rearm_rto(sk);
+> +}
+> +
+>  /* If we get here, the whole TSO packet has not been acked. */  static u32
+> tcp_tso_acked(struct sock *sk, struct sk_buff *skb)  { @@ -3177,7 +3185,7
+> @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+>  					ca_rtt_us, sack->rate);
+> 
+>  	if (flag & FLAG_ACKED) {
+> -		tcp_rearm_rto(sk);
+> +		flag |= FLAG_SET_XMIT_TIMER;  /* set TLP or RTO timer */
+>  		if (unlikely(icsk->icsk_mtup.probe_size &&
+>  			     !after(tp->mtu_probe.probe_seq_end, tp->snd_una))) {
+>  			tcp_mtup_probe_success(sk);
+> @@ -3205,7 +3213,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int
+> prior_fackets,
+>  		 * after when the head was last (re)transmitted. Otherwise the
+>  		 * timeout may continue to extend in loss recovery.
+>  		 */
+> -		tcp_rearm_rto(sk);
+> +		flag |= FLAG_SET_XMIT_TIMER;  /* set TLP or RTO timer */
+>  	}
+> 
+>  	if (icsk->icsk_ca_ops->pkts_acked) {
+> @@ -3577,9 +3585,6 @@ static int tcp_ack(struct sock *sk, const struct
+> sk_buff *skb, int flag)
+>  	if (after(ack, tp->snd_nxt))
+>  		goto invalid_ack;
+> 
+> -	if (icsk->icsk_pending == ICSK_TIME_LOSS_PROBE)
+> -		tcp_rearm_rto(sk);
+> -
+>  	if (after(ack, prior_snd_una)) {
+>  		flag |= FLAG_SND_UNA_ADVANCED;
+>  		icsk->icsk_retransmits = 0;
+> @@ -3644,18 +3649,20 @@ static int tcp_ack(struct sock *sk, const struct
+> sk_buff *skb, int flag)
+>  	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una, &acked,
+>  				    &sack_state);
+> 
+> +	if (tp->tlp_high_seq)
+> +		tcp_process_tlp_ack(sk, ack, flag);
+> +	/* If needed, reset TLP/RTO timer; RACK may later override this. */
+[Mao Wenan] I have question about RACK, if there is no RACK feature in lower version, who can clear this flag:FLAG_SET_XMIT_TIMER?
  
- config BCMGENET
- 	tristate "Broadcom GENET internal MAC support"
--	depends on (OF && HAS_IOMEM) || COMPILE_TEST
-+	depends on OF && HAS_IOMEM
- 	select MII
- 	select PHYLIB
- 	select FIXED_PHY
--- 
-2.9.0
+> +	if (flag & FLAG_SET_XMIT_TIMER)
+> +		tcp_set_xmit_timer(sk);
+> +
+>  	if (tcp_ack_is_dubious(sk, flag)) {
+>  		is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED |
+> FLAG_NOT_DUP));
+>  		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
+>  	}
+> -	if (tp->tlp_high_seq)
+> -		tcp_process_tlp_ack(sk, ack, flag);
+> 
+>  	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP))
+>  		sk_dst_confirm(sk);
+> 
+> -	if (icsk->icsk_pending == ICSK_TIME_RETRANS)
+> -		tcp_schedule_loss_probe(sk);
+>  	delivered = tp->delivered - delivered;	/* freshly ACKed or SACKed */
+>  	lost = tp->lost - lost;			/* freshly marked lost */
+>  	tcp_rate_gen(sk, delivered, lost, sack_state.rate); diff --git
+> a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c index
+> 0ae6b5d176c0..c99cba897b9c 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2380,21 +2380,12 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+>  	u32 rtt = usecs_to_jiffies(tp->srtt_us >> 3);
+>  	u32 timeout, rto_delta_us;
+> 
+> -	/* No consecutive loss probes. */
+> -	if (WARN_ON(icsk->icsk_pending == ICSK_TIME_LOSS_PROBE)) {
+> -		tcp_rearm_rto(sk);
+> -		return false;
+> -	}
+>  	/* Don't do any loss probe on a Fast Open connection before 3WHS
+>  	 * finishes.
+>  	 */
+>  	if (tp->fastopen_rsk)
+>  		return false;
+> 
+> -	/* TLP is only scheduled when next timer event is RTO. */
+> -	if (icsk->icsk_pending != ICSK_TIME_RETRANS)
+> -		return false;
+> -
+>  	/* Schedule a loss probe in 2*RTT for SACK capable connections
+>  	 * in Open state, that are either limited by cwnd or application.
+>  	 */
+> --
+> 2.14.0.rc0.400.g1c36432dff-goog
