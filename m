@@ -1,58 +1,167 @@
 From: ilant@mellanox.com
-Subject: [PATCH net-next 4/7] esp6: Fix RX checksum after header pull
-Date: Tue,  1 Aug 2017 12:49:07 +0300
-Message-ID: <20170801094910.14895-5-ilant@mellanox.com>
+Subject: [PATCH net-next 5/7] xfrm: Auto-load xfrm offload modules
+Date: Tue,  1 Aug 2017 12:49:08 +0300
+Message-ID: <20170801094910.14895-6-ilant@mellanox.com>
 References: <20170801094910.14895-1-ilant@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Yossi Kuperman <yossiku@mellanox.com>,
-        Ilan Tayari <ilant@mellanox.com>
+Cc: Ilan Tayari <ilant@mellanox.com>
 To: Steffen Klassert <steffen.klassert@secunet.com>,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-eopbgr50051.outbound.protection.outlook.com ([40.107.5.51]:57152
         "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751700AbdHAJt7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Aug 2017 05:49:59 -0400
+        id S1751352AbdHAJuC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Aug 2017 05:50:02 -0400
 In-Reply-To: <20170801094910.14895-1-ilant@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yossi Kuperman <yossiku@mellanox.com>
+From: Ilan Tayari <ilant@mellanox.com>
 
-Both ip6_input_finish (non-GRO) and esp6_gro_receive (GRO) strip
-the IPv6 header without adjusting skb->csum accordingly. As a
-result CHECKSUM_COMPLETE breaks and "hw csum failure" is written
-to the kernel log by netdev_rx_csum_fault (dev.c).
+IPSec crypto offload depends on the protocol-specific
+offload module (such as esp_offload.ko).
 
-Fix skb->csum by substracting the checksum value of the pulled IPv6
-header using a call to skb_postpull_rcsum.
+When the user installs an SA with crypto-offload, load
+the offload module automatically, in the same way
+that the protocol module is loaded (such as esp.ko)
 
-This affects both transport and tunnel modes.
-
-Note that the fix occurs far from the place that the header was
-pulled. This is based on existing code, see:
-ipv6_srh_rcv() in exthdrs.c and rawv6_rcv() in raw.c
-
-Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 ---
- net/ipv6/esp6.c | 2 ++
- 1 file changed, 2 insertions(+)
+ include/net/xfrm.h      |  4 +++-
+ net/ipv4/esp4_offload.c |  1 +
+ net/ipv6/esp6_offload.c |  1 +
+ net/xfrm/xfrm_device.c  |  2 +-
+ net/xfrm/xfrm_state.c   | 16 ++++++++++++----
+ net/xfrm/xfrm_user.c    |  2 +-
+ 6 files changed, 19 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 0ca1db62e381..74bde202eb9a 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -495,6 +495,8 @@ int esp6_input_done2(struct sk_buff *skb, int err)
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index afb4929d7232..5a360100136c 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -43,6 +43,8 @@
+ 	MODULE_ALIAS("xfrm-mode-" __stringify(family) "-" __stringify(encap))
+ #define MODULE_ALIAS_XFRM_TYPE(family, proto) \
+ 	MODULE_ALIAS("xfrm-type-" __stringify(family) "-" __stringify(proto))
++#define MODULE_ALIAS_XFRM_OFFLOAD_TYPE(family, proto) \
++	MODULE_ALIAS("xfrm-offload-" __stringify(family) "-" __stringify(proto))
  
- 	trimlen = alen + padlen + 2;
- 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		skb_postpull_rcsum(skb, skb_network_header(skb),
-+				   skb_network_header_len(skb));
- 		csumdiff = skb_checksum(skb, skb->len - trimlen, trimlen, 0);
- 		skb->csum = csum_block_sub(skb->csum, csumdiff,
- 					   skb->len - trimlen);
+ #ifdef CONFIG_XFRM_STATISTICS
+ #define XFRM_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.xfrm_statistics, field)
+@@ -1558,7 +1560,7 @@ void xfrm_spd_getinfo(struct net *net, struct xfrmk_spdinfo *si);
+ u32 xfrm_replay_seqhi(struct xfrm_state *x, __be32 net_seq);
+ int xfrm_init_replay(struct xfrm_state *x);
+ int xfrm_state_mtu(struct xfrm_state *x, int mtu);
+-int __xfrm_init_state(struct xfrm_state *x, bool init_replay);
++int __xfrm_init_state(struct xfrm_state *x, bool init_replay, bool offload);
+ int xfrm_init_state(struct xfrm_state *x);
+ int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb);
+ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type);
+diff --git a/net/ipv4/esp4_offload.c b/net/ipv4/esp4_offload.c
+index 05831dea00f4..aca1c85f0795 100644
+--- a/net/ipv4/esp4_offload.c
++++ b/net/ipv4/esp4_offload.c
+@@ -305,3 +305,4 @@ module_init(esp4_offload_init);
+ module_exit(esp4_offload_exit);
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Steffen Klassert <steffen.klassert@secunet.com>");
++MODULE_ALIAS_XFRM_OFFLOAD_TYPE(AF_INET, XFRM_PROTO_ESP);
+diff --git a/net/ipv6/esp6_offload.c b/net/ipv6/esp6_offload.c
+index eec3add177fe..8d4e2ba9163d 100644
+--- a/net/ipv6/esp6_offload.c
++++ b/net/ipv6/esp6_offload.c
+@@ -334,3 +334,4 @@ module_init(esp6_offload_init);
+ module_exit(esp6_offload_exit);
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Steffen Klassert <steffen.klassert@secunet.com>");
++MODULE_ALIAS_XFRM_OFFLOAD_TYPE(AF_INET6, XFRM_PROTO_ESP);
+diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
+index 5cd7a244e88d..1904127f5fb8 100644
+--- a/net/xfrm/xfrm_device.c
++++ b/net/xfrm/xfrm_device.c
+@@ -63,7 +63,7 @@ int xfrm_dev_state_add(struct net *net, struct xfrm_state *x,
+ 	xfrm_address_t *daddr;
+ 
+ 	if (!x->type_offload)
+-		return 0;
++		return -EINVAL;
+ 
+ 	/* We don't yet support UDP encapsulation, TFC padding and ESN. */
+ 	if (x->encap || x->tfcpad || (x->props.flags & XFRM_STATE_ESN))
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 82cbbce69b79..a41e2ef789c0 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -296,12 +296,14 @@ int xfrm_unregister_type_offload(const struct xfrm_type_offload *type,
+ }
+ EXPORT_SYMBOL(xfrm_unregister_type_offload);
+ 
+-static const struct xfrm_type_offload *xfrm_get_type_offload(u8 proto, unsigned short family)
++static const struct xfrm_type_offload *
++xfrm_get_type_offload(u8 proto, unsigned short family, bool try_load)
+ {
+ 	struct xfrm_state_afinfo *afinfo;
+ 	const struct xfrm_type_offload **typemap;
+ 	const struct xfrm_type_offload *type;
+ 
++retry:
+ 	afinfo = xfrm_state_get_afinfo(family);
+ 	if (unlikely(afinfo == NULL))
+ 		return NULL;
+@@ -311,6 +313,12 @@ static const struct xfrm_type_offload *xfrm_get_type_offload(u8 proto, unsigned
+ 	if ((type && !try_module_get(type->owner)))
+ 		type = NULL;
+ 
++	if (!type && try_load) {
++		request_module("xfrm-offload-%d-%d", family, proto);
++		try_load = 0;
++		goto retry;
++	}
++
+ 	rcu_read_unlock();
+ 	return type;
+ }
+@@ -2165,7 +2173,7 @@ int xfrm_state_mtu(struct xfrm_state *x, int mtu)
+ 	return mtu - x->props.header_len;
+ }
+ 
+-int __xfrm_init_state(struct xfrm_state *x, bool init_replay)
++int __xfrm_init_state(struct xfrm_state *x, bool init_replay, bool offload)
+ {
+ 	struct xfrm_state_afinfo *afinfo;
+ 	struct xfrm_mode *inner_mode;
+@@ -2230,7 +2238,7 @@ int __xfrm_init_state(struct xfrm_state *x, bool init_replay)
+ 	if (x->type == NULL)
+ 		goto error;
+ 
+-	x->type_offload = xfrm_get_type_offload(x->id.proto, family);
++	x->type_offload = xfrm_get_type_offload(x->id.proto, family, offload);
+ 
+ 	err = x->type->init_state(x);
+ 	if (err)
+@@ -2258,7 +2266,7 @@ EXPORT_SYMBOL(__xfrm_init_state);
+ 
+ int xfrm_init_state(struct xfrm_state *x)
+ {
+-	return __xfrm_init_state(x, true);
++	return __xfrm_init_state(x, true, false);
+ }
+ 
+ EXPORT_SYMBOL(xfrm_init_state);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 1b539b7dcfab..ffe8d5ef09eb 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -584,7 +584,7 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
+ 
+ 	xfrm_mark_get(attrs, &x->mark);
+ 
+-	err = __xfrm_init_state(x, false);
++	err = __xfrm_init_state(x, false, attrs[XFRMA_OFFLOAD_DEV]);
+ 	if (err)
+ 		goto error;
+ 
 -- 
 2.11.0
