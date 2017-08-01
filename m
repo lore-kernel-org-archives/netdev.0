@@ -1,56 +1,45 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 6/7] netvsc: Initialize 64-bit stats seqcount
-Date: Tue,  1 Aug 2017 12:11:11 -0700
-Message-ID: <20170801191113.8754-7-f.fainelli@gmail.com>
+Subject: [PATCH net 7/7] ipvlan: Fix 64-bit statistics seqcount initialization
+Date: Tue,  1 Aug 2017 12:11:13 -0700
+Message-ID: <20170801191113.8754-9-f.fainelli@gmail.com>
 References: <20170801191113.8754-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
- Stephen Hemminger <sthemmin@microsoft.com>,
- Haiyang Zhang <haiyangz@microsoft.com>,
- open list <linux-kernel@vger.kernel.org>, edumazet@google.com,
- "open list:Hyper-V CORE AND DRIVERS" <devel@linuxdriverproject.org>,
- davem@davemloft.net
+Cc: davem@davemloft.net, edumazet@google.com,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Gao Feng <fgao@ikuai8.com>, David Ahern <dsahern@gmail.com>,
+        Matthias Schiffer <mschiffer@universe-factory.net>,
+        Krister Johansen <kjlx@templeofstupid.com>,
+        Florian Westphal <fw@strlen.de>,
+        Sainath Grandhi <sainath.grandhi@intel.com>,
+        linux-kernel@vger.kernel.org (open list)
 To: netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170801191113.8754-1-f.fainelli@gmail.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 32-bit hosts and with CONFIG_DEBUG_LOCK_ALLOC we should be seeing a
 lockdep splat indicating this seqcount is not correctly initialized, fix
-that. In commit 6c80f3fc2398 ("netvsc: report per-channel stats in
-ethtool statistics") netdev_alloc_pcpu_stats() was removed in favor of
-open-coding the 64-bits statistics, except that u64_stats_init() was
-missed.
+that by using the proper helper function: netdev_alloc_pcpu_stats().
 
-Fixes: 6c80f3fc2398 ("netvsc: report per-channel stats in ethtool statistics")
+Fixes: 2ad7bf363841 ("ipvlan: Initial check-in of the IPVLAN driver.")
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/hyperv/netvsc.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ipvlan/ipvlan_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 0a9167dd72fb..96f90c75d1b7 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -1302,6 +1302,8 @@ int netvsc_device_add(struct hv_device *device,
- 		struct netvsc_channel *nvchan = &net_device->chan_table[i];
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index f37e3c1fd4e7..8dab74a81303 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -192,7 +192,7 @@ static int ipvlan_init(struct net_device *dev)
  
- 		nvchan->channel = device->channel;
-+		u64_stats_init(&nvchan->tx_stats.syncp);
-+		u64_stats_init(&nvchan->rx_stats.syncp);
- 	}
+ 	netdev_lockdep_set_classes(dev);
  
- 	/* Enable NAPI handler before init callbacks */
+-	ipvlan->pcpu_stats = alloc_percpu(struct ipvl_pcpu_stats);
++	ipvlan->pcpu_stats = netdev_alloc_pcpu_stats(struct ipvl_pcpu_stats);
+ 	if (!ipvlan->pcpu_stats)
+ 		return -ENOMEM;
+ 
 -- 
 2.9.3
