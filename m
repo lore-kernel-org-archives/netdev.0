@@ -1,43 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] net: Infrastructure changes for [kz]proxy
-Date: Tue, 01 Aug 2017 15:26:34 -0700 (PDT)
-Message-ID: <20170801.152634.1237241528233556282.davem@davemloft.net>
-References: <20170728232243.3040-1-tom@quantonium.net>
+Subject: Re: [PATCH] drivers/net/wan/z85230.c: Use designated initializers
+Date: Tue, 01 Aug 2017 15:29:43 -0700 (PDT)
+Message-ID: <20170801.152943.804666349488319640.davem@davemloft.net>
+References: <20170731013117.GA67801@beast>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rohit@quantonium.net,
-        john.fastabend@gmail.com
-To: tom@quantonium.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39170 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752334AbdHAW0f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 18:26:35 -0400
-In-Reply-To: <20170728232243.3040-1-tom@quantonium.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: keescook@chromium.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170731013117.GA67801@beast>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@quantonium.net>
-Date: Fri, 28 Jul 2017 16:22:40 -0700
+From: Kees Cook <keescook@chromium.org>
+Date: Sun, 30 Jul 2017 18:31:17 -0700
 
-> This patch set contains some general infrastructure enhancements that
-> will be used by kernel proxy and zero proxy.
+> In preparation for the randstruct gcc plugin performing randomization of
+> structures that are entirely function pointers, use designated initializers
+> so the compiler doesn't get angry.
 > 
-> The changes are:
->   - proto_ops: Add locked versions of sendmsg and sendpage
->   - skb_send_sock: Allow sending and skb on a socket within the
->     kernel
->   - Generalize strparser. Allow it to be used in other contexts than
->     just in the read_sock path. This will be used in the transmit
->     path of zero proxy.
-> 
-> Some nice future work (which I've been discussing with John Fastabend)
-> will be to make some of the related functions to allow gifting of skbs
-> We should be able to do that with skb_send_sock and strp_process. I'd
-> also like this feature in the read_sock callbeck.
-> 
-> Tested: Ran modified kernel without incident. Tested new functionality
-> using zero proxy (in development).
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> ---
+> This is a prerequisite for the future randstruct fptr randomization. I'd
+> prefer to carry this in my gcc-plugin tree for v4.14 with an Ack from
+> someone on net-dev, or if possible, have it applied to v4.13 via net-dev.
 
-Series applied, thanks Tom.
+Please queue this up into the gcc-plugin tree then:
+
+Acked-by: David S. Miller <davem@davemloft.net>
+
+It isn't a bug fix so I would only have put it into 'net-next' rather
+than 'net'.
+
+Thanks.
