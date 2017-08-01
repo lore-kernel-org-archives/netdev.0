@@ -1,68 +1,76 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] ss: Enclose IPv6 address in brackets
-Date: Tue, 1 Aug 2017 07:41:45 -0700
-Message-ID: <20170801074145.15e07dd1@xeon-e3>
-References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
-        <063D6719AE5E284EB5DD2968C1650D6DD00480ED@AcuExch.aculab.com>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH v2 net-next 1/3] net: dsa: lan9303: Refactor
+ lan9303_xxx_packet_processing()
+Date: Tue, 1 Aug 2017 16:43:06 +0200
+Message-ID: <9f06fee2-563a-cbef-4913-fd3f24306a68@egil-hjelmeland.no>
+References: <20170801111439.1143-1-privat@egil-hjelmeland.no>
+ <20170801111439.1143-2-privat@egil-hjelmeland.no>
+ <20170801133934.GB23157@lunn.ch>
+ <faf9e431-c5e4-7fcc-0341-6fc46e3561fb@egil-hjelmeland.no>
+ <20170801140203.GC23157@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: 'Florian Lehner' <dev@der-flo.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:38545 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751352AbdHAOlu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:41:50 -0400
-Received: by mail-pg0-f41.google.com with SMTP id l64so8720204pge.5
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 07:41:50 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD00480ED@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@pengutronix.de
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170801140203.GC23157@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 1 Aug 2017 11:11:03 +0000
-David Laight <David.Laight@ACULAB.COM> wrote:
-
-> From: Florian Lehner
-> > Sent: 29 July 2017 13:29
-> > This patch adds support for RFC2732 IPv6 address format with brackets
-> > for the tool ss. So output for ss changes from
-> > 2a00:1450:400a:804::200e:443 to [2a00:1450:400a:804::200e]:443 for IPv6
-> > addresses with attached port number.
-> > 
-> > Signed-off-by: Lehner Florian <dev@der-flo.net>
-> > ---
-> >  misc/ss.c | 6 +++++-
-> >  1 file changed, 5 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/misc/ss.c b/misc/ss.c
-> > index 12763c9..db39c93 100644
-> > --- a/misc/ss.c
-> > +++ b/misc/ss.c
-> > @@ -1059,7 +1059,11 @@ static void inet_addr_print(const inet_prefix *a,
-> > int port, unsigned int ifindex
-> >  			ap = format_host(AF_INET, 4, a->data);
-> >  		}
-> >  	} else {
-> > -		ap = format_host(a->family, 16, a->data);
-> > +		if (a->family == AF_INET6) {
-> > +			sprintf(buf, "[%s]", format_host(a->family, 16, a->data));
-> > +		} else {
-> > +			ap = format_host(a->family, 16, a->data);
-> > +		}
-> >  		est_len = strlen(ap);  
-> ...
+On 01. aug. 2017 16:02, Andrew Lunn wrote:
+> On Tue, Aug 01, 2017 at 03:50:14PM +0200, Egil Hjelmeland wrote:
+>> On 01. aug. 2017 15:39, Andrew Lunn wrote:
+>>>> @@ -704,7 +710,7 @@ static void lan9303_get_ethtool_stats(struct dsa_switch *ds, int port,
+>>>>   	unsigned int u, poff;
+>>>>   	int ret;
+>>>> -	poff = port * 0x400;
+>>>> +	poff = LAN9303_SWITCH_PORT_REG(port, 0);
+>>>>   	for (u = 0; u < ARRAY_SIZE(lan9303_mib); u++) {
+>>>>   		ret = lan9303_read_switch_reg(chip,
+>>>
+>>> So the actual code is:
+>>>
+>>> 	for (u = 0; u < ARRAY_SIZE(lan9303_mib); u++) {
+>>>         		ret = lan9303_read_switch_reg(chip,
+>>> 			      		      lan9303_mib[u].offset + poff,
+>>> 					      &reg);
+>>>
+>>> Could this be written as
+>>>
+>>> 	for (u = 0; u < ARRAY_SIZE(lan9303_mib); u++) {
+>>> 		ret = lan9303_read_switch_port(chip, port, lan9303_mib[u].offset, &reg);
+>>>
+>>> It is then clear you are reading the statistics from a port register.
+>>>
+>>>     Andrew
+>>>
+>>
+>> Yes it can. Since it is (insignificantly) less efficient, I
+>> chose not to touch it. But I can do it if you like.
 > 
-> There are some strange things going on with global variables if this works at all.
-> The text form of the address is in buf[] in one path and *ap in the other.
+> I doubt it is less efficient. The compiler has seen
+> lan9303_read_switch_port() and will probably inline it.  So what the
+> optimiser gets to see is probably the same in both cases.
 > 
-> One option might be to call format_host() then use strchr(ap, ':')
-> to add [] if the string contains any ':'.
+> Try generating the assembler listing in both cases, and compare them
 > 
-> 	David
+> make drivers/net/dsa/lan9303-core.lst
+> 
+>       Andrew
 > 
 
-That sounds like a better solution.
+Thanks for the tips about generating assembler listing, can be useful
+another time. But in this case I trust you :-)
+And in this case it does not really matter, because its not in the
+data path.
 
-Also what about IN6ADDR_ANY
+I did try to look at the listing. But I did not quite understand it.
+Looks like it is doing both inlining and unrolling.
+
+Anyway, you just decide how you like to have it in this series.
+
+Egil
