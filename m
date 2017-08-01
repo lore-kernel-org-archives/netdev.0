@@ -1,65 +1,46 @@
-From: <helga.brickl@arcor.de>
-Subject: (unknown)
-Date: Tue, 01 Aug 2017 03:31:42 -0000
-Message-ID: <150155830224.19426.17619628773701125483@hinet.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH RFC, iproute2] tc/mirred: Extend the mirred/redirect
+ action to accept additional traffic class parameter
+Date: Mon, 31 Jul 2017 20:51:33 -0700
+Message-ID: <20170731205133.5e58e47c@xeon-e3>
+References: <150154805003.4819.12498976860683140342.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_0354141_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexander.h.duyck@intel.com,
+        kiran.patil@intel.com, sridhar.samudrala@intel.com,
+        mitch.a.williams@intel.com, alexander.duyck@gmail.com,
+        neerav.parikh@intel.com, carolyn.wyborny@intel.com,
+        jeffrey.t.kirsher@intel.com
+To: Amritha Nambiar <amritha.nambiar@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 111-249-169-177.dynamic-ip.hinet.net ([111.249.169.177]:46044
-        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751759AbdHADcg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 23:32:36 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:37288 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751776AbdHADvg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 23:51:36 -0400
+Received: by mail-pg0-f50.google.com with SMTP id y129so2550438pgy.4
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 20:51:36 -0700 (PDT)
+In-Reply-To: <150154805003.4819.12498976860683140342.stgit@anamdev.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-0gkAAAAA
+On Mon, 31 Jul 2017 17:40:50 -0700
+Amritha Nambiar <amritha.nambiar@intel.com> wrote:
+The concept is fine, bu t the code looks different than the rest which
+is never a good sign.
+
+
+> +				if ((argc > 0) && (matches(*argv, "tc") == 0)) {
+
+Extra () are unnecessary in compound conditional.
+
+> +					tc = atoi(*argv);
+
+Prefer using strtoul since it has better error handling than atoi()
+
+> +					argc--;
+> +					argv++;
+> +				}
+
+
+Use NEXT_ARG() construct like rest of the code.
