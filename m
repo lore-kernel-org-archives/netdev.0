@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 05/11] net: dsa: qca8k: empty qca8k_get_eee
-Date: Tue,  1 Aug 2017 16:32:35 -0400
-Message-ID: <20170801203241.22294-6-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 03/11] net: dsa: qca8k: enable EEE once
+Date: Tue,  1 Aug 2017 16:32:33 -0400
+Message-ID: <20170801203241.22294-4-vivien.didelot@savoirfairelinux.com>
 References: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,36 +14,33 @@ In-Reply-To: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-phy_ethtool_get_eee is already called by the DSA layer, thus remove the
-duplicated call in the qca8k driver.
+If EEE is queried enabled, qca8k_set_eee calls qca8k_eee_enable_set
+twice (because it is already called in qca8k_eee_init). Fix that.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/qca8k.c | 12 ++----------
- 1 file changed, 2 insertions(+), 10 deletions(-)
+ drivers/net/dsa/qca8k.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index c316c55aabc6..8cd4634c6985 100644
+index e076ab23d4df..9d6b5d2f7a4a 100644
 --- a/drivers/net/dsa/qca8k.c
 +++ b/drivers/net/dsa/qca8k.c
-@@ -695,16 +695,8 @@ static int
- qca8k_get_eee(struct dsa_switch *ds, int port,
- 	      struct ethtool_eee *e)
- {
--	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
--	struct ethtool_eee *p = &priv->port_sts[port].eee;
--	struct net_device *netdev = ds->ports[port].netdev;
--	int ret;
--
--	ret = phy_ethtool_get_eee(netdev->phydev, p);
--	e->eee_active = p->eee_active;
--	e->eee_enabled = p->eee_enabled;
--
--	return ret;
-+	/* Nothing to do on the port's MAC */
-+	return 0;
- }
+@@ -684,12 +684,13 @@ qca8k_set_eee(struct dsa_switch *ds, int port,
  
- static void
+ 	p->eee_enabled = e->eee_enabled;
+ 
+-	if (e->eee_enabled) {
++	if (!p->eee_enabled) {
++		qca8k_eee_enable_set(ds, port, false);
++	} else {
+ 		p->eee_enabled = qca8k_eee_init(ds, port, phydev);
+ 		if (!p->eee_enabled)
+ 			ret = -EOPNOTSUPP;
+ 	}
+-	qca8k_eee_enable_set(ds, port, p->eee_enabled);
+ 
+ 	return ret;
+ }
 -- 
 2.13.3
