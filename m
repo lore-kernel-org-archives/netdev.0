@@ -1,74 +1,39 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH v3] ss: Enclose IPv6 address in brackets
-Date: Tue, 1 Aug 2017 16:11:12 +0200
-Message-ID: <20170801141112.GZ16375@orbyte.nwl.cc>
-References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
- <17aba498-3d75-2659-5fdc-4c95b0d214fa@der-flo.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 00/10] net: l3mdev: Support for sockets bound
+ to enslaved device
+Date: Tue, 1 Aug 2017 14:15:05 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00482E4@AcuExch.aculab.com>
+References: <1501557206-27503-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Florian Lehner <dev@der-flo.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'David Ahern' <dsahern@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:58713 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751750AbdHAOLN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Aug 2017 10:11:13 -0400
-Content-Disposition: inline
-In-Reply-To: <17aba498-3d75-2659-5fdc-4c95b0d214fa@der-flo.net>
+Received: from smtp-out6.electric.net ([192.162.217.186]:52098 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751599AbdHAOPL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:15:11 -0400
+In-Reply-To: <1501557206-27503-1-git-send-email-dsahern@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 01, 2017 at 12:05:13PM +0200, Florian Lehner wrote:
-[...]
-> @@ -114,9 +114,13 @@ int addr64_n2a(__u64 addr, char *buff, size_t len);
->  int af_bit_len(int af);
->  int af_byte_len(int af);
+From: David Ahern
+> Sent: 01 August 2017 04:13
+...
+> Existing code for socket lookups already pass in 6+ arguments. Rather
+> than add another for the enslaved device index, the existing lookups
+> are converted to use a new sk_lookup struct. From there, the enslaved
+> device index becomes another element of the struct.
 > 
-> -const char *format_host_r(int af, int len, const void *addr,
-> -			       char *buf, int buflen);
-> -const char *format_host(int af, int lne, const void *addr);
-> +const char *format_host_rb(int af, int len, const void *addr,
-> +			       char *buf, int buflen, bool *resolved);
-> +#define format_host_r(af, len, addr, buf, buflen) \
-> +	format_host_rb(af, len, addr, buf, buflen, NULL)
-> +const char *format_host_b(int af, int lne, const void *addr, bool
-> *resolved);
-> +#define format_host(af, lne, addr) \
-> +	format_host_b(af, lne, addr, NULL)
->  #define format_host_rta(af, rta) \
->  	format_host(af, RTA_PAYLOAD(rta), RTA_DATA(rta))
->  const char *rt_addr_n2a_r(int af, int len, const void *addr,
-> diff --git a/lib/utils.c b/lib/utils.c
-> index 9aa3219..42c3bf5 100644
-> --- a/lib/utils.c
-> +++ b/lib/utils.c
-> @@ -898,8 +898,8 @@ static const char *resolve_address(const void *addr,
-> int len, int af)
->  }
->  #endif
-> 
-> -const char *format_host_r(int af, int len, const void *addr,
-> -			char *buf, int buflen)
-> +const char *format_host_rb(int af, int len, const void *addr,
-> +			char *buf, int buflen, bool *resolved)
->  {
->  #ifdef RESOLVE_HOSTNAMES
->  	if (resolve_hosts) {
-> @@ -909,17 +909,20 @@ const char *format_host_r(int af, int len, const
-> void *addr,
-> 
->  		if (len > 0 &&
->  		    (n = resolve_address(addr, len, af)) != NULL)
-> +		{
-> +			*resolved = true;
->  			return n;
-> +		}
->  	}
->  #endif
->  	return rt_addr_n2a_r(af, len, addr, buf, buflen);
->  }
+> Patch 1 introduces sk_lookup struct and helper.
 
-Did you test that? I guess calling format_host() will lead to
-dereference of a NULL pointer.
+I guess that socket lookup happens quite often!
+Passing the lookup parameters in a structure might have a
+measurable negative effect on performance - especially if the
+structure isn't passed through to other functions.
 
-Cheers, Phil
+Have you made any performance mearurements?
+
+	David
