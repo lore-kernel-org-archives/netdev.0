@@ -1,68 +1,42 @@
-From: Koichiro Den <den@klaipeden.com>
-Subject: [PATCH net] xfrm: fix null pointer dereference on state and tmpl sort
-Date: Tue,  1 Aug 2017 23:21:46 +0900
-Message-ID: <20170801142146.8588-1-den@klaipeden.com>
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data ACKed/SACKed
+Date: Tue, 1 Aug 2017 10:24:30 -0400
+Message-ID: <CADVnQy=x1tAmaHEGbshKiyJWQufgX=uaQXif_r7aiLm3j8y4SA@mail.gmail.com>
+References: <20170801025814.31206-1-ncardwell@google.com> <20170801025814.31206-4-ncardwell@google.com>
+ <F95AC9340317A84688A5F0DF0246F3F202933A7F@DGGEMI512-MBX.china.huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>
+To: maowenan <maowenan@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender-of-o52.zoho.com ([135.84.80.217]:21455 "EHLO
-        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751811AbdHAOWL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:22:11 -0400
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:36358 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751295AbdHAOZC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:25:02 -0400
+Received: by mail-oi0-f48.google.com with SMTP id g131so16469717oic.3
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 07:25:02 -0700 (PDT)
+In-Reply-To: <F95AC9340317A84688A5F0DF0246F3F202933A7F@DGGEMI512-MBX.china.huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Creating sub policy that matches the same outer flow as main policy does
-leads to a null pointer dereference if the outer mode's family is ipv4.
-For userspace compatibility, this patch just eliminates the crash i.e.,
-does not introduce any new sorting rule, which would fruitlessly affect
-all but the aforementioned case.
+On Tue, Aug 1, 2017 at 8:20 AM, maowenan <maowenan@huawei.com> wrote:
+> > +     /* If needed, reset TLP/RTO timer; RACK may later override this. */
+> [Mao Wenan] I have question about RACK, if there is no RACK feature
+> in lower version, who can clear this flag:FLAG_SET_XMIT_TIMER?
 
-Signed-off-by: Koichiro Den <den@klaipeden.com>
----
- net/xfrm/xfrm_state.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+In the comment, "this" is referring to the xmit timer. The comment is
+referring to the fact that RACK (or similarly
+tcp_pause_early_retransmit() in earlier kernels) can override the
+value of the xmit timer set in tcp_set_xmit_timer(). The comment is
+not claiming that RACK clears the FLAG_SET_XMIT_TIMER bit in "flag".
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 6c0956d10db6..a792effdb0b5 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1620,6 +1620,7 @@ int
- xfrm_tmpl_sort(struct xfrm_tmpl **dst, struct xfrm_tmpl **src, int n,
- 	       unsigned short family, struct net *net)
- {
-+	int i;
- 	int err = 0;
- 	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
- 	if (!afinfo)
-@@ -1628,6 +1629,9 @@ xfrm_tmpl_sort(struct xfrm_tmpl **dst, struct xfrm_tmpl **src, int n,
- 	spin_lock_bh(&net->xfrm.xfrm_state_lock); /*FIXME*/
- 	if (afinfo->tmpl_sort)
- 		err = afinfo->tmpl_sort(dst, src, n);
-+	else
-+		for (i = 0; i < n; i++)
-+			dst[i] = src[i];
- 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
- 	rcu_read_unlock();
- 	return err;
-@@ -1638,6 +1642,7 @@ int
- xfrm_state_sort(struct xfrm_state **dst, struct xfrm_state **src, int n,
- 		unsigned short family)
- {
-+	int i;
- 	int err = 0;
- 	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
- 	struct net *net = xs_net(*src);
-@@ -1648,6 +1653,9 @@ xfrm_state_sort(struct xfrm_state **dst, struct xfrm_state **src, int n,
- 	spin_lock_bh(&net->xfrm.xfrm_state_lock);
- 	if (afinfo->state_sort)
- 		err = afinfo->state_sort(dst, src, n);
-+	else
-+		for (i = 0; i < n; i++)
-+			dst[i] = src[i];
- 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
- 	rcu_read_unlock();
- 	return err;
--- 
-2.9.4
+Note that "flag" is an argument to tcp_ack(). And while processing a
+given incoming ACK, the callers of tcp_ack() pass in either 0 or one
+or more constant bit flags. So FLAG_SET_XMIT_TIMER and all the other
+bit flags are implicitly set to zero at the beginning of processing
+each ACK.
+
+neal
