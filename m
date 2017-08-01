@@ -1,62 +1,65 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: TCP fast retransmit issues
-Date: Mon, 31 Jul 2017 23:17:01 -0400
-Message-ID: <CADVnQykQszMkHq+KvebHcWinc319H=NMjnP+bX5miFpN8tPPzw@mail.gmail.com>
-References: <200d9a12e9f2f5791d4c5ce2d47a1239@vsen.dk> <1501069756.12695.11.camel@edumazet-glaptop3.roam.corp.google.com>
- <a025f5b2ed6e1f287f68b6bb5137a988@vsen.dk> <1501075881.12695.15.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170726134242.GB1737@1wt.eu> <1501079532.12695.17.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170726145059.GE1737@1wt.eu> <CADVnQymKZAc+SFD7X-FoP9UwHgB2MBCY48=dL8mH6XuKumkx4g@mail.gmail.com>
- <CADVnQykEX-LzhsqyfHNmV6fF9-d_2R0v+mOX-PnyagUhC1qQzQ@mail.gmail.com>
- <CADVnQynR8dUuUBDfeFR2xpL-wKzd+7TgbMv-CXe3TT-T0_PXyQ@mail.gmail.com>
- <CADVnQynVfm0V=16sr+rHsJhtHx9b+kM7Vn2edW2GJ7qMaAtDJg@mail.gmail.com> <CADVnQym9JpC+vDVPVjP0ibhPQu3NhxsynRYA--FNzAgKJUJQSg@mail.gmail.com>
+From: <helga.brickl@arcor.de>
+Subject: (unknown)
+Date: Tue, 01 Aug 2017 03:31:42 -0000
+Message-ID: <150155830224.19426.17619628773701125483@hinet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Klavs Klavsen <kl@vsen.dk>,
-        Netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: application/zip; name="EMAIL_0354141_netdev.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:32835 "EHLO
-        mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751740AbdHADRc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 23:17:32 -0400
-Received: by mail-oi0-f50.google.com with SMTP id a9so4148943oih.0
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 20:17:32 -0700 (PDT)
-In-Reply-To: <CADVnQym9JpC+vDVPVjP0ibhPQu3NhxsynRYA--FNzAgKJUJQSg@mail.gmail.com>
+Received: from 111-249-169-177.dynamic-ip.hinet.net ([111.249.169.177]:46044
+        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with SMTP id S1751759AbdHADcg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 23:32:36 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 28, 2017 at 6:54 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> On Wed, Jul 26, 2017 at 3:02 PM, Neal Cardwell <ncardwell@google.com> wrote:
->> On Wed, Jul 26, 2017 at 2:38 PM, Neal Cardwell <ncardwell@google.com> wrote:
->>> Yeah, it looks like I can reproduce this issue with (1) bad sacks
->>> causing repeated TLPs, and (2) TLPs timers being pushed out to later
->>> times due to incoming data. Scripts are attached.
->>
->> I'm testing a fix of only scheduling a TLP if (flag & FLAG_DATA_ACKED)
->> is true...
->
-> An update for the TLP aspect of this thread: our team has a proposed
-> fix for this RTO/TLP reschedule issue that we have reviewed internally
-> and tested with our packetdrill test suite, including some new tests.
-> The basic approach in the fix is as follows:
->
-> a) only reschedule the xmit timer once per ACK
->
-> b) only reschedule the xmit timer if tcp_clean_rtx_queue() deems this
-> is safe (a packet was cumulatively ACKed, or we got a SACK for a
-> packet that was sent before the most recent retransmit of the write
-> queue head).
->
-> After further review and testing we will post it. Hopefully next week.
-
-The timer patches are upstream for review for the "net" branch:
-
-  https://patchwork.ozlabs.org/patch/796057/
-  https://patchwork.ozlabs.org/patch/796058/
-  https://patchwork.ozlabs.org/patch/796059/
-
-Again, thank you for reporting this, and thanks for the packet trace!
-
-neal
+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
+0gkAAAAA
