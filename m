@@ -1,48 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv4: fib: Fix NULL pointer deref during
- fib_sync_down_dev()
-Date: Mon, 31 Jul 2017 17:51:41 -0700 (PDT)
-Message-ID: <20170731.175141.2110537819573316012.davem@davemloft.net>
-References: <20170728202744.2729-1-idosch@mellanox.com>
+Subject: Re: [PATCH net v3] MAINTAINERS: Add more files to the PHY LIBRARY
+ section
+Date: Mon, 31 Jul 2017 17:53:06 -0700 (PDT)
+Message-ID: <20170731.175306.1407031056975930217.davem@davemloft.net>
+References: <20170731164750.16544-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, mirq-linux@rere.qmqm.pl,
-        xiyou.wangcong@gmail.com
-To: idosch@mellanox.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, joe@perches.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48588 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48600 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751648AbdHAAvl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 20:51:41 -0400
-In-Reply-To: <20170728202744.2729-1-idosch@mellanox.com>
+        with ESMTP id S1751651AbdHAAxH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 20:53:07 -0400
+In-Reply-To: <20170731164750.16544-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
-Date: Fri, 28 Jul 2017 23:27:44 +0300
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 31 Jul 2017 09:47:50 -0700
 
-> Micha©© reported a NULL pointer deref during fib_sync_down_dev() when
-> unregistering a netdevice. The problem is that we don't check for
-> 'in_dev' being NULL, which can happen in very specific cases.
+> Include missing files that are provided by, used, or directly maintained
+> within the PHY LIBRARY, this include uapi header, header files used by
+> Device Tree code etc.
 > 
-> Usually routes are flushed upon NETDEV_DOWN sent in either the netdev or
-> the inetaddr notification chains. However, if an interface isn't
-> configured with any IP address, then it's possible for host routes to be
-> flushed following NETDEV_UNREGISTER, after NULLing dev->ip_ptr in
-> inetdev_destroy().
-> 
-> To reproduce:
-> $ ip link add type dummy
-> $ ip route add local 1.1.1.0/24 dev dummy0
-> $ ip link del dev dummy0
-> 
-> Fix this by checking for the presence of 'in_dev' before referencing it.
-> 
-> Fixes: 982acb97560c ("ipv4: fib: Notify about nexthop status changes")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Reported-by: Micha©© Miros©©aw <mirq-linux@rere.qmqm.pl>
-> ---
-> Please consider this for -stable.
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied and queued up for -stable, thanks!
+Applied.
