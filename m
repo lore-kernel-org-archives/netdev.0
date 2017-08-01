@@ -1,142 +1,119 @@
-From: Florian Lehner <dev@der-flo.net>
-Subject: [PATCH v3] ss: Enclose IPv6 address in brackets
-Date: Tue, 1 Aug 2017 12:05:13 +0200
-Message-ID: <17aba498-3d75-2659-5fdc-4c95b0d214fa@der-flo.net>
-References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
+From: "Niklas =?iso-8859-1?Q?S=F6derlund?=" <niklas.soderlund@ragnatech.se>
+Subject: Re: [PATCH v2] ravb: add wake-on-lan support via magic packet
+Date: Tue, 1 Aug 2017 12:13:52 +0200
+Message-ID: <20170801101352.GN1382@bigcity.dyn.berto.se>
+References: <20170730140646.11781-1-niklas.soderlund+renesas@ragnatech.se>
+ <111b5ae4-5517-7a07-3077-96ced89db407@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.der-flo.net ([193.160.39.236]:45751 "EHLO mx.der-flo.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751217AbdHAKFQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Aug 2017 06:05:16 -0400
-Received: from [IPv6:2a02:1205:c693:af80:5ee0:c5ff:fe8a:a179] (unknown [IPv6:2a02:1205:c693:af80:5ee0:c5ff:fe8a:a179])
-        (using TLSv1.2 with cipher ECDHE-ECDSA-AES128-GCM-SHA256 (128/128 bits))
-        (No client certificate requested)
-        by mx.der-flo.net (Postfix) with ESMTPSA id 47BA047E3C
-        for <netdev@vger.kernel.org>; Tue,  1 Aug 2017 12:05:14 +0200 (CEST)
-In-Reply-To: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
-Content-Language: en-US
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:34581 "EHLO
+        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751375AbdHAKN4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 06:13:56 -0400
+Received: by mail-lf0-f42.google.com with SMTP id g25so4914882lfh.1
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 03:13:55 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <111b5ae4-5517-7a07-3077-96ced89db407@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This updated patch adds support for RFC2732 IPv6 address format with
-brackets for the tool ss.
-It implements the suggestion by Phil Sutter to use a further value,
-whether an address was resolved to a hostname.
+Hi Sergei,
 
-Signed-off-by: Lehner Florian <dev@der-flo.net>
----
- include/utils.h | 10 +++++++---
- lib/utils.c     | 11 +++++++----
- misc/ss.c       | 20 +++++++++++++++-----
- 3 files changed, 29 insertions(+), 12 deletions(-)
+Thanks for your feedback!
 
-diff --git a/include/utils.h b/include/utils.h
-index 6080b96..ffacb49 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -114,9 +114,13 @@ int addr64_n2a(__u64 addr, char *buff, size_t len);
- int af_bit_len(int af);
- int af_byte_len(int af);
+On 2017-07-31 22:47:12 +0300, Sergei Shtylyov wrote:
+> Hello!
+> 
+> On 07/30/2017 05:06 PM, Niklas Söderlund wrote:
+> 
+> > WoL is enabled in the suspend callback by setting MagicPacket detection
+> > and disabling all interrupts expect MagicPacket. In the resume path the
+> > driver needs to reset the hardware to rearm the WoL logic, this prevents
+> > the driver from simply restoring the registers and to take advantage of
+> > that ravb was not suspended to reduce resume time. To reset the
+> > hardware the driver closes the device, sets it in reset mode and reopens
+> > the device just like it would do in a normal suspend/resume scenario
+> > without WoL enabled, but it both closes and opens the device in the
+> > resume callback since the device needs to be reset for WoL to work.
+> 
+> > One quirk needed for WoL is that the module clock needs to be prevented
+> > from being switched off by Runtime PM. To keep the clock alive the
+> > suspend callback need to call clk_enable() directly to increase the
+> > usage count of the clock. Then when Runtime PM decreases the clock usage
+> > count it won't reach 0 and be switched off.
+> > 
+> > Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+> [...]
+> > diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> > index 5931e859876c2aee..3d399f85417a83cf 100644
+> > --- a/drivers/net/ethernet/renesas/ravb_main.c
+> > +++ b/drivers/net/ethernet/renesas/ravb_main.c
+> [...]
+> > @@ -2179,6 +2270,32 @@ static int __maybe_unused ravb_resume(struct device *dev)
+> >   	struct ravb_private *priv = netdev_priv(ndev);
+> >   	int ret = 0;
+> > +	/* Reduce the usecount of the clock to zero and then
+> > +	 * restore it to its original value. This is done to force
+> > +	 * the clock to be re-enabled which is a workaround
+> > +	 * for renesas-cpg-mssr driver which do not enable clocks
+> > +	 * when resuming from PSCI suspend/resume.
+> > +	 *
+> > +	 * Without this workaround the driver fails to communicate
+> > +	 * with the hardware if WoL was enabled when the system
+> > +	 * entered PSCI suspend. This is due to that if WoL is enabled
+> > +	 * we explicitly keep the clock from being turned off when
+> > +	 * suspending, but in PSCI sleep power is cut so the clock
+> > +	 * is disabled anyhow, the clock driver is not aware of this
+> > +	 * so the clock is not turned back on when resuming.
+> > +	 *
+> > +	 * TODO: once the renesas-cpg-mssr suspend/resume is working
+> > +	 *       this clock dance should be removed.
+> > +	 */
+> > +	clk_disable(priv->clk);
+> > +	clk_disable(priv->clk);
+> > +	clk_enable(priv->clk);
+> > +	clk_enable(priv->clk);
+> 
+>    After a small chat with Niklas, it became clear that this dance should be
+> behind the *if* that follows. I'd also like to see this workaround as a
+> separate patch since the isse it addresses is R-Car gen3 specific (and thus
+> can be reverted once the CPG/MMSR driver is fixed)...
 
--const char *format_host_r(int af, int len, const void *addr,
--			       char *buf, int buflen);
--const char *format_host(int af, int lne, const void *addr);
-+const char *format_host_rb(int af, int len, const void *addr,
-+			       char *buf, int buflen, bool *resolved);
-+#define format_host_r(af, len, addr, buf, buflen) \
-+	format_host_rb(af, len, addr, buf, buflen, NULL)
-+const char *format_host_b(int af, int lne, const void *addr, bool
-*resolved);
-+#define format_host(af, lne, addr) \
-+	format_host_b(af, lne, addr, NULL)
- #define format_host_rta(af, rta) \
- 	format_host(af, RTA_PAYLOAD(rta), RTA_DATA(rta))
- const char *rt_addr_n2a_r(int af, int len, const void *addr,
-diff --git a/lib/utils.c b/lib/utils.c
-index 9aa3219..42c3bf5 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -898,8 +898,8 @@ static const char *resolve_address(const void *addr,
-int len, int af)
- }
- #endif
+Thanks for spotting my mistake! I will fix this and break out the 
+workaround in a separate patch and send a v3.
 
--const char *format_host_r(int af, int len, const void *addr,
--			char *buf, int buflen)
-+const char *format_host_rb(int af, int len, const void *addr,
-+			char *buf, int buflen, bool *resolved)
- {
- #ifdef RESOLVE_HOSTNAMES
- 	if (resolve_hosts) {
-@@ -909,17 +909,20 @@ const char *format_host_r(int af, int len, const
-void *addr,
+> 
+> > +
+> > +	/* If WoL is enabled set reset mode to rearm the WoL logic */
+> > +	if (priv->wol_enabled)
+> > +		ravb_write(ndev, CCC_OPC_RESET, CCC);
+> > +
+> >   	/* All register have been reset to default values.
+> >   	 * Restore all registers which where setup at probe time and
+> >   	 * reopen device if it was running before system suspended.
+> > @@ -2202,6 +2319,11 @@ static int __maybe_unused ravb_resume(struct device *dev)
+> >  	ravb_write(ndev, priv->desc_bat_dma, DBAT);
+> >  	if (netif_running(ndev)) {
+> > +		if (priv->wol_enabled) {
+> > +			ret = ravb_wol_restore(ndev);
+> > +			if (ret)
+> > +				return ret;
+> > +		}
+> >  		ret = ravb_open(ndev);
+> 
+>    Hm, perhaps worth calling sh_eth_open() outside sh_eth_wol_restore() as well?
 
- 		if (len > 0 &&
- 		    (n = resolve_address(addr, len, af)) != NULL)
-+		{
-+			*resolved = true;
- 			return n;
-+		}
- 	}
- #endif
- 	return rt_addr_n2a_r(af, len, addr, buf, buflen);
- }
+Worth looking at, but this is outside the scope of this series as it 
+touches the sh_eth driver :-)
 
--const char *format_host(int af, int len, const void *addr)
-+const char *format_host_b(int af, int len, const void *addr, bool
-*resolved)
- {
- 	static char buf[256];
+> 
+> MBR, Sergei
 
--	return format_host_r(af, len, addr, buf, 256);
-+	return format_host_rb(af, len, addr, buf, 256, resolved);
- }
-
-
-diff --git a/misc/ss.c b/misc/ss.c
-index 12763c9..d37bd1d 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1046,20 +1046,30 @@ do_numeric:
-
- static void inet_addr_print(const inet_prefix *a, int port, unsigned
-int ifindex)
- {
--	char buf[1024];
--	const char *ap = buf;
-+	char b1[1024], b2[1024];
-+	const char *ap = b1;
- 	int est_len = addr_width;
- 	const char *ifname = NULL;
-+	bool resolved = false;
-
- 	if (a->family == AF_INET) {
- 		if (a->data[0] == 0) {
--			buf[0] = '*';
--			buf[1] = 0;
-+			b1[0] = '*';
-+			b1[1] = 0;
- 		} else {
- 			ap = format_host(AF_INET, 4, a->data);
- 		}
- 	} else {
--		ap = format_host(a->family, 16, a->data);
-+		if (a->family == AF_INET6) {
-+			ap = format_host_b(a->family, 16, a->data, &resolved);
-+			if (!resolved)
-+			{
-+				sprintf(b2, "[%s]", ap);
-+				ap = b2;
-+			}
-+		} else {
-+			ap = format_host(a->family, 16, a->data);
-+		}
- 		est_len = strlen(ap);
- 		if (est_len <= addr_width)
- 			est_len = addr_width;
 -- 
-2.9.4
+Regards,
+Niklas Söderlund
