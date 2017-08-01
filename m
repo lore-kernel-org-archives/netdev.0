@@ -1,45 +1,62 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3 2/2] ravb: add workaround for clock when resuming with
- WoL enabled
-Date: Tue, 1 Aug 2017 16:27:17 +0300
-Message-ID: <4e0cd03e-a2f0-2a41-7c66-903a0eed03a6@cogentembedded.com>
-References: <20170801101437.9020-1-niklas.soderlund+renesas@ragnatech.se>
- <20170801101437.9020-3-niklas.soderlund+renesas@ragnatech.se>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 net-next 2/3] net: dsa: lan9303: define
+ LAN9303_NUM_PORTS 3
+Date: Tue, 1 Aug 2017 15:27:28 +0200
+Message-ID: <20170801132728.GA23157@lunn.ch>
+References: <20170801111439.1143-1-privat@egil-hjelmeland.no>
+ <20170801111439.1143-3-privat@egil-hjelmeland.no>
+ <201708011349.52529.jbe@pengutronix.de>
+ <10b6b9fc-d2f9-1761-802f-724d9f6b3df1@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:33214 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751832AbdHAN1U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 09:27:20 -0400
-Received: by mail-lf0-f43.google.com with SMTP id d17so7038024lfe.0
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 06:27:20 -0700 (PDT)
-In-Reply-To: <20170801101437.9020-3-niklas.soderlund+renesas@ragnatech.se>
-Content-Language: en-MW
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Juergen Borleis <jbe@pengutronix.de>, kernel@pengutronix.de,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <10b6b9fc-d2f9-1761-802f-724d9f6b3df1@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/01/2017 01:14 PM, Niklas Söderlund wrote:
-
-> The renesas-cpg-mssr clock driver are not yet aware of PSCI sleep where
-> power is cut to the SoC. When resuming from this state with WoL enabled
-> the enable count of the ravb clock is 1 and the clock driver thinks the
-> clock is already on when PM core enables the clock and increments the
-> enable count to 2. This will result in the ravb driver failing to talk
-> to the hardware since the module clock is off. Work around this by
-> forcing the enable count to 0 and then back to 2 when resuming with WoL
-> enabled.
+On Tue, Aug 01, 2017 at 02:31:44PM +0200, Egil Hjelmeland wrote:
+> On 01. aug. 2017 13:49, Juergen Borleis wrote:
+> >Hi Egil,
+> >
+> >On Tuesday 01 August 2017 13:14:38 Egil Hjelmeland wrote:
+> >>Will be used instead of '3' in upcomming patches.
+> >>
+> >>
+> >>+#define LAN9303_NUM_PORTS 3
+> >>+
+> >
+> >Maybe we should put this macro into a shared location because
+> >in "net/dsa/tag_lan9303.c" there is already a "#define LAN9303_MAX_PORTS
+> >3".
+> >
+> >jb
+> >
 > 
-> This workaround should be reverted once the renesas-cpg-mssr clock
-> driver becomes aware of this PSCI sleep behavior.
-> 
-> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+> Is there any suitable shared location for such driver specific
+> definitions?
+> I could change the name to LAN9303_MAX_PORTS so it the same.
+> Rhymes better with DSA_MAX_PORTS too.
 
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Hi Egil, Juergen
 
-MBR, Sergei
+The other tag drivers do:
+
+        if (source_port >= ds->num_ports || !ds->ports[source_port].netdev)
+                return NULL;
+
+or just
+
+        if (!ds->ports[port].netdev)
+                return NULL;
+
+The first version is the safest, since a malicious switch could return
+port 42, and you are accessing way off the end of ds->ports[]. It does
+however require you call dsa_switch_alloc() with the correct number of
+ports.
+
+     Andrew
