@@ -1,27 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 09/13] sfp: add sfp-bus to bridge between network
- devices and sfp cages
-Date: Tue, 1 Aug 2017 16:35:10 +0200
-Message-ID: <20170801143510.GH23157@lunn.ch>
-References: <20170725140138.GK31807@n2100.armlinux.org.uk>
- <E1da0Qg-0007Lx-KY@rmk-PC.armlinux.org.uk>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net 2/3] tcp: enable xmit timer fix by having TLP use time
+ when RTO should fire
+Date: Tue, 1 Aug 2017 10:35:58 -0400
+Message-ID: <CADVnQy=A27-P7bystCPhu_Tk6cwLOL4Kqz2FSSg55nzNc3cixA@mail.gmail.com>
+References: <20170801025814.31206-1-ncardwell@google.com> <20170801025814.31206-3-ncardwell@google.com>
+ <1501572126.1876.31.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Russell King <rmk+kernel@armlinux.org.uk>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47921 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751812AbdHAOfL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Aug 2017 10:35:11 -0400
-Content-Disposition: inline
-In-Reply-To: <E1da0Qg-0007Lx-KY@rmk-PC.armlinux.org.uk>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:35033 "EHLO
+        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751610AbdHAOga (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:36:30 -0400
+Received: by mail-oi0-f45.google.com with SMTP id e124so17044751oig.2
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 07:36:30 -0700 (PDT)
+In-Reply-To: <1501572126.1876.31.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 25, 2017 at 03:03:18PM +0100, Russell King wrote:
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+On Tue, Aug 1, 2017 at 3:22 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2017-07-31 at 22:58 -0400, Neal Cardwell wrote:
+>> @@ -2418,13 +2418,9 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+>>       timeout = max_t(u32, timeout, msecs_to_jiffies(10));
+>>
+>>       /* If RTO is shorter, just schedule TLP in its place. */
+>
+> I have hard time to read this comment.
+>
+> We are here trying to arm a timer based on TLP.
+>
+> If RTO is shorter, we'll arm the timer based on RTO instead of TLP.
+>
+> Is "If RTO is shorter, just schedule TLP in its place." really correct ?
+>
+> I suggest we reword the comment or simply get rid of it now the code is
+> more obvious.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+OK, how about:
 
-    Andrew
+  /* If the RTO formula yields an earlier time, then use that time. */
+
+We can also add a reference to the RACK/TLP Internet Draft at the top
+of tcp_schedule_loss_probe().
+
+Whatever wording we decide on, I am happy to send a patch for net-next
+once this fix is merged into net-next.
+
+neal
