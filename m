@@ -1,44 +1,41 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 0/7] drivers: net: Fix 64-bit statistics seqcount init
-Date: Tue,  1 Aug 2017 12:11:05 -0700
-Message-ID: <20170801191113.8754-1-f.fainelli@gmail.com>
+Subject: [PATCH net 2/7] i40e: Initialize 64-bit statistics TX ring seqcount
+Date: Tue,  1 Aug 2017 12:11:07 -0700
+Message-ID: <20170801191113.8754-3-f.fainelli@gmail.com>
+References: <20170801191113.8754-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, edumazet@google.com,
-        Florian Fainelli <f.fainelli@gmail.com>
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org (moderated list:INTEL ETHERNET DRIVERS),
+        linux-kernel@vger.kernel.org (open list)
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34249 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751983AbdHATLX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 15:11:23 -0400
-Received: by mail-wm0-f67.google.com with SMTP id x64so4410103wmg.1
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 12:11:22 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170801191113.8754-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On 32-bit hosts and with CONFIG_DEBUG_LOCK_ALLOC we should be seeing a
+lockdep splat indicating this seqcount is not correctly initialized, fix
+that.
 
-This patch series fixes a bunch of drivers to have their 64-bit statistics
-seqcount cookie be initialized correctly. Most of these drivers (except b44,
-gtp) are probably used on 64-bit only hosts and so the lockdep splat might have
-never been seen.
+Fixes: 980e9b118642 ("i40e: Add support for 64 bit netstats")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Florian Fainelli (7):
-  b44: Initialize 64-bit stats seqcount
-  i40e: Initialize 64-bit statistics TX ring seqcount
-  ixgbe: Initialize 64-bit stats seqcounts
-  nfp: Initialize RX and TX ring 64-bit stats seqcounts
-  gtp: Initialize 64-bit per-cpu stats correctly
-  netvsc: Initialize 64-bit stats seqcount
-  ipvlan: Fix 64-bit statistics seqcount initialization
-
- drivers/net/ethernet/broadcom/b44.c                 | 1 +
- drivers/net/ethernet/intel/i40e/i40e_txrx.c         | 2 ++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c   | 4 ++++
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 2 ++
- drivers/net/gtp.c                                   | 2 +-
- drivers/net/hyperv/netvsc.c                         | 2 ++
- drivers/net/ipvlan/ipvlan_main.c                    | 2 +-
- 7 files changed, 13 insertions(+), 2 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index b936febc315a..2194960d5855 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1113,6 +1113,8 @@ int i40e_setup_tx_descriptors(struct i40e_ring *tx_ring)
+ 	if (!tx_ring->tx_bi)
+ 		goto err;
+ 
++	u64_stats_init(&tx_ring->syncp);
++
+ 	/* round up to nearest 4K */
+ 	tx_ring->size = tx_ring->count * sizeof(struct i40e_tx_desc);
+ 	/* add u32 for head writeback, align after this takes care of
 -- 
 2.9.3
