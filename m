@@ -1,27 +1,31 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net 1/7] b44: Initialize 64-bit stats seqcount
-Date: Tue, 1 Aug 2017 13:41:47 -0700
-Message-ID: <CACKFLineNFnJc7T_pS2v_kVDb6yXoOSExtMjzvndr7b+Hp8UvQ@mail.gmail.com>
-References: <20170801191113.8754-1-f.fainelli@gmail.com> <20170801191113.8754-2-f.fainelli@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 01/11] net: dsa: PHY device is mandatory for
+ EEE
+Date: Tue, 1 Aug 2017 23:00:53 +0200
+Message-ID: <20170801210053.GN23157@lunn.ch>
+References: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
+ <20170801203241.22294-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, edumazet@google.com,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        John Crispin <john@phrozen.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170801191113.8754-2-f.fainelli@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20170801203241.22294-2-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 1, 2017 at 12:11 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 32-bit hosts and with CONFIG_DEBUG_LOCK_ALLOC we should be seeing a
-> lockdep splat indicating this seqcount is not correctly initialized, fix
-> that.
->
-> Fixes: eeda8585522b ("b44: add 64 bit stats")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+On Tue, Aug 01, 2017 at 04:32:31PM -0400, Vivien Didelot wrote:
+> The port's PHY and MAC are both implied in EEE. The current code does
+> not call the PHY operations if the related device is NULL. Change that
+> by returning -ENODEV if there's no PHY device attached to the interface.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Acked-by: Michael Chan <michael.chan@broadcom.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Thanks.
+    Andrew
