@@ -1,66 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: tcp_data_queue() cleanup
-Date: Tue, 01 Aug 2017 07:02:44 -0700
-Message-ID: <1501596164.25002.4.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 01/11] net: dsa: make EEE ops optional
+Date: Tue, 1 Aug 2017 16:07:20 +0200
+Message-ID: <20170801140720.GD23157@lunn.ch>
+References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
+ <20170731221719.16695-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34922 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751670AbdHAOCr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:02:47 -0400
-Received: by mail-wm0-f65.google.com with SMTP id r77so3210843wmd.2
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 07:02:46 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170731221719.16695-2-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Hi Vivien
 
-Commit c13ee2a4f03f ("tcp: reindent two spots after prequeue removal")
-removed code in tcp_data_queue().
+> @@ -646,38 +646,42 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
+>  {
+>  	struct dsa_slave_priv *p = netdev_priv(dev);
+>  	struct dsa_switch *ds = p->dp->ds;
+> -	int ret;
+> +	int err = -ENODEV;
+>  
+> -	if (!ds->ops->set_eee)
+> -		return -EOPNOTSUPP;
+> +	if (ds->ops->set_eee) {
+> +		err = ds->ops->set_eee(ds, p->dp->index, p->phy, e);
+> +		if (err)
+> +			return err;
+> +	}
+>  
+> -	ret = ds->ops->set_eee(ds, p->dp->index, p->phy, e);
+> -	if (ret)
+> -		return ret;
+> +	if (p->phy) {
+> +		err = phy_ethtool_set_eee(p->phy, e);
+> +		if (err)
+> +			return err;
 
-We can go a little farther, removing an always true test,
-and removing initializers for fragstolen and eaten variables.
+I don't think you need this if (err). You unconditionally return err
+as you exit the function.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Florian Westphal <fw@strlen.de>
----
- net/ipv4/tcp_input.c |   15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
+> +	}
+>  
+> -	if (p->phy)
+> -		ret = phy_ethtool_set_eee(p->phy, e);
+> -
+> -	return ret;
+> +	return err;
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index af0a98d54b627a90d90fb9f1f2a600277c620559..df670d7ed98df1c108dc654cf446344ff9fdd4be 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4564,8 +4564,8 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
- static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
--	bool fragstolen = false;
--	int eaten = -1;
-+	bool fragstolen;
-+	int eaten;
- 
- 	if (TCP_SKB_CB(skb)->seq == TCP_SKB_CB(skb)->end_seq) {
- 		__kfree_skb(skb);
-@@ -4588,12 +4588,11 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
- 
- 		/* Ok. In sequence. In window. */
- queue_and_out:
--		if (eaten < 0) {
--			if (skb_queue_len(&sk->sk_receive_queue) == 0)
--				sk_forced_mem_schedule(sk, skb->truesize);
--			else if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
--				goto drop;
--		}
-+		if (skb_queue_len(&sk->sk_receive_queue) == 0)
-+			sk_forced_mem_schedule(sk, skb->truesize);
-+		else if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
-+			goto drop;
-+
- 		eaten = tcp_queue_rcv(sk, skb, 0, &fragstolen);
- 		tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
- 		if (skb->len)
+
+
+
+>  }
+>  
+>  static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
+>  {
+>  	struct dsa_slave_priv *p = netdev_priv(dev);
+>  	struct dsa_switch *ds = p->dp->ds;
+> -	int ret;
+> +	int err = -ENODEV;
+>  
+> -	if (!ds->ops->get_eee)
+> -		return -EOPNOTSUPP;
+> +	if (ds->ops->get_eee) {
+> +		err = ds->ops->get_eee(ds, p->dp->index, e);
+> +		if (err)
+> +			return err;
+> +	}
+>  
+> -	ret = ds->ops->get_eee(ds, p->dp->index, e);
+> -	if (ret)
+> -		return ret;
+> +	if (p->phy) {
+> +		err = phy_ethtool_get_eee(p->phy, e);
+> +		if (err)
+> +			return err;
+
+Same here.
+
+> +	}
+>  
+> -	if (p->phy)
+> -		ret = phy_ethtool_get_eee(p->phy, e);
+> -
+> -	return ret;
+> +	return err;
+>  }
+>  
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+> -- 
+> 2.13.3
+> 
