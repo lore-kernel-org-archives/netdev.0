@@ -1,40 +1,80 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 1/2] ipv6: constify inet6_protocol structures
-Date: Tue, 1 Aug 2017 18:06:51 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1708011805340.21130@hadrien>
-References: <1501273138-22771-1-git-send-email-Julia.Lawall@lip6.fr> <1501273138-22771-2-git-send-email-Julia.Lawall@lip6.fr> <1501495011.1876.12.camel@edumazet-glaptop3.roam.corp.google.com> <alpine.DEB.2.20.1708010759050.2671@hadrien>
- <63118b71-c196-efcd-0700-7c7c0025c577@gmail.com>
+From: Florian Lehner <dev@der-flo.net>
+Subject: Re: [PATCH v3] ss: Enclose IPv6 address in brackets
+Date: Tue, 1 Aug 2017 18:07:57 +0200
+Message-ID: <8e1c5122-39ea-9e26-4fa2-8a6706d6015e@der-flo.net>
+References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
+ <17aba498-3d75-2659-5fdc-4c95b0d214fa@der-flo.net>
+ <20170801141112.GZ16375@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, bhumirks@gmail.com,
-        netdev <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:22413
-        "EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751778AbdHAQHF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 12:07:05 -0400
-In-Reply-To: <63118b71-c196-efcd-0700-7c7c0025c577@gmail.com>
+Received: from mx.der-flo.net ([193.160.39.236]:45927 "EHLO mx.der-flo.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751794AbdHAQIA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Aug 2017 12:08:00 -0400
+In-Reply-To: <20170801141112.GZ16375@orbyte.nwl.cc>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On Tue, 1 Aug 2017, David Ahern wrote:
+On 08/01/2017 04:11 PM, Phil Sutter wrote:
+> On Tue, Aug 01, 2017 at 12:05:13PM +0200, Florian Lehner wrote:
+> [...]
+>> @@ -114,9 +114,13 @@ int addr64_n2a(__u64 addr, char *buff, size_t len);
+>>  int af_bit_len(int af);
+>>  int af_byte_len(int af);
+>>
+>> -const char *format_host_r(int af, int len, const void *addr,
+>> -			       char *buf, int buflen);
+>> -const char *format_host(int af, int lne, const void *addr);
+>> +const char *format_host_rb(int af, int len, const void *addr,
+>> +			       char *buf, int buflen, bool *resolved);
+>> +#define format_host_r(af, len, addr, buf, buflen) \
+>> +	format_host_rb(af, len, addr, buf, buflen, NULL)
+>> +const char *format_host_b(int af, int lne, const void *addr, bool
+>> *resolved);
+>> +#define format_host(af, lne, addr) \
+>> +	format_host_b(af, lne, addr, NULL)
+>>  #define format_host_rta(af, rta) \
+>>  	format_host(af, RTA_PAYLOAD(rta), RTA_DATA(rta))
+>>  const char *rt_addr_n2a_r(int af, int len, const void *addr,
+>> diff --git a/lib/utils.c b/lib/utils.c
+>> index 9aa3219..42c3bf5 100644
+>> --- a/lib/utils.c
+>> +++ b/lib/utils.c
+>> @@ -898,8 +898,8 @@ static const char *resolve_address(const void *addr,
+>> int len, int af)
+>>  }
+>>  #endif
+>>
+>> -const char *format_host_r(int af, int len, const void *addr,
+>> -			char *buf, int buflen)
+>> +const char *format_host_rb(int af, int len, const void *addr,
+>> +			char *buf, int buflen, bool *resolved)
+>>  {
+>>  #ifdef RESOLVE_HOSTNAMES
+>>  	if (resolve_hosts) {
+>> @@ -909,17 +909,20 @@ const char *format_host_r(int af, int len, const
+>> void *addr,
+>>
+>>  		if (len > 0 &&
+>>  		    (n = resolve_address(addr, len, af)) != NULL)
+>> +		{
+>> +			*resolved = true;
+>>  			return n;
+>> +		}
+>>  	}
+>>  #endif
+>>  	return rt_addr_n2a_r(af, len, addr, buf, buflen);
+>>  }
+> 
+> Did you test that? I guess calling format_host() will lead to
+> dereference of a NULL pointer.
 
-> On 7/31/17 11:59 PM, Julia Lawall wrote:
-> >> This change breaks the kernel if one of these sysctls are changed:
-> >> tcp_early_demux, udp_early_demux
-> >
-> > The other patch in the series has the same problem and should be dropped
-> > too.
-> >
-> > julia
->
-> Julia: are you going to send a revert patch? Right now I have to do that
-> manually before launching test scripts.
-
-Sorry, I didn't know it was applied.  I can send it.
-
-julia
+Yes, I did. And it just worked.
+David Laight suggested to use strchr(). Instead of changing stuff in
+lib/* I will try this.
