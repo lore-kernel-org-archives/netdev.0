@@ -1,97 +1,76 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/7] net: phy: mdio-bcm-unimac: factor busy
- polling loop
-Date: Mon, 31 Jul 2017 17:33:03 -0700
-Message-ID: <30212438-4567-d60c-4724-3d6ab7760247@gmail.com>
-References: <201708010804.i8lcwBCE%fengguang.wu@intel.com>
+From: Amritha Nambiar <amritha.nambiar@intel.com>
+Subject: [PATCH net-next RFC 0/6] Configure cloud filters in i40e via
+ tc/flower classifier
+Date: Mon, 31 Jul 2017 17:36:20 -0700
+Message-ID: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, netdev@vger.kernel.org, davem@davemloft.net,
-        opendmb@gmail.com, jaedon.shin@gmail.com, pgynther@google.com
-To: kbuild test robot <lkp@intel.com>
+Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
+        amritha.nambiar@intel.com, netdev@vger.kernel.org,
+        mitch.a.williams@intel.com, alexander.duyck@gmail.com,
+        neerav.parikh@intel.com, sridhar.samudrala@intel.com,
+        carolyn.wyborny@intel.com
+To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:36651 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751102AbdHAAdI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 20:33:08 -0400
-Received: by mail-qk0-f195.google.com with SMTP id d136so171042qkg.3
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 17:33:08 -0700 (PDT)
-In-Reply-To: <201708010804.i8lcwBCE%fengguang.wu@intel.com>
-Content-Language: en-US
+Received: from mga14.intel.com ([192.55.52.115]:22357 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751537AbdHAAiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Jul 2017 20:38:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/31/2017 05:28 PM, kbuild test robot wrote:
-> Hi Florian,
-> 
-> [auto build test ERROR on net-next/master]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Florian-Fainelli/net-bcmgenet-utilize-MDIO-unimac-driver/20170801-075847
-> config: xtensa-allmodconfig (attached as .config)
-> compiler: xtensa-linux-gcc (GCC) 4.9.0
-> reproduce:
->         wget https://raw.githubusercontent.com/01org/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=xtensa 
-> 
-> Note: the linux-review/Florian-Fainelli/net-bcmgenet-utilize-MDIO-unimac-driver/20170801-075847 HEAD 68043f6ab1b54d29abc5555fc56fdec46d280b76 builds fine.
->       It only hurts bisectibility.
-> 
-> All errors (new ones prefixed by >>):
-> 
->    drivers/net/phy/mdio-bcm-unimac.c: In function 'unimac_mdio_read':
->>> drivers/net/phy/mdio-bcm-unimac.c:89:2: error: 'ret' undeclared (first use in this function)
->      ret = unimac_mdio_poll(priv);
->      ^
->    drivers/net/phy/mdio-bcm-unimac.c:89:2: note: each undeclared identifier is reported only once for each function it appears in
-> 
-> vim +/ret +89 drivers/net/phy/mdio-bcm-unimac.c
+This patch series enables configuring cloud filters in i40e
+using the tc/flower classifier. The only tc-filter action
+supported is to redirect packets to a traffic class on the
+same device. The tc/mirred:redirect action is extended to
+accept a traffic class to achieve this.
 
-This is "just" a bisectability problem, patch 4 does actually add the
-int ret variable to store the return value...
+The cloud filters are added for a VSI and are cleaned up when
+the VSI is deleted. The filters that match on L4 ports needs
+enhanced admin queue functions with big buffer support for
+extended general fields in Add/Remove Cloud filters command.
 
-I will still fix the unmet dependency warning, depends on would actually
-be more correct here anyway.
+Example:
+# tc qdisc add dev eth0 ingress
 
-> 
->     76	
->     77	static int unimac_mdio_read(struct mii_bus *bus, int phy_id, int reg)
->     78	{
->     79		struct unimac_mdio_priv *priv = bus->priv;
->     80		u32 cmd;
->     81	
->     82		/* Prepare the read operation */
->     83		cmd = MDIO_RD | (phy_id << MDIO_PMD_SHIFT) | (reg << MDIO_REG_SHIFT);
->     84		__raw_writel(cmd, priv->base + MDIO_CMD);
->     85	
->     86		/* Start MDIO transaction */
->     87		unimac_mdio_start(priv);
->     88	
->   > 89		ret = unimac_mdio_poll(priv);
->     90		if (ret)
->     91			return ret;
->     92	
->     93		cmd = __raw_readl(priv->base + MDIO_CMD);
->     94	
->     95		/* Some broken devices are known not to release the line during
->     96		 * turn-around, e.g: Broadcom BCM53125 external switches, so check for
->     97		 * that condition here and ignore the MDIO controller read failure
->     98		 * indication.
->     99		 */
->    100		if (!(bus->phy_ignore_ta_mask & 1 << phy_id) && (cmd & MDIO_READ_FAIL))
->    101			return -EIO;
->    102	
->    103		return cmd & 0xffff;
->    104	}
->    105	
-> 
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
-> 
+# ethtool -K eth0 hw-tc-offload on
+
+# tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
+  dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
+  skip_sw indev eth0 action mirred ingress redirect dev eth0 tc 1
+
+# tc filter show dev eth0 parent ffff:
+filter protocol ip pref 1 flower
+filter protocol ip pref 1 flower handle 0x1
+  indev eth0
+  eth_type ipv4
+  ip_proto udp
+  dst_ip 192.168.1.1
+  dst_port 22
+  skip_sw
+  in_hw
+        action order 1: mirred (Ingress Redirect to device eth0) stolen tc 1
+        index 1 ref 1 bind 1
+---
+
+Amritha Nambiar (6):
+      [net-next]net: sched: act_mirred: Extend redirect action to accept a traffic class
+      [net-next]net: i40e: Maintain a mapping of TCs with the VSI seids
+      [net-next]net: i40e: Extend set switch config command to accept cloud filter mode
+      [net-next]net: i40e: Admin queue definitions for cloud filters
+      [net-next]net: i40e: Clean up of cloud filters
+      [net-next]net: i40e: Enable cloud filters in i40e via tc/flower classifier
 
 
--- 
-Florian
+ drivers/net/ethernet/intel/i40e/i40e.h            |   58 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h |  132 +++
+ drivers/net/ethernet/intel/i40e/i40e_common.c     |  184 ++++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c    |    2 
+ drivers/net/ethernet/intel/i40e/i40e_main.c       |  983 +++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h  |   19 
+ drivers/net/ethernet/intel/i40e/i40e_type.h       |    9 
+ include/net/tc_act/tc_mirred.h                    |    7 
+ include/uapi/linux/tc_act/tc_mirred.h             |    5 
+ net/sched/act_mirred.c                            |   17 
+ 10 files changed, 1408 insertions(+), 8 deletions(-)
