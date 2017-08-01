@@ -1,56 +1,81 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next RFC 0/6] Configure cloud filters in i40e via
- tc/flower classifier
-Date: Tue, 1 Aug 2017 06:15:22 -0400
-Message-ID: <2d833571-a5f3-41a6-0e6c-9d2c27b0a8c5@mojatatu.com>
-References: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
+From: =?UTF-8?q?Niklas=20S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>
+Subject: [PATCH v3 2/2] ravb: add workaround for clock when resuming with WoL enabled
+Date: Tue,  1 Aug 2017 12:14:37 +0200
+Message-ID: <20170801101437.9020-3-niklas.soderlund+renesas@ragnatech.se>
+References: <20170801101437.9020-1-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
-        netdev@vger.kernel.org, mitch.a.williams@intel.com,
-        alexander.duyck@gmail.com, neerav.parikh@intel.com,
-        sridhar.samudrala@intel.com, carolyn.wyborny@intel.com,
-        Or Gerlitz <gerlitz.or@gmail.com>
-To: Amritha Nambiar <amritha.nambiar@intel.com>,
-        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org,
+        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34711 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751631AbdHAKPZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 06:15:25 -0400
-Received: by mail-io0-f194.google.com with SMTP id m88so1210357iod.1
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 03:15:25 -0700 (PDT)
-In-Reply-To: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
-Content-Language: en-GB
+Received: from smtp-4.sys.kth.se ([130.237.48.193]:44207 "EHLO
+        smtp-4.sys.kth.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751680AbdHAKPU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 06:15:20 -0400
+In-Reply-To: <20170801101437.9020-1-niklas.soderlund+renesas@ragnatech.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-07-31 08:36 PM, Amritha Nambiar wrote:
-> This patch series enables configuring cloud filters in i40e
-> using the tc/flower classifier. The only tc-filter action
-> supported is to redirect packets to a traffic class on the
-> same device. The tc/mirred:redirect action is extended to
-> accept a traffic class to achieve this.
-> 
-> The cloud filters are added for a VSI and are cleaned up when
-> the VSI is deleted. The filters that match on L4 ports needs
-> enhanced admin queue functions with big buffer support for
-> extended general fields in Add/Remove Cloud filters command.
-> 
-> Example:
-> # tc qdisc add dev eth0 ingress
-> 
-> # ethtool -K eth0 hw-tc-offload on
-> 
-> # tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
->    dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
->    skip_sw indev eth0 action mirred ingress redirect dev eth0 tc 1
-> 
+The renesas-cpg-mssr clock driver are not yet aware of PSCI sleep where
+power is cut to the SoC. When resuming from this state with WoL enabled
+the enable count of the ravb clock is 1 and the clock driver thinks the
+clock is already on when PM core enables the clock and increments the
+enable count to 2. This will result in the ravb driver failing to talk
+to the hardware since the module clock is off. Work around this by
+forcing the enable count to 0 and then back to 2 when resuming with WoL
+enabled.
 
-I think "queue 1" sounds better than "tc 1".
-"tc" is  already a keyword in a few places (even within that declaration
-above).
+This workaround should be reverted once the renesas-cpg-mssr clock
+driver becomes aware of this PSCI sleep behavior.
 
-cheers,
-jamal
+Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+---
+ drivers/net/ethernet/renesas/ravb_main.c | 27 +++++++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 6d10db1b51468031..fdf30bfa403bf416 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -2270,9 +2270,32 @@ static int __maybe_unused ravb_resume(struct device *dev)
+ 	struct ravb_private *priv = netdev_priv(ndev);
+ 	int ret = 0;
+ 
+-	/* If WoL is enabled set reset mode to rearm the WoL logic */
+-	if (priv->wol_enabled)
++	if (priv->wol_enabled) {
++		/* Reduce the usecount of the clock to zero and then
++		 * restore it to its original value. This is done to force
++		 * the clock to be re-enabled which is a workaround
++		 * for renesas-cpg-mssr driver which do not enable clocks
++		 * when resuming from PSCI suspend/resume.
++		 *
++		 * Without this workaround the driver fails to communicate
++		 * with the hardware if WoL was enabled when the system
++		 * entered PSCI suspend. This is due to that if WoL is enabled
++		 * we explicitly keep the clock from being turned off when
++		 * suspending, but in PSCI sleep power is cut so the clock
++		 * is disabled anyhow, the clock driver is not aware of this
++		 * so the clock is not turned back on when resuming.
++		 *
++		 * TODO: once the renesas-cpg-mssr suspend/resume is working
++		 *       this clock dance should be removed.
++		 */
++		clk_disable(priv->clk);
++		clk_disable(priv->clk);
++		clk_enable(priv->clk);
++		clk_enable(priv->clk);
++
++		/* Set reset mode to rearm the WoL logic */
+ 		ravb_write(ndev, CCC_OPC_RESET, CCC);
++	}
+ 
+ 	/* All register have been reset to default values.
+ 	 * Restore all registers which where setup at probe time and
+-- 
+2.13.3
