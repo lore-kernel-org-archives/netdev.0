@@ -1,68 +1,47 @@
-From: <stef.ryckmans@kortenberg.be>
-Subject: (unknown)
-Date: Tue, 01 Aug 2017 20:18:56 -0000
-Message-ID: <150161873644.2725.2391476345059601988@isurgut.ru>
-Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_005677859264_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net] tcp: avoid setting cwnd to invalid ssthresh after cwnd reduction states
+Date: Tue,  1 Aug 2017 13:22:32 -0700
+Message-ID: <20170801202232.162176-1-ycheng@google.com>
+Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com,
+        Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 90-151-205-159.pppoe-adsl.isurgut.ru ([90.151.205.159]:36950
-        "HELO isurgut.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1752153AbdHAUTA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 16:19:00 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33516 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752025AbdHAUWm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 16:22:42 -0400
+Received: by mail-pf0-f176.google.com with SMTP id d67so12147105pfc.0
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 13:22:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+If the sender switches the congestion control during ECN-triggered
+cwnd-reduction state (CA_CWR), upon exiting recovery cwnd is set to
+the ssthresh value calculated by the previous congestion control. If
+the previous congestion control is BBR that always keep ssthresh
+to TCP_INIFINITE_SSTHRESH, cwnd ends up being infinite. The safe
+step is to avoid assigning invalid ssthresh value when recovery ends.
+
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_input.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2920e0cb09f8..dad026fcfd09 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2520,8 +2520,8 @@ static inline void tcp_end_cwnd_reduction(struct sock *sk)
+ 		return;
+ 
+ 	/* Reset cwnd to ssthresh in CWR or Recovery (unless it's undone) */
+-	if (inet_csk(sk)->icsk_ca_state == TCP_CA_CWR ||
+-	    (tp->undo_marker && tp->snd_ssthresh < TCP_INFINITE_SSTHRESH)) {
++	if (tp->snd_ssthresh < TCP_INFINITE_SSTHRESH &&
++	    (inet_csk(sk)->icsk_ca_state == TCP_CA_CWR || tp->undo_marker)) {
+ 		tp->snd_cwnd = tp->snd_ssthresh;
+ 		tp->snd_cwnd_stamp = tcp_jiffies32;
+ 	}
+-- 
+2.14.0.rc1.383.gd1ce394fe2-goog
