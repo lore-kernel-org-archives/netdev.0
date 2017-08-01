@@ -1,40 +1,48 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] ipv6: set fc_protocol with 0 when rtm_protocol is RTPROT_REDIRECT
-Date: Tue, 1 Aug 2017 14:50:49 +1200
-Message-ID: <CADvbK_cxHL2XkpAnwo5jsNmHq4K1ou+5oakFkO=Ha8WVu=HBqQ@mail.gmail.com>
-References: <e9342d18b97fc227cacc19db1b43f4c7350eed3f.1501419097.git.lucien.xin@gmail.com>
- <9fcbffcb-4a14-764c-7fe4-2108b8944c17@gmail.com> <CADvbK_ew8tD=sQQkZ03ijGafFQEzR0sf69DZ1_rNkX9E5mFpuw@mail.gmail.com>
- <11af493f-1128-cae6-d1a3-0d3d962da269@gmail.com> <CADvbK_dWwZU1EXf4ehAyV9cWOK-7b4hn=mGrytGTYACrCUUQ6g@mail.gmail.com>
- <b0edcf05-9ce4-94d4-3662-767e6ff86843@gmail.com>
+From: Shaohua Li <shli@kernel.org>
+Subject: Re: [RFC net-next] net ipv6: convert fib6_table rwlock to a percpu
+ lock
+Date: Mon, 31 Jul 2017 19:57:04 -0700
+Message-ID: <20170801025704.fuhxll23d3eenwrz@kernel.org>
+References: <1a5ad2f0585aa66496b27e123d1c38b75552df4c.1501520674.git.shli@fb.com>
+ <20170731161007.61c2d958@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>,
-        =?UTF-8?Q?Mantas_Mikul=C4=97nas?= <grawity@gmail.com>
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, Kernel-team@fb.com,
+        Shaohua Li <shli@fb.com>, Wei Wang <weiwan@google.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:33392 "EHLO
-        mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751799AbdHACuv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 22:50:51 -0400
-Received: by mail-qk0-f175.google.com with SMTP id a77so2141501qkb.0
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 19:50:50 -0700 (PDT)
-In-Reply-To: <b0edcf05-9ce4-94d4-3662-767e6ff86843@gmail.com>
+Received: from mail.kernel.org ([198.145.29.99]:46918 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751809AbdHAC5G (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 31 Jul 2017 22:57:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20170731161007.61c2d958@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 1, 2017 at 2:01 PM, David Ahern <dsahern@gmail.com> wrote:
-> On 7/31/17 7:40 PM, Xin Long wrote:
->> To respect the old code more, setting RTPROT_RA only when
->> it's with the flag (ADDRCONF | DEFAULT | ROUTEINFO),
->> shouldn't it be:
->
-> Look at rtm_fill_info:
->
->         if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ROUTEINFO))
->                         rtm->rtm_protocol = RTPROT_RA;
->
->
-> If either flag is set the protocol should be RTPROT_RA and looking at
-> both places that seems correct to me.
->
-ok, right
+On Mon, Jul 31, 2017 at 04:10:07PM -0700, Stephen Hemminger wrote:
+> On Mon, 31 Jul 2017 10:18:57 -0700
+> Shaohua Li <shli@kernel.org> wrote:
+> 
+> > From: Shaohua Li <shli@fb.com>
+> > 
+> > In a syn flooding test, the fib6_table rwlock is a significant
+> > bottleneck. While converting the rwlock to rcu sounds straighforward,
+> > but is very challenging if it's possible. A percpu spinlock is quite
+> > trival for this problem since updating the routing table is a rare
+> > event. In my test, the server receives around 1.5 Mpps in syn flooding
+> > test without the patch in a dual sockets and 56-CPU system. With the
+> > patch, the server receives around 3.8Mpps, and perf report doesn't show
+> > the locking issue.
+> > 
+> > Cc: Wei Wang <weiwan@google.com>
+> 
+> You just reinvented brlock...
+
+you mean lglock? It has been removed from kernel.
+ 
+> RCU is not that hard, why not do it right?
+
+Maybe. But don't think it's the reason why we shouldn't do the percpu lock now,
+this is a simple change, if some smart guys find a way of RCU, we can easily
+remove this.
