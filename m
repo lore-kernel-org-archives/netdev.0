@@ -1,60 +1,43 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v12 0/4] net sched actions: improve dump
- performance
-Date: Tue, 1 Aug 2017 07:05:36 -0400
-Message-ID: <f1a1d2ee-fbd6-5b2b-8bf1-b39638483db1@mojatatu.com>
-References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
- <20170730.192836.370680005861016480.davem@davemloft.net>
- <466dd890-ffae-4cdb-dc97-d173bd390148@mojatatu.com>
- <20170731205419.6710fe11@xeon-e3>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] ss: Enclose IPv6 address in brackets
+Date: Tue, 1 Aug 2017 11:11:03 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00480ED@AcuExch.aculab.com>
+References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        jiri@resnulli.us, xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-        horms@verge.net.au, dsahern@gmail.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: 'Florian Lehner' <dev@der-flo.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36828 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751217AbdHALFi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 07:05:38 -0400
-Received: by mail-io0-f196.google.com with SMTP id j32so1279378iod.3
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 04:05:38 -0700 (PDT)
-In-Reply-To: <20170731205419.6710fe11@xeon-e3>
-Content-Language: en-GB
+Received: from smtp-out4.electric.net ([192.162.216.191]:59419 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751101AbdHALLJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 07:11:09 -0400
+In-Reply-To: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-07-31 11:54 PM, Stephen Hemminger wrote:
-> On Mon, 31 Jul 2017 08:06:42 -0400
-> Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> 
-
-[..]
-> Please cleanup and resubmit for net-next.
->
-
-Will do.
-
-> The header files have been updated in iproute2 net-next branch.
-> 
-
-When does net-next show up? I noticed some changes - example Jiri's
-multi-table changes are not in the tree (I believe they were submitted
-as part of net-next).
-
-> It is not clear to me that the new code is backward compatiable
-> Will new versions of tc work on old kernels and vice/versa?
-> 
-
-AFAIK and tested it is.
-
-> 
-> Also, no #ifdef's
-
-Those will go away. The intention was to test things which will be
-rejected (in case some other app in the future uses this feature).
-
-cheers,
-jamal
+RnJvbTogRmxvcmlhbiBMZWhuZXINCj4gU2VudDogMjkgSnVseSAyMDE3IDEzOjI5DQo+IFRoaXMg
+cGF0Y2ggYWRkcyBzdXBwb3J0IGZvciBSRkMyNzMyIElQdjYgYWRkcmVzcyBmb3JtYXQgd2l0aCBi
+cmFja2V0cw0KPiBmb3IgdGhlIHRvb2wgc3MuIFNvIG91dHB1dCBmb3Igc3MgY2hhbmdlcyBmcm9t
+DQo+IDJhMDA6MTQ1MDo0MDBhOjgwNDo6MjAwZTo0NDMgdG8gWzJhMDA6MTQ1MDo0MDBhOjgwNDo6
+MjAwZV06NDQzIGZvciBJUHY2DQo+IGFkZHJlc3NlcyB3aXRoIGF0dGFjaGVkIHBvcnQgbnVtYmVy
+Lg0KPiANCj4gU2lnbmVkLW9mZi1ieTogTGVobmVyIEZsb3JpYW4gPGRldkBkZXItZmxvLm5ldD4N
+Cj4gLS0tDQo+ICBtaXNjL3NzLmMgfCA2ICsrKysrLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDUgaW5z
+ZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL21pc2Mvc3MuYyBi
+L21pc2Mvc3MuYw0KPiBpbmRleCAxMjc2M2M5Li5kYjM5YzkzIDEwMDY0NA0KPiAtLS0gYS9taXNj
+L3NzLmMNCj4gKysrIGIvbWlzYy9zcy5jDQo+IEBAIC0xMDU5LDcgKzEwNTksMTEgQEAgc3RhdGlj
+IHZvaWQgaW5ldF9hZGRyX3ByaW50KGNvbnN0IGluZXRfcHJlZml4ICphLA0KPiBpbnQgcG9ydCwg
+dW5zaWduZWQgaW50IGlmaW5kZXgNCj4gIAkJCWFwID0gZm9ybWF0X2hvc3QoQUZfSU5FVCwgNCwg
+YS0+ZGF0YSk7DQo+ICAJCX0NCj4gIAl9IGVsc2Ugew0KPiAtCQlhcCA9IGZvcm1hdF9ob3N0KGEt
+PmZhbWlseSwgMTYsIGEtPmRhdGEpOw0KPiArCQlpZiAoYS0+ZmFtaWx5ID09IEFGX0lORVQ2KSB7
+DQo+ICsJCQlzcHJpbnRmKGJ1ZiwgIlslc10iLCBmb3JtYXRfaG9zdChhLT5mYW1pbHksIDE2LCBh
+LT5kYXRhKSk7DQo+ICsJCX0gZWxzZSB7DQo+ICsJCQlhcCA9IGZvcm1hdF9ob3N0KGEtPmZhbWls
+eSwgMTYsIGEtPmRhdGEpOw0KPiArCQl9DQo+ICAJCWVzdF9sZW4gPSBzdHJsZW4oYXApOw0KLi4u
+DQoNClRoZXJlIGFyZSBzb21lIHN0cmFuZ2UgdGhpbmdzIGdvaW5nIG9uIHdpdGggZ2xvYmFsIHZh
+cmlhYmxlcyBpZiB0aGlzIHdvcmtzIGF0IGFsbC4NClRoZSB0ZXh0IGZvcm0gb2YgdGhlIGFkZHJl
+c3MgaXMgaW4gYnVmW10gaW4gb25lIHBhdGggYW5kICphcCBpbiB0aGUgb3RoZXIuDQoNCk9uZSBv
+cHRpb24gbWlnaHQgYmUgdG8gY2FsbCBmb3JtYXRfaG9zdCgpIHRoZW4gdXNlIHN0cmNocihhcCwg
+JzonKQ0KdG8gYWRkIFtdIGlmIHRoZSBzdHJpbmcgY29udGFpbnMgYW55ICc6Jy4NCg0KCURhdmlk
+DQoNCg==
