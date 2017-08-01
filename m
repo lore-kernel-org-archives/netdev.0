@@ -1,42 +1,33 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data ACKed/SACKed
-Date: Tue, 1 Aug 2017 10:24:30 -0400
-Message-ID: <CADVnQy=x1tAmaHEGbshKiyJWQufgX=uaQXif_r7aiLm3j8y4SA@mail.gmail.com>
-References: <20170801025814.31206-1-ncardwell@google.com> <20170801025814.31206-4-ncardwell@google.com>
- <F95AC9340317A84688A5F0DF0246F3F202933A7F@DGGEMI512-MBX.china.huawei.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 10/11] net: dsa: mv88e6xxx: remove EEE support
+Date: Tue, 1 Aug 2017 16:28:43 +0200
+Message-ID: <20170801142843.GE23157@lunn.ch>
+References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
+ <20170731221719.16695-11-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>
-To: maowenan <maowenan@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:36358 "EHLO
-        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751295AbdHAOZC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 10:25:02 -0400
-Received: by mail-oi0-f48.google.com with SMTP id g131so16469717oic.3
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 07:25:02 -0700 (PDT)
-In-Reply-To: <F95AC9340317A84688A5F0DF0246F3F202933A7F@DGGEMI512-MBX.china.huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170731221719.16695-11-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 1, 2017 at 8:20 AM, maowenan <maowenan@huawei.com> wrote:
-> > +     /* If needed, reset TLP/RTO timer; RACK may later override this. */
-> [Mao Wenan] I have question about RACK, if there is no RACK feature
-> in lower version, who can clear this flag:FLAG_SET_XMIT_TIMER?
+On Mon, Jul 31, 2017 at 06:17:18PM -0400, Vivien Didelot wrote:
+> The PHY's EEE settings are already accessed by the DSA layer through the
+> Marvell PHY driver and there is nothing to be done for switch's MACs.
 
-In the comment, "this" is referring to the xmit timer. The comment is
-referring to the fact that RACK (or similarly
-tcp_pause_early_retransmit() in earlier kernels) can override the
-value of the xmit timer set in tcp_set_xmit_timer(). The comment is
-not claiming that RACK clears the FLAG_SET_XMIT_TIMER bit in "flag".
+I'm confused, or missing something. Does not patch #1 mean that if the
+DSA driver does not have a set_eee function, we always return -ENODEV
+in slave.c?
 
-Note that "flag" is an argument to tcp_ack(). And while processing a
-given incoming ACK, the callers of tcp_ack() pass in either 0 or one
-or more constant bit flags. So FLAG_SET_XMIT_TIMER and all the other
-bit flags are implicitly set to zero at the beginning of processing
-each ACK.
+There might be nothing to configure here, but some of the switches do
+support EEE. So we need at least a NOP set_eee. Better still it should
+return -ENODEV for those switches which don't actually support EEE,
+and 0 for those that do?
 
-neal
+    Andrew
