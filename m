@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 01/11] net: dsa: PHY device is mandatory for EEE
-Date: Tue,  1 Aug 2017 16:32:31 -0400
-Message-ID: <20170801203241.22294-2-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 07/11] net: dsa: mv88e6xxx: call phy_init_eee
+Date: Tue,  1 Aug 2017 16:32:37 -0400
+Message-ID: <20170801203241.22294-8-vivien.didelot@savoirfairelinux.com>
 References: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,64 +14,30 @@ In-Reply-To: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The port's PHY and MAC are both implied in EEE. The current code does
-not call the PHY operations if the related device is NULL. Change that
-by returning -ENODEV if there's no PHY device attached to the interface.
+It is safer to init the EEE before the DSA layer call
+phy_ethtool_set_eee, as sf2 and qca8k are doing.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/slave.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 9507bd38cf04..7df55d597740 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -648,6 +648,10 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
- 	struct dsa_switch *ds = p->dp->ds;
- 	int ret;
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 647d5d45c1d6..b531d4a3bab5 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -855,6 +855,12 @@ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+ 	int err;
  
-+	/* Port's PHY and MAC both need to be EEE capable */
-+	if (!p->phy)
-+		return -ENODEV;
++	if (e->eee_enabled) {
++		err = phy_init_eee(phydev, 0);
++		if (err)
++			return err;
++	}
 +
- 	if (!ds->ops->set_eee)
- 		return -EOPNOTSUPP;
- 
-@@ -655,10 +659,7 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
- 	if (ret)
- 		return ret;
- 
--	if (p->phy)
--		ret = phy_ethtool_set_eee(p->phy, e);
--
--	return ret;
-+	return phy_ethtool_set_eee(p->phy, e);
- }
- 
- static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
-@@ -667,6 +668,10 @@ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
- 	struct dsa_switch *ds = p->dp->ds;
- 	int ret;
- 
-+	/* Port's PHY and MAC both need to be EEE capable */
-+	if (!p->phy)
-+		return -ENODEV;
-+
- 	if (!ds->ops->get_eee)
- 		return -EOPNOTSUPP;
- 
-@@ -674,10 +679,7 @@ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
- 	if (ret)
- 		return ret;
- 
--	if (p->phy)
--		ret = phy_ethtool_get_eee(p->phy, e);
--
--	return ret;
-+	return phy_ethtool_get_eee(p->phy, e);
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	mutex_lock(&chip->reg_lock);
+ 	err = mv88e6xxx_energy_detect_write(chip, port, e);
+ 	mutex_unlock(&chip->reg_lock);
 -- 
 2.13.3
