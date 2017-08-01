@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 07/11] net: dsa: mv88e6xxx: call phy_init_eee
-Date: Tue,  1 Aug 2017 16:32:37 -0400
-Message-ID: <20170801203241.22294-8-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 05/11] net: dsa: qca8k: empty qca8k_get_eee
+Date: Tue,  1 Aug 2017 16:32:35 -0400
+Message-ID: <20170801203241.22294-6-vivien.didelot@savoirfairelinux.com>
 References: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,30 +14,36 @@ In-Reply-To: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It is safer to init the EEE before the DSA layer call
-phy_ethtool_set_eee, as sf2 and qca8k are doing.
+phy_ethtool_get_eee is already called by the DSA layer, thus remove the
+duplicated call in the qca8k driver.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/dsa/qca8k.c | 12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 647d5d45c1d6..b531d4a3bab5 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -855,6 +855,12 @@ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
- 	struct mv88e6xxx_chip *chip = ds->priv;
- 	int err;
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index c316c55aabc6..8cd4634c6985 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -695,16 +695,8 @@ static int
+ qca8k_get_eee(struct dsa_switch *ds, int port,
+ 	      struct ethtool_eee *e)
+ {
+-	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
+-	struct ethtool_eee *p = &priv->port_sts[port].eee;
+-	struct net_device *netdev = ds->ports[port].netdev;
+-	int ret;
+-
+-	ret = phy_ethtool_get_eee(netdev->phydev, p);
+-	e->eee_active = p->eee_active;
+-	e->eee_enabled = p->eee_enabled;
+-
+-	return ret;
++	/* Nothing to do on the port's MAC */
++	return 0;
+ }
  
-+	if (e->eee_enabled) {
-+		err = phy_init_eee(phydev, 0);
-+		if (err)
-+			return err;
-+	}
-+
- 	mutex_lock(&chip->reg_lock);
- 	err = mv88e6xxx_energy_detect_write(chip, port, e);
- 	mutex_unlock(&chip->reg_lock);
+ static void
 -- 
 2.13.3
