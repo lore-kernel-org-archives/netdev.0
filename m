@@ -1,62 +1,121 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 00/11] net: dsa: rework EEE support
-Date: Tue,  1 Aug 2017 16:32:30 -0400
-Message-ID: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 09/11] net: dsa: remove PHY device argument from .set_eee
+Date: Tue,  1 Aug 2017 16:32:39 -0400
+Message-ID: <20170801203241.22294-10-vivien.didelot@savoirfairelinux.com>
+References: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>, John Crispin <john@phrozen.org>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:44764 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752478AbdHAUgr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 16:36:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-EEE implies configuring the port's PHY and MAC of both ends of the wire.
+The DSA switch operations for EEE are only meant to configure a port's
+MAC EEE settings. The port's PHY EEE settings are accessed by the DSA
+layer and must be made available via a proper PHY driver.
 
-The current EEE support in DSA mixes PHY and MAC configuration, which is
-bad because PHYs must be configured through a proper PHY driver. The DSA
-switch operations for EEE are only meant for configuring the port's MAC,
-which are integrated in the Ethernet switch device.
+In order to reduce this confusion, remove the phy_device argument from
+the .set_eee operation.
 
-This patchset fixes the EEE support in qca8k driver, makes the DSA layer
-call phy_init_eee for all drivers, and remove the EEE support from the
-mv88e6xxx driver since the Marvell PHY driver should be enough for it.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/bcm_sf2.c        |  1 -
+ drivers/net/dsa/mv88e6xxx/chip.c |  2 +-
+ drivers/net/dsa/qca8k.c          | 14 +++-----------
+ include/net/dsa.h                |  1 -
+ net/dsa/slave.c                  |  2 +-
+ 5 files changed, 5 insertions(+), 15 deletions(-)
 
-Changes in v2:
- - make PHY device and DSA EEE ops mandatory for slave EEE operations.
- - simply return 0 in drivers which don't need to do anything to
-   configure the port' MAC. Subsequent PHY calls will be enough.
-
-Vivien Didelot (11):
-  net: dsa: PHY device is mandatory for EEE
-  net: dsa: qca8k: fix EEE init
-  net: dsa: qca8k: enable EEE once
-  net: dsa: qca8k: do not cache unneeded EEE fields
-  net: dsa: qca8k: empty qca8k_get_eee
-  net: dsa: bcm_sf2: remove unneeded supported flags
-  net: dsa: mv88e6xxx: call phy_init_eee
-  net: dsa: call phy_init_eee in DSA layer
-  net: dsa: remove PHY device argument from .set_eee
-  net: dsa: mv88e6xxx: remove EEE support
-  net: dsa: rename switch EEE ops
-
- drivers/net/dsa/bcm_sf2.c        | 26 +++--------
- drivers/net/dsa/mv88e6xxx/chip.c | 86 +++++------------------------------
- drivers/net/dsa/mv88e6xxx/chip.h |  6 ---
- drivers/net/dsa/mv88e6xxx/phy.c  | 96 ----------------------------------------
- drivers/net/dsa/mv88e6xxx/phy.h  | 22 ---------
- drivers/net/dsa/mv88e6xxx/port.c | 17 -------
- drivers/net/dsa/mv88e6xxx/port.h |  3 --
- drivers/net/dsa/qca8k.c          | 68 ++++------------------------
- drivers/net/dsa/qca8k.h          |  1 -
- include/net/dsa.h                | 11 +++--
- net/dsa/slave.c                  | 30 ++++++++-----
- 11 files changed, 49 insertions(+), 317 deletions(-)
-
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 9d10aac8f241..ce886345d8d2 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -353,7 +353,6 @@ static int bcm_sf2_sw_get_eee(struct dsa_switch *ds, int port,
+ }
+ 
+ static int bcm_sf2_sw_set_eee(struct dsa_switch *ds, int port,
+-			      struct phy_device *phydev,
+ 			      struct ethtool_eee *e)
+ {
+ 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 647d5d45c1d6..aaa96487f21f 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -850,7 +850,7 @@ static int mv88e6xxx_get_eee(struct dsa_switch *ds, int port,
+ }
+ 
+ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
+-			     struct phy_device *phydev, struct ethtool_eee *e)
++			     struct ethtool_eee *e)
+ {
+ 	struct mv88e6xxx_chip *chip = ds->priv;
+ 	int err;
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index bfe0172ae6cc..e209e229ed4c 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -637,8 +637,8 @@ qca8k_get_sset_count(struct dsa_switch *ds)
+ 	return ARRAY_SIZE(ar8327_mib);
+ }
+ 
+-static void
+-qca8k_eee_enable_set(struct dsa_switch *ds, int port, bool enable)
++static int
++qca8k_set_eee(struct dsa_switch *ds, int port, struct ethtool_eee *eee)
+ {
+ 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
+ 	u32 lpi_en = QCA8K_REG_EEE_CTRL_LPI_EN(port);
+@@ -646,20 +646,12 @@ qca8k_eee_enable_set(struct dsa_switch *ds, int port, bool enable)
+ 
+ 	mutex_lock(&priv->reg_mutex);
+ 	reg = qca8k_read(priv, QCA8K_REG_EEE_CTRL);
+-	if (enable)
++	if (eee->eee_enabled)
+ 		reg |= lpi_en;
+ 	else
+ 		reg &= ~lpi_en;
+ 	qca8k_write(priv, QCA8K_REG_EEE_CTRL, reg);
+ 	mutex_unlock(&priv->reg_mutex);
+-}
+-
+-static int
+-qca8k_set_eee(struct dsa_switch *ds, int port,
+-	      struct phy_device *phydev,
+-	      struct ethtool_eee *e)
+-{
+-	qca8k_eee_enable_set(ds, port, e->eee_enabled);
+ 
+ 	return 0;
+ }
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 88da272d20d0..ce46db323394 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -335,7 +335,6 @@ struct dsa_switch_ops {
+ 	 * EEE setttings
+ 	 */
+ 	int	(*set_eee)(struct dsa_switch *ds, int port,
+-			   struct phy_device *phydev,
+ 			   struct ethtool_eee *e);
+ 	int	(*get_eee)(struct dsa_switch *ds, int port,
+ 			   struct ethtool_eee *e);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index ad5caaf384d7..9ddc584e70b0 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -655,7 +655,7 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	if (!ds->ops->set_eee)
+ 		return -EOPNOTSUPP;
+ 
+-	ret = ds->ops->set_eee(ds, p->dp->index, p->phy, e);
++	ret = ds->ops->set_eee(ds, p->dp->index, e);
+ 	if (ret)
+ 		return ret;
+ 
 -- 
 2.13.3
