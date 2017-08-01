@@ -1,48 +1,38 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH net] mcs7780: Silence uninitialized variable warning
-Date: Tue, 1 Aug 2017 13:45:17 +0300
-Message-ID: <20170801104516.7n2uwq5wv64qaq4d@mwanda>
-References: <20170728144511.tf7nc672hwo35rnn@mwanda>
- <20170729.232855.1831311386560187695.davem@davemloft.net>
- <20170731070925.ztlfbyd7pvoz46wh@mwanda>
- <20170731.103716.2203333144439591434.davem@davemloft.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 3/6] [net-next]net: i40e: Extend set switch config command
+ to accept cloud filter mode
+Date: Tue, 1 Aug 2017 06:48:26 -0400
+Message-ID: <5dd27049-2283-4563-1d83-1c42fdd2f5e9@mojatatu.com>
+References: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
+ <150154786980.4135.7459136530514071209.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170731.103716.2203333144439591434.davem@davemloft.net>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
+        netdev@vger.kernel.org, mitch.a.williams@intel.com,
+        alexander.duyck@gmail.com, neerav.parikh@intel.com,
+        sridhar.samudrala@intel.com, carolyn.wyborny@intel.com
+To: Amritha Nambiar <amritha.nambiar@intel.com>,
+        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:34204 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751623AbdHAKsd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 06:48:33 -0400
+Received: by mail-it0-f67.google.com with SMTP id t78so1325735ita.1
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 03:48:33 -0700 (PDT)
+In-Reply-To: <150154786980.4135.7459136530514071209.stgit@anamdev.jf.intel.com>
+Content-Language: en-GB
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 31, 2017 at 10:37:16AM -0700, David Miller wrote:
-> From: Dan Carpenter <dan.carpenter@oracle.com>
-> Date: Mon, 31 Jul 2017 10:41:40 +0300
+On 17-07-31 08:37 PM, Amritha Nambiar wrote:
+> Add definitions for L4 filters and switch modes based on cloud filters
+> modes and extend the set switch config command to include the
+> additional cloud filter mode.
 > 
-> > On Sat, Jul 29, 2017 at 11:28:55PM -0700, David Miller wrote:
-> >> From: Dan Carpenter <dan.carpenter@oracle.com>
-> >> Date: Fri, 28 Jul 2017 17:45:11 +0300
-> >> 
-> >> > -	__u16 rval;
-> >> > +	__u16 rval = -1;
-> >> 
-> >> Fixing a bogus warning by assigning a signed constant to an
-> >> unsigned variable doesn't really make me all that happy.
-> >> 
-> >> I don't think I'll apply this, sorry.
-> > 
-> > There's no guarantee that small kmallocs will always succeed in future
-> > kernels so it's not *totally* bogus.
-> 
-> Perhaps the burdon of initializing the value belongs in
-> mcs_get_reg(), and you can set it properly to 0xffff
-> instead of -1.
-> 
-> Ok?
 
-Sure.  I will resend.
+"Cloud filters"? Seriously? Is "enteprise" the next one? ;->
 
-thanks,
-dan carpenter
+cheers,
+jamal
