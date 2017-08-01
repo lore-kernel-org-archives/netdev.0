@@ -1,65 +1,60 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 6/6] [net-next]net: i40e: Enable cloud filters in i40e via
- tc/flower classifier
-Date: Tue, 1 Aug 2017 06:56:41 -0400
-Message-ID: <f93480af-9ae0-2e02-7b11-78f8ab53899c@mojatatu.com>
-References: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
- <150154788503.4135.7051219373661945937.stgit@anamdev.jf.intel.com>
+Subject: Re: [PATCH net-next v12 0/4] net sched actions: improve dump
+ performance
+Date: Tue, 1 Aug 2017 07:05:36 -0400
+Message-ID: <f1a1d2ee-fbd6-5b2b-8bf1-b39638483db1@mojatatu.com>
+References: <1501435492-28301-1-git-send-email-jhs@emojatatu.com>
+ <20170730.192836.370680005861016480.davem@davemloft.net>
+ <466dd890-ffae-4cdb-dc97-d173bd390148@mojatatu.com>
+ <20170731205419.6710fe11@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
-        netdev@vger.kernel.org, mitch.a.williams@intel.com,
-        alexander.duyck@gmail.com, neerav.parikh@intel.com,
-        sridhar.samudrala@intel.com, carolyn.wyborny@intel.com,
-        Or Gerlitz <gerlitz.or@gmail.com>
-To: Amritha Nambiar <amritha.nambiar@intel.com>,
-        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        jiri@resnulli.us, xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        horms@verge.net.au, dsahern@gmail.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:38789 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751727AbdHAK4n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 06:56:43 -0400
-Received: by mail-it0-f68.google.com with SMTP id h199so1325563ith.5
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 03:56:43 -0700 (PDT)
-In-Reply-To: <150154788503.4135.7051219373661945937.stgit@anamdev.jf.intel.com>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:36828 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751217AbdHALFi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 07:05:38 -0400
+Received: by mail-io0-f196.google.com with SMTP id j32so1279378iod.3
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 04:05:38 -0700 (PDT)
+In-Reply-To: <20170731205419.6710fe11@xeon-e3>
 Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-07-31 08:38 PM, Amritha Nambiar wrote:
-> This patch enables tc-flower based hardware offloads. tc/flower
-> filter provided by the kernel is configured as driver specific
-> cloud filter. The patch implements functions and admin queue
-> commands needed to support cloud filters in the driver and
-> adds cloud filters to configure these tc-flower filters.
-> 
-> The only action supported is to redirect packets to a traffic class
-> on the same device.
-> 
-> # tc qdisc add dev eth0 ingress
-> # ethtool -K eth0 hw-tc-offload on
-> 
-> # tc filter add dev eth0 protocol ip parent ffff:\
->    prio 1 flower dst_mac 3c:fd:fe:a0:d6:70 skip_sw indev eth0\
->    action mirred ingress redirect dev eth0 tc 0
+On 17-07-31 11:54 PM, Stephen Hemminger wrote:
+> On Mon, 31 Jul 2017 08:06:42 -0400
+> Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 > 
 
-Out of curiosity - did you need to say "indev eth0" there?
-Also: Is it possible to add an skbmark? Example something like
-these that directs two flows to the same queue but different
-skb marks:
+[..]
+> Please cleanup and resubmit for net-next.
+>
 
-# tc filter add dev eth0 protocol ip parent ffff: \
-   prio 2 flower dst_ip 192.168.3.5/32 \
-   ip_proto udp dst_port 2a skip_sw \
-   action skbedit mark 11 \
-   action mirred ingress redirect dev eth0 tcqueue 1
+Will do.
 
-# tc filter add dev eth0 protocol ip parent ffff: \
-     prio 1 flower dst_mac 3c:fd:fe:a0:d6:70 skip_sw \
-     action skbedit mark 12 \
-     action mirred ingress redirect dev eth0 tcqueue 1
+> The header files have been updated in iproute2 net-next branch.
+> 
+
+When does net-next show up? I noticed some changes - example Jiri's
+multi-table changes are not in the tree (I believe they were submitted
+as part of net-next).
+
+> It is not clear to me that the new code is backward compatiable
+> Will new versions of tc work on old kernels and vice/versa?
+> 
+
+AFAIK and tested it is.
+
+> 
+> Also, no #ifdef's
+
+Those will go away. The intention was to test things which will be
+rejected (in case some other app in the future uses this feature).
 
 cheers,
 jamal
