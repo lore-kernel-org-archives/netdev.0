@@ -1,46 +1,46 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH v2 net-next 2/3] net: dsa: lan9303: define
- LAN9303_NUM_PORTS 3
-Date: Tue, 1 Aug 2017 14:31:44 +0200
-Message-ID: <10b6b9fc-d2f9-1761-802f-724d9f6b3df1@egil-hjelmeland.no>
-References: <20170801111439.1143-1-privat@egil-hjelmeland.no>
- <20170801111439.1143-3-privat@egil-hjelmeland.no>
- <201708011349.52529.jbe@pengutronix.de>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3 1/2] ravb: add wake-on-lan support via magic packet
+Date: Tue, 1 Aug 2017 16:25:15 +0300
+Message-ID: <847f5ce9-c5c5-956b-5c8f-a0a03bece3bc@cogentembedded.com>
+References: <20170801101437.9020-1-niklas.soderlund+renesas@ragnatech.se>
+ <20170801101437.9020-2-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Juergen Borleis <jbe@pengutronix.de>, kernel@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201708011349.52529.jbe@pengutronix.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170801101437.9020-2-niklas.soderlund+renesas@ragnatech.se>
+Content-Language: en-MW
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01. aug. 2017 13:49, Juergen Borleis wrote:
-> Hi Egil,
-> 
-> On Tuesday 01 August 2017 13:14:38 Egil Hjelmeland wrote:
->> Will be used instead of '3' in upcomming patches.
->>
->>
->> +#define LAN9303_NUM_PORTS 3
->> +
-> 
-> Maybe we should put this macro into a shared location because
-> in "net/dsa/tag_lan9303.c" there is already a "#define LAN9303_MAX_PORTS
-> 3".
-> 
-> jb
-> 
+Hello!
 
-Is there any suitable shared location for such driver specific
-definitions?
-I could change the name to LAN9303_MAX_PORTS so it the same.
-Rhymes better with DSA_MAX_PORTS too.
+On 08/01/2017 01:14 PM, Niklas Söderlund wrote:
 
-Let's hear what other mean.
+> WoL is enabled in the suspend callback by setting MagicPacket detection
+> and disabling all interrupts expect MagicPacket. In the resume path the
+> driver needs to reset the hardware to rearm the WoL logic, this prevents
+> the driver from simply restoring the registers and to take advantage of
+> that ravb was not suspended to reduce resume time. To reset the
+> hardware the driver closes the device, sets it in reset mode and reopens
+> the device just like it would do in a normal suspend/resume scenario
+> without WoL enabled, but it both closes and opens the device in the
+> resume callback since the device needs to be reset for WoL to work.
+> 
+> One quirk needed for WoL is that the module clock needs to be prevented
+> from being switched off by Runtime PM. To keep the clock alive the
+> suspend callback need to call clk_enable() directly to increase the
+> usage count of the clock. Then when Runtime PM decreases the clock usage
+> count it won't reach 0 and be switched off.
 
-Egil
+> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+
+[...]
+
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+MBR, Sergei
