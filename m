@@ -1,139 +1,189 @@
-From: Shaohua Li <shli@kernel.org>
-Subject: Re: [PATCH V4 net 2/2] net: fix tcp reset packet flowlabel for ipv6
-Date: Tue, 1 Aug 2017 14:42:26 -0700
-Message-ID: <20170801214226.gnuudx3j53s6kw25@kernel.org>
-References: <cover.1501539150.git.shli@fb.com>
- <373e23f5295ee4cb725109a9e58152451a9fb4cc.1501539150.git.shli@fb.com>
- <CAM_iQpXOaP4JmGW4-AcL6JYbzKq_Co_Z4pWiSh1B1i=4MsakEQ@mail.gmail.com>
- <20170731230002.ercfotm7qhfubbbv@kernel.org>
- <CAM_iQpWiw6CJOr2+zvxdoCht1DRERmZfZCCZiE36_6RiumEOVA@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 2/2] net: qcom/emac: add software control for pause frame
+ mode
+Date: Tue, 1 Aug 2017 14:51:45 -0700
+Message-ID: <293ae5e0-c161-0c00-e40c-2583734aa2d4@gmail.com>
+References: <1501623460-3575-1-git-send-email-timur@codeaurora.org>
+ <1501623460-3575-3-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, Shaohua Li <shli@fb.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Florent Fourcot <flo@fourcot.fr>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: Timur Tabi <timur@codeaurora.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:38338 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752012AbdHAVm2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Aug 2017 17:42:28 -0400
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpWiw6CJOr2+zvxdoCht1DRERmZfZCCZiE36_6RiumEOVA@mail.gmail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33102 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752038AbdHAVvu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 17:51:50 -0400
+Received: by mail-wm0-f67.google.com with SMTP id q189so4914522wmd.0
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 14:51:50 -0700 (PDT)
+In-Reply-To: <1501623460-3575-3-git-send-email-timur@codeaurora.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 01, 2017 at 02:17:58PM -0700, Cong Wang wrote:
-> On Mon, Jul 31, 2017 at 4:00 PM, Shaohua Li <shli@kernel.org> wrote:
-> > On Mon, Jul 31, 2017 at 03:35:02PM -0700, Cong Wang wrote:
-> >> On Mon, Jul 31, 2017 at 3:19 PM, Shaohua Li <shli@kernel.org> wrote:
-> >> >  static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
-> >> >                                         __be32 flowlabel, bool autolabel,
-> >> > -                                       struct flowi6 *fl6)
-> >> > +                                       struct flowi6 *fl6, u32 hash)
-> >> >  {
-> >> > -       u32 hash;
-> >> > -
-> >> >         /* @flowlabel may include more than a flow label, eg, the traffic class.
-> >> >          * Here we want only the flow label value.
-> >> >          */
-> >> > @@ -788,7 +786,8 @@ static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
-> >> >              net->ipv6.sysctl.auto_flowlabels != IP6_AUTO_FLOW_LABEL_FORCED))
-> >> >                 return flowlabel;
-> >> >
-> >> > -       hash = skb_get_hash_flowi6(skb, fl6);
-> >> > +       if (skb)
-> >> > +               hash = skb_get_hash_flowi6(skb, fl6);
-> >>
-> >>
-> >> Why not just move skb_get_hash_flowi6() to its caller?
-> >> This check is not necessary. If you don't want to touch
-> >> existing callers, you can just introduce a wrapper:
-> >>
-> >>
-> >> static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
-> >>                                         __be32 flowlabel, bool autolabel,
-> >>                                         struct flowi6 *fl6)
-> >> {
-> >>   u32 hash = skb_get_hash_flowi6(skb, fl6);
-> >>   return __ip6_make_flowlabel(net, flowlabel, autolabel, hash);
-> >> }
-> >
-> > this will always call skb_get_hash_flowi6 for the fast path even auto flowlabel
-> > is disabled. I thought we should avoid this.
+On 08/01/2017 02:37 PM, Timur Tabi wrote:
+> The EMAC has the option of sending only a single pause frame when
+> flow control is enabled and the RX queue is full.  Although sending
+> only one pause frame has little value, this would allow admins to
+> enable automatic flow control without having to worry about the EMAC
+> flooding nearby switches with pause frames if the kernel hangs.
 > 
-> Yeah, but you can move the check out too,
-> something like:
+> The option is enabled by using the single-pause-mode private flag.
 
-Is this really better? I don't see any point. I'd use my original patch other
-than this one. that said, there are just several lines of code, brutally
-'abstract' them into a function doesn't make the code better.
- 
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index 6eac5cf8f1e6..18ffa824c00a 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -771,31 +771,22 @@ static inline void
-> iph_to_flow_copy_v6addrs(struct flow_keys *flow,
+A few adapters (bcmgenet, bcmsysport) support configuring the pause
+quanta so it would not be inconceivable to try to update
+ethtool_pauseparam to include additional fields such as:
+
+- number of pause frames to send where we define an arbitrary high
+default value (e.g: 0xffff), N < 0xffff is something drivers can test
+for whether they support it, and 0 is only valid if pause is already
+disabled
+
+- pause quanta (16-bits)
+
+Private flags are not usually that great and there could be more
+adapters capable of doing the same pause frame number configuration, but
+since there is no available knob it's hard to know.
+
 > 
->  #define IP6_DEFAULT_AUTO_FLOW_LABELS   IP6_AUTO_FLOW_LABEL_OPTOUT
+> Signed-off-by: Timur Tabi <timur@codeaurora.org>
+> ---
+>  drivers/net/ethernet/qualcomm/emac/emac-ethtool.c | 30 +++++++++++++++++++++++
+>  drivers/net/ethernet/qualcomm/emac/emac-mac.c     | 22 +++++++++++++++++
+>  drivers/net/ethernet/qualcomm/emac/emac.c         |  3 +++
+>  drivers/net/ethernet/qualcomm/emac/emac.h         |  3 +++
+>  4 files changed, 58 insertions(+)
 > 
-> -static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
-> -                                       __be32 flowlabel, bool autolabel,
-> -                                       struct flowi6 *fl6)
-> +static inline bool ip6_need_flowlabel(struct net *net, __be32
-> flowlabel, bool autolabel)
+> diff --git a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+> index bbe24639aa5a..c8c6231b87f3 100644
+> --- a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+> +++ b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+> @@ -88,6 +88,8 @@ static void emac_set_msglevel(struct net_device *netdev, u32 data)
+>  static int emac_get_sset_count(struct net_device *netdev, int sset)
 >  {
-> -       u32 hash;
-> -
->         /* @flowlabel may include more than a flow label, eg, the traffic class.
->          * Here we want only the flow label value.
->          */
-> -       flowlabel &= IPV6_FLOWLABEL_MASK;
-> -
-> -       if (flowlabel ||
-> +       if ((flowlabel & IPV6_FLOWLABEL_MASK) ||
->             net->ipv6.sysctl.auto_flowlabels == IP6_AUTO_FLOW_LABEL_OFF ||
->             (!autolabel &&
->              net->ipv6.sysctl.auto_flowlabels != IP6_AUTO_FLOW_LABEL_FORCED))
-> -               return flowlabel;
-> -
-> -       hash = skb_get_hash_flowi6(skb, fl6);
-> +               return false;
-> 
-> -       /* Since this is being sent on the wire obfuscate hash a bit
-> -        * to minimize possbility that any useful information to an
-> -        * attacker is leaked. Only lower 20 bits are relevant.
-> -        */
-> -       rol32(hash, 16);
-> +       return true;
-> +}
-> 
-> +static inline __be32 __ip6_make_flowlabel(struct net *net, __be32
-> flowlabel, u32 hash)
-> +{
->         flowlabel = (__force __be32)hash & IPV6_FLOWLABEL_MASK;
-> 
->         if (net->ipv6.sysctl.flowlabel_state_ranges)
-> @@ -804,6 +795,19 @@ static inline __be32 ip6_make_flowlabel(struct
-> net *net, struct sk_buff *skb,
->         return flowlabel;
+>  	switch (sset) {
+> +	case ETH_SS_PRIV_FLAGS:
+> +		return 1;
+>  	case ETH_SS_STATS:
+>  		return EMAC_STATS_LEN;
+>  	default:
+> @@ -100,6 +102,10 @@ static void emac_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+>  	unsigned int i;
+>  
+>  	switch (stringset) {
+> +	case ETH_SS_PRIV_FLAGS:
+> +		strcpy(data, "single-pause-mode");
+> +		break;
+> +
+>  	case ETH_SS_STATS:
+>  		for (i = 0; i < EMAC_STATS_LEN; i++) {
+>  			strlcpy(data, emac_ethtool_stat_strings[i],
+> @@ -230,6 +236,27 @@ static int emac_get_regs_len(struct net_device *netdev)
+>  	return EMAC_MAX_REG_SIZE * sizeof(u32);
 >  }
-> 
-> +static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
-> +                                       __be32 flowlabel, bool autolabel,
-> +                                       struct flowi6 *fl6)
+>  
+> +#define EMAC_PRIV_ENABLE_SINGLE_PAUSE	BIT(0)
+> +
+> +static int emac_set_priv_flags(struct net_device *netdev, u32 flags)
 > +{
-> +       u32 hash;
+> +	struct emac_adapter *adpt = netdev_priv(netdev);
 > +
-> +       if (!ip6_need_flowlabel(net, flowlabel, autolabel))
-> +               return flowlabel & IPV6_FLOWLABEL_MASK;
+> +	adpt->single_pause_mode = !!(flags & EMAC_PRIV_ENABLE_SINGLE_PAUSE);
 > +
-> +       hash = skb_get_hash_flowi6(skb, fl6);
-> +       return __ip6_make_flowlabel(net, flowlabel, hash);
+> +	if (netif_running(netdev))
+> +		return emac_reinit_locked(adpt);
+> +
+> +	return 0;
 > +}
 > +
->  static inline int ip6_default_np_autolabel(struct net *net)
->  {
->         switch (net->ipv6.sysctl.auto_flowlabels) {
+> +static u32 emac_get_priv_flags(struct net_device *netdev)
+> +{
+> +	struct emac_adapter *adpt = netdev_priv(netdev);
+> +
+> +	return adpt->single_pause_mode ? EMAC_PRIV_ENABLE_SINGLE_PAUSE : 0;
+> +}
+> +
+>  static const struct ethtool_ops emac_ethtool_ops = {
+>  	.get_link_ksettings = phy_ethtool_get_link_ksettings,
+>  	.set_link_ksettings = phy_ethtool_set_link_ksettings,
+> @@ -253,6 +280,9 @@ static int emac_get_regs_len(struct net_device *netdev)
+>  
+>  	.get_regs_len    = emac_get_regs_len,
+>  	.get_regs        = emac_get_regs,
+> +
+> +	.set_priv_flags = emac_set_priv_flags,
+> +	.get_priv_flags = emac_get_priv_flags,
+>  };
+>  
+>  void emac_set_ethtool_ops(struct net_device *netdev)
+> diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+> index bcd4708b3745..0ea3ca09c689 100644
+> --- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+> +++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+> @@ -551,6 +551,28 @@ static void emac_mac_start(struct emac_adapter *adpt)
+>  	mac &= ~(HUGEN | VLAN_STRIP | TPAUSE | SIMR | HUGE | MULTI_ALL |
+>  		 DEBUG_MODE | SINGLE_PAUSE_MODE);
+>  
+> +	/* Enable single-pause-frame mode if requested.
+> +	 *
+> +	 * If enabled, the EMAC will send a single pause frame when the RX
+> +	 * queue is full.  This normally leads to packet loss because
+> +	 * the pause frame disables the remote MAC only for 33ms (the quanta),
+> +	 * and then the remote MAC continues sending packets even though
+> +	 * the RX queue is still full.
+> +	 *
+> +	 * If disabled, the EMAC sends a pause frame every 31ms until the RX
+> +	 * queue is no longer full.  Normally, this is the preferred
+> +	 * method of operation.  However, when the system is hung (e.g.
+> +	 * cores are halted), the EMAC interrupt handler is never called
+> +	 * and so the RX queue fills up quickly and stays full.  The resuling
+> +	 * non-stop "flood" of pause frames sometimes has the effect of
+> +	 * disabling nearby switches.  In some cases, other nearby switches
+> +	 * are also affected, shutting down the entire network.
+
+This explanation would have more value in your previous commit message,
+especially since you are targeting it as a bugfix.
+
+> +	 *
+> +	 * The user can enable or disable single-pause-frame mode
+> +	 * via ethtool.
+> +	 */
+> +	mac |= adpt->single_pause_mode ? SINGLE_PAUSE_MODE : 0;
+> +
+>  	writel_relaxed(csr1, adpt->csr + EMAC_EMAC_WRAPPER_CSR1);
+>  
+>  	writel_relaxed(mac, adpt->base + EMAC_MAC_CTRL);
+> diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
+> index 475c0ea29235..6f5e858ffbf3 100644
+> --- a/drivers/net/ethernet/qualcomm/emac/emac.c
+> +++ b/drivers/net/ethernet/qualcomm/emac/emac.c
+> @@ -448,6 +448,9 @@ static void emac_init_adapter(struct emac_adapter *adpt)
+>  	adpt->automatic = false;
+>  	adpt->tx_flow_control = false;
+>  	adpt->rx_flow_control = true;
+> +
+> +	/* Disable single-pause-frame mode by default */
+> +	adpt->single_pause_mode = false;
+>  }
+>  
+>  /* Get the clock */
+> diff --git a/drivers/net/ethernet/qualcomm/emac/emac.h b/drivers/net/ethernet/qualcomm/emac/emac.h
+> index 8ee4ec6aef2e..d7c9f44209d4 100644
+> --- a/drivers/net/ethernet/qualcomm/emac/emac.h
+> +++ b/drivers/net/ethernet/qualcomm/emac/emac.h
+> @@ -363,6 +363,9 @@ struct emac_adapter {
+>  	bool				tx_flow_control;
+>  	bool				rx_flow_control;
+>  
+> +	/* True == use single-pause-frame mode. */
+> +	bool				single_pause_mode;
+> +
+>  	/* Ring parameter */
+>  	u8				tpd_burst;
+>  	u8				rfd_burst;
+> 
+
+
+-- 
+Florian
