@@ -1,41 +1,65 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: bcmgenet: drop COMPILE_TEST dependency
-Date: Tue, 1 Aug 2017 09:32:38 -0700
-Message-ID: <0db350e1-1df5-5a3a-095e-183db15d09a0@gmail.com>
-References: <20170801115121.1246540-1-arnd@arndb.de>
+Subject: Re: [PATCH net-next 10/11] net: dsa: mv88e6xxx: remove EEE support
+Date: Tue, 1 Aug 2017 09:33:52 -0700
+Message-ID: <17c26dee-c285-4dd5-1be0-286c0126d4db@gmail.com>
+References: <20170731221719.16695-1-vivien.didelot@savoirfairelinux.com>
+ <20170731221719.16695-11-vivien.didelot@savoirfairelinux.com>
+ <20170801142843.GE23157@lunn.ch>
+ <87r2wv2tci.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170801160628.GJ23157@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <michael.chan@broadcom.com>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>,
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170801115121.1246540-1-arnd@arndb.de>
+In-Reply-To: <20170801160628.GJ23157@lunn.ch>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/01/2017 04:50 AM, Arnd Bergmann wrote:
-> The last patch added the dependency on 'OF && HAS_IOMEM' but left
-> COMPILE_TEST as an alternative, which kind of defeats the purpose
-> of adding the dependency, we still get randconfig build warnings:
+On 08/01/2017 09:06 AM, Andrew Lunn wrote:
+> On Tue, Aug 01, 2017 at 11:36:13AM -0400, Vivien Didelot wrote:
+>> Hi Andrew,
+>>
+>> Andrew Lunn <andrew@lunn.ch> writes:
+>>
+>>> On Mon, Jul 31, 2017 at 06:17:18PM -0400, Vivien Didelot wrote:
+>>>> The PHY's EEE settings are already accessed by the DSA layer through the
+>>>> Marvell PHY driver and there is nothing to be done for switch's MACs.
+>>>
+>>> I'm confused, or missing something. Does not patch #1 mean that if the
+>>> DSA driver does not have a set_eee function, we always return -ENODEV
+>>> in slave.c?
+>>
+>> If there is a PHY, phy_init_eee (if eee_enabled is true) and
+>> phy_ethtool_set_eee is called. If there is a .set_eee op, it is
+>> called. If both are absent, -ENODEV is returned.
 > 
-> warning: (NET_DSA_BCM_SF2 && BCMGENET) selects MDIO_BCM_UNIMAC which has unmet direct dependencies (NETDEVICES && MDIO_BUS && HAS_IOMEM && OF_MDIO)
-> 
-> For compile-testing purposes, we don't really need this anyway,
-> as CONFIG_OF can be enabled on all architectures, and HAS_IOMEM
-> is present on all architectures we do meaningful compile-testing on
-> (the exception being arch/um).
-> 
-> This makes both OF and HAS_IOMEM hard dependencies.
-> 
-> Fixes: 5af74bb4fcf8 ("net: bcmgenet: Add dependency on HAS_IOMEM && OF")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> O.K, i don't think that is correct. EEE should only be enabled if both
+> the MAC and the PHY supports it. We need some way for the MAC to
+> indicate it does not support EEE.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+If the MAC does not support EEE but the PHY does I think you can still
+allow EEE to be advertised and enabled, you just won't have the MAC be
+able to leverage the power savings that EEE brings. AFAICT this is still
+a valid mode whereby the PHY is put in a lower power mode, just not the
+whole transmit path (MAC + PHY).
 
-Thanks!
+> 
+> If set_eee is optional the meaning of a NULL pointer is that the MAC
+> does support EEE. So for mv88e6060, lan9303, microchip and mt7530
+> which currently don't support EEE, you need to add a set_eee which
+> returns -ENODEV.
+> 
+> Having to implement the op to say you don't implement the feature just
+> seems wrong.
+
+If it is truly optional then we can either request drivers to implement
+it and return something agreed upon, or just not implementing it means
+we might be able to do EEE only at the PHY level.
 -- 
 Florian
