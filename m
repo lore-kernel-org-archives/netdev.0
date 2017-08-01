@@ -1,78 +1,61 @@
-From: Kurt Van Dijck <dev.kurt@vandijck-laurijssen.be>
-Subject: Re: [PATCH v2 2/4] can: fixed-transceiver: Add documentation for CAN
- fixed transceiver bindings
-Date: Tue, 1 Aug 2017 09:12:43 +0200
-Message-ID: <20170801071243.GA21203@airbook.vandijck-laurijssen.be>
-References: <20170728130231.GA10680@airbook.vandijck-laurijssen.be>
- <c7d4c364-1ed9-ca73-2571-d04297ac3788@hartkopp.net>
- <80c167a2-7eb5-8076-04fc-0989981a523d@ti.com>
- <20170728194143.GA10599@airbook.vandijck-laurijssen.be>
- <91879489-87de-21b9-0227-650c0001e6a3@hartkopp.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC net-next] net ipv6: convert fib6_table rwlock to a percpu
+ lock
+Date: Tue, 01 Aug 2017 00:15:03 -0700
+Message-ID: <1501571703.1876.24.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1a5ad2f0585aa66496b27e123d1c38b75552df4c.1501520674.git.shli@fb.com>
+         <20170731161007.61c2d958@xeon-e3>
+         <20170801025704.fuhxll23d3eenwrz@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Franklin S Cooper Jr <fcooper@ti.com>,
-        Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-can@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
-        robh+dt@kernel.org, quentin.schulz@free-electrons.com,
-        sergei.shtylyov@cogentembedded.com
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <91879489-87de-21b9-0227-650c0001e6a3@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, davem@davemloft.net, Kernel-team@fb.com,
+        Shaohua Li <shli@fb.com>, Wei Wang <weiwan@google.com>
+To: Shaohua Li <shli@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35325 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751012AbdHAHPG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 03:15:06 -0400
+Received: by mail-wr0-f193.google.com with SMTP id c24so601268wra.2
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 00:15:06 -0700 (PDT)
+In-Reply-To: <20170801025704.fuhxll23d3eenwrz@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Hi Kurt,
+On Mon, 2017-07-31 at 19:57 -0700, Shaohua Li wrote:
+> On Mon, Jul 31, 2017 at 04:10:07PM -0700, Stephen Hemminger wrote:
+> > On Mon, 31 Jul 2017 10:18:57 -0700
+> > Shaohua Li <shli@kernel.org> wrote:
+> > 
+> > > From: Shaohua Li <shli@fb.com>
+> > > 
+> > > In a syn flooding test, the fib6_table rwlock is a significant
+> > > bottleneck. While converting the rwlock to rcu sounds straighforward,
+> > > but is very challenging if it's possible. A percpu spinlock is quite
+> > > trival for this problem since updating the routing table is a rare
+> > > event. In my test, the server receives around 1.5 Mpps in syn flooding
+> > > test without the patch in a dual sockets and 56-CPU system. With the
+> > > patch, the server receives around 3.8Mpps, and perf report doesn't show
+> > > the locking issue.
+> > > 
+> > > Cc: Wei Wang <weiwan@google.com>
+> > 
+> > You just reinvented brlock...
 > 
-> On 07/28/2017 09:41 PM, Kurt Van Dijck wrote:
+> you mean lglock? It has been removed from kernel.
+>  
+> > RCU is not that hard, why not do it right?
 > 
-> >>The transceiver is an analog device that needs to support faster
-> >>switching frequency (FETs) including minimizing delay to support CAN-FD
-> >>ie higher bitrate. From the transceiver perspective the bits for
-> >>"arbitration" and "data" look exactly the same. Since it can't
-> >>differentiate between the two (at the physical layer) then the actual
-> >>limit isn't specific to which part/type of the CAN message is being
-> >>sent. Rather its just a single overall max bitrate limit.
-> >
-> >I must disagree here.
-> >The transceiver is an analog device that performs 2 functions:
-> >propagate tx bits to CAN wire, and propagate CAN wire state
-> >(dominant/recesive) to rx bits.
-> >
-> >I'll rephrase the above explanation to fit your argument:
-> >During arbitration, both directions are required, and needs to propagate
-> >within 1 bit time. The transceiver doesn't know, it just performs to
-> >best effort.
-> >During data, the round-trip timing requirement of layer2 is relaxed.
-> >The transceiver still doesn't know, it still performs to best effort.
-> >Due to the relaxed round-trip timing requirement, the same transceiver
-> >can suddenly allow higher bitrates. The transceiver didn't change, the
-> >requirement did change.
-> >This is what I meant earlier with "layer2 has been adapted to circumvent
-> >layer1 limitations"
-> >
+> Maybe. But don't think it's the reason why we shouldn't do the percpu lock now,
+> this is a simple change, if some smart guys find a way of RCU, we can easily
+> remove this.
 
-> I talked to our CAN transceiver & CAN physical layer specialist who was
-> involved in the ISO activities too.
-> 
-> We just need ONE value: max-bitrate
-> 
-> The CAN transceiver is qualified to provide this bitrate. That's it.
-> There's nothing special with the arbitration bitrate - we don't even need to
-> outline any CAN FD capability.
-> 
-> The other things like 'loop delay compensation' are done in the CAN
-> controller. The better the transceiver get's the bits 'in shape' the higher
-> it can be qualified. But from the SoC/Controller/Linux view we only need the
-> max-bitrate value to double check with the CAN controllers bitrate
-> configuration request (which was Franklins intention).
+Make sure to test this on a 256 cpu host, dealing with ICMP messages a
+lot.
 
-I bet your physical layer specialist understands the details way better
-than I do :-)
+percpu locks do not scale. This hack was okay last decade, sure, but it
+is no longer a good hack.
 
-1 value it is then.
-
-Kind regards,
-Kurt
-
+I would rather focus on the RCU work, Wei is actively working on it.
