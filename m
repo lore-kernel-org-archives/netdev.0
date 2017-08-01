@@ -1,72 +1,40 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net 1/3] tcp: introduce tcp_rto_delta_us() helper for xmit timer fix
-Date: Mon, 31 Jul 2017 22:58:12 -0400
-Message-ID: <20170801025814.31206-2-ncardwell@google.com>
-References: <20170801025814.31206-1-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>
+Subject: [PATCH net 0/3] tcp: fix xmit timer rearming to avoid stalls
+Date: Mon, 31 Jul 2017 22:58:11 -0400
+Message-ID: <20170801025814.31206-1-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:37515 "EHLO
-        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751725AbdHAC63 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 22:58:29 -0400
-Received: by mail-qk0-f181.google.com with SMTP id z18so2127171qka.4
-        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 19:58:29 -0700 (PDT)
-In-Reply-To: <20170801025814.31206-1-ncardwell@google.com>
+Received: from mail-qt0-f172.google.com ([209.85.216.172]:34731 "EHLO
+        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751725AbdHAC6Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2017 22:58:25 -0400
+Received: by mail-qt0-f172.google.com with SMTP id s6so2200509qtc.1
+        for <netdev@vger.kernel.org>; Mon, 31 Jul 2017 19:58:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pure refactor. This helper will be required in the xmit timer fix
-later in the patch series. (Because the TLP logic will want to make
-this calculation.)
+This patch series is a bug fix for a TCP loss recovery performance bug
+reported independently in recent netdev threads:
+    
+ (i)  July 26, 2017: netdev thread "TCP fast retransmit issues"
+ (ii) July 26, 2017: netdev thread:
+       "[PATCH V2 net-next] TLP: Don't reschedule PTO when there's one
+       outstanding TLP retransmission"
 
-Fixes: 6ba8a3b19e76 ("tcp: Tail loss probe (TLP)")
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Nandita Dukkipati <nanditad@google.com>
----
- include/net/tcp.h    | 10 ++++++++++
- net/ipv4/tcp_input.c |  5 +----
- 2 files changed, 11 insertions(+), 4 deletions(-)
+Many thanks to Klavs Klavsen and Mao Wenan for the detailed reports,
+traces, and packetdrill test cases, which enabled us to root-cause
+this issue and verify the fix.
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 70483296157f..ada65e767b28 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1916,6 +1916,16 @@ extern void tcp_rack_advance(struct tcp_sock *tp, u8 sacked, u32 end_seq,
- 			     u64 xmit_time);
- extern void tcp_rack_reo_timeout(struct sock *sk);
- 
-+/* At how many usecs into the future should the RTO fire? */
-+static inline s64 tcp_rto_delta_us(const struct sock *sk)
-+{
-+	const struct sk_buff *skb = tcp_write_queue_head(sk);
-+	u32 rto = inet_csk(sk)->icsk_rto;
-+	u64 rto_time_stamp_us = skb->skb_mstamp + jiffies_to_usecs(rto);
-+
-+	return rto_time_stamp_us - tcp_sk(sk)->tcp_mstamp;
-+}
-+
- /*
-  * Save and compile IPv4 options, return a pointer to it
-  */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 2920e0cb09f8..345febf0a46e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3004,10 +3004,7 @@ void tcp_rearm_rto(struct sock *sk)
- 		/* Offset the time elapsed after installing regular RTO */
- 		if (icsk->icsk_pending == ICSK_TIME_REO_TIMEOUT ||
- 		    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
--			struct sk_buff *skb = tcp_write_queue_head(sk);
--			u64 rto_time_stamp = skb->skb_mstamp +
--					     jiffies_to_usecs(rto);
--			s64 delta_us = rto_time_stamp - tp->tcp_mstamp;
-+			s64 delta_us = tcp_rto_delta_us(sk);
- 			/* delta_us may not be positive if the socket is locked
- 			 * when the retrans timer fires and is rescheduled.
- 			 */
+Neal Cardwell (3):
+  tcp: introduce tcp_rto_delta_us() helper for xmit timer fix
+  tcp: enable xmit timer fix by having TLP use time when RTO should fire
+  tcp: fix xmit timer to only be reset if data ACKed/SACKed
+
+ include/net/tcp.h     | 10 ++++++++++
+ net/ipv4/tcp_input.c  | 30 +++++++++++++++++-------------
+ net/ipv4/tcp_output.c | 21 ++++-----------------
+ 3 files changed, 31 insertions(+), 30 deletions(-)
+
 -- 
 2.14.0.rc0.400.g1c36432dff-goog
