@@ -1,61 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 2/3] tcp: enable xmit timer fix by having TLP use
- time when RTO should fire
-Date: Tue, 01 Aug 2017 13:40:15 -0700
-Message-ID: <1501620015.25002.5.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170801025814.31206-1-ncardwell@google.com>
-         <20170801025814.31206-3-ncardwell@google.com>
-         <1501572126.1876.31.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CADVnQy=A27-P7bystCPhu_Tk6cwLOL4Kqz2FSSg55nzNc3cixA@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ppp: Fix a scheduling-while-atomic bug in del_chan
+Date: Tue, 1 Aug 2017 13:39:21 -0700
+Message-ID: <CAM_iQpVEsTpg17RZ1Y1jN2e0wb_X6gtxx05rmUSGa=A=XSj=Eg@mail.gmail.com>
+References: <1501495658-119725-1-git-send-email-gfree.wind@vip.163.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+Cc: xeb@mail.ru, David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Gao Feng <gfree.wind@vip.163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:37031 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752302AbdHAUkT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 16:40:19 -0400
-Received: by mail-wr0-f193.google.com with SMTP id 12so2262411wrb.4
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 13:40:19 -0700 (PDT)
-In-Reply-To: <CADVnQy=A27-P7bystCPhu_Tk6cwLOL4Kqz2FSSg55nzNc3cixA@mail.gmail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35058 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752502AbdHAUjn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 16:39:43 -0400
+Received: by mail-wm0-f67.google.com with SMTP id r77so4684987wmd.2
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 13:39:42 -0700 (PDT)
+In-Reply-To: <1501495658-119725-1-git-send-email-gfree.wind@vip.163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-08-01 at 10:35 -0400, Neal Cardwell wrote:
-> On Tue, Aug 1, 2017 at 3:22 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Mon, 2017-07-31 at 22:58 -0400, Neal Cardwell wrote:
-> >> @@ -2418,13 +2418,9 @@ bool tcp_schedule_loss_probe(struct sock *sk)
-> >>       timeout = max_t(u32, timeout, msecs_to_jiffies(10));
-> >>
-> >>       /* If RTO is shorter, just schedule TLP in its place. */
-> >
-> > I have hard time to read this comment.
-> >
-> > We are here trying to arm a timer based on TLP.
-> >
-> > If RTO is shorter, we'll arm the timer based on RTO instead of TLP.
-> >
-> > Is "If RTO is shorter, just schedule TLP in its place." really correct ?
-> >
-> > I suggest we reword the comment or simply get rid of it now the code is
-> > more obvious.
-> 
-> OK, how about:
-> 
->   /* If the RTO formula yields an earlier time, then use that time. */
-> 
+On Mon, Jul 31, 2017 at 3:07 AM,  <gfree.wind@vip.163.com> wrote:
+> From: Gao Feng <gfree.wind@vip.163.com>
+>
+> The PPTP set the pptp_sock_destruct as the sock's sk_destruct, it would
+> trigger this bug when __sk_free is invoked in atomic context, because of
+> the call path pptp_sock_destruct->del_chan->synchronize_rcu.
+>
+> Now move the synchronize_rcu to pptp_release from del_chan. This is the
+> only one case which would free the sock and need the synchronize_rcu.
 
-Sounds better :)
+I don't understand the last part.
 
-> We can also add a reference to the RACK/TLP Internet Draft at the top
-> of tcp_schedule_loss_probe().
-> 
-> Whatever wording we decide on, I am happy to send a patch for net-next
-> once this fix is merged into net-next.
-
-Sure.
+>From my understanding, this RCU is supposed to protect the pppox_sock
+pointers in 'callid_sock' which could be NULL'ed in del_chan(). And the
+pppox_sock is freed when the last refcnt is gone, that is, when sock
+dctor is called. pptp_release() is ONLY called when the fd in user-space
+is gone, not necessarily the last refcnt.
