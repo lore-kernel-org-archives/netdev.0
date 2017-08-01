@@ -1,32 +1,37 @@
-From: Hector Martin <marcan@marcan.st>
-Subject: [PATCH 2/2] usb: qmi_wwan: add D-Link DWM-222 device ID
-Date: Wed,  2 Aug 2017 00:45:44 +0900
-Message-ID: <20170801154544.1104-1-marcan@marcan.st>
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Hector Martin <marcan@marcan.st>,
-        stable@vger.kernel.org
-To: bjorn@mork.no
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH 1/2] ipv6: constify inet6_protocol structures
+Date: Tue, 1 Aug 2017 10:03:41 -0600
+Message-ID: <63118b71-c196-efcd-0700-7c7c0025c577@gmail.com>
+References: <1501273138-22771-1-git-send-email-Julia.Lawall@lip6.fr>
+ <1501273138-22771-2-git-send-email-Julia.Lawall@lip6.fr>
+ <1501495011.1876.12.camel@edumazet-glaptop3.roam.corp.google.com>
+ <alpine.DEB.2.20.1708010759050.2671@hadrien>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, bhumirks@gmail.com,
+        netdev <netdev@vger.kernel.org>
+To: Julia Lawall <julia.lawall@lip6.fr>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:35969 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751944AbdHAQDo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 12:03:44 -0400
+Received: by mail-pf0-f169.google.com with SMTP id z129so9535780pfb.3
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 09:03:44 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.20.1708010759050.2671@hadrien>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cc: stable@vger.kernel.org
-Signed-off-by: Hector Martin <marcan@marcan.st>
----
- drivers/net/usb/qmi_wwan.c | 1 +
- 1 file changed, 1 insertion(+)
+On 7/31/17 11:59 PM, Julia Lawall wrote:
+>> This change breaks the kernel if one of these sysctls are changed:
+>> tcp_early_demux, udp_early_demux
+> 
+> The other patch in the series has the same problem and should be dropped
+> too.
+> 
+> julia
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 5894e3c9468f..ff6f39fe6c00 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -1175,6 +1175,7 @@ static const struct usb_device_id products[] = {
- 	{QMI_FIXED_INTF(0x19d2, 0x1428, 2)},	/* Telewell TW-LTE 4G v2 */
- 	{QMI_FIXED_INTF(0x19d2, 0x2002, 4)},	/* ZTE (Vodafone) K3765-Z */
- 	{QMI_FIXED_INTF(0x2001, 0x7e19, 4)},	/* D-Link DWM-221 B1 */
-+	{QMI_FIXED_INTF(0x2001, 0x7e35, 4)},	/* D-Link DWM-222 */
- 	{QMI_FIXED_INTF(0x0f3d, 0x68a2, 8)},    /* Sierra Wireless MC7700 */
- 	{QMI_FIXED_INTF(0x114f, 0x68a2, 8)},    /* Sierra Wireless MC7750 */
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI mode */
--- 
-2.13.3
+Julia: are you going to send a revert patch? Right now I have to do that
+manually before launching test scripts.
