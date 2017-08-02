@@ -1,25 +1,56 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC 0/1] tcp: constify congestion_ops
-Date: Wed, 2 Aug 2017 08:00:24 +0200
-Message-ID: <20170802060024.GB15325@breakpoint.cc>
-References: <20170802024943.7517-1-sthemmin@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:58940 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751112AbdHBGCX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 02:02:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20170802024943.7517-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [PATCH v3 00/11] Add the internal phy support
+Date: Wed,  2 Aug 2017 14:15:35 +0800
+Message-ID: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <stephen@networkplumber.org> wrote:
-> I wonder if restricting congestion control choices is still necessary?
-> It seems like being overly paranoid, and better enforced by having a more
-> limited kernel config, seccomp or other mechanism.
+The rk3228 and rk3328 support internal phy inside, let's enable
+it to work. And the internal phy need to do some special setting, so
+register the rockchip internal phy driver.
 
-Agree, I think it can be removed.
+David Wu (11):
+  net: phy: Add rockchip phy driver support
+  multi_v7_defconfig: Make rockchip phy built-in
+  arm64: defconfig: Enable CONFIG_ROCKCHIP_PHY
+  net: stmmac: dwmac-rk: Remove unwanted code for rk3328_set_to_rmii()
+  net: stmmac: dwmac-rk: Add internal phy support
+  net: stmmac: dwmac-rk: Add internal phy support for rk3228
+  net: stmmac: dwmac-rk: Add internal phy supprot for rk3328
+  ARM: dts: rk322x: Add support internal phy for gmac
+  ARM: dts: rk3228-evb: Enable the internal phy for gmac
+  ARM64: dts: rockchip: Add gmac2phy node support for rk3328
+  ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb
+
+ .../devicetree/bindings/net/rockchip-dwmac.txt     |   6 +-
+ arch/arm/boot/dts/rk3228-evb.dts                   |  20 ++
+ arch/arm/boot/dts/rk322x.dtsi                      |   8 +-
+ arch/arm/configs/multi_v7_defconfig                |   1 +
+ arch/arm64/boot/dts/rockchip/rk3328-evb.dts        |  17 ++
+ arch/arm64/boot/dts/rockchip/rk3328.dtsi           |  25 +++
+ arch/arm64/configs/defconfig                       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 122 ++++++++++-
+ drivers/net/phy/Kconfig                            |   5 +
+ drivers/net/phy/Makefile                           |   1 +
+ drivers/net/phy/rockchip.c                         | 229 +++++++++++++++++++++
+ 11 files changed, 424 insertions(+), 11 deletions(-)
+ create mode 100644 drivers/net/phy/rockchip.c
+
+-- 
+1.9.1
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
