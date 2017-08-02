@@ -1,38 +1,54 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: sysctl, argument parsing, possible bug
-Date: Tue, 1 Aug 2017 19:40:00 -0700
-Message-ID: <20170801194000.68ac99e1@xeon-e3>
-References: <CAKv20-VuR4J0PJOOfsRmEPMhB+vKYMdPsp5wDgVkoYwrHxgLGw@mail.gmail.com>
-        <CAM_iQpXtHACnD8kmmHd4bcg+Khy5Y0K=HMmc08avTSHov4zN1A@mail.gmail.com>
+Subject: Re: [PATCH net 6/7] netvsc: Initialize 64-bit stats seqcount
+Date: Tue, 1 Aug 2017 19:42:42 -0700
+Message-ID: <20170801194242.0d79787d@xeon-e3>
+References: <20170801191113.8754-1-f.fainelli@gmail.com>
+        <20170801191113.8754-8-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Massimo Sala <massimo.sala.71@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        open list <linux-kernel@vger.kernel.org>, edumazet@google.com,
+        "open list:Hyper-V CORE AND DRIVERS" <devel@linuxdriverproject.org>,
+        davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpXtHACnD8kmmHd4bcg+Khy5Y0K=HMmc08avTSHov4zN1A@mail.gmail.com>
+In-Reply-To: <20170801191113.8754-8-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 1 Aug 2017 14:27:37 -0700
-Cong Wang <xiyou.wangcong@gmail.com> wrote:
+On Tue,  1 Aug 2017 12:11:12 -0700
+Florian Fainelli <f.fainelli@gmail.com> wrote:
 
-> On Tue, Aug 1, 2017 at 1:47 PM, Massimo Sala <massimo.sala.71@gmail.com> wrote:
-> > cat /proc/sys/net/ipv4/conf/eth0.100/forwarding
-> > 0
-> >
-> > sysctl net.ipv4.conf.eth0.100.forwarding
-> > error: "net.ipv4.conf.eth0.100.forwarding" is an unknown key
-> >  
+> On 32-bit hosts and with CONFIG_DEBUG_LOCK_ALLOC we should be seeing a
+> lockdep splat indicating this seqcount is not correctly initialized, fix
+> that. In commit 6c80f3fc2398 ("netvsc: report per-channel stats in
+> ethtool statistics") netdev_alloc_pcpu_stats() was removed in favor of
+> open-coding the 64-bits statistics, except that u64_stats_init() was
+> missed.
 > 
-> Use echo instead, sysctl doesn't understand eth0.100
-> is a netdev name, sigh.
+> Fixes: 6c80f3fc2398 ("netvsc: report per-channel stats in ethtool statistics")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/hyperv/netvsc.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+> index 0a9167dd72fb..96f90c75d1b7 100644
+> --- a/drivers/net/hyperv/netvsc.c
+> +++ b/drivers/net/hyperv/netvsc.c
+> @@ -1302,6 +1302,8 @@ int netvsc_device_add(struct hv_device *device,
+>  		struct netvsc_channel *nvchan = &net_device->chan_table[i];
+>  
+>  		nvchan->channel = device->channel;
+> +		u64_stats_init(&nvchan->tx_stats.syncp);
+> +		u64_stats_init(&nvchan->rx_stats.syncp);
+>  	}
+>  
+>  	/* Enable NAPI handler before init callbacks */
 
-sysctl happily accepts / as a separator see man sysctl(8)
 
-PARAMETERS
-       variable
-              The  name  of  a  key to read from.  An example is kernel.ostype.  The '/' separator is also
-              accepted in place of a '.'.
+Looks good, thanks. 32 bit guests are still supported but rarely tested.
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
