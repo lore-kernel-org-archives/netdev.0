@@ -1,247 +1,187 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 05/11] net: stmmac: dwmac-rk: Add internal phy support
-Date: Wed, 2 Aug 2017 10:38:04 -0700
-Message-ID: <6b1ebf64-6903-6d35-b1fc-92ec47334425@gmail.com>
-References: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
- <1501654888-19514-1-git-send-email-david.wu@rock-chips.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-        olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1501654888-19514-1-git-send-email-david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next] rds: reduce memory footprint for RDS when transport is RDMA
+Date: Wed,  2 Aug 2017 10:34:31 -0700
+Message-ID: <1501695271-146367-1-git-send-email-sowmini.varadhan@oracle.com>
+Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
+        sowmini.varadhan@oracle.com, santosh.shilimkar@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:43236 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752154AbdHBRjb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 13:39:31 -0400
+To: netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/01/2017 11:21 PM, David Wu wrote:
-> To make internal phy work, need to configure the phy_clock,
-> phy cru_reset and related registers.
-> 
-> Signed-off-by: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/rockchip-dwmac.txt     |  6 +-
->  drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 81 ++++++++++++++++++++++
->  2 files changed, 86 insertions(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-> index 8f42755..ec39b31 100644
-> --- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-> +++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-> @@ -25,7 +25,8 @@ Required properties:
->   - clock-names: One name for each entry in the clocks property.
->   - phy-mode: See ethernet.txt file in the same directory.
->   - pinctrl-names: Names corresponding to the numbered pinctrl states.
-> - - pinctrl-0: pin-control mode. can be <&rgmii_pins> or <&rmii_pins>.
-> + - pinctrl-0: pin-control mode. can be <&rgmii_pins>, <&rmii_pins> or led pins
-> +   for internal phy mode.
->   - clock_in_out: For RGMII, it must be "input", means main clock(125MHz)
->     is not sourced from SoC's PLL, but input from PHY; For RMII, "input" means
->     PHY provides the reference clock(50MHz), "output" means GMAC provides the
-> @@ -40,6 +41,9 @@ Optional properties:
->   - tx_delay: Delay value for TXD timing. Range value is 0~0x7F, 0x30 as default.
->   - rx_delay: Delay value for RXD timing. Range value is 0~0x7F, 0x10 as default.
->   - phy-supply: phandle to a regulator if the PHY needs one
-> + - clocks: <&cru MAC_PHY>: Clock selector for internal macphy
-> + - phy-is-internal: A boolean property allows us to know that MAC will connect to
-> +   internal phy.
+RDS over IB does not use multipath RDS, so the array
+of additional rds_conn_path structures is always superfluous
+in this case. Reduce the memory footprint of the rds module
+by making this a dynamic allocation predicated on whether
+the transport is mp_capable.
 
-This is incorrect in two ways:
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Tested-by: Efrain Galaviz <efrain.galaviz@oracle.com>
+---
+ net/rds/connection.c |   34 +++++++++++++++++++++++++---------
+ net/rds/rds.h        |    2 +-
+ 2 files changed, 26 insertions(+), 10 deletions(-)
 
-- this is a property of the PHY, so it should be documented as such in
-Documentation/devicetree/bindings/net/phy.txt so other bindings can
-re-use it
-
-- if it was specific to your MAC you would expect a vendor prefix to
-this property, which is not there
-
-An alternative way to implement the external/internal logic selection
-would be mandate that your Ethernet PHY node have a compatible string
-like this:
-
-phy@0 {
-	compatible = "ethernet-phy-id1234.d400", "ethernet-phy-802.3-c22";
-};
-
-Then you don't need this phy-is-internal property, because you can
-locate the PHY node by the phy-handle (see more about that in a reply to
-patch 10) and you can determine ahead of time whether this PHY is
-internal or not based on its compatible string.
-
-Thank you
-
->  
->  Example:
->  
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-> index a8e8fd5..7b80ab9 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-> @@ -41,6 +41,7 @@ struct rk_gmac_ops {
->  	void (*set_to_rmii)(struct rk_priv_data *bsp_priv);
->  	void (*set_rgmii_speed)(struct rk_priv_data *bsp_priv, int speed);
->  	void (*set_rmii_speed)(struct rk_priv_data *bsp_priv, int speed);
-> +	void (*internal_phy_powerup)(struct rk_priv_data *bsp_priv);
->  };
->  
->  struct rk_priv_data {
-> @@ -52,6 +53,7 @@ struct rk_priv_data {
->  
->  	bool clk_enabled;
->  	bool clock_input;
-> +	bool internal_phy;
->  
->  	struct clk *clk_mac;
->  	struct clk *gmac_clkin;
-> @@ -61,6 +63,9 @@ struct rk_priv_data {
->  	struct clk *clk_mac_refout;
->  	struct clk *aclk_mac;
->  	struct clk *pclk_mac;
-> +	struct clk *clk_macphy;
-> +
-> +	struct reset_control *macphy_reset;
->  
->  	int tx_delay;
->  	int rx_delay;
-> @@ -750,6 +755,50 @@ static void rk3399_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
->  	.set_rmii_speed = rk3399_set_rmii_speed,
->  };
->  
-> +#define RK_GRF_MACPHY_CON0		0xb00
-> +#define RK_GRF_MACPHY_CON1		0xb04
-> +#define RK_GRF_MACPHY_CON2		0xb08
-> +#define RK_GRF_MACPHY_CON3		0xb0c
-> +
-> +#define RK_MACPHY_ENABLE		GRF_BIT(0)
-> +#define RK_MACPHY_DISABLE		GRF_CLR_BIT(0)
-> +#define RK_MACPHY_CFG_CLK_50M		GRF_BIT(14)
-> +#define RK_GMAC2PHY_RMII_MODE		(GRF_BIT(6) | GRF_CLR_BIT(7))
-> +#define RK_GRF_CON2_MACPHY_ID		HIWORD_UPDATE(0x1234, 0xffff, 0)
-> +#define RK_GRF_CON3_MACPHY_ID		HIWORD_UPDATE(0x35, 0x3f, 0)
-> +
-> +static void rk_gmac_internal_phy_powerup(struct rk_priv_data *priv)
-> +{
-> +	if (priv->ops->internal_phy_powerup)
-> +		priv->ops->internal_phy_powerup(priv);
-> +
-> +	regmap_write(priv->grf, RK_GRF_MACPHY_CON0, RK_MACPHY_CFG_CLK_50M);
-> +	regmap_write(priv->grf, RK_GRF_MACPHY_CON0, RK_GMAC2PHY_RMII_MODE);
-> +
-> +	regmap_write(priv->grf, RK_GRF_MACPHY_CON2, RK_GRF_CON2_MACPHY_ID);
-> +	regmap_write(priv->grf, RK_GRF_MACPHY_CON3, RK_GRF_CON3_MACPHY_ID);
-> +
-> +	if (priv->macphy_reset) {
-> +		/* macphy needs to be disabled before trying to reset it */
-> +		regmap_write(priv->grf, RK_GRF_MACPHY_CON0, RK_MACPHY_DISABLE);
-> +		if (priv->macphy_reset)
-> +			reset_control_assert(priv->macphy_reset);
-> +		usleep_range(10, 20);
-> +		if (priv->macphy_reset)
-> +			reset_control_deassert(priv->macphy_reset);
-> +		usleep_range(10, 20);
-> +		regmap_write(priv->grf, RK_GRF_MACPHY_CON0, RK_MACPHY_ENABLE);
-> +		msleep(30);
-> +	}
-> +}
-> +
-> +static void rk_gmac_internal_phy_powerdown(struct rk_priv_data *priv)
-> +{
-> +	regmap_write(priv->grf, RK_GRF_MACPHY_CON0, RK_MACPHY_DISABLE);
-> +	if (priv->macphy_reset)
-> +		reset_control_assert(priv->macphy_reset);
-> +}
-> +
->  static int gmac_clk_init(struct rk_priv_data *bsp_priv)
->  {
->  	struct device *dev = &bsp_priv->pdev->dev;
-> @@ -803,6 +852,14 @@ static int gmac_clk_init(struct rk_priv_data *bsp_priv)
->  			clk_set_rate(bsp_priv->clk_mac, 50000000);
->  	}
->  
-> +	if (bsp_priv->internal_phy) {
-> +		bsp_priv->clk_macphy = devm_clk_get(dev, "clk_macphy");
-> +		if (IS_ERR(bsp_priv->clk_macphy))
-> +			dev_err(dev, "cannot get %s clock\n", "clk_macphy");
-> +		else
-> +			clk_set_rate(bsp_priv->clk_macphy, 50000000);
-> +	}
-> +
->  	return 0;
->  }
->  
-> @@ -826,6 +883,9 @@ static int gmac_clk_enable(struct rk_priv_data *bsp_priv, bool enable)
->  						bsp_priv->clk_mac_refout);
->  			}
->  
-> +			if (!IS_ERR(bsp_priv->clk_macphy))
-> +				clk_prepare_enable(bsp_priv->clk_macphy);
-> +
->  			if (!IS_ERR(bsp_priv->aclk_mac))
->  				clk_prepare_enable(bsp_priv->aclk_mac);
->  
-> @@ -858,6 +918,9 @@ static int gmac_clk_enable(struct rk_priv_data *bsp_priv, bool enable)
->  						bsp_priv->clk_mac_refout);
->  			}
->  
-> +			if (!IS_ERR(bsp_priv->clk_macphy))
-> +				clk_disable_unprepare(bsp_priv->clk_macphy);
-> +
->  			if (!IS_ERR(bsp_priv->aclk_mac))
->  				clk_disable_unprepare(bsp_priv->aclk_mac);
->  
-> @@ -940,6 +1003,18 @@ static struct rk_priv_data *rk_gmac_setup(struct platform_device *pdev,
->  			bsp_priv->clock_input = false;
->  	}
->  
-> +	bsp_priv->internal_phy = device_property_read_bool(dev,
-> +							   "phy-is-internal");
-> +	if (bsp_priv->internal_phy) {
-> +		bsp_priv->macphy_reset = devm_reset_control_get(dev, "mac-phy");
-> +		if (IS_ERR(bsp_priv->macphy_reset)) {
-> +			dev_info(dev, "no macphy_reset control found\n");
-> +			bsp_priv->macphy_reset = NULL;
-> +		}
-> +	}
-> +	dev_info(dev, "internal PHY? (%s).\n",
-> +		 bsp_priv->internal_phy ? "yes" : "no");
-> +
->  	ret = of_property_read_u32(dev->of_node, "tx_delay", &value);
->  	if (ret) {
->  		bsp_priv->tx_delay = 0x30;
-> @@ -1014,6 +1089,9 @@ static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
->  	pm_runtime_enable(dev);
->  	pm_runtime_get_sync(dev);
->  
-> +	if (bsp_priv->internal_phy)
-> +		rk_gmac_internal_phy_powerup(bsp_priv);
-> +
->  	return 0;
->  }
->  
-> @@ -1021,6 +1099,9 @@ static void rk_gmac_powerdown(struct rk_priv_data *gmac)
->  {
->  	struct device *dev = &gmac->pdev->dev;
->  
-> +	if (gmac->internal_phy)
-> +		rk_gmac_internal_phy_powerdown(gmac);
-> +
->  	pm_runtime_put_sync(dev);
->  	pm_runtime_disable(dev);
->  
-> 
-
-
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index 005bca6..7ee2d5d 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -151,6 +151,7 @@ static void __rds_conn_path_init(struct rds_connection *conn,
+ 	struct rds_transport *loop_trans;
+ 	unsigned long flags;
+ 	int ret, i;
++	int npaths = (trans->t_mp_capable ? RDS_MPATH_WORKERS : 1);
+ 
+ 	rcu_read_lock();
+ 	conn = rds_conn_lookup(net, head, laddr, faddr, trans);
+@@ -172,6 +173,12 @@ static void __rds_conn_path_init(struct rds_connection *conn,
+ 		conn = ERR_PTR(-ENOMEM);
+ 		goto out;
+ 	}
++	conn->c_path = kcalloc(npaths, sizeof(struct rds_conn_path), gfp);
++	if (!conn->c_path) {
++		kmem_cache_free(rds_conn_slab, conn);
++		conn = ERR_PTR(-ENOMEM);
++		goto out;
++	}
+ 
+ 	INIT_HLIST_NODE(&conn->c_hash_node);
+ 	conn->c_laddr = laddr;
+@@ -181,6 +188,7 @@ static void __rds_conn_path_init(struct rds_connection *conn,
+ 
+ 	ret = rds_cong_get_maps(conn);
+ 	if (ret) {
++		kfree(conn->c_path);
+ 		kmem_cache_free(rds_conn_slab, conn);
+ 		conn = ERR_PTR(ret);
+ 		goto out;
+@@ -207,13 +215,14 @@ static void __rds_conn_path_init(struct rds_connection *conn,
+ 	conn->c_trans = trans;
+ 
+ 	init_waitqueue_head(&conn->c_hs_waitq);
+-	for (i = 0; i < RDS_MPATH_WORKERS; i++) {
++	for (i = 0; i < npaths; i++) {
+ 		__rds_conn_path_init(conn, &conn->c_path[i],
+ 				     is_outgoing);
+ 		conn->c_path[i].cp_index = i;
+ 	}
+ 	ret = trans->conn_alloc(conn, gfp);
+ 	if (ret) {
++		kfree(conn->c_path);
+ 		kmem_cache_free(rds_conn_slab, conn);
+ 		conn = ERR_PTR(ret);
+ 		goto out;
+@@ -236,6 +245,7 @@ static void __rds_conn_path_init(struct rds_connection *conn,
+ 		/* Creating passive conn */
+ 		if (parent->c_passive) {
+ 			trans->conn_free(conn->c_path[0].cp_transport_data);
++			kfree(conn->c_path);
+ 			kmem_cache_free(rds_conn_slab, conn);
+ 			conn = parent->c_passive;
+ 		} else {
+@@ -252,7 +262,7 @@ static void __rds_conn_path_init(struct rds_connection *conn,
+ 			struct rds_conn_path *cp;
+ 			int i;
+ 
+-			for (i = 0; i < RDS_MPATH_WORKERS; i++) {
++			for (i = 0; i < npaths; i++) {
+ 				cp = &conn->c_path[i];
+ 				/* The ->conn_alloc invocation may have
+ 				 * allocated resource for all paths, so all
+@@ -261,6 +271,7 @@ static void __rds_conn_path_init(struct rds_connection *conn,
+ 				if (cp->cp_transport_data)
+ 					trans->conn_free(cp->cp_transport_data);
+ 			}
++			kfree(conn->c_path);
+ 			kmem_cache_free(rds_conn_slab, conn);
+ 			conn = found;
+ 		} else {
+@@ -407,6 +418,7 @@ void rds_conn_destroy(struct rds_connection *conn)
+ 	unsigned long flags;
+ 	int i;
+ 	struct rds_conn_path *cp;
++	int npaths = (conn->c_trans->t_mp_capable ? RDS_MPATH_WORKERS : 1);
+ 
+ 	rdsdebug("freeing conn %p for %pI4 -> "
+ 		 "%pI4\n", conn, &conn->c_laddr,
+@@ -420,7 +432,7 @@ void rds_conn_destroy(struct rds_connection *conn)
+ 	synchronize_rcu();
+ 
+ 	/* shut the connection down */
+-	for (i = 0; i < RDS_MPATH_WORKERS; i++) {
++	for (i = 0; i < npaths; i++) {
+ 		cp = &conn->c_path[i];
+ 		rds_conn_path_destroy(cp);
+ 		BUG_ON(!list_empty(&cp->cp_retrans));
+@@ -434,6 +446,7 @@ void rds_conn_destroy(struct rds_connection *conn)
+ 	rds_cong_remove_conn(conn);
+ 
+ 	put_net(conn->c_net);
++	kfree(conn->c_path);
+ 	kmem_cache_free(rds_conn_slab, conn);
+ 
+ 	spin_lock_irqsave(&rds_conn_lock, flags);
+@@ -464,8 +477,12 @@ static void rds_conn_message_info(struct socket *sock, unsigned int len,
+ 	     i++, head++) {
+ 		hlist_for_each_entry_rcu(conn, head, c_hash_node) {
+ 			struct rds_conn_path *cp;
++			int npaths;
++
++			npaths = (conn->c_trans->t_mp_capable ?
++				 RDS_MPATH_WORKERS : 1);
+ 
+-			for (j = 0; j < RDS_MPATH_WORKERS; j++) {
++			for (j = 0; j < npaths; j++) {
+ 				cp = &conn->c_path[j];
+ 				if (want_send)
+ 					list = &cp->cp_send_queue;
+@@ -486,8 +503,6 @@ static void rds_conn_message_info(struct socket *sock, unsigned int len,
+ 				}
+ 
+ 				spin_unlock_irqrestore(&cp->cp_lock, flags);
+-				if (!conn->c_trans->t_mp_capable)
+-					break;
+ 			}
+ 		}
+ 	}
+@@ -571,15 +586,16 @@ static void rds_walk_conn_path_info(struct socket *sock, unsigned int len,
+ 	     i++, head++) {
+ 		hlist_for_each_entry_rcu(conn, head, c_hash_node) {
+ 			struct rds_conn_path *cp;
++			int npaths;
+ 
+-			for (j = 0; j < RDS_MPATH_WORKERS; j++) {
++			npaths = (conn->c_trans->t_mp_capable ?
++				 RDS_MPATH_WORKERS : 1);
++			for (j = 0; j < npaths; j++) {
+ 				cp = &conn->c_path[j];
+ 
+ 				/* XXX no cp_lock usage.. */
+ 				if (!visitor(cp, buffer))
+ 					continue;
+-				if (!conn->c_trans->t_mp_capable)
+-					break;
+ 			}
+ 
+ 			/* We copy as much as we can fit in the buffer,
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index 3382695..2e0315b 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -154,7 +154,7 @@ struct rds_connection {
+ 	struct list_head	c_map_item;
+ 	unsigned long		c_map_queued;
+ 
+-	struct rds_conn_path	c_path[RDS_MPATH_WORKERS];
++	struct rds_conn_path	*c_path;
+ 	wait_queue_head_t	c_hs_waitq; /* handshake waitq */
+ 
+ 	u32			c_my_gen_num;
 -- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.1
