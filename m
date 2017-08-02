@@ -1,89 +1,78 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: [RFC PATCH v2 1/2] net: ethernet: nb8800: Reset HW block in
- ndo_open
-Date: Wed, 2 Aug 2017 13:54:29 +0200
-Message-ID: <ef36cd4a-b1b5-7505-34d1-250c736d6731@free.fr>
-References: <33d1ab47-6098-5e3f-8a3c-f72626d07113@free.fr>
- <d817da35-f977-5985-4aae-73617004fac3@free.fr> <yw1xbmnyi660.fsf@mansr.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH net-next] mdio_bus: Remove unneeded gpiod NULL check
+Date: Wed, 2 Aug 2017 13:57:36 +0200
+Message-ID: <CACRpkdYw5GWv3HRCqnWjDfctLEfzcoFdJ7ib_NVKRgw0+Y9dEg@mail.gmail.com>
+References: <1500325749-8382-1-git-send-email-festevam@gmail.com>
+ <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com> <CAOMZO5ABD9iasv67ehcpTzcjU-iD9=8vQ2vM7Gwc4-v9pnUt-Q@mail.gmail.com>
+ <f4cdcb4b-feac-5106-8068-e694dbd3b4e6@cogentembedded.com> <CAOMZO5BycGHNocULcScDczRoEvbQqjnRZTDrNAw7=+zpadSOSA@mail.gmail.com>
+ <20170718133209.GB32757@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 8bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mans Rullgard <mans@mansr.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Fabio Estevam <festevam@gmail.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Fabio Estevam <fabio.estevam@nxp.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:44294 "EHLO smtp5-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753035AbdHBLym (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 2 Aug 2017 07:54:42 -0400
-In-Reply-To: <yw1xbmnyi660.fsf@mansr.com>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:35371 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753207AbdHBL5i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 07:57:38 -0400
+Received: by mail-io0-f172.google.com with SMTP id m88so19363179iod.2
+        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 04:57:37 -0700 (PDT)
+In-Reply-To: <20170718133209.GB32757@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/08/2017 13:02, Måns Rullgård wrote:
+On Tue, Jul 18, 2017 at 3:32 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On Tue, Jul 18, 2017 at 09:52:51AM -0300, Fabio Estevam wrote:
+>> On Tue, Jul 18, 2017 at 9:48 AM, Sergei Shtylyov
+>> <sergei.shtylyov@cogentembedded.com> wrote:
+>> > On 07/18/2017 03:39 PM, Fabio Estevam wrote:
+>> >
+>> >>>    Won't this result in kernel WARNING when GPIO is disabled?
+>> >
+>> >
+>> >    GPIO support, I was going to type...
+>> >
+>> >> Not sure if I understood your point, but gpiod_set_value_cansleep() is
+>> >> a no-op when the gpiod is NULL.
+>> >
+>> >
+>> >    Look at the stub in <linux/gpio/consumer.h>, it has WARN_ON(1).
+>>
+>> This patch does not alter the behavior of the driver with respect to
+>> GPIO being disabled, so I still do not understand your concern.
+>
+> http://elixir.free-electrons.com/linux/latest/source/include/linux/gpio/consumer.h#L345
+> static inline void gpiod_set_value_cansleep(struct gpio_desc *desc, int value)
+> {
+>         /* GPIO can never have been requested */
+>         WARN_ON(1);
+> }
+>
+> But i would say this is a gpio problem. If GPIO enabled does not care,
+> GPIO disabled should also not care.
 
-> Mason wrote:
-> 
->> Move all HW initializations to nb8800_init.
->> This provides the basis for suspend/resume support.
->> ---
->>  drivers/net/ethernet/aurora/nb8800.c | 50 +++++++++++++++++-------------------
->>  drivers/net/ethernet/aurora/nb8800.h |  1 +
->>  2 files changed, 25 insertions(+), 26 deletions(-)
-> 
-> You're still not doing anything to preserve flow control and multicast
-> configuration, and those are probably not the only ones.
+If someone is using GPIO descriptors with GPIO disabled, i.e. calling
+gpiod_get() and friends, this is very likely to be a bug, and what
+the driver wants to do is:
 
-I did handle flow control (as far as I can tell).
-The current settings are stored in:
-priv->pause_aneg, priv->pause_rx, priv->pause_tx
-and nb8800_pause_config() is called from nb8800_link_reconfigure()
+ depends on GPIOLIB
 
-I'll take a closer look at multicast settings.
+or
 
-> Worse, you're now never tearing down dma properly, which means the
-> hardware can be left with active pointers to memory no longer allocated
-> to it.
+ select GPIOLIB
 
-You're making it sound like there is a risk those pointers
-might be used somehow. There is no such risk AFAICT.
-The PHY is disconnected, NAPI is stopped, RX and TX have
-been disabled, and the ISR has been removed.
+in Kconfig. The whole optional thing is mainly a leftover from when it
+was possible to have a local implementation of the GPIOLIB API in
+some custom header file, noone sane should be doing that anymore,
+and if they do, they can very well face the warnings.
 
-I have considered putting the HW block in reset (clock gated)
-at the end of nb8800_stop() to save power, which would make
-the issue you point out moot.
+If someone is facing a lot of WARN_ON() messages to this, it is a clear
+indication that they need to fix their Kconfig and in that case it is proper.
 
-The reason I removed nb8800_dma_stop() in nb8800_stop()
-is because it hangs when called from nb8800_suspend().
-(It requires interrupts to make progress, and interrupts
-seem to be disabled when nb8800_suspend() is called.)
-
-
-Broader question for netdev:
-
-I've been wondering about costly close operations.
-If closing a device is complex (in terms of code), at which
-point does it become simpler to just reset the block, and
-avoid writing/maintaining/debugging the code performing
-said close operation?
-
-> Finally, you still haven't explained why the hw needs to be reset in
-> ndo_open().  Whatever is causing your lockup can almost certainly be
-> triggered in some other way too.  I will not accept this side-stepping
-> of the issue.
-
-(I was not aware that you were the final authority on which
-patches are accepted upstream.)
-
-FWIW, I have placed a formal request for the HW dev to
-investigate, as I could not reproduce on tango4, despite
-several days wasted on this issue.
-
-In the mean time, the driver in its current form does not
-support suspend/resume. How would *you* implement it?
-(IMO, my way is great in its simplicity and code reuse.)
-
-Regards.
+Yours,
+Linus Walleij
