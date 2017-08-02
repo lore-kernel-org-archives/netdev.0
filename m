@@ -1,37 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/11] net: dsa: rework EEE support
-Date: Tue, 01 Aug 2017 20:09:56 -0700 (PDT)
-Message-ID: <20170801.200956.2244963133644668921.davem@davemloft.net>
-References: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch,
-        john@phrozen.org
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170801203241.22294-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <tom@quantonium.net>
+Subject: [PATCH v2 net-next 0/4] ulp: Generalize ULP infrastructure
+Date: Tue,  1 Aug 2017 20:18:42 -0700
+Message-ID: <20170802031846.21993-1-tom@quantonium.net>
+Cc: rohit@quantonium.net, davejwatson@fb.com,
+        Tom Herbert <tom@quantonium.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:37971 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751634AbdHBDTC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 23:19:02 -0400
+Received: by mail-pg0-f41.google.com with SMTP id l64so15623517pge.5
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 20:19:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Tue,  1 Aug 2017 16:32:30 -0400
+Generalize the ULP infrastructure that was recently introduced to
+support kTLS. This adds a SO_ULP socket option and creates new fields in
+sock structure for ULP ops and ULP data. Also, the interface allows
+additional per ULP parameters to be set so that a ULP can be pushed
+and operations started in one shot.
 
-> EEE implies configuring the port's PHY and MAC of both ends of the wire.
-> 
-> The current EEE support in DSA mixes PHY and MAC configuration, which is
-> bad because PHYs must be configured through a proper PHY driver. The DSA
-> switch operations for EEE are only meant for configuring the port's MAC,
-> which are integrated in the Ethernet switch device.
-> 
-> This patchset fixes the EEE support in qca8k driver, makes the DSA layer
-> call phy_init_eee for all drivers, and remove the EEE support from the
-> mv88e6xxx driver since the Marvell PHY driver should be enough for it.
-> 
-> Changes in v2:
->  - make PHY device and DSA EEE ops mandatory for slave EEE operations.
->  - simply return 0 in drivers which don't need to do anything to
->    configure the port' MAC. Subsequent PHY calls will be enough.
+This patch sets:
+  - Minor dependency fix in inet_common.h
+  - Implement ULP infrastructure as a socket mechanism
+  - Fixes TCP and TLS to use the new method (maintaining backwards
+    API compatibility)
+  - Adds a ulp.txt document
 
-Series applied, thanks Vivien.
+Tested: Ran simple ULP.
+
+- v2: Fix compliation errors when CONFIG_ULP_SOCK not set.
+
+Tom Herbert (4):
+  inet: include net/sock.h in inet_common.h
+  sock: ULP infrastructure
+  tcp: Adjust TCP ULP to defer to sockets ULP
+  ulp: Documention for ULP infrastructure
+
+ Documentation/networking/tls.txt       |   6 +-
+ Documentation/networking/ulp.txt       |  82 ++++++++++++++
+ arch/alpha/include/uapi/asm/socket.h   |   2 +
+ arch/frv/include/uapi/asm/socket.h     |   2 +
+ arch/ia64/include/uapi/asm/socket.h    |   2 +
+ arch/m32r/include/uapi/asm/socket.h    |   2 +
+ arch/mips/include/uapi/asm/socket.h    |   2 +
+ arch/mn10300/include/uapi/asm/socket.h |   2 +
+ arch/parisc/include/uapi/asm/socket.h  |   2 +
+ arch/s390/include/uapi/asm/socket.h    |   2 +
+ arch/sparc/include/uapi/asm/socket.h   |   2 +
+ arch/xtensa/include/uapi/asm/socket.h  |   2 +
+ include/linux/socket.h                 |   9 ++
+ include/net/inet_common.h              |   2 +
+ include/net/inet_connection_sock.h     |   4 -
+ include/net/sock.h                     |   5 +
+ include/net/tcp.h                      |  25 -----
+ include/net/tls.h                      |   4 +-
+ include/net/ulp_sock.h                 |  75 +++++++++++++
+ include/uapi/asm-generic/socket.h      |   2 +
+ net/Kconfig                            |   4 +
+ net/core/Makefile                      |   1 +
+ net/core/sock.c                        |  14 +++
+ net/core/sysctl_net_core.c             |  25 +++++
+ net/core/ulp_sock.c                    | 194 +++++++++++++++++++++++++++++++++
+ net/ipv4/sysctl_net_ipv4.c             |   9 +-
+ net/ipv4/tcp.c                         |  40 ++++---
+ net/ipv4/tcp_ipv4.c                    |   2 -
+ net/ipv4/tcp_ulp.c                     | 135 -----------------------
+ net/tls/Kconfig                        |   1 +
+ net/tls/tls_main.c                     |  21 ++--
+ 31 files changed, 480 insertions(+), 200 deletions(-)
+ create mode 100644 Documentation/networking/ulp.txt
+ create mode 100644 include/net/ulp_sock.h
+ create mode 100644 net/core/ulp_sock.c
+ delete mode 100644 net/ipv4/tcp_ulp.c
+
+-- 
+2.11.0
