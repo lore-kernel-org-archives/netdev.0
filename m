@@ -1,86 +1,49 @@
-From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
-Subject: Re: [PATCH 6/6] [net-next]net: i40e: Enable cloud filters in i40e via
- tc/flower classifier
-Date: Wed, 2 Aug 2017 11:20:01 -0700
-Message-ID: <62e2edac-521a-0e7b-4ca5-936d93c6a613@intel.com>
-References: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
- <150154788503.4135.7051219373661945937.stgit@anamdev.jf.intel.com>
- <f93480af-9ae0-2e02-7b11-78f8ab53899c@mojatatu.com>
- <30cd59b5-4175-8641-f288-a2373475837d@intel.com>
- <382b07c6-562b-9dc6-a4be-8f82819ab87a@mojatatu.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 1/2] [for 4.13] net: qcom/emac: disable flow control
+ autonegotiation by default
+Date: Wed, 2 Aug 2017 13:23:18 -0500
+Message-ID: <290fdd25-7e05-57c8-8f89-52bb3bae1e59@codeaurora.org>
+References: <1501623460-3575-1-git-send-email-timur@codeaurora.org>
+ <1501623460-3575-2-git-send-email-timur@codeaurora.org>
+ <20170802.105453.1408822174555343968.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
-        netdev@vger.kernel.org, mitch.a.williams@intel.com,
-        alexander.duyck@gmail.com, neerav.parikh@intel.com,
-        sridhar.samudrala@intel.com, carolyn.wyborny@intel.com,
-        Or Gerlitz <gerlitz.or@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55193 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751699AbdHBSUC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 2 Aug 2017 14:20:02 -0400
-In-Reply-To: <382b07c6-562b-9dc6-a4be-8f82819ab87a@mojatatu.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:53430 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752285AbdHBSXV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 14:23:21 -0400
+In-Reply-To: <20170802.105453.1408822174555343968.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/2/2017 5:02 AM, Jamal Hadi Salim wrote:
-> On 17-08-01 10:13 PM, Nambiar, Amritha wrote:
->>
->> On 8/1/2017 3:56 AM, Jamal Hadi Salim wrote:
->>> On 17-07-31 08:38 PM, Amritha Nambiar wrote:
->>>> This patch enables tc-flower based hardware offloads. tc/flower
->>>> filter provided by the kernel is configured as driver specific
->>>> cloud filter. The patch implements functions and admin queue
->>>> commands needed to support cloud filters in the driver and
->>>> adds cloud filters to configure these tc-flower filters.
->>>>
->>>> The only action supported is to redirect packets to a traffic class
->>>> on the same device.
->>>>
->>>> # tc qdisc add dev eth0 ingress
->>>> # ethtool -K eth0 hw-tc-offload on
->>>>
->>>> # tc filter add dev eth0 protocol ip parent ffff:\
->>>>     prio 1 flower dst_mac 3c:fd:fe:a0:d6:70 skip_sw indev eth0\
->>>>     action mirred ingress redirect dev eth0 tc 0
->>>>
->>>
->>> Out of curiosity - did you need to say "indev eth0" there?
->>
->> It looks like I don't need to specify "indev eth0". I will need to look
->> up how this part is offloaded and probably validate in the driver when
->> this is specified.
->>
->>> Also: Is it possible to add an skbmark? Example something like
->>> these that directs two flows to the same queue but different
->>> skb marks:
->>>
->>> # tc filter add dev eth0 protocol ip parent ffff: \
->>>     prio 2 flower dst_ip 192.168.3.5/32 \
->>>     ip_proto udp dst_port 2a skip_sw \
->>>     action skbedit mark 11 \
->>>     action mirred ingress redirect dev eth0 tcqueue 1
->>>
->>> # tc filter add dev eth0 protocol ip parent ffff: \
->>>       prio 1 flower dst_mac 3c:fd:fe:a0:d6:70 skip_sw \
->>>       action skbedit mark 12 \
->>>       action mirred ingress redirect dev eth0 tcqueue 1
->>>
->>
->> It is possible to support the skbedit mark action for the first rule
->> here (L3 and L4) which I can take up in a subsequent patch, but this
->> cannot be supported on our device for L2 based match in the second rule.
->>
-> 
-> Ok, thanks. So the issue is one of hardware limitation?
-> 
+On 08/02/2017 12:54 PM, David Miller wrote:
+> And if this kind of thing matters to the user, they will have a
+> software or hardware watchdog driver enabled to break out of this
+> situation.
 
-Right. Our hardware does not have this support now.
+The problem is that the user is not going to expect that the EMAC can 
+disable the nearby switch(es) when the kernel is hung and not rebooted 
+quickly enough.  Internally, this bug/feature has caused quite a bit of 
+mayhem, so the problem is real.  No cares about enabling flow control -- 
+it just happens to be enabled on some systems where the switch agrees to 
+it.  So random individuals can't debug the hardware because suddenly the 
+EMAC has gone haywire and disabled the local network.
 
-> cheers,
-> jamal
-> 
+> Turning off flow control by default has so many negative ramifications
+> and don't try to convince me that users will be "aware" of this and
+> turn it back on.
+
+What are the negative ramifications?  It's practically impossible to 
+overload the chip such that it can't process the incoming packets fast 
+enough.  I don't know of any real-world situation where the EMAC needs 
+to transmit pause frames.
+
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
