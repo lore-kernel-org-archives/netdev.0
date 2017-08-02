@@ -1,35 +1,45 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: bcm_sf2: dst in not an array
-Date: Wed, 2 Aug 2017 12:55:12 -0700
-Message-ID: <b44d5c57-64fd-db0f-b391-11e6eb7a2815@gmail.com>
-References: <20170802194825.29002-1-vivien.didelot@savoirfairelinux.com>
+From: Dave Watson <davejwatson@fb.com>
+Subject: Re: [PATCH v2 net-next 3/4] tcp: Adjust TCP ULP to defer to sockets
+ ULP
+Date: Wed, 2 Aug 2017 12:58:13 -0700
+Message-ID: <20170802195813.GB47485@apz-mbp.dhcp.thefacebook.com>
+References: <20170802031846.21993-1-tom@quantonium.net>
+ <20170802031846.21993-4-tom@quantonium.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170802194825.29002-1-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <rohit@quantonium.net>
+To: Tom Herbert <tom@quantonium.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51310 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751923AbdHBT6X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 15:58:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20170802031846.21993-4-tom@quantonium.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/02/2017 12:48 PM, Vivien Didelot wrote:
-> It's been a while now since ds->dst is not an array anymore, but a
-> simple pointer to a dsa_switch_tree.
-> 
-> Fortunately, SF2 does not support multi-chip and thus ds->index is
-> always 0.
-> 
-> This patch substitutes 'ds->dst[ds->index].' with 'ds->dst->'.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+On 08/01/17 08:18 PM, Tom Herbert wrote:
+>  
+> -static int tls_init(struct sock *sk)
+> +static int tls_init(struct sock *sk, char __user *optval, int len)
+>  {
+> -	struct inet_connection_sock *icsk = inet_csk(sk);
+>  	struct tls_context *ctx;
+>  	int rc = 0;
+>  
+> @@ -450,7 +449,7 @@ static int tls_init(struct sock *sk)
+>  		rc = -ENOMEM;
+>  		goto out;
+>  	}
+> -	icsk->icsk_ulp_data = ctx;
+> +	sk->sk_ulp_data = ctx;
+>  	ctx->setsockopt = sk->sk_prot->setsockopt;
+>  	ctx->getsockopt = sk->sk_prot->getsockopt;
+>  	sk->sk_prot = &tls_base_prot;
+> @@ -458,7 +457,7 @@ static int tls_init(struct sock *sk)
+>  	return rc;
+>  }
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-Thanks!
--- 
-Florian
+It looks like tls_init should be checking if this is a tcp socket now
+also, and failing if not
