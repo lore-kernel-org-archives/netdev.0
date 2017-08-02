@@ -1,44 +1,62 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 1/2] [for 4.13] net: qcom/emac: disable flow control
- autonegotiation by default
-Date: Tue, 1 Aug 2017 19:56:31 -0500
-Message-ID: <6a6ac2c1-eb78-d7fd-5721-49dd6a550913@codeaurora.org>
-References: <1501623460-3575-1-git-send-email-timur@codeaurora.org>
- <1501623460-3575-2-git-send-email-timur@codeaurora.org>
- <20170801231554.GA8415@lunn.ch>
+From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
+Subject: Re: [PATCH net-next RFC 0/6] Configure cloud filters in i40e via
+ tc/flower classifier
+Date: Tue, 1 Aug 2017 17:57:06 -0700
+Message-ID: <78fbc08d-f846-a3e4-ffbd-f0cba43780e3@intel.com>
+References: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
+ <2d833571-a5f3-41a6-0e6c-9d2c27b0a8c5@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
+        netdev@vger.kernel.org, mitch.a.williams@intel.com,
+        alexander.duyck@gmail.com, neerav.parikh@intel.com,
+        sridhar.samudrala@intel.com, carolyn.wyborny@intel.com,
+        Or Gerlitz <gerlitz.or@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56514 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751029AbdHBA4d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 20:56:33 -0400
-In-Reply-To: <20170801231554.GA8415@lunn.ch>
-Content-Language: en-US
+Received: from mga01.intel.com ([192.55.52.88]:54564 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751821AbdHBA5H (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Aug 2017 20:57:07 -0400
+In-Reply-To: <2d833571-a5f3-41a6-0e6c-9d2c27b0a8c5@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/1/17 6:15 PM, Andrew Lunn wrote:
-> Pause frames are something you can auto-negotiate at the PHY
-> level. Should you also be clearing some bits in the phydev, so the
-> peer knows pause frames are not supported?
 
-When pause frame autonegotiation is enabled in the driver, that only 
-means that the driver looks at what the PHY has autonegotiated, and then 
-configures the MAC to match that.
+On 8/1/2017 3:15 AM, Jamal Hadi Salim wrote:
+> On 17-07-31 08:36 PM, Amritha Nambiar wrote:
+>> This patch series enables configuring cloud filters in i40e
+>> using the tc/flower classifier. The only tc-filter action
+>> supported is to redirect packets to a traffic class on the
+>> same device. The tc/mirred:redirect action is extended to
+>> accept a traffic class to achieve this.
+>>
+>> The cloud filters are added for a VSI and are cleaned up when
+>> the VSI is deleted. The filters that match on L4 ports needs
+>> enhanced admin queue functions with big buffer support for
+>> extended general fields in Add/Remove Cloud filters command.
+>>
+>> Example:
+>> # tc qdisc add dev eth0 ingress
+>>
+>> # ethtool -K eth0 hw-tc-offload on
+>>
+>> # tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
+>>    dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
+>>    skip_sw indev eth0 action mirred ingress redirect dev eth0 tc 1
+>>
+> 
+> I think "queue 1" sounds better than "tc 1".
+> "tc" is  already a keyword in a few places (even within that declaration
+> above).
 
-The driver doesn't touch the PHY at all.  It leaves all that to phylib.
+The idea is to redirect to a traffic class that has queues assigned to
+it and not a single queue i.e. these are actually queue groups and not a
+single queue. So may be "qgroup 1" or "tcqgroup 1" fits better.
 
-Now if autonegotiation is disabled in the driver, then it just 
-hard-codes those TX/RX settings in the driver.  Are you saying I should 
-program the PHY at the point to disable autonegotiation on the PHY 
-level?  If so, then I don't know how to do that.  I just assumed that 
-the MAC never tells the PHY what to do.
-
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the
-Code Aurora Forum, hosted by The Linux Foundation.
+> 
+> cheers,
+> jamal
+> 
