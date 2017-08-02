@@ -1,7 +1,7 @@
 From: Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 8/8] MIPS: BMIPS: name the refclk clock for uart
-Date: Wed,  2 Aug 2017 11:34:29 +0200
-Message-ID: <20170802093429.12572-9-jonas.gorski@gmail.com>
+Subject: [PATCH 6/8] bcm63xx_enet: just use "enet" as the clock name
+Date: Wed,  2 Aug 2017 11:34:27 +0200
+Message-ID: <20170802093429.12572-7-jonas.gorski@gmail.com>
 References: <20170802093429.12572-1-jonas.gorski@gmail.com>
 Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
         Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
@@ -21,139 +21,42 @@ In-Reply-To: <20170802093429.12572-1-jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add the clock name to the uart nodes, to name the input clock
-properly.
+Now that we have the individual clocks available as "enet" we
+don't need to rely on the device id for them anymore.
 
 Signed-off-by: Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/mips/boot/dts/brcm/bcm3368.dtsi  | 2 ++
- arch/mips/boot/dts/brcm/bcm63268.dtsi | 2 ++
- arch/mips/boot/dts/brcm/bcm6328.dtsi  | 2 ++
- arch/mips/boot/dts/brcm/bcm6358.dtsi  | 2 ++
- arch/mips/boot/dts/brcm/bcm6362.dtsi  | 2 ++
- arch/mips/boot/dts/brcm/bcm6368.dtsi  | 2 ++
- 6 files changed, 12 insertions(+)
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/arch/mips/boot/dts/brcm/bcm3368.dtsi b/arch/mips/boot/dts/brcm/bcm3368.dtsi
-index bee855cb8073..772fb42b7730 100644
---- a/arch/mips/boot/dts/brcm/bcm3368.dtsi
-+++ b/arch/mips/boot/dts/brcm/bcm3368.dtsi
-@@ -82,6 +82,7 @@
- 			interrupts = <2>;
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 61a88b64bd39..d6844923a1c0 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -1718,7 +1718,6 @@ static int bcm_enet_probe(struct platform_device *pdev)
+ 	struct bcm63xx_enet_platform_data *pd;
+ 	struct resource *res_mem, *res_irq, *res_irq_rx, *res_irq_tx;
+ 	struct mii_bus *bus;
+-	const char *clk_name;
+ 	int i, ret;
  
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
+ 	/* stop if shared driver failed, assume driver->probe will be
+@@ -1761,14 +1760,12 @@ static int bcm_enet_probe(struct platform_device *pdev)
+ 	if (priv->mac_id == 0) {
+ 		priv->rx_chan = 0;
+ 		priv->tx_chan = 1;
+-		clk_name = "enet0";
+ 	} else {
+ 		priv->rx_chan = 2;
+ 		priv->tx_chan = 3;
+-		clk_name = "enet1";
+ 	}
  
- 			status = "disabled";
- 		};
-@@ -94,6 +95,7 @@
- 			interrupts = <3>;
- 
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 
- 			status = "disabled";
- 		};
-diff --git a/arch/mips/boot/dts/brcm/bcm63268.dtsi b/arch/mips/boot/dts/brcm/bcm63268.dtsi
-index 7e6bf2cc0287..b033a23b5e13 100644
---- a/arch/mips/boot/dts/brcm/bcm63268.dtsi
-+++ b/arch/mips/boot/dts/brcm/bcm63268.dtsi
-@@ -83,6 +83,7 @@
- 			interrupts = <5>;
- 
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 
- 			status = "disabled";
- 		};
-@@ -95,6 +96,7 @@
- 			interrupts = <34>;
- 
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 
- 			status = "disabled";
- 		};
-diff --git a/arch/mips/boot/dts/brcm/bcm6328.dtsi b/arch/mips/boot/dts/brcm/bcm6328.dtsi
-index 5633b9d90f55..7c3061ba6d38 100644
---- a/arch/mips/boot/dts/brcm/bcm6328.dtsi
-+++ b/arch/mips/boot/dts/brcm/bcm6328.dtsi
-@@ -68,6 +68,7 @@
- 			interrupt-parent = <&periph_intc>;
- 			interrupts = <28>;
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 			status = "disabled";
- 		};
- 
-@@ -77,6 +78,7 @@
- 			interrupt-parent = <&periph_intc>;
- 			interrupts = <39>;
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 			status = "disabled";
- 		};
- 
-diff --git a/arch/mips/boot/dts/brcm/bcm6358.dtsi b/arch/mips/boot/dts/brcm/bcm6358.dtsi
-index f9d8d392162b..ab9d6c268a84 100644
---- a/arch/mips/boot/dts/brcm/bcm6358.dtsi
-+++ b/arch/mips/boot/dts/brcm/bcm6358.dtsi
-@@ -92,6 +92,7 @@
- 			interrupts = <2>;
- 
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 
- 			status = "disabled";
- 		};
-@@ -104,6 +105,7 @@
- 			interrupts = <3>;
- 
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 
- 			status = "disabled";
- 		};
-diff --git a/arch/mips/boot/dts/brcm/bcm6362.dtsi b/arch/mips/boot/dts/brcm/bcm6362.dtsi
-index c507da594f2f..ca93c9a6f23f 100644
---- a/arch/mips/boot/dts/brcm/bcm6362.dtsi
-+++ b/arch/mips/boot/dts/brcm/bcm6362.dtsi
-@@ -83,6 +83,7 @@
- 			interrupts = <3>;
- 
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 
- 			status = "disabled";
- 		};
-@@ -95,6 +96,7 @@
- 			interrupts = <4>;
- 
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 
- 			status = "disabled";
- 		};
-diff --git a/arch/mips/boot/dts/brcm/bcm6368.dtsi b/arch/mips/boot/dts/brcm/bcm6368.dtsi
-index d0e3a70b32e2..da4ec89710fd 100644
---- a/arch/mips/boot/dts/brcm/bcm6368.dtsi
-+++ b/arch/mips/boot/dts/brcm/bcm6368.dtsi
-@@ -89,6 +89,7 @@
- 			interrupt-parent = <&periph_intc>;
- 			interrupts = <2>;
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 			status = "disabled";
- 		};
- 
-@@ -98,6 +99,7 @@
- 			interrupt-parent = <&periph_intc>;
- 			interrupts = <3>;
- 			clocks = <&periph_clk>;
-+			clock-names = "refclk";
- 			status = "disabled";
- 		};
- 
+-	priv->mac_clk = clk_get(&pdev->dev, clk_name);
++	priv->mac_clk = clk_get(&pdev->dev, "enet");
+ 	if (IS_ERR(priv->mac_clk)) {
+ 		ret = PTR_ERR(priv->mac_clk);
+ 		goto out;
 -- 
 2.13.2
 
