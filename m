@@ -1,313 +1,64 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH net] net: hns: Add self-adaptive interrupt coalesce support in hns driver
-Date: Wed, 2 Aug 2017 17:57:37 +0800
-Message-ID: <1501667857-66817-1-git-send-email-linyunsheng@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
-        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
-        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
-        <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
-        <tremyfr@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jonas Gorski <jonas.gorski@gmail.com>
+Subject: [PATCH 0/8] MIPS: BCM63XX: add and use clkdev lookup support
+Date: Wed,  2 Aug 2017 11:34:21 +0200
+Message-ID: <20170802093429.12572-1-jonas.gorski@gmail.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        bcm-kernel-feedback-list@broadcom.com,
+        Kevin Cernekee <cernekee@gmail.com>,
+        Jiri Slaby <jslaby@suse.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Russell King <linux@armlinux.org.uk>
+To: linux-mips@linux-mips.org, linux-arm-kernel@lists.infradead.org,
+        linux-serial@vger.kernel.org, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:38843 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752233AbdHBJfH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 05:35:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lin Yun Sheng <linyunsheng@huawei.com>
+This patchset adds and uses clckdev lookup support to name input clocks
+in various drivers more closely to their functions, or simplify their
+usage.
 
-When deal with low and high throughput, it is hard to achiece both
-high performance and low latency. In order to achiece that, this patch
-calculates the rx rate, and adjust the interrupt coalesce parameter
-accordingly.
+Since most of these patches touch arch/mips, it probably makes most
+sense to go through the MIPS tree.
 
-Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
-Tested-by: Weiwei Deng <dengweiwei@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hnae.c         |   1 +
- drivers/net/ethernet/hisilicon/hns/hnae.h         |  15 +++
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |   1 +
- drivers/net/ethernet/hisilicon/hns/hns_enet.c     | 134 ++++++++++++++++++++--
- drivers/net/ethernet/hisilicon/hns/hns_enet.h     |   2 +-
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  |   7 +-
- 6 files changed, 149 insertions(+), 11 deletions(-)
+The HSSPI driver was already updated previously to support a "pll"
+input with ff18e1ef04e2 ("spi/bcm63xx-hsspi: allow providing clock rate
+through a second clock"), so there is no need to touch it.
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.c b/drivers/net/ethernet/hisilicon/hns/hnae.c
-index 9d9b6e6..a051e58 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.c
-@@ -202,6 +202,7 @@ static void hnae_fini_ring(struct hnae_ring *ring)
- 	ring->q = q;
- 	ring->flags = flags;
- 	spin_lock_init(&ring->lock);
-+	ring->coal_param = q->handle->coal_param;
- 	assert(!ring->desc && !ring->desc_cb && !ring->desc_dma_addr);
- 
- 	/* not matter for tx or rx ring, the ntc and ntc start from 0 */
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index 7ba653a..3e62692 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -89,6 +89,10 @@
- 
- #define RCB_RING_NAME_LEN 16
- 
-+#define HNAE_LOWEST_LATENCY_COAL_PARAM	30
-+#define HNAE_LOW_LATENCY_COAL_PARAM	80
-+#define HNAE_BULK_LATENCY_COAL_PARAM	150
-+
- enum hnae_led_state {
- 	HNAE_LED_INACTIVE,
- 	HNAE_LED_ACTIVE,
-@@ -292,6 +296,12 @@ struct hnae_ring {
- 
- 	int flags;          /* ring attribute */
- 	int irq_init_flag;
-+
-+	/* total rx bytes after last rx rate calucated */
-+	u64 coal_last_rx_bytes;
-+	unsigned long coal_last_jiffies;
-+	u32 coal_param;
-+	u32 coal_rx_rate;	/* rx rate in MB */
- };
- 
- #define ring_ptr_move_fw(ring, p) \
-@@ -548,8 +558,13 @@ struct hnae_handle {
- 	u32 if_support;
- 	int q_num;
- 	int vf_id;
-+	unsigned long coal_last_jiffies;
-+	u32 coal_param;		/* self adapt coalesce param */
-+	/* the ring index of last ring that set coal param */
-+	u32 coal_ring_idx;
- 	u32 eport_id;
- 	u32 dport_id;	/* v2 tx bd should fill the dport_id */
-+	bool coal_adapt_en;
- 	enum hnae_port_type port_type;
- 	enum hnae_media_type media_type;
- 	struct list_head node;    /* list to hnae_ae_dev->handle_list */
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index a37166e..bd68379 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -99,6 +99,7 @@ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
- 	ae_handle->owner_dev = dsaf_dev->dev;
- 	ae_handle->dev = dev;
- 	ae_handle->q_num = qnum_per_vf;
-+	ae_handle->coal_param = HNAE_LOWEST_LATENCY_COAL_PARAM;
- 
- 	/* find ring pair, and set vf id*/
- 	for (ae_handle->vf_id = 0;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 3987699..832f277 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -812,6 +812,112 @@ static int hns_desc_unused(struct hnae_ring *ring)
- 	return ((ntc >= ntu) ? 0 : ring->desc_num) + ntc - ntu;
- }
- 
-+#define HNS_LOWEST_LATENCY_RATE		27	/* 27 MB/s */
-+#define HNS_LOW_LATENCY_RATE			80	/* 80 MB/s */
-+
-+#define HNS_COAL_BDNUM			3
-+
-+static u32 hns_coal_rx_bdnum(struct hnae_ring *ring)
-+{
-+	bool coal_enable = ring->q->handle->coal_adapt_en;
-+
-+	if (coal_enable &&
-+	    ring->coal_last_rx_bytes > HNS_LOWEST_LATENCY_RATE)
-+		return HNS_COAL_BDNUM;
-+	else
-+		return 0;
-+}
-+
-+static void hns_update_rx_rate(struct hnae_ring *ring)
-+{
-+	bool coal_enable = ring->q->handle->coal_adapt_en;
-+	u32 time_passed_ms;
-+	u64 total_bytes;
-+
-+	if (!coal_enable ||
-+	    time_before(jiffies, ring->coal_last_jiffies + (HZ >> 4)))
-+		return;
-+
-+	/* ring->stats.rx_bytes overflowed */
-+	if (ring->coal_last_rx_bytes > ring->stats.rx_bytes) {
-+		ring->coal_last_rx_bytes = ring->stats.rx_bytes;
-+		ring->coal_last_jiffies = jiffies;
-+		return;
-+	}
-+
-+	total_bytes = ring->stats.rx_bytes - ring->coal_last_rx_bytes;
-+	time_passed_ms = jiffies_to_msecs(jiffies - ring->coal_last_jiffies);
-+	ring->coal_rx_rate = (total_bytes / time_passed_ms) >> 10;
-+
-+	ring->coal_last_rx_bytes = ring->stats.rx_bytes;
-+	ring->coal_last_jiffies = jiffies;
-+}
-+
-+/**
-+ * smooth_alg - smoothing algrithm for adjusting coalesce parameter
-+ **/
-+static u32 smooth_alg(u32 new_param, u32 old_param)
-+{
-+	u32 gap = (new_param > old_param) ? new_param - old_param
-+					  : old_param - new_param;
-+
-+	if (gap > 8)
-+		gap >>= 3;
-+
-+	if (new_param > old_param)
-+		return old_param + gap;
-+	else
-+		return old_param - gap;
-+}
-+
-+/**
-+ * hns_nic_adp_coalesce - self adapte coalesce according to rx rate
-+ * @ring_data: pointer to hns_nic_ring_data
-+ **/
-+static void hns_nic_adpt_coalesce(struct hns_nic_ring_data *ring_data)
-+{
-+	struct hnae_ring *ring = ring_data->ring;
-+	struct hnae_handle *handle = ring->q->handle;
-+	u32 new_coal_param, old_coal_param = ring->coal_param;
-+
-+	if (ring->coal_rx_rate < HNS_LOWEST_LATENCY_RATE)
-+		new_coal_param = HNAE_LOWEST_LATENCY_COAL_PARAM;
-+	else if (ring->coal_rx_rate < HNS_LOW_LATENCY_RATE)
-+		new_coal_param = HNAE_LOW_LATENCY_COAL_PARAM;
-+	else
-+		new_coal_param = HNAE_BULK_LATENCY_COAL_PARAM;
-+
-+	if (new_coal_param == old_coal_param &&
-+	    new_coal_param == handle->coal_param)
-+		return;
-+
-+	new_coal_param = smooth_alg(new_coal_param, old_coal_param);
-+	ring->coal_param = new_coal_param;
-+
-+	/**
-+	 * Because all ring in one port has one coalesce param, when one ring
-+	 * calculate its own coalesce param, it cannot write to hardware at
-+	 * once. There are three conditions as follows:
-+	 *       1. current ring's coalesce param is larger than the hardware.
-+	 *       2. or ring which adapt last time can change again.
-+	 *       3. timeout.
-+	 */
-+	if (new_coal_param == handle->coal_param) {
-+		handle->coal_last_jiffies = jiffies;
-+		handle->coal_ring_idx = ring_data->queue_index;
-+	} else if (new_coal_param > handle->coal_param ||
-+		   handle->coal_ring_idx == ring_data->queue_index ||
-+		   time_after(jiffies, handle->coal_last_jiffies + (HZ >> 4))) {
-+		handle->dev->ops->set_coalesce_usecs(handle,
-+					new_coal_param);
-+		handle->dev->ops->set_coalesce_frames(handle,
-+					1, new_coal_param);
-+		handle->coal_param = new_coal_param;
-+		handle->coal_ring_idx = ring_data->queue_index;
-+		handle->coal_last_jiffies = jiffies;
-+	}
-+}
-+
- static int hns_nic_rx_poll_one(struct hns_nic_ring_data *ring_data,
- 			       int budget, void *v)
- {
-@@ -868,20 +974,27 @@ static bool hns_nic_rx_fini_pro(struct hns_nic_ring_data *ring_data)
- {
- 	struct hnae_ring *ring = ring_data->ring;
- 	int num = 0;
-+	bool rx_stopped;
- 
--	ring_data->ring->q->handle->dev->ops->toggle_ring_irq(ring, 0);
-+	hns_update_rx_rate(ring);
- 
- 	/* for hardware bug fixed */
-+	ring_data->ring->q->handle->dev->ops->toggle_ring_irq(ring, 0);
- 	num = readl_relaxed(ring->io_base + RCB_REG_FBDNUM);
- 
--	if (num > 0) {
-+	if (num <= hns_coal_rx_bdnum(ring)) {
-+		if (ring->q->handle->coal_adapt_en)
-+			hns_nic_adpt_coalesce(ring_data);
-+
-+		rx_stopped = true;
-+	} else {
- 		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
- 			ring_data->ring, 1);
- 
--		return false;
--	} else {
--		return true;
-+		rx_stopped = false;
- 	}
-+
-+	return rx_stopped;
- }
- 
- static bool hns_nic_rx_fini_pro_v2(struct hns_nic_ring_data *ring_data)
-@@ -889,12 +1002,17 @@ static bool hns_nic_rx_fini_pro_v2(struct hns_nic_ring_data *ring_data)
- 	struct hnae_ring *ring = ring_data->ring;
- 	int num;
- 
-+	hns_update_rx_rate(ring);
- 	num = readl_relaxed(ring->io_base + RCB_REG_FBDNUM);
- 
--	if (!num)
-+	if (num <= hns_coal_rx_bdnum(ring)) {
-+		if (ring->q->handle->coal_adapt_en)
-+			hns_nic_adpt_coalesce(ring_data);
-+
- 		return true;
--	else
--		return false;
-+	}
-+
-+	return false;
- }
- 
- static inline void hns_nic_reclaim_one_desc(struct hnae_ring *ring,
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-index 9cb4c78..26e9afc 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
-@@ -38,7 +38,7 @@ struct hns_nic_ring_data {
- 	struct hnae_ring *ring;
- 	struct napi_struct napi;
- 	cpumask_t mask; /* affinity mask */
--	int queue_index;
-+	u32 queue_index;
- 	int (*poll_one)(struct hns_nic_ring_data *, int, void *);
- 	void (*ex_process)(struct hns_nic_ring_data *, struct sk_buff *);
- 	bool (*fini_process)(struct hns_nic_ring_data *);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index a8db27e..9c8a5d5 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -735,8 +735,8 @@ static int hns_get_coalesce(struct net_device *net_dev,
- 
- 	ops = priv->ae_handle->dev->ops;
- 
--	ec->use_adaptive_rx_coalesce = 1;
--	ec->use_adaptive_tx_coalesce = 1;
-+	ec->use_adaptive_rx_coalesce = priv->ae_handle->coal_adapt_en;
-+	ec->use_adaptive_tx_coalesce = priv->ae_handle->coal_adapt_en;
- 
- 	if ((!ops->get_coalesce_usecs) ||
- 	    (!ops->get_max_coalesced_frames))
-@@ -787,6 +787,9 @@ static int hns_set_coalesce(struct net_device *net_dev,
- 	    (!ops->set_coalesce_frames))
- 		return -ESRCH;
- 
-+	if (ec->use_adaptive_rx_coalesce != priv->ae_handle->coal_adapt_en)
-+		priv->ae_handle->coal_adapt_en = ec->use_adaptive_rx_coalesce;
-+
- 	rc1 = ops->set_coalesce_usecs(priv->ae_handle,
- 				      ec->rx_coalesce_usecs);
- 
+This patch series is part of an effort to modernize BCM63XX and clean up
+its drivers to eventually make them usable with BMIPS and device tree.
+
+Jonas Gorski (8):
+  MIPS: BCM63XX: add clkdev lookup support
+  MIPS: BCM63XX: provide periph clock as refclk for uart
+  tty/bcm63xx_uart: use refclk for the expected clock name
+  tty/bcm63xx_uart: allow naming clock in device tree
+  MIPS: BCM63XX: provide enet clocks as "enet" to the ethernet devices
+  bcm63xx_enet: just use "enet" as the clock name
+  MIPS: BCM63XX: move the HSSPI PLL HZ into its own clock
+  MIPS: BMIPS: name the refclk clock for uart
+
+ .../bindings/serial/brcm,bcm6345-uart.txt          |   6 +
+ arch/mips/Kconfig                                  |   1 +
+ arch/mips/bcm63xx/clk.c                            | 181 ++++++++++++++++-----
+ arch/mips/boot/dts/brcm/bcm3368.dtsi               |   2 +
+ arch/mips/boot/dts/brcm/bcm63268.dtsi              |   2 +
+ arch/mips/boot/dts/brcm/bcm6328.dtsi               |   2 +
+ arch/mips/boot/dts/brcm/bcm6358.dtsi               |   2 +
+ arch/mips/boot/dts/brcm/bcm6362.dtsi               |   2 +
+ arch/mips/boot/dts/brcm/bcm6368.dtsi               |   2 +
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c       |   5 +-
+ drivers/tty/serial/bcm63xx_uart.c                  |   6 +-
+ 11 files changed, 168 insertions(+), 43 deletions(-)
+
 -- 
-1.9.1
+2.13.2
