@@ -1,56 +1,40 @@
-From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH v3 00/11] Add the internal phy support
-Date: Wed,  2 Aug 2017 14:15:35 +0800
-Message-ID: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
-Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: David Wu <david.wu@rock-chips.com>
+Subject: [PATCH v3 02/11] multi_v7_defconfig: Make rockchip phy built-in
+Date: Wed,  2 Aug 2017 14:15:37 +0800
+Message-ID: <1501654546-17292-3-git-send-email-david.wu@rock-chips.com>
+References: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        huangtao@rock-chips.com, hwg@rock-chips.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Wu <david.wu@rock-chips.com>
+To: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch,
+        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
+        linux@armlinux.org.uk, arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The rk3228 and rk3328 support internal phy inside, let's enable
-it to work. And the internal phy need to do some special setting, so
-register the rockchip internal phy driver.
+Enable the rockchip phy for multi_v7_defconfig builds.
 
-David Wu (11):
-  net: phy: Add rockchip phy driver support
-  multi_v7_defconfig: Make rockchip phy built-in
-  arm64: defconfig: Enable CONFIG_ROCKCHIP_PHY
-  net: stmmac: dwmac-rk: Remove unwanted code for rk3328_set_to_rmii()
-  net: stmmac: dwmac-rk: Add internal phy support
-  net: stmmac: dwmac-rk: Add internal phy support for rk3228
-  net: stmmac: dwmac-rk: Add internal phy supprot for rk3328
-  ARM: dts: rk322x: Add support internal phy for gmac
-  ARM: dts: rk3228-evb: Enable the internal phy for gmac
-  ARM64: dts: rockchip: Add gmac2phy node support for rk3328
-  ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb
+Signed-off-by: David Wu <david.wu@rock-chips.com>
+---
+ arch/arm/configs/multi_v7_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
- .../devicetree/bindings/net/rockchip-dwmac.txt     |   6 +-
- arch/arm/boot/dts/rk3228-evb.dts                   |  20 ++
- arch/arm/boot/dts/rk322x.dtsi                      |   8 +-
- arch/arm/configs/multi_v7_defconfig                |   1 +
- arch/arm64/boot/dts/rockchip/rk3328-evb.dts        |  17 ++
- arch/arm64/boot/dts/rockchip/rk3328.dtsi           |  25 +++
- arch/arm64/configs/defconfig                       |   1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 122 ++++++++++-
- drivers/net/phy/Kconfig                            |   5 +
- drivers/net/phy/Makefile                           |   1 +
- drivers/net/phy/rockchip.c                         | 229 +++++++++++++++++++++
- 11 files changed, 424 insertions(+), 11 deletions(-)
- create mode 100644 drivers/net/phy/rockchip.c
-
+diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
+index 4d19c1b..94d7e71 100644
+--- a/arch/arm/configs/multi_v7_defconfig
++++ b/arch/arm/configs/multi_v7_defconfig
+@@ -270,6 +270,7 @@ CONFIG_ICPLUS_PHY=y
+ CONFIG_REALTEK_PHY=y
+ CONFIG_MICREL_PHY=y
+ CONFIG_FIXED_PHY=y
++CONFIG_ROCKCHIP_PHY=y
+ CONFIG_USB_PEGASUS=y
+ CONFIG_USB_RTL8152=m
+ CONFIG_USB_USBNET=y
 -- 
 1.9.1
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
