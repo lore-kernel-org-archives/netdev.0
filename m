@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next v3 1/3] netvsc: transparent VF management
-Date: Tue,  1 Aug 2017 19:58:53 -0700
-Message-ID: <20170802025855.11521-2-sthemmin@microsoft.com>
+Subject: [PATCH net-next v3 3/3] netvsc: remove bonding setup script
+Date: Tue,  1 Aug 2017 19:58:55 -0700
+Message-ID: <20170802025855.11521-4-sthemmin@microsoft.com>
 References: <20170802025855.11521-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,763 +23,274 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-This patch implements transparent fail over from synthetic NIC to
-SR-IOV virtual function NIC in Hyper-V environment. It is a better
-alternative to using bonding as is done now. Instead, the receive and
-transmit fail over is done internally inside the driver.
-
-Using bonding driver has lots of issues because it depends on the
-script being run early enough in the boot process and with sufficient
-information to make the association. This patch moves all that
-functionality into the kernel.
+No longer needed, now all managed by transparent VF logic.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
-v3 - fix merge conflict (due to comment change) 
+ tools/hv/bondvf.sh | 255 -----------------------------------------------------
+ 1 file changed, 255 deletions(-)
+ delete mode 100755 tools/hv/bondvf.sh
 
- drivers/net/hyperv/hyperv_net.h |  12 ++
- drivers/net/hyperv/netvsc_drv.c | 419 +++++++++++++++++++++++++++++++---------
- 2 files changed, 342 insertions(+), 89 deletions(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index f2cef5aaed1f..c701b059c5ac 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -680,6 +680,15 @@ struct netvsc_ethtool_stats {
- 	unsigned long tx_busy;
- };
- 
-+struct netvsc_vf_pcpu_stats {
-+	u64     rx_packets;
-+	u64     rx_bytes;
-+	u64     tx_packets;
-+	u64     tx_bytes;
-+	struct u64_stats_sync   syncp;
-+	u32	tx_dropped;
-+};
-+
- struct netvsc_reconfig {
- 	struct list_head list;
- 	u32 event;
-@@ -713,6 +722,9 @@ struct net_device_context {
- 
- 	/* State to manage the associated VF interface. */
- 	struct net_device __rcu *vf_netdev;
-+	struct netvsc_vf_pcpu_stats __percpu *vf_stats;
-+	struct work_struct vf_takeover;
-+	struct work_struct vf_notify;
- 
- 	/* 1: allocated, serial number is valid. 0: not allocated */
- 	u32 vf_alloc;
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 9453eef6d09f..c71728d82049 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -34,6 +34,7 @@
- #include <linux/in.h>
- #include <linux/slab.h>
- #include <linux/rtnetlink.h>
-+#include <linux/netpoll.h>
- 
- #include <net/arp.h>
- #include <net/route.h>
-@@ -71,6 +72,7 @@ static void netvsc_set_multicast_list(struct net_device *net)
- static int netvsc_open(struct net_device *net)
- {
- 	struct net_device_context *ndev_ctx = netdev_priv(net);
-+	struct net_device *vf_netdev = rtnl_dereference(ndev_ctx->vf_netdev);
- 	struct netvsc_device *nvdev = rtnl_dereference(ndev_ctx->nvdev);
- 	struct rndis_device *rdev;
- 	int ret = 0;
-@@ -87,15 +89,29 @@ static int netvsc_open(struct net_device *net)
- 	netif_tx_wake_all_queues(net);
- 
- 	rdev = nvdev->extension;
--	if (!rdev->link_state && !ndev_ctx->datapath)
-+
-+	if (!rdev->link_state)
- 		netif_carrier_on(net);
- 
--	return ret;
-+	if (vf_netdev) {
-+		/* Setting synthetic device up transparently sets
-+		 * slave as up. If open fails, then slave will be
-+		 * still be offline (and not used).
-+		 */
-+		ret = dev_open(vf_netdev);
-+		if (ret)
-+			netdev_warn(net,
-+				    "unable to open slave: %s: %d\n",
-+				    vf_netdev->name, ret);
-+	}
-+	return 0;
- }
- 
- static int netvsc_close(struct net_device *net)
- {
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
-+	struct net_device *vf_netdev
-+		= rtnl_dereference(net_device_ctx->vf_netdev);
- 	struct netvsc_device *nvdev = rtnl_dereference(net_device_ctx->nvdev);
- 	int ret;
- 	u32 aread, i, msec = 10, retry = 0, retry_max = 20;
-@@ -141,6 +157,9 @@ static int netvsc_close(struct net_device *net)
- 		ret = -ETIMEDOUT;
- 	}
- 
-+	if (vf_netdev)
-+		dev_close(vf_netdev);
-+
- 	return ret;
- }
- 
-@@ -224,13 +243,11 @@ static inline int netvsc_get_tx_queue(struct net_device *ndev,
-  *
-  * TODO support XPS - but get_xps_queue not exported
-  */
--static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
--			void *accel_priv, select_queue_fallback_t fallback)
-+static u16 netvsc_pick_tx(struct net_device *ndev, struct sk_buff *skb)
- {
--	unsigned int num_tx_queues = ndev->real_num_tx_queues;
- 	int q_idx = sk_tx_queue_get(skb->sk);
- 
--	if (q_idx < 0 || skb->ooo_okay) {
-+	if (q_idx < 0 || skb->ooo_okay || q_idx >= ndev->real_num_tx_queues) {
- 		/* If forwarding a packet, we use the recorded queue when
- 		 * available for better cache locality.
- 		 */
-@@ -240,12 +257,33 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
- 			q_idx = netvsc_get_tx_queue(ndev, skb, q_idx);
- 	}
- 
--	while (unlikely(q_idx >= num_tx_queues))
--		q_idx -= num_tx_queues;
+diff --git a/tools/hv/bondvf.sh b/tools/hv/bondvf.sh
+deleted file mode 100755
+index 80f102860cf8..000000000000
+--- a/tools/hv/bondvf.sh
++++ /dev/null
+@@ -1,255 +0,0 @@
+-#!/bin/bash
 -
- 	return q_idx;
- }
- 
-+static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
-+			       void *accel_priv,
-+			       select_queue_fallback_t fallback)
-+{
-+	struct net_device_context *ndc = netdev_priv(ndev);
-+	struct net_device *vf_netdev;
-+	u16 txq;
-+
-+	rcu_read_lock();
-+	vf_netdev = rcu_dereference(ndc->vf_netdev);
-+	if (vf_netdev) {
-+		txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) : 0;
-+		qdisc_skb_cb(skb)->slave_dev_queue_mapping = skb->queue_mapping;
-+	} else {
-+		txq = netvsc_pick_tx(ndev, skb);
-+	}
-+	rcu_read_unlock();
-+
-+	while (unlikely(txq >= ndev->real_num_tx_queues))
-+		txq -= ndev->real_num_tx_queues;
-+
-+	return txq;
-+}
-+
- static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
- 			struct hv_page_buffer *pb)
- {
-@@ -367,6 +405,33 @@ static u32 net_checksum_info(struct sk_buff *skb)
- 	return TRANSPORT_INFO_NOT_IP;
- }
- 
-+/* Send skb on the slave VF device. */
-+static int netvsc_vf_xmit(struct net_device *net, struct net_device *vf_netdev,
-+			  struct sk_buff *skb)
-+{
-+	struct net_device_context *ndev_ctx = netdev_priv(net);
-+	unsigned int len = skb->len;
-+	int rc;
-+
-+	skb->dev = vf_netdev;
-+	skb->queue_mapping = qdisc_skb_cb(skb)->slave_dev_queue_mapping;
-+
-+	rc = dev_queue_xmit(skb);
-+	if (likely(rc == NET_XMIT_SUCCESS || rc == NET_XMIT_CN)) {
-+		struct netvsc_vf_pcpu_stats *pcpu_stats
-+			= this_cpu_ptr(ndev_ctx->vf_stats);
-+
-+		u64_stats_update_begin(&pcpu_stats->syncp);
-+		pcpu_stats->tx_packets++;
-+		pcpu_stats->tx_bytes += len;
-+		u64_stats_update_end(&pcpu_stats->syncp);
-+	} else {
-+		this_cpu_inc(ndev_ctx->vf_stats->tx_dropped);
-+	}
-+
-+	return rc;
-+}
-+
- static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- {
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
-@@ -375,11 +440,20 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	unsigned int num_data_pgs;
- 	struct rndis_message *rndis_msg;
- 	struct rndis_packet *rndis_pkt;
-+	struct net_device *vf_netdev;
- 	u32 rndis_msg_size;
- 	struct rndis_per_packet_info *ppi;
- 	u32 hash;
- 	struct hv_page_buffer pb[MAX_PAGE_BUFFER_COUNT];
- 
-+	/* if VF is present and up then redirect packets
-+	 * already called with rcu_read_lock_bh
-+	 */
-+	vf_netdev = rcu_dereference_bh(net_device_ctx->vf_netdev);
-+	if (vf_netdev && netif_running(vf_netdev) &&
-+	    !netpoll_tx_running(net))
-+		return netvsc_vf_xmit(net, vf_netdev, skb);
-+
- 	/* We will atmost need two pages to describe the rndis
- 	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
- 	 * of pages in a single packet. If skb is scattered around
-@@ -658,29 +732,18 @@ int netvsc_recv_callback(struct net_device *net,
- 	struct netvsc_device *net_device;
- 	u16 q_idx = channel->offermsg.offer.sub_channel_index;
- 	struct netvsc_channel *nvchan;
--	struct net_device *vf_netdev;
- 	struct sk_buff *skb;
- 	struct netvsc_stats *rx_stats;
- 
- 	if (net->reg_state != NETREG_REGISTERED)
- 		return NVSP_STAT_FAIL;
- 
--	/*
--	 * If necessary, inject this packet into the VF interface.
--	 * On Hyper-V, multicast and brodcast packets are only delivered
--	 * to the synthetic interface (after subjecting these to
--	 * policy filters on the host). Deliver these via the VF
--	 * interface in the guest.
--	 */
- 	rcu_read_lock();
- 	net_device = rcu_dereference(net_device_ctx->nvdev);
- 	if (unlikely(!net_device))
- 		goto drop;
- 
- 	nvchan = &net_device->chan_table[q_idx];
--	vf_netdev = rcu_dereference(net_device_ctx->vf_netdev);
--	if (vf_netdev && (vf_netdev->flags & IFF_UP))
--		net = vf_netdev;
- 
- 	/* Allocate a skb - TODO direct I/O to pages? */
- 	skb = netvsc_alloc_recv_skb(net, &nvchan->napi,
-@@ -692,8 +755,7 @@ int netvsc_recv_callback(struct net_device *net,
- 		return NVSP_STAT_FAIL;
- 	}
- 
--	if (net != vf_netdev)
--		skb_record_rx_queue(skb, q_idx);
-+	skb_record_rx_queue(skb, q_idx);
- 
- 	/*
- 	 * Even if injecting the packet, record the statistics
-@@ -853,6 +915,7 @@ static int netvsc_set_link_ksettings(struct net_device *dev,
- static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- {
- 	struct net_device_context *ndevctx = netdev_priv(ndev);
-+	struct net_device *vf_netdev = rtnl_dereference(ndevctx->vf_netdev);
- 	struct netvsc_device *nvdev = rtnl_dereference(ndevctx->nvdev);
- 	struct hv_device *hdev = ndevctx->device_ctx;
- 	int orig_mtu = ndev->mtu;
-@@ -863,6 +926,13 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	if (!nvdev || nvdev->destroy)
- 		return -ENODEV;
- 
-+	/* Change MTU of underlying VF netdev first. */
-+	if (vf_netdev) {
-+		ret = dev_set_mtu(vf_netdev, mtu);
-+		if (ret)
-+			return ret;
-+	}
-+
- 	netif_device_detach(ndev);
- 	was_opened = rndis_filter_opened(nvdev);
- 	if (was_opened)
-@@ -883,6 +953,9 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 		/* Attempt rollback to original MTU */
- 		ndev->mtu = orig_mtu;
- 		rndis_filter_device_add(hdev, &device_info);
-+
-+		if (vf_netdev)
-+			dev_set_mtu(vf_netdev, orig_mtu);
- 	}
- 
- 	if (was_opened)
-@@ -896,16 +969,56 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	return ret;
- }
- 
-+static void netvsc_get_vf_stats(struct net_device *net,
-+				struct netvsc_vf_pcpu_stats *tot)
-+{
-+	struct net_device_context *ndev_ctx = netdev_priv(net);
-+	int i;
-+
-+	memset(tot, 0, sizeof(*tot));
-+
-+	for_each_possible_cpu(i) {
-+		const struct netvsc_vf_pcpu_stats *stats
-+			= per_cpu_ptr(ndev_ctx->vf_stats, i);
-+		u64 rx_packets, rx_bytes, tx_packets, tx_bytes;
-+		unsigned int start;
-+
-+		do {
-+			start = u64_stats_fetch_begin_irq(&stats->syncp);
-+			rx_packets = stats->rx_packets;
-+			tx_packets = stats->tx_packets;
-+			rx_bytes = stats->rx_bytes;
-+			tx_bytes = stats->tx_bytes;
-+		} while (u64_stats_fetch_retry_irq(&stats->syncp, start));
-+
-+		tot->rx_packets += rx_packets;
-+		tot->tx_packets += tx_packets;
-+		tot->rx_bytes   += rx_bytes;
-+		tot->tx_bytes   += tx_bytes;
-+		tot->tx_dropped += stats->tx_dropped;
-+	}
-+}
-+
- static void netvsc_get_stats64(struct net_device *net,
- 			       struct rtnl_link_stats64 *t)
- {
- 	struct net_device_context *ndev_ctx = netdev_priv(net);
- 	struct netvsc_device *nvdev = rcu_dereference_rtnl(ndev_ctx->nvdev);
--	int i;
-+	struct netvsc_vf_pcpu_stats vf_tot;
-+		int i;
- 
- 	if (!nvdev)
- 		return;
- 
-+	netdev_stats_to_stats64(t, &net->stats);
-+
-+	netvsc_get_vf_stats(net, &vf_tot);
-+	t->rx_packets += vf_tot.rx_packets;
-+	t->tx_packets += vf_tot.tx_packets;
-+	t->rx_bytes   += vf_tot.rx_bytes;
-+	t->tx_bytes   += vf_tot.tx_bytes;
-+	t->tx_dropped += vf_tot.tx_dropped;
-+
- 	for (i = 0; i < nvdev->num_chn; i++) {
- 		const struct netvsc_channel *nvchan = &nvdev->chan_table[i];
- 		const struct netvsc_stats *stats;
-@@ -934,12 +1047,6 @@ static void netvsc_get_stats64(struct net_device *net,
- 		t->rx_packets	+= packets;
- 		t->multicast	+= multicast;
- 	}
+-# This example script creates bonding network devices based on synthetic NIC
+-# (the virtual network adapter usually provided by Hyper-V) and the matching
+-# VF NIC (SRIOV virtual function). So the synthetic NIC and VF NIC can
+-# function as one network device, and fail over to the synthetic NIC if VF is
+-# down.
+-#
+-# Usage:
+-# - After configured vSwitch and vNIC with SRIOV, start Linux virtual
+-#   machine (VM)
+-# - Run this scripts on the VM. It will create configuration files in
+-#   distro specific directory.
+-# - Reboot the VM, so that the bonding config are enabled.
+-#
+-# The config files are DHCP by default. You may edit them if you need to change
+-# to Static IP or change other settings.
+-#
 -
--	t->tx_dropped	= net->stats.tx_dropped;
--	t->tx_errors	= net->stats.tx_errors;
+-sysdir=/sys/class/net
+-netvsc_cls={f8615163-df3e-46c5-913f-f2d2f965ed0e}
+-bondcnt=0
 -
--	t->rx_dropped	= net->stats.rx_dropped;
--	t->rx_errors	= net->stats.rx_errors;
- }
- 
- static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
-@@ -980,9 +1087,16 @@ static const struct {
- 	{ "tx_no_space",  offsetof(struct netvsc_ethtool_stats, tx_no_space) },
- 	{ "tx_too_big",	  offsetof(struct netvsc_ethtool_stats, tx_too_big) },
- 	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
-+}, vf_stats[] = {
-+	{ "vf_rx_packets", offsetof(struct netvsc_vf_pcpu_stats, rx_packets) },
-+	{ "vf_rx_bytes",   offsetof(struct netvsc_vf_pcpu_stats, rx_bytes) },
-+	{ "vf_tx_packets", offsetof(struct netvsc_vf_pcpu_stats, tx_packets) },
-+	{ "vf_tx_bytes",   offsetof(struct netvsc_vf_pcpu_stats, tx_bytes) },
-+	{ "vf_tx_dropped", offsetof(struct netvsc_vf_pcpu_stats, tx_dropped) },
- };
- 
- #define NETVSC_GLOBAL_STATS_LEN	ARRAY_SIZE(netvsc_stats)
-+#define NETVSC_VF_STATS_LEN	ARRAY_SIZE(vf_stats)
- 
- /* 4 statistics per queue (rx/tx packets/bytes) */
- #define NETVSC_QUEUE_STATS_LEN(dev) ((dev)->num_chn * 4)
-@@ -997,7 +1111,9 @@ static int netvsc_get_sset_count(struct net_device *dev, int string_set)
- 
- 	switch (string_set) {
- 	case ETH_SS_STATS:
--		return NETVSC_GLOBAL_STATS_LEN + NETVSC_QUEUE_STATS_LEN(nvdev);
-+		return NETVSC_GLOBAL_STATS_LEN
-+			+ NETVSC_VF_STATS_LEN
-+			+ NETVSC_QUEUE_STATS_LEN(nvdev);
- 	default:
- 		return -EINVAL;
- 	}
-@@ -1010,6 +1126,7 @@ static void netvsc_get_ethtool_stats(struct net_device *dev,
- 	struct netvsc_device *nvdev = rtnl_dereference(ndc->nvdev);
- 	const void *nds = &ndc->eth_stats;
- 	const struct netvsc_stats *qstats;
-+	struct netvsc_vf_pcpu_stats sum;
- 	unsigned int start;
- 	u64 packets, bytes;
- 	int i, j;
-@@ -1020,6 +1137,10 @@ static void netvsc_get_ethtool_stats(struct net_device *dev,
- 	for (i = 0; i < NETVSC_GLOBAL_STATS_LEN; i++)
- 		data[i] = *(unsigned long *)(nds + netvsc_stats[i].offset);
- 
-+	netvsc_get_vf_stats(dev, &sum);
-+	for (j = 0; j < NETVSC_VF_STATS_LEN; j++)
-+		data[i++] = *(u64 *)((void *)&sum + vf_stats[j].offset);
-+
- 	for (j = 0; j < nvdev->num_chn; j++) {
- 		qstats = &nvdev->chan_table[j].tx_stats;
- 
-@@ -1054,11 +1175,16 @@ static void netvsc_get_strings(struct net_device *dev, u32 stringset, u8 *data)
- 
- 	switch (stringset) {
- 	case ETH_SS_STATS:
--		for (i = 0; i < ARRAY_SIZE(netvsc_stats); i++)
--			memcpy(p + i * ETH_GSTRING_LEN,
--			       netvsc_stats[i].name, ETH_GSTRING_LEN);
-+		for (i = 0; i < ARRAY_SIZE(netvsc_stats); i++) {
-+			memcpy(p, netvsc_stats[i].name, ETH_GSTRING_LEN);
-+			p += ETH_GSTRING_LEN;
-+		}
-+
-+		for (i = 0; i < ARRAY_SIZE(vf_stats); i++) {
-+			memcpy(p, vf_stats[i].name, ETH_GSTRING_LEN);
-+			p += ETH_GSTRING_LEN;
-+		}
- 
--		p += i * ETH_GSTRING_LEN;
- 		for (i = 0; i < nvdev->num_chn; i++) {
- 			sprintf(p, "tx_queue_%u_packets", i);
- 			p += ETH_GSTRING_LEN;
-@@ -1298,8 +1424,7 @@ static void netvsc_link_change(struct work_struct *w)
- 	case RNDIS_STATUS_MEDIA_CONNECT:
- 		if (rdev->link_state) {
- 			rdev->link_state = false;
--			if (!ndev_ctx->datapath)
--				netif_carrier_on(net);
-+			netif_carrier_on(net);
- 			netif_tx_wake_all_queues(net);
- 		} else {
- 			notify = true;
-@@ -1386,6 +1511,104 @@ static struct net_device *get_netvsc_byref(struct net_device *vf_netdev)
- 	return NULL;
- }
- 
-+/* Called when VF is injecting data into network stack.
-+ * Change the associated network device from VF to netvsc.
-+ * note: already called with rcu_read_lock
-+ */
-+static rx_handler_result_t netvsc_vf_handle_frame(struct sk_buff **pskb)
-+{
-+	struct sk_buff *skb = *pskb;
-+	struct net_device *ndev = rcu_dereference(skb->dev->rx_handler_data);
-+	struct net_device_context *ndev_ctx = netdev_priv(ndev);
-+	struct netvsc_vf_pcpu_stats *pcpu_stats
-+		 = this_cpu_ptr(ndev_ctx->vf_stats);
-+
-+	skb->dev = ndev;
-+
-+	u64_stats_update_begin(&pcpu_stats->syncp);
-+	pcpu_stats->rx_packets++;
-+	pcpu_stats->rx_bytes += skb->len;
-+	u64_stats_update_end(&pcpu_stats->syncp);
-+
-+	return RX_HANDLER_ANOTHER;
-+}
-+
-+static int netvsc_vf_join(struct net_device *vf_netdev,
-+			  struct net_device *ndev)
-+{
-+	struct net_device_context *ndev_ctx = netdev_priv(ndev);
-+	int ret;
-+
-+	ret = netdev_rx_handler_register(vf_netdev,
-+					 netvsc_vf_handle_frame, ndev);
-+	if (ret != 0) {
-+		netdev_err(vf_netdev,
-+			   "can not register netvsc VF receive handler (err = %d)\n",
-+			   ret);
-+		goto rx_handler_failed;
-+	}
-+
-+	ret = netdev_upper_dev_link(vf_netdev, ndev);
-+	if (ret != 0) {
-+		netdev_err(vf_netdev,
-+			   "can not set master device %s (err = %d)\n",
-+			   ndev->name, ret);
-+		goto upper_link_failed;
-+	}
-+
-+	/* set slave flag before open to prevent IPv6 addrconf */
-+	vf_netdev->flags |= IFF_SLAVE;
-+
-+	schedule_work(&ndev_ctx->vf_takeover);
-+
-+	netdev_info(vf_netdev, "joined to %s\n", ndev->name);
-+	return 0;
-+
-+upper_link_failed:
-+	netdev_rx_handler_unregister(vf_netdev);
-+rx_handler_failed:
-+	return ret;
-+}
-+
-+static void __netvsc_vf_setup(struct net_device *ndev,
-+			      struct net_device *vf_netdev)
-+{
-+	int ret;
-+
-+	call_netdevice_notifiers(NETDEV_JOIN, vf_netdev);
-+
-+	/* Align MTU of VF with master */
-+	ret = dev_set_mtu(vf_netdev, ndev->mtu);
-+	if (ret)
-+		netdev_warn(vf_netdev,
-+			    "unable to change mtu to %u\n", ndev->mtu);
-+
-+	if (netif_running(ndev)) {
-+		ret = dev_open(vf_netdev);
-+		if (ret)
-+			netdev_warn(vf_netdev,
-+				    "unable to open: %d\n", ret);
-+	}
-+}
-+
-+/* Setup VF as slave of the synthetic device.
-+ * Runs in workqueue to avoid recursion in netlink callbacks.
-+ */
-+static void netvsc_vf_setup(struct work_struct *w)
-+{
-+	struct net_device_context *ndev_ctx
-+		= container_of(w, struct net_device_context, vf_takeover);
-+	struct net_device *ndev = hv_get_drvdata(ndev_ctx->device_ctx);
-+	struct net_device *vf_netdev;
-+
-+	rtnl_lock();
-+	vf_netdev = rtnl_dereference(ndev_ctx->vf_netdev);
-+	if (vf_netdev)
-+		__netvsc_vf_setup(ndev, vf_netdev);
-+
-+	rtnl_unlock();
-+}
-+
- static int netvsc_register_vf(struct net_device *vf_netdev)
- {
- 	struct net_device *ndev;
-@@ -1409,10 +1632,12 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
- 	if (!netvsc_dev || rtnl_dereference(net_device_ctx->vf_netdev))
- 		return NOTIFY_DONE;
- 
-+	if (netvsc_vf_join(vf_netdev, ndev) != 0)
-+		return NOTIFY_DONE;
-+
- 	netdev_info(ndev, "VF registering: %s\n", vf_netdev->name);
--	/*
--	 * Take a reference on the module.
--	 */
-+
-+	/* Prevent this module from being unloaded while VF is registered */
- 	try_module_get(THIS_MODULE);
- 
- 	dev_hold(vf_netdev);
-@@ -1420,61 +1645,59 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
- 	return NOTIFY_OK;
- }
- 
--static int netvsc_vf_up(struct net_device *vf_netdev)
-+/* Change datapath */
-+static void netvsc_vf_update(struct work_struct *w)
- {
--	struct net_device *ndev;
-+	struct net_device_context *ndev_ctx
-+		= container_of(w, struct net_device_context, vf_notify);
-+	struct net_device *ndev = hv_get_drvdata(ndev_ctx->device_ctx);
- 	struct netvsc_device *netvsc_dev;
--	struct net_device_context *net_device_ctx;
+-# Detect Distro
+-if [ -f /etc/redhat-release ];
+-then
+-	cfgdir=/etc/sysconfig/network-scripts
+-	distro=redhat
+-elif grep -q 'Ubuntu' /etc/issue
+-then
+-	cfgdir=/etc/network
+-	distro=ubuntu
+-elif grep -q 'SUSE' /etc/issue
+-then
+-	cfgdir=/etc/sysconfig/network
+-	distro=suse
+-else
+-	echo "Unsupported Distro"
+-	exit 1
+-fi
 -
--	ndev = get_netvsc_byref(vf_netdev);
--	if (!ndev)
--		return NOTIFY_DONE;
+-echo Detected Distro: $distro, or compatible
 -
--	net_device_ctx = netdev_priv(ndev);
--	netvsc_dev = rtnl_dereference(net_device_ctx->nvdev);
+-# Get a list of ethernet names
+-list_eth=(`cd $sysdir && ls -d */ | cut -d/ -f1 | grep -v bond`)
+-eth_cnt=${#list_eth[@]}
 -
--	netdev_info(ndev, "VF up: %s\n", vf_netdev->name);
+-echo List of net devices:
 -
--	/*
--	 * Open the device before switching data path.
--	 */
--	rndis_filter_open(netvsc_dev);
+-# Get the MAC addresses
+-for (( i=0; i < $eth_cnt; i++ ))
+-do
+-	list_mac[$i]=`cat $sysdir/${list_eth[$i]}/address`
+-	echo ${list_eth[$i]}, ${list_mac[$i]}
+-done
 -
--	/*
--	 * notify the host to switch the data path.
--	 */
--	netvsc_switch_datapath(ndev, true);
--	netdev_info(ndev, "Data path switched to VF: %s\n", vf_netdev->name);
+-# Find NIC with matching MAC
+-for (( i=0; i < $eth_cnt-1; i++ ))
+-do
+-	for (( j=i+1; j < $eth_cnt; j++ ))
+-	do
+-		if [ "${list_mac[$i]}" = "${list_mac[$j]}" ]
+-		then
+-			list_match[$i]=${list_eth[$j]}
+-			break
+-		fi
+-	done
+-done
 -
--	netif_carrier_off(ndev);
-+	struct net_device *vf_netdev;
-+	bool vf_is_up;
- 
--	/* Now notify peers through VF device. */
--	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, vf_netdev);
-+	rtnl_lock();
-+	vf_netdev = rtnl_dereference(ndev_ctx->vf_netdev);
-+	if (!vf_netdev)
-+		goto unlock;
-+
-+	netvsc_dev = rtnl_dereference(ndev_ctx->nvdev);
-+	if (!netvsc_dev)
-+		goto unlock;
-+
-+	vf_is_up = netif_running(vf_netdev);
-+	if (vf_is_up != ndev_ctx->datapath) {
-+		if (vf_is_up) {
-+			netdev_info(ndev, "VF up: %s\n", vf_netdev->name);
-+			rndis_filter_open(netvsc_dev);
-+			netvsc_switch_datapath(ndev, true);
-+			netdev_info(ndev, "Data path switched to VF: %s\n",
-+				    vf_netdev->name);
-+		} else {
-+			netdev_info(ndev, "VF down: %s\n", vf_netdev->name);
-+			netvsc_switch_datapath(ndev, false);
-+			rndis_filter_close(netvsc_dev);
-+			netdev_info(ndev, "Data path switched from VF: %s\n",
-+				    vf_netdev->name);
-+		}
- 
--	return NOTIFY_OK;
-+		/* Now notify peers through VF device. */
-+		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, ndev);
-+	}
-+unlock:
-+	rtnl_unlock();
- }
- 
--static int netvsc_vf_down(struct net_device *vf_netdev)
-+static int netvsc_vf_notify(struct net_device *vf_netdev)
- {
--	struct net_device *ndev;
--	struct netvsc_device *netvsc_dev;
- 	struct net_device_context *net_device_ctx;
-+	struct net_device *ndev;
- 
- 	ndev = get_netvsc_byref(vf_netdev);
- 	if (!ndev)
- 		return NOTIFY_DONE;
- 
- 	net_device_ctx = netdev_priv(ndev);
--	netvsc_dev = rtnl_dereference(net_device_ctx->nvdev);
+-function create_eth_cfg_redhat {
+-	local fn=$cfgdir/ifcfg-$1
 -
--	netdev_info(ndev, "VF down: %s\n", vf_netdev->name);
--	netvsc_switch_datapath(ndev, false);
--	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
--	rndis_filter_close(netvsc_dev);
--	netif_carrier_on(ndev);
+-	rm -f $fn
+-	echo DEVICE=$1 >>$fn
+-	echo TYPE=Ethernet >>$fn
+-	echo BOOTPROTO=none >>$fn
+-	echo UUID=`uuidgen` >>$fn
+-	echo ONBOOT=yes >>$fn
+-	echo PEERDNS=yes >>$fn
+-	echo IPV6INIT=yes >>$fn
+-	echo MASTER=$2 >>$fn
+-	echo SLAVE=yes >>$fn
+-}
 -
--	/* Now notify peers through netvsc device. */
--	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, ndev);
-+	schedule_work(&net_device_ctx->vf_notify);
- 
- 	return NOTIFY_OK;
- }
-@@ -1489,9 +1712,12 @@ static int netvsc_unregister_vf(struct net_device *vf_netdev)
- 		return NOTIFY_DONE;
- 
- 	net_device_ctx = netdev_priv(ndev);
-+	cancel_work_sync(&net_device_ctx->vf_takeover);
-+	cancel_work_sync(&net_device_ctx->vf_notify);
- 
- 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
- 
-+	netdev_upper_dev_unlink(vf_netdev, ndev);
- 	RCU_INIT_POINTER(net_device_ctx->vf_netdev, NULL);
- 	dev_put(vf_netdev);
- 	module_put(THIS_MODULE);
-@@ -1505,12 +1731,12 @@ static int netvsc_probe(struct hv_device *dev,
- 	struct net_device_context *net_device_ctx;
- 	struct netvsc_device_info device_info;
- 	struct netvsc_device *nvdev;
--	int ret;
-+	int ret = -ENOMEM;
- 
- 	net = alloc_etherdev_mq(sizeof(struct net_device_context),
- 				VRSS_CHANNEL_MAX);
- 	if (!net)
--		return -ENOMEM;
-+		goto no_net;
- 
- 	netif_carrier_off(net);
- 
-@@ -1529,6 +1755,13 @@ static int netvsc_probe(struct hv_device *dev,
- 
- 	spin_lock_init(&net_device_ctx->lock);
- 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
-+	INIT_WORK(&net_device_ctx->vf_takeover, netvsc_vf_setup);
-+	INIT_WORK(&net_device_ctx->vf_notify, netvsc_vf_update);
-+
-+	net_device_ctx->vf_stats
-+		= netdev_alloc_pcpu_stats(struct netvsc_vf_pcpu_stats);
-+	if (!net_device_ctx->vf_stats)
-+		goto no_stats;
- 
- 	net->netdev_ops = &device_ops;
- 	net->ethtool_ops = &ethtool_ops;
-@@ -1546,10 +1779,9 @@ static int netvsc_probe(struct hv_device *dev,
- 	if (IS_ERR(nvdev)) {
- 		ret = PTR_ERR(nvdev);
- 		netdev_err(net, "unable to add netvsc device (ret %d)\n", ret);
--		free_netdev(net);
--		hv_set_drvdata(dev, NULL);
--		return ret;
-+		goto rndis_failed;
- 	}
-+
- 	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
- 
- 	/* hw_features computed in rndis_filter_device_add */
-@@ -1573,11 +1805,20 @@ static int netvsc_probe(struct hv_device *dev,
- 	ret = register_netdev(net);
- 	if (ret != 0) {
- 		pr_err("Unable to register netdev.\n");
--		rndis_filter_device_remove(dev, nvdev);
--		free_netdev(net);
-+		goto register_failed;
- 	}
- 
- 	return ret;
-+
-+register_failed:
-+	rndis_filter_device_remove(dev, nvdev);
-+rndis_failed:
-+	free_percpu(net_device_ctx->vf_stats);
-+no_stats:
-+	hv_set_drvdata(dev, NULL);
-+	free_netdev(net);
-+no_net:
-+	return ret;
- }
- 
- static int netvsc_remove(struct hv_device *dev)
-@@ -1611,6 +1852,7 @@ static int netvsc_remove(struct hv_device *dev)
- 
- 	hv_set_drvdata(dev, NULL);
- 
-+	free_percpu(ndev_ctx->vf_stats);
- 	free_netdev(net);
- 	return 0;
- }
-@@ -1665,9 +1907,8 @@ static int netvsc_netdev_event(struct notifier_block *this,
- 	case NETDEV_UNREGISTER:
- 		return netvsc_unregister_vf(event_dev);
- 	case NETDEV_UP:
--		return netvsc_vf_up(event_dev);
- 	case NETDEV_DOWN:
--		return netvsc_vf_down(event_dev);
-+		return netvsc_vf_notify(event_dev);
- 	default:
- 		return NOTIFY_DONE;
- 	}
+-function create_eth_cfg_pri_redhat {
+-	create_eth_cfg_redhat $1 $2
+-}
+-
+-function create_bond_cfg_redhat {
+-	local fn=$cfgdir/ifcfg-$1
+-
+-	rm -f $fn
+-	echo DEVICE=$1 >>$fn
+-	echo TYPE=Bond >>$fn
+-	echo BOOTPROTO=dhcp >>$fn
+-	echo UUID=`uuidgen` >>$fn
+-	echo ONBOOT=yes >>$fn
+-	echo PEERDNS=yes >>$fn
+-	echo IPV6INIT=yes >>$fn
+-	echo BONDING_MASTER=yes >>$fn
+-	echo BONDING_OPTS=\"mode=active-backup miimon=100 primary=$2\" >>$fn
+-}
+-
+-function del_eth_cfg_ubuntu {
+-	local mainfn=$cfgdir/interfaces
+-	local fnlist=( $mainfn )
+-
+-	local dirlist=(`awk '/^[ \t]*source/{print $2}' $mainfn`)
+-
+-	local i
+-	for i in "${dirlist[@]}"
+-	do
+-		fnlist+=(`ls $i 2>/dev/null`)
+-	done
+-
+-	local tmpfl=$(mktemp)
+-
+-	local nic_start='^[ \t]*(auto|iface|mapping|allow-.*)[ \t]+'$1
+-	local nic_end='^[ \t]*(auto|iface|mapping|allow-.*|source)'
+-
+-	local fn
+-	for fn in "${fnlist[@]}"
+-	do
+-		awk "/$nic_end/{x=0} x{next} /$nic_start/{x=1;next} 1" \
+-			$fn >$tmpfl
+-
+-		cp $tmpfl $fn
+-	done
+-
+-	rm $tmpfl
+-}
+-
+-function create_eth_cfg_ubuntu {
+-	local fn=$cfgdir/interfaces
+-
+-	del_eth_cfg_ubuntu $1
+-	echo $'\n'auto $1 >>$fn
+-	echo iface $1 inet manual >>$fn
+-	echo bond-master $2 >>$fn
+-}
+-
+-function create_eth_cfg_pri_ubuntu {
+-	local fn=$cfgdir/interfaces
+-
+-	del_eth_cfg_ubuntu $1
+-	echo $'\n'allow-hotplug $1 >>$fn
+-	echo iface $1 inet manual >>$fn
+-	echo bond-master $2 >>$fn
+-	echo bond-primary $1 >>$fn
+-}
+-
+-function create_bond_cfg_ubuntu {
+-	local fn=$cfgdir/interfaces
+-
+-	del_eth_cfg_ubuntu $1
+-
+-	echo $'\n'auto $1 >>$fn
+-	echo iface $1 inet dhcp >>$fn
+-	echo bond-mode active-backup >>$fn
+-	echo bond-miimon 100 >>$fn
+-	echo bond-slaves none >>$fn
+-}
+-
+-function create_eth_cfg_suse {
+-        local fn=$cfgdir/ifcfg-$1
+-
+-        rm -f $fn
+-	echo BOOTPROTO=none >>$fn
+-	echo STARTMODE=auto >>$fn
+-}
+-
+-function create_eth_cfg_pri_suse {
+-	local fn=$cfgdir/ifcfg-$1
+-
+-	rm -f $fn
+-	echo BOOTPROTO=none >>$fn
+-	echo STARTMODE=hotplug >>$fn
+-}
+-
+-function create_bond_cfg_suse {
+-	local fn=$cfgdir/ifcfg-$1
+-
+-	rm -f $fn
+-	echo BOOTPROTO=dhcp >>$fn
+-	echo STARTMODE=auto >>$fn
+-	echo BONDING_MASTER=yes >>$fn
+-	echo BONDING_SLAVE_0=$2 >>$fn
+-	echo BONDING_SLAVE_1=$3 >>$fn
+-	echo BONDING_MODULE_OPTS=\'mode=active-backup miimon=100 primary=$2\' >>$fn
+-}
+-
+-function create_bond {
+-	local bondname=bond$bondcnt
+-	local primary
+-	local secondary
+-
+-	local class_id1=`cat $sysdir/$1/device/class_id 2>/dev/null`
+-	local class_id2=`cat $sysdir/$2/device/class_id 2>/dev/null`
+-
+-	if [ "$class_id1" = "$netvsc_cls" ]
+-	then
+-		primary=$2
+-		secondary=$1
+-	elif [ "$class_id2" = "$netvsc_cls" ]
+-	then
+-		primary=$1
+-		secondary=$2
+-	else
+-		return 0
+-	fi
+-
+-	echo $'\nBond name:' $bondname
+-
+-	if [ $distro == ubuntu ]
+-	then
+-		local mainfn=$cfgdir/interfaces
+-		local s="^[ \t]*(auto|iface|mapping|allow-.*)[ \t]+${bondname}"
+-
+-		grep -E "$s" $mainfn
+-		if [ $? -eq 0 ]
+-		then
+-			echo "WARNING: ${bondname} has been configured already"
+-			return
+-		fi
+-	elif [ $distro == redhat ] || [ $distro == suse ]
+-	then
+-		local fn=$cfgdir/ifcfg-$bondname
+-		if [ -f $fn ]
+-		then
+-			echo "WARNING: ${bondname} has been configured already"
+-			return
+-		fi
+-	else
+-		echo "Unsupported Distro: ${distro}"
+-		return
+-	fi
+-
+-	echo configuring $primary
+-	create_eth_cfg_pri_$distro $primary $bondname
+-
+-	echo configuring $secondary
+-	create_eth_cfg_$distro $secondary $bondname
+-
+-	echo creating: $bondname with primary slave: $primary
+-	create_bond_cfg_$distro $bondname $primary $secondary
+-}
+-
+-for (( i=0; i < $eth_cnt-1; i++ ))
+-do
+-        if [ -n "${list_match[$i]}" ]
+-        then
+-		create_bond ${list_eth[$i]} ${list_match[$i]}
+-		let bondcnt=bondcnt+1
+-        fi
+-done
 -- 
 2.11.0
