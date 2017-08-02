@@ -1,42 +1,38 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [patch net-next 1/6] ipv4: fib: Set offload indication according
- to nexthop flags
-Date: Wed, 2 Aug 2017 17:01:30 -0600
-Message-ID: <9232015f-01fc-6131-b64d-3abc68d8f7e5@gmail.com>
-References: <20170802075606.1090-1-jiri@resnulli.us>
- <20170802075606.1090-2-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] [for 4.13] net: qcom/emac: disable flow control
+ autonegotiation by default
+Date: Wed, 02 Aug 2017 16:15:36 -0700 (PDT)
+Message-ID: <20170802.161536.699853895820311600.davem@davemloft.net>
+References: <290fdd25-7e05-57c8-8f89-52bb3bae1e59@codeaurora.org>
+        <20170802.113531.1671960264039506111.davem@davemloft.net>
+        <3c31277c-93c4-c0a5-cf0d-7270d07c432c@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
-        kuznet@ms2.inr.ac.ru
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: timur@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:33162 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751161AbdHBXBd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 19:01:33 -0400
-Received: by mail-pf0-f180.google.com with SMTP id d67so26653332pfc.0
-        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 16:01:33 -0700 (PDT)
-In-Reply-To: <20170802075606.1090-2-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60518 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751145AbdHBXPi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 19:15:38 -0400
+In-Reply-To: <3c31277c-93c4-c0a5-cf0d-7270d07c432c@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/2/17 1:56 AM, Jiri Pirko wrote:
-> From: Ido Schimmel <idosch@mellanox.com>
-> 
-> We're going to have capable drivers indicate route offload using the
-> nexthop flags, but for non-multipath routes these flags aren't dumped to
-> user space.
-> 
-> Instead, set the offload indication in the route message flags.
-> 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  net/ipv4/fib_semantics.c | 2 ++
->  1 file changed, 2 insertions(+)
+From: Timur Tabi <timur@codeaurora.org>
+Date: Wed, 2 Aug 2017 13:39:34 -0500
 
-Acked-by: David Ahern <dsahern@gmail.com>
+> On 08/02/2017 01:35 PM, David Miller wrote:
+>> Again, any serious installation will have a system watchdog enabled
+>> which will break the pause frame bomb.
+> 
+> Oh well.  I guess I'll have to carry this patch internally.
+
+So you don't want to run a proper watchdog on your systems?
+You want them to just hang there and wait for someone to
+notice instead?
+
+> What about patch #2?
+
+No real objection.
