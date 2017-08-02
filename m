@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 6/6] ipv4: fib: Remove unused functions
-Date: Wed,  2 Aug 2017 09:56:06 +0200
-Message-ID: <20170802075606.1090-7-jiri@resnulli.us>
+Subject: [patch net-next 5/6] mlxsw: spectrum_router: Refresh offload indication upon group refresh
+Date: Wed,  2 Aug 2017 09:56:05 +0200
+Message-ID: <20170802075606.1090-6-jiri@resnulli.us>
 References: <20170802075606.1090-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         dsahern@gmail.com, roopa@cumulusnetworks.com,
@@ -9,57 +9,71 @@ Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36632 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752084AbdHBH4T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 03:56:19 -0400
-Received: by mail-wm0-f65.google.com with SMTP id d40so6141992wma.3
-        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 00:56:18 -0700 (PDT)
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:33951 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750725AbdHBH4R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 03:56:17 -0400
+Received: by mail-wr0-f195.google.com with SMTP id o33so3044724wrb.1
+        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 00:56:17 -0700 (PDT)
 In-Reply-To: <20170802075606.1090-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Previous patches converted users of these functions to provide offload
-indication using the nexthop's flags instead of the FIB info's.
+Now that we provide offload indication using the nexthop's flags we must
+refresh the offload indication whenever the offload state within the
+group changes.
+
+This didn't matter until now, as offload indication was provided using
+the FIB info flags and multipath routes were marked as offloaded as long
+as one of the nexthops was offloaded.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/ip_fib.h | 13 -------------
- 1 file changed, 13 deletions(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 41d580c..ef8992d 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -124,7 +124,6 @@ struct fib_info {
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	int			fib_weight;
- #endif
--	unsigned int		fib_offload_cnt;
- 	struct rcu_head		rcu;
- 	struct fib_nh		fib_nh[0];
- #define fib_dev		fib_nh[0].nh_dev
-@@ -177,18 +176,6 @@ struct fib_result_nl {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 40aecbc..2f03c7e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -1653,6 +1653,24 @@ mlxsw_sp_nexthop_fib_entries_update(struct mlxsw_sp *mlxsw_sp,
+ }
  
- __be32 fib_info_update_nh_saddr(struct net *net, struct fib_nh *nh);
+ static void
++mlxsw_sp_fib_entry_offload_refresh(struct mlxsw_sp_fib_entry *fib_entry,
++				   enum mlxsw_reg_ralue_op op, int err);
++
++static void
++mlxsw_sp_nexthop_fib_entries_refresh(struct mlxsw_sp_nexthop_group *nh_grp)
++{
++	enum mlxsw_reg_ralue_op op = MLXSW_REG_RALUE_OP_WRITE_WRITE;
++	struct mlxsw_sp_fib_entry *fib_entry;
++
++	list_for_each_entry(fib_entry, &nh_grp->fib_list, nexthop_group_node) {
++		if (!mlxsw_sp_fib_node_entry_is_first(fib_entry->fib_node,
++						      fib_entry))
++			continue;
++		mlxsw_sp_fib_entry_offload_refresh(fib_entry, op, 0);
++	}
++}
++
++static void
+ mlxsw_sp_nexthop_group_refresh(struct mlxsw_sp *mlxsw_sp,
+ 			       struct mlxsw_sp_nexthop_group *nh_grp)
+ {
+@@ -1739,6 +1757,10 @@ mlxsw_sp_nexthop_group_refresh(struct mlxsw_sp *mlxsw_sp,
+ 		dev_warn(mlxsw_sp->bus_info->dev, "Failed to mass-update adjacency index for nexthop group.\n");
+ 		goto set_trap;
+ 	}
++
++	/* Offload state within the group changed, so update the flags. */
++	mlxsw_sp_nexthop_fib_entries_refresh(nh_grp);
++
+ 	return;
  
--static inline void fib_info_offload_inc(struct fib_info *fi)
--{
--	fi->fib_offload_cnt++;
--	fi->fib_flags |= RTNH_F_OFFLOAD;
--}
--
--static inline void fib_info_offload_dec(struct fib_info *fi)
--{
--	if (--fi->fib_offload_cnt == 0)
--		fi->fib_flags &= ~RTNH_F_OFFLOAD;
--}
--
- #define FIB_RES_SADDR(net, res)				\
- 	((FIB_RES_NH(res).nh_saddr_genid ==		\
- 	  atomic_read(&(net)->ipv4.dev_addr_genid)) ?	\
+ set_trap:
 -- 
 2.9.3
