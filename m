@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/6] mlxsw: spectrum_router: Don't check state when refreshing offload indication
-Date: Wed,  2 Aug 2017 09:56:04 +0200
-Message-ID: <20170802075606.1090-5-jiri@resnulli.us>
+Subject: [patch net-next 6/6] ipv4: fib: Remove unused functions
+Date: Wed,  2 Aug 2017 09:56:06 +0200
+Message-ID: <20170802075606.1090-7-jiri@resnulli.us>
 References: <20170802075606.1090-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         dsahern@gmail.com, roopa@cumulusnetworks.com,
@@ -9,84 +9,57 @@ Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:37473 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752084AbdHBH4Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 03:56:16 -0400
-Received: by mail-wm0-f67.google.com with SMTP id t138so6117944wmt.4
-        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 00:56:16 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36632 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752084AbdHBH4T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 03:56:19 -0400
+Received: by mail-wm0-f65.google.com with SMTP id d40so6141992wma.3
+        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 00:56:18 -0700 (PDT)
 In-Reply-To: <20170802075606.1090-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Previous patch removed the reliance on the counter in the FIB info to
-set the offload indication, so we no longer need to keep an offload
-state on each FIB entry and can just set or unset the RTNH_F_OFFLOAD
-flag in each nexthop.
-
-This is also necessary because we're going to need to refresh the
-offload indication whenever the nexthop group associated with the FIB
-entry is refreshed. Current check would prevent us from marking a newly
-resolved nexthop as offloaded if the FIB entry is already marked as
-offloaded.
+Previous patches converted users of these functions to provide offload
+indication using the nexthop's flags instead of the FIB info's.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 13 ++-----------
- 1 file changed, 2 insertions(+), 11 deletions(-)
+ include/net/ip_fib.h | 13 -------------
+ 1 file changed, 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 4cdeedf..40aecbc 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -394,7 +394,6 @@ struct mlxsw_sp_fib_entry {
- 	enum mlxsw_sp_fib_entry_type type;
- 	struct list_head nexthop_group_node;
- 	struct mlxsw_sp_nexthop_group *nh_group;
--	bool offloaded;
- };
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 41d580c..ef8992d 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -124,7 +124,6 @@ struct fib_info {
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 	int			fib_weight;
+ #endif
+-	unsigned int		fib_offload_cnt;
+ 	struct rcu_head		rcu;
+ 	struct fib_nh		fib_nh[0];
+ #define fib_dev		fib_nh[0].nh_dev
+@@ -177,18 +176,6 @@ struct fib_result_nl {
  
- struct mlxsw_sp_fib4_entry {
-@@ -2139,8 +2138,6 @@ mlxsw_sp_fib4_entry_offload_unset(struct mlxsw_sp_fib_entry *fib_entry)
+ __be32 fib_info_update_nh_saddr(struct net *net, struct fib_nh *nh);
  
- static void mlxsw_sp_fib_entry_offload_set(struct mlxsw_sp_fib_entry *fib_entry)
- {
--	fib_entry->offloaded = true;
+-static inline void fib_info_offload_inc(struct fib_info *fi)
+-{
+-	fi->fib_offload_cnt++;
+-	fi->fib_flags |= RTNH_F_OFFLOAD;
+-}
 -
- 	switch (fib_entry->fib_node->fib->proto) {
- 	case MLXSW_SP_L3_PROTO_IPV4:
- 		mlxsw_sp_fib4_entry_offload_set(fib_entry);
-@@ -2160,8 +2157,6 @@ mlxsw_sp_fib_entry_offload_unset(struct mlxsw_sp_fib_entry *fib_entry)
- 	case MLXSW_SP_L3_PROTO_IPV6:
- 		WARN_ON_ONCE(1);
- 	}
+-static inline void fib_info_offload_dec(struct fib_info *fi)
+-{
+-	if (--fi->fib_offload_cnt == 0)
+-		fi->fib_flags &= ~RTNH_F_OFFLOAD;
+-}
 -
--	fib_entry->offloaded = false;
- }
- 
- static void
-@@ -2170,17 +2165,13 @@ mlxsw_sp_fib_entry_offload_refresh(struct mlxsw_sp_fib_entry *fib_entry,
- {
- 	switch (op) {
- 	case MLXSW_REG_RALUE_OP_WRITE_DELETE:
--		if (!fib_entry->offloaded)
--			return;
- 		return mlxsw_sp_fib_entry_offload_unset(fib_entry);
- 	case MLXSW_REG_RALUE_OP_WRITE_WRITE:
- 		if (err)
- 			return;
--		if (mlxsw_sp_fib_entry_should_offload(fib_entry) &&
--		    !fib_entry->offloaded)
-+		if (mlxsw_sp_fib_entry_should_offload(fib_entry))
- 			mlxsw_sp_fib_entry_offload_set(fib_entry);
--		else if (!mlxsw_sp_fib_entry_should_offload(fib_entry) &&
--			 fib_entry->offloaded)
-+		else if (!mlxsw_sp_fib_entry_should_offload(fib_entry))
- 			mlxsw_sp_fib_entry_offload_unset(fib_entry);
- 		return;
- 	default:
+ #define FIB_RES_SADDR(net, res)				\
+ 	((FIB_RES_NH(res).nh_saddr_genid ==		\
+ 	  atomic_read(&(net)->ipv4.dev_addr_genid)) ?	\
 -- 
 2.9.3
