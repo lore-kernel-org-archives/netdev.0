@@ -1,58 +1,108 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 1/2] [for 4.13] net: qcom/emac: disable flow control
- autonegotiation by default
-Date: Wed, 2 Aug 2017 10:08:35 -0500
-Message-ID: <115c4698-cfcb-83dc-e70b-89207ef326a8@codeaurora.org>
-References: <1501623460-3575-1-git-send-email-timur@codeaurora.org>
- <1501623460-3575-2-git-send-email-timur@codeaurora.org>
- <063D6719AE5E284EB5DD2968C1650D6DD00490C0@AcuExch.aculab.com>
- <77de100a-42b1-1e0d-6545-cadb0067eec6@codeaurora.org>
- <063D6719AE5E284EB5DD2968C1650D6DD00491F6@AcuExch.aculab.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [RFC PATCH v2 0/2] nb8800 suspend/resume support
+Date: Wed, 2 Aug 2017 17:26:21 +0200
+Message-ID: <dd883398-1511-0bfd-972b-a11ef8709f0d@free.fr>
+References: <33d1ab47-6098-5e3f-8a3c-f72626d07113@free.fr>
+ <aa8885b8-e6bb-3624-2bf9-0bb40505ac54@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
-        "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:52572 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752262AbdHBPIh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 11:08:37 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD00491F6@AcuExch.aculab.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+ Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+ David Miller <davem@davemloft.net>, Mans Rullgard <mans@mansr.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <aa8885b8-e6bb-3624-2bf9-0bb40505ac54@free.fr>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 08/02/2017 09:51 AM, David Laight wrote:
-> Sending pause frames just tells the adjacent switch not to send you packets
-> (because you'll discard them).
-> Since the idea is to avoid the discards, the switch will buffer the
-> packets it would have sent.
-> The buffers in the switch then fill up with packets it isn't sending you.
-
-I was under the impression that the switch forwards the pause frames to 
-other devices, so that the transmitting NIC can stop sending the data, 
-but your explanation makes a lot more sense.  If the EMAC never stops 
-sending pause frames, then the switch's buffers will fill up, disabling 
-all other devices.  If the switch does not have per-port buffers, then 
-it makes sense when the buffer is full, it blocks all ports.
-
-> The switch then runs out of buffers, it has 2 choices:
-> 1) Throw the packets away.
-> 2) Send 'pause' frames to the sources.
-> If it sends 'pause' frames the entire network will very quickly lock up.
-> If it discards the packets they might as well have been discarded by the
-> receiving MAC.
-> 
-> Doesn't this mean that pause frames are 99.999% useless??
-
-Pause frames are intended for situations where the receiving CPU is 
-temporarily overwhelmed and just needs a second or two to resume 
-processing incoming packets.  That makes sense on a dinky single-core 
-32-bit CPU.
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+T24gMDIvMDgvMjAxNyAxNjo0MSwgTWFzb24gd3JvdGU6Cgo+IE9uIDAxLzA4LzIwMTcgMTg6MzIs
+IE1hc29uIHdyb3RlOgo+IAo+PiBJIG5lZWQgc3VzcGVuZC9yZXN1bWUgc3VwcG9ydCBpbiB0aGUg
+bmI4ODAwIGRyaXZlci4KPj4gT24gdGFuZ28gcGxhdGZvcm1zLCBzdXNwZW5kIGxvc2VzIGFsbCBj
+b250ZXh0IChNTUlPIHJlZ2lzdGVycykuCj4+IFRvIG1ha2UgdGhlIHRhc2sgZWFzeSwgd2UganVz
+dCBjbG9zZSB0aGUgZGV2aWNlIG9uIHN1c3BlbmQsCj4+IGFuZCBvcGVuIGl0IGFnYWluIG9uIHJl
+c3VtZS4gVGhpcyByZXF1aXJlcyBwcm9wZXJseSByZXNldHRpbmcKPj4gdGhlIEhXIG9uIHJlc3Vt
+ZS4KPj4KPj4gUGF0Y2ggMSBtb3ZlcyBhbGwgdGhlIEhXIGluaXQgdG8gbmI4ODAwX2luaXQoKQo+
+PiBQYXRjaCAyIGFkZHMgc3VzcGVuZC9yZXN1bWUgc3VwcG9ydAo+IAo+IEkgaGF2ZSBub3cgY29u
+ZmlybWVkIHRoYXQgdGhlICJmbG93IGNvbnRyb2wiIGlzc3VlIEkgcmVwb3J0ZWQKPiBpbiBhbm90
+aGVyIHRocmVhZCBoYXMgbm90aGluZyB0byBkbyB3aXRoIGZsb3cgY29udHJvbCBwZXIgc2UuCj4g
+Cj4gVGhlIHByb2JsZW0gaXMgdGhhdCBuYjg4MDBfcGF1c2VfY29uZmlnKCkgY2FsbHMgbmI4ODAw
+X2RtYV9zdG9wKCkKPiBhbmQgd2hlbiBpdCBkb2VzLCBSWCBpcyBib3JrZWQuCj4gCj4gT24gYSBH
+aWdFIHN3aXRjaDoKPiBbICAgMjEuNDQ0MjY4XSBFTlRFUiBuYjg4MDBfcGF1c2VfY29uZmlnCj4g
+WyAgIDIxLjQ0ODYwNF0gcnhjcj0wNjEwMGE4ZiBwYXVzZV9yeD0xIHBhdXNlX3R4PTAgcGF1c2U9
+MSBhc3ltX3BhdXNlPTEKPiBbICAgMjEuNDU1MDIwXSBuYjg4MDAgMjYwMDAuZXRoZXJuZXQgZXRo
+MDogTGluayBpcyBVcCAtIDFHYnBzL0Z1bGwgLSBmbG93IGNvbnRyb2wgcngvdHgKPiAKPiBJbiB0
+aGlzIGNhc2UsIHBhdXNlX3R4IGFuZCBSQ1JfRkwgbWF0Y2gsIHNvIHdlIHNraXAgdGhlCj4gc2ls
+bHkgZGFuY2UuCgpUaGUgZG9jdW1lbnRhdGlvbiBzdGF0ZXM6CgpSZWNlaXZlIENoYW5uZWwgQ29u
+dHJvbCBSZWdpc3RlcgpEZXNjcmlwdGlvbjoKVGhlIFJlY2VpdmUgQ2hhbm5lbCBDb250cm9sIFJl
+Z2lzdGVyIGhvbGRzIGNoYW5uZWwgZW5hYmxlLCBtb2RlLCBlbmRpYW4sCkRNQSBjb250cm9sLCBh
+bmQgaW50ZXJydXB0IGNvbnRyb2wgaW5mb3JtYXRpb24uICBUaGlzIHJlZ2lzdGVyIGNhbiBvbmx5
+CmJlIHdyaXR0ZW4gd2hlbiB0aGUgUmVjZWl2ZSBETUEgQ2hhbm5lbCBpcyBpZGxlIC0gdGhlIEVu
+YWJsZSBiaXQgaW4gaXQgaXMgIjAiLgpSZWdpc3RlciBOdW1iZXI6ICAweDIwMApBY2Nlc3M6ICBy
+ZWFkL3dyaXRlClJlc2V0IFZhbHVlOiBsZSA9IEFNQkFfTEU7IGFsbCBvdGhlciBiaXRzID0gMHgw
+CkZpZWxkczoKCmZsOiAgRmxvdyBjb250cm9sIGVuYWJsZS4gICIxIiBpbmRpY2F0ZXMgZmxvdyBj
+b250cm9sIGlzIGVuYWJsZWQuIApXaGVuIGZsb3cgY29udHJvbCBpcyBlbmFibGVkIGFuZCBhIFJl
+Y2VpdmUgRklGTyBvdmVycnVuIG9jY3VycywKdGhlIEV0aGVybmV0IDEwLzEwMC8xMDAwIFN1YnN5
+c3RlbSB3aWxsIHNlbmQgUEFVU0UgZnJhbWVzIGlmIGluCmZ1bGwgZHVwbGV4IG1vZGUuICBUaGlz
+IGNvbnRpbnVlcyB1bnRpbCB0aGUgUmVjZWl2ZSBGSUZPIGlzIGVtcHRpZWQuCgplbjogIFJlY2Vp
+dmUgRE1BIENoYW5uZWwgZW5hYmxlLiAgIjEiIGluZGljYXRlcyB0aGF0IHRoZSBSZWNlaXZlCkRN
+QSBDaGFubmVsIGlzIGJlaW5nIGNvbmZpZ3VyZWQgZnJvbSBhIGRlc2NyaXB0b3IsIG9yIHRoYXQg
+dGhlIERNQQpvcGVyYXRpb24gaXMgaW4gcHJvZ3Jlc3MuICBUaGUgUmVjZWl2ZSBETUEgQ2hhbm5l
+bCBpcyBpZGxlIHdoZW4KdGhpcyBlbmFibGUgYml0IGlzICIwIi4gIFNvZnR3YXJlIHNldHMgdGhp
+cyBiaXQgdG8gIjEiIHRvIHN0YXJ0IHRoZQpjb25maWd1cmF0aW9uIGZyb20gYSBkZXNjcmlwdG9y
+IGFuZCBETUEgb3BlcmF0aW9uLiAgV2hlbiB0aGUgRE1BCm9wZXJhdGlvbiBpcyBmaW5pc2hlZCwg
+dGhpcyBiaXQgaXMgYXV0b21hdGljYWxseSByZXNldCB0byAiMCIuCgoKPiBSZWNlaXZlIERNQSBD
+aGFubmVsIERpc2FibGluZwo+Cj4gV2hlbiB0aGUgZW50aXJlIHJlY2VpdmUgZnJhbWUgaGFzIGJl
+ZW4gcmVhZCBmcm9tIHRoZSBSZWNlaXZlIEZJRk8gYW5kCj4gc2VudCBvdmVyIHRoZSBBTUJBIGJ1
+cywgdGhlIERNQSBvcGVyYXRpb24gZW5kcywgYW5kIHRoZSBSZWNlaXZlIERNQQo+IENoYW5uZWwg
+aXMgYXV0b21hdGljYWxseSBkaXNhYmxlZC4gIFRvIGRvIHRoaXMsIGhhcmR3YXJlIHJlc2V0cyB0
+aGUKPiBFbmFibGUgYml0IGluIHRoZSBSZWNlaXZlIENoYW5uZWwgQ29udHJvbCBSZWdpc3RlciB0
+byAiMCIgYWZ0ZXIgdGhlCj4gbGFzdCBkYXRhIGhhcyBiZWVuIHJlYWQgZnJvbSB0aGUgUmVjZWl2
+ZSBGSUZPIGFuZCBzZW50IG92ZXIgdGhlIEFNQkEKPiBidXMuCj4gCj4gV2hlbiBvcGVyYXRpbmcg
+aW4gZGVzY3JpcHRvciBtb2RlLCB1cG9uIGNvbXBsZXRpb24gb2YgYSByZWNlaXZlIGZyYW1lCj4g
+RE1BIG9wZXJhdGlvbiwgaWYgdGhlIGRlc2NyaXB0b3IgY2hhaW4gaGFzIG5vdCBlbmRlZCB3aGVu
+IGEgcmVjZWl2ZQo+IGZyYW1lIERNQSBvcGVyYXRpb24gY29tcGxldGVzLCB0aGUgbmV4dCByZWNl
+aXZlIGZyYW1lIERNQSBvcGVyYXRpb24KPiBiZWdpbnMuICBUaGUgbGFzdCBkZXNjcmlwdG9yIGlu
+IGEgZGVzY3JpcHRvciBjaGFpbiBpcyBpbmRpY2F0ZWQgYnkKPiBoYXZpbmcgaXRzIEVuZCBPZiBD
+aGFpbi0gRU9DLCBmbGFnIHNldCB0byAiMSIuICBJZiB0aGlzIEVPQyBmbGFnIGlzCj4gIjAiLCB0
+byBiZWdpbiB0aGUgbmV4dCByZWNlaXZlIGZyYW1lIERNQSBvcGVyYXRpb24sIHRoZSBuZXh0Cj4g
+ZGVzY3JpcHRvciBpcyBhdXRvbWF0aWNhbGx5IHJldHJpZXZlZCBhbmQgdXNlZCB0byBjb25maWd1
+cmUgdGhlCj4gUmVjZWl2ZSBETUEgQ2hhbm5lbC4gIFRoZSBSZWNlaXZlIERNQSBDaGFubmVsIGlz
+IHRoZW4gYXV0b21hdGljYWxseQo+IHJlLWVuYWJsZWQgYW5kIHRoZSBuZXh0IHJlY2VpdmUgZnJh
+bWUgRE1BIG9wZXJhdGlvbiBiZWdpbnMuCj4gCj4gSW4gZGVzY3JpcHRvciBtb2RlLCBhbiBBTUJB
+IGJ1cyBlcnJvciBjYW4gb2NjdXIgd2hlbiByZWFkaW5nIHJlY2VpdmUKPiBkZXNjcmlwdG9yIGRh
+dGEuICBJZiB0aGlzIGhhcHBlbnMsIHJlY2VpdmUgZGVzY3JpcHRvciBwcm9jZXNzaW5nIGVuZHMK
+PiBhbmQgdGhlIFJlY2VpdmUgRE1BIENoYW5uZWwgaXMgdHVybmVkIG9mZi4gIFRoZSBEZXNjcmlw
+dG9yIEVycm9yIGJpdAo+IGluIHRoZSBSZWNlaXZlIFN0YXR1cyBSZWdpc3RlciBpcyBzZXQgdG8g
+IjEiLgoKSG1tbSwgSSBndWVzcyB0aGlzIGlzIHdoYXQgTWF4aW1lL01hbnMgZGlkLi4uCgoKTG9v
+a2luZyBhdCB0aGUgdGFuZ28tc3BlY2lmaWMgaW50ZWdyYXRpb24sIEkgbm90ZSB0aGlzIG51Z2dl
+dDoKCjEuNS40IFN0b3BwaW5nICYgU3RhcnRpbmcgdGhlIERNQQoKVGhpcyBmZWF0dXJlIGhhcyBi
+ZWVuIGFkZGVkIHRvIGFsbG93IHRoZSBzb2Z0d2FyZSB0byBzdG9wIGFuZCBzdGFydAp0aGUgRE1B
+IHdpdGhvdXQgYW55IGlzc3Vlcy4KClByb2NlZHVyZToKMS0gU1RPUDoKMi0gU3RvcCBSWCBjb3Jl
+OwozLSBTZXQgT1dOIGJpdCBvZiBhbGwgZGVzY3JpcHRvciBvZiB0aGUgY2hhaW4gdG8gMTsKNC0g
+U3RvcCBETUEgYnkgd3JpdGluZyBkbWFfc3RvcCBiaXQgdG8gMSBpbiAgUlhfRE1BX1N0b3AgcmVn
+aXN0ZXIKNS0gV2FpdCBhcm91bmQgMTAwIGNsb2NrIGN5Y2xlcy4KClRoZSBwZW5kaW5nIHBhY2tl
+dHMgYXJlIGhlbGQgdW50aWwgdGhlIHN5c3RlbSB3aWxsIHJlLXN0YXJ0LgoKUkUtU1RBUlQ6CjEt
+IENsZWFyIGRtYV9zdG9wIGJpdCAobm90ZSB0aGF0IGlmIGF0IHRoZSB0aW1lIG9mIHN0b3BwaW5n
+IHRoZSBETUEsCnRoZSBuZXh0IHBhY2tldCBpbiB0aGUgRklGTyB3YXMgYW4gVURQIHBhY2tldCwg
+d2hlbiBjbGVhcmluZyBkbWFfc3RvcCwKdGhpcyBwYWNrZXQgd2lsbCBkaXJlY3RseSBzdGFydCBi
+ZWluZyB3cml0dGVuIGluIHRoZSBEUkFNIHNpbmNlIFVEUApwYWNrZXRzIGFyZSBub3QgY29udHJv
+bGxlZCBieSB0aGUgZGVzY3JpcHRvciBtZWNoYW5pc20pOwoyLSBQcm9ncmFtIGEgbmV3IGNoYWlu
+IG9mIGRlc2NyaXB0b3I7CjMtIFJlLWVuYWJsZSBETUEgKHJ4X2N0cmwgcmVnaXN0ZXIpCgpyeF9k
+bWFfc3RvcDoKU29mdHdhcmUgY29udHJvbCB0byBzdG9wIHRoZSBSeCBETUEuCkEgd3JpdGUgdG8g
+dGhpcyBiaXQgd2l0aCDigJwx4oCdIHdpbGwgZ3JhY2VmdWxseSBzdG9wIHRoZSBSeCBETUEgYnkg
+YWZ0ZXIKdHJhbnNmZXJyaW5nIHRoZSBjdXJyZW50IHBhY2tldC4gSWYgbW9yZSBwYWNrZXRzIGFy
+ZSBwZW5kaW5nIHRoZXkgd2lsbApiZSBoZWxkIHVudGlsIHRoZSBzb2Z0d2FyZSBjbGVhcnMgdGhp
+cyBiaXQuCgoKSG1tbSwgd2hhdCBkbyB5b3UgdGhpbms/IFRoaXMgbG9va3MgcHJvbWlzaW5nLi4u
+CgpSZWdhcmRzLgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X18KbGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5p
+bmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8v
+bGludXgtYXJtLWtlcm5lbAo=
