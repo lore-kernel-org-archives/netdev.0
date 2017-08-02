@@ -1,45 +1,54 @@
-From: Dave Watson <davejwatson@fb.com>
-Subject: Re: [PATCH v2 net-next 3/4] tcp: Adjust TCP ULP to defer to sockets
- ULP
-Date: Wed, 2 Aug 2017 12:58:13 -0700
-Message-ID: <20170802195813.GB47485@apz-mbp.dhcp.thefacebook.com>
-References: <20170802031846.21993-1-tom@quantonium.net>
- <20170802031846.21993-4-tom@quantonium.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <rohit@quantonium.net>
-To: Tom Herbert <tom@quantonium.net>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net-next] tcp: remove extra POLL_OUT added for finished active connect()
+Date: Wed,  2 Aug 2017 15:59:58 -0400
+Message-ID: <20170802195958.21383-1-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+        Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51310 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751923AbdHBT6X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 15:58:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20170802031846.21993-4-tom@quantonium.net>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:38789 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751879AbdHBUAI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 16:00:08 -0400
+Received: by mail-qk0-f182.google.com with SMTP id x191so33143670qka.5
+        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 13:00:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/01/17 08:18 PM, Tom Herbert wrote:
->  
-> -static int tls_init(struct sock *sk)
-> +static int tls_init(struct sock *sk, char __user *optval, int len)
->  {
-> -	struct inet_connection_sock *icsk = inet_csk(sk);
->  	struct tls_context *ctx;
->  	int rc = 0;
->  
-> @@ -450,7 +449,7 @@ static int tls_init(struct sock *sk)
->  		rc = -ENOMEM;
->  		goto out;
->  	}
-> -	icsk->icsk_ulp_data = ctx;
-> +	sk->sk_ulp_data = ctx;
->  	ctx->setsockopt = sk->sk_prot->setsockopt;
->  	ctx->getsockopt = sk->sk_prot->getsockopt;
->  	sk->sk_prot = &tls_base_prot;
-> @@ -458,7 +457,7 @@ static int tls_init(struct sock *sk)
->  	return rc;
->  }
+Commit 45f119bf936b ("tcp: remove header prediction") introduced a
+minor bug: the sk_state_change() and sk_wake_async() notifications for
+a completed active connection happen twice: once in this new spot
+inside tcp_finish_connect() and once in the existing code in
+tcp_rcv_synsent_state_process() immediately after it calls
+tcp_finish_connect(). This commit remoes the duplicate POLL_OUT
+notifications.
 
-It looks like tls_init should be checking if this is a tcp socket now
-also, and failing if not
+Fixes: 45f119bf936b ("tcp: remove header prediction")
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Cc: Florian Westphal <fw@strlen.de>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_input.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index df670d7ed98d..99cdf4ccabb8 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5342,11 +5342,6 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
+ 
+ 	if (sock_flag(sk, SOCK_KEEPOPEN))
+ 		inet_csk_reset_keepalive_timer(sk, keepalive_time_when(tp));
+-
+-	if (!sock_flag(sk, SOCK_DEAD)) {
+-		sk->sk_state_change(sk);
+-		sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
+-	}
+ }
+ 
+ static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
+-- 
+2.14.0.rc1.383.gd1ce394fe2-goog
