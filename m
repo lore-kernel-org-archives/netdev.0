@@ -1,40 +1,51 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [iproute PATCH] bpf: Make bytecode-file reading a little more
- robust
-Date: Wed, 02 Aug 2017 21:21:30 +0200
-Message-ID: <5982263A.9000604@iogearbox.net>
-References: <20170802125756.26210-1-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59914 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751991AbdHBTVd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 15:21:33 -0400
-In-Reply-To: <20170802125756.26210-1-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: bcm_sf2: dst in not an array
+Date: Wed,  2 Aug 2017 15:48:25 -0400
+Message-ID: <20170802194825.29002-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/02/2017 02:57 PM, Phil Sutter wrote:
-> bpf_parse_string() will now correctly handle:
->
-> - Extraneous whitespace,
-> - OPs on multiple lines and
-> - overlong file names.
->
-> The added feature of allowing to have OPs on multiple lines (like e.g.
-> tcpdump prints them) is rather a side effect of fixing detection of
-> malformed bytecode files having random content on a second line, like
-> e.g.:
->
-> | 4,40 0 0 12,21 0 1 2048,6 0 0 262144,6 0 0 0
-> | foobar
->
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+It's been a while now since ds->dst is not an array anymore, but a
+simple pointer to a dsa_switch_tree.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Fortunately, SF2 does not support multi-chip and thus ds->index is
+always 0.
+
+This patch substitutes 'ds->dst[ds->index].' with 'ds->dst->'.
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/bcm_sf2.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 6bbfa6ea1efb..558667c814c9 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -788,7 +788,7 @@ static int bcm_sf2_sw_resume(struct dsa_switch *ds)
+ static void bcm_sf2_sw_get_wol(struct dsa_switch *ds, int port,
+ 			       struct ethtool_wolinfo *wol)
+ {
+-	struct net_device *p = ds->dst[ds->index].cpu_dp->netdev;
++	struct net_device *p = ds->dst->cpu_dp->netdev;
+ 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
+ 	struct ethtool_wolinfo pwol;
+ 
+@@ -811,7 +811,7 @@ static void bcm_sf2_sw_get_wol(struct dsa_switch *ds, int port,
+ static int bcm_sf2_sw_set_wol(struct dsa_switch *ds, int port,
+ 			      struct ethtool_wolinfo *wol)
+ {
+-	struct net_device *p = ds->dst[ds->index].cpu_dp->netdev;
++	struct net_device *p = ds->dst->cpu_dp->netdev;
+ 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
+ 	s8 cpu_port = ds->dst->cpu_dp->index;
+ 	struct ethtool_wolinfo pwol;
+-- 
+2.13.3
