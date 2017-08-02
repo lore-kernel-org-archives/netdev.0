@@ -1,11 +1,11 @@
 From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
 Subject: Re: [PATCH 1/6] [net-next]net: sched: act_mirred: Extend redirect
  action to accept a traffic class
-Date: Tue, 1 Aug 2017 18:12:24 -0700
-Message-ID: <558ba1d1-7d1e-50e6-390a-dc8eae1ba3ae@intel.com>
+Date: Tue, 1 Aug 2017 18:42:23 -0700
+Message-ID: <a20178bb-3100-8f04-89d8-f315d6900407@intel.com>
 References: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
  <150154785793.4135.15194023552358061083.stgit@anamdev.jf.intel.com>
- <85d57ef2-1c9f-d0e6-a3e8-d65078485afb@mojatatu.com>
+ <7f2d3255-ecb1-0252-1066-4ac1ed7c79eb@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -16,16 +16,16 @@ Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
 To: Jamal Hadi Salim <jhs@mojatatu.com>,
         intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:30957 "EHLO mga02.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:43714 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751763AbdHBBMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Aug 2017 21:12:25 -0400
-In-Reply-To: <85d57ef2-1c9f-d0e6-a3e8-d65078485afb@mojatatu.com>
+        id S1751049AbdHBBmY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Aug 2017 21:42:24 -0400
+In-Reply-To: <7f2d3255-ecb1-0252-1066-4ac1ed7c79eb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On 8/1/2017 3:22 AM, Jamal Hadi Salim wrote:
+On 8/1/2017 3:44 AM, Jamal Hadi Salim wrote:
 > On 17-07-31 08:37 PM, Amritha Nambiar wrote:
 >> The Mirred/redirect action is extended to forward to a traffic
 >> class on the device. The traffic class index needs to be
@@ -77,15 +77,101 @@ On 8/1/2017 3:22 AM, Jamal Hadi Salim wrote:
 >> +
 >> +#define MIRRED_F_TC_MAP		0x1
 >> +#define MIRRED_TC_MAP_MAX	0x10
+>> +#define MIRRED_TC_MAP_MASK	0xF
+>>                                                                                   
+>>   struct tc_mirred {
+>>   	tc_gen;
+>> @@ -21,6 +25,7 @@ enum {
+>>   	TCA_MIRRED_TM,
+>>   	TCA_MIRRED_PARMS,
+>>   	TCA_MIRRED_PAD,
+>> +	TCA_MIRRED_TC_MAP,
+>>   	__TCA_MIRRED_MAX
+>>   };
+>>   #define TCA_MIRRED_MAX (__TCA_MIRRED_MAX - 1)
+>> diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+>> index 1b5549a..f9801de 100644
+>> --- a/net/sched/act_mirred.c
+>> +++ b/net/sched/act_mirred.c
+>> @@ -67,6 +67,7 @@ static void tcf_mirred_release(struct tc_action *a, int bind)
+>>   
+>>   static const struct nla_policy mirred_policy[TCA_MIRRED_MAX + 1] = {
+>>   	[TCA_MIRRED_PARMS]	= { .len = sizeof(struct tc_mirred) },
+>> +	[TCA_MIRRED_TC_MAP]	= { .type = NLA_U8 },
+>>   };
+>>   
+>>   static unsigned int mirred_net_id;
+>> @@ -83,6 +84,8 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>>   	struct tcf_mirred *m;
+>>   	struct net_device *dev;
+>>   	bool exists = false;
+>> +	u8 *tc_map = NULL;
+>> +	u32 flags = 0;
+>>   	int ret;
+>>   
+>>   	if (nla == NULL)
+>> @@ -92,6 +95,14 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>>   		return ret;
+>>   	if (tb[TCA_MIRRED_PARMS] == NULL)
+>>   		return -EINVAL;
+>> +
+>> +	if (tb[TCA_MIRRED_TC_MAP]) {
+>> +		tc_map = nla_data(tb[TCA_MIRRED_TC_MAP]);
+>> +		if (*tc_map >= MIRRED_TC_MAP_MAX)
+>> +			return -EINVAL;
+>> +		flags |= MIRRED_F_TC_MAP;
 > 
-> Assuming this is the max number of queues?
-> Where does this upper bound come from? Is it a spec
-> or an intel thing? If spec - mentioning which
-> spec and section would be useful.
+> 
+>> +	}
+>> +
+>>   	parm = nla_data(tb[TCA_MIRRED_PARMS]);
+>>   
+>>   	exists = tcf_hash_check(tn, parm->index, a, bind);
+>> @@ -139,6 +150,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>>   	ASSERT_RTNL();
+>>   	m->tcf_action = parm->action;
+>>   	m->tcfm_eaction = parm->eaction;
+>> +	m->flags = flags;
+>>   	if (dev != NULL) {
+>>   		m->tcfm_ifindex = parm->ifindex;
+>>   		if (ret != ACT_P_CREATED)
+>> @@ -146,6 +158,8 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>>   		dev_hold(dev);
+>>   		rcu_assign_pointer(m->tcfm_dev, dev);
+>>   		m->tcfm_mac_header_xmit = mac_header_xmit;
+>> +		if (flags & MIRRED_F_TC_MAP)
+>> +			m->tcfm_tc = *tc_map & MIRRED_TC_MAP_MASK;
+>>   	}
+>>   
+> Is the mask a hardware limit. I dont know how these queues are
+> allocated - I am assuming each of these "tc queues" maps to a rx
+> DMA ring?
 
-This is the max number of TCs. The Linux upper bound for this is defined
-in linux/netdevice.h. I will fix this part to remove the definition here
-and reuse the existing one.
+This is the bitmask for TC max range again defined in linux/netdevice.h.
+I'll fix this to remove the new definition I have (MIRRED_TC_MAP_MASK)
+here and replace with the existing TC_BITMASK. These are just the
+traffic class index that are offloaded to the device. I had submitted
+another series that handles configuring queues for the traffic classes
+and queue layout offloaded via the mqprio framework.
+
+> 
+>>   	if (ret == ACT_P_CREATED) {
+>> @@ -259,6 +273,9 @@ static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind,
+>>   
+>>   	if (nla_put(skb, TCA_MIRRED_PARMS, sizeof(opt), &opt))
+>>   		goto nla_put_failure;
+>> +	if ((m->flags & MIRRED_F_TC_MAP) &&
+>> +	    nla_put_u8(skb, TCA_MIRRED_TC_MAP, m->tcfm_tc))
+>> +		goto nla_put_failure;
+>>
+> 
+> If you have m->tcfm_tc then I dont think you need the flags; so i would
+> remove it from the struct altogether.
+
+I think I would still need the flags as "tc" index is an optional
+parameter and the value zero is also a valid TC index. I was also
+planning to use this flag to address Jiri's comment to fail this rule in
+devices not supporting this offload.
 
 > 
 > cheers,
