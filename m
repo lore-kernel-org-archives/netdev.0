@@ -1,54 +1,99 @@
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Subject: [PATCH] ipv4: Introduce ipip_offload_init helper function.
-Date: Wed,  2 Aug 2017 09:34:15 -0700
-Message-ID: <1501691655-3493-1-git-send-email-xiangxia.m.yue@gmail.com>
-Cc: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33685 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751133AbdHBQec (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 12:34:32 -0400
-Received: by mail-pg0-f65.google.com with SMTP id u185so6989075pgb.0
-        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 09:34:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: RE: [PATCH V4 net-next 1/8] net: hns3: Add support of HNS3 Ethernet
+ Driver for hip08 SoC
+Date: Wed, 2 Aug 2017 16:38:12 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B83761C@FRAEML521-MBX.china.huawei.com>
+References: <20170722220942.78852-1-salil.mehta@huawei.com>
+ <20170722220942.78852-2-salil.mehta@huawei.com>
+ <79a3a952-acae-2a51-0d49-46acaf92cf3b@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It's convenient to init ipip offload. We will check
-the return value, and print KERN_CRIT info on failure.
+Hi Florian,
 
-Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
----
- net/ipv4/af_inet.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+> -----Original Message-----
+> From: Salil Mehta
+> Sent: Thursday, July 27, 2017 9:45 PM
+> To: 'Florian Fainelli'; davem@davemloft.net
+> Cc: Zhuangyuzeng (Yisen); huangdaode; lipeng (Y);
+> mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; linux-rdma@vger.kernel.org; Linuxarm
+> Subject: RE: [PATCH V4 net-next 1/8] net: hns3: Add support of HNS3
+> Ethernet Driver for hip08 SoC
+> 
+> Hi Florian,
+> 
+> > -----Original Message-----
+> > From: Florian Fainelli [mailto:f.fainelli@gmail.com]
+> > Sent: Sunday, July 23, 2017 6:24 PM
+> > To: Salil Mehta; davem@davemloft.net
+> > Cc: Zhuangyuzeng (Yisen); huangdaode; lipeng (Y);
+> > mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
+> > kernel@vger.kernel.org; linux-rdma@vger.kernel.org; Linuxarm
+> > Subject: Re: [PATCH V4 net-next 1/8] net: hns3: Add support of HNS3
+> > Ethernet Driver for hip08 SoC
+> >
+> >
+> >
+> > On 07/22/2017 03:09 PM, Salil Mehta wrote:
+> > > This patch adds the support of Hisilicon Network Subsystem 3
+> > > Ethernet driver to hip08 family of SoCs.
+> > >
+> > > This driver includes basic Rx/Tx functionality. It also includes
+> > > the client registration code with the HNAE3(Hisilicon Network
+> > > Acceleration Engine 3) framework.
+> > >
+> > > This work provides the initial support to the hip08 SoC and
+> > > would incrementally add features or enhancements.
+> > >
+> > > Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+> > > Signed-off-by: lipeng <lipeng321@huawei.com>
+> > > Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+> > > Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 5ce44fb..c888120 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1763,6 +1763,11 @@ static int __init init_inet_pernet_ops(void)
- 	},
- };
- 
-+static int __init ipip_offload_init(void)
-+{
-+	return inet_add_offload(&ipip_offload, IPPROTO_IPIP);
-+}
-+
- static int __init ipv4_offload_init(void)
- {
- 	/*
-@@ -1772,9 +1777,10 @@ static int __init ipv4_offload_init(void)
- 		pr_crit("%s: Cannot add UDP protocol offload\n", __func__);
- 	if (tcpv4_offload_init() < 0)
- 		pr_crit("%s: Cannot add TCP protocol offload\n", __func__);
-+	if (ipip_offload_init() < 0)
-+		pr_crit("%s: Cannot add IPIP protocol offload\n", __func__);
- 
- 	dev_add_offload(&ip_packet_offload);
--	inet_add_offload(&ipip_offload, IPPROTO_IPIP);
- 	return 0;
- }
- 
--- 
-1.8.3.1
+[...]
+
+> 
+> >
+> > > +		hns3_nic_reclaim_one_desc(ring, &bytes, &pkts);
+> > > +		/* Issue prefetch for next Tx descriptor */
+> > > +		prefetch(&ring->desc_cb[ring->next_to_clean]);
+> > > +		budget--;
+> > > +	}
+> > > +
+> > > +	ring->tqp_vector->tx_group.total_bytes += bytes;
+> > > +	ring->tqp_vector->tx_group.total_packets += pkts;
+> > > +
+> > > +	dev_queue = netdev_get_tx_queue(netdev, ring->tqp->tqp_index);
+> > > +	netdev_tx_completed_queue(dev_queue, pkts, bytes);
+> >
+> > Where is flow control happening? Should not you wake the transmit
+> queue
+> > if you had to stop it somehow?
+> Forgive me, I could not get this part. Flow control of what?
+As discussed with you earlier, I have fixed the queue wakeup part
+in Patch V6. Please have a look at it. Thanks!
+
+Best regards 
+Salil
+> 
+> 
+> >
+> > I kind of stopped reviewing here.
+> > --
+> > Florian
