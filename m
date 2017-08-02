@@ -1,8 +1,9 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 0/1] pull request for net: batman-adv
- 2017-08-02
-Date: Wed,  2 Aug 2017 16:15:41 +0200
-Message-ID: <20170802141542.13059-1-sw@simonwunderlich.de>
+Subject: [PATCH 1/1] batman-adv: fix TT sync flag
+ inconsistencies
+Date: Wed,  2 Aug 2017 16:15:42 +0200
+Message-ID: <20170802141542.13059-2-sw@simonwunderlich.de>
+References: <20170802141542.13059-1-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
@@ -11,6 +12,7 @@ Content-Transfer-Encoding: 8bit
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20170802141542.13059-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
  <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
@@ -22,37 +24,210 @@ Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
 
-here is a bugfix which we would like to see integrated into net.
+This patch fixes an issue in the translation table code potentially
+leading to a TT Request + Response storm. The issue may occur for nodes
+involving BLA and an inconsistent configuration of the batman-adv AP
+isolation feature. However, since the new multicast optimizations, a
+single, malformed packet may lead to a mesh-wide, persistent
+Denial-of-Service, too.
 
-Please pull or let me know of any problem!
+The issue occurs because nodes are currently OR-ing the TT sync flags of
+all originators announcing a specific MAC address via the
+translation table. When an intermediate node now receives a TT Request
+and wants to answer this on behalf of the destination node, then this
+intermediate node now responds with an altered flag field and broken
+CRC. The next OGM of the real destination will lead to a CRC mismatch
+and triggering a TT Request and Response again.
 
-Thank you,
-      Simon
+Furthermore, the OR-ing is currently never undone as long as at least
+one originator announcing the according MAC address remains, leading to
+the potential persistency of this issue.
 
-The following changes since commit 5771a8c08880cdca3bfb4a3fc6d309d6bba20877:
+This patch fixes this issue by storing the flags used in the CRC
+calculation on a a per TT orig entry basis to be able to respond with
+the correct, original flags in an intermediate TT Response for one
+thing. And to be able to correctly unset sync flags once all nodes
+announcing a sync flag vanish for another.
 
-  Linux v4.13-rc1 (2017-07-15 15:22:10 -0700)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batadv-net-for-davem-20170802
-
-for you to fetch changes up to 54e22f265e872ae140755b3318521d400a094605:
-
-  batman-adv: fix TT sync flag inconsistencies (2017-07-31 11:17:38 +0200)
-
-----------------------------------------------------------------
-Here is a batman-adv bugfix:
-
- - fix TT sync flag inconsistency problems, which can lead to excess packets,
-   by Linus Luessing
-
-----------------------------------------------------------------
-Linus Lüssing (1):
-      batman-adv: fix TT sync flag inconsistencies
-
+Fixes: e9c00136a475 ("batman-adv: fix tt_global_entries flags update")
+Signed-off-by: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
+Acked-by: Antonio Quartulli <a@unstable.cc>
+[sw: typo in commit message]
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+---
  net/batman-adv/translation-table.c | 60 ++++++++++++++++++++++++++++++++------
  net/batman-adv/types.h             |  2 ++
  2 files changed, 53 insertions(+), 9 deletions(-)
+
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index e1133bc634b5..8a3ce79b1307 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -1549,9 +1549,41 @@ batadv_tt_global_entry_has_orig(const struct batadv_tt_global_entry *entry,
+ 	return found;
+ }
+ 
++/**
++ * batadv_tt_global_sync_flags - update TT sync flags
++ * @tt_global: the TT global entry to update sync flags in
++ *
++ * Updates the sync flag bits in the tt_global flag attribute with a logical
++ * OR of all sync flags from any of its TT orig entries.
++ */
++static void
++batadv_tt_global_sync_flags(struct batadv_tt_global_entry *tt_global)
++{
++	struct batadv_tt_orig_list_entry *orig_entry;
++	const struct hlist_head *head;
++	u16 flags = BATADV_NO_FLAGS;
++
++	rcu_read_lock();
++	head = &tt_global->orig_list;
++	hlist_for_each_entry_rcu(orig_entry, head, list)
++		flags |= orig_entry->flags;
++	rcu_read_unlock();
++
++	flags |= tt_global->common.flags & (~BATADV_TT_SYNC_MASK);
++	tt_global->common.flags = flags;
++}
++
++/**
++ * batadv_tt_global_orig_entry_add - add or update a TT orig entry
++ * @tt_global: the TT global entry to add an orig entry in
++ * @orig_node: the originator to add an orig entry for
++ * @ttvn: translation table version number of this changeset
++ * @flags: TT sync flags
++ */
+ static void
+ batadv_tt_global_orig_entry_add(struct batadv_tt_global_entry *tt_global,
+-				struct batadv_orig_node *orig_node, int ttvn)
++				struct batadv_orig_node *orig_node, int ttvn,
++				u8 flags)
+ {
+ 	struct batadv_tt_orig_list_entry *orig_entry;
+ 
+@@ -1561,7 +1593,8 @@ batadv_tt_global_orig_entry_add(struct batadv_tt_global_entry *tt_global,
+ 		 * was added during a "temporary client detection"
+ 		 */
+ 		orig_entry->ttvn = ttvn;
+-		goto out;
++		orig_entry->flags = flags;
++		goto sync_flags;
+ 	}
+ 
+ 	orig_entry = kmem_cache_zalloc(batadv_tt_orig_cache, GFP_ATOMIC);
+@@ -1573,6 +1606,7 @@ batadv_tt_global_orig_entry_add(struct batadv_tt_global_entry *tt_global,
+ 	batadv_tt_global_size_inc(orig_node, tt_global->common.vid);
+ 	orig_entry->orig_node = orig_node;
+ 	orig_entry->ttvn = ttvn;
++	orig_entry->flags = flags;
+ 	kref_init(&orig_entry->refcount);
+ 
+ 	spin_lock_bh(&tt_global->list_lock);
+@@ -1582,6 +1616,8 @@ batadv_tt_global_orig_entry_add(struct batadv_tt_global_entry *tt_global,
+ 	spin_unlock_bh(&tt_global->list_lock);
+ 	atomic_inc(&tt_global->orig_list_count);
+ 
++sync_flags:
++	batadv_tt_global_sync_flags(tt_global);
+ out:
+ 	if (orig_entry)
+ 		batadv_tt_orig_list_entry_put(orig_entry);
+@@ -1703,10 +1739,10 @@ static bool batadv_tt_global_add(struct batadv_priv *bat_priv,
+ 		}
+ 
+ 		/* the change can carry possible "attribute" flags like the
+-		 * TT_CLIENT_WIFI, therefore they have to be copied in the
++		 * TT_CLIENT_TEMP, therefore they have to be copied in the
+ 		 * client entry
+ 		 */
+-		common->flags |= flags;
++		common->flags |= flags & (~BATADV_TT_SYNC_MASK);
+ 
+ 		/* If there is the BATADV_TT_CLIENT_ROAM flag set, there is only
+ 		 * one originator left in the list and we previously received a
+@@ -1723,7 +1759,8 @@ static bool batadv_tt_global_add(struct batadv_priv *bat_priv,
+ 	}
+ add_orig_entry:
+ 	/* add the new orig_entry (if needed) or update it */
+-	batadv_tt_global_orig_entry_add(tt_global_entry, orig_node, ttvn);
++	batadv_tt_global_orig_entry_add(tt_global_entry, orig_node, ttvn,
++					flags & BATADV_TT_SYNC_MASK);
+ 
+ 	batadv_dbg(BATADV_DBG_TT, bat_priv,
+ 		   "Creating new global tt entry: %pM (vid: %d, via %pM)\n",
+@@ -1946,6 +1983,7 @@ batadv_tt_global_dump_subentry(struct sk_buff *msg, u32 portid, u32 seq,
+ 			       struct batadv_tt_orig_list_entry *orig,
+ 			       bool best)
+ {
++	u16 flags = (common->flags & (~BATADV_TT_SYNC_MASK)) | orig->flags;
+ 	void *hdr;
+ 	struct batadv_orig_node_vlan *vlan;
+ 	u8 last_ttvn;
+@@ -1975,7 +2013,7 @@ batadv_tt_global_dump_subentry(struct sk_buff *msg, u32 portid, u32 seq,
+ 	    nla_put_u8(msg, BATADV_ATTR_TT_LAST_TTVN, last_ttvn) ||
+ 	    nla_put_u32(msg, BATADV_ATTR_TT_CRC32, crc) ||
+ 	    nla_put_u16(msg, BATADV_ATTR_TT_VID, common->vid) ||
+-	    nla_put_u32(msg, BATADV_ATTR_TT_FLAGS, common->flags))
++	    nla_put_u32(msg, BATADV_ATTR_TT_FLAGS, flags))
+ 		goto nla_put_failure;
+ 
+ 	if (best && nla_put_flag(msg, BATADV_ATTR_FLAG_BEST))
+@@ -2589,6 +2627,7 @@ static u32 batadv_tt_global_crc(struct batadv_priv *bat_priv,
+ 				unsigned short vid)
+ {
+ 	struct batadv_hashtable *hash = bat_priv->tt.global_hash;
++	struct batadv_tt_orig_list_entry *tt_orig;
+ 	struct batadv_tt_common_entry *tt_common;
+ 	struct batadv_tt_global_entry *tt_global;
+ 	struct hlist_head *head;
+@@ -2627,8 +2666,9 @@ static u32 batadv_tt_global_crc(struct batadv_priv *bat_priv,
+ 			/* find out if this global entry is announced by this
+ 			 * originator
+ 			 */
+-			if (!batadv_tt_global_entry_has_orig(tt_global,
+-							     orig_node))
++			tt_orig = batadv_tt_global_orig_entry_find(tt_global,
++								   orig_node);
++			if (!tt_orig)
+ 				continue;
+ 
+ 			/* use network order to read the VID: this ensures that
+@@ -2640,10 +2680,12 @@ static u32 batadv_tt_global_crc(struct batadv_priv *bat_priv,
+ 			/* compute the CRC on flags that have to be kept in sync
+ 			 * among nodes
+ 			 */
+-			flags = tt_common->flags & BATADV_TT_SYNC_MASK;
++			flags = tt_orig->flags;
+ 			crc_tmp = crc32c(crc_tmp, &flags, sizeof(flags));
+ 
+ 			crc ^= crc32c(crc_tmp, tt_common->addr, ETH_ALEN);
++
++			batadv_tt_orig_list_entry_put(tt_orig);
+ 		}
+ 		rcu_read_unlock();
+ 	}
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index ea43a6449247..a62795868794 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -1260,6 +1260,7 @@ struct batadv_tt_global_entry {
+  * struct batadv_tt_orig_list_entry - orig node announcing a non-mesh client
+  * @orig_node: pointer to orig node announcing this non-mesh client
+  * @ttvn: translation table version number which added the non-mesh client
++ * @flags: per orig entry TT sync flags
+  * @list: list node for batadv_tt_global_entry::orig_list
+  * @refcount: number of contexts the object is used
+  * @rcu: struct used for freeing in an RCU-safe manner
+@@ -1267,6 +1268,7 @@ struct batadv_tt_global_entry {
+ struct batadv_tt_orig_list_entry {
+ 	struct batadv_orig_node *orig_node;
+ 	u8 ttvn;
++	u8 flags;
+ 	struct hlist_node list;
+ 	struct kref refcount;
+ 	struct rcu_head rcu;
+-- 
+2.11.0
