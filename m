@@ -1,69 +1,68 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/2] [for 4.13] net: qcom/emac: disable flow control
- autonegotiation by default
-Date: Wed, 2 Aug 2017 15:38:01 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0049282@AcuExch.aculab.com>
-References: <1501623460-3575-1-git-send-email-timur@codeaurora.org>
- <1501623460-3575-2-git-send-email-timur@codeaurora.org>
- <063D6719AE5E284EB5DD2968C1650D6DD00490C0@AcuExch.aculab.com>
- <77de100a-42b1-1e0d-6545-cadb0067eec6@codeaurora.org>
- <063D6719AE5E284EB5DD2968C1650D6DD00491F6@AcuExch.aculab.com>
- <115c4698-cfcb-83dc-e70b-89207ef326a8@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Timur Tabi' <timur@codeaurora.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: William Tu <u9012063@gmail.com>
+Subject: [PATCH net-next] bpf: fix the printing of ifindex
+Date: Wed,  2 Aug 2017 08:43:52 -0700
+Message-ID: <1501688632-2709-1-git-send-email-u9012063@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.192]:60430 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751162AbdHBPiJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 11:38:09 -0400
-In-Reply-To: <115c4698-cfcb-83dc-e70b-89207ef326a8@codeaurora.org>
-Content-Language: en-US
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34489 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751154AbdHBPoC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 11:44:02 -0400
+Received: by mail-pg0-f66.google.com with SMTP id y192so6859244pgd.1
+        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 08:44:02 -0700 (PDT)
+Received: from sc9-mailhost1.vmware.com ([208.91.1.34])
+        by smtp.gmail.com with ESMTPSA id v128sm54851255pgv.49.2017.08.02.08.43.59
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
+        Wed, 02 Aug 2017 08:43:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Timur Tabi
-> Sent: 02 August 2017 16:09
-> On 08/02/2017 09:51 AM, David Laight wrote:
-> > Sending pause frames just tells the adjacent switch not to send you packets
-> > (because you'll discard them).
-> > Since the idea is to avoid the discards, the switch will buffer the
-> > packets it would have sent.
-> > The buffers in the switch then fill up with packets it isn't sending you.
-> 
-> I was under the impression that the switch forwards the pause frames to
-> other devices, so that the transmitting NIC can stop sending the data,
+Save the ifindex before it gets zeroed so the invalid
+ifindex can be printed out.
 
-Most of my ethernet knowledge predates FDX :-)
-It wouldn't make any sense to try to use the source address of a pause
-frame to suppress traffic to a specific MAC - that would have to go way down
-into IP on all the receiving systems.
-Also ISTR that pause frames are very short and don't even contain MAC
-addresses.
+Signed-off-by: William Tu <u9012063@gmail.com>
+---
+ net/core/filter.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-> but your explanation makes a lot more sense.  If the EMAC never stops
-> sending pause frames, then the switch's buffers will fill up, disabling
-> all other devices.  If the switch does not have per-port buffers, then
-> it makes sense when the buffer is full, it blocks all ports.
-
-A switch will (probably) either have buffers for each input port, or for
-each output port (or maybe both).
-Output port buffers are less likely to cause grief when an output port is
-running at a slower speed than the input port.
-
-But is a switch is going to send pause frames it doesn't really matter
-how the buffers are arranged. The cascade will still happen.
-
-It would take very careful heuristics in a switch to manage pause
-frames properly.
-
-Of course, once the kernel has crashed, even multicast packets will
-eventually run the MAC out of buffers.
-(Unless you run on private network and manage to reinstall and reboot
-while the MAC is still active and then eventually die when a receive
-frame overwrites what used to be a receive buffer.)
-
-	David
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 7e9708653c6f..78d00933dbe7 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2509,15 +2509,16 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+ {
+ 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+ 	struct net_device *fwd;
++	u32 index = ri->ifindex;
+ 
+ 	if (ri->map)
+ 		return xdp_do_redirect_map(dev, xdp, xdp_prog);
+ 
+-	fwd = dev_get_by_index_rcu(dev_net(dev), ri->ifindex);
++	fwd = dev_get_by_index_rcu(dev_net(dev), index);
+ 	ri->ifindex = 0;
+ 	ri->map = NULL;
+ 	if (unlikely(!fwd)) {
+-		bpf_warn_invalid_xdp_redirect(ri->ifindex);
++		bpf_warn_invalid_xdp_redirect(index);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -2531,11 +2532,12 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+ 	unsigned int len;
++	u32 index = ri->ifindex;
+ 
+-	dev = dev_get_by_index_rcu(dev_net(dev), ri->ifindex);
++	dev = dev_get_by_index_rcu(dev_net(dev), index);
+ 	ri->ifindex = 0;
+ 	if (unlikely(!dev)) {
+-		bpf_warn_invalid_xdp_redirect(ri->ifindex);
++		bpf_warn_invalid_xdp_redirect(index);
+ 		goto err;
+ 	}
+ 
+-- 
+2.7.4
