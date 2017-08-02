@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/3] netvsc: transparent VF support
-Date: Wed, 02 Aug 2017 16:55:51 -0700 (PDT)
-Message-ID: <20170802.165551.2243958850350981258.davem@davemloft.net>
-References: <20170802025855.11521-1-sthemmin@microsoft.com>
+Subject: Re: [patch net-next] mlxsw: core: Use correct EMAD transaction ID
+ in debug message
+Date: Wed, 02 Aug 2017 16:59:06 -0700 (PDT)
+Message-ID: <20170802.165906.1185947476399290648.davem@davemloft.net>
+References: <20170802075210.1000-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
-        corbet@lwn.net, devel@linuxdriverproject.org,
-        linux-doc@vger.kernel.org, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32888 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:32914 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751073AbdHBXzw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 19:55:52 -0400
-In-Reply-To: <20170802025855.11521-1-sthemmin@microsoft.com>
+        with ESMTP id S1751761AbdHBX7I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 19:59:08 -0400
+In-Reply-To: <20170802075210.1000-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue,  1 Aug 2017 19:58:52 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed,  2 Aug 2017 09:52:10 +0200
 
-> This patch set changes how SR-IOV Virtual Function devices are managed
-> in the Hyper-V network driver. This version is rebased onto current net-next.
- ...
+> From: Ido Schimmel <idosch@mellanox.com>
+> 
+> 'trans->tid' is only assigned later in the function, resulting in a zero
+> transaction ID. Use 'tid' instead.
+> 
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Series applied, thanks Stephen.
+Applied, thanks Jiri.
