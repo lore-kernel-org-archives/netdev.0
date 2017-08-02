@@ -1,85 +1,73 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 0/6] pull request for net-next: batman-adv
- 2017-08-02
-Date: Wed,  2 Aug 2017 16:23:16 +0200
-Message-ID: <20170802142322.13376-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 4/6] batman-adv: Remove variable deprecated by skb_put_data
+Date: Wed,  2 Aug 2017 16:23:20 +0200
+Message-ID: <20170802142322.13376-5-sw@simonwunderlich.de>
+References: <20170802142322.13376-1-sw@simonwunderlich.de>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Sven Eckelmann <sven@narfation.org>,
+        Simon Wunderlich <sw@simonwunderlich.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from packetmixer.de ([79.140.42.25]:46890 "EHLO
+        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752350AbdHBOXg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 10:23:36 -0400
+In-Reply-To: <20170802142322.13376-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Sven Eckelmann <sven@narfation.org>
 
-here is a small feature/cleanup pull request of batman-adv to go into net-next.
+skb_put_data makes it unnecessary to store the skb_put return value to copy
+some data to the packet. The returned pointer of skb_put_data should
+therefore not stored by functions which previously only used it to copy
+some data.
 
-Please pull or let me know of any problem!
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+---
+ net/batman-adv/bat_iv_ogm.c | 4 +---
+ net/batman-adv/bat_v_ogm.c  | 4 ++--
+ 2 files changed, 3 insertions(+), 5 deletions(-)
 
-Thank you,
-      Simon
-
-The following changes since commit 5771a8c08880cdca3bfb4a3fc6d309d6bba20877:
-
-  Linux v4.13-rc1 (2017-07-15 15:22:10 -0700)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batadv-next-for-davem-20170802
-
-for you to fetch changes up to e45eba2467bd64fd196dc6f8b50ff5e59c0058da:
-
-  batman-adv: Convert batman-adv.txt to reStructuredText (2017-07-29 09:51:28 +0200)
-
-----------------------------------------------------------------
-This feature/cleanup patchset includes the following patches:
-
- - bump version strings, by Simon Wunderlich
-
- - Remove unnecessary length qualifier, by Joe Perches
-
- - Remove too short %pM field width, by Sven Eckelmann
-
- - Remove return value handling from skb_put_data, by Sven Eckelmann
-
- - Spelling fixes, by Colin Ian King
-
- - Convert batman-adv.txt to reStructuredText, by Sven Eckelmann
-
-----------------------------------------------------------------
-Colin Ian King (1):
-      batman-adv: fix various spelling mistakes
-
-Joe Perches (1):
-      batman-adv: Remove unnecessary length qualifier in %14pM
-
-Simon Wunderlich (1):
-      batman-adv: Start new development cycle
-
-Sven Eckelmann (3):
-      batman-adv: Remove too short %pM printk field width
-      batman-adv: Remove variable deprecated by skb_put_data
-      batman-adv: Convert batman-adv.txt to reStructuredText
-
- Documentation/networking/00-INDEX       |   2 -
- Documentation/networking/batman-adv.rst | 220 ++++++++++++++++++++++++++++++++
- Documentation/networking/batman-adv.txt | 215 -------------------------------
- Documentation/networking/index.rst      |   1 +
- MAINTAINERS                             |   2 +-
- net/batman-adv/bat_iv_ogm.c             |   6 +-
- net/batman-adv/bat_v_ogm.c              |  16 +--
- net/batman-adv/distributed-arp-table.c  |   2 +-
- net/batman-adv/main.h                   |   2 +-
- net/batman-adv/send.c                   |   2 +-
- 10 files changed, 235 insertions(+), 233 deletions(-)
- create mode 100644 Documentation/networking/batman-adv.rst
- delete mode 100644 Documentation/networking/batman-adv.txt
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index c27001d38574..83ba5483455a 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -729,11 +729,9 @@ static void batadv_iv_ogm_aggregate(struct batadv_forw_packet *forw_packet_aggr,
+ 				    const unsigned char *packet_buff,
+ 				    int packet_len, bool direct_link)
+ {
+-	unsigned char *skb_buff;
+ 	unsigned long new_direct_link_flag;
+ 
+-	skb_buff = skb_put_data(forw_packet_aggr->skb, packet_buff,
+-				packet_len);
++	skb_put_data(forw_packet_aggr->skb, packet_buff, packet_len);
+ 	forw_packet_aggr->packet_len += packet_len;
+ 	forw_packet_aggr->num_packets++;
+ 
+diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
+index 1e3dc374bfde..894c96371e41 100644
+--- a/net/batman-adv/bat_v_ogm.c
++++ b/net/batman-adv/bat_v_ogm.c
+@@ -137,7 +137,7 @@ static void batadv_v_ogm_send(struct work_struct *work)
+ 	struct batadv_priv *bat_priv;
+ 	struct batadv_ogm2_packet *ogm_packet;
+ 	struct sk_buff *skb, *skb_tmp;
+-	unsigned char *ogm_buff, *pkt_buff;
++	unsigned char *ogm_buff;
+ 	int ogm_buff_len;
+ 	u16 tvlv_len = 0;
+ 	int ret;
+@@ -166,7 +166,7 @@ static void batadv_v_ogm_send(struct work_struct *work)
+ 		goto reschedule;
+ 
+ 	skb_reserve(skb, ETH_HLEN);
+-	pkt_buff = skb_put_data(skb, ogm_buff, ogm_buff_len);
++	skb_put_data(skb, ogm_buff, ogm_buff_len);
+ 
+ 	ogm_packet = (struct batadv_ogm2_packet *)skb->data;
+ 	ogm_packet->seqno = htonl(atomic_read(&bat_priv->bat_v.ogm_seqno));
+-- 
+2.11.0
