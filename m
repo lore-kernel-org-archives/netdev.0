@@ -1,84 +1,50 @@
-From: Jonas Gorski <jonas.gorski@gmail.com>
-Subject: [PATCH 5/8] MIPS: BCM63XX: provide enet clocks as "enet" to the ethernet devices
-Date: Wed,  2 Aug 2017 11:34:26 +0200
-Message-ID: <20170802093429.12572-6-jonas.gorski@gmail.com>
+From: Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 3/8] tty/bcm63xx_uart: use refclk for the expected clock name
+Date: Wed,  2 Aug 2017 11:34:24 +0200
+Message-ID: <20170802093429.12572-4-jonas.gorski@gmail.com>
 References: <20170802093429.12572-1-jonas.gorski@gmail.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        bcm-kernel-feedback-list@broadcom.com,
-        Kevin Cernekee <cernekee@gmail.com>,
-        Jiri Slaby <jslaby@suse.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Russell King <linux@armlinux.org.uk>
-To: linux-mips@linux-mips.org, linux-arm-kernel@lists.infradead.org,
-        linux-serial@vger.kernel.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34761 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752826AbdHBJfP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 05:35:15 -0400
-In-Reply-To: <20170802093429.12572-1-jonas.gorski@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+        Kevin Cernekee <cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+To: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170802093429.12572-1-jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add lookups to provide the appropriate enetX clocks as just "enet" to
-the ethernet devices.
+We now have the clock available under refclk, so use that.
 
-Signed-off-by: Jonas Gorski <jonas.gorski@gmail.com>
+Signed-off-by: Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- arch/mips/bcm63xx/clk.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/tty/serial/bcm63xx_uart.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/mips/bcm63xx/clk.c b/arch/mips/bcm63xx/clk.c
-index 0b898e5e4c5b..8a089a92e029 100644
---- a/arch/mips/bcm63xx/clk.c
-+++ b/arch/mips/bcm63xx/clk.c
-@@ -370,6 +370,8 @@ static struct clk_lookup bcm3368_clks[] = {
- 	CLKDEV_INIT(NULL, "usbd", &clk_usbd),
- 	CLKDEV_INIT(NULL, "spi", &clk_spi),
- 	CLKDEV_INIT(NULL, "pcm", &clk_pcm),
-+	CLKDEV_INIT("bcm63xx_enet.0", "enet", &clk_enet0),
-+	CLKDEV_INIT("bcm63xx_enet.1", "enet", &clk_enet1),
- };
+diff --git a/drivers/tty/serial/bcm63xx_uart.c b/drivers/tty/serial/bcm63xx_uart.c
+index 583c9a0c7ecc..a2b9376ec861 100644
+--- a/drivers/tty/serial/bcm63xx_uart.c
++++ b/drivers/tty/serial/bcm63xx_uart.c
+@@ -842,7 +842,7 @@ static int bcm_uart_probe(struct platform_device *pdev)
+ 		return -ENODEV;
  
- static struct clk_lookup bcm6328_clks[] = {
-@@ -396,6 +398,7 @@ static struct clk_lookup bcm6338_clks[] = {
- 	CLKDEV_INIT(NULL, "usbh", &clk_usbh),
- 	CLKDEV_INIT(NULL, "usbd", &clk_usbd),
- 	CLKDEV_INIT(NULL, "spi", &clk_spi),
-+	CLKDEV_INIT("bcm63xx_enet.0", "enet", &clk_enet_misc),
- };
+ 	clk = pdev->dev.of_node ? of_clk_get(pdev->dev.of_node, 0) :
+-				  clk_get(&pdev->dev, "periph");
++				  clk_get(&pdev->dev, "refclk");
+ 	if (IS_ERR(clk))
+ 		return -ENODEV;
  
- static struct clk_lookup bcm6345_clks[] = {
-@@ -409,6 +412,7 @@ static struct clk_lookup bcm6345_clks[] = {
- 	CLKDEV_INIT(NULL, "usbh", &clk_usbh),
- 	CLKDEV_INIT(NULL, "usbd", &clk_usbd),
- 	CLKDEV_INIT(NULL, "spi", &clk_spi),
-+	CLKDEV_INIT("bcm63xx_enet.0", "enet", &clk_enet_misc),
- };
- 
- static struct clk_lookup bcm6348_clks[] = {
-@@ -422,6 +426,8 @@ static struct clk_lookup bcm6348_clks[] = {
- 	CLKDEV_INIT(NULL, "usbh", &clk_usbh),
- 	CLKDEV_INIT(NULL, "usbd", &clk_usbd),
- 	CLKDEV_INIT(NULL, "spi", &clk_spi),
-+	CLKDEV_INIT("bcm63xx_enet.0", "enet", &clk_enet_misc),
-+	CLKDEV_INIT("bcm63xx_enet.1", "enet", &clk_enet_misc),
- };
- 
- static struct clk_lookup bcm6358_clks[] = {
-@@ -437,6 +443,8 @@ static struct clk_lookup bcm6358_clks[] = {
- 	CLKDEV_INIT(NULL, "usbd", &clk_usbd),
- 	CLKDEV_INIT(NULL, "spi", &clk_spi),
- 	CLKDEV_INIT(NULL, "pcm", &clk_pcm),
-+	CLKDEV_INIT("bcm63xx_enet.0", "enet", &clk_enet0),
-+	CLKDEV_INIT("bcm63xx_enet.1", "enet", &clk_enet1),
- };
- 
- static struct clk_lookup bcm6362_clks[] = {
 -- 
 2.13.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
