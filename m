@@ -1,54 +1,48 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net 6/7] netvsc: Initialize 64-bit stats seqcount
-Date: Tue, 1 Aug 2017 19:42:42 -0700
-Message-ID: <20170801194242.0d79787d@xeon-e3>
-References: <20170801191113.8754-1-f.fainelli@gmail.com>
-        <20170801191113.8754-8-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        open list <linux-kernel@vger.kernel.org>, edumazet@google.com,
-        "open list:Hyper-V CORE AND DRIVERS" <devel@linuxdriverproject.org>,
-        davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170801191113.8754-8-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [RFC 0/1] tcp: constify congestion_ops
+Date: Tue,  1 Aug 2017 19:49:42 -0700
+Message-ID: <20170802024943.7517-1-sthemmin@microsoft.com>
+Cc: Stephen Hemminger <sthemmin@microsoft.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:37116 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751655AbdHBCtr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 22:49:47 -0400
+Received: by mail-pg0-f41.google.com with SMTP id y129so15452477pgy.4
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2017 19:49:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue,  1 Aug 2017 12:11:12 -0700
-Florian Fainelli <f.fainelli@gmail.com> wrote:
+This is a proposed method of making TCP congestion_ops structure const.
 
-> On 32-bit hosts and with CONFIG_DEBUG_LOCK_ALLOC we should be seeing a
-> lockdep splat indicating this seqcount is not correctly initialized, fix
-> that. In commit 6c80f3fc2398 ("netvsc: report per-channel stats in
-> ethtool statistics") netdev_alloc_pcpu_stats() was removed in favor of
-> open-coding the 64-bits statistics, except that u64_stats_init() was
-> missed.
-> 
-> Fixes: 6c80f3fc2398 ("netvsc: report per-channel stats in ethtool statistics")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  drivers/net/hyperv/netvsc.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-> index 0a9167dd72fb..96f90c75d1b7 100644
-> --- a/drivers/net/hyperv/netvsc.c
-> +++ b/drivers/net/hyperv/netvsc.c
-> @@ -1302,6 +1302,8 @@ int netvsc_device_add(struct hv_device *device,
->  		struct netvsc_channel *nvchan = &net_device->chan_table[i];
->  
->  		nvchan->channel = device->channel;
-> +		u64_stats_init(&nvchan->tx_stats.syncp);
-> +		u64_stats_init(&nvchan->rx_stats.syncp);
->  	}
->  
->  	/* Enable NAPI handler before init callbacks */
+I wonder if restricting congestion control choices is still necessary?
+It seems like being overly paranoid, and better enforced by having a more
+limited kernel config, seccomp or other mechanism.
 
+Stephen Hemminger (1):
+  constify tcp congestion
 
-Looks good, thanks. 32 bit guests are still supported but rarely tested.
+ include/net/tcp.h        |  10 ++-
+ net/ipv4/tcp.c           |   2 -
+ net/ipv4/tcp_bbr.c       |   2 +-
+ net/ipv4/tcp_bic.c       |   2 +-
+ net/ipv4/tcp_cdg.c       |   2 +-
+ net/ipv4/tcp_cong.c      | 162 +++++++++++++++++++++++++++++------------------
+ net/ipv4/tcp_cubic.c     |   2 +-
+ net/ipv4/tcp_dctcp.c     |   6 +-
+ net/ipv4/tcp_highspeed.c |   2 +-
+ net/ipv4/tcp_htcp.c      |   2 +-
+ net/ipv4/tcp_hybla.c     |   2 +-
+ net/ipv4/tcp_illinois.c  |   2 +-
+ net/ipv4/tcp_lp.c        |   2 +-
+ net/ipv4/tcp_nv.c        |   2 +-
+ net/ipv4/tcp_scalable.c  |   2 +-
+ net/ipv4/tcp_vegas.c     |   2 +-
+ net/ipv4/tcp_veno.c      |   2 +-
+ net/ipv4/tcp_westwood.c  |   2 +-
+ net/ipv4/tcp_yeah.c      |   2 +-
+ 19 files changed, 124 insertions(+), 86 deletions(-)
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+-- 
+2.11.0
