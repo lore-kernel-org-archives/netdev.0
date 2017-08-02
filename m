@@ -1,33 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: tcp_data_queue() cleanup
-Date: Wed, 02 Aug 2017 10:45:46 -0700 (PDT)
-Message-ID: <20170802.104546.917280850887457216.davem@davemloft.net>
-References: <1501596164.25002.4.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH 2/2] usb: qmi_wwan: add D-Link DWM-222 device ID
+Date: Wed, 02 Aug 2017 10:47:07 -0700 (PDT)
+Message-ID: <20170802.104707.1369942452474097696.davem@davemloft.net>
+References: <20170801154544.1104-1-marcan@marcan.st>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54994 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752593AbdHBRpr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 13:45:47 -0400
-In-Reply-To: <1501596164.25002.4.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bjorn@mork.no, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+        linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: marcan@marcan.st
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170801154544.1104-1-marcan@marcan.st>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 01 Aug 2017 07:02:44 -0700
+From: Hector Martin <marcan@marcan.st>
+Date: Wed,  2 Aug 2017 00:45:44 +0900
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Commit c13ee2a4f03f ("tcp: reindent two spots after prequeue removal")
-> removed code in tcp_data_queue().
-> 
-> We can go a little farther, removing an always true test,
-> and removing initializers for fragstolen and eaten variables.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Hector Martin <marcan@marcan.st>
 
-Series applied, thanks!
+Applied.
