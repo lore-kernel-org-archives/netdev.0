@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: set sriov_totalvfs correctly
-Date: Wed, 02 Aug 2017 16:51:56 -0700 (PDT)
-Message-ID: <20170802.165156.848203484625013901.davem@davemloft.net>
-References: <20170801220507.GA1357@felix-thinkpad.cavium.com>
+Subject: Re: [PATCH 1/2] atm: adummy: constify attribute_group structure
+Date: Wed, 02 Aug 2017 16:53:44 -0700 (PDT)
+Message-ID: <20170802.165344.1436084142194668583.davem@davemloft.net>
+References: <20170801235738.GA13517@amitoj-Inspiron-3542>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: felix.manlunas@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32834 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751136AbdHBXv5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 19:51:57 -0400
-In-Reply-To: <20170801220507.GA1357@felix-thinkpad.cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: amitoj1606@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170801235738.GA13517@amitoj-Inspiron-3542>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Tue, 1 Aug 2017 15:05:07 -0700
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Date: Tue, 1 Aug 2017 19:57:38 -0400
 
-> From: Derek Chickles <derek.chickles@cavium.com>
+> Functions working with attribute_groups provided by <linux/sysfs.h>
+> work with const attribute_group. These attribute_group structures do not
+> change at runtime so mark them as const.
 > 
-> The file /sys/devices/pci000.../sriov_totalvfs is showing a wrong value.
-> Fix it by calling pci_sriov_set_totalvfs() to set the total number of VFs
-> available after calculations for the number of PF and VF queues are made.
+> File size before:
+>  text      data     bss     dec     hex filename
+>  2033      1448       0    3481     d99 drivers/atm/adummy.o
 > 
-> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> File size after:
+>  text      data     bss     dec     hex filename
+>  2129      1352       0    3481     d99 drivers/atm/adummy.o
+> 
+> This change was made with the help of Coccinelle.
+> 
+> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
 
-Applied, thanks.
+Applied.
