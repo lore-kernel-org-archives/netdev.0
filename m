@@ -1,34 +1,32 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH] X25: constify null_x25_address
-Date: Wed,  2 Aug 2017 11:35:00 +0200
-Message-ID: <1501666500-25911-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, linux-x25@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Hendry <andrew.hendry@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net 5/7] gtp: Initialize 64-bit per-cpu stats correctly
+Date: Wed, 2 Aug 2017 12:46:10 +0200
+Message-ID: <20170802104610.GA2566@salvia>
+References: <20170801191113.8754-1-f.fainelli@gmail.com>
+ <20170801191113.8754-6-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+        Harald Welte <laforge@gnumonks.org>,
+        "open list:GTP (GPRS Tunneling Protocol)"
+        <osmocom-net-gprs@lists.osmocom.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170801191113.8754-6-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-null_x25_address is only used to access the string it contains, so it can
-be const.
+On Tue, Aug 01, 2017 at 12:11:10PM -0700, Florian Fainelli wrote:
+> On 32-bit hosts and with CONFIG_DEBUG_LOCK_ALLOC we should be seeing a
+> lockdep splat indicating this seqcount is not correctly initialized, fix
+> that by using netdev_alloc_pcpu_stats() instead of an open coded
+> allocation.
+> 
+> Fixes: 459aa660eb1d ("gtp: add initial driver for datapath of GPRS Tunneling Protocol (GTP-U)")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
----
- net/x25/af_x25.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 5a1a98d..ac09593 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -74,7 +74,7 @@
- 
- static const struct proto_ops x25_proto_ops;
- 
--static struct x25_address null_x25_address = {"               "};
-+static const struct x25_address null_x25_address = {"               "};
- 
- #ifdef CONFIG_COMPAT
- struct compat_x25_subscrip_struct {
+Thanks!
