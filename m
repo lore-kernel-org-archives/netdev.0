@@ -1,15 +1,16 @@
 From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
-Subject: Re: [PATCH net-next RFC 0/6] Configure cloud filters in i40e via
+Subject: Re: [PATCH 6/6] [net-next]net: i40e: Enable cloud filters in i40e via
  tc/flower classifier
-Date: Wed, 2 Aug 2017 11:17:08 -0700
-Message-ID: <db701a5c-8809-90d3-0e20-11fff34ab642@intel.com>
+Date: Wed, 2 Aug 2017 11:20:01 -0700
+Message-ID: <62e2edac-521a-0e7b-4ca5-936d93c6a613@intel.com>
 References: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
- <2d833571-a5f3-41a6-0e6c-9d2c27b0a8c5@mojatatu.com>
- <78fbc08d-f846-a3e4-ffbd-f0cba43780e3@intel.com>
- <146b5375-5d70-bb65-74aa-5c19c1de7daf@mojatatu.com>
+ <150154788503.4135.7051219373661945937.stgit@anamdev.jf.intel.com>
+ <f93480af-9ae0-2e02-7b11-78f8ab53899c@mojatatu.com>
+ <30cd59b5-4175-8641-f288-a2373475837d@intel.com>
+ <382b07c6-562b-9dc6-a4be-8f82819ab87a@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
+Content-Transfer-Encoding: 7bit
 Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
         netdev@vger.kernel.org, mitch.a.williams@intel.com,
         alexander.duyck@gmail.com, neerav.parikh@intel.com,
@@ -18,62 +19,67 @@ Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
 To: Jamal Hadi Salim <jhs@mojatatu.com>,
         intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:6852 "EHLO mga04.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:55193 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751186AbdHBSRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 2 Aug 2017 14:17:09 -0400
-In-Reply-To: <146b5375-5d70-bb65-74aa-5c19c1de7daf@mojatatu.com>
+        id S1751699AbdHBSUC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 2 Aug 2017 14:20:02 -0400
+In-Reply-To: <382b07c6-562b-9dc6-a4be-8f82819ab87a@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 8/2/2017 5:01 AM, Jamal Hadi Salim wrote:
-> On 17-08-01 08:57 PM, Nambiar, Amritha wrote:
+On 8/2/2017 5:02 AM, Jamal Hadi Salim wrote:
+> On 17-08-01 10:13 PM, Nambiar, Amritha wrote:
 >>
->> On 8/1/2017 3:15 AM, Jamal Hadi Salim wrote:
->>> On 17-07-31 08:36 PM, Amritha Nambiar wrote:
-> 
+>> On 8/1/2017 3:56 AM, Jamal Hadi Salim wrote:
+>>> On 17-07-31 08:38 PM, Amritha Nambiar wrote:
+>>>> This patch enables tc-flower based hardware offloads. tc/flower
+>>>> filter provided by the kernel is configured as driver specific
+>>>> cloud filter. The patch implements functions and admin queue
+>>>> commands needed to support cloud filters in the driver and
+>>>> adds cloud filters to configure these tc-flower filters.
 >>>>
->>>> # tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
->>>>     dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
->>>>     skip_sw indev eth0 action mirred ingress redirect dev eth0 tc 1
+>>>> The only action supported is to redirect packets to a traffic class
+>>>> on the same device.
+>>>>
+>>>> # tc qdisc add dev eth0 ingress
+>>>> # ethtool -K eth0 hw-tc-offload on
+>>>>
+>>>> # tc filter add dev eth0 protocol ip parent ffff:\
+>>>>     prio 1 flower dst_mac 3c:fd:fe:a0:d6:70 skip_sw indev eth0\
+>>>>     action mirred ingress redirect dev eth0 tc 0
 >>>>
 >>>
->>> I think "queue 1" sounds better than "tc 1".
->>> "tc" is  already a keyword in a few places (even within that declaration
->>> above).
+>>> Out of curiosity - did you need to say "indev eth0" there?
 >>
->> The idea is to redirect to a traffic class that has queues assigned to
->> it and not a single queue i.e. these are actually queue groups and not a
->> single queue. So may be "qgroup 1" or "tcqgroup 1" fits better.
+>> It looks like I don't need to specify "indev eth0". I will need to look
+>> up how this part is offloaded and probably validate in the driver when
+>> this is specified.
+>>
+>>> Also: Is it possible to add an skbmark? Example something like
+>>> these that directs two flows to the same queue but different
+>>> skb marks:
+>>>
+>>> # tc filter add dev eth0 protocol ip parent ffff: \
+>>>     prio 2 flower dst_ip 192.168.3.5/32 \
+>>>     ip_proto udp dst_port 2a skip_sw \
+>>>     action skbedit mark 11 \
+>>>     action mirred ingress redirect dev eth0 tcqueue 1
+>>>
+>>> # tc filter add dev eth0 protocol ip parent ffff: \
+>>>       prio 1 flower dst_mac 3c:fd:fe:a0:d6:70 skip_sw \
+>>>       action skbedit mark 12 \
+>>>       action mirred ingress redirect dev eth0 tcqueue 1
+>>>
+>>
+>> It is possible to support the skbedit mark action for the first rule
+>> here (L3 and L4) which I can take up in a subsequent patch, but this
+>> cannot be supported on our device for L2 based match in the second rule.
 >>
 > 
-> Can you describe how this works? So the specific memeber of a
-> a tcgroups show up on a specific rx DMA ring? If you only have
-> 16 and 512 RX DMA rings - how does that work?
->
+> Ok, thanks. So the issue is one of hardware limitation?
+> 
 
-The Rx rule here is to redirect packets a specific traffic class. It is
-the traffic class index (queue group index) that is offloaded to the
-device. Queues were already configured for the traffic class by mapping
-the queue counts and offsets and offloading this layout using the mqprio
-framework. I had submitted a patch series for this which uses a new
-hardware offload mode in mqprio to offload the TCs, the queue
-configurations and the bandwidth rates for the TCs. So the 512 rings can
-be mapped into 16 TCs using the mqprio offload mechanism, something like
-this:
-TC0 : 0 – 15
-TC1: 16 – 31
-TC2: 32 – 33
-TC3: 34 – 49
-.
-.
-.
-TC15: 500 - 511
-
-Now, once the TC configuration is prepared, it is just a matter of
-hooking up the Rx rules to route traffic to the traffic class/queue
-group. Rx queue selection within the queue group happens based on RSS.
+Right. Our hardware does not have this support now.
 
 > cheers,
 > jamal
