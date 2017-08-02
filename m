@@ -1,78 +1,87 @@
-From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH v3 10/11] ARM64: dts: rockchip: Add gmac2phy node support for rk3328
-Date: Wed,  2 Aug 2017 14:24:57 +0800
-Message-ID: <1501655097-21054-1-git-send-email-david.wu@rock-chips.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v3 01/11] net: phy: Add rockchip phy driver support
+Date: Wed, 2 Aug 2017 08:20:27 +0200
+Message-ID: <20170802062027.GA18196@Red>
 References: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
-Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1501654546-17292-1-git-send-email-david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ <1501654546-17292-2-git-send-email-david.wu@rock-chips.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch,
+        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
+        linux@armlinux.org.uk, arnd@arndb.de, huangtao@rock-chips.com,
+        hwg@rock-chips.com, alexandre.torgue@st.com,
+        devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
+        peppe.cavallaro@st.com, linux-arm-kernel@lists.infradead.org
+To: David Wu <david.wu@rock-chips.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1501654546-17292-2-git-send-email-david.wu@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The gmac2phy controller of rk3328 is connected to internal phy
-directly inside, add the node for the internal phy support.
+Hello I have some minor comment below
 
-Signed-off-by: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
----
- arch/arm64/boot/dts/rockchip/rk3328.dtsi | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+> +
+> +#include <linux/kernel.h>
+> +#include <linux/module.h>
+> +#include <linux/mii.h>
+> +#include <linux/ethtool.h>
+> +#include <linux/phy.h>
+> +#include <linux/netdevice.h>
 
-diff --git a/arch/arm64/boot/dts/rockchip/rk3328.dtsi b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-index 0be96ce..51c8c66 100644
---- a/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-+++ b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-@@ -63,6 +63,8 @@
- 		i2c1 = &i2c1;
- 		i2c2 = &i2c2;
- 		i2c3 = &i2c3;
-+		ethernet0 = &gmac2io;
-+		ethernet1 = &gmac2phy;
- 	};
- 
- 	cpus {
-@@ -424,6 +426,29 @@
- 		status = "disabled";
- 	};
- 
-+	gmac2phy: eth@ff550000 {
-+		compatible = "rockchip,rk3328-gmac";
-+		reg = <0x0 0xff550000 0x0 0x10000>;
-+		rockchip,grf = <&grf>;
-+		interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "macirq";
-+		clocks = <&cru SCLK_MAC2PHY_SRC>, <&cru SCLK_MAC2PHY_RXTX>,
-+			 <&cru SCLK_MAC2PHY_RXTX>, <&cru SCLK_MAC2PHY_REF>,
-+			 <&cru ACLK_MAC2PHY>, <&cru PCLK_MAC2PHY>,
-+			 <&cru SCLK_MAC2PHY_OUT>;
-+		clock-names = "stmmaceth", "mac_clk_rx",
-+			      "mac_clk_tx", "clk_mac_ref",
-+			      "aclk_mac", "pclk_mac",
-+			      "clk_macphy";
-+		resets = <&cru SRST_GMAC2PHY_A>, <&cru SRST_MACPHY>;
-+		reset-names = "stmmaceth", "mac-phy";
-+		phy-mode = "rmii";
-+		phy-is-internal;
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&fephyled_rxm1 &fephyled_linkm1>;
-+		status = "disabled";
-+	};
-+
- 	gic: interrupt-controller@ff811000 {
- 		compatible = "arm,gic-400";
- 		#interrupt-cells = <3>;
--- 
-1.9.1
+in alphabetic order please
 
+[...]
+> +static int rockchip_init_tstmode(struct phy_device *phydev)
+> +{
+> +	int ret;
+> +
+> +	/* Enable access to Analog and DSP register banks */
+> +	ret = phy_write(phydev, SMI_ADDR_TSTCNTL, 0x0400);
+> +	if (ret)
+> +		return ret;
+> +
+> +	ret = phy_write(phydev, SMI_ADDR_TSTCNTL, 0x0000);
+> +	if (ret)
+> +		return ret;
+> +
+> +	return phy_write(phydev, SMI_ADDR_TSTCNTL, 0x0400);
+> +}
+> +
+> +static int rockchip_close_tstmode(struct phy_device *phydev)
+> +{
+> +	/* Back to basic register bank */
+> +	return phy_write(phydev, SMI_ADDR_TSTCNTL, 0x0000);
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The reuse of 0x0000 and 0x0400 seems to promote a define use
+
+[...]
+> +static struct phy_driver rockchip_phy_driver[] = {
+> +{
+> +	.phy_id			= 0x1234d400,
+> +	.phy_id_mask		= 0xfffffff0,
+> +	.name			= "Rockchip internal EPHY",
+> +	.features		= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+> +				   | SUPPORTED_Asym_Pause),
+> +	.flags			= PHY_IS_INTERNAL,
+> +	.link_change_notify	= rockchip_link_change_notify,
+> +	.soft_reset		= genphy_soft_reset,
+> +	.config_init		= rockchip_internal_phy_config_init,
+> +	.config_aneg		= rockchip_config_aneg,
+> +	.read_status		= genphy_read_status,
+> +	.suspend		= genphy_suspend,
+> +	.resume			= rockchip_phy_resume,
+> +},
+> +};
+> +
+> +module_phy_driver(rockchip_phy_driver);
+> +
+> +static struct mdio_device_id __maybe_unused rockchip_phy_tbl[] = {
+> +	{ 0x1234d400, 0xfffffff0 },
+
+Same comment for phy_id, use a define
+
+Regards
+Corentin Labbe
