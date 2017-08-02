@@ -1,49 +1,69 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/2] [for 4.13] net: qcom/emac: disable flow control
- autonegotiation by default
-Date: Wed, 2 Aug 2017 13:48:18 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00490C0@AcuExch.aculab.com>
-References: <1501623460-3575-1-git-send-email-timur@codeaurora.org>
- <1501623460-3575-2-git-send-email-timur@codeaurora.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: repost: af_packet vs virtio (was packed ring layout
+ proposal v2)
+Date: Wed, 2 Aug 2017 16:50:03 +0300
+Message-ID: <20170802164931-mutt-send-email-mst@kernel.org>
+References: <20170414051304-mutt-send-email-mst@kernel.org>
+ <20170414054318-mutt-send-email-mst@kernel.org>
+ <CAJR92jnV1VgBs567QNjO1fHKDgMX=1j1aJJ2gK-TqMB5E1=fvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Timur Tabi' <timur@codeaurora.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.192]:54882 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751895AbdHBNsZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 09:48:25 -0400
-In-Reply-To: <1501623460-3575-2-git-send-email-timur@codeaurora.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: john.fastabend@gmail.com, alexei.starovoitov@gmail.com,
+	netdev@vger.kernel.org, virtio-dev@lists.oasis-open.org,
+	virtualization@lists.linux-foundation.org, kvm@vger.kernel.org
+To: Steven Luong <sluong99@gmail.com>
+Return-path: <virtio-dev-return-2432-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
+Sender: <virtio-dev@lists.oasis-open.org>
+List-Post: <mailto:virtio-dev@lists.oasis-open.org>
+List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
+List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
+List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
+Content-Disposition: inline
+In-Reply-To: <CAJR92jnV1VgBs567QNjO1fHKDgMX=1j1aJJ2gK-TqMB5E1=fvw@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-From: Timur Tabi
-> Sent: 01 August 2017 22:38
-> The EMAC has a curious qwirk when RX flow control is enabled and the
-> kernel hangs.  With the kernel hung, the EMAC's RX queue soon fills.
-> If RX flow control is enabled, the EMAC will then send a non-stop
-> stream of pause frames until the system is reset.  The EMAC does not
-> have a built-in watchdog.
+On Tue, Aug 01, 2017 at 08:54:27PM -0700, Steven Luong wrote:
+>     * Descriptor ring:
 > 
-> In various tests, the pause frame stream sometimes overloads nearby
-> switches, effectively disabling the network.
-...
+>     Guest adds descriptors with unique index values and DESC_HW set in flags.
+>     Host overwrites used descriptors with correct len, index, and DESC_HW
+>     clear.  Flags are always set/cleared last.
+> 
+>     #define DESC_HW 0x0080
+> 
+>     struct desc {
+>             __le64 addr;
+>             __le32 len;
+>             __le16 index;
+>             __le16 flags;
+>     };
+> 
+>     When DESC_HW is set, descriptor belongs to device. When it is clear,
+>     it belongs to the driver.
+> 
+>     We can use 1 bit to set direction
+>     /* This marks a buffer as write-only (otherwise read-only). */
+>     #define VRING_DESC_F_WRITE      2
+> 
+>     * Scatter/gather support
+> 
+>     We can use 1 bit to chain s/g entries in a request, same as virtio 1.0:
+> 
+>     /* This marks a buffer as continuing via the next field. */
+> 
+> 
+> This comment here is confusing to me. In 1.0, virtq_desc has the next field.
+> When the flag VRING_DESC_F_NEXT is set, the next entry to continue is specified
+> in the next field.
+> 
+> Here in 1.1, struct desc does not have the next field, only addr, len, index,
+> and flags. So when VRING_DESC_F_NEXT is set in struct desc's flags field, where
+> is the next entry to continue the current descriptor, the entry immediately
+> following the current entry? ie, if the current entry is at index 10 in the
+> descriptor table and its flags is set for VRING_DESC_F_NEXT, is the entry
+> continuing the current entry in index 11?
+> 
+> Steven
 
-If the nearby switches cannot handle pause frames, then the MAC shouldn't
-be sending them at all.
-They
-
-I suspect that they should only ever be sent if the phy autonegotiation
-indicates that they are supported.
-You might want to avoid sending them even if allowed, or advertise
-non-support on hardware that could support them, but sending them
-anyway is likely to cause grief.
-
-This is similar to the problems that arise when the 'speed' is forced
-instead of limiting the advertised speed to one value.
-
-	David
+Exactly, you got it right.
