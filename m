@@ -1,54 +1,59 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next] tcp: remove extra POLL_OUT added for finished active connect()
-Date: Wed,  2 Aug 2017 15:59:58 -0400
-Message-ID: <20170802195958.21383-1-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [RFC PATCH v2 0/2] nb8800 suspend/resume support
+Date: Wed, 2 Aug 2017 22:02:24 +0200
+Message-ID: <71dd7987-8c43-2548-5058-51a95658da71@free.fr>
+References: <33d1ab47-6098-5e3f-8a3c-f72626d07113@free.fr>
+ <aa8885b8-e6bb-3624-2bf9-0bb40505ac54@free.fr>
+ <dd883398-1511-0bfd-972b-a11ef8709f0d@free.fr> <yw1xshhagexd.fsf@mansr.com>
+ <9e8e12b1-74e2-8323-ec16-eebda46b2a3d@free.fr> <yw1xo9rygdyu.fsf@mansr.com>
+ <6906dccf-bec9-0fc8-a34a-c39c05ada917@free.fr> <yw1xk22mgdcx.fsf@mansr.com>
+ <f1554ee7-2151-1304-c5c1-35264b9be5be@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Mans Rullgard <mans@mansr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:38789 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751879AbdHBUAI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 16:00:08 -0400
-Received: by mail-qk0-f182.google.com with SMTP id x191so33143670qka.5
-        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 13:00:08 -0700 (PDT)
+Received: from smtp2-g21.free.fr ([212.27.42.2]:43932 "EHLO smtp2-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751154AbdHBUCb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 2 Aug 2017 16:02:31 -0400
+In-Reply-To: <f1554ee7-2151-1304-c5c1-35264b9be5be@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 45f119bf936b ("tcp: remove header prediction") introduced a
-minor bug: the sk_state_change() and sk_wake_async() notifications for
-a completed active connection happen twice: once in this new spot
-inside tcp_finish_connect() and once in the existing code in
-tcp_rcv_synsent_state_process() immediately after it calls
-tcp_finish_connect(). This commit remoes the duplicate POLL_OUT
-notifications.
+On 02/08/2017 19:31, Mason wrote:
 
-Fixes: 45f119bf936b ("tcp: remove header prediction")
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Cc: Florian Westphal <fw@strlen.de>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_input.c | 5 -----
- 1 file changed, 5 deletions(-)
+> # iperf3 -c 172.27.64.45 -u -b 950M
+> Connecting to host 172.27.64.45, port 5201
+> [  4] local 172.27.64.1 port 55533 connected to 172.27.64.45 port 5201
+> [ ID] Interval           Transfer     Bandwidth       Total Datagrams
+> [  4]   0.00-1.00   sec   102 MBytes   858 Mbits/sec  13091  
+> [  4]   1.00-2.00   sec   114 MBytes   953 Mbits/sec  14541  
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index df670d7ed98d..99cdf4ccabb8 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5342,11 +5342,6 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
- 
- 	if (sock_flag(sk, SOCK_KEEPOPEN))
- 		inet_csk_reset_keepalive_timer(sk, keepalive_time_when(tp));
--
--	if (!sock_flag(sk, SOCK_DEAD)) {
--		sk->sk_state_change(sk);
--		sk_wake_async(sk, SOCK_WAKE_IO, POLL_OUT);
--	}
- }
- 
- static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
--- 
-2.14.0.rc1.383.gd1ce394fe2-goog
+114 MB in 14541 packets => 7840 bytes per packet
+Is iperf3 sending jumbo frames??
+In the nb8800 driver, RX_BUF_SIZE is only 1552,
+how would it deal with jumbo frames... truncate?
+
+> # iperf3 -c 172.27.64.45 -u -b 950M -l 800
+> Connecting to host 172.27.64.45, port 5201
+> [  4] local 172.27.64.1 port 35197 connected to 172.27.64.45 port 5201
+> [ ID] Interval           Transfer     Bandwidth       Total Datagrams
+> [  4]   0.00-1.00   sec  90.6 MBytes   760 Mbits/sec  118724  
+> [  4]   1.00-2.00   sec   107 MBytes   894 Mbits/sec  139718  
+
+107 MB in 139718 packets => 766 bytes per packet
+800 - 8 (UDP) - 20 (IPv4) = 772 bytes per packet
+I suppose that's close enough...
+772 * 139718 = 107.86 MB
+
+I need to run the test slightly slower, to prevent
+packet loss at the sender.
+
+Perhaps -b 0 or -b 800M
+
+Regards.
