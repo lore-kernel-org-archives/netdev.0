@@ -1,94 +1,34 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] bpf: Make bytecode-file reading a little more robust
-Date: Wed,  2 Aug 2017 14:57:56 +0200
-Message-ID: <20170802125756.26210-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: net-next virtio_net merge...
+Date: Wed, 2 Aug 2017 16:14:54 +0300
+Message-ID: <20170802161436-mutt-send-email-mst@kernel.org>
+References: <20170801.151220.241719275238287015.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jasowang@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:42079 "EHLO mail.nwl.cc"
+Received: from mx1.redhat.com ([209.132.183.28]:54162 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751186AbdHBM6J (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 2 Aug 2017 08:58:09 -0400
+        id S1751197AbdHBNPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 2 Aug 2017 09:15:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20170801.151220.241719275238287015.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bpf_parse_string() will now correctly handle:
+On Tue, Aug 01, 2017 at 03:12:20PM -0700, David Miller wrote:
+> 
+> I just merged net into net-next and one of the conflicts had to do with
+> the truesize bug fix in 'net' conflicting with the changes in 'net-next'
+> which encode the headroom into the contexts for mergeable buffers.
+> 
+> I did my best to resolve this, but if you two would take a closer
+> look and test out the result I would really appreciate it!
+> 
+> Thanks.
 
-- Extraneous whitespace,
-- OPs on multiple lines and
-- overlong file names.
+Looks good to me. Will test later today or tomorrow.
 
-The added feature of allowing to have OPs on multiple lines (like e.g.
-tcpdump prints them) is rather a side effect of fixing detection of
-malformed bytecode files having random content on a second line, like
-e.g.:
-
-| 4,40 0 0 12,21 0 1 2048,6 0 0 262144,6 0 0 0
-| foobar
-
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- lib/bpf.c | 32 ++++++++++++++++++++++++--------
- 1 file changed, 24 insertions(+), 8 deletions(-)
-
-diff --git a/lib/bpf.c b/lib/bpf.c
-index e7a4d12fdf2f9..4f52ad4a8f023 100644
---- a/lib/bpf.c
-+++ b/lib/bpf.c
-@@ -208,11 +208,11 @@ static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
- 
- 	if (from_file) {
- 		size_t tmp_len, op_len = sizeof("65535 255 255 4294967295,");
--		char *tmp_string, *last;
-+		char *tmp_string, *pos, c, c_prev = ' ';
- 		FILE *fp;
- 
- 		tmp_len = sizeof("4096,") + BPF_MAXINSNS * op_len;
--		tmp_string = calloc(1, tmp_len);
-+		tmp_string = pos = calloc(1, tmp_len);
- 		if (tmp_string == NULL)
- 			return -ENOMEM;
- 
-@@ -223,17 +223,33 @@ static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
- 			return -ENOENT;
- 		}
- 
--		if (!fgets(tmp_string, tmp_len, fp)) {
-+		while ((c = fgetc(fp)) != EOF) {
-+			switch (c) {
-+			case '\n':
-+				if (c_prev != ',')
-+					*(pos++) = ',';
-+				break;
-+			case ' ':
-+			case '\t':
-+				if (c_prev != ' ')
-+					*(pos++) = c;
-+				break;
-+			default:
-+				*(pos++) = c;
-+			}
-+			if (pos - tmp_string == tmp_len)
-+				break;
-+			c_prev = c;
-+		}
-+
-+		if (!feof(fp)) {
- 			free(tmp_string);
- 			fclose(fp);
--			return -EIO;
-+			return -E2BIG;
- 		}
- 
- 		fclose(fp);
--
--		last = &tmp_string[strlen(tmp_string) - 1];
--		if (*last == '\n')
--			*last = 0;
-+		*pos = 0;
- 
- 		*need_release = true;
- 		*bpf_string = tmp_string;
 -- 
-2.13.1
+MST
