@@ -1,76 +1,173 @@
 From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
-Subject: Re: [PATCH 6/6] [net-next]net: i40e: Enable cloud filters in i40e via
- tc/flower classifier
-Date: Tue, 1 Aug 2017 19:13:45 -0700
-Message-ID: <30cd59b5-4175-8641-f288-a2373475837d@intel.com>
+Subject: Re: [PATCH 1/6] [net-next]net: sched: act_mirred: Extend redirect
+ action to accept a traffic class
+Date: Tue, 1 Aug 2017 19:20:43 -0700
+Message-ID: <7ee73404-a304-646d-d4d5-62386f373ad2@intel.com>
 References: <150154569340.4135.11548126443780491627.stgit@anamdev.jf.intel.com>
- <150154788503.4135.7051219373661945937.stgit@anamdev.jf.intel.com>
- <f93480af-9ae0-2e02-7b11-78f8ab53899c@mojatatu.com>
+ <150154785793.4135.15194023552358061083.stgit@anamdev.jf.intel.com>
+ <20170801111203.GI1939@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
+Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
+        alexander.h.duyck@intel.com, kiran.patil@intel.com,
         netdev@vger.kernel.org, mitch.a.williams@intel.com,
         alexander.duyck@gmail.com, neerav.parikh@intel.com,
-        sridhar.samudrala@intel.com, carolyn.wyborny@intel.com,
-        Or Gerlitz <gerlitz.or@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+        sridhar.samudrala@intel.com, carolyn.wyborny@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:13963 "EHLO mga11.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:1198 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751817AbdHBCNq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 1 Aug 2017 22:13:46 -0400
-In-Reply-To: <f93480af-9ae0-2e02-7b11-78f8ab53899c@mojatatu.com>
+        id S1751571AbdHBCUo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Aug 2017 22:20:44 -0400
+In-Reply-To: <20170801111203.GI1939@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On 8/1/2017 3:56 AM, Jamal Hadi Salim wrote:
-> On 17-07-31 08:38 PM, Amritha Nambiar wrote:
->> This patch enables tc-flower based hardware offloads. tc/flower
->> filter provided by the kernel is configured as driver specific
->> cloud filter. The patch implements functions and admin queue
->> commands needed to support cloud filters in the driver and
->> adds cloud filters to configure these tc-flower filters.
+On 8/1/2017 4:12 AM, Jiri Pirko wrote:
+> Tue, Aug 01, 2017 at 02:37:37AM CEST, amritha.nambiar@intel.com wrote:
+>> The Mirred/redirect action is extended to forward to a traffic
+>> class on the device. The traffic class index needs to be
+>> provided in addition to the device's ifindex.
 >>
->> The only action supported is to redirect packets to a traffic class
->> on the same device.
+>> Example:
+>> # tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
+>>  dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
+>>  skip_sw indev eth0 action mirred ingress redirect dev eth0 tc 1
+> 
+> You need to make sure that the current offloaders fill forbid to add
+> this rule, not just silently ignore the tc value.
+
+I will fix this in the next version, probably using the 'flags' field
+I've defined.
+
+> 
+> 
 >>
->> # tc qdisc add dev eth0 ingress
->> # ethtool -K eth0 hw-tc-offload on
+>> Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
+>> ---
+>> include/net/tc_act/tc_mirred.h        |    7 +++++++
+>> include/uapi/linux/tc_act/tc_mirred.h |    5 +++++
+>> net/sched/act_mirred.c                |   17 +++++++++++++++++
+>> 3 files changed, 29 insertions(+)
 >>
->> # tc filter add dev eth0 protocol ip parent ffff:\
->>    prio 1 flower dst_mac 3c:fd:fe:a0:d6:70 skip_sw indev eth0\
->>    action mirred ingress redirect dev eth0 tc 0
+>> diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
+>> index 604bc31..60058c4 100644
+>> --- a/include/net/tc_act/tc_mirred.h
+>> +++ b/include/net/tc_act/tc_mirred.h
+>> @@ -9,6 +9,8 @@ struct tcf_mirred {
+>> 	int			tcfm_eaction;
+>> 	int			tcfm_ifindex;
+>> 	bool			tcfm_mac_header_xmit;
+>> +	u8			tcfm_tc;
+>> +	u32			flags;
+>> 	struct net_device __rcu	*tcfm_dev;
+>> 	struct list_head	tcfm_list;
+>> };
+>> @@ -37,4 +39,9 @@ static inline int tcf_mirred_ifindex(const struct tc_action *a)
+>> 	return to_mirred(a)->tcfm_ifindex;
+>> }
 >>
+>> +static inline int tcf_mirred_tc(const struct tc_action *a)
+>> +{
+>> +	return to_mirred(a)->tcfm_tc;
+>> +}
+>> +
+>> #endif /* __NET_TC_MIR_H */
+>> diff --git a/include/uapi/linux/tc_act/tc_mirred.h b/include/uapi/linux/tc_act/tc_mirred.h
+>> index 3d7a2b3..8ff4d76 100644
+>> --- a/include/uapi/linux/tc_act/tc_mirred.h
+>> +++ b/include/uapi/linux/tc_act/tc_mirred.h
+>> @@ -9,6 +9,10 @@
+>> #define TCA_EGRESS_MIRROR 2 /* mirror packet to EGRESS */
+>> #define TCA_INGRESS_REDIR 3  /* packet redirect to INGRESS*/
+>> #define TCA_INGRESS_MIRROR 4 /* mirror packet to INGRESS */
+>> +
+>> +#define MIRRED_F_TC_MAP		0x1
+>> +#define MIRRED_TC_MAP_MAX	0x10
+>> +#define MIRRED_TC_MAP_MASK	0xF
 > 
-> Out of curiosity - did you need to say "indev eth0" there?
+> I'm completely lost. Why do you have these values here? and in fact one
+> twice?
 
-It looks like I don't need to specify "indev eth0". I will need to look
-up how this part is offloaded and probably validate in the driver when
-this is specified.
+I'll fix this to remove the defines for the TC max range and its bitmap
+here and reuse the existing ones defined in linux/netdevice.h
 
-> Also: Is it possible to add an skbmark? Example something like
-> these that directs two flows to the same queue but different
-> skb marks:
 > 
-> # tc filter add dev eth0 protocol ip parent ffff: \
->    prio 2 flower dst_ip 192.168.3.5/32 \
->    ip_proto udp dst_port 2a skip_sw \
->    action skbedit mark 11 \
->    action mirred ingress redirect dev eth0 tcqueue 1
 > 
-> # tc filter add dev eth0 protocol ip parent ffff: \
->      prio 1 flower dst_mac 3c:fd:fe:a0:d6:70 skip_sw \
->      action skbedit mark 12 \
->      action mirred ingress redirect dev eth0 tcqueue 1
-> 
-
-It is possible to support the skbedit mark action for the first rule
-here (L3 and L4) which I can take up in a subsequent patch, but this
-cannot be supported on our device for L2 based match in the second rule.
-
-> cheers,
-> jamal
-> 
+>>                                                                                 
+>> struct tc_mirred {
+>> 	tc_gen;
+>> @@ -21,6 +25,7 @@ enum {
+>> 	TCA_MIRRED_TM,
+>> 	TCA_MIRRED_PARMS,
+>> 	TCA_MIRRED_PAD,
+>> +	TCA_MIRRED_TC_MAP,
+>> 	__TCA_MIRRED_MAX
+>> };
+>> #define TCA_MIRRED_MAX (__TCA_MIRRED_MAX - 1)
+>> diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+>> index 1b5549a..f9801de 100644
+>> --- a/net/sched/act_mirred.c
+>> +++ b/net/sched/act_mirred.c
+>> @@ -67,6 +67,7 @@ static void tcf_mirred_release(struct tc_action *a, int bind)
+>>
+>> static const struct nla_policy mirred_policy[TCA_MIRRED_MAX + 1] = {
+>> 	[TCA_MIRRED_PARMS]	= { .len = sizeof(struct tc_mirred) },
+>> +	[TCA_MIRRED_TC_MAP]	= { .type = NLA_U8 },
+>> };
+>>
+>> static unsigned int mirred_net_id;
+>> @@ -83,6 +84,8 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>> 	struct tcf_mirred *m;
+>> 	struct net_device *dev;
+>> 	bool exists = false;
+>> +	u8 *tc_map = NULL;
+>> +	u32 flags = 0;
+>> 	int ret;
+>>
+>> 	if (nla == NULL)
+>> @@ -92,6 +95,14 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>> 		return ret;
+>> 	if (tb[TCA_MIRRED_PARMS] == NULL)
+>> 		return -EINVAL;
+>> +
+>> +	if (tb[TCA_MIRRED_TC_MAP]) {
+>> +		tc_map = nla_data(tb[TCA_MIRRED_TC_MAP]);
+>> +		if (*tc_map >= MIRRED_TC_MAP_MAX)
+>> +			return -EINVAL;
+>> +		flags |= MIRRED_F_TC_MAP;
+>> +	}
+>> +
+>> 	parm = nla_data(tb[TCA_MIRRED_PARMS]);
+>>
+>> 	exists = tcf_hash_check(tn, parm->index, a, bind);
+>> @@ -139,6 +150,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>> 	ASSERT_RTNL();
+>> 	m->tcf_action = parm->action;
+>> 	m->tcfm_eaction = parm->eaction;
+>> +	m->flags = flags;
+>> 	if (dev != NULL) {
+>> 		m->tcfm_ifindex = parm->ifindex;
+>> 		if (ret != ACT_P_CREATED)
+>> @@ -146,6 +158,8 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+>> 		dev_hold(dev);
+>> 		rcu_assign_pointer(m->tcfm_dev, dev);
+>> 		m->tcfm_mac_header_xmit = mac_header_xmit;
+>> +		if (flags & MIRRED_F_TC_MAP)
+>> +			m->tcfm_tc = *tc_map & MIRRED_TC_MAP_MASK;
+>> 	}
+>>
+>> 	if (ret == ACT_P_CREATED) {
+>> @@ -259,6 +273,9 @@ static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind,
+>>
+>> 	if (nla_put(skb, TCA_MIRRED_PARMS, sizeof(opt), &opt))
+>> 		goto nla_put_failure;
+>> +	if ((m->flags & MIRRED_F_TC_MAP) &&
+>> +	    nla_put_u8(skb, TCA_MIRRED_TC_MAP, m->tcfm_tc))
+>> +		goto nla_put_failure;
+>>
+>> 	tcf_tm_dump(&t, &m->tcf_tm);
+>> 	if (nla_put_64bit(skb, TCA_MIRRED_TM, sizeof(t), &t, TCA_MIRRED_PAD))
+>>
