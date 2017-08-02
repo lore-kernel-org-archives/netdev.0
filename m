@@ -1,56 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC 1/1] constify tcp congestion
-Date: Wed, 02 Aug 2017 00:56:03 -0700
-Message-ID: <1501660563.25002.13.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170802024943.7517-1-sthemmin@microsoft.com>
-         <20170802024943.7517-2-sthemmin@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/6] ipv4: fib: Set offload indication according to nexthop flags
+Date: Wed,  2 Aug 2017 09:56:01 +0200
+Message-ID: <20170802075606.1090-2-jiri@resnulli.us>
+References: <20170802075606.1090-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        dsahern@gmail.com, roopa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com, hannes@stressinduktion.org,
+        yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:36234 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750725AbdHBH4J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 03:56:09 -0400
-Received: by mail-pg0-f50.google.com with SMTP id v77so12522458pgb.3
-        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 00:56:09 -0700 (PDT)
-In-Reply-To: <20170802024943.7517-2-sthemmin@microsoft.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:33353 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750725AbdHBH4L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 03:56:11 -0400
+Received: by mail-wr0-f194.google.com with SMTP id y43so3049579wrd.0
+        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 00:56:11 -0700 (PDT)
+In-Reply-To: <20170802075606.1090-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-08-01 at 19:49 -0700, Stephen Hemminger wrote:
-> Split the TCP congestion ops structure into const and mutable portions.
-> Put the list pointers, key and a copy of the flags in new tcp_congestion_entry
-> structure.
+From: Ido Schimmel <idosch@mellanox.com>
 
-...
+We're going to have capable drivers indicate route offload using the
+nexthop flags, but for non-multipath routes these flags aren't dumped to
+user space.
 
-> -void tcp_unregister_congestion_control(struct tcp_congestion_ops *ca)
-> +void tcp_unregister_congestion_control(const struct tcp_congestion_ops *ca)
->  {
-> +	struct tcp_congestion_entry *e;
-> +
->  	spin_lock(&tcp_cong_list_lock);
-> -	list_del_rcu(&ca->list);
-> +	list_for_each_entry_rcu(e, &tcp_cong_list, list) {
-> +		if (e->ops == ca) {
-> +			list_del_rcu(&e->list);
-> +			kfree_rcu(e, rcu);
-> +			break;
-> +		}
-> +	}
->  	spin_unlock(&tcp_cong_list_lock);
->  
+Instead, set the offload indication in the route message flags.
 
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/ipv4/fib_semantics.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Since you switched to kfree_rcu(), you could remove the
-synchronize_rcu() from tcp_unregister_congestion_control()
-
-Otherwise, no need for kfree_rcu() and the rcu head added in struct
-tcp_congestion_entry :
- - You could do a kfree() after the synchronize_rcu().
-
-Also, I am not convinced this would be a good move, since you added an
-extra structure which is not const anyway.
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index b8d1817..f62dc24 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1342,6 +1342,8 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+ 			    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev))
+ 				rtm->rtm_flags |= RTNH_F_DEAD;
+ 		}
++		if (fi->fib_nh->nh_flags & RTNH_F_OFFLOAD)
++			rtm->rtm_flags |= RTNH_F_OFFLOAD;
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 		if (fi->fib_nh[0].nh_tclassid &&
+ 		    nla_put_u32(skb, RTA_FLOW, fi->fib_nh[0].nh_tclassid))
+-- 
+2.9.3
