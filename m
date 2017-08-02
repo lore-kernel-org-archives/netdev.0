@@ -1,67 +1,28 @@
-From: <helga.brickl@arcor.de>
-Subject: (unknown)
-Date: Wed, 02 Aug 2017 03:45:36 -0000
-Message-ID: <150164553650.19426.12330353849812070321@hinet.net>
+From: "Singer Valve" <jmarcos@luc.edu>
+Subject: Re: Extremely important and Urgent
+Date: Tue, 01 Aug 2017 20:46:59 -0700
+Message-ID: <DM5PR05MB2939D73081D0A64A56F601C7B1B00@DM5PR05MB2939.namprd05.prod.outlook.com>
+Reply-To: E.Chabrelie@qq.com
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_2820973694253_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Recipients <jmarcos@luc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 61-227-123-102.dynamic-ip.hinet.net ([61.227.123.102]:34964
-        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751884AbdHBDqZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2017 23:46:25 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail-bl2nam02hn0205.outbound.protection.outlook.com ([104.47.38.205]:45721
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751823AbdHBDqw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 1 Aug 2017 23:46:52 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+I am getting in touch with you regarding an extremely important and urgent =
+matter.
+
+If you would oblige me the opportunity, I shall provide you with details up=
+on your response.
+
+Faithfully, =
+
+Ms. Singer Valve
