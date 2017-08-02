@@ -1,111 +1,119 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [RFC PATCH v2 1/2] net: ethernet: nb8800: Reset HW block in ndo_open
-Date: Wed, 02 Aug 2017 15:33:22 +0100
-Message-ID: <yw1xwp6mghu5.fsf@mansr.com>
-References: <33d1ab47-6098-5e3f-8a3c-f72626d07113@free.fr>
-        <d817da35-f977-5985-4aae-73617004fac3@free.fr>
-        <yw1xbmnyi660.fsf@mansr.com>
-        <ef36cd4a-b1b5-7505-34d1-250c736d6731@free.fr>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [Intel-wired-lan] [PATCH 4/5] e1000e: Separate signaling for
+ link check/link up
+Date: Wed, 2 Aug 2017 10:34:37 -0400
+Message-ID: <20170802143437.ggdlmsszqinuvcmc@csclub.uwaterloo.ca>
+References: <20170721160937.GA22632@csclub.uwaterloo.ca>
+ <20170721183627.13373-1-bpoirier@suse.com>
+ <20170721183627.13373-4-bpoirier@suse.com>
+ <14acedf3-e5d9-31e8-9ff6-fabc2127c021@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mason <slash.tmp@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:35100 "EHLO unicorn.mansr.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752149AbdHBOdY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 2 Aug 2017 10:33:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Benjamin Poirier <bpoirier@suse.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        linux-kernel@vger.kernel.org
+To: "Neftin, Sasha" <sasha.neftin@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <14acedf3-e5d9-31e8-9ff6-fabc2127c021@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mason <slash.tmp@free.fr> writes:
+On Wed, Aug 02, 2017 at 02:28:07PM +0300, Neftin, Sasha wrote:
+> On 7/21/2017 21:36, Benjamin Poirier wrote:
+> > Lennart reported the following race condition:
+> > 
+> > \ e1000_watchdog_task
+> >      \ e1000e_has_link
+> >          \ hw->mac.ops.check_for_link() === e1000e_check_for_copper_link
+> >              /* link is up */
+> >              mac->get_link_status = false;
+> > 
+> >                              /* interrupt */
+> >                              \ e1000_msix_other
+> >                                  hw->mac.get_link_status = true;
+> > 
+> >          link_active = !hw->mac.get_link_status
+> >          /* link_active is false, wrongly */
+> > 
+> > This problem arises because the single flag get_link_status is used to
+> > signal two different states: link status needs checking and link status is
+> > down.
+> > 
+> > Avoid the problem by using the return value of .check_for_link to signal
+> > the link status to e1000e_has_link().
+> > 
+> > Reported-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+> > Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> > ---
+> >   drivers/net/ethernet/intel/e1000e/mac.c    | 11 ++++++++---
+> >   drivers/net/ethernet/intel/e1000e/netdev.c |  2 +-
+> >   2 files changed, 9 insertions(+), 4 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
+> > index b322011ec282..f457c5703d0c 100644
+> > --- a/drivers/net/ethernet/intel/e1000e/mac.c
+> > +++ b/drivers/net/ethernet/intel/e1000e/mac.c
+> > @@ -410,6 +410,9 @@ void e1000e_clear_hw_cntrs_base(struct e1000_hw *hw)
+> >    *  Checks to see of the link status of the hardware has changed.  If a
+> >    *  change in link status has been detected, then we read the PHY registers
+> >    *  to get the current speed/duplex if link exists.
+> > + *
+> > + *  Returns a negative error code (-E1000_ERR_*) or 0 (link down) or 1 (link
+> > + *  up).
+> >    **/
+> >   s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
+> >   {
+> > @@ -423,7 +426,7 @@ s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
+> >   	 * Change or Rx Sequence Error interrupt.
+> >   	 */
+> >   	if (!mac->get_link_status)
+> > -		return 0;
+> > +		return 1;
+> >   	/* First we want to see if the MII Status Register reports
+> >   	 * link.  If so, then we want to get the current speed/duplex
+> > @@ -461,10 +464,12 @@ s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
+> >   	 * different link partner.
+> >   	 */
+> >   	ret_val = e1000e_config_fc_after_link_up(hw);
+> > -	if (ret_val)
+> > +	if (ret_val) {
+> >   		e_dbg("Error configuring flow control\n");
+> > +		return ret_val;
+> > +	}
+> > -	return ret_val;
+> > +	return 1;
+> >   }
+> >   /**
+> > diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+> > index fc6a1d9999b2..5a8ab1136566 100644
+> > --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+> > +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+> > @@ -5081,7 +5081,7 @@ static bool e1000e_has_link(struct e1000_adapter *adapter)
+> >   	case e1000_media_type_copper:
+> >   		if (hw->mac.get_link_status) {
+> >   			ret_val = hw->mac.ops.check_for_link(hw);
+> > -			link_active = !hw->mac.get_link_status;
+> > +			link_active = ret_val > 0;
+> >   		} else {
+> >   			link_active = true;
+> >   		}
+> 
+> Hello Benjamin,
+> 
+> Will this patch fix any serious problem with link indication? Is it
+> necessary? Can we consider your patch series without 4/5 part?
 
-> On 02/08/2017 13:02, Måns Rullgård wrote:
->
->> Mason wrote:
->> 
->>> Move all HW initializations to nb8800_init.
->>> This provides the basis for suspend/resume support.
->>> ---
->>>  drivers/net/ethernet/aurora/nb8800.c | 50 +++++++++++++++++-------------------
->>>  drivers/net/ethernet/aurora/nb8800.h |  1 +
->>>  2 files changed, 25 insertions(+), 26 deletions(-)
->> 
->> You're still not doing anything to preserve flow control and multicast
->> configuration, and those are probably not the only ones.
->
-> I did handle flow control (as far as I can tell).
-> The current settings are stored in:
-> priv->pause_aneg, priv->pause_rx, priv->pause_tx
-> and nb8800_pause_config() is called from nb8800_link_reconfigure()
+Without this patch, you have the race condition that can make the
+watchdog_task mistakenly think the link is down when it isn't, and then
+it resets the adapter, which does make the link go down.
 
-I think the whole pause setup needs to be revisited.  It's a mess.
-Maybe I'll find the time one day.
+So it is rather catastrophic for the interface.
 
-> I'll take a closer look at multicast settings.
-
-You're currently losing all multicast setup as well as promiscuous mode
-if that has been enabled.
-
->> Worse, you're now never tearing down dma properly, which means the
->> hardware can be left with active pointers to memory no longer allocated
->> to it.
->
-> You're making it sound like there is a risk those pointers
-> might be used somehow. There is no such risk AFAICT.
-> The PHY is disconnected, NAPI is stopped, RX and TX have
-> been disabled, and the ISR has been removed.
-
-The interrupt handler and NAPI have nothing to do with it since they
-only get involved *after* the hw has filled the buffers.  If you've
-given the hardware control of a memory buffer, you should damn well take
-it back before reusing that memory for something else.  Otherwise you'll
-eventually have a very difficult to debug problem and a security risk.
-
-> I have considered putting the HW block in reset (clock gated)
-> at the end of nb8800_stop() to save power, which would make
-> the issue you point out moot.
-
-That's not necessarily possible.  It is on Sigma SoCs, but it doesn't
-have to be.
-
-> The reason I removed nb8800_dma_stop() in nb8800_stop()
-> is because it hangs when called from nb8800_suspend().
-> (It requires interrupts to make progress, and interrupts
-> seem to be disabled when nb8800_suspend() is called.)
-
-It shouldn't require interrupts.  If it does for some reason, that
-should be fixed.
-
-> Broader question for netdev:
->
-> I've been wondering about costly close operations.
-> If closing a device is complex (in terms of code), at which
-> point does it become simpler to just reset the block, and
-> avoid writing/maintaining/debugging the code performing
-> said close operation?
->
->> Finally, you still haven't explained why the hw needs to be reset in
->> ndo_open().  Whatever is causing your lockup can almost certainly be
->> triggered in some other way too.  I will not accept this side-stepping
->> of the issue.
->
-> (I was not aware that you were the final authority on which
-> patches are accepted upstream.)
->
-> FWIW, I have placed a formal request for the HW dev to
-> investigate, as I could not reproduce on tango4, despite
-> several days wasted on this issue.
->
-> In the mean time, the driver in its current form does not
-> support suspend/resume. How would *you* implement it?
-
-I'm not saying it's a bad idea for suspend.  It might even be the only
-way.
+The other patch to the interrupt handling should make it never get hit,
+but the issue does still exist if not fixed and I wouldn't rule out that
+it could possibly still happen even with the other fix in place.
 
 -- 
-Måns Rullgård
+Len Sorensen
