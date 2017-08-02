@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ibmvnic: Initialize SCRQ's during login
- renegotiation
-Date: Wed, 02 Aug 2017 10:48:06 -0700 (PDT)
-Message-ID: <20170802.104806.1181269709342018784.davem@davemloft.net>
-References: <1501617876-17568-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [Patch net-next] flow_dissector: remove unused functions
+Date: Wed, 02 Aug 2017 10:50:31 -0700 (PDT)
+Message-ID: <20170802.105031.841133489228992304.davem@davemloft.net>
+References: <20170801201809.12922-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tlfalcon@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, tom@herbertland.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55044 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55062 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752404AbdHBRsH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 13:48:07 -0400
-In-Reply-To: <1501617876-17568-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+        with ESMTP id S1751719AbdHBRud (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 13:50:33 -0400
+In-Reply-To: <20170801201809.12922-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Tue,  1 Aug 2017 15:04:36 -0500
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue,  1 Aug 2017 13:18:09 -0700
 
-> SCRQ resources are freed during renegotiation, but they are not
-> re-allocated afterwards due to some changes in the initialization
-> process. Fix that by re-allocating the memory after renegotation.
+> They are introduced by commit f70ea018da06
+> ("net: Add functions to get skb->hash based on flow structures")
+> but never gets used in tree.
 > 
-> SCRQ's can also be freed if a server capabilities request fails.
-> If this were encountered during a device reset for example,
-> SCRQ's may not be re-allocated. This operation is not necessary
-> anymore so remove it.
-> 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied, thank you.
+Yeah these can be reintroduced if we really end up needing them.
+
+Applied, thanks.
