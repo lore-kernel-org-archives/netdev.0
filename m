@@ -1,97 +1,42 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 5/6] batman-adv: fix various spelling mistakes
-Date: Wed,  2 Aug 2017 16:23:21 +0200
-Message-ID: <20170802142322.13376-6-sw@simonwunderlich.de>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 1/6] batman-adv: Start new development cycle
+Date: Wed,  2 Aug 2017 16:23:17 +0200
+Message-ID: <20170802142322.13376-2-sw@simonwunderlich.de>
 References: <20170802142322.13376-1-sw@simonwunderlich.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Colin Ian King <colin.king@canonical.com>,
-        Sven Eckelmann <sven@narfation.org>,
-        Simon Wunderlich <sw@simonwunderlich.de>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:46898 "EHLO
-        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752293AbdHBOXh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 10:23:37 -0400
-In-Reply-To: <20170802142322.13376-1-sw@simonwunderlich.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20170802142322.13376-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
-
-Trivial fix to spelling mistakes in batadv_dbg debug messages and
-also in a comment and ensure comment line is not wider than 80
-characters
-
-"ourselve" -> "ourselves"
-"surpressed" -> "suppressed"
-"troughput" -> "throughput"
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/bat_v_ogm.c | 12 ++++++------
- net/batman-adv/send.c      |  2 +-
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ net/batman-adv/main.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
-index 894c96371e41..8be61734fc43 100644
---- a/net/batman-adv/bat_v_ogm.c
-+++ b/net/batman-adv/bat_v_ogm.c
-@@ -200,7 +200,7 @@ static void batadv_v_ogm_send(struct work_struct *work)
- 				type = "unknown";
- 			}
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 2be8f1f46529..05cc7637c064 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -24,7 +24,7 @@
+ #define BATADV_DRIVER_DEVICE "batman-adv"
  
--			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 from ourselve on %s surpressed: %s\n",
-+			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 from ourselves on %s suppressed: %s\n",
- 				   hard_iface->net_dev->name, type);
+ #ifndef BATADV_SOURCE_VERSION
+-#define BATADV_SOURCE_VERSION "2017.2"
++#define BATADV_SOURCE_VERSION "2017.3"
+ #endif
  
- 			batadv_hardif_put(hard_iface);
-@@ -683,18 +683,18 @@ static void batadv_v_ogm_process(const struct sk_buff *skb, int ogm_offset,
- 	ogm_throughput = ntohl(ogm_packet->throughput);
- 
- 	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
--		   "Received OGM2 packet via NB: %pM, IF: %s [%pM] (from OG: %pM, seqno %u, troughput %u, TTL %u, V %u, tvlv_len %u)\n",
-+		   "Received OGM2 packet via NB: %pM, IF: %s [%pM] (from OG: %pM, seqno %u, throughput %u, TTL %u, V %u, tvlv_len %u)\n",
- 		   ethhdr->h_source, if_incoming->net_dev->name,
- 		   if_incoming->net_dev->dev_addr, ogm_packet->orig,
- 		   ntohl(ogm_packet->seqno), ogm_throughput, ogm_packet->ttl,
- 		   ogm_packet->version, ntohs(ogm_packet->tvlv_len));
- 
--	/* If the troughput metric is 0, immediately drop the packet. No need to
--	 * create orig_node / neigh_node for an unusable route.
-+	/* If the throughput metric is 0, immediately drop the packet. No need
-+	 * to create orig_node / neigh_node for an unusable route.
- 	 */
- 	if (ogm_throughput == 0) {
- 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
--			   "Drop packet: originator packet with troughput metric of 0\n");
-+			   "Drop packet: originator packet with throughput metric of 0\n");
- 		return;
- 	}
- 
-@@ -762,7 +762,7 @@ static void batadv_v_ogm_process(const struct sk_buff *skb, int ogm_offset,
- 				type = "unknown";
- 			}
- 
--			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 packet from %pM on %s surpressed: %s\n",
-+			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "OGM2 packet from %pM on %s suppressed: %s\n",
- 				   ogm_packet->orig, hard_iface->net_dev->name,
- 				   type);
- 
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index d239a9d72ac3..054a65e6eb68 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -911,7 +911,7 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
- 				type = "unknown";
- 			}
- 
--			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "BCAST packet from orig %pM on %s surpressed: %s\n",
-+			batadv_dbg(BATADV_DBG_BATMAN, bat_priv, "BCAST packet from orig %pM on %s suppressed: %s\n",
- 				   bcast_packet->orig,
- 				   hard_iface->net_dev->name, type);
- 
+ /* B.A.T.M.A.N. parameters */
 -- 
 2.11.0
