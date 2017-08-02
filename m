@@ -1,36 +1,46 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 1/2] [for 4.13] net: qcom/emac: disable flow control
- autonegotiation by default
-Date: Wed, 2 Aug 2017 13:39:34 -0500
-Message-ID: <3c31277c-93c4-c0a5-cf0d-7270d07c432c@codeaurora.org>
-References: <1501623460-3575-2-git-send-email-timur@codeaurora.org>
- <20170802.105453.1408822174555343968.davem@davemloft.net>
- <290fdd25-7e05-57c8-8f89-52bb3bae1e59@codeaurora.org>
- <20170802.113531.1671960264039506111.davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH RFC, iproute2] tc/mirred: Extend the mirred/redirect
+ action to accept additional traffic class parameter
+Date: Wed, 2 Aug 2017 11:41:57 -0700
+Message-ID: <CAJieiUi=W1jJBkMXTnFYL=Cw4ZWCv5zeg1vtveW5TyfJ2noe9w@mail.gmail.com>
+References: <150154805003.4819.12498976860683140342.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        kiran.patil@intel.com,
+        "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+        mitch.a.williams@intel.com,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        neerav.parikh@intel.com, carolyn.wyborny@intel.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Amritha Nambiar <amritha.nambiar@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:57494 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751890AbdHBSjg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 14:39:36 -0400
-In-Reply-To: <20170802.113531.1671960264039506111.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-ua0-f181.google.com ([209.85.217.181]:33249 "EHLO
+        mail-ua0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752129AbdHBSl7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 14:41:59 -0400
+Received: by mail-ua0-f181.google.com with SMTP id 80so24681419uas.0
+        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 11:41:58 -0700 (PDT)
+In-Reply-To: <150154805003.4819.12498976860683140342.stgit@anamdev.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/02/2017 01:35 PM, David Miller wrote:
-> Again, any serious installation will have a system watchdog enabled
-> which will break the pause frame bomb.
+On Mon, Jul 31, 2017 at 5:40 PM, Amritha Nambiar
+<amritha.nambiar@intel.com> wrote:
+> The Mirred/redirect action is extended to accept a traffic
+> class on the device in addition to the device's ifindex.
+>
+> Usage: mirred <DIRECTION> <ACTION> <dev DEVICENAME> <tc TC_INDEX>
+>
+> Example:
+> # tc qdisc add dev eth0 ingress
+>
+> # tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
+>   dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
+>   indev eth0 action mirred ingress redirect dev eth0 tc 1
 
-Oh well.  I guess I'll have to carry this patch internally.
 
-What about patch #2?
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Can we call the new parameter tclass or something else ?.
+with this 'tc' appears twice in the command :)
