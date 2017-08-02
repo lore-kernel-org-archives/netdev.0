@@ -1,7 +1,7 @@
 From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH v3 03/11] arm64: defconfig: Enable CONFIG_ROCKCHIP_PHY
-Date: Wed,  2 Aug 2017 14:15:38 +0800
-Message-ID: <1501654546-17292-4-git-send-email-david.wu@rock-chips.com>
+Subject: [PATCH v3 04/11] net: stmmac: dwmac-rk: Remove unwanted code for rk3328_set_to_rmii()
+Date: Wed,  2 Aug 2017 14:15:39 +0800
+Message-ID: <1501654546-17292-5-git-send-email-david.wu@rock-chips.com>
 References: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         huangtao@rock-chips.com, hwg@rock-chips.com,
@@ -17,24 +17,26 @@ In-Reply-To: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make the rockchip phy driver built into the kernel.
+This is wrong setting for rk3328_set_to_rmii(), so remove it.
 
 Signed-off-by: David Wu <david.wu@rock-chips.com>
 ---
- arch/arm64/configs/defconfig | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
-index 6c7d147..925bd478 100644
---- a/arch/arm64/configs/defconfig
-+++ b/arch/arm64/configs/defconfig
-@@ -203,6 +203,7 @@ CONFIG_MARVELL_PHY=m
- CONFIG_MESON_GXL_PHY=m
- CONFIG_MICREL_PHY=y
- CONFIG_REALTEK_PHY=m
-+CONFIG_ROCKCHIP_PHY=y
- CONFIG_USB_PEGASUS=m
- CONFIG_USB_RTL8150=m
- CONFIG_USB_RTL8152=m
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index f0df519..a8e8fd5 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -365,9 +365,6 @@ static void rk3328_set_to_rmii(struct rk_priv_data *bsp_priv)
+ 	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
+ 		     RK3328_GMAC_PHY_INTF_SEL_RMII |
+ 		     RK3328_GMAC_RMII_MODE);
+-
+-	/* set MAC to RMII mode */
+-	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1, GRF_BIT(11));
+ }
+ 
+ static void rk3328_set_rgmii_speed(struct rk_priv_data *bsp_priv, int speed)
 -- 
 1.9.1
