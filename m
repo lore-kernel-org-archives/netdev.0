@@ -1,68 +1,72 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [PATCH net-next] bpf: fix the printing of ifindex
-Date: Wed,  2 Aug 2017 08:43:52 -0700
-Message-ID: <1501688632-2709-1-git-send-email-u9012063@gmail.com>
-To: netdev@vger.kernel.org
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [RFC PATCH v2 0/2] nb8800 suspend/resume support
+Date: Wed, 2 Aug 2017 17:52:59 +0200
+Message-ID: <9e8e12b1-74e2-8323-ec16-eebda46b2a3d@free.fr>
+References: <33d1ab47-6098-5e3f-8a3c-f72626d07113@free.fr>
+ <aa8885b8-e6bb-3624-2bf9-0bb40505ac54@free.fr>
+ <dd883398-1511-0bfd-972b-a11ef8709f0d@free.fr> <yw1xshhagexd.fsf@mansr.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Mans Rullgard <mans@mansr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34489 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751154AbdHBPoC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 11:44:02 -0400
-Received: by mail-pg0-f66.google.com with SMTP id y192so6859244pgd.1
-        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 08:44:02 -0700 (PDT)
-Received: from sc9-mailhost1.vmware.com ([208.91.1.34])
-        by smtp.gmail.com with ESMTPSA id v128sm54851255pgv.49.2017.08.02.08.43.59
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
-        Wed, 02 Aug 2017 08:43:59 -0700 (PDT)
+Received: from smtp5-g21.free.fr ([212.27.42.5]:35117 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751648AbdHBPxM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 2 Aug 2017 11:53:12 -0400
+In-Reply-To: <yw1xshhagexd.fsf@mansr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Save the ifindex before it gets zeroed so the invalid
-ifindex can be printed out.
+On 02/08/2017 17:36, Måns Rullgård wrote:
 
-Signed-off-by: William Tu <u9012063@gmail.com>
----
- net/core/filter.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+> Mason wrote:
+> 
+>> Looking at the tango-specific integration, I note this nugget:
+>>
+>> 1.5.4 Stopping & Starting the DMA
+>>
+>> This feature has been added to allow the software to stop and start
+>> the DMA without any issues.
+>>
+>> Procedure:
+>> 1- STOP:
+>> 2- Stop RX core;
+>> 3- Set OWN bit of all descriptor of the chain to 1;
+>> 4- Stop DMA by writing dma_stop bit to 1 in  RX_DMA_Stop register
+>> 5- Wait around 100 clock cycles.
+>>
+>> The pending packets are held until the system will re-start.
+>>
+>> RE-START:
+>> 1- Clear dma_stop bit (note that if at the time of stopping the DMA,
+>> the next packet in the FIFO was an UDP packet, when clearing dma_stop,
+>> this packet will directly start being written in the DRAM since UDP
+>> packets are not controlled by the descriptor mechanism);
+>> 2- Program a new chain of descriptor;
+>> 3- Re-enable DMA (rx_ctrl register)
+>>
+>> rx_dma_stop:
+>> Software control to stop the Rx DMA.
+>> A write to this bit with "1" will gracefully stop the Rx DMA by after
+>> transferring the current packet. If more packets are pending they will
+>> be held until the software clears this bit.
+>>
+>> Hmmm, what do you think? This looks promising...
+> 
+> This is only available in the more recent Sigma versions.  Although it
+> is nicer, I didn't think it was worth the trouble to support both
+> methods since the older method should work on all chips.
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 7e9708653c6f..78d00933dbe7 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2509,15 +2509,16 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
- {
- 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
- 	struct net_device *fwd;
-+	u32 index = ri->ifindex;
- 
- 	if (ri->map)
- 		return xdp_do_redirect_map(dev, xdp, xdp_prog);
- 
--	fwd = dev_get_by_index_rcu(dev_net(dev), ri->ifindex);
-+	fwd = dev_get_by_index_rcu(dev_net(dev), index);
- 	ri->ifindex = 0;
- 	ri->map = NULL;
- 	if (unlikely(!fwd)) {
--		bpf_warn_invalid_xdp_redirect(ri->ifindex);
-+		bpf_warn_invalid_xdp_redirect(index);
- 		return -EINVAL;
- 	}
- 
-@@ -2531,11 +2532,12 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
- 	unsigned int len;
-+	u32 index = ri->ifindex;
- 
--	dev = dev_get_by_index_rcu(dev_net(dev), ri->ifindex);
-+	dev = dev_get_by_index_rcu(dev_net(dev), index);
- 	ri->ifindex = 0;
- 	if (unlikely(!dev)) {
--		bpf_warn_invalid_xdp_redirect(ri->ifindex);
-+		bpf_warn_invalid_xdp_redirect(index);
- 		goto err;
- 	}
- 
--- 
-2.7.4
+Well, from my perspective, the older method does not
+work on newer chips :-)
+
+The "new" method is available on the SMP8670 onward
+(released Jan 2011). I might try implementing it for
+"sigma,smp8734-ethernet" boards.
+
+Regards.
