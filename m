@@ -1,57 +1,69 @@
-From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH v3 08/11] ARM: dts: rk322x: Add support internal phy for gmac
-Date: Wed,  2 Aug 2017 14:23:40 +0800
-Message-ID: <1501655020-19777-1-git-send-email-david.wu@rock-chips.com>
+From: David Wu <david.wu@rock-chips.com>
+Subject: [PATCH v3 09/11] ARM: dts: rk3228-evb: Enable the internal phy for gmac
+Date: Wed,  2 Aug 2017 14:24:19 +0800
+Message-ID: <1501655059-20254-1-git-send-email-david.wu@rock-chips.com>
 References: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
-Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1501654546-17292-1-git-send-email-david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        huangtao@rock-chips.com, hwg@rock-chips.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Wu <david.wu@rock-chips.com>
+To: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch,
+        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
+        linux@armlinux.org.uk, arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds internal mac phy clock and internal mac phy reset
-for rk gmac using.
+This patch enables the internal phy for rk3228 evb board
+by default.
+To use the external 1000M phy on evb board, need to make
+some switch of evb board to be on.
 
-Signed-off-by: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Signed-off-by: David Wu <david.wu@rock-chips.com>
 ---
- arch/arm/boot/dts/rk322x.dtsi | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ arch/arm/boot/dts/rk3228-evb.dts | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-diff --git a/arch/arm/boot/dts/rk322x.dtsi b/arch/arm/boot/dts/rk322x.dtsi
-index f3e4ffd..3778f7d 100644
---- a/arch/arm/boot/dts/rk322x.dtsi
-+++ b/arch/arm/boot/dts/rk322x.dtsi
-@@ -611,13 +611,13 @@
- 		clocks = <&cru SCLK_MAC>, <&cru SCLK_MAC_RX>,
- 			<&cru SCLK_MAC_TX>, <&cru SCLK_MAC_REF>,
- 			<&cru SCLK_MAC_REFOUT>, <&cru ACLK_GMAC>,
--			<&cru PCLK_GMAC>;
-+			<&cru PCLK_GMAC>, <&cru SCLK_MAC_PHY>;
- 		clock-names = "stmmaceth", "mac_clk_rx",
- 			"mac_clk_tx", "clk_mac_ref",
- 			"clk_mac_refout", "aclk_mac",
--			"pclk_mac";
--		resets = <&cru SRST_GMAC>;
--		reset-names = "stmmaceth";
-+			"pclk_mac", "clk_macphy";
-+		resets = <&cru SRST_GMAC>, <&cru SRST_MACPHY>;
-+		reset-names = "stmmaceth", "mac-phy";
- 		rockchip,grf = <&grf>;
- 		status = "disabled";
+diff --git a/arch/arm/boot/dts/rk3228-evb.dts b/arch/arm/boot/dts/rk3228-evb.dts
+index 5883433..48b3adb 100644
+--- a/arch/arm/boot/dts/rk3228-evb.dts
++++ b/arch/arm/boot/dts/rk3228-evb.dts
+@@ -50,6 +50,16 @@
+ 		device_type = "memory";
+ 		reg = <0x60000000 0x40000000>;
  	};
++
++	vcc_phy: vcc-phy-regulator {
++		compatible = "regulator-fixed";
++		enable-active-high;
++		regulator-name = "vcc_phy";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		regulator-always-on;
++		regulator-boot-on;
++	};
+ };
+ 
+ &emmc {
+@@ -60,6 +70,16 @@
+ 	status = "okay";
+ };
+ 
++&gmac {
++	assigned-clocks = <&cru SCLK_MAC_SRC>;
++	assigned-clock-rates = <50000000>;
++	clock_in_out = "output";
++	phy-supply = <&vcc_phy>;
++	phy-mode = "rmii";
++	phy-is-internal;
++	status = "okay";
++};
++
+ &tsadc {
+ 	status = "okay";
+ 
 -- 
 1.9.1
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
