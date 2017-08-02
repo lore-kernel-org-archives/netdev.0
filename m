@@ -1,58 +1,89 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v3 10/11] ARM64: dts: rockchip: Add gmac2phy node support
- for rk3328
-Date: Wed, 2 Aug 2017 14:49:01 +0300
-Message-ID: <6b97127d-8ac9-99a8-2d03-2dfc0dc9e86f@cogentembedded.com>
-References: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
- <1501655097-21054-1-git-send-email-david.wu@rock-chips.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [RFC PATCH v2 1/2] net: ethernet: nb8800: Reset HW block in
+ ndo_open
+Date: Wed, 2 Aug 2017 13:54:29 +0200
+Message-ID: <ef36cd4a-b1b5-7505-34d1-250c736d6731@free.fr>
+References: <33d1ab47-6098-5e3f-8a3c-f72626d07113@free.fr>
+ <d817da35-f977-5985-4aae-73617004fac3@free.fr> <yw1xbmnyi660.fsf@mansr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
-        arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1501655097-21054-1-git-send-email-david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Content-Language: en-MW
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Mans Rullgard <mans@mansr.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:44294 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753035AbdHBLym (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 2 Aug 2017 07:54:42 -0400
+In-Reply-To: <yw1xbmnyi660.fsf@mansr.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On 02/08/2017 13:02, Måns Rullgård wrote:
 
-On 08/02/2017 09:24 AM, David Wu wrote:
-
-> The gmac2phy controller of rk3328 is connected to internal phy
-> directly inside, add the node for the internal phy support.
+> Mason wrote:
 > 
-> Signed-off-by: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-> ---
->   arch/arm64/boot/dts/rockchip/rk3328.dtsi | 25 +++++++++++++++++++++++++
->   1 file changed, 25 insertions(+)
+>> Move all HW initializations to nb8800_init.
+>> This provides the basis for suspend/resume support.
+>> ---
+>>  drivers/net/ethernet/aurora/nb8800.c | 50 +++++++++++++++++-------------------
+>>  drivers/net/ethernet/aurora/nb8800.h |  1 +
+>>  2 files changed, 25 insertions(+), 26 deletions(-)
 > 
-> diff --git a/arch/arm64/boot/dts/rockchip/rk3328.dtsi b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-> index 0be96ce..51c8c66 100644
-> --- a/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-> +++ b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-[...]
-> @@ -424,6 +426,29 @@
->   		status = "disabled";
->   	};
->   
-> +	gmac2phy: eth@ff550000 {
+> You're still not doing anything to preserve flow control and multicast
+> configuration, and those are probably not the only ones.
 
-    The standardized name is ethernet@...
+I did handle flow control (as far as I can tell).
+The current settings are stored in:
+priv->pause_aneg, priv->pause_rx, priv->pause_tx
+and nb8800_pause_config() is called from nb8800_link_reconfigure()
 
-[...]
+I'll take a closer look at multicast settings.
 
-MBR, Sergei
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Worse, you're now never tearing down dma properly, which means the
+> hardware can be left with active pointers to memory no longer allocated
+> to it.
+
+You're making it sound like there is a risk those pointers
+might be used somehow. There is no such risk AFAICT.
+The PHY is disconnected, NAPI is stopped, RX and TX have
+been disabled, and the ISR has been removed.
+
+I have considered putting the HW block in reset (clock gated)
+at the end of nb8800_stop() to save power, which would make
+the issue you point out moot.
+
+The reason I removed nb8800_dma_stop() in nb8800_stop()
+is because it hangs when called from nb8800_suspend().
+(It requires interrupts to make progress, and interrupts
+seem to be disabled when nb8800_suspend() is called.)
+
+
+Broader question for netdev:
+
+I've been wondering about costly close operations.
+If closing a device is complex (in terms of code), at which
+point does it become simpler to just reset the block, and
+avoid writing/maintaining/debugging the code performing
+said close operation?
+
+> Finally, you still haven't explained why the hw needs to be reset in
+> ndo_open().  Whatever is causing your lockup can almost certainly be
+> triggered in some other way too.  I will not accept this side-stepping
+> of the issue.
+
+(I was not aware that you were the final authority on which
+patches are accepted upstream.)
+
+FWIW, I have placed a formal request for the HW dev to
+investigate, as I could not reproduce on tango4, despite
+several days wasted on this issue.
+
+In the mean time, the driver in its current form does not
+support suspend/resume. How would *you* implement it?
+(IMO, my way is great in its simplicity and code reuse.)
+
+Regards.
