@@ -1,49 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH v2 1/2] net: ethernet: nb8800: Reset HW block in
- ndo_open
-Date: Wed, 2 Aug 2017 15:54:37 +0200
-Message-ID: <20170802135437.GA25781@lunn.ch>
-References: <33d1ab47-6098-5e3f-8a3c-f72626d07113@free.fr>
- <d817da35-f977-5985-4aae-73617004fac3@free.fr>
- <yw1xbmnyi660.fsf@mansr.com>
- <ef36cd4a-b1b5-7505-34d1-250c736d6731@free.fr>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] Adding Agile-SD TCP module and modifying Kconfig and
+ Makefile
+Date: Wed, 2 Aug 2017 14:09:15 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD004913E@AcuExch.aculab.com>
+References: <stephen@networkplumber.org>
+ <20170802044349.27582-1-mohamed.asnd@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mans Rullgard <mans@mansr.com>, netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mason <slash.tmp@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49173 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752036AbdHBNym (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 2 Aug 2017 09:54:42 -0400
-Content-Disposition: inline
-In-Reply-To: <ef36cd4a-b1b5-7505-34d1-250c736d6731@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "mohamed.a.alrshah@ieee.org" <mohamed.a.alrshah@ieee.org>
+To: 'mohamedalrshah' <mohamed.asnd@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170802044349.27582-1-mohamed.asnd@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > Finally, you still haven't explained why the hw needs to be reset in
-> > ndo_open().  Whatever is causing your lockup can almost certainly be
-> > triggered in some other way too.  I will not accept this side-stepping
-> > of the issue.
+From: mohamedalrshah
+> Sent: 02 August 2017 05:44
+> Published:
+> Alrshah, M.A., Othman, M., Ali, B. and Hanapi, Z.M., 2015. Agile-SD: a Linux-based
+> TCP congestion control algorithm for supporting high-speed and short-distance networks.
+> Journal of Network and Computer Applications, 55, pp.181-190.
 > 
-> (I was not aware that you were the final authority on which
-> patches are accepted upstream.)
+> Agile-SD is a new loss-based and RTT-independent TCP congestion
+> control algorithm designed to support high-speed and Short-Distance (SD)
+> networks. It mainly contributes the agility factor mechanism, which allows
+> Agile-SD to deal with small buffer sizes while reducing its sensitivity to
+> packet loss. Due to the use of this mechanism, Agile-SD improves the
+> throughput of TCP up to 50% compared to Cubic-TCP and Compound-TCP. Its
+> performance was evaluated using the well-known NS2 simulator to measure
+> the average throughput, loss ratio and fairness.
+> 
+> Agile-SD is designed and implemented by Mohamed A. Alrshah et al. (2015) as
+> a Linux kernel module in the real Linux operating system (openSUSE 42.1 Leap),
+> which is implemented at the Network, Parallel and Distributed Computing Laboratory,
+> A2.10, second floor, Block A, Faculty of Computer Science and Information Technology,
+> Universiti Putra Malaysia, over real PCs connected to the Internet for daily uses and
+> evaluation purposes.
+> 
+> The main motivation behind Agile-SD is to support the short-distance networks such
+> as local area networks and data center networks in order to increase the bandwidth
+> utilization over high-speed networks. Moreover, Agile-SD is introduced in support
+> of the open source community, where it can be used under the OpenGL agreement.
 
-./scripts/get_maintainer.pl -f drivers/net/ethernet/aurora/nb8800.c
-"David S. Miller" <davem@davemloft.net> (commit_signer:6/6=100%)
-Mans Rullgard <mans@mansr.com> (commit_signer:2/6=33%)
-Jarod Wilson <jarod@redhat.com> (commit_signer:1/6=17%,authored:1/6=17%,removed_lines:1/17=6%)
-Stephen Hemminger <stephen@networkplumber.org> (commit_signer:1/6=17%)
-Florian Fainelli <f.fainelli@gmail.com> (commit_signer:1/6=17%,added_lines:1/14=7%,removed_lines:11/17=65%)
-Javier Martinez Canillas <javier@osg.samsung.com> (authored:1/6=17%,added_lines:1/14=7%)
-Johan Hovold <johan@kernel.org> (authored:1/6=17%,added_lines:7/14=50%,removed_lines:2/17=12%)
-Johannes Berg <johannes.berg@intel.com> (authored:1/6=17%,added_lines:2/14=14%,removed_lines:2/17=12%)
-Wei Yongjun <weiyongjun1@huawei.com> (authored:1/6=17%,added_lines:3/14=21%,removed_lines:1/17=6%)
+What a pile of bullshit ...
 
-David is very likely to listen to Mans's recommendations, since Mans
-has done most of the review work for this driver.
-
-      Andrew
+	David
