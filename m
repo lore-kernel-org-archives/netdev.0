@@ -1,76 +1,72 @@
 From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH v3 net-next 3/5] net: dsa: lan9303: Simplify lan9303_xxx_packet_processing() usage
-Date: Thu,  3 Aug 2017 11:45:05 +0200
-Message-ID: <20170803094507.3439-4-privat@egil-hjelmeland.no>
-References: <20170803094507.3439-1-privat@egil-hjelmeland.no>
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@pengutronix.de
+Subject: Re: [PATCH v2 net-next 2/3] net: dsa: lan9303: define
+ LAN9303_NUM_PORTS 3
+Date: Thu, 3 Aug 2017 11:53:23 +0200
+Message-ID: <2ab66f40-bbb4-151f-349c-8691e707e936@egil-hjelmeland.no>
+References: <20170801111439.1143-1-privat@egil-hjelmeland.no>
+ <20170801111439.1143-3-privat@egil-hjelmeland.no>
+ <201708011349.52529.jbe@pengutronix.de>
+ <10b6b9fc-d2f9-1761-802f-724d9f6b3df1@egil-hjelmeland.no>
+ <20170801132728.GA23157@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Juergen Borleis <jbe@pengutronix.de>, kernel@pengutronix.de,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170803094507.3439-1-privat@egil-hjelmeland.no>
+In-Reply-To: <20170801132728.GA23157@lunn.ch>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simplify usage of lan9303_enable_packet_processing,
-lan9303_disable_packet_processing()
+On 01. aug. 2017 15:27, Andrew Lunn wrote:
+> On Tue, Aug 01, 2017 at 02:31:44PM +0200, Egil Hjelmeland wrote:
+>> On 01. aug. 2017 13:49, Juergen Borleis wrote:
+>>> Hi Egil,
+>>>
+>>> On Tuesday 01 August 2017 13:14:38 Egil Hjelmeland wrote:
+>>>> Will be used instead of '3' in upcomming patches.
+>>>>
+>>>>
+>>>> +#define LAN9303_NUM_PORTS 3
+>>>> +
+>>>
+>>> Maybe we should put this macro into a shared location because
+>>> in "net/dsa/tag_lan9303.c" there is already a "#define LAN9303_MAX_PORTS
+>>> 3".
+>>>
+>>> jb
+>>>
+>>
+>> Is there any suitable shared location for such driver specific
+>> definitions?
+>> I could change the name to LAN9303_MAX_PORTS so it the same.
+>> Rhymes better with DSA_MAX_PORTS too.
+> 
+> Hi Egil, Juergen
+> 
+> The other tag drivers do:
+> 
+>          if (source_port >= ds->num_ports || !ds->ports[source_port].netdev)
+>                  return NULL;
+> 
+> or just
+> 
+>          if (!ds->ports[port].netdev)
+>                  return NULL;
+> 
+> The first version is the safest, since a malicious switch could return
+> port 42, and you are accessing way off the end of ds->ports[]. It does
+> however require you call dsa_switch_alloc() with the correct number of
+> ports.
+> 
+>       Andrew
+> 
 
-Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
----
- drivers/net/dsa/lan9303-core.c | 24 ++++++++++--------------
- 1 file changed, 10 insertions(+), 14 deletions(-)
+Related question: If the driver does dsa_switch_alloc(3), can it then
+trust that all "port" params passed in DSA methods will be between
+0 and 2?
 
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index 126e8b84bdf0..31fe66fbe39a 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -564,15 +564,16 @@ static int lan9303_handle_reset(struct lan9303 *chip)
- /* stop processing packets for all ports */
- static int lan9303_disable_processing(struct lan9303 *chip)
- {
--	int ret;
-+	int p;
- 
--	ret = lan9303_disable_packet_processing(chip, 0);
--	if (ret)
--		return ret;
--	ret = lan9303_disable_packet_processing(chip, 1);
--	if (ret)
--		return ret;
--	return lan9303_disable_packet_processing(chip, 2);
-+	for (p = 0; p < LAN9303_NUM_PORTS; p++) {
-+		int ret = lan9303_disable_packet_processing(chip, p);
-+
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
- }
- 
- static int lan9303_check_device(struct lan9303 *chip)
-@@ -765,7 +766,6 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
- 	/* enable internal packet processing */
- 	switch (port) {
- 	case 1:
--		return lan9303_enable_packet_processing(chip, port);
- 	case 2:
- 		return lan9303_enable_packet_processing(chip, port);
- 	default:
-@@ -784,13 +784,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
- 	/* disable internal packet processing */
- 	switch (port) {
- 	case 1:
--		lan9303_disable_packet_processing(chip, port);
--		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
--				  MII_BMCR, BMCR_PDOWN);
--		break;
- 	case 2:
- 		lan9303_disable_packet_processing(chip, port);
--		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
-+		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
- 				  MII_BMCR, BMCR_PDOWN);
- 		break;
- 	default:
--- 
-2.11.0
+Egil
