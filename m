@@ -1,69 +1,81 @@
-From: Ilan Tayari <ilant@mellanox.com>
-Subject: XFRM pcpu cache issue
-Date: Thu, 3 Aug 2017 15:48:03 +0000
-Message-ID: <AM4PR0501MB1940130EB22A118F3524DA54DBB10@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Yevgeny Kliteynik <kliteyn@mellanox.com>,
-        "Yossi Kuperman" <yossiku@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        "Yossef Efraim" <yossefe@mellanox.com>
-To: Florian Westphal <fw@strlen.de>
+From: Julien Fortin <julien@cumulusnetworks.com>
+Subject: [PATCH 01/27] color: add new COLOR_NONE and disable_color function
+Date: Thu,  3 Aug 2017 17:54:49 +0200
+Message-ID: <20170803155515.99226-2-julien@cumulusnetworks.com>
+References: <20170803155515.99226-1-julien@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, Julien Fortin <julien@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0078.outbound.protection.outlook.com ([104.47.1.78]:12832
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751158AbdHCPsG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Aug 2017 11:48:06 -0400
-Content-Language: en-US
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:37487 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751158AbdHCPzg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 11:55:36 -0400
+Received: by mail-wm0-f48.google.com with SMTP id t201so19235396wmt.0
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 08:55:35 -0700 (PDT)
+In-Reply-To: <20170803155515.99226-1-julien@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgRmxvcmlhbiwNCg0KSSBkZWJ1Z2dlZCBhIGxpdHRsZSB0aGUgcmVncmVzc2lvbiBJIHRvbGQg
-eW91IGFib3V0IHRoZSBvdGhlciBkYXkuLi4NCg0KU3RlcHMgYW5kIFN5bXB0b21zOg0KMS4gU2V0
-IHVwIGEgaG9zdC10by1ob3N0IElQU2VjIHR1bm5lbCAob3IgdHJhbnNwb3J0LCBkb2Vzbid0IG1h
-dHRlcikNCjIuIFBpbmcgb3ZlciBJUFNlYywgb3IgZG8gc29tZXRoaW5nIHRvIHBvcHVsYXRlIHRo
-ZSBwY3B1IGNhY2hlDQozLiBKb2luIGEgTUMgZ3JvdXAsIHRoZW4gbGVhdmUgTUMgZ3JvdXANCjQu
-IFRyeSB0byBwaW5nIGFnYWluIHVzaW5nIHNhbWUgQ1BVIGFzIGJlZm9yZSAtPiB0cmFmZmljIGRv
-ZXNuJ3QgZWdyZXNzIHRoZSBtYWNoaW5lIGF0IGFsbA0KDQpJZiB0cnlpbmcgZnJvbSBhbm90aGVy
-IENQVSAod2l0aCBjbGVhbiBjYWNoZSksIGl0IHBpbmdzIHdlbGwuDQpJZiBjbGVhcmluZyB0aGUg
-cGNwdSBjYWNoZSwgaXQgd29ya3Mgd2VsbCBhZ2Fpbi4NCg0KV2l0aCBhIGxpdHRsZSBtb3JlIGRp
-Z2dpbmcgSSBmb3VuZCB0aGF0IHdoZW4gdGhlIGNhY2hlIGlzIGZpcnN0IHBvcHVsYXRlZCAoc3Rl
-cCAyKSwgYm90aCB4ZHN0LT51LmRzdC5kZXYgYW5kIHhkc3QtPnUuZHN0LnBhdGgtPmRldiBhcmUg
-dGhlIHNhbWUgZGV2aWNlIChteSBpbnRlbmRlZCBkZXZpY2UpLg0KQXQgc3RlcCA0LCB0aGUgY2Fj
-aGUgaGFzIHNhbWUgeGRzdC0+dS5kc3QuZGV2LCBidXQgeGRzdC0+dS5kc3QucGF0aC0+ZGV2IHBv
-aW50cyB0byAnbG8nIGRldmljZS4NCg0KV2l0aCBhIEhXIGJyZWFrcG9pbnQgSSBmb3VuZCB3aG8g
-Y2hhbmdlcyBpdC4gSXQgaXMgdGhpcyBjYWxsc3RhY2s6DQoNCiMwICAweGZmZmZmZmZmODE1OGJj
-MDkgaW4gZHN0X2Rldl9wdXQgYXQgbmV0L2NvcmUvZHN0LmM6MTcyDQojMSAgMHhmZmZmZmZmZjgx
-NWJmZjE0IGluIHJ0X2NhY2hlX3JvdXRlIGF0IG5ldC9pcHY0L3JvdXRlLmM6MTM2Nw0KIzIgIDB4
-ZmZmZmZmZmY4MTVjMDAwNSBpbiBydF9zZXRfbmV4dGhvcCBhdCBuZXQvaXB2NC9yb3V0ZS5jOjE0
-NjgNCiMzICAweGZmZmZmZmZmODE1YzI1YjkgaW4gX19ta3JvdXRlX291dHB1dCBhdCBuZXQvaXB2
-NC9yb3V0ZS5jOjIyNjINCiM0ICBpcF9yb3V0ZV9vdXRwdXRfa2V5X2hhc2hfcmN1IGF0IG5ldC9p
-cHY0L3JvdXRlLmM6MjQ1NA0KIzUgIDB4ZmZmZmZmZmY4MTVjMmIwZSBpbiBpcF9yb3V0ZV9vdXRw
-dXRfa2V5X2hhc2ggYXQgbmV0L2lwdjQvcm91dGUuYzoyMjg5DQojNiAgMHhmZmZmZmZmZjgxNWYw
-MmU5IGluIF9faXBfcm91dGVfb3V0cHV0X2tleSBhdCAuL2luY2x1ZGUvbmV0L3JvdXRlLmg6MTI1
-DQojNyAgaXBfcm91dGVfY29ubmVjdCBhdCAuL2luY2x1ZGUvbmV0L3JvdXRlLmg6Mjk3DQojOCAg
-X19pcDRfZGF0YWdyYW1fY29ubmVjdCBhdCBuZXQvaXB2NC9kYXRhZ3JhbS5jOjUxDQojOSAgMHhm
-ZmZmZmZmZjgxNWYwNDhjIGluIGlwNF9kYXRhZ3JhbV9jb25uZWN0IGF0IG5ldC9pcHY0L2RhdGFn
-cmFtLmM6OTINCiMxMCAweGZmZmZmZmZmODE1ZmY0NWUgaW4gaW5ldF9kZ3JhbV9jb25uZWN0IGF0
-IG5ldC9pcHY0L2FmX2luZXQuYzo1NDANCiMxMSAweGZmZmZmZmZmODE1NjMyMDcgaW4gU1lTQ19j
-b25uZWN0IGF0IG5ldC9zb2NrZXQuYzoxNjI4DQojMTIgMHhmZmZmZmZmZjgxNTY0YjhlIGluIFN5
-U19jb25uZWN0IGF0IG5ldC9zb2NrZXQuYzoxNjA5DQojMTMgMHhmZmZmZmZmZjgxNmFhNWY3IGlu
-IGVudHJ5X1NZU0NBTExfNjRfZmFzdHBhdGggYXQgYXJjaC94ODYvZW50cnkvZW50cnlfNjQuUzoy
-MDMNCg0KVGhlIGxpbmUgdGhlcmUgaXMgdmVyeSBhcHByb3ByaWF0ZToNCglkc3QtPmRldiA9IGRl
-dl9uZXQoZHN0LT5kZXYpLT5sb29wYmFja19kZXY7DQoNClNvIHRoZSBkZXYgaXMgcmVwbGFjZWQg
-d2hlbiBzZW5kaW5nIHRoZSBmaXJzdCBwYWNrZXQgKmFmdGVyKiB0aGUgTUMgam9pbi9sZWF2ZSwg
-YW5kIG5vdCBkdXJpbmcgdGhhdCBmbG93Lg0KRm9yIHJlZmVyZW5jZSwgaW4gc3RlcCAzIGFib3Zl
-LCB3ZSBkbzoNCglzb2NrZXQoQUZfSU5FVCxTT0NLX0RHUkFNLCBJUFBST1RPX1VEUCkNCglzZXRz
-b2Nrb3B0KFNPTF9TT0NLRVQsIFNPX1JFVVNFQUREUiwgMSkNCglzZXRzb2Nrb3B0KFNPTF9JUCwg
-SVBfTVVMVElDQVNUX1RUTCwgMSkNCglzZXRzb2Nrb3B0KFNPTF9JUCwgSVBfTVVMVElDQVNUX0xP
-T1AsIDEpCQ0KCXNldHNvY2tvcHQoU09MX0lQLCBJUF9NVUxUSUNBU1RfSUYsIDxpcCBvZiBkZXZp
-Y2U+KQ0KCXNldHNvY2tvcHQoU09MX0lQLCBJUF9BRERfTUVNQkVSU0hJUCwgPGdyb3VwPikNCglz
-ZXRzb2Nrb3B0KFNPTF9JUCwgSVBfTVVMVElDQVNUX1RUTCwgMSkNCgliaW5kKDxncm91cD4sIDxz
-b21lIHBvcnQ+KQ0KCUFuZCBleGl0IHRoZSBwcm9jZXNzIGFmdGVyIGEgZmV3IHNlY29uZHMNCg0K
-SSBhbSB1c2luZyBuZXQtbmV4dCBmcm9tIGFyb3VuZCB0d28gd2Vla3MgYWdvLg0KDQpJJ2xsIGNv
-bnRpbnVlIGRpZ2dpbmcsIGJ1dCB3b3VsZCBsb3ZlIHRvIGhlYXIgeW91ciBvcGluaW9uIGFuZCBt
-YXliZSBzdWdnZXN0aW9ucyBvbiB3aGVyZSB0byBsb29rIG5leHQuDQoNCklsYW4uDQo=
+From: Julien Fortin <julien@cumulusnetworks.com>
+
+Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
+---
+ include/color.h | 2 ++
+ lib/color.c     | 9 +++++++--
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/include/color.h b/include/color.h
+index ba0b237e..a4ca1177 100644
+--- a/include/color.h
++++ b/include/color.h
+@@ -2,6 +2,7 @@
+ #define __COLOR_H__ 1
+ 
+ enum color_attr {
++	COLOR_NONE,
+ 	COLOR_IFNAME,
+ 	COLOR_MAC,
+ 	COLOR_INET,
+@@ -12,6 +13,7 @@ enum color_attr {
+ };
+ 
+ void enable_color(void);
++void disable_color(void);
+ void set_color_palette(void);
+ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...);
+ enum color_attr ifa_family_color(__u8 ifa_family);
+diff --git a/lib/color.c b/lib/color.c
+index 4e947500..2d1db194 100644
+--- a/lib/color.c
++++ b/lib/color.c
+@@ -89,6 +89,11 @@ void set_color_palette(void)
+ 		is_dark_bg = 1;
+ }
+ 
++void disable_color(void)
++{
++	color_is_enabled = 0;
++}
++
+ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
+ {
+ 	int ret = 0;
+@@ -96,13 +101,13 @@ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
+ 
+ 	va_start(args, fmt);
+ 
+-	if (!color_is_enabled) {
++	if (!color_is_enabled || attr == COLOR_NONE) {
+ 		ret = vfprintf(fp, fmt, args);
+ 		goto end;
+ 	}
+ 
+ 	ret += fprintf(fp, "%s",
+-		       color_codes[attr_colors[is_dark_bg ? attr + 7 : attr]]);
++		       color_codes[attr_colors[is_dark_bg ? attr + 8 : attr]]);
+ 	ret += vfprintf(fp, fmt, args);
+ 	ret += fprintf(fp, "%s", color_codes[C_CLEAR]);
+ 
+-- 
+2.13.3
