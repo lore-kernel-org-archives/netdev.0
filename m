@@ -1,37 +1,71 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH iproute2 net-next] iproute: Display offload indication
- per-nexthop
-Date: Thu, 3 Aug 2017 08:26:29 -0600
-Message-ID: <86fc8356-f5f7-2615-eb12-7b49a2b195d6@gmail.com>
-References: <20170803061355.6474-1-idosch@mellanox.com>
+From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita@gmail.com>
+Subject: [PATCH v2] iwlwifi: Demote messages about fw flags size to info
+Date: Thu,  3 Aug 2017 07:30:05 -0700
+Message-ID: <20170803143005.31379-1-jprvita@endlessm.com>
+References: <1501649208.2588.55.camel@coelho.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, jiri@mellanox.com, mlxsw@mellanox.com
-To: Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34453 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751251AbdHCO02 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 10:26:28 -0400
-Received: by mail-pf0-f179.google.com with SMTP id o86so7002245pfj.1
-        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 07:26:28 -0700 (PDT)
-In-Reply-To: <20170803061355.6474-1-idosch@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux@endlessm.com, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        =?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita@endlessm.com>
+To: Johannes Berg <johannes.berg@intel.com>,
+        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+        Luca Coelho <luciano.coelho@intel.com>,
+        Intel Linux Wireless <linuxwifi@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1501649208.2588.55.camel@coelho.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/3/17 12:13 AM, Ido Schimmel wrote:
-> Since kernel commit 475abbf1ef67 ("ipv4: fib: Set offload indication
-> according to nexthop flags") offload indication is reported on a
-> per-nexthop basis.
-> 
-> Adjust iproute2 to display it.
-> 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  ip/iproute.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
+These messages are not reporting a real error, just the fact that the
+firmware knows about more flags then the driver.
 
-Acked-by: David Ahern <dsahern@gmail.com>
+Currently these messages are presented to the user during boot if there
+is no bootsplash covering the console, even when booting the kernel with
+"quiet".
+
+Demoting it to the warn level helps having a clean boot process.
+
+Signed-off-by: João Paulo Rechi Vita <jprvita@endlessm.com>
+---
+
+v2 changes:
+ - Set to warn level instead of info
+
+ drivers/net/wireless/intel/iwlwifi/iwl-drv.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-drv.c b/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
+index be466a074c1d..c98a254bbd4d 100644
+--- a/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
++++ b/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
+@@ -461,9 +461,9 @@ static int iwl_set_ucode_api_flags(struct iwl_drv *drv, const u8 *data,
+ 	int i;
+ 
+ 	if (api_index >= DIV_ROUND_UP(NUM_IWL_UCODE_TLV_API, 32)) {
+-		IWL_ERR(drv,
+-			"api flags index %d larger than supported by driver\n",
+-			api_index);
++		IWL_WARN(drv,
++			 "api flags index %d larger than supported by driver\n",
++			 api_index);
+ 		/* don't return an error so we can load FW that has more bits */
+ 		return 0;
+ 	}
+@@ -485,9 +485,9 @@ static int iwl_set_ucode_capabilities(struct iwl_drv *drv, const u8 *data,
+ 	int i;
+ 
+ 	if (api_index >= DIV_ROUND_UP(NUM_IWL_UCODE_TLV_CAPA, 32)) {
+-		IWL_ERR(drv,
+-			"capa flags index %d larger than supported by driver\n",
+-			api_index);
++		IWL_WARN(drv,
++			 "capa flags index %d larger than supported by driver\n",
++			 api_index);
+ 		/* don't return an error so we can load FW that has more bits */
+ 		return 0;
+ 	}
+-- 
+2.13.2
