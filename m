@@ -1,34 +1,58 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH V4 net 2/2] net: fix tcp reset packet flowlabel for ipv6
-Date: Wed, 2 Aug 2017 18:33:20 -0700
-Message-ID: <CAM_iQpWp+gffO_xPX9vtEm+Lv5N9i2L-zawQKCkB+9UNiksG2g@mail.gmail.com>
-References: <cover.1501539150.git.shli@fb.com> <373e23f5295ee4cb725109a9e58152451a9fb4cc.1501539150.git.shli@fb.com>
- <CAM_iQpXOaP4JmGW4-AcL6JYbzKq_Co_Z4pWiSh1B1i=4MsakEQ@mail.gmail.com>
- <20170731230002.ercfotm7qhfubbbv@kernel.org> <CAM_iQpWiw6CJOr2+zvxdoCht1DRERmZfZCCZiE36_6RiumEOVA@mail.gmail.com>
- <20170801214226.gnuudx3j53s6kw25@kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 3 Aug 2017 12:01:37 +1000
+Message-ID: <20170803120137.697ebace@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, Shaohua Li <shli@fb.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Florent Fourcot <flo@fourcot.fr>
-To: Shaohua Li <shli@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:35811 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751184AbdHCBdm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 21:33:42 -0400
-Received: by mail-wm0-f51.google.com with SMTP id m85so3159164wma.0
-        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 18:33:41 -0700 (PDT)
-In-Reply-To: <20170801214226.gnuudx3j53s6kw25@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 1, 2017 at 2:42 PM, Shaohua Li <shli@kernel.org> wrote:
-> Is this really better? I don't see any point. I'd use my original patch other
-> than this one. that said, there are just several lines of code, brutally
-> 'abstract' them into a function doesn't make the code better.
+Hi all,
 
-The current ip6_make_flowlabel() is already a mess, with your
-change you just make it worse to read. I just want to make it suck
-less.
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  drivers/net/hyperv/netvsc.c
+
+between commit:
+
+  4a0dee1ffe0e ("netvsc: Initialize 64-bit stats seqcount")
+
+from the net tree and commit:
+
+  35fbbccfb417 ("netvsc: save pointer to parent netvsc_device in channel table")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/hyperv/netvsc.c
+index 96f90c75d1b7,9598220b3bcc..000000000000
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@@ -1302,8 -1269,7 +1269,9 @@@ struct netvsc_device *netvsc_device_add
+  		struct netvsc_channel *nvchan = &net_device->chan_table[i];
+  
+  		nvchan->channel = device->channel;
++ 		nvchan->net_device = net_device;
+ +		u64_stats_init(&nvchan->tx_stats.syncp);
+ +		u64_stats_init(&nvchan->rx_stats.syncp);
+  	}
+  
+  	/* Enable NAPI handler before init callbacks */
