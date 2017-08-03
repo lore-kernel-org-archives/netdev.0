@@ -1,85 +1,89 @@
-From: Anton Volkov <avolkov@ispras.ru>
-Subject: [PATCH] hysdn: fix to a race condition in put_log_buffer
-Date: Thu,  3 Aug 2017 14:33:21 +0300
-Message-ID: <1501760001-22193-1-git-send-email-avolkov@ispras.ru>
-References: <2f35ddaf-88d9-e848-f83b-3001b36b2883@linux-pingi.de>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org,
-        khoroshilov@ispras.ru, Anton Volkov <avolkov@ispras.ru>
-To: isdn@linux-pingi.de
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: Re: [PATCH v3 2/4] dt-bindings: can: fixed-transceiver: Add new CAN
+ fixed transceiver bindings
+Date: Thu, 3 Aug 2017 04:48:14 -0500
+Message-ID: <3848fab8-ebcf-5b29-7e4e-eb1a2b03803d@ti.com>
+References: <20170803005150.9286-1-fcooper@ti.com>
+ <20170803005150.9286-3-fcooper@ti.com>
+ <f92513b6-6b2b-e08d-72e2-dedd7e0190f4@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
+        <quentin.schulz@free-electrons.com>,
+        <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>,
+        <socketcan@hartkopp.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2f35ddaf-88d9-e848-f83b-3001b36b2883@linux-pingi.de>
+In-Reply-To: <f92513b6-6b2b-e08d-72e2-dedd7e0190f4@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The synchronization type that was used earlier to guard the loop that
-deletes unused log buffers may lead to a situation that prevents any
-thread from going through the loop.
 
-The patch deletes previously used synchronization mechanism and moves
-the loop under the spin_lock so the similar cases won't be feasible in
-the future.
 
-Found by by Linux Driver Verification project (linuxtesting.org).
+On 08/03/2017 04:18 AM, Sergei Shtylyov wrote:
+> Hello!
+> 
+> On 8/3/2017 3:51 AM, Franklin S Cooper Jr wrote:
+> 
+>> Add documentation to describe usage of the new fixed transceiver binding.
+>> This new binding is applicable for any CAN device therefore it exists as
+>> its own document.
+>>
+>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+>> ---
+>>   .../bindings/net/can/fixed-transceiver.txt         | 24
+>> ++++++++++++++++++++++
+>>   1 file changed, 24 insertions(+)
+>>   create mode 100644
+>> Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>
+>> diff --git
+>> a/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>> b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>> new file mode 100644
+>> index 0000000..2f58838b
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>> @@ -0,0 +1,24 @@
+>> +Fixed transceiver Device Tree binding
+>> +------------------------------
+>> +
+>> +CAN transceiver typically limits the max speed in standard CAN and
+>> CAN FD
+>> +modes. Typically these limitations are static and the transceivers
+>> themselves
+>> +provide no way to detect this limitation at runtime. For this situation,
+>> +the "fixed-transceiver" node can be used.
+>> +
+>> +Required Properties:
+>> + max-bitrate:    a positive non 0 value that determines the max
+>> +        speed that CAN/CAN-FD can run. Any other value
+>> +        will be ignored.
+>> +
+>> +Examples:
+>> +
+>> +Based on Texas Instrument's TCAN1042HGV CAN Transceiver
+>> +
+>> +m_can0 {
+>> +    ....
+>> +    fixed-transceiver@0 {
+> 
+>    The <unit-address> (after @) must only be specified if there's "reg"
 
-Signed-off-by: Anton Volkov <avolkov@ispras.ru>
----
- drivers/isdn/hysdn/hysdn_proclog.c | 27 ++++++++++++---------------
- 1 file changed, 12 insertions(+), 15 deletions(-)
+Sorry. Fixed this in my v2 and some how it came back. Will fix.
 
-diff --git a/drivers/isdn/hysdn/hysdn_proclog.c b/drivers/isdn/hysdn/hysdn_proclog.c
-index 7b5fd8f..b152c6c 100644
---- a/drivers/isdn/hysdn/hysdn_proclog.c
-+++ b/drivers/isdn/hysdn/hysdn_proclog.c
-@@ -44,7 +44,6 @@ struct procdata {
- 	char log_name[15];	/* log filename */
- 	struct log_data *log_head, *log_tail;	/* head and tail for queue */
- 	int if_used;		/* open count for interface */
--	int volatile del_lock;	/* lock for delete operations */
- 	unsigned char logtmp[LOG_MAX_LINELEN];
- 	wait_queue_head_t rd_queue;
- };
-@@ -102,7 +101,6 @@ put_log_buffer(hysdn_card *card, char *cp)
- {
- 	struct log_data *ib;
- 	struct procdata *pd = card->proclog;
--	int i;
- 	unsigned long flags;
- 
- 	if (!pd)
-@@ -126,21 +124,20 @@ put_log_buffer(hysdn_card *card, char *cp)
- 	else
- 		pd->log_tail->next = ib;	/* follows existing messages */
- 	pd->log_tail = ib;	/* new tail */
--	i = pd->del_lock++;	/* get lock state */
--	spin_unlock_irqrestore(&card->hysdn_lock, flags);
- 
- 	/* delete old entrys */
--	if (!i)
--		while (pd->log_head->next) {
--			if ((pd->log_head->usage_cnt <= 0) &&
--			    (pd->log_head->next->usage_cnt <= 0)) {
--				ib = pd->log_head;
--				pd->log_head = pd->log_head->next;
--				kfree(ib);
--			} else
--				break;
--		}		/* pd->log_head->next */
--	pd->del_lock--;		/* release lock level */
-+	while (pd->log_head->next) {
-+		if ((pd->log_head->usage_cnt <= 0) &&
-+		    (pd->log_head->next->usage_cnt <= 0)) {
-+			ib = pd->log_head;
-+			pd->log_head = pd->log_head->next;
-+			kfree(ib);
-+		} else
-+			break;
-+	}		/* pd->log_head->next */
-+
-+	spin_unlock_irqrestore(&card->hysdn_lock, flags);
-+
- 	wake_up_interruptible(&(pd->rd_queue));		/* announce new entry */
- }				/* put_log_buffer */
- 
--- 
-2.7.4
+> prop in the device node. Also, please name the node "can-transceiver@"
+> to be more in line with the DT spec. which requires generic node names.
+
+Its possible for future can transceivers drivers to be created. So I
+thought including fixed was important to indicate that this is a "dumb"
+transceiver similar to "fixed-link". So would "fixed-can-transceiver" be
+ok or do you want to go with can-transceiver?
+> 
+> [...]
+
+> 
+> MBR, Sergei
