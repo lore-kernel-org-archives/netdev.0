@@ -1,61 +1,78 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: Re: [PATCH net-next v2 1/2] bpf: add support for sys_enter_* and
- sys_exit_* tracepoints
-Date: Thu, 3 Aug 2017 08:22:51 -0700
-Message-ID: <28b9718b-0677-cc23-4c6f-c21169e38c90@fb.com>
-References: <20170803052828.2303723-1-yhs@fb.com>
- <20170803052828.2303723-2-yhs@fb.com>
- <20170803080831.6molm6xv6wngcy7l@hirez.programming.kicks-ass.net>
+From: Sumit Semwal <sumit.semwal@linaro.org>
+Subject: Re: latest kselftest with stable tree: bpf failures
+Date: Thu, 3 Aug 2017 21:04:24 +0530
+Message-ID: <CAO_48GHFSa4bkfvEsukJ5snc5F8cXjhp+K9CcZDxOijD-Jo0Ag@mail.gmail.com>
+References: <CAO_48GFVH_ciiJRuse55hp2sARYDd0hGncfRembnBCYd_re0JQ@mail.gmail.com>
+ <59833EF2.2040203@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ast@fb.com>, <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
-        <kernel-team@fb.com>, Steven Rostedt <rostedt@goodmis.org>
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: ast@kernel.org, netdev@vger.kernel.org,
+        "# 3.4.x" <stable@vger.kernel.org>,
+        "open list:KERNEL SELFTEST FRAMEWORK <linux-kselftest@vger.kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Shuah Khan"
+        <shuah@kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36566 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751352AbdHCPXn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 11:23:43 -0400
-In-Reply-To: <20170803080831.6molm6xv6wngcy7l@hirez.programming.kicks-ass.net>
-Content-Language: en-US
+Received: from mail-wr0-f182.google.com ([209.85.128.182]:34235 "EHLO
+        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751010AbdHCPeq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 11:34:46 -0400
+Received: by mail-wr0-f182.google.com with SMTP id 12so7191246wrb.1
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 08:34:46 -0700 (PDT)
+In-Reply-To: <59833EF2.2040203@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Daniel,
 
-
-On 8/3/17 1:08 AM, Peter Zijlstra wrote:
-> On Wed, Aug 02, 2017 at 10:28:27PM -0700, Yonghong Song wrote:
->> Currently, bpf programs cannot be attached to sys_enter_* and sys_exit_*
->> style tracepoints. The iovisor/bcc issue #748
->> (https://github.com/iovisor/bcc/issues/748) documents this issue.
->> For example, if you try to attach a bpf program to tracepoints
->> syscalls/sys_enter_newfstat, you will get the following error:
->>     # ./tools/trace.py t:syscalls:sys_enter_newfstat
->>     Ioctl(PERF_EVENT_IOC_SET_BPF): Invalid argument
->>     Failed to attach BPF to tracepoint
+On 3 August 2017 at 20:49, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> Hi Sumit,
+>
+> On 08/03/2017 05:09 PM, Sumit Semwal wrote:
 >>
->> The main reason is that syscalls/sys_enter_* and syscalls/sys_exit_*
->> tracepoints are treated differently from other tracepoints and there
->> is no bpf hook to it.
+>> Hello Alexei, Daniel, and the bpf community,
 >>
->> This patch adds bpf support for these syscalls tracepoints by
->>    . permitting bpf attachment in ioctl PERF_EVENT_IOC_SET_BPF
->>    . calling bpf programs in perf_syscall_enter and perf_syscall_exit
+>> As part of trying to improve stable kernels' testing, we're running
+>> ~current kselftests with stable kernels (4.4 and 4.9 for now), and
+>> reporting issues.
+>
+>
+> Thanks for the report, I haven't been tracking the BPF testsuite
+> with stable kernels much so far. I will take a look! Just to clarify,
+> with '~current kselftests' you mean the one in current Linus' tree
+> or the ones corresponding to the 4.4 and 4.9 -stable kernels?
+I meant current Linus's release (4.12) atm.
+
+>
+> Thanks,
+> Daniel
+>
+Best,
+Sumit.
+>
+>> While doing this, we see some failures in the bpf tests - most of them
+>> look like they are due to trying to test missing features.
 >>
->> Signed-off-by: Yonghong Song <yhs@fb.com>
-> 
-> Ack for the perf bits, but you should've Cc'ed steve too I suppose.
+>> In Greg's opinion (and mine too :) ), when tests can't find the
+>> feature they're trying to test, they should 'degrade gracefully', eg
+>> perhaps SKIP instead of FAIL( or core dumps).
+>>
+>> As you guys are the experts in BPF, may I request someone from this
+>> community to look at how can it be achieved with bpf tests?
+>>
+>> Appreciate the help!
+>>
+>> Best regards,
+>> Sumit.
+>>
+>
 
-Thanks, Peter. This is first time I posted for tracing related changes.
-Will for sure remember this next time.
 
-There is a build error:
-======
-    kernel/events/core.c: In function 'perf_event_set_bpf_prog':
- >> kernel/events/core.c:8073:18: error: implicit declaration of 
-function 'is_syscall_trace_event' [-Werror=implicit-function-declaration]
-      is_syscall_tp = is_syscall_trace_event(event->tp_event);
-======
 
-Will address this and send another patch soon.
+--=20
+Thanks and regards,
+
+Sumit Semwal
+Linaro Mobile Group - Kernel Team Lead
+Linaro.org =E2=94=82 Open source software for ARM SoCs
