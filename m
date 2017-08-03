@@ -1,45 +1,63 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH iproute2 net-next] iproute: Display offload indication per-nexthop
-Date: Thu,  3 Aug 2017 09:13:55 +0300
-Message-ID: <20170803061355.6474-1-idosch@mellanox.com>
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: net: thunderx: Buffer overwrite on bgx_probe
+Date: Thu, 3 Aug 2017 13:04:01 +0530
+Message-ID: <CA+sq2CeQB0OSNadQNd5oofmmsNsHtinShe2OZhGBGk6sU5xYkQ@mail.gmail.com>
+References: <86a1b4d9-db67-4380-13c9-f759d2e05ed9@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: stephen@networkplumber.org, jiri@mellanox.com, dsahern@gmail.com,
-        mlxsw@mellanox.com, Ido Schimmel <idosch@mellanox.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50041.outbound.protection.outlook.com ([40.107.5.41]:14829
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751062AbdHCGOR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Aug 2017 02:14:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Sunil Goutham <sgoutham@cavium.com>, ldv-project@linuxtesting.org,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Robert Richter <rric@kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        LAKML <linux-arm-kernel@lists.infradead.org>
+To: Anton Vasilyev <vasilyev@ispras.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <86a1b4d9-db67-4380-13c9-f759d2e05ed9@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since kernel commit 475abbf1ef67 ("ipv4: fib: Set offload indication
-according to nexthop flags") offload indication is reported on a
-per-nexthop basis.
+On Wed, Aug 2, 2017 at 10:29 PM, Anton Vasilyev <vasilyev@ispras.ru> wrote:
+> Hello.
+>
+> While searching for memory errors in Linux kernel I've come across
+> drivers/net/ethernet/cavium/thunder/thunder_bgx.ko module.
+>
+> I've found buffer overwrite at bgx_probe():
+> Consider device PCI_SUBSYS_DEVID_83XX_BGX.
+> max_bgx_per_node is set to 4 by set_max_bgx_per_node().
+> Then on branch:
+>     pci_read_config_word(pdev, PCI_DEVICE_ID, &sdevid);
+>     if (sdevid != PCI_DEVICE_ID_THUNDER_RGX) {
+>         bgx->bgx_id = (pci_resource_start(pdev,
+>             PCI_CFG_REG_BAR_NUM) >> 24) & BGX_ID_MASK;
+>         bgx->bgx_id += nic_get_node_id(pdev) * max_bgx_per_node;
+>
+> bgx->bgx_id could achieve value 3 + 3 * 4 = 15,
 
-Adjust iproute2 to display it.
+No, this will never be the case, the maximum no of NUMA nodes supported
+on these platforms is 2, so the bgx_id will never go beyond 7.
+And the platform 83XX taken as an example deosn't support NUMA, it's only
+88XX which supports NUMA  and maximum no of BGX supported on that is only 2.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
----
- ip/iproute.c | 2 ++
- 1 file changed, 2 insertions(+)
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index cb695ad..39af38c 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -696,6 +696,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 				fprintf(fp, "onlink ");
- 			if (nh->rtnh_flags & RTNH_F_PERVASIVE)
- 				fprintf(fp, "pervasive ");
-+			if (nh->rtnh_flags & RTNH_F_OFFLOAD)
-+				fprintf(fp, "offload ");
- 			if (nh->rtnh_flags & RTNH_F_LINKDOWN)
- 				fprintf(fp, "linkdown ");
- 			len -= NLMSG_ALIGN(nh->rtnh_len);
--- 
-2.9.4
+> which lead to buffer overwrite on
+>         bgx_vnic[bgx->bgx_id] = bgx;
+>
+> Question: is it enough for fix to change bgx_vnic's size?
+>
+> Found by Linux Driver Verification project (linuxtesting.org).
+>
+> --
+> Anton Vasilyev
+> Linux Verification Center, ISPRAS
+> web: http://linuxtesting.org
+> e-mail: vasilyev@ispras.ru
+>
+>
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+
+Thanks,
+Sunil.
