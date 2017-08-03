@@ -1,214 +1,82 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next v2 1/2] bpf: add support for sys_enter_* and
- sys_exit_* tracepoints
-Date: Thu, 3 Aug 2017 10:08:31 +0200
-Message-ID: <20170803080831.6molm6xv6wngcy7l@hirez.programming.kicks-ass.net>
-References: <20170803052828.2303723-1-yhs@fb.com>
- <20170803052828.2303723-2-yhs@fb.com>
+From: "Raj, Ashok" <ashok.raj@intel.com>
+Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
+Date: Thu, 3 Aug 2017 01:31:53 -0700
+Message-ID: <20170803083153.GB4883@otc-nc-03>
+References: <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
+ <0260e398-bd8e-6615-6d5c-1f7c07b6fc09@huawei.com>
+ <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
+ <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
+ <20170724090516.2e0f0d2a@w520.home>
+ <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <75213fca-4522-2297-3cb8-338e643d3552@huawei.com>
+ <CAKgT0UcqdRCwDDxD=22Q_jLuqz8KVHwH1-V45Aq-1WzQw=agcA@mail.gmail.com>
+ <14218972-553d-eb60-0207-460ac7f4b064@huawei.com>
+ <MWHPR12MB1600A6986E4AD13D302F2DC9C8B00@MWHPR12MB1600.namprd12.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ast@fb.com, daniel@iogearbox.net, netdev@vger.kernel.org,
-        kernel-team@fb.com, Steven Rostedt <rostedt@goodmis.org>
-To: Yonghong Song <yhs@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:36647 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750945AbdHCIIl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 04:08:41 -0400
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Alex Williamson <alex.williamson@redhat.com>,
+        Sinan Kaya <okaya@codeaurora.org>,
+        "bhelgaas@google.com" <bhelgaas@google.com>,
+        "helgaas@kernel.org" <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsh
+To: Casey Leedom <leedom@chelsio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170803052828.2303723-2-yhs@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <MWHPR12MB1600A6986E4AD13D302F2DC9C8B00@MWHPR12MB1600.namprd12.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 02, 2017 at 10:28:27PM -0700, Yonghong Song wrote:
-> Currently, bpf programs cannot be attached to sys_enter_* and sys_exit_*
-> style tracepoints. The iovisor/bcc issue #748
-> (https://github.com/iovisor/bcc/issues/748) documents this issue.
-> For example, if you try to attach a bpf program to tracepoints
-> syscalls/sys_enter_newfstat, you will get the following error:
->    # ./tools/trace.py t:syscalls:sys_enter_newfstat
->    Ioctl(PERF_EVENT_IOC_SET_BPF): Invalid argument
->    Failed to attach BPF to tracepoint
-> 
-> The main reason is that syscalls/sys_enter_* and syscalls/sys_exit_*
-> tracepoints are treated differently from other tracepoints and there
-> is no bpf hook to it.
-> 
-> This patch adds bpf support for these syscalls tracepoints by
->   . permitting bpf attachment in ioctl PERF_EVENT_IOC_SET_BPF
->   . calling bpf programs in perf_syscall_enter and perf_syscall_exit
-> 
-> Signed-off-by: Yonghong Song <yhs@fb.com>
+Hi Casey
 
-Ack for the perf bits, but you should've Cc'ed steve too I suppose.
+On Wed, Aug 02, 2017 at 05:53:52PM +0000, Casey Leedom wrote:
+>   Okay, here you go.  As you can tell, it's almost a trivial copy of the
+> cxgb4 patch.
+>  
+>   By the way, I realized that we have yet another hole which is likely not
+> to be fixable.  If we're dealing with a problematic Root Complex, and we
+> instantiate Virtual Functions and attach them to a Virtual Machine along
+> with an NVMe device which can deal with Relaxed Ordering TLPs, the VF driver
+> in the VM will be able to tell that it shouldn't attempt to send RO TLPs to
+> the RC because it will see the state of its own PCIe Capability Device
+> Control[Relaxed Ordering Enable] (a copy of the setting in the VF's
+> corresponding PF), but it won't be able to change that and send non-RO TLPs
+> to the RC, and RO TLPs to the NVMe device.  Oh well.
 
-> ---
->  include/linux/syscalls.h      |  6 +++++
->  kernel/events/core.c          |  8 ++++---
->  kernel/trace/trace_syscalls.c | 53 +++++++++++++++++++++++++++++++++++++++++--
->  3 files changed, 62 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-> index 3cb15ea..00fa3eb 100644
-> --- a/include/linux/syscalls.h
-> +++ b/include/linux/syscalls.h
-> @@ -117,6 +117,12 @@ extern struct trace_event_class event_class_syscall_exit;
->  extern struct trace_event_functions enter_syscall_print_funcs;
->  extern struct trace_event_functions exit_syscall_print_funcs;
->  
-> +static inline int is_syscall_trace_event(struct trace_event_call *tp_event)
-> +{
-> +	return tp_event->class == &event_class_syscall_enter ||
-> +	       tp_event->class == &event_class_syscall_exit;
-> +}
-> +
->  #define SYSCALL_TRACE_ENTER_EVENT(sname)				\
->  	static struct syscall_metadata __syscall_meta_##sname;		\
->  	static struct trace_event_call __used				\
-> diff --git a/kernel/events/core.c b/kernel/events/core.c
-> index 426c2ff..750b8d3 100644
-> --- a/kernel/events/core.c
-> +++ b/kernel/events/core.c
-> @@ -8050,7 +8050,7 @@ static void perf_event_free_bpf_handler(struct perf_event *event)
->  
->  static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
->  {
-> -	bool is_kprobe, is_tracepoint;
-> +	bool is_kprobe, is_tracepoint, is_syscall_tp;
->  	struct bpf_prog *prog;
->  
->  	if (event->attr.type != PERF_TYPE_TRACEPOINT)
-> @@ -8061,7 +8061,8 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
->  
->  	is_kprobe = event->tp_event->flags & TRACE_EVENT_FL_UKPROBE;
->  	is_tracepoint = event->tp_event->flags & TRACE_EVENT_FL_TRACEPOINT;
-> -	if (!is_kprobe && !is_tracepoint)
-> +	is_syscall_tp = is_syscall_trace_event(event->tp_event);
-> +	if (!is_kprobe && !is_tracepoint && !is_syscall_tp)
->  		/* bpf programs can only be attached to u/kprobe or tracepoint */
->  		return -EINVAL;
->  
-> @@ -8070,7 +8071,8 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
->  		return PTR_ERR(prog);
->  
->  	if ((is_kprobe && prog->type != BPF_PROG_TYPE_KPROBE) ||
-> -	    (is_tracepoint && prog->type != BPF_PROG_TYPE_TRACEPOINT)) {
-> +	    (is_tracepoint && prog->type != BPF_PROG_TYPE_TRACEPOINT) ||
-> +	    (is_syscall_tp && prog->type != BPF_PROG_TYPE_TRACEPOINT)) {
->  		/* valid fd, but invalid bpf program type */
->  		bpf_prog_put(prog);
->  		return -EINVAL;
-> diff --git a/kernel/trace/trace_syscalls.c b/kernel/trace/trace_syscalls.c
-> index 5e10395..3bd9e1c 100644
-> --- a/kernel/trace/trace_syscalls.c
-> +++ b/kernel/trace/trace_syscalls.c
-> @@ -559,11 +559,29 @@ static DECLARE_BITMAP(enabled_perf_exit_syscalls, NR_syscalls);
->  static int sys_perf_refcount_enter;
->  static int sys_perf_refcount_exit;
->  
-> +static int perf_call_bpf_enter(struct bpf_prog *prog, struct pt_regs *regs,
-> +			      struct syscall_metadata *sys_data,
-> +			      struct syscall_trace_enter *rec) {
-> +	struct syscall_tp_t {
-> +		unsigned long long regs;
-> +		unsigned long syscall_nr;
-> +		unsigned long args[6]; /* maximum 6 arguments */
-> +	} param;
-> +	int i;
-> +
-> +	*(struct pt_regs **)&param = regs;
-> +	param.syscall_nr = rec->nr;
-> +	for (i = 0; i < sys_data->nb_args && i < 6; i++)
-> +		param.args[i] = rec->args[i];
-> +	return trace_call_bpf(prog, &param);
-> +}
-> +
->  static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
->  {
->  	struct syscall_metadata *sys_data;
->  	struct syscall_trace_enter *rec;
->  	struct hlist_head *head;
-> +	struct bpf_prog *prog;
->  	int syscall_nr;
->  	int rctx;
->  	int size;
-> @@ -578,8 +596,9 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
->  	if (!sys_data)
->  		return;
->  
-> +	prog = READ_ONCE(sys_data->enter_event->prog);
->  	head = this_cpu_ptr(sys_data->enter_event->perf_events);
-> -	if (hlist_empty(head))
-> +	if (!prog && hlist_empty(head))
->  		return;
->  
->  	/* get the size after alignment with the u32 buffer size field */
-> @@ -594,6 +613,13 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
->  	rec->nr = syscall_nr;
->  	syscall_get_arguments(current, regs, 0, sys_data->nb_args,
->  			       (unsigned long *)&rec->args);
-> +
-> +	if ((prog && !perf_call_bpf_enter(prog, regs, sys_data, rec)) ||
-> +	    hlist_empty(head)) {
-> +		perf_swevent_put_recursion_context(rctx);
-> +		return;
-> +	}
-> +
->  	perf_trace_buf_submit(rec, size, rctx,
->  			      sys_data->enter_event->event.type, 1, regs,
->  			      head, NULL);
-> @@ -633,11 +659,26 @@ static void perf_sysenter_disable(struct trace_event_call *call)
->  	mutex_unlock(&syscall_trace_lock);
->  }
->  
-> +static int perf_call_bpf_exit(struct bpf_prog *prog, struct pt_regs *regs,
-> +			      struct syscall_trace_exit *rec) {
-> +	struct syscall_tp_t {
-> +		unsigned long long regs;
-> +		unsigned long syscall_nr;
-> +		unsigned long ret;
-> +	} param;
-> +
-> +	*(struct pt_regs **)&param = regs;
-> +	param.syscall_nr = rec->nr;
-> +	param.ret = rec->ret;
-> +	return trace_call_bpf(prog, &param);
-> +}
-> +
->  static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
->  {
->  	struct syscall_metadata *sys_data;
->  	struct syscall_trace_exit *rec;
->  	struct hlist_head *head;
-> +	struct bpf_prog *prog;
->  	int syscall_nr;
->  	int rctx;
->  	int size;
-> @@ -652,8 +693,9 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
->  	if (!sys_data)
->  		return;
->  
-> +	prog = READ_ONCE(sys_data->exit_event->prog);
->  	head = this_cpu_ptr(sys_data->exit_event->perf_events);
-> -	if (hlist_empty(head))
-> +	if (!prog && hlist_empty(head))
->  		return;
->  
->  	/* We can probably do that at build time */
-> @@ -666,6 +708,13 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
->  
->  	rec->nr = syscall_nr;
->  	rec->ret = syscall_get_return_value(current, regs);
-> +
-> +	if ((prog && !perf_call_bpf_exit(prog, regs, rec)) ||
-> +	    hlist_empty(head)) {
-> +		perf_swevent_put_recursion_context(rctx);
-> +		return;
-> +	}
-> +
->  	perf_trace_buf_submit(rec, size, rctx, sys_data->exit_event->event.type,
->  			      1, regs, head, NULL);
->  }
-> -- 
-> 2.9.4
-> 
+I don't understand this completely.. So your driver would know not to send RO
+TLP's to root complex. But you want to send RO to the NVMe device? This is the
+peer-2-peer case correct?
+
+The issue in the current patchset is that we device to turn off the device 
+capability for all devices in the hierarchy so one would expect that 
+the NVMe also would have RO turned off i suppose. 
+
+The other approach is to not turn off the device capabilty, but let the
+driver do the right thing. i.e for transactions towards system memory vs. 
+peer-2-peer? But since we wanted to take a big hammer approach because
+some platforms there can be data-corruption and we can't let trust guest
+drivers to do the right thing. This isn't something we can fix in this 
+current version.
+
+One possible approach is to provide a strict flag, where we use this heavy 
+hammer approach only on platforms that have a serious implication, and the 
+other is we let the driver do the right thing depending on the platform.
+
+Worst case if the driver doesn't do the right thing, you would see perf issues
+but nothing bad would happen. It would allow you to select when to turn on 
+RO and when to turn it off.
+
+Cheers,
+Ashok
