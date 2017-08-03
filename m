@@ -1,7 +1,7 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 14/14] sctp: remove the typedef sctp_auth_chunk_t
-Date: Thu,  3 Aug 2017 15:42:22 +0800
-Message-ID: <374643eb449c9ec7392926d06fa3aade318b7cba.1501745729.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 13/14] sctp: remove the typedef sctp_authhdr_t
+Date: Thu,  3 Aug 2017 15:42:21 +0800
+Message-ID: <99eaf082a43fa5cd141ad9e25b9a7de3f33d69b7.1501745729.git.lucien.xin@gmail.com>
 References: <cover.1501745729.git.lucien.xin@gmail.com>
  <8149f8b0a190eb047abfe48a7fa79ba74e4e4544.1501745729.git.lucien.xin@gmail.com>
  <457c0c30e478f1ead75d3606e17519ca23daddfc.1501745729.git.lucien.xin@gmail.com>
@@ -15,97 +15,79 @@ References: <cover.1501745729.git.lucien.xin@gmail.com>
  <9ee006c5a40a15372502d1e2458b8f9f568ceb2e.1501745729.git.lucien.xin@gmail.com>
  <5374e7c1ae3374fc375f56b48893aa5c3c0208bf.1501745729.git.lucien.xin@gmail.com>
  <9e2aee0b88d26c3a5c041864d46fb0ebde965e11.1501745729.git.lucien.xin@gmail.com>
- <99eaf082a43fa5cd141ad9e25b9a7de3f33d69b7.1501745729.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:38142 "EHLO
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34053 "EHLO
         mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751245AbdHCHoo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 03:44:44 -0400
-In-Reply-To: <99eaf082a43fa5cd141ad9e25b9a7de3f33d69b7.1501745729.git.lucien.xin@gmail.com>
+        with ESMTP id S1751245AbdHCHol (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 03:44:41 -0400
+In-Reply-To: <9e2aee0b88d26c3a5c041864d46fb0ebde965e11.1501745729.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1501745729.git.lucien.xin@gmail.com>
 References: <cover.1501745729.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to remove the typedef sctp_auth_chunk_t, and
-replace with struct sctp_auth_chunk in the places where it's
+This patch is to remove the typedef sctp_authhdr_t, and
+replace with struct sctp_authhdr in the places where it's
 using this typedef.
 
 It is also to use sizeof(variable) instead of sizeof(type).
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/linux/sctp.h    | 4 ++--
- net/sctp/chunk.c        | 2 +-
- net/sctp/sm_statefuns.c | 9 +++++----
- 3 files changed, 8 insertions(+), 7 deletions(-)
+ include/linux/sctp.h     | 6 +++---
+ net/sctp/sm_make_chunk.c | 8 ++++----
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-index b7603f5..82b171e 100644
+index e7b439e..b7603f5 100644
 --- a/include/linux/sctp.h
 +++ b/include/linux/sctp.h
-@@ -699,10 +699,10 @@ struct sctp_authhdr {
+@@ -693,15 +693,15 @@ struct sctp_addip_chunk {
+  *   HMAC: n bytes (unsigned integer) This hold the result of the HMAC
+  *      calculation.
+  */
+-typedef struct sctp_authhdr {
++struct sctp_authhdr {
+ 	__be16 shkey_id;
+ 	__be16 hmac_id;
  	__u8   hmac[0];
- };
- 
--typedef struct sctp_auth_chunk {
-+struct sctp_auth_chunk {
- 	struct sctp_chunkhdr chunk_hdr;
- 	struct sctp_authhdr auth_hdr;
--} sctp_auth_chunk_t;
+-} sctp_authhdr_t;
 +};
  
+ typedef struct sctp_auth_chunk {
+ 	struct sctp_chunkhdr chunk_hdr;
+-	sctp_authhdr_t auth_hdr;
++	struct sctp_authhdr auth_hdr;
+ } sctp_auth_chunk_t;
+ 
  struct sctp_infox {
- 	struct sctp_info *sctpinfo;
-diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-index 681b181..3afac27 100644
---- a/net/sctp/chunk.c
-+++ b/net/sctp/chunk.c
-@@ -201,7 +201,7 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
- 		struct sctp_hmac *hmac_desc = sctp_auth_asoc_get_hmac(asoc);
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index ae54c6e..d17e8d1 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1282,16 +1282,16 @@ struct sctp_chunk *sctp_make_auth(const struct sctp_association *asoc)
+ 		return NULL;
  
- 		if (hmac_desc)
--			max_data -= SCTP_PAD4(sizeof(sctp_auth_chunk_t) +
-+			max_data -= SCTP_PAD4(sizeof(struct sctp_auth_chunk) +
- 					      hmac_desc->hmac_len);
- 	}
+ 	retval = sctp_make_control(asoc, SCTP_CID_AUTH, 0,
+-			hmac_desc->hmac_len + sizeof(sctp_authhdr_t),
+-			GFP_ATOMIC);
++				   hmac_desc->hmac_len + sizeof(auth_hdr),
++				   GFP_ATOMIC);
+ 	if (!retval)
+ 		return NULL;
  
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 9c235bb..8af90a5 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -4093,7 +4093,7 @@ static sctp_ierror_t sctp_sf_authenticate(struct net *net,
- 	/* Pull in the auth header, so we can do some more verification */
- 	auth_hdr = (struct sctp_authhdr *)chunk->skb->data;
- 	chunk->subh.auth_hdr = auth_hdr;
--	skb_pull(chunk->skb, sizeof(struct sctp_authhdr));
-+	skb_pull(chunk->skb, sizeof(*auth_hdr));
+ 	auth_hdr.hmac_id = htons(hmac_desc->hmac_id);
+ 	auth_hdr.shkey_id = htons(asoc->active_key_id);
  
- 	/* Make sure that we support the HMAC algorithm from the auth
- 	 * chunk.
-@@ -4112,7 +4112,8 @@ static sctp_ierror_t sctp_sf_authenticate(struct net *net,
- 	/* Make sure that the length of the signature matches what
- 	 * we expect.
- 	 */
--	sig_len = ntohs(chunk->chunk_hdr->length) - sizeof(sctp_auth_chunk_t);
-+	sig_len = ntohs(chunk->chunk_hdr->length) -
-+		  sizeof(struct sctp_auth_chunk);
- 	hmac = sctp_auth_get_hmac(ntohs(auth_hdr->hmac_id));
- 	if (sig_len != hmac->hmac_len)
- 		return SCTP_IERROR_PROTO_VIOLATION;
-@@ -4134,8 +4135,8 @@ static sctp_ierror_t sctp_sf_authenticate(struct net *net,
- 	memset(digest, 0, sig_len);
+-	retval->subh.auth_hdr = sctp_addto_chunk(retval, sizeof(sctp_authhdr_t),
+-						&auth_hdr);
++	retval->subh.auth_hdr = sctp_addto_chunk(retval, sizeof(auth_hdr),
++						 &auth_hdr);
  
- 	sctp_auth_calculate_hmac(asoc, chunk->skb,
--				(struct sctp_auth_chunk *)chunk->chunk_hdr,
--				GFP_ATOMIC);
-+				 (struct sctp_auth_chunk *)chunk->chunk_hdr,
-+				 GFP_ATOMIC);
+ 	hmac = skb_put_zero(retval->skb, hmac_desc->hmac_len);
  
- 	/* Discard the packet if the digests do not match */
- 	if (memcmp(save_digest, digest, sig_len)) {
 -- 
 2.1.0
