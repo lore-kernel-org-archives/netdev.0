@@ -1,63 +1,53 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: net: thunderx: Buffer overwrite on bgx_probe
-Date: Thu, 3 Aug 2017 13:04:01 +0530
-Message-ID: <CA+sq2CeQB0OSNadQNd5oofmmsNsHtinShe2OZhGBGk6sU5xYkQ@mail.gmail.com>
-References: <86a1b4d9-db67-4380-13c9-f759d2e05ed9@ispras.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Sunil Goutham <sgoutham@cavium.com>, ldv-project@linuxtesting.org,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Robert Richter <rric@kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        LAKML <linux-arm-kernel@lists.infradead.org>
-To: Anton Vasilyev <vasilyev@ispras.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <86a1b4d9-db67-4380-13c9-f759d2e05ed9@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next 00/14] sctp: remove typedefs from structures part 4
+Date: Thu,  3 Aug 2017 15:42:08 +0800
+Message-ID: <cover.1501745729.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36743 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751032AbdHCHmb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 03:42:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 2, 2017 at 10:29 PM, Anton Vasilyev <vasilyev@ispras.ru> wrote:
-> Hello.
->
-> While searching for memory errors in Linux kernel I've come across
-> drivers/net/ethernet/cavium/thunder/thunder_bgx.ko module.
->
-> I've found buffer overwrite at bgx_probe():
-> Consider device PCI_SUBSYS_DEVID_83XX_BGX.
-> max_bgx_per_node is set to 4 by set_max_bgx_per_node().
-> Then on branch:
->     pci_read_config_word(pdev, PCI_DEVICE_ID, &sdevid);
->     if (sdevid != PCI_DEVICE_ID_THUNDER_RGX) {
->         bgx->bgx_id = (pci_resource_start(pdev,
->             PCI_CFG_REG_BAR_NUM) >> 24) & BGX_ID_MASK;
->         bgx->bgx_id += nic_get_node_id(pdev) * max_bgx_per_node;
->
-> bgx->bgx_id could achieve value 3 + 3 * 4 = 15,
+As we know, typedef is suggested not to use in kernel, even checkpatch.pl
+also gives warnings about it. Now sctp is using it for many structures.
 
-No, this will never be the case, the maximum no of NUMA nodes supported
-on these platforms is 2, so the bgx_id will never go beyond 7.
-And the platform 83XX taken as an example deosn't support NUMA, it's only
-88XX which supports NUMA  and maximum no of BGX supported on that is only 2.
+All this kind of typedef's using should be removed. This patchset is the
+part 4 to remove it for another 14 basic structures from linux/sctp.h.
+After this patchset, all typedefs are cleaned in linux/sctp.h.
 
+Just as the part 1-3, No any code's logic would be changed in these patches,
+only cleaning up.
 
-> which lead to buffer overwrite on
->         bgx_vnic[bgx->bgx_id] = bgx;
->
-> Question: is it enough for fix to change bgx_vnic's size?
->
-> Found by Linux Driver Verification project (linuxtesting.org).
->
-> --
-> Anton Vasilyev
-> Linux Verification Center, ISPRAS
-> web: http://linuxtesting.org
-> e-mail: vasilyev@ispras.ru
->
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+Xin Long (14):
+  sctp: remove the typedef sctp_shutdownhdr_t
+  sctp: fix the name of struct sctp_shutdown_chunk_t
+  sctp: remove the typedef sctp_errhdr_t
+  sctp: remove the typedef sctp_operr_chunk_t
+  sctp: remove the typedef sctp_error_t
+  sctp: remove the typedef sctp_ecnehdr_t
+  sctp: remove the typedef sctp_ecne_chunk_t
+  sctp: remove the typedef sctp_cwrhdr_t
+  sctp: remove the typedef sctp_cwr_chunk_t
+  sctp: remove the typedef sctp_addip_param_t
+  sctp: remove the typedef sctp_addiphdr_t
+  sctp: remove the typedef sctp_addip_chunk_t
+  sctp: remove the typedef sctp_authhdr_t
+  sctp: remove the typedef sctp_auth_chunk_t
 
-Thanks,
-Sunil.
+ include/linux/sctp.h     |  69 +++++++++++++--------------
+ include/net/sctp/sctp.h  |   8 ++--
+ net/sctp/chunk.c         |   2 +-
+ net/sctp/input.c         |   2 +-
+ net/sctp/sm_make_chunk.c | 119 ++++++++++++++++++++++++-----------------------
+ net/sctp/sm_sideeffect.c |   2 +-
+ net/sctp/sm_statefuns.c  | 107 ++++++++++++++++++++++--------------------
+ net/sctp/ulpevent.c      |  10 ++--
+ 8 files changed, 162 insertions(+), 157 deletions(-)
+
+-- 
+2.1.0
