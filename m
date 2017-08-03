@@ -1,72 +1,159 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH v2 net-next 2/3] net: dsa: lan9303: define
- LAN9303_NUM_PORTS 3
-Date: Thu, 3 Aug 2017 11:53:23 +0200
-Message-ID: <2ab66f40-bbb4-151f-349c-8691e707e936@egil-hjelmeland.no>
-References: <20170801111439.1143-1-privat@egil-hjelmeland.no>
- <20170801111439.1143-3-privat@egil-hjelmeland.no>
- <201708011349.52529.jbe@pengutronix.de>
- <10b6b9fc-d2f9-1761-802f-724d9f6b3df1@egil-hjelmeland.no>
- <20170801132728.GA23157@lunn.ch>
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Subject: [PATCH V3 net-next 00/21] Huawei HiNIC Ethernet Driver
+Date: Thu, 3 Aug 2017 17:54:06 +0800
+Message-ID: <cover.1501752425.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Juergen Borleis <jbe@pengutronix.de>, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
+        <aviad.krawczyk@huawei.com>, <zhaochen6@huawei.com>,
+        <tony.qu@huawei.com>
+To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170801132728.GA23157@lunn.ch>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01. aug. 2017 15:27, Andrew Lunn wrote:
-> On Tue, Aug 01, 2017 at 02:31:44PM +0200, Egil Hjelmeland wrote:
->> On 01. aug. 2017 13:49, Juergen Borleis wrote:
->>> Hi Egil,
->>>
->>> On Tuesday 01 August 2017 13:14:38 Egil Hjelmeland wrote:
->>>> Will be used instead of '3' in upcomming patches.
->>>>
->>>>
->>>> +#define LAN9303_NUM_PORTS 3
->>>> +
->>>
->>> Maybe we should put this macro into a shared location because
->>> in "net/dsa/tag_lan9303.c" there is already a "#define LAN9303_MAX_PORTS
->>> 3".
->>>
->>> jb
->>>
->>
->> Is there any suitable shared location for such driver specific
->> definitions?
->> I could change the name to LAN9303_MAX_PORTS so it the same.
->> Rhymes better with DSA_MAX_PORTS too.
-> 
-> Hi Egil, Juergen
-> 
-> The other tag drivers do:
-> 
->          if (source_port >= ds->num_ports || !ds->ports[source_port].netdev)
->                  return NULL;
-> 
-> or just
-> 
->          if (!ds->ports[port].netdev)
->                  return NULL;
-> 
-> The first version is the safest, since a malicious switch could return
-> port 42, and you are accessing way off the end of ds->ports[]. It does
-> however require you call dsa_switch_alloc() with the correct number of
-> ports.
-> 
->       Andrew
-> 
+The patch-set contains the support of the HiNIC Ethernet driver for
+hinic family of PCIE Network Interface Cards.
 
-Related question: If the driver does dsa_switch_alloc(3), can it then
-trust that all "port" params passed in DSA methods will be between
-0 and 2?
+The Huawei's PCIE HiNIC card is a new Ethernet card and hence there was
+a need of a new driver.
 
-Egil
+The current driver is meant to be used for the Physical Function and there
+would soon be a support for Virtual Function and more features once the
+basic PF driver has been accepted.
+
+Changes V2 -> V3:
+1. replace dev_ functions by netif_ functions - Joe Perches comment
+	https://lkml.org/lkml/2017/7/19/424
+2. Fix the driver directory in MAINTAINERS file - Sergei Shtylyov comment
+	https://lkml.org/lkml/2017/7/19/615
+3. Add newline at the end of Makefile - David Miller comment
+	https://lkml.org/lkml/2017/7/19/1345
+4. Return a pointer as a val instead of in arg - Francois Romieu comment
+	https://lkml.org/lkml/2017/7/19/1319
+5. Change the error labels to err_xyz - Francois Romieu comment
+	https://lkml.org/lkml/2017/7/19/1319
+6. Remove check of Func Type in free function - Francois Romieu comment
+	https://lkml.org/lkml/2017/7/19/1319
+7. Remove !netdev check in remove function - Francois Romieu comment
+	https://lkml.org/lkml/2017/7/19/1319
+8. Use module_pci_driver - Francois Romieu comment
+	https://lkml.org/lkml/2017/7/19/1319
+9. Move the PCI device ID to the .c file - Francois Romieu comment
+	https://lkml.org/lkml/2017/7/19/1319
+10. Remove void * to avoid passing wrong ptr - Francois Romieu comment
+	https://lkml.org/lkml/2017/7/19/1319
+
+Changes V1 -> V2:
+1. remove driver version - Andrew Lunn comment
+	https://lkml.org/lkml/2017/7/12/372
+2. replace kzalloc by devm_kzalloc for short clean - Andrew Lunn comment
+	https://lkml.org/lkml/2017/7/12/372
+3. replace pr_ functions by dev_ functions - Andrew Lunn comment
+	https://lkml.org/lkml/2017/7/12/375
+4. seperate last patch by moving ops to a new patch - Andrew Lunn comment
+	https://lkml.org/lkml/2017/7/12/377
+
+Aviad Krawczyk (21):
+  net-next/hinic: Initialize hw interface
+  net-next/hinic: Initialize hw device components
+  net-next/hinic: Initialize api cmd resources
+  net-next/hinic: Initialize api cmd hw
+  net-next/hinic: Add management messages
+  net-next/hinic: Add api cmd commands
+  net-next/hinic: Add aeqs
+  net-next/hinic: Add port management commands
+  net-next/hinic: Add Rx mode and link event handler
+  net-next/hinic: Add logical Txq and Rxq
+  net-next/hinic: Add wq
+  net-next/hinic: Add qp resources
+  net-next/hinic: Set qp context
+  net-next/hinic: Initialize cmdq
+  net-next/hinic: Add ceqs
+  net-next/hinic: Add cmdq commands
+  net-next/hinic: Add cmdq completion handler
+  net-next/hinic: Add Rx handler
+  net-next/hinic: Add Tx operation
+  net-next/hinic: Add ethtool and stats
+  net-next/hinic: Add select_queue and netpoll
+
+ Documentation/networking/hinic.txt                 |  125 +++
+ MAINTAINERS                                        |    7 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/huawei/Kconfig                |   19 +
+ drivers/net/ethernet/huawei/Makefile               |    5 +
+ drivers/net/ethernet/huawei/hinic/Kconfig          |   13 +
+ drivers/net/ethernet/huawei/hinic/Makefile         |    6 +
+ drivers/net/ethernet/huawei/hinic/hinic_common.c   |   80 ++
+ drivers/net/ethernet/huawei/hinic/hinic_common.h   |   38 +
+ drivers/net/ethernet/huawei/hinic/hinic_dev.h      |   64 ++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   |  975 +++++++++++++++++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |  208 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c  |  949 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h  |  187 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |  149 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c   | 1052 ++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h   |  239 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c   |  877 +++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h   |  265 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.c    |  353 ++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.h    |  272 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.c    |  542 ++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.h    |   97 ++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c  |  598 ++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h  |  153 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.c    |  874 +++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h    |  179 +++
+ .../net/ethernet/huawei/hinic/hinic_hw_qp_ctxt.h   |  214 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c    |  886 +++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h    |  117 ++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h   |  368 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_main.c     | 1139 ++++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.c     |  403 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.h     |  198 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.c       |  520 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.h       |   55 +
+ drivers/net/ethernet/huawei/hinic/hinic_tx.c       |  516 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_tx.h       |   62 ++
+ 39 files changed, 12806 insertions(+)
+ create mode 100644 Documentation/networking/hinic.txt
+ create mode 100644 drivers/net/ethernet/huawei/Kconfig
+ create mode 100644 drivers/net/ethernet/huawei/Makefile
+ create mode 100644 drivers/net/ethernet/huawei/hinic/Kconfig
+ create mode 100644 drivers/net/ethernet/huawei/hinic/Makefile
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_dev.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_io.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_io.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp_ctxt.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_main.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_rx.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_rx.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_tx.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_tx.h
+
+-- 
+1.9.1
