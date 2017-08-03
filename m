@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 net-next 02/21] net-next/hinic: Initialize hw device
- components
-Date: Thu, 03 Aug 2017 15:34:28 -0700 (PDT)
-Message-ID: <20170803.153428.1458452200774139189.davem@davemloft.net>
+Subject: Re: [PATCH V3 net-next 03/21] net-next/hinic: Initialize api cmd
+ resources
+Date: Thu, 03 Aug 2017 15:35:13 -0700 (PDT)
+Message-ID: <20170803.153513.1478323340993171697.davem@davemloft.net>
 References: <cover.1501752425.git.aviad.krawczyk@huawei.com>
-        <f15df6eed91d1a2b05864be90928b8e778d270e2.1501752425.git.aviad.krawczyk@huawei.com>
+        <18d3bfccc0eb9c7da53075c6fe2ba9aa583e0bff.1501752425.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,36 +12,53 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
         bc.y@huawei.com, victor.gissin@huawei.com, zhaochen6@huawei.com,
         tony.qu@huawei.com
 To: aviad.krawczyk@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50394 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752100AbdHCWe3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 18:34:29 -0400
-In-Reply-To: <f15df6eed91d1a2b05864be90928b8e778d270e2.1501752425.git.aviad.krawczyk@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <18d3bfccc0eb9c7da53075c6fe2ba9aa583e0bff.1501752425.git.aviad.krawczyk@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Date: Thu, 3 Aug 2017 17:54:08 +0800
+Date: Thu, 3 Aug 2017 17:54:09 +0800
 
-> +static int get_capability(struct hinic_hwdev *hwdev,
-> +			  struct hinic_dev_cap *dev_cap)
+> +static int alloc_cmd_buf(struct hinic_api_cmd_chain *chain,
+> +			 struct hinic_api_cmd_cell *cell, int cell_idx)
 > +{
-> +	struct hinic_hwif *hwif = hwdev->hwif;
-> +	struct hinic_cap *nic_cap = &hwdev->nic_cap;
-> +	int num_aeqs, num_ceqs, num_irqs, num_qps;
-
-Please order local variable declarations from longest to shortest
-line (aka: reverse christmas tree order).
-
-Move the initialization down into the code if that is necessary
-to achiever this.
-
-> +static int get_dev_cap(struct hinic_hwdev *hwdev)
-> +{
-> +	struct hinic_pfhwdev *pfhwdev;
-> +	struct hinic_hwif *hwif = hwdev->hwif;
+> +	struct hinic_hwif *hwif = chain->hwif;
 > +	struct pci_dev *pdev = hwif->pdev;
+> +	struct hinic_api_cmd_cell_ctxt *cell_ctxt;
+> +	dma_addr_t cmd_paddr;
+> +	u8 *cmd_vaddr;
+> +	int err = 0;
+
+Order local variables from longest to shortest line.
+
+> +static int api_cmd_create_cell(struct hinic_api_cmd_chain *chain,
+> +			       int cell_idx,
+> +			       struct hinic_api_cmd_cell *pre_node,
+> +			       struct hinic_api_cmd_cell **node_vaddr)
+> +{
+> +	struct hinic_hwif *hwif = chain->hwif;
+> +	struct pci_dev *pdev = hwif->pdev;
+> +	struct hinic_api_cmd_cell_ctxt *cell_ctxt;
+> +	struct hinic_api_cmd_cell *node;
+> +	dma_addr_t node_paddr;
 > +	int err;
 
 Likewise.
+> +static void api_cmd_destroy_cell(struct hinic_api_cmd_chain *chain,
+> +				 int cell_idx)
+> +{
+> +	struct hinic_hwif *hwif = chain->hwif;
+> +	struct pci_dev *pdev = hwif->pdev;
+> +	struct hinic_api_cmd_cell_ctxt *cell_ctxt;
+> +	struct hinic_api_cmd_cell *node;
+> +	dma_addr_t node_paddr;
+> +	size_t node_size;
+
+Likewise.
+
+etc. etc. etc.
+
+Please audit your entire submission for this problem.
+
+Thanks.
