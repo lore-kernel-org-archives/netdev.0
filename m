@@ -1,48 +1,34 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [01/11] rtlwifi: rtl8192de: constify pci_device_id.
-Date: Thu,  3 Aug 2017 10:06:46 +0000 (UTC)
-Message-ID: <20170803100647.2B7CA606DC@smtp.codeaurora.org>
-References: <1500314995-3181-2-git-send-email-arvind.yadav.cs@gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [net] hostap: Fix outdated comment about dev->destructor
+Date: Thu,  3 Aug 2017 10:08:54 +0000 (UTC)
+Message-ID: <20170803100854.D9AE560763@smtp.codeaurora.org>
+References: <0824ed85fd45846da65fc919ae22df9d7ebf2f97.1501150507.git.sbrivio@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1500314995-3181-2-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Jouni Malinen <j@w1.fi>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stefano Brivio <sbrivio-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <0824ed85fd45846da65fc919ae22df9d7ebf2f97.1501150507.git.sbrivio-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Arvind Yadav <arvind.yadav.cs@gmail.com> wrote:
+Stefano Brivio <sbrivio-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
 
-> pci_device_id are not supposed to change at runtime. All functions
-> working with pci_device_id provided by <linux/pci.h> work with
-> const pci_device_id. So mark the non-const structs as const.
+> After commit cf124db566e6 ("net: Fix inconsistent teardown and
+> release of private netdev state."), setting
+> 'dev->needs_free_netdev' ensures device data is released, and
+> 'dev->destructor' is not used anymore.
 > 
-> File size before:
->    text	   data	    bss	    dec	    hex	filename
->    2833	    945	     12	   3790	    ece realtek/rtlwifi/rtl8192de/sw.o
-> 
-> File size After adding 'const':
->    text	   data	    bss	    dec	    hex	filename
->    2929	    849	     12	   3790	    ece realtek/rtlwifi/rtl8192de/sw.o
-> 
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
-> Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Fixes: cf124db566e6 ("net: Fix inconsistent teardown and release of private netdev state.")
+> Signed-off-by: Stefano Brivio <sbrivio-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-7 patches applied to wireless-drivers-next.git, thanks.
+Patch applied to wireless-drivers-next.git, thanks.
 
-d86d8dbdebcc rtlwifi: rtl8192de: constify pci_device_id.
-67f512e6707f rtlwifi: rtl8192se: constify pci_device_id.
-468952f14714 rtlwifi: rtl8821ae: constify pci_device_id.
-e9a214def6ce rtlwifi: rtl8723ae: constify pci_device_id.
-8c6f0f5bf1e1 rtlwifi: rtl8723be: constify pci_device_id.
-4dc2efc132a7 rtlwifi: rtl8188ee: constify pci_device_id.
-d20d893d7a74 rtlwifi: rtl8192ee: constify pci_device_id.
+9ff067ff4c4a hostap: Fix outdated comment about dev->destructor
 
 -- 
-https://patchwork.kernel.org/patch/9845899/
+https://patchwork.kernel.org/patch/9866663/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
