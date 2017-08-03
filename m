@@ -1,53 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next] iproute: Display offload indication
- per-nexthop
-Date: Thu, 3 Aug 2017 09:16:15 -0700
-Message-ID: <20170803091615.3ef64de1@xeon-e3>
-References: <20170803061355.6474-1-idosch@mellanox.com>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: [PATCH v4 net-next 13/13] bpf/verifier: increase
+ complexity limit to 128k
+Date: Thu, 3 Aug 2017 17:16:24 +0100
+Message-ID: <059b056e-178a-da21-cc68-47802eba29a3@solarflare.com>
+References: <22441d84-0a11-5c00-2d2a-25e7dbafa6c2@solarflare.com>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, dsahern@gmail.com,
-        mlxsw@mellanox.com
-To: Ido Schimmel <idosch@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:35690 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751010AbdHCQQR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 12:16:17 -0400
-Received: by mail-pf0-f173.google.com with SMTP id t86so8162692pfe.2
-        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 09:16:17 -0700 (PDT)
-In-Reply-To: <20170803061355.6474-1-idosch@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <22441d84-0a11-5c00-2d2a-25e7dbafa6c2-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu,  3 Aug 2017 09:13:55 +0300
-Ido Schimmel <idosch@mellanox.com> wrote:
+The more detailed value tracking can reduce the effectiveness of pruning
+ for some programs.  So, to avoid rejecting previously valid programs, up
+ the limit to 128kinsns.  Hopefully we will be able to bring this back
+ down later by improving pruning performance.
 
-> Since kernel commit 475abbf1ef67 ("ipv4: fib: Set offload indication
-> according to nexthop flags") offload indication is reported on a
-> per-nexthop basis.
-> 
-> Adjust iproute2 to display it.
-> 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  ip/iproute.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index cb695ad..39af38c 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -696,6 +696,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
->  				fprintf(fp, "onlink ");
->  			if (nh->rtnh_flags & RTNH_F_PERVASIVE)
->  				fprintf(fp, "pervasive ");
-> +			if (nh->rtnh_flags & RTNH_F_OFFLOAD)
-> +				fprintf(fp, "offload ");
->  			if (nh->rtnh_flags & RTNH_F_LINKDOWN)
->  				fprintf(fp, "linkdown ");
->  			len -= NLMSG_ALIGN(nh->rtnh_len);
+Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+---
+ kernel/bpf/verifier.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Yet another set of flags that needs to be table driven..
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 2924b01..2cc3894 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -140,7 +140,7 @@ struct bpf_verifier_stack_elem {
+ 	struct bpf_verifier_stack_elem *next;
+ };
+ 
+-#define BPF_COMPLEXITY_LIMIT_INSNS	98304
++#define BPF_COMPLEXITY_LIMIT_INSNS	131072
+ #define BPF_COMPLEXITY_LIMIT_STACK	1024
+ 
+ #define BPF_MAP_PTR_POISON ((void *)0xeB9F + POISON_POINTER_DELTA)
