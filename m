@@ -1,30 +1,118 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net-next 2/3] net: dsa: lan9303: define
- LAN9303_NUM_PORTS 3
-Date: Thu, 3 Aug 2017 15:33:06 +0200
-Message-ID: <20170803133306.GF15018@lunn.ch>
-References: <20170801111439.1143-1-privat@egil-hjelmeland.no>
- <20170801111439.1143-3-privat@egil-hjelmeland.no>
- <201708011349.52529.jbe@pengutronix.de>
- <10b6b9fc-d2f9-1761-802f-724d9f6b3df1@egil-hjelmeland.no>
- <20170801132728.GA23157@lunn.ch>
- <2ab66f40-bbb4-151f-349c-8691e707e936@egil-hjelmeland.no>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH v8 0/4] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Thu, 3 Aug 2017 21:44:45 +0800
+Message-ID: <1501767889-7772-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Juergen Borleis <jbe@pengutronix.de>, kernel@pengutronix.de,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Content-Type: text/plain
+Cc: Ding Tianhong <dingtianhong@huawei.com>
+To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <bhelgaas@google.com>,
+        <helgaas@kernel.org>, <werner@chelsio.com>, <ganeshgr@chelsio.com>,
+        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
+        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
+        <l.stach@pengutronix.de>, <amira@mellanox.com>,
+        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
+        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
+        <will.deacon@arm.com>, <mark.rutland@arm.com>,
+        <robin.murphy@arm.com>, <davem@davemloft.net>,
+        <alexander.duyck@gmail.com>,
+        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linuxarm@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2ab66f40-bbb4-151f-349c-8691e707e936@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Related question: If the driver does dsa_switch_alloc(3), can it then
-> trust that all "port" params passed in DSA methods will be between
-> 0 and 2?
+Some devices have problems with Transaction Layer Packets with the Relaxed
+Ordering Attribute set.  This patch set adds a new PCIe Device Flag,
+PCI_DEV_FLAGS_NO_RELAXED_ORDERING, a set of PCI Quirks to catch some known
+devices with Relaxed Ordering issues, and a use of this new flag by the
+cxgb4 driver to avoid using Relaxed Ordering with problematic Root Complex
+Ports.
 
-Yes.
+It's been years since I've submitted kernel.org patches, I appolgise for the
+almost certain submission errors.
 
-	Andrew
+v2: Alexander point out that the v1 was only a part of the whole solution,
+    some platform which has some issues could use the new flag to indicate
+    that it is not safe to enable relaxed ordering attribute, then we need
+    to clear the relaxed ordering enable bits in the PCI configuration when
+    initializing the device. So add a new second patch to modify the PCI
+    initialization code to clear the relaxed ordering enable bit in the
+    event that the root complex doesn't want relaxed ordering enabled.
+
+    The third patch was base on the v1's second patch and only be changed
+    to query the relaxed ordering enable bit in the PCI configuration space
+    to allow the Chelsio NIC to send TLPs with the relaxed ordering attributes
+    set.
+
+    This version didn't plan to drop the defines for Intel Drivers to use the
+    new checking way to enable relaxed ordering because it is not the hardest
+    part of the moment, we could fix it in next patchset when this patches
+    reach the goal.
+
+v3: Redesigned the logic for pci_configure_relaxed_ordering when configuration,
+    If a PCIe device didn't enable the relaxed ordering attribute default,
+    we should not do anything in the PCIe configuration, otherwise we
+    should check if any of the devices above us do not support relaxed
+    ordering by the PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag, then base on
+    the result if we get a return that indicate that the relaxed ordering
+    is not supported we should update our device to disable relaxed ordering
+    in configuration space. If the device above us doesn't exist or isn't
+    the PCIe device, we shouldn't do anything and skip updating relaxed ordering
+    because we are probably running in a guest.
+
+v4: Rename the functions pcie_get_relaxed_ordering and pcie_disable_relaxed_ordering
+    according John's suggestion, and modify the description, use the true/false
+    as the return value.
+
+    We shouldn't enable relaxed ordering attribute by the setting in the root
+    complex configuration space for PCIe device, so fix it for cxgb4.
+
+    Fix some format issues.
+
+v5: Removed the unnecessary code for some function which only return the bool
+    value, and add the check for VF device.
+
+    Make this patch set base on 4.12-rc5.
+
+v6: Fix the logic error in the need to enable the relaxed ordering attribute for cxgb4.
+
+v7: The cxgb4 drivers will enable the PCIe Capability Device Control[Relaxed
+    Ordering Enable] in PCI Probe() routine, this will break our current
+    solution for some platform which has problematic when enable the relaxed
+    ordering attribute. According to the latest recommendations, remove the
+    enable_pcie_relaxed_ordering(), although it could not cover the Peer-to-Peer
+    scene, but we agree to leave this problem until we really trigger it.
+
+    Make this patch set base on 4.12 release version.
+
+v8: Modify the change log for first 2 patches to make it more reasonable, and
+    add the Acked-by from Alex and Ashok.
+
+    Add a new patch to enable the Relaxed Ordering Attribute for cxgb4vf driver.
+
+    Make this patch set base on 4.13-rc2.
+
+Casey Leedom (3):
+  PCI: Add new PCIe Fabric End Node flag,
+    PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+  net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+  net/cxgb4vf: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+
+Ding Tianhong (1):
+  PCI: Disable PCIe Relaxed Ordering if unsupported
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 23 +++++++++----
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |  5 +--
+ drivers/net/ethernet/chelsio/cxgb4vf/adapter.h     |  1 +
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    | 18 ++++++++++
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c         |  3 ++
+ drivers/pci/pci.c                                  | 29 +++++++++++++++++
+ drivers/pci/probe.c                                | 37 +++++++++++++++++++++
+ drivers/pci/quirks.c                               | 38 ++++++++++++++++++++++
+ include/linux/pci.h                                |  4 +++
+ 10 files changed, 151 insertions(+), 8 deletions(-)
+
+-- 
+1.8.3.1
