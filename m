@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 19/21] mlxsw: spectrum_router: Add support for route replace
-Date: Thu,  3 Aug 2017 13:28:29 +0200
-Message-ID: <20170803112831.1831-20-jiri@resnulli.us>
+Subject: [patch net-next 15/21] ipv6: fib: Add helpers to hold / drop a reference on rt6_info
+Date: Thu,  3 Aug 2017 13:28:25 +0200
+Message-ID: <20170803112831.1831-16-jiri@resnulli.us>
 References: <20170803112831.1831-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         dsahern@gmail.com, roopa@cumulusnetworks.com,
@@ -10,193 +10,90 @@ Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
         edumazet@google.com, yanhaishuang@cmss.chinamobile.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:37022 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752014AbdHCL3J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 07:29:09 -0400
-Received: by mail-wm0-f67.google.com with SMTP id t138so1808322wmt.4
-        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 04:29:09 -0700 (PDT)
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:38393 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752197AbdHCL3C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 07:29:02 -0400
+Received: by mail-wr0-f195.google.com with SMTP id g32so799492wrd.5
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 04:29:01 -0700 (PDT)
 In-Reply-To: <20170803112831.1831-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-In case we got a replace event, then the replaced route must exist. If
-the route isn't capable of multipath, then replace first matching
-non-multipath capable route.
+Similar to commit 1c677b3d2828 ("ipv4: fib: Add fib_info_hold() helper")
+and commit b423cb10807b ("ipv4: fib: Export free_fib_info()") add an
+helper to hold a reference on rt6_info and export rt6_release() to drop
+it and potentially release the route.
 
-If the route is capable of multipath and matching multipath capable
-route is found, then replace it. Otherwise, replace first matching
-non-multipath capable route.
-
-The new route is inserted before the replaced one. In case the replaced
-route is currently offloaded, then it's overwritten in the device's table
-by the new route and later deleted, thus not impacting routed traffic.
+This is needed so that drivers capable of FIB offload could hold a
+reference on the route before queueing it for offload and drop it after
+the route has been programmed to the device's tables.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 63 +++++++++++++++++-----
- 1 file changed, 49 insertions(+), 14 deletions(-)
+ include/net/ip6_fib.h | 16 ++++++++++++++++
+ net/ipv6/ip6_fib.c    | 12 ++----------
+ 2 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 2345c00..cded8e8 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -3035,11 +3035,11 @@ mlxsw_sp_fib6_entry_rt(const struct mlxsw_sp_fib6_entry *fib6_entry)
- 
- static struct mlxsw_sp_fib6_entry *
- mlxsw_sp_fib6_node_mp_entry_find(const struct mlxsw_sp_fib_node *fib_node,
--				 const struct rt6_info *nrt)
-+				 const struct rt6_info *nrt, bool replace)
- {
- 	struct mlxsw_sp_fib6_entry *fib6_entry;
- 
--	if (!mlxsw_sp_fib6_rt_can_mp(nrt))
-+	if (!mlxsw_sp_fib6_rt_can_mp(nrt) || replace)
- 		return NULL;
- 
- 	list_for_each_entry(fib6_entry, &fib_node->entry_list, common.list) {
-@@ -3371,9 +3371,9 @@ static void mlxsw_sp_fib6_entry_destroy(struct mlxsw_sp *mlxsw_sp,
- 
- static struct mlxsw_sp_fib6_entry *
- mlxsw_sp_fib6_node_entry_find(const struct mlxsw_sp_fib_node *fib_node,
--			      const struct rt6_info *nrt)
-+			      const struct rt6_info *nrt, bool replace)
- {
--	struct mlxsw_sp_fib6_entry *fib6_entry;
-+	struct mlxsw_sp_fib6_entry *fib6_entry, *fallback = NULL;
- 
- 	list_for_each_entry(fib6_entry, &fib_node->entry_list, common.list) {
- 		struct rt6_info *rt = mlxsw_sp_fib6_entry_rt(fib6_entry);
-@@ -3382,21 +3382,32 @@ mlxsw_sp_fib6_node_entry_find(const struct mlxsw_sp_fib_node *fib_node,
- 			continue;
- 		if (rt->rt6i_table->tb6_id != nrt->rt6i_table->tb6_id)
- 			break;
-+		if (replace && rt->rt6i_metric == nrt->rt6i_metric) {
-+			if (mlxsw_sp_fib6_rt_can_mp(rt) ==
-+			    mlxsw_sp_fib6_rt_can_mp(nrt))
-+				return fib6_entry;
-+			if (mlxsw_sp_fib6_rt_can_mp(nrt))
-+				fallback = fallback ?: fib6_entry;
-+		}
- 		if (rt->rt6i_metric > nrt->rt6i_metric)
--			return fib6_entry;
-+			return fallback ?: fib6_entry;
- 	}
- 
--	return NULL;
-+	return fallback;
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 0b30521..1d790ea 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -187,6 +187,22 @@ static inline void ip6_rt_put(struct rt6_info *rt)
+ 	dst_release(&rt->dst);
  }
  
- static int
--mlxsw_sp_fib6_node_list_insert(struct mlxsw_sp_fib6_entry *new6_entry)
-+mlxsw_sp_fib6_node_list_insert(struct mlxsw_sp_fib6_entry *new6_entry,
-+			       bool replace)
- {
- 	struct mlxsw_sp_fib_node *fib_node = new6_entry->common.fib_node;
- 	struct rt6_info *nrt = mlxsw_sp_fib6_entry_rt(new6_entry);
- 	struct mlxsw_sp_fib6_entry *fib6_entry;
- 
--	fib6_entry = mlxsw_sp_fib6_node_entry_find(fib_node, nrt);
-+	fib6_entry = mlxsw_sp_fib6_node_entry_find(fib_node, nrt, replace);
++void rt6_free_pcpu(struct rt6_info *non_pcpu_rt);
 +
-+	if (replace && WARN_ON(!fib6_entry))
-+		return -EINVAL;
- 
- 	if (fib6_entry) {
- 		list_add_tail(&new6_entry->common.list,
-@@ -3430,11 +3441,12 @@ mlxsw_sp_fib6_node_list_remove(struct mlxsw_sp_fib6_entry *fib6_entry)
- }
- 
- static int mlxsw_sp_fib6_node_entry_link(struct mlxsw_sp *mlxsw_sp,
--					 struct mlxsw_sp_fib6_entry *fib6_entry)
-+					 struct mlxsw_sp_fib6_entry *fib6_entry,
-+					 bool replace)
- {
- 	int err;
- 
--	err = mlxsw_sp_fib6_node_list_insert(fib6_entry);
-+	err = mlxsw_sp_fib6_node_list_insert(fib6_entry, replace);
- 	if (err)
- 		return err;
- 
-@@ -3489,8 +3501,25 @@ mlxsw_sp_fib6_entry_lookup(struct mlxsw_sp *mlxsw_sp,
- 	return NULL;
- }
- 
-+static void mlxsw_sp_fib6_entry_replace(struct mlxsw_sp *mlxsw_sp,
-+					struct mlxsw_sp_fib6_entry *fib6_entry,
-+					bool replace)
++static inline void rt6_hold(struct rt6_info *rt)
 +{
-+	struct mlxsw_sp_fib_node *fib_node = fib6_entry->common.fib_node;
-+	struct mlxsw_sp_fib6_entry *replaced;
-+
-+	if (!replace)
-+		return;
-+
-+	replaced = list_next_entry(fib6_entry, common.list);
-+
-+	mlxsw_sp_fib6_node_entry_unlink(mlxsw_sp, replaced);
-+	mlxsw_sp_fib6_entry_destroy(mlxsw_sp, replaced);
-+	mlxsw_sp_fib_node_put(mlxsw_sp, fib_node);
++	atomic_inc(&rt->rt6i_ref);
 +}
 +
- static int mlxsw_sp_router_fib6_add(struct mlxsw_sp *mlxsw_sp,
--				    struct rt6_info *rt)
-+				    struct rt6_info *rt, bool replace)
- {
- 	struct mlxsw_sp_fib6_entry *fib6_entry;
- 	struct mlxsw_sp_fib_node *fib_node;
-@@ -3513,7 +3542,7 @@ static int mlxsw_sp_router_fib6_add(struct mlxsw_sp *mlxsw_sp,
- 	/* Before creating a new entry, try to append route to an existing
- 	 * multipath entry.
- 	 */
--	fib6_entry = mlxsw_sp_fib6_node_mp_entry_find(fib_node, rt);
-+	fib6_entry = mlxsw_sp_fib6_node_mp_entry_find(fib_node, rt, replace);
- 	if (fib6_entry) {
- 		err = mlxsw_sp_fib6_entry_nexthop_add(mlxsw_sp, fib6_entry, rt);
- 		if (err)
-@@ -3527,10 +3556,12 @@ static int mlxsw_sp_router_fib6_add(struct mlxsw_sp *mlxsw_sp,
- 		goto err_fib6_entry_create;
- 	}
- 
--	err = mlxsw_sp_fib6_node_entry_link(mlxsw_sp, fib6_entry);
-+	err = mlxsw_sp_fib6_node_entry_link(mlxsw_sp, fib6_entry, replace);
- 	if (err)
- 		goto err_fib6_node_entry_link;
- 
-+	mlxsw_sp_fib6_entry_replace(mlxsw_sp, fib6_entry, replace);
++static inline void rt6_release(struct rt6_info *rt)
++{
++	if (atomic_dec_and_test(&rt->rt6i_ref)) {
++		rt6_free_pcpu(rt);
++		dst_dev_put(&rt->dst);
++		dst_release(&rt->dst);
++	}
++}
 +
- 	return 0;
+ enum fib6_walk_state {
+ #ifdef CONFIG_IPV6_SUBTREES
+ 	FWS_S,
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index fe193b4..69ed004 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -154,7 +154,7 @@ static void node_free(struct fib6_node *fn)
+ 	kmem_cache_free(fib6_node_kmem, fn);
+ }
  
- err_fib6_node_entry_link:
-@@ -3795,13 +3826,16 @@ static void mlxsw_sp_router_fib6_event_work(struct work_struct *work)
- 		container_of(work, struct mlxsw_sp_fib_event_work, work);
- 	struct mlxsw_sp *mlxsw_sp = fib_work->mlxsw_sp;
- 	struct fib_rule *rule;
-+	bool replace;
- 	int err;
- 
- 	rtnl_lock();
- 	switch (fib_work->event) {
-+	case FIB_EVENT_ENTRY_REPLACE: /* fall through */
- 	case FIB_EVENT_ENTRY_ADD:
-+		replace = fib_work->event == FIB_EVENT_ENTRY_REPLACE;
- 		err = mlxsw_sp_router_fib6_add(mlxsw_sp,
--					       fib_work->fen6_info.rt);
-+					       fib_work->fen6_info.rt, replace);
- 		if (err)
- 			mlxsw_sp_router_fib_abort(mlxsw_sp);
- 		mlxsw_sp_rt6_release(fib_work->fen6_info.rt);
-@@ -3853,6 +3887,7 @@ static void mlxsw_sp_router_fib6_event(struct mlxsw_sp_fib_event_work *fib_work,
- 				       struct fib_notifier_info *info)
+-static void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
++void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
  {
- 	switch (fib_work->event) {
-+	case FIB_EVENT_ENTRY_REPLACE: /* fall through */
- 	case FIB_EVENT_ENTRY_ADD: /* fall through */
- 	case FIB_EVENT_ENTRY_DEL:
- 		memcpy(&fib_work->fen6_info, info, sizeof(fib_work->fen6_info));
+ 	int cpu;
+ 
+@@ -177,15 +177,7 @@ static void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
+ 	free_percpu(non_pcpu_rt->rt6i_pcpu);
+ 	non_pcpu_rt->rt6i_pcpu = NULL;
+ }
+-
+-static void rt6_release(struct rt6_info *rt)
+-{
+-	if (atomic_dec_and_test(&rt->rt6i_ref)) {
+-		rt6_free_pcpu(rt);
+-		dst_dev_put(&rt->dst);
+-		dst_release(&rt->dst);
+-	}
+-}
++EXPORT_SYMBOL_GPL(rt6_free_pcpu);
+ 
+ static void fib6_link_table(struct net *net, struct fib6_table *tb)
+ {
 -- 
 2.9.3
