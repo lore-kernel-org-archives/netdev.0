@@ -1,91 +1,37 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v3 net-next 3/5] net: dsa: lan9303: Simplify
- lan9303_xxx_packet_processing() usage
-Date: Thu, 3 Aug 2017 11:06:35 -0700
-Message-ID: <5a67a44b-6887-1466-c0f3-ce65759d51db@gmail.com>
-References: <20170803094507.3439-1-privat@egil-hjelmeland.no>
- <20170803094507.3439-4-privat@egil-hjelmeland.no>
+From: =?UTF-8?Q?Aurimas_Fi=c5=a1eras?= <aurimas@members.fsf.org>
+Subject: STABLE: net: cdc_mbim: apply "NDP to end" quirk to HP lt4132
+Date: Thu, 3 Aug 2017 21:08:17 +0300
+Message-ID: <e255d93c-d74d-e663-0f8c-b8b3a42cc3a5@members.fsf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170803094507.3439-4-privat@egil-hjelmeland.no>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:34057 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751905AbdHCSIV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 14:08:21 -0400
+Received: by mail-lf0-f54.google.com with SMTP id g25so9392133lfh.1
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 11:08:20 -0700 (PDT)
+Received: from [192.168.128.209] ([84.240.60.234])
+        by smtp.gmail.com with ESMTPSA id l203sm4022751lfb.61.2017.08.03.11.08.17
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 03 Aug 2017 11:08:18 -0700 (PDT)
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2017 02:45 AM, Egil Hjelmeland wrote:
-> Simplify usage of lan9303_enable_packet_processing,
-> lan9303_disable_packet_processing()
-> 
-> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Please backport the upstream patch to the stable trees 4.4.x and 4.9.y:
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+a68491f895a937778bb25b0795830797239de31f net: cdc_mbim: apply "NDP to 
+end" quirk to HP lt4132
 
-took a little while to figure out that we are utilizing fall through of
-the switch/case statement and that's why it's okay.
+Without this patch HP lt4132 LTE/HSPA+ 4G Module (03f0:a31d) is useless.
+Ubuntu bug report: 
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1707643
 
-> ---
->  drivers/net/dsa/lan9303-core.c | 24 ++++++++++--------------
->  1 file changed, 10 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-> index 126e8b84bdf0..31fe66fbe39a 100644
-> --- a/drivers/net/dsa/lan9303-core.c
-> +++ b/drivers/net/dsa/lan9303-core.c
-> @@ -564,15 +564,16 @@ static int lan9303_handle_reset(struct lan9303 *chip)
->  /* stop processing packets for all ports */
->  static int lan9303_disable_processing(struct lan9303 *chip)
->  {
-> -	int ret;
-> +	int p;
->  
-> -	ret = lan9303_disable_packet_processing(chip, 0);
-> -	if (ret)
-> -		return ret;
-> -	ret = lan9303_disable_packet_processing(chip, 1);
-> -	if (ret)
-> -		return ret;
-> -	return lan9303_disable_packet_processing(chip, 2);
-> +	for (p = 0; p < LAN9303_NUM_PORTS; p++) {
-> +		int ret = lan9303_disable_packet_processing(chip, p);
-> +
-> +		if (ret)
-> +			return ret;
-> +	}
-> +
-> +	return 0;
->  }
->  
->  static int lan9303_check_device(struct lan9303 *chip)
-> @@ -765,7 +766,6 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
->  	/* enable internal packet processing */
->  	switch (port) {
->  	case 1:
-> -		return lan9303_enable_packet_processing(chip, port);
->  	case 2:
->  		return lan9303_enable_packet_processing(chip, port);
->  	default:
-> @@ -784,13 +784,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
->  	/* disable internal packet processing */
->  	switch (port) {
->  	case 1:
-> -		lan9303_disable_packet_processing(chip, port);
-> -		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
-> -				  MII_BMCR, BMCR_PDOWN);
-> -		break;
->  	case 2:
->  		lan9303_disable_packet_processing(chip, port);
-> -		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
-> +		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
->  				  MII_BMCR, BMCR_PDOWN);
->  		break;
->  	default:
-> 
+Patch was tested with 4.4.x kernel.
 
-
--- 
-Florian
+Sincerely
+Aurimas Fišeras
