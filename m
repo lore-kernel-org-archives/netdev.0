@@ -1,46 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/7] net: mvpp2: add TX interrupts support
-Date: Thu, 03 Aug 2017 15:16:31 -0700 (PDT)
-Message-ID: <20170803.151631.1327349080053900395.davem@davemloft.net>
-References: <20170803084201.30305-1-thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH V3 net-next 02/21] net-next/hinic: Initialize hw device
+ components
+Date: Thu, 03 Aug 2017 15:34:28 -0700 (PDT)
+Message-ID: <20170803.153428.1458452200774139189.davem@davemloft.net>
+References: <cover.1501752425.git.aviad.krawczyk@huawei.com>
+        <f15df6eed91d1a2b05864be90928b8e778d270e2.1501752425.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nadavh@marvell.com, hannah@marvell.com,
-        yehuday@marvell.com, stefanc@marvell.com, mw@semihalf.com,
-        antoine.tenart@free-electrons.com, jason@lakedaemon.net,
-        andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com,
-        miquel.raynal@free-electrons.com,
-        linux-arm-kernel@lists.infradead.org
-To: thomas.petazzoni@free-electrons.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        bc.y@huawei.com, victor.gissin@huawei.com, zhaochen6@huawei.com,
+        tony.qu@huawei.com
+To: aviad.krawczyk@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50178 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50394 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751924AbdHCWQc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 18:16:32 -0400
-In-Reply-To: <20170803084201.30305-1-thomas.petazzoni@free-electrons.com>
+        with ESMTP id S1752100AbdHCWe3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 18:34:29 -0400
+In-Reply-To: <f15df6eed91d1a2b05864be90928b8e778d270e2.1501752425.git.aviad.krawczyk@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Date: Thu,  3 Aug 2017 10:41:54 +0200
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Date: Thu, 3 Aug 2017 17:54:08 +0800
 
-> So far, the mvpp2 driver was using an hrtimer to handle TX
-> completion. This patch series adds support for using TX interrupts
-> (for each CPU) on PPv2.2, the variant of the IP used on Marvell Armada
-> 7K/8K.
-> 
-> Dave: this version can be applied right away, it no longer depends on
-> Antoine's patch series. Antoine series had some comments, so he will
-> have to respin later on. Therefore, let's merge this smaller patch
-> series first.
-> 
-> Changes since v1:
-> 
->  - Rebased on top of net-next, instead of on top of Antoine's series.
-> 
->  - Removed the Device Tree patch, as it shouldn't go through the net
->    tree.
+> +static int get_capability(struct hinic_hwdev *hwdev,
+> +			  struct hinic_dev_cap *dev_cap)
+> +{
+> +	struct hinic_hwif *hwif = hwdev->hwif;
+> +	struct hinic_cap *nic_cap = &hwdev->nic_cap;
+> +	int num_aeqs, num_ceqs, num_irqs, num_qps;
 
-Series applied.
+Please order local variable declarations from longest to shortest
+line (aka: reverse christmas tree order).
+
+Move the initialization down into the code if that is necessary
+to achiever this.
+
+> +static int get_dev_cap(struct hinic_hwdev *hwdev)
+> +{
+> +	struct hinic_pfhwdev *pfhwdev;
+> +	struct hinic_hwif *hwif = hwdev->hwif;
+> +	struct pci_dev *pdev = hwif->pdev;
+> +	int err;
+
+Likewise.
