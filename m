@@ -1,200 +1,48 @@
-From: Mat Martineau <mathew.j.martineau@linux.intel.com>
-Subject: Re: [PATCH v3 net-next 2/4] sock: ULP infrastructure
-Date: Thu, 3 Aug 2017 16:26:15 -0700 (PDT)
-Message-ID: <alpine.OSX.2.21.1708031542480.29414@herbergs-mobl.ger.corp.intel.com>
-References: <20170803193144.24108-1-tom@quantonium.net> <20170803193144.24108-3-tom@quantonium.net>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 3/5] net: stmmac: Add Adaptrum Anarion GMAC glue layer
+Date: Thu, 3 Aug 2017 18:26:43 -0500
+Message-ID: <20170803232643.oqvdgvp6xqwgk6mh@rob-hp-laptop>
+References: <20170728220707.13960-1-alex.g@adaptrum.com>
+ <20170728220707.13960-4-alex.g@adaptrum.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=US-ASCII
-Cc: netdev@vger.kernel.org, rohit@quantonium.net, davejwatson@fb.com
-To: Tom Herbert <tom@quantonium.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:64993 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752087AbdHCX0Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Aug 2017 19:26:16 -0400
-In-Reply-To: <20170803193144.24108-3-tom@quantonium.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexandru Gagniuc <alex.g-JVBBi1ABkv5Wk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170728220707.13960-4-alex.g-JVBBi1ABkv5Wk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-On Thu, 3 Aug 2017, Tom Herbert wrote:
-
-> Generalize the TCP ULP infrastructure recently introduced to support
-> kTLS. This adds a SO_ULP socket option and creates new fields in
-> sock structure for ULP ops and ULP data. Also, the interface allows
-> additional per ULP parameters to be set so that a ULP can be pushed
-> and operations started in one shot.
->
-> Signed-off-by: Tom Herbert <tom@quantonium.net>
+On Fri, Jul 28, 2017 at 03:07:03PM -0700, Alexandru Gagniuc wrote:
+> Before the GMAC on the Anarion chip can be used, the PHY interface
+> selection must be configured with the DWMAC block in reset.
+> 
+> This layer covers a block containing only two registers. Although it
+> is possible to model this as a reset controller and use the "resets"
+> property of stmmac, it's much more intuitive to include this in the
+> glue layer instead.
+> 
+> At this time only RGMII is supported, because it is the only mode
+> which has been validated hardware-wise.
+> 
+> Signed-off-by: Alexandru Gagniuc <alex.g-JVBBi1ABkv5Wk0Htik3J/w@public.gmane.org>
 > ---
-> arch/alpha/include/uapi/asm/socket.h   |   2 +
-> arch/frv/include/uapi/asm/socket.h     |   2 +
-> arch/ia64/include/uapi/asm/socket.h    |   2 +
-> arch/m32r/include/uapi/asm/socket.h    |   2 +
-> arch/mips/include/uapi/asm/socket.h    |   2 +
-> arch/mn10300/include/uapi/asm/socket.h |   2 +
-> arch/parisc/include/uapi/asm/socket.h  |   2 +
-> arch/s390/include/uapi/asm/socket.h    |   2 +
-> arch/sparc/include/uapi/asm/socket.h   |   2 +
-> arch/xtensa/include/uapi/asm/socket.h  |   2 +
-> include/linux/socket.h                 |   9 ++
-> include/net/sock.h                     |   5 +
-> include/net/ulp_sock.h                 |  75 +++++++++++++
-> include/uapi/asm-generic/socket.h      |   2 +
-> net/Kconfig                            |   4 +
-> net/core/Makefile                      |   1 +
-> net/core/sock.c                        |  14 +++
-> net/core/sysctl_net_core.c             |  25 +++++
-> net/core/ulp_sock.c                    | 194 +++++++++++++++++++++++++++++++++
-> 19 files changed, 349 insertions(+)
-> create mode 100644 include/net/ulp_sock.h
-> create mode 100644 net/core/ulp_sock.c
->
+>  .../devicetree/bindings/net/anarion-gmac.txt       |  25 ++++
 
-...
+The binding looks fine, but please split to separate patch.
 
-> diff --git a/include/net/ulp_sock.h b/include/net/ulp_sock.h
-> new file mode 100644
-> index 000000000000..37bf4d2e16b9
-> --- /dev/null
-> +++ b/include/net/ulp_sock.h
-> @@ -0,0 +1,75 @@
-> +/*
-> + * Pluggable upper layer protocol support in sockets.
-> + *
-> + * Copyright (c) 2016-2017, Mellanox Technologies. All rights reserved.
-> + * Copyright (c) 2016-2017, Dave Watson <davejwatson@fb.com>. All rights reserved.
-> + * Copyright (c) 2017, Tom Herbert <tom@quantonium.net>. All rights reserved.
-> + *
-> + */
-> +
-> +#ifndef __NET_ULP_SOCK_H
-> +#define __NET_ULP_SOCK_H
-> +
-> +#include <linux/socket.h>
-> +
-> +#define ULP_MAX             128
-> +#define ULP_BUF_MAX         (ULP_NAME_MAX * ULP_MAX)
-> +
-> +struct ulp_ops {
-> +	struct list_head list;
-> +
-> +	/* initialize ulp */
-> +	int (*init)(struct sock *sk, char __user *optval, int len);
-> +
-> +	/* cleanup ulp */
-> +	void (*release)(struct sock *sk);
-> +
-> +	/* Get ULP specific parameters in getsockopt */
-> +	int (*get_params)(struct sock *sk, char __user *optval, int *optlen);
-> +
-> +	char name[ULP_NAME_MAX];
-> +	struct module *owner;
-> +};
-> +
-> +#ifdef CONFIG_ULP_SOCK
-> +
-> +int ulp_register(struct ulp_ops *type);
-> +void ulp_unregister(struct ulp_ops *type);
-> +int ulp_set(struct sock *sk, char __user *optval, int len);
-> +int ulp_get_config(struct sock *sk, char __user *optval, int *optlen);
-> +void ulp_get_available(char *buf, size_t len);
-> +void ulp_cleanup(struct sock *sk);
-> +
-> +#else
-> +
-> +static inline int ulp_register(struct ulp_ops *type)
-> +{
-> +	return -EOPNOTSUPP;
-> +}
-> +
-> +static inline void ulp_unregister(struct ulp_ops *type)
-> +{
-> +}
-> +
-> +static inline int ulp_set(struct sock *sk, char __user *optval, int len)
-> +{
-> +	return -EOPNOTSUPP;
-> +}
-> +
-> +static inline int ulp_get_config(struct sock *sk, char __user *optval,
-> +				 int *optlen)
-> +{
-> +	return -EOPNOTSUPP;
-> +}
-> +
-> +static inline void ulp_get_available(char *buf, size_t len)
-> +{
-
-proc_ulp_available() doesn't initialize *buf, so the string needs to be 
-NUL-terminated here.
-
-> +}
-> +
-> +static inline void ulp_cleanup(struct sock *sk)
-> +{
-> +}
-> +
-> +#endif
-> +
-> +#endif /* __NET_ULP_SOCK_H */
-
-...
-
-> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-> index b7cd9aafe99e..9e14f91b57eb 100644
-> --- a/net/core/sysctl_net_core.c
-> +++ b/net/core/sysctl_net_core.c
-> @@ -21,6 +21,7 @@
-> #include <net/net_ratelimit.h>
-> #include <net/busy_poll.h>
-> #include <net/pkt_sched.h>
-> +#include <net/ulp_sock.h>
->
-> static int zero = 0;
-> static int one = 1;
-> @@ -249,6 +250,24 @@ static int proc_do_rss_key(struct ctl_table *table, int write,
-> 	return proc_dostring(&fake_table, write, buffer, lenp, ppos);
-> }
->
-> +static int proc_ulp_available(struct ctl_table *ctl,
-> +			      int write,
-> +			      void __user *buffer, size_t *lenp,
-> +			      loff_t *ppos)
-> +{
-> +	struct ctl_table tbl = { .maxlen = ULP_BUF_MAX, };
-> +	int ret;
-> +
-> +	tbl.data = kmalloc(tbl.maxlen, GFP_USER);
-
-(Just flagging this to provide context for the uninitialized data comment 
-above)
-
-> +	if (!tbl.data)
-> +		return -ENOMEM;
-> +	ulp_get_available(tbl.data, ULP_BUF_MAX);
-> +	ret = proc_dostring(&tbl, write, buffer, lenp, ppos);
-> +	kfree(tbl.data);
-> +
-> +	return ret;
-> +}
-> +
-> static struct ctl_table net_core_table[] = {
-> #ifdef CONFIG_NET
-> 	{
-> @@ -460,6 +479,12 @@ static struct ctl_table net_core_table[] = {
-> 		.proc_handler	= proc_dointvec_minmax,
-> 		.extra1		= &zero,
-> 	},
-> +	{
-> +		.procname	= "ulp_available",
-> +		.maxlen		= ULP_BUF_MAX,
-> +		.mode		= 0444,
-> +		.proc_handler	= proc_ulp_available,
-> +	},
-> 	{ }
-> };
->
-
-
-Regards,
+>  drivers/net/ethernet/stmicro/stmmac/Kconfig        |   9 ++
+>  drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+>  .../net/ethernet/stmicro/stmmac/dwmac-anarion.c    | 151 +++++++++++++++++++++
+>  4 files changed, 186 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/anarion-gmac.txt
+>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-anarion.c
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
