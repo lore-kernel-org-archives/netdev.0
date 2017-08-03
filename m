@@ -1,45 +1,91 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [RFC PATCH v2 0/2] nb8800 suspend/resume support
-Date: Thu, 03 Aug 2017 13:19:41 +0100
-Message-ID: <yw1xy3r0g7xe.fsf@mansr.com>
-References: <33d1ab47-6098-5e3f-8a3c-f72626d07113@free.fr>
-        <aa8885b8-e6bb-3624-2bf9-0bb40505ac54@free.fr>
-        <dd883398-1511-0bfd-972b-a11ef8709f0d@free.fr>
-        <yw1xshhagexd.fsf@mansr.com>
-        <9e8e12b1-74e2-8323-ec16-eebda46b2a3d@free.fr>
-        <yw1xo9rygdyu.fsf@mansr.com>
-        <6906dccf-bec9-0fc8-a34a-c39c05ada917@free.fr>
-        <yw1xk22mgdcx.fsf@mansr.com>
-        <f1554ee7-2151-1304-c5c1-35264b9be5be@free.fr>
-        <71dd7987-8c43-2548-5058-51a95658da71@free.fr>
-        <c1aeaa45-de6a-e643-8765-7dad58a8b038@free.fr>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3 2/4] dt-bindings: can: fixed-transceiver: Add new CAN
+ fixed transceiver bindings
+Date: Thu, 3 Aug 2017 15:22:55 +0300
+Message-ID: <86d78a36-04c2-7036-636c-7326a4c1c6b0@cogentembedded.com>
+References: <20170803005150.9286-1-fcooper@ti.com>
+ <20170803005150.9286-3-fcooper@ti.com>
+ <f92513b6-6b2b-e08d-72e2-dedd7e0190f4@cogentembedded.com>
+ <3848fab8-ebcf-5b29-7e4e-eb1a2b03803d@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mason <slash.tmp@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:38442 "EHLO unicorn.mansr.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751083AbdHCMTm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Aug 2017 08:19:42 -0400
-In-Reply-To: <c1aeaa45-de6a-e643-8765-7dad58a8b038@free.fr> (Mason's message
-        of "Thu, 3 Aug 2017 10:34:31 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Franklin S Cooper Jr <fcooper@ti.com>,
+        linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        wg@grandegger.com, mkl@pengutronix.de, robh+dt@kernel.org,
+        quentin.schulz@free-electrons.com, dev.kurt@vandijck-laurijssen.be,
+        andrew@lunn.ch, socketcan@hartkopp.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3848fab8-ebcf-5b29-7e4e-eb1a2b03803d@ti.com>
+Content-Language: en-MW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mason <slash.tmp@free.fr> writes:
+On 08/03/2017 12:48 PM, Franklin S Cooper Jr wrote:
 
-> IIUC, sender (desktop system) sends datagrams as fast as possible.
-> Receiver (tango board) drops around 24% of all datagrams.
-> I think this invalidates the theory that exhausting RX descriptors
-> wedges RX DMA.
+>>> Add documentation to describe usage of the new fixed transceiver binding.
+>>> This new binding is applicable for any CAN device therefore it exists as
+>>> its own document.
+>>>
+>>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+>>> ---
+>>>    .../bindings/net/can/fixed-transceiver.txt         | 24
+>>> ++++++++++++++++++++++
+>>>    1 file changed, 24 insertions(+)
+>>>    create mode 100644
+>>> Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>>
+>>> diff --git
+>>> a/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>> b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>> new file mode 100644
+>>> index 0000000..2f58838b
+>>> --- /dev/null
+>>> +++ b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>> @@ -0,0 +1,24 @@
+>>> +Fixed transceiver Device Tree binding
+>>> +------------------------------
+>>> +
+>>> +CAN transceiver typically limits the max speed in standard CAN and
+>>> CAN FD
+>>> +modes. Typically these limitations are static and the transceivers
+>>> themselves
+>>> +provide no way to detect this limitation at runtime. For this situation,
+>>> +the "fixed-transceiver" node can be used.
+>>> +
+>>> +Required Properties:
+>>> + max-bitrate:    a positive non 0 value that determines the max
+>>> +        speed that CAN/CAN-FD can run. Any other value
+>>> +        will be ignored.
+>>> +
+>>> +Examples:
+>>> +
+>>> +Based on Texas Instrument's TCAN1042HGV CAN Transceiver
+>>> +
+>>> +m_can0 {
+>>> +    ....
+>>> +    fixed-transceiver@0 {
+>>
+>>     The <unit-address> (after @) must only be specified if there's "reg"
+> 
+> Sorry. Fixed this in my v2 and some how it came back. Will fix.
+> 
+>> prop in the device node. Also, please name the node "can-transceiver@"
+>> to be more in line with the DT spec. which requires generic node names.
+> 
+> Its possible for future can transceivers drivers to be created. So I
 
-No, it doesn't.  The bottleneck causing packet loss could be somewhere
-else.
+    So what? Ah, you are using the node name to match in the CAN drivers...
 
--- 
-Måns Rullgård
+> thought including fixed was important to indicate that this is a "dumb"
+> transceiver similar to "fixed-link".
+
+    I'm not sure the "fixed-link" MAC subnode assumed any transceiver at all...
+
+> So would "fixed-can-transceiver" be
+> ok or do you want to go with can-transceiver?
+
+    I'm somewhat perplexed at this point...
+
+MBR, Sergei
