@@ -1,890 +1,289 @@
-From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v4 9/9] test: add msg_zerocopy test
-Date: Thu,  3 Aug 2017 16:29:45 -0400
-Message-ID: <20170803202945.70750-10-willemdebruijn.kernel@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v4 5/9] sock: enable MSG_ZEROCOPY
+Date: Thu,  3 Aug 2017 16:29:41 -0400
+Message-ID: <20170803202945.70750-6-willemdebruijn.kernel@gmail.com>
 References: <20170803202945.70750-1-willemdebruijn.kernel@gmail.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170803202945.70750-1-willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, linux-api@vger.kernel.org,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:33179 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751918AbdHCU3y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 16:29:54 -0400
+In-Reply-To: <20170803202945.70750-1-willemdebruijn.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+From: Willem de Bruijn <willemb@google.com>
 
-Introduce regression test for msg_zerocopy feature. Send traffic from
-one process to another with and without zerocopy.
+Prepare the datapath for refcounted ubuf_info. Clone ubuf_info with
+skb_zerocopy_clone() wherever needed due to skb split, merge, resize
+or clone.
 
-Evaluate tcp, udp, raw and packet sockets, including variants
-- udp: corking and corking with mixed copy/zerocopy calls
-- raw: with and without hdrincl
-- packet: at both raw and dgram level
+Split skb_orphan_frags into two variants. The split, merge, .. paths
+support reference counted zerocopy buffers, so do not do a deep copy.
+Add skb_orphan_frags_rx for paths that may loop packets to receive
+sockets. That is not allowed, as it may cause unbounded latency.
+Deep copy all zerocopy copy buffers, ref-counted or not, in this path.
 
-Test on both ipv4 and ipv6, optionally with ethtool changes to
-disable scatter-gather, tx checksum or tso offload. All of these
-can affect zerocopy behavior.
+The exact locations to modify were chosen by exhaustively searching
+through all code that might modify skb_frag references and/or the
+the SKBTX_DEV_ZEROCOPY tx_flags bit.
 
-The regression test can be run on a single machine if over a veth
-pair. Then skb_orphan_frags_rx must be modified to be identical to
-skb_orphan_frags to allow forwarding zerocopy locally.
+The changes err on the safe side, in two ways.
 
-The msg_zerocopy.sh script will setup the veth pair in network
-namespaces and run all tests.
+(1) legacy ubuf_info paths virtio and tap are not modified. They keep
+    a 1:1 ubuf_info to sk_buff relationship. Calls to skb_orphan_frags
+    still call skb_copy_ubufs and thus copy frags in this case.
 
-Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+(2) not all copies deep in the stack are addressed yet. skb_shift,
+    skb_split and skb_try_coalesce can be refined to avoid copying.
+    These are not in the hot path and this patch is hairy enough as
+    is, so that is left for future refinement.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- tools/testing/selftests/net/.gitignore      |   1 +
- tools/testing/selftests/net/Makefile        |   2 +-
- tools/testing/selftests/net/msg_zerocopy.c  | 697 ++++++++++++++++++++++++++++
- tools/testing/selftests/net/msg_zerocopy.sh | 113 +++++
- 4 files changed, 812 insertions(+), 1 deletion(-)
- create mode 100644 tools/testing/selftests/net/msg_zerocopy.c
- create mode 100755 tools/testing/selftests/net/msg_zerocopy.sh
+ drivers/net/tun.c      |  2 +-
+ drivers/vhost/net.c    |  1 +
+ include/linux/skbuff.h | 14 +++++++++++++-
+ net/core/dev.c         |  4 ++--
+ net/core/skbuff.c      | 48 +++++++++++++++++++-----------------------------
+ 5 files changed, 36 insertions(+), 33 deletions(-)
 
-diff --git a/tools/testing/selftests/net/.gitignore b/tools/testing/selftests/net/.gitignore
-index afe109e5508a..9801253e4802 100644
---- a/tools/testing/selftests/net/.gitignore
-+++ b/tools/testing/selftests/net/.gitignore
-@@ -1,3 +1,4 @@
-+msg_zerocopy
- socket
- psock_fanout
- psock_tpacket
-diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-index f6c9dbf478f8..6135a8448900 100644
---- a/tools/testing/selftests/net/Makefile
-+++ b/tools/testing/selftests/net/Makefile
-@@ -7,7 +7,7 @@ TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh
- TEST_GEN_FILES =  socket
- TEST_GEN_FILES += psock_fanout psock_tpacket
- TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
--TEST_GEN_FILES += reuseport_dualstack
-+TEST_GEN_FILES += reuseport_dualstack msg_zerocopy
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 68add55f8460..d21510d47aa2 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -892,7 +892,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	    sk_filter(tfile->socket.sk, skb))
+ 		goto drop;
  
- include ../lib.mk
+-	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
++	if (unlikely(skb_orphan_frags_rx(skb, GFP_ATOMIC)))
+ 		goto drop;
  
-diff --git a/tools/testing/selftests/net/msg_zerocopy.c b/tools/testing/selftests/net/msg_zerocopy.c
-new file mode 100644
-index 000000000000..448c69a8af74
---- /dev/null
-+++ b/tools/testing/selftests/net/msg_zerocopy.c
-@@ -0,0 +1,697 @@
-+/* Evaluate MSG_ZEROCOPY
-+ *
-+ * Send traffic between two processes over one of the supported
-+ * protocols and modes:
-+ *
-+ * PF_INET/PF_INET6
-+ * - SOCK_STREAM
-+ * - SOCK_DGRAM
-+ * - SOCK_DGRAM with UDP_CORK
-+ * - SOCK_RAW
-+ * - SOCK_RAW with IP_HDRINCL
-+ *
-+ * PF_PACKET
-+ * - SOCK_DGRAM
-+ * - SOCK_RAW
-+ *
-+ * Start this program on two connected hosts, one in send mode and
-+ * the other with option '-r' to put it in receiver mode.
-+ *
-+ * If zerocopy mode ('-z') is enabled, the sender will verify that
-+ * the kernel queues completions on the error queue for all zerocopy
-+ * transfers.
-+ */
-+
-+#define _GNU_SOURCE
-+
-+#include <arpa/inet.h>
-+#include <error.h>
-+#include <errno.h>
-+#include <limits.h>
-+#include <linux/errqueue.h>
-+#include <linux/if_packet.h>
-+#include <linux/ipv6.h>
-+#include <linux/socket.h>
-+#include <linux/sockios.h>
-+#include <net/ethernet.h>
-+#include <net/if.h>
-+#include <netinet/ip.h>
-+#include <netinet/ip6.h>
-+#include <netinet/tcp.h>
-+#include <netinet/udp.h>
-+#include <poll.h>
-+#include <sched.h>
-+#include <stdbool.h>
-+#include <stdio.h>
-+#include <stdint.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/ioctl.h>
-+#include <sys/socket.h>
-+#include <sys/stat.h>
-+#include <sys/time.h>
-+#include <sys/types.h>
-+#include <sys/wait.h>
-+#include <unistd.h>
-+
-+#ifndef SO_EE_ORIGIN_ZEROCOPY
-+#define SO_EE_ORIGIN_ZEROCOPY		SO_EE_ORIGIN_UPAGE
-+#endif
-+
-+#ifndef SO_ZEROCOPY
-+#define SO_ZEROCOPY	59
-+#endif
-+
-+#ifndef SO_EE_CODE_ZEROCOPY_COPIED
-+#define SO_EE_CODE_ZEROCOPY_COPIED	1
-+#endif
-+
-+#ifndef MSG_ZEROCOPY
-+#define MSG_ZEROCOPY	0x4000000
-+#endif
-+
-+static int  cfg_cork;
-+static bool cfg_cork_mixed;
-+static int  cfg_cpu		= -1;		/* default: pin to last cpu */
-+static int  cfg_family		= PF_UNSPEC;
-+static int  cfg_ifindex		= 1;
-+static int  cfg_payload_len;
-+static int  cfg_port		= 8000;
-+static bool cfg_rx;
-+static int  cfg_runtime_ms	= 4200;
-+static int  cfg_verbose;
-+static int  cfg_waittime_ms	= 500;
-+static bool cfg_zerocopy;
-+
-+static socklen_t cfg_alen;
-+static struct sockaddr_storage cfg_dst_addr;
-+static struct sockaddr_storage cfg_src_addr;
-+
-+static char payload[IP_MAXPACKET];
-+static long packets, bytes, completions, expected_completions;
-+static int  zerocopied = -1;
-+static uint32_t next_completion;
-+
-+static unsigned long gettimeofday_ms(void)
-+{
-+	struct timeval tv;
-+
-+	gettimeofday(&tv, NULL);
-+	return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+ 	skb_tx_timestamp(skb);
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 06d044862e58..ba08b78ed630 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -533,6 +533,7 @@ static void handle_tx(struct vhost_net *net)
+ 			ubuf->callback = vhost_zerocopy_callback;
+ 			ubuf->ctx = nvq->ubufs;
+ 			ubuf->desc = nvq->upend_idx;
++			atomic_set(&ubuf->refcnt, 1);
+ 			msg.msg_control = ubuf;
+ 			msg.msg_controllen = sizeof(ubuf);
+ 			ubufs = nvq->ubufs;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 59cff7aa494e..e5387932c266 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2512,7 +2512,17 @@ static inline void skb_orphan(struct sk_buff *skb)
+  */
+ static inline int skb_orphan_frags(struct sk_buff *skb, gfp_t gfp_mask)
+ {
+-	if (likely(!(skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY)))
++	if (likely(!skb_zcopy(skb)))
++		return 0;
++	if (skb_uarg(skb)->callback == sock_zerocopy_callback)
++		return 0;
++	return skb_copy_ubufs(skb, gfp_mask);
 +}
 +
-+static uint16_t get_ip_csum(const uint16_t *start, int num_words)
++/* Frags must be orphaned, even if refcounted, if skb might loop to rx path */
++static inline int skb_orphan_frags_rx(struct sk_buff *skb, gfp_t gfp_mask)
 +{
-+	unsigned long sum = 0;
-+	int i;
-+
-+	for (i = 0; i < num_words; i++)
-+		sum += start[i];
-+
-+	while (sum >> 16)
-+		sum = (sum & 0xFFFF) + (sum >> 16);
-+
-+	return ~sum;
-+}
-+
-+static int do_setcpu(int cpu)
-+{
-+	cpu_set_t mask;
-+
-+	CPU_ZERO(&mask);
-+	CPU_SET(cpu, &mask);
-+	if (sched_setaffinity(0, sizeof(mask), &mask))
-+		error(1, 0, "setaffinity %d", cpu);
-+
-+	if (cfg_verbose)
-+		fprintf(stderr, "cpu: %u\n", cpu);
-+
-+	return 0;
-+}
-+
-+static void do_setsockopt(int fd, int level, int optname, int val)
-+{
-+	if (setsockopt(fd, level, optname, &val, sizeof(val)))
-+		error(1, errno, "setsockopt %d.%d: %d", level, optname, val);
-+}
-+
-+static int do_poll(int fd, int events)
-+{
-+	struct pollfd pfd;
-+	int ret;
-+
-+	pfd.events = events;
-+	pfd.revents = 0;
-+	pfd.fd = fd;
-+
-+	ret = poll(&pfd, 1, cfg_waittime_ms);
-+	if (ret == -1)
-+		error(1, errno, "poll");
-+
-+	return ret && (pfd.revents & events);
-+}
-+
-+static int do_accept(int fd)
-+{
-+	int fda = fd;
-+
-+	fd = accept(fda, NULL, NULL);
-+	if (fd == -1)
-+		error(1, errno, "accept");
-+	if (close(fda))
-+		error(1, errno, "close listen sock");
-+
-+	return fd;
-+}
-+
-+static bool do_sendmsg(int fd, struct msghdr *msg, bool do_zerocopy)
-+{
-+	int ret, len, i, flags;
-+
-+	len = 0;
-+	for (i = 0; i < msg->msg_iovlen; i++)
-+		len += msg->msg_iov[i].iov_len;
-+
-+	flags = MSG_DONTWAIT;
-+	if (do_zerocopy)
-+		flags |= MSG_ZEROCOPY;
-+
-+	ret = sendmsg(fd, msg, flags);
-+	if (ret == -1 && errno == EAGAIN)
++	if (likely(!skb_zcopy(skb)))
+ 		return 0;
+ 	return skb_copy_ubufs(skb, gfp_mask);
+ }
+@@ -2944,6 +2954,8 @@ static inline int skb_add_data(struct sk_buff *skb,
+ static inline bool skb_can_coalesce(struct sk_buff *skb, int i,
+ 				    const struct page *page, int off)
+ {
++	if (skb_zcopy(skb))
 +		return false;
-+	if (ret == -1)
-+		error(1, errno, "send");
-+	if (cfg_verbose && ret != len)
-+		fprintf(stderr, "send: ret=%u != %u\n", ret, len);
+ 	if (i) {
+ 		const struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i - 1];
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8ea6b4b42611..1d75499add72 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1853,7 +1853,7 @@ static inline int deliver_skb(struct sk_buff *skb,
+ 			      struct packet_type *pt_prev,
+ 			      struct net_device *orig_dev)
+ {
+-	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
++	if (unlikely(skb_orphan_frags_rx(skb, GFP_ATOMIC)))
+ 		return -ENOMEM;
+ 	refcount_inc(&skb->users);
+ 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+@@ -4412,7 +4412,7 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
+ 	}
+ 
+ 	if (pt_prev) {
+-		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
++		if (unlikely(skb_orphan_frags_rx(skb, GFP_ATOMIC)))
+ 			goto drop;
+ 		else
+ 			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 29e34bc6a17c..74d3c36f8419 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -567,21 +567,10 @@ static void skb_release_data(struct sk_buff *skb)
+ 	for (i = 0; i < shinfo->nr_frags; i++)
+ 		__skb_frag_unref(&shinfo->frags[i]);
+ 
+-	/*
+-	 * If skb buf is from userspace, we need to notify the caller
+-	 * the lower device DMA has done;
+-	 */
+-	if (shinfo->tx_flags & SKBTX_DEV_ZEROCOPY) {
+-		struct ubuf_info *uarg;
+-
+-		uarg = shinfo->destructor_arg;
+-		if (uarg->callback)
+-			uarg->callback(uarg, true);
+-	}
+-
+ 	if (shinfo->frag_list)
+ 		kfree_skb_list(shinfo->frag_list);
+ 
++	skb_zcopy_clear(skb, true);
+ 	skb_free_head(skb);
+ }
+ 
+@@ -695,14 +684,7 @@ EXPORT_SYMBOL(kfree_skb_list);
+  */
+ void skb_tx_error(struct sk_buff *skb)
+ {
+-	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
+-		struct ubuf_info *uarg;
+-
+-		uarg = skb_shinfo(skb)->destructor_arg;
+-		if (uarg->callback)
+-			uarg->callback(uarg, false);
+-		skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
+-	}
++	skb_zcopy_clear(skb, true);
+ }
+ EXPORT_SYMBOL(skb_tx_error);
+ 
+@@ -1029,9 +1011,7 @@ int skb_zerocopy_iter_stream(struct sock *sk, struct sk_buff *skb,
+ }
+ EXPORT_SYMBOL_GPL(skb_zerocopy_iter_stream);
+ 
+-/* unused only until next patch in the series; will remove attribute */
+-static int __attribute__((unused))
+-	   skb_zerocopy_clone(struct sk_buff *nskb, struct sk_buff *orig,
++static int skb_zerocopy_clone(struct sk_buff *nskb, struct sk_buff *orig,
+ 			      gfp_t gfp_mask)
+ {
+ 	if (skb_zcopy(orig)) {
+@@ -1068,7 +1048,6 @@ static int __attribute__((unused))
+  */
+ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ {
+-	struct ubuf_info *uarg = skb_shinfo(skb)->destructor_arg;
+ 	int num_frags = skb_shinfo(skb)->nr_frags;
+ 	struct page *page, *head = NULL;
+ 	int i, new_frags;
+@@ -1127,8 +1106,6 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 	for (i = 0; i < num_frags; i++)
+ 		skb_frag_unref(skb, i);
+ 
+-	uarg->callback(uarg, false);
+-
+ 	/* skb frags point to kernel buffers */
+ 	for (i = 0; i < new_frags - 1; i++) {
+ 		__skb_fill_page_desc(skb, i, head, 0, PAGE_SIZE);
+@@ -1137,7 +1114,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 	__skb_fill_page_desc(skb, new_frags - 1, head, 0, d_off);
+ 	skb_shinfo(skb)->nr_frags = new_frags;
+ 
+-	skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
++	skb_zcopy_clear(skb, false);
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(skb_copy_ubufs);
+@@ -1298,7 +1275,8 @@ struct sk_buff *__pskb_copy_fclone(struct sk_buff *skb, int headroom,
+ 	if (skb_shinfo(skb)->nr_frags) {
+ 		int i;
+ 
+-		if (skb_orphan_frags(skb, gfp_mask)) {
++		if (skb_orphan_frags(skb, gfp_mask) ||
++		    skb_zerocopy_clone(n, skb, gfp_mask)) {
+ 			kfree_skb(n);
+ 			n = NULL;
+ 			goto out;
+@@ -1375,9 +1353,10 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	 * be since all we did is relocate the values
+ 	 */
+ 	if (skb_cloned(skb)) {
+-		/* copy this zero copy skb frags */
+ 		if (skb_orphan_frags(skb, gfp_mask))
+ 			goto nofrags;
++		if (skb_zcopy(skb))
++			atomic_inc(&skb_uarg(skb)->refcnt);
+ 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+ 			skb_frag_ref(skb, i);
+ 
+@@ -1872,6 +1851,9 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
+ 	skb->tail     += delta;
+ 	skb->data_len -= delta;
+ 
++	if (!skb->data_len)
++		skb_zcopy_clear(skb, false);
 +
-+	if (len) {
-+		packets++;
-+		bytes += ret;
-+		if (do_zerocopy && ret)
-+			expected_completions++;
-+	}
-+
-+	return true;
-+}
-+
-+static void do_sendmsg_corked(int fd, struct msghdr *msg)
-+{
-+	bool do_zerocopy = cfg_zerocopy;
-+	int i, payload_len, extra_len;
-+
-+	/* split up the packet. for non-multiple, make first buffer longer */
-+	payload_len = cfg_payload_len / cfg_cork;
-+	extra_len = cfg_payload_len - (cfg_cork * payload_len);
-+
-+	do_setsockopt(fd, IPPROTO_UDP, UDP_CORK, 1);
-+
-+	for (i = 0; i < cfg_cork; i++) {
-+
-+		/* in mixed-frags mode, alternate zerocopy and copy frags
-+		 * start with non-zerocopy, to ensure attach later works
-+		 */
-+		if (cfg_cork_mixed)
-+			do_zerocopy = (i & 1);
-+
-+		msg->msg_iov[0].iov_len = payload_len + extra_len;
-+		extra_len = 0;
-+
-+		do_sendmsg(fd, msg, do_zerocopy);
-+	}
-+
-+	do_setsockopt(fd, IPPROTO_UDP, UDP_CORK, 0);
-+}
-+
-+static int setup_iph(struct iphdr *iph, uint16_t payload_len)
-+{
-+	struct sockaddr_in *daddr = (void *) &cfg_dst_addr;
-+	struct sockaddr_in *saddr = (void *) &cfg_src_addr;
-+
-+	memset(iph, 0, sizeof(*iph));
-+
-+	iph->version	= 4;
-+	iph->tos	= 0;
-+	iph->ihl	= 5;
-+	iph->ttl	= 2;
-+	iph->saddr	= saddr->sin_addr.s_addr;
-+	iph->daddr	= daddr->sin_addr.s_addr;
-+	iph->protocol	= IPPROTO_EGP;
-+	iph->tot_len	= htons(sizeof(*iph) + payload_len);
-+	iph->check	= get_ip_csum((void *) iph, iph->ihl << 1);
-+
-+	return sizeof(*iph);
-+}
-+
-+static int setup_ip6h(struct ipv6hdr *ip6h, uint16_t payload_len)
-+{
-+	struct sockaddr_in6 *daddr = (void *) &cfg_dst_addr;
-+	struct sockaddr_in6 *saddr = (void *) &cfg_src_addr;
-+
-+	memset(ip6h, 0, sizeof(*ip6h));
-+
-+	ip6h->version		= 6;
-+	ip6h->payload_len	= htons(payload_len);
-+	ip6h->nexthdr		= IPPROTO_EGP;
-+	ip6h->hop_limit		= 2;
-+	ip6h->saddr		= saddr->sin6_addr;
-+	ip6h->daddr		= daddr->sin6_addr;
-+
-+	return sizeof(*ip6h);
-+}
-+
-+static void setup_sockaddr(int domain, const char *str_addr, void *sockaddr)
-+{
-+	struct sockaddr_in6 *addr6 = (void *) sockaddr;
-+	struct sockaddr_in *addr4 = (void *) sockaddr;
-+
-+	switch (domain) {
-+	case PF_INET:
-+		addr4->sin_family = AF_INET;
-+		addr4->sin_port = htons(cfg_port);
-+		if (inet_pton(AF_INET, str_addr, &(addr4->sin_addr)) != 1)
-+			error(1, 0, "ipv4 parse error: %s", str_addr);
-+		break;
-+	case PF_INET6:
-+		addr6->sin6_family = AF_INET6;
-+		addr6->sin6_port = htons(cfg_port);
-+		if (inet_pton(AF_INET6, str_addr, &(addr6->sin6_addr)) != 1)
-+			error(1, 0, "ipv6 parse error: %s", str_addr);
-+		break;
-+	default:
-+		error(1, 0, "illegal domain");
-+	}
-+}
-+
-+static int do_setup_tx(int domain, int type, int protocol)
-+{
-+	int fd;
-+
-+	fd = socket(domain, type, protocol);
-+	if (fd == -1)
-+		error(1, errno, "socket t");
-+
-+	do_setsockopt(fd, SOL_SOCKET, SO_SNDBUF, 1 << 21);
-+	if (cfg_zerocopy)
-+		do_setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, 1);
-+
-+	if (domain != PF_PACKET)
-+		if (connect(fd, (void *) &cfg_dst_addr, cfg_alen))
-+			error(1, errno, "connect");
-+
-+	return fd;
-+}
-+
-+static bool do_recv_completion(int fd)
-+{
-+	struct sock_extended_err *serr;
-+	struct msghdr msg = {};
-+	struct cmsghdr *cm;
-+	uint32_t hi, lo, range;
-+	int ret, zerocopy;
-+	char control[100];
-+
-+	msg.msg_control = control;
-+	msg.msg_controllen = sizeof(control);
-+
-+	ret = recvmsg(fd, &msg, MSG_ERRQUEUE);
-+	if (ret == -1 && errno == EAGAIN)
+ 	return skb_tail_pointer(skb);
+ }
+ EXPORT_SYMBOL(__pskb_pull_tail);
+@@ -2627,6 +2609,7 @@ skb_zerocopy(struct sk_buff *to, struct sk_buff *from, int len, int hlen)
+ 		skb_tx_error(from);
+ 		return -ENOMEM;
+ 	}
++	skb_zerocopy_clone(to, from, GFP_ATOMIC);
+ 
+ 	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
+ 		if (!len)
+@@ -2924,6 +2907,7 @@ void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len)
+ 
+ 	skb_shinfo(skb1)->tx_flags |= skb_shinfo(skb)->tx_flags &
+ 				      SKBTX_SHARED_FRAG;
++	skb_zerocopy_clone(skb1, skb, 0);
+ 	if (len < pos)	/* Split line is inside header. */
+ 		skb_split_inside_header(skb, skb1, len, pos);
+ 	else		/* Second chunk has no header, nothing to copy. */
+@@ -2967,6 +2951,8 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
+ 
+ 	if (skb_headlen(skb))
+ 		return 0;
++	if (skb_zcopy(tgt) || skb_zcopy(skb))
++		return 0;
+ 
+ 	todo = shiftlen;
+ 	from = 0;
+@@ -3540,6 +3526,8 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 
+ 		skb_shinfo(nskb)->tx_flags |= skb_shinfo(head_skb)->tx_flags &
+ 					      SKBTX_SHARED_FRAG;
++		if (skb_zerocopy_clone(nskb, head_skb, GFP_ATOMIC))
++			goto err;
+ 
+ 		while (pos < offset + len) {
+ 			if (i >= nfrags) {
+@@ -4663,6 +4651,8 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+ 
+ 	if (skb_has_frag_list(to) || skb_has_frag_list(from))
+ 		return false;
++	if (skb_zcopy(to) || skb_zcopy(from))
 +		return false;
-+	if (ret == -1)
-+		error(1, errno, "recvmsg notification");
-+	if (msg.msg_flags & MSG_CTRUNC)
-+		error(1, errno, "recvmsg notification: truncated");
-+
-+	cm = CMSG_FIRSTHDR(&msg);
-+	if (!cm)
-+		error(1, 0, "cmsg: no cmsg");
-+	if (!((cm->cmsg_level == SOL_IP && cm->cmsg_type == IP_RECVERR) ||
-+	      (cm->cmsg_level == SOL_IPV6 && cm->cmsg_type == IPV6_RECVERR) ||
-+	      (cm->cmsg_level == SOL_PACKET && cm->cmsg_type == PACKET_TX_TIMESTAMP)))
-+		error(1, 0, "serr: wrong type: %d.%d",
-+		      cm->cmsg_level, cm->cmsg_type);
-+
-+	serr = (void *) CMSG_DATA(cm);
-+	if (serr->ee_origin != SO_EE_ORIGIN_ZEROCOPY)
-+		error(1, 0, "serr: wrong origin: %u", serr->ee_origin);
-+	if (serr->ee_errno != 0)
-+		error(1, 0, "serr: wrong error code: %u", serr->ee_errno);
-+
-+	hi = serr->ee_data;
-+	lo = serr->ee_info;
-+	range = hi - lo + 1;
-+
-+	/* Detect notification gaps. These should not happen often, if at all.
-+	 * Gaps can occur due to drops, reordering and retransmissions.
-+	 */
-+	if (lo != next_completion)
-+		fprintf(stderr, "gap: %u..%u does not append to %u\n",
-+			lo, hi, next_completion);
-+	next_completion = hi + 1;
-+
-+	zerocopy = !(serr->ee_code & SO_EE_CODE_ZEROCOPY_COPIED);
-+	if (zerocopied == -1)
-+		zerocopied = zerocopy;
-+	else if (zerocopied != zerocopy) {
-+		fprintf(stderr, "serr: inconsistent\n");
-+		zerocopied = zerocopy;
-+	}
-+
-+	if (cfg_verbose >= 2)
-+		fprintf(stderr, "completed: %u (h=%u l=%u)\n",
-+			range, hi, lo);
-+
-+	completions += range;
-+	return true;
-+}
-+
-+/* Read all outstanding messages on the errqueue */
-+static void do_recv_completions(int fd)
-+{
-+	while (do_recv_completion(fd)) {}
-+}
-+
-+/* Wait for all remaining completions on the errqueue */
-+static void do_recv_remaining_completions(int fd)
-+{
-+	int64_t tstop = gettimeofday_ms() + cfg_waittime_ms;
-+
-+	while (completions < expected_completions &&
-+	       gettimeofday_ms() < tstop) {
-+		if (do_poll(fd, POLLERR))
-+			do_recv_completions(fd);
-+	}
-+
-+	if (completions < expected_completions)
-+		error(1, 0, "missing notifications: %lu < %lu\n",
-+		      completions, expected_completions);
-+}
-+
-+static void do_tx(int domain, int type, int protocol)
-+{
-+	struct iovec iov[3] = { {0} };
-+	struct sockaddr_ll laddr;
-+	struct msghdr msg = {0};
-+	struct ethhdr eth;
-+	union {
-+		struct ipv6hdr ip6h;
-+		struct iphdr iph;
-+	} nh;
-+	uint64_t tstop;
-+	int fd;
-+
-+	fd = do_setup_tx(domain, type, protocol);
-+
-+	if (domain == PF_PACKET) {
-+		uint16_t proto = cfg_family == PF_INET ? ETH_P_IP : ETH_P_IPV6;
-+
-+		/* sock_raw passes ll header as data */
-+		if (type == SOCK_RAW) {
-+			memset(eth.h_dest, 0x06, ETH_ALEN);
-+			memset(eth.h_source, 0x02, ETH_ALEN);
-+			eth.h_proto = htons(proto);
-+			iov[0].iov_base = &eth;
-+			iov[0].iov_len = sizeof(eth);
-+			msg.msg_iovlen++;
-+		}
-+
-+		/* both sock_raw and sock_dgram expect name */
-+		memset(&laddr, 0, sizeof(laddr));
-+		laddr.sll_family	= AF_PACKET;
-+		laddr.sll_ifindex	= cfg_ifindex;
-+		laddr.sll_protocol	= htons(proto);
-+		laddr.sll_halen		= ETH_ALEN;
-+
-+		memset(laddr.sll_addr, 0x06, ETH_ALEN);
-+
-+		msg.msg_name		= &laddr;
-+		msg.msg_namelen		= sizeof(laddr);
-+	}
-+
-+	/* packet and raw sockets with hdrincl must pass network header */
-+	if (domain == PF_PACKET || protocol == IPPROTO_RAW) {
-+		if (cfg_family == PF_INET)
-+			iov[1].iov_len = setup_iph(&nh.iph, cfg_payload_len);
-+		else
-+			iov[1].iov_len = setup_ip6h(&nh.ip6h, cfg_payload_len);
-+
-+		iov[1].iov_base = (void *) &nh;
-+		msg.msg_iovlen++;
-+	}
-+
-+	iov[2].iov_base = payload;
-+	iov[2].iov_len = cfg_payload_len;
-+	msg.msg_iovlen++;
-+	msg.msg_iov = &iov[3 - msg.msg_iovlen];
-+
-+	tstop = gettimeofday_ms() + cfg_runtime_ms;
-+	do {
-+		if (cfg_cork)
-+			do_sendmsg_corked(fd, &msg);
-+		else
-+			do_sendmsg(fd, &msg, cfg_zerocopy);
-+
-+		while (!do_poll(fd, POLLOUT)) {
-+			if (cfg_zerocopy)
-+				do_recv_completions(fd);
-+		}
-+
-+	} while (gettimeofday_ms() < tstop);
-+
-+	if (cfg_zerocopy)
-+		do_recv_remaining_completions(fd);
-+
-+	if (close(fd))
-+		error(1, errno, "close");
-+
-+	fprintf(stderr, "tx=%lu (%lu MB) txc=%lu zc=%c\n",
-+		packets, bytes >> 20, completions,
-+		zerocopied == 1 ? 'y' : 'n');
-+}
-+
-+static int do_setup_rx(int domain, int type, int protocol)
-+{
-+	int fd;
-+
-+	/* If tx over PF_PACKET, rx over PF_INET(6)/SOCK_RAW,
-+	 * to recv the only copy of the packet, not a clone
-+	 */
-+	if (domain == PF_PACKET)
-+		error(1, 0, "Use PF_INET/SOCK_RAW to read");
-+
-+	if (type == SOCK_RAW && protocol == IPPROTO_RAW)
-+		error(1, 0, "IPPROTO_RAW: not supported on Rx");
-+
-+	fd = socket(domain, type, protocol);
-+	if (fd == -1)
-+		error(1, errno, "socket r");
-+
-+	do_setsockopt(fd, SOL_SOCKET, SO_RCVBUF, 1 << 21);
-+	do_setsockopt(fd, SOL_SOCKET, SO_RCVLOWAT, 1 << 16);
-+	do_setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, 1);
-+
-+	if (bind(fd, (void *) &cfg_dst_addr, cfg_alen))
-+		error(1, errno, "bind");
-+
-+	if (type == SOCK_STREAM) {
-+		if (listen(fd, 1))
-+			error(1, errno, "listen");
-+		fd = do_accept(fd);
-+	}
-+
-+	return fd;
-+}
-+
-+/* Flush all outstanding bytes for the tcp receive queue */
-+static void do_flush_tcp(int fd)
-+{
-+	int ret;
-+
-+	/* MSG_TRUNC flushes up to len bytes */
-+	ret = recv(fd, NULL, 1 << 21, MSG_TRUNC | MSG_DONTWAIT);
-+	if (ret == -1 && errno == EAGAIN)
-+		return;
-+	if (ret == -1)
-+		error(1, errno, "flush");
-+	if (!ret)
-+		return;
-+
-+	packets++;
-+	bytes += ret;
-+}
-+
-+/* Flush all outstanding datagrams. Verify first few bytes of each. */
-+static void do_flush_datagram(int fd, int type)
-+{
-+	int ret, off = 0;
-+	char buf[64];
-+
-+	/* MSG_TRUNC will return full datagram length */
-+	ret = recv(fd, buf, sizeof(buf), MSG_DONTWAIT | MSG_TRUNC);
-+	if (ret == -1 && errno == EAGAIN)
-+		return;
-+
-+	/* raw ipv4 return with header, raw ipv6 without */
-+	if (cfg_family == PF_INET && type == SOCK_RAW) {
-+		off += sizeof(struct iphdr);
-+		ret -= sizeof(struct iphdr);
-+	}
-+
-+	if (ret == -1)
-+		error(1, errno, "recv");
-+	if (ret != cfg_payload_len)
-+		error(1, 0, "recv: ret=%u != %u", ret, cfg_payload_len);
-+	if (ret > sizeof(buf) - off)
-+		ret = sizeof(buf) - off;
-+	if (memcmp(buf + off, payload, ret))
-+		error(1, 0, "recv: data mismatch");
-+
-+	packets++;
-+	bytes += cfg_payload_len;
-+}
-+
-+static void do_rx(int domain, int type, int protocol)
-+{
-+	uint64_t tstop;
-+	int fd;
-+
-+	fd = do_setup_rx(domain, type, protocol);
-+
-+	tstop = gettimeofday_ms() + cfg_runtime_ms;
-+	do {
-+		if (type == SOCK_STREAM)
-+			do_flush_tcp(fd);
-+		else
-+			do_flush_datagram(fd, type);
-+
-+		do_poll(fd, POLLIN);
-+
-+	} while (gettimeofday_ms() < tstop);
-+
-+	if (close(fd))
-+		error(1, errno, "close");
-+
-+	fprintf(stderr, "rx=%lu (%lu MB)\n", packets, bytes >> 20);
-+}
-+
-+static void do_test(int domain, int type, int protocol)
-+{
-+	int i;
-+
-+	if (cfg_cork && (domain == PF_PACKET || type != SOCK_DGRAM))
-+		error(1, 0, "can only cork udp sockets");
-+
-+	do_setcpu(cfg_cpu);
-+
-+	for (i = 0; i < IP_MAXPACKET; i++)
-+		payload[i] = 'a' + (i % 26);
-+
-+	if (cfg_rx)
-+		do_rx(domain, type, protocol);
-+	else
-+		do_tx(domain, type, protocol);
-+}
-+
-+static void usage(const char *filepath)
-+{
-+	error(1, 0, "Usage: %s [options] <test>", filepath);
-+}
-+
-+static void parse_opts(int argc, char **argv)
-+{
-+	const int max_payload_len = sizeof(payload) -
-+				    sizeof(struct ipv6hdr) -
-+				    sizeof(struct tcphdr) -
-+				    40 /* max tcp options */;
-+	int c;
-+
-+	cfg_payload_len = max_payload_len;
-+
-+	while ((c = getopt(argc, argv, "46c:C:D:i:mp:rs:S:t:vz")) != -1) {
-+		switch (c) {
-+		case '4':
-+			if (cfg_family != PF_UNSPEC)
-+				error(1, 0, "Pass one of -4 or -6");
-+			cfg_family = PF_INET;
-+			cfg_alen = sizeof(struct sockaddr_in);
-+			break;
-+		case '6':
-+			if (cfg_family != PF_UNSPEC)
-+				error(1, 0, "Pass one of -4 or -6");
-+			cfg_family = PF_INET6;
-+			cfg_alen = sizeof(struct sockaddr_in6);
-+			break;
-+		case 'c':
-+			cfg_cork = strtol(optarg, NULL, 0);
-+			break;
-+		case 'C':
-+			cfg_cpu = strtol(optarg, NULL, 0);
-+			break;
-+		case 'D':
-+			setup_sockaddr(cfg_family, optarg, &cfg_dst_addr);
-+			break;
-+		case 'i':
-+			cfg_ifindex = if_nametoindex(optarg);
-+			if (cfg_ifindex == 0)
-+				error(1, errno, "invalid iface: %s", optarg);
-+			break;
-+		case 'm':
-+			cfg_cork_mixed = true;
-+			break;
-+		case 'p':
-+			cfg_port = htons(strtoul(optarg, NULL, 0));
-+			break;
-+		case 'r':
-+			cfg_rx = true;
-+			break;
-+		case 's':
-+			cfg_payload_len = strtoul(optarg, NULL, 0);
-+			break;
-+		case 'S':
-+			setup_sockaddr(cfg_family, optarg, &cfg_src_addr);
-+			break;
-+		case 't':
-+			cfg_runtime_ms = 200 + strtoul(optarg, NULL, 10) * 1000;
-+			break;
-+		case 'v':
-+			cfg_verbose++;
-+			break;
-+		case 'z':
-+			cfg_zerocopy = true;
-+			break;
-+		}
-+	}
-+
-+	if (cfg_payload_len > max_payload_len)
-+		error(1, 0, "-s: payload exceeds max (%d)", max_payload_len);
-+	if (cfg_cork_mixed && (!cfg_zerocopy || !cfg_cork))
-+		error(1, 0, "-m: cork_mixed requires corking and zerocopy");
-+
-+	if (optind != argc - 1)
-+		usage(argv[0]);
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	const char *cfg_test;
-+
-+	parse_opts(argc, argv);
-+
-+	cfg_test = argv[argc - 1];
-+
-+	if (!strcmp(cfg_test, "packet"))
-+		do_test(PF_PACKET, SOCK_RAW, 0);
-+	else if (!strcmp(cfg_test, "packet_dgram"))
-+		do_test(PF_PACKET, SOCK_DGRAM, 0);
-+	else if (!strcmp(cfg_test, "raw"))
-+		do_test(cfg_family, SOCK_RAW, IPPROTO_EGP);
-+	else if (!strcmp(cfg_test, "raw_hdrincl"))
-+		do_test(cfg_family, SOCK_RAW, IPPROTO_RAW);
-+	else if (!strcmp(cfg_test, "tcp"))
-+		do_test(cfg_family, SOCK_STREAM, 0);
-+	else if (!strcmp(cfg_test, "udp"))
-+		do_test(cfg_family, SOCK_DGRAM, 0);
-+	else
-+		error(1, 0, "unknown cfg_test %s", cfg_test);
-+
-+	return 0;
-+}
-diff --git a/tools/testing/selftests/net/msg_zerocopy.sh b/tools/testing/selftests/net/msg_zerocopy.sh
-new file mode 100755
-index 000000000000..86955e9a6a7c
---- /dev/null
-+++ b/tools/testing/selftests/net/msg_zerocopy.sh
-@@ -0,0 +1,113 @@
-+#!/bin/bash
-+#
-+# Send data between two processes across namespaces
-+# Run twice: once without and once with zerocopy
-+
-+set -e
-+
-+readonly DEV="veth0"
-+readonly DEV_MTU=65535
-+readonly BIN="./msg_zerocopy"
-+
-+readonly RAND="$(mktemp -u XXXXXX)"
-+readonly NSPREFIX="ns-${RAND}"
-+readonly NS1="${NSPREFIX}1"
-+readonly NS2="${NSPREFIX}2"
-+
-+readonly SADDR4='192.168.1.1'
-+readonly DADDR4='192.168.1.2'
-+readonly SADDR6='fd::1'
-+readonly DADDR6='fd::2'
-+
-+readonly path_sysctl_mem="net.core.optmem_max"
-+
-+# Argument parsing
-+if [[ "$#" -lt "2" ]]; then
-+	echo "Usage: $0 [4|6] [tcp|udp|raw|raw_hdrincl|packet|packet_dgram] <args>"
-+	exit 1
-+fi
-+
-+readonly IP="$1"
-+shift
-+readonly TXMODE="$1"
-+shift
-+readonly EXTRA_ARGS="$@"
-+
-+# Argument parsing: configure addresses
-+if [[ "${IP}" == "4" ]]; then
-+	readonly SADDR="${SADDR4}"
-+	readonly DADDR="${DADDR4}"
-+elif [[ "${IP}" == "6" ]]; then
-+	readonly SADDR="${SADDR6}"
-+	readonly DADDR="${DADDR6}"
-+else
-+	echo "Invalid IP version ${IP}"
-+	exit 1
-+fi
-+
-+# Argument parsing: select receive mode
-+#
-+# This differs from send mode for
-+# - packet:	use raw recv, because packet receives skb clones
-+# - raw_hdrinc: use raw recv, because hdrincl is a tx-only option
-+case "${TXMODE}" in
-+'packet' | 'packet_dgram' | 'raw_hdrincl')
-+	RXMODE='raw'
-+	;;
-+*)
-+	RXMODE="${TXMODE}"
-+	;;
-+esac
-+
-+# Start of state changes: install cleanup handler
-+save_sysctl_mem="$(sysctl -n ${path_sysctl_mem})"
-+
-+cleanup() {
-+	ip netns del "${NS2}"
-+	ip netns del "${NS1}"
-+	sysctl -w -q "${path_sysctl_mem}=${save_sysctl_mem}"
-+}
-+
-+trap cleanup EXIT
-+
-+# Configure system settings
-+sysctl -w -q "${path_sysctl_mem}=1000000"
-+
-+# Create virtual ethernet pair between network namespaces
-+ip netns add "${NS1}"
-+ip netns add "${NS2}"
-+
-+ip link add "${DEV}" mtu "${DEV_MTU}" netns "${NS1}" type veth \
-+  peer name "${DEV}" mtu "${DEV_MTU}" netns "${NS2}"
-+
-+# Bring the devices up
-+ip -netns "${NS1}" link set "${DEV}" up
-+ip -netns "${NS2}" link set "${DEV}" up
-+
-+# Set fixed MAC addresses on the devices
-+ip -netns "${NS1}" link set dev "${DEV}" address 02:02:02:02:02:02
-+ip -netns "${NS2}" link set dev "${DEV}" address 06:06:06:06:06:06
-+
-+# Add fixed IP addresses to the devices
-+ip -netns "${NS1}" addr add 192.168.1.1/24 dev "${DEV}"
-+ip -netns "${NS2}" addr add 192.168.1.2/24 dev "${DEV}"
-+ip -netns "${NS1}" addr add       fd::1/64 dev "${DEV}" nodad
-+ip -netns "${NS2}" addr add       fd::2/64 dev "${DEV}" nodad
-+
-+# Optionally disable sg or csum offload to test edge cases
-+# ip netns exec "${NS1}" ethtool -K "${DEV}" sg off
-+
-+do_test() {
-+	local readonly ARGS="$1"
-+
-+	echo "ipv${IP} ${TXMODE} ${ARGS}"
-+	ip netns exec "${NS2}" "${BIN}" "-${IP}" -i "${DEV}" -t 2 -C 2 -S "${SADDR}" -D "${DADDR}" ${ARGS} -r "${RXMODE}" &
-+	sleep 0.2
-+	ip netns exec "${NS1}" "${BIN}" "-${IP}" -i "${DEV}" -t 1 -C 3 -S "${SADDR}" -D "${DADDR}" ${ARGS} "${TXMODE}"
-+	wait
-+}
-+
-+do_test "${EXTRA_ARGS}"
-+do_test "-z ${EXTRA_ARGS}"
-+echo ok
-+
+ 
+ 	if (skb_headlen(from) != 0) {
+ 		struct page *page;
 -- 
 2.14.0.rc1.383.gd1ce394fe2-goog
