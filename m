@@ -1,66 +1,59 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH v3 net-next 5/5] net: dsa: lan9303: refactor
- lan9303_get_ethtool_stats
-Date: Thu, 3 Aug 2017 22:26:16 +0200
-Message-ID: <4e6cf276-bca0-0a53-5d1d-fb882f776dfb@egil-hjelmeland.no>
-References: <20170803094507.3439-1-privat@egil-hjelmeland.no>
- <20170803094507.3439-6-privat@egil-hjelmeland.no>
- <d91c3159-57a3-dea3-462e-24a4156127b2@gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
+Date: Thu, 3 Aug 2017 14:26:58 -0600
+Message-ID: <0d84bd27-2fd1-68c0-5787-0195e95ab1af@gmail.com>
+References: <20170503235638.31116-1-stephen@networkplumber.org>
+ <590AF624.6090808@iogearbox.net>
+ <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>
+ <20170504.104103.1628291573330660235.davem@davemloft.net>
+ <20170504094356.66590a9a@xeon-e3> <20170504204318.GB21130@orbyte.nwl.cc>
+ <f847c8d4-a6c0-66ab-0ac0-d83d6ea96a00@gmail.com>
+ <20170516093625.178caf3f@xeon-e3> <591D711F.1000906@iogearbox.net>
+ <1c494983-24e0-cd8f-9a2a-5d2a83e0bbc2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d91c3159-57a3-dea3-462e-24a4156127b2@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Phil Sutter <phil@nwl.cc>, David Miller <davem@davemloft.net>,
+        netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33074 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751743AbdHCU1A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 16:27:00 -0400
+Received: by mail-pf0-f194.google.com with SMTP id c65so2461133pfl.0
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 13:27:00 -0700 (PDT)
+In-Reply-To: <1c494983-24e0-cd8f-9a2a-5d2a83e0bbc2@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Den 03. aug. 2017 20:04, skrev Florian Fainelli:
-> On 08/03/2017 02:45 AM, Egil Hjelmeland wrote:
->> In lan9303_get_ethtool_stats: Get rid of 0x400 constant magic
->> by using new lan9303_read_switch_reg() inside loop.
->> Reduced scope of two variables.
->>
->> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
->> ---
->>   drivers/net/dsa/lan9303-core.c | 26 ++++++++++++++++----------
->>   1 file changed, 16 insertions(+), 10 deletions(-)
->>
->> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
->> index 6f409755ba1a..5aaa46146c27 100644
->> --- a/drivers/net/dsa/lan9303-core.c
->> +++ b/drivers/net/dsa/lan9303-core.c
->> @@ -435,6 +435,13 @@ static int lan9303_write_switch_port(
->>   		chip, LAN9303_SWITCH_PORT_REG(port, regnum), val);
->>   }
->>   
->> +static int lan9303_read_switch_port(
->> +	struct lan9303 *chip, int port, u16 regnum, u32 *val)
->> +{
+On 5/18/17 10:24 PM, David Ahern wrote:
+> On 5/18/17 3:02 AM, Daniel Borkmann wrote:
+>> So effectively this means libmnl has to be used for new stuff, noone
+>> has time to do the work to convert the existing tooling over (which
+>> by itself might be a challenge in testing everything to make sure
+>> there are no regressions) given there's not much activity around
+>> lib/libnetlink.c anyway, and existing users not using libmnl today
+>> won't see/notice new improvements on netlink side when they do an
+>> upgrade. So we'll be stuck with that dual library mess pretty much
+>> for a very long time. :(
 > 
-> This indentation is really funny, why not just break it up that way:
+> lib/libnetlink.c with all of its duplicate functions weighs in at just
+> 947 LOC -- a mere 12% of the code in lib/. From a total SLOC of iproute2
+> it is a negligible part of the code base.
 > 
-> static int lan9303_read_switch_port(struct lan9303 *chip, int port
-> 				    u16 regnum, u32 *val)
-> {
-> }
+> Given that, there is very little gain -- but a lot of risk in
+> regressions -- in converting such a small, low level code base to libmnl
+> just for the sake of using a library - something Phil noted in his
+> cursory attempt at converting ip to libmnl. ie., The level effort
+> required vs the benefit is just not worth it.
 > 
-> This applies to patch 5 as well, other than that:
-> 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> There are so many other parts of the ip code base that need work with a
+> much higher return on the time investment.
 > 
 
-Because it is the form that passes scripts/checkpatch.pl which I find
-easiest to type and maintain.
-
-- No need to fine tune spaces.
-- No need to change indentation if later renaming function to name of
-   different length.
-
-Do you have any references backing up your claim this is wrong?
-
-Cheers
-Egil
+Stephen: It has been 3 months since the first extack patches were posted
+and still nothing in iproute2, all of it hung up on your decision to
+require libmnl. Do you plan to finish the libmnl support any time soon
+and send out patches?
