@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rds: reduce memory footprint for RDS when
- transport is RDMA
-Date: Thu, 03 Aug 2017 09:28:19 -0700 (PDT)
-Message-ID: <20170803.092819.659501620552888426.davem@davemloft.net>
-References: <1501695271-146367-1-git-send-email-sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH 2/2] qlcnic: add const to bin_attribute structure
+Date: Thu, 03 Aug 2017 09:29:08 -0700 (PDT)
+Message-ID: <20170803.092908.1155197228589181228.davem@davemloft.net>
+References: <1501696634-15765-1-git-send-email-bhumirks@gmail.com>
+        <1501696634-15765-3-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-        santosh.shilimkar@oracle.com
-To: sowmini.varadhan@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45126 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751131AbdHCQ2U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 12:28:20 -0400
-In-Reply-To: <1501695271-146367-1-git-send-email-sowmini.varadhan@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: julia.lawall@lip6.fr, kvalo@codeaurora.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, harish.patil@cavium.com,
+        manish.chopra@cavium.com, Dept-GELinuxNICDev@cavium.com
+To: bhumirks@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1501696634-15765-3-git-send-email-bhumirks@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Wed,  2 Aug 2017 10:34:31 -0700
+From: Bhumika Goyal <bhumirks@gmail.com>
+Date: Wed,  2 Aug 2017 23:27:14 +0530
 
-> RDS over IB does not use multipath RDS, so the array
-> of additional rds_conn_path structures is always superfluous
-> in this case. Reduce the memory footprint of the rds module
-> by making this a dynamic allocation predicated on whether
-> the transport is mp_capable.
+> Add const to bin_attribute structure as it is only passed to the
+> functions sysfs_{remove/create}_bin_file. The corresponding
+> arguments are of type const, so declare the structure to be const.
 > 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-> Tested-by: Efrain Galaviz <efrain.galaviz@oracle.com>
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
-Applied, thank you.
+Applied.
