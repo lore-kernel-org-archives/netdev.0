@@ -1,54 +1,60 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 4/4] ibmvnic: Implement .get_channels
-Date: Wed, 2 Aug 2017 20:07:42 -0700
-Message-ID: <20170802200742.065bb833@xeon-e3>
-References: <f89ddaab-fe27-2b3c-5b3a-3aaac1e60ae3@linux.vnet.ibm.com>
-        <68feac4e-73d3-a689-6199-d42c72785c14@linux.vnet.ibm.com>
+From: "Patil, Harish" <Harish.Patil@cavium.com>
+Subject: Re: [PATCH 2/2] qlcnic: add const to bin_attribute structure
+Date: Thu, 3 Aug 2017 03:24:37 +0000
+Message-ID: <D5A894F4.157FD1%Harish.Patil@cavium.com>
+References: <1501696634-15765-1-git-send-email-bhumirks@gmail.com>
+ <1501696634-15765-3-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-        Nathan Fontenot <nfont@linux.vnet.ibm.com>
-To: John Allen <jallen@linux.vnet.ibm.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Bhumika Goyal <bhumirks@gmail.com>,
+        "julia.lawall@lip6.fr" <julia.lawall@lip6.fr>,
+        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Chopra, Manish" <Manish.Chopra@cavium.com>,
+        Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:35758 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751345AbdHCDHp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 23:07:45 -0400
-Received: by mail-pg0-f49.google.com with SMTP id v189so876067pgd.2
-        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 20:07:45 -0700 (PDT)
-In-Reply-To: <68feac4e-73d3-a689-6199-d42c72785c14@linux.vnet.ibm.com>
+Received: from mail-bl2nam02on0069.outbound.protection.outlook.com ([104.47.38.69]:2592
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751073AbdHCDYk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 2 Aug 2017 23:24:40 -0400
+In-Reply-To: <1501696634-15765-3-git-send-email-bhumirks@gmail.com>
+Content-Language: en-US
+Content-ID: <8CF4BEA7EE9C5447BDE1C3F1CE507595@namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Aug 2017 16:47:17 -0500
-John Allen <jallen@linux.vnet.ibm.com> wrote:
-
-> +static void ibmvnic_get_channels(struct net_device *netdev,
-> +				 struct ethtool_channels *channels)
-> +{
-> +	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
-> +
-> +	channels->max_rx = adapter->max_rx_queues;
-> +	channels->max_tx = adapter->max_tx_queues;
-> +	channels->max_other = 0;
-> +	channels->max_combined = 0;
-> +	channels->rx_count = adapter->req_rx_queues;
-> +	channels->tx_count = adapter->req_tx_queues;
-> +	channels->other_count = 0;
-> +	channels->combined_count = 0;
-> +}
-
-Minor nit, since the structure is already initialized to zero by caller,
-you don't need to fill in the values that are zero.
-
-static noinline_for_stack int ethtool_get_channels(struct net_device *dev,
-						   void __user *useraddr)
-{
-	struct ethtool_channels channels = { .cmd = ETHTOOL_GCHANNELS };  << all unspecifed fields are zero'd
-
-	if (!dev->ethtool_ops->get_channels)
-		return -EOPNOTSUPP;
-
-	dev->ethtool_ops->get_channels(dev, &channels);
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEJodW1pa2EgR295YWwgPGJodW1pcmtz
+QGdtYWlsLmNvbT4NCkRhdGU6IFdlZG5lc2RheSwgQXVndXN0IDIsIDIwMTcgYXQgMTE6MjcgUE0N
+ClRvOiAianVsaWEubGF3YWxsQGxpcDYuZnIiIDxqdWxpYS5sYXdhbGxAbGlwNi5mcj4sICJrdmFs
+b0Bjb2RlYXVyb3JhLm9yZyINCjxrdmFsb0Bjb2RlYXVyb3JhLm9yZz4sICJsaW51eC13aXJlbGVz
+c0B2Z2VyLmtlcm5lbC5vcmciDQo8bGludXgtd2lyZWxlc3NAdmdlci5rZXJuZWwub3JnPiwgIm5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmciDQo8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz4sICJsaW51eC1r
+ZXJuZWxAdmdlci5rZXJuZWwub3JnIg0KPGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc+LCBI
+YXJpc2ggUGF0aWwgPEhhcmlzaC5QYXRpbEBjYXZpdW0uY29tPiwNCiJDaG9wcmEsIE1hbmlzaCIg
+PE1hbmlzaC5DaG9wcmFAY2F2aXVtLmNvbT4sIERlcHQtR0UgTGludXggTklDIERldg0KPERlcHQt
+R0VMaW51eE5JQ0RldkBjYXZpdW0uY29tPg0KQ2M6IEJodW1pa2EgR295YWwgPGJodW1pcmtzQGdt
+YWlsLmNvbT4NClN1YmplY3Q6IFtQQVRDSCAyLzJdIHFsY25pYzogYWRkIGNvbnN0IHRvIGJpbl9h
+dHRyaWJ1dGUgc3RydWN0dXJlDQoNCj5BZGQgY29uc3QgdG8gYmluX2F0dHJpYnV0ZSBzdHJ1Y3R1
+cmUgYXMgaXQgaXMgb25seSBwYXNzZWQgdG8gdGhlDQo+ZnVuY3Rpb25zIHN5c2ZzX3tyZW1vdmUv
+Y3JlYXRlfV9iaW5fZmlsZS4gVGhlIGNvcnJlc3BvbmRpbmcNCj5hcmd1bWVudHMgYXJlIG9mIHR5
+cGUgY29uc3QsIHNvIGRlY2xhcmUgdGhlIHN0cnVjdHVyZSB0byBiZSBjb25zdC4NCj4NCj5TaWdu
+ZWQtb2ZmLWJ5OiBCaHVtaWthIEdveWFsIDxiaHVtaXJrc0BnbWFpbC5jb20+DQo+LS0tDQo+IGRy
+aXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX3N5c2ZzLmMgfCAyICstDQo+
+IDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPg0KPmRpZmYg
+LS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19zeXNmcy5j
+DQo+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19zeXNmcy5jDQo+
+aW5kZXggNzMwMjdhNi4uODJmY2I4MyAxMDA2NDQNCj4tLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9xbG9naWMvcWxjbmljL3FsY25pY19zeXNmcy5jDQo+KysrIGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfc3lzZnMuYw0KPkBAIC0xMjQ4LDcgKzEyNDgsNyBAQCBz
+dGF0aWMgc3NpemVfdA0KPnFsY25pY184M3h4X3N5c2ZzX2ZsYXNoX3dyaXRlX2hhbmRsZXIoc3Ry
+dWN0IGZpbGUgKmZpbHAsDQo+IAkud3JpdGUgPSBxbGNuaWNfc3lzZnNfd3JpdGVfcG1fY29uZmln
+LA0KPiB9Ow0KPiANCj4tc3RhdGljIHN0cnVjdCBiaW5fYXR0cmlidXRlIGJpbl9hdHRyX2ZsYXNo
+ID0gew0KPitzdGF0aWMgY29uc3Qgc3RydWN0IGJpbl9hdHRyaWJ1dGUgYmluX2F0dHJfZmxhc2gg
+PSB7DQo+IAkuYXR0ciA9IHsubmFtZSA9ICJmbGFzaCIsIC5tb2RlID0gKFNfSVJVR08gfCBTX0lX
+VVNSKX0sDQo+IAkuc2l6ZSA9IDAsDQo+IAkucmVhZCA9IHFsY25pY184M3h4X3N5c2ZzX2ZsYXNo
+X3JlYWRfaGFuZGxlciwNCj4tLSANCj4xLjkuMQ0KPg0KPkFja2VkLWJ5OiBIYXJpc2ggUGF0aWwg
+PGhhcmlzaC5wYXRpbEBjYXZpdW0uY29tPg0KDQo=
