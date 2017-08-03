@@ -1,55 +1,54 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH v3 net-next 3/5] net: dsa: lan9303: Simplify
- lan9303_xxx_packet_processing() usage
-Date: Thu, 3 Aug 2017 22:16:42 +0200
-Message-ID: <00f388c1-f0ab-6780-9644-4bf66868682e@egil-hjelmeland.no>
-References: <20170803094507.3439-1-privat@egil-hjelmeland.no>
- <20170803094507.3439-4-privat@egil-hjelmeland.no>
- <5a67a44b-6887-1466-c0f3-ce65759d51db@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 1/3] proto_ops: Add locked held versions of sendmsg
+ and sendpage
+Date: Thu, 03 Aug 2017 13:21:40 -0700
+Message-ID: <598385D4.5050205@gmail.com>
+References: <20170728232243.3040-1-tom@quantonium.net> <20170728232243.3040-2-tom@quantonium.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5a67a44b-6887-1466-c0f3-ce65759d51db@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rohit@quantonium.net
+To: Tom Herbert <tom@quantonium.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33265 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751948AbdHCUVz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 16:21:55 -0400
+Received: by mail-pg0-f68.google.com with SMTP id u185so2429840pgb.0
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 13:21:55 -0700 (PDT)
+In-Reply-To: <20170728232243.3040-2-tom@quantonium.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Den 03. aug. 2017 20:06, skrev Florian Fainelli:
-> On 08/03/2017 02:45 AM, Egil Hjelmeland wrote:
->> Simplify usage of lan9303_enable_packet_processing,
->> lan9303_disable_packet_processing()
->>
->> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+On 07/28/2017 04:22 PM, Tom Herbert wrote:
+> Add new proto_ops sendmsg_locked and sendpage_locked that can be
+> called when the socket lock is already held. Correspondingly, add
+> kernel_sendmsg_locked and kernel_sendpage_locked as front end
+> functions.
 > 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> These functions will be used in zero proxy so that we can take
+> the socket lock in a ULP sendmsg/sendpage and then directly call the
+> backend transport proto_ops functions.
 > 
-> took a little while to figure out that we are utilizing fall through of
-> the switch/case statement and that's why it's okay.
-> 
->>
->>   static int lan9303_check_device(struct lan9303 *chip)
->> @@ -765,7 +766,6 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
->>   	/* enable internal packet processing */
->>   	switch (port) {
->>   	case 1:
->> -		return lan9303_enable_packet_processing(chip, port);
->>   	case 2:
->>   		return lan9303_enable_packet_processing(chip, port);
->>   	default:
 
-I suppose if we later change to dsa_switch_alloc(...,3), then it could
-be further simplified to
+[...]
 
-if (port != 0)
-	return lan9303_enable_packet_processing(chip, port);
+>  
+> +int kernel_sendpage_locked(struct sock *sk, struct page *page, int offset,
+> +			   size_t size, int flags)
+> +{
+> +	struct socket *sock = sk->sk_socket;
+> +
+> +	if (sock->ops->sendpage_locked)
+> +		return sock->ops->sendpage_locked(sk, page, offset, size,
+> +						  flags);
+> +
+> +	return sock_no_sendpage_locked(sk, page, offset, size, flags);
+> +}
 
-Or perhaps no test is needed at all. The driver assumes port 0 is cpu
-port, which is the sensible way to use the chip. (Because port 0 has
-no phy, the others have phy). Declaring a different port as cpu port in
-DTS will not work, but it will not crash the kernel.
+How about just returning EOPNOTSUPP here and force implementations to do both
+sendmsg and sendpage. The only implementation of these callbacks already does
+this. And if its any other socket it will just wind its way through a few
+layers of calls before returning EOPNOTSUPP.
 
-Egil
+.John
