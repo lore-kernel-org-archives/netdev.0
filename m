@@ -1,48 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 00/21] mlxsw: Support for IPv6 UC router
-Date: Thu, 03 Aug 2017 15:41:24 -0700 (PDT)
-Message-ID: <20170803.154124.2094532576602544160.davem@davemloft.net>
-References: <20170803112831.1831-1-jiri@resnulli.us>
-        <20170803.153631.974713672754752484.davem@davemloft.net>
-        <d6bd0d34-b69f-10c2-059d-a45b1dfae80f@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH] iplink: Notify user if EEXIST error might be
+ spurious
+Date: Thu, 3 Aug 2017 15:52:52 -0700
+Message-ID: <20170803155252.79050c16@xeon-e3>
+References: <20170801172747.2817-1-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, idosch@mellanox.com,
-        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, kafai@fb.com,
-        hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
-        edumazet@google.com, yanhaishuang@cmss.chinamobile.com
-To: dsahern@gmail.com
+Cc: netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50534 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751866AbdHCWlZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 18:41:25 -0400
-In-Reply-To: <d6bd0d34-b69f-10c2-059d-a45b1dfae80f@gmail.com>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:34920 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751736AbdHCWwy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 18:52:54 -0400
+Received: by mail-pg0-f54.google.com with SMTP id v189so413957pgd.2
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 15:52:54 -0700 (PDT)
+In-Reply-To: <20170801172747.2817-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsahern@gmail.com>
-Date: Thu, 3 Aug 2017 16:39:54 -0600
+On Tue,  1 Aug 2017 19:27:47 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-> On 8/3/17 4:36 PM, David Miller wrote:
->> From: Jiri Pirko <jiri@resnulli.us>
->> Date: Thu,  3 Aug 2017 13:28:10 +0200
->> 
->>> This set adds support for IPv6 unicast routes offload.
->> 
->> Series applied, thanks.
->> 
+> Back in the days when RTM_NEWLINK wasn't yet implemented, people had to
+> rely upon kernel modules to create (virtual) interfaces for them. The
+> number of those was usually defined via module parameter, and a sane
+> default value was chosen. Now that iproute2 allows users to instantiate
+> new interfaces at will, this is no longer required - though for
+> backwards compatibility reasons, we're stuck with both methods which
+> collide at the point when one tries to create an interface with a
+> standard name for a type which exists in a kernel module: The kernel
+> will load the module, which instantiates the interface and the following
+> RTM_NEWLINK request will fail since the interface exists already. For
+> instance:
 > 
-> I take it you disagree with my comment on patch 10 about the RTF_OFFLOAD
-> flag? that is a nexthop flag and has no business being part of the UAPI
-> for IPv6.
+> | # lsmod | grep dummy
+> | # ip link show | grep dummy0
+> | # ip link add dummy0 type dummy
+> | RTNETLINK answers: File exists
+> | # ip link show | grep -c dummy0
+> | 1
+> 
+> There is no race-free solution in userspace for this dilemma as far as I
+> can tell, so try to detect whether a user might have run into this and
+> notify that the given error message might be irrelevant.
+> 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-Oh crap, I missed that.
+There is already a workable solution. There is already module parameters to block autocreation
+in bonding and dummy network device. The others should have it as well.
 
-But unlike the percpu flag, don't we want to somehow propagate offload
-state to the user?
-
-I'm sure whatever we decide Jiri will send and appropriate follow-up
-so don't panic :)
+This patch just seems like creating more clutter.
