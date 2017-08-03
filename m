@@ -1,7 +1,7 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 10/14] sctp: remove the typedef sctp_addip_param_t
-Date: Thu,  3 Aug 2017 15:42:18 +0800
-Message-ID: <9ee006c5a40a15372502d1e2458b8f9f568ceb2e.1501745729.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 11/14] sctp: remove the typedef sctp_addiphdr_t
+Date: Thu,  3 Aug 2017 15:42:19 +0800
+Message-ID: <5374e7c1ae3374fc375f56b48893aa5c3c0208bf.1501745729.git.lucien.xin@gmail.com>
 References: <cover.1501745729.git.lucien.xin@gmail.com>
  <8149f8b0a190eb047abfe48a7fa79ba74e4e4544.1501745729.git.lucien.xin@gmail.com>
  <457c0c30e478f1ead75d3606e17519ca23daddfc.1501745729.git.lucien.xin@gmail.com>
@@ -12,191 +12,167 @@ References: <cover.1501745729.git.lucien.xin@gmail.com>
  <a5a3e5ce57d84377d2426a010f92d2afb5ca346d.1501745729.git.lucien.xin@gmail.com>
  <cd4fd6410dd3ee98ea8462b2b9eb8af3b39d536a.1501745729.git.lucien.xin@gmail.com>
  <4117cc15ad262c164f9725e4dee1f9d0b13dd992.1501745729.git.lucien.xin@gmail.com>
+ <9ee006c5a40a15372502d1e2458b8f9f568ceb2e.1501745729.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:37995 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751067AbdHCHoQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 03:44:16 -0400
-In-Reply-To: <4117cc15ad262c164f9725e4dee1f9d0b13dd992.1501745729.git.lucien.xin@gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:37749 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751067AbdHCHoY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 03:44:24 -0400
+In-Reply-To: <9ee006c5a40a15372502d1e2458b8f9f568ceb2e.1501745729.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1501745729.git.lucien.xin@gmail.com>
 References: <cover.1501745729.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to remove the typedef sctp_addip_param_t, and
-replace with struct sctp_addip_param in the places where it's
+This patch is to remove the typedef sctp_addiphdr_t, and
+replace with struct sctp_addiphdr in the places where it's
 using this typedef.
 
-It is to use sizeof(variable) instead of sizeof(type), and
-also fix some indent problems.
+It is also to use sizeof(variable) instead of sizeof(type).
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/linux/sctp.h     |  8 ++++----
- net/sctp/sm_make_chunk.c | 39 ++++++++++++++++++++-------------------
- 2 files changed, 24 insertions(+), 23 deletions(-)
+ include/linux/sctp.h     |  6 +++---
+ net/sctp/sm_make_chunk.c | 14 +++++++-------
+ net/sctp/sm_statefuns.c  | 10 +++++-----
+ 3 files changed, 15 insertions(+), 15 deletions(-)
 
 diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-index 2a97639..5b7d6d9 100644
+index 5b7d6d9..83dac9b 100644
 --- a/include/linux/sctp.h
 +++ b/include/linux/sctp.h
-@@ -629,10 +629,10 @@ struct sctp_fwdtsn_chunk {
-  *	The ASCONF Parameter Response is used in the ASCONF-ACK to
-  *	report status of ASCONF processing.
-  */
--typedef struct sctp_addip_param {
--	struct sctp_paramhdr	param_hdr;
--	__be32		crr_id;
--} sctp_addip_param_t;
-+struct sctp_addip_param {
-+	struct sctp_paramhdr param_hdr;
-+	__be32 crr_id;
+@@ -634,14 +634,14 @@ struct sctp_addip_param {
+ 	__be32 crr_id;
+ };
+ 
+-typedef struct sctp_addiphdr {
++struct sctp_addiphdr {
+ 	__be32	serial;
+ 	__u8	params[0];
+-} sctp_addiphdr_t;
 +};
  
- typedef struct sctp_addiphdr {
- 	__be32	serial;
+ typedef struct sctp_addip_chunk {
+ 	struct sctp_chunkhdr chunk_hdr;
+-	sctp_addiphdr_t addip_hdr;
++	struct sctp_addiphdr addip_hdr;
+ } sctp_addip_chunk_t;
+ 
+ /* AUTH
 diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index e8e5065..bab3354 100644
+index bab3354..0e71e50 100644
 --- a/net/sctp/sm_make_chunk.c
 +++ b/net/sctp/sm_make_chunk.c
-@@ -2615,7 +2615,7 @@ static int sctp_process_param(struct sctp_association *asoc,
- 		if (!net->sctp.addip_enable)
- 			goto fall_through;
- 
--		addr_param = param.v + sizeof(sctp_addip_param_t);
-+		addr_param = param.v + sizeof(struct sctp_addip_param);
- 
- 		af = sctp_get_af_specific(param_type2af(addr_param->p.type));
- 		if (af == NULL)
-@@ -2810,7 +2810,7 @@ struct sctp_chunk *sctp_make_asconf_update_ip(struct sctp_association *asoc,
- 					      int		      addrcnt,
- 					      __be16		      flags)
+@@ -2752,7 +2752,7 @@ static struct sctp_chunk *sctp_make_asconf(struct sctp_association *asoc,
+ 					   union sctp_addr *addr,
+ 					   int vparam_len)
  {
--	sctp_addip_param_t	param;
-+	struct sctp_addip_param	param;
+-	sctp_addiphdr_t asconf;
++	struct sctp_addiphdr asconf;
+ 	struct sctp_chunk *retval;
+ 	int length = sizeof(asconf) + vparam_len;
+ 	union sctp_addr_param addrparam;
+@@ -2945,7 +2945,7 @@ struct sctp_chunk *sctp_make_asconf_set_prim(struct sctp_association *asoc,
+ static struct sctp_chunk *sctp_make_asconf_ack(const struct sctp_association *asoc,
+ 					       __u32 serial, int vparam_len)
+ {
+-	sctp_addiphdr_t		asconf;
++	struct sctp_addiphdr	asconf;
  	struct sctp_chunk	*retval;
- 	union sctp_addr_param	addr_param;
- 	union sctp_addr		*addr;
-@@ -2896,7 +2896,7 @@ struct sctp_chunk *sctp_make_asconf_update_ip(struct sctp_association *asoc,
- struct sctp_chunk *sctp_make_asconf_set_prim(struct sctp_association *asoc,
- 					     union sctp_addr *addr)
- {
--	sctp_addip_param_t	param;
-+	struct sctp_addip_param	param;
- 	struct sctp_chunk 	*retval;
- 	int 			len = sizeof(param);
- 	union sctp_addr_param	addrparam;
-@@ -2965,9 +2965,10 @@ static struct sctp_chunk *sctp_make_asconf_ack(const struct sctp_association *as
+ 	int			length = sizeof(asconf) + vparam_len;
  
- /* Add response parameters to an ASCONF_ACK chunk. */
- static void sctp_add_asconf_response(struct sctp_chunk *chunk, __be32 crr_id,
--			      __be16 err_code, sctp_addip_param_t *asconf_param)
-+				     __be16 err_code,
-+				     struct sctp_addip_param *asconf_param)
- {
--	sctp_addip_param_t 	ack_param;
-+	struct sctp_addip_param ack_param;
- 	struct sctp_errhdr	err_param;
- 	int			asconf_param_len = 0;
- 	int			err_param_len = 0;
-@@ -3006,15 +3007,15 @@ static void sctp_add_asconf_response(struct sctp_chunk *chunk, __be32 crr_id,
+@@ -3210,7 +3210,7 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
+ 	sctp_addip_chunk_t *addip = (sctp_addip_chunk_t *) asconf->chunk_hdr;
+ 	bool all_param_pass = true;
+ 	union sctp_params param;
+-	sctp_addiphdr_t		*hdr;
++	struct sctp_addiphdr	*hdr;
+ 	union sctp_addr_param	*addr_param;
+ 	struct sctp_chunk	*asconf_ack;
+ 	__be16	err_code;
+@@ -3220,11 +3220,11 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
  
- /* Process a asconf parameter. */
- static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
--				       struct sctp_chunk *asconf,
--				       sctp_addip_param_t *asconf_param)
-+					struct sctp_chunk *asconf,
-+					struct sctp_addip_param *asconf_param)
- {
- 	struct sctp_transport *peer;
- 	struct sctp_af *af;
- 	union sctp_addr	addr;
- 	union sctp_addr_param *addr_param;
+ 	chunk_len = ntohs(asconf->chunk_hdr->length) -
+ 		    sizeof(struct sctp_chunkhdr);
+-	hdr = (sctp_addiphdr_t *)asconf->skb->data;
++	hdr = (struct sctp_addiphdr *)asconf->skb->data;
+ 	serial = ntohl(hdr->serial);
  
--	addr_param = (void *)asconf_param + sizeof(sctp_addip_param_t);
-+	addr_param = (void *)asconf_param + sizeof(*asconf_param);
+ 	/* Skip the addiphdr and store a pointer to address parameter.  */
+-	length = sizeof(sctp_addiphdr_t);
++	length = sizeof(*hdr);
+ 	addr_param = (union sctp_addr_param *)(asconf->skb->data + length);
+ 	chunk_len -= length;
  
- 	if (asconf_param->param_hdr.type != SCTP_PARAM_ADD_IP &&
- 	    asconf_param->param_hdr.type != SCTP_PARAM_DEL_IP &&
-@@ -3174,13 +3175,13 @@ bool sctp_verify_asconf(const struct sctp_association *asoc,
- 			if (addr_param_needed && !addr_param_seen)
- 				return false;
- 			length = ntohs(param.addip->param_hdr.length);
--			if (length < sizeof(sctp_addip_param_t) +
-+			if (length < sizeof(struct sctp_addip_param) +
- 				     sizeof(**errp))
- 				return false;
- 			break;
- 		case SCTP_PARAM_SUCCESS_REPORT:
- 		case SCTP_PARAM_ADAPTATION_LAYER_IND:
--			if (length != sizeof(sctp_addip_param_t))
-+			if (length != sizeof(struct sctp_addip_param))
- 				return false;
- 			break;
- 		default:
-@@ -3289,7 +3290,7 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
- 
- /* Process a asconf parameter that is successfully acked. */
- static void sctp_asconf_param_success(struct sctp_association *asoc,
--				     sctp_addip_param_t *asconf_param)
-+				      struct sctp_addip_param *asconf_param)
- {
- 	struct sctp_af *af;
- 	union sctp_addr	addr;
-@@ -3298,7 +3299,7 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
- 	struct sctp_transport *transport;
- 	struct sctp_sockaddr_entry *saddr;
- 
--	addr_param = (void *)asconf_param + sizeof(sctp_addip_param_t);
-+	addr_param = (void *)asconf_param + sizeof(*asconf_param);
- 
- 	/* We have checked the packet before, so we do not check again.	*/
- 	af = sctp_get_af_specific(param_type2af(addr_param->p.type));
-@@ -3349,10 +3350,10 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
-  * specific success indication is present for the parameter.
-  */
- static __be16 sctp_get_asconf_response(struct sctp_chunk *asconf_ack,
--				      sctp_addip_param_t *asconf_param,
--				      int no_err)
-+				       struct sctp_addip_param *asconf_param,
-+				       int no_err)
- {
--	sctp_addip_param_t	*asconf_ack_param;
-+	struct sctp_addip_param	*asconf_ack_param;
- 	struct sctp_errhdr	*err_param;
- 	int			length;
- 	int			asconf_ack_len;
-@@ -3370,8 +3371,8 @@ static __be16 sctp_get_asconf_response(struct sctp_chunk *asconf_ack,
+@@ -3370,7 +3370,7 @@ static __be16 sctp_get_asconf_response(struct sctp_chunk *asconf_ack,
+ 	/* Skip the addiphdr from the asconf_ack chunk and store a pointer to
  	 * the first asconf_ack parameter.
  	 */
- 	length = sizeof(sctp_addiphdr_t);
--	asconf_ack_param = (sctp_addip_param_t *)(asconf_ack->skb->data +
--						  length);
-+	asconf_ack_param = (struct sctp_addip_param *)(asconf_ack->skb->data +
-+						       length);
+-	length = sizeof(sctp_addiphdr_t);
++	length = sizeof(struct sctp_addiphdr);
+ 	asconf_ack_param = (struct sctp_addip_param *)(asconf_ack->skb->data +
+ 						       length);
  	asconf_ack_len -= length;
+@@ -3435,7 +3435,7 @@ int sctp_process_asconf_ack(struct sctp_association *asoc,
+ 	 * failures are indicated, then all request(s) are considered
+ 	 * successful.
+ 	 */
+-	if (asconf_ack->skb->len == sizeof(sctp_addiphdr_t))
++	if (asconf_ack->skb->len == sizeof(struct sctp_addiphdr))
+ 		all_param_pass = 1;
  
- 	while (asconf_ack_len > 0) {
-@@ -3380,7 +3381,7 @@ static __be16 sctp_get_asconf_response(struct sctp_chunk *asconf_ack,
- 			case SCTP_PARAM_SUCCESS_REPORT:
- 				return SCTP_ERROR_NO_ERROR;
- 			case SCTP_PARAM_ERR_CAUSE:
--				length = sizeof(sctp_addip_param_t);
-+				length = sizeof(*asconf_ack_param);
- 				err_param = (void *)asconf_ack_param + length;
- 				asconf_ack_len -= length;
- 				if (asconf_ack_len > 0)
-@@ -3407,7 +3408,7 @@ int sctp_process_asconf_ack(struct sctp_association *asoc,
- {
- 	struct sctp_chunk	*asconf = asoc->addip_last_asconf;
- 	union sctp_addr_param	*addr_param;
--	sctp_addip_param_t	*asconf_param;
-+	struct sctp_addip_param	*asconf_param;
- 	int	length = 0;
- 	int	asconf_len = asconf->skb->len;
- 	int	all_param_pass = 0;
+ 	/* Process the TLVs contained in the last sent ASCONF chunk. */
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index e13c83f..d722f38 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -3613,7 +3613,7 @@ sctp_disposition_t sctp_sf_do_asconf(struct net *net,
+ 	struct sctp_chunk	*chunk = arg;
+ 	struct sctp_chunk	*asconf_ack = NULL;
+ 	struct sctp_paramhdr	*err_param = NULL;
+-	sctp_addiphdr_t		*hdr;
++	struct sctp_addiphdr	*hdr;
+ 	__u32			serial;
+ 
+ 	if (!sctp_vtag_verify(chunk, asoc)) {
+@@ -3636,7 +3636,7 @@ sctp_disposition_t sctp_sf_do_asconf(struct net *net,
+ 		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
+ 						  commands);
+ 
+-	hdr = (sctp_addiphdr_t *)chunk->skb->data;
++	hdr = (struct sctp_addiphdr *)chunk->skb->data;
+ 	serial = ntohl(hdr->serial);
+ 
+ 	/* Verify the ASCONF chunk before processing it. */
+@@ -3730,7 +3730,7 @@ sctp_disposition_t sctp_sf_do_asconf_ack(struct net *net,
+ 	struct sctp_chunk	*last_asconf = asoc->addip_last_asconf;
+ 	struct sctp_chunk	*abort;
+ 	struct sctp_paramhdr	*err_param = NULL;
+-	sctp_addiphdr_t		*addip_hdr;
++	struct sctp_addiphdr	*addip_hdr;
+ 	__u32			sent_serial, rcvd_serial;
+ 
+ 	if (!sctp_vtag_verify(asconf_ack, asoc)) {
+@@ -3753,7 +3753,7 @@ sctp_disposition_t sctp_sf_do_asconf_ack(struct net *net,
+ 		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
+ 						  commands);
+ 
+-	addip_hdr = (sctp_addiphdr_t *)asconf_ack->skb->data;
++	addip_hdr = (struct sctp_addiphdr *)asconf_ack->skb->data;
+ 	rcvd_serial = ntohl(addip_hdr->serial);
+ 
+ 	/* Verify the ASCONF-ACK chunk before processing it. */
+@@ -3762,7 +3762,7 @@ sctp_disposition_t sctp_sf_do_asconf_ack(struct net *net,
+ 			   (void *)err_param, commands);
+ 
+ 	if (last_asconf) {
+-		addip_hdr = (sctp_addiphdr_t *)last_asconf->subh.addip_hdr;
++		addip_hdr = (struct sctp_addiphdr *)last_asconf->subh.addip_hdr;
+ 		sent_serial = ntohl(addip_hdr->serial);
+ 	} else {
+ 		sent_serial = asoc->addip_serial - 1;
 -- 
 2.1.0
