@@ -1,29 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 00/21] mlxsw: Support for IPv6 UC router
-Date: Thu, 03 Aug 2017 15:36:31 -0700 (PDT)
-Message-ID: <20170803.153631.974713672754752484.davem@davemloft.net>
-References: <20170803112831.1831-1-jiri@resnulli.us>
+Subject: Re: [PATCH v2 net 0/3] tcp: fix xmit timer rearming to avoid stalls
+Date: Thu, 03 Aug 2017 15:39:06 -0700 (PDT)
+Message-ID: <20170803.153906.734255383584818482.davem@davemloft.net>
+References: <20170803131954.15441-1-ncardwell@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com,
-        dsahern@gmail.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, kafai@fb.com,
-        hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
-        edumazet@google.com, yanhaishuang@cmss.chinamobile.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org
+To: ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50428 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50444 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752110AbdHCWgc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 18:36:32 -0400
-In-Reply-To: <20170803112831.1831-1-jiri@resnulli.us>
+        with ESMTP id S1752011AbdHCWjH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 18:39:07 -0400
+In-Reply-To: <20170803131954.15441-1-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu,  3 Aug 2017 13:28:10 +0200
+From: Neal Cardwell <ncardwell@google.com>
+Date: Thu,  3 Aug 2017 09:19:51 -0400
 
-> This set adds support for IPv6 unicast routes offload.
+> This patch series is a bug fix for a TCP loss recovery performance bug
+> reported independently in recent netdev threads:
+>     
+>  (i)  July 26, 2017: netdev thread "TCP fast retransmit issues"
+>  (ii) July 26, 2017: netdev thread:
+>        "[PATCH V2 net-next] TLP: Don't reschedule PTO when there's one
+>        outstanding TLP retransmission"
+> 
+> Many thanks to Klavs Klavsen and Mao Wenan for the detailed reports,
+> traces, and packetdrill test cases, which enabled us to root-cause
+> this issue and verify the fix.
+> 
+> - v1 -> v2:
+>  - In patch 2/3, changed an unclear comment in the pre-existing code
+>    in tcp_schedule_loss_probe() to be more clear (thanks to Eric Dumazet
+>    for suggesting we improve this).
 
-Series applied, thanks.
+Series applied, thanks Neal.
