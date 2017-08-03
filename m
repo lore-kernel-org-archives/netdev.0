@@ -1,179 +1,70 @@
-From: "Raj, Ashok" <ashok.raj@intel.com>
-Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Thu, 3 Aug 2017 02:13:36 -0700
-Message-ID: <20170803091336.GD4883@otc-nc-03>
-References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
- <1499955692-26556-3-git-send-email-dingtianhong@huawei.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3 2/4] dt-bindings: can: fixed-transceiver: Add new CAN
+ fixed transceiver bindings
+Date: Thu, 3 Aug 2017 12:18:52 +0300
+Message-ID: <f92513b6-6b2b-e08d-72e2-dedd7e0190f4@cogentembedded.com>
+References: <20170803005150.9286-1-fcooper@ti.com>
+ <20170803005150.9286-3-fcooper@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: leedom@chelsio.com, bhelgaas@google.com, helgaas@kernel.org,
-        werner@chelsio.com, ganeshgr@chelsio.com, asit.k.mallick@intel.com,
-        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
-        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
-        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
-        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
-        davem@davemloft.net, alexander.duyck@gmail.com,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com, ashok.raj@intel.com
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Franklin S Cooper Jr <fcooper@ti.com>,
+        linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        wg@grandegger.com, mkl@pengutronix.de, robh+dt@kernel.org,
+        quentin.schulz@free-electrons.com, dev.kurt@vandijck-laurijssen.be,
+        andrew@lunn.ch, socketcan@hartkopp.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1499955692-26556-3-git-send-email-dingtianhong@huawei.com>
+In-Reply-To: <20170803005150.9286-3-fcooper@ti.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ding
+Hello!
 
-patch looks good, except would reword the patch description for clarity
+On 8/3/2017 3:51 AM, Franklin S Cooper Jr wrote:
 
-here is my crack at it, feel free to use.
-
-On Thu, Jul 13, 2017 at 10:21:31PM +0800, Ding Tianhong wrote:
-> The PCIe Device Control Register use the bit 4 to indicate that
-> whether the device is permitted to enable relaxed ordering or not.
-> But relaxed ordering is not safe for some platform which could only
-> use strong write ordering, so devices are allowed (but not required)
-> to enable relaxed ordering bit by default.
+> Add documentation to describe usage of the new fixed transceiver binding.
+> This new binding is applicable for any CAN device therefore it exists as
+> its own document.
 > 
-> If a PCIe device didn't enable the relaxed ordering attribute default,
-> we should not do anything in the PCIe configuration, otherwise we
-> should check if any of the devices above us do not support relaxed
-> ordering by the PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag, then base on
-> the result if we get a return that indicate that the relaxed ordering
-> is not supported we should update our device to disable relaxed ordering
-> in configuration space. If the device above us doesn't exist or isn't
-> the PCIe device, we shouldn't do anything and skip updating relaxed ordering
-> because we are probably running in a guest machine.
-
-When bit4 is set in the PCIe Device Control register, it indicates
-whether the device is permitted to use relaxed ordering.
-On some platforms using relaxed ordering can have performance issues or
-due to erratum can cause data-corruption. In such cases devices must avoid
-using relaxed ordering.
-
-This patch checks if there is any node in the hierarchy that indicates that
-using relaxed ordering is not safe. In such cases the patch turns off the
-relaxed ordering by clearing the eapability for this device.
-
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
 > ---
->  drivers/pci/pci.c   | 29 +++++++++++++++++++++++++++++
->  drivers/pci/probe.c | 37 +++++++++++++++++++++++++++++++++++++
->  include/linux/pci.h |  2 ++
->  3 files changed, 68 insertions(+)
+>   .../bindings/net/can/fixed-transceiver.txt         | 24 ++++++++++++++++++++++
+>   1 file changed, 24 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
 > 
-> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> index d88edf5..7a6b32f 100644
-> --- a/drivers/pci/pci.c
-> +++ b/drivers/pci/pci.c
-> @@ -4854,6 +4854,35 @@ int pcie_set_mps(struct pci_dev *dev, int mps)
->  EXPORT_SYMBOL(pcie_set_mps);
->  
->  /**
-> + * pcie_clear_relaxed_ordering - clear PCI Express relaxed ordering bit
-> + * @dev: PCI device to query
-> + *
-> + * If possible clear relaxed ordering
-> + */
-> +int pcie_clear_relaxed_ordering(struct pci_dev *dev)
-> +{
-> +	return pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
-> +					  PCI_EXP_DEVCTL_RELAX_EN);
-> +}
-> +EXPORT_SYMBOL(pcie_clear_relaxed_ordering);
+> diff --git a/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+> new file mode 100644
+> index 0000000..2f58838b
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+> @@ -0,0 +1,24 @@
+> +Fixed transceiver Device Tree binding
+> +------------------------------
 > +
-> +/**
-> + * pcie_relaxed_ordering_supported - Probe for PCIe relexed ordering support
-> + * @dev: PCI device to query
-> + *
-> + * Returns true if the device support relaxed ordering attribute.
-> + */
-> +bool pcie_relaxed_ordering_supported(struct pci_dev *dev)
-> +{
-> +	u16 v;
+> +CAN transceiver typically limits the max speed in standard CAN and CAN FD
+> +modes. Typically these limitations are static and the transceivers themselves
+> +provide no way to detect this limitation at runtime. For this situation,
+> +the "fixed-transceiver" node can be used.
 > +
-> +	pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
+> +Required Properties:
+> + max-bitrate:	a positive non 0 value that determines the max
+> +		speed that CAN/CAN-FD can run. Any other value
+> +		will be ignored.
 > +
-> +	return !!(v & PCI_EXP_DEVCTL_RELAX_EN);
-> +}
-> +EXPORT_SYMBOL(pcie_relaxed_ordering_supported);
+> +Examples:
 > +
-> +/**
->   * pcie_get_minimum_link - determine minimum link settings of a PCI device
->   * @dev: PCI device to query
->   * @speed: storage for minimum speed
-> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-> index c31310d..48df012 100644
-> --- a/drivers/pci/probe.c
-> +++ b/drivers/pci/probe.c
-> @@ -1762,6 +1762,42 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
->  					 PCI_EXP_DEVCTL_EXT_TAG);
->  }
->  
-> +/**
-> + * pci_dev_should_disable_relaxed_ordering - check if the PCI device
-> + * should disable the relaxed ordering attribute.
-> + * @dev: PCI device
-> + *
-> + * Return true if any of the PCI devices above us do not support
-> + * relaxed ordering.
-> + */
-> +static bool pci_dev_should_disable_relaxed_ordering(struct pci_dev *dev)
-> +{
-> +	while (dev) {
-> +		if (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING)
-> +			return true;
+> +Based on Texas Instrument's TCAN1042HGV CAN Transceiver
 > +
-> +		dev = dev->bus->self;
-> +	}
-> +
-> +	return false;
-> +}
-> +
-> +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
-> +{
-> +	/* We should not alter the relaxed ordering bit for the VF */
-> +	if (dev->is_virtfn)
-> +		return;
-> +
-> +	/* If the releaxed ordering enable bit is not set, do nothing. */
-> +	if (!pcie_relaxed_ordering_supported(dev))
-> +		return;
-> +
-> +	if (pci_dev_should_disable_relaxed_ordering(dev)) {
-> +		pcie_clear_relaxed_ordering(dev);
-> +		dev_info(&dev->dev, "Disable Relaxed Ordering\n");
-> +	}
-> +}
-> +
->  static void pci_configure_device(struct pci_dev *dev)
->  {
->  	struct hotplug_params hpp;
-> @@ -1769,6 +1805,7 @@ static void pci_configure_device(struct pci_dev *dev)
->  
->  	pci_configure_mps(dev);
->  	pci_configure_extended_tags(dev);
-> +	pci_configure_relaxed_ordering(dev);
->  
->  	memset(&hpp, 0, sizeof(hpp));
->  	ret = pci_get_hp_params(dev, &hpp);
-> diff --git a/include/linux/pci.h b/include/linux/pci.h
-> index 412ec1c..3aa23a2 100644
-> --- a/include/linux/pci.h
-> +++ b/include/linux/pci.h
-> @@ -1127,6 +1127,8 @@ int pci_add_ext_cap_save_buffer(struct pci_dev *dev,
->  void pci_pme_wakeup_bus(struct pci_bus *bus);
->  void pci_d3cold_enable(struct pci_dev *dev);
->  void pci_d3cold_disable(struct pci_dev *dev);
-> +int pcie_clear_relaxed_ordering(struct pci_dev *dev);
-> +bool pcie_relaxed_ordering_supported(struct pci_dev *dev);
->  
->  /* PCI Virtual Channel */
->  int pci_save_vc_state(struct pci_dev *dev);
-> -- 
-> 1.8.3.1
-> 
-> 
+> +m_can0 {
+> +	....
+> +	fixed-transceiver@0 {
+
+    The <unit-address> (after @) must only be specified if there's "reg" prop 
+in the device node. Also, please name the node "can-transceiver@" to be more 
+in line with the DT spec. which requires generic node names.
+
+[...]
+
+MBR, Sergei
