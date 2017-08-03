@@ -1,91 +1,45 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3 2/4] dt-bindings: can: fixed-transceiver: Add new CAN
- fixed transceiver bindings
-Date: Thu, 3 Aug 2017 15:22:55 +0300
-Message-ID: <86d78a36-04c2-7036-636c-7326a4c1c6b0@cogentembedded.com>
-References: <20170803005150.9286-1-fcooper@ti.com>
- <20170803005150.9286-3-fcooper@ti.com>
- <f92513b6-6b2b-e08d-72e2-dedd7e0190f4@cogentembedded.com>
- <3848fab8-ebcf-5b29-7e4e-eb1a2b03803d@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Franklin S Cooper Jr <fcooper@ti.com>,
-        linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        wg@grandegger.com, mkl@pengutronix.de, robh+dt@kernel.org,
-        quentin.schulz@free-electrons.com, dev.kurt@vandijck-laurijssen.be,
-        andrew@lunn.ch, socketcan@hartkopp.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3848fab8-ebcf-5b29-7e4e-eb1a2b03803d@ti.com>
-Content-Language: en-MW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH v2 net 0/3] tcp: fix xmit timer rearming to avoid stalls
+Date: Thu,  3 Aug 2017 09:19:51 -0400
+Message-ID: <20170803131954.15441-1-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:33215 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751162AbdHCNT5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 09:19:57 -0400
+Received: by mail-qk0-f173.google.com with SMTP id a77so7332968qkb.0
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 06:19:56 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2017 12:48 PM, Franklin S Cooper Jr wrote:
+This patch series is a bug fix for a TCP loss recovery performance bug
+reported independently in recent netdev threads:
+    
+ (i)  July 26, 2017: netdev thread "TCP fast retransmit issues"
+ (ii) July 26, 2017: netdev thread:
+       "[PATCH V2 net-next] TLP: Don't reschedule PTO when there's one
+       outstanding TLP retransmission"
 
->>> Add documentation to describe usage of the new fixed transceiver binding.
->>> This new binding is applicable for any CAN device therefore it exists as
->>> its own document.
->>>
->>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
->>> ---
->>>    .../bindings/net/can/fixed-transceiver.txt         | 24
->>> ++++++++++++++++++++++
->>>    1 file changed, 24 insertions(+)
->>>    create mode 100644
->>> Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
->>>
->>> diff --git
->>> a/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
->>> b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
->>> new file mode 100644
->>> index 0000000..2f58838b
->>> --- /dev/null
->>> +++ b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
->>> @@ -0,0 +1,24 @@
->>> +Fixed transceiver Device Tree binding
->>> +------------------------------
->>> +
->>> +CAN transceiver typically limits the max speed in standard CAN and
->>> CAN FD
->>> +modes. Typically these limitations are static and the transceivers
->>> themselves
->>> +provide no way to detect this limitation at runtime. For this situation,
->>> +the "fixed-transceiver" node can be used.
->>> +
->>> +Required Properties:
->>> + max-bitrate:    a positive non 0 value that determines the max
->>> +        speed that CAN/CAN-FD can run. Any other value
->>> +        will be ignored.
->>> +
->>> +Examples:
->>> +
->>> +Based on Texas Instrument's TCAN1042HGV CAN Transceiver
->>> +
->>> +m_can0 {
->>> +    ....
->>> +    fixed-transceiver@0 {
->>
->>     The <unit-address> (after @) must only be specified if there's "reg"
-> 
-> Sorry. Fixed this in my v2 and some how it came back. Will fix.
-> 
->> prop in the device node. Also, please name the node "can-transceiver@"
->> to be more in line with the DT spec. which requires generic node names.
-> 
-> Its possible for future can transceivers drivers to be created. So I
+Many thanks to Klavs Klavsen and Mao Wenan for the detailed reports,
+traces, and packetdrill test cases, which enabled us to root-cause
+this issue and verify the fix.
 
-    So what? Ah, you are using the node name to match in the CAN drivers...
+- v1 -> v2:
+ - In patch 2/3, changed an unclear comment in the pre-existing code
+   in tcp_schedule_loss_probe() to be more clear (thanks to Eric Dumazet
+   for suggesting we improve this).
 
-> thought including fixed was important to indicate that this is a "dumb"
-> transceiver similar to "fixed-link".
+Neal Cardwell (3):
+  tcp: introduce tcp_rto_delta_us() helper for xmit timer fix
+  tcp: enable xmit timer fix by having TLP use time when RTO should fire
+  tcp: fix xmit timer to only be reset if data ACKed/SACKed
 
-    I'm not sure the "fixed-link" MAC subnode assumed any transceiver at all...
+ include/net/tcp.h     | 10 ++++++++++
+ net/ipv4/tcp_input.c  | 30 +++++++++++++++++-------------
+ net/ipv4/tcp_output.c | 23 +++++------------------
+ 3 files changed, 32 insertions(+), 31 deletions(-)
 
-> So would "fixed-can-transceiver" be
-> ok or do you want to go with can-transceiver?
-
-    I'm somewhat perplexed at this point...
-
-MBR, Sergei
+-- 
+2.14.0.rc1.383.gd1ce394fe2-goog
