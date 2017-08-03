@@ -1,82 +1,81 @@
-From: "Raj, Ashok" <ashok.raj@intel.com>
-Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Thu, 3 Aug 2017 01:31:53 -0700
-Message-ID: <20170803083153.GB4883@otc-nc-03>
-References: <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
- <0260e398-bd8e-6615-6d5c-1f7c07b6fc09@huawei.com>
- <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
- <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
- <20170724090516.2e0f0d2a@w520.home>
- <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
- <75213fca-4522-2297-3cb8-338e643d3552@huawei.com>
- <CAKgT0UcqdRCwDDxD=22Q_jLuqz8KVHwH1-V45Aq-1WzQw=agcA@mail.gmail.com>
- <14218972-553d-eb60-0207-460ac7f4b064@huawei.com>
- <MWHPR12MB1600A6986E4AD13D302F2DC9C8B00@MWHPR12MB1600.namprd12.prod.outlook.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [RFC PATCH v2 0/2] nb8800 suspend/resume support
+Date: Thu, 3 Aug 2017 10:34:31 +0200
+Message-ID: <c1aeaa45-de6a-e643-8765-7dad58a8b038@free.fr>
+References: <33d1ab47-6098-5e3f-8a3c-f72626d07113@free.fr>
+ <aa8885b8-e6bb-3624-2bf9-0bb40505ac54@free.fr>
+ <dd883398-1511-0bfd-972b-a11ef8709f0d@free.fr> <yw1xshhagexd.fsf@mansr.com>
+ <9e8e12b1-74e2-8323-ec16-eebda46b2a3d@free.fr> <yw1xo9rygdyu.fsf@mansr.com>
+ <6906dccf-bec9-0fc8-a34a-c39c05ada917@free.fr> <yw1xk22mgdcx.fsf@mansr.com>
+ <f1554ee7-2151-1304-c5c1-35264b9be5be@free.fr>
+ <71dd7987-8c43-2548-5058-51a95658da71@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Alex Williamson <alex.williamson@redhat.com>,
-        Sinan Kaya <okaya@codeaurora.org>,
-        "bhelgaas@google.com" <bhelgaas@google.com>,
-        "helgaas@kernel.org" <helgaas@kernel.org>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
-        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
-        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
-        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
-        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-        "amira@mellanox.com" <amira@mellanox.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "David.Laight@aculab.com" <David.Laight@aculab.com>,
-        "jeffrey.t.kirsh
-To: Casey Leedom <leedom@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <MWHPR12MB1600A6986E4AD13D302F2DC9C8B00@MWHPR12MB1600.namprd12.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Mans Rullgard <mans@mansr.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:35178 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751677AbdHCIep (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Aug 2017 04:34:45 -0400
+In-Reply-To: <71dd7987-8c43-2548-5058-51a95658da71@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Casey
+On 02/08/2017 22:02, Mason wrote:
 
-On Wed, Aug 02, 2017 at 05:53:52PM +0000, Casey Leedom wrote:
->   Okay, here you go.  As you can tell, it's almost a trivial copy of the
-> cxgb4 patch.
->  
->   By the way, I realized that we have yet another hole which is likely not
-> to be fixable.  If we're dealing with a problematic Root Complex, and we
-> instantiate Virtual Functions and attach them to a Virtual Machine along
-> with an NVMe device which can deal with Relaxed Ordering TLPs, the VF driver
-> in the VM will be able to tell that it shouldn't attempt to send RO TLPs to
-> the RC because it will see the state of its own PCIe Capability Device
-> Control[Relaxed Ordering Enable] (a copy of the setting in the VF's
-> corresponding PF), but it won't be able to change that and send non-RO TLPs
-> to the RC, and RO TLPs to the NVMe device.  Oh well.
+> I need to run the test slightly slower, to prevent packet loss
+> at the sender.
 
-I don't understand this completely.. So your driver would know not to send RO
-TLP's to root complex. But you want to send RO to the NVMe device? This is the
-peer-2-peer case correct?
+# iperf3 -c 172.27.64.45 -u -b 0 -l 1000
+Connecting to host 172.27.64.45, port 5201
+[  4] local 172.27.64.1 port 42607 connected to 172.27.64.45 port 5201
+[ ID] Interval           Transfer     Bandwidth       Total Datagrams
+[  4]   0.00-1.00   sec   111 MBytes   931 Mbits/sec  116420  
+[  4]   1.00-2.00   sec   111 MBytes   931 Mbits/sec  116390  
+[  4]   2.00-3.00   sec   111 MBytes   930 Mbits/sec  116220  
+[  4]   3.00-4.00   sec   111 MBytes   930 Mbits/sec  116310  
+[  4]   4.00-5.00   sec   111 MBytes   931 Mbits/sec  116380  
+[  4]   5.00-6.00   sec   111 MBytes   930 Mbits/sec  116280  
+[  4]   6.00-7.00   sec   111 MBytes   931 Mbits/sec  116390  
+[  4]   7.00-8.00   sec   111 MBytes   931 Mbits/sec  116370  
+[  4]   8.00-9.00   sec   111 MBytes   931 Mbits/sec  116340  
+[  4]   9.00-10.00  sec   111 MBytes   930 Mbits/sec  116310  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total Datagrams
+[  4]   0.00-10.00  sec  1.08 GBytes   931 Mbits/sec  0.009 ms  278644/1163363 (24%)  
+[  4] Sent 1163363 datagrams
 
-The issue in the current patchset is that we device to turn off the device 
-capability for all devices in the hierarchy so one would expect that 
-the NVMe also would have RO turned off i suppose. 
+iperf Done.
 
-The other approach is to not turn off the device capabilty, but let the
-driver do the right thing. i.e for transactions towards system memory vs. 
-peer-2-peer? But since we wanted to take a big hammer approach because
-some platforms there can be data-corruption and we can't let trust guest
-drivers to do the right thing. This isn't something we can fix in this 
-current version.
 
-One possible approach is to provide a strict flag, where we use this heavy 
-hammer approach only on platforms that have a serious implication, and the 
-other is we let the driver do the right thing depending on the platform.
+# iperf3 -s
+Accepted connection from 172.27.64.1, port 42966
+[  5] local 172.27.64.45 port 5201 connected to 172.27.64.1 port 42607
+[ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total Datagrams
+[  5]   0.00-1.00   sec  81.1 MBytes   681 Mbits/sec  0.017 ms  26834/111909 (24%)  
+[  5]   1.00-2.00   sec  84.2 MBytes   706 Mbits/sec  0.019 ms  28127/116384 (24%)  
+[  5]   2.00-3.00   sec  84.2 MBytes   706 Mbits/sec  0.013 ms  27946/116204 (24%)  
+[  5]   3.00-4.00   sec  84.5 MBytes   709 Mbits/sec  0.013 ms  27674/116311 (24%)  
+[  5]   4.00-5.00   sec  84.6 MBytes   709 Mbits/sec  0.015 ms  27712/116387 (24%)  
+[  5]   5.00-6.00   sec  84.5 MBytes   709 Mbits/sec  0.010 ms  27649/116265 (24%)  
+[  5]   6.00-7.00   sec  84.3 MBytes   707 Mbits/sec  0.011 ms  27995/116382 (24%)  
+[  5]   7.00-8.00   sec  84.3 MBytes   707 Mbits/sec  0.013 ms  27972/116387 (24%)  
+[  5]   8.00-9.00   sec  84.3 MBytes   708 Mbits/sec  0.020 ms  27899/116343 (24%)  
+[  5]   9.00-10.00  sec  84.4 MBytes   708 Mbits/sec  0.014 ms  27759/116305 (24%)  
+[  5]  10.00-10.04  sec  3.25 MBytes   710 Mbits/sec  0.009 ms  1077/4486 (24%)  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total Datagrams
+[  5]   0.00-10.04  sec  0.00 Bytes  0.00 bits/sec  0.009 ms  278644/1163363 (24%)  
 
-Worst case if the driver doesn't do the right thing, you would see perf issues
-but nothing bad would happen. It would allow you to select when to turn on 
-RO and when to turn it off.
 
-Cheers,
-Ashok
+IIUC, sender (desktop system) sends datagrams as fast as possible.
+Receiver (tango board) drops around 24% of all datagrams.
+I think this invalidates the theory that exhausting RX descriptors
+wedges RX DMA.
+
+Regards.
