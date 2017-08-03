@@ -1,32 +1,198 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v3 net-next 4/5] net: dsa: lan9303: Rename
- lan9303_xxx_packet_processing()
-Date: Thu, 3 Aug 2017 11:08:27 -0700
-Message-ID: <43501074-0e61-01f8-b856-bd22c65cf9e8@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/5] net: dsa: lan9303: Change
+ lan9303_xxx_packet_processing() port param.
+Date: Thu, 3 Aug 2017 11:08:52 -0700
+Message-ID: <f425b652-2bc0-e273-f3d6-107ed585c490@gmail.com>
 References: <20170803094507.3439-1-privat@egil-hjelmeland.no>
- <20170803094507.3439-5-privat@egil-hjelmeland.no>
+ <20170803094507.3439-2-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 8bit
 To: Egil Hjelmeland <privat@egil-hjelmeland.no>, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, kernel@pengutronix.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170803094507.3439-5-privat@egil-hjelmeland.no>
+In-Reply-To: <20170803094507.3439-2-privat@egil-hjelmeland.no>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 08/03/2017 02:45 AM, Egil Hjelmeland wrote:
-> The lan9303_enable_packet_processing, lan9303_disable_packet_processing
-> functions operate on port, so the names should reflect that.
-> And to align with lan9303_disable_processing(), rename:
+> lan9303_enable_packet_processing, lan9303_disable_packet_processing()
+> Pass port number (0,1,2) as parameter instead of port offset.
+> Because other functions in the module pass port numbers.
+> And to enable simplifications in following patch.
 > 
-> lan9303_enable_packet_processing -> lan9303_enable_processing_port
-> lan9303_disable_packet_processing -> lan9303_disable_processing_port
+> Introduce lan9303_write_switch_port().
 > 
 > Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+> ---
+>  drivers/net/dsa/lan9303-core.c | 60 ++++++++++++++++++++++--------------------
+>  1 file changed, 32 insertions(+), 28 deletions(-)
+> 
+> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+> index 8e430d1ee297..fa19e320c5a8 100644
+> --- a/drivers/net/dsa/lan9303-core.c
+> +++ b/drivers/net/dsa/lan9303-core.c
+> @@ -159,9 +159,7 @@
+>  # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT1 (BIT(9) | BIT(8))
+>  # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0 (BIT(1) | BIT(0))
+>  
+> -#define LAN9303_PORT_0_OFFSET 0x400
+> -#define LAN9303_PORT_1_OFFSET 0x800
+> -#define LAN9303_PORT_2_OFFSET 0xc00
+> +#define LAN9303_SWITCH_PORT_REG(port, reg0) (0x400 * (port) + (reg0))
+>  
+>  /* the built-in PHYs are of type LAN911X */
+>  #define MII_LAN911X_SPECIAL_MODES 0x12
+> @@ -428,6 +426,13 @@ static int lan9303_read_switch_reg(struct lan9303 *chip, u16 regnum, u32 *val)
+>  	return ret;
+>  }
+>  
+> +static int lan9303_write_switch_port(
+> +	struct lan9303 *chip, int port, u16 regnum, u32 val)
+> +{
+> +	return lan9303_write_switch_reg(
+> +		chip, LAN9303_SWITCH_PORT_REG(port, regnum), val);
+> +}
+
+This argument alignment is not looking too good, can you do this instead:
+
+static int lan9303_write_switch_port(struct lan9303 *chip, int port
+				     u16 regnum, u32 *val)
+{
+}
+
+This applied to patch 5 as well (which should have included it applies
+to patch 1 as well).
+
+With that:
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+
+> +
+>  static int lan9303_detect_phy_setup(struct lan9303 *chip)
+>  {
+>  	int reg;
+> @@ -458,24 +463,23 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+>  	return 0;
+>  }
+>  
+> -#define LAN9303_MAC_RX_CFG_OFFS (LAN9303_MAC_RX_CFG_0 - LAN9303_PORT_0_OFFSET)
+> -#define LAN9303_MAC_TX_CFG_OFFS (LAN9303_MAC_TX_CFG_0 - LAN9303_PORT_0_OFFSET)
+> -
+>  static int lan9303_disable_packet_processing(struct lan9303 *chip,
+>  					     unsigned int port)
+>  {
+>  	int ret;
+>  
+>  	/* disable RX, but keep register reset default values else */
+> -	ret = lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_OFFS + port,
+> -				       LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES);
+> +	ret = lan9303_write_switch_port(
+> +			chip, port, LAN9303_MAC_RX_CFG_0,
+> +			LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES);
+>  	if (ret)
+>  		return ret;
+>  
+>  	/* disable TX, but keep register reset default values else */
+> -	return lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_OFFS + port,
+> -				LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
+> -				LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE);
+> +	return lan9303_write_switch_port(
+> +			chip, port, LAN9303_MAC_TX_CFG_0,
+> +			LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
+> +			LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE);
+
+Same here, please don't re-align the arguments, they were fine already.
+
+>  }
+>  
+>  static int lan9303_enable_packet_processing(struct lan9303 *chip,
+> @@ -484,17 +488,19 @@ static int lan9303_enable_packet_processing(struct lan9303 *chip,
+>  	int ret;
+>  
+>  	/* enable RX and keep register reset default values else */
+> -	ret = lan9303_write_switch_reg(chip, LAN9303_MAC_RX_CFG_OFFS + port,
+> -				       LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES |
+> -				       LAN9303_MAC_RX_CFG_X_RX_ENABLE);
+> +	ret = lan9303_write_switch_port(
+> +			chip, port, LAN9303_MAC_RX_CFG_0,
+> +			LAN9303_MAC_RX_CFG_X_REJECT_MAC_TYPES |
+> +			LAN9303_MAC_RX_CFG_X_RX_ENABLE);
+>  	if (ret)
+>  		return ret;
+>  
+>  	/* enable TX and keep register reset default values else */
+> -	return lan9303_write_switch_reg(chip, LAN9303_MAC_TX_CFG_OFFS + port,
+> -				LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
+> -				LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE |
+> -				LAN9303_MAC_TX_CFG_X_TX_ENABLE);
+> +	return lan9303_write_switch_port(
+> +			chip, port, LAN9303_MAC_TX_CFG_0,
+> +			LAN9303_MAC_TX_CFG_X_TX_IFG_CONFIG_DEFAULT |
+> +			LAN9303_MAC_TX_CFG_X_TX_PAD_ENABLE |
+> +			LAN9303_MAC_TX_CFG_X_TX_ENABLE);
+>  }
+>  
+>  /* We want a special working switch:
+> @@ -558,13 +564,13 @@ static int lan9303_disable_processing(struct lan9303 *chip)
+>  {
+>  	int ret;
+>  
+> -	ret = lan9303_disable_packet_processing(chip, LAN9303_PORT_0_OFFSET);
+> +	ret = lan9303_disable_packet_processing(chip, 0);
+>  	if (ret)
+>  		return ret;
+> -	ret = lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
+> +	ret = lan9303_disable_packet_processing(chip, 1);
+>  	if (ret)
+>  		return ret;
+> -	return lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
+> +	return lan9303_disable_packet_processing(chip, 2);
+>  }
+>  
+>  static int lan9303_check_device(struct lan9303 *chip)
+> @@ -634,7 +640,7 @@ static int lan9303_setup(struct dsa_switch *ds)
+>  	if (ret)
+>  		dev_err(chip->dev, "failed to separate ports %d\n", ret);
+>  
+> -	ret = lan9303_enable_packet_processing(chip, LAN9303_PORT_0_OFFSET);
+> +	ret = lan9303_enable_packet_processing(chip, 0);
+>  	if (ret)
+>  		dev_err(chip->dev, "failed to re-enable switching %d\n", ret);
+>  
+> @@ -757,11 +763,9 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
+>  	/* enable internal packet processing */
+>  	switch (port) {
+>  	case 1:
+> -		return lan9303_enable_packet_processing(chip,
+> -							LAN9303_PORT_1_OFFSET);
+> +		return lan9303_enable_packet_processing(chip, port);
+>  	case 2:
+> -		return lan9303_enable_packet_processing(chip,
+> -							LAN9303_PORT_2_OFFSET);
+> +		return lan9303_enable_packet_processing(chip, port);
+>  	default:
+>  		dev_dbg(chip->dev,
+>  			"Error: request to power up invalid port %d\n", port);
+> @@ -778,12 +782,12 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
+>  	/* disable internal packet processing */
+>  	switch (port) {
+>  	case 1:
+> -		lan9303_disable_packet_processing(chip, LAN9303_PORT_1_OFFSET);
+> +		lan9303_disable_packet_processing(chip, port);
+>  		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
+>  				  MII_BMCR, BMCR_PDOWN);
+>  		break;
+>  	case 2:
+> -		lan9303_disable_packet_processing(chip, LAN9303_PORT_2_OFFSET);
+> +		lan9303_disable_packet_processing(chip, port);
+>  		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
+>  				  MII_BMCR, BMCR_PDOWN);
+>  		break;
+> 
+
+
 -- 
 Florian
