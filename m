@@ -1,87 +1,63 @@
-From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: [PATCH v4 net-next 00/13] bpf: rewrite value tracking
-	in verifier
-Date: Thu, 3 Aug 2017 17:07:35 +0100
-Message-ID: <22441d84-0a11-5c00-2d2a-25e7dbafa6c2@solarflare.com>
-Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next 4/4] udp: no need to preserve skb->dst
+Date: Thu,  3 Aug 2017 18:07:08 +0200
+Message-ID: <99a44bf71b12638ac2367fb2448c070bb19f5b74.1501775813.git.pabeni@redhat.com>
+References: <cover.1501775813.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51712 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751704AbdHCQHo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Aug 2017 12:07:44 -0400
+In-Reply-To: <cover.1501775813.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series simplifies alignment tracking, generalises bounds tracking and
- fixes some bounds-tracking bugs in the BPF verifier.  Pointer arithmetic on
- packet pointers, stack pointers, map value pointers and context pointers has
- been unified, and bounds on these pointers are only checked when the pointer
- is dereferenced.
-Operations on pointers which destroy all relation to the original pointer
- (such as multiplies and shifts) are disallowed if !env->allow_ptr_leaks,
- otherwise they convert the pointer to an unknown scalar and feed it to the
- normal scalar arithmetic handling.
-Pointer types have been unified with the corresponding adjusted-pointer types
- where those existed (e.g. PTR_TO_MAP_VALUE[_ADJ] or FRAME_PTR vs
- PTR_TO_STACK); similarly, CONST_IMM and UNKNOWN_VALUE have been unified into
- SCALAR_VALUE.
-Pointer types (except CONST_PTR_TO_MAP, PTR_TO_MAP_VALUE_OR_NULL and
- PTR_TO_PACKET_END, which do not allow arithmetic) have a 'fixed offset' and
- a 'variable offset'; the former is used when e.g. adding an immediate or a
- known-constant register, as long as it does not overflow.  Otherwise the
- latter is used, and any operation creating a new variable offset creates a
- new 'id' (and, for PTR_TO_PACKET, clears the 'range').
-SCALAR_VALUEs use the 'variable offset' fields to track the range of possible
- values; the 'fixed offset' should never be set on a scalar.
+__ip_options_echo() does not need anymore skb->dst, so we can
+avoid explicitly preserving it for its own sake.
 
-All tests of tools/testing/selftests/bpf/test_{verifier,align,progs} pass.
+This is almost a revert of commit 0ddf3fb2c43d ("udp: preserve
+skb->dst if required for IP options processing") plus some
+lifting to fit later changes.
 
-v4: removed some changes which were submitted separately to 'net'; altered
- some of the conditional-jump bounds handling in rebasing it on Daniel's
- changes.  Upped the complexity limit to 128k insns.
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv4/udp.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-v3: added a few more tests; removed RFC tags.
-
-v2: fixed nfp build, made test_align pass again and extended it with a few
- new tests (though still need to add more).
-
-Edward Cree (13):
-  bpf/verifier: rework value tracking
-  nfp: change bpf verifier hooks to match new verifier data structures
-  bpf/verifier: track signed and unsigned min/max values
-  bpf/verifier: more concise register state logs for constant var_off
-  selftests/bpf: change test_verifier expectations
-  selftests/bpf: rewrite test_align
-  selftests/bpf: add a test to test_align
-  selftests/bpf: add test for bogus operations on pointers
-  selftests/bpf: don't try to access past MAX_PACKET_OFF in
-    test_verifier
-  selftests/bpf: add tests for subtraction & negative numbers
-  selftests/bpf: variable offset negative tests
-  Documentation: describe the new eBPF verifier value tracking behaviour
-  bpf/verifier: increase complexity limit to 128k
-
- Documentation/networking/filter.txt               |  122 +-
- drivers/net/ethernet/netronome/nfp/bpf/verifier.c |   24 +-
- include/linux/bpf.h                               |   34 +-
- include/linux/bpf_verifier.h                      |   55 +-
- include/linux/tnum.h                              |   81 +
- kernel/bpf/Makefile                               |    2 +-
- kernel/bpf/tnum.c                                 |  180 ++
- kernel/bpf/verifier.c                             | 2152 ++++++++++++---------
- tools/testing/selftests/bpf/test_align.c          |  462 ++++-
- tools/testing/selftests/bpf/test_verifier.c       |  389 ++--
- 10 files changed, 2221 insertions(+), 1280 deletions(-)
- create mode 100644 include/linux/tnum.h
- create mode 100644 kernel/bpf/tnum.c
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index e6276fa3750b..38bca2c4897d 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1176,7 +1176,11 @@ static void udp_set_dev_scratch(struct sk_buff *skb)
+ 	scratch->csum_unnecessary = !!skb_csum_unnecessary(skb);
+ 	scratch->is_linear = !skb_is_nonlinear(skb);
+ #endif
+-	if (likely(!skb->_skb_refdst))
++	/* all head states execept sp (dst, sk, nf) are always cleared by
++	 * udp_rcv() and we need to preserve secpath, if present, to eventually
++	 * process IP_CMSG_PASSSEC at recvmsg() time
++	 */
++	if (likely(!skb_sec_path(skb)))
+ 		scratch->_tsize_state |= UDP_SKB_IS_STATELESS;
+ }
+ 
+@@ -1782,13 +1786,6 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		sk_mark_napi_id_once(sk, skb);
+ 	}
+ 
+-	/* At recvmsg() time we may access skb->dst or skb->sp depending on
+-	 * the IP options and the cmsg flags, elsewhere can we clear all
+-	 * pending head states while they are hot in the cache
+-	 */
+-	if (likely(IPCB(skb)->opt.optlen == 0 && !skb_sec_path(skb)))
+-		skb_release_head_state(skb);
+-
+ 	rc = __udp_enqueue_schedule_skb(sk, skb);
+ 	if (rc < 0) {
+ 		int is_udplite = IS_UDPLITE(sk);
+-- 
+2.13.3
