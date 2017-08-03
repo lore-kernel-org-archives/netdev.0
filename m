@@ -1,26 +1,55 @@
-From: sohu0106 <sohu0106@126.com>
-Subject: Linux kernel: net/irda/af_irda.c: irda_getsockopt() stack infoleak
-Date: Thu, 3 Aug 2017 22:00:44 +0800 (CST)
-Message-ID: <7486c356.aa32.15da8660616.Coremail.sohu0106@126.com>
+From: "David.Wu" <david.wu@rock-chips.com>
+Subject: Re: [PATCH v3 05/11] net: stmmac: dwmac-rk: Add internal phy support
+Date: Thu, 3 Aug 2017 22:02:53 +0800
+Message-ID: <6cf4697e-7e94-0e14-a059-c80053492da3@rock-chips.com>
+References: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
+ <1501654888-19514-1-git-send-email-david.wu@rock-chips.com>
+ <6b1ebf64-6903-6d35-b1fc-92ec47334425@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        huangtao@rock-chips.com, hwg@rock-chips.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, wens@csie.org
+To: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
+        heiko@sntech.de, andrew@lunn.ch, robh+dt@kernel.org,
+        mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
+        olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m15-37.126.com ([220.181.15.37]:58999 "EHLO m15-37.126.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751143AbdHCOAp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Aug 2017 10:00:45 -0400
+Received: from lucky1.263xmail.com ([211.157.147.133]:37931 "EHLO
+        lucky1.263xmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751829AbdHCOCz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 10:02:55 -0400
+In-Reply-To: <6b1ebf64-6903-6d35-b1fc-92ec47334425@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CgpTb21ldGltZXMgaXJkYV9nZXRzb2Nrb3B0KCkgZG9lc24ndCBpbml0aWFsaXplIGFsbCBtZW1i
-ZXJzIG9mIGxpc3QgZmllbGQgb2YgaXJkYV9kZXZpY2VfbGlzdCBzdHJ1Y3QuIMKgVGhpcyBzdHJ1
-Y3R1cmUgaXMgdGhlbiBjb3BpZWQgdG8KdXNlcmxhbmQuIMKgSXQgbGVhZHMgdG8gbGVha2luZyBv
-ZiBjb250ZW50cyBvZiBrZXJuZWwgc3RhY2sgbWVtb3J5LiDCoAoKMiDCoG5ldC9pcmRhL2FmX2ly
-ZGEuYwpAQCAtMjI0OCw2ICsyMjQ4LDggQEAgc3RhdGljIGludCBpcmRhX2dldHNvY2tvcHQoc3Ry
-dWN0IHNvY2tldCAqc29jaywgaW50IGxldmVsLCBpbnQgb3B0bmFtZSwKwqAJCQllcnIgPSAtRUlO
-VkFMOwrCoAkJCWdvdG8gb3V0OwrCoAkJfQorCQkJCisJCW1lbXNldCggJmxpc3QsIDAsIHNpemVv
-ZihzdHJ1Y3QgaXJkYV9kZXZpY2VfbGlzdCkgKTsKwqAKwqAJCS8qIEFzayBsbXAgZm9yIHRoZSBj
-dXJyZW50IGRpc2NvdmVyeSBsb2cgKi8KwqAJCWRpc2NvdmVyaWVzID0gaXJsbXBfZ2V0X2Rpc2Nv
-dmVyaWVzKCZsaXN0Lmxlbiwgc2VsZi0+bWFzay53b3JkLAoKCsKg
+Hi Florian & ChenYu
+
+在 2017/8/3 1:38, Florian Fainelli 写道:
+> This is incorrect in two ways:
+> 
+> - this is a property of the PHY, so it should be documented as such in
+> Documentation/devicetree/bindings/net/phy.txt so other bindings can
+> re-use it
+> 
+> - if it was specific to your MAC you would expect a vendor prefix to
+> this property, which is not there
+> 
+> An alternative way to implement the external/internal logic selection
+> would be mandate that your Ethernet PHY node have a compatible string
+> like this:
+> 
+> phy@0 {
+> 	compatible = "ethernet-phy-id1234.d400", "ethernet-phy-802.3-c22";
+> };
+> 
+> Then you don't need this phy-is-internal property, because you can
+> locate the PHY node by the phy-handle (see more about that in a reply to
+> patch 10) and you can determine ahead of time whether this PHY is
+> internal or not based on its compatible string.
+
+We may implement a read_bool_property after parsed phy phandle at 
+stmmac_platform.c, which would make MAC driver know it is a internal phy.
