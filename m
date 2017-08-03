@@ -1,221 +1,143 @@
-From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v4 6/9] sock: MSG_ZEROCOPY notification coalescing
-Date: Thu,  3 Aug 2017 16:29:42 -0400
-Message-ID: <20170803202945.70750-7-willemdebruijn.kernel@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v4 7/9] sock: ulimit on MSG_ZEROCOPY pages
+Date: Thu,  3 Aug 2017 16:29:43 -0400
+Message-ID: <20170803202945.70750-8-willemdebruijn.kernel@gmail.com>
 References: <20170803202945.70750-1-willemdebruijn.kernel@gmail.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170803202945.70750-1-willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, linux-api@vger.kernel.org,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:34004 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751773AbdHCU3z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 16:29:55 -0400
+In-Reply-To: <20170803202945.70750-1-willemdebruijn.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+From: Willem de Bruijn <willemb@google.com>
 
-In the simple case, each sendmsg() call generates data and eventually
-a zerocopy ready notification N, where N indicates the Nth successful
-invocation of sendmsg() with the MSG_ZEROCOPY flag on this socket.
+Bound the number of pages that a user may pin.
 
-TCP and corked sockets can cause send() calls to append new data to an
-existing sk_buff and, thus, ubuf_info. In that case the notification
-must hold a range. odify ubuf_info to store a inclusive range [N..N+m]
-and add skb_zerocopy_realloc() to optionally extend an existing range.
+Follow the lead of perf tools to maintain a per-user bound on memory
+locked pages commit 789f90fcf6b0 ("perf_counter: per user mlock gift")
 
-Also coalesce notifications in this common case: if a notification
-[1, 1] is about to be queued while [0, 0] is the queue tail, just modify
-the head of the queue to read [0, 1].
-
-Coalescing is limited to a few TSO frames worth of data to bound
-notification latency.
-
-Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- include/linux/skbuff.h | 17 +++++++--
- net/core/skbuff.c      | 99 ++++++++++++++++++++++++++++++++++++++++++++++----
- 2 files changed, 106 insertions(+), 10 deletions(-)
+ include/linux/sched/user.h |  3 ++-
+ include/linux/skbuff.h     |  5 +++++
+ net/core/skbuff.c          | 48 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 55 insertions(+), 1 deletion(-)
 
+diff --git a/include/linux/sched/user.h b/include/linux/sched/user.h
+index 5d5415e129d4..3c07e4135127 100644
+--- a/include/linux/sched/user.h
++++ b/include/linux/sched/user.h
+@@ -36,7 +36,8 @@ struct user_struct {
+ 	struct hlist_node uidhash_node;
+ 	kuid_t uid;
+ 
+-#if defined(CONFIG_PERF_EVENTS) || defined(CONFIG_BPF_SYSCALL)
++#if defined(CONFIG_PERF_EVENTS) || defined(CONFIG_BPF_SYSCALL) || \
++    defined(CONFIG_NET)
+ 	atomic_long_t locked_vm;
+ #endif
+ };
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index e5387932c266..f5bdd93a87da 100644
+index f5bdd93a87da..8c0708d2e5e6 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -444,15 +444,26 @@ enum {
-  */
- struct ubuf_info {
- 	void (*callback)(struct ubuf_info *, bool zerocopy_success);
--	void *ctx;
--	unsigned long desc;
--	u16 zerocopy:1;
-+	union {
-+		struct {
-+			unsigned long desc;
-+			void *ctx;
-+		};
-+		struct {
-+			u32 id;
-+			u16 len;
-+			u16 zerocopy:1;
-+			u32 bytelen;
-+		};
-+	};
+@@ -457,6 +457,11 @@ struct ubuf_info {
+ 		};
+ 	};
  	atomic_t refcnt;
++
++	struct mmpin {
++		struct user_struct *user;
++		unsigned int num_pg;
++	} mmp;
  };
  
  #define skb_uarg(SKB)	((struct ubuf_info *)(skb_shinfo(SKB)->destructor_arg))
- 
- struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size);
-+struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
-+					struct ubuf_info *uarg);
- 
- static inline void sock_zerocopy_get(struct ubuf_info *uarg)
- {
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 74d3c36f8419..dcee0f64f1fa 100644
+index dcee0f64f1fa..42b62c716a33 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -915,7 +915,9 @@ struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
+@@ -897,6 +897,44 @@ struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
+ }
+ EXPORT_SYMBOL_GPL(skb_morph);
+ 
++static int mm_account_pinned_pages(struct mmpin *mmp, size_t size)
++{
++	unsigned long max_pg, num_pg, new_pg, old_pg;
++	struct user_struct *user;
++
++	if (capable(CAP_IPC_LOCK) || !size)
++		return 0;
++
++	num_pg = (size >> PAGE_SHIFT) + 2;	/* worst case */
++	max_pg = rlimit(RLIMIT_MEMLOCK) >> PAGE_SHIFT;
++	user = mmp->user ? : current_user();
++
++	do {
++		old_pg = atomic_long_read(&user->locked_vm);
++		new_pg = old_pg + num_pg;
++		if (new_pg > max_pg)
++			return -ENOBUFS;
++	} while (atomic_long_cmpxchg(&user->locked_vm, old_pg, new_pg) !=
++		 old_pg);
++
++	if (!mmp->user) {
++		mmp->user = get_uid(user);
++		mmp->num_pg = num_pg;
++	} else {
++		mmp->num_pg += num_pg;
++	}
++
++	return 0;
++}
++
++static void mm_unaccount_pinned_pages(struct mmpin *mmp)
++{
++	if (mmp->user) {
++		atomic_long_sub(mmp->num_pg, &mmp->user->locked_vm);
++		free_uid(mmp->user);
++	}
++}
++
+ struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
+ {
+ 	struct ubuf_info *uarg;
+@@ -913,6 +951,12 @@ struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
+ 
+ 	BUILD_BUG_ON(sizeof(*uarg) > sizeof(skb->cb));
  	uarg = (void *)skb->cb;
++	uarg->mmp.user = NULL;
++
++	if (mm_account_pinned_pages(&uarg->mmp, size)) {
++		kfree_skb(skb);
++		return NULL;
++	}
  
  	uarg->callback = sock_zerocopy_callback;
--	uarg->desc = atomic_inc_return(&sk->sk_zckey) - 1;
-+	uarg->id = ((u32)atomic_inc_return(&sk->sk_zckey)) - 1;
-+	uarg->len = 1;
-+	uarg->bytelen = size;
- 	uarg->zerocopy = 1;
- 	atomic_set(&uarg->refcnt, 0);
- 	sock_hold(sk);
-@@ -929,26 +931,101 @@ static inline struct sk_buff *skb_from_uarg(struct ubuf_info *uarg)
- 	return container_of((void *)uarg, struct sk_buff, cb);
- }
+ 	uarg->id = ((u32)atomic_inc_return(&sk->sk_zckey)) - 1;
+@@ -956,6 +1000,8 @@ struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
  
-+struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
-+					struct ubuf_info *uarg)
-+{
-+	if (uarg) {
-+		const u32 byte_limit = 1 << 19;		/* limit to a few TSO */
-+		u32 bytelen, next;
-+
-+		/* realloc only when socket is locked (TCP, UDP cork),
-+		 * so uarg->len and sk_zckey access is serialized
-+		 */
-+		if (!sock_owned_by_user(sk)) {
-+			WARN_ON_ONCE(1);
-+			return NULL;
-+		}
-+
-+		bytelen = uarg->bytelen + size;
-+		if (uarg->len == USHRT_MAX - 1 || bytelen > byte_limit) {
-+			/* TCP can create new skb to attach new uarg */
-+			if (sk->sk_type == SOCK_STREAM)
-+				goto new_alloc;
-+			return NULL;
-+		}
-+
-+		next = (u32)atomic_read(&sk->sk_zckey);
-+		if ((u32)(uarg->id + uarg->len) == next) {
-+			uarg->len++;
-+			uarg->bytelen = bytelen;
-+			atomic_set(&sk->sk_zckey, ++next);
-+			return uarg;
-+		}
-+	}
-+
-+new_alloc:
-+	return sock_zerocopy_alloc(sk, size);
-+}
-+EXPORT_SYMBOL_GPL(sock_zerocopy_realloc);
-+
-+static bool skb_zerocopy_notify_extend(struct sk_buff *skb, u32 lo, u16 len)
-+{
-+	struct sock_exterr_skb *serr = SKB_EXT_ERR(skb);
-+	u32 old_lo, old_hi;
-+	u64 sum_len;
-+
-+	old_lo = serr->ee.ee_info;
-+	old_hi = serr->ee.ee_data;
-+	sum_len = old_hi - old_lo + 1ULL + len;
-+
-+	if (sum_len >= (1ULL << 32))
-+		return false;
-+
-+	if (lo != old_hi + 1)
-+		return false;
-+
-+	serr->ee.ee_data += len;
-+	return true;
-+}
-+
- void sock_zerocopy_callback(struct ubuf_info *uarg, bool success)
+ 		next = (u32)atomic_read(&sk->sk_zckey);
+ 		if ((u32)(uarg->id + uarg->len) == next) {
++			if (mm_account_pinned_pages(&uarg->mmp, size))
++				return NULL;
+ 			uarg->len++;
+ 			uarg->bytelen = bytelen;
+ 			atomic_set(&sk->sk_zckey, ++next);
+@@ -1038,6 +1084,8 @@ EXPORT_SYMBOL_GPL(sock_zerocopy_callback);
+ void sock_zerocopy_put(struct ubuf_info *uarg)
  {
--	struct sk_buff *skb = skb_from_uarg(uarg);
-+	struct sk_buff *tail, *skb = skb_from_uarg(uarg);
- 	struct sock_exterr_skb *serr;
- 	struct sock *sk = skb->sk;
--	u16 id = uarg->desc;
-+	struct sk_buff_head *q;
-+	unsigned long flags;
-+	u32 lo, hi;
-+	u16 len;
- 
--	if (sock_flag(sk, SOCK_DEAD))
-+	/* if !len, there was only 1 call, and it was aborted
-+	 * so do not queue a completion notification
-+	 */
-+	if (!uarg->len || sock_flag(sk, SOCK_DEAD))
- 		goto release;
- 
-+	len = uarg->len;
-+	lo = uarg->id;
-+	hi = uarg->id + len - 1;
+ 	if (uarg && atomic_dec_and_test(&uarg->refcnt)) {
++		mm_unaccount_pinned_pages(&uarg->mmp);
 +
- 	serr = SKB_EXT_ERR(skb);
- 	memset(serr, 0, sizeof(*serr));
- 	serr->ee.ee_errno = 0;
- 	serr->ee.ee_origin = SO_EE_ORIGIN_ZEROCOPY;
--	serr->ee.ee_data = id;
-+	serr->ee.ee_data = hi;
-+	serr->ee.ee_info = lo;
- 	if (!success)
- 		serr->ee.ee_code |= SO_EE_CODE_ZEROCOPY_COPIED;
- 
--	skb_queue_tail(&sk->sk_error_queue, skb);
--	skb = NULL;
-+	q = &sk->sk_error_queue;
-+	spin_lock_irqsave(&q->lock, flags);
-+	tail = skb_peek_tail(q);
-+	if (!tail || SKB_EXT_ERR(tail)->ee.ee_origin != SO_EE_ORIGIN_ZEROCOPY ||
-+	    !skb_zerocopy_notify_extend(tail, lo, len)) {
-+		__skb_queue_tail(q, skb);
-+		skb = NULL;
-+	}
-+	spin_unlock_irqrestore(&q->lock, flags);
- 
- 	sk->sk_error_report(sk);
- 
-@@ -975,6 +1052,7 @@ void sock_zerocopy_put_abort(struct ubuf_info *uarg)
- 		struct sock *sk = skb_from_uarg(uarg)->sk;
- 
- 		atomic_dec(&sk->sk_zckey);
-+		uarg->len--;
- 
- 		/* sock_zerocopy_put expects a ref. Most sockets take one per
- 		 * skb, which is zero on abort. tcp_sendmsg holds one extra, to
-@@ -995,9 +1073,16 @@ int skb_zerocopy_iter_stream(struct sock *sk, struct sk_buff *skb,
- 			     struct msghdr *msg, int len,
- 			     struct ubuf_info *uarg)
- {
-+	struct ubuf_info *orig_uarg = skb_zcopy(skb);
- 	struct iov_iter orig_iter = msg->msg_iter;
- 	int err, orig_len = skb->len;
- 
-+	/* An skb can only point to one uarg. This edge case happens when
-+	 * TCP appends to an skb, but zerocopy_realloc triggered a new alloc.
-+	 */
-+	if (orig_uarg && uarg != orig_uarg)
-+		return -EEXIST;
-+
- 	err = __zerocopy_sg_from_iter(sk, skb, &msg->msg_iter, len);
- 	if (err == -EFAULT || (err == -EMSGSIZE && skb->len == orig_len)) {
- 		/* Streams do not free skb on error. Reset to prev state. */
+ 		if (uarg->callback)
+ 			uarg->callback(uarg, uarg->zerocopy);
+ 		else
 -- 
 2.14.0.rc1.383.gd1ce394fe2-goog
