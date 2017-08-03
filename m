@@ -1,44 +1,52 @@
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Subject: [PATCH net] xgene: Always get clk source, but ignore if it's missing for SGMII ports
-Date: Thu, 3 Aug 2017 15:43:14 +0200
-Message-ID: <20170803140311.34C7E50870B@solo.franken.de>
-To: isubramanian@apm.com, kchudgar@apm.com, qnguyen@apm.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Laura Abbott <labbott@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: [PATCH net-next v3 1/3] netvsc: transparent VF management
+Date: Thu, 3 Aug 2017 16:19:37 +0200
+Message-ID: <20170803141937.GF1646@aepfle.de>
+References: <20170802025855.11521-1-sthemmin@microsoft.com>
+ <20170802025855.11521-2-sthemmin@microsoft.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="z0eOaCaDLjvTGF2l"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.221]:25418 "EHLO
+        mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751010AbdHCOTm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 10:19:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20170802025855.11521-2-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Bogendoerfer <tbogendoerfer@suse.de>
 
-Even the driver doesn't do anything with the clk source for SGMII
-ports it needs to be enabled by doing a devm_clk_get(), if there is
-a clk source in DT.
+--z0eOaCaDLjvTGF2l
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
 
-Fixes: 0db01097cabd ('xgene: Don't fail probe, if there is no clk resource for SGMII interfaces')
-Signed-off-by: Thomas Bogendoerfer <tbogendoerfer@suse.de>
-Tested-by: Laura Abbott <labbott@redhat.com>
-Acked-by: Iyappan Subramanian <isubramanian@apm.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+On Tue, Aug 01, Stephen Hemminger wrote:
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 86058a9f3417..1d307f2def2d 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1785,9 +1785,9 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 
- 	xgene_enet_gpiod_get(pdata);
- 
--	if (pdata->phy_mode != PHY_INTERFACE_MODE_SGMII) {
--		pdata->clk = devm_clk_get(&pdev->dev, NULL);
--		if (IS_ERR(pdata->clk)) {
-+	pdata->clk = devm_clk_get(&pdev->dev, NULL);
-+	if (IS_ERR(pdata->clk)) {
-+		if (pdata->phy_mode != PHY_INTERFACE_MODE_SGMII) {
- 			/* Abort if the clock is defined but couldn't be
- 			 * retrived. Always abort if the clock is missing on
- 			 * DT system as the driver can't cope with this case.
--- 
-2.12.3
+>  static void netvsc_get_stats64(struct net_device *net,
+>  			       struct rtnl_link_stats64 *t)
+>  {
+>  	struct net_device_context *ndev_ctx = netdev_priv(net);
+>  	struct netvsc_device *nvdev = rcu_dereference_rtnl(ndev_ctx->nvdev);
+> -	int i;
+> +	struct netvsc_vf_pcpu_stats vf_tot;
+> +		int i;
+
+This move of 'i' was probably not intended.
+
+Olaf
+
+--z0eOaCaDLjvTGF2l
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iF0EARECAB0WIQSkRyP6Rn//f03pRUBdQqD6ppg2fgUCWYMw9QAKCRBdQqD6ppg2
+fqkTAKDeKNgGJL8ilhWFZKW3/PeRn9W2dQCeL1qZ0BNaJIQPpZrRKH4/R5S45wU=
+=TUUZ
+-----END PGP SIGNATURE-----
+
+--z0eOaCaDLjvTGF2l--
