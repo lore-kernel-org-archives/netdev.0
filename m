@@ -1,35 +1,110 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: fix keepalive code vs TCP_FASTOPEN_CONNECT
-Date: Thu, 03 Aug 2017 09:35:43 -0700 (PDT)
-Message-ID: <20170803.093543.1047513143422057166.davem@davemloft.net>
-References: <1501740646.25002.31.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: Re: [PATCH v3 2/4] dt-bindings: can: fixed-transceiver: Add new CAN
+ fixed transceiver bindings
+Date: Thu, 3 Aug 2017 10:38:29 -0500
+Message-ID: <855a344e-46c4-76c9-331a-848b3a79bf6e@ti.com>
+References: <20170803005150.9286-1-fcooper@ti.com>
+ <20170803005150.9286-3-fcooper@ti.com>
+ <f92513b6-6b2b-e08d-72e2-dedd7e0190f4@cogentembedded.com>
+ <3848fab8-ebcf-5b29-7e4e-eb1a2b03803d@ti.com>
+ <86d78a36-04c2-7036-636c-7326a4c1c6b0@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, weiwan@google.com, ycheng@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45330 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751154AbdHCQfo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 12:35:44 -0400
-In-Reply-To: <1501740646.25002.31.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
+        <quentin.schulz@free-electrons.com>,
+        <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>,
+        <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <86d78a36-04c2-7036-636c-7326a4c1c6b0@cogentembedded.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 02 Aug 2017 23:10:46 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+
+On 08/03/2017 07:22 AM, Sergei Shtylyov wrote:
+> On 08/03/2017 12:48 PM, Franklin S Cooper Jr wrote:
 > 
-> syzkaller was able to trigger a divide by 0 in TCP stack [1]
+>>>> Add documentation to describe usage of the new fixed transceiver
+>>>> binding.
+>>>> This new binding is applicable for any CAN device therefore it
+>>>> exists as
+>>>> its own document.
+>>>>
+>>>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+>>>> ---
+>>>>    .../bindings/net/can/fixed-transceiver.txt         | 24
+>>>> ++++++++++++++++++++++
+>>>>    1 file changed, 24 insertions(+)
+>>>>    create mode 100644
+>>>> Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>>>
+>>>> diff --git
+>>>> a/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>>> b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>>> new file mode 100644
+>>>> index 0000000..2f58838b
+>>>> --- /dev/null
+>>>> +++ b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>>> @@ -0,0 +1,24 @@
+>>>> +Fixed transceiver Device Tree binding
+>>>> +------------------------------
+>>>> +
+>>>> +CAN transceiver typically limits the max speed in standard CAN and
+>>>> CAN FD
+>>>> +modes. Typically these limitations are static and the transceivers
+>>>> themselves
+>>>> +provide no way to detect this limitation at runtime. For this
+>>>> situation,
+>>>> +the "fixed-transceiver" node can be used.
+>>>> +
+>>>> +Required Properties:
+>>>> + max-bitrate:    a positive non 0 value that determines the max
+>>>> +        speed that CAN/CAN-FD can run. Any other value
+>>>> +        will be ignored.
+>>>> +
+>>>> +Examples:
+>>>> +
+>>>> +Based on Texas Instrument's TCAN1042HGV CAN Transceiver
+>>>> +
+>>>> +m_can0 {
+>>>> +    ....
+>>>> +    fixed-transceiver@0 {
+>>>
+>>>     The <unit-address> (after @) must only be specified if there's "reg"
+>>
+>> Sorry. Fixed this in my v2 and some how it came back. Will fix.
+>>
+>>> prop in the device node. Also, please name the node "can-transceiver@"
+>>> to be more in line with the DT spec. which requires generic node names.
+>>
+>> Its possible for future can transceivers drivers to be created. So I
 > 
-> Issue here is that keepalive timer needs to be updated to not attempt
-> to send a probe if the connection setup was deferred using
-> TCP_FASTOPEN_CONNECT socket option added in linux-4.11
-...
-> Fixes: 19f6d3f3c842 ("net/tcp-fastopen: Add new API support")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+>    So what? Ah, you are using the node name to match in the CAN drivers...
+> 
+>> thought including fixed was important to indicate that this is a "dumb"
+>> transceiver similar to "fixed-link".
+> 
+>    I'm not sure the "fixed-link" MAC subnode assumed any transceiver at
+> all...
 
-Applied and queued up for -stable, thanks!
+Your right. I wasn't trying to imply that it does. What I meant was that
+having a node named "can-transceiver" may be a bit confusing in the
+future if can transceiver drivers are created. Prefix of "fixed" atleast
+to me makes it clear that this is something unique or a generic
+transceiver with limitations. Similar to "fixed-link" which is for MACs
+not connected to MDIO managed phy. Calling this subnode
+"can-transceiver" to me would be like renaming "fixed-link" to "phy".
+
+> 
+>> So would "fixed-can-transceiver" be
+>> ok or do you want to go with can-transceiver?
+> 
+>    I'm somewhat perplexed at this point...
+
+If my reasoning still didn't change your views then I'll make the switch.
+> 
+> MBR, Sergei
