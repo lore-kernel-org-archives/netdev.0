@@ -1,130 +1,164 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v8 3/4] net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING  flag
-Date: Thu, 3 Aug 2017 21:44:48 +0800
-Message-ID: <1501767889-7772-4-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH v8 2/4] PCI: Disable PCIe Relaxed Ordering if unsupported
+Date: Thu, 3 Aug 2017 21:44:47 +0800
+Message-ID: <1501767889-7772-3-git-send-email-dingtianhong@huawei.com>
 References: <1501767889-7772-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: Ding Tianhong <dingtianhong@huawei.com>
 To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <bhelgaas@google.com>,
-        <helgaas@kernel.org>, <werner@chelsio.com>, <ganeshgr@chelsio.com>,
-        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
-        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
-        <l.stach@pengutronix.de>, <amira@mellanox.com>,
-        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
-        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
-        <will.deacon@arm.com>, <mark.rutland@arm.com>,
-        <robin.murphy@arm.com>, <davem@davemloft.net>,
-        <alexander.duyck@gmail.com>,
-        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linuxarm@huawei.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+ <helgaas@kernel.org>, <werner@chelsio.com>, <ganeshgr@chelsio.com>,
+ <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
+ <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
+ <l.stach@pengutronix.de>, <amira@mellanox.com>,
+ <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
+ <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
+ <will.deacon@arm.com>, <mark.rutland@arm.com>, <robin.murphy@arm.com>,
+ <davem@davemloft.net>, <alexander.duyck@gmail.com>,
+ <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+ <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+ <linuxarm@huawei.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1501767889-7772-1-git-send-email-dingtianhong@huawei.com>
-Sender: linux-pci-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Casey Leedom <leedom@chelsio.com>
+When bit4 is set in the PCIe Device Control register, it indicates
+whether the device is permitted to use relaxed ordering.
+On some platforms using relaxed ordering can have performance issues or
+due to erratum can cause data-corruption. In such cases devices must avoid
+using relaxed ordering.
 
-cxgb4 Ethernet driver now queries PCIe configuration space to determine
-if it can send TLPs to it with the Relaxed Ordering Attribute set.
+This patch checks if there is any node in the hierarchy that indicates that
+using relaxed ordering is not safe. In such cases the patch turns off the
+relaxed ordering by clearing the eapability for this device. And if the
+device is probably running in a guest machine, we should do nothing.
 
-Remove the enable_pcie_relaxed_ordering() to avoid enable PCIe Capability
-Device Control[Relaxed Ordering Enable] at probe routine, to make sure
-the driver will not send the Relaxed Ordering TLPs to the Root Complex which
-could not deal the Relaxed Ordering TLPs.
-
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-Reviewed-by: Casey Leedom <leedom@chelsio.com>
+Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Acked-by: Ashok Raj <ashok.raj@intel.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 23 +++++++++++++++++------
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
- 3 files changed, 21 insertions(+), 8 deletions(-)
+ drivers/pci/pci.c   | 29 +++++++++++++++++++++++++++++
+ drivers/pci/probe.c | 37 +++++++++++++++++++++++++++++++++++++
+ include/linux/pci.h |  2 ++
+ 3 files changed, 68 insertions(+)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index ef4be78..09ea62e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -529,6 +529,7 @@ enum {                                 /* adapter flags */
- 	USING_SOFT_PARAMS  = (1 << 6),
- 	MASTER_PF          = (1 << 7),
- 	FW_OFLD_CONN       = (1 << 9),
-+	ROOT_NO_RELAXED_ORDERING = (1 << 10),
- };
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index af0cc34..4f9d7c1 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -4854,6 +4854,35 @@ int pcie_set_mps(struct pci_dev *dev, int mps)
+ EXPORT_SYMBOL(pcie_set_mps);
  
- enum {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index e403fa1..391e484 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4654,11 +4654,6 @@ static void print_port_info(const struct net_device *dev)
- 		    dev->name, adap->params.vpd.id, adap->name, buf);
+ /**
++ * pcie_clear_relaxed_ordering - clear PCI Express relaxed ordering bit
++ * @dev: PCI device to query
++ *
++ * If possible clear relaxed ordering
++ */
++int pcie_clear_relaxed_ordering(struct pci_dev *dev)
++{
++	return pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
++					  PCI_EXP_DEVCTL_RELAX_EN);
++}
++EXPORT_SYMBOL(pcie_clear_relaxed_ordering);
++
++/**
++ * pcie_relaxed_ordering_supported - Probe for PCIe relexed ordering support
++ * @dev: PCI device to query
++ *
++ * Returns true if the device support relaxed ordering attribute.
++ */
++bool pcie_relaxed_ordering_supported(struct pci_dev *dev)
++{
++	u16 v;
++
++	pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
++
++	return !!(v & PCI_EXP_DEVCTL_RELAX_EN);
++}
++EXPORT_SYMBOL(pcie_relaxed_ordering_supported);
++
++/**
+  * pcie_get_minimum_link - determine minimum link settings of a PCI device
+  * @dev: PCI device to query
+  * @speed: storage for minimum speed
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index c31310d..48df012 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -1762,6 +1762,42 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
+ 					 PCI_EXP_DEVCTL_EXT_TAG);
  }
  
--static void enable_pcie_relaxed_ordering(struct pci_dev *dev)
--{
--	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
--}
--
- /*
-  * Free the following resources:
-  * - memory used for tables
-@@ -4908,7 +4903,6 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 
- 	pci_enable_pcie_error_reporting(pdev);
--	enable_pcie_relaxed_ordering(pdev);
- 	pci_set_master(pdev);
- 	pci_save_state(pdev);
- 
-@@ -4947,6 +4941,23 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	adapter->msg_enable = DFLT_MSG_ENABLE;
- 	memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
- 
-+	/* If possible, we use PCIe Relaxed Ordering Attribute to deliver
-+	 * Ingress Packet Data to Free List Buffers in order to allow for
-+	 * chipset performance optimizations between the Root Complex and
-+	 * Memory Controllers.  (Messages to the associated Ingress Queue
-+	 * notifying new Packet Placement in the Free Lists Buffers will be
-+	 * send without the Relaxed Ordering Attribute thus guaranteeing that
-+	 * all preceding PCIe Transaction Layer Packets will be processed
-+	 * first.)  But some Root Complexes have various issues with Upstream
-+	 * Transaction Layer Packets with the Relaxed Ordering Attribute set.
-+	 * The PCIe devices which under the Root Complexes will be cleared the
-+	 * Relaxed Ordering bit in the configuration space, So we check our
-+	 * PCIe configuration space to see if it's flagged with advice against
-+	 * using Relaxed Ordering.
-+	 */
-+	if (!pcie_relaxed_ordering_supported(pdev))
-+		adapter->flags |= ROOT_NO_RELAXED_ORDERING;
++/**
++ * pci_dev_should_disable_relaxed_ordering - check if the PCI device
++ * should disable the relaxed ordering attribute.
++ * @dev: PCI device
++ *
++ * Return true if any of the PCI devices above us do not support
++ * relaxed ordering.
++ */
++static bool pci_dev_should_disable_relaxed_ordering(struct pci_dev *dev)
++{
++	while (dev) {
++		if (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING)
++			return true;
 +
- 	spin_lock_init(&adapter->stats_lock);
- 	spin_lock_init(&adapter->tid_release_lock);
- 	spin_lock_init(&adapter->win0_lock);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index ede1220..4ef68f6 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2719,6 +2719,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 	struct fw_iq_cmd c;
- 	struct sge *s = &adap->sge;
- 	struct port_info *pi = netdev_priv(dev);
-+	int relaxed = !(adap->flags & ROOT_NO_RELAXED_ORDERING);
++		dev = dev->bus->self;
++	}
++
++	return false;
++}
++
++static void pci_configure_relaxed_ordering(struct pci_dev *dev)
++{
++	/* We should not alter the relaxed ordering bit for the VF */
++	if (dev->is_virtfn)
++		return;
++
++	/* If the releaxed ordering enable bit is not set, do nothing. */
++	if (!pcie_relaxed_ordering_supported(dev))
++		return;
++
++	if (pci_dev_should_disable_relaxed_ordering(dev)) {
++		pcie_clear_relaxed_ordering(dev);
++		dev_info(&dev->dev, "Disable Relaxed Ordering\n");
++	}
++}
++
+ static void pci_configure_device(struct pci_dev *dev)
+ {
+ 	struct hotplug_params hpp;
+@@ -1769,6 +1805,7 @@ static void pci_configure_device(struct pci_dev *dev)
  
- 	/* Size needs to be multiple of 16, including status entry. */
- 	iq->size = roundup(iq->size, 16);
-@@ -2772,8 +2773,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 	pci_configure_mps(dev);
+ 	pci_configure_extended_tags(dev);
++	pci_configure_relaxed_ordering(dev);
  
- 		flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
- 		c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
--					     FW_IQ_CMD_FL0FETCHRO_F |
--					     FW_IQ_CMD_FL0DATARO_F |
-+					     FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
-+					     FW_IQ_CMD_FL0DATARO_V(relaxed) |
- 					     FW_IQ_CMD_FL0PADEN_F);
- 		if (cong >= 0)
- 			c.iqns_to_fl0congen |=
+ 	memset(&hpp, 0, sizeof(hpp));
+ 	ret = pci_get_hp_params(dev, &hpp);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 412ec1c..3aa23a2 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1127,6 +1127,8 @@ int pci_add_ext_cap_save_buffer(struct pci_dev *dev,
+ void pci_pme_wakeup_bus(struct pci_bus *bus);
+ void pci_d3cold_enable(struct pci_dev *dev);
+ void pci_d3cold_disable(struct pci_dev *dev);
++int pcie_clear_relaxed_ordering(struct pci_dev *dev);
++bool pcie_relaxed_ordering_supported(struct pci_dev *dev);
+ 
+ /* PCI Virtual Channel */
+ int pci_save_vc_state(struct pci_dev *dev);
 -- 
 1.8.3.1
