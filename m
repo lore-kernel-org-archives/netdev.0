@@ -1,77 +1,27 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH] PCI: Update ACS quirk for more Intel 10G NICs
-Date: Thu, 3 Aug 2017 16:49:11 -0500
-Message-ID: <20170803214911.GG20308@bhelgaas-glaptop.roam.corp.google.com>
-References: <20170720214101.7449-1-roland@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V6 net-next 0/8] Hisilicon Network Subsystem 3 Ethernet
+ Driver
+Date: Thu, 03 Aug 2017 15:09:37 -0700 (PDT)
+Message-ID: <20170803.150937.678353968962234413.davem@davemloft.net>
+References: <20170802155952.185564-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
-        netdev@vger.kernel.org, Emil Tantilov <emil.s.tantilov@intel.com>
-To: Roland Dreier <roland@kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170720214101.7449-1-roland@kernel.org>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yisen.zhuang@huawei.com, huangdaode@hisilicon.com,
+        lipeng321@huawei.com, mehta.salil.lnk@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linuxarm@huawei.com
+To: salil.mehta@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170802155952.185564-1-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 20, 2017 at 02:41:01PM -0700, Roland Dreier wrote:
-> From: Roland Dreier <roland@purestorage.com>
-> 
-> Add one more variant of the 82599 plus the device IDs for X540 and X550
-> variants.  Intel has confirmed that none of these devices does peer-to-peer
-> between functions.  The X540 and X550 have added ACS capabilities in their
-> PCI config space, but the ACS control register is hard-wired to 0 for both
-> devices, so we still need the quirk for IOMMU grouping to allow assignment
-> of individual SR-IOV functions.
-> 
-> Signed-off-by: Roland Dreier <roland@purestorage.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Date: Wed, 2 Aug 2017 16:59:44 +0100
 
-I haven't seen a real conclusion to the discussion yet, so I'm waiting on
-that and hopefully an ack from Alex.  Can you please repost with that,
-since I'm dropping it from patchwork for now?
+> This patch-set contains the support of the HNS3 (Hisilicon Network Subsystem 3)
+> Ethernet driver for hip08 family of SoCs and future upcoming SoCs.
+ ...
 
-> ---
->  drivers/pci/quirks.c | 21 +++++++++++++++++++++
->  1 file changed, 21 insertions(+)
-> 
-> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> index 6967c6b4cf6b..b939db671326 100644
-> --- a/drivers/pci/quirks.c
-> +++ b/drivers/pci/quirks.c
-> @@ -4335,12 +4335,33 @@ static const struct pci_dev_acs_enabled {
->  	{ PCI_VENDOR_ID_INTEL, 0x1507, pci_quirk_mf_endpoint_acs },
->  	{ PCI_VENDOR_ID_INTEL, 0x1514, pci_quirk_mf_endpoint_acs },
->  	{ PCI_VENDOR_ID_INTEL, 0x151C, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x1528, pci_quirk_mf_endpoint_acs },
->  	{ PCI_VENDOR_ID_INTEL, 0x1529, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x154A, pci_quirk_mf_endpoint_acs },
->  	{ PCI_VENDOR_ID_INTEL, 0x152A, pci_quirk_mf_endpoint_acs },
->  	{ PCI_VENDOR_ID_INTEL, 0x154D, pci_quirk_mf_endpoint_acs },
->  	{ PCI_VENDOR_ID_INTEL, 0x154F, pci_quirk_mf_endpoint_acs },
->  	{ PCI_VENDOR_ID_INTEL, 0x1551, pci_quirk_mf_endpoint_acs },
->  	{ PCI_VENDOR_ID_INTEL, 0x1558, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x1560, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x1563, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15AA, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15AB, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15AC, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15AD, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15AE, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15B0, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15AB, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15C2, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15C3, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15C4, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15C6, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15C7, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15C8, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15CE, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15E4, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15E5, pci_quirk_mf_endpoint_acs },
-> +	{ PCI_VENDOR_ID_INTEL, 0x15D1, pci_quirk_mf_endpoint_acs },
->  	/* 82580 */
->  	{ PCI_VENDOR_ID_INTEL, 0x1509, pci_quirk_mf_endpoint_acs },
->  	{ PCI_VENDOR_ID_INTEL, 0x150E, pci_quirk_mf_endpoint_acs },
-> -- 
-> 2.11.0
-> 
+Series applied, thanks.
