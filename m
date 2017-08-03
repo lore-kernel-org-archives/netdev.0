@@ -1,21 +1,18 @@
 From: Julien Fortin <julien@cumulusnetworks.com>
-Subject: [PATCH 22/27] ip: link_ip6tnl.c: add json output support
-Date: Thu,  3 Aug 2017 17:55:10 +0200
-Message-ID: <20170803155515.99226-23-julien@cumulusnetworks.com>
+Subject: [PATCH 20/27] ip: link_gre.c: add json output support
+Date: Thu,  3 Aug 2017 17:55:08 +0200
+Message-ID: <20170803155515.99226-21-julien@cumulusnetworks.com>
 References: <20170803155515.99226-1-julien@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
         dsa@cumulusnetworks.com, Julien Fortin <julien@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37703 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751964AbdHCP4C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 11:56:02 -0400
-Received: by mail-wm0-f48.google.com with SMTP id t201so19245788wmt.0
-        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 08:56:01 -0700 (PDT)
+Received: from mail-wr0-f180.google.com ([209.85.128.180]:38049 "EHLO
+        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751964AbdHCPz7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 11:55:59 -0400
+Received: by mail-wr0-f180.google.com with SMTP id f21so7359342wrf.5
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 08:55:58 -0700 (PDT)
 In-Reply-To: <20170803155515.99226-1-julien@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -24,85 +21,82 @@ From: Julien Fortin <julien@cumulusnetworks.com>
 
 Schema
 {
-    "proto": {
-        "type": "string",
-        "attr": "IFLA_IPTUN_PROTO"
+    "external": {
+        "type": "bool",
+        "comment": "!tb[IFLA_GRE_COLLECT_METADATA]"
     },
     "remote": {
         "type": "string",
-        "attr": "IFLA_IPTUN_REMOTE"
+        "attr": "IFLA_GRE_REMOTE"
     },
     "local": {
         "type": "string",
-        "attr": "IFLA_IPTUN_LOCAL"
+        "attr": "IFLA_GRE_LOCAL"
     },
     "link": {
         "type": "string",
-        "attr": "IFLA_IPTUN_LINK",
+        "attr": "IFLA_GRE_LINK",
         "mutually_exclusive": {
             "link_index": {
                 "type": "uint",
             }
         }
     },
-    "ip6_tnl_f_ign_encap_limit": {
-        "type": "bool",
-        "attr": "IP6_TNL_F_IGN_ENCAP_LIMIT"
-    },
-    "encap_limit": {
-        "type": "uint",
-        "attr": "IFLA_IPTUN_ENCAP_LIMIT"
-    },
     "ttl": {
-        "type": "uint",
-        "attr": "IFLA_IPTUN_TTL"
+        "type": "int",
+        "attr": "IFLA_GRE_TTL"
     },
-    "ip6_tnl_f_use_orig_tclass": {
-        "type": "",
-        "attr": "IP6_TNL_F_USE_ORIG_TCLASS"
-    },
-    "flowinfo_tclass": {
+    "tos": {
         "type": "string",
-        "attr": "IP6_FLOWINFO_TCLASS"
+        "attr": "IFLA_GRE_TOS"
     },
-    "ip6_tnl_f_use_orig_flowlabel": {
+    "pmtudisc": {
         "type": "bool",
-        "attr": "IP6_TNL_F_USE_ORIG_FLOWLABEL"
+        "attr": "IFLA_GRE_PMTUDISC"
     },
-    "flowlabel": {
+    "ikey": {
         "type": "string",
-        "attr": "IP6_FLOWINFO_FLOWLABEL"
+        "attr": "IFLA_GRE_IKEY"
     },
-    "flowinfo": {
-        "type": "string"
+    "okey": {
+        "type": "string",
+        "attr": "IFLA_GRE_OKEY"
     },
-    "ip6_tnl_f_rcv_dscp_copy": {
+    "iseq": {
         "type": "bool",
-        "attr": "IP6_TNL_F_RCV_DSCP_COPY"
+        "attr": "IFLA_GRE_IFLAGS & GRE_SEQ"
     },
-    "ip6_tnl_f_mip6_dev": {
+    "oseq": {
         "type": "bool",
-        "attr": "IP6_TNL_F_MIP6_DEV"
+        "attr": "IFLA_GRE_OFLAGS & GRE_SEQ"
     },
-    "ip6_tnl_f_use_orig_fwmark": {
+    "icsum": {
         "type": "bool",
-        "attr": "IP6_TNL_F_USE_ORIG_FWMARK"
+        "attr": "IFLA_GRE_IFLAGS & GRE_CSUM"
+    },
+    "ocsum": {
+        "type": "bool",
+        "attr": "IFLA_GRE_OFLAGS & GRE_CSUM"
+    },
+    "ignore_df": {
+        "type": "bool",
+        "attr": "IFLA_GRE_IGNORE_DF"
     },
     "encap": {
         "type": "dict",
-        "attr": "IFLA_IPTUN_ENCAP_TYPE",
+        "attr": "IFLA_GRE_ENCAP_TYPE != TUNNEL_ENCAP_NONE",
         "dict": {
             "type": {
                 "type": "string",
-                "attr": "IFLA_IPTUN_ENCAP_TYPE"
+                "attr": "IFLA_GRE_ENCAP_TYPE"
             },
             "sport": {
                 "type": "uint",
-                "attr": "IFLA_IPTUN_ENCAP_SPORT"
+                "attr": "IFLA_GRE_ENCAP_SPORT"
             },
             "dport": {
                 "type": "uint",
-                "attr": "IFLA_IPTUN_ENCAP_DPORT"
+                "attr": "IFLA_GRE_ENCAP_DPORT"
             },
             "csum": {
                 "type": "bool",
@@ -121,46 +115,39 @@ Schema
 }
 
 $ ip link show
-$ ip -6 tunnel add name tun6 mode ip6gre local 2001:db8:1::1/64 remote
-2001:0db8:85a3:0000:0000:8a2e:0370:7334
+$ ip tunnel add tun42 mode gre local 192.0.2.42 remote 203.0.113.42 key 42
 $ ip link show
-10: ip6tnl0@NONE: <NOARP> mtu 1452 qdisc noop state DOWN mode DEFAULT group
+10: gre0@NONE: <NOARP> mtu 1476 qdisc noop state DOWN mode DEFAULT group
 default
-    link/tunnel6 :: brd ::
-11: ip6gre0@NONE: <NOARP> mtu 1448 qdisc noop state DOWN mode DEFAULT group
-default
-    link/gre6 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00 brd
-00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00
-12: tun6@NONE: <POINTOPOINT,NOARP> mtu 1448 qdisc noop state DOWN mode
+    link/gre 0.0.0.0 brd 0.0.0.0
+11: gretap0@NONE: <BROADCAST,MULTICAST> mtu 1462 qdisc noop state DOWN
+mode DEFAULT group default qlen 1000
+    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+12: tun42@NONE: <POINTOPOINT,NOARP> mtu 1472 qdisc noop state DOWN mode
 DEFAULT group default
-    link/gre6 20:01:0d:b8:00:01:00:00:00:00:00:00:00:00:00:01 peer
-20:01:0d:b8:85:a3:00:00:00:00:8a:2e:03:70:73:34
-➜  ~ ./ip -details -json link show
+    link/gre 192.0.2.42 peer 203.0.113.42
+$ ip -details -json link show
 [{
         "ifindex": 10,
-        "ifname": "ip6tnl0",
+        "ifname": "gre0",
         "link": null,
         "flags": ["NOARP"],
-        "mtu": 1452,
+        "mtu": 1476,
         "qdisc": "noop",
         "operstate": "DOWN",
         "linkmode": "DEFAULT",
         "group": "default",
-        "link_type": "tunnel6",
-        "address": "::",
-        "broadcast": "::",
+        "link_type": "gre",
+        "address": "0.0.0.0",
+        "broadcast": "0.0.0.0",
         "promiscuity": 0,
         "linkinfo": {
-            "info_kind": "ip6tnl",
+            "info_kind": "gre",
             "info_data": {
-                "proto": "ip6ip6",
-                "remote": "::",
-                "local": "::",
-                "encap_limit": 0,
+                "remote": "any",
+                "local": "any",
                 "ttl": 0,
-                "flowinfo_tclass": "0x00",
-                "flowlabel": "0x00000",
-                "flowinfo": "0x00000000"
+                "pmtudisc": false
             }
         },
         "inet6_addr_gen_mode": "eui64",
@@ -170,26 +157,26 @@ DEFAULT group default
         "gso_max_segs": 65535
     },{
         "ifindex": 11,
-        "ifname": "ip6gre0",
+        "ifname": "gretap0",
         "link": null,
-        "flags": ["NOARP"],
-        "mtu": 1448,
+        "flags": ["BROADCAST","MULTICAST"],
+        "mtu": 1462,
         "qdisc": "noop",
         "operstate": "DOWN",
         "linkmode": "DEFAULT",
         "group": "default",
-        "link_type": "gre6",
-        "address": "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00",
-        "broadcast": "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00",
+        "txqlen": 1000,
+        "link_type": "ether",
+        "address": "00:00:00:00:00:00",
+        "broadcast": "ff:ff:ff:ff:ff:ff",
         "promiscuity": 0,
         "linkinfo": {
-            "info_kind": "ip6gre",
+            "info_kind": "gretap",
             "info_data": {
                 "remote": "any",
                 "local": "any",
                 "ttl": 0,
-                "encap_limit": 0,
-                "flowlabel": "0x00000"
+                "pmtudisc": false
             }
         },
         "inet6_addr_gen_mode": "eui64",
@@ -199,27 +186,28 @@ DEFAULT group default
         "gso_max_segs": 65535
     },{
         "ifindex": 12,
-        "ifname": "tun6",
+        "ifname": "tun42",
         "link": null,
         "flags": ["POINTOPOINT","NOARP"],
-        "mtu": 1448,
+        "mtu": 1472,
         "qdisc": "noop",
         "operstate": "DOWN",
         "linkmode": "DEFAULT",
         "group": "default",
-        "link_type": "gre6",
-        "address": "20:01:0d:b8:00:01:00:00:00:00:00:00:00:00:00:01",
+        "link_type": "gre",
+        "address": "192.0.2.42",
         "link_pointtopoint": true,
-        "broadcast": "20:01:0d:b8:85:a3:00:00:00:00:8a:2e:03:70:73:34",
+        "broadcast": "203.0.113.42",
         "promiscuity": 0,
         "linkinfo": {
-            "info_kind": "ip6gre",
+            "info_kind": "gre",
             "info_data": {
-                "remote": "2001:db8:85a3::8a2e:370:7334",
-                "local": "2001:db8:1::1",
-                "ttl": 64,
-                "encap_limit": 4,
-                "flowlabel": "0x00000"
+                "remote": "203.0.113.42",
+                "local": "192.0.2.42",
+                "ttl": 0,
+                "pmtudisc": true,
+                "ikey": "0.0.0.42",
+                "okey": "0.0.0.42"
             }
         },
         "inet6_addr_gen_mode": "eui64",
@@ -233,51 +221,31 @@ $
 
 Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
 ---
- ip/link_ip6tnl.c | 172 +++++++++++++++++++++++++++++++++++++++----------------
- 1 file changed, 122 insertions(+), 50 deletions(-)
+ ip/link_gre.c | 147 ++++++++++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 98 insertions(+), 49 deletions(-)
 
-diff --git a/ip/link_ip6tnl.c b/ip/link_ip6tnl.c
-index 505fb476..a4199006 100644
---- a/ip/link_ip6tnl.c
-+++ b/ip/link_ip6tnl.c
-@@ -346,25 +346,29 @@ static void ip6tunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb
- 	if (tb[IFLA_IPTUN_PROTO]) {
- 		switch (rta_getattr_u8(tb[IFLA_IPTUN_PROTO])) {
- 		case IPPROTO_IPIP:
--			fprintf(f, "ipip6 ");
-+			print_string(PRINT_ANY, "proto", "%s ", "ipip6");
- 			break;
- 		case IPPROTO_IPV6:
--			fprintf(f, "ip6ip6 ");
-+			print_string(PRINT_ANY, "proto", "%s ", "ip6ip6");
- 			break;
- 		case 0:
--			fprintf(f, "any ");
-+			print_string(PRINT_ANY, "proto", "%s ", "any");
- 			break;
- 		}
+diff --git a/ip/link_gre.c b/ip/link_gre.c
+index c2ec5f26..3c9f8194 100644
+--- a/ip/link_gre.c
++++ b/ip/link_gre.c
+@@ -389,7 +389,7 @@ static void gre_print_direct_opt(FILE *f, struct rtattr *tb[])
+ 			remote = format_host(AF_INET, 4, &addr);
  	}
  
- 	if (tb[IFLA_IPTUN_REMOTE]) {
--		fprintf(f, "remote %s ",
--			rt_addr_n2a_rta(AF_INET6, tb[IFLA_IPTUN_REMOTE]));
-+		print_string(PRINT_ANY,
-+			     "remote",
-+			     "remote %s ",
-+			     rt_addr_n2a_rta(AF_INET6, tb[IFLA_IPTUN_REMOTE]));
+-	fprintf(f, "remote %s ", remote);
++	print_string(PRINT_ANY, "remote", "remote %s ", remote);
+ 
+ 	if (tb[IFLA_GRE_LOCAL]) {
+ 		unsigned int addr = rta_getattr_u32(tb[IFLA_GRE_LOCAL]);
+@@ -398,36 +398,52 @@ static void gre_print_direct_opt(FILE *f, struct rtattr *tb[])
+ 			local = format_host(AF_INET, 4, &addr);
  	}
  
- 	if (tb[IFLA_IPTUN_LOCAL]) {
--		fprintf(f, "local %s ",
--			rt_addr_n2a_rta(AF_INET6, tb[IFLA_IPTUN_LOCAL]));
-+		print_string(PRINT_ANY,
-+			     "local",
-+			     "local %s ",
-+			     rt_addr_n2a_rta(AF_INET6, tb[IFLA_IPTUN_LOCAL]));
- 	}
+-	fprintf(f, "local %s ", local);
++	print_string(PRINT_ANY, "local", "local %s ", local);
  
- 	if (tb[IFLA_IPTUN_LINK] && rta_getattr_u32(tb[IFLA_IPTUN_LINK])) {
-@@ -372,93 +376,161 @@ static void ip6tunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb
+ 	if (tb[IFLA_GRE_LINK] && rta_getattr_u32(tb[IFLA_GRE_LINK])) {
+ 		unsigned int link = rta_getattr_u32(tb[IFLA_GRE_LINK]);
  		const char *n = if_indextoname(link, s2);
  
  		if (n)
@@ -288,123 +256,118 @@ index 505fb476..a4199006 100644
 +			print_uint(PRINT_ANY, "link_index", "dev %u ", link);
  	}
  
- 	if (flags & IP6_TNL_F_IGN_ENCAP_LIMIT)
--		printf("encaplimit none ");
-+		print_bool(PRINT_ANY,
-+			   "ip6_tnl_f_ign_encap_limit",
-+			   "encaplimit none ",
-+			   true);
- 	else if (tb[IFLA_IPTUN_ENCAP_LIMIT])
--		fprintf(f, "encaplimit %u ",
--			rta_getattr_u8(tb[IFLA_IPTUN_ENCAP_LIMIT]));
-+		print_uint(PRINT_ANY,
-+			   "encap_limit",
-+			   "encaplimit %u ",
-+			   rta_getattr_u8(tb[IFLA_IPTUN_ENCAP_LIMIT]));
- 
- 	if (tb[IFLA_IPTUN_TTL])
--		fprintf(f, "hoplimit %u ", rta_getattr_u8(tb[IFLA_IPTUN_TTL]));
-+		print_uint(PRINT_ANY,
-+			   "ttl",
-+			   "hoplimit %u ",
-+			   rta_getattr_u8(tb[IFLA_IPTUN_TTL]));
- 
- 	if (flags & IP6_TNL_F_USE_ORIG_TCLASS)
--		printf("tclass inherit ");
-+		print_bool(PRINT_ANY,
-+			   "ip6_tnl_f_use_orig_tclass",
-+			   "tclass inherit ",
-+			   true);
- 	else if (tb[IFLA_IPTUN_FLOWINFO]) {
- 		__u32 val = ntohl(flowinfo & IP6_FLOWINFO_TCLASS);
- 
--		printf("tclass 0x%02x ", (__u8)(val >> 20));
-+		if (is_json_context()) {
-+			SPRINT_BUF(b1);
+-	if (tb[IFLA_GRE_TTL] && rta_getattr_u8(tb[IFLA_GRE_TTL]))
+-		fprintf(f, "ttl %d ", rta_getattr_u8(tb[IFLA_GRE_TTL]));
+-	else
+-		fprintf(f, "ttl inherit ");
++	if (tb[IFLA_GRE_TTL]) {
++		__u8 ttl = rta_getattr_u8(tb[IFLA_GRE_TTL]);
 +
-+			snprintf(b1, sizeof(b1), "0x%02x", (__u8)(val >> 20));
-+			print_string(PRINT_JSON, "flowinfo_tclass", NULL, b1);
-+		} else {
-+			printf("tclass 0x%02x ", (__u8)(val >> 20));
-+		}
-+	}
-+
-+	if (flags & IP6_TNL_F_USE_ORIG_FLOWLABEL) {
-+		print_bool(PRINT_ANY,
-+			   "ip6_tnl_f_use_orig_flowlabel",
-+			   "flowlabel inherit ",
-+			   true);
++		if (ttl)
++			print_int(PRINT_ANY, "ttl", "ttl %d ", ttl);
++		else
++			print_int(PRINT_JSON, "ttl", NULL, ttl);
 +	} else {
++		print_string(PRINT_FP, NULL, "ttl %s ", "inherit");
++	}
+ 
+ 	if (tb[IFLA_GRE_TOS] && rta_getattr_u8(tb[IFLA_GRE_TOS])) {
+ 		int tos = rta_getattr_u8(tb[IFLA_GRE_TOS]);
+ 
+-		fputs("tos ", f);
+-		if (tos == 1)
+-			fputs("inherit ", f);
+-		else
+-			fprintf(f, "0x%x ", tos);
 +		if (is_json_context()) {
 +			SPRINT_BUF(b1);
 +
-+			snprintf(b1, sizeof(b1), "0x%05x",
-+				 ntohl(flowinfo & IP6_FLOWINFO_FLOWLABEL));
-+			print_string(PRINT_JSON, "flowlabel", NULL, b1);
++			snprintf(b1, sizeof(b1), "0x%x", tos);
++			print_string(PRINT_JSON, "tos", NULL, b1);
 +		} else {
-+			printf("flowlabel 0x%05x ",
-+			       ntohl(flowinfo & IP6_FLOWINFO_FLOWLABEL));
++			fputs("tos ", f);
++			if (tos == 1)
++				fputs("inherit ", f);
++			else
++				fprintf(f, "0x%x ", tos);
 +		}
  	}
  
--	if (flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
--		printf("flowlabel inherit ");
--	else
--		printf("flowlabel 0x%05x ", ntohl(flowinfo & IP6_FLOWINFO_FLOWLABEL));
-+	if (is_json_context()) {
-+		SPRINT_BUF(flwinfo);
- 
--	printf("(flowinfo 0x%08x) ", ntohl(flowinfo));
-+		snprintf(flwinfo, sizeof(flwinfo), "0x%08x", ntohl(flowinfo));
-+		print_string(PRINT_JSON, "flowinfo", NULL, flwinfo);
-+	} else {
-+		printf("(flowinfo 0x%08x) ", ntohl(flowinfo));
-+
+-	if (tb[IFLA_GRE_PMTUDISC] &&
+-	    !rta_getattr_u8(tb[IFLA_GRE_PMTUDISC]))
+-		fputs("nopmtudisc ", f);
++	if (tb[IFLA_GRE_PMTUDISC]) {
++		if (!rta_getattr_u8(tb[IFLA_GRE_PMTUDISC]))
++			print_bool(PRINT_ANY, "pmtudisc", "nopmtudisc ", false);
++		else
++			print_bool(PRINT_JSON, "pmtudisc", NULL, true);
 +	}
  
- 	if (flags & IP6_TNL_F_RCV_DSCP_COPY)
--		printf("dscp inherit ");
-+		print_bool(PRINT_ANY,
-+			   "ip6_tnl_f_rcv_dscp_copy",
-+			   "dscp inherit ",
-+			   true);
+ 	if (tb[IFLA_GRE_IFLAGS])
+ 		iflags = rta_getattr_u16(tb[IFLA_GRE_IFLAGS]);
+@@ -437,26 +453,31 @@ static void gre_print_direct_opt(FILE *f, struct rtattr *tb[])
  
- 	if (flags & IP6_TNL_F_MIP6_DEV)
--		fprintf(f, "mip6 ");
-+		print_bool(PRINT_ANY, "ip6_tnl_f_mip6_dev", "mip6 ", true);
+ 	if ((iflags & GRE_KEY) && tb[IFLA_GRE_IKEY]) {
+ 		inet_ntop(AF_INET, RTA_DATA(tb[IFLA_GRE_IKEY]), s2, sizeof(s2));
+-		fprintf(f, "ikey %s ", s2);
++		print_string(PRINT_ANY, "ikey", "ikey %s ", s2);
+ 	}
+ 
+ 	if ((oflags & GRE_KEY) && tb[IFLA_GRE_OKEY]) {
+ 		inet_ntop(AF_INET, RTA_DATA(tb[IFLA_GRE_OKEY]), s2, sizeof(s2));
+-		fprintf(f, "okey %s ", s2);
++		print_string(PRINT_ANY, "okey", "okey %s ", s2);
+ 	}
+ 
+ 	if (iflags & GRE_SEQ)
+-		fputs("iseq ", f);
++		print_bool(PRINT_ANY, "iseq", "iseq ", true);
+ 	if (oflags & GRE_SEQ)
+-		fputs("oseq ", f);
++		print_bool(PRINT_ANY, "oseq", "oseq ", true);
+ 	if (iflags & GRE_CSUM)
+-		fputs("icsum ", f);
++		print_bool(PRINT_ANY, "icsum", "icsum ", true);
+ 	if (oflags & GRE_CSUM)
+-		fputs("ocsum ", f);
++		print_bool(PRINT_ANY, "ocsum", "ocsum ", true);
 +
-+	if (flags & IP6_TNL_F_USE_ORIG_FWMARK) {
-+		print_bool(PRINT_ANY,
-+			   "ip6_tnl_f_use_orig_fwmark",
-+			   "fwmark inherit ",
-+			   true);
-+	} else if (tb[IFLA_IPTUN_FWMARK]) {
-+		__u32 fwmark = rta_getattr_u32(tb[IFLA_IPTUN_FWMARK]);
- 
--	if (flags & IP6_TNL_F_USE_ORIG_FWMARK)
--		fprintf(f, "fwmark inherit ");
--	else if (tb[IFLA_IPTUN_FWMARK] && rta_getattr_u32(tb[IFLA_IPTUN_FWMARK]))
--		fprintf(f, "fwmark 0x%x ", rta_getattr_u32(tb[IFLA_IPTUN_FWMARK]));
++	if (tb[IFLA_GRE_FWMARK]) {
++		__u32 fwmark = rta_getattr_u32(tb[IFLA_GRE_FWMARK]);
++
 +		if (fwmark) {
-+			SPRINT_BUF(b1);
-+
-+			snprintf(b1, sizeof(b1), "0x%x", fwmark);
-+			print_string(PRINT_ANY, "fwmark", "fwmark %s ", b1);
-+		}
-+	}
++			snprintf(s2, sizeof(s2), "0x%x", fwmark);
  
- 	if (tb[IFLA_IPTUN_ENCAP_TYPE] &&
--	    rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_TYPE]) !=
--	    TUNNEL_ENCAP_NONE) {
-+	    rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
- 		__u16 type = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_TYPE]);
- 		__u16 flags = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_FLAGS]);
- 		__u16 sport = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_SPORT]);
- 		__u16 dport = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_DPORT]);
+-	if (tb[IFLA_GRE_FWMARK] && rta_getattr_u32(tb[IFLA_GRE_FWMARK])) {
+-		fprintf(f, "fwmark 0x%x ",
+-			rta_getattr_u32(tb[IFLA_GRE_FWMARK]));
++			print_string(PRINT_ANY, "fwmark", "fwmark %s ", s2);
++		}
+ 	}
+ }
+ 
+@@ -468,10 +489,10 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 	if (!tb[IFLA_GRE_COLLECT_METADATA])
+ 		gre_print_direct_opt(f, tb);
+ 	else
+-		fputs("external ", f);
++		print_bool(PRINT_ANY, "external", "external ", true);
+ 
+ 	if (tb[IFLA_GRE_IGNORE_DF] && rta_getattr_u8(tb[IFLA_GRE_IGNORE_DF]))
+-		fputs("ignore-df ", f);
++		print_bool(PRINT_ANY, "ignore_df", "ignore-df ", true);
+ 
+ 	if (tb[IFLA_GRE_ENCAP_TYPE] &&
+ 	    rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
+@@ -480,45 +501,73 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 		__u16 sport = rta_getattr_u16(tb[IFLA_GRE_ENCAP_SPORT]);
+ 		__u16 dport = rta_getattr_u16(tb[IFLA_GRE_ENCAP_DPORT]);
  
 -		fputs("encap ", f);
++
 +		open_json_object("encap");
 +		print_string(PRINT_FP, NULL, "encap ", NULL);
++
  		switch (type) {
  		case TUNNEL_ENCAP_FOU:
 -			fputs("fou ", f);
@@ -416,7 +379,7 @@ index 505fb476..a4199006 100644
  			break;
  		default:
 -			fputs("unknown ", f);
-+			print_null(PRINT_ANY, "type", "unknown ", NULL);
++			print_null(PRINT_ANY, "type", "%s ", "unknown");
  			break;
  		}
  
@@ -430,12 +393,22 @@ index 505fb476..a4199006 100644
 +				   NULL,
 +				   sport ? ntohs(sport) : 0);
 +			print_uint(PRINT_JSON, "dport", NULL, ntohs(dport));
-+			print_bool(PRINT_JSON, "csum", NULL,
++
++			print_bool(PRINT_JSON,
++				   "csum",
++				   NULL,
 +				   flags & TUNNEL_ENCAP_FLAG_CSUM);
-+			print_bool(PRINT_JSON, "csum6", NULL,
++
++			print_bool(PRINT_JSON,
++				   "csum6",
++				   NULL,
 +				   flags & TUNNEL_ENCAP_FLAG_CSUM6);
-+			print_bool(PRINT_JSON, "remcsum", NULL,
++
++			print_bool(PRINT_JSON,
++				   "remcsum",
++				   NULL,
 +				   flags & TUNNEL_ENCAP_FLAG_REMCSUM);
++
 +			close_json_object();
 +		} else {
 +			if (sport == 0)
@@ -476,9 +449,9 @@ index 505fb476..a4199006 100644
  	}
  }
  
- static void ip6tunnel_print_help(struct link_util *lu, int argc, char **argv,
+ static void gre_print_help(struct link_util *lu, int argc, char **argv,
 -	FILE *f)
-+				 FILE *f)
++			   FILE *f)
  {
  	print_usage(f);
  }
