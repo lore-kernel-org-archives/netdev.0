@@ -1,33 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v4] ss: Enclose IPv6 address in brackets
-Date: Thu, 3 Aug 2017 15:54:21 -0700
-Message-ID: <20170803155421.482fd158@xeon-e3>
-References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
-        <821a72fb-3758-8a44-2b1e-727a73208e14@der-flo.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [patch net-next 00/21] mlxsw: Support for IPv6 UC router
+Date: Thu, 3 Aug 2017 16:54:35 -0600
+Message-ID: <172d26bc-cb59-c3c7-7ca4-1308f4853e8c@gmail.com>
+References: <20170803112831.1831-1-jiri@resnulli.us>
+ <20170803.153631.974713672754752484.davem@davemloft.net>
+ <d6bd0d34-b69f-10c2-059d-a45b1dfae80f@gmail.com>
+ <20170803.154124.2094532576602544160.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Lehner <dev@der-flo.net>
+Cc: jiri@resnulli.us, netdev@vger.kernel.org, idosch@mellanox.com,
+        mlxsw@mellanox.com, roopa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com, kafai@fb.com,
+        hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
+        edumazet@google.com, yanhaishuang@cmss.chinamobile.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:37365 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751736AbdHCWyY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 18:54:24 -0400
-Received: by mail-pg0-f52.google.com with SMTP id y129so368899pgy.4
-        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 15:54:23 -0700 (PDT)
-In-Reply-To: <821a72fb-3758-8a44-2b1e-727a73208e14@der-flo.net>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:38910 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751736AbdHCWyh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 18:54:37 -0400
+Received: by mail-pg0-f45.google.com with SMTP id l64so359876pge.5
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 15:54:37 -0700 (PDT)
+In-Reply-To: <20170803.154124.2094532576602544160.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1 Aug 2017 18:54:33 +0200
-Florian Lehner <dev@der-flo.net> wrote:
+On 8/3/17 4:41 PM, David Miller wrote:
+> But unlike the percpu flag, don't we want to somehow propagate offload
+> state to the user?
 
-> -	if (a->family == AF_INET) {
-> -		if (a->data[0] == 0) {
-> +	if (a->data[0] == 0) {
->  			buf[0] = '*';
->  			buf[1] = 0;
+It's a per nexthop flag. For IPv4 it is tracked in fib_nh.nh_flags.
+Perhaps it is time for rt6_info to have nh_flags as well.
 
-This won't work right with IPv6 you need to look at the whole address being 0
-not just a->data[0]
+> 
+> I'm sure whatever we decide Jiri will send and appropriate follow-up
+> so don't panic :)
+> 
