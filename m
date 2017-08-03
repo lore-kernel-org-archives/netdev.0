@@ -1,86 +1,61 @@
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net-next] aquantia: Switch to use napi_gro_receive
-Date: Thu,  3 Aug 2017 18:15:32 +0300
-Message-ID: <5ba75da7aa9caa1feb85e65edd47965fe0226ab6.1501771297.git.pavel.belous@aquantia.com>
+From: Yonghong Song <yhs@fb.com>
+Subject: Re: [PATCH net-next v2 1/2] bpf: add support for sys_enter_* and
+ sys_exit_* tracepoints
+Date: Thu, 3 Aug 2017 08:22:51 -0700
+Message-ID: <28b9718b-0677-cc23-4c6f-c21169e38c90@fb.com>
+References: <20170803052828.2303723-1-yhs@fb.com>
+ <20170803052828.2303723-2-yhs@fb.com>
+ <20170803080831.6molm6xv6wngcy7l@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
-        Igor Russkikh <Igor.Russkikh@aquantia.com>,
-        Simon Edelhaus <simon.edelhaus@aquantia.com>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ast@fb.com>, <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>, Steven Rostedt <rostedt@goodmis.org>
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0077.outbound.protection.outlook.com ([104.47.32.77]:37857
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751230AbdHCPQK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Aug 2017 11:16:10 -0400
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36566 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751352AbdHCPXn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 11:23:43 -0400
+In-Reply-To: <20170803080831.6molm6xv6wngcy7l@hirez.programming.kicks-ass.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Belous <pavel.belous@aquantia.com>
 
-Add support for GRO (generic receive offload) for aQuantia Atlantic driver.
-This results in a perfomance improvement when GRO is enabled.
 
-Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
----
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 7 +++++--
- drivers/net/ethernet/aquantia/atlantic/aq_ring.h | 5 ++++-
- drivers/net/ethernet/aquantia/atlantic/aq_vec.c  | 1 +
- 3 files changed, 10 insertions(+), 3 deletions(-)
+On 8/3/17 1:08 AM, Peter Zijlstra wrote:
+> On Wed, Aug 02, 2017 at 10:28:27PM -0700, Yonghong Song wrote:
+>> Currently, bpf programs cannot be attached to sys_enter_* and sys_exit_*
+>> style tracepoints. The iovisor/bcc issue #748
+>> (https://github.com/iovisor/bcc/issues/748) documents this issue.
+>> For example, if you try to attach a bpf program to tracepoints
+>> syscalls/sys_enter_newfstat, you will get the following error:
+>>     # ./tools/trace.py t:syscalls:sys_enter_newfstat
+>>     Ioctl(PERF_EVENT_IOC_SET_BPF): Invalid argument
+>>     Failed to attach BPF to tracepoint
+>>
+>> The main reason is that syscalls/sys_enter_* and syscalls/sys_exit_*
+>> tracepoints are treated differently from other tracepoints and there
+>> is no bpf hook to it.
+>>
+>> This patch adds bpf support for these syscalls tracepoints by
+>>    . permitting bpf attachment in ioctl PERF_EVENT_IOC_SET_BPF
+>>    . calling bpf programs in perf_syscall_enter and perf_syscall_exit
+>>
+>> Signed-off-by: Yonghong Song <yhs@fb.com>
+> 
+> Ack for the perf bits, but you should've Cc'ed steve too I suppose.
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-index 9a08179..4b44575 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-@@ -134,7 +134,10 @@ static inline unsigned int aq_ring_dx_in_range(unsigned int h, unsigned int i,
- }
- 
- #define AQ_SKB_ALIGN SKB_DATA_ALIGN(sizeof(struct skb_shared_info))
--int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
-+int aq_ring_rx_clean(struct aq_ring_s *self,
-+		     struct napi_struct *napi,
-+		     int *work_done,
-+		     int budget)
- {
- 	struct net_device *ndev = aq_nic_get_ndev(self->aq_nic);
- 	int err = 0;
-@@ -240,7 +243,7 @@ int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
- 
- 		skb_record_rx_queue(skb, self->idx);
- 
--		netif_receive_skb(skb);
-+		napi_gro_receive(napi, skb);
- 
- 		++self->stats.rx.packets;
- 		self->stats.rx.bytes += skb->len;
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-index eecd6d1..782176c 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
-@@ -148,7 +148,10 @@ int aq_ring_init(struct aq_ring_s *self);
- void aq_ring_rx_deinit(struct aq_ring_s *self);
- void aq_ring_free(struct aq_ring_s *self);
- void aq_ring_tx_clean(struct aq_ring_s *self);
--int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget);
-+int aq_ring_rx_clean(struct aq_ring_s *self,
-+		     struct napi_struct *napi,
-+		     int *work_done,
-+		     int budget);
- int aq_ring_rx_fill(struct aq_ring_s *self);
- 
- #endif /* AQ_RING_H */
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_vec.c b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
-index ad5b4d4d..ec390c5 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
-@@ -78,6 +78,7 @@ __acquires(&self->lock)
- 			if (ring[AQ_VEC_RX_ID].sw_head !=
- 				ring[AQ_VEC_RX_ID].hw_head) {
- 				err = aq_ring_rx_clean(&ring[AQ_VEC_RX_ID],
-+						       napi,
- 						       &work_done,
- 						       budget - work_done);
- 				if (err < 0)
--- 
-2.7.4
+Thanks, Peter. This is first time I posted for tracing related changes.
+Will for sure remember this next time.
+
+There is a build error:
+======
+    kernel/events/core.c: In function 'perf_event_set_bpf_prog':
+ >> kernel/events/core.c:8073:18: error: implicit declaration of 
+function 'is_syscall_trace_event' [-Werror=implicit-function-declaration]
+      is_syscall_tp = is_syscall_trace_event(event->tp_event);
+======
+
+Will address this and send another patch soon.
