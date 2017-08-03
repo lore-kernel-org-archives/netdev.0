@@ -1,70 +1,222 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH V5 1/2] firmware: add more flexible request_firmware_async function
-Date: Thu, 03 Aug 2017 08:23:00 +0300
-Message-ID: <878tj1ql6z.fsf@kamboji.qca.qualcomm.com>
-References: <20170731150945.8925-1-zajec5@gmail.com>
-        <20170802213010.GM18884@wotan.suse.de>
+From: Yonghong Song <yhs@fb.com>
+Subject: [PATCH net-next v2 2/2] bpf: add a test case for syscalls/sys_{enter|exit}_* tracepoints
+Date: Wed, 2 Aug 2017 22:28:28 -0700
+Message-ID: <20170803052828.2303723-3-yhs@fb.com>
+References: <20170803052828.2303723-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Daniel Wagner <wagi@monom.org>,
-        David Woodhouse <dwmw2@infradead.org>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        "Rafael J . Wysocki" <rjw@rjwysocki.net>, yi1.li@linux.intel.com,
-        atull@kernel.org, Moritz Fischer <moritz.fischer@ettus.com>,
-        pmladek@suse.com, Johannes Berg <johannes.berg@intel.com>,
-        emmanuel.grumbach@intel.com, luciano.coelho@intel.com,
-        luto@kernel.org, Linus Torvalds <torvalds@linux-foundation.org>,
-        Kees Cook <keescook@chromium.org>,
-        AKASHI Takahiro <takahiro.akashi@linaro.org>,
-        David Howells <dhowells@redhat.com>, pjones@redhat.com,
-        Hans de Goede <hdegoede@redhat.com>, alan@linux.intel.com,
-        tyt
-To: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170802213010.GM18884@wotan.suse.de> (Luis R. Rodriguez's
-        message of "Wed, 2 Aug 2017 23:30:10 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <kernel-team@fb.com>
+To: <peterz@infradead.org>, <ast@fb.com>, <daniel@iogearbox.net>,
+        <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41553 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751032AbdHCF2b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 01:28:31 -0400
+Received: from pps.filterd (m0109334.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v735SSvP022341
+        for <netdev@vger.kernel.org>; Wed, 2 Aug 2017 22:28:30 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2c3sdhrwbk-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 22:28:30 -0700
+Received: from facebook.com (2401:db00:11:d0af:face:0:2d:0)     by
+ mx-out.facebook.com (10.212.236.89) with ESMTP id
+ 94db5b62780c11e7bf000002c95209d8-1fc71150 for <netdev@vger.kernel.org>;        Wed,
+ 02 Aug 2017 22:28:29 -0700
+In-Reply-To: <20170803052828.2303723-1-yhs@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Luis R. Rodriguez" <mcgrof@kernel.org> writes:
+Signed-off-by: Yonghong Song <yhs@fb.com>
+---
+ samples/bpf/Makefile          |  4 +++
+ samples/bpf/syscall_tp_kern.c | 62 +++++++++++++++++++++++++++++++++++++
+ samples/bpf/syscall_tp_user.c | 71 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 137 insertions(+)
+ create mode 100644 samples/bpf/syscall_tp_kern.c
+ create mode 100644 samples/bpf/syscall_tp_user.c
 
->> +int request_firmware_nowait(struct module *module, bool uevent,
->> +			    const char *name, struct device *device, gfp_t gfp,
->> +			    void *context,
->> +			    void (*cont)(const struct firmware *fw, void *context))
->> +{
->> +	unsigned int opt_flags = FW_OPT_FALLBACK |
->> +		(uevent ? FW_OPT_UEVENT : FW_OPT_USERHELPER);
->> +
->> +	return __request_firmware_nowait(module, opt_flags, name, device, gfp,
->> +					 context, cont);
->> +}
->>  EXPORT_SYMBOL(request_firmware_nowait);
->>  
->> +int __request_firmware_async(struct module *module, const char *name,
->> +			     struct firmware_opts *fw_opts, struct device *dev,
->> +			     void *context,
->> +			     void (*cont)(const struct firmware *fw, void *context))
->> +{
->> +	unsigned int opt_flags = FW_OPT_UEVENT;
->
-> This exposes a long issue. Think -- why do we want this enabled by default? Its
-> actually because even though the fallback stuff is optional and can be, the uevent
-> internal flag *also* provides caching support as a side consequence only. We
-> don't want to add a new API without first cleaning up that mess.
->
-> This is a slipery slope and best to clean that up before adding any new API.
->
-> That and also Greg recently stated he would like to see at least 3 users of
-> a feature before adding it. Although I think that's pretty arbitrary, and
-> considering that request_firmware_into_buf() only has *one* user -- its what
-> he wishes.
-
-ath10k at least needs a way to silence the warning for missing firmware
-and I think iwlwifi also.
-
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 770d46c..f1010fe 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -39,6 +39,7 @@ hostprogs-y += per_socket_stats_example
+ hostprogs-y += load_sock_ops
+ hostprogs-y += xdp_redirect
+ hostprogs-y += xdp_redirect_map
++hostprogs-y += syscall_tp
+ 
+ # Libbpf dependencies
+ LIBBPF := ../../tools/lib/bpf/bpf.o
+@@ -82,6 +83,7 @@ test_map_in_map-objs := bpf_load.o $(LIBBPF) test_map_in_map_user.o
+ per_socket_stats_example-objs := $(LIBBPF) cookie_uid_helper_example.o
+ xdp_redirect-objs := bpf_load.o $(LIBBPF) xdp_redirect_user.o
+ xdp_redirect_map-objs := bpf_load.o $(LIBBPF) xdp_redirect_map_user.o
++syscall_tp-objs := bpf_load.o $(LIBBPF) syscall_tp_user.o
+ 
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -125,6 +127,7 @@ always += tcp_iw_kern.o
+ always += tcp_clamp_kern.o
+ always += xdp_redirect_kern.o
+ always += xdp_redirect_map_kern.o
++always += syscall_tp_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ HOSTCFLAGS += -I$(srctree)/tools/lib/
+@@ -163,6 +166,7 @@ HOSTLOADLIBES_xdp_tx_iptunnel += -lelf
+ HOSTLOADLIBES_test_map_in_map += -lelf
+ HOSTLOADLIBES_xdp_redirect += -lelf
+ HOSTLOADLIBES_xdp_redirect_map += -lelf
++HOSTLOADLIBES_syscall_tp += -lelf
+ 
+ # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
+ #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
+diff --git a/samples/bpf/syscall_tp_kern.c b/samples/bpf/syscall_tp_kern.c
+new file mode 100644
+index 0000000..9149c52
+--- /dev/null
++++ b/samples/bpf/syscall_tp_kern.c
+@@ -0,0 +1,62 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
++
++struct syscalls_enter_open_args {
++	unsigned long long unused;
++	long syscall_nr;
++	long filename_ptr;
++	long flags;
++	long mode;
++};
++
++struct syscalls_exit_open_args {
++	unsigned long long unused;
++	long syscall_nr;
++	long ret;
++};
++
++struct bpf_map_def SEC("maps") enter_open_map = {
++	.type = BPF_MAP_TYPE_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(u32),
++	.max_entries = 1,
++};
++
++struct bpf_map_def SEC("maps") exit_open_map = {
++	.type = BPF_MAP_TYPE_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(u32),
++	.max_entries = 1,
++};
++
++static __always_inline void count(void *map)
++{
++	u32 key = 0;
++	u32 *value, init_val = 1;
++
++	value = bpf_map_lookup_elem(map, &key);
++	if (value)
++		*value += 1;
++	else
++		bpf_map_update_elem(map, &key, &init_val, BPF_NOEXIST);
++}
++
++SEC("tracepoint/syscalls/sys_enter_open")
++int trace_enter_open(struct syscalls_enter_open_args *ctx)
++{
++	count((void *)&enter_open_map);
++	return 0;
++}
++
++SEC("tracepoint/syscalls/sys_exit_open")
++int trace_enter_exit(struct syscalls_exit_open_args *ctx)
++{
++	count((void *)&exit_open_map);
++	return 0;
++}
+diff --git a/samples/bpf/syscall_tp_user.c b/samples/bpf/syscall_tp_user.c
+new file mode 100644
+index 0000000..a3cb91e
+--- /dev/null
++++ b/samples/bpf/syscall_tp_user.c
+@@ -0,0 +1,71 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <stdio.h>
++#include <unistd.h>
++#include <fcntl.h>
++#include <stdlib.h>
++#include <signal.h>
++#include <linux/bpf.h>
++#include <string.h>
++#include <linux/perf_event.h>
++#include <errno.h>
++#include <assert.h>
++#include <stdbool.h>
++#include <sys/resource.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++
++/* This program verifies bpf attachment to tracepoint sys_enter_* and sys_exit_*.
++ * This requires kernel CONFIG_FTRACE_SYSCALLS to be set.
++ */
++
++static void verify_map(int map_id)
++{
++	__u32 key = 0;
++	__u32 val;
++
++	if (bpf_map_lookup_elem(map_id, &key, &val) != 0) {
++		fprintf(stderr, "map_lookup failed: %s\n", strerror(errno));
++		return;
++	}
++	if (val == 0)
++		fprintf(stderr, "failed: map #%d returns value 0\n", map_id);
++}
++
++int main(int argc, char **argv)
++{
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
++	char filename[256];
++	int fd;
++
++	setrlimit(RLIMIT_MEMLOCK, &r);
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	if (load_bpf_file(filename)) {
++		fprintf(stderr, "%s", bpf_log_buf);
++		return 1;
++	}
++
++	/* current load_bpf_file has perf_event_open default pid = -1
++	 * and cpu = 0, which permits attached bpf execution on
++	 * all cpus for all pid's. bpf program execution ignores
++	 * cpu affinity.
++	 */
++	/* trigger some "open" operations */
++	fd = open(filename, O_RDONLY);
++	if (fd < 0) {
++		fprintf(stderr, "open failed: %s\n", strerror(errno));
++		return 1;
++	}
++	close(fd);
++
++	/* verify the map */
++	verify_map(map_fd[0]);
++	verify_map(map_fd[1]);
++
++	return 0;
++}
 -- 
-Kalle Valo
+2.9.4
