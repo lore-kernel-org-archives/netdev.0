@@ -1,76 +1,50 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] hysdn: fix to a race condition in put_log_buffer
-Date: Thu, 3 Aug 2017 15:03:13 +0300
-Message-ID: <a82052eb-2aec-ffa2-2cfd-c02db779d695@cogentembedded.com>
-References: <2f35ddaf-88d9-e848-f83b-3001b36b2883@linux-pingi.de>
- <1501760001-22193-1-git-send-email-avolkov@ispras.ru>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [RFC PATCH v2 0/2] nb8800 suspend/resume support
+Date: Thu, 03 Aug 2017 13:18:09 +0100
+Message-ID: <yw1x3798hmke.fsf@mansr.com>
+References: <33d1ab47-6098-5e3f-8a3c-f72626d07113@free.fr>
+        <aa8885b8-e6bb-3624-2bf9-0bb40505ac54@free.fr>
+        <dd883398-1511-0bfd-972b-a11ef8709f0d@free.fr>
+        <yw1xshhagexd.fsf@mansr.com>
+        <9e8e12b1-74e2-8323-ec16-eebda46b2a3d@free.fr>
+        <yw1xo9rygdyu.fsf@mansr.com>
+        <6906dccf-bec9-0fc8-a34a-c39c05ada917@free.fr>
+        <yw1xk22mgdcx.fsf@mansr.com>
+        <f1554ee7-2151-1304-c5c1-35264b9be5be@free.fr>
+        <71dd7987-8c43-2548-5058-51a95658da71@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org,
-        khoroshilov@ispras.ru
-To: Anton Volkov <avolkov@ispras.ru>, isdn@linux-pingi.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501760001-22193-1-git-send-email-avolkov@ispras.ru>
-Content-Language: en-MW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Mason <slash.tmp@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from unicorn.mansr.com ([81.2.72.234]:38430 "EHLO unicorn.mansr.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751083AbdHCMSN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 3 Aug 2017 08:18:13 -0400
+In-Reply-To: <71dd7987-8c43-2548-5058-51a95658da71@free.fr> (Mason's message
+        of "Wed, 2 Aug 2017 22:02:24 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Mason <slash.tmp@free.fr> writes:
 
-On 08/03/2017 02:33 PM, Anton Volkov wrote:
+> On 02/08/2017 19:31, Mason wrote:
+>
+>> # iperf3 -c 172.27.64.45 -u -b 950M
+>> Connecting to host 172.27.64.45, port 5201
+>> [  4] local 172.27.64.1 port 55533 connected to 172.27.64.45 port 5201
+>> [ ID] Interval           Transfer     Bandwidth       Total Datagrams
+>> [  4]   0.00-1.00   sec   102 MBytes   858 Mbits/sec  13091  
+>> [  4]   1.00-2.00   sec   114 MBytes   953 Mbits/sec  14541  
+>
+> 114 MB in 14541 packets => 7840 bytes per packet
+> Is iperf3 sending jumbo frames??
 
-> The synchronization type that was used earlier to guard the loop that
-> deletes unused log buffers may lead to a situation that prevents any
-> thread from going through the loop.
-> 
-> The patch deletes previously used synchronization mechanism and moves
-> the loop under the spin_lock so the similar cases won't be feasible in
-> the future.
-> 
-> Found by by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Anton Volkov <avolkov@ispras.ru>
-> ---
->   drivers/isdn/hysdn/hysdn_proclog.c | 27 ++++++++++++---------------
->   1 file changed, 12 insertions(+), 15 deletions(-)
-> 
-> diff --git a/drivers/isdn/hysdn/hysdn_proclog.c b/drivers/isdn/hysdn/hysdn_proclog.c
-> index 7b5fd8f..b152c6c 100644
-> --- a/drivers/isdn/hysdn/hysdn_proclog.c
-> +++ b/drivers/isdn/hysdn/hysdn_proclog.c
-[...]
->   	else
->   		pd->log_tail->next = ib;	/* follows existing messages */
->   	pd->log_tail = ib;	/* new tail */
-> -	i = pd->del_lock++;	/* get lock state */
-> -	spin_unlock_irqrestore(&card->hysdn_lock, flags);
->   
->   	/* delete old entrys */
-> -	if (!i)
-> -		while (pd->log_head->next) {
-> -			if ((pd->log_head->usage_cnt <= 0) &&
-> -			    (pd->log_head->next->usage_cnt <= 0)) {
-> -				ib = pd->log_head;
-> -				pd->log_head = pd->log_head->next;
-> -				kfree(ib);
-> -			} else
-> -				break;
-> -		}		/* pd->log_head->next */
-> -	pd->del_lock--;		/* release lock level */
-> +	while (pd->log_head->next) {
-> +		if ((pd->log_head->usage_cnt <= 0) &&
-> +		    (pd->log_head->next->usage_cnt <= 0)) {
-> +			ib = pd->log_head;
-> +			pd->log_head = pd->log_head->next;
-> +			kfree(ib);
-> +		} else
-> +			break;
-> +	}		/* pd->log_head->next */
+It's probably sending fragmented packets.
 
-    Need {} in the *else* branch as *if* had them.
-
-[...]
-
-MBR, Sergei
+-- 
+Måns Rullgård
