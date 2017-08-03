@@ -1,31 +1,37 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH] tc-simple: Fix documentation
-Date: Thu, 3 Aug 2017 16:03:04 -0700
-Message-ID: <20170803160304.2c256bee@xeon-e3>
-References: <20170803150051.19741-1-phil@nwl.cc>
+Subject: Re: [PATCH iproute2] netns: make /var/run/netns bind-mount
+ recursive
+Date: Thu, 3 Aug 2017 16:04:21 -0700
+Message-ID: <20170803160421.58eb0a4a@xeon-e3>
+References: <20170801154609.29895-1-casey.callendrello@coreos.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+Cc: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: Casey Callendrello <casey.callendrello@coreos.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:37714 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751865AbdHCXDI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 19:03:08 -0400
-Received: by mail-pg0-f45.google.com with SMTP id y129so434433pgy.4
-        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 16:03:08 -0700 (PDT)
-In-Reply-To: <20170803150051.19741-1-phil@nwl.cc>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33334 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751791AbdHCXEX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 19:04:23 -0400
+Received: by mail-pf0-f181.google.com with SMTP id d67so584346pfc.0
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 16:04:23 -0700 (PDT)
+In-Reply-To: <20170801154609.29895-1-casey.callendrello@coreos.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  3 Aug 2017 17:00:51 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+On Tue,  1 Aug 2017 17:46:09 +0200
+Casey Callendrello <casey.callendrello@coreos.com> wrote:
 
-> - CONTROL has to come last, otherwise 'index' applies to gact and not
->   simple itself.
-> - Man page wasn't updated to reflect syntax changes.
+> When ip netns {add|delete} is first run, it bind-mounts /var/run/netns
+> on top of itself, then marks it as shared. However, if there are already
+> bind-mounts in the directory from other tools, these would not be
+> propagated. Fix this by recursively bind-mounting.
 > 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: Casey Callendrello <casey.callendrello@coreos.com>
+> ---
+>  ip/ipnetns.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
 
-Applid, thanks Phil
+Looks good, but I want a review by Eric to make sure this doesn't break other things.
