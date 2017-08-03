@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: hns: Add self-adaptive interrupt coalesce
- support in hns driver
-Date: Thu, 03 Aug 2017 09:21:41 -0700 (PDT)
-Message-ID: <20170803.092141.880053247880811606.davem@davemloft.net>
-References: <1501667857-66817-1-git-send-email-linyunsheng@huawei.com>
+Subject: Re: [PATCH 0/1] pull request for net: batman-adv 2017-08-02
+Date: Thu, 03 Aug 2017 09:23:47 -0700 (PDT)
+Message-ID: <20170803.092347.1816005290527953083.davem@davemloft.net>
+References: <20170802141542.13059-1-sw@simonwunderlich.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: huangdaode@hisilicon.com, xuwei5@hisilicon.com,
-        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-        gabriele.paoloni@huawei.com, john.garry@huawei.com,
-        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
-        tremyfr@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: linyunsheng@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501667857-66817-1-git-send-email-linyunsheng@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: sw@simonwunderlich.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45052 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751244AbdHCQXs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 12:23:48 -0400
+In-Reply-To: <20170802141542.13059-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Date: Wed, 2 Aug 2017 17:57:37 +0800
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Date: Wed,  2 Aug 2017 16:15:41 +0200
 
-> From: Lin Yun Sheng <linyunsheng@huawei.com>
+> here is a bugfix which we would like to see integrated into net.
 > 
-> When deal with low and high throughput, it is hard to achiece both
-> high performance and low latency. In order to achiece that, this patch
-> calculates the rx rate, and adjust the interrupt coalesce parameter
-> accordingly.
-> 
-> Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
-> Tested-by: Weiwei Deng <dengweiwei@huawei.com>
+> Please pull or let me know of any problem!
 
-Applied.
+Pulled, thanks Simon.
