@@ -1,58 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/6] ipv4: fib: Provide per-nexthop offload
- indication
-Date: Wed, 02 Aug 2017 17:00:40 -0700 (PDT)
-Message-ID: <20170802.170040.1522837897155424725.davem@davemloft.net>
-References: <20170802075606.1090-1-jiri@resnulli.us>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: [PATCH v3 2/4] dt-bindings: can: fixed-transceiver: Add new CAN fixed transceiver bindings
+Date: Wed, 2 Aug 2017 19:51:48 -0500
+Message-ID: <20170803005150.9286-3-fcooper@ti.com>
+References: <20170803005150.9286-1-fcooper@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com,
-        dsahern@gmail.com, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, hannes@stressinduktion.org,
-        yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32936 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751073AbdHCAAn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 20:00:43 -0400
-In-Reply-To: <20170802075606.1090-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Franklin S Cooper Jr <fcooper@ti.com>
+To: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
+        <quentin.schulz@free-electrons.com>,
+        <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>,
+        <sergei.shtylyov@cogentembedded.com>, <socketcan@hartkopp.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170803005150.9286-1-fcooper@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed,  2 Aug 2017 09:56:00 +0200
+Add documentation to describe usage of the new fixed transceiver binding.
+This new binding is applicable for any CAN device therefore it exists as
+its own document.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Ido says:
-> 
-> Offload indication for IPv4 routes is currently set in the FIB info's
-> flags. When multipath routes are employed, this can lead to a route being
-> marked as offloaded although only one of its nexthops is actually
-> offloaded.
-> 
-> Instead, this patchset aims to proivde a higher resolution for the offload
-> indication and report it on a per-nexthop basis.
-> 
-> Example output from patched iproute:
-> 
-> $ ip route show 192.168.200.0/24
-> 192.168.200.0/24
->         nexthop via 192.168.100.2 dev enp3s0np7 weight 1 offload
->         nexthop via 192.168.101.3 dev enp3s0np8 weight 1
-> 
-> And once the second gateway is resolved:
-> 
-> $ ip route show 192.168.200.0/24
-> 192.168.200.0/24
->         nexthop via 192.168.100.2 dev enp3s0np7 weight 1 offload
->         nexthop via 192.168.101.3 dev enp3s0np8 weight 1 offload
-> 
-> First patch teaches the kernel to look for the offload indication in the
-> nexthop flags. Patches 2-5 adjust current capable drivers to provide
-> offload indication on a per-nexthop basis. Last patch removes no longer
-> used functions to set offload indication in the FIB info's flags.
+Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+---
+ .../bindings/net/can/fixed-transceiver.txt         | 24 ++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
 
-Series applied, thanks Jiri.
+diff --git a/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+new file mode 100644
+index 0000000..2f58838b
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+@@ -0,0 +1,24 @@
++Fixed transceiver Device Tree binding
++------------------------------
++
++CAN transceiver typically limits the max speed in standard CAN and CAN FD
++modes. Typically these limitations are static and the transceivers themselves
++provide no way to detect this limitation at runtime. For this situation,
++the "fixed-transceiver" node can be used.
++
++Required Properties:
++ max-bitrate:	a positive non 0 value that determines the max
++		speed that CAN/CAN-FD can run. Any other value
++		will be ignored.
++
++Examples:
++
++Based on Texas Instrument's TCAN1042HGV CAN Transceiver
++
++m_can0 {
++	....
++	fixed-transceiver@0 {
++		max-bitrate = <5000000>;
++	};
++	...
++};
+-- 
+2.9.4.dirty
