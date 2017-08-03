@@ -1,42 +1,35 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [patch net-next 10/21] ipv6: fib: Add offload indication to
- routes
-Date: Thu, 3 Aug 2017 10:39:47 -0600
-Message-ID: <4092e040-4fcb-b13b-6de9-f77441c2bfb8@gmail.com>
-References: <20170803112831.1831-1-jiri@resnulli.us>
- <20170803112831.1831-11-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/14] sctp: remove typedefs from structures
+ part 4
+Date: Thu, 03 Aug 2017 09:46:05 -0700 (PDT)
+Message-ID: <20170803.094605.2134265917430921792.davem@davemloft.net>
+References: <cover.1501745729.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        kafai@fb.com, hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
-        edumazet@google.com, yanhaishuang@cmss.chinamobile.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:38277 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751791AbdHCQjv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 12:39:51 -0400
-Received: by mail-pg0-f68.google.com with SMTP id 123so1951495pga.5
-        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 09:39:51 -0700 (PDT)
-In-Reply-To: <20170803112831.1831-11-jiri@resnulli.us>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45494 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751010AbdHCQqH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 12:46:07 -0400
+In-Reply-To: <cover.1501745729.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/3/17 5:28 AM, Jiri Pirko wrote:
-> diff --git a/include/uapi/linux/ipv6_route.h b/include/uapi/linux/ipv6_route.h
-> index d496c02..33e2a57 100644
-> --- a/include/uapi/linux/ipv6_route.h
-> +++ b/include/uapi/linux/ipv6_route.h
-> @@ -35,6 +35,7 @@
->  #define RTF_PREF(pref)	((pref) << 27)
->  #define RTF_PREF_MASK	0x18000000
->  
-> +#define RTF_OFFLOAD	0x20000000	/* offloaded route		*/
->  #define RTF_PCPU	0x40000000	/* read-only: can not be set by user */
->  #define RTF_LOCAL	0x80000000
+From: Xin Long <lucien.xin@gmail.com>
+Date: Thu,  3 Aug 2017 15:42:08 +0800
 
-PCPU as a UAPI flag was a mistake; it is a flag internal to IPv6 stack
-and really makes no sense to the user. The OFFLOAD should not follow
-suit especially given the limited uapi bits left.
+> As we know, typedef is suggested not to use in kernel, even checkpatch.pl
+> also gives warnings about it. Now sctp is using it for many structures.
+> 
+> All this kind of typedef's using should be removed. This patchset is the
+> part 4 to remove it for another 14 basic structures from linux/sctp.h.
+> After this patchset, all typedefs are cleaned in linux/sctp.h.
+> 
+> Just as the part 1-3, No any code's logic would be changed in these patches,
+> only cleaning up.
+
+Series applied, thanks.
