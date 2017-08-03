@@ -1,7 +1,7 @@
 From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH v3 net-next 2/5] net: dsa: lan9303: define LAN9303_NUM_PORTS 3
-Date: Thu,  3 Aug 2017 11:45:04 +0200
-Message-ID: <20170803094507.3439-3-privat@egil-hjelmeland.no>
+Subject: [PATCH v3 net-next 3/5] net: dsa: lan9303: Simplify lan9303_xxx_packet_processing() usage
+Date: Thu,  3 Aug 2017 11:45:05 +0200
+Message-ID: <20170803094507.3439-4-privat@egil-hjelmeland.no>
 References: <20170803094507.3439-1-privat@egil-hjelmeland.no>
 Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
 To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
@@ -12,25 +12,65 @@ In-Reply-To: <20170803094507.3439-1-privat@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Will be used instead of '3' in upcomming patches.
+Simplify usage of lan9303_enable_packet_processing,
+lan9303_disable_packet_processing()
 
 Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
 ---
- drivers/net/dsa/lan9303-core.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/dsa/lan9303-core.c | 24 ++++++++++--------------
+ 1 file changed, 10 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index fa19e320c5a8..126e8b84bdf0 100644
+index 126e8b84bdf0..31fe66fbe39a 100644
 --- a/drivers/net/dsa/lan9303-core.c
 +++ b/drivers/net/dsa/lan9303-core.c
-@@ -20,6 +20,8 @@
+@@ -564,15 +564,16 @@ static int lan9303_handle_reset(struct lan9303 *chip)
+ /* stop processing packets for all ports */
+ static int lan9303_disable_processing(struct lan9303 *chip)
+ {
+-	int ret;
++	int p;
  
- #include "lan9303.h"
- 
-+#define LAN9303_NUM_PORTS 3
+-	ret = lan9303_disable_packet_processing(chip, 0);
+-	if (ret)
+-		return ret;
+-	ret = lan9303_disable_packet_processing(chip, 1);
+-	if (ret)
+-		return ret;
+-	return lan9303_disable_packet_processing(chip, 2);
++	for (p = 0; p < LAN9303_NUM_PORTS; p++) {
++		int ret = lan9303_disable_packet_processing(chip, p);
 +
- /* 13.2 System Control and Status Registers
-  * Multiply register number by 4 to get address offset.
-  */
++		if (ret)
++			return ret;
++	}
++
++	return 0;
+ }
+ 
+ static int lan9303_check_device(struct lan9303 *chip)
+@@ -765,7 +766,6 @@ static int lan9303_port_enable(struct dsa_switch *ds, int port,
+ 	/* enable internal packet processing */
+ 	switch (port) {
+ 	case 1:
+-		return lan9303_enable_packet_processing(chip, port);
+ 	case 2:
+ 		return lan9303_enable_packet_processing(chip, port);
+ 	default:
+@@ -784,13 +784,9 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
+ 	/* disable internal packet processing */
+ 	switch (port) {
+ 	case 1:
+-		lan9303_disable_packet_processing(chip, port);
+-		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 1,
+-				  MII_BMCR, BMCR_PDOWN);
+-		break;
+ 	case 2:
+ 		lan9303_disable_packet_processing(chip, port);
+-		lan9303_phy_write(ds, chip->phy_addr_sel_strap + 2,
++		lan9303_phy_write(ds, chip->phy_addr_sel_strap + port,
+ 				  MII_BMCR, BMCR_PDOWN);
+ 		break;
+ 	default:
 -- 
 2.11.0
