@@ -1,71 +1,36 @@
-From: "=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=" <jprvita@gmail.com>
-Subject: [PATCH v2] iwlwifi: Demote messages about fw flags size to info
-Date: Thu,  3 Aug 2017 07:30:05 -0700
-Message-ID: <20170803143005.31379-1-jprvita@endlessm.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2] iwlwifi: Demote messages about fw flags size to info
+Date: Thu, 3 Aug 2017 14:36:48 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD004A3CC@AcuExch.aculab.com>
 References: <1501649208.2588.55.camel@coelho.fi>
+ <20170803143005.31379-1-jprvita@endlessm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux@endlessm.com, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        =?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?= <jprvita@endlessm.com>
-To: Johannes Berg <johannes.berg@intel.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux@endlessm.com" <linux@endlessm.com>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        =?utf-8?B?Sm/Do28gUGF1bG8gUmVjaGkgVml0YQ==?= <jprvita@endlessm.com>
+To: =?utf-8?B?J0pvw6NvIFBhdWxvIFJlY2hpIFZpdGEn?= <jprvita@gmail.com>,
+        "Johannes Berg" <johannes.berg@intel.com>,
         Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
         Luca Coelho <luciano.coelho@intel.com>,
-        Intel Linux Wireless <linuxwifi@intel.com>,
+        "Intel Linux Wireless" <linuxwifi@intel.com>,
         Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501649208.2588.55.camel@coelho.fi>
+In-Reply-To: <20170803143005.31379-1-jprvita@endlessm.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These messages are not reporting a real error, just the fact that the
-firmware knows about more flags then the driver.
-
-Currently these messages are presented to the user during boot if there
-is no bootsplash covering the console, even when booting the kernel with
-"quiet".
-
-Demoting it to the warn level helps having a clean boot process.
-
-Signed-off-by: João Paulo Rechi Vita <jprvita@endlessm.com>
----
-
-v2 changes:
- - Set to warn level instead of info
-
- drivers/net/wireless/intel/iwlwifi/iwl-drv.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-drv.c b/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
-index be466a074c1d..c98a254bbd4d 100644
---- a/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
-+++ b/drivers/net/wireless/intel/iwlwifi/iwl-drv.c
-@@ -461,9 +461,9 @@ static int iwl_set_ucode_api_flags(struct iwl_drv *drv, const u8 *data,
- 	int i;
- 
- 	if (api_index >= DIV_ROUND_UP(NUM_IWL_UCODE_TLV_API, 32)) {
--		IWL_ERR(drv,
--			"api flags index %d larger than supported by driver\n",
--			api_index);
-+		IWL_WARN(drv,
-+			 "api flags index %d larger than supported by driver\n",
-+			 api_index);
- 		/* don't return an error so we can load FW that has more bits */
- 		return 0;
- 	}
-@@ -485,9 +485,9 @@ static int iwl_set_ucode_capabilities(struct iwl_drv *drv, const u8 *data,
- 	int i;
- 
- 	if (api_index >= DIV_ROUND_UP(NUM_IWL_UCODE_TLV_CAPA, 32)) {
--		IWL_ERR(drv,
--			"capa flags index %d larger than supported by driver\n",
--			api_index);
-+		IWL_WARN(drv,
-+			 "capa flags index %d larger than supported by driver\n",
-+			 api_index);
- 		/* don't return an error so we can load FW that has more bits */
- 		return 0;
- 	}
--- 
-2.13.2
+RnJvbTogSm/Do28gUGF1bG8gUmVjaGkgVml0YQ0KPiBTZW50OiAwMyBBdWd1c3QgMjAxNyAxNToz
+MA0KPiBUaGVzZSBtZXNzYWdlcyBhcmUgbm90IHJlcG9ydGluZyBhIHJlYWwgZXJyb3IsIGp1c3Qg
+dGhlIGZhY3QgdGhhdCB0aGUNCj4gZmlybXdhcmUga25vd3MgYWJvdXQgbW9yZSBmbGFncyB0aGVu
+IHRoZSBkcml2ZXIuDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdGhhbg0KPiAN
+Cj4gQ3VycmVudGx5IHRoZXNlIG1lc3NhZ2VzIGFyZSBwcmVzZW50ZWQgdG8gdGhlIHVzZXIgZHVy
+aW5nIGJvb3QgaWYgdGhlcmUNCj4gaXMgbm8gYm9vdHNwbGFzaCBjb3ZlcmluZyB0aGUgY29uc29s
+ZSwgZXZlbiB3aGVuIGJvb3RpbmcgdGhlIGtlcm5lbCB3aXRoDQo+ICJxdWlldCIuDQo+IA0KPiBE
+ZW1vdGluZyBpdCB0byB0aGUgd2FybiBsZXZlbCBoZWxwcyBoYXZpbmcgYSBjbGVhbiBib290IHBy
+b2Nlc3MuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBKb28gUGF1bG8gUmVjaGkgVml0YSA8anBydml0
+YUBlbmRsZXNzbS5jb20+DQoNCglEYXZpZA0KDQo=
