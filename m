@@ -1,73 +1,48 @@
-From: Mat Martineau <mathew.j.martineau@linux.intel.com>
-Subject: Re: [PATCH v3 net-next 4/4] ulp: Documention for ULP
- infrastructure
-Date: Thu, 3 Aug 2017 16:45:07 -0700 (PDT)
-Message-ID: <alpine.OSX.2.21.1708031635290.29414@herbergs-mobl.ger.corp.intel.com>
-References: <20170803193144.24108-1-tom@quantonium.net> <20170803193144.24108-5-tom@quantonium.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v7 net-next] net: systemport: Support 64bit statistics
+Date: Thu, 03 Aug 2017 16:45:54 -0700 (PDT)
+Message-ID: <20170803.164554.1116282475558581464.davem@davemloft.net>
+References: <1501801665-6686-1-git-send-email-jqiaoulk@gmail.com>
+        <20170803161604.4d3d5ea1@xeon-e3>
+        <86aaa85f-ddf3-0904-4d9a-c4edb82e3922@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=US-ASCII
-Cc: netdev@vger.kernel.org, rohit@quantonium.net, davejwatson@fb.com
-To: Tom Herbert <tom@quantonium.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, jqiaoulk@gmail.com,
+        eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:20592 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751897AbdHCXpI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Aug 2017 19:45:08 -0400
-In-Reply-To: <20170803193144.24108-5-tom@quantonium.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51372 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751845AbdHCXp5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 19:45:57 -0400
+In-Reply-To: <86aaa85f-ddf3-0904-4d9a-c4edb82e3922@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 3 Aug 2017, Tom Herbert wrote:
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 3 Aug 2017 16:20:04 -0700
 
-> Add a doc in Documentation/networking
->
-> Signed-off-by: Tom Herbert <tom@quantonium.net>
-> ---
-> Documentation/networking/ulp.txt | 82 ++++++++++++++++++++++++++++++++++++++++
-> 1 file changed, 82 insertions(+)
-> create mode 100644 Documentation/networking/ulp.txt
->
-> diff --git a/Documentation/networking/ulp.txt b/Documentation/networking/ulp.txt
-> new file mode 100644
-> index 000000000000..4d830314b0ff
-> --- /dev/null
-> +++ b/Documentation/networking/ulp.txt
-> @@ -0,0 +1,82 @@
-> +Upper Layer Protocol (ULP) Infrastructure
-> +=========================================
-> +
-> +The ULP kernel infrastructure provides a means to hook upper layer
-> +protocol support on a socket. A module may register a ULP hook
-> +in the kernel. ULP processing is enabled by a setsockopt on a socket
-> +that specifies the name of the registered ULP to invoked. An
-> +initialization function is defined for each ULP that can change the
-> +function entry points of the socket (sendmsg, rcvmsg, etc.) or change
-> +the socket in other fundamental ways.
-> +
-> +Note, no synchronization is enforced between the setsockopt to enable
-> +a ULP and ongoing asynchronous operations on the socket (such as a
-> +blocked read). If synchronization is required this must be handled by
-> +the ULP and caller.
-> +
-> +User interface
-> +==============
-> +
-> +The structure for the socket SOL_ULP options is defined in socket.h.
-> +
-> +Example to enable "my_ulp" ULP on a socket:
-> +
-> +struct ulp_config ulpc = {
-> +    .ulp_name = "my_ulp",
-> +};
-> +
-> +setsockopt(sock, SOL_SOCKET, SO_ULP, &ulpc, sizeof(ulpc))
-> +
-> +The ulp_config includes a "__u8 ulp_params[0]" filled that may be used
-                                                   ^^^^^^
-Did you mean "field"? Might also phrase it "The ulp_config structure 
-includes..."
+> On 08/03/2017 04:16 PM, Stephen Hemminger wrote:
+>> On Fri,  4 Aug 2017 00:07:45 +0100
+>> "Jianming.qiao" <jqiaoulk@gmail.com> wrote:
+>> 
+>>>  static const struct bcm_sysport_stats bcm_sysport_gstrings_stats[] = {
+>>>  	/* general stats */
+>>> -	STAT_NETDEV(rx_packets),
+>>> -	STAT_NETDEV(tx_packets),
+>>> -	STAT_NETDEV(rx_bytes),
+>>> -	STAT_NETDEV(tx_bytes),
+>>> +	STAT_NETDEV64(rx_packets),
+>>> +	STAT_NETDEV64(tx_packets),
+>>> +	STAT_NETDEV64(rx_bytes),
+>>> +	STAT_NETDEV64(tx_bytes),
+>>>  	STAT_NETDEV(rx_errors),
+>> 
+>> Please don't duplicate regular statistics (ie netdev) into ethtool.
+>> It is a needless duplication.
+> 
+> Agreed, but these are there already and this driver's ethtool::get_stats
+> is an user ABI of some sort, is not it?
 
-> +to refer ULP specific parameters being set.
-
-
-Thanks,
+Agreed, they have to stay at this point.
