@@ -1,36 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: remove extra POLL_OUT added for finished
- active connect()
-Date: Thu, 03 Aug 2017 09:31:05 -0700 (PDT)
-Message-ID: <20170803.093105.1654064524790607267.davem@davemloft.net>
-References: <20170802195958.21383-1-ncardwell@google.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Subject: Re: [PATCH V5 1/2] firmware: add more flexible
+ request_firmware_async function
+Date: Thu, 3 Aug 2017 18:31:02 +0200
+Message-ID: <20170803163102.GA27873@wotan.suse.de>
+References: <20170731150945.8925-1-zajec5@gmail.com>
+ <20170802213010.GM18884@wotan.suse.de>
+ <878tj1ql6z.fsf@kamboji.qca.qualcomm.com>
+ <1501739717.15969.26.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, edumazet@google.com,
-        ycheng@google.com
-To: ncardwell@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45220 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751154AbdHCQbG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 12:31:06 -0400
-In-Reply-To: <20170802195958.21383-1-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+        "mcgrof@kernel.org" <mcgrof@kernel.org>,
+        "pieter-paul.giesberts@broadcom.com"
+        <pieter-paul.giesberts@broadcom.com>,
+        "bjorn.andersson@linaro.org" <bjorn.andersson@linaro.org>,
+        "arend.vanspriel@broadcom.com" <arend.vanspriel@broadcom.com>,
+        "hante.meuleman@broadcom.com" <hante.meuleman@broadcom.com>,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+        "keescook@chromium.org" <keescook@chromium.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "alan@linux.intel.com" <alan@linux.intel.com>,
+        "moritz.fischer@ettus.com" <moritz.fischer@ettus.com>,
+        "pjones@redhat.com" <pjones@redhat.com>,
+        "wagi@monom.org" <wagi@monom.org>,
+        "pmladek@suse.com" <pmladek@suse.com>,
+        "atull@kernel.org" <atull@kernel.org>
+To: "Coelho, Luciano" <luciano.coelho@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1501739717.15969.26.camel@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Wed,  2 Aug 2017 15:59:58 -0400
-
-> Commit 45f119bf936b ("tcp: remove header prediction") introduced a
-> minor bug: the sk_state_change() and sk_wake_async() notifications for
-> a completed active connection happen twice: once in this new spot
-> inside tcp_finish_connect() and once in the existing code in
-> tcp_rcv_synsent_state_process() immediately after it calls
-> tcp_finish_connect(). This commit remoes the duplicate POLL_OUT
-> notifications.
+On Thu, Aug 03, 2017 at 05:55:18AM +0000, Coelho, Luciano wrote:
+> On Thu, 2017-08-03 at 08:23 +0300, Kalle Valo wrote:
+> > "Luis R. Rodriguez" <mcgrof@kernel.org> writes:
+> > 
+> > > > +int request_firmware_nowait(struct module *module, bool uevent,
+> > > > +			    const char *name, struct device *device, gfp_t gfp,
+> > > > +			    void *context,
+> > > > +			    void (*cont)(const struct firmware *fw, void *context))
+> > > > +{
+> > > > +	unsigned int opt_flags = FW_OPT_FALLBACK |
+> > > > +		(uevent ? FW_OPT_UEVENT : FW_OPT_USERHELPER);
+> > > > +
+> > > > +	return __request_firmware_nowait(module, opt_flags, name, device, gfp,
+> > > > +					 context, cont);
+> > > > +}
+> > > >  EXPORT_SYMBOL(request_firmware_nowait);
+> > > >  
+> > > > +int __request_firmware_async(struct module *module, const char *name,
+> > > > +			     struct firmware_opts *fw_opts, struct device *dev,
+> > > > +			     void *context,
+> > > > +			     void (*cont)(const struct firmware *fw, void *context))
+> > > > +{
+> > > > +	unsigned int opt_flags = FW_OPT_UEVENT;
+> > > 
+> > > This exposes a long issue. Think -- why do we want this enabled by default? Its
+> > > actually because even though the fallback stuff is optional and can be, the uevent
+> > > internal flag *also* provides caching support as a side consequence only. We
+> > > don't want to add a new API without first cleaning up that mess.
+> > > 
+> > > This is a slipery slope and best to clean that up before adding any new API.
+> > > 
+> > > That and also Greg recently stated he would like to see at least 3 users of
+> > > a feature before adding it. Although I think that's pretty arbitrary, and
+> > > considering that request_firmware_into_buf() only has *one* user -- its what
+> > > he wishes.
+> > 
+> > ath10k at least needs a way to silence the warning for missing firmware
+> > and I think iwlwifi also.
 > 
-> Fixes: 45f119bf936b ("tcp: remove header prediction")
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Yes, iwlwifi needs to silence the warning.  It the feature (only one,
+> really) that I've been waiting for.
 
-Applied, thanks.
+Perfect, can you guys send patches on top of these changes? Even though I still
+think the flag stuff needs to be worked out I can try to iron that out myself
+and fold the rest of the delta, and then I can set a new set out which is much
+more suitable.
+
+  Luis
