@@ -1,98 +1,132 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH net-next v2 7/7] dt-bindings: net: marvell-pp2: update interrupt-names with TX interrupts
-Date: Thu,  3 Aug 2017 10:42:01 +0200
-Message-ID: <20170803084201.30305-8-thomas.petazzoni@free-electrons.com>
-References: <20170803084201.30305-1-thomas.petazzoni@free-electrons.com>
-Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Antoine Tenart <antoine.tenart@free-electrons.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        =?UTF-8?q?Miqu=C3=A8l=20Raynal?= <miquel.raynal@free-electrons.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:46676 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751799AbdHCImi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 04:42:38 -0400
-In-Reply-To: <20170803084201.30305-1-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Raj, Ashok" <ashok.raj@intel.com>
+Subject: Re: [PATCH v7 1/3] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Thu, 3 Aug 2017 01:55:04 -0700
+Message-ID: <20170803085504.GC4883@otc-nc-03>
+References: <1499955692-26556-1-git-send-email-dingtianhong@huawei.com>
+ <1499955692-26556-2-git-send-email-dingtianhong@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: leedom@chelsio.com, bhelgaas@google.com, helgaas@kernel.org,
+        werner@chelsio.com, ganeshgr@chelsio.com, asit.k.mallick@intel.com,
+        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
+        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
+        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
+        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
+        davem@davemloft.net, alexander.duyck@gmail.com,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com, ashok.raj@intel.com
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1499955692-26556-2-git-send-email-dingtianhong@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The PPv2.2 unit has several interrupts used for TX completion
-notification. This commit updates the Device Tree binding describing
-this HW block to mention such interrupts.
+Hi Ding
 
-While at it, we update the example to use a recent Device Tree
-example, that uses interrupts going through the ICU, and not to the
-GIC directly.
+Not sure if V7 is the last version.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- .../devicetree/bindings/net/marvell-pp2.txt        | 28 +++++++++++++++++++---
- 1 file changed, 25 insertions(+), 3 deletions(-)
+can you consider rewording this just to make it a little bit more
+readable? My suggestion below, feel free to use/modify
 
-diff --git a/Documentation/devicetree/bindings/net/marvell-pp2.txt b/Documentation/devicetree/bindings/net/marvell-pp2.txt
-index 6b4956b..8918ad3 100644
---- a/Documentation/devicetree/bindings/net/marvell-pp2.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-pp2.txt
-@@ -41,6 +41,10 @@ Optional properties (port):
- - marvell,loopback: port is loopback mode
- - phy: a phandle to a phy node defining the PHY address (as the reg
-   property, a single integer).
-+- interrupt-names: if more than a single interrupt for rx is given, must
-+                   be the name associated to the interrupts listed. Valid
-+                   names are: "tx-cpu0", "tx-cpu1", "tx-cpu2", "tx-cpu3",
-+		   "rx-shared".
- 
- Example for marvell,armada-375-pp2:
- 
-@@ -80,19 +84,37 @@ cpm_ethernet: ethernet@0 {
- 	clock-names = "pp_clk", "gop_clk", "gp_clk";
- 
- 	eth0: eth0 {
--		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupts = <ICU_GRP_NSR 39 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 43 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 47 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 51 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 55 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "tx-cpu0", "tx-cpu1", "tx-cpu2",
-+				  "tx-cpu3", "rx-shared";
- 		port-id = <0>;
- 		gop-port-id = <0>;
- 	};
- 
- 	eth1: eth1 {
--		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupts = <ICU_GRP_NSR 40 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 44 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 48 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 52 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 56 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "tx-cpu0", "tx-cpu1", "tx-cpu2",
-+				  "tx-cpu3", "rx-shared";
- 		port-id = <1>;
- 		gop-port-id = <2>;
- 	};
- 
- 	eth2: eth2 {
--		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupts = <ICU_GRP_NSR 41 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 45 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 49 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 53 IRQ_TYPE_LEVEL_HIGH>,
-+			     <ICU_GRP_NSR 57 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "tx-cpu0", "tx-cpu1", "tx-cpu2",
-+				  "tx-cpu3", "rx-shared";
- 		port-id = <2>;
- 		gop-port-id = <3>;
- 	};
--- 
-2.9.4
+Otherwise its all good and you can add my Ack.
+
+Acked-by: Ashok Raj <ashok.raj@intel.com>
+
+On Thu, Jul 13, 2017 at 10:21:30PM +0800, Ding Tianhong wrote:
+> From: Casey Leedom <leedom@chelsio.com>
+
+
+> 
+> The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING indicates that the Relaxed
+> Ordering Attribute should not be used on Transaction Layer Packets destined
+> for the PCIe End Node so flagged.  Initially flagged this way are Intel
+> E5-26xx Root Complex Ports which suffer from a Flow Control Credit
+> Performance Problem and AMD A1100 ARM ("SEATTLE") Root Complex Ports which
+> don't obey PCIe 3.0 ordering rules which can lead to Data Corruption.
+
+The patch adds a new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING to indicate that
+Relaxed Ordering (RO) attribute should not be used for Transaction Layer
+Packets (TLP) targetted towards these affected root complexes. Current list
+of affected parts include Intel E5-26xx root complex which suffers from 
+flow control credits that result in performance issues. On these affected
+parts RO can still be used for peer-2-peer traffic. AMD A1100 ARM ("SEATTLE")
+Root complexes don't obey PCIe 3.0 ordering rules, hence could lead to
+data-corruption.
+> 
+> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
+>  drivers/pci/quirks.c | 38 ++++++++++++++++++++++++++++++++++++++
+>  include/linux/pci.h  |  2 ++
+>  2 files changed, 40 insertions(+)
+> 
+> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> index 6967c6b..1e1cdbe 100644
+> --- a/drivers/pci/quirks.c
+> +++ b/drivers/pci/quirks.c
+> @@ -4016,6 +4016,44 @@ static void quirk_tw686x_class(struct pci_dev *pdev)
+>  			      quirk_tw686x_class);
+>  
+>  /*
+> + * Some devices have problems with Transaction Layer Packets with the Relaxed
+> + * Ordering Attribute set.  Such devices should mark themselves and other
+> + * Device Drivers should check before sending TLPs with RO set.
+> + */
+> +static void quirk_relaxedordering_disable(struct pci_dev *dev)
+> +{
+> +	dev->dev_flags |= PCI_DEV_FLAGS_NO_RELAXED_ORDERING;
+> +}
+> +
+> +/*
+> + * Intel E5-26xx Root Complex has a Flow Control Credit issue which can
+> + * cause performance problems with Upstream Transaction Layer Packets with
+> + * Relaxed Ordering set.
+> + */
+> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f02, PCI_CLASS_NOT_DEFINED, 8,
+> +			      quirk_relaxedordering_disable);
+> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f04, PCI_CLASS_NOT_DEFINED, 8,
+> +			      quirk_relaxedordering_disable);
+> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f08, PCI_CLASS_NOT_DEFINED, 8,
+> +			      quirk_relaxedordering_disable);
+> +
+> +/*
+> + * The AMD ARM A1100 (AKA "SEATTLE") SoC has a bug in its PCIe Root Complex
+> + * where Upstream Transaction Layer Packets with the Relaxed Ordering
+> + * Attribute clear are allowed to bypass earlier TLPs with Relaxed Ordering
+> + * set.  This is a violation of the PCIe 3.0 Transaction Ordering Rules
+> + * outlined in Section 2.4.1 (PCI Express(r) Base Specification Revision 3.0
+> + * November 10, 2010).  As a result, on this platform we can't use Relaxed
+> + * Ordering for Upstream TLPs.
+> + */
+> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a00, PCI_CLASS_NOT_DEFINED, 8,
+> +			      quirk_relaxedordering_disable);
+> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a01, PCI_CLASS_NOT_DEFINED, 8,
+> +			      quirk_relaxedordering_disable);
+> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a02, PCI_CLASS_NOT_DEFINED, 8,
+> +			      quirk_relaxedordering_disable);
+> +
+> +/*
+>   * Per PCIe r3.0, sec 2.2.9, "Completion headers must supply the same
+>   * values for the Attribute as were supplied in the header of the
+>   * corresponding Request, except as explicitly allowed when IDO is used."
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index 4869e66..412ec1c 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -188,6 +188,8 @@ enum pci_dev_flags {
+>  	 * the direct_complete optimization.
+>  	 */
+>  	PCI_DEV_FLAGS_NEEDS_RESUME = (__force pci_dev_flags_t) (1 << 11),
+> +	/* Don't use Relaxed Ordering for TLPs directed at this device */
+> +	PCI_DEV_FLAGS_NO_RELAXED_ORDERING = (__force pci_dev_flags_t) (1 << 12),
+>  };
+>  
+>  enum pci_irq_reroute_variant {
+> -- 
+> 1.8.3.1
+> 
+> 
