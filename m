@@ -1,49 +1,87 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next 3/4] Revert "ipv4: keep skb->dst around in presence of IP options"
-Date: Thu,  3 Aug 2017 18:07:07 +0200
-Message-ID: <b00413bd89dcd925d22a7c245c2fe94edc9a2bd6.1501775813.git.pabeni@redhat.com>
-References: <cover.1501775813.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58285 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751704AbdHCQHj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 3 Aug 2017 12:07:39 -0400
-In-Reply-To: <cover.1501775813.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: [PATCH v4 net-next 00/13] bpf: rewrite value tracking
+	in verifier
+Date: Thu, 3 Aug 2017 17:07:35 +0100
+Message-ID: <22441d84-0a11-5c00-2d2a-25e7dbafa6c2@solarflare.com>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-ip_options_echo() does not use anymore the skb->dst and don't
-need to keep the dst around for options's sake only.
-This reverts commit 34b2cef20f19c87999fff3da4071e66937db9644.
+This series simplifies alignment tracking, generalises bounds tracking and
+ fixes some bounds-tracking bugs in the BPF verifier.  Pointer arithmetic on
+ packet pointers, stack pointers, map value pointers and context pointers has
+ been unified, and bounds on these pointers are only checked when the pointer
+ is dereferenced.
+Operations on pointers which destroy all relation to the original pointer
+ (such as multiplies and shifts) are disallowed if !env->allow_ptr_leaks,
+ otherwise they convert the pointer to an unknown scalar and feed it to the
+ normal scalar arithmetic handling.
+Pointer types have been unified with the corresponding adjusted-pointer types
+ where those existed (e.g. PTR_TO_MAP_VALUE[_ADJ] or FRAME_PTR vs
+ PTR_TO_STACK); similarly, CONST_IMM and UNKNOWN_VALUE have been unified into
+ SCALAR_VALUE.
+Pointer types (except CONST_PTR_TO_MAP, PTR_TO_MAP_VALUE_OR_NULL and
+ PTR_TO_PACKET_END, which do not allow arithmetic) have a 'fixed offset' and
+ a 'variable offset'; the former is used when e.g. adding an immediate or a
+ known-constant register, as long as it does not overflow.  Otherwise the
+ latter is used, and any operation creating a new variable offset creates a
+ new 'id' (and, for PTR_TO_PACKET, clears the 'range').
+SCALAR_VALUEs use the 'variable offset' fields to track the range of possible
+ values; the 'fixed offset' should never be set on a scalar.
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/ip_sockglue.c | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
+All tests of tools/testing/selftests/bpf/test_{verifier,align,progs} pass.
 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 1c3354d028a4..dd68a9ed5e40 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -1228,14 +1228,7 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
- 		pktinfo->ipi_ifindex = 0;
- 		pktinfo->ipi_spec_dst.s_addr = 0;
- 	}
--	/* We need to keep the dst for __ip_options_echo()
--	 * We could restrict the test to opt.ts_needtime || opt.srr,
--	 * but the following is good enough as IP options are not often used.
--	 */
--	if (unlikely(IPCB(skb)->opt.optlen))
--		skb_dst_force(skb);
--	else
--		skb_dst_drop(skb);
-+	skb_dst_drop(skb);
- }
- 
- int ip_setsockopt(struct sock *sk, int level,
--- 
-2.13.3
+v4: removed some changes which were submitted separately to 'net'; altered
+ some of the conditional-jump bounds handling in rebasing it on Daniel's
+ changes.  Upped the complexity limit to 128k insns.
+
+v3: added a few more tests; removed RFC tags.
+
+v2: fixed nfp build, made test_align pass again and extended it with a few
+ new tests (though still need to add more).
+
+Edward Cree (13):
+  bpf/verifier: rework value tracking
+  nfp: change bpf verifier hooks to match new verifier data structures
+  bpf/verifier: track signed and unsigned min/max values
+  bpf/verifier: more concise register state logs for constant var_off
+  selftests/bpf: change test_verifier expectations
+  selftests/bpf: rewrite test_align
+  selftests/bpf: add a test to test_align
+  selftests/bpf: add test for bogus operations on pointers
+  selftests/bpf: don't try to access past MAX_PACKET_OFF in
+    test_verifier
+  selftests/bpf: add tests for subtraction & negative numbers
+  selftests/bpf: variable offset negative tests
+  Documentation: describe the new eBPF verifier value tracking behaviour
+  bpf/verifier: increase complexity limit to 128k
+
+ Documentation/networking/filter.txt               |  122 +-
+ drivers/net/ethernet/netronome/nfp/bpf/verifier.c |   24 +-
+ include/linux/bpf.h                               |   34 +-
+ include/linux/bpf_verifier.h                      |   55 +-
+ include/linux/tnum.h                              |   81 +
+ kernel/bpf/Makefile                               |    2 +-
+ kernel/bpf/tnum.c                                 |  180 ++
+ kernel/bpf/verifier.c                             | 2152 ++++++++++++---------
+ tools/testing/selftests/bpf/test_align.c          |  462 ++++-
+ tools/testing/selftests/bpf/test_verifier.c       |  389 ++--
+ 10 files changed, 2221 insertions(+), 1280 deletions(-)
+ create mode 100644 include/linux/tnum.h
+ create mode 100644 kernel/bpf/tnum.c
