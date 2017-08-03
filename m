@@ -1,67 +1,108 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v2 3/4] can: m_can: Update documentation to mention new
- fixed transceiver binding
-Date: Thu, 3 Aug 2017 12:07:35 -0500
-Message-ID: <20170803170735.qntnxpx5olghzmbu@rob-hp-laptop>
-References: <20170724230521.1436-1-fcooper@ti.com>
- <20170724230521.1436-4-fcooper@ti.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH 00/27] ip: add -json support to 'ip link show'
+Date: Thu, 3 Aug 2017 19:08:09 +0200
+Message-ID: <83479680-2b0a-a668-9c19-c7d9a10291fe@hartkopp.net>
+References: <20170803155515.99226-1-julien@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        wg@grandegger.com, mkl@pengutronix.de,
-        quentin.schulz@free-electrons.com, dev.kurt@vandijck-laurijssen.be,
-        andrew@lunn.ch, sergei.shtylyov@cogentembedded.com,
-        socketcan@hartkopp.net
-To: Franklin S Cooper Jr <fcooper@ti.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170724230521.1436-4-fcooper@ti.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        dsa@cumulusnetworks.com
+To: Julien Fortin <julien@cumulusnetworks.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.216]:15178 "EHLO
+        mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751887AbdHCRIR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2017 13:08:17 -0400
+In-Reply-To: <20170803155515.99226-1-julien@cumulusnetworks.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 24, 2017 at 06:05:20PM -0500, Franklin S Cooper Jr wrote:
-> Add information regarding fixed transceiver binding. This is especially
-> important for MCAN since the IP allows CAN FD mode to run significantly
-> faster than what most transceivers are capable of.
-> 
-> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
-> ---
-> Version 2 changes:
-> Drop unit address
-> 
->  Documentation/devicetree/bindings/net/can/m_can.txt | 10 ++++++++++
->  1 file changed, 10 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/can/m_can.txt b/Documentation/devicetree/bindings/net/can/m_can.txt
-> index 9e33177..e4abd2c 100644
-> --- a/Documentation/devicetree/bindings/net/can/m_can.txt
-> +++ b/Documentation/devicetree/bindings/net/can/m_can.txt
-> @@ -43,6 +43,11 @@ Required properties:
->  			  Please refer to 2.4.1 Message RAM Configuration in
->  			  Bosch M_CAN user manual for details.
->  
-> +Optional properties:
-> +- fixed-transceiver	: Fixed-transceiver subnode describing maximum speed
+Hi Julien,
 
-This is a node, not a property. Sub nodes should have their own section.
+On 08/03/2017 05:54 PM, Julien Fortin wrote:
+> From: Julien Fortin <julien@cumulusnetworks.com>
 
-> +			  that can be used for CAN and/or CAN-FD modes.  See
-> +			  Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
-> +			  for details.
->  Example:
->  SoC dtsi:
->  m_can1: can@020e8000 {
-> @@ -64,4 +69,9 @@ Board dts:
->  	pinctrl-names = "default";
->  	pinctrl-0 = <&pinctrl_m_can1>;
->  	status = "enabled";
-> +
-> +	fixed-transceiver {
-> +		max-arbitration-speed = <1000000>;
-> +		max-data-speed = <5000000>;
-> +	};
->  };
-> -- 
-> 2.10.0
+what about
+
+link_veth.c
+iplink_vcan.c
+iplink_vxcan.c
+
+??
+
+Regards,
+Oliver
+
+> 
+> This patch series adds json support to 'ip [-details] link show [dev DEV]'
+> Each patch describes the json schema it adds and provides some examples.
+> 
+> Julien Fortin (27):
+>    color: add new COLOR_NONE and disable_color function
+>    ip: add new command line argument -json (mutually exclusive with
+>      -color)
+>    json_writer: add new json handlers (null, float with format, lluint,
+>      hu)
+>    ip: ip_print: add new API to print JSON or regular format output
+>    ip: ipaddress.c: add support for json output
+>    ip: iplink.c: open/close json object for ip -brief -json link show dev
+>      DEV
+>    ip: iplink_bond.c: add json output support
+>    ip: iplink_bond_slave.c: add json output support (info_slave_data)
+>    ip: iplink_hsr.c: add json output support
+>    ip: iplink_bridge.c: add json output support
+>    ip: iplink_bridge_slave.c: add json output support
+>    ip: iplink_can.c: add json output support
+>    ip: iplink_geneve.c: add json output support
+>    ip: iplink_ipoib.c: add json output support
+>    ip: iplink_ipvlan.c: add json output support
+>    ip: iplink_vrf.c: add json output support
+>    ip: iplink_vxlan.c: add json output support
+>    ip: iplink_xdp.c: add json output support
+>    ip: ipmacsec.c: add json output support
+>    ip: link_gre.c: add json output support
+>    ip: link_gre6.c: add json output support
+>    ip: link_ip6tnl.c: add json output support
+>    ip: link_iptnl.c: add json output support
+>    ip: link_vti.c: add json output support
+>    ip: link_vti6.c: add json output support
+>    ip: link_macvlan.c: add json output support
+>    ip: iplink_vlan.c: add json output support
+> 
+>   include/color.h          |    2 +
+>   include/json_writer.h    |    9 +
+>   include/utils.h          |    1 +
+>   ip/Makefile              |    2 +-
+>   ip/ip.c                  |    6 +
+>   ip/ip_common.h           |   56 +++
+>   ip/ip_print.c            |  233 ++++++++++
+>   ip/ipaddress.c           | 1089 ++++++++++++++++++++++++++++++++--------------
+>   ip/iplink.c              |    2 +
+>   ip/iplink_bond.c         |  231 +++++++---
+>   ip/iplink_bond_slave.c   |   57 ++-
+>   ip/iplink_bridge.c       |  291 ++++++++-----
+>   ip/iplink_bridge_slave.c |  185 +++++---
+>   ip/iplink_can.c          |  276 +++++++++---
+>   ip/iplink_geneve.c       |   86 +++-
+>   ip/iplink_hsr.c          |   36 +-
+>   ip/iplink_ipoib.c        |   30 +-
+>   ip/iplink_ipvlan.c       |    8 +-
+>   ip/iplink_macvlan.c      |   37 +-
+>   ip/iplink_vlan.c         |   62 ++-
+>   ip/iplink_vrf.c          |   13 +-
+>   ip/iplink_vxlan.c        |  161 ++++---
+>   ip/iplink_xdp.c          |   31 +-
+>   ip/ipmacsec.c            |   84 +++-
+>   ip/link_gre.c            |  147 ++++---
+>   ip/link_gre6.c           |  142 ++++--
+>   ip/link_ip6tnl.c         |  172 +++++---
+>   ip/link_iptnl.c          |  155 ++++---
+>   ip/link_vti.c            |   23 +-
+>   ip/link_vti6.c           |   22 +-
+>   lib/color.c              |    9 +-
+>   lib/json_writer.c        |   44 +-
+>   32 files changed, 2668 insertions(+), 1034 deletions(-)
+>   create mode 100644 ip/ip_print.c
 > 
