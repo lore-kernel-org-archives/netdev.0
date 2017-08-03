@@ -1,282 +1,34 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH] wcn36xx: Introduce mutual exclusion of fw configuration
-Date: Wed,  2 Aug 2017 18:28:00 -0700
-Message-ID: <20170803012800.15974-1-bjorn.andersson@linaro.org>
-Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        stable@vger.kernel.org
-To: Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH V4 net 2/2] net: fix tcp reset packet flowlabel for ipv6
+Date: Wed, 2 Aug 2017 18:33:20 -0700
+Message-ID: <CAM_iQpWp+gffO_xPX9vtEm+Lv5N9i2L-zawQKCkB+9UNiksG2g@mail.gmail.com>
+References: <cover.1501539150.git.shli@fb.com> <373e23f5295ee4cb725109a9e58152451a9fb4cc.1501539150.git.shli@fb.com>
+ <CAM_iQpXOaP4JmGW4-AcL6JYbzKq_Co_Z4pWiSh1B1i=4MsakEQ@mail.gmail.com>
+ <20170731230002.ercfotm7qhfubbbv@kernel.org> <CAM_iQpWiw6CJOr2+zvxdoCht1DRERmZfZCCZiE36_6RiumEOVA@mail.gmail.com>
+ <20170801214226.gnuudx3j53s6kw25@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, Shaohua Li <shli@fb.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Florent Fourcot <flo@fourcot.fr>
+To: Shaohua Li <shli@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:35811 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751184AbdHCBdm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2017 21:33:42 -0400
+Received: by mail-wm0-f51.google.com with SMTP id m85so3159164wma.0
+        for <netdev@vger.kernel.org>; Wed, 02 Aug 2017 18:33:41 -0700 (PDT)
+In-Reply-To: <20170801214226.gnuudx3j53s6kw25@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As the association status changes the driver needs to configure the
-hardware. This is done based on information in the "sta" acquired by
-ieee80211_find_sta(), which requires the caller to ensure that the "sta"
-is valid while its being used; generally by entering an rcu read
-section.
+On Tue, Aug 1, 2017 at 2:42 PM, Shaohua Li <shli@kernel.org> wrote:
+> Is this really better? I don't see any point. I'd use my original patch other
+> than this one. that said, there are just several lines of code, brutally
+> 'abstract' them into a function doesn't make the code better.
 
-But the operations acting on the "sta" has to communicate with the
-firmware and may therefor sleep, resulting in the following report:
-
-[   31.418190] BUG: sleeping function called from invalid context at
-kernel/locking/mutex.c:238
-[   31.425919] in_atomic(): 0, irqs_disabled(): 0, pid: 34, name:
-kworker/u8:1
-[   31.434609] CPU: 0 PID: 34 Comm: kworker/u8:1 Tainted: G        W
-4.12.0-rc4-next-20170607+ #993
-[   31.441002] Hardware name: Qualcomm Technologies, Inc. APQ 8016 SBC
-(DT)
-[   31.450380] Workqueue: phy0 ieee80211_iface_work
-[   31.457226] Call trace:
-[   31.461830] [<ffffff8008088c58>] dump_backtrace+0x0/0x260
-[   31.464004] [<ffffff8008088f7c>] show_stack+0x14/0x20
-[   31.469557] [<ffffff8008392e70>] dump_stack+0x98/0xb8
-[   31.474592] [<ffffff80080e4330>] ___might_sleep+0xf0/0x118
-[   31.479626] [<ffffff80080e43a8>] __might_sleep+0x50/0x88
-[   31.485010] [<ffffff80088ff9a4>] mutex_lock+0x24/0x60
-[   31.490479] [<ffffff8008595c38>] wcn36xx_smd_set_link_st+0x30/0x130
-[   31.495428] [<ffffff8008591ed8>] wcn36xx_bss_info_changed+0x148/0x448
-[   31.501504] [<ffffff80088ab3c4>]
-ieee80211_bss_info_change_notify+0xbc/0x118
-[   31.508102] [<ffffff80088f841c>] ieee80211_assoc_success+0x664/0x7f8
-[   31.515220] [<ffffff80088e13d4>]
-ieee80211_rx_mgmt_assoc_resp+0x144/0x2d8
-[   31.521555] [<ffffff80088e1e20>]
-ieee80211_sta_rx_queued_mgmt+0x190/0x698
-[   31.528239] [<ffffff80088bc44c>] ieee80211_iface_work+0x234/0x368
-[   31.535011] [<ffffff80080d81ac>] process_one_work+0x1cc/0x340
-[   31.541086] [<ffffff80080d8368>] worker_thread+0x48/0x430
-[   31.546814] [<ffffff80080de448>] kthread+0x108/0x138
-[   31.552195] [<ffffff8008082ec0>] ret_from_fork+0x10/0x50
-
-In order to ensure that the "sta" remains alive (and consistent) for the
-duration of bss_info_changed() mutual exclusion has to be ensured with
-sta_remove().
-
-This is done by introducing a mutex to cover firmware configuration
-changes, which is made to also ensure mutual exclusion between other
-operations changing the state or configuration of the firmware. With
-this we can drop the rcu read lock.
-
-Cc: stable@vger.kernel.org
-Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
----
- drivers/net/wireless/ath/wcn36xx/main.c    | 52 ++++++++++++++++++++++++++++--
- drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  3 ++
- 2 files changed, 53 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-index d5e993dc9b23..6b6fa8e01f0e 100644
---- a/drivers/net/wireless/ath/wcn36xx/main.c
-+++ b/drivers/net/wireless/ath/wcn36xx/main.c
-@@ -372,6 +372,8 @@ static int wcn36xx_config(struct ieee80211_hw *hw, u32 changed)
- 
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac config changed 0x%08x\n", changed);
- 
-+	mutex_lock(&wcn->conf_mutex);
-+
- 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
- 		int ch = WCN36XX_HW_CHANNEL(wcn);
- 		wcn36xx_dbg(WCN36XX_DBG_MAC, "wcn36xx_config channel switch=%d\n",
-@@ -382,6 +384,8 @@ static int wcn36xx_config(struct ieee80211_hw *hw, u32 changed)
- 		}
- 	}
- 
-+	mutex_unlock(&wcn->conf_mutex);
-+
- 	return 0;
- }
- 
-@@ -396,6 +400,8 @@ static void wcn36xx_configure_filter(struct ieee80211_hw *hw,
- 
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac configure filter\n");
- 
-+	mutex_lock(&wcn->conf_mutex);
-+
- 	*total &= FIF_ALLMULTI;
- 
- 	fp = (void *)(unsigned long)multicast;
-@@ -408,6 +414,8 @@ static void wcn36xx_configure_filter(struct ieee80211_hw *hw,
- 		else if (NL80211_IFTYPE_STATION == vif->type && tmp->sta_assoc)
- 			wcn36xx_smd_set_mc_list(wcn, vif, fp);
- 	}
-+
-+	mutex_unlock(&wcn->conf_mutex);
- 	kfree(fp);
- }
- 
-@@ -471,6 +479,8 @@ static int wcn36xx_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
- 			 key_conf->key,
- 			 key_conf->keylen);
- 
-+	mutex_lock(&wcn->conf_mutex);
-+
- 	switch (key_conf->cipher) {
- 	case WLAN_CIPHER_SUITE_WEP40:
- 		vif_priv->encrypt_type = WCN36XX_HAL_ED_WEP40;
-@@ -565,6 +575,8 @@ static int wcn36xx_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
- 	}
- 
- out:
-+	mutex_unlock(&wcn->conf_mutex);
-+
- 	return ret;
- }
- 
-@@ -725,6 +737,8 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac bss info changed vif %p changed 0x%08x\n",
- 		    vif, changed);
- 
-+	mutex_lock(&wcn->conf_mutex);
-+
- 	if (changed & BSS_CHANGED_BEACON_INFO) {
- 		wcn36xx_dbg(WCN36XX_DBG_MAC,
- 			    "mac bss changed dtim period %d\n",
-@@ -787,7 +801,13 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
- 				     bss_conf->aid);
- 
- 			vif_priv->sta_assoc = true;
--			rcu_read_lock();
-+
-+			/*
-+			 * Holding conf_mutex ensures mutal exclusion with
-+			 * wcn36xx_sta_remove() and as such ensures that sta
-+			 * won't be freed while we're operating on it. As such
-+			 * we do not need to hold the rcu_read_lock().
-+			 */
- 			sta = ieee80211_find_sta(vif, bss_conf->bssid);
- 			if (!sta) {
- 				wcn36xx_err("sta %pM is not found\n",
-@@ -811,7 +831,6 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
- 			 * place where AID is available.
- 			 */
- 			wcn36xx_smd_config_sta(wcn, vif, sta);
--			rcu_read_unlock();
- 		} else {
- 			wcn36xx_dbg(WCN36XX_DBG_MAC,
- 				    "disassociated bss %pM vif %pM AID=%d\n",
-@@ -873,6 +892,9 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
- 		}
- 	}
- out:
-+
-+	mutex_unlock(&wcn->conf_mutex);
-+
- 	return;
- }
- 
-@@ -882,7 +904,10 @@ static int wcn36xx_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
- 	struct wcn36xx *wcn = hw->priv;
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac set RTS threshold %d\n", value);
- 
-+	mutex_lock(&wcn->conf_mutex);
- 	wcn36xx_smd_update_cfg(wcn, WCN36XX_HAL_CFG_RTS_THRESHOLD, value);
-+	mutex_unlock(&wcn->conf_mutex);
-+
- 	return 0;
- }
- 
-@@ -893,8 +918,12 @@ static void wcn36xx_remove_interface(struct ieee80211_hw *hw,
- 	struct wcn36xx_vif *vif_priv = wcn36xx_vif_to_priv(vif);
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac remove interface vif %p\n", vif);
- 
-+	mutex_lock(&wcn->conf_mutex);
-+
- 	list_del(&vif_priv->list);
- 	wcn36xx_smd_delete_sta_self(wcn, vif->addr);
-+
-+	mutex_unlock(&wcn->conf_mutex);
- }
- 
- static int wcn36xx_add_interface(struct ieee80211_hw *hw,
-@@ -915,9 +944,13 @@ static int wcn36xx_add_interface(struct ieee80211_hw *hw,
- 		return -EOPNOTSUPP;
- 	}
- 
-+	mutex_lock(&wcn->conf_mutex);
-+
- 	list_add(&vif_priv->list, &wcn->vif_list);
- 	wcn36xx_smd_add_sta_self(wcn, vif);
- 
-+	mutex_unlock(&wcn->conf_mutex);
-+
- 	return 0;
- }
- 
-@@ -930,6 +963,8 @@ static int wcn36xx_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac sta add vif %p sta %pM\n",
- 		    vif, sta->addr);
- 
-+	mutex_lock(&wcn->conf_mutex);
-+
- 	spin_lock_init(&sta_priv->ampdu_lock);
- 	sta_priv->vif = vif_priv;
- 	/*
-@@ -941,6 +976,9 @@ static int wcn36xx_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
- 		sta_priv->aid = sta->aid;
- 		wcn36xx_smd_config_sta(wcn, vif, sta);
- 	}
-+
-+	mutex_unlock(&wcn->conf_mutex);
-+
- 	return 0;
- }
- 
-@@ -954,8 +992,13 @@ static int wcn36xx_sta_remove(struct ieee80211_hw *hw,
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac sta remove vif %p sta %pM index %d\n",
- 		    vif, sta->addr, sta_priv->sta_index);
- 
-+	mutex_lock(&wcn->conf_mutex);
-+
- 	wcn36xx_smd_delete_sta(wcn, sta_priv->sta_index);
- 	sta_priv->vif = NULL;
-+
-+	mutex_unlock(&wcn->conf_mutex);
-+
- 	return 0;
- }
- 
-@@ -999,6 +1042,8 @@ static int wcn36xx_ampdu_action(struct ieee80211_hw *hw,
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac ampdu action action %d tid %d\n",
- 		    action, tid);
- 
-+	mutex_lock(&wcn->conf_mutex);
-+
- 	switch (action) {
- 	case IEEE80211_AMPDU_RX_START:
- 		sta_priv->tid = tid;
-@@ -1038,6 +1083,8 @@ static int wcn36xx_ampdu_action(struct ieee80211_hw *hw,
- 		wcn36xx_err("Unknown AMPDU action\n");
- 	}
- 
-+	mutex_unlock(&wcn->conf_mutex);
-+
- 	return 0;
- }
- 
-@@ -1216,6 +1263,7 @@ static int wcn36xx_probe(struct platform_device *pdev)
- 	wcn = hw->priv;
- 	wcn->hw = hw;
- 	wcn->dev = &pdev->dev;
-+	mutex_init(&wcn->conf_mutex);
- 	mutex_init(&wcn->hal_mutex);
- 	mutex_init(&wcn->scan_lock);
- 
-diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-index b52b4da9a967..6aefba4c0cda 100644
---- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-+++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-@@ -202,6 +202,9 @@ struct wcn36xx {
- 	struct qcom_smem_state	*tx_rings_empty_state;
- 	unsigned		tx_rings_empty_state_bit;
- 
-+	/* prevents concurrent FW reconfiguration */
-+	struct mutex		conf_mutex;
-+
- 	/*
- 	 * smd_buf must be protected with smd_mutex to garantee
- 	 * that all messages are sent one after another
--- 
-2.12.0
+The current ip6_make_flowlabel() is already a mess, with your
+change you just make it worse to read. I just want to make it suck
+less.
