@@ -1,161 +1,107 @@
-From: Benoit Panizzon <benoit.panizzon@imp.ch>
-Subject: Realtek r8169 driver VLAN TAG stripping / offloading
-Date: Fri, 4 Aug 2017 13:55:13 +0200
-Message-ID: <20170804135513.4606462f@go.imp.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 1/2] mlxsw: spectrum_switchdev: Don't warn about valid situations
+Date: Fri,  4 Aug 2017 14:12:29 +0200
+Message-ID: <20170804121230.2144-2-jiri@resnulli.us>
+References: <20170804121230.2144-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from thor.imp.ch ([157.161.4.18]:22531 "EHLO thor.imp.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752161AbdHDMFt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Aug 2017 08:05:49 -0400
-Received: from go.imp.ch (go.imp.ch [157.161.4.87])
-        by thor.imp.ch (8.15.2/8.13.3) with ESMTPS id v74BtDoa074915
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=NO)
-        for <netdev@vger.kernel.org>; Fri, 4 Aug 2017 13:55:13 +0200 (CEST)
-        (envelope-from benoit.panizzon@imp.ch)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34118 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752547AbdHDMMg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 08:12:36 -0400
+Received: by mail-wm0-f68.google.com with SMTP id x64so5503022wmg.1
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 05:12:35 -0700 (PDT)
+In-Reply-To: <20170804121230.2144-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+From: Ido Schimmel <idosch@mellanox.com>
 
-Yes, someone posted the same problem a couple of years ago:
-https://www.spinics.net/lists/netdev/msg152505.html
+Some operations in the bridge driver such as MDB deletion are preformed
+in an atomic context and thus deferred to a process context by the
+switchdev infrastructure.
 
-But as far as I have read the thread, nobody figured out the problem.
+Therefore, by the time the operation is performed by the underlying
+device driver it's possible the bridge port context is already gone.
+This is especially true for removal flows, but theoretically can also be
+invoked during addition.
 
-I have run in the same strange problem, where I suspect either a driver
-of firmware bug, after upgrading a system from kernel 3.16 (whatever
-subversion debian used) to the actual: 4.9.30-2+deb9u2
+Remove the warnings in such situations and return normally.
 
-I use native and untagged vlan.
+Fixes: c57529e1d5d8 ("mlxsw: spectrum: Replace vPorts with Port-VLAN")
+Fixes: 3922285d96e7 ("net: bridge: Add support for offloading port attributes")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 24 +++++++++++-----------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-The two ports on the Cisco Switch have this config:
-
- switchport trunk encapsulation dot1q
- switchport trunk native vlan 3
- switchport trunk allowed vlan 2,3
- switchport mode trunk
-
-So for outgoing packets (switch => Linux) with vlan id 3 that id is
-stripped and for ingress packets without tag, vlan id 3 is added.
-
-Packets with vlan id 2 are passed unaltered between switch and linux
-box.
-
-Now I have two machines with slightly different r8169 NIC:
-
-01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 02)
-
-=> This one works fine
-
-And
-
-03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 09)
-
-=> This one stripps all ingress vlan tags!
-
-Both use the exact same kernel version.
-
-On rev 02 I don't bother to load the firmware, it works fine without.
-On the rev 09 one I did try with and without firmware, no difference.
-
-Observation:
-
-Packets generated on linux on vlan id 2 are sent out to the switch
-containing the vlan tag.
-
-Packets which leave the switch with vlan id 2 loose this id after being
-processed by the r8169 driver and therefore do not make it out of the
-vlan interface on linux.
-
-As an example, the same ARP packet capture on the rev 02 and the rev 09
-NIC:
-
-13:51:05.955414 4c:5e:0c:41:0c:83 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q
-(0x8100), length 64: vlan 2, p 0, ethertype ARP, Request who-has
-157.161.6.10 tell 157.161.6.1, length 46
-
-=> This is fine, see vlan 2?
-
-13:51:05.957652 4c:5e:0c:41:0c:83 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q
-(0x8100), length 64: vlan 0, p 0, ethertype ARP, Request who-has
-157.161.6.10 tell 157.161.6.1, length 46
-
-=> Wrong vlan tag!
-
-# ethtool -k eth0
-Features for eth0:
-rx-checksumming: on
-tx-checksumming: off
-        tx-checksum-ipv4: off
-        tx-checksum-ip-generic: off [fixed]
-        tx-checksum-ipv6: off
-        tx-checksum-fcoe-crc: off [fixed]
-        tx-checksum-sctp: off [fixed]
-scatter-gather: off
-        tx-scatter-gather: off
-        tx-scatter-gather-fraglist: off [fixed]
-tcp-segmentation-offload: off
-        tx-tcp-segmentation: off
-        tx-tcp-ecn-segmentation: off [fixed]
-        tx-tcp-mangleid-segmentation: off
-        tx-tcp6-segmentation: off
-udp-fragmentation-offload: off [fixed]
-generic-segmentation-offload: off [requested on]
-generic-receive-offload: on
-large-receive-offload: off [fixed]
-rx-vlan-offload: on
-tx-vlan-offload: on
-ntuple-filters: off [fixed]
-receive-hashing: off [fixed]
-highdma: on [fixed]
-rx-vlan-filter: off [fixed]
-vlan-challenged: off [fixed]
-tx-lockless: off [fixed]
-netns-local: off [fixed]
-tx-gso-robust: off [fixed]
-tx-fcoe-segmentation: off [fixed]
-tx-gre-segmentation: off [fixed]
-tx-gre-csum-segmentation: off [fixed]
-tx-ipxip4-segmentation: off [fixed]
-tx-ipxip6-segmentation: off [fixed]
-tx-udp_tnl-segmentation: off [fixed]
-tx-udp_tnl-csum-segmentation: off [fixed]
-tx-gso-partial: off [fixed]
-tx-sctp-segmentation: off [fixed]
-fcoe-mtu: off [fixed]
-tx-nocache-copy: off
-loopback: off [fixed]
-rx-fcs: off
-rx-all: off
-tx-vlan-stag-hw-insert: off [fixed]
-rx-vlan-stag-hw-parse: off [fixed]
-rx-vlan-stag-filter: off [fixed]
-l2-fwd-offload: off [fixed]
-busy-poll: off [fixed]
-hw-tc-offload: off [fixed]
-
-I have been trying to turn 'off' rx-vlan-offload and tx-vlan-offload
-with ethtool, but I don't succeed.
-
-As I suppose the problem was introduced somewhen between kernel 3.16
-and 4.9 I will be trying to reboot with 3.16 tonight when I have
-physical access to the machine.
-
-Any hints on what could cause the problem or how I could further debug
-it, is highly welcome.
-
--Benoît Panizzon-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 656b2d3..73d54df 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -626,8 +626,8 @@ static int mlxsw_sp_port_attr_br_flags_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 
+ 	bridge_port = mlxsw_sp_bridge_port_find(mlxsw_sp_port->mlxsw_sp->bridge,
+ 						orig_dev);
+-	if (WARN_ON(!bridge_port))
+-		return -EINVAL;
++	if (!bridge_port)
++		return 0;
+ 
+ 	err = mlxsw_sp_bridge_port_flood_table_set(mlxsw_sp_port, bridge_port,
+ 						   MLXSW_SP_FLOOD_TYPE_UC,
+@@ -711,8 +711,8 @@ static int mlxsw_sp_port_attr_mc_router_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 
+ 	bridge_port = mlxsw_sp_bridge_port_find(mlxsw_sp_port->mlxsw_sp->bridge,
+ 						orig_dev);
+-	if (WARN_ON(!bridge_port))
+-		return -EINVAL;
++	if (!bridge_port)
++		return 0;
+ 
+ 	if (!bridge_port->bridge_device->multicast_enabled)
+ 		return 0;
+@@ -1283,15 +1283,15 @@ static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		return 0;
+ 
+ 	bridge_port = mlxsw_sp_bridge_port_find(mlxsw_sp->bridge, orig_dev);
+-	if (WARN_ON(!bridge_port))
+-		return -EINVAL;
++	if (!bridge_port)
++		return 0;
+ 
+ 	bridge_device = bridge_port->bridge_device;
+ 	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_bridge(mlxsw_sp_port,
+ 							       bridge_device,
+ 							       mdb->vid);
+-	if (WARN_ON(!mlxsw_sp_port_vlan))
+-		return -EINVAL;
++	if (!mlxsw_sp_port_vlan)
++		return 0;
+ 
+ 	fid_index = mlxsw_sp_fid_index(mlxsw_sp_port_vlan->fid);
+ 
+@@ -1407,15 +1407,15 @@ static int mlxsw_sp_port_mdb_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	int err = 0;
+ 
+ 	bridge_port = mlxsw_sp_bridge_port_find(mlxsw_sp->bridge, orig_dev);
+-	if (WARN_ON(!bridge_port))
+-		return -EINVAL;
++	if (!bridge_port)
++		return 0;
+ 
+ 	bridge_device = bridge_port->bridge_device;
+ 	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_bridge(mlxsw_sp_port,
+ 							       bridge_device,
+ 							       mdb->vid);
+-	if (WARN_ON(!mlxsw_sp_port_vlan))
+-		return -EINVAL;
++	if (!mlxsw_sp_port_vlan)
++		return 0;
+ 
+ 	fid_index = mlxsw_sp_fid_index(mlxsw_sp_port_vlan->fid);
+ 
 -- 
-I m p r o W a r e   A G    -    Leiter Commerce Kunden
-______________________________________________________
-
-Zurlindenstrasse 29             Tel  +41 61 826 93 00
-CH-4133 Pratteln                Fax  +41 61 826 93 01
-Schweiz                         Web  http://www.imp.ch
-______________________________________________________
+2.9.3
