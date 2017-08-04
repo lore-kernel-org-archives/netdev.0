@@ -1,334 +1,54 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH net-next 5/5] ipv6: sr: implement several seg6local actions
-Date: Fri, 4 Aug 2017 15:25:32 +0200
-Message-ID: <20170804132532.9844-1-david.lebrun@uclouvain.be>
-References: <20170804132415.9701-1-david.lebrun@uclouvain.be>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] PCI: Update ACS quirk for more Intel 10G NICs
+Date: Fri, 4 Aug 2017 13:28:32 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD004B362@AcuExch.aculab.com>
+References: <20170720214101.7449-1-roland@kernel.org>
+ <20170803214911.GG20308@bhelgaas-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Lebrun <david.lebrun@uclouvain.be>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Emil Tantilov <emil.s.tantilov@intel.com>
+To: 'Bjorn Helgaas' <helgaas@kernel.org>,
+        Roland Dreier <roland@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:43772 "EHLO
-        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752614AbdHDNZ1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 09:25:27 -0400
-Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by smtp1.sgsi.ucl.ac.be (Postfix) with ESMTPS id E440867DD74
-        for <netdev@vger.kernel.org>; Fri,  4 Aug 2017 15:25:17 +0200 (CEST)
-In-Reply-To: <20170804132415.9701-1-david.lebrun@uclouvain.be>
+Received: from smtp-out6.electric.net ([192.162.217.194]:50189 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752171AbdHDN2n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 09:28:43 -0400
+In-Reply-To: <20170803214911.GG20308@bhelgaas-glaptop.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements the following seg6local actions.
+From: Bjorn Helgaas
+> Sent: 03 August 2017 22:49
+> On Thu, Jul 20, 2017 at 02:41:01PM -0700, Roland Dreier wrote:
+> > From: Roland Dreier <roland@purestorage.com>
+> >
+> > Add one more variant of the 82599 plus the device IDs for X540 and X550
+> > variants.  Intel has confirmed that none of these devices does peer-to-peer
+> > between functions.  The X540 and X550 have added ACS capabilities in their
+> > PCI config space, but the ACS control register is hard-wired to 0 for both
+> > devices, so we still need the quirk for IOMMU grouping to allow assignment
+> > of individual SR-IOV functions.
+...
+> > --- a/drivers/pci/quirks.c
+> > +++ b/drivers/pci/quirks.c
+> > @@ -4335,12 +4335,33 @@ static const struct pci_dev_acs_enabled {
+> >  	{ PCI_VENDOR_ID_INTEL, 0x1507, pci_quirk_mf_endpoint_acs },
+> >  	{ PCI_VENDOR_ID_INTEL, 0x1514, pci_quirk_mf_endpoint_acs },
+> >  	{ PCI_VENDOR_ID_INTEL, 0x151C, pci_quirk_mf_endpoint_acs },
+> > +	{ PCI_VENDOR_ID_INTEL, 0x1528, pci_quirk_mf_endpoint_acs },
+> >  	{ PCI_VENDOR_ID_INTEL, 0x1529, pci_quirk_mf_endpoint_acs },
+> > +	{ PCI_VENDOR_ID_INTEL, 0x154A, pci_quirk_mf_endpoint_acs },
+...
 
-- SEG6_LOCAL_ACTION_END: regular SRH processing. The DA of the packet
-  is updated to the next segment and forwarded accordingly.
+That list is looking a bit long.
+Is it possible to run-time determine that the ACS control register is hard wired
+to zero, and apply the quirk to all such devices.
+Or even changing to a (device & mask) == value test??
 
-- SEG6_LOCAL_ACTION_END_X: same as above, except that the packet is
-  forwarded to the specified IPv6 next-hop.
-
-- SEG6_LOCAL_ACTION_END_DX6: decapsulate the packet and forward to
-  inner IPv6 packet to the specified IPv6 next-hop.
-
-- SEG6_LOCAL_ACTION_END_B6: insert the specified SRH directly after
-  the IPv6 header of the packet.
-
-- SEG6_LOCAL_ACTION_END_B6_ENCAP: encapsulate the packet within
-  an outer IPv6 header, containing the specified SRH.
-
-Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
----
- net/ipv6/seg6_local.c | 271 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 271 insertions(+)
-
-diff --git a/net/ipv6/seg6_local.c b/net/ipv6/seg6_local.c
-index ab1fc1b..147680e 100644
---- a/net/ipv6/seg6_local.c
-+++ b/net/ipv6/seg6_local.c
-@@ -58,11 +58,282 @@ static struct seg6_local_lwt *seg6_local_lwtunnel(struct lwtunnel_state *lwt)
- 	return (struct seg6_local_lwt *)lwt->data;
- }
- 
-+static struct ipv6_sr_hdr *get_srh(struct sk_buff *skb)
-+{
-+	struct ipv6_sr_hdr *srh;
-+	struct ipv6hdr *hdr;
-+	int len;
-+
-+	hdr = ipv6_hdr(skb);
-+	if (hdr->nexthdr != IPPROTO_ROUTING)
-+		return NULL;
-+
-+	srh = (struct ipv6_sr_hdr *)(hdr + 1);
-+	len = (srh->hdrlen + 1) << 3;
-+
-+	if (!pskb_may_pull(skb, sizeof(*hdr) + len))
-+		return NULL;
-+
-+	if (!seg6_validate_srh(srh, len))
-+		return NULL;
-+
-+	return srh;
-+}
-+
-+static struct ipv6_sr_hdr *get_and_validate_srh(struct sk_buff *skb)
-+{
-+	struct ipv6_sr_hdr *srh;
-+
-+	srh = get_srh(skb);
-+	if (!srh)
-+		return NULL;
-+
-+	if (srh->segments_left == 0)
-+		return NULL;
-+
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	if (!seg6_hmac_validate_skb(skb))
-+		return NULL;
-+#endif
-+
-+	return srh;
-+}
-+
-+/* regular endpoint function */
-+static int input_action_end(struct sk_buff *skb, struct seg6_local_lwt *slwt)
-+{
-+	struct ipv6_sr_hdr *srh;
-+	struct in6_addr *addr;
-+
-+	srh = get_and_validate_srh(skb);
-+	if (!srh)
-+		goto drop;
-+
-+	srh->segments_left--;
-+	addr = srh->segments + srh->segments_left;
-+
-+	ipv6_hdr(skb)->daddr = *addr;
-+
-+	skb_dst_drop(skb);
-+	ip6_route_input(skb);
-+
-+	return dst_input(skb);
-+
-+drop:
-+	kfree_skb(skb);
-+	return -EINVAL;
-+}
-+
-+/* regular endpoint, and forward to specified nexthop */
-+static int input_action_end_x(struct sk_buff *skb, struct seg6_local_lwt *slwt)
-+{
-+	struct net *net = dev_net(skb->dev);
-+	struct ipv6_sr_hdr *srh;
-+	struct dst_entry *dst;
-+	struct in6_addr *addr;
-+	struct ipv6hdr *hdr;
-+	struct flowi6 fl6;
-+	int flags;
-+
-+	srh = get_and_validate_srh(skb);
-+	if (!srh)
-+		goto drop;
-+
-+	srh->segments_left--;
-+	addr = srh->segments + srh->segments_left;
-+
-+	hdr = ipv6_hdr(skb);
-+	hdr->daddr = *addr;
-+
-+	skb_dst_drop(skb);
-+
-+	fl6.flowi6_iif = skb->dev->ifindex;
-+	fl6.daddr = slwt->nh6;
-+	fl6.saddr = hdr->saddr;
-+	fl6.flowlabel = ip6_flowinfo(hdr);
-+	fl6.flowi6_mark = skb->mark;
-+	fl6.flowi6_proto = hdr->nexthdr;
-+
-+	flags = RT6_LOOKUP_F_HAS_SADDR | RT6_LOOKUP_F_IFACE |
-+		RT6_LOOKUP_F_REACHABLE;
-+
-+	dst = ip6_route_input_lookup(net, skb->dev, &fl6, flags);
-+	if (dst->dev->flags & IFF_LOOPBACK)
-+		goto drop;
-+
-+	skb_dst_set(skb, dst);
-+
-+	return dst_input(skb);
-+
-+drop:
-+	kfree_skb(skb);
-+	return -EINVAL;
-+}
-+
-+/* decapsulate and forward to specified nexthop */
-+static int input_action_end_dx6(struct sk_buff *skb,
-+				struct seg6_local_lwt *slwt)
-+{
-+	struct net *net = dev_net(skb->dev);
-+	struct ipv6hdr *inner_hdr;
-+	struct ipv6_sr_hdr *srh;
-+	struct dst_entry *dst;
-+	unsigned int off = 0;
-+	struct flowi6 fl6;
-+	bool use_nh;
-+	int flags;
-+
-+	/* this function accepts IPv6 encapsulated packets, with either
-+	 * an SRH with SL=0, or no SRH.
-+	 */
-+
-+	srh = get_srh(skb);
-+	if (srh && srh->segments_left > 0)
-+		goto drop;
-+
-+#ifdef CONFIG_IPV6_SEG6_HMAC
-+	if (srh && !seg6_hmac_validate_skb(skb))
-+		goto drop;
-+#endif
-+
-+	if (ipv6_find_hdr(skb, &off, IPPROTO_IPV6, NULL, NULL) < 0)
-+		goto drop;
-+
-+	if (!pskb_pull(skb, off))
-+		goto drop;
-+
-+	skb_postpull_rcsum(skb, skb_network_header(skb), off);
-+
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
-+	skb->encapsulation = 0;
-+
-+	inner_hdr = ipv6_hdr(skb);
-+
-+	/* The inner packet is not associated to any local interface,
-+	 * so we do not call netif_rx().
-+	 *
-+	 * If slwt->nh6 is set to ::, then lookup the nexthop for the
-+	 * inner packet's DA. Otherwise, use the specified nexthop.
-+	 */
-+
-+	use_nh = !ipv6_addr_any(&slwt->nh6);
-+
-+	skb_dst_drop(skb);
-+
-+	fl6.flowi6_iif = skb->dev->ifindex;
-+	fl6.daddr = use_nh ? slwt->nh6 : inner_hdr->daddr;
-+	fl6.saddr = inner_hdr->saddr;
-+	fl6.flowlabel = ip6_flowinfo(inner_hdr);
-+	fl6.flowi6_mark = skb->mark;
-+	fl6.flowi6_proto = inner_hdr->nexthdr;
-+
-+	flags = RT6_LOOKUP_F_HAS_SADDR | RT6_LOOKUP_F_REACHABLE;
-+	if (use_nh)
-+		flags |= RT6_LOOKUP_F_IFACE;
-+
-+	dst = ip6_route_input_lookup(net, skb->dev, &fl6, flags);
-+	if (dst->dev->flags & IFF_LOOPBACK)
-+		goto drop;
-+
-+	skb_dst_set(skb, dst);
-+
-+	return dst_input(skb);
-+drop:
-+	kfree_skb(skb);
-+	return -EINVAL;
-+}
-+
-+/* push an SRH on top of the current one */
-+static int input_action_end_b6(struct sk_buff *skb, struct seg6_local_lwt *slwt)
-+{
-+	struct ipv6_sr_hdr *srh;
-+	int err = -EINVAL;
-+
-+	srh = get_and_validate_srh(skb);
-+	if (!srh)
-+		goto drop;
-+
-+	err = seg6_do_srh_inline(skb, slwt->srh);
-+	if (err)
-+		goto drop;
-+
-+	ipv6_hdr(skb)->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
-+	skb_set_transport_header(skb, sizeof(struct ipv6hdr));
-+
-+	skb_dst_drop(skb);
-+	ip6_route_input(skb);
-+
-+	return dst_input(skb);
-+
-+drop:
-+	kfree_skb(skb);
-+	return err;
-+}
-+
-+/* encapsulate within an outer IPv6 header and a specified SRH */
-+static int input_action_end_b6_encap(struct sk_buff *skb,
-+				     struct seg6_local_lwt *slwt)
-+{
-+	struct ipv6_sr_hdr *srh;
-+	struct in6_addr *addr;
-+	int err = -EINVAL;
-+
-+	srh = get_and_validate_srh(skb);
-+	if (!srh)
-+		goto drop;
-+
-+	srh->segments_left--;
-+	addr = srh->segments + srh->segments_left;
-+	ipv6_hdr(skb)->daddr = *addr;
-+
-+	skb_reset_inner_headers(skb);
-+	skb->encapsulation = 1;
-+
-+	err = seg6_do_srh_encap(skb, slwt->srh);
-+	if (err)
-+		goto drop;
-+
-+	ipv6_hdr(skb)->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
-+	skb_set_transport_header(skb, sizeof(struct ipv6hdr));
-+
-+	skb_dst_drop(skb);
-+	ip6_route_input(skb);
-+
-+	return dst_input(skb);
-+
-+drop:
-+	kfree_skb(skb);
-+	return err;
-+}
-+
- static struct seg6_action_desc seg6_action_table[] = {
- 	{
- 		.action		= SEG6_LOCAL_ACTION_END,
- 		.attrs		= 0,
-+		.input		= input_action_end,
-+	},
-+	{
-+		.action		= SEG6_LOCAL_ACTION_END_X,
-+		.attrs		= (1 << SEG6_LOCAL_NH6),
-+		.input		= input_action_end_x,
- 	},
-+	{
-+		.action		= SEG6_LOCAL_ACTION_END_DX6,
-+		.attrs		= (1 << SEG6_LOCAL_NH6),
-+		.input		= input_action_end_dx6,
-+	},
-+	{
-+		.action		= SEG6_LOCAL_ACTION_END_B6,
-+		.attrs		= (1 << SEG6_LOCAL_SRH),
-+		.input		= input_action_end_b6,
-+	},
-+	{
-+		.action		= SEG6_LOCAL_ACTION_END_B6_ENCAP,
-+		.attrs		= (1 << SEG6_LOCAL_SRH),
-+		.input		= input_action_end_b6_encap,
-+		.static_headroom	= sizeof(struct ipv6hdr),
-+	}
- };
- 
- static struct seg6_action_desc *__get_action_desc(int action)
--- 
-2.10.2
+	David
