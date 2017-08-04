@@ -1,7 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
 Subject: Re: [RFC PATCH 4/6] net: sockmap with sk redirect support
-Date: Thu, 03 Aug 2017 21:49:41 -0700
-Message-ID: <5983FCE5.6020000@gmail.com>
+Date: Thu, 03 Aug 2017 21:49:58 -0700
+Message-ID: <5983FCF6.7050103@gmail.com>
 References: <20170803232443.12107.24752.stgit@john-Precision-Tower-5810> <20170803233756.12107.54982.stgit@john-Precision-Tower-5810> <CALx6S36fmiyFNTif2B6X91wPXWEb1W3pk5=N0JTMD0T9ZoL5fw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -12,12 +12,12 @@ Cc: "David S. Miller" <davem@davemloft.net>,
         Daniel Borkmann <daniel@iogearbox.net>
 To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36179 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750899AbdHDEtx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 00:49:53 -0400
-Received: by mail-pg0-f66.google.com with SMTP id y129so710052pgy.3
-        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 21:49:52 -0700 (PDT)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35181 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750899AbdHDEuL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 00:50:11 -0400
+Received: by mail-pg0-f68.google.com with SMTP id l64so714515pge.2
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 21:50:11 -0700 (PDT)
 In-Reply-To: <CALx6S36fmiyFNTif2B6X91wPXWEb1W3pk5=N0JTMD0T9ZoL5fw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -97,7 +97,7 @@ message and code,
 >> +}
 >> +
 
-And then in uapi/bpf.h
+And then in uapi/linux/bpf.h
 
 enum {
 	BPF_OK_DROP,
