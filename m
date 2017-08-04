@@ -1,46 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 00/20] net: sched: summer cleanup part 1,
- mainly in exts area
-Date: Fri, 04 Aug 2017 11:23:21 -0700 (PDT)
-Message-ID: <20170804.112321.1160679995362189447.davem@davemloft.net>
-References: <20170804122915.15177-1-jiri@resnulli.us>
+Subject: Re: [PATCH] MIPS: Add missing file for eBPF JIT.
+Date: Fri, 04 Aug 2017 11:24:15 -0700 (PDT)
+Message-ID: <20170804.112415.2219726575381919877.davem@davemloft.net>
+References: <20170804001012.24901-1-david.daney@cavium.com>
+        <5984710F.4010301@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, mlxsw@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37528 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751324AbdHDSXW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 14:23:22 -0400
-In-Reply-To: <20170804122915.15177-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: david.daney@cavium.com, ast@kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+        ralf@linux-mips.org, James.Cowgill@imgtec.com,
+        markos.chandras@imgtec.com
+To: daniel@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5984710F.4010301@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri,  4 Aug 2017 14:28:55 +0200
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 04 Aug 2017 15:05:19 +0200
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> On 08/04/2017 02:10 AM, David Daney wrote:
+>> Inexplicably, commit f381bf6d82f0 ("MIPS: Add support for eBPF JIT.")
+>> lost a file somewhere on its path to Linus' tree.  Add back the
+>> missing ebpf_jit.c so that we can build with CONFIG_BPF_JIT selected.
+>>
+>> This version of ebpf_jit.c is identical to the original except for two
+>> minor change need to resolve conflicts with changes merged from the
+>> BPF branch:
+>>
+>> A) Set prog->jited_len = image_size;
+>> B) Use BPF_TAIL_CALL instead of BPF_CALL | BPF_X
+>>
+>> Fixes: f381bf6d82f0 ("MIPS: Add support for eBPF JIT.")
+>> Signed-off-by: David Daney <david.daney@cavium.com>
+>> ---
+>>
+>> It might be best to merge this along the path of BPF fixes rather than
+>> MIPS, as the MIPS maintainer (Ralf) seems to be inactive recently.
 > 
-> This patchset is one of the couple cleanup patchsets I have in queue.
-> The motivation aside the obvious need to "make things nicer" is also
-> to prepare for shared filter blocks introduction. That requires tp->q
-> removal, and therefore removal of all tp->q users.
+> Looks like situation is that multiple people including myself tried
+> to contact Ralf due to 'half/mis-applied' MIPS BPF JIT in [1,2] that
+> sits currently in Linus tree, but never got a reply back since mid
+> June.
 > 
-> Patch 1 is just some small thing I spotted on the way
-> Patch 2 removes one user of tp->q, namely tcf_em_tree_change
-> Patches 3-8 do preparations for exts->nr_actions removal
-> Patches 9-10 do simple renames of functions in cls*
-> Patches 11-19 remove unnecessary calls of tcf_exts_change helper
-> The last patch changes tcf_exts_change to don't take lock
+> Given the work was accepted long ago but incorrectly merged, would be
+> great if this could still be fixed up with this patch. Given Ralf
+> seems
+> unfortunately unresponsive, is there a chance, if people are fine with
+> it, that we could try route this fix e.g. via -net instead before a
+> final v4.13?
 > 
-> Tested by tools/testing/selftests/tc-testing
+> Anyway, the generic pieces interacting with core BPF look good to me:
 > 
-> v1->v2:
-> - removed conversion of action array to list as noted by Cong
-> - added the past patch instead
-> - small rebases of patches 11-19
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Series applied, thanks Jiri.
+Ok, I've applied this to the net GIT tree.
+
+Thanks.
