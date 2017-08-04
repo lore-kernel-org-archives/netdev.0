@@ -1,60 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MIPS: Add missing file for eBPF JIT.
-Date: Fri, 04 Aug 2017 11:24:15 -0700 (PDT)
-Message-ID: <20170804.112415.2219726575381919877.davem@davemloft.net>
-References: <20170804001012.24901-1-david.daney@cavium.com>
-        <5984710F.4010301@iogearbox.net>
+Subject: Re: [PATCH net-next 2/5] ipv6: sr: export SRH insertion functions
+Date: Fri, 04 Aug 2017 11:28:03 -0700 (PDT)
+Message-ID: <20170804.112803.25649303424746.davem@davemloft.net>
+References: <20170804132415.9701-1-david.lebrun@uclouvain.be>
+        <20170804132415.9701-3-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: david.daney@cavium.com, ast@kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-        ralf@linux-mips.org, James.Cowgill@imgtec.com,
-        markos.chandras@imgtec.com
-To: daniel@iogearbox.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5984710F.4010301@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: david.lebrun@uclouvain.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37586 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751362AbdHDS2E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 14:28:04 -0400
+In-Reply-To: <20170804132415.9701-3-david.lebrun@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 04 Aug 2017 15:05:19 +0200
+From: David Lebrun <david.lebrun@uclouvain.be>
+Date: Fri, 4 Aug 2017 15:24:12 +0200
 
-> On 08/04/2017 02:10 AM, David Daney wrote:
->> Inexplicably, commit f381bf6d82f0 ("MIPS: Add support for eBPF JIT.")
->> lost a file somewhere on its path to Linus' tree.  Add back the
->> missing ebpf_jit.c so that we can build with CONFIG_BPF_JIT selected.
->>
->> This version of ebpf_jit.c is identical to the original except for two
->> minor change need to resolve conflicts with changes merged from the
->> BPF branch:
->>
->> A) Set prog->jited_len = image_size;
->> B) Use BPF_TAIL_CALL instead of BPF_CALL | BPF_X
->>
->> Fixes: f381bf6d82f0 ("MIPS: Add support for eBPF JIT.")
->> Signed-off-by: David Daney <david.daney@cavium.com>
->> ---
->>
->> It might be best to merge this along the path of BPF fixes rather than
->> MIPS, as the MIPS maintainer (Ralf) seems to be inactive recently.
-> 
-> Looks like situation is that multiple people including myself tried
-> to contact Ralf due to 'half/mis-applied' MIPS BPF JIT in [1,2] that
-> sits currently in Linus tree, but never got a reply back since mid
-> June.
-> 
-> Given the work was accepted long ago but incorrectly merged, would be
-> great if this could still be fixed up with this patch. Given Ralf
-> seems
-> unfortunately unresponsive, is there a chance, if people are fine with
-> it, that we could try route this fix e.g. via -net instead before a
-> final v4.13?
-> 
-> Anyway, the generic pieces interacting with core BPF look good to me:
-> 
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> +EXPORT_SYMBOL(seg6_do_srh_encap);
+ ...
+> +EXPORT_SYMBOL(seg6_do_srh_inline);
 
-Ok, I've applied this to the net GIT tree.
-
-Thanks.
+EXPORT_SYMBOL_GPL() please.
