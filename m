@@ -1,188 +1,44 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH net] xgene: Always get clk source, but ignore if it's
- missing for SGMII ports
-Date: Fri, 4 Aug 2017 12:00:41 +0100
-Message-ID: <20170804110039.GA15254@arm.com>
-References: <20170803140311.34C7E50870B@solo.franken.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v3] ARM: dts: tango4: Request RGMII RX and TX clock delays
+Date: Fri, 4 Aug 2017 13:02:57 +0200
+Message-ID: <CAK8P3a2fdzrvoN5FLzmH20igc4Jxg1N1L0SmDq7idFvMeFhc_Q@mail.gmail.com>
+References: <d669e207-ae47-4c9e-67c5-75424fde501f@sigmadesigns.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: isubramanian@apm.com, kchudgar@apm.com, qnguyen@apm.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Laura Abbott <labbott@redhat.com>
-To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170803140311.34C7E50870B@solo.franken.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: arm-soc <arm@kernel.org>, Florian Fainelli <f.fainelli@gmail.com>,
+        Mans Rullgard <mans@mansr.com>, Mason <slash.tmp@free.fr>,
+        netdev <netdev@vger.kernel.org>,
+        Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:35887 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751304AbdHDLC6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 07:02:58 -0400
+Received: by mail-oi0-f65.google.com with SMTP id b130so1184477oii.3
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 04:02:58 -0700 (PDT)
+In-Reply-To: <d669e207-ae47-4c9e-67c5-75424fde501f@sigmadesigns.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 03, 2017 at 03:43:14PM +0200, Thomas Bogendoerfer wrote:
-> From: Thomas Bogendoerfer <tbogendoerfer@suse.de>
-> 
-> Even the driver doesn't do anything with the clk source for SGMII
-> ports it needs to be enabled by doing a devm_clk_get(), if there is
-> a clk source in DT.
-> 
-> Fixes: 0db01097cabd ('xgene: Don't fail probe, if there is no clk resource for SGMII interfaces')
-> Signed-off-by: Thomas Bogendoerfer <tbogendoerfer@suse.de>
-> Tested-by: Laura Abbott <labbott@redhat.com>
-> Acked-by: Iyappan Subramanian <isubramanian@apm.com>
+On Fri, Jul 28, 2017 at 3:27 PM, Marc Gonzalez
+<marc_gonzalez@sigmadesigns.com> wrote:
+> RX and TX clock delays are required. Request them explicitly.
+>
+> Fixes: cad008b8a77e6 ("ARM: dts: tango4: Initial device trees")
+> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
 > ---
->  drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+> Arnd, Kevin, Olof, can one of you take this patch through arm-soc?
 
-Thanks, this fixes a boot-time crash (below) when bringing up the interface
-on my xgene board with -rc3, so:
+Applied to the fixes branch now.
 
-Tested-by: Will Deacon <will.deacon@arm.com>
+> Greg will apply it to all stable branches, right?
 
-Will
+He usually looks at random patches that have a 'Fixes:' line, but if you already
+know that you want a bugfix to be backported, it should also come with a
+'Cc: stable@vger.kernel.org' line. I've added that manually this time, but
+please include it yourself if you have another patch like that.
 
---->8
+ Thanks,
 
-[    8.076583] synchronous external abort: synchronous external abort (0x96000010) at 0xffff00000aca0010
-[    8.085777] internal error: : 96000010 [#1] preempt smp
-[    8.090977] modules linked in:
-[    8.094020] cpu: 4 pid: 2345 comm: ip not tainted 4.13.0-rc3-00002-g93bd9a45f608 #2
-[    8.101638] hardware name: appliedmicro x-gene mustang board/x-gene mustang board, bios 3.06.25 oct 17 2016
-[    8.111330] task: ffff8003e7181c00 task.stack: ffff8003e5afc000
-[    8.117227] pc is at xgene_enet_rd_mac+0x80/0x108
-[    8.121909] lr is at xgene_enet_rd_mac+0x50/0x108
-[    8.126589] pc : [<ffff00000865f140>] lr : [<ffff00000865f110>] pstate: a0000145
-[    8.133948] sp : ffff8003e5aff570
-[    8.137244] x29: ffff8003e5aff570 x28: 0000000000000001 
-[    8.142533] x27: ffff8003eb9cc838 x26: ffff000008663970 
-[    8.147820] x25: ffff00000aca000c x24: ffff8003eb9cc000 
-[    8.153107] x23: 0000000000000000 x22: ffff00000aca0004 
-[    8.158394] x21: ffff8003eb9cc9f0 x20: ffff00000aca0010 
-[    8.163680] x19: 000000000000000b x18: 0000000000000001 
-[    8.168966] x17: 0000000120177170 x16: ffff000008889dc8 
-[    8.174253] x15: ffffffffffffffff x14: 00000001e15a50b8 
-[    8.179539] x13: 0000000000000000 x12: ffff8003e8cb0a00 
-[    8.184825] x11: 0000000000000000 x10: 0000000000000004 
-[    8.190111] x9 : 00000000ffffffff x8 : ffff8003fff75468 
-[    8.195398] x7 : 00000000000d7c8c x6 : ffff0000089c0000 
-[    8.200684] x5 : 0000000000000001 x4 : ffff8003e7181c00 
-[    8.205969] x3 : 0000000000000000 x2 : 0000000000000000 
-[    8.211255] x1 : 0000000000330033 x0 : 0000000040000000 
-[    8.216543] process ip (pid: 2345, stack limit = 0xffff8003e5afc000)
-[    8.222865] stack: (0xffff8003e5aff570 to 0xffff8003e5b00000)
-[    8.228582] f560:                                   ffff8003e5aff5c0 ffff0000086600f4
-[    8.236374] f580: 0000000000000001 ffff8003eb9cc800 0000000000000001 ffff8003eb9cc000
-[    8.244164] f5a0: ffff8003eca16a2e ffff8003ec93a410 ffff000008acdf08 ffff00000863b684
-[    8.251955] f5c0: ffff8003e5aff5f0 ffff0000086601f4 ffff8003eb9cc800 0000000000000000
-[    8.259745] f5e0: 0000000000000000 ffff000008663ce0 ffff8003e5aff600 ffff000008663cf0
-[    8.267536] f600: ffff8003e5aff670 ffff0000088aa3b8 ffff8003eb9cc000 0000000000001003
-[    8.275326] f620: ffff000008ace018 ffff8003eb9cc048 0000000000001002 ffff8003e5aff8e0
-[    8.283116] f640: ffff000008ace018 ffff8003e8dd8010 ffff8003e5affb78 0000000000000000
-[    8.290907] f660: ffff000008663000 ffff000008d185f0 ffff8003e5aff6b0 ffff0000088aa6b8
-[    8.298697] f680: ffff8003eb9cc000 0000000000001003 0000000000000001 0000000000000000
-[    8.306488] f6a0: ffff8003eb9cc000 ffff8003eb9cc000 ffff8003e5aff6f0 ffff0000088aa798
-[    8.314278] f6c0: ffff8003eb9cc000 0000000000001002 0000000000000000 0000000000000000
-[    8.322069] f6e0: ffff8003e6868000 000000000000002b ffff8003e5aff720 ffff0000088bc168
-[    8.329859] f700: ffff8003e8dd8000 ffff8003eb9cc000 0000000000000000 ffff8003e5aff968
-[    8.337650] f720: ffff8003e5aff840 ffff0000088be918 ffff000008d5e000 ffff8003eb9cc000
-[    8.345441] f740: 0000000000000000 ffff8003e5affb78 0000000000000000 0000000000000000
-[    8.353231] f760: ffff8003e5aff840 ffff000008b159c0 ffff8003e8dd8020 ffff0000081b3a90
-[    8.361022] f780: ffff8003e7037b80 ffff7e000f9b0e00 00e80043e6c38f53 ffff8003ecf49450
-[    8.368812] f7a0: ffff8003e7037b80 0000000000000001 ffff8003e5aff7d0 ffff0000081bf0cc
-[    8.376603] f7c0: ffff7e000f9b0e00 ffff0000081b39c0 ffff8003e5aff7e0 ffff00000818ef70
-[    8.384393] f7e0: ffff8003e5aff800 ffff0000081b3a9c ffff8003e5aff840 ffff0000088be3e0
-[    8.392184] f800: ffff8003e8dd8000 ffff0000081b44ec 0000000000000000 ffff8003e5affb78
-[    8.399974] f820: ffff8003e5aff840 ffff0000088be438 ffff8003e8dd8000 ffff00000858169c
-[    8.407765] f840: ffff8003e5affad0 ffff0000088bec24 0000000000000000 ffff8003e8dd8000
-[    8.415555] f860: ffff8003e5affb78 0000000000000000 ffff8003e6868000 0000000000000000
-[    8.423346] f880: 0000000000000000 0000000000000008 ffff0000089b1000 ffff8003e7181c00
-[    8.431136] f8a0: ffff8003e5aff8c0 ffff8003e6868000 0000000000000000 ffff000008fc7e80
-[    8.438927] f8c0: ffff000008b15a80 ffff8003e8dd8010 ffff8003e71e3800 ffff8003e71e3f6c
-[    8.446717] f8e0: 0000000000000000 00000000000001c0 ffff000008ecd000 ffff000008ed9000
-[    8.454508] f900: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.462297] f920: 0000000000000000 0000000000000000 0000000000000000 ffff8003e71e3800
-[    8.470088] f940: 0000000000000000 00000000000001c0 ffff8003fff8f400 ffff000008ed9bc8
-[    8.477878] f960: ffff8003e5aff970 0000000000000000 0000000000000000 0000000000000000
-[    8.485668] f980: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.493458] f9a0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.501255] f9c0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.501258] f9e0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.501260] fa00: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.501263] fa20: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.501265] fa40: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.501268] fa60: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.501270] fa80: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.501273] faa0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.501276] fac0: 0000000000000000 0000000000000000 ffff8003e5affb40 ffff0000088d41c8
-[    8.501278] fae0: ffff8003e8dd8000 ffff8003e6868000 ffff0000088bea98 ffff8003e6868000
-[    8.501281] fb00: ffff8003e5affc08 ffff8003fffd2500 0000000000000140 ffff800300000000
-[    8.501284] fb20: ffff8003e5affb70 ffff00000889220c ffff8003e5affb50 ffff0000088d1d98
-[    8.501287] fb40: ffff8003e5affba0 ffff0000088bb364 ffff8003e6868000 ffff8003ec6e6c00
-[    8.501289] fb60: 0000000000000020 0000000000000000 ffff8003e5affb90 0000000000000000
-[    8.501292] fb80: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[    8.501294] fba0: ffff8003e5affbc0 ffff0000088d3934 ffff8003ec8aa800 ffff8003ec6e6c00
-[    8.501297] fbc0: ffff8003e5affc10 ffff0000088d3dc8 ffff8003e5affe58 0000000000000000
-[    8.501300] fbe0: ffff8003e6868000 ffff8003ec6e6c00 0000000000000000 0000000000000020
-[    8.501302] fc00: ffff8003e5affc10 7fffffffffffffff ffff8003e5affc90 ffff000008888570
-[    8.501305] fc20: ffff8003e5affe58 0000000000000000 0000000000000000 ffff8003eebdd900
-[    8.501308] fc40: 0000000000000000 0000000000000000 ffff8003e5affcf8 00000000000000d3
-[    8.501311] fc60: ffff8003e5affc80 0000ffffea686a70 ffff8003e8c80500 0000000000000000
-[    8.501313] fc80: 0000000000000929 0000000000000000 ffff8003e5affca0 ffff000008888d4c
-[    8.501316] fca0: ffff8003e5affe20 ffff000008889d6c ffff8003eebdd900 0000ffffea686a90
-[    8.501319] fcc0: 0000000000000000 0000ffff8bd5abf4 0000000080000000 0000000000000015
-[    8.501321] fce0: 0000000000000124 ffff000008220d04 0000000000000000 ffff000008220f54
-[    8.501324] fd00: ffff8003fa9e1000 ffff8003e7037b80 014000c000000055 0000000ffffffffc
-[    8.501327] fd20: 0000000000000010 ffff800300000000 ffff8003e8ffeff8 0000000000000000
-[    8.501330] fd40: 0000000000000000 0000000000000000 0000000000000000 ffff8003ecf49460
-[    8.501332] fd60: ffff7e000fb3d270 0000000000000000 ffff8003e5affda0 ffff000008097fc0
-[    8.501335] fd80: ffff8003e7181c00 0000ffffea68c000 ffff8003e5affda0 ffff000008098008
-[    8.501338] fda0: 0000ffffea68eb78 0000000000000020 0000000092000047 ffff0000089b7250
-[    8.501340] fdc0: 0000ffffea68c000 ffff8003e5affec0 0000000020000000 0000000000000024
-[    8.501343] fde0: ffff8003e5affdf0 ffff0000082235d8 ffff8003e5affe00 ffff000008888180
-[    8.501346] fe00: ffff8003e5affe20 ffff000008889d48 0000000000000000 0000ffffea686a90
-[    8.501349] fe20: ffff8003e5affeb0 ffff000008889dd8 0000000000000000 00008003f70a8000
-[    8.501351] fe40: ffffffffffffffff ffff0000081febbc fffffff700000000 ffff8003e5affd20
-[    8.501354] fe60: ffff80030000000c ffff000000000001 0000000000000000 0000000000000000
-[    8.501356] fe80: ffff8003e5affdb0 0000000000000000 0000000000000000 0000000000000000
-[    8.501359] fea0: 0000000000000000 0000000000000000 0000000000000000 ffff000008083730
-[    8.501361] fec0: 0000000000000003 0000ffffea686a90 0000000000000000 0000000000000000
-[    8.501364] fee0: 0000ffffea68eac8 0000000000000004 0000000031687465 0000000031687465
-[    8.501367] ff00: 00000000000000d3 7f7f7f7fffffffff 0101010101010101 7f7f7f7f7f7f7f7f
-[    8.501370] ff20: 0101010101010101 0000000000000000 0000000000000000 00000000000005bf
-[    8.501373] ff40: 0000ffff8bd5abc8 0000000120177170 0000000000040d00 0000ffffea68eb78
-[    8.501376] ff60: 00000000581b7100 0000000120176000 0000ffffea686ac8 0000ffffea686a90
-[    8.501378] ff80: 0000000000000010 0000000000000000 00000001201773b8 0000ffffea68eb50
-[    8.501381] ffa0: 0000ffffea68f2c8 0000ffffea6869d0 000000012014ee10 0000ffffea6869d0
-[    8.501384] ffc0: 0000ffff8bd5abf4 0000000080000000 0000000000000003 00000000000000d3
-[    8.501386] ffe0: 0000000000000000 0000000000000000 1c1c1c1c1c1c1c1c 1c1c1c1c1c1c1c1c
-[    8.501388] call trace:
-[    8.501391] exception stack(0xffff8003e5aff3a0 to 0xffff8003e5aff4d0)
-[    8.501394] f3a0: 000000000000000b 0001000000000000 ffff8003e5aff570 ffff00000865f140
-[    8.501397] f3c0: ffff00000865f140 00000000a0000145 0000000000000025 ffff00000aca000c
-[    8.501400] f3e0: ffff000008663970 ffff8003eb9cc838 ffff8003e7181c00 ffff8003e5aff570
-[    8.501402] f400: ffff00000865f110 ffff8003e5aff440 ffff000008082dfc 0000000060000145
-[    8.501405] f420: ffff8003fff75400 ffff0000080e7b74 0001000000000000 ffff0000080e7ba0
-[    8.501408] f440: 0000000040000000 0000000000330033 0000000000000000 0000000000000000
-[    8.501411] f460: ffff8003e7181c00 0000000000000001 ffff0000089c0000 00000000000d7c8c
-[    8.501413] f480: ffff8003fff75468 00000000ffffffff 0000000000000004 0000000000000000
-[    8.501416] f4a0: ffff8003e8cb0a00 0000000000000000 00000001e15a50b8 ffffffffffffffff
-[    8.501418] f4c0: ffff000008889dc8 0000000120177170
-[    8.501424] [<ffff00000865f140>] xgene_enet_rd_mac+0x80/0x108
-[    8.501429] [<ffff0000086600f4>] xgene_sgmac_rxtx+0x24/0x50
-[    8.501431] [<ffff0000086601f4>] xgene_sgmac_tx_enable+0x14/0x20
-[    8.501434] [<ffff000008663cf0>] xgene_enet_open+0x338/0x3f0
-[    8.501439] [<ffff0000088aa3b8>] __dev_open+0xc8/0x140
-[    8.501443] [<ffff0000088aa6b8>] __dev_change_flags+0x98/0x158
-[    8.501446] [<ffff0000088aa798>] dev_change_flags+0x20/0x60
-[    8.501451] [<ffff0000088bc168>] do_setlink+0x248/0xce8
-[    8.501454] [<ffff0000088be918>] rtnl_newlink+0x5b0/0x730
-[    8.501457] [<ffff0000088bec24>] rtnetlink_rcv_msg+0x18c/0x1f8
-[    8.501460] [<ffff0000088d41c8>] netlink_rcv_skb+0xb0/0x110
-[    8.501463] [<ffff0000088bb364>] rtnetlink_rcv+0x2c/0x40
-[    8.501467] [<ffff0000088d3934>] netlink_unicast+0x184/0x220
-[    8.501469] [<ffff0000088d3dc8>] netlink_sendmsg+0x300/0x378
-[    8.501473] [<ffff000008888570>] sock_sendmsg+0x18/0x30
-[    8.501475] [<ffff000008888d4c>] ___sys_sendmsg+0x264/0x298
-[    8.501479] [<ffff000008889d6c>] __sys_sendmsg+0x44/0xa0
-[    8.501481] [<ffff000008889dd8>] sys_sendmsg+0x10/0x20
-[    8.501486] [<ffff000008083730>] el0_svc_naked+0x24/0x28
-[    8.501490] code: 52800173 14000003 d28218e0 940c82f9 (b9400282) 
-[    8.501493] ---[ end trace a3c9ec71d1295493 ]---
-[    8.501516] note: ip[2345] exited with preempt_count 1
+      Arnd
