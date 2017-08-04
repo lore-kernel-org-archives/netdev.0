@@ -1,8 +1,8 @@
 From: maowenan <maowenan@huawei.com>
 Subject: RE: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data
  ACKed/SACKed
-Date: Fri, 4 Aug 2017 07:12:13 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F20293523A@DGGEMI512-MBX.china.huawei.com>
+Date: Fri, 4 Aug 2017 07:33:26 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F2029373BA@DGGEMI512-MBX.china.huawei.com>
 References: <20170801025814.31206-1-ncardwell@google.com>
  <20170801025814.31206-4-ncardwell@google.com>
 Mime-Version: 1.0
@@ -15,10 +15,10 @@ To: maowenan <maowenan@huawei.com>,
         Neal Cardwell <ncardwell@google.com>,
         David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([45.249.212.187]:11254 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751274AbdHDHMl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 03:12:41 -0400
+Received: from szxga02-in.huawei.com ([45.249.212.188]:11320 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751300AbdHDHeL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 03:34:11 -0400
 Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -229,7 +229,18 @@ List-ID: <netdev.vger.kernel.org>
 > > -		tcp_rearm_rto(sk);
 > > -		return false;
 > > -	}
-[Mao Wenan] I'm sorry I can't get why you delete this and below "if" branch?
+[Mao Wenan]Follow previous mail, in lower version such as 3.10, I found
+there are many timer type, e.g:ICSK_TIME_EARLY_RETRANS, RTO,PTO
+are used. I'm not sure there exist some unknown problem if we don't check 
+isck_pending here and below if branch? And could you please post one lower
+version patch such as 3.10?  Thanks a lot. 
+ 
+#define ICSK_TIME_RETRANS	1	/* Retransmit timer */
+#define ICSK_TIME_DACK		2	/* Delayed ack timer */
+#define ICSK_TIME_PROBE0	3	/* Zero window probe timer */
+#define ICSK_TIME_EARLY_RETRANS 4	/* Early retransmit timer */
+#define ICSK_TIME_LOSS_PROBE	5	/* Tail loss probe timer */
+
 > >  	/* Don't do any loss probe on a Fast Open connection before 3WHS
 > >  	 * finishes.
 > >  	 */
