@@ -1,36 +1,46 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH] net: phy: marvell: logical vs bitwise OR typo
-Date: Fri, 4 Aug 2017 11:17:21 +0300
-Message-ID: <20170804081720.2g6yuthplhc4rv6b@mwanda>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [patch net-next 00/21] mlxsw: Support for IPv6 UC router
+Date: Fri, 4 Aug 2017 11:50:59 +0300
+Message-ID: <20170804085059.GA5383@splinter>
+References: <20170803112831.1831-1-jiri@resnulli.us>
+ <20170803.153631.974713672754752484.davem@davemloft.net>
+ <d6bd0d34-b69f-10c2-059d-a45b1dfae80f@gmail.com>
+ <20170803.154124.2094532576602544160.davem@davemloft.net>
+ <172d26bc-cb59-c3c7-7ca4-1308f4853e8c@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
+        netdev@vger.kernel.org, mlxsw@mellanox.com,
+        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        kafai@fb.com, hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
+        edumazet@google.com, yanhaishuang@cmss.chinamobile.com
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:41951 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751303AbdHDIRt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 04:17:49 -0400
+Received: from mail-db5eur01on0081.outbound.protection.outlook.com ([104.47.2.81]:11917
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751290AbdHDIvK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Aug 2017 04:51:10 -0400
 Content-Disposition: inline
+In-Reply-To: <172d26bc-cb59-c3c7-7ca4-1308f4853e8c@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was supposed to be a bitwise OR but there is a || vs | typo.
+On Thu, Aug 03, 2017 at 04:54:35PM -0600, David Ahern wrote:
+> On 8/3/17 4:41 PM, David Miller wrote:
+> > But unlike the percpu flag, don't we want to somehow propagate offload
+> > state to the user?
+> 
+> It's a per nexthop flag. For IPv4 it is tracked in fib_nh.nh_flags.
+> Perhaps it is time for rt6_info to have nh_flags as well.
 
-Fixes: 864dc729d528 ("net: phy: marvell: Refactor m88e1121 RGMII delay configuration")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+I saw your original mail last night, but was too tired to comment.
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 361fe9927ef2..15cbcdba618a 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -83,7 +83,7 @@
- #define MII_88E1121_PHY_MSCR_REG	21
- #define MII_88E1121_PHY_MSCR_RX_DELAY	BIT(5)
- #define MII_88E1121_PHY_MSCR_TX_DELAY	BIT(4)
--#define MII_88E1121_PHY_MSCR_DELAY_MASK	(~(BIT(5) || BIT(4)))
-+#define MII_88E1121_PHY_MSCR_DELAY_MASK	(~(BIT(5) | BIT(4)))
- 
- #define MII_88E1121_MISC_TEST				0x1a
- #define MII_88E1510_MISC_TEST_TEMP_THRESHOLD_MASK	0x1f00
+I'm looking into reflecting the nexthop status to listeners like what we
+did for IPv4 with NH_{ADD,DEL} and can probably incorporate your
+suggestion.
+
+Anyway, will make sure RTF_OFFLOAD is removed before the merge window
+opens.
+
+Thanks for reviewing David.
