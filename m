@@ -1,48 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: User per-cpu 64-bit statistics
-Date: Fri, 04 Aug 2017 10:43:12 -0700
-Message-ID: <1501868592.25002.47.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170804043328.4730-1-f.fainelli@gmail.com>
-         <1501824968.25002.35.camel@edumazet-glaptop3.roam.corp.google.com>
-         <455c39d3-302e-68ab-3812-112c48ed48c2@gmail.com>
-         <1501866711.25002.46.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: marvell: logical vs bitwise OR typo
+Date: Fri, 4 Aug 2017 19:46:59 +0200
+Message-ID: <20170804174659.GB3720@lunn.ch>
+References: <20170804081720.2g6yuthplhc4rv6b@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemlot.net,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501866711.25002.46.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170804081720.2g6yuthplhc4rv6b@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-08-04 at 10:11 -0700, Eric Dumazet wrote:
+On Fri, Aug 04, 2017 at 11:17:21AM +0300, Dan Carpenter wrote:
+> This was supposed to be a bitwise OR but there is a || vs | typo.
+> 
+> Fixes: 864dc729d528 ("net: phy: marvell: Refactor m88e1121 RGMII delay configuration")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-> You could add a debug version of u64_stats_update_begin()
-> 
-> doing 
-> 
-> int ret = atomic_inc((atomic_t *)syncp);
+Hi Dan
 
-I meant atomic_inc_return() of course.
+Thanks for the fix.
 
-> 
-> BUG_ON(ret & 1);
-> 
-> 
-> And u64_stats_update_end()
-> 
-> int ret = atomic_inc((atomic_t *)syncp);
-> 
-> BUG_ON(!(ret & 1));
-> 
-> 
-> We probably could have a CONFIG_DEBUG_U64_STATS  that could be used on
-> 64bit kernels as well...
-> 
-> 
-> 
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
