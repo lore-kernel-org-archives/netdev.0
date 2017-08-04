@@ -1,73 +1,30 @@
-From: Florian Lehner <dev@der-flo.net>
-Subject: [PATCH v5] ss: Enclose IPv6 address in brackets
-Date: Fri, 4 Aug 2017 20:02:52 +0200
-Message-ID: <1aa882d5-b7f6-8b91-b884-0bd45ebeb2a2@der-flo.net>
-References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: hns: Fix for __udivdi3 compiler error
+Date: Fri, 04 Aug 2017 11:07:23 -0700 (PDT)
+Message-ID: <20170804.110723.249014337463792010.davem@davemloft.net>
+References: <1501838699-95356-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.der-flo.net ([193.160.39.236]:47240 "EHLO mx.der-flo.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751303AbdHDSCy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Aug 2017 14:02:54 -0400
-Received: from [IPv6:2a02:1205:c693:af80:5ee0:c5ff:fe8a:a179] (unknown [IPv6:2a02:1205:c693:af80:5ee0:c5ff:fe8a:a179])
-        (using TLSv1.2 with cipher ECDHE-ECDSA-AES128-GCM-SHA256 (128/128 bits))
-        (No client certificate requested)
-        by mx.der-flo.net (Postfix) with ESMTPSA id E17FD4863E
-        for <netdev@vger.kernel.org>; Fri,  4 Aug 2017 20:02:52 +0200 (CEST)
-In-Reply-To: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        tremyfr@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: linyunsheng@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1501838699-95356-1-git-send-email-linyunsheng@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This updated patch adds support for RFC2732 IPv6 address format with
-brackets for the tool ss.
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Date: Fri, 4 Aug 2017 17:24:59 +0800
 
-Now checking the complete IPv6 address if it is IN6ADDR_ANY.
+> This patch fixes the __udivdi3 undefined error reported by
+> test robot.
+> 
+> Fixes: b8c17f708831 ("net: hns: Add self-adaptive interrupt coalesce support in hns driver")
+> Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 
-Signed-off-by: Lehner Florian <dev@der-flo.net>
----
- misc/ss.c | 16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
-
-diff --git a/misc/ss.c b/misc/ss.c
-index 12763c9..83683b5 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1046,8 +1046,9 @@ do_numeric:
-
- static void inet_addr_print(const inet_prefix *a, int port, unsigned
-int ifindex)
- {
--	char buf[1024];
-+	char buf[1024], buf2[1024];
- 	const char *ap = buf;
-+	char *c = NULL;
- 	int est_len = addr_width;
- 	const char *ifname = NULL;
-
-@@ -1059,7 +1060,18 @@ static void inet_addr_print(const inet_prefix *a,
-int port, unsigned int ifindex
- 			ap = format_host(AF_INET, 4, a->data);
- 		}
- 	} else {
--		ap = format_host(a->family, 16, a->data);
-+		if (a->data[0] == 0 && a->data[1] == 0 &&
-+		    a->data[2] == 0 && a->data[3] == 0) {
-+				buf[0] = '*';
-+				buf[1] = 0;
-+		} else {
-+			ap = format_host(a->family, 16, a->data);
-+			c = strchr(ap, ':');
-+			if (c != NULL && a->family == AF_INET6) {
-+				sprintf(buf2, "[%s]", ap);
-+				ap = buf2;
-+			}
-+		}
- 		est_len = strlen(ap);
- 		if (est_len <= addr_width)
- 			est_len = addr_width;
--- 
-2.9.4
+Applied, thank you.
