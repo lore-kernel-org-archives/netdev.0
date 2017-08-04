@@ -1,65 +1,161 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
-Date: Fri, 4 Aug 2017 13:31:48 +0200
-Message-ID: <20170804113147.GA25254@vergenet.net>
-References: <590AF624.6090808@iogearbox.net>
- <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>
- <20170504.104103.1628291573330660235.davem@davemloft.net>
- <20170504094356.66590a9a@xeon-e3>
- <20170504204318.GB21130@orbyte.nwl.cc>
- <f847c8d4-a6c0-66ab-0ac0-d83d6ea96a00@gmail.com>
- <20170516093625.178caf3f@xeon-e3>
- <591D711F.1000906@iogearbox.net>
- <1c494983-24e0-cd8f-9a2a-5d2a83e0bbc2@gmail.com>
- <0d84bd27-2fd1-68c0-5787-0195e95ab1af@gmail.com>
+From: Benoit Panizzon <benoit.panizzon@imp.ch>
+Subject: Realtek r8169 driver VLAN TAG stripping / offloading
+Date: Fri, 4 Aug 2017 13:55:13 +0200
+Message-ID: <20170804135513.4606462f@go.imp.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Phil Sutter <phil@nwl.cc>, David Miller <davem@davemloft.net>,
-        netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:36702 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752193AbdHDLbv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 07:31:51 -0400
-Received: by mail-wr0-f170.google.com with SMTP id y43so15706381wrd.3
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 04:31:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <0d84bd27-2fd1-68c0-5787-0195e95ab1af@gmail.com>
+Received: from thor.imp.ch ([157.161.4.18]:22531 "EHLO thor.imp.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752161AbdHDMFt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Aug 2017 08:05:49 -0400
+Received: from go.imp.ch (go.imp.ch [157.161.4.87])
+        by thor.imp.ch (8.15.2/8.13.3) with ESMTPS id v74BtDoa074915
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128 verify=NO)
+        for <netdev@vger.kernel.org>; Fri, 4 Aug 2017 13:55:13 +0200 (CEST)
+        (envelope-from benoit.panizzon@imp.ch)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 03, 2017 at 02:26:58PM -0600, David Ahern wrote:
-> On 5/18/17 10:24 PM, David Ahern wrote:
-> > On 5/18/17 3:02 AM, Daniel Borkmann wrote:
-> >> So effectively this means libmnl has to be used for new stuff, noone
-> >> has time to do the work to convert the existing tooling over (which
-> >> by itself might be a challenge in testing everything to make sure
-> >> there are no regressions) given there's not much activity around
-> >> lib/libnetlink.c anyway, and existing users not using libmnl today
-> >> won't see/notice new improvements on netlink side when they do an
-> >> upgrade. So we'll be stuck with that dual library mess pretty much
-> >> for a very long time. :(
-> > 
-> > lib/libnetlink.c with all of its duplicate functions weighs in at just
-> > 947 LOC -- a mere 12% of the code in lib/. From a total SLOC of iproute2
-> > it is a negligible part of the code base.
-> > 
-> > Given that, there is very little gain -- but a lot of risk in
-> > regressions -- in converting such a small, low level code base to libmnl
-> > just for the sake of using a library - something Phil noted in his
-> > cursory attempt at converting ip to libmnl. ie., The level effort
-> > required vs the benefit is just not worth it.
-> > 
-> > There are so many other parts of the ip code base that need work with a
-> > much higher return on the time investment.
-> > 
-> 
-> Stephen: It has been 3 months since the first extack patches were posted
-> and still nothing in iproute2, all of it hung up on your decision to
-> require libmnl. Do you plan to finish the libmnl support any time soon
-> and send out patches?
+Hi
 
-FWIIW I would also like to see some way to get this enhancement accepted.
+Yes, someone posted the same problem a couple of years ago:
+https://www.spinics.net/lists/netdev/msg152505.html
+
+But as far as I have read the thread, nobody figured out the problem.
+
+I have run in the same strange problem, where I suspect either a driver
+of firmware bug, after upgrading a system from kernel 3.16 (whatever
+subversion debian used) to the actual: 4.9.30-2+deb9u2
+
+I use native and untagged vlan.
+
+The two ports on the Cisco Switch have this config:
+
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 3
+ switchport trunk allowed vlan 2,3
+ switchport mode trunk
+
+So for outgoing packets (switch => Linux) with vlan id 3 that id is
+stripped and for ingress packets without tag, vlan id 3 is added.
+
+Packets with vlan id 2 are passed unaltered between switch and linux
+box.
+
+Now I have two machines with slightly different r8169 NIC:
+
+01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
+RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 02)
+
+=> This one works fine
+
+And
+
+03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
+RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 09)
+
+=> This one stripps all ingress vlan tags!
+
+Both use the exact same kernel version.
+
+On rev 02 I don't bother to load the firmware, it works fine without.
+On the rev 09 one I did try with and without firmware, no difference.
+
+Observation:
+
+Packets generated on linux on vlan id 2 are sent out to the switch
+containing the vlan tag.
+
+Packets which leave the switch with vlan id 2 loose this id after being
+processed by the r8169 driver and therefore do not make it out of the
+vlan interface on linux.
+
+As an example, the same ARP packet capture on the rev 02 and the rev 09
+NIC:
+
+13:51:05.955414 4c:5e:0c:41:0c:83 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q
+(0x8100), length 64: vlan 2, p 0, ethertype ARP, Request who-has
+157.161.6.10 tell 157.161.6.1, length 46
+
+=> This is fine, see vlan 2?
+
+13:51:05.957652 4c:5e:0c:41:0c:83 > ff:ff:ff:ff:ff:ff, ethertype 802.1Q
+(0x8100), length 64: vlan 0, p 0, ethertype ARP, Request who-has
+157.161.6.10 tell 157.161.6.1, length 46
+
+=> Wrong vlan tag!
+
+# ethtool -k eth0
+Features for eth0:
+rx-checksumming: on
+tx-checksumming: off
+        tx-checksum-ipv4: off
+        tx-checksum-ip-generic: off [fixed]
+        tx-checksum-ipv6: off
+        tx-checksum-fcoe-crc: off [fixed]
+        tx-checksum-sctp: off [fixed]
+scatter-gather: off
+        tx-scatter-gather: off
+        tx-scatter-gather-fraglist: off [fixed]
+tcp-segmentation-offload: off
+        tx-tcp-segmentation: off
+        tx-tcp-ecn-segmentation: off [fixed]
+        tx-tcp-mangleid-segmentation: off
+        tx-tcp6-segmentation: off
+udp-fragmentation-offload: off [fixed]
+generic-segmentation-offload: off [requested on]
+generic-receive-offload: on
+large-receive-offload: off [fixed]
+rx-vlan-offload: on
+tx-vlan-offload: on
+ntuple-filters: off [fixed]
+receive-hashing: off [fixed]
+highdma: on [fixed]
+rx-vlan-filter: off [fixed]
+vlan-challenged: off [fixed]
+tx-lockless: off [fixed]
+netns-local: off [fixed]
+tx-gso-robust: off [fixed]
+tx-fcoe-segmentation: off [fixed]
+tx-gre-segmentation: off [fixed]
+tx-gre-csum-segmentation: off [fixed]
+tx-ipxip4-segmentation: off [fixed]
+tx-ipxip6-segmentation: off [fixed]
+tx-udp_tnl-segmentation: off [fixed]
+tx-udp_tnl-csum-segmentation: off [fixed]
+tx-gso-partial: off [fixed]
+tx-sctp-segmentation: off [fixed]
+fcoe-mtu: off [fixed]
+tx-nocache-copy: off
+loopback: off [fixed]
+rx-fcs: off
+rx-all: off
+tx-vlan-stag-hw-insert: off [fixed]
+rx-vlan-stag-hw-parse: off [fixed]
+rx-vlan-stag-filter: off [fixed]
+l2-fwd-offload: off [fixed]
+busy-poll: off [fixed]
+hw-tc-offload: off [fixed]
+
+I have been trying to turn 'off' rx-vlan-offload and tx-vlan-offload
+with ethtool, but I don't succeed.
+
+As I suppose the problem was introduced somewhen between kernel 3.16
+and 4.9 I will be trying to reboot with 3.16 tonight when I have
+physical access to the machine.
+
+Any hints on what could cause the problem or how I could further debug
+it, is highly welcome.
+
+-Benoît Panizzon-
+-- 
+I m p r o W a r e   A G    -    Leiter Commerce Kunden
+______________________________________________________
+
+Zurlindenstrasse 29             Tel  +41 61 826 93 00
+CH-4133 Pratteln                Fax  +41 61 826 93 01
+Schweiz                         Web  http://www.imp.ch
+______________________________________________________
