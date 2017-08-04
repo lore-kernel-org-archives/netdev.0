@@ -1,51 +1,82 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 00/13] Change DSA's FDB API and perform switchdev cleanup
-Date: Fri, 04 Aug 2017 11:29:07 -0400
-Message-ID: <87d18b2vy4.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1500480294-10604-1-git-send-email-arkadis@mellanox.com> <87mv80ji63.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <099a0552-0139-20d4-2529-c1202303d772@mellanox.com> <87pocvnkfw.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <ede22100-3a66-f54d-a618-a3b840a2664c@mellanox.com> <aa4f3dc5-6693-4de8-5191-f0a939ff8168@mellanox.com> <20170804052301.GA1906@nanopsycho.orion>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 0/6] In-kernel QMI handling
+Date: Fri, 04 Aug 2017 10:36:07 -0500
+Message-ID: <1501860967.939.6.camel@redhat.com>
+References: <20170804145938.25427-1-bjorn.andersson@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, davem@davemloft.net, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>,
-        Arkadi Sharshevsky <arkadis@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:46230 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752070AbdHDPcH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 11:32:07 -0400
-In-Reply-To: <20170804052301.GA1906@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Bjorn Andersson <bjorn.andersson@linaro.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andy Gross <andy.gross@linaro.org>,
+        David Brown <david.brown@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170804145938.25427-1-bjorn.andersson@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Arkadi, Jiri,
+On Fri, 2017-08-04 at 07:59 -0700, Bjorn Andersson wrote:
+> This series starts by moving the common definitions of the QMUX
+> protocol to the
+> uapi header, as they are shared with clients - both in kernel and
+> userspace.
+> 
+> This series then introduces in-kernel helper functions for aiding the
+> handling
+> of QMI encoded messages in the kernel. QMI encoding is a wire-format
+> used in
+> exchanging messages between the majority of QRTR clients and
+> services.
 
-Jiri Pirko <jiri@resnulli.us> writes:
+This raises a few red-flags for me.  So far, we've kept almost
+everything QMI related in userspace and handled all QMI control-channel 
+messages from libraries like libqmi or uqmi via the cdc-wdm driver and
+the "rmnet" interface via the qmi_wwan driver.  The kernel drivers just
+serve as the transport.
 
->>It seems impossible currently to move the self to be the default, and
->>this introduces regression which you don't approve, so it seems few
->>options left:
->>
->>a) Leave two ways to add fdb, through the bridge (by using the master
->>   flag) which is introduced in this patchset, and by using the self
->>   which is the legacy way. In this way no regression will be introduced,
->>   yet, it feels confusing a bit. The benefit is that we (DSA/mlxsw)
->>   will be synced.
->>b) Leave only the self (which means removing patch no 4,5).
->
-> I belive that option a) is the correct way to go. Introduction of self
-> inclusion was a mistake from the very beginning. I think that we should
-> just move one and correct this mistake.
->
-> Vivien, any arguments against a)?
+Can you describe what kinds of in-kernel drivers need to actually parse
+QMI messages as part of their operation?
 
-I do agree with a). Arkadi, when moving switchdev implementations inside
-of DSA core, can I ask you to move the ones considered as the legacy way
-into legacy.c and ideally comment it? Configuration from userspace is
-still very confusing and this will remind us to get rid of it one day.
+Dan
 
-
-Thanks,
-
-        Vivien
+> It then adds an abstractions to reduce the duplication of common code
+> in
+> drivers that needs to query the name server and send and receive
+> encoded
+> messages to a remote service.
+> 
+> Finally it introduces a sample implementation for showing QRTR and
+> the QMI
+> helpers in action. The sample device instantiates in response to
+> finding the
+> "test service" and implements the "test protocol".
+> 
+> Bjorn Andersson (6):
+>   net: qrtr: Invoke sk_error_report() after setting sk_err
+>   net: qrtr: Move constants to header file
+>   net: qrtr: Add control packet definition to uapi
+>   soc: qcom: Introduce QMI encoder/decoder
+>   soc: qcom: Introduce QMI helpers
+>   samples: Introduce Qualcomm QRTR sample client
+> 
+>  drivers/soc/qcom/Kconfig          |   8 +
+>  drivers/soc/qcom/Makefile         |   3 +
+>  drivers/soc/qcom/qmi_encdec.c     | 812
+> ++++++++++++++++++++++++++++++++++++++
+>  drivers/soc/qcom/qmi_interface.c  | 540 +++++++++++++++++++++++++
+>  include/linux/soc/qcom/qmi.h      | 249 ++++++++++++
+>  include/uapi/linux/qrtr.h         |  35 ++
+>  net/qrtr/qrtr.c                   |  16 +-
+>  samples/Kconfig                   |   8 +
+>  samples/Makefile                  |   2 +-
+>  samples/qrtr/Makefile             |   1 +
+>  samples/qrtr/qrtr_sample_client.c | 603 ++++++++++++++++++++++++++++
+>  11 files changed, 2261 insertions(+), 16 deletions(-)
+>  create mode 100644 drivers/soc/qcom/qmi_encdec.c
+>  create mode 100644 drivers/soc/qcom/qmi_interface.c
+>  create mode 100644 include/linux/soc/qcom/qmi.h
+>  create mode 100644 samples/qrtr/Makefile
+>  create mode 100644 samples/qrtr/qrtr_sample_client.c
+> 
