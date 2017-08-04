@@ -1,108 +1,41 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: Re: [PATCH net-next v3 1/2] bpf: add support for sys_enter_* and
- sys_exit_* tracepoints
-Date: Fri, 4 Aug 2017 11:50:50 -0700
-Message-ID: <19e84d8d-e778-711d-1fb1-92981e345435@fb.com>
-References: <20170803162951.1564963-1-yhs@fb.com>
- <20170803162951.1564963-2-yhs@fb.com>
- <11ef74f9-b0ef-264f-f582-62a8c8f1f027@fb.com>
- <CAH3MdRWpDDxTrfF9rkL7e8ZJW2LATQjMntJqgwCpFCzoiycDHQ@mail.gmail.com>
- <a418c894-3f9f-bec6-7f0d-43319413b222@fb.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v5] ss: Enclose IPv6 address in brackets
+Date: Fri, 4 Aug 2017 12:05:06 -0700
+Message-ID: <20170804120506.37c6ad60@xeon-e3>
+References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
+        <1aa882d5-b7f6-8b91-b884-0bd45ebeb2a2@der-flo.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <peterz@infradead.org>, <rostedt@goodmis.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: Alexei Starovoitov <ast@fb.com>, Y Song <ys114321@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Florian Lehner <dev@der-flo.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:48187 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751216AbdHDSvn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 14:51:43 -0400
-In-Reply-To: <a418c894-3f9f-bec6-7f0d-43319413b222@fb.com>
-Content-Language: en-US
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:37564 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751216AbdHDTFJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 15:05:09 -0400
+Received: by mail-pg0-f46.google.com with SMTP id y129so11271211pgy.4
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 12:05:09 -0700 (PDT)
+In-Reply-To: <1aa882d5-b7f6-8b91-b884-0bd45ebeb2a2@der-flo.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 4 Aug 2017 20:02:52 +0200
+Florian Lehner <dev@der-flo.net> wrote:
 
-
-On 8/4/17 11:40 AM, Alexei Starovoitov wrote:
-> On 8/3/17 5:09 PM, Y Song wrote:
->> On Thu, Aug 3, 2017 at 7:08 PM, Alexei Starovoitov <ast@fb.com> wrote:
->>> On 8/3/17 6:29 AM, Yonghong Song wrote:
->>>>
->>>> @@ -578,8 +596,9 @@ static void perf_syscall_enter(void *ignore, struct
->>>> pt_regs *regs, long id)
->>>>         if (!sys_data)
->>>>                 return;
->>>>
->>>> +       prog = READ_ONCE(sys_data->enter_event->prog);
->>>>         head = this_cpu_ptr(sys_data->enter_event->perf_events);
->>>> -       if (hlist_empty(head))
->>>> +       if (!prog && hlist_empty(head))
->>>>                 return;
->>>>
->>>>         /* get the size after alignment with the u32 buffer size 
->>>> field */
->>>> @@ -594,6 +613,13 @@ static void perf_syscall_enter(void *ignore, 
->>>> struct
->>>> pt_regs *regs, long id)
->>>>         rec->nr = syscall_nr;
->>>>         syscall_get_arguments(current, regs, 0, sys_data->nb_args,
->>>>                                (unsigned long *)&rec->args);
->>>> +
->>>> +       if ((prog && !perf_call_bpf_enter(prog, regs, sys_data, 
->>>> rec)) ||
->>>> +           hlist_empty(head)) {
->>>> +               perf_swevent_put_recursion_context(rctx);
->>>> +               return;
->>>> +       }
->>>
->>>
->>> hmm. if I read the patch correctly that makes it different from
->>> kprobe/uprobe/tracepoints+bpf behavior. Why make it different and
->>> force user space to perf_event_open() on every cpu?
->>> In other cases it's the job of the bpf program to filter by cpu
->>> if necessary and that is well understood by bcc scripts.
->>
->> The patch actually does allow the bpf program to track all cpus.
->> The test:
->>>> +       if (!prog && hlist_empty(head))
->>>>                 return;
->> ensures that if prog is not empty, it will not return even if the
->> event in the current cpu is empty. Later on, perf_call_bpf_enter will
->> be called if prog is not empty. This ensures that
->> the bpf program will execute regardless of the current cpu.
->>
->> Maybe I missed anything here?
+> diff --git a/misc/ss.c b/misc/ss.c
+> index 12763c9..83683b5 100644
+> --- a/misc/ss.c
+> +++ b/misc/ss.c
+> @@ -1046,8 +1046,9 @@ do_numeric:
 > 
-> you're right. sorry. misread && for ||.
-> That part looks good indeed.
-> 
-> Another question...
-> that part:
->          if (is_tracepoint) {
->                  int off = trace_event_get_offsets(event->tp_event);
-> 
->                  if (prog->aux->max_ctx_offset > off) {
-> seems to be not used in this new path...
-> or new is_syscall_tp is also is_tracepoint ?
+>  static void inet_addr_print(const inet_prefix *a, int port, unsigned
+> int ifindex)
+>  {
 
-Good catch! I think I need "is_tracepoint || is_syscall_tp" here.
-If trace_event_get_offsets can get the correct offset for the current
-particular syscall_{enter|exit}_* event, we will be find.
-I will double check this and have another patch.
+Your email client is wrapping long lines which leads to malformed patch.
 
-> If so, then it's ok...
-> and trace_event_get_offsets() returns the actual number
-> of syscall args or always upper bound of 6?
+You didn't need buf2, and the code was more complex than it needed to be.
 
-Since the specific event is fed here, I think the actual number
-will be returned.
-
-> just curious how this new code checks that bpf prog cannot
-> access args[6+].
-> 
-> Thanks!
-> 
+Rather than waiting for yet another version, I just merged in similar
+code.
