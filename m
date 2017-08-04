@@ -1,40 +1,60 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: STABLE: net: reduce skb_warn_bad_offload() noise
-Date: Fri, 4 Aug 2017 12:53:58 -0700
-Message-ID: <20170804195358.GD3477@kroah.com>
-References: <4b5d320a-a12e-b27b-cc58-332614684bf2@android.com>
- <20170728.123010.242124876818464581.davem@davemloft.net>
- <1501305772.1876.0.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexandru Gagniuc <alex.g@adaptrum.com>
+Subject: [PATCH v2 2/2] dt-bindings: net: Document bindings for anarion-gmac
+Date: Fri,  4 Aug 2017 13:08:52 -0700
+Message-ID: <20170804200852.16049-2-alex.g@adaptrum.com>
+References: <20170728.190155.457209566729295513.davem@davemloft.net>
+ <20170804200852.16049-1-alex.g@adaptrum.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, salyzyn@android.com,
-        stable@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1501305772.1876.0.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        robh+dt@kernel.org, Alexandru Gagniuc <alex.g@adaptrum.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2nam02on0080.outbound.protection.outlook.com ([104.47.38.80]:35872
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751272AbdHDUJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Aug 2017 16:09:03 -0400
+In-Reply-To: <20170804200852.16049-1-alex.g@adaptrum.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 28, 2017 at 10:22:52PM -0700, Eric Dumazet wrote:
-> On Fri, 2017-07-28 at 12:30 -0700, David Miller wrote:
-> > From: Mark Salyzyn <salyzyn@android.com>
-> > Date: Fri, 28 Jul 2017 10:29:57 -0700
-> > 
-> > > Please backport the upstream patch to the stable trees (including
-> > > 3.10.y, 3.18.y, 4.4.y and 4.9.y):
-> > > 
-> > > b2504a5dbef3305ef41988ad270b0e8ec289331c net: reduce
-> > > skb_warn_bad_offload() noise
-> > > 
-> > > Impacting performance or creating unnecessary alarm, and will result
-> > > in kernel panic for panic_on_warn configuration.
-> > 
-> > Yeah this is fine.
-> 
-> If you do so, also backport 6e7bc478c9a006c701c14476ec9d389a484b4864
-> ("net: skb_needs_check() accepts CHECKSUM_NONE for tx")
+Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
+---
+ .../devicetree/bindings/net/anarion-gmac.txt       | 25 ++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/anarion-gmac.txt
 
-Thanks for letting us know, I've queued this up as well.
-
-greg k-h
+diff --git a/Documentation/devicetree/bindings/net/anarion-gmac.txt b/Documentation/devicetree/bindings/net/anarion-gmac.txt
+new file mode 100644
+index 0000000..fe67896
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/anarion-gmac.txt
+@@ -0,0 +1,25 @@
++*  Adaptrum Anarion ethernet controller
++
++This device is a platform glue layer for stmmac.
++Please see stmmac.txt for the other unchanged properties.
++
++Required properties:
++ - compatible:  Should be "adaptrum,anarion-gmac", "snps,dwmac"
++ - phy-mode:    Should be "rgmii". Other modes are not currently supported.
++
++
++Examples:
++
++	gmac1: ethernet@f2014000 {
++		compatible = "adaptrum,anarion-gmac", "snps,dwmac";
++		reg = <0xf2014000 0x4000>, <0xf2018100 8>;
++
++		interrupt-parent = <&core_intc>;
++		interrupts = <21>;
++		interrupt-names = "macirq";
++
++		clocks = <&core_clk>;
++		clock-names = "stmmaceth";
++
++		phy-mode = "rgmii";
++	};
+-- 
+2.9.3
