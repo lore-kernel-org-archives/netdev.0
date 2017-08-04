@@ -1,43 +1,98 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH net-next] net: hns: Fix for __udivdi3 compiler error
-Date: Fri, 4 Aug 2017 17:24:59 +0800
-Message-ID: <1501838699-95356-1-git-send-email-linyunsheng@huawei.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 05/11] mtd: cfi: reduce stack size with KASAN
+Date: Fri, 4 Aug 2017 11:09:53 +0200
+Message-ID: <CAK8P3a2p6w_yx82SC796n6dqZwE1=s7Mad5TLqcdK=pJ0Uiy=w@mail.gmail.com>
+References: <20170614211556.2062728-1-arnd@arndb.de> <20170614211556.2062728-6-arnd@arndb.de>
+ <20170804094254.369140c0@bbrezillon>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
-        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
-        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
-        <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
-        <tremyfr@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        kasan-dev <kasan-dev@googlegroups.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Alexander Potapenko <glider@google.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        David Woodhouse <dwmw2@infradead.org>,
+        Brian Norris <computersforpeace@gmail.com>,
+        Marek Vasut <marek.vasut@gmail.com>,
+        Richard Weinberger <richard@nod.at>,
+        Cyrille Pitchen <cyrille.pitchen@wedev4u.fr>,
+        linux-mtd <linux-mtd@lists.infradead.org>
+To: Boris Brezillon <boris.brezillon@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:37529 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751285AbdHDJJy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 05:09:54 -0400
+In-Reply-To: <20170804094254.369140c0@bbrezillon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the __udivdi3 undefined error reported by
-test robot.
+On Fri, Aug 4, 2017 at 9:42 AM, Boris Brezillon
+<boris.brezillon@free-electrons.com> wrote:
+> On Wed, 14 Jun 2017 23:15:40 +0200
+> Arnd Bergmann <arnd@arndb.de> wrote:
+>
+>> When CONFIG_KASAN is used, we consume a lot of extra stack space:
+>>
+>> drivers/mtd/chips/cfi_cmdset_0020.c: In function 'do_write_buffer':
+>> drivers/mtd/chips/cfi_cmdset_0020.c:603:1: error: the frame size of 2184 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+>> drivers/mtd/chips/cfi_cmdset_0020.c: In function 'cfi_staa_erase_varsize':
+>> drivers/mtd/chips/cfi_cmdset_0020.c:972:1: error: the frame size of 1936 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+>> drivers/mtd/chips/cfi_cmdset_0001.c: In function 'do_write_buffer':
+>> drivers/mtd/chips/cfi_cmdset_0001.c:1841:1: error: the frame size of 1776 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+>>
+>> This marks some functions as noinline_if_stackbloat to keep reduce the
+>> overall stack size.
+>>
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> ---
+>>  drivers/mtd/chips/cfi_cmdset_0020.c | 8 ++++----
+>>  include/linux/mtd/map.h             | 8 ++++----
+>>  2 files changed, 8 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/drivers/mtd/chips/cfi_cmdset_0020.c b/drivers/mtd/chips/cfi_cmdset_0020.c
+>> index 7d342965f392..5eee5e883f55 100644
+>> --- a/drivers/mtd/chips/cfi_cmdset_0020.c
+>> +++ b/drivers/mtd/chips/cfi_cmdset_0020.c
+>> @@ -244,7 +244,7 @@ static struct mtd_info *cfi_staa_setup(struct map_info *map)
+>>  }
+>>
+>>
+>> -static inline int do_read_onechip(struct map_info *map, struct flchip *chip, loff_t adr, size_t len, u_char *buf)
+>> +static noinline_if_stackbloat int do_read_onechip(struct map_info *map, struct flchip *chip, loff_t adr, size_t len, u_char *buf)
+>
+> Why do we even need to mark those functions inline in the first place?
+> Isn't the compiler smart enough to decide when it should inline things?
 
-Fixes: b8c17f708831 ("net: hns: Add self-adaptive interrupt coalesce support in hns driver")
-Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+I'm pretty sure it doesn't need the 'inline' keywork. I see that the code was
+addedlike this in linux-2.4.0-test3pre3 along with the rest of the mtd layer,
+so it has always been 'inline' and nobody ever bothered to remove that
+during later cleanups.
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 832f277..3652063 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -847,7 +847,8 @@ static void hns_update_rx_rate(struct hnae_ring *ring)
- 
- 	total_bytes = ring->stats.rx_bytes - ring->coal_last_rx_bytes;
- 	time_passed_ms = jiffies_to_msecs(jiffies - ring->coal_last_jiffies);
--	ring->coal_rx_rate = (total_bytes / time_passed_ms) >> 10;
-+	do_div(total_bytes, time_passed_ms);
-+	ring->coal_rx_rate = total_bytes >> 10;
- 
- 	ring->coal_last_rx_bytes = ring->stats.rx_bytes;
- 	ring->coal_last_jiffies = jiffies;
--- 
-1.9.1
+We could probably just mark this function as 'noinline' here and never
+inline it,
+but I would rather not add more than one variant of noinline_if_stackbloat:
+almost all other users of noinline_if_stackbloat are for functions that have
+to be inline in normal builds, so it is defined as being either
+'inline' or 'noinline'
+depending on whether KASAN is active.
+
+>> diff --git a/include/linux/mtd/map.h b/include/linux/mtd/map.h
+>> index 3aa56e3104bb..29db74314db8 100644
+>> --- a/include/linux/mtd/map.h
+>> +++ b/include/linux/mtd/map.h
+>> @@ -316,7 +316,7 @@ static inline map_word map_word_or(struct map_info *map, map_word val1, map_word
+>>       return r;
+>>  }
+>>
+>> -static inline int map_word_andequal(struct map_info *map, map_word val1, map_word val2, map_word val3)
+>> +static noinline_if_stackbloat int map_word_andequal(struct map_info *map, map_word val1, map_word val2, map_word val3)
+>
+> It's indeed needed for those defined in a header.
+
+Right.
+
+       Arnd
