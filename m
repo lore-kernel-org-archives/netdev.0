@@ -1,49 +1,73 @@
-From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-Subject: Re: [PATCH net 1/2] bpf, s390: fix jit branch offset related to
- ldimm64
-Date: Fri, 4 Aug 2017 19:10:33 +0200
-Message-ID: <20170804191033.30bd8f03@TP-holzheu>
-References: <cover.1501848914.git.daniel@iogearbox.net>
-        <a63b808ceaa481dfae896bcf611fc489fdc59080.1501848914.git.daniel@iogearbox.net>
-        <20170804154420.6faae20a@TP-holzheu>
-        <59847C2F.6010306@iogearbox.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: dsa: User per-cpu 64-bit statistics
+Date: Fri, 04 Aug 2017 10:11:51 -0700
+Message-ID: <1501866711.25002.46.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170804043328.4730-1-f.fainelli@gmail.com>
+         <1501824968.25002.35.camel@edumazet-glaptop3.roam.corp.google.com>
+         <455c39d3-302e-68ab-3812-112c48ed48c2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ast@fb.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:59013 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752433AbdHDRKm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 13:10:42 -0400
-Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v74H9vYH006444
-        for <netdev@vger.kernel.org>; Fri, 4 Aug 2017 13:10:42 -0400
-Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2c4t82j0yr-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 13:10:41 -0400
-Received: from localhost
-        by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <holzheu@linux.vnet.ibm.com>;
-        Fri, 4 Aug 2017 18:10:39 +0100
-In-Reply-To: <59847C2F.6010306@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemlot.net,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <455c39d3-302e-68ab-3812-112c48ed48c2@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am Fri, 04 Aug 2017 15:52:47 +0200
-schrieb Daniel Borkmann <daniel@iogearbox.net>:
-
-> On 08/04/2017 03:44 PM, Michael Holzheu wrote:
-> > Am Fri,  4 Aug 2017 14:20:54 +0200
-> > schrieb Daniel Borkmann <daniel@iogearbox.net>:
-> [...]
-> >
-> > What about "Cc: stable@vger.kernel.org"?
+On Fri, 2017-08-04 at 08:51 -0700, Florian Fainelli wrote:
+> On 08/03/2017 10:36 PM, Eric Dumazet wrote:
+> > On Thu, 2017-08-03 at 21:33 -0700, Florian Fainelli wrote:
+> >> During testing with a background iperf pushing 1Gbit/sec worth of
+> >> traffic and having both ifconfig and ethtool collect statistics, we
+> >> could see quite frequent deadlocks. Convert the often accessed DSA slave
+> >> network devices statistics to per-cpu 64-bit statistics to remove these
+> >> deadlocks and provide fast efficient statistics updates.
+> >>
+> > 
+> > This seems to be a bug fix, it would be nice to get a proper tag like :
+> > 
+> > Fixes: f613ed665bb3 ("net: dsa: Add support for 64-bit statistics")
 > 
-> Handled by Dave, see also: Documentation/networking/netdev-FAQ.txt +117
+> Right, should have been added, thanks!
+> 
+> > 
+> > Problem here is that if multiple cpus can call dsa_switch_rcv() at the
+> > same time, then u64_stats_update_begin() contract is not respected.
+> 
+> This is really where I struggled understanding what is wrong in the
+> non-per CPU version, my understanding is that we have:
+> 
+> - writers for xmit executes in process context
+> - writers for receive executes from NAPI (from the DSA's master network
+> device through it's own NAPI doing netif_receive_skb -> netdev_uses_dsa
+> -> netif_receive_skb)
+> 
+> readers should all execute in process context. The test scenario that
+> led to a deadlock involved running iperf in the background, having a
+> while loop with both ifconfig and ethtool reading stats, and somehow
+> when iperf exited, either reader would just be locked. So I guess this
+> leaves us with the two writers not being mutually excluded then, right?
 
-Thanks, good to know! At least I would vote for "Cc: stable".
+You could add a debug version of u64_stats_update_begin()
 
-Michael
+doing 
+
+int ret = atomic_inc((atomic_t *)syncp);
+
+BUG_ON(ret & 1);
+
+
+And u64_stats_update_end()
+
+int ret = atomic_inc((atomic_t *)syncp);
+
+BUG_ON(!(ret & 1));
+
+
+We probably could have a CONFIG_DEBUG_U64_STATS  that could be used on
+64bit kernels as well...
