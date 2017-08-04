@@ -1,39 +1,47 @@
-From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Subject: Re: uapi: MAX_ADDR_LEN vs. numeric 32
-Date: Sat, 5 Aug 2017 01:34:49 +0300
-Message-ID: <20170804223449.GD28459@lakka.kapsi.fi>
-References: <20170804213325.GC28459@lakka.kapsi.fi>
- <20170804222519.GA11085@altlinux.org>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] lwtunnel: replace EXPORT_SYMBOL with EXPORT_SYMBOL_GPL
+Date: Fri, 4 Aug 2017 15:36:21 -0700
+Message-ID: <CAJieiUi_y6zZXhfu-AWY=u+j20VQMzJ-45AWoaRHFQtiaX8ftg@mail.gmail.com>
+References: <1501885417-18966-1-git-send-email-roopa@cumulusnetworks.com> <20170804222528.GD11696@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Pavel Emelyanov <xemul@virtuozzo.com>
-To: "Dmitry V. Levin" <ldv@altlinux.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kapsi.fi ([91.232.154.25]:45006 "EHLO mail.kapsi.fi"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751342AbdHDWev (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Aug 2017 18:34:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20170804222519.GA11085@altlinux.org>
+Received: from mail-ua0-f178.google.com ([209.85.217.178]:38231 "EHLO
+        mail-ua0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752001AbdHDWgW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 18:36:22 -0400
+Received: by mail-ua0-f178.google.com with SMTP id w45so12798232uac.5
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 15:36:22 -0700 (PDT)
+In-Reply-To: <20170804222528.GD11696@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 05, 2017 at 01:25:19AM +0300, Dmitry V. Levin wrote:
+On Fri, Aug 4, 2017 at 3:25 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On Fri, Aug 04, 2017 at 03:23:37PM -0700, Roopa Prabhu wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>>  net/core/lwtunnel.c | 26 +++++++++++++-------------
+>>  1 file changed, 13 insertions(+), 13 deletions(-)
+>>
+>> diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
+>> index d9cb353..8693ff8 100644
+>> --- a/net/core/lwtunnel.c
+>> +++ b/net/core/lwtunnel.c
+>> @@ -65,7 +65,7 @@ struct lwtunnel_state *lwtunnel_state_alloc(int encap_len)
+>>
+>>       return lws;
+>>  }
+>> -EXPORT_SYMBOL(lwtunnel_state_alloc);
+>> +EXPORT_SYMBOL_GPL_GPL(lwtunnel_state_alloc);
 >
-> On Sat, Aug 05, 2017 at 12:33:25AM +0300, Mikko Rapeli wrote:
-> > 
-> > I find using MAX_ADDR_LEN better than numeric 32, though I doubt this will
-> > change any time soon. Would you mind if I change packet_diag.h and
-> > if_link.h to use that instead and fix the userspace compilation
-> > problems by including netdevice.h?
-> 
-> The alternative fix, that is, to include <linux/netdevice.h>
-> which pulls in other headers and a lot of definitions with them,
-> has been mentioned in the discussion, too.
-> We decided that the fix that was applied would be the least of all evils.
+> Hi Roopa
+>
+> GPL_GPL?
+>
 
-Ok, that's fine then. I'll drop my netdevice.h inclusion patch.
-
-Thanks,
-
--Mikko
+oops, i had fixed it but sent the wrong version. thx
