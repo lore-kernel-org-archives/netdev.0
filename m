@@ -1,59 +1,93 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net 2/2] bpf, s390: fix build for libbpf and selftest suite
-Date: Fri,  4 Aug 2017 14:20:55 +0200
-Message-ID: <4c18cdbfad03bded866c2ae3a05b8648213acf01.1501848914.git.daniel@iogearbox.net>
+Subject: [PATCH net 1/2] bpf, s390: fix jit branch offset related to ldimm64
+Date: Fri,  4 Aug 2017 14:20:54 +0200
+Message-ID: <a63b808ceaa481dfae896bcf611fc489fdc59080.1501848914.git.daniel@iogearbox.net>
 References: <cover.1501848914.git.daniel@iogearbox.net>
 Cc: holzheu@linux.vnet.ibm.com, ast@fb.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58279 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:58276 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752286AbdHDMVA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 08:21:00 -0400
+        with ESMTP id S1752285AbdHDMU7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 08:20:59 -0400
 In-Reply-To: <cover.1501848914.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1501848914.git.daniel@iogearbox.net>
 References: <cover.1501848914.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The BPF feature test as well as libbpf is missing the __NR_bpf
-define for s390 and currently refuses to compile (selftest suite
-depends on libbpf as well). Similar issue was fixed some time
-ago via b0c47807d31d ("bpf: Add sparc support to tools and
-samples."), just do the same and add definitions.
+While testing some other work that required JIT modifications, I
+run into test_bpf causing a hang when JIT enabled on s390. The
+problematic test case was the one from ddc665a4bb4b (bpf, arm64:
+fix jit branch offset related to ldimm64), and turns out that we
+do have a similar issue on s390 as well. In bpf_jit_prog() we
+update next instruction address after returning from bpf_jit_insn()
+with an insn_count. bpf_jit_insn() returns either -1 in case of
+error (e.g. unsupported insn), 1 or 2. The latter is only the
+case for ldimm64 due to spanning 2 insns, however, next address
+is only set to i + 1 not taking actual insn_count into account,
+thus fix is to use insn_count instead of 1. bpf_jit_enable in
+mode 2 provides also disasm on s390:
 
+Before fix:
+
+  000003ff800349b6: a7f40003   brc     15,3ff800349bc                 ; target
+  000003ff800349ba: 0000               unknown
+  000003ff800349bc: e3b0f0700024       stg     %r11,112(%r15)
+  000003ff800349c2: e3e0f0880024       stg     %r14,136(%r15)
+  000003ff800349c8: 0db0               basr    %r11,%r0
+  000003ff800349ca: c0ef00000000       llilf   %r14,0
+  000003ff800349d0: e320b0360004       lg      %r2,54(%r11)
+  000003ff800349d6: e330b03e0004       lg      %r3,62(%r11)
+  000003ff800349dc: ec23ffeda065       clgrj   %r2,%r3,10,3ff800349b6 ; jmp
+  000003ff800349e2: e3e0b0460004       lg      %r14,70(%r11)
+  000003ff800349e8: e3e0b04e0004       lg      %r14,78(%r11)
+  000003ff800349ee: b904002e   lgr     %r2,%r14
+  000003ff800349f2: e3b0f0700004       lg      %r11,112(%r15)
+  000003ff800349f8: e3e0f0880004       lg      %r14,136(%r15)
+  000003ff800349fe: 07fe               bcr     15,%r14
+
+After fix:
+
+  000003ff80ef3db4: a7f40003   brc     15,3ff80ef3dba
+  000003ff80ef3db8: 0000               unknown
+  000003ff80ef3dba: e3b0f0700024       stg     %r11,112(%r15)
+  000003ff80ef3dc0: e3e0f0880024       stg     %r14,136(%r15)
+  000003ff80ef3dc6: 0db0               basr    %r11,%r0
+  000003ff80ef3dc8: c0ef00000000       llilf   %r14,0
+  000003ff80ef3dce: e320b0360004       lg      %r2,54(%r11)
+  000003ff80ef3dd4: e330b03e0004       lg      %r3,62(%r11)
+  000003ff80ef3dda: ec230006a065       clgrj   %r2,%r3,10,3ff80ef3de6 ; jmp
+  000003ff80ef3de0: e3e0b0460004       lg      %r14,70(%r11)
+  000003ff80ef3de6: e3e0b04e0004       lg      %r14,78(%r11)          ; target
+  000003ff80ef3dec: b904002e   lgr     %r2,%r14
+  000003ff80ef3df0: e3b0f0700004       lg      %r11,112(%r15)
+  000003ff80ef3df6: e3e0f0880004       lg      %r14,136(%r15)
+  000003ff80ef3dfc: 07fe               bcr     15,%r14
+
+test_bpf.ko suite runs fine after the fix.
+
+Fixes: 054623105728 ("s390/bpf: Add s390x eBPF JIT compiler backend")
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Tested-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
 ---
- tools/build/feature/test-bpf.c | 2 ++
- tools/lib/bpf/bpf.c            | 2 ++
- 2 files changed, 4 insertions(+)
+ arch/s390/net/bpf_jit_comp.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/tools/build/feature/test-bpf.c b/tools/build/feature/test-bpf.c
-index 7598361..da2172f 100644
---- a/tools/build/feature/test-bpf.c
-+++ b/tools/build/feature/test-bpf.c
-@@ -11,6 +11,8 @@
- #  define __NR_bpf 280
- # elif defined(__sparc__)
- #  define __NR_bpf 349
-+# elif defined(__s390__)
-+#  define __NR_bpf 351
- # else
- #  error __NR_bpf not defined. libbpf does not support your arch.
- # endif
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index 256f571..e5bbb09 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -39,6 +39,8 @@
- #  define __NR_bpf 280
- # elif defined(__sparc__)
- #  define __NR_bpf 349
-+# elif defined(__s390__)
-+#  define __NR_bpf 351
- # else
- #  error __NR_bpf not defined. libbpf does not support your arch.
- # endif
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index 01c6fbc..1803797 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -1253,7 +1253,8 @@ static int bpf_jit_prog(struct bpf_jit *jit, struct bpf_prog *fp)
+ 		insn_count = bpf_jit_insn(jit, fp, i);
+ 		if (insn_count < 0)
+ 			return -1;
+-		jit->addrs[i + 1] = jit->prg; /* Next instruction address */
++		/* Next instruction address */
++		jit->addrs[i + insn_count] = jit->prg;
+ 	}
+ 	bpf_jit_epilogue(jit);
+ 
 -- 
 1.9.3
