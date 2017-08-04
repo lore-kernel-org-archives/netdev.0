@@ -1,45 +1,42 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH 0/3] ARM: dts: keystone-k2g: Add DCAN instances to 66AK2G
-Date: Fri, 4 Aug 2017 10:07:57 -0700
-Message-ID: <69995971-2fe7-87f4-a46a-8ef4f729ffc5@oracle.com>
-References: <20170802201822.11532-1-fcooper@ti.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data
+ ACKed/SACKed
+Date: Fri, 4 Aug 2017 19:10:00 +0200
+Message-ID: <20170804171000.GB5342@1wt.eu>
+References: <20170801025814.31206-1-ncardwell@google.com>
+ <20170801025814.31206-4-ncardwell@google.com>
+ <F95AC9340317A84688A5F0DF0246F3F2029373BA@DGGEMI512-MBX.china.huawei.com>
+ <CADVnQykAKkb7KDhM03HHOHk8Uk7rMfXcyaLsHMLZRVT_g69euA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-To: Franklin S Cooper Jr <fcooper@ti.com>, wg@grandegger.com,
- mkl@pengutronix.de, robh+dt@kernel.org, ssantosh@kernel.org,
- linux@armlinux.org.uk, linux-can@vger.kernel.org,
- netdev@vger.kernel.org, devicetree@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170802201822.11532-1-fcooper@ti.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: maowenan <maowenan@huawei.com>, David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:34869 "EHLO 1wt.eu"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752433AbdHDRKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 4 Aug 2017 13:10:13 -0400
+Content-Disposition: inline
+In-Reply-To: <CADVnQykAKkb7KDhM03HHOHk8Uk7rMfXcyaLsHMLZRVT_g69euA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Franklin,
+Hi Neal,
 
-On 8/2/2017 1:18 PM, Franklin S Cooper Jr wrote:
-> Add D CAN nodes to 66AK2G based SoC dtsi.
-> 
-> Franklin S Cooper Jr (2):
->    dt-bindings: net: c_can: Update binding for clock and power-domains
->      property
->    ARM: configs: keystone: Enable D_CAN driver
-> 
-> Lokesh Vutla (1):
->    ARM: dts: k2g: Add DCAN nodes
-> 
-Any DCAN driver dependency with these patchset ? If not, I can
-queue this up so do let me know.
+On Fri, Aug 04, 2017 at 12:59:51PM -0400, Neal Cardwell wrote:
+> I have attached patches for this fix rebased on to v3.10.107, the
+> latest stable release for 3.10. That's pretty far back in history, so
+> there were substantial conflict resolutions and adjustments required.
+> :-) Hope that helps.
 
-Regards,
-Santosh
+At least it will help me :-)
+
+Do you suggest that I queue them for 3.10.108, that I wait for Maowenan
+to test them more broadly first or anything else ?
+
+I'm fine with any option.
+Thanks!
+Willy
