@@ -1,29 +1,108 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/9] socket sendmsg MSG_ZEROCOPY
-Date: Thu, 03 Aug 2017 21:37:55 -0700 (PDT)
-Message-ID: <20170803.213755.1756176029575132196.davem@davemloft.net>
-References: <20170803202945.70750-1-willemdebruijn.kernel@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 4/6] net: sockmap with sk redirect support
+Date: Thu, 03 Aug 2017 21:49:41 -0700
+Message-ID: <5983FCE5.6020000@gmail.com>
+References: <20170803232443.12107.24752.stgit@john-Precision-Tower-5810> <20170803233756.12107.54982.stgit@john-Precision-Tower-5810> <CALx6S36fmiyFNTif2B6X91wPXWEb1W3pk5=N0JTMD0T9ZoL5fw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-api@vger.kernel.org,
-        willemb@google.com
-To: willemdebruijn.kernel@gmail.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54834 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750899AbdHDEiA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 00:38:00 -0400
-In-Reply-To: <20170803202945.70750-1-willemdebruijn.kernel@gmail.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36179 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750899AbdHDEtx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 00:49:53 -0400
+Received: by mail-pg0-f66.google.com with SMTP id y129so710052pgy.3
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2017 21:49:52 -0700 (PDT)
+In-Reply-To: <CALx6S36fmiyFNTif2B6X91wPXWEb1W3pk5=N0JTMD0T9ZoL5fw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Date: Thu,  3 Aug 2017 16:29:36 -0400
+On 08/03/2017 09:22 PM, Tom Herbert wrote:
+> On Thu, Aug 3, 2017 at 4:37 PM, John Fastabend <john.fastabend@gmail.com> wrote:
+>> Recently we added a new map type called dev map used to forward XDP
+>> packets between ports (6093ec2dc313). This patches introduces a
+>> similar notion for sockets.
+>>
+>> A sockmap allows users to add participating sockets to a map. When
+>> sockets are added to the map enough context is stored with the
+>> map entry to use the entry with a new helper
+>>
+>>   bpf_sk_redirect_map(map, key, flags)
+>>
+>> This helper (analogous to bpf_redirect_map in XDP) is given the map
+>> and an entry in the map. When called from a sockmap program, discussed
+>> below, the skb will be sent on the socket using skb_send_sock().
+>>
+>> With the above we need a bpf program to call the helper from that will
+>> then implement the send logic. The initial site implemented in this
+>> series is the recv_sock hook. For this to work we implemented a map
+>> attach command to add attributes to a map. In sockmap we add two
+>> programs a parse program and a verdict program. The parse program
+>> uses strparser to build messages and pass them to the verdict program.
+>> The parse program usese normal strparser semantics. The verdict
+>> program is of type SOCKET_FILTER.
+>>
+>> The verdict program returns a verdict BPF_OK, BPF_DROP, BPF_REDIRECT.
+>> When BPF_REDIRECT is returned, expected when bpf program uses
+>> bpf_sk_redirect_map(), the sockmap logic will consult per cpu variables
+>> set by the helper routine and pull the sock entry out of the sock map.
+>> This pattern follows the existing redirect logic in cls and xdp
+>> programs.
+>>
+> Hi John,
+> 
+> I'm a bit confused. If the verdict program bpf_mux then? I don't see
+> any use of BPF_OK,DROP, or REDIRECT. I assume I'm missing something.
+> 
+> Tom
 
-> Introduce zerocopy socket send flag MSG_ZEROCOPY. This extends the
-> shared page support (SKBTX_SHARED_FRAG) from sendpage to sendmsg.
-> Implement the feature for TCP initially, as large writes benefit
-> most.
+Ah so what I coded and what I wrote don't align perfectly here. The
+verdict program _is_ bpf_mux as you guessed. I should rename the code
+to use bpf_verdict (or come up with a better name). Calling it bpf_mux
+was a hold out from a very specific example program I wrote up.
 
-Looks great, series applied, thanks!
+Then BPF_OK_DROP and BPF_REDIRECT still need to be included in below.
+
+[...]
+
+>> +
+>> +static struct smap_psock *smap_peers_get(struct smap_psock *psock,
+>> +                                            struct sk_buff *skb)
+>> +{
+>> +       struct sock *sock;
+>> +       int rc;
+>> +
+>> +       rc = smap_mux_func(psock, skb);
+>> +       if (unlikely(rc < 0))
+>> +               return NULL;
+>> +
+
+replacing the above 3 lines with the following should align the commit
+message and code,
+
+	   rc = smap_mux_func(psock, skb);
+	   if (rc != BPF_REDIRECT)
+		return NULL;
+
+>> +       sock = do_sk_redirect_map();
+>> +       if (unlikely(!sock))
+>> +               return NULL;
+>> +
+>> +       return smap_psock_sk(sock);
+>> +}
+>> +
+
+And then in uapi/bpf.h
+
+enum {
+	BPF_OK_DROP,
+	BPF_REDIRECT,
+}
+
+Thanks,
+John
