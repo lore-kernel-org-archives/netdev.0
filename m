@@ -1,65 +1,222 @@
 From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net-next v4 0/2] bpf: add support for sys_{enter|exit}_* tracepoints
-Date: Fri, 4 Aug 2017 16:00:08 -0700
-Message-ID: <20170804230010.2792119-1-yhs@fb.com>
+Subject: [PATCH net-next v4 2/2] bpf: add a test case for syscalls/sys_{enter|exit}_* tracepoints
+Date: Fri, 4 Aug 2017 16:00:10 -0700
+Message-ID: <20170804230010.2792119-3-yhs@fb.com>
+References: <20170804230010.2792119-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
         <daniel@iogearbox.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:48390 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752038AbdHDXAM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 19:00:12 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v74Mx8l3032283
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60002 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752081AbdHDXAN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 19:00:13 -0400
+Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v74Mvd4Q018767
         for <netdev@vger.kernel.org>; Fri, 4 Aug 2017 16:00:12 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2c5011gemc-2
+        by mx0a-00082601.pphosted.com with ESMTP id 2c4yh1ghe1-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 16:00:12 -0700
 Received: from facebook.com (2401:db00:11:d0af:face:0:2d:0)     by
  mx-out.facebook.com (10.212.232.59) with ESMTP id
- aafdd30e796811e79ae60002c991e86a-98cad150 for <netdev@vger.kernel.org>;        Fri,
+ aae28f36796811e78eec0002c991e86a-99caf150 for <netdev@vger.kernel.org>;        Fri,
  04 Aug 2017 16:00:11 -0700
+In-Reply-To: <20170804230010.2792119-1-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, bpf programs cannot be attached to sys_enter_* and sys_exit_*
-style tracepoints. The main reason is that syscalls/sys_enter_* and syscalls/sys_exit_*
-tracepoints are treated differently from other tracepoints and there
-is no bpf hook to it.
-
-This patch set adds bpf support for these syscalls tracepoints and also
-adds a test case for it.
-
-Changelogs:
-v3 -> v4:
- - Check the legality of ctx offset access for syscall tracepoint as well.
-   trace_event_get_offsets will return correct max offset for each
-   specific syscall tracepoint.
- - Use variable length array to avoid hardcode 6 as the maximum
-   arguments beyond syscall_nr.
-v2 -> v3:
- - Fix a build issue
-v1 -> v2:
- - Do not use TRACE_EVENT_FL_CAP_ANY to identify syscall tracepoint.
-   Instead use trace_event_call->class.
-
-Yonghong Song (2):
-  bpf: add support for sys_enter_* and sys_exit_* tracepoints
-  bpf: add a test case for syscalls/sys_{enter|exit}_* tracepoints
-
- include/linux/syscalls.h      | 12 ++++++++
- kernel/events/core.c          | 10 +++---
- kernel/trace/trace_syscalls.c | 53 ++++++++++++++++++++++++++++++--
+Signed-off-by: Yonghong Song <yhs@fb.com>
+---
  samples/bpf/Makefile          |  4 +++
  samples/bpf/syscall_tp_kern.c | 62 +++++++++++++++++++++++++++++++++++++
  samples/bpf/syscall_tp_user.c | 71 +++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 206 insertions(+), 6 deletions(-)
+ 3 files changed, 137 insertions(+)
  create mode 100644 samples/bpf/syscall_tp_kern.c
  create mode 100644 samples/bpf/syscall_tp_user.c
 
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 770d46c..f1010fe 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -39,6 +39,7 @@ hostprogs-y += per_socket_stats_example
+ hostprogs-y += load_sock_ops
+ hostprogs-y += xdp_redirect
+ hostprogs-y += xdp_redirect_map
++hostprogs-y += syscall_tp
+ 
+ # Libbpf dependencies
+ LIBBPF := ../../tools/lib/bpf/bpf.o
+@@ -82,6 +83,7 @@ test_map_in_map-objs := bpf_load.o $(LIBBPF) test_map_in_map_user.o
+ per_socket_stats_example-objs := $(LIBBPF) cookie_uid_helper_example.o
+ xdp_redirect-objs := bpf_load.o $(LIBBPF) xdp_redirect_user.o
+ xdp_redirect_map-objs := bpf_load.o $(LIBBPF) xdp_redirect_map_user.o
++syscall_tp-objs := bpf_load.o $(LIBBPF) syscall_tp_user.o
+ 
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -125,6 +127,7 @@ always += tcp_iw_kern.o
+ always += tcp_clamp_kern.o
+ always += xdp_redirect_kern.o
+ always += xdp_redirect_map_kern.o
++always += syscall_tp_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ HOSTCFLAGS += -I$(srctree)/tools/lib/
+@@ -163,6 +166,7 @@ HOSTLOADLIBES_xdp_tx_iptunnel += -lelf
+ HOSTLOADLIBES_test_map_in_map += -lelf
+ HOSTLOADLIBES_xdp_redirect += -lelf
+ HOSTLOADLIBES_xdp_redirect_map += -lelf
++HOSTLOADLIBES_syscall_tp += -lelf
+ 
+ # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
+ #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
+diff --git a/samples/bpf/syscall_tp_kern.c b/samples/bpf/syscall_tp_kern.c
+new file mode 100644
+index 0000000..9149c52
+--- /dev/null
++++ b/samples/bpf/syscall_tp_kern.c
+@@ -0,0 +1,62 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
++
++struct syscalls_enter_open_args {
++	unsigned long long unused;
++	long syscall_nr;
++	long filename_ptr;
++	long flags;
++	long mode;
++};
++
++struct syscalls_exit_open_args {
++	unsigned long long unused;
++	long syscall_nr;
++	long ret;
++};
++
++struct bpf_map_def SEC("maps") enter_open_map = {
++	.type = BPF_MAP_TYPE_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(u32),
++	.max_entries = 1,
++};
++
++struct bpf_map_def SEC("maps") exit_open_map = {
++	.type = BPF_MAP_TYPE_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(u32),
++	.max_entries = 1,
++};
++
++static __always_inline void count(void *map)
++{
++	u32 key = 0;
++	u32 *value, init_val = 1;
++
++	value = bpf_map_lookup_elem(map, &key);
++	if (value)
++		*value += 1;
++	else
++		bpf_map_update_elem(map, &key, &init_val, BPF_NOEXIST);
++}
++
++SEC("tracepoint/syscalls/sys_enter_open")
++int trace_enter_open(struct syscalls_enter_open_args *ctx)
++{
++	count((void *)&enter_open_map);
++	return 0;
++}
++
++SEC("tracepoint/syscalls/sys_exit_open")
++int trace_enter_exit(struct syscalls_exit_open_args *ctx)
++{
++	count((void *)&exit_open_map);
++	return 0;
++}
+diff --git a/samples/bpf/syscall_tp_user.c b/samples/bpf/syscall_tp_user.c
+new file mode 100644
+index 0000000..a3cb91e
+--- /dev/null
++++ b/samples/bpf/syscall_tp_user.c
+@@ -0,0 +1,71 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <stdio.h>
++#include <unistd.h>
++#include <fcntl.h>
++#include <stdlib.h>
++#include <signal.h>
++#include <linux/bpf.h>
++#include <string.h>
++#include <linux/perf_event.h>
++#include <errno.h>
++#include <assert.h>
++#include <stdbool.h>
++#include <sys/resource.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++
++/* This program verifies bpf attachment to tracepoint sys_enter_* and sys_exit_*.
++ * This requires kernel CONFIG_FTRACE_SYSCALLS to be set.
++ */
++
++static void verify_map(int map_id)
++{
++	__u32 key = 0;
++	__u32 val;
++
++	if (bpf_map_lookup_elem(map_id, &key, &val) != 0) {
++		fprintf(stderr, "map_lookup failed: %s\n", strerror(errno));
++		return;
++	}
++	if (val == 0)
++		fprintf(stderr, "failed: map #%d returns value 0\n", map_id);
++}
++
++int main(int argc, char **argv)
++{
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
++	char filename[256];
++	int fd;
++
++	setrlimit(RLIMIT_MEMLOCK, &r);
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	if (load_bpf_file(filename)) {
++		fprintf(stderr, "%s", bpf_log_buf);
++		return 1;
++	}
++
++	/* current load_bpf_file has perf_event_open default pid = -1
++	 * and cpu = 0, which permits attached bpf execution on
++	 * all cpus for all pid's. bpf program execution ignores
++	 * cpu affinity.
++	 */
++	/* trigger some "open" operations */
++	fd = open(filename, O_RDONLY);
++	if (fd < 0) {
++		fprintf(stderr, "open failed: %s\n", strerror(errno));
++		return 1;
++	}
++	close(fd);
++
++	/* verify the map */
++	verify_map(map_fd[0]);
++	verify_map(map_fd[1]);
++
++	return 0;
++}
 -- 
 2.9.4
