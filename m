@@ -1,51 +1,56 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: phy: marvell: logical vs bitwise OR typo
-Date: Fri, 4 Aug 2017 14:54:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD004B432@AcuExch.aculab.com>
-References: <20170804081720.2g6yuthplhc4rv6b@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: 'Dan Carpenter' <dan.carpenter@oracle.com>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.195]:57538 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752247AbdHDOyv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 10:54:51 -0400
-In-Reply-To: <20170804081720.2g6yuthplhc4rv6b@mwanda>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH 0/6] In-kernel QMI handling
+Date: Fri,  4 Aug 2017 07:59:32 -0700
+Message-ID: <20170804145938.25427-1-bjorn.andersson@linaro.org>
+Cc: linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Andy Gross <andy.gross@linaro.org>,
+        David Brown <david.brown@linaro.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter
-> Sent: 04 August 2017 09:17
-> This was supposed to be a bitwise OR but there is a || vs | typo.
-> 
-> Fixes: 864dc729d528 ("net: phy: marvell: Refactor m88e1121 RGMII delay configuration")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index 361fe9927ef2..15cbcdba618a 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -83,7 +83,7 @@
->  #define MII_88E1121_PHY_MSCR_REG	21
->  #define MII_88E1121_PHY_MSCR_RX_DELAY	BIT(5)
->  #define MII_88E1121_PHY_MSCR_TX_DELAY	BIT(4)
-> -#define MII_88E1121_PHY_MSCR_DELAY_MASK	(~(BIT(5) || BIT(4)))
-> +#define MII_88E1121_PHY_MSCR_DELAY_MASK	(~(BIT(5) | BIT(4)))
+This series starts by moving the common definitions of the QMUX protocol to the
+uapi header, as they are shared with clients - both in kernel and userspace.
 
-Wouldn't:
-+#define MII_88E1121_PHY_MSCR_DELAY_MASK	(~(MII_88E1121_PHY_MSCR_RX_DELAY | MII_88E1121_PHY_MSCR_TX_DELAY))
-be more correct?
-If a little long?
-Actually the ~ looks odd here....
-Reads code....
-Kill the define and explicitly mask off the two values just before
-conditionally setting them.
+This series then introduces in-kernel helper functions for aiding the handling
+of QMI encoded messages in the kernel. QMI encoding is a wire-format used in
+exchanging messages between the majority of QRTR clients and services.
 
-	David
+It then adds an abstractions to reduce the duplication of common code in
+drivers that needs to query the name server and send and receive encoded
+messages to a remote service.
+
+Finally it introduces a sample implementation for showing QRTR and the QMI
+helpers in action. The sample device instantiates in response to finding the
+"test service" and implements the "test protocol".
+
+Bjorn Andersson (6):
+  net: qrtr: Invoke sk_error_report() after setting sk_err
+  net: qrtr: Move constants to header file
+  net: qrtr: Add control packet definition to uapi
+  soc: qcom: Introduce QMI encoder/decoder
+  soc: qcom: Introduce QMI helpers
+  samples: Introduce Qualcomm QRTR sample client
+
+ drivers/soc/qcom/Kconfig          |   8 +
+ drivers/soc/qcom/Makefile         |   3 +
+ drivers/soc/qcom/qmi_encdec.c     | 812 ++++++++++++++++++++++++++++++++++++++
+ drivers/soc/qcom/qmi_interface.c  | 540 +++++++++++++++++++++++++
+ include/linux/soc/qcom/qmi.h      | 249 ++++++++++++
+ include/uapi/linux/qrtr.h         |  35 ++
+ net/qrtr/qrtr.c                   |  16 +-
+ samples/Kconfig                   |   8 +
+ samples/Makefile                  |   2 +-
+ samples/qrtr/Makefile             |   1 +
+ samples/qrtr/qrtr_sample_client.c | 603 ++++++++++++++++++++++++++++
+ 11 files changed, 2261 insertions(+), 16 deletions(-)
+ create mode 100644 drivers/soc/qcom/qmi_encdec.c
+ create mode 100644 drivers/soc/qcom/qmi_interface.c
+ create mode 100644 include/linux/soc/qcom/qmi.h
+ create mode 100644 samples/qrtr/Makefile
+ create mode 100644 samples/qrtr/qrtr_sample_client.c
+
+-- 
+2.12.0
