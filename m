@@ -1,52 +1,30 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH iproute2] netns: make /var/run/netns bind-mount recursive
-Date: Fri, 04 Aug 2017 08:41:28 -0500
-Message-ID: <878tizjvqv.fsf@xmission.com>
-References: <20170801154609.29895-1-casey.callendrello@coreos.com>
-        <20170803160421.58eb0a4a@xeon-e3>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net 1/2] bpf, s390: fix jit branch offset related to ldimm64
+Date: Fri, 04 Aug 2017 15:52:47 +0200
+Message-ID: <59847C2F.6010306@iogearbox.net>
+References: <cover.1501848914.git.daniel@iogearbox.net> <a63b808ceaa481dfae896bcf611fc489fdc59080.1501848914.git.daniel@iogearbox.net> <20170804154420.6faae20a@TP-holzheu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Casey Callendrello <casey.callendrello@coreos.com>,
-        netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ast@fb.com, netdev@vger.kernel.org
+To: Michael Holzheu <holzheu@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:33159 "EHLO
-        out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752976AbdHDNts (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 09:49:48 -0400
-In-Reply-To: <20170803160421.58eb0a4a@xeon-e3> (Stephen Hemminger's message of
-        "Thu, 3 Aug 2017 16:04:21 -0700")
+Received: from www62.your-server.de ([213.133.104.62]:42341 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752506AbdHDNwx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 09:52:53 -0400
+In-Reply-To: <20170804154420.6faae20a@TP-holzheu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
-
-> On Tue,  1 Aug 2017 17:46:09 +0200
-> Casey Callendrello <casey.callendrello@coreos.com> wrote:
+On 08/04/2017 03:44 PM, Michael Holzheu wrote:
+> Am Fri,  4 Aug 2017 14:20:54 +0200
+> schrieb Daniel Borkmann <daniel@iogearbox.net>:
+[...]
 >
->> When ip netns {add|delete} is first run, it bind-mounts /var/run/netns
->> on top of itself, then marks it as shared. However, if there are already
->> bind-mounts in the directory from other tools, these would not be
->> propagated. Fix this by recursively bind-mounting.
->> 
->> Signed-off-by: Casey Callendrello <casey.callendrello@coreos.com>
->> ---
->>  ip/ipnetns.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->> 
->
-> Looks good, but I want a review by Eric to make sure this doesn't
-> break other things.
+> What about "Cc: stable@vger.kernel.org"?
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Handled by Dave, see also: Documentation/networking/netdev-FAQ.txt +117
 
-I don't see any possible problems with this.  This will just keep all of
-the mounts showing up.
-
-It would be really nice if we could at some point detect that a parent
-directory is shared (which happens with a common init system) and skip
-the steps of the bind mount and making them shared as they are
-redundant.  However while that might also solve this issue that is
-something for another day.
-
-Eric
+Cheers,
+Daniel
