@@ -1,212 +1,76 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH] net: devmap fix mutex in rcu critical section
-Date: Fri, 04 Aug 2017 14:21:32 -0700
-Message-ID: <20170804212132.7678.11425.stgit@john-Precision-Tower-5810>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] of_mdio: use of_property_read_u32_array()
+Date: Sat, 05 Aug 2017 00:43:43 +0300
+Message-ID: <20170804214354.351406407@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
-To: davem@davemloft.net, daniel@iogearbox.net,
-        alexander.levin@verizon.com
+Content-Type: text/plain; charset=ISO-8859-15
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34978 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751268AbdHDVVv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 17:21:51 -0400
-Received: by mail-pg0-f67.google.com with SMTP id l64so2796343pge.2
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 14:21:51 -0700 (PDT)
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:38880 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751271AbdHDVoD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 17:44:03 -0400
+Received: by mail-lf0-f43.google.com with SMTP id y15so11812505lfd.5
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 14:44:02 -0700 (PDT)
+Content-Disposition: inline; filename=of_mdio-use-of_property_read_u32_array.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Originally we used a mutex to protect concurrent devmap update
-and delete operations from racing with netdev unregister notifier
-callbacks.
+The "fixed-link" prop support predated of_property_read_u32_array(), so
+basically had to open-code it. Using the modern API saves 24 bytes of the
+object code (ARM gcc 4.8.5); the only behavior change would be that the
+prop length check is now less strict (however the strict pre-check done
+in of_phy_is_fixed_link() is left intact anyway)...
 
-The notifier hook is needed because we increment the netdev ref
-count when a dev is added to the devmap. This ensures the netdev
-reference is valid in the datapath. However, we don't want to block
-unregister events, hence the initial mutex and notifier handler.
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-The concern was in the notifier hook we search the map for dev
-entries that hold a refcnt on the net device being torn down. But,
-in order to do this we require two steps,
-
-  (i) dereference the netdev:  dev = rcu_dereference(map[i])
- (ii) test ifindex:   dev->ifindex == removing_ifindex
-
-and then finally we can swap in the NULL dev in the map via an
-xchg operation,
-
-  xchg(map[i], NULL)
-
-The danger here is a concurrent update could run a different
-xchg op concurrently leading us to replace the new dev with a
-NULL dev incorrectly.
-
-      CPU 1                        CPU 2
-
-   notifier hook                   bpf devmap update
-
-   dev = rcu_dereference(map[i])
-                                   dev = rcu_dereference(map[i])
-                                   xchg(map[i]), new_dev);
-                                   rcu_call(dev,...)
-   xchg(map[i], NULL)
-
-The above flow would create the incorrect state with the dev
-reference in the update path being lost. To resolve this the
-original code used a mutex around the above block. However,
-updates, deletes, and lookups occur inside rcu critical sections
-so we can't use a mutex in this context safely.
-
-Fortunately, by writing slightly better code we can avoid the
-mutex altogether. If CPU 1 in the above example uses a cmpxchg
-and _only_ replaces the dev reference in the map when it is in
-fact the expected dev the race is removed completely. The two
-cases being illustrated here, first the racy condition,
-
-      CPU 1                          CPU 2
-
-   notifier hook                     bpf devmap update
-
-   dev = rcu_dereference(map[i])
-                                     dev = rcu_dereference(map[i])
-                                     xchg(map[i]), new_dev);
-                                     rcu_call(dev,...)
-   odev = cmpxchg(map[i], dev, NULL)
-
-Now we can test the cmpxchg return value, detect odev != dev and
-abort. Or in the good case,
-
-      CPU 1                          CPU 2
-
-   notifier hook                     bpf devmap update
-   dev = rcu_dereference(map[i])
-   odev = cmpxchg(map[i], dev, NULL)
-                                     [...]
-
-Now 'odev == dev' and we can do proper cleanup.
-
-And viola the original race we tried to solve with a mutex is
-corrected and the trace noted by Sasha below is resolved due
-to removal of the mutex.
-
-BUG: sleeping function called from invalid context at kernel/locking/mutex.c:747
-in_atomic(): 1, irqs_disabled(): 0, pid: 16315, name: syz-executor1
-1 lock held by syz-executor1/16315:
- #0:  (rcu_read_lock){......}, at: [<ffffffff8c363bc2>] map_delete_elem kernel/bpf/syscall.c:577 [inline]
- #0:  (rcu_read_lock){......}, at: [<ffffffff8c363bc2>] SYSC_bpf kernel/bpf/syscall.c:1427 [inline]
- #0:  (rcu_read_lock){......}, at: [<ffffffff8c363bc2>] SyS_bpf+0x1d32/0x4ba0 kernel/bpf/syscall.c:1388
-
-Fixes: 2ddf71e23cc2 ("net: add notifier hooks for devmap bpf map")
-Reported-by: Sasha Levin <alexander.levin@verizon.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: John Fastabend <john.fastabend@gmail.com>
 ---
- kernel/bpf/devmap.c |   27 +++++++--------------------
- 1 file changed, 7 insertions(+), 20 deletions(-)
+The patch is against the 'dt/next' branch of Rob Herring's 'linux-git' repo
+plus the previously posted patch killing the useless local variable in
+of_phy_register_fixed_link().
 
-diff --git a/kernel/bpf/devmap.c b/kernel/bpf/devmap.c
-index d439ee0..087f7230 100644
---- a/kernel/bpf/devmap.c
-+++ b/kernel/bpf/devmap.c
-@@ -40,11 +40,9 @@
-  * contain a reference to the net device and remove them. This is a two step
-  * process (a) dereference the bpf_dtab_netdev object in netdev_map and (b)
-  * check to see if the ifindex is the same as the net_device being removed.
-- * Unfortunately, the xchg() operations do not protect against this. To avoid
-- * potentially removing incorrect objects the dev_map_list_mutex protects
-- * conflicting netdev unregister and BPF syscall operations. Updates and
-- * deletes from a BPF program (done in rcu critical section) are blocked
-- * because of this mutex.
-+ * When removing the dev a cmpxchg() is used to ensure the correct dev is
-+ * removed, in the case of a concurrent update or delete operation it is
-+ * possible that the initially referenced dev is no longer in the map.
-  */
- #include <linux/bpf.h>
- #include <linux/jhash.h>
-@@ -68,7 +66,6 @@ struct bpf_dtab {
- 	struct list_head list;
- };
+ drivers/of/of_mdio.c |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+Index: linux/drivers/of/of_mdio.c
+===================================================================
+--- linux.orig/drivers/of/of_mdio.c
++++ linux/drivers/of/of_mdio.c
+@@ -421,10 +421,10 @@ int of_phy_register_fixed_link(struct de
+ {
+ 	struct fixed_phy_status status = {};
+ 	struct device_node *fixed_link_node;
+-	const __be32 *fixed_link_prop;
++	u32 fixed_link_prop[5];
+ 	struct phy_device *phy;
+ 	const char *managed;
+-	int link_gpio, len;
++	int link_gpio;
  
--static DEFINE_MUTEX(dev_map_list_mutex);
- static LIST_HEAD(dev_map_list);
+ 	if (of_property_read_string(np, "managed", &managed) == 0) {
+ 		if (strcmp(managed, "in-band-status") == 0) {
+@@ -459,13 +459,13 @@ int of_phy_register_fixed_link(struct de
+ 	}
  
- static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
-@@ -128,9 +125,7 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
- 	if (!dtab->netdev_map)
- 		goto free_dtab;
- 
--	mutex_lock(&dev_map_list_mutex);
- 	list_add_tail(&dtab->list, &dev_map_list);
--	mutex_unlock(&dev_map_list_mutex);
- 	return &dtab->map;
- 
- free_dtab:
-@@ -169,7 +164,6 @@ static void dev_map_free(struct bpf_map *map)
- 	 * at this point we we can still race with netdev notifier, hence the
- 	 * lock.
- 	 */
--	mutex_lock(&dev_map_list_mutex);
- 	for (i = 0; i < dtab->map.max_entries; i++) {
- 		struct bpf_dtab_netdev *dev;
- 
-@@ -185,7 +179,6 @@ static void dev_map_free(struct bpf_map *map)
- 	 * _must_ be complete
- 	 */
- 	list_del(&dtab->list);
--	mutex_unlock(&dev_map_list_mutex);
- 	free_percpu(dtab->flush_needed);
- 	bpf_map_area_free(dtab->netdev_map);
- 	kfree(dtab);
-@@ -322,11 +315,9 @@ static int dev_map_delete_elem(struct bpf_map *map, void *key)
- 	 * the driver tear down ensures all soft irqs are complete before
- 	 * removing the net device in the case of dev_put equals zero.
- 	 */
--	mutex_lock(&dev_map_list_mutex);
- 	old_dev = xchg(&dtab->netdev_map[k], NULL);
- 	if (old_dev)
- 		call_rcu(&old_dev->rcu, __dev_map_entry_free);
--	mutex_unlock(&dev_map_list_mutex);
- 	return 0;
- }
- 
-@@ -369,11 +360,9 @@ static int dev_map_update_elem(struct bpf_map *map, void *key, void *value,
- 	 * Remembering the driver side flush operation will happen before the
- 	 * net device is removed.
- 	 */
--	mutex_lock(&dev_map_list_mutex);
- 	old_dev = xchg(&dtab->netdev_map[i], dev);
- 	if (old_dev)
- 		call_rcu(&old_dev->rcu, __dev_map_entry_free);
--	mutex_unlock(&dev_map_list_mutex);
- 
- 	return 0;
- }
-@@ -396,22 +385,20 @@ static int dev_map_notification(struct notifier_block *notifier,
- 
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
--		mutex_lock(&dev_map_list_mutex);
- 		list_for_each_entry(dtab, &dev_map_list, list) {
- 			for (i = 0; i < dtab->map.max_entries; i++) {
--				struct bpf_dtab_netdev *dev;
-+				struct bpf_dtab_netdev *dev, *odev;
- 
--				dev = dtab->netdev_map[i];
-+				dev = READ_ONCE(dtab->netdev_map[i]);
- 				if (!dev ||
- 				    dev->dev->ifindex != netdev->ifindex)
- 					continue;
--				dev = xchg(&dtab->netdev_map[i], NULL);
--				if (dev)
-+				odev = cmpxchg(&dtab->netdev_map[i], dev, NULL);
-+				if (dev == odev)
- 					call_rcu(&dev->rcu,
- 						 __dev_map_entry_free);
- 			}
- 		}
--		mutex_unlock(&dev_map_list_mutex);
- 		break;
- 	default:
- 		break;
+ 	/* Old binding */
+-	fixed_link_prop = of_get_property(np, "fixed-link", &len);
+-	if (fixed_link_prop && len == (5 * sizeof(__be32))) {
++	if (of_property_read_u32_array(np, "fixed-link", fixed_link_prop,
++				       ARRAY_SIZE(fixed_link_prop)) == 0) {
+ 		status.link = 1;
+-		status.duplex = be32_to_cpu(fixed_link_prop[1]);
+-		status.speed = be32_to_cpu(fixed_link_prop[2]);
+-		status.pause = be32_to_cpu(fixed_link_prop[3]);
+-		status.asym_pause = be32_to_cpu(fixed_link_prop[4]);
++		status.duplex = fixed_link_prop[1];
++		status.speed  = fixed_link_prop[2];
++		status.pause  = fixed_link_prop[3];
++		status.asym_pause = fixed_link_prop[4];
+ 		phy = fixed_phy_register(PHY_POLL, &status, -1, np);
+ 		return PTR_ERR_OR_ZERO(phy);
+ 	}
