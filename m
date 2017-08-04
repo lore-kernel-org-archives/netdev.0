@@ -1,72 +1,55 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: User per-cpu 64-bit statistics
-Date: Fri, 4 Aug 2017 08:51:54 -0700
-Message-ID: <455c39d3-302e-68ab-3812-112c48ed48c2@gmail.com>
-References: <20170804043328.4730-1-f.fainelli@gmail.com>
- <1501824968.25002.35.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data ACKed/SACKed
+Date: Fri, 4 Aug 2017 11:54:32 -0400
+Message-ID: <CADVnQykoadLALP4iOzm16F=XQW41q8m_GnzKsGOgrkg6jso15g@mail.gmail.com>
+References: <20170801025814.31206-1-ncardwell@google.com> <20170801025814.31206-4-ncardwell@google.com>
+ <F95AC9340317A84688A5F0DF0246F3F20293523A@DGGEMI512-MBX.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, davem@davemlot.net,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        open list <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1501824968.25002.35.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>
+To: maowenan <maowenan@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:37440 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752132AbdHDPzE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 11:55:04 -0400
+Received: by mail-qk0-f171.google.com with SMTP id z18so11215964qka.4
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 08:55:04 -0700 (PDT)
+In-Reply-To: <F95AC9340317A84688A5F0DF0246F3F20293523A@DGGEMI512-MBX.china.huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2017 10:36 PM, Eric Dumazet wrote:
-> On Thu, 2017-08-03 at 21:33 -0700, Florian Fainelli wrote:
->> During testing with a background iperf pushing 1Gbit/sec worth of
->> traffic and having both ifconfig and ethtool collect statistics, we
->> could see quite frequent deadlocks. Convert the often accessed DSA slave
->> network devices statistics to per-cpu 64-bit statistics to remove these
->> deadlocks and provide fast efficient statistics updates.
->>
-> 
-> This seems to be a bug fix, it would be nice to get a proper tag like :
-> 
-> Fixes: f613ed665bb3 ("net: dsa: Add support for 64-bit statistics")
+On Fri, Aug 4, 2017 at 3:12 AM, maowenan <maowenan@huawei.com> wrote:
+> > > --- a/net/ipv4/tcp_output.c
+> > > +++ b/net/ipv4/tcp_output.c
+> > > @@ -2380,21 +2380,12 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+> > >     u32 rtt = usecs_to_jiffies(tp->srtt_us >> 3);
+> > >     u32 timeout, rto_delta_us;
+> > >
+> > > -   /* No consecutive loss probes. */
+> > > -   if (WARN_ON(icsk->icsk_pending == ICSK_TIME_LOSS_PROBE)) {
+> > > -           tcp_rearm_rto(sk);
+> > > -           return false;
+> > > -   }
+> [Mao Wenan] I'm sorry I can't get why you delete this and below "if" branch?
 
-Right, should have been added, thanks!
+We deleted those two "if" branches in tcp_schedule_loss_probe()
+because they were assuming that TLP probes would only be scheduled in
+a context where an RTO had already been scheduled. With the old
+implementation that was true: on every ACK (tcp_ack()) or send of new
+data (tcp_event_new_data_sent()) we would first schedule an RTO (by
+calling tcp_rearm_rto()) and then schedule a TLP (by calling
+tcp_schedule_loss_probe()). So the checks were the right ones for the
+old implementation.
 
-> 
-> Problem here is that if multiple cpus can call dsa_switch_rcv() at the
-> same time, then u64_stats_update_begin() contract is not respected.
+With the new implementation, we do not first rearm the RTO on every
+incoming ACK. That means when we get to tcp_schedule_loss_probe() we
+may find either an RTO or TLP is pending.
 
-This is really where I struggled understanding what is wrong in the
-non-per CPU version, my understanding is that we have:
+Hope that helps clear that up.
 
-- writers for xmit executes in process context
-- writers for receive executes from NAPI (from the DSA's master network
-device through it's own NAPI doing netif_receive_skb -> netdev_uses_dsa
--> netif_receive_skb)
-
-readers should all execute in process context. The test scenario that
-led to a deadlock involved running iperf in the background, having a
-while loop with both ifconfig and ethtool reading stats, and somehow
-when iperf exited, either reader would just be locked. So I guess this
-leaves us with the two writers not being mutually excluded then, right?
-
-> 
-> include/linux/u64_stats_sync.h states :
-> 
->  * Usage :
->  *
->  * Stats producer (writer) should use following template granted it already got
->  * an exclusive access to counters (a lock is already taken, or per cpu
->  * data is used [in a non preemptable context])
->  *
->  *   spin_lock_bh(...) or other synchronization to get exclusive access
->  *   ...
->  *   u64_stats_update_begin(&stats->syncp);
-> 
-> 
-> 
-
--- 
-Florian
+cheers,
+neal
