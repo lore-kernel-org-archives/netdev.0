@@ -1,103 +1,110 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next 00/10] net: l3mdev: Support for sockets bound to
- enslaved device
-Date: Fri, 4 Aug 2017 14:17:27 -0600
-Message-ID: <27f911f6-465a-7963-c4d1-4e81286bad39@gmail.com>
-References: <1501557206-27503-1-git-send-email-dsahern@gmail.com>
- <20170801.174159.2041906157460737035.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH v2 net-next 7/7] net: ipv6: add second dif to raw socket lookups
+Date: Fri,  4 Aug 2017 13:17:03 -0700
+Message-ID: <1501877823-31365-8-git-send-email-dsahern@gmail.com>
+References: <1501877823-31365-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:34461 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752170AbdHDUR3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 16:17:29 -0400
-Received: by mail-pg0-f43.google.com with SMTP id u185so11903248pgb.1
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 13:17:28 -0700 (PDT)
-In-Reply-To: <20170801.174159.2041906157460737035.davem@davemloft.net>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:32869 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752006AbdHDURQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 16:17:16 -0400
+Received: by mail-pg0-f66.google.com with SMTP id u185so2710546pgb.0
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 13:17:16 -0700 (PDT)
+In-Reply-To: <1501877823-31365-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/1/17 6:41 PM, David Miller wrote:
-> From: David Ahern <dsahern@gmail.com>
-> Date: Mon, 31 Jul 2017 20:13:16 -0700
-> 
->> Existing code for socket lookups already pass in 6+ arguments. Rather
->> than add another for the enslaved device index, the existing lookups
->> are converted to use a new sk_lookup struct. From there, the enslaved
->> device index becomes another element of the struct.
-> 
-> Sorry, not gonna happen :-)
-> 
-> I know it's difficult, but maybe we should think about why we're
-> passing so much crap into each lookup.\
+Add a second device index, sdif, to raw socket lookups. sdif is the
+index for ingress devices enslaved to an l3mdev. It allows the lookups
+to consider the enslaved device as well as the L3 domain when searching
+for a socket.
 
-The 'crap' is essential data to find a socket -- the hash table (common
-lookup functions for multiple backends), destination address, dest port,
-source address, source port and device index make 6 parameters to be
-matched. The socket data is what I consolidated into 1 struct.
-Ultimately that data has to make its way from high level wrappers to
-compute_score and INET{6}_MATCH at the very bottom.
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ include/net/rawv6.h |  2 +-
+ net/ipv4/raw_diag.c |  2 +-
+ net/ipv6/raw.c      | 13 ++++++++-----
+ 3 files changed, 10 insertions(+), 7 deletions(-)
 
-> 
-> And perhaps, why it can't (for example) be constituted in the lookup
-> function itself given sufficient (relevant) context.
-
-There are several contexts for lookups -- ingress packets (ipv4 and v6,
-tcp, udp, updlite, dccp), error paths for those protocols, netfilter and
-socket diagnostic API. The 5 socket parameters do not have a consistent
-storage across those contexts.
-
-Further there are several layers of wrappers to what are the real lookup
-functions, each wrapper abstracting some piece of data. The call
-heirarchy for inet lookups for example:
-
-tcp_v4_early_demux
-    __inet_lookup_established
-
-tcp_v4_rcv / dccp_v4_rcv
-    __inet_lookup_skb
-        __inet_lookup
-            __inet_lookup_listener
-            __inet_lookup_established
-
-tcp_v4_rcv - TCP_TW_SYN
-    inet_lookup_listener
-        __inet_lookup_listener
-
-nf_tproxy_get_sock_v4
-    inet_lookup_listener
-        __inet_lookup_listener
-
-    inet_lookup_established
-        __inet_lookup_established
-
-
-inet_diag_find_one_icsk / nf_socket_get_sock_v4
-    inet_lookup
-        __inet_lookup
-            __inet_lookup_listener
-            __inet_lookup_established
-
-tcp_v4_send_reset - MD5 path
-    __inet_lookup_listener
-
-
-tcp_v4_err / dccp_v4_err
-    __inet_lookup_established
-
-
-> 
-> I think passing a big struct into the lookups, by reference, is a big
-> step backwards.
-> 
-> For one thing, if you pass it by pointer then the compiler can't
-> potentially pass parts in registers even if it could.  However
-> if you pass it by value, that's actually a possibility.
-> 
-> But I'd like to avoid this on-stack blob altogether if possible.
-
-Just sent a v2 that just adds sdif to the existing functions.
+diff --git a/include/net/rawv6.h b/include/net/rawv6.h
+index cbe4e9de1894..4addc5c988e0 100644
+--- a/include/net/rawv6.h
++++ b/include/net/rawv6.h
+@@ -6,7 +6,7 @@
+ extern struct raw_hashinfo raw_v6_hashinfo;
+ struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
+ 			     unsigned short num, const struct in6_addr *loc_addr,
+-			     const struct in6_addr *rmt_addr, int dif);
++			     const struct in6_addr *rmt_addr, int dif, int sdif);
+ 
+ int raw_abort(struct sock *sk, int err);
+ 
+diff --git a/net/ipv4/raw_diag.c b/net/ipv4/raw_diag.c
+index c600d3c71d4d..c200065ef9a5 100644
+--- a/net/ipv4/raw_diag.c
++++ b/net/ipv4/raw_diag.c
+@@ -52,7 +52,7 @@ static struct sock *raw_lookup(struct net *net, struct sock *from,
+ 		sk = __raw_v6_lookup(net, from, r->sdiag_raw_protocol,
+ 				     (const struct in6_addr *)r->id.idiag_src,
+ 				     (const struct in6_addr *)r->id.idiag_dst,
+-				     r->id.idiag_if);
++				     r->id.idiag_if, 0);
+ #endif
+ 	return sk;
+ }
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 60be012fe708..e4462b0ff801 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -72,7 +72,7 @@ EXPORT_SYMBOL_GPL(raw_v6_hashinfo);
+ 
+ struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
+ 		unsigned short num, const struct in6_addr *loc_addr,
+-		const struct in6_addr *rmt_addr, int dif)
++		const struct in6_addr *rmt_addr, int dif, int sdif)
+ {
+ 	bool is_multicast = ipv6_addr_is_multicast(loc_addr);
+ 
+@@ -86,7 +86,9 @@ struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
+ 			    !ipv6_addr_equal(&sk->sk_v6_daddr, rmt_addr))
+ 				continue;
+ 
+-			if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
++			if (sk->sk_bound_dev_if &&
++			    sk->sk_bound_dev_if != dif &&
++			    sk->sk_bound_dev_if != sdif)
+ 				continue;
+ 
+ 			if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
+@@ -178,7 +180,8 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
+ 		goto out;
+ 
+ 	net = dev_net(skb->dev);
+-	sk = __raw_v6_lookup(net, sk, nexthdr, daddr, saddr, inet6_iif(skb));
++	sk = __raw_v6_lookup(net, sk, nexthdr, daddr, saddr,
++			     inet6_iif(skb), inet6_sdif(skb));
+ 
+ 	while (sk) {
+ 		int filtered;
+@@ -222,7 +225,7 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
+ 			}
+ 		}
+ 		sk = __raw_v6_lookup(net, sk_next(sk), nexthdr, daddr, saddr,
+-				     inet6_iif(skb));
++				     inet6_iif(skb), inet6_sdif(skb));
+ 	}
+ out:
+ 	read_unlock(&raw_v6_hashinfo.lock);
+@@ -378,7 +381,7 @@ void raw6_icmp_error(struct sk_buff *skb, int nexthdr,
+ 		net = dev_net(skb->dev);
+ 
+ 		while ((sk = __raw_v6_lookup(net, sk, nexthdr, saddr, daddr,
+-						inet6_iif(skb)))) {
++					     inet6_iif(skb), inet6_iif(skb)))) {
+ 			rawv6_err(sk, skb, NULL, type, code,
+ 					inner_offset, info);
+ 			sk = sk_next(sk);
+-- 
+2.1.4
