@@ -1,44 +1,97 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] lwtunnel: replace EXPORT_SYMBOL with
- EXPORT_SYMBOL_GPL
-Date: Sat, 5 Aug 2017 00:25:28 +0200
-Message-ID: <20170804222528.GD11696@lunn.ch>
-References: <1501885417-18966-1-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52625 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751525AbdHDWZb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 4 Aug 2017 18:25:31 -0400
-Content-Disposition: inline
-In-Reply-To: <1501885417-18966-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/3] net: dsa: assign switch device in legacy code
+Date: Fri,  4 Aug 2017 18:23:18 -0400
+Message-ID: <20170804222320.10986-2-vivien.didelot@savoirfairelinux.com>
+References: <20170804222320.10986-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170804222320.10986-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 04, 2017 at 03:23:37PM -0700, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
->  net/core/lwtunnel.c | 26 +++++++++++++-------------
->  1 file changed, 13 insertions(+), 13 deletions(-)
-> 
-> diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
-> index d9cb353..8693ff8 100644
-> --- a/net/core/lwtunnel.c
-> +++ b/net/core/lwtunnel.c
-> @@ -65,7 +65,7 @@ struct lwtunnel_state *lwtunnel_state_alloc(int encap_len)
->  
->  	return lws;
->  }
-> -EXPORT_SYMBOL(lwtunnel_state_alloc);
-> +EXPORT_SYMBOL_GPL_GPL(lwtunnel_state_alloc);
+Assign the parent device to the dev member of the newly allocated
+dsa_switch structure in the legacy dsa_switch_setup function, so that
+the underlying dsa_switch_setup_one and dsa_cpu_dsa_setups functions can
+access it instead of requiring an additional struct device argument.
 
-Hi Roopa
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/legacy.c | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-GPL_GPL?
-
-	Andrew
+diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
+index 1d7a3282f2a7..c565787e1c78 100644
+--- a/net/dsa/legacy.c
++++ b/net/dsa/legacy.c
+@@ -78,7 +78,7 @@ dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
+ }
+ 
+ /* basic switch operations **************************************************/
+-static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
++static int dsa_cpu_dsa_setups(struct dsa_switch *ds)
+ {
+ 	struct dsa_port *dport;
+ 	int ret, port;
+@@ -88,15 +88,15 @@ static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
+ 			continue;
+ 
+ 		dport = &ds->ports[port];
+-		ret = dsa_cpu_dsa_setup(ds, dev, dport, port);
++		ret = dsa_cpu_dsa_setup(ds, ds->dev, dport, port);
+ 		if (ret)
+ 			return ret;
+ 	}
+ 	return 0;
+ }
+ 
+-static int dsa_switch_setup_one(struct dsa_switch *ds, struct net_device *master,
+-				struct device *parent)
++static int dsa_switch_setup_one(struct dsa_switch *ds,
++				struct net_device *master)
+ {
+ 	const struct dsa_switch_ops *ops = ds->ops;
+ 	struct dsa_switch_tree *dst = ds->dst;
+@@ -176,7 +176,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct net_device *master
+ 	}
+ 
+ 	if (!ds->slave_mii_bus && ops->phy_read) {
+-		ds->slave_mii_bus = devm_mdiobus_alloc(parent);
++		ds->slave_mii_bus = devm_mdiobus_alloc(ds->dev);
+ 		if (!ds->slave_mii_bus)
+ 			return -ENOMEM;
+ 		dsa_slave_mii_bus_init(ds);
+@@ -196,14 +196,14 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct net_device *master
+ 		if (!(ds->enabled_port_mask & (1 << i)))
+ 			continue;
+ 
+-		ret = dsa_slave_create(ds, parent, i, cd->port_names[i]);
++		ret = dsa_slave_create(ds, ds->dev, i, cd->port_names[i]);
+ 		if (ret < 0)
+ 			netdev_err(master, "[%d]: can't create dsa slave device for port %d(%s): %d\n",
+ 				   index, i, cd->port_names[i], ret);
+ 	}
+ 
+ 	/* Perform configuration of the CPU and DSA ports */
+-	ret = dsa_cpu_dsa_setups(ds, parent);
++	ret = dsa_cpu_dsa_setups(ds);
+ 	if (ret < 0)
+ 		netdev_err(master, "[%d] : can't configure CPU and DSA ports\n",
+ 			   index);
+@@ -251,8 +251,9 @@ dsa_switch_setup(struct dsa_switch_tree *dst, struct net_device *master,
+ 	ds->cd = cd;
+ 	ds->ops = ops;
+ 	ds->priv = priv;
++	ds->dev = parent;
+ 
+-	ret = dsa_switch_setup_one(ds, master, parent);
++	ret = dsa_switch_setup_one(ds, master);
+ 	if (ret)
+ 		return ERR_PTR(ret);
+ 
+-- 
+2.13.3
