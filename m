@@ -1,82 +1,287 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 0/6] In-kernel QMI handling
-Date: Fri, 04 Aug 2017 10:36:07 -0500
-Message-ID: <1501860967.939.6.camel@redhat.com>
-References: <20170804145938.25427-1-bjorn.andersson@linaro.org>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: Re: [PATCH 1/2] net: mvneta: remove bogus use of
+Date: Fri, 4 Aug 2017 17:49:59 +0200
+Message-ID: <CAPv3WKfvAfFiDWemV67qyO1maaegi7OYW+EJrFSKn2CWqzRMRQ@mail.gmail.com>
+References: <20170720142711.12847-1-robh@kernel.org> <8760en5es2.fsf@free-electrons.com>
+ <CAL_JsqKTwju4=J=X1kvk=77fE1VddPh2N-wCi3A0mCAu+Qg1mA@mail.gmail.com> <87tw1n73r9.fsf@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bjorn Andersson <bjorn.andersson@linaro.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andy Gross <andy.gross@linaro.org>,
-        David Brown <david.brown@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170804145938.25427-1-bjorn.andersson@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Rob Herring <robh@kernel.org>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        netdev <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        Frank Rowand <frowand.list@gmail.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f54.google.com ([209.85.214.54]:36127 "EHLO
+        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752490AbdHDPuB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 11:50:01 -0400
+Received: by mail-it0-f54.google.com with SMTP id 77so9661992itj.1
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 08:50:01 -0700 (PDT)
+In-Reply-To: <87tw1n73r9.fsf@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-08-04 at 07:59 -0700, Bjorn Andersson wrote:
-> This series starts by moving the common definitions of the QMUX
-> protocol to the
-> uapi header, as they are shared with clients - both in kernel and
-> userspace.
-> 
-> This series then introduces in-kernel helper functions for aiding the
-> handling
-> of QMI encoded messages in the kernel. QMI encoding is a wire-format
-> used in
-> exchanging messages between the majority of QRTR clients and
-> services.
+Hi Gregory,
 
-This raises a few red-flags for me.  So far, we've kept almost
-everything QMI related in userspace and handled all QMI control-channel 
-messages from libraries like libqmi or uqmi via the cdc-wdm driver and
-the "rmnet" interface via the qmi_wwan driver.  The kernel drivers just
-serve as the transport.
+>From my side: +1 to your modification.
 
-Can you describe what kinds of in-kernel drivers need to actually parse
-QMI messages as part of their operation?
+Thanks,
+Marcin
 
-Dan
-
-> It then adds an abstractions to reduce the duplication of common code
-> in
-> drivers that needs to query the name server and send and receive
-> encoded
-> messages to a remote service.
-> 
-> Finally it introduces a sample implementation for showing QRTR and
-> the QMI
-> helpers in action. The sample device instantiates in response to
-> finding the
-> "test service" and implements the "test protocol".
-> 
-> Bjorn Andersson (6):
->   net: qrtr: Invoke sk_error_report() after setting sk_err
->   net: qrtr: Move constants to header file
->   net: qrtr: Add control packet definition to uapi
->   soc: qcom: Introduce QMI encoder/decoder
->   soc: qcom: Introduce QMI helpers
->   samples: Introduce Qualcomm QRTR sample client
-> 
->  drivers/soc/qcom/Kconfig          |   8 +
->  drivers/soc/qcom/Makefile         |   3 +
->  drivers/soc/qcom/qmi_encdec.c     | 812
-> ++++++++++++++++++++++++++++++++++++++
->  drivers/soc/qcom/qmi_interface.c  | 540 +++++++++++++++++++++++++
->  include/linux/soc/qcom/qmi.h      | 249 ++++++++++++
->  include/uapi/linux/qrtr.h         |  35 ++
->  net/qrtr/qrtr.c                   |  16 +-
->  samples/Kconfig                   |   8 +
->  samples/Makefile                  |   2 +-
->  samples/qrtr/Makefile             |   1 +
->  samples/qrtr/qrtr_sample_client.c | 603 ++++++++++++++++++++++++++++
->  11 files changed, 2261 insertions(+), 16 deletions(-)
->  create mode 100644 drivers/soc/qcom/qmi_encdec.c
->  create mode 100644 drivers/soc/qcom/qmi_interface.c
->  create mode 100644 include/linux/soc/qcom/qmi.h
->  create mode 100644 samples/qrtr/Makefile
->  create mode 100644 samples/qrtr/qrtr_sample_client.c
-> 
+2017-08-04 17:26 GMT+02:00 Gregory CLEMENT <gregory.clement@free-electrons.com>:
+> Hi Rob,
+>
+>  On jeu., juil. 20 2017, Rob Herring <robh@kernel.org> wrote:
+>
+>> On Thu, Jul 20, 2017 at 10:06 AM, Gregory CLEMENT
+>> <gregory.clement@free-electrons.com> wrote:
+>>> Hi Rob,
+>>>
+>>>  On jeu., juil. 20 2017, Rob Herring <robh@kernel.org> wrote:
+>>>
+>>> (Adding Marcin in CC who wrote this part of code)
+>>>
+>>>> Nothing sets ever sets data, so it is always NULL. Remove it as this is
+>>>> the only user of data ptr in the whole kernel, and it is going to be
+>>>> removed from struct device_node.
+>>>
+>>> Actually the use of device_node.data ptr is not bogus and it is set in
+>>> mvneta_bm_probe:
+>>> http://elixir.free-electrons.com/linux/latest/source/drivers/net/ethernet/marvell/mvneta_bm.c#L433
+>>
+>> Indeed. Looks like some complicated kconfig logic, so I'd not been
+>> able to trigger a build failure nor did 0-day (so far).
+>>
+>>> Your patch will break the BM support on this driver. So if you need to
+>>> remove this data ptr, then you have to offer an alternative for it.
+>>
+>> How about something like this (WS damaged) patch:
+>
+> I finally took time to test your patch. There was some missing part
+> which prevented it to be build, like including linux/of_platform.h, or
+> providing tub function when CONFIG_MVNETA_BM was not enable.
+>
+> Also the fact that you still call mvneta_bm_port_init() even if bm_priv
+> was NULL was not really nice. So I proposed the following patch, that I
+> tested on a clearfog with and without CONFIG_MVNETA_BM enabled.
+>
+> From 03c4028bc1f52d3d214e8506d9f0f66660d3985d Mon Sep 17 00:00:00 2001
+> From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> Date: Fri, 4 Aug 2017 17:18:38 +0200
+> Subject: [PATCH] net: mvneta: remove data pointer usage from device_node
+>  structure
+>
+> In order to be able to remove the data pointer from the device_node
+> structure. We have to modify the way the BM resources are shared between
+> the mvneta port.
+>
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c    | 18 ++++++++++++------
+>  drivers/net/ethernet/marvell/mvneta_bm.c | 13 +++++++++++++
+>  drivers/net/ethernet/marvell/mvneta_bm.h |  8 ++++++--
+>  3 files changed, 31 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index 63b6147753fe..fd84447582f7 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -4295,12 +4295,16 @@ static int mvneta_probe(struct platform_device *pdev)
+>
+>         /* Obtain access to BM resources if enabled and already initialized */
+>         bm_node = of_parse_phandle(dn, "buffer-manager", 0);
+> -       if (bm_node && bm_node->data) {
+> -               pp->bm_priv = bm_node->data;
+> -               err = mvneta_bm_port_init(pdev, pp);
+> -               if (err < 0) {
+> -                       dev_info(&pdev->dev, "use SW buffer management\n");
+> -                       pp->bm_priv = NULL;
+> +       if (bm_node) {
+> +               pp->bm_priv = mvneta_bm_get(bm_node);
+> +               if (pp->bm_priv) {
+> +                       err = mvneta_bm_port_init(pdev, pp);
+> +                       if (err < 0) {
+> +                               dev_info(&pdev->dev,
+> +                                        "use SW buffer management\n");
+> +                               mvneta_bm_put(pp->bm_priv);
+> +                               pp->bm_priv = NULL;
+> +                       }
+>                 }
+>         }
+>         of_node_put(bm_node);
+> @@ -4369,6 +4373,7 @@ static int mvneta_probe(struct platform_device *pdev)
+>                 mvneta_bm_pool_destroy(pp->bm_priv, pp->pool_long, 1 << pp->id);
+>                 mvneta_bm_pool_destroy(pp->bm_priv, pp->pool_short,
+>                                        1 << pp->id);
+> +               mvneta_bm_put(pp->bm_priv);
+>         }
+>  err_free_stats:
+>         free_percpu(pp->stats);
+> @@ -4410,6 +4415,7 @@ static int mvneta_remove(struct platform_device *pdev)
+>                 mvneta_bm_pool_destroy(pp->bm_priv, pp->pool_long, 1 << pp->id);
+>                 mvneta_bm_pool_destroy(pp->bm_priv, pp->pool_short,
+>                                        1 << pp->id);
+> +               mvneta_bm_put(pp->bm_priv);
+>         }
+>
+>         return 0;
+> diff --git a/drivers/net/ethernet/marvell/mvneta_bm.c b/drivers/net/ethernet/marvell/mvneta_bm.c
+> index 466939f8f0cf..01e3152e76c8 100644
+> --- a/drivers/net/ethernet/marvell/mvneta_bm.c
+> +++ b/drivers/net/ethernet/marvell/mvneta_bm.c
+> @@ -18,6 +18,7 @@
+>  #include <linux/module.h>
+>  #include <linux/netdevice.h>
+>  #include <linux/of.h>
+> +#include <linux/of_platform.h>
+>  #include <linux/platform_device.h>
+>  #include <linux/skbuff.h>
+>  #include <net/hwbm.h>
+> @@ -392,6 +393,18 @@ static void mvneta_bm_put_sram(struct mvneta_bm *priv)
+>                       MVNETA_BM_BPPI_SIZE);
+>  }
+>
+> +struct mvneta_bm *mvneta_bm_get(struct device_node *node)
+> +{
+> +       struct platform_device *pdev = of_find_device_by_node(node);
+> +
+> +       return pdev ? platform_get_drvdata(pdev) : NULL;
+> +}
+> +
+> +void mvneta_bm_put(struct mvneta_bm *priv)
+> +{
+> +       platform_device_put(priv->pdev);
+> +}
+> +
+>  static int mvneta_bm_probe(struct platform_device *pdev)
+>  {
+>         struct device_node *dn = pdev->dev.of_node;
+> diff --git a/drivers/net/ethernet/marvell/mvneta_bm.h b/drivers/net/ethernet/marvell/mvneta_bm.h
+> index a32de432800c..daa9a91d2708 100644
+> --- a/drivers/net/ethernet/marvell/mvneta_bm.h
+> +++ b/drivers/net/ethernet/marvell/mvneta_bm.h
+> @@ -134,6 +134,9 @@ void *mvneta_frag_alloc(unsigned int frag_size);
+>  void mvneta_frag_free(unsigned int frag_size, void *data);
+>
+>  #if IS_ENABLED(CONFIG_MVNETA_BM)
+> +struct mvneta_bm *mvneta_bm_get(struct device_node *node);
+> +void mvneta_bm_put(struct mvneta_bm *priv);
+> +
+>  void mvneta_bm_pool_destroy(struct mvneta_bm *priv,
+>                             struct mvneta_bm_pool *bm_pool, u8 port_map);
+>  void mvneta_bm_bufs_free(struct mvneta_bm *priv, struct mvneta_bm_pool *bm_pool,
+> @@ -176,7 +179,8 @@ static inline void mvneta_bm_pool_put_bp(struct mvneta_bm *priv,
+>                                          dma_addr_t buf_phys_addr) {}
+>
+>  static inline u32 mvneta_bm_pool_get_bp(struct mvneta_bm *priv,
+> -                                       struct mvneta_bm_pool *bm_pool)
+> -{ return 0; }
+> +                               struct mvneta_bm_pool *bm_pool) { return 0; }
+> +struct mvneta_bm *mvneta_bm_get(struct device_node *node) {return NULL; }
+> +void mvneta_bm_put(struct mvneta_bm *priv) {}
+>  #endif /* CONFIG_MVNETA_BM */
+>  #endif
+> --
+> 2.13.2
+>
+>
+>
+>>
+>> diff --git a/drivers/net/ethernet/marvell/mvneta.c
+>> b/drivers/net/ethernet/marvell/mvneta.c
+>> index 0aab74c2a209..3a3021cb93a7 100644
+>> --- a/drivers/net/ethernet/marvell/mvneta.c
+>> +++ b/drivers/net/ethernet/marvell/mvneta.c
+>> @@ -4296,11 +4296,12 @@ static int mvneta_probe(struct platform_device *pdev)
+>>
+>>   /* Obtain access to BM resources if enabled and already initialized */
+>>   bm_node = of_parse_phandle(dn, "buffer-manager", 0);
+>> - if (bm_node && bm_node->data) {
+>> - pp->bm_priv = bm_node->data;
+>> + if (bm_node) {
+>> + pp->bm_priv = mvneta_bm_get();
+>>   err = mvneta_bm_port_init(pdev, pp);
+>>   if (err < 0) {
+>>   dev_info(&pdev->dev, "use SW buffer management\n");
+>> + mvneta_bm_put(pp->bm_priv);
+>>   pp->bm_priv = NULL;
+>>   }
+>>   }
+>> @@ -4370,6 +4371,7 @@ static int mvneta_probe(struct platform_device *pdev)
+>>   mvneta_bm_pool_destroy(pp->bm_priv, pp->pool_long, 1 << pp->id);
+>>   mvneta_bm_pool_destroy(pp->bm_priv, pp->pool_short,
+>>         1 << pp->id);
+>> + mvneta_bm_put(pp->bm_priv);
+>>   }
+>>  err_free_stats:
+>>   free_percpu(pp->stats);
+>> @@ -4411,6 +4413,7 @@ static int mvneta_remove(struct platform_device *pdev)
+>>   mvneta_bm_pool_destroy(pp->bm_priv, pp->pool_long, 1 << pp->id);
+>>   mvneta_bm_pool_destroy(pp->bm_priv, pp->pool_short,
+>>         1 << pp->id);
+>> + mvneta_bm_put(pp->bm_priv);
+>>   }
+>>
+>>   return 0;
+>> diff --git a/drivers/net/ethernet/marvell/mvneta_bm.c
+>> b/drivers/net/ethernet/marvell/mvneta_bm.c
+>> index 466939f8f0cf..276af8aff3c7 100644
+>> --- a/drivers/net/ethernet/marvell/mvneta_bm.c
+>> +++ b/drivers/net/ethernet/marvell/mvneta_bm.c
+>> @@ -392,6 +392,17 @@ static void mvneta_bm_put_sram(struct mvneta_bm *priv)
+>>        MVNETA_BM_BPPI_SIZE);
+>>  }
+>>
+>> +struct mvneta_bm *mvneta_bm_get(struct device_node *node)
+>> +{
+>> + struct platform_device *pdev = of_find_device_by_node(node);
+>> + return pdev ? platform_get_drvdata(pdev) : NULL;
+>> +}
+>> +
+>> +void mvneta_bm_put(struct mvneta_bm *priv)
+>> +{
+>> + platform_device_put(priv->pdev);
+>> +}
+>> +
+>>  static int mvneta_bm_probe(struct platform_device *pdev)
+>>  {
+>>   struct device_node *dn = pdev->dev.of_node;
+>> diff --git a/drivers/net/ethernet/marvell/mvneta_bm.h
+>> b/drivers/net/ethernet/marvell/mvneta_bm.h
+>> index a32de432800c..50b27feab666 100644
+>> --- a/drivers/net/ethernet/marvell/mvneta_bm.h
+>> +++ b/drivers/net/ethernet/marvell/mvneta_bm.h
+>> @@ -134,6 +134,9 @@ void *mvneta_frag_alloc(unsigned int frag_size);
+>>  void mvneta_frag_free(unsigned int frag_size, void *data);
+>>
+>>  #if IS_ENABLED(CONFIG_MVNETA_BM)
+>> +struct mvneta_bm *mvneta_bm_get(struct device_node *node);
+>> +void mvneta_bm_put(struct mvneta_bm *priv);
+>> +
+>>  void mvneta_bm_pool_destroy(struct mvneta_bm *priv,
+>>      struct mvneta_bm_pool *bm_pool, u8 port_map);
+>>  void mvneta_bm_bufs_free(struct mvneta_bm *priv, struct
+>> mvneta_bm_pool *bm_pool,
+>> @@ -160,6 +163,12 @@ static inline u32 mvneta_bm_pool_get_bp(struct
+>> mvneta_bm *priv,
+>>       (bm_pool->id << MVNETA_BM_POOL_ACCESS_OFFS));
+>>  }
+>>  #else
+>> +static inline struct mvneta_bm *mvneta_bm_get(struct device_node *node)
+>> +{
+>> + return NULL;
+>> +}
+>> +static inline void mvneta_bm_put(struct mvneta_bm *priv) {}
+>> +
+>>  void mvneta_bm_pool_destroy(struct mvneta_bm *priv,
+>>      struct mvneta_bm_pool *bm_pool, u8 port_map) {}
+>>  void mvneta_bm_bufs_free(struct mvneta_bm *priv, struct
+>> mvneta_bm_pool *bm_pool,
+>
+> --
+> Gregory Clement, Free Electrons
+> Kernel, drivers, real-time and embedded Linux
+> development, consulting, training and support.
+> http://free-electrons.com
