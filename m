@@ -1,54 +1,106 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] PCI: Update ACS quirk for more Intel 10G NICs
-Date: Fri, 4 Aug 2017 13:28:32 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD004B362@AcuExch.aculab.com>
-References: <20170720214101.7449-1-roland@kernel.org>
- <20170803214911.GG20308@bhelgaas-glaptop.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Reduce skb_warn_bad_offload() noise.
+Date: Fri, 04 Aug 2017 06:29:40 -0700
+Message-ID: <1501853380.25002.38.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1501852317-11684-1-git-send-email-xiangxia.m.yue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Emil Tantilov <emil.s.tantilov@intel.com>
-To: 'Bjorn Helgaas' <helgaas@kernel.org>,
-        Roland Dreier <roland@kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Pravin B Shelar <pshelar@ovn.org>
+To: Tonghao Zhang <xiangxia.m.yue@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.194]:50189 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752171AbdHDN2n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 09:28:43 -0400
-In-Reply-To: <20170803214911.GG20308@bhelgaas-glaptop.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34023 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752138AbdHDN3o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 09:29:44 -0400
+Received: by mail-wm0-f68.google.com with SMTP id x64so5727862wmg.1
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 06:29:43 -0700 (PDT)
+In-Reply-To: <1501852317-11684-1-git-send-email-xiangxia.m.yue@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Helgaas
-> Sent: 03 August 2017 22:49
-> On Thu, Jul 20, 2017 at 02:41:01PM -0700, Roland Dreier wrote:
-> > From: Roland Dreier <roland@purestorage.com>
-> >
-> > Add one more variant of the 82599 plus the device IDs for X540 and X550
-> > variants.  Intel has confirmed that none of these devices does peer-to-peer
-> > between functions.  The X540 and X550 have added ACS capabilities in their
-> > PCI config space, but the ACS control register is hard-wired to 0 for both
-> > devices, so we still need the quirk for IOMMU grouping to allow assignment
-> > of individual SR-IOV functions.
-...
-> > --- a/drivers/pci/quirks.c
-> > +++ b/drivers/pci/quirks.c
-> > @@ -4335,12 +4335,33 @@ static const struct pci_dev_acs_enabled {
-> >  	{ PCI_VENDOR_ID_INTEL, 0x1507, pci_quirk_mf_endpoint_acs },
-> >  	{ PCI_VENDOR_ID_INTEL, 0x1514, pci_quirk_mf_endpoint_acs },
-> >  	{ PCI_VENDOR_ID_INTEL, 0x151C, pci_quirk_mf_endpoint_acs },
-> > +	{ PCI_VENDOR_ID_INTEL, 0x1528, pci_quirk_mf_endpoint_acs },
-> >  	{ PCI_VENDOR_ID_INTEL, 0x1529, pci_quirk_mf_endpoint_acs },
-> > +	{ PCI_VENDOR_ID_INTEL, 0x154A, pci_quirk_mf_endpoint_acs },
-...
+On Fri, 2017-08-04 at 06:11 -0700, Tonghao Zhang wrote:
+> This patch will revert the b2504a5dbe "net: reduce
+> skb_warn_bad_offload() noise". The ovs will call the
+> __skb_gso_segment() with tx false. When segmenting UDP with UFO,
+> the __skb_gso_segment raises a warning as below [1], because the
+> ip_summed is CHECKSUM_NONE. While the net-next has removed the
+> UFO support, but the 4.11 and 4.12 kernel don't address that problem.
+> 
+> In the kernel, only qdisc_pkt_len_init() (__dev_queue_xmit call it.)
+> uses the SKB_GSO_DODGY to do something. Other places just set it.
+> The warn described in b2504a5dbe is shown [2]. We may know that:
+>     1. the net_device don’t have qdisc.
+>     2. the skb->ip_summed was changed to CHECKSUM_NONE. it maybe
+>     changed in skb_checksum_help() when calling validate_xmit_skb().
+>     or other place.
+> 
+> And we should not revert the  6e7bc478c9 "net: skb_needs_check() accepts
+> CHECKSUM_NONE for tx". The check is necessary.
 
-That list is looking a bit long.
-Is it possible to run-time determine that the ACS control register is hard wired
-to zero, and apply the quirk to all such devices.
-Or even changing to a (device & mask) == value test??
+Why is it necessary ?
 
-	David
+If you revert b2504a5dbe, then we also need to revert 6e7bc478c9,
+unless you provide hard facts.
+
+> 
+> [1]
+> [321428.168903] WARNING: CPU: 0 PID: 2279 at net/core/dev.c:2562
+> skb_warn_bad_offload+0xc4/0x110
+> [321428.168906] san0: caps=(0x000004009fbb58e9, 0x0000000000000000) len=6769
+> data_len=6727 gso_size=1480 gso_type=2 ip_summed=0
+> 
+> [321428.168955] CPU: 0 PID: 2279 Comm: ruby-mri 4.11.12-200.fc25.x86_64 #1
+> [321428.168956] Hardware name: Supermicro SYS-1028U-TNRTP+/X10DRU-i+, BIOS 1.1 07/22/2015
+> [321428.168957] Call Trace:
+> [321428.168962]  dump_stack+0x63/0x86
+> [321428.168965]  __warn+0xcb/0xf0
+> [321428.168966]  warn_slowpath_fmt+0x5a/0x80
+> [321428.168968]  skb_warn_bad_offload+0xc4/0x110
+> [321428.168970]  __skb_gso_segment+0x190/0x1a0
+> [321428.168977]  queue_gso_packets+0x62/0x160 [openvswitch]
+> [321428.168992]  ovs_dp_upcall+0x31/0x60 [openvswitch]
+> [321428.168994]  ovs_dp_process_packet+0x10d/0x130 [openvswitch]
+> [321428.168997]  ovs_vport_receive+0x76/0xd0 [openvswitch]
+> [321428.169013]  internal_dev_xmit+0x28/0x60 [openvswitch]
+> [321428.169014]  dev_hard_start_xmit+0xa3/0x1f0
+> [321428.169016]  __dev_queue_xmit+0x592/0x650
+> [321428.169026]  dev_queue_xmit+0x10/0x20
+> 
+> [2]
+> WARNING: CPU: 1 PID: 6768 at net/core/dev.c:2439 skb_warn_bad_offload+0x2af/0x390 net/core/dev.c:2434
+> lo: caps=(0x000000a2803b7c69, 0x0000000000000000) len=138 data_len=0 gso_size=15883 gso_type=4 ip_summed=0
+> Kernel panic - not syncing: panic_on_warn set ...
+> 
+> CPU: 1 PID: 6768 Comm: syz-executor1 Not tainted 4.9.0 #5
+> Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+> ffff8801c063ecd8 ffffffff82346bdf ffffffff00000001 1ffff100380c7d2e
+> ffffed00380c7d26 0000000041b58ab3 ffffffff84b37e38 ffffffff823468f1
+> ffffffff84820740 ffffffff84f289c0 dffffc0000000000 ffff8801c063ee20
+> Call Trace:
+
+Why are you adding this trace that was part of the b2504a5dbef3
+changelog ?
+
+> [<ffffffff82346bdf>] __dump_stack lib/dump_stack.c:15 [inline]
+> [<ffffffff82346bdf>] dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+> [<ffffffff81827e34>] panic+0x1fb/0x412 kernel/panic.c:179
+> [<ffffffff8141f704>] __warn+0x1c4/0x1e0 kernel/panic.c:542
+> [<ffffffff8141f7e5>] warn_slowpath_fmt+0xc5/0x100 kernel/panic.c:565
+> [<ffffffff8356cbaf>] skb_warn_bad_offload+0x2af/0x390 net/core/dev.c:2434
+> [<ffffffff83585cd2>] __skb_gso_segment+0x482/0x780 net/core/dev.c:2706
+> [<ffffffff83586f19>] skb_gso_segment include/linux/netdevice.h:3985 [inline]
+> [<ffffffff83586f19>] validate_xmit_skb+0x5c9/0xc20 net/core/dev.c:2969
+> [<ffffffff835892bb>] __dev_queue_xmit+0xe6b/0x1e70 net/core/dev.c:3383
+> [<ffffffff8358a2d7>] dev_queue_xmit+0x17/0x20 net/core/dev.c:3424
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Willem de Bruijn <willemb@google.com>
+> Cc: Pravin B Shelar <pshelar@ovn.org>
+> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+> ---
+
+
+IMO, this description is too confusing, I do not understand this patch.
