@@ -1,115 +1,137 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] wan: dscc4: add checks for dma mapping errors
-Date: Fri,  4 Aug 2017 23:23:24 +0300
-Message-ID: <1501878204-24270-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: fix byte order test in test_verifier
+Date: Fri,  4 Aug 2017 22:24:41 +0200
+Message-ID: <2914429672dfe6d0420a81dff36853326a7f604d.1501877778.git.daniel@iogearbox.net>
+Cc: yhs@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:46937 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751930AbdHDUYp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 16:24:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The driver does not check if mapping dma memory succeed.
-The patch adds the checks and failure handling.
+We really must check with #if __BYTE_ORDER == XYZ instead of
+just presence of #ifdef __LITTLE_ENDIAN. I noticed that when
+actually running this on big endian machine, the latter test
+resolves to true for user space, same for #ifdef __BIG_ENDIAN.
 
-Found by Linux Driver Verification project (linuxtesting.org).
+E.g., looking at endian.h from libc, both are also defined
+there, so we really must test this against __BYTE_ORDER instead
+for proper insns selection. For the kernel, such checks are
+fine though e.g. see 13da9e200fe4 ("Revert "endian: #define
+__BYTE_ORDER"") and 415586c9e6d3 ("UAPI: fix endianness conditionals
+in M32R's asm/stat.h") for some more context, but not for
+user space. Lets also make sure to properly include endian.h.
+After that, suite passes for me:
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+./test_verifier: ELF 64-bit MSB executable, [...]
+
+Linux foo 4.13.0-rc3+ #4 SMP Fri Aug 4 06:59:30 EDT 2017 s390x s390x s390x GNU/Linux
+
+Before fix: Summary: 505 PASSED, 11 FAILED
+After  fix: Summary: 516 PASSED,  0 FAILED
+
+Fixes: 18f3d6be6be1 ("selftests/bpf: Add test cases to test narrower ctx field loads")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/wan/dscc4.c | 52 +++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 37 insertions(+), 15 deletions(-)
+ tools/testing/selftests/bpf/test_verifier.c | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
-index 799830ffcae2..1a94f0a95b2c 100644
---- a/drivers/net/wan/dscc4.c
-+++ b/drivers/net/wan/dscc4.c
-@@ -522,19 +522,27 @@ static inline int try_get_rx_skb(struct dscc4_dev_priv *dpriv,
- 	struct RxFD *rx_fd = dpriv->rx_fd + dirty;
- 	const int len = RX_MAX(HDLC_MAX_MRU);
- 	struct sk_buff *skb;
--	int ret = 0;
-+	dma_addr_t addr;
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index addea82..d3ed732 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -8,6 +8,7 @@
+  * License as published by the Free Software Foundation.
+  */
  
- 	skb = dev_alloc_skb(len);
- 	dpriv->rx_skbuff[dirty] = skb;
--	if (skb) {
--		skb->protocol = hdlc_type_trans(skb, dev);
--		rx_fd->data = cpu_to_le32(pci_map_single(dpriv->pci_priv->pdev,
--					  skb->data, len, PCI_DMA_FROMDEVICE));
--	} else {
--		rx_fd->data = 0;
--		ret = -1;
--	}
--	return ret;
-+	if (!skb)
-+		goto err_out;
-+
-+	skb->protocol = hdlc_type_trans(skb, dev);
-+	addr = pci_map_single(dpriv->pci_priv->pdev,
-+			      skb->data, len, PCI_DMA_FROMDEVICE);
-+	if (pci_dma_mapping_error(dpriv->pci_priv->pdev, addr))
-+		goto err_free_skb;
-+
-+	rx_fd->data = cpu_to_le32(addr);
-+	return 0;
-+
-+err_free_skb:
-+	dev_kfree_skb_any(skb);
-+err_out:
-+	rx_fd->data = 0;
-+	return -1;
- }
- 
- /*
-@@ -1147,14 +1155,22 @@ static netdev_tx_t dscc4_start_xmit(struct sk_buff *skb,
- 	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
- 	struct dscc4_pci_priv *ppriv = dpriv->pci_priv;
- 	struct TxFD *tx_fd;
-+	dma_addr_t addr;
- 	int next;
- 
-+	addr = pci_map_single(ppriv->pdev, skb->data, skb->len,
-+			      PCI_DMA_TODEVICE);
-+	if (pci_dma_mapping_error(ppriv->pdev, addr)) {
-+		dev_kfree_skb_any(skb);
-+		dev->stats.tx_errors++;
-+		return NETDEV_TX_OK;
-+	}
-+
- 	next = dpriv->tx_current%TX_RING_SIZE;
- 	dpriv->tx_skbuff[next] = skb;
- 	tx_fd = dpriv->tx_fd + next;
- 	tx_fd->state = FrameEnd | TO_STATE_TX(skb->len);
--	tx_fd->data = cpu_to_le32(pci_map_single(ppriv->pdev, skb->data, skb->len,
--				     PCI_DMA_TODEVICE));
-+	tx_fd->data = cpu_to_le32(addr);
- 	tx_fd->complete = 0x00000000;
- 	tx_fd->jiffies = jiffies;
- 	mb();
-@@ -1889,14 +1905,20 @@ static struct sk_buff *dscc4_init_dummy_skb(struct dscc4_dev_priv *dpriv)
- 	if (skb) {
- 		int last = dpriv->tx_dirty%TX_RING_SIZE;
- 		struct TxFD *tx_fd = dpriv->tx_fd + last;
-+		dma_addr_t addr;
- 
- 		skb->len = DUMMY_SKB_SIZE;
- 		skb_copy_to_linear_data(skb, version,
- 					strlen(version) % DUMMY_SKB_SIZE);
- 		tx_fd->state = FrameEnd | TO_STATE_TX(DUMMY_SKB_SIZE);
--		tx_fd->data = cpu_to_le32(pci_map_single(dpriv->pci_priv->pdev,
--					     skb->data, DUMMY_SKB_SIZE,
--					     PCI_DMA_TODEVICE));
-+		addr = pci_map_single(dpriv->pci_priv->pdev,
-+				      skb->data, DUMMY_SKB_SIZE,
-+				      PCI_DMA_TODEVICE);
-+		if (pci_dma_mapping_error(dpriv->pci_priv->pdev, addr)) {
-+			dev_kfree_skb_any(skb);
-+			return NULL;
-+		}
-+		tx_fd->data = cpu_to_le32(addr);
- 		dpriv->tx_skbuff[last] = skb;
- 	}
- 	return skb;
++#include <endian.h>
+ #include <asm/types.h>
+ #include <linux/types.h>
+ #include <stdint.h>
+@@ -1098,7 +1099,7 @@ struct test_val {
+ 		"check skb->hash byte load permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-#ifdef __LITTLE_ENDIAN
++#if __BYTE_ORDER == __LITTLE_ENDIAN
+ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, hash)),
+ #else
+@@ -1135,7 +1136,7 @@ struct test_val {
+ 		"check skb->hash byte load not permitted 3",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-#ifdef __LITTLE_ENDIAN
++#if __BYTE_ORDER == __LITTLE_ENDIAN
+ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, hash) + 3),
+ #else
+@@ -1244,7 +1245,7 @@ struct test_val {
+ 		"check skb->hash half load permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-#ifdef __LITTLE_ENDIAN
++#if __BYTE_ORDER == __LITTLE_ENDIAN
+ 			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, hash)),
+ #else
+@@ -1259,7 +1260,7 @@ struct test_val {
+ 		"check skb->hash half load not permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-#ifdef __LITTLE_ENDIAN
++#if __BYTE_ORDER == __LITTLE_ENDIAN
+ 			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, hash) + 2),
+ #else
+@@ -5422,7 +5423,7 @@ struct test_val {
+ 		"check bpf_perf_event_data->sample_period byte load permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-#ifdef __LITTLE_ENDIAN
++#if __BYTE_ORDER == __LITTLE_ENDIAN
+ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
+ 				    offsetof(struct bpf_perf_event_data, sample_period)),
+ #else
+@@ -5438,7 +5439,7 @@ struct test_val {
+ 		"check bpf_perf_event_data->sample_period half load permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-#ifdef __LITTLE_ENDIAN
++#if __BYTE_ORDER == __LITTLE_ENDIAN
+ 			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+ 				    offsetof(struct bpf_perf_event_data, sample_period)),
+ #else
+@@ -5454,7 +5455,7 @@ struct test_val {
+ 		"check bpf_perf_event_data->sample_period word load permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-#ifdef __LITTLE_ENDIAN
++#if __BYTE_ORDER == __LITTLE_ENDIAN
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
+ 				    offsetof(struct bpf_perf_event_data, sample_period)),
+ #else
+@@ -5481,7 +5482,7 @@ struct test_val {
+ 		"check skb->data half load not permitted",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-#ifdef __LITTLE_ENDIAN
++#if __BYTE_ORDER == __LITTLE_ENDIAN
+ 			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, data)),
+ #else
+@@ -5497,7 +5498,7 @@ struct test_val {
+ 		"check skb->tc_classid half load not permitted for lwt prog",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 0),
+-#ifdef __LITTLE_ENDIAN
++#if __BYTE_ORDER == __LITTLE_ENDIAN
+ 			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, tc_classid)),
+ #else
 -- 
-2.7.4
+1.9.3
