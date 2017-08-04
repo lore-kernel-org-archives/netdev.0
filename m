@@ -1,69 +1,54 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH] net: devmap fix mutex in rcu critical section
-Date: Fri, 04 Aug 2017 14:58:15 -0700
-Message-ID: <5984EDF7.3060808@gmail.com>
-References: <20170804212132.7678.11425.stgit@john-Precision-Tower-5810>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v5] ss: Enclose IPv6 address in brackets
+Date: Fri, 4 Aug 2017 15:13:26 -0700
+Message-ID: <20170804151326.7b035863@xeon-e3>
+References: <fc81757c-8dbb-dbed-7a24-7011cb8bb9e0@der-flo.net>
+        <1aa882d5-b7f6-8b91-b884-0bd45ebeb2a2@der-flo.net>
+        <20170804120506.37c6ad60@xeon-e3>
+        <1501879587.25002.49.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, daniel@iogearbox.net,
-        alexander.levin@verizon.com
+Cc: Florian Lehner <dev@der-flo.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:38798 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751312AbdHDV6Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 17:58:25 -0400
-Received: by mail-pg0-f66.google.com with SMTP id 123so2849195pga.5
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 14:58:25 -0700 (PDT)
-In-Reply-To: <20170804212132.7678.11425.stgit@john-Precision-Tower-5810>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:38121 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752114AbdHDWN3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 18:13:29 -0400
+Received: by mail-pg0-f44.google.com with SMTP id l64so12678295pge.5
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 15:13:29 -0700 (PDT)
+In-Reply-To: <1501879587.25002.49.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/04/2017 02:21 PM, John Fastabend wrote:
-> Originally we used a mutex to protect concurrent devmap update
-> and delete operations from racing with netdev unregister notifier
-> callbacks.
+On Fri, 04 Aug 2017 13:46:27 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Fri, 2017-08-04 at 12:05 -0700, Stephen Hemminger wrote:
+> > On Fri, 4 Aug 2017 20:02:52 +0200
+> > Florian Lehner <dev@der-flo.net> wrote:
+> >   
+> > > diff --git a/misc/ss.c b/misc/ss.c
+> > > index 12763c9..83683b5 100644
+> > > --- a/misc/ss.c
+> > > +++ b/misc/ss.c
+> > > @@ -1046,8 +1046,9 @@ do_numeric:
+> > > 
+> > >  static void inet_addr_print(const inet_prefix *a, int port, unsigned
+> > > int ifindex)
+> > >  {  
+> > 
+> > Your email client is wrapping long lines which leads to malformed patch.
+> > 
+> > You didn't need buf2, and the code was more complex than it needed to be.
+> > 
+> > Rather than waiting for yet another version, I just merged in similar
+> > code.  
 > 
-
-[...]
-
->  }
-> @@ -396,22 +385,20 @@ static int dev_map_notification(struct notifier_block *notifier,
->  
-
-Daniel reminds me this is not in a rcu_read_lock/unlock() section as
-needed, so v2 on its way. Thanks!
-
->  	switch (event) {
->  	case NETDEV_UNREGISTER:
-> -		mutex_lock(&dev_map_list_mutex);
-
-		rcu_read_lock();
-
->  		list_for_each_entry(dtab, &dev_map_list, list) {
->  			for (i = 0; i < dtab->map.max_entries; i++) {
-> -				struct bpf_dtab_netdev *dev;
-> +				struct bpf_dtab_netdev *dev, *odev;
->  
-> -				dev = dtab->netdev_map[i];
-> +				dev = READ_ONCE(dtab->netdev_map[i]);
->  				if (!dev ||
->  				    dev->dev->ifindex != netdev->ifindex)
->  					continue;
-> -				dev = xchg(&dtab->netdev_map[i], NULL);
-> -				if (dev)
-> +				odev = cmpxchg(&dtab->netdev_map[i], dev, NULL);
-> +				if (dev == odev)
->  					call_rcu(&dev->rcu,
->  						 __dev_map_entry_free);
->  			}
->  		}
-
-		rcu_read_unlock();
-
-> -		mutex_unlock(&dev_map_list_mutex);
->  		break;
->  	default:
->  		break;
 > 
+> Also, is this new format accepted for the filter ?
+> 
+> ss src [::1]:22
+
+It looks like ss would always do that (from earliest git version).
