@@ -1,110 +1,88 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v2 net-next 7/7] net: ipv6: add second dif to raw socket lookups
-Date: Fri,  4 Aug 2017 13:17:03 -0700
-Message-ID: <1501877823-31365-8-git-send-email-dsahern@gmail.com>
-References: <1501877823-31365-1-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 1/2] tc actions: Improved batching and time
+ filtered dumping
+Date: Fri, 4 Aug 2017 13:17:41 -0700
+Message-ID: <20170804131741.2145008c@xeon-e3>
+References: <1501674387-15001-1-git-send-email-jhs@emojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
+        eric.dumazet@gmail.com, dsahern@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:32869 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752006AbdHDURQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 16:17:16 -0400
-Received: by mail-pg0-f66.google.com with SMTP id u185so2710546pgb.0
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 13:17:16 -0700 (PDT)
-In-Reply-To: <1501877823-31365-1-git-send-email-dsahern@gmail.com>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:36537 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751891AbdHDURo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 16:17:44 -0400
+Received: by mail-pg0-f43.google.com with SMTP id v77so11877208pgb.3
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 13:17:44 -0700 (PDT)
+In-Reply-To: <1501674387-15001-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a second device index, sdif, to raw socket lookups. sdif is the
-index for ingress devices enslaved to an l3mdev. It allows the lookups
-to consider the enslaved device as well as the L3 domain when searching
-for a socket.
+On Wed,  2 Aug 2017 07:46:26 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- include/net/rawv6.h |  2 +-
- net/ipv4/raw_diag.c |  2 +-
- net/ipv6/raw.c      | 13 ++++++++-----
- 3 files changed, 10 insertions(+), 7 deletions(-)
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> 
+> dump more than TCA_ACT_MAX_PRIO actions per batch when the kernel
+> supports it.
+> 
+> Introduced keyword "since" for time based filtering of actions.
+> Some example (we have 400 actions bound to 400 filters); at
+> installation time. Using updated when tc setting the time of
+> interest to 120 seconds earlier (we see 400 actions):
+> prompt$ hackedtc actions ls action gact since 120000| grep index | wc -l
+> 400
+> 
+> go get some coffee and wait for > 120 seconds and try again:
+> 
+> prompt$ hackedtc actions ls action gact since 120000 | grep index | wc -l
+> 0
+> 
+> Lets see a filter bound to one of these actions:
+> ....
+> filter pref 10 u32
+> filter pref 10 u32 fh 800: ht divisor 1
+> filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 2 success 1)
+>   match 7f000002/ffffffff at 12 (success 1 )
+>     action order 1: gact action pass
+>      random type none pass val 0
+>      index 23 ref 2 bind 1 installed 1145 sec used 802 sec
+>     Action statistics:
+>     Sent 84 bytes 1 pkt (dropped 0, overlimits 0 requeues 0)
+>     backlog 0b 0p requeues 0
+> ...
+> 
+> that coffee took long, no? It was good.
+> 
+> Now lets ping -c 1 127.0.0.2, then run the actions again:
+> prompt$ hackedtc actions ls action gact since 120 | grep index | wc -l
+> 1
+> 
+> More details please:
+> prompt$ hackedtc -s actions ls action gact since 120000
+> 
+>     action order 0: gact action pass
+>      random type none pass val 0
+>      index 23 ref 2 bind 1 installed 1270 sec used 30 sec
+>     Action statistics:
+>     Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>     backlog 0b 0p requeues 0
+> 
+> And the filter?
+> filter pref 10 u32
+> filter pref 10 u32 fh 800: ht divisor 1
+> filter pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10  (rule hit 4 success 2)
+>   match 7f000002/ffffffff at 12 (success 2 )
+>     action order 1: gact action pass
+>      random type none pass val 0
+>      index 23 ref 2 bind 1 installed 1324 sec used 84 sec
+>     Action statistics:
+>     Sent 168 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>     backlog 0b 0p requeues 0
+> 
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-diff --git a/include/net/rawv6.h b/include/net/rawv6.h
-index cbe4e9de1894..4addc5c988e0 100644
---- a/include/net/rawv6.h
-+++ b/include/net/rawv6.h
-@@ -6,7 +6,7 @@
- extern struct raw_hashinfo raw_v6_hashinfo;
- struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
- 			     unsigned short num, const struct in6_addr *loc_addr,
--			     const struct in6_addr *rmt_addr, int dif);
-+			     const struct in6_addr *rmt_addr, int dif, int sdif);
- 
- int raw_abort(struct sock *sk, int err);
- 
-diff --git a/net/ipv4/raw_diag.c b/net/ipv4/raw_diag.c
-index c600d3c71d4d..c200065ef9a5 100644
---- a/net/ipv4/raw_diag.c
-+++ b/net/ipv4/raw_diag.c
-@@ -52,7 +52,7 @@ static struct sock *raw_lookup(struct net *net, struct sock *from,
- 		sk = __raw_v6_lookup(net, from, r->sdiag_raw_protocol,
- 				     (const struct in6_addr *)r->id.idiag_src,
- 				     (const struct in6_addr *)r->id.idiag_dst,
--				     r->id.idiag_if);
-+				     r->id.idiag_if, 0);
- #endif
- 	return sk;
- }
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 60be012fe708..e4462b0ff801 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -72,7 +72,7 @@ EXPORT_SYMBOL_GPL(raw_v6_hashinfo);
- 
- struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
- 		unsigned short num, const struct in6_addr *loc_addr,
--		const struct in6_addr *rmt_addr, int dif)
-+		const struct in6_addr *rmt_addr, int dif, int sdif)
- {
- 	bool is_multicast = ipv6_addr_is_multicast(loc_addr);
- 
-@@ -86,7 +86,9 @@ struct sock *__raw_v6_lookup(struct net *net, struct sock *sk,
- 			    !ipv6_addr_equal(&sk->sk_v6_daddr, rmt_addr))
- 				continue;
- 
--			if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
-+			if (sk->sk_bound_dev_if &&
-+			    sk->sk_bound_dev_if != dif &&
-+			    sk->sk_bound_dev_if != sdif)
- 				continue;
- 
- 			if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
-@@ -178,7 +180,8 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
- 		goto out;
- 
- 	net = dev_net(skb->dev);
--	sk = __raw_v6_lookup(net, sk, nexthdr, daddr, saddr, inet6_iif(skb));
-+	sk = __raw_v6_lookup(net, sk, nexthdr, daddr, saddr,
-+			     inet6_iif(skb), inet6_sdif(skb));
- 
- 	while (sk) {
- 		int filtered;
-@@ -222,7 +225,7 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
- 			}
- 		}
- 		sk = __raw_v6_lookup(net, sk_next(sk), nexthdr, daddr, saddr,
--				     inet6_iif(skb));
-+				     inet6_iif(skb), inet6_sdif(skb));
- 	}
- out:
- 	read_unlock(&raw_v6_hashinfo.lock);
-@@ -378,7 +381,7 @@ void raw6_icmp_error(struct sk_buff *skb, int nexthdr,
- 		net = dev_net(skb->dev);
- 
- 		while ((sk = __raw_v6_lookup(net, sk, nexthdr, saddr, daddr,
--						inet6_iif(skb)))) {
-+					     inet6_iif(skb), inet6_iif(skb)))) {
- 			rawv6_err(sk, skb, NULL, type, code,
- 					inner_offset, info);
- 			sk = sk_next(sk);
--- 
-2.1.4
+Applied to net-next branch. Thanks Jamal
