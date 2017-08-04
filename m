@@ -1,137 +1,76 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] bpf: fix byte order test in test_verifier
-Date: Fri,  4 Aug 2017 22:24:41 +0200
-Message-ID: <2914429672dfe6d0420a81dff36853326a7f604d.1501877778.git.daniel@iogearbox.net>
-Cc: yhs@fb.com, alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46937 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751930AbdHDUYp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 16:24:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Raj, Ashok" <ashok.raj@intel.com>
+Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
+Date: Fri, 4 Aug 2017 13:21:41 -0700
+Message-ID: <20170804202141.GA39054@otc-nc-03>
+References: <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
+ <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
+ <20170724090516.2e0f0d2a@w520.home>
+ <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <75213fca-4522-2297-3cb8-338e643d3552@huawei.com>
+ <CAKgT0UcqdRCwDDxD=22Q_jLuqz8KVHwH1-V45Aq-1WzQw=agcA@mail.gmail.com>
+ <14218972-553d-eb60-0207-460ac7f4b064@huawei.com>
+ <MWHPR12MB1600A6986E4AD13D302F2DC9C8B00@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <20170803083153.GB4883@otc-nc-03>
+ <MWHPR12MB1600400EC7DEE92E4A3ADC5BC8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Alex Williamson <alex.williamson@redhat.com>,
+        Sinan Kaya <okaya@codeaurora.org>,
+        "bhelgaas@google.com" <bhelgaas@google.com>,
+        "helgaas@kernel.org" <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsh
+To: Casey Leedom <leedom@chelsio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <MWHPR12MB1600400EC7DEE92E4A3ADC5BC8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We really must check with #if __BYTE_ORDER == XYZ instead of
-just presence of #ifdef __LITTLE_ENDIAN. I noticed that when
-actually running this on big endian machine, the latter test
-resolves to true for user space, same for #ifdef __BIG_ENDIAN.
+On Fri, Aug 04, 2017 at 08:20:37PM +0000, Casey Leedom wrote:
+> | From: Raj, Ashok <ashok.raj@intel.com>
+> | Sent: Thursday, August 3, 2017 1:31 AM
+> |
+> | I don't understand this completely.. So your driver would know not to send
+> | RO TLP's to root complex. But you want to send RO to the NVMe device? This
+> | is the peer-2-peer case correct?
+> 
+> Yes, this is the "heavy hammer" issue which you alluded to later.  There are
+> applications where a device will want to send TLPs to a Root Complex without
+> Relaxed Ordering set, but will want to use it when sending TLPs to a Peer
+> device (say, an NVMe storage device).  The current approach doesn't make
+> that easy ... and in fact, I still don't kow how to code a solution for this
+> with the proposed APIs.  This means that we may be trading off one
+> performance problem for another and that Relaxed Ordering may be doomed for
+> use under Linux for the foreseeable future.
+> 
+> As I've noted a number of times, it would be great if the Intel Hardware
+> Engineers who attempted to implement the Relaxed Ordering semantics in the
+> current generation of Root Complexes had left the ability to turn off the
+> logic which is obviously not working.  If there was a way to disable the
+> logic via an undocumented register, then we could have the Linux PCI Quirk
+> do that.  Since Relaxed Ordering is just a hint, it's completely legitimate
+> to completely ignore it.
 
-E.g., looking at endian.h from libc, both are also defined
-there, so we really must test this against __BYTE_ORDER instead
-for proper insns selection. For the kernel, such checks are
-fine though e.g. see 13da9e200fe4 ("Revert "endian: #define
-__BYTE_ORDER"") and 415586c9e6d3 ("UAPI: fix endianness conditionals
-in M32R's asm/stat.h") for some more context, but not for
-user space. Lets also make sure to properly include endian.h.
-After that, suite passes for me:
+Suppose you are looking for the existence of a chicken bit to instruct the
+port to ignore RO traffic. So all we would do is turn the chicken bit on
+but would permit p2p traffic to be allowed since we won't turn off the
+capability as currently proposed.
 
-./test_verifier: ELF 64-bit MSB executable, [...]
+Let me look into that keep you posted.
 
-Linux foo 4.13.0-rc3+ #4 SMP Fri Aug 4 06:59:30 EDT 2017 s390x s390x s390x GNU/Linux
-
-Before fix: Summary: 505 PASSED, 11 FAILED
-After  fix: Summary: 516 PASSED,  0 FAILED
-
-Fixes: 18f3d6be6be1 ("selftests/bpf: Add test cases to test narrower ctx field loads")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- tools/testing/selftests/bpf/test_verifier.c | 19 ++++++++++---------
- 1 file changed, 10 insertions(+), 9 deletions(-)
-
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index addea82..d3ed732 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -8,6 +8,7 @@
-  * License as published by the Free Software Foundation.
-  */
- 
-+#include <endian.h>
- #include <asm/types.h>
- #include <linux/types.h>
- #include <stdint.h>
-@@ -1098,7 +1099,7 @@ struct test_val {
- 		"check skb->hash byte load permitted",
- 		.insns = {
- 			BPF_MOV64_IMM(BPF_REG_0, 0),
--#ifdef __LITTLE_ENDIAN
-+#if __BYTE_ORDER == __LITTLE_ENDIAN
- 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
- 				    offsetof(struct __sk_buff, hash)),
- #else
-@@ -1135,7 +1136,7 @@ struct test_val {
- 		"check skb->hash byte load not permitted 3",
- 		.insns = {
- 			BPF_MOV64_IMM(BPF_REG_0, 0),
--#ifdef __LITTLE_ENDIAN
-+#if __BYTE_ORDER == __LITTLE_ENDIAN
- 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
- 				    offsetof(struct __sk_buff, hash) + 3),
- #else
-@@ -1244,7 +1245,7 @@ struct test_val {
- 		"check skb->hash half load permitted",
- 		.insns = {
- 			BPF_MOV64_IMM(BPF_REG_0, 0),
--#ifdef __LITTLE_ENDIAN
-+#if __BYTE_ORDER == __LITTLE_ENDIAN
- 			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
- 				    offsetof(struct __sk_buff, hash)),
- #else
-@@ -1259,7 +1260,7 @@ struct test_val {
- 		"check skb->hash half load not permitted",
- 		.insns = {
- 			BPF_MOV64_IMM(BPF_REG_0, 0),
--#ifdef __LITTLE_ENDIAN
-+#if __BYTE_ORDER == __LITTLE_ENDIAN
- 			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
- 				    offsetof(struct __sk_buff, hash) + 2),
- #else
-@@ -5422,7 +5423,7 @@ struct test_val {
- 		"check bpf_perf_event_data->sample_period byte load permitted",
- 		.insns = {
- 			BPF_MOV64_IMM(BPF_REG_0, 0),
--#ifdef __LITTLE_ENDIAN
-+#if __BYTE_ORDER == __LITTLE_ENDIAN
- 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
- 				    offsetof(struct bpf_perf_event_data, sample_period)),
- #else
-@@ -5438,7 +5439,7 @@ struct test_val {
- 		"check bpf_perf_event_data->sample_period half load permitted",
- 		.insns = {
- 			BPF_MOV64_IMM(BPF_REG_0, 0),
--#ifdef __LITTLE_ENDIAN
-+#if __BYTE_ORDER == __LITTLE_ENDIAN
- 			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
- 				    offsetof(struct bpf_perf_event_data, sample_period)),
- #else
-@@ -5454,7 +5455,7 @@ struct test_val {
- 		"check bpf_perf_event_data->sample_period word load permitted",
- 		.insns = {
- 			BPF_MOV64_IMM(BPF_REG_0, 0),
--#ifdef __LITTLE_ENDIAN
-+#if __BYTE_ORDER == __LITTLE_ENDIAN
- 			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
- 				    offsetof(struct bpf_perf_event_data, sample_period)),
- #else
-@@ -5481,7 +5482,7 @@ struct test_val {
- 		"check skb->data half load not permitted",
- 		.insns = {
- 			BPF_MOV64_IMM(BPF_REG_0, 0),
--#ifdef __LITTLE_ENDIAN
-+#if __BYTE_ORDER == __LITTLE_ENDIAN
- 			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
- 				    offsetof(struct __sk_buff, data)),
- #else
-@@ -5497,7 +5498,7 @@ struct test_val {
- 		"check skb->tc_classid half load not permitted for lwt prog",
- 		.insns = {
- 			BPF_MOV64_IMM(BPF_REG_0, 0),
--#ifdef __LITTLE_ENDIAN
-+#if __BYTE_ORDER == __LITTLE_ENDIAN
- 			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
- 				    offsetof(struct __sk_buff, tc_classid)),
- #else
--- 
-1.9.3
+Cheers,
+Ashok
+> 
+> Casey
