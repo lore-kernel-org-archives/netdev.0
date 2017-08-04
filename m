@@ -1,45 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: User per-cpu 64-bit statistics
-Date: Thu, 03 Aug 2017 22:36:08 -0700
-Message-ID: <1501824968.25002.35.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170804043328.4730-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemlot.net,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Joel Fernandes <joelaf@google.com>
+Subject: [PATCH] samples/bpf: Fix cross compiler error with bpf sample
+Date: Thu,  3 Aug 2017 22:46:23 -0700
+Message-ID: <20170804054623.5229-1-joelaf@google.com>
+Cc: Joel Fernandes <joelaf@google.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        netdev@vger.kernel.org (open list:BPF (Safe dynamic programs and tools))
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170804043328.4730-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-08-03 at 21:33 -0700, Florian Fainelli wrote:
-> During testing with a background iperf pushing 1Gbit/sec worth of
-> traffic and having both ifconfig and ethtool collect statistics, we
-> could see quite frequent deadlocks. Convert the often accessed DSA slave
-> network devices statistics to per-cpu 64-bit statistics to remove these
-> deadlocks and provide fast efficient statistics updates.
-> 
+When cross-compiling the bpf sample map_perf_test for aarch64, I find that
+__NR_getpgrp is undefined. This causes build errors. Fix it by allowing the
+deprecated syscall in the sample.
 
-This seems to be a bug fix, it would be nice to get a proper tag like :
+Signed-off-by: Joel Fernandes <joelaf@google.com>
+---
+ samples/bpf/map_perf_test_user.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Fixes: f613ed665bb3 ("net: dsa: Add support for 64-bit statistics")
-
-Problem here is that if multiple cpus can call dsa_switch_rcv() at the
-same time, then u64_stats_update_begin() contract is not respected.
-
-include/linux/u64_stats_sync.h states :
-
- * Usage :
- *
- * Stats producer (writer) should use following template granted it already got
- * an exclusive access to counters (a lock is already taken, or per cpu
- * data is used [in a non preemptable context])
- *
- *   spin_lock_bh(...) or other synchronization to get exclusive access
- *   ...
- *   u64_stats_update_begin(&stats->syncp);
+diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
+index 1a8894b5ac51..6e6fc7121640 100644
+--- a/samples/bpf/map_perf_test_user.c
++++ b/samples/bpf/map_perf_test_user.c
+@@ -8,7 +8,9 @@
+ #include <sched.h>
+ #include <stdio.h>
+ #include <sys/types.h>
++#define __ARCH_WANT_SYSCALL_DEPRECATED
+ #include <asm/unistd.h>
++#undef __ARCH_WANT_SYSCALL_DEPRECATED
+ #include <unistd.h>
+ #include <assert.h>
+ #include <sys/wait.h>
+-- 
+2.14.0.rc1.383.gd1ce394fe2-goog
