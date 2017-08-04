@@ -1,44 +1,41 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v3] ARM: dts: tango4: Request RGMII RX and TX clock delays
-Date: Fri, 4 Aug 2017 13:02:57 +0200
-Message-ID: <CAK8P3a2fdzrvoN5FLzmH20igc4Jxg1N1L0SmDq7idFvMeFhc_Q@mail.gmail.com>
-References: <d669e207-ae47-4c9e-67c5-75424fde501f@sigmadesigns.com>
+From: Guoqing Jiang <gqjiang@suse.com>
+Subject: WARN_ON in commit 0ffdaf5 "net/sock: add WARN_ON(parent->sk) in
+ sock_graft()"
+Date: Fri, 4 Aug 2017 19:13:18 +0800
+Message-ID: <598456CE.7020702@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: arm-soc <arm@kernel.org>, Florian Fainelli <f.fainelli@gmail.com>,
-        Mans Rullgard <mans@mansr.com>, Mason <slash.tmp@free.fr>,
-        netdev <netdev@vger.kernel.org>,
-        Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Guoqing Jiang <gqjiang@suse.com>
+To: sowmini.varadhan@oracle.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:35887 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751304AbdHDLC6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 07:02:58 -0400
-Received: by mail-oi0-f65.google.com with SMTP id b130so1184477oii.3
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 04:02:58 -0700 (PDT)
-In-Reply-To: <d669e207-ae47-4c9e-67c5-75424fde501f@sigmadesigns.com>
+Received: from smtp2.provo.novell.com ([137.65.250.81]:46869 "EHLO
+        smtp2.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751304AbdHDLNc (ORCPT
+        <rfc822;groupwise-netdev@vger.kernel.org:0:0>);
+        Fri, 4 Aug 2017 07:13:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 28, 2017 at 3:27 PM, Marc Gonzalez
-<marc_gonzalez@sigmadesigns.com> wrote:
-> RX and TX clock delays are required. Request them explicitly.
->
-> Fixes: cad008b8a77e6 ("ARM: dts: tango4: Initial device trees")
-> Signed-off-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
-> ---
-> Arnd, Kevin, Olof, can one of you take this patch through arm-soc?
+HI,
 
-Applied to the fixes branch now.
+With commit 0ffdaf5b41cf4435ece14d1d3e977ce69012a20d "net/sock: add 
+WARN_ON(parent->sk) in sock_graft()",
+I can see the WARN_ON is triggered easily by dlm subsystem.
 
-> Greg will apply it to all stable branches, right?
+tcp_accept_from_sock() in  fs/dlm/lowcomms.c has the following snippet:
 
-He usually looks at random patches that have a 'Fixes:' line, but if you already
-know that you want a bugfix to be backported, it should also come with a
-'Cc: stable@vger.kernel.org' line. I've added that manually this time, but
-please include it yourself if you have another patch like that.
+1.    result = sock_create_kern(&init_net, dlm_local_addr[0]->ss_family,
+                                       SOCK_STREAM, IPPROTO_TCP, &newsock);
+         sk is set by the path "sock_create_kern -> __sock_creat -> 
+pf->create => inet_create -> sock_init_data"
+     ...
+2.    result = con->sock->ops->accept(con->sock, newsock, O_NONBLOCK, true);
+         Then sock_graft is called by "con->sock->ops->accept => 
+inet_accept -> sock_graft "
 
- Thanks,
+Does it mean call accept() after the just created socket is not a 
+acceptable behavior? Any comment will be appreciate, thanks.
 
-      Arnd
+Regards,
+Guoqing
