@@ -1,121 +1,147 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/3] net: dsa: remove useless args of dsa_cpu_dsa_setup
-Date: Fri,  4 Aug 2017 18:23:19 -0400
-Message-ID: <20170804222320.10986-3-vivien.didelot@savoirfairelinux.com>
-References: <20170804222320.10986-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170804222320.10986-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yonghong Song <yhs@fb.com>
+Subject: Re: [PATCH net] bpf: fix byte order test in test_verifier
+Date: Fri, 4 Aug 2017 15:26:59 -0700
+Message-ID: <21522bb6-1b9d-8f4b-ff29-352959ae57f1@fb.com>
+References: <2914429672dfe6d0420a81dff36853326a7f604d.1501877778.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33250 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752707AbdHDW1h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 18:27:37 -0400
+In-Reply-To: <2914429672dfe6d0420a81dff36853326a7f604d.1501877778.git.daniel@iogearbox.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-dsa_cpu_dsa_setup currently takes 4 arguments but they are all available
-from the dsa_port argument. Remove all others.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/dsa.c      | 10 +++++-----
- net/dsa/dsa2.c     |  4 ++--
- net/dsa/dsa_priv.h |  3 +--
- net/dsa/legacy.c   |  4 +---
- 4 files changed, 9 insertions(+), 12 deletions(-)
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 0ba842c08dd3..64db6eece3c1 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -67,17 +67,17 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
- 	[DSA_TAG_PROTO_NONE] = &none_ops,
- };
- 
--int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
--		      struct dsa_port *dport, int port)
-+int dsa_cpu_dsa_setup(struct dsa_port *port)
- {
--	struct device_node *port_dn = dport->dn;
-+	struct device_node *port_dn = port->dn;
-+	struct dsa_switch *ds = port->ds;
- 	struct phy_device *phydev;
- 	int ret, mode;
- 
- 	if (of_phy_is_fixed_link(port_dn)) {
- 		ret = of_phy_register_fixed_link(port_dn);
- 		if (ret) {
--			dev_err(dev, "failed to register fixed PHY\n");
-+			dev_err(ds->dev, "failed to register fixed PHY\n");
- 			return ret;
- 		}
- 		phydev = of_phy_find_device(port_dn);
-@@ -90,7 +90,7 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
- 		genphy_config_init(phydev);
- 		genphy_read_status(phydev);
- 		if (ds->ops->adjust_link)
--			ds->ops->adjust_link(ds, port, phydev);
-+			ds->ops->adjust_link(ds, port->index, phydev);
- 
- 		put_device(&phydev->mdio.dev);
- 	}
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index c442051d5a55..2a0120493cf1 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -219,7 +219,7 @@ static int dsa_dsa_port_apply(struct dsa_port *port)
- 	struct dsa_switch *ds = port->ds;
- 	int err;
- 
--	err = dsa_cpu_dsa_setup(ds, ds->dev, port, port->index);
-+	err = dsa_cpu_dsa_setup(port);
- 	if (err) {
- 		dev_warn(ds->dev, "Failed to setup dsa port %d: %d\n",
- 			 port->index, err);
-@@ -243,7 +243,7 @@ static int dsa_cpu_port_apply(struct dsa_port *port)
- 	struct dsa_switch *ds = port->ds;
- 	int err;
- 
--	err = dsa_cpu_dsa_setup(ds, ds->dev, port, port->index);
-+	err = dsa_cpu_dsa_setup(port);
- 	if (err) {
- 		dev_warn(ds->dev, "Failed to setup cpu port %d: %d\n",
- 			 port->index, err);
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 7aa0656296c2..46851c91c7fe 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -101,8 +101,7 @@ struct dsa_slave_priv {
- };
- 
- /* dsa.c */
--int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
--		      struct dsa_port *dport, int port);
-+int dsa_cpu_dsa_setup(struct dsa_port *port);
- void dsa_cpu_dsa_destroy(struct dsa_port *dport);
- const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
- int dsa_cpu_port_ethtool_setup(struct dsa_port *cpu_dp);
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index c565787e1c78..05be0bc10735 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -80,15 +80,13 @@ dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
- /* basic switch operations **************************************************/
- static int dsa_cpu_dsa_setups(struct dsa_switch *ds)
- {
--	struct dsa_port *dport;
- 	int ret, port;
- 
- 	for (port = 0; port < ds->num_ports; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
- 
--		dport = &ds->ports[port];
--		ret = dsa_cpu_dsa_setup(ds, ds->dev, dport, port);
-+		ret = dsa_cpu_dsa_setup(&ds->ports[port]);
- 		if (ret)
- 			return ret;
- 	}
--- 
-2.13.3
+On 8/4/17 1:24 PM, Daniel Borkmann wrote:
+> We really must check with #if __BYTE_ORDER == XYZ instead of
+> just presence of #ifdef __LITTLE_ENDIAN. I noticed that when
+> actually running this on big endian machine, the latter test
+> resolves to true for user space, same for #ifdef __BIG_ENDIAN.
+> 
+> E.g., looking at endian.h from libc, both are also defined
+> there, so we really must test this against __BYTE_ORDER instead
+> for proper insns selection. For the kernel, such checks are
+> fine though e.g. see 13da9e200fe4 ("Revert "endian: #define
+> __BYTE_ORDER"") and 415586c9e6d3 ("UAPI: fix endianness conditionals
+> in M32R's asm/stat.h") for some more context, but not for
+> user space. Lets also make sure to properly include endian.h.
+> After that, suite passes for me:
+> 
+> ./test_verifier: ELF 64-bit MSB executable, [...]
+> 
+> Linux foo 4.13.0-rc3+ #4 SMP Fri Aug 4 06:59:30 EDT 2017 s390x s390x s390x GNU/Linux
+> 
+> Before fix: Summary: 505 PASSED, 11 FAILED
+> After  fix: Summary: 516 PASSED,  0 FAILED
+> 
+> Fixes: 18f3d6be6be1 ("selftests/bpf: Add test cases to test narrower ctx field loads")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>   tools/testing/selftests/bpf/test_verifier.c | 19 ++++++++++---------
+>   1 file changed, 10 insertions(+), 9 deletions(-)
+> 
+> diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+> index addea82..d3ed732 100644
+> --- a/tools/testing/selftests/bpf/test_verifier.c
+> +++ b/tools/testing/selftests/bpf/test_verifier.c
+> @@ -8,6 +8,7 @@
+>    * License as published by the Free Software Foundation.
+>    */
+>   
+> +#include <endian.h>
+>   #include <asm/types.h>
+>   #include <linux/types.h>
+>   #include <stdint.h>
+> @@ -1098,7 +1099,7 @@ struct test_val {
+>   		"check skb->hash byte load permitted",
+>   		.insns = {
+>   			BPF_MOV64_IMM(BPF_REG_0, 0),
+> -#ifdef __LITTLE_ENDIAN
+> +#if __BYTE_ORDER == __LITTLE_ENDIAN
+>   			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
+>   				    offsetof(struct __sk_buff, hash)),
+>   #else
+> @@ -1135,7 +1136,7 @@ struct test_val {
+>   		"check skb->hash byte load not permitted 3",
+>   		.insns = {
+>   			BPF_MOV64_IMM(BPF_REG_0, 0),
+> -#ifdef __LITTLE_ENDIAN
+> +#if __BYTE_ORDER == __LITTLE_ENDIAN
+>   			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
+>   				    offsetof(struct __sk_buff, hash) + 3),
+>   #else
+> @@ -1244,7 +1245,7 @@ struct test_val {
+>   		"check skb->hash half load permitted",
+>   		.insns = {
+>   			BPF_MOV64_IMM(BPF_REG_0, 0),
+> -#ifdef __LITTLE_ENDIAN
+> +#if __BYTE_ORDER == __LITTLE_ENDIAN
+>   			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+>   				    offsetof(struct __sk_buff, hash)),
+>   #else
+> @@ -1259,7 +1260,7 @@ struct test_val {
+>   		"check skb->hash half load not permitted",
+>   		.insns = {
+>   			BPF_MOV64_IMM(BPF_REG_0, 0),
+> -#ifdef __LITTLE_ENDIAN
+> +#if __BYTE_ORDER == __LITTLE_ENDIAN
+>   			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+>   				    offsetof(struct __sk_buff, hash) + 2),
+>   #else
+> @@ -5422,7 +5423,7 @@ struct test_val {
+>   		"check bpf_perf_event_data->sample_period byte load permitted",
+>   		.insns = {
+>   			BPF_MOV64_IMM(BPF_REG_0, 0),
+> -#ifdef __LITTLE_ENDIAN
+> +#if __BYTE_ORDER == __LITTLE_ENDIAN
+>   			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_1,
+>   				    offsetof(struct bpf_perf_event_data, sample_period)),
+>   #else
+> @@ -5438,7 +5439,7 @@ struct test_val {
+>   		"check bpf_perf_event_data->sample_period half load permitted",
+>   		.insns = {
+>   			BPF_MOV64_IMM(BPF_REG_0, 0),
+> -#ifdef __LITTLE_ENDIAN
+> +#if __BYTE_ORDER == __LITTLE_ENDIAN
+>   			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+>   				    offsetof(struct bpf_perf_event_data, sample_period)),
+>   #else
+> @@ -5454,7 +5455,7 @@ struct test_val {
+>   		"check bpf_perf_event_data->sample_period word load permitted",
+>   		.insns = {
+>   			BPF_MOV64_IMM(BPF_REG_0, 0),
+> -#ifdef __LITTLE_ENDIAN
+> +#if __BYTE_ORDER == __LITTLE_ENDIAN
+>   			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
+>   				    offsetof(struct bpf_perf_event_data, sample_period)),
+>   #else
+> @@ -5481,7 +5482,7 @@ struct test_val {
+>   		"check skb->data half load not permitted",
+>   		.insns = {
+>   			BPF_MOV64_IMM(BPF_REG_0, 0),
+> -#ifdef __LITTLE_ENDIAN
+> +#if __BYTE_ORDER == __LITTLE_ENDIAN
+>   			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+>   				    offsetof(struct __sk_buff, data)),
+>   #else
+> @@ -5497,7 +5498,7 @@ struct test_val {
+>   		"check skb->tc_classid half load not permitted for lwt prog",
+>   		.insns = {
+>   			BPF_MOV64_IMM(BPF_REG_0, 0),
+> -#ifdef __LITTLE_ENDIAN
+> +#if __BYTE_ORDER == __LITTLE_ENDIAN
+>   			BPF_LDX_MEM(BPF_H, BPF_REG_0, BPF_REG_1,
+>   				    offsetof(struct __sk_buff, tc_classid)),
+>   #else
+> 
+
+The change looks good to me.
+Acked-by: Yonghong <yhs@fb.com>
