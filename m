@@ -1,33 +1,93 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] xgene: Always get clk source, but ignore if it's
- missing for SGMII ports
-Date: Fri, 04 Aug 2017 11:30:54 -0700 (PDT)
-Message-ID: <20170804.113054.760644132949601023.davem@davemloft.net>
-References: <20170803140311.34C7E50870B@solo.franken.de>
+From: Joel Fernandes <joelaf@google.com>
+Subject: Re: [PATCH] samples/bpf: Fix cross compiler error with bpf sample
+Date: Fri, 4 Aug 2017 11:33:01 -0700
+Message-ID: <CAJWu+oqY7KLbVGSmuedoZp0D9usXuP0JUfzws_aUt461M3gxQA@mail.gmail.com>
+References: <20170804054623.5229-1-joelaf@google.com> <59847D97.8080003@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: isubramanian@apm.com, kchudgar@apm.com, qnguyen@apm.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        labbott@redhat.com
-To: tsbogend@alpha.franken.de
+Content-Type: text/plain; charset="UTF-8"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        "open list:BPF (Safe dynamic programs and tools)"
+        <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170803140311.34C7E50870B@solo.franken.de>
+In-Reply-To: <59847D97.8080003@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Date: Thu, 3 Aug 2017 15:43:14 +0200
+On Fri, Aug 4, 2017 at 6:58 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 08/04/2017 07:46 AM, Joel Fernandes wrote:
+>>
+>> When cross-compiling the bpf sample map_perf_test for aarch64, I find that
+>> __NR_getpgrp is undefined. This causes build errors. Fix it by allowing
+>> the
+>> deprecated syscall in the sample.
+>>
+>> Signed-off-by: Joel Fernandes <joelaf@google.com>
+>> ---
+>>   samples/bpf/map_perf_test_user.c | 2 ++
+>>   1 file changed, 2 insertions(+)
+>>
+>> diff --git a/samples/bpf/map_perf_test_user.c
+>> b/samples/bpf/map_perf_test_user.c
+>> index 1a8894b5ac51..6e6fc7121640 100644
+>> --- a/samples/bpf/map_perf_test_user.c
+>> +++ b/samples/bpf/map_perf_test_user.c
+>> @@ -8,7 +8,9 @@
+>>   #include <sched.h>
+>>   #include <stdio.h>
+>>   #include <sys/types.h>
+>> +#define __ARCH_WANT_SYSCALL_DEPRECATED
+>>   #include <asm/unistd.h>
+>> +#undef __ARCH_WANT_SYSCALL_DEPRECATED
+>
+>
+> So the only arch that sets __ARCH_WANT_SYSCALL_DEPRECATED
+> is score:
+>
+>   $ git grep -n __ARCH_WANT_SYSCALL_DEPRECATED
+>   arch/score/include/uapi/asm/unistd.h:7:#define
+> __ARCH_WANT_SYSCALL_DEPRECATED
+>   include/uapi/asm-generic/unistd.h:837:#ifdef
+> __ARCH_WANT_SYSCALL_DEPRECATED
+>   include/uapi/asm-generic/unistd.h:899:#endif /*
+> __ARCH_WANT_SYSCALL_DEPRECATED */
+>
+> But even if this would make aarch64 compile, the syscall
+> numbers don't match up:
+>
+>   $ git grep -n __NR_getpgrp include/uapi/asm-generic/unistd.h
+>   include/uapi/asm-generic/unistd.h:841:#define __NR_getpgrp 1060
+>   include/uapi/asm-generic/unistd.h:843:__SYSCALL(__NR_getpgrp, sys_getpgrp)
+>
+> The only thing that can be found on arm64 is:
+>
+>   $ git grep -n __NR_getpgrp arch/arm64/
+>   arch/arm64/include/asm/unistd32.h:154:#define __NR_getpgrp 65
+>   arch/arm64/include/asm/unistd32.h:155:__SYSCALL(__NR_getpgrp, sys_getpgrp)
+>
+> In arch/arm64/include/asm/unistd.h, it does include the
+> uapi/asm/unistd.h when compat is not set, but without the
+> __ARCH_WANT_SYSCALL_DEPRECATED. That doesn't look correct
+> unless I'm missing something, hmm, can't we just attach the
+> kprobes to a different syscall, one that is not deprecated,
+> so that we don't run into this in the first place?
 
-> From: Thomas Bogendoerfer <tbogendoerfer@suse.de>
-> 
-> Even the driver doesn't do anything with the clk source for SGMII
-> ports it needs to be enabled by doing a devm_clk_get(), if there is
-> a clk source in DT.
-> 
-> Fixes: 0db01097cabd ('xgene: Don't fail probe, if there is no clk resource for SGMII interfaces')
-> Signed-off-by: Thomas Bogendoerfer <tbogendoerfer@suse.de>
-> Tested-by: Laura Abbott <labbott@redhat.com>
-> Acked-by: Iyappan Subramanian <isubramanian@apm.com>
+Yes, I agree that's better. I think we can use getpgid. I'll try to
+whip something today and send it out.
 
-Applied, thanks.
+I also wanted to fix something else, HOSTCC is set to gcc, but I want
+the boostrap part of the sample to run an ARM so I have to make HOSTCC
+my cross-compiler. Right now I'm hacking it to point to the arm64 gcc
+however I think I'd like to add a 'cross compile mode' or something
+whether HOSTCC points to CROSS_COMPILE instead. I'm happy to discuss
+any ideas to get this fixed too.
+
+thanks!
+
+-Joel
+
+
+>
+> Thanks,
+> Daniel
