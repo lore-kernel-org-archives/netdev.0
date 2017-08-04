@@ -1,31 +1,51 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next PATCH v2] net: comment fixes against BPF devmap helper
- calls
-Date: Fri, 04 Aug 2017 17:30:36 +0200
-Message-ID: <5984931C.1040808@iogearbox.net>
-References: <20170804152404.28045.15462.stgit@john-Precision-Tower-5810>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 00/13] Change DSA's FDB API and perform switchdev cleanup
+Date: Fri, 04 Aug 2017 11:29:07 -0400
+Message-ID: <87d18b2vy4.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1500480294-10604-1-git-send-email-arkadis@mellanox.com> <87mv80ji63.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <099a0552-0139-20d4-2529-c1202303d772@mellanox.com> <87pocvnkfw.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <ede22100-3a66-f54d-a618-a3b840a2664c@mellanox.com> <aa4f3dc5-6693-4de8-5191-f0a939ff8168@mellanox.com> <20170804052301.GA1906@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>, davem@davemloft.net,
-        ast@fb.com
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ivecera@redhat.com,
+        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>,
+        Arkadi Sharshevsky <arkadis@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58699 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752131AbdHDPaj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 11:30:39 -0400
-In-Reply-To: <20170804152404.28045.15462.stgit@john-Precision-Tower-5810>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:46230 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752070AbdHDPcH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 11:32:07 -0400
+In-Reply-To: <20170804052301.GA1906@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/04/2017 05:24 PM, John Fastabend wrote:
-> Update BPF comments to accurately reflect XDP usage.
+Hi Arkadi, Jiri,
+
+Jiri Pirko <jiri@resnulli.us> writes:
+
+>>It seems impossible currently to move the self to be the default, and
+>>this introduces regression which you don't approve, so it seems few
+>>options left:
+>>
+>>a) Leave two ways to add fdb, through the bridge (by using the master
+>>   flag) which is introduced in this patchset, and by using the self
+>>   which is the legacy way. In this way no regression will be introduced,
+>>   yet, it feels confusing a bit. The benefit is that we (DSA/mlxsw)
+>>   will be synced.
+>>b) Leave only the self (which means removing patch no 4,5).
 >
-> Fixes: 97f91a7cf04ff ("bpf: add bpf_redirect_map helper routine")
-> Reported-by: Alexei Starovoitov <ast@kernel.org>
-> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+> I belive that option a) is the correct way to go. Introduction of self
+> inclusion was a mistake from the very beginning. I think that we should
+> just move one and correct this mistake.
+>
+> Vivien, any arguments against a)?
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+I do agree with a). Arkadi, when moving switchdev implementations inside
+of DSA core, can I ask you to move the ones considered as the legacy way
+into legacy.c and ideally comment it? Configuration from userspace is
+still very confusing and this will remind us to get rid of it one day.
 
-Thanks!
+
+Thanks,
+
+        Vivien
