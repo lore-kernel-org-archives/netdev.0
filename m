@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v2] net: comment fixes against BPF devmap
- helper calls
-Date: Fri, 04 Aug 2017 11:29:21 -0700 (PDT)
-Message-ID: <20170804.112921.866000505066597292.davem@davemloft.net>
-References: <20170804152404.28045.15462.stgit@john-Precision-Tower-5810>
+Subject: Re: [PATCH net] xgene: Always get clk source, but ignore if it's
+ missing for SGMII ports
+Date: Fri, 04 Aug 2017 11:30:54 -0700 (PDT)
+Message-ID: <20170804.113054.760644132949601023.davem@davemloft.net>
+References: <20170803140311.34C7E50870B@solo.franken.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, ast@fb.com, netdev@vger.kernel.org
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37598 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751927AbdHDS3V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 14:29:21 -0400
-In-Reply-To: <20170804152404.28045.15462.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: isubramanian@apm.com, kchudgar@apm.com, qnguyen@apm.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        labbott@redhat.com
+To: tsbogend@alpha.franken.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170803140311.34C7E50870B@solo.franken.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Fri, 04 Aug 2017 08:24:05 -0700
+From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Date: Thu, 3 Aug 2017 15:43:14 +0200
 
-> Update BPF comments to accurately reflect XDP usage.
+> From: Thomas Bogendoerfer <tbogendoerfer@suse.de>
 > 
-> Fixes: 97f91a7cf04ff ("bpf: add bpf_redirect_map helper routine")
-> Reported-by: Alexei Starovoitov <ast@kernel.org>
-> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+> Even the driver doesn't do anything with the clk source for SGMII
+> ports it needs to be enabled by doing a devm_clk_get(), if there is
+> a clk source in DT.
+> 
+> Fixes: 0db01097cabd ('xgene: Don't fail probe, if there is no clk resource for SGMII interfaces')
+> Signed-off-by: Thomas Bogendoerfer <tbogendoerfer@suse.de>
+> Tested-by: Laura Abbott <labbott@redhat.com>
+> Acked-by: Iyappan Subramanian <isubramanian@apm.com>
 
 Applied, thanks.
