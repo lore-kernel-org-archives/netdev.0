@@ -1,71 +1,115 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Fri, 4 Aug 2017 20:20:37 +0000
-Message-ID: <MWHPR12MB1600400EC7DEE92E4A3ADC5BC8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
-References: <e496ff1d-b836-ebef-fdf7-76273aaaaef6@codeaurora.org>
- <0260e398-bd8e-6615-6d5c-1f7c07b6fc09@huawei.com>
- <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
- <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
- <20170724090516.2e0f0d2a@w520.home>
- <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
- <75213fca-4522-2297-3cb8-338e643d3552@huawei.com>
- <CAKgT0UcqdRCwDDxD=22Q_jLuqz8KVHwH1-V45Aq-1WzQw=agcA@mail.gmail.com>
- <14218972-553d-eb60-0207-460ac7f4b064@huawei.com>
- <MWHPR12MB1600A6986E4AD13D302F2DC9C8B00@MWHPR12MB1600.namprd12.prod.outlook.com>,<20170803083153.GB4883@otc-nc-03>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Alex Williamson <alex.williamson@redhat.com>,
-        Sinan Kaya <okaya@codeaurora.org>,
-        "bhelgaas@google.com" <bhelgaas@google.com>,
-        "helgaas@kernel.org" <helgaas@kernel.org>,
-        "Michael Werner" <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
-        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
-        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
-        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
-        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-        "amira@mellanox.com" <amira@mellanox.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "David.Laight@aculab.com" <David.Laight@aculab.com>,
-        "jeffrey.t.kir
-To: "Raj, Ashok" <ashok.raj@intel.com>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] wan: dscc4: add checks for dma mapping errors
+Date: Fri,  4 Aug 2017 23:23:24 +0300
+Message-ID: <1501878204-24270-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170803083153.GB4883@otc-nc-03>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-| From: Raj, Ashok <ashok.raj@intel.com>
-| Sent: Thursday, August 3, 2017 1:31 AM
-|
-| I don't understand this completely.. So your driver would know not to sen=
-d
-| RO TLP's to root complex. But you want to send RO to the NVMe device? Thi=
-s
-| is the peer-2-peer case correct?
+The driver does not check if mapping dma memory succeed.
+The patch adds the checks and failure handling.
 
-Yes, this is the "heavy hammer" issue which you alluded to later.  There ar=
-e
-applications where a device will want to send TLPs to a Root Complex withou=
-t
-Relaxed Ordering set, but will want to use it when sending TLPs to a Peer
-device (say, an NVMe storage device).  The current approach doesn't make
-that easy ... and in fact, I still don't kow how to code a solution for thi=
-s
-with the proposed APIs.  This means that we may be trading off one
-performance problem for another and that Relaxed Ordering may be doomed for
-use under Linux for the foreseeable future.
+Found by Linux Driver Verification project (linuxtesting.org).
 
-As I've noted a number of times, it would be great if the Intel Hardware
-Engineers who attempted to implement the Relaxed Ordering semantics in the
-current generation of Root Complexes had left the ability to turn off the
-logic which is obviously not working.  If there was a way to disable the
-logic via an undocumented register, then we could have the Linux PCI Quirk
-do that.  Since Relaxed Ordering is just a hint, it's completely legitimate
-to completely ignore it.
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/wan/dscc4.c | 52 +++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 37 insertions(+), 15 deletions(-)
 
-Casey
+diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+index 799830ffcae2..1a94f0a95b2c 100644
+--- a/drivers/net/wan/dscc4.c
++++ b/drivers/net/wan/dscc4.c
+@@ -522,19 +522,27 @@ static inline int try_get_rx_skb(struct dscc4_dev_priv *dpriv,
+ 	struct RxFD *rx_fd = dpriv->rx_fd + dirty;
+ 	const int len = RX_MAX(HDLC_MAX_MRU);
+ 	struct sk_buff *skb;
+-	int ret = 0;
++	dma_addr_t addr;
+ 
+ 	skb = dev_alloc_skb(len);
+ 	dpriv->rx_skbuff[dirty] = skb;
+-	if (skb) {
+-		skb->protocol = hdlc_type_trans(skb, dev);
+-		rx_fd->data = cpu_to_le32(pci_map_single(dpriv->pci_priv->pdev,
+-					  skb->data, len, PCI_DMA_FROMDEVICE));
+-	} else {
+-		rx_fd->data = 0;
+-		ret = -1;
+-	}
+-	return ret;
++	if (!skb)
++		goto err_out;
++
++	skb->protocol = hdlc_type_trans(skb, dev);
++	addr = pci_map_single(dpriv->pci_priv->pdev,
++			      skb->data, len, PCI_DMA_FROMDEVICE);
++	if (pci_dma_mapping_error(dpriv->pci_priv->pdev, addr))
++		goto err_free_skb;
++
++	rx_fd->data = cpu_to_le32(addr);
++	return 0;
++
++err_free_skb:
++	dev_kfree_skb_any(skb);
++err_out:
++	rx_fd->data = 0;
++	return -1;
+ }
+ 
+ /*
+@@ -1147,14 +1155,22 @@ static netdev_tx_t dscc4_start_xmit(struct sk_buff *skb,
+ 	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
+ 	struct dscc4_pci_priv *ppriv = dpriv->pci_priv;
+ 	struct TxFD *tx_fd;
++	dma_addr_t addr;
+ 	int next;
+ 
++	addr = pci_map_single(ppriv->pdev, skb->data, skb->len,
++			      PCI_DMA_TODEVICE);
++	if (pci_dma_mapping_error(ppriv->pdev, addr)) {
++		dev_kfree_skb_any(skb);
++		dev->stats.tx_errors++;
++		return NETDEV_TX_OK;
++	}
++
+ 	next = dpriv->tx_current%TX_RING_SIZE;
+ 	dpriv->tx_skbuff[next] = skb;
+ 	tx_fd = dpriv->tx_fd + next;
+ 	tx_fd->state = FrameEnd | TO_STATE_TX(skb->len);
+-	tx_fd->data = cpu_to_le32(pci_map_single(ppriv->pdev, skb->data, skb->len,
+-				     PCI_DMA_TODEVICE));
++	tx_fd->data = cpu_to_le32(addr);
+ 	tx_fd->complete = 0x00000000;
+ 	tx_fd->jiffies = jiffies;
+ 	mb();
+@@ -1889,14 +1905,20 @@ static struct sk_buff *dscc4_init_dummy_skb(struct dscc4_dev_priv *dpriv)
+ 	if (skb) {
+ 		int last = dpriv->tx_dirty%TX_RING_SIZE;
+ 		struct TxFD *tx_fd = dpriv->tx_fd + last;
++		dma_addr_t addr;
+ 
+ 		skb->len = DUMMY_SKB_SIZE;
+ 		skb_copy_to_linear_data(skb, version,
+ 					strlen(version) % DUMMY_SKB_SIZE);
+ 		tx_fd->state = FrameEnd | TO_STATE_TX(DUMMY_SKB_SIZE);
+-		tx_fd->data = cpu_to_le32(pci_map_single(dpriv->pci_priv->pdev,
+-					     skb->data, DUMMY_SKB_SIZE,
+-					     PCI_DMA_TODEVICE));
++		addr = pci_map_single(dpriv->pci_priv->pdev,
++				      skb->data, DUMMY_SKB_SIZE,
++				      PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(dpriv->pci_priv->pdev, addr)) {
++			dev_kfree_skb_any(skb);
++			return NULL;
++		}
++		tx_fd->data = cpu_to_le32(addr);
+ 		dpriv->tx_skbuff[last] = skb;
+ 	}
+ 	return skb;
+-- 
+2.7.4
