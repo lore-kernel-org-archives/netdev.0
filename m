@@ -1,105 +1,73 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] net: sched: set xt_tgchk_param par.net properly in ipt_init_target
-Date: Sat,  5 Aug 2017 16:48:38 +0800
-Message-ID: <6252aa0d498204ec3431e9a906178fb6b1c97f00.1501922918.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [PATCH net-next v2 1/5] ipv6: sr: allow SRH insertion with arbitrary segments_left value
+Date: Sat, 5 Aug 2017 12:38:24 +0200
+Message-ID: <20170805103828.21458-2-david.lebrun@uclouvain.be>
+References: <20170805103828.21458-1-david.lebrun@uclouvain.be>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:38538 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751241AbdHEIsr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 04:48:47 -0400
-Received: by mail-pf0-f195.google.com with SMTP id h75so4001132pfh.5
-        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 01:48:46 -0700 (PDT)
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:40305 "EHLO
+        smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751250AbdHEKi2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 06:38:28 -0400
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp6.sgsi.ucl.ac.be (Postfix) with ESMTPS id 2023D67DC56
+        for <netdev@vger.kernel.org>; Sat,  5 Aug 2017 12:38:19 +0200 (CEST)
+In-Reply-To: <20170805103828.21458-1-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now xt_tgchk_param par in ipt_init_target is a local varibale,
-par.net is not initialized there. Later when xt_check_target
-calls target's checkentry in which it may access par.net, it
-would cause kernel panic.
+The seg6_validate_srh() function only allows SRHs whose active segment is
+the first segment of the path. However, an application may insert an SRH
+whose active segment is not the first one. Such an application might be
+for example an SR-aware Virtual Network Function.
 
-Jaroslav found this panic when running:
+This patch enables to insert SRHs with an arbitrary active segment.
 
-  # ip link add TestIface type dummy
-  # tc qd add dev TestIface ingress handle ffff:
-  # tc filter add dev TestIface parent ffff: u32 match u32 0 0 \
-    action xt -j CONNMARK --set-mark 4
-
-This patch is to pass net param into ipt_init_target and set
-par.net with it properly in there.
-
-Reported-by: Jaroslav Aster <jaster@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- net/sched/act_ipt.c | 18 ++++++++----------
- 1 file changed, 8 insertions(+), 10 deletions(-)
+ net/ipv6/exthdrs.c | 4 ++--
+ net/ipv6/seg6.c    | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 36f0ced..bb06d2ed 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -36,8 +36,8 @@ static struct tc_action_ops act_ipt_ops;
- static unsigned int xt_net_id;
- static struct tc_action_ops act_xt_ops;
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 3cec529..9551613 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -882,7 +882,7 @@ static void ipv6_push_rthdr4(struct sk_buff *skb, u8 *proto,
+ 	       (hops - 1) * sizeof(struct in6_addr));
  
--static int ipt_init_target(struct xt_entry_target *t, char *table,
--			   unsigned int hook)
-+static int ipt_init_target(struct net *net, struct xt_entry_target *t,
-+			   char *table, unsigned int hook)
- {
- 	struct xt_tgchk_param par;
- 	struct xt_target *target;
-@@ -49,6 +49,7 @@ static int ipt_init_target(struct xt_entry_target *t, char *table,
- 		return PTR_ERR(target);
+ 	sr_phdr->segments[0] = **addr_p;
+-	*addr_p = &sr_ihdr->segments[hops - 1];
++	*addr_p = &sr_ihdr->segments[sr_ihdr->segments_left];
  
- 	t->u.kernel.target = target;
-+	par.net       = net;
- 	par.table     = table;
- 	par.entryinfo = NULL;
- 	par.target    = target;
-@@ -91,10 +92,11 @@ static const struct nla_policy ipt_policy[TCA_IPT_MAX + 1] = {
- 	[TCA_IPT_TARG]	= { .len = sizeof(struct xt_entry_target) },
- };
+ #ifdef CONFIG_IPV6_SEG6_HMAC
+ 	if (sr_has_hmac(sr_phdr)) {
+@@ -1174,7 +1174,7 @@ struct in6_addr *fl6_update_dst(struct flowi6 *fl6,
+ 	{
+ 		struct ipv6_sr_hdr *srh = (struct ipv6_sr_hdr *)opt->srcrt;
  
--static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
-+static int __tcf_ipt_init(struct net *net, struct nlattr *nla,
- 			  struct nlattr *est, struct tc_action **a,
- 			  const struct tc_action_ops *ops, int ovr, int bind)
- {
-+	struct tc_action_net *tn = net_generic(net, xt_net_id);
- 	struct nlattr *tb[TCA_IPT_MAX + 1];
- 	struct tcf_ipt *ipt;
- 	struct xt_entry_target *td, *t;
-@@ -159,7 +161,7 @@ static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
- 	if (unlikely(!t))
- 		goto err2;
+-		fl6->daddr = srh->segments[srh->first_segment];
++		fl6->daddr = srh->segments[srh->segments_left];
+ 		break;
+ 	}
+ 	default:
+diff --git a/net/ipv6/seg6.c b/net/ipv6/seg6.c
+index 15fba55..81c2339 100644
+--- a/net/ipv6/seg6.c
++++ b/net/ipv6/seg6.c
+@@ -40,7 +40,7 @@ bool seg6_validate_srh(struct ipv6_sr_hdr *srh, int len)
+ 	if (((srh->hdrlen + 1) << 3) != len)
+ 		return false;
  
--	err = ipt_init_target(t, tname, hook);
-+	err = ipt_init_target(net, t, tname, hook);
- 	if (err < 0)
- 		goto err3;
+-	if (srh->segments_left != srh->first_segment)
++	if (srh->segments_left > srh->first_segment)
+ 		return false;
  
-@@ -193,18 +195,14 @@ static int tcf_ipt_init(struct net *net, struct nlattr *nla,
- 			struct nlattr *est, struct tc_action **a, int ovr,
- 			int bind)
- {
--	struct tc_action_net *tn = net_generic(net, ipt_net_id);
--
--	return __tcf_ipt_init(tn, nla, est, a, &act_ipt_ops, ovr, bind);
-+	return __tcf_ipt_init(net, nla, est, a, &act_ipt_ops, ovr, bind);
- }
- 
- static int tcf_xt_init(struct net *net, struct nlattr *nla,
- 		       struct nlattr *est, struct tc_action **a, int ovr,
- 		       int bind)
- {
--	struct tc_action_net *tn = net_generic(net, xt_net_id);
--
--	return __tcf_ipt_init(tn, nla, est, a, &act_xt_ops, ovr, bind);
-+	return __tcf_ipt_init(net, nla, est, a, &act_xt_ops, ovr, bind);
- }
- 
- static int tcf_ipt(struct sk_buff *skb, const struct tc_action *a,
+ 	tlv_offset = sizeof(*srh) + ((srh->first_segment + 1) << 4);
 -- 
-2.1.0
+2.10.2
