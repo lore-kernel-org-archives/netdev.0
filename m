@@ -1,73 +1,135 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [GIT] Networking
-Date: Thu, 31 Aug 2017 08:52:04 +0200
-Message-ID: <20170831065204.GA17812@amd>
-References: <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
- <20170830.101143.2305098064824357647.davem@davemloft.net>
- <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
- <20170830.105447.125174575140677062.davem@davemloft.net>
- <87fuc8s5v9.fsf@kamboji.qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="IJpNTDwzlM2Ie8A6"
-Cc: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
-        torvalds@linux-foundation.org, akpm@linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87fuc8s5v9.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-Path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([45.249.212.187]:11258 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751200AbdHEGmF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 02:42:05 -0400
+Subject: Re: [PATCH v8 1/4] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+To: Casey Leedom <leedom@chelsio.com>,
+        "ashok.raj@intel.com" <ashok.raj@intel.com>,
+        "bhelgaas@google.com" <bhelgaas@google.com>,
+        "helgaas@kernel.org" <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+        "will.deacon@arm.com" <will.deacon@arm.com>,
+        "mark.rutland@arm.com" <mark.rutland@arm.com>,
+        "robin.murphy@arm.com" <robin.murphy@arm.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>
+References: <1501767889-7772-1-git-send-email-dingtianhong@huawei.com>
+ <1501767889-7772-2-git-send-email-dingtianhong@huawei.com>
+ <MWHPR12MB1600F5F2E2C4A5A7C5449896C8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Message-ID: <c91556e4-a0e3-d553-adba-431049504a7d@huawei.com>
+Date: Sat, 5 Aug 2017 14:28:43 +0800
+MIME-Version: 1.0
+In-Reply-To: <MWHPR12MB1600F5F2E2C4A5A7C5449896C8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---IJpNTDwzlM2Ie8A6
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Thu 2017-08-31 07:44:58, Kalle Valo wrote:
-> David Miller <davem@davemloft.net> writes:
->=20
-> > From: Kalle Valo <kvalo@codeaurora.org>
-> > Date: Wed, 30 Aug 2017 20:31:31 +0300
-> >
-> >> AFAICS the bug was introduced by 9df86e2e702c6 back in 2010. If the bug
-> >> has been there for 7 years so waiting for a few more weeks should not
-> >> hurt.
-> >
-> > As a maintainer you have a right to handle bug fixing in that way, but
-> > certainly that is not how I would handle this.
-> >
-> > It's easy to validate this fix, it's extremely unlikely to cause
-> > a regression, and fixes a problem someone actually was able to
-> > trigger.
-> >
-> > Deferring to -next only has the side effect of making people wait
-> > longer for the fix.
->=20
-> Yeah, you are right there. I did actually ponder which I tree should
-> commit it back in July but due to various reasons decided differently.
+On 2017/8/5 5:06, Casey Leedom wrote:
+> | From: Ding Tianhong <dingtianhong@huawei.com>
+> | Sent: Thursday, August 3, 2017 6:44 AM
+> |
+> | diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> | index 6967c6b..1e1cdbe 100644
+> | --- a/drivers/pci/quirks.c
+> | +++ b/drivers/pci/quirks.c
+> | @@ -4016,6 +4016,44 @@ static void quirk_tw686x_class(struct pci_dev *pdev)
+> |                                quirk_tw686x_class);
+> |
+> |  /*
+> | + * Some devices have problems with Transaction Layer Packets with the Relaxed
+> | + * Ordering Attribute set.  Such devices should mark themselves and other
+> | + * Device Drivers should check before sending TLPs with RO set.
+> | + */
+> | +static void quirk_relaxedordering_disable(struct pci_dev *dev)
+> | +{
+> | +       dev->dev_flags |= PCI_DEV_FLAGS_NO_RELAXED_ORDERING;
+> | +}
+> | +
+> | +/*
+> | + * Intel E5-26xx Root Complex has a Flow Control Credit issue which can
+> | + * cause performance problems with Upstream Transaction Layer Packets with
+> | + * Relaxed Ordering set.
+> | + */
+> | +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f02, PCI_CLASS_NOT_DEFINED, 8,
+> | +                             quirk_relaxedordering_disable);
+> | +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f04, PCI_CLASS_NOT_DEFINED, 8,
+> | +                             quirk_relaxedordering_disable);
+> | +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f08, PCI_CLASS_NOT_DEFINED, 8,
+> | +                             quirk_relaxedordering_disable);
+> | + ...
+> 
+> It looks like this is missing the set of Root Complex IDs that were noted in
+> the document to which Patrick Cramer sent us a reference:
+> 
+> https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf
+> 
+> In section 3.9.1 we have:
+> 
+>     3.9.1 Optimizing PCIe Performance for Accesses Toward Coherent Memory
+>           and Toward MMIO Regions (P2P)
+> 
+>     In order to maximize performance for PCIe devices in the processors
+>     listed in Table 3-6 below, the soft- ware should determine whether the
+>     accesses are toward coherent memory (system memory) or toward MMIO
+>     regions (P2P access to other devices). If the access is toward MMIO
+>     region, then software can command HW to set the RO bit in the TLP
+>     header, as this would allow hardware to achieve maximum throughput for
+>     these types of accesses. For accesses toward coherent memory, software
+>     can command HW to clear the RO bit in the TLP header (no RO), as this
+>     would allow hardware to achieve maximum throughput for these types of
+>     accesses.
+> 
+>     Table 3-6. Intel Processor CPU RP Device IDs for Processors Optimizing
+>                PCIe Performance
+> 
+>     Processor                            CPU RP Device IDs
+> 
+>     Intel Xeon processors based on       6F01H-6F0EH
+>     Broadwell microarchitecture
+> 
+>     Intel Xeon processors based on       2F01H-2F0EH
+>     Haswell microarchitecture
+> 
+> The PCI Device IDs you have there are the first ones that I guessed at
+> having the performance problem with Relaxed Ordering.  We now apparently
+> have a complete list from Intel.
+> 
+> I don't want to phrase this as a "NAK" because you've gone around the
+> mulberry bush a bunch of times already.  So maybe just go with what you've
+> got in version 8 of your patch and then do a follow on patch to complete the
+> table?
+> 
+Casey:
 
-Can we still get the fix to v4.13-final? :-).
+Thanks for the good catch, I found that the Ashok has notice this 3 month before, I am so sorry to
+miss it, it was really a long discussion for this problem, but don't worry, It is not a big work to fix it,
+I will send the v9 version. :)
 
-Thanks,
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
+Ding
 
---IJpNTDwzlM2Ie8A6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlmnshQACgkQMOfwapXb+vJNsgCfX036Hgk1RrEOFRJjB95fe7f/
-0n0AoJ7IEtEiYnyhR2NdHwwsBkjUmOXg
-=AwV2
------END PGP SIGNATURE-----
-
---IJpNTDwzlM2Ie8A6--
+> Casey
+> .
+> 
