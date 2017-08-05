@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/15] net: sched: rename TC_SETUP_MATCHALL to TC_SETUP_CLSMATCHALL
-Date: Sat,  5 Aug 2017 16:53:24 +0200
-Message-ID: <20170805145337.17728-3-jiri@resnulli.us>
-References: <20170805145337.17728-1-jiri@resnulli.us>
+Subject: [patch net-next 00/15] net: sched: summer cleanup part 2, ndo_setup_tc
+Date: Sat,  5 Aug 2017 16:53:22 +0200
+Message-ID: <20170805145337.17728-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
@@ -11,89 +10,92 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         amritha.nambiar@intel.com, oss-drivers@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36393 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751226AbdHEOxo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 10:53:44 -0400
-Received: by mail-wm0-f66.google.com with SMTP id d40so8766604wma.3
-        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 07:53:43 -0700 (PDT)
-In-Reply-To: <20170805145337.17728-1-jiri@resnulli.us>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:38795 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751226AbdHEOxl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 10:53:41 -0400
+Received: by mail-wr0-f193.google.com with SMTP id g32so4759573wrd.5
+        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 07:53:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-In order to be aligned with the rest of the types, rename
-TC_SETUP_MATCHALL to TC_SETUP_CLSMATCHALL.
+This patchset focuses on ndo_setup_tc and its args.
+Currently there are couple of things that do not make much sense.
+The type is passed in struct tc_to_netdev, but as it is always
+required, should be arg of the ndo. Other things are passed as args
+but they are only relevant for cls offloads and not mqprio. Therefore,
+they should be pushed to struct. As the tc_to_netdev struct in the end
+is just a container of single pointer, we get rid of it and pass the
+struct according to type. So in the end, we have:
+ndo_setup_tc(dev, type, type_data_struct)
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
- include/linux/netdevice.h                      | 2 +-
- net/dsa/slave.c                                | 2 +-
- net/sched/cls_matchall.c                       | 4 ++--
- 4 files changed, 5 insertions(+), 5 deletions(-)
+There are couple of cosmetics done on the way to make things smooth.
+Also, reported error is consolidated to eopnotsupp in case the
+asked offload is not supported.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 1554242..6438c38 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1704,7 +1704,7 @@ static int mlxsw_sp_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 		return -EOPNOTSUPP;
- 
- 	switch (type) {
--	case TC_SETUP_MATCHALL:
-+	case TC_SETUP_CLSMATCHALL:
- 		switch (tc->cls_mall->command) {
- 		case TC_CLSMATCHALL_REPLACE:
- 			return mlxsw_sp_port_add_cls_matchall(mlxsw_sp_port,
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e4238e5..f8051a3 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -778,7 +778,7 @@ enum tc_setup_type {
- 	TC_SETUP_MQPRIO,
- 	TC_SETUP_CLSU32,
- 	TC_SETUP_CLSFLOWER,
--	TC_SETUP_MATCHALL,
-+	TC_SETUP_CLSMATCHALL,
- 	TC_SETUP_CLSBPF,
- };
- 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 2946fad..a02d22b 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -860,7 +860,7 @@ static int dsa_slave_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 		return -EOPNOTSUPP;
- 
- 	switch (type) {
--	case TC_SETUP_MATCHALL:
-+	case TC_SETUP_CLSMATCHALL:
- 		switch (tc->cls_mall->command) {
- 		case TC_CLSMATCHALL_REPLACE:
- 			return dsa_slave_add_cls_matchall(dev, protocol,
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index 6ffe0b8..a8853ad 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -63,7 +63,7 @@ static int mall_replace_hw_filter(struct tcf_proto *tp,
- 	offload.cls_mall->exts = &head->exts;
- 	offload.cls_mall->cookie = cookie;
- 
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MATCHALL,
-+	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
- 					    tp->q->handle, tp->chain->index,
- 					    tp->protocol, &offload);
- 	if (!err)
-@@ -85,7 +85,7 @@ static void mall_destroy_hw_filter(struct tcf_proto *tp,
- 	offload.cls_mall->exts = NULL;
- 	offload.cls_mall->cookie = cookie;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MATCHALL, tp->q->handle,
-+	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL, tp->q->handle,
- 				      tp->chain->index, tp->protocol, &offload);
- }
- 
+Jiri Pirko (15):
+  net: sched: make type an argument for ndo_setup_tc
+  net: sched: rename TC_SETUP_MATCHALL to TC_SETUP_CLSMATCHALL
+  net: sched: make egress_dev flag part of flower offload struct
+  cxgb4: push cls_u32 setup_tc processing into a separate function
+  ixgbe: push cls_u32 and mqprio setup_tc processing into separate
+    functions
+  mlx5e: push cls_flower and mqprio setup_tc processing into separate
+    functions
+  mlx5e_rep: push cls_flower setup_tc processing into a separate
+    function
+  mlxsw: spectrum: push cls_flower and cls_matchall setup_tc processing
+    into separate functions
+  mlxsw: spectrum: rename cls arg in matchall processing
+  dsa: push cls_matchall setup_tc processing into a separate function
+  nfp: change flows in apps that offload ndo_setup_tc
+  net: sched: push cls related args into cls_common structure
+  net: sched: move prio into cls_common
+  net: sched: change return value of ndo_setup_tc for driver supporting
+    mqprio only
+  net: sched: get rid of struct tc_to_netdev
+
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  14 +--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |  14 +--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |   4 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c          |  14 +--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  43 +++++----
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |   7 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h  |   6 +-
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  13 +--
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c    |  14 +--
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  15 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  65 +++++++------
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  17 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  55 +++++------
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  45 +++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h    |   4 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 102 ++++++++++++---------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   2 +-
+ .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |   4 +-
+ drivers/net/ethernet/netronome/nfp/bpf/main.c      |  20 ++--
+ drivers/net/ethernet/netronome/nfp/flower/main.h   |   4 +-
+ .../net/ethernet/netronome/nfp/flower/offload.c    |  15 ++-
+ drivers/net/ethernet/netronome/nfp/nfp_app.h       |   8 +-
+ drivers/net/ethernet/netronome/nfp/nfp_port.c      |   9 +-
+ drivers/net/ethernet/netronome/nfp/nfp_port.h      |   5 +-
+ drivers/net/ethernet/sfc/efx.h                     |   4 +-
+ drivers/net/ethernet/sfc/falcon/efx.h              |   4 +-
+ drivers/net/ethernet/sfc/falcon/tx.c               |  13 +--
+ drivers/net/ethernet/sfc/tx.c                      |  13 +--
+ drivers/net/ethernet/ti/netcp_core.c               |  13 +--
+ include/linux/netdevice.h                          |  30 ++----
+ include/net/pkt_cls.h                              |  23 ++++-
+ net/dsa/slave.c                                    |  39 ++++----
+ net/sched/cls_bpf.c                                |  24 ++---
+ net/sched/cls_flower.c                             |  60 +++++-------
+ net/sched/cls_matchall.c                           |  31 +++----
+ net/sched/cls_u32.c                                |  95 ++++++++-----------
+ net/sched/sch_mqprio.c                             |  16 ++--
+ 38 files changed, 431 insertions(+), 435 deletions(-)
+
 -- 
 2.9.3
