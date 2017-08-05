@@ -1,242 +1,124 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2] bpf: devmap fix mutex in rcu critical section
-Date: Fri, 04 Aug 2017 22:02:19 -0700
-Message-ID: <20170805050219.12333.47493.stgit@john-Precision-Tower-5810>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v8 1/4] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Sat, 5 Aug 2017 14:28:43 +0800
+Message-ID: <c91556e4-a0e3-d553-adba-431049504a7d__21233.8076359176$1501915339$gmane$org@huawei.com>
+References: <1501767889-7772-1-git-send-email-dingtianhong@huawei.com>
+ <1501767889-7772-2-git-send-email-dingtianhong@huawei.com>
+ <MWHPR12MB1600F5F2E2C4A5A7C5449896C8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
-To: davem@davemloft.net, daniel@iogearbox.net,
-        alexander.levin@verizon.com
+To: Casey Leedom <leedom@chelsio.com>,
+        "ashok.raj@intel.com" <ashok.raj@intel.com>,
+        "bhelgaas@google.com" <bhelgaas@google.com>,
+        "helgaas@kernel.org" <helgaas@kernel.org>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "catalin.marinas@arm.com" <catalin.marinas@arm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33057 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751026AbdHEFCg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 01:02:36 -0400
-Received: by mail-pg0-f67.google.com with SMTP id u185so3532849pgb.0
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 22:02:36 -0700 (PDT)
+Received: from szxga01-in.huawei.com ([45.249.212.187]:11258 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751200AbdHEGmF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 02:42:05 -0400
+In-Reply-To: <MWHPR12MB1600F5F2E2C4A5A7C5449896C8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Originally we used a mutex to protect concurrent devmap update
-and delete operations from racing with netdev unregister notifier
-callbacks.
 
-The notifier hook is needed because we increment the netdev ref
-count when a dev is added to the devmap. This ensures the netdev
-reference is valid in the datapath. However, we don't want to block
-unregister events, hence the initial mutex and notifier handler.
 
-The concern was in the notifier hook we search the map for dev
-entries that hold a refcnt on the net device being torn down. But,
-in order to do this we require two steps,
+On 2017/8/5 5:06, Casey Leedom wrote:
+> | From: Ding Tianhong <dingtianhong@huawei.com>
+> | Sent: Thursday, August 3, 2017 6:44 AM
+> |
+> | diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> | index 6967c6b..1e1cdbe 100644
+> | --- a/drivers/pci/quirks.c
+> | +++ b/drivers/pci/quirks.c
+> | @@ -4016,6 +4016,44 @@ static void quirk_tw686x_class(struct pci_dev *pdev)
+> |                                quirk_tw686x_class);
+> |
+> |  /*
+> | + * Some devices have problems with Transaction Layer Packets with the Relaxed
+> | + * Ordering Attribute set.  Such devices should mark themselves and other
+> | + * Device Drivers should check before sending TLPs with RO set.
+> | + */
+> | +static void quirk_relaxedordering_disable(struct pci_dev *dev)
+> | +{
+> | +       dev->dev_flags |= PCI_DEV_FLAGS_NO_RELAXED_ORDERING;
+> | +}
+> | +
+> | +/*
+> | + * Intel E5-26xx Root Complex has a Flow Control Credit issue which can
+> | + * cause performance problems with Upstream Transaction Layer Packets with
+> | + * Relaxed Ordering set.
+> | + */
+> | +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f02, PCI_CLASS_NOT_DEFINED, 8,
+> | +                             quirk_relaxedordering_disable);
+> | +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f04, PCI_CLASS_NOT_DEFINED, 8,
+> | +                             quirk_relaxedordering_disable);
+> | +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, 0x6f08, PCI_CLASS_NOT_DEFINED, 8,
+> | +                             quirk_relaxedordering_disable);
+> | + ...
+> 
+> It looks like this is missing the set of Root Complex IDs that were noted in
+> the document to which Patrick Cramer sent us a reference:
+> 
+> https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf
+> 
+> In section 3.9.1 we have:
+> 
+>     3.9.1 Optimizing PCIe Performance for Accesses Toward Coherent Memory
+>           and Toward MMIO Regions (P2P)
+> 
+>     In order to maximize performance for PCIe devices in the processors
+>     listed in Table 3-6 below, the soft- ware should determine whether the
+>     accesses are toward coherent memory (system memory) or toward MMIO
+>     regions (P2P access to other devices). If the access is toward MMIO
+>     region, then software can command HW to set the RO bit in the TLP
+>     header, as this would allow hardware to achieve maximum throughput for
+>     these types of accesses. For accesses toward coherent memory, software
+>     can command HW to clear the RO bit in the TLP header (no RO), as this
+>     would allow hardware to achieve maximum throughput for these types of
+>     accesses.
+> 
+>     Table 3-6. Intel Processor CPU RP Device IDs for Processors Optimizing
+>                PCIe Performance
+> 
+>     Processor                            CPU RP Device IDs
+> 
+>     Intel Xeon processors based on       6F01H-6F0EH
+>     Broadwell microarchitecture
+> 
+>     Intel Xeon processors based on       2F01H-2F0EH
+>     Haswell microarchitecture
+> 
+> The PCI Device IDs you have there are the first ones that I guessed at
+> having the performance problem with Relaxed Ordering.  We now apparently
+> have a complete list from Intel.
+> 
+> I don't want to phrase this as a "NAK" because you've gone around the
+> mulberry bush a bunch of times already.  So maybe just go with what you've
+> got in version 8 of your patch and then do a follow on patch to complete the
+> table?
+> 
+Casey:
 
-  (i) dereference the netdev:  dev = rcu_dereference(map[i])
- (ii) test ifindex:   dev->ifindex == removing_ifindex
+Thanks for the good catch, I found that the Ashok has notice this 3 month before, I am so sorry to
+miss it, it was really a long discussion for this problem, but don't worry, It is not a big work to fix it,
+I will send the v9 version. :)
 
-and then finally we can swap in the NULL dev in the map via an
-xchg operation,
+Ding
 
-  xchg(map[i], NULL)
-
-The danger here is a concurrent update could run a different
-xchg op concurrently leading us to replace the new dev with a
-NULL dev incorrectly.
-
-      CPU 1                        CPU 2
-
-   notifier hook                   bpf devmap update
-
-   dev = rcu_dereference(map[i])
-                                   dev = rcu_dereference(map[i])
-                                   xchg(map[i]), new_dev);
-                                   rcu_call(dev,...)
-   xchg(map[i], NULL)
-
-The above flow would create the incorrect state with the dev
-reference in the update path being lost. To resolve this the
-original code used a mutex around the above block. However,
-updates, deletes, and lookups occur inside rcu critical sections
-so we can't use a mutex in this context safely.
-
-Fortunately, by writing slightly better code we can avoid the
-mutex altogether. If CPU 1 in the above example uses a cmpxchg
-and _only_ replaces the dev reference in the map when it is in
-fact the expected dev the race is removed completely. The two
-cases being illustrated here, first the race condition,
-
-      CPU 1                          CPU 2
-
-   notifier hook                     bpf devmap update
-
-   dev = rcu_dereference(map[i])
-                                     dev = rcu_dereference(map[i])
-                                     xchg(map[i]), new_dev);
-                                     rcu_call(dev,...)
-   odev = cmpxchg(map[i], dev, NULL)
-
-Now we can test the cmpxchg return value, detect odev != dev and
-abort. Or in the good case,
-
-      CPU 1                          CPU 2
-
-   notifier hook                     bpf devmap update
-   dev = rcu_dereference(map[i])
-   odev = cmpxchg(map[i], dev, NULL)
-                                     [...]
-
-Now 'odev == dev' and we can do proper cleanup.
-
-And viola the original race we tried to solve with a mutex is
-corrected and the trace noted by Sasha below is resolved due
-to removal of the mutex.
-
-Note: When walking the devmap and removing dev references as needed
-we depend on the core to fail any calls to dev_get_by_index() using
-the ifindex of the device being removed. This way we do not race with
-the user while searching the devmap.
-
-Additionally, the mutex was also protecting list add/del/read on
-the list of maps in-use. This patch converts this to an RCU list
-and spinlock implementation. This protects the list from concurrent
-alloc/free operations. The notifier hook walks this list so it uses
-RCU read semantics.
-
-BUG: sleeping function called from invalid context at kernel/locking/mutex.c:747
-in_atomic(): 1, irqs_disabled(): 0, pid: 16315, name: syz-executor1
-1 lock held by syz-executor1/16315:
- #0:  (rcu_read_lock){......}, at: [<ffffffff8c363bc2>] map_delete_elem kernel/bpf/syscall.c:577 [inline]
- #0:  (rcu_read_lock){......}, at: [<ffffffff8c363bc2>] SYSC_bpf kernel/bpf/syscall.c:1427 [inline]
- #0:  (rcu_read_lock){......}, at: [<ffffffff8c363bc2>] SyS_bpf+0x1d32/0x4ba0 kernel/bpf/syscall.c:1388
-
-Fixes: 2ddf71e23cc2 ("net: add notifier hooks for devmap bpf map")
-Reported-by: Sasha Levin <alexander.levin@verizon.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: John Fastabend <john.fastabend@gmail.com>
----
- kernel/bpf/devmap.c |   48 +++++++++++++++++++++++++-----------------------
- 1 file changed, 25 insertions(+), 23 deletions(-)
-
-diff --git a/kernel/bpf/devmap.c b/kernel/bpf/devmap.c
-index d439ee0..7192fb6 100644
---- a/kernel/bpf/devmap.c
-+++ b/kernel/bpf/devmap.c
-@@ -40,11 +40,12 @@
-  * contain a reference to the net device and remove them. This is a two step
-  * process (a) dereference the bpf_dtab_netdev object in netdev_map and (b)
-  * check to see if the ifindex is the same as the net_device being removed.
-- * Unfortunately, the xchg() operations do not protect against this. To avoid
-- * potentially removing incorrect objects the dev_map_list_mutex protects
-- * conflicting netdev unregister and BPF syscall operations. Updates and
-- * deletes from a BPF program (done in rcu critical section) are blocked
-- * because of this mutex.
-+ * When removing the dev a cmpxchg() is used to ensure the correct dev is
-+ * removed, in the case of a concurrent update or delete operation it is
-+ * possible that the initially referenced dev is no longer in the map. As the
-+ * notifier hook walks the map we know that new dev references can not be
-+ * added by the user because core infrastructure ensures dev_get_by_index()
-+ * calls will fail at this point.
-  */
- #include <linux/bpf.h>
- #include <linux/jhash.h>
-@@ -68,7 +69,7 @@ struct bpf_dtab {
- 	struct list_head list;
- };
- 
--static DEFINE_MUTEX(dev_map_list_mutex);
-+static DEFINE_SPINLOCK(dev_map_lock);
- static LIST_HEAD(dev_map_list);
- 
- static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
-@@ -128,9 +129,9 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
- 	if (!dtab->netdev_map)
- 		goto free_dtab;
- 
--	mutex_lock(&dev_map_list_mutex);
--	list_add_tail(&dtab->list, &dev_map_list);
--	mutex_unlock(&dev_map_list_mutex);
-+	spin_lock(&dev_map_lock);
-+	list_add_tail_rcu(&dtab->list, &dev_map_list);
-+	spin_unlock(&dev_map_lock);
- 	return &dtab->map;
- 
- free_dtab:
-@@ -169,7 +170,6 @@ static void dev_map_free(struct bpf_map *map)
- 	 * at this point we we can still race with netdev notifier, hence the
- 	 * lock.
- 	 */
--	mutex_lock(&dev_map_list_mutex);
- 	for (i = 0; i < dtab->map.max_entries; i++) {
- 		struct bpf_dtab_netdev *dev;
- 
-@@ -184,8 +184,9 @@ static void dev_map_free(struct bpf_map *map)
- 	/* At this point bpf program is detached and all pending operations
- 	 * _must_ be complete
- 	 */
--	list_del(&dtab->list);
--	mutex_unlock(&dev_map_list_mutex);
-+	spin_lock(&dev_map_lock);
-+	list_del_rcu(&dtab->list);
-+	spin_unlock(&dev_map_lock);
- 	free_percpu(dtab->flush_needed);
- 	bpf_map_area_free(dtab->netdev_map);
- 	kfree(dtab);
-@@ -322,11 +323,9 @@ static int dev_map_delete_elem(struct bpf_map *map, void *key)
- 	 * the driver tear down ensures all soft irqs are complete before
- 	 * removing the net device in the case of dev_put equals zero.
- 	 */
--	mutex_lock(&dev_map_list_mutex);
- 	old_dev = xchg(&dtab->netdev_map[k], NULL);
- 	if (old_dev)
- 		call_rcu(&old_dev->rcu, __dev_map_entry_free);
--	mutex_unlock(&dev_map_list_mutex);
- 	return 0;
- }
- 
-@@ -369,11 +368,9 @@ static int dev_map_update_elem(struct bpf_map *map, void *key, void *value,
- 	 * Remembering the driver side flush operation will happen before the
- 	 * net device is removed.
- 	 */
--	mutex_lock(&dev_map_list_mutex);
- 	old_dev = xchg(&dtab->netdev_map[i], dev);
- 	if (old_dev)
- 		call_rcu(&old_dev->rcu, __dev_map_entry_free);
--	mutex_unlock(&dev_map_list_mutex);
- 
- 	return 0;
- }
-@@ -396,22 +393,27 @@ static int dev_map_notification(struct notifier_block *notifier,
- 
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
--		mutex_lock(&dev_map_list_mutex);
--		list_for_each_entry(dtab, &dev_map_list, list) {
-+		/* This rcu_read_lock/unlock pair is needed because
-+		 * dev_map_list is an RCU list AND to ensure a delete
-+		 * operation does not free a netdev_map entry while we
-+		 * are comparing it against the netdev being unregistered.
-+		 */
-+		rcu_read_lock();
-+		list_for_each_entry_rcu(dtab, &dev_map_list, list) {
- 			for (i = 0; i < dtab->map.max_entries; i++) {
--				struct bpf_dtab_netdev *dev;
-+				struct bpf_dtab_netdev *dev, *odev;
- 
--				dev = dtab->netdev_map[i];
-+				dev = READ_ONCE(dtab->netdev_map[i]);
- 				if (!dev ||
- 				    dev->dev->ifindex != netdev->ifindex)
- 					continue;
--				dev = xchg(&dtab->netdev_map[i], NULL);
--				if (dev)
-+				odev = cmpxchg(&dtab->netdev_map[i], dev, NULL);
-+				if (dev == odev)
- 					call_rcu(&dev->rcu,
- 						 __dev_map_entry_free);
- 			}
- 		}
--		mutex_unlock(&dev_map_list_mutex);
-+		rcu_read_unlock();
- 		break;
- 	default:
- 		break;
+> Casey
+> .
+> 
