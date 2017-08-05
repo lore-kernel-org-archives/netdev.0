@@ -1,164 +1,105 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v9 2/4] PCI: Disable PCIe Relaxed Ordering if unsupported
-Date: Sat, 5 Aug 2017 15:15:11 +0800
-Message-ID: <1501917313-9812-3-git-send-email-dingtianhong@huawei.com>
-References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ding Tianhong <dingtianhong@huawei.com>
-To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <bhelgaas@google.com>,
- <helgaas@kernel.org>, <werner@chelsio.com>, <ganeshgr@chelsio.com>,
- <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
- <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
- <l.stach@pengutronix.de>, <amira@mellanox.com>,
- <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
- <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
- <will.deacon@arm.com>, <mark.rutland@arm.com>, <robin.murphy@arm.com>,
- <davem@davemloft.net>, <alexander.duyck@gmail.com>,
- <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
- <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
- <linuxarm@huawei.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] net: sched: set xt_tgchk_param par.net properly in ipt_init_target
+Date: Sat,  5 Aug 2017 16:48:38 +0800
+Message-ID: <6252aa0d498204ec3431e9a906178fb6b1c97f00.1501922918.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:38538 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751241AbdHEIsr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 04:48:47 -0400
+Received: by mail-pf0-f195.google.com with SMTP id h75so4001132pfh.5
+        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 01:48:46 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When bit4 is set in the PCIe Device Control register, it indicates
-whether the device is permitted to use relaxed ordering.
-On some platforms using relaxed ordering can have performance issues or
-due to erratum can cause data-corruption. In such cases devices must avoid
-using relaxed ordering.
+Now xt_tgchk_param par in ipt_init_target is a local varibale,
+par.net is not initialized there. Later when xt_check_target
+calls target's checkentry in which it may access par.net, it
+would cause kernel panic.
 
-This patch checks if there is any node in the hierarchy that indicates that
-using relaxed ordering is not safe. In such cases the patch turns off the
-relaxed ordering by clearing the eapability for this device. And if the
-device is probably running in a guest machine, we should do nothing.
+Jaroslav found this panic when running:
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: Ashok Raj <ashok.raj@intel.com>
+  # ip link add TestIface type dummy
+  # tc qd add dev TestIface ingress handle ffff:
+  # tc filter add dev TestIface parent ffff: u32 match u32 0 0 \
+    action xt -j CONNMARK --set-mark 4
+
+This patch is to pass net param into ipt_init_target and set
+par.net with it properly in there.
+
+Reported-by: Jaroslav Aster <jaster@redhat.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- drivers/pci/pci.c   | 29 +++++++++++++++++++++++++++++
- drivers/pci/probe.c | 37 +++++++++++++++++++++++++++++++++++++
- include/linux/pci.h |  2 ++
- 3 files changed, 68 insertions(+)
+ net/sched/act_ipt.c | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index af0cc34..4f9d7c1 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -4854,6 +4854,35 @@ int pcie_set_mps(struct pci_dev *dev, int mps)
- EXPORT_SYMBOL(pcie_set_mps);
+diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
+index 36f0ced..bb06d2ed 100644
+--- a/net/sched/act_ipt.c
++++ b/net/sched/act_ipt.c
+@@ -36,8 +36,8 @@ static struct tc_action_ops act_ipt_ops;
+ static unsigned int xt_net_id;
+ static struct tc_action_ops act_xt_ops;
  
- /**
-+ * pcie_clear_relaxed_ordering - clear PCI Express relaxed ordering bit
-+ * @dev: PCI device to query
-+ *
-+ * If possible clear relaxed ordering
-+ */
-+int pcie_clear_relaxed_ordering(struct pci_dev *dev)
-+{
-+	return pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
-+					  PCI_EXP_DEVCTL_RELAX_EN);
-+}
-+EXPORT_SYMBOL(pcie_clear_relaxed_ordering);
-+
-+/**
-+ * pcie_relaxed_ordering_supported - Probe for PCIe relexed ordering support
-+ * @dev: PCI device to query
-+ *
-+ * Returns true if the device support relaxed ordering attribute.
-+ */
-+bool pcie_relaxed_ordering_supported(struct pci_dev *dev)
-+{
-+	u16 v;
-+
-+	pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
-+
-+	return !!(v & PCI_EXP_DEVCTL_RELAX_EN);
-+}
-+EXPORT_SYMBOL(pcie_relaxed_ordering_supported);
-+
-+/**
-  * pcie_get_minimum_link - determine minimum link settings of a PCI device
-  * @dev: PCI device to query
-  * @speed: storage for minimum speed
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index c31310d..48df012 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -1762,6 +1762,42 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
- 					 PCI_EXP_DEVCTL_EXT_TAG);
+-static int ipt_init_target(struct xt_entry_target *t, char *table,
+-			   unsigned int hook)
++static int ipt_init_target(struct net *net, struct xt_entry_target *t,
++			   char *table, unsigned int hook)
+ {
+ 	struct xt_tgchk_param par;
+ 	struct xt_target *target;
+@@ -49,6 +49,7 @@ static int ipt_init_target(struct xt_entry_target *t, char *table,
+ 		return PTR_ERR(target);
+ 
+ 	t->u.kernel.target = target;
++	par.net       = net;
+ 	par.table     = table;
+ 	par.entryinfo = NULL;
+ 	par.target    = target;
+@@ -91,10 +92,11 @@ static const struct nla_policy ipt_policy[TCA_IPT_MAX + 1] = {
+ 	[TCA_IPT_TARG]	= { .len = sizeof(struct xt_entry_target) },
+ };
+ 
+-static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
++static int __tcf_ipt_init(struct net *net, struct nlattr *nla,
+ 			  struct nlattr *est, struct tc_action **a,
+ 			  const struct tc_action_ops *ops, int ovr, int bind)
+ {
++	struct tc_action_net *tn = net_generic(net, xt_net_id);
+ 	struct nlattr *tb[TCA_IPT_MAX + 1];
+ 	struct tcf_ipt *ipt;
+ 	struct xt_entry_target *td, *t;
+@@ -159,7 +161,7 @@ static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
+ 	if (unlikely(!t))
+ 		goto err2;
+ 
+-	err = ipt_init_target(t, tname, hook);
++	err = ipt_init_target(net, t, tname, hook);
+ 	if (err < 0)
+ 		goto err3;
+ 
+@@ -193,18 +195,14 @@ static int tcf_ipt_init(struct net *net, struct nlattr *nla,
+ 			struct nlattr *est, struct tc_action **a, int ovr,
+ 			int bind)
+ {
+-	struct tc_action_net *tn = net_generic(net, ipt_net_id);
+-
+-	return __tcf_ipt_init(tn, nla, est, a, &act_ipt_ops, ovr, bind);
++	return __tcf_ipt_init(net, nla, est, a, &act_ipt_ops, ovr, bind);
  }
  
-+/**
-+ * pci_dev_should_disable_relaxed_ordering - check if the PCI device
-+ * should disable the relaxed ordering attribute.
-+ * @dev: PCI device
-+ *
-+ * Return true if any of the PCI devices above us do not support
-+ * relaxed ordering.
-+ */
-+static bool pci_dev_should_disable_relaxed_ordering(struct pci_dev *dev)
-+{
-+	while (dev) {
-+		if (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING)
-+			return true;
-+
-+		dev = dev->bus->self;
-+	}
-+
-+	return false;
-+}
-+
-+static void pci_configure_relaxed_ordering(struct pci_dev *dev)
-+{
-+	/* We should not alter the relaxed ordering bit for the VF */
-+	if (dev->is_virtfn)
-+		return;
-+
-+	/* If the releaxed ordering enable bit is not set, do nothing. */
-+	if (!pcie_relaxed_ordering_supported(dev))
-+		return;
-+
-+	if (pci_dev_should_disable_relaxed_ordering(dev)) {
-+		pcie_clear_relaxed_ordering(dev);
-+		dev_info(&dev->dev, "Disable Relaxed Ordering\n");
-+	}
-+}
-+
- static void pci_configure_device(struct pci_dev *dev)
+ static int tcf_xt_init(struct net *net, struct nlattr *nla,
+ 		       struct nlattr *est, struct tc_action **a, int ovr,
+ 		       int bind)
  {
- 	struct hotplug_params hpp;
-@@ -1769,6 +1805,7 @@ static void pci_configure_device(struct pci_dev *dev)
+-	struct tc_action_net *tn = net_generic(net, xt_net_id);
+-
+-	return __tcf_ipt_init(tn, nla, est, a, &act_xt_ops, ovr, bind);
++	return __tcf_ipt_init(net, nla, est, a, &act_xt_ops, ovr, bind);
+ }
  
- 	pci_configure_mps(dev);
- 	pci_configure_extended_tags(dev);
-+	pci_configure_relaxed_ordering(dev);
- 
- 	memset(&hpp, 0, sizeof(hpp));
- 	ret = pci_get_hp_params(dev, &hpp);
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 412ec1c..3aa23a2 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1127,6 +1127,8 @@ int pci_add_ext_cap_save_buffer(struct pci_dev *dev,
- void pci_pme_wakeup_bus(struct pci_bus *bus);
- void pci_d3cold_enable(struct pci_dev *dev);
- void pci_d3cold_disable(struct pci_dev *dev);
-+int pcie_clear_relaxed_ordering(struct pci_dev *dev);
-+bool pcie_relaxed_ordering_supported(struct pci_dev *dev);
- 
- /* PCI Virtual Channel */
- int pci_save_vc_state(struct pci_dev *dev);
+ static int tcf_ipt(struct sk_buff *skb, const struct tc_action *a,
 -- 
-1.8.3.1
+2.1.0
