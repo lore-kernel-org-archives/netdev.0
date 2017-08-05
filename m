@@ -1,64 +1,78 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] net: sched: fix NULL pointer dereference when action calls some targets
-Date: Sat,  5 Aug 2017 19:35:07 +0800
-Message-ID: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>
+Subject: [PATCH net-next 01/14] sctp: remove the typedef sctp_lower_cwnd_t
+Date: Sat,  5 Aug 2017 19:59:51 +0800
+Message-ID: <88e505f76dd927887d8cdcc7de2b82595237aa85.1501934087.git.lucien.xin@gmail.com>
+References: <cover.1501934086.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34935 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751226AbdHELfQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 07:35:16 -0400
-Received: by mail-pf0-f194.google.com with SMTP id j68so4294417pfc.2
-        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 04:35:16 -0700 (PDT)
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:38881 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751356AbdHEMAV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 08:00:21 -0400
+In-Reply-To: <cover.1501934086.git.lucien.xin@gmail.com>
+In-Reply-To: <cover.1501934086.git.lucien.xin@gmail.com>
+References: <cover.1501934086.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As we know in some target's checkentry it may dereference par.entryinfo
-to check entry stuff inside. But when sched action calls xt_check_target,
-par.entryinfo is set with NULL. It would cause kernel panic when calling
-some targets.
-
-It can be reproduce with:
-  # tc qd add dev eth1 ingress handle ffff:
-  # tc filter add dev eth1 parent ffff: u32 match u32 0 0 action xt \
-    -j ECN --ecn-tcp-remove
-
-It could also crash kernel when using target CLUSTERIP or TPROXY.
-
-By now there's no proper value for par.entryinfo in ipt_init_target,
-but it can not be set with NULL. This patch is to void all these
-panics by setting it with an ipt_entry obj with all members 0.
+This patch is to remove the typedef sctp_lower_cwnd_t, and
+replace with enum sctp_lower_cwnd in the places where it's
+using this typedef.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/sched/act_ipt.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ include/net/sctp/constants.h | 4 ++--
+ include/net/sctp/structs.h   | 3 ++-
+ net/sctp/transport.c         | 2 +-
+ 3 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 7c4816b..0f09f70 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -41,6 +41,7 @@ static int ipt_init_target(struct net *net, struct xt_entry_target *t,
+diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+index 9b18044..761064e 100644
+--- a/include/net/sctp/constants.h
++++ b/include/net/sctp/constants.h
+@@ -378,12 +378,12 @@ typedef enum {
+ } sctp_retransmit_reason_t;
+ 
+ /* Reasons to lower cwnd. */
+-typedef enum {
++enum sctp_lower_cwnd {
+ 	SCTP_LOWER_CWND_T3_RTX,
+ 	SCTP_LOWER_CWND_FAST_RTX,
+ 	SCTP_LOWER_CWND_ECNE,
+ 	SCTP_LOWER_CWND_INACTIVE,
+-} sctp_lower_cwnd_t;
++};
+ 
+ 
+ /* SCTP-AUTH Necessary constants */
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 66cd763..53802d8 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -950,7 +950,8 @@ int sctp_transport_hold(struct sctp_transport *);
+ void sctp_transport_put(struct sctp_transport *);
+ void sctp_transport_update_rto(struct sctp_transport *, __u32);
+ void sctp_transport_raise_cwnd(struct sctp_transport *, __u32, __u32);
+-void sctp_transport_lower_cwnd(struct sctp_transport *, sctp_lower_cwnd_t);
++void sctp_transport_lower_cwnd(struct sctp_transport *t,
++			       enum sctp_lower_cwnd reason);
+ void sctp_transport_burst_limited(struct sctp_transport *);
+ void sctp_transport_burst_reset(struct sctp_transport *);
+ unsigned long sctp_transport_timeout(struct sctp_transport *);
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index 80a97c8..2d9bd37 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -490,7 +490,7 @@ void sctp_transport_raise_cwnd(struct sctp_transport *transport,
+  * detected.
+  */
+ void sctp_transport_lower_cwnd(struct sctp_transport *transport,
+-			       sctp_lower_cwnd_t reason)
++			       enum sctp_lower_cwnd reason)
  {
- 	struct xt_tgchk_param par;
- 	struct xt_target *target;
-+	struct ipt_entry e;
- 	int ret = 0;
+ 	struct sctp_association *asoc = transport->asoc;
  
- 	target = xt_request_find_target(AF_INET, t->u.user.name,
-@@ -48,10 +49,11 @@ static int ipt_init_target(struct net *net, struct xt_entry_target *t,
- 	if (IS_ERR(target))
- 		return PTR_ERR(target);
- 
-+	memset(&e, 0, sizeof(e));
- 	t->u.kernel.target = target;
- 	par.net       = net;
- 	par.table     = table;
--	par.entryinfo = NULL;
-+	par.entryinfo = &e;
- 	par.target    = target;
- 	par.targinfo  = t->data;
- 	par.hook_mask = hook;
 -- 
 2.1.0
