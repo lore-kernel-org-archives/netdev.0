@@ -1,66 +1,80 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 00/14] sctp: remove typedefs from structures part 5
-Date: Sat,  5 Aug 2017 19:59:50 +0800
-Message-ID: <cover.1501934086.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 02/14] sctp: remove the typedef sctp_retransmit_reason_t
+Date: Sat,  5 Aug 2017 19:59:52 +0800
+Message-ID: <7ceee2b1bf33403b8ecb04c9c30354f71dd2198a.1501934087.git.lucien.xin@gmail.com>
+References: <cover.1501934086.git.lucien.xin@gmail.com>
+ <88e505f76dd927887d8cdcc7de2b82595237aa85.1501934087.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:38356 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751356AbdHEMAN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 08:00:13 -0400
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33896 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751356AbdHEMA3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 08:00:29 -0400
+In-Reply-To: <88e505f76dd927887d8cdcc7de2b82595237aa85.1501934087.git.lucien.xin@gmail.com>
+In-Reply-To: <cover.1501934086.git.lucien.xin@gmail.com>
+References: <cover.1501934086.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As we know, typedef is suggested not to use in kernel, even checkpatch.pl
-also gives warnings about it. Now sctp is using it for many structures.
+This patch is to remove the typedef sctp_retransmit_reason_t, and
+replace with enum sctp_retransmit_reason in the places where it's
+using this typedef.
 
-All this kind of typedef's using should be removed. This patchset is the
-part 5 to remove all typedefs in include/net/sctp/constants.h.
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ include/net/sctp/constants.h | 4 ++--
+ include/net/sctp/structs.h   | 4 ++--
+ net/sctp/outqueue.c          | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-Just as the part 1-4, No any code's logic would be changed in these patches,
-only cleaning up.
-
-Xin Long (14):
-  sctp: remove the typedef sctp_lower_cwnd_t
-  sctp: remove the typedef sctp_retransmit_reason_t
-  sctp: remove the typedef sctp_scope_policy_t
-  sctp: remove the typedef sctp_scope_t
-  sctp: remove the typedef sctp_transport_cmd_t
-  sctp: remove the typedef sctp_sock_state_t
-  sctp: remove the typedef sctp_xmit_t
-  sctp: remove the typedef sctp_ierror_t
-  sctp: remove the typedef sctp_state_t
-  sctp: remove the typedef sctp_event_primitive_t
-  sctp: remove the typedef sctp_event_other_t
-  sctp: remove the typedef sctp_event_timeout_t
-  sctp: remove the typedef sctp_event_t
-  sctp: remove the typedef sctp_subtype_t
-
- include/net/sctp/command.h   |   8 +-
- include/net/sctp/constants.h |  89 +++++++++---------
- include/net/sctp/sctp.h      |   9 +-
- include/net/sctp/sm.h        |  21 ++---
- include/net/sctp/structs.h   |  42 +++++----
- net/sctp/associola.c         |  21 ++---
- net/sctp/bind_addr.c         |  20 ++--
- net/sctp/debug.c             |   8 +-
- net/sctp/endpointola.c       |   4 +-
- net/sctp/ipv6.c              |   6 +-
- net/sctp/output.c            |  60 ++++++------
- net/sctp/outqueue.c          |  10 +-
- net/sctp/primitive.c         |   4 +-
- net/sctp/probe.c             |   2 +-
- net/sctp/protocol.c          |   6 +-
- net/sctp/sm_make_chunk.c     |  29 +++---
- net/sctp/sm_sideeffect.c     |  46 ++++-----
- net/sctp/sm_statefuns.c      | 215 ++++++++++++++++++++++---------------------
- net/sctp/sm_statetable.c     |  23 +++--
- net/sctp/socket.c            |   4 +-
- net/sctp/sysctl.c            |   2 +-
- net/sctp/transport.c         |   2 +-
- 22 files changed, 320 insertions(+), 311 deletions(-)
-
+diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+index 761064e..922fba5 100644
+--- a/include/net/sctp/constants.h
++++ b/include/net/sctp/constants.h
+@@ -370,12 +370,12 @@ typedef enum {
+ 						   peer */
+ 
+ /* Reasons to retransmit. */
+-typedef enum {
++enum sctp_retransmit_reason {
+ 	SCTP_RTXR_T3_RTX,
+ 	SCTP_RTXR_FAST_RTX,
+ 	SCTP_RTXR_PMTUD,
+ 	SCTP_RTXR_T1_RTX,
+-} sctp_retransmit_reason_t;
++};
+ 
+ /* Reasons to lower cwnd. */
+ enum sctp_lower_cwnd {
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 53802d8..5e872ac 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -1054,8 +1054,8 @@ int sctp_outq_sack(struct sctp_outq *, struct sctp_chunk *);
+ int sctp_outq_is_empty(const struct sctp_outq *);
+ void sctp_outq_restart(struct sctp_outq *);
+ 
+-void sctp_retransmit(struct sctp_outq *, struct sctp_transport *,
+-		     sctp_retransmit_reason_t);
++void sctp_retransmit(struct sctp_outq *q, struct sctp_transport *transport,
++		     enum sctp_retransmit_reason reason);
+ void sctp_retransmit_mark(struct sctp_outq *, struct sctp_transport *, __u8);
+ void sctp_outq_uncork(struct sctp_outq *, gfp_t gfp);
+ void sctp_prsctp_prune(struct sctp_association *asoc,
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index d2a8adf..08ee0ed 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -534,7 +534,7 @@ void sctp_retransmit_mark(struct sctp_outq *q,
+  * one packet out.
+  */
+ void sctp_retransmit(struct sctp_outq *q, struct sctp_transport *transport,
+-		     sctp_retransmit_reason_t reason)
++		     enum sctp_retransmit_reason reason)
+ {
+ 	struct net *net = sock_net(q->asoc->base.sk);
+ 
 -- 
 2.1.0
