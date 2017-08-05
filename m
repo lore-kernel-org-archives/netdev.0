@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/4] atm: idt77252: Adjust four function calls together with a
- variable assignment
-Date: Sat, 5 Aug 2017 14:26:45 +0200
-Message-ID: <c03d54ed-7c1d-351b-3e84-30cc4af38c5f@users.sourceforge.net>
+Subject: [PATCH 2/4] atm: idt77252: Delete an error message for a failed
+ memory allocation in seven functions
+Date: Sat, 5 Aug 2017 14:28:20 +0200
+Message-ID: <845a4e7c-fccc-a81b-cff5-3962e3cac155@users.sourceforge.net>
 References: <df946de6-8112-2a23-ec98-ac6418ca8486@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -18,60 +18,104 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 4 Aug 2017 22:20:08 +0200
+Date: Sat, 5 Aug 2017 12:45:34 +0200
 
-The script "checkpatch.pl" pointed information out like the following.
+Omit an extra message for a memory allocation failure in these functions.
 
-ERROR: do not use assignment in if condition
+This issue was detected by using the Coccinelle software.
 
-Thus fix the affected source code places.
-
+Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/atm/idt77252.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ drivers/atm/idt77252.c | 18 ++++--------------
+ 1 file changed, 4 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
-index b7a168c46692..6a051f5909d0 100644
+index 6a051f5909d0..434dc4ee5f15 100644
 --- a/drivers/atm/idt77252.c
 +++ b/drivers/atm/idt77252.c
-@@ -1070,7 +1070,8 @@ dequeue_rx(struct idt77252_dev *card, struct rsq_entry *rsqe)
- 
- 		cell = skb->data;
- 		for (i = (stat & SAR_RSQE_CELLCNT); i; i--) {
--			if ((sb = dev_alloc_skb(64)) == NULL) {
-+			sb = dev_alloc_skb(64);
-+			if (!sb) {
- 				printk("%s: Can't allocate buffers for aal0.\n",
- 				       card->name);
- 				atomic_add(i, &vcc->stats->rx_drop);
-@@ -1304,7 +1305,8 @@ idt77252_rx_raw(struct idt77252_dev *card)
+@@ -1307,8 +1307,6 @@ idt77252_rx_raw(struct idt77252_dev *card)
+ 	
+ 		sb = dev_alloc_skb(64);
+ 		if (!sb) {
+-			printk("%s: Can't allocate buffers for AAL0.\n",
+-			       card->name);
+ 			atomic_inc(&vcc->stats->rx_err);
  			goto drop;
  		}
- 	
--		if ((sb = dev_alloc_skb(64)) == NULL) {
-+		sb = dev_alloc_skb(64);
-+		if (!sb) {
- 			printk("%s: Can't allocate buffers for AAL0.\n",
- 			       card->name);
- 			atomic_inc(&vcc->stats->rx_err);
-@@ -3600,13 +3602,14 @@ static int idt77252_init_one(struct pci_dev *pcidev,
- 	struct atm_dev *dev;
- 	int i, err;
+@@ -2007,7 +2005,6 @@ idt77252_send_oam(struct atm_vcc *vcc, void *cell, int flags)
  
--
--	if ((err = pci_enable_device(pcidev))) {
-+	err = pci_enable_device(pcidev);
-+	if (err) {
- 		printk("idt77252: can't enable PCI device at %s\n", pci_name(pcidev));
- 		return err;
+ 	skb = dev_alloc_skb(64);
+ 	if (!skb) {
+-		printk("%s: Out of memory in send_oam().\n", card->name);
+ 		atomic_inc(&vcc->stats->tx_err);
+ 		return -ENOMEM;
  	}
+@@ -2427,7 +2424,6 @@ idt77252_open(struct atm_vcc *vcc)
+ 	if (!card->vcs[index]) {
+ 		card->vcs[index] = kzalloc(sizeof(struct vc_map), GFP_KERNEL);
+ 		if (!card->vcs[index]) {
+-			printk("%s: can't alloc vc in open()\n", card->name);
+ 			mutex_unlock(&card->mutex);
+ 			return -ENOMEM;
+ 		}
+@@ -2857,10 +2853,9 @@ open_card_oam(struct idt77252_dev *card)
+ 			index = VPCI2VC(card, vpi, vci);
  
--	if ((err = dma_set_mask_and_coherent(&pcidev->dev, DMA_BIT_MASK(32)))) {
-+	err = dma_set_mask_and_coherent(&pcidev->dev, DMA_BIT_MASK(32));
-+	if (err) {
- 		printk("idt77252: can't enable DMA for PCI device at %s\n", pci_name(pcidev));
- 		return err;
+ 			vc = kzalloc(sizeof(struct vc_map), GFP_KERNEL);
+-			if (!vc) {
+-				printk("%s: can't alloc vc\n", card->name);
++			if (!vc)
+ 				return -ENOMEM;
+-			}
++
+ 			vc->index = index;
+ 			card->vcs[index] = vc;
+ 
+@@ -2924,10 +2919,9 @@ open_card_ubr0(struct idt77252_dev *card)
+ 	struct vc_map *vc;
+ 
+ 	vc = kzalloc(sizeof(struct vc_map), GFP_KERNEL);
+-	if (!vc) {
+-		printk("%s: can't alloc vc\n", card->name);
++	if (!vc)
+ 		return -ENOMEM;
+-	}
++
+ 	card->vcs[0] = vc;
+ 	vc->class = SCHED_UBR0;
+ 
+@@ -3410,7 +3404,6 @@ static int init_card(struct atm_dev *dev)
+ 	IPRINTK("%s: allocate %d byte for VC map.\n", card->name, size);
+ 	card->vcs = vzalloc(size);
+ 	if (!card->vcs) {
+-		printk("%s: memory allocation failure.\n", card->name);
+ 		deinit_card(card);
+ 		return -1;
+ 	}
+@@ -3420,7 +3413,6 @@ static int init_card(struct atm_dev *dev)
+ 	        card->name, size);
+ 	card->scd2vc = vzalloc(size);
+ 	if (!card->scd2vc) {
+-		printk("%s: memory allocation failure.\n", card->name);
+ 		deinit_card(card);
+ 		return -1;
+ 	}
+@@ -3430,7 +3422,6 @@ static int init_card(struct atm_dev *dev)
+ 		card->name, size);
+ 	card->soft_tst = vmalloc(size);
+ 	if (!card->soft_tst) {
+-		printk("%s: memory allocation failure.\n", card->name);
+ 		deinit_card(card);
+ 		return -1;
+ 	}
+@@ -3616,7 +3607,6 @@ static int idt77252_init_one(struct pci_dev *pcidev,
+ 
+ 	card = kzalloc(sizeof(struct idt77252_dev), GFP_KERNEL);
+ 	if (!card) {
+-		printk("idt77252-%d: can't allocate private data\n", index);
+ 		err = -ENOMEM;
+ 		goto err_out_disable_pdev;
  	}
 -- 
 2.13.4
