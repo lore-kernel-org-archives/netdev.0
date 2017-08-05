@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 14/15] net: sched: change return value of ndo_setup_tc for driver supporting mqprio only
-Date: Sat,  5 Aug 2017 16:53:36 +0200
-Message-ID: <20170805145337.17728-15-jiri@resnulli.us>
+Subject: [patch net-next 09/15] mlxsw: spectrum: rename cls arg in matchall processing
+Date: Sat,  5 Aug 2017 16:53:31 +0200
+Message-ID: <20170805145337.17728-10-jiri@resnulli.us>
 References: <20170805145337.17728-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
@@ -11,164 +11,82 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         amritha.nambiar@intel.com, oss-drivers@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33040 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752642AbdHEOyD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 10:54:03 -0400
-Received: by mail-wm0-f65.google.com with SMTP id q189so8809624wmd.0
-        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 07:54:02 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36430 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752465AbdHEOxy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 10:53:54 -0400
+Received: by mail-wm0-f68.google.com with SMTP id d40so8766901wma.3
+        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 07:53:54 -0700 (PDT)
 In-Reply-To: <20170805145337.17728-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Change the return value from -EINVAL to -EOPNOTSUPP. The rest of the
-drivers have it like that, so be aligned.
+To sync-up with the naming in the rest of the driver, rename the cls arg.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c        | 2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c       | 2 +-
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c  | 2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  | 2 +-
- drivers/net/ethernet/sfc/falcon/tx.c            | 2 +-
- drivers/net/ethernet/sfc/tx.c                   | 2 +-
- drivers/net/ethernet/ti/netcp_core.c            | 2 +-
- 10 files changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index bbb7bfe..37d3e5b 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1925,7 +1925,7 @@ static int xgbe_setup_tc(struct net_device *netdev, enum tc_setup_type type,
- 	u8 tc;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 9f8ba37..f333d08 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1618,7 +1618,7 @@ mlxsw_sp_port_del_cls_matchall_sample(struct mlxsw_sp_port *mlxsw_sp_port)
  
- 	if (type != TC_SETUP_MQPRIO)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
- 
- 	tc_to_netdev->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 	tc = tc_to_netdev->mqprio->num_tc;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 257cf4b..8687afc 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -4288,7 +4288,7 @@ int __bnx2x_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 		     struct tc_to_netdev *tc)
+ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 					  __be16 protocol,
+-					  struct tc_cls_matchall_offload *cls,
++					  struct tc_cls_matchall_offload *f,
+ 					  bool ingress)
  {
- 	if (type != TC_SETUP_MQPRIO)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
+ 	struct mlxsw_sp_port_mall_tc_entry *mall_tc_entry;
+@@ -1626,7 +1626,7 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	LIST_HEAD(actions);
+ 	int err;
  
- 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
+-	if (!tcf_exts_has_one_action(cls->exts)) {
++	if (!tcf_exts_has_one_action(f->exts)) {
+ 		netdev_err(mlxsw_sp_port->dev, "only singular actions are supported\n");
+ 		return -EOPNOTSUPP;
+ 	}
+@@ -1634,9 +1634,9 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	mall_tc_entry = kzalloc(sizeof(*mall_tc_entry), GFP_KERNEL);
+ 	if (!mall_tc_entry)
+ 		return -ENOMEM;
+-	mall_tc_entry->cookie = cls->cookie;
++	mall_tc_entry->cookie = f->cookie;
  
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 1545b88..a78f72a 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -7241,7 +7241,7 @@ static int bnxt_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 			 struct tc_to_netdev *ntc)
+-	tcf_exts_to_list(cls->exts, &actions);
++	tcf_exts_to_list(f->exts, &actions);
+ 	a = list_first_entry(&actions, struct tc_action, list);
+ 
+ 	if (is_tcf_mirred_egress_mirror(a) && protocol == htons(ETH_P_ALL)) {
+@@ -1648,7 +1648,7 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 							    mirror, a, ingress);
+ 	} else if (is_tcf_sample(a) && protocol == htons(ETH_P_ALL)) {
+ 		mall_tc_entry->type = MLXSW_SP_PORT_MALL_SAMPLE;
+-		err = mlxsw_sp_port_add_cls_matchall_sample(mlxsw_sp_port, cls,
++		err = mlxsw_sp_port_add_cls_matchall_sample(mlxsw_sp_port, f,
+ 							    a, ingress);
+ 	} else {
+ 		err = -EOPNOTSUPP;
+@@ -1666,12 +1666,12 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ }
+ 
+ static void mlxsw_sp_port_del_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+-					   struct tc_cls_matchall_offload *cls)
++					   struct tc_cls_matchall_offload *f)
  {
- 	if (type != TC_SETUP_MQPRIO)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
+ 	struct mlxsw_sp_port_mall_tc_entry *mall_tc_entry;
  
- 	ntc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index 3827608..bfb44c9 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -350,7 +350,7 @@ static int dpaa_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
- 	int i;
- 
- 	if (type != TC_SETUP_MQPRIO)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
- 
- 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 	num_tc = tc->mqprio->num_tc;
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 71004b8..7088812 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1269,7 +1269,7 @@ static int __fm10k_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 			    struct tc_to_netdev *tc)
- {
- 	if (type != TC_SETUP_MQPRIO)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
- 
- 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 97d8bb2..1f46338 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5660,7 +5660,7 @@ static int __i40e_setup_tc(struct net_device *netdev, enum tc_setup_type type,
- 			   struct tc_to_netdev *tc)
- {
- 	if (type != TC_SETUP_MQPRIO)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
- 
- 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index e81083e..1667e86 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -134,7 +134,7 @@ static int __mlx4_en_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 			      struct tc_to_netdev *tc)
- {
- 	if (type != TC_SETUP_MQPRIO)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
- 
- 	if (tc->mqprio->num_tc && tc->mqprio->num_tc != MLX4_EN_NUM_UP_HIGH)
- 		return -EINVAL;
-diff --git a/drivers/net/ethernet/sfc/falcon/tx.c b/drivers/net/ethernet/sfc/falcon/tx.c
-index 447519a..0f125e1 100644
---- a/drivers/net/ethernet/sfc/falcon/tx.c
-+++ b/drivers/net/ethernet/sfc/falcon/tx.c
-@@ -435,7 +435,7 @@ int ef4_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
- 	int rc;
- 
- 	if (type != TC_SETUP_MQPRIO)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
- 
- 	num_tc = ntc->mqprio->num_tc;
- 
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index d17af91..53ba30c 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -663,7 +663,7 @@ int efx_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
- 	int rc;
- 
- 	if (type != TC_SETUP_MQPRIO)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
- 
- 	num_tc = ntc->mqprio->num_tc;
- 
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index 14f91b2..caba0ab 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -1887,7 +1887,7 @@ static int netcp_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 	ASSERT_RTNL();
- 
- 	if (type != TC_SETUP_MQPRIO)
--		return -EINVAL;
-+		return -EOPNOTSUPP;
- 
- 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 	num_tc = tc->mqprio->num_tc;
+ 	mall_tc_entry = mlxsw_sp_port_mall_tc_entry_find(mlxsw_sp_port,
+-							 cls->cookie);
++							 f->cookie);
+ 	if (!mall_tc_entry) {
+ 		netdev_dbg(mlxsw_sp_port->dev, "tc entry not found on port\n");
+ 		return;
 -- 
 2.9.3
