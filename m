@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] aquantia: Switch to use napi_gro_receive
-Date: Fri, 04 Aug 2017 20:57:28 -0700 (PDT)
-Message-ID: <20170804.205728.1181515274061477227.davem@davemloft.net>
-References: <5ba75da7aa9caa1feb85e65edd47965fe0226ab6.1501771297.git.pavel.belous@aquantia.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, darcari@redhat.com,
-        Igor.Russkikh@aquantia.com, simon.edelhaus@aquantia.com
-To: Pavel.Belous@aquantia.com
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next 0/2] net_sched: clean up filter handle
+Date: Fri,  4 Aug 2017 21:31:41 -0700
+Message-ID: <20170805043143.13680-1-xiyou.wangcong@gmail.com>
+Cc: jhs@mojatatu.com, jiri@resnulli.us,
+        Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45134 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751186AbdHED5d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2017 23:57:33 -0400
-In-Reply-To: <5ba75da7aa9caa1feb85e65edd47965fe0226ab6.1501771297.git.pavel.belous@aquantia.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36358 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750931AbdHEEbw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 00:31:52 -0400
+Received: by mail-pg0-f66.google.com with SMTP id y129so3451834pgy.3
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2017 21:31:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Date: Thu,  3 Aug 2017 18:15:32 +0300
+This patchset sits in my local branch for a long time, it is time to
+send it out. It cleans up the ambiguous use of 'unsigned long fh',
+please see each of them for details.
 
-> From: Pavel Belous <pavel.belous@aquantia.com>
-> 
-> Add support for GRO (generic receive offload) for aQuantia Atlantic driver.
-> This results in a perfomance improvement when GRO is enabled.
-> 
-> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+Cong Wang (2):
+  net_sched: refactor notification code for RTM_DELTFILTER
+  net_sched: use void pointer for filter handle
 
-Applied, thank you.
+ include/net/pkt_cls.h     |  2 +-
+ include/net/sch_generic.h |  8 +++----
+ net/sched/cls_api.c       | 57 +++++++++++++++++++++++++++++++++++++----------
+ net/sched/cls_basic.c     | 22 +++++++++---------
+ net/sched/cls_bpf.c       | 27 ++++++++++------------
+ net/sched/cls_cgroup.c    | 12 +++++-----
+ net/sched/cls_flow.c      | 24 ++++++++++----------
+ net/sched/cls_flower.c    | 22 +++++++++---------
+ net/sched/cls_fw.c        | 26 ++++++++++-----------
+ net/sched/cls_matchall.c  | 16 ++++++-------
+ net/sched/cls_route.c     | 26 ++++++++++-----------
+ net/sched/cls_rsvp.h      | 24 ++++++++++----------
+ net/sched/cls_tcindex.c   | 36 +++++++++++++-----------------
+ net/sched/cls_u32.c       | 30 ++++++++++++-------------
+ 14 files changed, 178 insertions(+), 154 deletions(-)
+
+-- 
+2.13.0
