@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/15] net: sched: summer cleanup part 2, ndo_setup_tc
-Date: Sat,  5 Aug 2017 16:53:22 +0200
-Message-ID: <20170805145337.17728-1-jiri@resnulli.us>
+Subject: [patch net-next 06/15] mlx5e: push cls_flower and mqprio setup_tc processing into separate functions
+Date: Sat,  5 Aug 2017 16:53:28 +0200
+Message-ID: <20170805145337.17728-7-jiri@resnulli.us>
+References: <20170805145337.17728-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
@@ -10,92 +11,131 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         amritha.nambiar@intel.com, oss-drivers@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:38795 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751226AbdHEOxl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 10:53:41 -0400
-Received: by mail-wr0-f193.google.com with SMTP id g32so4759573wrd.5
-        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 07:53:40 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36414 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752227AbdHEOxu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 10:53:50 -0400
+Received: by mail-wm0-f68.google.com with SMTP id d40so8766765wma.3
+        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 07:53:49 -0700 (PDT)
+In-Reply-To: <20170805145337.17728-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This patchset focuses on ndo_setup_tc and its args.
-Currently there are couple of things that do not make much sense.
-The type is passed in struct tc_to_netdev, but as it is always
-required, should be arg of the ndo. Other things are passed as args
-but they are only relevant for cls offloads and not mqprio. Therefore,
-they should be pushed to struct. As the tc_to_netdev struct in the end
-is just a container of single pointer, we get rid of it and pass the
-struct according to type. So in the end, we have:
-ndo_setup_tc(dev, type, type_data_struct)
+Let mlx5e_setup_tc (former mlx5e_ndo_setup_tc) be a splitter for specific
+setup_tc types and push out cls_flower and mqprio specific codes into
+separate functions. Also change the return values so they are the same
+as in the rest of the drivers.
 
-There are couple of cosmetics done on the way to make things smooth.
-Also, reported error is consolidated to eopnotsupp in case the
-asked offload is not supported.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 56 +++++++++++++----------
+ 1 file changed, 31 insertions(+), 25 deletions(-)
 
-Jiri Pirko (15):
-  net: sched: make type an argument for ndo_setup_tc
-  net: sched: rename TC_SETUP_MATCHALL to TC_SETUP_CLSMATCHALL
-  net: sched: make egress_dev flag part of flower offload struct
-  cxgb4: push cls_u32 setup_tc processing into a separate function
-  ixgbe: push cls_u32 and mqprio setup_tc processing into separate
-    functions
-  mlx5e: push cls_flower and mqprio setup_tc processing into separate
-    functions
-  mlx5e_rep: push cls_flower setup_tc processing into a separate
-    function
-  mlxsw: spectrum: push cls_flower and cls_matchall setup_tc processing
-    into separate functions
-  mlxsw: spectrum: rename cls arg in matchall processing
-  dsa: push cls_matchall setup_tc processing into a separate function
-  nfp: change flows in apps that offload ndo_setup_tc
-  net: sched: push cls related args into cls_common structure
-  net: sched: move prio into cls_common
-  net: sched: change return value of ndo_setup_tc for driver supporting
-    mqprio only
-  net: sched: get rid of struct tc_to_netdev
-
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  14 +--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |  14 +--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |   4 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c          |  14 +--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  43 +++++----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |   7 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h  |   6 +-
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  13 +--
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c    |  14 +--
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  15 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  65 +++++++------
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  17 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  55 +++++------
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  45 +++++----
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.h    |   4 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 102 ++++++++++++---------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   2 +-
- .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |   4 +-
- drivers/net/ethernet/netronome/nfp/bpf/main.c      |  20 ++--
- drivers/net/ethernet/netronome/nfp/flower/main.h   |   4 +-
- .../net/ethernet/netronome/nfp/flower/offload.c    |  15 ++-
- drivers/net/ethernet/netronome/nfp/nfp_app.h       |   8 +-
- drivers/net/ethernet/netronome/nfp/nfp_port.c      |   9 +-
- drivers/net/ethernet/netronome/nfp/nfp_port.h      |   5 +-
- drivers/net/ethernet/sfc/efx.h                     |   4 +-
- drivers/net/ethernet/sfc/falcon/efx.h              |   4 +-
- drivers/net/ethernet/sfc/falcon/tx.c               |  13 +--
- drivers/net/ethernet/sfc/tx.c                      |  13 +--
- drivers/net/ethernet/ti/netcp_core.c               |  13 +--
- include/linux/netdevice.h                          |  30 ++----
- include/net/pkt_cls.h                              |  23 ++++-
- net/dsa/slave.c                                    |  39 ++++----
- net/sched/cls_bpf.c                                |  24 ++---
- net/sched/cls_flower.c                             |  60 +++++-------
- net/sched/cls_matchall.c                           |  31 +++----
- net/sched/cls_u32.c                                |  95 ++++++++-----------
- net/sched/sch_mqprio.c                             |  16 ++--
- 38 files changed, 431 insertions(+), 435 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 4052e225f..adf35da 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2998,12 +2998,16 @@ static int mlx5e_modify_channels_vsd(struct mlx5e_channels *chs, bool vsd)
+ 	return 0;
+ }
+ 
+-static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
++static int mlx5e_setup_tc_mqprio(struct net_device *netdev,
++				 struct tc_mqprio_qopt *mqprio)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 	struct mlx5e_channels new_channels = {};
++	u8 tc = mqprio->num_tc;
+ 	int err = 0;
+ 
++	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
++
+ 	if (tc && tc != MLX5E_MAX_NUM_TC)
+ 		return -EINVAL;
+ 
+@@ -3027,39 +3031,41 @@ static int mlx5e_setup_tc(struct net_device *netdev, u8 tc)
+ 	return err;
+ }
+ 
+-static int mlx5e_ndo_setup_tc(struct net_device *dev, enum tc_setup_type type,
+-			      u32 handle, u32 chain_index, __be16 proto,
+-			      struct tc_to_netdev *tc)
++static int mlx5e_setup_tc_cls_flower(struct net_device *dev,
++				     u32 handle, u32 chain_index, __be16 proto,
++				     struct tc_cls_flower_offload *cls_flower)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 
+-	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
+-		goto mqprio;
++	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS) ||
++	    chain_index)
++		return -EOPNOTSUPP;
+ 
+-	if (chain_index)
++	switch (cls_flower->command) {
++	case TC_CLSFLOWER_REPLACE:
++		return mlx5e_configure_flower(priv, proto, cls_flower);
++	case TC_CLSFLOWER_DESTROY:
++		return mlx5e_delete_flower(priv, cls_flower);
++	case TC_CLSFLOWER_STATS:
++		return mlx5e_stats_flower(priv, cls_flower);
++	default:
+ 		return -EOPNOTSUPP;
++	}
++}
+ 
++static int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
++			  u32 handle, u32 chain_index, __be16 proto,
++			  struct tc_to_netdev *tc)
++{
+ 	switch (type) {
+ 	case TC_SETUP_CLSFLOWER:
+-		switch (tc->cls_flower->command) {
+-		case TC_CLSFLOWER_REPLACE:
+-			return mlx5e_configure_flower(priv, proto, tc->cls_flower);
+-		case TC_CLSFLOWER_DESTROY:
+-			return mlx5e_delete_flower(priv, tc->cls_flower);
+-		case TC_CLSFLOWER_STATS:
+-			return mlx5e_stats_flower(priv, tc->cls_flower);
+-		}
++		return mlx5e_setup_tc_cls_flower(dev, handle, chain_index,
++						 proto, tc->cls_flower);
++	case TC_SETUP_MQPRIO:
++		return mlx5e_setup_tc_mqprio(dev, tc->mqprio);
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+-
+-mqprio:
+-	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
+-
+-	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
+-
+-	return mlx5e_setup_tc(dev, tc->mqprio->num_tc);
+ }
+ 
+ static void
+@@ -3695,7 +3701,7 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
+ 	.ndo_open                = mlx5e_open,
+ 	.ndo_stop                = mlx5e_close,
+ 	.ndo_start_xmit          = mlx5e_xmit,
+-	.ndo_setup_tc            = mlx5e_ndo_setup_tc,
++	.ndo_setup_tc            = mlx5e_setup_tc,
+ 	.ndo_select_queue        = mlx5e_select_queue,
+ 	.ndo_get_stats64         = mlx5e_get_stats,
+ 	.ndo_set_rx_mode         = mlx5e_set_rx_mode,
+@@ -3720,7 +3726,7 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+ 	.ndo_open                = mlx5e_open,
+ 	.ndo_stop                = mlx5e_close,
+ 	.ndo_start_xmit          = mlx5e_xmit,
+-	.ndo_setup_tc            = mlx5e_ndo_setup_tc,
++	.ndo_setup_tc            = mlx5e_setup_tc,
+ 	.ndo_select_queue        = mlx5e_select_queue,
+ 	.ndo_get_stats64         = mlx5e_get_stats,
+ 	.ndo_set_rx_mode         = mlx5e_set_rx_mode,
 -- 
 2.9.3
