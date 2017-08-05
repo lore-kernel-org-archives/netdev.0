@@ -1,7 +1,7 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 12/14] sctp: remove the typedef sctp_event_timeout_t
-Date: Sat,  5 Aug 2017 20:00:02 +0800
-Message-ID: <e28909498a887e760a615c6ff5ab04153621bfab.1501934087.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 13/14] sctp: remove the typedef sctp_event_t
+Date: Sat,  5 Aug 2017 20:00:03 +0800
+Message-ID: <b02005a06e5caefc27759eac596575ed220231d5.1501934087.git.lucien.xin@gmail.com>
 References: <cover.1501934086.git.lucien.xin@gmail.com>
  <88e505f76dd927887d8cdcc7de2b82595237aa85.1501934087.git.lucien.xin@gmail.com>
  <7ceee2b1bf33403b8ecb04c9c30354f71dd2198a.1501934087.git.lucien.xin@gmail.com>
@@ -14,116 +14,176 @@ References: <cover.1501934086.git.lucien.xin@gmail.com>
  <6f17de8a0a6d21445de859c4073b235e9c5d2163.1501934087.git.lucien.xin@gmail.com>
  <d2af679ab5fa9b939e37f7b8ac51097c70280f2d.1501934087.git.lucien.xin@gmail.com>
  <d526b6acfb360ee28fbf70f198b6cce67a9f1c35.1501934087.git.lucien.xin@gmail.com>
+ <e28909498a887e760a615c6ff5ab04153621bfab.1501934087.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36493 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752274AbdHEMBt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 08:01:49 -0400
-In-Reply-To: <d526b6acfb360ee28fbf70f198b6cce67a9f1c35.1501934087.git.lucien.xin@gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:38174 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751523AbdHEMB5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2017 08:01:57 -0400
+In-Reply-To: <e28909498a887e760a615c6ff5ab04153621bfab.1501934087.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1501934086.git.lucien.xin@gmail.com>
 References: <cover.1501934086.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to remove the typedef sctp_event_timeout_t, and
-replace with enum sctp_event_timeout in the places where it's
+This patch is to remove the typedef sctp_event_t, and
+replace with enum sctp_event in the places where it's
 using this typedef.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/command.h   | 4 ++--
- include/net/sctp/constants.h | 8 ++++----
- net/sctp/sm_sideeffect.c     | 6 +++---
- 3 files changed, 9 insertions(+), 9 deletions(-)
+ include/net/sctp/constants.h |  6 ++----
+ include/net/sctp/sm.h        | 12 +++++-------
+ net/sctp/primitive.c         |  2 +-
+ net/sctp/sm_sideeffect.c     | 20 +++++++++-----------
+ net/sctp/sm_statetable.c     |  2 +-
+ 5 files changed, 18 insertions(+), 24 deletions(-)
 
-diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-index be12ec9..376cb78 100644
---- a/include/net/sctp/command.h
-+++ b/include/net/sctp/command.h
-@@ -127,7 +127,7 @@ typedef union {
- 	int error;
- 	__be16 err;
- 	enum sctp_state state;
--	sctp_event_timeout_t to;
-+	enum sctp_event_timeout to;
- 	struct sctp_chunk *chunk;
- 	struct sctp_association *asoc;
- 	struct sctp_transport *transport;
-@@ -168,7 +168,7 @@ SCTP_ARG_CONSTRUCTOR(U8,	__u8, u8)
- SCTP_ARG_CONSTRUCTOR(ERROR,     int, error)
- SCTP_ARG_CONSTRUCTOR(PERR,      __be16, err)	/* protocol error */
- SCTP_ARG_CONSTRUCTOR(STATE,	enum sctp_state, state)
--SCTP_ARG_CONSTRUCTOR(TO,	sctp_event_timeout_t, to)
-+SCTP_ARG_CONSTRUCTOR(TO,	enum sctp_event_timeout, to)
- SCTP_ARG_CONSTRUCTOR(CHUNK,	struct sctp_chunk *, chunk)
- SCTP_ARG_CONSTRUCTOR(ASOC,	struct sctp_association *, asoc)
- SCTP_ARG_CONSTRUCTOR(TRANSPORT,	struct sctp_transport *, transport)
 diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-index fd8a80e..fb931f0 100644
+index fb931f0..3181e0f 100644
 --- a/include/net/sctp/constants.h
 +++ b/include/net/sctp/constants.h
-@@ -84,7 +84,7 @@ typedef enum {
-  * SCTP_ULP_* to the list of possible chunks.
-  */
+@@ -71,14 +71,12 @@ enum { SCTP_DEFAULT_INSTREAMS = SCTP_MAX_STREAM };
+ 					 SCTP_NUM_AUTH_CHUNK_TYPES)
  
+ /* These are the different flavours of event.  */
 -typedef enum {
-+enum sctp_event_timeout {
- 	SCTP_EVENT_TIMEOUT_NONE = 0,
- 	SCTP_EVENT_TIMEOUT_T1_COOKIE,
- 	SCTP_EVENT_TIMEOUT_T1_INIT,
-@@ -96,7 +96,7 @@ typedef enum {
- 	SCTP_EVENT_TIMEOUT_RECONF,
- 	SCTP_EVENT_TIMEOUT_SACK,
- 	SCTP_EVENT_TIMEOUT_AUTOCLOSE,
--} sctp_event_timeout_t;
+-
++enum sctp_event {
+ 	SCTP_EVENT_T_CHUNK = 1,
+ 	SCTP_EVENT_T_TIMEOUT,
+ 	SCTP_EVENT_T_OTHER,
+ 	SCTP_EVENT_T_PRIMITIVE
+-
+-} sctp_event_t;
 +};
  
- #define SCTP_EVENT_TIMEOUT_MAX		SCTP_EVENT_TIMEOUT_AUTOCLOSE
- #define SCTP_NUM_TIMEOUT_TYPES		(SCTP_EVENT_TIMEOUT_MAX + 1)
-@@ -131,7 +131,7 @@ enum sctp_event_primitive {
+ /* As a convenience for the state machine, we append SCTP_EVENT_* and
+  * SCTP_ULP_* to the list of possible chunks.
+diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+index 281e8d1..96f54cf 100644
+--- a/include/net/sctp/sm.h
++++ b/include/net/sctp/sm.h
+@@ -176,7 +176,7 @@ sctp_state_fn_t sctp_sf_autoclose_timer_expire;
+ /* Prototypes for utility support functions.  */
+ __u8 sctp_get_chunk_type(struct sctp_chunk *chunk);
+ const sctp_sm_table_entry_t *sctp_sm_lookup_event(struct net *net,
+-						  sctp_event_t event_type,
++						  enum sctp_event event_type,
+ 						  enum sctp_state state,
+ 						  sctp_subtype_t event_subtype);
+ int sctp_chunk_iif(const struct sctp_chunk *);
+@@ -312,12 +312,10 @@ struct sctp_chunk *sctp_process_strreset_resp(
  
- typedef union {
- 	enum sctp_cid chunk;
--	sctp_event_timeout_t timeout;
-+	enum sctp_event_timeout timeout;
- 	enum sctp_event_other other;
- 	enum sctp_event_primitive primitive;
- } sctp_subtype_t;
-@@ -142,7 +142,7 @@ SCTP_ST_## _name (_type _arg)		\
- { sctp_subtype_t _retval; _retval._elt = _arg; return _retval; }
+ /* Prototypes for statetable processing. */
  
- SCTP_SUBTYPE_CONSTRUCTOR(CHUNK,		enum sctp_cid,		chunk)
--SCTP_SUBTYPE_CONSTRUCTOR(TIMEOUT,	sctp_event_timeout_t,	timeout)
-+SCTP_SUBTYPE_CONSTRUCTOR(TIMEOUT,	enum sctp_event_timeout, timeout)
- SCTP_SUBTYPE_CONSTRUCTOR(OTHER,		enum sctp_event_other,	other)
- SCTP_SUBTYPE_CONSTRUCTOR(PRIMITIVE,	enum sctp_event_primitive, primitive)
+-int sctp_do_sm(struct net *net, sctp_event_t event_type, sctp_subtype_t subtype,
+-	       enum sctp_state state,
+-               struct sctp_endpoint *,
+-               struct sctp_association *asoc,
+-               void *event_arg,
+-	       gfp_t gfp);
++int sctp_do_sm(struct net *net, enum sctp_event event_type,
++	       sctp_subtype_t subtype, enum sctp_state state,
++	       struct sctp_endpoint *ep, struct sctp_association *asoc,
++	       void *event_arg, gfp_t gfp);
  
+ /* 2nd level prototypes */
+ void sctp_generate_t3_rtx_event(unsigned long peer);
+diff --git a/net/sctp/primitive.c b/net/sctp/primitive.c
+index 1fb5b9b..c914166 100644
+--- a/net/sctp/primitive.c
++++ b/net/sctp/primitive.c
+@@ -53,7 +53,7 @@
+ int sctp_primitive_ ## name(struct net *net, struct sctp_association *asoc, \
+ 			    void *arg) { \
+ 	int error = 0; \
+-	sctp_event_t event_type; sctp_subtype_t subtype; \
++	enum sctp_event event_type; sctp_subtype_t subtype; \
+ 	enum sctp_state state; \
+ 	struct sctp_endpoint *ep; \
+ 	\
 diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index b77a81a..11a3448 100644
+index 11a3448..b545c76 100644
 --- a/net/sctp/sm_sideeffect.c
 +++ b/net/sctp/sm_sideeffect.c
-@@ -280,7 +280,7 @@ void sctp_generate_t3_rtx_event(unsigned long peer)
-  * for timeouts which use the association as their parameter.
+@@ -51,7 +51,7 @@
+ #include <net/sctp/sctp.h>
+ #include <net/sctp/sm.h>
+ 
+-static int sctp_cmd_interpreter(sctp_event_t event_type,
++static int sctp_cmd_interpreter(enum sctp_event event_type,
+ 				sctp_subtype_t subtype,
+ 				enum sctp_state state,
+ 				struct sctp_endpoint *ep,
+@@ -60,7 +60,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+ 				sctp_disposition_t status,
+ 				sctp_cmd_seq_t *commands,
+ 				gfp_t gfp);
+-static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
++static int sctp_side_effects(enum sctp_event event_type, sctp_subtype_t subtype,
+ 			     enum sctp_state state,
+ 			     struct sctp_endpoint *ep,
+ 			     struct sctp_association **asoc,
+@@ -602,7 +602,7 @@ static void sctp_cmd_init_failed(sctp_cmd_seq_t *commands,
+ /* Worker routine to handle SCTP_CMD_ASSOC_FAILED.  */
+ static void sctp_cmd_assoc_failed(sctp_cmd_seq_t *commands,
+ 				  struct sctp_association *asoc,
+-				  sctp_event_t event_type,
++				  enum sctp_event event_type,
+ 				  sctp_subtype_t subtype,
+ 				  struct sctp_chunk *chunk,
+ 				  unsigned int error)
+@@ -1139,12 +1139,10 @@ static void sctp_cmd_send_asconf(struct sctp_association *asoc)
+  * If you want to understand all of lksctp, this is a
+  * good place to start.
   */
- static void sctp_generate_timeout_event(struct sctp_association *asoc,
--					sctp_event_timeout_t timeout_type)
-+					enum sctp_event_timeout timeout_type)
+-int sctp_do_sm(struct net *net, sctp_event_t event_type, sctp_subtype_t subtype,
+-	       enum sctp_state state,
+-	       struct sctp_endpoint *ep,
+-	       struct sctp_association *asoc,
+-	       void *event_arg,
+-	       gfp_t gfp)
++int sctp_do_sm(struct net *net, enum sctp_event event_type,
++	       sctp_subtype_t subtype, enum sctp_state state,
++	       struct sctp_endpoint *ep, struct sctp_association *asoc,
++	       void *event_arg, gfp_t gfp)
  {
- 	struct sock *sk = asoc->base.sk;
- 	struct net *net = sock_net(sk);
-@@ -1052,8 +1052,8 @@ static void sctp_cmd_adaptation_ind(sctp_cmd_seq_t *commands,
+ 	sctp_cmd_seq_t commands;
+ 	const sctp_sm_table_entry_t *state_fn;
+@@ -1178,7 +1176,7 @@ int sctp_do_sm(struct net *net, sctp_event_t event_type, sctp_subtype_t subtype,
+ /*****************************************************************
+  * This the master state function side effect processing function.
+  *****************************************************************/
+-static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
++static int sctp_side_effects(enum sctp_event event_type, sctp_subtype_t subtype,
+ 			     enum sctp_state state,
+ 			     struct sctp_endpoint *ep,
+ 			     struct sctp_association **asoc,
+@@ -1263,7 +1261,7 @@ static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
+  ********************************************************************/
  
+ /* This is the side-effect interpreter.  */
+-static int sctp_cmd_interpreter(sctp_event_t event_type,
++static int sctp_cmd_interpreter(enum sctp_event event_type,
+ 				sctp_subtype_t subtype,
+ 				enum sctp_state state,
+ 				struct sctp_endpoint *ep,
+diff --git a/net/sctp/sm_statetable.c b/net/sctp/sm_statetable.c
+index f46c11b..f7cdb70 100644
+--- a/net/sctp/sm_statetable.c
++++ b/net/sctp/sm_statetable.c
+@@ -78,7 +78,7 @@ static const sctp_sm_table_entry_t bug = {
+ })
  
- static void sctp_cmd_t1_timer_update(struct sctp_association *asoc,
--				    sctp_event_timeout_t timer,
--				    char *name)
-+				     enum sctp_event_timeout timer,
-+				     char *name)
+ const sctp_sm_table_entry_t *sctp_sm_lookup_event(struct net *net,
+-						  sctp_event_t event_type,
++						  enum sctp_event event_type,
+ 						  enum sctp_state state,
+ 						  sctp_subtype_t event_subtype)
  {
- 	struct sctp_transport *t;
- 
 -- 
 2.1.0
