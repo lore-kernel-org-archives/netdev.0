@@ -1,54 +1,70 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next 00/15] net: sched: summer cleanup part 2,
- ndo_setup_tc
-Date: Sun, 6 Aug 2017 08:28:06 -0400
-Message-ID: <d213c57b-76e3-0132-5ca9-7237c6e40280@mojatatu.com>
-References: <20170805145337.17728-1-jiri@resnulli.us>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: Re: [PATCH net-next v2 00/13] Change DSA's FDB API and perform
+ switchdev cleanup
+Date: Sun, 6 Aug 2017 16:07:08 +0300
+Message-ID: <984b4d3e-c9c4-545a-280b-0673227136a5@mellanox.com>
+References: <1500480294-10604-1-git-send-email-arkadis@mellanox.com>
+ <87mv80ji63.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <099a0552-0139-20d4-2529-c1202303d772@mellanox.com>
+ <87pocvnkfw.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <ede22100-3a66-f54d-a618-a3b840a2664c@mellanox.com>
+ <aa4f3dc5-6693-4de8-5191-f0a939ff8168@mellanox.com>
+ <20170804052301.GA1906@nanopsycho.orion>
+ <87d18b2vy4.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
-        dirk.vandermerwe@netronome.com, alexander.h.duyck@intel.com,
-        amritha.nambiar@intel.com, oss-drivers@netronome.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ivecera@redhat.com,
+        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:37645 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751277AbdHFM2J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 08:28:09 -0400
-Received: by mail-io0-f194.google.com with SMTP id c74so3779843iod.4
-        for <netdev@vger.kernel.org>; Sun, 06 Aug 2017 05:28:09 -0700 (PDT)
-In-Reply-To: <20170805145337.17728-1-jiri@resnulli.us>
-Content-Language: en-GB
+Received: from mail-ve1eur01on0065.outbound.protection.outlook.com ([104.47.1.65]:62769
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751256AbdHFNHR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 6 Aug 2017 09:07:17 -0400
+In-Reply-To: <87d18b2vy4.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-08-05 10:53 AM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
+
+
+On 08/04/2017 06:29 PM, Vivien Didelot wrote:
+> Hi Arkadi, Jiri,
 > 
-> This patchset focuses on ndo_setup_tc and its args.
-> Currently there are couple of things that do not make much sense.
-> The type is passed in struct tc_to_netdev, but as it is always
-> required, should be arg of the ndo. Other things are passed as args
-> but they are only relevant for cls offloads and not mqprio. Therefore,
-> they should be pushed to struct. As the tc_to_netdev struct in the end
-> is just a container of single pointer, we get rid of it and pass the
-> struct according to type. So in the end, we have:
-> ndo_setup_tc(dev, type, type_data_struct)
+> Jiri Pirko <jiri@resnulli.us> writes:
 > 
-> There are couple of cosmetics done on the way to make things smooth.
-> Also, reported error is consolidated to eopnotsupp in case the
-> asked offload is not supported.
+>>> It seems impossible currently to move the self to be the default, and
+>>> this introduces regression which you don't approve, so it seems few
+>>> options left:
+>>>
+>>> a) Leave two ways to add fdb, through the bridge (by using the master
+>>>   flag) which is introduced in this patchset, and by using the self
+>>>   which is the legacy way. In this way no regression will be introduced,
+>>>   yet, it feels confusing a bit. The benefit is that we (DSA/mlxsw)
+>>>   will be synced.
+>>> b) Leave only the self (which means removing patch no 4,5).
+>>
+>> I belive that option a) is the correct way to go. Introduction of self
+>> inclusion was a mistake from the very beginning. I think that we should
+>> just move one and correct this mistake.
+>>
+>> Vivien, any arguments against a)?
+> 
+> I do agree with a). Arkadi, when moving switchdev implementations inside
+> of DSA core, can I ask you to move the ones considered as the legacy way
+> into legacy.c and ideally comment it? Configuration from userspace is
+> still very confusing and this will remind us to get rid of it one day.
+> 
+> 
+> Thanks,
+> 
+>         Vivien
 > 
 
-I did a quick review of all the patches and they are simple, nice
-cleanups. Instead of acking each one individually, i am just acking
-this one.
+Yeah, no problem.
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-cheers,
-jamal
+Thanks,
+Arkadi
