@@ -1,66 +1,75 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 196595] New: Regression IGMP sysctl init values if not
- IP_MULTICAST
-Date: Sat, 5 Aug 2017 21:38:46 -0700
-Message-ID: <20170805213846.0df6ef45@xeon-e3>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: use __GFP_NOWARN for sctpw.fifo allocation
+Date: Sun, 6 Aug 2017 18:14:39 +1200
+Message-ID: <CADvbK_f_q-gJHey9oUZUrxyGSYXasMVj0kqvhEkzDUPsGDzeng@mail.gmail.com>
+References: <53b360387db05bf31db481234e7070e4a7ba6a25.1501936269.git.lucien.xin@gmail.com>
+ <20170805170859.GA7613@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem <davem@davemloft.net>, Neil Horman <nhorman@tuxdriver.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35279 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751270AbdHFEiu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 00:38:50 -0400
-Received: by mail-pf0-f172.google.com with SMTP id t86so21889576pfe.2
-        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 21:38:50 -0700 (PDT)
-Received: from xeon-e3 (76-14-207-240.or.wavecable.com. [76.14.207.240])
-        by smtp.gmail.com with ESMTPSA id c12sm8915331pfe.154.2017.08.05.21.38.49
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
-        Sat, 05 Aug 2017 21:38:49 -0700 (PDT)
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35562 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751234AbdHFGOl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 02:14:41 -0400
+In-Reply-To: <20170805170859.GA7613@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Aug 6, 2017 at 5:08 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Sat, Aug 05, 2017 at 08:31:09PM +0800, Xin Long wrote:
+>> Chen Wei found a kernel call trace when modprobe sctp_probe with
+>> bufsize set with a huge value.
+>>
+>> It's because in sctpprobe_init when alloc memory for sctpw.fifo,
+>> the size is got from userspace. If it is too large, kernel will
+>> fail and give a warning.
+>
+> Yes but sctp_probe can only be loaded by an admin and it would happen
+> only during modprobe. It's different from the commit mentioned below, on
+> which any user could trigger it.
+yeah, in this way it's different, I think generally it's acceptable to have
+this kinda warning call trace by admin.
 
+But it could get the feedback from the return value and the warning
+call trace seems not useful. sometimes users may be confused
+with this call trace. So it may be better not to dump the warning ?
 
-Begin forwarded message:
+Or you think it can be helpful if we leave it here ?
 
-Date: Sat, 05 Aug 2017 23:57:48 +0000
-From: bugzilla-daemon@bugzilla.kernel.org
-To: stephen@networkplumber.org
-Subject: [Bug 196595] New: Regression IGMP sysctl init values if not IP_MULTICAST
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=196595
-
-            Bug ID: 196595
-           Summary: Regression IGMP sysctl init values if not IP_MULTICAST
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.5 - 4.12
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: stephen@networkplumber.org
-          Reporter: vmlinuz386@gmail.com
-        Regression: No
-
-I just upgraded from 4.4.x to 4.12.x and detected that igmp related settings
-are not set to default values (1, 20, 10):
-
-net.ipv4.igmp_link_local_mcast_reports = 0
-net.ipv4.igmp_max_memberships = 0
-net.ipv4.igmp_max_msf = 0
-
-This is fixed if I enable IP_MULTICAST. Looks like a regression since some
-changes made to "Namespaceify" commit dcd87999d415d39cf2ae510bfed6b8206d778e1c 
-and related commits.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+>
+>>
+>> As there will be a fallback allocation later, this patch is just
+>> to fail silently and return ret, just as commit 0ccc22f425e5
+>> ("sit: use __GFP_NOWARN for user controlled allocation") did.
+>>
+>> Reported-by: Chen Wei <weichen@redhat.com>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  net/sctp/probe.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+>> index 6cc2152..5bf3164 100644
+>> --- a/net/sctp/probe.c
+>> +++ b/net/sctp/probe.c
+>> @@ -210,7 +210,7 @@ static __init int sctpprobe_init(void)
+>>
+>>       init_waitqueue_head(&sctpw.wait);
+>>       spin_lock_init(&sctpw.lock);
+>> -     if (kfifo_alloc(&sctpw.fifo, bufsize, GFP_KERNEL))
+>> +     if (kfifo_alloc(&sctpw.fifo, bufsize, GFP_KERNEL | __GFP_NOWARN))
+>>               return ret;
+>>
+>>       if (!proc_create(procname, S_IRUSR, init_net.proc_net,
+>> --
+>> 2.1.0
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
