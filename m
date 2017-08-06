@@ -1,117 +1,66 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 3/3] net: dsa: remove useless args of dsa_slave_create
-Date: Sat,  5 Aug 2017 16:20:19 -0400
-Message-ID: <20170805202019.1679-4-vivien.didelot@savoirfairelinux.com>
-References: <20170805202019.1679-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 196595] New: Regression IGMP sysctl init values if not
+ IP_MULTICAST
+Date: Sat, 5 Aug 2017 21:38:46 -0700
+Message-ID: <20170805213846.0df6ef45@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170805202019.1679-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:35279 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751270AbdHFEiu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 00:38:50 -0400
+Received: by mail-pf0-f172.google.com with SMTP id t86so21889576pfe.2
+        for <netdev@vger.kernel.org>; Sat, 05 Aug 2017 21:38:50 -0700 (PDT)
+Received: from xeon-e3 (76-14-207-240.or.wavecable.com. [76.14.207.240])
+        by smtp.gmail.com with ESMTPSA id c12sm8915331pfe.154.2017.08.05.21.38.49
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Sat, 05 Aug 2017 21:38:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-dsa_slave_create currently takes 4 arguments while it only needs the
-related dsa_port and its name. Remove all other arguments.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/dsa2.c     |  2 +-
- net/dsa/dsa_priv.h |  3 +--
- net/dsa/legacy.c   |  2 +-
- net/dsa/slave.c    | 14 +++++++-------
- 4 files changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 2a0120493cf1..cceaa4dd9f53 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -275,7 +275,7 @@ static int dsa_user_port_apply(struct dsa_port *port)
- 	if (!name)
- 		name = "eth%d";
- 
--	err = dsa_slave_create(ds, ds->dev, port->index, name);
-+	err = dsa_slave_create(port, name);
- 	if (err) {
- 		dev_warn(ds->dev, "Failed to create slave %d: %d\n",
- 			 port->index, err);
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 46851c91c7fe..73426f9c2cca 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -148,8 +148,7 @@ int dsa_port_vlan_dump(struct dsa_port *dp,
- extern const struct dsa_device_ops notag_netdev_ops;
- void dsa_slave_mii_bus_init(struct dsa_switch *ds);
- void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops);
--int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
--		     int port, const char *name);
-+int dsa_slave_create(struct dsa_port *port, const char *name);
- void dsa_slave_destroy(struct net_device *slave_dev);
- int dsa_slave_suspend(struct net_device *slave_dev);
- int dsa_slave_resume(struct net_device *slave_dev);
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index 903e8d70c792..612acf16d573 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -194,7 +194,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
- 		if (!(ds->enabled_port_mask & (1 << i)))
- 			continue;
- 
--		ret = dsa_slave_create(ds, ds->dev, i, cd->port_names[i]);
-+		ret = dsa_slave_create(&ds->ports[i], cd->port_names[i]);
- 		if (ret < 0)
- 			netdev_err(master, "[%d]: can't create dsa slave device for port %d(%s): %d\n",
- 				   index, i, cd->port_names[i], ret);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 83252e8426d7..8e25ca412672 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1165,9 +1165,9 @@ int dsa_slave_resume(struct net_device *slave_dev)
- 	return 0;
- }
- 
--int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
--		     int port, const char *name)
-+int dsa_slave_create(struct dsa_port *port, const char *name)
- {
-+	struct dsa_switch *ds = port->ds;
- 	struct dsa_switch_tree *dst = ds->dst;
- 	struct net_device *master;
- 	struct net_device *slave_dev;
-@@ -1197,13 +1197,13 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	netdev_for_each_tx_queue(slave_dev, dsa_slave_set_lockdep_class_one,
- 				 NULL);
- 
--	SET_NETDEV_DEV(slave_dev, parent);
--	slave_dev->dev.of_node = ds->ports[port].dn;
-+	SET_NETDEV_DEV(slave_dev, port->ds->dev);
-+	slave_dev->dev.of_node = port->dn;
- 	slave_dev->vlan_features = master->vlan_features;
- 
- 	p = netdev_priv(slave_dev);
- 	u64_stats_init(&p->stats64.syncp);
--	p->dp = &ds->ports[port];
-+	p->dp = port;
- 	INIT_LIST_HEAD(&p->mall_tc_list);
- 	p->xmit = dst->tag_ops->xmit;
- 
-@@ -1211,12 +1211,12 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	p->old_link = -1;
- 	p->old_duplex = -1;
- 
--	ds->ports[port].netdev = slave_dev;
-+	port->netdev = slave_dev;
- 	ret = register_netdev(slave_dev);
- 	if (ret) {
- 		netdev_err(master, "error %d registering interface %s\n",
- 			   ret, slave_dev->name);
--		ds->ports[port].netdev = NULL;
-+		port->netdev = NULL;
- 		free_netdev(slave_dev);
- 		return ret;
- 	}
+Begin forwarded message:
+
+Date: Sat, 05 Aug 2017 23:57:48 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: stephen@networkplumber.org
+Subject: [Bug 196595] New: Regression IGMP sysctl init values if not IP_MULTICAST
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=196595
+
+            Bug ID: 196595
+           Summary: Regression IGMP sysctl init values if not IP_MULTICAST
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.5 - 4.12
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+          Assignee: stephen@networkplumber.org
+          Reporter: vmlinuz386@gmail.com
+        Regression: No
+
+I just upgraded from 4.4.x to 4.12.x and detected that igmp related settings
+are not set to default values (1, 20, 10):
+
+net.ipv4.igmp_link_local_mcast_reports = 0
+net.ipv4.igmp_max_memberships = 0
+net.ipv4.igmp_max_msf = 0
+
+This is fixed if I enable IP_MULTICAST. Looks like a regression since some
+changes made to "Namespaceify" commit dcd87999d415d39cf2ae510bfed6b8206d778e1c 
+and related commits.
+
 -- 
-2.13.3
+You are receiving this mail because:
+You are the assignee for the bug.
