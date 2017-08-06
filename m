@@ -1,12 +1,11 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 2/3] ATM-iphase: Delete five error messages for a failed
- memory allocation
-Date: Sun, 6 Aug 2017 08:28:19 +0200
-Message-ID: <ddae6055-5d63-17bf-4bce-0cfa346b3515@users.sourceforge.net>
+Subject: [PATCH 3/3] ATM-iphase: Adjust four checks for null pointers
+Date: Sun, 6 Aug 2017 08:30:12 +0200
+Message-ID: <693faecc-81ea-6d85-788c-b42924a2afb1@users.sourceforge.net>
 References: <c30df8dd-a6e9-23c1-842b-afa8696e10d4@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 8bit
 Cc: LKML <linux-kernel@vger.kernel.org>,
         kernel-janitors@vger.kernel.org
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
@@ -18,86 +17,61 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 5 Aug 2017 22:10:41 +0200
+Date: Sat, 5 Aug 2017 22:30:04 +0200
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
-Omit extra messages for a memory allocation failure in these functions.
+The script “checkpatch.pl” pointed information out like the following.
 
-This issue was detected by using the Coccinelle software.
+Comparison to NULL could be written !…
 
-Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
+Thus fix the affected source code places.
+
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/atm/iphase.c | 30 +++++++++++-------------------
- 1 file changed, 11 insertions(+), 19 deletions(-)
+ drivers/atm/iphase.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
-index 472762f70921..ad4c1b41ba98 100644
+index ad4c1b41ba98..19782fed572a 100644
 --- a/drivers/atm/iphase.c
 +++ b/drivers/atm/iphase.c
-@@ -1623,11 +1623,8 @@ static int rx_init(struct atm_dev *dev)
- 	iadev->rx_free_desc_qhead = NULL;   
+@@ -101,7 +101,7 @@ static void ia_init_rtn_q (IARTN_Q *que)
+ static void ia_enque_head_rtn_q (IARTN_Q *que, IARTN_Q * data) 
+ {
+    data->next = NULL;
+-   if (que->next == NULL) 
++	if (!que->next)
+       que->next = que->tail = data;
+    else {
+       data->next = que->next;
+@@ -116,7 +116,7 @@ static int ia_enque_rtn_q (IARTN_Q *que, struct desc_tbl_t data) {
+       return -ENOMEM;
+    entry->data = data;
+    entry->next = NULL;
+-   if (que->next == NULL) 
++	if (!que->next)
+       que->next = que->tail = entry;
+    else {
+       que->tail->next = entry;
+@@ -127,7 +127,7 @@ static int ia_enque_rtn_q (IARTN_Q *que, struct desc_tbl_t data) {
  
- 	iadev->rx_open = kzalloc(4 * iadev->num_vc, GFP_KERNEL);
--	if (!iadev->rx_open) {
--		printk(KERN_ERR DEV_LABEL "itf %d couldn't get free page\n",
--		dev->number);  
-+	if (!iadev->rx_open)
- 		goto err_free_dle;
--	}  
- 
-         iadev->rxing = 1;
-         iadev->rx_pkt_cnt = 0;
-@@ -1982,19 +1979,17 @@ static int tx_init(struct atm_dev *dev)
- 	iadev->tx_buf = kmalloc_array(iadev->num_tx_desc,
- 				      sizeof(*iadev->tx_buf),
- 				      GFP_KERNEL);
--        if (!iadev->tx_buf) {
--            printk(KERN_ERR DEV_LABEL " couldn't get mem\n");
--	    goto err_free_dle;
--        }
-+	if (!iadev->tx_buf)
-+		goto err_free_dle;
-+
-        	for (i= 0; i< iadev->num_tx_desc; i++)
-        	{
- 	    struct cpcs_trailer *cpcs;
-  
-        	    cpcs = kmalloc(sizeof(*cpcs), GFP_KERNEL|GFP_DMA);
--            if(!cpcs) {                
--		printk(KERN_ERR DEV_LABEL " couldn't get freepage\n"); 
--		goto err_free_tx_bufs;
--            }
-+		if (!cpcs)
-+			goto err_free_tx_bufs;
-+
- 	    iadev->tx_buf[i].cpcs = cpcs;
- 	    iadev->tx_buf[i].dma_addr = dma_map_single(&iadev->pci->dev,
- 						       cpcs,
-@@ -2004,10 +1999,8 @@ static int tx_init(struct atm_dev *dev)
- 	iadev->desc_tbl = kmalloc_array(iadev->num_tx_desc,
- 					sizeof(*iadev->desc_tbl),
- 					GFP_KERNEL);
--	if (!iadev->desc_tbl) {
--		printk(KERN_ERR DEV_LABEL " couldn't get mem\n");
-+	if (!iadev->desc_tbl)
- 		goto err_free_all_tx_bufs;
--	}
-   
- 	/* Communication Queues base address */  
-         i = TX_COMP_Q * iadev->memSize;
-@@ -2134,10 +2127,9 @@ static int tx_init(struct atm_dev *dev)
- 	iadev->testTable = kmalloc_array(iadev->num_vc,
- 					 sizeof(*iadev->testTable),
- 					 GFP_KERNEL);
--        if (!iadev->testTable) {
--           printk("Get freepage  failed\n");
--	   goto err_free_desc_tbl;
--        }
-+	if (!iadev->testTable)
-+		goto err_free_desc_tbl;
-+
- 	for(i=0; i<iadev->num_vc; i++)  
- 	{  
- 		memset((caddr_t)vc, 0, sizeof(*vc));  
+ static IARTN_Q * ia_deque_rtn_q (IARTN_Q *que) {
+    IARTN_Q *tmpdata;
+-   if (que->next == NULL)
++	if (!que->next)
+       return NULL;
+    tmpdata = que->next;
+    if ( que->next == que->tail)  
+@@ -1321,7 +1321,7 @@ static void rx_dle_intr(struct atm_dev *dev)
+               goto INCR_DLE;
+           }
+           ia_vcc = INPH_IA_VCC(vcc);
+-          if (ia_vcc == NULL)
++		if (!ia_vcc)
+           {
+              atomic_inc(&vcc->stats->rx_err);
+              atm_return(vcc, skb->truesize);
 -- 
 2.13.4
