@@ -1,70 +1,91 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v4 net-next 01/13] bpf/verifier: rework value tracking
-Date: Mon, 07 Aug 2017 01:35:59 +0200
-Message-ID: <5987A7DF.6080203@iogearbox.net>
-References: <22441d84-0a11-5c00-2d2a-25e7dbafa6c2@solarflare.com> <8a5e37eb-2397-c986-79c5-02908fbbdee0@solarflare.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: use __GFP_NOWARN for sctpw.fifo allocation
+Date: Sun, 6 Aug 2017 20:39:27 -0300
+Message-ID: <20170806233927.GB7613@localhost.localdomain>
+References: <53b360387db05bf31db481234e7070e4a7ba6a25.1501936269.git.lucien.xin@gmail.com>
+ <20170805170859.GA7613@localhost.localdomain>
+ <CADvbK_f_q-gJHey9oUZUrxyGSYXasMVj0kqvhEkzDUPsGDzeng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>
-To: Edward Cree <ecree@solarflare.com>, davem@davemloft.net,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8a5e37eb-2397-c986-79c5-02908fbbdee0@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem <davem@davemloft.net>, Neil Horman <nhorman@tuxdriver.com>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60036 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751355AbdHFXjb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 6 Aug 2017 19:39:31 -0400
+Content-Disposition: inline
+In-Reply-To: <CADvbK_f_q-gJHey9oUZUrxyGSYXasMVj0kqvhEkzDUPsGDzeng@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2017 06:11 PM, Edward Cree wrote:
-> Unifies adjusted and unadjusted register value types (e.g. FRAME_POINTER is
->   now just a PTR_TO_STACK with zero offset).
-> Tracks value alignment by means of tracking known & unknown bits.  This
->   also replaces the 'reg->imm' (leading zero bits) calculations for (what
->   were) UNKNOWN_VALUEs.
-> If pointer leaks are allowed, and adjust_ptr_min_max_vals returns -EACCES,
->   treat the pointer as an unknown scalar and try again, because we might be
->   able to conclude something about the result (e.g. pointer & 0x40 is either
->   0 or 0x40).
->
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
-[...]
-> +static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
-> +				      struct bpf_insn *insn,
-> +				      struct bpf_reg_state *dst_reg,
-> +				      struct bpf_reg_state *src_reg)
->   {
->   	struct bpf_reg_state *regs = env->cur_state.regs;
-[...]
-> -	} else if (insn->imm < BPF_REGISTER_MAX_RANGE &&
-> -		   (s64)insn->imm > BPF_REGISTER_MIN_RANGE) {
-> -		min_val = max_val = insn->imm;
-> -		src_align = calc_align(insn->imm);
-> +	if (BPF_CLASS(insn->code) != BPF_ALU64) {
-> +		/* 32-bit ALU ops are (32,32)->64 */
-> +		coerce_reg_to_32(dst_reg);
-> +		coerce_reg_to_32(src_reg);
->   	}
-> -
-[...]
-> -			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
-> +	if (BPF_CLASS(insn->code) != BPF_ALU64) {
-> +		/* 32-bit ALU ops are (32,32)->64 */
-> +		coerce_reg_to_32(dst_reg);
-> +		coerce_reg_to_32(src_reg);
->   	}
+On Sun, Aug 06, 2017 at 06:14:39PM +1200, Xin Long wrote:
+> On Sun, Aug 6, 2017 at 5:08 AM, Marcelo Ricardo Leitner
+> <marcelo.leitner@gmail.com> wrote:
+> > On Sat, Aug 05, 2017 at 08:31:09PM +0800, Xin Long wrote:
+> >> Chen Wei found a kernel call trace when modprobe sctp_probe with
+> >> bufsize set with a huge value.
+> >>
+> >> It's because in sctpprobe_init when alloc memory for sctpw.fifo,
+> >> the size is got from userspace. If it is too large, kernel will
+> >> fail and give a warning.
+> >
+> > Yes but sctp_probe can only be loaded by an admin and it would happen
+> > only during modprobe. It's different from the commit mentioned below, on
+> > which any user could trigger it.
+> yeah, in this way it's different, I think generally it's acceptable to have
+> this kinda warning call trace by admin.
+> 
+> But it could get the feedback from the return value and the warning
+> call trace seems not useful. sometimes users may be confused
 
-Looks like the same check was added twice here right after
-the first one? Shouldn't we just temporarily coerce the src
-reg to 32 bit here given in the actual op the src reg is not
-being modified?
+users or admins?
 
-Thanks,
-Daniel
+> with this call trace. So it may be better not to dump the warning ?
+> 
+> Or you think it can be helpful if we leave it here ?
 
-> +	min_val = src_reg->min_value;
-> +	max_val = src_reg->max_value;
-> +	src_known = tnum_is_const(src_reg->var_off);
-> +	dst_known = tnum_is_const(dst_reg->var_off);
->
->   	switch (opcode) {
+I'm afraid we may be exagerating here. There are several other ways that
+an admin can trigger scary warnings, this one is no special. I'd rather
+leave this one to the mm defaults instead.
+
+> 
+> >
+> >>
+> >> As there will be a fallback allocation later, this patch is just
+> >> to fail silently and return ret, just as commit 0ccc22f425e5
+> >> ("sit: use __GFP_NOWARN for user controlled allocation") did.
+> >>
+> >> Reported-by: Chen Wei <weichen@redhat.com>
+> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> >> ---
+> >>  net/sctp/probe.c | 2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >>
+> >> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+> >> index 6cc2152..5bf3164 100644
+> >> --- a/net/sctp/probe.c
+> >> +++ b/net/sctp/probe.c
+> >> @@ -210,7 +210,7 @@ static __init int sctpprobe_init(void)
+> >>
+> >>       init_waitqueue_head(&sctpw.wait);
+> >>       spin_lock_init(&sctpw.lock);
+> >> -     if (kfifo_alloc(&sctpw.fifo, bufsize, GFP_KERNEL))
+> >> +     if (kfifo_alloc(&sctpw.fifo, bufsize, GFP_KERNEL | __GFP_NOWARN))
+> >>               return ret;
+> >>
+> >>       if (!proc_create(procname, S_IRUSR, init_net.proc_net,
+> >> --
+> >> 2.1.0
+> >>
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
