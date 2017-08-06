@@ -1,74 +1,64 @@
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next v3 00/13] Update DSA's FDB API and perform switchdev cleanup
-Date: Sun,  6 Aug 2017 16:15:38 +0300
-Message-ID: <1502025351-41261-1-git-send-email-arkadis@mellanox.com>
+Subject: [PATCH net-next v3 12/13] net: bridge: Remove FDB deletion through switchdev object
+Date: Sun,  6 Aug 2017 16:15:50 +0300
+Message-ID: <1502025351-41261-13-git-send-email-arkadis@mellanox.com>
+References: <1502025351-41261-1-git-send-email-arkadis@mellanox.com>
 Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
         f.fainelli@gmail.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, Woojung.Huh@microchip.com,
         mlxsw@mellanox.com, Arkadi Sharshevsky <arkadis@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44704 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44880 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751256AbdHFNMN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 09:12:13 -0400
+        with ESMTP id S1751363AbdHFNMU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 09:12:20 -0400
+In-Reply-To: <1502025351-41261-1-git-send-email-arkadis@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patchset adds support for configuring static FDB entries via the
-switchdev notification chain. The current method for FDB configuration
-uses the switchdev's bridge bypass implementation. In order to support 
-this legacy way and to perform the switchdev cleanup, the implementation
-is moved inside DSA.
+At this point no driver supports FDB add/del through switchdev object
+but rather via notification chain, thus, it is removed.
 
-The DSA drivers cannot sync the software bridge with hardware learned
-entries and use the switchdev's implementation of bypass FDB dumping.
-Because they are the only ones using this functionality, the fdb_dump
-implementation is moved from switchdev code into DSA.
-
-Finally after this changes a major cleanup in switchdev can be done.
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
-Please see individual patches for patch specific change logs.
-v1->v2
-- Split MDB/vlan dump removal into core/driver removal.
+ net/bridge/br_fdb.c | 18 ------------------
+ 1 file changed, 18 deletions(-)
 
-v2->v3
-- The self implementation for FDB add/del is moved inside DSA.
-
-Arkadi Sharshevsky (13):
-  net: dsa: Change DSA slave FDB API to be switchdev independent
-  net: dsa: Remove prepare phase for FDB
-  net: dsa: Remove switchdev dependency from DSA switch notifier chain
-  net: dsa: Add support for learning FDB through notification
-  net: dsa: Move FDB add/del implementation inside DSA
-  net: dsa: Add support for querying supported bridge flags
-  net: dsa: Remove support for vlan dump from DSA's drivers
-  net: dsa: Remove support for bypass bridge port attributes/vlan set
-  net: dsa: Remove support for MDB dump from DSA's drivers
-  net: dsa: Remove redundant MDB dump support
-  net: dsa: Move FDB dump implementation inside DSA
-  net: bridge: Remove FDB deletion through switchdev object
-  net: switchdev: Remove bridge bypass support from switchdev
-
- drivers/net/dsa/b53/b53_common.c       |  83 +-----
- drivers/net/dsa/b53/b53_priv.h         |  16 +-
- drivers/net/dsa/bcm_sf2.c              |   2 -
- drivers/net/dsa/dsa_loop.c             |  38 ---
- drivers/net/dsa/microchip/ksz_common.c | 124 ++------
- drivers/net/dsa/mt7530.c               |  41 +--
- drivers/net/dsa/mv88e6xxx/chip.c       | 147 ++--------
- drivers/net/dsa/qca8k.c                |  42 +--
- include/net/dsa.h                      |  23 +-
- include/net/switchdev.h                |  87 ------
- net/bridge/br_fdb.c                    |  18 --
- net/dsa/dsa.c                          |  13 +
- net/dsa/dsa_priv.h                     |  29 +-
- net/dsa/legacy.c                       |  22 ++
- net/dsa/port.c                         |  51 +---
- net/dsa/slave.c                        | 249 +++++++++++++---
- net/dsa/switch.c                       |  21 +-
- net/switchdev/switchdev.c              | 519 ---------------------------------
- 18 files changed, 360 insertions(+), 1165 deletions(-)
-
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index a5e4a73..a79b648 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -169,29 +169,11 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
+ 	}
+ }
+ 
+-static void fdb_del_external_learn(struct net_bridge_fdb_entry *f)
+-{
+-	struct switchdev_obj_port_fdb fdb = {
+-		.obj = {
+-			.orig_dev = f->dst->dev,
+-			.id = SWITCHDEV_OBJ_ID_PORT_FDB,
+-			.flags = SWITCHDEV_F_DEFER,
+-		},
+-		.vid = f->vlan_id,
+-	};
+-
+-	ether_addr_copy(fdb.addr, f->addr.addr);
+-	switchdev_port_obj_del(f->dst->dev, &fdb.obj);
+-}
+-
+ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+ {
+ 	if (f->is_static)
+ 		fdb_del_hw_addr(br, f->addr.addr);
+ 
+-	if (f->added_by_external_learn)
+-		fdb_del_external_learn(f);
+-
+ 	hlist_del_init_rcu(&f->hlist);
+ 	fdb_notify(br, f, RTM_DELNEIGH);
+ 	call_rcu(&f->rcu, fdb_rcu_free);
 -- 
 2.4.11
