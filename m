@@ -1,36 +1,64 @@
-From: Ilan Tayari <ilant@mellanox.com>
-Subject: RE: XFRM pcpu cache issue
-Date: Sun, 6 Aug 2017 06:50:07 +0000
-Message-ID: <AM4PR0501MB19409BB831FB0732F0965818DBB40@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-References: <AM4PR0501MB1940130EB22A118F3524DA54DBB10@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <20170804165543.GD15456@breakpoint.cc>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data
+ ACKed/SACKed
+Date: Sun, 6 Aug 2017 07:39:57 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F202940EA5@DGGEMI512-MBX.china.huawei.com>
+References: <20170801025814.31206-1-ncardwell@google.com>
+ <20170801025814.31206-4-ncardwell@google.com>
+ <F95AC9340317A84688A5F0DF0246F3F2029373BA@DGGEMI512-MBX.china.huawei.com>
+ <CADVnQykAKkb7KDhM03HHOHk8Uk7rMfXcyaLsHMLZRVT_g69euA@mail.gmail.com>
+ <20170804171000.GB5342@1wt.eu>
+ <CADVnQymnVwT30EzVvTfZ0EX_6ehRom1W8Yt2Z5SQHhmWO+e+sw@mail.gmail.com>
+ <20170804181854.GA5478@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Yevgeny Kliteynik <kliteyn@mellanox.com>,
-        "Yossi Kuperman" <yossiku@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        "Yossef Efraim" <yossefe@mellanox.com>,
-        Ayham Masood <ayhamm@mellanox.com>
-To: Florian Westphal <fw@strlen.de>
+        Yuchung Cheng <ycheng@google.com>,
+        "Nandita Dukkipati" <nanditad@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Willy Tarreau <w@1wt.eu>, Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50068.outbound.protection.outlook.com ([40.107.5.68]:46359
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751669AbdHFGuL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 6 Aug 2017 02:50:11 -0400
-In-Reply-To: <20170804165543.GD15456@breakpoint.cc>
-Content-Language: en-US
+Received: from szxga01-in.huawei.com ([45.249.212.187]:11263 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751179AbdHFHkt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 03:40:49 -0400
+In-Reply-To: <20170804181854.GA5478@1wt.eu>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIFdlc3RwaGFsIFtt
-YWlsdG86ZndAc3RybGVuLmRlXQ0KPiBTdWJqZWN0OiBSZTogWEZSTSBwY3B1IGNhY2hlIGlzc3Vl
-DQo+IA0KPiBJIGRyb3BwZWQgdGhlIHN0YWxlX2J1bmRsZSgpIGNoZWNrIHZzLiByZmMsIHRoYXQg
-d2FzIGEgc3R1cGlkIHRoaW5nDQo+IHRvIGRvIGJlY2F1c2UgdGhhdCBpcyB3aGF0IHdvdWxkIGRl
-dGVjdCB0aGlzLi4uLg0KPiANCj4gRG9lcyB0aGlzIGhlbHA/DQoNClllcywgdGhpcyBmaXhlcyB0
-aGUgcmVncmVzc2lvbiBmb3IgbWUuDQoNClJlcG9ydGVkLWJ5OiBBeWhhbSBNYXNvb2QgPGF5aGFt
-bUBtZWxsYW5veC5jb20+DQpUZXN0ZWQtYnk6IElsYW4gVGF5YXJpIDxpbGFudEBtZWxsYW5veC5j
-b20+DQoNClRoYW5rcywgRmxvcmlhbiENCg0K
+
+
+> -----Original Message-----
+> From: Willy Tarreau [mailto:w@1wt.eu]
+> Sent: Saturday, August 05, 2017 2:19 AM
+> To: Neal Cardwell
+> Cc: maowenan; David Miller; netdev@vger.kernel.org; Yuchung Cheng; Nandita
+> Dukkipati; Eric Dumazet
+> Subject: Re: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data
+> ACKed/SACKed
+> 
+> On Fri, Aug 04, 2017 at 02:01:34PM -0400, Neal Cardwell wrote:
+> > On Fri, Aug 4, 2017 at 1:10 PM, Willy Tarreau <w@1wt.eu> wrote:
+> > > Hi Neal,
+> > >
+> > > On Fri, Aug 04, 2017 at 12:59:51PM -0400, Neal Cardwell wrote:
+> > >> I have attached patches for this fix rebased on to v3.10.107, the
+> > >> latest stable release for 3.10. That's pretty far back in history,
+> > >> so there were substantial conflict resolutions and adjustments required.
+> > >> :-) Hope that helps.
+> > >
+> > > At least it will help me :-)
+> > >
+> > > Do you suggest that I queue them for 3.10.108, that I wait for
+> > > Maowenan to test them more broadly first or anything else ?
+> >
+> > Let's wait for Maowenan to test them first.
+[Mao Wenan]It works well with these patches of v3.10, and the 
+retransmission packet is about 250ms after TLP probe.
+Thank you very much for these patches under 3.10.
+> 
+> Fine, thanks.
+> Willy
