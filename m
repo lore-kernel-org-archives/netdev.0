@@ -1,67 +1,70 @@
-From: Willem de Bruijn <willemdebruijn.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v06 18/36] uapi linux/errqueue.h: include linux/time.h in
- user space
-Date: Sun, 6 Aug 2017 18:03:52 -0400
-Message-ID: <CAF=yD-K9UvhUdvWxaDPjnHehbgpPqMiLc7co0fPKK3MEFp=inA@mail.gmail.com>
-References: <20170806164428.2273-1-mikko.rapeli@iki.fi> <20170806164428.2273-19-mikko.rapeli@iki.fi>
- <CAF=yD-L2ntuH54J_SwN9WcpBMgkV_v0e-Q2Pu2mrQ3+1RozGFQ@mail.gmail.com>
- <20170806205654.GF28459@lakka.kapsi.fi> <CAF=yD-+w2sboybyUZ-6nKQy1s=Oi1S4Z5yZgksM-CzQjDRG+Vw@mail.gmail.com>
- <20170806213330.GA31101@lakka.kapsi.fi> <CAF=yD-LN9b9q6sY38eCBM3VyfErQ8sqpQ_7fwkJzMxgjeRFtFg@mail.gmail.com>
- <20170806215244.GB31101@lakka.kapsi.fi>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v4 net-next 01/13] bpf/verifier: rework value tracking
+Date: Mon, 07 Aug 2017 01:35:59 +0200
+Message-ID: <5987A7DF.6080203@iogearbox.net>
+References: <22441d84-0a11-5c00-2d2a-25e7dbafa6c2@solarflare.com> <8a5e37eb-2397-c986-79c5-02908fbbdee0@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Soheil Hassas Yeganeh <soheil-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170806215244.GB31101-dqH1CgrzRhOk/eJAJmRu5A@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>
+To: Edward Cree <ecree@solarflare.com>, davem@davemloft.net,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8a5e37eb-2397-c986-79c5-02908fbbdee0@solarflare.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 6, 2017 at 5:52 PM, Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org> wrote:
-> On Sun, Aug 06, 2017 at 05:42:13PM -0400, Willem de Bruijn wrote:
->> On Sun, Aug 6, 2017 at 5:33 PM, Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org> wrote:
->> > On Sun, Aug 06, 2017 at 05:24:20PM -0400, Willem de Bruijn wrote:
->> >> >> > +#ifdef __KERNEL__
->> >> >> > +#include <linux/time.h>
->> >> >> > +#else
->> >> >> > +#include <time.h>
->> >> >> > +#endif /* __KERNEL__ */
->> >> >>
->> >> >> This will break applications that include <linux/time.h> manually.
->> >> >> I previously sent a patch to use libc-compat to make compilation succeed
->> >> >> when both are included in the case where <linux/time.h> is included after
->> >> >> <time.h>.
->> >> >>
->> >> >>   https://lkml.org/lkml/2016/9/12/872
->> >> >>
->> >> >> The inverse will require changes to the libc header to avoid redefining
->> >> >> symbols already defined by <linux/time.h>
->> >> >>
->> >> >> The second patch in that 2-patch set included <linux/time.h>
->> >> >> unconditionally after the fix. This broke builds that also included
->> >> >> <time.h> in the wrong order. I did not resubmit the first patch as a
->> >> >> stand-alone, as it is not sufficient to avoid breakage.
->> >> >
->> >> > I wasn't aware of your change, but I was about to send this to fix the
->> >> > case when glibc <time.h> is included before <linux/time.h>:
->> >> >
->> >> > https://github.com/mcfrisk/linux/commit/f3952a27b8a21c6478d26e6246055383483f6a66
->> >>
->> >> There are a few differences between the two. Including <time.h> does not
->> >> unconditionally define all the symbols. Some are conditional on additional
->> >> state, such as __timespec_defined.
->> >
->> > Yep, your patch seems better for libc-compat.h. Could you send it again?
->>
->> Okay. Or feel free to include it in the patchset if that helps resolve
->> dependencies.
+On 08/03/2017 06:11 PM, Edward Cree wrote:
+> Unifies adjusted and unadjusted register value types (e.g. FRAME_POINTER is
+>   now just a PTR_TO_STACK with zero offset).
+> Tracks value alignment by means of tracking known & unknown bits.  This
+>   also replaces the 'reg->imm' (leading zero bits) calculations for (what
+>   were) UNKNOWN_VALUEs.
+> If pointer leaks are allowed, and adjust_ptr_min_max_vals returns -EACCES,
+>   treat the pointer as an unknown scalar and try again, because we might be
+>   able to conclude something about the result (e.g. pointer & 0x40 is either
+>   0 or 0x40).
 >
-> If you don't have the time, I will send tomorrow a new version of this
-> patch which fixes the commit topic and before that your libc-compat.h change
-> so both could be applied together.
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
+[...]
+> +static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
+> +				      struct bpf_insn *insn,
+> +				      struct bpf_reg_state *dst_reg,
+> +				      struct bpf_reg_state *src_reg)
+>   {
+>   	struct bpf_reg_state *regs = env->cur_state.regs;
+[...]
+> -	} else if (insn->imm < BPF_REGISTER_MAX_RANGE &&
+> -		   (s64)insn->imm > BPF_REGISTER_MIN_RANGE) {
+> -		min_val = max_val = insn->imm;
+> -		src_align = calc_align(insn->imm);
+> +	if (BPF_CLASS(insn->code) != BPF_ALU64) {
+> +		/* 32-bit ALU ops are (32,32)->64 */
+> +		coerce_reg_to_32(dst_reg);
+> +		coerce_reg_to_32(src_reg);
+>   	}
+> -
+[...]
+> -			dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
+> +	if (BPF_CLASS(insn->code) != BPF_ALU64) {
+> +		/* 32-bit ALU ops are (32,32)->64 */
+> +		coerce_reg_to_32(dst_reg);
+> +		coerce_reg_to_32(src_reg);
+>   	}
 
-Please do. Thanks!
+Looks like the same check was added twice here right after
+the first one? Shouldn't we just temporarily coerce the src
+reg to 32 bit here given in the actual op the src reg is not
+being modified?
+
+Thanks,
+Daniel
+
+> +	min_val = src_reg->min_value;
+> +	max_val = src_reg->max_value;
+> +	src_known = tnum_is_const(src_reg->var_off);
+> +	dst_known = tnum_is_const(dst_reg->var_off);
+>
+>   	switch (opcode) {
