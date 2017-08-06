@@ -1,45 +1,74 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] ATM-ENI: Delete an error message for a failed memory
- allocation in eni_start()
-Date: Sun, 6 Aug 2017 11:20:11 +0200
-Message-ID: <da947bfe-8bef-18c4-609c-e859412dd2f3@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        Chas Williams <3chas3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ilya Matveychikov <matvejchikov@gmail.com>
+Subject: [PATCH] tcp_input: move out condition check from tcp_data_queue()
+Date: Sun, 6 Aug 2017 13:51:17 +0400
+Message-ID: <674DB789-9B28-4A9C-A0BF-D91023CB86F3@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36081 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751258AbdHFJvW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 05:51:22 -0400
+Received: by mail-wm0-f66.google.com with SMTP id d40so10480390wma.3
+        for <netdev@vger.kernel.org>; Sun, 06 Aug 2017 02:51:22 -0700 (PDT)
+Received: from [10.1.0.103] (bba193486.alshamil.net.ae. [217.165.96.192])
+        by smtp.gmail.com with ESMTPSA id w134sm2269082wmd.7.2017.08.06.02.51.20
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Sun, 06 Aug 2017 02:51:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 6 Aug 2017 11:15:17 +0200
+As tcp_data_queue() function is used just only twice it's better
+to move out the first check and wrap it with inline. It saves a
+single call in case the condition evaluated as true.
 
-Omit an extra message for a memory allocation failure in this function.
-
-This issue was detected by using the Coccinelle software.
-
-Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: Ilya V. Matveychikov <matvejchikov@gmail.com>
 ---
- drivers/atm/eni.c | 2 --
- 1 file changed, 2 deletions(-)
+ net/ipv4/tcp_input.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
-index ce47eb17901d..d4b11ef940ee 100644
---- a/drivers/atm/eni.c
-+++ b/drivers/atm/eni.c
-@@ -1849,8 +1849,6 @@ static int eni_start(struct atm_dev *dev)
- 					   sizeof(*eni_dev->free_list),
- 					   GFP_KERNEL);
- 	if (!eni_dev->free_list) {
--		printk(KERN_ERR DEV_LABEL "(itf %d): couldn't get free page\n",
--		    dev->number);
- 		error = -ENOMEM;
- 		goto free_irq;
- 	}
--- 
-2.13.4
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2920e0c..141a722 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4585,16 +4585,12 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr =
+*msg, size_t size)
+=20
+ }
+=20
+-static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
++static void __tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct tcp_sock *tp =3D tcp_sk(sk);
+ 	bool fragstolen =3D false;
+ 	int eaten =3D -1;
+=20
+-	if (TCP_SKB_CB(skb)->seq =3D=3D TCP_SKB_CB(skb)->end_seq) {
+-		__kfree_skb(skb);
+-		return;
+-	}
+ 	skb_dst_drop(skb);
+ 	__skb_pull(skb, tcp_hdr(skb)->doff * 4);
+=20
+@@ -4703,6 +4699,14 @@ static void tcp_data_queue(struct sock *sk, =
+struct sk_buff *skb)
+ 	tcp_data_queue_ofo(sk, skb);
+ }
+=20
++static inline void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
++{
++	if (TCP_SKB_CB(skb)->seq =3D=3D TCP_SKB_CB(skb)->end_seq)
++		__kfree_skb(skb);
++	else
++		__tcp_data_queue(sk, skb);
++}
++
+ static struct sk_buff *tcp_skb_next(struct sk_buff *skb, struct =
+sk_buff_head *list)
+ {
+ 	if (list)
+--=20
+2.7.4
