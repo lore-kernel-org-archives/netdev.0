@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] ATM-lanai: Delete an error message for a failed memory
- allocation in lanai_init_one()
-Date: Sun, 6 Aug 2017 10:00:20 +0200
-Message-ID: <ce30adf8-c5be-df17-0c74-42061ff2fd42@users.sourceforge.net>
+Subject: [PATCH] ATM-nicstar: Delete an error message for a failed memory
+ allocation in ns_init_card()
+Date: Sun, 6 Aug 2017 10:16:54 +0200
+Message-ID: <15557ccf-4b14-924a-b1ce-8fa052f0e1f0@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -16,7 +16,7 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 6 Aug 2017 09:42:52 +0200
+Date: Sun, 6 Aug 2017 10:10:21 +0200
 
 Omit an extra message for a memory allocation failure in this function.
 
@@ -25,25 +25,22 @@ This issue was detected by using the Coccinelle software.
 Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/atm/lanai.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ drivers/atm/nicstar.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/atm/lanai.c b/drivers/atm/lanai.c
-index 2351dad78ff5..f4cb6c5870bf 100644
---- a/drivers/atm/lanai.c
-+++ b/drivers/atm/lanai.c
-@@ -2562,11 +2562,8 @@ static int lanai_init_one(struct pci_dev *pci,
- 	int result;
+diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
+index 9588d80f318e..08d5aa8b9524 100644
+--- a/drivers/atm/nicstar.c
++++ b/drivers/atm/nicstar.c
+@@ -372,9 +372,6 @@ static int ns_init_card(int i, struct pci_dev *pcidev)
  
- 	lanai = kmalloc(sizeof(*lanai), GFP_KERNEL);
--	if (lanai == NULL) {
--		printk(KERN_ERR DEV_LABEL
--		       ": couldn't allocate dev_data structure!\n");
-+	if (!lanai)
- 		return -ENOMEM;
--	}
- 
- 	atmdev = atm_dev_register(DEV_LABEL, &pci->dev, &ops, -1, NULL);
- 	if (atmdev == NULL) {
+ 	card = kmalloc(sizeof(*card), GFP_KERNEL);
+ 	if (!card) {
+-		printk
+-		    ("nicstar%d: can't allocate memory for device structure.\n",
+-		     i);
+ 		error = 2;
+ 		ns_init_card_error(card, error);
+ 		return error;
 -- 
 2.13.4
