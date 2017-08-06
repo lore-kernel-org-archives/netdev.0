@@ -1,44 +1,64 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] atm: solos-pci: Delete an error message for a failed memory
- allocation in fpga_probe()
-Date: Sun, 6 Aug 2017 10:41:47 +0200
-Message-ID: <997c2270-135d-0ac9-e6f0-f62cf0750a79@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        Chas Williams <3chas3@gmail.com>
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: [PATCH] hamradio: baycom: make hdlcdrv_ops const
+Date: Sun,  6 Aug 2017 14:21:45 +0530
+Message-ID: <1502009505-12973-1-git-send-email-bhumirks@gmail.com>
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: julia.lawall@lip6.fr, t.sailer@alumni.ethz.ch,
+        linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-GB
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 6 Aug 2017 10:37:31 +0200
+Make hdlcdrv_ops structures const as they are only passed to
+hdlcdrv_register function. The corresponding argument is of type const,
+so make the structures const.
 
-Omit an extra message for a memory allocation failure in this function.
-
-This issue was detected by using the Coccinelle software.
-
-Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 ---
- drivers/atm/solos-pci.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/hamradio/baycom_par.c     | 2 +-
+ drivers/net/hamradio/baycom_ser_fdx.c | 2 +-
+ drivers/net/hamradio/baycom_ser_hdx.c | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 8754793223cd..cb3424a4f91f 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -1293,7 +1293,6 @@ static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
- 			card->dma_alignment = 3;
- 			card->dma_bounce = kmalloc(card->nr_ports * BUF_SIZE, GFP_KERNEL);
- 			if (!card->dma_bounce) {
--				dev_warn(&card->dev->dev, "Failed to allocate DMA bounce buffers\n");
- 				err = -ENOMEM;
- 				/* Fallback to MMIO doesn't work */
- 				goto out_unmap_both;
+diff --git a/drivers/net/hamradio/baycom_par.c b/drivers/net/hamradio/baycom_par.c
+index 92b13b3..e178383 100644
+--- a/drivers/net/hamradio/baycom_par.c
++++ b/drivers/net/hamradio/baycom_par.c
+@@ -386,7 +386,7 @@ static int baycom_ioctl(struct net_device *dev, struct ifreq *ifr,
+ 
+ /* --------------------------------------------------------------------- */
+ 
+-static struct hdlcdrv_ops par96_ops = {
++static const struct hdlcdrv_ops par96_ops = {
+ 	.drvname = bc_drvname,
+ 	.drvinfo = bc_drvinfo,
+ 	.open    = par96_open,
+diff --git a/drivers/net/hamradio/baycom_ser_fdx.c b/drivers/net/hamradio/baycom_ser_fdx.c
+index d9a646a..190f66c 100644
+--- a/drivers/net/hamradio/baycom_ser_fdx.c
++++ b/drivers/net/hamradio/baycom_ser_fdx.c
+@@ -508,7 +508,7 @@ static int baycom_ioctl(struct net_device *dev, struct ifreq *ifr,
+ 
+ /* --------------------------------------------------------------------- */
+ 
+-static struct hdlcdrv_ops ser12_ops = {
++static const struct hdlcdrv_ops ser12_ops = {
+ 	.drvname = bc_drvname,
+ 	.drvinfo = bc_drvinfo,
+ 	.open    = ser12_open,
+diff --git a/drivers/net/hamradio/baycom_ser_hdx.c b/drivers/net/hamradio/baycom_ser_hdx.c
+index f1c8a9f..3c823c6 100644
+--- a/drivers/net/hamradio/baycom_ser_hdx.c
++++ b/drivers/net/hamradio/baycom_ser_hdx.c
+@@ -542,7 +542,7 @@ static int baycom_ioctl(struct net_device *dev, struct ifreq *ifr,
+ 
+ /* --------------------------------------------------------------------- */
+ 
+-static struct hdlcdrv_ops ser12_ops = {
++static const struct hdlcdrv_ops ser12_ops = {
+ 	.drvname = bc_drvname,
+ 	.drvinfo = bc_drvinfo,
+ 	.open    = ser12_open,
 -- 
-2.13.4
+1.9.1
