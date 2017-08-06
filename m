@@ -1,77 +1,43 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/3] ATM-iphase: Adjust four checks for null pointers
-Date: Sun, 6 Aug 2017 08:30:12 +0200
-Message-ID: <693faecc-81ea-6d85-788c-b42924a2afb1@users.sourceforge.net>
-References: <c30df8dd-a6e9-23c1-842b-afa8696e10d4@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        Chas Williams <3chas3@gmail.com>
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: [PATCH] can: c_can_pci: make c_can_pci_data const
+Date: Sun,  6 Aug 2017 12:18:31 +0530
+Message-ID: <1502002111-7144-1-git-send-email-bhumirks@gmail.com>
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: julia.lawall@lip6.fr, wg@grandegger.com, mkl@pengutronix.de,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c30df8dd-a6e9-23c1-842b-afa8696e10d4@users.sourceforge.net>
-Content-Language: en-GB
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 5 Aug 2017 22:30:04 +0200
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Make c_can_pci_data structures const as they are only used during
+a copy operation.
 
-The script “checkpatch.pl” pointed information out like the following.
-
-Comparison to NULL could be written !…
-
-Thus fix the affected source code places.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 ---
- drivers/atm/iphase.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/can/c_can/c_can_pci.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
-index ad4c1b41ba98..19782fed572a 100644
---- a/drivers/atm/iphase.c
-+++ b/drivers/atm/iphase.c
-@@ -101,7 +101,7 @@ static void ia_init_rtn_q (IARTN_Q *que)
- static void ia_enque_head_rtn_q (IARTN_Q *que, IARTN_Q * data) 
- {
-    data->next = NULL;
--   if (que->next == NULL) 
-+	if (!que->next)
-       que->next = que->tail = data;
-    else {
-       data->next = que->next;
-@@ -116,7 +116,7 @@ static int ia_enque_rtn_q (IARTN_Q *que, struct desc_tbl_t data) {
-       return -ENOMEM;
-    entry->data = data;
-    entry->next = NULL;
--   if (que->next == NULL) 
-+	if (!que->next)
-       que->next = que->tail = entry;
-    else {
-       que->tail->next = entry;
-@@ -127,7 +127,7 @@ static int ia_enque_rtn_q (IARTN_Q *que, struct desc_tbl_t data) {
+diff --git a/drivers/net/can/c_can/c_can_pci.c b/drivers/net/can/c_can/c_can_pci.c
+index cf7c189..70f5659 100644
+--- a/drivers/net/can/c_can/c_can_pci.c
++++ b/drivers/net/can/c_can/c_can_pci.c
+@@ -252,14 +252,14 @@ static void c_can_pci_remove(struct pci_dev *pdev)
+ 	pci_disable_device(pdev);
+ }
  
- static IARTN_Q * ia_deque_rtn_q (IARTN_Q *que) {
-    IARTN_Q *tmpdata;
--   if (que->next == NULL)
-+	if (!que->next)
-       return NULL;
-    tmpdata = que->next;
-    if ( que->next == que->tail)  
-@@ -1321,7 +1321,7 @@ static void rx_dle_intr(struct atm_dev *dev)
-               goto INCR_DLE;
-           }
-           ia_vcc = INPH_IA_VCC(vcc);
--          if (ia_vcc == NULL)
-+		if (!ia_vcc)
-           {
-              atomic_inc(&vcc->stats->rx_err);
-              atm_return(vcc, skb->truesize);
+-static struct c_can_pci_data c_can_sta2x11= {
++static const struct c_can_pci_data c_can_sta2x11= {
+ 	.type = BOSCH_C_CAN,
+ 	.reg_align = C_CAN_REG_ALIGN_32,
+ 	.freq = 52000000, /* 52 Mhz */
+ 	.bar = 0,
+ };
+ 
+-static struct c_can_pci_data c_can_pch = {
++static const struct c_can_pci_data c_can_pch = {
+ 	.type = BOSCH_C_CAN,
+ 	.reg_align = C_CAN_REG_32,
+ 	.freq = 50000000, /* 50 MHz */
 -- 
-2.13.4
+1.9.1
