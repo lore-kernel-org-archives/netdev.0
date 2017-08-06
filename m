@@ -1,64 +1,45 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] hamradio: baycom: make hdlcdrv_ops const
-Date: Sun,  6 Aug 2017 14:21:45 +0530
-Message-ID: <1502009505-12973-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, t.sailer@alumni.ethz.ch,
-        linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] ATM-ENI: Delete an error message for a failed memory
+ allocation in eni_start()
+Date: Sun, 6 Aug 2017 11:20:11 +0200
+Message-ID: <da947bfe-8bef-18c4-609c-e859412dd2f3@users.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+        Chas Williams <3chas3@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-GB
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make hdlcdrv_ops structures const as they are only passed to
-hdlcdrv_register function. The corresponding argument is of type const,
-so make the structures const.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sun, 6 Aug 2017 11:15:17 +0200
 
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+Omit an extra message for a memory allocation failure in this function.
+
+This issue was detected by using the Coccinelle software.
+
+Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/hamradio/baycom_par.c     | 2 +-
- drivers/net/hamradio/baycom_ser_fdx.c | 2 +-
- drivers/net/hamradio/baycom_ser_hdx.c | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/atm/eni.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/hamradio/baycom_par.c b/drivers/net/hamradio/baycom_par.c
-index 92b13b3..e178383 100644
---- a/drivers/net/hamradio/baycom_par.c
-+++ b/drivers/net/hamradio/baycom_par.c
-@@ -386,7 +386,7 @@ static int baycom_ioctl(struct net_device *dev, struct ifreq *ifr,
- 
- /* --------------------------------------------------------------------- */
- 
--static struct hdlcdrv_ops par96_ops = {
-+static const struct hdlcdrv_ops par96_ops = {
- 	.drvname = bc_drvname,
- 	.drvinfo = bc_drvinfo,
- 	.open    = par96_open,
-diff --git a/drivers/net/hamradio/baycom_ser_fdx.c b/drivers/net/hamradio/baycom_ser_fdx.c
-index d9a646a..190f66c 100644
---- a/drivers/net/hamradio/baycom_ser_fdx.c
-+++ b/drivers/net/hamradio/baycom_ser_fdx.c
-@@ -508,7 +508,7 @@ static int baycom_ioctl(struct net_device *dev, struct ifreq *ifr,
- 
- /* --------------------------------------------------------------------- */
- 
--static struct hdlcdrv_ops ser12_ops = {
-+static const struct hdlcdrv_ops ser12_ops = {
- 	.drvname = bc_drvname,
- 	.drvinfo = bc_drvinfo,
- 	.open    = ser12_open,
-diff --git a/drivers/net/hamradio/baycom_ser_hdx.c b/drivers/net/hamradio/baycom_ser_hdx.c
-index f1c8a9f..3c823c6 100644
---- a/drivers/net/hamradio/baycom_ser_hdx.c
-+++ b/drivers/net/hamradio/baycom_ser_hdx.c
-@@ -542,7 +542,7 @@ static int baycom_ioctl(struct net_device *dev, struct ifreq *ifr,
- 
- /* --------------------------------------------------------------------- */
- 
--static struct hdlcdrv_ops ser12_ops = {
-+static const struct hdlcdrv_ops ser12_ops = {
- 	.drvname = bc_drvname,
- 	.drvinfo = bc_drvinfo,
- 	.open    = ser12_open,
+diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+index ce47eb17901d..d4b11ef940ee 100644
+--- a/drivers/atm/eni.c
++++ b/drivers/atm/eni.c
+@@ -1849,8 +1849,6 @@ static int eni_start(struct atm_dev *dev)
+ 					   sizeof(*eni_dev->free_list),
+ 					   GFP_KERNEL);
+ 	if (!eni_dev->free_list) {
+-		printk(KERN_ERR DEV_LABEL "(itf %d): couldn't get free page\n",
+-		    dev->number);
+ 		error = -ENOMEM;
+ 		goto free_irq;
+ 	}
 -- 
-1.9.1
+2.13.4
