@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/3] ATM-iphase: Adjust 11 function calls together with a
- variable assignment
-Date: Sun, 6 Aug 2017 08:26:40 +0200
-Message-ID: <3e7b36a6-41e0-9b55-5933-bc9ef2d5fae6@users.sourceforge.net>
+Subject: [PATCH 2/3] ATM-iphase: Delete five error messages for a failed
+ memory allocation
+Date: Sun, 6 Aug 2017 08:28:19 +0200
+Message-ID: <ddae6055-5d63-17bf-4bce-0cfa346b3515@users.sourceforge.net>
 References: <c30df8dd-a6e9-23c1-842b-afa8696e10d4@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -18,149 +18,86 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 5 Aug 2017 21:39:06 +0200
+Date: Sat, 5 Aug 2017 22:10:41 +0200
 
-The script "checkpatch.pl" pointed information out like the following.
+Omit extra messages for a memory allocation failure in these functions.
 
-ERROR: do not use assignment in if condition
+This issue was detected by using the Coccinelle software.
 
-Thus fix affected source code places.
-
+Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/atm/iphase.c | 57 +++++++++++++++++++++++++++++++---------------------
- 1 file changed, 34 insertions(+), 23 deletions(-)
+ drivers/atm/iphase.c | 30 +++++++++++-------------------
+ 1 file changed, 11 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
-index fc72b763fdd7..472762f70921 100644
+index 472762f70921..ad4c1b41ba98 100644
 --- a/drivers/atm/iphase.c
 +++ b/drivers/atm/iphase.c
-@@ -152,7 +152,8 @@ static void ia_hack_tcq(IADEV *dev) {
-         *(u_short *) (dev->seg_ram + dev->host_tcq_wr) = 0;
-      }                                 
-      else if (dev->desc_tbl[desc1 -1].timestamp) {
--        if (!(iavcc_r = dev->desc_tbl[desc1 -1].iavcc)) { 
-+			iavcc_r = dev->desc_tbl[desc1 - 1].iavcc;
-+			if (!iavcc_r) {
-            printk("IA: Fatal err in get_desc\n");
-            continue;
-         }
-@@ -617,7 +618,8 @@ static int ia_que_tx (IADEV *iadev) {
-    num_desc = ia_avail_descs(iadev);
+@@ -1623,11 +1623,8 @@ static int rx_init(struct atm_dev *dev)
+ 	iadev->rx_free_desc_qhead = NULL;   
  
-    while (num_desc && (skb = skb_dequeue(&iadev->tx_backlog))) {
--      if (!(vcc = ATM_SKB(skb)->vcc)) {
-+		vcc = ATM_SKB(skb)->vcc;
-+		if (!vcc) {
-          dev_kfree_skb_any(skb);
-          printk("ia_que_tx: Null vcc\n");
-          break;
-@@ -1172,8 +1174,9 @@ static int rx_pkt(struct atm_dev *dev)
-            atomic_inc(&vcc->stats->rx_err);
- 	   goto out_free_desc;
-         }
--		  
--        if (!(skb = atm_alloc_charge(vcc, len, GFP_ATOMIC))) {
+ 	iadev->rx_open = kzalloc(4 * iadev->num_vc, GFP_KERNEL);
+-	if (!iadev->rx_open) {
+-		printk(KERN_ERR DEV_LABEL "itf %d couldn't get free page\n",
+-		dev->number);  
++	if (!iadev->rx_open)
+ 		goto err_free_dle;
+-	}  
+ 
+         iadev->rxing = 1;
+         iadev->rx_pkt_cnt = 0;
+@@ -1982,19 +1979,17 @@ static int tx_init(struct atm_dev *dev)
+ 	iadev->tx_buf = kmalloc_array(iadev->num_tx_desc,
+ 				      sizeof(*iadev->tx_buf),
+ 				      GFP_KERNEL);
+-        if (!iadev->tx_buf) {
+-            printk(KERN_ERR DEV_LABEL " couldn't get mem\n");
+-	    goto err_free_dle;
+-        }
++	if (!iadev->tx_buf)
++		goto err_free_dle;
 +
-+	skb = atm_alloc_charge(vcc, len, GFP_ATOMIC);
-+	if (!skb) {
-            if (vcc->vci < 32)
-               printk("Drop control packets\n");
- 	   goto out_free_desc;
-@@ -1296,7 +1299,8 @@ static void rx_dle_intr(struct atm_dev *dev)
-       desc = ATM_DESC(skb);
-       free_desc(dev, desc);  
-                
--      if (!(len = skb->len))
-+	len = skb->len;
-+	if (!len)
-       {  
-           printk("rx_dle_intr: skb len 0\n");  
- 	  dev_kfree_skb_any(skb);  
-@@ -1882,9 +1886,9 @@ static int open_tx(struct atm_vcc *vcc)
-                 }
-                 vc->type = CBR;
-                 vc->status = CRC_APPEND;
--                if ((ret = ia_cbr_setup (iadev, vcc)) < 0) {     
--                    return ret;
--                }
-+		ret = ia_cbr_setup(iadev, vcc);
-+		if (ret < 0)
-+			return ret;
- 	} else {
- 		printk("iadev:  Non UBR, ABR and CBR traffic not supported\n");
- 	}
-@@ -2293,15 +2297,19 @@ static int reset_sar(struct atm_dev *dev)
- 	unsigned int pci[64];  
- 	  
- 	iadev = INPH_IA_DEV(dev);  
--	for(i=0; i<64; i++)  
--	  if ((error = pci_read_config_dword(iadev->pci,  
--				i*4, &pci[i])) != PCIBIOS_SUCCESSFUL)  
--  	      return error;  
-+	for (i = 0; i < 64; i++) {
-+		error = pci_read_config_dword(iadev->pci, i * 4, &pci[i]);
-+		if (error != PCIBIOS_SUCCESSFUL)
-+			return error;
-+	}
+        	for (i= 0; i< iadev->num_tx_desc; i++)
+        	{
+ 	    struct cpcs_trailer *cpcs;
+  
+        	    cpcs = kmalloc(sizeof(*cpcs), GFP_KERNEL|GFP_DMA);
+-            if(!cpcs) {                
+-		printk(KERN_ERR DEV_LABEL " couldn't get freepage\n"); 
+-		goto err_free_tx_bufs;
+-            }
++		if (!cpcs)
++			goto err_free_tx_bufs;
 +
- 	writel(0, iadev->reg+IPHASE5575_EXT_RESET);  
--	for(i=0; i<64; i++)  
--	  if ((error = pci_write_config_dword(iadev->pci,  
--					i*4, pci[i])) != PCIBIOS_SUCCESSFUL)  
--	    return error;  
-+	for (i = 0; i < 64; i++) {
-+		error = pci_write_config_dword(iadev->pci, i * 4, pci[i]);
-+		if (error != PCIBIOS_SUCCESSFUL)
-+			return error;
-+	}
-+
- 	udelay(5);  
- 	return 0;  
- }  
-@@ -2516,9 +2524,10 @@ static int ia_start(struct atm_dev *dev)
-         }  
-         /* @@@ should release IRQ on error */  
- 	/* enabling memory + master */  
--        if ((error = pci_write_config_word(iadev->pci,   
--				PCI_COMMAND,   
--				PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER )))   
-+	error = pci_write_config_word(iadev->pci,
-+				      PCI_COMMAND,
-+				      PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
-+	if (error)
- 	{  
-                 printk(KERN_ERR DEV_LABEL "(itf %d): can't enable memory+"  
-                     "master (0x%x)\n",dev->number, error);  
-@@ -2569,7 +2578,8 @@ static int ia_start(struct atm_dev *dev)
-                                readl(iadev->reg+IPHASE5575_BUS_CONTROL_REG));)  
-         phy = 0; /* resolve compiler complaint */
-         IF_INIT ( 
--	if ((phy=ia_phy_get(dev,0)) == 0x30)  
-+	phy = ia_phy_get(dev, 0);
-+	if (phy == 0x30)
- 		printk("IA: pm5346,rev.%d\n",phy&0x0f);  
- 	else  
- 		printk("IA: utopia,rev.%0x\n",phy);) 
-@@ -2710,15 +2720,16 @@ static int ia_open(struct atm_vcc *vcc)
- 	ia_vcc = kmalloc(sizeof(*ia_vcc), GFP_KERNEL);  
- 	if (!ia_vcc) return -ENOMEM;  
- 	vcc->dev_data = ia_vcc;
--  
--	if ((error = open_rx(vcc)))  
-+	error = open_rx(vcc);
-+	if (error)
- 	{  
- 		IF_EVENT(printk("iadev: error in open_rx, closing\n");)  
- 		ia_close(vcc);  
- 		return error;  
- 	}  
+ 	    iadev->tx_buf[i].cpcs = cpcs;
+ 	    iadev->tx_buf[i].dma_addr = dma_map_single(&iadev->pci->dev,
+ 						       cpcs,
+@@ -2004,10 +1999,8 @@ static int tx_init(struct atm_dev *dev)
+ 	iadev->desc_tbl = kmalloc_array(iadev->num_tx_desc,
+ 					sizeof(*iadev->desc_tbl),
+ 					GFP_KERNEL);
+-	if (!iadev->desc_tbl) {
+-		printk(KERN_ERR DEV_LABEL " couldn't get mem\n");
++	if (!iadev->desc_tbl)
+ 		goto err_free_all_tx_bufs;
+-	}
    
--	if ((error = open_tx(vcc)))  
-+	error = open_tx(vcc);
-+	if (error)
+ 	/* Communication Queues base address */  
+         i = TX_COMP_Q * iadev->memSize;
+@@ -2134,10 +2127,9 @@ static int tx_init(struct atm_dev *dev)
+ 	iadev->testTable = kmalloc_array(iadev->num_vc,
+ 					 sizeof(*iadev->testTable),
+ 					 GFP_KERNEL);
+-        if (!iadev->testTable) {
+-           printk("Get freepage  failed\n");
+-	   goto err_free_desc_tbl;
+-        }
++	if (!iadev->testTable)
++		goto err_free_desc_tbl;
++
+ 	for(i=0; i<iadev->num_vc; i++)  
  	{  
- 		IF_EVENT(printk("iadev: error in open_tx, closing\n");)  
- 		ia_close(vcc);  
+ 		memset((caddr_t)vc, 0, sizeof(*vc));  
 -- 
 2.13.4
