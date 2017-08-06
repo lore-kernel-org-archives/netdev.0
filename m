@@ -1,44 +1,59 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data ACKed/SACKed
-Date: Sun, 6 Aug 2017 11:24:23 -0400
-Message-ID: <CADVnQymdNv8tE4QdybFvSG_PhdbYY9+5CyCFeyDveAhS9K488w@mail.gmail.com>
-References: <20170801025814.31206-1-ncardwell@google.com> <20170801025814.31206-4-ncardwell@google.com>
- <F95AC9340317A84688A5F0DF0246F3F2029373BA@DGGEMI512-MBX.china.huawei.com>
- <CADVnQykAKkb7KDhM03HHOHk8Uk7rMfXcyaLsHMLZRVT_g69euA@mail.gmail.com>
- <20170804171000.GB5342@1wt.eu> <CADVnQymnVwT30EzVvTfZ0EX_6ehRom1W8Yt2Z5SQHhmWO+e+sw@mail.gmail.com>
- <20170804181854.GA5478@1wt.eu> <F95AC9340317A84688A5F0DF0246F3F202940EA5@DGGEMI512-MBX.china.huawei.com>
- <20170806074435.GA13300@1wt.eu>
+From: Mikko Rapeli <mikko.rapeli@iki.fi>
+Subject: [PATCH v06 15/36] uapi linux/socket.h: include sys/socket.h in user space
+Date: Sun,  6 Aug 2017 18:44:06 +0200
+Message-ID: <20170806164428.2273-16-mikko.rapeli@iki.fi>
+References: <20170806164428.2273-1-mikko.rapeli@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: maowenan <maowenan@huawei.com>, David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>,
-        Nandita Dukkipati <nanditad@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f182.google.com ([209.85.216.182]:34442 "EHLO
-        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751300AbdHFPYz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 11:24:55 -0400
-Received: by mail-qt0-f182.google.com with SMTP id s6so29823061qtc.1
-        for <netdev@vger.kernel.org>; Sun, 06 Aug 2017 08:24:55 -0700 (PDT)
-In-Reply-To: <20170806074435.GA13300@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Mikko Rapeli <mikko.rapeli@iki.fi>, netdev@vger.kernel.org,
+        "Dmitry V . Levin" <ldv@altlinux.org>
+To: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170806164428.2273-1-mikko.rapeli@iki.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 6, 2017 at 3:44 AM, Willy Tarreau <w@1wt.eu> wrote:
->
-> On Sun, Aug 06, 2017 at 07:39:57AM +0000, maowenan wrote:
-> >
-> > [Mao Wenan]It works well with these patches of v3.10, and the
-> > retransmission packet is about 250ms after TLP probe.
-> > Thank you very much for these patches under 3.10.
+This libc header has sockaddr definition in user space.
 
-Great. Thanks for testing those patches!
+Fixes user space compilation errors like these from kernel headers including
+only linux/socket.h:
 
-> Thanks, I'll take them then.
+error: field ‘ifru_addr’ has incomplete type
+struct sockaddr ifru_addr;
+error: field ‘_sockaddr’ has incomplete type
+struct sockaddr  _sockaddr;
+error: invalid application of ‘sizeof’ to incomplete type ‘struct sockaddr’
 
-And thanks for applying the patches to 3.10.y!
+With this following uapi headers now compile in user space:
 
-neal
+rdma/rdma_user_rxe.h
+linux/vm_sockets.h
+linux/ncp_fs.h
+linux/nfc.h
+linux/phonet.h
+
+Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+Cc: netdev@vger.kernel.org
+Cc: Dmitry V. Levin <ldv@altlinux.org>
+---
+ include/uapi/linux/socket.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/uapi/linux/socket.h b/include/uapi/linux/socket.h
+index 76ab0c68561e..8a81197cc08b 100644
+--- a/include/uapi/linux/socket.h
++++ b/include/uapi/linux/socket.h
+@@ -1,6 +1,10 @@
+ #ifndef _UAPI_LINUX_SOCKET_H
+ #define _UAPI_LINUX_SOCKET_H
+ 
++#ifndef __KERNEL__
++#include <sys/socket.h>
++#endif
++
+ /*
+  * Desired design of maximum size and alignment (see RFC2553)
+  */
+-- 
+2.13.3
