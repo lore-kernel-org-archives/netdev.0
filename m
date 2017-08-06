@@ -1,50 +1,30 @@
-From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Subject: [PATCH v06 18/36] uapi linux/errqueue.h: include linux/time.h in user space
-Date: Sun,  6 Aug 2017 18:44:09 +0200
-Message-ID: <20170806164428.2273-19-mikko.rapeli@iki.fi>
-References: <20170806164428.2273-1-mikko.rapeli@iki.fi>
-Cc: Mikko Rapeli <mikko.rapeli@iki.fi>,
-        Willem de Bruijn <willemb@google.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170806164428.2273-1-mikko.rapeli@iki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rafael Cepeda <rcepeda1993@gmail.com>
+Subject: NULL pointer deref bring up interfaces
+Date: Sun, 6 Aug 2017 12:29:13 -0500
+Message-ID: <CAEMnpcuw8Ow37_amPQtm66EkLwEpTDHWQFoe5UmFXzczYeQ-1w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:36657 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751323AbdHFR3P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 13:29:15 -0400
+Received: by mail-wm0-f41.google.com with SMTP id t201so52731220wmt.1
+        for <netdev@vger.kernel.org>; Sun, 06 Aug 2017 10:29:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-linux/time.h conflicts with user space header time.h. Try to be compatible
-with both.
+Just upgraded to 4.13rc2, rebooted, and my system crashed at my
+netmount init script; says RIP is NULL, I am guessing a bad func call.
+I immediately thought missing firmware in kernel, my kernel builds
+firmware in it, so I upgraded my firmware to latest on git.kernel and
+made sure I had no warnings in dmesg about missing firmware. Still, I
+receive this NULL pointer in the IP. If I disable my netmount on boot,
+I can login, but can not bring up my interfaces, still get a RIP err
+in kernel logs and cpu load sky-rockets...the issue still exists on
+rc3.
 
-Fixes userspace compilation error:
+Linux-Regression-ID: lr#084be9
 
-error: array type has incomplete element type
- struct timespec ts[3];
-
-Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
-Cc: Willem de Bruijn <willemb@google.com>
-Cc: Soheil Hassas Yeganeh <soheil@google.com>
-Cc: netdev@vger.kernel.org
----
- include/uapi/linux/errqueue.h | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/include/uapi/linux/errqueue.h b/include/uapi/linux/errqueue.h
-index 07bdce1f444a..b310b2c6d94f 100644
---- a/include/uapi/linux/errqueue.h
-+++ b/include/uapi/linux/errqueue.h
-@@ -3,6 +3,12 @@
- 
- #include <linux/types.h>
- 
-+#ifdef __KERNEL__
-+#include <linux/time.h>
-+#else
-+#include <time.h>
-+#endif /* __KERNEL__ */
-+
- struct sock_extended_err {
- 	__u32	ee_errno;	
- 	__u8	ee_origin;
--- 
-2.13.3
+I am willing to help and provide as much info as possible, thank you.
