@@ -1,34 +1,43 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] isdn: kcapi: make capi_version const
-Date: Sun,  6 Aug 2017 22:39:06 +0530
-Message-ID: <1502039346-3675-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, isdn@linux-pingi.de, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+From: Mikko Rapeli <mikko.rapeli@iki.fi>
+Subject: [PATCH v06 20/36] uapi linux/scc.h: include linux/sockios.h
+Date: Sun,  6 Aug 2017 18:44:11 +0200
+Message-ID: <20170806164428.2273-21-mikko.rapeli@iki.fi>
+References: <20170806164428.2273-1-mikko.rapeli@iki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Mikko Rapeli <mikko.rapeli@iki.fi>, netdev@vger.kernel.org,
+        linux-hams@vger.kernel.org, Joerg Reuter <jreuter@yaina.de>
+To: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170806164428.2273-1-mikko.rapeli@iki.fi>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Declare this structure as const as it is only used during a copy
-operation.
+Fixes userspace compilation error:
 
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+error: ‘SIOCDEVPRIVATE’ undeclared here (not in a function)
+  SIOCSCCRESERVED = SIOCDEVPRIVATE
+
+Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+Cc: netdev@vger.kernel.org
+Cc: linux-hams@vger.kernel.org
+Cc: Joerg Reuter <jreuter@yaina.de>
 ---
- drivers/isdn/capi/kcapi.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/uapi/linux/scc.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
-index 9ca691d..46c189a 100644
---- a/drivers/isdn/capi/kcapi.c
-+++ b/drivers/isdn/capi/kcapi.c
-@@ -55,7 +55,7 @@ struct capictr_event {
+diff --git a/include/uapi/linux/scc.h b/include/uapi/linux/scc.h
+index 72b6b8153374..2992b88ca4ce 100644
+--- a/include/uapi/linux/scc.h
++++ b/include/uapi/linux/scc.h
+@@ -3,6 +3,7 @@
+ #ifndef _UAPI_SCC_H
+ #define _UAPI_SCC_H
  
- /* ------------------------------------------------------------- */
++#include <linux/sockios.h>
  
--static struct capi_version driver_version = {2, 0, 1, 1 << 4};
-+static const struct capi_version driver_version = {2, 0, 1, 1 << 4};
- static char driver_serial[CAPI_SERIAL_LEN] = "0004711";
- static char capi_manufakturer[64] = "AVM Berlin";
+ /* selection of hardware types */
  
 -- 
-1.9.1
+2.13.3
