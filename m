@@ -1,46 +1,52 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] ATM-nicstar: Delete an error message for a failed memory
- allocation in ns_init_card()
-Date: Sun, 6 Aug 2017 10:16:54 +0200
-Message-ID: <15557ccf-4b14-924a-b1ce-8fa052f0e1f0@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        Chas Williams <3chas3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH ipsec-next] xfrm: check that cached bundle is still valid
+Date: Sun,  6 Aug 2017 10:19:07 +0200
+Message-ID: <20170806081907.5267-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:51602 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751179AbdHFITS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 04:19:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 6 Aug 2017 10:10:21 +0200
+Quoting Ilan Tayari:
+  1. Set up a host-to-host IPSec tunnel (or transport, doesn't matter)
+  2. Ping over IPSec, or do something to populate the pcpu cache
+  3. Join a MC group, then leave MC group
+  4. Try to ping again using same CPU as before -> traffic
+     doesn't egress the machine at all
 
-Omit an extra message for a memory allocation failure in this function.
+Ilan debugged the problem down to the fact that one of the path dsts
+devices point to lo due to earlier dst_dev_put().
+In this case, dst is marked as DEAD and we cannot reuse the bundle.
 
-This issue was detected by using the Coccinelle software.
+The cache only asserted that the requested policy and that of the cached
+bundle match, but its not enough - also verify the path is still valid.
 
-Link: http://events.linuxfoundation.org/sites/events/files/slides/LCJ16-Refactor_Strings-WSang_0.pdf
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Fixes: ec30d78c14a813 ("xfrm: add xdst pcpu cache")
+Reported-by: Ayham Masood <ayhamm@mellanox.com>
+Tested-by: Ilan Tayari <ilant@mellanox.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/atm/nicstar.c | 3 ---
- 1 file changed, 3 deletions(-)
+ net/xfrm/xfrm_policy.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index 9588d80f318e..08d5aa8b9524 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -372,9 +372,6 @@ static int ns_init_card(int i, struct pci_dev *pcidev)
- 
- 	card = kmalloc(sizeof(*card), GFP_KERNEL);
- 	if (!card) {
--		printk
--		    ("nicstar%d: can't allocate memory for device structure.\n",
--		     i);
- 		error = 2;
- 		ns_init_card_error(card, error);
- 		return error;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 06c3bf7ab86b..8da428f56aec 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1818,7 +1818,8 @@ xfrm_resolve_and_create_bundle(struct xfrm_policy **pols, int num_pols,
+ 	    xdst->num_pols == num_pols &&
+ 	    !xfrm_pol_dead(xdst) &&
+ 	    memcmp(xdst->pols, pols,
+-		   sizeof(struct xfrm_policy *) * num_pols) == 0) {
++		   sizeof(struct xfrm_policy *) * num_pols) == 0 &&
++	    xfrm_bundle_ok(xdst)) {
+ 		dst_hold(&xdst->u.dst);
+ 		return xdst;
+ 	}
 -- 
-2.13.4
+2.13.3
