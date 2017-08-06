@@ -1,7 +1,7 @@
 From: Neal Cardwell <ncardwell@google.com>
 Subject: Re: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data ACKed/SACKed
-Date: Sun, 6 Aug 2017 11:21:01 -0400
-Message-ID: <CADVnQym4vWSK-t8hTe5W7ryi6kYBRPTyQomg9frofoMyAiTQiw@mail.gmail.com>
+Date: Sun, 6 Aug 2017 11:24:23 -0400
+Message-ID: <CADVnQymdNv8tE4QdybFvSG_PhdbYY9+5CyCFeyDveAhS9K488w@mail.gmail.com>
 References: <20170801025814.31206-1-ncardwell@google.com> <20170801025814.31206-4-ncardwell@google.com>
  <F95AC9340317A84688A5F0DF0246F3F2029373BA@DGGEMI512-MBX.china.huawei.com>
  <CADVnQykAKkb7KDhM03HHOHk8Uk7rMfXcyaLsHMLZRVT_g69euA@mail.gmail.com>
@@ -17,12 +17,12 @@ Cc: maowenan <maowenan@huawei.com>, David Miller <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>
 To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f173.google.com ([209.85.220.173]:37800 "EHLO
-        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751300AbdHFPVc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 11:21:32 -0400
-Received: by mail-qk0-f173.google.com with SMTP id z18so29366236qka.4
-        for <netdev@vger.kernel.org>; Sun, 06 Aug 2017 08:21:32 -0700 (PDT)
+Received: from mail-qt0-f182.google.com ([209.85.216.182]:34442 "EHLO
+        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751300AbdHFPYz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 11:24:55 -0400
+Received: by mail-qt0-f182.google.com with SMTP id s6so29823061qtc.1
+        for <netdev@vger.kernel.org>; Sun, 06 Aug 2017 08:24:55 -0700 (PDT)
 In-Reply-To: <20170806074435.GA13300@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
