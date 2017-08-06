@@ -1,96 +1,44 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH net-next v3 10/13] net: dsa: Remove redundant MDB dump support
-Date: Sun,  6 Aug 2017 16:15:48 +0300
-Message-ID: <1502025351-41261-11-git-send-email-arkadis@mellanox.com>
-References: <1502025351-41261-1-git-send-email-arkadis@mellanox.com>
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, Woojung.Huh@microchip.com,
-        mlxsw@mellanox.com, Arkadi Sharshevsky <arkadis@mellanox.com>
-To: netdev@vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net 3/3] tcp: fix xmit timer to only be reset if data ACKed/SACKed
+Date: Sun, 6 Aug 2017 11:21:01 -0400
+Message-ID: <CADVnQym4vWSK-t8hTe5W7ryi6kYBRPTyQomg9frofoMyAiTQiw@mail.gmail.com>
+References: <20170801025814.31206-1-ncardwell@google.com> <20170801025814.31206-4-ncardwell@google.com>
+ <F95AC9340317A84688A5F0DF0246F3F2029373BA@DGGEMI512-MBX.china.huawei.com>
+ <CADVnQykAKkb7KDhM03HHOHk8Uk7rMfXcyaLsHMLZRVT_g69euA@mail.gmail.com>
+ <20170804171000.GB5342@1wt.eu> <CADVnQymnVwT30EzVvTfZ0EX_6ehRom1W8Yt2Z5SQHhmWO+e+sw@mail.gmail.com>
+ <20170804181854.GA5478@1wt.eu> <F95AC9340317A84688A5F0DF0246F3F202940EA5@DGGEMI512-MBX.china.huawei.com>
+ <20170806074435.GA13300@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: maowenan <maowenan@huawei.com>, David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>,
+        Nandita Dukkipati <nanditad@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44844 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751348AbdHFNMS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 09:12:18 -0400
-In-Reply-To: <1502025351-41261-1-git-send-email-arkadis@mellanox.com>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:37800 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751300AbdHFPVc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 11:21:32 -0400
+Received: by mail-qk0-f173.google.com with SMTP id z18so29366236qka.4
+        for <netdev@vger.kernel.org>; Sun, 06 Aug 2017 08:21:32 -0700 (PDT)
+In-Reply-To: <20170806074435.GA13300@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the MDB HW database is synced with the bridge's one, thus,
-There is no need to support special dump functionality.
+On Sun, Aug 6, 2017 at 3:44 AM, Willy Tarreau <w@1wt.eu> wrote:
+>
+> On Sun, Aug 06, 2017 at 07:39:57AM +0000, maowenan wrote:
+> >
+> > [Mao Wenan]It works well with these patches of v3.10, and the
+> > retransmission packet is about 250ms after TLP probe.
+> > Thank you very much for these patches under 3.10.
 
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
----
- include/net/dsa.h  |  4 ----
- net/dsa/dsa_priv.h |  2 --
- net/dsa/port.c     | 11 -----------
- net/dsa/slave.c    |  3 ---
- 4 files changed, 20 deletions(-)
+Great. Thanks for testing those patches!
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index d7b9bdd..4ef1859 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -400,10 +400,6 @@ struct dsa_switch_ops {
- 				struct switchdev_trans *trans);
- 	int	(*port_mdb_del)(struct dsa_switch *ds, int port,
- 				const struct switchdev_obj_port_mdb *mdb);
--	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
--				 struct switchdev_obj_port_mdb *mdb,
--				  switchdev_obj_dump_cb_t *cb);
--
- 	/*
- 	 * RXNFC
- 	 */
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 77ddec4..3207071 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -141,8 +141,6 @@ int dsa_port_mdb_add(struct dsa_port *dp,
- 		     struct switchdev_trans *trans);
- int dsa_port_mdb_del(struct dsa_port *dp,
- 		     const struct switchdev_obj_port_mdb *mdb);
--int dsa_port_mdb_dump(struct dsa_port *dp, struct switchdev_obj_port_mdb *mdb,
--		      switchdev_obj_dump_cb_t *cb);
- int dsa_port_vlan_add(struct dsa_port *dp,
- 		      const struct switchdev_obj_port_vlan *vlan,
- 		      struct switchdev_trans *trans);
-diff --git a/net/dsa/port.c b/net/dsa/port.c
-index ce19216..7378782 100644
---- a/net/dsa/port.c
-+++ b/net/dsa/port.c
-@@ -210,17 +210,6 @@ int dsa_port_mdb_del(struct dsa_port *dp,
- 	return dsa_port_notify(dp, DSA_NOTIFIER_MDB_DEL, &info);
- }
- 
--int dsa_port_mdb_dump(struct dsa_port *dp, struct switchdev_obj_port_mdb *mdb,
--		      switchdev_obj_dump_cb_t *cb)
--{
--	struct dsa_switch *ds = dp->ds;
--
--	if (ds->ops->port_mdb_dump)
--		return ds->ops->port_mdb_dump(ds, dp->index, mdb, cb);
--
--	return -EOPNOTSUPP;
--}
--
- int dsa_port_vlan_add(struct dsa_port *dp,
- 		      const struct switchdev_obj_port_vlan *vlan,
- 		      struct switchdev_trans *trans)
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 5b37298..8482060 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -299,9 +299,6 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
- 	case SWITCHDEV_OBJ_ID_PORT_FDB:
- 		err = dsa_port_fdb_dump(dp, SWITCHDEV_OBJ_PORT_FDB(obj), cb);
- 		break;
--	case SWITCHDEV_OBJ_ID_PORT_MDB:
--		err = dsa_port_mdb_dump(dp, SWITCHDEV_OBJ_PORT_MDB(obj), cb);
--		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
--- 
-2.4.11
+> Thanks, I'll take them then.
+
+And thanks for applying the patches to 3.10.y!
+
+neal
