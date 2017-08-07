@@ -1,179 +1,112 @@
-From: Christian Langrock <christian.langrock@secunet.com>
-Subject: [PATCH] ip/link_vti*.c: Fix output for ikey/okey
-Date: Mon, 7 Aug 2017 11:59:28 +0200
-Message-ID: <bf2d09ad-28b8-c64c-dd60-4fb288259e3e@secunet.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature";
-        boundary="AjB10uVaPt2D2dmv9vH5rC1x8p2USiApq"
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:38982 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752584AbdHGJ7j (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 7 Aug 2017 05:59:39 -0400
-Received: from localhost (localhost [127.0.0.1])
-        by a.mx.secunet.com (Postfix) with ESMTP id 24FC420189
-        for <netdev@vger.kernel.org>; Mon,  7 Aug 2017 11:59:38 +0200 (CEST)
-Received: from a.mx.secunet.com ([127.0.0.1])
-        by localhost (a.mx.secunet.com [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id DN5QxhaBwdPn for <netdev@vger.kernel.org>;
-        Mon,  7 Aug 2017 11:59:37 +0200 (CEST)
-Received: from mail-essen-01.secunet.de (mail-essen-01.secunet.de [10.53.40.204])
-        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by a.mx.secunet.com (Postfix) with ESMTPS id A0FA120073
-        for <netdev@vger.kernel.org>; Mon,  7 Aug 2017 11:59:37 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [pull request][for-next 0/8] Mellanox, mlx5 shared 2017-08-07
+Date: Mon,  7 Aug 2017 13:18:00 +0300
+Message-ID: <20170807101808.22924-1-saeedm@mellanox.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---AjB10uVaPt2D2dmv9vH5rC1x8p2USiApq
-Content-Type: multipart/mixed; boundary="mbH1scDEmCuJM2j5hIFpbbVxJv5FiPAUk";
- protected-headers="v1"
-From: Christian Langrock <christian.langrock@secunet.com>
-To: netdev@vger.kernel.org
-Message-ID: <bf2d09ad-28b8-c64c-dd60-4fb288259e3e@secunet.com>
-Subject: [PATCH] ip/link_vti*.c: Fix output for ikey/okey
+Hi Dave & Doug,
 
---mbH1scDEmCuJM2j5hIFpbbVxJv5FiPAUk
-Content-Type: multipart/mixed;
- boundary="------------C9CC55EA3A84CAA59BFC2A68"
-Content-Language: de-DE
+This series contains some low level updates for mlx5 core driver,
+to be shared as base code for net-next and rdma for-next mlx5
+4.14 submissions.
 
-This is a multi-part message in MIME format.
---------------C9CC55EA3A84CAA59BFC2A68
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Please find more information in the tag message below.
 
-ikey and okey are normal u32 values. There's no reason to print them as
-IPv4/IPv6 addresses.
+Please pull and let me know if there's any porblem.
 
-Signed-off-by: Christian Langrock <christian.langrock@secunet.com>
----
- ip/link_vti.c  | 10 ++++------
- ip/link_vti6.c | 10 ++++------
- 2 files changed, 8 insertions(+), 12 deletions(-)
+Side note:
+This series merges cleanly with current net-next, but it will conflict with Jiri's patch
+"mlx5e: push cls_flower and mqprio setup_tc processing into separate functions"
+Which is under review.
+since this is shared code and must go to both rdma and net-next it has to be
+based on 4.13-rc4, so there is not much I can do about this.
 
-diff --git a/ip/link_vti.c b/ip/link_vti.c
-index d5242ac..a694ec4 100644
---- a/ip/link_vti.c
-+++ b/ip/link_vti.c
-@@ -244,14 +244,12 @@ static void vti_print_opt(struct link_util *lu,
-FILE *f, struct rtattr *tb[])
-                        fprintf(f, "dev %u ", link);
-        }
-=20
--       if (tb[IFLA_VTI_IKEY]) {
--               inet_ntop(AF_INET, RTA_DATA(tb[IFLA_VTI_IKEY]), s2,
-sizeof(s2));
--               fprintf(f, "ikey %s ", s2);
-+       if (tb[IFLA_VTI_IKEY] && rta_getattr_u32(tb[IFLA_VTI_IKEY])) {
-+               fprintf(f, "ikey %u ",
-ntohl(rta_getattr_u32(tb[IFLA_VTI_IKEY])));
-        }
-=20
--       if (tb[IFLA_VTI_OKEY]) {
--               inet_ntop(AF_INET, RTA_DATA(tb[IFLA_VTI_OKEY]), s2,
-sizeof(s2));
--               fprintf(f, "okey %s ", s2);
-+       if (tb[IFLA_VTI_OKEY] && rta_getattr_u32(tb[IFLA_VTI_OKEY])) {
-+               fprintf(f, "okey %u ",
-ntohl(rta_getattr_u32(tb[IFLA_VTI_OKEY])));
-        }
-=20
-        if (tb[IFLA_VTI_FWMARK] && rta_getattr_u32(tb[IFLA_VTI_FWMARK])) =
-{
-diff --git a/ip/link_vti6.c b/ip/link_vti6.c
-index 220b7df..6ae87dd 100644
---- a/ip/link_vti6.c
-+++ b/ip/link_vti6.c
-@@ -247,14 +247,12 @@ static void vti6_print_opt(struct link_util *lu,
-FILE *f, struct rtattr *tb[])
-                        fprintf(f, "dev %u ", link);
-        }
-=20
--       if (tb[IFLA_VTI_IKEY]) {
--               inet_ntop(AF_INET, RTA_DATA(tb[IFLA_VTI_IKEY]), s2,
-sizeof(s2));
--               fprintf(f, "ikey %s ", s2);
-+       if (tb[IFLA_VTI_IKEY] && rta_getattr_u32(tb[IFLA_VTI_IKEY])) {
-+               fprintf(f, "ikey %u ",
-ntohl(rta_getattr_u32(tb[IFLA_VTI_IKEY])));
-        }
-=20
--       if (tb[IFLA_VTI_OKEY]) {
--               inet_ntop(AF_INET, RTA_DATA(tb[IFLA_VTI_OKEY]), s2,
-sizeof(s2));
--               fprintf(f, "okey %s ", s2);
-+       if (tb[IFLA_VTI_OKEY] && rta_getattr_u32(tb[IFLA_VTI_OKEY])) {
-+               fprintf(f, "okey %u ",
-ntohl(rta_getattr_u32(tb[IFLA_VTI_OKEY])));
-        }
-=20
-        if (tb[IFLA_VTI_FWMARK] && rta_getattr_u32(tb[IFLA_VTI_FWMARK])) =
-{
---=20
-2.7.4
+Thanks,
+Saeed.
 
+--
 
---------------C9CC55EA3A84CAA59BFC2A68
-Content-Type: application/pgp-keys;
- name="0x82EB6B5E.asc"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
- filename="0x82EB6B5E.asc"
+The following changes since commit aae4e7a8bc44722fe70d58920a36916b1043195e:
 
------BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v2
+  Linux 4.13-rc4 (2017-08-06 18:44:49 -0700)
 
-mQENBFee7jkBCACkeMIuzZu/KBA1q3kKGr7d9iiZGF5IpJnIE9dMiK3uaz7uM26V
-STJVp6jdGuSGGGmb81OSLEcIEIsYKXvjblAKUX1A74t3WMRcky3MwJbmN6AkN8Ql
-P45mDddtPRf1ElB2S32i9OrEkvw8xcvHYPwbaHenXic4/8fHWEh+vtd/5/5TDTIU
-/ag9tQfPea13ixXN0PuccMubFeUMpwFCg324+Z19iGvfDWWZmQQGlBjc3Q6z0hXO
-b/deWL/+lPS4t+tTgpmmZO4XkIs+18KqxCVukCbnqV0y+04sj3G1GQ/DlGvZHxwy
-wBceAL7BvmdeXQKAS0KRL5zrghIBCgnUyutDABEBAAG0M0NocmlzdGlhbiBMYW5n
-cm9jayA8Y2hyaXN0aWFuLmxhbmdyb2NrQHNlY3VuZXQuY29tPokBNwQTAQgAIQUC
-V57uOQIbAwULCQgHAgYVCAkKCwIEFgIDAQIeAQIXgAAKCRCjeMdfgutrXu3kCACI
-Bx6UHReBtBciNUPkP3fRaGeSOADIrql72VKD9faLAHTt6w8kvyzb8Ctpa77jswJt
-21c349mF3maPlpNtpswqH27bTlXYhNcXxcmHPCbNtN3yGUy0UuIJfBMZc8PLqiqY
-oY5GKD3uimeVbDYjgNhebO2f1cUvwY2wTwX6b0tgKVK0xYYTDpXI1/2MVGsjXqak
-7PQoqVq0sDu0gIAAi1QO0Fbb6jIaHj6CEM2hpBTBk8qbkPs/MqYGdLl4oXvkWTLd
-uQjm6dMtjxvIt6WJWZQbLjTeQIfc21luNQKDmfT623pVTPPMMAciWfpdw63FblfG
-cfBnAKCJ8JBj0z9T6/PmuQENBFee7jkBCADS7amJPbY2dWpeGtE+I9yLL53lSriP
-4L6rI9UoEwNM1OkjnB7wFnH8dm8N68K2OJogkHwoX2OnzGhxJ28NHRuAh++3hIYY
-+gU4HMLaX3onDK1oqAdYczhJ7f6UCPbYaghkzJ6Vg/FEWpA8u5vG/BX4y+F3/Y98
-l6mzAX5wLmTapRwdfuRCXRA6jlIHIOwP3NPKK4Pz2E7witsimV1ucN4uXFiZ36CU
-PAiXXlER9iPZnQUSyCobqJOJKm4C7wUNQ1negCXDBd3KjSyzTIafw/oYG4RrWGul
-iI2ig/qTUC8cZdAJTMBjUJR6ugJazMB1Rg17p2GRD0AzUOV2qdqYFqQFABEBAAGJ
-AR8EGAEIAAkFAlee7jkCGwwACgkQo3jHX4Lra17vtQgAg2g0JEXVTGT36BDJgVjI
-UY1evnm1fWwTPpcokP/8/aO2ubmlxtWQ2hV5OPfL5nDday2S4Nq5j3kqQq+rvUrO
-RVmvT4WxYZM1fr2nibuzaUbsJtxphNpjahrsEcLLTzBW4CbHTaL4YTT+ZD/GDeHo
-xAh9JfMkdMBXHyWTuw+QSP0pp7WvNsDosukKFyQ0rve9PH2dry6A0oLP7UxtAzEE
-RV2Se0BueZPQuVnU6Cvj3ZStK28JDhMjxIPkZPE5kCV8QNF8OsiwymA3aoPKe5Bw
-0lOcjuuJkxRa5bazyuubX9pIIgTeGsecgpSgpfA9jsEHKFqoLuxUA+77VQ5hSydV
-aQ=3D=3D
-=3DO6Ea
------END PGP PUBLIC KEY BLOCK-----
+are available in the git repository at:
 
---------------C9CC55EA3A84CAA59BFC2A68--
+  git://git.kernel.org/pub/scm/linux/kernel/git/mellanox/linux.git tags/mlx5-shared-2017-08-07
 
---mbH1scDEmCuJM2j5hIFpbbVxJv5FiPAUk--
+for you to fetch changes up to a8ffcc741acb3c7f3dcf4c7d001209aa0995a5f1:
 
---AjB10uVaPt2D2dmv9vH5rC1x8p2USiApq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+  net/mlx5: Increase the maximum flow counters supported (2017-08-07 10:47:07 +0300)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+----------------------------------------------------------------
+mlx5-shared-2017-08-07
 
-iQEcBAEBCAAGBQJZiDoBAAoJEKN4x1+C62te44oIAJUt5Sqh4w7uAYnI+HU6r5/o
-pkuzGZywHW80QpVUDZYlVbUKheBFup2t+KIiK1q5bWUWdq6UAqSBSBJdHSmDPV2c
-7pv29LsTrxoK8vkKbtw+Lni5SD84UwBRPyU1EvkImTXzhkdtnHBy6u/bKV11RBC7
-1RHWRGkje67NyWsJQFriaw0yGIHkP/X33uu5DoJfq9j57AXIdVQiXLrFxsnPCSao
-lezi7kaQuWBTpln70WWBxGyOCc6h8Y/a7eCwDYdWzC3M28t7AgQz7JfxGFiuHQDH
-qQJOc6M+5hWwssZnXMP63MH9hHMsaeERSnD3twFWds3utBVNIdrR33O6PZn3yjQ=
-=ql68
------END PGP SIGNATURE-----
+This series includes some mlx5 updates for both net-next and rdma trees.
 
---AjB10uVaPt2D2dmv9vH5rC1x8p2USiApq--
+>From Saeed,
+Core driver updates to allow selectively building the driver with
+or without some large driver components, such as
+	- E-Switch (Ethernet SRIOV support).
+	- Multi-Physical Function Switch (MPFs) support.
+For that we split E-Switch and MPFs functionalities into separate files.
+
+>From Erez,
+Delay mlx5_core events when mlx5 interfaces, namely mlx5_ib, registration
+is taking place and until it completes.
+
+>From Rabie,
+Increase the maximum supported flow counters.
+
+----------------------------------------------------------------
+Erez Shitrit (1):
+      net/mlx5: Delay events till ib registration ends
+
+Rabie Loulou (2):
+      net/mlx5: Fix counter list hardware structure
+      net/mlx5: Increase the maximum flow counters supported
+
+Saeed Mahameed (5):
+      net/mlx5e: Rearrange netdevice ops structures
+      net/mlx5e: NIC netdev init flow cleanup
+      net/mlx5: Unify vport manager capability check
+      net/mlx5: Separate between E-Switch and MPFS
+      net/mlx5: Add CONFIG_MLX5_ESWITCH Kconfig
+
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |  21 +++
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |  11 +-
+ drivers/net/ethernet/mellanox/mlx5/core/dev.c      |  73 +++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  17 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  97 ++++------
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  13 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.h   |   9 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   2 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h    |   7 +
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   8 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  | 209 +++++----------------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  78 ++------
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |   6 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |  12 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h   |  10 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |   2 +-
+ .../net/ethernet/mellanox/mlx5/core/fs_counters.c  |  13 +-
+ drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.c | 201 ++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.h |  95 ++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  37 ++--
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   4 +
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |  14 +-
+ include/linux/mlx5/driver.h                        |   5 +
+ include/linux/mlx5/mlx5_ifc.h                      |  17 +-
+ 24 files changed, 597 insertions(+), 364 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
