@@ -1,29 +1,189 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC v2 3/5] samples/bpf: Fix inline asm issues building
- samples on arm64
-Date: Mon, 07 Aug 2017 11:28:40 -0700 (PDT)
-Message-ID: <20170807.112840.395506747161262549.davem@davemloft.net>
-References: <20170807130602.31785-1-joelaf@google.com>
-        <20170807130602.31785-4-joelaf@google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, fengc@google.com,
-        alison@she-devel.com, Juri.Lelli@arm.com, ast@kernel.org,
-        daniel@iogearbox.net, netdev@vger.kernel.org
-To: joelaf@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170807130602.31785-4-joelaf@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 1/1] netvsc: make sure and unregister datapath
+Date: Mon,  7 Aug 2017 11:30:00 -0700
+Message-ID: <20170807183000.10827-2-sthemmin@microsoft.com>
+References: <20170807183000.10827-1-sthemmin@microsoft.com>
+Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
+To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:35512 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751589AbdHGSaH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 14:30:07 -0400
+Received: by mail-pg0-f50.google.com with SMTP id v189so4751572pgd.2
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 11:30:07 -0700 (PDT)
+In-Reply-To: <20170807183000.10827-1-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Go back to switching datapath directly in the notifier callback.
+Otherwise datapath might not get switched on unregister.
 
-Please, no.
+No need for calling the NOTIFY_PEERS notifier since that is only for
+a gratitious ARP/ND packet; but that is not required with Hyper-V
+because both VF and synthetic NIC have the same MAC address.
 
-The amount of hellish hacks we are adding to deal with this is getting
-way out of control.
+Reported-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Fixes: 0c195567a8f6 ("netvsc: transparent VF management")
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |  3 --
+ drivers/net/hyperv/netvsc.c     |  2 --
+ drivers/net/hyperv/netvsc_drv.c | 71 ++++++++++++++++-------------------------
+ 3 files changed, 28 insertions(+), 48 deletions(-)
 
-BPF programs MUST have their own set of asm headers, this is the
-only way to get around this issue in the long term.
-
-I am also strongly against adding -static to the build.
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index c701b059c5ac..d1ea99a12cf2 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -724,14 +724,11 @@ struct net_device_context {
+ 	struct net_device __rcu *vf_netdev;
+ 	struct netvsc_vf_pcpu_stats __percpu *vf_stats;
+ 	struct work_struct vf_takeover;
+-	struct work_struct vf_notify;
+ 
+ 	/* 1: allocated, serial number is valid. 0: not allocated */
+ 	u32 vf_alloc;
+ 	/* Serial number of the VF to team with */
+ 	u32 vf_serial;
+-
+-	bool datapath;	/* 0 - synthetic, 1 - VF nic */
+ };
+ 
+ /* Per channel data */
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 9598220b3bcc..208f03aa83de 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -60,8 +60,6 @@ void netvsc_switch_datapath(struct net_device *ndev, bool vf)
+ 			       sizeof(struct nvsp_message),
+ 			       (unsigned long)init_pkt,
+ 			       VM_PKT_DATA_INBAND, 0);
+-
+-	net_device_ctx->datapath = vf;
+ }
+ 
+ static struct netvsc_device *alloc_net_device(void)
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index e75c0f852a63..eb0023f55fe1 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1649,55 +1649,35 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
+ 	return NOTIFY_OK;
+ }
+ 
+-/* Change datapath */
+-static void netvsc_vf_update(struct work_struct *w)
++static int netvsc_vf_up(struct net_device *vf_netdev)
+ {
+-	struct net_device_context *ndev_ctx
+-		= container_of(w, struct net_device_context, vf_notify);
+-	struct net_device *ndev = hv_get_drvdata(ndev_ctx->device_ctx);
++	struct net_device_context *net_device_ctx;
+ 	struct netvsc_device *netvsc_dev;
+-	struct net_device *vf_netdev;
+-	bool vf_is_up;
+-
+-	if (!rtnl_trylock()) {
+-		schedule_work(w);
+-		return;
+-	}
++	struct net_device *ndev;
+ 
+-	vf_netdev = rtnl_dereference(ndev_ctx->vf_netdev);
+-	if (!vf_netdev)
+-		goto unlock;
++	ndev = get_netvsc_byref(vf_netdev);
++	if (!ndev)
++		return NOTIFY_DONE;
+ 
+-	netvsc_dev = rtnl_dereference(ndev_ctx->nvdev);
++	net_device_ctx = netdev_priv(ndev);
++	netvsc_dev = rtnl_dereference(net_device_ctx->nvdev);
+ 	if (!netvsc_dev)
+-		goto unlock;
+-
+-	vf_is_up = netif_running(vf_netdev);
+-	if (vf_is_up != ndev_ctx->datapath) {
+-		if (vf_is_up) {
+-			netdev_info(ndev, "VF up: %s\n", vf_netdev->name);
+-			rndis_filter_open(netvsc_dev);
+-			netvsc_switch_datapath(ndev, true);
+-			netdev_info(ndev, "Data path switched to VF: %s\n",
+-				    vf_netdev->name);
+-		} else {
+-			netdev_info(ndev, "VF down: %s\n", vf_netdev->name);
+-			netvsc_switch_datapath(ndev, false);
+-			rndis_filter_close(netvsc_dev);
+-			netdev_info(ndev, "Data path switched from VF: %s\n",
+-				    vf_netdev->name);
+-		}
++		return NOTIFY_DONE;
+ 
+-		/* Now notify peers through VF device. */
+-		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, ndev);
+-	}
+-unlock:
+-	rtnl_unlock();
++	/* Bump refcount when datapath is acvive - Why? */
++	rndis_filter_open(netvsc_dev);
++
++	/* notify the host to switch the data path. */
++	netvsc_switch_datapath(ndev, true);
++	netdev_info(ndev, "Data path switched to VF: %s\n", vf_netdev->name);
++
++	return NOTIFY_OK;
+ }
+ 
+-static int netvsc_vf_notify(struct net_device *vf_netdev)
++static int netvsc_vf_down(struct net_device *vf_netdev)
+ {
+ 	struct net_device_context *net_device_ctx;
++	struct netvsc_device *netvsc_dev;
+ 	struct net_device *ndev;
+ 
+ 	ndev = get_netvsc_byref(vf_netdev);
+@@ -1705,7 +1685,13 @@ static int netvsc_vf_notify(struct net_device *vf_netdev)
+ 		return NOTIFY_DONE;
+ 
+ 	net_device_ctx = netdev_priv(ndev);
+-	schedule_work(&net_device_ctx->vf_notify);
++	netvsc_dev = rtnl_dereference(net_device_ctx->nvdev);
++	if (!netvsc_dev)
++		return NOTIFY_DONE;
++
++	netvsc_switch_datapath(ndev, false);
++	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
++	rndis_filter_close(netvsc_dev);
+ 
+ 	return NOTIFY_OK;
+ }
+@@ -1721,7 +1707,6 @@ static int netvsc_unregister_vf(struct net_device *vf_netdev)
+ 
+ 	net_device_ctx = netdev_priv(ndev);
+ 	cancel_work_sync(&net_device_ctx->vf_takeover);
+-	cancel_work_sync(&net_device_ctx->vf_notify);
+ 
+ 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
+ 
+@@ -1764,7 +1749,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 	spin_lock_init(&net_device_ctx->lock);
+ 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
+ 	INIT_WORK(&net_device_ctx->vf_takeover, netvsc_vf_setup);
+-	INIT_WORK(&net_device_ctx->vf_notify, netvsc_vf_update);
+ 
+ 	net_device_ctx->vf_stats
+ 		= netdev_alloc_pcpu_stats(struct netvsc_vf_pcpu_stats);
+@@ -1915,8 +1899,9 @@ static int netvsc_netdev_event(struct notifier_block *this,
+ 	case NETDEV_UNREGISTER:
+ 		return netvsc_unregister_vf(event_dev);
+ 	case NETDEV_UP:
++		return netvsc_vf_up(event_dev);
+ 	case NETDEV_DOWN:
+-		return netvsc_vf_notify(event_dev);
++		return netvsc_vf_down(event_dev);
+ 	default:
+ 		return NOTIFY_DONE;
+ 	}
+-- 
+2.11.0
