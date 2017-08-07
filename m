@@ -1,12 +1,12 @@
 From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [for-next 8/8] net/mlx5: Increase the maximum flow counters supported
-Date: Mon,  7 Aug 2017 13:18:08 +0300
-Message-ID: <20170807101808.22924-9-saeedm@mellanox.com>
+Subject: [for-next 4/8] net/mlx5: Separate between E-Switch and MPFS
+Date: Mon,  7 Aug 2017 13:18:04 +0300
+Message-ID: <20170807101808.22924-5-saeedm@mellanox.com>
 References: <20170807101808.22924-1-saeedm@mellanox.com>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Rabie Loulou <rabiel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Jes Sorensen <jsorensen-b10kYP2dOMg@public.gmane.org>, kernel-team-b10kYP2dOMg@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
         Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
@@ -14,260 +14,951 @@ In-Reply-To: <20170807101808.22924-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Rabie Loulou <rabiel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Multi-Physical Function Switch (MPFs) is required for when multi-PF
+configuration is enabled to allow passing user configured unicast MAC
+addresses to the requesting PF.
 
-Read new NIC capability field which represnts 16 MSBs of the max flow
-counters number supported (max_flow_counter_31_16).
+Before this patch eswitch.c used to manage the HW MPFS l2 table,
+E-Switch always (regardless of sriov) enabled vport(0) (NIC PF) vport's
+contexts update on unicast mac address list changes, to populate the PF's
+MPFS L2 table accordingly.
 
-Backward compatibility with older firmware is preserved, the modified
-driver reads max_flow_counter_31_16 as 0 from the older firmware and
-uses up to 64K counters.
+In downstream patch we would like to allow compiling the driver without
+E-Switch functionalities, for that we move MPFS l2 table logic out
+of eswitch.c into its own file, and provide Kconfig flag (MLX5_MPFS) to
+allow compiling out MPFS for those who don't want Multi-PF support.
 
-Changed flow counter id from 16 bits to 32 bits. Backward compatibility
-with older firmware is preserved as we kept the 16 LSBs of the counter
-id in place and added 16 MSBs from reserved field.
+NIC PF netdevice will now directly update MPFS l2 table via the new MPFS
+API. VF netdevice has no access to MPFS L2 table, so E-Switch will remain
+responsible of updating its MPFS l2 table on behalf of its VFs.
 
-Changed the background bulk reading of flow counters to work in chunks
-of at most 32K counters, to make sure we don't attempt to allocate very
-large buffers.
+Due to this change we also don't require enabling vport(0) (PF vport)
+unicast mac changes events anymore, for when SRIOV is not enabled.
+Which means E-Switch is now activated only on SRIOV activation, and not
+required otherwise.
 
-Signed-off-by: Rabie Loulou <rabiel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Reviewed-by: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: Jes Sorensen <jsorensen-b10kYP2dOMg@public.gmane.org>
+Cc: kernel-team-b10kYP2dOMg@public.gmane.org
 ---
- .../net/ethernet/mellanox/mlx5/core/eswitch_offloads.c   |  6 ++++--
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c         | 12 ++++++------
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h         | 10 +++++-----
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h        |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c    | 13 ++++++++++---
- include/linux/mlx5/mlx5_ifc.h                            | 16 ++++++----------
- 6 files changed, 32 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |  10 +
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  17 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  | 190 ++++---------------
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  55 +-----
+ drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.c | 201 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.h |  95 ++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  26 ++-
+ include/linux/mlx5/driver.h                        |   2 +
+ 9 files changed, 377 insertions(+), 221 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.h
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 95b64025ce36..e7c186b58579 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -433,6 +433,8 @@ static int esw_create_offloads_fast_fdb_table(struct mlx5_eswitch *esw)
- 	struct mlx5_flow_table *fdb = NULL;
- 	int esw_size, err = 0;
- 	u32 flags = 0;
-+	u32 max_flow_counter = (MLX5_CAP_GEN(dev, max_flow_counter_31_16) << 16) |
-+				MLX5_CAP_GEN(dev, max_flow_counter_15_0);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+index 5aee05992f27..d7174295b6ef 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
+@@ -34,6 +34,16 @@ config MLX5_CORE_EN
+ 	---help---
+ 	  Ethernet support in Mellanox Technologies ConnectX-4 NIC.
  
- 	root_ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_FDB);
- 	if (!root_ns) {
-@@ -443,9 +445,9 @@ static int esw_create_offloads_fast_fdb_table(struct mlx5_eswitch *esw)
++config MLX5_MPFS
++        bool "Mellanox Technologies MLX5 MPFS support"
++        depends on MLX5_CORE_EN
++	default y
++        ---help---
++	  Mellanox Technologies Ethernet Multi-Physical Function Switch (MPFS)
++          support in ConnectX NIC. MPFs is required for when multi-PF configuration
++          is enabled to allow passing user configured unicast MAC addresses to the
++          requesting PF.
++
+ config MLX5_CORE_EN_DCB
+ 	bool "Data Center Bridging (DCB) Support"
+ 	default y
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 9d17e4e76d3a..c867e48f8a4c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -16,6 +16,8 @@ mlx5_core-$(CONFIG_MLX5_CORE_EN) += eswitch.o eswitch_offloads.o \
+ 		en_rx.o en_rx_am.o en_txrx.o en_clock.o vxlan.o \
+ 		en_tc.o en_arfs.o en_rep.o en_fs_ethtool.o en_selftest.o
  
- 	esw_debug(dev, "Create offloads FDB table, min (max esw size(2^%d), max counters(%d)*groups(%d))\n",
- 		  MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size),
--		  MLX5_CAP_GEN(dev, max_flow_counter), ESW_OFFLOADS_NUM_GROUPS);
-+		  max_flow_counter, ESW_OFFLOADS_NUM_GROUPS);
++mlx5_core-$(CONFIG_MLX5_MPFS) += lib/mpfs.o
++
+ mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
  
--	esw_size = min_t(int, MLX5_CAP_GEN(dev, max_flow_counter) * ESW_OFFLOADS_NUM_GROUPS,
-+	esw_size = min_t(int, max_flow_counter * ESW_OFFLOADS_NUM_GROUPS,
- 			 1 << MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size));
+ mlx5_core-$(CONFIG_MLX5_CORE_IPOIB) += ipoib/ipoib.o ipoib/ethtool.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+index dfccb5305e9c..eecbc6d4f51f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+@@ -36,6 +36,7 @@
+ #include <linux/tcp.h>
+ #include <linux/mlx5/fs.h>
+ #include "en.h"
++#include "lib/mpfs.h"
  
- 	if (esw->offloads.encap != DEVLINK_ESWITCH_ENCAP_MODE_NONE)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-index e750f07793b8..16b32f31d691 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-@@ -359,7 +359,7 @@ int mlx5_cmd_delete_fte(struct mlx5_core_dev *dev,
- 	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
+ static int mlx5e_add_l2_flow_rule(struct mlx5e_priv *priv,
+ 				  struct mlx5e_l2_rule *ai, int type);
+@@ -65,6 +66,7 @@ struct mlx5e_l2_hash_node {
+ 	struct hlist_node          hlist;
+ 	u8                         action;
+ 	struct mlx5e_l2_rule ai;
++	bool   mpfs;
+ };
+ 
+ static inline int mlx5e_hash_l2(u8 *addr)
+@@ -362,17 +364,30 @@ static void mlx5e_del_vlan_rules(struct mlx5e_priv *priv)
+ static void mlx5e_execute_l2_action(struct mlx5e_priv *priv,
+ 				    struct mlx5e_l2_hash_node *hn)
+ {
+-	switch (hn->action) {
++	u8 action = hn->action;
++	int l2_err = 0;
++
++	switch (action) {
+ 	case MLX5E_ACTION_ADD:
+ 		mlx5e_add_l2_flow_rule(priv, &hn->ai, MLX5E_FULLMATCH);
++		if (!is_multicast_ether_addr(hn->ai.addr)) {
++			l2_err = mlx5_mpfs_add_mac(priv->mdev, hn->ai.addr);
++			hn->mpfs = !l2_err;
++		}
+ 		hn->action = MLX5E_ACTION_NONE;
+ 		break;
+ 
+ 	case MLX5E_ACTION_DEL:
++		if (!is_multicast_ether_addr(hn->ai.addr) && hn->mpfs)
++			l2_err = mlx5_mpfs_del_mac(priv->mdev, hn->ai.addr);
+ 		mlx5e_del_l2_flow_rule(priv, &hn->ai);
+ 		mlx5e_del_l2_from_hash(hn);
+ 		break;
+ 	}
++
++	if (l2_err)
++		netdev_warn(priv->netdev, "MPFS, failed to %s mac %pM, err(%d)\n",
++			    action == MLX5E_ACTION_ADD ? "add" : "del", hn->ai.addr, l2_err);
  }
  
--int mlx5_cmd_fc_alloc(struct mlx5_core_dev *dev, u16 *id)
-+int mlx5_cmd_fc_alloc(struct mlx5_core_dev *dev, u32 *id)
+ static void mlx5e_sync_netdev_addr(struct mlx5e_priv *priv)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 5c001b61d04a..fd51f0ea8df9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -46,19 +46,13 @@ enum {
+ 	MLX5_ACTION_DEL  = 2,
+ };
+ 
+-/* E-Switch UC L2 table hash node */
+-struct esw_uc_addr {
+-	struct l2addr_node node;
+-	u32                table_index;
+-	u32                vport;
+-};
+-
+ /* Vport UC/MC hash node */
+ struct vport_addr {
+ 	struct l2addr_node     node;
+ 	u8                     action;
+ 	u32                    vport;
+-	struct mlx5_flow_handle *flow_rule; /* SRIOV only */
++	struct mlx5_flow_handle *flow_rule;
++	bool mpfs; /* UC MAC was added to MPFs */
+ 	/* A flag indicating that mac was added due to mc promiscuous vport */
+ 	bool mc_promisc;
+ };
+@@ -154,81 +148,6 @@ static int modify_esw_vport_cvlan(struct mlx5_core_dev *dev, u32 vport,
+ 	return modify_esw_vport_context_cmd(dev, vport, in, sizeof(in));
+ }
+ 
+-/* HW L2 Table (MPFS) management */
+-static int set_l2_table_entry_cmd(struct mlx5_core_dev *dev, u32 index,
+-				  u8 *mac, u8 vlan_valid, u16 vlan)
+-{
+-	u32 in[MLX5_ST_SZ_DW(set_l2_table_entry_in)]   = {0};
+-	u32 out[MLX5_ST_SZ_DW(set_l2_table_entry_out)] = {0};
+-	u8 *in_mac_addr;
+-
+-	MLX5_SET(set_l2_table_entry_in, in, opcode,
+-		 MLX5_CMD_OP_SET_L2_TABLE_ENTRY);
+-	MLX5_SET(set_l2_table_entry_in, in, table_index, index);
+-	MLX5_SET(set_l2_table_entry_in, in, vlan_valid, vlan_valid);
+-	MLX5_SET(set_l2_table_entry_in, in, vlan, vlan);
+-
+-	in_mac_addr = MLX5_ADDR_OF(set_l2_table_entry_in, in, mac_address);
+-	ether_addr_copy(&in_mac_addr[2], mac);
+-
+-	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
+-}
+-
+-static int del_l2_table_entry_cmd(struct mlx5_core_dev *dev, u32 index)
+-{
+-	u32 in[MLX5_ST_SZ_DW(delete_l2_table_entry_in)]   = {0};
+-	u32 out[MLX5_ST_SZ_DW(delete_l2_table_entry_out)] = {0};
+-
+-	MLX5_SET(delete_l2_table_entry_in, in, opcode,
+-		 MLX5_CMD_OP_DELETE_L2_TABLE_ENTRY);
+-	MLX5_SET(delete_l2_table_entry_in, in, table_index, index);
+-	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
+-}
+-
+-static int alloc_l2_table_index(struct mlx5_l2_table *l2_table, u32 *ix)
+-{
+-	int err = 0;
+-
+-	*ix = find_first_zero_bit(l2_table->bitmap, l2_table->size);
+-	if (*ix >= l2_table->size)
+-		err = -ENOSPC;
+-	else
+-		__set_bit(*ix, l2_table->bitmap);
+-
+-	return err;
+-}
+-
+-static void free_l2_table_index(struct mlx5_l2_table *l2_table, u32 ix)
+-{
+-	__clear_bit(ix, l2_table->bitmap);
+-}
+-
+-static int set_l2_table_entry(struct mlx5_core_dev *dev, u8 *mac,
+-			      u8 vlan_valid, u16 vlan,
+-			      u32 *index)
+-{
+-	struct mlx5_l2_table *l2_table = &dev->priv.eswitch->l2_table;
+-	int err;
+-
+-	err = alloc_l2_table_index(l2_table, index);
+-	if (err)
+-		return err;
+-
+-	err = set_l2_table_entry_cmd(dev, *index, mac, vlan_valid, vlan);
+-	if (err)
+-		free_l2_table_index(l2_table, *index);
+-
+-	return err;
+-}
+-
+-static void del_l2_table_entry(struct mlx5_core_dev *dev, u32 index)
+-{
+-	struct mlx5_l2_table *l2_table = &dev->priv.eswitch->l2_table;
+-
+-	del_l2_table_entry_cmd(dev, index);
+-	free_l2_table_index(l2_table, index);
+-}
+-
+ /* E-Switch FDB */
+ static struct mlx5_flow_handle *
+ __esw_fdb_set_vport_rule(struct mlx5_eswitch *esw, u32 vport, bool rx_rule,
+@@ -455,65 +374,60 @@ typedef int (*vport_addr_action)(struct mlx5_eswitch *esw,
+ 
+ static int esw_add_uc_addr(struct mlx5_eswitch *esw, struct vport_addr *vaddr)
  {
- 	u32 in[MLX5_ST_SZ_DW(alloc_flow_counter_in)]   = {0};
- 	u32 out[MLX5_ST_SZ_DW(alloc_flow_counter_out)] = {0};
-@@ -374,7 +374,7 @@ int mlx5_cmd_fc_alloc(struct mlx5_core_dev *dev, u16 *id)
+-	struct hlist_head *hash = esw->l2_table.l2_hash;
+-	struct esw_uc_addr *esw_uc;
+ 	u8 *mac = vaddr->node.addr;
+ 	u32 vport = vaddr->vport;
+ 	int err;
+ 
+-	esw_uc = l2addr_hash_find(hash, mac, struct esw_uc_addr);
+-	if (esw_uc) {
++	/* Skip mlx5_mpfs_add_mac for PFs,
++	 * it is already done by the PF netdev in mlx5e_execute_l2_action
++	 */
++	if (!vport)
++		goto fdb_add;
++
++	err = mlx5_mpfs_add_mac(esw->dev, mac);
++	if (err) {
+ 		esw_warn(esw->dev,
+-			 "Failed to set L2 mac(%pM) for vport(%d), mac is already in use by vport(%d)\n",
+-			 mac, vport, esw_uc->vport);
+-		return -EEXIST;
++			 "Failed to add L2 table mac(%pM) for vport(%d), err(%d)\n",
++			 mac, vport, err);
++		return err;
+ 	}
++	vaddr->mpfs = true;
+ 
+-	esw_uc = l2addr_hash_add(hash, mac, struct esw_uc_addr, GFP_KERNEL);
+-	if (!esw_uc)
+-		return -ENOMEM;
+-	esw_uc->vport = vport;
+-
+-	err = set_l2_table_entry(esw->dev, mac, 0, 0, &esw_uc->table_index);
+-	if (err)
+-		goto abort;
+-
++fdb_add:
+ 	/* SRIOV is enabled: Forward UC MAC to vport */
+ 	if (esw->fdb_table.fdb && esw->mode == SRIOV_LEGACY)
+ 		vaddr->flow_rule = esw_fdb_set_vport_rule(esw, mac, vport);
+ 
+-	esw_debug(esw->dev, "\tADDED UC MAC: vport[%d] %pM index:%d fr(%p)\n",
+-		  vport, mac, esw_uc->table_index, vaddr->flow_rule);
+-	return err;
+-abort:
+-	l2addr_hash_del(esw_uc);
++	esw_debug(esw->dev, "\tADDED UC MAC: vport[%d] %pM fr(%p)\n",
++		  vport, mac, vaddr->flow_rule);
++
  	return err;
  }
  
--int mlx5_cmd_fc_free(struct mlx5_core_dev *dev, u16 id)
-+int mlx5_cmd_fc_free(struct mlx5_core_dev *dev, u32 id)
+ static int esw_del_uc_addr(struct mlx5_eswitch *esw, struct vport_addr *vaddr)
  {
- 	u32 in[MLX5_ST_SZ_DW(dealloc_flow_counter_in)]   = {0};
- 	u32 out[MLX5_ST_SZ_DW(dealloc_flow_counter_out)] = {0};
-@@ -385,7 +385,7 @@ int mlx5_cmd_fc_free(struct mlx5_core_dev *dev, u16 id)
- 	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
+-	struct hlist_head *hash = esw->l2_table.l2_hash;
+-	struct esw_uc_addr *esw_uc;
+ 	u8 *mac = vaddr->node.addr;
+ 	u32 vport = vaddr->vport;
++	int err = 0;
+ 
+-	esw_uc = l2addr_hash_find(hash, mac, struct esw_uc_addr);
+-	if (!esw_uc || esw_uc->vport != vport) {
+-		esw_debug(esw->dev,
+-			  "MAC(%pM) doesn't belong to vport (%d)\n",
+-			  mac, vport);
+-		return -EINVAL;
+-	}
+-	esw_debug(esw->dev, "\tDELETE UC MAC: vport[%d] %pM index:%d fr(%p)\n",
+-		  vport, mac, esw_uc->table_index, vaddr->flow_rule);
++	/* Skip mlx5_mpfs_del_mac for PFs,
++	 * it is already done by the PF netdev in mlx5e_execute_l2_action
++	 */
++	if (!vport || !vaddr->mpfs)
++		goto fdb_del;
+ 
+-	del_l2_table_entry(esw->dev, esw_uc->table_index);
++	err = mlx5_mpfs_del_mac(esw->dev, mac);
++	if (err)
++		esw_warn(esw->dev,
++			 "Failed to del L2 table mac(%pM) for vport(%d), err(%d)\n",
++			 mac, vport, err);
++	vaddr->mpfs = false;
+ 
++fdb_del:
+ 	if (vaddr->flow_rule)
+ 		mlx5_del_flow_rules(vaddr->flow_rule);
+ 	vaddr->flow_rule = NULL;
+ 
+-	l2addr_hash_del(esw_uc);
+ 	return 0;
  }
  
--int mlx5_cmd_fc_query(struct mlx5_core_dev *dev, u16 id,
-+int mlx5_cmd_fc_query(struct mlx5_core_dev *dev, u32 id,
- 		      u64 *packets, u64 *bytes)
- {
- 	u32 out[MLX5_ST_SZ_BYTES(query_flow_counter_out) +
-@@ -409,14 +409,14 @@ int mlx5_cmd_fc_query(struct mlx5_core_dev *dev, u16 id,
+@@ -1635,7 +1549,6 @@ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode)
+ 
+ 	esw_info(esw->dev, "E-Switch enable SRIOV: nvfs(%d) mode (%d)\n", nvfs, mode);
+ 	esw->mode = mode;
+-	esw_disable_vport(esw, 0);
+ 
+ 	if (mode == SRIOV_LEGACY)
+ 		err = esw_create_legacy_fdb_table(esw, nvfs + 1);
+@@ -1648,7 +1561,11 @@ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode)
+ 	if (err)
+ 		esw_warn(esw->dev, "Failed to create eswitch TSAR");
+ 
+-	enabled_events = (mode == SRIOV_LEGACY) ? SRIOV_VPORT_EVENTS : UC_ADDR_CHANGE;
++	/* Don't enable vport events when in SRIOV_OFFLOADS mode, since:
++	 * 1. L2 table (MPFS) is programmed by PF/VF representors netdevs set_rx_mode
++	 * 2. FDB/Eswitch is programmed by user space tools
++	 */
++	enabled_events = (mode == SRIOV_LEGACY) ? SRIOV_VPORT_EVENTS : 0;
+ 	for (i = 0; i <= nvfs; i++)
+ 		esw_enable_vport(esw, i, enabled_events);
+ 
+@@ -1657,7 +1574,6 @@ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode)
+ 	return 0;
+ 
+ abort:
+-	esw_enable_vport(esw, 0, UC_ADDR_CHANGE);
+ 	esw->mode = SRIOV_NONE;
+ 	return err;
+ }
+@@ -1691,30 +1607,10 @@ void mlx5_eswitch_disable_sriov(struct mlx5_eswitch *esw)
+ 		esw_offloads_cleanup(esw, nvports);
+ 
+ 	esw->mode = SRIOV_NONE;
+-	/* VPORT 0 (PF) must be enabled back with non-sriov configuration */
+-	esw_enable_vport(esw, 0, UC_ADDR_CHANGE);
+-}
+-
+-void mlx5_eswitch_attach(struct mlx5_eswitch *esw)
+-{
+-	if (!ESW_ALLOWED(esw))
+-		return;
+-
+-	esw_enable_vport(esw, 0, UC_ADDR_CHANGE);
+-	/* VF Vports will be enabled when SRIOV is enabled */
+-}
+-
+-void mlx5_eswitch_detach(struct mlx5_eswitch *esw)
+-{
+-	if (!ESW_ALLOWED(esw))
+-		return;
+-
+-	esw_disable_vport(esw, 0);
  }
  
- struct mlx5_cmd_fc_bulk {
--	u16 id;
-+	u32 id;
- 	int num;
- 	int outlen;
- 	u32 out[0];
+ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
+ {
+-	int l2_table_size = 1 << MLX5_CAP_GEN(dev, log_max_l2_table);
+ 	int total_vports = MLX5_TOTAL_VPORTS(dev);
+ 	struct mlx5_eswitch *esw;
+ 	int vport_num;
+@@ -1724,8 +1620,8 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
+ 		return 0;
+ 
+ 	esw_info(dev,
+-		 "Total vports %d, l2 table size(%d), per vport: max uc(%d) max mc(%d)\n",
+-		 total_vports, l2_table_size,
++		 "Total vports %d, per vport: max uc(%d) max mc(%d)\n",
++		 total_vports,
+ 		 MLX5_MAX_UC_PER_VPORT(dev),
+ 		 MLX5_MAX_MC_PER_VPORT(dev));
+ 
+@@ -1735,14 +1631,6 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
+ 
+ 	esw->dev = dev;
+ 
+-	esw->l2_table.bitmap = kcalloc(BITS_TO_LONGS(l2_table_size),
+-				   sizeof(uintptr_t), GFP_KERNEL);
+-	if (!esw->l2_table.bitmap) {
+-		err = -ENOMEM;
+-		goto abort;
+-	}
+-	esw->l2_table.size = l2_table_size;
+-
+ 	esw->work_queue = create_singlethread_workqueue("mlx5_esw_wq");
+ 	if (!esw->work_queue) {
+ 		err = -ENOMEM;
+@@ -1793,7 +1681,6 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
+ abort:
+ 	if (esw->work_queue)
+ 		destroy_workqueue(esw->work_queue);
+-	kfree(esw->l2_table.bitmap);
+ 	kfree(esw->vports);
+ 	kfree(esw->offloads.vport_reps);
+ 	kfree(esw);
+@@ -1809,7 +1696,6 @@ void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw)
+ 
+ 	esw->dev->priv.eswitch = NULL;
+ 	destroy_workqueue(esw->work_queue);
+-	kfree(esw->l2_table.bitmap);
+ 	kfree(esw->offloads.vport_reps);
+ 	kfree(esw->vports);
+ 	kfree(esw);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 834a33050969..701d228de4ad 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -37,6 +37,7 @@
+ #include <linux/if_link.h>
+ #include <net/devlink.h>
+ #include <linux/mlx5/device.h>
++#include "lib/mpfs.h"
+ 
+ #define MLX5_MAX_UC_PER_VPORT(dev) \
+ 	(1 << MLX5_CAP_GEN(dev, log_max_current_uc_list))
+@@ -44,9 +45,6 @@
+ #define MLX5_MAX_MC_PER_VPORT(dev) \
+ 	(1 << MLX5_CAP_GEN(dev, log_max_current_mc_list))
+ 
+-#define MLX5_L2_ADDR_HASH_SIZE (BIT(BITS_PER_BYTE))
+-#define MLX5_L2_ADDR_HASH(addr) (addr[5])
+-
+ #define FDB_UPLINK_VPORT 0xffff
+ 
+ #define MLX5_MIN_BW_SHARE 1
+@@ -54,48 +52,6 @@
+ #define MLX5_RATE_TO_BW_SHARE(rate, divider, limit) \
+ 	min_t(u32, max_t(u32, (rate) / (divider), MLX5_MIN_BW_SHARE), limit)
+ 
+-/* L2 -mac address based- hash helpers */
+-struct l2addr_node {
+-	struct hlist_node hlist;
+-	u8                addr[ETH_ALEN];
+-};
+-
+-#define for_each_l2hash_node(hn, tmp, hash, i) \
+-	for (i = 0; i < MLX5_L2_ADDR_HASH_SIZE; i++) \
+-		hlist_for_each_entry_safe(hn, tmp, &hash[i], hlist)
+-
+-#define l2addr_hash_find(hash, mac, type) ({                \
+-	int ix = MLX5_L2_ADDR_HASH(mac);                    \
+-	bool found = false;                                 \
+-	type *ptr = NULL;                                   \
+-							    \
+-	hlist_for_each_entry(ptr, &hash[ix], node.hlist)    \
+-		if (ether_addr_equal(ptr->node.addr, mac)) {\
+-			found = true;                       \
+-			break;                              \
+-		}                                           \
+-	if (!found)                                         \
+-		ptr = NULL;                                 \
+-	ptr;                                                \
+-})
+-
+-#define l2addr_hash_add(hash, mac, type, gfp) ({            \
+-	int ix = MLX5_L2_ADDR_HASH(mac);                    \
+-	type *ptr = NULL;                                   \
+-							    \
+-	ptr = kzalloc(sizeof(type), gfp);                   \
+-	if (ptr) {                                          \
+-		ether_addr_copy(ptr->node.addr, mac);       \
+-		hlist_add_head(&ptr->node.hlist, &hash[ix]);\
+-	}                                                   \
+-	ptr;                                                \
+-})
+-
+-#define l2addr_hash_del(ptr) ({                             \
+-	hlist_del(&ptr->node.hlist);                        \
+-	kfree(ptr);                                         \
+-})
+-
+ struct vport_ingress {
+ 	struct mlx5_flow_table *acl;
+ 	struct mlx5_flow_group *allow_untagged_spoofchk_grp;
+@@ -150,12 +106,6 @@ struct mlx5_vport {
+ 	u16                     enabled_events;
  };
  
- struct mlx5_cmd_fc_bulk *
--mlx5_cmd_fc_bulk_alloc(struct mlx5_core_dev *dev, u16 id, int num)
-+mlx5_cmd_fc_bulk_alloc(struct mlx5_core_dev *dev, u32 id, int num)
- {
- 	struct mlx5_cmd_fc_bulk *b;
- 	int outlen =
-@@ -453,7 +453,7 @@ mlx5_cmd_fc_bulk_query(struct mlx5_core_dev *dev, struct mlx5_cmd_fc_bulk *b)
- }
+-struct mlx5_l2_table {
+-	struct hlist_head l2_hash[MLX5_L2_ADDR_HASH_SIZE];
+-	u32                  size;
+-	unsigned long        *bitmap;
+-};
+-
+ struct mlx5_eswitch_fdb {
+ 	void *fdb;
+ 	union {
+@@ -222,7 +172,6 @@ struct esw_mc_addr { /* SRIOV only */
  
- void mlx5_cmd_fc_bulk_get(struct mlx5_core_dev *dev,
--			  struct mlx5_cmd_fc_bulk *b, u16 id,
-+			  struct mlx5_cmd_fc_bulk *b, u32 id,
- 			  u64 *packets, u64 *bytes)
- {
- 	int index = id - b->id;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-index 0f98a7cf4877..c6d7bdf255b6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-@@ -74,20 +74,20 @@ int mlx5_cmd_update_root_ft(struct mlx5_core_dev *dev,
- 			    struct mlx5_flow_table *ft,
- 			    u32 underlay_qpn);
- 
--int mlx5_cmd_fc_alloc(struct mlx5_core_dev *dev, u16 *id);
--int mlx5_cmd_fc_free(struct mlx5_core_dev *dev, u16 id);
--int mlx5_cmd_fc_query(struct mlx5_core_dev *dev, u16 id,
-+int mlx5_cmd_fc_alloc(struct mlx5_core_dev *dev, u32 *id);
-+int mlx5_cmd_fc_free(struct mlx5_core_dev *dev, u32 id);
-+int mlx5_cmd_fc_query(struct mlx5_core_dev *dev, u32 id,
- 		      u64 *packets, u64 *bytes);
- 
- struct mlx5_cmd_fc_bulk;
- 
- struct mlx5_cmd_fc_bulk *
--mlx5_cmd_fc_bulk_alloc(struct mlx5_core_dev *dev, u16 id, int num);
-+mlx5_cmd_fc_bulk_alloc(struct mlx5_core_dev *dev, u32 id, int num);
- void mlx5_cmd_fc_bulk_free(struct mlx5_cmd_fc_bulk *b);
- int
- mlx5_cmd_fc_bulk_query(struct mlx5_core_dev *dev, struct mlx5_cmd_fc_bulk *b);
- void mlx5_cmd_fc_bulk_get(struct mlx5_core_dev *dev,
--			  struct mlx5_cmd_fc_bulk *b, u16 id,
-+			  struct mlx5_cmd_fc_bulk *b, u32 id,
- 			  u64 *packets, u64 *bytes);
- 
- #endif
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index 990acee6fb09..9fb5a333df52 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -136,7 +136,7 @@ struct mlx5_fc {
- 	u64 lastpackets;
- 	u64 lastbytes;
- 
--	u16 id;
-+	u32 id;
- 	bool deleted;
- 	bool aging;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-index 6507d8acc54d..89d1f8650033 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-@@ -38,6 +38,8 @@
- #include "fs_cmd.h"
- 
- #define MLX5_FC_STATS_PERIOD msecs_to_jiffies(1000)
-+/* Max number of counters to query in bulk read is 32K */
-+#define MLX5_SW_MAX_COUNTERS_BULK BIT(15)
- 
- /* locking scheme:
-  *
-@@ -90,16 +92,21 @@ static void mlx5_fc_stats_insert(struct rb_root *root, struct mlx5_fc *counter)
- 	rb_insert_color(&counter->node, root);
- }
- 
-+/* The function returns the last node that was queried so the caller
-+ * function can continue calling it till all counters are queried.
+ struct mlx5_eswitch {
+ 	struct mlx5_core_dev    *dev;
+-	struct mlx5_l2_table    l2_table;
+ 	struct mlx5_eswitch_fdb fdb_table;
+ 	struct hlist_head       mc_table[MLX5_L2_ADDR_HASH_SIZE];
+ 	struct workqueue_struct *work_queue;
+@@ -250,8 +199,6 @@ int esw_offloads_init(struct mlx5_eswitch *esw, int nvports);
+ /* E-Switch API */
+ int mlx5_eswitch_init(struct mlx5_core_dev *dev);
+ void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw);
+-void mlx5_eswitch_attach(struct mlx5_eswitch *esw);
+-void mlx5_eswitch_detach(struct mlx5_eswitch *esw);
+ void mlx5_eswitch_vport_event(struct mlx5_eswitch *esw, struct mlx5_eqe *eqe);
+ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode);
+ void mlx5_eswitch_disable_sriov(struct mlx5_eswitch *esw);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.c b/drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.c
+new file mode 100644
+index 000000000000..7cb67122e8b5
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.c
+@@ -0,0 +1,201 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
 + */
- static struct rb_node *mlx5_fc_stats_query(struct mlx5_core_dev *dev,
- 					   struct mlx5_fc *first,
--					   u16 last_id)
-+					   u32 last_id)
- {
- 	struct mlx5_cmd_fc_bulk *b;
- 	struct rb_node *node = NULL;
--	u16 afirst_id;
-+	u32 afirst_id;
- 	int num;
- 	int err;
--	int max_bulk = 1 << MLX5_CAP_GEN(dev, log_max_flow_counter_bulk);
 +
-+	int max_bulk = min_t(int, MLX5_SW_MAX_COUNTERS_BULK,
-+			     (1 << MLX5_CAP_GEN(dev, log_max_flow_counter_bulk)));
++#include <linux/etherdevice.h>
++#include <linux/mlx5/driver.h>
++#include <linux/mlx5/mlx5_ifc.h>
++#include "mlx5_core.h"
++#include "lib/mpfs.h"
++
++/* HW L2 Table (MPFS) management */
++static int set_l2table_entry_cmd(struct mlx5_core_dev *dev, u32 index, u8 *mac)
++{
++	u32 in[MLX5_ST_SZ_DW(set_l2_table_entry_in)]   = {0};
++	u32 out[MLX5_ST_SZ_DW(set_l2_table_entry_out)] = {0};
++	u8 *in_mac_addr;
++
++	MLX5_SET(set_l2_table_entry_in, in, opcode, MLX5_CMD_OP_SET_L2_TABLE_ENTRY);
++	MLX5_SET(set_l2_table_entry_in, in, table_index, index);
++
++	in_mac_addr = MLX5_ADDR_OF(set_l2_table_entry_in, in, mac_address);
++	ether_addr_copy(&in_mac_addr[2], mac);
++
++	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
++
++static int del_l2table_entry_cmd(struct mlx5_core_dev *dev, u32 index)
++{
++	u32 in[MLX5_ST_SZ_DW(delete_l2_table_entry_in)]   = {0};
++	u32 out[MLX5_ST_SZ_DW(delete_l2_table_entry_out)] = {0};
++
++	MLX5_SET(delete_l2_table_entry_in, in, opcode, MLX5_CMD_OP_DELETE_L2_TABLE_ENTRY);
++	MLX5_SET(delete_l2_table_entry_in, in, table_index, index);
++	return mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
++
++/* UC L2 table hash node */
++struct l2table_node {
++	struct l2addr_node node;
++	u32                index; /* index in HW l2 table */
++};
++
++struct mlx5_mpfs {
++	struct hlist_head    hash[MLX5_L2_ADDR_HASH_SIZE];
++	struct mutex         lock; /* Synchronize l2 table access */
++	u32                  size;
++	unsigned long        *bitmap;
++};
++
++static int alloc_l2table_index(struct mlx5_mpfs *l2table, u32 *ix)
++{
++	int err = 0;
++
++	*ix = find_first_zero_bit(l2table->bitmap, l2table->size);
++	if (*ix >= l2table->size)
++		err = -ENOSPC;
++	else
++		__set_bit(*ix, l2table->bitmap);
++
++	return err;
++}
++
++static void free_l2table_index(struct mlx5_mpfs *l2table, u32 ix)
++{
++	__clear_bit(ix, l2table->bitmap);
++}
++
++int mlx5_mpfs_init(struct mlx5_core_dev *dev)
++{
++	int l2table_size = 1 << MLX5_CAP_GEN(dev, log_max_l2_table);
++	struct mlx5_mpfs *mpfs;
++
++	if (!MLX5_VPORT_MANAGER(dev))
++		return 0;
++
++	mpfs = kzalloc(sizeof(*mpfs), GFP_KERNEL);
++	if (!mpfs)
++		return -ENOMEM;
++
++	mutex_init(&mpfs->lock);
++	mpfs->size   = l2table_size;
++	mpfs->bitmap = kcalloc(BITS_TO_LONGS(l2table_size),
++			       sizeof(uintptr_t), GFP_KERNEL);
++	if (!mpfs->bitmap) {
++		kfree(mpfs);
++		return -ENOMEM;
++	}
++
++	dev->priv.mpfs = mpfs;
++	return 0;
++}
++
++void mlx5_mpfs_cleanup(struct mlx5_core_dev *dev)
++{
++	struct mlx5_mpfs *mpfs = dev->priv.mpfs;
++
++	if (!MLX5_VPORT_MANAGER(dev))
++		return;
++
++	WARN_ON(!hlist_empty(mpfs->hash));
++	kfree(mpfs->bitmap);
++	kfree(mpfs);
++}
++
++int mlx5_mpfs_add_mac(struct mlx5_core_dev *dev, u8 *mac)
++{
++	struct mlx5_mpfs *mpfs = dev->priv.mpfs;
++	struct l2table_node *l2addr;
++	u32 index;
++	int err;
++
++	if (!MLX5_VPORT_MANAGER(dev))
++		return 0;
++
++	mutex_lock(&mpfs->lock);
++
++	l2addr = l2addr_hash_find(mpfs->hash, mac, struct l2table_node);
++	if (l2addr) {
++		err = -EEXIST;
++		goto abort;
++	}
++
++	err = alloc_l2table_index(mpfs, &index);
++	if (err)
++		goto abort;
++
++	l2addr = l2addr_hash_add(mpfs->hash, mac, struct l2table_node, GFP_KERNEL);
++	if (!l2addr) {
++		free_l2table_index(mpfs, index);
++		err = -ENOMEM;
++		goto abort;
++	}
++
++	l2addr->index = index;
++	err = set_l2table_entry_cmd(dev, index, mac);
++	if (err) {
++		l2addr_hash_del(l2addr);
++		free_l2table_index(mpfs, index);
++	}
++
++	mlx5_core_dbg(dev, "MPFS mac added %pM, index (%d)\n", mac, index);
++abort:
++	mutex_unlock(&mpfs->lock);
++	return err;
++}
++
++int mlx5_mpfs_del_mac(struct mlx5_core_dev *dev, u8 *mac)
++{
++	struct mlx5_mpfs *mpfs = dev->priv.mpfs;
++	struct l2table_node *l2addr;
++	int err = 0;
++	u32 index;
++
++	if (!MLX5_VPORT_MANAGER(dev))
++		return 0;
++
++	mutex_lock(&mpfs->lock);
++
++	l2addr = l2addr_hash_find(mpfs->hash, mac, struct l2table_node);
++	if (!l2addr) {
++		err = -ENOENT;
++		goto unlock;
++	}
++
++	index = l2addr->index;
++	del_l2table_entry_cmd(dev, index);
++	l2addr_hash_del(l2addr);
++	free_l2table_index(mpfs, index);
++	mlx5_core_dbg(dev, "MPFS mac deleted %pM, index (%d)\n", mac, index);
++unlock:
++	mutex_unlock(&mpfs->lock);
++	return err;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.h b/drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.h
+new file mode 100644
+index 000000000000..4a7b2c3203a7
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/mpfs.h
+@@ -0,0 +1,95 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies, Ltd.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef __MLX5_MPFS_H__
++#define __MLX5_MPFS_H__
++
++#include <linux/if_ether.h>
++#include <linux/mlx5/device.h>
++
++/* L2 -mac address based- hash helpers */
++#define MLX5_L2_ADDR_HASH_SIZE (BIT(BITS_PER_BYTE))
++#define MLX5_L2_ADDR_HASH(addr) (addr[5])
++
++struct l2addr_node {
++	struct hlist_node hlist;
++	u8                addr[ETH_ALEN];
++};
++
++#define for_each_l2hash_node(hn, tmp, hash, i) \
++	for (i = 0; i < MLX5_L2_ADDR_HASH_SIZE; i++) \
++		hlist_for_each_entry_safe(hn, tmp, &(hash)[i], hlist)
++
++#define l2addr_hash_find(hash, mac, type) ({                \
++	int ix = MLX5_L2_ADDR_HASH(mac);                    \
++	bool found = false;                                 \
++	type *ptr = NULL;                                   \
++							    \
++	hlist_for_each_entry(ptr, &(hash)[ix], node.hlist)  \
++		if (ether_addr_equal(ptr->node.addr, mac)) {\
++			found = true;                       \
++			break;                              \
++		}                                           \
++	if (!found)                                         \
++		ptr = NULL;                                 \
++	ptr;                                                \
++})
++
++#define l2addr_hash_add(hash, mac, type, gfp) ({            \
++	int ix = MLX5_L2_ADDR_HASH(mac);                    \
++	type *ptr = NULL;                                   \
++							    \
++	ptr = kzalloc(sizeof(type), gfp);                   \
++	if (ptr) {                                          \
++		ether_addr_copy(ptr->node.addr, mac);       \
++		hlist_add_head(&ptr->node.hlist, &(hash)[ix]);\
++	}                                                   \
++	ptr;                                                \
++})
++
++#define l2addr_hash_del(ptr) ({                             \
++	hlist_del(&(ptr)->node.hlist);                      \
++	kfree(ptr);                                         \
++})
++
++#ifdef CONFIG_MLX5_MPFS
++int  mlx5_mpfs_init(struct mlx5_core_dev *dev);
++void mlx5_mpfs_cleanup(struct mlx5_core_dev *dev);
++int  mlx5_mpfs_add_mac(struct mlx5_core_dev *dev, u8 *mac);
++int  mlx5_mpfs_del_mac(struct mlx5_core_dev *dev, u8 *mac);
++#else /* #ifndef CONFIG_MLX5_MPFS */
++static inline int  mlx5_mpfs_init(struct mlx5_core_dev *dev) { return 0; }
++static inline void mlx5_mpfs_cleanup(struct mlx5_core_dev *dev) {}
++static inline int  mlx5_mpfs_add_mac(struct mlx5_core_dev *dev, u8 *mac) { return 0; }
++static inline int  mlx5_mpfs_del_mac(struct mlx5_core_dev *dev, u8 *mac) { return 0; }
++#endif
++#endif
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index c065132b956d..d4a9c9b7b6a2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -53,6 +53,7 @@
+ #include <net/devlink.h>
+ #include "mlx5_core.h"
+ #include "fs_core.h"
++#include "lib/mpfs.h"
+ #ifdef CONFIG_MLX5_CORE_EN
+ #include "eswitch.h"
+ #endif
+@@ -946,11 +947,17 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ 		goto err_tables_cleanup;
+ 	}
  
- 	/* first id must be aligned to 4 when using bulk query */
- 	afirst_id = first->id & ~0x3;
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index f847a3a57913..c99daffc3c3c 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -963,7 +963,7 @@ struct mlx5_ifc_cmd_hca_cap_bits {
- 	u8         reserved_at_2a0[0x10];
- 	u8         max_wqe_sz_rq[0x10];
++	err = mlx5_mpfs_init(dev);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to init l2 table %d\n", err);
++		goto err_rl_cleanup;
++	}
++
+ #ifdef CONFIG_MLX5_CORE_EN
+ 	err = mlx5_eswitch_init(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "Failed to init eswitch %d\n", err);
+-		goto err_rl_cleanup;
++		goto err_mpfs_cleanup;
+ 	}
+ #endif
  
--	u8         reserved_at_2c0[0x10];
-+	u8         max_flow_counter_31_16[0x10];
- 	u8         max_wqe_sz_sq_dc[0x10];
+@@ -973,11 +980,11 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
+ err_eswitch_cleanup:
+ #ifdef CONFIG_MLX5_CORE_EN
+ 	mlx5_eswitch_cleanup(dev->priv.eswitch);
+-
+-err_rl_cleanup:
++err_mpfs_cleanup:
+ #endif
++	mlx5_mpfs_cleanup(dev);
++err_rl_cleanup:
+ 	mlx5_cleanup_rl_table(dev);
+-
+ err_tables_cleanup:
+ 	mlx5_cleanup_mkey_table(dev);
+ 	mlx5_cleanup_srq_table(dev);
+@@ -998,6 +1005,7 @@ static void mlx5_cleanup_once(struct mlx5_core_dev *dev)
+ #ifdef CONFIG_MLX5_CORE_EN
+ 	mlx5_eswitch_cleanup(dev->priv.eswitch);
+ #endif
++	mlx5_mpfs_cleanup(dev);
+ 	mlx5_cleanup_rl_table(dev);
+ 	mlx5_cleanup_reserved_gids(dev);
+ 	mlx5_cleanup_mkey_table(dev);
+@@ -1155,10 +1163,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 		goto err_fs;
+ 	}
  
- 	u8         reserved_at_2e0[0x7];
-@@ -981,7 +981,7 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+-#ifdef CONFIG_MLX5_CORE_EN
+-	mlx5_eswitch_attach(dev->priv.eswitch);
+-#endif
+-
+ 	err = mlx5_sriov_attach(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "sriov init failed %d\n", err);
+@@ -1202,9 +1206,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 	mlx5_sriov_detach(dev);
  
- 	u8         reserved_at_340[0x8];
- 	u8         log_max_flow_counter_bulk[0x8];
--	u8         max_flow_counter[0x10];
-+	u8         max_flow_counter_15_0[0x10];
+ err_sriov:
+-#ifdef CONFIG_MLX5_CORE_EN
+-	mlx5_eswitch_detach(dev->priv.eswitch);
+-#endif
+ 	mlx5_cleanup_fs(dev);
  
+ err_fs:
+@@ -1279,9 +1280,6 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
+ 	mlx5_fpga_device_stop(dev);
  
- 	u8         reserved_at_360[0x3];
-@@ -1071,8 +1071,7 @@ struct mlx5_ifc_dest_format_struct_bits {
+ 	mlx5_sriov_detach(dev);
+-#ifdef CONFIG_MLX5_CORE_EN
+-	mlx5_eswitch_detach(dev->priv.eswitch);
+-#endif
+ 	mlx5_cleanup_fs(dev);
+ 	mlx5_irq_clear_affinity_hints(dev);
+ 	free_comp_eqs(dev);
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index df6ce59a1f95..88d6eb5b3a76 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -550,6 +550,7 @@ struct mlx5_fc_stats {
+ 	unsigned long sampling_interval; /* jiffies */
  };
  
- struct mlx5_ifc_flow_counter_list_bits {
--	u8         reserved_at_0[0x10];
--	u8         flow_counter_id[0x10];
-+	u8         flow_counter_id[0x20];
++struct mlx5_mpfs;
+ struct mlx5_eswitch;
+ struct mlx5_lag;
+ struct mlx5_pagefault;
+@@ -647,6 +648,7 @@ struct mlx5_priv {
+ 	spinlock_t              ctx_lock;
  
- 	u8         reserved_at_20[0x20];
- };
-@@ -4402,8 +4401,7 @@ struct mlx5_ifc_query_flow_counter_in_bits {
- 	u8         reserved_at_c1[0xf];
- 	u8         num_of_counters[0x10];
- 
--	u8         reserved_at_e0[0x10];
--	u8         flow_counter_id[0x10];
-+	u8         flow_counter_id[0x20];
- };
- 
- struct mlx5_ifc_query_esw_vport_context_out_bits {
-@@ -6271,8 +6269,7 @@ struct mlx5_ifc_dealloc_flow_counter_in_bits {
- 	u8         reserved_at_20[0x10];
- 	u8         op_mod[0x10];
- 
--	u8         reserved_at_40[0x10];
--	u8         flow_counter_id[0x10];
-+	u8         flow_counter_id[0x20];
- 
- 	u8         reserved_at_60[0x20];
- };
-@@ -7097,8 +7094,7 @@ struct mlx5_ifc_alloc_flow_counter_out_bits {
- 
- 	u8         syndrome[0x20];
- 
--	u8         reserved_at_40[0x10];
--	u8         flow_counter_id[0x10];
-+	u8         flow_counter_id[0x20];
- 
- 	u8         reserved_at_60[0x20];
- };
+ 	struct mlx5_flow_steering *steering;
++	struct mlx5_mpfs        *mpfs;
+ 	struct mlx5_eswitch     *eswitch;
+ 	struct mlx5_core_sriov	sriov;
+ 	struct mlx5_lag		*lag;
 -- 
 2.13.0
 
