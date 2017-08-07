@@ -1,89 +1,32 @@
-From: Anton Volkov <avolkov@ispras.ru>
-Subject: [PATCH v2] hysdn: fix to a race condition in put_log_buffer
-Date: Mon,  7 Aug 2017 15:54:14 +0300
-Message-ID: <1502110454-3996-1-git-send-email-avolkov@ispras.ru>
-References: <a82052eb-2aec-ffa2-2cfd-c02db779d695@cogentembedded.com>
-Cc: sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ldv-project@linuxtesting.org, khoroshilov@ispras.ru,
-        Anton Volkov <avolkov@ispras.ru>
-To: isdn@linux-pingi.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a82052eb-2aec-ffa2-2cfd-c02db779d695@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Technical Subsystem" <trichy.l@careind.net>
+Subject: EMAIL UPDATE
+Date: Mon, 07 Aug 2017 13:57:09 +0100
+Message-ID: <20170807124833.D5F052861C51@cams.careind.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cams.careind.net ([1.23.164.19]:57709 "EHLO cams.careind.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751247AbdHGM76 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 7 Aug 2017 08:59:58 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+        by cams.careind.net (Postfix) with ESMTP id 631C22861B6B
+        for <netdev@vger.kernel.org>; Mon,  7 Aug 2017 18:18:35 +0530 (IST)
+Received: from cams.careind.net ([127.0.0.1])
+        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id owXsKilmSuNX for <netdev@vger.kernel.org>;
+        Mon,  7 Aug 2017 18:18:35 +0530 (IST)
+Received: from [192.168.10.100] (unknown [192.168.0.31])
+        by cams.careind.net (Postfix) with ESMTPSA id D5F052861C51
+        for <netdev@vger.kernel.org>; Mon,  7 Aug 2017 18:18:33 +0530 (IST)
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The synchronization type that was used earlier to guard the loop that
-deletes unused log buffers may lead to a situation that prevents any
-thread from going through the loop.
+Please be advised that we will be performing a scheduled email maintenance within the next 24hrs, during this maintenance you will be require to update your email account via link https://tinyurl.com/y9ubogy4
 
-The patch deletes previously used synchronization mechanism and moves
-the loop under the spin_lock so the similar cases won't be feasible in
-the future.
-
-Found by by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Anton Volkov <avolkov@ispras.ru>
 ---
-v2: Fixed coding style issues
-
- drivers/isdn/hysdn/hysdn_proclog.c | 28 +++++++++++++---------------
- 1 file changed, 13 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/isdn/hysdn/hysdn_proclog.c b/drivers/isdn/hysdn/hysdn_proclog.c
-index 7b5fd8f..aaca0b3 100644
---- a/drivers/isdn/hysdn/hysdn_proclog.c
-+++ b/drivers/isdn/hysdn/hysdn_proclog.c
-@@ -44,7 +44,6 @@ struct procdata {
- 	char log_name[15];	/* log filename */
- 	struct log_data *log_head, *log_tail;	/* head and tail for queue */
- 	int if_used;		/* open count for interface */
--	int volatile del_lock;	/* lock for delete operations */
- 	unsigned char logtmp[LOG_MAX_LINELEN];
- 	wait_queue_head_t rd_queue;
- };
-@@ -102,7 +101,6 @@ put_log_buffer(hysdn_card *card, char *cp)
- {
- 	struct log_data *ib;
- 	struct procdata *pd = card->proclog;
--	int i;
- 	unsigned long flags;
- 
- 	if (!pd)
-@@ -126,21 +124,21 @@ put_log_buffer(hysdn_card *card, char *cp)
- 	else
- 		pd->log_tail->next = ib;	/* follows existing messages */
- 	pd->log_tail = ib;	/* new tail */
--	i = pd->del_lock++;	/* get lock state */
--	spin_unlock_irqrestore(&card->hysdn_lock, flags);
- 
- 	/* delete old entrys */
--	if (!i)
--		while (pd->log_head->next) {
--			if ((pd->log_head->usage_cnt <= 0) &&
--			    (pd->log_head->next->usage_cnt <= 0)) {
--				ib = pd->log_head;
--				pd->log_head = pd->log_head->next;
--				kfree(ib);
--			} else
--				break;
--		}		/* pd->log_head->next */
--	pd->del_lock--;		/* release lock level */
-+	while (pd->log_head->next) {
-+		if ((pd->log_head->usage_cnt <= 0) &&
-+		    (pd->log_head->next->usage_cnt <= 0)) {
-+			ib = pd->log_head;
-+			pd->log_head = pd->log_head->next;
-+			kfree(ib);
-+		} else {
-+			break;
-+		}
-+	}		/* pd->log_head->next */
-+
-+	spin_unlock_irqrestore(&card->hysdn_lock, flags);
-+
- 	wake_up_interruptible(&(pd->rd_queue));		/* announce new entry */
- }				/* put_log_buffer */
- 
--- 
-2.7.4
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
