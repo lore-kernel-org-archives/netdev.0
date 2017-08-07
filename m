@@ -1,29 +1,45 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v3 05/13] net: dsa: Move FDB add/del implementation inside DSA
-Date: Mon, 07 Aug 2017 09:56:47 -0400
-Message-ID: <87mv7bmqg0.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1502025351-41261-1-git-send-email-arkadis@mellanox.com> <1502025351-41261-6-git-send-email-arkadis@mellanox.com>
+From: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] of_mdio: use of_property_read_u32_array()
+Date: Mon, 7 Aug 2017 09:18:04 -0500
+Message-ID: <CAL_JsqKDXAbAVpgMSU39+9mF7MZWQotLUNkjePy9eUsnBs99Vw@mail.gmail.com>
+References: <20170804214354.351406407@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, jiri@resnulli.us, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch, Woojung.Huh@microchip.com,
-        mlxsw@mellanox.com, Arkadi Sharshevsky <arkadis@mellanox.com>
-To: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:56354 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750751AbdHGN7t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 09:59:49 -0400
-In-Reply-To: <1502025351-41261-6-git-send-email-arkadis@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170804214354.351406407-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Arkadi Sharshevsky <arkadis@mellanox.com> writes:
-
-> Currently DSA uses switchdev's implementation of FDB add/del ndos. This
-> patch moves the implementation inside DSA in order to support the legacy
-> way for static FDB configuration.
+On Fri, Aug 4, 2017 at 4:43 PM, Sergei Shtylyov
+<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org> wrote:
+> The "fixed-link" prop support predated of_property_read_u32_array(), so
+> basically had to open-code it. Using the modern API saves 24 bytes of the
+> object code (ARM gcc 4.8.5); the only behavior change would be that the
+> prop length check is now less strict (however the strict pre-check done
+> in of_phy_is_fixed_link() is left intact anyway)...
 >
-> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+>
+> ---
+> The patch is against the 'dt/next' branch of Rob Herring's 'linux-git' repo
+> plus the previously posted patch killing the useless local variable in
+> of_phy_register_fixed_link().
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+It shouldn't depend on anything in my tree and David normally takes
+of_mdio.c changes.
+
+Reviewed-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+
+>
+>  drivers/of/of_mdio.c |   16 ++++++++--------
+>  1 file changed, 8 insertions(+), 8 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
