@@ -1,7 +1,7 @@
 From: Joel Fernandes <joelaf@google.com>
-Subject: [PATCH RFC 1/5] samples/bpf: Use getppid instead of getpgrp for array map stress
-Date: Mon,  7 Aug 2017 06:03:02 -0700
-Message-ID: <20170807130306.31530-2-joelaf@google.com>
+Subject: [PATCH RFC 5/5] samples/bpf: Add documentation on cross compilation
+Date: Mon,  7 Aug 2017 06:03:06 -0700
+Message-ID: <20170807130306.31530-6-joelaf@google.com>
 References: <20170807130306.31530-1-joelaf@google.com>
 Cc: Chenbo Feng <fengc@google.com>,
         Alison Chaiken <alison@she-devel.com>,
@@ -16,42 +16,28 @@ In-Reply-To: <20170807130306.31530-1-joelaf@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When cross-compiling the bpf sample map_perf_test for aarch64, I find that
-__NR_getpgrp is undefined. This causes build errors. This syscall is deprecated
-and requires defining __ARCH_WANT_SYSCALL_DEPRECATED. To avoid having to define
-that, just use a different syscall (getppid) for the array map stress test.
-
 Signed-off-by: Joel Fernandes <joelaf@google.com>
 ---
- samples/bpf/map_perf_test_kern.c | 2 +-
- samples/bpf/map_perf_test_user.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ samples/bpf/README.rst | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
-index 245165817fbe..038ffec295cf 100644
---- a/samples/bpf/map_perf_test_kern.c
-+++ b/samples/bpf/map_perf_test_kern.c
-@@ -232,7 +232,7 @@ int stress_hash_map_lookup(struct pt_regs *ctx)
- 	return 0;
- }
+diff --git a/samples/bpf/README.rst b/samples/bpf/README.rst
+index 79f9a58f1872..2b906127ef54 100644
+--- a/samples/bpf/README.rst
++++ b/samples/bpf/README.rst
+@@ -64,3 +64,13 @@ It is also possible to point make to the newly compiled 'llc' or
+ 'clang' command via redefining LLC or CLANG on the make command line::
  
--SEC("kprobe/sys_getpgrp")
-+SEC("kprobe/sys_getppid")
- int stress_array_map_lookup(struct pt_regs *ctx)
- {
- 	u32 key = 1, i;
-diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
-index 1a8894b5ac51..1e9e68942197 100644
---- a/samples/bpf/map_perf_test_user.c
-+++ b/samples/bpf/map_perf_test_user.c
-@@ -232,7 +232,7 @@ static void test_array_lookup(int cpu)
- 
- 	start_time = time_get_ns();
- 	for (i = 0; i < max_cnt; i++)
--		syscall(__NR_getpgrp, 0);
-+		syscall(__NR_getppid, 0);
- 	printf("%d:array_lookup %lld lookups per sec\n",
- 	       cpu, max_cnt * 1000000000ll * 64 / (time_get_ns() - start_time));
- }
+  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
++
++Cross compiling samples
++-----------------------
++Inorder to cross-compile, say for arm64 targets, export CROSS_COMPILE and ARCH
++environment variables before calling make. This will direct make to build
++samples for the cross target.
++
++export ARCH=arm64
++export CROSS_COMPILE="aarch64-linux-gnu-"
++make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
 -- 
 2.14.0.rc1.383.gd1ce394fe2-goog
