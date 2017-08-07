@@ -1,313 +1,65 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [RFC net-next] net: xfrm: support setting an output mark.
-Date: Mon,  7 Aug 2017 18:23:26 +0900
-Message-ID: <20170807092326.10239-1-lorenzo@google.com>
-Cc: davem@davemloft.net, jhs@mojatatu.com,
-        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        nharold@google.com, misterikkit@google.com,
-        Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 03/14] sctp: remove the typedef
+ sctp_scope_policy_t
+Date: Mon, 7 Aug 2017 09:28:41 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD004C7B8@AcuExch.aculab.com>
+References: <cover.1501934086.git.lucien.xin@gmail.com>
+ <09ffe75e4e16f00b61b682261e2a4b05fa76e814.1501934087.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: 'Xin Long' <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:37182 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752367AbdHGJXe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 05:23:34 -0400
-Received: by mail-pg0-f47.google.com with SMTP id y129so31959043pgy.4
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 02:23:34 -0700 (PDT)
+Received: from smtp-out6.electric.net ([192.162.217.192]:60297 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752489AbdHGJ2u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 05:28:50 -0400
+In-Reply-To: <09ffe75e4e16f00b61b682261e2a4b05fa76e814.1501934087.git.lucien.xin@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On systems that use mark-based routing it may be necessary for
-routing lookups to use marks in order for packets to be routed
-correctly. An example of such a system is Android, which uses
-socket marks to route packets via different networks.
+From: Xin Long
+> Sent: 05 August 2017 13:00
+> This patch is to remove the typedef sctp_scope_policy_t and keep
+> it's members as an anonymous enum.
+> 
+> It is also to define SCTP_SCOPE_POLICY_MAX to replace the num 3
+> in sysctl.c to make codes clear.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  include/net/sctp/constants.h | 6 ++++--
+>  net/sctp/sysctl.c            | 2 +-
+>  2 files changed, 5 insertions(+), 3 deletions(-)
+> 
+> diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+> index 922fba5..acb03eb 100644
+> --- a/include/net/sctp/constants.h
+> +++ b/include/net/sctp/constants.h
+> @@ -341,12 +341,14 @@ typedef enum {
+>  	SCTP_SCOPE_UNUSABLE,		/* IPv4 unusable addresses */
+>  } sctp_scope_t;
+> 
+> -typedef enum {
+> +enum {
+>  	SCTP_SCOPE_POLICY_DISABLE,	/* Disable IPv4 address scoping */
+>  	SCTP_SCOPE_POLICY_ENABLE,	/* Enable IPv4 address scoping */
+>  	SCTP_SCOPE_POLICY_PRIVATE,	/* Follow draft but allow IPv4 private addresses */
+>  	SCTP_SCOPE_POLICY_LINK,		/* Follow draft but allow IPv4 link local addresses */
+> -} sctp_scope_policy_t;
+> +};
+> +
+> +#define SCTP_SCOPE_POLICY_MAX	SCTP_SCOPE_POLICY_LINK
 
-Currently, routing lookups in tunnel mode always use a mark of
-zero, making routing incorrect on such systems. This patch adds
-a new output_mark parameter to the SA properties.  The mark will
-be used in routing lookups, and if nonzero, will also set the
-mark of the packets emitted by the SA, so it can be matched by
-iptables.
+Perhaps slightly better to end the enum with:
+	SCTP_SCOPE_POLICY_COUNT,	/* Number of policies */
+	SCTP_SCOPE_POLICY_MAX = SCTP_SCOPE_POLICY_COUNT - 1	/* Last policy */
+};
 
-Tested: https://android-review.googlesource.com/452776
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- include/net/xfrm.h        |  9 ++++++---
- include/uapi/linux/xfrm.h |  1 +
- net/ipv4/xfrm4_policy.c   | 14 +++++++++-----
- net/ipv6/xfrm6_policy.c   |  9 ++++++---
- net/xfrm/xfrm_output.c    |  3 +++
- net/xfrm/xfrm_policy.c    | 17 +++++++++--------
- net/xfrm/xfrm_user.c      | 11 +++++++++++
- 7 files changed, 45 insertions(+), 19 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index afb4929d72..6b1ddb790d 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -163,6 +163,7 @@ struct xfrm_state {
- 		int		header_len;
- 		int		trailer_len;
- 		u32		extra_flags;
-+		u32		output_mark;
- 	} props;
- 
- 	struct xfrm_lifetime_cfg lft;
-@@ -296,10 +297,12 @@ struct xfrm_policy_afinfo {
- 	struct dst_entry	*(*dst_lookup)(struct net *net,
- 					       int tos, int oif,
- 					       const xfrm_address_t *saddr,
--					       const xfrm_address_t *daddr);
-+					       const xfrm_address_t *daddr,
-+					       u32 mark);
- 	int			(*get_saddr)(struct net *net, int oif,
- 					     xfrm_address_t *saddr,
--					     xfrm_address_t *daddr);
-+					     xfrm_address_t *daddr,
-+					     u32 mark);
- 	void			(*decode_session)(struct sk_buff *skb,
- 						  struct flowi *fl,
- 						  int reverse);
-@@ -1638,7 +1641,7 @@ static inline int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
- struct dst_entry *__xfrm_dst_lookup(struct net *net, int tos, int oif,
- 				    const xfrm_address_t *saddr,
- 				    const xfrm_address_t *daddr,
--				    int family);
-+				    int family, u32 mark);
- 
- struct xfrm_policy *xfrm_policy_alloc(struct net *net, gfp_t gfp);
- 
-diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
-index 2b384ff09f..5fe7370a2b 100644
---- a/include/uapi/linux/xfrm.h
-+++ b/include/uapi/linux/xfrm.h
-@@ -304,6 +304,7 @@ enum xfrm_attr_type_t {
- 	XFRMA_ADDRESS_FILTER,	/* struct xfrm_address_filter */
- 	XFRMA_PAD,
- 	XFRMA_OFFLOAD_DEV,	/* struct xfrm_state_offload */
-+	XFRMA_OUTPUT_MARK,	/* __u32 */
- 	__XFRMA_MAX
- 
- #define XFRMA_MAX (__XFRMA_MAX - 1)
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 4aefb149fe..d7bf0b0418 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -20,7 +20,8 @@
- static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
- 					    int tos, int oif,
- 					    const xfrm_address_t *saddr,
--					    const xfrm_address_t *daddr)
-+					    const xfrm_address_t *daddr,
-+					    u32 mark)
- {
- 	struct rtable *rt;
- 
-@@ -28,6 +29,7 @@ static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
- 	fl4->daddr = daddr->a4;
- 	fl4->flowi4_tos = tos;
- 	fl4->flowi4_oif = l3mdev_master_ifindex_by_index(net, oif);
-+	fl4->flowi4_mark = mark;
- 	if (saddr)
- 		fl4->saddr = saddr->a4;
- 
-@@ -42,20 +44,22 @@ static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
- 
- static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos, int oif,
- 					  const xfrm_address_t *saddr,
--					  const xfrm_address_t *daddr)
-+					  const xfrm_address_t *daddr,
-+					  u32 mark)
- {
- 	struct flowi4 fl4;
- 
--	return __xfrm4_dst_lookup(net, &fl4, tos, oif, saddr, daddr);
-+	return __xfrm4_dst_lookup(net, &fl4, tos, oif, saddr, daddr, mark);
- }
- 
- static int xfrm4_get_saddr(struct net *net, int oif,
--			   xfrm_address_t *saddr, xfrm_address_t *daddr)
-+			   xfrm_address_t *saddr, xfrm_address_t *daddr,
-+			   u32 mark)
- {
- 	struct dst_entry *dst;
- 	struct flowi4 fl4;
- 
--	dst = __xfrm4_dst_lookup(net, &fl4, 0, oif, NULL, daddr);
-+	dst = __xfrm4_dst_lookup(net, &fl4, 0, oif, NULL, daddr, mark);
- 	if (IS_ERR(dst))
- 		return -EHOSTUNREACH;
- 
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index f44b25a484..11d1314ab6 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -27,7 +27,8 @@
- 
- static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
- 					  const xfrm_address_t *saddr,
--					  const xfrm_address_t *daddr)
-+					  const xfrm_address_t *daddr,
-+					  u32 mark)
- {
- 	struct flowi6 fl6;
- 	struct dst_entry *dst;
-@@ -36,6 +37,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
- 	memset(&fl6, 0, sizeof(fl6));
- 	fl6.flowi6_oif = l3mdev_master_ifindex_by_index(net, oif);
- 	fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
-+	fl6.flowi6_mark = mark;
- 	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
- 	if (saddr)
- 		memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
-@@ -52,12 +54,13 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
- }
- 
- static int xfrm6_get_saddr(struct net *net, int oif,
--			   xfrm_address_t *saddr, xfrm_address_t *daddr)
-+			   xfrm_address_t *saddr, xfrm_address_t *daddr,
-+			   u32 mark)
- {
- 	struct dst_entry *dst;
- 	struct net_device *dev;
- 
--	dst = xfrm6_dst_lookup(net, 0, oif, NULL, daddr);
-+	dst = xfrm6_dst_lookup(net, 0, oif, NULL, daddr, mark);
- 	if (IS_ERR(dst))
- 		return -EHOSTUNREACH;
- 
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 8c0b6722aa..31a2e6d34d 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -66,6 +66,9 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
- 			goto error_nolock;
- 		}
- 
-+		if (x->props.output_mark)
-+			skb->mark = x->props.output_mark;
-+
- 		err = x->outer_mode->output(x, skb);
- 		if (err) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTSTATEMODEERROR);
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 06c3bf7ab8..1de52f36ca 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -122,7 +122,7 @@ static const struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned short fa
- struct dst_entry *__xfrm_dst_lookup(struct net *net, int tos, int oif,
- 				    const xfrm_address_t *saddr,
- 				    const xfrm_address_t *daddr,
--				    int family)
-+				    int family, u32 mark)
- {
- 	const struct xfrm_policy_afinfo *afinfo;
- 	struct dst_entry *dst;
-@@ -131,7 +131,7 @@ struct dst_entry *__xfrm_dst_lookup(struct net *net, int tos, int oif,
- 	if (unlikely(afinfo == NULL))
- 		return ERR_PTR(-EAFNOSUPPORT);
- 
--	dst = afinfo->dst_lookup(net, tos, oif, saddr, daddr);
-+	dst = afinfo->dst_lookup(net, tos, oif, saddr, daddr, mark);
- 
- 	rcu_read_unlock();
- 
-@@ -143,7 +143,7 @@ static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x,
- 						int tos, int oif,
- 						xfrm_address_t *prev_saddr,
- 						xfrm_address_t *prev_daddr,
--						int family)
-+						int family, u32 mark)
- {
- 	struct net *net = xs_net(x);
- 	xfrm_address_t *saddr = &x->props.saddr;
-@@ -159,7 +159,7 @@ static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x,
- 		daddr = x->coaddr;
- 	}
- 
--	dst = __xfrm_dst_lookup(net, tos, oif, saddr, daddr, family);
-+	dst = __xfrm_dst_lookup(net, tos, oif, saddr, daddr, family, mark);
- 
- 	if (!IS_ERR(dst)) {
- 		if (prev_saddr != saddr)
-@@ -1340,14 +1340,14 @@ int __xfrm_sk_clone_policy(struct sock *sk, const struct sock *osk)
- 
- static int
- xfrm_get_saddr(struct net *net, int oif, xfrm_address_t *local,
--	       xfrm_address_t *remote, unsigned short family)
-+	       xfrm_address_t *remote, unsigned short family, u32 mark)
- {
- 	int err;
- 	const struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
- 
- 	if (unlikely(afinfo == NULL))
- 		return -EINVAL;
--	err = afinfo->get_saddr(net, oif, local, remote);
-+	err = afinfo->get_saddr(net, oif, local, remote, mark);
- 	rcu_read_unlock();
- 	return err;
- }
-@@ -1378,7 +1378,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 			if (xfrm_addr_any(local, tmpl->encap_family)) {
- 				error = xfrm_get_saddr(net, fl->flowi_oif,
- 						       &tmp, remote,
--						       tmpl->encap_family);
-+						       tmpl->encap_family, 0);
- 				if (error)
- 					goto fail;
- 				local = &tmp;
-@@ -1598,7 +1598,8 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
- 			family = xfrm[i]->props.family;
- 			dst = xfrm_dst_lookup(xfrm[i], tos, fl->flowi_oif,
--					      &saddr, &daddr, family);
-+					      &saddr, &daddr, family,
-+					      xfrm[i]->props.output_mark);
- 			err = PTR_ERR(dst);
- 			if (IS_ERR(dst))
- 				goto put_states;
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 1b539b7dcf..15dd0023ed 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -584,6 +584,9 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
- 
- 	xfrm_mark_get(attrs, &x->mark);
- 
-+	if (attrs[XFRMA_OUTPUT_MARK])
-+		x->props.output_mark = nla_get_u32(attrs[XFRMA_OUTPUT_MARK]);
-+
- 	err = __xfrm_init_state(x, false);
- 	if (err)
- 		goto error;
-@@ -899,6 +902,11 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
- 		goto out;
- 	if (x->security)
- 		ret = copy_sec_ctx(x->security, skb);
-+	if (x->props.output_mark) {
-+		ret = nla_put_u32(skb, XFRMA_OUTPUT_MARK, x->props.output_mark);
-+		if (ret)
-+			goto out;
-+	}
- out:
- 	return ret;
- }
-@@ -2454,6 +2462,7 @@ static const struct nla_policy xfrma_policy[XFRMA_MAX+1] = {
- 	[XFRMA_PROTO]		= { .type = NLA_U8 },
- 	[XFRMA_ADDRESS_FILTER]	= { .len = sizeof(struct xfrm_address_filter) },
- 	[XFRMA_OFFLOAD_DEV]	= { .len = sizeof(struct xfrm_user_offload) },
-+	[XFRMA_OUTPUT_MARK]	= { .len = NLA_U32 },
- };
- 
- static const struct nla_policy xfrma_spd_policy[XFRMA_SPD_MAX+1] = {
-@@ -2673,6 +2682,8 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
- 		l += nla_total_size(sizeof(x->props.extra_flags));
- 	if (x->xso.dev)
- 		 l += nla_total_size(sizeof(x->xso));
-+	if (x->props.output_mark)
-+		l += nla_total_size(sizeof(x->props.output_mark));
- 
- 	/* Must count x->lastused as it may become non-zero behind our back. */
- 	l += nla_total_size_64bit(sizeof(u64));
--- 
-2.14.0.rc1.383.gd1ce394fe2-goog
+	David
