@@ -1,101 +1,49 @@
-From: Sumit Semwal <sumit.semwal@linaro.org>
-Subject: Re: latest kselftest with stable tree: bpf failures
-Date: Mon, 7 Aug 2017 22:11:20 +0530
-Message-ID: <CAO_48GEe=z94RxARZet6oOZqON0B1LOPRE1GBre1udC1rteS_w@mail.gmail.com>
-References: <CAO_48GFVH_ciiJRuse55hp2sARYDd0hGncfRembnBCYd_re0JQ@mail.gmail.com>
- <59833EF2.2040203@iogearbox.net> <CAO_48GHFSa4bkfvEsukJ5snc5F8cXjhp+K9CcZDxOijD-Jo0Ag@mail.gmail.com>
- <5984BE63.7040608@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next v2 00/16] net: sched: summer cleanup part 2,
+ ndo_setup_tc
+Date: Mon, 07 Aug 2017 09:43:44 -0700 (PDT)
+Message-ID: <20170807.094344.1220382628179779025.davem@davemloft.net>
+References: <20170807081532.32760-1-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: ast@kernel.org, netdev@vger.kernel.org,
-        "# 3.4.x" <stable@vger.kernel.org>,
-        "open list:KERNEL SELFTEST FRAMEWORK <linux-kselftest@vger.kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Shuah Khan"
-        <shuah@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <5984BE63.7040608@iogearbox.net>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        dirk.vandermerwe@netronome.com, alexander.h.duyck@intel.com,
+        amritha.nambiar@intel.com, oss-drivers@netronome.com,
+        yisen.zhuang@huawei.com, salil.mehta@huawei.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59892 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751864AbdHGQns (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 12:43:48 -0400
+In-Reply-To: <20170807081532.32760-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Daniel,
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon,  7 Aug 2017 10:15:16 +0200
 
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> This patchset focuses on ndo_setup_tc and its args.
+> Currently there are couple of things that do not make much sense.
+> The type is passed in struct tc_to_netdev, but as it is always
+> required, should be arg of the ndo. Other things are passed as args
+> but they are only relevant for cls offloads and not mqprio. Therefore,
+> they should be pushed to struct. As the tc_to_netdev struct in the end
+> is just a container of single pointer, we get rid of it and pass the
+> struct according to type. So in the end, we have:
+> ndo_setup_tc(dev, type, type_data_struct)
+> 
+> There are couple of cosmetics done on the way to make things smooth.
+> Also, reported error is consolidated to eopnotsupp in case the
+> asked offload is not supported.
+> 
+> v1->v2:
+> - added forgotten hns3pf bits
 
-On 5 August 2017 at 00:05, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 08/03/2017 05:34 PM, Sumit Semwal wrote:
->>
->> On 3 August 2017 at 20:49, Daniel Borkmann <daniel@iogearbox.net> wrote:
->>>
->>> On 08/03/2017 05:09 PM, Sumit Semwal wrote:
->>>>
->>>>
->>>> Hello Alexei, Daniel, and the bpf community,
->>>>
->>>> As part of trying to improve stable kernels' testing, we're running
->>>> ~current kselftests with stable kernels (4.4 and 4.9 for now), and
->>>> reporting issues.
->>>
->>>
->>> Thanks for the report, I haven't been tracking the BPF testsuite
->>> with stable kernels much so far. I will take a look! Just to clarify,
->>> with '~current kselftests' you mean the one in current Linus' tree
->>> or the ones corresponding to the 4.4 and 4.9 -stable kernels?
->>
->> I meant current Linus's release (4.12) atm.
->
->
-> Thanks for clarifying that, hmm. Why not running the
-> selftests that are tied to the actual -stable kernel,
-> meaning those that the corresponding kernel ships? Is
-> the assumption that potentially you might have more
-> coverage on Linus' tree directly, or that test cases
-> are not updated via -stable along with fixes?
-
-Thanks so much for your reply!
-[1] has details of this discussion, but in summary, yes, it's
-primarily the former - test cases have shown more coverage when tested
-with Linus' tree in most cases.
->
-> I looked at some of the SKIP cases, and how to tie that
-> to the BPF tests (the suite runs probably over 1k tests
-> on verifier, interpreter, jit, etc combinations currently).
-> E.g. in some cases the verifier gets smarter and tests that
-> are rejected on older kernels get accepted on newer ones.
-> But then, we also wouldn't want to exclude these tests
-> (e.g. based on kernel version number or such) for older
-> kernels for the sake of making sure that in case stable
-> updates are applied that they don't introduce regressions
-> we'd otherwise could miss.
-No, certainly not - but would there be some way to denote this
-'smartness' as a feature, so we could test against the feature itself,
-and not rely on kernel version?
->
-> Then, mostly for testing JITs there's the test_bpf.c kernel
-> module, which is a moving target as well, f.e. cleanups
-> like de77b966ce8a ("net: introduce __skb_put_[zero, data,
-> u8]") [unintentionally] tie this to a specific kernel version
-> again. But then again, skipping test_bpf we'd potentially
-> miss to run important test cases. For the mainline git tree
-> it's fairly easy as the test suite is directly coupled to
-> it. Hm, I don't have a good, reliably idea for the time
-> being to not make this a maintenance/testing mess long
-> term, so my recommendation for the time being would be
-> to test with 4.4 and 4.9 test suites, but I'm definitely
-> open for ideas to brainstorm.
->
-Would it be possible to have test_bpf differentiate between SKIP (for
-missing feature) and actual FAIL for the features it is testing? And
-in case there are 0 FAILS, perhaps it could return success? There are
-a few examples in selftests which are quite robust that ways.
-
-I understand completely that it could feel like wasted effort, but
-IMHO, tying tests to kernel versions rather than features can get into
-a bigger maintenance issue.
-
-> Thanks,
-> Daniel
-
-Best,
-Sumit.
-
-[1]: https://lkml.org/lkml/2017/6/16/691
+Series applied, thanks.
