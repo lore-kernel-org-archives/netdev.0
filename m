@@ -1,90 +1,126 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 03/16] net: sched: make egress_dev flag part of flower offload struct
-Date: Mon,  7 Aug 2017 10:15:19 +0200
-Message-ID: <20170807081532.32760-4-jiri@resnulli.us>
-References: <20170807081532.32760-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
-        dirk.vandermerwe@netronome.com, alexander.h.duyck@intel.com,
-        amritha.nambiar@intel.com, oss-drivers@netronome.com,
-        yisen.zhuang@huawei.com, salil.mehta@huawei.com
-To: netdev@vger.kernel.org
+From: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Subject: [PATCHv2] bpf: fix selftest/bpf/test_pkt_md_access on s390x
+Date: Mon,  7 Aug 2017 10:16:36 +0200
+Message-ID: <20170807081636.65099-1-tmricht@linux.vnet.ibm.com>
+Cc: heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com,
+        brueckner@linux.vnet.ibm.com,
+        Thomas Richter <tmricht@linux.vnet.ibm.com>
+To: ast@kernel.org, daniel@iogearbox.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:32778 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752495AbdHGIPk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:15:40 -0400
-Received: by mail-wr0-f195.google.com with SMTP id y43so7111558wrd.0
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 01:15:39 -0700 (PDT)
-In-Reply-To: <20170807081532.32760-1-jiri@resnulli.us>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:51884 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752495AbdHGIRA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:17:00 -0400
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v778FHNo085753
+        for <netdev@vger.kernel.org>; Mon, 7 Aug 2017 04:16:59 -0400
+Received: from e06smtp15.uk.ibm.com (e06smtp15.uk.ibm.com [195.75.94.111])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2c6m3499h5-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 04:16:59 -0400
+Received: from localhost
+        by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
+        Mon, 7 Aug 2017 09:16:57 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+Commit 18f3d6be6be1 ("selftests/bpf: Add test cases to test narrower ctx field loads")
+introduced new eBPF test cases. One of them (test_pkt_md_access.c)
+fails on s390x. The BPF verifier error message is:
 
-Since this is specific to flower now, make it part of the flower offload
-struct.
+[root@s8360046 bpf]# ./test_progs
+test_pkt_access:PASS:ipv4 349 nsec
+test_pkt_access:PASS:ipv6 212 nsec
+[....]
+libbpf: load bpf program failed: Permission denied
+libbpf: -- BEGIN DUMP LOG ---
+libbpf:
+0: (71) r2 = *(u8 *)(r1 +0)
+invalid bpf_context access off=0 size=1
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+libbpf: -- END LOG --
+libbpf: failed to load program 'test1'
+libbpf: failed to load object './test_pkt_md_access.o'
+Summary: 29 PASSED, 1 FAILED
+[root@s8360046 bpf]#
+
+This is caused by a byte endianness issue. S390x is a big endian
+architecture.  Pointer access to the lowest byte or halfword of a
+four byte value need to add an offset.
+On little endian architectures this offset is not needed.
+
+Fix this and use the same approach as the originator used for other files
+(for example test_verifier.c) in his original commit.
+
+With this fix the test program test_progs succeeds on s390x:
+[root@s8360046 bpf]# ./test_progs
+test_pkt_access:PASS:ipv4 236 nsec
+test_pkt_access:PASS:ipv6 217 nsec
+test_xdp:PASS:ipv4 3624 nsec
+test_xdp:PASS:ipv6 1722 nsec
+test_l4lb:PASS:ipv4 926 nsec
+test_l4lb:PASS:ipv6 1322 nsec
+test_tcp_estats:PASS: 0 nsec
+test_bpf_obj_id:PASS:get-fd-by-notexist-prog-id 0 nsec
+test_bpf_obj_id:PASS:get-fd-by-notexist-map-id 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:check total prog id found by get_next_id 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:check get-map-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:check get-map-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:check total map id found by get_next_id 0 nsec
+test_pkt_md_access:PASS: 277 nsec
+Summary: 30 PASSED, 0 FAILED
+[root@s8360046 bpf]#
+
+Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 2 +-
- include/linux/netdevice.h                        | 1 -
- include/net/pkt_cls.h                            | 1 +
- net/sched/cls_flower.c                           | 2 +-
- 4 files changed, 3 insertions(+), 3 deletions(-)
+ tools/testing/selftests/bpf/test_pkt_md_access.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index d44049e..0e6bab1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -661,7 +661,7 @@ static int mlx5e_rep_ndo_setup_tc(struct net_device *dev,
- 	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
- 		return -EOPNOTSUPP;
+diff --git a/tools/testing/selftests/bpf/test_pkt_md_access.c b/tools/testing/selftests/bpf/test_pkt_md_access.c
+index 71729d4..7956302 100644
+--- a/tools/testing/selftests/bpf/test_pkt_md_access.c
++++ b/tools/testing/selftests/bpf/test_pkt_md_access.c
+@@ -12,12 +12,23 @@
  
--	if (tc->egress_dev) {
-+	if (type == TC_SETUP_CLSFLOWER && tc->cls_flower->egress_dev) {
- 		struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
- 		struct net_device *uplink_dev = mlx5_eswitch_get_uplink_netdev(esw);
+ int _version SEC("version") = 1;
  
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f8051a3..bd49dba 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -792,7 +792,6 @@ struct tc_to_netdev {
- 		struct tc_cls_bpf_offload *cls_bpf;
- 		struct tc_mqprio_qopt *mqprio;
- 	};
--	bool egress_dev;
- };
- 
- /* These structures hold the attributes of xdp state that are being passed
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index e0c54f1..8213acd 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -504,6 +504,7 @@ struct tc_cls_flower_offload {
- 	struct fl_flow_key *mask;
- 	struct fl_flow_key *key;
- 	struct tcf_exts *exts;
-+	bool egress_dev;
- };
- 
- enum tc_matchall_command {
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index ddeed17..52deeed 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -259,7 +259,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 			return tc_skip_sw(f->flags) ? -EINVAL : 0;
- 		}
- 		dev = f->hw_dev;
--		tc->egress_dev = true;
-+		offload.egress_dev = true;
- 	} else {
- 		f->hw_dev = dev;
++#if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+ #define TEST_FIELD(TYPE, FIELD, MASK)					\
+ 	{								\
+ 		TYPE tmp = *(volatile TYPE *)&skb->FIELD;		\
+ 		if (tmp != ((*(volatile __u32 *)&skb->FIELD) & MASK))	\
+ 			return TC_ACT_SHOT;				\
  	}
++#else
++#define TEST_FIELD_OFFSET(a, b)	((sizeof(a) - sizeof(b)) / sizeof(b))
++#define TEST_FIELD(TYPE, FIELD, MASK)					\
++	{								\
++		TYPE tmp = *((volatile TYPE *)&skb->FIELD +		\
++			      TEST_FIELD_OFFSET(skb->FIELD, TYPE));	\
++		if (tmp != ((*(volatile __u32 *)&skb->FIELD) & MASK))	\
++			return TC_ACT_SHOT;				\
++	}
++#endif
+ 
+ SEC("test1")
+ int process(struct __sk_buff *skb)
 -- 
 2.9.3
