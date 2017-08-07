@@ -1,8 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v2 2/2] bpf: Extend check_uarg_tail_zero() checks
-Date: Mon,  7 Aug 2017 20:45:20 +0200
-Message-ID: <20170807184520.8130-2-mic@digikod.net>
-References: <20170807184520.8130-1-mic@digikod.net>
+Subject: [PATCH net-next v2 1/2] bpf: Move check_uarg_tail_zero() upward
+Date: Mon,  7 Aug 2017 20:45:19 +0200
+Message-ID: <20170807184520.8130-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -15,15 +14,12 @@ Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
         Alexei Starovoitov <ast@kernel.org>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170807184520.8130-1-mic@digikod.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function check_uarg_tail_zero() was created from bpf(2) for
-BPF_OBJ_GET_INFO_BY_FD without taking the access_ok() nor the PAGE_SIZE
-checks. Make this checks more generally available while unlikely to be
-triggered, extend the memory range check and add an explanation
-including why the ToCToU should not be a security concern.
+The function check_uarg_tail_zero() may be useful for other part of the
+code in the syscall.c file. Move this function at the beginning of the
+file.
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
@@ -31,61 +27,82 @@ Cc: Alexei Starovoitov <ast@kernel.org>
 Cc: David S. Miller <davem@davemloft.net>
 Cc: Kees Cook <keescook@chromium.org>
 Cc: Martin KaFai Lau <kafai@fb.com>
-Link: https://lkml.kernel.org/r/CAGXu5j+vRGFvJZmjtAcT8Hi8B+Wz0e1b6VKYZHfQP_=DXzC4CQ@mail.gmail.com
 ---
- kernel/bpf/syscall.c | 26 +++++++++++++++-----------
- 1 file changed, 15 insertions(+), 11 deletions(-)
+
+This is needed for the Landlock patch series. :)
+---
+ kernel/bpf/syscall.c | 52 ++++++++++++++++++++++++++--------------------------
+ 1 file changed, 26 insertions(+), 26 deletions(-)
 
 diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index c653ee0bd162..fbe09a0cccf4 100644
+index 6c772adabad2..c653ee0bd162 100644
 --- a/kernel/bpf/syscall.c
 +++ b/kernel/bpf/syscall.c
-@@ -48,6 +48,15 @@ static const struct bpf_map_ops * const bpf_map_types[] = {
+@@ -48,6 +48,32 @@ static const struct bpf_map_ops * const bpf_map_types[] = {
  #undef BPF_MAP_TYPE
  };
  
-+/*
-+ * If we're handed a bigger struct than we know of, ensure all the unknown bits
-+ * are 0 - i.e. new user-space does not rely on any kernel feature extensions
-+ * we don't know about yet.
-+ *
-+ * There is a ToCToU between this function call and the following
-+ * copy_from_user() call. However, this is not a concern since this function is
-+ * meant to be a future-proofing of bits.
-+ */
- static int check_uarg_tail_zero(void __user *uaddr,
- 				size_t expected_size,
- 				size_t actual_size)
-@@ -57,6 +66,12 @@ static int check_uarg_tail_zero(void __user *uaddr,
- 	unsigned char val;
- 	int err;
- 
-+	if (unlikely(actual_size > PAGE_SIZE))	/* silly large */
-+		return -E2BIG;
++static int check_uarg_tail_zero(void __user *uaddr,
++				size_t expected_size,
++				size_t actual_size)
++{
++	unsigned char __user *addr;
++	unsigned char __user *end;
++	unsigned char val;
++	int err;
 +
-+	if (unlikely(!access_ok(VERIFY_READ, uaddr, actual_size)))
-+		return -EFAULT;
++	if (actual_size <= expected_size)
++		return 0;
 +
- 	if (actual_size <= expected_size)
- 		return 0;
++	addr = uaddr + expected_size;
++	end  = uaddr + actual_size;
++
++	for (; addr < end; addr++) {
++		err = get_user(val, addr);
++		if (err)
++			return err;
++		if (val)
++			return -E2BIG;
++	}
++
++	return 0;
++}
++
+ static struct bpf_map *find_and_alloc_map(union bpf_attr *attr)
+ {
+ 	struct bpf_map *map;
+@@ -1246,32 +1272,6 @@ static int bpf_map_get_fd_by_id(const union bpf_attr *attr)
+ 	return fd;
+ }
  
-@@ -1393,17 +1408,6 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
- 	if (!capable(CAP_SYS_ADMIN) && sysctl_unprivileged_bpf_disabled)
- 		return -EPERM;
- 
--	if (!access_ok(VERIFY_READ, uattr, 1))
--		return -EFAULT;
+-static int check_uarg_tail_zero(void __user *uaddr,
+-				size_t expected_size,
+-				size_t actual_size)
+-{
+-	unsigned char __user *addr;
+-	unsigned char __user *end;
+-	unsigned char val;
+-	int err;
 -
--	if (size > PAGE_SIZE)	/* silly large */
--		return -E2BIG;
+-	if (actual_size <= expected_size)
+-		return 0;
 -
--	/* If we're handed a bigger struct than we know of,
--	 * ensure all the unknown bits are 0 - i.e. new
--	 * user-space does not rely on any kernel feature
--	 * extensions we dont know about yet.
--	 */
- 	err = check_uarg_tail_zero(uattr, sizeof(attr), size);
- 	if (err)
- 		return err;
+-	addr = uaddr + expected_size;
+-	end  = uaddr + actual_size;
+-
+-	for (; addr < end; addr++) {
+-		err = get_user(val, addr);
+-		if (err)
+-			return err;
+-		if (val)
+-			return -E2BIG;
+-	}
+-
+-	return 0;
+-}
+-
+ static int bpf_prog_get_info_by_fd(struct bpf_prog *prog,
+ 				   const union bpf_attr *attr,
+ 				   union bpf_attr __user *uattr)
 -- 
 2.13.3
