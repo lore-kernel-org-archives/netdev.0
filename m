@@ -1,58 +1,35 @@
-From: Rob Herring <robh+dt@kernel.org>
-Subject: Re: [PATCH] of_mdio: use of_property_read_u32_array()
-Date: Mon, 7 Aug 2017 13:44:59 -0500
-Message-ID: <CAL_JsqLwZogY7n3+uEyGzDbKLv3DmOBAFKgML4XeJiF8Qvzq7A@mail.gmail.com>
-References: <20170804214354.351406407@cogentembedded.com> <CAL_JsqKDXAbAVpgMSU39+9mF7MZWQotLUNkjePy9eUsnBs99Vw@mail.gmail.com>
- <080ebcb6-b5aa-63db-176b-83477c2540e5@cogentembedded.com> <f9af35a3-bb53-c554-eb6e-93cf6c24cb29@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
+Date: Mon, 07 Aug 2017 11:45:17 -0700 (PDT)
+Message-ID: <20170807.114517.1570408214504753399.davem@davemloft.net>
+References: <8e8bc709-55b0-e207-b4bf-605bdf2ba323@gmail.com>
+        <20170807110649.052e028a@xeon-e3>
+        <bd0ad410-9b64-6f1b-6f78-08f6e801628b@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Frank Rowand <frowand.list@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, simon.horman@netronome.com,
+        daniel@iogearbox.net, phil@nwl.cc, netdev@vger.kernel.org
+To: dsahern@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:41874 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751933AbdHGSpV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 7 Aug 2017 14:45:21 -0400
-In-Reply-To: <f9af35a3-bb53-c554-eb6e-93cf6c24cb29@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33822 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751564AbdHGSpS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 14:45:18 -0400
+In-Reply-To: <bd0ad410-9b64-6f1b-6f78-08f6e801628b@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 7, 2017 at 1:01 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 08/07/2017 09:18 AM, Sergei Shtylyov wrote:
->> Hello!
->>
->> On 08/07/2017 05:18 PM, Rob Herring wrote:
->>
->>>> The "fixed-link" prop support predated of_property_read_u32_array(), so
->>>> basically had to open-code it. Using the modern API saves 24 bytes of
->>>> the
->>>> object code (ARM gcc 4.8.5); the only behavior change would be that the
->>>> prop length check is now less strict (however the strict pre-check done
->>>> in of_phy_is_fixed_link() is left intact anyway)...
->>>>
->>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>>>
->>>> ---
->>>> The patch is against the 'dt/next' branch of Rob Herring's
->>>> 'linux-git' repo
->>>> plus the previously posted patch killing the useless local variable in
->>>> of_phy_register_fixed_link().
->>>
->>> It shouldn't depend on anything in my tree and David normally takes
->>> of_mdio.c changes.
->>
->>    MAINTAINERS still only point at the DT repo, perhaps it should be
->> updated?
->
-> More or less done with this (minus the repo part):
->
-> http://patchwork.ozlabs.org/patch/795887/
+From: David Ahern <dsahern@gmail.com>
+Date: Mon, 7 Aug 2017 12:09:31 -0600
 
-Really I'd like to see this fixed by moving of_mdio.c and of_net.c to
-drivers/net/ as we've done for all other subsystems.
+> On 8/7/17 12:06 PM, Stephen Hemminger wrote:
+>>> Does not work. Seems like you pushed the RFC commit which was known to
+>>> be incomplete.
+>> 
+>> Patches welcome.
+> 
+> What exists does not even compile. Patches will be sent once you fix that.
 
-Rob
+Yeah seriously Stephen, you created this huge mess so the onus is really
+on you to fix it up.
