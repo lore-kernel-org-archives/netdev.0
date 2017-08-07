@@ -1,56 +1,165 @@
 From: Joel Fernandes <joelaf@google.com>
-Subject: [PATCH RFC v2 1/5] samples/bpf: Use getppid instead of getpgrp for array map stress
-Date: Mon,  7 Aug 2017 06:05:58 -0700
-Message-ID: <20170807130602.31785-2-joelaf@google.com>
-References: <20170807130602.31785-1-joelaf@google.com>
+Subject: Re: [PATCH RFC v2 3/5] samples/bpf: Fix inline asm issues building
+ samples on arm64
+Date: Mon, 7 Aug 2017 06:15:05 -0700
+Message-ID: <CAJWu+oqCQ0TU60hXOtN+JO2tppRb6D1Niu9jk71TtwaE7WgQNA@mail.gmail.com>
+References: <20170807130602.31785-1-joelaf@google.com> <20170807130602.31785-4-joelaf@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Cc: Chenbo Feng <fengc@google.com>,
-        Alison Chaiken <alison@she-devel.com>, Juri.Lelli@arm.com,
+        Alison Chaiken <alison@she-devel.com>,
+        Juri Lelli <Juri.Lelli@arm.com>,
         Joel Fernandes <joelaf@google.com>,
         Alexei Starovoitov <ast@kernel.org>,
         Daniel Borkmann <daniel@iogearbox.net>,
-        netdev@vger.kernel.org (open list:BPF (Safe dynamic programs and tools))
-To: linux-kernel@vger.kernel.org
+        "open list:BPF (Safe dynamic programs and tools)"
+        <netdev@vger.kernel.org>
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170807130602.31785-1-joelaf@google.com>
+In-Reply-To: <20170807130602.31785-4-joelaf@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When cross-compiling the bpf sample map_perf_test for aarch64, I find that
-__NR_getpgrp is undefined. This causes build errors. This syscall is deprecated
-and requires defining __ARCH_WANT_SYSCALL_DEPRECATED. To avoid having to define
-that, just use a different syscall (getppid) for the array map stress test.
+On Mon, Aug 7, 2017 at 6:06 AM, Joel Fernandes <joelaf@google.com> wrote:
+> inline assembly has haunted building samples on arm64 for quite sometime.
+> This patch uses the pre-processor to noop all occurences of inline asm when
+> compiling the BPF sample for the BPF target.
+>
+> This patch reintroduces inclusion of asm/sysregs.h which needs to be included
+> to avoid compiler errors now, see [1]. Previously a hack prevented this
+> inclusion [2] (to avoid the exact problem this patch fixes - skipping inline
+> assembler) but the hack causes other errors now and no longer works.
+>
+> Using the preprocessor to noop the inline asm occurences, we also avoid
+> any future unstable hackery needed (such as those that skip asm headers)
+> and provides information that asm headers may have which could have been
+> used but which the inline asm issues prevented. This is the least messy
+> of all hacks in my opinion.
+>
+> [1] https://lkml.org/lkml/2017/8/5/143
+> [2] https://lists.linaro.org/pipermail/linaro-kernel/2015-November/024036.html
+>
+> Signed-off-by: Joel Fernandes <joelaf@google.com>
+> ---
+>  samples/bpf/Makefile           | 40 +++++++++++++++++++++++++++++++++-------
+>  samples/bpf/arm64_asmstubs.h   |  3 +++
+>  samples/bpf/bpf_helpers.h      | 12 ++++++------
+>  samples/bpf/generic_asmstubs.h |  4 ++++
+>  4 files changed, 46 insertions(+), 13 deletions(-)
+>  create mode 100644 samples/bpf/arm64_asmstubs.h
+>  create mode 100644 samples/bpf/generic_asmstubs.h
+>
+> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+> index e5642c8c144d..7591cdd7fe69 100644
+> --- a/samples/bpf/Makefile
+> +++ b/samples/bpf/Makefile
+> @@ -151,6 +151,8 @@ HOSTLOADLIBES_test_map_in_map += -lelf
+>  #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
+>  LLC ?= llc
+>  CLANG ?= clang
+> +PERL ?= perl
+> +RM ?= rm
+>
+>  # Detect that we're cross compiling and use the right compilers and flags
+>  ifdef CROSS_COMPILE
+> @@ -186,14 +188,38 @@ verify_target_bpf: verify_cmds
+>
+>  $(src)/*.c: verify_target_bpf
+>
+> -# asm/sysreg.h - inline assembly used by it is incompatible with llvm.
+> -# But, there is no easy way to fix it, so just exclude it since it is
+> -# useless for BPF samples.
+> -$(obj)/%.o: $(src)/%.c
+> -       $(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+> -               -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+> +curdir := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+> +ifeq ($(wildcard  $(curdir)/${ARCH}_asmstubs.h),)
+> +    ARCH_ASM_STUBS :=
+> +else
+> +    ARCH_ASM_STUBS := -include $(src)/${ARCH}_asmstubs.h
+> +endif
+> +
+> +ASM_STUBS := ${ARCH_ASM_STUBS} -include $(src)/generic_asmstubs.h
+> +
+> +CLANG_ARGS = $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+> +               -D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
+> +               $(ASM_STUBS) \
+>                 -Wno-compare-distinct-pointer-types \
+>                 -Wno-gnu-variable-sized-type-not-at-end \
+>                 -Wno-address-of-packed-member -Wno-tautological-compare \
+>                 -Wno-unknown-warning-option \
+> -               -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+> +               -O2 -emit-llvm
+> +
+> +$(obj)/%.o: $(src)/%.c
+> +       # Steps to compile BPF sample while getting rid of inline asm
+> +       # This has the advantage of not having to skip important asm headers
+> +       # Step 1. Use clang preprocessor to stub out asm() calls
+> +       # Step 2. Replace all "asm volatile" with single keyword "asmvolatile"
+> +       # Step 3. Use clang preprocessor to noop all asm volatile() calls
+> +       #         and restore asm_bpf to asm for BPF's asm directives
+> +       # Step 4. Compile and link
+> +
+> +       $(CLANG) -E $(CLANG_ARGS) -c $< -o - | \
+> +       $(PERL) -pe "s/[_\s]*asm[_\s]*volatile[_\s]*/asmvolatile/g" | \
+> +       $(CLANG) -E $(ASM_STUBS) - -o - | \
+> +       $(CLANG) -E -Dasm_bpf=asm - -o $@.tmp.c
+> +
+> +       $(CLANG) $(CLANG_ARGS) -c $@.tmp.c \
+> +               -o - | $(LLC) -march=bpf -filetype=obj -o $@
 
-Signed-off-by: Joel Fernandes <joelaf@google.com>
----
- samples/bpf/map_perf_test_kern.c | 2 +-
- samples/bpf/map_perf_test_user.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Just found an issue here that asm_bpf will be stubbed out by
+CLANG_ARGS, will fix it next rev. I'll also try to do object
+inspection to make sure the asm directive bpf_helpers is working.
+thanks!
 
-diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
-index 245165817fbe..038ffec295cf 100644
---- a/samples/bpf/map_perf_test_kern.c
-+++ b/samples/bpf/map_perf_test_kern.c
-@@ -232,7 +232,7 @@ int stress_hash_map_lookup(struct pt_regs *ctx)
- 	return 0;
- }
- 
--SEC("kprobe/sys_getpgrp")
-+SEC("kprobe/sys_getppid")
- int stress_array_map_lookup(struct pt_regs *ctx)
- {
- 	u32 key = 1, i;
-diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
-index 1a8894b5ac51..1e9e68942197 100644
---- a/samples/bpf/map_perf_test_user.c
-+++ b/samples/bpf/map_perf_test_user.c
-@@ -232,7 +232,7 @@ static void test_array_lookup(int cpu)
- 
- 	start_time = time_get_ns();
- 	for (i = 0; i < max_cnt; i++)
--		syscall(__NR_getpgrp, 0);
-+		syscall(__NR_getppid, 0);
- 	printf("%d:array_lookup %lld lookups per sec\n",
- 	       cpu, max_cnt * 1000000000ll * 64 / (time_get_ns() - start_time));
- }
--- 
-2.14.0.rc1.383.gd1ce394fe2-goog
+-Joel
+
+
+
+> +       $(RM) $@.tmp.c
+> diff --git a/samples/bpf/arm64_asmstubs.h b/samples/bpf/arm64_asmstubs.h
+> new file mode 100644
+> index 000000000000..23d47dbe61b1
+> --- /dev/null
+> +++ b/samples/bpf/arm64_asmstubs.h
+> @@ -0,0 +1,3 @@
+> +/* Special handing for current_stack_pointer */
+> +#define __ASM_STACK_POINTER_H
+> +#define current_stack_pointer 0
+> diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+> index 9a9c95f2c9fb..67c9c4438e4b 100644
+> --- a/samples/bpf/bpf_helpers.h
+> +++ b/samples/bpf/bpf_helpers.h
+> @@ -64,12 +64,12 @@ static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
+>   * emit BPF_LD_ABS and BPF_LD_IND instructions
+>   */
+>  struct sk_buff;
+> -unsigned long long load_byte(void *skb,
+> -                            unsigned long long off) asm("llvm.bpf.load.byte");
+> -unsigned long long load_half(void *skb,
+> -                            unsigned long long off) asm("llvm.bpf.load.half");
+> -unsigned long long load_word(void *skb,
+> -                            unsigned long long off) asm("llvm.bpf.load.word");
+> +unsigned long long load_byte(void *skb, unsigned long long off)
+> +                            asm_bpf("llvm.bpf.load.byte");
+> +unsigned long long load_half(void *skb, unsigned long long off)
+> +                            asm_bpf("llvm.bpf.load.half");
+> +unsigned long long load_word(void *skb, unsigned long long off)
+> +                            asm_bpf("llvm.bpf.load.word");
+>
+>  /* a helper structure used by eBPF C program
+>   * to describe map attributes to elf_bpf loader
+> diff --git a/samples/bpf/generic_asmstubs.h b/samples/bpf/generic_asmstubs.h
+> new file mode 100644
+> index 000000000000..1b9e9f5094d8
+> --- /dev/null
+> +++ b/samples/bpf/generic_asmstubs.h
+> @@ -0,0 +1,4 @@
+> +#define bpf_noop_stub
+> +#define asm(...) bpf_noop_stub
+> +#define __asm__(...) bpf_noop_stub
+> +#define asmvolatile(...) bpf_noop_stub
+> --
+> 2.14.0.rc1.383.gd1ce394fe2-goog
+>
