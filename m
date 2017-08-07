@@ -1,47 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 00/13] Update DSA's FDB API and perform
- switchdev cleanup
-Date: Mon, 07 Aug 2017 14:49:49 -0700 (PDT)
-Message-ID: <20170807.144949.1849322815118190718.davem@davemloft.net>
-References: <1502025351-41261-1-git-send-email-arkadis@mellanox.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] wan: dscc4: add checks for dma mapping errors
+Date: Mon, 7 Aug 2017 23:59:43 +0200
+Message-ID: <20170807215943.GA22433@electric-eye.fr.zoreil.com>
+References: <1501878204-24270-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, ivecera@redhat.com,
-        f.fainelli@gmail.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, Woojung.Huh@microchip.com,
-        mlxsw@mellanox.com
-To: arkadis@mellanox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36776 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751662AbdHGVtv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 17:49:51 -0400
-In-Reply-To: <1502025351-41261-1-git-send-email-arkadis@mellanox.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:58719 "EHLO
+        violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751662AbdHGV74 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 17:59:56 -0400
+Content-Disposition: inline
+In-Reply-To: <1501878204-24270-1-git-send-email-khoroshilov@ispras.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Date: Sun,  6 Aug 2017 16:15:38 +0300
+Alexey Khoroshilov <khoroshilov@ispras.ru> :
+> The driver does not check if mapping dma memory succeed.
+> The patch adds the checks and failure handling.
+> 
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-> The patchset adds support for configuring static FDB entries via the
-> switchdev notification chain. The current method for FDB configuration
-> uses the switchdev's bridge bypass implementation. In order to support 
-> this legacy way and to perform the switchdev cleanup, the implementation
-> is moved inside DSA.
-> 
-> The DSA drivers cannot sync the software bridge with hardware learned
-> entries and use the switchdev's implementation of bypass FDB dumping.
-> Because they are the only ones using this functionality, the fdb_dump
-> implementation is moved from switchdev code into DSA.
-> 
-> Finally after this changes a major cleanup in switchdev can be done.
-> ---
-> Please see individual patches for patch specific change logs.
-> v1->v2
-> - Split MDB/vlan dump removal into core/driver removal.
-> 
-> v2->v3
-> - The self implementation for FDB add/del is moved inside DSA.
+Please amend your subject line as:
 
-Series applied, thank you.
+Subject: [PATCH net-next v2 1/1] dscc4: add checks for dma mapping errors.
+
+Rationale: davem is not supposed to guess the branch the patch should be
+applied to.
+
+[...]
+> diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+> index 799830ffcae2..1a94f0a95b2c 100644
+> --- a/drivers/net/wan/dscc4.c
+> +++ b/drivers/net/wan/dscc4.c
+> @@ -522,19 +522,27 @@ static inline int try_get_rx_skb(struct dscc4_dev_priv *dpriv,
+>  	struct RxFD *rx_fd = dpriv->rx_fd + dirty;
+>  	const int len = RX_MAX(HDLC_MAX_MRU);
+>  	struct sk_buff *skb;
+> -	int ret = 0;
+> +	dma_addr_t addr;
+>  
+>  	skb = dev_alloc_skb(len);
+>  	dpriv->rx_skbuff[dirty] = skb;
+> -	if (skb) {
+> -		skb->protocol = hdlc_type_trans(skb, dev);
+> -		rx_fd->data = cpu_to_le32(pci_map_single(dpriv->pci_priv->pdev,
+> -					  skb->data, len, PCI_DMA_FROMDEVICE));
+> -	} else {
+> -		rx_fd->data = 0;
+> -		ret = -1;
+> -	}
+> -	return ret;
+> +	if (!skb)
+> +		goto err_out;
+> +
+> +	skb->protocol = hdlc_type_trans(skb, dev);
+> +	addr = pci_map_single(dpriv->pci_priv->pdev,
+> +			      skb->data, len, PCI_DMA_FROMDEVICE);
+> +	if (pci_dma_mapping_error(dpriv->pci_priv->pdev, addr))
+> +		goto err_free_skb;
+
+Nit: please use a local 'struct pci_dev *pdev = dpriv->pci_priv->pdev;'
+
+[...]
+> @@ -1147,14 +1155,22 @@ static netdev_tx_t dscc4_start_xmit(struct sk_buff *skb,
+>  	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
+>  	struct dscc4_pci_priv *ppriv = dpriv->pci_priv;
+>  	struct TxFD *tx_fd;
+> +	dma_addr_t addr;
+>  	int next;
+>  
+> +	addr = pci_map_single(ppriv->pdev, skb->data, skb->len,
+> +			      PCI_DMA_TODEVICE);
+> +	if (pci_dma_mapping_error(ppriv->pdev, addr)) {
+> +		dev_kfree_skb_any(skb);
+> +		dev->stats.tx_errors++;
+
+It should read 'dev->stats.tx_dropped++'.
+
+-- 
+Ueimor
