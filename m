@@ -1,165 +1,86 @@
-From: Joel Fernandes <joelaf@google.com>
-Subject: Re: [PATCH RFC v2 3/5] samples/bpf: Fix inline asm issues building
- samples on arm64
-Date: Mon, 7 Aug 2017 06:15:05 -0700
-Message-ID: <CAJWu+oqCQ0TU60hXOtN+JO2tppRb6D1Niu9jk71TtwaE7WgQNA@mail.gmail.com>
-References: <20170807130602.31785-1-joelaf@google.com> <20170807130602.31785-4-joelaf@google.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [RFC net-next] net: xfrm: support setting an output mark.
+Date: Mon, 7 Aug 2017 22:34:37 +0900
+Message-ID: <CAKD1Yr2YXYed+vVgcyYo4XLAFXGjwwdSRucOmg+z2PVZD_A06Q@mail.gmail.com>
+References: <20170807092326.10239-1-lorenzo@google.com> <20170807111623.GQ2631@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Chenbo Feng <fengc@google.com>,
-        Alison Chaiken <alison@she-devel.com>,
-        Juri Lelli <Juri.Lelli@arm.com>,
-        Joel Fernandes <joelaf@google.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "open list:BPF (Safe dynamic programs and tools)"
-        <netdev@vger.kernel.org>
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170807130602.31785-4-joelaf@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        herbert@gondor.apana.org.au, Nathan Harold <nharold@google.com>,
+        Jonathan Basseri <misterikkit@google.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:33772 "EHLO
+        mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751399AbdHGNe6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 09:34:58 -0400
+Received: by mail-io0-f177.google.com with SMTP id j32so2651392iod.0
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 06:34:58 -0700 (PDT)
+In-Reply-To: <20170807111623.GQ2631@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 7, 2017 at 6:06 AM, Joel Fernandes <joelaf@google.com> wrote:
-> inline assembly has haunted building samples on arm64 for quite sometime.
-> This patch uses the pre-processor to noop all occurences of inline asm when
-> compiling the BPF sample for the BPF target.
+On Mon, Aug 7, 2017 at 8:16 PM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> >       XFRMA_OFFLOAD_DEV,      /* struct xfrm_state_offload */
+> > +     XFRMA_OUTPUT_MARK,      /* __u32 */
+> >       __XFRMA_MAX
 >
-> This patch reintroduces inclusion of asm/sysregs.h which needs to be included
-> to avoid compiler errors now, see [1]. Previously a hack prevented this
-> inclusion [2] (to avoid the exact problem this patch fixes - skipping inline
-> assembler) but the hack causes other errors now and no longer works.
->
-> Using the preprocessor to noop the inline asm occurences, we also avoid
-> any future unstable hackery needed (such as those that skip asm headers)
-> and provides information that asm headers may have which could have been
-> used but which the inline asm issues prevented. This is the least messy
-> of all hacks in my opinion.
->
-> [1] https://lkml.org/lkml/2017/8/5/143
-> [2] https://lists.linaro.org/pipermail/linaro-kernel/2015-November/024036.html
->
-> Signed-off-by: Joel Fernandes <joelaf@google.com>
-> ---
->  samples/bpf/Makefile           | 40 +++++++++++++++++++++++++++++++++-------
->  samples/bpf/arm64_asmstubs.h   |  3 +++
->  samples/bpf/bpf_helpers.h      | 12 ++++++------
->  samples/bpf/generic_asmstubs.h |  4 ++++
->  4 files changed, 46 insertions(+), 13 deletions(-)
->  create mode 100644 samples/bpf/arm64_asmstubs.h
->  create mode 100644 samples/bpf/generic_asmstubs.h
->
-> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-> index e5642c8c144d..7591cdd7fe69 100644
-> --- a/samples/bpf/Makefile
-> +++ b/samples/bpf/Makefile
-> @@ -151,6 +151,8 @@ HOSTLOADLIBES_test_map_in_map += -lelf
->  #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
->  LLC ?= llc
->  CLANG ?= clang
-> +PERL ?= perl
-> +RM ?= rm
->
->  # Detect that we're cross compiling and use the right compilers and flags
->  ifdef CROSS_COMPILE
-> @@ -186,14 +188,38 @@ verify_target_bpf: verify_cmds
->
->  $(src)/*.c: verify_target_bpf
->
-> -# asm/sysreg.h - inline assembly used by it is incompatible with llvm.
-> -# But, there is no easy way to fix it, so just exclude it since it is
-> -# useless for BPF samples.
-> -$(obj)/%.o: $(src)/%.c
-> -       $(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
-> -               -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-> +curdir := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-> +ifeq ($(wildcard  $(curdir)/${ARCH}_asmstubs.h),)
-> +    ARCH_ASM_STUBS :=
-> +else
-> +    ARCH_ASM_STUBS := -include $(src)/${ARCH}_asmstubs.h
-> +endif
-> +
-> +ASM_STUBS := ${ARCH_ASM_STUBS} -include $(src)/generic_asmstubs.h
-> +
-> +CLANG_ARGS = $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
-> +               -D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
-> +               $(ASM_STUBS) \
->                 -Wno-compare-distinct-pointer-types \
->                 -Wno-gnu-variable-sized-type-not-at-end \
->                 -Wno-address-of-packed-member -Wno-tautological-compare \
->                 -Wno-unknown-warning-option \
-> -               -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
-> +               -O2 -emit-llvm
-> +
-> +$(obj)/%.o: $(src)/%.c
-> +       # Steps to compile BPF sample while getting rid of inline asm
-> +       # This has the advantage of not having to skip important asm headers
-> +       # Step 1. Use clang preprocessor to stub out asm() calls
-> +       # Step 2. Replace all "asm volatile" with single keyword "asmvolatile"
-> +       # Step 3. Use clang preprocessor to noop all asm volatile() calls
-> +       #         and restore asm_bpf to asm for BPF's asm directives
-> +       # Step 4. Compile and link
-> +
-> +       $(CLANG) -E $(CLANG_ARGS) -c $< -o - | \
-> +       $(PERL) -pe "s/[_\s]*asm[_\s]*volatile[_\s]*/asmvolatile/g" | \
-> +       $(CLANG) -E $(ASM_STUBS) - -o - | \
-> +       $(CLANG) -E -Dasm_bpf=asm - -o $@.tmp.c
-> +
-> +       $(CLANG) $(CLANG_ARGS) -c $@.tmp.c \
-> +               -o - | $(LLC) -march=bpf -filetype=obj -o $@
+> Hm, why don't you use the existing xfrm_mark for this?
+> Having two different marks on one SA seems to be a bit odd.
 
-Just found an issue here that asm_bpf will be stubbed out by
-CLANG_ARGS, will fix it next rev. I'll also try to do object
-inspection to make sure the asm directive bpf_helpers is working.
-thanks!
+I think using a separate mark is conceptually cleaner and much more flexible.
 
--Joel
+The existing xfrm_mark is constrained to match the mark of the socket
+that sends the packet (or the unencrypted packet that is transformed).
+Specifically (at least if I'm reading the code correctly),
+xfrm_policy_match requires:
+
+    (fl->flowi_mark & pol->mark.m) == pol->mark.v
+
+and xfrm_state_find requires:
+
+    (mark & x->mark.m) == x->mark.v
+
+so basically the SA mark is a subset of the bits of the policy mark,
+which is a subset of the bits of sk_mark.
+
+On systems using mark-based routing (or at least on Android [1]), the
+mark decides how a packet is routed, and in order for things to work
+properly the routing of an IPsec tunnel should depend only on the
+tunnel configuration and not on the mark of any socket or any packet
+that is routed through that tunnel. The mark might select which tunnel
+to go through, and the output mark would decide how the tunnel packets
+are routed.
+
+A real use case is IWLAN [2], which is used to connect to 3GPP
+networks over wifi. The phone has the same IP addresses on the
+cellular interface and on an IPsec tunnel to a carrier gateway (PDG).
+On Android, a socket connected on the carrier network through a native
+interface such as LTE will have the socket mark that's specific to the
+carrier network. If the device then hands over the carrier connection
+to the IPsec tunnel over wifi, the socket will still have the mark of
+the LTE interface. If we used xfrm_mark, then the tunneled packets
+themselves will be routed on LTE instead of being routed on wifi. That
+obviously defeats the purpose.
+
+Using XFRM_OUTPUT_MARK makes this much cleaner: the socket can
+continue to be marked with the carrier network's mark, and it's the
+IPsec tunnel itself that is bound to the wifi network using the mark
+in the SA.
+
+Another use case is if there are multiple SAs that apply to a given
+socket/packet (e.g., a transport mode SA for an individual TCP
+connection, wrapped in a tunnel mode SA that applies to a whole remote
+site or network). This is required when running SIP over IWLAN (i.e.,
+"wifi calling") - the SIP connection is always encrypted in transport
+mode regardless of whether the carrier connection is native or
+tunneled over wifi, and when on wifi, the mark that is used to route
+the packet must be the tunnel mode SA, not the socket mark or the
+transport mode SA mark.
 
 
-
-> +       $(RM) $@.tmp.c
-> diff --git a/samples/bpf/arm64_asmstubs.h b/samples/bpf/arm64_asmstubs.h
-> new file mode 100644
-> index 000000000000..23d47dbe61b1
-> --- /dev/null
-> +++ b/samples/bpf/arm64_asmstubs.h
-> @@ -0,0 +1,3 @@
-> +/* Special handing for current_stack_pointer */
-> +#define __ASM_STACK_POINTER_H
-> +#define current_stack_pointer 0
-> diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-> index 9a9c95f2c9fb..67c9c4438e4b 100644
-> --- a/samples/bpf/bpf_helpers.h
-> +++ b/samples/bpf/bpf_helpers.h
-> @@ -64,12 +64,12 @@ static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
->   * emit BPF_LD_ABS and BPF_LD_IND instructions
->   */
->  struct sk_buff;
-> -unsigned long long load_byte(void *skb,
-> -                            unsigned long long off) asm("llvm.bpf.load.byte");
-> -unsigned long long load_half(void *skb,
-> -                            unsigned long long off) asm("llvm.bpf.load.half");
-> -unsigned long long load_word(void *skb,
-> -                            unsigned long long off) asm("llvm.bpf.load.word");
-> +unsigned long long load_byte(void *skb, unsigned long long off)
-> +                            asm_bpf("llvm.bpf.load.byte");
-> +unsigned long long load_half(void *skb, unsigned long long off)
-> +                            asm_bpf("llvm.bpf.load.half");
-> +unsigned long long load_word(void *skb, unsigned long long off)
-> +                            asm_bpf("llvm.bpf.load.word");
->
->  /* a helper structure used by eBPF C program
->   * to describe map attributes to elf_bpf loader
-> diff --git a/samples/bpf/generic_asmstubs.h b/samples/bpf/generic_asmstubs.h
-> new file mode 100644
-> index 000000000000..1b9e9f5094d8
-> --- /dev/null
-> +++ b/samples/bpf/generic_asmstubs.h
-> @@ -0,0 +1,4 @@
-> +#define bpf_noop_stub
-> +#define asm(...) bpf_noop_stub
-> +#define __asm__(...) bpf_noop_stub
-> +#define asmvolatile(...) bpf_noop_stub
-> --
-> 2.14.0.rc1.383.gd1ce394fe2-goog
->
+[1] http://www.netdevconf.org/1.1/proceedings/slides/colitti-kline-linux-networking-android-devices.pdf
+[2] http://www.etsi.org/deliver/etsi_ts/124300_124399/124327/12.00.00_60/ts_124327v120000p.pdf
