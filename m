@@ -1,108 +1,54 @@
-From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v1 1/2] bpf: Move check_uarg_tail_zero() upward
-Date: Mon,  7 Aug 2017 18:36:04 +0200
-Message-ID: <20170807163605.14194-1-mic@digikod.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Qdisc->u32_node - licence to kill
+Date: Mon, 7 Aug 2017 18:41:00 +0200
+Message-ID: <20170807164100.GK2085@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Kees Cook <keescook@chromium.org>,
-        Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org,
-        Alexei Starovoitov <ast@kernel.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mlxsw@mellanox.com
+To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f175.google.com ([209.85.128.175]:35918 "EHLO
+        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751508AbdHGQlD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 12:41:03 -0400
+Received: by mail-wr0-f175.google.com with SMTP id y43so3775761wrd.3
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 09:41:02 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function check_uarg_tail_zero() may be useful for other part of the
-code in the syscall.c file. Move this function at the beginning of the
-file.
+Hi Jamal/Cong/David/all.
 
-Signed-off-by: Mickaël Salaün <mic@digikod.net>
-Cc: Alexei Starovoitov <ast@kernel.org>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Kees Cook <keescook@chromium.org>
-Cc: Martin KaFai Lau <kafai@fb.com>
----
+Digging in the u32 code deeper now. I need to get rid of tp->q for shared
+blocks, but I found out about this:
 
-This is needed for the Landlock patch series. :)
----
- kernel/bpf/syscall.c | 52 ++++++++++++++++++++++++++--------------------------
- 1 file changed, 26 insertions(+), 26 deletions(-)
+struct Qdisc {
+	......
+        void                    *u32_node;
+	......
+};
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 6c772adabad2..c653ee0bd162 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -48,6 +48,32 @@ static const struct bpf_map_ops * const bpf_map_types[] = {
- #undef BPF_MAP_TYPE
- };
- 
-+static int check_uarg_tail_zero(void __user *uaddr,
-+				size_t expected_size,
-+				size_t actual_size)
-+{
-+	unsigned char __user *addr;
-+	unsigned char __user *end;
-+	unsigned char val;
-+	int err;
-+
-+	if (actual_size <= expected_size)
-+		return 0;
-+
-+	addr = uaddr + expected_size;
-+	end  = uaddr + actual_size;
-+
-+	for (; addr < end; addr++) {
-+		err = get_user(val, addr);
-+		if (err)
-+			return err;
-+		if (val)
-+			return -E2BIG;
-+	}
-+
-+	return 0;
-+}
-+
- static struct bpf_map *find_and_alloc_map(union bpf_attr *attr)
- {
- 	struct bpf_map *map;
-@@ -1246,32 +1272,6 @@ static int bpf_map_get_fd_by_id(const union bpf_attr *attr)
- 	return fd;
- }
- 
--static int check_uarg_tail_zero(void __user *uaddr,
--				size_t expected_size,
--				size_t actual_size)
--{
--	unsigned char __user *addr;
--	unsigned char __user *end;
--	unsigned char val;
--	int err;
--
--	if (actual_size <= expected_size)
--		return 0;
--
--	addr = uaddr + expected_size;
--	end  = uaddr + actual_size;
--
--	for (; addr < end; addr++) {
--		err = get_user(val, addr);
--		if (err)
--			return err;
--		if (val)
--			return -E2BIG;
--	}
--
--	return 0;
--}
--
- static int bpf_prog_get_info_by_fd(struct bpf_prog *prog,
- 				   const union bpf_attr *attr,
- 				   union bpf_attr __user *uattr)
--- 
-2.13.3
+Yeah, ugly. u32 uses it to store some shared data, tp_c. It actually
+stores a linked list of all hashtables added to one qdiscs.
+
+So basically what you have is, you have 1 root ht per prio/pref. Then
+you can have multiple hts, linked from any other ht, does not matter in
+which prio/pref they are.
+
+Do I understand that correctly that prio/pref only has meaning if
+linking does not take place, because if there is linking, the prio/pref
+of inserted rule is simply ignored?
+
+That is the most confusing thing I saw in net/sched/ so far. 
+Is this a bug? Sounds like one.
+
+Did someone introduce *u32_node (formerly static struct tc_u_common
+*u32_list;) just to allow this weirdness?
+
+Can I just remove this shared tp_c and make the linking to other
+hashtables only possible within the same prio/pref? That would make
+sense to me.
+
+Thanks.
+
+Jiri
