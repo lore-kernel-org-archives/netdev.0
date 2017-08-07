@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 09/16] mlxsw: spectrum: rename cls arg in matchall processing
-Date: Mon,  7 Aug 2017 10:15:25 +0200
-Message-ID: <20170807081532.32760-10-jiri@resnulli.us>
+Subject: [patch net-next v2 11/16] nfp: change flows in apps that offload ndo_setup_tc
+Date: Mon,  7 Aug 2017 10:15:27 +0200
+Message-ID: <20170807081532.32760-12-jiri@resnulli.us>
 References: <20170807081532.32760-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
@@ -12,83 +12,80 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         yisen.zhuang@huawei.com, salil.mehta@huawei.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34572 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751837AbdHGIPt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:15:49 -0400
-Received: by mail-wm0-f68.google.com with SMTP id x64so149923wmg.1
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 01:15:48 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33361 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752419AbdHGIPw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:15:52 -0400
+Received: by mail-wm0-f66.google.com with SMTP id q189so152543wmd.0
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 01:15:52 -0700 (PDT)
 In-Reply-To: <20170807081532.32760-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-To sync-up with the naming in the rest of the driver, rename the cls arg.
+Change the flows a bit in preparation of follow-up changes in
+ndo_setup_tc args. Also, change the error code to align with the rest of
+the drivers.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/netronome/nfp/bpf/main.c       | 16 ++++++----------
+ drivers/net/ethernet/netronome/nfp/flower/offload.c | 10 +++-------
+ 2 files changed, 9 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 9f8ba37..f333d08 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1618,7 +1618,7 @@ mlxsw_sp_port_del_cls_matchall_sample(struct mlxsw_sp_port *mlxsw_sp_port)
- 
- static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
- 					  __be16 protocol,
--					  struct tc_cls_matchall_offload *cls,
-+					  struct tc_cls_matchall_offload *f,
- 					  bool ingress)
+diff --git a/drivers/net/ethernet/netronome/nfp/bpf/main.c b/drivers/net/ethernet/netronome/nfp/bpf/main.c
+index 7888808..d7975dc 100644
+--- a/drivers/net/ethernet/netronome/nfp/bpf/main.c
++++ b/drivers/net/ethernet/netronome/nfp/bpf/main.c
+@@ -126,19 +126,15 @@ static int nfp_bpf_setup_tc(struct nfp_app *app, struct net_device *netdev,
  {
- 	struct mlxsw_sp_port_mall_tc_entry *mall_tc_entry;
-@@ -1626,7 +1626,7 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
- 	LIST_HEAD(actions);
- 	int err;
+ 	struct nfp_net *nn = netdev_priv(netdev);
  
--	if (!tcf_exts_has_one_action(cls->exts)) {
-+	if (!tcf_exts_has_one_action(f->exts)) {
- 		netdev_err(mlxsw_sp_port->dev, "only singular actions are supported\n");
+-	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
+-		return -EOPNOTSUPP;
+-	if (proto != htons(ETH_P_ALL))
++	if (type != TC_SETUP_CLSBPF || !nfp_net_ebpf_capable(nn) ||
++	    TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS) ||
++	    proto != htons(ETH_P_ALL))
  		return -EOPNOTSUPP;
- 	}
-@@ -1634,9 +1634,9 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
- 	mall_tc_entry = kzalloc(sizeof(*mall_tc_entry), GFP_KERNEL);
- 	if (!mall_tc_entry)
- 		return -ENOMEM;
--	mall_tc_entry->cookie = cls->cookie;
-+	mall_tc_entry->cookie = f->cookie;
  
--	tcf_exts_to_list(cls->exts, &actions);
-+	tcf_exts_to_list(f->exts, &actions);
- 	a = list_first_entry(&actions, struct tc_action, list);
+-	if (type == TC_SETUP_CLSBPF && nfp_net_ebpf_capable(nn)) {
+-		if (!nn->dp.bpf_offload_xdp)
+-			return nfp_net_bpf_offload(nn, tc->cls_bpf);
+-		else
+-			return -EBUSY;
+-	}
++	if (nn->dp.bpf_offload_xdp)
++		return -EBUSY;
  
- 	if (is_tcf_mirred_egress_mirror(a) && protocol == htons(ETH_P_ALL)) {
-@@ -1648,7 +1648,7 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
- 							    mirror, a, ingress);
- 	} else if (is_tcf_sample(a) && protocol == htons(ETH_P_ALL)) {
- 		mall_tc_entry->type = MLXSW_SP_PORT_MALL_SAMPLE;
--		err = mlxsw_sp_port_add_cls_matchall_sample(mlxsw_sp_port, cls,
-+		err = mlxsw_sp_port_add_cls_matchall_sample(mlxsw_sp_port, f,
- 							    a, ingress);
- 	} else {
- 		err = -EOPNOTSUPP;
-@@ -1666,12 +1666,12 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+-	return -EINVAL;
++	return nfp_net_bpf_offload(nn, tc->cls_bpf);
  }
  
- static void mlxsw_sp_port_del_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
--					   struct tc_cls_matchall_offload *cls)
-+					   struct tc_cls_matchall_offload *f)
+ static bool nfp_bpf_tc_busy(struct nfp_app *app, struct nfp_net *nn)
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+index d045cf8..58af438 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+@@ -388,14 +388,10 @@ int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
+ 			enum tc_setup_type type, u32 handle, __be16 proto,
+ 			struct tc_to_netdev *tc)
  {
- 	struct mlxsw_sp_port_mall_tc_entry *mall_tc_entry;
+-	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
++	if (type != TC_SETUP_CLSFLOWER ||
++	    TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS) ||
++	    !eth_proto_is_802_3(proto))
+ 		return -EOPNOTSUPP;
  
- 	mall_tc_entry = mlxsw_sp_port_mall_tc_entry_find(mlxsw_sp_port,
--							 cls->cookie);
-+							 f->cookie);
- 	if (!mall_tc_entry) {
- 		netdev_dbg(mlxsw_sp_port->dev, "tc entry not found on port\n");
- 		return;
+-	if (!eth_proto_is_802_3(proto))
+-		return -EOPNOTSUPP;
+-
+-	if (type != TC_SETUP_CLSFLOWER)
+-		return -EINVAL;
+-
+ 	return nfp_flower_repr_offload(app, netdev, tc->cls_flower);
+ }
 -- 
 2.9.3
