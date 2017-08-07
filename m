@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7 net-next] net: systemport: Support 64bit statistics
-Date: Sun, 06 Aug 2017 21:21:29 -0700 (PDT)
-Message-ID: <20170806.212129.568625131913902231.davem@davemloft.net>
-References: <1501801665-6686-1-git-send-email-jqiaoulk@gmail.com>
+Subject: Re: [PATCH net 1/1] netvsc: fix race on sub channel creation
+Date: Sun, 06 Aug 2017 21:24:02 -0700 (PDT)
+Message-ID: <20170806.212402.2131646989155240015.davem@davemloft.net>
+References: <20170804001354.17067-1-sthemmin@microsoft.com>
+        <20170804001354.17067-2-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org
-To: jqiaoulk@gmail.com
+Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
+        devel@linuxdriverproject.org, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50374 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50388 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751195AbdHGEVb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:21:31 -0400
-In-Reply-To: <1501801665-6686-1-git-send-email-jqiaoulk@gmail.com>
+        with ESMTP id S1751424AbdHGEYE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:24:04 -0400
+In-Reply-To: <20170804001354.17067-2-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jianming.qiao" <jqiaoulk@gmail.com>
-Date: Fri,  4 Aug 2017 00:07:45 +0100
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu,  3 Aug 2017 17:13:54 -0700
 
-> When using Broadcom Systemport device in 32bit Platform, ifconfig can
-> only report up to 4G tx,rx status, which will be wrapped to 0 when the
-> number of incoming or outgoing packets exceeds 4G, only taking
-> around 2 hours in busy network environment (such as streaming).
-> Therefore, it makes hard for network diagnostic tool to get reliable
-> statistical result, so the patch is used to add 64bit support for
-> Broadcom Systemport device in 32bit Platform.
+> The existing sub channel code did not wait for all the sub-channels
+> to completely initialize. This could lead to race causing crash
+> in napi_netif_del() from bad list. The existing code would send
+> an init message, then wait only for the initial response that
+> the init message was received. It thought it was waiting for
+> sub channels but really the init response did the wakeup.
 > 
-> This patch provides 64bit statistics capability on both ethtool and ifconfig.
+> The new code keeps track of the number of open channels and
+> waits until that many are open.
 > 
-> Signed-off-by: Jianming.qiao <kiki-good@hotmail.com>
+> Other issues here were:
+>   * host might return less sub-channels than was requested.
+>   * the new init status is not valid until after init was completed.
+> 
+> Fixes: b3e6b82a0099 ("hv_netvsc: Wait for sub-channels to be processed during probe")
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
 Applied, thanks.
