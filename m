@@ -1,7 +1,7 @@
 From: Dean Jenkins <Dean_Jenkins@mentor.com>
-Subject: [PATCH V1 1/3] asix: Add rx->ax_skb = NULL after usbnet_skb_return()
-Date: Mon, 7 Aug 2017 09:50:14 +0100
-Message-ID: <1502095816-3255-2-git-send-email-Dean_Jenkins@mentor.com>
+Subject: [PATCH V1 3/3] asix: Fix small memory leak in ax88772_unbind()
+Date: Mon, 7 Aug 2017 09:50:16 +0100
+Message-ID: <1502095816-3255-4-git-send-email-Dean_Jenkins@mentor.com>
 References: <1502095816-3255-1-git-send-email-Dean_Jenkins@mentor.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,50 +9,86 @@ Cc: <linux-usb@vger.kernel.org>
 To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
         Dean Jenkins <Dean_Jenkins@mentor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:36324 "EHLO
+Received: from relay1.mentorg.com ([192.94.38.131]:36325 "EHLO
         relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752495AbdHGIuk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:50:40 -0400
+        with ESMTP id S1752478AbdHGIuj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:50:39 -0400
 In-Reply-To: <1502095816-3255-1-git-send-email-Dean_Jenkins@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In asix_rx_fixup_internal() there is a risk that rx->ax_skb gets
-reused after passing the Ethernet frame into the network stack via
-usbnet_skb_return().
+When Ethernet frames span mulitple URBs, the netdev buffer memory
+pointed to by the asix_rx_fixup_info structure remains allocated
+during the time gap between the 2 executions of asix_rx_fixup_internal().
 
-The risks include:
+This means that if ax88772_unbind() is called within this time
+gap to free the memory of the parent private data structure then
+a memory leak of the part filled netdev buffer memory will occur.
 
-a) asynchronously freeing rx->ax_skb after passing the netdev buffer
-   to the NAPI layer which might corrupt the backlog queue.
+Therefore, create a new function asix_rx_fixup_common_free() to
+free the memory of the netdev buffer and add a call to
+asix_rx_fixup_common_free() from inside ax88772_unbind().
 
-b) erroneously reusing rx->ax_skb such as calling skb_put_data() multiple
-   times which causes writing off the end of the netdev buffer.
-
-Therefore add a defensive rx->ax_skb = NULL after usbnet_skb_return()
-so that it is not possible to free rx->ax_skb or to apply
-skb_put_data() too many times.
+Consequently when an unbind occurs part way through receiving
+an Ethernet frame, the netdev buffer memory that is holding part
+of the received Ethernet frame will now be freed.
 
 Signed-off-by: Dean Jenkins <Dean_Jenkins@mentor.com>
 ---
- drivers/net/usb/asix_common.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/usb/asix.h         |  1 +
+ drivers/net/usb/asix_common.c  | 15 +++++++++++++++
+ drivers/net/usb/asix_devices.c |  1 +
+ 3 files changed, 17 insertions(+)
 
+diff --git a/drivers/net/usb/asix.h b/drivers/net/usb/asix.h
+index d109242..9a4171b 100644
+--- a/drivers/net/usb/asix.h
++++ b/drivers/net/usb/asix.h
+@@ -209,6 +209,7 @@ void asix_write_cmd_async(struct usbnet *dev, u8 cmd, u16 value,
+ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
+ 			   struct asix_rx_fixup_info *rx);
+ int asix_rx_fixup_common(struct usbnet *dev, struct sk_buff *skb);
++void asix_rx_fixup_common_free(struct asix_common_private *dp);
+ 
+ struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
+ 			      gfp_t flags);
 diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index 7847436..6983b6b 100644
+index fda74f3..522d290 100644
 --- a/drivers/net/usb/asix_common.c
 +++ b/drivers/net/usb/asix_common.c
-@@ -168,8 +168,10 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
- 		if (rx->ax_skb) {
- 			skb_put_data(rx->ax_skb, skb->data + offset,
- 				     copy_length);
--			if (!rx->remaining)
-+			if (!rx->remaining) {
- 				usbnet_skb_return(dev, rx->ax_skb);
-+				rx->ax_skb = NULL;
-+			}
- 		}
+@@ -210,6 +210,21 @@ int asix_rx_fixup_common(struct usbnet *dev, struct sk_buff *skb)
+ 	return asix_rx_fixup_internal(dev, skb, rx);
+ }
  
- 		offset += (copy_length + 1) & 0xfffe;
++void asix_rx_fixup_common_free(struct asix_common_private *dp)
++{
++	struct asix_rx_fixup_info *rx;
++
++	if (!dp)
++		return;
++
++	rx = &dp->rx_fixup_info;
++
++	if (rx->ax_skb) {
++		kfree_skb(rx->ax_skb);
++		rx->ax_skb = NULL;
++	}
++}
++
+ struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
+ 			      gfp_t flags)
+ {
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+index a3aa0a2..b2ff88e 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -764,6 +764,7 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
+ 
+ static void ax88772_unbind(struct usbnet *dev, struct usb_interface *intf)
+ {
++	asix_rx_fixup_common_free(dev->driver_priv);
+ 	kfree(dev->driver_priv);
+ }
+ 
 -- 
 2.7.4
