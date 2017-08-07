@@ -1,33 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] of_mdio: use of_property_read_u32_array()
-Date: Mon, 07 Aug 2017 14:07:53 -0700 (PDT)
-Message-ID: <20170807.140753.781514039084733401.davem@davemloft.net>
-References: <20170804214354.351406407@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 0/2] bpf: add support for
+ sys_{enter|exit}_* tracepoints
+Date: Mon, 07 Aug 2017 14:10:12 -0700 (PDT)
+Message-ID: <20170807.141012.1406184213867808884.davem@davemloft.net>
+References: <20170804230010.2792119-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170804214354.351406407-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: peterz@infradead.org, rostedt@goodmis.org, ast@fb.com,
+        daniel@iogearbox.net, netdev@vger.kernel.org, kernel-team@fb.com
+To: yhs@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36140 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751662AbdHGVKN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 17:10:13 -0400
+In-Reply-To: <20170804230010.2792119-1-yhs@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Date: Sat, 05 Aug 2017 00:43:43 +0300
+From: Yonghong Song <yhs@fb.com>
+Date: Fri, 4 Aug 2017 16:00:08 -0700
 
-> The "fixed-link" prop support predated of_property_read_u32_array(), so
-> basically had to open-code it. Using the modern API saves 24 bytes of the
-> object code (ARM gcc 4.8.5); the only behavior change would be that the
-> prop length check is now less strict (however the strict pre-check done
-> in of_phy_is_fixed_link() is left intact anyway)...
+> Currently, bpf programs cannot be attached to sys_enter_* and sys_exit_*
+> style tracepoints. The main reason is that syscalls/sys_enter_* and syscalls/sys_exit_*
+> tracepoints are treated differently from other tracepoints and there
+> is no bpf hook to it.
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+> This patch set adds bpf support for these syscalls tracepoints and also
+> adds a test case for it.
+> 
+> Changelogs:
+> v3 -> v4:
+>  - Check the legality of ctx offset access for syscall tracepoint as well.
+>    trace_event_get_offsets will return correct max offset for each
+>    specific syscall tracepoint.
+>  - Use variable length array to avoid hardcode 6 as the maximum
+>    arguments beyond syscall_nr.
+> v2 -> v3:
+>  - Fix a build issue
+> v1 -> v2:
+>  - Do not use TRACE_EVENT_FL_CAP_ANY to identify syscall tracepoint.
+>    Instead use trace_event_call->class.
 
-Applied to net-next.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thank you.
