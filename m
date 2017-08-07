@@ -1,51 +1,53 @@
-From: John Allen <jallen@linux.vnet.ibm.com>
-Subject: [PATCH net-next] ibmvnic: Report rx buffer return codes as netdev_dbg
-Date: Mon, 7 Aug 2017 15:42:30 -0500
-Message-ID: <21089a62-0b49-ef34-6eb0-33510a5638c0@linux.vnet.ibm.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] net: sched: set xt_tgchk_param par.net properly in ipt_init_target
+Date: Mon, 7 Aug 2017 14:00:57 -0700
+Message-ID: <CAM_iQpWT3=kgc1Vh2BNjXSa6_n-p8+-kLhVbsaE0DzqCXMLEmQ@mail.gmail.com>
+References: <6252aa0d498204ec3431e9a906178fb6b1c97f00.1501922918.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Nathan Fontenot <nfont@linux.vnet.ibm.com>,
-        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: network dev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:52206 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752080AbdHGUmj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 16:42:39 -0400
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v77Kd4kr093257
-        for <netdev@vger.kernel.org>; Mon, 7 Aug 2017 16:42:38 -0400
-Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2c6rw3a77b-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 16:42:38 -0400
-Received: from localhost
-        by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
-        Mon, 7 Aug 2017 14:42:37 -0600
-Content-Language: en-US
+Received: from mail-vk0-f65.google.com ([209.85.213.65]:33517 "EHLO
+        mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751589AbdHGVBS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 17:01:18 -0400
+Received: by mail-vk0-f65.google.com with SMTP id g189so768300vke.0
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 14:01:17 -0700 (PDT)
+In-Reply-To: <6252aa0d498204ec3431e9a906178fb6b1c97f00.1501922918.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reporting any return code for a receive buffer as an "rx error" only
-produces alarming noise and the only values that have been observed to be
-used in this field are not error conditions. Change this to a netdev_dbg
-with a more descriptive message.
+On Sat, Aug 5, 2017 at 1:48 AM, Xin Long <lucien.xin@gmail.com> wrote:
+> -static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
+> +static int __tcf_ipt_init(struct net *net, struct nlattr *nla,
+>                           struct nlattr *est, struct tc_action **a,
+>                           const struct tc_action_ops *ops, int ovr, int bind)
+>  {
+> +       struct tc_action_net *tn = net_generic(net, xt_net_id);
 
-Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
----
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 5932160..99576ba 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -1579,7 +1579,8 @@ static int ibmvnic_poll(struct napi_struct *napi, int budget)
- 							  rx_comp.correlator);
- 		/* do error checking */
- 		if (next->rx_comp.rc) {
--			netdev_err(netdev, "rx error %x\n", next->rx_comp.rc);
-+			netdev_dbg(netdev, "rx buffer returned with rc %x\n",
-+				   be16_to_cpu(next->rx_comp.rc));
- 			/* free the entry */
- 			next->rx_comp.first = 0;
- 			remove_buff_from_pool(adapter, rx_buff);
+...
+
+> @@ -193,18 +195,14 @@ static int tcf_ipt_init(struct net *net, struct nlattr *nla,
+>                         struct nlattr *est, struct tc_action **a, int ovr,
+>                         int bind)
+>  {
+> -       struct tc_action_net *tn = net_generic(net, ipt_net_id);
+> -
+> -       return __tcf_ipt_init(tn, nla, est, a, &act_ipt_ops, ovr, bind);
+> +       return __tcf_ipt_init(net, nla, est, a, &act_ipt_ops, ovr, bind);
+>  }
+>
+>  static int tcf_xt_init(struct net *net, struct nlattr *nla,
+>                        struct nlattr *est, struct tc_action **a, int ovr,
+>                        int bind)
+>  {
+> -       struct tc_action_net *tn = net_generic(net, xt_net_id);
+> -
+> -       return __tcf_ipt_init(tn, nla, est, a, &act_xt_ops, ovr, bind);
+> +       return __tcf_ipt_init(net, nla, est, a, &act_xt_ops, ovr, bind);
+
+This is not correct.
+
+You miss ipt_net_id != xt_net_id.
