@@ -1,44 +1,68 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
-Date: Mon, 7 Aug 2017 12:12:35 -0700
-Message-ID: <20170807121235.4a8b5020@xeon-e3>
-References: <8e8bc709-55b0-e207-b4bf-605bdf2ba323@gmail.com>
-        <20170807110649.052e028a@xeon-e3>
-        <bd0ad410-9b64-6f1b-6f78-08f6e801628b@gmail.com>
-        <20170807.114517.1570408214504753399.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dsahern@gmail.com, simon.horman@netronome.com,
-        daniel@iogearbox.net, phil@nwl.cc, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:36706 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751761AbdHGTMh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 15:12:37 -0400
-Received: by mail-pg0-f44.google.com with SMTP id v77so5099655pgb.3
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 12:12:37 -0700 (PDT)
-In-Reply-To: <20170807.114517.1570408214504753399.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 0/6] In-kernel QMI handling
+Date: Mon, 7 Aug 2017 21:19:30 +0200
+Message-ID: <08647880-96CF-4A0A-A75D-0A324022CF32@holtmann.org>
+References: <20170804145938.25427-1-bjorn.andersson@linaro.org>
+ <1501860967.939.6.camel@redhat.com> <20170807173842.GI29306@minitux>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Dan Williams <dcbw@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andy Gross <andy.gross@linaro.org>,
+        David Brown <david.brown@linaro.org>,
+        linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org,
+        Netdev list <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20170807173842.GI29306@minitux>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 07 Aug 2017 11:45:17 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Hi Bjorn,
 
-> From: David Ahern <dsahern@gmail.com>
-> Date: Mon, 7 Aug 2017 12:09:31 -0600
+>>> This series starts by moving the common definitions of the QMUX
+>>> protocol to the
+>>> uapi header, as they are shared with clients - both in kernel and
+>>> userspace.
+>>> 
+>>> This series then introduces in-kernel helper functions for aiding the
+>>> handling
+>>> of QMI encoded messages in the kernel. QMI encoding is a wire-format
+>>> used in
+>>> exchanging messages between the majority of QRTR clients and
+>>> services.
+>> 
+>> This raises a few red-flags for me.
 > 
-> > On 8/7/17 12:06 PM, Stephen Hemminger wrote:  
-> >>> Does not work. Seems like you pushed the RFC commit which was known to
-> >>> be incomplete.  
-> >> 
-> >> Patches welcome.  
-> > 
-> > What exists does not even compile. Patches will be sent once you fix that.  
+> I'm glad it does. In discussions with the responsible team within
+> Qualcomm I've highlighted a number of concerns about enabling this
+> support in the kernel. Together we're continuously looking into what
+> should be pushed out to user space, and trying to not introduce
+> unnecessary new users.
 > 
-> Yeah seriously Stephen, you created this huge mess so the onus is really
-> on you to fix it up.
+>> So far, we've kept almost everything QMI related in userspace and
+>> handled all QMI control-channel messages from libraries like libqmi or
+>> uqmi via the cdc-wdm driver and the "rmnet" interface via the qmi_wwan
+>> driver.  The kernel drivers just serve as the transport.
+>> 
+> 
+> The path that was taken to support the MSM-style devices was to
+> implement net/qrtr, which exposes a socket interface to abstract the
+> physical transports (QMUX or IPCROUTER in Qualcomm terminology).
+> 
+> As I share you view on letting the kernel handle the transportation only
+> the task of keeping track of registered services (service id -> node and
+> port mapping) was done in a user space process and so far we've only
+> ever have to deal with QMI encoded messages in various user space tools.
 
-It is fixed now.
-Dave, I asked for test cases, and received none.
+I think that the transport and multiplexing can be in the kernel as long as it is done as proper subsystem. Similar to Phonet or CAIF. Meaning it should have a well defined socket interface that can be easily used from userspace, but also a clean in-kernel interface handling.
+
+If Qualcomm is supportive of this effort and is willing to actually assist and/or open some of the specs or interface descriptions, then this is a good thing. Service registration and cleanup is really done best in the kernel. Same applies to multiplexing. Trying to do multiplexing in userspace is always cumbersome and leads to overhead that is of no gain. For example within oFono, we had to force everything to go via oFono since it was the only sane way of handling it. Other approaches were error prone and full of race conditions. You need a central entity that can clean up.
+
+For the definition of an UAPI to share some code, I am actually not sure that is such a good idea. For example the QMI code in oFono follows a way simpler approach. And I am not convinced that all the macros are actually beneficial. For example, the whole netlink macros are pretty cumbersome. Adding some Documentation/qmi.txt on how the wire format looks like and what is expected seems to be a way better approach.
+
+Regards
+
+Marcel
