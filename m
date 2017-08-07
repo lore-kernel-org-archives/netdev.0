@@ -1,107 +1,43 @@
-From: Rao Shoaib <rao.shoaib@oracle.com>
-Subject: [PATCH v1 net] TCP_USER_TIMEOUT and tcp_keepalive should conform to
- RFC5482
-Date: Mon, 7 Aug 2017 11:16:14 -0700
-Message-ID: <20170807181614.GA16700@caduceus5>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [pull request][for-next 0/8] Mellanox, mlx5 shared 2017-08-07
+Date: Mon, 07 Aug 2017 11:20:52 -0700 (PDT)
+Message-ID: <20170807.112052.332868856082904160.davem@davemloft.net>
+References: <20170807101808.22924-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:26346 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751426AbdHGSQo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 14:16:44 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170807101808.22924-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Change from version 0: Rationale behind the change:
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Date: Mon,  7 Aug 2017 13:18:00 +0300
 
-The man page for tcp(7) states
+> Hi Dave & Doug,
+> 
+> This series contains some low level updates for mlx5 core driver,
+> to be shared as base code for net-next and rdma for-next mlx5
+> 4.14 submissions.
+> 
+> Please find more information in the tag message below.
+> 
+> Please pull and let me know if there's any porblem.
+> 
+> Side note:
+> This series merges cleanly with current net-next, but it will conflict with Jiri's patch
+> "mlx5e: push cls_flower and mqprio setup_tc processing into separate functions"
+> Which is under review.
+> since this is shared code and must go to both rdma and net-next it has to be
+> based on 4.13-rc4, so there is not much I can do about this.
 
-when used with the TCP keepalive (SO_KEEPALIVE) option, TCP_USER_TIMEOUT will
-override keepalive to  determine  when to close a connection due to keepalive
-failure.
+I resolved the merge conflict as best as I could, please take a look.
 
-This is ambigious at best. user expectation is most likely that the connection
-will be reset after TCP_USER_TIMEOUT milliseconds of inactivity.
-
-The code however waits for the keepalive to kick-in (default 2hrs) and than
-after one failure resets the conenction. 
-
-What is the rationale for that ? The same effect can be obtained by simply
-changing the value of tcp_keep_alive_probes.
-
-Since the TCP_USER_TIMEOUT option was added based on RFC 5482 we need to follow 
-the RFC. Which states
-
-4.2 TCP keep-Alives:
-   Some TCP implementations, such as those in BSD systems, use a
-   different abort policy for TCP keep-alives than for user data.  Thus,
-   the TCP keep-alive mechanism might abort a connection that would
-   otherwise have survived the transient period without connectivity.
-   Therefore, if a connection that enables keep-alives is also using the
-   TCP User Timeout Option, then the keep-alive timer MUST be set to a
-   value larger than that of the adopted USER TIMEOUT.
-
-This patch enforces the MUST and also dis-associates user timeout from keep
-alive.  A man page patch will be submitted separately.
-
-Signed-off-by: Rao Shoaib <rao.shoaib@oracle.com>
----
- net/ipv4/tcp.c       | 10 ++++++++--
- net/ipv4/tcp_timer.c |  9 +--------
- 2 files changed, 9 insertions(+), 10 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 71ce33d..f2af44d 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2628,7 +2628,9 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		break;
- 
- 	case TCP_KEEPIDLE:
--		if (val < 1 || val > MAX_TCP_KEEPIDLE)
-+		/* Per RFC5482 keepalive_time must be > user_timeout */
-+		if (val < 1 || val > MAX_TCP_KEEPIDLE ||
-+		    ((val * HZ) <= icsk->icsk_user_timeout))
- 			err = -EINVAL;
- 		else {
- 			tp->keepalive_time = val * HZ;
-@@ -2724,8 +2726,12 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 	case TCP_USER_TIMEOUT:
- 		/* Cap the max time in ms TCP will retry or probe the window
- 		 * before giving up and aborting (ETIMEDOUT) a connection.
-+		 * Per RFC5482 TCP user timeout must be < keepalive_time.
-+		 * If the default value changes later -- all bets are off.
- 		 */
--		if (val < 0)
-+		if (val < 0 || (tp->keepalive_time &&
-+				tp->keepalive_time <= msecs_to_jiffies(val)) ||
-+		   net->ipv4.sysctl_tcp_keepalive_time <= msecs_to_jiffies(val))
- 			err = -EINVAL;
- 		else
- 			icsk->icsk_user_timeout = msecs_to_jiffies(val);
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index c0feeee..d39fe60 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -664,14 +664,7 @@ static void tcp_keepalive_timer (unsigned long data)
- 	elapsed = keepalive_time_elapsed(tp);
- 
- 	if (elapsed >= keepalive_time_when(tp)) {
--		/* If the TCP_USER_TIMEOUT option is enabled, use that
--		 * to determine when to timeout instead.
--		 */
--		if ((icsk->icsk_user_timeout != 0 &&
--		    elapsed >= icsk->icsk_user_timeout &&
--		    icsk->icsk_probes_out > 0) ||
--		    (icsk->icsk_user_timeout == 0 &&
--		    icsk->icsk_probes_out >= keepalive_probes(tp))) {
-+		if (icsk->icsk_probes_out >= keepalive_probes(tp)) {
- 			tcp_send_active_reset(sk, GFP_ATOMIC);
- 			tcp_write_err(sk);
- 			goto out;
--- 
-2.7.4
+Pulled, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
