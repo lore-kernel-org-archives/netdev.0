@@ -1,40 +1,91 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 0/3] net: dsa: remove useless arguments
-Date: Mon,  7 Aug 2017 12:17:07 -0400
-Message-ID: <20170807161710.5357-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH net-next v1 2/2] bpf: Extend check_uarg_tail_zero() checks
+Date: Mon,  7 Aug 2017 18:36:05 +0200
+Message-ID: <20170807163605.14194-2-mic@digikod.net>
+References: <20170807163605.14194-1-mic@digikod.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Kees Cook <keescook@chromium.org>,
+        Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org,
+        Alexei Starovoitov <ast@kernel.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170807163605.14194-1-mic@digikod.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Several DSA core setup functions take many arguments, mostly because of
-the legacy code. This patch series removes the useless args of these
-functions, where either the dsa_switch or dsa_port argument is enough.
+The function check_uarg_tail_zero() was created from bpf(2) for
+BPF_OBJ_GET_INFO_BY_FD without taking the access_ok() nor the PAGE_SIZE
+checks. Make this checks more generally available while unlikely to be
+triggered, extend the memory range check and add an explanation
+including why the ToCToU should not be a security concern.
 
-Changes in v3:
-  - rebased on top of conflicting 5f6b4e14cada ("net: dsa: User per-cpu
-    64-bit statistics")
-  - added Florian's tags
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Martin KaFai Lau <kafai@fb.com>
+Link: https://lkml.kernel.org/r/CAGXu5j+vRGFvJZmjtAcT8Hi8B+Wz0e1b6VKYZHfQP_=DXzC4CQ@mail.gmail.com
+---
+ kernel/bpf/syscall.c | 26 +++++++++++++++-----------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
 
-Changes in v2:
-  - ds->dev is already assigned by dsa_switch_alloc
-
-Vivien Didelot (3):
-  net: dsa: remove useless argument in legacy setup
-  net: dsa: remove useless args of dsa_cpu_dsa_setup
-  net: dsa: remove useless args of dsa_slave_create
-
- net/dsa/dsa.c      | 10 +++++-----
- net/dsa/dsa2.c     |  6 +++---
- net/dsa/dsa_priv.h |  6 ++----
- net/dsa/legacy.c   | 18 ++++++++----------
- net/dsa/slave.c    | 14 +++++++-------
- 5 files changed, 25 insertions(+), 29 deletions(-)
-
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index c653ee0bd162..b884fdc371e0 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -48,6 +48,15 @@ static const struct bpf_map_ops * const bpf_map_types[] = {
+ #undef BPF_MAP_TYPE
+ };
+ 
++/*
++ * If we're handed a bigger struct than we know of, ensure all the unknown bits
++ * are 0 - i.e. new user-space does not rely on any kernel feature extensions
++ * we dont know about yet.
++ *
++ * There is a ToCToU between this function call and the following
++ * copy_from_user() call. However, this should not be a concern since this
++ * function is meant to be a future-proofing of bits.
++ */
+ static int check_uarg_tail_zero(void __user *uaddr,
+ 				size_t expected_size,
+ 				size_t actual_size)
+@@ -57,6 +66,12 @@ static int check_uarg_tail_zero(void __user *uaddr,
+ 	unsigned char val;
+ 	int err;
+ 
++	if (unlikely(!access_ok(VERIFY_READ, uaddr, actual_size)))
++		return -EFAULT;
++
++	if (unlikely(actual_size > PAGE_SIZE))	/* silly large */
++		return -E2BIG;
++
+ 	if (actual_size <= expected_size)
+ 		return 0;
+ 
+@@ -1393,17 +1408,6 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
+ 	if (!capable(CAP_SYS_ADMIN) && sysctl_unprivileged_bpf_disabled)
+ 		return -EPERM;
+ 
+-	if (!access_ok(VERIFY_READ, uattr, 1))
+-		return -EFAULT;
+-
+-	if (size > PAGE_SIZE)	/* silly large */
+-		return -E2BIG;
+-
+-	/* If we're handed a bigger struct than we know of,
+-	 * ensure all the unknown bits are 0 - i.e. new
+-	 * user-space does not rely on any kernel feature
+-	 * extensions we dont know about yet.
+-	 */
+ 	err = check_uarg_tail_zero(uattr, sizeof(attr), size);
+ 	if (err)
+ 		return err;
 -- 
-2.14.0
+2.13.3
