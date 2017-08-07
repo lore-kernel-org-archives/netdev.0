@@ -1,45 +1,93 @@
-From: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] of_mdio: use of_property_read_u32_array()
-Date: Mon, 7 Aug 2017 09:18:04 -0500
-Message-ID: <CAL_JsqKDXAbAVpgMSU39+9mF7MZWQotLUNkjePy9eUsnBs99Vw@mail.gmail.com>
-References: <20170804214354.351406407@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170804214354.351406407-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH] net: dsa: mediatek: add adjust link support for user ports
+Date: Mon,  7 Aug 2017 16:20:49 +0200
+Message-ID: <20170807142049.4144-1-john@phrozen.org>
+Cc: sean Wang <sean.wang@mediatek.com>,
+        Ryder Lee <Ryder.Lee@mediatek.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        John Crispin <john@phrozen.org>,
+        Shashidhar Lakkavalli <shashidhar.lakkavalli@openmesh.com>,
+        Muciri Gatimu <muciri@openmesh.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 4, 2017 at 4:43 PM, Sergei Shtylyov
-<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org> wrote:
-> The "fixed-link" prop support predated of_property_read_u32_array(), so
-> basically had to open-code it. Using the modern API saves 24 bytes of the
-> object code (ARM gcc 4.8.5); the only behavior change would be that the
-> prop length check is now less strict (however the strict pre-check done
-> in of_phy_is_fixed_link() is left intact anyway)...
->
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
->
-> ---
-> The patch is against the 'dt/next' branch of Rob Herring's 'linux-git' repo
-> plus the previously posted patch killing the useless local variable in
-> of_phy_register_fixed_link().
+Manually adjust the port settings of user ports once PHY polling has
+completed. This patch extends the adjust_link callback to configure the
+per port PMCR register, applying the proper values polled from the PHY.
+Without this patch flow control was not always getting setup properly.
 
-It shouldn't depend on anything in my tree and David normally takes
-of_mdio.c changes.
+Signed-off-by: Shashidhar Lakkavalli <shashidhar.lakkavalli@openmesh.com>
+Signed-off-by: Muciri Gatimu <muciri@openmesh.com>
+Signed-off-by: John Crispin <john@phrozen.org>
+---
+ drivers/net/dsa/mt7530.c | 38 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mt7530.h |  1 +
+ 2 files changed, 39 insertions(+)
 
-Reviewed-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-
->
->  drivers/of/of_mdio.c |   16 ++++++++--------
->  1 file changed, 8 insertions(+), 8 deletions(-)
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
+index 1e46418a3b74..264b281eb86b 100644
+--- a/drivers/net/dsa/mt7530.c
++++ b/drivers/net/dsa/mt7530.c
+@@ -625,6 +625,44 @@ static void mt7530_adjust_link(struct dsa_switch *ds, int port,
+ 		 * all finished.
+ 		 */
+ 		mt7623_pad_clk_setup(ds);
++	} else {
++		u16 lcl_adv = 0, rmt_adv = 0;
++		u8 flowctrl;
++		u32 mcr = PMCR_USERP_LINK | PMCR_FORCE_MODE;
++
++		switch (phydev->speed) {
++		case SPEED_1000:
++			mcr |= PMCR_FORCE_SPEED_1000;
++			break;
++		case SPEED_100:
++			mcr |= PMCR_FORCE_SPEED_100;
++			break;
++		};
++
++		if (phydev->link)
++			mcr |= PMCR_FORCE_LNK;
++
++		if (phydev->duplex) {
++			mcr |= PMCR_FORCE_FDX;
++
++			if (phydev->pause)
++				rmt_adv = LPA_PAUSE_CAP;
++			if (phydev->asym_pause)
++				rmt_adv |= LPA_PAUSE_ASYM;
++
++			if (phydev->advertising & ADVERTISED_Pause)
++				lcl_adv |= ADVERTISE_PAUSE_CAP;
++			if (phydev->advertising & ADVERTISED_Asym_Pause)
++				lcl_adv |= ADVERTISE_PAUSE_ASYM;
++
++			flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
++
++			if (flowctrl & FLOW_CTRL_TX)
++				mcr |= PMCR_TX_FC_EN;
++			if (flowctrl & FLOW_CTRL_RX)
++				mcr |= PMCR_RX_FC_EN;
++		}
++		mt7530_write(priv, MT7530_PMCR_P(port), mcr);
+ 	}
+ }
+ 
+diff --git a/drivers/net/dsa/mt7530.h b/drivers/net/dsa/mt7530.h
+index b83d76b99802..74db9822eb40 100644
+--- a/drivers/net/dsa/mt7530.h
++++ b/drivers/net/dsa/mt7530.h
+@@ -151,6 +151,7 @@ enum mt7530_stp_state {
+ #define  PMCR_TX_FC_EN			BIT(5)
+ #define  PMCR_RX_FC_EN			BIT(4)
+ #define  PMCR_FORCE_SPEED_1000		BIT(3)
++#define  PMCR_FORCE_SPEED_100		BIT(2)
+ #define  PMCR_FORCE_FDX			BIT(1)
+ #define  PMCR_FORCE_LNK			BIT(0)
+ #define  PMCR_COMMON_LINK		(PMCR_IFG_XMIT(1) | PMCR_MAC_MODE | \
+-- 
+2.11.0
