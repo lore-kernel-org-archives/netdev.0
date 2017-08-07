@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: moved console_bitmask module param
- to lio_main.c
-Date: Sun, 06 Aug 2017 21:19:27 -0700 (PDT)
-Message-ID: <20170806.211927.2026529156823693970.davem@davemloft.net>
-References: <20170803221017.GA2469@felix-thinkpad.cavium.com>
+Subject: Re: [PATCH v7 net-next] net: systemport: Support 64bit statistics
+Date: Sun, 06 Aug 2017 21:21:29 -0700 (PDT)
+Message-ID: <20170806.212129.568625131913902231.davem@davemloft.net>
+References: <1501801665-6686-1-git-send-email-jqiaoulk@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        intiyaz.basha@cavium.com
-To: felix.manlunas@cavium.com
+Cc: f.fainelli@gmail.com, eric.dumazet@gmail.com,
+        netdev@vger.kernel.org
+To: jqiaoulk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50332 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50374 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751195AbdHGET1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:19:27 -0400
-In-Reply-To: <20170803221017.GA2469@felix-thinkpad.cavium.com>
+        with ESMTP id S1751195AbdHGEVb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:21:31 -0400
+In-Reply-To: <1501801665-6686-1-git-send-email-jqiaoulk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Thu, 3 Aug 2017 15:10:17 -0700
+From: "Jianming.qiao" <jqiaoulk@gmail.com>
+Date: Fri,  4 Aug 2017 00:07:45 +0100
 
-> From: Intiyaz Basha <intiyaz.basha@cavium.com>
+> When using Broadcom Systemport device in 32bit Platform, ifconfig can
+> only report up to 4G tx,rx status, which will be wrapped to 0 when the
+> number of incoming or outgoing packets exceeds 4G, only taking
+> around 2 hours in busy network environment (such as streaming).
+> Therefore, it makes hard for network diagnostic tool to get reliable
+> statistical result, so the patch is used to add 64bit support for
+> Broadcom Systemport device in 32bit Platform.
 > 
-> Moving PF module param console_bitmask to lio_main.c for consistency.
+> This patch provides 64bit statistics capability on both ethtool and ifconfig.
 > 
-> Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Jianming.qiao <kiki-good@hotmail.com>
 
-Applied.
+Applied, thanks.
