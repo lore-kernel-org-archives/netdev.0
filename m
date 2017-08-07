@@ -1,56 +1,270 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: multi-queue over IFF_NO_QUEUE "virtual" devices
-Date: Mon, 7 Aug 2017 15:26:30 -0700
-Message-ID: <21cdcfc2-0efc-c0df-6542-05bb8078d866@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: netdev@vger.kernel.org, jiri@resnulli.us, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net_sched: get rid of some forward declarations
+Date: Mon,  7 Aug 2017 15:26:50 -0700
+Message-ID: <20170807222650.16561-1-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:37617 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751829AbdHGW0g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 18:26:36 -0400
-Received: by mail-wm0-f54.google.com with SMTP id t201so17293751wmt.0
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 15:26:36 -0700 (PDT)
-Content-Language: en-US
+Received: from mail-it0-f68.google.com ([209.85.214.68]:33959 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751743AbdHGW1Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 18:27:16 -0400
+Received: by mail-it0-f68.google.com with SMTP id t78so1305675ita.1
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 15:27:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+If we move up tcf_fill_node() we can get rid of these
+forward declarations.
 
-Most DSA supported Broadcom switches have multiple queues per ports
-(usually 8) and each of these queues can be configured with different
-pause, drop, hysteresis thresholds and so on in order to make use of the
-switch's internal buffering scheme and have some queues achieve some
-kind of lossless behavior (e.g: LAN to LAN traffic for Q7 has a higher
-priority than LAN to WAN for Q0).
+Also, move down tfilter_notify_chain() to group them together.
 
-This is obviously very workload specific, so I'd want maximum
-programmability as much as possible.
+Reported-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/cls_api.c | 214 +++++++++++++++++++++++++---------------------------
+ 1 file changed, 103 insertions(+), 111 deletions(-)
 
-This brings me to a few questions:
-
-1) If we have the DSA slave network devices currently flagged with
-IFF_NO_QUEUE becoming multi-queue (on TX) aware such that an application
-can control exactly which switch egress queue is used on a per-flow
-basis, would that be a problem (this is the dynamic selection of the TX
-queue)?
-
-2) The conduit interface (CPU) port network interface has a congestion
-control scheme which requires each of its TX queues (32 or 16) to be
-statically mapped to each of the underlying switch port queues because
-the congestion/ HW needs to inspect the queue depths of the switch to
-accept/reject a packet at the CPU's TX ring level. Do we have a good way
-with tc to map a virtual/stacked device's queue(s) on-top of its
-physical/underlying device's queues (this is the static queue mapping
-necessary for congestion to work)?
-
-Let me know if you think this is the right approach or not.
-
-Thanks!
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 668afb6e9885..8d1157aebaf7 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -100,25 +100,6 @@ int unregister_tcf_proto_ops(struct tcf_proto_ops *ops)
+ }
+ EXPORT_SYMBOL(unregister_tcf_proto_ops);
+ 
+-static int tfilter_notify(struct net *net, struct sk_buff *oskb,
+-			  struct nlmsghdr *n, struct tcf_proto *tp,
+-			  void *fh, int event, bool unicast);
+-
+-static int tfilter_del_notify(struct net *net, struct sk_buff *oskb,
+-			      struct nlmsghdr *n, struct tcf_proto *tp,
+-			      void *fh, bool unicast, bool *last);
+-
+-static void tfilter_notify_chain(struct net *net, struct sk_buff *oskb,
+-				 struct nlmsghdr *n,
+-				 struct tcf_chain *chain, int event)
+-{
+-	struct tcf_proto *tp;
+-
+-	for (tp = rtnl_dereference(chain->filter_chain);
+-	     tp; tp = rtnl_dereference(tp->next))
+-		tfilter_notify(net, oskb, n, tp, 0, event, false);
+-}
+-
+ /* Select new prio value from the range, managed by kernel. */
+ 
+ static inline u32 tcf_auto_prio(struct tcf_proto *tp)
+@@ -411,6 +392,109 @@ static struct tcf_proto *tcf_chain_tp_find(struct tcf_chain *chain,
+ 	return tp;
+ }
+ 
++static int tcf_fill_node(struct net *net, struct sk_buff *skb,
++			 struct tcf_proto *tp, void *fh, u32 portid,
++			 u32 seq, u16 flags, int event)
++{
++	struct tcmsg *tcm;
++	struct nlmsghdr  *nlh;
++	unsigned char *b = skb_tail_pointer(skb);
++
++	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*tcm), flags);
++	if (!nlh)
++		goto out_nlmsg_trim;
++	tcm = nlmsg_data(nlh);
++	tcm->tcm_family = AF_UNSPEC;
++	tcm->tcm__pad1 = 0;
++	tcm->tcm__pad2 = 0;
++	tcm->tcm_ifindex = qdisc_dev(tp->q)->ifindex;
++	tcm->tcm_parent = tp->classid;
++	tcm->tcm_info = TC_H_MAKE(tp->prio, tp->protocol);
++	if (nla_put_string(skb, TCA_KIND, tp->ops->kind))
++		goto nla_put_failure;
++	if (nla_put_u32(skb, TCA_CHAIN, tp->chain->index))
++		goto nla_put_failure;
++	if (!fh) {
++		tcm->tcm_handle = 0;
++	} else {
++		if (tp->ops->dump && tp->ops->dump(net, tp, fh, skb, tcm) < 0)
++			goto nla_put_failure;
++	}
++	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
++	return skb->len;
++
++out_nlmsg_trim:
++nla_put_failure:
++	nlmsg_trim(skb, b);
++	return -1;
++}
++
++static int tfilter_notify(struct net *net, struct sk_buff *oskb,
++			  struct nlmsghdr *n, struct tcf_proto *tp,
++			  void *fh, int event, bool unicast)
++{
++	struct sk_buff *skb;
++	u32 portid = oskb ? NETLINK_CB(oskb).portid : 0;
++
++	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (!skb)
++		return -ENOBUFS;
++
++	if (tcf_fill_node(net, skb, tp, fh, portid, n->nlmsg_seq,
++			  n->nlmsg_flags, event) <= 0) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	if (unicast)
++		return netlink_unicast(net->rtnl, skb, portid, MSG_DONTWAIT);
++
++	return rtnetlink_send(skb, net, portid, RTNLGRP_TC,
++			      n->nlmsg_flags & NLM_F_ECHO);
++}
++
++static int tfilter_del_notify(struct net *net, struct sk_buff *oskb,
++			      struct nlmsghdr *n, struct tcf_proto *tp,
++			      void *fh, bool unicast, bool *last)
++{
++	struct sk_buff *skb;
++	u32 portid = oskb ? NETLINK_CB(oskb).portid : 0;
++	int err;
++
++	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (!skb)
++		return -ENOBUFS;
++
++	if (tcf_fill_node(net, skb, tp, fh, portid, n->nlmsg_seq,
++			  n->nlmsg_flags, RTM_DELTFILTER) <= 0) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	err = tp->ops->delete(tp, fh, last);
++	if (err) {
++		kfree_skb(skb);
++		return err;
++	}
++
++	if (unicast)
++		return netlink_unicast(net->rtnl, skb, portid, MSG_DONTWAIT);
++
++	return rtnetlink_send(skb, net, portid, RTNLGRP_TC,
++			      n->nlmsg_flags & NLM_F_ECHO);
++}
++
++static void tfilter_notify_chain(struct net *net, struct sk_buff *oskb,
++				 struct nlmsghdr *n,
++				 struct tcf_chain *chain, int event)
++{
++	struct tcf_proto *tp;
++
++	for (tp = rtnl_dereference(chain->filter_chain);
++	     tp; tp = rtnl_dereference(tp->next))
++		tfilter_notify(net, oskb, n, tp, 0, event, false);
++}
++
+ /* Add/change/delete/get a filter node */
+ 
+ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
+@@ -640,98 +724,6 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
+ 	return err;
+ }
+ 
+-static int tcf_fill_node(struct net *net, struct sk_buff *skb,
+-			 struct tcf_proto *tp, void *fh, u32 portid,
+-			 u32 seq, u16 flags, int event)
+-{
+-	struct tcmsg *tcm;
+-	struct nlmsghdr  *nlh;
+-	unsigned char *b = skb_tail_pointer(skb);
+-
+-	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*tcm), flags);
+-	if (!nlh)
+-		goto out_nlmsg_trim;
+-	tcm = nlmsg_data(nlh);
+-	tcm->tcm_family = AF_UNSPEC;
+-	tcm->tcm__pad1 = 0;
+-	tcm->tcm__pad2 = 0;
+-	tcm->tcm_ifindex = qdisc_dev(tp->q)->ifindex;
+-	tcm->tcm_parent = tp->classid;
+-	tcm->tcm_info = TC_H_MAKE(tp->prio, tp->protocol);
+-	if (nla_put_string(skb, TCA_KIND, tp->ops->kind))
+-		goto nla_put_failure;
+-	if (nla_put_u32(skb, TCA_CHAIN, tp->chain->index))
+-		goto nla_put_failure;
+-	if (!fh) {
+-		tcm->tcm_handle = 0;
+-	} else {
+-		if (tp->ops->dump && tp->ops->dump(net, tp, fh, skb, tcm) < 0)
+-			goto nla_put_failure;
+-	}
+-	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
+-	return skb->len;
+-
+-out_nlmsg_trim:
+-nla_put_failure:
+-	nlmsg_trim(skb, b);
+-	return -1;
+-}
+-
+-static int tfilter_notify(struct net *net, struct sk_buff *oskb,
+-			  struct nlmsghdr *n, struct tcf_proto *tp,
+-			  void *fh, int event, bool unicast)
+-{
+-	struct sk_buff *skb;
+-	u32 portid = oskb ? NETLINK_CB(oskb).portid : 0;
+-
+-	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+-	if (!skb)
+-		return -ENOBUFS;
+-
+-	if (tcf_fill_node(net, skb, tp, fh, portid, n->nlmsg_seq,
+-			  n->nlmsg_flags, event) <= 0) {
+-		kfree_skb(skb);
+-		return -EINVAL;
+-	}
+-
+-	if (unicast)
+-		return netlink_unicast(net->rtnl, skb, portid, MSG_DONTWAIT);
+-
+-	return rtnetlink_send(skb, net, portid, RTNLGRP_TC,
+-			      n->nlmsg_flags & NLM_F_ECHO);
+-}
+-
+-static int tfilter_del_notify(struct net *net, struct sk_buff *oskb,
+-			      struct nlmsghdr *n, struct tcf_proto *tp,
+-			      void *fh, bool unicast, bool *last)
+-{
+-	struct sk_buff *skb;
+-	u32 portid = oskb ? NETLINK_CB(oskb).portid : 0;
+-	int err;
+-
+-	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+-	if (!skb)
+-		return -ENOBUFS;
+-
+-	if (tcf_fill_node(net, skb, tp, fh, portid, n->nlmsg_seq,
+-			  n->nlmsg_flags, RTM_DELTFILTER) <= 0) {
+-		kfree_skb(skb);
+-		return -EINVAL;
+-	}
+-
+-	err = tp->ops->delete(tp, fh, last);
+-	if (err) {
+-		kfree_skb(skb);
+-		return err;
+-	}
+-
+-	if (unicast)
+-		return netlink_unicast(net->rtnl, skb, portid, MSG_DONTWAIT);
+-
+-	return rtnetlink_send(skb, net, portid, RTNLGRP_TC,
+-			      n->nlmsg_flags & NLM_F_ECHO);
+-}
+-
+ struct tcf_dump_args {
+ 	struct tcf_walker w;
+ 	struct sk_buff *skb;
 -- 
-Florian
+2.13.0
