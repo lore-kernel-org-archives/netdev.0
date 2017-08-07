@@ -1,148 +1,82 @@
-From: Joel Fernandes <joelaf@google.com>
-Subject: [PATCH RFC v2 3/5] samples/bpf: Fix inline asm issues building samples on arm64
-Date: Mon,  7 Aug 2017 06:06:00 -0700
-Message-ID: <20170807130602.31785-4-joelaf@google.com>
-References: <20170807130602.31785-1-joelaf@google.com>
-Cc: Chenbo Feng <fengc@google.com>,
-        Alison Chaiken <alison@she-devel.com>, Juri.Lelli@arm.com,
-        Joel Fernandes <joelaf@google.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        netdev@vger.kernel.org (open list:BPF (Safe dynamic programs and tools))
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170807130602.31785-1-joelaf@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next 1/1] netvsc: fix rtnl deadlock on unregister of vf
+Date: Mon, 07 Aug 2017 15:08:08 +0200
+Message-ID: <874ltjedaf.fsf@vitty.brq.redhat.com>
+References: <20170804191400.22471-1-sthemmin@microsoft.com>
+ <20170804191400.22471-2-sthemmin@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com,
+ sthemmin@microsoft.com, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20170804191400.22471-2-sthemmin@microsoft.com> (Stephen
+ Hemminger's message of "Fri, 4 Aug 2017 12:14:00 -0700")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-inline assembly has haunted building samples on arm64 for quite sometime.
-This patch uses the pre-processor to noop all occurences of inline asm when
-compiling the BPF sample for the BPF target.
+Stephen Hemminger <stephen@networkplumber.org> writes:
 
-This patch reintroduces inclusion of asm/sysregs.h which needs to be included
-to avoid compiler errors now, see [1]. Previously a hack prevented this
-inclusion [2] (to avoid the exact problem this patch fixes - skipping inline
-assembler) but the hack causes other errors now and no longer works.
+> With new transparent VF support, it is possible to get a deadlock
+> when some of the deferred work is running and the unregister_vf
+> is trying to cancel the work element. The solution is to use
+> trylock and reschedule (similar to bonding and team device).
+>
+> Reported-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> Fixes: 0c195567a8f6 ("netvsc: transparent VF management")
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> ---
+>  drivers/net/hyperv/netvsc_drv.c | 12 ++++++++++--
+>  1 file changed, 10 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index c71728d82049..e75c0f852a63 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -1601,7 +1601,11 @@ static void netvsc_vf_setup(struct work_struct *w)
+>  	struct net_device *ndev = hv_get_drvdata(ndev_ctx->device_ctx);
+>  	struct net_device *vf_netdev;
+>
+> -	rtnl_lock();
+> +	if (!rtnl_trylock()) {
+> +		schedule_work(w);
+> +		return;
+> +	}
+> +
+>  	vf_netdev = rtnl_dereference(ndev_ctx->vf_netdev);
+>  	if (vf_netdev)
+>  		__netvsc_vf_setup(ndev, vf_netdev);
+> @@ -1655,7 +1659,11 @@ static void netvsc_vf_update(struct work_struct *w)
+>  	struct net_device *vf_netdev;
+>  	bool vf_is_up;
+>
+> -	rtnl_lock();
+> +	if (!rtnl_trylock()) {
+> +		schedule_work(w);
+> +		return;
+> +	}
+> +
 
-Using the preprocessor to noop the inline asm occurences, we also avoid
-any future unstable hackery needed (such as those that skip asm headers)
-and provides information that asm headers may have which could have been
-used but which the inline asm issues prevented. This is the least messy
-of all hacks in my opinion.
+So in the situation when we're currently in netvsc_unregister_vf() and
+trying to do
+        cancel_work_sync(&net_device_ctx->vf_takeover);
+	cancel_work_sync(&net_device_ctx->vf_notify);
 
-[1] https://lkml.org/lkml/2017/8/5/143
-[2] https://lists.linaro.org/pipermail/linaro-kernel/2015-November/024036.html
+we'll end up not executing netvsc_vf_update() at all, right? Wouldn't it
+create an issue as nobody is switching the datapath back to netvsc?
 
-Signed-off-by: Joel Fernandes <joelaf@google.com>
----
- samples/bpf/Makefile           | 40 +++++++++++++++++++++++++++++++++-------
- samples/bpf/arm64_asmstubs.h   |  3 +++
- samples/bpf/bpf_helpers.h      | 12 ++++++------
- samples/bpf/generic_asmstubs.h |  4 ++++
- 4 files changed, 46 insertions(+), 13 deletions(-)
- create mode 100644 samples/bpf/arm64_asmstubs.h
- create mode 100644 samples/bpf/generic_asmstubs.h
+>  	vf_netdev = rtnl_dereference(ndev_ctx->vf_netdev);
+>  	if (!vf_netdev)
+>  		goto unlock;
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index e5642c8c144d..7591cdd7fe69 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -151,6 +151,8 @@ HOSTLOADLIBES_test_map_in_map += -lelf
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
- LLC ?= llc
- CLANG ?= clang
-+PERL ?= perl
-+RM ?= rm
- 
- # Detect that we're cross compiling and use the right compilers and flags
- ifdef CROSS_COMPILE
-@@ -186,14 +188,38 @@ verify_target_bpf: verify_cmds
- 
- $(src)/*.c: verify_target_bpf
- 
--# asm/sysreg.h - inline assembly used by it is incompatible with llvm.
--# But, there is no easy way to fix it, so just exclude it since it is
--# useless for BPF samples.
--$(obj)/%.o: $(src)/%.c
--	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
--		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-+curdir := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-+ifeq ($(wildcard  $(curdir)/${ARCH}_asmstubs.h),)
-+    ARCH_ASM_STUBS :=
-+else
-+    ARCH_ASM_STUBS := -include $(src)/${ARCH}_asmstubs.h
-+endif
-+
-+ASM_STUBS := ${ARCH_ASM_STUBS} -include $(src)/generic_asmstubs.h
-+
-+CLANG_ARGS = $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
-+		-D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
-+		$(ASM_STUBS) \
- 		-Wno-compare-distinct-pointer-types \
- 		-Wno-gnu-variable-sized-type-not-at-end \
- 		-Wno-address-of-packed-member -Wno-tautological-compare \
- 		-Wno-unknown-warning-option \
--		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
-+		-O2 -emit-llvm
-+
-+$(obj)/%.o: $(src)/%.c
-+	# Steps to compile BPF sample while getting rid of inline asm
-+	# This has the advantage of not having to skip important asm headers
-+	# Step 1. Use clang preprocessor to stub out asm() calls
-+	# Step 2. Replace all "asm volatile" with single keyword "asmvolatile"
-+	# Step 3. Use clang preprocessor to noop all asm volatile() calls
-+	#         and restore asm_bpf to asm for BPF's asm directives
-+	# Step 4. Compile and link
-+
-+	$(CLANG) -E $(CLANG_ARGS) -c $< -o - | \
-+	$(PERL) -pe "s/[_\s]*asm[_\s]*volatile[_\s]*/asmvolatile/g" | \
-+	$(CLANG) -E $(ASM_STUBS) - -o - | \
-+	$(CLANG) -E -Dasm_bpf=asm - -o $@.tmp.c
-+
-+	$(CLANG) $(CLANG_ARGS) -c $@.tmp.c \
-+		-o - | $(LLC) -march=bpf -filetype=obj -o $@
-+	$(RM) $@.tmp.c
-diff --git a/samples/bpf/arm64_asmstubs.h b/samples/bpf/arm64_asmstubs.h
-new file mode 100644
-index 000000000000..23d47dbe61b1
---- /dev/null
-+++ b/samples/bpf/arm64_asmstubs.h
-@@ -0,0 +1,3 @@
-+/* Special handing for current_stack_pointer */
-+#define __ASM_STACK_POINTER_H
-+#define current_stack_pointer 0
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 9a9c95f2c9fb..67c9c4438e4b 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -64,12 +64,12 @@ static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
-  */
- struct sk_buff;
--unsigned long long load_byte(void *skb,
--			     unsigned long long off) asm("llvm.bpf.load.byte");
--unsigned long long load_half(void *skb,
--			     unsigned long long off) asm("llvm.bpf.load.half");
--unsigned long long load_word(void *skb,
--			     unsigned long long off) asm("llvm.bpf.load.word");
-+unsigned long long load_byte(void *skb, unsigned long long off)
-+			     asm_bpf("llvm.bpf.load.byte");
-+unsigned long long load_half(void *skb, unsigned long long off)
-+			     asm_bpf("llvm.bpf.load.half");
-+unsigned long long load_word(void *skb, unsigned long long off)
-+			     asm_bpf("llvm.bpf.load.word");
- 
- /* a helper structure used by eBPF C program
-  * to describe map attributes to elf_bpf loader
-diff --git a/samples/bpf/generic_asmstubs.h b/samples/bpf/generic_asmstubs.h
-new file mode 100644
-index 000000000000..1b9e9f5094d8
---- /dev/null
-+++ b/samples/bpf/generic_asmstubs.h
-@@ -0,0 +1,4 @@
-+#define bpf_noop_stub
-+#define asm(...) bpf_noop_stub
-+#define __asm__(...) bpf_noop_stub
-+#define asmvolatile(...) bpf_noop_stub
 -- 
-2.14.0.rc1.383.gd1ce394fe2-goog
+  Vitaly
