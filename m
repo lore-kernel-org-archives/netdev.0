@@ -1,27 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] net: dsa: remove useless arguments
-Date: Mon, 07 Aug 2017 14:24:37 -0700 (PDT)
-Message-ID: <20170807.142437.1790018700462135738.davem@davemloft.net>
-References: <20170805202019.1679-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH ipsec-next] xfrm: check that cached bundle is still
+ valid
+Date: Mon, 07 Aug 2017 14:26:28 -0700 (PDT)
+Message-ID: <20170807.142628.1235964040083698243.davem@davemloft.net>
+References: <20170806081907.5267-1-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170805202019.1679-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36504 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751662AbdHGV03 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 17:26:29 -0400
+In-Reply-To: <20170806081907.5267-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Sat,  5 Aug 2017 16:20:16 -0400
+From: Florian Westphal <fw@strlen.de>
+Date: Sun,  6 Aug 2017 10:19:07 +0200
 
-> Several DSA core setup functions take many arguments, mostly because of
-> the legacy code. This patch series removes the useless args of these
-> functions, where either the dsa_switch or dsa_port argument is enough.
+> Quoting Ilan Tayari:
+>   1. Set up a host-to-host IPSec tunnel (or transport, doesn't matter)
+>   2. Ping over IPSec, or do something to populate the pcpu cache
+>   3. Join a MC group, then leave MC group
+>   4. Try to ping again using same CPU as before -> traffic
+>      doesn't egress the machine at all
 > 
-> Changes in v2:
->   - ds->dev is already assigned by dsa_switch_alloc
+> Ilan debugged the problem down to the fact that one of the path dsts
+> devices point to lo due to earlier dst_dev_put().
+> In this case, dst is marked as DEAD and we cannot reuse the bundle.
+> 
+> The cache only asserted that the requested policy and that of the cached
+> bundle match, but its not enough - also verify the path is still valid.
+> 
+> Fixes: ec30d78c14a813 ("xfrm: add xdst pcpu cache")
+> Reported-by: Ayham Masood <ayhamm@mellanox.com>
+> Tested-by: Ilan Tayari <ilant@mellanox.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Series applied, thanks.
+Since this regression is from the flow cache removal that went directly
+into my tree, I'll apply this directly to net-next as well.
+
+Thanks Florian.
