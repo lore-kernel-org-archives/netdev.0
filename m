@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 16/16] net: sched: get rid of struct tc_to_netdev
-Date: Mon,  7 Aug 2017 10:15:32 +0200
-Message-ID: <20170807081532.32760-17-jiri@resnulli.us>
+Subject: [patch net-next v2 13/16] net: sched: push cls related args into cls_common structure
+Date: Mon,  7 Aug 2017 10:15:29 +0200
+Message-ID: <20170807081532.32760-14-jiri@resnulli.us>
 References: <20170807081532.32760-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
@@ -12,1096 +12,1105 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         yisen.zhuang@huawei.com, salil.mehta@huawei.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33415 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752419AbdHGIQC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:16:02 -0400
-Received: by mail-wm0-f67.google.com with SMTP id q189so152951wmd.0
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 01:16:01 -0700 (PDT)
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:35307 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752660AbdHGIP4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:15:56 -0400
+Received: by mail-wr0-f195.google.com with SMTP id c24so7109929wra.2
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 01:15:55 -0700 (PDT)
 In-Reply-To: <20170807081532.32760-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Get rid of struct tc_to_netdev which is now just unnecessary container
-and rather pass per-type structures down to drivers directly.
-Along with that, consolidate the naming of per-type structure variables
-in cls_*.
+As ndo_setup_tc is generic offload op for whole tc subsystem, does not
+really make sense to have cls-specific args. So move them under
+cls_common structurure which is embedded in all cls structs.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  7 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |  8 ++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |  2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c          |  8 ++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  4 +-
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  7 +-
- .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c |  6 +-
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c    |  8 ++-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  8 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  6 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     | 10 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  6 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   | 12 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.h    |  2 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  8 +--
- drivers/net/ethernet/netronome/nfp/bpf/main.c      |  5 +-
- drivers/net/ethernet/netronome/nfp/flower/main.h   |  4 +-
- .../net/ethernet/netronome/nfp/flower/offload.c    |  4 +-
- drivers/net/ethernet/netronome/nfp/nfp_app.h       |  8 +--
- drivers/net/ethernet/netronome/nfp/nfp_port.c      |  4 +-
- drivers/net/ethernet/netronome/nfp/nfp_port.h      |  3 +-
- drivers/net/ethernet/sfc/efx.h                     |  2 +-
- drivers/net/ethernet/sfc/falcon/efx.h              |  2 +-
- drivers/net/ethernet/sfc/falcon/tx.c               |  7 +-
- drivers/net/ethernet/sfc/tx.c                      |  7 +-
- drivers/net/ethernet/ti/netcp_core.c               |  7 +-
- include/linux/netdevice.h                          | 19 +----
- net/dsa/slave.c                                    |  4 +-
- net/sched/cls_bpf.c                                | 21 +++---
- net/sched/cls_flower.c                             | 54 ++++++--------
- net/sched/cls_matchall.c                           | 27 +++----
- net/sched/cls_u32.c                                | 83 ++++++++++------------
- net/sched/sch_mqprio.c                             | 13 ++--
- 33 files changed, 174 insertions(+), 202 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  1 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |  1 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |  1 -
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c          |  1 -
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 14 +++++-------
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |  7 +++---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h  |  6 ++----
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  1 -
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c |  1 -
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c    |  1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      | 17 ++++++---------
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  1 -
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 11 ++++------
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   | 15 +++++--------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h    |  2 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 25 ++++++++--------------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  2 +-
+ .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |  2 +-
+ drivers/net/ethernet/netronome/nfp/bpf/main.c      | 10 +++++----
+ drivers/net/ethernet/netronome/nfp/flower/main.h   |  3 +--
+ .../net/ethernet/netronome/nfp/flower/offload.c    | 12 ++++++-----
+ drivers/net/ethernet/netronome/nfp/nfp_app.h       |  6 ++----
+ drivers/net/ethernet/netronome/nfp/nfp_port.c      |  6 +-----
+ drivers/net/ethernet/netronome/nfp/nfp_port.h      |  1 -
+ drivers/net/ethernet/sfc/efx.h                     |  1 -
+ drivers/net/ethernet/sfc/falcon/efx.h              |  1 -
+ drivers/net/ethernet/sfc/falcon/tx.c               |  1 -
+ drivers/net/ethernet/sfc/tx.c                      |  1 -
+ drivers/net/ethernet/ti/netcp_core.c               |  1 -
+ include/linux/netdevice.h                          |  3 ---
+ include/net/pkt_cls.h                              | 19 ++++++++++++++++
+ net/dsa/slave.c                                    | 14 +++++-------
+ net/sched/cls_bpf.c                                |  7 ++----
+ net/sched/cls_flower.c                             | 13 ++++++-----
+ net/sched/cls_matchall.c                           |  8 +++----
+ net/sched/cls_u32.c                                | 20 +++++++----------
+ net/sched/sch_mqprio.c                             |  6 ++----
+ 39 files changed, 101 insertions(+), 144 deletions(-)
 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 37d3e5b..2fd9b80 100644
+index 6a6ea3b..bbb7bfe 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1919,16 +1919,17 @@ static void xgbe_poll_controller(struct net_device *netdev)
+@@ -1919,7 +1919,6 @@ static void xgbe_poll_controller(struct net_device *netdev)
  #endif /* End CONFIG_NET_POLL_CONTROLLER */
  
  static int xgbe_setup_tc(struct net_device *netdev, enum tc_setup_type type,
--			 struct tc_to_netdev *tc_to_netdev)
-+			 void *type_data)
+-			 u32 handle, u32 chain_index, __be16 proto,
+ 			 struct tc_to_netdev *tc_to_netdev)
  {
  	struct xgbe_prv_data *pdata = netdev_priv(netdev);
-+	struct tc_mqprio_qopt *mqprio = type_data;
- 	u8 tc;
- 
- 	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	tc_to_netdev->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
--	tc = tc_to_netdev->mqprio->num_tc;
-+	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
-+	tc = mqprio->num_tc;
- 
- 	if (tc > pdata->hw_feat.tc_cnt)
- 		return -EINVAL;
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 8687afc..1216c1f 100644
+index 4395d1c..257cf4b 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -4285,14 +4285,16 @@ int bnx2x_setup_tc(struct net_device *dev, u8 num_tc)
+@@ -4285,7 +4285,6 @@ int bnx2x_setup_tc(struct net_device *dev, u8 num_tc)
  }
  
  int __bnx2x_setup_tc(struct net_device *dev, enum tc_setup_type type,
--		     struct tc_to_netdev *tc)
-+		     void *type_data)
+-		     u32 handle, u32 chain_index, __be16 proto,
+ 		     struct tc_to_netdev *tc)
  {
-+	struct tc_mqprio_qopt *mqprio = type_data;
-+
  	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
-+	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
--	return bnx2x_setup_tc(dev, tc->mqprio->num_tc);
-+	return bnx2x_setup_tc(dev, mqprio->num_tc);
- }
- 
- /* called with rtnl_lock */
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index 04eb950..a5265e1 100644
+index 1ac4eb0..04eb950 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -487,7 +487,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev);
+@@ -487,7 +487,6 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev);
  /* setup_tc callback */
  int bnx2x_setup_tc(struct net_device *dev, u8 num_tc);
  int __bnx2x_setup_tc(struct net_device *dev, enum tc_setup_type type,
--		     struct tc_to_netdev *tc);
-+		     void *type_data);
+-		     u32 handle, u32 chain_index, __be16 proto,
+ 		     struct tc_to_netdev *tc);
  
  int bnx2x_get_vf_config(struct net_device *dev, int vf,
- 			struct ifla_vf_info *ivi);
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index a78f72a..6e14fc4 100644
+index b98d9f3..1545b88 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -7238,14 +7238,16 @@ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
+@@ -7238,7 +7238,6 @@ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
  }
  
  static int bnxt_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			 struct tc_to_netdev *ntc)
-+			 void *type_data)
+-			 u32 handle, u32 chain_index, __be16 proto,
+ 			 struct tc_to_netdev *ntc)
  {
-+	struct tc_mqprio_qopt *mqprio = type_data;
-+
  	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	ntc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
-+	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
--	return bnxt_setup_mq_tc(dev, ntc->mqprio->num_tc);
-+	return bnxt_setup_mq_tc(dev, mqprio->num_tc);
- }
- 
- #ifdef CONFIG_RFS_ACCEL
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 1319931..d80b20d 100644
+index 6512290..1319931 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -2908,7 +2908,7 @@ static int cxgb_setup_tc_cls_u32(struct net_device *dev,
+@@ -2890,27 +2890,24 @@ static int cxgb_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
+ }
+ 
+ static int cxgb_setup_tc_cls_u32(struct net_device *dev,
+-				 enum tc_setup_type type,
+-				 u32 handle, u32 chain_index, __be16 proto,
+ 				 struct tc_cls_u32_offload *cls_u32)
+ {
+-	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS) ||
+-	    chain_index)
++	if (TC_H_MAJ(cls_u32->common.handle) != TC_H_MAJ(TC_H_INGRESS) ||
++	    cls_u32->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+ 	switch (cls_u32->command) {
+ 	case TC_CLSU32_NEW_KNODE:
+ 	case TC_CLSU32_REPLACE_KNODE:
+-		return cxgb4_config_knode(dev, proto, cls_u32);
++		return cxgb4_config_knode(dev, cls_u32);
+ 	case TC_CLSU32_DELETE_KNODE:
+-		return cxgb4_delete_knode(dev, proto, cls_u32);
++		return cxgb4_delete_knode(dev, cls_u32);
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
  }
  
  static int cxgb_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			 struct tc_to_netdev *tc)
-+			 void *type_data)
+-			 u32 handle, u32 chain_index, __be16 proto,
+ 			 struct tc_to_netdev *tc)
  {
  	struct port_info *pi = netdev2pinfo(dev);
- 	struct adapter *adap = netdev2adap(dev);
-@@ -2922,7 +2922,7 @@ static int cxgb_setup_tc(struct net_device *dev, enum tc_setup_type type,
+@@ -2925,8 +2922,7 @@ static int cxgb_setup_tc(struct net_device *dev, enum tc_setup_type type,
  
  	switch (type) {
  	case TC_SETUP_CLSU32:
--		return cxgb_setup_tc_cls_u32(dev, tc->cls_u32);
-+		return cxgb_setup_tc_cls_u32(dev, type_data);
+-		return cxgb_setup_tc_cls_u32(dev, type, handle, chain_index,
+-					     proto, tc->cls_u32);
++		return cxgb_setup_tc_cls_u32(dev, tc->cls_u32);
  	default:
  		return -EOPNOTSUPP;
  	}
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index bfb44c9..733d54c 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -343,17 +343,18 @@ static void dpaa_get_stats64(struct net_device *net_dev,
- }
- 
- static int dpaa_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
--			 struct tc_to_netdev *tc)
-+			 void *type_data)
- {
- 	struct dpaa_priv *priv = netdev_priv(net_dev);
-+	struct tc_mqprio_qopt *mqprio = type_data;
- 	u8 num_tc;
- 	int i;
- 
- 	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
--	num_tc = tc->mqprio->num_tc;
-+	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
-+	num_tc = mqprio->num_tc;
- 
- 	if (num_tc == priv->num_tc)
- 		return 0;
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
-index aa43ebd..069ae42 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
-@@ -1220,12 +1220,14 @@ static int hns3_setup_tc(struct net_device *netdev, u8 tc)
- }
- 
- static int hns3_nic_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			     struct tc_to_netdev *tc)
-+			     void *type_data)
- {
-+	struct tc_mqprio_qopt *mqprio = type_data;
-+
- 	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	return hns3_setup_tc(dev, tc->mqprio->num_tc);
-+	return hns3_setup_tc(dev, mqprio->num_tc);
- }
- 
- static int hns3_vlan_rx_add_vid(struct net_device *netdev,
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 7088812..e69d49d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1266,14 +1266,16 @@ int fm10k_setup_tc(struct net_device *dev, u8 tc)
- }
- 
- static int __fm10k_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			    struct tc_to_netdev *tc)
-+			    void *type_data)
- {
-+	struct tc_mqprio_qopt *mqprio = type_data;
-+
- 	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
-+	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
--	return fm10k_setup_tc(dev, tc->mqprio->num_tc);
-+	return fm10k_setup_tc(dev, mqprio->num_tc);
- }
- 
- static void fm10k_assign_l2_accel(struct fm10k_intfc *interface,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 1f46338..a7e5a76 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5657,14 +5657,16 @@ static int i40e_setup_tc(struct net_device *netdev, u8 tc)
- }
- 
- static int __i40e_setup_tc(struct net_device *netdev, enum tc_setup_type type,
--			   struct tc_to_netdev *tc)
-+			   void *type_data)
- {
-+	struct tc_mqprio_qopt *mqprio = type_data;
-+
- 	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
-+	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
--	return i40e_setup_tc(netdev, tc->mqprio->num_tc);
-+	return i40e_setup_tc(netdev, mqprio->num_tc);
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 0a35031..c6b1324 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -9258,13 +9258,13 @@ static int ixgbe_setup_tc_mqprio(struct net_device *dev,
- }
- 
- static int __ixgbe_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			    struct tc_to_netdev *tc)
-+			    void *type_data)
- {
- 	switch (type) {
- 	case TC_SETUP_CLSU32:
--		return ixgbe_setup_tc_cls_u32(dev, tc->cls_u32);
-+		return ixgbe_setup_tc_cls_u32(dev, type_data);
- 	case TC_SETUP_MQPRIO:
--		return ixgbe_setup_tc_mqprio(dev, tc->mqprio);
-+		return ixgbe_setup_tc_mqprio(dev, type_data);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 1667e86..6e67ca7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -131,17 +131,19 @@ int mlx4_en_alloc_tx_queue_per_tc(struct net_device *dev, u8 tc)
- }
- 
- static int __mlx4_en_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			      struct tc_to_netdev *tc)
-+			      void *type_data)
- {
-+	struct tc_mqprio_qopt *mqprio = type_data;
-+
- 	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	if (tc->mqprio->num_tc && tc->mqprio->num_tc != MLX4_EN_NUM_UP_HIGH)
-+	if (mqprio->num_tc && mqprio->num_tc != MLX4_EN_NUM_UP_HIGH)
- 		return -EINVAL;
- 
--	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
-+	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
--	return mlx4_en_alloc_tx_queue_per_tc(dev, tc->mqprio->num_tc);
-+	return mlx4_en_alloc_tx_queue_per_tc(dev, mqprio->num_tc);
- }
- 
- #ifdef CONFIG_RFS_ACCEL
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 15f2a94..ae09162 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3053,13 +3053,13 @@ static int mlx5e_setup_tc_cls_flower(struct net_device *dev,
- }
- 
- static int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			  struct tc_to_netdev *tc)
-+			  void *type_data)
- {
- 	switch (type) {
- 	case TC_SETUP_CLSFLOWER:
--		return mlx5e_setup_tc_cls_flower(dev, tc->cls_flower);
-+		return mlx5e_setup_tc_cls_flower(dev, type_data);
- 	case TC_SETUP_MQPRIO:
--		return mlx5e_setup_tc_mqprio(dev, tc->mqprio);
-+		return mlx5e_setup_tc_mqprio(dev, type_data);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index e5cf2e7..3df994d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -651,10 +651,10 @@ static int mlx5e_rep_get_phys_port_name(struct net_device *dev,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
+index 6f734c5..48970ba 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
+@@ -146,11 +146,11 @@ static int fill_action_fields(struct adapter *adap,
  	return 0;
  }
  
--static int mlx5e_rep_setup_tc_cls_flower(struct net_device *dev,
--					 struct tc_to_netdev *tc)
-+static int
-+mlx5e_rep_setup_tc_cls_flower(struct net_device *dev,
-+			      struct tc_cls_flower_offload *cls_flower)
+-int cxgb4_config_knode(struct net_device *dev, __be16 protocol,
+-		       struct tc_cls_u32_offload *cls)
++int cxgb4_config_knode(struct net_device *dev, struct tc_cls_u32_offload *cls)
  {
--	struct tc_cls_flower_offload *cls_flower = tc->cls_flower;
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 
- 	if (TC_H_MAJ(cls_flower->common.handle) != TC_H_MAJ(TC_H_INGRESS) ||
-@@ -666,7 +666,7 @@ static int mlx5e_rep_setup_tc_cls_flower(struct net_device *dev,
- 
- 		dev = mlx5_eswitch_get_uplink_netdev(esw);
- 		return dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
--						     tc);
-+						     cls_flower);
- 	}
- 
- 	switch (cls_flower->command) {
-@@ -682,11 +682,11 @@ static int mlx5e_rep_setup_tc_cls_flower(struct net_device *dev,
+ 	const struct cxgb4_match_field *start, *link_start = NULL;
+ 	struct adapter *adapter = netdev2adap(dev);
++	__be16 protocol = cls->common.protocol;
+ 	struct ch_filter_specification fs;
+ 	struct cxgb4_tc_u32_table *t;
+ 	struct cxgb4_link *link;
+@@ -338,8 +338,7 @@ int cxgb4_config_knode(struct net_device *dev, __be16 protocol,
+ 	return ret;
  }
  
- static int mlx5e_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			      struct tc_to_netdev *tc)
-+			      void *type_data)
+-int cxgb4_delete_knode(struct net_device *dev, __be16 protocol,
+-		       struct tc_cls_u32_offload *cls)
++int cxgb4_delete_knode(struct net_device *dev, struct tc_cls_u32_offload *cls)
+ {
+ 	struct adapter *adapter = netdev2adap(dev);
+ 	unsigned int filter_id, max_tids, i, j;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h
+index 021261a..70a07b7 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.h
+@@ -44,10 +44,8 @@ static inline bool can_tc_u32_offload(struct net_device *dev)
+ 	return (dev->features & NETIF_F_HW_TC) && adap->tc_u32 ? true : false;
+ }
+ 
+-int cxgb4_config_knode(struct net_device *dev, __be16 protocol,
+-		       struct tc_cls_u32_offload *cls);
+-int cxgb4_delete_knode(struct net_device *dev, __be16 protocol,
+-		       struct tc_cls_u32_offload *cls);
++int cxgb4_config_knode(struct net_device *dev, struct tc_cls_u32_offload *cls);
++int cxgb4_delete_knode(struct net_device *dev, struct tc_cls_u32_offload *cls);
+ 
+ void cxgb4_cleanup_tc_u32(struct adapter *adapter);
+ struct cxgb4_tc_u32_table *cxgb4_init_tc_u32(struct adapter *adap);
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index d86d766..3827608 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -343,7 +343,6 @@ static void dpaa_get_stats64(struct net_device *net_dev,
+ }
+ 
+ static int dpaa_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
+-			 u32 handle, u32 chain_index, __be16 proto,
+ 			 struct tc_to_netdev *tc)
+ {
+ 	struct dpaa_priv *priv = netdev_priv(net_dev);
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index ef57959..dc64d75 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -1220,7 +1220,6 @@ static int hns3_setup_tc(struct net_device *netdev, u8 tc)
+ }
+ 
+ static int hns3_nic_setup_tc(struct net_device *dev, enum tc_setup_type type,
+-			     u32 handle, u32 chain_index, __be16 protocol,
+ 			     struct tc_to_netdev *tc)
+ {
+ 	if (type != TC_SETUP_MQPRIO)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index b301906..71004b8 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -1266,7 +1266,6 @@ int fm10k_setup_tc(struct net_device *dev, u8 tc)
+ }
+ 
+ static int __fm10k_setup_tc(struct net_device *dev, enum tc_setup_type type,
+-			    u32 handle, u32 chain_index, __be16 proto,
+ 			    struct tc_to_netdev *tc)
+ {
+ 	if (type != TC_SETUP_MQPRIO)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 7d47a71..97d8bb2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5657,7 +5657,6 @@ static int i40e_setup_tc(struct net_device *netdev, u8 tc)
+ }
+ 
+ static int __i40e_setup_tc(struct net_device *netdev, enum tc_setup_type type,
+-			   u32 handle, u32 chain_index, __be16 proto,
+ 			   struct tc_to_netdev *tc)
+ {
+ 	if (type != TC_SETUP_MQPRIO)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 35db198..0a35031 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8851,7 +8851,6 @@ static int ixgbe_delete_clsu32(struct ixgbe_adapter *adapter,
+ }
+ 
+ static int ixgbe_configure_clsu32_add_hnode(struct ixgbe_adapter *adapter,
+-					    __be16 protocol,
+ 					    struct tc_cls_u32_offload *cls)
+ {
+ 	u32 uhtid = TC_U32_USERHTID(cls->hnode.handle);
+@@ -9037,9 +9036,9 @@ static int ixgbe_clsu32_build_input(struct ixgbe_fdir_filter *input,
+ }
+ 
+ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+-				  __be16 protocol,
+ 				  struct tc_cls_u32_offload *cls)
+ {
++	__be16 protocol = cls->common.protocol;
+ 	u32 loc = cls->knode.handle & 0xfffff;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct ixgbe_mat_field *field_ptr;
+@@ -9227,25 +9226,23 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ }
+ 
+ static int ixgbe_setup_tc_cls_u32(struct net_device *dev,
+-				  u32 handle, u32 chain_index, __be16 proto,
+ 				  struct tc_cls_u32_offload *cls_u32)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 
+-	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS) ||
+-	    chain_index)
++	if (TC_H_MAJ(cls_u32->common.handle) != TC_H_MAJ(TC_H_INGRESS) ||
++	    cls_u32->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+ 	switch (cls_u32->command) {
+ 	case TC_CLSU32_NEW_KNODE:
+ 	case TC_CLSU32_REPLACE_KNODE:
+-		return ixgbe_configure_clsu32(adapter, proto, cls_u32);
++		return ixgbe_configure_clsu32(adapter, cls_u32);
+ 	case TC_CLSU32_DELETE_KNODE:
+ 		return ixgbe_delete_clsu32(adapter, cls_u32);
+ 	case TC_CLSU32_NEW_HNODE:
+ 	case TC_CLSU32_REPLACE_HNODE:
+-		return ixgbe_configure_clsu32_add_hnode(adapter, proto,
+-							cls_u32);
++		return ixgbe_configure_clsu32_add_hnode(adapter, cls_u32);
+ 	case TC_CLSU32_DELETE_HNODE:
+ 		return ixgbe_configure_clsu32_del_hnode(adapter, cls_u32);
+ 	default:
+@@ -9261,13 +9258,11 @@ static int ixgbe_setup_tc_mqprio(struct net_device *dev,
+ }
+ 
+ static int __ixgbe_setup_tc(struct net_device *dev, enum tc_setup_type type,
+-			    u32 handle, u32 chain_index, __be16 proto,
+ 			    struct tc_to_netdev *tc)
+ {
+ 	switch (type) {
+ 	case TC_SETUP_CLSU32:
+-		return ixgbe_setup_tc_cls_u32(dev, handle, chain_index, proto,
+-					      tc->cls_u32);
++		return ixgbe_setup_tc_cls_u32(dev, tc->cls_u32);
+ 	case TC_SETUP_MQPRIO:
+ 		return ixgbe_setup_tc_mqprio(dev, tc->mqprio);
+ 	default:
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 5c33550..e81083e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -131,7 +131,6 @@ int mlx4_en_alloc_tx_queue_per_tc(struct net_device *dev, u8 tc)
+ }
+ 
+ static int __mlx4_en_setup_tc(struct net_device *dev, enum tc_setup_type type,
+-			      u32 handle, u32 chain_index, __be16 proto,
+ 			      struct tc_to_netdev *tc)
+ {
+ 	if (type != TC_SETUP_MQPRIO)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index adf35da..15f2a94 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3032,18 +3032,17 @@ static int mlx5e_setup_tc_mqprio(struct net_device *netdev,
+ }
+ 
+ static int mlx5e_setup_tc_cls_flower(struct net_device *dev,
+-				     u32 handle, u32 chain_index, __be16 proto,
+ 				     struct tc_cls_flower_offload *cls_flower)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 
+-	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS) ||
+-	    chain_index)
++	if (TC_H_MAJ(cls_flower->common.handle) != TC_H_MAJ(TC_H_INGRESS) ||
++	    cls_flower->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+ 	switch (cls_flower->command) {
+ 	case TC_CLSFLOWER_REPLACE:
+-		return mlx5e_configure_flower(priv, proto, cls_flower);
++		return mlx5e_configure_flower(priv, cls_flower);
+ 	case TC_CLSFLOWER_DESTROY:
+ 		return mlx5e_delete_flower(priv, cls_flower);
+ 	case TC_CLSFLOWER_STATS:
+@@ -3054,13 +3053,11 @@ static int mlx5e_setup_tc_cls_flower(struct net_device *dev,
+ }
+ 
+ static int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
+-			  u32 handle, u32 chain_index, __be16 proto,
+ 			  struct tc_to_netdev *tc)
  {
  	switch (type) {
  	case TC_SETUP_CLSFLOWER:
--		return mlx5e_rep_setup_tc_cls_flower(dev, tc);
-+		return mlx5e_rep_setup_tc_cls_flower(dev, type_data);
+-		return mlx5e_setup_tc_cls_flower(dev, handle, chain_index,
+-						 proto, tc->cls_flower);
++		return mlx5e_setup_tc_cls_flower(dev, tc->cls_flower);
+ 	case TC_SETUP_MQPRIO:
+ 		return mlx5e_setup_tc_mqprio(dev, tc->mqprio);
+ 	default:
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index e6cc642..e5cf2e7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -652,15 +652,13 @@ static int mlx5e_rep_get_phys_port_name(struct net_device *dev,
+ }
+ 
+ static int mlx5e_rep_setup_tc_cls_flower(struct net_device *dev,
+-					 u32 handle, u32 chain_index,
+-					 __be16 proto,
+ 					 struct tc_to_netdev *tc)
+ {
+ 	struct tc_cls_flower_offload *cls_flower = tc->cls_flower;
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 
+-	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS) ||
+-	    chain_index)
++	if (TC_H_MAJ(cls_flower->common.handle) != TC_H_MAJ(TC_H_INGRESS) ||
++	    cls_flower->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (cls_flower->egress_dev) {
+@@ -668,13 +666,12 @@ static int mlx5e_rep_setup_tc_cls_flower(struct net_device *dev,
+ 
+ 		dev = mlx5_eswitch_get_uplink_netdev(esw);
+ 		return dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
+-						     handle, chain_index,
+-						     proto, tc);
++						     tc);
+ 	}
+ 
+ 	switch (cls_flower->command) {
+ 	case TC_CLSFLOWER_REPLACE:
+-		return mlx5e_configure_flower(priv, proto, cls_flower);
++		return mlx5e_configure_flower(priv, cls_flower);
+ 	case TC_CLSFLOWER_DESTROY:
+ 		return mlx5e_delete_flower(priv, cls_flower);
+ 	case TC_CLSFLOWER_STATS:
+@@ -685,13 +682,11 @@ static int mlx5e_rep_setup_tc_cls_flower(struct net_device *dev,
+ }
+ 
+ static int mlx5e_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
+-			      u32 handle, u32 chain_index, __be16 proto,
+ 			      struct tc_to_netdev *tc)
+ {
+ 	switch (type) {
+ 	case TC_SETUP_CLSFLOWER:
+-		return mlx5e_rep_setup_tc_cls_flower(dev, handle, chain_index,
+-						     proto, tc);
++		return mlx5e_rep_setup_tc_cls_flower(dev, tc);
  	default:
  		return -EOPNOTSUPP;
  	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 78f50d9..3b10d3d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -1939,7 +1939,7 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 	return err;
+ }
+ 
+-int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
++int mlx5e_configure_flower(struct mlx5e_priv *priv,
+ 			   struct tc_cls_flower_offload *f)
+ {
+ 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-index 5a0f4a4..2917d96 100644
+index ecbe30d..5a0f4a4 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
-@@ -33,6 +33,8 @@
- #ifndef __MLX5_EN_TC_H__
- #define __MLX5_EN_TC_H__
- 
-+#include <net/pkt_cls.h>
-+
- #define MLX5E_TC_FLOW_ID_MASK 0x0000ffff
- 
+@@ -38,7 +38,7 @@
  int mlx5e_tc_init(struct mlx5e_priv *priv);
+ void mlx5e_tc_cleanup(struct mlx5e_priv *priv);
+ 
+-int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
++int mlx5e_configure_flower(struct mlx5e_priv *priv,
+ 			   struct tc_cls_flower_offload *f);
+ int mlx5e_delete_flower(struct mlx5e_priv *priv,
+ 			struct tc_cls_flower_offload *f);
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 1ca3204..eb7c454 100644
+index f333d08..1ca3204 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1736,17 +1736,15 @@ mlxsw_sp_setup_tc_cls_flower(struct mlxsw_sp_port *mlxsw_sp_port,
+@@ -1617,11 +1617,11 @@ mlxsw_sp_port_del_cls_matchall_sample(struct mlxsw_sp_port *mlxsw_sp_port)
+ }
+ 
+ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+-					  __be16 protocol,
+ 					  struct tc_cls_matchall_offload *f,
+ 					  bool ingress)
+ {
+ 	struct mlxsw_sp_port_mall_tc_entry *mall_tc_entry;
++	__be16 protocol = f->common.protocol;
+ 	const struct tc_action *a;
+ 	LIST_HEAD(actions);
+ 	int err;
+@@ -1694,18 +1694,16 @@ static void mlxsw_sp_port_del_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ }
+ 
+ static int mlxsw_sp_setup_tc_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+-					  u32 handle, u32 chain_index,
+-					  __be16 proto,
+ 					  struct tc_cls_matchall_offload *f)
+ {
+-	bool ingress = TC_H_MAJ(handle) == TC_H_MAJ(TC_H_INGRESS);
++	bool ingress = TC_H_MAJ(f->common.handle) == TC_H_MAJ(TC_H_INGRESS);
+ 
+-	if (chain_index)
++	if (f->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+ 	switch (f->command) {
+ 	case TC_CLSMATCHALL_REPLACE:
+-		return mlxsw_sp_port_add_cls_matchall(mlxsw_sp_port, proto, f,
++		return mlxsw_sp_port_add_cls_matchall(mlxsw_sp_port, f,
+ 						      ingress);
+ 	case TC_CLSMATCHALL_DESTROY:
+ 		mlxsw_sp_port_del_cls_matchall(mlxsw_sp_port, f);
+@@ -1717,18 +1715,16 @@ static int mlxsw_sp_setup_tc_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 
+ static int
+ mlxsw_sp_setup_tc_cls_flower(struct mlxsw_sp_port *mlxsw_sp_port,
+-			     u32 handle, u32 chain_index, __be16 proto,
+ 			     struct tc_cls_flower_offload *f)
+ {
+-	bool ingress = TC_H_MAJ(handle) == TC_H_MAJ(TC_H_INGRESS);
++	bool ingress = TC_H_MAJ(f->common.handle) == TC_H_MAJ(TC_H_INGRESS);
+ 
+-	if (chain_index)
++	if (f->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+ 	switch (f->command) {
+ 	case TC_CLSFLOWER_REPLACE:
+-		return mlxsw_sp_flower_replace(mlxsw_sp_port, ingress,
+-					       proto, f);
++		return mlxsw_sp_flower_replace(mlxsw_sp_port, ingress, f);
+ 	case TC_CLSFLOWER_DESTROY:
+ 		mlxsw_sp_flower_destroy(mlxsw_sp_port, ingress, f);
+ 		return 0;
+@@ -1740,19 +1736,16 @@ mlxsw_sp_setup_tc_cls_flower(struct mlxsw_sp_port *mlxsw_sp_port,
  }
  
  static int mlxsw_sp_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			     struct tc_to_netdev *tc)
-+			     void *type_data)
+-			     u32 handle, u32 chain_index, __be16 proto,
+ 			     struct tc_to_netdev *tc)
  {
  	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
  
  	switch (type) {
  	case TC_SETUP_CLSMATCHALL:
--		return mlxsw_sp_setup_tc_cls_matchall(mlxsw_sp_port,
--						      tc->cls_mall);
-+		return mlxsw_sp_setup_tc_cls_matchall(mlxsw_sp_port, type_data);
+-		return mlxsw_sp_setup_tc_cls_matchall(mlxsw_sp_port, handle,
+-						      chain_index, proto,
++		return mlxsw_sp_setup_tc_cls_matchall(mlxsw_sp_port,
+ 						      tc->cls_mall);
  	case TC_SETUP_CLSFLOWER:
--		return mlxsw_sp_setup_tc_cls_flower(mlxsw_sp_port,
--						    tc->cls_flower);
-+		return mlxsw_sp_setup_tc_cls_flower(mlxsw_sp_port, type_data);
+-		return mlxsw_sp_setup_tc_cls_flower(mlxsw_sp_port, handle,
+-						    chain_index, proto,
++		return mlxsw_sp_setup_tc_cls_flower(mlxsw_sp_port,
+ 						    tc->cls_flower);
  	default:
  		return -EOPNOTSUPP;
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index e848f06..8452d1d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -508,7 +508,7 @@ extern const struct mlxsw_sp_acl_ops mlxsw_sp_acl_tcam_ops;
+ 
+ /* spectrum_flower.c */
+ int mlxsw_sp_flower_replace(struct mlxsw_sp_port *mlxsw_sp_port, bool ingress,
+-			    __be16 protocol, struct tc_cls_flower_offload *f);
++			    struct tc_cls_flower_offload *f);
+ void mlxsw_sp_flower_destroy(struct mlxsw_sp_port *mlxsw_sp_port, bool ingress,
+ 			     struct tc_cls_flower_offload *f);
+ int mlxsw_sp_flower_stats(struct mlxsw_sp_port *mlxsw_sp_port, bool ingress,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+index 9be48d2e..021b6c0 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+@@ -368,7 +368,7 @@ static int mlxsw_sp_flower_parse(struct mlxsw_sp *mlxsw_sp,
+ }
+ 
+ int mlxsw_sp_flower_replace(struct mlxsw_sp_port *mlxsw_sp_port, bool ingress,
+-			    __be16 protocol, struct tc_cls_flower_offload *f)
++			    struct tc_cls_flower_offload *f)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	struct net_device *dev = mlxsw_sp_port->dev;
 diff --git a/drivers/net/ethernet/netronome/nfp/bpf/main.c b/drivers/net/ethernet/netronome/nfp/bpf/main.c
-index 152a7ab..f981f60 100644
+index d7975dc..152a7ab 100644
 --- a/drivers/net/ethernet/netronome/nfp/bpf/main.c
 +++ b/drivers/net/ethernet/netronome/nfp/bpf/main.c
-@@ -121,10 +121,9 @@ static void nfp_bpf_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
+@@ -121,20 +121,22 @@ static void nfp_bpf_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
  }
  
  static int nfp_bpf_setup_tc(struct nfp_app *app, struct net_device *netdev,
--			    enum tc_setup_type type,
--			    struct tc_to_netdev *tc)
-+			    enum tc_setup_type type, void *type_data)
+-			    enum tc_setup_type type, u32 handle, __be16 proto,
++			    enum tc_setup_type type,
+ 			    struct tc_to_netdev *tc)
  {
--	struct tc_cls_bpf_offload *cls_bpf = tc->cls_bpf;
-+	struct tc_cls_bpf_offload *cls_bpf = type_data;
++	struct tc_cls_bpf_offload *cls_bpf = tc->cls_bpf;
  	struct nfp_net *nn = netdev_priv(netdev);
  
  	if (type != TC_SETUP_CLSBPF || !nfp_net_ebpf_capable(nn) ||
+-	    TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS) ||
+-	    proto != htons(ETH_P_ALL))
++	    TC_H_MAJ(cls_bpf->common.handle) != TC_H_MAJ(TC_H_INGRESS) ||
++	    cls_bpf->common.protocol != htons(ETH_P_ALL) ||
++	    cls_bpf->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (nn->dp.bpf_offload_xdp)
+ 		return -EBUSY;
+ 
+-	return nfp_net_bpf_offload(nn, tc->cls_bpf);
++	return nfp_net_bpf_offload(nn, cls_bpf);
+ }
+ 
+ static bool nfp_bpf_tc_busy(struct nfp_app *app, struct nfp_net *nn)
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
-index eb94d08..71e4f4f 100644
+index 314e6e8..eb94d08 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/main.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
-@@ -38,8 +38,8 @@
- #include <linux/hashtable.h>
- #include <linux/time64.h>
- #include <linux/types.h>
-+#include <net/pkt_cls.h>
- 
--struct tc_to_netdev;
- struct net_device;
- struct nfp_app;
- 
-@@ -135,7 +135,7 @@ int nfp_flower_metadata_init(struct nfp_app *app);
+@@ -135,8 +135,7 @@ int nfp_flower_metadata_init(struct nfp_app *app);
  void nfp_flower_metadata_cleanup(struct nfp_app *app);
  
  int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
--			enum tc_setup_type type, struct tc_to_netdev *tc);
-+			enum tc_setup_type type, void *type_data);
+-			enum tc_setup_type type, u32 handle, __be16 proto,
+-			struct tc_to_netdev *tc);
++			enum tc_setup_type type, struct tc_to_netdev *tc);
  int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
  				  struct nfp_fl_key_ls *key_ls,
  				  struct net_device *netdev,
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index 8197836..01767c7 100644
+index 58af438..8197836 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
 +++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -385,9 +385,9 @@ nfp_flower_repr_offload(struct nfp_app *app, struct net_device *netdev,
+@@ -385,13 +385,15 @@ nfp_flower_repr_offload(struct nfp_app *app, struct net_device *netdev,
  }
  
  int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
--			enum tc_setup_type type, struct tc_to_netdev *tc)
-+			enum tc_setup_type type, void *type_data)
+-			enum tc_setup_type type, u32 handle, __be16 proto,
+-			struct tc_to_netdev *tc)
++			enum tc_setup_type type, struct tc_to_netdev *tc)
  {
--	struct tc_cls_flower_offload *cls_flower = tc->cls_flower;
-+	struct tc_cls_flower_offload *cls_flower = type_data;
- 
++	struct tc_cls_flower_offload *cls_flower = tc->cls_flower;
++
  	if (type != TC_SETUP_CLSFLOWER ||
- 	    TC_H_MAJ(cls_flower->common.handle) != TC_H_MAJ(TC_H_INGRESS) ||
+-	    TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS) ||
+-	    !eth_proto_is_802_3(proto))
++	    TC_H_MAJ(cls_flower->common.handle) != TC_H_MAJ(TC_H_INGRESS) ||
++	    !eth_proto_is_802_3(cls_flower->common.protocol) ||
++	    cls_flower->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+-	return nfp_flower_repr_offload(app, netdev, tc->cls_flower);
++	return nfp_flower_repr_offload(app, netdev, cls_flower);
+ }
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-index 7a2f950..f34e877 100644
+index b3b03bb9..7a2f950 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-@@ -42,7 +42,6 @@ struct bpf_prog;
- struct net_device;
- struct pci_dev;
- struct sk_buff;
--struct tc_to_netdev;
- struct sk_buff;
- struct nfp_app;
- struct nfp_cpp;
-@@ -109,7 +108,7 @@ struct nfp_app_type {
+@@ -109,8 +109,7 @@ struct nfp_app_type {
  	void (*ctrl_msg_rx)(struct nfp_app *app, struct sk_buff *skb);
  
  	int (*setup_tc)(struct nfp_app *app, struct net_device *netdev,
--			enum tc_setup_type type, struct tc_to_netdev *tc);
-+			enum tc_setup_type type, void *type_data);
+-			enum tc_setup_type type, u32 handle, __be16 proto,
+-			struct tc_to_netdev *tc);
++			enum tc_setup_type type, struct tc_to_netdev *tc);
  	bool (*tc_busy)(struct nfp_app *app, struct nfp_net *nn);
  	int (*xdp_offload)(struct nfp_app *app, struct nfp_net *nn,
  			   struct bpf_prog *prog);
-@@ -238,12 +237,11 @@ static inline bool nfp_app_tc_busy(struct nfp_app *app, struct nfp_net *nn)
- 
+@@ -240,12 +239,11 @@ static inline bool nfp_app_tc_busy(struct nfp_app *app, struct nfp_net *nn)
  static inline int nfp_app_setup_tc(struct nfp_app *app,
  				   struct net_device *netdev,
--				   enum tc_setup_type type,
--				   struct tc_to_netdev *tc)
-+				   enum tc_setup_type type, void *type_data)
+ 				   enum tc_setup_type type,
+-				   u32 handle, __be16 proto,
+ 				   struct tc_to_netdev *tc)
  {
  	if (!app || !app->type->setup_tc)
  		return -EOPNOTSUPP;
--	return app->type->setup_tc(app, netdev, type, tc);
-+	return app->type->setup_tc(app, netdev, type, type_data);
+-	return app->type->setup_tc(app, netdev, type, handle, proto, tc);
++	return app->type->setup_tc(app, netdev, type, tc);
  }
  
  static inline int nfp_app_xdp_offload(struct nfp_app *app, struct nfp_net *nn,
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.c b/drivers/net/ethernet/netronome/nfp/nfp_port.c
-index e8abab2..0cf65e5 100644
+index 9d776f9..e8abab2 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_port.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_port.c
-@@ -89,7 +89,7 @@ const struct switchdev_ops nfp_port_switchdev_ops = {
+@@ -89,19 +89,15 @@ const struct switchdev_ops nfp_port_switchdev_ops = {
  };
  
  int nfp_port_setup_tc(struct net_device *netdev, enum tc_setup_type type,
--		      struct tc_to_netdev *tc)
-+		      void *type_data)
+-		      u32 handle, u32 chain_index, __be16 proto,
+ 		      struct tc_to_netdev *tc)
  {
  	struct nfp_port *port;
  
-@@ -97,7 +97,7 @@ int nfp_port_setup_tc(struct net_device *netdev, enum tc_setup_type type,
+-	if (chain_index)
+-		return -EOPNOTSUPP;
+-
+ 	port = nfp_port_from_netdev(netdev);
  	if (!port)
  		return -EOPNOTSUPP;
  
--	return nfp_app_setup_tc(port->app, netdev, type, tc);
-+	return nfp_app_setup_tc(port->app, netdev, type, type_data);
+-	return nfp_app_setup_tc(port->app, netdev, type, handle, proto, tc);
++	return nfp_app_setup_tc(port->app, netdev, type, tc);
  }
  
  struct nfp_port *
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_port.h b/drivers/net/ethernet/netronome/nfp/nfp_port.h
-index 252f06d..c88e376 100644
+index 239c540..252f06d 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_port.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_port.h
-@@ -36,7 +36,6 @@
- 
- #include <net/devlink.h>
- 
--struct tc_to_netdev;
- struct net_device;
- struct nfp_app;
- struct nfp_pf;
-@@ -110,7 +109,7 @@ struct nfp_port {
+@@ -110,7 +110,6 @@ struct nfp_port {
  extern const struct switchdev_ops nfp_port_switchdev_ops;
  
  int nfp_port_setup_tc(struct net_device *netdev, enum tc_setup_type type,
--		      struct tc_to_netdev *tc);
-+		      void *type_data);
+-		      u32 handle, u32 chain_index, __be16 proto,
+ 		      struct tc_to_netdev *tc);
  
  struct nfp_port *nfp_port_from_netdev(struct net_device *netdev);
- struct nfp_port *
 diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index b0c6004..d407adf 100644
+index e41a717..b0c6004 100644
 --- a/drivers/net/ethernet/sfc/efx.h
 +++ b/drivers/net/ethernet/sfc/efx.h
-@@ -33,7 +33,7 @@ netdev_tx_t efx_hard_start_xmit(struct sk_buff *skb,
+@@ -33,7 +33,6 @@ netdev_tx_t efx_hard_start_xmit(struct sk_buff *skb,
  netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb);
  void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index);
  int efx_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
--		 struct tc_to_netdev *tc);
-+		 void *type_data);
+-		 u32 handle, u32 chain_index, __be16 proto,
+ 		 struct tc_to_netdev *tc);
  unsigned int efx_tx_max_skb_descs(struct efx_nic *efx);
  extern unsigned int efx_piobuf_size;
- extern bool efx_separate_tx_channels;
 diff --git a/drivers/net/ethernet/sfc/falcon/efx.h b/drivers/net/ethernet/sfc/falcon/efx.h
-index 4497511..4f3bb30 100644
+index f3bc67e..4497511 100644
 --- a/drivers/net/ethernet/sfc/falcon/efx.h
 +++ b/drivers/net/ethernet/sfc/falcon/efx.h
-@@ -33,7 +33,7 @@ netdev_tx_t ef4_hard_start_xmit(struct sk_buff *skb,
+@@ -33,7 +33,6 @@ netdev_tx_t ef4_hard_start_xmit(struct sk_buff *skb,
  netdev_tx_t ef4_enqueue_skb(struct ef4_tx_queue *tx_queue, struct sk_buff *skb);
  void ef4_xmit_done(struct ef4_tx_queue *tx_queue, unsigned int index);
  int ef4_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
--		 struct tc_to_netdev *tc);
-+		 void *type_data);
+-		 u32 handle, u32 chain_index, __be16 proto,
+ 		 struct tc_to_netdev *tc);
  unsigned int ef4_tx_max_skb_descs(struct ef4_nic *efx);
  extern bool ef4_separate_tx_channels;
- 
 diff --git a/drivers/net/ethernet/sfc/falcon/tx.c b/drivers/net/ethernet/sfc/falcon/tx.c
-index 0f125e1..6a75f41 100644
+index 6c47526..447519a 100644
 --- a/drivers/net/ethernet/sfc/falcon/tx.c
 +++ b/drivers/net/ethernet/sfc/falcon/tx.c
-@@ -426,9 +426,10 @@ void ef4_init_tx_queue_core_txq(struct ef4_tx_queue *tx_queue)
+@@ -426,7 +426,6 @@ void ef4_init_tx_queue_core_txq(struct ef4_tx_queue *tx_queue)
  }
  
  int ef4_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
--		 struct tc_to_netdev *ntc)
-+		 void *type_data)
+-		 u32 handle, u32 chain_index, __be16 proto,
+ 		 struct tc_to_netdev *ntc)
  {
  	struct ef4_nic *efx = netdev_priv(net_dev);
-+	struct tc_mqprio_qopt *mqprio = type_data;
- 	struct ef4_channel *channel;
- 	struct ef4_tx_queue *tx_queue;
- 	unsigned tc, num_tc;
-@@ -437,12 +438,12 @@ int ef4_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
- 	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	num_tc = ntc->mqprio->num_tc;
-+	num_tc = mqprio->num_tc;
- 
- 	if (ef4_nic_rev(efx) < EF4_REV_FALCON_B0 || num_tc > EF4_MAX_TX_TC)
- 		return -EINVAL;
- 
--	ntc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
-+	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
- 	if (num_tc == net_dev->num_tc)
- 		return 0;
 diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index 53ba30c..32bf1fe 100644
+index 0c08c10..d17af91 100644
 --- a/drivers/net/ethernet/sfc/tx.c
 +++ b/drivers/net/ethernet/sfc/tx.c
-@@ -654,9 +654,10 @@ void efx_init_tx_queue_core_txq(struct efx_tx_queue *tx_queue)
+@@ -654,7 +654,6 @@ void efx_init_tx_queue_core_txq(struct efx_tx_queue *tx_queue)
  }
  
  int efx_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
--		 struct tc_to_netdev *ntc)
-+		 void *type_data)
+-		 u32 handle, u32 chain_index, __be16 proto,
+ 		 struct tc_to_netdev *ntc)
  {
  	struct efx_nic *efx = netdev_priv(net_dev);
-+	struct tc_mqprio_qopt *mqprio = type_data;
- 	struct efx_channel *channel;
- 	struct efx_tx_queue *tx_queue;
- 	unsigned tc, num_tc;
-@@ -665,12 +666,12 @@ int efx_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
- 	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	num_tc = ntc->mqprio->num_tc;
-+	num_tc = mqprio->num_tc;
- 
- 	if (num_tc > EFX_MAX_TX_TC)
- 		return -EINVAL;
- 
--	ntc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
-+	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
- 
- 	if (num_tc == net_dev->num_tc)
- 		return 0;
 diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index caba0ab..eb96a69 100644
+index cb21742..14f91b2 100644
 --- a/drivers/net/ethernet/ti/netcp_core.c
 +++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -1878,8 +1878,9 @@ static u16 netcp_select_queue(struct net_device *dev, struct sk_buff *skb,
+@@ -1878,7 +1878,6 @@ static u16 netcp_select_queue(struct net_device *dev, struct sk_buff *skb,
  }
  
  static int netcp_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			  struct tc_to_netdev *tc)
-+			  void *type_data)
+-			  u32 handle, u32 chain_index, __be16 proto,
+ 			  struct tc_to_netdev *tc)
  {
-+	struct tc_mqprio_qopt *mqprio = type_data;
  	u8 num_tc;
- 	int i;
- 
-@@ -1889,8 +1890,8 @@ static int netcp_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
--	num_tc = tc->mqprio->num_tc;
-+	mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
-+	num_tc = mqprio->num_tc;
- 
- 	/* Sanity-check the number of traffic classes requested */
- 	if ((dev->real_num_tx_queues <= 1) ||
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6e2f7e3..1d238d5 100644
+index bd49dba..6e2f7e3 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -771,9 +771,6 @@ static inline bool netdev_phys_item_id_same(struct netdev_phys_item_id *a,
- typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
- 				       struct sk_buff *skb);
- 
--/* These structures hold the attributes of qdisc and classifiers
-- * that are being passed to the netdevice through the setup_tc op.
-- */
- enum tc_setup_type {
- 	TC_SETUP_MQPRIO,
- 	TC_SETUP_CLSU32,
-@@ -782,18 +779,6 @@ enum tc_setup_type {
- 	TC_SETUP_CLSBPF,
- };
- 
--struct tc_cls_u32_offload;
--
--struct tc_to_netdev {
--	union {
--		struct tc_cls_u32_offload *cls_u32;
--		struct tc_cls_flower_offload *cls_flower;
--		struct tc_cls_matchall_offload *cls_mall;
--		struct tc_cls_bpf_offload *cls_bpf;
--		struct tc_mqprio_qopt *mqprio;
--	};
--};
--
- /* These structures hold the attributes of xdp state that are being passed
-  * to the netdevice through the xdp op.
-  */
-@@ -977,7 +962,7 @@ struct xfrmdev_ops {
+@@ -977,7 +977,6 @@ struct xfrmdev_ops {
   * int (*ndo_set_vf_rss_query_en)(struct net_device *dev, int vf, bool setting);
   * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
   * int (*ndo_setup_tc)(struct net_device *dev, enum tc_setup_type type,
-- *		       struct tc_to_netdev *tc);
-+ *		       void *type_data);
+- *		       u32 handle, u32 chain_index, __be16 protocol,
+  *		       struct tc_to_netdev *tc);
   *	Called to setup any 'tc' scheduler, classifier or action on @dev.
   *	This is always called from the stack with the rtnl lock held and netif
-  *	tx queues stopped. This allows the netdevice to perform queue
-@@ -1226,7 +1211,7 @@ struct net_device_ops {
+@@ -1227,8 +1226,6 @@ struct net_device_ops {
  						   int vf, bool setting);
  	int			(*ndo_setup_tc)(struct net_device *dev,
  						enum tc_setup_type type,
--						struct tc_to_netdev *tc);
-+						void *type_data);
+-						u32 handle, u32 chain_index,
+-						__be16 protocol,
+ 						struct tc_to_netdev *tc);
  #if IS_ENABLED(CONFIG_FCOE)
  	int			(*ndo_fcoe_enable)(struct net_device *dev);
- 	int			(*ndo_fcoe_disable)(struct net_device *dev);
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 8213acd..ffaddf7 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -405,6 +405,21 @@ tcf_match_indev(struct sk_buff *skb, int ifindex)
+ }
+ #endif /* CONFIG_NET_CLS_IND */
+ 
++struct tc_cls_common_offload {
++	u32 handle;
++	u32 chain_index;
++	__be16 protocol;
++};
++
++static inline void
++tc_cls_common_offload_init(struct tc_cls_common_offload *cls_common,
++			   const struct tcf_proto *tp)
++{
++	cls_common->handle = tp->q->handle;
++	cls_common->chain_index = tp->chain->index;
++	cls_common->protocol = tp->protocol;
++}
++
+ struct tc_cls_u32_knode {
+ 	struct tcf_exts *exts;
+ 	struct tc_u32_sel *sel;
+@@ -431,6 +446,7 @@ enum tc_clsu32_command {
+ };
+ 
+ struct tc_cls_u32_offload {
++	struct tc_cls_common_offload common;
+ 	/* knode values */
+ 	enum tc_clsu32_command command;
+ 	union {
+@@ -497,6 +513,7 @@ enum tc_fl_command {
+ };
+ 
+ struct tc_cls_flower_offload {
++	struct tc_cls_common_offload common;
+ 	enum tc_fl_command command;
+ 	u32 prio;
+ 	unsigned long cookie;
+@@ -513,6 +530,7 @@ enum tc_matchall_command {
+ };
+ 
+ struct tc_cls_matchall_offload {
++	struct tc_cls_common_offload common;
+ 	enum tc_matchall_command command;
+ 	struct tcf_exts *exts;
+ 	unsigned long cookie;
+@@ -526,6 +544,7 @@ enum tc_clsbpf_command {
+ };
+ 
+ struct tc_cls_bpf_offload {
++	struct tc_cls_common_offload common;
+ 	enum tc_clsbpf_command command;
+ 	struct tcf_exts *exts;
+ 	struct bpf_prog *prog;
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 5e01e92..c6b5de2 100644
+index e76d576..5e01e92 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -883,11 +883,11 @@ static int dsa_slave_setup_tc_cls_matchall(struct net_device *dev,
+@@ -774,12 +774,12 @@ dsa_slave_mall_tc_entry_find(struct dsa_slave_priv *p,
+ }
+ 
+ static int dsa_slave_add_cls_matchall(struct net_device *dev,
+-				      __be16 protocol,
+ 				      struct tc_cls_matchall_offload *cls,
+ 				      bool ingress)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_mall_tc_entry *mall_tc_entry;
++	__be16 protocol = cls->common.protocol;
+ 	struct dsa_switch *ds = p->dp->ds;
+ 	struct net *net = dev_net(dev);
+ 	struct dsa_slave_priv *to_p;
+@@ -864,18 +864,16 @@ static void dsa_slave_del_cls_matchall(struct net_device *dev,
+ }
+ 
+ static int dsa_slave_setup_tc_cls_matchall(struct net_device *dev,
+-					   u32 handle, u32 chain_index,
+-					   __be16 protocol,
+ 					   struct tc_cls_matchall_offload *cls)
+ {
+-	bool ingress = TC_H_MAJ(handle) == TC_H_MAJ(TC_H_INGRESS);
++	bool ingress = TC_H_MAJ(cls->common.handle) == TC_H_MAJ(TC_H_INGRESS);
+ 
+-	if (chain_index)
++	if (cls->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+ 	switch (cls->command) {
+ 	case TC_CLSMATCHALL_REPLACE:
+-		return dsa_slave_add_cls_matchall(dev, protocol, cls, ingress);
++		return dsa_slave_add_cls_matchall(dev, cls, ingress);
+ 	case TC_CLSMATCHALL_DESTROY:
+ 		dsa_slave_del_cls_matchall(dev, cls);
+ 		return 0;
+@@ -885,13 +883,11 @@ static int dsa_slave_setup_tc_cls_matchall(struct net_device *dev,
  }
  
  static int dsa_slave_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			      struct tc_to_netdev *tc)
-+			      void *type_data)
+-			      u32 handle, u32 chain_index, __be16 protocol,
+ 			      struct tc_to_netdev *tc)
  {
  	switch (type) {
  	case TC_SETUP_CLSMATCHALL:
--		return dsa_slave_setup_tc_cls_matchall(dev, tc->cls_mall);
-+		return dsa_slave_setup_tc_cls_matchall(dev, type_data);
+-		return dsa_slave_setup_tc_cls_matchall(dev, handle, chain_index,
+-						       protocol, tc->cls_mall);
++		return dsa_slave_setup_tc_cls_matchall(dev, tc->cls_mall);
  	default:
  		return -EOPNOTSUPP;
  	}
 diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index dde8efd..2d4d06e 100644
+index e2bf275..dde8efd 100644
 --- a/net/sched/cls_bpf.c
 +++ b/net/sched/cls_bpf.c
-@@ -147,21 +147,18 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
- 			       enum tc_clsbpf_command cmd)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
--	struct tc_cls_bpf_offload bpf_offload = {};
--	struct tc_to_netdev offload;
-+	struct tc_cls_bpf_offload cls_bpf = {};
- 	int err;
+@@ -153,6 +153,7 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
  
--	offload.cls_bpf = &bpf_offload;
-+	tc_cls_common_offload_init(&cls_bpf.common, tp);
-+	cls_bpf.command = cmd;
-+	cls_bpf.exts = &prog->exts;
-+	cls_bpf.prog = prog->filter;
-+	cls_bpf.name = prog->bpf_name;
-+	cls_bpf.exts_integrated = prog->exts_integrated;
-+	cls_bpf.gen_flags = prog->gen_flags;
+ 	offload.cls_bpf = &bpf_offload;
  
--	tc_cls_common_offload_init(&bpf_offload.common, tp);
--	bpf_offload.command = cmd;
--	bpf_offload.exts = &prog->exts;
--	bpf_offload.prog = prog->filter;
--	bpf_offload.name = prog->bpf_name;
--	bpf_offload.exts_integrated = prog->exts_integrated;
--	bpf_offload.gen_flags = prog->gen_flags;
++	tc_cls_common_offload_init(&bpf_offload.common, tp);
+ 	bpf_offload.command = cmd;
+ 	bpf_offload.exts = &prog->exts;
+ 	bpf_offload.prog = prog->filter;
+@@ -160,11 +161,7 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+ 	bpf_offload.exts_integrated = prog->exts_integrated;
+ 	bpf_offload.gen_flags = prog->gen_flags;
+ 
+-	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSBPF,
+-					    tp->q->handle,
+-					    tp->chain->index,
+-					    tp->protocol, &offload);
 -
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSBPF, &offload);
-+	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSBPF, &cls_bpf);
++	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSBPF, &offload);
  	if (!err && (cmd == TC_CLSBPF_ADD || cmd == TC_CLSBPF_REPLACE))
  		prog->gen_flags |= TCA_CLS_FLAGS_IN_HW;
  
 diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index ccdf2f5..1474bac 100644
+index 52deeed..1fdf288 100644
 --- a/net/sched/cls_flower.c
 +++ b/net/sched/cls_flower.c
-@@ -88,7 +88,6 @@ struct cls_fl_filter {
- 	u32 handle;
- 	u32 flags;
- 	struct rcu_head	rcu;
--	struct tc_to_netdev tc;
- 	struct net_device *hw_dev;
- };
- 
-@@ -225,20 +224,17 @@ static void fl_destroy_filter(struct rcu_head *head)
- 
- static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
- {
--	struct tc_cls_flower_offload offload = {0};
-+	struct tc_cls_flower_offload cls_flower = {};
- 	struct net_device *dev = f->hw_dev;
--	struct tc_to_netdev *tc = &f->tc;
- 
+@@ -232,14 +232,14 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
  	if (!tc_can_offload(dev, tp))
  		return;
  
--	tc_cls_common_offload_init(&offload.common, tp);
--	offload.command = TC_CLSFLOWER_DESTROY;
--	offload.cookie = (unsigned long)f;
-+	tc_cls_common_offload_init(&cls_flower.common, tp);
-+	cls_flower.command = TC_CLSFLOWER_DESTROY;
-+	cls_flower.cookie = (unsigned long) f;
++	tc_cls_common_offload_init(&offload.common, tp);
+ 	offload.command = TC_CLSFLOWER_DESTROY;
+ 	offload.prio = tp->prio;
+ 	offload.cookie = (unsigned long)f;
  
--	tc->cls_flower = &offload;
--
--	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER, tc);
-+	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER, &cls_flower);
+ 	tc->cls_flower = &offload;
+ 
+-	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER, tp->q->handle,
+-				      tp->chain->index, tp->protocol, tc);
++	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER, tc);
  }
  
  static int fl_hw_replace_filter(struct tcf_proto *tp,
-@@ -247,8 +243,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 				struct cls_fl_filter *f)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
--	struct tc_cls_flower_offload offload = {0};
--	struct tc_to_netdev *tc = &f->tc;
-+	struct tc_cls_flower_offload cls_flower = {};
- 	int err;
- 
- 	if (!tc_can_offload(dev, tp)) {
-@@ -258,22 +253,21 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 			return tc_skip_sw(f->flags) ? -EINVAL : 0;
- 		}
- 		dev = f->hw_dev;
--		offload.egress_dev = true;
-+		cls_flower.egress_dev = true;
- 	} else {
+@@ -264,6 +264,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
  		f->hw_dev = dev;
  	}
  
--	tc_cls_common_offload_init(&offload.common, tp);
--	offload.command = TC_CLSFLOWER_REPLACE;
--	offload.cookie = (unsigned long)f;
--	offload.dissector = dissector;
--	offload.mask = mask;
--	offload.key = &f->mkey;
--	offload.exts = &f->exts;
--
--	tc->cls_flower = &offload;
-+	tc_cls_common_offload_init(&cls_flower.common, tp);
-+	cls_flower.command = TC_CLSFLOWER_REPLACE;
-+	cls_flower.cookie = (unsigned long) f;
-+	cls_flower.dissector = dissector;
-+	cls_flower.mask = mask;
-+	cls_flower.key = &f->mkey;
-+	cls_flower.exts = &f->exts;
++	tc_cls_common_offload_init(&offload.common, tp);
+ 	offload.command = TC_CLSFLOWER_REPLACE;
+ 	offload.prio = tp->prio;
+ 	offload.cookie = (unsigned long)f;
+@@ -274,9 +275,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
  
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER, tc);
-+	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
-+					    &cls_flower);
+ 	tc->cls_flower = &offload;
+ 
+-	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
+-					    tp->q->handle, tp->chain->index,
+-					    tp->protocol, tc);
++	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER, tc);
  	if (!err)
  		f->flags |= TCA_CLS_FLAGS_IN_HW;
  
-@@ -284,21 +278,19 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 
- static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- {
--	struct tc_cls_flower_offload offload = {0};
-+	struct tc_cls_flower_offload cls_flower = {};
- 	struct net_device *dev = f->hw_dev;
--	struct tc_to_netdev *tc = &f->tc;
- 
+@@ -294,6 +293,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
  	if (!tc_can_offload(dev, tp))
  		return;
  
--	tc_cls_common_offload_init(&offload.common, tp);
--	offload.command = TC_CLSFLOWER_STATS;
--	offload.cookie = (unsigned long)f;
--	offload.exts = &f->exts;
--
--	tc->cls_flower = &offload;
-+	tc_cls_common_offload_init(&cls_flower.common, tp);
-+	cls_flower.command = TC_CLSFLOWER_STATS;
-+	cls_flower.cookie = (unsigned long) f;
-+	cls_flower.exts = &f->exts;
++	tc_cls_common_offload_init(&offload.common, tp);
+ 	offload.command = TC_CLSFLOWER_STATS;
+ 	offload.prio = tp->prio;
+ 	offload.cookie = (unsigned long)f;
+@@ -301,8 +301,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
  
--	dev->netdev_ops->ndo_setup_tc(dev, TC_CLSFLOWER_STATS, tc);
-+	dev->netdev_ops->ndo_setup_tc(dev, TC_CLSFLOWER_STATS,
-+				      &cls_flower);
+ 	tc->cls_flower = &offload;
+ 
+-	dev->netdev_ops->ndo_setup_tc(dev, TC_CLSFLOWER_STATS, tp->q->handle,
+-				      tp->chain->index, tp->protocol, tc);
++	dev->netdev_ops->ndo_setup_tc(dev, TC_CLSFLOWER_STATS, tc);
  }
  
  static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
 diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index 174c700..c9f6500 100644
+index a8853ad..174c700 100644
 --- a/net/sched/cls_matchall.c
 +++ b/net/sched/cls_matchall.c
-@@ -54,18 +54,16 @@ static int mall_replace_hw_filter(struct tcf_proto *tp,
- 				  unsigned long cookie)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
--	struct tc_to_netdev offload;
--	struct tc_cls_matchall_offload mall_offload = {0};
-+	struct tc_cls_matchall_offload cls_mall = {};
+@@ -58,14 +58,14 @@ static int mall_replace_hw_filter(struct tcf_proto *tp,
+ 	struct tc_cls_matchall_offload mall_offload = {0};
  	int err;
  
--	tc_cls_common_offload_init(&mall_offload.common, tp);
--	offload.cls_mall = &mall_offload;
--	offload.cls_mall->command = TC_CLSMATCHALL_REPLACE;
--	offload.cls_mall->exts = &head->exts;
--	offload.cls_mall->cookie = cookie;
-+	tc_cls_common_offload_init(&cls_mall.common, tp);
-+	cls_mall.command = TC_CLSMATCHALL_REPLACE;
-+	cls_mall.exts = &head->exts;
-+	cls_mall.cookie = cookie;
++	tc_cls_common_offload_init(&mall_offload.common, tp);
+ 	offload.cls_mall = &mall_offload;
+ 	offload.cls_mall->command = TC_CLSMATCHALL_REPLACE;
+ 	offload.cls_mall->exts = &head->exts;
+ 	offload.cls_mall->cookie = cookie;
  
  	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
--					    &offload);
-+					    &cls_mall);
+-					    tp->q->handle, tp->chain->index,
+-					    tp->protocol, &offload);
++					    &offload);
  	if (!err)
  		head->flags |= TCA_CLS_FLAGS_IN_HW;
  
-@@ -77,16 +75,13 @@ static void mall_destroy_hw_filter(struct tcf_proto *tp,
- 				   unsigned long cookie)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
--	struct tc_to_netdev offload;
--	struct tc_cls_matchall_offload mall_offload = {0};
-+	struct tc_cls_matchall_offload cls_mall = {};
+@@ -80,13 +80,13 @@ static void mall_destroy_hw_filter(struct tcf_proto *tp,
+ 	struct tc_to_netdev offload;
+ 	struct tc_cls_matchall_offload mall_offload = {0};
  
--	tc_cls_common_offload_init(&mall_offload.common, tp);
--	offload.cls_mall = &mall_offload;
--	offload.cls_mall->command = TC_CLSMATCHALL_DESTROY;
--	offload.cls_mall->exts = NULL;
--	offload.cls_mall->cookie = cookie;
-+	tc_cls_common_offload_init(&cls_mall.common, tp);
-+	cls_mall.command = TC_CLSMATCHALL_DESTROY;
-+	cls_mall.cookie = cookie;
++	tc_cls_common_offload_init(&mall_offload.common, tp);
+ 	offload.cls_mall = &mall_offload;
+ 	offload.cls_mall->command = TC_CLSMATCHALL_DESTROY;
+ 	offload.cls_mall->exts = NULL;
+ 	offload.cls_mall->cookie = cookie;
  
--	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL, &offload);
-+	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL, &cls_mall);
+-	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL, tp->q->handle,
+-				      tp->chain->index, tp->protocol, &offload);
++	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL, &offload);
  }
  
  static void mall_destroy(struct tcf_proto *tp)
 diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index c0f59c4..4ed51d3 100644
+index d1bae4c..c0f59c4 100644
 --- a/net/sched/cls_u32.c
 +++ b/net/sched/cls_u32.c
-@@ -431,39 +431,35 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
- static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
--	struct tc_cls_u32_offload u32_offload = {0};
--	struct tc_to_netdev offload;
-+	struct tc_cls_u32_offload cls_u32 = {};
+@@ -437,11 +437,10 @@ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
+ 	offload.cls_u32 = &u32_offload;
  
--	offload.cls_u32 = &u32_offload;
-+	if (!tc_should_offload(dev, tp, 0))
-+		return;
- 
--	if (tc_should_offload(dev, tp, 0)) {
--		tc_cls_common_offload_init(&u32_offload.common, tp);
--		offload.cls_u32->command = TC_CLSU32_DELETE_KNODE;
--		offload.cls_u32->knode.handle = handle;
--		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &offload);
--	}
-+	tc_cls_common_offload_init(&cls_u32.common, tp);
-+	cls_u32.command = TC_CLSU32_DELETE_KNODE;
-+	cls_u32.knode.handle = handle;
-+
-+	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
+ 	if (tc_should_offload(dev, tp, 0)) {
++		tc_cls_common_offload_init(&u32_offload.common, tp);
+ 		offload.cls_u32->command = TC_CLSU32_DELETE_KNODE;
+ 		offload.cls_u32->knode.handle = handle;
+-		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32,
+-					      tp->q->handle, tp->chain->index,
+-					      tp->protocol, &offload);
++		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &offload);
+ 	}
  }
  
- static int u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h,
- 				u32 flags)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
--	struct tc_cls_u32_offload u32_offload = {0};
--	struct tc_to_netdev offload;
-+	struct tc_cls_u32_offload cls_u32 = {};
- 	int err;
+@@ -458,14 +457,13 @@ static int u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h,
  
- 	if (!tc_should_offload(dev, tp, flags))
- 		return tc_skip_sw(flags) ? -EINVAL : 0;
+ 	offload.cls_u32 = &u32_offload;
  
--	offload.cls_u32 = &u32_offload;
--
--	tc_cls_common_offload_init(&u32_offload.common, tp);
--	offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
--	offload.cls_u32->hnode.divisor = h->divisor;
--	offload.cls_u32->hnode.handle = h->handle;
--	offload.cls_u32->hnode.prio = h->prio;
-+	tc_cls_common_offload_init(&cls_u32.common, tp);
-+	cls_u32.command = TC_CLSU32_NEW_HNODE;
-+	cls_u32.hnode.divisor = h->divisor;
-+	cls_u32.hnode.handle = h->handle;
-+	cls_u32.hnode.prio = h->prio;
++	tc_cls_common_offload_init(&u32_offload.common, tp);
+ 	offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
+ 	offload.cls_u32->hnode.divisor = h->divisor;
+ 	offload.cls_u32->hnode.handle = h->handle;
+ 	offload.cls_u32->hnode.prio = h->prio;
  
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &offload);
-+	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
+-	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, tp->q->handle,
+-					    tp->chain->index, tp->protocol,
+-					    &offload);
++	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &offload);
  	if (tc_skip_sw(flags))
  		return err;
  
-@@ -473,52 +469,47 @@ static int u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h,
- static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
--	struct tc_cls_u32_offload u32_offload = {0};
--	struct tc_to_netdev offload;
-+	struct tc_cls_u32_offload cls_u32 = {};
+@@ -481,14 +479,13 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ 	offload.cls_u32 = &u32_offload;
  
--	offload.cls_u32 = &u32_offload;
-+	if (!tc_should_offload(dev, tp, 0))
-+		return;
+ 	if (tc_should_offload(dev, tp, 0)) {
++		tc_cls_common_offload_init(&u32_offload.common, tp);
+ 		offload.cls_u32->command = TC_CLSU32_DELETE_HNODE;
+ 		offload.cls_u32->hnode.divisor = h->divisor;
+ 		offload.cls_u32->hnode.handle = h->handle;
+ 		offload.cls_u32->hnode.prio = h->prio;
  
--	if (tc_should_offload(dev, tp, 0)) {
--		tc_cls_common_offload_init(&u32_offload.common, tp);
--		offload.cls_u32->command = TC_CLSU32_DELETE_HNODE;
--		offload.cls_u32->hnode.divisor = h->divisor;
--		offload.cls_u32->hnode.handle = h->handle;
--		offload.cls_u32->hnode.prio = h->prio;
-+	tc_cls_common_offload_init(&cls_u32.common, tp);
-+	cls_u32.command = TC_CLSU32_DELETE_HNODE;
-+	cls_u32.hnode.divisor = h->divisor;
-+	cls_u32.hnode.handle = h->handle;
-+	cls_u32.hnode.prio = h->prio;
- 
--		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &offload);
--	}
-+	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
+-		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32,
+-					      tp->q->handle, tp->chain->index,
+-					      tp->protocol, &offload);
++		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &offload);
+ 	}
  }
  
- static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
- 				u32 flags)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
--	struct tc_cls_u32_offload u32_offload = {0};
--	struct tc_to_netdev offload;
-+	struct tc_cls_u32_offload cls_u32 = {};
- 	int err;
- 
--	offload.cls_u32 = &u32_offload;
--
+@@ -505,6 +502,7 @@ static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
  	if (!tc_should_offload(dev, tp, flags))
  		return tc_skip_sw(flags) ? -EINVAL : 0;
  
--	tc_cls_common_offload_init(&u32_offload.common, tp);
--	offload.cls_u32->command = TC_CLSU32_REPLACE_KNODE;
--	offload.cls_u32->knode.handle = n->handle;
--	offload.cls_u32->knode.fshift = n->fshift;
-+	tc_cls_common_offload_init(&cls_u32.common, tp);
-+	cls_u32.command = TC_CLSU32_REPLACE_KNODE;
-+	cls_u32.knode.handle = n->handle;
-+	cls_u32.knode.fshift = n->fshift;
- #ifdef CONFIG_CLS_U32_MARK
--	offload.cls_u32->knode.val = n->val;
--	offload.cls_u32->knode.mask = n->mask;
-+	cls_u32.knode.val = n->val;
-+	cls_u32.knode.mask = n->mask;
- #else
--	offload.cls_u32->knode.val = 0;
--	offload.cls_u32->knode.mask = 0;
-+	cls_u32.knode.val = 0;
-+	cls_u32.knode.mask = 0;
- #endif
--	offload.cls_u32->knode.sel = &n->sel;
--	offload.cls_u32->knode.exts = &n->exts;
-+	cls_u32.knode.sel = &n->sel;
-+	cls_u32.knode.exts = &n->exts;
++	tc_cls_common_offload_init(&u32_offload.common, tp);
+ 	offload.cls_u32->command = TC_CLSU32_REPLACE_KNODE;
+ 	offload.cls_u32->knode.handle = n->handle;
+ 	offload.cls_u32->knode.fshift = n->fshift;
+@@ -520,9 +518,7 @@ static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
  	if (n->ht_down)
--		offload.cls_u32->knode.link_handle = n->ht_down->handle;
-+		cls_u32.knode.link_handle = n->ht_down->handle;
+ 		offload.cls_u32->knode.link_handle = n->ht_down->handle;
  
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &offload);
-+	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
+-	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, tp->q->handle,
+-					    tp->chain->index, tp->protocol,
+-					    &offload);
++	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &offload);
  
  	if (!err)
  		n->flags |= TCA_CLS_FLAGS_IN_HW;
 diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index 09b577d..2165a05 100644
+index 329610c..09b577d 100644
 --- a/net/sched/sch_mqprio.c
 +++ b/net/sched/sch_mqprio.c
-@@ -39,10 +39,9 @@ static void mqprio_destroy(struct Qdisc *sch)
- 	}
+@@ -42,8 +42,7 @@ static void mqprio_destroy(struct Qdisc *sch)
+ 		struct tc_mqprio_qopt offload = { 0 };
+ 		struct tc_to_netdev tc = { { .mqprio = &offload } };
  
- 	if (priv->hw_offload && dev->netdev_ops->ndo_setup_tc) {
--		struct tc_mqprio_qopt offload = { 0 };
--		struct tc_to_netdev tc = { { .mqprio = &offload } };
-+		struct tc_mqprio_qopt mqprio = {};
- 
--		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO, &tc);
-+		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO, &mqprio);
+-		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO,
+-					      sch->handle, 0, 0, &tc);
++		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO, &tc);
  	} else {
  		netdev_set_num_tc(dev, 0);
  	}
-@@ -147,14 +146,14 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
- 	 * supplied and verified mapping
- 	 */
- 	if (qopt->hw) {
--		struct tc_mqprio_qopt offload = *qopt;
--		struct tc_to_netdev tc = { { .mqprio = &offload } };
-+		struct tc_mqprio_qopt mqprio = *qopt;
+@@ -151,8 +150,7 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
+ 		struct tc_mqprio_qopt offload = *qopt;
+ 		struct tc_to_netdev tc = { { .mqprio = &offload } };
  
--		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO, &tc);
-+		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO,
-+						    &mqprio);
+-		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO,
+-						    sch->handle, 0, 0, &tc);
++		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO, &tc);
  		if (err)
  			return err;
  
--		priv->hw_offload = offload.hw;
-+		priv->hw_offload = mqprio.hw;
- 	} else {
- 		netdev_set_num_tc(dev, qopt->num_tc);
- 		for (i = 0; i < qopt->num_tc; i++)
 -- 
 2.9.3
