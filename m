@@ -1,201 +1,83 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [for-next 6/8] net/mlx5: Delay events till ib registration ends
-Date: Mon,  7 Aug 2017 13:18:06 +0300
-Message-ID: <20170807101808.22924-7-saeedm@mellanox.com>
+Subject: [for-next 1/8] net/mlx5e: Rearrange netdevice ops structures
+Date: Mon,  7 Aug 2017 13:18:01 +0300
+Message-ID: <20170807101808.22924-2-saeedm@mellanox.com>
 References: <20170807101808.22924-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         Leon Romanovsky <leonro@mellanox.com>,
-        Erez Shitrit <erezsh@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>,
         Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53275 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53258 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752968AbdHGKSe (ORCPT
+        with ESMTP id S1752947AbdHGKSe (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 06:18:34 -0400
 In-Reply-To: <20170807101808.22924-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erez Shitrit <erezsh@mellanox.com>
+Since we are going to allow building the driver without eswitch support,
+it would be possible to compile out the sriov netdevice ops struct such
+that the basic ops instance will be used for non VF devices too.
 
-When mlx5_ib registers itself to mlx5_core as an interface, it will
-call mlx5_add_device which will call mlx5_ib interface add callback,
-in case the latter successfully returns, only then mlx5_core will add
-it to the interface list and async events will be forwarded to mlx5_ib.
-Between mlx5_ib interface add callback and mlx5_core adding the mlx5_ib
-interface to its devices list, arriving mlx5_core events can be missed
-by the new mlx5_ib registering interface.
+Add missing udp tunnel ndos into mlx5e_netdev_ops_basic.
 
-In other words:
-thread 1: mlx5_ib: mlx5_register_interface(dev)
-thread 1: mlx5_core: mlx5_add_device(dev)
-thread 1: mlx5_core: ctx = dev->add => (mlx5_ib)->mlx5_ib_add
-thread 2: mlx5_core_event: **new event arrives, forward to dev_list
-thread 1: mlx5_core: add_ctx_to_dev_list(ctx)
-/* previous event was missed by the new interface.*/
-It is ok to miss events before dev->add (mlx5_ib)->mlx5_ib_add_device
-but not after.
+While here, rearrange some ndos in the sriov ops struct and put
+vf/eswitch related ndos towards the end of it.
 
-We fix this race by accumulating the events that come between the
-ib_register_device (inside mlx5_add_device->(dev->add)) till the adding
-to the list completes and fire them to the new registering interface
-after that.
-
-Fixes: f1ee87fe55c8 ("net/mlx5: Organize device list API in one place")
-Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/dev.c  | 73 ++++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/main.c |  3 ++
- include/linux/mlx5/driver.h                    |  3 ++
- 3 files changed, 79 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/dev.c b/drivers/net/ethernet/mellanox/mlx5/core/dev.c
-index a62f4b6a21a5..ff60cf7342ca 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/dev.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/dev.c
-@@ -45,11 +45,70 @@ struct mlx5_device_context {
- 	unsigned long		state;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 57f31fa478ce..c2986777a1d8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3706,6 +3706,9 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
+ 	.ndo_change_mtu          = mlx5e_change_mtu,
+ 	.ndo_do_ioctl            = mlx5e_ioctl,
+ 	.ndo_set_tx_maxrate      = mlx5e_set_tx_maxrate,
++	.ndo_udp_tunnel_add      = mlx5e_add_vxlan_port,
++	.ndo_udp_tunnel_del      = mlx5e_del_vxlan_port,
++	.ndo_features_check      = mlx5e_features_check,
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
+ #endif
+@@ -3730,13 +3733,19 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+ 	.ndo_set_features        = mlx5e_set_features,
+ 	.ndo_change_mtu          = mlx5e_change_mtu,
+ 	.ndo_do_ioctl            = mlx5e_ioctl,
++	.ndo_set_tx_maxrate      = mlx5e_set_tx_maxrate,
+ 	.ndo_udp_tunnel_add	 = mlx5e_add_vxlan_port,
+ 	.ndo_udp_tunnel_del	 = mlx5e_del_vxlan_port,
+-	.ndo_set_tx_maxrate      = mlx5e_set_tx_maxrate,
+ 	.ndo_features_check      = mlx5e_features_check,
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
+ #endif
++	.ndo_tx_timeout          = mlx5e_tx_timeout,
++	.ndo_xdp		 = mlx5e_xdp,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller     = mlx5e_netpoll,
++#endif
++	/* SRIOV E-Switch NDOs */
+ 	.ndo_set_vf_mac          = mlx5e_set_vf_mac,
+ 	.ndo_set_vf_vlan         = mlx5e_set_vf_vlan,
+ 	.ndo_set_vf_spoofchk     = mlx5e_set_vf_spoofchk,
+@@ -3745,11 +3754,6 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+ 	.ndo_get_vf_config       = mlx5e_get_vf_config,
+ 	.ndo_set_vf_link_state   = mlx5e_set_vf_link_state,
+ 	.ndo_get_vf_stats        = mlx5e_get_vf_stats,
+-	.ndo_tx_timeout          = mlx5e_tx_timeout,
+-	.ndo_xdp		 = mlx5e_xdp,
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	.ndo_poll_controller     = mlx5e_netpoll,
+-#endif
+ 	.ndo_has_offload_stats	 = mlx5e_has_offload_stats,
+ 	.ndo_get_offload_stats	 = mlx5e_get_offload_stats,
  };
- 
-+struct mlx5_delayed_event {
-+	struct list_head	list;
-+	struct mlx5_core_dev	*dev;
-+	enum mlx5_dev_event	event;
-+	unsigned long		param;
-+};
-+
- enum {
- 	MLX5_INTERFACE_ADDED,
- 	MLX5_INTERFACE_ATTACHED,
- };
- 
-+static void add_delayed_event(struct mlx5_priv *priv,
-+			      struct mlx5_core_dev *dev,
-+			      enum mlx5_dev_event event,
-+			      unsigned long param)
-+{
-+	struct mlx5_delayed_event *delayed_event;
-+
-+	delayed_event = kzalloc(sizeof(*delayed_event), GFP_ATOMIC);
-+	if (!delayed_event) {
-+		mlx5_core_err(dev, "event %d is missed\n", event);
-+		return;
-+	}
-+
-+	mlx5_core_dbg(dev, "Accumulating event %d\n", event);
-+	delayed_event->dev = dev;
-+	delayed_event->event = event;
-+	delayed_event->param = param;
-+	list_add_tail(&delayed_event->list, &priv->waiting_events_list);
-+}
-+
-+static void fire_delayed_event_locked(struct mlx5_device_context *dev_ctx,
-+				      struct mlx5_core_dev *dev,
-+				      struct mlx5_priv *priv)
-+{
-+	struct mlx5_delayed_event *de;
-+	struct mlx5_delayed_event *n;
-+
-+	/* stop delaying events */
-+	priv->is_accum_events = false;
-+
-+	/* fire all accumulated events before new event comes */
-+	list_for_each_entry_safe(de, n, &priv->waiting_events_list, list) {
-+		dev_ctx->intf->event(dev, dev_ctx->context, de->event, de->param);
-+		list_del(&de->list);
-+		kfree(de);
-+	}
-+}
-+
-+static void cleanup_delayed_evets(struct mlx5_priv *priv)
-+{
-+	struct mlx5_delayed_event *de;
-+	struct mlx5_delayed_event *n;
-+
-+	spin_lock_irq(&priv->ctx_lock);
-+	priv->is_accum_events = false;
-+	list_for_each_entry_safe(de, n, &priv->waiting_events_list, list) {
-+		list_del(&de->list);
-+		kfree(de);
-+	}
-+	spin_unlock_irq(&priv->ctx_lock);
-+}
-+
- void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
- {
- 	struct mlx5_device_context *dev_ctx;
-@@ -63,6 +122,12 @@ void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
- 		return;
- 
- 	dev_ctx->intf = intf;
-+	/* accumulating events that can come after mlx5_ib calls to
-+	 * ib_register_device, till adding that interface to the events list.
-+	 */
-+
-+	priv->is_accum_events = true;
-+
- 	dev_ctx->context = intf->add(dev);
- 	set_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
- 	if (intf->attach)
-@@ -71,6 +136,9 @@ void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
- 	if (dev_ctx->context) {
- 		spin_lock_irq(&priv->ctx_lock);
- 		list_add_tail(&dev_ctx->list, &priv->ctx_list);
-+
-+		fire_delayed_event_locked(dev_ctx, dev, priv);
-+
- #ifdef CONFIG_INFINIBAND_ON_DEMAND_PAGING
- 		if (dev_ctx->intf->pfault) {
- 			if (priv->pfault) {
-@@ -84,6 +152,8 @@ void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
- 		spin_unlock_irq(&priv->ctx_lock);
- 	} else {
- 		kfree(dev_ctx);
-+		 /* delete all accumulated events */
-+		cleanup_delayed_evets(priv);
- 	}
- }
- 
-@@ -341,6 +411,9 @@ void mlx5_core_event(struct mlx5_core_dev *dev, enum mlx5_dev_event event,
- 
- 	spin_lock_irqsave(&priv->ctx_lock, flags);
- 
-+	if (priv->is_accum_events)
-+		add_delayed_event(priv, dev, event, param);
-+
- 	list_for_each_entry(dev_ctx, &priv->ctx_list, list)
- 		if (dev_ctx->intf->event)
- 			dev_ctx->intf->event(dev, dev_ctx->context, event, param);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 124c7c3c3a00..6dbd637b4e66 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1343,6 +1343,9 @@ static int init_one(struct pci_dev *pdev,
- 	mutex_init(&dev->pci_status_mutex);
- 	mutex_init(&dev->intf_state_mutex);
- 
-+	INIT_LIST_HEAD(&priv->waiting_events_list);
-+	priv->is_accum_events = false;
-+
- #ifdef CONFIG_INFINIBAND_ON_DEMAND_PAGING
- 	err = init_srcu_struct(&priv->pfault_srcu);
- 	if (err) {
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 88d6eb5b3a76..d26f18b39c4a 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -647,6 +647,9 @@ struct mlx5_priv {
- 	struct list_head        ctx_list;
- 	spinlock_t              ctx_lock;
- 
-+	struct list_head	waiting_events_list;
-+	bool			is_accum_events;
-+
- 	struct mlx5_flow_steering *steering;
- 	struct mlx5_mpfs        *mpfs;
- 	struct mlx5_eswitch     *eswitch;
 -- 
 2.13.0
