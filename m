@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 2/3] net: dsa: remove useless args of dsa_cpu_dsa_setup
-Date: Mon,  7 Aug 2017 12:17:09 -0400
-Message-ID: <20170807161710.5357-3-vivien.didelot@savoirfairelinux.com>
-References: <20170807161710.5357-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 0/3] net: dsa: remove useless arguments
+Date: Mon,  7 Aug 2017 12:17:07 -0400
+Message-ID: <20170807161710.5357-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,113 +9,32 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170807161710.5357-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dsa_cpu_dsa_setup currently takes 4 arguments but they are all available
-from the dsa_port argument. Remove all others.
+Several DSA core setup functions take many arguments, mostly because of
+the legacy code. This patch series removes the useless args of these
+functions, where either the dsa_switch or dsa_port argument is enough.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
+Changes in v3:
+  - rebased on top of conflicting 5f6b4e14cada ("net: dsa: User per-cpu
+    64-bit statistics")
+  - added Florian's tags
+
+Changes in v2:
+  - ds->dev is already assigned by dsa_switch_alloc
+
+Vivien Didelot (3):
+  net: dsa: remove useless argument in legacy setup
+  net: dsa: remove useless args of dsa_cpu_dsa_setup
+  net: dsa: remove useless args of dsa_slave_create
+
  net/dsa/dsa.c      | 10 +++++-----
- net/dsa/dsa2.c     |  4 ++--
- net/dsa/dsa_priv.h |  3 +--
- net/dsa/legacy.c   |  4 +---
- 4 files changed, 9 insertions(+), 12 deletions(-)
+ net/dsa/dsa2.c     |  6 +++---
+ net/dsa/dsa_priv.h |  6 ++----
+ net/dsa/legacy.c   | 18 ++++++++----------
+ net/dsa/slave.c    | 14 +++++++-------
+ 5 files changed, 25 insertions(+), 29 deletions(-)
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index a91e520e735f..4118848b8e58 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -67,17 +67,17 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
- 	[DSA_TAG_PROTO_NONE] = &none_ops,
- };
- 
--int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
--		      struct dsa_port *dport, int port)
-+int dsa_cpu_dsa_setup(struct dsa_port *port)
- {
--	struct device_node *port_dn = dport->dn;
-+	struct device_node *port_dn = port->dn;
-+	struct dsa_switch *ds = port->ds;
- 	struct phy_device *phydev;
- 	int ret, mode;
- 
- 	if (of_phy_is_fixed_link(port_dn)) {
- 		ret = of_phy_register_fixed_link(port_dn);
- 		if (ret) {
--			dev_err(dev, "failed to register fixed PHY\n");
-+			dev_err(ds->dev, "failed to register fixed PHY\n");
- 			return ret;
- 		}
- 		phydev = of_phy_find_device(port_dn);
-@@ -90,7 +90,7 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
- 		genphy_config_init(phydev);
- 		genphy_read_status(phydev);
- 		if (ds->ops->adjust_link)
--			ds->ops->adjust_link(ds, port, phydev);
-+			ds->ops->adjust_link(ds, port->index, phydev);
- 
- 		put_device(&phydev->mdio.dev);
- 	}
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index c442051d5a55..2a0120493cf1 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -219,7 +219,7 @@ static int dsa_dsa_port_apply(struct dsa_port *port)
- 	struct dsa_switch *ds = port->ds;
- 	int err;
- 
--	err = dsa_cpu_dsa_setup(ds, ds->dev, port, port->index);
-+	err = dsa_cpu_dsa_setup(port);
- 	if (err) {
- 		dev_warn(ds->dev, "Failed to setup dsa port %d: %d\n",
- 			 port->index, err);
-@@ -243,7 +243,7 @@ static int dsa_cpu_port_apply(struct dsa_port *port)
- 	struct dsa_switch *ds = port->ds;
- 	int err;
- 
--	err = dsa_cpu_dsa_setup(ds, ds->dev, port, port->index);
-+	err = dsa_cpu_dsa_setup(port);
- 	if (err) {
- 		dev_warn(ds->dev, "Failed to setup cpu port %d: %d\n",
- 			 port->index, err);
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 306cff229def..2873d912b12e 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -101,8 +101,7 @@ struct dsa_slave_priv {
- };
- 
- /* dsa.c */
--int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
--		      struct dsa_port *dport, int port);
-+int dsa_cpu_dsa_setup(struct dsa_port *port);
- void dsa_cpu_dsa_destroy(struct dsa_port *dport);
- const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
- int dsa_cpu_port_ethtool_setup(struct dsa_port *cpu_dp);
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index fa162030a69c..903e8d70c792 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -80,15 +80,13 @@ dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
- /* basic switch operations **************************************************/
- static int dsa_cpu_dsa_setups(struct dsa_switch *ds)
- {
--	struct dsa_port *dport;
- 	int ret, port;
- 
- 	for (port = 0; port < ds->num_ports; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
- 
--		dport = &ds->ports[port];
--		ret = dsa_cpu_dsa_setup(ds, ds->dev, dport, port);
-+		ret = dsa_cpu_dsa_setup(&ds->ports[port]);
- 		if (ret)
- 			return ret;
- 	}
 -- 
 2.14.0
