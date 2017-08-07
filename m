@@ -1,60 +1,62 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH net-next] net: dsa: lan9303: Only allocate 3 ports
-Date: Tue,  8 Aug 2017 00:22:21 +0200
-Message-ID: <20170807222221.28963-1-privat@egil-hjelmeland.no>
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jacob Keller <jacob.e.keller@intel.com>
+Subject: [RFC PATCH] net: don't set __LINK_STATE_START until after dev->open() call
+Date: Mon,  7 Aug 2017 15:24:21 -0700
+Message-ID: <20170807222421.11897-1-jacob.e.keller@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:5229 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751743AbdHGWY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 7 Aug 2017 18:24:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Save 2628 bytes on arm eabi by allocate only the required 3 ports.
+Fix an issue with relying on netif_running() which could be true during
+when dev->open() handler is being called, even if it would exit with
+a failure. This ensures the state does not get set and removed with
+a narrow race for other callers to read it as open when infact it never
+finished opening.
 
-Now that ds->num_ports is correct: In net/dsa/tag_lan9303.c
-eliminate duplicate LAN9303_MAX_PORTS, use ds->num_ports.
-(Matching the pattern of other net/dsa/tag_xxx.c files.)
-
-Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 ---
- drivers/net/dsa/lan9303-core.c | 2 +-
- net/dsa/tag_lan9303.c          | 3 +--
- 2 files changed, 2 insertions(+), 3 deletions(-)
+I found this as a result of debugging a race condition in the i40evf
+driver, in which we assumed that netif_running() would not be true until
+after dev->open() had been called and succeeded. Unfortunately we can't
+hold the rtnl_lock() while checking netif_running() because it would
+cause a deadlock between our reset task and our ndo_open handler.
 
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index 15befd155251..46fc1d5d3c9e 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -811,7 +811,7 @@ static struct dsa_switch_ops lan9303_switch_ops = {
+I am wondering whether the proposed change is acceptable here, or
+whether some ndo_open handlers rely on __LINK_STATE_START being true
+prior to their being called?
+
+ net/core/dev.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1d75499add72..11953af90427 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1362,8 +1362,6 @@ static int __dev_open(struct net_device *dev)
+ 	if (ret)
+ 		return ret;
  
- static int lan9303_register_switch(struct lan9303 *chip)
- {
--	chip->ds = dsa_switch_alloc(chip->dev, DSA_MAX_PORTS);
-+	chip->ds = dsa_switch_alloc(chip->dev, LAN9303_NUM_PORTS);
- 	if (!chip->ds)
- 		return -ENOMEM;
+-	set_bit(__LINK_STATE_START, &dev->state);
+-
+ 	if (ops->ndo_validate_addr)
+ 		ret = ops->ndo_validate_addr(dev);
  
-diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
-index 247774d149f9..e23e7635fa00 100644
---- a/net/dsa/tag_lan9303.c
-+++ b/net/dsa/tag_lan9303.c
-@@ -39,7 +39,6 @@
-  */
+@@ -1372,9 +1370,8 @@ static int __dev_open(struct net_device *dev)
  
- #define LAN9303_TAG_LEN 4
--#define LAN9303_MAX_PORTS 3
+ 	netpoll_poll_enable(dev);
  
- static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-@@ -104,7 +103,7 @@ static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
- 
- 	source_port = ntohs(lan9303_tag[1]) & 0x3;
- 
--	if (source_port >= LAN9303_MAX_PORTS) {
-+	if (source_port >= ds->num_ports) {
- 		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid source port\n");
- 		return NULL;
- 	}
+-	if (ret)
+-		clear_bit(__LINK_STATE_START, &dev->state);
+-	else {
++	if (!ret)
++		set_bit(__LINK_STATE_START, &dev->state);
+ 		dev->flags |= IFF_UP;
+ 		dev_set_rx_mode(dev);
+ 		dev_activate(dev);
 -- 
-2.11.0
+2.14.0.rc1.251.g593d8d6362ce
