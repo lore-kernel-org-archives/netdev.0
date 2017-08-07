@@ -1,56 +1,313 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
-Date: Mon, 7 Aug 2017 09:04:19 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD004C785@AcuExch.aculab.com>
-References: <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
- <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
- <20170724090516.2e0f0d2a@w520.home>
- <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
- <75213fca-4522-2297-3cb8-338e643d3552@huawei.com>
- <CAKgT0UcqdRCwDDxD=22Q_jLuqz8KVHwH1-V45Aq-1WzQw=agcA@mail.gmail.com>
- <14218972-553d-eb60-0207-460ac7f4b064@huawei.com>
- <MWHPR12MB1600A6986E4AD13D302F2DC9C8B00@MWHPR12MB1600.namprd12.prod.outlook.com>
- <20170803083153.GB4883@otc-nc-03>
- <MWHPR12MB1600400EC7DEE92E4A3ADC5BC8B60@MWHPR12MB1600.namprd12.prod.outlook.com>,<20170804202141.GA39054@otc-nc-03>
- <MWHPR12MB160086C4B4FA8F3B2EC1D5F9C8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Alex Williamson <alex.williamson@redhat.com>,
-        Sinan Kaya <okaya@codeaurora.org>,
-        "bhelgaas@google.com" <bhelgaas@google.com>,
-        "helgaas@kernel.org" <helgaas@kernel.org>,
-        "Michael Werner" <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
-        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
-        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
-        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
-        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-        "amira@mellanox.com" <amira@mellanox.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "catal
-To: 'Casey Leedom' <leedom@chelsio.com>,
-        "Raj, Ashok" <ashok.raj@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <MWHPR12MB160086C4B4FA8F3B2EC1D5F9C8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [RFC net-next] net: xfrm: support setting an output mark.
+Date: Mon,  7 Aug 2017 18:23:26 +0900
+Message-ID: <20170807092326.10239-1-lorenzo@google.com>
+Cc: davem@davemloft.net, jhs@mojatatu.com,
+        steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+        nharold@google.com, misterikkit@google.com,
+        Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:37182 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752367AbdHGJXe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 05:23:34 -0400
+Received: by mail-pg0-f47.google.com with SMTP id y129so31959043pgy.4
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 02:23:34 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Casey Leedom
-> Sent: 04 August 2017 21:49
-...
-> Whenever our Hardware Designers implement new functionality in our hardware,
-> they almost always put in A. several "knobs" which can control fundamental
-> parameters of the new Hardware Feature, and B.  a mechanism of completely
-> disabling it if necessary.  This stems from the incredibly long Design ->
-> Deployment cyle for Hardware (as opposed to the edit->compile->run cycle for s!
+On systems that use mark-based routing it may be necessary for
+routing lookups to use marks in order for packets to be routed
+correctly. An example of such a system is Android, which uses
+socket marks to route packets via different networks.
 
-Indeed, I'd also expect there to be an undocumented flag to turn
-it on (broken) in earlier parts to allow testing.
+Currently, routing lookups in tunnel mode always use a mark of
+zero, making routing incorrect on such systems. This patch adds
+a new output_mark parameter to the SA properties.  The mark will
+be used in routing lookups, and if nonzero, will also set the
+mark of the packets emitted by the SA, so it can be matched by
+iptables.
 
-	David
+Tested: https://android-review.googlesource.com/452776
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ include/net/xfrm.h        |  9 ++++++---
+ include/uapi/linux/xfrm.h |  1 +
+ net/ipv4/xfrm4_policy.c   | 14 +++++++++-----
+ net/ipv6/xfrm6_policy.c   |  9 ++++++---
+ net/xfrm/xfrm_output.c    |  3 +++
+ net/xfrm/xfrm_policy.c    | 17 +++++++++--------
+ net/xfrm/xfrm_user.c      | 11 +++++++++++
+ 7 files changed, 45 insertions(+), 19 deletions(-)
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index afb4929d72..6b1ddb790d 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -163,6 +163,7 @@ struct xfrm_state {
+ 		int		header_len;
+ 		int		trailer_len;
+ 		u32		extra_flags;
++		u32		output_mark;
+ 	} props;
+ 
+ 	struct xfrm_lifetime_cfg lft;
+@@ -296,10 +297,12 @@ struct xfrm_policy_afinfo {
+ 	struct dst_entry	*(*dst_lookup)(struct net *net,
+ 					       int tos, int oif,
+ 					       const xfrm_address_t *saddr,
+-					       const xfrm_address_t *daddr);
++					       const xfrm_address_t *daddr,
++					       u32 mark);
+ 	int			(*get_saddr)(struct net *net, int oif,
+ 					     xfrm_address_t *saddr,
+-					     xfrm_address_t *daddr);
++					     xfrm_address_t *daddr,
++					     u32 mark);
+ 	void			(*decode_session)(struct sk_buff *skb,
+ 						  struct flowi *fl,
+ 						  int reverse);
+@@ -1638,7 +1641,7 @@ static inline int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
+ struct dst_entry *__xfrm_dst_lookup(struct net *net, int tos, int oif,
+ 				    const xfrm_address_t *saddr,
+ 				    const xfrm_address_t *daddr,
+-				    int family);
++				    int family, u32 mark);
+ 
+ struct xfrm_policy *xfrm_policy_alloc(struct net *net, gfp_t gfp);
+ 
+diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
+index 2b384ff09f..5fe7370a2b 100644
+--- a/include/uapi/linux/xfrm.h
++++ b/include/uapi/linux/xfrm.h
+@@ -304,6 +304,7 @@ enum xfrm_attr_type_t {
+ 	XFRMA_ADDRESS_FILTER,	/* struct xfrm_address_filter */
+ 	XFRMA_PAD,
+ 	XFRMA_OFFLOAD_DEV,	/* struct xfrm_state_offload */
++	XFRMA_OUTPUT_MARK,	/* __u32 */
+ 	__XFRMA_MAX
+ 
+ #define XFRMA_MAX (__XFRMA_MAX - 1)
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index 4aefb149fe..d7bf0b0418 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -20,7 +20,8 @@
+ static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
+ 					    int tos, int oif,
+ 					    const xfrm_address_t *saddr,
+-					    const xfrm_address_t *daddr)
++					    const xfrm_address_t *daddr,
++					    u32 mark)
+ {
+ 	struct rtable *rt;
+ 
+@@ -28,6 +29,7 @@ static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
+ 	fl4->daddr = daddr->a4;
+ 	fl4->flowi4_tos = tos;
+ 	fl4->flowi4_oif = l3mdev_master_ifindex_by_index(net, oif);
++	fl4->flowi4_mark = mark;
+ 	if (saddr)
+ 		fl4->saddr = saddr->a4;
+ 
+@@ -42,20 +44,22 @@ static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
+ 
+ static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos, int oif,
+ 					  const xfrm_address_t *saddr,
+-					  const xfrm_address_t *daddr)
++					  const xfrm_address_t *daddr,
++					  u32 mark)
+ {
+ 	struct flowi4 fl4;
+ 
+-	return __xfrm4_dst_lookup(net, &fl4, tos, oif, saddr, daddr);
++	return __xfrm4_dst_lookup(net, &fl4, tos, oif, saddr, daddr, mark);
+ }
+ 
+ static int xfrm4_get_saddr(struct net *net, int oif,
+-			   xfrm_address_t *saddr, xfrm_address_t *daddr)
++			   xfrm_address_t *saddr, xfrm_address_t *daddr,
++			   u32 mark)
+ {
+ 	struct dst_entry *dst;
+ 	struct flowi4 fl4;
+ 
+-	dst = __xfrm4_dst_lookup(net, &fl4, 0, oif, NULL, daddr);
++	dst = __xfrm4_dst_lookup(net, &fl4, 0, oif, NULL, daddr, mark);
+ 	if (IS_ERR(dst))
+ 		return -EHOSTUNREACH;
+ 
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index f44b25a484..11d1314ab6 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -27,7 +27,8 @@
+ 
+ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
+ 					  const xfrm_address_t *saddr,
+-					  const xfrm_address_t *daddr)
++					  const xfrm_address_t *daddr,
++					  u32 mark)
+ {
+ 	struct flowi6 fl6;
+ 	struct dst_entry *dst;
+@@ -36,6 +37,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
+ 	memset(&fl6, 0, sizeof(fl6));
+ 	fl6.flowi6_oif = l3mdev_master_ifindex_by_index(net, oif);
+ 	fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
++	fl6.flowi6_mark = mark;
+ 	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
+ 	if (saddr)
+ 		memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
+@@ -52,12 +54,13 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
+ }
+ 
+ static int xfrm6_get_saddr(struct net *net, int oif,
+-			   xfrm_address_t *saddr, xfrm_address_t *daddr)
++			   xfrm_address_t *saddr, xfrm_address_t *daddr,
++			   u32 mark)
+ {
+ 	struct dst_entry *dst;
+ 	struct net_device *dev;
+ 
+-	dst = xfrm6_dst_lookup(net, 0, oif, NULL, daddr);
++	dst = xfrm6_dst_lookup(net, 0, oif, NULL, daddr, mark);
+ 	if (IS_ERR(dst))
+ 		return -EHOSTUNREACH;
+ 
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index 8c0b6722aa..31a2e6d34d 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -66,6 +66,9 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
+ 			goto error_nolock;
+ 		}
+ 
++		if (x->props.output_mark)
++			skb->mark = x->props.output_mark;
++
+ 		err = x->outer_mode->output(x, skb);
+ 		if (err) {
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTSTATEMODEERROR);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 06c3bf7ab8..1de52f36ca 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -122,7 +122,7 @@ static const struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned short fa
+ struct dst_entry *__xfrm_dst_lookup(struct net *net, int tos, int oif,
+ 				    const xfrm_address_t *saddr,
+ 				    const xfrm_address_t *daddr,
+-				    int family)
++				    int family, u32 mark)
+ {
+ 	const struct xfrm_policy_afinfo *afinfo;
+ 	struct dst_entry *dst;
+@@ -131,7 +131,7 @@ struct dst_entry *__xfrm_dst_lookup(struct net *net, int tos, int oif,
+ 	if (unlikely(afinfo == NULL))
+ 		return ERR_PTR(-EAFNOSUPPORT);
+ 
+-	dst = afinfo->dst_lookup(net, tos, oif, saddr, daddr);
++	dst = afinfo->dst_lookup(net, tos, oif, saddr, daddr, mark);
+ 
+ 	rcu_read_unlock();
+ 
+@@ -143,7 +143,7 @@ static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x,
+ 						int tos, int oif,
+ 						xfrm_address_t *prev_saddr,
+ 						xfrm_address_t *prev_daddr,
+-						int family)
++						int family, u32 mark)
+ {
+ 	struct net *net = xs_net(x);
+ 	xfrm_address_t *saddr = &x->props.saddr;
+@@ -159,7 +159,7 @@ static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x,
+ 		daddr = x->coaddr;
+ 	}
+ 
+-	dst = __xfrm_dst_lookup(net, tos, oif, saddr, daddr, family);
++	dst = __xfrm_dst_lookup(net, tos, oif, saddr, daddr, family, mark);
+ 
+ 	if (!IS_ERR(dst)) {
+ 		if (prev_saddr != saddr)
+@@ -1340,14 +1340,14 @@ int __xfrm_sk_clone_policy(struct sock *sk, const struct sock *osk)
+ 
+ static int
+ xfrm_get_saddr(struct net *net, int oif, xfrm_address_t *local,
+-	       xfrm_address_t *remote, unsigned short family)
++	       xfrm_address_t *remote, unsigned short family, u32 mark)
+ {
+ 	int err;
+ 	const struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
+ 
+ 	if (unlikely(afinfo == NULL))
+ 		return -EINVAL;
+-	err = afinfo->get_saddr(net, oif, local, remote);
++	err = afinfo->get_saddr(net, oif, local, remote, mark);
+ 	rcu_read_unlock();
+ 	return err;
+ }
+@@ -1378,7 +1378,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
+ 			if (xfrm_addr_any(local, tmpl->encap_family)) {
+ 				error = xfrm_get_saddr(net, fl->flowi_oif,
+ 						       &tmp, remote,
+-						       tmpl->encap_family);
++						       tmpl->encap_family, 0);
+ 				if (error)
+ 					goto fail;
+ 				local = &tmp;
+@@ -1598,7 +1598,8 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 		if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
+ 			family = xfrm[i]->props.family;
+ 			dst = xfrm_dst_lookup(xfrm[i], tos, fl->flowi_oif,
+-					      &saddr, &daddr, family);
++					      &saddr, &daddr, family,
++					      xfrm[i]->props.output_mark);
+ 			err = PTR_ERR(dst);
+ 			if (IS_ERR(dst))
+ 				goto put_states;
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 1b539b7dcf..15dd0023ed 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -584,6 +584,9 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
+ 
+ 	xfrm_mark_get(attrs, &x->mark);
+ 
++	if (attrs[XFRMA_OUTPUT_MARK])
++		x->props.output_mark = nla_get_u32(attrs[XFRMA_OUTPUT_MARK]);
++
+ 	err = __xfrm_init_state(x, false);
+ 	if (err)
+ 		goto error;
+@@ -899,6 +902,11 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
+ 		goto out;
+ 	if (x->security)
+ 		ret = copy_sec_ctx(x->security, skb);
++	if (x->props.output_mark) {
++		ret = nla_put_u32(skb, XFRMA_OUTPUT_MARK, x->props.output_mark);
++		if (ret)
++			goto out;
++	}
+ out:
+ 	return ret;
+ }
+@@ -2454,6 +2462,7 @@ static const struct nla_policy xfrma_policy[XFRMA_MAX+1] = {
+ 	[XFRMA_PROTO]		= { .type = NLA_U8 },
+ 	[XFRMA_ADDRESS_FILTER]	= { .len = sizeof(struct xfrm_address_filter) },
+ 	[XFRMA_OFFLOAD_DEV]	= { .len = sizeof(struct xfrm_user_offload) },
++	[XFRMA_OUTPUT_MARK]	= { .len = NLA_U32 },
+ };
+ 
+ static const struct nla_policy xfrma_spd_policy[XFRMA_SPD_MAX+1] = {
+@@ -2673,6 +2682,8 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
+ 		l += nla_total_size(sizeof(x->props.extra_flags));
+ 	if (x->xso.dev)
+ 		 l += nla_total_size(sizeof(x->xso));
++	if (x->props.output_mark)
++		l += nla_total_size(sizeof(x->props.output_mark));
+ 
+ 	/* Must count x->lastused as it may become non-zero behind our back. */
+ 	l += nla_total_size_64bit(sizeof(u64));
+-- 
+2.14.0.rc1.383.gd1ce394fe2-goog
