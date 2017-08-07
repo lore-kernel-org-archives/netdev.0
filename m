@@ -1,35 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: vrf: Add extack messages for newlink
- failures
-Date: Mon, 07 Aug 2017 15:16:52 -0700 (PDT)
-Message-ID: <20170807.151652.231418992480952915.davem@davemloft.net>
-References: <1502125690-2212-1-git-send-email-dsahern@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsahern@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37198 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751913AbdHGWRD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 18:17:03 -0400
-In-Reply-To: <1502125690-2212-1-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: [PATCH net-next] net: dsa: lan9303: Only allocate 3 ports
+Date: Tue,  8 Aug 2017 00:22:21 +0200
+Message-ID: <20170807222221.28963-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsahern@gmail.com>
-Date: Mon,  7 Aug 2017 10:08:10 -0700
+Save 2628 bytes on arm eabi by allocate only the required 3 ports.
 
-> Add extack error messages for failure paths creating vrf devices. Once
-> extack support is added to iproute2, we go from the unhelpful:
->     $  ip li add foobar type vrf
->     RTNETLINK answers: Invalid argument
-> 
-> to:
->     $ ip li add foobar type vrf
->     Error: VRF table id is missing
-> 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+Now that ds->num_ports is correct: In net/dsa/tag_lan9303.c
+eliminate duplicate LAN9303_MAX_PORTS, use ds->num_ports.
+(Matching the pattern of other net/dsa/tag_xxx.c files.)
 
-Applied, thanks David.
+Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+---
+ drivers/net/dsa/lan9303-core.c | 2 +-
+ net/dsa/tag_lan9303.c          | 3 +--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index 15befd155251..46fc1d5d3c9e 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -811,7 +811,7 @@ static struct dsa_switch_ops lan9303_switch_ops = {
+ 
+ static int lan9303_register_switch(struct lan9303 *chip)
+ {
+-	chip->ds = dsa_switch_alloc(chip->dev, DSA_MAX_PORTS);
++	chip->ds = dsa_switch_alloc(chip->dev, LAN9303_NUM_PORTS);
+ 	if (!chip->ds)
+ 		return -ENOMEM;
+ 
+diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
+index 247774d149f9..e23e7635fa00 100644
+--- a/net/dsa/tag_lan9303.c
++++ b/net/dsa/tag_lan9303.c
+@@ -39,7 +39,6 @@
+  */
+ 
+ #define LAN9303_TAG_LEN 4
+-#define LAN9303_MAX_PORTS 3
+ 
+ static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+@@ -104,7 +103,7 @@ static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	source_port = ntohs(lan9303_tag[1]) & 0x3;
+ 
+-	if (source_port >= LAN9303_MAX_PORTS) {
++	if (source_port >= ds->num_ports) {
+ 		dev_warn_ratelimited(&dev->dev, "Dropping packet due to invalid source port\n");
+ 		return NULL;
+ 	}
+-- 
+2.11.0
