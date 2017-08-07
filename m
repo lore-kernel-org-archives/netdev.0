@@ -1,43 +1,38 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH v5 net-next 12/12] bpf/verifier: increase complexity limit to
- 128k
-Date: Mon, 7 Aug 2017 15:30:30 +0100
-Message-ID: <f72c4d22-2df5-6a59-a1b9-281686876e83@solarflare.com>
-References: <ad840039-8d4a-b2a9-b2eb-a8f079926b53@solarflare.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/7] net: l3mdev: Support for sockets bound to
+ enslaved device
+Date: Mon, 7 Aug 2017 08:35:30 -0600
+Message-ID: <16d93042-4be1-dcc7-9a8f-a0a1440d5564@gmail.com>
+References: <1501877823-31365-1-git-send-email-dsahern@gmail.com>
+ <20170806.213938.1049251959507174455.davem@davemloft.net>
+ <20170806.235145.398118943167397128.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>
-To: <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ad840039-8d4a-b2a9-b2eb-a8f079926b53@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-7
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35786 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750751AbdHGOfh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 10:35:37 -0400
+Received: by mail-pg0-f65.google.com with SMTP id l64so547253pge.2
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 07:35:36 -0700 (PDT)
+In-Reply-To: <20170806.235145.398118943167397128.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The more detailed value tracking can reduce the effectiveness of pruning
- for some programs.  So, to avoid rejecting previously valid programs, up
- the limit to 128kinsns.  Hopefully we will be able to bring this back
- down later by improving pruning performance.
+On 8/7/17 12:51 AM, David Miller wrote:
+> David, I had to revert.  You didn't convert dccp which breaks
+> the build.
+> 
+> net/dccp/ipv4.c: In function ¡dccp_v4_err¢:
+> net/dccp/ipv4.c:256:7: error: too few arguments to function ¡__inet_lookup_established¢
+>   sk = __inet_lookup_established(net, &dccp_hashinfo,
+>        ^~~~~~~~~~~~~~~~~~~~~~~~~
+> In file included from net/dccp/ipv4.c:22:0:
+> ./include/net/inet_hashtables.h:289:14: note: declared here
+>  struct sock *__inet_lookup_established(struct net *net,
+>               ^~~~~~~~~~~~~~~~~~~~~~~~~
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- kernel/bpf/verifier.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 08a6fa0..8160a81 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -140,7 +140,7 @@ struct bpf_verifier_stack_elem {
- 	struct bpf_verifier_stack_elem *next;
- };
- 
--#define BPF_COMPLEXITY_LIMIT_INSNS	98304
-+#define BPF_COMPLEXITY_LIMIT_INSNS	131072
- #define BPF_COMPLEXITY_LIMIT_STACK	1024
- 
- #define BPF_MAP_PTR_POISON ((void *)0xeB9F + POISON_POINTER_DELTA)
+That's embarrassing. Will fix
