@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 14/16] net: sched: move prio into cls_common
-Date: Mon,  7 Aug 2017 10:15:30 +0200
-Message-ID: <20170807081532.32760-15-jiri@resnulli.us>
+Subject: [patch net-next v2 15/16] net: sched: change return value of ndo_setup_tc for driver supporting mqprio only
+Date: Mon,  7 Aug 2017 10:15:31 +0200
+Message-ID: <20170807081532.32760-16-jiri@resnulli.us>
 References: <20170807081532.32760-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
@@ -12,98 +12,179 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         yisen.zhuang@huawei.com, salil.mehta@huawei.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33394 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752510AbdHGIP5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:15:57 -0400
-Received: by mail-wm0-f68.google.com with SMTP id q189so152796wmd.0
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 01:15:56 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34040 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751837AbdHGIQA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:16:00 -0400
+Received: by mail-wr0-f193.google.com with SMTP id o33so7139419wrb.1
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 01:15:59 -0700 (PDT)
 In-Reply-To: <20170807081532.32760-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-prio is not cls_flower specific, but it is meaningful for all
-classifiers. Seems that only mlxsw cares about the value. Obviously,
-cls offload in other drivers is broken.
+Change the return value from -EINVAL to -EOPNOTSUPP. The rest of the
+drivers have it like that, so be aligned.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c | 2 +-
- include/net/pkt_cls.h                                 | 3 ++-
- net/sched/cls_flower.c                                | 3 ---
- 3 files changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c               | 2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c        | 2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c              | 2 +-
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c         | 2 +-
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c        | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c            | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c         | 2 +-
+ drivers/net/ethernet/sfc/falcon/tx.c                   | 2 +-
+ drivers/net/ethernet/sfc/tx.c                          | 2 +-
+ drivers/net/ethernet/ti/netcp_core.c                   | 2 +-
+ 11 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
-index 021b6c0..95428b4 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
-@@ -270,7 +270,7 @@ static int mlxsw_sp_flower_parse(struct mlxsw_sp *mlxsw_sp,
- 		return -EOPNOTSUPP;
- 	}
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index bbb7bfe..37d3e5b 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -1925,7 +1925,7 @@ static int xgbe_setup_tc(struct net_device *netdev, enum tc_setup_type type,
+ 	u8 tc;
  
--	mlxsw_sp_acl_rulei_priority(rulei, f->prio);
-+	mlxsw_sp_acl_rulei_priority(rulei, f->common.prio);
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
  
- 	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_CONTROL)) {
- 		struct flow_dissector_key_control *key =
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index ffaddf7..572083a 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -409,6 +409,7 @@ struct tc_cls_common_offload {
- 	u32 handle;
- 	u32 chain_index;
- 	__be16 protocol;
-+	u32 prio;
- };
+ 	tc_to_netdev->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
+ 	tc = tc_to_netdev->mqprio->num_tc;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 257cf4b..8687afc 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -4288,7 +4288,7 @@ int __bnx2x_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 		     struct tc_to_netdev *tc)
+ {
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
  
- static inline void
-@@ -418,6 +419,7 @@ tc_cls_common_offload_init(struct tc_cls_common_offload *cls_common,
- 	cls_common->handle = tp->q->handle;
- 	cls_common->chain_index = tp->chain->index;
- 	cls_common->protocol = tp->protocol;
-+	cls_common->prio = tp->prio;
+ 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 1545b88..a78f72a 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -7241,7 +7241,7 @@ static int bnxt_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 			 struct tc_to_netdev *ntc)
+ {
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
+ 
+ 	ntc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
+ 
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index 3827608..bfb44c9 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -350,7 +350,7 @@ static int dpaa_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
+ 	int i;
+ 
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
+ 
+ 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
+ 	num_tc = tc->mqprio->num_tc;
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index dc64d75..aa43ebd 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -1223,7 +1223,7 @@ static int hns3_nic_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 			     struct tc_to_netdev *tc)
+ {
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
+ 
+ 	return hns3_setup_tc(dev, tc->mqprio->num_tc);
  }
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 71004b8..7088812 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -1269,7 +1269,7 @@ static int __fm10k_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 			    struct tc_to_netdev *tc)
+ {
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
  
- struct tc_cls_u32_knode {
-@@ -515,7 +517,6 @@ enum tc_fl_command {
- struct tc_cls_flower_offload {
- 	struct tc_cls_common_offload common;
- 	enum tc_fl_command command;
--	u32 prio;
- 	unsigned long cookie;
- 	struct flow_dissector *dissector;
- 	struct fl_flow_key *mask;
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 1fdf288..ccdf2f5 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -234,7 +234,6 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
  
- 	tc_cls_common_offload_init(&offload.common, tp);
- 	offload.command = TC_CLSFLOWER_DESTROY;
--	offload.prio = tp->prio;
- 	offload.cookie = (unsigned long)f;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 97d8bb2..1f46338 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5660,7 +5660,7 @@ static int __i40e_setup_tc(struct net_device *netdev, enum tc_setup_type type,
+ 			   struct tc_to_netdev *tc)
+ {
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
  
- 	tc->cls_flower = &offload;
-@@ -266,7 +265,6 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+ 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
  
- 	tc_cls_common_offload_init(&offload.common, tp);
- 	offload.command = TC_CLSFLOWER_REPLACE;
--	offload.prio = tp->prio;
- 	offload.cookie = (unsigned long)f;
- 	offload.dissector = dissector;
- 	offload.mask = mask;
-@@ -295,7 +293,6 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index e81083e..1667e86 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -134,7 +134,7 @@ static int __mlx4_en_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 			      struct tc_to_netdev *tc)
+ {
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
  
- 	tc_cls_common_offload_init(&offload.common, tp);
- 	offload.command = TC_CLSFLOWER_STATS;
--	offload.prio = tp->prio;
- 	offload.cookie = (unsigned long)f;
- 	offload.exts = &f->exts;
+ 	if (tc->mqprio->num_tc && tc->mqprio->num_tc != MLX4_EN_NUM_UP_HIGH)
+ 		return -EINVAL;
+diff --git a/drivers/net/ethernet/sfc/falcon/tx.c b/drivers/net/ethernet/sfc/falcon/tx.c
+index 447519a..0f125e1 100644
+--- a/drivers/net/ethernet/sfc/falcon/tx.c
++++ b/drivers/net/ethernet/sfc/falcon/tx.c
+@@ -435,7 +435,7 @@ int ef4_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
+ 	int rc;
  
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
+ 
+ 	num_tc = ntc->mqprio->num_tc;
+ 
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index d17af91..53ba30c 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -663,7 +663,7 @@ int efx_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
+ 	int rc;
+ 
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
+ 
+ 	num_tc = ntc->mqprio->num_tc;
+ 
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index 14f91b2..caba0ab 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -1887,7 +1887,7 @@ static int netcp_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 	ASSERT_RTNL();
+ 
+ 	if (type != TC_SETUP_MQPRIO)
+-		return -EINVAL;
++		return -EOPNOTSUPP;
+ 
+ 	tc->mqprio->hw = TC_MQPRIO_HW_OFFLOAD_TCS;
+ 	num_tc = tc->mqprio->num_tc;
 -- 
 2.9.3
