@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] netvsc: fix rtnl deadlock on unregister
- of vf
-Date: Sun, 06 Aug 2017 21:29:29 -0700 (PDT)
-Message-ID: <20170806.212929.246667029504105138.davem@davemloft.net>
-References: <20170804191400.22471-1-sthemmin@microsoft.com>
-        <20170804191400.22471-2-sthemmin@microsoft.com>
+Subject: Re: [PATCH v2 1/2] net: stmmac: Add Adaptrum Anarion GMAC glue
+ layer
+Date: Sun, 06 Aug 2017 21:31:46 -0700 (PDT)
+Message-ID: <20170806.213146.2175597918600105021.davem@davemloft.net>
+References: <20170728.190155.457209566729295513.davem@davemloft.net>
+        <20170804200852.16049-1-alex.g@adaptrum.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
-        devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, robh+dt@kernel.org
+To: alex.g@adaptrum.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50452 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50480 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751433AbdHGE3a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:29:30 -0400
-In-Reply-To: <20170804191400.22471-2-sthemmin@microsoft.com>
+        with ESMTP id S1751430AbdHGEbr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:31:47 -0400
+In-Reply-To: <20170804200852.16049-1-alex.g@adaptrum.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri,  4 Aug 2017 12:14:00 -0700
+From: Alexandru Gagniuc <alex.g@adaptrum.com>
+Date: Fri,  4 Aug 2017 13:08:51 -0700
 
-> With new transparent VF support, it is possible to get a deadlock
-> when some of the deferred work is running and the unregister_vf
-> is trying to cancel the work element. The solution is to use
-> trylock and reschedule (similar to bonding and team device).
+> Before the GMAC on the Anarion chip can be used, the PHY interface
+> selection must be configured with the DWMAC block in reset.
 > 
-> Reported-by: Vitaly Kuznetsov <vkuznets@redhat.com>
-> Fixes: 0c195567a8f6 ("netvsc: transparent VF management")
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> This layer covers a block containing only two registers. Although it
+> is possible to model this as a reset controller and use the "resets"
+> property of stmmac, it's much more intuitive to include this in the
+> glue layer instead.
+> 
+> At this time only RGMII is supported, because it is the only mode
+> which has been validated hardware-wise.
+> 
+> Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
 
-Applied, thanks.
+Applied.
