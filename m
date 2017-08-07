@@ -1,32 +1,57 @@
-From: "Technical Subsystem" <trichy.l@careind.net>
-Subject: EMAIL UPDATE
-Date: Mon, 07 Aug 2017 13:57:09 +0100
-Message-ID: <20170807124833.D5F052861C51@cams.careind.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cams.careind.net ([1.23.164.19]:57709 "EHLO cams.careind.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751247AbdHGM76 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 7 Aug 2017 08:59:58 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-        by cams.careind.net (Postfix) with ESMTP id 631C22861B6B
-        for <netdev@vger.kernel.org>; Mon,  7 Aug 2017 18:18:35 +0530 (IST)
-Received: from cams.careind.net ([127.0.0.1])
-        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id owXsKilmSuNX for <netdev@vger.kernel.org>;
-        Mon,  7 Aug 2017 18:18:35 +0530 (IST)
-Received: from [192.168.10.100] (unknown [192.168.0.31])
-        by cams.careind.net (Postfix) with ESMTPSA id D5F052861C51
-        for <netdev@vger.kernel.org>; Mon,  7 Aug 2017 18:18:33 +0530 (IST)
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joel Fernandes <joelaf@google.com>
+Subject: [PATCH RFC 1/5] samples/bpf: Use getppid instead of getpgrp for array map stress
+Date: Mon,  7 Aug 2017 06:03:02 -0700
+Message-ID: <20170807130306.31530-2-joelaf@google.com>
+References: <20170807130306.31530-1-joelaf@google.com>
+Cc: Chenbo Feng <fengc@google.com>,
+        Alison Chaiken <alison@she-devel.com>,
+        Juri Lelli <jlelli@google.com>,
+        Joel Fernandes <joelaf@google.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        netdev@vger.kernel.org (open list:BPF (Safe dynamic programs and tools))
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170807130306.31530-1-joelaf@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please be advised that we will be performing a scheduled email maintenance within the next 24hrs, during this maintenance you will be require to update your email account via link https://tinyurl.com/y9ubogy4
+When cross-compiling the bpf sample map_perf_test for aarch64, I find that
+__NR_getpgrp is undefined. This causes build errors. This syscall is deprecated
+and requires defining __ARCH_WANT_SYSCALL_DEPRECATED. To avoid having to define
+that, just use a different syscall (getppid) for the array map stress test.
 
+Signed-off-by: Joel Fernandes <joelaf@google.com>
 ---
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+ samples/bpf/map_perf_test_kern.c | 2 +-
+ samples/bpf/map_perf_test_user.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
+index 245165817fbe..038ffec295cf 100644
+--- a/samples/bpf/map_perf_test_kern.c
++++ b/samples/bpf/map_perf_test_kern.c
+@@ -232,7 +232,7 @@ int stress_hash_map_lookup(struct pt_regs *ctx)
+ 	return 0;
+ }
+ 
+-SEC("kprobe/sys_getpgrp")
++SEC("kprobe/sys_getppid")
+ int stress_array_map_lookup(struct pt_regs *ctx)
+ {
+ 	u32 key = 1, i;
+diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
+index 1a8894b5ac51..1e9e68942197 100644
+--- a/samples/bpf/map_perf_test_user.c
++++ b/samples/bpf/map_perf_test_user.c
+@@ -232,7 +232,7 @@ static void test_array_lookup(int cpu)
+ 
+ 	start_time = time_get_ns();
+ 	for (i = 0; i < max_cnt; i++)
+-		syscall(__NR_getpgrp, 0);
++		syscall(__NR_getppid, 0);
+ 	printf("%d:array_lookup %lld lookups per sec\n",
+ 	       cpu, max_cnt * 1000000000ll * 64 / (time_get_ns() - start_time));
+ }
+-- 
+2.14.0.rc1.383.gd1ce394fe2-goog
