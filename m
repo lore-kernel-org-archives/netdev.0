@@ -1,58 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] bpf: fix selftest/bpf/test_pkt_md_access on s390x
-Date: Mon, 07 Aug 2017 10:06:53 -0700 (PDT)
-Message-ID: <20170807.100653.1873109526074431671.davem@davemloft.net>
-References: <20170807081636.65099-1-tmricht@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, daniel@iogearbox.net, netdev@vger.kernel.org,
-        heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com,
-        brueckner@linux.vnet.ibm.com
-To: tmricht@linux.vnet.ibm.com
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net-next] net: vrf: Add extack messages for newlink failures
+Date: Mon,  7 Aug 2017 10:08:10 -0700
+Message-ID: <1502125690-2212-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60346 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751743AbdHGRG4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 13:06:56 -0400
-In-Reply-To: <20170807081636.65099-1-tmricht@linux.vnet.ibm.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:37958 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751513AbdHGRIQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 13:08:16 -0400
+Received: by mail-pf0-f193.google.com with SMTP id h75so915842pfh.5
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 10:08:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Richter <tmricht@linux.vnet.ibm.com>
-Date: Mon,  7 Aug 2017 10:16:36 +0200
+Add extack error messages for failure paths creating vrf devices. Once
+extack support is added to iproute2, we go from the unhelpful:
+    $  ip li add foobar type vrf
+    RTNETLINK answers: Invalid argument
 
-> Commit 18f3d6be6be1 ("selftests/bpf: Add test cases to test narrower ctx field loads")
-> introduced new eBPF test cases. One of them (test_pkt_md_access.c)
-> fails on s390x. The BPF verifier error message is:
-> 
-> [root@s8360046 bpf]# ./test_progs
-> test_pkt_access:PASS:ipv4 349 nsec
-> test_pkt_access:PASS:ipv6 212 nsec
-> [....]
-> libbpf: load bpf program failed: Permission denied
-> libbpf: -- BEGIN DUMP LOG ---
-> libbpf:
-> 0: (71) r2 = *(u8 *)(r1 +0)
-> invalid bpf_context access off=0 size=1
-> 
-> libbpf: -- END LOG --
-> libbpf: failed to load program 'test1'
-> libbpf: failed to load object './test_pkt_md_access.o'
-> Summary: 29 PASSED, 1 FAILED
-> [root@s8360046 bpf]#
-> 
-> This is caused by a byte endianness issue. S390x is a big endian
-> architecture.  Pointer access to the lowest byte or halfword of a
-> four byte value need to add an offset.
-> On little endian architectures this offset is not needed.
-> 
-> Fix this and use the same approach as the originator used for other files
-> (for example test_verifier.c) in his original commit.
-> 
-> With this fix the test program test_progs succeeds on s390x:
- ...
-> Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+to:
+    $ ip li add foobar type vrf
+    Error: VRF table id is missing
 
-Applied, thanks.
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ drivers/net/vrf.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 8a1eaf3c302a..abd2010c48ae 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -1371,10 +1371,14 @@ static int vrf_validate(struct nlattr *tb[], struct nlattr *data[],
+ 			struct netlink_ext_ack *extack)
+ {
+ 	if (tb[IFLA_ADDRESS]) {
+-		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
++		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN) {
++			NL_SET_ERR_MSG(extack, "Invalid hardware address");
+ 			return -EINVAL;
+-		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
++		}
++		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS]))) {
++			NL_SET_ERR_MSG(extack, "Invalid hardware address");
+ 			return -EADDRNOTAVAIL;
++		}
+ 	}
+ 	return 0;
+ }
+@@ -1399,12 +1403,17 @@ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 	struct net *net;
+ 	int err;
+ 
+-	if (!data || !data[IFLA_VRF_TABLE])
++	if (!data || !data[IFLA_VRF_TABLE]) {
++		NL_SET_ERR_MSG(extack, "VRF table id is missing");
+ 		return -EINVAL;
++	}
+ 
+ 	vrf->tb_id = nla_get_u32(data[IFLA_VRF_TABLE]);
+-	if (vrf->tb_id == RT_TABLE_UNSPEC)
++	if (vrf->tb_id == RT_TABLE_UNSPEC) {
++		NL_SET_ERR_MSG_ATTR(extack, data[IFLA_VRF_TABLE],
++				    "Invalid VRF table id");
+ 		return -EINVAL;
++	}
+ 
+ 	dev->priv_flags |= IFF_L3MDEV_MASTER;
+ 
+-- 
+2.1.4
