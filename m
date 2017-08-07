@@ -1,42 +1,40 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 7 Aug 2017 14:59:49 +1000
-Message-ID: <20170807145949.4c4f4dc6@canb.auug.org.au>
-References: <20170807120113.5e51eec0@canb.auug.org.au>
-        <CADVnQyncPCCp5T+jDU=S4KF-X+Od8sPFJGEdFhWE9k5VABJqFQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: [PATCH v2] rtlwifi: constify rate_control_ops structure
+Date: Mon,  7 Aug 2017 10:30:51 +0530
+Message-ID: <1502082051-4904-1-git-send-email-bhumirks@gmail.com>
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: julia.lawall@lip6.fr, Larry.Finger@lwfinger.net,
+        chaoming_li@realsil.com.cn, kvalo@codeaurora.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CADVnQyncPCCp5T+jDU=S4KF-X+Od8sPFJGEdFhWE9k5VABJqFQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Neal,
+rate_control_ops structure is only passed as an argument to the
+function ieee80211_rate_control_{register/unregister}. This argument
+is of type const, so declare the structure as const.
 
-On Sun, 6 Aug 2017 22:21:43 -0400 Neal Cardwell <ncardwell@google.com> wrote:
->
-> > I fixed it up (see below) and can carry the fix as necessary. This
-> > is now fixed as far as linux-next is concerned, but any non trivial
-> > conflicts should be mentioned to your upstream maintainer when your tree
-> > is submitted for merging.  You may also want to consider cooperating
-> > with the maintainer of the conflicting tree to minimise any particularly
-> > complex conflicts.  
-> 
-> Sorry about that. Will try to follow that procedure in the future.
+Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+---
+Changes in v2:
+* Change subject line.
 
-The above is a generic statement I add to all these emails.  It is
-aimed more at the maintainers if the trees involved, no the developers
-of patches.  I don't think you need to do anything different in these
-cases with the "net" and "net-next" tree.  Dave Miller will fix up any
-conflicts when he next merges the net tree into the net-next tree.
+ drivers/net/wireless/realtek/rtlwifi/rc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/drivers/net/wireless/realtek/rtlwifi/rc.c b/drivers/net/wireless/realtek/rtlwifi/rc.c
+index 951d257..02811ed 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/rc.c
++++ b/drivers/net/wireless/realtek/rtlwifi/rc.c
+@@ -283,7 +283,7 @@ static void rtl_rate_free_sta(void *rtlpriv,
+ 	kfree(rate_priv);
+ }
+ 
+-static struct rate_control_ops rtl_rate_ops = {
++static const struct rate_control_ops rtl_rate_ops = {
+ 	.name = "rtl_rc",
+ 	.alloc = rtl_rate_alloc,
+ 	.free = rtl_rate_free,
 -- 
-Cheers,
-Stephen Rothwell
+1.9.1
