@@ -1,35 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] net/mlx4_en: don't set CHECKSUM_COMPLETE on
- SCTP packets
-Date: Mon, 07 Aug 2017 14:03:10 -0700 (PDT)
-Message-ID: <20170807.140310.1029309060323795084.davem@davemloft.net>
-References: <23ac3e005a8dc1a373971f1166fe6ba72d8abe4b.1501793448.git.dcaratti@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] net: sched: set xt_tgchk_param par.nft_compat with
+ false in ipt_init_target
+Date: Mon, 7 Aug 2017 14:03:15 -0700
+Message-ID: <CAM_iQpUT8CMdz1sgBaVS+7drzPPFp10APOHiKPib8oNq7kPsFg@mail.gmail.com>
+References: <985e6cb7c94f0014096ebca47e1efd74e022dc8d.1501932779.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tariqt@mellanox.com, netdev@vger.kernel.org
-To: dcaratti@redhat.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: network dev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35980 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751869AbdHGVDL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 17:03:11 -0400
-In-Reply-To: <23ac3e005a8dc1a373971f1166fe6ba72d8abe4b.1501793448.git.dcaratti@redhat.com>
+Received: from mail-ua0-f194.google.com ([209.85.217.194]:36600 "EHLO
+        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751589AbdHGVDg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 17:03:36 -0400
+Received: by mail-ua0-f194.google.com with SMTP id w45so865446uac.3
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 14:03:36 -0700 (PDT)
+In-Reply-To: <985e6cb7c94f0014096ebca47e1efd74e022dc8d.1501932779.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Davide Caratti <dcaratti@redhat.com>
-Date: Thu,  3 Aug 2017 22:54:48 +0200
+On Sat, Aug 5, 2017 at 4:32 AM, Xin Long <lucien.xin@gmail.com> wrote:
+> Commit 55917a21d0cc ("netfilter: x_tables: add context to know if
+> extension runs from nft_compat") introduced a member nft_compat to
+> xt_tgchk_param structure.
+>
+> But it didn't set it's value for ipt_init_target. With unexpected
+> value in par.nft_compat, it may return unexpected result in some
+> target's checkentry.
+>
+> This patch is to set par.nft_compat with false in ipt_init_target.
 
-> if the NIC fails to validate the checksum on TCP/UDP, and validation of IP
-> checksum is successful, the driver subtracts the pseudo-header checksum
-> from the value obtained by the hardware and sets CHECKSUM_COMPLETE. Don't
-> do that if protocol is IPPROTO_SCTP, otherwise CRC32c validation fails.
-> 
-> V2: don't test MLX4_CQE_STATUS_IPV6 if MLX4_CQE_STATUS_IPV4 is set
-> 
-> Reported-by: Shuang Li <shuali@redhat.com>
-> Fixes: f8c6455bb04b ("net/mlx4_en: Extend checksum offloading by CHECKSUM COMPLETE")
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
-
-Can I get reviews from some Mellanox folks please?
+It's time to set all these fields to 0 and only initialize those non-zero
+fields, in case we will add more fields in the future.
