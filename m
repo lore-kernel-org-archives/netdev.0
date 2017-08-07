@@ -1,44 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v9 0/4] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
-Date: Mon, 07 Aug 2017 14:14:48 -0700 (PDT)
-Message-ID: <20170807.141448.1388035794329323595.davem@davemloft.net>
-References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
-        <20170806.204744.1934067595236180060.davem@davemloft.net>
-        <588b378c-249a-36b0-8890-769258fbb708@huawei.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] net: sched: fix NULL pointer dereference when action
+ calls some targets
+Date: Mon, 7 Aug 2017 14:15:01 -0700
+Message-ID: <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
+References: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: bhelgaas@google.com, helgaas@kernel.org, leedom@chelsio.com,
-        ashok.raj@intel.com, werner@chelsio.com, ganeshgr@chelsio.com,
-        asit.k.mallick@intel.com, patrick.j.cramer@intel.com,
-        Suravee.Suthikulpanit@amd.com, Bob.Shaw@amd.com,
-        l.stach@pengutronix.de, amira@mellanox.com,
-        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
-        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
-        alexander.duyck@gmail.com, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org, linux-pci@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linuxarm@huawei.com
-To: dingtianhong@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <588b378c-249a-36b0-8890-769258fbb708@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: network dev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f68.google.com ([209.85.213.68]:35928 "EHLO
+        mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751662AbdHGVPW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 17:15:22 -0400
+In-Reply-To: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Mon, 7 Aug 2017 12:13:17 +0800
+(Cc'ing netfilter and Jamal)
 
-> Hi David：
-> 
-> I think networking tree merge it is a better choice, as it mainly used to tell the NIC
-> drivers how to use the Relaxed Ordering Attribute, and later we need send patch to enable
-> RO for ixgbe driver base on this patch. But I am not sure whether Bjorn has some of his own
-> view. :)
-> 
-> Hi Bjorn:
-> 
-> Could you help review this patch or give some feedback ?
+On Sat, Aug 5, 2017 at 4:35 AM, Xin Long <lucien.xin@gmail.com> wrote:
+> As we know in some target's checkentry it may dereference par.entryinfo
+> to check entry stuff inside. But when sched action calls xt_check_target,
+> par.entryinfo is set with NULL. It would cause kernel panic when calling
+> some targets.
+>
+> It can be reproduce with:
+>   # tc qd add dev eth1 ingress handle ffff:
+>   # tc filter add dev eth1 parent ffff: u32 match u32 0 0 action xt \
+>     -j ECN --ecn-tcp-remove
+>
+> It could also crash kernel when using target CLUSTERIP or TPROXY.
+>
+> By now there's no proper value for par.entryinfo in ipt_init_target,
+> but it can not be set with NULL. This patch is to void all these
+> panics by setting it with an ipt_entry obj with all members 0.
+>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sched/act_ipt.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
+> index 7c4816b..0f09f70 100644
+> --- a/net/sched/act_ipt.c
+> +++ b/net/sched/act_ipt.c
+> @@ -41,6 +41,7 @@ static int ipt_init_target(struct net *net, struct xt_entry_target *t,
+>  {
+>         struct xt_tgchk_param par;
+>         struct xt_target *target;
+> +       struct ipt_entry e;
+>         int ret = 0;
+>
+>         target = xt_request_find_target(AF_INET, t->u.user.name,
+> @@ -48,10 +49,11 @@ static int ipt_init_target(struct net *net, struct xt_entry_target *t,
+>         if (IS_ERR(target))
+>                 return PTR_ERR(target);
+>
+> +       memset(&e, 0, sizeof(e));
+>         t->u.kernel.target = target;
+>         par.net       = net;
+>         par.table     = table;
+> -       par.entryinfo = NULL;
+> +       par.entryinfo = &e;
 
-I'm still waiting on this...
-
-Bjorn?
+This looks like a completely API burden?
