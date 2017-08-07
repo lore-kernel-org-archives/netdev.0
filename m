@@ -1,55 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/7] net: l3mdev: Support for sockets bound
- to enslaved device
-Date: Mon, 07 Aug 2017 11:39:42 -0700 (PDT)
-Message-ID: <20170807.113942.927598740175023982.davem@davemloft.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH v3 net-next 0/7] net: l3mdev: Support for sockets bound to
+ enslaved device
+Date: Mon, 7 Aug 2017 12:40:51 -0600
+Message-ID: <0f8edad8-1ea9-c6e6-4410-6471ee4c212e@gmail.com>
 References: <1502120662-1430-1-git-send-email-dsahern@gmail.com>
+ <20170807.113942.927598740175023982.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dsahern@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33744 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751429AbdHGSjn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 14:39:43 -0400
-In-Reply-To: <1502120662-1430-1-git-send-email-dsahern@gmail.com>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:36530 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751426AbdHGSkx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 14:40:53 -0400
+Received: by mail-pg0-f47.google.com with SMTP id v77so4800173pgb.3
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 11:40:53 -0700 (PDT)
+In-Reply-To: <20170807.113942.927598740175023982.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsahern@gmail.com>
-Date: Mon,  7 Aug 2017 08:44:15 -0700
+On 8/7/17 12:39 PM, David Miller wrote:
+> Series applied, let's see if it builds this time :-)
 
-> A missing piece to the VRF puzzle is the ability to bind sockets to
-> devices enslaved to a VRF. This patch set adds the enslaved device
-> index, sdif, to IPv4 and IPv6 socket lookups. The end result for users
-> is the following scope options for services:
-> 
-> 1. "global" services - sockets not bound to any device
-> 
->    Allows 1 service to work across all network interfaces with
->    connected sockets bound to the VRF the connection originates
->    (Requires net.ipv4.tcp_l3mdev_accept=1 for TCP and
->     net.ipv4.udp_l3mdev_accept=1 for UDP)
-> 
-> 2. "VRF" local services - sockets bound to a VRF
-> 
->    Sockets work across all network interfaces enslaved to a VRF but
->    are limited to just the one VRF.
-> 
-> 3. "device" services - sockets bound to a specific network interface
-> 
->    Service works only through the one specific interface.
-> 
-> v3
-> - convert __inet_lookup_established in dccp_v4_err; missed in v2
-> 
-> v2
-> - remove sk_lookup struct and add sdif as an argument to existing
->   functions
-> 
-> Changes since RFC:
-> - no significant logic changes; mainly whitespace cleanups
-
-Series applied, let's see if it builds this time :-)
+I did an allyesconfig build before sending just to make sure, so our
+mileage better not vary.
