@@ -1,67 +1,52 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH iproute2] lib: Dump ext-ack string by default
-Date: Mon,  7 Aug 2017 12:28:02 -0700
-Message-ID: <1502134082-4602-1-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36265 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751699AbdHGT2I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 15:28:08 -0400
-Received: by mail-pf0-f194.google.com with SMTP id t83so1229874pfj.3
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 12:28:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [pull request][for-next 0/8] Mellanox, mlx5 shared 2017-08-07
+Date: Mon, 7 Aug 2017 22:31:18 +0300
+Message-ID: <CALzJLG8rbapMeQaf-fuv+i6ob22qG4xmv=2vYk0KJruhtVu+Rg@mail.gmail.com>
+References: <20170807101808.22924-1-saeedm@mellanox.com> <20170807.112052.332868856082904160.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170807.112052.332868856082904160.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In time, errfn can be implemented for link, route, etc commands to
-give a much more detailed response (e.g., point to the attribute
-that failed). Doing so is much more complicated to process the
-message and convert attribute ids to names.
+On Mon, Aug 7, 2017 at 9:20 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Date: Mon,  7 Aug 2017 13:18:00 +0300
+>
+>> Hi Dave & Doug,
+>>
+>> This series contains some low level updates for mlx5 core driver,
+>> to be shared as base code for net-next and rdma for-next mlx5
+>> 4.14 submissions.
+>>
+>> Please find more information in the tag message below.
+>>
+>> Please pull and let me know if there's any porblem.
+>>
+>> Side note:
+>> This series merges cleanly with current net-next, but it will conflict with Jiri's patch
+>> "mlx5e: push cls_flower and mqprio setup_tc processing into separate functions"
+>> Which is under review.
+>> since this is shared code and must go to both rdma and net-next it has to be
+>> based on 4.13-rc4, so there is not much I can do about this.
+>
+> I resolved the merge conflict as best as I could, please take a look.
+>
 
-In any case the error string returned by the kernel should be dumped
-to the user, so make that happen now.
+Thanks Dave!
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- lib/libnetlink.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+looks good, I will do some compilation testing later and if i find
+anything i will post a patch.
 
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 145de2cb0ccf..ee78f768a8bd 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -61,7 +61,6 @@ static int err_attr_cb(const struct nlattr *attr, void *data)
- 	return MNL_CB_OK;
- }
- 
--
- /* dump netlink extended ack error message */
- static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
- {
-@@ -72,9 +71,6 @@ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
- 	const char *errmsg = NULL;
- 	uint32_t off = 0;
- 
--	if (!errfn)
--		return 0;
--
- 	/* no TLVs, nothing to do here */
- 	if (!(nlh->nlmsg_flags & NLM_F_ACK_TLVS))
- 		return 0;
-@@ -99,7 +95,12 @@ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
- 			err_nlh = &err->msg;
- 	}
- 
--	return errfn(errmsg, off, err_nlh);
-+	if (errfn)
-+		return errfn(errmsg, off, err_nlh);
-+
-+	fprintf(stderr, "Error: %s\n", errmsg);
-+
-+	return 1;
- }
- #else
- #warning "libmnl required for error support"
--- 
-2.1.4
+Thanks a lot,
+-Saeed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
