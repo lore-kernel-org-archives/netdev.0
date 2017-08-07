@@ -1,52 +1,67 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: fix misspelled firmware image filenames
-Date: Mon, 7 Aug 2017 12:22:15 -0700
-Message-ID: <20170807192215.GA1302@felix-thinkpad.cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: davem@davemloft.net
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH iproute2] lib: Dump ext-ack string by default
+Date: Mon,  7 Aug 2017 12:28:02 -0700
+Message-ID: <1502134082-4602-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0065.outbound.protection.outlook.com ([104.47.38.65]:29403
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751775AbdHGTWY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 7 Aug 2017 15:22:24 -0400
-Content-Disposition: inline
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36265 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751699AbdHGT2I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 15:28:08 -0400
+Received: by mail-pf0-f194.google.com with SMTP id t83so1229874pfj.3
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 12:28:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Derek Chickles <derek.chickles@cavium.com>
+In time, errfn can be implemented for link, route, etc commands to
+give a much more detailed response (e.g., point to the attribute
+that failed). Doing so is much more complicated to process the
+message and convert attribute ids to names.
 
-Fix misspelled firmware image filenames advertised via MODULE_FIRMWARE().
+In any case the error string returned by the kernel should be dumped
+to the user, so make that happen now.
 
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c | 12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+ lib/libnetlink.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 8c2cd80..3ec0dd9 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -39,10 +39,14 @@ MODULE_AUTHOR("Cavium Networks, <support@cavium.com>");
- MODULE_DESCRIPTION("Cavium LiquidIO Intelligent Server Adapter Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(LIQUIDIO_VERSION);
--MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_210SV_NAME LIO_FW_NAME_SUFFIX);
--MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_210NV_NAME LIO_FW_NAME_SUFFIX);
--MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_410NV_NAME LIO_FW_NAME_SUFFIX);
--MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_23XX_NAME LIO_FW_NAME_SUFFIX);
-+MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_210SV_NAME
-+		"_" LIO_FW_NAME_TYPE_NIC LIO_FW_NAME_SUFFIX);
-+MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_210NV_NAME
-+		"_" LIO_FW_NAME_TYPE_NIC LIO_FW_NAME_SUFFIX);
-+MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_410NV_NAME
-+		"_" LIO_FW_NAME_TYPE_NIC LIO_FW_NAME_SUFFIX);
-+MODULE_FIRMWARE(LIO_FW_DIR LIO_FW_BASE_NAME LIO_23XX_NAME
-+		"_" LIO_FW_NAME_TYPE_NIC LIO_FW_NAME_SUFFIX);
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 145de2cb0ccf..ee78f768a8bd 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -61,7 +61,6 @@ static int err_attr_cb(const struct nlattr *attr, void *data)
+ 	return MNL_CB_OK;
+ }
  
- static int ddr_timeout = 10000;
- module_param(ddr_timeout, int, 0644);
+-
+ /* dump netlink extended ack error message */
+ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
+ {
+@@ -72,9 +71,6 @@ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
+ 	const char *errmsg = NULL;
+ 	uint32_t off = 0;
+ 
+-	if (!errfn)
+-		return 0;
+-
+ 	/* no TLVs, nothing to do here */
+ 	if (!(nlh->nlmsg_flags & NLM_F_ACK_TLVS))
+ 		return 0;
+@@ -99,7 +95,12 @@ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
+ 			err_nlh = &err->msg;
+ 	}
+ 
+-	return errfn(errmsg, off, err_nlh);
++	if (errfn)
++		return errfn(errmsg, off, err_nlh);
++
++	fprintf(stderr, "Error: %s\n", errmsg);
++
++	return 1;
+ }
+ #else
+ #warning "libmnl required for error support"
+-- 
+2.1.4
