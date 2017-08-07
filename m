@@ -1,52 +1,36 @@
-From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [pull request][for-next 0/8] Mellanox, mlx5 shared 2017-08-07
-Date: Mon, 7 Aug 2017 22:31:18 +0300
-Message-ID: <CALzJLG8rbapMeQaf-fuv+i6ob22qG4xmv=2vYk0KJruhtVu+Rg@mail.gmail.com>
-References: <20170807101808.22924-1-saeedm@mellanox.com> <20170807.112052.332868856082904160.davem@davemloft.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH iproute2] lib: Dump ext-ack string by default
+Date: Mon, 7 Aug 2017 13:36:49 -0600
+Message-ID: <79db9ff1-69c3-5a16-fb67-54f1b79eb3a5@gmail.com>
+References: <1502134082-4602-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170807.112052.332868856082904160.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:35033 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751505AbdHGTgv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 15:36:51 -0400
+Received: by mail-pf0-f179.google.com with SMTP id t86so5283256pfe.2
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 12:36:51 -0700 (PDT)
+In-Reply-To: <1502134082-4602-1-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 7, 2017 at 9:20 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Date: Mon,  7 Aug 2017 13:18:00 +0300
->
->> Hi Dave & Doug,
->>
->> This series contains some low level updates for mlx5 core driver,
->> to be shared as base code for net-next and rdma for-next mlx5
->> 4.14 submissions.
->>
->> Please find more information in the tag message below.
->>
->> Please pull and let me know if there's any porblem.
->>
->> Side note:
->> This series merges cleanly with current net-next, but it will conflict with Jiri's patch
->> "mlx5e: push cls_flower and mqprio setup_tc processing into separate functions"
->> Which is under review.
->> since this is shared code and must go to both rdma and net-next it has to be
->> based on 4.13-rc4, so there is not much I can do about this.
->
-> I resolved the merge conflict as best as I could, please take a look.
->
+On 8/7/17 1:28 PM, David Ahern wrote:
+> @@ -99,7 +95,12 @@ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
+>  			err_nlh = &err->msg;
+>  	}
+>  
+> -	return errfn(errmsg, off, err_nlh);
+> +	if (errfn)
+> +		return errfn(errmsg, off, err_nlh);
+> +
+> +	fprintf(stderr, "Error: %s\n", errmsg);
+> +
+> +	return 1;
 
-Thanks Dave!
 
-looks good, I will do some compilation testing later and if i find
-anything i will post a patch.
-
-Thanks a lot,
--Saeed.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Dang it, missing an 'if (errmsg)' since it does not have to exist. Will
+send a v2
