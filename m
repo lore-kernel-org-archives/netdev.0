@@ -1,36 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 0/5] Refactor lan9303_xxx_packet_processing
-Date: Mon, 07 Aug 2017 14:18:38 -0700 (PDT)
-Message-ID: <20170807.141838.1486515755418560591.davem@davemloft.net>
-References: <20170805110550.26337-1-privat@egil-hjelmeland.no>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
+Date: Mon, 7 Aug 2017 14:21:13 -0700
+Message-ID: <20170807142113.66347c79@xeon-e3>
+References: <bd0ad410-9b64-6f1b-6f78-08f6e801628b@gmail.com>
+        <20170807.114517.1570408214504753399.davem@davemloft.net>
+        <20170807121235.4a8b5020@xeon-e3>
+        <20170807.132603.2058256055534574552.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@pengutronix.de
-To: privat@egil-hjelmeland.no
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170805110550.26337-1-privat@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dsahern@gmail.com, simon.horman@netronome.com,
+        daniel@iogearbox.net, phil@nwl.cc, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34772 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751662AbdHGVVP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 17:21:15 -0400
+Received: by mail-pf0-f176.google.com with SMTP id o86so6208961pfj.1
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 14:21:15 -0700 (PDT)
+In-Reply-To: <20170807.132603.2058256055534574552.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Date: Sat,  5 Aug 2017 13:05:45 +0200
+On Mon, 07 Aug 2017 13:26:03 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> This series is purely non functional. 
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Mon, 7 Aug 2017 12:12:35 -0700
 > 
-> It changes the lan9303_enable_packet_processing,
-> lan9303_disable_packet_processing() to pass port number (0,1,2) as
-> parameter instead of port offset. This aligns them with
-> other functions in the module, and makes it possible to simplify the code.
+> > Dave, I asked for test cases, and received none.  
 > 
-> The lan9303_enable_packet_processing, lan9303_disable_packet_processing
-> functions operate on port. Therefore rename the functions to reflect that
-> as well.
-> 
-> Reviewer pointed out lan9303_get_ethtool_stats would be better off with
-> the use of a lan9303_read_switch_port(). So that was added to the series.
- ...
+> You don't need a test case to type make and make sure the build succeeds.
 
-Series applied, thank you.
+It did succeed for libmnl but was not doing anything.
