@@ -1,93 +1,81 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH] net: dsa: mediatek: add adjust link support for user ports
-Date: Mon,  7 Aug 2017 16:20:49 +0200
-Message-ID: <20170807142049.4144-1-john@phrozen.org>
-Cc: sean Wang <sean.wang@mediatek.com>,
-        Ryder Lee <Ryder.Lee@mediatek.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        John Crispin <john@phrozen.org>,
-        Shashidhar Lakkavalli <shashidhar.lakkavalli@openmesh.com>,
-        Muciri Gatimu <muciri@openmesh.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH v5 net-next 00/12] bpf: rewrite value tracking in verifier
+Date: Mon, 7 Aug 2017 15:21:32 +0100
+Message-ID: <ad840039-8d4a-b2a9-b2eb-a8f079926b53@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>
+To: <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Manually adjust the port settings of user ports once PHY polling has
-completed. This patch extends the adjust_link callback to configure the
-per port PMCR register, applying the proper values polled from the PHY.
-Without this patch flow control was not always getting setup properly.
+This series simplifies alignment tracking, generalises bounds tracking and
+ fixes some bounds-tracking bugs in the BPF verifier.  Pointer arithmetic on
+ packet pointers, stack pointers, map value pointers and context pointers has
+ been unified, and bounds on these pointers are only checked when the pointer
+ is dereferenced.
+Operations on pointers which destroy all relation to the original pointer
+ (such as multiplies and shifts) are disallowed if !env->allow_ptr_leaks,
+ otherwise they convert the pointer to an unknown scalar and feed it to the
+ normal scalar arithmetic handling.
+Pointer types have been unified with the corresponding adjusted-pointer types
+ where those existed (e.g. PTR_TO_MAP_VALUE[_ADJ] or FRAME_PTR vs
+ PTR_TO_STACK); similarly, CONST_IMM and UNKNOWN_VALUE have been unified into
+ SCALAR_VALUE.
+Pointer types (except CONST_PTR_TO_MAP, PTR_TO_MAP_VALUE_OR_NULL and
+ PTR_TO_PACKET_END, which do not allow arithmetic) have a 'fixed offset' and
+ a 'variable offset'; the former is used when e.g. adding an immediate or a
+ known-constant register, as long as it does not overflow.  Otherwise the
+ latter is used, and any operation creating a new variable offset creates a
+ new 'id' (and, for PTR_TO_PACKET, clears the 'range').
+SCALAR_VALUEs use the 'variable offset' fields to track the range of possible
+ values; the 'fixed offset' should never be set on a scalar.
 
-Signed-off-by: Shashidhar Lakkavalli <shashidhar.lakkavalli@openmesh.com>
-Signed-off-by: Muciri Gatimu <muciri@openmesh.com>
-Signed-off-by: John Crispin <john@phrozen.org>
----
- drivers/net/dsa/mt7530.c | 38 ++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mt7530.h |  1 +
- 2 files changed, 39 insertions(+)
+All tests of tools/testing/selftests/bpf/test_{verifier,align,progs} pass.
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 1e46418a3b74..264b281eb86b 100644
---- a/drivers/net/dsa/mt7530.c
-+++ b/drivers/net/dsa/mt7530.c
-@@ -625,6 +625,44 @@ static void mt7530_adjust_link(struct dsa_switch *ds, int port,
- 		 * all finished.
- 		 */
- 		mt7623_pad_clk_setup(ds);
-+	} else {
-+		u16 lcl_adv = 0, rmt_adv = 0;
-+		u8 flowctrl;
-+		u32 mcr = PMCR_USERP_LINK | PMCR_FORCE_MODE;
-+
-+		switch (phydev->speed) {
-+		case SPEED_1000:
-+			mcr |= PMCR_FORCE_SPEED_1000;
-+			break;
-+		case SPEED_100:
-+			mcr |= PMCR_FORCE_SPEED_100;
-+			break;
-+		};
-+
-+		if (phydev->link)
-+			mcr |= PMCR_FORCE_LNK;
-+
-+		if (phydev->duplex) {
-+			mcr |= PMCR_FORCE_FDX;
-+
-+			if (phydev->pause)
-+				rmt_adv = LPA_PAUSE_CAP;
-+			if (phydev->asym_pause)
-+				rmt_adv |= LPA_PAUSE_ASYM;
-+
-+			if (phydev->advertising & ADVERTISED_Pause)
-+				lcl_adv |= ADVERTISE_PAUSE_CAP;
-+			if (phydev->advertising & ADVERTISED_Asym_Pause)
-+				lcl_adv |= ADVERTISE_PAUSE_ASYM;
-+
-+			flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
-+
-+			if (flowctrl & FLOW_CTRL_TX)
-+				mcr |= PMCR_TX_FC_EN;
-+			if (flowctrl & FLOW_CTRL_RX)
-+				mcr |= PMCR_RX_FC_EN;
-+		}
-+		mt7530_write(priv, MT7530_PMCR_P(port), mcr);
- 	}
- }
- 
-diff --git a/drivers/net/dsa/mt7530.h b/drivers/net/dsa/mt7530.h
-index b83d76b99802..74db9822eb40 100644
---- a/drivers/net/dsa/mt7530.h
-+++ b/drivers/net/dsa/mt7530.h
-@@ -151,6 +151,7 @@ enum mt7530_stp_state {
- #define  PMCR_TX_FC_EN			BIT(5)
- #define  PMCR_RX_FC_EN			BIT(4)
- #define  PMCR_FORCE_SPEED_1000		BIT(3)
-+#define  PMCR_FORCE_SPEED_100		BIT(2)
- #define  PMCR_FORCE_FDX			BIT(1)
- #define  PMCR_FORCE_LNK			BIT(0)
- #define  PMCR_COMMON_LINK		(PMCR_IFG_XMIT(1) | PMCR_MAC_MODE | \
--- 
-2.11.0
+v5: folded the nfp fix into patch #1; don't modify src_reg when coercing it
+ to 32 bits.
+
+v4: removed some changes which were submitted separately to 'net'; altered
+ some of the conditional-jump bounds handling in rebasing it on Daniel's
+ changes.  Upped the complexity limit to 128k insns.
+
+v3: added a few more tests; removed RFC tags.
+
+v2: fixed nfp build, made test_align pass again and extended it with a few
+ new tests (though still need to add more).
+
+Edward Cree (12):
+  bpf/verifier: rework value tracking
+  bpf/verifier: track signed and unsigned min/max values
+  bpf/verifier: more concise register state logs for constant var_off
+  selftests/bpf: change test_verifier expectations
+  selftests/bpf: rewrite test_align
+  selftests/bpf: add a test to test_align
+  selftests/bpf: add test for bogus operations on pointers
+  selftests/bpf: don't try to access past MAX_PACKET_OFF in
+    test_verifier
+  selftests/bpf: add tests for subtraction & negative numbers
+  selftests/bpf: variable offset negative tests
+  Documentation: describe the new eBPF verifier value tracking behaviour
+  bpf/verifier: increase complexity limit to 128k
+
+ Documentation/networking/filter.txt               |  122 +-
+ drivers/net/ethernet/netronome/nfp/bpf/verifier.c |   24 +-
+ include/linux/bpf.h                               |   34 +-
+ include/linux/bpf_verifier.h                      |   55 +-
+ include/linux/tnum.h                              |   81 +
+ kernel/bpf/Makefile                               |    2 +-
+ kernel/bpf/tnum.c                                 |  180 ++
+ kernel/bpf/verifier.c                             | 2149 ++++++++++++---------
+ tools/testing/selftests/bpf/test_align.c          |  462 ++++-
+ tools/testing/selftests/bpf/test_verifier.c       |  389 ++--
+ 10 files changed, 2217 insertions(+), 1281 deletions(-)
+ create mode 100644 include/linux/tnum.h
+ create mode 100644 kernel/bpf/tnum.c
