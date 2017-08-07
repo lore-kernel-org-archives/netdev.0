@@ -1,58 +1,57 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 05/27] ip: ipaddress.c: add support for json output
-Date: Mon, 7 Aug 2017 09:12:58 -0700
-Message-ID: <20170807091258.7c70ff87@xeon-e3>
-References: <20170803155515.99226-1-julien@cumulusnetworks.com>
-        <20170803155515.99226-6-julien@cumulusnetworks.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] of_mdio: use of_property_read_u32_array()
+Date: Mon, 7 Aug 2017 19:18:09 +0300
+Message-ID: <080ebcb6-b5aa-63db-176b-83477c2540e5@cogentembedded.com>
+References: <20170804214354.351406407@cogentembedded.com>
+ <CAL_JsqKDXAbAVpgMSU39+9mF7MZWQotLUNkjePy9eUsnBs99Vw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, dsa@cumulusnetworks.com
-To: Julien Fortin <julien@cumulusnetworks.com>
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Frank Rowand <frowand.list@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Rob Herring <robh+dt@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:32902 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751876AbdHGQNA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 12:13:00 -0400
-Received: by mail-pg0-f53.google.com with SMTP id u5so3486825pgn.0
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 09:13:00 -0700 (PDT)
-In-Reply-To: <20170803155515.99226-6-julien@cumulusnetworks.com>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:33717 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751426AbdHGQSN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 12:18:13 -0400
+Received: by mail-lf0-f48.google.com with SMTP id d17so4130254lfe.0
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 09:18:13 -0700 (PDT)
+In-Reply-To: <CAL_JsqKDXAbAVpgMSU39+9mF7MZWQotLUNkjePy9eUsnBs99Vw@mail.gmail.com>
+Content-Language: en-MW
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  3 Aug 2017 17:54:53 +0200
-Julien Fortin <julien@cumulusnetworks.com> wrote:
+Hello!
 
-> From: Julien Fortin <julien@cumulusnetworks.com>
-> 
-> This patch converts all output (mostly fprintfs) to the new ip_print api
-> which handle both regular and json output.
-> Initialize a json_writer and open an array object if -json was specified.
-> Note that the JSON attribute naming follows the NETLINK_ATTRIBUTE naming.
-> 
-> In many places throughout the code, IP, matches integer values with
-> hardcoded strings tables, such as link mode, link operstate or link
-> family.
-> In JSON context, this will result in a named string field. In the
-> very unlikely event that the requested index is out of bound, IP
-> displays the raw integer value. For JSON context this result in
-> having a different integer field example bellow:
-> 
-> if (mode >= ARRAY_SIZE(link_modes))
-> 	print_int(PRINT_ANY, "linkmode_index", "mode %d ", mode);
-> else
-> 	print_string(PRINT_ANY, "linkmode", "mode %s ",
-> 		     link_modes[mode]);
-> 
-> The "_index" suffix is open to discussion and it is something that I came
-> up with. The bottom line is that you can't have a string field that may
-> become an int field in specific cases. Programs written in strongly type
-> languages (like C) might break if they are expecting a string value and
-> got an integer instead. We don't want to confuse anybody or make the code
-> even more complicated handling these specifics cases.
-> Hence the extra "_index" field that is easy to check for and deal with.
-> 
+On 08/07/2017 05:18 PM, Rob Herring wrote:
 
-This patch does not apply to current master branch.
-Please rebase.
+>> The "fixed-link" prop support predated of_property_read_u32_array(), so
+>> basically had to open-code it. Using the modern API saves 24 bytes of the
+>> object code (ARM gcc 4.8.5); the only behavior change would be that the
+>> prop length check is now less strict (however the strict pre-check done
+>> in of_phy_is_fixed_link() is left intact anyway)...
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>
+>> ---
+>> The patch is against the 'dt/next' branch of Rob Herring's 'linux-git' repo
+>> plus the previously posted patch killing the useless local variable in
+>> of_phy_register_fixed_link().
+> 
+> It shouldn't depend on anything in my tree and David normally takes
+> of_mdio.c changes.
+
+    MAINTAINERS still only point at the DT repo, perhaps it should be updated?
+
+> Reviewed-by: Rob Herring <robh@kernel.org>
+
+    Thank you.
+
+>>   drivers/of/of_mdio.c |   16 ++++++++--------
+>>   1 file changed, 8 insertions(+), 8 deletions(-)
+
+MBR, Sergei
