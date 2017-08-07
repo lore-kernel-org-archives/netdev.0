@@ -1,74 +1,57 @@
-From: Rao Shoaib <rao.shoaib@oracle.com>
-Subject: [PATCH] TCP_USER_TIMEOUT and tcp_keepalive should conform to RFC5482
-Date: Mon, 7 Aug 2017 10:51:25 -0700
-Message-ID: <20170807175125.GA16602@caduceus5>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] of_mdio: use of_property_read_u32_array()
+Date: Mon, 7 Aug 2017 11:01:01 -0700
+Message-ID: <f9af35a3-bb53-c554-eb6e-93cf6c24cb29@gmail.com>
+References: <20170804214354.351406407@cogentembedded.com>
+ <CAL_JsqKDXAbAVpgMSU39+9mF7MZWQotLUNkjePy9eUsnBs99Vw@mail.gmail.com>
+ <080ebcb6-b5aa-63db-176b-83477c2540e5@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Frank Rowand <frowand.list@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Rob Herring <robh+dt@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:45479 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751453AbdHGRwA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 13:52:00 -0400
-Content-Disposition: inline
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:35580 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751799AbdHGSBE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 14:01:04 -0400
+In-Reply-To: <080ebcb6-b5aa-63db-176b-83477c2540e5@cogentembedded.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Rao Shoaib <rao.shoaib@oracle.com>
----
- net/ipv4/tcp.c       | 10 ++++++++--
- net/ipv4/tcp_timer.c |  9 +--------
- 2 files changed, 9 insertions(+), 10 deletions(-)
+On 08/07/2017 09:18 AM, Sergei Shtylyov wrote:
+> Hello!
+> 
+> On 08/07/2017 05:18 PM, Rob Herring wrote:
+> 
+>>> The "fixed-link" prop support predated of_property_read_u32_array(), so
+>>> basically had to open-code it. Using the modern API saves 24 bytes of
+>>> the
+>>> object code (ARM gcc 4.8.5); the only behavior change would be that the
+>>> prop length check is now less strict (however the strict pre-check done
+>>> in of_phy_is_fixed_link() is left intact anyway)...
+>>>
+>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>>
+>>> ---
+>>> The patch is against the 'dt/next' branch of Rob Herring's
+>>> 'linux-git' repo
+>>> plus the previously posted patch killing the useless local variable in
+>>> of_phy_register_fixed_link().
+>>
+>> It shouldn't depend on anything in my tree and David normally takes
+>> of_mdio.c changes.
+> 
+>    MAINTAINERS still only point at the DT repo, perhaps it should be
+> updated?
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 71ce33d..f2af44d 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2628,7 +2628,9 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		break;
- 
- 	case TCP_KEEPIDLE:
--		if (val < 1 || val > MAX_TCP_KEEPIDLE)
-+		/* Per RFC5482 keepalive_time must be > user_timeout */
-+		if (val < 1 || val > MAX_TCP_KEEPIDLE ||
-+		    ((val * HZ) <= icsk->icsk_user_timeout))
- 			err = -EINVAL;
- 		else {
- 			tp->keepalive_time = val * HZ;
-@@ -2724,8 +2726,12 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 	case TCP_USER_TIMEOUT:
- 		/* Cap the max time in ms TCP will retry or probe the window
- 		 * before giving up and aborting (ETIMEDOUT) a connection.
-+		 * Per RFC5482 TCP user timeout must be < keepalive_time.
-+		 * If the default value changes later -- all bets are off.
- 		 */
--		if (val < 0)
-+		if (val < 0 || (tp->keepalive_time &&
-+				tp->keepalive_time <= msecs_to_jiffies(val)) ||
-+		   net->ipv4.sysctl_tcp_keepalive_time <= msecs_to_jiffies(val))
- 			err = -EINVAL;
- 		else
- 			icsk->icsk_user_timeout = msecs_to_jiffies(val);
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index c0feeee..d39fe60 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -664,14 +664,7 @@ static void tcp_keepalive_timer (unsigned long data)
- 	elapsed = keepalive_time_elapsed(tp);
- 
- 	if (elapsed >= keepalive_time_when(tp)) {
--		/* If the TCP_USER_TIMEOUT option is enabled, use that
--		 * to determine when to timeout instead.
--		 */
--		if ((icsk->icsk_user_timeout != 0 &&
--		    elapsed >= icsk->icsk_user_timeout &&
--		    icsk->icsk_probes_out > 0) ||
--		    (icsk->icsk_user_timeout == 0 &&
--		    icsk->icsk_probes_out >= keepalive_probes(tp))) {
-+		if (icsk->icsk_probes_out >= keepalive_probes(tp)) {
- 			tcp_send_active_reset(sk, GFP_ATOMIC);
- 			tcp_write_err(sk);
- 			goto out;
+More or less done with this (minus the repo part):
+
+http://patchwork.ozlabs.org/patch/795887/
 -- 
-2.7.4
+Florian
