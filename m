@@ -1,42 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] netvsc: fix race on sub channel creation
-Date: Sun, 06 Aug 2017 21:24:02 -0700 (PDT)
-Message-ID: <20170806.212402.2131646989155240015.davem@davemloft.net>
-References: <20170804001354.17067-1-sthemmin@microsoft.com>
-        <20170804001354.17067-2-sthemmin@microsoft.com>
+Subject: Re: [PATCH 0/2 v2 net-next] tcp cwnd undo refactor
+Date: Sun, 06 Aug 2017 21:25:26 -0700 (PDT)
+Message-ID: <20170806.212526.493468811013338187.davem@davemloft.net>
+References: <20170804033852.97986-1-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
-        devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, ncardwell@google.com, unlcsewsun@gmail.com,
+        stephen@networkplumber.org
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50388 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50398 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751424AbdHGEYE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:24:04 -0400
-In-Reply-To: <20170804001354.17067-2-sthemmin@microsoft.com>
+        with ESMTP id S1751425AbdHGEZ1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:25:27 -0400
+In-Reply-To: <20170804033852.97986-1-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu,  3 Aug 2017 17:13:54 -0700
+From: Yuchung Cheng <ycheng@google.com>
+Date: Thu,  3 Aug 2017 20:38:50 -0700
 
-> The existing sub channel code did not wait for all the sub-channels
-> to completely initialize. This could lead to race causing crash
-> in napi_netif_del() from bad list. The existing code would send
-> an init message, then wait only for the initial response that
-> the init message was received. It thought it was waiting for
-> sub channels but really the init response did the wakeup.
+> This patch series consolidate similar cwnd undo functions
+> implemented by various congestion control by using existing
+> tcp socket state variable. The first patch fixes a corner
+> case in of cwnd undo in Reno and HTCP. Since the bug has
+> existed for many years and is very minor, we consider this
+> patch set more suitable for net-next as the major change
+> is the refactor itself.
 > 
-> The new code keeps track of the number of open channels and
-> waits until that many are open.
-> 
-> Other issues here were:
->   * host might return less sub-channels than was requested.
->   * the new init status is not valid until after init was completed.
-> 
-> Fixes: b3e6b82a0099 ("hv_netvsc: Wait for sub-channels to be processed during probe")
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> - v1->v2
+>   Fix trivial compile errors
 
-Applied, thanks.
+Nice cleanup in patch #2.
+
+Series applied, thanks.
