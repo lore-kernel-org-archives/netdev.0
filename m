@@ -1,89 +1,58 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
-Date: Mon, 7 Aug 2017 10:48:23 -0600
-Message-ID: <8e8bc709-55b0-e207-b4bf-605bdf2ba323@gmail.com>
-References: <590AF624.6090808@iogearbox.net>
- <7315b681-9c78-4bc1-ab74-64509ab5887d@gmail.com>
- <20170504.104103.1628291573330660235.davem@davemloft.net>
- <20170504094356.66590a9a@xeon-e3> <20170504204318.GB21130@orbyte.nwl.cc>
- <f847c8d4-a6c0-66ab-0ac0-d83d6ea96a00@gmail.com>
- <20170516093625.178caf3f@xeon-e3> <591D711F.1000906@iogearbox.net>
- <1c494983-24e0-cd8f-9a2a-5d2a83e0bbc2@gmail.com>
- <0d84bd27-2fd1-68c0-5787-0195e95ab1af@gmail.com>
- <20170804113147.GA25254@vergenet.net> <20170804094729.00548085@xeon-e3>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2] bpf: fix selftest/bpf/test_pkt_md_access on s390x
+Date: Mon, 07 Aug 2017 10:06:53 -0700 (PDT)
+Message-ID: <20170807.100653.1873109526074431671.davem@davemloft.net>
+References: <20170807081636.65099-1-tmricht@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>, Phil Sutter <phil@nwl.cc>,
-        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        Simon Horman <simon.horman@netronome.com>
+Cc: ast@kernel.org, daniel@iogearbox.net, netdev@vger.kernel.org,
+        heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com,
+        brueckner@linux.vnet.ibm.com
+To: tmricht@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33617 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751541AbdHGQs0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 12:48:26 -0400
-Received: by mail-pf0-f194.google.com with SMTP id c65so896116pfl.0
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 09:48:26 -0700 (PDT)
-In-Reply-To: <20170804094729.00548085@xeon-e3>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60346 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751743AbdHGRG4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 13:06:56 -0400
+In-Reply-To: <20170807081636.65099-1-tmricht@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/4/17 10:47 AM, Stephen Hemminger wrote:
-> I will put in the libmnl version. If it doesn't work because no one sent
-> me test cases, then fine. send a patch for that.
+From: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Date: Mon,  7 Aug 2017 10:16:36 +0200
 
-This commit:
+> Commit 18f3d6be6be1 ("selftests/bpf: Add test cases to test narrower ctx field loads")
+> introduced new eBPF test cases. One of them (test_pkt_md_access.c)
+> fails on s390x. The BPF verifier error message is:
+> 
+> [root@s8360046 bpf]# ./test_progs
+> test_pkt_access:PASS:ipv4 349 nsec
+> test_pkt_access:PASS:ipv6 212 nsec
+> [....]
+> libbpf: load bpf program failed: Permission denied
+> libbpf: -- BEGIN DUMP LOG ---
+> libbpf:
+> 0: (71) r2 = *(u8 *)(r1 +0)
+> invalid bpf_context access off=0 size=1
+> 
+> libbpf: -- END LOG --
+> libbpf: failed to load program 'test1'
+> libbpf: failed to load object './test_pkt_md_access.o'
+> Summary: 29 PASSED, 1 FAILED
+> [root@s8360046 bpf]#
+> 
+> This is caused by a byte endianness issue. S390x is a big endian
+> architecture.  Pointer access to the lowest byte or halfword of a
+> four byte value need to add an offset.
+> On little endian architectures this offset is not needed.
+> 
+> Fix this and use the same approach as the originator used for other files
+> (for example test_verifier.c) in his original commit.
+> 
+> With this fix the test program test_progs succeeds on s390x:
+ ...
+> Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-commit b6432e68ac2f1f6b4ea50aa0d6d47e72c445c71c
-Author: Stephen Hemminger <stephen@networkplumber.org>
-Date:   Fri Aug 4 09:52:15 2017 -0700
-
-    iproute: Add support for extended ack to rtnl_talk
-
-
-Does not work. Seems like you pushed the RFC commit which was known to
-be incomplete.
-
-
-First, the Config is HAVE_MNL not HAVE_LIBMNL which is in lib/libnetlink.c.
-
-Second, changing that to HAVE_MNL does not work -- something is not
-getting passed in correctly. Just remove the semicolon on the else path:
-
-+#else
-+/* No extended error ack without libmnl */
-+static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t
-errfn)
-+{
-+       return 0;
-+}
-+#endif
-
-and you will see that HAVE_MNL is never defined.
-
-Third, force that path to build and you get:
-
-ip
-    LINK     ip
-../lib/libnetlink.a(libnetlink.o): In function `err_attr_cb':
-libnetlink.c:(.text+0x10): undefined reference to `mnl_attr_type_valid'
-libnetlink.c:(.text+0x1c): undefined reference to `mnl_attr_get_type'
-libnetlink.c:(.text+0x34): undefined reference to `mnl_attr_validate'
-../lib/libnetlink.a(libnetlink.o): In function `__rtnl_talk':
-libnetlink.c:(.text+0x408): undefined reference to `mnl_nlmsg_get_payload'
-libnetlink.c:(.text+0x42c): undefined reference to
-`mnl_nlmsg_get_payload_len'
-libnetlink.c:(.text+0x445): undefined reference to `mnl_attr_parse'
-libnetlink.c:(.text+0x454): undefined reference to `mnl_attr_get_str'
-libnetlink.c:(.text+0x46a): undefined reference to `mnl_attr_get_u32'
-collect2: error: ld returned 1 exit status
-Makefile:29: recipe for target 'ip' failed
-make[1]: *** [ip] Error 1
-Makefile:66: recipe for target 'all' failed
-make: *** [all] Error 2
-
-
-as I mentioned in a past response the libmnl dependency can not be
-placed on libutil.a -- because it is an archive. That means each and
-every command that uses libutil.a needs to inherit the libmnl dependency.
+Applied, thanks.
