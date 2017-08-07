@@ -1,57 +1,95 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] of_mdio: use of_property_read_u32_array()
-Date: Mon, 7 Aug 2017 19:18:09 +0300
-Message-ID: <080ebcb6-b5aa-63db-176b-83477c2540e5@cogentembedded.com>
-References: <20170804214354.351406407@cogentembedded.com>
- <CAL_JsqKDXAbAVpgMSU39+9mF7MZWQotLUNkjePy9eUsnBs99Vw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 1/3] net: dsa: remove useless argument in legacy setup
+Date: Mon,  7 Aug 2017 12:17:08 -0400
+Message-ID: <20170807161710.5357-2-vivien.didelot@savoirfairelinux.com>
+References: <20170807161710.5357-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Frank Rowand <frowand.list@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Rob Herring <robh+dt@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:33717 "EHLO
-        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751426AbdHGQSN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 12:18:13 -0400
-Received: by mail-lf0-f48.google.com with SMTP id d17so4130254lfe.0
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 09:18:13 -0700 (PDT)
-In-Reply-To: <CAL_JsqKDXAbAVpgMSU39+9mF7MZWQotLUNkjePy9eUsnBs99Vw@mail.gmail.com>
-Content-Language: en-MW
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170807161710.5357-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+dsa_switch_alloc() already assigns ds-dev, which can be used in
+dsa_switch_setup_one and dsa_cpu_dsa_setups instead of requiring an
+additional struct device argument.
 
-On 08/07/2017 05:18 PM, Rob Herring wrote:
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/dsa/legacy.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
->> The "fixed-link" prop support predated of_property_read_u32_array(), so
->> basically had to open-code it. Using the modern API saves 24 bytes of the
->> object code (ARM gcc 4.8.5); the only behavior change would be that the
->> prop length check is now less strict (however the strict pre-check done
->> in of_phy_is_fixed_link() is left intact anyway)...
->>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>
->> ---
->> The patch is against the 'dt/next' branch of Rob Herring's 'linux-git' repo
->> plus the previously posted patch killing the useless local variable in
->> of_phy_register_fixed_link().
-> 
-> It shouldn't depend on anything in my tree and David normally takes
-> of_mdio.c changes.
-
-    MAINTAINERS still only point at the DT repo, perhaps it should be updated?
-
-> Reviewed-by: Rob Herring <robh@kernel.org>
-
-    Thank you.
-
->>   drivers/of/of_mdio.c |   16 ++++++++--------
->>   1 file changed, 8 insertions(+), 8 deletions(-)
-
-MBR, Sergei
+diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
+index 1d7a3282f2a7..fa162030a69c 100644
+--- a/net/dsa/legacy.c
++++ b/net/dsa/legacy.c
+@@ -78,7 +78,7 @@ dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
+ }
+ 
+ /* basic switch operations **************************************************/
+-static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
++static int dsa_cpu_dsa_setups(struct dsa_switch *ds)
+ {
+ 	struct dsa_port *dport;
+ 	int ret, port;
+@@ -88,15 +88,15 @@ static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
+ 			continue;
+ 
+ 		dport = &ds->ports[port];
+-		ret = dsa_cpu_dsa_setup(ds, dev, dport, port);
++		ret = dsa_cpu_dsa_setup(ds, ds->dev, dport, port);
+ 		if (ret)
+ 			return ret;
+ 	}
+ 	return 0;
+ }
+ 
+-static int dsa_switch_setup_one(struct dsa_switch *ds, struct net_device *master,
+-				struct device *parent)
++static int dsa_switch_setup_one(struct dsa_switch *ds,
++				struct net_device *master)
+ {
+ 	const struct dsa_switch_ops *ops = ds->ops;
+ 	struct dsa_switch_tree *dst = ds->dst;
+@@ -176,7 +176,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct net_device *master
+ 	}
+ 
+ 	if (!ds->slave_mii_bus && ops->phy_read) {
+-		ds->slave_mii_bus = devm_mdiobus_alloc(parent);
++		ds->slave_mii_bus = devm_mdiobus_alloc(ds->dev);
+ 		if (!ds->slave_mii_bus)
+ 			return -ENOMEM;
+ 		dsa_slave_mii_bus_init(ds);
+@@ -196,14 +196,14 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct net_device *master
+ 		if (!(ds->enabled_port_mask & (1 << i)))
+ 			continue;
+ 
+-		ret = dsa_slave_create(ds, parent, i, cd->port_names[i]);
++		ret = dsa_slave_create(ds, ds->dev, i, cd->port_names[i]);
+ 		if (ret < 0)
+ 			netdev_err(master, "[%d]: can't create dsa slave device for port %d(%s): %d\n",
+ 				   index, i, cd->port_names[i], ret);
+ 	}
+ 
+ 	/* Perform configuration of the CPU and DSA ports */
+-	ret = dsa_cpu_dsa_setups(ds, parent);
++	ret = dsa_cpu_dsa_setups(ds);
+ 	if (ret < 0)
+ 		netdev_err(master, "[%d] : can't configure CPU and DSA ports\n",
+ 			   index);
+@@ -252,7 +252,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, struct net_device *master,
+ 	ds->ops = ops;
+ 	ds->priv = priv;
+ 
+-	ret = dsa_switch_setup_one(ds, master, parent);
++	ret = dsa_switch_setup_one(ds, master);
+ 	if (ret)
+ 		return ERR_PTR(ret);
+ 
+-- 
+2.14.0
