@@ -1,78 +1,38 @@
-From: Adam Tao <taozhe1@huawei.com>
-Subject: Re: repost: af_packet vs virtio (was packed ring layout
- proposal v2)
-Date: Mon, 7 Aug 2017 12:16:23 +0800
-Message-ID: <20170807041623.GA12132@shay3t003839711.china.huawei.com>
-References: <20170414051304-mutt-send-email-mst@kernel.org>
- <20170414054318-mutt-send-email-mst@kernel.org>
- <CAJR92jnV1VgBs567QNjO1fHKDgMX=1j1aJJ2gK-TqMB5E1=fvw@mail.gmail.com>
- <20170802164931-mutt-send-email-mst@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] liquidio: add missing strings in
+ oct_dev_state_str array
+Date: Sun, 06 Aug 2017 21:18:45 -0700 (PDT)
+Message-ID: <20170806.211845.1612817234287514958.davem@davemloft.net>
+References: <20170803200824.GA2312@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Cc: Steven Luong <sluong99@gmail.com>, <john.fastabend@gmail.com>,
-        <alexei.starovoitov@gmail.com>, <netdev@vger.kernel.org>,
-        <virtio-dev@lists.oasis-open.org>,
-        <virtualization@lists.linux-foundation.org>, <kvm@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-        <g@shay3t003839711.china.huawei.com>
-Return-path: <virtio-dev-return-2456-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
-Sender: <virtio-dev@lists.oasis-open.org>
-List-Post: <mailto:virtio-dev@lists.oasis-open.org>
-List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
-List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
-List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
-Content-Disposition: inline
-In-Reply-To: <20170802164931-mutt-send-email-mst@kernel.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        intiyaz.basha@cavium.com
+To: felix.manlunas@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50324 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751195AbdHGESq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:18:46 -0400
+In-Reply-To: <20170803200824.GA2312@felix-thinkpad.cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 02, 2017 at 04:50:03PM +0300, Michael S. Tsirkin wrote:
-> On Tue, Aug 01, 2017 at 08:54:27PM -0700, Steven Luong wrote:
-> >     * Descriptor ring:
-> > 
-> >     Guest adds descriptors with unique index values and DESC_HW set in flags.
-> >     Host overwrites used descriptors with correct len, index, and DESC_HW
-> >     clear.? Flags are always set/cleared last.
-> > 
-> >     #define DESC_HW 0x0080
-> > 
-> >     struct desc {
-> >     ? ? ? ? __le64 addr;
-> >     ? ? ? ? __le32 len;
-> >     ? ? ? ? __le16 index;
-> >     ? ? ? ? __le16 flags;
-> >     };
-> > 
-> >     When DESC_HW is set, descriptor belongs to device. When it is clear,
-> >     it belongs to the driver.
-> > 
-> >     We can use 1 bit to set direction
-> >     /* This marks a buffer as write-only (otherwise read-only). */
-> >     #define VRING_DESC_F_WRITE? ? ? 2
-> > 
-> >     * Scatter/gather support
-> > 
-> >     We can use 1 bit to chain s/g entries in a request, same as virtio 1.0:
-> > 
-> >     /* This marks a buffer as continuing via the next field. */
-next field seems like a structure field in the software, maybe we need
-to change the "next field" to "next desc" to avoid misunderstanding.
-> > 
-> > 
-> > This comment here is confusing to me. In 1.0, virtq_desc has the next field.
-> > When the flag VRING_DESC_F_NEXT is set, the next entry to continue is specified
-> > in the next field.
-> > 
-> > Here in 1.1, struct desc does not have the next field, only addr, len, index,
-> > and flags. So when VRING_DESC_F_NEXT is set in struct desc's flags field, where
-> > is the next entry to continue the current descriptor, the entry immediately
-> > following the current entry? ie, if the current entry is at index 10 in the
-> > descriptor table and its flags is set for VRING_DESC_F_NEXT, is the entry
-> > continuing the current entry in index 11?
-> > 
-> > Steven
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Thu, 3 Aug 2017 13:08:24 -0700
+
+> From: Intiyaz Basha <intiyaz.basha@cavium.com>
 > 
-> Exactly, you got it right.
+> There's supposed to be a one-to-one correspondence between the 18 macros
+> that #define the OCT_DEV states (in octeon_device.h) and the strings in the
+> oct_dev_state_str array, but there are only 14 strings in the array.
 > 
-> ---------------------------------------------------------------------
-> To unsubscribe, e-mail: virtio-dev-unsubscribe@lists.oasis-open.org
-> For additional commands, e-mail: virtio-dev-help@lists.oasis-open.org
+> Add the missing strings (so they become 18 in total), and also revise some
+> incorrect/outdated text of existing strings.
+> 
+> Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+
+Applied.
