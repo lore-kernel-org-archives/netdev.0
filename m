@@ -1,28 +1,58 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH v3 net-next 0/7] net: l3mdev: Support for sockets bound to
- enslaved device
-Date: Mon, 7 Aug 2017 12:40:51 -0600
-Message-ID: <0f8edad8-1ea9-c6e6-4410-6471ee4c212e@gmail.com>
-References: <1502120662-1430-1-git-send-email-dsahern@gmail.com>
- <20170807.113942.927598740175023982.davem@davemloft.net>
+From: Rob Herring <robh+dt@kernel.org>
+Subject: Re: [PATCH] of_mdio: use of_property_read_u32_array()
+Date: Mon, 7 Aug 2017 13:44:59 -0500
+Message-ID: <CAL_JsqLwZogY7n3+uEyGzDbKLv3DmOBAFKgML4XeJiF8Qvzq7A@mail.gmail.com>
+References: <20170804214354.351406407@cogentembedded.com> <CAL_JsqKDXAbAVpgMSU39+9mF7MZWQotLUNkjePy9eUsnBs99Vw@mail.gmail.com>
+ <080ebcb6-b5aa-63db-176b-83477c2540e5@cogentembedded.com> <f9af35a3-bb53-c554-eb6e-93cf6c24cb29@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Frank Rowand <frowand.list@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:36530 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751426AbdHGSkx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 14:40:53 -0400
-Received: by mail-pg0-f47.google.com with SMTP id v77so4800173pgb.3
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 11:40:53 -0700 (PDT)
-In-Reply-To: <20170807.113942.927598740175023982.davem@davemloft.net>
+Received: from mail.kernel.org ([198.145.29.99]:41874 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751933AbdHGSpV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 7 Aug 2017 14:45:21 -0400
+In-Reply-To: <f9af35a3-bb53-c554-eb6e-93cf6c24cb29@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/7/17 12:39 PM, David Miller wrote:
-> Series applied, let's see if it builds this time :-)
+On Mon, Aug 7, 2017 at 1:01 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 08/07/2017 09:18 AM, Sergei Shtylyov wrote:
+>> Hello!
+>>
+>> On 08/07/2017 05:18 PM, Rob Herring wrote:
+>>
+>>>> The "fixed-link" prop support predated of_property_read_u32_array(), so
+>>>> basically had to open-code it. Using the modern API saves 24 bytes of
+>>>> the
+>>>> object code (ARM gcc 4.8.5); the only behavior change would be that the
+>>>> prop length check is now less strict (however the strict pre-check done
+>>>> in of_phy_is_fixed_link() is left intact anyway)...
+>>>>
+>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>>>
+>>>> ---
+>>>> The patch is against the 'dt/next' branch of Rob Herring's
+>>>> 'linux-git' repo
+>>>> plus the previously posted patch killing the useless local variable in
+>>>> of_phy_register_fixed_link().
+>>>
+>>> It shouldn't depend on anything in my tree and David normally takes
+>>> of_mdio.c changes.
+>>
+>>    MAINTAINERS still only point at the DT repo, perhaps it should be
+>> updated?
+>
+> More or less done with this (minus the repo part):
+>
+> http://patchwork.ozlabs.org/patch/795887/
 
-I did an allyesconfig build before sending just to make sure, so our
-mileage better not vary.
+Really I'd like to see this fixed by moving of_mdio.c and of_net.c to
+drivers/net/ as we've done for all other subsystems.
+
+Rob
