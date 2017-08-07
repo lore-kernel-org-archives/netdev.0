@@ -1,45 +1,74 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next 1/2] net_sched: refactor notification code for RTM_DELTFILTER
-Date: Mon, 7 Aug 2017 10:50:02 -0700
-Message-ID: <CAM_iQpWZV=XE=NDCVWSP2CNaYT9dgJ422ppmcUKF84FcHtZMzQ@mail.gmail.com>
-References: <20170805043143.13680-1-xiyou.wangcong@gmail.com>
- <20170805043143.13680-2-xiyou.wangcong@gmail.com> <7b8c926f-8c28-b403-e380-c6ae521c9cc0@mojatatu.com>
+From: Rao Shoaib <rao.shoaib@oracle.com>
+Subject: [PATCH] TCP_USER_TIMEOUT and tcp_keepalive should conform to RFC5482
+Date: Mon, 7 Aug 2017 10:51:25 -0700
+Message-ID: <20170807175125.GA16602@caduceus5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f67.google.com ([209.85.213.67]:36933 "EHLO
-        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751505AbdHGRuX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 13:50:23 -0400
-Received: by mail-vk0-f67.google.com with SMTP id r199so542714vke.4
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 10:50:23 -0700 (PDT)
-In-Reply-To: <7b8c926f-8c28-b403-e380-c6ae521c9cc0@mojatatu.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:45479 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751453AbdHGRwA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 13:52:00 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 6, 2017 at 4:42 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 17-08-05 12:31 AM, Cong Wang wrote:
->> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
->> index e655221c654e..afd099727aea 100644
->> --- a/net/sched/cls_api.c
->> +++ b/net/sched/cls_api.c
->> @@ -104,6 +104,10 @@ static int tfilter_notify(struct net *net, struct
->> sk_buff *oskb,
->>                           struct nlmsghdr *n, struct tcf_proto *tp,
->>                           unsigned long fh, int event, bool unicast);
->>   +static int tfilter_del_notify(struct net *net, struct sk_buff *oskb,
->> +                             struct nlmsghdr *n, struct tcf_proto *tp,
->> +                             unsigned long fh, bool unicast, bool *last);
->> +
->
->
-> Any reason not to move the functin up here and getting rid of this
-> forward declaration?
+Signed-off-by: Rao Shoaib <rao.shoaib@oracle.com>
+---
+ net/ipv4/tcp.c       | 10 ++++++++--
+ net/ipv4/tcp_timer.c |  9 +--------
+ 2 files changed, 9 insertions(+), 10 deletions(-)
 
-It calls tcf_fill_node() which is defined at line 643,
-it is called at line 602. Moving it requires moves the
-rest, this makes this patch unnecessarily bigger.
-Why not make it a separate patch?
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 71ce33d..f2af44d 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2628,7 +2628,9 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 		break;
+ 
+ 	case TCP_KEEPIDLE:
+-		if (val < 1 || val > MAX_TCP_KEEPIDLE)
++		/* Per RFC5482 keepalive_time must be > user_timeout */
++		if (val < 1 || val > MAX_TCP_KEEPIDLE ||
++		    ((val * HZ) <= icsk->icsk_user_timeout))
+ 			err = -EINVAL;
+ 		else {
+ 			tp->keepalive_time = val * HZ;
+@@ -2724,8 +2726,12 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 	case TCP_USER_TIMEOUT:
+ 		/* Cap the max time in ms TCP will retry or probe the window
+ 		 * before giving up and aborting (ETIMEDOUT) a connection.
++		 * Per RFC5482 TCP user timeout must be < keepalive_time.
++		 * If the default value changes later -- all bets are off.
+ 		 */
+-		if (val < 0)
++		if (val < 0 || (tp->keepalive_time &&
++				tp->keepalive_time <= msecs_to_jiffies(val)) ||
++		   net->ipv4.sysctl_tcp_keepalive_time <= msecs_to_jiffies(val))
+ 			err = -EINVAL;
+ 		else
+ 			icsk->icsk_user_timeout = msecs_to_jiffies(val);
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index c0feeee..d39fe60 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -664,14 +664,7 @@ static void tcp_keepalive_timer (unsigned long data)
+ 	elapsed = keepalive_time_elapsed(tp);
+ 
+ 	if (elapsed >= keepalive_time_when(tp)) {
+-		/* If the TCP_USER_TIMEOUT option is enabled, use that
+-		 * to determine when to timeout instead.
+-		 */
+-		if ((icsk->icsk_user_timeout != 0 &&
+-		    elapsed >= icsk->icsk_user_timeout &&
+-		    icsk->icsk_probes_out > 0) ||
+-		    (icsk->icsk_user_timeout == 0 &&
+-		    icsk->icsk_probes_out >= keepalive_probes(tp))) {
++		if (icsk->icsk_probes_out >= keepalive_probes(tp)) {
+ 			tcp_send_active_reset(sk, GFP_ATOMIC);
+ 			tcp_write_err(sk);
+ 			goto out;
+-- 
+2.7.4
