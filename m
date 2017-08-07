@@ -1,36 +1,143 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH iproute2] lib: Dump ext-ack string by default
-Date: Mon, 7 Aug 2017 13:36:49 -0600
-Message-ID: <79db9ff1-69c3-5a16-fb67-54f1b79eb3a5@gmail.com>
-References: <1502134082-4602-1-git-send-email-dsahern@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: Qdisc->u32_node - licence to kill
+Date: Mon, 07 Aug 2017 12:54:03 -0700
+Message-ID: <5988C55B.60204@gmail.com>
+References: <20170807164100.GK2085@nanopsycho.orion> <5988A7A2.3090200@gmail.com> <20170807190624.GL2085@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, stephen@networkplumber.org
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, davem@davemloft.net,
+        netdev@vger.kernel.org, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:35033 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751505AbdHGTgv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 15:36:51 -0400
-Received: by mail-pf0-f179.google.com with SMTP id t86so5283256pfe.2
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 12:36:51 -0700 (PDT)
-In-Reply-To: <1502134082-4602-1-git-send-email-dsahern@gmail.com>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:35429 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751560AbdHGTyU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 15:54:20 -0400
+Received: by mail-pg0-f48.google.com with SMTP id v189so5528827pgd.2
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 12:54:20 -0700 (PDT)
+In-Reply-To: <20170807190624.GL2085@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/7/17 1:28 PM, David Ahern wrote:
-> @@ -99,7 +95,12 @@ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
->  			err_nlh = &err->msg;
->  	}
->  
-> -	return errfn(errmsg, off, err_nlh);
-> +	if (errfn)
-> +		return errfn(errmsg, off, err_nlh);
-> +
-> +	fprintf(stderr, "Error: %s\n", errmsg);
-> +
-> +	return 1;
+On 08/07/2017 12:06 PM, Jiri Pirko wrote:
+> Mon, Aug 07, 2017 at 07:47:14PM CEST, john.fastabend@gmail.com wrote:
+>> On 08/07/2017 09:41 AM, Jiri Pirko wrote:
+>>> Hi Jamal/Cong/David/all.
+>>>
+>>> Digging in the u32 code deeper now. I need to get rid of tp->q for shared
+>>> blocks, but I found out about this:
+>>>
+>>> struct Qdisc {
+>>> 	......
+>>>         void                    *u32_node;
+>>> 	......
+>>> };
+>>>
+>>> Yeah, ugly. u32 uses it to store some shared data, tp_c. It actually
+>>> stores a linked list of all hashtables added to one qdiscs.
+>>>
+>>> So basically what you have is, you have 1 root ht per prio/pref. Then
+>>> you can have multiple hts, linked from any other ht, does not matter in
+>>> which prio/pref they are.
+>>>
+>>
+>> We can create arbitrary hash tables here independent of prio/pref via
+>> TCA_U32_DIVISOR. Then these can be linked to other hash tables via
+>> TCA_U32_LINK commands.
+> 
+> Yeah, that's what I thought.
+> 
+> 
+>>
+>> prio/pref does not really play any part here from my reading, except as
+>> a further specifier in the walk callbacks. Making it a useful filter on
+>> dump operations.
+> 
+> Not correct. prio/pref is one level up priority, independent on specific
+> cls implementation. You can have cls_u32 instance on prio 10 and
+> cls_flower instance on prio 20. Both work.
 
+ah right, lets make sure I got this right then (its been awhile since I've
+read this code). So the tcf_ctl_tfilter hook walks classifiers, inserting the
+classifier by prio. Then tcf_classify walks the list of classifiers looking
+for any matches, specifically any return codes it recognizes or a return code
+greater than zero. u32 though has this link notion that allows users to jump
+to other u32 classifiers that are in this list, because it has a global hash
+table list. So the per prio classifier isolation is not true in u32 case.
 
-Dang it, missing an 'if (errmsg)' since it does not have to exist. Will
-send a v2
+> 
+> In fact, the current u32 "linking" ignores the upper level
+> prio/pref and breakes user assumptions when he inserts rules with
+> specific prio.
+> 
+> 
+
+hmm yep, I guess users of u32 have a "different" set of assumptions when
+working with u32 hash tables than the rest of the classifiers.
+
+>>
+>>> Do I understand that correctly that prio/pref only has meaning if
+>>> linking does not take place, because if there is linking, the prio/pref
+>>> of inserted rule is simply ignored?
+>>
+>> I think even then the prio/pref meaning is dubious, from u32_change,
+> 
+> Please see tc_ctl_tfilter. That is where prio/pref is processed. What
+> you describe is one level down.
+> 
+
+got it.
+
+> 
+>>
+>>                for (pins = rtnl_dereference(*ins); pins;
+>>                     ins = &pins->next, pins = rtnl_dereference(*ins))
+>>                        if (TC_U32_NODE(handle) < TC_U32_NODE(pins->handle))
+>>                                break;
+>>
+>> I think the list insert is done via handle not via prio/pref.
+>>
+>>>
+>>> That is the most confusing thing I saw in net/sched/ so far. 
+>>> Is this a bug? Sounds like one.
+>>>
+>>
+>> I don't think this is a bug at very least I don't see how we can
+>> change it without breaking users. I know people depend on the hash map
+>> capabilities and linking logic.
+> 
+> Do they insert rules into multiple hashtables with different prio? Why?
+> What is the usecase?
+> 
+
+Single u32 classifier with multiple hash tables linked together I would
+think is the normal way. I guess because the API never disallowed it
+and the user api is a bit tricky its possible users may use multiple prios,
+but probably it is not needed.
+
+Maybe Jamal has some use case where this is required?
+
+> 
+>>
+>>> Did someone introduce *u32_node (formerly static struct tc_u_common
+>>> *u32_list;) just to allow this weirdness?
+>>>
+>>> Can I just remove this shared tp_c and make the linking to other
+>>> hashtables only possible within the same prio/pref? That would make
+>>> sense to me.
+>>>
+>>
+>> The idea to make linking hash tables only possible within the same
+>> prio/pref will break existing programs. We can't do this its part of
+>> UAPI now and people depend on it.
+> 
+> That's why I asked if that is a bug. I still feel it is. But I
+> definitelly understand your concern. I'm just trying to figure out how
+> to resolve this misdesign :(
+> 
+
+I don't have a good argument for the current design, but just want to be
+sure we don't break existing users.
+
+.John
