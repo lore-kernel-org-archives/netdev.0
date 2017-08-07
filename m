@@ -1,143 +1,158 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Qdisc->u32_node - licence to kill
-Date: Mon, 07 Aug 2017 12:54:03 -0700
-Message-ID: <5988C55B.60204@gmail.com>
-References: <20170807164100.GK2085@nanopsycho.orion> <5988A7A2.3090200@gmail.com> <20170807190624.GL2085@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, davem@davemloft.net,
-        netdev@vger.kernel.org, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: William Tu <u9012063@gmail.com>
+Subject: [PATCH net-next] selftests: bpf: add a test for XDP redirect
+Date: Mon,  7 Aug 2017 13:14:42 -0700
+Message-ID: <1502136882-40204-1-git-send-email-u9012063@gmail.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        John Fastabend <john.fastabend@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:35429 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751560AbdHGTyU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 15:54:20 -0400
-Received: by mail-pg0-f48.google.com with SMTP id v189so5528827pgd.2
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 12:54:20 -0700 (PDT)
-In-Reply-To: <20170807190624.GL2085@nanopsycho.orion>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33915 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751704AbdHGUPI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 16:15:08 -0400
+Received: by mail-pf0-f193.google.com with SMTP id t86so1339239pfe.1
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 13:15:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/07/2017 12:06 PM, Jiri Pirko wrote:
-> Mon, Aug 07, 2017 at 07:47:14PM CEST, john.fastabend@gmail.com wrote:
->> On 08/07/2017 09:41 AM, Jiri Pirko wrote:
->>> Hi Jamal/Cong/David/all.
->>>
->>> Digging in the u32 code deeper now. I need to get rid of tp->q for shared
->>> blocks, but I found out about this:
->>>
->>> struct Qdisc {
->>> 	......
->>>         void                    *u32_node;
->>> 	......
->>> };
->>>
->>> Yeah, ugly. u32 uses it to store some shared data, tp_c. It actually
->>> stores a linked list of all hashtables added to one qdiscs.
->>>
->>> So basically what you have is, you have 1 root ht per prio/pref. Then
->>> you can have multiple hts, linked from any other ht, does not matter in
->>> which prio/pref they are.
->>>
->>
->> We can create arbitrary hash tables here independent of prio/pref via
->> TCA_U32_DIVISOR. Then these can be linked to other hash tables via
->> TCA_U32_LINK commands.
-> 
-> Yeah, that's what I thought.
-> 
-> 
->>
->> prio/pref does not really play any part here from my reading, except as
->> a further specifier in the walk callbacks. Making it a useful filter on
->> dump operations.
-> 
-> Not correct. prio/pref is one level up priority, independent on specific
-> cls implementation. You can have cls_u32 instance on prio 10 and
-> cls_flower instance on prio 20. Both work.
+Add test for xdp_redirect by creating two namespaces with two
+veth peers, then forward packets in-between.
 
-ah right, lets make sure I got this right then (its been awhile since I've
-read this code). So the tcf_ctl_tfilter hook walks classifiers, inserting the
-classifier by prio. Then tcf_classify walks the list of classifiers looking
-for any matches, specifically any return codes it recognizes or a return code
-greater than zero. u32 though has this link notion that allows users to jump
-to other u32 classifiers that are in this list, because it has a global hash
-table list. So the per prio classifier isolation is not true in u32 case.
+Signed-off-by: William Tu <u9012063@gmail.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: John Fastabend <john.fastabend@gmail.com>
+---
+ tools/include/uapi/linux/bpf.h                   |  3 +-
+ tools/testing/selftests/bpf/Makefile             |  4 +-
+ tools/testing/selftests/bpf/test_xdp_redirect.c  | 28 ++++++++++++
+ tools/testing/selftests/bpf/test_xdp_redirect.sh | 54 ++++++++++++++++++++++++
+ 4 files changed, 86 insertions(+), 3 deletions(-)
+ create mode 100644 tools/testing/selftests/bpf/test_xdp_redirect.c
+ create mode 100755 tools/testing/selftests/bpf/test_xdp_redirect.sh
 
-> 
-> In fact, the current u32 "linking" ignores the upper level
-> prio/pref and breakes user assumptions when he inserts rules with
-> specific prio.
-> 
-> 
-
-hmm yep, I guess users of u32 have a "different" set of assumptions when
-working with u32 hash tables than the rest of the classifiers.
-
->>
->>> Do I understand that correctly that prio/pref only has meaning if
->>> linking does not take place, because if there is linking, the prio/pref
->>> of inserted rule is simply ignored?
->>
->> I think even then the prio/pref meaning is dubious, from u32_change,
-> 
-> Please see tc_ctl_tfilter. That is where prio/pref is processed. What
-> you describe is one level down.
-> 
-
-got it.
-
-> 
->>
->>                for (pins = rtnl_dereference(*ins); pins;
->>                     ins = &pins->next, pins = rtnl_dereference(*ins))
->>                        if (TC_U32_NODE(handle) < TC_U32_NODE(pins->handle))
->>                                break;
->>
->> I think the list insert is done via handle not via prio/pref.
->>
->>>
->>> That is the most confusing thing I saw in net/sched/ so far. 
->>> Is this a bug? Sounds like one.
->>>
->>
->> I don't think this is a bug at very least I don't see how we can
->> change it without breaking users. I know people depend on the hash map
->> capabilities and linking logic.
-> 
-> Do they insert rules into multiple hashtables with different prio? Why?
-> What is the usecase?
-> 
-
-Single u32 classifier with multiple hash tables linked together I would
-think is the normal way. I guess because the API never disallowed it
-and the user api is a bit tricky its possible users may use multiple prios,
-but probably it is not needed.
-
-Maybe Jamal has some use case where this is required?
-
-> 
->>
->>> Did someone introduce *u32_node (formerly static struct tc_u_common
->>> *u32_list;) just to allow this weirdness?
->>>
->>> Can I just remove this shared tp_c and make the linking to other
->>> hashtables only possible within the same prio/pref? That would make
->>> sense to me.
->>>
->>
->> The idea to make linking hash tables only possible within the same
->> prio/pref will break existing programs. We can't do this its part of
->> UAPI now and people depend on it.
-> 
-> That's why I asked if that is a bug. I still feel it is. But I
-> definitelly understand your concern. I'm just trying to figure out how
-> to resolve this misdesign :(
-> 
-
-I don't have a good argument for the current design, but just want to be
-sure we don't break existing users.
-
-.John
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 1579cab49717..8d9bfcca3fe4 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -592,7 +592,8 @@ union bpf_attr {
+ 	FN(get_socket_uid),		\
+ 	FN(set_hash),			\
+ 	FN(setsockopt),			\
+-	FN(skb_adjust_room),
++	FN(skb_adjust_room),		\
++	FN(redirect_map),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index 153c3a181a4c..3c2e67da4b41 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -15,9 +15,9 @@ TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map test
+ 	test_align
+ 
+ TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o test_tcp_estats.o test_obj_id.o \
+-	test_pkt_md_access.o
++	test_pkt_md_access.o test_xdp_redirect.o
+ 
+-TEST_PROGS := test_kmod.sh
++TEST_PROGS := test_kmod.sh test_xdp_redirect.sh
+ 
+ include ../lib.mk
+ 
+diff --git a/tools/testing/selftests/bpf/test_xdp_redirect.c b/tools/testing/selftests/bpf/test_xdp_redirect.c
+new file mode 100644
+index 000000000000..ef9e704be140
+--- /dev/null
++++ b/tools/testing/selftests/bpf/test_xdp_redirect.c
+@@ -0,0 +1,28 @@
++/* Copyright (c) 2017 VMware
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++#include <linux/bpf.h>
++#include "bpf_helpers.h"
++
++int _version SEC("version") = 1;
++
++SEC("redirect_to_111")
++int xdp_redirect_to_111(struct xdp_md *xdp)
++{
++	return bpf_redirect(111, 0);
++}
++SEC("redirect_to_222")
++int xdp_redirect_to_222(struct xdp_md *xdp)
++{
++	return bpf_redirect(222, 0);
++}
++
++char _license[] SEC("license") = "GPL";
+diff --git a/tools/testing/selftests/bpf/test_xdp_redirect.sh b/tools/testing/selftests/bpf/test_xdp_redirect.sh
+new file mode 100755
+index 000000000000..d8c73ed6e040
+--- /dev/null
++++ b/tools/testing/selftests/bpf/test_xdp_redirect.sh
+@@ -0,0 +1,54 @@
++#!/bin/sh
++# Create 2 namespaces with two veth peers, and
++# forward packets in-between using generic XDP
++#
++# NS1(veth11)     NS2(veth22)
++#     |               |
++#     |               |
++#   (veth1, ------ (veth2,
++#   id:111)         id:222)
++#     | xdp forwarding |
++#     ------------------
++
++cleanup()
++{
++	if [ "$?" = "0" ]; then
++		echo "selftests: test_xdp_redirect [PASS]";
++	else
++		echo "selftests: test_xdp_redirect [FAILED]";
++	fi
++
++	set +e
++	ip netns del ns1 2> /dev/null
++	ip netns del ns2 2> /dev/null
++}
++
++set -e
++
++ip netns add ns1
++ip netns add ns2
++
++trap cleanup 0 2 3 6 9
++
++ip link add veth1 index 111 type veth peer name veth11
++ip link add veth2 index 222 type veth peer name veth22
++
++ip link set veth11 netns ns1
++ip link set veth22 netns ns2
++
++ip link set veth1 up
++ip link set veth2 up
++
++ip netns exec ns1 ip addr add 10.1.1.11/24 dev veth11
++ip netns exec ns2 ip addr add 10.1.1.22/24 dev veth22
++
++ip netns exec ns1 ip link set dev veth11 up
++ip netns exec ns2 ip link set dev veth22 up
++
++ip link set dev veth1 xdpgeneric obj test_xdp_redirect.o sec redirect_to_222
++ip link set dev veth2 xdpgeneric obj test_xdp_redirect.o sec redirect_to_111
++
++ip netns exec ns1 ping -c 1 10.1.1.22
++ip netns exec ns2 ping -c 1 10.1.1.11
++
++exit 0
+-- 
+2.7.4
