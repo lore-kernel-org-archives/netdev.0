@@ -1,46 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] IP: cleanup LSRR option processing
-Date: Sun, 06 Aug 2017 20:51:29 -0700 (PDT)
-Message-ID: <20170806.205129.1670918839619898846.davem@davemloft.net>
-References: <cover.1501775813.git.pabeni@redhat.com>
+Subject: Re: [PATCH RFC 00/13] phylink and sfp support
+Date: Sun, 06 Aug 2017 21:00:37 -0700 (PDT)
+Message-ID: <20170806.210037.1669464786772980509.davem@davemloft.net>
+References: <20170725140138.GK31807@n2100.armlinux.org.uk>
+        <20170806182622.GA31844@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-        hannes@stressinduktion.org
-To: pabeni@redhat.com
+Cc: linux@armlinux.org.uk, f.fainelli@gmail.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50100 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50194 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751411AbdHGDva (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 23:51:30 -0400
-In-Reply-To: <cover.1501775813.git.pabeni@redhat.com>
+        with ESMTP id S1750751AbdHGEAi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:00:38 -0400
+In-Reply-To: <20170806182622.GA31844@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Thu,  3 Aug 2017 18:07:04 +0200
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Sun, 6 Aug 2017 20:26:22 +0200
 
-> The __ip_options_echo() function expect a valid dst entry in skb->dst;
-> as result we sometimes need to preserve the dst entry for the whole IP
-> RX path.
+> On Tue, Jul 25, 2017 at 03:01:39PM +0100, Russell King - ARM Linux wrote:
+>> Hi,
+>> 
+>> This patch series introduces generic support for SFP sockets found on
+>> various Marvell based platforms.  The idea here is to provide common
+>> SFP socket support which can be re-used by network drivers as
+>> appropriate, rather than each network driver having to re-implement
+>> SFP socket support.
 > 
-> The current usage of skb->dst looks more a relic from ancient past that
-> a real functional constraint. This patchset tries to remove such usage,
-> and than drops some hacks currently in place in the IP code to keep
-> skb->dst around.
+> Hi Russell
 > 
-> __ip_options_echo() uses of skb->dst for two different purposes: retrieving
-> the netns assicated with the skb, and modify the ingress packet LSRR address
-> list. 
-> 
-> The first patch removes the code modifying the ingress packet, and the second
-> one provides an explicit netns argument to __ip_options_echo(). The following
-> patches cleanup the current code keeping arund skb->dst for __ip_options_echo's
-> sake.
-> 
-> Updating the __ip_options_echo() function has been previously discussed here:
-> 
-> http://marc.info/?l=linux-netdev&m=150064533516348&w=2
+> Please could you repost with all the Reviewed-By added and RFC
+> removed. The code should get merged then.
 
-Series applied, thanks.
+No need, I just merged the series into net-next.
+
+Thanks.
