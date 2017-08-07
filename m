@@ -1,126 +1,101 @@
-From: Thomas Richter <tmricht@linux.vnet.ibm.com>
-Subject: [PATCHv2] bpf: fix selftest/bpf/test_pkt_md_access on s390x
-Date: Mon,  7 Aug 2017 10:16:36 +0200
-Message-ID: <20170807081636.65099-1-tmricht@linux.vnet.ibm.com>
-Cc: heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com,
-        brueckner@linux.vnet.ibm.com,
-        Thomas Richter <tmricht@linux.vnet.ibm.com>
-To: ast@kernel.org, daniel@iogearbox.net, netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 02/16] net: sched: rename TC_SETUP_MATCHALL to TC_SETUP_CLSMATCHALL
+Date: Mon,  7 Aug 2017 10:15:18 +0200
+Message-ID: <20170807081532.32760-3-jiri@resnulli.us>
+References: <20170807081532.32760-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        dirk.vandermerwe@netronome.com, alexander.h.duyck@intel.com,
+        amritha.nambiar@intel.com, oss-drivers@netronome.com,
+        yisen.zhuang@huawei.com, salil.mehta@huawei.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:51884 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752495AbdHGIRA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:17:00 -0400
-Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v778FHNo085753
-        for <netdev@vger.kernel.org>; Mon, 7 Aug 2017 04:16:59 -0400
-Received: from e06smtp15.uk.ibm.com (e06smtp15.uk.ibm.com [195.75.94.111])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2c6m3499h5-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 04:16:59 -0400
-Received: from localhost
-        by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tmricht@linux.vnet.ibm.com>;
-        Mon, 7 Aug 2017 09:16:57 +0100
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:37376 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752322AbdHGIPi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:15:38 -0400
+Received: by mail-wr0-f196.google.com with SMTP id 12so7114278wrb.4
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 01:15:38 -0700 (PDT)
+In-Reply-To: <20170807081532.32760-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 18f3d6be6be1 ("selftests/bpf: Add test cases to test narrower ctx field loads")
-introduced new eBPF test cases. One of them (test_pkt_md_access.c)
-fails on s390x. The BPF verifier error message is:
+From: Jiri Pirko <jiri@mellanox.com>
 
-[root@s8360046 bpf]# ./test_progs
-test_pkt_access:PASS:ipv4 349 nsec
-test_pkt_access:PASS:ipv6 212 nsec
-[....]
-libbpf: load bpf program failed: Permission denied
-libbpf: -- BEGIN DUMP LOG ---
-libbpf:
-0: (71) r2 = *(u8 *)(r1 +0)
-invalid bpf_context access off=0 size=1
+In order to be aligned with the rest of the types, rename
+TC_SETUP_MATCHALL to TC_SETUP_CLSMATCHALL.
 
-libbpf: -- END LOG --
-libbpf: failed to load program 'test1'
-libbpf: failed to load object './test_pkt_md_access.o'
-Summary: 29 PASSED, 1 FAILED
-[root@s8360046 bpf]#
-
-This is caused by a byte endianness issue. S390x is a big endian
-architecture.  Pointer access to the lowest byte or halfword of a
-four byte value need to add an offset.
-On little endian architectures this offset is not needed.
-
-Fix this and use the same approach as the originator used for other files
-(for example test_verifier.c) in his original commit.
-
-With this fix the test program test_progs succeeds on s390x:
-[root@s8360046 bpf]# ./test_progs
-test_pkt_access:PASS:ipv4 236 nsec
-test_pkt_access:PASS:ipv6 217 nsec
-test_xdp:PASS:ipv4 3624 nsec
-test_xdp:PASS:ipv6 1722 nsec
-test_l4lb:PASS:ipv4 926 nsec
-test_l4lb:PASS:ipv6 1322 nsec
-test_tcp_estats:PASS: 0 nsec
-test_bpf_obj_id:PASS:get-fd-by-notexist-prog-id 0 nsec
-test_bpf_obj_id:PASS:get-fd-by-notexist-map-id 0 nsec
-test_bpf_obj_id:PASS:get-prog-info(fd) 0 nsec
-test_bpf_obj_id:PASS:get-map-info(fd) 0 nsec
-test_bpf_obj_id:PASS:get-prog-info(fd) 0 nsec
-test_bpf_obj_id:PASS:get-map-info(fd) 0 nsec
-test_bpf_obj_id:PASS:get-prog-fd(next_id) 0 nsec
-test_bpf_obj_id:PASS:get-prog-info(next_id->fd) 0 nsec
-test_bpf_obj_id:PASS:get-prog-fd(next_id) 0 nsec
-test_bpf_obj_id:PASS:get-prog-info(next_id->fd) 0 nsec
-test_bpf_obj_id:PASS:check total prog id found by get_next_id 0 nsec
-test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
-test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
-test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
-test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
-test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
-test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
-test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
-test_bpf_obj_id:PASS:check get-map-info(next_id->fd) 0 nsec
-test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
-test_bpf_obj_id:PASS:check get-map-info(next_id->fd) 0 nsec
-test_bpf_obj_id:PASS:check total map id found by get_next_id 0 nsec
-test_pkt_md_access:PASS: 277 nsec
-Summary: 30 PASSED, 0 FAILED
-[root@s8360046 bpf]#
-
-Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- tools/testing/selftests/bpf/test_pkt_md_access.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
+ include/linux/netdevice.h                      | 2 +-
+ net/dsa/slave.c                                | 2 +-
+ net/sched/cls_matchall.c                       | 4 ++--
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/tools/testing/selftests/bpf/test_pkt_md_access.c b/tools/testing/selftests/bpf/test_pkt_md_access.c
-index 71729d4..7956302 100644
---- a/tools/testing/selftests/bpf/test_pkt_md_access.c
-+++ b/tools/testing/selftests/bpf/test_pkt_md_access.c
-@@ -12,12 +12,23 @@
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 1554242..6438c38 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1704,7 +1704,7 @@ static int mlxsw_sp_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 		return -EOPNOTSUPP;
  
- int _version SEC("version") = 1;
+ 	switch (type) {
+-	case TC_SETUP_MATCHALL:
++	case TC_SETUP_CLSMATCHALL:
+ 		switch (tc->cls_mall->command) {
+ 		case TC_CLSMATCHALL_REPLACE:
+ 			return mlxsw_sp_port_add_cls_matchall(mlxsw_sp_port,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e4238e5..f8051a3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -778,7 +778,7 @@ enum tc_setup_type {
+ 	TC_SETUP_MQPRIO,
+ 	TC_SETUP_CLSU32,
+ 	TC_SETUP_CLSFLOWER,
+-	TC_SETUP_MATCHALL,
++	TC_SETUP_CLSMATCHALL,
+ 	TC_SETUP_CLSBPF,
+ };
  
-+#if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
- #define TEST_FIELD(TYPE, FIELD, MASK)					\
- 	{								\
- 		TYPE tmp = *(volatile TYPE *)&skb->FIELD;		\
- 		if (tmp != ((*(volatile __u32 *)&skb->FIELD) & MASK))	\
- 			return TC_ACT_SHOT;				\
- 	}
-+#else
-+#define TEST_FIELD_OFFSET(a, b)	((sizeof(a) - sizeof(b)) / sizeof(b))
-+#define TEST_FIELD(TYPE, FIELD, MASK)					\
-+	{								\
-+		TYPE tmp = *((volatile TYPE *)&skb->FIELD +		\
-+			      TEST_FIELD_OFFSET(skb->FIELD, TYPE));	\
-+		if (tmp != ((*(volatile __u32 *)&skb->FIELD) & MASK))	\
-+			return TC_ACT_SHOT;				\
-+	}
-+#endif
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index b4b63c2..453f6dd 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -873,7 +873,7 @@ static int dsa_slave_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 		return -EOPNOTSUPP;
  
- SEC("test1")
- int process(struct __sk_buff *skb)
+ 	switch (type) {
+-	case TC_SETUP_MATCHALL:
++	case TC_SETUP_CLSMATCHALL:
+ 		switch (tc->cls_mall->command) {
+ 		case TC_CLSMATCHALL_REPLACE:
+ 			return dsa_slave_add_cls_matchall(dev, protocol,
+diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+index 6ffe0b8..a8853ad 100644
+--- a/net/sched/cls_matchall.c
++++ b/net/sched/cls_matchall.c
+@@ -63,7 +63,7 @@ static int mall_replace_hw_filter(struct tcf_proto *tp,
+ 	offload.cls_mall->exts = &head->exts;
+ 	offload.cls_mall->cookie = cookie;
+ 
+-	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MATCHALL,
++	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
+ 					    tp->q->handle, tp->chain->index,
+ 					    tp->protocol, &offload);
+ 	if (!err)
+@@ -85,7 +85,7 @@ static void mall_destroy_hw_filter(struct tcf_proto *tp,
+ 	offload.cls_mall->exts = NULL;
+ 	offload.cls_mall->cookie = cookie;
+ 
+-	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MATCHALL, tp->q->handle,
++	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL, tp->q->handle,
+ 				      tp->chain->index, tp->protocol, &offload);
+ }
+ 
 -- 
 2.9.3
