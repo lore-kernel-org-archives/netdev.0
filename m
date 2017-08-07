@@ -1,79 +1,88 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: fix wrong info about vf rx/tx ring
- parameters reported to ethtool
-Date: Mon, 7 Aug 2017 10:39:00 -0700
-Message-ID: <20170807173900.GA1078@felix-thinkpad.cavium.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: Qdisc->u32_node - licence to kill
+Date: Mon, 07 Aug 2017 10:47:14 -0700
+Message-ID: <5988A7A2.3090200@gmail.com>
+References: <20170807164100.GK2085@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        intiyaz.basha@cavium.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0050.outbound.protection.outlook.com ([104.47.38.50]:17920
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751505AbdHGRjN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 7 Aug 2017 13:39:13 -0400
-Content-Disposition: inline
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35437 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751508AbdHGRrZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 13:47:25 -0400
+Received: by mail-pf0-f182.google.com with SMTP id t86so4271462pfe.2
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 10:47:25 -0700 (PDT)
+In-Reply-To: <20170807164100.GK2085@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Intiyaz Basha <intiyaz.basha@cavium.com>
+On 08/07/2017 09:41 AM, Jiri Pirko wrote:
+> Hi Jamal/Cong/David/all.
+> 
+> Digging in the u32 code deeper now. I need to get rid of tp->q for shared
+> blocks, but I found out about this:
+> 
+> struct Qdisc {
+> 	......
+>         void                    *u32_node;
+> 	......
+> };
+> 
+> Yeah, ugly. u32 uses it to store some shared data, tp_c. It actually
+> stores a linked list of all hashtables added to one qdiscs.
+> 
+> So basically what you have is, you have 1 root ht per prio/pref. Then
+> you can have multiple hts, linked from any other ht, does not matter in
+> which prio/pref they are.
+> 
 
-Information reported to ethtool about vf rx/tx ring parameters is wrong.
-Fix it by adding the missing initializations.
+We can create arbitrary hash tables here independent of prio/pref via
+TCA_U32_DIVISOR. Then these can be linked to other hash tables via
+TCA_U32_LINK commands.
 
-Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 30 +++++++---------------
- 1 file changed, 9 insertions(+), 21 deletions(-)
+prio/pref does not really play any part here from my reading, except as
+a further specifier in the walk callbacks. Making it a useful filter on
+dump operations.
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index 09e2875..b78e296 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -649,33 +649,21 @@ lio_ethtool_get_ringparam(struct net_device *netdev,
- 		rx_max_pending = CN6XXX_MAX_OQ_DESCRIPTORS;
- 		rx_pending = CFG_GET_NUM_RX_DESCS_NIC_IF(conf6x, lio->ifidx);
- 		tx_pending = CFG_GET_NUM_TX_DESCS_NIC_IF(conf6x, lio->ifidx);
--	} else if (OCTEON_CN23XX_PF(oct)) {
--		struct octeon_config *conf23 = CHIP_CONF(oct, cn23xx_pf);
--
-+	} else if (OCTEON_CN23XX_PF(oct) || OCTEON_CN23XX_VF(oct)) {
- 		tx_max_pending = CN23XX_MAX_IQ_DESCRIPTORS;
- 		rx_max_pending = CN23XX_MAX_OQ_DESCRIPTORS;
--		rx_pending = CFG_GET_NUM_RX_DESCS_NIC_IF(conf23, lio->ifidx);
--		tx_pending = CFG_GET_NUM_TX_DESCS_NIC_IF(conf23, lio->ifidx);
--	}
--
--	if (lio->mtu > OCTNET_DEFAULT_FRM_SIZE - OCTNET_FRM_HEADER_SIZE) {
--		ering->rx_pending = 0;
--		ering->rx_max_pending = 0;
--		ering->rx_mini_pending = 0;
--		ering->rx_jumbo_pending = rx_pending;
--		ering->rx_mini_max_pending = 0;
--		ering->rx_jumbo_max_pending = rx_max_pending;
--	} else {
--		ering->rx_pending = rx_pending;
--		ering->rx_max_pending = rx_max_pending;
--		ering->rx_mini_pending = 0;
--		ering->rx_jumbo_pending = 0;
--		ering->rx_mini_max_pending = 0;
--		ering->rx_jumbo_max_pending = 0;
-+		rx_pending = oct->droq[0]->max_count;
-+		tx_pending = oct->instr_queue[0]->max_count;
- 	}
- 
- 	ering->tx_pending = tx_pending;
- 	ering->tx_max_pending = tx_max_pending;
-+	ering->rx_pending = rx_pending;
-+	ering->rx_max_pending = rx_max_pending;
-+	ering->rx_mini_pending = 0;
-+	ering->rx_jumbo_pending = 0;
-+	ering->rx_mini_max_pending = 0;
-+	ering->rx_jumbo_max_pending = 0;
- }
- 
- static u32 lio_get_msglevel(struct net_device *netdev)
+> Do I understand that correctly that prio/pref only has meaning if
+> linking does not take place, because if there is linking, the prio/pref
+> of inserted rule is simply ignored?
+
+I think even then the prio/pref meaning is dubious, from u32_change,
+
+                for (pins = rtnl_dereference(*ins); pins;
+                     ins = &pins->next, pins = rtnl_dereference(*ins))
+                        if (TC_U32_NODE(handle) < TC_U32_NODE(pins->handle))
+                                break;
+
+I think the list insert is done via handle not via prio/pref.
+
+> 
+> That is the most confusing thing I saw in net/sched/ so far. 
+> Is this a bug? Sounds like one.
+> 
+
+I don't think this is a bug at very least I don't see how we can
+change it without breaking users. I know people depend on the hash map
+capabilities and linking logic.
+
+> Did someone introduce *u32_node (formerly static struct tc_u_common
+> *u32_list;) just to allow this weirdness?
+> 
+> Can I just remove this shared tp_c and make the linking to other
+> hashtables only possible within the same prio/pref? That would make
+> sense to me.
+> 
+
+The idea to make linking hash tables only possible within the same
+prio/pref will break existing programs. We can't do this its part of
+UAPI now and people depend on it.
+
+> Thanks.
+> 
+> Jiri
+> 
