@@ -1,28 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] iproute: Add support for extended ack to rtnl_talk
-Date: Mon, 07 Aug 2017 13:26:03 -0700 (PDT)
-Message-ID: <20170807.132603.2058256055534574552.davem@davemloft.net>
-References: <bd0ad410-9b64-6f1b-6f78-08f6e801628b@gmail.com>
-        <20170807.114517.1570408214504753399.davem@davemloft.net>
-        <20170807121235.4a8b5020@xeon-e3>
+From: John Allen <jallen@linux.vnet.ibm.com>
+Subject: [PATCH net-next] ibmvnic: Report rx buffer return codes as netdev_dbg
+Date: Mon, 7 Aug 2017 15:42:30 -0500
+Message-ID: <21089a62-0b49-ef34-6eb0-33510a5638c0@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: dsahern@gmail.com, simon.horman@netronome.com,
-        daniel@iogearbox.net, phil@nwl.cc, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: Nathan Fontenot <nfont@linux.vnet.ibm.com>,
+        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35326 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751505AbdHGU0G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 16:26:06 -0400
-In-Reply-To: <20170807121235.4a8b5020@xeon-e3>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:52206 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752080AbdHGUmj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 16:42:39 -0400
+Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v77Kd4kr093257
+        for <netdev@vger.kernel.org>; Mon, 7 Aug 2017 16:42:38 -0400
+Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2c6rw3a77b-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 16:42:38 -0400
+Received: from localhost
+        by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
+        Mon, 7 Aug 2017 14:42:37 -0600
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 7 Aug 2017 12:12:35 -0700
+Reporting any return code for a receive buffer as an "rx error" only
+produces alarming noise and the only values that have been observed to be
+used in this field are not error conditions. Change this to a netdev_dbg
+with a more descriptive message.
 
-> Dave, I asked for test cases, and received none.
-
-You don't need a test case to type make and make sure the build succeeds.
+Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
+---
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 5932160..99576ba 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -1579,7 +1579,8 @@ static int ibmvnic_poll(struct napi_struct *napi, int budget)
+ 							  rx_comp.correlator);
+ 		/* do error checking */
+ 		if (next->rx_comp.rc) {
+-			netdev_err(netdev, "rx error %x\n", next->rx_comp.rc);
++			netdev_dbg(netdev, "rx buffer returned with rc %x\n",
++				   be16_to_cpu(next->rx_comp.rc));
+ 			/* free the entry */
+ 			next->rx_comp.first = 0;
+ 			remove_buff_from_pool(adapter, rx_buff);
