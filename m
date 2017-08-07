@@ -1,83 +1,59 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Qdisc->u32_node - licence to kill
-Date: Mon, 7 Aug 2017 16:21:12 -0700
-Message-ID: <CAM_iQpUZdv1sg+6jY862=GbWaC8x9XN9Ed-uaKi6_RT12sFj6w@mail.gmail.com>
-References: <20170807164100.GK2085@nanopsycho.orion> <5988A7A2.3090200@gmail.com>
- <20170807190624.GL2085@nanopsycho.orion> <5988C55B.60204@gmail.com>
+From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Subject: Re: [PATCH] net: Reduce skb_warn_bad_offload() noise.
+Date: Tue, 8 Aug 2017 07:44:15 +0800
+Message-ID: <CAMDZJNVRqbByUfa5Oc_=xs+O_BJ4ehUJUSz9Y+wCPwj6kQGtLA@mail.gmail.com>
+References: <1501852317-11684-1-git-send-email-xiangxia.m.yue@gmail.com>
+ <1501853380.25002.38.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAMDZJNUcqFYQ8c4urSyha+F2C0Z9WzTTw05qLBX9VYpCH4V6Wg@mail.gmail.com> <CAF=yD-K_nbns=KA_4Acq_PRA=tCP0r+d3fD=jiVx9DkAdkyUYw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
-        David Miller <davem@davemloft.net>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        mlxsw@mellanox.com
-To: John Fastabend <john.fastabend@gmail.com>
+        Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Pravin B Shelar <pshelar@ovn.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f173.google.com ([209.85.217.173]:36788 "EHLO
-        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751881AbdHGXVd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 19:21:33 -0400
-Received: by mail-ua0-f173.google.com with SMTP id k43so8037163uaf.3
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 16:21:33 -0700 (PDT)
-In-Reply-To: <5988C55B.60204@gmail.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:33385 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751881AbdHGXoQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 19:44:16 -0400
+Received: by mail-io0-f193.google.com with SMTP id q64so1353829ioi.0
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 16:44:16 -0700 (PDT)
+In-Reply-To: <CAF=yD-K_nbns=KA_4Acq_PRA=tCP0r+d3fD=jiVx9DkAdkyUYw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 7, 2017 at 12:54 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> On 08/07/2017 12:06 PM, Jiri Pirko wrote:
->> Mon, Aug 07, 2017 at 07:47:14PM CEST, john.fastabend@gmail.com wrote:
->>> On 08/07/2017 09:41 AM, Jiri Pirko wrote:
->>>> Hi Jamal/Cong/David/all.
->>>>
->>>> Digging in the u32 code deeper now. I need to get rid of tp->q for shared
->>>> blocks, but I found out about this:
->>>>
->>>> struct Qdisc {
->>>>     ......
->>>>         void                    *u32_node;
->>>>     ......
->>>> };
->>>>
->>>> Yeah, ugly. u32 uses it to store some shared data, tp_c. It actually
->>>> stores a linked list of all hashtables added to one qdiscs.
->>>>
->>>> So basically what you have is, you have 1 root ht per prio/pref. Then
->>>> you can have multiple hts, linked from any other ht, does not matter in
->>>> which prio/pref they are.
->>>>
->>>
->>> We can create arbitrary hash tables here independent of prio/pref via
->>> TCA_U32_DIVISOR. Then these can be linked to other hash tables via
->>> TCA_U32_LINK commands.
->>
->> Yeah, that's what I thought.
->>
->>
->>>
->>> prio/pref does not really play any part here from my reading, except as
->>> a further specifier in the walk callbacks. Making it a useful filter on
->>> dump operations.
->>
->> Not correct. prio/pref is one level up priority, independent on specific
->> cls implementation. You can have cls_u32 instance on prio 10 and
->> cls_flower instance on prio 20. Both work.
+That is fine to me. I have tested it. Thanks.
+
+On Mon, Aug 7, 2017 at 12:42 PM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+>> The openvswitch kernel module calls the __skb_gso_segment()(and sets
+>> tx_path = false) when passing packets to userspace. The UFO will set
+>> the ip_summed to CHECKSUM_NONE. There are a lot of warn logs. The warn
+>> log is shown as below. I guess we should revert the patch.
 >
-> ah right, lets make sure I got this right then (its been awhile since I've
-> read this code). So the tcf_ctl_tfilter hook walks classifiers, inserting the
-> classifier by prio. Then tcf_classify walks the list of classifiers looking
-> for any matches, specifically any return codes it recognizes or a return code
-> greater than zero. u32 though has this link notion that allows users to jump
-> to other u32 classifiers that are in this list, because it has a global hash
-> table list. So the per prio classifier isolation is not true in u32 case.
-
-u32 filter supports multiple hash tables within a qdisc, struct
-tc_u_common is supposed to link them together. This has to be
-per qdisc because all of these hash tables belong to one qdisc
-and their ID's are unique within the qdisc.
-
-I dislike it too, and I actually tried to improve it in the past,
-unfortunately didn't make any real progress. I think we can
-definitely make it less ugly, but I don't think we can totally
-get rid of it because of the design of u32.
-
-Similar for tp->data.
+> Indeed, the software UFO code computes the checksum and
+> sets ip_summed to CHECKSUM_NONE, as is correct on the
+> egress path.
+>
+> Commit 6e7bc478c9a0 ("net: skb_needs_check() accepts
+> CHECKSUM_NONE for tx") revised the tx_path case in
+> skb_needs_check to avoid the warning exactly for the UFO case.
+>
+> We cannot just make an exception for CHECKSUM_NONE in the
+> !tx_path case, as the entire statement then becomes false:
+>
+>        return skb->ip_summed == CHECKSUM_NONE;
+>
+> Since on egress CHECKSUM_UNNECESSARY is equivalent to
+> CHECKSUM_NONE, it should be fine to update the UFO code
+> to set that, instead:
+>
+> @@ -235,7 +235,7 @@ static struct sk_buff *udp4_ufo_fragment(struct
+> sk_buff *skb,
+>         if (uh->check == 0)
+>                 uh->check = CSUM_MANGLED_0;
+>
+> -       skb->ip_summed = CHECKSUM_NONE;
+> +       skb->ip_summed = CHECKSUM_UNNECESSARY;
