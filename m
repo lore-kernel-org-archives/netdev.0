@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 07/16] mlx5e_rep: push cls_flower setup_tc processing into a separate function
-Date: Mon,  7 Aug 2017 10:15:23 +0200
-Message-ID: <20170807081532.32760-8-jiri@resnulli.us>
+Subject: [patch net-next v2 09/16] mlxsw: spectrum: rename cls arg in matchall processing
+Date: Mon,  7 Aug 2017 10:15:25 +0200
+Message-ID: <20170807081532.32760-10-jiri@resnulli.us>
 References: <20170807081532.32760-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
@@ -12,107 +12,83 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         yisen.zhuang@huawei.com, salil.mehta@huawei.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:38690 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752147AbdHGIPq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:15:46 -0400
-Received: by mail-wr0-f196.google.com with SMTP id g32so7122174wrd.5
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 01:15:45 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34572 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751837AbdHGIPt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:15:49 -0400
+Received: by mail-wm0-f68.google.com with SMTP id x64so149923wmg.1
+        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 01:15:48 -0700 (PDT)
 In-Reply-To: <20170807081532.32760-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Let mlx5e_rep_setup_tc (former mlx5e_rep_ndo_setup_tc) be a splitter for
-specific setup_tc types and push out cls_flower specific code into
-a separate function.
+To sync-up with the naming in the rest of the driver, rename the cls arg.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 49 ++++++++++++++----------
- 1 file changed, 29 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 0e6bab1..e6cc642 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -651,38 +651,47 @@ static int mlx5e_rep_get_phys_port_name(struct net_device *dev,
- 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 9f8ba37..f333d08 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1618,7 +1618,7 @@ mlxsw_sp_port_del_cls_matchall_sample(struct mlxsw_sp_port *mlxsw_sp_port)
+ 
+ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 					  __be16 protocol,
+-					  struct tc_cls_matchall_offload *cls,
++					  struct tc_cls_matchall_offload *f,
+ 					  bool ingress)
+ {
+ 	struct mlxsw_sp_port_mall_tc_entry *mall_tc_entry;
+@@ -1626,7 +1626,7 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	LIST_HEAD(actions);
+ 	int err;
+ 
+-	if (!tcf_exts_has_one_action(cls->exts)) {
++	if (!tcf_exts_has_one_action(f->exts)) {
+ 		netdev_err(mlxsw_sp_port->dev, "only singular actions are supported\n");
+ 		return -EOPNOTSUPP;
+ 	}
+@@ -1634,9 +1634,9 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	mall_tc_entry = kzalloc(sizeof(*mall_tc_entry), GFP_KERNEL);
+ 	if (!mall_tc_entry)
+ 		return -ENOMEM;
+-	mall_tc_entry->cookie = cls->cookie;
++	mall_tc_entry->cookie = f->cookie;
+ 
+-	tcf_exts_to_list(cls->exts, &actions);
++	tcf_exts_to_list(f->exts, &actions);
+ 	a = list_first_entry(&actions, struct tc_action, list);
+ 
+ 	if (is_tcf_mirred_egress_mirror(a) && protocol == htons(ETH_P_ALL)) {
+@@ -1648,7 +1648,7 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 							    mirror, a, ingress);
+ 	} else if (is_tcf_sample(a) && protocol == htons(ETH_P_ALL)) {
+ 		mall_tc_entry->type = MLXSW_SP_PORT_MALL_SAMPLE;
+-		err = mlxsw_sp_port_add_cls_matchall_sample(mlxsw_sp_port, cls,
++		err = mlxsw_sp_port_add_cls_matchall_sample(mlxsw_sp_port, f,
+ 							    a, ingress);
+ 	} else {
+ 		err = -EOPNOTSUPP;
+@@ -1666,12 +1666,12 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
  }
  
--static int mlx5e_rep_ndo_setup_tc(struct net_device *dev,
--				  enum tc_setup_type type, u32 handle,
--				  u32 chain_index, __be16 proto,
--				  struct tc_to_netdev *tc)
-+static int mlx5e_rep_setup_tc_cls_flower(struct net_device *dev,
-+					 u32 handle, u32 chain_index,
-+					 __be16 proto,
-+					 struct tc_to_netdev *tc)
+ static void mlxsw_sp_port_del_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+-					   struct tc_cls_matchall_offload *cls)
++					   struct tc_cls_matchall_offload *f)
  {
-+	struct tc_cls_flower_offload *cls_flower = tc->cls_flower;
- 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 	struct mlxsw_sp_port_mall_tc_entry *mall_tc_entry;
  
--	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
-+	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS) ||
-+	    chain_index)
- 		return -EOPNOTSUPP;
- 
--	if (type == TC_SETUP_CLSFLOWER && tc->cls_flower->egress_dev) {
-+	if (cls_flower->egress_dev) {
- 		struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
--		struct net_device *uplink_dev = mlx5_eswitch_get_uplink_netdev(esw);
- 
--		return uplink_dev->netdev_ops->ndo_setup_tc(uplink_dev, type,
--							    handle, chain_index,
--							    proto, tc);
-+		dev = mlx5_eswitch_get_uplink_netdev(esw);
-+		return dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
-+						     handle, chain_index,
-+						     proto, tc);
- 	}
- 
--	if (chain_index)
-+	switch (cls_flower->command) {
-+	case TC_CLSFLOWER_REPLACE:
-+		return mlx5e_configure_flower(priv, proto, cls_flower);
-+	case TC_CLSFLOWER_DESTROY:
-+		return mlx5e_delete_flower(priv, cls_flower);
-+	case TC_CLSFLOWER_STATS:
-+		return mlx5e_stats_flower(priv, cls_flower);
-+	default:
- 		return -EOPNOTSUPP;
-+	}
-+}
- 
-+static int mlx5e_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
-+			      u32 handle, u32 chain_index, __be16 proto,
-+			      struct tc_to_netdev *tc)
-+{
- 	switch (type) {
- 	case TC_SETUP_CLSFLOWER:
--		switch (tc->cls_flower->command) {
--		case TC_CLSFLOWER_REPLACE:
--			return mlx5e_configure_flower(priv, proto, tc->cls_flower);
--		case TC_CLSFLOWER_DESTROY:
--			return mlx5e_delete_flower(priv, tc->cls_flower);
--		case TC_CLSFLOWER_STATS:
--			return mlx5e_stats_flower(priv, tc->cls_flower);
--		}
-+		return mlx5e_rep_setup_tc_cls_flower(dev, handle, chain_index,
-+						     proto, tc);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-@@ -774,7 +783,7 @@ static const struct net_device_ops mlx5e_netdev_ops_rep = {
- 	.ndo_stop                = mlx5e_rep_close,
- 	.ndo_start_xmit          = mlx5e_xmit,
- 	.ndo_get_phys_port_name  = mlx5e_rep_get_phys_port_name,
--	.ndo_setup_tc            = mlx5e_rep_ndo_setup_tc,
-+	.ndo_setup_tc            = mlx5e_rep_setup_tc,
- 	.ndo_get_stats64         = mlx5e_rep_get_stats,
- 	.ndo_has_offload_stats	 = mlx5e_has_offload_stats,
- 	.ndo_get_offload_stats	 = mlx5e_get_offload_stats,
+ 	mall_tc_entry = mlxsw_sp_port_mall_tc_entry_find(mlxsw_sp_port,
+-							 cls->cookie);
++							 f->cookie);
+ 	if (!mall_tc_entry) {
+ 		netdev_dbg(mlxsw_sp_port->dev, "tc entry not found on port\n");
+ 		return;
 -- 
 2.9.3
