@@ -1,94 +1,56 @@
-From: Dean Jenkins <Dean_Jenkins@mentor.com>
-Subject: [PATCH V1 3/3] asix: Fix small memory leak in ax88772_unbind()
-Date: Mon, 7 Aug 2017 09:50:16 +0100
-Message-ID: <1502095816-3255-4-git-send-email-Dean_Jenkins@mentor.com>
-References: <1502095816-3255-1-git-send-email-Dean_Jenkins@mentor.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v7 2/3] PCI: Enable PCIe Relaxed Ordering if supported
+Date: Mon, 7 Aug 2017 09:04:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD004C785@AcuExch.aculab.com>
+References: <67be791f-e0cf-8284-9229-17174dc741ef@codeaurora.org>
+ <5f9b8bfb-41a8-a17c-6fea-581aec1d5573@huawei.com>
+ <20170724090516.2e0f0d2a@w520.home>
+ <MWHPR12MB1600065968964410EDFBDA3BC8B90@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <75213fca-4522-2297-3cb8-338e643d3552@huawei.com>
+ <CAKgT0UcqdRCwDDxD=22Q_jLuqz8KVHwH1-V45Aq-1WzQw=agcA@mail.gmail.com>
+ <14218972-553d-eb60-0207-460ac7f4b064@huawei.com>
+ <MWHPR12MB1600A6986E4AD13D302F2DC9C8B00@MWHPR12MB1600.namprd12.prod.outlook.com>
+ <20170803083153.GB4883@otc-nc-03>
+ <MWHPR12MB1600400EC7DEE92E4A3ADC5BC8B60@MWHPR12MB1600.namprd12.prod.outlook.com>,<20170804202141.GA39054@otc-nc-03>
+ <MWHPR12MB160086C4B4FA8F3B2EC1D5F9C8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-usb@vger.kernel.org>
-To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
-        Dean Jenkins <Dean_Jenkins@mentor.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:36325 "EHLO
-        relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752478AbdHGIuj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 04:50:39 -0400
-In-Reply-To: <1502095816-3255-1-git-send-email-Dean_Jenkins@mentor.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Alex Williamson <alex.williamson@redhat.com>,
+        Sinan Kaya <okaya@codeaurora.org>,
+        "bhelgaas@google.com" <bhelgaas@google.com>,
+        "helgaas@kernel.org" <helgaas@kernel.org>,
+        "Michael Werner" <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "catal
+To: 'Casey Leedom' <leedom@chelsio.com>,
+        "Raj, Ashok" <ashok.raj@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <MWHPR12MB160086C4B4FA8F3B2EC1D5F9C8B60@MWHPR12MB1600.namprd12.prod.outlook.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When Ethernet frames span mulitple URBs, the netdev buffer memory
-pointed to by the asix_rx_fixup_info structure remains allocated
-during the time gap between the 2 executions of asix_rx_fixup_internal().
+From: Casey Leedom
+> Sent: 04 August 2017 21:49
+...
+> Whenever our Hardware Designers implement new functionality in our hardware,
+> they almost always put in A. several "knobs" which can control fundamental
+> parameters of the new Hardware Feature, and B.  a mechanism of completely
+> disabling it if necessary.  This stems from the incredibly long Design ->
+> Deployment cyle for Hardware (as opposed to the edit->compile->run cycle for s!
 
-This means that if ax88772_unbind() is called within this time
-gap to free the memory of the parent private data structure then
-a memory leak of the part filled netdev buffer memory will occur.
+Indeed, I'd also expect there to be an undocumented flag to turn
+it on (broken) in earlier parts to allow testing.
 
-Therefore, create a new function asix_rx_fixup_common_free() to
-free the memory of the netdev buffer and add a call to
-asix_rx_fixup_common_free() from inside ax88772_unbind().
-
-Consequently when an unbind occurs part way through receiving
-an Ethernet frame, the netdev buffer memory that is holding part
-of the received Ethernet frame will now be freed.
-
-Signed-off-by: Dean Jenkins <Dean_Jenkins@mentor.com>
----
- drivers/net/usb/asix.h         |  1 +
- drivers/net/usb/asix_common.c  | 15 +++++++++++++++
- drivers/net/usb/asix_devices.c |  1 +
- 3 files changed, 17 insertions(+)
-
-diff --git a/drivers/net/usb/asix.h b/drivers/net/usb/asix.h
-index d109242..9a4171b 100644
---- a/drivers/net/usb/asix.h
-+++ b/drivers/net/usb/asix.h
-@@ -209,6 +209,7 @@ void asix_write_cmd_async(struct usbnet *dev, u8 cmd, u16 value,
- int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
- 			   struct asix_rx_fixup_info *rx);
- int asix_rx_fixup_common(struct usbnet *dev, struct sk_buff *skb);
-+void asix_rx_fixup_common_free(struct asix_common_private *dp);
- 
- struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
- 			      gfp_t flags);
-diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index fda74f3..522d290 100644
---- a/drivers/net/usb/asix_common.c
-+++ b/drivers/net/usb/asix_common.c
-@@ -210,6 +210,21 @@ int asix_rx_fixup_common(struct usbnet *dev, struct sk_buff *skb)
- 	return asix_rx_fixup_internal(dev, skb, rx);
- }
- 
-+void asix_rx_fixup_common_free(struct asix_common_private *dp)
-+{
-+	struct asix_rx_fixup_info *rx;
-+
-+	if (!dp)
-+		return;
-+
-+	rx = &dp->rx_fixup_info;
-+
-+	if (rx->ax_skb) {
-+		kfree_skb(rx->ax_skb);
-+		rx->ax_skb = NULL;
-+	}
-+}
-+
- struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
- 			      gfp_t flags)
- {
-diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
-index a3aa0a2..b2ff88e 100644
---- a/drivers/net/usb/asix_devices.c
-+++ b/drivers/net/usb/asix_devices.c
-@@ -764,6 +764,7 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- 
- static void ax88772_unbind(struct usbnet *dev, struct usb_interface *intf)
- {
-+	asix_rx_fixup_common_free(dev->driver_priv);
- 	kfree(dev->driver_priv);
- }
- 
--- 
-2.7.4
+	David
