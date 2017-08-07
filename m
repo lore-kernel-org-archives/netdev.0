@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: User per-cpu 64-bit statistics
-Date: Sun, 06 Aug 2017 21:27:05 -0700 (PDT)
-Message-ID: <20170806.212705.710269830764257465.davem@davemloft.net>
-References: <20170804043328.4730-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 1/1] netvsc: fix rtnl deadlock on unregister
+ of vf
+Date: Sun, 06 Aug 2017 21:29:29 -0700 (PDT)
+Message-ID: <20170806.212929.246667029504105138.davem@davemloft.net>
+References: <20170804191400.22471-1-sthemmin@microsoft.com>
+        <20170804191400.22471-2-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemlot.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170804043328.4730-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
+        devel@linuxdriverproject.org, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50452 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751433AbdHGE3a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 00:29:30 -0400
+In-Reply-To: <20170804191400.22471-2-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu,  3 Aug 2017 21:33:27 -0700
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri,  4 Aug 2017 12:14:00 -0700
 
-> During testing with a background iperf pushing 1Gbit/sec worth of
-> traffic and having both ifconfig and ethtool collect statistics, we
-> could see quite frequent deadlocks. Convert the often accessed DSA slave
-> network devices statistics to per-cpu 64-bit statistics to remove these
-> deadlocks and provide fast efficient statistics updates.
+> With new transparent VF support, it is possible to get a deadlock
+> when some of the deferred work is running and the unregister_vf
+> is trying to cancel the work element. The solution is to use
+> trylock and reschedule (similar to bonding and team device).
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Reported-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> Fixes: 0c195567a8f6 ("netvsc: transparent VF management")
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Applied with appropriate Fixes: tag added.
-
-Thanks.
+Applied, thanks.
