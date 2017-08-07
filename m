@@ -1,45 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] IP: do not modify ingress packet IP option in
- ip_options_echo()
-Date: Sun, 06 Aug 2017 20:49:49 -0700 (PDT)
-Message-ID: <20170806.204949.1692038476128309810.davem@davemloft.net>
-References: <f5758b6b7199d2d2a218b0ad36f1e5ef108eac43.1500642854.git.pabeni@redhat.com>
-        <20170724.141253.769254590231937263.davem@davemloft.net>
-        <87a83othjl.fsf@stressinduktion.org>
+Subject: Re: [PATCH net-next 0/4] IP: cleanup LSRR option processing
+Date: Sun, 06 Aug 2017 20:51:29 -0700 (PDT)
+Message-ID: <20170806.205129.1670918839619898846.davem@davemloft.net>
+References: <cover.1501775813.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pabeni@redhat.com, netdev@vger.kernel.org, edumazet@google.com,
-        kuznet@ms2.inr.ac.ru
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+        hannes@stressinduktion.org
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50020 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50100 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751516AbdHGDtv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 23:49:51 -0400
-In-Reply-To: <87a83othjl.fsf@stressinduktion.org>
+        with ESMTP id S1751411AbdHGDva (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2017 23:51:30 -0400
+In-Reply-To: <cover.1501775813.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 28 Jul 2017 16:47:42 -0400
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Thu,  3 Aug 2017 18:07:04 +0200
 
-> David Miller <davem@davemloft.net> writes:
+> The __ip_options_echo() function expect a valid dst entry in skb->dst;
+> as result we sometimes need to preserve the dst entry for the whole IP
+> RX path.
 > 
->> The red flag is that we are indexing 'start' with 'doffset' instead of
->> 'soffset'.
+> The current usage of skb->dst looks more a relic from ancient past that
+> a real functional constraint. This patchset tries to remove such usage,
+> and than drops some hacks currently in place in the IP code to keep
+> skb->dst around.
 > 
-> As Paolo pointed out, we should not put our own source address into the
-> options array.
+> __ip_options_echo() uses of skb->dst for two different purposes: retrieving
+> the netns assicated with the skb, and modify the ingress packet LSRR address
+> list. 
 > 
-> Do you have any idea why this code was added in the first place? I read
-> through 2.0.33 code and even in context of this version, I couldn't
-> figure that out.
+> The first patch removes the code modifying the ingress packet, and the second
+> one provides an explicit netns argument to __ip_options_echo(). The following
+> patches cleanup the current code keeping arund skb->dst for __ip_options_echo's
+> sake.
 > 
-> Because it seems the code and update is dead anyways (besides
-> incorrectly updating the ICMP reflected payload) I don't see any problem
-> with removing this code. Do you?
+> Updating the __ip_options_echo() function has been previously discussed here:
+> 
+> http://marc.info/?l=linux-netdev&m=150064533516348&w=2
 
-Ok, now I'm convinced it's dead code.
-
-Thanks for explaining.
+Series applied, thanks.
