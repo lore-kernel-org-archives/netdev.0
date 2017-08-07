@@ -1,53 +1,89 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH v4 net-next 01/13] bpf/verifier: rework value tracking
-Date: Mon, 7 Aug 2017 13:39:08 +0100
-Message-ID: <fb278f0f-56e4-9324-4189-913ed198619a@solarflare.com>
-References: <22441d84-0a11-5c00-2d2a-25e7dbafa6c2@solarflare.com>
- <8a5e37eb-2397-c986-79c5-02908fbbdee0@solarflare.com>
- <5987A7DF.6080203@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>
-To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>,
-        "Alexei Starovoitov" <alexei.starovoitov@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>
+From: Anton Volkov <avolkov@ispras.ru>
+Subject: [PATCH v2] hysdn: fix to a race condition in put_log_buffer
+Date: Mon,  7 Aug 2017 15:54:14 +0300
+Message-ID: <1502110454-3996-1-git-send-email-avolkov@ispras.ru>
+References: <a82052eb-2aec-ffa2-2cfd-c02db779d695@cogentembedded.com>
+Cc: sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        ldv-project@linuxtesting.org, khoroshilov@ispras.ru,
+        Anton Volkov <avolkov@ispras.ru>
+To: isdn@linux-pingi.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5987A7DF.6080203@iogearbox.net>
+In-Reply-To: <a82052eb-2aec-ffa2-2cfd-c02db779d695@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/08/17 00:35, Daniel Borkmann wrote:
-> On 08/03/2017 06:11 PM, Edward Cree wrote:
->> Unifies adjusted and unadjusted register value types (e.g. FRAME_POINTER is
->>   now just a PTR_TO_STACK with zero offset).
->> Tracks value alignment by means of tracking known & unknown bits.  This
->>   also replaces the 'reg->imm' (leading zero bits) calculations for (what
->>   were) UNKNOWN_VALUEs.
->> If pointer leaks are allowed, and adjust_ptr_min_max_vals returns -EACCES,
->>   treat the pointer as an unknown scalar and try again, because we might be
->>   able to conclude something about the result (e.g. pointer & 0x40 is either
->>   0 or 0x40).
->>
->> Signed-off-by: Edward Cree <ecree@solarflare.com>
-> [...]
->> -            dst_reg->max_value = BPF_REGISTER_MAX_RANGE;
->> +    if (BPF_CLASS(insn->code) != BPF_ALU64) {
->> +        /* 32-bit ALU ops are (32,32)->64 */
->> +        coerce_reg_to_32(dst_reg);
->> +        coerce_reg_to_32(src_reg);
->>       }
->
-> Looks like the same check was added twice here right after
-> the first one?
-Yes, it must've gotten duplicated when I rebased.  Thanks for spotting it!
-> Shouldn't we just temporarily coerce the src
-> reg to 32 bit here given in the actual op the src reg is not
-> being modified?
-You're quite right, I need to make a copy of the src_reg state and use
- that, at least in the case where it's a real register.  Probably the
- place to do it is at the call sites in adjust_reg_min_max_vals().
-I'll sprinkle a few consts around as well, to catch that sort of thing.
+The synchronization type that was used earlier to guard the loop that
+deletes unused log buffers may lead to a situation that prevents any
+thread from going through the loop.
 
--Ed
+The patch deletes previously used synchronization mechanism and moves
+the loop under the spin_lock so the similar cases won't be feasible in
+the future.
+
+Found by by Linux Driver Verification project (linuxtesting.org).
+
+Signed-off-by: Anton Volkov <avolkov@ispras.ru>
+---
+v2: Fixed coding style issues
+
+ drivers/isdn/hysdn/hysdn_proclog.c | 28 +++++++++++++---------------
+ 1 file changed, 13 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/isdn/hysdn/hysdn_proclog.c b/drivers/isdn/hysdn/hysdn_proclog.c
+index 7b5fd8f..aaca0b3 100644
+--- a/drivers/isdn/hysdn/hysdn_proclog.c
++++ b/drivers/isdn/hysdn/hysdn_proclog.c
+@@ -44,7 +44,6 @@ struct procdata {
+ 	char log_name[15];	/* log filename */
+ 	struct log_data *log_head, *log_tail;	/* head and tail for queue */
+ 	int if_used;		/* open count for interface */
+-	int volatile del_lock;	/* lock for delete operations */
+ 	unsigned char logtmp[LOG_MAX_LINELEN];
+ 	wait_queue_head_t rd_queue;
+ };
+@@ -102,7 +101,6 @@ put_log_buffer(hysdn_card *card, char *cp)
+ {
+ 	struct log_data *ib;
+ 	struct procdata *pd = card->proclog;
+-	int i;
+ 	unsigned long flags;
+ 
+ 	if (!pd)
+@@ -126,21 +124,21 @@ put_log_buffer(hysdn_card *card, char *cp)
+ 	else
+ 		pd->log_tail->next = ib;	/* follows existing messages */
+ 	pd->log_tail = ib;	/* new tail */
+-	i = pd->del_lock++;	/* get lock state */
+-	spin_unlock_irqrestore(&card->hysdn_lock, flags);
+ 
+ 	/* delete old entrys */
+-	if (!i)
+-		while (pd->log_head->next) {
+-			if ((pd->log_head->usage_cnt <= 0) &&
+-			    (pd->log_head->next->usage_cnt <= 0)) {
+-				ib = pd->log_head;
+-				pd->log_head = pd->log_head->next;
+-				kfree(ib);
+-			} else
+-				break;
+-		}		/* pd->log_head->next */
+-	pd->del_lock--;		/* release lock level */
++	while (pd->log_head->next) {
++		if ((pd->log_head->usage_cnt <= 0) &&
++		    (pd->log_head->next->usage_cnt <= 0)) {
++			ib = pd->log_head;
++			pd->log_head = pd->log_head->next;
++			kfree(ib);
++		} else {
++			break;
++		}
++	}		/* pd->log_head->next */
++
++	spin_unlock_irqrestore(&card->hysdn_lock, flags);
++
+ 	wake_up_interruptible(&(pd->rd_queue));		/* announce new entry */
+ }				/* put_log_buffer */
+ 
+-- 
+2.7.4
