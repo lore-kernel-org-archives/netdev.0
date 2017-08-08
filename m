@@ -1,40 +1,76 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] net: sched: set xt_tgchk_param par.nft_compat with
- false in ipt_init_target
-Date: Tue, 8 Aug 2017 14:17:44 +1200
-Message-ID: <CADvbK_dLkTtdQF_fN4CW09g__PF01Etpuw0G2YEMSv4xcLiw0A@mail.gmail.com>
-References: <985e6cb7c94f0014096ebca47e1efd74e022dc8d.1501932779.git.lucien.xin@gmail.com>
- <CAM_iQpUT8CMdz1sgBaVS+7drzPPFp10APOHiKPib8oNq7kPsFg@mail.gmail.com>
+Subject: Re: [PATCH net] net: sched: fix NULL pointer dereference when action
+ calls some targets
+Date: Tue, 8 Aug 2017 14:33:48 +1200
+Message-ID: <CADvbK_fuuBrh+eOuhQU+SYs9uazH2TRP+KUmhxU=hNZ=EkOT=Q@mail.gmail.com>
+References: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
+ <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: network dev <netdev@vger.kernel.org>,
         David Miller <davem@davemloft.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>
+        netfilter-devel@vger.kernel.org,
+        Jamal Hadi Salim <jhs@mojatatu.com>
 To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:38866 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751639AbdHHCRp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 22:17:45 -0400
-Received: by mail-qt0-f194.google.com with SMTP id p3so2150054qtg.5
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 19:17:44 -0700 (PDT)
-In-Reply-To: <CAM_iQpUT8CMdz1sgBaVS+7drzPPFp10APOHiKPib8oNq7kPsFg@mail.gmail.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:34121 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751701AbdHHCdu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 22:33:50 -0400
+In-Reply-To: <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 8, 2017 at 9:03 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Sat, Aug 5, 2017 at 4:32 AM, Xin Long <lucien.xin@gmail.com> wrote:
->> Commit 55917a21d0cc ("netfilter: x_tables: add context to know if
->> extension runs from nft_compat") introduced a member nft_compat to
->> xt_tgchk_param structure.
->>
->> But it didn't set it's value for ipt_init_target. With unexpected
->> value in par.nft_compat, it may return unexpected result in some
->> target's checkentry.
->>
->> This patch is to set par.nft_compat with false in ipt_init_target.
+On Tue, Aug 8, 2017 at 9:15 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> (Cc'ing netfilter and Jamal)
 >
-> It's time to set all these fields to 0 and only initialize those non-zero
-> fields, in case we will add more fields in the future.
-ok, the new fix is depend on the net_id one.
-I will post v2 after that one gets accepted. thanks.
+> On Sat, Aug 5, 2017 at 4:35 AM, Xin Long <lucien.xin@gmail.com> wrote:
+>> As we know in some target's checkentry it may dereference par.entryinfo
+>> to check entry stuff inside. But when sched action calls xt_check_target,
+>> par.entryinfo is set with NULL. It would cause kernel panic when calling
+>> some targets.
+>>
+>> It can be reproduce with:
+>>   # tc qd add dev eth1 ingress handle ffff:
+>>   # tc filter add dev eth1 parent ffff: u32 match u32 0 0 action xt \
+>>     -j ECN --ecn-tcp-remove
+>>
+>> It could also crash kernel when using target CLUSTERIP or TPROXY.
+>>
+[1]
+>> By now there's no proper value for par.entryinfo in ipt_init_target,
+>> but it can not be set with NULL. This patch is to void all these
+>> panics by setting it with an ipt_entry obj with all members 0.
+>>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  net/sched/act_ipt.c | 4 +++-
+>>  1 file changed, 3 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
+>> index 7c4816b..0f09f70 100644
+>> --- a/net/sched/act_ipt.c
+>> +++ b/net/sched/act_ipt.c
+>> @@ -41,6 +41,7 @@ static int ipt_init_target(struct net *net, struct xt_entry_target *t,
+>>  {
+>>         struct xt_tgchk_param par;
+>>         struct xt_target *target;
+>> +       struct ipt_entry e;
+>>         int ret = 0;
+>>
+>>         target = xt_request_find_target(AF_INET, t->u.user.name,
+>> @@ -48,10 +49,11 @@ static int ipt_init_target(struct net *net, struct xt_entry_target *t,
+>>         if (IS_ERR(target))
+>>                 return PTR_ERR(target);
+>>
+>> +       memset(&e, 0, sizeof(e));
+>>         t->u.kernel.target = target;
+>>         par.net       = net;
+>>         par.table     = table;
+>> -       par.entryinfo = NULL;
+>> +       par.entryinfo = &e;
+>
+> This looks like a completely API burden?
+netfilter xt targets are not really compatible with netsched action.
+I've got to say, the patch is just a way to make checkentry return
+false and avoid panic. like [1] said
