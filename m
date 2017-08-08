@@ -1,99 +1,51 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: [PATCHv2] bluetooth: document config options
-Date: Tue, 8 Aug 2017 15:48:40 +0200
-Message-ID: <20170808134839.GA801@amd>
-References: <20170721074957.GA12640@amd>
- <CDF602D5-78C6-4F97-9C12-3E6AD3AA6C37@holtmann.org>
- <20170721104228.GA9448@amd>
- <EDDC23EF-C82E-41EE-8530-E86B9B4756A5@holtmann.org>
+From: "infoinfo@ono.com" <infoinfo@ono.com>
+Subject: =?UTF-8?B?2KrYrdmK2Kkg2LfZitio2Kk=?=
+Date: Tue, 8 Aug 2017 15:51:34 +0200 (CEST)
+Message-ID: <32952577.1072311502200294951.JavaMail.defaultUser@defaultHost>
+Reply-To: infoinfo@ono.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="82I3+IH0IqGh5yIs"
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        linux-bluetooth@vger.kernel.org,
-        kernel list <linux-kernel@vger.kernel.org>,
-        Netdev list <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <EDDC23EF-C82E-41EE-8530-E86B9B4756A5@holtmann.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: base64
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp3.ono.com ([62.42.230.163]:51285 "EHLO smtp3.ono.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752163AbdHHNvj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Aug 2017 09:51:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---82I3+IH0IqGh5yIs
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Kernel config options should include useful help text; I had to look
-up the terms on wikipedia.
-
-Signed-off-by: Pavel Machek <pavel@ucw.cz>
-
----
-
-> are you planning to send a patch with updated wording for this?
-
-Sorry for the delay, it is above. I added word "wifi" to 802.11
-description.
-
-							Pavel
-
-diff --git a/net/bluetooth/Kconfig b/net/bluetooth/Kconfig
-index 68f951b..48add1e 100644
---- a/net/bluetooth/Kconfig
-+++ b/net/bluetooth/Kconfig
-@@ -45,6 +45,11 @@ config BT_BREDR
- 	bool "Bluetooth Classic (BR/EDR) features"
- 	depends on BT
- 	default y
-+	help
-+	  Bluetooth Classic includes support for Basic Rate (BR)
-+	  available with Bluetooth version 1.0b or later and support
-+	  for Enhanced Data Rate (EDR) available with Bluetooth
-+	  version 2.0 or later.
-=20
- source "net/bluetooth/rfcomm/Kconfig"
-=20
-@@ -58,12 +63,19 @@ config BT_HS
- 	bool "Bluetooth High Speed (HS) features"
- 	depends on BT_BREDR
- 	default y
-+	help
-+	  Bluetooth High Speed includes support for off-loading
-+	  Bluetooth connections via 802.11 (wifi) physical layer
-+	  available with Bluetooth version 3.0 or later.
-=20
- config BT_LE
- 	bool "Bluetooth Low Energy (LE) features"
- 	depends on BT
- 	default y
--
-+	help
-+	  Bluetooth Low Energy includes support low-energy physical
-+	  layer available with Bluetooth version 4.0 or later.
-+	 =20
- config BT_6LOWPAN
- 	tristate "Bluetooth 6LoWPAN support"
- 	depends on BT_LE && 6LOWPAN
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---82I3+IH0IqGh5yIs
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlmJwTcACgkQMOfwapXb+vIYEQCeJr6pC+SAN72Ys0OhbqMeZ6M8
-ookAnjJ0wMqlM2f7x2sd55JleyIyXUNq
-=w1QS
------END PGP SIGNATURE-----
-
---82I3+IH0IqGh5yIs--
+2KrYrdmK2Kkg2LfZitio2KkKCtij2YbYpyDYp9mE2LPZitiv2Kkg2KXZitizINi52YXYsdiMINiy
+2YjYrNipINix2KbZitizINin2YTZiNmB2K8g2KfZhNiz2KfYqNmCINin2YTZhdiq2YjZgdmJINmE
+2K/ZiSDYp9mE2KjZhtmDINin2YTYr9mI2YTZiiDZgdmKIArYutix2Kgg2KPZgdix2YrZgtmK2Kcu
+INmI2YPYp9mGINiy2YjYrNmKINmH2Ygg2KfZhNix2KfYqNi3INio2YrZhiDZhdmG2LjZhdipINin
+2YTYr9mI2YQg2KfZhNmF2LXYr9ix2Kkg2YTZhNmG2YHYtyAo2KfZiNio2YMpIArZiNmC2LfYp9i5
+INin2YTZhtmB2Lcg2YHZiiDYqNmE2K8g2YHZiiDYutix2Kgg2KfZgdix2YrZgtmK2KfYjCDYqtmI
+2YHZiiDYqNiz2KjYqCDYs9mD2KrYqSDZgtmE2KjZitipINmB2Yog2KjZhNiv2KrZhtinINio2LnY
+ryAK2KfZhiDYrdi22LEg2KfYrNiq2YXYp9i52KfYqiDZhdmG2LjZhdipINin2YTYr9mI2YQg2KfZ
+hNmF2LXYr9ix2Kkg2YTZhNmG2YHYtyAo2KfZiNio2YMpINmB2Yog2KzZhtmK2YEuCgrZg9in2YYg
+2YLYp9iv2LHYpyDYudmE2Ykg2KzYudmEICjYudi02LHYqSDZhdmE2KfZitmK2YYg2K/ZiNmE2KfY
+sSDYo9mF2LHZitmD2YopINmF2YYg2K7ZhNin2YQg2YXYqNmK2LnYp9iqINit2LXYtSDYp9mE2YbZ
+gdi3IArYp9mE2YXYrti12LXYqSDZgdmKINij2YjYqNmDINmI2KfZhNmI2K/Yp9im2Lkg2YHZiiDY
+o9it2K8g2KfZhNio2YbZiNmDINit2YrYqyDZhNinINmK2LnYsdmBINiy2YXZhNin2KTZhyDYudmG
+INiw2YTZg9iMINij2LHZitiv2YMgCtij2YYg2KrYs9in2LnYr9mG2Yog2YHZiiDYp9mE2YXYt9in
+2YTYqNipINio2YfYsNmHINin2YTYo9mF2YjYp9mEINmD2YXYpyDYo9mG2Kcg2YTYpyDZitmF2YPZ
+hiDYo9mGINmK2K/YudmKINiw2YTZgyDZhdio2KfYtNix2KkgCtmE2KPZhtmHINis2LnZhCDYp9mE
+2YjYr9in2KbYuSDZg9i12YbYr9mI2YIg2YrZhtiq2YXZiiDYpdmE2Ykg2LTYsdmD2KrZhyDYp9mE
+2KrYrNin2LHZitipINmF2YYg2KPYrNmEINi52K/ZhSDYsdmB2LkgCtin2YTYrdin2KzYqNmK2YYg
+2YXZhtiwINmD2KfZhiDZhdmI2LjZgdinINmF2K/ZhtmK2Kcg2K7ZhNin2YQg2LDZhNmDINin2YTZ
+iNmC2KrYjCDZiNmF2YPYqtioINmF2K/ZiNmG2Kkg2KfZhNiz2YTZiNmDINmK2YXZhti52YcgCtij
+2Ygg2LLZiNis2KrZhyDZhdmGINin2YTYrdi12YjZhCDYudmE2Ykg2YfYsNinINin2YTZhdio2YTY
+uiDZhdmGINin2YTZhdin2YQgLgoK2YrZhdmD2YbZgyDZhdiz2KfYudiv2KrZiiDZhNiq2K3ZiNmK
+2YQg2KfZhNij2YXZiNin2YQg2KXZhNmJINit2LPYp9io2YPYnyDZiNiz2YjZgSDZhtmC2K/ZhSDZ
+hNmD2YUgMzAg2YHZiiDYp9mE2YXYptipIArZhNi52YXZhNmDLiDYpdiw2Kcg2YPZhtiqINmK2YXZ
+g9mGINij2YYg2KrYttmF2YYg2YTZiiDZhdix2YrYrSDZhdmGINmC2K/Ysdiq2YMg2LnZhNmJINin
+2YTYrdmB2KfYuCDYudmE2Ykg2YfYsNinINin2YTYudmF2YQgCtiz2LHZitipINis2K/YpyDZiNiz
+2LHZitip2Iwg2YrZhdmD2YbZgyDYp9mE2YPYqtin2KjYqSDZhNmKINmE2YXYstmK2K8g2YXZhiDY
+p9mE2KrZgdin2LXZitmELgoK2KrYrdmK2KfYqtmKINit2KfYsdip2IwK2KfZhNiz2YrYr9ipINil
+2YrYsyDYudmF2LEK2KfZhNio2LHZitivINin2YTYpdmE2YPYqtix2YjZhtmKOiBtcnNlc3Nlb21h
+ckBnbWFpbC5jb20KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0K2LnYsNix
+2KfYjCDYpdiw2Kcg2KrZhNmC2YrYqiDZh9iw2Ycg2KfZhNix2LPYp9mE2Kkg2YHZiiDYp9mE2LHY
+s9in2KbZhCDYutmK2LEg2KfZhNmF2LHYutmI2Kgg2YHZitmH2KfYjCDZitix2KzYuSDYsNmE2YMg
+2KXZhNmJIArYrdiv2YjYqyDYrti32KMg2YHZiiDYp9mE2KfYqti12KfZhCDZhdik2K7YsdinINmH
+2YbYpyDZgdmKINin2YTYqNmE2K8u
