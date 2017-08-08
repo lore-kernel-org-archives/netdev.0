@@ -1,68 +1,69 @@
-From: "Gao Feng" <gfree.wind@vip.163.com>
-Subject: Re:Re:Re: Re: [PATCH net] ppp: Fix a scheduling-while-atomic bug in
- del_chan
-Date: Tue, 8 Aug 2017 09:10:34 +0800 (CST)
-Message-ID: <16ae6009.7a67.15dbf64b398.Coremail.gfree.wind@vip.163.com>
-References: <1501495658-119725-1-git-send-email-gfree.wind@vip.163.com>
- <CAM_iQpVEsTpg17RZ1Y1jN2e0wb_X6gtxx05rmUSGa=A=XSj=Eg@mail.gmail.com>
- <CAM_iQpVta2EFVjutndCmoLBPWko7dgzP=Q1i2krPqyYuNBV4RA@mail.gmail.com>
- <31c9755c.ff6.15dba5238fc.Coremail.gfree.wind@vip.163.com>
- <CAM_iQpWmJmk=_yoV8=krOWonE_0orTC5Z4GaCnPg8Jv3GX6dmw@mail.gmail.com>
- <697dbbd.7911.15dbf5ca3a6.Coremail.gfree.wind@vip.163.com>
+From: Joel Fernandes <joelaf@google.com>
+Subject: Re: [PATCH RFC v2 3/5] samples/bpf: Fix inline asm issues building
+ samples on arm64
+Date: Mon, 7 Aug 2017 18:20:49 -0700
+Message-ID: <CAJWu+orPBSozHo6PDnvg9+RzmYVO=rwwNZk45kHFsBJmy-3A-Q@mail.gmail.com>
+References: <20170807130602.31785-1-joelaf@google.com> <20170807130602.31785-4-joelaf@google.com>
+ <20170807.112840.395506747161262549.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: "Cong Wang" <xiyou.wangcong@gmail.com>, xeb@mail.ru,
-        "David Miller" <davem@davemloft.net>,
-        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
-To: "Gao Feng" <gfree.wind@vip.163.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m171-177.vip.163.com ([123.58.177.171]:56134 "EHLO
-        m171-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751583AbdHHBKr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 21:10:47 -0400
-In-Reply-To: <697dbbd.7911.15dbf5ca3a6.Coremail.gfree.wind@vip.163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Chenbo Feng <fengc@google.com>,
+        Alison Chaiken <alison@she-devel.com>,
+        Juri Lelli <Juri.Lelli@arm.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "open list:BPF (Safe dynamic programs and tools)"
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170807.112840.395506747161262549.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-QXQgMjAxNy0wOC0wOCAwMToxNzowMiwgIkNvbmcgV2FuZyIgPHhpeW91Lndhbmdjb25nQGdtYWls
-LmNvbT4gd3JvdGU6Cj5PbiBTdW4sIEF1ZyA2LCAyMDE3IGF0IDY6MzIgUE0sIEdhbyBGZW5nIDxn
-ZnJlZS53aW5kQHZpcC4xNjMuY29tPiB3cm90ZToKPj4gSSB0aGluayB0aGUgUkNVIHNob3VsZCBi
-ZSBzdXBwb3NlZCB0byBhdm9pZCB0aGUgcmFjZSBiZXR3ZWVuIGRlbF9jaGFuIGFuZCBsb29rdXBf
-Y2hhbi4KPgo+TW9yZSBwcmVjaXNlbHksIGl0IGlzIGNhbGxpZF9zb2NrIHdoaWNoIGlzIHByb3Rl
-Y3RlZCBieSBSQ1UuCj4KPlVubGVzcyBJIG1pc3MgYW55IG90aGVyIGNvZGUgcGF0aCwgcHB0cF9l
-eGl0X21vZHVsZSgpIGlzCj5wcm9ibGVtYXRpYyB0b28sIEkgZG9uJ3QgdGhpbmsgaXQgY2FuIGp1
-c3QgdmZyZWUoKSB0aGUgd2hvbGUgdGhpbmcuCj4KPgo+PiBUaGUgc3luY2hyb25pemVfcmN1IGNv
-dWxkIG1ha2Ugc3VyZSBpZiB0aGVyZSB3YXMgb25lIHdoaWNoIGNhbGxzIGxvb2t1cF9jaGFuIGlu
-IHRoaXMgcGVyaW9kLCBpdCB3b3VsZCBiZSBmaW5pc2hlZCBhbmQgdGhlIHNvY2sgcmVmY250IGlz
-IGluY3JlYXNlZCBpZiBuZWNlc3NhcnkuCj4+Cj4+IFNvIEkgdGhpbmsgaXQgaXMgb2sgdG8gaW52
-b2tlIHNvY2tfcHV0IGRpcmVjdGx5IHdpdGhvdXQgU09DS19SQ1VfRlJFRSwgYmVjYXVzZSB0aGUg
-bG9va3VwX2NoYW4gY2FsbGVyIGhhcyBhbHJlYWR5IGhvbGQgdGhlIHNvY2sgcmVmY250LAo+PgoK
-PgoKCkhpIENvbmcsCkkganVzdCB0aG91Z2h0IGFib3V0IHRoaXMgaXNzdWUgbGFzdCBuaWdodCwg
-dGhlbiBJIGdldCB5b3VyIHRoaXMgZW1haWwgdGhpcyBtb3JuaW5nLgoKPklmIHlvdSBtZWFuIHRo
-ZSBzb2NrX2hvbGQoKSBpbnNpZGUgbG9va3VwX2NoYW4oKSwgbm8sCj5pdCBkb2Vzbid0IGhlbHAg
-YmVjYXVzZSB3ZSBhbHJlYWR5IGRlcmVmZXJlbmNlIHRoZSBzb2NrCj5iZWZvcmUgaXQuCgo+CgoK
-U29ycnksIEkgZG9uJ3QgZ2V0IHlvdSBjbGVhcmx5LiBXaHkgdGhlIHNvY2tfaG9sZCgpIGlzbid0
-IGhlbHBmdWw/ClRoZSBwcHRwX3JlbGVhc2UgaW52b2tlcyBzeW5jaHJvbml6ZV9yY3UgYWZ0ZXIg
-ZGVsX2NoYW4sIGl0IGNvdWxkIG1ha2Ugc3VyZSB0aGUgb3RoZXJzIGhhcyBpbmNyZWFzZWQgdGhl
-IHNvY2sgcmVmY250IGlmIG5lY2Vzc2FyeQphbmQgdGhlIGxvb2t1cCBpcyBvdmVyLgpUaGVyZSBp
-cyBubyBvbmUgY291bGQgZ2V0IHRoZSBzb2NrIGFmdGVyIHN5bmNocm9uaXplX3JjdSBpbiBwcHRw
-X3JlbGVhc2UuCgoKQnV0IEkgdGhpbmsgYWJvdXQgYW5vdGhlciBwcm9ibGVtLgpJdCBzZWVtcyB0
-aGUgcHB0cF9zb2NrX2Rlc3RydWN0IHNob3VsZCBub3QgaW52b2tlIGRlbF9jaGFuIGFuZCBwcHBv
-eF91bmJpbmRfc29jay4KQmVjYXVzZSB3aGVuIHRoZSBzb2NrIHJlZmNudCBpcyAwLCB0aGUgcHB0
-cF9yZWxlYXNlIG11c3QgaGF2ZSBiZSBpbnZva2VkIGFscmVhZHkuCgoKVGhlcmUgYXJlIHR3byBj
-YXNlcyB0b3RhbGx5LgoxLiB3aGVuIHBwdHBfcmVsZWFzZSBpbnZva2VzIHNvY2tfcHV0LCB0aGUg
-cmVmY250IGlzIDAuIFRoZSBkZWxfY2hhbiBhbmQgcHBwb3hfdW5iaW5kX3NvY2sgYXJlIGludm9r
-ZWQuCjIuIHdoZW4gcHB0cF9yZWxlYXNlIGludm9rZXMgc29ja19wdXQsIHRoZSByZWZjbnQgaXMg
-bm90IDAuIEl0IG1lYW5zIHNvbWVvbmUgaG9sZHMgdGhlIHNvY2sgZHVyaW5nIHRoZSBwZXJpb2Qg
-cHB0cF9yZWxlYXNlIGludm9rZXMgZGVsX2NoYW4uClRoZW4gc29tZW9uZSBpbnZva2VzIHNvY2tf
-cHV0IGFuZCB0aGUgc29jayByZWZjbnQgcmVhY2ggMCwgaXQgd291bGQgaW52b2tlIHNrX2ZyZWUg
-YW5kIGludm9rZXMgcHB0cF9zb2NrX2Rlc3RydWN0LgpTbyBpdCBpcyB1bm5lY2Vzc2FyeSB0byBp
-bnZva2UgZGVsX2NoYW4gYW5kIHBwcG94X3VuYmluZF9zb2NrIGFnYWluLgpBbmQgaXQgd291bGQg
-YnJpbmcgYSByYWNlIGlzc3VlIGV2ZW4gaWYgdGhlIHBwdHBfc29ja19kZXN0cnVjdCBpbnZva2Vk
-IGRlbF9jaGFuLgoKCklmIHNvLCBJIHdvdWxkIHNlbmQgYW5vdGhlciBwYXRjaCBmb3IgaXQuCgoK
-PkFsc28sIGxvb2t1cF9jaGFuX2RzdCgpIGRvZXMgbm90IGhhdmUgYSByZWZjbnQsIEkgZG9uJ3QK
-PmZpbmQgYW55IGNvZGUgcHJldmVudGluZyBpdCBkZXJlZidpbmcgb3RoZXIgc29jayBpbiBjYWxs
-aWRfc29jawoKPnRoYW4gdGhlIGNhbGxpbmcgb25lLgoKClNvcnJ5LCB0aGUgbGFzdCBlbWFpbCBp
-cyBodG1sIGZvcm1hdCwgbm90IHRleHQuClNvIEkgc2VuZCBpdCB3aXRoIHRleHQgZm9ybWF0IGFn
-YWluLgoKQmVzdCBSZWdhcmRzCkZlbmcKCgoKCgo=
+Hi Dave,
+
+On Mon, Aug 7, 2017 at 11:28 AM, David Miller <davem@davemloft.net> wrote:
+>
+> Please, no.
+
+Sorry you dislike it, I had intentionally marked it as RFC as its an
+idea I was just toying with the idea and posted it early to get
+feedback.
+
+>
+> The amount of hellish hacks we are adding to deal with this is getting
+> way out of control.
+
+I agree with you that hellish hacks are being added which is why it
+keeps breaking. I think one of the things my series does is to add
+back inclusion of asm headers that were previously removed (that is
+the worst hellish hack in my opinion that existing in mainline). So in
+that respect my patch is an improvement and makes it possible to build
+for arm64 platforms (which is currently broken in mainline).
+
+>
+> BPF programs MUST have their own set of asm headers, this is the
+> only way to get around this issue in the long term.
+
+Wouldn't that break scripts or bpf code that instruments/trace arch
+specific code?
+
+>
+> I am also strongly against adding -static to the build.
+
+I can drop -static if you prefer, that's not an issue.
+
+As I understand it, there are no other cleaner alternatives and this
+patchset makes the samples work. I would even argue that's its more
+functional than previous attempts and fixes something broken in
+mainline in a more generic way. If you can provide an example of where
+my patchset may not work, I would love to hear it. My whole idea was
+to do it in a way that makes future breakage not happen. I don't think
+that leaving things broken in this state for extended periods of time
+makes sense and IMHO will slow usage of bpf samples on other
+platforms.
+
+thanks,
+
+-Joel
