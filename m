@@ -1,51 +1,72 @@
-From: "Gao Feng" <gfree.wind@vip.163.com>
-Subject: Re:Re: [PATCH net] ppp: fix xmit recursion detection on ppp
- channels
-Date: Tue, 8 Aug 2017 22:21:58 +0800 (CST)
-Message-ID: <22bd4c3b.1578c.15dc2394057.Coremail.gfree.wind@vip.163.com>
-References: <e45ed6ea02e2665ec8b868279ad9afcb9b34fc81.1502185216.git.g.nault@alphalink.fr>
- <5a62fd3f.e0c3.15dc1fd5f1b.Coremail.gfree.wind@vip.163.com>
- <20170808135827.oszy6ikqi2gw5cs7@alphalink.fr>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next] openvswitch: add NSH support
+Date: Tue, 8 Aug 2017 16:28:10 +0200
+Message-ID: <20170808162810.1bab3812@griffin>
+References: <1502168380-106785-1-git-send-email-yi.y.yang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, "Liu Jianying" <jianying.liu@ikuai8.com>,
-        "David Miller" <davem@davemloft.net>, linux-ppp@vger.kernel.org,
-        "Paul Mackerras" <paulus@samba.org>
-To: "Guillaume Nault" <g.nault@alphalink.fr>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, davem@davemloft.net
+To: Yi Yang <yi.y.yang@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m175-177.vip.163.com ([123.58.177.175]:60276 "EHLO
-        m175-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752010AbdHHOWY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 10:22:24 -0400
-In-Reply-To: <20170808135827.oszy6ikqi2gw5cs7@alphalink.fr>
+Received: from mx1.redhat.com ([209.132.183.28]:43132 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751880AbdHHO2N (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Aug 2017 10:28:13 -0400
+In-Reply-To: <1502168380-106785-1-git-send-email-yi.y.yang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CkF0IDIwMTctMDgtMDggMjE6NTg6MjcsICJHdWlsbGF1bWUgTmF1bHQiIDxnLm5hdWx0QGFscGhh
-bGluay5mcj4gd3JvdGU6Cj5PbiBUdWUsIEF1ZyAwOCwgMjAxNyBhdCAwOToxNjozM1BNICswODAw
-LCBHYW8gRmVuZyB3cm90ZToKPj4gQXQgMjAxNy0wOC0wOCAxNzo0MzoyNCwgIkd1aWxsYXVtZSBO
-YXVsdCIgPGcubmF1bHRAYWxwaGFsaW5rLmZyPiB3cm90ZToKPj4gPi0tLSBhL2RyaXZlcnMvbmV0
-L3BwcC9wcHBfZ2VuZXJpYy5jCj4+ID4rKysgYi9kcml2ZXJzL25ldC9wcHAvcHBwX2dlbmVyaWMu
-Ywo+PiA+QEAgLTE5MTUsMjEgKzE5MTUsMjMgQEAgc3RhdGljIHZvaWQgX19wcHBfY2hhbm5lbF9w
-dXNoKHN0cnVjdCBjaGFubmVsICpwY2gpCj4+ID4gCXNwaW5fdW5sb2NrKCZwY2gtPmRvd25sKTsK
-Pj4gPiAJLyogc2VlIGlmIHRoZXJlIGlzIGFueXRoaW5nIGZyb20gdGhlIGF0dGFjaGVkIHVuaXQg
-dG8gYmUgc2VudCAqLwo+PiA+IAlpZiAoc2tiX3F1ZXVlX2VtcHR5KCZwY2gtPmZpbGUueHEpKSB7
-Cj4+ID4tCQlyZWFkX2xvY2soJnBjaC0+dXBsKTsKPj4gPiAJCXBwcCA9IHBjaC0+cHBwOwo+PiA+
-IAkJaWYgKHBwcCkKPj4gPi0JCQlwcHBfeG1pdF9wcm9jZXNzKHBwcCk7Cj4+ID4tCQlyZWFkX3Vu
-bG9jaygmcGNoLT51cGwpOwo+PiA+KwkJCV9fcHBwX3htaXRfcHJvY2VzcyhwcHApOwo+PiA+IAl9
-Cj4+ID4gfQo+PiA+IAo+PiA+IHN0YXRpYyB2b2lkIHBwcF9jaGFubmVsX3B1c2goc3RydWN0IGNo
-YW5uZWwgKnBjaCkKPj4gPiB7Cj4+ID4tCWxvY2FsX2JoX2Rpc2FibGUoKTsKPj4gPi0KPj4gPi0J
-X19wcHBfY2hhbm5lbF9wdXNoKHBjaCk7Cj4+ID4tCj4+ID4tCWxvY2FsX2JoX2VuYWJsZSgpOwo+
-PiA+KwlyZWFkX2xvY2tfYmgoJnBjaC0+dXBsKTsKPj4gPisJaWYgKHBjaC0+cHBwKSB7Cj4+ID4r
-CQkoKnRoaXNfY3B1X3B0cihwY2gtPnBwcC0+eG1pdF9yZWN1cnNpb24pKSsrOwo+PiA+KwkJX19w
-cHBfY2hhbm5lbF9wdXNoKHBjaCk7Cj4+ID4rCQkoKnRoaXNfY3B1X3B0cihwY2gtPnBwcC0+eG1p
-dF9yZWN1cnNpb24pKS0tOwo+PiA+Kwl9IGVsc2Ugewo+PiA+KwkJX19wcHBfY2hhbm5lbF9wdXNo
-KHBjaCk7Cj4+ID4rCX0KPj4gPisJcmVhZF91bmxvY2tfYmgoJnBjaC0+dXBsKTsKPj4gCj4+IElm
-IGludm9rZWQgcmVhZF9sb2NrX2JoIGluIHBwcF9jaGFubmVsX3B1c2gsIGl0IHdvdWxkIGJlIHVu
-bmVjZXNzYXJ5IHRvIGludm9rZSByZWFkX2xvY2soJnBjaC0+dXBsKQo+PiBpbiB0aGUgX19wcHBf
-Y2hhbm5lbF9wdXNoLgo+PiAKPkJ1dCB0aGlzIHBhdGNoIGRvZXMgcmVtb3ZlIHJlYWRfbG9jaygm
-cGNoLT51cGwpIGZyb20KPl9fcHBwX2NoYW5uZWxfcHVzaCgpLiBPciBoYXZlIEkgbWlzdW5kZXJz
-dG9vZCB5b3VyIHBvaW50PwoKU29ycnksIGl0J3MgbXkgZmF1bHQuCkkgZm9yZ290IHlvdXIgZm9y
-bWVyIGNoYW5nZXMgd2hlbiB0aGluayBhYm91dCB0aGUgdXBkYXRlcyBpbiBwcHBfY2hhbm5lbF9w
-dXNoCgpCZXN0IFJlZ2FyZHMKRmVuZwoK
+On Tue,  8 Aug 2017 12:59:40 +0800, Yi Yang wrote:
+> +struct ovs_key_nsh {
+> +	__u8 flags;
+> +	__u8 mdtype;
+> +	__u8 np;
+> +	__u8 pad;
+> +	__be32 path_hdr;
+> +	__be32 c[4];
+
+"c" is a very poor name. Please rename it to something that expresses
+what this field contains.
+
+Also, this looks like MD type 1 only. How are those fields going to work
+with MD type 2? I don't think MD type 2 implementation is necessary in
+this patch but I'd like to know how this is going to work - it's uAPI
+and thus set in stone once this is merged. The uAPI needs to be
+designed with future use in mind.
+
+> +#define OVS_ENCAP_NSH_MAX_MD_LEN 16
+> +/*
+> + * struct ovs_action_encap_nsh - %OVS_ACTION_ATTR_ENCAP_NSH
+> + * @flags: NSH header flags.
+> + * @mdtype: NSH metadata type.
+> + * @mdlen: Length of NSH metadata in bytes.
+> + * @np: NSH next_protocol: Inner packet type.
+> + * @path_hdr: NSH service path id and service index.
+> + * @metadata: NSH metadata for MD type 1 or 2
+> + */
+> +struct ovs_action_encap_nsh {
+> +	__u8 flags;
+> +	__u8 mdtype;
+> +	__u8 mdlen;
+> +	__u8 np;
+> +	__be32 path_hdr;
+> +	__u8 metadata[OVS_ENCAP_NSH_MAX_MD_LEN];
+
+This is wrong. The metadata size is set to a fixed size by this and
+cannot be ever extended, or at least not easily. Netlink has attributes
+for exactly these cases and that's what needs to be used here.
+
+> @@ -835,6 +866,8 @@ enum ovs_action_attr {
+>  	OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
+>  	OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
+>  	OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
+> +	OVS_ACTION_ATTR_ENCAP_NSH,    /* struct ovs_action_encap_nsh. */
+> +	OVS_ACTION_ATTR_DECAP_NSH,    /* No argument. */
+
+Use "push" and "pop", not "encap" and "decap" to be consistent with the
+naming in the rest of the file. We use encap and decap for tunnel
+operations. This code does not use lwtunnels, thus push and pop is more
+appropriate.
+
+ Jiri
