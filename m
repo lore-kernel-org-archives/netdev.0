@@ -1,66 +1,301 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH v3 net-next 0/5] ulp: Generalize ULP infrastructure
-Date: Tue, 08 Aug 2017 08:31:36 -0700
-Message-ID: <5989D958.6080506@gmail.com>
-References: <20170807172818.31855-1-tom@quantonium.net>
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Subject: [PATCH v3 net-next] ibmvnic: Add netdev_dbg output for debugging
+Date: Tue, 08 Aug 2017 15:24:05 -0500
+Message-ID: <20170808202405.31977.86622.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: rohit@quantonium.net, davejwatson@fb.com
-To: Tom Herbert <tom@quantonium.net>, netdev@vger.kernel.org
+Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35700 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752014AbdHHPbq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 11:31:46 -0400
-Received: by mail-pf0-f194.google.com with SMTP id j68so3388122pfc.2
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 08:31:45 -0700 (PDT)
-In-Reply-To: <20170807172818.31855-1-tom@quantonium.net>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:49914 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752439AbdHHPhR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 11:37:17 -0400
+Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v78FYJXX048242
+        for <netdev@vger.kernel.org>; Tue, 8 Aug 2017 11:37:16 -0400
+Received: from e12.ny.us.ibm.com (e12.ny.us.ibm.com [129.33.205.202])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2c7ff3awtp-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 11:37:16 -0400
+Received: from localhost
+        by e12.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
+        Tue, 8 Aug 2017 11:37:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/07/2017 10:28 AM, Tom Herbert wrote:
-> Generalize the ULP infrastructure that was recently introduced to
-> support kTLS. This adds a SO_ULP socket option and creates new fields in
-> sock structure for ULP ops and ULP data. Also, the interface allows
-> additional per ULP parameters to be set so that a ULP can be pushed
-> and operations started in one shot.
-> 
-> In this patch set:
->   - Minor dependency fix in inet_common.h
->   - Implement ULP infrastructure as a socket mechanism
->   - Fixes TCP and TLS to use the new method (maintaining backwards
->     API compatibility)
->   - Adds a ulp.txt document
-> 
-> Tested: Ran simple ULP. Dave Watson verified kTLS works.
-> 
-> -v2: Fix compilation errors when CONFIG_ULP_SOCK not set.
-> -v3: Fix one more build issue, check that sk_protocol is IPPROTO_TCP
->      in tsl_init. Also, fix a couple of minor issues related to
->      introducing locked versions of sendmsg, send page. Thanks to
->      Dave Watson, John Fastabend, and Mat Martineau for testing and
->      providing fixes.
-> 
+To ease debugging of the ibmvnic driver add a series of netdev_dbg()
+statements to track driver status, especially during initialization,
+removal, and resetting of the driver.
 
+Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+---
 
-Hi Tom, Dave,
+v2: Removed several dbg statements where ftrace would already work
+    for tracking driver status, per Joe Perches comment.
 
-I'm concerned about the performance impact of walking a list and
-doing string compares on every socket we create with kTLS. Dave
-do you have any request/response tests for kTLS that would put pressure
-on the create/destroy time of this infrastructure? We should do some
-tests with dummy entries in the ULP list to understand the impact of
-this list walk.
+v3: Correct misspelling in dbg message
+---
+ drivers/net/ethernet/ibm/ibmvnic.c |   62 ++++++++++++++++++++++++++++++++----
+ 1 file changed, 55 insertions(+), 7 deletions(-)
 
-I like the underlying TCP generalized hooks, but do we really expect a
-lot of these hooks to exist? If we only have two on the roadmap
-(kTLS and socktap) it seems a bit overkill. Further, if we really expect
-many ULP objects then the list walk and compare will become more expensive
-perhaps becoming noticeable in request per second metrics.
-
-Why not just create another socktap socketopt? That will be better from
-complexity and likely performance sides.
-
-Thanks,
-.John 
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 5932160..d267aa8 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -398,6 +398,7 @@ static int init_stats_token(struct ibmvnic_adapter *adapter)
+ 	}
+ 
+ 	adapter->stats_token = stok;
++	netdev_dbg(adapter->netdev, "Stats token initialized (%llx)\n", stok);
+ 	return 0;
+ }
+ 
+@@ -411,6 +412,8 @@ static int reset_rx_pools(struct ibmvnic_adapter *adapter)
+ 	for (i = 0; i < rx_scrqs; i++) {
+ 		rx_pool = &adapter->rx_pool[i];
+ 
++		netdev_dbg(adapter->netdev, "Re-setting rx_pool[%d]\n", i);
++
+ 		rc = reset_long_term_buff(adapter, &rx_pool->long_term_buff);
+ 		if (rc)
+ 			return rc;
+@@ -443,6 +446,8 @@ static void release_rx_pools(struct ibmvnic_adapter *adapter)
+ 	for (i = 0; i < rx_scrqs; i++) {
+ 		rx_pool = &adapter->rx_pool[i];
+ 
++		netdev_dbg(adapter->netdev, "Releasing rx_pool[%d]\n", i);
++
+ 		kfree(rx_pool->free_map);
+ 		free_long_term_buff(adapter, &rx_pool->long_term_buff);
+ 
+@@ -489,7 +494,7 @@ static int init_rx_pools(struct net_device *netdev)
+ 		rx_pool = &adapter->rx_pool[i];
+ 
+ 		netdev_dbg(adapter->netdev,
+-			   "Initializing rx_pool %d, %lld buffs, %lld bytes each\n",
++			   "Initializing rx_pool[%d], %lld buffs, %lld bytes each\n",
+ 			   i, adapter->req_rx_add_entries_per_subcrq,
+ 			   be64_to_cpu(size_array[i]));
+ 
+@@ -539,6 +544,8 @@ static int reset_tx_pools(struct ibmvnic_adapter *adapter)
+ 
+ 	tx_scrqs = be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
+ 	for (i = 0; i < tx_scrqs; i++) {
++		netdev_dbg(adapter->netdev, "Re-setting tx_pool[%d]\n", i);
++
+ 		tx_pool = &adapter->tx_pool[i];
+ 
+ 		rc = reset_long_term_buff(adapter, &tx_pool->long_term_buff);
+@@ -569,6 +576,7 @@ static void release_tx_pools(struct ibmvnic_adapter *adapter)
+ 
+ 	tx_scrqs = be32_to_cpu(adapter->login_rsp_buf->num_txsubm_subcrqs);
+ 	for (i = 0; i < tx_scrqs; i++) {
++		netdev_dbg(adapter->netdev, "Releasing tx_pool[%d]\n", i);
+ 		tx_pool = &adapter->tx_pool[i];
+ 		kfree(tx_pool->tx_buff);
+ 		free_long_term_buff(adapter, &tx_pool->long_term_buff);
+@@ -595,6 +603,11 @@ static int init_tx_pools(struct net_device *netdev)
+ 
+ 	for (i = 0; i < tx_subcrqs; i++) {
+ 		tx_pool = &adapter->tx_pool[i];
++
++		netdev_dbg(adapter->netdev,
++			   "Initializing tx_pool[%d], %lld buffs\n",
++			   i, adapter->req_tx_entries_per_subcrq);
++
+ 		tx_pool->tx_buff = kcalloc(adapter->req_tx_entries_per_subcrq,
+ 					   sizeof(struct ibmvnic_tx_buff),
+ 					   GFP_KERNEL);
+@@ -665,8 +678,10 @@ static void ibmvnic_napi_disable(struct ibmvnic_adapter *adapter)
+ 	if (!adapter->napi_enabled)
+ 		return;
+ 
+-	for (i = 0; i < adapter->req_rx_queues; i++)
++	for (i = 0; i < adapter->req_rx_queues; i++) {
++		netdev_dbg(adapter->netdev, "Disabling napi[%d]\n", i);
+ 		napi_disable(&adapter->napi[i]);
++	}
+ 
+ 	adapter->napi_enabled = false;
+ }
+@@ -716,8 +731,11 @@ static void release_resources(struct ibmvnic_adapter *adapter)
+ 
+ 	if (adapter->napi) {
+ 		for (i = 0; i < adapter->req_rx_queues; i++) {
+-			if (&adapter->napi[i])
++			if (&adapter->napi[i]) {
++				netdev_dbg(adapter->netdev,
++					   "Releasing napi[%d]\n", i);
+ 				netif_napi_del(&adapter->napi[i]);
++			}
+ 		}
+ 	}
+ }
+@@ -730,7 +748,8 @@ static int set_link_state(struct ibmvnic_adapter *adapter, u8 link_state)
+ 	bool resend;
+ 	int rc;
+ 
+-	netdev_err(netdev, "setting link state %d\n", link_state);
++	netdev_dbg(netdev, "setting link state %d\n", link_state);
++
+ 	memset(&crq, 0, sizeof(crq));
+ 	crq.logical_link_state.first = IBMVNIC_CRQ_CMD;
+ 	crq.logical_link_state.cmd = LOGICAL_LINK_STATE;
+@@ -767,6 +786,9 @@ static int set_real_num_queues(struct net_device *netdev)
+ 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+ 	int rc;
+ 
++	netdev_dbg(netdev, "Setting real tx/rx queues (%llx/%llx)\n",
++		   adapter->req_tx_queues, adapter->req_rx_queues);
++
+ 	rc = netif_set_real_num_tx_queues(netdev, adapter->req_tx_queues);
+ 	if (rc) {
+ 		netdev_err(netdev, "failed to set the number of tx queues\n");
+@@ -804,6 +826,7 @@ static int init_resources(struct ibmvnic_adapter *adapter)
+ 		return -ENOMEM;
+ 
+ 	for (i = 0; i < adapter->req_rx_queues; i++) {
++		netdev_dbg(netdev, "Adding napi[%d]\n", i);
+ 		netif_napi_add(netdev, &adapter->napi[i], ibmvnic_poll,
+ 			       NAPI_POLL_WEIGHT);
+ 	}
+@@ -832,6 +855,7 @@ static int __ibmvnic_open(struct net_device *netdev)
+ 	 * set the logical link state to up
+ 	 */
+ 	for (i = 0; i < adapter->req_rx_queues; i++) {
++		netdev_dbg(netdev, "Enabling rx_scrq[%d] irq\n", i);
+ 		if (prev_state == VNIC_CLOSED)
+ 			enable_irq(adapter->rx_scrq[i]->irq);
+ 		else
+@@ -839,6 +863,7 @@ static int __ibmvnic_open(struct net_device *netdev)
+ 	}
+ 
+ 	for (i = 0; i < adapter->req_tx_queues; i++) {
++		netdev_dbg(netdev, "Enabling tx_scrq[%d] irq\n", i);
+ 		if (prev_state == VNIC_CLOSED)
+ 			enable_irq(adapter->tx_scrq[i]->irq);
+ 		else
+@@ -912,6 +937,7 @@ static void clean_tx_pools(struct ibmvnic_adapter *adapter)
+ 		if (!tx_pool)
+ 			continue;
+ 
++		netdev_dbg(adapter->netdev, "Cleaning tx_pool[%d]\n", i);
+ 		for (j = 0; j < tx_entries; j++) {
+ 			if (tx_pool->tx_buff[j].skb) {
+ 				dev_kfree_skb_any(tx_pool->tx_buff[j].skb);
+@@ -939,8 +965,11 @@ static int __ibmvnic_close(struct net_device *netdev)
+ 
+ 	if (adapter->tx_scrq) {
+ 		for (i = 0; i < adapter->req_tx_queues; i++)
+-			if (adapter->tx_scrq[i]->irq)
++			if (adapter->tx_scrq[i]->irq) {
++				netdev_dbg(adapter->netdev,
++					   "Disabling tx_scrq[%d] irq\n", i);
+ 				disable_irq(adapter->tx_scrq[i]->irq);
++			}
+ 	}
+ 
+ 	rc = set_link_state(adapter, IBMVNIC_LOGICAL_LNK_DN);
+@@ -959,8 +988,11 @@ static int __ibmvnic_close(struct net_device *netdev)
+ 					break;
+ 			}
+ 
+-			if (adapter->rx_scrq[i]->irq)
++			if (adapter->rx_scrq[i]->irq) {
++				netdev_dbg(adapter->netdev,
++					   "Disabling rx_scrq[%d] irq\n", i);
+ 				disable_irq(adapter->rx_scrq[i]->irq);
++			}
+ 		}
+ 	}
+ 
+@@ -1353,6 +1385,9 @@ static int do_reset(struct ibmvnic_adapter *adapter,
+ 	struct net_device *netdev = adapter->netdev;
+ 	int i, rc;
+ 
++	netdev_dbg(adapter->netdev, "Re-setting driver (%d)\n",
++		   rwi->reset_reason);
++
+ 	netif_carrier_off(netdev);
+ 	adapter->reset_reason = rwi->reset_reason;
+ 
+@@ -1477,6 +1512,7 @@ static void __ibmvnic_reset(struct work_struct *work)
+ 	}
+ 
+ 	if (rc) {
++		netdev_dbg(adapter->netdev, "Reset failed\n");
+ 		free_all_rwi(adapter);
+ 		mutex_unlock(&adapter->reset_lock);
+ 		return;
+@@ -1510,7 +1546,7 @@ static void ibmvnic_reset(struct ibmvnic_adapter *adapter,
+ 	list_for_each(entry, &adapter->rwi_list) {
+ 		tmp = list_entry(entry, struct ibmvnic_rwi, list);
+ 		if (tmp->reset_reason == reason) {
+-			netdev_err(netdev, "Matching reset found, skipping\n");
++			netdev_dbg(netdev, "Skipping matching reset\n");
+ 			mutex_unlock(&adapter->rwi_lock);
+ 			return;
+ 		}
+@@ -1526,6 +1562,8 @@ static void ibmvnic_reset(struct ibmvnic_adapter *adapter,
+ 	rwi->reset_reason = reason;
+ 	list_add_tail(&rwi->list, &adapter->rwi_list);
+ 	mutex_unlock(&adapter->rwi_lock);
++
++	netdev_dbg(adapter->netdev, "Scheduling reset (reason %d)\n", reason);
+ 	schedule_work(&adapter->ibmvnic_reset);
+ }
+ 
+@@ -1885,12 +1923,14 @@ static int reset_sub_crq_queues(struct ibmvnic_adapter *adapter)
+ 	int i, rc;
+ 
+ 	for (i = 0; i < adapter->req_tx_queues; i++) {
++		netdev_dbg(adapter->netdev, "Re-setting tx_scrq[%d]\n", i);
+ 		rc = reset_one_sub_crq_queue(adapter, adapter->tx_scrq[i]);
+ 		if (rc)
+ 			return rc;
+ 	}
+ 
+ 	for (i = 0; i < adapter->req_rx_queues; i++) {
++		netdev_dbg(adapter->netdev, "Re-setting rx_scrq[%d]\n", i);
+ 		rc = reset_one_sub_crq_queue(adapter, adapter->rx_scrq[i]);
+ 		if (rc)
+ 			return rc;
+@@ -1994,6 +2034,8 @@ static void release_sub_crqs(struct ibmvnic_adapter *adapter)
+ 			if (!adapter->tx_scrq[i])
+ 				continue;
+ 
++			netdev_dbg(adapter->netdev, "Releasing tx_scrq[%d]\n",
++				   i);
+ 			if (adapter->tx_scrq[i]->irq) {
+ 				free_irq(adapter->tx_scrq[i]->irq,
+ 					 adapter->tx_scrq[i]);
+@@ -2013,6 +2055,8 @@ static void release_sub_crqs(struct ibmvnic_adapter *adapter)
+ 			if (!adapter->rx_scrq[i])
+ 				continue;
+ 
++			netdev_dbg(adapter->netdev, "Releasing rx_scrq[%d]\n",
++				   i);
+ 			if (adapter->rx_scrq[i]->irq) {
+ 				free_irq(adapter->rx_scrq[i]->irq,
+ 					 adapter->rx_scrq[i]);
+@@ -2167,6 +2211,8 @@ static int init_sub_crq_irqs(struct ibmvnic_adapter *adapter)
+ 	int rc = 0;
+ 
+ 	for (i = 0; i < adapter->req_tx_queues; i++) {
++		netdev_dbg(adapter->netdev, "Initializing tx_scrq[%d] irq\n",
++			   i);
+ 		scrq = adapter->tx_scrq[i];
+ 		scrq->irq = irq_create_mapping(NULL, scrq->hw_irq);
+ 
+@@ -2188,6 +2234,8 @@ static int init_sub_crq_irqs(struct ibmvnic_adapter *adapter)
+ 	}
+ 
+ 	for (i = 0; i < adapter->req_rx_queues; i++) {
++		netdev_dbg(adapter->netdev, "Initializing rx_scrq[%d] irq\n",
++			   i);
+ 		scrq = adapter->rx_scrq[i];
+ 		scrq->irq = irq_create_mapping(NULL, scrq->hw_irq);
+ 		if (!scrq->irq) {
