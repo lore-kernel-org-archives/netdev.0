@@ -1,50 +1,50 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next 0/1] netvsc: another VF datapath fix
-Date: Tue, 08 Aug 2017 16:03:56 +0200
-Message-ID: <87ziba9mwj.fsf@vitty.brq.redhat.com>
-References: <20170807183000.10827-1-sthemmin@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
-        devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCHv2] bluetooth: document config options
+Date: Tue, 8 Aug 2017 16:04:03 +0200
+Message-ID: <34FE14A2-AEFB-4559-BA02-7E1AE009FC26@holtmann.org>
+References: <20170721074957.GA12640@amd>
+ <CDF602D5-78C6-4F97-9C12-3E6AD3AA6C37@holtmann.org>
+ <20170721104228.GA9448@amd>
+ <EDDC23EF-C82E-41EE-8530-E86B9B4756A5@holtmann.org>
+ <20170808134839.GA801@amd>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
+        kernel list <linux-kernel@vger.kernel.org>,
+        Netdev list <netdev@vger.kernel.org>
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57456 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752100AbdHHOD7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Aug 2017 10:03:59 -0400
-In-Reply-To: <20170807183000.10827-1-sthemmin@microsoft.com> (Stephen
-        Hemminger's message of "Mon, 7 Aug 2017 11:29:59 -0700")
+Received: from coyote.holtmann.net ([212.227.132.17]:46545 "EHLO
+        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752100AbdHHOEF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 10:04:05 -0400
+In-Reply-To: <20170808134839.GA801@amd>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
+Hi Pavel,
 
-> Previous fix was incomplete.
->
+> On Aug 8, 2017, at 15:48, Pavel Machek <pavel@ucw.cz> wrote:
+> 
+> Kernel config options should include useful help text; I had to look
+> up the terms on wikipedia.
+> 
+> Signed-off-by: Pavel Machek <pavel@ucw.cz>
+> 
+> ---
+> 
+>> are you planning to send a patch with updated wording for this?
+> 
+> Sorry for the delay, it is above. I added word "wifi" to 802.11
+> description.
+> 
+> 							Pavel
 
-Not really related to this patch series (which btw fixes my issue,
-thanks!), but I found one addition issue. Systemd fails to rename VF
-interface:
+patch has been applied to bluetooth-next tree.
 
- kernel: mlx4_core 0002:00:02.0 eth2: joined to eth1
- kernel: hv_netvsc 33b7a6f9-6736-451f-8fce-b382eaa50bee eth1: VF registering: eth2
- kernel: hv_netvsc 33b7a6f9-6736-451f-8fce-b382eaa50bee eth1: Data path switched to VF: eth2
- kernel: mlx4_en: eth2: Link Up
- NetworkManager[750]: <info>  [1502200557.0821] device (eth2): link connected
- NetworkManager[750]: <info>  [1502200557.1004] manager: (eth2): new Ethernet device (/org/freedesktop/NetworkManager/Devices/6)
- systemd-udevd[6942]: Error changing net interface name 'eth2' to 'enP2p0s2': Device or resource busy
- systemd-udevd[6942]: could not rename interface '6' from 'eth2' to 'enP2p0s2': Device or resource busy
+Regards
 
-With some debug added I figured out what's wrong: __netvsc_vf_setup()
-does dev_open() which sets IFF_UP flag on the interface. When systemd
-tries to rename the interface we get into dev_change_name() and this
-fails with -EBUSY when (dev->flags & IFF_UP).
-
-The issue is of less importance as we're not supposed to configure VF
-interface now. However, we may still want to get a stable name for it.
-
-Any idea how this can be fixed?
-
--- 
-  Vitaly
+Marcel
