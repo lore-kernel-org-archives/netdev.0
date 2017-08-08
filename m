@@ -1,37 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: systemport: Fix software statistics for
- SYSTEMPORT Lite
-Date: Tue, 08 Aug 2017 14:54:47 -0700 (PDT)
-Message-ID: <20170808.145447.1322298332754204935.davem@davemloft.net>
-References: <20170808213925.26126-1-f.fainelli@gmail.com>
-        <f7f79e92-952d-59c6-a0f5-0d9f961a2d8f@gmail.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: skb allocation from interrupt handler?
+Date: Tue, 8 Aug 2017 18:17:52 -0400
+Message-ID: <598A3890.80705@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+To: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55574 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751919AbdHHVys (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 17:54:48 -0400
-In-Reply-To: <f7f79e92-952d-59c6-a0f5-0d9f961a2d8f@gmail.com>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:40864 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751931AbdHHWQy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 18:16:54 -0400
+Received: from dflxv15.itg.ti.com ([128.247.5.124])
+        by lelnx194.ext.ti.com (8.15.1/8.15.1) with ESMTP id v78MGsl3012455
+        for <netdev@vger.kernel.org>; Tue, 8 Aug 2017 17:16:54 -0500
+Received: from DFLE102.ent.ti.com (dfle102.ent.ti.com [10.64.6.23])
+        by dflxv15.itg.ti.com (8.14.3/8.13.8) with ESMTP id v78MGsi0024013
+        for <netdev@vger.kernel.org>; Tue, 8 Aug 2017 17:16:54 -0500
+Received: from [158.218.103.210] (ileax41-snat.itg.ti.com [10.172.224.153])
+        by dlep33.itg.ti.com (8.14.3/8.13.8) with ESMTP id v78MGrbM013461
+        for <netdev@vger.kernel.org>; Tue, 8 Aug 2017 17:16:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 8 Aug 2017 14:44:40 -0700
+Is there an skb_alloc function that can be used from interrupt handler? Looks like netdev_alloc_skb()
+can't be used since I see following trace with kernel hack debug options enabled.
 
-> On 08/08/2017 02:39 PM, Florian Fainelli wrote:
->> With SYSTEMPORT Lite we have holes in our statistics layout that make us
->> skip over the hardware MIB counters, bcm_sysport_get_stats() was not
->> taking that into account, resulting in reporting 0 for all SW-maintained
->> statistics, fix this by skipping accordingly.
->> 
->> Fixes: 44a4524c54af ("net: systemport: Add support for SYSTEMPORT Lite")
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> David, please ignore this version, I accidentally sent it with the
-> debugging left.
+[  652.481713] [<c021007c>] (unwind_backtrace) from [<c020bdcc>] (show_stack+0x10/0x14)
+[  652.481725] [<c020bdcc>] (show_stack) from [<c0517780>] (dump_stack+0x98/0xc4)
+[  652.481736] [<c0517780>] (dump_stack) from [<c0256a70>] (___might_sleep+0x1b8/0x2a4)
+[  652.481746] [<c0256a70>] (___might_sleep) from [<c0939e80>] (rt_spin_lock+0x24/0x5c)
+[  652.481755] [<c0939e80>] (rt_spin_lock) from [<c07d827c>] (__netdev_alloc_skb+0xd0/0x254)
+[  652.481774] [<c07d827c>] (__netdev_alloc_skb) from [<bf23a544>] (emac_rx_hardirq+0x374/0x554 [prueth])
+[  652.481793] [<bf23a544>] (emac_rx_hardirq [prueth]) from [<c02925dc>] (__handle_irq_event_percpu+0x9c/0x128)
 
-Ok.
+This is running under RT kernel off 4.9.y
+
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
