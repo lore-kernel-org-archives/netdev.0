@@ -1,45 +1,41 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 0/6] In-kernel QMI handling
-Date: Tue, 08 Aug 2017 13:02:37 +0200
-Message-ID: <8737921fw2.fsf@miraculix.mork.no>
-References: <20170804145938.25427-1-bjorn.andersson@linaro.org>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [v3] ath10k: ath10k_htt_rx_amsdu_allowed() use ath10k_dbg()
+Date: Tue, 8 Aug 2017 13:06:11 +0200
+Message-ID: <b458726452224508b342d1ab932e1fa2@euamsexm01a.eu.qualcomm.com>
+References: <20170719191955.11518-1-nix.or.die@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Andy Gross <andy.gross@linaro.org>,
-        David Brown <david.brown@linaro.org>,
-        linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <ath10k@lists.infradead.org>, <ryanhsu@qti.qualcomm.com>,
+        <joe@perches.com>, <linux-wireless@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        Gabriel Craciunescu <nix.or.die@gmail.com>
+To: Gabriel C <nix.or.die@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170804145938.25427-1-bjorn.andersson@linaro.org> (Bjorn
-        Andersson's message of "Fri, 4 Aug 2017 07:59:32 -0700")
+In-Reply-To: <20170719191955.11518-1-nix.or.die@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bjorn Andersson <bjorn.andersson@linaro.org> writes:
+Gabriel C <nix.or.die@gmail.com> wrote:
 
-> This series starts by moving the common definitions of the QMUX protocol =
-to the
-> uapi header, as they are shared with clients - both in kernel and userspa=
-ce.
->
-> This series then introduces in-kernel helper functions for aiding the han=
-dling
-> of QMI encoded messages in the kernel. QMI encoding is a wire-format used=
- in
-> exchanging messages between the majority of QRTR clients and services.
+> Each time we get disconnected from AP we get flooded with messages like:
+> 
+> ...
+> ath10k_pci 0000:03:00.0: no channel configured; ignoring frame(s)!
+> <until ratelimit kicks in>
+> ath10k_warn: 155 callbacks suppressed
+> ...
+> 
+> Use ath10k_dbg() here too.
+> 
+> Signed-off-by: Gabriel Craciunescu <nix.or.die@gmail.com>
+> Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
 
-Interesting!  I tried to add some QMI handling in the kernel a few years
-ago, but was thankfully voted down.  See
-https://www.spinics.net/lists/netdev/msg183101.html and the following
-discussion. I am convinced that was the right decision, for the client
-side at least. The protocol is just too extensive and ever-growing to be
-implemented in the kernel. We would be catching up forever.
+Patch applied to ath-next branch of ath.git, thanks.
 
-Note that I had very limited knowledge of the protocol at the time I
-wrote that driver.  Still have, in fact :-)
+984eb9053280 ath10k: ath10k_htt_rx_amsdu_allowed() use ath10k_dbg()
 
+-- 
+https://patchwork.kernel.org/patch/9853129/
 
-Bj=C3=B8rn
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
