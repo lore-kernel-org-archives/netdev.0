@@ -1,94 +1,85 @@
-From: "Dmitry V. Levin" <ldv-u2l5PoMzF/Vg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH v06 15/36] uapi linux/socket.h: include sys/socket.h in
- user space
-Date: Wed, 9 Aug 2017 02:00:42 +0300
-Message-ID: <20170808230041.GG10552@altlinux.org>
-References: <20170806164428.2273-1-mikko.rapeli@iki.fi>
- <20170806164428.2273-16-mikko.rapeli@iki.fi>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next v2] wan: dscc4: add checks for dma mapping errors
+Date: Wed, 9 Aug 2017 01:21:47 +0200
+Message-ID: <20170808232147.GA27445@electric-eye.fr.zoreil.com>
+References: <20170807215943.GA22433@electric-eye.fr.zoreil.com>
+ <1502220499-18351-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="YH9Qf6Fh2G5kB/85"
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170806164428.2273-16-mikko.rapeli-X3B1VOXEql0@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1502220499-18351-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Alexey Khoroshilov <khoroshilov@ispras.ru> :
+[...]
+> diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+> index 799830f..6a9ffac 100644
+> --- a/drivers/net/wan/dscc4.c
+> +++ b/drivers/net/wan/dscc4.c
+> @@ -518,23 +518,31 @@ static void dscc4_release_ring(struct dscc4_dev_priv *dpriv)
+>  static inline int try_get_rx_skb(struct dscc4_dev_priv *dpriv,
+>  				 struct net_device *dev)
+>  {
+> +	struct pci_dev *pdev = dpriv->pci_priv->pdev;
+>  	unsigned int dirty = dpriv->rx_dirty%RX_RING_SIZE;
+>  	struct RxFD *rx_fd = dpriv->rx_fd + dirty;
+>  	const int len = RX_MAX(HDLC_MAX_MRU);
 
---YH9Qf6Fh2G5kB/85
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+For the edification of the masses, you may follow a strict inverted
+xmas tree style (aka longer lines first as long as it does not bug).
 
-On Sun, Aug 06, 2017 at 06:44:06PM +0200, Mikko Rapeli wrote:
-> This libc header has sockaddr definition in user space.
->=20
-> Fixes user space compilation errors like these from kernel headers includ=
-ing
-> only linux/socket.h:
->=20
-> error: field =E2=80=98ifru_addr=E2=80=99 has incomplete type
-> struct sockaddr ifru_addr;
-> error: field =E2=80=98_sockaddr=E2=80=99 has incomplete type
-> struct sockaddr  _sockaddr;
-> error: invalid application of =E2=80=98sizeof=E2=80=99 to incomplete type=
- =E2=80=98struct sockaddr=E2=80=99
->=20
-> With this following uapi headers now compile in user space:
->=20
-> rdma/rdma_user_rxe.h
-> linux/vm_sockets.h
-> linux/ncp_fs.h
-> linux/nfc.h
-> linux/phonet.h
->=20
-> Signed-off-by: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: Dmitry V. Levin <ldv-u2l5PoMzF/Vg9hUCZPvPmw@public.gmane.org>
-> ---
->  include/uapi/linux/socket.h | 4 ++++
->  1 file changed, 4 insertions(+)
->=20
-> diff --git a/include/uapi/linux/socket.h b/include/uapi/linux/socket.h
-> index 76ab0c68561e..8a81197cc08b 100644
-> --- a/include/uapi/linux/socket.h
-> +++ b/include/uapi/linux/socket.h
-> @@ -1,6 +1,10 @@
->  #ifndef _UAPI_LINUX_SOCKET_H
->  #define _UAPI_LINUX_SOCKET_H
-> =20
-> +#ifndef __KERNEL__
-> +#include <sys/socket.h>
-> +#endif
+[...]
+> @@ -1147,14 +1155,22 @@ static netdev_tx_t dscc4_start_xmit(struct sk_buff *skb,
+>  	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
+>  	struct dscc4_pci_priv *ppriv = dpriv->pci_priv;
+>  	struct TxFD *tx_fd;
+> +	dma_addr_t addr;
+>  	int next;
+>  
+> +	addr = pci_map_single(ppriv->pdev, skb->data, skb->len,
+> +			      PCI_DMA_TODEVICE);
 
-This is scary because of infamous libc vs uapi interoperability issues.
-Couldn't we fix affected headers instead?
+Use a local struct pci_dev *pdev and it fits on a single line.
 
+At some point it will probably be converted to plain dma api and use a 'd' dev.
 
---=20
-ldv
+[...]
+> @@ -1887,16 +1903,22 @@ static struct sk_buff *dscc4_init_dummy_skb(struct dscc4_dev_priv *dpriv)
+>  
+>  	skb = dev_alloc_skb(DUMMY_SKB_SIZE);
+>  	if (skb) {
+> +		struct pci_dev *pdev = dpriv->pci_priv->pdev;
+>  		int last = dpriv->tx_dirty%TX_RING_SIZE;
+>  		struct TxFD *tx_fd = dpriv->tx_fd + last;
+> +		dma_addr_t addr;
+>  
+>  		skb->len = DUMMY_SKB_SIZE;
+>  		skb_copy_to_linear_data(skb, version,
+>  					strlen(version) % DUMMY_SKB_SIZE);
+>  		tx_fd->state = FrameEnd | TO_STATE_TX(DUMMY_SKB_SIZE);
+> -		tx_fd->data = cpu_to_le32(pci_map_single(dpriv->pci_priv->pdev,
+> -					     skb->data, DUMMY_SKB_SIZE,
+> -					     PCI_DMA_TODEVICE));
+> +		addr = pci_map_single(pdev, skb->data, DUMMY_SKB_SIZE,
+> +				      PCI_DMA_TODEVICE);
+> +		if (pci_dma_mapping_error(pdev, addr)) {
+> +			dev_kfree_skb_any(skb);
+> +			return NULL;
+> +		}
+> +		tx_fd->data = cpu_to_le32(addr);
+>  		dpriv->tx_skbuff[last] = skb;
+>  	}
+>  	return skb;
 
---YH9Qf6Fh2G5kB/85
-Content-Type: application/pgp-signature; name="signature.asc"
+It isn't technically wrong but please don't update tx_fd before the mapping
+succeeds. It will look marginally better.
 
------BEGIN PGP SIGNATURE-----
+Thanks.
 
-iQIcBAEBCAAGBQJZikKZAAoJEAVFT+BVnCUIIioQAO1QoCKbh1o/nx81/ZFTnaxo
-Lw5FU435rQgyUCAaAEvjsa90Jm6zBgTNCxGttiHS8jMMZFSFXMCFsJg55eptmtta
-t1oszNJrTFoQPz9KK7wSG1uqygOeAxbC96XlxOe2CrcxugwP1Z+XNXUlJK4Dy38G
-r7f6VgwEci+J2W4kzCu5rMMBflEepW+AmivKx2YiSxjZWanCTNzKvQxJiWLNk+bb
-KjOLFkpxg2JYaUa3qsTtuOSumZae5ROYNOTzR7XmZX3ztbdOsQxTOul9VPJ4L44K
-yK18+C/MUopJiLpynaOFuqR/PW2V9JJxrcHcOrjPWngIAv9Q+T/CWeWQB4lVRZGX
-kS4A/+YjpC9hGH32Wf62iwiwd92LOzGLfsWdcG2aniQZxxKbzOy/+lwKhu2aLU+e
-Aq+EAn4pNH2dZTdgZMrAsg08lGfKetDpd5pQKj6qHOcaH6e/KuBSuyRtY7o5fyY1
-8255JhM63kxsHGnNrBUPRxcsP5kGklvYAUMG3O8up6AtE7keyNs/WxB4l5YB33dl
-CTiwCmFWcHSfcJ1HuuhhmoBQSJjzgW4Feb+aTo4NQbGlgPOLP3e9FgGv/ZyxCjxJ
-vDwMLc4SkpjP5eoLteoz6/B7QKU3YCjQgy46WTTiuCqvZgjqKwtCO8uJciJZi/YD
-O2/gw9Hnk8govRuHZmHp
-=5ZlZ
------END PGP SIGNATURE-----
-
---YH9Qf6Fh2G5kB/85--
+-- 
+Ueimor
