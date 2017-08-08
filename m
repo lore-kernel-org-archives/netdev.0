@@ -1,7 +1,7 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH 06/35] net: irda: ks959: constify usb_device_id
-Date: Tue,  8 Aug 2017 21:26:42 +0530
-Message-ID: <1502207805-11490-3-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: [PATCH 08/35] net: irda: mcs7780: constify usb_device_id
+Date: Tue,  8 Aug 2017 21:26:44 +0530
+Message-ID: <1502207805-11490-5-git-send-email-arvind.yadav.cs@gmail.com>
 References: <1502207805-11490-1-git-send-email-arvind.yadav.cs@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: kvalo@codeaurora.org, samuel@sortiz.org
@@ -16,21 +16,21 @@ const usb_device_id. So mark the non-const structs as const.
 
 Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
- drivers/net/irda/ks959-sir.c | 2 +-
+ drivers/net/irda/mcs7780.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/irda/ks959-sir.c b/drivers/net/irda/ks959-sir.c
-index 3affded..8025741 100644
---- a/drivers/net/irda/ks959-sir.c
-+++ b/drivers/net/irda/ks959-sir.c
-@@ -133,7 +133,7 @@
- #define KS959_PRODUCT_ID 0x4959
+diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
+index 6f6ed75..32fa4a9 100644
+--- a/drivers/net/irda/mcs7780.c
++++ b/drivers/net/irda/mcs7780.c
+@@ -66,7 +66,7 @@
+ #define MCS_VENDOR_ID 0x9710
+ #define MCS_PRODUCT_ID 0x7780
  
- /* These are the currently known USB ids */
--static struct usb_device_id dongles[] = {
-+static const struct usb_device_id dongles[] = {
- 	/* KingSun Co,Ltd  IrDA/USB Bridge */
- 	{USB_DEVICE(KS959_VENDOR_ID, KS959_PRODUCT_ID)},
- 	{}
+-static struct usb_device_id mcs_table[] = {
++static const struct usb_device_id mcs_table[] = {
+ 	/* MosChip Corp.,  MCS7780 FIR-USB Adapter */
+ 	{USB_DEVICE(MCS_VENDOR_ID, MCS_PRODUCT_ID)},
+ 	{},
 -- 
 2.7.4
