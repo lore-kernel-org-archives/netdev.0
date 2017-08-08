@@ -1,64 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fastopen: tcp_connect() must refresh the route
-Date: Tue, 08 Aug 2017 01:41:58 -0700
-Message-ID: <1502181718.4487.9.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC PATCH 2/2] bpf: Initialise mod[] in bpf_trace_printk
+Date: Tue, 08 Aug 2017 10:46:52 +0200
+Message-ID: <59897A7C.10009@iogearbox.net>
+References: <20170807222514.24292-1-james.hogan@imgtec.com> <20170807222514.24292-3-james.hogan@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Wei Wang <weiwan@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:37431 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750818AbdHHImG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 04:42:06 -0400
-Received: by mail-wm0-f67.google.com with SMTP id t138so3275395wmt.4
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 01:42:06 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+        Ingo Molnar <mingo@redhat.com>, netdev@vger.kernel.org
+To: James Hogan <james.hogan@imgtec.com>,
+        Alexei Starovoitov <ast@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170807222514.24292-3-james.hogan@imgtec.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 08/08/2017 12:25 AM, James Hogan wrote:
+> In bpf_trace_printk(), the elements in mod[] are left uninitialised, but
+> they are then incremented to track the width of the formats. Zero
+> initialise the array just in case the memory contains non-zero values on
+> entry.
+>
+> Fixes: 9c959c863f82 ("tracing: Allow BPF programs to call bpf_trace_printk()")
+> Signed-off-by: James Hogan <james.hogan@imgtec.com>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Steven Rostedt <rostedt@goodmis.org>
+> Cc: Ingo Molnar <mingo@redhat.com>
+> Cc: netdev@vger.kernel.org
+> ---
+> When I checked (on MIPS32), the elements tended to have the value zero
+> anyway (does BPF zero the stack or something clever?), so this is a
+> purely theoretical fix.
+> ---
+>   kernel/trace/bpf_trace.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+> index 32dcbe1b48f2..86a52857d941 100644
+> --- a/kernel/trace/bpf_trace.c
+> +++ b/kernel/trace/bpf_trace.c
+> @@ -129,7 +129,7 @@ BPF_CALL_5(bpf_trace_printk, char *, fmt, u32, fmt_size, u64, arg1,
+>   	   u64, arg2, u64, arg3)
+>   {
+>   	bool str_seen = false;
+> -	int mod[3] = {};
+> +	int mod[3] = { 0, 0, 0 };
 
-With new TCP_FASTOPEN_CONNECT socket option, there is a possibility
-to call tcp_connect() while socket sk_dst_cache is either NULL
-or invalid.
+I'm probably missing something, but is the behavior of gcc wrt
+above initializers different on mips (it zeroes just fine on x86
+at least)? If yes, we'd probably need a cocci script to also check
+rest of the kernel given this is used in a number of places. Hm,
+could you elaborate?
 
- +0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 4
- +0 fcntl(4, F_SETFL, O_RDWR|O_NONBLOCK) = 0
- +0 setsockopt(4, SOL_TCP, TCP_FASTOPEN_CONNECT, [1], 4) = 0
- +0 connect(4, ..., ...) = 0
-
-<< sk->sk_dst_cache becomes obsolete, or even set to NULL >>
-
- +1 sendto(4, ..., 1000, MSG_FASTOPEN, ..., ...) = 1000
-
-
-We need to refresh the route otherwise bad things can happen,
-especially when syzkaller is running on the host :/
-
-Fixes: 19f6d3f3c8422 ("net/tcp-fastopen: Add new API support")
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Wei Wang <weiwan@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_output.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 276406a83a37..b7661a68d498 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3436,6 +3436,10 @@ int tcp_connect(struct sock *sk)
- 	int err;
- 
- 	tcp_call_bpf(sk, BPF_SOCK_OPS_TCP_CONNECT_CB);
-+
-+	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk))
-+		return -EHOSTUNREACH; /* Routing failure or similar. */
-+
- 	tcp_connect_init(sk);
- 
- 	if (unlikely(tp->repair)) {
+>   	int fmt_cnt = 0;
+>   	u64 unsafe_addr;
+>   	char buf[64];
+>
