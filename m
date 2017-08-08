@@ -1,122 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 1/7] rtnetlink: call rtnl_calcit directly
-Date: Tue,  8 Aug 2017 18:02:30 +0200
-Message-ID: <20170808160236.28562-2-fw@strlen.de>
-References: <20170808160236.28562-1-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH 23/35] wireless: intersil: p54: constify usb_device_id
+Date: Tue,  8 Aug 2017 21:32:16 +0530
+Message-ID: <1502208136-12015-1-git-send-email-arvind.yadav.cs@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org
+To: kvalo@codeaurora.org, chunkeey@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:35526 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752104AbdHHQCV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 12:02:21 -0400
-In-Reply-To: <20170808160236.28562-1-fw@strlen.de>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36539 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752734AbdHHQCZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 12:02:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is only a single place in the kernel that regisers the "calcit"
-callback (to determine min allocation for dumps).
+usb_device_id are not supposed to change at runtime. All functions
+working with usb_device_id provided by <linux/usb.h> work with
+const usb_device_id. So mark the non-const structs as const.
 
-This is in rtnetlink.c for PF_UNSPEC RTM_GETLINK.
-The function that checks for calcit presence at run time will first check
-the requested family (which will always fail for !PF_UNSPEC as no callsite
-registers this), then falls back to checking PF_UNSPEC.
-
-Therefore we can just check if type is RTM_GETLINK and then do a direct
-call.  Because of fallback to PF_UNSPEC all RTM_GETLINK types used this
-regardless of family.
-
-This has the advantage that we don't need to allocate space for
-the function pointer for all the other families.
-
-A followup patch will drop the calcit function pointer from the
-rtnl_link callback structure.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
- net/core/rtnetlink.c | 29 ++++-------------------------
- 1 file changed, 4 insertions(+), 25 deletions(-)
+ drivers/net/wireless/intersil/p54/p54usb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 9201e3621351..8c9d34deea7d 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -62,7 +62,6 @@
- struct rtnl_link {
- 	rtnl_doit_func		doit;
- 	rtnl_dumpit_func	dumpit;
--	rtnl_calcit_func 	calcit;
- };
+diff --git a/drivers/net/wireless/intersil/p54/p54usb.c b/drivers/net/wireless/intersil/p54/p54usb.c
+index 043bd1c..b0b86f7 100644
+--- a/drivers/net/wireless/intersil/p54/p54usb.c
++++ b/drivers/net/wireless/intersil/p54/p54usb.c
+@@ -41,7 +41,7 @@ MODULE_FIRMWARE("isl3887usb");
+  * whenever you add a new device.
+  */
  
- static DEFINE_MUTEX(rtnl_mutex);
-@@ -173,21 +172,6 @@ static rtnl_dumpit_func rtnl_get_dumpit(int protocol, int msgindex)
- 	return tab[msgindex].dumpit;
- }
- 
--static rtnl_calcit_func rtnl_get_calcit(int protocol, int msgindex)
--{
--	struct rtnl_link *tab;
--
--	if (protocol <= RTNL_FAMILY_MAX)
--		tab = rtnl_msg_handlers[protocol];
--	else
--		tab = NULL;
--
--	if (tab == NULL || tab[msgindex].calcit == NULL)
--		tab = rtnl_msg_handlers[PF_UNSPEC];
--
--	return tab[msgindex].calcit;
--}
--
- /**
-  * __rtnl_register - Register a rtnetlink message type
-  * @protocol: Protocol family or PF_UNSPEC
-@@ -231,9 +215,6 @@ int __rtnl_register(int protocol, int msgtype,
- 	if (dumpit)
- 		tab[msgindex].dumpit = dumpit;
- 
--	if (calcit)
--		tab[msgindex].calcit = calcit;
--
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(__rtnl_register);
-@@ -277,7 +258,6 @@ int rtnl_unregister(int protocol, int msgtype)
- 
- 	rtnl_msg_handlers[protocol][msgindex].doit = NULL;
- 	rtnl_msg_handlers[protocol][msgindex].dumpit = NULL;
--	rtnl_msg_handlers[protocol][msgindex].calcit = NULL;
- 
- 	return 0;
- }
-@@ -4187,15 +4167,14 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (kind == 2 && nlh->nlmsg_flags&NLM_F_DUMP) {
- 		struct sock *rtnl;
- 		rtnl_dumpit_func dumpit;
--		rtnl_calcit_func calcit;
- 		u16 min_dump_alloc = 0;
- 
- 		dumpit = rtnl_get_dumpit(family, type);
- 		if (dumpit == NULL)
- 			return -EOPNOTSUPP;
--		calcit = rtnl_get_calcit(family, type);
--		if (calcit)
--			min_dump_alloc = calcit(skb, nlh);
-+
-+		if (type == RTM_GETLINK)
-+			min_dump_alloc = rtnl_calcit(skb, nlh);
- 
- 		__rtnl_unlock();
- 		rtnl = net->rtnl;
-@@ -4300,7 +4279,7 @@ void __init rtnetlink_init(void)
- 	register_netdevice_notifier(&rtnetlink_dev_notifier);
- 
- 	rtnl_register(PF_UNSPEC, RTM_GETLINK, rtnl_getlink,
--		      rtnl_dump_ifinfo, rtnl_calcit);
-+		      rtnl_dump_ifinfo, NULL);
- 	rtnl_register(PF_UNSPEC, RTM_SETLINK, rtnl_setlink, NULL, NULL);
- 	rtnl_register(PF_UNSPEC, RTM_NEWLINK, rtnl_newlink, NULL, NULL);
- 	rtnl_register(PF_UNSPEC, RTM_DELLINK, rtnl_dellink, NULL, NULL);
+-static struct usb_device_id p54u_table[] = {
++static const struct usb_device_id p54u_table[] = {
+ 	/* Version 1 devices (pci chip + net2280) */
+ 	{USB_DEVICE(0x0411, 0x0050)},	/* Buffalo WLI2-USB2-G54 */
+ 	{USB_DEVICE(0x045e, 0x00c2)},	/* Microsoft MN-710 */
 -- 
-2.13.0
+2.7.4
