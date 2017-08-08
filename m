@@ -1,57 +1,68 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] net: sched: set xt_tgchk_param par.net properly in ipt_init_target
-Date: Tue, 8 Aug 2017 12:53:17 +1200
-Message-ID: <CADvbK_f+2h59SdOeGz=3bG5kBzG6GOdq_bViGqeNE_gjW26c=Q@mail.gmail.com>
-References: <6252aa0d498204ec3431e9a906178fb6b1c97f00.1501922918.git.lucien.xin@gmail.com>
- <CAM_iQpWT3=kgc1Vh2BNjXSa6_n-p8+-kLhVbsaE0DzqCXMLEmQ@mail.gmail.com>
+From: "Gao Feng" <gfree.wind@vip.163.com>
+Subject: Re:Re:Re: Re: [PATCH net] ppp: Fix a scheduling-while-atomic bug in
+ del_chan
+Date: Tue, 8 Aug 2017 09:10:34 +0800 (CST)
+Message-ID: <16ae6009.7a67.15dbf64b398.Coremail.gfree.wind@vip.163.com>
+References: <1501495658-119725-1-git-send-email-gfree.wind@vip.163.com>
+ <CAM_iQpVEsTpg17RZ1Y1jN2e0wb_X6gtxx05rmUSGa=A=XSj=Eg@mail.gmail.com>
+ <CAM_iQpVta2EFVjutndCmoLBPWko7dgzP=Q1i2krPqyYuNBV4RA@mail.gmail.com>
+ <31c9755c.ff6.15dba5238fc.Coremail.gfree.wind@vip.163.com>
+ <CAM_iQpWmJmk=_yoV8=krOWonE_0orTC5Z4GaCnPg8Jv3GX6dmw@mail.gmail.com>
+ <697dbbd.7911.15dbf5ca3a6.Coremail.gfree.wind@vip.163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=GBK
+Content-Transfer-Encoding: base64
+Cc: "Cong Wang" <xiyou.wangcong@gmail.com>, xeb@mail.ru,
+        "David Miller" <davem@davemloft.net>,
+        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
+To: "Gao Feng" <gfree.wind@vip.163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:34179 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751868AbdHHAxS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 20:53:18 -0400
-Received: by mail-qt0-f195.google.com with SMTP id i19so2053414qte.1
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 17:53:18 -0700 (PDT)
-In-Reply-To: <CAM_iQpWT3=kgc1Vh2BNjXSa6_n-p8+-kLhVbsaE0DzqCXMLEmQ@mail.gmail.com>
+Received: from m171-177.vip.163.com ([123.58.177.171]:56134 "EHLO
+        m171-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751583AbdHHBKr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 21:10:47 -0400
+In-Reply-To: <697dbbd.7911.15dbf5ca3a6.Coremail.gfree.wind@vip.163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 8, 2017 at 9:00 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Sat, Aug 5, 2017 at 1:48 AM, Xin Long <lucien.xin@gmail.com> wrote:
->> -static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
->> +static int __tcf_ipt_init(struct net *net, struct nlattr *nla,
->>                           struct nlattr *est, struct tc_action **a,
->>                           const struct tc_action_ops *ops, int ovr, int bind)
->>  {
->> +       struct tc_action_net *tn = net_generic(net, xt_net_id);
->
-> ...
->
->> @@ -193,18 +195,14 @@ static int tcf_ipt_init(struct net *net, struct nlattr *nla,
->>                         struct nlattr *est, struct tc_action **a, int ovr,
->>                         int bind)
->>  {
->> -       struct tc_action_net *tn = net_generic(net, ipt_net_id);
->> -
->> -       return __tcf_ipt_init(tn, nla, est, a, &act_ipt_ops, ovr, bind);
->> +       return __tcf_ipt_init(net, nla, est, a, &act_ipt_ops, ovr, bind);
->>  }
->>
->>  static int tcf_xt_init(struct net *net, struct nlattr *nla,
->>                        struct nlattr *est, struct tc_action **a, int ovr,
->>                        int bind)
->>  {
->> -       struct tc_action_net *tn = net_generic(net, xt_net_id);
->> -
->> -       return __tcf_ipt_init(tn, nla, est, a, &act_xt_ops, ovr, bind);
->> +       return __tcf_ipt_init(net, nla, est, a, &act_xt_ops, ovr, bind);
->
-> This is not correct.
->
-> You miss ipt_net_id != xt_net_id.
-right, that's a silly mistake. seems no better way but to pass both
-net and net_id to __tcf_ipt_init. will send v2. thanks.
+QXQgMjAxNy0wOC0wOCAwMToxNzowMiwgIkNvbmcgV2FuZyIgPHhpeW91Lndhbmdjb25nQGdtYWls
+LmNvbT4gd3JvdGU6Cj5PbiBTdW4sIEF1ZyA2LCAyMDE3IGF0IDY6MzIgUE0sIEdhbyBGZW5nIDxn
+ZnJlZS53aW5kQHZpcC4xNjMuY29tPiB3cm90ZToKPj4gSSB0aGluayB0aGUgUkNVIHNob3VsZCBi
+ZSBzdXBwb3NlZCB0byBhdm9pZCB0aGUgcmFjZSBiZXR3ZWVuIGRlbF9jaGFuIGFuZCBsb29rdXBf
+Y2hhbi4KPgo+TW9yZSBwcmVjaXNlbHksIGl0IGlzIGNhbGxpZF9zb2NrIHdoaWNoIGlzIHByb3Rl
+Y3RlZCBieSBSQ1UuCj4KPlVubGVzcyBJIG1pc3MgYW55IG90aGVyIGNvZGUgcGF0aCwgcHB0cF9l
+eGl0X21vZHVsZSgpIGlzCj5wcm9ibGVtYXRpYyB0b28sIEkgZG9uJ3QgdGhpbmsgaXQgY2FuIGp1
+c3QgdmZyZWUoKSB0aGUgd2hvbGUgdGhpbmcuCj4KPgo+PiBUaGUgc3luY2hyb25pemVfcmN1IGNv
+dWxkIG1ha2Ugc3VyZSBpZiB0aGVyZSB3YXMgb25lIHdoaWNoIGNhbGxzIGxvb2t1cF9jaGFuIGlu
+IHRoaXMgcGVyaW9kLCBpdCB3b3VsZCBiZSBmaW5pc2hlZCBhbmQgdGhlIHNvY2sgcmVmY250IGlz
+IGluY3JlYXNlZCBpZiBuZWNlc3NhcnkuCj4+Cj4+IFNvIEkgdGhpbmsgaXQgaXMgb2sgdG8gaW52
+b2tlIHNvY2tfcHV0IGRpcmVjdGx5IHdpdGhvdXQgU09DS19SQ1VfRlJFRSwgYmVjYXVzZSB0aGUg
+bG9va3VwX2NoYW4gY2FsbGVyIGhhcyBhbHJlYWR5IGhvbGQgdGhlIHNvY2sgcmVmY250LAo+PgoK
+PgoKCkhpIENvbmcsCkkganVzdCB0aG91Z2h0IGFib3V0IHRoaXMgaXNzdWUgbGFzdCBuaWdodCwg
+dGhlbiBJIGdldCB5b3VyIHRoaXMgZW1haWwgdGhpcyBtb3JuaW5nLgoKPklmIHlvdSBtZWFuIHRo
+ZSBzb2NrX2hvbGQoKSBpbnNpZGUgbG9va3VwX2NoYW4oKSwgbm8sCj5pdCBkb2Vzbid0IGhlbHAg
+YmVjYXVzZSB3ZSBhbHJlYWR5IGRlcmVmZXJlbmNlIHRoZSBzb2NrCj5iZWZvcmUgaXQuCgo+CgoK
+U29ycnksIEkgZG9uJ3QgZ2V0IHlvdSBjbGVhcmx5LiBXaHkgdGhlIHNvY2tfaG9sZCgpIGlzbid0
+IGhlbHBmdWw/ClRoZSBwcHRwX3JlbGVhc2UgaW52b2tlcyBzeW5jaHJvbml6ZV9yY3UgYWZ0ZXIg
+ZGVsX2NoYW4sIGl0IGNvdWxkIG1ha2Ugc3VyZSB0aGUgb3RoZXJzIGhhcyBpbmNyZWFzZWQgdGhl
+IHNvY2sgcmVmY250IGlmIG5lY2Vzc2FyeQphbmQgdGhlIGxvb2t1cCBpcyBvdmVyLgpUaGVyZSBp
+cyBubyBvbmUgY291bGQgZ2V0IHRoZSBzb2NrIGFmdGVyIHN5bmNocm9uaXplX3JjdSBpbiBwcHRw
+X3JlbGVhc2UuCgoKQnV0IEkgdGhpbmsgYWJvdXQgYW5vdGhlciBwcm9ibGVtLgpJdCBzZWVtcyB0
+aGUgcHB0cF9zb2NrX2Rlc3RydWN0IHNob3VsZCBub3QgaW52b2tlIGRlbF9jaGFuIGFuZCBwcHBv
+eF91bmJpbmRfc29jay4KQmVjYXVzZSB3aGVuIHRoZSBzb2NrIHJlZmNudCBpcyAwLCB0aGUgcHB0
+cF9yZWxlYXNlIG11c3QgaGF2ZSBiZSBpbnZva2VkIGFscmVhZHkuCgoKVGhlcmUgYXJlIHR3byBj
+YXNlcyB0b3RhbGx5LgoxLiB3aGVuIHBwdHBfcmVsZWFzZSBpbnZva2VzIHNvY2tfcHV0LCB0aGUg
+cmVmY250IGlzIDAuIFRoZSBkZWxfY2hhbiBhbmQgcHBwb3hfdW5iaW5kX3NvY2sgYXJlIGludm9r
+ZWQuCjIuIHdoZW4gcHB0cF9yZWxlYXNlIGludm9rZXMgc29ja19wdXQsIHRoZSByZWZjbnQgaXMg
+bm90IDAuIEl0IG1lYW5zIHNvbWVvbmUgaG9sZHMgdGhlIHNvY2sgZHVyaW5nIHRoZSBwZXJpb2Qg
+cHB0cF9yZWxlYXNlIGludm9rZXMgZGVsX2NoYW4uClRoZW4gc29tZW9uZSBpbnZva2VzIHNvY2tf
+cHV0IGFuZCB0aGUgc29jayByZWZjbnQgcmVhY2ggMCwgaXQgd291bGQgaW52b2tlIHNrX2ZyZWUg
+YW5kIGludm9rZXMgcHB0cF9zb2NrX2Rlc3RydWN0LgpTbyBpdCBpcyB1bm5lY2Vzc2FyeSB0byBp
+bnZva2UgZGVsX2NoYW4gYW5kIHBwcG94X3VuYmluZF9zb2NrIGFnYWluLgpBbmQgaXQgd291bGQg
+YnJpbmcgYSByYWNlIGlzc3VlIGV2ZW4gaWYgdGhlIHBwdHBfc29ja19kZXN0cnVjdCBpbnZva2Vk
+IGRlbF9jaGFuLgoKCklmIHNvLCBJIHdvdWxkIHNlbmQgYW5vdGhlciBwYXRjaCBmb3IgaXQuCgoK
+PkFsc28sIGxvb2t1cF9jaGFuX2RzdCgpIGRvZXMgbm90IGhhdmUgYSByZWZjbnQsIEkgZG9uJ3QK
+PmZpbmQgYW55IGNvZGUgcHJldmVudGluZyBpdCBkZXJlZidpbmcgb3RoZXIgc29jayBpbiBjYWxs
+aWRfc29jawoKPnRoYW4gdGhlIGNhbGxpbmcgb25lLgoKClNvcnJ5LCB0aGUgbGFzdCBlbWFpbCBp
+cyBodG1sIGZvcm1hdCwgbm90IHRleHQuClNvIEkgc2VuZCBpdCB3aXRoIHRleHQgZm9ybWF0IGFn
+YWluLgoKQmVzdCBSZWdhcmRzCkZlbmcKCgoKCgo=
