@@ -1,76 +1,94 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] net: sched: fix NULL pointer dereference when action
- calls some targets
-Date: Tue, 8 Aug 2017 14:33:48 +1200
-Message-ID: <CADvbK_fuuBrh+eOuhQU+SYs9uazH2TRP+KUmhxU=hNZ=EkOT=Q@mail.gmail.com>
-References: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
- <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
+Subject: Re: [PATCH net] sctp: use __GFP_NOWARN for sctpw.fifo allocation
+Date: Tue, 8 Aug 2017 14:35:37 +1200
+Message-ID: <CADvbK_e75GgunhX-sjdN93rhH4iUnBpUpmAexVCTeCX4=pxHcA@mail.gmail.com>
+References: <53b360387db05bf31db481234e7070e4a7ba6a25.1501936269.git.lucien.xin@gmail.com>
+ <20170805170859.GA7613@localhost.localdomain> <CADvbK_f_q-gJHey9oUZUrxyGSYXasMVj0kqvhEkzDUPsGDzeng@mail.gmail.com>
+ <20170806233927.GB7613@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem <davem@davemloft.net>, Neil Horman <nhorman@tuxdriver.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:34121 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751701AbdHHCdu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 22:33:50 -0400
-In-Reply-To: <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:35269 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751701AbdHHCfi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 22:35:38 -0400
+In-Reply-To: <20170806233927.GB7613@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 8, 2017 at 9:15 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> (Cc'ing netfilter and Jamal)
+On Mon, Aug 7, 2017 at 11:39 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Sun, Aug 06, 2017 at 06:14:39PM +1200, Xin Long wrote:
+>> On Sun, Aug 6, 2017 at 5:08 AM, Marcelo Ricardo Leitner
+>> <marcelo.leitner@gmail.com> wrote:
+>> > On Sat, Aug 05, 2017 at 08:31:09PM +0800, Xin Long wrote:
+>> >> Chen Wei found a kernel call trace when modprobe sctp_probe with
+>> >> bufsize set with a huge value.
+>> >>
+>> >> It's because in sctpprobe_init when alloc memory for sctpw.fifo,
+>> >> the size is got from userspace. If it is too large, kernel will
+>> >> fail and give a warning.
+>> >
+>> > Yes but sctp_probe can only be loaded by an admin and it would happen
+>> > only during modprobe. It's different from the commit mentioned below, on
+>> > which any user could trigger it.
+>> yeah, in this way it's different, I think generally it's acceptable to have
+>> this kinda warning call trace by admin.
+>>
+>> But it could get the feedback from the return value and the warning
+>> call trace seems not useful. sometimes users may be confused
 >
-> On Sat, Aug 5, 2017 at 4:35 AM, Xin Long <lucien.xin@gmail.com> wrote:
->> As we know in some target's checkentry it may dereference par.entryinfo
->> to check entry stuff inside. But when sched action calls xt_check_target,
->> par.entryinfo is set with NULL. It would cause kernel panic when calling
->> some targets.
->>
->> It can be reproduce with:
->>   # tc qd add dev eth1 ingress handle ffff:
->>   # tc filter add dev eth1 parent ffff: u32 match u32 0 0 action xt \
->>     -j ECN --ecn-tcp-remove
->>
->> It could also crash kernel when using target CLUSTERIP or TPROXY.
->>
-[1]
->> By now there's no proper value for par.entryinfo in ipt_init_target,
->> but it can not be set with NULL. This patch is to void all these
->> panics by setting it with an ipt_entry obj with all members 0.
->>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> ---
->>  net/sched/act_ipt.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
->> index 7c4816b..0f09f70 100644
->> --- a/net/sched/act_ipt.c
->> +++ b/net/sched/act_ipt.c
->> @@ -41,6 +41,7 @@ static int ipt_init_target(struct net *net, struct xt_entry_target *t,
->>  {
->>         struct xt_tgchk_param par;
->>         struct xt_target *target;
->> +       struct ipt_entry e;
->>         int ret = 0;
->>
->>         target = xt_request_find_target(AF_INET, t->u.user.name,
->> @@ -48,10 +49,11 @@ static int ipt_init_target(struct net *net, struct xt_entry_target *t,
->>         if (IS_ERR(target))
->>                 return PTR_ERR(target);
->>
->> +       memset(&e, 0, sizeof(e));
->>         t->u.kernel.target = target;
->>         par.net       = net;
->>         par.table     = table;
->> -       par.entryinfo = NULL;
->> +       par.entryinfo = &e;
+> users or admins?
+admins.
 >
-> This looks like a completely API burden?
-netfilter xt targets are not really compatible with netsched action.
-I've got to say, the patch is just a way to make checkentry return
-false and avoid panic. like [1] said
+>> with this call trace. So it may be better not to dump the warning ?
+>>
+>> Or you think it can be helpful if we leave it here ?
+>
+> I'm afraid we may be exagerating here. There are several other ways that
+> an admin can trigger scary warnings, this one is no special. I'd rather
+> leave this one to the mm defaults instead.
+OK, I'm all for that.
+>
+>>
+>> >
+>> >>
+>> >> As there will be a fallback allocation later, this patch is just
+>> >> to fail silently and return ret, just as commit 0ccc22f425e5
+>> >> ("sit: use __GFP_NOWARN for user controlled allocation") did.
+>> >>
+>> >> Reported-by: Chen Wei <weichen@redhat.com>
+>> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> >> ---
+>> >>  net/sctp/probe.c | 2 +-
+>> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> >>
+>> >> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+>> >> index 6cc2152..5bf3164 100644
+>> >> --- a/net/sctp/probe.c
+>> >> +++ b/net/sctp/probe.c
+>> >> @@ -210,7 +210,7 @@ static __init int sctpprobe_init(void)
+>> >>
+>> >>       init_waitqueue_head(&sctpw.wait);
+>> >>       spin_lock_init(&sctpw.lock);
+>> >> -     if (kfifo_alloc(&sctpw.fifo, bufsize, GFP_KERNEL))
+>> >> +     if (kfifo_alloc(&sctpw.fifo, bufsize, GFP_KERNEL | __GFP_NOWARN))
+>> >>               return ret;
+>> >>
+>> >>       if (!proc_create(procname, S_IRUSR, init_net.proc_net,
+>> >> --
+>> >> 2.1.0
+>> >>
+>> >> --
+>> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> >> the body of a message to majordomo@vger.kernel.org
+>> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> >>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
