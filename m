@@ -1,67 +1,106 @@
-From: =?UTF-8?q?H=C3=A5kon=20Bugge?= <Haakon.Bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net] rds: Reintroduce statistics counting
-Date: Tue,  8 Aug 2017 11:13:32 +0200
-Message-ID: <20170808091332.5413-1-Haakon.Bugge@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        knut.omang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, wei.lin-guay-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-To: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: [PATCH] net: phy: Use tab for indentation in Kconfig
+Date: Tue,  8 Aug 2017 11:32:25 +0200
+Message-ID: <abacdc7ec0585cfbeba240ca2780c6020cf7090a.1502184742.git.michal.simek@xilinx.com>
+Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: linux-kernel@vger.kernel.org, monstr@monstr.eu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In commit 7e3f2952eeb1 ("rds: don't let RDS shutdown a connection
-while senders are present"), refilling the receive queue was removed
-from rds_ib_recv(), along with the increment of
-s_ib_rx_refill_from_thread.
+Using tabs instead of space for indentaion
 
-Commit 73ce4317bf98 ("RDS: make sure we post recv buffers")
-re-introduces filling the receive queue from rds_ib_recv(), but does
-not add the statistics counter. rds_ib_recv() was later renamed to
-rds_ib_recv_path().
-
-This commit reintroduces the statistics counting of
-s_ib_rx_refill_from_thread and s_ib_rx_refill_from_cq.
-
-Signed-off-by: Håkon Bugge <haakon.bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Knut Omang <knut.omang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Wei Lin Guay <wei.lin.guay-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
- net/rds/ib_recv.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-index e10624a..9722bf8 100644
---- a/net/rds/ib_recv.c
-+++ b/net/rds/ib_recv.c
-@@ -1015,8 +1015,10 @@ void rds_ib_recv_cqe_handler(struct rds_ib_connection *ic,
- 	if (rds_ib_ring_empty(&ic->i_recv_ring))
- 		rds_ib_stats_inc(s_ib_rx_ring_empty);
+ drivers/net/phy/Kconfig | 42 +++++++++++++++++++++---------------------
+ 1 file changed, 21 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 928fd892f167..5d8cce3fab57 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -5,7 +5,7 @@
+ menuconfig MDIO_DEVICE
+ 	tristate "MDIO bus device drivers"
+ 	help
+-	   MDIO devices and driver infrastructure code.
++	  MDIO devices and driver infrastructure code.
  
--	if (rds_ib_ring_low(&ic->i_recv_ring))
-+	if (rds_ib_ring_low(&ic->i_recv_ring)) {
- 		rds_ib_recv_refill(conn, 0, GFP_NOWAIT);
-+		rds_ib_stats_inc(s_ib_rx_refill_from_cq);
-+	}
- }
+ config MDIO_BUS
+ 	tristate
+@@ -107,11 +107,11 @@ config MDIO_HISI_FEMAC
+ 	  Hisilicon SoC that have an Fast Ethernet MAC.
  
- int rds_ib_recv_path(struct rds_conn_path *cp)
-@@ -1029,6 +1031,7 @@ int rds_ib_recv_path(struct rds_conn_path *cp)
- 	if (rds_conn_up(conn)) {
- 		rds_ib_attempt_ack(ic);
- 		rds_ib_recv_refill(conn, 0, GFP_KERNEL);
-+		rds_ib_stats_inc(s_ib_rx_refill_from_thread);
- 	}
+ config MDIO_MOXART
+-        tristate "MOXA ART MDIO interface support"
+-        depends on ARCH_MOXART
+-        help
+-          This driver supports the MDIO interface found in the network
+-          interface units of the MOXA ART SoC
++	tristate "MOXA ART MDIO interface support"
++	depends on ARCH_MOXART
++	help
++	  This driver supports the MDIO interface found in the network
++	  interface units of the MOXA ART SoC
  
- 	return ret;
+ config MDIO_OCTEON
+ 	tristate "Octeon and some ThunderX SOCs MDIO buses"
+@@ -172,7 +172,7 @@ config LED_TRIGGER_PHY
+ 	  state change will trigger the events, for consumption by an
+ 	  LED class driver.  There are triggers for each link speed currently
+ 	  supported by the phy, and are of the form:
+-	       <mii bus id>:<phy>:<speed>
++	      <mii bus id>:<phy>:<speed>
+ 
+ 	  Where speed is in the form:
+ 		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
+@@ -186,9 +186,9 @@ config AMD_PHY
+ 	  Currently supports the am79c874
+ 
+ config AQUANTIA_PHY
+-        tristate "Aquantia PHYs"
+-        ---help---
+-          Currently supports the Aquantia AQ1202, AQ2104, AQR105, AQR405
++	tristate "Aquantia PHYs"
++	---help---
++	  Currently supports the Aquantia AQ1202, AQ2104, AQR105, AQR405
+ 
+ config AT803X_PHY
+ 	tristate "AT803X PHYs"
+@@ -352,21 +352,21 @@ config STE10XP
+ 	  This is the driver for the STe100p and STe101p PHYs.
+ 
+ config TERANETICS_PHY
+-        tristate "Teranetics PHYs"
+-        ---help---
+-          Currently supports the Teranetics TN2020
++	tristate "Teranetics PHYs"
++	---help---
++	  Currently supports the Teranetics TN2020
+ 
+ config VITESSE_PHY
+-        tristate "Vitesse PHYs"
+-        ---help---
+-          Currently supports the vsc8244
++	tristate "Vitesse PHYs"
++	---help---
++	  Currently supports the vsc8244
+ 
+ config XILINX_GMII2RGMII
+-       tristate "Xilinx GMII2RGMII converter driver"
+-       ---help---
+-         This driver support xilinx GMII to RGMII IP core it provides
+-         the Reduced Gigabit Media Independent Interface(RGMII) between
+-         Ethernet physical media devices and the Gigabit Ethernet controller.
++	tristate "Xilinx GMII2RGMII converter driver"
++	---help---
++	  This driver support xilinx GMII to RGMII IP core it provides
++	  the Reduced Gigabit Media Independent Interface(RGMII) between
++	  Ethernet physical media devices and the Gigabit Ethernet controller.
+ 
+ endif # PHYLIB
+ 
 -- 
-2.9.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.9.1
