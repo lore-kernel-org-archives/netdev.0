@@ -1,72 +1,74 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] openvswitch: add NSH support
-Date: Tue, 8 Aug 2017 16:28:10 +0200
-Message-ID: <20170808162810.1bab3812@griffin>
-References: <1502168380-106785-1-git-send-email-yi.y.yang@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, davem@davemloft.net
-To: Yi Yang <yi.y.yang@intel.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH v2 iproute2] lib: Dump ext-ack string by default
+Date: Tue,  8 Aug 2017 07:30:14 -0700
+Message-ID: <1502202614-389-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43132 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751880AbdHHO2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Aug 2017 10:28:13 -0400
-In-Reply-To: <1502168380-106785-1-git-send-email-yi.y.yang@intel.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:37207 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751880AbdHHOaX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 10:30:23 -0400
+Received: by mail-pf0-f194.google.com with SMTP id p13so3210075pfd.4
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 07:30:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  8 Aug 2017 12:59:40 +0800, Yi Yang wrote:
-> +struct ovs_key_nsh {
-> +	__u8 flags;
-> +	__u8 mdtype;
-> +	__u8 np;
-> +	__u8 pad;
-> +	__be32 path_hdr;
-> +	__be32 c[4];
+In time, errfn can be implemented for link, route, etc commands to
+give a much more detailed response (e.g., point to the attribute
+that failed). Doing so is much more complicated to process the
+message and convert attribute ids to names.
 
-"c" is a very poor name. Please rename it to something that expresses
-what this field contains.
+In any case the error string returned by the kernel should be dumped
+to the user, so make that happen now.
 
-Also, this looks like MD type 1 only. How are those fields going to work
-with MD type 2? I don't think MD type 2 implementation is necessary in
-this patch but I'd like to know how this is going to work - it's uAPI
-and thus set in stone once this is merged. The uAPI needs to be
-designed with future use in mind.
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+v2
+- check that errmsg is non-null
 
-> +#define OVS_ENCAP_NSH_MAX_MD_LEN 16
-> +/*
-> + * struct ovs_action_encap_nsh - %OVS_ACTION_ATTR_ENCAP_NSH
-> + * @flags: NSH header flags.
-> + * @mdtype: NSH metadata type.
-> + * @mdlen: Length of NSH metadata in bytes.
-> + * @np: NSH next_protocol: Inner packet type.
-> + * @path_hdr: NSH service path id and service index.
-> + * @metadata: NSH metadata for MD type 1 or 2
-> + */
-> +struct ovs_action_encap_nsh {
-> +	__u8 flags;
-> +	__u8 mdtype;
-> +	__u8 mdlen;
-> +	__u8 np;
-> +	__be32 path_hdr;
-> +	__u8 metadata[OVS_ENCAP_NSH_MAX_MD_LEN];
+ lib/libnetlink.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-This is wrong. The metadata size is set to a fixed size by this and
-cannot be ever extended, or at least not easily. Netlink has attributes
-for exactly these cases and that's what needs to be used here.
-
-> @@ -835,6 +866,8 @@ enum ovs_action_attr {
->  	OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
->  	OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
->  	OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
-> +	OVS_ACTION_ATTR_ENCAP_NSH,    /* struct ovs_action_encap_nsh. */
-> +	OVS_ACTION_ATTR_DECAP_NSH,    /* No argument. */
-
-Use "push" and "pop", not "encap" and "decap" to be consistent with the
-naming in the rest of the file. We use encap and decap for tunnel
-operations. This code does not use lwtunnels, thus push and pop is more
-appropriate.
-
- Jiri
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 145de2cb0ccf..063f5cd6c7b1 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -61,7 +61,6 @@ static int err_attr_cb(const struct nlattr *attr, void *data)
+ 	return MNL_CB_OK;
+ }
+ 
+-
+ /* dump netlink extended ack error message */
+ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
+ {
+@@ -72,9 +71,6 @@ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
+ 	const char *errmsg = NULL;
+ 	uint32_t off = 0;
+ 
+-	if (!errfn)
+-		return 0;
+-
+ 	/* no TLVs, nothing to do here */
+ 	if (!(nlh->nlmsg_flags & NLM_F_ACK_TLVS))
+ 		return 0;
+@@ -99,7 +95,16 @@ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
+ 			err_nlh = &err->msg;
+ 	}
+ 
+-	return errfn(errmsg, off, err_nlh);
++	if (errfn)
++		return errfn(errmsg, off, err_nlh);
++
++	if (errmsg) {
++		fprintf(stderr, "Error: %s\n", errmsg);
++
++		return 1;
++	}
++
++	return 0;
+ }
+ #else
+ #warning "libmnl required for error support"
+-- 
+2.1.4
