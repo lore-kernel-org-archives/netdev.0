@@ -1,35 +1,48 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net v2] net/mlx4_en: don't set CHECKSUM_COMPLETE on SCTP packets
-Date: Tue, 8 Aug 2017 19:16:52 +0300
-Message-ID: <CALzJLG-Xp1TeYQBm6bwOmGxbtzMp0ohmLOY+iMCg1U9QcC791Q@mail.gmail.com>
-References: <23ac3e005a8dc1a373971f1166fe6ba72d8abe4b.1501793448.git.dcaratti@redhat.com>
+From: Anton Volkov <avolkov@ispras.ru>
+Subject: Question about via-ircc.ko
+Date: Tue, 8 Aug 2017 19:19:12 +0300
+Message-ID: <62a11118-62c8-ae52-8132-d0af6de4ab36@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Tariq Toukan <tariqt@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>
-To: Davide Caratti <dcaratti@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f177.google.com ([209.85.217.177]:33450 "EHLO
-        mail-ua0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752070AbdHHQRN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 12:17:13 -0400
-Received: by mail-ua0-f177.google.com with SMTP id 80so17301355uas.0
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 09:17:12 -0700 (PDT)
-In-Reply-To: <23ac3e005a8dc1a373971f1166fe6ba72d8abe4b.1501793448.git.dcaratti@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        ldv-project@linuxtesting.org,
+        Alexey Khoroshilov <khoroshilov@ispras.ru>
+To: samuel@sortiz.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 3, 2017 at 11:54 PM, Davide Caratti <dcaratti@redhat.com> wrote:
-> if the NIC fails to validate the checksum on TCP/UDP, and validation of IP
-> checksum is successful, the driver subtracts the pseudo-header checksum
-> from the value obtained by the hardware and sets CHECKSUM_COMPLETE. Don't
-> do that if protocol is IPPROTO_SCTP, otherwise CRC32c validation fails.
->
-> V2: don't test MLX4_CQE_STATUS_IPV6 if MLX4_CQE_STATUS_IPV4 is set
->
-> Reported-by: Shuang Li <shuali@redhat.com>
-> Fixes: f8c6455bb04b ("net/mlx4_en: Extend checksum offloading by CHECKSUM COMPLETE")
-> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+Hello.
 
-Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+While searching for races in the Linux kernel I've come across 
+"drivers/net/irda/via-ircc.ko" module. Here are questions that I came up 
+with while analyzing results. Lines are given using the info from Linux 
+v4.12.
+
+Consider the following case:
+
+Thread 1:                Thread 2:
+via_ircc_net_open
+   request_irq
+   <turn on interrupts>
+                          via_ircc_interrupt
+-> via_ircc_dma_receive  -> RxTimerHandler
+    (via-ircc.c: line 1488)  (via-ircc.c: line 1315)
+      self->... = ...          ... = self->...
+
+In the via_ircc_dma_receive a lot of fields of 'self' structure are 
+initialized and via_ircc_interrupt with RxTimerHandler use those fields. 
+If no initialization happened interrupt handler and other functions that 
+it calls may work with incorrect data. I'm not sure how bad this case 
+can be and thus here are my questions. Is this situation feasible from 
+your point of view? If it is feasible, is it a benign race or something 
+serious?
+
+Thank you for your time.
+
+-- Anton Volkov
+Linux Verification Center, ISPRAS
+web: http://linuxtesting.org
+e-mail: avolkov@ispras.ru
