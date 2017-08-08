@@ -1,41 +1,70 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH v3 net-next 0/5] ulp: Generalize ULP infrastructure
-Date: Tue, 8 Aug 2017 21:23:03 +0100
-Message-ID: <6bee85e2-5fb3-135a-ad7c-ae4a350f7148@solarflare.com>
-References: <20170807172818.31855-1-tom@quantonium.net>
- <5989D958.6080506@gmail.com>
- <CALx6S37HW6VF1ed5RQx7HCNMGM8pRpb54R1OSFHN8mDNpsc1uQ@mail.gmail.com>
- <598A1146.9090205@gmail.com>
- <CAPDqMer5fh9xKTcA5fuycoOcHaOcFVRnnfEBJYj_Jv1S=R0-xQ@mail.gmail.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [net 1/1] tipc: remove premature ESTABLISH FSM event at link synchronization
+Date: Tue, 8 Aug 2017 22:23:56 +0200
+Message-ID: <1502223836-3182-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Rohit Seth <rohit@quantonium.net>,
-        Dave Watson <davejwatson@fb.com>
-To: Tom Herbert <tom@quantonium.net>,
-        John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain
+Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
+        <tipc-discussion@lists.sourceforge.net>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:45648 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752367AbdHHUXX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 16:23:23 -0400
-In-Reply-To: <CAPDqMer5fh9xKTcA5fuycoOcHaOcFVRnnfEBJYj_Jv1S=R0-xQ@mail.gmail.com>
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:59292 "EHLO
+        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752222AbdHHUYG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 16:24:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/08/17 20:50, Tom Herbert wrote:
-> It's a tradeoff. The nice thing about using strings is that we don't
-> need maintain a universal enum.
-Hmm, that makes it sound as though you're intending for random out-of-tree
- modules to add these things; since if they're in-tree it's easy for them
- to get enum values assigned when they're added.  Do we really want to
- encourage sticking random module code into the network stack like this?
+When a link between two nodes come up, both endpoints will initially
+send out a STATE message to the peer, to increase the probability that
+the peer endpoint also is up when the first traffic message arrives.
+Thereafter, if the establishing link is the second link between two
+nodes, this first "traffic" message is a TUNNEL_PROTOCOL/SYNCH message,
+helping the peer to perform initial synchronization between the two
+links.
 
-In any case, if you go with the enum approach and later it _does_ prove
- necessary to have more flexibility, you can have enum values dynamically
- assigned (like genetlink manages to do); and programs using the existing
- fixed IDs will continue to work.  It's much harder to go the other way...
+However, the initial STATE message may be lost, in which case the SYNCH
+message will be the first one arriving at the peer. This should also
+work, as the SYNCH message itself will be used to take up the link
+endpoint before  initializing synchronization.
 
--Ed
+Unfortunately the code for this case is broken. Currently, the link is
+brought up through a tipc_link_fsm_evt(ESTABLISHED) when a SYNCH
+arrives, whereupon __tipc_node_link_up() is called to distribute the
+link slots and take the link into traffic. But, __tipc_node_link_up() is
+itself starting with a test for whether the link is up, and if true,
+returns without action. Clearly, the tipc_link_fsm_evt(ESTABLISHED) call
+is unnecessary, since tipc_node_link_up() is itself issuing such an
+event, but also harmful, since it inhibits tipc_node_link_up() to
+perform the test of its tasks, and the link endpoint in question hence
+is never taken into traffic.
+
+This problem has been exposed when we set up dual links between pre-
+and post-4.4 kernels, because the former ones don't send out the
+initial STATE message described above.
+
+We fix this by removing the unnecessary event call.
+
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/node.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index aeef801..9b4dcb6 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1455,10 +1455,8 @@ static bool tipc_node_check_state(struct tipc_node *n, struct sk_buff *skb,
+ 	/* Initiate synch mode if applicable */
+ 	if ((usr == TUNNEL_PROTOCOL) && (mtyp == SYNCH_MSG) && (oseqno == 1)) {
+ 		syncpt = iseqno + exp_pkts - 1;
+-		if (!tipc_link_is_up(l)) {
+-			tipc_link_fsm_evt(l, LINK_ESTABLISH_EVT);
++		if (!tipc_link_is_up(l))
+ 			__tipc_node_link_up(n, bearer_id, xmitq);
+-		}
+ 		if (n->state == SELF_UP_PEER_UP) {
+ 			n->sync_point = syncpt;
+ 			tipc_link_fsm_evt(l, LINK_SYNCH_BEGIN_EVT);
+-- 
+2.1.4
