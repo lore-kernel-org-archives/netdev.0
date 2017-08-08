@@ -1,48 +1,44 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v2] net: systemport: Fix software statistics for SYSTEMPORT Lite
-Date: Tue,  8 Aug 2017 14:45:09 -0700
-Message-ID: <20170808214509.26252-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net-next] net: ipv6: lower ndisc notifier priority below addrconf
+Date: Tue,  8 Aug 2017 15:51:02 -0600
+Message-ID: <20170808215102.33798-1-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:33975 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752464AbdHHVpN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 17:45:13 -0400
-Received: by mail-qt0-f195.google.com with SMTP id i19so4262820qte.1
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 14:45:13 -0700 (PDT)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33769 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751931AbdHHVvI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 17:51:08 -0400
+Received: by mail-pg0-f65.google.com with SMTP id u185so4185199pgb.0
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 14:51:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With SYSTEMPORT Lite we have holes in our statistics layout that make us
-skip over the hardware MIB counters, bcm_sysport_get_stats() was not
-taking that into account resulting in reporting 0 for all SW-maintained
-statistics, fix this by skipping accordingly.
+ndisc_notify is used to send unsolicited neighbor advertisements
+(e.g., on a link up). Currently, the ndisc notifier is run before the
+addrconf notifer which means NA's are not sent for link-local addresses
+which are added by the addrconf notifier.
 
-Fixes: 44a4524c54af ("net: systemport: Add support for SYSTEMPORT Lite")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Fix by lowering the priority of the ndisc notifier. Setting the priority
+to ADDRCONF_NOTIFY_PRIORITY - 5 means it runs after addrconf and before
+the route notifier which is ADDRCONF_NOTIFY_PRIORITY - 10.
+
+Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
-Changes in v2:
+ net/ipv6/ndisc.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-- no debugging
-
- drivers/net/ethernet/broadcom/bcmsysport.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 5333601f855f..dc3052751bc1 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -449,6 +449,10 @@ static void bcm_sysport_get_stats(struct net_device *dev,
- 			p = (char *)&dev->stats;
- 		else
- 			p = (char *)priv;
-+
-+		if (priv->is_lite && !bcm_sysport_lite_stat_valid(s->type))
-+			continue;
-+
- 		p += s->stat_offset;
- 		data[j] = *(unsigned long *)p;
- 		j++;
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 0327c1f2e6fc..5e338eb89509 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1779,6 +1779,7 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
+ 
+ static struct notifier_block ndisc_netdev_notifier = {
+ 	.notifier_call = ndisc_netdev_event,
++	.priority = ADDRCONF_NOTIFY_PRIORITY - 5,
+ };
+ 
+ #ifdef CONFIG_SYSCTL
 -- 
 2.9.3
