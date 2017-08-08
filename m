@@ -1,85 +1,64 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next v2] wan: dscc4: add checks for dma mapping errors
-Date: Wed, 9 Aug 2017 01:21:47 +0200
-Message-ID: <20170808232147.GA27445@electric-eye.fr.zoreil.com>
-References: <20170807215943.GA22433@electric-eye.fr.zoreil.com>
- <1502220499-18351-1-git-send-email-khoroshilov@ispras.ru>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [PATCH v9 1/4] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Tue, 8 Aug 2017 18:22:00 -0500
+Message-ID: <20170808232200.GO16580@bhelgaas-glaptop.roam.corp.google.com>
+References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
+ <1501917313-9812-2-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: leedom@chelsio.com, ashok.raj@intel.com, bhelgaas@google.com,
+        werner@chelsio.com, ganeshgr@chelsio.com, asit.k.mallick@intel.com,
+        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
+        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
+        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
+        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
+        davem@davemloft.net, alexander.duyck@gmail.com,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1502220499-18351-1-git-send-email-khoroshilov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1501917313-9812-2-git-send-email-dingtianhong@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey Khoroshilov <khoroshilov@ispras.ru> :
-[...]
-> diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
-> index 799830f..6a9ffac 100644
-> --- a/drivers/net/wan/dscc4.c
-> +++ b/drivers/net/wan/dscc4.c
-> @@ -518,23 +518,31 @@ static void dscc4_release_ring(struct dscc4_dev_priv *dpriv)
->  static inline int try_get_rx_skb(struct dscc4_dev_priv *dpriv,
->  				 struct net_device *dev)
->  {
-> +	struct pci_dev *pdev = dpriv->pci_priv->pdev;
->  	unsigned int dirty = dpriv->rx_dirty%RX_RING_SIZE;
->  	struct RxFD *rx_fd = dpriv->rx_fd + dirty;
->  	const int len = RX_MAX(HDLC_MAX_MRU);
+On Sat, Aug 05, 2017 at 03:15:10PM +0800, Ding Tianhong wrote:
+> From: Casey Leedom <leedom@chelsio.com>
+> 
+> The patch adds a new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING to indicate that
+> Relaxed Ordering (RO) attribute should not be used for Transaction Layer
+> Packets (TLP) targetted towards these affected root complexes. Current list
+> of affected parts include some Intel Xeon processors root complex which suffers from
+> flow control credits that result in performance issues. On these affected
+> parts RO can still be used for peer-2-peer traffic. AMD A1100 ARM ("SEATTLE")
+> Root complexes don't obey PCIe 3.0 ordering rules, hence could lead to
+> data-corruption.
 
-For the edification of the masses, you may follow a strict inverted
-xmas tree style (aka longer lines first as long as it does not bug).
+This needs to include a link to the Intel spec
+(https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf,
+sec 3.9.1).
 
-[...]
-> @@ -1147,14 +1155,22 @@ static netdev_tx_t dscc4_start_xmit(struct sk_buff *skb,
->  	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
->  	struct dscc4_pci_priv *ppriv = dpriv->pci_priv;
->  	struct TxFD *tx_fd;
-> +	dma_addr_t addr;
->  	int next;
->  
-> +	addr = pci_map_single(ppriv->pdev, skb->data, skb->len,
-> +			      PCI_DMA_TODEVICE);
+It should also include a pointer to the AMD erratum, if available, or
+at least some reference to how we know it doesn't obey the rules.
 
-Use a local struct pci_dev *pdev and it fits on a single line.
+Ashok, thanks for chiming in.  Now that you have, I have a few more
+questions for you:
 
-At some point it will probably be converted to plain dma api and use a 'd' dev.
+  - Is the above doc the one you mentioned as being now public?
+  
+  - Is this considered a hardware erratum?
+  
+  - If so, is there a pointer to that as well?
+  
+  - If this is not considered an erratum, can you provide any guidance
+    about how an OS should determine when it should use RO?
+    
+Relying on a list of device IDs in an optimization manual is OK for an
+erratum, but if it's *not* an erratum, it seems like a hole in the
+specs because as far as I know there's no generic way for the OS to
+discover whether to use RO.
 
-[...]
-> @@ -1887,16 +1903,22 @@ static struct sk_buff *dscc4_init_dummy_skb(struct dscc4_dev_priv *dpriv)
->  
->  	skb = dev_alloc_skb(DUMMY_SKB_SIZE);
->  	if (skb) {
-> +		struct pci_dev *pdev = dpriv->pci_priv->pdev;
->  		int last = dpriv->tx_dirty%TX_RING_SIZE;
->  		struct TxFD *tx_fd = dpriv->tx_fd + last;
-> +		dma_addr_t addr;
->  
->  		skb->len = DUMMY_SKB_SIZE;
->  		skb_copy_to_linear_data(skb, version,
->  					strlen(version) % DUMMY_SKB_SIZE);
->  		tx_fd->state = FrameEnd | TO_STATE_TX(DUMMY_SKB_SIZE);
-> -		tx_fd->data = cpu_to_le32(pci_map_single(dpriv->pci_priv->pdev,
-> -					     skb->data, DUMMY_SKB_SIZE,
-> -					     PCI_DMA_TODEVICE));
-> +		addr = pci_map_single(pdev, skb->data, DUMMY_SKB_SIZE,
-> +				      PCI_DMA_TODEVICE);
-> +		if (pci_dma_mapping_error(pdev, addr)) {
-> +			dev_kfree_skb_any(skb);
-> +			return NULL;
-> +		}
-> +		tx_fd->data = cpu_to_le32(addr);
->  		dpriv->tx_skbuff[last] = skb;
->  	}
->  	return skb;
-
-It isn't technically wrong but please don't update tx_fd before the mapping
-succeeds. It will look marginally better.
-
-Thanks.
-
--- 
-Ueimor
+Bjorn
