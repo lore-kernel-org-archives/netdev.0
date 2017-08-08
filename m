@@ -1,323 +1,53 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: [PATCH net-next v2] net: ipv6: avoid overhead when no custom FIB rules are installed
-Date: Tue,  8 Aug 2017 20:23:49 +0200
-Message-ID: <20170808182349.4987-1-vincent@bernat.im>
-References: <66e3d00a-6788-2e86-9563-fc1424a6a250@gmail.com>
+From: Massimo Sala <massimo.sala.71@gmail.com>
+Subject: Re: sysctl, argument parsing, possible bug
+Date: Tue, 8 Aug 2017 20:26:36 +0200
+Message-ID: <CAKv20-XwH=Ltqt6Xw++q2LbcHKmJhn76ZukF-Tr6a4Yd6rbJAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Vincent Bernat <vincent@bernat.im>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
-        David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:51821 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752280AbdHHSYD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Aug 2017 14:24:03 -0400
-In-Reply-To: <66e3d00a-6788-2e86-9563-fc1424a6a250@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+To: LKML <linux-kernel@vger.kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If the user hasn't installed any custom rules, don't go through the
-whole FIB rules layer. This is pretty similar to f4530fa574df (ipv4:
-Avoid overhead when no custom FIB rules are installed).
+I make another test with kernel 4.9.32-15.41
 
-Using a micro-benchmark module [1], timing ip6_route_output() with
-get_cycles(), with 40,000 routes in the main routing table, before this
-patch:
+sysctl procps version 3.2.8
 
-    min=3D606 max=3D12911 count=3D627 average=3D1959 95th=3D4903 90th=3D3=
-747 50th=3D1602 mad=3D821
-    table=3D254 avgdepth=3D21.8 maxdepth=3D39
-    value =E2=94=82                         =E2=94=8A                    =
-        count
-      600 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=
-=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=
-=96=92                                         199
-      880 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91                               =
-       43
-     1160 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91                                  48
-     1440 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91                               43
-     1720 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-                          59
-     2000 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91                      50
-     2280 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91                   =
- 26
-     2560 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91 =
-                 31
-     2840 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91               28
-     3120 =E2=94=82=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91              17
-     3400 =E2=94=82=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91             17
-     3680 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91             8
-     3960 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91           11
-     4240 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91            6
-     4520 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91    =
-       6
-     4800 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91    =
-       9
+    sysctl net.ipv4.conf.eth0.100.forwarding
+    error: "net.ipv4.conf.eth0.100.forwarding" is an unknown key
 
-After:
 
-    min=3D544 max=3D11687 count=3D627 average=3D1776 95th=3D4546 90th=3D3=
-585 50th=3D1227 mad=3D565
-    table=3D254 avgdepth=3D21.8 maxdepth=3D39
-    value =E2=94=82                         =E2=94=8A                    =
-        count
-      540 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=
-=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=
-=96=92=E2=96=92                                        201
-      800 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91             =
-                       63
-     1060 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91                               68
-     1320 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91                =
-            39
-     1580 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91                         32
-     1840 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91                       32
-     2100 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91                   =
- 34
-     2360 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91                 33
-     2620 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91               26
-     2880 =E2=94=82=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91              22
-     3140 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91              9
-     3400 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91             8
-     3660 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91             9
-     3920 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91            8
-     4180 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91    =
-       8
-     4440 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91    =
-       8
+so I install busybox :
 
-At the frequency of the host during the bench (~ 3.7 GHz), this is
-about a 100 ns difference on the median value.
+BusyBox v1.19.3
 
-A next step would be to collapse local and main tables, as in
-0ddcf43d5d4a (ipv4: FIB Local/MAIN table collapse).
+    busybox sysctl net.ipv4.conf.eth0.100.forwarding
+    net.ipv4.conf.eth0.100.forwarding = 0
 
-[1]: https://github.com/vincentbernat/network-lab/blob/master/lab-routes-=
-ipv6/kbench_mod.c
+It is working, as I expect reading busybox source sysctl.c
 
-Signed-off-by: Vincent Bernat <vincent@bernat.im>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/netns/ipv6.h |  1 +
- net/ipv6/fib6_rules.c    | 40 +++++++++++++++++++++++++++-------------
- net/ipv6/route.c         |  1 +
- 3 files changed, 29 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-index abdf3b40303b..0e50bf3ed097 100644
---- a/include/net/netns/ipv6.h
-+++ b/include/net/netns/ipv6.h
-@@ -65,6 +65,7 @@ struct netns_ipv6 {
- 	unsigned int		 ip6_rt_gc_expire;
- 	unsigned long		 ip6_rt_last_gc;
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
-+	bool			 fib6_has_custom_rules;
- 	struct rt6_info         *ip6_prohibit_entry;
- 	struct rt6_info         *ip6_blk_hole_entry;
- 	struct fib6_table       *fib6_local_tbl;
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 2f29e4e33bd3..b240f24a6e52 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -63,19 +63,32 @@ unsigned int fib6_rules_seq_read(struct net *net)
- struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- 				   int flags, pol_lookup_t lookup)
- {
--	struct fib_lookup_arg arg =3D {
--		.lookup_ptr =3D lookup,
--		.flags =3D FIB_LOOKUP_NOREF,
--	};
--
--	/* update flow if oif or iif point to device enslaved to l3mdev */
--	l3mdev_update_flow(net, flowi6_to_flowi(fl6));
--
--	fib_rules_lookup(net->ipv6.fib6_rules_ops,
--			 flowi6_to_flowi(fl6), flags, &arg);
--
--	if (arg.result)
--		return arg.result;
-+	if (net->ipv6.fib6_has_custom_rules) {
-+		struct fib_lookup_arg arg =3D {
-+			.lookup_ptr =3D lookup,
-+			.flags =3D FIB_LOOKUP_NOREF,
-+		};
-+
-+		/* update flow if oif or iif point to device enslaved to l3mdev */
-+		l3mdev_update_flow(net, flowi6_to_flowi(fl6));
-+
-+		fib_rules_lookup(net->ipv6.fib6_rules_ops,
-+				 flowi6_to_flowi(fl6), flags, &arg);
-+
-+		if (arg.result)
-+			return arg.result;
-+	} else {
-+		struct rt6_info *rt;
-+
-+		rt =3D lookup(net, net->ipv6.fib6_local_tbl, fl6, flags);
-+		if (rt !=3D net->ipv6.ip6_null_entry && rt->dst.error !=3D -EAGAIN)
-+			return &rt->dst;
-+		ip6_rt_put(rt);
-+		rt =3D lookup(net, net->ipv6.fib6_main_tbl, fl6, flags);
-+		if (rt->dst.error !=3D -EAGAIN)
-+			return &rt->dst;
-+		ip6_rt_put(rt);
-+	}
-=20
- 	dst_hold(&net->ipv6.ip6_null_entry->dst);
- 	return &net->ipv6.ip6_null_entry->dst;
-@@ -245,6 +258,7 @@ static int fib6_rule_configure(struct fib_rule *rule,=
- struct sk_buff *skb,
- 	rule6->dst.plen =3D frh->dst_len;
- 	rule6->tclass =3D frh->tos;
-=20
-+	net->ipv6.fib6_has_custom_rules =3D true;
- 	err =3D 0;
- errout:
- 	return err;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index aba07fce67fb..7ecbe5eb19f8 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -3934,6 +3934,7 @@ static int __net_init ip6_route_net_init(struct net=
- *net)
- 			 ip6_template_metrics, true);
-=20
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
-+	net->ipv6.fib6_has_custom_rules =3D false;
- 	net->ipv6.ip6_prohibit_entry =3D kmemdup(&ip6_prohibit_entry_template,
- 					       sizeof(*net->ipv6.ip6_prohibit_entry),
- 					       GFP_KERNEL);
---=20
-2.13.3
+
+Stephen, I test
+    sysctl net/ipv4/conf/eth0.100/forwarding
+I confirm it  works.
+
+
+What is the problem ?
+
+As sysctl, also automation tools and scripts cannot be "netdev names
+aware", and so they fail using the usual dot notation.
+
+
+I don't pretend to change sysctl to read from the /proc/sys/
+directory, as busybox does.
+
+I suggest to add a  remark to the man page of sysctl, reporting the
+difference between the two tools and an example of the alternate
+syntax :
+    sysctl net/ipv4/conf/eth0.100/forwarding
+
+
+Thank you for your attention.
+Best regards, Massimo
