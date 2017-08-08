@@ -1,38 +1,34 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH] isdn: hfcsusb: constify usb_device_id
-Date: Tue,  8 Aug 2017 22:19:28 +0530
-Message-ID: <9bd81b17bb29dfe9ca3735b1a6b3a9937a336a9f.1502210665.git.arvind.yadav.cs@gmail.com>
-References: <fb99bdbed78f5948e9ebb99365d002d41c8437ec.1502210664.git.arvind.yadav.cs@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: isdn@linux-pingi.de
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3 net-next 03/21] net-next/hinic: Initialize api cmd
+ resources
+Date: Tue, 08 Aug 2017 10:00:36 -0700 (PDT)
+Message-ID: <20170808.100036.2179589280952142940.davem@davemloft.net>
+References: <18d3bfccc0eb9c7da53075c6fe2ba9aa583e0bff.1501752425.git.aviad.krawczyk@huawei.com>
+        <20170803.153513.1478323340993171697.davem@davemloft.net>
+        <912a2667-8b20-cbc2-4c32-7d34bfb6bb9b@huawei.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        bc.y@huawei.com, victor.gissin@huawei.com, zhaochen6@huawei.com,
+        tony.qu@huawei.com
+To: aviad.krawczyk@huawei.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <fb99bdbed78f5948e9ebb99365d002d41c8437ec.1502210664.git.arvind.yadav.cs@gmail.com>
-In-Reply-To: <fb99bdbed78f5948e9ebb99365d002d41c8437ec.1502210664.git.arvind.yadav.cs@gmail.com>
-References: <fb99bdbed78f5948e9ebb99365d002d41c8437ec.1502210664.git.arvind.yadav.cs@gmail.com>
+In-Reply-To: <912a2667-8b20-cbc2-4c32-7d34bfb6bb9b@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-usb_device_id are not supposed to change at runtime. All functions
-working with usb_device_id provided by <linux/usb.h> work with
-const usb_device_id. So mark the non-const structs as const.
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Date: Tue, 8 Aug 2017 19:23:32 +0300
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- drivers/isdn/hardware/mISDN/hfcsusb.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Is it a new rule?
 
-diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.h b/drivers/isdn/hardware/mISDN/hfcsusb.h
-index 4157311..5f8f1d9 100644
---- a/drivers/isdn/hardware/mISDN/hfcsusb.h
-+++ b/drivers/isdn/hardware/mISDN/hfcsusb.h
-@@ -337,7 +337,7 @@ static const char *HFC_NT_LAYER1_STATES[HFC_MAX_NT_LAYER1_STATE + 1] = {
- };
- 
- /* supported devices */
--static struct usb_device_id hfcsusb_idtab[] = {
-+static const struct usb_device_id hfcsusb_idtab[] = {
- 	{
- 		USB_DEVICE(0x0959, 0x2bd0),
- 		.driver_info = (unsigned long) &((struct hfcsusb_vdata)
--- 
-2.7.4
+It's at least 10 years old.
+
+> We can fix it, but I can look over the Linux Kernel source and there are
+> a lot of examples that have the same problem.
+
+Stop right there.
+
+Just because there is code in the kernel with a problem doesn't mean
+you can submit new code with that problem.
