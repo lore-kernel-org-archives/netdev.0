@@ -1,64 +1,82 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH v9 1/4] PCI: Add new PCIe Fabric End Node flag,
- PCI_DEV_FLAGS_NO_RELAXED_ORDERING
-Date: Tue, 8 Aug 2017 18:22:00 -0500
-Message-ID: <20170808232200.GO16580@bhelgaas-glaptop.roam.corp.google.com>
-References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
- <1501917313-9812-2-git-send-email-dingtianhong@huawei.com>
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Subject: Re: [PATCH v06 35/36] uapi linux/tls.h: don't include <net/tcp.h> in
+ user space
+Date: Wed, 9 Aug 2017 02:25:54 +0300
+Message-ID: <20170808232554.GK10552@altlinux.org>
+References: <20170806164428.2273-1-mikko.rapeli@iki.fi>
+ <20170806164428.2273-36-mikko.rapeli@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: leedom@chelsio.com, ashok.raj@intel.com, bhelgaas@google.com,
-        werner@chelsio.com, ganeshgr@chelsio.com, asit.k.mallick@intel.com,
-        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
-        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
-        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
-        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
-        davem@davemloft.net, alexander.duyck@gmail.com,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="OOq1TgGhe8eTwFBO"
+Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+        Dave Watson <davejwatson@fb.com>,
+        Ilya Lesokhin <ilyal@mellanox.com>,
+        Aviad Yehezkel <aviadye@mellanox.com>, netdev@vger.kernel.org
+To: Mikko Rapeli <mikko.rapeli@iki.fi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1501917313-9812-2-git-send-email-dingtianhong@huawei.com>
-Sender: linux-pci-owner@vger.kernel.org
+In-Reply-To: <20170806164428.2273-36-mikko.rapeli@iki.fi>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 05, 2017 at 03:15:10PM +0800, Ding Tianhong wrote:
-> From: Casey Leedom <leedom@chelsio.com>
-> 
-> The patch adds a new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING to indicate that
-> Relaxed Ordering (RO) attribute should not be used for Transaction Layer
-> Packets (TLP) targetted towards these affected root complexes. Current list
-> of affected parts include some Intel Xeon processors root complex which suffers from
-> flow control credits that result in performance issues. On these affected
-> parts RO can still be used for peer-2-peer traffic. AMD A1100 ARM ("SEATTLE")
-> Root complexes don't obey PCIe 3.0 ordering rules, hence could lead to
-> data-corruption.
 
-This needs to include a link to the Intel spec
-(https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf,
-sec 3.9.1).
+--OOq1TgGhe8eTwFBO
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-It should also include a pointer to the AMD erratum, if available, or
-at least some reference to how we know it doesn't obey the rules.
+On Sun, Aug 06, 2017 at 06:44:26PM +0200, Mikko Rapeli wrote:
+> It is not needed and not part of uapi headers, but causes
+> user space compilation error:
+>=20
+> fatal error: net/tcp.h: No such file or directory
+>  #include <net/tcp.h>
+>                      ^
+>=20
+> Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+> Cc: Dave Watson <davejwatson@fb.com>
+> Cc: Ilya Lesokhin <ilyal@mellanox.com>
+> Cc: Aviad Yehezkel <aviadye@mellanox.com>
+> ---
+>  include/uapi/linux/tls.h | 2 ++
+>  1 file changed, 2 insertions(+)
+>=20
+> diff --git a/include/uapi/linux/tls.h b/include/uapi/linux/tls.h
+> index cc1d21db35d8..d87c698623f2 100644
+> --- a/include/uapi/linux/tls.h
+> +++ b/include/uapi/linux/tls.h
+> @@ -37,7 +37,9 @@
+>  #include <asm/byteorder.h>
+>  #include <linux/socket.h>
+>  #include <linux/tcp.h>
+> +#ifdef __KERNEL__
+>  #include <net/tcp.h>
+> +#endif
 
-Ashok, thanks for chiming in.  Now that you have, I have a few more
-questions for you:
+Let's move it to include/net/tls.h instead.
 
-  - Is the above doc the one you mentioned as being now public?
-  
-  - Is this considered a hardware erratum?
-  
-  - If so, is there a pointer to that as well?
-  
-  - If this is not considered an erratum, can you provide any guidance
-    about how an OS should determine when it should use RO?
-    
-Relying on a list of device IDs in an optimization manual is OK for an
-erratum, but if it's *not* an erratum, it seems like a hole in the
-specs because as far as I know there's no generic way for the OS to
-discover whether to use RO.
 
-Bjorn
+--=20
+ldv
+
+--OOq1TgGhe8eTwFBO
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBCAAGBQJZikiCAAoJEAVFT+BVnCUI5CIP/RKMUsBCyslmX84MBNevDBFa
+UuI9698oybrdw0v0fjhmsMLH5VgvBu8gbQmkB7pyATw7ndRZP2cp5bHDSLsafJNv
+PklNqZjEfjhGC9CGpmKfhLhhiErBt2xlgyfNa/fFrOu//wVgb7kf4r+kj/cCAeKt
+nllTm2GTtEpiUg/3nfnl3Da0TSz82ae15WRMyQ9/Crodwx8i3x21vAo139/rQm6m
+kBCftX1lBRefZ+YCemL79Rr54TgBXmiy8qKKqxo5Kyw2sSmwH+nT1eER5ZKCijRB
+6WQV5pHEIplyakhIIA02ctbZ7XCFFC7wAJ0Gj8gc2InT5SbpXt/5As79tcTJW6tx
+njy8m1Jg3StfQ0HLUQynYN+aG07dnvHphoV2ZdHNJyTRbdroOCy5oLWE0ZTkEP0L
+G4TbGJ8gLJ730pPxCabWR/zhx7sZsG7lUzvhaSfZ65Inc1HJAyCwWayH2UfDOATS
+8/y5BgJMqV2s3JiEFKPAv9UvxUb2Auu++hu1fEZ9tjI9yVbdZp5lonZzVTb/qcNo
+etfG7xAJinv2CSxmoVnsVX5nPqdsU09vq/MA5kpAvtcLSrPo7BB2VWR3apdS83Ua
+E/xwXUzqX57EK8xC6h4XGdBnz2nKuRCPeb0fEGUx05mcBgPYneP5JBBp+Zl0kkkq
+6+Iso63/8SKt9mcPTA/0
+=Twx0
+-----END PGP SIGNATURE-----
+
+--OOq1TgGhe8eTwFBO--
