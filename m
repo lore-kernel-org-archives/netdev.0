@@ -1,50 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCHv3 net] net: sched: set xt_tgchk_param par.net properly in
- ipt_init_target
-Date: Tue, 8 Aug 2017 10:24:03 +0200
-Message-ID: <20170808082403.GD1853@nanopsycho>
-References: <7aa6e3f47ea0feb6f348b4de20fc6503e8c8e25b.1502177125.git.lucien.xin@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: fastopen: tcp_connect() must refresh the route
+Date: Tue, 08 Aug 2017 01:41:58 -0700
+Message-ID: <1502181718.4487.9.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Wei Wang <weiwan@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36812 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750776AbdHHIYG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 04:24:06 -0400
-Received: by mail-wm0-f66.google.com with SMTP id d40so3254534wma.3
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 01:24:06 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <7aa6e3f47ea0feb6f348b4de20fc6503e8c8e25b.1502177125.git.lucien.xin@gmail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:37431 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750818AbdHHImG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 04:42:06 -0400
+Received: by mail-wm0-f67.google.com with SMTP id t138so3275395wmt.4
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 01:42:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Aug 08, 2017 at 09:25:25AM CEST, lucien.xin@gmail.com wrote:
->Now xt_tgchk_param par in ipt_init_target is a local varibale,
->par.net is not initialized there. Later when xt_check_target
->calls target's checkentry in which it may access par.net, it
->would cause kernel panic.
->
->Jaroslav found this panic when running:
->
->  # ip link add TestIface type dummy
->  # tc qd add dev TestIface ingress handle ffff:
->  # tc filter add dev TestIface parent ffff: u32 match u32 0 0 \
->    action xt -j CONNMARK --set-mark 4
->
->This patch is to pass net param into ipt_init_target and set
->par.net with it properly in there.
->
->v1->v2:
->  As Wang Cong pointed, I missed ipt_net_id != xt_net_id, so fix
->  it by also passing net_id to __tcf_ipt_init.
->v2->v3:
->  Missed the fixes tag, so add it.
->
->Fixes: ecb2421b5ddf ("netfilter: add and use nf_ct_netns_get/put")
->Reported-by: Jaroslav Aster <jaster@redhat.com>
->Signed-off-by: Xin Long <lucien.xin@gmail.com>
+From: Eric Dumazet <edumazet@google.com>
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+With new TCP_FASTOPEN_CONNECT socket option, there is a possibility
+to call tcp_connect() while socket sk_dst_cache is either NULL
+or invalid.
+
+ +0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 4
+ +0 fcntl(4, F_SETFL, O_RDWR|O_NONBLOCK) = 0
+ +0 setsockopt(4, SOL_TCP, TCP_FASTOPEN_CONNECT, [1], 4) = 0
+ +0 connect(4, ..., ...) = 0
+
+<< sk->sk_dst_cache becomes obsolete, or even set to NULL >>
+
+ +1 sendto(4, ..., 1000, MSG_FASTOPEN, ..., ...) = 1000
+
+
+We need to refresh the route otherwise bad things can happen,
+especially when syzkaller is running on the host :/
+
+Fixes: 19f6d3f3c8422 ("net/tcp-fastopen: Add new API support")
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Wei Wang <weiwan@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_output.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 276406a83a37..b7661a68d498 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3436,6 +3436,10 @@ int tcp_connect(struct sock *sk)
+ 	int err;
+ 
+ 	tcp_call_bpf(sk, BPF_SOCK_OPS_TCP_CONNECT_CB);
++
++	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk))
++		return -EHOSTUNREACH; /* Routing failure or similar. */
++
+ 	tcp_connect_init(sk);
+ 
+ 	if (unlikely(tp->repair)) {
