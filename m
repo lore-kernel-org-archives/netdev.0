@@ -1,51 +1,68 @@
-From: "infoinfo@ono.com" <infoinfo@ono.com>
-Subject: =?UTF-8?B?2KrYrdmK2Kkg2LfZitio2Kk=?=
-Date: Tue, 8 Aug 2017 15:51:34 +0200 (CEST)
-Message-ID: <32952577.1072311502200294951.JavaMail.defaultUser@defaultHost>
-Reply-To: infoinfo@ono.com
-Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
-Content-Transfer-Encoding: base64
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.ono.com ([62.42.230.163]:51285 "EHLO smtp3.ono.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752163AbdHHNvj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Aug 2017 09:51:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eduardo Otubo <otubo@redhat.com>
+Subject: [PATCH] hv_set_ifconfig.sh double check before setting ip
+Date: Tue,  8 Aug 2017 15:53:45 +0200
+Message-ID: <20170808135345.17027-1-otubo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        "K . Y . Srinivasan" <kys@microsoft.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2KrYrdmK2Kkg2LfZitio2KkKCtij2YbYpyDYp9mE2LPZitiv2Kkg2KXZitizINi52YXYsdiMINiy
-2YjYrNipINix2KbZitizINin2YTZiNmB2K8g2KfZhNiz2KfYqNmCINin2YTZhdiq2YjZgdmJINmE
-2K/ZiSDYp9mE2KjZhtmDINin2YTYr9mI2YTZiiDZgdmKIArYutix2Kgg2KPZgdix2YrZgtmK2Kcu
-INmI2YPYp9mGINiy2YjYrNmKINmH2Ygg2KfZhNix2KfYqNi3INio2YrZhiDZhdmG2LjZhdipINin
-2YTYr9mI2YQg2KfZhNmF2LXYr9ix2Kkg2YTZhNmG2YHYtyAo2KfZiNio2YMpIArZiNmC2LfYp9i5
-INin2YTZhtmB2Lcg2YHZiiDYqNmE2K8g2YHZiiDYutix2Kgg2KfZgdix2YrZgtmK2KfYjCDYqtmI
-2YHZiiDYqNiz2KjYqCDYs9mD2KrYqSDZgtmE2KjZitipINmB2Yog2KjZhNiv2KrZhtinINio2LnY
-ryAK2KfZhiDYrdi22LEg2KfYrNiq2YXYp9i52KfYqiDZhdmG2LjZhdipINin2YTYr9mI2YQg2KfZ
-hNmF2LXYr9ix2Kkg2YTZhNmG2YHYtyAo2KfZiNio2YMpINmB2Yog2KzZhtmK2YEuCgrZg9in2YYg
-2YLYp9iv2LHYpyDYudmE2Ykg2KzYudmEICjYudi02LHYqSDZhdmE2KfZitmK2YYg2K/ZiNmE2KfY
-sSDYo9mF2LHZitmD2YopINmF2YYg2K7ZhNin2YQg2YXYqNmK2LnYp9iqINit2LXYtSDYp9mE2YbZ
-gdi3IArYp9mE2YXYrti12LXYqSDZgdmKINij2YjYqNmDINmI2KfZhNmI2K/Yp9im2Lkg2YHZiiDY
-o9it2K8g2KfZhNio2YbZiNmDINit2YrYqyDZhNinINmK2LnYsdmBINiy2YXZhNin2KTZhyDYudmG
-INiw2YTZg9iMINij2LHZitiv2YMgCtij2YYg2KrYs9in2LnYr9mG2Yog2YHZiiDYp9mE2YXYt9in
-2YTYqNipINio2YfYsNmHINin2YTYo9mF2YjYp9mEINmD2YXYpyDYo9mG2Kcg2YTYpyDZitmF2YPZ
-hiDYo9mGINmK2K/YudmKINiw2YTZgyDZhdio2KfYtNix2KkgCtmE2KPZhtmHINis2LnZhCDYp9mE
-2YjYr9in2KbYuSDZg9i12YbYr9mI2YIg2YrZhtiq2YXZiiDYpdmE2Ykg2LTYsdmD2KrZhyDYp9mE
-2KrYrNin2LHZitipINmF2YYg2KPYrNmEINi52K/ZhSDYsdmB2LkgCtin2YTYrdin2KzYqNmK2YYg
-2YXZhtiwINmD2KfZhiDZhdmI2LjZgdinINmF2K/ZhtmK2Kcg2K7ZhNin2YQg2LDZhNmDINin2YTZ
-iNmC2KrYjCDZiNmF2YPYqtioINmF2K/ZiNmG2Kkg2KfZhNiz2YTZiNmDINmK2YXZhti52YcgCtij
-2Ygg2LLZiNis2KrZhyDZhdmGINin2YTYrdi12YjZhCDYudmE2Ykg2YfYsNinINin2YTZhdio2YTY
-uiDZhdmGINin2YTZhdin2YQgLgoK2YrZhdmD2YbZgyDZhdiz2KfYudiv2KrZiiDZhNiq2K3ZiNmK
-2YQg2KfZhNij2YXZiNin2YQg2KXZhNmJINit2LPYp9io2YPYnyDZiNiz2YjZgSDZhtmC2K/ZhSDZ
-hNmD2YUgMzAg2YHZiiDYp9mE2YXYptipIArZhNi52YXZhNmDLiDYpdiw2Kcg2YPZhtiqINmK2YXZ
-g9mGINij2YYg2KrYttmF2YYg2YTZiiDZhdix2YrYrSDZhdmGINmC2K/Ysdiq2YMg2LnZhNmJINin
-2YTYrdmB2KfYuCDYudmE2Ykg2YfYsNinINin2YTYudmF2YQgCtiz2LHZitipINis2K/YpyDZiNiz
-2LHZitip2Iwg2YrZhdmD2YbZgyDYp9mE2YPYqtin2KjYqSDZhNmKINmE2YXYstmK2K8g2YXZhiDY
-p9mE2KrZgdin2LXZitmELgoK2KrYrdmK2KfYqtmKINit2KfYsdip2IwK2KfZhNiz2YrYr9ipINil
-2YrYsyDYudmF2LEK2KfZhNio2LHZitivINin2YTYpdmE2YPYqtix2YjZhtmKOiBtcnNlc3Nlb21h
-ckBnbWFpbC5jb20KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0K2LnYsNix
-2KfYjCDYpdiw2Kcg2KrZhNmC2YrYqiDZh9iw2Ycg2KfZhNix2LPYp9mE2Kkg2YHZiiDYp9mE2LHY
-s9in2KbZhCDYutmK2LEg2KfZhNmF2LHYutmI2Kgg2YHZitmH2KfYjCDZitix2KzYuSDYsNmE2YMg
-2KXZhNmJIArYrdiv2YjYqyDYrti32KMg2YHZiiDYp9mE2KfYqti12KfZhCDZhdik2K7YsdinINmH
-2YbYpyDZgdmKINin2YTYqNmE2K8u
+This patch fixes the behavior of the hv_set_ifconfig script when setting
+the interface ip. Sometimes the interface has already been configured by
+network daemon, in this case hv_set_ifconfig causes "RTNETLINK: file
+exists error"; in order to avoid this error this patch makes sure double
+checks the interface before trying anything.
+
+Signed-off-by: Eduardo Otubo <otubo@redhat.com>
+---
+ tools/hv/hv_set_ifconfig.sh | 29 ++++++++++++++++++-----------
+ 1 file changed, 18 insertions(+), 11 deletions(-)
+
+diff --git a/tools/hv/hv_set_ifconfig.sh b/tools/hv/hv_set_ifconfig.sh
+index 735aafd64a3f..ba5e4aa4efe2 100755
+--- a/tools/hv/hv_set_ifconfig.sh
++++ b/tools/hv/hv_set_ifconfig.sh
+@@ -46,19 +46,26 @@
+ # is expected to return the configuration that is set via the SET
+ # call.
+ #
++interface=$(echo $1 | awk -F - '{ print $2 }')
+ 
++current_ip=$(ip addr show $interface|grep "inet ");
++config_file_ip=$(grep IPADDR $1|cut -d"=" -f2);
+ 
++current_ipv6=$(ip addr show $interface|grep "inet6 ");
++config_file_ipv6=$(grep IPV6ADDR $1|cut -d"=" -f2);
++config_file_ipv6_netmask=$(grep IPV6NETMASK $1|cut -d"=" -f2);
++config_file_ipv6=${config_file_ipv6}/${config_file_ipv6_netmask};
+ 
+-echo "IPV6INIT=yes" >> $1
+-echo "NM_CONTROLLED=no" >> $1
+-echo "PEERDNS=yes" >> $1
+-echo "ONBOOT=yes" >> $1
+-
+-
+-cp $1 /etc/sysconfig/network-scripts/
+-
++# only set the IP if it's not configured yet
++if [[ $(test "${current_ip#*$config_file_ip}") == "$config_file_ip" \
++    || $(test "${current_ipv6#*$config_file_ipv6}") == "$current_ipv6" ]]; then
++    echo "IPV6INIT=yes" >> $1
++    echo "NM_CONTROLLED=no" >> $1
++    echo "PEERDNS=yes" >> $1
++    echo "ONBOOT=yes" >> $1
+ 
+-interface=$(echo $1 | awk -F - '{ print $2 }')
++    cp $1 /etc/sysconfig/network-scripts/
+ 
+-/sbin/ifdown $interface 2>/dev/null
+-/sbin/ifup $interface 2>/dev/null
++    /sbin/ifdown $interface 2>/dev/null
++    /sbin/ifup $interface 2>/dev/null
++fi
+-- 
+2.13.4
