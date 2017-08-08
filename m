@@ -1,89 +1,122 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net,stable] qmi_wwan: fix NULL deref on disconnect
-Date: Tue,  8 Aug 2017 18:02:11 +0200
-Message-ID: <20170808160211.4777-1-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-usb@vger.kernel.org,
-        =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-        Daniele Palmas <dnlplm@gmail.com>
-To: netdev@vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next 1/7] rtnetlink: call rtnl_calcit directly
+Date: Tue,  8 Aug 2017 18:02:30 +0200
+Message-ID: <20170808160236.28562-2-fw@strlen.de>
+References: <20170808160236.28562-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:52939 "EHLO canardo.mork.no"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752126AbdHHQCX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Aug 2017 12:02:23 -0400
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:35526 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752104AbdHHQCV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 12:02:21 -0400
+In-Reply-To: <20170808160236.28562-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-qmi_wwan_disconnect is called twice when disconnecting devices with
-separate control and data interfaces.  The first invocation will set
-the interface data to NULL for both interfaces to flag that the
-disconnect has been handled.  But the matching NULL check was left
-out when qmi_wwan_disconnect was added, resulting in this oops:
+There is only a single place in the kernel that regisers the "calcit"
+callback (to determine min allocation for dumps).
 
-  usb 2-1.4: USB disconnect, device number 4
-  qmi_wwan 2-1.4:1.6 wwp0s29u1u4i6: unregister 'qmi_wwan' usb-0000:00:1d.0-1.4, WWAN/QMI device
-  BUG: unable to handle kernel NULL pointer dereference at 00000000000000e0
-  IP: qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
-  PGD 0
-  P4D 0
-  Oops: 0000 [#1] SMP
-  Modules linked in: <stripped irrelevant module list>
-  CPU: 2 PID: 33 Comm: kworker/2:1 Tainted: G            E   4.12.3-nr44-normandy-r1500619820+ #1
-  Hardware name: LENOVO 4291LR7/4291LR7, BIOS CBET4000 4.6-810-g50522254fb 07/21/2017
-  Workqueue: usb_hub_wq hub_event [usbcore]
-  task: ffff8c882b716040 task.stack: ffffb8e800d84000
-  RIP: 0010:qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
-  RSP: 0018:ffffb8e800d87b38 EFLAGS: 00010246
-  RAX: 0000000000000000 RBX: 0000000000000000 RCX: 0000000000000000
-  RDX: 0000000000000001 RSI: ffff8c8824f3f1d0 RDI: ffff8c8824ef6400
-  RBP: ffff8c8824ef6400 R08: 0000000000000000 R09: 0000000000000000
-  R10: ffffb8e800d87780 R11: 0000000000000011 R12: ffffffffc07ea0e8
-  R13: ffff8c8824e2e000 R14: ffff8c8824e2e098 R15: 0000000000000000
-  FS:  0000000000000000(0000) GS:ffff8c8835300000(0000) knlGS:0000000000000000
-  CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-  CR2: 00000000000000e0 CR3: 0000000229ca5000 CR4: 00000000000406e0
-  Call Trace:
-   ? usb_unbind_interface+0x71/0x270 [usbcore]
-   ? device_release_driver_internal+0x154/0x210
-   ? qmi_wwan_unbind+0x6d/0xc0 [qmi_wwan]
-   ? usbnet_disconnect+0x6c/0xf0 [usbnet]
-   ? qmi_wwan_disconnect+0x87/0xc0 [qmi_wwan]
-   ? usb_unbind_interface+0x71/0x270 [usbcore]
-   ? device_release_driver_internal+0x154/0x210
+This is in rtnetlink.c for PF_UNSPEC RTM_GETLINK.
+The function that checks for calcit presence at run time will first check
+the requested family (which will always fail for !PF_UNSPEC as no callsite
+registers this), then falls back to checking PF_UNSPEC.
 
-Reported-and-tested-by: Nathaniel Roach <nroach44@gmail.com>
-Fixes: c6adf77953bc ("net: usb: qmi_wwan: add qmap mux protocol support")
-Cc: Daniele Palmas <dnlplm@gmail.com>
-Signed-off-by: Bjørn Mork <bjorn@mork.no>
+Therefore we can just check if type is RTM_GETLINK and then do a direct
+call.  Because of fallback to PF_UNSPEC all RTM_GETLINK types used this
+regardless of family.
+
+This has the advantage that we don't need to allocate space for
+the function pointer for all the other families.
+
+A followup patch will drop the calcit function pointer from the
+rtnl_link callback structure.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
-Needed for v4.12 and later
+ net/core/rtnetlink.c | 29 ++++-------------------------
+ 1 file changed, 4 insertions(+), 25 deletions(-)
 
-
- drivers/net/usb/qmi_wwan.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index ff6f39fe6c00..8c3733608271 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -1341,10 +1341,14 @@ static int qmi_wwan_probe(struct usb_interface *intf,
- static void qmi_wwan_disconnect(struct usb_interface *intf)
- {
- 	struct usbnet *dev = usb_get_intfdata(intf);
--	struct qmi_wwan_state *info = (void *)&dev->data;
-+	struct qmi_wwan_state *info;
- 	struct list_head *iter;
- 	struct net_device *ldev;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 9201e3621351..8c9d34deea7d 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -62,7 +62,6 @@
+ struct rtnl_link {
+ 	rtnl_doit_func		doit;
+ 	rtnl_dumpit_func	dumpit;
+-	rtnl_calcit_func 	calcit;
+ };
  
-+	/* called twice if separate control and data intf */
-+	if (!dev)
-+		return;
-+	info = (void *)&dev->data;
- 	if (info->flags & QMI_WWAN_FLAG_MUX) {
- 		if (!rtnl_trylock()) {
- 			restart_syscall();
+ static DEFINE_MUTEX(rtnl_mutex);
+@@ -173,21 +172,6 @@ static rtnl_dumpit_func rtnl_get_dumpit(int protocol, int msgindex)
+ 	return tab[msgindex].dumpit;
+ }
+ 
+-static rtnl_calcit_func rtnl_get_calcit(int protocol, int msgindex)
+-{
+-	struct rtnl_link *tab;
+-
+-	if (protocol <= RTNL_FAMILY_MAX)
+-		tab = rtnl_msg_handlers[protocol];
+-	else
+-		tab = NULL;
+-
+-	if (tab == NULL || tab[msgindex].calcit == NULL)
+-		tab = rtnl_msg_handlers[PF_UNSPEC];
+-
+-	return tab[msgindex].calcit;
+-}
+-
+ /**
+  * __rtnl_register - Register a rtnetlink message type
+  * @protocol: Protocol family or PF_UNSPEC
+@@ -231,9 +215,6 @@ int __rtnl_register(int protocol, int msgtype,
+ 	if (dumpit)
+ 		tab[msgindex].dumpit = dumpit;
+ 
+-	if (calcit)
+-		tab[msgindex].calcit = calcit;
+-
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(__rtnl_register);
+@@ -277,7 +258,6 @@ int rtnl_unregister(int protocol, int msgtype)
+ 
+ 	rtnl_msg_handlers[protocol][msgindex].doit = NULL;
+ 	rtnl_msg_handlers[protocol][msgindex].dumpit = NULL;
+-	rtnl_msg_handlers[protocol][msgindex].calcit = NULL;
+ 
+ 	return 0;
+ }
+@@ -4187,15 +4167,14 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (kind == 2 && nlh->nlmsg_flags&NLM_F_DUMP) {
+ 		struct sock *rtnl;
+ 		rtnl_dumpit_func dumpit;
+-		rtnl_calcit_func calcit;
+ 		u16 min_dump_alloc = 0;
+ 
+ 		dumpit = rtnl_get_dumpit(family, type);
+ 		if (dumpit == NULL)
+ 			return -EOPNOTSUPP;
+-		calcit = rtnl_get_calcit(family, type);
+-		if (calcit)
+-			min_dump_alloc = calcit(skb, nlh);
++
++		if (type == RTM_GETLINK)
++			min_dump_alloc = rtnl_calcit(skb, nlh);
+ 
+ 		__rtnl_unlock();
+ 		rtnl = net->rtnl;
+@@ -4300,7 +4279,7 @@ void __init rtnetlink_init(void)
+ 	register_netdevice_notifier(&rtnetlink_dev_notifier);
+ 
+ 	rtnl_register(PF_UNSPEC, RTM_GETLINK, rtnl_getlink,
+-		      rtnl_dump_ifinfo, rtnl_calcit);
++		      rtnl_dump_ifinfo, NULL);
+ 	rtnl_register(PF_UNSPEC, RTM_SETLINK, rtnl_setlink, NULL, NULL);
+ 	rtnl_register(PF_UNSPEC, RTM_NEWLINK, rtnl_newlink, NULL, NULL);
+ 	rtnl_register(PF_UNSPEC, RTM_DELLINK, rtnl_dellink, NULL, NULL);
 -- 
-2.11.0
+2.13.0
