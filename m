@@ -1,41 +1,82 @@
 From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [v3] ath10k: ath10k_htt_rx_amsdu_allowed() use ath10k_dbg()
-Date: Tue, 8 Aug 2017 13:06:11 +0200
-Message-ID: <b458726452224508b342d1ab932e1fa2@euamsexm01a.eu.qualcomm.com>
-References: <20170719191955.11518-1-nix.or.die@gmail.com>
+Subject: Re: wcn36xx: Introduce mutual exclusion of fw configuration
+Date: Tue, 8 Aug 2017 13:08:38 +0200
+Message-ID: <2acffbef7a124b44b380b4d31d6836db@euamsexm01a.eu.qualcomm.com>
+References: <20170803012800.15974-1-bjorn.andersson@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <ath10k@lists.infradead.org>, <ryanhsu@qti.qualcomm.com>,
-        <joe@perches.com>, <linux-wireless@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        Gabriel Craciunescu <nix.or.die@gmail.com>
-To: Gabriel C <nix.or.die@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170719191955.11518-1-nix.or.die@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        <wcn36xx@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <stable@vger.kernel.org>
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170803012800.15974-1-bjorn.andersson@linaro.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gabriel C <nix.or.die@gmail.com> wrote:
+Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
 
-> Each time we get disconnected from AP we get flooded with messages like:
+> As the association status changes the driver needs to configure the
+> hardware. This is done based on information in the "sta" acquired by
+> ieee80211_find_sta(), which requires the caller to ensure that the "sta"
+> is valid while its being used; generally by entering an rcu read
+> section.
 > 
-> ...
-> ath10k_pci 0000:03:00.0: no channel configured; ignoring frame(s)!
-> <until ratelimit kicks in>
-> ath10k_warn: 155 callbacks suppressed
-> ...
+> But the operations acting on the "sta" has to communicate with the
+> firmware and may therefor sleep, resulting in the following report:
 > 
-> Use ath10k_dbg() here too.
+> [   31.418190] BUG: sleeping function called from invalid context at
+> kernel/locking/mutex.c:238
+> [   31.425919] in_atomic(): 0, irqs_disabled(): 0, pid: 34, name:
+> kworker/u8:1
+> [   31.434609] CPU: 0 PID: 34 Comm: kworker/u8:1 Tainted: G        W
+> 4.12.0-rc4-next-20170607+ #993
+> [   31.441002] Hardware name: Qualcomm Technologies, Inc. APQ 8016 SBC
+> (DT)
+> [   31.450380] Workqueue: phy0 ieee80211_iface_work
+> [   31.457226] Call trace:
+> [   31.461830] [<ffffff8008088c58>] dump_backtrace+0x0/0x260
+> [   31.464004] [<ffffff8008088f7c>] show_stack+0x14/0x20
+> [   31.469557] [<ffffff8008392e70>] dump_stack+0x98/0xb8
+> [   31.474592] [<ffffff80080e4330>] ___might_sleep+0xf0/0x118
+> [   31.479626] [<ffffff80080e43a8>] __might_sleep+0x50/0x88
+> [   31.485010] [<ffffff80088ff9a4>] mutex_lock+0x24/0x60
+> [   31.490479] [<ffffff8008595c38>] wcn36xx_smd_set_link_st+0x30/0x130
+> [   31.495428] [<ffffff8008591ed8>] wcn36xx_bss_info_changed+0x148/0x448
+> [   31.501504] [<ffffff80088ab3c4>]
+> ieee80211_bss_info_change_notify+0xbc/0x118
+> [   31.508102] [<ffffff80088f841c>] ieee80211_assoc_success+0x664/0x7f8
+> [   31.515220] [<ffffff80088e13d4>]
+> ieee80211_rx_mgmt_assoc_resp+0x144/0x2d8
+> [   31.521555] [<ffffff80088e1e20>]
+> ieee80211_sta_rx_queued_mgmt+0x190/0x698
+> [   31.528239] [<ffffff80088bc44c>] ieee80211_iface_work+0x234/0x368
+> [   31.535011] [<ffffff80080d81ac>] process_one_work+0x1cc/0x340
+> [   31.541086] [<ffffff80080d8368>] worker_thread+0x48/0x430
+> [   31.546814] [<ffffff80080de448>] kthread+0x108/0x138
+> [   31.552195] [<ffffff8008082ec0>] ret_from_fork+0x10/0x50
 > 
-> Signed-off-by: Gabriel Craciunescu <nix.or.die@gmail.com>
+> In order to ensure that the "sta" remains alive (and consistent) for the
+> duration of bss_info_changed() mutual exclusion has to be ensured with
+> sta_remove().
+> 
+> This is done by introducing a mutex to cover firmware configuration
+> changes, which is made to also ensure mutual exclusion between other
+> operations changing the state or configuration of the firmware. With
+> this we can drop the rcu read lock.
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 > Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
 
 Patch applied to ath-next branch of ath.git, thanks.
 
-984eb9053280 ath10k: ath10k_htt_rx_amsdu_allowed() use ath10k_dbg()
+39efc7cc7ccf wcn36xx: Introduce mutual exclusion of fw configuration
 
 -- 
-https://patchwork.kernel.org/patch/9853129/
+https://patchwork.kernel.org/patch/9877987/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
