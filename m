@@ -1,43 +1,46 @@
-From: Prakash Sangappa <prakash.sangappa@oracle.com>
-Subject: [PATCH] Allow passing tid or pid in SCM_CREDENTIALS without CAP_SYS_ADMIN
-Date: Mon,  7 Aug 2017 17:07:10 -0700
-Message-ID: <1502150830-3964-1-git-send-email-prakash.sangappa@oracle.com>
-Cc: davem@davemloft.net, ebiederm@xmission.com,
-        prakash.sangappa@oracle.com
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v5 net-next 00/12] bpf: rewrite value tracking in verifier
+Date: Tue, 08 Aug 2017 02:46:16 +0200
+Message-ID: <598909D8.5060202@iogearbox.net>
+References: <ad840039-8d4a-b2a9-b2eb-a8f079926b53@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>
+To: Edward Cree <ecree@solarflare.com>, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ad840039-8d4a-b2a9-b2eb-a8f079926b53@solarflare.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently passing tid(gettid(2)) of a thread in struct ucred in
-SCM_CREDENTIALS message requires CAP_SYS_ADMIN capability otherwise
-it fails with EPERM error. Some applications deal with thread id
-of a thread(tid) and so it would help to allow tid in SCM_CREDENTIALS
-message. Basically, either tgid(pid of the process) or the tid of
-the thread should be allowed without the need for CAP_SYS_ADMIN capability.
+On 08/07/2017 04:21 PM, Edward Cree wrote:
+> This series simplifies alignment tracking, generalises bounds tracking and
+>   fixes some bounds-tracking bugs in the BPF verifier.  Pointer arithmetic on
+>   packet pointers, stack pointers, map value pointers and context pointers has
+>   been unified, and bounds on these pointers are only checked when the pointer
+>   is dereferenced.
+> Operations on pointers which destroy all relation to the original pointer
+>   (such as multiplies and shifts) are disallowed if !env->allow_ptr_leaks,
+>   otherwise they convert the pointer to an unknown scalar and feed it to the
+>   normal scalar arithmetic handling.
+> Pointer types have been unified with the corresponding adjusted-pointer types
+>   where those existed (e.g. PTR_TO_MAP_VALUE[_ADJ] or FRAME_PTR vs
+>   PTR_TO_STACK); similarly, CONST_IMM and UNKNOWN_VALUE have been unified into
+>   SCALAR_VALUE.
+> Pointer types (except CONST_PTR_TO_MAP, PTR_TO_MAP_VALUE_OR_NULL and
+>   PTR_TO_PACKET_END, which do not allow arithmetic) have a 'fixed offset' and
+>   a 'variable offset'; the former is used when e.g. adding an immediate or a
+>   known-constant register, as long as it does not overflow.  Otherwise the
+>   latter is used, and any operation creating a new variable offset creates a
+>   new 'id' (and, for PTR_TO_PACKET, clears the 'range').
+> SCALAR_VALUEs use the 'variable offset' fields to track the range of possible
+>   values; the 'fixed offset' should never be set on a scalar.
 
-SCM_CREDENTIALS will be used to determine the global id of a process or
-a thread running inside a pid namespace.
+Been testing and reviewing the series over the last several days, looks
+reasonable to me as far as I can tell. Thanks for all the hard work on
+unifying this, Edward!
 
-This patch adds necessary check to accept tid in SCM_CREDENTIALS
-struct ucred.
-
-Signed-off-by: Prakash Sangappa <prakash.sangappa@oracle.com>
----
- net/core/scm.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/scm.c b/net/core/scm.c
-index b1ff8a4..9274197 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -55,6 +55,7 @@ static __inline__ int scm_check_creds(struct ucred *creds)
- 		return -EINVAL;
- 
- 	if ((creds->pid == task_tgid_vnr(current) ||
-+	     creds->pid == task_pid_vnr(current) ||
- 	     ns_capable(task_active_pid_ns(current)->user_ns, CAP_SYS_ADMIN)) &&
- 	    ((uid_eq(uid, cred->uid)   || uid_eq(uid, cred->euid) ||
- 	      uid_eq(uid, cred->suid)) || ns_capable(cred->user_ns, CAP_SETUID)) &&
--- 
-2.7.4
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
