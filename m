@@ -1,40 +1,50 @@
-From: "Coelho, Luciano" <luciano.coelho@intel.com>
-Subject: Re: [PATCH v3] iwlwifi: Demote messages about fw flags size to info
-Date: Tue, 8 Aug 2017 08:21:09 +0000
-Message-ID: <1502180468.15969.140.camel@intel.com>
-References: <063D6719AE5E284EB5DD2968C1650D6DD004A3CC@AcuExch.aculab.com>
-         <20170803144728.32305-1-jprvita@endlessm.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCHv3 net] net: sched: set xt_tgchk_param par.net properly in
+ ipt_init_target
+Date: Tue, 8 Aug 2017 10:24:03 +0200
+Message-ID: <20170808082403.GD1853@nanopsycho>
+References: <7aa6e3f47ea0feb6f348b4de20fc6503e8c8e25b.1502177125.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "linux@endlessm.com" <linux@endlessm.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jprvita@endlessm.com" <jprvita@endlessm.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: linuxwifi <linuxwifi@intel.com>,
-        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-        "jprvita@gmail.com" <jprvita@gmail.com>,
-        "Berg, Johannes" <johannes.berg@intel.com>,
-        "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170803144728.32305-1-jprvita@endlessm.com>
-Content-Language: en-US
-Content-ID: <075A9FA14BFAD14DA5B463BC08D1949D@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
+        Cong Wang <xiyou.wangcong@gmail.com>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36812 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750776AbdHHIYG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 04:24:06 -0400
+Received: by mail-wm0-f66.google.com with SMTP id d40so3254534wma.3
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 01:24:06 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <7aa6e3f47ea0feb6f348b4de20fc6503e8c8e25b.1502177125.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCAyMDE3LTA4LTAzIGF0IDA3OjQ3IC0wNzAwLCBKb8OjbyBQYXVsbyBSZWNoaSBWaXRh
-IHdyb3RlOg0KPiBUaGVzZSBtZXNzYWdlcyBhcmUgbm90IHJlcG9ydGluZyBhIHJlYWwgZXJyb3Is
-IGp1c3QgdGhlIGZhY3QgdGhhdCB0aGUNCj4gZmlybXdhcmUga25vd3MgYWJvdXQgbW9yZSBmbGFn
-cyB0aGFuIHRoZSBkcml2ZXIuDQo+IA0KPiBDdXJyZW50bHkgdGhlc2UgbWVzc2FnZXMgYXJlIHBy
-ZXNlbnRlZCB0byB0aGUgdXNlciBkdXJpbmcgYm9vdCBpZiB0aGVyZQ0KPiBpcyBubyBib290c3Bs
-YXNoIGNvdmVyaW5nIHRoZSBjb25zb2xlLCBldmVuIHdoZW4gYm9vdGluZyB0aGUga2VybmVsIHdp
-dGgNCj4gInF1aWV0Ii4NCj4gDQo+IERlbW90aW5nIGl0IHRvIHRoZSB3YXJuIGxldmVsIGhlbHBz
-IGhhdmluZyBhIGNsZWFuIGJvb3QgcHJvY2Vzcy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEpvw6Nv
-IFBhdWxvIFJlY2hpIFZpdGEgPGpwcnZpdGFAZW5kbGVzc20uY29tPg0KPiAtLS0NCj4gDQo+IHYy
-IGNoYW5nZXM6DQo+ICAtIFNldCB0byB3YXJuIGxldmVsIGluc3RlYWQgb2YgaW5mbw0KPiANCj4g
-djMgY2hhbmdlczoNCj4gIC0gRml4IGNvbW1pdCBtZXNzYWdlIHR5cG8NCg0KVGhhbmtzLCBKb8Oj
-byBQYXVsbyEgSSBwdXNoZWQgdGhpcyB0byBvdXIgaW50ZXJuYWwgdHJlZSBhbmQgaXQgd2lsbA0K
-ZXZlbnR1YWxseSByZWFjaCB0aGUgbWFpbmxpbmUgZm9sbG93aW5nIG91ciBub3JtYWwgdXBzdHJl
-YW1pbmcgcHJvY2Vzcy4NCg0KLS0NCkNoZWVycywNCkx1Y2Eu
+Tue, Aug 08, 2017 at 09:25:25AM CEST, lucien.xin@gmail.com wrote:
+>Now xt_tgchk_param par in ipt_init_target is a local varibale,
+>par.net is not initialized there. Later when xt_check_target
+>calls target's checkentry in which it may access par.net, it
+>would cause kernel panic.
+>
+>Jaroslav found this panic when running:
+>
+>  # ip link add TestIface type dummy
+>  # tc qd add dev TestIface ingress handle ffff:
+>  # tc filter add dev TestIface parent ffff: u32 match u32 0 0 \
+>    action xt -j CONNMARK --set-mark 4
+>
+>This patch is to pass net param into ipt_init_target and set
+>par.net with it properly in there.
+>
+>v1->v2:
+>  As Wang Cong pointed, I missed ipt_net_id != xt_net_id, so fix
+>  it by also passing net_id to __tcf_ipt_init.
+>v2->v3:
+>  Missed the fixes tag, so add it.
+>
+>Fixes: ecb2421b5ddf ("netfilter: add and use nf_ct_netns_get/put")
+>Reported-by: Jaroslav Aster <jaster@redhat.com>
+>Signed-off-by: Xin Long <lucien.xin@gmail.com>
+
+Acked-by: Jiri Pirko <jiri@mellanox.com>
