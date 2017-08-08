@@ -1,158 +1,40 @@
-From: Christian Langrock <christian.langrock@secunet.com>
-Subject: Re: [PATCH] ip/link_vti6.c: Fix local/remote any handling
-Date: Tue, 8 Aug 2017 09:53:34 +0200
-Message-ID: <1f9cb1da-11cf-6b24-1fd9-c47f1ae03b21@secunet.com>
-References: <4608c5ed-6b73-4bc2-f193-66e5129d855e@secunet.com>
- <20170807081225.7cd10477@xeon-e3>
+From: "Coelho, Luciano" <luciano.coelho@intel.com>
+Subject: Re: [PATCH v3] iwlwifi: Demote messages about fw flags size to info
+Date: Tue, 8 Aug 2017 08:21:09 +0000
+Message-ID: <1502180468.15969.140.camel@intel.com>
+References: <063D6719AE5E284EB5DD2968C1650D6DD004A3CC@AcuExch.aculab.com>
+         <20170803144728.32305-1-jprvita@endlessm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature";
-        boundary="Bd31xTb1OG5ELawdwNfrTKSS55Iaolf9u"
-Cc: <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:34656 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750818AbdHHHxl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Aug 2017 03:53:41 -0400
-In-Reply-To: <20170807081225.7cd10477@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "linux@endlessm.com" <linux@endlessm.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jprvita@endlessm.com" <jprvita@endlessm.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: linuxwifi <linuxwifi@intel.com>,
+        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+        "jprvita@gmail.com" <jprvita@gmail.com>,
+        "Berg, Johannes" <johannes.berg@intel.com>,
+        "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170803144728.32305-1-jprvita@endlessm.com>
+Content-Language: en-US
+Content-ID: <075A9FA14BFAD14DA5B463BC08D1949D@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Bd31xTb1OG5ELawdwNfrTKSS55Iaolf9u
-Content-Type: multipart/mixed; boundary="ceVpOAb7fPhaDtAsJqNA8b7IVxjwvcwxg";
- protected-headers="v1"
-From: Christian Langrock <christian.langrock@secunet.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Cc: netdev@vger.kernel.org
-Message-ID: <1f9cb1da-11cf-6b24-1fd9-c47f1ae03b21@secunet.com>
-Subject: Re: [PATCH] ip/link_vti6.c: Fix local/remote any handling
-References: <4608c5ed-6b73-4bc2-f193-66e5129d855e@secunet.com>
- <20170807081225.7cd10477@xeon-e3>
-In-Reply-To: <20170807081225.7cd10477@xeon-e3>
-
---ceVpOAb7fPhaDtAsJqNA8b7IVxjwvcwxg
-Content-Type: multipart/mixed;
- boundary="------------51745260D4320AC54A9C624D"
-Content-Language: de-DE
-
-This is a multi-part message in MIME format.
---------------51745260D4320AC54A9C624D
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
-
-This seems to be the better solution, at least because i missed the case
-where the function is called to alter a VTI.
-
-
-BR,
-
-Christian
-
-
-Am 07.08.2017 um 17:12 schrieb Stephen Hemminger:
-> On Mon, 7 Aug 2017 08:41:23 +0200
-> Christian Langrock <christian.langrock@secunet.com> wrote:
->
->> According to the IPv4 behavior of 'ip' it should be possible to omit t=
-he
->> arguments for local and remote address.
->> Without this patch omitting these parameters would lead to
->> uninitialized memory being interpreted as IPv6 addresses.
->>
->> Signed-off-by: Christian Langrock <christian.langrock@secunet.com>
-> I don't like extra flag values.  Why not just:
->
-> diff --git a/ip/link_vti6.c b/ip/link_vti6.c
-> index be4e33cee606..6ea1fc2306ce 100644
-> --- a/ip/link_vti6.c
-> +++ b/ip/link_vti6.c
-> @@ -59,8 +59,8 @@ static int vti6_parse_opt(struct link_util *lu, int a=
-rgc, char **argv,
->  	struct rtattr *tb[IFLA_MAX + 1];
->  	struct rtattr *linkinfo[IFLA_INFO_MAX+1];
->  	struct rtattr *vtiinfo[IFLA_VTI_MAX + 1];
-> -	struct in6_addr saddr;
-> -	struct in6_addr daddr;
-> +	struct in6_addr saddr =3D IN6ADDR_ANY_INIT;
-> +	struct in6_addr daddr =3D IN6ADDR_ANY_INIT;
->  	unsigned int ikey =3D 0;
->  	unsigned int okey =3D 0;
->  	unsigned int link =3D 0;
-> @@ -195,8 +195,11 @@ get_failed:
-> =20
->  	addattr32(n, 1024, IFLA_VTI_IKEY, ikey);
->  	addattr32(n, 1024, IFLA_VTI_OKEY, okey);
-> -	addattr_l(n, 1024, IFLA_VTI_LOCAL, &saddr, sizeof(saddr));
-> -	addattr_l(n, 1024, IFLA_VTI_REMOTE, &daddr, sizeof(daddr));
-> +
-> +	if (memcmp(&saddr, &in6addr_any, sizeof(in6addr_any)))
-> +	    addattr_l(n, 1024, IFLA_VTI_LOCAL, &saddr, sizeof(saddr));
-> +	if (memcmp(&daddr, &in6addr_any, sizeof(in6addr_any)))
-> +	    addattr_l(n, 1024, IFLA_VTI_REMOTE, &daddr, sizeof(daddr));
->  	addattr32(n, 1024, IFLA_VTI_FWMARK, fwmark);
->  	if (link)
->  		addattr32(n, 1024, IFLA_VTI_LINK, link);
-
-
---------------51745260D4320AC54A9C624D
-Content-Type: application/pgp-keys;
- name="0x82EB6B5E.asc"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
- filename="0x82EB6B5E.asc"
-
------BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v2
-
-mQENBFee7jkBCACkeMIuzZu/KBA1q3kKGr7d9iiZGF5IpJnIE9dMiK3uaz7uM26V
-STJVp6jdGuSGGGmb81OSLEcIEIsYKXvjblAKUX1A74t3WMRcky3MwJbmN6AkN8Ql
-P45mDddtPRf1ElB2S32i9OrEkvw8xcvHYPwbaHenXic4/8fHWEh+vtd/5/5TDTIU
-/ag9tQfPea13ixXN0PuccMubFeUMpwFCg324+Z19iGvfDWWZmQQGlBjc3Q6z0hXO
-b/deWL/+lPS4t+tTgpmmZO4XkIs+18KqxCVukCbnqV0y+04sj3G1GQ/DlGvZHxwy
-wBceAL7BvmdeXQKAS0KRL5zrghIBCgnUyutDABEBAAG0M0NocmlzdGlhbiBMYW5n
-cm9jayA8Y2hyaXN0aWFuLmxhbmdyb2NrQHNlY3VuZXQuY29tPokBNwQTAQgAIQUC
-V57uOQIbAwULCQgHAgYVCAkKCwIEFgIDAQIeAQIXgAAKCRCjeMdfgutrXu3kCACI
-Bx6UHReBtBciNUPkP3fRaGeSOADIrql72VKD9faLAHTt6w8kvyzb8Ctpa77jswJt
-21c349mF3maPlpNtpswqH27bTlXYhNcXxcmHPCbNtN3yGUy0UuIJfBMZc8PLqiqY
-oY5GKD3uimeVbDYjgNhebO2f1cUvwY2wTwX6b0tgKVK0xYYTDpXI1/2MVGsjXqak
-7PQoqVq0sDu0gIAAi1QO0Fbb6jIaHj6CEM2hpBTBk8qbkPs/MqYGdLl4oXvkWTLd
-uQjm6dMtjxvIt6WJWZQbLjTeQIfc21luNQKDmfT623pVTPPMMAciWfpdw63FblfG
-cfBnAKCJ8JBj0z9T6/PmuQENBFee7jkBCADS7amJPbY2dWpeGtE+I9yLL53lSriP
-4L6rI9UoEwNM1OkjnB7wFnH8dm8N68K2OJogkHwoX2OnzGhxJ28NHRuAh++3hIYY
-+gU4HMLaX3onDK1oqAdYczhJ7f6UCPbYaghkzJ6Vg/FEWpA8u5vG/BX4y+F3/Y98
-l6mzAX5wLmTapRwdfuRCXRA6jlIHIOwP3NPKK4Pz2E7witsimV1ucN4uXFiZ36CU
-PAiXXlER9iPZnQUSyCobqJOJKm4C7wUNQ1negCXDBd3KjSyzTIafw/oYG4RrWGul
-iI2ig/qTUC8cZdAJTMBjUJR6ugJazMB1Rg17p2GRD0AzUOV2qdqYFqQFABEBAAGJ
-AR8EGAEIAAkFAlee7jkCGwwACgkQo3jHX4Lra17vtQgAg2g0JEXVTGT36BDJgVjI
-UY1evnm1fWwTPpcokP/8/aO2ubmlxtWQ2hV5OPfL5nDday2S4Nq5j3kqQq+rvUrO
-RVmvT4WxYZM1fr2nibuzaUbsJtxphNpjahrsEcLLTzBW4CbHTaL4YTT+ZD/GDeHo
-xAh9JfMkdMBXHyWTuw+QSP0pp7WvNsDosukKFyQ0rve9PH2dry6A0oLP7UxtAzEE
-RV2Se0BueZPQuVnU6Cvj3ZStK28JDhMjxIPkZPE5kCV8QNF8OsiwymA3aoPKe5Bw
-0lOcjuuJkxRa5bazyuubX9pIIgTeGsecgpSgpfA9jsEHKFqoLuxUA+77VQ5hSydV
-aQ=3D=3D
-=3DO6Ea
------END PGP PUBLIC KEY BLOCK-----
-
---------------51745260D4320AC54A9C624D--
-
---ceVpOAb7fPhaDtAsJqNA8b7IVxjwvcwxg--
-
---Bd31xTb1OG5ELawdwNfrTKSS55Iaolf9u
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBCAAGBQJZiW3+AAoJEKN4x1+C62teGjIH+wS29gsALpFedTNz9TOkv4SI
-tiN4LkQ0MwgnTVkYVAxAE8TMhiwskOxhVWlIcRaOQGFpeR0UcZo6dR2/XGTq+hkd
-L7Jy/rKUiS4nh4PyMumzpf8I0ZTnRkeFdQvZ6ImYFmJBncK14rfCb0KI3Nu4Avir
-a8FJT2lSiZpLnzXFMzM7sGESsHuC61+CXGI8g1lNMIW2Pyow1D/m574L8aZ+621S
-37Ov1aZQJmX9axlawGn/xNnqc3YG/OdVApwTo5OWCatwNK2dOkjLaigIbux5Wax9
-Wal5s0G1USj1hCc3Ot++Rs6TJEkk6k4xTTahN4fiYz63sn1Sn6r/IUOKZnFdn10=
-=0wzS
------END PGP SIGNATURE-----
-
---Bd31xTb1OG5ELawdwNfrTKSS55Iaolf9u--
+T24gVGh1LCAyMDE3LTA4LTAzIGF0IDA3OjQ3IC0wNzAwLCBKb8OjbyBQYXVsbyBSZWNoaSBWaXRh
+IHdyb3RlOg0KPiBUaGVzZSBtZXNzYWdlcyBhcmUgbm90IHJlcG9ydGluZyBhIHJlYWwgZXJyb3Is
+IGp1c3QgdGhlIGZhY3QgdGhhdCB0aGUNCj4gZmlybXdhcmUga25vd3MgYWJvdXQgbW9yZSBmbGFn
+cyB0aGFuIHRoZSBkcml2ZXIuDQo+IA0KPiBDdXJyZW50bHkgdGhlc2UgbWVzc2FnZXMgYXJlIHBy
+ZXNlbnRlZCB0byB0aGUgdXNlciBkdXJpbmcgYm9vdCBpZiB0aGVyZQ0KPiBpcyBubyBib290c3Bs
+YXNoIGNvdmVyaW5nIHRoZSBjb25zb2xlLCBldmVuIHdoZW4gYm9vdGluZyB0aGUga2VybmVsIHdp
+dGgNCj4gInF1aWV0Ii4NCj4gDQo+IERlbW90aW5nIGl0IHRvIHRoZSB3YXJuIGxldmVsIGhlbHBz
+IGhhdmluZyBhIGNsZWFuIGJvb3QgcHJvY2Vzcy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEpvw6Nv
+IFBhdWxvIFJlY2hpIFZpdGEgPGpwcnZpdGFAZW5kbGVzc20uY29tPg0KPiAtLS0NCj4gDQo+IHYy
+IGNoYW5nZXM6DQo+ICAtIFNldCB0byB3YXJuIGxldmVsIGluc3RlYWQgb2YgaW5mbw0KPiANCj4g
+djMgY2hhbmdlczoNCj4gIC0gRml4IGNvbW1pdCBtZXNzYWdlIHR5cG8NCg0KVGhhbmtzLCBKb8Oj
+byBQYXVsbyEgSSBwdXNoZWQgdGhpcyB0byBvdXIgaW50ZXJuYWwgdHJlZSBhbmQgaXQgd2lsbA0K
+ZXZlbnR1YWxseSByZWFjaCB0aGUgbWFpbmxpbmUgZm9sbG93aW5nIG91ciBub3JtYWwgdXBzdHJl
+YW1pbmcgcHJvY2Vzcy4NCg0KLS0NCkNoZWVycywNCkx1Y2Eu
