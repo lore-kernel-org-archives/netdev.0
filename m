@@ -1,69 +1,49 @@
-From: Joel Fernandes <joelaf@google.com>
-Subject: Re: [PATCH RFC v2 3/5] samples/bpf: Fix inline asm issues building
- samples on arm64
-Date: Mon, 7 Aug 2017 18:20:49 -0700
-Message-ID: <CAJWu+orPBSozHo6PDnvg9+RzmYVO=rwwNZk45kHFsBJmy-3A-Q@mail.gmail.com>
-References: <20170807130602.31785-1-joelaf@google.com> <20170807130602.31785-4-joelaf@google.com>
- <20170807.112840.395506747161262549.davem@davemloft.net>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [PATCH v9 0/4] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Mon, 7 Aug 2017 20:56:02 -0500
+Message-ID: <20170808015602.GH16580@bhelgaas-glaptop.roam.corp.google.com>
+References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
+ <20170806.204744.1934067595236180060.davem@davemloft.net>
+ <588b378c-249a-36b0-8890-769258fbb708@huawei.com>
+ <20170807.141448.1388035794329323595.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Chenbo Feng <fengc@google.com>,
-        Alison Chaiken <alison@she-devel.com>,
-        Juri Lelli <Juri.Lelli@arm.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "open list:BPF (Safe dynamic programs and tools)"
-        <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: dingtianhong@huawei.com, bhelgaas@google.com, leedom@chelsio.com,
+        ashok.raj@intel.com, werner@chelsio.com, ganeshgr@chelsio.com,
+        asit.k.mallick@intel.com, patrick.j.cramer@intel.com,
+        Suravee.Suthikulpanit@amd.com, Bob.Shaw@amd.com,
+        l.stach@pengutronix.de, amira@mellanox.com,
+        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
+        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
+        alexander.duyck@gmail.com, linux-arm-kernel@lists.infradead.org,
+        netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linuxarm@huawei.com
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170807.112840.395506747161262549.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20170807.141448.1388035794329323595.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Mon, Aug 07, 2017 at 02:14:48PM -0700, David Miller wrote:
+> From: Ding Tianhong <dingtianhong@huawei.com>
+> Date: Mon, 7 Aug 2017 12:13:17 +0800
+> 
+> > Hi David：
+> > 
+> > I think networking tree merge it is a better choice, as it mainly used to tell the NIC
+> > drivers how to use the Relaxed Ordering Attribute, and later we need send patch to enable
+> > RO for ixgbe driver base on this patch. But I am not sure whether Bjorn has some of his own
+> > view. :)
+> > 
+> > Hi Bjorn:
+> > 
+> > Could you help review this patch or give some feedback ?
+> 
+> I'm still waiting on this...
+> 
+> Bjorn?
 
-On Mon, Aug 7, 2017 at 11:28 AM, David Miller <davem@davemloft.net> wrote:
->
-> Please, no.
-
-Sorry you dislike it, I had intentionally marked it as RFC as its an
-idea I was just toying with the idea and posted it early to get
-feedback.
-
->
-> The amount of hellish hacks we are adding to deal with this is getting
-> way out of control.
-
-I agree with you that hellish hacks are being added which is why it
-keeps breaking. I think one of the things my series does is to add
-back inclusion of asm headers that were previously removed (that is
-the worst hellish hack in my opinion that existing in mainline). So in
-that respect my patch is an improvement and makes it possible to build
-for arm64 platforms (which is currently broken in mainline).
-
->
-> BPF programs MUST have their own set of asm headers, this is the
-> only way to get around this issue in the long term.
-
-Wouldn't that break scripts or bpf code that instruments/trace arch
-specific code?
-
->
-> I am also strongly against adding -static to the build.
-
-I can drop -static if you prefer, that's not an issue.
-
-As I understand it, there are no other cleaner alternatives and this
-patchset makes the samples work. I would even argue that's its more
-functional than previous attempts and fixes something broken in
-mainline in a more generic way. If you can provide an example of where
-my patchset may not work, I would love to hear it. My whole idea was
-to do it in a way that makes future breakage not happen. I don't think
-that leaving things broken in this state for extended periods of time
-makes sense and IMHO will slow usage of bpf samples on other
-platforms.
-
-thanks,
-
--Joel
+I was on vacation Friday-today, but I'll look at this series this week.
