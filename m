@@ -1,72 +1,94 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Re:Re: Re: [PATCH net] ppp: Fix a scheduling-while-atomic bug in del_chan
-Date: Tue, 8 Aug 2017 12:45:53 -0700
-Message-ID: <CAM_iQpW8W24=2atSyStwKPYJ9zmOO5XiznktT3V_3qn00R7r=Q@mail.gmail.com>
-References: <1501495658-119725-1-git-send-email-gfree.wind@vip.163.com>
- <CAM_iQpVEsTpg17RZ1Y1jN2e0wb_X6gtxx05rmUSGa=A=XSj=Eg@mail.gmail.com>
- <CAM_iQpVta2EFVjutndCmoLBPWko7dgzP=Q1i2krPqyYuNBV4RA@mail.gmail.com>
- <31c9755c.ff6.15dba5238fc.Coremail.gfree.wind@vip.163.com>
- <CAM_iQpWmJmk=_yoV8=krOWonE_0orTC5Z4GaCnPg8Jv3GX6dmw@mail.gmail.com>
- <697dbbd.7911.15dbf5ca3a6.Coremail.gfree.wind@vip.163.com> <16ae6009.7a67.15dbf64b398.Coremail.gfree.wind@vip.163.com>
+From: Tom Herbert <tom@quantonium.net>
+Subject: Re: [PATCH v3 net-next 0/5] ulp: Generalize ULP infrastructure
+Date: Tue, 8 Aug 2017 12:50:29 -0700
+Message-ID: <CAPDqMer5fh9xKTcA5fuycoOcHaOcFVRnnfEBJYj_Jv1S=R0-xQ@mail.gmail.com>
+References: <20170807172818.31855-1-tom@quantonium.net> <5989D958.6080506@gmail.com>
+ <CALx6S37HW6VF1ed5RQx7HCNMGM8pRpb54R1OSFHN8mDNpsc1uQ@mail.gmail.com> <598A1146.9090205@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: xeb@mail.ru, David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Gao Feng <gfree.wind@vip.163.com>
+Cc: Tom Herbert <tom@herbertland.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Rohit Seth <rohit@quantonium.net>,
+        Dave Watson <davejwatson@fb.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f67.google.com ([209.85.213.67]:33933 "EHLO
-        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752163AbdHHTqO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 15:46:14 -0400
-Received: by mail-vk0-f67.google.com with SMTP id d124so2720337vkf.1
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 12:46:14 -0700 (PDT)
-In-Reply-To: <16ae6009.7a67.15dbf64b398.Coremail.gfree.wind@vip.163.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:38310 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752070AbdHHTub (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 15:50:31 -0400
+Received: by mail-wm0-f41.google.com with SMTP id m85so15241944wma.1
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 12:50:30 -0700 (PDT)
+In-Reply-To: <598A1146.9090205@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 7, 2017 at 6:10 PM, Gao Feng <gfree.wind@vip.163.com> wrote:
+On Tue, Aug 8, 2017 at 12:30 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> On 08/08/2017 10:04 AM, Tom Herbert wrote:
+>> On Tue, Aug 8, 2017 at 8:31 AM, John Fastabend <john.fastabend@gmail.com> wrote:
+>>> On 08/07/2017 10:28 AM, Tom Herbert wrote:
+>>>> Generalize the ULP infrastructure that was recently introduced to
+>>>> support kTLS. This adds a SO_ULP socket option and creates new fields in
+>>>> sock structure for ULP ops and ULP data. Also, the interface allows
+>>>> additional per ULP parameters to be set so that a ULP can be pushed
+>>>> and operations started in one shot.
+>>>>
+>>>> In this patch set:
+>>>>   - Minor dependency fix in inet_common.h
+>>>>   - Implement ULP infrastructure as a socket mechanism
+>>>>   - Fixes TCP and TLS to use the new method (maintaining backwards
+>>>>     API compatibility)
+>>>>   - Adds a ulp.txt document
+>>>>
+>>>> Tested: Ran simple ULP. Dave Watson verified kTLS works.
+>>>>
+>>>> -v2: Fix compilation errors when CONFIG_ULP_SOCK not set.
+>>>> -v3: Fix one more build issue, check that sk_protocol is IPPROTO_TCP
+>>>>      in tsl_init. Also, fix a couple of minor issues related to
+>>>>      introducing locked versions of sendmsg, send page. Thanks to
+>>>>      Dave Watson, John Fastabend, and Mat Martineau for testing and
+>>>>      providing fixes.
+>>>>
+>>>
+>>>
+>>> Hi Tom, Dave,
+>>>
+>>> I'm concerned about the performance impact of walking a list and
+>>> doing string compares on every socket we create with kTLS. Dave
+>>> do you have any request/response tests for kTLS that would put pressure
+>>> on the create/destroy time of this infrastructure? We should do some
+>>> tests with dummy entries in the ULP list to understand the impact of
+>>> this list walk.
+>>>
+>>> I like the underlying TCP generalized hooks, but do we really expect a
+>>> lot of these hooks to exist? If we only have two on the roadmap
+>>> (kTLS and socktap) it seems a bit overkill. Further, if we really expect
+>>> many ULP objects then the list walk and compare will become more expensive
+>>> perhaps becoming noticeable in request per second metrics.
+>>>
+>>> Why not just create another socktap socketopt? That will be better from
+>>> complexity and likely performance sides.
+>>>
+>> IMO, given that there is at most two even proposed at this point I
+>> don't there's much point addressing performance. When ULP feature
+>> catches on and we start see a whole bunch of them then it's
+>> straightforward to use a hash table or some more efficient mechanism.
+>>
 >
-> Sorry, I don't get you clearly. Why the sock_hold() isn't helpful?
-
-I already told you, the dereference happends before sock_hold().
-
-        sock = rcu_dereference(callid_sock[call_id]);
-        if (sock) {
-                opt = &sock->proto.pptp;
-                if (opt->dst_addr.sin_addr.s_addr != s_addr) <=== HERE
-                        sock = NULL;
-                else
-                        sock_hold(sk_pppox(sock));
-        }
-
-If we don't wait for readers properly, sock could be freed at the
-same time when deference it.
-
-> The pptp_release invokes synchronize_rcu after del_chan, it could make sure the others has increased the sock refcnt if necessary
-> and the lookup is over.
-> There is no one could get the sock after synchronize_rcu in pptp_release.
-
-
-If this were true, then this code in pptp_sock_destruct()
-would be unneeded:
-
-        if (!(sk->sk_state & PPPOX_DEAD)) {
-                del_chan(pppox_sk(sk));
-                pppox_unbind_sock(sk);
-        }
-
-
+> OTOH these optimizations are usually easiest to do at the beginning. And
+> building an enum of ULP types would allow removing string comparisons and
+> to do simpler unsigned comparisons. I wont complain too much here though
+> because this series didn't introduce the lists.
 >
->
-> But I think about another problem.
-> It seems the pptp_sock_destruct should not invoke del_chan and pppox_unbind_sock.
-> Because when the sock refcnt is 0, the pptp_release must have be invoked already.
->
+Hi John,
 
+It's a tradeoff. The nice thing about using strings is that we don't
+need maintain a universal enum.
 
-I don't know. Looks like sock_orphan() is only called
-in pptp_release(), but I am not sure if there is a case
-we call sock destructor before release.
+A related problem is how to combine different ULPs on the same socket.
+For instance, I might want to do filtering on the application layer
+messages being sent over TLS (stap+kTLS ULPs). So far I don't see an
+obvious way to do that. The buffering requirement for crypto seems to
+convolute this some.
 
-Also note, this socket is very special, it doesn't support
-poll(), sendmsg() or recvmsg()..
+Tom
