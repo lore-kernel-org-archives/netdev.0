@@ -1,77 +1,54 @@
-From: James Hogan <james.hogan@imgtec.com>
-Subject: Re: [RFC PATCH 2/2] bpf: Initialise mod[] in bpf_trace_printk
-Date: Tue, 08 Aug 2017 22:20:05 +0100
-Message-ID: <650EB3B0-1101-4624-905A-E68D2EC5920F@imgtec.com>
-References: <20170807222514.24292-1-james.hogan@imgtec.com> <20170807222514.24292-3-james.hogan@imgtec.com> <59897A7C.10009@iogearbox.net> <20170808.094857.245786887664041622.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: ast@kernel.org, linux-kernel@vger.kernel.org, rostedt@goodmis.org,
-        mingo@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, daniel@iogearbox.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170808.094857.245786887664041622.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH] net: systemport: Fix software statistics for SYSTEMPORT Lite
+Date: Tue,  8 Aug 2017 14:39:25 -0700
+Message-ID: <20170808213925.26126-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33801 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752265AbdHHVjd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 17:39:33 -0400
+Received: by mail-wm0-f66.google.com with SMTP id x64so4760157wmg.1
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 14:39:32 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8 August 2017 17:48:57 BST, David Miller <davem@davemloft=2Enet> wrote:
->From: Daniel Borkmann <daniel@iogearbox=2Enet>
->Date: Tue, 08 Aug 2017 10:46:52 +0200
->
->> On 08/08/2017 12:25 AM, James Hogan wrote:
->>> In bpf_trace_printk(), the elements in mod[] are left uninitialised,
->>> but
->>> they are then incremented to track the width of the formats=2E Zero
->>> initialise the array just in case the memory contains non-zero
->values
->>> on
->>> entry=2E
->>>
->>> Fixes: 9c959c863f82 ("tracing: Allow BPF programs to call
->>> bpf_trace_printk()")
->>> Signed-off-by: James Hogan <james=2Ehogan@imgtec=2Ecom>
->>> Cc: Alexei Starovoitov <ast@kernel=2Eorg>
->>> Cc: Daniel Borkmann <daniel@iogearbox=2Enet>
->>> Cc: Steven Rostedt <rostedt@goodmis=2Eorg>
->>> Cc: Ingo Molnar <mingo@redhat=2Ecom>
->>> Cc: netdev@vger=2Ekernel=2Eorg
->>> ---
->>> When I checked (on MIPS32), the elements tended to have the value
->zero
->>> anyway (does BPF zero the stack or something clever?), so this is a
->>> purely theoretical fix=2E
->>> ---
->>>   kernel/trace/bpf_trace=2Ec | 2 +-
->>>   1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> diff --git a/kernel/trace/bpf_trace=2Ec b/kernel/trace/bpf_trace=2Ec
->>> index 32dcbe1b48f2=2E=2E86a52857d941 100644
->>> --- a/kernel/trace/bpf_trace=2Ec
->>> +++ b/kernel/trace/bpf_trace=2Ec
->>> @@ -129,7 +129,7 @@ BPF_CALL_5(bpf_trace_printk, char *, fmt, u32,
->>> fmt_size, u64, arg1,
->>>   	   u64, arg2, u64, arg3)
->>>   {
->>>   	bool str_seen =3D false;
->>> -	int mod[3] =3D {};
->>> +	int mod[3] =3D { 0, 0, 0 };
->>=20
->> I'm probably missing something, but is the behavior of gcc wrt
->> above initializers different on mips (it zeroes just fine on x86
->> at least)? If yes, we'd probably need a cocci script to also check
->> rest of the kernel given this is used in a number of places=2E Hm,
->> could you elaborate?
->
->This change is not necessary at all=2E
->
->An empty initializer must clear the whole object to zero=2E
->
->"theoretical" fix indeed=2E=2E=2E :-(
+With SYSTEMPORT Lite we have holes in our statistics layout that make us
+skip over the hardware MIB counters, bcm_sysport_get_stats() was not
+taking that into account, resulting in reporting 0 for all SW-maintained
+statistics, fix this by skipping accordingly.
 
-cool, i hadn't realised unmentioned elements in an initialiser are always =
-zeroed, even when non-global/static, so had interpreted the whole array as =
-uninitialised=2E learn something new every day :-) sorry for the noise=2E
+Fixes: 44a4524c54af ("net: systemport: Add support for SYSTEMPORT Lite")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-cheers
-James
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 5333601f855f..abf175372719 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -449,6 +449,10 @@ static void bcm_sysport_get_stats(struct net_device *dev,
+ 			p = (char *)&dev->stats;
+ 		else
+ 			p = (char *)priv;
++
++		if (priv->is_lite && !bcm_sysport_lite_stat_valid(s->type))
++			continue;
++
+ 		p += s->stat_offset;
+ 		data[j] = *(unsigned long *)p;
+ 		j++;
+@@ -608,8 +612,8 @@ static struct sk_buff *bcm_sysport_rx_refill(struct bcm_sysport_priv *priv,
+ 
+ 	/* Allocate a new SKB for a new packet */
+ 	skb = netdev_alloc_skb(priv->netdev, RX_BUF_LENGTH);
++	priv->mib.alloc_rx_buff_failed++;
+ 	if (!skb) {
+-		priv->mib.alloc_rx_buff_failed++;
+ 		netif_err(priv, rx_err, ndev, "SKB alloc failed\n");
+ 		return NULL;
+ 	}
+-- 
+2.9.3
