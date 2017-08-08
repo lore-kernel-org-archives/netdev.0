@@ -1,115 +1,84 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv3 net] net: sched: set xt_tgchk_param par.net properly in ipt_init_target
-Date: Tue,  8 Aug 2017 15:25:25 +0800
-Message-ID: <7aa6e3f47ea0feb6f348b4de20fc6503e8c8e25b.1502177125.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, Jiri Pirko <jiri@resnulli.us>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: network dev <netdev@vger.kernel.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC net-next] net: xfrm: support setting an output mark.
+Date: Tue, 8 Aug 2017 09:51:43 +0200
+Message-ID: <20170808075143.GR2631@secunet.com>
+References: <20170807092326.10239-1-lorenzo@google.com>
+ <20170807111623.GQ2631@secunet.com>
+ <CAKD1Yr2YXYed+vVgcyYo4XLAFXGjwwdSRucOmg+z2PVZD_A06Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        <herbert@gondor.apana.org.au>, Nathan Harold <nharold@google.com>,
+        "Jonathan Basseri" <misterikkit@google.com>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36192 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751880AbdHHHZe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 03:25:34 -0400
-Received: by mail-pg0-f68.google.com with SMTP id y129so2270963pgy.3
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 00:25:34 -0700 (PDT)
+Received: from a.mx.secunet.com ([62.96.220.36]:34550 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750776AbdHHHvp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Aug 2017 03:51:45 -0400
+Content-Disposition: inline
+In-Reply-To: <CAKD1Yr2YXYed+vVgcyYo4XLAFXGjwwdSRucOmg+z2PVZD_A06Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now xt_tgchk_param par in ipt_init_target is a local varibale,
-par.net is not initialized there. Later when xt_check_target
-calls target's checkentry in which it may access par.net, it
-would cause kernel panic.
+On Mon, Aug 07, 2017 at 10:34:37PM +0900, Lorenzo Colitti wrote:
+> On Mon, Aug 7, 2017 at 8:16 PM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+> > >       XFRMA_OFFLOAD_DEV,      /* struct xfrm_state_offload */
+> > > +     XFRMA_OUTPUT_MARK,      /* __u32 */
+> > >       __XFRMA_MAX
+> >
+> > Hm, why don't you use the existing xfrm_mark for this?
+> > Having two different marks on one SA seems to be a bit odd.
+> 
+> I think using a separate mark is conceptually cleaner and much more flexible.
+> 
+> The existing xfrm_mark is constrained to match the mark of the socket
+> that sends the packet (or the unencrypted packet that is transformed).
+> Specifically (at least if I'm reading the code correctly),
+> xfrm_policy_match requires:
+> 
+>     (fl->flowi_mark & pol->mark.m) == pol->mark.v
+> 
+> and xfrm_state_find requires:
+> 
+>     (mark & x->mark.m) == x->mark.v
+> 
+> so basically the SA mark is a subset of the bits of the policy mark,
+> which is a subset of the bits of sk_mark.
+> 
+> On systems using mark-based routing (or at least on Android [1]), the
+> mark decides how a packet is routed, and in order for things to work
+> properly the routing of an IPsec tunnel should depend only on the
+> tunnel configuration and not on the mark of any socket or any packet
+> that is routed through that tunnel. The mark might select which tunnel
+> to go through, and the output mark would decide how the tunnel packets
+> are routed.
 
-Jaroslav found this panic when running:
+I thought you can just split the 32 bit mark into two 16 bit marks
+by setting an appropriate mask at the xfrm and the routing mark.
+But this has the drawback that the socket needs to know how possibly
+tunneled packets should be routed.
 
-  # ip link add TestIface type dummy
-  # tc qd add dev TestIface ingress handle ffff:
-  # tc filter add dev TestIface parent ffff: u32 match u32 0 0 \
-    action xt -j CONNMARK --set-mark 4
+> 
+> A real use case is IWLAN [2], which is used to connect to 3GPP
+> networks over wifi. The phone has the same IP addresses on the
+> cellular interface and on an IPsec tunnel to a carrier gateway (PDG).
+> On Android, a socket connected on the carrier network through a native
+> interface such as LTE will have the socket mark that's specific to the
+> carrier network. If the device then hands over the carrier connection
+> to the IPsec tunnel over wifi, the socket will still have the mark of
+> the LTE interface. If we used xfrm_mark, then the tunneled packets
+> themselves will be routed on LTE instead of being routed on wifi. That
+> obviously defeats the purpose.
+> 
+> Using XFRM_OUTPUT_MARK makes this much cleaner: the socket can
+> continue to be marked with the carrier network's mark, and it's the
+> IPsec tunnel itself that is bound to the wifi network using the mark
+> in the SA.
 
-This patch is to pass net param into ipt_init_target and set
-par.net with it properly in there.
-
-v1->v2:
-  As Wang Cong pointed, I missed ipt_net_id != xt_net_id, so fix
-  it by also passing net_id to __tcf_ipt_init.
-v2->v3:
-  Missed the fixes tag, so add it.
-
-Fixes: ecb2421b5ddf ("netfilter: add and use nf_ct_netns_get/put")
-Reported-by: Jaroslav Aster <jaster@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sched/act_ipt.c | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
-
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 36f0ced..94ba5cf 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -36,8 +36,8 @@ static struct tc_action_ops act_ipt_ops;
- static unsigned int xt_net_id;
- static struct tc_action_ops act_xt_ops;
- 
--static int ipt_init_target(struct xt_entry_target *t, char *table,
--			   unsigned int hook)
-+static int ipt_init_target(struct net *net, struct xt_entry_target *t,
-+			   char *table, unsigned int hook)
- {
- 	struct xt_tgchk_param par;
- 	struct xt_target *target;
-@@ -49,6 +49,7 @@ static int ipt_init_target(struct xt_entry_target *t, char *table,
- 		return PTR_ERR(target);
- 
- 	t->u.kernel.target = target;
-+	par.net       = net;
- 	par.table     = table;
- 	par.entryinfo = NULL;
- 	par.target    = target;
-@@ -91,10 +92,11 @@ static const struct nla_policy ipt_policy[TCA_IPT_MAX + 1] = {
- 	[TCA_IPT_TARG]	= { .len = sizeof(struct xt_entry_target) },
- };
- 
--static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
-+static int __tcf_ipt_init(struct net *net, unsigned int id, struct nlattr *nla,
- 			  struct nlattr *est, struct tc_action **a,
- 			  const struct tc_action_ops *ops, int ovr, int bind)
- {
-+	struct tc_action_net *tn = net_generic(net, id);
- 	struct nlattr *tb[TCA_IPT_MAX + 1];
- 	struct tcf_ipt *ipt;
- 	struct xt_entry_target *td, *t;
-@@ -159,7 +161,7 @@ static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
- 	if (unlikely(!t))
- 		goto err2;
- 
--	err = ipt_init_target(t, tname, hook);
-+	err = ipt_init_target(net, t, tname, hook);
- 	if (err < 0)
- 		goto err3;
- 
-@@ -193,18 +195,16 @@ static int tcf_ipt_init(struct net *net, struct nlattr *nla,
- 			struct nlattr *est, struct tc_action **a, int ovr,
- 			int bind)
- {
--	struct tc_action_net *tn = net_generic(net, ipt_net_id);
--
--	return __tcf_ipt_init(tn, nla, est, a, &act_ipt_ops, ovr, bind);
-+	return __tcf_ipt_init(net, ipt_net_id, nla, est, a, &act_ipt_ops, ovr,
-+			      bind);
- }
- 
- static int tcf_xt_init(struct net *net, struct nlattr *nla,
- 		       struct nlattr *est, struct tc_action **a, int ovr,
- 		       int bind)
- {
--	struct tc_action_net *tn = net_generic(net, xt_net_id);
--
--	return __tcf_ipt_init(tn, nla, est, a, &act_xt_ops, ovr, bind);
-+	return __tcf_ipt_init(net, xt_net_id, nla, est, a, &act_xt_ops, ovr,
-+			      bind);
- }
- 
- static int tcf_ipt(struct sk_buff *skb, const struct tc_action *a,
--- 
-2.1.0
+So we transform the packet and may 'transform' the mark on the packet
+too. This could make sense, but we have to point out the differences
+between the xfrm_mark and the output_mark on the SA very explicit.
