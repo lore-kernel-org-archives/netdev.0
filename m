@@ -1,35 +1,89 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 0/7] rtnetlink: allow to run selected handlers without rtnl
-Date: Tue,  8 Aug 2017 18:02:29 +0200
-Message-ID: <20170808160236.28562-1-fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net,stable] qmi_wwan: fix NULL deref on disconnect
+Date: Tue,  8 Aug 2017 18:02:11 +0200
+Message-ID: <20170808160211.4777-1-bjorn@mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-usb@vger.kernel.org,
+        =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+        Daniele Palmas <dnlplm@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:35524 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752104AbdHHQCS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 12:02:18 -0400
+Received: from canardo.mork.no ([148.122.252.1]:52939 "EHLO canardo.mork.no"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752126AbdHHQCX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Aug 2017 12:02:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RTNL mutex is used to serialize both rtnetlink calls and dump requests.
-Its also used to protect other things such as the list of current netns.
+qmi_wwan_disconnect is called twice when disconnecting devices with
+separate control and data interfaces.  The first invocation will set
+the interface data to NULL for both interfaces to flag that the
+disconnect has been handled.  But the matching NULL check was left
+out when qmi_wwan_disconnect was added, resulting in this oops:
 
-Unfortunately RTNL mutex is a performance issue, e.g. a cpu adding an
-ip address prevents other cpus from seemingly unrelated tasks such as
-dumping tc classifiers.
+  usb 2-1.4: USB disconnect, device number 4
+  qmi_wwan 2-1.4:1.6 wwp0s29u1u4i6: unregister 'qmi_wwan' usb-0000:00:1d.0-1.4, WWAN/QMI device
+  BUG: unable to handle kernel NULL pointer dereference at 00000000000000e0
+  IP: qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
+  PGD 0
+  P4D 0
+  Oops: 0000 [#1] SMP
+  Modules linked in: <stripped irrelevant module list>
+  CPU: 2 PID: 33 Comm: kworker/2:1 Tainted: G            E   4.12.3-nr44-normandy-r1500619820+ #1
+  Hardware name: LENOVO 4291LR7/4291LR7, BIOS CBET4000 4.6-810-g50522254fb 07/21/2017
+  Workqueue: usb_hub_wq hub_event [usbcore]
+  task: ffff8c882b716040 task.stack: ffffb8e800d84000
+  RIP: 0010:qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
+  RSP: 0018:ffffb8e800d87b38 EFLAGS: 00010246
+  RAX: 0000000000000000 RBX: 0000000000000000 RCX: 0000000000000000
+  RDX: 0000000000000001 RSI: ffff8c8824f3f1d0 RDI: ffff8c8824ef6400
+  RBP: ffff8c8824ef6400 R08: 0000000000000000 R09: 0000000000000000
+  R10: ffffb8e800d87780 R11: 0000000000000011 R12: ffffffffc07ea0e8
+  R13: ffff8c8824e2e000 R14: ffff8c8824e2e098 R15: 0000000000000000
+  FS:  0000000000000000(0000) GS:ffff8c8835300000(0000) knlGS:0000000000000000
+  CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+  CR2: 00000000000000e0 CR3: 0000000229ca5000 CR4: 00000000000406e0
+  Call Trace:
+   ? usb_unbind_interface+0x71/0x270 [usbcore]
+   ? device_release_driver_internal+0x154/0x210
+   ? qmi_wwan_unbind+0x6d/0xc0 [qmi_wwan]
+   ? usbnet_disconnect+0x6c/0xf0 [usbnet]
+   ? qmi_wwan_disconnect+0x87/0xc0 [qmi_wwan]
+   ? usb_unbind_interface+0x71/0x270 [usbcore]
+   ? device_release_driver_internal+0x154/0x210
 
-This patch set attempts to add basic infrastructure to start pushing the
-rtnl lock down to those places that need it, or even elide it entirely in
-some cases.
+Reported-and-tested-by: Nathaniel Roach <nroach44@gmail.com>
+Fixes: c6adf77953bc ("net: usb: qmi_wwan: add qmap mux protocol support")
+Cc: Daniele Palmas <dnlplm@gmail.com>
+Signed-off-by: Bjørn Mork <bjorn@mork.no>
+---
+Needed for v4.12 and later
 
-Subsystems can now indicate that their doit() callback can run without
-RTNL mutex.  Such callbacks can then run in parallel.
 
-This will obviously need a lot of followup work; all current users need
-to be audited/changed to benefit from this.
+ drivers/net/usb/qmi_wwan.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Initial no-rtnl spots are ip6 fib add/del and netns new/getid.
-
-Dumps are another problem entirely, see
-commit 2907c35ff64708065 ("net: hold rtnl again in dump callbacks"),
-this patchset doesn't touch them.
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index ff6f39fe6c00..8c3733608271 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -1341,10 +1341,14 @@ static int qmi_wwan_probe(struct usb_interface *intf,
+ static void qmi_wwan_disconnect(struct usb_interface *intf)
+ {
+ 	struct usbnet *dev = usb_get_intfdata(intf);
+-	struct qmi_wwan_state *info = (void *)&dev->data;
++	struct qmi_wwan_state *info;
+ 	struct list_head *iter;
+ 	struct net_device *ldev;
+ 
++	/* called twice if separate control and data intf */
++	if (!dev)
++		return;
++	info = (void *)&dev->data;
+ 	if (info->flags & QMI_WWAN_FLAG_MUX) {
+ 		if (!rtnl_trylock()) {
+ 			restart_syscall();
+-- 
+2.11.0
