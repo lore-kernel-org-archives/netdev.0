@@ -1,220 +1,594 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: qmi_wwan: Null pointer dereference when removing driver
-Date: Tue, 08 Aug 2017 12:35:06 +0200
-Message-ID: <87d1861h5x.fsf@miraculix.mork.no>
-References: <0d39998a-dfa9-48c5-0c7f-19354f16a7c0@gmail.com>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Performance comparision for 10G ethernet no vlans vs 10G ethernet
+ traffic on one vlan
+Date: Tue, 8 Aug 2017 12:53:03 +0200
+Message-ID: <ec5a2b7c-2e3d-090d-7c36-0b6e72343079@itcare.pl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-=-="
-Cc: netdev@vger.kernel.org, Daniele Palmas <dnlplm@gmail.com>
-To: Nathaniel Roach <nroach44@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:35001 "EHLO canardo.mork.no"
+Received: from smtp7.iq.pl ([86.111.240.244]:50584 "EHLO smtp7.iq.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751921AbdHHKfY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Aug 2017 06:35:24 -0400
-In-Reply-To: <0d39998a-dfa9-48c5-0c7f-19354f16a7c0@gmail.com> (Nathaniel
-        Roach's message of "Thu, 27 Jul 2017 13:31:00 +0800")
+        id S1751921AbdHHKyP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Aug 2017 06:54:15 -0400
+Received: from [192.168.2.200] (unknown [185.78.72.19])
+        (Authenticated sender: pstaszewski@itcare.pl)
+        by smtp.iq.pl (Postfix) with ESMTPSA id 3xRWVY3R3Jz3xSg
+        for <netdev@vger.kernel.org>; Tue,  8 Aug 2017 12:54:13 +0200 (CEST)
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-=-=
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-Nathaniel Roach <nroach44@gmail.com> writes:
-
-> Unsure at which point was added, but issue not present in stock debian 4.=
-11 kernel.
->
-> Running on a Thinkpad X220 with coreboot.
->
-> I'm building from upstream. When I attempt to remove the qmi_wwan module =
-(which also happens pre-suspend) the rmmod process gets killed, and the fol=
-lowing shows in dmesg:
->
-> [   59.979791] usb 2-1.4: USB disconnect, device number 4
-> [   59.980102] qmi_wwan 2-1.4:1.6 wwp0s29u1u4i6: unregister 'qmi_wwan' us=
-b-0000:00:1d.0-1.4, WWAN/QMI device
-> [   60.006821] BUG: unable to handle kernel NULL pointer dereference at 0=
-0000000000000e0
-> [   60.006879] IP: qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
-> [   60.006911] PGD 0
-> [   60.006911] P4D 0
-> [   60.006957] Oops: 0000 [#1] SMP
-> [   60.006978] Modules linked in: fuse(E) ccm(E) rfcomm(E) cmac(E) bnep(E=
-) qmi_wwan(E) cdc_wdm(E) cdc_ether(E) usbnet(E) mii(E) btusb(E) btrtl(E) bt=
-bcm(E) btintel(E) bluetooth(E) joydev(E) xpad(E) ecdh_generic(E) ff_memless=
-(E) binfmt_misc(E) snd_hda_codec_hdmi(E) snd_hda_codec_conexant(E) snd_hda_=
-codec_generic(E) arc4(E) iTCO_wdt(E) iTCO_vendor_support(E) intel_rapl(E) x=
-86_pkg_temp_thermal(E) kvm_intel(E) kvm(E) irqbypass(E) crct10dif_pclmul(E)=
- crc32_pclmul(E) crc32c_intel(E) ghash_clmulni_intel(E) aesni_intel(E) iwlm=
-vm(E) aes_x86_64(E) crypto_simd(E) mac80211(E) cryptd(E) glue_helper(E) snd=
-_hda_intel(E) snd_hda_codec(E) iwlwifi(E) snd_hwdep(E) psmouse(E) snd_hda_c=
-ore(E) snd_pcm(E) serio_raw(E) sdhci_pci(E) pcspkr(E) snd_timer(E) ehci_pci=
-(E) e1000e(E) i2c_i801(E) ehci_hcd(E) snd(E) sg(E) i915(E) lpc_ich(E)
-> [   60.007366]  ptp(E) usbcore(E) cfg80211(E) mfd_core(E) pps_core(E) shp=
-chp(E) ac(E) battery(E) tpm_tis(E) tpm_tis_core(E) evdev(E) tpm(E) parport_=
-pc(E) ppdev(E) lp(E) parport(E) ip_tables(E) x_tables(E) autofs4(E)
-> [   60.007474] CPU: 2 PID: 33 Comm: kworker/2:1 Tainted: G            E  =
- 4.12.3-nr44-normandy-r1500619820+ #1
-> [   60.007524] Hardware name: LENOVO 4291LR7/4291LR7, BIOS CBET4000 4.6-8=
-10-g50522254fb 07/21/2017
-> [   60.007580] Workqueue: usb_hub_wq hub_event [usbcore]
-> [   60.007609] task: ffff8c882b716040 task.stack: ffffb8e800d84000
-> [   60.007644] RIP: 0010:qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
-> [   60.007678] RSP: 0018:ffffb8e800d87b38 EFLAGS: 00010246
-> [   60.007711] RAX: 0000000000000000 RBX: 0000000000000000 RCX: 000000000=
-0000000
-> [   60.007752] RDX: 0000000000000001 RSI: ffff8c8824f3f1d0 RDI: ffff8c882=
-4ef6400
-> [   60.007792] RBP: ffff8c8824ef6400 R08: 0000000000000000 R09: 000000000=
-0000000
-> [   60.007833] R10: ffffb8e800d87780 R11: 0000000000000011 R12: ffffffffc=
-07ea0e8
-> [   60.007874] R13: ffff8c8824e2e000 R14: ffff8c8824e2e098 R15: 000000000=
-0000000
-> [   60.007915] FS:  0000000000000000(0000) GS:ffff8c8835300000(0000) knlG=
-S:0000000000000000
-> [   60.007960] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   60.007994] CR2: 00000000000000e0 CR3: 0000000229ca5000 CR4: 000000000=
-00406e0
-> [   60.008035] Call Trace:
-> [   60.008065]  ? usb_unbind_interface+0x71/0x270 [usbcore]
-> [   60.008101]  ? device_release_driver_internal+0x154/0x210
-> [   60.008135]  ? qmi_wwan_unbind+0x6d/0xc0 [qmi_wwan]
-> [   60.008168]  ? usbnet_disconnect+0x6c/0xf0 [usbnet]
-> [   60.008194]  ? qmi_wwan_disconnect+0x87/0xc0 [qmi_wwan]
-> [   60.008232]  ? usb_unbind_interface+0x71/0x270 [usbcore]
-> [   60.008264]  ? device_release_driver_internal+0x154/0x210
-> [   60.008296]  ? bus_remove_device+0xf5/0x160
-> [   60.008324]  ? device_del+0x1dc/0x310
-> [   60.008355]  ? usb_remove_ep_devs+0x1b/0x30 [usbcore]
-> [   60.008393]  ? usb_disable_device+0x93/0x250 [usbcore]
-> [   60.008430]  ? usb_disconnect+0x90/0x260 [usbcore]
-> [   60.008468]  ? hub_event+0x1d9/0x14a0 [usbcore]
-> [   60.008500]  ? process_one_work+0x175/0x370
-> [   60.008528]  ? worker_thread+0x4a/0x380
-> [   60.008555]  ? kthread+0xfc/0x130
-> [   60.008579]  ? process_one_work+0x370/0x370
-> [   60.008606]  ? kthread_park+0x60/0x60
-> [   60.008631]  ? ret_from_fork+0x22/0x30
-> [   60.008656] Code: 66 0f 1f 44 00 00 66 66 66 66 90 55 48 89 fd 53 48 8=
-3 ec 10 48 8b 9f c8 00 00 00 65 48 8b 04 25 28 00 00 00 48 89 44 24 08 31 c=
-0 <f6> 83 e0 00 00 00 02 74 51 e8 0d b3 2b cd 85 c0 74 67 48 8b bb
-> [   60.011925] RIP: qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan] RSP: ffffb8e=
-800d87b38
-> [   60.013564] CR2: 00000000000000e0
-> [   60.022125] ---[ end trace e536b59f45bc0f25 ]---
-> [   60.025385] IPv6: ADDRCONF(NETDEV_UP): wlp2s0: link is not ready
->
-> If I attempt a second rmmod, the process hangs. If I attempt it on 4.11.x=
- it works as expected:
->
-> [   16.897783] fuse init (API version 7.26)
-> [   68.073552] usbcore: deregistering interface driver qmi_wwan
-> [   68.075808] qmi_wwan 2-1.4:1.6 wwp0s29u1u4i6: unregister 'qmi_wwan' us=
-b-0000:00:1d.0-1.4, WWAN/QMI device
-> [   72.431403] e1000e: enp0s25 NIC Link is Down
->
-> So I'm pretty certain it's not coreboot causing the issue.
+Hi
 
 
-Thanks a lot for the report!  Just one question: Does your modem have
-separate control and data interfaces? If so, then I believe the
-attached patch will fix the issue.  Are you able to test it?
+Wondering why there is such a big difference when testing forwarding 
+host with forwarding traffic on vlan and without vlan.
 
-If the modem use the more common cobined interface model. then I need to
-investigate this further..
+Kernel used: 4.12.4
 
-
-Bj=C3=B8rn
-
---=-=-=
-Content-Type: text/x-diff; charset=utf-8
-Content-Disposition: inline;
- filename=0001-qmi_wwan-fix-NULL-deref-on-disconnect.patch
-Content-Transfer-Encoding: quoted-printable
-
->From c6ca53a5aaf6ce6a2733f75363119444adbe5d82 Mon Sep 17 00:00:00 2001
-From: =3D?UTF-8?q?Bj=3DC3=3DB8rn=3D20Mork?=3D <bjorn@mork.no>
-Date: Tue, 8 Aug 2017 12:17:25 +0200
-Subject: [RFT] qmi_wwan: fix NULL deref on disconnect
-MIME-Version: 1.0
-Content-Type: text/plain; charset=3DUTF-8
-Content-Transfer-Encoding: 8bit
-
-qmi_wwan_disconnect is called twice when disconnecting devices with
-separate control and data interfaces.  The first invocation will set
-the interface data to NULL to flag that disconnect has been handled.
-But the matching NULL check was left out when qmi_wwan_disconnect
-was added, resulting in this oops:
-
-  usb 2-1.4: USB disconnect, device number 4
-  qmi_wwan 2-1.4:1.6 wwp0s29u1u4i6: unregister 'qmi_wwan' usb-0000:00:1d.0-=
-1.4, WWAN/QMI device
-  BUG: unable to handle kernel NULL pointer dereference at 00000000000000e0
-  IP: qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
-  PGD 0
-  P4D 0
-  Oops: 0000 [#1] SMP
-  Modules linked in: <stripped irrelevant module list>
-  CPU: 2 PID: 33 Comm: kworker/2:1 Tainted: G            E   4.12.3-nr44-no=
-rmandy-r1500619820+ #1
-  Hardware name: LENOVO 4291LR7/4291LR7, BIOS CBET4000 4.6-810-g50522254fb =
-07/21/2017
-  Workqueue: usb_hub_wq hub_event [usbcore]
-  task: ffff8c882b716040 task.stack: ffffb8e800d84000
-  RIP: 0010:qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
-  RSP: 0018:ffffb8e800d87b38 EFLAGS: 00010246
-  RAX: 0000000000000000 RBX: 0000000000000000 RCX: 0000000000000000
-  RDX: 0000000000000001 RSI: ffff8c8824f3f1d0 RDI: ffff8c8824ef6400
-  RBP: ffff8c8824ef6400 R08: 0000000000000000 R09: 0000000000000000
-  R10: ffffb8e800d87780 R11: 0000000000000011 R12: ffffffffc07ea0e8
-  R13: ffff8c8824e2e000 R14: ffff8c8824e2e098 R15: 0000000000000000
-  FS:  0000000000000000(0000) GS:ffff8c8835300000(0000) knlGS:0000000000000=
-000
-  CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-  CR2: 00000000000000e0 CR3: 0000000229ca5000 CR4: 00000000000406e0
-  Call Trace:
-   ? usb_unbind_interface+0x71/0x270 [usbcore]
-   ? device_release_driver_internal+0x154/0x210
-   ? qmi_wwan_unbind+0x6d/0xc0 [qmi_wwan]
-   ? usbnet_disconnect+0x6c/0xf0 [usbnet]
-   ? qmi_wwan_disconnect+0x87/0xc0 [qmi_wwan]
-   ? usb_unbind_interface+0x71/0x270 [usbcore]
-   ? device_release_driver_internal+0x154/0x210
-
-Reported-by: Nathaniel Roach <nroach44@gmail.com>
-Fixes: c6adf77953bc ("net: usb: qmi_wwan: add qmap mux protocol support")
-Cc: Daniele Palmas <dnlplm@gmail.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/qmi_wwan.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index ff6f39fe6c00..8c3733608271 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -1341,10 +1341,14 @@ static int qmi_wwan_probe(struct usb_interface *int=
-f,
- static void qmi_wwan_disconnect(struct usb_interface *intf)
- {
- 	struct usbnet *dev =3D usb_get_intfdata(intf);
--	struct qmi_wwan_state *info =3D (void *)&dev->data;
-+	struct qmi_wwan_state *info;
- 	struct list_head *iter;
- 	struct net_device *ldev;
-=20
-+	/* called twice if separate control and data intf */
-+	if (!dev)
-+		return;
-+	info =3D (void *)&dev->data;
- 	if (info->flags & QMI_WWAN_FLAG_MUX) {
- 		if (!rtnl_trylock()) {
- 			restart_syscall();
---=20
-2.11.0
+UDP stream ~10Mpps - random destination from network 172.16.0.0/12 + 
+random udp port
 
 
---=-=-=--
+Forwarding performance with 8x RSS queues (no vlan on TX device enp216s0f1)
+
+ip config:
+
+RX NIC
+
+7: enp216s0f0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state 
+UP group default qlen 8192
+     link/ether 0c:c4:7a:ea:21:44 brd ff:ff:ff:ff:ff:ff
+     inet 10.0.0.1/30 scope global enp216s0f0
+        valid_lft forever preferred_lft forever
+     inet6 fe80::ec4:7aff:feea:2144/64 scope link
+        valid_lft forever preferred_lft forever
+
+TX NIC
+
+8: enp216s0f1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state 
+UP group default qlen 8192
+     link/ether 0c:c4:7a:ea:21:45 brd ff:ff:ff:ff:ff:ff
+     inet 10.0.0.5/30 scope global enp216s0f1
+        valid_lft forever preferred_lft forever
+     inet6 fe80::ec4:7aff:feea:2145/64 scope link
+        valid_lft forever preferred_lft forever
+
+       enp216s0f0:      9772859.00 P/s             0.00 P/s 9772859.00 P/s
+        enp216s0f1:            0.00 P/s       9772883.00 P/s 9772883.00 P/s
+------------------------------------------------------------------------------ 
+
+             total:      9772863.00 P/s       9772886.00 P/s 19545750.00 
+P/s
+
+mpstat -P ALL 1 10
+
+Average:     CPU    %usr   %nice    %sys %iowait    %irq   %soft %steal  
+%guest  %gnice   %idle
+Average:     all    0.00    0.00    0.00    0.00    0.00 11.89 0.00    
+0.00    0.00   88.11
+Average:       0    0.00    0.00    0.00    0.00    0.00 0.10 0.00    
+0.00    0.00   99.90
+Average:       1    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:       2    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:       3    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:       4    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:       5    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:       6    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:       7    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:       8    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:       9    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      10    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      11    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      12    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      13    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      14    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      15    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      16    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      17    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      18    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      19    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      20    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      21    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      22    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      23    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      24    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      25    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      26    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      27    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      28    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      29    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      30    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      31    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      32    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      33    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      34    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      35    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      36    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      37    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      38    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      39    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      40    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      41    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      42    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      43    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      44    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      45    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      46    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      47    0.00    0.00    0.00    0.00    0.00 0.00 0.00    
+0.00    0.00  100.00
+Average:      48    0.00    0.00    0.00    0.00    0.00 84.10 0.00    
+0.00    0.00   15.90
+Average:      49    0.00    0.00    0.00    0.00    0.00 83.20 0.00    
+0.00    0.00   16.80
+Average:      50    0.00    0.00    0.00    0.00    0.00 81.98 0.00    
+0.00    0.00   18.02
+Average:      51    0.00    0.00    0.00    0.00    0.00 80.80 0.00    
+0.00    0.00   19.20
+Average:      52    0.00    0.00    0.00    0.00    0.00 82.20 0.00    
+0.00    0.00   17.80
+Average:      53    0.00    0.00    0.00    0.00    0.00 85.30 0.00    
+0.00    0.00   14.70
+Average:      54    0.00    0.00    0.00    0.00    0.00 85.30 0.00    
+0.00    0.00   14.70
+Average:      55    0.00    0.00    0.00    0.00    0.00 82.88 0.00    
+0.00    0.00   17.12
+
+
+    PerfTop:   55080 irqs/sec  kernel:99.8%  exact:  0.0% [4000Hz 
+cycles],  (all, 56 CPUs)
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ 
+
+
+     21.93%  [kernel]       [k] do_raw_spin_lock
+      7.22%  [kernel]       [k] fib_table_lookup
+      6.79%  [kernel]       [k] acpi_processor_ffh_cstate_enter
+      5.46%  [kernel]       [k] ixgbe_poll
+      4.98%  [kernel]       [k] netif_receive_skb_internal
+      2.90%  [kernel]       [k] __build_skb
+      2.82%  [kernel]       [k] ipt_do_table
+      2.44%  [kernel]       [k] ixgbe_xmit_frame_ring
+      2.42%  [kernel]       [k] ip_rcv
+      2.31%  [kernel]       [k] get_rps_cpu
+      1.98%  [kernel]       [k] ip_finish_output2
+      1.87%  [kernel]       [k] __dev_queue_xmit
+      1.82%  [kernel]       [k] __netif_receive_skb_core
+      1.57%  [kernel]       [k] ip_route_input_noref
+      1.39%  [kernel]       [k] kmem_cache_alloc
+      1.29%  [kernel]       [k] ip_forward
+      1.27%  [kernel]       [k] irq_entries_start
+      1.27%  [kernel]       [k] skb_release_data
+      1.15%  [kernel]       [k] netif_skb_features
+      1.14%  [kernel]       [k] sch_direct_xmit
+      1.12%  [kernel]       [k] page_frag_free
+      0.99%  [kernel]       [k] __local_bh_enable_ip
+      0.78%  [kernel]       [k] dev_gro_receive
+      0.77%  [kernel]       [k] fib_validate_source
+      0.71%  [kernel]       [k] ip_rcv_finish
+      0.71%  [kernel]       [k] get_dma_ops
+      0.70%  [kernel]       [k] __netdev_pick_tx
+      0.68%  [kernel]       [k] dev_hard_start_xmit
+      0.66%  [kernel]       [k] deliver_ptype_list_skb
+      0.52%  [kernel]       [k] ixgbe_alloc_rx_buffers
+      0.51%  [kernel]       [k] netdev_pick_tx
+      0.48%  [kernel]       [k] cpuidle_enter_state
+      0.48%  [kernel]       [k] eth_type_trans
+      0.47%  [kernel]       [k] nf_hook_slow
+      0.46%  [kernel]       [k] build_skb
+      0.44%  [kernel]       [k] is_swiotlb_buffer
+
+
+
+
+
+
+And scenario with one vlan added to enp216s0f1 (vlan tag 1000)
+
+ip config
+
+RX NIC
+
+7: enp216s0f0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state 
+UP group default qlen 8192
+     link/ether 0c:c4:7a:ea:21:44 brd ff:ff:ff:ff:ff:ff
+     inet 10.0.0.1/30 scope global enp216s0f0
+        valid_lft forever preferred_lft forever
+     inet6 fe80::ec4:7aff:feea:2144/64 scope link
+        valid_lft forever preferred_lft forever
+
+TX NIC with assigned vlan 1000
+
+8: enp216s0f1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state 
+UP group default qlen 8192
+     link/ether 0c:c4:7a:ea:21:45 brd ff:ff:ff:ff:ff:ff
+     inet6 fe80::ec4:7aff:feea:2145/64 scope link
+        valid_lft forever preferred_lft forever
+
+10: vlan1000@enp216s0f1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 
+qdisc noqueue state UP group default qlen 1000
+     link/ether 0c:c4:7a:ea:21:45 brd ff:ff:ff:ff:ff:ff
+     inet 10.0.0.5/30 scope global vlan1000
+        valid_lft forever preferred_lft forever
+     inet6 fe80::ec4:7aff:feea:2145/64 scope link
+        valid_lft forever preferred_lft forever
+
+
+  bwm-ng v0.6.1 (probing every 0.500s), press 'h' for help
+   input: /proc/net/dev type: rate
+   \         iface                   Rx Tx                Total
+==============================================================================
+         enp24s0f3:           61.88 P/s             7.98 P/s            
+69.86 P/s
+                lo:            0.00 P/s             0.00 P/s             
+0.00 P/s
+          vlan1000:            0.00 P/s       6309299.50 P/s 6309299.50 P/s
+        enp216s0f0:      6308918.50 P/s             0.00 P/s 6308918.50 P/s
+        enp216s0f1:            0.00 P/s       6308912.50 P/s 6308912.50 P/s
+------------------------------------------------------------------------------
+             total:      6308980.00 P/s      12618220.00 P/s 18927200.00 P/s
+
+
+pps drops from 9.7Mpps to 6.3Mpps
+
+Cpu load rises to 100% cpu on all 8x Cores where RSS from NIC's are bind
+
+
+Average:     CPU    %usr   %nice    %sys %iowait    %irq   %soft %steal  
+%guest  %gnice   %idle
+Average:     all    0.01    0.00    0.01    0.00    0.00 14.29    
+0.00    0.00    0.00   85.70
+Average:       0    0.10    0.00    0.30    0.00    0.00 0.10    0.00    
+0.00    0.00   99.50
+Average:       1    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:       2    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:       3    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:       4    0.00    0.00    0.10    0.00    0.00 0.00    0.00    
+0.00    0.00   99.90
+Average:       5    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:       6    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:       7    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:       8    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:       9    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      10    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      11    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      12    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      13    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      14    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      15    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      16    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      17    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      18    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      19    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      20    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      21    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      22    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      23    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      24    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      25    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      26    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      27    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      28    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      29    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      30    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      31    0.20    0.00    0.10    0.00    0.00 0.00    0.00    
+0.00    0.00   99.70
+Average:      32    0.00    0.00    0.10    0.00    0.00 0.00    0.00    
+0.00    0.00   99.90
+Average:      33    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      34    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      35    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      36    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      37    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      38    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      39    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      40    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      41    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      42    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      43    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      44    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      45    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      46    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      47    0.00    0.00    0.00    0.00    0.00 0.00    0.00    
+0.00    0.00  100.00
+Average:      48    0.00    0.00    0.00    0.00    0.00 100.00    
+0.00    0.00    0.00    0.00
+Average:      49    0.00    0.00    0.10    0.00    0.00 99.90    
+0.00    0.00    0.00    0.00
+Average:      50    0.00    0.00    0.00    0.00    0.00 100.00    
+0.00    0.00    0.00    0.00
+Average:      51    0.00    0.00    0.00    0.00    0.00 100.00    
+0.00    0.00    0.00    0.00
+Average:      52    0.00    0.00    0.00    0.00    0.00 100.00    
+0.00    0.00    0.00    0.00
+Average:      53    0.00    0.00    0.00    0.00    0.00 100.00    
+0.00    0.00    0.00    0.00
+Average:      54    0.00    0.00    0.00    0.00    0.00 100.00    
+0.00    0.00    0.00    0.00
+Average:      55    0.00    0.00    0.00    0.00    0.00 100.00    
+0.00    0.00    0.00    0.00
+
+
+And perf top:
+
+    PerfTop:   38413 irqs/sec  kernel:99.7%  exact:  0.0% [4000Hz 
+cycles],  (all, 56 CPUs)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+     11.96%  [kernel]       [k] do_raw_spin_lock
+      9.62%  [kernel]       [k] dst_release
+      9.19%  [kernel]       [k] skb_dst_force
+      8.15%  [kernel]       [k] rt_cache_valid
+      7.00%  [kernel]       [k] ip_finish_output2
+      6.17%  [kernel]       [k] fib_table_lookup
+      3.59%  [kernel]       [k] ixgbe_poll
+      3.32%  [kernel]       [k] eth_type_trans
+      2.59%  [kernel]       [k] dev_gro_receive
+      2.05%  [kernel]       [k] __build_skb
+      1.99%  [kernel]       [k] ixgbe_xmit_frame_ring
+      1.82%  [kernel]       [k] ip_rcv
+      1.79%  [kernel]       [k] acpi_processor_ffh_cstate_enter
+      1.64%  [kernel]       [k] __dev_queue_xmit
+      1.59%  [kernel]       [k] netif_skb_features
+      1.24%  [kernel]       [k] ipt_do_table
+      1.12%  [kernel]       [k] __netif_receive_skb_core
+      1.08%  [kernel]       [k] dev_hard_start_xmit
+      1.06%  [kernel]       [k] ip_route_input_noref
+      0.98%  [kernel]       [k] ip_forward
+      0.87%  [kernel]       [k] skb_release_data
+      0.82%  [kernel]       [k] sch_direct_xmit
+      0.77%  [kernel]       [k] inet_gro_receive
+      0.71%  [kernel]       [k] __local_bh_enable_ip
+      0.64%  [kernel]       [k] kmem_cache_alloc
+      0.63%  [kernel]       [k] page_frag_free
+      0.60%  [kernel]       [k] netdev_pick_tx
+      0.58%  [kernel]       [k] validate_xmit_skb
+      0.57%  [kernel]       [k] deliver_ptype_list_skb
+      0.49%  [kernel]       [k] ip_rcv_finish
+      0.49%  [kernel]       [k] vlan_dev_hard_start_xmit
+      0.49%  [kernel]       [k] get_dma_ops
+      0.48%  [kernel]       [k] eth_header
+      0.48%  [kernel]       [k] fib_validate_source
+      0.42%  [kernel]       [k] skb_network_protocol
+      0.41%  [kernel]       [k] neigh_connected_output
+      0.40%  [kernel]       [k] swiotlb_map_page
+      0.38%  [kernel]       [k] build_skb
+      0.37%  [kernel]       [k] ixgbe_alloc_rx_buffers
+      0.32%  [kernel]       [k] ip_output
+      0.31%  [kernel]       [k] __netdev_pick_tx
+      0.31%  [kernel]       [k] nf_hook_slow
+      0.28%  [kernel]       [k] ip_finish_output
+      0.28%  [kernel]       [k] is_swiotlb_buffer
+      0.27%  [kernel]       [k] udp4_gro_receive
+      0.27%  [kernel]       [k] validate_xmit_skb_list
+      0.26%  [kernel]       [k] virt_to_head_page
+
+
+ethtool:
+
+ethtool -k enp216s0f1
+Features for enp216s0f1:
+rx-checksumming: on
+tx-checksumming: on
+         tx-checksum-ipv4: off [fixed]
+         tx-checksum-ip-generic: on
+         tx-checksum-ipv6: off [fixed]
+         tx-checksum-fcoe-crc: off [fixed]
+         tx-checksum-sctp: on
+scatter-gather: on
+         tx-scatter-gather: on
+         tx-scatter-gather-fraglist: off [fixed]
+tcp-segmentation-offload: on
+         tx-tcp-segmentation: on
+         tx-tcp-ecn-segmentation: off [fixed]
+         tx-tcp-mangleid-segmentation: off
+         tx-tcp6-segmentation: on
+udp-fragmentation-offload: off [fixed]
+generic-segmentation-offload: on
+generic-receive-offload: on
+large-receive-offload: off
+rx-vlan-offload: on
+tx-vlan-offload: on
+ntuple-filters: on
+receive-hashing: on
+highdma: on [fixed]
+rx-vlan-filter: on
+vlan-challenged: off [fixed]
+tx-lockless: off [fixed]
+netns-local: off [fixed]
+tx-gso-robust: off [fixed]
+tx-fcoe-segmentation: off [fixed]
+tx-gre-segmentation: on
+tx-gre-csum-segmentation: on
+tx-ipxip4-segmentation: on
+tx-ipxip6-segmentation: on
+tx-udp_tnl-segmentation: on
+tx-udp_tnl-csum-segmentation: on
+tx-gso-partial: on
+tx-sctp-segmentation: off [fixed]
+tx-esp-segmentation: off [fixed]
+fcoe-mtu: off [fixed]
+tx-nocache-copy: off
+loopback: off [fixed]
+rx-fcs: off [fixed]
+rx-all: off
+tx-vlan-stag-hw-insert: off [fixed]
+rx-vlan-stag-hw-parse: off [fixed]
+rx-vlan-stag-filter: off [fixed]
+l2-fwd-offload: off
+hw-tc-offload: off
+esp-hw-offload: off [fixed]
+esp-tx-csum-hw-offload: off [fixed]
+
+ethtool -k enp216s0f0
+Features for enp216s0f0:
+rx-checksumming: on
+tx-checksumming: on
+         tx-checksum-ipv4: off [fixed]
+         tx-checksum-ip-generic: on
+         tx-checksum-ipv6: off [fixed]
+         tx-checksum-fcoe-crc: off [fixed]
+         tx-checksum-sctp: on
+scatter-gather: on
+         tx-scatter-gather: on
+         tx-scatter-gather-fraglist: off [fixed]
+tcp-segmentation-offload: on
+         tx-tcp-segmentation: on
+         tx-tcp-ecn-segmentation: off [fixed]
+         tx-tcp-mangleid-segmentation: off
+         tx-tcp6-segmentation: on
+udp-fragmentation-offload: off [fixed]
+generic-segmentation-offload: on
+generic-receive-offload: on
+large-receive-offload: off
+rx-vlan-offload: on
+tx-vlan-offload: on
+ntuple-filters: on
+receive-hashing: on
+highdma: on [fixed]
+rx-vlan-filter: on
+vlan-challenged: off [fixed]
+tx-lockless: off [fixed]
+netns-local: off [fixed]
+tx-gso-robust: off [fixed]
+tx-fcoe-segmentation: off [fixed]
+tx-gre-segmentation: on
+tx-gre-csum-segmentation: on
+tx-ipxip4-segmentation: on
+tx-ipxip6-segmentation: on
+tx-udp_tnl-segmentation: on
+tx-udp_tnl-csum-segmentation: on
+tx-gso-partial: on
+tx-sctp-segmentation: off [fixed]
+tx-esp-segmentation: off [fixed]
+fcoe-mtu: off [fixed]
+tx-nocache-copy: off
+loopback: off [fixed]
+rx-fcs: off [fixed]
+rx-all: off
+tx-vlan-stag-hw-insert: off [fixed]
+rx-vlan-stag-hw-parse: off [fixed]
+rx-vlan-stag-filter: off [fixed]
+l2-fwd-offload: off
+hw-tc-offload: off
+esp-hw-offload: off [fixed]
+esp-tx-csum-hw-offload: off [fixed]
+
+ethtool -i enp216s0f0
+driver: ixgbe
+version: 5.0.0-k
+firmware-version: 0x800006da
+expansion-rom-version:
+bus-info: 0000:d8:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: yes
+supports-register-dump: yes
+supports-priv-flags: yes
+
+ethtool -i enp216s0f1
+driver: ixgbe
+version: 5.0.0-k
+firmware-version: 0x800006da
+expansion-rom-version:
+bus-info: 0000:d8:00.1
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: yes
+supports-register-dump: yes
+supports-priv-flags: yes
+
+
+BR
+
+Paweł
