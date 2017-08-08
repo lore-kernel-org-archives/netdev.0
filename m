@@ -1,68 +1,40 @@
-From: Eduardo Otubo <otubo@redhat.com>
-Subject: [PATCH] hv_set_ifconfig.sh double check before setting ip
-Date: Tue,  8 Aug 2017 15:53:45 +0200
-Message-ID: <20170808135345.17027-1-otubo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        "K . Y . Srinivasan" <kys@microsoft.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Driver profiles RFC
+Date: Tue, 8 Aug 2017 15:54:36 +0200
+Message-ID: <20170808135436.GA2015@lunn.ch>
+References: <6d8560fa-8346-0c43-272d-d39be65ea82f@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+        ivecera@redhat.com, roopa@cumulusnetworks.com,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        john.fastabend@gmail.com, Jiri Pirko <jiri@resnulli.us>,
+        mlxsw <mlxsw@mellanox.com>
+To: Arkadi Sharshevsky <arkadis@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:56335 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752059AbdHHNym (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Aug 2017 09:54:42 -0400
+Content-Disposition: inline
+In-Reply-To: <6d8560fa-8346-0c43-272d-d39be65ea82f@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the behavior of the hv_set_ifconfig script when setting
-the interface ip. Sometimes the interface has already been configured by
-network daemon, in this case hv_set_ifconfig causes "RTNETLINK: file
-exists error"; in order to avoid this error this patch makes sure double
-checks the interface before trying anything.
+On Tue, Aug 08, 2017 at 04:15:41PM +0300, Arkadi Sharshevsky wrote:
+> Drivers may require driver specific information during the init stage.
+> For example, memory based shared resource which should be segmented for
+> different ASIC processes, such as FDB and LPM lookups.
 
-Signed-off-by: Eduardo Otubo <otubo@redhat.com>
----
- tools/hv/hv_set_ifconfig.sh | 29 ++++++++++++++++++-----------
- 1 file changed, 18 insertions(+), 11 deletions(-)
+Hi Arkadi
 
-diff --git a/tools/hv/hv_set_ifconfig.sh b/tools/hv/hv_set_ifconfig.sh
-index 735aafd64a3f..ba5e4aa4efe2 100755
---- a/tools/hv/hv_set_ifconfig.sh
-+++ b/tools/hv/hv_set_ifconfig.sh
-@@ -46,19 +46,26 @@
- # is expected to return the configuration that is set via the SET
- # call.
- #
-+interface=$(echo $1 | awk -F - '{ print $2 }')
- 
-+current_ip=$(ip addr show $interface|grep "inet ");
-+config_file_ip=$(grep IPADDR $1|cut -d"=" -f2);
- 
-+current_ipv6=$(ip addr show $interface|grep "inet6 ");
-+config_file_ipv6=$(grep IPV6ADDR $1|cut -d"=" -f2);
-+config_file_ipv6_netmask=$(grep IPV6NETMASK $1|cut -d"=" -f2);
-+config_file_ipv6=${config_file_ipv6}/${config_file_ipv6_netmask};
- 
--echo "IPV6INIT=yes" >> $1
--echo "NM_CONTROLLED=no" >> $1
--echo "PEERDNS=yes" >> $1
--echo "ONBOOT=yes" >> $1
--
--
--cp $1 /etc/sysconfig/network-scripts/
--
-+# only set the IP if it's not configured yet
-+if [[ $(test "${current_ip#*$config_file_ip}") == "$config_file_ip" \
-+    || $(test "${current_ipv6#*$config_file_ipv6}") == "$current_ipv6" ]]; then
-+    echo "IPV6INIT=yes" >> $1
-+    echo "NM_CONTROLLED=no" >> $1
-+    echo "PEERDNS=yes" >> $1
-+    echo "ONBOOT=yes" >> $1
- 
--interface=$(echo $1 | awk -F - '{ print $2 }')
-+    cp $1 /etc/sysconfig/network-scripts/
- 
--/sbin/ifdown $interface 2>/dev/null
--/sbin/ifup $interface 2>/dev/null
-+    /sbin/ifdown $interface 2>/dev/null
-+    /sbin/ifup $interface 2>/dev/null
-+fi
--- 
-2.13.4
+Have you looked around other subsystems to see if they have already
+solved this problem?
+
+How about GPUs? Do they have a similar requirement?
+
+This seems like a generic problem for 'smart' peripherals. How would
+you use dpipe with a GPU for example?
+
+    Andrew
