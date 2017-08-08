@@ -1,43 +1,84 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 7/7] net: call newid/getid without rtnl mutex held
-Date: Tue,  8 Aug 2017 18:02:36 +0200
-Message-ID: <20170808160236.28562-8-fw@strlen.de>
+Subject: [PATCH net-next 4/7] rtnetlink: small rtnl lock pushdown
+Date: Tue,  8 Aug 2017 18:02:33 +0200
+Message-ID: <20170808160236.28562-5-fw@strlen.de>
 References: <20170808160236.28562-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:35546 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:35536 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752253AbdHHQCm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 12:02:42 -0400
+        by vger.kernel.org with ESMTP id S1752859AbdHHQCc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 12:02:32 -0400
 In-Reply-To: <20170808160236.28562-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both functions take nsid_lock and don't reply on rtnl lock.
+instead of rtnl lock/unload at the top level, push it down
+to the called function.
+
+This is just an intermediate step, next commit switches protection
+of the rtnl_link ops table to rcu, in which case (for dumps) the
+rtnl lock is acquired only by the netlink dumper infrastructure
+(current lock/unlock/dump/lock/unlock rtnl sequence becomes
+ rcu lock/rcu unlock/dump).
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/core/net_namespace.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/core/rtnetlink.c | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index a7f06d706aa0..6cfdc7c84c48 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -855,9 +855,10 @@ static int __init net_ns_init(void)
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index c45a7c5e3232..be01d8e48661 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -4178,9 +4178,11 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		rtnl_dumpit_func dumpit;
+ 		u16 min_dump_alloc = 0;
  
- 	register_pernet_subsys(&net_ns_ops);
++		rtnl_lock();
++
+ 		dumpit = rtnl_get_dumpit(family, type);
+ 		if (dumpit == NULL)
+-			return -EOPNOTSUPP;
++			goto err_unlock;
  
--	rtnl_register(PF_UNSPEC, RTM_NEWNSID, rtnl_net_newid, NULL, 0);
-+	rtnl_register(PF_UNSPEC, RTM_NEWNSID, rtnl_net_newid, NULL,
-+		      RTNL_FLAG_DOIT_UNLOCKED);
- 	rtnl_register(PF_UNSPEC, RTM_GETNSID, rtnl_net_getid, rtnl_net_dumpid,
--		      0);
-+		      RTNL_FLAG_DOIT_UNLOCKED);
+ 		refcount_inc(&rtnl_msg_handlers_ref[family]);
  
- 	return 0;
+@@ -4196,23 +4198,28 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 			};
+ 			err = netlink_dump_start(rtnl, skb, nlh, &c);
+ 		}
+-		rtnl_lock();
+ 		refcount_dec(&rtnl_msg_handlers_ref[family]);
+ 		return err;
+ 	}
+ 
++	rtnl_lock();
+ 	doit = rtnl_get_doit(family, type);
+ 	if (doit == NULL)
+-		return -EOPNOTSUPP;
++		goto err_unlock;
+ 
+-	return doit(skb, nlh, extack);
++	err = doit(skb, nlh, extack);
++	rtnl_unlock();
++
++	return err;
++
++err_unlock:
++	rtnl_unlock();
++	return -EOPNOTSUPP;
  }
+ 
+ static void rtnetlink_rcv(struct sk_buff *skb)
+ {
+-	rtnl_lock();
+ 	netlink_rcv_skb(skb, &rtnetlink_rcv_msg);
+-	rtnl_unlock();
+ }
+ 
+ static int rtnetlink_bind(struct net *net, int group)
 -- 
 2.13.0
