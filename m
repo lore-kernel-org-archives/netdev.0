@@ -1,13 +1,14 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH 27/35] wireless: mediatek: mt7601u: constify usb_device_id
-Date: Tue,  8 Aug 2017 21:33:40 +0530
-Message-ID: <1502208220-12224-1-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: [PATCH 29/35] wireless: ralink: rt2800usb: constify usb_device_id
+Date: Tue,  8 Aug 2017 21:34:18 +0530
+Message-ID: <1502208259-12287-2-git-send-email-arvind.yadav.cs@gmail.com>
+References: <1502208259-12287-1-git-send-email-arvind.yadav.cs@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-mediatek@lists.infradead.org
-To: kvalo@codeaurora.org, kubakici@wp.pl, matthias.bgg@gmail.com
+        linux-wireless@vger.kernel.org
+To: kvalo@codeaurora.org, sgruszka@redhat.com,
+        helmut.schaa@googlemail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502208259-12287-1-git-send-email-arvind.yadav.cs@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -17,21 +18,21 @@ const usb_device_id. So mark the non-const structs as const.
 
 Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
- drivers/net/wireless/mediatek/mt7601u/usb.c | 2 +-
+ drivers/net/wireless/ralink/rt2x00/rt2800usb.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/mediatek/mt7601u/usb.c b/drivers/net/wireless/mediatek/mt7601u/usb.c
-index 416c604..b9e4f67 100644
---- a/drivers/net/wireless/mediatek/mt7601u/usb.c
-+++ b/drivers/net/wireless/mediatek/mt7601u/usb.c
-@@ -19,7 +19,7 @@
- #include "usb.h"
- #include "trace.h"
- 
--static struct usb_device_id mt7601u_device_table[] = {
-+static const struct usb_device_id mt7601u_device_table[] = {
- 	{ USB_DEVICE(0x0b05, 0x17d3) },
- 	{ USB_DEVICE(0x0e8d, 0x760a) },
- 	{ USB_DEVICE(0x0e8d, 0x760b) },
+diff --git a/drivers/net/wireless/ralink/rt2x00/rt2800usb.c b/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
+index 685b8e0..cd9547e 100644
+--- a/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
++++ b/drivers/net/wireless/ralink/rt2x00/rt2800usb.c
+@@ -915,7 +915,7 @@ static const struct rt2x00_ops rt2800usb_ops = {
+ /*
+  * rt2800usb module information.
+  */
+-static struct usb_device_id rt2800usb_device_table[] = {
++static const struct usb_device_id rt2800usb_device_table[] = {
+ 	/* Abocom */
+ 	{ USB_DEVICE(0x07b8, 0x2870) },
+ 	{ USB_DEVICE(0x07b8, 0x2770) },
 -- 
 2.7.4
