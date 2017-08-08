@@ -1,146 +1,70 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Driver profiles RFC
-Date: Tue, 8 Aug 2017 16:15:41 +0300
-Message-ID: <6d8560fa-8346-0c43-272d-d39be65ea82f@mellanox.com>
+From: "Gao Feng" <gfree.wind@vip.163.com>
+Subject: Re:[PATCH net] ppp: fix xmit recursion detection on ppp channels
+Date: Tue, 8 Aug 2017 21:16:33 +0800 (CST)
+Message-ID: <5a62fd3f.e0c3.15dc1fd5f1b.Coremail.gfree.wind@vip.163.com>
+References: <e45ed6ea02e2665ec8b868279ad9afcb9b34fc81.1502185216.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, ivecera@redhat.com,
-        roopa@cumulusnetworks.com, Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        john.fastabend@gmail.com, Andrew Lunn <andrew@lunn.ch>,
-        Jiri Pirko <jiri@resnulli.us>, mlxsw <mlxsw@mellanox.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=GBK
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, "Liu Jianying" <jianying.liu@ikuai8.com>,
+        "David Miller" <davem@davemloft.net>, linux-ppp@vger.kernel.org,
+        "Paul Mackerras" <paulus@samba.org>
+To: "Guillaume Nault" <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0046.outbound.protection.outlook.com ([104.47.2.46]:6752
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751925AbdHHNPw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Aug 2017 09:15:52 -0400
+Received: from m171-177.vip.163.com ([123.58.177.171]:42227 "EHLO
+        m171-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752175AbdHHNRK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 09:17:10 -0400
+In-Reply-To: <e45ed6ea02e2665ec8b868279ad9afcb9b34fc81.1502185216.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Drivers may require driver specific information during the init stage.
-For example, memory based shared resource which should be segmented for
-different ASIC processes, such as FDB and LPM lookups.
-
-The current mlxsw implementation assumes some default values, which are
-const and cannot be changed due to lack of UAPI for its configuration
-(module params is not an option). Those values can greatly impact the
-scale of the hardware processes, such as the maximum sizes of the FDB/LPM
-tables. Furthermore, those values should be consistent between driver
-reloads.
-
-The interface called DPIPE [1] was introduced in order to provide
-abstraction of the hardware pipeline. This RFC letter suggests solving
-this problem by enhancing the DPIPE hardware abstraction model.
-
-DPIPE Resource
-==============
-
-In order to represent ASIC wide resources space a new object should be
-introduced called "resource". It was originally suggested as future
-extension in [1] in order to give the user visibility about the tables
-limitation due to some shared resource. For example FDB and LPM share
-a common hash based memory. This abstraction can be also used for
-providing static configuration for such resources.
-
-Resource
---------
-The resource object defines generic hardware resource like memory,
-counter pool, etc. which can be described by name and size. The resource
-can be nested, for example the internal ASIC's memory can be split into
-two parts, as can be seen in the following diagram:
-
-                    +---------------+
-                    |  Internal Mem |
-                    |               |
-                    |   Size: 3M*   |
-                    +---------------+
-                      /           \
-                     /             \
-                    /               \
-                   /                 \
-                  /                   \
-         +--------------+      +--------------+
-         |    Linear    |      |     Hash     |
-         |              |      |              |
-         |   Size: 1M   |      |   Size: 2M   |
-         +--------------+      +--------------+
-
-*The number are provided as an example and do not reflect real ASIC
- resource sizes
-
-Where the hash portion is used for FDB/LPM table lookups, and the linear
-one is used by the routing adjacency table. Each resource can be described
-by a name, size and list of children. Example for dumping the described
-above structure:
-
-#devlink dpipe resource dump tree pci/0000:03:00.0 Mem
-{
-    "resource": {
-       "pci/0000:03:00.0": [{
-            "name": "Mem",
-            "size": 3M,
-            "resource": [{
-                      "name": "Mem_Linear",
-                      "size": "1M",
-                     }, {
-                      "name": "Mem_Hash",
-                      "size": "2MK",
-		     }
-              }]
-        }]
-     }
-}
-
-Each DPIPE table can be connected to one resource.
-
-Driver <--> Devlink API
-=======================
-Each driver will register his resources with default values at init in
-a similar way to DPIPE table registration. In case those resources already
-exist the default values are discarded. The user will be able to dump and
-update the resources. In order for the changes to take place the user will
-need to re-initiate the driver by a specific devlink knob.
-
-The above described procedure will require extra reload of the driver.
-This can be improved as a future optimization.
-
-UAPI
-====
-The user will be able to update the resources on a per resource basis:
-
-$devlink dpipe resource set pci/0000:03:00.0 Mem_Linear 2M
-
-For some resources the size is fixed, for example the size of the internal
-memory cannot be changed. It is provided merely in order to reflect the
-nested structure of the resource and to imply the user that Mem = Linear +
-Hash, thus a set operation on it will fail.
-
-The user can dump the current resource configuration:
-
-#devlink dpipe resource dump tree pci/0000:03:00.0 Mem
-
-The user can specify 'tree' in order to show all the nested resources under
-the specified one. In case no 'resource name' is specified the TOP hierarchy
-will be dumped.
-
-After successful resource update the drivers hould be re-instantiated in
-order for the changes to take place:
-
-$devlink reload pci/0000:03:00.0
-
-User Configuration
-------------------
-Such an UAPI is very low level, and thus an average user may not know how to
-adjust this sizes according to his needs. The vendor can provide several
-tested configuration files that the user can choose from. Each config file
-will be measured in terms of: MAC addresses, L3 Neighbors (IPv4, IPv6),
-LPM entries (IPv4,IPv6) in order to provide approximate results. By this an
-average user will choose one of the provided ones. Furthermore, a more
-advanced user could play with the numbers for his personal benefit.
-
-Reference
-=========
-[1] https://netdevconf.org/2.1/papers/dpipe_netdev_2_1.odt
+QXQgMjAxNy0wOC0wOCAxNzo0MzoyNCwgIkd1aWxsYXVtZSBOYXVsdCIgPGcubmF1bHRAYWxwaGFs
+aW5rLmZyPiB3cm90ZToKPkNvbW1pdCBlNWRhZGM2NWY5ZTAgKCJwcHA6IEZpeCBmYWxzZSB4bWl0
+IHJlY3Vyc2lvbiBkZXRlY3Qgd2l0aCB0d28gcHBwCj5kZXZpY2VzIikgZHJvcHBlZCB0aGUgeG1p
+dF9yZWN1cnNpb24gY291bnRlciBpbmNyZW1lbnRhdGlvbiBpbgo+cHBwX2NoYW5uZWxfcHVzaCgp
+IGFuZCByZWxpZWQgb24gcHBwX3htaXRfcHJvY2VzcygpIGZvciB0aGlzIHRhc2suCj5CdXQgX19w
+cHBfY2hhbm5lbF9wdXNoKCkgY2FuIGFsc28gc2VuZCBwYWNrZXRzIGRpcmVjdGx5ICh1c2luZyB0
+aGUKPi5zdGFydF94bWl0KCkgY2hhbm5lbCBjYWxsYmFjayksIGluIHdoaWNoIGNhc2UgdGhlIHht
+aXRfcmVjdXJzaW9uCgpZb3UncmUgcmlnaHQuIFdlIGxvc3QgdGhpcyBjYXNlLgoKPmNvdW50ZXIg
+aXNuJ3QgaW5jcmVtZW50ZWQgYW55bW9yZS4gSWYgc3VjaCBwYWNrZXRzIGdldCByb3V0ZWQgYmFj
+ayB0bwo+dGhlIHBhcmVudCBwcHAgdW5pdCwgcHBwX3htaXRfcHJvY2VzcygpIHdvbid0IG5vdGlj
+ZSB0aGUgcmVjdXJzaW9uIGFuZAo+d2lsbCBjYWxsIHBwcF9jaGFubmVsX3B1c2goKSBvbiB0aGUg
+c2FtZSBjaGFubmVsLCBlZmZlY3RpdmVseSBjcmVhdGluZwo+dGhlIGRlYWRsb2NrIHNpdHVhdGlv
+biB0aGF0IHRoZSB4bWl0X3JlY3Vyc2lvbiBtZWNoYW5pc20gd2FzIHN1cHBvc2VkCj50byBwcmV2
+ZW50Lgo+Cj5UaGlzIHBhdGNoIHJlLWludHJvZHVjZXMgdGhlIHhtaXRfcmVjdXJzaW9uIGNvdW50
+ZXIgaW5jcmVtZW50YXRpb24gaW4KPnBwcF9jaGFubmVsX3B1c2goKS4gU2luY2UgdGhlIHhtaXRf
+cmVjdXJzaW9uIHZhcmlhYmxlIGlzIG5vdyBwYXJ0IG9mCj50aGUgcGFyZW50IHBwcCB1bml0LCBp
+bmNyZW1lbnRhdGlvbiBpcyBza2lwcGVkIGlmIHRoZSBjaGFubmVsIGRvZXNuJ3QKPmhhdmUgYW55
+LiBUaGlzIGlzIGZpbmUgYmVjYXVzZSBvbmx5IHBhY2tldHMgcm91dGVkIHRocm91Z2ggdGhlIHBh
+cmVudAo+dW5pdCBtYXkgZW50ZXIgdGhlIGNoYW5uZWwgcmVjdXJzaXZlbHkuCj4KPkZpbmFsbHks
+IHdlIGhhdmUgdG8gZW5zdXJlIHRoYXQgcGNoLT5wcHAgaXMgbm90IGdvaW5nIHRvIGJlIG1vZGlm
+aWVkCj53aGlsZSBleGVjdXRpbmcgcHBwX2NoYW5uZWxfcHVzaCgpLiBJbnN0ZWFkIG9mIHRha2lu
+ZyB0aGlzIGxvY2sgb25seQo+d2hpbGUgY2FsbGluZyBwcHBfeG1pdF9wcm9jZXNzKCksIHdlIG5v
+dyBoYXZlIHRvIGhvbGQgaXQgZm9yIHRoZSBmdWxsCj5wcHBfY2hhbm5lbF9wdXNoKCkgZXhlY3V0
+aW9uLiBUaGlzIHJlc3BlY3RzIHRoZSBwcHAgbG9ja3Mgb3JkZXJpbmcKPndoaWNoIHJlcXVpcmVz
+IGxvY2tpbmcgLT51cGwgYmVmb3JlIC0+ZG93bmwuCj4KPkZpeGVzOiBlNWRhZGM2NWY5ZTAgKCJw
+cHA6IEZpeCBmYWxzZSB4bWl0IHJlY3Vyc2lvbiBkZXRlY3Qgd2l0aCB0d28gcHBwIGRldmljZXMi
+KQo+U2lnbmVkLW9mZi1ieTogR3VpbGxhdW1lIE5hdWx0IDxnLm5hdWx0QGFscGhhbGluay5mcj4K
+Pi0tLQo+IGRyaXZlcnMvbmV0L3BwcC9wcHBfZ2VuZXJpYy5jIHwgMTggKysrKysrKysrKy0tLS0t
+LS0tCj4gMSBmaWxlIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDggZGVsZXRpb25zKC0pCj4K
+PmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9wcHAvcHBwX2dlbmVyaWMuYyBiL2RyaXZlcnMvbmV0
+L3BwcC9wcHBfZ2VuZXJpYy5jCj5pbmRleCBiZDQzMDM5NDRlNDQuLmE0MDQ1NTI1NTVkNCAxMDA2
+NDQKPi0tLSBhL2RyaXZlcnMvbmV0L3BwcC9wcHBfZ2VuZXJpYy5jCj4rKysgYi9kcml2ZXJzL25l
+dC9wcHAvcHBwX2dlbmVyaWMuYwo+QEAgLTE5MTUsMjEgKzE5MTUsMjMgQEAgc3RhdGljIHZvaWQg
+X19wcHBfY2hhbm5lbF9wdXNoKHN0cnVjdCBjaGFubmVsICpwY2gpCj4gCXNwaW5fdW5sb2NrKCZw
+Y2gtPmRvd25sKTsKPiAJLyogc2VlIGlmIHRoZXJlIGlzIGFueXRoaW5nIGZyb20gdGhlIGF0dGFj
+aGVkIHVuaXQgdG8gYmUgc2VudCAqLwo+IAlpZiAoc2tiX3F1ZXVlX2VtcHR5KCZwY2gtPmZpbGUu
+eHEpKSB7Cj4tCQlyZWFkX2xvY2soJnBjaC0+dXBsKTsKPiAJCXBwcCA9IHBjaC0+cHBwOwo+IAkJ
+aWYgKHBwcCkKPi0JCQlwcHBfeG1pdF9wcm9jZXNzKHBwcCk7Cj4tCQlyZWFkX3VubG9jaygmcGNo
+LT51cGwpOwo+KwkJCV9fcHBwX3htaXRfcHJvY2VzcyhwcHApOwo+IAl9Cj4gfQo+IAo+IHN0YXRp
+YyB2b2lkIHBwcF9jaGFubmVsX3B1c2goc3RydWN0IGNoYW5uZWwgKnBjaCkKPiB7Cj4tCWxvY2Fs
+X2JoX2Rpc2FibGUoKTsKPi0KPi0JX19wcHBfY2hhbm5lbF9wdXNoKHBjaCk7Cj4tCj4tCWxvY2Fs
+X2JoX2VuYWJsZSgpOwo+KwlyZWFkX2xvY2tfYmgoJnBjaC0+dXBsKTsKPisJaWYgKHBjaC0+cHBw
+KSB7Cj4rCQkoKnRoaXNfY3B1X3B0cihwY2gtPnBwcC0+eG1pdF9yZWN1cnNpb24pKSsrOwo+KwkJ
+X19wcHBfY2hhbm5lbF9wdXNoKHBjaCk7Cj4rCQkoKnRoaXNfY3B1X3B0cihwY2gtPnBwcC0+eG1p
+dF9yZWN1cnNpb24pKS0tOwo+Kwl9IGVsc2Ugewo+KwkJX19wcHBfY2hhbm5lbF9wdXNoKHBjaCk7
+Cj4rCX0KPisJcmVhZF91bmxvY2tfYmgoJnBjaC0+dXBsKTsKCklmIGludm9rZWQgcmVhZF9sb2Nr
+X2JoIGluIHBwcF9jaGFubmVsX3B1c2gsIGl0IHdvdWxkIGJlIHVubmVjZXNzYXJ5IHRvIGludm9r
+ZSByZWFkX2xvY2soJnBjaC0+dXBsKQppbiB0aGUgX19wcHBfY2hhbm5lbF9wdXNoLgoKQmVzdCBS
+ZWdhcmRzCkZlbmcKCj4gfQo+IAo+IC8qCj4tLSAKPjIuMTQuMAo+Cg==
