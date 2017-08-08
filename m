@@ -1,70 +1,75 @@
-From: "Gao Feng" <gfree.wind@vip.163.com>
-Subject: Re:[PATCH net] ppp: fix xmit recursion detection on ppp channels
-Date: Tue, 8 Aug 2017 21:16:33 +0800 (CST)
-Message-ID: <5a62fd3f.e0c3.15dc1fd5f1b.Coremail.gfree.wind@vip.163.com>
-References: <e45ed6ea02e2665ec8b868279ad9afcb9b34fc81.1502185216.git.g.nault@alphalink.fr>
+From: Shamir Rabinovitch <shamir.rabinovitch-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net] rds: Reintroduce statistics counting
+Date: Tue, 8 Aug 2017 09:20:02 -0400
+Message-ID: <20170808132002.GA9848@shamir-net-srv.us.oracle.com>
+References: <20170808091332.5413-1-Haakon.Bugge@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, "Liu Jianying" <jianying.liu@ikuai8.com>,
-        "David Miller" <davem@davemloft.net>, linux-ppp@vger.kernel.org,
-        "Paul Mackerras" <paulus@samba.org>
-To: "Guillaume Nault" <g.nault@alphalink.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m171-177.vip.163.com ([123.58.177.171]:42227 "EHLO
-        m171-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752175AbdHHNRK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 09:17:10 -0400
-In-Reply-To: <e45ed6ea02e2665ec8b868279ad9afcb9b34fc81.1502185216.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, knut.omang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+        wei.lin-guay-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+To: =?iso-8859-1?Q?H=E5kon?= Bugge <Haakon.Bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170808091332.5413-1-Haakon.Bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-QXQgMjAxNy0wOC0wOCAxNzo0MzoyNCwgIkd1aWxsYXVtZSBOYXVsdCIgPGcubmF1bHRAYWxwaGFs
-aW5rLmZyPiB3cm90ZToKPkNvbW1pdCBlNWRhZGM2NWY5ZTAgKCJwcHA6IEZpeCBmYWxzZSB4bWl0
-IHJlY3Vyc2lvbiBkZXRlY3Qgd2l0aCB0d28gcHBwCj5kZXZpY2VzIikgZHJvcHBlZCB0aGUgeG1p
-dF9yZWN1cnNpb24gY291bnRlciBpbmNyZW1lbnRhdGlvbiBpbgo+cHBwX2NoYW5uZWxfcHVzaCgp
-IGFuZCByZWxpZWQgb24gcHBwX3htaXRfcHJvY2VzcygpIGZvciB0aGlzIHRhc2suCj5CdXQgX19w
-cHBfY2hhbm5lbF9wdXNoKCkgY2FuIGFsc28gc2VuZCBwYWNrZXRzIGRpcmVjdGx5ICh1c2luZyB0
-aGUKPi5zdGFydF94bWl0KCkgY2hhbm5lbCBjYWxsYmFjayksIGluIHdoaWNoIGNhc2UgdGhlIHht
-aXRfcmVjdXJzaW9uCgpZb3UncmUgcmlnaHQuIFdlIGxvc3QgdGhpcyBjYXNlLgoKPmNvdW50ZXIg
-aXNuJ3QgaW5jcmVtZW50ZWQgYW55bW9yZS4gSWYgc3VjaCBwYWNrZXRzIGdldCByb3V0ZWQgYmFj
-ayB0bwo+dGhlIHBhcmVudCBwcHAgdW5pdCwgcHBwX3htaXRfcHJvY2VzcygpIHdvbid0IG5vdGlj
-ZSB0aGUgcmVjdXJzaW9uIGFuZAo+d2lsbCBjYWxsIHBwcF9jaGFubmVsX3B1c2goKSBvbiB0aGUg
-c2FtZSBjaGFubmVsLCBlZmZlY3RpdmVseSBjcmVhdGluZwo+dGhlIGRlYWRsb2NrIHNpdHVhdGlv
-biB0aGF0IHRoZSB4bWl0X3JlY3Vyc2lvbiBtZWNoYW5pc20gd2FzIHN1cHBvc2VkCj50byBwcmV2
-ZW50Lgo+Cj5UaGlzIHBhdGNoIHJlLWludHJvZHVjZXMgdGhlIHhtaXRfcmVjdXJzaW9uIGNvdW50
-ZXIgaW5jcmVtZW50YXRpb24gaW4KPnBwcF9jaGFubmVsX3B1c2goKS4gU2luY2UgdGhlIHhtaXRf
-cmVjdXJzaW9uIHZhcmlhYmxlIGlzIG5vdyBwYXJ0IG9mCj50aGUgcGFyZW50IHBwcCB1bml0LCBp
-bmNyZW1lbnRhdGlvbiBpcyBza2lwcGVkIGlmIHRoZSBjaGFubmVsIGRvZXNuJ3QKPmhhdmUgYW55
-LiBUaGlzIGlzIGZpbmUgYmVjYXVzZSBvbmx5IHBhY2tldHMgcm91dGVkIHRocm91Z2ggdGhlIHBh
-cmVudAo+dW5pdCBtYXkgZW50ZXIgdGhlIGNoYW5uZWwgcmVjdXJzaXZlbHkuCj4KPkZpbmFsbHks
-IHdlIGhhdmUgdG8gZW5zdXJlIHRoYXQgcGNoLT5wcHAgaXMgbm90IGdvaW5nIHRvIGJlIG1vZGlm
-aWVkCj53aGlsZSBleGVjdXRpbmcgcHBwX2NoYW5uZWxfcHVzaCgpLiBJbnN0ZWFkIG9mIHRha2lu
-ZyB0aGlzIGxvY2sgb25seQo+d2hpbGUgY2FsbGluZyBwcHBfeG1pdF9wcm9jZXNzKCksIHdlIG5v
-dyBoYXZlIHRvIGhvbGQgaXQgZm9yIHRoZSBmdWxsCj5wcHBfY2hhbm5lbF9wdXNoKCkgZXhlY3V0
-aW9uLiBUaGlzIHJlc3BlY3RzIHRoZSBwcHAgbG9ja3Mgb3JkZXJpbmcKPndoaWNoIHJlcXVpcmVz
-IGxvY2tpbmcgLT51cGwgYmVmb3JlIC0+ZG93bmwuCj4KPkZpeGVzOiBlNWRhZGM2NWY5ZTAgKCJw
-cHA6IEZpeCBmYWxzZSB4bWl0IHJlY3Vyc2lvbiBkZXRlY3Qgd2l0aCB0d28gcHBwIGRldmljZXMi
-KQo+U2lnbmVkLW9mZi1ieTogR3VpbGxhdW1lIE5hdWx0IDxnLm5hdWx0QGFscGhhbGluay5mcj4K
-Pi0tLQo+IGRyaXZlcnMvbmV0L3BwcC9wcHBfZ2VuZXJpYy5jIHwgMTggKysrKysrKysrKy0tLS0t
-LS0tCj4gMSBmaWxlIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDggZGVsZXRpb25zKC0pCj4K
-PmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9wcHAvcHBwX2dlbmVyaWMuYyBiL2RyaXZlcnMvbmV0
-L3BwcC9wcHBfZ2VuZXJpYy5jCj5pbmRleCBiZDQzMDM5NDRlNDQuLmE0MDQ1NTI1NTVkNCAxMDA2
-NDQKPi0tLSBhL2RyaXZlcnMvbmV0L3BwcC9wcHBfZ2VuZXJpYy5jCj4rKysgYi9kcml2ZXJzL25l
-dC9wcHAvcHBwX2dlbmVyaWMuYwo+QEAgLTE5MTUsMjEgKzE5MTUsMjMgQEAgc3RhdGljIHZvaWQg
-X19wcHBfY2hhbm5lbF9wdXNoKHN0cnVjdCBjaGFubmVsICpwY2gpCj4gCXNwaW5fdW5sb2NrKCZw
-Y2gtPmRvd25sKTsKPiAJLyogc2VlIGlmIHRoZXJlIGlzIGFueXRoaW5nIGZyb20gdGhlIGF0dGFj
-aGVkIHVuaXQgdG8gYmUgc2VudCAqLwo+IAlpZiAoc2tiX3F1ZXVlX2VtcHR5KCZwY2gtPmZpbGUu
-eHEpKSB7Cj4tCQlyZWFkX2xvY2soJnBjaC0+dXBsKTsKPiAJCXBwcCA9IHBjaC0+cHBwOwo+IAkJ
-aWYgKHBwcCkKPi0JCQlwcHBfeG1pdF9wcm9jZXNzKHBwcCk7Cj4tCQlyZWFkX3VubG9jaygmcGNo
-LT51cGwpOwo+KwkJCV9fcHBwX3htaXRfcHJvY2VzcyhwcHApOwo+IAl9Cj4gfQo+IAo+IHN0YXRp
-YyB2b2lkIHBwcF9jaGFubmVsX3B1c2goc3RydWN0IGNoYW5uZWwgKnBjaCkKPiB7Cj4tCWxvY2Fs
-X2JoX2Rpc2FibGUoKTsKPi0KPi0JX19wcHBfY2hhbm5lbF9wdXNoKHBjaCk7Cj4tCj4tCWxvY2Fs
-X2JoX2VuYWJsZSgpOwo+KwlyZWFkX2xvY2tfYmgoJnBjaC0+dXBsKTsKPisJaWYgKHBjaC0+cHBw
-KSB7Cj4rCQkoKnRoaXNfY3B1X3B0cihwY2gtPnBwcC0+eG1pdF9yZWN1cnNpb24pKSsrOwo+KwkJ
-X19wcHBfY2hhbm5lbF9wdXNoKHBjaCk7Cj4rCQkoKnRoaXNfY3B1X3B0cihwY2gtPnBwcC0+eG1p
-dF9yZWN1cnNpb24pKS0tOwo+Kwl9IGVsc2Ugewo+KwkJX19wcHBfY2hhbm5lbF9wdXNoKHBjaCk7
-Cj4rCX0KPisJcmVhZF91bmxvY2tfYmgoJnBjaC0+dXBsKTsKCklmIGludm9rZWQgcmVhZF9sb2Nr
-X2JoIGluIHBwcF9jaGFubmVsX3B1c2gsIGl0IHdvdWxkIGJlIHVubmVjZXNzYXJ5IHRvIGludm9r
-ZSByZWFkX2xvY2soJnBjaC0+dXBsKQppbiB0aGUgX19wcHBfY2hhbm5lbF9wdXNoLgoKQmVzdCBS
-ZWdhcmRzCkZlbmcKCj4gfQo+IAo+IC8qCj4tLSAKPjIuMTQuMAo+Cg==
+On Tue, Aug 08, 2017 at 11:13:32AM +0200, Håkon Bugge wrote:
+> In commit 7e3f2952eeb1 ("rds: don't let RDS shutdown a connection
+> while senders are present"), refilling the receive queue was removed
+> from rds_ib_recv(), along with the increment of
+> s_ib_rx_refill_from_thread.
+> 
+> Commit 73ce4317bf98 ("RDS: make sure we post recv buffers")
+> re-introduces filling the receive queue from rds_ib_recv(), but does
+> not add the statistics counter. rds_ib_recv() was later renamed to
+> rds_ib_recv_path().
+> 
+> This commit reintroduces the statistics counting of
+> s_ib_rx_refill_from_thread and s_ib_rx_refill_from_cq.
+> 
+> Signed-off-by: Håkon Bugge <haakon.bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Knut Omang <knut.omang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Wei Lin Guay <wei.lin.guay-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> ---
+>  net/rds/ib_recv.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
+> index e10624a..9722bf8 100644
+> --- a/net/rds/ib_recv.c
+> +++ b/net/rds/ib_recv.c
+> @@ -1015,8 +1015,10 @@ void rds_ib_recv_cqe_handler(struct rds_ib_connection *ic,
+>  	if (rds_ib_ring_empty(&ic->i_recv_ring))
+>  		rds_ib_stats_inc(s_ib_rx_ring_empty);
+>  
+> -	if (rds_ib_ring_low(&ic->i_recv_ring))
+> +	if (rds_ib_ring_low(&ic->i_recv_ring)) {
+>  		rds_ib_recv_refill(conn, 0, GFP_NOWAIT);
+> +		rds_ib_stats_inc(s_ib_rx_refill_from_cq);
+> +	}
+>  }
+>  
+>  int rds_ib_recv_path(struct rds_conn_path *cp)
+> @@ -1029,6 +1031,7 @@ int rds_ib_recv_path(struct rds_conn_path *cp)
+>  	if (rds_conn_up(conn)) {
+>  		rds_ib_attempt_ack(ic);
+>  		rds_ib_recv_refill(conn, 0, GFP_KERNEL);
+> +		rds_ib_stats_inc(s_ib_rx_refill_from_thread);
+>  	}
+>  
+>  	return ret;
+> -- 
+> 2.9.3
+> 
+
+Reviewed-by: Shamir Rabinovitch <shamir.rabinovitch-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
