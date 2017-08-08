@@ -1,10 +1,11 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH 32/35] wireless: realtek: rtl8xxxu: constify usb_device_id
-Date: Tue,  8 Aug 2017 21:35:10 +0530
-Message-ID: <1502208310-12392-1-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: [PATCH 33/35] wireless: realtek: rtl8192cu: constify usb_device_id
+Date: Tue,  8 Aug 2017 21:35:53 +0530
+Message-ID: <1502208353-12447-1-git-send-email-arvind.yadav.cs@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
         linux-wireless@vger.kernel.org
-To: kvalo@codeaurora.org, Jes.Sorensen@gmail.com
+To: kvalo@codeaurora.org, Larry.Finger@lwfinger.net,
+        chaoming_li@realsil.com.cn
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -15,21 +16,21 @@ const usb_device_id. So mark the non-const structs as const.
 
 Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
- drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c | 2 +-
+ drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-index 21e5ef0..7806a4d 100644
---- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-+++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
-@@ -6190,7 +6190,7 @@ static void rtl8xxxu_disconnect(struct usb_interface *interface)
- 	ieee80211_free_hw(hw);
- }
+diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c
+index 96c923b..e673bc2 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c
++++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c
+@@ -275,7 +275,7 @@ static struct rtl_hal_cfg rtl92cu_hal_cfg = {
+ #define USB_VENDER_ID_REALTEK		0x0bda
  
--static struct usb_device_id dev_table[] = {
-+static const struct usb_device_id dev_table[] = {
- {USB_DEVICE_AND_INTERFACE_INFO(USB_VENDOR_ID_REALTEK, 0x8724, 0xff, 0xff, 0xff),
- 	.driver_info = (unsigned long)&rtl8723au_fops},
- {USB_DEVICE_AND_INTERFACE_INFO(USB_VENDOR_ID_REALTEK, 0x1724, 0xff, 0xff, 0xff),
+ /* 2010-10-19 DID_USB_V3.4 */
+-static struct usb_device_id rtl8192c_usb_ids[] = {
++static const struct usb_device_id rtl8192c_usb_ids[] = {
+ 
+ 	/*=== Realtek demoboard ===*/
+ 	/* Default ID */
 -- 
 2.7.4
