@@ -1,47 +1,134 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCHv2 net] net: sched: set xt_tgchk_param par.net properly in
- ipt_init_target
-Date: Tue, 8 Aug 2017 07:30:21 +0200
-Message-ID: <20170808053021.GB1853@nanopsycho>
-References: <5ac3422182618f34f24d0c52cfa8f922ea7c397e.1502158407.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Clear On FLASH config file after a FW upgrade
+Date: Tue,  8 Aug 2017 11:20:52 +0530
+Message-ID: <1502171452-32389-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
+        leedom@chelsio.com, Arjun Vynipadath <arjun@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:37434 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750777AbdHHFaX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 01:30:23 -0400
-Received: by mail-wm0-f65.google.com with SMTP id t138so3006380wmt.4
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2017 22:30:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5ac3422182618f34f24d0c52cfa8f922ea7c397e.1502158407.git.lucien.xin@gmail.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:8092 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750777AbdHHFvD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 01:51:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Aug 08, 2017 at 04:13:27AM CEST, lucien.xin@gmail.com wrote:
->Now xt_tgchk_param par in ipt_init_target is a local varibale,
->par.net is not initialized there. Later when xt_check_target
->calls target's checkentry in which it may access par.net, it
->would cause kernel panic.
->
->Jaroslav found this panic when running:
->
->  # ip link add TestIface type dummy
->  # tc qd add dev TestIface ingress handle ffff:
->  # tc filter add dev TestIface parent ffff: u32 match u32 0 0 \
->    action xt -j CONNMARK --set-mark 4
->
->This patch is to pass net param into ipt_init_target and set
->par.net with it properly in there.
->
->v1->v2:
->  As Wang Cong pointed, I missed ipt_net_id != xt_net_id, so fix
->  it by also passing net_id to __tcf_ipt_init.
->
->Reported-by: Jaroslav Aster <jaster@redhat.com>
->Signed-off-by: Xin Long <lucien.xin@gmail.com>
+From: Arjun Vynipadath <arjun@chelsio.com>
 
-Fixes what? You need to have "Fixes" tag for net patches.
+Because Firmware and the Firmware Configuration File need to be
+in sync; clear out any On-FLASH Firmware Configuration File when new
+Firmware is loaded.  This will avoid difficult to diagnose and fix
+problems with a mis-matched Firmware Configuration File which prevents the
+adapter from being initialized.
+
+Original work by: Casey Leedom <leedom@chelsio.com>
+Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |  1 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 70 ++++++++++++++++++++++++++++++
+ 2 files changed, 71 insertions(+)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 1978abb..daa3775 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1405,6 +1405,7 @@ int t4_fw_upgrade(struct adapter *adap, unsigned int mbox,
+ int t4_fl_pkt_align(struct adapter *adap);
+ unsigned int t4_flash_cfg_addr(struct adapter *adapter);
+ int t4_check_fw_version(struct adapter *adap);
++int t4_load_cfg(struct adapter *adapter, const u8 *cfg_data, unsigned int size);
+ int t4_get_fw_version(struct adapter *adapter, u32 *vers);
+ int t4_get_bs_version(struct adapter *adapter, u32 *vers);
+ int t4_get_tp_version(struct adapter *adapter, u32 *vers);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 24087c8..fff8fba 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -6664,6 +6664,17 @@ int t4_fw_upgrade(struct adapter *adap, unsigned int mbox,
+ 		goto out;
+ 
+ 	/*
++	 * If there was a Firmware Configuration File stored in FLASH,
++	 * there's a good chance that it won't be compatible with the new
++	 * Firmware.  In order to prevent difficult to diagnose adapter
++	 * initialization issues, we clear out the Firmware Configuration File
++	 * portion of the FLASH .  The user will need to re-FLASH a new
++	 * Firmware Configuration File which is compatible with the new
++	 * Firmware if that's desired.
++	 */
++	(void)t4_load_cfg(adap, NULL, 0);
++
++	/*
+ 	 * Older versions of the firmware don't understand the new
+ 	 * PCIE_FW.HALT flag and so won't know to perform a RESET when they
+ 	 * restart.  So for newly loaded older firmware we'll have to do the
+@@ -8896,6 +8907,65 @@ void t4_idma_monitor(struct adapter *adapter,
+ }
+ 
+ /**
++ *	t4_load_cfg - download config file
++ *	@adap: the adapter
++ *	@cfg_data: the cfg text file to write
++ *	@size: text file size
++ *
++ *	Write the supplied config text file to the card's serial flash.
++ */
++int t4_load_cfg(struct adapter *adap, const u8 *cfg_data, unsigned int size)
++{
++	int ret, i, n, cfg_addr;
++	unsigned int addr;
++	unsigned int flash_cfg_start_sec;
++	unsigned int sf_sec_size = adap->params.sf_size / adap->params.sf_nsec;
++
++	cfg_addr = t4_flash_cfg_addr(adap);
++	if (cfg_addr < 0)
++		return cfg_addr;
++
++	addr = cfg_addr;
++	flash_cfg_start_sec = addr / SF_SEC_SIZE;
++
++	if (size > FLASH_CFG_MAX_SIZE) {
++		dev_err(adap->pdev_dev, "cfg file too large, max is %u bytes\n",
++			FLASH_CFG_MAX_SIZE);
++		return -EFBIG;
++	}
++
++	i = DIV_ROUND_UP(FLASH_CFG_MAX_SIZE,	/* # of sectors spanned */
++			 sf_sec_size);
++	ret = t4_flash_erase_sectors(adap, flash_cfg_start_sec,
++				     flash_cfg_start_sec + i - 1);
++	/* If size == 0 then we're simply erasing the FLASH sectors associated
++	 * with the on-adapter Firmware Configuration File.
++	 */
++	if (ret || size == 0)
++		goto out;
++
++	/* this will write to the flash up to SF_PAGE_SIZE at a time */
++	for (i = 0; i < size; i += SF_PAGE_SIZE) {
++		if ((size - i) <  SF_PAGE_SIZE)
++			n = size - i;
++		else
++			n = SF_PAGE_SIZE;
++		ret = t4_write_flash(adap, addr, n, cfg_data);
++		if (ret)
++			goto out;
++
++		addr += SF_PAGE_SIZE;
++		cfg_data += SF_PAGE_SIZE;
++	}
++
++out:
++	if (ret)
++		dev_err(adap->pdev_dev, "config file %s failed %d\n",
++			(size == 0 ? "clear" : "download"), ret);
++	return ret;
++}
++
++/**
+  *	t4_set_vf_mac - Set MAC address for the specified VF
+  *	@adapter: The adapter
+  *	@vf: one of the VFs instantiated by the specified PF
+-- 
+2.1.0
