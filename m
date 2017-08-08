@@ -1,82 +1,35 @@
 From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: wcn36xx: Introduce mutual exclusion of fw configuration
-Date: Tue, 8 Aug 2017 13:08:38 +0200
-Message-ID: <2acffbef7a124b44b380b4d31d6836db@euamsexm01a.eu.qualcomm.com>
-References: <20170803012800.15974-1-bjorn.andersson@linaro.org>
+Subject: Re: ath9k: make ath_ps_ops structures as const
+Date: Tue, 8 Aug 2017 13:09:44 +0200
+Message-ID: <0d0e2329fed544cf9595c34de5b1f641@euamsexm01a.eu.qualcomm.com>
+References: <1501772131-13038-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        <wcn36xx@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+Cc: <julia.lawall@lip6.fr>, <ath9k-devel@qca.qualcomm.com>,
+        <kvalo@codeaurora.org>, <linux-wireless@vger.kernel.org>,
         <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <stable@vger.kernel.org>
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170803012800.15974-1-bjorn.andersson@linaro.org>
-Sender: stable-owner@vger.kernel.org
+        Bhumika Goyal <bhumirks@gmail.com>
+To: Bhumika Goyal <bhumirks@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1501772131-13038-1-git-send-email-bhumirks@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
+Bhumika Goyal <bhumirks@gmail.com> wrote:
 
-> As the association status changes the driver needs to configure the
-> hardware. This is done based on information in the "sta" acquired by
-> ieee80211_find_sta(), which requires the caller to ensure that the "sta"
-> is valid while its being used; generally by entering an rcu read
-> section.
+> ath_ps_ops structures are only stored as a reference in the ps_ops
+> field of a ath_common structure. This field is of type const, so make
+> the structures as const.
 > 
-> But the operations acting on the "sta" has to communicate with the
-> firmware and may therefor sleep, resulting in the following report:
-> 
-> [   31.418190] BUG: sleeping function called from invalid context at
-> kernel/locking/mutex.c:238
-> [   31.425919] in_atomic(): 0, irqs_disabled(): 0, pid: 34, name:
-> kworker/u8:1
-> [   31.434609] CPU: 0 PID: 34 Comm: kworker/u8:1 Tainted: G        W
-> 4.12.0-rc4-next-20170607+ #993
-> [   31.441002] Hardware name: Qualcomm Technologies, Inc. APQ 8016 SBC
-> (DT)
-> [   31.450380] Workqueue: phy0 ieee80211_iface_work
-> [   31.457226] Call trace:
-> [   31.461830] [<ffffff8008088c58>] dump_backtrace+0x0/0x260
-> [   31.464004] [<ffffff8008088f7c>] show_stack+0x14/0x20
-> [   31.469557] [<ffffff8008392e70>] dump_stack+0x98/0xb8
-> [   31.474592] [<ffffff80080e4330>] ___might_sleep+0xf0/0x118
-> [   31.479626] [<ffffff80080e43a8>] __might_sleep+0x50/0x88
-> [   31.485010] [<ffffff80088ff9a4>] mutex_lock+0x24/0x60
-> [   31.490479] [<ffffff8008595c38>] wcn36xx_smd_set_link_st+0x30/0x130
-> [   31.495428] [<ffffff8008591ed8>] wcn36xx_bss_info_changed+0x148/0x448
-> [   31.501504] [<ffffff80088ab3c4>]
-> ieee80211_bss_info_change_notify+0xbc/0x118
-> [   31.508102] [<ffffff80088f841c>] ieee80211_assoc_success+0x664/0x7f8
-> [   31.515220] [<ffffff80088e13d4>]
-> ieee80211_rx_mgmt_assoc_resp+0x144/0x2d8
-> [   31.521555] [<ffffff80088e1e20>]
-> ieee80211_sta_rx_queued_mgmt+0x190/0x698
-> [   31.528239] [<ffffff80088bc44c>] ieee80211_iface_work+0x234/0x368
-> [   31.535011] [<ffffff80080d81ac>] process_one_work+0x1cc/0x340
-> [   31.541086] [<ffffff80080d8368>] worker_thread+0x48/0x430
-> [   31.546814] [<ffffff80080de448>] kthread+0x108/0x138
-> [   31.552195] [<ffffff8008082ec0>] ret_from_fork+0x10/0x50
-> 
-> In order to ensure that the "sta" remains alive (and consistent) for the
-> duration of bss_info_changed() mutual exclusion has to be ensured with
-> sta_remove().
-> 
-> This is done by introducing a mutex to cover firmware configuration
-> changes, which is made to also ensure mutual exclusion between other
-> operations changing the state or configuration of the firmware. With
-> this we can drop the rcu read lock.
-> 
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 > Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
 
 Patch applied to ath-next branch of ath.git, thanks.
 
-39efc7cc7ccf wcn36xx: Introduce mutual exclusion of fw configuration
+3588e1110e49 ath9k: make ath_ps_ops structures as const
 
 -- 
-https://patchwork.kernel.org/patch/9877987/
+https://patchwork.kernel.org/patch/9879297/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
