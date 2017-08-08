@@ -1,322 +1,38 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: [net-next v1] net: ipv6: avoid overhead when no custom FIB rules are installed
-Date: Tue,  8 Aug 2017 13:51:21 +0200
-Message-ID: <20170808115121.21283-1-vincent@bernat.im>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [1/2] wlcore: add const to bin_attribute structure
+Date: Tue,  8 Aug 2017 11:52:52 +0000 (UTC)
+Message-ID: <20170808115252.6DD2260209@smtp.codeaurora.org>
+References: <1501696634-15765-2-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Vincent Bernat <vincent@bernat.im>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
-        David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: julia.lawall@lip6.fr, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        harish.patil@cavium.com, manish.chopra@cavium.com,
+        Dept-GELinuxNICDev@cavium.com, Bhumika Goyal <bhumirks@gmail.com>
+To: Bhumika Goyal <bhumirks@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:49808 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752102AbdHHLvj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Aug 2017 07:51:39 -0400
+Received: from smtp.codeaurora.org ([198.145.29.96]:51486 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751880AbdHHLww (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 07:52:52 -0400
+In-Reply-To: <1501696634-15765-2-git-send-email-bhumirks@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the user hasn't installed any custom rules, don't go through the
-whole FIB rules layer. This is pretty similar to f4530fa574df (ipv4:
-Avoid overhead when no custom FIB rules are installed).
+Bhumika Goyal <bhumirks@gmail.com> wrote:
 
-Using a micro-benchmark module [1], timing ip6_route_output() using
-get_cycles(), on my laptop with performance governor (so, subject to
-some caution due to thermal throttling), with 40,000 routes in the main
-routing table, before this patch:
+> Add const to bin_attribute structure as it is only passed to the
+> functions sysfs_{remove/create}_bin_file. The corresponding arguments
+> are of type const, so declare the structure to be const.
+> 
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
-    min=3D603 max=3D12477 count=3D627 average=3D1926 95th=3D4518 90th=3D3=
-661 50th=3D1600 mad=3D724
-    table=3D254 avgdepth=3D21.8 maxdepth=3D39
-        value =E2=94=82                         =E2=94=8A                =
-            count
-          600 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=
-=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92                                  =
-            134
-          860 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=
-=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91                                        91
-         1120 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91          =
-                          39
-         1380 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91                                58
-         1640 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91    =
-                       57
-         1900 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91                       58
-         2160 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91       =
-            46
-         2420 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91                 26
-         2680 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91               27
-         2940 =E2=94=82=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91              15
-         3200 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91              8
-         3460 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91             8
-         3720 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91          =
- 12
-         3980 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91          =
-  9
-         4240 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91 =
-          7
-         4500 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91 =
-          6
+Patch applied to wireless-drivers-next.git, thanks.
 
-After:
+4f2949febc22 wlcore: add const to bin_attribute structure
 
-    min=3D486 max=3D12390 count=3D627 average=3D1715 95th=3D4365 90th=3D3=
-352 50th=3D1324 mad=3D631
-    table=3D254 avgdepth=3D21.8 maxdepth=3D39
-        value =E2=94=82                         =E2=94=8A                =
-            count
-          480 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=
-=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92                =
-                            153
-          730 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=
-=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91                            =
-          88
-          980 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91                                  57
-         1230 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91                      =
-       56
-         1480 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91                          43
-         1730 =E2=94=82=E2=96=92=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91                      50
-         1980 =E2=94=82=E2=96=92=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91       =
-            31
-         2230 =E2=94=82=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-                  23
-         2480 =E2=94=82=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91                15
-         2730 =E2=94=82=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91               23
-         2980 =E2=94=82=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91             20
-         3230 =E2=94=82=E2=96=92=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91            14
-         3480 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91          =
-  4
-         3730 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91          =
-  8
-         3980 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91 =
-          9
-         4230 =E2=94=82=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=
-=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=
-=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=
-=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91=E2=96=91 =
-          4
+-- 
+https://patchwork.kernel.org/patch/9877341/
 
-At the frequency of the laptop during the bench (~ 2.3 GHz), this is
-about a 130 ns difference on the median value and 50 ns on the minimal
-value.
-
-A next step would be to collapse local and main tables, as in
-0ddcf43d5d4a (ipv4: FIB Local/MAIN table collapse).
-
-[1]: https://github.com/vincentbernat/network-lab/blob/master/lab-routes-=
-ipv6/kbench_mod.c
-
-Signed-off-by: Vincent Bernat <vincent@bernat.im>
----
- include/net/netns/ipv6.h |  1 +
- net/ipv6/fib6_rules.c    | 34 ++++++++++++++++++++++++----------
- net/ipv6/route.c         |  1 +
- 3 files changed, 26 insertions(+), 10 deletions(-)
-
-diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-index abdf3b40303b..0e50bf3ed097 100644
---- a/include/net/netns/ipv6.h
-+++ b/include/net/netns/ipv6.h
-@@ -65,6 +65,7 @@ struct netns_ipv6 {
- 	unsigned int		 ip6_rt_gc_expire;
- 	unsigned long		 ip6_rt_last_gc;
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
-+	bool			 fib6_has_custom_rules;
- 	struct rt6_info         *ip6_prohibit_entry;
- 	struct rt6_info         *ip6_blk_hole_entry;
- 	struct fib6_table       *fib6_local_tbl;
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 2f29e4e33bd3..693c27ede40e 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -63,19 +63,32 @@ unsigned int fib6_rules_seq_read(struct net *net)
- struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- 				   int flags, pol_lookup_t lookup)
- {
--	struct fib_lookup_arg arg =3D {
--		.lookup_ptr =3D lookup,
--		.flags =3D FIB_LOOKUP_NOREF,
--	};
--
- 	/* update flow if oif or iif point to device enslaved to l3mdev */
- 	l3mdev_update_flow(net, flowi6_to_flowi(fl6));
-=20
--	fib_rules_lookup(net->ipv6.fib6_rules_ops,
--			 flowi6_to_flowi(fl6), flags, &arg);
--
--	if (arg.result)
--		return arg.result;
-+	if (net->ipv6.fib6_has_custom_rules) {
-+		struct fib_lookup_arg arg =3D {
-+			.lookup_ptr =3D lookup,
-+			.flags =3D FIB_LOOKUP_NOREF,
-+		};
-+
-+		fib_rules_lookup(net->ipv6.fib6_rules_ops,
-+				 flowi6_to_flowi(fl6), flags, &arg);
-+
-+		if (arg.result)
-+			return arg.result;
-+	} else {
-+		struct rt6_info *rt;
-+
-+		rt =3D lookup(net, net->ipv6.fib6_local_tbl, fl6, flags);
-+		if (rt !=3D net->ipv6.ip6_null_entry && rt->dst.error !=3D -EAGAIN)
-+			return &rt->dst;
-+		ip6_rt_put(rt);
-+		rt =3D lookup(net, net->ipv6.fib6_main_tbl, fl6, flags);
-+		if (rt->dst.error !=3D -EAGAIN)
-+			return &rt->dst;
-+		ip6_rt_put(rt);
-+	}
-=20
- 	dst_hold(&net->ipv6.ip6_null_entry->dst);
- 	return &net->ipv6.ip6_null_entry->dst;
-@@ -245,6 +258,7 @@ static int fib6_rule_configure(struct fib_rule *rule,=
- struct sk_buff *skb,
- 	rule6->dst.plen =3D frh->dst_len;
- 	rule6->tclass =3D frh->tos;
-=20
-+	net->ipv6.fib6_has_custom_rules =3D true;
- 	err =3D 0;
- errout:
- 	return err;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index aba07fce67fb..7ecbe5eb19f8 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -3934,6 +3934,7 @@ static int __net_init ip6_route_net_init(struct net=
- *net)
- 			 ip6_template_metrics, true);
-=20
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
-+	net->ipv6.fib6_has_custom_rules =3D false;
- 	net->ipv6.ip6_prohibit_entry =3D kmemdup(&ip6_prohibit_entry_template,
- 					       sizeof(*net->ipv6.ip6_prohibit_entry),
- 					       GFP_KERNEL);
---=20
-2.13.3
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
