@@ -1,87 +1,81 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH net-next] ibmvnic: Clean up resources on probe failure
-Date: Tue, 08 Aug 2017 14:28:45 -0500
-Message-ID: <20170808192845.17535.99639.stgit@ltcalpine2-lp23.aus.stglabs.ibm.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [net-next v1] net: ipv6: avoid overhead when no custom FIB rules
+ are installed
+Date: Tue, 8 Aug 2017 08:46:23 -0600
+Message-ID: <66e3d00a-6788-2e86-9563-fc1424a6a250@gmail.com>
+References: <20170808115121.21283-1-vincent@bernat.im>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
+To: Vincent Bernat <vincent@bernat.im>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:41818 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752261AbdHHOlz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 10:41:55 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v78EdUxH093598
-        for <netdev@vger.kernel.org>; Tue, 8 Aug 2017 10:41:55 -0400
-Received: from e18.ny.us.ibm.com (e18.ny.us.ibm.com [129.33.205.208])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2c7evh25ta-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 10:41:54 -0400
-Received: from localhost
-        by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Tue, 8 Aug 2017 10:41:54 -0400
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34979 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752093AbdHHOq1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 10:46:27 -0400
+Received: by mail-pf0-f196.google.com with SMTP id j68so3261968pfc.2
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 07:46:26 -0700 (PDT)
+In-Reply-To: <20170808115121.21283-1-vincent@bernat.im>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ensure that any resources allocated during probe are released if the
-probe of the driver fails.
+On 8/8/17 5:51 AM, Vincent Bernat wrote:
+> diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+> index 2f29e4e33bd3..693c27ede40e 100644
+> --- a/net/ipv6/fib6_rules.c
+> +++ b/net/ipv6/fib6_rules.c
+> @@ -63,19 +63,32 @@ unsigned int fib6_rules_seq_read(struct net *net)
+>  struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
+>  				   int flags, pol_lookup_t lookup)
+>  {
+> -	struct fib_lookup_arg arg = {
+> -		.lookup_ptr = lookup,
+> -		.flags = FIB_LOOKUP_NOREF,
+> -	};
+> -
+>  	/* update flow if oif or iif point to device enslaved to l3mdev */
+>  	l3mdev_update_flow(net, flowi6_to_flowi(fl6));
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c |   26 +++++++++++++++-----------
- 1 file changed, 15 insertions(+), 11 deletions(-)
+The l3mdev_update_flow can be moved to the has_custom_rules block.
+l3mdev requires FIB rules for the lookups to work, so no rules means no
+l3mdev configured.
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 5932160..24f536b 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -3827,31 +3827,35 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
- 
- 	do {
- 		rc = ibmvnic_init(adapter);
--		if (rc && rc != EAGAIN) {
--			free_netdev(netdev);
--			return rc;
--		}
-+		if (rc && rc != EAGAIN)
-+			goto ibmvnic_init_fail;
- 	} while (rc == EAGAIN);
- 
- 	netdev->mtu = adapter->req_mtu - ETH_HLEN;
- 
- 	rc = device_create_file(&dev->dev, &dev_attr_failover);
--	if (rc) {
--		free_netdev(netdev);
--		return rc;
--	}
-+	if (rc)
-+		goto ibmvnic_init_fail;
- 
- 	rc = register_netdev(netdev);
- 	if (rc) {
- 		dev_err(&dev->dev, "failed to register netdev rc=%d\n", rc);
--		device_remove_file(&dev->dev, &dev_attr_failover);
--		free_netdev(netdev);
--		return rc;
-+		goto ibmvnic_register_fail;
- 	}
- 	dev_info(&dev->dev, "ibmvnic registered\n");
- 
- 	adapter->state = VNIC_PROBED;
- 	return 0;
-+
-+ibmvnic_register_fail:
-+	device_remove_file(&dev->dev, &dev_attr_failover);
-+	
-+ibmvnic_init_fail:
-+	release_sub_crqs(adapter);
-+	release_crq_queue(adapter);
-+	free_netdev(netdev);
-+
-+	return rc;
- }
- 
- static int ibmvnic_remove(struct vio_dev *dev)
+Rest looks good to me.
+
+
+>  
+> -	fib_rules_lookup(net->ipv6.fib6_rules_ops,
+> -			 flowi6_to_flowi(fl6), flags, &arg);
+> -
+> -	if (arg.result)
+> -		return arg.result;
+> +	if (net->ipv6.fib6_has_custom_rules) {
+> +		struct fib_lookup_arg arg = {
+> +			.lookup_ptr = lookup,
+> +			.flags = FIB_LOOKUP_NOREF,
+> +		};
+> +
+> +		fib_rules_lookup(net->ipv6.fib6_rules_ops,
+> +				 flowi6_to_flowi(fl6), flags, &arg);
+> +
+> +		if (arg.result)
+> +			return arg.result;
+> +	} else {
+> +		struct rt6_info *rt;
+> +
+> +		rt = lookup(net, net->ipv6.fib6_local_tbl, fl6, flags);
+> +		if (rt != net->ipv6.ip6_null_entry && rt->dst.error != -EAGAIN)
+> +			return &rt->dst;
+> +		ip6_rt_put(rt);
+> +		rt = lookup(net, net->ipv6.fib6_main_tbl, fl6, flags);
+> +		if (rt->dst.error != -EAGAIN)
+> +			return &rt->dst;
+> +		ip6_rt_put(rt);
+> +	}
+>  
+>  	dst_hold(&net->ipv6.ip6_null_entry->dst);
+>  	return &net->ipv6.ip6_null_entry->dst;
