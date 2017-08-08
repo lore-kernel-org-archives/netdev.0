@@ -1,43 +1,33 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][next] net: phy: mdio-bcm-unimac: fix unsigned wrap-around when decrementing timeout
-Date: Tue,  8 Aug 2017 10:52:32 +0100
-Message-ID: <20170808095232.13490-1-colin.king@canonical.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/5] proto_ops: Fixes to adding locked version
+ of sendmsg/page
+Date: Tue, 08 Aug 2017 02:55:06 -0700
+Message-ID: <59898A7A.2040107@gmail.com>
+References: <20170807172818.31855-1-tom@quantonium.net> <20170807172818.31855-2-tom@quantonium.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: rohit@quantonium.net, davejwatson@fb.com
+To: Tom Herbert <tom@quantonium.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:35047 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751868AbdHHJzQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 05:55:16 -0400
+Received: by mail-pf0-f172.google.com with SMTP id t86so12633202pfe.2
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 02:55:16 -0700 (PDT)
+In-Reply-To: <20170807172818.31855-2-tom@quantonium.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On 08/07/2017 10:28 AM, Tom Herbert wrote:
+> Fixes for two issues pointed out by John Fastabend.
+> 
+> Fixes: 306b13eb3cf9515a ("proto_ops: Add locked held versions of sendmsg and sendpage")
+> Reported-by: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Tom Herbert <tom@quantonium.net>
+> ---
 
-Change post-decrement compare to pre-decrement to avoid an
-unsigned integer wrap-around on timeout. This leads to the following
-!timeout check to never to be true so -ETIMEDOUT is never returned.
+This is the same patch as the one in my RFC series so its an ack from me.
 
-Detected by CoverityScan, CID#1452623 ("Logically dead code")
-
-Fixes: 69a60b0579a4 ("net: phy: mdio-bcm-unimac: factor busy polling loop")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/phy/mdio-bcm-unimac.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/mdio-bcm-unimac.c b/drivers/net/phy/mdio-bcm-unimac.c
-index 89425ca48412..73c5267a11fd 100644
---- a/drivers/net/phy/mdio-bcm-unimac.c
-+++ b/drivers/net/phy/mdio-bcm-unimac.c
-@@ -71,7 +71,7 @@ static int unimac_mdio_poll(void *wait_func_data)
- 			return 0;
- 
- 		usleep_range(1000, 2000);
--	} while (timeout--);
-+	} while (--timeout);
- 
- 	if (!timeout)
- 		return -ETIMEDOUT;
--- 
-2.11.0
+Acked-by: John Fastabend <john.fastabend@gmail.com>
