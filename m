@@ -1,44 +1,35 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH net-next] net: ipv6: lower ndisc notifier priority below addrconf
-Date: Tue,  8 Aug 2017 15:51:02 -0600
-Message-ID: <20170808215102.33798-1-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33769 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751931AbdHHVvI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 17:51:08 -0400
-Received: by mail-pg0-f65.google.com with SMTP id u185so4185199pgb.0
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 14:51:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 2/2] bpf: Initialise mod[] in bpf_trace_printk
+Date: Tue, 08 Aug 2017 14:54:33 -0700 (PDT)
+Message-ID: <20170808.145433.1287676484744976417.davem@davemloft.net>
+References: <59897A7C.10009@iogearbox.net>
+        <20170808.094857.245786887664041622.davem@davemloft.net>
+        <650EB3B0-1101-4624-905A-E68D2EC5920F@imgtec.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, ast@kernel.org, linux-kernel@vger.kernel.org,
+        rostedt@goodmis.org, mingo@redhat.com, netdev@vger.kernel.org
+To: james.hogan@imgtec.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <650EB3B0-1101-4624-905A-E68D2EC5920F@imgtec.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ndisc_notify is used to send unsolicited neighbor advertisements
-(e.g., on a link up). Currently, the ndisc notifier is run before the
-addrconf notifer which means NA's are not sent for link-local addresses
-which are added by the addrconf notifier.
+From: James Hogan <james.hogan@imgtec.com>
+Date: Tue, 08 Aug 2017 22:20:05 +0100
 
-Fix by lowering the priority of the ndisc notifier. Setting the priority
-to ADDRCONF_NOTIFY_PRIORITY - 5 means it runs after addrconf and before
-the route notifier which is ADDRCONF_NOTIFY_PRIORITY - 10.
+> cool, i hadn't realised unmentioned elements in an initialiser are
+> always zeroed, even when non-global/static, so had interpreted the
+> whole array as uninitialised. learn something new every day :-)
+> sorry for the noise.
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- net/ipv6/ndisc.c | 1 +
- 1 file changed, 1 insertion(+)
+You didn't have to know in the first place, you could have simply
+compiled the code into assembler by running:
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 0327c1f2e6fc..5e338eb89509 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1779,6 +1779,7 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
- 
- static struct notifier_block ndisc_netdev_notifier = {
- 	.notifier_call = ndisc_netdev_event,
-+	.priority = ADDRCONF_NOTIFY_PRIORITY - 5,
- };
- 
- #ifdef CONFIG_SYSCTL
--- 
-2.9.3
+	make kernel/trace/bpf_trace.s
+
+and seen for yourself before putting all of this time and effort into
+this patch and discussion.
+
+If you don't know what the compiler does, simply look!
