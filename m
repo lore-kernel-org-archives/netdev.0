@@ -1,82 +1,91 @@
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Subject: Re: [PATCH v06 35/36] uapi linux/tls.h: don't include <net/tcp.h> in
- user space
-Date: Wed, 9 Aug 2017 02:25:54 +0300
-Message-ID: <20170808232554.GK10552@altlinux.org>
-References: <20170806164428.2273-1-mikko.rapeli@iki.fi>
- <20170806164428.2273-36-mikko.rapeli@iki.fi>
+From: Nick Desaulniers <ndesaulniers@google.com>
+Subject: Re: [PATCH] netfilter: nf_nat_h323: fix logical-not-parentheses warning
+Date: Tue, 8 Aug 2017 16:28:57 -0700
+Message-ID: <CAKwvOdmPVViB=c6rqk7ZYoij9g9Tf=Y1y_Wbom42118AVfsgiQ@mail.gmail.com>
+References: <20170731183949.73763-1-ndesaulniers@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="OOq1TgGhe8eTwFBO"
-Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-        Dave Watson <davejwatson@fb.com>,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Aviad Yehezkel <aviadye@mellanox.com>, netdev@vger.kernel.org
-To: Mikko Rapeli <mikko.rapeli@iki.fi>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Matthias Kaehlcke <mka@chromium.org>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nick Desaulniers <ndesaulniers@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170806164428.2273-36-mikko.rapeli@iki.fi>
+In-Reply-To: <20170731183949.73763-1-ndesaulniers@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+bumping for review
 
---OOq1TgGhe8eTwFBO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, Aug 06, 2017 at 06:44:26PM +0200, Mikko Rapeli wrote:
-> It is not needed and not part of uapi headers, but causes
-> user space compilation error:
->=20
-> fatal error: net/tcp.h: No such file or directory
->  #include <net/tcp.h>
->                      ^
->=20
-> Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
-> Cc: Dave Watson <davejwatson@fb.com>
-> Cc: Ilya Lesokhin <ilyal@mellanox.com>
-> Cc: Aviad Yehezkel <aviadye@mellanox.com>
+On Mon, Jul 31, 2017 at 11:39 AM, Nick Desaulniers
+<ndesaulniers@google.com> wrote:
+> Clang produces the following warning:
+>
+> net/ipv4/netfilter/nf_nat_h323.c:553:6: error:
+> logical not is only applied to the left hand side of this comparison
+>   [-Werror,-Wlogical-not-parentheses]
+> if (!set_h225_addr(skb, protoff, data, dataoff, taddr,
+>     ^
+> add parentheses after the '!' to evaluate the comparison first
+> add parentheses around left hand side expression to silence this warning
+>
+> There's not necessarily a bug here, but it's cleaner to use the form:
+>
+> if (x != 0)
+>
+> rather than:
+>
+> if (!x == 0)
+>
+> Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
 > ---
->  include/uapi/linux/tls.h | 2 ++
->  1 file changed, 2 insertions(+)
->=20
-> diff --git a/include/uapi/linux/tls.h b/include/uapi/linux/tls.h
-> index cc1d21db35d8..d87c698623f2 100644
-> --- a/include/uapi/linux/tls.h
-> +++ b/include/uapi/linux/tls.h
-> @@ -37,7 +37,9 @@
->  #include <asm/byteorder.h>
->  #include <linux/socket.h>
->  #include <linux/tcp.h>
-> +#ifdef __KERNEL__
->  #include <net/tcp.h>
-> +#endif
+> Also, it's even cleaner to use the form:
+>
+> if (x)
+>
+> but then if the return codes change from treating 0 as success (unlikely),
+> then all call sites must be updated.
+>
+> I'm happy to send v2 that changes to that form, and updates the other call
+> sites to be:
+>
+> if (set_h225_addr())
+>   handle_failures()
+> else
+>   handle_success()
+>
+>  net/ipv4/netfilter/nf_nat_h323.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/ipv4/netfilter/nf_nat_h323.c b/net/ipv4/netfilter/nf_nat_h323.c
+> index 574f7ebba0b6..d8fb251fa6e3 100644
+> --- a/net/ipv4/netfilter/nf_nat_h323.c
+> +++ b/net/ipv4/netfilter/nf_nat_h323.c
+> @@ -550,9 +550,9 @@ static int nat_callforwarding(struct sk_buff *skb, struct nf_conn *ct,
+>         }
+>
+>         /* Modify signal */
+> -       if (!set_h225_addr(skb, protoff, data, dataoff, taddr,
+> -                          &ct->tuplehash[!dir].tuple.dst.u3,
+> -                          htons(nated_port)) == 0) {
+> +       if (set_h225_addr(skb, protoff, data, dataoff, taddr,
+> +                         &ct->tuplehash[!dir].tuple.dst.u3,
+> +                         htons(nated_port)) != 0) {
+>                 nf_ct_unexpect_related(exp);
+>                 return -1;
+>         }
+> --
+> 2.14.0.rc0.400.g1c36432dff-goog
+>
 
-Let's move it to include/net/tls.h instead.
 
 
---=20
-ldv
-
---OOq1TgGhe8eTwFBO
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCAAGBQJZikiCAAoJEAVFT+BVnCUI5CIP/RKMUsBCyslmX84MBNevDBFa
-UuI9698oybrdw0v0fjhmsMLH5VgvBu8gbQmkB7pyATw7ndRZP2cp5bHDSLsafJNv
-PklNqZjEfjhGC9CGpmKfhLhhiErBt2xlgyfNa/fFrOu//wVgb7kf4r+kj/cCAeKt
-nllTm2GTtEpiUg/3nfnl3Da0TSz82ae15WRMyQ9/Crodwx8i3x21vAo139/rQm6m
-kBCftX1lBRefZ+YCemL79Rr54TgBXmiy8qKKqxo5Kyw2sSmwH+nT1eER5ZKCijRB
-6WQV5pHEIplyakhIIA02ctbZ7XCFFC7wAJ0Gj8gc2InT5SbpXt/5As79tcTJW6tx
-njy8m1Jg3StfQ0HLUQynYN+aG07dnvHphoV2ZdHNJyTRbdroOCy5oLWE0ZTkEP0L
-G4TbGJ8gLJ730pPxCabWR/zhx7sZsG7lUzvhaSfZ65Inc1HJAyCwWayH2UfDOATS
-8/y5BgJMqV2s3JiEFKPAv9UvxUb2Auu++hu1fEZ9tjI9yVbdZp5lonZzVTb/qcNo
-etfG7xAJinv2CSxmoVnsVX5nPqdsU09vq/MA5kpAvtcLSrPo7BB2VWR3apdS83Ua
-E/xwXUzqX57EK8xC6h4XGdBnz2nKuRCPeb0fEGUx05mcBgPYneP5JBBp+Zl0kkkq
-6+Iso63/8SKt9mcPTA/0
-=Twx0
------END PGP SIGNATURE-----
-
---OOq1TgGhe8eTwFBO--
+-- 
+Thanks,
+~Nick Desaulniers
