@@ -1,135 +1,165 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 0/6] In-kernel QMI handling
-Date: Tue, 8 Aug 2017 08:15:47 +0200
-Message-ID: <7419F0FF-C2DE-418F-94F1-39F1D4667535@holtmann.org>
-References: <20170804145938.25427-1-bjorn.andersson@linaro.org>
- <1501860967.939.6.camel@redhat.com> <20170807173842.GI29306@minitux>
- <08647880-96CF-4A0A-A75D-0A324022CF32@holtmann.org>
- <20170808044507.GJ29306@minitux>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: Dan Williams <dcbw@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andy Gross <andy.gross@linaro.org>,
-        David Brown <david.brown@linaro.org>,
-        linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org,
-        Netdev list <netdev@vger.kernel.org>,
-        linux-kernel@vger.kernel.org
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170808044507.GJ29306@minitux>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christian Langrock <christian.langrock@secunet.com>
+Subject: Re: [PATCH] ip/link_vti*.c: Fix output for ikey/okey
+Date: Tue, 8 Aug 2017 08:24:12 +0200
+Message-ID: <c78b6c79-ea06-2d8c-2e12-21a3faa7dc22@secunet.com>
+References: <bf2d09ad-28b8-c64c-dd60-4fb288259e3e@secunet.com>
+ <20170807153815.7acf5b93@xeon-e3>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature";
+        boundary="ai9xekG62C0Q3eKSHQWWI4iUrkrngWh7E"
+Cc: <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:59530 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750776AbdHHGYP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Aug 2017 02:24:15 -0400
+In-Reply-To: <20170807153815.7acf5b93@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Bjorn,
+--ai9xekG62C0Q3eKSHQWWI4iUrkrngWh7E
+Content-Type: multipart/mixed; boundary="qCLhsgpQfOFXLhUjT21pDxB6AoS3uWPgL";
+ protected-headers="v1"
+From: Christian Langrock <christian.langrock@secunet.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org
+Message-ID: <c78b6c79-ea06-2d8c-2e12-21a3faa7dc22@secunet.com>
+Subject: Re: [PATCH] ip/link_vti*.c: Fix output for ikey/okey
+References: <bf2d09ad-28b8-c64c-dd60-4fb288259e3e@secunet.com>
+ <20170807153815.7acf5b93@xeon-e3>
+In-Reply-To: <20170807153815.7acf5b93@xeon-e3>
 
->>>>> This series starts by moving the common definitions of the QMUX
->>>>> protocol to the
->>>>> uapi header, as they are shared with clients - both in kernel and
->>>>> userspace.
->>>>> 
->>>>> This series then introduces in-kernel helper functions for aiding the
->>>>> handling
->>>>> of QMI encoded messages in the kernel. QMI encoding is a wire-format
->>>>> used in
->>>>> exchanging messages between the majority of QRTR clients and
->>>>> services.
->>>> 
->>>> This raises a few red-flags for me.
->>> 
->>> I'm glad it does. In discussions with the responsible team within
->>> Qualcomm I've highlighted a number of concerns about enabling this
->>> support in the kernel. Together we're continuously looking into what
->>> should be pushed out to user space, and trying to not introduce
->>> unnecessary new users.
->>> 
->>>> So far, we've kept almost everything QMI related in userspace and
->>>> handled all QMI control-channel messages from libraries like libqmi or
->>>> uqmi via the cdc-wdm driver and the "rmnet" interface via the qmi_wwan
->>>> driver.  The kernel drivers just serve as the transport.
->>>> 
->>> 
->>> The path that was taken to support the MSM-style devices was to
->>> implement net/qrtr, which exposes a socket interface to abstract the
->>> physical transports (QMUX or IPCROUTER in Qualcomm terminology).
->>> 
->>> As I share you view on letting the kernel handle the transportation only
->>> the task of keeping track of registered services (service id -> node and
->>> port mapping) was done in a user space process and so far we've only
->>> ever have to deal with QMI encoded messages in various user space tools.
->> 
->> I think that the transport and multiplexing can be in the kernel as
->> long as it is done as proper subsystem. Similar to Phonet or CAIF.
->> Meaning it should have a well defined socket interface that can be
->> easily used from userspace, but also a clean in-kernel interface
->> handling.
->> 
-> 
-> In a mobile Qualcomm device there's a few different components involved
-> here: message routing, QMUX protocol and QMI-encoding.
-> 
-> The downstream Qualcomm kernel implements the two first in the
-> IPCROUTER, upstream this is split between the kernel net/qrtr and a user
-> space service-register implementing the QMUX protocol for knowing where
-> services are located.
+--qCLhsgpQfOFXLhUjT21pDxB6AoS3uWPgL
+Content-Type: text/plain; charset=windows-1252
+Content-Language: de-DE
+Content-Transfer-Encoding: quoted-printable
 
-as long as all of QMUX moves into the kernel and userspace doesn’t need to know about QMUX anymore, that would be good. The cross termination of QMUX in kernel space and userspace is a really bad idea. It is even worse if userspace has to do service registration. That is just a recipe for disaster.
+Using hex values sounds reasonable.
 
-One extra thing to keep in mind is that all the USB dongle should register with such a new QMI subsystem. And have their network interfaces being proper children of the QMI node. And please do not forget QMI passthrough via MBIM. Just saying we move some QMUX code into the kernel is not enough. It really needs to be a proper subsystem with a proper hierarchy of the child devices.
+BR,
 
-> The common encoding of messages passed between endpoints of the message
-> routing is QMI, which is made an affair totally that of each client.
-> 
->> If Qualcomm is supportive of this effort and is willing to actually
->> assist and/or open some of the specs or interface descriptions, then
->> this is a good thing. Service registration and cleanup is really done
->> best in the kernel. Same applies to multiplexing. Trying to do
->> multiplexing in userspace is always cumbersome and leads to overhead
->> that is of no gain. For example within oFono, we had to force
->> everything to go via oFono since it was the only sane way of handling
->> it. Other approaches were error prone and full of race conditions. You
->> need a central entity that can clean up.
->> 
-> 
-> The current upstream solution depends on a collaboration between
-> net/qrtr and the user space service register for figuring out whom to
-> send messages to. After that muxing et al is handled by the socket
-> interface and service registry does not need to be involved.
-> 
-> Qualcomm is very supporting of this solution and we're collaborating on
-> transitioning "downstream" to use this implementation.
+Christian
 
-It would be good if someone looks into oFono and makes sure that it works there as well. I would prefer at least some initial patches to proof-point the kernel APIs. oFono is a full telephony stack. So if you can make that one work, then you are most likely on the right track.
 
->> For the definition of an UAPI to share some code, I am actually not
->> sure that is such a good idea. For example the QMI code in oFono
->> follows a way simpler approach. And I am not convinced that all the
->> macros are actually beneficial. For example, the whole netlink macros
->> are pretty cumbersome. Adding some Documentation/qmi.txt on how the
->> wire format looks like and what is expected seems to be a way better
->> approach.
->> 
-> 
-> The socket interface provided by the kernel expects some knowledge of
-> the QMUX protocol, for service management. The majority of this
-> knowledge is already public, but I agree that it would be good to gather
-> this in a document. The common data structure for the control message is
-> what I've put in the uapi, as this is used by anyone dealing with
-> control messages.
-> 
-> When it comes to the QMI-encoded messages these are application
-> specific, just like e.g. protobuf definitions are application specific.
+Updated Patch:
 
-That is fine, but what I like to see is at least a documentation that clearly documents the boundaries and examples on how the socket interface is suppose to use. For example using DMS to get the model id etc. would be a simple enough example that could be easily added.
+Subject: [PATCH] ip/link_vti*.c: Fix output for ikey/okey
 
-> As the core infrastructure is becoming available upstream and boards
-> like the DB410c and DB820c aim to be supported by open solutions we will
-> have a natural place to discuss publication of at least some of the
-> application level protocols.
+ikey and okey are normal u32 values. There's no reason to print them as
+IPv4/IPv6 addresses. Instead print them as hex values.
 
-I would really welcome public documentation of it. That would be great.
+Signed-off-by: Christian Langrock <christian.langrock@secunet.com>
+---
+ ip/link_vti.c  | 10 ++++------
+ ip/link_vti6.c | 10 ++++------
+ 2 files changed, 8 insertions(+), 12 deletions(-)
 
-Regards
+diff --git a/ip/link_vti.c b/ip/link_vti.c
+index d5242ac..f87623b 100644
+--- a/ip/link_vti.c
++++ b/ip/link_vti.c
+@@ -244,14 +244,12 @@ static void vti_print_opt(struct link_util *lu,
+FILE *f, struct rtattr *tb[])
+                        fprintf(f, "dev %u ", link);
+        }
+ -       if (tb[IFLA_VTI_IKEY]) {
+-               inet_ntop(AF_INET, RTA_DATA(tb[IFLA_VTI_IKEY]), s2,
+sizeof(s2));
+-               fprintf(f, "ikey %s ", s2);
++       if (tb[IFLA_VTI_IKEY] && rta_getattr_u32(tb[IFLA_VTI_IKEY])) {
++               fprintf(f, "ikey 0x%x ",
+ntohl(rta_getattr_u32(tb[IFLA_VTI_IKEY])));
+        }
+ -       if (tb[IFLA_VTI_OKEY]) {
+-               inet_ntop(AF_INET, RTA_DATA(tb[IFLA_VTI_OKEY]), s2,
+sizeof(s2));
+-               fprintf(f, "okey %s ", s2);
++       if (tb[IFLA_VTI_OKEY] && rta_getattr_u32(tb[IFLA_VTI_OKEY])) {
++               fprintf(f, "okey 0x%x ",
+ntohl(rta_getattr_u32(tb[IFLA_VTI_OKEY])));
+        }
+         if (tb[IFLA_VTI_FWMARK] && rta_getattr_u32(tb[IFLA_VTI_FWMARK]))=
+ {
+diff --git a/ip/link_vti6.c b/ip/link_vti6.c
+index 220b7df..6ae87dd 100644
+--- a/ip/link_vti6.c
++++ b/ip/link_vti6.c
+@@ -247,14 +247,12 @@ static void vti6_print_opt(struct link_util *lu,
+FILE *f, struct rtattr *tb[])
+                        fprintf(f, "dev %u ", link);
+        }
+ -       if (tb[IFLA_VTI_IKEY]) {
+-               inet_ntop(AF_INET, RTA_DATA(tb[IFLA_VTI_IKEY]), s2,
+sizeof(s2));
+-               fprintf(f, "ikey %s ", s2);
++       if (tb[IFLA_VTI_IKEY] && rta_getattr_u32(tb[IFLA_VTI_IKEY])) {
++               fprintf(f, "ikey %u ",
+ntohl(rta_getattr_u32(tb[IFLA_VTI_IKEY])));
+        }
+ -       if (tb[IFLA_VTI_OKEY]) {
+-               inet_ntop(AF_INET, RTA_DATA(tb[IFLA_VTI_OKEY]), s2,
+sizeof(s2));
+-               fprintf(f, "okey %s ", s2);
++       if (tb[IFLA_VTI_OKEY] && rta_getattr_u32(tb[IFLA_VTI_OKEY])) {
++               fprintf(f, "okey %u ",
+ntohl(rta_getattr_u32(tb[IFLA_VTI_OKEY])));
+        }
+         if (tb[IFLA_VTI_FWMARK] && rta_getattr_u32(tb[IFLA_VTI_FWMARK]))=
+ {
+--=20
+2.7.4
 
-Marcel
+
+
+
+
+
+Am 08.08.2017 um 00:38 schrieb Stephen Hemminger:
+> On Mon, 7 Aug 2017 11:59:28 +0200
+> Christian Langrock <christian.langrock@secunet.com> wrote:
+>
+>> ikey and okey are normal u32 values. There's no reason to print them a=
+s
+>> IPv4/IPv6 addresses.
+>>
+>> Signed-off-by: Christian Langrock <christian.langrock@secunet.com>
+> Changing output format breaks scripts that parse output.
+> But on the other hand, the VTI code breaks the assumption that ip comma=
+nd
+> output should be the same as input.
+>
+> More likely the original output format was done to match Cisco output.
+>
+>
+> Why not print in hex like fwmark?
+>
+>
+>
+>
+>
+
+
+
+
+--qCLhsgpQfOFXLhUjT21pDxB6AoS3uWPgL--
+
+--ai9xekG62C0Q3eKSHQWWI4iUrkrngWh7E
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJZiVkMAAoJEKN4x1+C62tedSAH/i5crqTy5zC0v4NiqtbfBukD
+ZypVHvSCWgyw5wXnUi50vKnbcfA004104nCdq5CAfFly4k2PTuVqfVqow51n3ADN
+ufTC+2lF9QQl6ObAKqN8Ltx1sW+5P5S50Vb/1o8SmyhvlOwI7u5RP8Dl0s5KHzL+
+VEGnxrebwhq7CvrFWHcyD1FDgT0Vx12iu4gUTs4gOBuXYXxaDL0PPbZdiFRxCnT8
+IGN/ZDSGGeOYIdyo0mQGzWUL0naBPSIsi8VXauoZyF82/euG1H5Lz/x+nKf95t7d
+eGhTz8iuYjq0JHwSCx4NVzereXBi7O9uyX33R8VUcenW/fN5cm1fGq9y5sN9mA8=
+=GafL
+-----END PGP SIGNATURE-----
+
+--ai9xekG62C0Q3eKSHQWWI4iUrkrngWh7E--
