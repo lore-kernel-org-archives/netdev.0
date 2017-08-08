@@ -1,35 +1,89 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH 35/35] wireless: zydas: zd1211rw: constify usb_device_id
-Date: Tue,  8 Aug 2017 21:36:46 +0530
-Message-ID: <1502208406-12549-1-git-send-email-arvind.yadav.cs@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: kvalo@codeaurora.org, dsd@gentoo.org, kune@deine-taler.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next 3/7] rtnetlink: add reference counting to prevent module unload while dump is in progress
+Date: Tue,  8 Aug 2017 18:02:32 +0200
+Message-ID: <20170808160236.28562-4-fw@strlen.de>
+References: <20170808160236.28562-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:35532 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752126AbdHHQC3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 12:02:29 -0400
+In-Reply-To: <20170808160236.28562-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-usb_device_id are not supposed to change at runtime. All functions
-working with usb_device_id provided by <linux/usb.h> work with
-const usb_device_id. So mark the non-const structs as const.
+I don't see what prevents rmmod (unregister_all is called) while a dump
+is active.
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Even if we'd add rtnl lock/unlock pair to unregister_all (as done here),
+thats not enough either as rtnl_lock is released right before the dump
+process starts.
+
+So this adds a refcount:
+ * acquire rtnl mutex
+ * bump refcount
+ * release mutex
+ * start the dump
+
+... and make unregister_all remove the callbacks (no new dumps possible)
+and then wait until refcount is 0.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/wireless/zydas/zd1211rw/zd_usb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/core/rtnetlink.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/zydas/zd1211rw/zd_usb.c b/drivers/net/wireless/zydas/zd1211rw/zd_usb.c
-index 01ca1d5..c30bf11 100644
---- a/drivers/net/wireless/zydas/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zydas/zd1211rw/zd_usb.c
-@@ -35,7 +35,7 @@
- #include "zd_mac.h"
- #include "zd_usb.h"
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 67607c540c03..c45a7c5e3232 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -127,6 +127,7 @@ EXPORT_SYMBOL(lockdep_rtnl_is_held);
+ #endif /* #ifdef CONFIG_PROVE_LOCKING */
  
--static struct usb_device_id usb_ids[] = {
-+static const struct usb_device_id usb_ids[] = {
- 	/* ZD1211 */
- 	{ USB_DEVICE(0x0105, 0x145f), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x0586, 0x3401), .driver_info = DEVICE_ZD1211 },
+ static struct rtnl_link *rtnl_msg_handlers[RTNL_FAMILY_MAX + 1];
++static refcount_t rtnl_msg_handlers_ref[RTNL_FAMILY_MAX + 1];
+ 
+ static inline int rtm_msgindex(int msgtype)
+ {
+@@ -272,10 +273,18 @@ EXPORT_SYMBOL_GPL(rtnl_unregister);
+  */
+ void rtnl_unregister_all(int protocol)
+ {
++	struct rtnl_link *handlers;
++
+ 	BUG_ON(protocol < 0 || protocol > RTNL_FAMILY_MAX);
+ 
+-	kfree(rtnl_msg_handlers[protocol]);
++	rtnl_lock();
++	handlers = rtnl_msg_handlers[protocol];
+ 	rtnl_msg_handlers[protocol] = NULL;
++	rtnl_unlock();
++
++	while (refcount_read(&rtnl_msg_handlers_ref[protocol]) > 0)
++		schedule();
++	kfree(handlers);
+ }
+ EXPORT_SYMBOL_GPL(rtnl_unregister_all);
+ 
+@@ -4173,6 +4182,8 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		if (dumpit == NULL)
+ 			return -EOPNOTSUPP;
+ 
++		refcount_inc(&rtnl_msg_handlers_ref[family]);
++
+ 		if (type == RTM_GETLINK)
+ 			min_dump_alloc = rtnl_calcit(skb, nlh);
+ 
+@@ -4186,6 +4197,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 			err = netlink_dump_start(rtnl, skb, nlh, &c);
+ 		}
+ 		rtnl_lock();
++		refcount_dec(&rtnl_msg_handlers_ref[family]);
+ 		return err;
+ 	}
+ 
 -- 
-2.7.4
+2.13.0
