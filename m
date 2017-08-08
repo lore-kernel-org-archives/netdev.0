@@ -1,94 +1,64 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: use __GFP_NOWARN for sctpw.fifo allocation
-Date: Tue, 8 Aug 2017 14:35:37 +1200
-Message-ID: <CADvbK_e75GgunhX-sjdN93rhH4iUnBpUpmAexVCTeCX4=pxHcA@mail.gmail.com>
-References: <53b360387db05bf31db481234e7070e4a7ba6a25.1501936269.git.lucien.xin@gmail.com>
- <20170805170859.GA7613@localhost.localdomain> <CADvbK_f_q-gJHey9oUZUrxyGSYXasMVj0kqvhEkzDUPsGDzeng@mail.gmail.com>
- <20170806233927.GB7613@localhost.localdomain>
+Subject: Re: [PATCH net-next 03/14] sctp: remove the typedef sctp_scope_policy_t
+Date: Tue, 8 Aug 2017 14:45:26 +1200
+Message-ID: <CADvbK_dC1rRKqyq53Z9Eo8o1q1A7MbmZ3fcVve1TbysB6eUrUw@mail.gmail.com>
+References: <cover.1501934086.git.lucien.xin@gmail.com> <09ffe75e4e16f00b61b682261e2a4b05fa76e814.1501934087.git.lucien.xin@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD004C7B8@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem <davem@davemloft.net>, Neil Horman <nhorman@tuxdriver.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Cc: network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:35269 "EHLO
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:35908 "EHLO
         mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751701AbdHHCfi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 22:35:38 -0400
-In-Reply-To: <20170806233927.GB7613@localhost.localdomain>
+        with ESMTP id S1751755AbdHHCp1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2017 22:45:27 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD004C7B8@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 7, 2017 at 11:39 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> On Sun, Aug 06, 2017 at 06:14:39PM +1200, Xin Long wrote:
->> On Sun, Aug 6, 2017 at 5:08 AM, Marcelo Ricardo Leitner
->> <marcelo.leitner@gmail.com> wrote:
->> > On Sat, Aug 05, 2017 at 08:31:09PM +0800, Xin Long wrote:
->> >> Chen Wei found a kernel call trace when modprobe sctp_probe with
->> >> bufsize set with a huge value.
->> >>
->> >> It's because in sctpprobe_init when alloc memory for sctpw.fifo,
->> >> the size is got from userspace. If it is too large, kernel will
->> >> fail and give a warning.
->> >
->> > Yes but sctp_probe can only be loaded by an admin and it would happen
->> > only during modprobe. It's different from the commit mentioned below, on
->> > which any user could trigger it.
->> yeah, in this way it's different, I think generally it's acceptable to have
->> this kinda warning call trace by admin.
+On Mon, Aug 7, 2017 at 9:28 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Xin Long
+>> Sent: 05 August 2017 13:00
+>> This patch is to remove the typedef sctp_scope_policy_t and keep
+>> it's members as an anonymous enum.
 >>
->> But it could get the feedback from the return value and the warning
->> call trace seems not useful. sometimes users may be confused
->
-> users or admins?
-admins.
->
->> with this call trace. So it may be better not to dump the warning ?
+>> It is also to define SCTP_SCOPE_POLICY_MAX to replace the num 3
+>> in sysctl.c to make codes clear.
 >>
->> Or you think it can be helpful if we leave it here ?
->
-> I'm afraid we may be exagerating here. There are several other ways that
-> an admin can trigger scary warnings, this one is no special. I'd rather
-> leave this one to the mm defaults instead.
-OK, I'm all for that.
->
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  include/net/sctp/constants.h | 6 ++++--
+>>  net/sctp/sysctl.c            | 2 +-
+>>  2 files changed, 5 insertions(+), 3 deletions(-)
 >>
->> >
->> >>
->> >> As there will be a fallback allocation later, this patch is just
->> >> to fail silently and return ret, just as commit 0ccc22f425e5
->> >> ("sit: use __GFP_NOWARN for user controlled allocation") did.
->> >>
->> >> Reported-by: Chen Wei <weichen@redhat.com>
->> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> >> ---
->> >>  net/sctp/probe.c | 2 +-
->> >>  1 file changed, 1 insertion(+), 1 deletion(-)
->> >>
->> >> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
->> >> index 6cc2152..5bf3164 100644
->> >> --- a/net/sctp/probe.c
->> >> +++ b/net/sctp/probe.c
->> >> @@ -210,7 +210,7 @@ static __init int sctpprobe_init(void)
->> >>
->> >>       init_waitqueue_head(&sctpw.wait);
->> >>       spin_lock_init(&sctpw.lock);
->> >> -     if (kfifo_alloc(&sctpw.fifo, bufsize, GFP_KERNEL))
->> >> +     if (kfifo_alloc(&sctpw.fifo, bufsize, GFP_KERNEL | __GFP_NOWARN))
->> >>               return ret;
->> >>
->> >>       if (!proc_create(procname, S_IRUSR, init_net.proc_net,
->> >> --
->> >> 2.1.0
->> >>
->> >> --
->> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->> >> the body of a message to majordomo@vger.kernel.org
->> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> >>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+>> index 922fba5..acb03eb 100644
+>> --- a/include/net/sctp/constants.h
+>> +++ b/include/net/sctp/constants.h
+>> @@ -341,12 +341,14 @@ typedef enum {
+>>       SCTP_SCOPE_UNUSABLE,            /* IPv4 unusable addresses */
+>>  } sctp_scope_t;
 >>
+>> -typedef enum {
+>> +enum {
+>>       SCTP_SCOPE_POLICY_DISABLE,      /* Disable IPv4 address scoping */
+>>       SCTP_SCOPE_POLICY_ENABLE,       /* Enable IPv4 address scoping */
+>>       SCTP_SCOPE_POLICY_PRIVATE,      /* Follow draft but allow IPv4 private addresses */
+>>       SCTP_SCOPE_POLICY_LINK,         /* Follow draft but allow IPv4 link local addresses */
+>> -} sctp_scope_policy_t;
+>> +};
+>> +
+>> +#define SCTP_SCOPE_POLICY_MAX        SCTP_SCOPE_POLICY_LINK
+>
+> Perhaps slightly better to end the enum with:
+>         SCTP_SCOPE_POLICY_COUNT,        /* Number of policies */
+>         SCTP_SCOPE_POLICY_MAX = SCTP_SCOPE_POLICY_COUNT - 1     /* Last policy */
+> };
+It might be, so that new member coming will not change too much.
+
+I just copied the idea of SCTP_EVENT_xxxx_MAX, SCTP_STATE_MAX :-)
