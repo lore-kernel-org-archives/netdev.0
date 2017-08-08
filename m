@@ -1,50 +1,77 @@
-From: Tom Herbert <tom@quantonium.net>
-Subject: Re: [PATCH v3 net-next 0/5] ulp: Generalize ULP infrastructure
-Date: Tue, 8 Aug 2017 14:08:35 -0700
-Message-ID: <CAPDqMerc5ZH+6N6vRvJBShPM-mMrh2Sd+p-+gG1q63jrdZO3TQ@mail.gmail.com>
-References: <20170807172818.31855-1-tom@quantonium.net> <5989D958.6080506@gmail.com>
- <CALx6S37HW6VF1ed5RQx7HCNMGM8pRpb54R1OSFHN8mDNpsc1uQ@mail.gmail.com>
- <598A1146.9090205@gmail.com> <CAPDqMer5fh9xKTcA5fuycoOcHaOcFVRnnfEBJYj_Jv1S=R0-xQ@mail.gmail.com>
- <6bee85e2-5fb3-135a-ad7c-ae4a350f7148@solarflare.com>
+From: James Hogan <james.hogan@imgtec.com>
+Subject: Re: [RFC PATCH 2/2] bpf: Initialise mod[] in bpf_trace_printk
+Date: Tue, 08 Aug 2017 22:20:05 +0100
+Message-ID: <650EB3B0-1101-4624-905A-E68D2EC5920F@imgtec.com>
+References: <20170807222514.24292-1-james.hogan@imgtec.com> <20170807222514.24292-3-james.hogan@imgtec.com> <59897A7C.10009@iogearbox.net> <20170808.094857.245786887664041622.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Rohit Seth <rohit@quantonium.net>,
-        Dave Watson <davejwatson@fb.com>
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:35424 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752154AbdHHVIh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 17:08:37 -0400
-Received: by mail-wr0-f170.google.com with SMTP id k71so17259227wrc.2
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 14:08:36 -0700 (PDT)
-In-Reply-To: <6bee85e2-5fb3-135a-ad7c-ae4a350f7148@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: ast@kernel.org, linux-kernel@vger.kernel.org, rostedt@goodmis.org,
+        mingo@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, daniel@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170808.094857.245786887664041622.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 8, 2017 at 1:23 PM, Edward Cree <ecree@solarflare.com> wrote:
-> On 08/08/17 20:50, Tom Herbert wrote:
->> It's a tradeoff. The nice thing about using strings is that we don't
->> need maintain a universal enum.
-> Hmm, that makes it sound as though you're intending for random out-of-tree
->  modules to add these things; since if they're in-tree it's easy for them
->  to get enum values assigned when they're added.  Do we really want to
->  encourage sticking random module code into the network stack like this?
+On 8 August 2017 17:48:57 BST, David Miller <davem@davemloft=2Enet> wrote:
+>From: Daniel Borkmann <daniel@iogearbox=2Enet>
+>Date: Tue, 08 Aug 2017 10:46:52 +0200
 >
-> In any case, if you go with the enum approach and later it _does_ prove
->  necessary to have more flexibility, you can have enum values dynamically
->  assigned (like genetlink manages to do); and programs using the existing
->  fixed IDs will continue to work.  It's much harder to go the other way...
+>> On 08/08/2017 12:25 AM, James Hogan wrote:
+>>> In bpf_trace_printk(), the elements in mod[] are left uninitialised,
+>>> but
+>>> they are then incremented to track the width of the formats=2E Zero
+>>> initialise the array just in case the memory contains non-zero
+>values
+>>> on
+>>> entry=2E
+>>>
+>>> Fixes: 9c959c863f82 ("tracing: Allow BPF programs to call
+>>> bpf_trace_printk()")
+>>> Signed-off-by: James Hogan <james=2Ehogan@imgtec=2Ecom>
+>>> Cc: Alexei Starovoitov <ast@kernel=2Eorg>
+>>> Cc: Daniel Borkmann <daniel@iogearbox=2Enet>
+>>> Cc: Steven Rostedt <rostedt@goodmis=2Eorg>
+>>> Cc: Ingo Molnar <mingo@redhat=2Ecom>
+>>> Cc: netdev@vger=2Ekernel=2Eorg
+>>> ---
+>>> When I checked (on MIPS32), the elements tended to have the value
+>zero
+>>> anyway (does BPF zero the stack or something clever?), so this is a
+>>> purely theoretical fix=2E
+>>> ---
+>>>   kernel/trace/bpf_trace=2Ec | 2 +-
+>>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>>
+>>> diff --git a/kernel/trace/bpf_trace=2Ec b/kernel/trace/bpf_trace=2Ec
+>>> index 32dcbe1b48f2=2E=2E86a52857d941 100644
+>>> --- a/kernel/trace/bpf_trace=2Ec
+>>> +++ b/kernel/trace/bpf_trace=2Ec
+>>> @@ -129,7 +129,7 @@ BPF_CALL_5(bpf_trace_printk, char *, fmt, u32,
+>>> fmt_size, u64, arg1,
+>>>   	   u64, arg2, u64, arg3)
+>>>   {
+>>>   	bool str_seen =3D false;
+>>> -	int mod[3] =3D {};
+>>> +	int mod[3] =3D { 0, 0, 0 };
+>>=20
+>> I'm probably missing something, but is the behavior of gcc wrt
+>> above initializers different on mips (it zeroes just fine on x86
+>> at least)? If yes, we'd probably need a cocci script to also check
+>> rest of the kernel given this is used in a number of places=2E Hm,
+>> could you elaborate?
 >
-There is history and precedence. The string mechanism for ulp_ops  a
-direct port of the original ULP infrastructure done for kTLS. That
-code based the mechanism on TCP congestion ops and that was introduced
-into the kernel twelve years ago. This method doesn't seem to have
-been viewed as a problem before now...
+>This change is not necessary at all=2E
+>
+>An empty initializer must clear the whole object to zero=2E
+>
+>"theoretical" fix indeed=2E=2E=2E :-(
 
-Tom
+cool, i hadn't realised unmentioned elements in an initialiser are always =
+zeroed, even when non-global/static, so had interpreted the whole array as =
+uninitialised=2E learn something new every day :-) sorry for the noise=2E
 
-> -Ed
+cheers
+James
