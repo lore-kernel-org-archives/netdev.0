@@ -1,106 +1,84 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH] net: phy: Use tab for indentation in Kconfig
-Date: Tue,  8 Aug 2017 11:32:25 +0200
-Message-ID: <abacdc7ec0585cfbeba240ca2780c6020cf7090a.1502184742.git.michal.simek@xilinx.com>
-Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: linux-kernel@vger.kernel.org, monstr@monstr.eu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net] ppp: fix xmit recursion detection on ppp channels
+Date: Tue, 8 Aug 2017 11:43:24 +0200
+Message-ID: <e45ed6ea02e2665ec8b868279ad9afcb9b34fc81.1502185216.git.g.nault@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Gao Feng <gfree.wind@vip.163.com>,
+        Liu Jianying <jianying.liu@ikuai8.com>,
+        David Miller <davem@davemloft.net>, linux-ppp@vger.kernel.org,
+        Paul Mackerras <paulus@samba.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Using tabs instead of space for indentaion
+Commit e5dadc65f9e0 ("ppp: Fix false xmit recursion detect with two ppp
+devices") dropped the xmit_recursion counter incrementation in
+ppp_channel_push() and relied on ppp_xmit_process() for this task.
+But __ppp_channel_push() can also send packets directly (using the
+.start_xmit() channel callback), in which case the xmit_recursion
+counter isn't incremented anymore. If such packets get routed back to
+the parent ppp unit, ppp_xmit_process() won't notice the recursion and
+will call ppp_channel_push() on the same channel, effectively creating
+the deadlock situation that the xmit_recursion mechanism was supposed
+to prevent.
 
-Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+This patch re-introduces the xmit_recursion counter incrementation in
+ppp_channel_push(). Since the xmit_recursion variable is now part of
+the parent ppp unit, incrementation is skipped if the channel doesn't
+have any. This is fine because only packets routed through the parent
+unit may enter the channel recursively.
+
+Finally, we have to ensure that pch->ppp is not going to be modified
+while executing ppp_channel_push(). Instead of taking this lock only
+while calling ppp_xmit_process(), we now have to hold it for the full
+ppp_channel_push() execution. This respects the ppp locks ordering
+which requires locking ->upl before ->downl.
+
+Fixes: e5dadc65f9e0 ("ppp: Fix false xmit recursion detect with two ppp devices")
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
+ drivers/net/ppp/ppp_generic.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
- drivers/net/phy/Kconfig | 42 +++++++++++++++++++++---------------------
- 1 file changed, 21 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 928fd892f167..5d8cce3fab57 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -5,7 +5,7 @@
- menuconfig MDIO_DEVICE
- 	tristate "MDIO bus device drivers"
- 	help
--	   MDIO devices and driver infrastructure code.
-+	  MDIO devices and driver infrastructure code.
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index bd4303944e44..a404552555d4 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -1915,21 +1915,23 @@ static void __ppp_channel_push(struct channel *pch)
+ 	spin_unlock(&pch->downl);
+ 	/* see if there is anything from the attached unit to be sent */
+ 	if (skb_queue_empty(&pch->file.xq)) {
+-		read_lock(&pch->upl);
+ 		ppp = pch->ppp;
+ 		if (ppp)
+-			ppp_xmit_process(ppp);
+-		read_unlock(&pch->upl);
++			__ppp_xmit_process(ppp);
+ 	}
+ }
  
- config MDIO_BUS
- 	tristate
-@@ -107,11 +107,11 @@ config MDIO_HISI_FEMAC
- 	  Hisilicon SoC that have an Fast Ethernet MAC.
+ static void ppp_channel_push(struct channel *pch)
+ {
+-	local_bh_disable();
+-
+-	__ppp_channel_push(pch);
+-
+-	local_bh_enable();
++	read_lock_bh(&pch->upl);
++	if (pch->ppp) {
++		(*this_cpu_ptr(pch->ppp->xmit_recursion))++;
++		__ppp_channel_push(pch);
++		(*this_cpu_ptr(pch->ppp->xmit_recursion))--;
++	} else {
++		__ppp_channel_push(pch);
++	}
++	read_unlock_bh(&pch->upl);
+ }
  
- config MDIO_MOXART
--        tristate "MOXA ART MDIO interface support"
--        depends on ARCH_MOXART
--        help
--          This driver supports the MDIO interface found in the network
--          interface units of the MOXA ART SoC
-+	tristate "MOXA ART MDIO interface support"
-+	depends on ARCH_MOXART
-+	help
-+	  This driver supports the MDIO interface found in the network
-+	  interface units of the MOXA ART SoC
- 
- config MDIO_OCTEON
- 	tristate "Octeon and some ThunderX SOCs MDIO buses"
-@@ -172,7 +172,7 @@ config LED_TRIGGER_PHY
- 	  state change will trigger the events, for consumption by an
- 	  LED class driver.  There are triggers for each link speed currently
- 	  supported by the phy, and are of the form:
--	       <mii bus id>:<phy>:<speed>
-+	      <mii bus id>:<phy>:<speed>
- 
- 	  Where speed is in the form:
- 		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
-@@ -186,9 +186,9 @@ config AMD_PHY
- 	  Currently supports the am79c874
- 
- config AQUANTIA_PHY
--        tristate "Aquantia PHYs"
--        ---help---
--          Currently supports the Aquantia AQ1202, AQ2104, AQR105, AQR405
-+	tristate "Aquantia PHYs"
-+	---help---
-+	  Currently supports the Aquantia AQ1202, AQ2104, AQR105, AQR405
- 
- config AT803X_PHY
- 	tristate "AT803X PHYs"
-@@ -352,21 +352,21 @@ config STE10XP
- 	  This is the driver for the STe100p and STe101p PHYs.
- 
- config TERANETICS_PHY
--        tristate "Teranetics PHYs"
--        ---help---
--          Currently supports the Teranetics TN2020
-+	tristate "Teranetics PHYs"
-+	---help---
-+	  Currently supports the Teranetics TN2020
- 
- config VITESSE_PHY
--        tristate "Vitesse PHYs"
--        ---help---
--          Currently supports the vsc8244
-+	tristate "Vitesse PHYs"
-+	---help---
-+	  Currently supports the vsc8244
- 
- config XILINX_GMII2RGMII
--       tristate "Xilinx GMII2RGMII converter driver"
--       ---help---
--         This driver support xilinx GMII to RGMII IP core it provides
--         the Reduced Gigabit Media Independent Interface(RGMII) between
--         Ethernet physical media devices and the Gigabit Ethernet controller.
-+	tristate "Xilinx GMII2RGMII converter driver"
-+	---help---
-+	  This driver support xilinx GMII to RGMII IP core it provides
-+	  the Reduced Gigabit Media Independent Interface(RGMII) between
-+	  Ethernet physical media devices and the Gigabit Ethernet controller.
- 
- endif # PHYLIB
- 
+ /*
 -- 
-1.9.1
+2.14.0
+
