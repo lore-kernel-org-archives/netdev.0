@@ -1,17 +1,17 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net 1/1] tipc: remove premature ESTABLISH FSM event at link synchronization
-Date: Tue, 8 Aug 2017 22:23:56 +0200
-Message-ID: <1502223836-3182-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH ericsson v2 1/1] tipc: remove premature ESTABLISH FSM event at link synchronization
+Date: Tue, 8 Aug 2017 22:18:17 +0200
+Message-ID: <1502223497-3074-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
         <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:59292 "EHLO
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:48821 "EHLO
         sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752222AbdHHUYG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 16:24:06 -0400
+        with ESMTP id S1752232AbdHHUd3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 16:33:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
