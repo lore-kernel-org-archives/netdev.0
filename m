@@ -1,46 +1,108 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
- count = 1
-Date: Wed, 9 Aug 2017 16:34:00 -0700
-Message-ID: <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
-References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
- <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: lkml <linux-kernel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux USB List <linux-usb@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Felipe Balbi <felipe.balbi@linux.intel.com>,
-        Wei Wang <weiwan@google.com>
-To: John Stultz <john.stultz@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next v2 2/9] bpf, x86: implement jiting of BPF_J{LT,LE,SLT,SLE}
+Date: Thu, 10 Aug 2017 01:39:56 +0200
+Message-ID: <543cc5e3024b9b03f359b31cee70b8806408d607.1502320623.git.daniel@iogearbox.net>
+References: <cover.1502320623.git.daniel@iogearbox.net>
+Cc: ast@fb.com, holzheu@linux.vnet.ibm.com,
+        naveen.n.rao@linux.vnet.ibm.com, jakub.kicinski@netronome.com,
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:35681 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752227AbdHIXkO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 19:40:14 -0400
+In-Reply-To: <cover.1502320623.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1502320623.git.daniel@iogearbox.net>
+References: <cover.1502320623.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(Cc'ing Wei whose commit was blamed)
+This work implements jiting of BPF_J{LT,LE,SLT,SLE} instructions
+with BPF_X/BPF_K variants for the x86_64 eBPF JIT.
 
-On Mon, Aug 7, 2017 at 2:15 PM, John Stultz <john.stultz@linaro.org> wrote:
-> On Mon, Aug 7, 2017 at 2:05 PM, John Stultz <john.stultz@linaro.org> wrote:
->> So, with recent testing with my HiKey board, I've been noticing some
->> quirky behavior with my USB eth adapter.
->>
->> Basically, pluging the usb eth adapter in and then removing it, when
->> plugging it back in I often find that its not detected, and the system
->> slowly spits out the following message over and over:
->>   unregister_netdevice: waiting for eth0 to become free. Usage count = 1
->
-> The other bit is that after this starts printing, the board will no
-> longer reboot (it hangs continuing to occasionally print the above
-> message), and I have to manually reset the device.
->
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ arch/x86/net/bpf_jit_comp.c | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
 
-So this warning is not temporarily shown but lasts until a reboot,
-right? If so it is a dst refcnt leak.
-
-How reproducible is it for you? From my reading, it seems always
-reproduced when you unplug and plug your usb eth interface?
-Is there anything else involved? For example, network namespace.
-
-Thanks.
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index e1324f2..8194696 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -94,7 +94,9 @@ static int bpf_size_to_x86_bytes(int bpf_size)
+ #define X86_JNE 0x75
+ #define X86_JBE 0x76
+ #define X86_JA  0x77
++#define X86_JL  0x7C
+ #define X86_JGE 0x7D
++#define X86_JLE 0x7E
+ #define X86_JG  0x7F
+ 
+ static void bpf_flush_icache(void *start, void *end)
+@@ -888,9 +890,13 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
+ 		case BPF_JMP | BPF_JEQ | BPF_X:
+ 		case BPF_JMP | BPF_JNE | BPF_X:
+ 		case BPF_JMP | BPF_JGT | BPF_X:
++		case BPF_JMP | BPF_JLT | BPF_X:
+ 		case BPF_JMP | BPF_JGE | BPF_X:
++		case BPF_JMP | BPF_JLE | BPF_X:
+ 		case BPF_JMP | BPF_JSGT | BPF_X:
++		case BPF_JMP | BPF_JSLT | BPF_X:
+ 		case BPF_JMP | BPF_JSGE | BPF_X:
++		case BPF_JMP | BPF_JSLE | BPF_X:
+ 			/* cmp dst_reg, src_reg */
+ 			EMIT3(add_2mod(0x48, dst_reg, src_reg), 0x39,
+ 			      add_2reg(0xC0, dst_reg, src_reg));
+@@ -911,9 +917,13 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
+ 		case BPF_JMP | BPF_JEQ | BPF_K:
+ 		case BPF_JMP | BPF_JNE | BPF_K:
+ 		case BPF_JMP | BPF_JGT | BPF_K:
++		case BPF_JMP | BPF_JLT | BPF_K:
+ 		case BPF_JMP | BPF_JGE | BPF_K:
++		case BPF_JMP | BPF_JLE | BPF_K:
+ 		case BPF_JMP | BPF_JSGT | BPF_K:
++		case BPF_JMP | BPF_JSLT | BPF_K:
+ 		case BPF_JMP | BPF_JSGE | BPF_K:
++		case BPF_JMP | BPF_JSLE | BPF_K:
+ 			/* cmp dst_reg, imm8/32 */
+ 			EMIT1(add_1mod(0x48, dst_reg));
+ 
+@@ -935,18 +945,34 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
+ 				/* GT is unsigned '>', JA in x86 */
+ 				jmp_cond = X86_JA;
+ 				break;
++			case BPF_JLT:
++				/* LT is unsigned '<', JB in x86 */
++				jmp_cond = X86_JB;
++				break;
+ 			case BPF_JGE:
+ 				/* GE is unsigned '>=', JAE in x86 */
+ 				jmp_cond = X86_JAE;
+ 				break;
++			case BPF_JLE:
++				/* LE is unsigned '<=', JBE in x86 */
++				jmp_cond = X86_JBE;
++				break;
+ 			case BPF_JSGT:
+ 				/* signed '>', GT in x86 */
+ 				jmp_cond = X86_JG;
+ 				break;
++			case BPF_JSLT:
++				/* signed '<', LT in x86 */
++				jmp_cond = X86_JL;
++				break;
+ 			case BPF_JSGE:
+ 				/* signed '>=', GE in x86 */
+ 				jmp_cond = X86_JGE;
+ 				break;
++			case BPF_JSLE:
++				/* signed '<=', LE in x86 */
++				jmp_cond = X86_JLE;
++				break;
+ 			default: /* to silence gcc warning */
+ 				return -EFAULT;
+ 			}
+-- 
+1.9.3
