@@ -1,110 +1,110 @@
-From: "Yang, Yi Y" <yi.y.yang@intel.com>
-Subject: RE: [ovs-dev] [PATCH net-next] openvswitch: add NSH support
-Date: Wed, 9 Aug 2017 20:12:36 +0000
-Message-ID: <79BBBFE6CB6C9B488C1A45ACD284F51961C3C14A@SHSMSX103.ccr.corp.intel.com>
-References: <1502168380-106785-1-git-send-email-yi.y.yang@intel.com>
- <20170808162810.1bab3812@griffin>
- <79BBBFE6CB6C9B488C1A45ACD284F51961C391CA@SHSMSX103.ccr.corp.intel.com>
- <20170809024200.GG6175@ovn.org>
- <CFF8EF42F1132E4CBE2BF0AB6C21C58D72735682@ESESSMB107.ericsson.se>
- <79BBBFE6CB6C9B488C1A45ACD284F51961C3ADBE@SHSMSX103.ccr.corp.intel.com>
- <20170809180912.GU6175@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: Jan Scheurich <jan.scheurich@ericsson.com>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Benc <jbenc@redhat.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        =?iso-8859-1?Q?Zolt=E1n_Balogh?= <zoltan.balogh@ericsson.com>
-To: Ben Pfaff <blp@ovn.org>
+From: William Tu <u9012063@gmail.com>
+Subject: [PATCH net-next] gre: introduce native tunnel support for ERSPAN
+Date: Wed,  9 Aug 2017 13:22:36 -0700
+Message-ID: <1502310157-7827-1-git-send-email-u9012063@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53503 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752060AbdHIUMl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 9 Aug 2017 16:12:41 -0400
-In-Reply-To: <20170809180912.GU6175@ovn.org>
-Content-Language: en-US
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:34339 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751958AbdHIUXe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 16:23:34 -0400
+Received: by mail-wm0-f48.google.com with SMTP id t138so16342243wmt.1
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 13:23:33 -0700 (PDT)
+Received: from sc9-mailhost3.vmware.com ([208.91.1.34])
+        by smtp.gmail.com with ESMTPSA id s3sm2459787edb.28.2017.08.09.13.23.30
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
+        Wed, 09 Aug 2017 13:23:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben, do you mean we bring two new attributes (OVS_NSH_ATTR_MD1 and   OVS_NSH_ATTR_MD2) and embed one of them in OVS_ACTION_ATTR_ENCAP_NSH? Anyway we need to use a struct or something else to transfer those metadata between functions, how do you think we can handle this without metadata in struct ovs_action_encap_nsh? I mean how we handle the arguments for function encap_nsh.
+The patch adds ERSPAN type II tunnel support.  The implementation
+is based on the draft at [1].  One of the purposes is for Linux
+box to be able to receive ERSPAN monitoring traffic sent from
+the Cisco switch, by creating a ERSPAN tunnel device.
+In addition, the patch also adds ERSPAN TX, so traffic can 
+also be encapsulated into ERSPAN and sent out.
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Ben Pfaff
-Sent: Thursday, August 10, 2017 2:09 AM
-To: Yang, Yi Y <yi.y.yang@intel.com>
-Cc: Jan Scheurich <jan.scheurich@ericsson.com>; dev@openvswitch.org; netdev@vger.kernel.org; Jiri Benc <jbenc@redhat.com>; davem@davemloft.net; Zoltán Balogh <zoltan.balogh@ericsson.com>
-Subject: Re: [ovs-dev] [PATCH net-next] openvswitch: add NSH support
+The implementation reuses tunnel key as ERSPAN session ID, and 
+field 'erspan' as ERSPAN Index fields:
+./ip link add dev ers11 type erspan seq key 100 erspan 123 \
+                        local 172.16.1.200 remote 172.16.1.100
 
-On Wed, Aug 09, 2017 at 09:41:51AM +0000, Yang, Yi Y wrote:
-> Hi,  Jan
-> 
-> I have worked out a patch, will send it quickly for Ben. In addition, 
-> I also will send out a patch to change encap_nsh &decap_nsh to 
-> push_nsh and pop_nsh. Per comments from all the people, we all agreed 
-> to do so :-)
-> 
-> diff --git a/datapath/linux/compat/include/linux/openvswitch.h 
-> b/datapath/linux/compat/include/linux/openvswitch.h
-> index bc6c94b..4936c12 100644
-> --- a/datapath/linux/compat/include/linux/openvswitch.h
-> +++ b/datapath/linux/compat/include/linux/openvswitch.h
-> @@ -793,7 +793,7 @@ struct ovs_action_push_eth {
->         struct ovs_key_ethernet addresses;  };
-> 
-> -#define OVS_ENCAP_NSH_MAX_MD_LEN 16
-> +#define OVS_ENCAP_NSH_MAX_MD_LEN 248
->  /*
->   * struct ovs_action_encap_nsh - %OVS_ACTION_ATTR_ENCAP_NSH
->   * @flags: NSH header flags.
-> @@ -809,7 +809,7 @@ struct ovs_action_encap_nsh {
->      uint8_t mdlen;
->      uint8_t np;
->      __be32 path_hdr;
-> -    uint8_t metadata[OVS_ENCAP_NSH_MAX_MD_LEN];
-> +    uint8_t metadata[];
->  };
+[1] https://tools.ietf.org/html/draft-foschiano-erspan-01
 
-This brings the overall format of ovs_action_encap_nsh to:
+The change to the iproute2 will be submitted in a separate patch.
+I use the following script to create end-to-end ERSPAN tunnel test.
 
-struct ovs_action_encap_nsh {
-    uint8_t flags;
-    uint8_t mdtype;
-    uint8_t mdlen;
-    uint8_t np;
-    __be32 path_hdr;
-    uint8_t metadata[];
-};
+#!/bin/bash
+# In the namespace NS0, create veth0 and erspan00
+# Out of the namespace, create veth1 and erspan11
+# Ping in and out of namespace using ERSPAN protocol 
 
-This is an unusual format for a Netlink attribute.  More commonly, one would put variable-length data into an attribute of its own, which allows that data to be handled using the regular Netlink means.  Then the mdlen and metadata members could be removed, since they would be part of the additional attribute, and one might expect the mdtype member to be removed as well since each type of metadata would be in a different attribute type.
+# Namespace0:
+# - erspan00 
+# IP: 10.1.1.100
+# local 192.16.1.100 remote 192.16.1.200
+# - veth0
+# IP: 172.16.1.100
 
-So, a format closer to what I expect to see in Netlink is something like
-this:
+# Out of namespace:
+# - erspan11 
+# IP: 10.1.1.200
+# local 172.16.1.200 remote 172.16.1.100
+# - veth1
+# IP: 172.16.1.200
 
-/**
- * enum ovs_nsh_attr - Metadata attributes for %OVS_ACTION_ENCAP_NSH action.
- *
- * @OVS_NSH_ATTR_MD1: Contains 16-byte NSH type-1 metadata.
- * @OVS_NSH_ATTR_MD2: Contains 0- to 255-byte variable-length NSH type-2
- * metadata. */
-enum ovs_nsh_attr {
-    OVS_NSH_ATTR_MD1,
-    OVS_NSH_ATTR_MD2
-};
+set -ex
+TYPE=erspan
+DEV_NS=erspan00
+DEV=erspan11
 
-/*
- * struct ovs_action_encap_nsh - %OVS_ACTION_ATTR_ENCAP_NSH
- *
- * @path_hdr: NSH service path id and service index.
- * @flags: NSH header flags.
- * @np: NSH next_protocol: Inner packet type.
- *
- * Followed by either %OVS_NSH_ATTR_MD1 or %OVS_NSH_ATTR_MD2 attribute.
- */
-struct ovs_action_encap_nsh {
-    __be32 path_hdr;
-    uint8_t flags;
-    uint8_t np;
-};
+cleanup() {
+        set +ex
+        ip netns del ns0 
+        ip link del erspan11
+        ip link del veth1
+}
+
+trap cleanup 0 2 3 9 
+
+ip netns add ns0 
+ip link add veth0 type veth peer name veth1
+ip link set veth0 netns ns0
+ip netns exec ns0 ip addr add 172.16.1.100/24 dev veth0
+ip netns exec ns0 ip link set dev veth0 up
+
+# Tunnel
+ip netns exec ns0 ip link add dev $DEV_NS type $TYPE \
+	key 1 seq local 172.16.1.100 remote 172.16.1.200 erspan 123 
+ip netns exec ns0 ip addr add dev $DEV_NS 10.1.1.100/24
+ip netns exec ns0 ip link set dev $DEV_NS up
+
+# Linux
+ip link set dev veth1 up
+ip addr add dev veth1 172.16.1.200/24
+ip link add dev $DEV type $TYPE seq key 1 \
+	local 172.16.1.200 remote 172.16.1.100 erspan 123
+
+ip addr add dev $DEV 10.1.1.200/24
+ip link set dev $DEV up
+
+# Ping from NS0
+ip netns exec ns0 ping -c 3 10.1.1.200
+ping -c 3 10.1.1.100
+exit 0
+# End
+
+Thanks a lot!
+
+William Tu (1):
+  gre: introduce native tunnel support for ERSPAN
+
+ include/net/ip_tunnels.h       |   3 +
+ include/uapi/linux/if_ether.h  |   1 +
+ include/uapi/linux/if_tunnel.h |   1 +
+ net/ipv4/ip_gre.c              | 248 +++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 253 insertions(+)
+
+-- 
+2.7.4
