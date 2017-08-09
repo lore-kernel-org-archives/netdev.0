@@ -1,38 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Clear On FLASH config file after a FW
- upgrade
-Date: Tue, 08 Aug 2017 20:36:01 -0700 (PDT)
-Message-ID: <20170808.203601.560130648724024365.davem@davemloft.net>
-References: <1502171452-32389-1-git-send-email-ganeshgr@chelsio.com>
+Subject: Re: [PATCHv3 net] net: sched: set xt_tgchk_param par.net properly
+ in ipt_init_target
+Date: Tue, 08 Aug 2017 20:38:58 -0700 (PDT)
+Message-ID: <20170808.203858.816888994808276335.davem@davemloft.net>
+References: <7aa6e3f47ea0feb6f348b4de20fc6503e8c8e25b.1502177125.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
-        indranil@chelsio.com, venkatesh@chelsio.com, leedom@chelsio.com,
-        arjun@chelsio.com
-To: ganeshgr@chelsio.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60006 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60014 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752497AbdHIDgC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 23:36:02 -0400
-In-Reply-To: <1502171452-32389-1-git-send-email-ganeshgr@chelsio.com>
+        with ESMTP id S1752497AbdHIDjA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 23:39:00 -0400
+In-Reply-To: <7aa6e3f47ea0feb6f348b4de20fc6503e8c8e25b.1502177125.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Date: Tue,  8 Aug 2017 11:20:52 +0530
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue,  8 Aug 2017 15:25:25 +0800
 
-> From: Arjun Vynipadath <arjun@chelsio.com>
+> Now xt_tgchk_param par in ipt_init_target is a local varibale,
+> par.net is not initialized there. Later when xt_check_target
+> calls target's checkentry in which it may access par.net, it
+> would cause kernel panic.
 > 
-> Because Firmware and the Firmware Configuration File need to be
-> in sync; clear out any On-FLASH Firmware Configuration File when new
-> Firmware is loaded.  This will avoid difficult to diagnose and fix
-> problems with a mis-matched Firmware Configuration File which prevents the
-> adapter from being initialized.
+> Jaroslav found this panic when running:
 > 
-> Original work by: Casey Leedom <leedom@chelsio.com>
-> Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+>   # ip link add TestIface type dummy
+>   # tc qd add dev TestIface ingress handle ffff:
+>   # tc filter add dev TestIface parent ffff: u32 match u32 0 0 \
+>     action xt -j CONNMARK --set-mark 4
+> 
+> This patch is to pass net param into ipt_init_target and set
+> par.net with it properly in there.
+> 
+> v1->v2:
+>   As Wang Cong pointed, I missed ipt_net_id != xt_net_id, so fix
+>   it by also passing net_id to __tcf_ipt_init.
+> v2->v3:
+>   Missed the fixes tag, so add it.
+> 
+> Fixes: ecb2421b5ddf ("netfilter: add and use nf_ct_netns_get/put")
+> Reported-by: Jaroslav Aster <jaster@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
