@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/2] bpf: Extend check_uarg_tail_zero()
- checks
-Date: Tue, 08 Aug 2017 18:11:33 -0700 (PDT)
-Message-ID: <20170808.181133.1654188772199067010.davem@davemloft.net>
-References: <20170807184520.8130-1-mic@digikod.net>
-        <20170807184520.8130-2-mic@digikod.net>
+Subject: Re: [PATCH net-next] liquidio: fix misspelled firmware image
+ filenames
+Date: Tue, 08 Aug 2017 18:13:00 -0700 (PDT)
+Message-ID: <20170808.181300.1815089138093991255.davem@davemloft.net>
+References: <20170807192215.GA1302@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
-        keescook@chromium.org, kafai@fb.com, netdev@vger.kernel.org,
-        ast@kernel.org
-To: mic@digikod.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170807184520.8130-2-mic@digikod.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: felix.manlunas@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58390 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751974AbdHIBNB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 21:13:01 -0400
+In-Reply-To: <20170807192215.GA1302@felix-thinkpad.cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mickaël Salaün <mic@digikod.net>
-Date: Mon,  7 Aug 2017 20:45:20 +0200
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Mon, 7 Aug 2017 12:22:15 -0700
 
-> The function check_uarg_tail_zero() was created from bpf(2) for
-> BPF_OBJ_GET_INFO_BY_FD without taking the access_ok() nor the PAGE_SIZE
-> checks. Make this checks more generally available while unlikely to be
-> triggered, extend the memory range check and add an explanation
-> including why the ToCToU should not be a security concern.
+> From: Derek Chickles <derek.chickles@cavium.com>
 > 
-> Signed-off-by: Mickaël Salaün <mic@digikod.net>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Kees Cook <keescook@chromium.org>
-> Cc: Martin KaFai Lau <kafai@fb.com>
-> Link: https://lkml.kernel.org/r/CAGXu5j+vRGFvJZmjtAcT8Hi8B+Wz0e1b6VKYZHfQP_=DXzC4CQ@mail.gmail.com
+> Fix misspelled firmware image filenames advertised via MODULE_FIRMWARE().
+> 
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 
 Applied.
