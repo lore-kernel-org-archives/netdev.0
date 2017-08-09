@@ -1,55 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] rtnetlink: allow to run selected handlers
- without rtnl
-Date: Tue, 08 Aug 2017 21:33:29 -0700 (PDT)
-Message-ID: <20170808.213329.522107918983433411.davem@davemloft.net>
-References: <20170808160236.28562-1-fw@strlen.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] Revert "vhost: cache used event for better
+	performance"
+Date: Wed, 9 Aug 2017 07:37:11 +0300
+Message-ID: <20170809073422-mutt-send-email-mst@kernel.org>
+References: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
+	<20170726155435-mutt-send-email-mst@kernel.org>
+	<117542fc-eef9-c043-7c9e-daafceb7db4e@redhat.com>
+	<6b3a9a98-c095-1729-3528-dd521f136797@redhat.com>
+	<20170726190745-mutt-send-email-mst@kernel.org>
+	<1501396011.21001.11.camel@klaipeden.com>
+	<6698b85c-18f4-17e6-db70-7708692fb761@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60540 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751314AbdHIEdb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 00:33:31 -0400
-In-Reply-To: <20170808160236.28562-1-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	"K. Den" <den@klaipeden.com>, virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <6698b85c-18f4-17e6-db70-7708692fb761@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue,  8 Aug 2017 18:02:29 +0200
+On Wed, Aug 09, 2017 at 10:38:10AM +0800, Jason Wang wrote:
+> I think don't think current code can work well if vq.num is grater than
+> 2^15. Since all cached idx is u16. This looks like a bug which needs to be
+> fixed.
 
-> Unfortunately RTNL mutex is a performance issue, e.g. a cpu adding
-> an ip address prevents other cpus from seemingly unrelated tasks
-> such as dumping tc classifiers.
+That's a limitation of virtio 1.0.
 
-It is related if somehow the TC entries refer to IP addresses.
+> > * else if the interval of vq.num is [2^15, 2^16):
+> > the logic in the original patch (809ecb9bca6a9) suffices
+> > * else (= less than 2^15) (optional):
+> > checking only (vring_need_event(vq->last_used_event, new + vq->num, new)
+> > would suffice.
+> > 
+> > Am I missing something, or is this irrelevant?
 
-Someone could create something like that.
+Could you pls repost the suggestion copying virtio-dev mailing list
+(subscriber only, sorry about that, but host/guest ABI discussions
+need to copy that list)?
 
-> Initial no-rtnl spots are ip6 fib add/del and netns new/getid.
+> Looks not, I think this may work. Let me do some test.
+> 
+> Thanks
 
-I could see the netns stuff being ok, but IPv6 route add/del I'm
-not so sure of.
-
-Because of things like nexthops etc. there are dependencies on
-other configuration things.
-
-That's the whole reason we have this unfortunate global
-synchronization point.  If I'm changing some aspect of network
-configuration, I know I can atomically test any piece of networking
-configuration state.
-
-If I test a network address to make sure I can properly reacy X and
-use X as a nexthop in the route I'm adding, it will be there
-throughout the entire operation.
-
-There really is a hierachy of these dependencies.  Device state, up
-to neighbour table state, up to protocol address state, up to routes,
-up to FIB tables, etc. etc. etc.
-
-I'd really like to make this operate more freely, but this is an
-extremely delicate area which has been bottled up like this for
-two decades so good luck :-)
+I think that at this point it's prudent to add a feature bit
+as the virtio spec does not require to never move the event index back.
