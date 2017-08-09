@@ -1,162 +1,75 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 0/6] In-kernel QMI handling
-Date: Tue, 08 Aug 2017 19:48:12 -0500
-Message-ID: <1502239692.28155.1.camel@redhat.com>
-References: <20170804145938.25427-1-bjorn.andersson@linaro.org>
-         <8737921fw2.fsf@miraculix.mork.no> <20170808224235.GK29306@minitux>
+From: David Miller via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v5 net-next 00/12] bpf: rewrite value
+ tracking in verifier
+Date: Tue, 08 Aug 2017 17:51:54 -0700 (PDT)
+Message-ID: <20170808.175154.286461828216806349.davem@davemloft.net>
+References: <ad840039-8d4a-b2a9-b2eb-a8f079926b53@solarflare.com>
+	<598909D8.5060202@iogearbox.net>
+Reply-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Andy Gross <andy.gross@linaro.org>,
-        David Brown <david.brown@linaro.org>,
-        linux-arm-msm@vger.kernel.org, linux-soc@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Bj?rn Mork <bjorn@mork.no>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <20170808224235.GK29306@minitux>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ast-b10kYP2dOMg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org
+To: daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <598909D8.5060202-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-08-08 at 15:42 -0700, Bjorn Andersson wrote:
-> On Tue 08 Aug 04:02 PDT 2017, Bj?rn Mork wrote:
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Date: Tue, 08 Aug 2017 02:46:16 +0200
+
+> On 08/07/2017 04:21 PM, Edward Cree wrote:
+>> This series simplifies alignment tracking, generalises bounds tracking
+>> and
+>>   fixes some bounds-tracking bugs in the BPF verifier.  Pointer
+>>   arithmetic on
+>>   packet pointers, stack pointers, map value pointers and context
+>>   pointers has
+>>   been unified, and bounds on these pointers are only checked when the
+>>   pointer
+>>   is dereferenced.
+>> Operations on pointers which destroy all relation to the original
+>> pointer
+>>   (such as multiplies and shifts) are disallowed if
+>>   !env->allow_ptr_leaks,
+>>   otherwise they convert the pointer to an unknown scalar and feed it to
+>>   the
+>>   normal scalar arithmetic handling.
+>> Pointer types have been unified with the corresponding
+>> adjusted-pointer types
+>>   where those existed (e.g. PTR_TO_MAP_VALUE[_ADJ] or FRAME_PTR vs
+>>   PTR_TO_STACK); similarly, CONST_IMM and UNKNOWN_VALUE have been
+>>   unified into
+>>   SCALAR_VALUE.
+>> Pointer types (except CONST_PTR_TO_MAP, PTR_TO_MAP_VALUE_OR_NULL and
+>>   PTR_TO_PACKET_END, which do not allow arithmetic) have a 'fixed
+>>   offset' and
+>>   a 'variable offset'; the former is used when e.g. adding an immediate
+>>   or a
+>>   known-constant register, as long as it does not overflow.  Otherwise
+>>   the
+>>   latter is used, and any operation creating a new variable offset
+>>   creates a
+>>   new 'id' (and, for PTR_TO_PACKET, clears the 'range').
+>> SCALAR_VALUEs use the 'variable offset' fields to track the range of
+>> possible
+>>   values; the 'fixed offset' should never be set on a scalar.
 > 
-> > Bjorn Andersson <bjorn.andersson@linaro.org> writes:
-> > 
-> > > This series starts by moving the common definitions of the QMUX
-> > > protocol to the
-> > > uapi header, as they are shared with clients - both in kernel and
-> > > userspace.
-> > > 
-> > > This series then introduces in-kernel helper functions for aiding
-> > > the handling
-> > > of QMI encoded messages in the kernel. QMI encoding is a wire-
-> > > format used in
-> > > exchanging messages between the majority of QRTR clients and
-> > > services.
-> > 
-> > Interesting!  I tried to add some QMI handling in the kernel a few
-> > years
-> > ago, but was thankfully voted down.  See
-> > https://www.spinics.net/lists/netdev/msg183101.html and the
-> > following
-> > discussion. I am convinced that was the right decision, for the
-> > client
-> > side at least. The protocol is just too extensive and ever-growing
-> > to be
-> > implemented in the kernel. We would be catching up forever.
-> > 
-> > Note that I had very limited knowledge of the protocol at the time
-> > I
-> > wrote that driver.  Still have, in fact :-)
-> > 
+> Been testing and reviewing the series over the last several days,
+> looks
+> reasonable to me as far as I can tell. Thanks for all the hard work on
+> unifying this, Edward!
 > 
-> Thanks for the pointer, I definitely think there's more work to be
-> done
-> here to figure out the proper way to interact with these devices.
-> 
-> But I think that Dan's reply shows a huge source of confusion here;
-> the
-> acronym "QMI" covers a large amount of different things - and means
-> different things for different people.
+> Acked-by: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 
-I would agree, sorry for any confusion caused.  Great discussion so
-far.
-
-> In the modem world QMI seems to mean a defined set of logical
-> endpoints
-> that accepts TLV-encoded messages to do modem-related things. But the
-> TLV-encoding is used for non-modem related services and the only
-> common
-> denominator of everything called QMI is the TLV-encoding.
-> 
-> 
-> Due to my limited exposure to the USB attached "QMI thingies" I
-> haven't
-> previously looked into the exact differences. The proposed patches
-> aimed
-> to support implementing a few non-modem-related clients using
-> QMI-encoded messages over ipcrouter.
-> 
-> Looking at your patch above, and oPhono, seems to highlight a few
-> important differences that will take some thinking to overcome.
-> 
-> = Transport
-> The transport header in the USB case is your struct qmux, which
-> contains
-> the type of message (in "flags") and the transaction id. The
-> "service"
-> in the QMUX header matches the service id being communicated with.
-> But
-> in order to communicate with a service it seems like one requests a
-> client-id from the control service.
-
-Correct.  You cannot talk to a service on the modem without getting an
-allocated client ID from the CTL service, which has a well-defined
-client ID.
-
-> In the smartphone world (with shared memory communication) the
-> transport
-> is ipcrouter - with a header very similar to UDP - and there's no
-> information about the payload, it provides only the means of
-> delivering
-
-Can you explain a bit about the relationship of SMD to [I/R]PC, qrtr,
-and QMI?  A couple years ago there was smd_qmi.c (like for the Nexus 4
-with APQ8064 and a discrete MDM9215) which from a 10 minute fresh look
-appears to just push QMUX+QMI via SMD rather than being backed by the
-RPC/IPC stuff.  I could be wrong, there's a lot of indirection there
-and it may well end up going over the router.  But that's buried deeper
-than a 10m look for me.
-
-Is it perhaps only with on-chip blocks where the QMUX/QMI/qrtr/irpc
-stuff you describe here is used?  If so, perhaps that's the distinction
-to be made.  I'll let you correct me here since you clearly know more
-than I about the internals of these devices.
-
-> messages from one address/port to another address/port. A typical
-> smartphone has 3-4 nodes (modem, sensors, audio etc) and ports are
-> dynamically allocated. The control messages in the QMUX protocol (not
-> the same QMUX protocol as in the USB case!) are used for clients to
-> find
-> the mapping from service id to a port on the given address.  The
-> source
-> port is dynamically allocated in this case.
-> 
-> = QMI-encoded messages
-> The list of TLV-entries have a "QMI header" prepended in both cases,
-> but
-> in the QMUX case the header consists only of "msgid" and length.
-> 
-> In the ipcrouter case the transport doesn't carry any information
-> regarding the payload, so the header prepended the TLV entries
-> includes
-> "type", transaction id, "msg_id" and length.
-
-I'll assume that in this case, because the client has already found out
-how to contact the target service directly, that it has no use for a
-"fat" QMUX header that includes the client ID and service stuff.
-
-I don't really have an issue with the kernel doing "thin" QMUX-related
-stuff.  That's pretty simple.
-
-> It looks as if once past the differences in the transport and QMI
-> message header the messages (TLV-encoded data) are the same. But I'm
-> not
-> yet sure about how we can hide the transport differences.
-
-QMI itself is really just a header + TLVs.  So it makes sense that it
-would be loosely repurposed since it's pretty generic.  All the
-interesting stuff is actually in the services themselves and the
-messages that the services respond to.
-
-What's confusing me a lot so far is exactly *how* QMI itself gets used
-in-kernel.  Instead of the samples that you've provided in this
-patchset, could you point me to an actual in-kernel driver that would
-use something like qmi_send_message()?  I can't properly evaluate
-whether I have further comments on your approach without some specific
-in-kernel use-cases.
-
-Thanks,
-Dan
+Series applied, thanks everyone!
