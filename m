@@ -1,7 +1,7 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH v2 01/20] ar5523: constify usb_device_id
-Date: Wed,  9 Aug 2017 21:53:42 +0530
-Message-ID: <1502295823-20824-2-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: [PATCH v2 02/20] ath6kl: constify usb_device_id
+Date: Wed,  9 Aug 2017 21:53:43 +0530
+Message-ID: <1502295823-20824-3-git-send-email-arvind.yadav.cs@gmail.com>
 References: <1502295823-20824-1-git-send-email-arvind.yadav.cs@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
         linux-wireless@vger.kernel.org
@@ -20,21 +20,21 @@ Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 changes in v2:
               Re-submitting wireless separately.
 
- drivers/net/wireless/ath/ar5523/ar5523.c | 2 +-
+ drivers/net/wireless/ath/ath6kl/usb.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ath/ar5523/ar5523.c b/drivers/net/wireless/ath/ar5523/ar5523.c
-index 106d6f8..68f0463 100644
---- a/drivers/net/wireless/ath/ar5523/ar5523.c
-+++ b/drivers/net/wireless/ath/ar5523/ar5523.c
-@@ -1749,7 +1749,7 @@ static void ar5523_disconnect(struct usb_interface *intf)
- 	{ USB_DEVICE((vendor), (device) + 1), \
- 		.driver_info = AR5523_FLAG_ABG|AR5523_FLAG_PRE_FIRMWARE }
+diff --git a/drivers/net/wireless/ath/ath6kl/usb.c b/drivers/net/wireless/ath/ath6kl/usb.c
+index 9da3594..4defb7a 100644
+--- a/drivers/net/wireless/ath/ath6kl/usb.c
++++ b/drivers/net/wireless/ath/ath6kl/usb.c
+@@ -1201,7 +1201,7 @@ static int ath6kl_usb_pm_resume(struct usb_interface *interface)
+ #endif
  
--static struct usb_device_id ar5523_id_table[] = {
-+static const struct usb_device_id ar5523_id_table[] = {
- 	AR5523_DEVICE_UG(0x168c, 0x0001),	/* Atheros / AR5523 */
- 	AR5523_DEVICE_UG(0x0cf3, 0x0001),	/* Atheros2 / AR5523_1 */
- 	AR5523_DEVICE_UG(0x0cf3, 0x0003),	/* Atheros2 / AR5523_2 */
+ /* table of devices that work with this driver */
+-static struct usb_device_id ath6kl_usb_ids[] = {
++static const struct usb_device_id ath6kl_usb_ids[] = {
+ 	{USB_DEVICE(0x0cf3, 0x9375)},
+ 	{USB_DEVICE(0x0cf3, 0x9374)},
+ 	{ /* Terminating entry */ },
 -- 
 2.7.4
