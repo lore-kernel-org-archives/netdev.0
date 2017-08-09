@@ -1,58 +1,60 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH 0/4] net-next: dsa: fix flow dissection
-Date: Wed, 09 Aug 2017 11:07:28 -0400
-Message-ID: <87h8xghj9r.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170809124119.24320-1-john@phrozen.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 3/3] net: rxrpc: Replace time_t type with time64_t type
+Date: Wed, 9 Aug 2017 17:12:58 +0200
+Message-ID: <CAK8P3a2STbhgFB5kbVTZqAgY70K_GCaWgj6Kqs4RJOOt2oSd-g@mail.gmail.com>
+References: <cover.1502246501.git.baolin.wang@linaro.org> <8ac57c96bf5a0695ecc67fd230440b0b9d15740f.1502246502.git.baolin.wang@linaro.org>
+ <CAK8P3a2WU5uYddGrkWhyfNB4qTEDYne_pyCVG6n5b1w+vb1-OQ@mail.gmail.com>
+ <6767.1502271233@warthog.procyon.org.uk> <CAK8P3a3L11rXAV8-hE1fNtAZyMBNnQneRm5g7F8VDmk7HjQV4A@mail.gmail.com>
+ <11686.1502285205@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        linux-kernel@vger.kernel.org, Muciri Gatimu <muciri@openmesh.com>,
-        Shashidhar Lakkavalli <shashidhar.lakkavalli@openmesh.com>,
-        John Crispin <john@phrozen.org>
-To: John Crispin <john@phrozen.org>, Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Sean Wang <sean.wang@mediatek.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Baolin Wang <baolin.wang@linaro.org>,
+        David Miller <davem@davemloft.net>, james.l.morris@oracle.com,
+        "Serge E. Hallyn" <serge@hallyn.com>, marc.dionne@auristor.com,
+        Dan Carpenter <dan.carpenter@oracle.com>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Mark Brown <broonie@kernel.org>, keyrings@vger.kernel.org,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        LSM List <linux-security-module@vger.kernel.org>,
+        Networking <netdev@vger.kernel.org>
+To: David Howells <dhowells@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170809124119.24320-1-john@phrozen.org>
+In-Reply-To: <11686.1502285205@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
-
-John Crispin <john@phrozen.org> writes:
-
-> RPS and probably other kernel features are currently broken on some if not
-> all DSA devices. The root cause of this is that skb_hash will call the
-> flow_dissector. At this point the skb still contains the magic switch
-> header and the skb->protocol field is not set up to the correct 802.3
-> value yet. By the time the tag specific code is called, removing the header
-> and properly setting the protocol an invalid hash is already set. In the
-> case of the mt7530 this will result in all flows always having the same
-> hash.
+On Wed, Aug 9, 2017 at 3:26 PM, David Howells <dhowells@redhat.com> wrote:
+> Arnd Bergmann <arnd@arndb.de> wrote:
 >
-> Changes since RFC:
-> * use a callback instead of static values
-> * add cover letter
+>> Do you know which format is used in practice? Are both kad and k5 common
+>> among rxrpc users?
 >
-> John Crispin (4):
->   net-next: dsa: move struct dsa_device_ops to the global header file
->   net-next: dsa: add flow_dissect callback to struct dsa_device_ops
->   net-next: tag_mtk: add flow_dissect callback to the ops struct
->   net-next: dsa: fix flow dissection
+> The aklog program I'm using uses the non-XDR interface to push a Kerberos 5
+> ticket to the kernel, so it doesn't actually invoke rxrpc_preparse_xdr() from
+> rxrpc_preparse().
 
-The "net-next" tag goes into the subject-prefix, i.e.
-"[PATCH net-next v3 0/4]" (this is the result of git format-patch
---subject-prefix="PATCH net-next" -v3 --cover-letter.)
+Ah, I'm slowly starting to understand how this fits together. So you can add
+a key either through key_add() from local user space, or through an rxrpc
+socket.
 
-The commit title prefix represents the most impacted subsystem, here
-"net: dsa: xxx" would map the net/dsa/ or drivers/net/dsa directories.
+>From what I can tell, the program you have at
+http://people.redhat.com/~dhowells/rxrpc/klog.c will keep working beyond
+2038 but not beyond 2106 on all 64-bit architectures and on those
+32-bit systems that have a libc with 64-bit time_t. It could be modified
+to use the xdr_rxk5 key format, which would make it use 64-bit time
+values (and require the kernel fix mentioned above).
 
-Other than that, the whole patchset LGTM:
+In contrast, the rxrpc socket interface would need a major rework to
+support 64-bit expiration times. It receives a kerberos ticket with a
+32-bit issue time
+that gets used to calculate the expiry time in rxkad_decrypt_ticket, and from
+there we pass it through a  rxrpc_key_data_v1 into key_instantiate_and_link(),
+which calls rxrpc_preparse() and that just takes the expiry out again and sticks
+it into another 32-bit field in struct rxkad_key, from where it
+finally gets copied
+into the (now 64-bit) key_preparsed_payload->expiry field.
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Does my understanding match what you intended for the interfaces? Is there
+a need to extend the rxrpc socket interface to support xdr_rxk5 keys as well?
 
-
-Thanks,
-
-        Vivien
+         Arnd
