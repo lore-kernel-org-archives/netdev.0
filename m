@@ -1,43 +1,47 @@
-From: Alexander Alemayhu <alexander@alemayhu.com>
-Subject: [PATCH iproute2 master] examples/bpf: update list of examples
-Date: Wed,  9 Aug 2017 05:39:07 +0200
-Message-ID: <20170809033907.9194-1-alexander@alemayhu.com>
-Cc: stephen@networkplumber.org,
-        Alexander Alemayhu <alexander@alemayhu.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: fastopen: tcp_connect() must refresh the route
+Date: Tue, 08 Aug 2017 21:04:17 -0700 (PDT)
+Message-ID: <20170808.210417.1748836096752126270.davem@davemloft.net>
+References: <1502181718.4487.9.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, weiwan@google.com, ycheng@google.com,
+        dvyukov@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs224.mailgun.us ([209.61.151.224]:62941 "EHLO rs224.mailgun.us"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752497AbdHIDoj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 8 Aug 2017 23:44:39 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:60254 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751957AbdHIEES (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 00:04:18 -0400
+In-Reply-To: <1502181718.4487.9.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove deleted examples and add the new map in map example.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 08 Aug 2017 01:41:58 -0700
 
-Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
----
- examples/bpf/README | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> With new TCP_FASTOPEN_CONNECT socket option, there is a possibility
+> to call tcp_connect() while socket sk_dst_cache is either NULL
+> or invalid.
+> 
+>  +0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 4
+>  +0 fcntl(4, F_SETFL, O_RDWR|O_NONBLOCK) = 0
+>  +0 setsockopt(4, SOL_TCP, TCP_FASTOPEN_CONNECT, [1], 4) = 0
+>  +0 connect(4, ..., ...) = 0
+> 
+> << sk->sk_dst_cache becomes obsolete, or even set to NULL >>
+> 
+>  +1 sendto(4, ..., 1000, MSG_FASTOPEN, ..., ...) = 1000
+> 
+> 
+> We need to refresh the route otherwise bad things can happen,
+> especially when syzkaller is running on the host :/
+> 
+> Fixes: 19f6d3f3c8422 ("net/tcp-fastopen: Add new API support")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-diff --git a/examples/bpf/README b/examples/bpf/README
-index 4247257850eb..1bbdda3f8dc1 100644
---- a/examples/bpf/README
-+++ b/examples/bpf/README
-@@ -1,13 +1,8 @@
- eBPF toy code examples (running in kernel) to familiarize yourself
- with syntax and features:
- 
-- - bpf_prog.c		-> Classifier examples with using maps
-  - bpf_shared.c		-> Ingress/egress map sharing example
-  - bpf_tailcall.c	-> Using tail call chains
-  - bpf_cyclic.c		-> Simple cycle as tail calls
-  - bpf_graft.c		-> Demo on altering runtime behaviour
--
--User space code example:
--
-- - bpf_agent.c		-> Counterpart to bpf_prog.c for user
--                           space to transfer/read out map data
-+ - bpf_map_in_map.c     -> Using map in map example
--- 
-2.13.3
+Applied and queued up for -stable.
