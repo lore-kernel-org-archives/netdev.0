@@ -1,363 +1,113 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 9/9] bpf: add test cases for new BPF_J{LT,LE,SLT,SLE} instructions
-Date: Wed,  9 Aug 2017 12:24:01 +0200
-Message-ID: <b39ba01e71b8cda6363b129b24297712296d5ab1.1502272924.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 6/9] bpf, ppc64: implement jiting of BPF_J{LT,LE,SLT,SLE}
+Date: Wed,  9 Aug 2017 12:23:58 +0200
+Message-ID: <92225f5f0a116d0f9be53645f85b4b8da5400299.1502272924.git.daniel@iogearbox.net>
 References: <cover.1502272924.git.daniel@iogearbox.net>
 Cc: ast@fb.com, holzheu@linux.vnet.ibm.com,
         naveen.n.rao@linux.vnet.ibm.com, jakub.kicinski@netronome.com,
         netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58261 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:58243 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752874AbdHIKYW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 06:24:22 -0400
+        with ESMTP id S1752098AbdHIKYV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 06:24:21 -0400
 In-Reply-To: <cover.1502272924.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1502272924.git.daniel@iogearbox.net>
 References: <cover.1502272924.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add test cases to the verifier selftest suite in order to verify that
-i) direct packet access, and ii) dynamic map value access is working
-with the changes related to the new instructions.
+This work implements jiting of BPF_J{LT,LE,SLT,SLE} instructions
+with BPF_X/BPF_K variants for the ppc64 eBPF JIT.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+Tested-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 ---
- tools/testing/selftests/bpf/test_verifier.c | 313 ++++++++++++++++++++++++++++
- 1 file changed, 313 insertions(+)
+ arch/powerpc/net/bpf_jit.h        |  1 +
+ arch/powerpc/net/bpf_jit_comp64.c | 20 ++++++++++++++++++++
+ 2 files changed, 21 insertions(+)
 
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 65aa562..70973c1 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -2830,6 +2830,79 @@ struct test_val {
- 		.result = ACCEPT,
- 	},
- 	{
-+		"direct packet access: test25 (marking on <, good access)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JLT, BPF_REG_0, BPF_REG_3, 2),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
-+			BPF_JMP_IMM(BPF_JA, 0, 0, -4),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"direct packet access: test26 (marking on <, bad access)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JLT, BPF_REG_0, BPF_REG_3, 3),
-+			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_JMP_IMM(BPF_JA, 0, 0, -3),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid access to packet",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"direct packet access: test27 (marking on <=, good access)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JLE, BPF_REG_3, BPF_REG_0, 1),
-+			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"direct packet access: test28 (marking on <=, bad access)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
-+			BPF_JMP_REG(BPF_JLE, BPF_REG_3, BPF_REG_0, 2),
-+			BPF_MOV64_IMM(BPF_REG_0, 1),
-+			BPF_EXIT_INSN(),
-+			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
-+			BPF_JMP_IMM(BPF_JA, 0, 0, -4),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid access to packet",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
- 		"helper access to packet: test1, valid packet_ptr range",
- 		.insns = {
- 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-@@ -4488,6 +4561,246 @@ struct test_val {
- 		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
- 	},
- 	{
-+		"helper access to map: bounds check using <, good access",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JLT, BPF_REG_3, 32, 2),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
-+			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-+	},
-+	{
-+		"helper access to map: bounds check using <, bad access",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JLT, BPF_REG_3, 32, 4),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
-+			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.result = REJECT,
-+		.errstr = "R1 unbounded memory access",
-+		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-+	},
-+	{
-+		"helper access to map: bounds check using <=, good access",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JLE, BPF_REG_3, 32, 2),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
-+			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-+	},
-+	{
-+		"helper access to map: bounds check using <=, bad access",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JLE, BPF_REG_3, 32, 4),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
-+			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.result = REJECT,
-+		.errstr = "R1 unbounded memory access",
-+		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-+	},
-+	{
-+		"helper access to map: bounds check using s<, good access",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, 32, 2),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, 0, -3),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
-+			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-+	},
-+	{
-+		"helper access to map: bounds check using s<, good access 2",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, 32, 2),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, -3, -3),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
-+			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-+	},
-+	{
-+		"helper access to map: bounds check using s<, bad access",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, 32, 2),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, -3, -3),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
-+			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.result = REJECT,
-+		.errstr = "R1 min value is negative",
-+		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-+	},
-+	{
-+		"helper access to map: bounds check using s<=, good access",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, 32, 2),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, 0, -3),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
-+			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-+	},
-+	{
-+		"helper access to map: bounds check using s<=, good access 2",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, 32, 2),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, -3, -3),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
-+			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-+	},
-+	{
-+		"helper access to map: bounds check using s<=, bad access",
-+		.insns = {
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, 32, 2),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, -3, -3),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
-+			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.result = REJECT,
-+		.errstr = "R1 min value is negative",
-+		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-+	},
-+	{
- 		"map element value is preserved across register spilling",
- 		.insns = {
- 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
+index 30cf03f..47fc666 100644
+--- a/arch/powerpc/net/bpf_jit.h
++++ b/arch/powerpc/net/bpf_jit.h
+@@ -263,6 +263,7 @@ static inline bool is_nearbranch(int offset)
+ #define COND_EQ		(CR0_EQ | COND_CMP_TRUE)
+ #define COND_NE		(CR0_EQ | COND_CMP_FALSE)
+ #define COND_LT		(CR0_LT | COND_CMP_TRUE)
++#define COND_LE		(CR0_GT | COND_CMP_FALSE)
+ 
+ #endif
+ 
+diff --git a/arch/powerpc/net/bpf_jit_comp64.c b/arch/powerpc/net/bpf_jit_comp64.c
+index 861c5af..faf2016 100644
+--- a/arch/powerpc/net/bpf_jit_comp64.c
++++ b/arch/powerpc/net/bpf_jit_comp64.c
+@@ -795,12 +795,24 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 		case BPF_JMP | BPF_JSGT | BPF_X:
+ 			true_cond = COND_GT;
+ 			goto cond_branch;
++		case BPF_JMP | BPF_JLT | BPF_K:
++		case BPF_JMP | BPF_JLT | BPF_X:
++		case BPF_JMP | BPF_JSLT | BPF_K:
++		case BPF_JMP | BPF_JSLT | BPF_X:
++			true_cond = COND_LT;
++			goto cond_branch;
+ 		case BPF_JMP | BPF_JGE | BPF_K:
+ 		case BPF_JMP | BPF_JGE | BPF_X:
+ 		case BPF_JMP | BPF_JSGE | BPF_K:
+ 		case BPF_JMP | BPF_JSGE | BPF_X:
+ 			true_cond = COND_GE;
+ 			goto cond_branch;
++		case BPF_JMP | BPF_JLE | BPF_K:
++		case BPF_JMP | BPF_JLE | BPF_X:
++		case BPF_JMP | BPF_JSLE | BPF_K:
++		case BPF_JMP | BPF_JSLE | BPF_X:
++			true_cond = COND_LE;
++			goto cond_branch;
+ 		case BPF_JMP | BPF_JEQ | BPF_K:
+ 		case BPF_JMP | BPF_JEQ | BPF_X:
+ 			true_cond = COND_EQ;
+@@ -817,14 +829,18 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ cond_branch:
+ 			switch (code) {
+ 			case BPF_JMP | BPF_JGT | BPF_X:
++			case BPF_JMP | BPF_JLT | BPF_X:
+ 			case BPF_JMP | BPF_JGE | BPF_X:
++			case BPF_JMP | BPF_JLE | BPF_X:
+ 			case BPF_JMP | BPF_JEQ | BPF_X:
+ 			case BPF_JMP | BPF_JNE | BPF_X:
+ 				/* unsigned comparison */
+ 				PPC_CMPLD(dst_reg, src_reg);
+ 				break;
+ 			case BPF_JMP | BPF_JSGT | BPF_X:
++			case BPF_JMP | BPF_JSLT | BPF_X:
+ 			case BPF_JMP | BPF_JSGE | BPF_X:
++			case BPF_JMP | BPF_JSLE | BPF_X:
+ 				/* signed comparison */
+ 				PPC_CMPD(dst_reg, src_reg);
+ 				break;
+@@ -834,7 +850,9 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			case BPF_JMP | BPF_JNE | BPF_K:
+ 			case BPF_JMP | BPF_JEQ | BPF_K:
+ 			case BPF_JMP | BPF_JGT | BPF_K:
++			case BPF_JMP | BPF_JLT | BPF_K:
+ 			case BPF_JMP | BPF_JGE | BPF_K:
++			case BPF_JMP | BPF_JLE | BPF_K:
+ 				/*
+ 				 * Need sign-extended load, so only positive
+ 				 * values can be used as imm in cmpldi
+@@ -849,7 +867,9 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 				}
+ 				break;
+ 			case BPF_JMP | BPF_JSGT | BPF_K:
++			case BPF_JMP | BPF_JSLT | BPF_K:
+ 			case BPF_JMP | BPF_JSGE | BPF_K:
++			case BPF_JMP | BPF_JSLE | BPF_K:
+ 				/*
+ 				 * signed comparison, so any 16-bit value
+ 				 * can be used in cmpdi
 -- 
 1.9.3
