@@ -1,150 +1,104 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH v9 1/4] PCI: Add new PCIe Fabric End Node flag,
- PCI_DEV_FLAGS_NO_RELAXED_ORDERING
-Date: Wed, 9 Aug 2017 01:40:01 +0000
-Message-ID: <MWHPR12MB1600249E96C320D5472F77ADC88B0@MWHPR12MB1600.namprd12.prod.outlook.com>
-References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
- <1501917313-9812-2-git-send-email-dingtianhong@huawei.com>,<20170808232200.GO16580@bhelgaas-glaptop.roam.corp.google.com>
+From: "Yang, Yi Y" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] openvswitch: add NSH support
+Date: Wed, 9 Aug 2017 02:05:12 +0000
+Message-ID: <79BBBFE6CB6C9B488C1A45ACD284F51961C391CA@SHSMSX103.ccr.corp.intel.com>
+References: <1502168380-106785-1-git-send-email-yi.y.yang@intel.com>
+	<20170808162810.1bab3812@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "ashok.raj@intel.com" <ashok.raj@intel.com>,
-        "bhelgaas@google.com" <bhelgaas@google.com>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
-        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
-        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
-        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
-        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-        "amira@mellanox.com" <amira@mellanox.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "David.Laight@aculab.com" <David.Laight@aculab.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "mark.rutland@arm.com" <mark.r
-To: Bjorn Helgaas <helgaas@kernel.org>,
-        Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170808232200.GO16580@bhelgaas-glaptop.roam.corp.google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20170808162810.1bab3812@griffin>
 Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-| From: Bjorn Helgaas <helgaas@kernel.org>
-| Sent: Tuesday, August 8, 2017 4:22 PM
-|=20
-| This needs to include a link to the Intel spec
-| (https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-ar=
-chitectures-optimization-manual.pdf,
-| sec 3.9.1).
+Hi, Jiri
 
-  In the commit message or as a comment?  Regardless, I agree.  It's always
-nice to be able to go back and see what the official documentation says.
-However, that said, links on the internet are ... fragile as time goes by,
-so we might want to simply quote section 3.9.1 in the commit message since
-it's relatively short:
+Thank you for your comments.
 
-    3.9.1 Optimizing PCIe Performance for Accesses Toward Coherent Memory
-          and Toward MMIO Regions (P2P)
+__be32 c[4] is the name Ben Pfaff suggested, the original name is c1, c2, c3, c4, they are context data, so c seems ok, too :-)
 
-    In order to maximize performance for PCIe devices in the processors
-    listed in Table 3-6 below, the soft- ware should determine whether the
-    accesses are toward coherent memory (system memory) or toward MMIO
-    regions (P2P access to other devices). If the access is toward MMIO
-    region, then software can command HW to set the RO bit in the TLP
-    header, as this would allow hardware to achieve maximum throughput for
-    these types of accesses. For accesses toward coherent memory, software
-    can command HW to clear the RO bit in the TLP header (no RO), as this
-    would allow hardware to achieve maximum throughput for these types of
-    accesses.
+OVS has merged it and has the same name, maybe the better way is adding comment /* Context data */ after it.
 
-    Table 3-6. Intel Processor CPU RP Device IDs for Processors Optimizing
-               PCIe Performance
+For MD type 2, struct ovs_key_nsh is very difficult to cover it, so far we don't know how to support MD type 2 better, Geneve defined 64 tun_metadata0-63 to handle this, those keys are parts of struct flow_tnl, the highest possibility is to reuse those keys.
 
-    Processor                            CPU RP Device IDs
+So for future MD type 2, we will have two parts of keys, one is from struct ovs_key_nsh, another is from struct flow_tnl, this won't break the old uAPI.
 
-    Intel Xeon processors based on       6F01H-6F0EH
-    Broadwell microarchitecture
+"#define OVS_ENCAP_NSH_MAX_MD_LEN 16" is changed per Ben's comment from 256, Ben thinks 256 is too big but we only support MD type 1 now. We still have ways to extend it, for example:
 
-    Intel Xeon processors based on       2F01H-2F0EH
-    Haswell microarchitecture
+struct ovs_action_encap_nsh * oaen = (struct ovs_action_encap_nsh *) malloc (sizeof(struct ovs_action_encap_nsh) + ANY_SIZE);
 
-| It should also include a pointer to the AMD erratum, if available, or
-| at least some reference to how we know it doesn't obey the rules.
+nl_msg_put_unspec(actions, OVS_ACTION_ATTR_ENCAP_NSH,
+                          oaen, sizeof(struct ovs_action_encap_nsh) + ANY_SIZE);
 
-  Getting an ACK from AMD seems like a forlorn cause at this point.  My
-contact was Bob Shaw <Bob.Shaw@amd.com> and he stopped responding to me
-messages almost a year ago saying that all of AMD's energies were being
-redirected towards upcoming x86 products (likely Ryzen as we now know).  As
-far as I can tell AMD has walked away from their A1100 (AKA "Seattle") ARM
-SoC.
+In addition, we also need to consider, OVS userspace code must be consistent with here, so keeping it intact will be better, we have way to support dynamically extension when we add MD type 2 support.
 
-  On the specific issue, I can certainly write up somthing even more
-extensive than I wrote up for the comment in drivers/pci/quirks.c.  Please
-review the comment I wrote up and tell me if you'd like something even more
-detailed -- I'm usually acused of writing comments which are too long, so
-this would be a new one on me ... :-)
+About action name, unfortunately, userspace data plane has named them as encap_nsh & decap_nsh, Jan, what do you think about Jiri's suggestion?
 
-| Ashok, thanks for chiming in.  Now that you have, I have a few more
-| questions for you:
+But from my understanding, encap_* & decap_* are better because they corresponding to generic encap & decap actions, in addition, encap semantics are different from push, encap just pushed an empty header with default values, users must use set_field to set the content of the header.
 
-  I can answer a few of these:
+Again, OVS userspace code must be consistent with here, so keeping it intact will be better because OVS userspace code was there.
 
-|  - Is the above doc the one you mentioned as being now public?
 
-  Yes.  Ashok worked with me to the extent he was allowed prior to the
-publishing of the public technocal note, but he couldn't say much.  (Believ=
-e
-it or not, it is possible to say less than the quoted section above.)  When
-the note was published, Patrick Cramer sent me the note about it and pointe=
-d
-me at section 3.9.1.
+-----Original Message-----
+From: netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of Jiri Benc
+Sent: Tuesday, August 8, 2017 10:28 PM
+To: Yang, Yi Y <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Subject: Re: [PATCH net-next] openvswitch: add NSH support
 
-|  - Is this considered a hardware erratum?
+On Tue,  8 Aug 2017 12:59:40 +0800, Yi Yang wrote:
+> +struct ovs_key_nsh {
+> +	__u8 flags;
+> +	__u8 mdtype;
+> +	__u8 np;
+> +	__u8 pad;
+> +	__be32 path_hdr;
+> +	__be32 c[4];
 
-  I certainly consider it a Hardware Bug.  And I'm really hoping that Ashok
-will be able to find a "Chicken Bit" which allows the broken feature to be
-turned off.  Remember, the Relaxed Ordering Attribute on a Transaction Laye=
-r
-Packet is simply a HINT.  It is perfectly reasonable for a compliant
-implementation to simply ignore the Relaxed Ordering Attribute on an
-incoming TLP Request.  The sole responsibility of a compliant implementatio=
-n
-is to return the exact same Relaxed Ordering and No Snoop Attributes in any
-TLP Response (The rules for ID-Based Ordering Attribute are more complex.)
-=20
-  Earlier Intel Root Complexes did exactly this: they ignored the Relaxed
-Ordering Attribute and there was no performance difference for
-using/not-using it.  It's pretty obvious that an attempt was made to
-implement optimizations surounding the use of Relaxed Ordering and they
-didn't work.
+"c" is a very poor name. Please rename it to something that expresses what this field contains.
 
-|  - If so, is there a pointer to that as well?
+Also, this looks like MD type 1 only. How are those fields going to work with MD type 2? I don't think MD type 2 implementation is necessary in this patch but I'd like to know how this is going to work - it's uAPI and thus set in stone once this is merged. The uAPI needs to be designed with future use in mind.
 
-  Intel is historically tight-lipped about admiting any bugs/errata in thei=
-r
-products.  I'm guessing that the above quoted Section 3.9.1 is likely to be
-all we ever get. The language above regarding TLPs targetting Coherent
-Shared Memory are basically as much of an admission that they got it wrong
-as we're going to get.  But heck, maybe we'll get lucky ...  Especially wit=
-h
-regard to the hoped for "Chicken Bit" ...
+> +#define OVS_ENCAP_NSH_MAX_MD_LEN 16
+> +/*
+> + * struct ovs_action_encap_nsh - %OVS_ACTION_ATTR_ENCAP_NSH
+> + * @flags: NSH header flags.
+> + * @mdtype: NSH metadata type.
+> + * @mdlen: Length of NSH metadata in bytes.
+> + * @np: NSH next_protocol: Inner packet type.
+> + * @path_hdr: NSH service path id and service index.
+> + * @metadata: NSH metadata for MD type 1 or 2  */ struct 
+> +ovs_action_encap_nsh {
+> +	__u8 flags;
+> +	__u8 mdtype;
+> +	__u8 mdlen;
+> +	__u8 np;
+> +	__be32 path_hdr;
+> +	__u8 metadata[OVS_ENCAP_NSH_MAX_MD_LEN];
 
-|  - If this is not considered an erratum, can you provide any guidance
-|    about how an OS should determine when it should use RO?
+This is wrong. The metadata size is set to a fixed size by this and cannot be ever extended, or at least not easily. Netlink has attributes for exactly these cases and that's what needs to be used here.
 
-  Software?  We don't need no stinking software!
+> @@ -835,6 +866,8 @@ enum ovs_action_attr {
+>  	OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
+>  	OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
+>  	OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
+> +	OVS_ACTION_ATTR_ENCAP_NSH,    /* struct ovs_action_encap_nsh. */
+> +	OVS_ACTION_ATTR_DECAP_NSH,    /* No argument. */
 
-  Sorry, I couldn't resist.
+Use "push" and "pop", not "encap" and "decap" to be consistent with the naming in the rest of the file. We use encap and decap for tunnel operations. This code does not use lwtunnels, thus push and pop is more appropriate.
 
-| Relying on a list of device IDs in an optimization manual is OK for an
-| erratum, but if it's *not* an erratum, it seems like a hole in the specs
-| because as far as I know there's no generic way for the OS to discover
-| whether to use RO.
-
-  Well, here's to hoping that Ashok and/or Patrick are able to offer more
-detailed information ...
-
-Casey
+ Jiri
