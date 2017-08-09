@@ -1,69 +1,58 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH RFC net-next] net: Allow name change of IFF_UP interfaces
-Date: Wed, 09 Aug 2017 17:05:03 +0200
-Message-ID: <87efskye74.fsf@vitty.brq.redhat.com>
-References: <20170809104202.30959-1-vkuznets@redhat.com>
-        <CAPA1RqA0q3W-3PsqDpY8_xiBB18SCWTV1gT+BKOTqQfAA5D8Fg@mail.gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH 0/4] net-next: dsa: fix flow dissection
+Date: Wed, 09 Aug 2017 11:07:28 -0400
+Message-ID: <87h8xghj9r.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170809124119.24320-1-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: network dev <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: =?utf-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        linux-kernel@vger.kernel.org, Muciri Gatimu <muciri@openmesh.com>,
+        Shashidhar Lakkavalli <shashidhar.lakkavalli@openmesh.com>,
+        John Crispin <john@phrozen.org>
+To: John Crispin <john@phrozen.org>, Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Sean Wang <sean.wang@mediatek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPA1RqA0q3W-3PsqDpY8_xiBB18SCWTV1gT+BKOTqQfAA5D8Fg@mail.gmail.com>
-        (=?utf-8?B?IuWQieiXpOiLseaYjiIncw==?= message of "Wed, 9 Aug 2017 21:29:38
- +0900")
+In-Reply-To: <20170809124119.24320-1-john@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-吉藤英明 <hideaki.yoshifuji@miraclelinux.com> writes:
+Hi John,
 
-> 2017-08-09 19:42 GMT+09:00 Vitaly Kuznetsov <vkuznets@redhat.com>:
->> What happens is: __netvsc_vf_setup() does dev_open() for the VF device and
->> the consecutive dev_change_name() fails with -EBUSY because of the
->> (dev->flags & IFF_UP) check. The history of this code predates git so I
->> wasn't able to figure out when and why the check was added, everything
->> seems to work fine without it. dev_change_name() has only two call sites,
->> both hold rtnl_lock.
->>
->> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
->> ---
->>  RFC: I'm probably miossing something obvious and the check can't be just
->>  dropped. Stephen suggested a different solution to the isuue:
->>  https://www.spinics.net/lists/netdev/msg448243.html but it has its own
->>  drawbacks.
->> ---
->>  net/core/dev.c | 2 --
->>  1 file changed, 2 deletions(-)
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 1d75499add72..c608e233a78a 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -1186,8 +1186,6 @@ int dev_change_name(struct net_device *dev, const char *newname)
->>         BUG_ON(!dev_net(dev));
->>
->>         net = dev_net(dev);
->> -       if (dev->flags & IFF_UP)
->> -               return -EBUSY;
->>
->>         write_seqcount_begin(&devnet_rename_seq);
+John Crispin <john@phrozen.org> writes:
+
+> RPS and probably other kernel features are currently broken on some if not
+> all DSA devices. The root cause of this is that skb_hash will call the
+> flow_dissector. At this point the skb still contains the magic switch
+> header and the skb->protocol field is not set up to the correct 802.3
+> value yet. By the time the tag specific code is called, removing the header
+> and properly setting the protocol an invalid hash is already set. In the
+> case of the mt7530 this will result in all flows always having the same
+> hash.
 >
-> I think people expect the name won't change while up
-> and I don't think it is a good idea to allow changing the
-> name while the interface is up.
+> Changes since RFC:
+> * use a callback instead of static values
+> * add cover letter
+>
+> John Crispin (4):
+>   net-next: dsa: move struct dsa_device_ops to the global header file
+>   net-next: dsa: add flow_dissect callback to struct dsa_device_ops
+>   net-next: tag_mtk: add flow_dissect callback to the ops struct
+>   net-next: dsa: fix flow dissection
 
-I understand the 'legacy' concern but at the same time we don't want to
-have aftificial limitations too. Name change, in particular, doesn't
-happen 'under the hood' -- someone privileged enough needs to request
-the change.
+The "net-next" tag goes into the subject-prefix, i.e.
+"[PATCH net-next v3 0/4]" (this is the result of git format-patch
+--subject-prefix="PATCH net-next" -v3 --cover-letter.)
 
-Can you think of any particular real world scenarios which are broken by
-the change?
+The commit title prefix represents the most impacted subsystem, here
+"net: dsa: xxx" would map the net/dsa/ or drivers/net/dsa directories.
 
--- 
-  Vitaly
+Other than that, the whole patchset LGTM:
+
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+
+Thanks,
+
+        Vivien
