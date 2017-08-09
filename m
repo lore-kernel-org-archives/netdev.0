@@ -1,48 +1,40 @@
-From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH v4 04/12] net: stmmac: dwmac-rk: Remove unwanted code for rk3328_set_to_rmii()
-Date: Wed,  9 Aug 2017 20:07:47 +0800
-Message-ID: <1502280475-736-5-git-send-email-david.wu@rock-chips.com>
+From: David Wu <david.wu@rock-chips.com>
+Subject: [PATCH v4 03/12] arm64: defconfig: Enable CONFIG_ROCKCHIP_PHY
+Date: Wed,  9 Aug 2017 20:07:46 +0800
+Message-ID: <1502280475-736-4-git-send-email-david.wu@rock-chips.com>
 References: <1502280475-736-1-git-send-email-david.wu@rock-chips.com>
-Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1502280475-736-1-git-send-email-david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        huangtao@rock-chips.com, hwg@rock-chips.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, David Wu <david.wu@rock-chips.com>
+To: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch,
+        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
+        linux@armlinux.org.uk, arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502280475-736-1-git-send-email-david.wu@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is wrong setting for rk3328_set_to_rmii(), so remove it.
+Make the rockchip phy driver built into the kernel.
 
-Signed-off-by: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Signed-off-by: David Wu <david.wu@rock-chips.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 3 ---
- 1 file changed, 3 deletions(-)
+ arch/arm64/configs/defconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index f0df519..a8e8fd5 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -365,9 +365,6 @@ static void rk3328_set_to_rmii(struct rk_priv_data *bsp_priv)
- 	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
- 		     RK3328_GMAC_PHY_INTF_SEL_RMII |
- 		     RK3328_GMAC_RMII_MODE);
--
--	/* set MAC to RMII mode */
--	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1, GRF_BIT(11));
- }
- 
- static void rk3328_set_rgmii_speed(struct rk_priv_data *bsp_priv, int speed)
+diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
+index 6c7d147..925bd478 100644
+--- a/arch/arm64/configs/defconfig
++++ b/arch/arm64/configs/defconfig
+@@ -203,6 +203,7 @@ CONFIG_MARVELL_PHY=m
+ CONFIG_MESON_GXL_PHY=m
+ CONFIG_MICREL_PHY=y
+ CONFIG_REALTEK_PHY=m
++CONFIG_ROCKCHIP_PHY=y
+ CONFIG_USB_PEGASUS=m
+ CONFIG_USB_RTL8150=m
+ CONFIG_USB_RTL8152=m
 -- 
 1.9.1
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
