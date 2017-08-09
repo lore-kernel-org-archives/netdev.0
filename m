@@ -1,87 +1,120 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] Revert "vhost: cache used event for better
-	performance"
-Date: Wed, 9 Aug 2017 10:38:10 +0800
-Message-ID: <6698b85c-18f4-17e6-db70-7708692fb761@redhat.com>
-References: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
-	<20170726155435-mutt-send-email-mst@kernel.org>
-	<117542fc-eef9-c043-7c9e-daafceb7db4e@redhat.com>
-	<6b3a9a98-c095-1729-3528-dd521f136797@redhat.com>
-	<20170726190745-mutt-send-email-mst@kernel.org>
-	<1501396011.21001.11.camel@klaipeden.com>
+From: Ben Pfaff <blp-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next] openvswitch: add NSH support
+Date: Tue, 8 Aug 2017 19:42:00 -0700
+Message-ID: <20170809024200.GG6175@ovn.org>
+References: <1502168380-106785-1-git-send-email-yi.y.yang@intel.com>
+	<20170808162810.1bab3812@griffin>
+	<79BBBFE6CB6C9B488C1A45ACD284F51961C391CA@SHSMSX103.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "K. Den" <den@klaipeden.com>, "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1501396011.21001.11.camel@klaipeden.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: "Yang, Yi Y" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <79BBBFE6CB6C9B488C1A45ACD284F51961C391CA-0J0gbvR4kTggGBtAFL8yw7fspsVTdybXVpNB7YpNyf8@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE35bm0MDfmnIgzMOaXpSAxNDoyNiwgSy4gRGVuIHdyb3RlOgo+IE9uIFdlZCwgMjAx
-Ny0wNy0yNiBhdCAxOTowOCArMDMwMCwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+PiBPbiBX
-ZWQsIEp1bCAyNiwgMjAxNyBhdCAwOTozNzoxNVBNICswODAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+
-Pj4KPj4+IE9uIDIwMTflubQwN+aciDI25pelIDIxOjE4LCBKYXNvbiBXYW5nIHdyb3RlOgo+Pj4+
-Cj4+Pj4gT24gMjAxN+W5tDA35pyIMjbml6UgMjA6NTcsIE1pY2hhZWwgUy4gVHNpcmtpbiB3cm90
-ZToKPj4+Pj4gT24gV2VkLCBKdWwgMjYsIDIwMTcgYXQgMDQ6MDM6MTdQTSArMDgwMCwgSmFzb24g
-V2FuZyB3cm90ZToKPj4+Pj4+IFRoaXMgcmV2ZXJ0cyBjb21taXQgODA5ZWNiOWJjYTZhOTQyNGNj
-ZDM5MmQ2N2UzNjgxNjBmOGI3NmM5Mi4gU2luY2UgaXQKPj4+Pj4+IHdhcyByZXBvcnRlZCB0byBi
-cmVhayB2aG9zdF9uZXQuIFdlIHdhbnQgdG8gY2FjaGUgdXNlZCBldmVudCBhbmQgdXNlCj4+Pj4+
-PiBpdCB0byBjaGVjayBmb3Igbm90aWZpY2F0aW9uLiBXZSB0cnkgdG8gdmFsaWQgY2FjaGVkIHVz
-ZWQgZXZlbnQgYnkKPj4+Pj4+IGNoZWNraW5nIHdoZXRoZXIgb3Igbm90IGl0IHdhcyBhaGVhZCBv
-ZiBuZXcsIGJ1dCB0aGlzIGlzIG5vdCBjb3JyZWN0Cj4+Pj4+PiBhbGwgdGhlIHRpbWUsIGl0IGNv
-dWxkIGJlIHN0YWxlIGFuZCB0aGVyZSdzIG5vIHdheSB0byBrbm93IGFib3V0IHRoaXMuCj4+Pj4+
-Pgo+Pj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZzxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+
-Pj4+PiBDb3VsZCB5b3Ugc3VwcGx5IGEgYml0IG1vcmUgZGF0YSBoZXJlIHBsZWFzZT8gIEhvdyBk
-b2VzIGl0IGdldCBzdGFsZT8KPj4+Pj4gV2hhdCBkb2VzIGd1ZXN0IG5lZWQgdG8gZG8gdG8gbWFr
-ZSBpdCBzdGFsZT8gIFRoaXMgd2lsbCBiZSBoZWxwZnVsIGlmCj4+Pj4+IGFueW9uZSB3YW50cyB0
-byBicmluZyBpdCBiYWNrLCBvciBpZiB3ZSB3YW50IHRvIGV4dGVuZCB0aGUgcHJvdG9jb2wuCj4+
-Pj4+Cj4+Pj4gVGhlIHByb2JsZW0gd2UgZG9uJ3Qga25vdyB3aGV0aGVyIG9yIG5vdCBndWVzdCBo
-YXMgcHVibGlzaGVkIGEgbmV3IHVzZWQKPj4+PiBldmVudC4gVGhlIGNoZWNrIHZyaW5nX25lZWRf
-ZXZlbnQodnEtPmxhc3RfdXNlZF9ldmVudCwgbmV3ICsgdnEtPm51bSwKPj4+PiBuZXcpIGlzIG5v
-dCBzdWZmaWNpZW50IHRvIGNoZWNrIGZvciB0aGlzLgo+Pj4+Cj4+Pj4gVGhhbmtzCj4+PiBNb3Jl
-IG5vdGVzLCB0aGUgcHJldmlvdXMgYXNzdW1wdGlvbiBpcyB0aGF0IHdlIGRvbid0IG1vdmUgdXNl
-ZCBldmVudCBiYWNrLAo+Pj4gYnV0IHRoaXMgY291bGQgaGFwcGVuIGluIGZhY3QgaWYgaWR4IGlz
-IHdyYXBwZXIgYXJvdW5kLgo+PiBZb3UgbWVhbiBpZiB0aGUgMTYgYml0IGluZGV4IHdyYXBzIGFy
-b3VuZCBhZnRlciA2NEsgZW50cmllcy4KPj4gTWFrZXMgc2Vuc2UuCj4+Cj4+PiBXaWxsIHJlcG9z
-dCBhbmQgYWRkCj4+PiB0aGlzIGludG8gY29tbWl0IGxvZy4KPj4+Cj4+PiBUaGFua3MKPiBIaSwK
-CkhpLCBzb3JyeSBmb3IgdGhlIGxhdGUgcmVwbHksIHdhcyBvbiB2YWNhdGlvbiBsYXN0IHdlZWsu
-Cgo+Cj4gSSBhbSBqdXN0IGN1cmlvdXMgYnV0IEkgaGF2ZSBnb3QgYSBxdWVzdGlvbjoKPiBBRkFJ
-VSwgaWYgeW91IHdhbnRlZCB0byBrZWVwIHRoZSBjYWNoaW5nIG1lY2hhbmlzbSBhbGl2ZSBpbiB0
-aGUgY29kZSBiYXNlLAo+IHRoZSBmb2xsb3dpbmcgdHdvIGNoYW5nZXMgY291bGQgY2xlYXIgb2Zm
-IHRoZSBpc3N1ZSwgb3Igbm90PzoKPiAoMSkgQWx3YXlzIGZldGNoIHRoZSBsYXRlc3QgZXZlbnQg
-dmFsdWUgZnJvbSBndWVzdCB3aGVuIHNpZ25hbGxlZF91c2VkIGV2ZW50IGlzCj4gaW52YWxpZCwg
-d2hpY2ggaW5jbHVkZXMgbGFzdF91c2VkX2lkeCB3cmFwcy1hcm91bmQgY2FzZS4gT3RoZXJ3aXNl
-IHdlIG1pZ2h0IG5lZWQKPiBjaGFuZ2VzIHdoaWNoIHdvdWxkIGNvbXBsaWNhdGUgdG9vIG11Y2gg
-dGhlIGxvZ2ljIHRvIHByb3Blcmx5IGRlY2lkZSB3aGV0aGVyIG9yCj4gbm90IHRvIHNraXAgc2ln
-bmFsbGluZyBpbiB0aGUgbmV4dCB2aG9zdF9ub3RpZnkgcm91bmQuCj4gKDIpIE9uIHRvcCBvZiB0
-aGF0LCBzcGxpdCB0aGUgc2lnbmFsLXBvc3Rwb25pbmcgbG9naWMgdG8gdGhyZWUgY2FzZXMgbGlr
-ZToKPiAqIGlmIHRoZSBpbnRlcnZhbCBvZiB2cS5udW0gaXMgWzJeMTYsIFVJTlRfTUFYXToKPiBh
-bnkgY2FjaGVkIGV2ZW50IGlzIGluIHNob3VsZC1wb3N0cG9uZS1zaWduYWxsaW5nIGludGVydmFs
-LCBzbyBwYXJhZG94aWNhbGx5Cj4gbXVzdCBhbHdheXMgZG8gc2lnbmFsbGluZy4KCkkgdGhpbmsg
-ZG9uJ3QgdGhpbmsgY3VycmVudCBjb2RlIGNhbiB3b3JrIHdlbGwgaWYgdnEubnVtIGlzIGdyYXRl
-ciB0aGFuIAoyXjE1LiBTaW5jZSBhbGwgY2FjaGVkIGlkeCBpcyB1MTYuIFRoaXMgbG9va3MgbGlr
-ZSBhIGJ1ZyB3aGljaCBuZWVkcyB0byAKYmUgZml4ZWQuCgo+ICogZWxzZSBpZiB0aGUgaW50ZXJ2
-YWwgb2YgdnEubnVtIGlzIFsyXjE1LCAyXjE2KToKPiB0aGUgbG9naWMgaW4gdGhlIG9yaWdpbmFs
-IHBhdGNoICg4MDllY2I5YmNhNmE5KSBzdWZmaWNlcwo+ICogZWxzZSAoPSBsZXNzIHRoYW4gMl4x
-NSkgKG9wdGlvbmFsKToKPiBjaGVja2luZyBvbmx5ICh2cmluZ19uZWVkX2V2ZW50KHZxLT5sYXN0
-X3VzZWRfZXZlbnQsIG5ldyArIHZxLT5udW0sIG5ldykKPiB3b3VsZCBzdWZmaWNlLgo+Cj4gQW0g
-SSBtaXNzaW5nIHNvbWV0aGluZywgb3IgaXMgdGhpcyBpcnJlbGV2YW50PwoKTG9va3Mgbm90LCBJ
-IHRoaW5rIHRoaXMgbWF5IHdvcmsuIExldCBtZSBkbyBzb21lIHRlc3QuCgpUaGFua3MKCj4gSSB3
-b3VsZCBhcHByZWNpYXRlIGlmIHlvdSBjb3VsZCBlbGFib3JhdGUgYSBiaXQgbW9yZSBob3cgdGhl
-IHNpdHVhdGlvbiB3aGVyZQo+IGV2ZW50IGlkeCB3cmFwcyBhcm91bmQgYW5kIG1vdmVzIGJhY2sg
-d291bGQgbWFrZSB0cm91YmxlLgo+Cj4gVGhhbmtzLgo+CgoKX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZp
-cnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGlu
-dXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+To be clear, the OVS implementation is a placeholder.  It will get
+replaced by whatever netdev implements, and that's OK.  I didn't focus
+on making it perfect because I knew that.  Instead, I just made sure it
+was good enough for an internal OVS implementation that doesn't fix any
+ABI or API.  OVS can even change the user-visible action names, as long
+as we do that soon (and encap/decap versus push/pop doesn't matter to
+me).
+
+The considerations for netdev are different and more permanent.
+
+On Wed, Aug 09, 2017 at 02:05:12AM +0000, Yang, Yi Y wrote:
+> Hi, Jiri
+> 
+> Thank you for your comments.
+> 
+> __be32 c[4] is the name Ben Pfaff suggested, the original name is c1, c2, c3, c4, they are context data, so c seems ok, too :-)
+> 
+> OVS has merged it and has the same name, maybe the better way is adding comment /* Context data */ after it.
+> 
+> For MD type 2, struct ovs_key_nsh is very difficult to cover it, so far we don't know how to support MD type 2 better, Geneve defined 64 tun_metadata0-63 to handle this, those keys are parts of struct flow_tnl, the highest possibility is to reuse those keys.
+> 
+> So for future MD type 2, we will have two parts of keys, one is from struct ovs_key_nsh, another is from struct flow_tnl, this won't break the old uAPI.
+> 
+> "#define OVS_ENCAP_NSH_MAX_MD_LEN 16" is changed per Ben's comment from 256, Ben thinks 256 is too big but we only support MD type 1 now. We still have ways to extend it, for example:
+> 
+> struct ovs_action_encap_nsh * oaen = (struct ovs_action_encap_nsh *) malloc (sizeof(struct ovs_action_encap_nsh) + ANY_SIZE);
+> 
+> nl_msg_put_unspec(actions, OVS_ACTION_ATTR_ENCAP_NSH,
+>                           oaen, sizeof(struct ovs_action_encap_nsh) + ANY_SIZE);
+> 
+> In addition, we also need to consider, OVS userspace code must be consistent with here, so keeping it intact will be better, we have way to support dynamically extension when we add MD type 2 support.
+> 
+> About action name, unfortunately, userspace data plane has named them as encap_nsh & decap_nsh, Jan, what do you think about Jiri's suggestion?
+> 
+> But from my understanding, encap_* & decap_* are better because they corresponding to generic encap & decap actions, in addition, encap semantics are different from push, encap just pushed an empty header with default values, users must use set_field to set the content of the header.
+> 
+> Again, OVS userspace code must be consistent with here, so keeping it intact will be better because OVS userspace code was there.
+> 
+> 
+> -----Original Message-----
+> From: netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of Jiri Benc
+> Sent: Tuesday, August 8, 2017 10:28 PM
+> To: Yang, Yi Y <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+> Subject: Re: [PATCH net-next] openvswitch: add NSH support
+> 
+> On Tue,  8 Aug 2017 12:59:40 +0800, Yi Yang wrote:
+> > +struct ovs_key_nsh {
+> > +	__u8 flags;
+> > +	__u8 mdtype;
+> > +	__u8 np;
+> > +	__u8 pad;
+> > +	__be32 path_hdr;
+> > +	__be32 c[4];
+> 
+> "c" is a very poor name. Please rename it to something that expresses what this field contains.
+> 
+> Also, this looks like MD type 1 only. How are those fields going to work with MD type 2? I don't think MD type 2 implementation is necessary in this patch but I'd like to know how this is going to work - it's uAPI and thus set in stone once this is merged. The uAPI needs to be designed with future use in mind.
+> 
+> > +#define OVS_ENCAP_NSH_MAX_MD_LEN 16
+> > +/*
+> > + * struct ovs_action_encap_nsh - %OVS_ACTION_ATTR_ENCAP_NSH
+> > + * @flags: NSH header flags.
+> > + * @mdtype: NSH metadata type.
+> > + * @mdlen: Length of NSH metadata in bytes.
+> > + * @np: NSH next_protocol: Inner packet type.
+> > + * @path_hdr: NSH service path id and service index.
+> > + * @metadata: NSH metadata for MD type 1 or 2  */ struct 
+> > +ovs_action_encap_nsh {
+> > +	__u8 flags;
+> > +	__u8 mdtype;
+> > +	__u8 mdlen;
+> > +	__u8 np;
+> > +	__be32 path_hdr;
+> > +	__u8 metadata[OVS_ENCAP_NSH_MAX_MD_LEN];
+> 
+> This is wrong. The metadata size is set to a fixed size by this and cannot be ever extended, or at least not easily. Netlink has attributes for exactly these cases and that's what needs to be used here.
+> 
+> > @@ -835,6 +866,8 @@ enum ovs_action_attr {
+> >  	OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
+> >  	OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
+> >  	OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
+> > +	OVS_ACTION_ATTR_ENCAP_NSH,    /* struct ovs_action_encap_nsh. */
+> > +	OVS_ACTION_ATTR_DECAP_NSH,    /* No argument. */
+> 
+> Use "push" and "pop", not "encap" and "decap" to be consistent with the naming in the rest of the file. We use encap and decap for tunnel operations. This code does not use lwtunnels, thus push and pop is more appropriate.
+> 
+>  Jiri
+> _______________________________________________
+> dev mailing list
+> dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+> https://mail.openvswitch.org/mailman/listinfo/ovs-dev
