@@ -1,54 +1,41 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 33/35] wireless: realtek: rtl8192cu: constify
- usb_device_id
-Date: Tue, 8 Aug 2017 23:09:36 -0500
-Message-ID: <5dca329f-d98c-82f2-1289-0d9d64c39347@lwfinger.net>
-References: <1502208353-12447-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] hv_set_ifconfig.sh double check before setting ip
+Date: Tue, 08 Aug 2017 21:11:50 -0700 (PDT)
+Message-ID: <20170808.211150.2070475124549651350.davem@davemloft.net>
+References: <20170808135345.17027-1-otubo@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>, kvalo@codeaurora.org,
-        chaoming_li@realsil.com.cn
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:33235 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750866AbdHIEJi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 00:09:38 -0400
-In-Reply-To: <1502208353-12447-1-git-send-email-arvind.yadav.cs@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        devel@linuxdriverproject.org, sthemmin@microsoft.com,
+        haiyangz@microsoft.com, kys@microsoft.com
+To: otubo@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170808135345.17027-1-otubo@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/08/2017 11:05 AM, Arvind Yadav wrote:
-> usb_device_id are not supposed to change at runtime. All functions
-> working with usb_device_id provided by <linux/usb.h> work with
-> const usb_device_id. So mark the non-const structs as const.
+From: Eduardo Otubo <otubo@redhat.com>
+Date: Tue,  8 Aug 2017 15:53:45 +0200
+
+> This patch fixes the behavior of the hv_set_ifconfig script when setting
+> the interface ip. Sometimes the interface has already been configured by
+> network daemon, in this case hv_set_ifconfig causes "RTNETLINK: file
+> exists error"; in order to avoid this error this patch makes sure double
+> checks the interface before trying anything.
 > 
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
-> ---
+> Signed-off-by: Eduardo Otubo <otubo@redhat.com>
 
-Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+And if the daemon sets the address after you test it but before
+you try to set it in the script, what happens?
 
-Thanks,
+This is why I hate changes like this.  They don't remove the problem,
+they make it smaller.  And smaller in a bad way.  Smaller makes the
+problem even more harder to diagnose when it happens.
 
-Larry
+There is implicitly no synchonization between network configuration
+daemons and things people run by hand like this script.
 
->   drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c
-> index 96c923b..e673bc2 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c
-> @@ -275,7 +275,7 @@ static struct rtl_hal_cfg rtl92cu_hal_cfg = {
->   #define USB_VENDER_ID_REALTEK		0x0bda
->   
->   /* 2010-10-19 DID_USB_V3.4 */
-> -static struct usb_device_id rtl8192c_usb_ids[] = {
-> +static const struct usb_device_id rtl8192c_usb_ids[] = {
->   
->   	/*=== Realtek demoboard ===*/
->   	/* Default ID */
-> 
+So, caveat emptor.
+
+I'm not applying this, sorry.
