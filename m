@@ -1,42 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/9] bpf: add BPF_J{LT,LE,SLT,SLE} instructions
-Date: Wed, 09 Aug 2017 19:03:03 +0200
-Message-ID: <598B4047.2090701@iogearbox.net>
-References: <cover.1502272924.git.daniel@iogearbox.net>        <cover.1502272924.git.daniel@iogearbox.net>        <63b41a38e0d58536700c999ade7c2c267bd2613d.1502272924.git.daniel@iogearbox.net> <20170809.095553.268665355274669790.davem@davemloft.net> <598B3FCA.7060904@iogearbox.net>
+From: Tyrel Datwyler <tyreld@linux.vnet.ibm.com>
+Subject: Re: [PATCH] ibmvnic: Fix unused variable warning
+Date: Wed, 9 Aug 2017 10:03:42 -0700
+Message-ID: <7872eab5-9af4-a622-990c-59bf92834c05@linux.vnet.ibm.com>
+References: <20170809111602.12170-1-msuchanek@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, holzheu@linux.vnet.ibm.com,
-        naveen.n.rao@linux.vnet.ibm.com, jakub.kicinski@netronome.com,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Michal Suchanek <msuchanek@suse.de>,
+        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+        John Allen <jallen@linux.vnet.ibm.com>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Paul Mackerras <paulus@samba.org>,
+        Michael Ellerman <mpe@ellerman.id.au>, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37699 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754232AbdHIRDI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 13:03:08 -0400
-In-Reply-To: <598B3FCA.7060904@iogearbox.net>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:44365 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754198AbdHIRDw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 13:03:52 -0400
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v79H3gvH122007
+        for <netdev@vger.kernel.org>; Wed, 9 Aug 2017 13:03:52 -0400
+Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2c85ybhwy0-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 13:03:52 -0400
+Received: from localhost
+        by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tyreld@linux.vnet.ibm.com>;
+        Wed, 9 Aug 2017 11:03:49 -0600
+In-Reply-To: <20170809111602.12170-1-msuchanek@suse.de>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2017 07:00 PM, Daniel Borkmann wrote:
-> On 08/09/2017 06:55 PM, David Miller wrote:
->> From: Daniel Borkmann <daniel@iogearbox.net>
->> Date: Wed,  9 Aug 2017 12:23:53 +0200
->>
->>>    [1] https://github.com/borkmann/llvm/tree/bpf-insns
->>
->> How is this "backwards compatible"?
->>
->> If someone takes a new LLVM and tries to load those programs
->> into an older kernel they will be rejected.
->>
->> There appears to be no effort to make things work cleanly in
->> that situation at all.
->
-> No, that was just the patch I used for LLVM to enable the
-> insns, so not the final one that will be submitted there
-> officially where we have a switch to enable/disable this
-> functionality.
+On 08/09/2017 04:16 AM, Michal Suchanek wrote:
+> Fixes: a248878d7a1d ("ibmvnic: Check for transport event on driver resume")
+> 
+> Signed-off-by: Michal Suchanek <msuchanek@suse.de>
+> ---
 
-(In other words the one I used for doing the measurements.)
+Reviewed-by: Tyrel Datwyler <tyreld@linux.vnet.ibm.com>
