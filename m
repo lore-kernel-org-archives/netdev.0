@@ -1,25 +1,30 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH] net: dsa: make dsa_switch_ops const
-Date: Wed, 09 Aug 2017 10:32:02 -0400
-Message-ID: <87mv78hkwt.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1502255055-24751-1-git-send-email-bhumirks@gmail.com>
+From: "Napoleon, Sarah C (NAPOLSC17)" <NAPOLSC17@juniata.edu>
+Subject: RE: CONTACT ME VIA::haroldiamon@hotmail.com
+Date: Wed, 9 Aug 2017 14:38:37 +0000
+Message-ID: <AEA3E025F72B184EB0745401268630C8906111@Michael.juniata.edu>
+References: <AEA3E025F72B184EB0745401268630C8906012@Michael.juniata.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
-        andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502255055-24751-1-git-send-email-bhumirks@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: "Napoleon, Sarah C (NAPOLSC17)" <NAPOLSC17@juniata.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02hn0242.outbound.protection.outlook.com ([104.47.36.242]:62528
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752819AbdHIOiq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 9 Aug 2017 10:38:46 -0400
+In-Reply-To: <AEA3E025F72B184EB0745401268630C8906012@Michael.juniata.edu>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bhumika Goyal <bhumirks@gmail.com> writes:
 
-> Make these structures const as they are only stored in the ops field of
-> a dsa_switch structure, which is const.
-> Done using Coccinelle.
->
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+________________________________
+From: Napoleon, Sarah C (NAPOLSC17)
+Sent: Wednesday, August 09, 2017 10:35 AM
+Subject: CONTACT ME VIA::haroldiamon@hotmail.com
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+A Private donation has be made to You contact ( haroldiamon@hotmail.com) for Claim
+
+
+CONFIDENTIALITY NOTICE: The materials in this electronic mail transmission (including all attachments) are private and confidential and are the property of the sender. The information contained in the material is privileged and is intended only for the use of the named addressee(s). If you are not the intended addressee, be advised that any unauthorized disclosure, copying, distribution or the taking of any action in reliance on the contents of this material is strictly prohibited. If you have received this e-mail in error, please immediately notify the sender by replying to the e-mail, and then destroy it immediately. Thank you.
