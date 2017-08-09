@@ -1,123 +1,77 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH v9 2/4] PCI: Disable PCIe Relaxed Ordering if unsupported
-Date: Wed, 9 Aug 2017 12:33:34 +0000
-Message-ID: <MWHPR12MB1600255ACFCD3FB3C80EB8B6C88B0@MWHPR12MB1600.namprd12.prod.outlook.com>
-References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
- <1501917313-9812-3-git-send-email-dingtianhong@huawei.com>,<20170809022239.GP16580@bhelgaas-glaptop.roam.corp.google.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: Qdisc->u32_node - licence to kill
+Date: Wed, 9 Aug 2017 08:40:30 -0400
+Message-ID: <c296f4c2-3509-a162-e972-42c2e81434aa@mojatatu.com>
+References: <20170807164100.GK2085@nanopsycho.orion>
+ <5988A7A2.3090200@gmail.com> <20170807190624.GL2085@nanopsycho.orion>
+ <5988C55B.60204@gmail.com>
+ <CAM_iQpUZdv1sg+6jY862=GbWaC8x9XN9Ed-uaKi6_RT12sFj6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "ashok.raj@intel.com" <ashok.raj@intel.com>,
-        "bhelgaas@google.com" <bhelgaas@google.com>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
-        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
-        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
-        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
-        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-        "amira@mellanox.com" <amira@mellanox.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "David.Laight@aculab.com" <David.Laight@aculab.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "mark.rutland@arm.com" <mark.r
-To: Bjorn Helgaas <helgaas@kernel.org>,
-        Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170809022239.GP16580@bhelgaas-glaptop.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        mlxsw@mellanox.com
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35609 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751523AbdHIMkd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 08:40:33 -0400
+Received: by mail-it0-f65.google.com with SMTP id 76so4441439ith.2
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 05:40:32 -0700 (PDT)
+In-Reply-To: <CAM_iQpUZdv1sg+6jY862=GbWaC8x9XN9Ed-uaKi6_RT12sFj6w@mail.gmail.com>
+Content-Language: en-GB
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-| From: Bjorn Helgaas <helgaas@kernel.org>
-| Sent: Tuesday, August 8, 2017 7:22 PM
-| ...
-| and the caller should do something like this:
-|=20
-|     if (pcie_relaxed_ordering_broken(pci_find_pcie_root_port(pdev)))
-|         adapter->flags |=3D ROOT_NO_RELAXED_ORDERING;
-|=20
-| That way it's obvious where the issue is, and it's obvious that the
-| answer might be different for peer-to-peer transactions than it is for
-| transactions to the root port, i.e., to coherent memory.
-| ...
+On 17-08-07 07:21 PM, Cong Wang wrote:
+> On Mon, Aug 7, 2017 at 12:54 PM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
+>> On 08/07/2017 12:06 PM, Jiri Pirko wrote:
+>>> Mon, Aug 07, 2017 at 07:47:14PM CEST, john.fastabend@gmail.com wrote:
+>>>> On 08/07/2017 09:41 AM, Jiri Pirko wrote:
+>>>>> Hi Jamal/Cong/David/all.
+>>>>>
+=
+>>>
+>>> Not correct. prio/pref is one level up priority, independent on specific
+>>> cls implementation. You can have cls_u32 instance on prio 10 and
+>>> cls_flower instance on prio 20. Both work.
+>>
+>> ah right, lets make sure I got this right then (its been awhile since I've
+>> read this code). So the tcf_ctl_tfilter hook walks classifiers, inserting the
+>> classifier by prio. Then tcf_classify walks the list of classifiers looking
+>> for any matches, specifically any return codes it recognizes or a return code
+>> greater than zero. u32 though has this link notion that allows users to jump
+>> to other u32 classifiers that are in this list, because it has a global hash
+>> table list. So the per prio classifier isolation is not true in u32 case.
+> 
+> u32 filter supports multiple hash tables within a qdisc, struct
+> tc_u_common is supposed to link them together. This has to be
+> per qdisc because all of these hash tables belong to one qdisc
+> and their ID's are unique within the qdisc.
+> 
 
-Which is back to something very close to what I initially suggested in my
-first patch submission.  Because you're right, this isn't about broken
-Source Devices, it's about broken Completing Devices.
+I think historically this used to sit within the u32 code as a
+static linked list; i cant recall why it got attached to the
+qdisc.
+Indeed, the idea is that hash tables can be added independently
+without linking and then linked afterwards. They have to be held
+somewhere in transient. And they have priorities (at least the
+prios are used in the dump)
 
-Unfortunately, as Alexander Duyck noted, in a Virtual Machine we won't be
-able to see our Root Port in order to make this determination.  (And in som=
-e
-Hypervisor implementations I've seen, there's not even a synthetic Root Por=
-t
-available to the VM at all, let alone read-only access to the real one.)
+> I dislike it too, and I actually tried to improve it in the past,
+> unfortunately didn't make any real progress. I think we can
+> definitely make it less ugly, but I don't think we can totally
+> get rid of it because of the design of u32.
+> 
+> Similar for tp->data.
+> 
 
-So the current scheme was developed of having the Hypervisor kernel travers=
-e
-down the PCIe Fabric when it finds a broken Root Port implementation (the
-issue that we've mostly been primarily focused upon), and turning off the
-PCIe Capability Device Control[Relaxed Ordering Enable].  This was to serve
-two purposes:
+tp->q maybe harder to deal with. I agree with getting rid of
+this dependency. Could this info be stored in the block instead?
 
- 1. Turn that off in order to prevent sending any Transaction Layer
-    Packets with the Relaxed Ordering Attribute to any Completer.
-    Which unfortunately would also prevent Peer-to-Peer use of the
-    Relaxed Ordering Attribute.
-
- 2. Act as a message to Device Drivers for those downstream devices
-    that the they were dealing with a broken Root Port implementation.
-    And this would work even for a driver in a VM with an attached
-    device since it would be able to see the PCIe Configuration Space
-    for the attached device.
-
-I haven't been excited about any of this because:
-
- A. While so far all of the examples we've talked about are broken
-    Root Port Completers, it's perfectly possible that other devices
-    could be broken -- say an NVMe Device which is not "Coherent
-    Memory".  How would this fit into the framework APIs being
-    described?
-
- B. I have yet to see a n example of how the currently proposed
-    API framework would be used in a hybrid environment where
-    TLPs to the Root Port would not use Relaxed Ordering, but TLPs
-    to a Peer would use Relaxed Ordering.  So far its all been about
-    using a "big hammer" to completely disable the use of Relaxed
-    Ordering.
-
-But the VM problem keeps cropping up over and over.  A driver in a VM
-doesn't have access to the Root Port to determine if its on a "Black List"
-and our only way of communicating with the driver in the VM is to leave the
-device in a particular state (i.e. initialize the PCIe Capability Device
-Control[Relaxed Ordering Enable] to "off").
-
-Oh, and also, on the current patch submission's focus on broken Root Port
-implementations: one could suggest that even if we're stuck with the "Devic=
-e
-attached to a VM Conundrum", that what we should really be thinking about i=
-s
-if ANY device within a PCIe Fabric has broken Relaxed Ordering completion
-problems, and, if so, "poisoning" the entire containing PCIe Fabric by
-turning off Relaxed Ordering Enable for every device, up, down sideways --
-including the Root Port itself.
-
-| ...
-| This associates the message with the Requester that may potentially
-| use relaxed ordering. But there's nothing wrong or unusual about the
-| Requester; the issue is with the *Completer*, so I think the message
-| should be in the quirk where we set PCI_DEV_FLAGS_NO_RELAXED_ORDERING.
-| Maybe it should be both places; I dunno.
-|=20
-| This implementation assumes the device only initiates transactions to
-| coherent memory, i.e., it assumes the device never does peer-to-peer
-| DMA.  I guess we'll have to wait and see if we trip over any
-| peer-to-peer issues, then figure out how to handle them.
-| ...
-
-Yes, as soon as we want to implement the hybrid use of Relaxed Ordering I
-mentioned above.  And that the Intel document mentions itself.
-
-Casey
+cheers,
+jamal
