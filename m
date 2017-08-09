@@ -1,8 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v4 05/12] Documentation: net: phy: Add phy-is-internal binding
-Date: Wed, 09 Aug 2017 15:47:34 -0700
-Message-ID: <778B0470-8ABD-46AD-A63D-F0CF4911C800@gmail.com>
-References: <1502280475-736-1-git-send-email-david.wu@rock-chips.com> <1502280630-2254-1-git-send-email-david.wu@rock-chips.com>
+Subject: Re: [PATCH v4 10/12] ARM: dts: rk3228-evb: Enable the internal phy for gmac
+Date: Wed, 09 Aug 2017 15:50:23 -0700
+Message-ID: <9627716E-01B9-4DC0-9982-A335FAFA567E@gmail.com>
+References: <1502280475-736-1-git-send-email-david.wu@rock-chips.com> <1502280799-2514-1-git-send-email-david.wu@rock-chips.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -17,40 +17,23 @@ To: David Wu <david.wu@rock-chips.com>, davem@davemloft.net,
         mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
         olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502280630-2254-1-git-send-email-david.wu@rock-chips.com>
+In-Reply-To: <1502280799-2514-1-git-send-email-david.wu@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On August 9, 2017 5:10:30 AM PDT, David Wu <david=2Ewu@rock-chips=2Ecom> wr=
+On August 9, 2017 5:13:19 AM PDT, David Wu <david=2Ewu@rock-chips=2Ecom> wr=
 ote:
->Add the documentation for internal phy=2E A boolean property
->indicates that a internal phy will be used=2E
+>This patch enables the internal phy for rk3228 evb board
+>by default=2E
+>To use the external 1000M phy on evb board, need to make
+>some switch of evb board to be on=2E
 >
 >Signed-off-by: David Wu <david=2Ewu@rock-chips=2Ecom>
->---
-> Documentation/devicetree/bindings/net/phy=2Etxt | 3 +++
-> 1 file changed, 3 insertions(+)
->
->diff --git a/Documentation/devicetree/bindings/net/phy=2Etxt
->b/Documentation/devicetree/bindings/net/phy=2Etxt
->index b558576=2E=2E942c892 100644
->--- a/Documentation/devicetree/bindings/net/phy=2Etxt
->+++ b/Documentation/devicetree/bindings/net/phy=2Etxt
->@@ -52,6 +52,9 @@ Optional Properties:
->   Mark the corresponding energy efficient ethernet mode as broken and
->   request the ethernet to stop advertising it=2E
->=20
->+- phy-is-internal: If set, indicates that phy will connect to the MAC
->as a
->+  internal phy=2E
 
-Something along the lines of:
 
-If set, indicates that the PHY is integrated into the same physical packag=
-e as the Ethernet MAC=2E
+LGTM
 
-Please always capitalize PHY=2E
-
+Reviewed-by: Florian Fainelli <f=2Efainelli@gmail=2Ecom>
 
 --=20
 Florian
