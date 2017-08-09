@@ -1,90 +1,67 @@
-From: "Raj, Ashok" <ashok.raj@intel.com>
-Subject: Re: [PATCH v9 1/4] PCI: Add new PCIe Fabric End Node flag,
- PCI_DEV_FLAGS_NO_RELAXED_ORDERING
-Date: Wed, 9 Aug 2017 08:58:43 -0700
-Message-ID: <20170809155841.GA8675@otc-nc-03>
-References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
- <1501917313-9812-2-git-send-email-dingtianhong@huawei.com>
- <20170808232200.GO16580@bhelgaas-glaptop.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ding Tianhong <dingtianhong@huawei.com>, leedom@chelsio.com,
-        bhelgaas@google.com, werner@chelsio.com, ganeshgr@chelsio.com,
-        asit.k.mallick@intel.com, patrick.j.cramer@intel.com,
-        Suravee.Suthikulpanit@amd.com, Bob.Shaw@amd.com,
-        l.stach@pengutronix.de, amira@mellanox.com,
-        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
-        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
-        davem@davemloft.net, alexander.duyck@gmail.com,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com, ashok.raj@intel.com
-To: Bjorn Helgaas <helgaas@kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170808232200.GO16580@bhelgaas-glaptop.roam.corp.google.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: gfree.wind@vip.163.com
+Subject: [PATCH net-next 1/1] driver: pptp: Remove unnecessary statements in pptp_sock_destruct
+Date: Wed,  9 Aug 2017 23:57:56 +0800
+Message-ID: <1502294276-20051-1-git-send-email-gfree.wind@vip.163.com>
+Cc: Gao Feng <gfree.wind@vip.163.com>
+To: xeb@mail.ru, davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-177180.vip.163.com ([123.58.177.180]:58457 "EHLO
+        mail-177180.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752709AbdHIQDU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 12:03:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Bjorn
+From: Gao Feng <gfree.wind@vip.163.com>
 
-On Tue, Aug 08, 2017 at 06:22:00PM -0500, Bjorn Helgaas wrote:
-> On Sat, Aug 05, 2017 at 03:15:10PM +0800, Ding Tianhong wrote:
-> > From: Casey Leedom <leedom@chelsio.com>
-> > 
-> > Root complexes don't obey PCIe 3.0 ordering rules, hence could lead to
-> > data-corruption.
-> 
-> This needs to include a link to the Intel spec
-> (https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf,
-> sec 3.9.1).
-> 
-> It should also include a pointer to the AMD erratum, if available, or
-> at least some reference to how we know it doesn't obey the rules.
-> 
-> Ashok, thanks for chiming in.  Now that you have, I have a few more
-> questions for you:
-> 
->   - Is the above doc the one you mentioned as being now public?
+In the commit ddab82821fa6 ("ppp: Fix a scheduling-while-atomic bug in
+del_chan"), I moved the synchronize_rcu() from del_chan() to pptp_release
+after del_chan() to avoid one scheduling-while-atomic bug.
 
-Yes. 
->   
->   - Is this considered a hardware erratum?
+Actually the del_chan() and pppox_unbind_sock are unneccessary in the
+pptp_sock_destruct. Because the pptp sock refcnt wouldn't reach zero until
+sk_state is set as PPPOX_DEAD in pptp_release. By that time, the del_chan()
+and pppox_unbind_sock() have been invoked already and the condition check
+"!(sk->sk_state & PPPOX_DEAD)" of this sock must be false in pptp_sock_destruct.
 
-I would think so. I have tried to pursue the publication in that direction
-but it morphed into the optimization guide instead. Once it got into some
-open doc i stopped pushing.. but will continue to get this into erratum. i do
-agree that's the right place holder for this.
+So we could remove these statements in pptp_sock_destruct, and then restore
+the synchronize_rcu() into del_chan.
 
->   
->   - If so, is there a pointer to that as well?
->   
->   - If this is not considered an erratum, can you provide any guidance
->     about how an OS should determine when it should use RO?
+Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+---
+ drivers/net/ppp/pptp.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-The optimization guide states that it only applies to transactions targetting
-system memory. For peer-2-peer RO is allowed and has perf upside.
-
-As Casey pointed out in an earlier thread, we choose the heavy hammer approach
-because there are some that can lead to data-corruption as opposed to perf
-degradation. 
-
-This looks ugly, but maybe we can have 2 flags. one that indicates its a strict
-no-no, and one that says no to system memory only. That way driver can
-determine when the device would turn the hint on in the TLP.
-
->     
-> Relying on a list of device IDs in an optimization manual is OK for an
-> erratum, but if it's *not* an erratum, it seems like a hole in the
-
-Good point.. for this specific case its really an erratum, but for some
-reason they made the decision to use this doc vs. the generic errata
-data-sheet that would have been the preferred way to document.
-
-> specs because as far as I know there's no generic way for the OS to
-> discover whether to use RO.
-> 
-
-Cheers,
-Ashok
+diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+index 6dde9a0..8632e1a 100644
+--- a/drivers/net/ppp/pptp.c
++++ b/drivers/net/ppp/pptp.c
+@@ -131,6 +131,7 @@ static void del_chan(struct pppox_sock *sock)
+ 	clear_bit(sock->proto.pptp.src_addr.call_id, callid_bitmap);
+ 	RCU_INIT_POINTER(callid_sock[sock->proto.pptp.src_addr.call_id], NULL);
+ 	spin_unlock(&chan_lock);
++	synchronize_rcu();
+ }
+ 
+ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+@@ -519,7 +520,6 @@ static int pptp_release(struct socket *sock)
+ 
+ 	po = pppox_sk(sk);
+ 	del_chan(po);
+-	synchronize_rcu();
+ 
+ 	pppox_unbind_sock(sk);
+ 	sk->sk_state = PPPOX_DEAD;
+@@ -535,10 +535,6 @@ static int pptp_release(struct socket *sock)
+ 
+ static void pptp_sock_destruct(struct sock *sk)
+ {
+-	if (!(sk->sk_state & PPPOX_DEAD)) {
+-		del_chan(pppox_sk(sk));
+-		pppox_unbind_sock(sk);
+-	}
+ 	skb_queue_purge(&sk->sk_receive_queue);
+ }
+ 
+-- 
+1.9.1
