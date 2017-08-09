@@ -1,130 +1,93 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: ipv6: avoid overhead when no custom
- FIB rules are installed
-Date: Tue, 08 Aug 2017 21:40:23 -0700 (PDT)
-Message-ID: <20170808.214023.1367570931294936647.davem@davemloft.net>
-References: <66e3d00a-6788-2e86-9563-fc1424a6a250@gmail.com>
-        <20170808182349.4987-1-vincent@bernat.im>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: panic at sock_zerocopy_put when I ssh into a VM
+Date: Tue, 8 Aug 2017 21:48:24 -0700
+Message-ID: <CAF=yD-J8JMyVq3Qt2n+L-EmpxacJ=mD7-KdsjgO3YB3LAzbKMQ@mail.gmail.com>
+References: <9ea97b60-7416-bdb2-e167-8fcc8c11b1cc@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, jiri@mellanox.com,
-        netdev@vger.kernel.org, dsa@cumulusnetworks.com
-To: vincent@bernat.im
+Content-Type: text/plain; charset="UTF-8"
+Cc: Willem de Bruijn <willemb@google.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60612 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750830AbdHIEkY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 00:40:24 -0400
-In-Reply-To: <20170808182349.4987-1-vincent@bernat.im>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:35627 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752127AbdHIEtF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 00:49:05 -0400
+Received: by mail-oi0-f68.google.com with SMTP id q70so4764020oic.2
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2017 21:49:05 -0700 (PDT)
+In-Reply-To: <9ea97b60-7416-bdb2-e167-8fcc8c11b1cc@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVmluY2VudCBCZXJuYXQgPHZpbmNlbnRAYmVybmF0LmltPg0KRGF0ZTogVHVlLCAgOCBB
-dWcgMjAxNyAyMDoyMzo0OSArMDIwMA0KDQo+IElmIHRoZSB1c2VyIGhhc24ndCBpbnN0YWxsZWQg
-YW55IGN1c3RvbSBydWxlcywgZG9uJ3QgZ28gdGhyb3VnaCB0aGUNCj4gd2hvbGUgRklCIHJ1bGVz
-IGxheWVyLiBUaGlzIGlzIHByZXR0eSBzaW1pbGFyIHRvIGY0NTMwZmE1NzRkZiAoaXB2NDoNCj4g
-QXZvaWQgb3ZlcmhlYWQgd2hlbiBubyBjdXN0b20gRklCIHJ1bGVzIGFyZSBpbnN0YWxsZWQpLg0K
-PiANCj4gVXNpbmcgYSBtaWNyby1iZW5jaG1hcmsgbW9kdWxlIFsxXSwgdGltaW5nIGlwNl9yb3V0
-ZV9vdXRwdXQoKSB3aXRoDQo+IGdldF9jeWNsZXMoKSwgd2l0aCA0MCwwMDAgcm91dGVzIGluIHRo
-ZSBtYWluIHJvdXRpbmcgdGFibGUsIGJlZm9yZSB0aGlzDQo+IHBhdGNoOg0KPiANCj4gICAgIG1p
-bj02MDYgbWF4PTEyOTExIGNvdW50PTYyNyBhdmVyYWdlPTE5NTkgOTV0aD00OTAzIDkwdGg9Mzc0
-NyA1MHRoPTE2MDIgbWFkPTgyMQ0KPiAgICAgdGFibGU9MjU0IGF2Z2RlcHRoPTIxLjggbWF4ZGVw
-dGg9MzkNCj4gICAgIHZhbHVlIOKUgiAgICAgICAgICAgICAgICAgICAgICAgICDilIogICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgY291bnQNCj4gICAgICAgNjAwIOKUguKWkuKWkuKWkuKWkuKW
-kuKWkuKWkuKWkuKWkuKWkuKWkuKWkuKWkuKWkuKWkiAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgMTk5DQo+ICAgICAgIDg4MCDilILilpLilpLilpLilpHilpHilpHilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpEgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIDQzDQo+ICAgICAgMTE2MCDilILilpLilpLilpLilpHilpHilpHilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpEgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgNDgNCj4gICAgICAxNDQwIOKUguKWkuKWkuKWkuKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA0Mw0KPiAgICAgIDE3MjAg4pSC
-4paS4paS4paS4paS4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paRICAgICAgICAgICAgICAgICAgICAg
-ICAgICA1OQ0KPiAgICAgIDIwMDAg4pSC4paS4paS4paS4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paRICAgICAgICAgICAgICAgICAgICAgIDUwDQo+ICAgICAgMjI4MCDilILi
-lpLilpLilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpEgICAg
-ICAgICAgICAgICAgICAgIDI2DQo+ICAgICAgMjU2MCDilILilpLilpLilpHilpHilpHilpHilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpEgICAgICAgICAgICAgICAgICAz
-MQ0KPiAgICAgIDI4NDAg4pSC4paS4paS4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paRICAgICAgICAgICAgICAgMjgNCj4gICAgICAz
-MTIwIOKUguKWkuKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkSAgICAgICAgICAgICAgMTcNCj4gICAgICAzNDAwIOKUguKW
-kuKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkSAgICAgICAgICAgICAxNw0KPiAgICAgIDM2ODAg4pSC4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paRICAgICAgICAgICAgIDgNCj4gICAgICAzOTYwIOKUguKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkSAgICAgICAgICAgMTENCj4gICAgICA0MjQwIOKUguKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkSAgICAgICAgICAgIDYNCj4gICAgICA0NTIwIOKUguKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkSAgICAgICAgICAgNg0KPiAgICAgIDQ4MDAg4pSC4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paRICAgICAgICAgICA5DQo+IA0KPiBBZnRlcjoNCj4gDQo+ICAgICBtaW49NTQ0IG1heD0x
-MTY4NyBjb3VudD02MjcgYXZlcmFnZT0xNzc2IDk1dGg9NDU0NiA5MHRoPTM1ODUgNTB0aD0xMjI3
-IG1hZD01NjUNCj4gICAgIHRhYmxlPTI1NCBhdmdkZXB0aD0yMS44IG1heGRlcHRoPTM5DQo+ICAg
-ICB2YWx1ZSDilIIgICAgICAgICAgICAgICAgICAgICAgICAg4pSKICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIGNvdW50DQo+ICAgICAgIDU0MCDilILilpLilpLilpLilpLilpLilpLilpLilpLi
-lpLilpLilpLilpLilpLilpLilpLilpIgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgMjAxDQo+ICAgICAgIDgwMCDilILilpLilpLilpLilpLilpLilpHilpHilpHilpHilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpEgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICA2Mw0KPiAgICAgIDEwNjAg4pSC4paS4paS4paS4paS4paS4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paRICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIDY4DQo+ICAgICAgMTMyMCDilILilpLilpLilpLilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHi
-lpHilpHilpHilpHilpHilpEgICAgICAgICAgICAgICAgICAgICAgICAgICAgMzkNCj4gICAgICAx
-NTgwIOKUguKWkuKWkuKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkSAgICAgICAgICAg
-ICAgICAgICAgICAgICAzMg0KPiAgICAgIDE4NDAg4pSC4paS4paS4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paRICAgICAgICAgICAgICAgICAgICAgICAzMg0KPiAgICAgIDIx
-MDAg4pSC4paS4paS4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paRICAgICAgICAgICAgICAgICAgICAzNA0KPiAgICAgIDIzNjAg4pSC4paS4paS4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paRICAgICAgICAg
-ICAgICAgICAzMw0KPiAgICAgIDI2MjAg4pSC4paS4paS4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paRICAgICAgICAgICAgICAgMjYN
-Cj4gICAgICAyODgwIOKUguKWkuKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkSAgICAgICAgICAgICAgMjINCj4gICAgICAz
-MTQwIOKUguKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkSAgICAgICAgICAgICAgOQ0KPiAgICAgIDM0MDAg4pSC
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR4paR
-4paR4paR4paR4paR4paR4paR4paRICAgICAgICAgICAgIDgNCj4gICAgICAzNjYwIOKUguKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkSAgICAgICAgICAgICA5DQo+ICAgICAgMzkyMCDilILilpHilpHilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHi
-lpHilpHilpHilpHilpEgICAgICAgICAgICA4DQo+ICAgICAgNDE4MCDilILilpHilpHilpHilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHi
-lpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHilpHi
-lpHilpHilpHilpHilpEgICAgICAgICAgIDgNCj4gICAgICA0NDQwIOKUguKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKWkeKW
-keKWkeKWkeKWkeKWkSAgICAgICAgICAgOA0KPiANCj4gQXQgdGhlIGZyZXF1ZW5jeSBvZiB0aGUg
-aG9zdCBkdXJpbmcgdGhlIGJlbmNoICh+IDMuNyBHSHopLCB0aGlzIGlzDQo+IGFib3V0IGEgMTAw
-IG5zIGRpZmZlcmVuY2Ugb24gdGhlIG1lZGlhbiB2YWx1ZS4NCj4gDQo+IEEgbmV4dCBzdGVwIHdv
-dWxkIGJlIHRvIGNvbGxhcHNlIGxvY2FsIGFuZCBtYWluIHRhYmxlcywgYXMgaW4NCj4gMGRkY2Y0
-M2Q1ZDRhIChpcHY0OiBGSUIgTG9jYWwvTUFJTiB0YWJsZSBjb2xsYXBzZSkuDQo+IA0KPiBbMV06
-IGh0dHBzOi8vZ2l0aHViLmNvbS92aW5jZW50YmVybmF0L25ldHdvcmstbGFiL2Jsb2IvbWFzdGVy
-L2xhYi1yb3V0ZXMtaXB2Ni9rYmVuY2hfbW9kLmMNCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFZpbmNl
-bnQgQmVybmF0IDx2aW5jZW50QGJlcm5hdC5pbT4NCj4gUmV2aWV3ZWQtYnk6IEppcmkgUGlya28g
-PGppcmlAbWVsbGFub3guY29tPg0KDQpMb29rcyBncmVhdCwgYXBwbGllZCwgdGhhbmtzIQ0K
+Thanks for the report, David, and sorry for the breakage.
+
+I am not able to reproduce the issue with my qemu setup with vhost-net
+with experimental_zcopytx so far.
+
+But looking at the code from that codepath point of view, I do see
+that there are incorrect assumptions on ubuf_info fields being
+initialized anytime skb_zcopy(skb) is true, that are not true for the
+legacy zerocopy case.
+
+Specifically, uarg->mmp and uarg->zerocopy are only valid for
+msg_zerocopy. The first can conceivably result in dereferencing
+a garbage pointer if an ubuf_info from vhost is passed that does
+not have this field properly initialized.
+
+I will take a deeper look. As a first attempt, the following may fix
+the issue for this vhost case (only):
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index ba08b78ed630..e1e96d97de71 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -253,7 +253,7 @@ static int vhost_net_set_ubuf_info(struct vhost_net *n)
+                zcopy = vhost_net_zcopy_mask & (0x1 << i);
+                if (!zcopy)
+                        continue;
+-               n->vqs[i].ubuf_info = kmalloc(sizeof(*n->vqs[i].ubuf_info) *
++               n->vqs[i].ubuf_info = kzalloc(sizeof(*n->vqs[i].ubuf_info) *
+                                              UIO_MAXIOV, GFP_KERNEL);
+                if  (!n->vqs[i].ubuf_info)
+                        goto err;
+
+Less critical is correctly returning whether the operation completed
+without resorting to copying. Boolean uarg->zerocopy is undefined.
+This should not cause a kernel panic, as the vhost driver must handle
+both cases safely.
+
+Only msg_zerocopy sets bot SKBTX_ZEROCOPY_FRAG and
+SKBTX_DEV_ZEROCOPY, which is one way to identify this
+special case.
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 8c0708d2e5e6..7fb8b11ba8f6 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1273,7 +1273,10 @@ static inline void skb_zcopy_clear(struct
+sk_buff *skb, bool zerocopy)
+        struct ubuf_info *uarg = skb_zcopy(skb);
+
+        if (uarg) {
+-               uarg->zerocopy = uarg->zerocopy && zerocopy;
++               if (skb_shinfo(skb)->tx_flags & SKBTX_SHARED_FRAG)
++                       uarg->zerocopy = uarg->zerocopy && zerocopy;
++               else
++                       uarg->zerocopy = zerocopy;
+                sock_zerocopy_put(uarg);
+                skb_shinfo(skb)->tx_flags &= ~SKBTX_ZEROCOPY_FRAG;
+        }
+
+
+
+
+On Tue, Aug 8, 2017 at 6:14 PM, David Ahern <dsahern@gmail.com> wrote:
+> Willem:
+>
+> I updated my host server this morning to top of net-next -- commit
+> 53b948356554. I am not doing anything fancy or intentionally using the
+> zerocopy code. I launch a VM with vhost and attempt to login via ssh.
+> Doing that triggers a panic in the host at sock_zerocopy_put. The
+> attached is a snapshot of the console -- best I can get for the stack trace.
+>
+> David
