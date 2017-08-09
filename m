@@ -1,48 +1,38 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH 4/4] net-next: dsa: fix flow dissection
-Date: Wed, 9 Aug 2017 15:55:08 +0200
-Message-ID: <20170809135508.GF30723@lunn.ch>
-References: <20170809124119.24320-1-john@phrozen.org>
- <20170809124119.24320-5-john@phrozen.org>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH v2 iproute2] lib: Dump ext-ack string by default
+Date: Wed, 9 Aug 2017 08:03:24 -0600
+Message-ID: <602fa731-bc27-9748-2b7a-48274be529d9@gmail.com>
+References: <1502202614-389-1-git-send-email-dsahern@gmail.com>
+ <9bc620b6-cd6e-a65e-7079-bb4d757312c4@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Muciri Gatimu <muciri-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>,
- Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- Shashidhar Lakkavalli <shashidhar.lakkavalli-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>,
- "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170809124119.24320-5-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Girish Moodalbail <girish.moodalbail@oracle.com>,
+        netdev@vger.kernel.org, stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:36291 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752461AbdHIODY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 10:03:24 -0400
+Received: by mail-pg0-f54.google.com with SMTP id v77so28439506pgb.3
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 07:03:24 -0700 (PDT)
+In-Reply-To: <9bc620b6-cd6e-a65e-7079-bb4d757312c4@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 09, 2017 at 02:41:19PM +0200, John Crispin wrote:
-> RPS and probably other kernel features are currently broken on some if not
-> all DSA devices. The root cause of this is that skb_hash will call the
-> flow_dissector. At this point the skb still contains the magic switch
-> header and the skb->protocol field is not set up to the correct 802.3
-> value yet. By the time the tag specific code is called, removing the header
-> and properly setting the protocol an invalid hash is already set. In the
-> case of the mt7530 this will result in all flows always having the same
-> hash.
+On 8/9/17 1:38 AM, Girish Moodalbail wrote:
+>> @@ -99,7 +95,16 @@ static int nl_dump_ext_err(const struct nlmsghdr
+>> *nlh, nl_ext_ack_fn_t errfn)
+>>               err_nlh = &err->msg;
+>>       }
+>>   -    return errfn(errmsg, off, err_nlh);
+>> +    if (errfn)
+>> +        return errfn(errmsg, off, err_nlh);
+>> +
+>> +    if (errmsg) {
+>> +        fprintf(stderr, "Error: %s\n", errmsg);
 > 
-> Signed-off-by: Muciri Gatimu <muciri-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Shashidhar Lakkavalli <shashidhar.lakkavalli-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+> Should the above output end with a period '.'? All the error messages in
+> the Kernel are statements without a terminating period, so the output
 
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-
-    Andrew
+no guarantee of that, but iproute2 could check for it and add it.
