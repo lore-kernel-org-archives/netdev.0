@@ -1,106 +1,98 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
 Subject: Re: [PATCH v9 2/4] PCI: Disable PCIe Relaxed Ordering if unsupported
-Date: Wed, 9 Aug 2017 21:23:58 +0800
-Message-ID: <a016e598-bcda-32bc-bfb1-4862550e6794@huawei.com>
+Date: Wed, 9 Aug 2017 21:42:48 +0800
+Message-ID: <6a5b848d-1647-aa03-6af2-015b3a379adb@huawei.com>
 References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
  <1501917313-9812-3-git-send-email-dingtianhong@huawei.com>
  <20170809022239.GP16580@bhelgaas-glaptop.roam.corp.google.com>
+ <20170809032503.GB7191@bhelgaas-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <leedom@chelsio.com>, <ashok.raj@intel.com>, <bhelgaas@google.com>,
-        <werner@chelsio.com>, <ganeshgr@chelsio.com>,
-        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
-        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
-        <l.stach@pengutronix.de>, <amira@mellanox.com>,
-        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
-        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
-        <will.deacon@arm.com>, <mark.rutland@arm.com>,
-        <robin.murphy@arm.com>, <davem@davemloft.net>,
-        <alexander.duyck@gmail.com>,
-        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linuxarm@huawei.com>
+Cc: <mark.rutland@arm.com>, <gabriele.paoloni@huawei.com>,
+        <asit.k.mallick@intel.com>, <catalin.marinas@arm.com>,
+        <will.deacon@arm.com>, <linuxarm@huawei.com>,
+        <alexander.duyck@gmail.com>, <ashok.raj@intel.com>,
+        <jeffrey.t.kirsher@intel.com>, <linux-pci@vger.kernel.org>,
+        <ganeshgr@chelsio.com>, <Bob.Shaw@amd.com>, <leedom@chelsio.com>,
+        <patrick.j.cramer@intel.com>, <bhelgaas@google.com>,
+        <werner@chelsio.com>, <linux-arm-kernel@lists.infradead.org>,
+        <amira@mellanox.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <David.Laight@aculab.com>,
+        <Suravee.Suthikulpanit@amd.com>, <robin.murphy@arm.com>,
+        <davem@davemloft.net>, <l.stach@pengutronix.de>
 To: Bjorn Helgaas <helgaas@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170809022239.GP16580@bhelgaas-glaptop.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20170809032503.GB7191@bhelgaas-glaptop.roam.corp.google.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Bjorn:
+On 2017/8/9 11:25, Bjorn Helgaas wrote:
+> On Tue, Aug 08, 2017 at 09:22:39PM -0500, Bjorn Helgaas wrote:
+>> On Sat, Aug 05, 2017 at 03:15:11PM +0800, Ding Tianhong wrote:
+>>> When bit4 is set in the PCIe Device Control register, it indicates
 
-On 2017/8/9 10:22, Bjorn Helgaas wrote:
-> On Sat, Aug 05, 2017 at 03:15:11PM +0800, Ding Tianhong wrote:
->> When bit4 is set in the PCIe Device Control register, it indicates
->> whether the device is permitted to use relaxed ordering.
->> On some platforms using relaxed ordering can have performance issues or
->> due to erratum can cause data-corruption. In such cases devices must avoid
->> using relaxed ordering.
->>
->> This patch checks if there is any node in the hierarchy that indicates that
->> using relaxed ordering is not safe. 
+> After looking at the driver, I wonder if it would be simpler like
+> this:
 > 
-> I think you only check the devices between the root port and the
-> target device.  For example, you don't check siblings or cousins of
-> the target device.
+>   int pcie_relaxed_ordering_enabled(struct pci_dev *dev)
+>   {
+>     u16 ctl;
 > 
-
-OK, update the description.
-
->> In such cases the patch turns off the
->> relaxed ordering by clearing the eapability for this device.
+>     pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &ctl);
+>     return ctl & PCI_EXP_DEVCTL_RELAX_EN;
+>   }
+>   EXPORT_SYMBOL(pcie_relaxed_ordering_enabled);
 > 
-> s/eapability/capability/
+>   static void pci_configure_relaxed_ordering(struct pci_dev *dev)
+>   {
+>     struct pci_dev *root;
 > 
->> And if the
->> device is probably running in a guest machine, we should do nothing.
+>     if (dev->is_virtfn)
+>       return;  /* PCI_EXP_DEVCTL_RELAX_EN is RsvdP in VFs */
 > 
-> I don't know what this sentence means.  "Probably running in a guest
-> machine" doesn't really make sense, and there's nothing in your patch
-> that explicitly checks for being in a guest machine.
+>     if (!pcie_relaxed_ordering_enabled(dev))
+>       return;
 > 
-
-Alex noticed that we should do nothing if in the virtual machine because
-the Root Complex is NULL at that time, so I think this word should be more
-clearly here.
-
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> Acked-by: Ashok Raj <ashok.raj@intel.com>
->> ---
->>  drivers/pci/pci.c   | 29 +++++++++++++++++++++++++++++
->>  drivers/pci/probe.c | 37 +++++++++++++++++++++++++++++++++++++
->>  include/linux/pci.h |  2 ++
->>  3 files changed, 68 insertions(+)
->>
->> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
->> index af0cc34..4f9d7c1 100644
->> --- a/drivers/pci/pci.c
->> +++ b/drivers/pci/pci.c
->> @@ -4854,6 +4854,35 @@ int pcie_set_mps(struct pci_dev *dev, int mps)
->>  EXPORT_SYMBOL(pcie_set_mps);
->>  
->>  /**
->> + * pcie_clear_relaxed_ordering - clear PCI Express relaxed ordering bit
->> + * @dev: PCI device to query
->> + *
->> + * If possible clear relaxed ordering
+>     /*
+>      * For now, we only deal with Relaxed Ordering issues with Root
+>      * Ports.  Peer-to-peer DMA is another can of worms.
+>      */
+>     root = pci_find_pcie_root_port(dev);
+>     if (!root)
+>       return;
 > 
-> Why "If possible"?  The bit is required to be RW or hardwired to zero,
-> so PCI_EXP_DEVCTL_RELAX_EN should *always* be zero when this returns.
+>     if (root->relaxed_ordering_broken)
+>       pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
+>                                  PCI_EXP_DEVCTL_RELAX_EN);
+>   }
+> 
+> This doesn't check every intervening switch, but I don't think we know
+> about any issues except with root ports.
 > 
 
-OK
+Yes
 
->> + */
->> +int pcie_clear_relaxed_ordering(struct pci_dev *dev)
->> +{
-...
->>
->> _______________________________________________
->> linux-arm-kernel mailing list
->> linux-arm-kernel@lists.infradead.org
->> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> And the driver could do:
+> 
+>   if (!pcie_relaxed_ordering_enabled(pdev))
+>     adapter->flags |= ROOT_NO_RELAXED_ORDERING;
+> 
+> The driver code wouldn't show anything about coherent memory vs.
+> peer-to-peer, but we really don't have a clue about how to handle that
+> yet anyway.
+> 
+> I guess this is back to exactly what you proposed, except that I
+> changed the name of pcie_relaxed_ordering_supported() to
+> pcie_relaxed_ordering_enabled(), which I think is slightly more
+> specific from the device's point of view.
+> 
+
+OK, looks like we reach a consensus finally, I will follow your new opinion and resend, thanks.
+
+Ding
+
+> Bjorn
 > 
 > .
 > 
