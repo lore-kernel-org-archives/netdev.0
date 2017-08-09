@@ -1,10 +1,10 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH v2 08/20] p54: constify usb_device_id
-Date: Wed,  9 Aug 2017 21:56:43 +0530
-Message-ID: <1502296003-21197-1-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: [PATCH v2 09/20] libertas: constify usb_device_id
+Date: Wed,  9 Aug 2017 21:57:28 +0530
+Message-ID: <1502296049-21253-1-git-send-email-arvind.yadav.cs@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
         linux-wireless@vger.kernel.org
-To: kvalo@codeaurora.org, chunkeey@googlemail.com
+To: kvalo@codeaurora.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -18,21 +18,21 @@ Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 changes in v2:
               Re-submitting wireless separately.
 
- drivers/net/wireless/intersil/p54/p54usb.c | 2 +-
+ drivers/net/wireless/marvell/libertas/if_usb.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/intersil/p54/p54usb.c b/drivers/net/wireless/intersil/p54/p54usb.c
-index 043bd1c..b0b86f7 100644
---- a/drivers/net/wireless/intersil/p54/p54usb.c
-+++ b/drivers/net/wireless/intersil/p54/p54usb.c
-@@ -41,7 +41,7 @@ MODULE_FIRMWARE("isl3887usb");
-  * whenever you add a new device.
-  */
+diff --git a/drivers/net/wireless/marvell/libertas/if_usb.c b/drivers/net/wireless/marvell/libertas/if_usb.c
+index e53025e..16e54c7 100644
+--- a/drivers/net/wireless/marvell/libertas/if_usb.c
++++ b/drivers/net/wireless/marvell/libertas/if_usb.c
+@@ -52,7 +52,7 @@ static const struct lbs_fw_table fw_table[] = {
+ 	{ MODEL_8682, "libertas/usb8682.bin", NULL }
+ };
  
--static struct usb_device_id p54u_table[] = {
-+static const struct usb_device_id p54u_table[] = {
- 	/* Version 1 devices (pci chip + net2280) */
- 	{USB_DEVICE(0x0411, 0x0050)},	/* Buffalo WLI2-USB2-G54 */
- 	{USB_DEVICE(0x045e, 0x00c2)},	/* Microsoft MN-710 */
+-static struct usb_device_id if_usb_table[] = {
++static const struct usb_device_id if_usb_table[] = {
+ 	/* Enter the device signature inside */
+ 	{ USB_DEVICE(0x1286, 0x2001), .driver_info = MODEL_8388 },
+ 	{ USB_DEVICE(0x05a3, 0x8388), .driver_info = MODEL_8388 },
 -- 
 2.7.4
