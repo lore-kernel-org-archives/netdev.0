@@ -1,42 +1,35 @@
-From: "Ozio, Noelle K (OZIONK15)" <OZIONK15@juniata.edu>
-Subject: RE:
-Date: Wed, 9 Aug 2017 16:12:05 +0000
-Message-ID: <CBDDD7D6C77EEE43BECE3A85947BE9DB0D6CAD88@Michael.juniata.edu>
-References: <CBDDD7D6C77EEE43BECE3A85947BE9DB0D6CA321@Michael.juniata.edu>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v3 iproute2] lib: Dump ext-ack string by default
+Date: Wed, 9 Aug 2017 09:15:09 -0700
+Message-ID: <20170809091509.0b14953c@xeon-e3>
+References: <1502293407-4152-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: "Ozio, Noelle K (OZIONK15)" <OZIONK15@juniata.edu>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01hn0214.outbound.protection.outlook.com ([104.47.34.214]:45235
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752642AbdHIQMN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 9 Aug 2017 12:12:13 -0400
-In-Reply-To: <CBDDD7D6C77EEE43BECE3A85947BE9DB0D6CA321@Michael.juniata.edu>
-Content-Language: en-US
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:33132 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752544AbdHIQPS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 12:15:18 -0400
+Received: by mail-pg0-f52.google.com with SMTP id u5so29957776pgn.0
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 09:15:18 -0700 (PDT)
+In-Reply-To: <1502293407-4152-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-________________________________
-From: Ozio, Noelle K (OZIONK15)
-Sent: Wednesday, August 09, 2017 11:51 AM
-To: Ozio, Noelle K (OZIONK15)
-Subject:
+On Wed,  9 Aug 2017 08:43:27 -0700
+David Ahern <dsahern@gmail.com> wrote:
 
-Dear Email User.
+> In time, errfn can be implemented for link, route, etc commands to
+> give a much more detailed response (e.g., point to the attribute
+> that failed). Doing so is much more complicated to process the
+> message and convert attribute ids to names.
+> 
+> In any case the error string returned by the kernel should be dumped
+> to the user, so make that happen now.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-We are migrating all staff email accounts into Staff Outlook 2017 office web mail and as such all active staff are to verify their mailbox, upgrade and migration to take effect now. This is done to improve the security and efficiency due to recent spam mails received.
-
-Please all Staff Click HERE Switch to Outlook Webmail 2017 for Staff<http://sitesumo.com/Surveyor>
-
-Note that, circulating this switching to Outlook is for all email service in this domain and if not done, we will start deactivating and deleting unverified and inactive email accounts without any further notice that did not migrate in the next 24 hours.
-KINDLY DO AS ADVISED ABOVE.
-
-Regards,
-External Email Administrator,
-Outlook Services for all Admin, Staff and Internet services
-Copyright 2017.
-
-
-CONFIDENTIALITY NOTICE: The materials in this electronic mail transmission (including all attachments) are private and confidential and are the property of the sender. The information contained in the material is privileged and is intended only for the use of the named addressee(s). If you are not the intended addressee, be advised that any unauthorized disclosure, copying, distribution or the taking of any action in reliance on the contents of this material is strictly prohibited. If you have received this e-mail in error, please immediately notify the sender by replying to the e-mail, and then destroy it immediately. Thank you.
+Applied
