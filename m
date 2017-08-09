@@ -1,114 +1,64 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 3/9] bpf, arm64: implement jiting of BPF_J{LT,LE,SLT,SLE}
-Date: Thu, 10 Aug 2017 01:39:57 +0200
-Message-ID: <48f30467f8543679708b031f7ed018c4ed6be0d5.1502320623.git.daniel@iogearbox.net>
-References: <cover.1502320623.git.daniel@iogearbox.net>
-Cc: ast@fb.com, holzheu@linux.vnet.ibm.com,
-        naveen.n.rao@linux.vnet.ibm.com, jakub.kicinski@netronome.com,
-        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35690 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752232AbdHIXkO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 19:40:14 -0400
-In-Reply-To: <cover.1502320623.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1502320623.git.daniel@iogearbox.net>
-References: <cover.1502320623.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
+ count = 1
+Date: Wed, 9 Aug 2017 16:44:26 -0700
+Message-ID: <CALAqxLXv60ReJu26omM6p=ZboEm-Z-3w+q0JcxLXDqqK5ohNoQ@mail.gmail.com>
+References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
+ <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com> <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: lkml <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux USB List <linux-usb@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>,
+        Wei Wang <weiwan@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This work implements jiting of BPF_J{LT,LE,SLT,SLE} instructions
-with BPF_X/BPF_K variants for the arm64 eBPF JIT.
+On Wed, Aug 9, 2017 at 4:34 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> (Cc'ing Wei whose commit was blamed)
+>
+> On Mon, Aug 7, 2017 at 2:15 PM, John Stultz <john.stultz@linaro.org> wrote:
+>> On Mon, Aug 7, 2017 at 2:05 PM, John Stultz <john.stultz@linaro.org> wrote:
+>>> So, with recent testing with my HiKey board, I've been noticing some
+>>> quirky behavior with my USB eth adapter.
+>>>
+>>> Basically, pluging the usb eth adapter in and then removing it, when
+>>> plugging it back in I often find that its not detected, and the system
+>>> slowly spits out the following message over and over:
+>>>   unregister_netdevice: waiting for eth0 to become free. Usage count = 1
+>>
+>> The other bit is that after this starts printing, the board will no
+>> longer reboot (it hangs continuing to occasionally print the above
+>> message), and I have to manually reset the device.
+>>
+>
+> So this warning is not temporarily shown but lasts until a reboot,
+> right? If so it is a dst refcnt leak.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- arch/arm64/net/bpf_jit.h      |  4 ++++
- arch/arm64/net/bpf_jit_comp.c | 20 ++++++++++++++++++++
- 2 files changed, 24 insertions(+)
+Correct, once I get into the state it lasts until a reboot.
 
-diff --git a/arch/arm64/net/bpf_jit.h b/arch/arm64/net/bpf_jit.h
-index b02a926..783de51 100644
---- a/arch/arm64/net/bpf_jit.h
-+++ b/arch/arm64/net/bpf_jit.h
-@@ -44,8 +44,12 @@
- #define A64_COND_NE	AARCH64_INSN_COND_NE /* != */
- #define A64_COND_CS	AARCH64_INSN_COND_CS /* unsigned >= */
- #define A64_COND_HI	AARCH64_INSN_COND_HI /* unsigned > */
-+#define A64_COND_LS	AARCH64_INSN_COND_LS /* unsigned <= */
-+#define A64_COND_CC	AARCH64_INSN_COND_CC /* unsigned < */
- #define A64_COND_GE	AARCH64_INSN_COND_GE /* signed >= */
- #define A64_COND_GT	AARCH64_INSN_COND_GT /* signed > */
-+#define A64_COND_LE	AARCH64_INSN_COND_LE /* signed <= */
-+#define A64_COND_LT	AARCH64_INSN_COND_LT /* signed < */
- #define A64_B_(cond, imm19) A64_COND_BRANCH(cond, (imm19) << 2)
- 
- /* Unconditional branch (immediate) */
-diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-index f32144b..ba38d40 100644
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@ -527,10 +527,14 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
- 	/* IF (dst COND src) JUMP off */
- 	case BPF_JMP | BPF_JEQ | BPF_X:
- 	case BPF_JMP | BPF_JGT | BPF_X:
-+	case BPF_JMP | BPF_JLT | BPF_X:
- 	case BPF_JMP | BPF_JGE | BPF_X:
-+	case BPF_JMP | BPF_JLE | BPF_X:
- 	case BPF_JMP | BPF_JNE | BPF_X:
- 	case BPF_JMP | BPF_JSGT | BPF_X:
-+	case BPF_JMP | BPF_JSLT | BPF_X:
- 	case BPF_JMP | BPF_JSGE | BPF_X:
-+	case BPF_JMP | BPF_JSLE | BPF_X:
- 		emit(A64_CMP(1, dst, src), ctx);
- emit_cond_jmp:
- 		jmp_offset = bpf2a64_offset(i + off, i, ctx);
-@@ -542,9 +546,15 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
- 		case BPF_JGT:
- 			jmp_cond = A64_COND_HI;
- 			break;
-+		case BPF_JLT:
-+			jmp_cond = A64_COND_CC;
-+			break;
- 		case BPF_JGE:
- 			jmp_cond = A64_COND_CS;
- 			break;
-+		case BPF_JLE:
-+			jmp_cond = A64_COND_LS;
-+			break;
- 		case BPF_JSET:
- 		case BPF_JNE:
- 			jmp_cond = A64_COND_NE;
-@@ -552,9 +562,15 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
- 		case BPF_JSGT:
- 			jmp_cond = A64_COND_GT;
- 			break;
-+		case BPF_JSLT:
-+			jmp_cond = A64_COND_LT;
-+			break;
- 		case BPF_JSGE:
- 			jmp_cond = A64_COND_GE;
- 			break;
-+		case BPF_JSLE:
-+			jmp_cond = A64_COND_LE;
-+			break;
- 		default:
- 			return -EFAULT;
- 		}
-@@ -566,10 +582,14 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
- 	/* IF (dst COND imm) JUMP off */
- 	case BPF_JMP | BPF_JEQ | BPF_K:
- 	case BPF_JMP | BPF_JGT | BPF_K:
-+	case BPF_JMP | BPF_JLT | BPF_K:
- 	case BPF_JMP | BPF_JGE | BPF_K:
-+	case BPF_JMP | BPF_JLE | BPF_K:
- 	case BPF_JMP | BPF_JNE | BPF_K:
- 	case BPF_JMP | BPF_JSGT | BPF_K:
-+	case BPF_JMP | BPF_JSLT | BPF_K:
- 	case BPF_JMP | BPF_JSGE | BPF_K:
-+	case BPF_JMP | BPF_JSLE | BPF_K:
- 		emit_a64_mov_i(1, tmp, imm, ctx);
- 		emit(A64_CMP(1, dst, tmp), ctx);
- 		goto emit_cond_jmp;
--- 
-1.9.3
+> How reproducible is it for you? From my reading, it seems always
+> reproduced when you unplug and plug your usb eth interface?
+> Is there anything else involved? For example, network namespace.
+
+So with 4.13-rc3/4 I seem to trigger it easily, often with the first
+unplug of the USB eth adapter.
+
+But as I get back closer to 4.12, it seemingly becomes harder to
+trigger, but sometimes still happens.
+
+So far, I've not been able to trigger it with 4.12.
+
+I don't think network namespaces are involved?  Though its out of my
+area, so AOSP may be using them these days.  Is there a simple way to
+check?
+
+I'll also do another bisection to see if the bad point moves back any further.
+
+thanks
+-john
