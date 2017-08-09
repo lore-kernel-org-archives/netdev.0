@@ -1,33 +1,106 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 3/3] net: rxrpc: Replace time_t type with time64_t type
-Date: Wed, 09 Aug 2017 14:26:45 +0100
-Message-ID: <11686.1502285205@warthog.procyon.org.uk>
-References: <CAK8P3a3L11rXAV8-hE1fNtAZyMBNnQneRm5g7F8VDmk7HjQV4A@mail.gmail.com> <cover.1502246501.git.baolin.wang@linaro.org> <8ac57c96bf5a0695ecc67fd230440b0b9d15740f.1502246502.git.baolin.wang@linaro.org> <CAK8P3a2WU5uYddGrkWhyfNB4qTEDYne_pyCVG6n5b1w+vb1-OQ@mail.gmail.com> <6767.1502271233@warthog.procyon.org.uk>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v9 2/4] PCI: Disable PCIe Relaxed Ordering if unsupported
+Date: Wed, 9 Aug 2017 21:23:58 +0800
+Message-ID: <a016e598-bcda-32bc-bfb1-4862550e6794@huawei.com>
+References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
+ <1501917313-9812-3-git-send-email-dingtianhong@huawei.com>
+ <20170809022239.GP16580@bhelgaas-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: dhowells@redhat.com, Baolin Wang <baolin.wang@linaro.org>,
-        David Miller <davem@davemloft.net>, james.l.morris@oracle.com,
-        "Serge E. Hallyn" <serge@hallyn.com>, marc.dionne@auristor.com,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Mark Brown <broonie@kernel.org>, keyrings@vger.kernel.org,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        LSM List <linux-security-module@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <leedom@chelsio.com>, <ashok.raj@intel.com>, <bhelgaas@google.com>,
+        <werner@chelsio.com>, <ganeshgr@chelsio.com>,
+        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
+        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
+        <l.stach@pengutronix.de>, <amira@mellanox.com>,
+        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
+        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
+        <will.deacon@arm.com>, <mark.rutland@arm.com>,
+        <robin.murphy@arm.com>, <davem@davemloft.net>,
+        <alexander.duyck@gmail.com>,
+        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linuxarm@huawei.com>
+To: Bjorn Helgaas <helgaas@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a3L11rXAV8-hE1fNtAZyMBNnQneRm5g7F8VDmk7HjQV4A@mail.gmail.com>
-Content-ID: <11685.1502285205.1@warthog.procyon.org.uk>
+In-Reply-To: <20170809022239.GP16580@bhelgaas-glaptop.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> wrote:
+Hi Bjorn:
 
-> Do you know which format is used in practice? Are both kad and k5 common
-> among rxrpc users?
+On 2017/8/9 10:22, Bjorn Helgaas wrote:
+> On Sat, Aug 05, 2017 at 03:15:11PM +0800, Ding Tianhong wrote:
+>> When bit4 is set in the PCIe Device Control register, it indicates
+>> whether the device is permitted to use relaxed ordering.
+>> On some platforms using relaxed ordering can have performance issues or
+>> due to erratum can cause data-corruption. In such cases devices must avoid
+>> using relaxed ordering.
+>>
+>> This patch checks if there is any node in the hierarchy that indicates that
+>> using relaxed ordering is not safe. 
+> 
+> I think you only check the devices between the root port and the
+> target device.  For example, you don't check siblings or cousins of
+> the target device.
+> 
 
-The aklog program I'm using uses the non-XDR interface to push a Kerberos 5
-ticket to the kernel, so it doesn't actually invoke rxrpc_preparse_xdr() from
-rxrpc_preparse().
+OK, update the description.
 
-David
+>> In such cases the patch turns off the
+>> relaxed ordering by clearing the eapability for this device.
+> 
+> s/eapability/capability/
+> 
+>> And if the
+>> device is probably running in a guest machine, we should do nothing.
+> 
+> I don't know what this sentence means.  "Probably running in a guest
+> machine" doesn't really make sense, and there's nothing in your patch
+> that explicitly checks for being in a guest machine.
+> 
+
+Alex noticed that we should do nothing if in the virtual machine because
+the Root Complex is NULL at that time, so I think this word should be more
+clearly here.
+
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> Acked-by: Ashok Raj <ashok.raj@intel.com>
+>> ---
+>>  drivers/pci/pci.c   | 29 +++++++++++++++++++++++++++++
+>>  drivers/pci/probe.c | 37 +++++++++++++++++++++++++++++++++++++
+>>  include/linux/pci.h |  2 ++
+>>  3 files changed, 68 insertions(+)
+>>
+>> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+>> index af0cc34..4f9d7c1 100644
+>> --- a/drivers/pci/pci.c
+>> +++ b/drivers/pci/pci.c
+>> @@ -4854,6 +4854,35 @@ int pcie_set_mps(struct pci_dev *dev, int mps)
+>>  EXPORT_SYMBOL(pcie_set_mps);
+>>  
+>>  /**
+>> + * pcie_clear_relaxed_ordering - clear PCI Express relaxed ordering bit
+>> + * @dev: PCI device to query
+>> + *
+>> + * If possible clear relaxed ordering
+> 
+> Why "If possible"?  The bit is required to be RW or hardwired to zero,
+> so PCI_EXP_DEVCTL_RELAX_EN should *always* be zero when this returns.
+> 
+
+OK
+
+>> + */
+>> +int pcie_clear_relaxed_ordering(struct pci_dev *dev)
+>> +{
+...
+>>
+>> _______________________________________________
+>> linux-arm-kernel mailing list
+>> linux-arm-kernel@lists.infradead.org
+>> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> 
+> .
+> 
