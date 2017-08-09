@@ -1,81 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] igmp: Fix regression caused by igmp sysctl namespace
- code.
-Date: Wed, 09 Aug 2017 00:06:09 -0700
-Message-ID: <1502262369.4936.1.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1502257975-32218-1-git-send-email-nborisov@suse.com>
+From: "Gao Feng" <gfree.wind@vip.163.com>
+Subject: Re:Re:Re: Re:Re: Re: [PATCH net] ppp: Fix a scheduling-while-atomic
+ bug in del_chan
+Date: Wed, 9 Aug 2017 15:17:22 +0800 (CST)
+Message-ID: <1abb4a1f.6499.15dc5dae314.Coremail.gfree.wind@vip.163.com>
+References: <1501495658-119725-1-git-send-email-gfree.wind@vip.163.com>
+ <CAM_iQpVEsTpg17RZ1Y1jN2e0wb_X6gtxx05rmUSGa=A=XSj=Eg@mail.gmail.com>
+ <CAM_iQpVta2EFVjutndCmoLBPWko7dgzP=Q1i2krPqyYuNBV4RA@mail.gmail.com>
+ <31c9755c.ff6.15dba5238fc.Coremail.gfree.wind@vip.163.com>
+ <CAM_iQpWmJmk=_yoV8=krOWonE_0orTC5Z4GaCnPg8Jv3GX6dmw@mail.gmail.com>
+ <697dbbd.7911.15dbf5ca3a6.Coremail.gfree.wind@vip.163.com>
+ <16ae6009.7a67.15dbf64b398.Coremail.gfree.wind@vip.163.com>
+ <CAM_iQpW8W24=2atSyStwKPYJ9zmOO5XiznktT3V_3qn00R7r=Q@mail.gmail.com>
+ <73e6ac77.45ea.15dc569d56a.Coremail.gfree.wind@vip.163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netdev@vger.kernel.org, "# 4 . 6" <stable@vger.kernel.org>
-To: Nikolay Borisov <nborisov@suse.com>
+Content-Type: text/plain; charset=GBK
+Content-Transfer-Encoding: base64
+Cc: "Cong Wang" <xiyou.wangcong@gmail.com>, xeb@mail.ru,
+        "David Miller" <davem@davemloft.net>,
+        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
+To: "Gao Feng" <gfree.wind@vip.163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:34842 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752413AbdHIHGN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 03:06:13 -0400
-In-Reply-To: <1502257975-32218-1-git-send-email-nborisov@suse.com>
+Received: from m173-177.vip.163.com ([123.58.177.173]:55640 "EHLO
+        m173-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752008AbdHIHSy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 03:18:54 -0400
+In-Reply-To: <73e6ac77.45ea.15dc569d56a.Coremail.gfree.wind@vip.163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-08-09 at 08:52 +0300, Nikolay Borisov wrote:
-> Commit dcd87999d415 ("igmp: net: Move igmp namespace init to correct file")
-> moved the igmp sysctls initialization from tcp_sk_init to igmp_net_init. This
-> function is only called as part of per-namespace initialization, only if
-> CONFIG_IP_MULTICAST is defined, otherwise igmp_mc_init() call in ip_init is
-> compiled out, casuing the igmp pernet ops to not be registerd and those sysctl
-> being left initialized with 0. However, there are certain functions, such as
-> ip_mc_join_group which are always compiled and make use of some of those
-> sysctls. Let's do a partial revert of the aforementioned commit and move the
-> sysctl initialization back into tcp_sk_init, that way they will always have
-> sane values.
-> 
-> Fixes: dcd87999d415 ("igmp: net: Move igmp namespace init to correct file")
-> Link: https://bugzilla.kernel.org/show_bug.cgi?id=196595
-> Reported-by: Gerardo Exequiel Pozzi <vmlinuz386@gmail.com>
-> Tested-by: Gerardo Exequiel Pozzi <vmlinuz386@gmail.com>
-> Signed-off-by: Nikolay Borisov <nborisov@suse.com>
-> Cc: <stable@vger.kernel.org> # 4.6
-> ---
->  net/ipv4/igmp.c     | 6 ------
->  net/ipv4/tcp_ipv4.c | 6 ++++++
->  2 files changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-> index 28f14afd0dd3..498706b072fb 100644
-> --- a/net/ipv4/igmp.c
-> +++ b/net/ipv4/igmp.c
-> @@ -2974,12 +2974,6 @@ static int __net_init igmp_net_init(struct net *net)
->  		goto out_sock;
->  	}
->  
-> -	/* Sysctl initialization */
-> -	net->ipv4.sysctl_igmp_max_memberships = 20;
-> -	net->ipv4.sysctl_igmp_max_msf = 10;
-> -	/* IGMP reports for link-local multicast groups are enabled by default */
-> -	net->ipv4.sysctl_igmp_llm_reports = 1;
-> -	net->ipv4.sysctl_igmp_qrv = 2;
->  	return 0;
->  
->  out_sock:
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index a20e7f03d5f7..64ba2c93d396 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -2528,6 +2528,12 @@ static int __net_init tcp_sk_init(struct net *net)
->  	net->ipv4.sysctl_tcp_window_scaling = 1;
->  	net->ipv4.sysctl_tcp_timestamps = 1;
->  
-> +	net->ipv4.sysctl_igmp_max_memberships = 20;
-> +	net->ipv4.sysctl_igmp_max_msf = 10;
-> +	/* IGMP reports for link-local multicast groups are enabled by default */
-> +	net->ipv4.sysctl_igmp_llm_reports = 1;
-> +	net->ipv4.sysctl_igmp_qrv = 2;
-> +
->  
-
-I would rather move this to inet_init_net(), since IGMP does not belong
-to TCP.
-
-Thanks !
+QXQgMjAxNy0wOC0wOSAxMzoxMzo1MywgIkdhbyBGZW5nIiA8Z2ZyZWUud2luZEB2aXAuMTYzLmNv
+bT4gd3JvdGU6Cj5BdCAyMDE3LTA4LTA5IDAzOjQ1OjUzLCAiQ29uZyBXYW5nIiA8eGl5b3Uud2Fu
+Z2NvbmdAZ21haWwuY29tPiB3cm90ZToKPj5PbiBNb24sIEF1ZyA3LCAyMDE3IGF0IDY6MTAgUE0s
+IEdhbyBGZW5nIDxnZnJlZS53aW5kQHZpcC4xNjMuY29tPiB3cm90ZToKPj4+Cj4+PiBTb3JyeSwg
+SSBkb24ndCBnZXQgeW91IGNsZWFybHkuIFdoeSB0aGUgc29ja19ob2xkKCkgaXNuJ3QgaGVscGZ1
+bD8KPj4KPj5JIGFscmVhZHkgdG9sZCB5b3UsIHRoZSBkZXJlZmVyZW5jZSBoYXBwZW5kcyBiZWZv
+cmUgc29ja19ob2xkKCkuCj4+Cj4+ICAgICAgICBzb2NrID0gcmN1X2RlcmVmZXJlbmNlKGNhbGxp
+ZF9zb2NrW2NhbGxfaWRdKTsKPj4gICAgICAgIGlmIChzb2NrKSB7Cj4+ICAgICAgICAgICAgICAg
+IG9wdCA9ICZzb2NrLT5wcm90by5wcHRwOwo+PiAgICAgICAgICAgICAgICBpZiAob3B0LT5kc3Rf
+YWRkci5zaW5fYWRkci5zX2FkZHIgIT0gc19hZGRyKSA8PT09IEhFUkUKPj4gICAgICAgICAgICAg
+ICAgICAgICAgICBzb2NrID0gTlVMTDsKPj4gICAgICAgICAgICAgICAgZWxzZQo+PiAgICAgICAg
+ICAgICAgICAgICAgICAgIHNvY2tfaG9sZChza19wcHBveChzb2NrKSk7Cj4+ICAgICAgICB9Cj4+
+Cj4+SWYgd2UgZG9uJ3Qgd2FpdCBmb3IgcmVhZGVycyBwcm9wZXJseSwgc29jayBjb3VsZCBiZSBm
+cmVlZCBhdCB0aGUKPj5zYW1lIHRpbWUgd2hlbiBkZWZlcmVuY2UgaXQuCj4KPk1heWJlIEkgZGlk
+bid0IHNob3cgbXkgZXhwbGFuYXRpb24gY2xlYXJseS4KPkkgdGhpbmsgaXQgd29uJ3QgaGFwcGVu
+IGFzIEkgbWVudGlvbmVkIGluIHRoZSBsYXN0IGVtYWlsLgo+QmVjYXVzZSB0aGUgcHB0cF9yZWxl
+YXNlIGludm9rZXMgdGhlIHN5bmNocm9uaXplX3JjdSB0byBtYWtlIHN1cmUgaXQsIGFuZCBhY3R1
+YWxseSB0aGVyZSBpcyBubyBvbmUgd2hpY2ggd291bGQgaW52b2tlIGRlbF9jaGFuIGV4Y2VwdCBw
+cHRwX3JlbGVhc2UuCj5JdCBpcyBndWFyYW50ZWVkIGJ5IHRoYXQgdGhlIHBwdHBfcmVsZWFzZSBk
+b2Vzbid0IHB1dCB0aGUgc29jayByZWZjbnQgdW50aWwgY29tcGxldGUgYWxsIGNsZWFudXAgaW5j
+bHVkZSBtYXJraW5nIHNrX3N0YXRlIGFzIFBQUE9YX0RFQUQuIAo+Cj5JbiBvdGhlciB3b3Jkcywg
+ZXZlbiB0aG91Z2ggdGhlIHBwdHBfcmVsZWFzZSBpcyBub3QgdGhlIGxhc3QgdXNlciBvZiB0aGlz
+IHNvY2ssIHRoZSBvdGhlciBvbmUgd291bGRuJ3QgaW52b2tlIGRlbF9jaGFuIGluIHBwdHBfc29j
+a19kZXN0cnVjdC4KPkJlY2F1c2UgdGhlIGNvbmRpdGlvbiAiIShzay0+c2tfc3RhdGUgJiBQUFBP
+WF9ERUFEKSIgbXVzdCBiZSBmYWxzZS4gCj4KPkFzIHN1bW1hcnksIHRoZSBkZWxfY2hhbiBhbmQg
+cHBwb3hfdW5iaW5kX3NvY2sgaW4gcHB0cF9zb2NrX2Rlc3RydWN0IGFyZSB1bm5lY2Vzc2FyeS4g
+Cj5BbmQgaXQgZXZlbiBicmluZ3MgY29uZnVzaW5nLgo+Cj5CZXN0IFJlZ2FyZHMKPkZlbmcKPgo+
+Pgo+Pj4gVGhlIHBwdHBfcmVsZWFzZSBpbnZva2VzIHN5bmNocm9uaXplX3JjdSBhZnRlciBkZWxf
+Y2hhbiwgaXQgY291bGQgbWFrZSBzdXJlIHRoZSBvdGhlcnMgaGFzIGluY3JlYXNlZCB0aGUgc29j
+ayByZWZjbnQgaWYgbmVjZXNzYXJ5Cj4+PiBhbmQgdGhlIGxvb2t1cCBpcyBvdmVyLgo+Pj4gVGhl
+cmUgaXMgbm8gb25lIGNvdWxkIGdldCB0aGUgc29jayBhZnRlciBzeW5jaHJvbml6ZV9yY3UgaW4g
+cHB0cF9yZWxlYXNlLgo+Pgo+Pgo+PklmIHRoaXMgd2VyZSB0cnVlLCB0aGVuIHRoaXMgY29kZSBp
+biBwcHRwX3NvY2tfZGVzdHJ1Y3QoKQo+PndvdWxkIGJlIHVubmVlZGVkOgo+Pgo+PiAgICAgICAg
+aWYgKCEoc2stPnNrX3N0YXRlICYgUFBQT1hfREVBRCkpIHsKPj4gICAgICAgICAgICAgICAgZGVs
+X2NoYW4ocHBwb3hfc2soc2spKTsKPj4gICAgICAgICAgICAgICAgcHBwb3hfdW5iaW5kX3NvY2so
+c2spOwo+PiAgICAgICAgfQo+Pgo+Pgo+Pj4KPj4+Cj4+PiBCdXQgSSB0aGluayBhYm91dCBhbm90
+aGVyIHByb2JsZW0uCj4+PiBJdCBzZWVtcyB0aGUgcHB0cF9zb2NrX2Rlc3RydWN0IHNob3VsZCBu
+b3QgaW52b2tlIGRlbF9jaGFuIGFuZCBwcHBveF91bmJpbmRfc29jay4KPj4+IEJlY2F1c2Ugd2hl
+biB0aGUgc29jayByZWZjbnQgaXMgMCwgdGhlIHBwdHBfcmVsZWFzZSBtdXN0IGhhdmUgYmUgaW52
+b2tlZCBhbHJlYWR5Lgo+Pj4KPj4KPj4KPj5JIGRvbid0IGtub3cuIExvb2tzIGxpa2Ugc29ja19v
+cnBoYW4oKSBpcyBvbmx5IGNhbGxlZAo+PmluIHBwdHBfcmVsZWFzZSgpLCBidXQgSSBhbSBub3Qg
+c3VyZSBpZiB0aGVyZSBpcyBhIGNhc2UKPj53ZSBjYWxsIHNvY2sgZGVzdHJ1Y3RvciBiZWZvcmUg
+cmVsZWFzZS4KPj4KPj5BbHNvIG5vdGUsIHRoaXMgc29ja2V0IGlzIHZlcnkgc3BlY2lhbCwgaXQg
+ZG9lc24ndCBzdXBwb3J0Cj4+cG9sbCgpLCBzZW5kbXNnKCkgb3IgcmVjdm1zZygpLi4KPgo+Cj4K
+CkhpIENvbmcsCgpBY3R1YWxseSBJIGhhdmUgb25lIHF1ZXN0aW9uIGFib3V0IHRoZSBTT0NLX1JD
+VV9GUkVFLgpJIGRvbid0IHRoaW5rIGl0IGNvdWxkIHJlc29sdmUgdGhlIGlzc3VlIHlvdSByYWlz
+ZWQgZXZlbiB0aG91Z2ggaXQgZXhpc3RzIHJlYWxseS4KCkkgY2hlY2tlZCB0aGUgU09DS19SQ1Vf
+RlJFRSwgaXQganVzdCBkZWZlciB0aGUgX19za19kZXN0cnVjdCBhZnRlciBvbmUgcmN1IHBlcmlv
+ZC4KQnV0IHdoZW4gaXQgcGVyZm9ybXMsIHNvbWVvbmUgc3RpbGwgY291bGQgZmluZCB0aGlzIHNv
+Y2sgYnkgY2FsbGlkIGR1cmluZyB0aGUgZGVsX2NoYW4gcGVyaW9kIGFuZCBpdCBtYXkgc3RpbGwg
+ZGVmZXJlbmNlIHRoZSBzb2NrIHdoaWNoIG1heSBmcmVlZCBzb29uLgoKVGhlIHJpZ2h0IGZsb3cg
+c2hvdWxkIGJlIGZvbGxvd2luZy4KZGVsX2NoYW4oKQp3YWl0IGEgcmN1IHBlcmlvZApzb2NrX3B1
+dCgpIC0tLS0tLS0tLS0tLSBJdCBpcyBzYWZlIHRoYXQgc29tZW9uZSBnZXRzIHRoZSBzb2NrIGJl
+Y2F1c2UgaXQgYWxyZWFkeSBob2xkIHNvY2sgcmVmY250LgoKV2hlbiB1c2luZyBTT0NLX1JDVV9G
+UkVFLCBpdHMgZmxvdyB3b3VsZCBiZSBmb2xsb3dpbmcuCndhaXQgYSByY3UgcGVyaW9kCmRlbF9j
+aGFuKCkKZnJlZSB0aGUgc29jayBkaXJlY3RseSAtLS0tLS0tLSBubyBzb2NrIHJlZmNudCBjaGVj
+ayBhZ2Fpbi4KQmVjYXVzZSB0aGUgZGVsX2NoYW4gaGFwcGVucyBhZnRlciByY3Ugd2FpdCwgbm90
+IGJlZm9yZSwgc28gaXQgaXNuJ3QgaGVscGZ1bCB3aXRoIFNPQ0tfUkNVX0ZSRUUuCgpJIGRvbid0
+IGtub3cgaWYgSSBtaXN1bmRlcnN0YW5kIHRoZSBTT0NLX1JDVV9GUkVFIHVzYWdlLgoKQnV0IGl0
+IGlzIGEgZ29vZCBuZXdzIHRoYXQgdGhlIGRlbF9jaGFuIGlzIG9ubHkgaW52b2tlZCBpbiBwcHRw
+X3JlbGVhc2UgYWN0dWFsbHkgYW5kIGl0IHdvdWxkIHdhaXQgYSByY3UgcGVyaW9kIGJlZm9yZSBz
+b2NrX3B1dC4KCkJlc3QgUmVnYXJkcwpGZW5nCgoK
