@@ -1,127 +1,338 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH iproute2 net-next 3/3] man: add documentation for seg6local lwt
-Date: Wed, 9 Aug 2017 15:17:01 +0200
-Message-ID: <20170809131701.21304-4-david.lebrun@uclouvain.be>
+Subject: [PATCH iproute2 net-next 2/3] iproute: add support for SRv6 local segment processing
+Date: Wed, 9 Aug 2017 15:17:00 +0200
+Message-ID: <20170809131701.21304-3-david.lebrun@uclouvain.be>
 References: <20170809131701.21304-1-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Lebrun <david.lebrun@uclouvain.be>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:46379 "EHLO
-        smtp3.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752330AbdHINRY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 09:17:24 -0400
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:46869 "EHLO
+        smtp4.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752469AbdHINRZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 09:17:25 -0400
 Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
         (No client certificate requested)
-        by smtp3.sgsi.ucl.ac.be (Postfix) with ESMTPS id 4F11F67DBB1
+        by smtp4.sgsi.ucl.ac.be (Postfix) with ESMTPS id 1AD4E67DE3F
         for <netdev@vger.kernel.org>; Wed,  9 Aug 2017 15:17:04 +0200 (CEST)
 In-Reply-To: <20170809131701.21304-1-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds documentation in the ip-route man page
-about the seg6local lightweight tunnel.
+This patch adds support for the seg6local lightweight tunnel
+("ip route add ... encap seg6local ...").
 
 Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- man/man8/ip-route.8.in | 62 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 61 insertions(+), 1 deletion(-)
+ ip/iproute.c          |   2 +-
+ ip/iproute_lwtunnel.c | 238 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 239 insertions(+), 1 deletion(-)
 
-diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index fc28492..11dd9d0 100644
---- a/man/man8/ip-route.8.in
-+++ b/man/man8/ip-route.8.in
-@@ -177,7 +177,7 @@ throw " | " unreachable " | " prohibit " | " blackhole " | " nat " ]"
+diff --git a/ip/iproute.c b/ip/iproute.c
+index cb695ad..7a37df5 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -100,7 +100,7 @@ static void usage(void)
+ 	fprintf(stderr, "TIME := NUMBER[s|ms]\n");
+ 	fprintf(stderr, "BOOL := [1|0]\n");
+ 	fprintf(stderr, "FEATURES := ecn\n");
+-	fprintf(stderr, "ENCAPTYPE := [ mpls | ip | ip6 | seg6 ]\n");
++	fprintf(stderr, "ENCAPTYPE := [ mpls | ip | ip6 | seg6 | seg6local ]\n");
+ 	fprintf(stderr, "ENCAPHDR := [ MPLSLABEL | SEG6HDR ]\n");
+ 	fprintf(stderr, "SEG6HDR := [ mode SEGMODE ] segs ADDR1,ADDRi,ADDRn [hmac HMACKEYID] [cleanup]\n");
+ 	fprintf(stderr, "SEGMODE := [ encap | inline ]\n");
+diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
+index 16d2584..efea313 100644
+--- a/ip/iproute_lwtunnel.c
++++ b/ip/iproute_lwtunnel.c
+@@ -29,6 +29,8 @@
+ #include <linux/seg6.h>
+ #include <linux/seg6_iptunnel.h>
+ #include <linux/seg6_hmac.h>
++#include <linux/seg6_local.h>
++#include <net/if.h>
  
- .ti -8
- .IR ENCAP " := [ "
--.IR MPLS " | " IP " | " BPF " | " SEG6 " ] "
-+.IR MPLS " | " IP " | " BPF " | " SEG6 " | " SEG6LOCAL " ] "
+ static const char *format_encap_type(int type)
+ {
+@@ -45,6 +47,8 @@ static const char *format_encap_type(int type)
+ 		return "bpf";
+ 	case LWTUNNEL_ENCAP_SEG6:
+ 		return "seg6";
++	case LWTUNNEL_ENCAP_SEG6_LOCAL:
++		return "seg6local";
+ 	default:
+ 		return "unknown";
+ 	}
+@@ -77,6 +81,8 @@ static int read_encap_type(const char *name)
+ 		return LWTUNNEL_ENCAP_BPF;
+ 	else if (strcmp(name, "seg6") == 0)
+ 		return LWTUNNEL_ENCAP_SEG6;
++	else if (strcmp(name, "seg6local") == 0)
++		return LWTUNNEL_ENCAP_SEG6_LOCAL;
+ 	else if (strcmp(name, "help") == 0)
+ 		encap_type_usage();
  
- .ti -8
- .IR ENCAP_MPLS " := "
-@@ -221,6 +221,13 @@ throw " | " unreachable " | " prohibit " | " blackhole " | " nat " ]"
- .IR KEYID " ]"
+@@ -121,6 +127,124 @@ static void print_encap_seg6(FILE *fp, struct rtattr *encap)
+ 	print_srh(fp, tuninfo->srh);
+ }
  
- .ti -8
-+.IR ENCAP_SEG6LOCAL " := "
-+.B seg6local
-+.BR action
-+.IR SEG6_ACTION " [ "
-+.IR SEG6_ACTION_PARAM " ] "
++static const char *format_action_type(int action)
++{
++	switch (action) {
++	case SEG6_LOCAL_ACTION_END:
++		return "End";
++	case SEG6_LOCAL_ACTION_END_X:
++		return "End.X";
++	case SEG6_LOCAL_ACTION_END_T:
++		return "End.T";
++	case SEG6_LOCAL_ACTION_END_DX2:
++		return "End.DX2";
++	case SEG6_LOCAL_ACTION_END_DX6:
++		return "End.DX6";
++	case SEG6_LOCAL_ACTION_END_DX4:
++		return "End.DX4";
++	case SEG6_LOCAL_ACTION_END_DT6:
++		return "End.DT6";
++	case SEG6_LOCAL_ACTION_END_DT4:
++		return "End.DT4";
++	case SEG6_LOCAL_ACTION_END_B6:
++		return "End.B6";
++	case SEG6_LOCAL_ACTION_END_B6_ENCAP:
++		return "End.B6.Encaps";
++	case SEG6_LOCAL_ACTION_END_BM:
++		return "End.BM";
++	case SEG6_LOCAL_ACTION_END_S:
++		return "End.S";
++	case SEG6_LOCAL_ACTION_END_AS:
++		return "End.AS";
++	case SEG6_LOCAL_ACTION_END_AM:
++		return "End.AM";
++	default:
++		return "unknown";
++	}
++}
 +
-+.ti -8
- .IR ROUTE_GET_FLAGS " := "
- .BR " [ "
- .BR fibmatch
-@@ -674,6 +681,9 @@ is a string specifying the supported encapsulation type. Namely:
- .sp
- .BI seg6
- - encapsulation type IPv6 Segment Routing
-+.sp
-+.BI seg6local
-+- local SRv6 segment processing
++static int read_action_type(const char *name)
++{
++	if (strcmp(name, "End") == 0)
++		return SEG6_LOCAL_ACTION_END;
++	else if (strcmp(name, "End.X") == 0)
++		return SEG6_LOCAL_ACTION_END_X;
++	else if (strcmp(name, "End.T") == 0)
++		return SEG6_LOCAL_ACTION_END_T;
++	else if (strcmp(name, "End.DX2") == 0)
++		return SEG6_LOCAL_ACTION_END_DX2;
++	else if (strcmp(name, "End.DX6") == 0)
++		return SEG6_LOCAL_ACTION_END_DX6;
++	else if (strcmp(name, "End.DX4") == 0)
++		return SEG6_LOCAL_ACTION_END_DX4;
++	else if (strcmp(name, "End.DT6") == 0)
++		return SEG6_LOCAL_ACTION_END_DT6;
++	else if (strcmp(name, "End.DT4") == 0)
++		return SEG6_LOCAL_ACTION_END_DT4;
++	else if (strcmp(name, "End.B6") == 0)
++		return SEG6_LOCAL_ACTION_END_B6;
++	else if (strcmp(name, "End.B6.Encaps") == 0)
++		return SEG6_LOCAL_ACTION_END_B6_ENCAP;
++	else if (strcmp(name, "End.BM") == 0)
++		return SEG6_LOCAL_ACTION_END_BM;
++	else if (strcmp(name, "End.S") == 0)
++		return SEG6_LOCAL_ACTION_END_S;
++	else if (strcmp(name, "End.AS") == 0)
++		return SEG6_LOCAL_ACTION_END_AS;
++	else if (strcmp(name, "End.AM") == 0)
++		return SEG6_LOCAL_ACTION_END_AM;
++
++	return SEG6_LOCAL_ACTION_UNSPEC;
++}
++
++static void print_encap_seg6local(FILE *fp, struct rtattr *encap)
++{
++	struct rtattr *tb[SEG6_LOCAL_MAX + 1];
++	char ifbuf[IFNAMSIZ];
++	int action;
++
++	parse_rtattr_nested(tb, SEG6_LOCAL_MAX, encap);
++
++	if (!tb[SEG6_LOCAL_ACTION])
++		return;
++
++	action = rta_getattr_u32(tb[SEG6_LOCAL_ACTION]);
++
++	fprintf(fp, "action %s ", format_action_type(action));
++
++	if (tb[SEG6_LOCAL_SRH]) {
++		fprintf(fp, "srh ");
++		print_srh(fp, RTA_DATA(tb[SEG6_LOCAL_SRH]));
++	}
++
++	if (tb[SEG6_LOCAL_TABLE])
++		fprintf(fp, "table %u ", rta_getattr_u32(tb[SEG6_LOCAL_TABLE]));
++
++	if (tb[SEG6_LOCAL_NH4]) {
++		fprintf(fp, "nh4 %s ",
++			rt_addr_n2a_rta(AF_INET, tb[SEG6_LOCAL_NH4]));
++	}
++
++	if (tb[SEG6_LOCAL_NH6]) {
++		fprintf(fp, "nh6 %s ",
++			rt_addr_n2a_rta(AF_INET6, tb[SEG6_LOCAL_NH6]));
++	}
++
++	if (tb[SEG6_LOCAL_IIF]) {
++		int iif = rta_getattr_u32(tb[SEG6_LOCAL_IIF]);
++
++		fprintf(fp, "iif %s ",
++			if_indextoname(iif, ifbuf) ?: "<unknown>");
++	}
++
++	if (tb[SEG6_LOCAL_OIF]) {
++		int oif = rta_getattr_u32(tb[SEG6_LOCAL_OIF]);
++
++		fprintf(fp, "oif %s ",
++			if_indextoname(oif, ifbuf) ?: "<unknown>");
++	}
++}
++
+ static void print_encap_mpls(FILE *fp, struct rtattr *encap)
+ {
+ 	struct rtattr *tb[MPLS_IPTUNNEL_MAX+1];
+@@ -290,6 +414,9 @@ void lwt_print_encap(FILE *fp, struct rtattr *encap_type,
+ 	case LWTUNNEL_ENCAP_SEG6:
+ 		print_encap_seg6(fp, encap);
+ 		break;
++	case LWTUNNEL_ENCAP_SEG6_LOCAL:
++		print_encap_seg6local(fp, encap);
++		break;
+ 	}
+ }
  
- .in -8
- .I ENCAPHDR
-@@ -749,6 +759,56 @@ is a set of encapsulation attributes specific to the
- .in -2
- .sp
+@@ -412,6 +539,114 @@ static int parse_encap_seg6(struct rtattr *rta, size_t len, int *argcp,
+ 	return 0;
+ }
  
-+.B seg6local
-+.in +2
-+.IR SEG6_ACTION " [ "
-+.IR SEG6_ACTION_PARAM " ] "
-+- Operation to perform on matching packets.
-+The following actions are currently supported (\fB4.14+ only\fR).
-+.in +2
++static int parse_encap_seg6local(struct rtattr *rta, size_t len, int *argcp,
++				 char ***argvp)
++{
++	int segs_ok = 0, hmac_ok = 0, table_ok = 0, nh4_ok = 0, nh6_ok = 0;
++	int iif_ok = 0, oif_ok = 0, action_ok = 0, srh_ok = 0;
++	__u32 action = 0, table, iif, oif;
++	struct ipv6_sr_hdr *srh;
++	char **argv = *argvp;
++	int argc = *argcp;
++	char segbuf[1024];
++	inet_prefix addr;
++	__u32 hmac = 0;
 +
-+.B End
-+- Regular SRv6 processing as intermediate segment endpoint.
-+This action only accepts packets with a non-zero Segments Left
-+value. Other matching packets are dropped.
++	while (argc > 0) {
++		if (strcmp(*argv, "action") == 0) {
++			NEXT_ARG();
++			if (action_ok++)
++				duparg2("action", *argv);
++			action = read_action_type(*argv);
++			if (!action)
++				invarg("\"action\" value is invalid\n", *argv);
++			rta_addattr32(rta, len, SEG6_LOCAL_ACTION, action);
++		} else if (strcmp(*argv, "table") == 0) {
++			NEXT_ARG();
++			if (table_ok++)
++				duparg2("table", *argv);
++			get_u32(&table, *argv, 0);
++			rta_addattr32(rta, len, SEG6_LOCAL_TABLE, table);
++		} else if (strcmp(*argv, "nh4") == 0) {
++			NEXT_ARG();
++			if (nh4_ok++)
++				duparg2("nh4", *argv);
++			get_addr(&addr, *argv, AF_INET);
++			rta_addattr_l(rta, len, SEG6_LOCAL_NH4, &addr.data,
++				      addr.bytelen);
++		} else if (strcmp(*argv, "nh6") == 0) {
++			NEXT_ARG();
++			if (nh6_ok++)
++				duparg2("nh6", *argv);
++			get_addr(&addr, *argv, AF_INET6);
++			rta_addattr_l(rta, len, SEG6_LOCAL_NH6, &addr.data,
++				      addr.bytelen);
++		} else if (strcmp(*argv, "iif") == 0) {
++			NEXT_ARG();
++			if (iif_ok++)
++				duparg2("iif", *argv);
++			iif = if_nametoindex(*argv);
++			if (!iif)
++				invarg("\"iif\" interface not found\n", *argv);
++			rta_addattr32(rta, len, SEG6_LOCAL_IIF, iif);
++		} else if (strcmp(*argv, "oif") == 0) {
++			NEXT_ARG();
++			if (oif_ok++)
++				duparg2("oif", *argv);
++			oif = if_nametoindex(*argv);
++			if (!oif)
++				invarg("\"oif\" interface not found\n", *argv);
++			rta_addattr32(rta, len, SEG6_LOCAL_OIF, oif);
++		} else if (strcmp(*argv, "srh") == 0) {
++			NEXT_ARG();
++			if (srh_ok++)
++				duparg2("srh", *argv);
++			if (strcmp(*argv, "segs") != 0)
++				invarg("missing \"segs\" attribute for srh\n",
++					*argv);
++			NEXT_ARG();
++			if (segs_ok++)
++				duparg2("segs", *argv);
++			strncpy(segbuf, *argv, 1024);
++			segbuf[1023] = 0;
++			if (!NEXT_ARG_OK())
++				break;
++			NEXT_ARG();
++			if (strcmp(*argv, "hmac") == 0) {
++				NEXT_ARG();
++				if (hmac_ok++)
++					duparg2("hmac", *argv);
++				get_u32(&hmac, *argv, 0);
++			} else {
++				continue;
++			}
++		} else {
++			break;
++		}
++		argc--; argv++;
++	}
 +
-+.B End.X nh6
-+.I NEXTHOP
-+- Regular SRv6 processing as intermediate segment endpoint.
-+Additionally, forward processed packets to given next-hop.
-+This action only accepts packets with a non-zero Segments Left
-+value. Other matching packets are dropped.
++	if (!action) {
++		fprintf(stderr, "Missing action type\n");
++		exit(-1);
++	}
 +
-+.B End.DX6 nh6
-+.I NEXTHOP
-+- Decapsulate inner IPv6 packet and forward it to the
-+specified next-hop. If the argument is set to ::, then
-+the next-hop is selected according to the local selection
-+rules. This action only accepts packets with either a zero Segments
-+Left value or no SRH at all, and an inner IPv6 packet. Other
-+matching packets are dropped.
++	if (srh_ok) {
++		int srhlen;
 +
-+.B End.B6 srh segs
-+.IR SEGMENTS " [ "
-+.B hmac
-+.IR KEYID " ] "
-+- Insert the specified SRH immediately after the IPv6 header,
-+update the DA with the first segment of the newly inserted SRH,
-+then forward the resulting packet. The original SRH is not
-+modified. This action only accepts packets with a non-zero
-+Segments Left value. Other matching packets are dropped.
++		srh = parse_srh(segbuf, hmac,
++				action == SEG6_LOCAL_ACTION_END_B6_ENCAP);
++		srhlen = (srh->hdrlen + 1) << 3;
++		rta_addattr_l(rta, len, SEG6_LOCAL_SRH, srh, srhlen);
++		free(srh);
++	}
 +
-+.B End.B6.Encaps srh segs
-+.IR SEGMENTS " [ "
-+.B hmac
-+.IR KEYID " ] "
-+- Regular SRv6 processing as intermediate segment endpoint.
-+Additionally, encapsulate the matching packet within an outer IPv6 header
-+followed by the specified SRH. The destination address of the outer IPv6
-+header is set to the first segment of the new SRH. The source
-+address is set as described in \fBip-sr\fR(8).
-+.in -4
++	*argcp = argc + 1;
++	*argvp = argv - 1;
 +
- .in -8
- 
- .TP
++	return 0;
++}
++
+ static int parse_encap_mpls(struct rtattr *rta, size_t len,
+ 			    int *argcp, char ***argvp)
+ {
+@@ -771,6 +1006,9 @@ int lwt_parse_encap(struct rtattr *rta, size_t len, int *argcp, char ***argvp)
+ 	case LWTUNNEL_ENCAP_SEG6:
+ 		parse_encap_seg6(rta, len, &argc, &argv);
+ 		break;
++	case LWTUNNEL_ENCAP_SEG6_LOCAL:
++		parse_encap_seg6local(rta, len, &argc, &argv);
++		break;
+ 	default:
+ 		fprintf(stderr, "Error: unsupported encap type\n");
+ 		break;
 -- 
 2.10.2
