@@ -1,49 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net] net: sched: set xt_tgchk_param par.net properly
- in ipt_init_target
-Date: Tue, 08 Aug 2017 20:38:58 -0700 (PDT)
-Message-ID: <20170808.203858.816888994808276335.davem@davemloft.net>
-References: <7aa6e3f47ea0feb6f348b4de20fc6503e8c8e25b.1502177125.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com
-To: lucien.xin@gmail.com
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: [PATCH iproute2 master] examples/bpf: update list of examples
+Date: Wed,  9 Aug 2017 05:39:07 +0200
+Message-ID: <20170809033907.9194-1-alexander@alemayhu.com>
+Cc: stephen@networkplumber.org,
+        Alexander Alemayhu <alexander@alemayhu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60014 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752497AbdHIDjA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 23:39:00 -0400
-In-Reply-To: <7aa6e3f47ea0feb6f348b4de20fc6503e8c8e25b.1502177125.git.lucien.xin@gmail.com>
+Received: from rs224.mailgun.us ([209.61.151.224]:62941 "EHLO rs224.mailgun.us"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752497AbdHIDoj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 8 Aug 2017 23:44:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Tue,  8 Aug 2017 15:25:25 +0800
+Remove deleted examples and add the new map in map example.
 
-> Now xt_tgchk_param par in ipt_init_target is a local varibale,
-> par.net is not initialized there. Later when xt_check_target
-> calls target's checkentry in which it may access par.net, it
-> would cause kernel panic.
-> 
-> Jaroslav found this panic when running:
-> 
->   # ip link add TestIface type dummy
->   # tc qd add dev TestIface ingress handle ffff:
->   # tc filter add dev TestIface parent ffff: u32 match u32 0 0 \
->     action xt -j CONNMARK --set-mark 4
-> 
-> This patch is to pass net param into ipt_init_target and set
-> par.net with it properly in there.
-> 
-> v1->v2:
->   As Wang Cong pointed, I missed ipt_net_id != xt_net_id, so fix
->   it by also passing net_id to __tcf_ipt_init.
-> v2->v3:
->   Missed the fixes tag, so add it.
-> 
-> Fixes: ecb2421b5ddf ("netfilter: add and use nf_ct_netns_get/put")
-> Reported-by: Jaroslav Aster <jaster@redhat.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+---
+ examples/bpf/README | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-Applied and queued up for -stable, thanks.
+diff --git a/examples/bpf/README b/examples/bpf/README
+index 4247257850eb..1bbdda3f8dc1 100644
+--- a/examples/bpf/README
++++ b/examples/bpf/README
+@@ -1,13 +1,8 @@
+ eBPF toy code examples (running in kernel) to familiarize yourself
+ with syntax and features:
+ 
+- - bpf_prog.c		-> Classifier examples with using maps
+  - bpf_shared.c		-> Ingress/egress map sharing example
+  - bpf_tailcall.c	-> Using tail call chains
+  - bpf_cyclic.c		-> Simple cycle as tail calls
+  - bpf_graft.c		-> Demo on altering runtime behaviour
+-
+-User space code example:
+-
+- - bpf_agent.c		-> Counterpart to bpf_prog.c for user
+-                           space to transfer/read out map data
++ - bpf_map_in_map.c     -> Using map in map example
+-- 
+2.13.3
