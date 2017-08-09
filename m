@@ -1,98 +1,48 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v9 2/4] PCI: Disable PCIe Relaxed Ordering if unsupported
-Date: Wed, 9 Aug 2017 21:42:48 +0800
-Message-ID: <6a5b848d-1647-aa03-6af2-015b3a379adb@huawei.com>
-References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
- <1501917313-9812-3-git-send-email-dingtianhong@huawei.com>
- <20170809022239.GP16580@bhelgaas-glaptop.roam.corp.google.com>
- <20170809032503.GB7191@bhelgaas-glaptop.roam.corp.google.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH 1/4] net-next: dsa: move struct dsa_device_ops to the
+ global header file
+Date: Wed, 9 Aug 2017 15:45:50 +0200
+Message-ID: <20170809134550.GC30723@lunn.ch>
+References: <20170809124119.24320-1-john@phrozen.org>
+ <20170809124119.24320-2-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <mark.rutland@arm.com>, <gabriele.paoloni@huawei.com>,
-        <asit.k.mallick@intel.com>, <catalin.marinas@arm.com>,
-        <will.deacon@arm.com>, <linuxarm@huawei.com>,
-        <alexander.duyck@gmail.com>, <ashok.raj@intel.com>,
-        <jeffrey.t.kirsher@intel.com>, <linux-pci@vger.kernel.org>,
-        <ganeshgr@chelsio.com>, <Bob.Shaw@amd.com>, <leedom@chelsio.com>,
-        <patrick.j.cramer@intel.com>, <bhelgaas@google.com>,
-        <werner@chelsio.com>, <linux-arm-kernel@lists.infradead.org>,
-        <amira@mellanox.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <David.Laight@aculab.com>,
-        <Suravee.Suthikulpanit@amd.com>, <robin.murphy@arm.com>,
-        <davem@davemloft.net>, <l.stach@pengutronix.de>
-To: Bjorn Helgaas <helgaas@kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170809032503.GB7191@bhelgaas-glaptop.roam.corp.google.com>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ Muciri Gatimu <muciri-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>,
+ Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ Shashidhar Lakkavalli <shashidhar.lakkavalli-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>,
+ "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170809124119.24320-2-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2017/8/9 11:25, Bjorn Helgaas wrote:
-> On Tue, Aug 08, 2017 at 09:22:39PM -0500, Bjorn Helgaas wrote:
->> On Sat, Aug 05, 2017 at 03:15:11PM +0800, Ding Tianhong wrote:
->>> When bit4 is set in the PCIe Device Control register, it indicates
+On Wed, Aug 09, 2017 at 02:41:16PM +0200, John Crispin wrote:
+> We need to access this struct from within the flow_dissector to fix
+> dissection for packets coming in on DSA devices.
+> 
+> Signed-off-by: Muciri Gatimu <muciri-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Shashidhar Lakkavalli <shashidhar.lakkavalli-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 
-> After looking at the driver, I wonder if it would be simpler like
-> this:
-> 
->   int pcie_relaxed_ordering_enabled(struct pci_dev *dev)
->   {
->     u16 ctl;
-> 
->     pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &ctl);
->     return ctl & PCI_EXP_DEVCTL_RELAX_EN;
->   }
->   EXPORT_SYMBOL(pcie_relaxed_ordering_enabled);
-> 
->   static void pci_configure_relaxed_ordering(struct pci_dev *dev)
->   {
->     struct pci_dev *root;
-> 
->     if (dev->is_virtfn)
->       return;  /* PCI_EXP_DEVCTL_RELAX_EN is RsvdP in VFs */
-> 
->     if (!pcie_relaxed_ordering_enabled(dev))
->       return;
-> 
->     /*
->      * For now, we only deal with Relaxed Ordering issues with Root
->      * Ports.  Peer-to-peer DMA is another can of worms.
->      */
->     root = pci_find_pcie_root_port(dev);
->     if (!root)
->       return;
-> 
->     if (root->relaxed_ordering_broken)
->       pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
->                                  PCI_EXP_DEVCTL_RELAX_EN);
->   }
-> 
-> This doesn't check every intervening switch, but I don't think we know
-> about any issues except with root ports.
-> 
+Hi John
 
-Yes
+Please add the Reviewed-by: tags you receive from previous
+versions. It makes it easier for reviewers to see what actually needs
+reviewing.
 
-> And the driver could do:
-> 
->   if (!pcie_relaxed_ordering_enabled(pdev))
->     adapter->flags |= ROOT_NO_RELAXED_ORDERING;
-> 
-> The driver code wouldn't show anything about coherent memory vs.
-> peer-to-peer, but we really don't have a clue about how to handle that
-> yet anyway.
-> 
-> I guess this is back to exactly what you proposed, except that I
-> changed the name of pcie_relaxed_ordering_supported() to
-> pcie_relaxed_ordering_enabled(), which I think is slightly more
-> specific from the device's point of view.
-> 
-
-OK, looks like we reach a consensus finally, I will follow your new opinion and resend, thanks.
-
-Ding
-
-> Bjorn
-> 
-> .
-> 
+Thanks
+	Andrew
