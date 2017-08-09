@@ -1,104 +1,243 @@
-From: "Yang, Yi Y" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] openvswitch: add NSH support
-Date: Wed, 9 Aug 2017 02:05:12 +0000
-Message-ID: <79BBBFE6CB6C9B488C1A45ACD284F51961C391CA@SHSMSX103.ccr.corp.intel.com>
-References: <1502168380-106785-1-git-send-email-yi.y.yang@intel.com>
-	<20170808162810.1bab3812@griffin>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [PATCH v9 2/4] PCI: Disable PCIe Relaxed Ordering if unsupported
+Date: Tue, 8 Aug 2017 21:22:39 -0500
+Message-ID: <20170809022239.GP16580@bhelgaas-glaptop.roam.corp.google.com>
+References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
+ <1501917313-9812-3-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20170808162810.1bab3812@griffin>
-Content-Language: en-US
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: leedom@chelsio.com, ashok.raj@intel.com, bhelgaas@google.com,
+        werner@chelsio.com, ganeshgr@chelsio.com, asit.k.mallick@intel.com,
+        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
+        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
+        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
+        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
+        davem@davemloft.net, alexander.duyck@gmail.com,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1501917313-9812-3-git-send-email-dingtianhong@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Jiri
+On Sat, Aug 05, 2017 at 03:15:11PM +0800, Ding Tianhong wrote:
+> When bit4 is set in the PCIe Device Control register, it indicates
+> whether the device is permitted to use relaxed ordering.
+> On some platforms using relaxed ordering can have performance issues or
+> due to erratum can cause data-corruption. In such cases devices must avoid
+> using relaxed ordering.
+> 
+> This patch checks if there is any node in the hierarchy that indicates that
+> using relaxed ordering is not safe. 
 
-Thank you for your comments.
+I think you only check the devices between the root port and the
+target device.  For example, you don't check siblings or cousins of
+the target device.
 
-__be32 c[4] is the name Ben Pfaff suggested, the original name is c1, c2, c3, c4, they are context data, so c seems ok, too :-)
+> In such cases the patch turns off the
+> relaxed ordering by clearing the eapability for this device.
 
-OVS has merged it and has the same name, maybe the better way is adding comment /* Context data */ after it.
+s/eapability/capability/
 
-For MD type 2, struct ovs_key_nsh is very difficult to cover it, so far we don't know how to support MD type 2 better, Geneve defined 64 tun_metadata0-63 to handle this, those keys are parts of struct flow_tnl, the highest possibility is to reuse those keys.
+> And if the
+> device is probably running in a guest machine, we should do nothing.
 
-So for future MD type 2, we will have two parts of keys, one is from struct ovs_key_nsh, another is from struct flow_tnl, this won't break the old uAPI.
+I don't know what this sentence means.  "Probably running in a guest
+machine" doesn't really make sense, and there's nothing in your patch
+that explicitly checks for being in a guest machine.
 
-"#define OVS_ENCAP_NSH_MAX_MD_LEN 16" is changed per Ben's comment from 256, Ben thinks 256 is too big but we only support MD type 1 now. We still have ways to extend it, for example:
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Acked-by: Ashok Raj <ashok.raj@intel.com>
+> ---
+>  drivers/pci/pci.c   | 29 +++++++++++++++++++++++++++++
+>  drivers/pci/probe.c | 37 +++++++++++++++++++++++++++++++++++++
+>  include/linux/pci.h |  2 ++
+>  3 files changed, 68 insertions(+)
+> 
+> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+> index af0cc34..4f9d7c1 100644
+> --- a/drivers/pci/pci.c
+> +++ b/drivers/pci/pci.c
+> @@ -4854,6 +4854,35 @@ int pcie_set_mps(struct pci_dev *dev, int mps)
+>  EXPORT_SYMBOL(pcie_set_mps);
+>  
+>  /**
+> + * pcie_clear_relaxed_ordering - clear PCI Express relaxed ordering bit
+> + * @dev: PCI device to query
+> + *
+> + * If possible clear relaxed ordering
 
-struct ovs_action_encap_nsh * oaen = (struct ovs_action_encap_nsh *) malloc (sizeof(struct ovs_action_encap_nsh) + ANY_SIZE);
+Why "If possible"?  The bit is required to be RW or hardwired to zero,
+so PCI_EXP_DEVCTL_RELAX_EN should *always* be zero when this returns.
 
-nl_msg_put_unspec(actions, OVS_ACTION_ATTR_ENCAP_NSH,
-                          oaen, sizeof(struct ovs_action_encap_nsh) + ANY_SIZE);
+> + */
+> +int pcie_clear_relaxed_ordering(struct pci_dev *dev)
+> +{
+> +	return pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
+> +					  PCI_EXP_DEVCTL_RELAX_EN);
+> +}
+> +EXPORT_SYMBOL(pcie_clear_relaxed_ordering);
 
-In addition, we also need to consider, OVS userspace code must be consistent with here, so keeping it intact will be better, we have way to support dynamically extension when we add MD type 2 support.
+The current series doesn't add any callers of this except
+pci_configure_relaxed_ordering(), so it doesn't need to be exported to
+modules.
 
-About action name, unfortunately, userspace data plane has named them as encap_nsh & decap_nsh, Jan, what do you think about Jiri's suggestion?
+I think I would put both of these functions in drivers/pci/probe.c.
+Then this one could be static and you'd only have to add
+pcie_relaxed_ordering_supported() to include/linux/pci.h.
 
-But from my understanding, encap_* & decap_* are better because they corresponding to generic encap & decap actions, in addition, encap semantics are different from push, encap just pushed an empty header with default values, users must use set_field to set the content of the header.
+> +
+> +/**
+> + * pcie_relaxed_ordering_supported - Probe for PCIe relexed ordering support
 
-Again, OVS userspace code must be consistent with here, so keeping it intact will be better because OVS userspace code was there.
+s/relexed/relaxed/
 
+> + * @dev: PCI device to query
+> + *
+> + * Returns true if the device support relaxed ordering attribute.
+> + */
+> +bool pcie_relaxed_ordering_supported(struct pci_dev *dev)
+> +{
+> +	u16 v;
+> +
+> +	pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
+> +
+> +	return !!(v & PCI_EXP_DEVCTL_RELAX_EN);
+> +}
+> +EXPORT_SYMBOL(pcie_relaxed_ordering_supported);
 
------Original Message-----
-From: netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of Jiri Benc
-Sent: Tuesday, August 8, 2017 10:28 PM
-To: Yang, Yi Y <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Subject: Re: [PATCH net-next] openvswitch: add NSH support
+This is misnamed.  This doesn't tell us anything about whether the
+device *supports* relaxed ordering.  It only tells us whether the
+device is *permitted* to use it.
 
-On Tue,  8 Aug 2017 12:59:40 +0800, Yi Yang wrote:
-> +struct ovs_key_nsh {
-> +	__u8 flags;
-> +	__u8 mdtype;
-> +	__u8 np;
-> +	__u8 pad;
-> +	__be32 path_hdr;
-> +	__be32 c[4];
+When a device initiates a transaction, the hardware should set the RO
+bit in the TLP with logic something like this:
 
-"c" is a very poor name. Please rename it to something that expresses what this field contains.
+  RO = <this Function supports relaxed ordering> &&
+       <this transaction doesn't require strong write ordering> &&
+       <PCI_EXP_DEVCTL_RELAX_EN is set>
 
-Also, this looks like MD type 1 only. How are those fields going to work with MD type 2? I don't think MD type 2 implementation is necessary in this patch but I'd like to know how this is going to work - it's uAPI and thus set in stone once this is merged. The uAPI needs to be designed with future use in mind.
+The issue you're fixing is that some Completers don't handle RO
+correctly.  The determining factor is not the Requester, but the
+Completer (for this series, a Root Port).  So I think this should be
+something like:
 
-> +#define OVS_ENCAP_NSH_MAX_MD_LEN 16
-> +/*
-> + * struct ovs_action_encap_nsh - %OVS_ACTION_ATTR_ENCAP_NSH
-> + * @flags: NSH header flags.
-> + * @mdtype: NSH metadata type.
-> + * @mdlen: Length of NSH metadata in bytes.
-> + * @np: NSH next_protocol: Inner packet type.
-> + * @path_hdr: NSH service path id and service index.
-> + * @metadata: NSH metadata for MD type 1 or 2  */ struct 
-> +ovs_action_encap_nsh {
-> +	__u8 flags;
-> +	__u8 mdtype;
-> +	__u8 mdlen;
-> +	__u8 np;
-> +	__be32 path_hdr;
-> +	__u8 metadata[OVS_ENCAP_NSH_MAX_MD_LEN];
+  int pcie_relaxed_ordering_broken(struct pci_dev *completer)
+  {
+    if (!completer)
+      return 0;
 
-This is wrong. The metadata size is set to a fixed size by this and cannot be ever extended, or at least not easily. Netlink has attributes for exactly these cases and that's what needs to be used here.
+    return completer->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING;
+  }
 
-> @@ -835,6 +866,8 @@ enum ovs_action_attr {
->  	OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
->  	OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
->  	OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
-> +	OVS_ACTION_ATTR_ENCAP_NSH,    /* struct ovs_action_encap_nsh. */
-> +	OVS_ACTION_ATTR_DECAP_NSH,    /* No argument. */
+and the caller should do something like this:
 
-Use "push" and "pop", not "encap" and "decap" to be consistent with the naming in the rest of the file. We use encap and decap for tunnel operations. This code does not use lwtunnels, thus push and pop is more appropriate.
+ if (pcie_relaxed_ordering_broken(pci_find_pcie_root_port(pdev)))
+   adapter->flags |= ROOT_NO_RELAXED_ORDERING;
 
- Jiri
+That way it's obvious where the issue is, and it's obvious that the
+answer might be different for peer-to-peer transactions than it is for
+transactions to the root port, i.e., to coherent memory.
+
+> +
+> +/**
+>   * pcie_get_minimum_link - determine minimum link settings of a PCI device
+>   * @dev: PCI device to query
+>   * @speed: storage for minimum speed
+> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+> index c31310d..48df012 100644
+> --- a/drivers/pci/probe.c
+> +++ b/drivers/pci/probe.c
+> @@ -1762,6 +1762,42 @@ static void pci_configure_extended_tags(struct pci_dev *dev)
+>  					 PCI_EXP_DEVCTL_EXT_TAG);
+>  }
+>  
+> +/**
+> + * pci_dev_should_disable_relaxed_ordering - check if the PCI device
+> + * should disable the relaxed ordering attribute.
+> + * @dev: PCI device
+> + *
+> + * Return true if any of the PCI devices above us do not support
+> + * relaxed ordering.
+> + */
+> +static bool pci_dev_should_disable_relaxed_ordering(struct pci_dev *dev)
+> +{
+> +	while (dev) {
+> +		if (dev->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING)
+> +			return true;
+> +
+> +		dev = dev->bus->self;
+> +	}
+> +
+> +	return false;
+> +}
+> +
+> +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
+> +{
+> +	/* We should not alter the relaxed ordering bit for the VF */
+> +	if (dev->is_virtfn)
+> +		return;
+> +
+> +	/* If the releaxed ordering enable bit is not set, do nothing. */
+
+s/releaxed/relaxed/
+
+> +	if (!pcie_relaxed_ordering_supported(dev))
+> +		return;
+> +
+> +	if (pci_dev_should_disable_relaxed_ordering(dev)) {
+> +		pcie_clear_relaxed_ordering(dev);
+> +		dev_info(&dev->dev, "Disable Relaxed Ordering\n");
+
+This associates the message with the Requester that may potentially
+use relaxed ordering.  But there's nothing wrong or unusual about the
+Requester; the issue is with the *Completer*, so I think the message
+should be in the quirk where we set PCI_DEV_FLAGS_NO_RELAXED_ORDERING.
+Maybe it should be both places; I dunno.
+
+This implementation assumes the device only initiates transactions to
+coherent memory, i.e., it assumes the device never does peer-to-peer
+DMA.  I guess we'll have to wait and see if we trip over any
+peer-to-peer issues, then figure out how to handle them.
+
+> +	}
+> +}
+> +
+>  static void pci_configure_device(struct pci_dev *dev)
+>  {
+>  	struct hotplug_params hpp;
+> @@ -1769,6 +1805,7 @@ static void pci_configure_device(struct pci_dev *dev)
+>  
+>  	pci_configure_mps(dev);
+>  	pci_configure_extended_tags(dev);
+> +	pci_configure_relaxed_ordering(dev);
+>  
+>  	memset(&hpp, 0, sizeof(hpp));
+>  	ret = pci_get_hp_params(dev, &hpp);
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index 412ec1c..3aa23a2 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -1127,6 +1127,8 @@ int pci_add_ext_cap_save_buffer(struct pci_dev *dev,
+>  void pci_pme_wakeup_bus(struct pci_bus *bus);
+>  void pci_d3cold_enable(struct pci_dev *dev);
+>  void pci_d3cold_disable(struct pci_dev *dev);
+> +int pcie_clear_relaxed_ordering(struct pci_dev *dev);
+> +bool pcie_relaxed_ordering_supported(struct pci_dev *dev);
+>  
+>  /* PCI Virtual Channel */
+>  int pci_save_vc_state(struct pci_dev *dev);
+> -- 
+> 1.8.3.1
+> 
+> 
+> 
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
