@@ -1,124 +1,90 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH v2 net-next 1/7] rtnetlink: call rtnl_calcit directly
-Date: Wed,  9 Aug 2017 20:41:47 +0200
-Message-ID: <20170809184153.16700-2-fw@strlen.de>
+Subject: [PATCH v2 net-next 3/7] rtnetlink: add reference counting to prevent module unload while dump is in progress
+Date: Wed,  9 Aug 2017 20:41:49 +0200
+Message-ID: <20170809184153.16700-4-fw@strlen.de>
 References: <20170809184153.16700-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:41856 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:41864 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751944AbdHISln (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 14:41:43 -0400
+        by vger.kernel.org with ESMTP id S1751944AbdHISlu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 14:41:50 -0400
 In-Reply-To: <20170809184153.16700-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is only a single place in the kernel that regisers the "calcit"
-callback (to determine min allocation for dumps).
+I don't see what prevents rmmod (unregister_all is called) while a dump
+is active.
 
-This is in rtnetlink.c for PF_UNSPEC RTM_GETLINK.
-The function that checks for calcit presence at run time will first check
-the requested family (which will always fail for !PF_UNSPEC as no callsite
-registers this), then falls back to checking PF_UNSPEC.
+Even if we'd add rtnl lock/unlock pair to unregister_all (as done here),
+thats not enough either as rtnl_lock is released right before the dump
+process starts.
 
-Therefore we can just check if type is RTM_GETLINK and then do a direct
-call.  Because of fallback to PF_UNSPEC all RTM_GETLINK types used this
-regardless of family.
+So this adds a refcount:
+ * acquire rtnl mutex
+ * bump refcount
+ * release mutex
+ * start the dump
 
-This has the advantage that we don't need to allocate space for
-the function pointer for all the other families.
-
-A followup patch will drop the calcit function pointer from the
-rtnl_link callback structure.
+... and make unregister_all remove the callbacks (no new dumps possible)
+and then wait until refcount is 0.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
  No changes since v1.
-
- net/core/rtnetlink.c | 29 ++++-------------------------
- 1 file changed, 4 insertions(+), 25 deletions(-)
+ net/core/rtnetlink.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 9201e3621351..8c9d34deea7d 100644
+index 67607c540c03..c45a7c5e3232 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -62,7 +62,6 @@
- struct rtnl_link {
- 	rtnl_doit_func		doit;
- 	rtnl_dumpit_func	dumpit;
--	rtnl_calcit_func 	calcit;
- };
+@@ -127,6 +127,7 @@ EXPORT_SYMBOL(lockdep_rtnl_is_held);
+ #endif /* #ifdef CONFIG_PROVE_LOCKING */
  
- static DEFINE_MUTEX(rtnl_mutex);
-@@ -173,21 +172,6 @@ static rtnl_dumpit_func rtnl_get_dumpit(int protocol, int msgindex)
- 	return tab[msgindex].dumpit;
+ static struct rtnl_link *rtnl_msg_handlers[RTNL_FAMILY_MAX + 1];
++static refcount_t rtnl_msg_handlers_ref[RTNL_FAMILY_MAX + 1];
+ 
+ static inline int rtm_msgindex(int msgtype)
+ {
+@@ -272,10 +273,18 @@ EXPORT_SYMBOL_GPL(rtnl_unregister);
+  */
+ void rtnl_unregister_all(int protocol)
+ {
++	struct rtnl_link *handlers;
++
+ 	BUG_ON(protocol < 0 || protocol > RTNL_FAMILY_MAX);
+ 
+-	kfree(rtnl_msg_handlers[protocol]);
++	rtnl_lock();
++	handlers = rtnl_msg_handlers[protocol];
+ 	rtnl_msg_handlers[protocol] = NULL;
++	rtnl_unlock();
++
++	while (refcount_read(&rtnl_msg_handlers_ref[protocol]) > 0)
++		schedule();
++	kfree(handlers);
  }
+ EXPORT_SYMBOL_GPL(rtnl_unregister_all);
  
--static rtnl_calcit_func rtnl_get_calcit(int protocol, int msgindex)
--{
--	struct rtnl_link *tab;
--
--	if (protocol <= RTNL_FAMILY_MAX)
--		tab = rtnl_msg_handlers[protocol];
--	else
--		tab = NULL;
--
--	if (tab == NULL || tab[msgindex].calcit == NULL)
--		tab = rtnl_msg_handlers[PF_UNSPEC];
--
--	return tab[msgindex].calcit;
--}
--
- /**
-  * __rtnl_register - Register a rtnetlink message type
-  * @protocol: Protocol family or PF_UNSPEC
-@@ -231,9 +215,6 @@ int __rtnl_register(int protocol, int msgtype,
- 	if (dumpit)
- 		tab[msgindex].dumpit = dumpit;
- 
--	if (calcit)
--		tab[msgindex].calcit = calcit;
--
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(__rtnl_register);
-@@ -277,7 +258,6 @@ int rtnl_unregister(int protocol, int msgtype)
- 
- 	rtnl_msg_handlers[protocol][msgindex].doit = NULL;
- 	rtnl_msg_handlers[protocol][msgindex].dumpit = NULL;
--	rtnl_msg_handlers[protocol][msgindex].calcit = NULL;
- 
- 	return 0;
- }
-@@ -4187,15 +4167,14 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (kind == 2 && nlh->nlmsg_flags&NLM_F_DUMP) {
- 		struct sock *rtnl;
- 		rtnl_dumpit_func dumpit;
--		rtnl_calcit_func calcit;
- 		u16 min_dump_alloc = 0;
- 
- 		dumpit = rtnl_get_dumpit(family, type);
+@@ -4173,6 +4182,8 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
  		if (dumpit == NULL)
  			return -EOPNOTSUPP;
--		calcit = rtnl_get_calcit(family, type);
--		if (calcit)
--			min_dump_alloc = calcit(skb, nlh);
+ 
++		refcount_inc(&rtnl_msg_handlers_ref[family]);
 +
-+		if (type == RTM_GETLINK)
-+			min_dump_alloc = rtnl_calcit(skb, nlh);
+ 		if (type == RTM_GETLINK)
+ 			min_dump_alloc = rtnl_calcit(skb, nlh);
  
- 		__rtnl_unlock();
- 		rtnl = net->rtnl;
-@@ -4300,7 +4279,7 @@ void __init rtnetlink_init(void)
- 	register_netdevice_notifier(&rtnetlink_dev_notifier);
+@@ -4186,6 +4197,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 			err = netlink_dump_start(rtnl, skb, nlh, &c);
+ 		}
+ 		rtnl_lock();
++		refcount_dec(&rtnl_msg_handlers_ref[family]);
+ 		return err;
+ 	}
  
- 	rtnl_register(PF_UNSPEC, RTM_GETLINK, rtnl_getlink,
--		      rtnl_dump_ifinfo, rtnl_calcit);
-+		      rtnl_dump_ifinfo, NULL);
- 	rtnl_register(PF_UNSPEC, RTM_SETLINK, rtnl_setlink, NULL, NULL);
- 	rtnl_register(PF_UNSPEC, RTM_NEWLINK, rtnl_newlink, NULL, NULL);
- 	rtnl_register(PF_UNSPEC, RTM_DELLINK, rtnl_dellink, NULL, NULL);
 -- 
 2.13.0
