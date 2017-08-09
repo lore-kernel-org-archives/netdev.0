@@ -1,16 +1,16 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 2/9] bpf, x86: implement jiting of BPF_J{LT,LE,SLT,SLE}
-Date: Wed,  9 Aug 2017 12:23:54 +0200
-Message-ID: <221f42aa47139be452f3a2b26d41ac3406683516.1502272924.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 3/9] bpf, arm64: implement jiting of BPF_J{LT,LE,SLT,SLE}
+Date: Wed,  9 Aug 2017 12:23:55 +0200
+Message-ID: <efc7cfe7be302e34c7226bcc7bd717ee4fad0a83.1502272924.git.daniel@iogearbox.net>
 References: <cover.1502272924.git.daniel@iogearbox.net>
 Cc: ast@fb.com, holzheu@linux.vnet.ibm.com,
         naveen.n.rao@linux.vnet.ibm.com, jakub.kicinski@netronome.com,
         netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58227 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:58229 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752098AbdHIKYT (ORCPT
+        with ESMTP id S1752227AbdHIKYT (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 06:24:19 -0400
 In-Reply-To: <cover.1502272924.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1502272924.git.daniel@iogearbox.net>
@@ -19,90 +19,96 @@ Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This work implements jiting of BPF_J{LT,LE,SLT,SLE} instructions
-with BPF_X/BPF_K variants for the x86_64 eBPF JIT.
+with BPF_X/BPF_K variants for the arm64 eBPF JIT.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- arch/x86/net/bpf_jit_comp.c | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+ arch/arm64/net/bpf_jit.h      |  4 ++++
+ arch/arm64/net/bpf_jit_comp.c | 20 ++++++++++++++++++++
+ 2 files changed, 24 insertions(+)
 
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index e1324f2..8194696 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -94,7 +94,9 @@ static int bpf_size_to_x86_bytes(int bpf_size)
- #define X86_JNE 0x75
- #define X86_JBE 0x76
- #define X86_JA  0x77
-+#define X86_JL  0x7C
- #define X86_JGE 0x7D
-+#define X86_JLE 0x7E
- #define X86_JG  0x7F
+diff --git a/arch/arm64/net/bpf_jit.h b/arch/arm64/net/bpf_jit.h
+index b02a926..783de51 100644
+--- a/arch/arm64/net/bpf_jit.h
++++ b/arch/arm64/net/bpf_jit.h
+@@ -44,8 +44,12 @@
+ #define A64_COND_NE	AARCH64_INSN_COND_NE /* != */
+ #define A64_COND_CS	AARCH64_INSN_COND_CS /* unsigned >= */
+ #define A64_COND_HI	AARCH64_INSN_COND_HI /* unsigned > */
++#define A64_COND_LS	AARCH64_INSN_COND_LS /* unsigned <= */
++#define A64_COND_CC	AARCH64_INSN_COND_CC /* unsigned < */
+ #define A64_COND_GE	AARCH64_INSN_COND_GE /* signed >= */
+ #define A64_COND_GT	AARCH64_INSN_COND_GT /* signed > */
++#define A64_COND_LE	AARCH64_INSN_COND_LE /* signed <= */
++#define A64_COND_LT	AARCH64_INSN_COND_LT /* signed < */
+ #define A64_B_(cond, imm19) A64_COND_BRANCH(cond, (imm19) << 2)
  
- static void bpf_flush_icache(void *start, void *end)
-@@ -888,9 +890,13 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
- 		case BPF_JMP | BPF_JEQ | BPF_X:
- 		case BPF_JMP | BPF_JNE | BPF_X:
- 		case BPF_JMP | BPF_JGT | BPF_X:
-+		case BPF_JMP | BPF_JLT | BPF_X:
- 		case BPF_JMP | BPF_JGE | BPF_X:
-+		case BPF_JMP | BPF_JLE | BPF_X:
- 		case BPF_JMP | BPF_JSGT | BPF_X:
-+		case BPF_JMP | BPF_JSLT | BPF_X:
- 		case BPF_JMP | BPF_JSGE | BPF_X:
-+		case BPF_JMP | BPF_JSLE | BPF_X:
- 			/* cmp dst_reg, src_reg */
- 			EMIT3(add_2mod(0x48, dst_reg, src_reg), 0x39,
- 			      add_2reg(0xC0, dst_reg, src_reg));
-@@ -911,9 +917,13 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
- 		case BPF_JMP | BPF_JEQ | BPF_K:
- 		case BPF_JMP | BPF_JNE | BPF_K:
- 		case BPF_JMP | BPF_JGT | BPF_K:
-+		case BPF_JMP | BPF_JLT | BPF_K:
- 		case BPF_JMP | BPF_JGE | BPF_K:
-+		case BPF_JMP | BPF_JLE | BPF_K:
- 		case BPF_JMP | BPF_JSGT | BPF_K:
-+		case BPF_JMP | BPF_JSLT | BPF_K:
- 		case BPF_JMP | BPF_JSGE | BPF_K:
-+		case BPF_JMP | BPF_JSLE | BPF_K:
- 			/* cmp dst_reg, imm8/32 */
- 			EMIT1(add_1mod(0x48, dst_reg));
- 
-@@ -935,18 +945,34 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
- 				/* GT is unsigned '>', JA in x86 */
- 				jmp_cond = X86_JA;
- 				break;
-+			case BPF_JLT:
-+				/* LT is unsigned '<', JB in x86 */
-+				jmp_cond = X86_JB;
-+				break;
- 			case BPF_JGE:
- 				/* GE is unsigned '>=', JAE in x86 */
- 				jmp_cond = X86_JAE;
- 				break;
-+			case BPF_JLE:
-+				/* LE is unsigned '<=', JBE in x86 */
-+				jmp_cond = X86_JBE;
-+				break;
- 			case BPF_JSGT:
- 				/* signed '>', GT in x86 */
- 				jmp_cond = X86_JG;
- 				break;
-+			case BPF_JSLT:
-+				/* signed '<', LT in x86 */
-+				jmp_cond = X86_JL;
-+				break;
- 			case BPF_JSGE:
- 				/* signed '>=', GE in x86 */
- 				jmp_cond = X86_JGE;
- 				break;
-+			case BPF_JSLE:
-+				/* signed '<=', LE in x86 */
-+				jmp_cond = X86_JLE;
-+				break;
- 			default: /* to silence gcc warning */
- 				return -EFAULT;
- 			}
+ /* Unconditional branch (immediate) */
+diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
+index f32144b..ba38d40 100644
+--- a/arch/arm64/net/bpf_jit_comp.c
++++ b/arch/arm64/net/bpf_jit_comp.c
+@@ -527,10 +527,14 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
+ 	/* IF (dst COND src) JUMP off */
+ 	case BPF_JMP | BPF_JEQ | BPF_X:
+ 	case BPF_JMP | BPF_JGT | BPF_X:
++	case BPF_JMP | BPF_JLT | BPF_X:
+ 	case BPF_JMP | BPF_JGE | BPF_X:
++	case BPF_JMP | BPF_JLE | BPF_X:
+ 	case BPF_JMP | BPF_JNE | BPF_X:
+ 	case BPF_JMP | BPF_JSGT | BPF_X:
++	case BPF_JMP | BPF_JSLT | BPF_X:
+ 	case BPF_JMP | BPF_JSGE | BPF_X:
++	case BPF_JMP | BPF_JSLE | BPF_X:
+ 		emit(A64_CMP(1, dst, src), ctx);
+ emit_cond_jmp:
+ 		jmp_offset = bpf2a64_offset(i + off, i, ctx);
+@@ -542,9 +546,15 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
+ 		case BPF_JGT:
+ 			jmp_cond = A64_COND_HI;
+ 			break;
++		case BPF_JLT:
++			jmp_cond = A64_COND_CC;
++			break;
+ 		case BPF_JGE:
+ 			jmp_cond = A64_COND_CS;
+ 			break;
++		case BPF_JLE:
++			jmp_cond = A64_COND_LS;
++			break;
+ 		case BPF_JSET:
+ 		case BPF_JNE:
+ 			jmp_cond = A64_COND_NE;
+@@ -552,9 +562,15 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
+ 		case BPF_JSGT:
+ 			jmp_cond = A64_COND_GT;
+ 			break;
++		case BPF_JSLT:
++			jmp_cond = A64_COND_LT;
++			break;
+ 		case BPF_JSGE:
+ 			jmp_cond = A64_COND_GE;
+ 			break;
++		case BPF_JSLE:
++			jmp_cond = A64_COND_LE;
++			break;
+ 		default:
+ 			return -EFAULT;
+ 		}
+@@ -566,10 +582,14 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
+ 	/* IF (dst COND imm) JUMP off */
+ 	case BPF_JMP | BPF_JEQ | BPF_K:
+ 	case BPF_JMP | BPF_JGT | BPF_K:
++	case BPF_JMP | BPF_JLT | BPF_K:
+ 	case BPF_JMP | BPF_JGE | BPF_K:
++	case BPF_JMP | BPF_JLE | BPF_K:
+ 	case BPF_JMP | BPF_JNE | BPF_K:
+ 	case BPF_JMP | BPF_JSGT | BPF_K:
++	case BPF_JMP | BPF_JSLT | BPF_K:
+ 	case BPF_JMP | BPF_JSGE | BPF_K:
++	case BPF_JMP | BPF_JSLE | BPF_K:
+ 		emit_a64_mov_i(1, tmp, imm, ctx);
+ 		emit(A64_CMP(1, dst, tmp), ctx);
+ 		goto emit_cond_jmp;
 -- 
 1.9.3
