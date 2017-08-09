@@ -1,134 +1,40 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [PATCH iproute2 net-next] gre: add support for ERSPAN tunnel
-Date: Wed,  9 Aug 2017 13:34:42 -0700
-Message-ID: <1502310882-8802-1-git-send-email-u9012063@gmail.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: netdev@vger.kernel.org
+From: administrador <kepala.kanwil-sulawesi@customs.go.id>
+Subject: =?utf-8?b?QVRFTkNJw5NO?=
+Date: Wed, 09 Aug 2017 22:30:07 +0530
+Message-ID: <20170809170254.5D80FDC800D@mail.customs.go.id>
+Reply-To: Sistemass_Adminss@mail2world.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Recipients <kepala.kanwil-sulawesi@customs.go.id>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34457 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751958AbdHIUe5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 16:34:57 -0400
-Received: by mail-pg0-f65.google.com with SMTP id y192so6720205pgd.1
-        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 13:34:57 -0700 (PDT)
+Received: from [103.12.81.54] ([103.12.81.54]:55256 "EHLO
+        zimbra01.customs.go.id" rhost-flags-FAIL-FAIL-OK-OK)
+        by vger.kernel.org with ESMTP id S1751904AbdHIUm6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 16:42:58 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch adds ERSPAN type II tunnel support.  The implementation
-is based on the draft at https://tools.ietf.org/html/draft-foschiano-erspan-01
-One of the purposes is for Linux box to be able to receive ERSPAN
-monitoring traffic sent from the Cisco switch, by creating a ERSPAN
-tunnel device.  In addition, the patch also adds ERSPAN TX, so traffic
-can also be encapsulated into ERSPAN and sent out.
+ATENCI=D3N;
 
-The implementation reuses the key as ERSPAN session ID, and
-field 'erspan' as ERSPAN Index fields:
-./ip link add dev ers11 type erspan seq key 100 erspan 123 \
-		local 172.16.1.200 remote 172.16.1.100
+Su buz=F3n ha superado el l=EDmite de almacenamiento, que es de 5 GB defini=
+dos por el administrador, quien actualmente est=E1 ejecutando en 10.9GB, no=
+ puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a valida=
+r su buz=F3n de correo electr=F3nico. Para revalidar su buz=F3n de correo, =
+env=EDe la siguiente informaci=F3n a continuaci=F3n:
 
-Signed-off-by: William Tu <u9012063@gmail.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
----
- include/linux/if_tunnel.h |  1 +
- ip/link_gre.c             | 26 +++++++++++++++++++++++++-
- 2 files changed, 26 insertions(+), 1 deletion(-)
+nombre:
+Nombre de usuario:
+contrase=F1a:
+Confirmar contrase=F1a:
+E-mail:
+tel=E9fono:
+Si usted no puede revalidar su buz=F3n, el buz=F3n se deshabilitar=E1!
 
-diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
-index 7375335a0773..21834cac4c0d 100644
---- a/include/linux/if_tunnel.h
-+++ b/include/linux/if_tunnel.h
-@@ -134,6 +134,7 @@ enum {
- 	IFLA_GRE_COLLECT_METADATA,
- 	IFLA_GRE_IGNORE_DF,
- 	IFLA_GRE_FWMARK,
-+	IFLA_GRE_ERSPAN_INDEX,
- 	__IFLA_GRE_MAX,
- };
- 
-diff --git a/ip/link_gre.c b/ip/link_gre.c
-index c2ec5f26902f..c28fac1eb5de 100644
---- a/ip/link_gre.c
-+++ b/ip/link_gre.c
-@@ -26,7 +26,7 @@
- static void print_usage(FILE *f)
- {
- 	fprintf(f,
--		"Usage: ... { gre | gretap } [ remote ADDR ]\n"
-+		"Usage: ... { gre | gretap | erspan } [ remote ADDR ]\n"
- 		"                            [ local ADDR ]\n"
- 		"                            [ [i|o]seq ]\n"
- 		"                            [ [i|o]key KEY ]\n"
-@@ -44,6 +44,7 @@ static void print_usage(FILE *f)
- 		"                            [ [no]encap-csum6 ]\n"
- 		"                            [ [no]encap-remcsum ]\n"
- 		"                            [ fwmark MARK ]\n"
-+		"                            [ erspan IDX ]\n"
- 		"\n"
- 		"Where: ADDR := { IP_ADDRESS | any }\n"
- 		"       TOS  := { NUMBER | inherit }\n"
-@@ -96,6 +97,7 @@ static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 metadata = 0;
- 	__u8 ignore_df = 0;
- 	__u32 fwmark = 0;
-+	__u32 erspan_idx = 0;
- 
- 	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
- 		if (rtnl_talk(&rth, &req.n, &req.n, sizeof(req)) < 0) {
-@@ -172,6 +174,9 @@ get_failed:
- 
- 		if (greinfo[IFLA_GRE_FWMARK])
- 			fwmark = rta_getattr_u32(greinfo[IFLA_GRE_FWMARK]);
-+
-+		if (greinfo[IFLA_GRE_ERSPAN_INDEX])
-+			erspan_idx = rta_getattr_u32(greinfo[IFLA_GRE_ERSPAN_INDEX]);
- 	}
- 
- 	while (argc > 0) {
-@@ -328,6 +333,10 @@ get_failed:
- 			NEXT_ARG();
- 			if (get_u32(&fwmark, *argv, 0))
- 				invarg("invalid fwmark\n", *argv);
-+		} else if (strcmp(*argv, "erspan") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&erspan_idx, *argv, 0))
-+				invarg("invalid erspan index\n", *argv);
- 		} else
- 			usage();
- 		argc--; argv++;
-@@ -359,6 +368,7 @@ get_failed:
- 		addattr_l(n, 1024, IFLA_GRE_TTL, &ttl, 1);
- 		addattr_l(n, 1024, IFLA_GRE_TOS, &tos, 1);
- 		addattr32(n, 1024, IFLA_GRE_FWMARK, fwmark);
-+		addattr32(n, 1024, IFLA_GRE_ERSPAN_INDEX, htonl(erspan_idx));
- 	} else {
- 		addattr_l(n, 1024, IFLA_GRE_COLLECT_METADATA, NULL, 0);
- 	}
-@@ -473,6 +483,12 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	if (tb[IFLA_GRE_IGNORE_DF] && rta_getattr_u8(tb[IFLA_GRE_IGNORE_DF]))
- 		fputs("ignore-df ", f);
- 
-+	if (tb[IFLA_GRE_ERSPAN_INDEX]) {
-+		__u32 erspan_idx = rta_getattr_u32(tb[IFLA_GRE_ERSPAN_INDEX]);
-+
-+		fprintf(f, "erspan_index %u", erspan_idx);
-+	}
-+
- 	if (tb[IFLA_GRE_ENCAP_TYPE] &&
- 	    rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
- 		__u16 type = rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]);
-@@ -538,3 +554,11 @@ struct link_util gretap_link_util = {
- 	.print_opt = gre_print_opt,
- 	.print_help = gre_print_help,
- };
-+
-+struct link_util erspan_link_util = {
-+	.id = "erspan",
-+	.maxattr = IFLA_GRE_MAX,
-+	.parse_opt = gre_parse_opt,
-+	.print_opt = gre_print_opt,
-+	.print_help = gre_print_help,
-+};
--- 
-2.7.4
+Disculpa las molestias.
+C=F3digo de verificaci=F3n: es: 006524
+Correo Soporte T=E9cnico =A9 2017
+
+=A1gracias
+Sistemas administrador
