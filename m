@@ -1,89 +1,107 @@
-From: Baolin Wang <baolin.wang@linaro.org>
-Subject: [PATCH 2/3] security: keys: Replace time_t with time64_t for struct key_preparsed_payload
-Date: Wed,  9 Aug 2017 10:51:31 +0800
-Message-ID: <edd8fbb1ecfa2f5e45b5c09efbf67a59014d3cd9.1502246502.git.baolin.wang@linaro.org>
-References: <cover.1502246501.git.baolin.wang@linaro.org>
-Cc: james.l.morris@oracle.com, serge@hallyn.com,
-        marc.dionne@auristor.com, dan.carpenter@oracle.com,
-        Jason@zx2c4.com, arnd@arndb.de, broonie@kernel.org,
-        keyrings@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-        baolin.wang@linaro.org
-To: dhowells@redhat.com, davem@davemloft.net
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [PATCH v9 1/4] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Tue, 8 Aug 2017 22:02:36 -0500
+Message-ID: <20170809030236.GA7191@bhelgaas-glaptop.roam.corp.google.com>
+References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
+ <1501917313-9812-2-git-send-email-dingtianhong@huawei.com>
+ <20170808232200.GO16580@bhelgaas-glaptop.roam.corp.google.com>
+ <MWHPR12MB1600249E96C320D5472F77ADC88B0@MWHPR12MB1600.namprd12.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+        "ashok.raj@intel.com" <ashok.raj@intel.com>,
+        "bhelgaas@google.com" <bhelgaas@google.com>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+        "will.deacon@arm.com" <will.deacon
+To: Casey Leedom <leedom@chelsio.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1502246501.git.baolin.wang@linaro.org>
-In-Reply-To: <cover.1502246501.git.baolin.wang@linaro.org>
-References: <cover.1502246501.git.baolin.wang@linaro.org>
+Content-Disposition: inline
+In-Reply-To: <MWHPR12MB1600249E96C320D5472F77ADC88B0@MWHPR12MB1600.namprd12.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The 'struct key_preparsed_payload' will use 'time_t' which we will
-try to remove in the kernel, since 'time_t' is not year 2038 safe on
-32bits systems.
+On Wed, Aug 09, 2017 at 01:40:01AM +0000, Casey Leedom wrote:
+> | From: Bjorn Helgaas <helgaas@kernel.org>
+> | Sent: Tuesday, August 8, 2017 4:22 PM
+> | 
+> | This needs to include a link to the Intel spec
+> | (https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf,
+> | sec 3.9.1).
+> 
+>   In the commit message or as a comment?  Regardless, I agree.  It's always
+> nice to be able to go back and see what the official documentation says.
+> However, that said, links on the internet are ... fragile as time goes by,
+> so we might want to simply quote section 3.9.1 in the commit message since
+> it's relatively short:
+> 
+>     3.9.1 Optimizing PCIe Performance for Accesses Toward Coherent Memory
+>           and Toward MMIO Regions (P2P)
+> 
+>     In order to maximize performance for PCIe devices in the processors
+>     listed in Table 3-6 below, the soft- ware should determine whether the
+>     accesses are toward coherent memory (system memory) or toward MMIO
+>     regions (P2P access to other devices). If the access is toward MMIO
+>     region, then software can command HW to set the RO bit in the TLP
+>     header, as this would allow hardware to achieve maximum throughput for
+>     these types of accesses. For accesses toward coherent memory, software
+>     can command HW to clear the RO bit in the TLP header (no RO), as this
+>     would allow hardware to achieve maximum throughput for these types of
+>     accesses.
+> 
+>     Table 3-6. Intel Processor CPU RP Device IDs for Processors Optimizing
+>                PCIe Performance
+> 
+>     Processor                            CPU RP Device IDs
+> 
+>     Intel Xeon processors based on       6F01H-6F0EH
+>     Broadwell microarchitecture
+> 
+>     Intel Xeon processors based on       2F01H-2F0EH
+>     Haswell microarchitecture
 
-Thus this patch replaces 'time_t' with 'time64_t' which is year 2038
-safe on 32 bits system for 'struct key_preparsed_payload', moreover
-we should use the 'TIME64_MAX' macro to initialize the 'time64_t'
-type variable.
+Agreed, links are prone to being broken.  I would include in the
+changelog the complete title and order number, along with the link as
+a footnote.  Wouldn't hurt to quote the section too, since it's short.
 
-Signed-off-by: Baolin Wang <baolin.wang@linaro.org>
----
- include/linux/key-type.h |    2 +-
- security/keys/key.c      |    8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+> | It should also include a pointer to the AMD erratum, if available, or
+> | at least some reference to how we know it doesn't obey the rules.
+> 
+>   Getting an ACK from AMD seems like a forlorn cause at this point.  My
+> contact was Bob Shaw <Bob.Shaw@amd.com> and he stopped responding to me
+> messages almost a year ago saying that all of AMD's energies were being
+> redirected towards upcoming x86 products (likely Ryzen as we now know).  As
+> far as I can tell AMD has walked away from their A1100 (AKA "Seattle") ARM
+> SoC.
+> 
+>   On the specific issue, I can certainly write up somthing even more
+> extensive than I wrote up for the comment in drivers/pci/quirks.c.  Please
+> review the comment I wrote up and tell me if you'd like something even more
+> detailed -- I'm usually acused of writing comments which are too long, so
+> this would be a new one on me ... :-)
 
-diff --git a/include/linux/key-type.h b/include/linux/key-type.h
-index 8496cf6..4beb006 100644
---- a/include/linux/key-type.h
-+++ b/include/linux/key-type.h
-@@ -44,7 +44,7 @@ struct key_preparsed_payload {
- 	const void	*data;		/* Raw data */
- 	size_t		datalen;	/* Raw datalen */
- 	size_t		quotalen;	/* Quota length for proposed payload */
--	time_t		expiry;		/* Expiry time of key */
-+	time64_t	expiry;		/* Expiry time of key */
- };
- 
- typedef int (*request_key_actor_t)(struct key_construction *key,
-diff --git a/security/keys/key.c b/security/keys/key.c
-index 291a67c..d5c8941 100644
---- a/security/keys/key.c
-+++ b/security/keys/key.c
-@@ -446,7 +446,7 @@ static int __key_instantiate_and_link(struct key *key,
- 			if (authkey)
- 				key_revoke(authkey);
- 
--			if (prep->expiry != TIME_T_MAX) {
-+			if (prep->expiry != TIME64_MAX) {
- 				key->expiry = prep->expiry;
- 				key_schedule_gc(prep->expiry + key_gc_delay);
- 			}
-@@ -492,7 +492,7 @@ int key_instantiate_and_link(struct key *key,
- 	prep.data = data;
- 	prep.datalen = datalen;
- 	prep.quotalen = key->type->def_datalen;
--	prep.expiry = TIME_T_MAX;
-+	prep.expiry = TIME64_MAX;
- 	if (key->type->preparse) {
- 		ret = key->type->preparse(&prep);
- 		if (ret < 0)
-@@ -834,7 +834,7 @@ key_ref_t key_create_or_update(key_ref_t keyring_ref,
- 	prep.data = payload;
- 	prep.datalen = plen;
- 	prep.quotalen = index_key.type->def_datalen;
--	prep.expiry = TIME_T_MAX;
-+	prep.expiry = TIME64_MAX;
- 	if (index_key.type->preparse) {
- 		ret = index_key.type->preparse(&prep);
- 		if (ret < 0) {
-@@ -968,7 +968,7 @@ int key_update(key_ref_t key_ref, const void *payload, size_t plen)
- 	prep.data = payload;
- 	prep.datalen = plen;
- 	prep.quotalen = key->type->def_datalen;
--	prep.expiry = TIME_T_MAX;
-+	prep.expiry = TIME64_MAX;
- 	if (key->type->preparse) {
- 		ret = key->type->preparse(&prep);
- 		if (ret < 0)
--- 
-1.7.9.5
+If you have any bug reports with info about how you debugged it and
+concluded that Seattle is broken, you could include a link (probably
+in the changelog).  But if there isn't anything, there isn't anything.
+
+I might reorganize those patches as:
+
+  1) Add a PCI_DEV_FLAGS_RELAXED_ORDERING_BROKEN flag, the quirk that
+  sets it, and the current patch [2/4] that uses it.
+
+  2) Add the Intel DECLARE_PCI_FIXUP_CLASS_EARLY()s with the Intel
+  details.
+
+  3) Add the AMD DECLARE_PCI_FIXUP_CLASS_EARLY()s with the AMD
+  details.
