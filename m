@@ -1,41 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] hv_set_ifconfig.sh double check before setting ip
-Date: Tue, 08 Aug 2017 21:11:50 -0700 (PDT)
-Message-ID: <20170808.211150.2070475124549651350.davem@davemloft.net>
-References: <20170808135345.17027-1-otubo@redhat.com>
+Subject: Re: [PATCH net,stable] qmi_wwan: fix NULL deref on disconnect
+Date: Tue, 08 Aug 2017 21:14:42 -0700 (PDT)
+Message-ID: <20170808.211442.1758463645187832260.davem@davemloft.net>
+References: <20170808160211.4777-1-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        devel@linuxdriverproject.org, sthemmin@microsoft.com,
-        haiyangz@microsoft.com, kys@microsoft.com
-To: otubo@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170808135345.17027-1-otubo@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, dnlplm@gmail.com
+To: bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60408 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750787AbdHIEOo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 00:14:44 -0400
+In-Reply-To: <20170808160211.4777-1-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eduardo Otubo <otubo@redhat.com>
-Date: Tue,  8 Aug 2017 15:53:45 +0200
+From: Bjørn Mork <bjorn@mork.no>
+Date: Tue,  8 Aug 2017 18:02:11 +0200
 
-> This patch fixes the behavior of the hv_set_ifconfig script when setting
-> the interface ip. Sometimes the interface has already been configured by
-> network daemon, in this case hv_set_ifconfig causes "RTNETLINK: file
-> exists error"; in order to avoid this error this patch makes sure double
-> checks the interface before trying anything.
+> qmi_wwan_disconnect is called twice when disconnecting devices with
+> separate control and data interfaces.  The first invocation will set
+> the interface data to NULL for both interfaces to flag that the
+> disconnect has been handled.  But the matching NULL check was left
+> out when qmi_wwan_disconnect was added, resulting in this oops:
 > 
-> Signed-off-by: Eduardo Otubo <otubo@redhat.com>
+>   usb 2-1.4: USB disconnect, device number 4
+>   qmi_wwan 2-1.4:1.6 wwp0s29u1u4i6: unregister 'qmi_wwan' usb-0000:00:1d.0-1.4, WWAN/QMI device
+>   BUG: unable to handle kernel NULL pointer dereference at 00000000000000e0
+>   IP: qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
+>   PGD 0
+>   P4D 0
+>   Oops: 0000 [#1] SMP
+>   Modules linked in: <stripped irrelevant module list>
+>   CPU: 2 PID: 33 Comm: kworker/2:1 Tainted: G            E   4.12.3-nr44-normandy-r1500619820+ #1
+>   Hardware name: LENOVO 4291LR7/4291LR7, BIOS CBET4000 4.6-810-g50522254fb 07/21/2017
+>   Workqueue: usb_hub_wq hub_event [usbcore]
+>   task: ffff8c882b716040 task.stack: ffffb8e800d84000
+>   RIP: 0010:qmi_wwan_disconnect+0x25/0xc0 [qmi_wwan]
+>   RSP: 0018:ffffb8e800d87b38 EFLAGS: 00010246
+>   RAX: 0000000000000000 RBX: 0000000000000000 RCX: 0000000000000000
+>   RDX: 0000000000000001 RSI: ffff8c8824f3f1d0 RDI: ffff8c8824ef6400
+>   RBP: ffff8c8824ef6400 R08: 0000000000000000 R09: 0000000000000000
+>   R10: ffffb8e800d87780 R11: 0000000000000011 R12: ffffffffc07ea0e8
+>   R13: ffff8c8824e2e000 R14: ffff8c8824e2e098 R15: 0000000000000000
+>   FS:  0000000000000000(0000) GS:ffff8c8835300000(0000) knlGS:0000000000000000
+>   CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>   CR2: 00000000000000e0 CR3: 0000000229ca5000 CR4: 00000000000406e0
+>   Call Trace:
+>    ? usb_unbind_interface+0x71/0x270 [usbcore]
+>    ? device_release_driver_internal+0x154/0x210
+>    ? qmi_wwan_unbind+0x6d/0xc0 [qmi_wwan]
+>    ? usbnet_disconnect+0x6c/0xf0 [usbnet]
+>    ? qmi_wwan_disconnect+0x87/0xc0 [qmi_wwan]
+>    ? usb_unbind_interface+0x71/0x270 [usbcore]
+>    ? device_release_driver_internal+0x154/0x210
+> 
+> Reported-and-tested-by: Nathaniel Roach <nroach44@gmail.com>
+> Fixes: c6adf77953bc ("net: usb: qmi_wwan: add qmap mux protocol support")
+> Cc: Daniele Palmas <dnlplm@gmail.com>
+> Signed-off-by: Bjørn Mork <bjorn@mork.no>
 
-And if the daemon sets the address after you test it but before
-you try to set it in the script, what happens?
-
-This is why I hate changes like this.  They don't remove the problem,
-they make it smaller.  And smaller in a bad way.  Smaller makes the
-problem even more harder to diagnose when it happens.
-
-There is implicitly no synchonization between network configuration
-daemons and things people run by hand like this script.
-
-So, caveat emptor.
-
-I'm not applying this, sorry.
+Applied and queued up for -stable, thanks.
