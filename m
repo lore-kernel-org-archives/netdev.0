@@ -1,16 +1,16 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 6/9] bpf, ppc64: implement jiting of BPF_J{LT,LE,SLT,SLE}
-Date: Thu, 10 Aug 2017 01:40:00 +0200
-Message-ID: <d74006a9a9c73656806169c4d5ed207aed157d90.1502320623.git.daniel@iogearbox.net>
+Subject: [PATCH net-next v2 7/9] bpf, nfp: implement jiting of BPF_J{LT,LE}
+Date: Thu, 10 Aug 2017 01:40:01 +0200
+Message-ID: <e5a7b1433ce1993f0fa6b77383545868fe0aff5d.1502320623.git.daniel@iogearbox.net>
 References: <cover.1502320623.git.daniel@iogearbox.net>
 Cc: ast@fb.com, holzheu@linux.vnet.ibm.com,
         naveen.n.rao@linux.vnet.ibm.com, jakub.kicinski@netronome.com,
         netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35717 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:35725 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752225AbdHIXkQ (ORCPT
+        with ESMTP id S1752227AbdHIXkQ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 19:40:16 -0400
 In-Reply-To: <cover.1502320623.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1502320623.git.daniel@iogearbox.net>
@@ -18,96 +18,70 @@ References: <cover.1502320623.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This work implements jiting of BPF_J{LT,LE,SLT,SLE} instructions
-with BPF_X/BPF_K variants for the ppc64 eBPF JIT.
+This work implements jiting of BPF_J{LT,LE} instructions with
+BPF_X/BPF_K variants for the nfp eBPF JIT. The two BPF_J{SLT,SLE}
+instructions have not been added yet given BPF_J{SGT,SGE} are
+not supported yet either.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
-Tested-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+Acked-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- arch/powerpc/net/bpf_jit.h        |  1 +
- arch/powerpc/net/bpf_jit_comp64.c | 20 ++++++++++++++++++++
- 2 files changed, 21 insertions(+)
+ drivers/net/ethernet/netronome/nfp/bpf/jit.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
-index 30cf03f..47fc666 100644
---- a/arch/powerpc/net/bpf_jit.h
-+++ b/arch/powerpc/net/bpf_jit.h
-@@ -263,6 +263,7 @@ static inline bool is_nearbranch(int offset)
- #define COND_EQ		(CR0_EQ | COND_CMP_TRUE)
- #define COND_NE		(CR0_EQ | COND_CMP_FALSE)
- #define COND_LT		(CR0_LT | COND_CMP_TRUE)
-+#define COND_LE		(CR0_GT | COND_CMP_FALSE)
+diff --git a/drivers/net/ethernet/netronome/nfp/bpf/jit.c b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
+index 8e57fda..239dfbe 100644
+--- a/drivers/net/ethernet/netronome/nfp/bpf/jit.c
++++ b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
+@@ -1238,6 +1238,16 @@ static int jge_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ 	return wrp_cmp_imm(nfp_prog, meta, BR_BHS, true);
+ }
  
- #endif
++static int jlt_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
++{
++	return wrp_cmp_imm(nfp_prog, meta, BR_BHS, false);
++}
++
++static int jle_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
++{
++	return wrp_cmp_imm(nfp_prog, meta, BR_BLO, true);
++}
++
+ static int jset_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ {
+ 	const struct bpf_insn *insn = &meta->insn;
+@@ -1325,6 +1335,16 @@ static int jge_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ 	return wrp_cmp_reg(nfp_prog, meta, BR_BHS, true);
+ }
  
-diff --git a/arch/powerpc/net/bpf_jit_comp64.c b/arch/powerpc/net/bpf_jit_comp64.c
-index 861c5af..faf2016 100644
---- a/arch/powerpc/net/bpf_jit_comp64.c
-+++ b/arch/powerpc/net/bpf_jit_comp64.c
-@@ -795,12 +795,24 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
- 		case BPF_JMP | BPF_JSGT | BPF_X:
- 			true_cond = COND_GT;
- 			goto cond_branch;
-+		case BPF_JMP | BPF_JLT | BPF_K:
-+		case BPF_JMP | BPF_JLT | BPF_X:
-+		case BPF_JMP | BPF_JSLT | BPF_K:
-+		case BPF_JMP | BPF_JSLT | BPF_X:
-+			true_cond = COND_LT;
-+			goto cond_branch;
- 		case BPF_JMP | BPF_JGE | BPF_K:
- 		case BPF_JMP | BPF_JGE | BPF_X:
- 		case BPF_JMP | BPF_JSGE | BPF_K:
- 		case BPF_JMP | BPF_JSGE | BPF_X:
- 			true_cond = COND_GE;
- 			goto cond_branch;
-+		case BPF_JMP | BPF_JLE | BPF_K:
-+		case BPF_JMP | BPF_JLE | BPF_X:
-+		case BPF_JMP | BPF_JSLE | BPF_K:
-+		case BPF_JMP | BPF_JSLE | BPF_X:
-+			true_cond = COND_LE;
-+			goto cond_branch;
- 		case BPF_JMP | BPF_JEQ | BPF_K:
- 		case BPF_JMP | BPF_JEQ | BPF_X:
- 			true_cond = COND_EQ;
-@@ -817,14 +829,18 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
- cond_branch:
- 			switch (code) {
- 			case BPF_JMP | BPF_JGT | BPF_X:
-+			case BPF_JMP | BPF_JLT | BPF_X:
- 			case BPF_JMP | BPF_JGE | BPF_X:
-+			case BPF_JMP | BPF_JLE | BPF_X:
- 			case BPF_JMP | BPF_JEQ | BPF_X:
- 			case BPF_JMP | BPF_JNE | BPF_X:
- 				/* unsigned comparison */
- 				PPC_CMPLD(dst_reg, src_reg);
- 				break;
- 			case BPF_JMP | BPF_JSGT | BPF_X:
-+			case BPF_JMP | BPF_JSLT | BPF_X:
- 			case BPF_JMP | BPF_JSGE | BPF_X:
-+			case BPF_JMP | BPF_JSLE | BPF_X:
- 				/* signed comparison */
- 				PPC_CMPD(dst_reg, src_reg);
- 				break;
-@@ -834,7 +850,9 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
- 			case BPF_JMP | BPF_JNE | BPF_K:
- 			case BPF_JMP | BPF_JEQ | BPF_K:
- 			case BPF_JMP | BPF_JGT | BPF_K:
-+			case BPF_JMP | BPF_JLT | BPF_K:
- 			case BPF_JMP | BPF_JGE | BPF_K:
-+			case BPF_JMP | BPF_JLE | BPF_K:
- 				/*
- 				 * Need sign-extended load, so only positive
- 				 * values can be used as imm in cmpldi
-@@ -849,7 +867,9 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
- 				}
- 				break;
- 			case BPF_JMP | BPF_JSGT | BPF_K:
-+			case BPF_JMP | BPF_JSLT | BPF_K:
- 			case BPF_JMP | BPF_JSGE | BPF_K:
-+			case BPF_JMP | BPF_JSLE | BPF_K:
- 				/*
- 				 * signed comparison, so any 16-bit value
- 				 * can be used in cmpdi
++static int jlt_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
++{
++	return wrp_cmp_reg(nfp_prog, meta, BR_BHS, false);
++}
++
++static int jle_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
++{
++	return wrp_cmp_reg(nfp_prog, meta, BR_BLO, true);
++}
++
+ static int jset_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ {
+ 	return wrp_test_reg(nfp_prog, meta, ALU_OP_AND, BR_BNE);
+@@ -1383,11 +1403,15 @@ static int goto_out(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ 	[BPF_JMP | BPF_JEQ | BPF_K] =	jeq_imm,
+ 	[BPF_JMP | BPF_JGT | BPF_K] =	jgt_imm,
+ 	[BPF_JMP | BPF_JGE | BPF_K] =	jge_imm,
++	[BPF_JMP | BPF_JLT | BPF_K] =	jlt_imm,
++	[BPF_JMP | BPF_JLE | BPF_K] =	jle_imm,
+ 	[BPF_JMP | BPF_JSET | BPF_K] =	jset_imm,
+ 	[BPF_JMP | BPF_JNE | BPF_K] =	jne_imm,
+ 	[BPF_JMP | BPF_JEQ | BPF_X] =	jeq_reg,
+ 	[BPF_JMP | BPF_JGT | BPF_X] =	jgt_reg,
+ 	[BPF_JMP | BPF_JGE | BPF_X] =	jge_reg,
++	[BPF_JMP | BPF_JLT | BPF_X] =	jlt_reg,
++	[BPF_JMP | BPF_JLE | BPF_X] =	jle_reg,
+ 	[BPF_JMP | BPF_JSET | BPF_X] =	jset_reg,
+ 	[BPF_JMP | BPF_JNE | BPF_X] =	jne_reg,
+ 	[BPF_JMP | BPF_EXIT] =		goto_out,
 -- 
 1.9.3
