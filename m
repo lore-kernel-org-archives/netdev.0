@@ -1,17 +1,17 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 2/9] bpf, x86: implement jiting of BPF_J{LT,LE,SLT,SLE}
-Date: Thu, 10 Aug 2017 01:39:56 +0200
-Message-ID: <543cc5e3024b9b03f359b31cee70b8806408d607.1502320623.git.daniel@iogearbox.net>
+Subject: [PATCH net-next v2 6/9] bpf, ppc64: implement jiting of BPF_J{LT,LE,SLT,SLE}
+Date: Thu, 10 Aug 2017 01:40:00 +0200
+Message-ID: <d74006a9a9c73656806169c4d5ed207aed157d90.1502320623.git.daniel@iogearbox.net>
 References: <cover.1502320623.git.daniel@iogearbox.net>
 Cc: ast@fb.com, holzheu@linux.vnet.ibm.com,
         naveen.n.rao@linux.vnet.ibm.com, jakub.kicinski@netronome.com,
         netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35681 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:35717 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752227AbdHIXkO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 19:40:14 -0400
+        with ESMTP id S1752225AbdHIXkQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 19:40:16 -0400
 In-Reply-To: <cover.1502320623.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1502320623.git.daniel@iogearbox.net>
 References: <cover.1502320623.git.daniel@iogearbox.net>
@@ -19,90 +19,95 @@ Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This work implements jiting of BPF_J{LT,LE,SLT,SLE} instructions
-with BPF_X/BPF_K variants for the x86_64 eBPF JIT.
+with BPF_X/BPF_K variants for the ppc64 eBPF JIT.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+Tested-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 ---
- arch/x86/net/bpf_jit_comp.c | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+ arch/powerpc/net/bpf_jit.h        |  1 +
+ arch/powerpc/net/bpf_jit_comp64.c | 20 ++++++++++++++++++++
+ 2 files changed, 21 insertions(+)
 
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index e1324f2..8194696 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -94,7 +94,9 @@ static int bpf_size_to_x86_bytes(int bpf_size)
- #define X86_JNE 0x75
- #define X86_JBE 0x76
- #define X86_JA  0x77
-+#define X86_JL  0x7C
- #define X86_JGE 0x7D
-+#define X86_JLE 0x7E
- #define X86_JG  0x7F
+diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
+index 30cf03f..47fc666 100644
+--- a/arch/powerpc/net/bpf_jit.h
++++ b/arch/powerpc/net/bpf_jit.h
+@@ -263,6 +263,7 @@ static inline bool is_nearbranch(int offset)
+ #define COND_EQ		(CR0_EQ | COND_CMP_TRUE)
+ #define COND_NE		(CR0_EQ | COND_CMP_FALSE)
+ #define COND_LT		(CR0_LT | COND_CMP_TRUE)
++#define COND_LE		(CR0_GT | COND_CMP_FALSE)
  
- static void bpf_flush_icache(void *start, void *end)
-@@ -888,9 +890,13 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
- 		case BPF_JMP | BPF_JEQ | BPF_X:
- 		case BPF_JMP | BPF_JNE | BPF_X:
- 		case BPF_JMP | BPF_JGT | BPF_X:
-+		case BPF_JMP | BPF_JLT | BPF_X:
- 		case BPF_JMP | BPF_JGE | BPF_X:
-+		case BPF_JMP | BPF_JLE | BPF_X:
+ #endif
+ 
+diff --git a/arch/powerpc/net/bpf_jit_comp64.c b/arch/powerpc/net/bpf_jit_comp64.c
+index 861c5af..faf2016 100644
+--- a/arch/powerpc/net/bpf_jit_comp64.c
++++ b/arch/powerpc/net/bpf_jit_comp64.c
+@@ -795,12 +795,24 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
  		case BPF_JMP | BPF_JSGT | BPF_X:
-+		case BPF_JMP | BPF_JSLT | BPF_X:
- 		case BPF_JMP | BPF_JSGE | BPF_X:
-+		case BPF_JMP | BPF_JSLE | BPF_X:
- 			/* cmp dst_reg, src_reg */
- 			EMIT3(add_2mod(0x48, dst_reg, src_reg), 0x39,
- 			      add_2reg(0xC0, dst_reg, src_reg));
-@@ -911,9 +917,13 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
- 		case BPF_JMP | BPF_JEQ | BPF_K:
- 		case BPF_JMP | BPF_JNE | BPF_K:
- 		case BPF_JMP | BPF_JGT | BPF_K:
+ 			true_cond = COND_GT;
+ 			goto cond_branch;
 +		case BPF_JMP | BPF_JLT | BPF_K:
- 		case BPF_JMP | BPF_JGE | BPF_K:
-+		case BPF_JMP | BPF_JLE | BPF_K:
- 		case BPF_JMP | BPF_JSGT | BPF_K:
++		case BPF_JMP | BPF_JLT | BPF_X:
 +		case BPF_JMP | BPF_JSLT | BPF_K:
++		case BPF_JMP | BPF_JSLT | BPF_X:
++			true_cond = COND_LT;
++			goto cond_branch;
+ 		case BPF_JMP | BPF_JGE | BPF_K:
+ 		case BPF_JMP | BPF_JGE | BPF_X:
  		case BPF_JMP | BPF_JSGE | BPF_K:
+ 		case BPF_JMP | BPF_JSGE | BPF_X:
+ 			true_cond = COND_GE;
+ 			goto cond_branch;
++		case BPF_JMP | BPF_JLE | BPF_K:
++		case BPF_JMP | BPF_JLE | BPF_X:
 +		case BPF_JMP | BPF_JSLE | BPF_K:
- 			/* cmp dst_reg, imm8/32 */
- 			EMIT1(add_1mod(0x48, dst_reg));
- 
-@@ -935,18 +945,34 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image,
- 				/* GT is unsigned '>', JA in x86 */
- 				jmp_cond = X86_JA;
++		case BPF_JMP | BPF_JSLE | BPF_X:
++			true_cond = COND_LE;
++			goto cond_branch;
+ 		case BPF_JMP | BPF_JEQ | BPF_K:
+ 		case BPF_JMP | BPF_JEQ | BPF_X:
+ 			true_cond = COND_EQ;
+@@ -817,14 +829,18 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ cond_branch:
+ 			switch (code) {
+ 			case BPF_JMP | BPF_JGT | BPF_X:
++			case BPF_JMP | BPF_JLT | BPF_X:
+ 			case BPF_JMP | BPF_JGE | BPF_X:
++			case BPF_JMP | BPF_JLE | BPF_X:
+ 			case BPF_JMP | BPF_JEQ | BPF_X:
+ 			case BPF_JMP | BPF_JNE | BPF_X:
+ 				/* unsigned comparison */
+ 				PPC_CMPLD(dst_reg, src_reg);
  				break;
-+			case BPF_JLT:
-+				/* LT is unsigned '<', JB in x86 */
-+				jmp_cond = X86_JB;
-+				break;
- 			case BPF_JGE:
- 				/* GE is unsigned '>=', JAE in x86 */
- 				jmp_cond = X86_JAE;
+ 			case BPF_JMP | BPF_JSGT | BPF_X:
++			case BPF_JMP | BPF_JSLT | BPF_X:
+ 			case BPF_JMP | BPF_JSGE | BPF_X:
++			case BPF_JMP | BPF_JSLE | BPF_X:
+ 				/* signed comparison */
+ 				PPC_CMPD(dst_reg, src_reg);
  				break;
-+			case BPF_JLE:
-+				/* LE is unsigned '<=', JBE in x86 */
-+				jmp_cond = X86_JBE;
-+				break;
- 			case BPF_JSGT:
- 				/* signed '>', GT in x86 */
- 				jmp_cond = X86_JG;
+@@ -834,7 +850,9 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			case BPF_JMP | BPF_JNE | BPF_K:
+ 			case BPF_JMP | BPF_JEQ | BPF_K:
+ 			case BPF_JMP | BPF_JGT | BPF_K:
++			case BPF_JMP | BPF_JLT | BPF_K:
+ 			case BPF_JMP | BPF_JGE | BPF_K:
++			case BPF_JMP | BPF_JLE | BPF_K:
+ 				/*
+ 				 * Need sign-extended load, so only positive
+ 				 * values can be used as imm in cmpldi
+@@ -849,7 +867,9 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 				}
  				break;
-+			case BPF_JSLT:
-+				/* signed '<', LT in x86 */
-+				jmp_cond = X86_JL;
-+				break;
- 			case BPF_JSGE:
- 				/* signed '>=', GE in x86 */
- 				jmp_cond = X86_JGE;
- 				break;
-+			case BPF_JSLE:
-+				/* signed '<=', LE in x86 */
-+				jmp_cond = X86_JLE;
-+				break;
- 			default: /* to silence gcc warning */
- 				return -EFAULT;
- 			}
+ 			case BPF_JMP | BPF_JSGT | BPF_K:
++			case BPF_JMP | BPF_JSLT | BPF_K:
+ 			case BPF_JMP | BPF_JSGE | BPF_K:
++			case BPF_JMP | BPF_JSLE | BPF_K:
+ 				/*
+ 				 * signed comparison, so any 16-bit value
+ 				 * can be used in cmpdi
 -- 
 1.9.3
