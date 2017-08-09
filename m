@@ -1,231 +1,62 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 8/9] bpf: enable BPF_J{LT,LE,SLT,SLE} opcodes in verifier
-Date: Wed,  9 Aug 2017 12:24:00 +0200
-Message-ID: <fa81ba045765c0a104e7cb64f6206d5c5e9ba448.1502272924.git.daniel@iogearbox.net>
-References: <cover.1502272924.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 0/9] Add BPF_J{LT,LE,SLT,SLE} instructions
+Date: Wed,  9 Aug 2017 12:23:52 +0200
+Message-ID: <cover.1502272924.git.daniel@iogearbox.net>
 Cc: ast@fb.com, holzheu@linux.vnet.ibm.com,
         naveen.n.rao@linux.vnet.ibm.com, jakub.kicinski@netronome.com,
         netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58257 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:58265 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752867AbdHIKYW (ORCPT
+        with ESMTP id S1752882AbdHIKYW (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 06:24:22 -0400
-In-Reply-To: <cover.1502272924.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1502272924.git.daniel@iogearbox.net>
-References: <cover.1502272924.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable the newly added jump opcodes, main parts are in two
-different areas, namely direct packet access and dynamic map
-value access. For the direct packet access, we now allow for
-the following two new patterns to match in order to trigger
-markings with find_good_pkt_pointers():
+This set adds BPF_J{LT,LE,SLT,SLE} instructions to the BPF
+insn set, interpreter, JIT hardening code and all JITs are
+also updated to support the new instructions. Basic idea is
+to reduce register pressure by avoiding BPF_J{GT,GE,SGT,SGE}
+rewrites. Removing the workaround for the rewrites in LLVM,
+this can result in shorter BPF programs, less stack usage
+and less verification complexity. First patch provides some
+more details on rationale. The LLVM patch [1] will be
+integrated to LLVM upstream later in a backwards compatible
+manner.
 
-Variant 1 (access ok when taking the branch):
+Thanks a lot!
 
-  0: (61) r2 = *(u32 *)(r1 +76)
-  1: (61) r3 = *(u32 *)(r1 +80)
-  2: (bf) r0 = r2
-  3: (07) r0 += 8
-  4: (ad) if r0 < r3 goto pc+2
-  R0=pkt(id=0,off=8,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
-  R3=pkt_end R10=fp
-  5: (b7) r0 = 0
-  6: (95) exit
+  [1] https://github.com/borkmann/llvm/tree/bpf-insns
 
-  from 4 to 7: R0=pkt(id=0,off=8,r=8) R1=ctx
-               R2=pkt(id=0,off=0,r=8) R3=pkt_end R10=fp
-  7: (71) r0 = *(u8 *)(r2 +0)
-  8: (05) goto pc-4
-  5: (b7) r0 = 0
-  6: (95) exit
-  processed 11 insns, stack depth 0
+Daniel Borkmann (9):
+  bpf: add BPF_J{LT,LE,SLT,SLE} instructions
+  bpf, x86: implement jiting of BPF_J{LT,LE,SLT,SLE}
+  bpf, arm64: implement jiting of BPF_J{LT,LE,SLT,SLE}
+  bpf, sparc64: implement jiting of BPF_J{LT,LE,SLT,SLE}
+  bpf, s390x: implement jiting of BPF_J{LT,LE,SLT,SLE}
+  bpf, ppc64: implement jiting of BPF_J{LT,LE,SLT,SLE}
+  bpf, nfp: implement jiting of BPF_J{LT,LE}
+  bpf: enable BPF_J{LT,LE,SLT,SLE} opcodes in verifier
+  bpf: add test cases for new BPF_J{LT,LE,SLT,SLE} instructions
 
-Variant 2 (access ok on fall-through):
+ Documentation/networking/filter.txt          |   4 +
+ arch/arm64/net/bpf_jit.h                     |   4 +
+ arch/arm64/net/bpf_jit_comp.c                |  20 ++
+ arch/powerpc/net/bpf_jit.h                   |   1 +
+ arch/powerpc/net/bpf_jit_comp64.c            |  20 ++
+ arch/s390/net/bpf_jit_comp.c                 |  24 ++
+ arch/sparc/net/bpf_jit_comp_64.c             |  34 +++
+ arch/x86/net/bpf_jit_comp.c                  |  26 ++
+ drivers/net/ethernet/netronome/nfp/bpf/jit.c |  24 ++
+ include/uapi/linux/bpf.h                     |   5 +
+ kernel/bpf/core.c                            |  60 +++++
+ kernel/bpf/verifier.c                        |  62 ++++-
+ lib/test_bpf.c                               | 364 +++++++++++++++++++++++++++
+ net/core/filter.c                            |  21 +-
+ tools/include/uapi/linux/bpf.h               |   5 +
+ tools/testing/selftests/bpf/test_verifier.c  | 313 +++++++++++++++++++++++
+ 16 files changed, 979 insertions(+), 8 deletions(-)
 
-  0: (61) r2 = *(u32 *)(r1 +76)
-  1: (61) r3 = *(u32 *)(r1 +80)
-  2: (bf) r0 = r2
-  3: (07) r0 += 8
-  4: (bd) if r3 <= r0 goto pc+1
-  R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8)
-  R3=pkt_end R10=fp
-  5: (71) r0 = *(u8 *)(r2 +0)
-  6: (b7) r0 = 1
-  7: (95) exit
-
-  from 4 to 6: R0=pkt(id=0,off=8,r=0) R1=ctx
-               R2=pkt(id=0,off=0,r=0) R3=pkt_end R10=fp
-  6: (b7) r0 = 1
-  7: (95) exit
-  processed 10 insns, stack depth 0
-
-The above two basically just swap the branches where we need
-to handle an exception and allow packet access compared to the
-two already existing variants for find_good_pkt_pointers().
-
-For the dynamic map value access, we add the new instructions
-to reg_set_min_max() and reg_set_min_max_inv() in order to
-learn bounds. Verifier test cases for both are added in a
-follow-up patch.
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- kernel/bpf/verifier.c | 62 +++++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 58 insertions(+), 4 deletions(-)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 8160a81..ecc590e 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -312,11 +312,15 @@ static void print_verifier_state(struct bpf_verifier_state *state)
- 	[BPF_JA >> 4]   = "jmp",
- 	[BPF_JEQ >> 4]  = "==",
- 	[BPF_JGT >> 4]  = ">",
-+	[BPF_JLT >> 4]  = "<",
- 	[BPF_JGE >> 4]  = ">=",
-+	[BPF_JLE >> 4]  = "<=",
- 	[BPF_JSET >> 4] = "&",
- 	[BPF_JNE >> 4]  = "!=",
- 	[BPF_JSGT >> 4] = "s>",
-+	[BPF_JSLT >> 4] = "s<",
- 	[BPF_JSGE >> 4] = "s>=",
-+	[BPF_JSLE >> 4] = "s<=",
- 	[BPF_CALL >> 4] = "call",
- 	[BPF_EXIT >> 4] = "exit",
- };
-@@ -2383,27 +2387,37 @@ static void find_good_pkt_pointers(struct bpf_verifier_state *state,
- 		 */
- 		return;
- 
--	/* LLVM can generate two kind of checks:
-+	/* LLVM can generate four kind of checks:
- 	 *
--	 * Type 1:
-+	 * Type 1/2:
- 	 *
- 	 *   r2 = r3;
- 	 *   r2 += 8;
- 	 *   if (r2 > pkt_end) goto <handle exception>
- 	 *   <access okay>
- 	 *
-+	 *   r2 = r3;
-+	 *   r2 += 8;
-+	 *   if (r2 < pkt_end) goto <access okay>
-+	 *   <handle exception>
-+	 *
- 	 *   Where:
- 	 *     r2 == dst_reg, pkt_end == src_reg
- 	 *     r2=pkt(id=n,off=8,r=0)
- 	 *     r3=pkt(id=n,off=0,r=0)
- 	 *
--	 * Type 2:
-+	 * Type 3/4:
- 	 *
- 	 *   r2 = r3;
- 	 *   r2 += 8;
- 	 *   if (pkt_end >= r2) goto <access okay>
- 	 *   <handle exception>
- 	 *
-+	 *   r2 = r3;
-+	 *   r2 += 8;
-+	 *   if (pkt_end <= r2) goto <handle exception>
-+	 *   <access okay>
-+	 *
- 	 *   Where:
- 	 *     pkt_end == dst_reg, r2 == src_reg
- 	 *     r2=pkt(id=n,off=8,r=0)
-@@ -2471,6 +2485,14 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
- 		false_reg->smax_value = min_t(s64, false_reg->smax_value, val);
- 		true_reg->smin_value = max_t(s64, true_reg->smin_value, val + 1);
- 		break;
-+	case BPF_JLT:
-+		false_reg->umin_value = max(false_reg->umin_value, val);
-+		true_reg->umax_value = min(true_reg->umax_value, val - 1);
-+		break;
-+	case BPF_JSLT:
-+		false_reg->smin_value = max_t(s64, false_reg->smin_value, val);
-+		true_reg->smax_value = min_t(s64, true_reg->smax_value, val - 1);
-+		break;
- 	case BPF_JGE:
- 		false_reg->umax_value = min(false_reg->umax_value, val - 1);
- 		true_reg->umin_value = max(true_reg->umin_value, val);
-@@ -2479,6 +2501,14 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
- 		false_reg->smax_value = min_t(s64, false_reg->smax_value, val - 1);
- 		true_reg->smin_value = max_t(s64, true_reg->smin_value, val);
- 		break;
-+	case BPF_JLE:
-+		false_reg->umin_value = max(false_reg->umin_value, val + 1);
-+		true_reg->umax_value = min(true_reg->umax_value, val);
-+		break;
-+	case BPF_JSLE:
-+		false_reg->smin_value = max_t(s64, false_reg->smin_value, val + 1);
-+		true_reg->smax_value = min_t(s64, true_reg->smax_value, val);
-+		break;
- 	default:
- 		break;
- 	}
-@@ -2527,6 +2557,14 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
- 		true_reg->smax_value = min_t(s64, true_reg->smax_value, val - 1);
- 		false_reg->smin_value = max_t(s64, false_reg->smin_value, val);
- 		break;
-+	case BPF_JLT:
-+		true_reg->umin_value = max(true_reg->umin_value, val + 1);
-+		false_reg->umax_value = min(false_reg->umax_value, val);
-+		break;
-+	case BPF_JSLT:
-+		true_reg->smin_value = max_t(s64, true_reg->smin_value, val + 1);
-+		false_reg->smax_value = min_t(s64, false_reg->smax_value, val);
-+		break;
- 	case BPF_JGE:
- 		true_reg->umax_value = min(true_reg->umax_value, val);
- 		false_reg->umin_value = max(false_reg->umin_value, val + 1);
-@@ -2535,6 +2573,14 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
- 		true_reg->smax_value = min_t(s64, true_reg->smax_value, val);
- 		false_reg->smin_value = max_t(s64, false_reg->smin_value, val + 1);
- 		break;
-+	case BPF_JLE:
-+		true_reg->umin_value = max(true_reg->umin_value, val);
-+		false_reg->umax_value = min(false_reg->umax_value, val - 1);
-+		break;
-+	case BPF_JSLE:
-+		true_reg->smin_value = max_t(s64, true_reg->smin_value, val);
-+		false_reg->smax_value = min_t(s64, false_reg->smax_value, val - 1);
-+		break;
- 	default:
- 		break;
- 	}
-@@ -2659,7 +2705,7 @@ static int check_cond_jmp_op(struct bpf_verifier_env *env,
- 	u8 opcode = BPF_OP(insn->code);
- 	int err;
- 
--	if (opcode > BPF_EXIT) {
-+	if (opcode > BPF_JSLE) {
- 		verbose("invalid BPF_JMP opcode %x\n", opcode);
- 		return -EINVAL;
- 	}
-@@ -2761,10 +2807,18 @@ static int check_cond_jmp_op(struct bpf_verifier_env *env,
- 		   dst_reg->type == PTR_TO_PACKET &&
- 		   regs[insn->src_reg].type == PTR_TO_PACKET_END) {
- 		find_good_pkt_pointers(this_branch, dst_reg);
-+	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLT &&
-+		   dst_reg->type == PTR_TO_PACKET &&
-+		   regs[insn->src_reg].type == PTR_TO_PACKET_END) {
-+		find_good_pkt_pointers(other_branch, dst_reg);
- 	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JGE &&
- 		   dst_reg->type == PTR_TO_PACKET_END &&
- 		   regs[insn->src_reg].type == PTR_TO_PACKET) {
- 		find_good_pkt_pointers(other_branch, &regs[insn->src_reg]);
-+	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLE &&
-+		   dst_reg->type == PTR_TO_PACKET_END &&
-+		   regs[insn->src_reg].type == PTR_TO_PACKET) {
-+		find_good_pkt_pointers(this_branch, &regs[insn->src_reg]);
- 	} else if (is_pointer_value(env, insn->dst_reg)) {
- 		verbose("R%d pointer comparison prohibited\n", insn->dst_reg);
- 		return -EACCES;
 -- 
 1.9.3
