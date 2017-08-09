@@ -1,69 +1,53 @@
-From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH] net: stmmac: Use the right logging function in stmmac_mdio_register
-Date: Wed,  9 Aug 2017 16:40:19 +0200
-Message-ID: <20170809144019.17975-1-romain.perier@collabora.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Romain Perier <romain.perier@collabora.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 0/1] netvsc: another VF datapath fix
+Date: Wed, 9 Aug 2017 07:41:43 -0700
+Message-ID: <20170809074143.123938ee@xeon-e3>
+References: <20170807183000.10827-1-sthemmin@microsoft.com>
+ <87ziba9mwj.fsf@vitty.brq.redhat.com>
+ <20170808081506.38bea86c@xeon-e3>
+ <87shh29j70.fsf@vitty.brq.redhat.com>
+ <20170808082927.128362aa@xeon-e3>
+ <87mv7a9ict.fsf@vitty.brq.redhat.com>
+ <20170808085354.4208a612@xeon-e3>
+ <87r2wlxgdy.fsf@vitty.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com,
+ sthemmin@microsoft.com, netdev@vger.kernel.org
+To: Vitaly Kuznetsov <vkuznets@redhat.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <87r2wlxgdy.fsf@vitty.brq.redhat.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Currently, the function stmmac_mdio_register() is only used by
-stmmac_dvr_probe() from stmmac_main.c, in order to register the MDIO bus
-and probe information about the PHY. As this function is called before
-calling register_netdev(), all messages logged from stmmac_mdio_register
-are prefixed by "(unnamed net_device)". The goal of netdev_info or
-netdev_err is to dump useful infos about a net_device, when this data
-structure is partially initialized, there is no point for using these
-functions.
+On Wed, 09 Aug 2017 11:03:05 +0200
+Vitaly Kuznetsov <vkuznets@redhat.com> wrote:
 
-This commit fixes the issue by replacing all netdev_*() by the
-corresponding dev_*() function for logging.
+> Stephen Hemminger <stephen@networkplumber.org> writes:
+> 
+> > The following would allow udev a chance at the device.
+> >  
+> 
+> This would of course work but the approach is a bit hackish and can
+> still fail on a loaded system. Raising the pause interval would be an
+> option, but again, probably not the best one.
+> 
+> Let me try to send an RFC removing the check it dev_change_name() and if
+> it turns out that it can't be removed we can go back to your patch. But
+> in case it can we can leave without it.
+> 
+> Thanks,
 
-Signed-off-by: Romain Perier <romain.perier@collabora.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index db157a47000c..4c96511fe51f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -204,6 +204,7 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
- 	struct device_node *mdio_node = priv->plat->mdio_node;
-+	struct device *dev = ndev->dev.parent;
- 	int addr, found;
- 
- 	if (!mdio_bus_data)
-@@ -237,7 +238,7 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	else
- 		err = mdiobus_register(new_bus);
- 	if (err != 0) {
--		netdev_err(ndev, "Cannot register the MDIO bus\n");
-+		dev_err(dev, "Cannot register the MDIO bus\n");
- 		goto bus_register_fail;
- 	}
- 
-@@ -285,14 +286,14 @@ int stmmac_mdio_register(struct net_device *ndev)
- 			irq_str = irq_num;
- 			break;
- 		}
--		netdev_info(ndev, "PHY ID %08x at %d IRQ %s (%s)%s\n",
-+		dev_info(dev, "PHY ID %08x at %d IRQ %s (%s)%s\n",
- 			    phydev->phy_id, addr, irq_str, phydev_name(phydev),
- 			    act ? " active" : "");
- 		found = 1;
- 	}
- 
- 	if (!found && !mdio_node) {
--		netdev_warn(ndev, "No PHY found\n");
-+		dev_warn(dev, "No PHY found\n");
- 		mdiobus_unregister(new_bus);
- 		mdiobus_free(new_bus);
- 		return -ENODEV;
--- 
-2.11.0
+I don't want to require change of semantics of core networking code
+for one driver. Changing name of up device has been blocked for so
+long that allowing it might break existing userspace apps. It might
+be ok in the future, but netvsc needs to work without that change.
