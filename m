@@ -1,11 +1,10 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH v2 18/20] rtl8192cu: constify usb_device_id
-Date: Wed,  9 Aug 2017 22:01:05 +0530
-Message-ID: <1502296265-21726-1-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: [PATCH v2 19/20] zd1201: constify usb_device_id
+Date: Wed,  9 Aug 2017 22:01:24 +0530
+Message-ID: <1502296284-21779-1-git-send-email-arvind.yadav.cs@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
         linux-wireless@vger.kernel.org
-To: kvalo@codeaurora.org, Larry.Finger@lwfinger.net,
-        chaoming_li@realsil.com.cn
+To: kvalo@codeaurora.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -19,21 +18,21 @@ Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 changes in v2:
               Re-submitting wireless separately.
 
- drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c | 2 +-
+ drivers/net/wireless/zydas/zd1201.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c
-index 96c923b..e673bc2 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192cu/sw.c
-@@ -275,7 +275,7 @@ static struct rtl_hal_cfg rtl92cu_hal_cfg = {
- #define USB_VENDER_ID_REALTEK		0x0bda
+diff --git a/drivers/net/wireless/zydas/zd1201.c b/drivers/net/wireless/zydas/zd1201.c
+index 7f586d7..581e857 100644
+--- a/drivers/net/wireless/zydas/zd1201.c
++++ b/drivers/net/wireless/zydas/zd1201.c
+@@ -25,7 +25,7 @@
+ #include <linux/firmware.h>
+ #include "zd1201.h"
  
- /* 2010-10-19 DID_USB_V3.4 */
--static struct usb_device_id rtl8192c_usb_ids[] = {
-+static const struct usb_device_id rtl8192c_usb_ids[] = {
- 
- 	/*=== Realtek demoboard ===*/
- 	/* Default ID */
+-static struct usb_device_id zd1201_table[] = {
++static const struct usb_device_id zd1201_table[] = {
+ 	{USB_DEVICE(0x0586, 0x3400)}, /* Peabird Wireless USB Adapter */
+ 	{USB_DEVICE(0x0ace, 0x1201)}, /* ZyDAS ZD1201 Wireless USB Adapter */
+ 	{USB_DEVICE(0x050d, 0x6051)}, /* Belkin F5D6051 usb  adapter */
 -- 
 2.7.4
