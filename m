@@ -1,47 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: fastopen: tcp_connect() must refresh the route
-Date: Tue, 08 Aug 2017 21:04:17 -0700 (PDT)
-Message-ID: <20170808.210417.1748836096752126270.davem@davemloft.net>
-References: <1502181718.4487.9.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net] rds: Reintroduce statistics counting
+Date: Tue, 08 Aug 2017 21:04:24 -0700 (PDT)
+Message-ID: <20170808.210424.1601241755004039630.davem@davemloft.net>
+References: <20170808091332.5413-1-Haakon.Bugge@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, weiwan@google.com, ycheng@google.com,
-        dvyukov@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60254 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751957AbdHIEES (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 00:04:18 -0400
-In-Reply-To: <1502181718.4487.9.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
+        linux-kernel@vger.kernel.org, knut.omang@oracle.com,
+        wei.lin-guay@oracle.com
+To: Haakon.Bugge@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170808091332.5413-1-Haakon.Bugge@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 08 Aug 2017 01:41:58 -0700
+From: Håkon Bugge <Haakon.Bugge@oracle.com>
+Date: Tue,  8 Aug 2017 11:13:32 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> In commit 7e3f2952eeb1 ("rds: don't let RDS shutdown a connection
+> while senders are present"), refilling the receive queue was removed
+> from rds_ib_recv(), along with the increment of
+> s_ib_rx_refill_from_thread.
 > 
-> With new TCP_FASTOPEN_CONNECT socket option, there is a possibility
-> to call tcp_connect() while socket sk_dst_cache is either NULL
-> or invalid.
+> Commit 73ce4317bf98 ("RDS: make sure we post recv buffers")
+> re-introduces filling the receive queue from rds_ib_recv(), but does
+> not add the statistics counter. rds_ib_recv() was later renamed to
+> rds_ib_recv_path().
 > 
->  +0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 4
->  +0 fcntl(4, F_SETFL, O_RDWR|O_NONBLOCK) = 0
->  +0 setsockopt(4, SOL_TCP, TCP_FASTOPEN_CONNECT, [1], 4) = 0
->  +0 connect(4, ..., ...) = 0
+> This commit reintroduces the statistics counting of
+> s_ib_rx_refill_from_thread and s_ib_rx_refill_from_cq.
 > 
-> << sk->sk_dst_cache becomes obsolete, or even set to NULL >>
-> 
->  +1 sendto(4, ..., 1000, MSG_FASTOPEN, ..., ...) = 1000
-> 
-> 
-> We need to refresh the route otherwise bad things can happen,
-> especially when syzkaller is running on the host :/
-> 
-> Fixes: 19f6d3f3c8422 ("net/tcp-fastopen: Add new API support")
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
+> Reviewed-by: Knut Omang <knut.omang@oracle.com>
+> Reviewed-by: Wei Lin Guay <wei.lin.guay@oracle.com>
 
-Applied and queued up for -stable.
+Applied.
