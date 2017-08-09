@@ -1,62 +1,65 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [RFC PATCH] net: don't set __LINK_STATE_START until after
- dev->open() call
-Date: Wed, 9 Aug 2017 20:00:55 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5882A3F62D@ORSMSX115.amr.corp.intel.com>
-References: <20170807222421.11897-1-jacob.e.keller@intel.com>
- <20170808.181649.1810988621520678130.davem@davemloft.net>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH v9 1/4] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Wed, 9 Aug 2017 20:11:33 +0000
+Message-ID: <MWHPR12MB1600471F60D862E5788B8439C88B0@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
+ <1501917313-9812-2-git-send-email-dingtianhong@huawei.com>
+ <20170808232200.GO16580@bhelgaas-glaptop.roam.corp.google.com>
+ <20170809155841.GA8675@otc-nc-03>
+ <MWHPR12MB1600E9D94E74E1DECC192097C88B0@MWHPR12MB1600.namprd12.prod.outlook.com>,<20170809180007.GA9100@otc-nc-03>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:18518 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751890AbdHIUBA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 9 Aug 2017 16:01:00 -0400
-In-Reply-To: <20170808.181649.1810988621520678130.davem@davemloft.net>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Bjorn Helgaas <helgaas@kernel.org>,
+        Ding Tianhong <dingtianhong@huawei.com>,
+        "bhelgaas@google.com" <bhelgaas@google.com>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+        "will.deacon@arm.com" <will.deacon@arm.com>
+To: "Raj, Ashok" <ashok.raj@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170809180007.GA9100@otc-nc-03>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> Behalf Of David Miller
-> Sent: Tuesday, August 08, 2017 6:17 PM
-> To: Keller, Jacob E <jacob.e.keller@intel.com>
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [RFC PATCH] net: don't set __LINK_STATE_START until after dev->open()
-> call
-> 
-> From: Jacob Keller <jacob.e.keller@intel.com>
-> Date: Mon,  7 Aug 2017 15:24:21 -0700
-> > I am wondering whether the proposed change is acceptable here, or
-> > whether some ndo_open handlers rely on __LINK_STATE_START being true
-> > prior to their being called?
-> 
-> I think this has the potential to break a bunch of drivers, but I
-> cannot prove this.
-> 
-> A lot of drivers have several pieces of state setup when they bring
-> the device up.  And these routines are also invoked from other code
-> paths like suspend/resume, PCI-E error recovery, etc. and they
-> probably do netif_running() calls here and there.
-> 
-> This behavior has been this way for a very long time, so the risk is
-> quite high I think.
+| From: Raj, Ashok <ashok.raj@intel.com>
+| Sent: Wednesday, August 9, 2017 11:00 AM
+|
+| On Wed, Aug 09, 2017 at 04:46:07PM +0000, Casey Leedom wrote:
+| > | From: Raj, Ashok <ashok.raj@intel.com>
+| > | Sent: Wednesday, August 9, 2017 8:58 AM
+| > | ...
+| > | As Casey pointed out in an earlier thread, we choose the heavy hammer
+| > | approach because there are some that can lead to data-corruption as
+| > | opposed to perf degradation.
+| >
+| > Careful.  As far as I'm aware, there is no Data Corruption problem
+| > whatsoever with Intel Root Ports and processing of Transaction Layer
+| > Packets with and without the Relaxed Ordering Attribute set.
+|
+| That's right.. no data-corruption on Intel parts :-).. It was with other
+| vendor. Only performance issue with intel root-ports in the parts identif=
+ied
+| by the optimization guide.
 
-That's what I am worried about. However, I think there are problems with leaving it. A lot of drivers rely on netif_running() to determine whether or not the device is open, but they may be using it relying on all the changes caused by the .ndo_open() handler are finished. The current system there is a race, since you set the __LINK_STATE_START before .ndo_open is called.
+Yes, I didn't want you to get into any trouble over that possible reading o=
+f
+what you wrote.
 
-This is what I found when attempting to debug a race in i40evf_open and i40evf_reset. The reset ended up running at the same time as open and the two flows collided because reset relied on netif_running() under the assumption that it would not return true until the device was actually open. However, it was running at the same time as open was, so it was trying to shutdown things at the same time as the open call was trying to bring them up.
+Any progress on the "Chicken Bit" investigation?  Being able to disable the
+non-optimal Relaxed Ordering "optimization" would be the best PCI Quirk of
+all ...
 
-Any location which uses rtnl_lock() will be safe, since the dev_open call is under rtnl_lock() so all callers of netif_running() under lock are serialized to see only the flag before or after dev_open completes. This is the majority of the callers I think.
-
-Unfortunately, I can't really hold the rtnl_lock() during reset, since this caused a deadlock when I tried it due to lock ordering problems. I'm not sure if I could fix that or not.
-
-I think there are other places which are incorrect, but haven't yet run into an issue. The only place I can see where the functionality might be changed for the worse is if a .dev_open handler actually relies on checking netif_running() during its call, which seems incredibly silly to me....
-
-Thanks,
-Jake
-
-P.S. I apologize for the typo in this patch, if there is more discussion I can send a v2 which fixes it.
+Casey
