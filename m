@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v11 7/8] wireless: ipw2200: Replace PCI pool old API
-Date: Wed,  9 Aug 2017 10:28:24 +0200
-Message-ID: <20170809082825.9226-8-romain.perier@collabora.com>
+Subject: [PATCH v11 8/8] PCI: Remove PCI pool macro functions
+Date: Wed,  9 Aug 2017 10:28:25 +0200
+Message-ID: <20170809082825.9226-9-romain.perier@collabora.com>
 References: <20170809082825.9226-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org,
@@ -18,61 +18,34 @@ In-Reply-To: <20170809082825.9226-1-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The PCI pool API is deprecated. This commit replaces the PCI pool old
-API by the appropriate function with the DMA pool API.
+Now that all the drivers use dma pool API, we can remove the macro
+functions for PCI pool.
 
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
 Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- drivers/net/wireless/intel/ipw2x00/ipw2200.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ include/linux/pci.h | 9 ---------
+ 1 file changed, 9 deletions(-)
 
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-index c311b1a994c1..c57c567add4d 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-@@ -3209,7 +3209,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 	struct fw_chunk *chunk;
- 	int total_nr = 0;
- 	int i;
--	struct pci_pool *pool;
-+	struct dma_pool *pool;
- 	void **virts;
- 	dma_addr_t *phys;
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index a75c13673852..a3017661e3f6 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1298,15 +1298,6 @@ int pci_set_vga_state(struct pci_dev *pdev, bool decode,
+ #include <linux/pci-dma.h>
+ #include <linux/dmapool.h>
  
-@@ -3226,9 +3226,10 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 		kfree(virts);
- 		return -ENOMEM;
- 	}
--	pool = pci_pool_create("ipw2200", priv->pci_dev, CB_MAX_LENGTH, 0, 0);
-+	pool = dma_pool_create("ipw2200", &priv->pci_dev->dev, CB_MAX_LENGTH, 0,
-+			       0);
- 	if (!pool) {
--		IPW_ERROR("pci_pool_create failed\n");
-+		IPW_ERROR("dma_pool_create failed\n");
- 		kfree(phys);
- 		kfree(virts);
- 		return -ENOMEM;
-@@ -3253,7 +3254,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 
- 		nr = (chunk_len + CB_MAX_LENGTH - 1) / CB_MAX_LENGTH;
- 		for (i = 0; i < nr; i++) {
--			virts[total_nr] = pci_pool_alloc(pool, GFP_KERNEL,
-+			virts[total_nr] = dma_pool_alloc(pool, GFP_KERNEL,
- 							 &phys[total_nr]);
- 			if (!virts[total_nr]) {
- 				ret = -ENOMEM;
-@@ -3297,9 +3298,9 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
- 	}
-  out:
- 	for (i = 0; i < total_nr; i++)
--		pci_pool_free(pool, virts[i], phys[i]);
-+		dma_pool_free(pool, virts[i], phys[i]);
- 
--	pci_pool_destroy(pool);
-+	dma_pool_destroy(pool);
- 	kfree(phys);
- 	kfree(virts);
- 
+-#define	pci_pool dma_pool
+-#define pci_pool_create(name, pdev, size, align, allocation) \
+-		dma_pool_create(name, &pdev->dev, size, align, allocation)
+-#define	pci_pool_destroy(pool) dma_pool_destroy(pool)
+-#define	pci_pool_alloc(pool, flags, handle) dma_pool_alloc(pool, flags, handle)
+-#define	pci_pool_zalloc(pool, flags, handle) \
+-		dma_pool_zalloc(pool, flags, handle)
+-#define	pci_pool_free(pool, vaddr, addr) dma_pool_free(pool, vaddr, addr)
+-
+ struct msix_entry {
+ 	u32	vector;	/* kernel uses to write allocated vector */
+ 	u16	entry;	/* driver uses to specify entry, OS writes */
 -- 
 2.11.0
