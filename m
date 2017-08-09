@@ -1,87 +1,95 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/12] igb: support BCM54616 PHY
-Date: Wed,  9 Aug 2017 14:47:46 -0700
-Message-ID: <20170809214746.28139-13-jeffrey.t.kirsher@intel.com>
-References: <20170809214746.28139-1-jeffrey.t.kirsher@intel.com>
-Cc: John W Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/12][pull request] 1GbE Intel Wired LAN Driver Updates 2017-08-08
+Date: Wed,  9 Aug 2017 14:47:34 -0700
+Message-ID: <20170809214746.28139-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:44498 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752248AbdHIVr6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 9 Aug 2017 17:47:58 -0400
-In-Reply-To: <20170809214746.28139-1-jeffrey.t.kirsher@intel.com>
+        id S1752247AbdHIVry (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 9 Aug 2017 17:47:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John W Linville <linville@tuxdriver.com>
+This series contains updates to e1000e and igb/igbvf.
 
-The management port on an Edgecore AS7712-32 switch uses an igb MAC, but
-it uses a BCM54616 PHY. Without a patch like this, loading the igb
-module produces dmesg output like this:
+Gangfeng Huang fixes an issue with receive network flow classification,
+where igb_nfc_filter_exit() was not being called in igb_down() which
+would cause the filter tables to "fill up" if a user where to change
+the adapter settings (such as speed) which requires a reset of the
+adapter.
 
-[    3.439125] igb: Copyright (c) 2007-2014 Intel Corporation.
-[    3.439866] igb: probe of 0000:00:14.0 failed with error -2
+Cliff Spradlin fixes a timestamping issue, where igb was allowing requests
+for hardware timestamping even if it was not configured for hardware
+transmit timestamping.
 
-Signed-off-by: John W Linville <linville@tuxdriver.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/e1000_82575.c   | 6 ++++++
- drivers/net/ethernet/intel/igb/e1000_defines.h | 1 +
- drivers/net/ethernet/intel/igb/e1000_hw.h      | 1 +
- 3 files changed, 8 insertions(+)
+Corinna Vinschen removes the error message that there was an "unexpected
+SYS WRAP", when it is actually expected.  So remove the message to not
+confuse users.
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 4a50870e0fa7..c37cc8bccf47 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -340,6 +340,9 @@ static s32 igb_init_phy_params_82575(struct e1000_hw *hw)
- 		phy->ops.set_d3_lplu_state = igb_set_d3_lplu_state_82580;
- 		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_m88;
- 		break;
-+	case BCM54616_E_PHY_ID:
-+		phy->type = e1000_phy_bcm54616;
-+		break;
- 	default:
- 		ret_val = -E1000_ERR_PHY;
- 		goto out;
-@@ -1659,6 +1662,9 @@ static s32 igb_setup_copper_link_82575(struct e1000_hw *hw)
- 	case e1000_phy_82580:
- 		ret_val = igb_copper_link_setup_82580(hw);
- 		break;
-+	case e1000_phy_bcm54616:
-+		ret_val = 0;
-+		break;
- 	default:
- 		ret_val = -E1000_ERR_PHY;
- 		break;
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index d8517779439b..1de82f247312 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -889,6 +889,7 @@
- #define I210_I_PHY_ID        0x01410C00
- #define M88E1543_E_PHY_ID    0x01410EA0
- #define M88E1512_E_PHY_ID    0x01410DD0
-+#define BCM54616_E_PHY_ID    0x03625D10
- 
- /* M88E1000 Specific Registers */
- #define M88E1000_PHY_SPEC_CTRL     0x10  /* PHY Specific Control Register */
-diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
-index 6ea9f702ba0f..6c9485ab4b57 100644
---- a/drivers/net/ethernet/intel/igb/e1000_hw.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
-@@ -128,6 +128,7 @@ enum e1000_phy_type {
- 	e1000_phy_ife,
- 	e1000_phy_82580,
- 	e1000_phy_i210,
-+	e1000_phy_bcm54616,
- };
- 
- enum e1000_bus_type {
+Greg Edwards provides several patches for the mailbox interface between
+the PF and VF drivers.  Added a mailbox unlock method to be used to unlock
+the PF/VF mailbox by the PF.  Added a lock around the VF mailbox ops to
+prevent the VF from sending another message while the PF is still
+processing the previous message.  Fixed a "scheduling while atomic" issue
+by changing msleep() to mdelay().
+
+Sasha adds support for the next LOM generations i219 (v8 & v9) which
+will be available in the next Intel client platform IceLake.
+
+John Linville adds support for a Broadcom PHY to the igb driver, since
+there are designs out in the world which use the igb MAC and a third
+party PHY.  This allows the driver to load and function as expected on
+these designs.
+
+The following are changes since commit 53b948356554376ec6f89016376825d48bf396c3:
+  net: vrf: Add extack messages for newlink failures
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
+
+Cliff Spradlin (1):
+  igb: protect TX timestamping from API misuse
+
+Corinna Vinschen (1):
+  igb: Remove incorrect "unexpected SYS WRAP" log message
+
+Gangfeng Huang (1):
+  igb: Fix error of RX network flow classification
+
+Greg Edwards (6):
+  igb: add argument names to mailbox op function declarations
+  igb: expose mailbox unlock method
+  igb: do not drop PF mailbox lock after read of VF message
+  igbvf: add lock around mailbox ops
+  igbvf: after mailbox write, wait for reply
+  igbvf: convert msleep to mdelay in atomic context
+
+Gustavo A R Silva (1):
+  e1000e: add check on e1e_wphy() return value
+
+John W Linville (1):
+  igb: support BCM54616 PHY
+
+Sasha Neftin (1):
+  e1000e: Initial Support for IceLake
+
+ drivers/net/ethernet/intel/e1000e/hw.h         |  4 ++
+ drivers/net/ethernet/intel/e1000e/ich8lan.c    |  2 +
+ drivers/net/ethernet/intel/e1000e/netdev.c     |  4 ++
+ drivers/net/ethernet/intel/igb/e1000_82575.c   |  6 +++
+ drivers/net/ethernet/intel/igb/e1000_defines.h |  1 +
+ drivers/net/ethernet/intel/igb/e1000_hw.h      | 18 ++++----
+ drivers/net/ethernet/intel/igb/e1000_mbx.c     | 57 +++++++++++++++++++++++---
+ drivers/net/ethernet/intel/igb/e1000_mbx.h     | 14 ++++---
+ drivers/net/ethernet/intel/igb/igb_main.c      | 23 +++++++----
+ drivers/net/ethernet/intel/igbvf/ethtool.c     |  4 ++
+ drivers/net/ethernet/intel/igbvf/mbx.c         |  4 ++
+ drivers/net/ethernet/intel/igbvf/netdev.c      | 47 +++++++++++++++++++++
+ drivers/net/ethernet/intel/igbvf/vf.c          | 12 ++++--
+ drivers/net/ethernet/intel/igbvf/vf.h          |  1 +
+ 14 files changed, 166 insertions(+), 31 deletions(-)
+
 -- 
 2.13.3
