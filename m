@@ -1,232 +1,363 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 8/9] bpf: enable BPF_J{LT,LE,SLT,SLE} opcodes in verifier
-Date: Thu, 10 Aug 2017 01:40:02 +0200
-Message-ID: <039f748b7e23bd768a7d04ae0c16e9b05f5c0d64.1502320623.git.daniel@iogearbox.net>
+Subject: [PATCH net-next v2 9/9] bpf: add test cases for new BPF_J{LT, LE, SLT, SLE} instructions
+Date: Thu, 10 Aug 2017 01:40:03 +0200
+Message-ID: <6cfc6867ff667d6fe3940305e5bc375adbc307cf.1502320623.git.daniel@iogearbox.net>
 References: <cover.1502320623.git.daniel@iogearbox.net>
 Cc: ast@fb.com, holzheu@linux.vnet.ibm.com,
         naveen.n.rao@linux.vnet.ibm.com, jakub.kicinski@netronome.com,
         netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35735 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:35749 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752353AbdHIXkR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 19:40:17 -0400
+        with ESMTP id S1752381AbdHIXkS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 19:40:18 -0400
 In-Reply-To: <cover.1502320623.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1502320623.git.daniel@iogearbox.net>
 References: <cover.1502320623.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable the newly added jump opcodes, main parts are in two
-different areas, namely direct packet access and dynamic map
-value access. For the direct packet access, we now allow for
-the following two new patterns to match in order to trigger
-markings with find_good_pkt_pointers():
-
-Variant 1 (access ok when taking the branch):
-
-  0: (61) r2 = *(u32 *)(r1 +76)
-  1: (61) r3 = *(u32 *)(r1 +80)
-  2: (bf) r0 = r2
-  3: (07) r0 += 8
-  4: (ad) if r0 < r3 goto pc+2
-  R0=pkt(id=0,off=8,r=0) R1=ctx R2=pkt(id=0,off=0,r=0)
-  R3=pkt_end R10=fp
-  5: (b7) r0 = 0
-  6: (95) exit
-
-  from 4 to 7: R0=pkt(id=0,off=8,r=8) R1=ctx
-               R2=pkt(id=0,off=0,r=8) R3=pkt_end R10=fp
-  7: (71) r0 = *(u8 *)(r2 +0)
-  8: (05) goto pc-4
-  5: (b7) r0 = 0
-  6: (95) exit
-  processed 11 insns, stack depth 0
-
-Variant 2 (access ok on fall-through):
-
-  0: (61) r2 = *(u32 *)(r1 +76)
-  1: (61) r3 = *(u32 *)(r1 +80)
-  2: (bf) r0 = r2
-  3: (07) r0 += 8
-  4: (bd) if r3 <= r0 goto pc+1
-  R0=pkt(id=0,off=8,r=8) R1=ctx R2=pkt(id=0,off=0,r=8)
-  R3=pkt_end R10=fp
-  5: (71) r0 = *(u8 *)(r2 +0)
-  6: (b7) r0 = 1
-  7: (95) exit
-
-  from 4 to 6: R0=pkt(id=0,off=8,r=0) R1=ctx
-               R2=pkt(id=0,off=0,r=0) R3=pkt_end R10=fp
-  6: (b7) r0 = 1
-  7: (95) exit
-  processed 10 insns, stack depth 0
-
-The above two basically just swap the branches where we need
-to handle an exception and allow packet access compared to the
-two already existing variants for find_good_pkt_pointers().
-
-For the dynamic map value access, we add the new instructions
-to reg_set_min_max() and reg_set_min_max_inv() in order to
-learn bounds. Verifier test cases for both are added in a
-follow-up patch.
+Add test cases to the verifier selftest suite in order to verify that
+i) direct packet access, and ii) dynamic map value access is working
+with the changes related to the new instructions.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: John Fastabend <john.fastabend@gmail.com>
 ---
- kernel/bpf/verifier.c | 62 +++++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 58 insertions(+), 4 deletions(-)
+ tools/testing/selftests/bpf/test_verifier.c | 313 ++++++++++++++++++++++++++++
+ 1 file changed, 313 insertions(+)
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 8160a81..ecc590e 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -312,11 +312,15 @@ static void print_verifier_state(struct bpf_verifier_state *state)
- 	[BPF_JA >> 4]   = "jmp",
- 	[BPF_JEQ >> 4]  = "==",
- 	[BPF_JGT >> 4]  = ">",
-+	[BPF_JLT >> 4]  = "<",
- 	[BPF_JGE >> 4]  = ">=",
-+	[BPF_JLE >> 4]  = "<=",
- 	[BPF_JSET >> 4] = "&",
- 	[BPF_JNE >> 4]  = "!=",
- 	[BPF_JSGT >> 4] = "s>",
-+	[BPF_JSLT >> 4] = "s<",
- 	[BPF_JSGE >> 4] = "s>=",
-+	[BPF_JSLE >> 4] = "s<=",
- 	[BPF_CALL >> 4] = "call",
- 	[BPF_EXIT >> 4] = "exit",
- };
-@@ -2383,27 +2387,37 @@ static void find_good_pkt_pointers(struct bpf_verifier_state *state,
- 		 */
- 		return;
- 
--	/* LLVM can generate two kind of checks:
-+	/* LLVM can generate four kind of checks:
- 	 *
--	 * Type 1:
-+	 * Type 1/2:
- 	 *
- 	 *   r2 = r3;
- 	 *   r2 += 8;
- 	 *   if (r2 > pkt_end) goto <handle exception>
- 	 *   <access okay>
- 	 *
-+	 *   r2 = r3;
-+	 *   r2 += 8;
-+	 *   if (r2 < pkt_end) goto <access okay>
-+	 *   <handle exception>
-+	 *
- 	 *   Where:
- 	 *     r2 == dst_reg, pkt_end == src_reg
- 	 *     r2=pkt(id=n,off=8,r=0)
- 	 *     r3=pkt(id=n,off=0,r=0)
- 	 *
--	 * Type 2:
-+	 * Type 3/4:
- 	 *
- 	 *   r2 = r3;
- 	 *   r2 += 8;
- 	 *   if (pkt_end >= r2) goto <access okay>
- 	 *   <handle exception>
- 	 *
-+	 *   r2 = r3;
-+	 *   r2 += 8;
-+	 *   if (pkt_end <= r2) goto <handle exception>
-+	 *   <access okay>
-+	 *
- 	 *   Where:
- 	 *     pkt_end == dst_reg, r2 == src_reg
- 	 *     r2=pkt(id=n,off=8,r=0)
-@@ -2471,6 +2485,14 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
- 		false_reg->smax_value = min_t(s64, false_reg->smax_value, val);
- 		true_reg->smin_value = max_t(s64, true_reg->smin_value, val + 1);
- 		break;
-+	case BPF_JLT:
-+		false_reg->umin_value = max(false_reg->umin_value, val);
-+		true_reg->umax_value = min(true_reg->umax_value, val - 1);
-+		break;
-+	case BPF_JSLT:
-+		false_reg->smin_value = max_t(s64, false_reg->smin_value, val);
-+		true_reg->smax_value = min_t(s64, true_reg->smax_value, val - 1);
-+		break;
- 	case BPF_JGE:
- 		false_reg->umax_value = min(false_reg->umax_value, val - 1);
- 		true_reg->umin_value = max(true_reg->umin_value, val);
-@@ -2479,6 +2501,14 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
- 		false_reg->smax_value = min_t(s64, false_reg->smax_value, val - 1);
- 		true_reg->smin_value = max_t(s64, true_reg->smin_value, val);
- 		break;
-+	case BPF_JLE:
-+		false_reg->umin_value = max(false_reg->umin_value, val + 1);
-+		true_reg->umax_value = min(true_reg->umax_value, val);
-+		break;
-+	case BPF_JSLE:
-+		false_reg->smin_value = max_t(s64, false_reg->smin_value, val + 1);
-+		true_reg->smax_value = min_t(s64, true_reg->smax_value, val);
-+		break;
- 	default:
- 		break;
- 	}
-@@ -2527,6 +2557,14 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
- 		true_reg->smax_value = min_t(s64, true_reg->smax_value, val - 1);
- 		false_reg->smin_value = max_t(s64, false_reg->smin_value, val);
- 		break;
-+	case BPF_JLT:
-+		true_reg->umin_value = max(true_reg->umin_value, val + 1);
-+		false_reg->umax_value = min(false_reg->umax_value, val);
-+		break;
-+	case BPF_JSLT:
-+		true_reg->smin_value = max_t(s64, true_reg->smin_value, val + 1);
-+		false_reg->smax_value = min_t(s64, false_reg->smax_value, val);
-+		break;
- 	case BPF_JGE:
- 		true_reg->umax_value = min(true_reg->umax_value, val);
- 		false_reg->umin_value = max(false_reg->umin_value, val + 1);
-@@ -2535,6 +2573,14 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
- 		true_reg->smax_value = min_t(s64, true_reg->smax_value, val);
- 		false_reg->smin_value = max_t(s64, false_reg->smin_value, val + 1);
- 		break;
-+	case BPF_JLE:
-+		true_reg->umin_value = max(true_reg->umin_value, val);
-+		false_reg->umax_value = min(false_reg->umax_value, val - 1);
-+		break;
-+	case BPF_JSLE:
-+		true_reg->smin_value = max_t(s64, true_reg->smin_value, val);
-+		false_reg->smax_value = min_t(s64, false_reg->smax_value, val - 1);
-+		break;
- 	default:
- 		break;
- 	}
-@@ -2659,7 +2705,7 @@ static int check_cond_jmp_op(struct bpf_verifier_env *env,
- 	u8 opcode = BPF_OP(insn->code);
- 	int err;
- 
--	if (opcode > BPF_EXIT) {
-+	if (opcode > BPF_JSLE) {
- 		verbose("invalid BPF_JMP opcode %x\n", opcode);
- 		return -EINVAL;
- 	}
-@@ -2761,10 +2807,18 @@ static int check_cond_jmp_op(struct bpf_verifier_env *env,
- 		   dst_reg->type == PTR_TO_PACKET &&
- 		   regs[insn->src_reg].type == PTR_TO_PACKET_END) {
- 		find_good_pkt_pointers(this_branch, dst_reg);
-+	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLT &&
-+		   dst_reg->type == PTR_TO_PACKET &&
-+		   regs[insn->src_reg].type == PTR_TO_PACKET_END) {
-+		find_good_pkt_pointers(other_branch, dst_reg);
- 	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JGE &&
- 		   dst_reg->type == PTR_TO_PACKET_END &&
- 		   regs[insn->src_reg].type == PTR_TO_PACKET) {
- 		find_good_pkt_pointers(other_branch, &regs[insn->src_reg]);
-+	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLE &&
-+		   dst_reg->type == PTR_TO_PACKET_END &&
-+		   regs[insn->src_reg].type == PTR_TO_PACKET) {
-+		find_good_pkt_pointers(this_branch, &regs[insn->src_reg]);
- 	} else if (is_pointer_value(env, insn->dst_reg)) {
- 		verbose("R%d pointer comparison prohibited\n", insn->dst_reg);
- 		return -EACCES;
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 65aa562..70973c1 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -2830,6 +2830,79 @@ struct test_val {
+ 		.result = ACCEPT,
+ 	},
+ 	{
++		"direct packet access: test25 (marking on <, good access)",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++			BPF_JMP_REG(BPF_JLT, BPF_REG_0, BPF_REG_3, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++			BPF_JMP_IMM(BPF_JA, 0, 0, -4),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"direct packet access: test26 (marking on <, bad access)",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++			BPF_JMP_REG(BPF_JLT, BPF_REG_0, BPF_REG_3, 3),
++			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_JMP_IMM(BPF_JA, 0, 0, -3),
++		},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"direct packet access: test27 (marking on <=, good access)",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++			BPF_JMP_REG(BPF_JLE, BPF_REG_3, BPF_REG_0, 1),
++			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 1),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"direct packet access: test28 (marking on <=, bad access)",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++			BPF_JMP_REG(BPF_JLE, BPF_REG_3, BPF_REG_0, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 1),
++			BPF_EXIT_INSN(),
++			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++			BPF_JMP_IMM(BPF_JA, 0, 0, -4),
++		},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
+ 		"helper access to packet: test1, valid packet_ptr range",
+ 		.insns = {
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+@@ -4488,6 +4561,246 @@ struct test_val {
+ 		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
+ 	},
+ 	{
++		"helper access to map: bounds check using <, good access",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JLT, BPF_REG_3, 32, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
++			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
++	},
++	{
++		"helper access to map: bounds check using <, bad access",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JLT, BPF_REG_3, 32, 4),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
++			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.result = REJECT,
++		.errstr = "R1 unbounded memory access",
++		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
++	},
++	{
++		"helper access to map: bounds check using <=, good access",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JLE, BPF_REG_3, 32, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
++			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
++	},
++	{
++		"helper access to map: bounds check using <=, bad access",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JLE, BPF_REG_3, 32, 4),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
++			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.result = REJECT,
++		.errstr = "R1 unbounded memory access",
++		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
++	},
++	{
++		"helper access to map: bounds check using s<, good access",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, 32, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, 0, -3),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
++			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
++	},
++	{
++		"helper access to map: bounds check using s<, good access 2",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, 32, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, -3, -3),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
++			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
++	},
++	{
++		"helper access to map: bounds check using s<, bad access",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, 32, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, -3, -3),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
++			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.result = REJECT,
++		.errstr = "R1 min value is negative",
++		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
++	},
++	{
++		"helper access to map: bounds check using s<=, good access",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, 32, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, 0, -3),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
++			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
++	},
++	{
++		"helper access to map: bounds check using s<=, good access 2",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, 32, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, -3, -3),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
++			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
++	},
++	{
++		"helper access to map: bounds check using s<=, bad access",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_0, 0),
++			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, 32, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_JMP_IMM(BPF_JSLE, BPF_REG_3, -3, -3),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_3),
++			BPF_ST_MEM(BPF_B, BPF_REG_1, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.result = REJECT,
++		.errstr = "R1 min value is negative",
++		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
++	},
++	{
+ 		"map element value is preserved across register spilling",
+ 		.insns = {
+ 			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
 -- 
 1.9.3
