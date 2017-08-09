@@ -1,72 +1,73 @@
-From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH v4 07/12] net: stmmac: dwmac-rk: Add internal phy support for rk3228
-Date: Wed,  9 Aug 2017 20:11:24 +0800
-Message-ID: <1502280684-2360-1-git-send-email-david.wu@rock-chips.com>
-References: <1502280475-736-1-git-send-email-david.wu@rock-chips.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, hwg@rock-chips.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Wu <david.wu@rock-chips.com>
-To: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch,
-        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
-        linux@armlinux.org.uk, arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502280475-736-1-git-send-email-david.wu@rock-chips.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Subject: Re: [PATCH] net: Reduce skb_warn_bad_offload() noise.
+Date: Wed, 9 Aug 2017 20:06:53 +0800
+Message-ID: <CAMDZJNXJsM6TsZ7abRhehsE3MpXDNS5ZtWGi-V0WM3dFWOYaAQ@mail.gmail.com>
+References: <1501852317-11684-1-git-send-email-xiangxia.m.yue@gmail.com>
+ <1501853380.25002.38.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAMDZJNUcqFYQ8c4urSyha+F2C0Z9WzTTw05qLBX9VYpCH4V6Wg@mail.gmail.com>
+ <CAF=yD-K_nbns=KA_4Acq_PRA=tCP0r+d3fD=jiVx9DkAdkyUYw@mail.gmail.com>
+ <CAMDZJNVRqbByUfa5Oc_=xs+O_BJ4ehUJUSz9Y+wCPwj6kQGtLA@mail.gmail.com>
+ <CAMDZJNUyaXnVp7jAH-E_d-X__zikoa=-3ypHo64aOnqra7TbRw@mail.gmail.com>
+ <CAF=yD-Ls_brMMJzekHw1Q7kMaa+2e3t1=c=_wCeWabxfcKW3Sw@mail.gmail.com> <CAF=yD-+stjwExn8wzdDWodJZ0b5qxte2eBqKapv7+YUYOXpW=Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Pravin B Shelar <pshelar@ovn.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:36998 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752602AbdHIMGz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 08:06:55 -0400
+Received: by mail-oi0-f66.google.com with SMTP id j194so5451277oib.4
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 05:06:55 -0700 (PDT)
+In-Reply-To: <CAF=yD-+stjwExn8wzdDWodJZ0b5qxte2eBqKapv7+YUYOXpW=Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is only one mac controller in rk3228, which could connect to
-external phy or internal phy, use the grf_com_mux bit15 to route
-external/internal phy.
+Thanks, I send a patch, which will revert commit 6e7bc478c9a0 in net-next.
 
-Signed-off-by: David Wu <david.wu@rock-chips.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index a856362..5372631 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -86,6 +86,8 @@ struct rk_priv_data {
- #define RK3228_GRF_MAC_CON0	0x0900
- #define RK3228_GRF_MAC_CON1	0x0904
- 
-+#define RK3228_GRF_CON_MUX	0x50
-+
- /* RK3228_GRF_MAC_CON0 */
- #define RK3228_GMAC_CLK_RX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 7)
- #define RK3228_GMAC_CLK_TX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 0)
-@@ -111,6 +113,9 @@ struct rk_priv_data {
- #define RK3228_GMAC_RXCLK_DLY_ENABLE	GRF_BIT(1)
- #define RK3228_GMAC_RXCLK_DLY_DISABLE	GRF_CLR_BIT(1)
- 
-+/* RK3228_GRF_COM_MUX */
-+#define RK3228_GRF_CON_MUX_GMAC_INTERNAL_PHY	GRF_BIT(15)
-+
- static void rk3228_set_to_rgmii(struct rk_priv_data *bsp_priv,
- 				int tx_delay, int rx_delay)
- {
-@@ -191,11 +196,18 @@ static void rk3228_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
- 		dev_err(dev, "unknown speed value for RMII! speed=%d", speed);
- }
- 
-+static void rk3228_internal_phy_powerup(struct rk_priv_data *priv)
-+{
-+	regmap_write(priv->grf, RK3228_GRF_CON_MUX,
-+		     RK3228_GRF_CON_MUX_GMAC_INTERNAL_PHY);
-+}
-+
- static const struct rk_gmac_ops rk3228_ops = {
- 	.set_to_rgmii = rk3228_set_to_rgmii,
- 	.set_to_rmii = rk3228_set_to_rmii,
- 	.set_rgmii_speed = rk3228_set_rgmii_speed,
- 	.set_rmii_speed = rk3228_set_rmii_speed,
-+	.internal_phy_powerup =  rk3228_internal_phy_powerup,
- };
- 
- #define RK3288_GRF_SOC_CON1	0x0248
--- 
-1.9.1
+On Wed, Aug 9, 2017 at 1:46 AM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+>>> @@ -2670,6 +2670,7 @@ static inline bool skb_needs_check(struct
+>>> sk_buff *skb, bool tx_path)
+>>>  {
+>>>         if (tx_path)
+>>>                 return skb->ip_summed != CHECKSUM_PARTIAL &&
+>>> +                      skb->ip_summed != CHECKSUM_UNNECESSARY &&
+>>>                        skb->ip_summed != CHECKSUM_NONE;
+>>
+>> Good catch. Only, the CHECKSUM_NONE case was added specifically to
+>> work around this UFO issue on the tx path in commit 6e7bc478c9a0
+>> ("net: skb_needs_check() accepts CHECKSUM_NONE for tx"). If we change
+>> the value generated by UFO, we can remove that statement, so
+>>
+>> +                      skb->ip_summed != CHECKSUM_UNNECESSARY;
+>> -                        skb->ip_summed != CHECKSUM_NONE;
+>>
+>> Else the entire check becomes a NOOP. These are the only three valid
+>> states on tx. With very few codepaths generating CHECKSUM_UNNECESSARY
+>> to begin with, it arguably already is practically a NOOP. I need to
+>> look more closely what the statement is intended to protect against,
+>> before we relax it even further.
+>
+> On transmit, packets entering skb_gso_segment are expected to always
+> have ip_summed CHECKSUM_PARTIAL. This check was added to track down
+> unexpected exceptions in commit 67fd1a731ff1 ("net: Add debug info to
+> track down GSO checksum bug").
+>
+> Only when called for the second time, after skb_mac_gso_segment, do we
+> have to possibly handle the case where the GSO layer computes the
+> checksum and changes ip_summed.
+>
+> Since this only goes into 4.11 to 4.13, making two separate
+> skb_needs_check variants for these two call sites seems overkill. I
+> will send the simple fix to convert CHECKSUM_NONE to
+> CHECKSUM_UNNECESSARY.
+>
+> As a side effect of removing UFO in 4.14-rc1, we can also revert
+> commit 6e7bc478c9a0 ("net: skb_needs_check() accepts CHECKSUM_NONE for
+> tx") in net-next.
