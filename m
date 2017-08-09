@@ -1,40 +1,44 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] net: skb_needs_check() removes CHECKSUM_NONE
- check for tx.
-Date: Wed, 9 Aug 2017 11:30:35 -0700
-Message-ID: <CAF=yD-JjaDFy4pOeJ5Lh2em9MgK6jjNxSfc5MkZZ=L6cu9be4Q@mail.gmail.com>
-References: <1502280278-9970-1-git-send-email-xiangxia.m.yue@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v2 net-next 0/7] rtnetlink: allow selected handlers to run without rtnl
+Date: Wed,  9 Aug 2017 20:41:46 +0200
+Message-ID: <20170809184153.16700-1-fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:37025 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752175AbdHISbQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 14:31:16 -0400
-Received: by mail-oi0-f66.google.com with SMTP id j194so6443472oib.4
-        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 11:31:16 -0700 (PDT)
-In-Reply-To: <1502280278-9970-1-git-send-email-xiangxia.m.yue@gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:41854 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751536AbdHISlk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 14:41:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 9, 2017 at 5:04 AM, Tonghao Zhang <xiangxia.m.yue@gmail.com> wrote:
-> This patch reverts the commit 6e7bc478c9a0
-> ("net: skb_needs_check() accepts CHECKSUM_NONE for tx"),
-> because we removed the UFO support.
->
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Willem de Bruijn <willemb@google.com>
-> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Changes since v1:
+ In patch 6, don't make ipv6 route handlers lockless, they all have
+ assumptions on rtnl being held.  Other patches are unchanged.
 
+The RTNL mutex is used to serialize both rtnetlink calls and
+dump requests.
+Its also used to protect other things such as the list of current
+net namespaces.
 
-I would wait until net is merged into net-next. This will cause a conflict.
+Unfortunately RTNL mutex is a performance issue, e.g. a cpu adding an
+ip address prevents other cpus from seemingly unrelated tasks such as
+dumping tc classifiers or doing rtnetlink route lookups.
 
-Also, while logically equivalent, it is not a real revert (as in `git
-revert $SHA1`) of that patch.
+This patch set adds basic infrastructure to start pushing the rtnl lock
+down to those places that need it, or even elide it entirely in some cases.
 
-Aside from those concerns, I agree that the original patch is no
-longer needed now that UFO is reverted.
+Subsystems can now indicate that their doit() callback can run without
+RTNL mutex, such callbacks can then run in parallel.
+
+This will obviously need a lot of followup work; all current
+users need to be audited/changed to benefit from this.
+Initial no-rtnl spot is netns new/getid.
+
+We have various 'get' handlers that are also a tempting target,
+however, several of these depend on rtnl mutex to prevent information
+from changing while objects are being read by rtnl handlers; however,
+it doesn't appear impossible to change this.
+
+Dumps are another problem entirely, see
+commit 2907c35ff64708065 ("net: hold rtnl again in dump callbacks"),
+this patchset doesn't touch dump requests.
