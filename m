@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/5] ulp: Generalize ULP infrastructure
-Date: Tue, 08 Aug 2017 18:07:23 -0700 (PDT)
-Message-ID: <20170808.180723.1988658908878753961.davem@davemloft.net>
-References: <598A1146.9090205@gmail.com>
-        <CAPDqMer5fh9xKTcA5fuycoOcHaOcFVRnnfEBJYj_Jv1S=R0-xQ@mail.gmail.com>
-        <6bee85e2-5fb3-135a-ad7c-ae4a350f7148@solarflare.com>
+Subject: Re: [PATCH net-next 1/1] netvsc: make sure and unregister datapath
+Date: Tue, 08 Aug 2017 18:10:17 -0700 (PDT)
+Message-ID: <20170808.181017.2134405221971495235.davem@davemloft.net>
+References: <20170807183000.10827-1-sthemmin@microsoft.com>
+        <20170807183000.10827-2-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@quantonium.net, john.fastabend@gmail.com, tom@herbertland.com,
-        netdev@vger.kernel.org, rohit@quantonium.net, davejwatson@fb.com
-To: ecree@solarflare.com
+Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
+        devel@linuxdriverproject.org, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58254 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58296 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752319AbdHIBHY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 21:07:24 -0400
-In-Reply-To: <6bee85e2-5fb3-135a-ad7c-ae4a350f7148@solarflare.com>
+        with ESMTP id S1751919AbdHIBKS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2017 21:10:18 -0400
+In-Reply-To: <20170807183000.10827-2-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Tue, 8 Aug 2017 21:23:03 +0100
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon,  7 Aug 2017 11:30:00 -0700
 
-> In any case, if you go with the enum approach and later it _does_ prove
->  necessary to have more flexibility, you can have enum values dynamically
->  assigned (like genetlink manages to do); and programs using the existing
->  fixed IDs will continue to work.
+> Go back to switching datapath directly in the notifier callback.
+> Otherwise datapath might not get switched on unregister.
+> 
+> No need for calling the NOTIFY_PEERS notifier since that is only for
+> a gratitious ARP/ND packet; but that is not required with Hyper-V
+> because both VF and synthetic NIC have the same MAC address.
+> 
+> Reported-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> Fixes: 0c195567a8f6 ("netvsc: transparent VF management")
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Indeed:
-
-> It's much harder to go the other way...
-
-^^^^ THIS!
+Applied, thanks Stephen.
