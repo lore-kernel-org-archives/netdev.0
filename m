@@ -1,32 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/12][pull request] 1GbE Intel Wired LAN Driver
- Updates 2017-08-08
-Date: Wed, 09 Aug 2017 16:49:40 -0700 (PDT)
-Message-ID: <20170809.164940.2244054963767020316.davem@davemloft.net>
-References: <20170809214746.28139-1-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 0/2] zerocopy fixes
+Date: Wed, 09 Aug 2017 16:49:54 -0700 (PDT)
+Message-ID: <20170809.164954.968557942539595124.davem@davemloft.net>
+References: <20170809230944.59289-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, dsahern@gmail.com, willemb@google.com
+To: willemdebruijn.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47858 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47870 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752093AbdHIXtn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 19:49:43 -0400
-In-Reply-To: <20170809214746.28139-1-jeffrey.t.kirsher@intel.com>
+        with ESMTP id S1752169AbdHIXtz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 19:49:55 -0400
+In-Reply-To: <20170809230944.59289-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed,  9 Aug 2017 14:47:34 -0700
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Date: Wed,  9 Aug 2017 19:09:42 -0400
 
-> This series contains updates to e1000e and igb/igbvf.
- ...
-> The following are changes since commit 53b948356554376ec6f89016376825d48bf396c3:
->   net: vrf: Add extack messages for newlink failures
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
+> Fix two issues introduced in the msg_zerocopy patchset.
 
-Pulled, thanks Jeff.
+Series applied, thanks for following up on this so quickly.
