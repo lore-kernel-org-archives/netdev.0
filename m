@@ -1,70 +1,70 @@
-From: "Gao Feng" <gfree.wind@vip.163.com>
-Subject: Re:Re: Re:Re: Re: [PATCH net] ppp: Fix a scheduling-while-atomic
- bug in del_chan
-Date: Wed, 9 Aug 2017 13:13:53 +0800 (CST)
-Message-ID: <73e6ac77.45ea.15dc569d56a.Coremail.gfree.wind@vip.163.com>
-References: <1501495658-119725-1-git-send-email-gfree.wind@vip.163.com>
- <CAM_iQpVEsTpg17RZ1Y1jN2e0wb_X6gtxx05rmUSGa=A=XSj=Eg@mail.gmail.com>
- <CAM_iQpVta2EFVjutndCmoLBPWko7dgzP=Q1i2krPqyYuNBV4RA@mail.gmail.com>
- <31c9755c.ff6.15dba5238fc.Coremail.gfree.wind@vip.163.com>
- <CAM_iQpWmJmk=_yoV8=krOWonE_0orTC5Z4GaCnPg8Jv3GX6dmw@mail.gmail.com>
- <697dbbd.7911.15dbf5ca3a6.Coremail.gfree.wind@vip.163.com>
- <16ae6009.7a67.15dbf64b398.Coremail.gfree.wind@vip.163.com>
- <CAM_iQpW8W24=2atSyStwKPYJ9zmOO5XiznktT3V_3qn00R7r=Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: xeb@mail.ru, "David Miller" <davem@davemloft.net>,
-        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
-To: "Cong Wang" <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m173-177.vip.163.com ([123.58.177.173]:26962 "EHLO
-        m173-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750830AbdHIFTR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 01:19:17 -0400
-In-Reply-To: <CAM_iQpW8W24=2atSyStwKPYJ9zmOO5XiznktT3V_3qn00R7r=Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Borisov <nborisov@suse.com>
+Subject: [PATCH] igmp: Fix regression caused by igmp sysctl namespace code.
+Date: Wed,  9 Aug 2017 08:52:55 +0300
+Message-ID: <1502257975-32218-1-git-send-email-nborisov@suse.com>
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+        netdev@vger.kernel.org, Nikolay Borisov <nborisov@suse.com>,
+        "# 4 . 6" <stable@vger.kernel.org>
+To: davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-QXQgMjAxNy0wOC0wOSAwMzo0NTo1MywgIkNvbmcgV2FuZyIgPHhpeW91Lndhbmdjb25nQGdtYWls
-LmNvbT4gd3JvdGU6Cj5PbiBNb24sIEF1ZyA3LCAyMDE3IGF0IDY6MTAgUE0sIEdhbyBGZW5nIDxn
-ZnJlZS53aW5kQHZpcC4xNjMuY29tPiB3cm90ZToKPj4KPj4gU29ycnksIEkgZG9uJ3QgZ2V0IHlv
-dSBjbGVhcmx5LiBXaHkgdGhlIHNvY2tfaG9sZCgpIGlzbid0IGhlbHBmdWw/Cj4KPkkgYWxyZWFk
-eSB0b2xkIHlvdSwgdGhlIGRlcmVmZXJlbmNlIGhhcHBlbmRzIGJlZm9yZSBzb2NrX2hvbGQoKS4K
-Pgo+ICAgICAgICBzb2NrID0gcmN1X2RlcmVmZXJlbmNlKGNhbGxpZF9zb2NrW2NhbGxfaWRdKTsK
-PiAgICAgICAgaWYgKHNvY2spIHsKPiAgICAgICAgICAgICAgICBvcHQgPSAmc29jay0+cHJvdG8u
-cHB0cDsKPiAgICAgICAgICAgICAgICBpZiAob3B0LT5kc3RfYWRkci5zaW5fYWRkci5zX2FkZHIg
-IT0gc19hZGRyKSA8PT09IEhFUkUKPiAgICAgICAgICAgICAgICAgICAgICAgIHNvY2sgPSBOVUxM
-Owo+ICAgICAgICAgICAgICAgIGVsc2UKPiAgICAgICAgICAgICAgICAgICAgICAgIHNvY2tfaG9s
-ZChza19wcHBveChzb2NrKSk7Cj4gICAgICAgIH0KPgo+SWYgd2UgZG9uJ3Qgd2FpdCBmb3IgcmVh
-ZGVycyBwcm9wZXJseSwgc29jayBjb3VsZCBiZSBmcmVlZCBhdCB0aGUKPnNhbWUgdGltZSB3aGVu
-IGRlZmVyZW5jZSBpdC4KCk1heWJlIEkgZGlkbid0IHNob3cgbXkgZXhwbGFuYXRpb24gY2xlYXJs
-eS4KSSB0aGluayBpdCB3b24ndCBoYXBwZW4gYXMgSSBtZW50aW9uZWQgaW4gdGhlIGxhc3QgZW1h
-aWwuCkJlY2F1c2UgdGhlIHBwdHBfcmVsZWFzZSBpbnZva2VzIHRoZSBzeW5jaHJvbml6ZV9yY3Ug
-dG8gbWFrZSBzdXJlIGl0LCBhbmQgYWN0dWFsbHkgdGhlcmUgaXMgbm8gb25lIHdoaWNoIHdvdWxk
-IGludm9rZSBkZWxfY2hhbiBleGNlcHQgcHB0cF9yZWxlYXNlLgpJdCBpcyBndWFyYW50ZWVkIGJ5
-IHRoYXQgdGhlIHBwdHBfcmVsZWFzZSBkb2Vzbid0IHB1dCB0aGUgc29jayByZWZjbnQgdW50aWwg
-Y29tcGxldGUgYWxsIGNsZWFudXAgaW5jbHVkZSBtYXJraW5nIHNrX3N0YXRlIGFzIFBQUE9YX0RF
-QUQuIAoKSW4gb3RoZXIgd29yZHMsIGV2ZW4gdGhvdWdoIHRoZSBwcHRwX3JlbGVhc2UgaXMgbm90
-IHRoZSBsYXN0IHVzZXIgb2YgdGhpcyBzb2NrLCB0aGUgb3RoZXIgb25lIHdvdWxkbid0IGludm9r
-ZSBkZWxfY2hhbiBpbiBwcHRwX3NvY2tfZGVzdHJ1Y3QuCkJlY2F1c2UgdGhlIGNvbmRpdGlvbiAi
-IShzay0+c2tfc3RhdGUgJiBQUFBPWF9ERUFEKSIgbXVzdCBiZSBmYWxzZS4gCgpBcyBzdW1tYXJ5
-LCB0aGUgZGVsX2NoYW4gYW5kIHBwcG94X3VuYmluZF9zb2NrIGluIHBwdHBfc29ja19kZXN0cnVj
-dCBhcmUgdW5uZWNlc3NhcnkuIApBbmQgaXQgZXZlbiBicmluZ3MgY29uZnVzaW5nLgoKQmVzdCBS
-ZWdhcmRzCkZlbmcKCj4KPj4gVGhlIHBwdHBfcmVsZWFzZSBpbnZva2VzIHN5bmNocm9uaXplX3Jj
-dSBhZnRlciBkZWxfY2hhbiwgaXQgY291bGQgbWFrZSBzdXJlIHRoZSBvdGhlcnMgaGFzIGluY3Jl
-YXNlZCB0aGUgc29jayByZWZjbnQgaWYgbmVjZXNzYXJ5Cj4+IGFuZCB0aGUgbG9va3VwIGlzIG92
-ZXIuCj4+IFRoZXJlIGlzIG5vIG9uZSBjb3VsZCBnZXQgdGhlIHNvY2sgYWZ0ZXIgc3luY2hyb25p
-emVfcmN1IGluIHBwdHBfcmVsZWFzZS4KPgo+Cj5JZiB0aGlzIHdlcmUgdHJ1ZSwgdGhlbiB0aGlz
-IGNvZGUgaW4gcHB0cF9zb2NrX2Rlc3RydWN0KCkKPndvdWxkIGJlIHVubmVlZGVkOgo+Cj4gICAg
-ICAgIGlmICghKHNrLT5za19zdGF0ZSAmIFBQUE9YX0RFQUQpKSB7Cj4gICAgICAgICAgICAgICAg
-ZGVsX2NoYW4ocHBwb3hfc2soc2spKTsKPiAgICAgICAgICAgICAgICBwcHBveF91bmJpbmRfc29j
-ayhzayk7Cj4gICAgICAgIH0KPgo+Cj4+Cj4+Cj4+IEJ1dCBJIHRoaW5rIGFib3V0IGFub3RoZXIg
-cHJvYmxlbS4KPj4gSXQgc2VlbXMgdGhlIHBwdHBfc29ja19kZXN0cnVjdCBzaG91bGQgbm90IGlu
-dm9rZSBkZWxfY2hhbiBhbmQgcHBwb3hfdW5iaW5kX3NvY2suCj4+IEJlY2F1c2Ugd2hlbiB0aGUg
-c29jayByZWZjbnQgaXMgMCwgdGhlIHBwdHBfcmVsZWFzZSBtdXN0IGhhdmUgYmUgaW52b2tlZCBh
-bHJlYWR5Lgo+Pgo+Cj4KPkkgZG9uJ3Qga25vdy4gTG9va3MgbGlrZSBzb2NrX29ycGhhbigpIGlz
-IG9ubHkgY2FsbGVkCj5pbiBwcHRwX3JlbGVhc2UoKSwgYnV0IEkgYW0gbm90IHN1cmUgaWYgdGhl
-cmUgaXMgYSBjYXNlCj53ZSBjYWxsIHNvY2sgZGVzdHJ1Y3RvciBiZWZvcmUgcmVsZWFzZS4KPgo+
-QWxzbyBub3RlLCB0aGlzIHNvY2tldCBpcyB2ZXJ5IHNwZWNpYWwsIGl0IGRvZXNuJ3Qgc3VwcG9y
-dAo+cG9sbCgpLCBzZW5kbXNnKCkgb3IgcmVjdm1zZygpLi4KCgoK
+Commit dcd87999d415 ("igmp: net: Move igmp namespace init to correct file")
+moved the igmp sysctls initialization from tcp_sk_init to igmp_net_init. This
+function is only called as part of per-namespace initialization, only if
+CONFIG_IP_MULTICAST is defined, otherwise igmp_mc_init() call in ip_init is
+compiled out, casuing the igmp pernet ops to not be registerd and those sysctl
+being left initialized with 0. However, there are certain functions, such as
+ip_mc_join_group which are always compiled and make use of some of those
+sysctls. Let's do a partial revert of the aforementioned commit and move the
+sysctl initialization back into tcp_sk_init, that way they will always have
+sane values.
+
+Fixes: dcd87999d415 ("igmp: net: Move igmp namespace init to correct file")
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=196595
+Reported-by: Gerardo Exequiel Pozzi <vmlinuz386@gmail.com>
+Tested-by: Gerardo Exequiel Pozzi <vmlinuz386@gmail.com>
+Signed-off-by: Nikolay Borisov <nborisov@suse.com>
+Cc: <stable@vger.kernel.org> # 4.6
+---
+ net/ipv4/igmp.c     | 6 ------
+ net/ipv4/tcp_ipv4.c | 6 ++++++
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 28f14afd0dd3..498706b072fb 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -2974,12 +2974,6 @@ static int __net_init igmp_net_init(struct net *net)
+ 		goto out_sock;
+ 	}
+ 
+-	/* Sysctl initialization */
+-	net->ipv4.sysctl_igmp_max_memberships = 20;
+-	net->ipv4.sysctl_igmp_max_msf = 10;
+-	/* IGMP reports for link-local multicast groups are enabled by default */
+-	net->ipv4.sysctl_igmp_llm_reports = 1;
+-	net->ipv4.sysctl_igmp_qrv = 2;
+ 	return 0;
+ 
+ out_sock:
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index a20e7f03d5f7..64ba2c93d396 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2528,6 +2528,12 @@ static int __net_init tcp_sk_init(struct net *net)
+ 	net->ipv4.sysctl_tcp_window_scaling = 1;
+ 	net->ipv4.sysctl_tcp_timestamps = 1;
+ 
++	net->ipv4.sysctl_igmp_max_memberships = 20;
++	net->ipv4.sysctl_igmp_max_msf = 10;
++	/* IGMP reports for link-local multicast groups are enabled by default */
++	net->ipv4.sysctl_igmp_llm_reports = 1;
++	net->ipv4.sysctl_igmp_qrv = 2;
++
+ 	return 0;
+ fail:
+ 	tcp_sk_exit(net);
+-- 
+2.7.4
