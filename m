@@ -1,64 +1,70 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] net: dsa: make dsa_switch_ops const
-Date: Wed,  9 Aug 2017 10:34:15 +0530
-Message-ID: <1502255055-24751-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Gao Feng" <gfree.wind@vip.163.com>
+Subject: Re:Re: Re:Re: Re: [PATCH net] ppp: Fix a scheduling-while-atomic
+ bug in del_chan
+Date: Wed, 9 Aug 2017 13:13:53 +0800 (CST)
+Message-ID: <73e6ac77.45ea.15dc569d56a.Coremail.gfree.wind@vip.163.com>
+References: <1501495658-119725-1-git-send-email-gfree.wind@vip.163.com>
+ <CAM_iQpVEsTpg17RZ1Y1jN2e0wb_X6gtxx05rmUSGa=A=XSj=Eg@mail.gmail.com>
+ <CAM_iQpVta2EFVjutndCmoLBPWko7dgzP=Q1i2krPqyYuNBV4RA@mail.gmail.com>
+ <31c9755c.ff6.15dba5238fc.Coremail.gfree.wind@vip.163.com>
+ <CAM_iQpWmJmk=_yoV8=krOWonE_0orTC5Z4GaCnPg8Jv3GX6dmw@mail.gmail.com>
+ <697dbbd.7911.15dbf5ca3a6.Coremail.gfree.wind@vip.163.com>
+ <16ae6009.7a67.15dbf64b398.Coremail.gfree.wind@vip.163.com>
+ <CAM_iQpW8W24=2atSyStwKPYJ9zmOO5XiznktT3V_3qn00R7r=Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=GBK
+Content-Transfer-Encoding: base64
+Cc: xeb@mail.ru, "David Miller" <davem@davemloft.net>,
+        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
+To: "Cong Wang" <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m173-177.vip.163.com ([123.58.177.173]:26962 "EHLO
+        m173-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750830AbdHIFTR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 01:19:17 -0400
+In-Reply-To: <CAM_iQpW8W24=2atSyStwKPYJ9zmOO5XiznktT3V_3qn00R7r=Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make these structures const as they are only stored in the ops field of
-a dsa_switch structure, which is const.
-Done using Coccinelle.
-
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
----
- drivers/net/dsa/dsa_loop.c     | 2 +-
- drivers/net/dsa/lan9303-core.c | 2 +-
- drivers/net/dsa/mt7530.c       | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/dsa/dsa_loop.c b/drivers/net/dsa/dsa_loop.c
-index 76d6660..7819a9f 100644
---- a/drivers/net/dsa/dsa_loop.c
-+++ b/drivers/net/dsa/dsa_loop.c
-@@ -257,7 +257,7 @@ static int dsa_loop_port_vlan_del(struct dsa_switch *ds, int port,
- 	return 0;
- }
- 
--static struct dsa_switch_ops dsa_loop_driver = {
-+static const struct dsa_switch_ops dsa_loop_driver = {
- 	.get_tag_protocol	= dsa_loop_get_protocol,
- 	.setup			= dsa_loop_setup,
- 	.get_strings		= dsa_loop_get_strings,
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index 15befd1..f058f98 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -797,7 +797,7 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
- 	}
- }
- 
--static struct dsa_switch_ops lan9303_switch_ops = {
-+static const struct dsa_switch_ops lan9303_switch_ops = {
- 	.get_tag_protocol = lan9303_get_tag_protocol,
- 	.setup = lan9303_setup,
- 	.get_strings = lan9303_get_strings,
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 1270071..7d8cf927 100644
---- a/drivers/net/dsa/mt7530.c
-+++ b/drivers/net/dsa/mt7530.c
-@@ -979,7 +979,7 @@ static void mt7530_adjust_link(struct dsa_switch *ds, int port,
- 	return 0;
- }
- 
--static struct dsa_switch_ops mt7530_switch_ops = {
-+static const struct dsa_switch_ops mt7530_switch_ops = {
- 	.get_tag_protocol	= mtk_get_tag_protocol,
- 	.setup			= mt7530_setup,
- 	.get_strings		= mt7530_get_strings,
--- 
-1.9.1
+QXQgMjAxNy0wOC0wOSAwMzo0NTo1MywgIkNvbmcgV2FuZyIgPHhpeW91Lndhbmdjb25nQGdtYWls
+LmNvbT4gd3JvdGU6Cj5PbiBNb24sIEF1ZyA3LCAyMDE3IGF0IDY6MTAgUE0sIEdhbyBGZW5nIDxn
+ZnJlZS53aW5kQHZpcC4xNjMuY29tPiB3cm90ZToKPj4KPj4gU29ycnksIEkgZG9uJ3QgZ2V0IHlv
+dSBjbGVhcmx5LiBXaHkgdGhlIHNvY2tfaG9sZCgpIGlzbid0IGhlbHBmdWw/Cj4KPkkgYWxyZWFk
+eSB0b2xkIHlvdSwgdGhlIGRlcmVmZXJlbmNlIGhhcHBlbmRzIGJlZm9yZSBzb2NrX2hvbGQoKS4K
+Pgo+ICAgICAgICBzb2NrID0gcmN1X2RlcmVmZXJlbmNlKGNhbGxpZF9zb2NrW2NhbGxfaWRdKTsK
+PiAgICAgICAgaWYgKHNvY2spIHsKPiAgICAgICAgICAgICAgICBvcHQgPSAmc29jay0+cHJvdG8u
+cHB0cDsKPiAgICAgICAgICAgICAgICBpZiAob3B0LT5kc3RfYWRkci5zaW5fYWRkci5zX2FkZHIg
+IT0gc19hZGRyKSA8PT09IEhFUkUKPiAgICAgICAgICAgICAgICAgICAgICAgIHNvY2sgPSBOVUxM
+Owo+ICAgICAgICAgICAgICAgIGVsc2UKPiAgICAgICAgICAgICAgICAgICAgICAgIHNvY2tfaG9s
+ZChza19wcHBveChzb2NrKSk7Cj4gICAgICAgIH0KPgo+SWYgd2UgZG9uJ3Qgd2FpdCBmb3IgcmVh
+ZGVycyBwcm9wZXJseSwgc29jayBjb3VsZCBiZSBmcmVlZCBhdCB0aGUKPnNhbWUgdGltZSB3aGVu
+IGRlZmVyZW5jZSBpdC4KCk1heWJlIEkgZGlkbid0IHNob3cgbXkgZXhwbGFuYXRpb24gY2xlYXJs
+eS4KSSB0aGluayBpdCB3b24ndCBoYXBwZW4gYXMgSSBtZW50aW9uZWQgaW4gdGhlIGxhc3QgZW1h
+aWwuCkJlY2F1c2UgdGhlIHBwdHBfcmVsZWFzZSBpbnZva2VzIHRoZSBzeW5jaHJvbml6ZV9yY3Ug
+dG8gbWFrZSBzdXJlIGl0LCBhbmQgYWN0dWFsbHkgdGhlcmUgaXMgbm8gb25lIHdoaWNoIHdvdWxk
+IGludm9rZSBkZWxfY2hhbiBleGNlcHQgcHB0cF9yZWxlYXNlLgpJdCBpcyBndWFyYW50ZWVkIGJ5
+IHRoYXQgdGhlIHBwdHBfcmVsZWFzZSBkb2Vzbid0IHB1dCB0aGUgc29jayByZWZjbnQgdW50aWwg
+Y29tcGxldGUgYWxsIGNsZWFudXAgaW5jbHVkZSBtYXJraW5nIHNrX3N0YXRlIGFzIFBQUE9YX0RF
+QUQuIAoKSW4gb3RoZXIgd29yZHMsIGV2ZW4gdGhvdWdoIHRoZSBwcHRwX3JlbGVhc2UgaXMgbm90
+IHRoZSBsYXN0IHVzZXIgb2YgdGhpcyBzb2NrLCB0aGUgb3RoZXIgb25lIHdvdWxkbid0IGludm9r
+ZSBkZWxfY2hhbiBpbiBwcHRwX3NvY2tfZGVzdHJ1Y3QuCkJlY2F1c2UgdGhlIGNvbmRpdGlvbiAi
+IShzay0+c2tfc3RhdGUgJiBQUFBPWF9ERUFEKSIgbXVzdCBiZSBmYWxzZS4gCgpBcyBzdW1tYXJ5
+LCB0aGUgZGVsX2NoYW4gYW5kIHBwcG94X3VuYmluZF9zb2NrIGluIHBwdHBfc29ja19kZXN0cnVj
+dCBhcmUgdW5uZWNlc3NhcnkuIApBbmQgaXQgZXZlbiBicmluZ3MgY29uZnVzaW5nLgoKQmVzdCBS
+ZWdhcmRzCkZlbmcKCj4KPj4gVGhlIHBwdHBfcmVsZWFzZSBpbnZva2VzIHN5bmNocm9uaXplX3Jj
+dSBhZnRlciBkZWxfY2hhbiwgaXQgY291bGQgbWFrZSBzdXJlIHRoZSBvdGhlcnMgaGFzIGluY3Jl
+YXNlZCB0aGUgc29jayByZWZjbnQgaWYgbmVjZXNzYXJ5Cj4+IGFuZCB0aGUgbG9va3VwIGlzIG92
+ZXIuCj4+IFRoZXJlIGlzIG5vIG9uZSBjb3VsZCBnZXQgdGhlIHNvY2sgYWZ0ZXIgc3luY2hyb25p
+emVfcmN1IGluIHBwdHBfcmVsZWFzZS4KPgo+Cj5JZiB0aGlzIHdlcmUgdHJ1ZSwgdGhlbiB0aGlz
+IGNvZGUgaW4gcHB0cF9zb2NrX2Rlc3RydWN0KCkKPndvdWxkIGJlIHVubmVlZGVkOgo+Cj4gICAg
+ICAgIGlmICghKHNrLT5za19zdGF0ZSAmIFBQUE9YX0RFQUQpKSB7Cj4gICAgICAgICAgICAgICAg
+ZGVsX2NoYW4ocHBwb3hfc2soc2spKTsKPiAgICAgICAgICAgICAgICBwcHBveF91bmJpbmRfc29j
+ayhzayk7Cj4gICAgICAgIH0KPgo+Cj4+Cj4+Cj4+IEJ1dCBJIHRoaW5rIGFib3V0IGFub3RoZXIg
+cHJvYmxlbS4KPj4gSXQgc2VlbXMgdGhlIHBwdHBfc29ja19kZXN0cnVjdCBzaG91bGQgbm90IGlu
+dm9rZSBkZWxfY2hhbiBhbmQgcHBwb3hfdW5iaW5kX3NvY2suCj4+IEJlY2F1c2Ugd2hlbiB0aGUg
+c29jayByZWZjbnQgaXMgMCwgdGhlIHBwdHBfcmVsZWFzZSBtdXN0IGhhdmUgYmUgaW52b2tlZCBh
+bHJlYWR5Lgo+Pgo+Cj4KPkkgZG9uJ3Qga25vdy4gTG9va3MgbGlrZSBzb2NrX29ycGhhbigpIGlz
+IG9ubHkgY2FsbGVkCj5pbiBwcHRwX3JlbGVhc2UoKSwgYnV0IEkgYW0gbm90IHN1cmUgaWYgdGhl
+cmUgaXMgYSBjYXNlCj53ZSBjYWxsIHNvY2sgZGVzdHJ1Y3RvciBiZWZvcmUgcmVsZWFzZS4KPgo+
+QWxzbyBub3RlLCB0aGlzIHNvY2tldCBpcyB2ZXJ5IHNwZWNpYWwsIGl0IGRvZXNuJ3Qgc3VwcG9y
+dAo+cG9sbCgpLCBzZW5kbXNnKCkgb3IgcmVjdm1zZygpLi4KCgoK
