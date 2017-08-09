@@ -1,19 +1,36 @@
-From: Maria Schaefler <clearnzteam@gmail.com>
-Subject: Payment
-Date: Wed, 9 Aug 2017 19:56:50 +0900 (JST)
-Message-ID: <72891.95270.qm__47225.9689741351$1502276575$gmane$org@web101320.mail.kks.yahoo.co.jp>
-Reply-To: Maria Schaefler <mariaschaefler11@yandex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns502-vm2.bullet.mail.kks.yahoo.co.jp ([183.79.57.57]:43844
-        "HELO ns502-vm2.bullet.mail.kks.yahoo.co.jp" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with SMTP id S1752214AbdHILCs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 07:02:48 -0400
-References: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Suchanek <msuchanek@suse.de>
+Subject: [PATCH] ibmvnic: Fix unused variable warning
+Date: Wed,  9 Aug 2017 13:16:02 +0200
+Message-ID: <20170809111602.12170-1-msuchanek@suse.de>
+Cc: Michal Suchanek <msuchanek@suse.de>
+To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+        John Allen <jallen@linux.vnet.ibm.com>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Paul Mackerras <paulus@samba.org>,
+        Michael Ellerman <mpe@ellerman.id.au>, netdev@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I just made a Donation of 1.7Million Euros to you,reply back for details
+Fixes: a248878d7a1d ("ibmvnic: Check for transport event on driver resume")
+
+Signed-off-by: Michal Suchanek <msuchanek@suse.de>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 99576ba4187f..09c20d3b1b79 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -3948,7 +3948,6 @@ static int ibmvnic_resume(struct device *dev)
+ {
+ 	struct net_device *netdev = dev_get_drvdata(dev);
+ 	struct ibmvnic_adapter *adapter = netdev_priv(netdev);
+-	int i;
+ 
+ 	if (adapter->state != VNIC_OPEN)
+ 		return 0;
+-- 
+2.10.2
