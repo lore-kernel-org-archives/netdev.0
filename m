@@ -1,53 +1,40 @@
-From: "Raj, Ashok" <ashok.raj@intel.com>
-Subject: Re: [PATCH v9 1/4] PCI: Add new PCIe Fabric End Node flag,
- PCI_DEV_FLAGS_NO_RELAXED_ORDERING
-Date: Wed, 9 Aug 2017 11:00:08 -0700
-Message-ID: <20170809180007.GA9100@otc-nc-03>
-References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
- <1501917313-9812-2-git-send-email-dingtianhong@huawei.com>
- <20170808232200.GO16580@bhelgaas-glaptop.roam.corp.google.com>
- <20170809155841.GA8675@otc-nc-03>
- <MWHPR12MB1600E9D94E74E1DECC192097C88B0@MWHPR12MB1600.namprd12.prod.outlook.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 1/1] driver: pptp: Remove unnecessary statements
+ in pptp_sock_destruct
+Date: Wed, 9 Aug 2017 11:08:30 -0700
+Message-ID: <CAM_iQpUXRV6DamR_U1_bvBUBOk6SQ6jF3xLKBpVZrjYE74LXiw@mail.gmail.com>
+References: <1502294276-20051-1-git-send-email-gfree.wind@vip.163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bjorn Helgaas <helgaas@kernel.org>,
-        Ding Tianhong <dingtianhong@huawei.com>,
-        "bhelgaas@google.com" <bhelgaas@google.com>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
-        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
-        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
-        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
-        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-        "amira@mellanox.com" <amira@mellanox.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "David.Laight@aculab.com" <David.Laight@aculab.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-        "will.deacon@arm.com" <will.deacon@arm.com>
-To: Casey Leedom <leedom@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <MWHPR12MB1600E9D94E74E1DECC192097C88B0@MWHPR12MB1600.namprd12.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: xeb@mail.ru, David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Gao Feng <gfree.wind@vip.163.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f65.google.com ([209.85.213.65]:33192 "EHLO
+        mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752402AbdHISIv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 14:08:51 -0400
+Received: by mail-vk0-f65.google.com with SMTP id g189so4066843vke.0
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 11:08:51 -0700 (PDT)
+In-Reply-To: <1502294276-20051-1-git-send-email-gfree.wind@vip.163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 09, 2017 at 04:46:07PM +0000, Casey Leedom wrote:
-> | From: Raj, Ashok <ashok.raj@intel.com>
-> | Sent: Wednesday, August 9, 2017 8:58 AM
-> | ...
-> | As Casey pointed out in an earlier thread, we choose the heavy hammer
-> | approach because there are some that can lead to data-corruption as opposed
-> | to perf degradation.
-> 
-> Careful.  As far as I'm aware, there is no Data Corruption problem
-> whatsoever with Intel Root Ports and processing of Transaction Layer Packets
-> with and without the Relaxed Ordering Attribute set.
+On Wed, Aug 9, 2017 at 8:57 AM,  <gfree.wind@vip.163.com> wrote:
+> From: Gao Feng <gfree.wind@vip.163.com>
+>
+> In the commit ddab82821fa6 ("ppp: Fix a scheduling-while-atomic bug in
+> del_chan"), I moved the synchronize_rcu() from del_chan() to pptp_release
+> after del_chan() to avoid one scheduling-while-atomic bug.
+>
+> Actually the del_chan() and pppox_unbind_sock are unneccessary in the
+> pptp_sock_destruct. Because the pptp sock refcnt wouldn't reach zero until
+> sk_state is set as PPPOX_DEAD in pptp_release. By that time, the del_chan()
+> and pppox_unbind_sock() have been invoked already and the condition check
+> "!(sk->sk_state & PPPOX_DEAD)" of this sock must be false in pptp_sock_destruct.
 
-That's right.. no data-corruption on Intel parts :-).. It was with
-other vendor. Only performance issue with intel root-ports in the parts
-identified by the optimization guide. 
+I am not sure. The check for sock->sk in the beginning of pptp_release()
+indicates there could be a case we could skip del_chan() in pptp_release(),
+although I can't figure out how.
 
-Cheers,
-AShok
+Also there is a suspicious sock_put() in pptp_release().
