@@ -1,59 +1,58 @@
-From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 2/4] net-next: dsa: add flow_dissect callback to struct
- dsa_device_ops
-Date: Wed,  9 Aug 2017 14:41:17 +0200
-Message-ID: <20170809124119.24320-3-john@phrozen.org>
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH 3/4] net-next: tag_mtk: add flow_dissect callback to the ops struct
+Date: Wed,  9 Aug 2017 14:41:18 +0200
+Message-ID: <20170809124119.24320-4-john@phrozen.org>
 References: <20170809124119.24320-1-john@phrozen.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Muciri Gatimu <muciri-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Shashidhar Lakkavalli <shashidhar.lakkavalli-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
- Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
- Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20170809124119.24320-1-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        linux-kernel@vger.kernel.org, Muciri Gatimu <muciri@openmesh.com>,
+        Shashidhar Lakkavalli <shashidhar.lakkavalli@openmesh.com>,
+        John Crispin <john@phrozen.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Sean Wang <sean.wang@mediatek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170809124119.24320-1-john@phrozen.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When the flow dissector first sees packets coming in on a DSA devices the
-802.3 header wont be located where the code expects it to be as the tag
-is still present. Adding this new callback allows a DSA device to provide a
-new function that the flow_dissector can use to get the correct protocol
-and offset of the network header.
+The MT7530 inserts the 4 magic header in between the 802.3 address and
+protocol field. The patch implements the callback that can be called by
+the flow dissector to figure out the real protocol and offset of the
+network header. With this patch applied we can properly parse the packet
+and thus make hashing function properly.
 
-Signed-off-by: Muciri Gatimu <muciri-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Shashidhar Lakkavalli <shashidhar.lakkavalli-lv6y7wLVQPlWk0Htik3J/w@public.gmane.org>
-Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Signed-off-by: Muciri Gatimu <muciri@openmesh.com>
+Signed-off-by: Shashidhar Lakkavalli <shashidhar.lakkavalli@openmesh.com>
+Signed-off-by: John Crispin <john@phrozen.org>
 ---
- include/net/dsa.h | 2 ++
- 1 file changed, 2 insertions(+)
+ net/dsa/tag_mtk.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 65d7804c6f69..7f46b521313e 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -106,6 +106,8 @@ struct dsa_device_ops {
- 	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
- 			       struct packet_type *pt,
- 			       struct net_device *orig_dev);
-+	int (*flow_dissect)(const struct sk_buff *skb, __be16 *proto,
-+			    int *offset);
- };
+diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
+index 2f32b7ea3365..02163c045a96 100644
+--- a/net/dsa/tag_mtk.c
++++ b/net/dsa/tag_mtk.c
+@@ -87,7 +87,17 @@ static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	return skb;
+ }
  
- struct dsa_switch_tree {
++static int mtk_tag_flow_dissect(const struct sk_buff *skb, __be16 *proto,
++				int *offset)
++{
++	*offset = 4;
++	*proto = ((__be16 *)skb->data)[1];
++
++	return 0;
++}
++
+ const struct dsa_device_ops mtk_netdev_ops = {
+-	.xmit	= mtk_tag_xmit,
+-	.rcv	= mtk_tag_rcv,
++	.xmit		= mtk_tag_xmit,
++	.rcv		= mtk_tag_rcv,
++	.flow_dissect	= mtk_tag_flow_dissect,
+ };
 -- 
 2.11.0
