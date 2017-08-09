@@ -1,243 +1,154 @@
-From: Joe Smith <codesoldier1@gmail.com>
-Subject: Help with debugging CPU stall
-Date: Wed, 9 Aug 2017 15:41:38 -0700
-Message-ID: <CABGNecx7wxm7XAwdv-4F3LEkRebV=gDf0AK-mnJF-0Dn7PJtUw@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v3 05/11] net: stmmac: dwmac-rk: Add internal phy support
+Date: Wed, 09 Aug 2017 15:42:05 -0700
+Message-ID: <77E3C546-E3A8-4EE5-8505-2C4B2252E08C@gmail.com>
+References: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com> <1501654888-19514-1-git-send-email-david.wu@rock-chips.com> <6b1ebf64-6903-6d35-b1fc-92ec47334425@gmail.com> <CAGb2v65Rtw2B3Hcs4L0jTRQ2ApUduJ+Nf1W1XnqXBBmFwMaP-g@mail.gmail.com> <20170809084541.GB7137@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:33383 "EHLO
-        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752181AbdHIWlj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 18:41:39 -0400
-Received: by mail-io0-f179.google.com with SMTP id j32so3671313iod.0
-        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 15:41:39 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: David Wu <david.wu@rock-chips.com>,
+        =?ISO-8859-1?Q?Heiko_St=FCbner?= <heiko@sntech.de>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Olof Johansson <olof@lixom.net>,
+        Russell King <linux@armlinux.org.uk>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Tao Huang <huangtao@rock-chips.com>, hwg@rock-chips.com,
+        alexandre.torgue@st.com, devicetree <devicetree@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        "open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+        wens@csie.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>, andrew@lunn.ch,
+        davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170809084541.GB7137@Red>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On August 9, 2017 1:45:41 AM PDT, Corentin Labbe <clabbe=2Emontjoie@gmail=
+=2Ecom> wrote:
+>On Thu, Aug 03, 2017 at 07:06:33PM +0800, Chen-Yu Tsai wrote:
+>> On Thu, Aug 3, 2017 at 1:38 AM, Florian Fainelli
+><f=2Efainelli@gmail=2Ecom> wrote:
+>> > On 08/01/2017 11:21 PM, David Wu wrote:
+>> >> To make internal phy work, need to configure the phy_clock,
+>> >> phy cru_reset and related registers=2E
+>> >>
+>> >> Signed-off-by: David Wu <david=2Ewu@rock-chips=2Ecom>
+>> >> ---
+>> >>  =2E=2E=2E/devicetree/bindings/net/rockchip-dwmac=2Etxt     |  6 +-
+>> >>  drivers/net/ethernet/stmicro/stmmac/dwmac-rk=2Ec     | 81
+>++++++++++++++++++++++
+>> >>  2 files changed, 86 insertions(+), 1 deletion(-)
+>> >>
+>> >> diff --git
+>a/Documentation/devicetree/bindings/net/rockchip-dwmac=2Etxt
+>b/Documentation/devicetree/bindings/net/rockchip-dwmac=2Etxt
+>> >> index 8f42755=2E=2Eec39b31 100644
+>> >> --- a/Documentation/devicetree/bindings/net/rockchip-dwmac=2Etxt
+>> >> +++ b/Documentation/devicetree/bindings/net/rockchip-dwmac=2Etxt
+>> >> @@ -25,7 +25,8 @@ Required properties:
+>> >>   - clock-names: One name for each entry in the clocks property=2E
+>> >>   - phy-mode: See ethernet=2Etxt file in the same directory=2E
+>> >>   - pinctrl-names: Names corresponding to the numbered pinctrl
+>states=2E
+>> >> - - pinctrl-0: pin-control mode=2E can be <&rgmii_pins> or
+><&rmii_pins>=2E
+>> >> + - pinctrl-0: pin-control mode=2E can be <&rgmii_pins>,
+><&rmii_pins> or led pins
+>> >> +   for internal phy mode=2E
+>> >>   - clock_in_out: For RGMII, it must be "input", means main
+>clock(125MHz)
+>> >>     is not sourced from SoC's PLL, but input from PHY; For RMII,
+>"input" means
+>> >>     PHY provides the reference clock(50MHz), "output" means GMAC
+>provides the
+>> >> @@ -40,6 +41,9 @@ Optional properties:
+>> >>   - tx_delay: Delay value for TXD timing=2E Range value is 0~0x7F,
+>0x30 as default=2E
+>> >>   - rx_delay: Delay value for RXD timing=2E Range value is 0~0x7F,
+>0x10 as default=2E
+>> >>   - phy-supply: phandle to a regulator if the PHY needs one
+>> >> + - clocks: <&cru MAC_PHY>: Clock selector for internal macphy
+>> >> + - phy-is-internal: A boolean property allows us to know that MAC
+>will connect to
+>> >> +   internal phy=2E
+>> >
+>> > This is incorrect in two ways:
+>> >
+>> > - this is a property of the PHY, so it should be documented as such
+>in
+>> > Documentation/devicetree/bindings/net/phy=2Etxt so other bindings can
+>> > re-use it
+>> >
+>> > - if it was specific to your MAC you would expect a vendor prefix
+>to
+>> > this property, which is not there
+>> >
+>> > An alternative way to implement the external/internal logic
+>selection
+>> > would be mandate that your Ethernet PHY node have a compatible
+>string
+>> > like this:
+>> >
+>> > phy@0 {
+>> >         compatible =3D "ethernet-phy-id1234=2Ed400",
+>"ethernet-phy-802=2E3-c22";
+>> > };
+>> >
+>> > Then you don't need this phy-is-internal property, because you can
+>> > locate the PHY node by the phy-handle (see more about that in a
+>reply to
+>> > patch 10) and you can determine ahead of time whether this PHY is
+>> > internal or not based on its compatible string=2E
+>>=20
+>> This doesn't really work for us (sunxi)=2E The "internal" PHY of the H3
+>> is also available in the X-Powers AC200 combo chip, which would be
+>> external=2E Same ID=2E So if someone were to be stupid and put the two
+>> together, you wouldn't know which one it actually is=2E Generically
+>> it doesn't make sense to match against the ID either=2E The PHY is
+>> only integrated or inlined into the SoC, meaning it could be moved
+>> elsewhere or even be a discreet part=2E
 
-I am debugging a system where rcu_sched detects cpu stall. The system
-is running a test which runs fine if IPSec is not used. With IPSec it
-stalls. I have tried reducing the value of netdev_budget to 100 but
-that seems to have no impact. I have included two stack traces below.
+It actually makes a lot of sense to differentiate on the PHY ID because yo=
+u are supposed to allocate an unique ID based on how the integration of the=
+ PHY is done=2E Not doing that is making a sloppy job at integrating HW blo=
+cks, but such is life and there is no shortage of creativity amongst HW eng=
+ineers when they are not given feedback from SW people=2E
 
+>>=20
+>> The way I see it is more like a reversed pinmux=2E The system should
+>> select either the internal set or external set of xMII pins to use=2E
+>>=20
+>> A phy-is-internal property in the PHY node would work for us=2E We
+>> already need a PHY node to describe its clocks and resets=2E
+>>=20
+>> A side note to this solution is that, since the internal PHY is
+>defined
+>> at the =2Edtsi level, any external PHYs at the same address would need
+>to
+>> make sure to delete the property, which is kind of counterintuitive,
+>but
+>> it is how device tree works=2E One would want to put the internal PHY's
+>> address, assuming it is configurable, on something that is rarely
+>used=2E
+>>=20
+>
+>Hello David, Florian, Andrew
+>
+>Could someone ack this ? or nack if you think that the chance for
+>having two PHY id both internal and external is too low=2E
+>Anyway, we need a choice=2E
 
-How do I figure out where the system is looping/stuck.
+Let's move forward with the 'phy-is-integrated' Boolean property ('phy-is-=
+internal' is too close from the proprietary "internal" phy-mode IMHO)=2E An=
+drew, does that also work for you?
 
-
-Thanks for the help.
-
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410509]
-[<ffffffff81510da9>] ? do_IRQ+0x69/0xe0
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410513]
-[<ffffffff81507053>] ? common_interrupt+0x13/0x13
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410520]
-[<ffffffff8105822c>] ? sched_slice+0x4c/0x90
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410524]
-[<ffffffff810dd8a2>] print_cpu_stall+0x42/0xa0
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410528]
-[<ffffffff810ddb2a>] check_cpu_stall+0xca/0xe0
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410533]
-[<ffffffff810ddb70>] __rcu_pending+0x30/0x140
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410537]
-[<ffffffff810ddcb7>] rcu_pending+0x37/0x90
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410541]
-[<ffffffff810dde95>] rcu_check_callbacks+0x85/0xa0
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410546]
-[<ffffffff8107e7b6>] update_process_times+0x46/0x90
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410553]
-[<ffffffff810a31d6>] tick_sched_timer+0x66/0xd0
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410557]
-[<ffffffff810a3170>] ? tick_clock_notify+0x60/0x60
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410563]
-[<ffffffff81095c63>] __run_hrtimer+0x83/0x1e0
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410566]
-[<ffffffff81095f76>] hrtimer_interrupt+0xe6/0x240
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410573]
-[<ffffffff81033e6b>] local_apic_timer_interrupt+0x3b/0x70
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410578]
-[<ffffffff81510e65>] smp_apic_timer_interrupt+0x45/0x5a
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410582]
-[<ffffffff8150fcf3>] apic_timer_interrupt+0x13/0x20
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410586]
-[<ffffffff81223a90>] shash_finup_unaligned+0x30/0x40
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410592]
-[<ffffffffa05a163a>] ? dec128+0x742/0x818 [aes_x86_64]
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410597]
-[<ffffffffa05a1722>] ? aes_decrypt+0x12/0x30 [aes_x86_64]
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410602]
-[<ffffffffa05d5372>] ? crypto_cbc_decrypt_inplace+0xc2/0x120 [cbc]
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410607]
-[<ffffffffa05a1710>] ? dec128+0x818/0x818 [aes_x86_64]
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410612]
-[<ffffffffa05d553d>] ? crypto_cbc_decrypt+0x7d/0x90 [cbc]
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410617]
-[<ffffffff8122195d>] ? async_decrypt+0x3d/0x40
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410621]
-[<ffffffffa0643e08>] ? crypto_authenc_decrypt+0xa8/0xb0 [authenc]
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410626]
-[<ffffffffa0578fc8>] ? esp_input+0x1e8/0x350 [esp4]
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410630]
-[<ffffffff814c3fe9>] ? xfrm_state_lookup+0x69/0x90
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410634]
-[<ffffffff814c7c31>] ? xfrm_input+0x691/0x6e0
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410639]
-[<ffffffff814bb950>] ? xfrm4_rcv_encap+0x20/0x30
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410643]
-[<ffffffff814bb9a4>] ? xfrm4_rcv+0x24/0x30
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410647]
-[<ffffffff8146f399>] ? ip_local_deliver_finish+0x129/0x280
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410650]
-[<ffffffff8146eef0>] ? ip_local_deliver+0x40/0xa0
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410654]
-[<ffffffff8146f669>] ? ip_rcv_finish+0x179/0x380
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410658]
-[<ffffffff8146f172>] ? ip_rcv+0x222/0x320
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410662]
-[<ffffffff814393ab>] ? __netif_receive_skb+0x25b/0x500
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410667]
-[<ffffffff8143a58d>] ? netif_receive_skb+0x7d/0x90
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410671]
-[<ffffffff8126aa7d>] ? swiotlb_sync_single+0x2d/0x70
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410675]
-[<ffffffff8143a678>] ? napi_skb_finish+0x48/0x60
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410679]
-[<ffffffff8143ab1b>] ? napi_gro_receive+0xfb/0x130
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410690]
-[<ffffffffa01b5681>] ? ixgbe_rx_skb+0x41/0xd0 [ixgbe]
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410701]
-[<ffffffffa01b697c>] ? ixgbe_clean_rx_irq+0x10c/0x1d0 [ixgbe]
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410712]
-[<ffffffffa01b6f15>] ? ixgbe_poll+0xa5/0x130 [ixgbe]
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410716]
-[<ffffffff8143ad6a>] ? net_rx_action+0x14a/0x230
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410721]
-[<ffffffff810dd2e1>] ? rcu_check_quiescent_state+0x21/0x60
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410725]
-[<ffffffff81075e09>] ? __do_softirq+0xb9/0x1d0
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410729]
-[<ffffffff810dcdae>] ? rcu_irq_exit+0xe/0x10
-Aug  8 15:37:38 scad01adm01 kernel: [ 1884.410733]
-[<ffffffff8151053c>] ? call_softirq+0x1c/0x30
-
-Another Trace:
-
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293794] Call Trace:
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293795]  <IRQ>
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293800]
-[<ffffffff8125c65d>] delay_tsc+0x4d/0x80
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293804]
-[<ffffffff8125c5cf>] __delay+0xf/0x20
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293807]
-[<ffffffff8125c60c>] __const_udelay+0x2c/0x30
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293814]
-[<ffffffff8132b8b0>] wait_for_xmitr+0x30/0xa0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293818]
-[<ffffffff8132b920>] ? wait_for_xmitr+0xa0/0xa0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293822]
-[<ffffffff8132b946>] serial8250_console_putchar+0x26/0x40
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293826]
-[<ffffffff8132742d>] uart_console_write+0x3d/0x70
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293831]
-[<ffffffff8132d3a2>] serial8250_console_write+0xc2/0x150
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293839]
-[<ffffffff8106f66e>] __call_console_drivers+0x8e/0xa0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293843]
-[<ffffffff8106f6ca>] _call_console_drivers+0x4a/0x80
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293847]
-[<ffffffff8106f9f2>] call_console_drivers+0x82/0x130
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293853]
-[<ffffffff81506b84>] ? _raw_spin_lock_irqsave+0x34/0x50
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293858]
-[<ffffffff8106fd4a>] console_unlock+0x5a/0x110
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293862]
-[<ffffffff81070422>] vprintk+0x1a2/0x3a0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293872]
-[<ffffffff810dcdae>] ? rcu_irq_exit+0xe/0x10
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293876]
-[<ffffffff8107068c>] printk+0x6c/0x70
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293882]
-[<ffffffff8122838a>] ? sha1_update+0xba/0x100
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293887]
-[<ffffffff810dd8a2>] print_cpu_stall+0x42/0xa0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293891]
-[<ffffffff810ddb2a>] check_cpu_stall+0xca/0xe0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293896]
-[<ffffffff810ddb70>] __rcu_pending+0x30/0x140
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293900]
-[<ffffffff810ddcb7>] rcu_pending+0x37/0x90
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293905]
-[<ffffffff810dde95>] rcu_check_callbacks+0x85/0xa0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293914]
-[<ffffffff8107e7b6>] update_process_times+0x46/0x90
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293923]
-[<ffffffff810a31d6>] tick_sched_timer+0x66/0xd0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293927]
-[<ffffffff810a3170>] ? tick_clock_notify+0x60/0x60
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293933]
-[<ffffffff81095c63>] __run_hrtimer+0x83/0x1e0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293937]
-[<ffffffff81095f76>] hrtimer_interrupt+0xe6/0x240
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293945]
-[<ffffffff81033e6b>] local_apic_timer_interrupt+0x3b/0x70
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293950]
-[<ffffffff81510e65>] smp_apic_timer_interrupt+0x45/0x5a
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293953]
-[<ffffffff8150fcf3>] apic_timer_interrupt+0x13/0x20
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293958]
-[<ffffffff8125d33b>] ? memcpy+0xb/0x120
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293963]
-[<ffffffff81220f76>] ? blkcipher_walk_done+0x196/0x240
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293969]
-[<ffffffffa05a1710>] ? dec128+0x818/0x818 [aes_x86_64]
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293974]
-[<ffffffffa05d551b>] ? crypto_cbc_decrypt+0x5b/0x90 [cbc]
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293978]
-[<ffffffff8122195d>] ? async_decrypt+0x3d/0x40
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293983]
-[<ffffffffa0643e08>] ? crypto_authenc_decrypt+0xa8/0xb0 [authenc]
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293989]
-[<ffffffffa0578fc8>] ? esp_input+0x1e8/0x350 [esp4]
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293994]
-[<ffffffff814c3fe9>] ? xfrm_state_lookup+0x69/0x90
-Aug  9 14:12:05 scad01adm01 kernel: [82985.293998]
-[<ffffffff814c7c31>] ? xfrm_input+0x691/0x6e0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294003]
-[<ffffffff814bb950>] ? xfrm4_rcv_encap+0x20/0x30
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294007]
-[<ffffffff814bb9a4>] ? xfrm4_rcv+0x24/0x30
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294012]
-[<ffffffff8146f399>] ? ip_local_deliver_finish+0x129/0x280
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294016]
-[<ffffffff8146eef0>] ? ip_local_deliver+0x40/0xa0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294019]
-[<ffffffff8146f669>] ? ip_rcv_finish+0x179/0x380
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294023]
-[<ffffffff8146f172>] ? ip_rcv+0x222/0x320
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294030]
-[<ffffffff814393ab>] ? __netif_receive_skb+0x25b/0x500
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294035]
-[<ffffffff8143a58d>] ? netif_receive_skb+0x7d/0x90
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294043]
-[<ffffffff8126aa7d>] ? swiotlb_sync_single+0x2d/0x70
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294047]
-[<ffffffff8143a678>] ? napi_skb_finish+0x48/0x60
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294051]
-[<ffffffff8143ab1b>] ? napi_gro_receive+0xfb/0x130
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294073]
-[<ffffffffa01b5681>] ? ixgbe_rx_skb+0x41/0xd0 [ixgbe]
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294085]
-[<ffffffffa01b697c>] ? ixgbe_clean_rx_irq+0x10c/0x1d0 [ixgbe]
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294097]
-[<ffffffffa01b6f15>] ? ixgbe_poll+0xa5/0x130 [ixgbe]
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294101]
-[<ffffffff8143ad6a>] ? net_rx_action+0x14a/0x230
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294106]
-[<ffffffff81075e09>] ? __do_softirq+0xb9/0x1d0
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294110]
-[<ffffffff8151053c>] ? call_softirq+0x1c/0x30
-Aug  9 14:12:05 scad01adm01 kernel: [82985.294112]  <EOI>
-
--- 
-JS
+--=20
+Florian
