@@ -1,60 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/9] bpf: add BPF_J{LT,LE,SLT,SLE} instructions
-Date: Wed, 09 Aug 2017 11:01:28 -0700 (PDT)
-Message-ID: <20170809.110128.709552645127117641.davem@davemloft.net>
-References: <63b41a38e0d58536700c999ade7c2c267bd2613d.1502272924.git.daniel@iogearbox.net>
-        <20170809.095553.268665355274669790.davem@davemloft.net>
-        <598B3FCA.7060904@iogearbox.net>
+From: "Raj, Ashok" <ashok.raj@intel.com>
+Subject: Re: [PATCH v9 1/4] PCI: Add new PCIe Fabric End Node flag,
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+Date: Wed, 9 Aug 2017 11:00:08 -0700
+Message-ID: <20170809180007.GA9100@otc-nc-03>
+References: <1501917313-9812-1-git-send-email-dingtianhong@huawei.com>
+ <1501917313-9812-2-git-send-email-dingtianhong@huawei.com>
+ <20170808232200.GO16580@bhelgaas-glaptop.roam.corp.google.com>
+ <20170809155841.GA8675@otc-nc-03>
+ <MWHPR12MB1600E9D94E74E1DECC192097C88B0@MWHPR12MB1600.namprd12.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, holzheu@linux.vnet.ibm.com,
-        naveen.n.rao@linux.vnet.ibm.com, jakub.kicinski@netronome.com,
-        netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43082 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752001AbdHISB3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 14:01:29 -0400
-In-Reply-To: <598B3FCA.7060904@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bjorn Helgaas <helgaas@kernel.org>,
+        Ding Tianhong <dingtianhong@huawei.com>,
+        "bhelgaas@google.com" <bhelgaas@google.com>,
+        Michael Werner <werner@chelsio.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
+        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
+        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
+        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
+        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+        "amira@mellanox.com" <amira@mellanox.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "David.Laight@aculab.com" <David.Laight@aculab.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+        "will.deacon@arm.com" <will.deacon@arm.com>
+To: Casey Leedom <leedom@chelsio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <MWHPR12MB1600E9D94E74E1DECC192097C88B0@MWHPR12MB1600.namprd12.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 09 Aug 2017 19:00:58 +0200
-
-> On 08/09/2017 06:55 PM, David Miller wrote:
->> From: Daniel Borkmann <daniel@iogearbox.net>
->> Date: Wed,  9 Aug 2017 12:23:53 +0200
->>
->>>    [1] https://github.com/borkmann/llvm/tree/bpf-insns
->>
->> How is this "backwards compatible"?
->>
->> If someone takes a new LLVM and tries to load those programs
->> into an older kernel they will be rejected.
->>
->> There appears to be no effort to make things work cleanly in
->> that situation at all.
+On Wed, Aug 09, 2017 at 04:46:07PM +0000, Casey Leedom wrote:
+> | From: Raj, Ashok <ashok.raj@intel.com>
+> | Sent: Wednesday, August 9, 2017 8:58 AM
+> | ...
+> | As Casey pointed out in an earlier thread, we choose the heavy hammer
+> | approach because there are some that can lead to data-corruption as opposed
+> | to perf degradation.
 > 
-> No, that was just the patch I used for LLVM to enable the
-> insns, so not the final one that will be submitted there
-> officially where we have a switch to enable/disable this
-> functionality.
+> Careful.  As far as I'm aware, there is no Data Corruption problem
+> whatsoever with Intel Root Ports and processing of Transaction Layer Packets
+> with and without the Relaxed Ordering Attribute set.
 
-So how does this switch work and how are people expected to use this
-switch?  What is the default value and is it ever expected to change
-in the future?
+That's right.. no data-corruption on Intel parts :-).. It was with
+other vendor. Only performance issue with intel root-ports in the parts
+identified by the optimization guide. 
 
-Yeah this seems hella awesome to get cilium programs smaller and
-faster in a restricted environment where you control the running
-kernel and everything.
-
-But from a review perspective one should be completely uninterested in
-that.
-
-So, generally speaking how does this all pan out?  I seriously doubt
-the wisdom of this.  You'll have to convince me of the long term
-viability and whether we ever get to the point where everyone can
-benefit from this. :)
+Cheers,
+AShok
