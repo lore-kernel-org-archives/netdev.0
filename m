@@ -1,48 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/12] e1000e: add check on e1e_wphy() return value
-Date: Wed,  9 Aug 2017 14:47:37 -0700
-Message-ID: <20170809214746.28139-4-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/12] igb: protect TX timestamping from API misuse
+Date: Wed,  9 Aug 2017 14:47:36 -0700
+Message-ID: <20170809214746.28139-3-jeffrey.t.kirsher@intel.com>
 References: <20170809214746.28139-1-jeffrey.t.kirsher@intel.com>
-Cc: Gustavo A R Silva <garsilva@embeddedor.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Cliff Spradlin <cspradlin@google.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:31102 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:44498 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752291AbdHIVr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752274AbdHIVr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 9 Aug 2017 17:47:56 -0400
 In-Reply-To: <20170809214746.28139-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gustavo A R Silva <garsilva@embeddedor.com>
+From: Cliff Spradlin <cspradlin@google.com>
 
-Check return value from call to e1e_wphy(). This value is being
-checked during previous calls to function e1e_wphy() and it seems
-a check was missing here.
+HW timestamping can only be requested for a packet if the NIC is first
+setup via ioctl(SIOCSHWTSTAMP). If this step was skipped, then the igb
+driver still allowed TX packets to request HW timestamping. In this
+situation, the _IGB_PTP_TX_IN_PROGRESS flag was set and would never
+clear. This prevented any future HW timestamping requests to succeed.
 
-Addresses-Coverity-ID: 1226905
-Signed-off-by: Gustavo A R Silva <garsilva@embeddedor.com>
-Reviewed-by: Ethan Zhao <ethan.zhao@oracle.com>
+Fix this by checking that the NIC is configured for HW TX timestamping
+before accepting a HW TX timestamping request.
+
+Signed-off-by: Cliff Spradlin <cspradlin@google.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/intel/igb/igb_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 68ea8b4555ab..d6d4ed7acf03 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -2437,6 +2437,8 @@ static s32 e1000_hv_phy_workarounds_ich8lan(struct e1000_hw *hw)
- 		if (hw->phy.revision < 2) {
- 			e1000e_phy_sw_reset(hw);
- 			ret_val = e1e_wphy(hw, MII_BMCR, 0x3140);
-+			if (ret_val)
-+				return ret_val;
- 		}
- 	}
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 6a63ea564a57..5d0a75c1ba0c 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -5380,7 +5380,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
+ 		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
  
+-		if (!test_and_set_bit_lock(__IGB_PTP_TX_IN_PROGRESS,
++		if (adapter->tstamp_config.tx_type & HWTSTAMP_TX_ON &&
++		    !test_and_set_bit_lock(__IGB_PTP_TX_IN_PROGRESS,
+ 					   &adapter->state)) {
+ 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ 			tx_flags |= IGB_TX_FLAGS_TSTAMP;
 -- 
 2.13.3
