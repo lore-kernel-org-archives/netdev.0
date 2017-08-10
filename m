@@ -1,54 +1,62 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 1/3] dt-bindings: net: c_can: Update binding for clock
- and power-domains property
-Date: Thu, 10 Aug 2017 11:35:58 -0500
-Message-ID: <20170810163558.todxrky4f4nve57x@rob-hp-laptop>
-References: <20170802201822.11532-1-fcooper@ti.com>
- <20170802201822.11532-2-fcooper@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org, linux@armlinux.org.uk, linux-can@vger.kernel.org,
- mkl@pengutronix.de, linux-arm-kernel@lists.infradead.org, ssantosh@kernel.org,
- wg@grandegger.com
-To: Franklin S Cooper Jr <fcooper@ti.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20170802201822.11532-2-fcooper@ti.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net] packet: fix tp_reserve race in packet_set_ring
+Date: Thu, 10 Aug 2017 12:41:58 -0400
+Message-ID: <20170810164158.52213-1-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, andreyknvl@gmail.com,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:38471 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753396AbdHJQm1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 12:42:27 -0400
+Received: by mail-qt0-f194.google.com with SMTP id p3so1225737qtg.5
+        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 09:42:26 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 02, 2017 at 03:18:20PM -0500, Franklin S Cooper Jr wrote:
-> CAN driver uses the clk_get_rate call to determine the frequency of the
-> functional clock. OMAP based SoCs do not require the clock property since
-> hwmod already handles creating a "fck" clock thats accessible to drivers.
+From: Willem de Bruijn <willemb@google.com>
 
-that's
+Updates to tp_reserve can race with reads of the field in
+packet_set_ring. Avoid this by holding the socket lock during
+updates in setsockopt PACKET_RESERVE.
 
-> However, this isn't the case for 66AK2G which makes the clocks property
-> require for that SoC.
+This bug was discovered by syzkaller.
 
-required
+Fixes: 8913336a7e8d ("packet: add PACKET_RESERVE sockopt")
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-> 
-> 66AK2G requires a new property. Therefore, update the binding to also make
-> this property requirement clear. Also clarify that for OMAP based SoCs
-> ti,hwmod is a required property.
-> 
-> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
-> ---
->  Documentation/devicetree/bindings/net/can/c_can.txt | 13 ++++++++++++-
->  1 file changed, 12 insertions(+), 1 deletion(-)
-
-Otherwise,
-
-Acked-by: Rob Herring <robh@kernel.org>
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 0615c2a950fa..008a45ca3112 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -3700,14 +3700,19 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
+ 
+ 		if (optlen != sizeof(val))
+ 			return -EINVAL;
+-		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec)
+-			return -EBUSY;
+ 		if (copy_from_user(&val, optval, sizeof(val)))
+ 			return -EFAULT;
+ 		if (val > INT_MAX)
+ 			return -EINVAL;
+-		po->tp_reserve = val;
+-		return 0;
++		lock_sock(sk);
++		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec) {
++			ret = -EBUSY;
++		} else {
++			po->tp_reserve = val;
++			ret = 0;
++		}
++		release_sock(sk);
++		return ret;
+ 	}
+ 	case PACKET_LOSS:
+ 	{
+-- 
+2.14.0.434.g98096fd7a8-goog
