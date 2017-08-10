@@ -1,44 +1,74 @@
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Subject: Re: [PATCH net-next] net: skb_needs_check() removes CHECKSUM_NONE
- check for tx.
-Date: Thu, 10 Aug 2017 09:02:53 +0800
-Message-ID: <CAMDZJNUMdKvKLJGtwg-3dMf_CPiX56x5b17A8H3oW2m=fkWAUw@mail.gmail.com>
-References: <1502280278-9970-1-git-send-email-xiangxia.m.yue@gmail.com> <CAF=yD-JjaDFy4pOeJ5Lh2em9MgK6jjNxSfc5MkZZ=L6cu9be4Q@mail.gmail.com>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: Re: [PATCH v2 3/4] can: m_can: Update documentation to mention new
+ fixed transceiver binding
+Date: Wed, 9 Aug 2017 20:02:16 -0500
+Message-ID: <93b31baa-c757-ddb7-a633-e04e931ae907@ti.com>
+References: <20170724230521.1436-1-fcooper@ti.com>
+ <20170724230521.1436-4-fcooper@ti.com>
+ <20170803170735.qntnxpx5olghzmbu@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34541 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752197AbdHJBCy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 21:02:54 -0400
-Received: by mail-oi0-f68.google.com with SMTP id v11so7272072oif.1
-        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 18:02:54 -0700 (PDT)
-In-Reply-To: <CAF=yD-JjaDFy4pOeJ5Lh2em9MgK6jjNxSfc5MkZZ=L6cu9be4Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+        <wg@grandegger.com>, <mkl@pengutronix.de>,
+        <quentin.schulz@free-electrons.com>,
+        <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>,
+        <sergei.shtylyov@cogentembedded.com>, <socketcan@hartkopp.net>
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20170803170735.qntnxpx5olghzmbu@rob-hp-laptop>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for your work.
 
-On Thu, Aug 10, 2017 at 2:30 AM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
-> On Wed, Aug 9, 2017 at 5:04 AM, Tonghao Zhang <xiangxia.m.yue@gmail.com> wrote:
->> This patch reverts the commit 6e7bc478c9a0
->> ("net: skb_needs_check() accepts CHECKSUM_NONE for tx"),
->> because we removed the UFO support.
+Hi Rob,
+On 08/03/2017 12:07 PM, Rob Herring wrote:
+> On Mon, Jul 24, 2017 at 06:05:20PM -0500, Franklin S Cooper Jr wrote:
+>> Add information regarding fixed transceiver binding. This is especially
+>> important for MCAN since the IP allows CAN FD mode to run significantly
+>> faster than what most transceivers are capable of.
 >>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Cc: Willem de Bruijn <willemb@google.com>
->> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
->
->
-> I would wait until net is merged into net-next. This will cause a conflict.
->
-> Also, while logically equivalent, it is not a real revert (as in `git
-> revert $SHA1`) of that patch.
->
-> Aside from those concerns, I agree that the original patch is no
-> longer needed now that UFO is reverted.
+>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+>> ---
+>> Version 2 changes:
+>> Drop unit address
+>>
+>>  Documentation/devicetree/bindings/net/can/m_can.txt | 10 ++++++++++
+>>  1 file changed, 10 insertions(+)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/can/m_can.txt b/Documentation/devicetree/bindings/net/can/m_can.txt
+>> index 9e33177..e4abd2c 100644
+>> --- a/Documentation/devicetree/bindings/net/can/m_can.txt
+>> +++ b/Documentation/devicetree/bindings/net/can/m_can.txt
+>> @@ -43,6 +43,11 @@ Required properties:
+>>  			  Please refer to 2.4.1 Message RAM Configuration in
+>>  			  Bosch M_CAN user manual for details.
+>>  
+>> +Optional properties:
+>> +- fixed-transceiver	: Fixed-transceiver subnode describing maximum speed
+> 
+> This is a node, not a property. Sub nodes should have their own section.
+
+Fixed in my v4 that I just sent.
+> 
+>> +			  that can be used for CAN and/or CAN-FD modes.  See
+>> +			  Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>> +			  for details.
+>>  Example:
+>>  SoC dtsi:
+>>  m_can1: can@020e8000 {
+>> @@ -64,4 +69,9 @@ Board dts:
+>>  	pinctrl-names = "default";
+>>  	pinctrl-0 = <&pinctrl_m_can1>;
+>>  	status = "enabled";
+>> +
+>> +	fixed-transceiver {
+>> +		max-arbitration-speed = <1000000>;
+>> +		max-data-speed = <5000000>;
+>> +	};
+>>  };
+>> -- 
+>> 2.10.0
+>>
