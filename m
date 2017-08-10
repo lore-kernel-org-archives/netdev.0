@@ -1,59 +1,118 @@
 From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: [PATCH v4 3/4] dt-bindings: can: m_can: Document new can transceiver binding
-Date: Wed, 9 Aug 2017 19:59:15 -0500
-Message-ID: <20170810005916.27163-4-fcooper@ti.com>
-References: <20170810005916.27163-1-fcooper@ti.com>
+Subject: Re: [PATCH v3 2/4] dt-bindings: can: fixed-transceiver: Add new CAN
+ fixed transceiver bindings
+Date: Wed, 9 Aug 2017 20:00:11 -0500
+Message-ID: <d059240f-b9bc-3b01-10b0-f8f2d2e04508@ti.com>
+References: <20170803005150.9286-1-fcooper@ti.com>
+ <20170803005150.9286-3-fcooper@ti.com>
+ <f92513b6-6b2b-e08d-72e2-dedd7e0190f4@cogentembedded.com>
+ <3848fab8-ebcf-5b29-7e4e-eb1a2b03803d@ti.com>
+ <86d78a36-04c2-7036-636c-7326a4c1c6b0@cogentembedded.com>
+ <855a344e-46c4-76c9-331a-848b3a79bf6e@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Franklin S Cooper Jr <fcooper@ti.com>
-To: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
         <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
         <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
         <quentin.schulz@free-electrons.com>,
         <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>,
-        <sergei.shtylyov@cogentembedded.com>, <socketcan@hartkopp.net>
+        <socketcan@hartkopp.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170810005916.27163-1-fcooper@ti.com>
+In-Reply-To: <855a344e-46c4-76c9-331a-848b3a79bf6e@ti.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add information regarding can-transceiver binding. This is especially
-important for MCAN since the IP allows CAN FD mode to run significantly
-faster than what most transceivers are capable of.
+Hi Sergei,
 
-Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
----
-Drop unit address.
-Switch from using fixed-transceiver to can-transceiver
-Indicate that can-transceiver is an optional subnode not a property.
+On 08/03/2017 10:38 AM, Franklin S Cooper Jr wrote:
+> 
+> 
+> On 08/03/2017 07:22 AM, Sergei Shtylyov wrote:
+>> On 08/03/2017 12:48 PM, Franklin S Cooper Jr wrote:
+>>
+>>>>> Add documentation to describe usage of the new fixed transceiver
+>>>>> binding.
+>>>>> This new binding is applicable for any CAN device therefore it
+>>>>> exists as
+>>>>> its own document.
+>>>>>
+>>>>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+>>>>> ---
+>>>>>    .../bindings/net/can/fixed-transceiver.txt         | 24
+>>>>> ++++++++++++++++++++++
+>>>>>    1 file changed, 24 insertions(+)
+>>>>>    create mode 100644
+>>>>> Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>>>>
+>>>>> diff --git
+>>>>> a/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>>>> b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>>>> new file mode 100644
+>>>>> index 0000000..2f58838b
+>>>>> --- /dev/null
+>>>>> +++ b/Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
+>>>>> @@ -0,0 +1,24 @@
+>>>>> +Fixed transceiver Device Tree binding
+>>>>> +------------------------------
+>>>>> +
+>>>>> +CAN transceiver typically limits the max speed in standard CAN and
+>>>>> CAN FD
+>>>>> +modes. Typically these limitations are static and the transceivers
+>>>>> themselves
+>>>>> +provide no way to detect this limitation at runtime. For this
+>>>>> situation,
+>>>>> +the "fixed-transceiver" node can be used.
+>>>>> +
+>>>>> +Required Properties:
+>>>>> + max-bitrate:    a positive non 0 value that determines the max
+>>>>> +        speed that CAN/CAN-FD can run. Any other value
+>>>>> +        will be ignored.
+>>>>> +
+>>>>> +Examples:
+>>>>> +
+>>>>> +Based on Texas Instrument's TCAN1042HGV CAN Transceiver
+>>>>> +
+>>>>> +m_can0 {
+>>>>> +    ....
+>>>>> +    fixed-transceiver@0 {
+>>>>
+>>>>     The <unit-address> (after @) must only be specified if there's "reg"
+>>>
+>>> Sorry. Fixed this in my v2 and some how it came back. Will fix.
+>>>
+>>>> prop in the device node. Also, please name the node "can-transceiver@"
+>>>> to be more in line with the DT spec. which requires generic node names.
+>>>
+>>> Its possible for future can transceivers drivers to be created. So I
+>>
+>>    So what? Ah, you are using the node name to match in the CAN drivers...
+>>
+>>> thought including fixed was important to indicate that this is a "dumb"
+>>> transceiver similar to "fixed-link".
+>>
+>>    I'm not sure the "fixed-link" MAC subnode assumed any transceiver at
+>> all...
+> 
+> Your right. I wasn't trying to imply that it does. What I meant was that
+> having a node named "can-transceiver" may be a bit confusing in the
+> future if can transceiver drivers are created. Prefix of "fixed" atleast
+> to me makes it clear that this is something unique or a generic
+> transceiver with limitations. Similar to "fixed-link" which is for MACs
+> not connected to MDIO managed phy. Calling this subnode
+> "can-transceiver" to me would be like renaming "fixed-link" to "phy".
+> 
+>>
+>>> So would "fixed-can-transceiver" be
+>>> ok or do you want to go with can-transceiver?
+>>
+>>    I'm somewhat perplexed at this point...
+> 
+> If my reasoning still didn't change your views then I'll make the switch.
 
- Documentation/devicetree/bindings/net/can/m_can.txt | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/Documentation/devicetree/bindings/net/can/m_can.txt b/Documentation/devicetree/bindings/net/can/m_can.txt
-index 9e33177..ee90aac 100644
---- a/Documentation/devicetree/bindings/net/can/m_can.txt
-+++ b/Documentation/devicetree/bindings/net/can/m_can.txt
-@@ -43,6 +43,11 @@ Required properties:
- 			  Please refer to 2.4.1 Message RAM Configuration in
- 			  Bosch M_CAN user manual for details.
- 
-+Optional Subnode:
-+- can-transceiver	: Can-transceiver subnode describing maximum speed
-+			  that can be used for CAN/CAN-FD modes. See
-+			  Documentation/devicetree/bindings/net/can/can-transceiver.txt
-+			  for details.
- Example:
- SoC dtsi:
- m_can1: can@020e8000 {
-@@ -64,4 +69,8 @@ Board dts:
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&pinctrl_m_can1>;
- 	status = "enabled";
-+
-+	can-transceiver@ {
-+		max-bitrate = <5000000>;
-+	};
- };
--- 
-2.9.4.dirty
+I went ahead and made your suggested switch in my v4. Thanks for taking
+the time to review this series.
+>>
+>> MBR, Sergei
