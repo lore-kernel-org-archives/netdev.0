@@ -1,7 +1,7 @@
 From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH v5 10/11] ARM64: dts: rockchip: Add gmac2phy node support for rk3328
-Date: Thu, 10 Aug 2017 22:01:41 +0800
-Message-ID: <1502373701-2818-1-git-send-email-david.wu@rock-chips.com>
+Subject: [PATCH v5 11/11] ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb
+Date: Thu, 10 Aug 2017 22:02:01 +0800
+Message-ID: <1502373721-2869-1-git-send-email-david.wu@rock-chips.com>
 References: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         huangtao@rock-chips.com, hwg@rock-chips.com,
@@ -17,74 +17,41 @@ In-Reply-To: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The gmac2phy controller of rk3328 is connected to integrated PHY
-directly inside, add the node for the integrated PHY support.
+Enable the gmac2phy, make the gmac2phy work on
+the rk3328-evb board.
 
 Signed-off-by: David Wu <david.wu@rock-chips.com>
 ---
-changes in v5:
- - Use phy-is-integrated property via PHY node.
- - Move the PHY clock, reset control, pinctrl to PHY node. 
+ arch/arm64/boot/dts/rockchip/rk3328-evb.dts | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
- arch/arm64/boot/dts/rockchip/rk3328.dtsi | 39 ++++++++++++++++++++++++++++++++
- 1 file changed, 39 insertions(+)
-
-diff --git a/arch/arm64/boot/dts/rockchip/rk3328.dtsi b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-index 0be96ce..d48bf5d 100644
---- a/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-+++ b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-@@ -63,6 +63,8 @@
- 		i2c1 = &i2c1;
- 		i2c2 = &i2c2;
- 		i2c3 = &i2c3;
-+		ethernet0 = &gmac2io;
-+		ethernet1 = &gmac2phy;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+index cf27239..b9f36da 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+@@ -50,6 +50,23 @@
+ 	chosen {
+ 		stdout-path = "serial2:1500000n8";
  	};
- 
- 	cpus {
-@@ -424,6 +426,43 @@
- 		status = "disabled";
- 	};
- 
-+	gmac2phy: ethernet@ff550000 {
-+		compatible = "rockchip,rk3328-gmac";
-+		reg = <0x0 0xff550000 0x0 0x10000>;
-+		rockchip,grf = <&grf>;
-+		interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "macirq";
-+		clocks = <&cru SCLK_MAC2PHY_SRC>, <&cru SCLK_MAC2PHY_RXTX>,
-+			 <&cru SCLK_MAC2PHY_RXTX>, <&cru SCLK_MAC2PHY_REF>,
-+			 <&cru ACLK_MAC2PHY>, <&cru PCLK_MAC2PHY>,
-+			 <&cru SCLK_MAC2PHY_OUT>;
-+		clock-names = "stmmaceth", "mac_clk_rx",
-+			      "mac_clk_tx", "clk_mac_ref",
-+			      "aclk_mac", "pclk_mac",
-+			      "clk_macphy";
-+		resets = <&cru SRST_GMAC2PHY_A>, <&cru SRST_MACPHY>;
-+		reset-names = "stmmaceth", "mac-phy";
-+		phy-mode = "rmii";
-+		phy-handle = <&phy>;
-+		status = "disabled";
 +
-+		mdio {
-+			compatible = "snps,dwmac-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+
-+			phy: phy@0 {
-+				compatible = "ethernet-phy-id1234.d400", "ethernet-phy-ieee802.3-c22";
-+				reg = <0>;
-+				clocks = <&cru SCLK_MAC2PHY_OUT>;
-+				resets = <&cru SRST_MACPHY>;
-+				pinctrl-names = "default";
-+				pinctrl-0 = <&fephyled_rxm1 &fephyled_linkm1>;
-+				phy-is-integrated;
-+			};
-+		};
++	vcc_phy: vcc-phy-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc_phy";
++		regulator-always-on;
++		regulator-boot-on;
 +	};
++};
 +
- 	gic: interrupt-controller@ff811000 {
- 		compatible = "arm,gic-400";
- 		#interrupt-cells = <3>;
++&gmac2phy {
++	phy-supply = <&vcc_phy>;
++	clock_in_out = "output";
++	assigned-clocks = <&cru SCLK_MAC2PHY_SRC>;
++	assigned-clock-rate = <50000000>;
++	assigned-clocks = <&cru SCLK_MAC2PHY>;
++	assigned-clock-parents = <&cru SCLK_MAC2PHY_SRC>;
++	status = "okay";
+ };
+ 
+ &uart2 {
 -- 
 1.9.1
