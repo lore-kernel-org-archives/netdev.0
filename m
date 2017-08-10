@@ -1,54 +1,89 @@
-From: "Gao Feng" <gfree.wind@vip.163.com>
-Subject: Re:Re: [PATCH net-next 1/1] driver: pptp: Remove unnecessary
- statements in pptp_sock_destruct
-Date: Thu, 10 Aug 2017 11:54:50 +0800 (CST)
-Message-ID: <3024ec22.eb85.15dca47d1ea.Coremail.gfree.wind@vip.163.com>
-References: <1502294276-20051-1-git-send-email-gfree.wind@vip.163.com>
- <CAM_iQpUXRV6DamR_U1_bvBUBOk6SQ6jF3xLKBpVZrjYE74LXiw@mail.gmail.com>
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: Re: [PATCH v4 05/12] Documentation: net: phy: Add phy-is-internal binding
+Date: Thu, 10 Aug 2017 11:58:09 +0800
+Message-ID: <CAGb2v65xMBKePss5R4j8P7fxcXkHOcYMNiWE=ApYG19v5un2tw@mail.gmail.com>
+References: <1502280475-736-1-git-send-email-david.wu@rock-chips.com>
+ <1502280630-2254-1-git-send-email-david.wu@rock-chips.com>
+ <778B0470-8ABD-46AD-A63D-F0CF4911C800@gmail.com> <20170810002041.GA10776@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: xeb@mail.ru, "David Miller" <davem@davemloft.net>,
-        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
-To: "Cong Wang" <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m173-177.vip.163.com ([123.58.177.173]:47475 "EHLO
-        m173-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752022AbdHJDzB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 23:55:01 -0400
-In-Reply-To: <CAM_iQpUXRV6DamR_U1_bvBUBOk6SQ6jF3xLKBpVZrjYE74LXiw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Tao Huang <huangtao@rock-chips.com>, hwg@rock-chips.com,
+        =?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>,
+        Arnd Bergmann <arnd@arndb.de>,
+        devicetree <devicetree@vger.kernel.org>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        "open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>,
+        Rob Herring <robh+dt@kernel.org>,
+        David Wu <david.wu@rock-chips.com>,
+        Olof Johansson <olof@lixom.net>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170810002041.GA10776@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-CkF0IDIwMTctMDgtMTAgMDI6MDg6MzAsICJDb25nIFdhbmciIDx4aXlvdS53YW5nY29uZ0BnbWFp
-bC5jb20+IHdyb3RlOgo+T24gV2VkLCBBdWcgOSwgMjAxNyBhdCA4OjU3IEFNLCAgPGdmcmVlLndp
-bmRAdmlwLjE2My5jb20+IHdyb3RlOgo+PiBGcm9tOiBHYW8gRmVuZyA8Z2ZyZWUud2luZEB2aXAu
-MTYzLmNvbT4KPj4KPj4gSW4gdGhlIGNvbW1pdCBkZGFiODI4MjFmYTYgKCJwcHA6IEZpeCBhIHNj
-aGVkdWxpbmctd2hpbGUtYXRvbWljIGJ1ZyBpbgo+PiBkZWxfY2hhbiIpLCBJIG1vdmVkIHRoZSBz
-eW5jaHJvbml6ZV9yY3UoKSBmcm9tIGRlbF9jaGFuKCkgdG8gcHB0cF9yZWxlYXNlCj4+IGFmdGVy
-IGRlbF9jaGFuKCkgdG8gYXZvaWQgb25lIHNjaGVkdWxpbmctd2hpbGUtYXRvbWljIGJ1Zy4KPj4K
-Pj4gQWN0dWFsbHkgdGhlIGRlbF9jaGFuKCkgYW5kIHBwcG94X3VuYmluZF9zb2NrIGFyZSB1bm5l
-Y2Nlc3NhcnkgaW4gdGhlCj4+IHBwdHBfc29ja19kZXN0cnVjdC4gQmVjYXVzZSB0aGUgcHB0cCBz
-b2NrIHJlZmNudCB3b3VsZG4ndCByZWFjaCB6ZXJvIHVudGlsCj4+IHNrX3N0YXRlIGlzIHNldCBh
-cyBQUFBPWF9ERUFEIGluIHBwdHBfcmVsZWFzZS4gQnkgdGhhdCB0aW1lLCB0aGUgZGVsX2NoYW4o
-KQo+PiBhbmQgcHBwb3hfdW5iaW5kX3NvY2soKSBoYXZlIGJlZW4gaW52b2tlZCBhbHJlYWR5IGFu
-ZCB0aGUgY29uZGl0aW9uIGNoZWNrCj4+ICIhKHNrLT5za19zdGF0ZSAmIFBQUE9YX0RFQUQpIiBv
-ZiB0aGlzIHNvY2sgbXVzdCBiZSBmYWxzZSBpbiBwcHRwX3NvY2tfZGVzdHJ1Y3QuCj4KPkkgYW0g
-bm90IHN1cmUuIFRoZSBjaGVjayBmb3Igc29jay0+c2sgaW4gdGhlIGJlZ2lubmluZyBvZiBwcHRw
-X3JlbGVhc2UoKQo+aW5kaWNhdGVzIHRoZXJlIGNvdWxkIGJlIGEgY2FzZSB3ZSBjb3VsZCBza2lw
-IGRlbF9jaGFuKCkgaW4gcHB0cF9yZWxlYXNlKCksCj5hbHRob3VnaCBJIGNhbid0IGZpZ3VyZSBv
-dXQgaG93Lgo+Cj5BbHNvIHRoZXJlIGlzIGEgc3VzcGljaW91cyBzb2NrX3B1dCgpIGluIHBwdHBf
-cmVsZWFzZSgpLgoKSGkgQ29uZywgCgpUaGFuayB5b3UuICBJIGFsc28gZmFpbGVkIHRvIGZpbmQg
-dGhlIGNhc2Ugd2hpY2ggY2F1c2VzIHRoZSBzb2NrLT5zayBpcyBudWxsIGluIHJlbGVhc2UoKS4K
-ClRoZXJlIGlzIGEgc3VzcGljaW91cyBjYXNlIGluIF9fc29ja19jcmVhdGUgZm9sbG93aW5nLgog
-ICAgICAgIGVyciA9IHBmLT5jcmVhdGUobmV0LCBzb2NrLCBwcm90b2NvbCwga2Vybik7CiAgICAg
-ICAgaWYgKGVyciA8IDApCiAgICAgICAgICAgICAgICBnb3RvIG91dF9tb2R1bGVfcHV0OwogICAg
-ICAgIC4uLi4uLi4Kb3V0X21vZHVsZV9wdXQ6CiAgICAgICAgc29jay0+b3BzID0gTlVMTDsKICAg
-ICAgICBtb2R1bGVfcHV0KHBmLT5vd25lcik7Cm91dF9zb2NrX3JlbGVhc2U6CiAgICAgICAgc29j
-a19yZWxlYXNlKHNvY2spOwogICAgICAgIHJldHVybiBlcnI7CkluIHRoZSBiZWdpbm5pbmcsIEkg
-dGhvdWdodCB3aGVuIGNyZWF0ZSBpcyBmYWlsZWQgYW5kIHRoZSBzb2NrLT5zayBpcyBudWxsLCB0
-aGVuIHRoZSBzb2NrX3JlbGVhc2UgaXMgaW52b2tlZC4KSXQgY291bGQgY2F1c2UgdGhlIHNrIGlz
-IG51bGwgaW4gdGhlIHJlbGVhc2UoKS4KQnV0IEkgZmluZCAgaXQgaGFzIGFscmVhZHkgcmVzZXQg
-dGhlIHNvY2stPm9wcyBhcyBOVUxMIGJlZm9yZSBzb2NrX3JlbGVhc2UgbGF0ZXIsIHNvIHRoZSBy
-ZWxlYXNlKCkgd291bGRuJ3QgYmUgaW52b2tlZCBhY3R1YWxseS4KCkJlc3QgUmVnYXJkcwpGZW5n
-Cg==
+On Thu, Aug 10, 2017 at 8:20 AM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On Wed, Aug 09, 2017 at 03:47:34PM -0700, Florian Fainelli wrote:
+>> On August 9, 2017 5:10:30 AM PDT, David Wu <david.wu@rock-chips.com> wrote:
+>> >Add the documentation for internal phy. A boolean property
+>> >indicates that a internal phy will be used.
+>> >
+>> >Signed-off-by: David Wu <david.wu@rock-chips.com>
+>> >---
+>> > Documentation/devicetree/bindings/net/phy.txt | 3 +++
+>> > 1 file changed, 3 insertions(+)
+>> >
+>> >diff --git a/Documentation/devicetree/bindings/net/phy.txt
+>> >b/Documentation/devicetree/bindings/net/phy.txt
+>> >index b558576..942c892 100644
+>> >--- a/Documentation/devicetree/bindings/net/phy.txt
+>> >+++ b/Documentation/devicetree/bindings/net/phy.txt
+>> >@@ -52,6 +52,9 @@ Optional Properties:
+>> >   Mark the corresponding energy efficient ethernet mode as broken and
+>> >   request the ethernet to stop advertising it.
+>> >
+>> >+- phy-is-internal: If set, indicates that phy will connect to the MAC
+>> >as a
+>> >+  internal phy.
+>>
+>> Something along the lines of:
+>>
+>> If set, indicates that the PHY is integrated into the same physical package as the Ethernet MAC.
+>
+> Hi Florian, David.
+>
+> I'm happy with the property name. But i think the text needs more
+> description. We deal with Ethernet switches with integrated PHYs. Yet
+> for us, this property is unneeded.
+>
+> Seeing this property means some bit of software needs to ensure the
+> internal PHY should be used, when given the choice between an internal
+> and external PHY. So i would say something like:
+>
+>     If set, indicates that the PHY is integrated into the same
+>     physical package as the Ethernet MAC. If needed, muxers should be
+>     configured to ensure the internal PHY is used. The absence of this
+>     property indicates the muxers should be configured so that the
+>     external PHY is used.
+>
+> This last part is important. If the bootloader has set the internal
+> PHY to be used, you need to reset it. Otherwise we are going to get
+> into a mess sometime later and need to add a phy-is-external property.
+
+Ack.
+
+One other thing. We need to fix our (sunxi) binding which is already
+in 4.13-rc1. We'd like to see this new property in netdev, i.e. merged
+for 4.13, so we can use it.
+
+Thanks
+ChenYu
