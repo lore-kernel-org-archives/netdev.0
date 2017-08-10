@@ -1,247 +1,55 @@
-From: Florinel Iordache <florinel.iordache@nxp.com>
-Subject: [PATCH net-next] fsl/fman: implement several errata workarounds
-Date: Thu, 10 Aug 2017 16:47:04 +0300
-Message-ID: <1502372824-30180-1-git-send-email-florinel.iordache@nxp.com>
-Reply-To: <florinel.iordache@nxp.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <madalin.bucur@nxp.com>, <davem@davemloft.net>,
-        <linux-kernel@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-        Florinel Iordache <florinel.iordache@nxp.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [PATCH v5 00/11] Add the integrated PHY support
+Date: Thu, 10 Aug 2017 21:56:39 +0800
+Message-ID: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org, olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Implemented workarounds for the following dTSEC Erratum:
-A002, A004, A0012, A0014, A004839 on several operations
-that involve MAC CFG register changes: adjust link,
-rx pause frames, modify MAC address.
+The rk3228 and rk3328 support integrated PHY inside, let's enable
+it to work. And the integrated PHY need to do some special setting,
+so register the rockchip integrated PHY driver.
 
-Signed-off-by: Florinel Iordache <florinel.iordache@nxp.com>
----
- drivers/net/ethernet/freescale/fman/fman_dtsec.c | 118 ++++++++++++++++++-----
- 1 file changed, 93 insertions(+), 25 deletions(-)
+David Wu (11):
+  net: phy: Add rockchip PHY driver support
+  multi_v7_defconfig: Make rockchip PHY built-in
+  arm64: defconfig: Enable CONFIG_ROCKCHIP_PHY
+  net: stmmac: dwmac-rk: Remove unwanted code for rk3328_set_to_rmii()
+  Documentation: net: phy: Add phy-is-integrated binding
+  net: stmmac: dwmac-rk: Add integrated PHY support
+  net: stmmac: dwmac-rk: Add integrated PHY support for rk3228
+  net: stmmac: dwmac-rk: Add integrated PHY supprot for rk3328
+  ARM: dts: rk3228-evb: Enable the integrated PHY for gmac
+  ARM64: dts: rockchip: Add gmac2phy node support for rk3328
+  ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman_dtsec.c b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-index 98bba10..ea43b49 100644
---- a/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_dtsec.c
-@@ -123,7 +123,7 @@
- #define DTSEC_ECNTRL_R100M		0x00000008
- #define DTSEC_ECNTRL_QSGMIIM		0x00000001
- 
--#define DTSEC_TCTRL_GTS			0x00000020
-+#define TCTRL_GTS			0x00000020
- 
- #define RCTRL_PAL_MASK			0x001f0000
- #define RCTRL_PAL_SHIFT			16
-@@ -863,6 +863,52 @@ int dtsec_cfg_pad_and_crc(struct fman_mac *dtsec, bool new_val)
- 	return 0;
- }
- 
-+static void graceful_start(struct fman_mac *dtsec, enum comm_mode mode)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+
-+	if (mode & COMM_MODE_TX)
-+		iowrite32be(ioread32be(&regs->tctrl) &
-+				~TCTRL_GTS, &regs->tctrl);
-+	if (mode & COMM_MODE_RX)
-+		iowrite32be(ioread32be(&regs->rctrl) &
-+				~RCTRL_GRS, &regs->rctrl);
-+}
-+
-+static void graceful_stop(struct fman_mac *dtsec, enum comm_mode mode)
-+{
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	u32 tmp;
-+
-+	/* Graceful stop - Assert the graceful Rx stop bit */
-+	if (mode & COMM_MODE_RX) {
-+		tmp = ioread32be(&regs->rctrl) | RCTRL_GRS;
-+		iowrite32be(tmp, &regs->rctrl);
-+
-+		if (dtsec->fm_rev_info.major == 2) {
-+			/* Workaround for dTSEC Errata A002 */
-+			usleep_range(100, 200);
-+		} else {
-+			/* Workaround for dTSEC Errata A004839 */
-+			usleep_range(10, 50);
-+		}
-+	}
-+
-+	/* Graceful stop - Assert the graceful Tx stop bit */
-+	if (mode & COMM_MODE_TX) {
-+		if (dtsec->fm_rev_info.major == 2) {
-+			/* dTSEC Errata A004: Do not use TCTRL[GTS]=1 */
-+			pr_debug("GTS not supported due to DTSEC_A004 Errata.\n");
-+		} else {
-+			tmp = ioread32be(&regs->tctrl) | TCTRL_GTS;
-+			iowrite32be(tmp, &regs->tctrl);
-+
-+			/* Workaround for dTSEC Errata A0012, A0014 */
-+			usleep_range(10, 50);
-+		}
-+	}
-+}
-+
- int dtsec_enable(struct fman_mac *dtsec, enum comm_mode mode)
- {
- 	struct dtsec_regs __iomem *regs = dtsec->regs;
-@@ -880,13 +926,8 @@ int dtsec_enable(struct fman_mac *dtsec, enum comm_mode mode)
- 
- 	iowrite32be(tmp, &regs->maccfg1);
- 
--	/* Graceful start - clear the graceful receive stop bit */
--	if (mode & COMM_MODE_TX)
--		iowrite32be(ioread32be(&regs->tctrl) & ~DTSEC_TCTRL_GTS,
--			    &regs->tctrl);
--	if (mode & COMM_MODE_RX)
--		iowrite32be(ioread32be(&regs->rctrl) & ~RCTRL_GRS,
--			    &regs->rctrl);
-+	/* Graceful start - clear the graceful Rx/Tx stop bit */
-+	graceful_start(dtsec, mode);
- 
- 	return 0;
- }
-@@ -899,23 +940,8 @@ int dtsec_disable(struct fman_mac *dtsec, enum comm_mode mode)
- 	if (!is_init_done(dtsec->dtsec_drv_param))
- 		return -EINVAL;
- 
--	/* Gracefull stop - Assert the graceful transmit stop bit */
--	if (mode & COMM_MODE_RX) {
--		tmp = ioread32be(&regs->rctrl) | RCTRL_GRS;
--		iowrite32be(tmp, &regs->rctrl);
--
--		if (dtsec->fm_rev_info.major == 2)
--			usleep_range(100, 200);
--		else
--			udelay(10);
--	}
--
--	if (mode & COMM_MODE_TX) {
--		if (dtsec->fm_rev_info.major == 2)
--			pr_debug("GTS not supported due to DTSEC_A004 errata.\n");
--		else
--			pr_debug("GTS not supported due to DTSEC_A0014 errata.\n");
--	}
-+	/* Graceful stop - Assert the graceful Rx/Tx stop bit */
-+	graceful_stop(dtsec, mode);
- 
- 	tmp = ioread32be(&regs->maccfg1);
- 	if (mode & COMM_MODE_RX)
-@@ -933,11 +959,19 @@ int dtsec_set_tx_pause_frames(struct fman_mac *dtsec,
- 			      u16 pause_time, u16 __maybe_unused thresh_time)
- {
- 	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	enum comm_mode mode = COMM_MODE_NONE;
- 	u32 ptv = 0;
- 
- 	if (!is_init_done(dtsec->dtsec_drv_param))
- 		return -EINVAL;
- 
-+	if ((ioread32be(&regs->rctrl) & RCTRL_GRS) == 0)
-+		mode |= COMM_MODE_RX;
-+	if ((ioread32be(&regs->tctrl) & TCTRL_GTS) == 0)
-+		mode |= COMM_MODE_TX;
-+
-+	graceful_stop(dtsec, mode);
-+
- 	if (pause_time) {
- 		/* FM_BAD_TX_TS_IN_B_2_B_ERRATA_DTSEC_A003 Errata workaround */
- 		if (dtsec->fm_rev_info.major == 2 && pause_time <= 320) {
-@@ -958,17 +992,27 @@ int dtsec_set_tx_pause_frames(struct fman_mac *dtsec,
- 		iowrite32be(ioread32be(&regs->maccfg1) & ~MACCFG1_TX_FLOW,
- 			    &regs->maccfg1);
- 
-+	graceful_start(dtsec, mode);
-+
- 	return 0;
- }
- 
- int dtsec_accept_rx_pause_frames(struct fman_mac *dtsec, bool en)
- {
- 	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	enum comm_mode mode = COMM_MODE_NONE;
- 	u32 tmp;
- 
- 	if (!is_init_done(dtsec->dtsec_drv_param))
- 		return -EINVAL;
- 
-+	if ((ioread32be(&regs->rctrl) & RCTRL_GRS) == 0)
-+		mode |= COMM_MODE_RX;
-+	if ((ioread32be(&regs->tctrl) & TCTRL_GTS) == 0)
-+		mode |= COMM_MODE_TX;
-+
-+	graceful_stop(dtsec, mode);
-+
- 	tmp = ioread32be(&regs->maccfg1);
- 	if (en)
- 		tmp |= MACCFG1_RX_FLOW;
-@@ -976,20 +1020,34 @@ int dtsec_accept_rx_pause_frames(struct fman_mac *dtsec, bool en)
- 		tmp &= ~MACCFG1_RX_FLOW;
- 	iowrite32be(tmp, &regs->maccfg1);
- 
-+	graceful_start(dtsec, mode);
-+
- 	return 0;
- }
- 
- int dtsec_modify_mac_address(struct fman_mac *dtsec, enet_addr_t *enet_addr)
- {
-+	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	enum comm_mode mode = COMM_MODE_NONE;
-+
- 	if (!is_init_done(dtsec->dtsec_drv_param))
- 		return -EINVAL;
- 
-+	if ((ioread32be(&regs->rctrl) & RCTRL_GRS) == 0)
-+		mode |= COMM_MODE_RX;
-+	if ((ioread32be(&regs->tctrl) & TCTRL_GTS) == 0)
-+		mode |= COMM_MODE_TX;
-+
-+	graceful_stop(dtsec, mode);
-+
- 	/* Initialize MAC Station Address registers (1 & 2)
- 	 * Station address have to be swapped (big endian to little endian
- 	 */
- 	dtsec->addr = ENET_ADDR_TO_UINT64(*enet_addr);
- 	set_mac_address(dtsec->regs, (u8 *)(*enet_addr));
- 
-+	graceful_start(dtsec, mode);
-+
- 	return 0;
- }
- 
-@@ -1162,11 +1220,19 @@ int dtsec_set_promiscuous(struct fman_mac *dtsec, bool new_val)
- int dtsec_adjust_link(struct fman_mac *dtsec, u16 speed)
- {
- 	struct dtsec_regs __iomem *regs = dtsec->regs;
-+	enum comm_mode mode = COMM_MODE_NONE;
- 	u32 tmp;
- 
- 	if (!is_init_done(dtsec->dtsec_drv_param))
- 		return -EINVAL;
- 
-+	if ((ioread32be(&regs->rctrl) & RCTRL_GRS) == 0)
-+		mode |= COMM_MODE_RX;
-+	if ((ioread32be(&regs->tctrl) & TCTRL_GTS) == 0)
-+		mode |= COMM_MODE_TX;
-+
-+	graceful_stop(dtsec, mode);
-+
- 	tmp = ioread32be(&regs->maccfg2);
- 
- 	/* Full Duplex */
-@@ -1186,6 +1252,8 @@ int dtsec_adjust_link(struct fman_mac *dtsec, u16 speed)
- 		tmp &= ~DTSEC_ECNTRL_R100M;
- 	iowrite32be(tmp, &regs->ecntrl);
- 
-+	graceful_start(dtsec, mode);
-+
- 	return 0;
- }
- 
+ Documentation/devicetree/bindings/net/phy.txt  |   5 +
+ arch/arm/boot/dts/rk3228-evb.dts               |  34 ++++
+ arch/arm/configs/multi_v7_defconfig            |   1 +
+ arch/arm64/boot/dts/rockchip/rk3328-evb.dts    |  17 ++
+ arch/arm64/boot/dts/rockchip/rk3328.dtsi       |  39 +++++
+ arch/arm64/configs/defconfig                   |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 140 +++++++++++++--
+ drivers/net/phy/Kconfig                        |   5 +
+ drivers/net/phy/Makefile                       |   1 +
+ drivers/net/phy/rockchip.c                     | 233 +++++++++++++++++++++++++
+ 10 files changed, 466 insertions(+), 10 deletions(-)
+ create mode 100644 drivers/net/phy/rockchip.c
+
 -- 
 1.9.1
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
