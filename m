@@ -1,7 +1,7 @@
 From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH v5 08/11] net: stmmac: dwmac-rk: Add integrated PHY supprot for rk3328
-Date: Thu, 10 Aug 2017 22:00:52 +0800
-Message-ID: <1502373652-2716-1-git-send-email-david.wu@rock-chips.com>
+Subject: [PATCH v5 09/11] ARM: dts: rk3228-evb: Enable the integrated PHY for gmac
+Date: Thu, 10 Aug 2017 22:01:08 +0800
+Message-ID: <1502373668-2767-1-git-send-email-david.wu@rock-chips.com>
 References: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         huangtao@rock-chips.com, hwg@rock-chips.com,
@@ -17,100 +17,72 @@ In-Reply-To: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are two mac controllers in the rk3328, the one connects
-to external PHY, and the other one connects to integrated PHY.
-Like the mac of external PHY, the integrated PHY's mac also
-needs to configure the related mac registers at GRF.
+This patch enables the integrated PHY for rk3228 evb board
+by default.
+To use the external 1000M PHY on evb board, need to make
+some switch of evb board to be on.
 
 Signed-off-by: David Wu <david.wu@rock-chips.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 26 +++++++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
+changes in v5:
+ - Use phy-is-integrated property via PHY node.
+ - Move the PHY clock and reset control to PHY node.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index b6db3ff..2176403 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -323,6 +323,8 @@ static void rk3288_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
- 
- #define RK3328_GRF_MAC_CON0	0x0900
- #define RK3328_GRF_MAC_CON1	0x0904
-+#define RK3328_GRF_MAC_CON2	0x0908
-+#define RK3328_GRF_MACPHY_CON1	0xb04
- 
- /* RK3328_GRF_MAC_CON0 */
- #define RK3328_GMAC_CLK_RX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 7)
-@@ -349,6 +351,9 @@ static void rk3288_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
- #define RK3328_GMAC_RXCLK_DLY_ENABLE	GRF_BIT(1)
- #define RK3328_GMAC_RXCLK_DLY_DISABLE	GRF_CLR_BIT(0)
- 
-+/* RK3328_GRF_MACPHY_CON1 */
-+#define RK3328_MACPHY_RMII_MODE		GRF_BIT(9)
+ arch/arm/boot/dts/rk3228-evb.dts | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/arch/arm/boot/dts/rk3228-evb.dts b/arch/arm/boot/dts/rk3228-evb.dts
+index 5883433..456ddf7 100644
+--- a/arch/arm/boot/dts/rk3228-evb.dts
++++ b/arch/arm/boot/dts/rk3228-evb.dts
+@@ -50,6 +50,16 @@
+ 		device_type = "memory";
+ 		reg = <0x60000000 0x40000000>;
+ 	};
 +
- static void rk3328_set_to_rgmii(struct rk_priv_data *bsp_priv,
- 				int tx_delay, int rx_delay)
- {
-@@ -373,13 +378,17 @@ static void rk3328_set_to_rgmii(struct rk_priv_data *bsp_priv,
- static void rk3328_set_to_rmii(struct rk_priv_data *bsp_priv)
- {
- 	struct device *dev = &bsp_priv->pdev->dev;
-+	unsigned int reg;
- 
- 	if (IS_ERR(bsp_priv->grf)) {
- 		dev_err(dev, "Missing rockchip,grf property\n");
- 		return;
- 	}
- 
--	regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
-+	reg = bsp_priv->integrated_phy ? RK3328_GRF_MAC_CON2 :
-+		  RK3328_GRF_MAC_CON1;
-+
-+	regmap_write(bsp_priv->grf, reg,
- 		     RK3328_GMAC_PHY_INTF_SEL_RMII |
- 		     RK3328_GMAC_RMII_MODE);
- }
-@@ -409,29 +418,40 @@ static void rk3328_set_rgmii_speed(struct rk_priv_data *bsp_priv, int speed)
- static void rk3328_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
- {
- 	struct device *dev = &bsp_priv->pdev->dev;
-+	unsigned int reg;
- 
- 	if (IS_ERR(bsp_priv->grf)) {
- 		dev_err(dev, "Missing rockchip,grf property\n");
- 		return;
- 	}
- 
-+	reg = bsp_priv->integrated_phy ? RK3328_GRF_MAC_CON2 :
-+		  RK3328_GRF_MAC_CON1;
-+
- 	if (speed == 10)
--		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
-+		regmap_write(bsp_priv->grf, reg,
- 			     RK3328_GMAC_RMII_CLK_2_5M |
- 			     RK3328_GMAC_SPEED_10M);
- 	else if (speed == 100)
--		regmap_write(bsp_priv->grf, RK3328_GRF_MAC_CON1,
-+		regmap_write(bsp_priv->grf, reg,
- 			     RK3328_GMAC_RMII_CLK_25M |
- 			     RK3328_GMAC_SPEED_100M);
- 	else
- 		dev_err(dev, "unknown speed value for RMII! speed=%d", speed);
- }
- 
-+static void rk3328_integrated_phy_powerup(struct rk_priv_data *priv)
-+{
-+	regmap_write(priv->grf, RK3328_GRF_MACPHY_CON1,
-+		     RK3328_MACPHY_RMII_MODE);
-+}
-+
- static const struct rk_gmac_ops rk3328_ops = {
- 	.set_to_rgmii = rk3328_set_to_rgmii,
- 	.set_to_rmii = rk3328_set_to_rmii,
- 	.set_rgmii_speed = rk3328_set_rgmii_speed,
- 	.set_rmii_speed = rk3328_set_rmii_speed,
-+	.integrated_phy_powerup =  rk3328_integrated_phy_powerup,
++	vcc_phy: vcc-phy-regulator {
++		compatible = "regulator-fixed";
++		enable-active-high;
++		regulator-name = "vcc_phy";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		regulator-always-on;
++		regulator-boot-on;
++	};
  };
  
- #define RK3366_GRF_SOC_CON6	0x0418
+ &emmc {
+@@ -60,6 +70,30 @@
+ 	status = "okay";
+ };
+ 
++&gmac {
++	assigned-clocks = <&cru SCLK_MAC_SRC>;
++	assigned-clock-rates = <50000000>;
++	clock_in_out = "output";
++	phy-supply = <&vcc_phy>;
++	phy-mode = "rmii";
++	phy-handle = <&phy0>;
++	status = "okay";
++
++	mdio {
++		compatible = "snps,dwmac-mdio";
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		phy@0 {
++			compatible = "ethernet-phy-id1234.d400", "ethernet-phy-ieee802.3-c22";
++			reg = <0>;
++			clocks = <&cru SCLK_MAC_PHY>;
++			resets = <&cru SRST_MACPHY>;
++			phy-is-integrated;
++		};
++	};
++};
++
+ &tsadc {
+ 	status = "okay";
+ 
 -- 
 1.9.1
