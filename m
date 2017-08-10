@@ -1,49 +1,44 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 master] bpf: unbreak libelf linkage for bpf obj
- loader
-Date: Thu, 10 Aug 2017 10:44:13 +0200
-Message-ID: <598C1CDD.3090604@iogearbox.net>
-References: <8ddcce8a9564e9c4a265db790002d6cd5ba8f353.1502316870.git.daniel@iogearbox.net> <20170809173512.2db1eb40@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34208 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751469AbdHJIoR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 04:44:17 -0400
-In-Reply-To: <20170809173512.2db1eb40@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH 0/3] net: stmmac: Detect PHY location with phy-is-integrated
+Date: Thu, 10 Aug 2017 10:51:26 +0200
+Message-ID: <20170810085129.20463-1-clabbe.montjoie@gmail.com>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: robh+dt@kernel.org, mark.rutland@arm.com, linux@armlinux.org.uk,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com, andrew@lunn.ch,
+        f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/10/2017 02:35 AM, Stephen Hemminger wrote:
-> On Thu, 10 Aug 2017 00:15:41 +0200
-> Daniel Borkmann <daniel@iogearbox.net> wrote:
->
->> Commit 69fed534a533 ("change how Config is used in Makefile's") moved
->> HAVE_MNL specific CFLAGS/LDLIBS for building with libmnl out of the
->> top level Makefile into sub-Makefiles. However, it also removed the
->> HAVE_ELF specific CFLAGS/LDLIBS entirely, which breaks the BPF object
->> loader for tc and ip with "No ELF library support compiled in." despite
->> having libelf detected in configure script. Fix it similarly as in
->> 69fed534a533 for HAVE_ELF.
->>
->> Fixes: 69fed534a533 ("change how Config is used in Makefile's")
->> Reported-by: Jeffrey Panneman <jeffrey.panneman@tno.nl>
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->
-> Thanks, but I am thinking maybe a better solution long term would be to
-> move all the package specific stuff into the generated Config file.
->
-> That way only the generation shell script would have to change.
->
-> Also, all the flags should probably be using pkg-config to get the values.
+Hello
 
-Sure, sounds all good, for the time being, I would like to have
-that breakage undone though, so users can work with loading BPF
-programs again on -master.
+The current way to find if the phy is internal is to compare DT phy-mode
+and emac_variant/internal_phy.
+But it will negate a possible future SoC where an external PHY use the
+same phy mode than the internal one.
 
-Thanks,
-Daniel
+This patchs series adds a new way to find if the PHY is internal, via
+the phy-is-integrated DT property.
+
+The first and third patch should go via the net tree.
+the second via the sunxi tree.
+
+Thanks
+Regards
+
+Corentin Labbe (3):
+  Documentation: bindings: Add documentation for phy-is-integrated
+  ARM: sun8i: sunxi-h3-h5: add phy-is-integrated property to internal
+    PHY
+  net: stmmac: dwmac-sun8i: choose internal PHY via phy-is-integrated
+
+ Documentation/devicetree/bindings/net/phy.txt     |  4 ++++
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi                |  1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 16 ++++++++--------
+ 3 files changed, 13 insertions(+), 8 deletions(-)
+
+-- 
+2.13.0
