@@ -1,44 +1,43 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [PATCH net-next 1/6] rtnetlink: use rcu_dereference_raw to
- silence rcu splat
-Date: Thu, 10 Aug 2017 18:38:15 +0300
-Message-ID: <20170810153815.GA22889@splinter>
-References: <20170810145302.30391-1-fw@strlen.de>
- <20170810145302.30391-2-fw@strlen.de>
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Subject: Re: [PATCH net] geneve: maximum value of VNI cannot be used
+Date: Thu, 10 Aug 2017 08:58:58 -0700
+Message-ID: <0724a580-49c0-a457-802c-40fde8d040d5@oracle.com>
+References: <1502238384-14440-1-git-send-email-girish.moodalbail@oracle.com>
+ <20170809.224130.1529052203716251519.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: pshelar@ovn.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:34035 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752059AbdHJPvT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 11:51:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20170810145302.30391-2-fw@strlen.de>
+Received: from aserp1040.oracle.com ([141.146.126.69]:43692 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751914AbdHJP7I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 11:59:08 -0400
+In-Reply-To: <20170809.224130.1529052203716251519.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 10, 2017 at 04:52:57PM +0200, Florian Westphal wrote:
-> Ido reports a rcu splat in __rtnl_register.
-> The splat is correct; as rtnl_register doesn't grab any logs
-> and doesn't use rcu locks either.  It has always been like this.
-> handler families are not registered in parallel so there are no
-> races wrt. the kmalloc ordering.
+On 8/9/17 10:41 PM, David Miller wrote:
+> From: Girish Moodalbail <girish.moodalbail@oracle.com>
+> Date: Tue,  8 Aug 2017 17:26:24 -0700
 > 
-> The only reason to use rcu_dereference in the first place was to
-> avoid sparse from complaining about this.
+>> Geneve's Virtual Network Identifier (VNI) is 24 bit long, so the range
+>> of values for it would be from 0 to 16777215 (2^24 -1).  However, one
+>> cannot create a geneve device with VNI set to 16777215. This patch fixes
+>> this issue.
+>>
+>> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
 > 
-> Thus this switches to _raw() to not have rcu checks here.
+> I always worry that someone, somewhere, might be using this in some
+> way and this will break things.
 > 
-> The alternative is to add rtnl locking to register/unregister,
-> however, I don't see a compelling reason to do so as this has been
-> lockless for the past twenty years or so.
+> But I'll apply this for now.
 > 
-> Fixes: 6853dd4881 ("rtnetlink: protect handler table with rcu")
-> Reported-by: Ido Schimmel <idosch@idosch.org>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+Thanks David. As per the output of 'ip link help geneve', 16777215 is a valid 
+value. However, due to incorrect check in the kernel that value was not supported.
 
-Tested-by: Ido Schimmel <idosch@mellanox.com>
-
-Thanks!
+$ ip link help geneve |egrep -A1 VNI
+Usage: ... geneve id VNI
+                   remote ADDR
