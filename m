@@ -1,70 +1,145 @@
-From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH v4 2/4] dt-bindings: can: can-transceiver: Document new binding
-Date: Wed, 9 Aug 2017 19:59:14 -0500
-Message-ID: <20170810005916.27163-3-fcooper@ti.com>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: [PATCH v4 1/4] can: dev: Add support for limiting configured bitrate
+Date: Wed, 9 Aug 2017 19:59:13 -0500
+Message-ID: <20170810005916.27163-2-fcooper@ti.com>
 References: <20170810005916.27163-1-fcooper@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
-To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        <dev.kurt-yI9piX4KPfawT/RRk36CISFp6vIno51x@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>, <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170810005916.27163-1-fcooper-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Franklin S Cooper Jr <fcooper@ti.com>
+To: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
+        <quentin.schulz@free-electrons.com>,
+        <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>,
+        <sergei.shtylyov@cogentembedded.com>, <socketcan@hartkopp.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170810005916.27163-1-fcooper@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add documentation to describe usage of the new can-transceiver binding.
-This new binding is applicable for any CAN device therefore it exists as
-its own document.
+Various CAN or CAN-FD IP may be able to run at a faster rate than
+what the transceiver the CAN node is connected to. This can lead to
+unexpected errors. However, CAN transceivers typically have fixed
+limitations and provide no means to discover these limitations at
+runtime. Therefore, add support for a can-transceiver node that
+can be reused by other CAN peripheral drivers to determine for both
+CAN and CAN-FD what the max bitrate that can be used. If the user
+tries to configure CAN to pass these maximum bitrates it will throw
+an error.
 
-Signed-off-by: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
 ---
 Version 4 changes:
-Drop unit address.
-Switch from using fixed-transceiver to can-transceiver
+Used can-transceiver instead of fixed-transceiver.
 
- .../bindings/net/can/can-transceiver.txt           | 24 ++++++++++++++++++++++
- 1 file changed, 24 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/can/can-transceiver.txt
+ drivers/net/can/dev.c   | 50 +++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/can/dev.h |  5 +++++
+ 2 files changed, 55 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/can/can-transceiver.txt b/Documentation/devicetree/bindings/net/can/can-transceiver.txt
-new file mode 100644
-index 0000000..2c31dc0
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/can/can-transceiver.txt
-@@ -0,0 +1,24 @@
-+Generic CAN transceiver Device Tree binding
-+------------------------------
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 365a8cc..372108f 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -27,6 +27,7 @@
+ #include <linux/can/skb.h>
+ #include <linux/can/netlink.h>
+ #include <linux/can/led.h>
++#include <linux/of.h>
+ #include <net/rtnetlink.h>
+ 
+ #define MOD_DESC "CAN device driver interface"
+@@ -814,6 +815,39 @@ int open_candev(struct net_device *dev)
+ }
+ EXPORT_SYMBOL_GPL(open_candev);
+ 
++#ifdef CONFIG_OF
++/*
++ * Common function that can be used to understand the limitation of
++ * a transceiver when it provides no means to determine these limitations
++ * at runtime.
++ */
++void of_can_transceiver(struct net_device *dev)
++{
++	struct device_node *dn;
++	struct can_priv *priv = netdev_priv(dev);
++	struct device_node *np;
++	unsigned int max_bitrate;
++	int ret;
 +
-+CAN transceiver typically limits the max speed in standard CAN and CAN FD
-+modes. Typically these limitations are static and the transceivers themselves
-+provide no way to detect this limitation at runtime. For this situation,
-+the "can-transceiver" node can be used.
++	np = dev->dev.parent->of_node;
 +
-+Required Properties:
-+ max-bitrate:	a positive non 0 value that determines the max
-+		speed that CAN/CAN-FD can run. Any other value
-+		will be ignored.
++	dn = of_get_child_by_name(np, "can-transceiver");
++	if (!dn)
++		return;
 +
-+Examples:
++	max_bitrate = 0;
++	ret = of_property_read_u32(dn, "max-bitrate", &max_bitrate);
 +
-+Based on Texas Instrument's TCAN1042HGV CAN Transceiver
++	if (max_bitrate > 0) {
++		priv->max_bitrate = max_bitrate;
++		priv->is_bitrate_limited = true;
++	} else if (ret != -EINVAL) {
++		netdev_warn(dev, "Invalid value for transceiver max bitrate\n");
++	}
++}
++EXPORT_SYMBOL(of_can_transceiver);
++#endif
 +
-+m_can0 {
-+	....
-+	can-transceiver@ {
-+		max-bitrate = <5000000>;
-+	};
-+	...
-+};
+ /*
+  * Common close function for cleanup before the device gets closed.
+  *
+@@ -913,6 +947,14 @@ static int can_changelink(struct net_device *dev, struct nlattr *tb[],
+ 					priv->bitrate_const_cnt);
+ 		if (err)
+ 			return err;
++
++		if (priv->is_bitrate_limited &&
++		    bt.bitrate > priv->max_bitrate) {
++			netdev_err(dev, "arbitration bitrate surpasses transceiver capabilities of %d bps\n",
++				   priv->max_bitrate);
++			return -EINVAL;
++		}
++
+ 		memcpy(&priv->bittiming, &bt, sizeof(bt));
+ 
+ 		if (priv->do_set_bittiming) {
+@@ -997,6 +1039,14 @@ static int can_changelink(struct net_device *dev, struct nlattr *tb[],
+ 					priv->data_bitrate_const_cnt);
+ 		if (err)
+ 			return err;
++
++		if (priv->is_bitrate_limited &&
++		    dbt.bitrate > priv->max_bitrate) {
++			netdev_err(dev, "canfd data bitrate surpasses transceiver capabilities of %d bps\n",
++				   priv->max_bitrate);
++			return -EINVAL;
++		}
++
+ 		memcpy(&priv->data_bittiming, &dbt, sizeof(dbt));
+ 
+ 		if (priv->do_set_data_bittiming) {
+diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
+index 141b05a..5519f59 100644
+--- a/include/linux/can/dev.h
++++ b/include/linux/can/dev.h
+@@ -47,6 +47,9 @@ struct can_priv {
+ 	unsigned int data_bitrate_const_cnt;
+ 	struct can_clock clock;
+ 
++	unsigned int max_bitrate;
++	bool is_bitrate_limited;
++
+ 	enum can_state state;
+ 
+ 	/* CAN controller features - see include/uapi/linux/can/netlink.h */
+@@ -165,6 +168,8 @@ void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev,
+ unsigned int can_get_echo_skb(struct net_device *dev, unsigned int idx);
+ void can_free_echo_skb(struct net_device *dev, unsigned int idx);
+ 
++void of_can_transceiver(struct net_device *dev);
++
+ struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf);
+ struct sk_buff *alloc_canfd_skb(struct net_device *dev,
+ 				struct canfd_frame **cfd);
 -- 
 2.9.4.dirty
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
