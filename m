@@ -1,80 +1,62 @@
-From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v2] net: stmmac: Use the right logging function in stmmac_mdio_register
-Date: Thu, 10 Aug 2017 09:38:26 +0200
-Message-ID: <20170810073826.24362-1-romain.perier@collabora.com>
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Romain Perier <romain.perier@collabora.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
+From: Eduardo Otubo <otubo@redhat.com>
+Subject: Re: [PATCH] hv_set_ifconfig.sh double check before setting ip
+Date: Thu, 10 Aug 2017 09:40:27 +0200
+Message-ID: <0b0a89e2-250e-69d9-9b24-1cf49e9c1d26@redhat.com>
+References: <20170808135345.17027-1-otubo@redhat.com>
+ <20170808.211150.2070475124549651350.davem@davemloft.net>
+ <494db0c8-8c31-f2ce-17fc-7b96b74f0b28@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        devel@linuxdriverproject.org, sthemmin@microsoft.com,
+        haiyangz@microsoft.com, kys@microsoft.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <494db0c8-8c31-f2ce-17fc-7b96b74f0b28@redhat.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, the function stmmac_mdio_register() is only used by
-stmmac_dvr_probe() from stmmac_main.c, in order to register the MDIO bus
-and probe information about the PHY. As this function is called before
-calling register_netdev(), all messages logged from stmmac_mdio_register
-are prefixed by "(unnamed net_device)". The goal of netdev_info or
-netdev_err is to dump useful infos about a net_device, when this data
-structure is partially initialized, there is no point for using these
-functions.
+On 08/09/2017 11:02 AM, Eduardo Otubo wrote:
+> On 08/09/2017 06:11 AM, David Miller wrote:
+>> From: Eduardo Otubo <otubo@redhat.com>
+>> Date: Tue,  8 Aug 2017 15:53:45 +0200
+>>
+>>> This patch fixes the behavior of the hv_set_ifconfig script when setting
+>>> the interface ip. Sometimes the interface has already been configured by
+>>> network daemon, in this case hv_set_ifconfig causes "RTNETLINK: file
+>>> exists error"; in order to avoid this error this patch makes sure double
+>>> checks the interface before trying anything.
+>>>
+>>> Signed-off-by: Eduardo Otubo <otubo@redhat.com>
+>>
+>> And if the daemon sets the address after you test it but before
+>> you try to set it in the script, what happens?
+>>
+>> This is why I hate changes like this.  They don't remove the problem,
+>> they make it smaller.  And smaller in a bad way.  Smaller makes the
+>> problem even more harder to diagnose when it happens.
+>>
+>> There is implicitly no synchonization between network configuration
+>> daemons and things people run by hand like this script.
+>>
+>> So, caveat emptor.
+>>
+>> I'm not applying this, sorry.
 
-This commit fixes the issue by replacing all netdev_*() by the
-corresponding dev_*() function for logging. The last netdev_info is
-replaced by phy_attached_info(), as a valid phydev can be used at this
-point.
+But also, looking from a different point of view, the current upstream 
+solution does not avoid the problems you mentioned. My fix at least 
+avoids double configuration and RTNETLINK errors. So perhaps you could 
+consider this as "a better version walking towards an ideal fix"?
 
-Signed-off-by: Romain Perier <romain.perier@collabora.com>
----
-
-Changes in v2:
-- Replaced dev_info() by phy_attached_print()
-- Simplified message because informations were redudant
-- Updated commit message
-
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index db157a47000c..e0fbf8657103 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -204,6 +204,7 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
- 	struct device_node *mdio_node = priv->plat->mdio_node;
-+	struct device *dev = ndev->dev.parent;
- 	int addr, found;
- 
- 	if (!mdio_bus_data)
-@@ -237,7 +238,7 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	else
- 		err = mdiobus_register(new_bus);
- 	if (err != 0) {
--		netdev_err(ndev, "Cannot register the MDIO bus\n");
-+		dev_err(dev, "Cannot register the MDIO bus\n");
- 		goto bus_register_fail;
- 	}
- 
-@@ -285,14 +286,14 @@ int stmmac_mdio_register(struct net_device *ndev)
- 			irq_str = irq_num;
- 			break;
- 		}
--		netdev_info(ndev, "PHY ID %08x at %d IRQ %s (%s)%s\n",
--			    phydev->phy_id, addr, irq_str, phydev_name(phydev),
--			    act ? " active" : "");
-+		phy_attached_print(phydev, "PHY ID %08x IRQ %s %s\n",
-+				   phydev->phy_id, irq_str,
-+				   act ? " active" : "");
- 		found = 1;
- 	}
- 
- 	if (!found && !mdio_node) {
--		netdev_warn(ndev, "No PHY found\n");
-+		dev_warn(dev, "No PHY found\n");
- 		mdiobus_unregister(new_bus);
- 		mdiobus_free(new_bus);
- 		return -ENODEV;
--- 
-2.11.0
+>>
+> 
+> This is just part of the resolution, actually. For RHEL I also configure 
+> hyperv-daemons' systemd config file to be run only after network service 
+> is up.
+> 
+> So perhaps my solution should be distro-agnostic and only involve this 
+> script as part of it? In this case I'll elaborate a little more then.
+> 
+> Thanks for the comment.
