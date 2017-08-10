@@ -1,87 +1,59 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH] MAINTAINERS: update the NetLabel and Labeled Networking
- information
-Date: Fri, 11 Aug 2017 09:25:01 +1000 (AEST)
-Message-ID: <alpine.LRH.2.20.1708110924520.25059@namei.org>
-References: <150239239837.19177.4190318681371376062.stgit@sifl> <CAHC9VhSk1veoZJvHjVnSy6ztyDdoHBQOVWMyXb8X4Db+-xXENw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 master] bpf: unbreak libelf linkage for bpf obj
+ loader
+Date: Thu, 10 Aug 2017 16:41:31 -0700
+Message-ID: <20170810164131.3bf0ef89@xeon-e3>
+References: <8ddcce8a9564e9c4a265db790002d6cd5ba8f353.1502316870.git.daniel@iogearbox.net>
+        <20170809173512.2db1eb40@xeon-e3>
+        <598C1CDD.3090604@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-        selinux@tycho.nsa.gov
-To: Paul Moore <paul@paul-moore.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from namei.org ([65.99.196.166]:41067 "EHLO namei.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752608AbdHJXZH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 10 Aug 2017 19:25:07 -0400
-In-Reply-To: <CAHC9VhSk1veoZJvHjVnSy6ztyDdoHBQOVWMyXb8X4Db+-xXENw@mail.gmail.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:36830 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750841AbdHJXlj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 19:41:39 -0400
+Received: by mail-pg0-f49.google.com with SMTP id v77so8741536pgb.3
+        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 16:41:38 -0700 (PDT)
+In-Reply-To: <598C1CDD.3090604@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 10 Aug 2017, Paul Moore wrote:
+On Thu, 10 Aug 2017 10:44:13 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> On Thu, Aug 10, 2017 at 3:13 PM, Paul Moore <pmoore@redhat.com> wrote:
-> > From: Paul Moore <paul@paul-moore.com>
+> On 08/10/2017 02:35 AM, Stephen Hemminger wrote:
+> > On Thu, 10 Aug 2017 00:15:41 +0200
+> > Daniel Borkmann <daniel@iogearbox.net> wrote:
+> >  
+> >> Commit 69fed534a533 ("change how Config is used in Makefile's") moved
+> >> HAVE_MNL specific CFLAGS/LDLIBS for building with libmnl out of the
+> >> top level Makefile into sub-Makefiles. However, it also removed the
+> >> HAVE_ELF specific CFLAGS/LDLIBS entirely, which breaks the BPF object
+> >> loader for tc and ip with "No ELF library support compiled in." despite
+> >> having libelf detected in configure script. Fix it similarly as in
+> >> 69fed534a533 for HAVE_ELF.
+> >>
+> >> Fixes: 69fed534a533 ("change how Config is used in Makefile's")
+> >> Reported-by: Jeffrey Panneman <jeffrey.panneman@tno.nl>
+> >> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>  
 > >
-> > Signed-off-by: Paul Moore <paul@paul-moore.com>
-> > ---
-> >  MAINTAINERS |   24 ++++++++++++++----------
-> >  1 file changed, 14 insertions(+), 10 deletions(-)
+> > Thanks, but I am thinking maybe a better solution long term would be to
+> > move all the package specific stuff into the generated Config file.
+> >
+> > That way only the generation shell script would have to change.
+> >
+> > Also, all the flags should probably be using pkg-config to get the values.  
 > 
-> I'm planning on sending this up via the SELinux tree with some other
-> MAINTAINERS updates, consider this more of a FYI posting.
+> Sure, sounds all good, for the time being, I would like to have
+> that breakage undone though, so users can work with loading BPF
+> programs again on -master.
+> 
+> Thanks,
+> Daniel
 
-Oops, already applied to -next.
-
-> 
-> > diff --git a/MAINTAINERS b/MAINTAINERS
-> > index 65990909fe73..be25ebaaeec3 100644
-> > --- a/MAINTAINERS
-> > +++ b/MAINTAINERS
-> > @@ -9112,15 +9112,6 @@ F:       net/*/netfilter/
-> >  F:     net/netfilter/
-> >  F:     net/bridge/br_netfilter*.c
-> >
-> > -NETLABEL
-> > -M:     Paul Moore <paul@paul-moore.com>
-> > -W:     http://netlabel.sf.net
-> > -L:     netdev@vger.kernel.org
-> > -S:     Maintained
-> > -F:     Documentation/netlabel/
-> > -F:     include/net/netlabel.h
-> > -F:     net/netlabel/
-> > -
-> >  NETROM NETWORK LAYER
-> >  M:     Ralf Baechle <ralf@linux-mips.org>
-> >  L:     linux-hams@vger.kernel.org
-> > @@ -9248,10 +9239,23 @@ F:      net/ipv6/
-> >  F:     include/net/ip*
-> >  F:     arch/x86/net/*
-> >
-> > -NETWORKING [LABELED] (NetLabel, CIPSO, Labeled IPsec, SECMARK)
-> > +NETWORKING [LABELED] (NetLabel, Labeled IPsec, SECMARK)
-> >  M:     Paul Moore <paul@paul-moore.com>
-> > +W:     https://github.com/netlabel
-> >  L:     netdev@vger.kernel.org
-> > +L:     linux-security-module@vger.kernel.org
-> >  S:     Maintained
-> > +F:     Documentation/netlabel/
-> > +F:     include/net/calipso.h
-> > +F:     include/net/cipso_ipv4.h
-> > +F:     include/net/netlabel.h
-> > +F:     include/uapi/linux/netfilter/xt_SECMARK.h
-> > +F:     include/uapi/linux/netfilter/xt_CONNSECMARK.h
-> > +F:     net/netlabel/
-> > +F:     net/ipv4/cipso_ipv4.c
-> > +F:     net/ipv6/calipso.c
-> > +F:     net/netfilter/xt_CONNSECMARK.c
-> > +F:     net/netfilter/xt_SECMARK.c
-> >
-> >  NETWORKING [TLS]
-> >  M:     Ilya Lesokhin <ilyal@mellanox.com>
-> 
-> 
-
--- 
-James Morris
-<jmorris@namei.org>
+Agree. I will merge this for master, and work on better config management
+in net-next.
