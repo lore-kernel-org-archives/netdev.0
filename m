@@ -1,162 +1,61 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCH v3 05/11] net: stmmac: dwmac-rk: Add internal phy support
-Date: Thu, 10 Aug 2017 10:40:10 +0800
-Message-ID: <CAGb2v66ZG3Ct1aFBOXQd8vkMCF-UNk7bN-vsXasbe_j5FexENw@mail.gmail.com>
-References: <1501654546-17292-1-git-send-email-david.wu@rock-chips.com>
- <1501654888-19514-1-git-send-email-david.wu@rock-chips.com>
- <6b1ebf64-6903-6d35-b1fc-92ec47334425@gmail.com> <CAGb2v65Rtw2B3Hcs4L0jTRQ2ApUduJ+Nf1W1XnqXBBmFwMaP-g@mail.gmail.com>
- <20170809084541.GB7137@Red> <a9fae87c-9df5-a250-5bc1-230be4af15cd@rock-chips.com>
+From: "Gao Feng" <gfree.wind@vip.163.com>
+Subject: Re:Re: Re:Re: Re:Re: Re: [PATCH net] ppp: Fix a
+ scheduling-while-atomic bug in del_chan
+Date: Thu, 10 Aug 2017 10:41:49 +0800 (CST)
+Message-ID: <44673dfb.d38a.15dca04f711.Coremail.gfree.wind@vip.163.com>
+References: <1501495658-119725-1-git-send-email-gfree.wind@vip.163.com>
+ <CAM_iQpVEsTpg17RZ1Y1jN2e0wb_X6gtxx05rmUSGa=A=XSj=Eg@mail.gmail.com>
+ <CAM_iQpVta2EFVjutndCmoLBPWko7dgzP=Q1i2krPqyYuNBV4RA@mail.gmail.com>
+ <31c9755c.ff6.15dba5238fc.Coremail.gfree.wind@vip.163.com>
+ <CAM_iQpWmJmk=_yoV8=krOWonE_0orTC5Z4GaCnPg8Jv3GX6dmw@mail.gmail.com>
+ <697dbbd.7911.15dbf5ca3a6.Coremail.gfree.wind@vip.163.com>
+ <16ae6009.7a67.15dbf64b398.Coremail.gfree.wind@vip.163.com>
+ <CAM_iQpW8W24=2atSyStwKPYJ9zmOO5XiznktT3V_3qn00R7r=Q@mail.gmail.com>
+ <73e6ac77.45ea.15dc569d56a.Coremail.gfree.wind@vip.163.com>
+ <1abb4a1f.6499.15dc5dae314.Coremail.gfree.wind@vip.163.com>
+ <CAM_iQpWTfV00qcda75f1Oh3LcFt9w8kPsp3HHF18vjO9mv+Dbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        =?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-        Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-        Olof Johansson <olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        Tao Huang <huangtao-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, hwg-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro@s
-To: "David.Wu" <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <a9fae87c-9df5-a250-5bc1-230be4af15cd-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GBK
+Content-Transfer-Encoding: base64
+Cc: xeb@mail.ru, "David Miller" <davem@davemloft.net>,
+        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
+To: "Cong Wang" <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m173-177.vip.163.com ([123.58.177.173]:20090 "EHLO
+        m173-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752095AbdHJCmF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 22:42:05 -0400
+In-Reply-To: <CAM_iQpWTfV00qcda75f1Oh3LcFt9w8kPsp3HHF18vjO9mv+Dbg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-
-On Wed, Aug 9, 2017 at 5:38 PM, David.Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org> wrote:
-> Hello Corentin, Chen-Yu
->
->
-> 在 2017/8/9 16:45, Corentin Labbe 写道:
->>
->> On Thu, Aug 03, 2017 at 07:06:33PM +0800, Chen-Yu Tsai wrote:
->>>
->>> On Thu, Aug 3, 2017 at 1:38 AM, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>> wrote:
->>>>
->>>> On 08/01/2017 11:21 PM, David Wu wrote:
->>>>>
->>>>> To make internal phy work, need to configure the phy_clock,
->>>>> phy cru_reset and related registers.
->>>>>
->>>>> Signed-off-by: David Wu <david.wu-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
->>>>> ---
->>>>>   .../devicetree/bindings/net/rockchip-dwmac.txt     |  6 +-
->>>>>   drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 81
->>>>> ++++++++++++++++++++++
->>>>>   2 files changed, 86 insertions(+), 1 deletion(-)
->>>>>
->>>>> diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
->>>>> b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
->>>>> index 8f42755..ec39b31 100644
->>>>> --- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
->>>>> +++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
->>>>> @@ -25,7 +25,8 @@ Required properties:
->>>>>    - clock-names: One name for each entry in the clocks property.
->>>>>    - phy-mode: See ethernet.txt file in the same directory.
->>>>>    - pinctrl-names: Names corresponding to the numbered pinctrl states.
->>>>> - - pinctrl-0: pin-control mode. can be <&rgmii_pins> or <&rmii_pins>.
->>>>> + - pinctrl-0: pin-control mode. can be <&rgmii_pins>, <&rmii_pins> or
->>>>> led pins
->>>>> +   for internal phy mode.
->>>>>    - clock_in_out: For RGMII, it must be "input", means main
->>>>> clock(125MHz)
->>>>>      is not sourced from SoC's PLL, but input from PHY; For RMII,
->>>>> "input" means
->>>>>      PHY provides the reference clock(50MHz), "output" means GMAC
->>>>> provides the
->>>>> @@ -40,6 +41,9 @@ Optional properties:
->>>>>    - tx_delay: Delay value for TXD timing. Range value is 0~0x7F, 0x30
->>>>> as default.
->>>>>    - rx_delay: Delay value for RXD timing. Range value is 0~0x7F, 0x10
->>>>> as default.
->>>>>    - phy-supply: phandle to a regulator if the PHY needs one
->>>>> + - clocks: <&cru MAC_PHY>: Clock selector for internal macphy
->>>>> + - phy-is-internal: A boolean property allows us to know that MAC will
->>>>> connect to
->>>>> +   internal phy.
->>>>
->>>>
->>>> This is incorrect in two ways:
->>>>
->>>> - this is a property of the PHY, so it should be documented as such in
->>>> Documentation/devicetree/bindings/net/phy.txt so other bindings can
->>>> re-use it
->>>>
->>>> - if it was specific to your MAC you would expect a vendor prefix to
->>>> this property, which is not there
->>>>
->>>> An alternative way to implement the external/internal logic selection
->>>> would be mandate that your Ethernet PHY node have a compatible string
->>>> like this:
->>>>
->>>> phy@0 {
->>>>          compatible = "ethernet-phy-id1234.d400",
->>>> "ethernet-phy-802.3-c22";
->>>> };
->>>>
->>>> Then you don't need this phy-is-internal property, because you can
->>>> locate the PHY node by the phy-handle (see more about that in a reply to
->>>> patch 10) and you can determine ahead of time whether this PHY is
->>>> internal or not based on its compatible string.
->>>
->>>
->>> This doesn't really work for us (sunxi). The "internal" PHY of the H3
->>> is also available in the X-Powers AC200 combo chip, which would be
->>> external. Same ID. So if someone were to be stupid and put the two
->>> together, you wouldn't know which one it actually is. Generically
->>> it doesn't make sense to match against the ID either. The PHY is
->>> only integrated or inlined into the SoC, meaning it could be moved
->>> elsewhere or even be a discreet part.
->>>
->>> The way I see it is more like a reversed pinmux. The system should
->>> select either the internal set or external set of xMII pins to use.
->>>
->>> A phy-is-internal property in the PHY node would work for us. We
->>> already need a PHY node to describe its clocks and resets.
->>>
->>> A side note to this solution is that, since the internal PHY is defined
->>> at the .dtsi level, any external PHYs at the same address would need to
->>> make sure to delete the property, which is kind of counterintuitive, but
->>> it is how device tree works. One would want to put the internal PHY's
->>> address, assuming it is configurable, on something that is rarely used.
->>>
->>
->> Hello David, Florian, Andrew
->>
->> Could someone ack this ? or nack if you think that the chance for having
->> two PHY id both internal and external is too low.
->> Anyway, we need a choice.
->>
->
-> I think we should be specific to the situation, for us we have the
-> possibility that the Mac only picks up internal PHY, so this can be fixed at
-> the. DTSi level, also possible INTERNL PHY's Mac can also be used to connect
-> external PHY, while cutting off the connection with the internal PHY, so we
-> should define the internal PHY at the DTS level, so I think Florian's
-> approach is acceptable.
-
-So it looks like you have the clock for the internal/integrated PHY at the
-MAC level. I think this lets you define/add the PHY at the board level more
-easily without a lot of duplication?
-
-Sunxi has the clock and reset in the PHY node, which is defined in the dtsi
-file. (This part is already done.)
-
-ChenYu
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+CkF0IDIwMTctMDgtMTAgMDU6MDA6MTksICJDb25nIFdhbmciIDx4aXlvdS53YW5nY29uZ0BnbWFp
+bC5jb20+IHdyb3RlOgo+T24gV2VkLCBBdWcgOSwgMjAxNyBhdCAxMjoxNyBBTSwgR2FvIEZlbmcg
+PGdmcmVlLndpbmRAdmlwLjE2My5jb20+IHdyb3RlOgo+PiBIaSBDb25nLAo+Pgo+PiBBY3R1YWxs
+eSBJIGhhdmUgb25lIHF1ZXN0aW9uIGFib3V0IHRoZSBTT0NLX1JDVV9GUkVFLgo+PiBJIGRvbid0
+IHRoaW5rIGl0IGNvdWxkIHJlc29sdmUgdGhlIGlzc3VlIHlvdSByYWlzZWQgZXZlbiB0aG91Z2gg
+aXQgZXhpc3RzIHJlYWxseS4KPj4KPj4gSSBjaGVja2VkIHRoZSBTT0NLX1JDVV9GUkVFLCBpdCBq
+dXN0IGRlZmVyIHRoZSBfX3NrX2Rlc3RydWN0IGFmdGVyIG9uZSByY3UgcGVyaW9kLgo+PiBCdXQg
+d2hlbiBpdCBwZXJmb3Jtcywgc29tZW9uZSBzdGlsbCBjb3VsZCBmaW5kIHRoaXMgc29jayBieSBj
+YWxsaWQgZHVyaW5nIHRoZSBkZWxfY2hhbiBwZXJpb2QgYW5kIGl0IG1heSBzdGlsbCBkZWZlcmVu
+Y2UgdGhlIHNvY2sgd2hpY2ggbWF5IGZyZWVkIHNvb24uCj4+Cj4+IFRoZSByaWdodCBmbG93IHNo
+b3VsZCBiZSBmb2xsb3dpbmcuCj4+IGRlbF9jaGFuKCkKPj4gd2FpdCBhIHJjdSBwZXJpb2QKPj4g
+c29ja19wdXQoKSAtLS0tLS0tLS0tLS0gSXQgaXMgc2FmZSB0aGF0IHNvbWVvbmUgZ2V0cyB0aGUg
+c29jayBiZWNhdXNlIGl0IGFscmVhZHkgaG9sZCBzb2NrIHJlZmNudC4KPj4KPj4gV2hlbiB1c2lu
+ZyBTT0NLX1JDVV9GUkVFLCBpdHMgZmxvdyB3b3VsZCBiZSBmb2xsb3dpbmcuCj4+IHdhaXQgYSBy
+Y3UgcGVyaW9kCj4+IGRlbF9jaGFuKCkKPj4gZnJlZSB0aGUgc29jayBkaXJlY3RseSAtLS0tLS0t
+LSBubyBzb2NrIHJlZmNudCBjaGVjayBhZ2Fpbi4KPj4gQmVjYXVzZSB0aGUgZGVsX2NoYW4gaGFw
+cGVucyBhZnRlciByY3Ugd2FpdCwgbm90IGJlZm9yZSwgc28gaXQgaXNuJ3QgaGVscGZ1bCB3aXRo
+IFNPQ0tfUkNVX0ZSRUUuCj4KPgo+WWVzLCBnb29kIHBvaW50ISBXaXRoIFNPQ0tfUkNVX0ZSRUUg
+dGhlIHNvY2tfaG9sZCgpIHNob3VsZAo+bm90IGJlIG5lZWRlZC4gRm9yIFJDVSwgdW5wdWJsaXNo
+IHNob3VsZCBpbmRlZWQgaGFwcGVuIGJlZm9yZQo+Z3JhY2UgcGVyaW9kLgoKU29ycnksIEkgY291
+bGRuJ3QgdW5kZXJzdGFuZCB3aHkgc29ja19ob2xkKCkgaXNuJ3QgbmVjZXNzYXJ5IHdpdGggU09D
+S19SQ1VfRlJFRS4KV2hlbiBsb29rdXBfY2hhbiBmaW5kcyB0aGUgc29jaywgaXQgd291bGQgcmV0
+dXJuIGFuZCByZWZlcmVuY2UgaXQgbGF0ZXIuCklmIG5vIHJlZmNudCwgaG93IHRvIHByb3RlY3Qg
+dGhlIHNvY2sgPwoKQmVzdCBSZWdhcmRzCkZlbmcKCj4KPgo+Pgo+PiBJIGRvbid0IGtub3cgaWYg
+SSBtaXN1bmRlcnN0YW5kIHRoZSBTT0NLX1JDVV9GUkVFIHVzYWdlLgo+Pgo+PiBCdXQgaXQgaXMg
+YSBnb29kIG5ld3MgdGhhdCB0aGUgZGVsX2NoYW4gaXMgb25seSBpbnZva2VkIGluIHBwdHBfcmVs
+ZWFzZSBhY3R1YWxseSBhbmQgaXQgd291bGQgd2FpdCBhIHJjdSBwZXJpb2QgYmVmb3JlIHNvY2tf
+cHV0Lgo+Pgo+Cj5Mb29raW5nIGF0IHRoZSBjb2RlIGFnYWluLCB0aGUgcmVhZGVyIGxvb2t1cF9j
+aGFuKCkgaXMgYWN0dWFsbHkKPmludm9rZWQgaW4gQkggY29udGV4dCwgYnV0IG5laXRoZXIgYWRk
+X2NoYW4oKSBub3IgZGVsX2NoYW4oKQo+YWN0dWFsbHkgZGlzYWJsZXMgQkguLi4KCgo=
