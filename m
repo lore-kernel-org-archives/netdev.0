@@ -1,62 +1,41 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [PATCH 0/4] net-next: dsa: fix flow dissection
-Date: Thu, 10 Aug 2017 09:40:13 +0200
-Message-ID: <278db83e-6092-e9e7-e94d-d8e07acaa449@phrozen.org>
-References: <20170809124119.24320-1-john@phrozen.org>
- <20170809.225243.2204411285392662424.davem@davemloft.net>
- <1502347335.4936.2.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, muciri@openmesh.com,
-        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-        sean.wang@mediatek.com, linux-kernel@vger.kernel.org,
-        shashidhar.lakkavalli@openmesh.com,
-        linux-mediatek@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502347335.4936.2.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Max Uvarov <muvarov@gmail.com>
+Subject: [PATCH 1/2] drivers: net: davinci_mdio: remove busy loop on wait user access
+Date: Thu, 10 Aug 2017 10:41:59 +0300
+Message-ID: <1502350920-22750-1-git-send-email-muvarov@gmail.com>
+Cc: linux-omap@vger.kernel.org, grygorii.strashko@ti.com,
+        Max Uvarov <muvarov@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:33000 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750868AbdHJHmX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 03:42:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Polling 14 mdio devices on single mdio bus eats 30% of 1Ghz cpu time
+due to busy loop in waiti(). Aadd small delay to relax cpu.
 
+Signed-off-by: Max Uvarov <muvarov@gmail.com>
+---
+ drivers/net/ethernet/ti/davinci_mdio.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-On 10/08/17 08:42, Eric Dumazet wrote:
-> On Wed, 2017-08-09 at 22:52 -0700, David Miller wrote:
->> From: John Crispin <john@phrozen.org>
->> Date: Wed,  9 Aug 2017 14:41:15 +0200
->>
->>> RPS and probably other kernel features are currently broken on some if not
->>> all DSA devices. The root cause of this is that skb_hash will call the
->>> flow_dissector. At this point the skb still contains the magic switch
->>> header and the skb->protocol field is not set up to the correct 802.3
->>> value yet. By the time the tag specific code is called, removing the header
->>> and properly setting the protocol an invalid hash is already set. In the
->>> case of the mt7530 this will result in all flows always having the same
->>> hash.
->>>
->>> Changes since RFC:
->>> * use a callback instead of static values
->>> * add cover letter
->> Series applied, thanks.
-> Is this related ?
->
-> net/core/flow_dissector.c: In function '__skb_flow_dissect':
-> net/core/flow_dissector.c:448:18: error: 'struct net_device' has no member named 'dsa_ptr'
->      ops = skb->dev->dsa_ptr->tag_ops;
->                    ^
-> make[3]: *** [net/core/flow_dissector.o] Error 1
->
->
-
-looks like it, I did test the patches against net-next from 24 hours 
-ago, let me do a test build just now.
-     John
-
-
-> _______________________________________________
-> Linux-mediatek mailing list
-> Linux-mediatek@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-mediatek
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 33df340..611e7cc 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -198,8 +198,10 @@ static inline int wait_for_user_access(struct davinci_mdio_data *data)
+ 			return 0;
+ 
+ 		reg = __raw_readl(&regs->control);
+-		if ((reg & CONTROL_IDLE) == 0)
++		if ((reg & CONTROL_IDLE) == 0) {
++			usleep_range(100, 200);
+ 			continue;
++		}
+ 
+ 		/*
+ 		 * An emac soft_reset may have clobbered the mdio controller's
+-- 
+2.5.0
