@@ -1,53 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 08/10] netvsc: remove unnecessary check for NULL hdr
-Date: Wed,  9 Aug 2017 17:46:10 -0700
-Message-ID: <20170810004612.22163-9-sthemmin@microsoft.com>
-References: <20170810004612.22163-1-sthemmin@microsoft.com>
+From: Rao Shoaib <rao.shoaib@oracle.com>
+Subject: Re: [PATCH v1 net] TCP_USER_TIMEOUT and tcp_keepalive should conform
+ to RFC5482
+Date: Wed, 9 Aug 2017 17:47:57 -0700
+Message-ID: <19024bb3-c06b-d004-5527-e4c54af66003@oracle.com>
+References: <CAK6E8=ehu5uK6bsprzAQc-Nu6WS2YQEcktD0H2RrjgPpS47-Yg@mail.gmail.com>
+ <CAPshTCgaYVPEbZxDr9sUz7OFibweQn6fwRtP66cgw5eNrHUOWA@mail.gmail.com>
+ <CABGNeczGSsL6xj-SkXQYTWXXe+mJoyhvrQxuLkiO27pW0y8MtA@mail.gmail.com>
+ <20170809.173032.660035274684914457.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com,
-	haiyangz@microsoft.com,
-	sthemmin@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170810004612.22163-1-sthemmin@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: hkchu@google.com, ycheng@google.com, kuznet@ms2.inr.ac.ru,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, codesoldier1@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:46341 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752098AbdHJAsh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 20:48:37 -0400
+In-Reply-To: <20170809.173032.660035274684914457.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function init_page_array is always called with a valid pointer
-to RNDIS header. No check for NULL is needed.
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 9f89de17b5fa..7b465e40869b 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -333,10 +333,9 @@ static u32 init_page_array(void *hdr, u32 len, struct sk_buff *skb,
- 	 * 2. skb linear data
- 	 * 3. skb fragment data
- 	 */
--	if (hdr != NULL)
--		slots_used += fill_pg_buf(virt_to_page(hdr),
--					offset_in_page(hdr),
--					len, &pb[slots_used]);
-+	slots_used += fill_pg_buf(virt_to_page(hdr),
-+				  offset_in_page(hdr),
-+				  len, &pb[slots_used]);
- 
- 	packet->rmsg_size = len;
- 	packet->rmsg_pgcnt = slots_used;
--- 
-2.11.0
+On 08/09/2017 05:30 PM, David Miller wrote:
+> From: Joe Smith <codesoldier1@gmail.com>
+> Date: Wed, 9 Aug 2017 17:20:32 -0700
+>
+>> Making Linux conform to standards and behavior that is logical seems
+>> like a good enough reason.
+> That's an awesome attitude to have when we're implementing something
+> new and don't have the facility already.
+>
+> But when we have something already the only important consideration is
+> not breaking existing apps which rely on that behavior.
+>
+> That is much, much, more important than standards compliance.
+>
+> If users are confused, just fix the documentation.
+David,
+
+If it was just confusion than sure fixing the documentation is fine. 
+What if the logic is incorrect, does not conform to the standard that is 
+says it is implementing and easy to fix with little or no risk of breakage.
+
+The proposed patch changes a feature that no one uses. It also imposes 
+the relation ship between keepalive and timeout values that is required 
+by the RFC and make sense.
+
+You are the final authority, if you say we should just fix the 
+documentation than that is fine.
+
+Shoaib
