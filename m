@@ -1,43 +1,50 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 4/8] tty/bcm63xx_uart: allow naming clock in device tree
-Date: Thu, 10 Aug 2017 11:25:15 -0500
-Message-ID: <20170810162515.qkmhcnsaoh4wjrzs@rob-hp-laptop>
-References: <20170802093429.12572-1-jonas.gorski@gmail.com>
- <20170802093429.12572-5-jonas.gorski@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC net-next] net: Allow name change of IFF_UP interfaces
+Date: Thu, 10 Aug 2017 18:27:22 +0200
+Message-ID: <20170810162722.GH24790@lunn.ch>
+References: <20170809104202.30959-1-vkuznets@redhat.com>
+ <CAPA1RqA0q3W-3PsqDpY8_xiBB18SCWTV1gT+BKOTqQfAA5D8Fg@mail.gmail.com>
+ <87efskye74.fsf@vitty.brq.redhat.com>
+ <20170809161027.GA28694@lunn.ch>
+ <871sojyfv0.fsf@vitty.brq.redhat.com>
+ <1502355817.4936.9.camel@edumazet-glaptop3.roam.corp.google.com>
+ <87poc3wxkl.fsf@vitty.brq.redhat.com>
+ <20170810141358.GD24790@lunn.ch>
+ <87lgmrsawo.fsf@vitty.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org, linux-arm-kernel@lists.infradead.org,
-        linux-serial@vger.kernel.org, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        bcm-kernel-feedback-list@broadcom.com,
-        Kevin Cernekee <cernekee@gmail.com>,
-        Jiri Slaby <jslaby@suse.com>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
         "David S. Miller" <davem@davemloft.net>,
-        Russell King <linux@armlinux.org.uk>
-To: Jonas Gorski <jonas.gorski@gmail.com>
+        Eric Dumazet <edumazet@google.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Vitaly Kuznetsov <vkuznets@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33690 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753133AbdHJQZR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 12:25:17 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:59829 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752339AbdHJQ11 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Aug 2017 12:27:27 -0400
 Content-Disposition: inline
-In-Reply-To: <20170802093429.12572-5-jonas.gorski@gmail.com>
+In-Reply-To: <87lgmrsawo.fsf@vitty.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 02, 2017 at 11:34:25AM +0200, Jonas Gorski wrote:
-> Codify using a named clock for the refclk of the uart. This makes it
-> easier if we might need to add a gating clock (like present on the
-> BCM6345).
+On Thu, Aug 10, 2017 at 05:24:55PM +0200, Vitaly Kuznetsov wrote:
+> Andrew Lunn <andrew@lunn.ch> writes:
 > 
-> Signed-off-by: Jonas Gorski <jonas.gorski@gmail.com>
-> ---
->  Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt | 6 ++++++
->  drivers/tty/serial/bcm63xx_uart.c                              | 6 ++++--
->  2 files changed, 10 insertions(+), 2 deletions(-)
+> >> We are - rtnetlink_event() does the job. We, however, don't have a
+> >> special IFLA_EVENT_* for name change and end up with IFLA_EVENT_NONE.
+> >
+> > What is in this event? Old and new name? Just the new name?
+> 
+> Basically, it's everything we know about the interface - type, index,
+> name, mtu, qdisc, ... - see rtnl_fill_ifinfo(). Back to your question -
+> it's only the new name.
 
-Acked-by: Rob Herring <robh@kernel.org>
+So the program needs to keep track of ifindex to know which interface
+has changed name. Doable.
+
+I still expect this has the potential to break something. You probably
+should be asking on linux-api for the API experts opinion.
+
+       Andrew
