@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: napi cleanup
-Date: Wed, 09 Aug 2017 22:42:17 -0700 (PDT)
-Message-ID: <20170809.224217.394606585098072188.davem@davemloft.net>
-References: <20170809023428.GA2054@felix-thinkpad.cavium.com>
+Subject: Re: [PATCH] net: dsa: make dsa_switch_ops const
+Date: Wed, 09 Aug 2017 22:43:04 -0700 (PDT)
+Message-ID: <20170809.224304.2036941071364761416.davem@davemloft.net>
+References: <1502255055-24751-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        intiyaz.basha@cavium.com
-To: felix.manlunas@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51836 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750837AbdHJFmS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 01:42:18 -0400
-In-Reply-To: <20170809023428.GA2054@felix-thinkpad.cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: julia.lawall@lip6.fr, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bhumirks@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502255055-24751-1-git-send-email-bhumirks@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Tue, 8 Aug 2017 19:34:28 -0700
+From: Bhumika Goyal <bhumirks@gmail.com>
+Date: Wed,  9 Aug 2017 10:34:15 +0530
 
-> From: Intiyaz Basha <intiyaz.basha@cavium.com>
+> Make these structures const as they are only stored in the ops field of
+> a dsa_switch structure, which is const.
+> Done using Coccinelle.
 > 
-> Disable napi when interface is going down.
-> Delete napi when destroying the interface.
-> 
-> Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
-Applied, thanks.
+Applied, thank you.
