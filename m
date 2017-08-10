@@ -1,53 +1,37 @@
-From: Baolin Wang <baolin.wang@linaro.org>
-Subject: Re: [PATCH 0/3] Fix y2038 issues for security/keys subsystem
-Date: Thu, 10 Aug 2017 10:00:31 +0800
-Message-ID: <CAMz4ku+u8tidyW6EuGSxXy6GBL39F22OGRUToiCQJvk61RDvdg@mail.gmail.com>
-References: <cover.1502246501.git.baolin.wang@linaro.org> <CAK8P3a1erR4ToZTH09p_KcNo5cNbOuUpmZG9ststD=gf6zfwsw@mail.gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next 0/2] zerocopy fixes
+Date: Wed, 9 Aug 2017 20:35:55 -0600
+Message-ID: <ae00b9fd-6677-5b27-3841-bcfe3b27cc5f@gmail.com>
+References: <20170809230944.59289-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Howells <dhowells@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        James Morris <james.l.morris@oracle.com>,
-        "Serge E. Hallyn" <serge@hallyn.com>, marc.dionne@auristor.com,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Mark Brown <broonie@kernel.org>, keyrings@vger.kernel.org,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        LSM List <linux-security-module@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a1erR4ToZTH09p_KcNo5cNbOuUpmZG9ststD=gf6zfwsw@mail.gmail.com>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:38657 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752216AbdHJCf5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 22:35:57 -0400
+Received: by mail-pg0-f65.google.com with SMTP id 123so7308914pga.5
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 19:35:56 -0700 (PDT)
+In-Reply-To: <20170809230944.59289-1-willemdebruijn.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
+On 8/9/17 5:09 PM, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> 
+> Fix two issues introduced in the msg_zerocopy patchset.
+> 
+> Willem de Bruijn (2):
+>   sock: fix zerocopy panic in mem accounting
+>   sock: fix zerocopy_success regression with msg_zerocopy
+> 
+>  include/linux/skbuff.h | 9 +++++++--
+>  net/core/skbuff.c      | 4 ++--
+>  2 files changed, 9 insertions(+), 4 deletions(-)
+> 
 
-On 9 August 2017 at 16:44, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Wed, Aug 9, 2017 at 4:51 AM, Baolin Wang <baolin.wang@linaro.org> wrote:
->> Since 'time_t', 'timeval' and 'timespec' types are not year 2038 safe on
->> 32 bits system, this patchset tries to fix this issues for security/keys
->> subsystem and net/rxrpc subsystem which is connected with security/keys
->> subsystem.
->>
->> Baolin Wang (3):
->>   security: keys: Replace time_t/timespec with time64_t
->>   security: keys: Replace time_t with time64_t for struct
->>     key_preparsed_payload
->>   net: rxrpc: Replace time_t type with time64_t type
->
-> Hi David,
->
-> I did a private review before Baolin posted these patches, this version look
-> correct to me, though I would like to see some clarification from you for the
-> rxrpc portion, I'll reply there separately.
->
-> All three patches
->
-> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-
-Thanks for your reviewed tag.
-
--- 
-Baolin.wang
-Best Regards
+Fixes the problem I reported. Thanks for the quick turn around.
