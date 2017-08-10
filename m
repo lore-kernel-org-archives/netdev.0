@@ -1,49 +1,62 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 03/12] e1000e: add check on e1e_wphy() return value
-Date: Thu, 10 Aug 2017 10:56:52 -0700
-Message-ID: <1502387812.2219.44.camel@perches.com>
-References: <20170809214746.28139-1-jeffrey.t.kirsher@intel.com>
-         <20170809214746.28139-4-jeffrey.t.kirsher@intel.com>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
+ count = 1
+Date: Thu, 10 Aug 2017 11:12:11 -0700
+Message-ID: <CALAqxLUoV6EQvofTEv9whW1_QMPBPU7eJBhRFUjaSs7CGeRFww@mail.gmail.com>
+References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
+ <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com>
+ <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
+ <CALAqxLXv60ReJu26omM6p=ZboEm-Z-3w+q0JcxLXDqqK5ohNoQ@mail.gmail.com>
+ <CAEA6p_AL8uUghtZgp4OmqygcFs-Jiy286P5r6tRd+yeSWxR3KA@mail.gmail.com>
+ <CALAqxLXY-kE2N__eDq514cLycR0-QRpyOCMWpdttO6fgovE2rg@mail.gmail.com>
+ <CAEA6p_C_rEYkJhcniyy6HUHgNxWFoxWzZ-WHsaSmNDwx4D+RXQ@mail.gmail.com> <CAEA6p_AOcNkAWPc7NFBnr8QWi3eHdJiQ2=8D_DB_XthwSDL2+Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Gustavo A R Silva <garsilva@embeddedor.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        lkml <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux USB List <linux-usb@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>
+To: Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0009.hostedemail.com ([216.40.44.9]:42720 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752756AbdHJR44 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 13:56:56 -0400
-In-Reply-To: <20170809214746.28139-4-jeffrey.t.kirsher@intel.com>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:37116 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753146AbdHJSMN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 14:12:13 -0400
+Received: by mail-wm0-f54.google.com with SMTP id i66so29296933wmg.0
+        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 11:12:12 -0700 (PDT)
+In-Reply-To: <CAEA6p_AOcNkAWPc7NFBnr8QWi3eHdJiQ2=8D_DB_XthwSDL2+Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-08-09 at 14:47 -0700, Jeff Kirsher wrote:
-> From: Gustavo A R Silva <garsilva@embeddedor.com>
-> 
-> Check return value from call to e1e_wphy(). This value is being
-> checked during previous calls to function e1e_wphy() and it seems
-> a check was missing here.
+On Wed, Aug 9, 2017 at 10:41 PM, Wei Wang <weiwan@google.com> wrote:
+> Hi John,
+>
+> Is it possible to try the attached patch?
 
-The use of "it seems" here is less than compelling.
+Thanks so much for the quick turn around!
 
-Perhaps the write of 0x3140 to MII_BMCR takes too long for
-the return value used.
+So I dropped all the reverts you suggested, and applied this one
+against 4.13-rc4, but I'm still seeing the problematic behavior.
 
-Many other uses of e1e_wphy.*MII_BMCR are also not checked.
+> I am not sure if it actually fixes the issue. But I think it is worth a try.
+> Also, could you get me all the ipv6 routes when you plug in the usb
+> using "ip -6 route show"? (If you have multiple routing tables
+> configured, could you dump them all?)
 
-For instance: the e100e/ethtool uses.
+# ip -6 route show
+2601:1c2:1002:83f0::/64 dev eth0  proto kernel  metric 256  expires
+345599sec pref medium
+fe80::/64 dev eth0  proto kernel  metric 256  pref medium
+default via fe80::200:caff:fe11:2233 dev eth0  proto ra  metric 1024
+expires 1799sec hoplimit 64 pref medium
 
-> diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-[]
-> @@ -2437,6 +2437,8 @@ static s32 e1000_hv_phy_workarounds_ich8lan(struct e1000_hw *hw)
->  		if (hw->phy.revision < 2) {
->  			e1000e_phy_sw_reset(hw);
->  			ret_val = e1e_wphy(hw, MII_BMCR, 0x3140);
-> +			if (ret_val)
-> +				return ret_val;
->  		}
->  	}
->  
+
+After unplugging the device (and getting the unregister_netdevice errors):
+# ip -6 route show
+#
+
+
+thanks
+-john
