@@ -1,35 +1,37 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC net-next] net: Allow name change of IFF_UP interfaces
-Date: Thu, 10 Aug 2017 16:13:58 +0200
-Message-ID: <20170810141358.GD24790@lunn.ch>
-References: <20170809104202.30959-1-vkuznets@redhat.com>
- <CAPA1RqA0q3W-3PsqDpY8_xiBB18SCWTV1gT+BKOTqQfAA5D8Fg@mail.gmail.com>
- <87efskye74.fsf@vitty.brq.redhat.com>
- <20170809161027.GA28694@lunn.ch>
- <871sojyfv0.fsf@vitty.brq.redhat.com>
- <1502355817.4936.9.camel@edumazet-glaptop3.roam.corp.google.com>
- <87poc3wxkl.fsf@vitty.brq.redhat.com>
+Subject: Re: [PATCHv2 1/2] drivers: net: davinci_mdio: remove busy loop on
+ wait user access
+Date: Thu, 10 Aug 2017 16:40:53 +0200
+Message-ID: <20170810144053.GE24790@lunn.ch>
+References: <1502351267-23841-1-git-send-email-muvarov@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+        grygorii.strashko@ti.com
+To: Max Uvarov <muvarov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59712 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:59726 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751492AbdHJOOA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 10 Aug 2017 10:14:00 -0400
+        id S1752362AbdHJOk4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Aug 2017 10:40:56 -0400
 Content-Disposition: inline
-In-Reply-To: <87poc3wxkl.fsf@vitty.brq.redhat.com>
+In-Reply-To: <1502351267-23841-1-git-send-email-muvarov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> We are - rtnetlink_event() does the job. We, however, don't have a
-> special IFLA_EVENT_* for name change and end up with IFLA_EVENT_NONE.
+On Thu, Aug 10, 2017 at 10:47:46AM +0300, Max Uvarov wrote:
+> Polling 14 mdio devices on single mdio bus eats 30% of 1Ghz cpu time
+> due to busy loop in wait(). Add small delay to relax cpu.
 
-What is in this event? Old and new name? Just the new name?
+Hi Max
 
-     Andrew
+Please include a cover note when you have multiple patches in a
+series.
+
+With 14 devices, it makes sense to swap to using PHY interrupts if you
+can. That should prevent the PHY state machine polling the PHYs every
+second.
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
