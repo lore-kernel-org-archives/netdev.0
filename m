@@ -1,55 +1,90 @@
-From: "Gao Feng" <gfree.wind@vip.163.com>
-Subject: Re:Re: Re: Re:Re: Re: [PATCH net] ppp: Fix a
- scheduling-while-atomic bug in del_chan
-Date: Thu, 10 Aug 2017 09:25:24 +0800 (CST)
-Message-ID: <858bbc5.bb7a.15dc9bf024c.Coremail.gfree.wind@vip.163.com>
-References: <1501495658-119725-1-git-send-email-gfree.wind@vip.163.com>
- <CAM_iQpVEsTpg17RZ1Y1jN2e0wb_X6gtxx05rmUSGa=A=XSj=Eg@mail.gmail.com>
- <CAM_iQpVta2EFVjutndCmoLBPWko7dgzP=Q1i2krPqyYuNBV4RA@mail.gmail.com>
- <31c9755c.ff6.15dba5238fc.Coremail.gfree.wind@vip.163.com>
- <CAM_iQpWmJmk=_yoV8=krOWonE_0orTC5Z4GaCnPg8Jv3GX6dmw@mail.gmail.com>
- <697dbbd.7911.15dbf5ca3a6.Coremail.gfree.wind@vip.163.com>
- <16ae6009.7a67.15dbf64b398.Coremail.gfree.wind@vip.163.com>
- <CAM_iQpW8W24=2atSyStwKPYJ9zmOO5XiznktT3V_3qn00R7r=Q@mail.gmail.com>
- <73e6ac77.45ea.15dc569d56a.Coremail.gfree.wind@vip.163.com>
- <CAM_iQpU3hx-Y7OXTDWARFc08BE6qQ_cEjZb7ciVKrWPFh2j0JA@mail.gmail.com>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
+ count = 1
+Date: Wed, 9 Aug 2017 18:26:01 -0700
+Message-ID: <CALAqxLXY-kE2N__eDq514cLycR0-QRpyOCMWpdttO6fgovE2rg@mail.gmail.com>
+References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
+ <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com>
+ <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
+ <CALAqxLXv60ReJu26omM6p=ZboEm-Z-3w+q0JcxLXDqqK5ohNoQ@mail.gmail.com> <CAEA6p_AL8uUghtZgp4OmqygcFs-Jiy286P5r6tRd+yeSWxR3KA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: xeb@mail.ru, "David Miller" <davem@davemloft.net>,
-        "Linux Kernel Network Developers" <netdev@vger.kernel.org>
-To: "Cong Wang" <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m173-177.vip.163.com ([123.58.177.173]:30774 "EHLO
-        m173-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752094AbdHJBZf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 21:25:35 -0400
-In-Reply-To: <CAM_iQpU3hx-Y7OXTDWARFc08BE6qQ_cEjZb7ciVKrWPFh2j0JA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        lkml <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux USB List <linux-usb@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>
+To: Wei Wang <weiwan@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEA6p_AL8uUghtZgp4OmqygcFs-Jiy286P5r6tRd+yeSWxR3KA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-QXQgMjAxNy0wOC0xMCAwMjoxODo0NCwgIkNvbmcgV2FuZyIgPHhpeW91Lndhbmdjb25nQGdtYWls
-LmNvbT4gd3JvdGU6Cj5PbiBUdWUsIEF1ZyA4LCAyMDE3IGF0IDEwOjEzIFBNLCBHYW8gRmVuZyA8
-Z2ZyZWUud2luZEB2aXAuMTYzLmNvbT4gd3JvdGU6Cj4+IE1heWJlIEkgZGlkbid0IHNob3cgbXkg
-ZXhwbGFuYXRpb24gY2xlYXJseS4KPj4gSSB0aGluayBpdCB3b24ndCBoYXBwZW4gYXMgSSBtZW50
-aW9uZWQgaW4gdGhlIGxhc3QgZW1haWwuCj4+IEJlY2F1c2UgdGhlIHBwdHBfcmVsZWFzZSBpbnZv
-a2VzIHRoZSBzeW5jaHJvbml6ZV9yY3UgdG8gbWFrZSBzdXJlIGl0LCBhbmQgYWN0dWFsbHkgdGhl
-cmUgaXMgbm8gb25lIHdoaWNoIHdvdWxkIGludm9rZSBkZWxfY2hhbiBleGNlcHQgcHB0cF9yZWxl
-YXNlLgo+PiBJdCBpcyBndWFyYW50ZWVkIGJ5IHRoYXQgdGhlIHBwdHBfcmVsZWFzZSBkb2Vzbid0
-IHB1dCB0aGUgc29jayByZWZjbnQgdW50aWwgY29tcGxldGUgYWxsIGNsZWFudXAgaW5jbHVkZSBt
-YXJraW5nIHNrX3N0YXRlIGFzIFBQUE9YX0RFQUQuCj4+Cj4+IEluIG90aGVyIHdvcmRzLCBldmVu
-IHRob3VnaCB0aGUgcHB0cF9yZWxlYXNlIGlzIG5vdCB0aGUgbGFzdCB1c2VyIG9mIHRoaXMgc29j
-aywgdGhlIG90aGVyIG9uZSB3b3VsZG4ndCBpbnZva2UgZGVsX2NoYW4gaW4gcHB0cF9zb2NrX2Rl
-c3RydWN0Lgo+PiBCZWNhdXNlIHRoZSBjb25kaXRpb24gIiEoc2stPnNrX3N0YXRlICYgUFBQT1hf
-REVBRCkiIG11c3QgYmUgZmFsc2UuCj4KPk9ubHkgaWYgc29jay0+c2sgaXMgYWx3YXlzIG5vbi1O
-VUxMIGZvciBwcHRwX3JlbGVhc2UoKSwgd2hpY2gKPmlzIHdoYXQgSSBhbSBub3Qgc3VyZS4gSWYg
-eW91IGxvb2sgYXQgb3RoZXIgLT5yZWxlYXNlKCksIHNpbWlsYXIgY2hlY2tzCj5hcmUgdGhlcmUg
-dG9vLCBzbyBub3QganVzdCBmb3IgcHB0cC4KClllcy4gSXQgc2VlbXMgb25seSBpZiB0aGUgcmVs
-ZWFzZSgpIGlzIGludm9rZWQgdHdpY2UsIHRoZSBzb2NrLT5zayB3b3VsZCBiZSBOVUxMLgpCdXQg
-SSBkb24ndCBmaW5kIHRoZXJlIGlzIGFueSBjYXNlIHdoaWNoIGNvdWxkIGNhdXNlIGl0LgoKPgo+
-Pgo+PiBBcyBzdW1tYXJ5LCB0aGUgZGVsX2NoYW4gYW5kIHBwcG94X3VuYmluZF9zb2NrIGluIHBw
-dHBfc29ja19kZXN0cnVjdCBhcmUgdW5uZWNlc3NhcnkuCj4+IEFuZCBpdCBldmVuIGJyaW5ncyBj
-b25mdXNpbmcuCj4KPlNvcnJ5LCBJIGNhbid0IGRyYXcgYW55IGNvbmNsdXNpb24gZm9yIHRoaXMu
-CgpUaGFuayB5b3UgYWxsIHRoZSBzYW1lLCBhbmQgSSBoYXZlIGxlYXJuIGEgbG90IGZyb20geW91
-IDopCldpc2ggc29tZW9uZSB3aGljaCBpcyBmYW1pbGlhciB3aXRoIHRoZXNlIGNvZGVzIGNvdWxk
-IGdpdmUgbW9yZSBkZXRhaWxzIGFuZCBleHBsYW5hdGlvbnMuCgpCZXN0IFJlZ2FyZHMKRmVuZyAK
+On Wed, Aug 9, 2017 at 5:36 PM, Wei Wang <weiwan@google.com> wrote:
+> On Wed, Aug 9, 2017 at 4:44 PM, John Stultz <john.stultz@linaro.org> wrote:
+>> On Wed, Aug 9, 2017 at 4:34 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>> (Cc'ing Wei whose commit was blamed)
+>>>
+>>> On Mon, Aug 7, 2017 at 2:15 PM, John Stultz <john.stultz@linaro.org> wrote:
+>>>> On Mon, Aug 7, 2017 at 2:05 PM, John Stultz <john.stultz@linaro.org> wrote:
+>>>>> So, with recent testing with my HiKey board, I've been noticing some
+>>>>> quirky behavior with my USB eth adapter.
+>>>>>
+>>>>> Basically, pluging the usb eth adapter in and then removing it, when
+>>>>> plugging it back in I often find that its not detected, and the system
+>>>>> slowly spits out the following message over and over:
+>>>>>   unregister_netdevice: waiting for eth0 to become free. Usage count = 1
+>>>>
+>>>> The other bit is that after this starts printing, the board will no
+>>>> longer reboot (it hangs continuing to occasionally print the above
+>>>> message), and I have to manually reset the device.
+>>>>
+>>>
+>>> So this warning is not temporarily shown but lasts until a reboot,
+>>> right? If so it is a dst refcnt leak.
+>>
+>> Correct, once I get into the state it lasts until a reboot.
+>>
+>>> How reproducible is it for you? From my reading, it seems always
+>>> reproduced when you unplug and plug your usb eth interface?
+>>> Is there anything else involved? For example, network namespace.
+>>
+>> So with 4.13-rc3/4 I seem to trigger it easily, often with the first
+>> unplug of the USB eth adapter.
+>>
+>> But as I get back closer to 4.12, it seemingly becomes harder to
+>> trigger, but sometimes still happens.
+>>
+>> So far, I've not been able to trigger it with 4.12.
+>>
+>> I don't think network namespaces are involved?  Though its out of my
+>> area, so AOSP may be using them these days.  Is there a simple way to
+>> check?
+>>
+>> I'll also do another bisection to see if the bad point moves back any further.
+
+So I went through another bisection around and got  9514528d92d4 ipv6:
+call dst_dev_put() properly as the first bad commit again.
+
+> If you see the problem starts to happen on commit
+> 9514528d92d4cbe086499322370155ed69f5d06c, could you try reverting all
+> the following commits:
+> (from new to old)
+> 1eb04e7c9e63 net: reorder all the dst flags
+> a4c2fd7f7891 net: remove DST_NOCACHE flag
+> b2a9c0ed75a3 net: remove DST_NOGC flag
+> 5b7c9a8ff828 net: remove dst gc related code
+> db916649b5dd ipv6: get rid of icmp6 dst garbage collector
+> 587fea741134 ipv6: mark DST_NOGC and remove the operation of dst_free()
+> ad65a2f05695 ipv6: call dst_hold_safe() properly
+> 9514528d92d4 ipv6: call dst_dev_put() properly
+
+
+And reverting this set off of 4.13-rc4 seems to make the issue go away.
+
+Is there anything I can test to help narrow down the specific problem
+with that patchset?
+
+thanks
+-john
