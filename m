@@ -1,84 +1,118 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 06/10] netvsc: whitespace cleanup
-Date: Wed,  9 Aug 2017 17:46:08 -0700
-Message-ID: <20170810004612.22163-7-sthemmin@microsoft.com>
+Subject: [PATCH net-next 10/10] netvsc: keep track of some non-fatal overload conditions
+Date: Wed,  9 Aug 2017 17:46:12 -0700
+Message-ID: <20170810004612.22163-11-sthemmin@microsoft.com>
 References: <20170810004612.22163-1-sthemmin@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com,
-	haiyangz@microsoft.com,
-	sthemmin@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:36531 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752547AbdHJAq1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 20:46:27 -0400
+Received: by mail-pg0-f44.google.com with SMTP id v77so34436601pgb.3
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 17:46:26 -0700 (PDT)
 In-Reply-To: <20170810004612.22163-1-sthemmin@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix some minor indentation issues.
+Add ethtool statistics for case where send chimmeny buffer is
+exhausted and driver has to fall back to doing scatter/gather
+send. Also, add statistic for case where ring buffer is full and
+receive completions are delayed.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |  2 ++
+ drivers/net/hyperv/netvsc.c     | 19 +++++++++++++------
+ drivers/net/hyperv/netvsc_drv.c |  2 ++
+ 3 files changed, 17 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 4ccfc335a356..345786321879 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -680,6 +680,8 @@ struct netvsc_ethtool_stats {
+ 	unsigned long tx_no_space;
+ 	unsigned long tx_too_big;
+ 	unsigned long tx_busy;
++	unsigned long tx_send_full;
++	unsigned long rx_comp_busy;
+ };
+ 
+ struct netvsc_vf_pcpu_stats {
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 5b3a2b8fa77e..938c9f3d2ea6 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -882,7 +882,9 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ 	} else if (pktlen + net_device->pkt_align <
+ 		   net_device->send_section_size) {
+ 		section_index = netvsc_get_next_send_section(net_device);
+-		if (section_index != NETVSC_INVALID_INDEX) {
++		if (unlikely(section_index == NETVSC_INVALID_INDEX)) {
++			++ndev_ctx->eth_stats.tx_send_full;
++		} else {
+ 			move_pkt_msd(&msd_send, &msd_skb, msdp);
+ 			msd_len = 0;
+ 		}
+@@ -948,9 +950,10 @@ int netvsc_send(struct net_device_context *ndev_ctx,
+ }
+ 
+ /* Send pending recv completions */
+-static int send_recv_completions(struct netvsc_channel *nvchan)
++static int send_recv_completions(struct net_device *ndev,
++				 struct netvsc_device *nvdev,
++				 struct netvsc_channel *nvchan)
+ {
+-	struct netvsc_device *nvdev = nvchan->net_device;
+ 	struct multi_recv_comp *mrc = &nvchan->mrc;
+ 	struct recv_comp_msg {
+ 		struct nvsp_message_header hdr;
+@@ -968,8 +971,12 @@ static int send_recv_completions(struct netvsc_channel *nvchan)
+ 		msg.status = rcd->status;
+ 		ret = vmbus_sendpacket(nvchan->channel, &msg, sizeof(msg),
+ 				       rcd->tid, VM_PKT_COMP, 0);
+-		if (unlikely(ret))
++		if (unlikely(ret)) {
++			struct net_device_context *ndev_ctx = netdev_priv(ndev);
++
++			++ndev_ctx->eth_stats.rx_comp_busy;
+ 			return ret;
++		}
+ 
+ 		if (++mrc->first == nvdev->recv_completion_cnt)
+ 			mrc->first = 0;
+@@ -1010,7 +1017,7 @@ static void enq_receive_complete(struct net_device *ndev,
+ 	recv_comp_slot_avail(nvdev, mrc, &filled, &avail);
+ 
+ 	if (unlikely(filled > NAPI_POLL_WEIGHT)) {
+-		send_recv_completions(nvchan);
++		send_recv_completions(ndev, nvdev, nvchan);
+ 		recv_comp_slot_avail(nvdev, mrc, &filled, &avail);
+ 	}
+ 
+@@ -1193,7 +1200,7 @@ int netvsc_poll(struct napi_struct *napi, int budget)
+ 	 * then re-enable host interrupts
+ 	 *     and reschedule if ring is not empty.
+ 	 */
+-	if (send_recv_completions(nvchan) == 0 &&
++	if (send_recv_completions(ndev, net_device, nvchan) == 0 &&
+ 	    work_done < budget &&
+ 	    napi_complete_done(napi, work_done) &&
+ 	    hv_end_read(&channel->inbound)) {
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index c7391889938b..3219d2e8918f 100644
+index 873c83a66cc2..b33f0507c373 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -165,7 +165,7 @@ static int netvsc_close(struct net_device *net)
- }
- 
- static void *init_ppi_data(struct rndis_message *msg, u32 ppi_size,
--				int pkt_type)
-+			   int pkt_type)
- {
- 	struct rndis_packet *rndis_pkt;
- 	struct rndis_per_packet_info *ppi;
-@@ -286,7 +286,7 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
- }
- 
- static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
--			struct hv_page_buffer *pb)
-+		       struct hv_page_buffer *pb)
- {
- 	int j = 0;
- 
-@@ -626,6 +626,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	++net_device_ctx->eth_stats.tx_no_memory;
- 	goto drop;
- }
-+
- /*
-  * netvsc_linkstatus_callback - Link up/down notification
-  */
-@@ -649,8 +650,8 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
- 	if (indicate->status == RNDIS_STATUS_LINK_SPEED_CHANGE) {
- 		u32 speed;
- 
--		speed = *(u32 *)((void *)indicate + indicate->
--				 status_buf_offset) / 10000;
-+		speed = *(u32 *)((void *)indicate
-+				 + indicate->status_buf_offset) / 10000;
- 		ndev_ctx->speed = speed;
- 		return;
- 	}
-@@ -1018,7 +1019,7 @@ static void netvsc_get_stats64(struct net_device *net,
- 	struct net_device_context *ndev_ctx = netdev_priv(net);
- 	struct netvsc_device *nvdev = rcu_dereference_rtnl(ndev_ctx->nvdev);
- 	struct netvsc_vf_pcpu_stats vf_tot;
--		int i;
-+	int i;
- 
- 	if (!nvdev)
- 		return;
+@@ -1112,6 +1112,8 @@ static const struct {
+ 	{ "tx_no_space",  offsetof(struct netvsc_ethtool_stats, tx_no_space) },
+ 	{ "tx_too_big",	  offsetof(struct netvsc_ethtool_stats, tx_too_big) },
+ 	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
++	{ "tx_send_full", offsetof(struct netvsc_ethtool_stats, tx_send_full) },
++	{ "rx_comp_busy", offsetof(struct netvsc_ethtool_stats, rx_comp_busy) },
+ }, vf_stats[] = {
+ 	{ "vf_rx_packets", offsetof(struct netvsc_vf_pcpu_stats, rx_packets) },
+ 	{ "vf_rx_bytes",   offsetof(struct netvsc_vf_pcpu_stats, rx_bytes) },
 -- 
 2.11.0
