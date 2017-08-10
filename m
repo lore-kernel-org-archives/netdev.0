@@ -1,105 +1,69 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net] udp: consistently apply ufo or fragmentation
-Date: Thu, 10 Aug 2017 12:29:19 -0400
-Message-ID: <20170810162919.50577-1-willemdebruijn.kernel@gmail.com>
-Cc: davem@davemloft.net, andreyknvl@gmail.com,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Shaohua Li <shli@kernel.org>
+Subject: Re: [PATCH V4 net 0/2] ipv6: fix flowlabel issue for reset packet
+Date: Thu, 10 Aug 2017 09:30:33 -0700
+Message-ID: <20170810163033.kriwd2pivmuuzfnb@kernel.org>
+References: <cover.1501539150.git.shli@fb.com>
+ <CALx6S36DcpqqqhosdN4qNqTNYZkxZ=0Qy-=uKXHVM_yQoE4XbQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, Shaohua Li <shli@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:36638 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752283AbdHJQ3a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 12:29:30 -0400
-Received: by mail-qt0-f193.google.com with SMTP id c15so1203384qta.3
-        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 09:29:30 -0700 (PDT)
+Received: from mail.kernel.org ([198.145.29.99]:44246 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752882AbdHJQag (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Aug 2017 12:30:36 -0400
+Content-Disposition: inline
+In-Reply-To: <CALx6S36DcpqqqhosdN4qNqTNYZkxZ=0Qy-=uKXHVM_yQoE4XbQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+On Wed, Aug 09, 2017 at 09:40:08AM -0700, Tom Herbert wrote:
+> On Mon, Jul 31, 2017 at 3:19 PM, Shaohua Li <shli@kernel.org> wrote:
+> > From: Shaohua Li <shli@fb.com>
+> >
+> > Please see below tcpdump output:
+> > 21:00:48.109122 IP6 (flowlabel 0x43304, hlim 64, next-header TCP (6) payload length: 40) fec0::5054:ff:fe12:3456.55804 > fec0::5054:ff:fe12:3456.5555: Flags [S], cksum 0x0529 (incorrect -> 0xf56c), seq 3282214508, win 43690, options [mss 65476,sackOK,TS val 2500903437 ecr 0,nop,wscale 7], length 0
+> > 21:00:48.109381 IP6 (flowlabel 0xd827f, hlim 64, next-header TCP (6) payload length: 40) fec0::5054:ff:fe12:3456.5555 > fec0::5054:ff:fe12:3456.55804: Flags [S.], cksum 0x0529 (incorrect -> 0x49ad), seq 1923801573, ack 3282214509, win 43690, options [mss 65476,sackOK,TS val 2500903437 ecr 2500903437,nop,wscale 7], length 0
+> > 21:00:48.109548 IP6 (flowlabel 0x43304, hlim 64, next-header TCP (6) payload length: 32) fec0::5054:ff:fe12:3456.55804 > fec0::5054:ff:fe12:3456.5555: Flags [.], cksum 0x0521 (incorrect -> 0x1bdf), seq 1, ack 1, win 342, options [nop,nop,TS val 2500903437 ecr 2500903437], length 0
+> > 21:00:48.109823 IP6 (flowlabel 0x43304, hlim 64, next-header TCP (6) payload length: 62) fec0::5054:ff:fe12:3456.55804 > fec0::5054:ff:fe12:3456.5555: Flags [P.], cksum 0x053f (incorrect -> 0xb8b1), seq 1:31, ack 1, win 342, options [nop,nop,TS val 2500903437 ecr 2500903437], length 30
+> > 21:00:48.109910 IP6 (flowlabel 0xd827f, hlim 64, next-header TCP (6) payload length: 32) fec0::5054:ff:fe12:3456.5555 > fec0::5054:ff:fe12:3456.55804: Flags [.], cksum 0x0521 (incorrect -> 0x1bc1), seq 1, ack 31, win 342, options [nop,nop,TS val 2500903437 ecr 2500903437], length 0
+> > 21:00:48.110043 IP6 (flowlabel 0xd827f, hlim 64, next-header TCP (6) payload length: 56) fec0::5054:ff:fe12:3456.5555 > fec0::5054:ff:fe12:3456.55804: Flags [P.], cksum 0x0539 (incorrect -> 0xb726), seq 1:25, ack 31, win 342, options [nop,nop,TS val 2500903438 ecr 2500903437], length 24
+> > 21:00:48.110173 IP6 (flowlabel 0x43304, hlim 64, next-header TCP (6) payload length: 32) fec0::5054:ff:fe12:3456.55804 > fec0::5054:ff:fe12:3456.5555: Flags [.], cksum 0x0521 (incorrect -> 0x1ba7), seq 31, ack 25, win 342, options [nop,nop,TS val 2500903438 ecr 2500903438], length 0
+> > 21:00:48.110211 IP6 (flowlabel 0xd827f, hlim 64, next-header TCP (6) payload length: 32) fec0::5054:ff:fe12:3456.5555 > fec0::5054:ff:fe12:3456.55804: Flags [F.], cksum 0x0521 (incorrect -> 0x1ba7), seq 25, ack 31, win 342, options [nop,nop,TS val 2500903438 ecr 2500903437], length 0
+> > 21:00:48.151099 IP6 (flowlabel 0x43304, hlim 64, next-header TCP (6) payload length: 32) fec0::5054:ff:fe12:3456.55804 > fec0::5054:ff:fe12:3456.5555: Flags [.], cksum 0x0521 (incorrect -> 0x1ba6), seq 31, ack 26, win 342, options [nop,nop,TS val 2500903438 ecr 2500903438], length 0
+> > 21:00:49.110524 IP6 (flowlabel 0x43304, hlim 64, next-header TCP (6) payload length: 56) fec0::5054:ff:fe12:3456.55804 > fec0::5054:ff:fe12:3456.5555: Flags [P.], cksum 0x0539 (incorrect -> 0xb324), seq 31:55, ack 26, win 342, options [nop,nop,TS val 2500904438 ecr 2500903438], length 24
+> > 21:00:49.110637 IP6 (flowlabel 0xb34d5, hlim 64, next-header TCP (6) payload length: 20) fec0::5054:ff:fe12:3456.5555 > fec0::5054:ff:fe12:3456.55804: Flags [R], cksum 0x0515 (incorrect -> 0x668c), seq 1923801599, win 0, length 0
+> >
+> > The flowlabel of reset packet (0xb34d5) and flowlabel of normal packet
+> > (0xd827f) are different. This causes our router doesn't correctly close tcp
+> > connection. The patches try to fix the issue.
+> >
+> Shaohua,
+> 
+> Can you give some more detail about what the router doesn't close the
+> TCP connection means? I'm guessing the problem is either: 1) the
+> router is maintaining connection state that includes the flow label in
+> a connection tuple. 2) some router in the path is maintaining
+> connection state, but when the flow label changes the flow's packet
+> are routed through a different router that doesn't have a state for
+> the flow it drops the packet. #1 should be easily fix in the router,
+> flow labels cannot be used as state. #2 is the known problem that
+> stateful firewalls have killed our ability to use multihoming.
 
-When iteratively building a UDP datagram with MSG_MORE and that
-datagram exceeds MTU, consistently choose UFO or fragmentation.
-
-Once skb_is_gso, always apply ufo. Conversely, once a datagram is
-split across multiple skbs, do not consider ufo.
-
-Sendpage already maintains the first invariant, only add the second.
-IPv6 does not have a sendpage implementation to modify.
-
-A gso skb must have a partial checksum, do not follow sk_no_check_tx
-in udp_send_skb.
-
-Found by syzkaller.
-
-Fixes: e89e9cf539a2 ("[IPv4/IPv6]: UFO Scatter-gather approach")
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/ipv4/ip_output.c  | 8 +++++---
- net/ipv4/udp.c        | 2 +-
- net/ipv6/ip6_output.c | 7 ++++---
- 3 files changed, 10 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 50c74cd890bc..e153c40c2436 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -965,11 +965,12 @@ static int __ip_append_data(struct sock *sk,
- 		csummode = CHECKSUM_PARTIAL;
+The #2 is exactly the problem we saw.
  
- 	cork->length += length;
--	if ((((length + (skb ? skb->len : fragheaderlen)) > mtu) ||
--	     (skb && skb_is_gso(skb))) &&
-+	if ((skb && skb_is_gso(skb)) ||
-+	    (((length + (skb ? skb->len : fragheaderlen)) > mtu) &&
-+	    (skb_queue_len(queue) <= 1) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
--	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx) {
-+	    (sk->sk_type == SOCK_DGRAM) && !sk->sk_no_check_tx)) {
- 		err = ip_ufo_append_data(sk, queue, getfrag, from, length,
- 					 hh_len, fragheaderlen, transhdrlen,
- 					 maxfraglen, flags);
-@@ -1288,6 +1289,7 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
- 		return -EINVAL;
- 
- 	if ((size + skb->len > mtu) &&
-+	    (skb_queue_len(&sk->sk_write_queue) == 1) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO)) {
- 		if (skb->ip_summed != CHECKSUM_PARTIAL)
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index e6276fa3750b..a7c804f73990 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -802,7 +802,7 @@ static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4)
- 	if (is_udplite)  				 /*     UDP-Lite      */
- 		csum = udplite_csum(skb);
- 
--	else if (sk->sk_no_check_tx) {   /* UDP csum disabled */
-+	else if (sk->sk_no_check_tx && !skb_is_gso(skb)) {   /* UDP csum off */
- 
- 		skb->ip_summed = CHECKSUM_NONE;
- 		goto send;
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 162efba0d0cd..2dfe50d8d609 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1381,11 +1381,12 @@ static int __ip6_append_data(struct sock *sk,
- 	 */
- 
- 	cork->length += length;
--	if ((((length + (skb ? skb->len : headersize)) > mtu) ||
--	     (skb && skb_is_gso(skb))) &&
-+	if ((skb && skb_is_gso(skb)) ||
-+	    (((length + (skb ? skb->len : headersize)) > mtu) &&
-+	    (skb_queue_len(queue) <= 1) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) && !dst_xfrm(&rt->dst) &&
--	    (sk->sk_type == SOCK_DGRAM) && !udp_get_no_check6_tx(sk)) {
-+	    (sk->sk_type == SOCK_DGRAM) && !udp_get_no_check6_tx(sk))) {
- 		err = ip6_ufo_append_data(sk, queue, getfrag, from, length,
- 					  hh_len, fragheaderlen, exthdrlen,
- 					  transhdrlen, mtu, flags, fl6);
--- 
-2.14.0.434.g98096fd7a8-goog
+> Another consideration is that sk_txhash is also used in routing
+> decisions by the local host (flow label is normally derived from
+> txhash). If you want to ensure that connections are routed
+> consistently for timewait state you might need sk_txhash saved also.
+
+As far as I understood, we don't use sk_txhash for routing selection. The code
+does routing selection with flowlabel user configured, at that time we don't
+derive fl6.flowlabel from skb->hash (which is from sk_txhash). The code always
+does routing selection first and then uses ip6_make_flowlabel to build packet
+data where we derive flowlabel from skb->hash.
+
+Thanks,
+Shaohua
