@@ -1,249 +1,88 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [PATCHv2 net-next iproute2] gre: add support for ERSPAN tunnel
-Date: Thu, 10 Aug 2017 13:14:27 -0700
-Message-ID: <1502396067-21274-1-git-send-email-u9012063@gmail.com>
-Cc: Meenakshi Vohra <mvohra@vmware.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+From: Amine Kherbouche <amine.kherbouche@6wind.com>
+Subject: [RFC PATCH 0/2] Support of VPLS MPLS
+Date: Thu, 10 Aug 2017 22:28:35 +0200
+Message-ID: <1502396917-14848-1-git-send-email-amine.kherbouche@6wind.com>
+Cc: amine.kherbouche@6wind.com, roopa@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:37222 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753123AbdHJUOh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 16:14:37 -0400
-Received: by mail-pf0-f193.google.com with SMTP id p13so1566089pfd.4
-        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 13:14:37 -0700 (PDT)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:35834 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753183AbdHJU27 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 16:28:59 -0400
+Received: by mail-wm0-f51.google.com with SMTP id m85so28246389wma.0
+        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 13:28:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch adds ERSPAN type II tunnel support.  The implementation
-is based on the draft at https://tools.ietf.org/html/draft-foschiano-erspan-01
-One of the purposes is for Linux box to be able to receive ERSPAN
-monitoring traffic sent from the Cisco switch, by creating a ERSPAN
-tunnel device.  In addition, the patch also adds ERSPAN TX, so traffic
-can also be encapsulated into ERSPAN and sent out.
+This small series implements the support of VPLS dataplane using MPLS
+encapsulation to perform a l2VPN using a virtual network device.
 
-The implementation reuses the key as ERSPAN session ID, and
-field 'erspan' as ERSPAN Index fields:
-./ip link add dev ers11 type erspan seq key 100 erspan 123 \
-		local 172.16.1.200 remote 172.16.1.100
+The ingress ethernet frames are encapsulated and carried over an MPLS packet
+switched network, then decapsulated in the egress router (LER) by a vpls
+device.
 
-Signed-off-by: William Tu <u9012063@gmail.com>
-Signed-off-by: Meenakshi Vohra <mvohra@vmware.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
----
-v1->v2:
-  Add manual entry for ERSPAN.
-  Check 20-bit ERSPAN index field.
----
- include/linux/if_tunnel.h |  1 +
- ip/ipaddress.c            |  2 +-
- ip/iplink.c               |  5 +++--
- ip/link_gre.c             | 28 +++++++++++++++++++++++++++-
- man/man8/ip-address.8.in  |  1 +
- man/man8/ip-link.8.in     | 19 ++++++++++++++++---
- 6 files changed, 49 insertions(+), 7 deletions(-)
+This small schema describe how to configure a vpls device to perform l2VPN
+over MPLS PSN:
 
-diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
-index 7375335a0773..21834cac4c0d 100644
---- a/include/linux/if_tunnel.h
-+++ b/include/linux/if_tunnel.h
-@@ -134,6 +134,7 @@ enum {
- 	IFLA_GRE_COLLECT_METADATA,
- 	IFLA_GRE_IGNORE_DF,
- 	IFLA_GRE_FWMARK,
-+	IFLA_GRE_ERSPAN_INDEX,
- 	__IFLA_GRE_MAX,
- };
- 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 4d37c5e04507..f7296991e483 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -76,7 +76,7 @@ static void usage(void)
- 	fprintf(stderr, "LFT := forever | SECONDS\n");
- 	fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n");
- 	fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan | lowpan |\n");
--	fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti | nlmon | can |\n");
-+	fprintf(stderr, "          gre | gretap | erspan | ip6gre | ip6gretap | vti | nlmon | can |\n");
- 	fprintf(stderr, "          bond_slave | ipvlan | geneve | bridge_slave | vrf | hsr | macsec }\n");
- 
- 	exit(-1);
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 5aff2fde38da..62430110bfab 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -112,8 +112,9 @@ void iplink_usage(void)
- 			"\n"
- 			"TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n"
- 			"          bridge | bond | team | ipoib | ip6tnl | ipip | sit | vxlan |\n"
--			"          gre | gretap | ip6gre | ip6gretap | vti | nlmon | team_slave |\n"
--			"          bond_slave | ipvlan | geneve | bridge_slave | vrf | macsec }\n");
-+			"          gre | gretap | erspan | ip6gre | ip6gretap | vti | nlmon |\n"
-+			"          team_slave | bond_slave | ipvlan | geneve | bridge_slave |\n"
-+			"          vrf | macsec }\n");
- 	}
- 	exit(-1);
- }
-diff --git a/ip/link_gre.c b/ip/link_gre.c
-index c2ec5f26902f..e3fcab3a8ca7 100644
---- a/ip/link_gre.c
-+++ b/ip/link_gre.c
-@@ -26,7 +26,7 @@
- static void print_usage(FILE *f)
- {
- 	fprintf(f,
--		"Usage: ... { gre | gretap } [ remote ADDR ]\n"
-+		"Usage: ... { gre | gretap | erspan } [ remote ADDR ]\n"
- 		"                            [ local ADDR ]\n"
- 		"                            [ [i|o]seq ]\n"
- 		"                            [ [i|o]key KEY ]\n"
-@@ -44,6 +44,7 @@ static void print_usage(FILE *f)
- 		"                            [ [no]encap-csum6 ]\n"
- 		"                            [ [no]encap-remcsum ]\n"
- 		"                            [ fwmark MARK ]\n"
-+		"                            [ erspan IDX ]\n"
- 		"\n"
- 		"Where: ADDR := { IP_ADDRESS | any }\n"
- 		"       TOS  := { NUMBER | inherit }\n"
-@@ -96,6 +97,7 @@ static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 metadata = 0;
- 	__u8 ignore_df = 0;
- 	__u32 fwmark = 0;
-+	__u32 erspan_idx = 0;
- 
- 	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
- 		if (rtnl_talk(&rth, &req.n, &req.n, sizeof(req)) < 0) {
-@@ -172,6 +174,9 @@ get_failed:
- 
- 		if (greinfo[IFLA_GRE_FWMARK])
- 			fwmark = rta_getattr_u32(greinfo[IFLA_GRE_FWMARK]);
-+
-+		if (greinfo[IFLA_GRE_ERSPAN_INDEX])
-+			erspan_idx = rta_getattr_u32(greinfo[IFLA_GRE_ERSPAN_INDEX]);
- 	}
- 
- 	while (argc > 0) {
-@@ -328,6 +333,12 @@ get_failed:
- 			NEXT_ARG();
- 			if (get_u32(&fwmark, *argv, 0))
- 				invarg("invalid fwmark\n", *argv);
-+		} else if (strcmp(*argv, "erspan") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&erspan_idx, *argv, 0))
-+				invarg("invalid erspan index\n", *argv);
-+			if (erspan_idx & ~((1<<20) - 1))
-+				invarg("erspan index must be <= 20-bit\n", *argv);
- 		} else
- 			usage();
- 		argc--; argv++;
-@@ -359,6 +370,7 @@ get_failed:
- 		addattr_l(n, 1024, IFLA_GRE_TTL, &ttl, 1);
- 		addattr_l(n, 1024, IFLA_GRE_TOS, &tos, 1);
- 		addattr32(n, 1024, IFLA_GRE_FWMARK, fwmark);
-+		addattr32(n, 1024, IFLA_GRE_ERSPAN_INDEX, htonl(erspan_idx));
- 	} else {
- 		addattr_l(n, 1024, IFLA_GRE_COLLECT_METADATA, NULL, 0);
- 	}
-@@ -473,6 +485,12 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	if (tb[IFLA_GRE_IGNORE_DF] && rta_getattr_u8(tb[IFLA_GRE_IGNORE_DF]))
- 		fputs("ignore-df ", f);
- 
-+	if (tb[IFLA_GRE_ERSPAN_INDEX]) {
-+		__u32 erspan_idx = rta_getattr_u32(tb[IFLA_GRE_ERSPAN_INDEX]);
-+
-+		fprintf(f, "erspan_index %u", erspan_idx);
-+	}
-+
- 	if (tb[IFLA_GRE_ENCAP_TYPE] &&
- 	    rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
- 		__u16 type = rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]);
-@@ -538,3 +556,11 @@ struct link_util gretap_link_util = {
- 	.print_opt = gre_print_opt,
- 	.print_help = gre_print_help,
- };
-+
-+struct link_util erspan_link_util = {
-+	.id = "erspan",
-+	.maxattr = IFLA_GRE_MAX,
-+	.parse_opt = gre_parse_opt,
-+	.print_opt = gre_print_opt,
-+	.print_help = gre_print_help,
-+};
-diff --git a/man/man8/ip-address.8.in b/man/man8/ip-address.8.in
-index 43385813a134..988a79652f6f 100644
---- a/man/man8/ip-address.8.in
-+++ b/man/man8/ip-address.8.in
-@@ -120,6 +120,7 @@ ip-address \- protocol address management
- .BR sit " |"
- .BR gre " |"
- .BR gretap " |"
-+.BR erspan " |"
- .BR ip6gre " |"
- .BR ip6gretap " |"
- .BR vti " |"
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index c0207281905d..851b308cbe1a 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -202,6 +202,7 @@ ip-link \- network device configuration
- .BR sit " |"
- .BR gre " |"
- .BR gretap " |"
-+.BR erspan " |"
- .BR ip6gre " |"
- .BR ip6gretap " |"
- .BR vti " |"
-@@ -297,6 +298,9 @@ Link types:
- .BR gretap
- - Virtual L2 tunnel interface GRE over IPv4
- .sp
-+.BR erspan
-+- Encapsulated Remote SPAN over GRE and IPv4
-+.sp
- .BR ip6gre
- - Virtual tunnel interface GRE over IPv6
- .sp
-@@ -643,13 +647,13 @@ keyword.
- .in -8
- 
- .TP
--GRE, IPIP, SIT Type Support
-+GRE, IPIP, SIT, ERSPAN Type Support
- For a link of types
--.I GRE/IPIP/SIT
-+.I GRE/IPIP/SIT/ERSPAN
- the following additional arguments are supported:
- 
- .BI "ip link add " DEVICE
--.BR type " { " gre " | " ipip " | " sit " }"
-+.BR type " { " gre " | " ipip " | " sit " | " erspan " }"
- .BI " remote " ADDR " local " ADDR
- [
- .BR encap " { " fou " | " gue " | " none " }"
-@@ -663,6 +667,8 @@ the following additional arguments are supported:
- .I " [no]encap-remcsum "
- ] [
- .I " mode " { ip6ip | ipip | mplsip | any } "
-+] [
-+.BR erspan " \fIIDX "
- ]
- 
- .in +8
-@@ -707,6 +713,13 @@ MPLS-Over-IPv4, "any" indicates IPv6, IPv4 or MPLS Over IPv4. Supported for
- SIT where the default is "ip6ip" and IPIP where the default is "ipip".
- IPv6-Over-IPv4 is not supported for IPIP.
- 
-+.sp
-+.BR erspan " \fIIDX "
-+- specifies the ERSPAN index field.
-+.IR IDX
-+indicates a 20 bit index/port number associated with the ERSPAN
-+traffic's source port and direction.
-+
- .in -8
- 
- .TP
--- 
-2.7.4
+in LER0:
+  - ip link add name br0 type bridge
+  - ip link set dev0 master br0
+  - ip link add name vpls0 type vpls id 10 output 111 input 222 \
+    via {{dev3_addr}} dev dev1
+  - ip link set vpls0 master br0
+
+in LER1:
+  - ip link add name br1 type bridge
+  - ip link set dev2 master br0
+  - ip link add name vpls1 type vpls id 20 output 222 input 111 \
+    via {{dev1_addr}} dev dev3
+  - ip link set vpls1 master br1
+
+                LER0                                     LER1
+           +--------------+                       +--------------+
+           |              |                       |              |
+           | +- br0--+    |                       |  vpls1       |
+           | |       |    |       +--------+      |    |         |
+ ------- dev0+       |    |       |        |      |    |      +-dev2 ----------
+           |         |   dev1 --- |MPLS PSN| --- dev3  |      |  |
+10.1.0.0/24|         |    |       |        |      |    |      |  | 10.1.0.0/24
+           |       vpls0  |       +--------+      |    +--br1-+  |
+           |              |                       |              |
+           +--------------+                       +--------------+
+
+packet dissection:
+
+                     |                                 |
+ether0/ip0/payload   | ether1/mpls0/ether0/ip0/payload | ether0/ip0/payload
+                     |                                 |
+
+An Iproute2 patch is available to complete this serie here:
+https://github.com/6WIND/iproute2/commit/0d1d3f2a5733421baf08e247d4ce2fb03cd666f1
+
+Example of more detailed configurations with iproute2:
+
+Create a VPLS vdev "vpls0" to neighbor 10.200.0.2 via dev1, encapsulate the
+incoming Ethernet frame from the bridge in MPLS packets with label 111 with
+ttl 10 and uncap recieved MPLS packets from dev1 with label 222:
+
+	ip link add name vpls0 type vpls id 10 output 111 input 222 ttl 10 \
+        via 10.200.0.2 dev dev1
+
+Same configuration than the previous one just use Ipv6:
+
+	ip link add name vpls0 type vpls id 10 output 111 input 222 ttl 10 \
+        via fd00:200::2 dev dev1
+
+Now the same configuration but tag the outer Ethernet frame with vlan id 55:
+
+	ip link add name vpls0 type vpls id 10 output 111 input 222 vlan 55 \
+	ttl 10 via 10.200.0.2 dev dev1
+
+The approch for configuration is from OpenBSD, more information:
+https://man.openbsd.org/mpw.4
+
+TODO next:
+  - Support of Pseudowire Emulation Edge-to-Edge (PWE3) datapath.
+    https://tools.ietf.org/html/rfc4385
+  - Add the support of lightweight VPLS tunnel for scalability. ie one device
+    with many tunnels.
