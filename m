@@ -1,88 +1,194 @@
 From: Amine Kherbouche <amine.kherbouche@6wind.com>
-Subject: [RFC PATCH 0/2] Support of VPLS MPLS
-Date: Thu, 10 Aug 2017 22:28:35 +0200
-Message-ID: <1502396917-14848-1-git-send-email-amine.kherbouche@6wind.com>
-Cc: amine.kherbouche@6wind.com, roopa@cumulusnetworks.com
+Subject: [PATCH 1/2] mpls: add handlers
+Date: Thu, 10 Aug 2017 22:28:36 +0200
+Message-ID: <1502396917-14848-2-git-send-email-amine.kherbouche@6wind.com>
+References: <1502396917-14848-1-git-send-email-amine.kherbouche@6wind.com>
+Cc: amine.kherbouche@6wind.com, roopa@cumulusnetworks.com,
+        David Lamparter <equinox@diac24.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:35834 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753183AbdHJU27 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 16:28:59 -0400
-Received: by mail-wm0-f51.google.com with SMTP id m85so28246389wma.0
-        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 13:28:58 -0700 (PDT)
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:35838 "EHLO
+        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752889AbdHJU3A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 16:29:00 -0400
+Received: by mail-wm0-f52.google.com with SMTP id m85so28246578wma.0
+        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 13:28:59 -0700 (PDT)
+In-Reply-To: <1502396917-14848-1-git-send-email-amine.kherbouche@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This small series implements the support of VPLS dataplane using MPLS
-encapsulation to perform a l2VPN using a virtual network device.
+Mpls handler allows creation/deletion of mpls routes without using
+rtnetlink. When an incoming mpls packet matches this route, the saved
+function handler is called.
 
-The ingress ethernet frames are encapsulated and carried over an MPLS packet
-switched network, then decapsulated in the egress router (LER) by a vpls
-device.
+Signed-off-by: Amine Kherbouche <amine.kherbouche@6wind.com>
+Signed-off-by: David Lamparter <equinox@diac24.net>
+---
+ include/net/mpls.h  | 10 +++++++
+ net/mpls/af_mpls.c  | 75 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/mpls/internal.h |  3 +++
+ 3 files changed, 88 insertions(+)
 
-This small schema describe how to configure a vpls device to perform l2VPN
-over MPLS PSN:
-
-in LER0:
-  - ip link add name br0 type bridge
-  - ip link set dev0 master br0
-  - ip link add name vpls0 type vpls id 10 output 111 input 222 \
-    via {{dev3_addr}} dev dev1
-  - ip link set vpls0 master br0
-
-in LER1:
-  - ip link add name br1 type bridge
-  - ip link set dev2 master br0
-  - ip link add name vpls1 type vpls id 20 output 222 input 111 \
-    via {{dev1_addr}} dev dev3
-  - ip link set vpls1 master br1
-
-                LER0                                     LER1
-           +--------------+                       +--------------+
-           |              |                       |              |
-           | +- br0--+    |                       |  vpls1       |
-           | |       |    |       +--------+      |    |         |
- ------- dev0+       |    |       |        |      |    |      +-dev2 ----------
-           |         |   dev1 --- |MPLS PSN| --- dev3  |      |  |
-10.1.0.0/24|         |    |       |        |      |    |      |  | 10.1.0.0/24
-           |       vpls0  |       +--------+      |    +--br1-+  |
-           |              |                       |              |
-           +--------------+                       +--------------+
-
-packet dissection:
-
-                     |                                 |
-ether0/ip0/payload   | ether1/mpls0/ether0/ip0/payload | ether0/ip0/payload
-                     |                                 |
-
-An Iproute2 patch is available to complete this serie here:
-https://github.com/6WIND/iproute2/commit/0d1d3f2a5733421baf08e247d4ce2fb03cd666f1
-
-Example of more detailed configurations with iproute2:
-
-Create a VPLS vdev "vpls0" to neighbor 10.200.0.2 via dev1, encapsulate the
-incoming Ethernet frame from the bridge in MPLS packets with label 111 with
-ttl 10 and uncap recieved MPLS packets from dev1 with label 222:
-
-	ip link add name vpls0 type vpls id 10 output 111 input 222 ttl 10 \
-        via 10.200.0.2 dev dev1
-
-Same configuration than the previous one just use Ipv6:
-
-	ip link add name vpls0 type vpls id 10 output 111 input 222 ttl 10 \
-        via fd00:200::2 dev dev1
-
-Now the same configuration but tag the outer Ethernet frame with vlan id 55:
-
-	ip link add name vpls0 type vpls id 10 output 111 input 222 vlan 55 \
-	ttl 10 via 10.200.0.2 dev dev1
-
-The approch for configuration is from OpenBSD, more information:
-https://man.openbsd.org/mpw.4
-
-TODO next:
-  - Support of Pseudowire Emulation Edge-to-Edge (PWE3) datapath.
-    https://tools.ietf.org/html/rfc4385
-  - Add the support of lightweight VPLS tunnel for scalability. ie one device
-    with many tunnels.
+diff --git a/include/net/mpls.h b/include/net/mpls.h
+index 1dbc669..0ff51b6 100644
+--- a/include/net/mpls.h
++++ b/include/net/mpls.h
+@@ -33,4 +33,14 @@ static inline struct mpls_shim_hdr *mpls_hdr(const struct sk_buff *skb)
+ {
+ 	return (struct mpls_shim_hdr *)skb_network_header(skb);
+ }
++
++typedef int (*mpls_handler)(void *arg, struct sk_buff *skb,
++			    struct net_device *dev, u32 index, u8 bos);
++
++extern int mpls_handler_add(struct net *net, u32 index, u8 via_table, u8 via[],
++			    mpls_handler handler, void *handler_arg,
++			    struct netlink_ext_ack *extack);
++extern int mpls_handler_del(struct net *net, u32 index,
++			    struct netlink_ext_ack *extack);
++
+ #endif
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index c5b9ce4..82d2126 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -10,6 +10,7 @@
+ #include <linux/netconf.h>
+ #include <linux/vmalloc.h>
+ #include <linux/percpu.h>
++#include <net/mpls.h>
+ #include <net/ip.h>
+ #include <net/dst.h>
+ #include <net/sock.h>
+@@ -299,6 +300,7 @@ static bool mpls_egress(struct net *net, struct mpls_route *rt,
+ 		success = true;
+ 		break;
+ 	}
++	case MPT_HANDLER:
+ 	case MPT_UNSPEC:
+ 		/* Should have decided which protocol it is by now */
+ 		break;
+@@ -356,6 +358,10 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 		goto drop;
+ 	}
+ 
++	if (rt->rt_payload_type == MPT_HANDLER)
++		return rt->rt_handler(rt->rt_harg, skb, dev,
++				      dec.label, dec.bos);
++
+ 	nh = mpls_select_multipath(rt, skb);
+ 	if (!nh)
+ 		goto err;
+@@ -457,6 +463,8 @@ static const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
+ struct mpls_route_config {
+ 	u32			rc_protocol;
+ 	u32			rc_ifindex;
++	mpls_handler		rc_handler;
++	void			*rc_harg;
+ 	u8			rc_via_table;
+ 	u8			rc_via_alen;
+ 	u8			rc_via[MAX_VIA_ALEN];
+@@ -995,6 +1003,11 @@ static int mpls_route_add(struct mpls_route_config *cfg,
+ 	rt->rt_payload_type = cfg->rc_payload_type;
+ 	rt->rt_ttl_propagate = cfg->rc_ttl_propagate;
+ 
++	if (cfg->rc_handler) {
++		rt->rt_handler = cfg->rc_handler;
++		rt->rt_harg = cfg->rc_harg;
++	}
++
+ 	if (cfg->rc_mp)
+ 		err = mpls_nh_build_multi(cfg, rt, max_labels, extack);
+ 	else
+@@ -1271,6 +1284,68 @@ static int mpls_netconf_dump_devconf(struct sk_buff *skb,
+ 	return skb->len;
+ }
+ 
++int mpls_handler_add(struct net *net, u32 label, u8 via_table, u8 via[],
++		     mpls_handler handler, void *handler_arg,
++		     struct netlink_ext_ack *extack)
++{
++	struct net_device *dev = handler_arg;
++	struct mpls_route_config *cfg;
++	u8 alen = 0;
++	int err;
++
++	cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
++	if (!cfg)
++		return -ENOMEM;
++
++	memset(cfg, 0, sizeof(*cfg));
++	if (via_table == NEIGH_ARP_TABLE)
++		alen = sizeof(struct in_addr);
++	else if (via_table == NEIGH_ND_TABLE)
++		alen = sizeof(struct in6_addr);
++
++	cfg->rc_ttl_propagate	= MPLS_TTL_PROP_DEFAULT;
++	cfg->rc_protocol	= RTPROT_KERNEL;
++	cfg->rc_nlflags		|= NLM_F_CREATE;
++	cfg->rc_payload_type	= MPT_HANDLER;
++	cfg->rc_via_table	= via_table;
++	cfg->rc_label		= label;
++	cfg->rc_via_alen	= alen;
++	memcpy(&cfg->rc_via, via, alen);
++	cfg->rc_ifindex		= dev->ifindex;
++	cfg->rc_nlinfo.nl_net	= net;
++	cfg->rc_harg		= handler_arg;
++	cfg->rc_handler		= handler;
++	cfg->rc_output_labels	= 0;
++
++	err = mpls_route_add(cfg, extack);
++	kfree(cfg);
++
++	return err;
++}
++EXPORT_SYMBOL(mpls_handler_add);
++
++int mpls_handler_del(struct net *net, u32 index,
++		     struct netlink_ext_ack *extack)
++{
++	struct mpls_route_config *cfg;
++	int err = 0;
++
++	cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
++	if (!cfg)
++		return -ENOMEM;
++
++	memset(cfg, 0, sizeof(*cfg));
++	cfg->rc_protocol	= RTPROT_KERNEL;
++	cfg->rc_label		= index;
++	cfg->rc_nlinfo.nl_net	= net;
++
++	err = mpls_route_del(cfg, extack);
++	kfree(cfg);
++
++	return err;
++}
++EXPORT_SYMBOL(mpls_handler_del);
++
+ #define MPLS_PERDEV_SYSCTL_OFFSET(field)	\
+ 	(&((struct mpls_dev *)0)->field)
+ 
+diff --git a/net/mpls/internal.h b/net/mpls/internal.h
+index cf65aec..2cd73eb 100644
+--- a/net/mpls/internal.h
++++ b/net/mpls/internal.h
+@@ -78,6 +78,7 @@ enum mpls_payload_type {
+ 	MPT_UNSPEC, /* IPv4 or IPv6 */
+ 	MPT_IPV4 = 4,
+ 	MPT_IPV6 = 6,
++	MPT_HANDLER = 255,
+ 
+ 	/* Other types not implemented:
+ 	 *  - Pseudo-wire with or without control word (RFC4385)
+@@ -141,6 +142,8 @@ enum mpls_ttl_propagation {
+  */
+ struct mpls_route { /* next hop label forwarding entry */
+ 	struct rcu_head		rt_rcu;
++	mpls_handler		rt_handler;
++	void			*rt_harg;
+ 	u8			rt_protocol;
+ 	u8			rt_payload_type;
+ 	u8			rt_max_alen;
+-- 
+2.1.4
