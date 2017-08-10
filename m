@@ -1,74 +1,66 @@
-From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: Re: [PATCH v2 3/4] can: m_can: Update documentation to mention new
- fixed transceiver binding
-Date: Wed, 9 Aug 2017 20:02:16 -0500
-Message-ID: <93b31baa-c757-ddb7-a633-e04e931ae907@ti.com>
-References: <20170724230521.1436-1-fcooper@ti.com>
- <20170724230521.1436-4-fcooper@ti.com>
- <20170803170735.qntnxpx5olghzmbu@rob-hp-laptop>
+From: David Ahern <dsahern@gmail.com>
+Subject: RTNL: assertion failed at ...
+Date: Wed, 9 Aug 2017 19:18:32 -0600
+Message-ID: <6279e669-f38c-3635-9f02-4c5281219fbd@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
-        <wg@grandegger.com>, <mkl@pengutronix.de>,
-        <quentin.schulz@free-electrons.com>,
-        <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>,
-        <sergei.shtylyov@cogentembedded.com>, <socketcan@hartkopp.net>
-To: Rob Herring <robh@kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20170803170735.qntnxpx5olghzmbu@rob-hp-laptop>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Florian Westphal <fw@strlen.de>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:37735 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752098AbdHJBSp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 21:18:45 -0400
+Received: by mail-pg0-f68.google.com with SMTP id 83so7166873pgb.4
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 18:18:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Florian:
+
+Booting top of tree on my host with a VRF configured is spewing traces:
+
+[   24.779911] RTNL: assertion failed at
+/home/dsa/kernel.git/net/core/dev.c (5717)
+[   24.779984] CPU: 3 PID: 989 Comm: ip Not tainted
+4.13.0-rc4-01020-gcd9cb3890b20 #8
+[   24.779986] Hardware name: Supermicro X9DAi/X9DAi, BIOS 1.0b 10/17/2012
+[   24.779988] Call Trace:
+[   24.780002]  dump_stack+0x85/0xc7
+[   24.780009]  netdev_master_upper_dev_get+0x5f/0x70
+[   24.780017]  if_nlmsg_size+0x158/0x240
+[   24.780021]  rtnl_calcit.isra.26+0xa3/0xf0
+[   24.780029]  ? dump_rules+0xd0/0xd0
+[   24.780033]  rtnetlink_rcv_msg+0x1f0/0x230
+[   24.780037]  ? rtnl_calcit.isra.26+0xf0/0xf0
+[   24.780043]  netlink_rcv_skb+0xec/0x120
+[   24.780047]  rtnetlink_rcv+0x15/0x20
+[   24.780050]  netlink_unicast+0x16a/0x210
+[   24.780054]  netlink_sendmsg+0x2b8/0x3a0
+[   24.780060]  sock_sendmsg+0x38/0x50
+[   24.780063]  SYSC_sendto+0x102/0x190
+[   24.780069]  ? handle_mm_fault+0xe8/0x210
+[   24.780075]  ? __do_page_fault+0x1f6/0x4a0
+[   24.780080]  ? trace_hardirqs_on_thunk+0x1a/0x1c
+[   24.780083]  SyS_sendto+0xe/0x10
+[   24.780089]  entry_SYSCALL_64_fastpath+0x23/0xbd
+[   24.780117] RIP: 0033:0x7fc3972d95ed
+[   24.780119] RSP: 002b:00007fff9fbd4528 EFLAGS: 00000246 ORIG_RAX:
+000000000000002c
+[   24.780121] RAX: ffffffffffffffda RBX: 000000000044bd00 RCX:
+00007fc3972d95ed
+[   24.780122] RDX: 0000000000000028 RSI: 00007fff9fbd4530 RDI:
+0000000000000003
+[   24.780123] RBP: 00007fff9fbd5f77 R08: 0000000000000000 R09:
+0000000000000000
+[   24.780124] R10: 0000000000000000 R11: 0000000000000246 R12:
+0000000000000002
+[   24.780125] R13: 00007fff9fbd4750 R14: 0000000000000000 R15:
+0000000000000000
 
 
-Hi Rob,
-On 08/03/2017 12:07 PM, Rob Herring wrote:
-> On Mon, Jul 24, 2017 at 06:05:20PM -0500, Franklin S Cooper Jr wrote:
->> Add information regarding fixed transceiver binding. This is especially
->> important for MCAN since the IP allows CAN FD mode to run significantly
->> faster than what most transceivers are capable of.
->>
->> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
->> ---
->> Version 2 changes:
->> Drop unit address
->>
->>  Documentation/devicetree/bindings/net/can/m_can.txt | 10 ++++++++++
->>  1 file changed, 10 insertions(+)
->>
->> diff --git a/Documentation/devicetree/bindings/net/can/m_can.txt b/Documentation/devicetree/bindings/net/can/m_can.txt
->> index 9e33177..e4abd2c 100644
->> --- a/Documentation/devicetree/bindings/net/can/m_can.txt
->> +++ b/Documentation/devicetree/bindings/net/can/m_can.txt
->> @@ -43,6 +43,11 @@ Required properties:
->>  			  Please refer to 2.4.1 Message RAM Configuration in
->>  			  Bosch M_CAN user manual for details.
->>  
->> +Optional properties:
->> +- fixed-transceiver	: Fixed-transceiver subnode describing maximum speed
-> 
-> This is a node, not a property. Sub nodes should have their own section.
+I did not do a bisect but seems pretty obvious that it has to be your
+patch set.
 
-Fixed in my v4 that I just sent.
-> 
->> +			  that can be used for CAN and/or CAN-FD modes.  See
->> +			  Documentation/devicetree/bindings/net/can/fixed-transceiver.txt
->> +			  for details.
->>  Example:
->>  SoC dtsi:
->>  m_can1: can@020e8000 {
->> @@ -64,4 +69,9 @@ Board dts:
->>  	pinctrl-names = "default";
->>  	pinctrl-0 = <&pinctrl_m_can1>;
->>  	status = "enabled";
->> +
->> +	fixed-transceiver {
->> +		max-arbitration-speed = <1000000>;
->> +		max-data-speed = <5000000>;
->> +	};
->>  };
->> -- 
->> 2.10.0
->>
+David
