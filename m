@@ -1,64 +1,79 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH RFC net-next] net: Allow name change of IFF_UP
- interfaces
-Date: Thu, 10 Aug 2017 10:16:19 -0700
-Message-ID: <20170810101619.15142772@xeon-e3>
-References: <20170810141358.GD24790@lunn.ch>
-        <87lgmrsawo.fsf@vitty.brq.redhat.com>
-        <20170810162722.GH24790@lunn.ch>
-        <20170810.094803.1621536453262110983.davem@davemloft.net>
-        <88b507b7-1b60-5100-3e31-b68263f0f631@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Thu, 10 Aug 2017 10:21:24 -0700 (PDT)
+Message-ID: <20170810.102124.1969570284171219105.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, andrew@lunn.ch,
-        vkuznets@redhat.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org, edumazet@google.com
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:33031 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752559AbdHJRQV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 13:16:21 -0400
-Received: by mail-pf0-f179.google.com with SMTP id h68so5601111pfk.0
-        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 10:16:21 -0700 (PDT)
-In-Reply-To: <88b507b7-1b60-5100-3e31-b68263f0f631@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Aug 2017 10:55:01 -0600
-David Ahern <dsahern@gmail.com> wrote:
 
-> On 8/10/17 10:48 AM, David Miller wrote:
-> > From: Andrew Lunn <andrew@lunn.ch>
-> > Date: Thu, 10 Aug 2017 18:27:22 +0200
-> >   
-> >> On Thu, Aug 10, 2017 at 05:24:55PM +0200, Vitaly Kuznetsov wrote:  
-> >>> Andrew Lunn <andrew@lunn.ch> writes:
-> >>>  
-> >>>>> We are - rtnetlink_event() does the job. We, however, don't have a
-> >>>>> special IFLA_EVENT_* for name change and end up with IFLA_EVENT_NONE.  
-> >>>>
-> >>>> What is in this event? Old and new name? Just the new name?  
-> >>>
-> >>> Basically, it's everything we know about the interface - type, index,
-> >>> name, mtu, qdisc, ... - see rtnl_fill_ifinfo(). Back to your question -
-> >>> it's only the new name.  
-> >>
-> >> So the program needs to keep track of ifindex to know which interface
-> >> has changed name. Doable.
-> >>
-> >> I still expect this has the potential to break something. You probably
-> >> should be asking on linux-api for the API experts opinion.  
-> > 
-> > But a greater point is that nobody is monitoring device renames
-> > explicitly right now.  
-> 
-> Just to throw in an example:
->   https://github.com/kobolabs/dhcpcd/blob/kobo/if-linux.c#L761
-> 
-> Learned of its use from a recent regression:
-> https://bugzilla.kernel.org/show_bug.cgi?id=196355
+1) Fix handling of initial STATE message in TIPC, from Jon Paul
+   Maloy.
 
-Quagga is another example of what might break. Especially with all the new
-forks..
+2) Fix stats handling in bcm_sysport_get_stats(), from Florian
+   Fainelli.
+
+3) Reject 16777215 VNI value in geneve_validate(), from Girish
+   Moodalbail.
+
+4) Fix initial IGMP sysctl setting regression, from Nikolay Borisov.
+
+5) Once a UFO fragmented frame is treated as UFO, we should continue
+   doing so.  Likewise once a frame has been segmented, we should
+   continue doing that and not try to convert it to a UFO frame.
+   From Willem de Bruijn.
+
+6) Test the AF_PACKET RX/TX ring pg_vec state under the socket lock
+   to prevent races.  From Willem de Bruijn.
+
+Please pull, thanks a lot!
+
+The following changes since commit 48fb6f4db940e92cfb16cd878cddd59ea6120d06:
+
+  futex: Remove unnecessary warning from get_futex_key (2017-08-09 14:00:54 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
+
+for you to fetch changes up to c27927e372f0785f3303e8fad94b85945e2c97b7:
+
+  packet: fix tp_reserve race in packet_set_ring (2017-08-10 09:52:12 -0700)
+
+----------------------------------------------------------------
+Florian Fainelli (1):
+      net: systemport: Fix software statistics for SYSTEMPORT Lite
+
+Girish Moodalbail (1):
+      geneve: maximum value of VNI cannot be used
+
+Jon Paul Maloy (1):
+      tipc: remove premature ESTABLISH FSM event at link synchronization
+
+Nikolay Borisov (1):
+      igmp: Fix regression caused by igmp sysctl namespace code.
+
+Willem de Bruijn (2):
+      udp: consistently apply ufo or fragmentation
+      packet: fix tp_reserve race in packet_set_ring
+
+Xin Long (1):
+      net: sched: set xt_tgchk_param par.nft_compat as 0 in ipt_init_target
+
+ drivers/net/ethernet/broadcom/bcmsysport.c |  4 ++++
+ drivers/net/geneve.c                       |  2 +-
+ net/ipv4/af_inet.c                         |  7 +++++++
+ net/ipv4/igmp.c                            |  6 ------
+ net/ipv4/ip_output.c                       |  8 +++++---
+ net/ipv4/udp.c                             |  2 +-
+ net/ipv6/ip6_output.c                      |  7 ++++---
+ net/packet/af_packet.c                     | 13 +++++++++----
+ net/sched/act_ipt.c                        |  2 +-
+ net/tipc/node.c                            |  4 +---
+ 10 files changed, 33 insertions(+), 22 deletions(-)
