@@ -1,74 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v4 05/12] Documentation: net: phy: Add phy-is-internal
- binding
-Date: Thu, 10 Aug 2017 02:20:41 +0200
-Message-ID: <20170810002041.GA10776@lunn.ch>
-References: <1502280475-736-1-git-send-email-david.wu@rock-chips.com>
- <1502280630-2254-1-git-send-email-david.wu@rock-chips.com>
- <778B0470-8ABD-46AD-A63D-F0CF4911C800@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/7] rtnetlink: allow selected handlers to
+ run without rtnl
+Date: Wed, 09 Aug 2017 17:21:14 -0700 (PDT)
+Message-ID: <20170809.172114.233866755819084584.davem@davemloft.net>
+References: <20170809184153.16700-1-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Wu <david.wu@rock-chips.com>, davem@davemloft.net,
-        heiko@sntech.de, robh+dt@kernel.org, mark.rutland@arm.com,
-        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
-        linux@armlinux.org.uk, arnd@arndb.de, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, huangtao@rock-chips.com,
-        hwg@rock-chips.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <778B0470-8ABD-46AD-A63D-F0CF4911C800@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48286 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752497AbdHJAVP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 20:21:15 -0400
+In-Reply-To: <20170809184153.16700-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 09, 2017 at 03:47:34PM -0700, Florian Fainelli wrote:
-> On August 9, 2017 5:10:30 AM PDT, David Wu <david.wu@rock-chips.com> wrote:
-> >Add the documentation for internal phy. A boolean property
-> >indicates that a internal phy will be used.
-> >
-> >Signed-off-by: David Wu <david.wu@rock-chips.com>
-> >---
-> > Documentation/devicetree/bindings/net/phy.txt | 3 +++
-> > 1 file changed, 3 insertions(+)
-> >
-> >diff --git a/Documentation/devicetree/bindings/net/phy.txt
-> >b/Documentation/devicetree/bindings/net/phy.txt
-> >index b558576..942c892 100644
-> >--- a/Documentation/devicetree/bindings/net/phy.txt
-> >+++ b/Documentation/devicetree/bindings/net/phy.txt
-> >@@ -52,6 +52,9 @@ Optional Properties:
-> >   Mark the corresponding energy efficient ethernet mode as broken and
-> >   request the ethernet to stop advertising it.
-> > 
-> >+- phy-is-internal: If set, indicates that phy will connect to the MAC
-> >as a
-> >+  internal phy.
+From: Florian Westphal <fw@strlen.de>
+Date: Wed,  9 Aug 2017 20:41:46 +0200
+
+> Changes since v1:
+>  In patch 6, don't make ipv6 route handlers lockless, they all have
+>  assumptions on rtnl being held.  Other patches are unchanged.
 > 
-> Something along the lines of:
+> The RTNL mutex is used to serialize both rtnetlink calls and
+> dump requests.
+> Its also used to protect other things such as the list of current
+> net namespaces.
 > 
-> If set, indicates that the PHY is integrated into the same physical package as the Ethernet MAC.
+> Unfortunately RTNL mutex is a performance issue, e.g. a cpu adding an
+> ip address prevents other cpus from seemingly unrelated tasks such as
+> dumping tc classifiers or doing rtnetlink route lookups.
+> 
+> This patch set adds basic infrastructure to start pushing the rtnl lock
+> down to those places that need it, or even elide it entirely in some cases.
+> 
+> Subsystems can now indicate that their doit() callback can run without
+> RTNL mutex, such callbacks can then run in parallel.
+> 
+> This will obviously need a lot of followup work; all current
+> users need to be audited/changed to benefit from this.
+> Initial no-rtnl spot is netns new/getid.
+> 
+> We have various 'get' handlers that are also a tempting target,
+> however, several of these depend on rtnl mutex to prevent information
+> from changing while objects are being read by rtnl handlers; however,
+> it doesn't appear impossible to change this.
+> 
+> Dumps are another problem entirely, see
+> commit 2907c35ff64708065 ("net: hold rtnl again in dump callbacks"),
+> this patchset doesn't touch dump requests.
 
-Hi Florian, David.
-
-I'm happy with the property name. But i think the text needs more
-description. We deal with Ethernet switches with integrated PHYs. Yet
-for us, this property is unneeded.
-
-Seeing this property means some bit of software needs to ensure the
-internal PHY should be used, when given the choice between an internal
-and external PHY. So i would say something like:
-
-    If set, indicates that the PHY is integrated into the same
-    physical package as the Ethernet MAC. If needed, muxers should be
-    configured to ensure the internal PHY is used. The absence of this
-    property indicates the muxers should be configured so that the
-    external PHY is used.
-
-This last part is important. If the bootloader has set the internal
-PHY to be used, you need to reset it. Otherwise we are going to get
-into a mess sometime later and need to add a phy-is-external property.
-
-     Andrew
+Ok series applied, let's see where this goes :-)
