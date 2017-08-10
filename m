@@ -1,58 +1,54 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH RFC net-next] net: Allow name change of IFF_UP interfaces
-Date: Thu, 10 Aug 2017 18:33:51 +0200
-Message-ID: <877eybs7ps.fsf@vitty.brq.redhat.com>
-References: <20170809104202.30959-1-vkuznets@redhat.com>
-        <CAPA1RqA0q3W-3PsqDpY8_xiBB18SCWTV1gT+BKOTqQfAA5D8Fg@mail.gmail.com>
-        <87efskye74.fsf@vitty.brq.redhat.com> <20170809161027.GA28694@lunn.ch>
-        <871sojyfv0.fsf@vitty.brq.redhat.com>
-        <1502355817.4936.9.camel@edumazet-glaptop3.roam.corp.google.com>
-        <87poc3wxkl.fsf@vitty.brq.redhat.com> <20170810141358.GD24790@lunn.ch>
-        <87lgmrsawo.fsf@vitty.brq.redhat.com> <20170810162722.GH24790@lunn.ch>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 1/3] dt-bindings: net: c_can: Update binding for clock
+ and power-domains property
+Date: Thu, 10 Aug 2017 11:35:58 -0500
+Message-ID: <20170810163558.todxrky4f4nve57x@rob-hp-laptop>
+References: <20170802201822.11532-1-fcooper@ti.com>
+ <20170802201822.11532-2-fcooper@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48636 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752967AbdHJQdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 10 Aug 2017 12:33:54 -0400
-In-Reply-To: <20170810162722.GH24790@lunn.ch> (Andrew Lunn's message of "Thu,
-        10 Aug 2017 18:27:22 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org, linux@armlinux.org.uk, linux-can@vger.kernel.org,
+ mkl@pengutronix.de, linux-arm-kernel@lists.infradead.org, ssantosh@kernel.org,
+ wg@grandegger.com
+To: Franklin S Cooper Jr <fcooper@ti.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20170802201822.11532-2-fcooper@ti.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Lunn <andrew@lunn.ch> writes:
+On Wed, Aug 02, 2017 at 03:18:20PM -0500, Franklin S Cooper Jr wrote:
+> CAN driver uses the clk_get_rate call to determine the frequency of the
+> functional clock. OMAP based SoCs do not require the clock property since
+> hwmod already handles creating a "fck" clock thats accessible to drivers.
 
-> On Thu, Aug 10, 2017 at 05:24:55PM +0200, Vitaly Kuznetsov wrote:
->> Andrew Lunn <andrew@lunn.ch> writes:
->> 
->> >> We are - rtnetlink_event() does the job. We, however, don't have a
->> >> special IFLA_EVENT_* for name change and end up with IFLA_EVENT_NONE.
->> >
->> > What is in this event? Old and new name? Just the new name?
->> 
->> Basically, it's everything we know about the interface - type, index,
->> name, mtu, qdisc, ... - see rtnl_fill_ifinfo(). Back to your question -
->> it's only the new name.
->
-> So the program needs to keep track of ifindex to know which interface
-> has changed name. Doable.
->
+that's
 
-Yes, and I'd expect that's what these daemons do nowdays to track name
-changes for down interfaces (if/when they care).
+> However, this isn't the case for 66AK2G which makes the clocks property
+> require for that SoC.
 
-> I still expect this has the potential to break something. You probably
-> should be asking on linux-api for the API experts opinion.
->
+required
 
-Good idea, I'll do RFCv2 submission.
+> 
+> 66AK2G requires a new property. Therefore, update the binding to also make
+> this property requirement clear. Also clarify that for OMAP based SoCs
+> ti,hwmod is a required property.
+> 
+> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+> ---
+>  Documentation/devicetree/bindings/net/can/c_can.txt | 13 ++++++++++++-
+>  1 file changed, 12 insertions(+), 1 deletion(-)
 
--- 
-  Vitaly
+Otherwise,
+
+Acked-by: Rob Herring <robh@kernel.org>
