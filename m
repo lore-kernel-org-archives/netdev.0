@@ -1,58 +1,48 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH 1/3] Documentation: bindings: Add documentation for
- phy-is-integrated
-Date: Thu, 10 Aug 2017 10:51:27 +0200
-Message-ID: <20170810085129.20463-2-clabbe.montjoie@gmail.com>
-References: <20170810085129.20463-1-clabbe.montjoie@gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [v2,01/20] ar5523: constify usb_device_id
+Date: Thu, 10 Aug 2017 08:57:20 +0000 (UTC)
+Message-ID: <20170810085720.2830F60132@smtp.codeaurora.org>
+References: <1502295823-20824-2-git-send-email-arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Corentin Labbe <clabbe.montjoie@gmail.com>,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- devicetree@vger.kernel.org
-To: robh+dt@kernel.org, mark.rutland@arm.com, linux@armlinux.org.uk,
- maxime.ripard@free-electrons.com, wens@csie.org, peppe.cavallaro@st.com,
- alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170810085129.20463-1-clabbe.montjoie@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: petkan@nucleusys.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502295823-20824-2-git-send-email-arvind.yadav.cs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds documentation for phy-is-integrated, a boolean property
-for PHY which permit to know if the PHY is integrated in the SoC.
+Arvind Yadav <arvind.yadav.cs@gmail.com> wrote:
 
-For example, Allwinner H3 embeds an internal PHY but still permit to
-connect an external PHY.
-Since it is possible in theory to have the same PHY model both internal
-and external, the only way to detect the location of the PHY is via this property.
+> usb_device_id are not supposed to change at runtime. All functions
+> working with usb_device_id provided by <linux/usb.h> work with
+> const usb_device_id. So mark the non-const structs as const.
+> 
+> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- Documentation/devicetree/bindings/net/phy.txt | 4 ++++
- 1 file changed, 4 insertions(+)
+17 patches applied to wireless-drivers-next.git, thanks.
 
-diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
-index b55857696fc3..6fabc14da432 100644
---- a/Documentation/devicetree/bindings/net/phy.txt
-+++ b/Documentation/devicetree/bindings/net/phy.txt
-@@ -52,6 +52,10 @@ Optional Properties:
-   Mark the corresponding energy efficient ethernet mode as broken and
-   request the ethernet to stop advertising it.
- 
-+- phy-is-integrated: If set, indicates that the PHY is integrated in the SoC
-+  and so is not an external PHY. (Some SoC embeds a PHY and still provide
-+  support for an optional external PHY)
-+
- Example:
- 
- ethernet-phy@0 {
+c5c60b2d577e ar5523: constify usb_device_id
+76f6a5c80a4b carl9170: constify usb_device_id
+22796d149229 at76c50x: constify usb_device_id
+c4291319b6fe orinoco: constify usb_device_id
+54c9f21605d8 p54: constify usb_device_id
+3673c417f509 libertas: constify usb_device_id
+8a3132fa6bbb libertas_tf: constify usb_device_id
+7516dbd470e3 mwifiex: constify usb_device_id
+e2717b312750 mt7601u: constify usb_device_id
+88ee79a1a11c rt2500usb: constify usb_device_id
+c7bb7d79cf4f rt2800usb: constify usb_device_id
+543e4f87508b rt73usb: constify usb_device_id
+e0b081b20523 rtl8187: constify usb_device_id
+5033d70de169 rtl8xxxu: constify usb_device_id
+3a55a4afd187 rtl8192cu: constify usb_device_id
+b924ffd7a4cd zd1201: constify usb_device_id
+ecf23a788e13 zd1211rw: constify usb_device_id
+
 -- 
-2.13.0
+https://patchwork.kernel.org/patch/9890989/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
