@@ -1,33 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: core: fix compile error inside
- flow_dissector due to new dsa callback
-Date: Thu, 10 Aug 2017 09:16:53 -0700 (PDT)
-Message-ID: <20170810.091653.1966810110752157678.davem@davemloft.net>
-References: <20170810080903.32231-1-john@phrozen.org>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next 3/6] rtnetlink: switch
+ rtnl_link_get_slave_info_data_size to rcu
+Date: Thu, 10 Aug 2017 10:17:07 -0600
+Message-ID: <66b0f2eb-1b32-f7f5-046d-93c4febd1a41@gmail.com>
+References: <20170810145302.30391-1-fw@strlen.de>
+ <20170810145302.30391-4-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, edumazet@google.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: john@phrozen.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170810080903.32231-1-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:38887 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753039AbdHJQRK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 12:17:10 -0400
+Received: by mail-pf0-f193.google.com with SMTP id h75so1064313pfh.5
+        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 09:17:09 -0700 (PDT)
+In-Reply-To: <20170810145302.30391-4-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: John Crispin <john@phrozen.org>
-Date: Thu, 10 Aug 2017 10:09:03 +0200
-
-> The following error was introduced by
-> commit 43e665287f93 ("net-next: dsa: fix flow dissection")
-> due to a missing #if guard
+On 8/10/17 8:52 AM, Florian Westphal wrote:
+> David Ahern reports following splat:
+>  RTNL: assertion failed at net/core/dev.c (5717)
+>  netdev_master_upper_dev_get+0x5f/0x70
+>  if_nlmsg_size+0x158/0x240
+>  rtnl_calcit.isra.26+0xa3/0xf0
 > 
-> net/core/flow_dissector.c: In function '__skb_flow_dissect':
-> net/core/flow_dissector.c:448:18: error: 'struct net_device' has no member named 'dsa_ptr'
-> ops = skb->dev->dsa_ptr->tag_ops;
->                 ^
-> make[3]: *** [net/core/flow_dissector.o] Error 1
+> rtnl_link_get_slave_info_data_size currently assumes RTNL protection, but
+> there appears to be no hard requirement for this, so use rcu instead.
 > 
-> Signed-off-by: John Crispin <john@phrozen.org>
+> At the time of this writing, there are three 'get_slave_size' callbacks
+> (now invoked under rcu): bond_get_slave_size, vrf_get_slave_size and
+> br_port_get_slave_size, all return constant only (i.e. they don't sleep).
+> 
+> Fixes: 6853dd488119 ("rtnetlink: protect handler table with rcu")
+> Reported-by: David Ahern <dsahern@gmail.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  net/core/rtnetlink.c | 16 ++++++++++++----
+>  1 file changed, 12 insertions(+), 4 deletions(-)
 
-Applied, thanks.
+Acked-by: David Ahern <dsahern@gmail.com>
