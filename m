@@ -1,69 +1,54 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next] net: xfrm: support setting an output mark.
-Date: Thu, 10 Aug 2017 12:56:47 +0200
-Message-ID: <20170810105647.GZ2631@secunet.com>
-References: <20170809170852.141745-1-lorenzo@google.com>
+From: "David.Wu" <david.wu@rock-chips.com>
+Subject: Re: [PATCH v4 05/12] Documentation: net: phy: Add phy-is-internal
+ binding
+Date: Thu, 10 Aug 2017 18:57:40 +0800
+Message-ID: <1bff1793-fe46-f263-fbf5-ef65ffbc5dc9@rock-chips.com>
+References: <1502280475-736-1-git-send-email-david.wu@rock-chips.com>
+ <1502280630-2254-1-git-send-email-david.wu@rock-chips.com>
+ <778B0470-8ABD-46AD-A63D-F0CF4911C800@gmail.com>
+ <20170810002041.GA10776@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-        <jhs@mojatatu.com>, <herbert@gondor.apana.org.au>
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:49694 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751373AbdHJK4u (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 10 Aug 2017 06:56:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20170809170852.141745-1-lorenzo@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=gbk; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, heiko@sntech.de, robh+dt@kernel.org,
+        mark.rutland@arm.com, catalin.marinas@arm.com, will.deacon@arm.com,
+        olof@lixom.net, linux@armlinux.org.uk, arnd@arndb.de,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        huangtao@rock-chips.com, hwg@rock-chips.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170810002041.GA10776@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 10, 2017 at 02:08:52AM +0900, Lorenzo Colitti wrote:
-> On systems that use mark-based routing it may be necessary for
-> routing lookups to use marks in order for packets to be routed
-> correctly. An example of such a system is Android, which uses
-> socket marks to route packets via different networks.
-> 
-> Currently, routing lookups in tunnel mode always use a mark of
-> zero, making routing incorrect on such systems.
-> 
-> This patch adds a new output_mark element to the xfrm state and
-> a corresponding XFRMA_OUTPUT_MARK netlink attribute. The output
-> mark differs from the existing xfrm mark in two ways:
-> 
-> 1. The xfrm mark is used to match xfrm policies and states, while
->    the xfrm output mark is used to set the mark (and influence
->    the routing) of the packets emitted by those states.
-> 2. The existing mark is constrained to be a subset of the bits of
->    the originating socket or transformed packet, but the output
->    mark is arbitrary and depends only on the state.
-> 
-> The use of a separate mark provides additional flexibility. For
-> example:
-> 
-> - A packet subject to two transforms (e.g., transport mode inside
->   tunnel mode) can have two different output marks applied to it,
->   one for the transport mode SA and one for the tunnel mode SA.
-> - On a system where socket marks determine routing, the packets
->   emitted by an IPsec tunnel can be routed based on a mark that
->   is determined by the tunnel, not by the marks of the
->   unencrypted packets.
-> - Support for setting the output marks can be introduced without
->   breaking any existing setups that employ both mark-based
->   routing and xfrm tunnel mode. Simply changing the code to use
->   the xfrm mark for routing output packets could xfrm mark could
->   change behaviour in a way that breaks these setups.
-> 
-> If the output mark is unspecified or set to zero, the mark is not
-> set or changed.
-> 
-> Tested: make allyesconfig; make -j64
-> Tested: https://android-review.googlesource.com/452776
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+Hi Andrew, Florian
 
-I'm fine with the patch, but it does not apply to ipsec-next.
-Could you rebase the patch onto:
+ÔÚ 2017/8/10 8:20, Andrew Lunn Ð´µÀ:
+> Hi Florian, David.
+> 
+> I'm happy with the property name. But i think the text needs more
+> description. We deal with Ethernet switches with integrated PHYs. Yet
+> for us, this property is unneeded.
+> 
+> Seeing this property means some bit of software needs to ensure the
+> internal PHY should be used, when given the choice between an internal
+> and external PHY. So i would say something like:
+> 
+>      If set, indicates that the PHY is integrated into the same
+>      physical package as the Ethernet MAC. If needed, muxers should be
+>      configured to ensure the (internal) PHY is used. The absence of this
+>      property indicates the muxers should be configured so that the
+>      external PHY is used.
 
-git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git
+Are we supposed to replace the words "internal" with "integrated" here?
+So we have three kinds of PHY, they are intenal, external and integrated 
+PHYs.
 
-Thanks!
+> 
+> This last part is important. If the bootloader has set the internal
+> PHY to be used, you need to reset it. Otherwise we are going to get
+> into a mess sometime later and need to add a phy-is-external property.
