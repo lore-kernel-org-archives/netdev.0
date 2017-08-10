@@ -1,7 +1,7 @@
 From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH v5 02/11] multi_v7_defconfig: Make rockchip PHY built-in
-Date: Thu, 10 Aug 2017 21:56:41 +0800
-Message-ID: <1502373410-2423-3-git-send-email-david.wu@rock-chips.com>
+Subject: [PATCH v5 05/11] Documentation: net: phy: Add phy-is-integrated binding
+Date: Thu, 10 Aug 2017 21:59:18 +0800
+Message-ID: <1502373558-2558-1-git-send-email-david.wu@rock-chips.com>
 References: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
         huangtao@rock-chips.com, hwg@rock-chips.com,
@@ -17,24 +17,35 @@ In-Reply-To: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Enable the rockchip PHY driver for multi_v7_defconfig builds.
+Add the documentation for integrated PHY. A boolean property indicates
+the PHY is integrated into the same physical package as the Ethernet
+MAC. If needed, muxers should be configured to ensure the integrated
+PHY is used. The absence of this property indicates the muxers should
+be configured so that the external PHY is used.
 
 Signed-off-by: David Wu <david.wu@rock-chips.com>
 ---
- arch/arm/configs/multi_v7_defconfig | 1 +
- 1 file changed, 1 insertion(+)
+change in v5:
+ - Use phy-is-integrated boolean property.
 
-diff --git a/arch/arm/configs/multi_v7_defconfig b/arch/arm/configs/multi_v7_defconfig
-index 4d19c1b..94d7e71 100644
---- a/arch/arm/configs/multi_v7_defconfig
-+++ b/arch/arm/configs/multi_v7_defconfig
-@@ -270,6 +270,7 @@ CONFIG_ICPLUS_PHY=y
- CONFIG_REALTEK_PHY=y
- CONFIG_MICREL_PHY=y
- CONFIG_FIXED_PHY=y
-+CONFIG_ROCKCHIP_PHY=y
- CONFIG_USB_PEGASUS=y
- CONFIG_USB_RTL8152=m
- CONFIG_USB_USBNET=y
+ Documentation/devicetree/bindings/net/phy.txt | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+index b558576..d3c24d5 100644
+--- a/Documentation/devicetree/bindings/net/phy.txt
++++ b/Documentation/devicetree/bindings/net/phy.txt
+@@ -52,6 +52,11 @@ Optional Properties:
+   Mark the corresponding energy efficient ethernet mode as broken and
+   request the ethernet to stop advertising it.
+ 
++- phy-is-integrated: If set, indicates that the PHY is integrated into the same
++  physical package as the Ethernet MAC. If needed, muxers should be configured
++  to ensure the integrated PHY is used. The absence of this property indicates
++  the muxers should be configured so that the external PHY is used.
++
+ Example:
+ 
+ ethernet-phy@0 {
 -- 
 1.9.1
