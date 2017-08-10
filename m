@@ -1,77 +1,98 @@
-From: Andreas Born <futur.andy@googlemail.com>
-Subject: [PATCH] bonding: require speed/duplex only for 802.3ad, alb and tlb
-Date: Thu, 10 Aug 2017 06:41:44 +0200
-Message-ID: <20170810044144.17398-1-futur.andy@googlemail.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-        Andreas Born <futur.andy@googlemail.com>
-To: netdev@vger.kernel.org
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH v1 net] TCP_USER_TIMEOUT and tcp_keepalive should conform
+ to RFC5482
+Date: Wed, 9 Aug 2017 21:59:14 -0700
+Message-ID: <CAPshTChOnTb8HyRfS5cqjcTjUCpHRvMMuG8WNgLTuhT9Z=+3qA@mail.gmail.com>
+References: <CAK6E8=ehu5uK6bsprzAQc-Nu6WS2YQEcktD0H2RrjgPpS47-Yg@mail.gmail.com>
+ <CAPshTCgaYVPEbZxDr9sUz7OFibweQn6fwRtP66cgw5eNrHUOWA@mail.gmail.com>
+ <CABGNeczGSsL6xj-SkXQYTWXXe+mJoyhvrQxuLkiO27pW0y8MtA@mail.gmail.com>
+ <20170809.173032.660035274684914457.davem@davemloft.net> <19024bb3-c06b-d004-5527-e4c54af66003@oracle.com>
+ <CAPshTCjs+Hie6xE6P10iB9ftLfhnpNJd0mEVdtSZ70gT6PVevQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>, codesoldier1@gmail.com,
+        Yuchung Cheng <ycheng@google.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Rao Shoaib <rao.shoaib@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:37160 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750837AbdHJEmZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 00:42:25 -0400
-Received: by mail-wm0-f65.google.com with SMTP id t138so1595617wmt.4
-        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 21:42:25 -0700 (PDT)
+Received: from mail-io0-f171.google.com ([209.85.223.171]:34469 "EHLO
+        mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750871AbdHJE7P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 00:59:15 -0400
+Received: by mail-io0-f171.google.com with SMTP id o9so5658852iod.1
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 21:59:15 -0700 (PDT)
+In-Reply-To: <CAPshTCjs+Hie6xE6P10iB9ftLfhnpNJd0mEVdtSZ70gT6PVevQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch c4adfc822bf5 ("bonding: make speed, duplex setting consistent
-with link state") puts the link state to down if
-bond_update_speed_duplex() cannot retrieve speed and duplex settings.
-Assumably the patch was written with 802.3ad mode in mind which relies
-on link speed/duplex settings. For other modes like active-backup these
-settings are not required. Thus, only for these other modes, this patch
-reintroduces support for slaves that do not support reporting speed or
-duplex such as wireless devices. This fixes the regression reported in
-bug 196547 (https://bugzilla.kernel.org/show_bug.cgi?id=196547).
+On Wed, Aug 9, 2017 at 8:32 PM, Jerry Chu <hkchu@google.com> wrote:
+> On Wed, Aug 9, 2017 at 5:47 PM, Rao Shoaib <rao.shoaib@oracle.com> wrote:
+>>
+>>
+>> On 08/09/2017 05:30 PM, David Miller wrote:
+>>>
+>>> From: Joe Smith <codesoldier1@gmail.com>
+>>> Date: Wed, 9 Aug 2017 17:20:32 -0700
+>>>
+>>>> Making Linux conform to standards and behavior that is logical seems
+>>>> like a good enough reason.
+>>>
+>>> That's an awesome attitude to have when we're implementing something
+>>> new and don't have the facility already.
+>>>
+>>> But when we have something already the only important consideration is
+>>> not breaking existing apps which rely on that behavior.
+>>>
+>>> That is much, much, more important than standards compliance.
+>>>
+>>> If users are confused, just fix the documentation.
+>>
+>> David,
+>>
+>> If it was just confusion than sure fixing the documentation is fine. What if
+>> the logic is incorrect, does not conform to the standard that is says it is
+>
+> Not sure what part of logic is "incorrect" when it was a homegrown Linux API
+> with no need to conform with any "standard"? Note that the new API was invented
+> 7 years ago not out of need for RFC5482. In fact I initially call the option
+> TCP_FAILFAST and did not even know the existence of RFC5482 until someone
+> around the same time proposed a UTO option specifically for RFC5482 and I
+> thought the two can be combined. (This is roughly the memory I can
+> recollect so far.)
+>
+> So you see my focus back then was to devise a "failfast" option whereas RFC5482
+> was meant for a "failslow" case. I think that explains why I let the
+> option override
+> keepalive so a TCP connection can "fail fast" while RFC5482 4.2 tries to prevent
+> keepalive failure ahead of UTO, favoring "fail slow".
+>
+> If we start from a clean slate then perhaps one can argue the semantic
+> either way
+> but we do not have a clean slate. For that I still slightly favor not
+> changing the code
+> because the risk of breakage is definitely non-zero and the issue you're having
+> seem to be only related to documentation.
 
-Fixes: c4adfc822bf5 ("bonding: make speed, duplex setting consistent
-with link state")
-Signed-off-by: Andreas Born <futur.andy@googlemail.com>
----
- drivers/net/bonding/bond_main.c | 6 ++++--
- include/net/bonding.h           | 5 +++++
- 2 files changed, 9 insertions(+), 2 deletions(-)
+One more thing - the proposed patch compares TCP_KEEPIDLE against
+TCP_USER_TIMEOUT. But I don't think TCP_KEEPIDLE is what the
+"keep-alive
+timer" referred to in RFC5482. Linux keepalive implementation seems to use #
+of retries (TCP_KEEPCNT) rather than time duration (keep-alive time) to
+determine when to quit. If that is the case then your proposed change is not
+fully "compliant" either and the best is probably just don't change.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 9bee6c1c70cc..85bb272d2a34 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1569,7 +1569,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	new_slave->delay = 0;
- 	new_slave->link_failure_count = 0;
- 
--	if (bond_update_speed_duplex(new_slave))
-+	if (bond_update_speed_duplex(new_slave) &&
-+	    bond_needs_speed_duplex(bond))
- 		new_slave->link = BOND_LINK_DOWN;
- 
- 	new_slave->last_rx = jiffies -
-@@ -2140,7 +2141,8 @@ static void bond_miimon_commit(struct bonding *bond)
- 			continue;
- 
- 		case BOND_LINK_UP:
--			if (bond_update_speed_duplex(slave)) {
-+			if (bond_update_speed_duplex(slave) &&
-+			    bond_needs_speed_duplex(bond)) {
- 				slave->link = BOND_LINK_DOWN;
- 				netdev_warn(bond->dev,
- 					    "failed to get link speed/duplex for %s\n",
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index b00508d22e0a..b2e68657a216 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -277,6 +277,11 @@ static inline bool bond_is_lb(const struct bonding *bond)
- 	       BOND_MODE(bond) == BOND_MODE_ALB;
- }
- 
-+static inline bool bond_needs_speed_duplex(const struct bonding *bond)
-+{
-+	return BOND_MODE(bond) == BOND_MODE_8023AD || bond_is_lb(bond);
-+}
-+
- static inline bool bond_is_nondyn_tlb(const struct bonding *bond)
- {
- 	return (BOND_MODE(bond) == BOND_MODE_TLB)  &&
--- 
-2.14.0
+>
+> Jerry
+>
+>> implementing and easy to fix with little or no risk of breakage.
+>>
+>> The proposed patch changes a feature that no one uses. It also imposes the
+>> relation ship between keepalive and timeout values that is required by the
+>> RFC and make sense.
+>>
+>> You are the final authority, if you say we should just fix the documentation
+>> than that is fine.
+>>
+>> Shoaib
+>>
