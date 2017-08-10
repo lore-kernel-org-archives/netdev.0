@@ -1,53 +1,251 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 1/6] rtnetlink: use rcu_dereference_raw to silence rcu splat
-Date: Thu, 10 Aug 2017 16:52:57 +0200
-Message-ID: <20170810145302.30391-2-fw@strlen.de>
+Subject: [PATCH net-next 6/6] selftests: add rtnetlink test script
+Date: Thu, 10 Aug 2017 16:53:02 +0200
+Message-ID: <20170810145302.30391-7-fw@strlen.de>
 References: <20170810145302.30391-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:46622 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:46644 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752091AbdHJOwt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 10:52:49 -0400
+        by vger.kernel.org with ESMTP id S1752728AbdHJOxG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 10:53:06 -0400
 In-Reply-To: <20170810145302.30391-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ido reports a rcu splat in __rtnl_register.
-The splat is correct; as rtnl_register doesn't grab any logs
-and doesn't use rcu locks either.  It has always been like this.
-handler families are not registered in parallel so there are no
-races wrt. the kmalloc ordering.
+add a simple script to exercise some rtnetlink call paths, so KASAN,
+lockdep etc. can yell at developer before patches are sent upstream.
 
-The only reason to use rcu_dereference in the first place was to
-avoid sparse from complaining about this.
+This can be extended to also cover bond, team, vrf and the like.
 
-Thus this switches to _raw() to not have rcu checks here.
-
-The alternative is to add rtnl locking to register/unregister,
-however, I don't see a compelling reason to do so as this has been
-lockless for the past twenty years or so.
-
-Fixes: 6853dd4881 ("rtnetlink: protect handler table with rcu")
-Reported-by: Ido Schimmel <idosch@idosch.org>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/core/rtnetlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+  This test crashes the kernel, fix is already queued here:
+  https://patchwork.ozlabs.org/patch/800144/
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index dd4e50dfa248..a5bc5bd0dc12 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -172,7 +172,7 @@ int __rtnl_register(int protocol, int msgtype,
- 	BUG_ON(protocol < 0 || protocol > RTNL_FAMILY_MAX);
- 	msgindex = rtm_msgindex(msgtype);
+ tools/testing/selftests/net/Makefile     |   2 +-
+ tools/testing/selftests/net/rtnetlink.sh | 199 +++++++++++++++++++++++++++++++
+ 2 files changed, 200 insertions(+), 1 deletion(-)
+ create mode 100755 tools/testing/selftests/net/rtnetlink.sh
+
+diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+index 6135a8448900..de1f5772b878 100644
+--- a/tools/testing/selftests/net/Makefile
++++ b/tools/testing/selftests/net/Makefile
+@@ -3,7 +3,7 @@
+ CFLAGS =  -Wall -Wl,--no-as-needed -O2 -g
+ CFLAGS += -I../../../../usr/include/
  
--	tab = rcu_dereference(rtnl_msg_handlers[protocol]);
-+	tab = rcu_dereference_raw(rtnl_msg_handlers[protocol]);
- 	if (tab == NULL) {
- 		tab = kcalloc(RTM_NR_MSGTYPES, sizeof(*tab), GFP_KERNEL);
- 		if (tab == NULL)
+-TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh
++TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh rtnetlink.sh
+ TEST_GEN_FILES =  socket
+ TEST_GEN_FILES += psock_fanout psock_tpacket
+ TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
+new file mode 100755
+index 000000000000..5b04ad912525
+--- /dev/null
++++ b/tools/testing/selftests/net/rtnetlink.sh
+@@ -0,0 +1,199 @@
++#!/bin/sh
++#
++# This test is for checking rtnetlink callpaths, and get as much coverage as possible.
++#
++# set -e
++
++devdummy="test-dummy0"
++ret=0
++
++# set global exit status, but never reset nonzero one.
++check_err()
++{
++	if [ $ret -eq 0 ]; then
++		ret=$1
++	fi
++}
++
++kci_add_dummy()
++{
++	ip link add name "$devdummy" type dummy
++	check_err $?
++	ip link set "$devdummy" up
++	check_err $?
++}
++
++kci_del_dummy()
++{
++	ip link del dev "$devdummy"
++	check_err $?
++}
++
++# add a bridge with vlans on top
++kci_test_bridge()
++{
++	devbr="test-br0"
++	vlandev="testbr-vlan1"
++
++	ret=0
++	ip link add name "$devbr" type bridge
++	check_err $?
++
++	ip link set dev "$devdummy" master "$devbr"
++	check_err $?
++
++	ip link set "$devbr" up
++	check_err $?
++
++	ip link add link "$devbr" name "$vlandev" type vlan id 1
++	check_err $?
++	ip addr add dev "$vlandev" 10.200.7.23/30
++	check_err $?
++	ip -6 addr add dev "$vlandev" dead:42::1234/64
++	check_err $?
++	ip -d link > /dev/null
++	check_err $?
++	ip r s t all > /dev/null
++	check_err $?
++	ip -6 addr del dev "$vlandev" dead:42::1234/64
++	check_err $?
++
++	ip link del dev "$vlandev"
++	check_err $?
++	ip link del dev "$devbr"
++	check_err $?
++
++	if [ $ret -ne 0 ];then
++		echo "FAIL: bridge setup"
++		return 1
++	fi
++	echo "PASS: bridge setup"
++
++}
++
++kci_test_gre()
++{
++	gredev=neta
++	rem=10.42.42.1
++	loc=10.0.0.1
++
++	ret=0
++	ip tunnel add $gredev mode gre remote $rem local $loc ttl 1
++	check_err $?
++	ip link set $gredev up
++	check_err $?
++	ip addr add 10.23.7.10 dev $gredev
++	check_err $?
++	ip route add 10.23.8.0/30 dev $gredev
++	check_err $?
++	ip addr add dev "$devdummy" 10.23.7.11/24
++	check_err $?
++	ip link > /dev/null
++	check_err $?
++	ip addr > /dev/null
++	check_err $?
++	ip addr del dev "$devdummy" 10.23.7.11/24
++	check_err $?
++
++	ip link del $gredev
++	check_err $?
++
++	if [ $ret -ne 0 ];then
++		echo "FAIL: gre tunnel endpoint"
++		return 1
++	fi
++	echo "PASS: gre tunnel endpoint"
++}
++
++# tc uses rtnetlink too, for full tc testing
++# please see tools/testing/selftests/tc-testing.
++kci_test_tc()
++{
++	dev=lo
++	ret=0
++
++	tc qdisc add dev "$dev" root handle 1: htb
++	check_err $?
++	tc class add dev "$dev" parent 1: classid 1:10 htb rate 1mbit
++	check_err $?
++	tc filter add dev "$dev" parent 1:0 prio 5 handle ffe: protocol ip u32 divisor 256
++	check_err $?
++	tc filter add dev "$dev" parent 1:0 prio 5 handle ffd: protocol ip u32 divisor 256
++	check_err $?
++	tc filter add dev "$dev" parent 1:0 prio 5 handle ffc: protocol ip u32 divisor 256
++	check_err $?
++	tc filter add dev "$dev" protocol ip parent 1: prio 5 handle ffe:2:3 u32 ht ffe:2: match ip src 10.0.0.3 flowid 1:10
++	check_err $?
++	tc filter add dev "$dev" protocol ip parent 1: prio 5 handle ffe:2:2 u32 ht ffe:2: match ip src 10.0.0.2 flowid 1:10
++	check_err $?
++	tc filter show dev "$dev" parent  1:0 > /dev/null
++	check_err $?
++	tc filter del dev "$dev" protocol ip parent 1: prio 5 handle ffe:2:3 u32
++	check_err $?
++	tc filter show dev "$dev" parent  1:0 > /dev/null
++	check_err $?
++	tc qdisc del dev "$dev" root handle 1: htb
++	check_err $?
++
++	if [ $ret -ne 0 ];then
++		echo "FAIL: tc htb hierarchy"
++		return 1
++	fi
++	echo "PASS: tc htb hierarchy"
++
++}
++
++kci_test_polrouting()
++{
++	ret=0
++	ip rule add fwmark 1 lookup 100
++	check_err $?
++	ip route add local 0.0.0.0/0 dev lo table 100
++	check_err $?
++	ip r s t all > /dev/null
++	check_err $?
++	ip rule del fwmark 1 lookup 100
++	check_err $?
++	ip route del local 0.0.0.0/0 dev lo table 100
++	check_err $?
++
++	if [ $ret -ne 0 ];then
++		echo "FAIL: policy route test"
++		return 1
++	fi
++	echo "PASS: policy routing"
++}
++
++kci_test_rtnl()
++{
++	kci_add_dummy
++	if [ $ret -ne 0 ];then
++		echo "FAIL: cannot add dummy interface"
++		return 1
++	fi
++
++	kci_test_polrouting
++	kci_test_tc
++	kci_test_gre
++	kci_test_bridge
++
++	kci_del_dummy
++}
++
++#check for needed privileges
++if [ "$(id -u)" -ne 0 ];then
++	echo "SKIP: Need root privileges"
++	exit 0
++fi
++
++for x in ip tc;do
++	$x -Version 2>/dev/null >/dev/null
++	if [ $? -ne 0 ];then
++		echo "SKIP: Could not run test without the $x tool"
++		exit 0
++	fi
++done
++
++kci_test_rtnl
++
++exit $ret
 -- 
 2.13.0
