@@ -1,70 +1,80 @@
-From: "Yuan, Linyu (NSB - CN/Shanghai)" <linyu.yuan@nokia-sbell.com>
-Subject: RE: [PATCH net-next] skbuff: Add BUG_ON in skb_init.
-Date: Thu, 10 Aug 2017 06:41:49 +0000
-Message-ID: <8729016553E3654398EA69218DA29EEF15C681AA@cnshjmbx02>
-References: <1502280278-9970-1-git-send-email-xiangxia.m.yue@gmail.com>
- <1502280278-9970-2-git-send-email-xiangxia.m.yue@gmail.com>
- <20170809.224939.550080421760909361.davem@davemloft.net>
- <CAMDZJNVFP=1f1r4fQN=dnQ4Ve8+VzGfY7cHUe6Vv8tsECUmraw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tonghao Zhang <xiangxia.m.yue@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:52872 "EHLO
-        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751412AbdHJG4y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 02:56:54 -0400
-In-Reply-To: <CAMDZJNVFP=1f1r4fQN=dnQ4Ve8+VzGfY7cHUe6Vv8tsECUmraw@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v2] net: stmmac: Use the right logging function in stmmac_mdio_register
+Date: Thu, 10 Aug 2017 09:38:26 +0200
+Message-ID: <20170810073826.24362-1-romain.perier@collabora.com>
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T3JpZ2luYWwgdGhpcyBmdW5jdGlvbiBoYXZlIHJldHVybiB2YWx1ZSBidXQgbm90IHVzZWQsIGFu
-ZCBjaGVjayBhbGxvY2F0ZSByZXN1bHQgaW50ZXJuYWwsIA0KV2hlbiBJIGNoYW5nZSB0aGlzIGZ1
-bmN0aW9uIHRvIHZvaWQgcmV0dXJuLCBJIGFkZCB0aGlzIEJVR19PTi4NCg0KPiAtLS0tLU9yaWdp
-bmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFtt
-YWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVoYWxmIE9mIFRvbmdo
-YW8gWmhhbmcNCj4gU2VudDogVGh1cnNkYXksIEF1Z3VzdCAxMCwgMjAxNyAyOjEwIFBNDQo+IFRv
-OiBEYXZpZCBNaWxsZXINCj4gQ2M6IExpbnV4IEtlcm5lbCBOZXR3b3JrIERldmVsb3BlcnMNCj4g
-U3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dF0gc2tidWZmOiBBZGQgQlVHX09OIGluIHNrYl9p
-bml0Lg0KPiANCj4gVGhhbmtzIGEgbG90LiBJIGZvdW5kIGl0IHdoZW4gcmV2aWV3aW5nIHRoaXMg
-Y29kZXMuIGFuZCBCVUdfT04gaXMNCj4gYWRkZWQgIGluIHRoZSBpbml0X2lub2RlY2FjaGUoKS4g
-V2UgbWF5IHJlbW92ZSBpdCBvciBub3QgPw0KPiANCj4gZGlmZiAtLWdpdCBhL25ldC9zb2NrZXQu
-YyBiL25ldC9zb2NrZXQuYw0KPiBpbmRleCBiMzMyZDFlLi5lYmVlM2VlIDEwMDY0NA0KPiAtLS0g
-YS9uZXQvc29ja2V0LmMNCj4gKysrIGIvbmV0L3NvY2tldC5jDQo+IEBAIC0yOTYsNyArMjk2LDYg
-QEAgc3RhdGljIHZvaWQgaW5pdF9pbm9kZWNhY2hlKHZvaWQpDQo+IA0KPiBTTEFCX1JFQ0xBSU1f
-QUNDT1VOVCB8DQo+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgU0xBQl9NRU1fU1BSRUFEDQo+IHwgU0xBQl9BQ0NPVU5UKSwNCj4gICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGluaXRfb25jZSk7DQo+IC0gICAgICAgQlVH
-X09OKHNvY2tfaW5vZGVfY2FjaGVwID09IE5VTEwpOw0KPiAgfQ0KPiANCj4gIHN0YXRpYyBjb25z
-dCBzdHJ1Y3Qgc3VwZXJfb3BlcmF0aW9ucyBzb2NrZnNfb3BzID0gew0KPiANCj4gT24gVGh1LCBB
-dWcgMTAsIDIwMTcgYXQgMTo0OSBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0
-Pg0KPiB3cm90ZToNCj4gPiBGcm9tOiBUb25naGFvIFpoYW5nIDx4aWFuZ3hpYS5tLnl1ZUBnbWFp
-bC5jb20+DQo+ID4gRGF0ZTogV2VkLCAgOSBBdWcgMjAxNyAwNTowNDozOCAtMDcwMA0KPiA+DQo+
-ID4+IFdoZW4gaW5pdGlhbGl6aW5nIHRoZSBza2J1ZmYgU0xBQiBjYWNoZSwgd2Ugc2hvdWxkIG1h
-a2UNCj4gPj4gc3VyZSBpdCBpcyBzdWNjZXNzZnVsLiBBZGRpbmcgQlVHX09OIHRvIGNoZWNrIGl0
-IGFuZA0KPiA+PiBpbml0X2lub2RlY2FjaGUoKSBpcyBpbiB0aGUgc2FtZSBjYXNlLg0KPiA+Pg0K
-PiA+PiBTaWduZWQtb2ZmLWJ5OiBUb25naGFvIFpoYW5nIDx4aWFuZ3hpYS5tLnl1ZUBnbWFpbC5j
-b20+DQo+ID4+IC0tLQ0KPiA+PiAgbmV0L2NvcmUvc2tidWZmLmMgfCAyICsrDQo+ID4+ICAxIGZp
-bGUgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspDQo+ID4+DQo+ID4+IGRpZmYgLS1naXQgYS9uZXQv
-Y29yZS9za2J1ZmYuYyBiL25ldC9jb3JlL3NrYnVmZi5jDQo+ID4+IGluZGV4IDQyYjYyYzcxNmEz
-My4uOTUxM2RlNTE5ODcwIDEwMDY0NA0KPiA+PiAtLS0gYS9uZXQvY29yZS9za2J1ZmYuYw0KPiA+
-PiArKysgYi9uZXQvY29yZS9za2J1ZmYuYw0KPiA+PiBAQCAtMzkwNCw2ICszOTA0LDggQEAgdm9p
-ZCBfX2luaXQgc2tiX2luaXQodm9pZCkNCj4gPj4gICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgIDAsDQo+ID4+DQo+IFNMQUJfSFdDQUNIRV9BTElHTnxTTEFCX1BB
-TklDLA0KPiA+PiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-TlVMTCk7DQo+ID4+ICsgICAgIEJVR19PTihza2J1ZmZfaGVhZF9jYWNoZSA9PSBOVUxMKTsNCj4g
-Pj4gKyAgICAgQlVHX09OKHNrYnVmZl9mY2xvbmVfY2FjaGUgPT0gTlVMTCk7DQo+ID4+ICB9DQo+
-ID4NCj4gPiBJIGtub3cgeW91IGd1eXMgd2FudCBldmVyeSBhbGxvY2F0aW9uIHRvIGJlIGV4cGxp
-Y2l0bHkgY2hlY2tlZCBzbyB0aGF0DQo+ID4gZXZlcnl0aGluZyBpcyBjb25zaXN0ZW50IGZvciBz
-dGF0aWMgY29kZSBhbmFseXNpcyBjaGVja2Vycy4NCj4gPg0KPiA+IEJ1dCB0aGlzIGlzIGp1c3Qg
-d2FzdGVkIGNvZGUuDQo+ID4NCj4gPiBUaGUgZmlyc3QgYWxsb2NhdGlvbiB3aWxsIHRha2UgYSBO
-VUxMIGRlcmVmZXJlbmNlIGFuZCB0aGUgYmFja3RyYWNlDQo+ID4gd2lsbCBtYWtlIGl0IGNvbXBs
-ZXRlbHkgY2xlYXIgd2hpY2ggU0xBQiBjYWNoZSB3YXMgTlVMTCBhbmQgY291bGRuJ3QNCj4gPiBi
-ZSBhbGxvY2F0ZWQuDQo+ID4NCj4gPiBTbyB0aGVyZSBpcyBubyByZWFsIHZhbHVlIHRvIGFkZGlu
-ZyB0aGVzZSBjaGVja3MuDQo+ID4NCj4gPiBTbyBJJ20gbm90IGFwcGx5aW5nIHRoaXMsIHNvcnJ5
-Lg0KPiA+DQo+ID4gVGhlIHNhbWUgbG9naWMgZ29lcyBmb3IgeW91ciBvdGhlciBwYXRjaCBvZiB0
-aGlzIG5hdHVyZS4NCj4gPg0K
+Currently, the function stmmac_mdio_register() is only used by
+stmmac_dvr_probe() from stmmac_main.c, in order to register the MDIO bus
+and probe information about the PHY. As this function is called before
+calling register_netdev(), all messages logged from stmmac_mdio_register
+are prefixed by "(unnamed net_device)". The goal of netdev_info or
+netdev_err is to dump useful infos about a net_device, when this data
+structure is partially initialized, there is no point for using these
+functions.
+
+This commit fixes the issue by replacing all netdev_*() by the
+corresponding dev_*() function for logging. The last netdev_info is
+replaced by phy_attached_info(), as a valid phydev can be used at this
+point.
+
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+---
+
+Changes in v2:
+- Replaced dev_info() by phy_attached_print()
+- Simplified message because informations were redudant
+- Updated commit message
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index db157a47000c..e0fbf8657103 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -204,6 +204,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+ 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
+ 	struct device_node *mdio_node = priv->plat->mdio_node;
++	struct device *dev = ndev->dev.parent;
+ 	int addr, found;
+ 
+ 	if (!mdio_bus_data)
+@@ -237,7 +238,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	else
+ 		err = mdiobus_register(new_bus);
+ 	if (err != 0) {
+-		netdev_err(ndev, "Cannot register the MDIO bus\n");
++		dev_err(dev, "Cannot register the MDIO bus\n");
+ 		goto bus_register_fail;
+ 	}
+ 
+@@ -285,14 +286,14 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 			irq_str = irq_num;
+ 			break;
+ 		}
+-		netdev_info(ndev, "PHY ID %08x at %d IRQ %s (%s)%s\n",
+-			    phydev->phy_id, addr, irq_str, phydev_name(phydev),
+-			    act ? " active" : "");
++		phy_attached_print(phydev, "PHY ID %08x IRQ %s %s\n",
++				   phydev->phy_id, irq_str,
++				   act ? " active" : "");
+ 		found = 1;
+ 	}
+ 
+ 	if (!found && !mdio_node) {
+-		netdev_warn(ndev, "No PHY found\n");
++		dev_warn(dev, "No PHY found\n");
+ 		mdiobus_unregister(new_bus);
+ 		mdiobus_free(new_bus);
+ 		return -ENODEV;
+-- 
+2.11.0
