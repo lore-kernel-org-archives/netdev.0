@@ -1,48 +1,84 @@
-From: John Stultz <john.stultz@linaro.org>
-Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
- count = 1
-Date: Wed, 9 Aug 2017 17:44:30 -0700
-Message-ID: <CALAqxLW6Gr67iP80F5OA8bhj8u2LTdbf31krF16Siek7C4DkHg@mail.gmail.com>
-References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
- <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com>
- <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
- <CALAqxLXv60ReJu26omM6p=ZboEm-Z-3w+q0JcxLXDqqK5ohNoQ@mail.gmail.com> <CAEA6p_AL8uUghtZgp4OmqygcFs-Jiy286P5r6tRd+yeSWxR3KA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        lkml <linux-kernel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux USB List <linux-usb@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Felipe Balbi <felipe.balbi@linux.intel.com>
-To: Wei Wang <weiwan@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEA6p_AL8uUghtZgp4OmqygcFs-Jiy286P5r6tRd+yeSWxR3KA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 03/10] netvsc: propagate MAC address change to VF slave
+Date: Wed,  9 Aug 2017 17:46:05 -0700
+Message-ID: <20170810004612.22163-4-sthemmin@microsoft.com>
+References: <20170810004612.22163-1-sthemmin@microsoft.com>
+Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
+To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:35382 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752219AbdHJAqS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 20:46:18 -0400
+Received: by mail-pg0-f50.google.com with SMTP id v189so34524839pgd.2
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 17:46:18 -0700 (PDT)
+In-Reply-To: <20170810004612.22163-1-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 9, 2017 at 5:36 PM, Wei Wang <weiwan@google.com> wrote:
->
-> Does your USB adapter get an IPv6 address?
+If VF is slaved to synthetic device, then any change to netvsc
+MAC address should be propagated to the slave device.
 
-Yes, it does.
+If slave device doesn't support MAC address change then it
+should also be an error to attempt to change synthetic NIC MAC
+address.
 
-> If you see the problem starts to happen on commit
-> 9514528d92d4cbe086499322370155ed69f5d06c, could you try reverting all
-> the following commits:
-> (from new to old)
-> 1eb04e7c9e63 net: reorder all the dst flags
-> a4c2fd7f7891 net: remove DST_NOCACHE flag
-> b2a9c0ed75a3 net: remove DST_NOGC flag
-> 5b7c9a8ff828 net: remove dst gc related code
-> db916649b5dd ipv6: get rid of icmp6 dst garbage collector
-> 587fea741134 ipv6: mark DST_NOGC and remove the operation of dst_free()
-> ad65a2f05695 ipv6: call dst_hold_safe() properly
-> 9514528d92d4 ipv6: call dst_dev_put() properly
->
-> and try if it starts to work?
+It also fixes the error unwind in the original code.
+If give a bad address, the old code would change the device
+MAC address anyway.
 
-I'll give that a shot!
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 26 +++++++++++++++-----------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
 
-Thanks so much for the help! I really appreciate it!
--john
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index e059375a6d8c..07015b1c42c6 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1053,27 +1053,31 @@ static void netvsc_get_stats64(struct net_device *net,
+ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
+ {
+ 	struct net_device_context *ndc = netdev_priv(ndev);
++	struct net_device *vf_netdev = rtnl_dereference(ndc->vf_netdev);
+ 	struct netvsc_device *nvdev = rtnl_dereference(ndc->nvdev);
+ 	struct sockaddr *addr = p;
+-	char save_adr[ETH_ALEN];
+-	unsigned char save_aatype;
+ 	int err;
+ 
+-	memcpy(save_adr, ndev->dev_addr, ETH_ALEN);
+-	save_aatype = ndev->addr_assign_type;
+-
+-	err = eth_mac_addr(ndev, p);
+-	if (err != 0)
++	err = eth_prepare_mac_addr_change(ndev, p);
++	if (err)
+ 		return err;
+ 
+ 	if (!nvdev)
+ 		return -ENODEV;
+ 
++	if (vf_netdev) {
++		err = dev_set_mac_address(vf_netdev, addr);
++		if (err)
++			return err;
++	}
++
+ 	err = rndis_filter_set_device_mac(nvdev, addr->sa_data);
+-	if (err != 0) {
+-		/* roll back to saved MAC */
+-		memcpy(ndev->dev_addr, save_adr, ETH_ALEN);
+-		ndev->addr_assign_type = save_aatype;
++	if (!err) {
++		eth_commit_mac_addr_change(ndev, p);
++	} else if (vf_netdev) {
++		/* rollback change on VF */
++		memcpy(addr->sa_data, ndev->dev_addr, ETH_ALEN);
++		dev_set_mac_address(vf_netdev, addr);
+ 	}
+ 
+ 	return err;
+-- 
+2.11.0
