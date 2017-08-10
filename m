@@ -1,7 +1,7 @@
 From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: [PATCH v4 1/4] can: dev: Add support for limiting configured bitrate
-Date: Wed, 9 Aug 2017 19:59:13 -0500
-Message-ID: <20170810005916.27163-2-fcooper@ti.com>
+Subject: [PATCH v4 3/4] dt-bindings: can: m_can: Document new can transceiver binding
+Date: Wed, 9 Aug 2017 19:59:15 -0500
+Message-ID: <20170810005916.27163-4-fcooper@ti.com>
 References: <20170810005916.27163-1-fcooper@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,129 +17,43 @@ In-Reply-To: <20170810005916.27163-1-fcooper@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Various CAN or CAN-FD IP may be able to run at a faster rate than
-what the transceiver the CAN node is connected to. This can lead to
-unexpected errors. However, CAN transceivers typically have fixed
-limitations and provide no means to discover these limitations at
-runtime. Therefore, add support for a can-transceiver node that
-can be reused by other CAN peripheral drivers to determine for both
-CAN and CAN-FD what the max bitrate that can be used. If the user
-tries to configure CAN to pass these maximum bitrates it will throw
-an error.
+Add information regarding can-transceiver binding. This is especially
+important for MCAN since the IP allows CAN FD mode to run significantly
+faster than what most transceivers are capable of.
 
 Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
 ---
-Version 4 changes:
-Used can-transceiver instead of fixed-transceiver.
+Drop unit address.
+Switch from using fixed-transceiver to can-transceiver
+Indicate that can-transceiver is an optional subnode not a property.
 
- drivers/net/can/dev.c   | 50 +++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/can/dev.h |  5 +++++
- 2 files changed, 55 insertions(+)
+ Documentation/devicetree/bindings/net/can/m_can.txt | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index 365a8cc..372108f 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -27,6 +27,7 @@
- #include <linux/can/skb.h>
- #include <linux/can/netlink.h>
- #include <linux/can/led.h>
-+#include <linux/of.h>
- #include <net/rtnetlink.h>
+diff --git a/Documentation/devicetree/bindings/net/can/m_can.txt b/Documentation/devicetree/bindings/net/can/m_can.txt
+index 9e33177..ee90aac 100644
+--- a/Documentation/devicetree/bindings/net/can/m_can.txt
++++ b/Documentation/devicetree/bindings/net/can/m_can.txt
+@@ -43,6 +43,11 @@ Required properties:
+ 			  Please refer to 2.4.1 Message RAM Configuration in
+ 			  Bosch M_CAN user manual for details.
  
- #define MOD_DESC "CAN device driver interface"
-@@ -814,6 +815,39 @@ int open_candev(struct net_device *dev)
- }
- EXPORT_SYMBOL_GPL(open_candev);
- 
-+#ifdef CONFIG_OF
-+/*
-+ * Common function that can be used to understand the limitation of
-+ * a transceiver when it provides no means to determine these limitations
-+ * at runtime.
-+ */
-+void of_can_transceiver(struct net_device *dev)
-+{
-+	struct device_node *dn;
-+	struct can_priv *priv = netdev_priv(dev);
-+	struct device_node *np;
-+	unsigned int max_bitrate;
-+	int ret;
++Optional Subnode:
++- can-transceiver	: Can-transceiver subnode describing maximum speed
++			  that can be used for CAN/CAN-FD modes. See
++			  Documentation/devicetree/bindings/net/can/can-transceiver.txt
++			  for details.
+ Example:
+ SoC dtsi:
+ m_can1: can@020e8000 {
+@@ -64,4 +69,8 @@ Board dts:
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&pinctrl_m_can1>;
+ 	status = "enabled";
 +
-+	np = dev->dev.parent->of_node;
-+
-+	dn = of_get_child_by_name(np, "can-transceiver");
-+	if (!dn)
-+		return;
-+
-+	max_bitrate = 0;
-+	ret = of_property_read_u32(dn, "max-bitrate", &max_bitrate);
-+
-+	if (max_bitrate > 0) {
-+		priv->max_bitrate = max_bitrate;
-+		priv->is_bitrate_limited = true;
-+	} else if (ret != -EINVAL) {
-+		netdev_warn(dev, "Invalid value for transceiver max bitrate\n");
-+	}
-+}
-+EXPORT_SYMBOL(of_can_transceiver);
-+#endif
-+
- /*
-  * Common close function for cleanup before the device gets closed.
-  *
-@@ -913,6 +947,14 @@ static int can_changelink(struct net_device *dev, struct nlattr *tb[],
- 					priv->bitrate_const_cnt);
- 		if (err)
- 			return err;
-+
-+		if (priv->is_bitrate_limited &&
-+		    bt.bitrate > priv->max_bitrate) {
-+			netdev_err(dev, "arbitration bitrate surpasses transceiver capabilities of %d bps\n",
-+				   priv->max_bitrate);
-+			return -EINVAL;
-+		}
-+
- 		memcpy(&priv->bittiming, &bt, sizeof(bt));
- 
- 		if (priv->do_set_bittiming) {
-@@ -997,6 +1039,14 @@ static int can_changelink(struct net_device *dev, struct nlattr *tb[],
- 					priv->data_bitrate_const_cnt);
- 		if (err)
- 			return err;
-+
-+		if (priv->is_bitrate_limited &&
-+		    dbt.bitrate > priv->max_bitrate) {
-+			netdev_err(dev, "canfd data bitrate surpasses transceiver capabilities of %d bps\n",
-+				   priv->max_bitrate);
-+			return -EINVAL;
-+		}
-+
- 		memcpy(&priv->data_bittiming, &dbt, sizeof(dbt));
- 
- 		if (priv->do_set_data_bittiming) {
-diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
-index 141b05a..5519f59 100644
---- a/include/linux/can/dev.h
-+++ b/include/linux/can/dev.h
-@@ -47,6 +47,9 @@ struct can_priv {
- 	unsigned int data_bitrate_const_cnt;
- 	struct can_clock clock;
- 
-+	unsigned int max_bitrate;
-+	bool is_bitrate_limited;
-+
- 	enum can_state state;
- 
- 	/* CAN controller features - see include/uapi/linux/can/netlink.h */
-@@ -165,6 +168,8 @@ void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev,
- unsigned int can_get_echo_skb(struct net_device *dev, unsigned int idx);
- void can_free_echo_skb(struct net_device *dev, unsigned int idx);
- 
-+void of_can_transceiver(struct net_device *dev);
-+
- struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf);
- struct sk_buff *alloc_canfd_skb(struct net_device *dev,
- 				struct canfd_frame **cfd);
++	can-transceiver@ {
++		max-bitrate = <5000000>;
++	};
+ };
 -- 
 2.9.4.dirty
