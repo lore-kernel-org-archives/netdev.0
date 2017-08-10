@@ -1,62 +1,57 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net] packet: fix tp_reserve race in packet_set_ring
-Date: Thu, 10 Aug 2017 12:41:58 -0400
-Message-ID: <20170810164158.52213-1-willemdebruijn.kernel@gmail.com>
-Cc: davem@davemloft.net, andreyknvl@gmail.com,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC net-next] net: Allow name change of IFF_UP
+ interfaces
+Date: Thu, 10 Aug 2017 09:48:03 -0700 (PDT)
+Message-ID: <20170810.094803.1621536453262110983.davem@davemloft.net>
+References: <20170810141358.GD24790@lunn.ch>
+        <87lgmrsawo.fsf@vitty.brq.redhat.com>
+        <20170810162722.GH24790@lunn.ch>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vkuznets@redhat.com, eric.dumazet@gmail.com,
+        netdev@vger.kernel.org, edumazet@google.com,
+        stephen@networkplumber.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:38471 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753396AbdHJQm1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 12:42:27 -0400
-Received: by mail-qt0-f194.google.com with SMTP id p3so1225737qtg.5
-        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 09:42:26 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:33174 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753319AbdHJQsF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 12:48:05 -0400
+In-Reply-To: <20170810162722.GH24790@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Thu, 10 Aug 2017 18:27:22 +0200
 
-Updates to tp_reserve can race with reads of the field in
-packet_set_ring. Avoid this by holding the socket lock during
-updates in setsockopt PACKET_RESERVE.
+> On Thu, Aug 10, 2017 at 05:24:55PM +0200, Vitaly Kuznetsov wrote:
+>> Andrew Lunn <andrew@lunn.ch> writes:
+>> 
+>> >> We are - rtnetlink_event() does the job. We, however, don't have a
+>> >> special IFLA_EVENT_* for name change and end up with IFLA_EVENT_NONE.
+>> >
+>> > What is in this event? Old and new name? Just the new name?
+>> 
+>> Basically, it's everything we know about the interface - type, index,
+>> name, mtu, qdisc, ... - see rtnl_fill_ifinfo(). Back to your question -
+>> it's only the new name.
+> 
+> So the program needs to keep track of ifindex to know which interface
+> has changed name. Doable.
+> 
+> I still expect this has the potential to break something. You probably
+> should be asking on linux-api for the API experts opinion.
 
-This bug was discovered by syzkaller.
+But a greater point is that nobody is monitoring device renames
+explicitly right now.
 
-Fixes: 8913336a7e8d ("packet: add PACKET_RESERVE sockopt")
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/packet/af_packet.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+It's hard to legitimize imposing new requirements like this on daemons
+which didn't exist before.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 0615c2a950fa..008a45ca3112 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3700,14 +3700,19 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 
- 		if (optlen != sizeof(val))
- 			return -EINVAL;
--		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec)
--			return -EBUSY;
- 		if (copy_from_user(&val, optval, sizeof(val)))
- 			return -EFAULT;
- 		if (val > INT_MAX)
- 			return -EINVAL;
--		po->tp_reserve = val;
--		return 0;
-+		lock_sock(sk);
-+		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec) {
-+			ret = -EBUSY;
-+		} else {
-+			po->tp_reserve = val;
-+			ret = 0;
-+		}
-+		release_sock(sk);
-+		return ret;
- 	}
- 	case PACKET_LOSS:
- 	{
--- 
-2.14.0.434.g98096fd7a8-goog
+If they could assume the name didn't change, they probably are doing
+so.
+
+You can't expect that just because they might already be listening to
+this event for device up and down tracking that they are handling
+device renames.
