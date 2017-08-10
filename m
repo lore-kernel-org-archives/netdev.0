@@ -1,44 +1,44 @@
-From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: [PATCH v4 4/4] can: m_can: Add call to of_can_transceiver
-Date: Wed, 9 Aug 2017 19:59:16 -0500
-Message-ID: <20170810005916.27163-5-fcooper@ti.com>
-References: <20170810005916.27163-1-fcooper@ti.com>
+From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Subject: Re: [PATCH net-next] net: skb_needs_check() removes CHECKSUM_NONE
+ check for tx.
+Date: Thu, 10 Aug 2017 09:02:53 +0800
+Message-ID: <CAMDZJNUMdKvKLJGtwg-3dMf_CPiX56x5b17A8H3oW2m=fkWAUw@mail.gmail.com>
+References: <1502280278-9970-1-git-send-email-xiangxia.m.yue@gmail.com> <CAF=yD-JjaDFy4pOeJ5Lh2em9MgK6jjNxSfc5MkZZ=L6cu9be4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Franklin S Cooper Jr <fcooper@ti.com>
-To: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
-        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
-        <quentin.schulz@free-electrons.com>,
-        <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>,
-        <sergei.shtylyov@cogentembedded.com>, <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20170810005916.27163-1-fcooper@ti.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:34541 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752197AbdHJBCy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 21:02:54 -0400
+Received: by mail-oi0-f68.google.com with SMTP id v11so7272072oif.1
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 18:02:54 -0700 (PDT)
+In-Reply-To: <CAF=yD-JjaDFy4pOeJ5Lh2em9MgK6jjNxSfc5MkZZ=L6cu9be4Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add call to new generic functions that provides support via a binding
-to limit the arbitration rate and/or data rate imposed by the physical
-transceiver connected to the MCAN peripheral.
+Thanks for your work.
 
-Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
----
- drivers/net/can/m_can/m_can.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index f4947a7..f72116e 100644
---- a/drivers/net/can/m_can/m_can.c
-+++ b/drivers/net/can/m_can/m_can.c
-@@ -1649,6 +1649,8 @@ static int m_can_plat_probe(struct platform_device *pdev)
- 
- 	devm_can_led_init(dev);
- 
-+	of_can_transceiver(dev);
-+
- 	dev_info(&pdev->dev, "%s device registered (irq=%d, version=%d)\n",
- 		 KBUILD_MODNAME, dev->irq, priv->version);
- 
--- 
-2.9.4.dirty
-
+On Thu, Aug 10, 2017 at 2:30 AM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> On Wed, Aug 9, 2017 at 5:04 AM, Tonghao Zhang <xiangxia.m.yue@gmail.com> wrote:
+>> This patch reverts the commit 6e7bc478c9a0
+>> ("net: skb_needs_check() accepts CHECKSUM_NONE for tx"),
+>> because we removed the UFO support.
+>>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: Willem de Bruijn <willemb@google.com>
+>> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+>
+>
+> I would wait until net is merged into net-next. This will cause a conflict.
+>
+> Also, while logically equivalent, it is not a real revert (as in `git
+> revert $SHA1`) of that patch.
+>
+> Aside from those concerns, I agree that the original patch is no
+> longer needed now that UFO is reverted.
