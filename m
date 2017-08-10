@@ -1,39 +1,71 @@
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Subject: [PATCH 1/1] forcedeth: replace init_timer_deferrable with setup_deferrable_timer
-Date: Thu, 10 Aug 2017 04:13:12 -0400
-Message-ID: <1502352792-6930-1-git-send-email-yanjun.zhu@oracle.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH v2 net-next 5/7] rtnetlink: protect handler table with rcu
+Date: Thu, 10 Aug 2017 11:26:47 +0300
+Message-ID: <20170810082647.GA11516@splinter>
+References: <20170809184153.16700-1-fw@strlen.de>
+ <20170809184153.16700-6-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:43863 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750735AbdHJILS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 04:11:18 -0400
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:37373 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752417AbdHJI0w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 04:26:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20170809184153.16700-6-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace init_timer_deferrable with setup_deferrable_timer to simplify
-the source code.
+On Wed, Aug 09, 2017 at 08:41:51PM +0200, Florian Westphal wrote:
+> Note that netlink dumps still acquire rtnl mutex via the netlink
+> dump infrastructure.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
----
- drivers/net/ethernet/nvidia/forcedeth.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+Florian, can you please check the following splat? I didn't bisect, but
+looks like it's related to this patch.
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index aa912f4..bdbfe8f 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -5629,9 +5629,8 @@ static int nv_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
- 
- 	setup_timer(&np->oom_kick, nv_do_rx_refill, (unsigned long)dev);
- 	setup_timer(&np->nic_poll, nv_do_nic_poll, (unsigned long)dev);
--	init_timer_deferrable(&np->stats_poll);
--	np->stats_poll.data = (unsigned long) dev;
--	np->stats_poll.function = nv_do_stats_poll;	/* timer handler */
-+	setup_deferrable_timer(&np->stats_poll, nv_do_stats_poll,
-+			       (unsigned long)dev);
- 
- 	err = pci_enable_device(pci_dev);
- 	if (err)
--- 
-2.7.4
+Thanks
+
+[    2.940093] =============================
+[    2.944145] WARNING: suspicious RCU usage
+[    2.948147] 4.13.0-rc4-idosch-next-custom #565 Not tainted
+[    2.954116] -----------------------------
+[    2.958113] net/core/rtnetlink.c:175 suspicious rcu_dereference_check() usage!
+[    2.965116]
+[    2.965116] other info that might help us debug this:
+[    2.965116]
+[    2.973123]
+[    2.973123] rcu_scheduler_active = 1, debug_locks = 1
+[    2.979119] no locks held by swapper/0/1.
+[    2.983109]
+[    2.983109] stack backtrace:
+[    2.988117] CPU: 1 PID: 1 Comm: swapper/0 Not tainted 4.13.0-rc4-idosch-next-custom #565
+[    2.989000] Hardware name: Mellanox Technologies Ltd. Mellanox switch/Mellanox switch, BIOS 4.6.5 05/21/2015
+[    2.989000] Call Trace:
+[    2.989000]  dump_stack+0xb1/0x10c
+[    2.989000]  ? _atomic_dec_and_lock+0x124/0x124
+[    2.989000]  ? lockdep_print_held_locks+0x9b/0xf0
+[    2.989000]  lockdep_rcu_suspicious+0xdd/0x110
+[    2.989000]  __rtnl_register+0x1c1/0x320
+[    2.989000]  ? rtnetlink_bind+0x50/0x50
+[    2.989000]  ? net_defaults_init+0x29/0x29
+[    2.989000]  rtnl_register+0x11/0x30
+[    2.989000]  net_ns_init+0x1bd/0x1fd
+[    2.989000]  ? net_defaults_init+0x29/0x29
+[    2.989000]  ? __init_srcu_struct+0x54/0x60
+[    2.989000]  ? srcu_init_notifier_head+0x4a/0x80
+[    2.989000]  do_one_initcall+0x9a/0x241
+[    2.989000]  ? initcall_blacklisted+0x140/0x140
+[    2.989000]  ? up_read+0x40/0x40
+[    2.989000]  ? _raw_spin_unlock_irqrestore+0x3d/0x60
+[    2.989000]  ? __wake_up+0x3f/0x50
+[    2.989000]  kernel_init_freeable+0x3ea/0x485
+[    2.989000]  ? rest_init+0x100/0x100
+[    2.989000]  kernel_init+0xe/0x140
+[    2.989000]  ? rest_init+0x100/0x100
+[    2.989000]  ? rest_init+0x100/0x100
+[    2.989000]  ret_from_fork+0x27/0x40
