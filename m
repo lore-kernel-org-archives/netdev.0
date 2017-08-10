@@ -1,251 +1,83 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 6/6] selftests: add rtnetlink test script
-Date: Thu, 10 Aug 2017 16:53:02 +0200
-Message-ID: <20170810145302.30391-7-fw@strlen.de>
-References: <20170810145302.30391-1-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:46644 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752728AbdHJOxG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 10:53:06 -0400
-In-Reply-To: <20170810145302.30391-1-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v3] net: stmmac: Use the right logging function in stmmac_mdio_register
+Date: Thu, 10 Aug 2017 16:56:05 +0200
+Message-ID: <20170810145605.27048-1-romain.perier@collabora.com>
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-add a simple script to exercise some rtnetlink call paths, so KASAN,
-lockdep etc. can yell at developer before patches are sent upstream.
+Currently, the function stmmac_mdio_register() is only used by
+stmmac_dvr_probe() from stmmac_main.c, in order to register the MDIO bus
+and probe information about the PHY. As this function is called before
+calling register_netdev(), all messages logged from stmmac_mdio_register
+are prefixed by "(unnamed net_device)". The goal of netdev_info or
+netdev_err is to dump useful infos about a net_device, when this data
+structure is partially initialized, there is no point for using these
+functions.
 
-This can be extended to also cover bond, team, vrf and the like.
+This commit fixes the issue by replacing all netdev_*() by the
+corresponding dev_*() function for logging. The last netdev_info is
+replaced by phy_attached_info(), as a valid phydev can be used at this
+point.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
-  This test crashes the kernel, fix is already queued here:
-  https://patchwork.ozlabs.org/patch/800144/
 
- tools/testing/selftests/net/Makefile     |   2 +-
- tools/testing/selftests/net/rtnetlink.sh | 199 +++++++++++++++++++++++++++++++
- 2 files changed, 200 insertions(+), 1 deletion(-)
- create mode 100755 tools/testing/selftests/net/rtnetlink.sh
+Changes in v3:
+- Replaced phy_attached_print by phy_attached_info, makes more sense
+- Added Reviewed-by tag by Andrew
 
-diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-index 6135a8448900..de1f5772b878 100644
---- a/tools/testing/selftests/net/Makefile
-+++ b/tools/testing/selftests/net/Makefile
-@@ -3,7 +3,7 @@
- CFLAGS =  -Wall -Wl,--no-as-needed -O2 -g
- CFLAGS += -I../../../../usr/include/
+Changes in v2:
+- Replaced dev_info() by phy_attached_print()
+- Simplified message because informations were redudant
+- Updated commit message
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index db157a47000c..72ec711fcba2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -204,6 +204,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+ 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
+ 	struct device_node *mdio_node = priv->plat->mdio_node;
++	struct device *dev = ndev->dev.parent;
+ 	int addr, found;
  
--TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh
-+TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh rtnetlink.sh
- TEST_GEN_FILES =  socket
- TEST_GEN_FILES += psock_fanout psock_tpacket
- TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
-diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
-new file mode 100755
-index 000000000000..5b04ad912525
---- /dev/null
-+++ b/tools/testing/selftests/net/rtnetlink.sh
-@@ -0,0 +1,199 @@
-+#!/bin/sh
-+#
-+# This test is for checking rtnetlink callpaths, and get as much coverage as possible.
-+#
-+# set -e
-+
-+devdummy="test-dummy0"
-+ret=0
-+
-+# set global exit status, but never reset nonzero one.
-+check_err()
-+{
-+	if [ $ret -eq 0 ]; then
-+		ret=$1
-+	fi
-+}
-+
-+kci_add_dummy()
-+{
-+	ip link add name "$devdummy" type dummy
-+	check_err $?
-+	ip link set "$devdummy" up
-+	check_err $?
-+}
-+
-+kci_del_dummy()
-+{
-+	ip link del dev "$devdummy"
-+	check_err $?
-+}
-+
-+# add a bridge with vlans on top
-+kci_test_bridge()
-+{
-+	devbr="test-br0"
-+	vlandev="testbr-vlan1"
-+
-+	ret=0
-+	ip link add name "$devbr" type bridge
-+	check_err $?
-+
-+	ip link set dev "$devdummy" master "$devbr"
-+	check_err $?
-+
-+	ip link set "$devbr" up
-+	check_err $?
-+
-+	ip link add link "$devbr" name "$vlandev" type vlan id 1
-+	check_err $?
-+	ip addr add dev "$vlandev" 10.200.7.23/30
-+	check_err $?
-+	ip -6 addr add dev "$vlandev" dead:42::1234/64
-+	check_err $?
-+	ip -d link > /dev/null
-+	check_err $?
-+	ip r s t all > /dev/null
-+	check_err $?
-+	ip -6 addr del dev "$vlandev" dead:42::1234/64
-+	check_err $?
-+
-+	ip link del dev "$vlandev"
-+	check_err $?
-+	ip link del dev "$devbr"
-+	check_err $?
-+
-+	if [ $ret -ne 0 ];then
-+		echo "FAIL: bridge setup"
-+		return 1
-+	fi
-+	echo "PASS: bridge setup"
-+
-+}
-+
-+kci_test_gre()
-+{
-+	gredev=neta
-+	rem=10.42.42.1
-+	loc=10.0.0.1
-+
-+	ret=0
-+	ip tunnel add $gredev mode gre remote $rem local $loc ttl 1
-+	check_err $?
-+	ip link set $gredev up
-+	check_err $?
-+	ip addr add 10.23.7.10 dev $gredev
-+	check_err $?
-+	ip route add 10.23.8.0/30 dev $gredev
-+	check_err $?
-+	ip addr add dev "$devdummy" 10.23.7.11/24
-+	check_err $?
-+	ip link > /dev/null
-+	check_err $?
-+	ip addr > /dev/null
-+	check_err $?
-+	ip addr del dev "$devdummy" 10.23.7.11/24
-+	check_err $?
-+
-+	ip link del $gredev
-+	check_err $?
-+
-+	if [ $ret -ne 0 ];then
-+		echo "FAIL: gre tunnel endpoint"
-+		return 1
-+	fi
-+	echo "PASS: gre tunnel endpoint"
-+}
-+
-+# tc uses rtnetlink too, for full tc testing
-+# please see tools/testing/selftests/tc-testing.
-+kci_test_tc()
-+{
-+	dev=lo
-+	ret=0
-+
-+	tc qdisc add dev "$dev" root handle 1: htb
-+	check_err $?
-+	tc class add dev "$dev" parent 1: classid 1:10 htb rate 1mbit
-+	check_err $?
-+	tc filter add dev "$dev" parent 1:0 prio 5 handle ffe: protocol ip u32 divisor 256
-+	check_err $?
-+	tc filter add dev "$dev" parent 1:0 prio 5 handle ffd: protocol ip u32 divisor 256
-+	check_err $?
-+	tc filter add dev "$dev" parent 1:0 prio 5 handle ffc: protocol ip u32 divisor 256
-+	check_err $?
-+	tc filter add dev "$dev" protocol ip parent 1: prio 5 handle ffe:2:3 u32 ht ffe:2: match ip src 10.0.0.3 flowid 1:10
-+	check_err $?
-+	tc filter add dev "$dev" protocol ip parent 1: prio 5 handle ffe:2:2 u32 ht ffe:2: match ip src 10.0.0.2 flowid 1:10
-+	check_err $?
-+	tc filter show dev "$dev" parent  1:0 > /dev/null
-+	check_err $?
-+	tc filter del dev "$dev" protocol ip parent 1: prio 5 handle ffe:2:3 u32
-+	check_err $?
-+	tc filter show dev "$dev" parent  1:0 > /dev/null
-+	check_err $?
-+	tc qdisc del dev "$dev" root handle 1: htb
-+	check_err $?
-+
-+	if [ $ret -ne 0 ];then
-+		echo "FAIL: tc htb hierarchy"
-+		return 1
-+	fi
-+	echo "PASS: tc htb hierarchy"
-+
-+}
-+
-+kci_test_polrouting()
-+{
-+	ret=0
-+	ip rule add fwmark 1 lookup 100
-+	check_err $?
-+	ip route add local 0.0.0.0/0 dev lo table 100
-+	check_err $?
-+	ip r s t all > /dev/null
-+	check_err $?
-+	ip rule del fwmark 1 lookup 100
-+	check_err $?
-+	ip route del local 0.0.0.0/0 dev lo table 100
-+	check_err $?
-+
-+	if [ $ret -ne 0 ];then
-+		echo "FAIL: policy route test"
-+		return 1
-+	fi
-+	echo "PASS: policy routing"
-+}
-+
-+kci_test_rtnl()
-+{
-+	kci_add_dummy
-+	if [ $ret -ne 0 ];then
-+		echo "FAIL: cannot add dummy interface"
-+		return 1
-+	fi
-+
-+	kci_test_polrouting
-+	kci_test_tc
-+	kci_test_gre
-+	kci_test_bridge
-+
-+	kci_del_dummy
-+}
-+
-+#check for needed privileges
-+if [ "$(id -u)" -ne 0 ];then
-+	echo "SKIP: Need root privileges"
-+	exit 0
-+fi
-+
-+for x in ip tc;do
-+	$x -Version 2>/dev/null >/dev/null
-+	if [ $? -ne 0 ];then
-+		echo "SKIP: Could not run test without the $x tool"
-+		exit 0
-+	fi
-+done
-+
-+kci_test_rtnl
-+
-+exit $ret
+ 	if (!mdio_bus_data)
+@@ -237,7 +238,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	else
+ 		err = mdiobus_register(new_bus);
+ 	if (err != 0) {
+-		netdev_err(ndev, "Cannot register the MDIO bus\n");
++		dev_err(dev, "Cannot register the MDIO bus\n");
+ 		goto bus_register_fail;
+ 	}
+ 
+@@ -285,14 +286,12 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 			irq_str = irq_num;
+ 			break;
+ 		}
+-		netdev_info(ndev, "PHY ID %08x at %d IRQ %s (%s)%s\n",
+-			    phydev->phy_id, addr, irq_str, phydev_name(phydev),
+-			    act ? " active" : "");
++		phy_attached_info(phydev);
+ 		found = 1;
+ 	}
+ 
+ 	if (!found && !mdio_node) {
+-		netdev_warn(ndev, "No PHY found\n");
++		dev_warn(dev, "No PHY found\n");
+ 		mdiobus_unregister(new_bus);
+ 		mdiobus_free(new_bus);
+ 		return -ENODEV;
 -- 
-2.13.0
+2.11.0
