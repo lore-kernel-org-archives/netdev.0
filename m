@@ -1,57 +1,50 @@
-From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH v5 11/11] ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb
-Date: Thu, 10 Aug 2017 22:02:01 +0800
-Message-ID: <1502373721-2869-1-git-send-email-david.wu@rock-chips.com>
-References: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, hwg@rock-chips.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Wu <david.wu@rock-chips.com>
-To: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch,
-        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
-        linux@armlinux.org.uk, arnd@arndb.de
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC net-next] net: Allow name change of IFF_UP interfaces
+Date: Thu, 10 Aug 2017 16:10:18 +0200
+Message-ID: <20170810141018.GC24790@lunn.ch>
+References: <20170809104202.30959-1-vkuznets@redhat.com>
+ <CAPA1RqA0q3W-3PsqDpY8_xiBB18SCWTV1gT+BKOTqQfAA5D8Fg@mail.gmail.com>
+ <87efskye74.fsf@vitty.brq.redhat.com>
+ <20170809161027.GA28694@lunn.ch>
+ <871sojyfv0.fsf@vitty.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: ???????????? <hideaki.yoshifuji@miraclelinux.com>,
+        network dev <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Vitaly Kuznetsov <vkuznets@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
+Content-Disposition: inline
+In-Reply-To: <871sojyfv0.fsf@vitty.brq.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Enable the gmac2phy, make the gmac2phy work on
-the rk3328-evb board.
+> >> Can you think of any particular real world scenarios which are broken by
+> >> the change?
+> >
+> > How about:
+> >
+> > man 8 dhclient-script
+> >
+> > The interface name is passed in $interface to the scripts. Do we get
+> > the old name or the new name? I suspect scripts are going to break if
+> > they are given the old name, which no longer exists.
+> 
+> Yes but why would anyone change interface name while dhclient-script is
+> running? Things will also go wrong if you try bringing interface down
+> during the run or do some other configuration, right?
 
-Signed-off-by: David Wu <david.wu@rock-chips.com>
----
- arch/arm64/boot/dts/rockchip/rk3328-evb.dts | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+dhclient already handles the interface going down. sendto/recvfrom
+fails and returns an error code. As far as i remember, dhclient then
+exits.
 
-diff --git a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
-index cf27239..b9f36da 100644
---- a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
-+++ b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
-@@ -50,6 +50,23 @@
- 	chosen {
- 		stdout-path = "serial2:1500000n8";
- 	};
-+
-+	vcc_phy: vcc-phy-regulator {
-+		compatible = "regulator-fixed";
-+		regulator-name = "vcc_phy";
-+		regulator-always-on;
-+		regulator-boot-on;
-+	};
-+};
-+
-+&gmac2phy {
-+	phy-supply = <&vcc_phy>;
-+	clock_in_out = "output";
-+	assigned-clocks = <&cru SCLK_MAC2PHY_SRC>;
-+	assigned-clock-rate = <50000000>;
-+	assigned-clocks = <&cru SCLK_MAC2PHY>;
-+	assigned-clock-parents = <&cru SCLK_MAC2PHY_SRC>;
-+	status = "okay";
- };
- 
- &uart2 {
--- 
-1.9.1
+> Running multiple configuration tools at the same moment is a bad
+> idea, you never know what you're gonna end up with.
+
+It could be argued that configuring an interface vs renaming an
+interface are at different levels.
+
+	  Andrew
