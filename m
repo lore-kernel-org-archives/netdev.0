@@ -1,57 +1,49 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH RFC net-next] net: Allow name change of IFF_UP interfaces
-Date: Thu, 10 Aug 2017 10:41:23 +0200
-Message-ID: <871sojyfv0.fsf@vitty.brq.redhat.com>
-References: <20170809104202.30959-1-vkuznets@redhat.com>
-        <CAPA1RqA0q3W-3PsqDpY8_xiBB18SCWTV1gT+BKOTqQfAA5D8Fg@mail.gmail.com>
-        <87efskye74.fsf@vitty.brq.redhat.com> <20170809161027.GA28694@lunn.ch>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH iproute2 master] bpf: unbreak libelf linkage for bpf obj
+ loader
+Date: Thu, 10 Aug 2017 10:44:13 +0200
+Message-ID: <598C1CDD.3090604@iogearbox.net>
+References: <8ddcce8a9564e9c4a265db790002d6cd5ba8f353.1502316870.git.daniel@iogearbox.net> <20170809173512.2db1eb40@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: ???????????? <hideaki.yoshifuji@miraclelinux.com>,
-        network dev <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170809161027.GA28694@lunn.ch> (Andrew Lunn's message of "Wed,
-        9 Aug 2017 18:10:27 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:34208 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751469AbdHJIoR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 04:44:17 -0400
+In-Reply-To: <20170809173512.2db1eb40@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Lunn <andrew@lunn.ch> writes:
-
->> I understand the 'legacy' concern but at the same time we don't want to
->> have aftificial limitations too. Name change, in particular, doesn't
->> happen 'under the hood' -- someone privileged enough needs to request
->> the change.
->> 
->> Can you think of any particular real world scenarios which are broken by
->> the change?
+On 08/10/2017 02:35 AM, Stephen Hemminger wrote:
+> On Thu, 10 Aug 2017 00:15:41 +0200
+> Daniel Borkmann <daniel@iogearbox.net> wrote:
 >
-> How about:
+>> Commit 69fed534a533 ("change how Config is used in Makefile's") moved
+>> HAVE_MNL specific CFLAGS/LDLIBS for building with libmnl out of the
+>> top level Makefile into sub-Makefiles. However, it also removed the
+>> HAVE_ELF specific CFLAGS/LDLIBS entirely, which breaks the BPF object
+>> loader for tc and ip with "No ELF library support compiled in." despite
+>> having libelf detected in configure script. Fix it similarly as in
+>> 69fed534a533 for HAVE_ELF.
+>>
+>> Fixes: 69fed534a533 ("change how Config is used in Makefile's")
+>> Reported-by: Jeffrey Panneman <jeffrey.panneman@tno.nl>
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 >
-> man 8 dhclient-script
+> Thanks, but I am thinking maybe a better solution long term would be to
+> move all the package specific stuff into the generated Config file.
 >
-> The interface name is passed in $interface to the scripts. Do we get
-> the old name or the new name? I suspect scripts are going to break if
-> they are given the old name, which no longer exists.
+> That way only the generation shell script would have to change.
+>
+> Also, all the flags should probably be using pkg-config to get the values.
 
-Yes but why would anyone change interface name while dhclient-script is
-running? Things will also go wrong if you try bringing interface down
-during the run or do some other configuration, right? Running multiple
-configuration tools at the same moment is a bad idea, you never know
-what you're gonna end up with. 
+Sure, sounds all good, for the time being, I would like to have
+that breakage undone though, so users can work with loading BPF
+programs again on -master.
 
-As I see it, checks in kernel we have are meant to protect kernel
-itself, not to disallow all user<->kernel interactions leading to
-imperfect result.
-
-(AFAIU) If we remove the check nothing is going to change: udev will
-still be renaming interfaces before bringing them up. In netvsc case
-users are not supposed to configure the VF interface at all, it just
-becomes a slave of netvsc interface.
-
--- 
-  Vitaly
+Thanks,
+Daniel
