@@ -1,63 +1,69 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC net-next] net: xfrm: support setting an output mark.
-Date: Thu, 10 Aug 2017 12:53:11 +0200
-Message-ID: <20170810105311.GY2631@secunet.com>
-References: <20170807092326.10239-1-lorenzo@google.com>
- <20170807111623.GQ2631@secunet.com>
- <CAKD1Yr2YXYed+vVgcyYo4XLAFXGjwwdSRucOmg+z2PVZD_A06Q@mail.gmail.com>
- <20170808075143.GR2631@secunet.com>
- <CAKD1Yr0FPo_ZAyjgFPg2CzNJiMMdUSx4PwwtL=ArPGeKHuTQ5w@mail.gmail.com>
+Subject: Re: [PATCH net-next] net: xfrm: support setting an output mark.
+Date: Thu, 10 Aug 2017 12:56:47 +0200
+Message-ID: <20170810105647.GZ2631@secunet.com>
+References: <20170809170852.141745-1-lorenzo@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Nathan Harold <nharold@google.com>,
-        "Jonathan Basseri" <misterikkit@google.com>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <jhs@mojatatu.com>, <herbert@gondor.apana.org.au>
 To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:49484 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:49694 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751492AbdHJKxO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 10 Aug 2017 06:53:14 -0400
+        id S1751373AbdHJK4u (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Aug 2017 06:56:50 -0400
 Content-Disposition: inline
-In-Reply-To: <CAKD1Yr0FPo_ZAyjgFPg2CzNJiMMdUSx4PwwtL=ArPGeKHuTQ5w@mail.gmail.com>
+In-Reply-To: <20170809170852.141745-1-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 10, 2017 at 02:13:15AM +0900, Lorenzo Colitti wrote:
-> On Tue, Aug 8, 2017 at 4:51 PM, Steffen Klassert
-> <steffen.klassert@secunet.com> wrote:
-> > I thought you can just split the 32 bit mark into two 16 bit marks
-> > by setting an appropriate mask at the xfrm and the routing mark.
-> > But this has the drawback that the socket needs to know how possibly
-> > tunneled packets should be routed.
+On Thu, Aug 10, 2017 at 02:08:52AM +0900, Lorenzo Colitti wrote:
+> On systems that use mark-based routing it may be necessary for
+> routing lookups to use marks in order for packets to be routed
+> correctly. An example of such a system is Android, which uses
+> socket marks to route packets via different networks.
 > 
-> Right. And if those bits are already used for something else (e.g.,
-> Android uses something like 20 bits for marks) then that's not
-> possible.
+> Currently, routing lookups in tunnel mode always use a mark of
+> zero, making routing incorrect on such systems.
 > 
-> Also - the other approach of using the SA mark for routing the
-> tunneled packet, that has backwards compatibility issues. If someone
-> is using mark-based routing, and has configured an SA with a mark,
-> then making the mark influence the routing lookup would change how
-> those tunnels are routed and possibly break them.
+> This patch adds a new output_mark element to the xfrm state and
+> a corresponding XFRMA_OUTPUT_MARK netlink attribute. The output
+> mark differs from the existing xfrm mark in two ways:
+> 
+> 1. The xfrm mark is used to match xfrm policies and states, while
+>    the xfrm output mark is used to set the mark (and influence
+>    the routing) of the packets emitted by those states.
+> 2. The existing mark is constrained to be a subset of the bits of
+>    the originating socket or transformed packet, but the output
+>    mark is arbitrary and depends only on the state.
+> 
+> The use of a separate mark provides additional flexibility. For
+> example:
+> 
+> - A packet subject to two transforms (e.g., transport mode inside
+>   tunnel mode) can have two different output marks applied to it,
+>   one for the transport mode SA and one for the tunnel mode SA.
+> - On a system where socket marks determine routing, the packets
+>   emitted by an IPsec tunnel can be routed based on a mark that
+>   is determined by the tunnel, not by the marks of the
+>   unencrypted packets.
+> - Support for setting the output marks can be introduced without
+>   breaking any existing setups that employ both mark-based
+>   routing and xfrm tunnel mode. Simply changing the code to use
+>   the xfrm mark for routing output packets could xfrm mark could
+>   change behaviour in a way that breaks these setups.
+> 
+> If the output mark is unspecified or set to zero, the mark is not
+> set or changed.
+> 
+> Tested: make allyesconfig; make -j64
+> Tested: https://android-review.googlesource.com/452776
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
-Right, good point.
+I'm fine with the patch, but it does not apply to ipsec-next.
+Could you rebase the patch onto:
 
-> 
-> > So we transform the packet and may 'transform' the mark on the packet
-> > too. This could make sense, but we have to point out the differences
-> > between the xfrm_mark and the output_mark on the SA very explicit.
-> 
-> Ack. Where should this be pointed out? I've sent out a non-RFC version
-> to netdev, mostly unchanged but including a fair bit more rationale in
-> the commit message:
-> 
-> https://patchwork.ozlabs.org/patch/799891/
-> 
-> Or did you mean it should be be documented this in the ip-xfrm man page, or...?
+git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git
 
-A detailed commit message is what I meant, this could be also
-the base for the manpage once iproute2 gets support for this.
+Thanks!
