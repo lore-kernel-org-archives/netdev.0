@@ -1,57 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net 1/1] tipc: remove premature ESTABLISH FSM event at link
- synchronization
-Date: Wed, 09 Aug 2017 22:38:50 -0700 (PDT)
-Message-ID: <20170809.223850.1304726785328764444.davem@davemloft.net>
-References: <1502223836-3182-1-git-send-email-jon.maloy@ericsson.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Regression: Bug 196547 - Since 4.12 - bonding module not working with wireless drivers
+Date: Thu, 10 Aug 2017 08:39:20 +0300
+Message-ID: <87shh0gewn.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, parthasarathy.bhuvaragan@ericsson.com,
-        ying.xue@windriver.com, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org, James Feeney <james@nurealm.net>
+To: Mahesh Bandewar <maheshb@google.com>,
+        Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51794 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750837AbdHJFiv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 01:38:51 -0400
-In-Reply-To: <1502223836-3182-1-git-send-email-jon.maloy@ericsson.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:37636 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751346AbdHJFjZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 01:39:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Tue, 8 Aug 2017 22:23:56 +0200
+Hi Mahesh and Andy,
 
-> When a link between two nodes come up, both endpoints will initially
-> send out a STATE message to the peer, to increase the probability that
-> the peer endpoint also is up when the first traffic message arrives.
-> Thereafter, if the establishing link is the second link between two
-> nodes, this first "traffic" message is a TUNNEL_PROTOCOL/SYNCH message,
-> helping the peer to perform initial synchronization between the two
-> links.
-> 
-> However, the initial STATE message may be lost, in which case the SYNCH
-> message will be the first one arriving at the peer. This should also
-> work, as the SYNCH message itself will be used to take up the link
-> endpoint before  initializing synchronization.
-> 
-> Unfortunately the code for this case is broken. Currently, the link is
-> brought up through a tipc_link_fsm_evt(ESTABLISHED) when a SYNCH
-> arrives, whereupon __tipc_node_link_up() is called to distribute the
-> link slots and take the link into traffic. But, __tipc_node_link_up() is
-> itself starting with a test for whether the link is up, and if true,
-> returns without action. Clearly, the tipc_link_fsm_evt(ESTABLISHED) call
-> is unnecessary, since tipc_node_link_up() is itself issuing such an
-> event, but also harmful, since it inhibits tipc_node_link_up() to
-> perform the test of its tasks, and the link endpoint in question hence
-> is never taken into traffic.
-> 
-> This problem has been exposed when we set up dual links between pre-
-> and post-4.4 kernels, because the former ones don't send out the
-> initial STATE message described above.
-> 
-> We fix this by removing the unnecessary event call.
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+James Feeney reported that there's a serious regression in bonding
+module since v4.12, it doesn't work with wireless drivers anymore as
+wireless drivers don't report the link speed via ethtool:
 
-Applied.
+https://bugzilla.kernel.org/show_bug.cgi?id=196547
+
+In the bug report it's said that this commit is the culprit:
+
+3f3c278c94dd bonding: fix active-backup transition
+
+Is there a fix for this or should that commit be reverted? This seems to
+be a serious regression as there are multiple reports already and we
+should get it fixed for v4.13, and the fix backported to v4.12 stable
+release.
+
+-- 
+Kalle Valo
