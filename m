@@ -1,118 +1,433 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 10/10] netvsc: keep track of some non-fatal overload conditions
-Date: Wed,  9 Aug 2017 17:46:12 -0700
-Message-ID: <20170810004612.22163-11-sthemmin@microsoft.com>
+Subject: [PATCH net-next 09/10] netvsc: allow controlling send/recv buffer size
+Date: Wed,  9 Aug 2017 17:46:11 -0700
+Message-ID: <20170810004612.22163-10-sthemmin@microsoft.com>
 References: <20170810004612.22163-1-sthemmin@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:36531 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752547AbdHJAq1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2017 20:46:27 -0400
-Received: by mail-pg0-f44.google.com with SMTP id v77so34436601pgb.3
-        for <netdev@vger.kernel.org>; Wed, 09 Aug 2017 17:46:26 -0700 (PDT)
+To: kys@microsoft.com,
+	haiyangz@microsoft.com,
+	sthemmin@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <20170810004612.22163-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Add ethtool statistics for case where send chimmeny buffer is
-exhausted and driver has to fall back to doing scatter/gather
-send. Also, add statistic for case where ring buffer is full and
-receive completions are delayed.
+Control the size of the buffer areas via ethtool ring settings.
+They aren't really traditional hardware rings, but host API breaks
+receive and send buffer into chunks. The final size of the chunks are
+controlled by the host.
+
+The default value of send and receive buffer area for host DMA
+is much larger than it needs to be. Experimentation shows that
+4M receive and 1M send is sufficient.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |  2 ++
- drivers/net/hyperv/netvsc.c     | 19 +++++++++++++------
- drivers/net/hyperv/netvsc_drv.c |  2 ++
- 3 files changed, 17 insertions(+), 6 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |   9 ++--
+ drivers/net/hyperv/netvsc.c     |  70 +++++++++++++-----------
+ drivers/net/hyperv/netvsc_drv.c | 117 ++++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 157 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 4ccfc335a356..345786321879 100644
+index f620c90307ed..4ccfc335a356 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -680,6 +680,8 @@ struct netvsc_ethtool_stats {
- 	unsigned long tx_no_space;
- 	unsigned long tx_too_big;
- 	unsigned long tx_busy;
-+	unsigned long tx_send_full;
-+	unsigned long rx_comp_busy;
+@@ -148,6 +148,8 @@ struct netvsc_device_info {
+ 	unsigned char mac_adr[ETH_ALEN];
+ 	int  ring_size;
+ 	u32  num_chn;
++	u32  send_sections;
++	u32  recv_sections;
  };
  
- struct netvsc_vf_pcpu_stats {
+ enum rndis_device_state {
+@@ -634,12 +636,12 @@ struct nvsp_message {
+ #define NETVSC_SEND_BUFFER_SIZE			(1024 * 1024 * 15)   /* 15MB */
+ #define NETVSC_INVALID_INDEX			-1
+ 
++#define NETVSC_SEND_SECTION_SIZE		6144
++#define NETVSC_RECV_SECTION_SIZE		1728
+ 
+ #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
+ #define NETVSC_SEND_BUFFER_ID			0
+ 
+-#define NETVSC_PACKET_SIZE                      4096
+-
+ #define VRSS_SEND_TAB_SIZE 16  /* must be power of 2 */
+ #define VRSS_CHANNEL_MAX 64
+ #define VRSS_CHANNEL_DEFAULT 8
+@@ -754,14 +756,13 @@ struct netvsc_device {
+ 
+ 	/* Receive buffer allocated by us but manages by NetVSP */
+ 	void *recv_buf;
+-	u32 recv_buf_size;
+ 	u32 recv_buf_gpadl_handle;
+ 	u32 recv_section_cnt;
++	u32 recv_section_size;
+ 	u32 recv_completion_cnt;
+ 
+ 	/* Send buffer allocated by us */
+ 	void *send_buf;
+-	u32 send_buf_size;
+ 	u32 send_buf_gpadl_handle;
+ 	u32 send_section_cnt;
+ 	u32 send_section_size;
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 5b3a2b8fa77e..938c9f3d2ea6 100644
+index 91b0674cfdb0..5b3a2b8fa77e 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -882,7 +882,9 @@ int netvsc_send(struct net_device_context *ndev_ctx,
- 	} else if (pktlen + net_device->pkt_align <
- 		   net_device->send_section_size) {
- 		section_index = netvsc_get_next_send_section(net_device);
--		if (section_index != NETVSC_INVALID_INDEX) {
-+		if (unlikely(section_index == NETVSC_INVALID_INDEX)) {
-+			++ndev_ctx->eth_stats.tx_send_full;
-+		} else {
- 			move_pkt_msd(&msd_send, &msd_skb, msdp);
- 			msd_len = 0;
- 		}
-@@ -948,9 +950,10 @@ int netvsc_send(struct net_device_context *ndev_ctx,
- }
- 
- /* Send pending recv completions */
--static int send_recv_completions(struct netvsc_channel *nvchan)
-+static int send_recv_completions(struct net_device *ndev,
-+				 struct netvsc_device *nvdev,
-+				 struct netvsc_channel *nvchan)
- {
--	struct netvsc_device *nvdev = nvchan->net_device;
- 	struct multi_recv_comp *mrc = &nvchan->mrc;
- 	struct recv_comp_msg {
- 		struct nvsp_message_header hdr;
-@@ -968,8 +971,12 @@ static int send_recv_completions(struct netvsc_channel *nvchan)
- 		msg.status = rcd->status;
- 		ret = vmbus_sendpacket(nvchan->channel, &msg, sizeof(msg),
- 				       rcd->tid, VM_PKT_COMP, 0);
--		if (unlikely(ret))
-+		if (unlikely(ret)) {
-+			struct net_device_context *ndev_ctx = netdev_priv(ndev);
+@@ -75,6 +75,10 @@ static struct netvsc_device *alloc_net_device(void)
+ 	atomic_set(&net_device->open_cnt, 0);
+ 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
+ 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
 +
-+			++ndev_ctx->eth_stats.rx_comp_busy;
- 			return ret;
-+		}
++	net_device->recv_section_size = NETVSC_RECV_SECTION_SIZE;
++	net_device->send_section_size = NETVSC_SEND_SECTION_SIZE;
++
+ 	init_completion(&net_device->channel_init_wait);
  
- 		if (++mrc->first == nvdev->recv_completion_cnt)
- 			mrc->first = 0;
-@@ -1010,7 +1017,7 @@ static void enq_receive_complete(struct net_device *ndev,
- 	recv_comp_slot_avail(nvdev, mrc, &filled, &avail);
- 
- 	if (unlikely(filled > NAPI_POLL_WEIGHT)) {
--		send_recv_completions(nvchan);
-+		send_recv_completions(ndev, nvdev, nvchan);
- 		recv_comp_slot_avail(nvdev, mrc, &filled, &avail);
+ 	return net_device;
+@@ -142,6 +146,7 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 				"revoke receive buffer to netvsp\n");
+ 			return;
+ 		}
++		net_device->recv_section_cnt = 0;
  	}
  
-@@ -1193,7 +1200,7 @@ int netvsc_poll(struct napi_struct *napi, int budget)
- 	 * then re-enable host interrupts
- 	 *     and reschedule if ring is not empty.
+ 	/* Teardown the gpadl on the vsp end */
+@@ -172,7 +177,7 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 	 * NVSP_MSG1_TYPE_SEND_SEND_BUF msg) therefore, we need
+ 	 * to send a revoke msg here
  	 */
--	if (send_recv_completions(nvchan) == 0 &&
-+	if (send_recv_completions(ndev, net_device, nvchan) == 0 &&
- 	    work_done < budget &&
- 	    napi_complete_done(napi, work_done) &&
- 	    hv_end_read(&channel->inbound)) {
+-	if (net_device->send_section_size) {
++	if (net_device->send_section_cnt) {
+ 		/* Send the revoke receive buffer */
+ 		revoke_packet = &net_device->revoke_packet;
+ 		memset(revoke_packet, 0, sizeof(struct nvsp_message));
+@@ -204,6 +209,7 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 				   "revoke send buffer to netvsp\n");
+ 			return;
+ 		}
++		net_device->send_section_cnt = 0;
+ 	}
+ 	/* Teardown the gpadl on the vsp end */
+ 	if (net_device->send_buf_gpadl_handle) {
+@@ -243,18 +249,25 @@ int netvsc_alloc_recv_comp_ring(struct netvsc_device *net_device, u32 q_idx)
+ }
+ 
+ static int netvsc_init_buf(struct hv_device *device,
+-			   struct netvsc_device *net_device)
++			   struct netvsc_device *net_device,
++			   const struct netvsc_device_info *device_info)
+ {
+ 	struct nvsp_1_message_send_receive_buffer_complete *resp;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct nvsp_message *init_packet;
++	unsigned int buf_size;
+ 	size_t map_words;
+ 	int ret = 0;
+ 
+-	net_device->recv_buf = vzalloc(net_device->recv_buf_size);
++	/* Get receive buffer area. */
++	buf_size = device_info->recv_sections * net_device->recv_section_size;
++	buf_size = roundup(buf_size, PAGE_SIZE);
++
++	net_device->recv_buf = vzalloc(buf_size);
+ 	if (!net_device->recv_buf) {
+-		netdev_err(ndev, "unable to allocate receive "
+-			"buffer of size %d\n", net_device->recv_buf_size);
++		netdev_err(ndev,
++			   "unable to allocate receive buffer of size %u\n",
++			   buf_size);
+ 		ret = -ENOMEM;
+ 		goto cleanup;
+ 	}
+@@ -265,7 +278,7 @@ static int netvsc_init_buf(struct hv_device *device,
+ 	 * than the channel to establish the gpadl handle.
+ 	 */
+ 	ret = vmbus_establish_gpadl(device->channel, net_device->recv_buf,
+-				    net_device->recv_buf_size,
++				    buf_size,
+ 				    &net_device->recv_buf_gpadl_handle);
+ 	if (ret != 0) {
+ 		netdev_err(ndev,
+@@ -311,31 +324,31 @@ static int netvsc_init_buf(struct hv_device *device,
+ 		   resp->num_sections, resp->sections[0].sub_alloc_size,
+ 		   resp->sections[0].num_sub_allocs);
+ 
+-	net_device->recv_section_cnt = resp->num_sections;
+-
+-	/*
+-	 * For 1st release, there should only be 1 section that represents the
+-	 * entire receive buffer
+-	 */
+-	if (net_device->recv_section_cnt != 1 ||
+-	    resp->sections[0].offset != 0) {
++	/* There should only be one section for the entire receive buffer */
++	if (resp->num_sections != 1 || resp->sections[0].offset != 0) {
+ 		ret = -EINVAL;
+ 		goto cleanup;
+ 	}
+ 
++	net_device->recv_section_size = resp->sections[0].sub_alloc_size;
++	net_device->recv_section_cnt = resp->sections[0].num_sub_allocs;
++
+ 	/* Setup receive completion ring */
+ 	net_device->recv_completion_cnt
+-		= round_up(resp->sections[0].num_sub_allocs + 1,
++		= round_up(net_device->recv_section_cnt + 1,
+ 			   PAGE_SIZE / sizeof(u64));
+ 	ret = netvsc_alloc_recv_comp_ring(net_device, 0);
+ 	if (ret)
+ 		goto cleanup;
+ 
+ 	/* Now setup the send buffer. */
+-	net_device->send_buf = vzalloc(net_device->send_buf_size);
++	buf_size = device_info->send_sections * net_device->send_section_size;
++	buf_size = round_up(buf_size, PAGE_SIZE);
++
++	net_device->send_buf = vzalloc(buf_size);
+ 	if (!net_device->send_buf) {
+-		netdev_err(ndev, "unable to allocate send "
+-			   "buffer of size %d\n", net_device->send_buf_size);
++		netdev_err(ndev, "unable to allocate send buffer of size %u\n",
++			   buf_size);
+ 		ret = -ENOMEM;
+ 		goto cleanup;
+ 	}
+@@ -345,7 +358,7 @@ static int netvsc_init_buf(struct hv_device *device,
+ 	 * than the channel to establish the gpadl handle.
+ 	 */
+ 	ret = vmbus_establish_gpadl(device->channel, net_device->send_buf,
+-				    net_device->send_buf_size,
++				    buf_size,
+ 				    &net_device->send_buf_gpadl_handle);
+ 	if (ret != 0) {
+ 		netdev_err(ndev,
+@@ -390,10 +403,8 @@ static int netvsc_init_buf(struct hv_device *device,
+ 	net_device->send_section_size = init_packet->msg.
+ 				v1_msg.send_send_buf_complete.section_size;
+ 
+-	/* Section count is simply the size divided by the section size.
+-	 */
+-	net_device->send_section_cnt =
+-		net_device->send_buf_size / net_device->send_section_size;
++	/* Section count is simply the size divided by the section size. */
++	net_device->send_section_cnt = buf_size / net_device->send_section_size;
+ 
+ 	netdev_dbg(ndev, "Send section size: %d, Section count:%d\n",
+ 		   net_device->send_section_size, net_device->send_section_cnt);
+@@ -471,7 +482,8 @@ static int negotiate_nvsp_ver(struct hv_device *device,
+ }
+ 
+ static int netvsc_connect_vsp(struct hv_device *device,
+-			      struct netvsc_device *net_device)
++			      struct netvsc_device *net_device,
++			      const struct netvsc_device_info *device_info)
+ {
+ 	const u32 ver_list[] = {
+ 		NVSP_PROTOCOL_VERSION_1, NVSP_PROTOCOL_VERSION_2,
+@@ -521,14 +533,8 @@ static int netvsc_connect_vsp(struct hv_device *device,
+ 	if (ret != 0)
+ 		goto cleanup;
+ 
+-	/* Post the big receive buffer to NetVSP */
+-	if (net_device->nvsp_version <= NVSP_PROTOCOL_VERSION_2)
+-		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE_LEGACY;
+-	else
+-		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE;
+-	net_device->send_buf_size = NETVSC_SEND_BUFFER_SIZE;
+ 
+-	ret = netvsc_init_buf(device, net_device);
++	ret = netvsc_init_buf(device, net_device, device_info);
+ 
+ cleanup:
+ 	return ret;
+@@ -1284,7 +1290,7 @@ struct netvsc_device *netvsc_device_add(struct hv_device *device,
+ 	rcu_assign_pointer(net_device_ctx->nvdev, net_device);
+ 
+ 	/* Connect with the NetVsp */
+-	ret = netvsc_connect_vsp(device, net_device);
++	ret = netvsc_connect_vsp(device, net_device, device_info);
+ 	if (ret != 0) {
+ 		netdev_err(ndev,
+ 			"unable to connect to NetVSP - %d\n", ret);
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 873c83a66cc2..b33f0507c373 100644
+index 7b465e40869b..873c83a66cc2 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1112,6 +1112,8 @@ static const struct {
- 	{ "tx_no_space",  offsetof(struct netvsc_ethtool_stats, tx_no_space) },
- 	{ "tx_too_big",	  offsetof(struct netvsc_ethtool_stats, tx_too_big) },
- 	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
-+	{ "tx_send_full", offsetof(struct netvsc_ethtool_stats, tx_send_full) },
-+	{ "rx_comp_busy", offsetof(struct netvsc_ethtool_stats, rx_comp_busy) },
- }, vf_stats[] = {
- 	{ "vf_rx_packets", offsetof(struct netvsc_vf_pcpu_stats, rx_packets) },
- 	{ "vf_rx_bytes",   offsetof(struct netvsc_vf_pcpu_stats, rx_bytes) },
+@@ -45,7 +45,12 @@
+ 
+ #include "hyperv_net.h"
+ 
+-#define RING_SIZE_MIN 64
++#define RING_SIZE_MIN		64
++#define NETVSC_MIN_TX_SECTIONS	10
++#define NETVSC_DEFAULT_TX	192	/* ~1M */
++#define NETVSC_MIN_RX_SECTIONS	10	/* ~64K */
++#define NETVSC_DEFAULT_RX	2048	/* ~4M */
++
+ #define LINKCHANGE_INT (2 * HZ)
+ #define VF_TAKEOVER_INT (HZ / 10)
+ 
+@@ -831,11 +836,13 @@ static int netvsc_set_channels(struct net_device *net,
+ 	if (was_opened)
+ 		rndis_filter_close(nvdev);
+ 
+-	rndis_filter_device_remove(dev, nvdev);
+-
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.num_chn = count;
+ 	device_info.ring_size = ring_size;
++	device_info.send_sections = nvdev->send_section_cnt;
++	device_info.recv_sections = nvdev->recv_section_cnt;
++
++	rndis_filter_device_remove(dev, nvdev);
+ 
+ 	nvdev = rndis_filter_device_add(dev, &device_info);
+ 	if (!IS_ERR(nvdev)) {
+@@ -947,6 +954,8 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+ 	device_info.num_chn = nvdev->num_chn;
++	device_info.send_sections = nvdev->send_section_cnt;
++	device_info.recv_sections = nvdev->recv_section_cnt;
+ 
+ 	rndis_filter_device_remove(hdev, nvdev);
+ 
+@@ -1351,6 +1360,104 @@ static int netvsc_set_rxfh(struct net_device *dev, const u32 *indir,
+ 	return rndis_filter_set_rss_param(rndis_dev, key, ndev->num_chn);
+ }
+ 
++/* Hyper-V RNDIS protocol does not have ring in the HW sense.
++ * It does have pre-allocated receive area which is divided into sections.
++ */
++static void __netvsc_get_ringparam(struct netvsc_device *nvdev,
++				   struct ethtool_ringparam *ring)
++{
++	u32 max_buf_size;
++
++	ring->rx_pending = nvdev->recv_section_cnt;
++	ring->tx_pending = nvdev->send_section_cnt;
++
++	if (nvdev->nvsp_version <= NVSP_PROTOCOL_VERSION_2)
++		max_buf_size = NETVSC_RECEIVE_BUFFER_SIZE_LEGACY;
++	else
++		max_buf_size = NETVSC_RECEIVE_BUFFER_SIZE;
++
++	ring->rx_max_pending = max_buf_size / nvdev->recv_section_size;
++	ring->tx_max_pending = NETVSC_SEND_BUFFER_SIZE
++		/ nvdev->send_section_size;
++}
++
++static void netvsc_get_ringparam(struct net_device *ndev,
++				 struct ethtool_ringparam *ring)
++{
++	struct net_device_context *ndevctx = netdev_priv(ndev);
++	struct netvsc_device *nvdev = rtnl_dereference(ndevctx->nvdev);
++
++	if (!nvdev)
++		return;
++
++	__netvsc_get_ringparam(nvdev, ring);
++}
++
++static int netvsc_set_ringparam(struct net_device *ndev,
++				struct ethtool_ringparam *ring)
++{
++	struct net_device_context *ndevctx = netdev_priv(ndev);
++	struct netvsc_device *nvdev = rtnl_dereference(ndevctx->nvdev);
++	struct hv_device *hdev = ndevctx->device_ctx;
++	struct netvsc_device_info device_info;
++	struct ethtool_ringparam orig;
++	u32 new_tx, new_rx;
++	bool was_opened;
++	int ret = 0;
++
++	if (!nvdev || nvdev->destroy)
++		return -ENODEV;
++
++	memset(&orig, 0, sizeof(orig));
++	__netvsc_get_ringparam(nvdev, &orig);
++
++	new_tx = clamp_t(u32, ring->tx_pending,
++			 NETVSC_MIN_TX_SECTIONS, orig.tx_max_pending);
++	new_rx = clamp_t(u32, ring->rx_pending,
++			 NETVSC_MIN_RX_SECTIONS, orig.rx_max_pending);
++
++	if (new_tx == orig.tx_pending &&
++	    new_rx == orig.rx_pending)
++		return 0;	 /* no change */
++
++	memset(&device_info, 0, sizeof(device_info));
++	device_info.num_chn = nvdev->num_chn;
++	device_info.ring_size = ring_size;
++	device_info.send_sections = new_tx;
++	device_info.recv_sections = new_rx;
++
++	netif_device_detach(ndev);
++	was_opened = rndis_filter_opened(nvdev);
++	if (was_opened)
++		rndis_filter_close(nvdev);
++
++	rndis_filter_device_remove(hdev, nvdev);
++
++	nvdev = rndis_filter_device_add(hdev, &device_info);
++	if (IS_ERR(nvdev)) {
++		ret = PTR_ERR(nvdev);
++
++		device_info.send_sections = orig.tx_pending;
++		device_info.recv_sections = orig.rx_pending;
++		nvdev = rndis_filter_device_add(hdev, &device_info);
++		if (IS_ERR(nvdev)) {
++			netdev_err(ndev, "restoring ringparam failed: %ld\n",
++				   PTR_ERR(nvdev));
++			return ret;
++		}
++	}
++
++	if (was_opened)
++		rndis_filter_open(nvdev);
++	netif_device_attach(ndev);
++
++	/* We may have missed link change notifications */
++	ndevctx->last_reconfig = 0;
++	schedule_delayed_work(&ndevctx->dwork, 0);
++
++	return ret;
++}
++
+ static const struct ethtool_ops ethtool_ops = {
+ 	.get_drvinfo	= netvsc_get_drvinfo,
+ 	.get_link	= ethtool_op_get_link,
+@@ -1367,6 +1474,8 @@ static const struct ethtool_ops ethtool_ops = {
+ 	.set_rxfh	= netvsc_set_rxfh,
+ 	.get_link_ksettings = netvsc_get_link_ksettings,
+ 	.set_link_ksettings = netvsc_set_link_ksettings,
++	.get_ringparam	= netvsc_get_ringparam,
++	.set_ringparam	= netvsc_set_ringparam,
+ };
+ 
+ static const struct net_device_ops device_ops = {
+@@ -1782,6 +1891,8 @@ static int netvsc_probe(struct hv_device *dev,
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+ 	device_info.num_chn = VRSS_CHANNEL_DEFAULT;
++	device_info.send_sections = NETVSC_DEFAULT_TX;
++	device_info.recv_sections = NETVSC_DEFAULT_RX;
+ 
+ 	nvdev = rndis_filter_device_add(dev, &device_info);
+ 	if (IS_ERR(nvdev)) {
 -- 
 2.11.0
