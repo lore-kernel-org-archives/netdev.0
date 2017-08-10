@@ -1,40 +1,32 @@
 From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: [PATCH 2/3] net: Export tcpv6_prot
-Date: Thu, 10 Aug 2017 13:33:15 +0300
-Message-ID: <1502361196-127278-3-git-send-email-ilyal@mellanox.com>
-References: <1502361196-127278-1-git-send-email-ilyal@mellanox.com>
+Subject: [PATCH 0/3] tls: Use correct sk->sk_prot for IPV6
+Date: Thu, 10 Aug 2017 13:33:13 +0300
+Message-ID: <1502361196-127278-1-git-send-email-ilyal@mellanox.com>
 Cc: davejwatson@fb.com, aviadye@mellanox.com,
-        Boris Pismenny <borisp@mellanox.com>
+        Ilya Lesokhin <ilyal@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33028 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33013 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752162AbdHJKdb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 06:33:31 -0400
-In-Reply-To: <1502361196-127278-1-git-send-email-ilyal@mellanox.com>
+        with ESMTP id S1752461AbdHJKd0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 06:33:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Boris Pismenny <borisp@mellanox.com>
+Fix tls code to use the correct sk->sk_prot for IPV6.
+Previously it was tcp_prot of IPV4 was used.
 
-Want to be able to use these in TLS.
+Boris Pismenny (1):
+  net: Export tcpv6_prot
 
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
----
- net/ipv6/tcp_ipv6.c | 1 +
- 1 file changed, 1 insertion(+)
+Ilya Lesokhin (2):
+  ipv6: Prevent unexpected sk->sk_prot changes
+  tls: Use correct sk->sk_prot for IPV6
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 2521690..e3a44a5 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1944,6 +1944,7 @@ struct proto tcpv6_prot = {
- #endif
- 	.diag_destroy		= tcp_abort,
- };
-+EXPORT_SYMBOL(tcpv6_prot);
- 
- static struct inet6_protocol tcpv6_protocol = {
- 	.early_demux	=	tcp_v6_early_demux,
+ net/ipv6/ipv6_sockglue.c | 12 ++++++++++
+ net/ipv6/tcp_ipv6.c      |  1 +
+ net/tls/tls_main.c       | 61 ++++++++++++++++++++++++++++++++++++++----------
+ 3 files changed, 62 insertions(+), 12 deletions(-)
+
 -- 
 1.8.3.1
