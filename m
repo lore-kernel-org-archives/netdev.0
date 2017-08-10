@@ -1,71 +1,57 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [PATCH v2 net-next 5/7] rtnetlink: protect handler table with rcu
-Date: Thu, 10 Aug 2017 11:26:47 +0300
-Message-ID: <20170810082647.GA11516@splinter>
-References: <20170809184153.16700-1-fw@strlen.de>
- <20170809184153.16700-6-fw@strlen.de>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH RFC net-next] net: Allow name change of IFF_UP interfaces
+Date: Thu, 10 Aug 2017 10:41:23 +0200
+Message-ID: <871sojyfv0.fsf@vitty.brq.redhat.com>
+References: <20170809104202.30959-1-vkuznets@redhat.com>
+        <CAPA1RqA0q3W-3PsqDpY8_xiBB18SCWTV1gT+BKOTqQfAA5D8Fg@mail.gmail.com>
+        <87efskye74.fsf@vitty.brq.redhat.com> <20170809161027.GA28694@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:37373 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752417AbdHJI0w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 04:26:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20170809184153.16700-6-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: ???????????? <hideaki.yoshifuji@miraclelinux.com>,
+        network dev <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170809161027.GA28694@lunn.ch> (Andrew Lunn's message of "Wed,
+        9 Aug 2017 18:10:27 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2017 at 08:41:51PM +0200, Florian Westphal wrote:
-> Note that netlink dumps still acquire rtnl mutex via the netlink
-> dump infrastructure.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Florian, can you please check the following splat? I didn't bisect, but
-looks like it's related to this patch.
+>> I understand the 'legacy' concern but at the same time we don't want to
+>> have aftificial limitations too. Name change, in particular, doesn't
+>> happen 'under the hood' -- someone privileged enough needs to request
+>> the change.
+>> 
+>> Can you think of any particular real world scenarios which are broken by
+>> the change?
+>
+> How about:
+>
+> man 8 dhclient-script
+>
+> The interface name is passed in $interface to the scripts. Do we get
+> the old name or the new name? I suspect scripts are going to break if
+> they are given the old name, which no longer exists.
 
-Thanks
+Yes but why would anyone change interface name while dhclient-script is
+running? Things will also go wrong if you try bringing interface down
+during the run or do some other configuration, right? Running multiple
+configuration tools at the same moment is a bad idea, you never know
+what you're gonna end up with. 
 
-[    2.940093] =============================
-[    2.944145] WARNING: suspicious RCU usage
-[    2.948147] 4.13.0-rc4-idosch-next-custom #565 Not tainted
-[    2.954116] -----------------------------
-[    2.958113] net/core/rtnetlink.c:175 suspicious rcu_dereference_check() usage!
-[    2.965116]
-[    2.965116] other info that might help us debug this:
-[    2.965116]
-[    2.973123]
-[    2.973123] rcu_scheduler_active = 1, debug_locks = 1
-[    2.979119] no locks held by swapper/0/1.
-[    2.983109]
-[    2.983109] stack backtrace:
-[    2.988117] CPU: 1 PID: 1 Comm: swapper/0 Not tainted 4.13.0-rc4-idosch-next-custom #565
-[    2.989000] Hardware name: Mellanox Technologies Ltd. Mellanox switch/Mellanox switch, BIOS 4.6.5 05/21/2015
-[    2.989000] Call Trace:
-[    2.989000]  dump_stack+0xb1/0x10c
-[    2.989000]  ? _atomic_dec_and_lock+0x124/0x124
-[    2.989000]  ? lockdep_print_held_locks+0x9b/0xf0
-[    2.989000]  lockdep_rcu_suspicious+0xdd/0x110
-[    2.989000]  __rtnl_register+0x1c1/0x320
-[    2.989000]  ? rtnetlink_bind+0x50/0x50
-[    2.989000]  ? net_defaults_init+0x29/0x29
-[    2.989000]  rtnl_register+0x11/0x30
-[    2.989000]  net_ns_init+0x1bd/0x1fd
-[    2.989000]  ? net_defaults_init+0x29/0x29
-[    2.989000]  ? __init_srcu_struct+0x54/0x60
-[    2.989000]  ? srcu_init_notifier_head+0x4a/0x80
-[    2.989000]  do_one_initcall+0x9a/0x241
-[    2.989000]  ? initcall_blacklisted+0x140/0x140
-[    2.989000]  ? up_read+0x40/0x40
-[    2.989000]  ? _raw_spin_unlock_irqrestore+0x3d/0x60
-[    2.989000]  ? __wake_up+0x3f/0x50
-[    2.989000]  kernel_init_freeable+0x3ea/0x485
-[    2.989000]  ? rest_init+0x100/0x100
-[    2.989000]  kernel_init+0xe/0x140
-[    2.989000]  ? rest_init+0x100/0x100
-[    2.989000]  ? rest_init+0x100/0x100
-[    2.989000]  ret_from_fork+0x27/0x40
+As I see it, checks in kernel we have are meant to protect kernel
+itself, not to disallow all user<->kernel interactions leading to
+imperfect result.
+
+(AFAIU) If we remove the check nothing is going to change: udev will
+still be renaming interfaces before bringing them up. In netvsc case
+users are not supposed to configure the VF interface at all, it just
+becomes a slave of netvsc interface.
+
+-- 
+  Vitaly
