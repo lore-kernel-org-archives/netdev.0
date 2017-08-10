@@ -1,68 +1,39 @@
-From: <stef.ryckmans@kortenberg.be>
-Subject: (unknown)
-Date: Thu, 10 Aug 2017 22:02:26 -0000
-Message-ID: <150240254698.22642.4120793861871420544@hinet.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCHv2 net-next iproute2] gre: add support for ERSPAN tunnel
+Date: Thu, 10 Aug 2017 15:12:13 -0700
+Message-ID: <20170810151213.095a4505@xeon-e3>
+References: <1502396067-21274-1-git-send-email-u9012063@gmail.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="65496536326505.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Meenakshi Vohra <mvohra@vmware.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: William Tu <u9012063@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 114-45-145-218.dynamic-ip.hinet.net ([114.45.145.218]:35141
-        "HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1752135AbdHJWCd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 18:02:33 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:34887 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752440AbdHJWMV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 18:12:21 -0400
+Received: by mail-pf0-f179.google.com with SMTP id t86so8289384pfe.2
+        for <netdev@vger.kernel.org>; Thu, 10 Aug 2017 15:12:21 -0700 (PDT)
+In-Reply-To: <1502396067-21274-1-git-send-email-u9012063@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+On Thu, 10 Aug 2017 13:14:27 -0700
+William Tu <u9012063@gmail.com> wrote:
+
+> +
+> +		if (greinfo[IFLA_GRE_ERSPAN_INDEX])
+> +			erspan_idx = rta_getattr_u32(greinfo[IFLA_GRE_ERSPAN_INDEX]);
+>  	}
+
+Are you missing a ntohl() here?
+
+It is encoded as htonl() when sending to kernel.
+
+ 		addattr32(n, 1024, IFLA_GRE_FWMARK, fwmark);
++		addattr32(n, 1024, IFLA_GRE_ERSPAN_INDEX, htonl(erspan_idx));
+
+Is erspan_idx == 0 a reserved value?
+You should only send erspan_idx to kernel if it is given on command line.
