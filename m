@@ -1,60 +1,43 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCHv2 1/2] drivers: net: davinci_mdio: remove busy loop on
- wait user access
-Date: Thu, 10 Aug 2017 11:24:50 -0500
-Message-ID: <d176da18-b608-9738-317c-6ca01cb937e9@ti.com>
-References: <1502351267-23841-1-git-send-email-muvarov@gmail.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 4/8] tty/bcm63xx_uart: allow naming clock in device tree
+Date: Thu, 10 Aug 2017 11:25:15 -0500
+Message-ID: <20170810162515.qkmhcnsaoh4wjrzs@rob-hp-laptop>
+References: <20170802093429.12572-1-jonas.gorski@gmail.com>
+ <20170802093429.12572-5-jonas.gorski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>
-To: Max Uvarov <muvarov@gmail.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mips@linux-mips.org, linux-arm-kernel@lists.infradead.org,
+        linux-serial@vger.kernel.org, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        bcm-kernel-feedback-list@broadcom.com,
+        Kevin Cernekee <cernekee@gmail.com>,
+        Jiri Slaby <jslaby@suse.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Russell King <linux@armlinux.org.uk>
+To: Jonas Gorski <jonas.gorski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:43089 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752829AbdHJQYw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 12:24:52 -0400
-In-Reply-To: <1502351267-23841-1-git-send-email-muvarov@gmail.com>
-Content-Language: en-US
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33690 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753133AbdHJQZR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 12:25:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20170802093429.12572-5-jonas.gorski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 08/10/2017 02:47 AM, Max Uvarov wrote:
-> Polling 14 mdio devices on single mdio bus eats 30% of 1Ghz cpu time
-> due to busy loop in wait(). Add small delay to relax cpu.
+On Wed, Aug 02, 2017 at 11:34:25AM +0200, Jonas Gorski wrote:
+> Codify using a named clock for the refclk of the uart. This makes it
+> easier if we might need to add a gating clock (like present on the
+> BCM6345).
 > 
-> Signed-off-by: Max Uvarov <muvarov@gmail.com>
-
-yep. cover letter is good to have.
-
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
-
+> Signed-off-by: Jonas Gorski <jonas.gorski@gmail.com>
 > ---
->   v2: fix spelling in commit description.
-> 
->   drivers/net/ethernet/ti/davinci_mdio.c | 4 +++-
->   1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-> index 33df340..611e7cc 100644
-> --- a/drivers/net/ethernet/ti/davinci_mdio.c
-> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
-> @@ -198,8 +198,10 @@ static inline int wait_for_user_access(struct davinci_mdio_data *data)
->   			return 0;
->   
->   		reg = __raw_readl(&regs->control);
-> -		if ((reg & CONTROL_IDLE) == 0)
-> +		if ((reg & CONTROL_IDLE) == 0) {
-> +			usleep_range(100, 200);
->   			continue;
-> +		}
->   
->   		/*
->   		 * An emac soft_reset may have clobbered the mdio controller's
-> 
+>  Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt | 6 ++++++
+>  drivers/tty/serial/bcm63xx_uart.c                              | 6 ++++--
+>  2 files changed, 10 insertions(+), 2 deletions(-)
 
--- 
-regards,
--grygorii
+Acked-by: Rob Herring <robh@kernel.org>
