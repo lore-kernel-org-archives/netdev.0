@@ -1,88 +1,96 @@
-From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH v5 09/11] ARM: dts: rk3228-evb: Enable the integrated PHY for gmac
-Date: Thu, 10 Aug 2017 22:01:08 +0800
-Message-ID: <1502373668-2767-1-git-send-email-david.wu@rock-chips.com>
-References: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, hwg@rock-chips.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Wu <david.wu@rock-chips.com>
-To: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch,
-        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
-        linux@armlinux.org.uk, arnd@arndb.de
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2] net: stmmac: Use the right logging function in
+ stmmac_mdio_register
+Date: Thu, 10 Aug 2017 15:56:53 +0200
+Message-ID: <20170810135653.GB24790@lunn.ch>
+References: <20170810073826.24362-1-romain.perier@collabora.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Romain Perier <romain.perier@collabora.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
+Content-Disposition: inline
+In-Reply-To: <20170810073826.24362-1-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch enables the integrated PHY for rk3228 evb board
-by default.
-To use the external 1000M PHY on evb board, need to make
-some switch of evb board to be on.
+On Thu, Aug 10, 2017 at 09:38:26AM +0200, Romain Perier wrote:
+> Currently, the function stmmac_mdio_register() is only used by
+> stmmac_dvr_probe() from stmmac_main.c, in order to register the MDIO bus
+> and probe information about the PHY. As this function is called before
+> calling register_netdev(), all messages logged from stmmac_mdio_register
+> are prefixed by "(unnamed net_device)". The goal of netdev_info or
+> netdev_err is to dump useful infos about a net_device, when this data
+> structure is partially initialized, there is no point for using these
+> functions.
+> 
+> This commit fixes the issue by replacing all netdev_*() by the
+> corresponding dev_*() function for logging. The last netdev_info is
+> replaced by phy_attached_info(), as a valid phydev can be used at this
+> point.
+> 
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> ---
+> 
+> Changes in v2:
+> - Replaced dev_info() by phy_attached_print()
+> - Simplified message because informations were redudant
+> - Updated commit message
+> 
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 11 ++++++-----
+>  1 file changed, 6 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> index db157a47000c..e0fbf8657103 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> @@ -204,6 +204,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+>  	struct stmmac_priv *priv = netdev_priv(ndev);
+>  	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
+>  	struct device_node *mdio_node = priv->plat->mdio_node;
+> +	struct device *dev = ndev->dev.parent;
+>  	int addr, found;
+>  
+>  	if (!mdio_bus_data)
+> @@ -237,7 +238,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+>  	else
+>  		err = mdiobus_register(new_bus);
+>  	if (err != 0) {
+> -		netdev_err(ndev, "Cannot register the MDIO bus\n");
+> +		dev_err(dev, "Cannot register the MDIO bus\n");
+>  		goto bus_register_fail;
+>  	}
+>  
+> @@ -285,14 +286,14 @@ int stmmac_mdio_register(struct net_device *ndev)
+>  			irq_str = irq_num;
+>  			break;
+>  		}
+> -		netdev_info(ndev, "PHY ID %08x at %d IRQ %s (%s)%s\n",
+> -			    phydev->phy_id, addr, irq_str, phydev_name(phydev),
+> -			    act ? " active" : "");
+> +		phy_attached_print(phydev, "PHY ID %08x IRQ %s %s\n",
+> +				   phydev->phy_id, irq_str,
+> +				   act ? " active" : "");
 
-Signed-off-by: David Wu <david.wu@rock-chips.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
-changes in v5:
- - Use phy-is-integrated property via PHY node.
- - Move the PHY clock and reset control to PHY node.
+I don't want to go round and round with this patch, with feature creep. 
 
- arch/arm/boot/dts/rk3228-evb.dts | 34 ++++++++++++++++++++++++++++++++++
- 1 file changed, 34 insertions(+)
+But there are only two drivers which use phy_attached_print() to print
+more than the standard printed by phy_attached_info().
+phy_attached_info() will give you the driver name, so do you need the
+ID? phy_attached_info() prints the irq as a number, rather than a nice
+string.
 
-diff --git a/arch/arm/boot/dts/rk3228-evb.dts b/arch/arm/boot/dts/rk3228-evb.dts
-index 5883433..456ddf7 100644
---- a/arch/arm/boot/dts/rk3228-evb.dts
-+++ b/arch/arm/boot/dts/rk3228-evb.dts
-@@ -50,6 +50,16 @@
- 		device_type = "memory";
- 		reg = <0x60000000 0x40000000>;
- 	};
-+
-+	vcc_phy: vcc-phy-regulator {
-+		compatible = "regulator-fixed";
-+		enable-active-high;
-+		regulator-name = "vcc_phy";
-+		regulator-min-microvolt = <1800000>;
-+		regulator-max-microvolt = <1800000>;
-+		regulator-always-on;
-+		regulator-boot-on;
-+	};
- };
- 
- &emmc {
-@@ -60,6 +70,30 @@
- 	status = "okay";
- };
- 
-+&gmac {
-+	assigned-clocks = <&cru SCLK_MAC_SRC>;
-+	assigned-clock-rates = <50000000>;
-+	clock_in_out = "output";
-+	phy-supply = <&vcc_phy>;
-+	phy-mode = "rmii";
-+	phy-handle = <&phy0>;
-+	status = "okay";
-+
-+	mdio {
-+		compatible = "snps,dwmac-mdio";
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		phy@0 {
-+			compatible = "ethernet-phy-id1234.d400", "ethernet-phy-ieee802.3-c22";
-+			reg = <0>;
-+			clocks = <&cru SCLK_MAC_PHY>;
-+			resets = <&cru SRST_MACPHY>;
-+			phy-is-integrated;
-+		};
-+	};
-+};
-+
- &tsadc {
- 	status = "okay";
- 
--- 
-1.9.1
+act is just odd. The loop is effectively phy_find_first(). The act
+means it has found a phy, but not the phy indicated in the platform
+data, but it is going to use it anyway!
+
+So i will give:
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+but if you think phy_attached_info() is acceptable, that would be
+great.
+
+    Andrew
