@@ -1,26 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net-next: mediatek: bring up QDMA RX ring 0
-Date: Wed, 09 Aug 2017 22:47:08 -0700 (PDT)
-Message-ID: <20170809.224708.2158045350450030076.davem@davemloft.net>
-References: <20170809100932.10539-1-john@phrozen.org>
+Subject: Re: [PATCHv2 net] net: sched: set xt_tgchk_param par.nft_compat as
+ 0 in ipt_init_target
+Date: Wed, 09 Aug 2017 22:47:21 -0700 (PDT)
+Message-ID: <20170809.224721.929007871688762915.davem@davemloft.net>
+References: <35173c1e2c6272d137c24706186f1641496943ce.1502273719.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sean.wang@mediatek.com, netdev@vger.kernel.org,
-        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-        muciri@openmesh.com, shashidhar.lakkavalli@openmesh.com
-To: john@phrozen.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170809100932.10539-1-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51930 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751373AbdHJFrW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 01:47:22 -0400
+In-Reply-To: <35173c1e2c6272d137c24706186f1641496943ce.1502273719.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: John Crispin <john@phrozen.org>
-Date: Wed,  9 Aug 2017 12:09:30 +0200
+From: Xin Long <lucien.xin@gmail.com>
+Date: Wed,  9 Aug 2017 18:15:19 +0800
 
-> The MT7623 has several DMA rings. Inside the SW path, the core will use
-> the PDMA when receiving traffic. While bringing up the HW path we noticed
-> that the PPE requires the QDMA RX to also be brought up as it uses this
-> ring internally for its flow scheduling.
+> Commit 55917a21d0cc ("netfilter: x_tables: add context to know if
+> extension runs from nft_compat") introduced a member nft_compat to
+> xt_tgchk_param structure.
+> 
+> But it didn't set it's value for ipt_init_target. With unexpected
+> value in par.nft_compat, it may return unexpected result in some
+> target's checkentry.
+> 
+> This patch is to set all it's fields as 0 and only initialize the
+> non-zero fields in ipt_init_target.
+> 
+> v1->v2:
+>   As Wang Cong's suggestion, fix it by setting all it's fields as
+>   0 and only initializing the non-zero fields.
+> 
+> Fixes: 55917a21d0cc ("netfilter: x_tables: add context to know if extension runs from nft_compat")
+> Suggested-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Series applied.
+Applied and queued up for -stable.
