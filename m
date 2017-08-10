@@ -1,38 +1,30 @@
-From: Ohad Oz <ohado@mellanox.com>
-Subject: [patch v1 1/2] Allow Mellanox network vendor to be configured if only I2C bus is configured
-Date: Thu, 10 Aug 2017 17:11:51 +0000
-Message-ID: <1502385112-103765-1-git-send-email-ohado@mellanox.com>
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, saeedm@mellanox.com,
-        vadimp@mellanox.com, system-sw-low-level@mellanox.com,
-        Ohad Oz <ohado@mellanox.com>
-To: davem@davemloft.net
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] phylink: Fix an uninitialized variable bug
+Date: Thu, 10 Aug 2017 17:21:12 +0200
+Message-ID: <20170810152112.GF24790@lunn.ch>
+References: <20170809213550.rga6tlohagu2pm2y@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Russell King <rmk+kernel@arm.linux.org.uk>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47470 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752059AbdHJPPL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 11:15:11 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:59765 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752806AbdHJPVT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 10 Aug 2017 11:21:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20170809213550.rga6tlohagu2pm2y@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch allows Mellanox devices on system with no PCI, but with I2C only.
+On Thu, Aug 10, 2017 at 12:35:50AM +0300, Dan Carpenter wrote:
+> "ret" isn't necessarily initialized here.
+> 
+> Fixes: 9525ae83959b ("phylink: add phylink infrastructure")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Signed-off-by: Ohad Oz <ohado@mellanox.com>
----
- drivers/net/ethernet/mellanox/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-diff --git a/drivers/net/ethernet/mellanox/Kconfig b/drivers/net/ethernet/mellanox/Kconfig
-index 84a2007..0949741 100644
---- a/drivers/net/ethernet/mellanox/Kconfig
-+++ b/drivers/net/ethernet/mellanox/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_MELLANOX
- 	bool "Mellanox devices"
- 	default y
--	depends on PCI
-+	depends on PCI || I2C
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
- 
--- 
-2.8.0
+    Andrew
