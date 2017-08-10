@@ -1,57 +1,39 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [PATCH 0/4] net-next: dsa: fix flow dissection
-Date: Thu, 10 Aug 2017 10:10:27 +0200
-Message-ID: <dfe76105-95a2-bd82-1f71-74b171b4a702@phrozen.org>
-References: <20170809124119.24320-1-john@phrozen.org>
- <20170809.225243.2204411285392662424.davem@davemloft.net>
- <1502347335.4936.2.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, muciri@openmesh.com,
-        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-        sean.wang@mediatek.com, linux-kernel@vger.kernel.org,
-        shashidhar.lakkavalli@openmesh.com,
-        linux-mediatek@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502347335.4936.2.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zhu Yanjun <yanjun.zhu@oracle.com>
+Subject: [PATCH 1/1] forcedeth: replace init_timer_deferrable with setup_deferrable_timer
+Date: Thu, 10 Aug 2017 04:13:12 -0400
+Message-ID: <1502352792-6930-1-git-send-email-yanjun.zhu@oracle.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:43863 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750735AbdHJILS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 04:11:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Replace init_timer_deferrable with setup_deferrable_timer to simplify
+the source code.
 
+Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-On 10/08/17 08:42, Eric Dumazet wrote:
-> On Wed, 2017-08-09 at 22:52 -0700, David Miller wrote:
->> From: John Crispin <john@phrozen.org>
->> Date: Wed,  9 Aug 2017 14:41:15 +0200
->>
->>> RPS and probably other kernel features are currently broken on some if not
->>> all DSA devices. The root cause of this is that skb_hash will call the
->>> flow_dissector. At this point the skb still contains the magic switch
->>> header and the skb->protocol field is not set up to the correct 802.3
->>> value yet. By the time the tag specific code is called, removing the header
->>> and properly setting the protocol an invalid hash is already set. In the
->>> case of the mt7530 this will result in all flows always having the same
->>> hash.
->>>
->>> Changes since RFC:
->>> * use a callback instead of static values
->>> * add cover letter
->> Series applied, thanks.
-> Is this related ?
->
-> net/core/flow_dissector.c: In function '__skb_flow_dissect':
-> net/core/flow_dissector.c:448:18: error: 'struct net_device' has no member named 'dsa_ptr'
->      ops = skb->dev->dsa_ptr->tag_ops;
->                    ^
-> make[3]: *** [net/core/flow_dissector.o] Error 1
->
->
-Hi Eric,
-
-I have just sent the fix for this compile error
-
-     John
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index aa912f4..bdbfe8f 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -5629,9 +5629,8 @@ static int nv_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
+ 
+ 	setup_timer(&np->oom_kick, nv_do_rx_refill, (unsigned long)dev);
+ 	setup_timer(&np->nic_poll, nv_do_nic_poll, (unsigned long)dev);
+-	init_timer_deferrable(&np->stats_poll);
+-	np->stats_poll.data = (unsigned long) dev;
+-	np->stats_poll.function = nv_do_stats_poll;	/* timer handler */
++	setup_deferrable_timer(&np->stats_poll, nv_do_stats_poll,
++			       (unsigned long)dev);
+ 
+ 	err = pci_enable_device(pci_dev);
+ 	if (err)
+-- 
+2.7.4
