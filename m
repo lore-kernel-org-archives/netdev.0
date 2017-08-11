@@ -1,63 +1,44 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] mlxsw: make mlxsw_config_profile const
-Date: Fri, 11 Aug 2017 19:10:42 +0530
-Message-ID: <1502458842-31516-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, jiri@mellanox.com, idosch@mellanox.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: William Tu <u9012063@gmail.com>
+Subject: [PATCHv2 net-next] selftests: bpf: add check for ip XDP redirect
+Date: Fri, 11 Aug 2017 06:46:39 -0700
+Message-ID: <1502459199-6442-1-git-send-email-u9012063@gmail.com>
+Cc: John Fastabend <john.fastabend@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35360 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753196AbdHKNrA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 09:47:00 -0400
+Received: by mail-pf0-f195.google.com with SMTP id j68so3540327pfc.2
+        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 06:47:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make these structures const as they only stored in the profile field of
-a mlxsw_driver structure, which is of type const.
-Done using Coccinelle.
+Kernel test robot reports error when running test_xdp_redirect.sh.
+Check if ip tool supports xdpgeneric, if not, skip the test.
 
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+Signed-off-by: William Tu <u9012063@gmail.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Cc: John Fastabend <john.fastabend@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 2 +-
- drivers/net/ethernet/mellanox/mlxsw/switchib.c | 2 +-
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ tools/testing/selftests/bpf/test_xdp_redirect.sh | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index eb7c454..82f8ccd 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -3743,7 +3743,7 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
- 	mlxsw_sp_fids_fini(mlxsw_sp);
+diff --git a/tools/testing/selftests/bpf/test_xdp_redirect.sh b/tools/testing/selftests/bpf/test_xdp_redirect.sh
+index d8c73ed6e040..344a3656dea6 100755
+--- a/tools/testing/selftests/bpf/test_xdp_redirect.sh
++++ b/tools/testing/selftests/bpf/test_xdp_redirect.sh
+@@ -23,6 +23,11 @@ cleanup()
+ 	ip netns del ns2 2> /dev/null
  }
  
--static struct mlxsw_config_profile mlxsw_sp_config_profile = {
-+static const struct mlxsw_config_profile mlxsw_sp_config_profile = {
- 	.used_max_vepa_channels		= 1,
- 	.max_vepa_channels		= 0,
- 	.used_max_mid			= 1,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchib.c b/drivers/net/ethernet/mellanox/mlxsw/switchib.c
-index 74341fe..ab7a298 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchib.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchib.c
-@@ -497,7 +497,7 @@ static void mlxsw_sib_fini(struct mlxsw_core *mlxsw_core)
- 	mlxsw_sib_ports_remove(mlxsw_sib);
- }
++ip link set dev lo xdpgeneric off 2>/dev/null > /dev/null
++if [ $? -ne 0 ];then
++	echo "selftests: [SKIP] Could not run test without the ip xdpgeneric support"
++	exit 0
++fi
+ set -e
  
--static struct mlxsw_config_profile mlxsw_sib_config_profile = {
-+static const struct mlxsw_config_profile mlxsw_sib_config_profile = {
- 	.used_max_system_port		= 1,
- 	.max_system_port		= 48000,
- 	.used_max_ib_mc			= 1,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index 3b0f724..f3c29bb 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -1674,7 +1674,7 @@ static void mlxsw_sx_fini(struct mlxsw_core *mlxsw_core)
- 	mlxsw_sx_ports_remove(mlxsw_sx);
- }
- 
--static struct mlxsw_config_profile mlxsw_sx_config_profile = {
-+static const struct mlxsw_config_profile mlxsw_sx_config_profile = {
- 	.used_max_vepa_channels		= 1,
- 	.max_vepa_channels		= 0,
- 	.used_max_mid			= 1,
+ ip netns add ns1
 -- 
-1.9.1
+2.7.4
