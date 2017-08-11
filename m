@@ -1,84 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] openvswitch: Remove unnecessary newlines from OVS_NLERR uses
-Date: Fri, 11 Aug 2017 04:26:26 -0700
-Message-ID: <72f936a314a54a7957afdeb19e3d019c8c1dabea.1502450609.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        dev@openvswitch.org, linux-kernel@vger.kernel.org
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] selftests: bpf: add check for ip XDP redirect
+Date: Fri, 11 Aug 2017 13:31:35 +0200
+Message-ID: <598D9597.2030907@iogearbox.net>
+References: <1502409753-27516-1-git-send-email-u9012063@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>
+To: William Tu <u9012063@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:56999 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752728AbdHKLbg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 07:31:36 -0400
+In-Reply-To: <1502409753-27516-1-git-send-email-u9012063@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-OVS_NLERR already adds a newline so these just add blank
-lines to the logging.
+On 08/11/2017 02:02 AM, William Tu wrote:
+> Kernel test robot reports error when running test_xdp_redirect.sh.
+> Check if ip tool supports xdpgeneric, if not, skip the test.
+>
+> Signed-off-by: William Tu <u9012063@gmail.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> ---
+>   tools/testing/selftests/bpf/test_xdp_redirect.sh | 5 +++++
+>   1 file changed, 5 insertions(+)
+>
+> diff --git a/tools/testing/selftests/bpf/test_xdp_redirect.sh b/tools/testing/selftests/bpf/test_xdp_redirect.sh
+> index d8c73ed6e040..c5a8b7173c12 100755
+> --- a/tools/testing/selftests/bpf/test_xdp_redirect.sh
+> +++ b/tools/testing/selftests/bpf/test_xdp_redirect.sh
+> @@ -23,6 +23,11 @@ cleanup()
+>   	ip netns del ns2 2> /dev/null
+>   }
+>
+> +ip link set dev lo xdpgeneric off 2>/dev/null > /dev/null
+> +if [ $? -ne 0 ];then
+> +        echo "selftests: [SKIP] Could not run test without the ip xdpgeneric support"
+> +        exit 0
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/openvswitch/conntrack.c    | 14 +++++---------
- net/openvswitch/flow_netlink.c |  2 +-
- 2 files changed, 6 insertions(+), 10 deletions(-)
+Small nit: could you make that indent consistently as tabs
+like in your cleanup() function slightly further above?
 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 03859e386b47..30d632509f82 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -1180,15 +1180,13 @@ static int parse_nat(const struct nlattr *attr,
- 		int type = nla_type(a);
- 
- 		if (type > OVS_NAT_ATTR_MAX) {
--			OVS_NLERR(log,
--				  "Unknown NAT attribute (type=%d, max=%d).\n",
-+			OVS_NLERR(log, "Unknown NAT attribute (type=%d, max=%d)",
- 				  type, OVS_NAT_ATTR_MAX);
- 			return -EINVAL;
- 		}
- 
- 		if (nla_len(a) != ovs_nat_attr_lens[type][ip_vers]) {
--			OVS_NLERR(log,
--				  "NAT attribute type %d has unexpected length (%d != %d).\n",
-+			OVS_NLERR(log, "NAT attribute type %d has unexpected length (%d != %d)",
- 				  type, nla_len(a),
- 				  ovs_nat_attr_lens[type][ip_vers]);
- 			return -EINVAL;
-@@ -1198,9 +1196,7 @@ static int parse_nat(const struct nlattr *attr,
- 		case OVS_NAT_ATTR_SRC:
- 		case OVS_NAT_ATTR_DST:
- 			if (info->nat) {
--				OVS_NLERR(log,
--					  "Only one type of NAT may be specified.\n"
--					  );
-+				OVS_NLERR(log, "Only one type of NAT may be specified");
- 				return -ERANGE;
- 			}
- 			info->nat |= OVS_CT_NAT;
-@@ -1245,13 +1241,13 @@ static int parse_nat(const struct nlattr *attr,
- 			break;
- 
- 		default:
--			OVS_NLERR(log, "Unknown nat attribute (%d).\n", type);
-+			OVS_NLERR(log, "Unknown nat attribute (%d)", type);
- 			return -EINVAL;
- 		}
- 	}
- 
- 	if (rem > 0) {
--		OVS_NLERR(log, "NAT attribute has %d unknown bytes.\n", rem);
-+		OVS_NLERR(log, "NAT attribute has %d unknown bytes", rem);
- 		return -EINVAL;
- 	}
- 	if (!info->nat) {
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index f07d10ac35d8..e8eb427ce6d1 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -1255,7 +1255,7 @@ static int ovs_key_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 		}
- 
- 		if (!is_mask && ipv6_key->ipv6_label & htonl(0xFFF00000)) {
--			OVS_NLERR(log, "IPv6 flow label %x is out of range (max=%x).\n",
-+			OVS_NLERR(log, "IPv6 flow label %x is out of range (max=%x)",
- 				  ntohl(ipv6_key->ipv6_label), (1 << 20) - 1);
- 			return -EINVAL;
- 		}
--- 
-2.10.0.rc2.1.g053435c
+Other than that (+ subject should also be [PATCH net-next]):
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
