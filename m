@@ -1,45 +1,50 @@
-From: Max Uvarov <muvarov@gmail.com>
-Subject: [PATCHv3 1/2] drivers: net: davinci_mdio: remove busy loop on wait user access
-Date: Fri, 11 Aug 2017 13:57:40 +0300
-Message-ID: <1502449061-30373-2-git-send-email-muvarov@gmail.com>
-References: <1502449061-30373-1-git-send-email-muvarov@gmail.com>
-Cc: linux-omap@vger.kernel.org, grygorii.strashko@ti.com,
-        Max Uvarov <muvarov@gmail.com>
-To: netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] bonding: ratelimit failed speed/duplex update warning
+Date: Fri, 11 Aug 2017 03:59:06 -0700
+Message-ID: <1502449146.3099.10.camel@perches.com>
+References: <20170811100413.16234-1-futur.andy@googlemail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: Andreas Born <futur.andy@googlemail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:34707 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752096AbdHKK5t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 06:57:49 -0400
-In-Reply-To: <1502449061-30373-1-git-send-email-muvarov@gmail.com>
+Received: from smtprelay0246.hostedemail.com ([216.40.44.246]:42804 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751618AbdHKK7J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 06:59:09 -0400
+In-Reply-To: <20170811100413.16234-1-futur.andy@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Polling 14 mdio devices on single mdio bus eats 30% of 1Ghz cpu time
-due to busy loop in wait(). Add small delay to relax cpu.
+On Fri, 2017-08-11 at 12:04 +0200, Andreas Born wrote:
+> bond_miimon_commit() handles the UP transition for each slave of a bond
+> in the case of MII. It is triggered 10 times per second for the default
+> MII Polling interval of 100ms. For device drivers that do not implement
+> __ethtool_get_link_ksettings() the call to bond_update_speed_duplex()
+> fails persistently while the MII status could remain UP. That is, in this and
+> other cases where the speed/duplex update keeps failing over a longer
+> period of time while the MII state is UP, a warning is printed every MII
+> polling interval.
+> 
+> To address these excessive warnings pr_warn_ratelimited() should be used
+> instead. pr_warn_once() would not be sufficient since the call to
+> bond_update_speed_duplex() could recover to meanwhile succeed and fail
+> again later.
+[]
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+[]
+> @@ -2144,9 +2144,9 @@ static void bond_miimon_commit(struct bonding *bond)
+>  			if (bond_update_speed_duplex(slave) &&
+>  			    bond_needs_speed_duplex(bond)) {
+>  				slave->link = BOND_LINK_DOWN;
+> -				netdev_warn(bond->dev,
+> -					    "failed to get link speed/duplex for %s\n",
+> -					    slave->dev->name);
+> +				pr_warn_ratelimited("%s: failed to get link speed/duplex for %s\n",
+> +						    bond->dev->name,
+> +						    slave->dev->name);
 
-Signed-off-by: Max Uvarov <muvarov@gmail.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
----
- drivers/net/ethernet/ti/davinci_mdio.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+This is more commonly done using
 
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 33df340..611e7cc 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -198,8 +198,10 @@ static inline int wait_for_user_access(struct davinci_mdio_data *data)
- 			return 0;
- 
- 		reg = __raw_readl(&regs->control);
--		if ((reg & CONTROL_IDLE) == 0)
-+		if ((reg & CONTROL_IDLE) == 0) {
-+			usleep_range(100, 200);
- 			continue;
-+		}
- 
- 		/*
- 		 * An emac soft_reset may have clobbered the mdio controller's
--- 
-2.5.0
+		if (net_ratelimit())
+			netdev_warn(etc...)
