@@ -1,109 +1,171 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH 2/2] drivers: add vpls support
-Date: Fri, 11 Aug 2017 14:55:47 +0200
-Message-ID: <20170811125547.GZ773745@eidolon>
-References: <1502396917-14848-1-git-send-email-amine.kherbouche@6wind.com>
- <1502396917-14848-3-git-send-email-amine.kherbouche@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: Amine Kherbouche <amine.kherbouche@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eidolon.nox.tf ([185.142.180.128]:56238 "EHLO eidolon.nox.tf"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752631AbdHKMzu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Aug 2017 08:55:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1502396917-14848-3-git-send-email-amine.kherbouche@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anton Vasilyev <vasilyev@ispras.ru>
+Subject: [PATCH] mISDN: Fix null pointer dereference at mISDN_FsmNew
+Date: Fri, 11 Aug 2017 15:57:22 +0300
+Message-ID: <1502456242-1695-1-git-send-email-vasilyev@ispras.ru>
+Cc: Anton Vasilyev <vasilyev@ispras.ru>,
+        Geliang Tang <geliangtang@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        ldv-project@linuxtesting.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 10, 2017 at 10:28:37PM +0200, Amine Kherbouche wrote:
-> This commit introduces the support of VPLS virtual device, that allows
-> performing  L2VPN multipoint to multipoint communication over MPLS PSN.
-> 
-> VPLS device encap received ethernet frame over mpls packet and send it the
-> output device, in the other direction, when receiving the right configured
-> mpls packet, the matched mpls route calls the handler vpls function,
-> then pulls out the mpls header and send it back the entry point via
-> netif_rx().
-> 
-> Two functions, mpls_entry_encode() and mpls_output_possible() are
-> exported from mpls/internal.h to be able to use them inside vpls driver.
-> 
-> Signed-off-by: Amine Kherbouche <amine.kherbouche@6wind.com>
+If mISDN_FsmNew() fails to allocate memory for jumpmatrix
+then null pointer dereference will occur on any write to
+jumpmatrix.
 
-This code is derivative of code that I authored;  while you
-significantly changed it I'd appreciate if you kept a hint of that.
+The patch adds check on successful allocation and
+corresponding error handling.
 
-Unfortunately, I also have some concerns with this patch...
+Found by Linux Driver Verification project (linuxtesting.org).
 
-> +#define VPLS_MAX_ID		256	/* Max VPLS WireID (arbitrary) */
+Signed-off-by: Anton Vasilyev <vasilyev@ispras.ru>
+---
+ drivers/isdn/mISDN/fsm.c    |  5 ++++-
+ drivers/isdn/mISDN/fsm.h    |  2 +-
+ drivers/isdn/mISDN/layer1.c |  3 +--
+ drivers/isdn/mISDN/layer2.c | 15 +++++++++++++--
+ drivers/isdn/mISDN/tei.c    | 20 +++++++++++++++++---
+ 5 files changed, 36 insertions(+), 9 deletions(-)
 
-There is no point in keeping a VPLS wire ID.  Again, this was in the
-README that accompanied my patchset:
-
-- I made a design mistake with the wire ID.  It's simply not needed.  A
-  pseudowire can be identified by its incoming label.  There is also some
-  really ugly code keeping an array of wires...
-
-I don't even see where you're using the wire ID anymore at this point,
-it might be a dead leftover from my code.
-
-[...]
-> +union vpls_nh {
-> +	struct in6_addr		addr6;
-> +	struct in_addr		addr;
-> +};
-> +
-> +struct vpls_dst {
-> +	struct net_device	*dev;
-> +	union vpls_nh		addr;
-> +	u32			label_in, label_out;
-> +	u32			id;
-> +	u16			vlan_id;
-
-I looked at VLAN support and decided against it because the bridge layer
-can handle this perfectly fine by using the bridge's vlan support to tag
-a port's pvid.
-
-> +	u8			via_table;
-> +	u8			flags;
-> +	u8			ttl;
-> +};
-
-[...]
-> +struct vpls_priv {
-> +	struct net		*encap_net;
-> +	struct vpls_dst		dst;
-> +};
-> +
-> +static struct nla_policy vpls_policy[IFLA_VPLS_MAX + 1] = {
-> +	[IFLA_VPLS_ID]		= { .type = NLA_U32 },
-> +	[IFLA_VPLS_IN_LABEL]	= { .type = NLA_U32 },
-> +	[IFLA_VPLS_OUT_LABEL]	= { .type = NLA_U32 },
-> +	[IFLA_VPLS_OIF]		= { .type = NLA_U32 },
-> +	[IFLA_VPLS_TTL]		= { .type = NLA_U8  },
-> +	[IFLA_VPLS_VLANID]	= { .type = NLA_U8 },
-> +	[IFLA_VPLS_NH]		= { .type = NLA_U32 },
-> +	[IFLA_VPLS_NH6]		= { .len = sizeof(struct in6_addr) },
-> +};
-
-The original patchset was point-to-multipoint in a single netdev, and
-had some starts on optimized multicast support (which, admittedly, is a
-bit of a fringe thing, but still.)
-
-This patch implements a single pseudowire (so the name is kind of
-misleading; it's a VLL / VPWS, multiple of which you'd use to build full
-VPLS).  However, you are now missing split-horizon ethernet bridging
-support.  How is that done here?
-
-
--David
-
-
-P.S.: for anyone curious, the original patchset is at
-https://github.com/eqvinox/vpls-linux-kernel
-I didn't go ahead with posting it because I felt there were several
-things where I'd want to change the design, hence this README:
-https://github.com/eqvinox/vpls-linux-kernel/commit/81c809d6f9c40c0332098e13fcad65144aa51795
+diff --git a/drivers/isdn/mISDN/fsm.c b/drivers/isdn/mISDN/fsm.c
+index 78fc5d5..92e6570 100644
+--- a/drivers/isdn/mISDN/fsm.c
++++ b/drivers/isdn/mISDN/fsm.c
+@@ -26,7 +26,7 @@
+ 
+ #define FSM_TIMER_DEBUG 0
+ 
+-void
++int
+ mISDN_FsmNew(struct Fsm *fsm,
+ 	     struct FsmNode *fnlist, int fncount)
+ {
+@@ -34,6 +34,8 @@ mISDN_FsmNew(struct Fsm *fsm,
+ 
+ 	fsm->jumpmatrix = kzalloc(sizeof(FSMFNPTR) * fsm->state_count *
+ 				  fsm->event_count, GFP_KERNEL);
++	if (fsm->jumpmatrix == NULL)
++		return -ENOMEM;
+ 
+ 	for (i = 0; i < fncount; i++)
+ 		if ((fnlist[i].state >= fsm->state_count) ||
+@@ -45,6 +47,7 @@ mISDN_FsmNew(struct Fsm *fsm,
+ 		} else
+ 			fsm->jumpmatrix[fsm->state_count * fnlist[i].event +
+ 					fnlist[i].state] = (FSMFNPTR) fnlist[i].routine;
++	return 0;
+ }
+ EXPORT_SYMBOL(mISDN_FsmNew);
+ 
+diff --git a/drivers/isdn/mISDN/fsm.h b/drivers/isdn/mISDN/fsm.h
+index 928f5be..e1def84 100644
+--- a/drivers/isdn/mISDN/fsm.h
++++ b/drivers/isdn/mISDN/fsm.h
+@@ -55,7 +55,7 @@ struct FsmTimer {
+ 	void *arg;
+ };
+ 
+-extern void mISDN_FsmNew(struct Fsm *, struct FsmNode *, int);
++extern int mISDN_FsmNew(struct Fsm *, struct FsmNode *, int);
+ extern void mISDN_FsmFree(struct Fsm *);
+ extern int mISDN_FsmEvent(struct FsmInst *, int , void *);
+ extern void mISDN_FsmChangeState(struct FsmInst *, int);
+diff --git a/drivers/isdn/mISDN/layer1.c b/drivers/isdn/mISDN/layer1.c
+index bebc57b..3192b0e 100644
+--- a/drivers/isdn/mISDN/layer1.c
++++ b/drivers/isdn/mISDN/layer1.c
+@@ -414,8 +414,7 @@ l1_init(u_int *deb)
+ 	l1fsm_s.event_count = L1_EVENT_COUNT;
+ 	l1fsm_s.strEvent = strL1Event;
+ 	l1fsm_s.strState = strL1SState;
+-	mISDN_FsmNew(&l1fsm_s, L1SFnList, ARRAY_SIZE(L1SFnList));
+-	return 0;
++	return mISDN_FsmNew(&l1fsm_s, L1SFnList, ARRAY_SIZE(L1SFnList));
+ }
+ 
+ void
+diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
+index 7243a67..9ff0903 100644
+--- a/drivers/isdn/mISDN/layer2.c
++++ b/drivers/isdn/mISDN/layer2.c
+@@ -2247,15 +2247,26 @@ static struct Bprotocol X75SLP = {
+ int
+ Isdnl2_Init(u_int *deb)
+ {
++	int res;
+ 	debug = deb;
+ 	mISDN_register_Bprotocol(&X75SLP);
+ 	l2fsm.state_count = L2_STATE_COUNT;
+ 	l2fsm.event_count = L2_EVENT_COUNT;
+ 	l2fsm.strEvent = strL2Event;
+ 	l2fsm.strState = strL2State;
+-	mISDN_FsmNew(&l2fsm, L2FnList, ARRAY_SIZE(L2FnList));
+-	TEIInit(deb);
++	res = mISDN_FsmNew(&l2fsm, L2FnList, ARRAY_SIZE(L2FnList));
++	if (res)
++		goto error;
++	res = TEIInit(deb);
++	if (res)
++		goto error_fsm;
+ 	return 0;
++
++error_fsm:
++	mISDN_FsmFree(&l2fsm);
++error:
++	mISDN_unregister_Bprotocol(&X75SLP);
++	return res;
+ }
+ 
+ void
+diff --git a/drivers/isdn/mISDN/tei.c b/drivers/isdn/mISDN/tei.c
+index 908127e..12d9e5f 100644
+--- a/drivers/isdn/mISDN/tei.c
++++ b/drivers/isdn/mISDN/tei.c
+@@ -1387,23 +1387,37 @@ create_teimanager(struct mISDNdevice *dev)
+ 
+ int TEIInit(u_int *deb)
+ {
++	int res;
+ 	debug = deb;
+ 	teifsmu.state_count = TEI_STATE_COUNT;
+ 	teifsmu.event_count = TEI_EVENT_COUNT;
+ 	teifsmu.strEvent = strTeiEvent;
+ 	teifsmu.strState = strTeiState;
+-	mISDN_FsmNew(&teifsmu, TeiFnListUser, ARRAY_SIZE(TeiFnListUser));
++	res = mISDN_FsmNew(&teifsmu, TeiFnListUser, ARRAY_SIZE(TeiFnListUser));
++	if (res)
++		goto error;
+ 	teifsmn.state_count = TEI_STATE_COUNT;
+ 	teifsmn.event_count = TEI_EVENT_COUNT;
+ 	teifsmn.strEvent = strTeiEvent;
+ 	teifsmn.strState = strTeiState;
+-	mISDN_FsmNew(&teifsmn, TeiFnListNet, ARRAY_SIZE(TeiFnListNet));
++	res = mISDN_FsmNew(&teifsmn, TeiFnListNet, ARRAY_SIZE(TeiFnListNet));
++	if (res)
++		goto error_smn;
+ 	deactfsm.state_count =  DEACT_STATE_COUNT;
+ 	deactfsm.event_count = DEACT_EVENT_COUNT;
+ 	deactfsm.strEvent = strDeactEvent;
+ 	deactfsm.strState = strDeactState;
+-	mISDN_FsmNew(&deactfsm, DeactFnList, ARRAY_SIZE(DeactFnList));
++	res = mISDN_FsmNew(&deactfsm, DeactFnList, ARRAY_SIZE(DeactFnList));
++	if (res)
++		goto error_deact;
+ 	return 0;
++
++error_deact:
++	mISDN_FsmFree(&teifsmn);
++error_smn:
++	mISDN_FsmFree(&teifsmu);
++error:
++	return res;
+ }
+ 
+ void TEIFree(void)
+-- 
+2.7.4
