@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 00/11] Add the integrated PHY support
-Date: Fri, 11 Aug 2017 14:29:15 -0700 (PDT)
-Message-ID: <20170811.142915.2194989886100869835.davem@davemloft.net>
-References: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
+Subject: Re: [PATCH] net/sched/hfsc: allocate tcf block for hfsc root class
+Date: Fri, 11 Aug 2017 14:31:00 -0700 (PDT)
+Message-ID: <20170811.143100.1181788749464507615.davem@davemloft.net>
+References: <150235750037.493227.16245118631720190134.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: heiko@sntech.de, andrew@lunn.ch, f.fainelli@gmail.com,
-        robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, olof@lixom.net, linux@armlinux.org.uk,
-        arnd@arndb.de, peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, hwg@rock-chips.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: david.wu@rock-chips.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, jhs@mojatatu.com
+To: khlebnikov@yandex-team.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60226 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753806AbdHKVbB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 17:31:01 -0400
+In-Reply-To: <150235750037.493227.16245118631720190134.stgit@buzz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Wu <david.wu@rock-chips.com>
-Date: Thu, 10 Aug 2017 21:56:39 +0800
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Date: Thu, 10 Aug 2017 12:31:40 +0300
 
-> The rk3228 and rk3328 support integrated PHY inside, let's enable
-> it to work. And the integrated PHY need to do some special setting,
-> so register the rockchip integrated PHY driver.
+> Without this filters cannot be attached.
+> 
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> Fixes: 6529eaba33f0 ("net: sched: introduce tcf block infractructure")
 
-Series applied to net-next, thanks.
+Applied, thanks.
