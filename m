@@ -1,49 +1,100 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] selftests: bpf: add check for ip XDP redirect
-Date: Fri, 11 Aug 2017 13:31:35 +0200
-Message-ID: <598D9597.2030907@iogearbox.net>
-References: <1502409753-27516-1-git-send-email-u9012063@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>
-To: William Tu <u9012063@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56999 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752728AbdHKLbg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 07:31:36 -0400
-In-Reply-To: <1502409753-27516-1-git-send-email-u9012063@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next V2 2/3] net: export some generic xdp helpers
+Date: Fri, 11 Aug 2017 19:41:17 +0800
+Message-ID: <1502451678-17358-3-git-send-email-jasowang@redhat.com>
+References: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
+Cc: kubakici@wp.pl, Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/11/2017 02:02 AM, William Tu wrote:
-> Kernel test robot reports error when running test_xdp_redirect.sh.
-> Check if ip tool supports xdpgeneric, if not, skip the test.
->
-> Signed-off-by: William Tu <u9012063@gmail.com>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> ---
->   tools/testing/selftests/bpf/test_xdp_redirect.sh | 5 +++++
->   1 file changed, 5 insertions(+)
->
-> diff --git a/tools/testing/selftests/bpf/test_xdp_redirect.sh b/tools/testing/selftests/bpf/test_xdp_redirect.sh
-> index d8c73ed6e040..c5a8b7173c12 100755
-> --- a/tools/testing/selftests/bpf/test_xdp_redirect.sh
-> +++ b/tools/testing/selftests/bpf/test_xdp_redirect.sh
-> @@ -23,6 +23,11 @@ cleanup()
->   	ip netns del ns2 2> /dev/null
->   }
->
-> +ip link set dev lo xdpgeneric off 2>/dev/null > /dev/null
-> +if [ $? -ne 0 ];then
-> +        echo "selftests: [SKIP] Could not run test without the ip xdpgeneric support"
-> +        exit 0
+This patch tries to export some generic xdp helpers to drivers. This
+can let driver to do XDP for a specific skb. This is useful for the
+case when the packet is hard to be processed at page level directly
+(e.g jumbo/GSO frame).
 
-Small nit: could you make that indent consistently as tabs
-like in your cleanup() function slightly further above?
+With this patch, there's no need for driver to forbid the XDP set when
+configuration is not suitable. Instead, it can defer the XDP for
+packets that is hard to be processed directly after skb is created.
 
-Other than that (+ subject should also be [PATCH net-next]):
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ include/linux/netdevice.h |  2 ++
+ net/core/dev.c            | 14 ++++++++------
+ 2 files changed, 10 insertions(+), 6 deletions(-)
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1d238d5..0f1c4cb 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3243,6 +3243,8 @@ static inline void dev_consume_skb_any(struct sk_buff *skb)
+ 	__dev_kfree_skb_any(skb, SKB_REASON_CONSUMED);
+ }
+ 
++void generic_xdp_tx(struct sk_buff *skb, struct bpf_prog *xdp_prog);
++int do_xdp_generic(struct bpf_prog *xdp_prog, struct sk_buff *skb);
+ int netif_rx(struct sk_buff *skb);
+ int netif_rx_ni(struct sk_buff *skb);
+ int netif_receive_skb(struct sk_buff *skb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3f69f6e..1a6657a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3920,7 +3920,7 @@ static u32 netif_receive_generic_xdp(struct sk_buff *skb,
+ /* When doing generic XDP we have to bypass the qdisc layer and the
+  * network taps in order to match in-driver-XDP behavior.
+  */
+-static void generic_xdp_tx(struct sk_buff *skb, struct bpf_prog *xdp_prog)
++void generic_xdp_tx(struct sk_buff *skb, struct bpf_prog *xdp_prog)
+ {
+ 	struct net_device *dev = skb->dev;
+ 	struct netdev_queue *txq;
+@@ -3941,13 +3941,12 @@ static void generic_xdp_tx(struct sk_buff *skb, struct bpf_prog *xdp_prog)
+ 		kfree_skb(skb);
+ 	}
+ }
++EXPORT_SYMBOL_GPL(generic_xdp_tx);
+ 
+ static struct static_key generic_xdp_needed __read_mostly;
+ 
+-static int do_xdp_generic(struct sk_buff *skb)
++int do_xdp_generic(struct bpf_prog *xdp_prog, struct sk_buff *skb)
+ {
+-	struct bpf_prog *xdp_prog = rcu_dereference(skb->dev->xdp_prog);
+-
+ 	if (xdp_prog) {
+ 		u32 act = netif_receive_generic_xdp(skb, xdp_prog);
+ 		int err;
+@@ -3972,6 +3971,7 @@ static int do_xdp_generic(struct sk_buff *skb)
+ 	kfree_skb(skb);
+ 	return XDP_DROP;
+ }
++EXPORT_SYMBOL_GPL(do_xdp_generic);
+ 
+ static int netif_rx_internal(struct sk_buff *skb)
+ {
+@@ -3982,7 +3982,8 @@ static int netif_rx_internal(struct sk_buff *skb)
+ 	trace_netif_rx(skb);
+ 
+ 	if (static_key_false(&generic_xdp_needed)) {
+-		int ret = do_xdp_generic(skb);
++		int ret = do_xdp_generic(rcu_dereference(skb->dev->xdp_prog),
++					 skb);
+ 
+ 		/* Consider XDP consuming the packet a success from
+ 		 * the netdev point of view we do not want to count
+@@ -4503,7 +4504,8 @@ static int netif_receive_skb_internal(struct sk_buff *skb)
+ 	rcu_read_lock();
+ 
+ 	if (static_key_false(&generic_xdp_needed)) {
+-		int ret = do_xdp_generic(skb);
++		int ret = do_xdp_generic(rcu_dereference(skb->dev->xdp_prog),
++					 skb);
+ 
+ 		if (ret != XDP_PASS) {
+ 			rcu_read_unlock();
+-- 
+2.7.4
