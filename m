@@ -1,167 +1,103 @@
-From: Nick Desaulniers <ndesaulniers@google.com>
-Subject: [PATCH v2] netfilter: nf_nat_h323: fix logical-not-parentheses warning
-Date: Fri, 11 Aug 2017 11:16:07 -0700
-Message-ID: <20170811181607.33878-1-ndesaulniers@google.com>
-References: <20170811174259.GA3743@salvia>
-Cc: mka@chromium.org, lorenzo@google.com,
-        Nick Desaulniers <ndesaulniers@google.com>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: pablo@netfilter.org
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: moved ptp_enable to octeon_device
+ structure
+Date: Fri, 11 Aug 2017 11:22:09 -0700
+Message-ID: <20170811182209.GA1570@felix-thinkpad.cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        intiyaz.basha@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:34413 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753271AbdHKSQN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 14:16:13 -0400
-Received: by mail-pg0-f43.google.com with SMTP id u185so18451131pgb.1
-        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 11:16:13 -0700 (PDT)
-In-Reply-To: <20170811174259.GA3743@salvia>
+Received: from mail-dm3nam03on0061.outbound.protection.outlook.com ([104.47.41.61]:48296
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752915AbdHKSWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Aug 2017 14:22:16 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Clang produces the following warning:
+From: Intiyaz Basha <intiyaz.basha@cavium.com>
 
-net/ipv4/netfilter/nf_nat_h323.c:553:6: error:
-logical not is only applied to the left hand side of this comparison
-  [-Werror,-Wlogical-not-parentheses]
-if (!set_h225_addr(skb, protoff, data, dataoff, taddr,
-    ^
-add parentheses after the '!' to evaluate the comparison first
-add parentheses around left hand side expression to silence this warning
+ptp_enable was a global static variable.  Moved this global variable to
+octeon_device structure and removed extra device id check.
 
-There's not necessarily a bug here, but it's cleaner to return early,
-ex:
-
-if (x)
-  return
-...
-
-rather than:
-
-if (!x == 0)
-  ...
-else
-  return
-
-Also added a return code check that seemed to be missing in one
-instance.
-
-Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 ---
-Changes in v2:
-* Reorder if/else blocks to return early.
-* Also handle this for set_h245_addr(), not just set_h225_addr().
-* Add return code check for the Gnomemeeting case.
+ drivers/net/ethernet/cavium/liquidio/lio_main.c      | 19 ++++++++++---------
+ drivers/net/ethernet/cavium/liquidio/octeon_device.h |  1 +
+ 2 files changed, 11 insertions(+), 9 deletions(-)
 
- net/ipv4/netfilter/nf_nat_h323.c | 57 +++++++++++++++++++++-------------------
- 1 file changed, 30 insertions(+), 27 deletions(-)
-
-diff --git a/net/ipv4/netfilter/nf_nat_h323.c b/net/ipv4/netfilter/nf_nat_h323.c
-index 574f7ebba0b6..ac8342dcb55e 100644
---- a/net/ipv4/netfilter/nf_nat_h323.c
-+++ b/net/ipv4/netfilter/nf_nat_h323.c
-@@ -252,16 +252,16 @@ static int nat_rtp_rtcp(struct sk_buff *skb, struct nf_conn *ct,
- 	if (set_h245_addr(skb, protoff, data, dataoff, taddr,
- 			  &ct->tuplehash[!dir].tuple.dst.u3,
- 			  htons((port & htons(1)) ? nated_port + 1 :
--						    nated_port)) == 0) {
--		/* Save ports */
--		info->rtp_port[i][dir] = rtp_port;
--		info->rtp_port[i][!dir] = htons(nated_port);
--	} else {
-+						    nated_port))) {
- 		nf_ct_unexpect_related(rtp_exp);
- 		nf_ct_unexpect_related(rtcp_exp);
- 		return -1;
- 	}
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index cbd6287..8bf6dfc 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -78,8 +78,6 @@ int octeon_console_debug_enabled(u32 console)
+ 	return (console_bitmask >> (console)) & 0x1;
+ }
  
-+	/* Save ports */
-+	info->rtp_port[i][dir] = rtp_port;
-+	info->rtp_port[i][!dir] = htons(nated_port);
-+
- 	/* Success */
- 	pr_debug("nf_nat_h323: expect RTP %pI4:%hu->%pI4:%hu\n",
- 		 &rtp_exp->tuple.src.u3.ip,
-@@ -370,15 +370,15 @@ static int nat_h245(struct sk_buff *skb, struct nf_conn *ct,
- 	/* Modify signal */
- 	if (set_h225_addr(skb, protoff, data, dataoff, taddr,
- 			  &ct->tuplehash[!dir].tuple.dst.u3,
--			  htons(nated_port)) == 0) {
--		/* Save ports */
--		info->sig_port[dir] = port;
--		info->sig_port[!dir] = htons(nated_port);
--	} else {
-+			  htons(nated_port))) {
- 		nf_ct_unexpect_related(exp);
- 		return -1;
- 	}
- 
-+	/* Save ports */
-+	info->sig_port[dir] = port;
-+	info->sig_port[!dir] = htons(nated_port);
-+
- 	pr_debug("nf_nat_q931: expect H.245 %pI4:%hu->%pI4:%hu\n",
- 		 &exp->tuple.src.u3.ip,
- 		 ntohs(exp->tuple.src.u.tcp.port),
-@@ -462,24 +462,27 @@ static int nat_q931(struct sk_buff *skb, struct nf_conn *ct,
- 	/* Modify signal */
- 	if (set_h225_addr(skb, protoff, data, 0, &taddr[idx],
- 			  &ct->tuplehash[!dir].tuple.dst.u3,
--			  htons(nated_port)) == 0) {
--		/* Save ports */
--		info->sig_port[dir] = port;
--		info->sig_port[!dir] = htons(nated_port);
+-static int ptp_enable = 1;
 -
--		/* Fix for Gnomemeeting */
--		if (idx > 0 &&
--		    get_h225_addr(ct, *data, &taddr[0], &addr, &port) &&
--		    (ntohl(addr.ip) & 0xff000000) == 0x7f000000) {
--			set_h225_addr(skb, protoff, data, 0, &taddr[0],
--				      &ct->tuplehash[!dir].tuple.dst.u3,
--				      info->sig_port[!dir]);
--		}
--	} else {
-+			  htons(nated_port))) {
- 		nf_ct_unexpect_related(exp);
- 		return -1;
+ /* Polling interval for determining when NIC application is alive */
+ #define LIQUIDIO_STARTER_POLL_INTERVAL_MS 100
+ 
+@@ -1363,6 +1361,13 @@ liquidio_probe(struct pci_dev *pdev,
+ 	if (pdev->device == OCTEON_CN23XX_PF_VID)
+ 		oct_dev->msix_on = LIO_FLAG_MSIX_ENABLED;
+ 
++	/* Enable PTP for 6XXX Device */
++	if (((pdev->device == OCTEON_CN66XX) ||
++	     (pdev->device == OCTEON_CN68XX)))
++		oct_dev->ptp_enable = true;
++	else
++		oct_dev->ptp_enable = false;
++
+ 	dev_info(&pdev->dev, "Initializing device %x:%x.\n",
+ 		 (u32)pdev->vendor, (u32)pdev->device);
+ 
+@@ -2388,9 +2393,7 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 
+ 		r_dh_off = (rh->r_dh.len - 1) * BYTES_PER_DHLEN_UNIT;
+ 
+-		if (((oct->chip_id == OCTEON_CN66XX) ||
+-		     (oct->chip_id == OCTEON_CN68XX)) &&
+-		    ptp_enable) {
++		if (oct->ptp_enable) {
+ 			if (rh->r_dh.has_hwtstamp) {
+ 				/* timestamp is included from the hardware at
+ 				 * the beginning of the packet.
+@@ -2735,8 +2738,7 @@ static int liquidio_open(struct net_device *netdev)
+ 			oct->droq[0]->ops.poll_mode = 1;
  	}
  
-+	/* Save ports */
-+	info->sig_port[dir] = port;
-+	info->sig_port[!dir] = htons(nated_port);
-+
-+	/* Fix for Gnomemeeting */
-+	if (idx > 0 &&
-+	    get_h225_addr(ct, *data, &taddr[0], &addr, &port) &&
-+	    (ntohl(addr.ip) & 0xff000000) == 0x7f000000) {
-+		if (set_h225_addr(skb, protoff, data, 0, &taddr[0],
-+				  &ct->tuplehash[!dir].tuple.dst.u3,
-+				  info->sig_port[!dir])) {
-+			nf_ct_unexpect_related(exp);
-+			return -1;
-+		}
-+	}
-+
- 	/* Success */
- 	pr_debug("nf_nat_ras: expect Q.931 %pI4:%hu->%pI4:%hu\n",
- 		 &exp->tuple.src.u3.ip,
-@@ -550,9 +553,9 @@ static int nat_callforwarding(struct sk_buff *skb, struct nf_conn *ct,
- 	}
+-	if ((oct->chip_id == OCTEON_CN66XX || oct->chip_id == OCTEON_CN68XX) &&
+-	    ptp_enable)
++	if (oct->ptp_enable)
+ 		oct_ptp_open(netdev);
  
- 	/* Modify signal */
--	if (!set_h225_addr(skb, protoff, data, dataoff, taddr,
--			   &ct->tuplehash[!dir].tuple.dst.u3,
--			   htons(nated_port)) == 0) {
-+	if (set_h225_addr(skb, protoff, data, dataoff, taddr,
-+			  &ct->tuplehash[!dir].tuple.dst.u3,
-+			  htons(nated_port))) {
- 		nf_ct_unexpect_related(exp);
- 		return -1;
- 	}
--- 
-2.14.0.434.g98096fd7a8-goog
+ 	ifstate_set(lio, LIO_IFSTATE_RUNNING);
+@@ -3091,8 +3093,7 @@ static int liquidio_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+ 
+ 	switch (cmd) {
+ 	case SIOCSHWTSTAMP:
+-		if ((lio->oct_dev->chip_id == OCTEON_CN66XX ||
+-		     lio->oct_dev->chip_id == OCTEON_CN68XX) && ptp_enable)
++		if (lio->oct_dev->ptp_enable)
+ 			return hwtstamp_ioctl(netdev, ifr);
+ 	default:
+ 		return -EOPNOTSUPP;
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index 31efdef..b014e6a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -554,6 +554,7 @@ struct octeon_device {
+ 	} loc;
+ 
+ 	atomic_t *adapter_refcount; /* reference count of adapter */
++	bool ptp_enable;
+ };
+ 
+ #define  OCT_DRV_ONLINE 1
