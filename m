@@ -1,46 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] geneve: use netlink_ext_ack for error
- reporting in rtnl operations
-Date: Fri, 11 Aug 2017 13:45:14 -0700 (PDT)
-Message-ID: <20170811.134514.1496944956776826656.davem@davemloft.net>
-References: <1502266168-12107-1-git-send-email-girish.moodalbail@oracle.com>
+Subject: Re: [patch net-next 0/5] net: sched: let the offloader decide what
+ to offload
+Date: Fri, 11 Aug 2017 13:47:17 -0700 (PDT)
+Message-ID: <20170811.134717.2266880872443736719.davem@davemloft.net>
+References: <20170809123035.7663-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@ovn.org, netdev@vger.kernel.org
-To: girish.moodalbail@oracle.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        daniel@iogearbox.net, mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        jakub.kicinski@netronome.com, simon.horman@netronome.com,
+        pieter.jansenvanvuuren@netronome.com, oss-drivers@netronome.com,
+        ganeshgr@chelsio.com, jeffrey.t.kirsher@intel.com,
+        saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59312 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59330 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753357AbdHKUpS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 16:45:18 -0400
-In-Reply-To: <1502266168-12107-1-git-send-email-girish.moodalbail@oracle.com>
+        with ESMTP id S1753401AbdHKUrT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 16:47:19 -0400
+In-Reply-To: <20170809123035.7663-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Date: Wed,  9 Aug 2017 01:09:28 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed,  9 Aug 2017 14:30:30 +0200
 
-> Add extack error messages for failure paths while creating/modifying
-> geneve devices. Once extack support is added to iproute2, more
-> meaningful and helpful error messages will be displayed making it easy
-> for users to discern what went wrong.
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Before:
-> =======
-> $ ip link add gen1 address 0:1:2:3:4:5:6 type geneve id 200 \
->   remote 192.168.13.2
-> RTNETLINK answers: Invalid argument
+> Currently there is a Qdisc_class_ops->tcf_cl_offload callback
+> that is called to find out if cls would offload rule or not.
+> This is only supported by sch_ingress and sch_clsact.
+> So the Qdisc are to decide. However, the driver knows what is he
+> able to offload, so move the decision making to drivers completely.
+> Just pass classid there and provide set of helpers to allow
+> identification of qdisc.
 > 
-> After:
-> ======
-> $ ip link add gen1 address 0:1:2:3:4:5:6 type geneve id 200 \
->   remote 192.168.13.2
-> Error: Provided link layer address is not Ethernet
-> 
-> Also, netdev_dbg() calls used to log errors associated with Netlink
-> request have been removed.
-> 
-> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+> As a side effect, this actually allows clsact egress rules
+> offload in mlxsw.
 
-Applied, thanks.
+Series applied, thanks.
