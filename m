@@ -1,215 +1,119 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3] Add LAN743X driver
-Date: Fri, 11 Aug 2017 15:12:05 -0700 (PDT)
-Message-ID: <20170811.151205.2131155817966352627.davem@davemloft.net>
-References: <90A7E81AE28BAE4CBDDB3B35F187D264406F603F@CHN-SV-EXMX02.mchp-main.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH 1/4] MIPS/seccomp: Fix indirect syscall args
+Date: Fri, 11 Aug 2017 15:17:11 -0700
+Message-ID: <CAGXu5jKmDKZ5DPDC87ZqHtmRVac7t3kQ3nqY4YzargZZPQmW6Q@mail.gmail.com>
+References: <20170811205653.21873-1-james.hogan@imgtec.com> <20170811205653.21873-2-james.hogan@imgtec.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, UNGLinuxDriver@microchip.com
-To: Bryan.Whitehead@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33010 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753648AbdHKWMG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 18:12:06 -0400
-In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264406F603F@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux MIPS Mailing List <linux-mips@linux-mips.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        David Daney <david.daney@cavium.com>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Will Drewry <wad@chromium.org>,
+        Oleg Nesterov <oleg@redhat.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Network Development <netdev@vger.kernel.org>
+To: James Hogan <james.hogan@imgtec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170811205653.21873-2-james.hogan@imgtec.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <Bryan.Whitehead@microchip.com>
-Date: Fri, 11 Aug 2017 19:47:57 +0000
+On Fri, Aug 11, 2017 at 1:56 PM, James Hogan <james.hogan@imgtec.com> wrote:
+> Since commit 669c4092225f ("MIPS: Give __secure_computing() access to
+> syscall arguments."), upon syscall entry when seccomp is enabled,
+> syscall_trace_enter() passes a carefully prepared struct seccomp_data
+> containing syscall arguments to __secure_computing(). Unfortunately it
+> directly uses mips_get_syscall_arg() and fails to take into account the
+> indirect O32 system calls (i.e. syscall(2)) which put the system call
+> number in a0 and have the arguments shifted up by one entry.
+>
+> We can't just revert that commit as samples/bpf/tracex5 would break
+> again, so use syscall_get_arguments() which already takes indirect
+> syscalls into account instead of directly using mips_get_syscall_arg(),
+> similar to what populate_seccomp_data() does.
+>
+> This also removes the redundant error checking of the
+> mips_get_syscall_arg() return value (get_user() already zeroes the
+> result if an argument from the stack can't be loaded).
+>
+> Reported-by: James Cowgill <James.Cowgill@imgtec.com>
+> Fixes: 669c4092225f ("MIPS: Give __secure_computing() access to syscall arguments.")
+> Signed-off-by: James Hogan <james.hogan@imgtec.com>
+> Cc: Ralf Baechle <ralf@linux-mips.org>
+> Cc: David Daney <david.daney@cavium.com>
+> Cc: Kees Cook <keescook@chromium.org>
+> Cc: Andy Lutomirski <luto@amacapital.net>
+> Cc: Will Drewry <wad@chromium.org>
+> Cc: Oleg Nesterov <oleg@redhat.com>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: linux-mips@linux-mips.org
+> ---
+> It would have been much simpler for MIPS arch code to just pass a NULL
+> seccomp_data to secure_computing() so populate_seccomp_data() would take
+> care of fetching arguments, as it did for MIPS prior to commit
+> 669c4092225f ("MIPS: Give __secure_computing() access to syscall
+> arguments."), but as that commit mentions it breaks samples/bpf/tracex5,
+> which relies on sd being non-NULL at entry to __seccomp_filter().
+>
+> Arguably the samples/bpf/tracex5 test is flawed, at least for every arch
+> except x86 (and now MIPS).
 
-> +static int lan743x_pci_init(struct lan743x_adapter *adapter,
-> +			    struct pci_dev *pdev)
-> +{
-> +	int ret = -ENODEV;
-> +	int bars = 0;
-> +	struct lan743x_pci *pci = &adapter->pci;
+Weird. Yeah, that sample is broken. Allowing NULL sd is totally fine.
+The point is that seccomp will use syscall_get_arguments() when it's
+NULL (which is effectively what this is doing...)
 
-Please always order local variable declarations from longest to shortest
-line (reverse christmas tree format).
+The reason sd can be _non_-NULL is when an architecture has access to
+the args in some way that might be faster than calling
+syscall_get_arguments().
 
-> +	pci_set_master(pdev);
-> +
-> +clean_up:
-> +	if (ret) {
+Regardless, I'm fine with this change. It should either be this or
+reverting 669c4092225f, but it looks like kprobes of
+__seccomp_filter() is desired on MIPS...
 
-It is more intuitive to structure this like:
+Reviewed-by: Kees Cook <keescook@chromium.org>
 
-	return 0;
+-Kees
 
-clean_up:
- ...
+> ---
+>  arch/mips/kernel/ptrace.c | 10 ++++------
+>  1 file changed, 4 insertions(+), 6 deletions(-)
+>
+> diff --git a/arch/mips/kernel/ptrace.c b/arch/mips/kernel/ptrace.c
+> index 6dd13641a418..1395654cfc8d 100644
+> --- a/arch/mips/kernel/ptrace.c
+> +++ b/arch/mips/kernel/ptrace.c
+> @@ -872,15 +872,13 @@ asmlinkage long syscall_trace_enter(struct pt_regs *regs, long syscall)
+>         if (unlikely(test_thread_flag(TIF_SECCOMP))) {
+>                 int ret, i;
+>                 struct seccomp_data sd;
+> +               unsigned long args[6];
+>
+>                 sd.nr = syscall;
+>                 sd.arch = syscall_get_arch();
+> -               for (i = 0; i < 6; i++) {
+> -                       unsigned long v, r;
+> -
+> -                       r = mips_get_syscall_arg(&v, current, regs, i);
+> -                       sd.args[i] = r ? 0 : v;
+> -               }
+> +               syscall_get_arguments(current, regs, 0, 6, args);
+> +               for (i = 0; i < 6; i++)
+> +                       sd.args[i] = args[i];
+>                 sd.instruction_pointer = KSTK_EIP(current);
+>
+>                 ret = __secure_computing(&sd);
+> --
+> 2.13.2
+>
 
-> +static u8 __iomem *lan743x_pci_get_bar_address(struct lan743x_adapter *adapter,
-> +					       int bar_index)
-> +{
-> +	u8 __iomem *result = NULL;
-> +	struct lan743x_pci *pci = &adapter->pci;
 
-Reverse christmas tree ordering please.
 
-> +static int lan743x_csr_light_reset(struct lan743x_adapter *adapter)
-> +{
-> +	int result = -EIO;
-> +	u32 data;
-> +	unsigned long timeout;
-
-Likewise.
-
-> +static inline void lan743x_csr_write(
-> +	struct lan743x_adapter *adapter, int offset, u32 data)
-
-Don't do the argument formatting like this please, it looks terrible.
-
-This:
-
-static inline void lan743x_csr_write(struct lan743x_adapter *adapter,
-				     int offset, u32 data)
-
-works much better.
-
-> +static void lan743x_intr_union_isr(void *context, u32 int_sts)
-> +{
-> +	struct lan743x_adapter *adapter = (struct lan743x_adapter *)context;
-
-Casts from void pointers are never necessary, that's the whole point of
-void pointers.  Please remove this cast.
-
-> +static irqreturn_t lan743x_vector_isr(int irq, void *ptr)
-> +{
-> +	irqreturn_t result = IRQ_NONE;
-> +	struct lan743x_vector *vector = (struct lan743x_vector *)ptr;
-> +	struct lan743x_adapter *adapter = NULL;
-> +	u32 int_sts;
-> +	u32 mask;
-
-Reverse christmas tree ordering please.
-
-> +static int lan743x_intr_open(struct lan743x_adapter *adapter)
-> +{
-> +	int ret = -ENODEV;
-> +	struct lan743x_intr *intr = &adapter->intr;
-> +	int index = 0;
-
-Likewise.
-
-> +static int lan743x_dp_wait_till_not_busy(struct lan743x_adapter *adapter)
-> +{
-> +	int i;
-> +	u32 dp_sel = 0;
-
-Likewise.
-
-> +static int lan743x_dp_write(struct lan743x_adapter *adapter,
-> +			    u32 select, u32 addr, u32 length, u32 *buf)
-> +{
-> +	struct lan743x_dp *dp = &adapter->dp;
-> +	int ret = -EIO;
-> +	int i;
-> +	u32 dp_sel;
-
-Likewise.
-
-> +#ifdef CONFIG_PTP_1588_CLOCK
-> +static int lan743x_gpio_reserve_ptp_output(struct lan743x_adapter *adapter,
-> +					   int bit, int ptp_channel)
-> +{
-> +	struct lan743x_gpio *gpio = &adapter->gpio;
-> +	int ret = -EBUSY;
-> +	unsigned long irq_flags = 0;
-> +	int bit_mask = BIT(bit);
-
-Likewise.
-
-> +#ifdef CONFIG_PTP_1588_CLOCK
-> +static int lan743x_ptpci_adjfreq(struct ptp_clock_info *ptpci, s32 delta_ppb)
-> +{
-> +	u32 u32_delta = 0;
-> +	u64 u64_delta = 0;
-> +	u32 lan743x_rate_adj = 0;
-> +	bool positive = true;
-> +	struct lan743x_ptp *ptp = LAN743X_PTPCI_TO_PTP;
-> +	struct lan743x_adapter *adapter = LAN743X_PTP_TO_ADAPTER;
-
-Likewise.
-
-> +#ifdef CONFIG_PTP_1588_CLOCK
-> +static int lan743x_ptpci_adjtime(struct ptp_clock_info *ptpci, s64 delta)
-> +{
-> +	struct lan743x_ptp *ptp = LAN743X_PTPCI_TO_PTP;
-> +	struct lan743x_adapter *adapter = LAN743X_PTP_TO_ADAPTER;
-
-Likewise.
-
-> +#ifdef CONFIG_PTP_1588_CLOCK
-> +static int lan743x_ptpci_gettime64(struct ptp_clock_info *ptpci,
-> +				   struct timespec64 *ts)
-> +{
-> +	struct lan743x_ptp *ptp = LAN743X_PTPCI_TO_PTP;
-> +	struct lan743x_adapter *adapter = LAN743X_PTP_TO_ADAPTER;
-
-Likewise.
-
-> +#ifdef CONFIG_PTP_1588_CLOCK
-> +static int lan743x_ptpci_settime64(struct ptp_clock_info *ptpci,
-> +				   const struct timespec64 *ts)
-> +{
-> +	struct lan743x_ptp *ptp = LAN743X_PTPCI_TO_PTP;
-> +	struct lan743x_adapter *adapter = LAN743X_PTP_TO_ADAPTER;
-
-Likewise.
-
-Also, these X_TO_Y macros are terrible.  If you aren an accessor like
-that, make it a nice inline function declared in a header file with
-lowercase letter which actually does type checking on the pointer
-variable which is dereferenced.
-
-> +	if (ts) {
-> +		u32 seconds = 0;
-> +		u32 nano_seconds = 0;
-
-Reverse christmas tree ordering please.
-
-> +#ifdef CONFIG_PTP_1588_CLOCK
-> +static int lan743x_ptp_enable_pps(struct lan743x_adapter *adapter)
-> +{
-> +	struct lan743x_ptp *ptp = &adapter->ptp;
-> +	int result = -ENODEV;
-> +	u32 current_seconds = 0;
-> +	u32 target_seconds = 0;
-> +	u32 general_config = 0;
-
-Likewise.
-
-> +static void lan743x_ptp_isr(void *context)
-> +{
-> +	int enable_flag = 1;
-> +	u32 ptp_int_sts = 0;
-> +	struct lan743x_adapter *adapter = (struct lan743x_adapter *)context;
-> +	struct lan743x_ptp *ptp = NULL;
-
-Likewise.  And again please remove the void pointer cast.
-
-> +#ifdef CONFIG_PTP_1588_CLOCK
-> +static int lan743x_ptp_reserve_event_ch(struct lan743x_adapter *adapter)
-> +{
-> +	struct lan743x_ptp *ptp = &adapter->ptp;
-> +	int index = 0;
-> +	int result = -ENODEV;
-
-Likewise.
-
-> +#ifdef CONFIG_PTP_1588_CLOCK
-> +static void lan743x_ptp_clock_step(struct lan743x_adapter *adapter,
-> +				   s64 time_step_ns)
-> +{
-> +	struct lan743x_ptp *ptp = &adapter->ptp;
-> +	u64 abs_time_step_ns = 0;
-> +	s32 seconds = 0;
-> +	u32 nano_seconds = 0;
-
-Likewise.
-
-This thing is huge, I'm not reviewing any more of this enormous submission.
+-- 
+Kees Cook
+Pixel Security
