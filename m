@@ -1,33 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mISDN: Fix null pointer dereference at mISDN_FsmNew
-Date: Fri, 11 Aug 2017 14:56:35 -0700 (PDT)
-Message-ID: <20170811.145635.1954762995141694287.davem@davemloft.net>
-References: <1502456242-1695-1-git-send-email-vasilyev@ispras.ru>
+Subject: Re: [PATCH] mlxsw: make mlxsw_config_profile const
+Date: Fri, 11 Aug 2017 14:57:15 -0700 (PDT)
+Message-ID: <20170811.145715.872937428159584655.davem@davemloft.net>
+References: <1502458842-31516-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, geliangtang@gmail.com,
-        johannes.berg@intel.com, stephen@networkplumber.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ldv-project@linuxtesting.org
-To: vasilyev@ispras.ru
+Cc: julia.lawall@lip6.fr, jiri@mellanox.com, idosch@mellanox.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bhumirks@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502456242-1695-1-git-send-email-vasilyev@ispras.ru>
+In-Reply-To: <1502458842-31516-1-git-send-email-bhumirks@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Anton Vasilyev <vasilyev@ispras.ru>
-Date: Fri, 11 Aug 2017 15:57:22 +0300
+From: Bhumika Goyal <bhumirks@gmail.com>
+Date: Fri, 11 Aug 2017 19:10:42 +0530
 
-> If mISDN_FsmNew() fails to allocate memory for jumpmatrix
-> then null pointer dereference will occur on any write to
-> jumpmatrix.
+> Make these structures const as they only stored in the profile field of
+> a mlxsw_driver structure, which is of type const.
+> Done using Coccinelle.
 > 
-> The patch adds check on successful allocation and
-> corresponding error handling.
-> 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Anton Vasilyev <vasilyev@ispras.ru>
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
-Applied, thank you.
+Applied to net-next.
