@@ -1,80 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2] openvswitch: enable NSH support
-Date: Fri, 11 Aug 2017 12:35:34 +0200
-Message-ID: <20170811103534.GC1852@nanopsycho>
-References: <1502371275-52446-1-git-send-email-yi.y.yang@intel.com>
- <20170811102418.6b1be4f7@griffin>
- <20170811084722.GA19968@cran64.bj.intel.com>
- <20170811111055.482bd42b@griffin>
- <79BBBFE6CB6C9B488C1A45ACD284F51961C427FE@SHSMSX103.ccr.corp.intel.com>
- <20170811114449.745c49c5@griffin>
- <CFF8EF42F1132E4CBE2BF0AB6C21C58D7273679A@ESESSMB107.ericsson.se>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH ipsec-next] net: xfrm: support setting an output mark.
+Date: Fri, 11 Aug 2017 12:55:12 +0200
+Message-ID: <20170811105511.GD22049@secunet.com>
+References: <20170810171133.69254-1-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@redhat.com>, "Yang, Yi Y" <yi.y.yang@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>
-To: Jan Scheurich <jan.scheurich@ericsson.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <jhs@mojatatu.com>, <herbert@gondor.apana.org.au>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:36874 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752096AbdHKKfh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 06:35:37 -0400
-Received: by mail-wr0-f195.google.com with SMTP id f38so2267605wrf.4
-        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 03:35:37 -0700 (PDT)
+Received: from a.mx.secunet.com ([62.96.220.36]:53634 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751618AbdHKKzP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Aug 2017 06:55:15 -0400
 Content-Disposition: inline
-In-Reply-To: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7273679A@ESESSMB107.ericsson.se>
+In-Reply-To: <20170810171133.69254-1-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Aug 11, 2017 at 12:09:36PM CEST, jan.scheurich@ericsson.com wrote:
->> -----Original Message-----
->> From: Jiri Benc [mailto:jbenc@redhat.com]
->> Sent: Friday, 11 August, 2017 11:45
->> 
->> The context field does not apply to MD type 2. It looks wrong for the
->> context field to be included in netlink attribute for anything other
->> than MD type 1. Perhaps it needs to be put into a separate attribute,
->> too?
->> 
->> Note that I'm talking only about the uAPI. Internally, ovs can use
->> struct ovs_key_nsh that is MD type 1 only, there's no problem changing
->> that later. But for the user space interface, this needs to be clean.
->> This can be solved for example this way:
->> 
->> In include/uapi/linux/openvswitch.h:
->> 
->> struct ovs_key_nsh_base {
->> 	__u8 flags;
->> 	__u8 mdtype;
->> 	__u8 np;
->> 	__u8 pad;
->> 	__be32 path_hdr;
->> };
->> 
->> + one more netlink attribute carrying MD type 1 info. Will probably
->> require to change OVS_KEY_ATTR_NSH to a nested attribute etc.
->> 
->> In net/openvswitch/flow.h (or perhaps a different header would be more
->> appropriate?):
->> 
->> struct ovs_key_nsh {
->> 	struct ovs_key_nsh_base base;
->> 	__be32 context[4];
->> };
->> 
->> Plus needed conversions between OVS_KEY_ATTR_NSH and struct ovs_key_nsh
->> when interfacing between the kernel and user space.
->> 
->> That way, we can have MD type 1 support only for now while still being
->> allowed to redesign things in whatever way later.
->> 
->>  Jiri
->
->For the OVS_KEY_ATTR_NSH I agree to move the fixed size MD1 context headers from nsh_base to a separate struct and use nested netlink attributes.
->
->For OVS_ACTION_ATTR_PUSH_NSH attribute any metadata included is opaque to the datapath and should be copied as is into the packet header. I doubt that there is any benefit to model this with nested attributes for MD1 or MD2. This just adds complexity on sender and receiver side and requires updates in case there should be other MD types added later on.
->
->Unless someone can explain to me why the datapath should understand the internal structure/format of metadata in push_nsh, I would strongly vote to keep the metadata as variable length octet sequence in the non-structured OVS_ACTION_ATTR_PUSH_NSH
+On Fri, Aug 11, 2017 at 02:11:33AM +0900, Lorenzo Colitti wrote:
+> On systems that use mark-based routing it may be necessary for
+> routing lookups to use marks in order for packets to be routed
+> correctly. An example of such a system is Android, which uses
+> socket marks to route packets via different networks.
+> 
+> Currently, routing lookups in tunnel mode always use a mark of
+> zero, making routing incorrect on such systems.
+> 
+> This patch adds a new output_mark element to the xfrm state and
+> a corresponding XFRMA_OUTPUT_MARK netlink attribute. The output
+> mark differs from the existing xfrm mark in two ways:
+> 
+> 1. The xfrm mark is used to match xfrm policies and states, while
+>    the xfrm output mark is used to set the mark (and influence
+>    the routing) of the packets emitted by those states.
+> 2. The existing mark is constrained to be a subset of the bits of
+>    the originating socket or transformed packet, but the output
+>    mark is arbitrary and depends only on the state.
+> 
+> The use of a separate mark provides additional flexibility. For
+> example:
+> 
+> - A packet subject to two transforms (e.g., transport mode inside
+>   tunnel mode) can have two different output marks applied to it,
+>   one for the transport mode SA and one for the tunnel mode SA.
+> - On a system where socket marks determine routing, the packets
+>   emitted by an IPsec tunnel can be routed based on a mark that
+>   is determined by the tunnel, not by the marks of the
+>   unencrypted packets.
+> - Support for setting the output marks can be introduced without
+>   breaking any existing setups that employ both mark-based
+>   routing and xfrm tunnel mode. Simply changing the code to use
+>   the xfrm mark for routing output packets could xfrm mark could
+>   change behaviour in a way that breaks these setups.
+> 
+> If the output mark is unspecified or set to zero, the mark is not
+> set or changed.
+> 
+> Tested: make allyesconfig; make -j64
+> Tested: https://android-review.googlesource.com/452776
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
-Could you please wrap lines at 72 chars? This is unreadable. Thanks!
+Patch applied to ipsec-next, thanks Lorenzo!
