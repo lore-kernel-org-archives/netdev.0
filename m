@@ -1,55 +1,96 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net 2/2] bpf: fix two missing target_size settings in bpf_convert_ctx_access
-Date: Fri, 11 Aug 2017 18:31:25 +0200
-Message-ID: <2ab20524b90c301ec3f9dc0f30ad56785f7f3fae.1502468639.git.daniel@iogearbox.net>
-References: <cover.1502468639.git.daniel@iogearbox.net>
-Cc: ast@fb.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+Subject: Re: [PATCH net-next v2] vxlan: change vxlan_[config_]validate() to
+ use netlink_ext_ack for error reporting
+Date: Fri, 11 Aug 2017 18:24:00 +0200
+Message-ID: <351cfa76-3fba-ffd0-3deb-e65eadf88223@universe-factory.net>
+References: <1502399795-25660-1-git-send-email-girish.moodalbail@oracle.com>
+ <CAJieiUjYggf3zNzwBMFq7zUm+RrZokZ7oNpuz-Hinec=0OSGzA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="QrOOXc0samihLMTHDlnGIUxt6rlcNRjgJ"
+Cc: Girish Moodalbail <girish.moodalbail@oracle.com>,
+        pravin shelar <pshelar@ovn.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Benc <jbenc@redhat.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41698 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753665AbdHKQbc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 12:31:32 -0400
-In-Reply-To: <cover.1502468639.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1502468639.git.daniel@iogearbox.net>
-References: <cover.1502468639.git.daniel@iogearbox.net>
+Received: from chaos.universe-factory.net ([31.24.148.19]:49310 "EHLO
+        chaos.universe-factory.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752724AbdHKQdk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 12:33:40 -0400
+In-Reply-To: <CAJieiUjYggf3zNzwBMFq7zUm+RrZokZ7oNpuz-Hinec=0OSGzA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_NET_SCHED or CONFIG_NET_RX_BUSY_POLL is /not/ set and
-we try a narrow __sk_buff load of tc_index or napi_id, respectively,
-then verifier rightfully complains that it's misconfigured, because
-we need to set target_size in each of the two cases. The rewrite
-for the ctx access is just a dummy op, but needs to pass, so fix
-this up.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--QrOOXc0samihLMTHDlnGIUxt6rlcNRjgJ
+Content-Type: multipart/mixed; boundary="7IqTCF5AwHqXbrrdXunfsuSrO4eDunNmh";
+ protected-headers="v1"
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: Girish Moodalbail <girish.moodalbail@oracle.com>,
+ pravin shelar <pshelar@ovn.org>, "davem@davemloft.net"
+ <davem@davemloft.net>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Jiri Benc <jbenc@redhat.com>
+Message-ID: <351cfa76-3fba-ffd0-3deb-e65eadf88223@universe-factory.net>
+Subject: Re: [PATCH net-next v2] vxlan: change vxlan_[config_]validate() to
+ use netlink_ext_ack for error reporting
+References: <1502399795-25660-1-git-send-email-girish.moodalbail@oracle.com>
+ <CAJieiUjYggf3zNzwBMFq7zUm+RrZokZ7oNpuz-Hinec=0OSGzA@mail.gmail.com>
+In-Reply-To: <CAJieiUjYggf3zNzwBMFq7zUm+RrZokZ7oNpuz-Hinec=0OSGzA@mail.gmail.com>
 
-Fixes: f96da09473b5 ("bpf: simplify narrower ctx access")
-Reported-by: Shubham Bansal <illusionist.neo@gmail.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- net/core/filter.c | 2 ++
- 1 file changed, 2 insertions(+)
+--7IqTCF5AwHqXbrrdXunfsuSrO4eDunNmh
+Content-Type: text/plain; charset=utf-8
+Content-Language: en-US
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index f44fc22..6280a60 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -3505,6 +3505,7 @@ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
- 					      bpf_target_off(struct sk_buff, tc_index, 2,
- 							     target_size));
- #else
-+		*target_size = 2;
- 		if (type == BPF_WRITE)
- 			*insn++ = BPF_MOV64_REG(si->dst_reg, si->dst_reg);
- 		else
-@@ -3520,6 +3521,7 @@ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
- 		*insn++ = BPF_JMP_IMM(BPF_JGE, si->dst_reg, MIN_NAPI_ID, 1);
- 		*insn++ = BPF_MOV64_IMM(si->dst_reg, 0);
- #else
-+		*target_size = 4;
- 		*insn++ = BPF_MOV64_IMM(si->dst_reg, 0);
- #endif
- 		break;
--- 
-1.9.3
+On 08/11/2017 06:19 PM, Roopa Prabhu wrote:
+> On Thu, Aug 10, 2017 at 2:16 PM, Girish Moodalbail
+> <girish.moodalbail@oracle.com> wrote:
+>>
+>>                 if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS]))) =
+{
+>> -                       pr_debug("invalid all zero ethernet address\n"=
+);
+>> +                       NL_SET_ERR_MSG_ATTR(extack, tb[IFLA_ADDRESS],
+>> +                                           "Provided Ethernet address=
+ is not unicast");
+>>                         return -EADDRNOTAVAIL;
+>=20
+>=20
+> keep it simple and closer to the original msg: "invalid all zero
+> ethernet address"
+
+It is inaccurate though, is_valid_ether_addr will also reject multicast
+addresses.
+
+Matthias
+
+
+--7IqTCF5AwHqXbrrdXunfsuSrO4eDunNmh--
+
+--QrOOXc0samihLMTHDlnGIUxt6rlcNRjgJ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEZmTnvaa2aYgexS51Fu8/ZMsgHZwFAlmN2iAACgkQFu8/ZMsg
+HZxkKBAAgYVcZR9ViTH/AWXmu2FexUYDVhWl8FH2hycKEtoAD8ZvhtI/1vehFxto
+P1D1nCeFLOnqjED985Ecs7gaoOKzbPPKQvTHZ69OoCgAsAD1bPhpsqZjPGBMkuEx
+i8jm5t0bSTAvmaA9oWzTEcWKSXwskZllhwEDYkKK48Px1BZ0kz5j5ULte1AZaCOt
+nUcMkBzmyWnMZ+oE5PGbQ3VNu5FLsxf1OKBOVN3KPAR3tM7P5kcXljZc49IF4cF/
+vwTfRaIhABHU1eOWN25CR1sX3A43bjK+W/VtAkmwD3HlN8AI+yAdSdgR2Y3A6BCu
+oppeZS19n0qjqTNR0+syB3pSR0a21HjnKYB3FtUGJYVn0U8UESni9CHEi9wLg197
+ZT2OL4nWXtyDHaxTAmSUWlUWc96Iniz6gWXuXWMJShFWDx8S0V/K8sO9JUfTCEzQ
+X4xC07UUltd6usA4XII8bs48YRBy98sfc7GImoiL+x50RvKePwo1vPdVEAuMA0m5
+pp0VREGx/ej3STdc/IkW+63+56gMdFsGQU2/uUfw8Ma6DMiKXiRjLcpEOJDJ6oF7
+wQFt02s5yUJ0AG/N49VudNQH6OdTQRwZUXBIVgcfgq03O5NRruhrXGGJ5fuqK/be
+gi1k4J97swErE62YDRGARnHPNst8QY2fXftakHAbpif5+qwwl+A=
+=LXbc
+-----END PGP SIGNATURE-----
+
+--QrOOXc0samihLMTHDlnGIUxt6rlcNRjgJ--
