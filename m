@@ -1,77 +1,65 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] net/sched: reset block pointer in tcf_block_put()
-Date: Fri, 11 Aug 2017 14:38:59 -0700
-Message-ID: <CAM_iQpUJRAn75aBrBzoWABt21tgTYLo1MPNQwTUa9BSs0QXyaQ@mail.gmail.com>
-References: <150235751251.493255.14955523507789154918.stgit@buzz>
- <CAM_iQpX=XLheuuBk_kAa+jHO-e16hnzavHhzHJ4EYWwpjGFzMg@mail.gmail.com> <ad81a570-dff5-7c74-170e-70e764778cba@yandex-team.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: ipv4: set orig_oif based on fib result
+ for local traffic
+Date: Fri, 11 Aug 2017 14:41:15 -0700 (PDT)
+Message-ID: <20170811.144115.401281325600007661.davem@davemloft.net>
+References: <1502398150-4220-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsahern@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35184 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753401AbdHKVjU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 17:39:20 -0400
-Received: by mail-pf0-f193.google.com with SMTP id j68so4433538pfc.2
-        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 14:39:20 -0700 (PDT)
-In-Reply-To: <ad81a570-dff5-7c74-170e-70e764778cba@yandex-team.ru>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60460 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753742AbdHKVlQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 17:41:16 -0400
+In-Reply-To: <1502398150-4220-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 11, 2017 at 1:36 PM, Konstantin Khlebnikov
-<khlebnikov@yandex-team.ru> wrote:
->
->
-> On 11.08.2017 23:18, Cong Wang wrote:
->>
->> On Thu, Aug 10, 2017 at 2:31 AM, Konstantin Khlebnikov
->> <khlebnikov@yandex-team.ru> wrote:
->>>
->>> In previous API tcf_destroy_chain() could be called several times and
->>> some schedulers like hfsc and atm use that. In new API tcf_block_put()
->>> frees block but leaves stale pointer, second call will free it once
->>> again.
->>
->>
->> Which call path do we call tcf_block_put() for multiple times on
->> the same block? Please be specific, it is not obvious.
->>
->
-> For example in hfsc_destroy_qdisc() since
-> a4aebb83cf0da0363684f1c339f7e6149a3e74c1
-> second time in hfsc_destroy_class() called from it.
->
-> Actually, I see the same pattern in all classy qdiscs.
+From: David Ahern <dsahern@gmail.com>
+Date: Thu, 10 Aug 2017 13:49:10 -0700
 
-Good find! But that means we can just move it up??
-Something like (PoC only, not even compile):
+> Attempts to connect to a local address with a socket bound
+> to a device with the local address hangs if there is no listener:
+> 
+>   $ ip addr sh dev eth1
+>   3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+>     link/ether 02:e0:f9:1c:00:37 brd ff:ff:ff:ff:ff:ff
+>     inet 10.100.1.4/24 scope global eth1
+>        valid_lft forever preferred_lft forever
+>     inet6 2001:db8:1::4/120 scope global
+>        valid_lft forever preferred_lft forever
+>     inet6 fe80::e0:f9ff:fe1c:37/64 scope link
+>        valid_lft forever preferred_lft forever
+> 
+>   $ vrf-test -I eth1 -r 10.100.1.4
+>   <hangs when there is no server>
+> 
+> (don't let the command name fool you; vrf-test works without vrfs.)
+> 
+> The problem is that the original intended device, eth1 in this case, is
+> lost when the tcp reset is sent, so the socket lookup does not find a
+> match for the reset and the connect attempt hangs. Fix by adjusting
+> orig_oif for local traffic to the device from the fib lookup result.
+> 
+> With this patch you get the more user friendly:
+>   $ vrf-test -I eth1 -r 10.100.1.4
+>   connect failed: 111: Connection refused
+> 
+> orig_oif is saved to the newly created rtable as rt_iif and when set
+> it is used as the dif for socket lookups. It is set based on flowi4_oif
+> passed in to ip_route_output_key_hash_rcu and will be set to either
+> the loopback device, an l3mdev device, nothing (flowi4_oif = 0 which
+> is the case in the example above) or a netdev index depending on the
+> lookup path. In each case, resetting orig_oif to the device in the fib
+> result for the RTN_LOCAL case allows the actual device to be preserved
+> as the skb tx and rx is done over the loopback or VRF device.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> ---
+> As far as I can tell the current behavior goes back to the 2.6 days
+> at least. Not sure it is worth adding to stable branches.
 
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index b52f74610dc7..c7db8060e8ef 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1099,7 +1099,6 @@ hfsc_destroy_class(struct Qdisc *sch, struct
-hfsc_class *cl)
- {
-        struct hfsc_sched *q = qdisc_priv(sch);
-
--       tcf_block_put(cl->block);
-        qdisc_destroy(cl->qdisc);
-        gen_kill_estimator(&cl->rate_est);
-        if (cl != &q->root)
-@@ -1243,8 +1242,10 @@ hfsc_put_class(struct Qdisc *sch, unsigned long arg)
- {
-        struct hfsc_class *cl = (struct hfsc_class *)arg;
-
--       if (--cl->refcnt == 0)
-+       if (--cl->refcnt == 0) {
-+               tcf_block_put(cl->block);
-                hfsc_destroy_class(sch, cl);
-+       }
- }
-
- static unsigned long
+Applied, thanks David.
