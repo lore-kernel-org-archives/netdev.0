@@ -1,42 +1,36 @@
-From: "Yang, Yi" <yi.y.yang@intel.com>
+From: Jan Scheurich <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
 Subject: Re: [PATCH net-next v2] openvswitch: enable NSH support
-Date: Fri, 11 Aug 2017 17:54:23 +0800
-Message-ID: <20170811095422.GA20986@cran64.bj.intel.com>
+Date: Fri, 11 Aug 2017 10:09:36 +0000
+Message-ID: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7273679A@ESESSMB107.ericsson.se>
 References: <1502371275-52446-1-git-send-email-yi.y.yang@intel.com>
- <20170811102418.6b1be4f7@griffin>
- <20170811084722.GA19968@cran64.bj.intel.com>
- <20170811111055.482bd42b@griffin>
- <79BBBFE6CB6C9B488C1A45ACD284F51961C427FE@SHSMSX103.ccr.corp.intel.com>
- <20170811114449.745c49c5@griffin>
+	<20170811102418.6b1be4f7@griffin>
+	<20170811084722.GA19968@cran64.bj.intel.com>
+	<20170811111055.482bd42b@griffin>
+	<79BBBFE6CB6C9B488C1A45ACD284F51961C427FE@SHSMSX103.ccr.corp.intel.com>
+	<20170811114449.745c49c5@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:16875 "EHLO mga02.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751842AbdHKKIs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Aug 2017 06:08:48 -0400
-Content-Disposition: inline
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Yang, Yi Y" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 In-Reply-To: <20170811114449.745c49c5@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Language: en-US
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 11, 2017 at 11:44:49AM +0200, Jiri Benc wrote:
-> On Fri, 11 Aug 2017 09:24:25 +0000, Yang, Yi Y wrote:
-> > So far, we're not clear how we can support MD type 2 better, as I
-> > explained before, we need to reuse tun_metadata in struct flow_tnl
-> > which is the thing Geneve is using. Geneve predefined 64 keys for
-> > this from tun_metadata0 to tun_metadata63, we will reuse it for MD
-> > type 2. But you know NSH is not tunnel, so it has to be changed to
-> > support both Geneve and NSH. Anyway, they won't be part of
-> > ovs_key_nsh.
-> 
-> Please do not top post.
-
-Sorry for this inconvenience, I'm using outlook. But now I have to use
-mutt to address your concern :-)
-
+> -----Original Message-----
+> From: Jiri Benc [mailto:jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org]
+> Sent: Friday, 11 August, 2017 11:45
 > 
 > The context field does not apply to MD type 2. It looks wrong for the
 > context field to be included in netlink attribute for anything other
@@ -74,8 +68,13 @@ mutt to address your concern :-)
 > 
 > That way, we can have MD type 1 support only for now while still being
 > allowed to redesign things in whatever way later.
-
-Yeah, good suggestion, will try to do that way.
-
 > 
 >  Jiri
+
+For the OVS_KEY_ATTR_NSH I agree to move the fixed size MD1 context headers from nsh_base to a separate struct and use nested netlink attributes.
+
+For OVS_ACTION_ATTR_PUSH_NSH attribute any metadata included is opaque to the datapath and should be copied as is into the packet header. I doubt that there is any benefit to model this with nested attributes for MD1 or MD2. This just adds complexity on sender and receiver side and requires updates in case there should be other MD types added later on.
+
+Unless someone can explain to me why the datapath should understand the internal structure/format of metadata in push_nsh, I would strongly vote to keep the metadata as variable length octet sequence in the non-structured OVS_ACTION_ATTR_PUSH_NSH
+
+BR, Jan
