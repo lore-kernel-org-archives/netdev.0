@@ -1,59 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 2/2] wan: dscc4: convert to plain DMA API
-Date: Fri, 11 Aug 2017 14:49:35 -0700 (PDT)
-Message-ID: <20170811.144935.36255660873272850.davem@davemloft.net>
-References: <1502405721-27738-1-git-send-email-khoroshilov@ispras.ru>
-        <1502405721-27738-2-git-send-email-khoroshilov@ispras.ru>
-        <20170811214549.GA8187@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH net repost] nfp: do not update MTU from BH in flower app
+Date: Fri, 11 Aug 2017 14:51:07 -0700 (PDT)
+Message-ID: <20170811.145107.1539668262080149471.davem@davemloft.net>
+References: <1502439500-16047-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: khoroshilov@ispras.ru, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170811214549.GA8187@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
+        oss-drivers@netronome.com
+To: simon.horman@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60714 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753533AbdHKVvI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 17:51:08 -0400
+In-Reply-To: <1502439500-16047-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Fri, 11 Aug 2017 23:45:49 +0200
+From: Simon Horman <simon.horman@netronome.com>
+Date: Fri, 11 Aug 2017 10:18:20 +0200
 
-> Alexey Khoroshilov <khoroshilov@ispras.ru> :
-> [...]
->> diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
->> index 8480dbf..a043fb1 100644
->> --- a/drivers/net/wan/dscc4.c
->> +++ b/drivers/net/wan/dscc4.c
-> [...]
->> @@ -506,8 +506,9 @@ static void dscc4_release_ring(struct dscc4_dev_priv *dpriv)
->>  	skbuff = dpriv->rx_skbuff;
->>  	for (i = 0; i < RX_RING_SIZE; i++) {
->>  		if (*skbuff) {
->> -			pci_unmap_single(pdev, le32_to_cpu(rx_fd->data),
->> -				RX_MAX(HDLC_MAX_MRU), PCI_DMA_FROMDEVICE);
->> +			dma_unmap_single(d, le32_to_cpu(rx_fd->data),
->> +					 RX_MAX(HDLC_MAX_MRU),
->> +					 DMA_FROM_DEVICE);
+> The Flower app may receive a request to update the MTU of a representor
+> netdev upon receipt of a control message from the firmware. This requires
+> the RTNL lock which needs to be taken outside of the packet processing
+> path.
 > 
-> 					 RX_MAX(HDLC_MAX_MRU), DMA_FROM_DEVICE);
-...
->> @@ -782,8 +783,8 @@ static int dscc4_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->>  
->>  	rc = -ENOMEM;
->>  
->> -	priv->iqcfg = (__le32 *) pci_alloc_consistent(pdev,
->> -		IRQ_RING_SIZE*sizeof(__le32), &priv->iqcfg_dma);
->> +	priv->iqcfg = (__le32 *)dma_alloc_coherent(&pdev->dev,
->> +		IRQ_RING_SIZE*sizeof(__le32), &priv->iqcfg_dma, GFP_KERNEL);
+> As a handling of this correctly seems a little to invasive for a fix simply
+> skip setting the MTU for now.
 > 
-> - the cast can go away
-> - please replace &pdev->dev with a local variable
-> 
-> 	priv->iqcfg = dma_alloc_coherent(d, IRQ_RING_SIZE*sizeof(__le32),
-> 					 &priv->iqcfg_dma, GFP_KERNEL);
-> 
-> Same thing for iqtx and iqrx (beware of copy&paste + tx/rx mismatch).
+> Relevant backtrace:
+ ...
+> Fixes: 948faa46c05b ("nfp: add support for control messages for flower app")
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-Oops, this will need to be sent as a relative fixup as I've applied these
-two patches to net-next, sorry Francois.
+Applied.
