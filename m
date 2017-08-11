@@ -1,27 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] fsl/fman: implement several errata workarounds
-Date: Fri, 11 Aug 2017 14:37:55 -0700 (PDT)
-Message-ID: <20170811.143755.1486109421287401840.davem@davemloft.net>
-References: <1502372824-30180-1-git-send-email-florinel.iordache@nxp.com>
+Subject: Re: [PATCH v3] net: stmmac: Use the right logging function in
+ stmmac_mdio_register
+Date: Fri, 11 Aug 2017 14:39:11 -0700 (PDT)
+Message-ID: <20170811.143911.1295975110250079627.davem@davemloft.net>
+References: <20170810145605.27048-1-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, madalin.bucur@nxp.com,
-        linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: florinel.iordache@nxp.com
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, andrew@lunn.ch,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: romain.perier@collabora.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502372824-30180-1-git-send-email-florinel.iordache@nxp.com>
+In-Reply-To: <20170810145605.27048-1-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florinel Iordache <florinel.iordache@nxp.com>
-Date: Thu, 10 Aug 2017 16:47:04 +0300
+From: Romain Perier <romain.perier@collabora.com>
+Date: Thu, 10 Aug 2017 16:56:05 +0200
 
-> Implemented workarounds for the following dTSEC Erratum:
-> A002, A004, A0012, A0014, A004839 on several operations
-> that involve MAC CFG register changes: adjust link,
-> rx pause frames, modify MAC address.
+> Currently, the function stmmac_mdio_register() is only used by
+> stmmac_dvr_probe() from stmmac_main.c, in order to register the MDIO bus
+> and probe information about the PHY. As this function is called before
+> calling register_netdev(), all messages logged from stmmac_mdio_register
+> are prefixed by "(unnamed net_device)". The goal of netdev_info or
+> netdev_err is to dump useful infos about a net_device, when this data
+> structure is partially initialized, there is no point for using these
+> functions.
 > 
-> Signed-off-by: Florinel Iordache <florinel.iordache@nxp.com>
+> This commit fixes the issue by replacing all netdev_*() by the
+> corresponding dev_*() function for logging. The last netdev_info is
+> replaced by phy_attached_info(), as a valid phydev can be used at this
+> point.
+> 
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
 Applied, thanks.
