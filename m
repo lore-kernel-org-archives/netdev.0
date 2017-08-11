@@ -1,7 +1,7 @@
 From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Subject: [PATCH 2/3] net/ncsi: Fix several packet definitions
-Date: Fri, 11 Aug 2017 16:16:47 +1000
-Message-ID: <20170811061648.19661-3-sam@mendozajonas.com>
+Subject: [PATCH 1/3] ftgmac: Include NETIF_F_HW_VLAN_CTAG_FILTER in features
+Date: Fri, 11 Aug 2017 16:16:46 +1000
+Message-ID: <20170811061648.19661-2-sam@mendozajonas.com>
 References: <20170811061648.19661-1-sam@mendozajonas.com>
 Cc: Samuel Mendoza-Jonas <sam@mendozajonas.com>,
         Joel Stanley <joel@jms.id.au>,
@@ -15,74 +15,29 @@ In-Reply-To: <20170811061648.19661-1-sam@mendozajonas.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is required for the VLAN core to call the add/kill callback for
+VLAN IDs. 'ftgmac100' already supports VLAN tagging but this flag lets
+the network stack know that we want to be notified of VLAN tags being
+added or removed when we have NCSI support.
+
 Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
 ---
- net/ncsi/ncsi-cmd.c | 10 +++++-----
- net/ncsi/ncsi-pkt.h |  2 +-
- net/ncsi/ncsi-rsp.c |  3 ++-
- 3 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/ncsi/ncsi-cmd.c b/net/ncsi/ncsi-cmd.c
-index db7083bfd476..1fec9fda7f60 100644
---- a/net/ncsi/ncsi-cmd.c
-+++ b/net/ncsi/ncsi-cmd.c
-@@ -146,9 +146,9 @@ static int ncsi_cmd_handler_svf(struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+index 33b5c8eb9961..7c4d772287c7 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.c
++++ b/drivers/net/ethernet/faraday/ftgmac100.c
+@@ -1837,6 +1837,9 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 		NETIF_F_GRO | NETIF_F_SG | NETIF_F_HW_VLAN_CTAG_RX |
+ 		NETIF_F_HW_VLAN_CTAG_TX;
  
- 	cmd = (struct ncsi_cmd_svf_pkt *)skb_put(skb, sizeof(*cmd));
- 	memset(cmd, 0, sizeof(*cmd));
--	cmd->vlan = htons(nca->words[0]);
--	cmd->index = nca->bytes[2];
--	cmd->enable = nca->bytes[3];
-+	cmd->vlan = htons(nca->words[1]);
-+	cmd->index = nca->bytes[6];
-+	cmd->enable = nca->bytes[7];
- 	ncsi_cmd_build_header(&cmd->cmd.common, nca);
- 
- 	return 0;
-@@ -161,7 +161,7 @@ static int ncsi_cmd_handler_ev(struct sk_buff *skb,
- 
- 	cmd = (struct ncsi_cmd_ev_pkt *)skb_put(skb, sizeof(*cmd));
- 	memset(cmd, 0, sizeof(*cmd));
--	cmd->mode = nca->bytes[0];
-+	cmd->mode = nca->bytes[3];
- 	ncsi_cmd_build_header(&cmd->cmd.common, nca);
- 
- 	return 0;
-@@ -240,7 +240,7 @@ static struct ncsi_cmd_handler {
- 	{ NCSI_PKT_CMD_AE,     8, ncsi_cmd_handler_ae      },
- 	{ NCSI_PKT_CMD_SL,     8, ncsi_cmd_handler_sl      },
- 	{ NCSI_PKT_CMD_GLS,    0, ncsi_cmd_handler_default },
--	{ NCSI_PKT_CMD_SVF,    4, ncsi_cmd_handler_svf     },
-+	{ NCSI_PKT_CMD_SVF,    8, ncsi_cmd_handler_svf     },
- 	{ NCSI_PKT_CMD_EV,     4, ncsi_cmd_handler_ev      },
- 	{ NCSI_PKT_CMD_DV,     0, ncsi_cmd_handler_default },
- 	{ NCSI_PKT_CMD_SMA,    8, ncsi_cmd_handler_sma     },
-diff --git a/net/ncsi/ncsi-pkt.h b/net/ncsi/ncsi-pkt.h
-index 3ea49ed0a935..91b4b66438df 100644
---- a/net/ncsi/ncsi-pkt.h
-+++ b/net/ncsi/ncsi-pkt.h
-@@ -104,7 +104,7 @@ struct ncsi_cmd_svf_pkt {
- 	unsigned char           index;     /* VLAN table index  */
- 	unsigned char           enable;    /* Enable or disable */
- 	__be32                  checksum;  /* Checksum          */
--	unsigned char           pad[14];
-+	unsigned char           pad[18];
- };
- 
- /* Enable VLAN */
-diff --git a/net/ncsi/ncsi-rsp.c b/net/ncsi/ncsi-rsp.c
-index 087db775b3dc..c1a191d790e2 100644
---- a/net/ncsi/ncsi-rsp.c
-+++ b/net/ncsi/ncsi-rsp.c
-@@ -354,7 +354,8 @@ static int ncsi_rsp_handler_svf(struct ncsi_request *nr)
- 
- 	/* Add or remove the VLAN filter */
- 	if (!(cmd->enable & 0x1)) {
--		ret = ncsi_remove_filter(nc, NCSI_FILTER_VLAN, cmd->index);
-+		/* HW indexes from 1 */
-+		ret = ncsi_remove_filter(nc, NCSI_FILTER_VLAN, cmd->index - 1);
- 	} else {
- 		vlan = ntohs(cmd->vlan);
- 		ret = ncsi_add_filter(nc, NCSI_FILTER_VLAN, &vlan);
++	if (priv->use_ncsi)
++		netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
++
+ 	/* AST2400  doesn't have working HW checksum generation */
+ 	if (np && (of_device_is_compatible(np, "aspeed,ast2400-mac")))
+ 		netdev->hw_features &= ~NETIF_F_HW_CSUM;
 -- 
 2.14.0
