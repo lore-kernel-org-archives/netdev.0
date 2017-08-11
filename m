@@ -1,64 +1,45 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec-next] net: xfrm: support setting an output mark.
-Date: Fri, 11 Aug 2017 12:55:12 +0200
-Message-ID: <20170811105511.GD22049@secunet.com>
-References: <20170810171133.69254-1-lorenzo@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-        <jhs@mojatatu.com>, <herbert@gondor.apana.org.au>
-To: Lorenzo Colitti <lorenzo@google.com>
+From: Max Uvarov <muvarov@gmail.com>
+Subject: [PATCHv3 2/2] drivers: net: davinci_mdio: print bus frequency
+Date: Fri, 11 Aug 2017 13:57:41 +0300
+Message-ID: <1502449061-30373-3-git-send-email-muvarov@gmail.com>
+References: <1502449061-30373-1-git-send-email-muvarov@gmail.com>
+Cc: linux-omap@vger.kernel.org, grygorii.strashko@ti.com,
+        Max Uvarov <muvarov@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:53634 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751618AbdHKKzP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Aug 2017 06:55:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20170810171133.69254-1-lorenzo@google.com>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:37817 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752751AbdHKK5u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 06:57:50 -0400
+In-Reply-To: <1502449061-30373-1-git-send-email-muvarov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 11, 2017 at 02:11:33AM +0900, Lorenzo Colitti wrote:
-> On systems that use mark-based routing it may be necessary for
-> routing lookups to use marks in order for packets to be routed
-> correctly. An example of such a system is Android, which uses
-> socket marks to route packets via different networks.
-> 
-> Currently, routing lookups in tunnel mode always use a mark of
-> zero, making routing incorrect on such systems.
-> 
-> This patch adds a new output_mark element to the xfrm state and
-> a corresponding XFRMA_OUTPUT_MARK netlink attribute. The output
-> mark differs from the existing xfrm mark in two ways:
-> 
-> 1. The xfrm mark is used to match xfrm policies and states, while
->    the xfrm output mark is used to set the mark (and influence
->    the routing) of the packets emitted by those states.
-> 2. The existing mark is constrained to be a subset of the bits of
->    the originating socket or transformed packet, but the output
->    mark is arbitrary and depends only on the state.
-> 
-> The use of a separate mark provides additional flexibility. For
-> example:
-> 
-> - A packet subject to two transforms (e.g., transport mode inside
->   tunnel mode) can have two different output marks applied to it,
->   one for the transport mode SA and one for the tunnel mode SA.
-> - On a system where socket marks determine routing, the packets
->   emitted by an IPsec tunnel can be routed based on a mark that
->   is determined by the tunnel, not by the marks of the
->   unencrypted packets.
-> - Support for setting the output marks can be introduced without
->   breaking any existing setups that employ both mark-based
->   routing and xfrm tunnel mode. Simply changing the code to use
->   the xfrm mark for routing output packets could xfrm mark could
->   change behaviour in a way that breaks these setups.
-> 
-> If the output mark is unspecified or set to zero, the mark is not
-> set or changed.
-> 
-> Tested: make allyesconfig; make -j64
-> Tested: https://android-review.googlesource.com/452776
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+Frequency can be adjusted in DT it make sense to
+print current used value on driver init.
 
-Patch applied to ipsec-next, thanks Lorenzo!
+Signed-off-by: Max Uvarov <muvarov@gmail.com>
+Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/davinci_mdio.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 611e7cc..3c33f45 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -159,8 +159,10 @@ static int davinci_mdio_reset(struct mii_bus *bus)
+ 
+ 	/* dump hardware version info */
+ 	ver = __raw_readl(&data->regs->version);
+-	dev_info(data->dev, "davinci mdio revision %d.%d\n",
+-		 (ver >> 8) & 0xff, ver & 0xff);
++	dev_info(data->dev,
++		 "davinci mdio revision %d.%d, bus freq %ld\n",
++		 (ver >> 8) & 0xff, ver & 0xff,
++		 data->pdata.bus_freq);
+ 
+ 	if (data->skip_scan)
+ 		goto done;
+-- 
+2.5.0
