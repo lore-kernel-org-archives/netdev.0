@@ -1,49 +1,32 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: nf_nat_h323: fix logical-not-parentheses
- warning
-Date: Fri, 11 Aug 2017 19:42:59 +0200
-Message-ID: <20170811174259.GA3743@salvia>
-References: <20170731183949.73763-1-ndesaulniers@google.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] net: skb_needs_check() removes
+ CHECKSUM_UNNECESSARY check for tx.
+Date: Fri, 11 Aug 2017 10:43:24 -0700
+Message-ID: <CAF=yD-KxGPO2CB50seuZ8p_4ymTkfi9=GWjsLYDuO-KWi0jwUw@mail.gmail.com>
+References: <1502421389-20152-1-git-send-email-xiangxia.m.yue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mka@chromium.org, lorenzo@google.com,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nick Desaulniers <ndesaulniers@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170731183949.73763-1-ndesaulniers@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:38549 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752989AbdHKRoF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 13:44:05 -0400
+Received: by mail-oi0-f65.google.com with SMTP id s21so3932151oie.5
+        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 10:44:05 -0700 (PDT)
+In-Reply-To: <1502421389-20152-1-git-send-email-xiangxia.m.yue@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Nick,
+On Thu, Aug 10, 2017 at 8:16 PM, Tonghao Zhang <xiangxia.m.yue@gmail.com> wrote:
+> Because we remove the UFO support, we will also remove the
+> CHECKSUM_UNNECESSARY check in skb_needs_check().
+>
+> Cc: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
 
-On Mon, Jul 31, 2017 at 11:39:49AM -0700, Nick Desaulniers wrote:
-> Clang produces the following warning:
-[...]
-> Also, it's even cleaner to use the form:
-> 
-> if (x)
-> 
-> but then if the return codes change from treating 0 as success (unlikely),
-> then all call sites must be updated.
-> 
-> I'm happy to send v2 that changes to that form, and updates the other call
-> sites to be:
-> 
-> if (set_h225_addr())
->   handle_failures()
-> else
->   handle_success()
+Acked-by: Willem de Bruijn <willemb@google.com>
 
-That sounds very reasonable, send a v2 if this triggers a larger
-patch.
-
-Or I can just take this patch, as you prefer.
-
-Thanks!
+Thanks for fixing up and resubmitting after the merge.
