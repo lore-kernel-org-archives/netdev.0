@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2 net-next] hns3pf: fix hns3_del_tunnel_port()
-Date: Fri, 11 Aug 2017 14:32:49 -0700 (PDT)
-Message-ID: <20170811.143249.1660948289275185489.davem@davemloft.net>
-References: <20170810090720.eh4l6gxsubmwqxo6@mwanda>
+Subject: Re: [PATCH 2/2 net-next] hns3pf: Fix some harmless copy and paste
+ bugs
+Date: Fri, 11 Aug 2017 14:32:54 -0700 (PDT)
+Message-ID: <20170811.143254.1850655757602183576.davem@davemloft.net>
+References: <20170810095549.jxkthoyym5gn5oh3@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com, jiri@mellanox.com,
-        jhs@mojatatu.com, lipeng321@huawei.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+        jhs@mojatatu.com, huangdaode@hisilicon.com,
+        xavier.huwei@huawei.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
 To: dan.carpenter@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170810090720.eh4l6gxsubmwqxo6@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60278 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753638AbdHKVcz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 17:32:55 -0400
+In-Reply-To: <20170810095549.jxkthoyym5gn5oh3@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 10 Aug 2017 12:54:59 +0300
+Date: Thu, 10 Aug 2017 12:56:14 +0300
 
-> This function has a copy and paste bug so it accidentally calls the add
-> function instead of the delete function.
+> These were copy and paste bugs, but I believe they are harmless.
 > 
-> Fixes: 76ad4f0ee747 ("net: hns3: Add support of HNS3 Ethernet Driver for hip08 SoC")
 > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
