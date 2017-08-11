@@ -1,66 +1,73 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCH 2/3] ARM: sun8i: sunxi-h3-h5: add phy-is-integrated
- property to internal PHY
-Date: Fri, 11 Aug 2017 10:42:51 +0800
-Message-ID: <CAGb2v64dBZgN6-8kHnnN1qiEXHnbXw_FM9WxGHPU0h-tZDbspA@mail.gmail.com>
-References: <20170810085129.20463-1-clabbe.montjoie@gmail.com> <20170810085129.20463-3-clabbe.montjoie@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 03/12] e1000e: add check on e1e_wphy() return value
+Date: Thu, 10 Aug 2017 19:53:40 -0700
+Message-ID: <1502420020.3099.1.camel@perches.com>
+References: <20170809214746.28139-1-jeffrey.t.kirsher@intel.com>
+         <20170809214746.28139-4-jeffrey.t.kirsher@intel.com>
+         <1502387812.2219.44.camel@perches.com>
+         <c36867bd-fcb1-40b6-4f6e-b3ad2e6360dc@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170810085129.20463-3-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0190.hostedemail.com ([216.40.44.190]:54347 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752248AbdHKCxo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 22:53:44 -0400
+In-Reply-To: <c36867bd-fcb1-40b6-4f6e-b3ad2e6360dc@embeddedor.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, 2017-08-10 at 21:47 -0500, Gustavo A. R. Silva wrote:
+> Hello everybody,
+> 
+> I'm a little confused. Is this patch causing any trouble?
 
-On Thu, Aug 10, 2017 at 4:51 PM, Corentin Labbe
-<clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> This patch add the new phy-is-integrated property to the internal PHY
-> node.
->
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  arch/arm/boot/dts/sunxi-h3-h5.dtsi | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> index 4b599b5d26f6..54fc24e4c569 100644
-> --- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> +++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> @@ -425,6 +425,7 @@
->                                         reg = <1>;
->                                         clocks = <&ccu CLK_BUS_EPHY>;
->                                         resets = <&ccu RST_BUS_EPHY>;
-> +                                       phy-is-integrated;
+Not to me.  I no longer have an e1000e.
 
-You also need to "delete" this property at the board level for
-any board that has the external PHY at address <1>. Otherwise
-they will stop working. This is due to the internal and external
-PHYs having the same path and node name in the device tree, so
-they are effectively the same node.
+Given the commit message, this just seemed to be a patch
+that _might_ cause an issue if this code patch is actually
+untested.
 
-ChenYu
+Compilation wise, it's obviously fine.
 
->                                 };
->                         };
->                 };
-> --
-> 2.13.0
->
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> On 08/10/2017 12:56 PM, Joe Perches wrote:
+> > On Wed, 2017-08-09 at 14:47 -0700, Jeff Kirsher wrote:
+> > > From: Gustavo A R Silva <garsilva@embeddedor.com>
+> > > 
+> > > Check return value from call to e1e_wphy(). This value is being
+> > > checked during previous calls to function e1e_wphy() and it seems
+> > > a check was missing here.
+> > 
+> > The use of "it seems" here is less than compelling.
+> > 
+> 
+> This is one of the first patches I sent. Maybe I should have added a 
+> note saying that this patch needed some testing, as I don't have the 
+> hardware to test it.
+> 
+> > Perhaps the write of 0x3140 to MII_BMCR takes too long for
+> > the return value used.
+> > 
+> > Many other uses of e1e_wphy.*MII_BMCR are also not checked.
+> > 
+> > For instance: the e100e/ethtool uses.
+> > 
+> > > diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+> > 
+> > []
+> > > @@ -2437,6 +2437,8 @@ static s32 e1000_hv_phy_workarounds_ich8lan(struct e1000_hw *hw)
+> > >  		if (hw->phy.revision < 2) {
+> > >  			e1000e_phy_sw_reset(hw);
+> > >  			ret_val = e1e_wphy(hw, MII_BMCR, 0x3140);
+> > > +			if (ret_val)
+> > > +				return ret_val;
+> > >  		}
+> > >  	}
+> > > 
+> 
+> Thanks
