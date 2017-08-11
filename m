@@ -1,134 +1,185 @@
-From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v2] openvswitch: enable NSH support
-Date: Fri, 11 Aug 2017 10:24:18 +0200
-Message-ID: <20170811102418.6b1be4f7@griffin>
-References: <1502371275-52446-1-git-send-email-yi.y.yang@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1502371275-52446-1-git-send-email-yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net-next] nfp: send control message when MAC representors are created
+Date: Fri, 11 Aug 2017 10:25:44 +0200
+Message-ID: <1502439944-18910-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        Simon Horman <simon.horman@netronome.com>
+To: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f170.google.com ([209.85.216.170]:34255 "EHLO
+        mail-qt0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751521AbdHKIZ4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 04:25:56 -0400
+Received: by mail-qt0-f170.google.com with SMTP id s6so17547856qtc.1
+        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 01:25:56 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 10 Aug 2017 21:21:15 +0800, Yi Yang wrote:
-> OVS master and 2.8 branch has merged NSH userspace
-> patch series, this patch is to enable NSH support
-> in kernel data path in order that OVS can support
-> NSH in 2.8 release in compat mode by porting this.
+The firmware expects a MAC_REPR control message when a MAC representor
+is created. The driver should expect a PORTMOD message to follow which
+will provide the link states of the physical port associated with the MAC
+representor.
 
-Please include changelog when posting a new version of a patch.
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.c | 33 ++++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h | 21 +++++++++++++++
+ drivers/net/ethernet/netronome/nfp/flower/main.c | 29 ++++++++++++++++++---
+ 3 files changed, 80 insertions(+), 3 deletions(-)
 
-> +static inline u16
-> +nsh_hdr_len(const struct nsh_hdr *nsh)
-
-Single line, please. And all other instances of this in nsh.h, too.
-
-> --- a/include/uapi/linux/openvswitch.h
-> +++ b/include/uapi/linux/openvswitch.h
-> @@ -333,6 +333,7 @@ enum ovs_key_attr {
->  	OVS_KEY_ATTR_CT_LABELS,	/* 16-octet connection tracking label */
->  	OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV4,   /* struct ovs_key_ct_tuple_ipv4 */
->  	OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6,   /* struct ovs_key_ct_tuple_ipv6 */
-> +	OVS_KEY_ATTR_NSH,                  /* struct ovs_key_nsh */
->  
->  #ifdef __KERNEL__
->  	OVS_KEY_ATTR_TUNNEL_INFO,  /* struct ip_tunnel_info */
-> @@ -491,6 +492,15 @@ struct ovs_key_ct_tuple_ipv6 {
->  	__u8   ipv6_proto;
->  };
->  
-> +struct ovs_key_nsh {
-> +	__u8 flags;
-> +	__u8 mdtype;
-> +	__u8 np;
-> +	__u8 pad;
-> +	__be32 path_hdr;
-> +	__be32 c[4];
-
-I still don't like the "c" name. Please change it to something
-descriptive. This is uAPI and can't be changed later.
-
-And I still don't see my comment about this not being extensible for
-MD type 2 addressed. Please understand this is uAPI and it is set in
-stone once it is merged into the kernel. It's very important we get
-this right since the beginning.
-
-> +struct ovs_action_push_nsh {
-> +	__u8 flags;
-> +	__u8 mdtype;
-> +	__u8 mdlen;
-> +	__u8 np;
-> +	__be32 path_hdr;
-> +	__u8 metadata[];
-> +};
-
-This is not how netlink attributes work. Please reread Ben Pfaff's
-explanation on how this needs to be structured (Message-ID:
-<20170809180912.GU6175-LZ6Gd1LRuIk@public.gmane.org>) and rework the patch. I 100% agree
-with what he wrote, his proposal is very clean and matches how netlink
-is designed.
-
-> @@ -835,6 +866,8 @@ enum ovs_action_attr {
->  	OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
->  	OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
->  	OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
-> +	OVS_ACTION_ATTR_PUSH_NSH,     /* struct ovs_action_push_nsh. */
-> +	OVS_ACTION_ATTR_POP_NSH,      /* No argument. */
-
-Thank you for changing this to push/pop, it looks much cleaner now.
-
-> +static int parse_nsh(struct sk_buff *skb, struct sw_flow_key *key)
-> +{
-> +	struct nsh_hdr *nsh = (struct nsh_hdr *)skb_network_header(skb);
-> +	u16 ver_flags_len;
-> +	u8 version, length;
-> +	u32 path_hdr;
-> +	int i;
-> +
-> +	memset(&key->nsh, 0, sizeof(struct ovs_key_nsh));
-> +	ver_flags_len = ntohs(nsh->ver_flags_len);
-> +	version = (ver_flags_len & NSH_VER_MASK) >> NSH_VER_SHIFT;
-> +	length = (ver_flags_len & NSH_LEN_MASK) >> NSH_LEN_SHIFT;
-
-A nit: the operation to get/set version, length and flags from the NSH
-header seems to be repeated enough to warrant helper functions in
-include/net/nsh.h. Something like:
-
-static inline u8 nsh_get_version(const struct nsh_hdr *nsh)
-{
-	return (ntohs(nsh->ver_flags_len) & NSH_VER_MASK) >> NSH_VER_SHIFT;
-}
-
-etc.
-
-Not a blocker, though, it may be done later if needed.
-
-> @@ -76,9 +77,11 @@ static bool actions_may_change_flow(const struct nlattr *actions)
->  
->  		case OVS_ACTION_ATTR_CT:
->  		case OVS_ACTION_ATTR_HASH:
-> +		case OVS_ACTION_ATTR_POP_NSH:
->  		case OVS_ACTION_ATTR_POP_ETH:
->  		case OVS_ACTION_ATTR_POP_MPLS:
->  		case OVS_ACTION_ATTR_POP_VLAN:
-> +		case OVS_ACTION_ATTR_PUSH_NSH:
->  		case OVS_ACTION_ATTR_PUSH_ETH:
->  		case OVS_ACTION_ATTR_PUSH_MPLS:
->  		case OVS_ACTION_ATTR_PUSH_VLAN:
-
-Alphabetical order, please.
-
-Thanks,
-
- Jiri
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+index dd7fa9cf225f..a69d68ba3d0c 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+@@ -75,6 +75,39 @@ nfp_flower_cmsg_alloc(struct nfp_app *app, unsigned int size,
+ 	return skb;
+ }
+ 
++struct sk_buff *
++nfp_flower_cmsg_mac_repr_start(struct nfp_app *app, unsigned int num_ports)
++{
++	struct nfp_flower_cmsg_mac_repr *msg;
++	struct sk_buff *skb;
++	unsigned int size;
++
++	size = sizeof(*msg) + num_ports * sizeof(msg->ports[0]);
++	skb = nfp_flower_cmsg_alloc(app, size, NFP_FLOWER_CMSG_TYPE_MAC_REPR);
++	if (!skb)
++		return NULL;
++
++	msg = nfp_flower_cmsg_get_data(skb);
++	memset(msg->reserved, 0, sizeof(msg->reserved));
++	msg->num_ports = num_ports;
++
++	return skb;
++}
++
++void
++nfp_flower_cmsg_mac_repr_add(struct sk_buff *skb, unsigned int idx,
++			     unsigned int nbi, unsigned int nbi_port,
++			     unsigned int phys_port)
++{
++	struct nfp_flower_cmsg_mac_repr *msg;
++
++	msg = nfp_flower_cmsg_get_data(skb);
++	msg->ports[idx].idx = idx;
++	msg->ports[idx].info = nbi & NFP_FLOWER_CMSG_MAC_REPR_NBI;
++	msg->ports[idx].nbi_port = nbi_port;
++	msg->ports[idx].phys_port = phys_port;
++}
++
+ int nfp_flower_cmsg_portmod(struct nfp_repr *repr, bool carrier_ok)
+ {
+ 	struct nfp_flower_cmsg_portmod *msg;
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+index cf738de170ab..aa92a8711a02 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+@@ -247,12 +247,27 @@ struct nfp_flower_cmsg_hdr {
+ enum nfp_flower_cmsg_type_port {
+ 	NFP_FLOWER_CMSG_TYPE_FLOW_ADD =		0,
+ 	NFP_FLOWER_CMSG_TYPE_FLOW_DEL =		2,
++	NFP_FLOWER_CMSG_TYPE_MAC_REPR =		7,
+ 	NFP_FLOWER_CMSG_TYPE_PORT_MOD =		8,
+ 	NFP_FLOWER_CMSG_TYPE_FLOW_STATS =	15,
+ 	NFP_FLOWER_CMSG_TYPE_PORT_ECHO =	16,
+ 	NFP_FLOWER_CMSG_TYPE_MAX =		32,
+ };
+ 
++/* NFP_FLOWER_CMSG_TYPE_MAC_REPR */
++struct nfp_flower_cmsg_mac_repr {
++	u8 reserved[3];
++	u8 num_ports;
++	struct {
++		u8 idx;
++		u8 info;
++		u8 nbi_port;
++		u8 phys_port;
++	} ports[0];
++};
++
++#define NFP_FLOWER_CMSG_MAC_REPR_NBI		GENMASK(1, 0)
++
+ /* NFP_FLOWER_CMSG_TYPE_PORT_MOD */
+ struct nfp_flower_cmsg_portmod {
+ 	__be32 portnum;
+@@ -308,6 +323,12 @@ static inline void *nfp_flower_cmsg_get_data(struct sk_buff *skb)
+ 	return (unsigned char *)skb->data + NFP_FLOWER_CMSG_HLEN;
+ }
+ 
++struct sk_buff *
++nfp_flower_cmsg_mac_repr_start(struct nfp_app *app, unsigned int num_ports);
++void
++nfp_flower_cmsg_mac_repr_add(struct sk_buff *skb, unsigned int idx,
++			     unsigned int nbi, unsigned int nbi_port,
++			     unsigned int phys_port);
+ int nfp_flower_cmsg_portmod(struct nfp_repr *repr, bool carrier_ok);
+ void nfp_flower_cmsg_rx(struct nfp_app *app, struct sk_buff *skb);
+ struct sk_buff *
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
+index 6a65c8b33807..b905454b30ca 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/main.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
+@@ -214,15 +214,22 @@ nfp_flower_spawn_phy_reprs(struct nfp_app *app, struct nfp_flower_priv *priv)
+ {
+ 	struct nfp_eth_table *eth_tbl = app->pf->eth_tbl;
+ 	struct nfp_reprs *reprs, *old_reprs;
++	struct sk_buff *ctrl_skb;
+ 	unsigned int i;
+ 	int err;
+ 
+-	reprs = nfp_reprs_alloc(eth_tbl->max_index + 1);
+-	if (!reprs)
++	ctrl_skb = nfp_flower_cmsg_mac_repr_start(app, eth_tbl->count);
++	if (!ctrl_skb)
+ 		return -ENOMEM;
+ 
++	reprs = nfp_reprs_alloc(eth_tbl->max_index + 1);
++	if (!reprs) {
++		err = -ENOMEM;
++		goto err_free_ctrl_skb;
++	}
++
+ 	for (i = 0; i < eth_tbl->count; i++) {
+-		int phys_port = eth_tbl->ports[i].index;
++		unsigned int phys_port = eth_tbl->ports[i].index;
+ 		struct nfp_port *port;
+ 		u32 cmsg_port_id;
+ 
+@@ -255,6 +262,11 @@ nfp_flower_spawn_phy_reprs(struct nfp_app *app, struct nfp_flower_priv *priv)
+ 			goto err_reprs_clean;
+ 		}
+ 
++		nfp_flower_cmsg_mac_repr_add(ctrl_skb, i,
++					     eth_tbl->ports[i].nbi,
++					     eth_tbl->ports[i].base,
++					     phys_port);
++
+ 		nfp_info(app->cpp, "Phys Port %d Representor(%s) created\n",
+ 			 phys_port, reprs->reprs[phys_port]->name);
+ 	}
+@@ -265,9 +277,20 @@ nfp_flower_spawn_phy_reprs(struct nfp_app *app, struct nfp_flower_priv *priv)
+ 		goto err_reprs_clean;
+ 	}
+ 
++	/* The MAC_REPR control message should be sent after the MAC
++	 * representors are registered using nfp_app_reprs_set().  This is
++	 * because the firmware may respond with control messages for the
++	 * MAC representors, f.e. to provide the driver with information
++	 * about their state, and without registration the driver will drop
++	 * any such messages.
++	 */
++	nfp_ctrl_tx(app->ctrl, ctrl_skb);
++
+ 	return 0;
+ err_reprs_clean:
+ 	nfp_reprs_clean_and_free(reprs);
++err_free_ctrl_skb:
++	kfree_skb(ctrl_skb);
+ 	return err;
+ }
+ 
+-- 
+2.1.4
