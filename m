@@ -1,40 +1,47 @@
-From: =?utf-8?B?0LDQtNC80LjQvdC40YHRgtGA0LDRgtC+0YAg?=
-        <da@policiacivil.pa.gov.br>
-Subject: (unknown)
-Date: Fri, 11 Aug 2017 02:08:07 -0400 (EDT)
-Message-ID: <2070322958.243018.1502431687656.JavaMail.zimbra@policiacivil.pa.gov.br>
-Reply-To: Sistemass_Adminss@mail2world.com
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v2] openvswitch: enable NSH support
+Date: Fri, 11 Aug 2017 11:10:55 +0200
+Message-ID: <20170811111055.482bd42b@griffin>
+References: <1502371275-52446-1-git-send-email-yi.y.yang@intel.com>
+        <20170811102418.6b1be4f7@griffin>
+        <20170811084722.GA19968@cran64.bj.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: "Yang, Yi" <yi.y.yang@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.policiacivil.pa.gov.br ([177.74.63.169]:6993 "EHLO
-        mail.policiacivil.pa.gov.br" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752169AbdHKJEH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 05:04:07 -0400
-Subject: 
+Received: from mx1.redhat.com ([209.132.183.28]:54402 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751521AbdHKJK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Aug 2017 05:10:57 -0400
+In-Reply-To: <20170811084722.GA19968@cran64.bj.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 11 Aug 2017 16:47:23 +0800, Yang, Yi wrote:
+> is "__be32 context[4]" ok?
 
-внимания;
+Yes, that looks better.
 
-Ваши сообщения превысил лимит памяти, который составляет 5 Гб, определенных администратором, который в настоящее время работает на 10.9GB, Вы не сможете отправить или получить новую почту, пока вы повторно не проверить ваш почтовый ящик почты. Чтобы восстановить работоспособность Вашего почтового ящика, отправьте следующую информацию ниже:
+> So define three new netlink attributes
+> 
+> OVS_ACTION_ATTR_NSH_BASE_HEADER
+> OVS_ACTION_ATTR_NSH_MD1_DATA
+> OVS_ACTION_ATTR_NSH_MD2_DATA
+> 
+> OVS_ACTION_ATTR_PUSH_NSH is nested netlink attribute, it will nest
+> OVS_ACTION_ATTR_NSH_BASE_HEADER and OVS_ACTION_ATTR_NSH_MD1_DATA for MD
+> type 1, it will nest OVS_ACTION_ATTR_NSH_BASE_HEADER and
+> OVS_ACTION_ATTR_NSH_MD2_DATA for MD type 2. I'll compeletely remove struct
+> ovs_action_push_nsh, is it ok?
 
-имя:
-Имя пользователя:
-пароль:
-Подтверждение пароля:
-Адрес электронной почты:
-телефон:
+Yes, that's the way to do it.
 
-Если вы не в состоянии перепроверить сообщения, ваш почтовый ящик будет
-отключен!
+What should be done with struct ovs_key_nsh? Even with "c" renamed to
+"context", it's still MD type 1 only structure. What is the plan for
+MD type 2 support wrt. this structure?
 
-Приносим извинения за неудобства.
-Проверочный код: EN: Ru...9o76ypp2345t..2017
-Почты технической поддержки &copy;2017
+Thanks,
 
-спасибо
-системы администратор 
+ Jiri
