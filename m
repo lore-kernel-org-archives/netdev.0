@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] forcedeth: replace init_timer_deferrable with
- setup_deferrable_timer
-Date: Fri, 11 Aug 2017 14:27:26 -0700 (PDT)
-Message-ID: <20170811.142726.1735307793150864194.davem@davemloft.net>
-References: <1502352792-6930-1-git-send-email-yanjun.zhu@oracle.com>
+Subject: Re: [PATCH v5 00/11] Add the integrated PHY support
+Date: Fri, 11 Aug 2017 14:29:15 -0700 (PDT)
+Message-ID: <20170811.142915.2194989886100869835.davem@davemloft.net>
+References: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yanjun.zhu@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60116 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753295AbdHKV11 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 17:27:27 -0400
-In-Reply-To: <1502352792-6930-1-git-send-email-yanjun.zhu@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: heiko@sntech.de, andrew@lunn.ch, f.fainelli@gmail.com,
+        robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, olof@lixom.net, linux@armlinux.org.uk,
+        arnd@arndb.de, peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        huangtao@rock-chips.com, hwg@rock-chips.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: david.wu@rock-chips.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502373410-2423-1-git-send-email-david.wu@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Date: Thu, 10 Aug 2017 04:13:12 -0400
+From: David Wu <david.wu@rock-chips.com>
+Date: Thu, 10 Aug 2017 21:56:39 +0800
 
-> Replace init_timer_deferrable with setup_deferrable_timer to simplify
-> the source code.
-> 
-> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+> The rk3228 and rk3328 support integrated PHY inside, let's enable
+> it to work. And the integrated PHY need to do some special setting,
+> so register the rockchip integrated PHY driver.
 
-Applied to net-next, thanks.
+Series applied to net-next, thanks.
