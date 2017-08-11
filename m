@@ -1,37 +1,38 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH][next] Bluetooth: kfree tmp rather than an alias to it
-Date: Fri, 11 Aug 2017 21:20:26 +0200
-Message-ID: <5F62B3BB-4288-42A6-8BD6-6E39EEAB7C58@holtmann.org>
-References: <20170811183304.17580-1-colin.king@canonical.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
-        Netdev list <netdev@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170811183304.17580-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: <Bryan.Whitehead@microchip.com>
+Subject: [PATCH net-next 0/3] Add LAN743X driver
+Date: Fri, 11 Aug 2017 19:47:51 +0000
+Message-ID: <90A7E81AE28BAE4CBDDB3B35F187D264406F6034@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <UNGLinuxDriver@microchip.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa4.microchip.iphmx.com ([68.232.154.123]:39882 "EHLO
+        esa4.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753325AbdHKTsI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 15:48:08 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Colin,
+From: Bryan Whitehead <Bryan.Whitehead@microchip.com>
 
-> While the kfree of dhkey_a is of the same address of tmp, it
-> probably is clearer and more human readable if tmp is kfree'd
-> rather than dhkey_a.
-> 
-> Detected by CoverityScan, CID#1448650 ("Free of address-of expression")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
-> net/bluetooth/selftest.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
+Add Microchip LAN743X PCIe 3.1 Gigabit Ethernet Controller Driver
 
-patch has been applied to bluetooth-next tree.
+Bryan Whitehead (3):
+  Add LAN743X driver
+  Add LAN743X to Kconfig and Makefile
+  Add LAN743X to MAINTAINER list
 
-Regards
+ MAINTAINERS                              |    7 +
+ drivers/net/ethernet/microchip/Kconfig   |   10 +-
+ drivers/net/ethernet/microchip/Makefile  |    1 +
+ drivers/net/ethernet/microchip/lan743x.c | 6842 ++++++++++++++++++++++++++++++
+ drivers/net/ethernet/microchip/lan743x.h | 1417 +++++++
+ 5 files changed, 8276 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/microchip/lan743x.c
+ create mode 100644 drivers/net/ethernet/microchip/lan743x.h
 
-Marcel
+-- 
+2.7.4
