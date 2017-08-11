@@ -1,44 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/sched: reset block pointer in tcf_block_put()
-Date: Fri, 11 Aug 2017 14:21:00 -0700 (PDT)
-Message-ID: <20170811.142100.465766359895148878.davem@davemloft.net>
-References: <CAM_iQpX=XLheuuBk_kAa+jHO-e16hnzavHhzHJ4EYWwpjGFzMg@mail.gmail.com>
-        <20170811203246.GA32076@breakpoint.cc>
-        <CAM_iQpUoa5vWfQGpqCJ7dXx542uC-5JyNpRK-zukVbq=EfAAEA@mail.gmail.com>
+Subject: Re: [PATCH] bonding: require speed/duplex only for 802.3ad, alb
+ and tlb
+Date: Fri, 11 Aug 2017 14:22:25 -0700 (PDT)
+Message-ID: <20170811.142225.600534251833546349.davem@davemloft.net>
+References: <20170810044144.17398-1-futur.andy@googlemail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, khlebnikov@yandex-team.ru, netdev@vger.kernel.org,
-        jiri@mellanox.com, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, maheshb@google.com
+To: futur.andy@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59982 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59996 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753256AbdHKVVB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 17:21:01 -0400
-In-Reply-To: <CAM_iQpUoa5vWfQGpqCJ7dXx542uC-5JyNpRK-zukVbq=EfAAEA@mail.gmail.com>
+        with ESMTP id S1753343AbdHKVW0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 17:22:26 -0400
+In-Reply-To: <20170810044144.17398-1-futur.andy@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 11 Aug 2017 14:06:31 -0700
+From: Andreas Born <futur.andy@googlemail.com>
+Date: Thu, 10 Aug 2017 06:41:44 +0200
 
-> On Fri, Aug 11, 2017 at 1:32 PM, Florian Westphal <fw@strlen.de> wrote:
->> Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>> On Thu, Aug 10, 2017 at 2:31 AM, Konstantin Khlebnikov
->>> <khlebnikov@yandex-team.ru> wrote:
->>> > In previous API tcf_destroy_chain() could be called several times and
->>> > some schedulers like hfsc and atm use that. In new API tcf_block_put()
->>> > frees block but leaves stale pointer, second call will free it once again.
->>>
->>> Which call path do we call tcf_block_put() for multiple times on
->>> the same block? Please be specific, it is not obvious.
->>
->> you can use tools/testing/selftests/net/rtnetlink.sh to reproduce this
->> (kernel panics on delete of root qdisc).
+> The patch c4adfc822bf5 ("bonding: make speed, duplex setting consistent
+> with link state") puts the link state to down if
+> bond_update_speed_duplex() cannot retrieve speed and duplex settings.
+> Assumably the patch was written with 802.3ad mode in mind which relies
+> on link speed/duplex settings. For other modes like active-backup these
+> settings are not required. Thus, only for these other modes, this patch
+> reintroduces support for slaves that do not support reporting speed or
+> duplex such as wireless devices. This fixes the regression reported in
+> bug 196547 (https://bugzilla.kernel.org/show_bug.cgi?id=196547).
 > 
-> I am sure this is not how changelog works. We have enough space
-> in changelog to describe a bug, don't have to leave details in a
-> following-up email which will almost surely be lost in history.
+> Fixes: c4adfc822bf5 ("bonding: make speed, duplex setting consistent
+> with link state")
+> Signed-off-by: Andreas Born <futur.andy@googlemail.com>
 
-Yeah, the more information in the commit log message the better.
+Applied and queued up for -stable, thanks.
