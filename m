@@ -1,43 +1,31 @@
-From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: Re: After a while of system running no incoming UDP any more?
-Date: Fri, 11 Aug 2017 22:07:15 +0200
-Message-ID: <20170811200715.6yxjqwslf2pcu2wn@torres.zugschlus.de>
-References: <20170724120901.6bpcieyvn5nccm2l@torres.zugschlus.de>
- <1500905950.2458.6.camel@redhat.com>
- <20170728062644.bp7agcf6bh7g6yfw@torres.zugschlus.de>
- <1501229277.2597.1.camel@redhat.com>
- <20170728121434.vld76q7kohzpmtk2@torres.zugschlus.de>
- <20170811143453.6vrf2us2jev2ys3d@torres.zugschlus.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net/sched: reset block pointer in tcf_block_put()
+Date: Fri, 11 Aug 2017 13:18:08 -0700
+Message-ID: <CAM_iQpX=XLheuuBk_kAa+jHO-e16hnzavHhzHJ4EYWwpjGFzMg@mail.gmail.com>
+References: <150235751251.493255.14955523507789154918.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.131.164]:51116 "EHLO
-        torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753343AbdHKUHR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 16:07:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20170811143453.6vrf2us2jev2ys3d@torres.zugschlus.de>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:35423 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753181AbdHKUS3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 16:18:29 -0400
+Received: by mail-pg0-f48.google.com with SMTP id v189so19471600pgd.2
+        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 13:18:29 -0700 (PDT)
+In-Reply-To: <150235751251.493255.14955523507789154918.stgit@buzz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 11, 2017 at 04:34:53PM +0200, Marc Haber wrote:
-> On Fri, Jul 28, 2017 at 02:14:34PM +0200, Marc Haber wrote:
-> > I can confirm that these two changes make a system in bad state work
-> > again immediately. Will try the patch on 4.12.4 later today.
-> 
-> After upgrading my test systems to 4.12.5, the issue reappeared. This
-> shows me that the patch indeed helped (my patched 4.12.4 kernels didn't
-> show the bad behavior), and that the patch didn't make its way into
-> 4.12.5. The patch applied to 4.12.5, kernels are building.
+On Thu, Aug 10, 2017 at 2:31 AM, Konstantin Khlebnikov
+<khlebnikov@yandex-team.ru> wrote:
+> In previous API tcf_destroy_chain() could be called several times and
+> some schedulers like hfsc and atm use that. In new API tcf_block_put()
+> frees block but leaves stale pointer, second call will free it once again.
 
-It seems to be in the freshly released 4.12.6.
-
-Greetings
-Marc
-
--- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Leimen, Germany    |  lose things."    Winona Ryder | Fon: *49 6224 1600402
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 6224 1600421
+Which call path do we call tcf_block_put() for multiple times on
+the same block? Please be specific, it is not obvious.
