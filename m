@@ -1,33 +1,75 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net] nfp: do not update MTU from BH in flower app
-Date: Fri, 11 Aug 2017 10:10:24 +0200
-Message-ID: <20170811081021.GA12975@verge.net.au>
-References: <1502438823-12830-1-git-send-email-simon.horman@netronome.com>
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: Re: [PATCH 2/3] ARM: sun8i: sunxi-h3-h5: add phy-is-integrated
+ property to internal PHY
+Date: Fri, 11 Aug 2017 16:11:13 +0800
+Message-ID: <CAGb2v66wCRe8nFucJa5nAT1GhO75LmCyfNWQQbwxzh085Zwk+w@mail.gmail.com>
+References: <20170810085129.20463-1-clabbe.montjoie@gmail.com>
+ <20170810085129.20463-3-clabbe.montjoie@gmail.com> <CAGb2v64dBZgN6-8kHnnN1qiEXHnbXw_FM9WxGHPU0h-tZDbspA@mail.gmail.com>
+ <20170811080543.GA25147@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:44566 "EHLO
-        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751512AbdHKIKo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 04:10:44 -0400
-Content-Disposition: inline
-In-Reply-To: <1502438823-12830-1-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Chen-Yu Tsai <wens@csie.org>, Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Maxime Ripard <maxime.ripard@free-electrons.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        alexandre.torgue@st.com, Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        devicetree <devicetree@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170811080543.GA25147@Red>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 11, 2017 at 10:07:03AM +0200, Simon Horman wrote:
-> The Flower app may receive a request to update the MTU of a representor
-> netdev upon receipt of a control message from the firmware. This requires
-> the RTNL lock which needs to be taken outside of the packet processing
-> path.
-> 
-> As a handling of this correctly seems a little to invasive for a fix simply
-> skip setting the MTU for now.
+On Fri, Aug 11, 2017 at 4:05 PM, Corentin Labbe
+<clabbe.montjoie@gmail.com> wrote:
+> On Fri, Aug 11, 2017 at 10:42:51AM +0800, Chen-Yu Tsai wrote:
+>> Hi,
+>>
+>> On Thu, Aug 10, 2017 at 4:51 PM, Corentin Labbe
+>> <clabbe.montjoie@gmail.com> wrote:
+>> > This patch add the new phy-is-integrated property to the internal PHY
+>> > node.
+>> >
+>> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+>> > ---
+>> >  arch/arm/boot/dts/sunxi-h3-h5.dtsi | 1 +
+>> >  1 file changed, 1 insertion(+)
+>> >
+>> > diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+>> > index 4b599b5d26f6..54fc24e4c569 100644
+>> > --- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+>> > +++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+>> > @@ -425,6 +425,7 @@
+>> >                                         reg = <1>;
+>> >                                         clocks = <&ccu CLK_BUS_EPHY>;
+>> >                                         resets = <&ccu RST_BUS_EPHY>;
+>> > +                                       phy-is-integrated;
+>>
+>> You also need to "delete" this property at the board level for
+>> any board that has the external PHY at address <1>. Otherwise
+>> they will stop working. This is due to the internal and external
+>> PHYs having the same path and node name in the device tree, so
+>> they are effectively the same node.
+>>
+>> ChenYu
+>>
+>
+> They have not the same name, ext_rgmii_phy vs int_mii_phy.
 
-Sorry, please ignore this.
+That is just the label. The label plays no part in device tree merging. The path
 
-It is not against net as it claims. I will post a version against that tree.
+    /soc/ethernet@1c30000/mdio/ethernet-phy@1
+
+is the same. You can look under
+
+    /proc/device-tree/soc/ethernet@1c30000/mdio
+
+on the OrangePI Plus 2E or any other H3 board that uses an
+external PHY at address 1.
+
+ChenYu
