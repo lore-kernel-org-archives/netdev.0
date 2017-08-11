@@ -1,33 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] nfp: send control message when MAC
- representors are created
-Date: Fri, 11 Aug 2017 14:51:30 -0700 (PDT)
-Message-ID: <20170811.145130.971248077968582666.davem@davemloft.net>
-References: <1502439944-18910-1-git-send-email-simon.horman@netronome.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: Remove unnecessary newlines from
+ OVS_NLERR uses
+Date: Fri, 11 Aug 2017 14:52:58 -0700 (PDT)
+Message-ID: <20170811.145258.255734240644404529.davem@davemloft.net>
+References: <72f936a314a54a7957afdeb19e3d019c8c1dabea.1502450609.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
-        oss-drivers@netronome.com
-To: simon.horman@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60720 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753738AbdHKVva (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 17:51:30 -0400
-In-Reply-To: <1502439944-18910-1-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <72f936a314a54a7957afdeb19e3d019c8c1dabea.1502450609.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Fri, 11 Aug 2017 10:25:44 +0200
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Date: Fri, 11 Aug 2017 04:26:26 -0700
 
-> The firmware expects a MAC_REPR control message when a MAC representor
-> is created. The driver should expect a PORTMOD message to follow which
-> will provide the link states of the physical port associated with the MAC
-> representor.
+> OVS_NLERR already adds a newline so these just add blank
+> lines to the logging.
 > 
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-Also applied, thanks Simon.
+Applied to net-next.
