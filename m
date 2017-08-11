@@ -1,33 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: Remove unnecessary newlines from
- OVS_NLERR uses
-Date: Fri, 11 Aug 2017 14:52:58 -0700 (PDT)
-Message-ID: <20170811.145258.255734240644404529.davem@davemloft.net>
-References: <72f936a314a54a7957afdeb19e3d019c8c1dabea.1502450609.git.joe@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mISDN: Fix null pointer dereference at mISDN_FsmNew
+Date: Fri, 11 Aug 2017 14:56:35 -0700 (PDT)
+Message-ID: <20170811.145635.1954762995141694287.davem@davemloft.net>
+References: <1502456242-1695-1-git-send-email-vasilyev@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <72f936a314a54a7957afdeb19e3d019c8c1dabea.1502450609.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: isdn@linux-pingi.de, geliangtang@gmail.com,
+        johannes.berg@intel.com, stephen@networkplumber.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        ldv-project@linuxtesting.org
+To: vasilyev@ispras.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502456242-1695-1-git-send-email-vasilyev@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Date: Fri, 11 Aug 2017 04:26:26 -0700
+From: Anton Vasilyev <vasilyev@ispras.ru>
+Date: Fri, 11 Aug 2017 15:57:22 +0300
 
-> OVS_NLERR already adds a newline so these just add blank
-> lines to the logging.
+> If mISDN_FsmNew() fails to allocate memory for jumpmatrix
+> then null pointer dereference will occur on any write to
+> jumpmatrix.
 > 
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+> The patch adds check on successful allocation and
+> corresponding error handling.
+> 
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Anton Vasilyev <vasilyev@ispras.ru>
 
-Applied to net-next.
+Applied, thank you.
