@@ -1,47 +1,53 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v2] openvswitch: enable NSH support
-Date: Fri, 11 Aug 2017 11:10:55 +0200
-Message-ID: <20170811111055.482bd42b@griffin>
-References: <1502371275-52446-1-git-send-email-yi.y.yang@intel.com>
-        <20170811102418.6b1be4f7@griffin>
-        <20170811084722.GA19968@cran64.bj.intel.com>
+From: "Jorgen S. Hansen" <jhansen@vmware.com>
+Subject: Re: AF_VSOCK unimplemented sockopts
+Date: Fri, 11 Aug 2017 09:23:17 +0000
+Message-ID: <9D465B5B-5A07-4250-8AB3-DEC80CCC45B7@vmware.com>
+References: <20170803104116.GA22685@stefanha-x1.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: "Yang, Yi" <yi.y.yang@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stefan Hajnoczi <stefanha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54402 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751521AbdHKJK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Aug 2017 05:10:57 -0400
-In-Reply-To: <20170811084722.GA19968@cran64.bj.intel.com>
+Received: from mail-by2nam03on0065.outbound.protection.outlook.com ([104.47.42.65]:8099
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752740AbdHKJXU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Aug 2017 05:23:20 -0400
+In-Reply-To: <20170803104116.GA22685@stefanha-x1.localdomain>
+Content-Language: en-US
+Content-ID: <4641D49CCB294F43B4A8AF4DC5C65ADB@namprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Aug 2017 16:47:23 +0800, Yang, Yi wrote:
-> is "__be32 context[4]" ok?
-
-Yes, that looks better.
-
-> So define three new netlink attributes
-> 
-> OVS_ACTION_ATTR_NSH_BASE_HEADER
-> OVS_ACTION_ATTR_NSH_MD1_DATA
-> OVS_ACTION_ATTR_NSH_MD2_DATA
-> 
-> OVS_ACTION_ATTR_PUSH_NSH is nested netlink attribute, it will nest
-> OVS_ACTION_ATTR_NSH_BASE_HEADER and OVS_ACTION_ATTR_NSH_MD1_DATA for MD
-> type 1, it will nest OVS_ACTION_ATTR_NSH_BASE_HEADER and
-> OVS_ACTION_ATTR_NSH_MD2_DATA for MD type 2. I'll compeletely remove struct
-> ovs_action_push_nsh, is it ok?
-
-Yes, that's the way to do it.
-
-What should be done with struct ovs_key_nsh? Even with "c" renamed to
-"context", it's still MD type 1 only structure. What is the plan for
-MD type 2 support wrt. this structure?
-
-Thanks,
-
- Jiri
+SGkgU3RlZmFuLA0KDQo+IE9uIEF1ZyAzLCAyMDE3LCBhdCAxMjo0MSBQTSwgU3RlZmFuIEhham5v
+Y3ppIDxzdGVmYW5oYUByZWRoYXQuY29tPiB3cm90ZToNCj4gDQo+IEhpIEpvcmdlbiwNCj4gVGhl
+cmUgYXJlIDMgc29ja29wdHMgZGVmaW5lZCBpbiBpbmNsdWRlL3VhcGkvbGludXgvdm1fc29ja2V0
+cy5oIHRoYXQgYXJlDQo+IGN1cnJlbnRseSBub3QgaW1wbGVtZW50ZWQgaW4gbmV0L3Ztd192c29j
+ay9hZl92c29jay5jOg0KPiANCj4gKiBTT19WTV9TT0NLRVRTX1BFRVJfSE9TVF9WTV9JRA0KPiAq
+IFNPX1ZNX1NPQ0tFVFNfVFJVU1RFRA0KPiAqIFNPX1ZNX1NPQ0tFVFNfTk9OQkxPQ0tfVFhSWA0K
+PiANCj4gSSBub3RpY2VkIHRoaXMgYmVjYXVzZSBTT19WTV9TT0NLRVRTX1RSVVNURUQgaXMgaW50
+ZXJlc3RpbmcgZm9yDQo+IHZpcnRpby12c29jay4gIFNlcnZpY2VzIGxpc3RlbmluZyBvbiBBRl9W
+U09DSyBpbnNpZGUgdGhlIGd1ZXN0IG1heSBub3QNCj4gd2FudCBhcmJpdHJhcnkgdW5wcml2aWxl
+Z2VkIGhvc3QgcHJvY2Vzc2VzIHRvIGNvbm5lY3QuICBJbnN0ZWFkIG9mDQo+IGludmVudGluZyBh
+IG5ldyBzb2x1dGlvbiBJIHdhbnRlZCB0byBsb29rIGludG8gU09fVk1fU09DS0VUU19UUlVTVEVE
+IGJ1dA0KPiBmb3VuZCBpdCBpcyBub3QgaW1wbGVtZW50ZWQgaW4gbGludXguZ2l0Lg0KPiANCj4g
+V2hhdCBpcyB0aGUgc3RhdHVzIG9mIHRoZXNlIHNvY2tldHM/DQoNClRoZXNlIG9wdGlvbnMgd2Vy
+ZSBvbmx5IGltcGxlbWVudGVkIGZvciBFU1ggaG9zdCBlbmRwb2ludHMsIHNvIHdlcmUgbmV2ZXIg
+cGFydCBvZiB0aGUgTGludXggaG9zdCBzaWRlIHN1cHBvcnQuIEl0IGxvb2tzIGxpa2UgdGhleSBj
+b3VsZCBoYXZlIGJlZW4gb21pdHRlZCBmcm9tIHZtX3NvY2tldHMuaCwgd2hlbiB0aGUgaW5pdGlh
+bCB1cHN0cmVhbWluZyB3YXMgcGVyZm9ybWVkLg0KDQpPbiBFU1gsIHRoZSBlcXVpdmFsZW50IG9m
+IFNPX1ZNX1NPQ0tFVFNfVFJVU1RFRCwgaXMgdXNlZCBmb3IgcmV0cmlldmluZyB0aGUgdmFsdWUg
+b2Ygcy0+dHJ1c3RlZCBvZiBhIFZNQ0kgc29ja2V0LiBJdCBjYW5ub3QgYmUgdXNlZCB0byBtYXJr
+IGEgc29ja2V0IGFzIHRydXN0ZWQuIE9uIExpbnV4LCB0cnVzdGVkIGlzIHRpZWQgdG8gdGhlIENB
+UF9ORVRfQURNSU4gY2FwYWJpbGl0eSBvZiB0aGUgc29ja2V0IGNyZWF0b3IuIFZNQ0kgYmFzZWQg
+dlNvY2tldHMgd2lsbCBwZXIgZGVmYXVsdCBvbmx5IGFsbG93IGhvc3Qgc2lkZSBzb2NrZXRzIHRo
+YXQgYXJlIHRydXN0ZWQsIG9yIGFyZSBjcmVhdGVkIGJ5IHRoZSBzYW1lIHVzZXIgYXMgdGhlIFZN
+LCB0byBjb21tdW5pY2F0ZSB3aXRoIGEgZ2l2ZW4gVk0uIFRoaXMgaXMgYWNoaWV2ZWQgYnkgcGVy
+IGRlZmF1bHQgY3JlYXRpbmcgVk1zIHdpdGggdGhlIFZNQ0kgcHJpdmlsZWdlIGZsYWcgVk1DSV9Q
+UklWSUxFR0VfRkxBR19SRVNUUklDVEVELiBJdCBpcyBwb3NzaWJsZSB0byBjcmVhdGUgYSBWTSB0
+aGF0IGlzbuKAmXQgcmVzdHJpY3RlZCwgaW4gd2hpY2ggY2FzZSBhbnkgaG9zdCBwcm9jZXNzIHdp
+bGwgYmUgYWJsZSB0byBjb21tdW5pY2F0ZSB3aXRoIHRoZSBWTS4NCg0KU28gaXQgc2hvdWxkIGJl
+IHN0cmFpZ2h0IGZvcndhcmQgdG8gaW1wbGVtZW50IHRoZSBnZXRzb2Nrb3B0IHBhcnQgb2YgU09f
+Vk1fU09DS0VUU19UUlVTVEVELCBzaW5jZSBpdCBqdXN0IG5lZWRzIHRvIHJldHVybiBzLT50cnVz
+dGVkLg0KDQpUaGFua3MsDQpKb3JnZW4=
