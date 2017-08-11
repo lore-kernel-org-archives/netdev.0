@@ -1,140 +1,58 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 02/14] sctp: remove the typedef sctp_sender_hb_info_t
-Date: Fri, 11 Aug 2017 10:23:46 +0800
-Message-ID: <67dec3f4936413e5bf596dc0ce9be0b9aa15a444.1502417340.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 03/14] sctp: remove the typedef sctp_endpoint_type_t
+Date: Fri, 11 Aug 2017 10:23:47 +0800
+Message-ID: <5031dc5f40135c4ede57452bc61a1b29dfc76d89.1502417340.git.lucien.xin@gmail.com>
 References: <cover.1502417340.git.lucien.xin@gmail.com>
  <e15322cc52e110730f2bcb77973222b687717369.1502417340.git.lucien.xin@gmail.com>
+ <67dec3f4936413e5bf596dc0ce9be0b9aa15a444.1502417340.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36784 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751550AbdHKCYV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 22:24:21 -0400
-In-Reply-To: <e15322cc52e110730f2bcb77973222b687717369.1502417340.git.lucien.xin@gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36773 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752244AbdHKCY3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2017 22:24:29 -0400
+In-Reply-To: <67dec3f4936413e5bf596dc0ce9be0b9aa15a444.1502417340.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1502417340.git.lucien.xin@gmail.com>
 References: <cover.1502417340.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to remove the typedef sctp_sender_hb_info_t, and
-replace with struct sctp_sender_hb_info in the places where it's
+This patch is to remove the typedef sctp_endpoint_type_t, and
+replace with enum sctp_endpoint_type in the places where it's
 using this typedef.
-
-It is also to use sizeof(variable) instead of sizeof(type).
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/structs.h |  4 ++--
- net/sctp/sm_make_chunk.c   |  6 +++---
- net/sctp/sm_sideeffect.c   |  4 ++--
- net/sctp/sm_statefuns.c    | 12 +++++-------
- 4 files changed, 12 insertions(+), 14 deletions(-)
+ include/net/sctp/structs.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 73e9509..60033a2 100644
+index 60033a2..937187f 100644
 --- a/include/net/sctp/structs.h
 +++ b/include/net/sctp/structs.h
-@@ -371,12 +371,12 @@ union sctp_params {
-  *    chunk is sent and the destination transport address to which this
-  *    HEARTBEAT is sent (see Section 8.3).
-  */
--typedef struct sctp_sender_hb_info {
-+struct sctp_sender_hb_info {
- 	struct sctp_paramhdr param_hdr;
- 	union sctp_addr daddr;
- 	unsigned long sent_at;
- 	__u64 hb_nonce;
--} sctp_sender_hb_info_t;
+@@ -1142,10 +1142,10 @@ int sctp_is_ep_boundall(struct sock *sk);
+ 
+ 
+ /* What type of endpoint?  */
+-typedef enum {
++enum sctp_endpoint_type {
+ 	SCTP_EP_TYPE_SOCKET,
+ 	SCTP_EP_TYPE_ASSOCIATION,
+-} sctp_endpoint_type_t;
 +};
  
- int sctp_stream_init(struct sctp_stream *stream, __u16 outcnt, __u16 incnt,
- 		     gfp_t gfp);
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 3a8fb1d..51de638 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1142,10 +1142,10 @@ struct sctp_chunk *sctp_make_violation_max_retrans(
+ /*
+  * A common base class to bridge the implmentation view of a
+@@ -1169,7 +1169,7 @@ struct sctp_ep_common {
+ 	int hashent;
  
- /* Make a HEARTBEAT chunk.  */
- struct sctp_chunk *sctp_make_heartbeat(const struct sctp_association *asoc,
--				  const struct sctp_transport *transport)
-+				       const struct sctp_transport *transport)
- {
-+	struct sctp_sender_hb_info hbinfo;
- 	struct sctp_chunk *retval;
--	sctp_sender_hb_info_t hbinfo;
+ 	/* Runtime type information.  What kind of endpoint is this? */
+-	sctp_endpoint_type_t type;
++	enum sctp_endpoint_type type;
  
- 	retval = sctp_make_control(asoc, SCTP_CID_HEARTBEAT, 0,
- 				   sizeof(hbinfo), GFP_ATOMIC);
-@@ -1154,7 +1154,7 @@ struct sctp_chunk *sctp_make_heartbeat(const struct sctp_association *asoc,
- 		goto nodata;
- 
- 	hbinfo.param_hdr.type = SCTP_PARAM_HEARTBEAT_INFO;
--	hbinfo.param_hdr.length = htons(sizeof(sctp_sender_hb_info_t));
-+	hbinfo.param_hdr.length = htons(sizeof(hbinfo));
- 	hbinfo.daddr = transport->ipaddr;
- 	hbinfo.sent_at = jiffies;
- 	hbinfo.hb_nonce = transport->hb_nonce;
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 4a12d29..5e8e418 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -714,7 +714,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
- 				  struct sctp_transport *t,
- 				  struct sctp_chunk *chunk)
- {
--	sctp_sender_hb_info_t *hbinfo;
-+	struct sctp_sender_hb_info *hbinfo;
- 	int was_unconfirmed = 0;
- 
- 	/* 8.3 Upon the receipt of the HEARTBEAT ACK, the sender of the
-@@ -768,7 +768,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
- 	if (t->rto_pending == 0)
- 		t->rto_pending = 1;
- 
--	hbinfo = (sctp_sender_hb_info_t *) chunk->skb->data;
-+	hbinfo = (struct sctp_sender_hb_info *)chunk->skb->data;
- 	sctp_transport_update_rto(t, (jiffies - hbinfo->sent_at));
- 
- 	/* Update the heartbeat timer.  */
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index ac6aaa0..af93419 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -1155,27 +1155,25 @@ sctp_disposition_t sctp_sf_backbeat_8_3(struct net *net,
- 					void *arg,
- 					sctp_cmd_seq_t *commands)
- {
-+	struct sctp_sender_hb_info *hbinfo;
- 	struct sctp_chunk *chunk = arg;
--	union sctp_addr from_addr;
- 	struct sctp_transport *link;
--	sctp_sender_hb_info_t *hbinfo;
- 	unsigned long max_interval;
-+	union sctp_addr from_addr;
- 
- 	if (!sctp_vtag_verify(chunk, asoc))
- 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
- 
- 	/* Make sure that the HEARTBEAT-ACK chunk has a valid length.  */
- 	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_chunkhdr) +
--					    sizeof(sctp_sender_hb_info_t)))
-+					    sizeof(*hbinfo)))
- 		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
- 						  commands);
- 
--	hbinfo = (sctp_sender_hb_info_t *) chunk->skb->data;
-+	hbinfo = (struct sctp_sender_hb_info *)chunk->skb->data;
- 	/* Make sure that the length of the parameter is what we expect */
--	if (ntohs(hbinfo->param_hdr.length) !=
--				    sizeof(sctp_sender_hb_info_t)) {
-+	if (ntohs(hbinfo->param_hdr.length) != sizeof(*hbinfo))
- 		return SCTP_DISPOSITION_DISCARD;
--	}
- 
- 	from_addr = hbinfo->daddr;
- 	link = sctp_assoc_lookup_paddr(asoc, &from_addr);
+ 	/* Some fields to help us manage this object.
+ 	 *   refcnt   - Reference count access to this object.
 -- 
 2.1.0
