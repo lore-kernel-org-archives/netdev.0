@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: removed check for queue size
- alignment
-Date: Fri, 11 Aug 2017 13:56:15 -0700 (PDT)
-Message-ID: <20170811.135615.1329251031265744199.davem@davemloft.net>
-References: <20170809202804.GA1238@felix-thinkpad.cavium.com>
+Subject: Re: [PATCH net] net: dsa: ksz: fix skb freeing
+Date: Fri, 11 Aug 2017 13:57:25 -0700 (PDT)
+Message-ID: <20170811.135725.67224099020250004.davem@davemloft.net>
+References: <20170809204609.8114-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        intiyaz.basha@cavium.com
-To: felix.manlunas@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59460 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753256AbdHKU4Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 16:56:16 -0400
-In-Reply-To: <20170809202804.GA1238@felix-thinkpad.cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170809204609.8114-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Wed, 9 Aug 2017 13:28:04 -0700
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed,  9 Aug 2017 16:46:09 -0400
 
-> From: Intiyaz Basha <intiyaz.basha@cavium.com>
+> The DSA layer frees the original skb when an xmit function returns NULL,
+> meaning an error occurred. But if the tagging code copied the original
+> skb, it is responsible of freeing the copy if an error occurs.
 > 
-> There is no restriction on queue size alignment.  Hence removing check for
-> valid queue size.
+> The ksz tagging code currently has two issues: if skb_put_padto fails,
+> the skb copy is not freed, and the original skb will be freed twice.
 > 
-> Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> To fix that, move skb_put_padto inside both branches of the skb_tailroom
+> condition, before freeing the original skb, and free the copy on error.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Applied.
+Applied, thanks.
