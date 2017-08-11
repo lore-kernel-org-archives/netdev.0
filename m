@@ -1,52 +1,49 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v2] vxlan: change vxlan_[config_]validate() to
- use netlink_ext_ack for error reporting
-Date: Fri, 11 Aug 2017 19:28:06 +0200
-Message-ID: <20170811192806.4910368f@griffin>
-References: <1502399795-25660-1-git-send-email-girish.moodalbail@oracle.com>
-        <CAJieiUjYggf3zNzwBMFq7zUm+RrZokZ7oNpuz-Hinec=0OSGzA@mail.gmail.com>
-        <20170811183957.47f418e6@griffin>
-        <62ddb5a5-2242-abea-7702-fbf7377d8a1e@gmail.com>
-        <20170811191155.4906360a@griffin>
-        <0af5e8f9-36cf-8aed-b431-ffc19eac4c8f@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: nf_nat_h323: fix logical-not-parentheses
+ warning
+Date: Fri, 11 Aug 2017 19:42:59 +0200
+Message-ID: <20170811174259.GA3743@salvia>
+References: <20170731183949.73763-1-ndesaulniers@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Girish Moodalbail <girish.moodalbail@oracle.com>,
-        pravin shelar <pshelar@ovn.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Matthias Schiffer <mschiffer@universe-factory.net>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54394 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752989AbdHKR2K (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Aug 2017 13:28:10 -0400
-In-Reply-To: <0af5e8f9-36cf-8aed-b431-ffc19eac4c8f@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mka@chromium.org, lorenzo@google.com,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nick Desaulniers <ndesaulniers@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170731183949.73763-1-ndesaulniers@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Aug 2017 11:17:54 -0600, David Ahern wrote:
-> What if a user adds IFLA_INFO_DATA but adds no vxlan attributes under
-> it? Still not a valid config, but it passes the !data check.
+Hi Nick,
 
-Part of the checking is done in the newlink callback (vxlan_nl2conf).
-Not nice but that's how it is. It's out of scope of this patch to
-change that. (It's also not easy - most of the newlink logic would have
-to be repeated in validate.)
+On Mon, Jul 31, 2017 at 11:39:49AM -0700, Nick Desaulniers wrote:
+> Clang produces the following warning:
+[...]
+> Also, it's even cleaner to use the form:
+> 
+> if (x)
+> 
+> but then if the return codes change from treating 0 as success (unlikely),
+> then all call sites must be updated.
+> 
+> I'm happy to send v2 that changes to that form, and updates the other call
+> sites to be:
+> 
+> if (set_h225_addr())
+>   handle_failures()
+> else
+>   handle_success()
 
-The !data check needs to be done prior to blindly dereferencing into
-data. It's currently in the validate callback. A bit chaotic but it
-works. This patch just adds error messages.
+That sounds very reasonable, send a v2 if this triggers a larger
+patch.
 
-> Whatever attributes are required but missing should be the message
-> returned.
+Or I can just take this patch, as you prefer.
 
-See the message I proposed in the previous email. newlink will take
-care of the rest.
-
-Feel free to submit cleanups, the vxlan driver could use them.
-
- Jiri
+Thanks!
