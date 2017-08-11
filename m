@@ -1,325 +1,1046 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding performance
- vs Core/RSS number / HT on
-Date: Fri, 11 Aug 2017 19:51:10 +0200
-Message-ID: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Some traffic stress testing with 4.13.0-rc4-next-20170808 and
+ BUG: [61183.212237] BUG: Bad page state in process ksoftirqd/52 pfn:855f2f
+Date: Fri, 11 Aug 2017 11:08:31 -0700
+Message-ID: <CAM_iQpVF76_hZ4o_r9b1-2WEwVE9F6i=_M4wjrt7HuAuajUTug@mail.gmail.com>
+References: <9c49b487-2307-27ab-78cd-ed9ad8edbb65@itcare.pl>
+ <CAM_iQpW908ri7ecz4ThD+fFESQoTvZLu-2Pu6wEtgHwGuca_1w@mail.gmail.com> <bcffda88-02ab-8d17-bdef-97cf39c409ee@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+To: =?UTF-8?Q?Pawe=C5=82_Staszewski?= <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp7.iq.pl ([86.111.240.244]:54618 "EHLO smtp7.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752901AbdHKRwj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Aug 2017 13:52:39 -0400
-Received: from [192.168.2.200] (unknown [185.78.72.19])
-        (Authenticated sender: pstaszewski@itcare.pl)
-        by smtp.iq.pl (Postfix) with ESMTPSA id 3xTXdx6npgz3x5Y
-        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 19:52:37 +0200 (CEST)
-Content-Language: pl
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:34029 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753139AbdHKSIx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 14:08:53 -0400
+Received: by mail-pg0-f52.google.com with SMTP id u185so18384278pgb.1
+        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 11:08:53 -0700 (PDT)
+In-Reply-To: <bcffda88-02ab-8d17-bdef-97cf39c409ee@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+(Cc'ing Intel)
 
-I made some tests for performance comparison.
+On Thu, Aug 10, 2017 at 3:05 AM, Pawe=C5=82 Staszewski <pstaszewski@itcare.=
+pl> wrote:
+> Hi
+>
+>
+> yes there are some stack traces more
+>
+> enp24s0f3 - this NIC is used only for ssh to the host (not much traffic o=
+n
+> it)
+>
+> enp216s0f1 - this NIC was have 6Mpps TX traffic (when stack trace occured=
+)
+>
+> enp216s0f0 - this NIC was have 6Mpps RX traffic (when stack trace occured=
+)
+>
+>
+> - complete dmesg with stack traces for all nics below:
 
-Tested HW (FORWARDING HOST):
+There are several warnings, the first one is igb driver related, the second=
+ one
+is RCU related.
 
-Intel(R) Xeon(R) Gold 6132 CPU @ 2.60GHz
-
-Intel Corporation 82599ES 10-Gigabit SFI/SFP+ Network Connection (rev 01)
-
-Test diagram:
-
-
-TRAFFIC GENERATOR (ethX) -> (enp216s0f0 - RX Traffic) FORWARDING HOST 
-(enp216s0f1(vlan1000) - TX Traffic) -> (ethY) SINK
-
-Forwarder traffic: UDP random ports from 9 to 19 with random hosts from 
-172.16.0.1 to 172.16.0.255
-
-TRAFFIC GENERATOR TX is stable 9.9Mpps (in kernel pktgen)
-
-
-Settings used for FORWARDING HOST (changed param. was only number of RSS 
-combined queues + set affinity assignment for them to fit with first 
-numa node where 2x10G port card is installed)
-
-ixgbe driver used from kernel (in-kernel build - not a module)
-
-#!/bin/sh
-ifc='enp216s0f0 enp216s0f1'
-for i in $ifc
-         do
-         ip link set up dev $i
-         ethtool -A $i autoneg off rx off tx off
-         ethtool -G $i rx 4096 tx 1024
-         ip link set $i txqueuelen 1000
-         ethtool -C $i rx-usecs 10
-         ethtool -L $i combined 16
-         ethtool -K $i gro on tso on gso off sg on l2-fwd-offload off 
-tx-nocache-copy on ntuple on
-         ethtool -N $i rx-flow-hash udp4 sdfn
-         done
-
-ip link set up dev enp216s0f0
-ip link set up dev enp216s0f1
-
-ip a a 10.0.0.1/30 dev enp216s0f0
-
-ip link add link enp216s0f1 name vlan1000 type vlan id 1000
-ip link set up dev vlan1000
-ip a a 10.0.0.5/30 dev vlan1000
+The first BUG is likely an ixgbe driver issue.
 
 
-ip route add 172.16.0.0/12 via 10.0.0.6
-
-./set_irq_affinity.sh -x 14-27,42-43 enp216s0f0
-./set_irq_affinity.sh -x 14-27,42-43 enp216s0f1
-#cat  /sys/devices/system/node/node1/cpulist
-#14-27,42-55
-#cat  /sys/devices/system/node/node0/cpulist
-#0-13,28-41
-
-#################################################
-
-
-Looks like forwarding performance when using vlans on ixgbe is less that 
-without vlans for about 30-40% (wondering if this is some vlan 
-offloading problem and ixgbe)
-
-settings below:
-
-ethtool -k enp216s0f0
-Features for enp216s0f0:
-Cannot get device udp-fragmentation-offload settings: Operation not 
-supported
-rx-checksumming: on
-tx-checksumming: on
-         tx-checksum-ipv4: off [fixed]
-         tx-checksum-ip-generic: on
-         tx-checksum-ipv6: off [fixed]
-         tx-checksum-fcoe-crc: off [fixed]
-         tx-checksum-sctp: on
-scatter-gather: on
-         tx-scatter-gather: on
-         tx-scatter-gather-fraglist: off [fixed]
-tcp-segmentation-offload: on
-         tx-tcp-segmentation: on
-         tx-tcp-ecn-segmentation: off [fixed]
-         tx-tcp-mangleid-segmentation: on
-         tx-tcp6-segmentation: on
-udp-fragmentation-offload: off
-generic-segmentation-offload: off
-generic-receive-offload: on
-large-receive-offload: off
-rx-vlan-offload: on
-tx-vlan-offload: on
-ntuple-filters: on
-receive-hashing: on
-highdma: on [fixed]
-rx-vlan-filter: on
-vlan-challenged: off [fixed]
-tx-lockless: off [fixed]
-netns-local: off [fixed]
-tx-gso-robust: off [fixed]
-tx-fcoe-segmentation: off [fixed]
-tx-gre-segmentation: on
-tx-gre-csum-segmentation: on
-tx-ipxip4-segmentation: on
-tx-ipxip6-segmentation: on
-tx-udp_tnl-segmentation: on
-tx-udp_tnl-csum-segmentation: on
-tx-gso-partial: on
-tx-sctp-segmentation: off [fixed]
-tx-esp-segmentation: off [fixed]
-fcoe-mtu: off [fixed]
-tx-nocache-copy: on
-loopback: off [fixed]
-rx-fcs: off [fixed]
-rx-all: off
-tx-vlan-stag-hw-insert: off [fixed]
-rx-vlan-stag-hw-parse: off [fixed]
-rx-vlan-stag-filter: off [fixed]
-l2-fwd-offload: off
-hw-tc-offload: off
-esp-hw-offload: off [fixed]
-esp-tx-csum-hw-offload: off [fixed]
-rx-udp_tunnel-port-offload: on
-
-
-Another thing is that forwarding performance does not scale with number 
-of cores when 7+ cores are reached
-
-
-
-
-perf top:
-
-  PerfTop:   77835 irqs/sec  kernel:99.7%  exact:  0.0% [4000Hz 
-cycles],  (all, 56 CPUs)
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-     16.32%  [kernel]       [k] skb_dst_force
-     16.30%  [kernel]       [k] dst_release
-     15.11%  [kernel]       [k] rt_cache_valid
-     12.62%  [kernel]       [k] ipv4_mtu
-      5.60%  [kernel]       [k] do_raw_spin_lock
-      3.03%  [kernel]       [k] fib_table_lookup
-      2.70%  [kernel]       [k] ip_finish_output2
-      2.10%  [kernel]       [k] dev_gro_receive
-      1.89%  [kernel]       [k] eth_type_trans
-      1.81%  [kernel]       [k] ixgbe_poll
-      1.15%  [kernel]       [k] ixgbe_xmit_frame_ring
-      1.06%  [kernel]       [k] __build_skb
-      1.04%  [kernel]       [k] __dev_queue_xmit
-      0.97%  [kernel]       [k] ip_rcv
-      0.78%  [kernel]       [k] netif_skb_features
-      0.74%  [kernel]       [k] ipt_do_table
-      0.70%  [kernel]       [k] acpi_processor_ffh_cstate_enter
-      0.64%  [kernel]       [k] ip_forward
-      0.59%  [kernel]       [k] __netif_receive_skb_core
-      0.55%  [kernel]       [k] dev_hard_start_xmit
-      0.53%  [kernel]       [k] ip_route_input_rcu
-      0.53%  [kernel]       [k] ip_rcv_finish
-      0.51%  [kernel]       [k] page_frag_free
-      0.50%  [kernel]       [k] kmem_cache_alloc
-      0.50%  [kernel]       [k] udp_v4_early_demux
-      0.44%  [kernel]       [k] skb_release_data
-      0.42%  [kernel]       [k] inet_gro_receive
-      0.40%  [kernel]       [k] sch_direct_xmit
-      0.39%  [kernel]       [k] __local_bh_enable_ip
-      0.33%  [kernel]       [k] netdev_pick_tx
-      0.33%  [kernel]       [k] validate_xmit_skb
-      0.28%  [kernel]       [k] fib_validate_source
-      0.27%  [kernel]       [k] deliver_ptype_list_skb
-      0.25%  [kernel]       [k] eth_header
-      0.23%  [kernel]       [k] get_dma_ops
-      0.22%  [kernel]       [k] skb_network_protocol
-      0.21%  [kernel]       [k] ip_output
-      0.21%  [kernel]       [k] vlan_dev_hard_start_xmit
-      0.20%  [kernel]       [k] ixgbe_alloc_rx_buffers
-      0.18%  [kernel]       [k] nf_hook_slow
-      0.18%  [kernel]       [k] apic_timer_interrupt
-      0.18%  [kernel]       [k] virt_to_head_page
-      0.18%  [kernel]       [k] build_skb
-      0.16%  [kernel]       [k] swiotlb_map_page
-      0.16%  [kernel]       [k] ip_finish_output
-      0.16%  [kernel]       [k] udp4_gro_receive
-
-
-RESULTS:
-
-CSV format - delimeter ";"
-
-ID;CPU_CORES / RSS QUEUES;PKT_SIZE;PPS_RX;BPS_RX;PPS_TX;BPS_TX
-0;1;64;1470912;88247040;1470720;85305530
-1;1;64;1470912;88285440;1470977;85335110
-2;1;64;1470464;88247040;1470402;85290508
-3;1;64;1471424;88262400;1471230;85353728
-4;1;64;1468736;88166400;1468672;85201652
-5;1;64;1470016;88181760;1469949;85234944
-6;1;64;1470720;88247040;1470466;85290624
-7;1;64;1471232;88277760;1471167;85346246
-8;1;64;1469184;88170240;1469249;85216326
-9;1;64;1470592;88227840;1470847;85294394
-ID;CPU_CORES / RSS QUEUES;PKT_SIZE;PPS_RX;BPS_RX;PPS_TX;BPS_TX
-0;2;64;2413120;144802560;2413245;139975924
-1;2;64;2415296;144913920;2415356;140098188
-2;2;64;2416768;144898560;2416573;140105670
-3;2;64;2418176;145056000;2418110;140261806
-4;2;64;2416512;144990720;2416509;140172950
-5;2;64;2415168;144860160;2414466;140064780
-6;2;64;2416960;144983040;2416833;140190930
-7;2;64;2413632;144768000;2413568;140001734
-8;2;64;2415296;144898560;2414589;140087168
-9;2;64;2416576;144963840;2416892;140190930
-ID;CPU_CORES / RSS QUEUES;PKT_SIZE;PPS_RX;BPS_RX;PPS_TX;BPS_TX
-0;3;64;3419008;205155840;3418882;198239244
-1;3;64;3428032;205585920;3427971;198744234
-2;3;64;3425472;205536000;3425344;198677260
-3;3;64;3425088;205470720;3425156;198603136
-4;3;64;3427648;205693440;3426883;198773888
-5;3;64;3426880;205670400;3427392;198796044
-6;3;64;3429120;205678080;3430140;198848186
-7;3;64;3422976;205355520;3423490;198458136
-8;3;64;3423168;205336320;3423486;198495372
-9;3;64;3424384;205493760;3425538;198617868
-ID;CPU_CORES / RSS QUEUES;PKT_SIZE;PPS_RX;BPS_RX;PPS_TX;BPS_TX
-0;4;64;4406464;264364800;4405244;255560296
-1;4;64;4404672;264349440;4405122;255541504
-2;4;64;4402368;264049920;4403326;255188864
-3;4;64;4401344;264076800;4400702;255207134
-4;4;64;4385536;263074560;4386620;254312716
-5;4;64;4386560;263189760;4385404;254379532
-6;4;64;4398784;263857920;4399031;255025288
-7;4;64;4407232;264445440;4407998;255637900
-8;4;64;4413184;264698880;4413758;255875816
-9;4;64;4411328;264526080;4411906;255712372
-ID;CPU_CORES / RSS QUEUES;PKT_SIZE;PPS_RX;BPS_RX;PPS_TX;BPS_TX
-0;5;64;5094464;305871360;5094464;295657262
-1;5;64;5090816;305514240;5091201;295274810
-2;5;64;5088384;305387520;5089792;295175108
-3;5;64;5079296;304869120;5079484;294680368
-4;5;64;5092992;305544960;5094207;295349166
-5;5;64;5092416;305502720;5093372;295334260
-6;5;64;5080896;304896000;5081090;294677004
-7;5;64;5085376;305114880;5086401;294933058
-8;5;64;5092544;305575680;5092036;295356938
-9;5;64;5093056;305652480;5093832;295449506
-ID;CPU_CORES / RSS QUEUES;PKT_SIZE;PPS_RX;BPS_RX;PPS_TX;BPS_TX
-0;6;64;5705088;342351360;5705784;330965110
-1;6;64;5710272;342743040;5707591;331373952
-2;6;64;5703424;342182400;5701826;330776552
-3;6;64;5708736;342604800;5707963;331147462
-4;6;64;5710144;342654720;5712067;331202910
-5;6;64;5712064;342777600;5711361;331292288
-6;6;64;5710144;342585600;5708607;331144272
-7;6;64;5699840;342021120;5697853;330609222
-8;6;64;5701184;342124800;5702909;330653592
-9;6;64;5711360;342735360;5713283;331247686
-ID;CPU_CORES / RSS QUEUES;PKT_SIZE;PPS_RX;BPS_RX;PPS_TX;BPS_TX
-0;7;64;6244416;374603520;6243591;362180072
-1;7;64;6230912;374016000;6231490;361534126
-2;7;64;6244800;374776320;6244866;362224326
-3;7;64;6238720;374376960;6238261;361838510
-4;7;64;6218816;373079040;6220413;360683962
-5;7;64;6224320;373566720;6225086;361017404
-6;7;64;6224000;373570560;6221370;360936088
-7;7;64;6210048;372741120;6210627;360212654
-8;7;64;6231616;374035200;6231537;361445502
-9;7;64;6227840;373724160;6228802;361162752
-ID;CPU_CORES / RSS QUEUES;PKT_SIZE;PPS_RX;BPS_RX;PPS_TX;BPS_TX
-0;8;64;6251840;375144960;6251849;362609678
-1;8;64;6250816;375014400;6250881;362547038
-2;8;64;6257728;375432960;6257160;362911104
-3;8;64;6255552;375325440;6255622;362822074
-4;8;64;6243776;374576640;6243270;362120622
-5;8;64;6237184;374296320;6237690;361790080
-6;8;64;6240960;374415360;6240714;361927366
-7;8;64;6222784;373317120;6223746;360854424
-8;8;64;6225920;373593600;6227014;361154980
-9;8;64;6238528;374304000;6237701;361845238
-ID;CPU_CORES / RSS QUEUES;PKT_SIZE;PPS_RX;BPS_RX;PPS_TX;BPS_TX
-0;14;64;6486144;389184000;6486135;376236488
-1;14;64;6454912;387390720;6454222;374466734
-2;14;64;6441152;386480640;6440431;373572780
-3;14;64;6450240;386972160;6450870;374070014
-4;14;64;6465600;387997440;6467221;375089654
-5;14;64;6448384;386860800;6448000;373980230
-6;14;64;6452352;387095040;6452148;374168904
-7;14;64;6441984;386507520;6443203;373665058
-8;14;64;6456704;387340800;6455744;374429092
-9;14;64;6464640;387901440;6465218;374949004
-ID;CPU_CORES / RSS QUEUES;PKT_SIZE;PPS_RX;BPS_RX;PPS_TX;BPS_TX
-0;16;64;6939008;416325120;6938696;402411192
-1;16;64;6941952;416444160;6941745;402558918
-2;16;64;6960576;417584640;6960707;403698718
-3;16;64;6940736;416486400;6941820;402503876
-4;16;64;6927680;415741440;6927420;401853870
-5;16;64;6929792;415687680;6929917;401839196
-6;16;64;6950400;416989440;6950661;403026166
-7;16;64;6953664;417216000;6953454;403260544
-8;16;64;6948480;416851200;6948800;403023266
-9;16;64;6924160;415422720;6924092;401542468
+>
+> [53838.303348] NETDEV WATCHDOG: enp24s0f3 (igb): transmit queue 1 timed o=
+ut
+> [53838.303358] ------------[ cut here ]------------
+> [53838.303363] WARNING: CPU: 0 PID: 8 at net/sched/sch_generic.c:316
+> dev_watchdog+0xc5/0x122
+> [53838.303363] Modules linked in: sch_fq x86_pkg_temp_thermal ipmi_si
+> [53838.303367] CPU: 0 PID: 8 Comm: ksoftirqd/0 Not tainted
+> 4.13.0-rc4-next-20170808 #1
+> [53838.303368] task: ffff88046da39400 task.stack: ffffc900001b8000
+> [53838.303369] RIP: 0010:dev_watchdog+0xc5/0x122
+> [53838.303369] RSP: 0018:ffffc900001bbda0 EFLAGS: 00010286
+> [53838.303370] RAX: 000000000000003c RBX: ffff88046beb6000 RCX:
+> 0000000000000000
+> [53838.303371] RDX: ffff88046fa13310 RSI: ffff88046fa0ca98 RDI:
+> ffff88046fa0ca98
+> [53838.303371] RBP: ffffc900001bbdb0 R08: 0000000000000000 R09:
+> 0000000000000000
+> [53838.303372] R10: ffff88046fa188e0 R11: ffff88087ff94a84 R12:
+> 0000000000000001
+> [53838.303372] R13: ffffffff815e0007 R14: ffff88046beb6438 R15:
+> ffff88046beb6000
+> [53838.303373] FS:  0000000000000000(0000) GS:ffff88046fa00000(0000)
+> knlGS:0000000000000000
+> [53838.303374] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [53838.303374] CR2: 00007ffc18047d58 CR3: 000000046c51f003 CR4:
+> 00000000007606f0
+> [53838.303375] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+> 0000000000000000
+> [53838.303375] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7:
+> 0000000000000400
+> [53838.303376] PKRU: 55555554
+> [53838.303376] Call Trace:
+> [53838.303381]  call_timer_fn+0x5b/0x123
+> [53838.303382]  run_timer_softirq+0x137/0x15a
+> [53838.303386]  ? pick_next_task_fair+0x139/0x2f9
+> [53838.303388]  __do_softirq+0xe4/0x23a
+> [53838.303390]  ? sort_range+0x1d/0x1d
+> [53838.303391]  run_ksoftirqd+0x15/0x2a
+> [53838.303392]  smpboot_thread_fn+0x128/0x13f
+> [53838.303394]  kthread+0xf7/0xfc
+> [53838.303395]  ? init_completion+0x24/0x24
+> [53838.303399]  ret_from_fork+0x22/0x30
+> [53838.303400] Code: 62 68 6e 00 00 75 38 48 89 df c6 05 56 68 6e 00 01 e=
+8
+> f4 49 fe ff 44 89 e1 48 89 de 48 c7 c7 5b 3d ac 81 48 89 c2 e8 c8 26 a9 f=
+f
+> <0f> ff eb 10 41 ff c4 48 05 40 01 00 00 41 39 f4 75 9a eb 0d 48
+> [53838.303417] ---[ end trace cf42df41100f38ce ]---
+> [53838.303555] igb 0000:18:00.3 enp24s0f3: Reset adapter
+> [53843.119595] igb 0000:18:00.3 enp24s0f3: igb: enp24s0f3 NIC Link is Up
+> 1000 Mbps Full Duplex, Flow Control: RX
+> [56238.303636] igb 0000:18:00.3 enp24s0f3: Reset adapter
+> [56241.651735] igb 0000:18:00.3 enp24s0f3: igb: enp24s0f3 NIC Link is Up
+> 1000 Mbps Full Duplex, Flow Control: RX
+> [59482.865823] nr_pdflush_threads exported in /proc is scheduled for remo=
+val
+> [59697.280051] ------------[ cut here ]------------
+> [59697.280060] WARNING: CPU: 45 PID: 237 at kernel/rcu/tree.c:2700
+> rcu_process_callbacks+0x327/0x36f
+> [59697.280061] Modules linked in: sch_fq x86_pkg_temp_thermal ipmi_si
+> [59697.280066] CPU: 45 PID: 237 Comm: ksoftirqd/45 Tainted: G        W
+> 4.13.0-rc4-next-20170808 #1
+> [59697.280067] task: ffff88086d07a800 task.stack: ffffc90003bd4000
+> [59697.280069] RIP: 0010:rcu_process_callbacks+0x327/0x36f
+> [59697.280070] RSP: 0018:ffffc90003bd7e00 EFLAGS: 00010097
+> [59697.280071] RAX: 0000000000000246 RBX: ffff88087fa598c0 RCX:
+> ffffffffffffd800
+> [59697.280071] RDX: 0000000000000001 RSI: ffffc90003bd7e18 RDI:
+> ffff88087fa598f8
+> [59697.280072] RBP: ffffc90003bd7e60 R08: 0000000000000068 R09:
+> 00000000ffffff80
+> [59697.280073] R10: ffffc90003bd7dd8 R11: 000000000001cc80 R12:
+> ffffffff81c423c0
+> [59697.280073] R13: ffffc90003bd7e18 R14: ffff88087fa598f8 R15:
+> ffff88086d07a800
+> [59697.280074] FS:  0000000000000000(0000) GS:ffff88087fa40000(0000)
+> knlGS:0000000000000000
+> [59697.280075] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [59697.280075] CR2: 00007fffd1a54000 CR3: 000000086bc53001 CR4:
+> 00000000007606e0
+> [59697.280076] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+> 0000000000000000
+> [59697.280077] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7:
+> 0000000000000400
+> [59697.280077] PKRU: 55555554
+> [59697.280078] Call Trace:
+> [59697.280081]  ? net_rx_action+0x21e/0x22d
+> [59697.280084]  __do_softirq+0xe4/0x23a
+> [59697.280088]  ? sort_range+0x1d/0x1d
+> [59697.280089]  run_ksoftirqd+0x15/0x2a
+> [59697.280090]  smpboot_thread_fn+0x128/0x13f
+> [59697.280093]  kthread+0xf7/0xfc
+> [59697.280094]  ? init_completion+0x24/0x24
+> [59697.280099]  ret_from_fork+0x22/0x30
+> [59697.280100] Code: 8b 8b 90 00 00 00 48 2b 0d 2b 4e bc 00 48 39 ca 7d 0=
+7
+> 48 89 93 90 00 00 00 48 83 7b 38 00 0f 94 c1 48 85 d2 0f 94 c2 38 d1 74 0=
+2
+> <0f> ff 50 9d 4c 89 f7 e8 55 22 00 00 84 c0 74 09 e8 06 f1 ff ff
+> [59697.280120] ---[ end trace cf42df41100f38cf ]---
+> [59697.280251] BUG: Bad page state in process ksoftirqd/49 pfn:85537d
+> [59697.280253] page:ffffea002154df40 count:0 mapcount:-1 mapping:
+> (null) index:0xffff88085537db00
+> [59697.280393] flags: 0x600000000000000()
+> [59697.280510] raw: 0600000000000000 0000000000000000 ffff88085537db00
+> 00000000fffffffe
+> [59697.280511] raw: 0000000000000000 0000000100000001 0000000000000000
+> 0000000000000000
+> [59697.280511] page dumped because: nonzero mapcount
+> [59697.280512] Modules linked in: sch_fq x86_pkg_temp_thermal ipmi_si
+> [59697.280515] CPU: 49 PID: 257 Comm: ksoftirqd/49 Tainted: G        W
+> 4.13.0-rc4-next-20170808 #1
+> [59697.280516] Call Trace:
+> [59697.280521]  dump_stack+0x4d/0x63
+> [59697.280526]  bad_page+0xf3/0x10f
+> [59697.280528]  check_new_page_bad+0x73/0x75
+> [59697.280529]  get_page_from_freelist+0x419/0x63f
+> [59697.280532]  ? ip_finish_output+0x11f/0x12b
+> [59697.280533]  __alloc_pages_nodemask+0xf2/0x187
+> [59697.280536]  ? ip_route_input_rcu+0x489/0x7d3
+> [59697.280540]  alloc_pages_current+0x85/0x8c
+> [59697.280542]  new_slab+0xc2/0x2f7
+> [59697.280544]  ___slab_alloc+0x350/0x3cd
+> [59697.280547]  ? __build_skb+0x28/0xa4
+> [59697.280550]  ? __netif_receive_skb_core+0x325/0x4c0
+> [59697.280551]  __slab_alloc+0x12/0x17
+> [59697.280552]  ? __slab_alloc+0x12/0x17
+> [59697.280554]  kmem_cache_alloc+0x50/0x112
+> [59697.280555]  __build_skb+0x28/0xa4
+> [59697.280556]  build_skb+0x12/0x41
+> [59697.280560]  ixgbe_poll+0x6e4/0xeef
+> [59697.280562]  net_rx_action+0xd3/0x22d
+> [59697.280563]  __do_softirq+0xe4/0x23a
+> [59697.280565]  ? sort_range+0x1d/0x1d
+> [59697.280566]  run_ksoftirqd+0x15/0x2a
+> [59697.280567]  smpboot_thread_fn+0x128/0x13f
+> [59697.280568]  kthread+0xf7/0xfc
+> [59697.280569]  ? init_completion+0x24/0x24
+> [59697.280572]  ret_from_fork+0x22/0x30
+> [59697.280573] Disabling lock debugging due to kernel taint
+> [60087.124142] BUG: Bad page state in process ksoftirqd/50 pfn:84ed9f
+> [60087.124145] page:ffffea00213b67c0 count:0 mapcount:-127 mapping:
+> (null) index:0x0
+> [60087.124279] flags: 0x600000000000000()
+> [60087.124396] raw: 0600000000000000 0000000000000000 0000000000000000
+> 00000000ffffff80
+> [60087.124397] raw: ffffea0021a029a0 ffffea00215302a0 0000000000000000
+> 0000000000000000
+> [60087.124397] page dumped because: nonzero mapcount
+> [60087.124398] Modules linked in: sch_fq x86_pkg_temp_thermal ipmi_si
+> [60087.124403] CPU: 50 PID: 262 Comm: ksoftirqd/50 Tainted: G B   W
+> 4.13.0-rc4-next-20170808 #1
+> [60087.124404] Call Trace:
+> [60087.124411]  dump_stack+0x4d/0x63
+> [60087.124415]  bad_page+0xf3/0x10f
+> [60087.124417]  free_pages_check+0x75/0x7f
+> [60087.124419]  __free_pages_ok+0xaf/0x158
+> [60087.124420]  page_frag_free+0x47/0x49
+> [60087.124424]  skb_free_head+0x19/0x22
+> [60087.124425]  skb_release_data+0x89/0x90
+> [60087.124427]  skb_release_all+0x1f/0x22
+> [60087.124428]  _kfree_skb_defer+0x1e/0x5b
+> [60087.124430]  napi_consume_skb+0x3e/0x41
+> [60087.124434]  ixgbe_poll+0xe7/0xeef
+> [60087.124437]  net_rx_action+0xd3/0x22d
+> [60087.124439]  __do_softirq+0xe4/0x23a
+> [60087.124443]  ? sort_range+0x1d/0x1d
+> [60087.124443]  run_ksoftirqd+0x15/0x2a
+> [60087.124444]  smpboot_thread_fn+0x128/0x13f
+> [60087.124447]  kthread+0xf7/0xfc
+> [60087.124448]  ? init_completion+0x24/0x24
+> [60087.124452]  ret_from_fork+0x22/0x30
+> [60175.047713] BUG: Bad page state in process perf  pfn:84ed9f
+> [60175.047715] page:ffffea00213b67c0 count:44363 mapcount:0 mapping:
+> (null) index:0x0
+> [60175.047849] flags: 0x600000000000000()
+> [60175.047964] raw: 0600000000000000 0000000000000000 0000000000000000
+> 0000ad4bffffffff
+> [60175.047965] raw: dead000000000100 dead000000000200 0000000000000000
+> 0000000000000000
+> [60175.047965] page dumped because: nonzero _count
+> [60175.047966] Modules linked in: sch_fq x86_pkg_temp_thermal ipmi_si
+> [60175.047970] CPU: 28 PID: 8325 Comm: perf Tainted: G    B W
+> 4.13.0-rc4-next-20170808 #1
+> [60175.047971] Call Trace:
+> [60175.047980]  dump_stack+0x4d/0x63
+> [60175.047986]  bad_page+0xf3/0x10f
+> [60175.047988]  check_new_page_bad+0x73/0x75
+> [60175.047989]  get_page_from_freelist+0x2a9/0x63f
+> [60175.047990]  __alloc_pages_nodemask+0xf2/0x187
+> [60175.047994]  new_slab+0xd6/0x2f7
+> [60175.047996]  ___slab_alloc+0x350/0x3cd
+> [60175.048000]  ? kzalloc_node+0xf/0x11
+> [60175.048001]  ? __alloc_pages_nodemask+0xf2/0x187
+> [60175.048002]  __slab_alloc+0x12/0x17
+> [60175.048004]  ? __slab_alloc+0x12/0x17
+> [60175.048005]  __kmalloc_node+0x92/0x10c
+> [60175.048007]  kzalloc_node+0xf/0x11
+> [60175.048008]  reserve_ds_buffers+0x90/0x30d
+> [60175.048010]  x86_reserve_hardware+0xbd/0xcd
+> [60175.048011]  x86_pmu_event_init+0x50/0x1c9
+> [60175.048013]  perf_try_init_event+0x41/0x72
+> [60175.048014]  perf_event_alloc+0x36f/0x61a
+> [60175.048016]  SYSC_perf_event_open+0x3fa/0xb22
+> [60175.048018]  SyS_perf_event_open+0x9/0xb
+> [60175.048022]  entry_SYSCALL_64_fastpath+0x13/0x94
+> [60175.048023] RIP: 0033:0x7f4b74add5c9
+> [60175.048024] RSP: 002b:00007ffe273ff6f8 EFLAGS: 00000202 ORIG_RAX:
+> 000000000000012a
+> [60175.048025] RAX: ffffffffffffffda RBX: 00007ffe273ff830 RCX:
+> 00007f4b74add5c9
+> [60175.048026] RDX: 00000000ffffffff RSI: 0000000000000000 RDI:
+> 00007ffe273ff740
+> [60175.048027] RBP: 00007ffe273ff800 R08: 0000000000000000 R09:
+> 00007ffe273ffa40
+> [60175.048027] R10: 00000000ffffffff R11: 0000000000000202 R12:
+> 0000000000000000
+> [60175.048028] R13: 00007ffe273ffaf0 R14: 0000000000000001 R15:
+> 00007ffe274050b0
+> [60205.531673] ixgbe 0000:d8:00.0 enp216s0f0: detected SFP+: 3
+> [60205.775698] ixgbe 0000:d8:00.0 enp216s0f0: NIC Link is Up 10 Gbps, Flo=
+w
+> Control: None
+> [60226.155671] ixgbe 0000:d8:00.0 enp216s0f0: detected SFP+: 3
+> [60226.399691] ixgbe 0000:d8:00.0 enp216s0f0: NIC Link is Up 10 Gbps, Flo=
+w
+> Control: None
+> [60401.551685] ixgbe 0000:d8:00.0 enp216s0f0: detected SFP+: 3
+> [60401.795723] ixgbe 0000:d8:00.0 enp216s0f0: NIC Link is Up 10 Gbps, Flo=
+w
+> Control: None
+> [60580.967690] ixgbe 0000:d8:00.0 enp216s0f0: detected SFP+: 3
+> [60581.315732] ixgbe 0000:d8:00.0 enp216s0f0: NIC Link is Up 10 Gbps, Flo=
+w
+> Control: None
+>
+> [60961.112120] BUG: Bad page state in process ksoftirqd/44 pfn:855f2f
+> [60961.112123] page:ffffea002157cbc0 count:51910 mapcount:0 mapping:
+> (null) index:0x0
+> [60961.112259] flags: 0x600000000000000()
+> [60961.112375] raw: 0600000000000000 0000000000000000 0000000000000000
+> 0000cac6ffffffff
+> [60961.112376] raw: dead000000000100 dead000000000200 0000000000000000
+> 0000000000000000
+> [60961.112377] page dumped because: nonzero _count
+> [60961.112377] Modules linked in: sch_fq x86_pkg_temp_thermal ipmi_si
+> [60961.112381] CPU: 44 PID: 232 Comm: ksoftirqd/44 Tainted: G B   W
+> 4.13.0-rc4-next-20170808 #1
+> [60961.112382] Call Trace:
+> [60961.112390]  dump_stack+0x4d/0x63
+> [60961.112394]  bad_page+0xf3/0x10f
+> [60961.112396]  check_new_page_bad+0x73/0x75
+> [60961.112397]  get_page_from_freelist+0x2a9/0x63f
+> [60961.112398]  __alloc_pages_nodemask+0xf2/0x187
+> [60961.112403]  alloc_pages_current+0x85/0x8c
+> [60961.112405]  new_slab+0xc2/0x2f7
+> [60961.112407]  ___slab_alloc+0x350/0x3cd
+> [60961.112409]  ? fq_enqueue+0x24e/0x3e3 [sch_fq]
+> [60961.112411]  __slab_alloc+0x12/0x17
+> [60961.112412]  ? __slab_alloc+0x12/0x17
+> [60961.112413]  kmem_cache_alloc+0x50/0x112
+> [60961.112414]  fq_enqueue+0x24e/0x3e3 [sch_fq]
+> [60961.112419]  ? ixgbe_select_queue+0x15/0x17
+> [60961.112422]  __dev_queue_xmit+0x2a5/0x4b9
+> [60961.112423]  dev_queue_xmit+0xb/0xd
+> [60961.112423]  ? dev_queue_xmit+0xb/0xd
+> [60961.112425]  vlan_dev_hard_start_xmit+0x81/0xaa
+> [60961.112426]  dev_hard_start_xmit+0xc3/0x197
+> [60961.112427]  __dev_queue_xmit+0x38d/0x4b9
+> [60961.112429]  ? eth_header+0x27/0xab
+> [60961.112429]  dev_queue_xmit+0xb/0xd
+> [60961.112430]  ? dev_queue_xmit+0xb/0xd
+> [60961.112432]  neigh_connected_output+0x9b/0xb2
+> [60961.112436]  ip_finish_output2+0x24e/0x292
+> [60961.112437]  ip_finish_output+0x11f/0x12b
+> [60961.112438]  ip_output+0x56/0xa7
+> [60961.112441]  ? ip_route_input_rcu+0x489/0x7d3
+> [60961.112442]  ip_forward_finish+0x53/0x58
+> [60961.112443]  ip_forward+0x2ff/0x350
+> [60961.112443]  ? ip_frag_mem+0x1e/0x1e
+> [60961.112444]  ip_rcv_finish+0x27f/0x28a
+> [60961.112445]  ip_rcv+0x2c0/0x30d
+> [60961.112448]  __netif_receive_skb_core+0x325/0x4c0
+> [60961.112449]  __netif_receive_skb+0x18/0x5a
+> [60961.112450]  ? dev_gro_receive+0x2a9/0x3b4
+> [60961.112451]  ? __netif_receive_skb+0x18/0x5a
+> [60961.112452]  netif_receive_skb_internal+0x4b/0x96
+> [60961.112453]  napi_gro_receive+0x75/0xcc
+> [60961.112455]  ixgbe_poll+0xed8/0xeef
+> [60961.112459]  ? __printk_ratelimit+0x8/0x15
+> [60961.112460]  net_rx_action+0xd3/0x22d
+> [60961.112462]  __do_softirq+0xe4/0x23a
+> [60961.112465]  ? sort_range+0x1d/0x1d
+> [60961.112466]  run_ksoftirqd+0x15/0x2a
+> [60961.112467]  smpboot_thread_fn+0x128/0x13f
+> [60961.112470]  kthread+0xf7/0xfc
+> [60961.112471]  ? init_completion+0x24/0x24
+> [60961.112475]  ret_from_fork+0x22/0x30
+> [60983.541418] capability: warning: `turbostat' uses 32-bit capabilities
+> (legacy support in use)
+> [61179.159683] ixgbe 0000:d8:00.1 enp216s0f1: detected SFP+: 4
+> [61179.503705] ixgbe 0000:d8:00.1 enp216s0f1: NIC Link is Up 10 Gbps, Flo=
+w
+> Control: None
+> [61183.212237] BUG: Bad page state in process ksoftirqd/52 pfn:855f2f
+> [61183.212240] page:ffffea002157cbc0 count:-1 mapcount:0 mapping:
+> (null) index:0x0
+> [61183.212375] flags: 0x600000000000000()
+> [61183.212492] raw: 0600000000000000 0000000000000000 0000000000000000
+> ffffffffffffffff
+> [61183.212493] raw: dead000000000100 dead000000000200 0000000000000000
+> 0000000000000000
+> [61183.212493] page dumped because: nonzero _count
+> [61183.212494] Modules linked in: sch_fq x86_pkg_temp_thermal ipmi_si
+> [61183.212498] CPU: 52 PID: 272 Comm: ksoftirqd/52 Tainted: G B   W
+> 4.13.0-rc4-next-20170808 #1
+> [61183.212500] Call Trace:
+> [61183.212507]  dump_stack+0x4d/0x63
+> [61183.212512]  bad_page+0xf3/0x10f
+> [61183.212514]  check_new_page_bad+0x73/0x75
+> [61183.212515]  get_page_from_freelist+0x2a9/0x63f
+> [61183.212517]  __alloc_pages_nodemask+0xf2/0x187
+> [61183.212523]  ixgbe_alloc_rx_buffers+0x77/0x1bb
+> [61183.212524]  ixgbe_poll+0x421/0xeef
+> [61183.212529]  ? cfs_rq_util_change+0x1e/0x20
+> [61183.212532]  net_rx_action+0xd3/0x22d
+> [61183.212534]  __do_softirq+0xe4/0x23a
+> [61183.212536]  ? sort_range+0x1d/0x1d
+> [61183.212537]  run_ksoftirqd+0x15/0x2a
+> [61183.212538]  smpboot_thread_fn+0x128/0x13f
+> [61183.212540]  kthread+0xf7/0xfc
+> [61183.212541]  ? init_completion+0x24/0x24
+> [61183.212546]  ret_from_fork+0x22/0x30
+> [61183.283732] ixgbe 0000:d8:00.0 enp216s0f0: detected SFP+: 3
+> [61183.527747] ixgbe 0000:d8:00.0 enp216s0f0: NIC Link is Up 10 Gbps, Flo=
+w
+> Control: None
+> [61223.651684] ixgbe 0000:d8:00.1 enp216s0f1: detected SFP+: 4
+> [61223.891712] ixgbe 0000:d8:00.1 enp216s0f1: NIC Link is Up 10 Gbps, Flo=
+w
+> Control: None
+> [61228.651748] ixgbe 0000:d8:00.0 enp216s0f0: detected SFP+: 3
+> [61228.891759] ixgbe 0000:d8:00.0 enp216s0f0: NIC Link is Up 10 Gbps, Flo=
+w
+> Control: None
+> [61408.583698] ixgbe 0000:d8:00.1 enp216s0f1: detected SFP+: 4
+> [61408.831720] ixgbe 0000:d8:00.1 enp216s0f1: NIC Link is Up 10 Gbps, Flo=
+w
+> Control: None
+> [61414.003718] ixgbe 0000:d8:00.0 enp216s0f0: detected SFP+: 3
+> [61414.247764] ixgbe 0000:d8:00.0 enp216s0f0: NIC Link is Up 10 Gbps, Flo=
+w
+> Control: None
+> [63318.496105] igb 0000:18:00.3 enp24s0f3: Reset adapter
+> [63321.828156] igb 0000:18:00.3 enp24s0f3: igb: enp24s0f3 NIC Link is Up
+> 1000 Mbps Full Duplex, Flow Control: RX
+>
+>
+>
+> W dniu 2017-08-10 o 01:27, Cong Wang pisze:
+>
+>> On Wed, Aug 9, 2017 at 8:50 AM, Pawe=C5=82 Staszewski <pstaszewski@itcar=
+e.pl>
+>> wrote:
+>>>
+>>>
+>>>
+>>> [60961.112120] BUG: Bad page state in process ksoftirqd/44 pfn:855f2f
+>>> [60961.112123] page:ffffea002157cbc0 count:51910 mapcount:0 mapping:
+>>> (null) index:0x0
+>>> [60961.112259] flags: 0x600000000000000()
+>>> [60961.112375] raw: 0600000000000000 0000000000000000 0000000000000000
+>>> 0000cac6ffffffff
+>>> [60961.112376] raw: dead000000000100 dead000000000200 0000000000000000
+>>> 0000000000000000
+>>> [60961.112377] page dumped because: nonzero _count
+>>> [60961.112377] Modules linked in: sch_fq x86_pkg_temp_thermal ipmi_si
+>>> [60961.112381] CPU: 44 PID: 232 Comm: ksoftirqd/44 Tainted: G B   W
+>>> 4.13.0-rc4-next-20170808 #1
+>>> [60961.112382] Call Trace:
+>>> [60961.112390]  dump_stack+0x4d/0x63
+>>> [60961.112394]  bad_page+0xf3/0x10f
+>>> [60961.112396]  check_new_page_bad+0x73/0x75
+>>> [60961.112397]  get_page_from_freelist+0x2a9/0x63f
+>>> [60961.112398]  __alloc_pages_nodemask+0xf2/0x187
+>>> [60961.112403]  alloc_pages_current+0x85/0x8c
+>>> [60961.112405]  new_slab+0xc2/0x2f7
+>>> [60961.112407]  ___slab_alloc+0x350/0x3cd
+>>> [60961.112409]  ? fq_enqueue+0x24e/0x3e3 [sch_fq]
+>>> [60961.112411]  __slab_alloc+0x12/0x17
+>>> [60961.112412]  ? __slab_alloc+0x12/0x17
+>>> [60961.112413]  kmem_cache_alloc+0x50/0x112
+>>> [60961.112414]  fq_enqueue+0x24e/0x3e3 [sch_fq]
+>>> [60961.112419]  ? ixgbe_select_queue+0x15/0x17
+>>> [60961.112422]  __dev_queue_xmit+0x2a5/0x4b9
+>>> [60961.112423]  dev_queue_xmit+0xb/0xd
+>>
+>>
+>> Is this the first stack trace in your dmesg?
+>>
+>> It doesn't look like a bug in sch_fq, but like we have
+>> a bad mm page somewhere else, perhaps ixgbe driver.
+>>
+>>
+>>
+>>> [60961.112423]  ? dev_queue_xmit+0xb/0xd
+>>> [60961.112425]  vlan_dev_hard_start_xmit+0x81/0xaa
+>>> [60961.112426]  dev_hard_start_xmit+0xc3/0x197
+>>> [60961.112427]  __dev_queue_xmit+0x38d/0x4b9
+>>> [60961.112429]  ? eth_header+0x27/0xab
+>>> [60961.112429]  dev_queue_xmit+0xb/0xd
+>>> [60961.112430]  ? dev_queue_xmit+0xb/0xd
+>>> [60961.112432]  neigh_connected_output+0x9b/0xb2
+>>> [60961.112436]  ip_finish_output2+0x24e/0x292
+>>> [60961.112437]  ip_finish_output+0x11f/0x12b
+>>> [60961.112438]  ip_output+0x56/0xa7
+>>> [60961.112441]  ? ip_route_input_rcu+0x489/0x7d3
+>>> [60961.112442]  ip_forward_finish+0x53/0x58
+>>> [60961.112443]  ip_forward+0x2ff/0x350
+>>> [60961.112443]  ? ip_frag_mem+0x1e/0x1e
+>>> [60961.112444]  ip_rcv_finish+0x27f/0x28a
+>>> [60961.112445]  ip_rcv+0x2c0/0x30d
+>>> [60961.112448]  __netif_receive_skb_core+0x325/0x4c0
+>>> [60961.112449]  __netif_receive_skb+0x18/0x5a
+>>> [60961.112450]  ? dev_gro_receive+0x2a9/0x3b4
+>>> [60961.112451]  ? __netif_receive_skb+0x18/0x5a
+>>> [60961.112452]  netif_receive_skb_internal+0x4b/0x96
+>>> [60961.112453]  napi_gro_receive+0x75/0xcc
+>>> [60961.112455]  ixgbe_poll+0xed8/0xeef
+>>> [60961.112459]  ? __printk_ratelimit+0x8/0x15
+>>> [60961.112460]  net_rx_action+0xd3/0x22d
+>>> [60961.112462]  __do_softirq+0xe4/0x23a
+>>> [60961.112465]  ? sort_range+0x1d/0x1d
+>>> [60961.112466]  run_ksoftirqd+0x15/0x2a
+>>> [60961.112467]  smpboot_thread_fn+0x128/0x13f
+>>> [60961.112470]  kthread+0xf7/0xfc
+>>> [60961.112471]  ? init_completion+0x24/0x24
+>>> [60961.112475]  ret_from_fork+0x22/0x30
+>>> [60983.541418] capability: warning: `turbostat' uses 32-bit capabilitie=
+s
+>>> (legacy support in use)
+>>> [61179.159683] ixgbe 0000:d8:00.1 enp216s0f1: detected SFP+: 4
+>>> [61179.503705] ixgbe 0000:d8:00.1 enp216s0f1: NIC Link is Up 10 Gbps,
+>>> Flow
+>>> Control: None
+>>> [61183.212237] BUG: Bad page state in process ksoftirqd/52 pfn:855f2f
+>>> [61183.212240] page:ffffea002157cbc0 count:-1 mapcount:0 mapping:
+>>> (null) index:0x0
+>>> [61183.212375] flags: 0x600000000000000()
+>>> [61183.212492] raw: 0600000000000000 0000000000000000 0000000000000000
+>>> ffffffffffffffff
+>>> [61183.212493] raw: dead000000000100 dead000000000200 0000000000000000
+>>> 0000000000000000
+>>> [61183.212493] page dumped because: nonzero _count
+>>> [61183.212494] Modules linked in: sch_fq x86_pkg_temp_thermal ipmi_si
+>>> [61183.212498] CPU: 52 PID: 272 Comm: ksoftirqd/52 Tainted: G B   W
+>>> 4.13.0-rc4-next-20170808 #1
+>>> [61183.212500] Call Trace:
+>>> [61183.212507]  dump_stack+0x4d/0x63
+>>> [61183.212512]  bad_page+0xf3/0x10f
+>>> [61183.212514]  check_new_page_bad+0x73/0x75
+>>> [61183.212515]  get_page_from_freelist+0x2a9/0x63f
+>>> [61183.212517]  __alloc_pages_nodemask+0xf2/0x187
+>>> [61183.212523]  ixgbe_alloc_rx_buffers+0x77/0x1bb
+>>> [61183.212524]  ixgbe_poll+0x421/0xeef
+>>> [61183.212529]  ? cfs_rq_util_change+0x1e/0x20
+>>> [61183.212532]  net_rx_action+0xd3/0x22d
+>>> [61183.212534]  __do_softirq+0xe4/0x23a
+>>> [61183.212536]  ? sort_range+0x1d/0x1d
+>>> [61183.212537]  run_ksoftirqd+0x15/0x2a
+>>> [61183.212538]  smpboot_thread_fn+0x128/0x13f
+>>> [61183.212540]  kthread+0xf7/0xfc
+>>> [61183.212541]  ? init_completion+0x24/0x24
+>>> [61183.212546]  ret_from_fork+0x22/0x30
+>>> [61183.283732] ixgbe 0000:d8:00.0 enp216s0f0: detected SFP+: 3
+>>> [61183.527747] ixgbe 0000:d8:00.0 enp216s0f0: NIC Link is Up 10 Gbps,
+>>> Flow
+>>> Control: None
+>>> [61223.651684] ixgbe 0000:d8:00.1 enp216s0f1: detected SFP+: 4
+>>> [61223.891712] ixgbe 0000:d8:00.1 enp216s0f1: NIC Link is Up 10 Gbps,
+>>> Flow
+>>> Control: None
+>>> [61228.651748] ixgbe 0000:d8:00.0 enp216s0f0: detected SFP+: 3
+>>> [61228.891759] ixgbe 0000:d8:00.0 enp216s0f0: NIC Link is Up 10 Gbps,
+>>> Flow
+>>> Control: None
+>>> [61408.583698] ixgbe 0000:d8:00.1 enp216s0f1: detected SFP+: 4
+>>> [61408.831720] ixgbe 0000:d8:00.1 enp216s0f1: NIC Link is Up 10 Gbps,
+>>> Flow
+>>> Control: None
+>>> [61414.003718] ixgbe 0000:d8:00.0 enp216s0f0: detected SFP+: 3
+>>> [61414.247764] ixgbe 0000:d8:00.0 enp216s0f0: NIC Link is Up 10 Gbps,
+>>> Flow
+>>> Control: None
+>>> [63318.496105] igb 0000:18:00.3 enp24s0f3: Reset adapter
+>>> [63321.828156] igb 0000:18:00.3 enp24s0f3: igb: enp24s0f3 NIC Link is U=
+p
+>>> 1000 Mbps Full Duplex, Flow Control: RX
+>>>
+>>>
+>>>
+>>>
+>>>
+>>> If matters configuration below:
+>>>
+>>>   tc -s -d qdisc show
+>>> qdisc noqueue 0: dev lo root refcnt 2
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>> qdisc mq 0: dev enp24s0f3 root
+>>>   Sent 10595979 bytes 44275 pkt (dropped 0, overlimits 0 requeues 7)
+>>>   backlog 0b 0p requeues 7
+>>> qdisc pfifo_fast 0: dev enp24s0f3 parent :8 bands 3 priomap  1 2 2 2 1 =
+2
+>>> 0 0
+>>> 1 1 1 1 1 1 1 1
+>>>   Sent 2562064 bytes 7304 pkt (dropped 0, overlimits 0 requeues 1)
+>>>   backlog 0b 0p requeues 1
+>>> qdisc pfifo_fast 0: dev enp24s0f3 parent :7 bands 3 priomap  1 2 2 2 1 =
+2
+>>> 0 0
+>>> 1 1 1 1 1 1 1 1
+>>>   Sent 152292 bytes 3589 pkt (dropped 0, overlimits 0 requeues 2)
+>>>   backlog 0b 0p requeues 2
+>>> qdisc pfifo_fast 0: dev enp24s0f3 parent :6 bands 3 priomap  1 2 2 2 1 =
+2
+>>> 0 0
+>>> 1 1 1 1 1 1 1 1
+>>>   Sent 7298 bytes 15 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>> qdisc pfifo_fast 0: dev enp24s0f3 parent :5 bands 3 priomap  1 2 2 2 1 =
+2
+>>> 0 0
+>>> 1 1 1 1 1 1 1 1
+>>>   Sent 5042 bytes 5 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>> qdisc pfifo_fast 0: dev enp24s0f3 parent :4 bands 3 priomap  1 2 2 2 1 =
+2
+>>> 0 0
+>>> 1 1 1 1 1 1 1 1
+>>>   Sent 3194 bytes 4 pkt (dropped 0, overlimits 0 requeues 1)
+>>>   backlog 0b 0p requeues 1
+>>> qdisc pfifo_fast 0: dev enp24s0f3 parent :3 bands 3 priomap  1 2 2 2 1 =
+2
+>>> 0 0
+>>> 1 1 1 1 1 1 1 1
+>>>   Sent 5386576 bytes 13206 pkt (dropped 0, overlimits 0 requeues 1)
+>>>   backlog 0b 0p requeues 1
+>>> qdisc pfifo_fast 0: dev enp24s0f3 parent :2 bands 3 priomap  1 2 2 2 1 =
+2
+>>> 0 0
+>>> 1 1 1 1 1 1 1 1
+>>>   Sent 6286 bytes 24 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>> qdisc pfifo_fast 0: dev enp24s0f3 parent :1 bands 3 priomap  1 2 2 2 1 =
+2
+>>> 0 0
+>>> 1 1 1 1 1 1 1 1
+>>>   Sent 2473227 bytes 20128 pkt (dropped 0, overlimits 0 requeues 2)
+>>>   backlog 0b 0p requeues 2
+>>> qdisc mq 1: dev enp216s0f0 root
+>>>   Sent 140 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>> qdisc fq 831c: dev enp216s0f0 parent 1:a limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 8320: dev enp216s0f0 parent 1:e limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 831e: dev enp216s0f0 parent 1:c limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 8322: dev enp216s0f0 parent 1:10 limit 8192p flow_limit 100p
+>>> buckets 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrat=
+e
+>>> 10Gbit refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 8313: dev enp216s0f0 parent 1:1 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 8315: dev enp216s0f0 parent 1:3 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 8317: dev enp216s0f0 parent 1:5 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 831b: dev enp216s0f0 parent 1:9 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 8319: dev enp216s0f0 parent 1:7 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 140 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    1 flows (1 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 831d: dev enp216s0f0 parent 1:b limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 831f: dev enp216s0f0 parent 1:d limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 8321: dev enp216s0f0 parent 1:f limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 8316: dev enp216s0f0 parent 1:4 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 8314: dev enp216s0f0 parent 1:2 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 8318: dev enp216s0f0 parent 1:6 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc fq 831a: dev enp216s0f0 parent 1:8 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>    0 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 0 throttled
+>>> qdisc mq 1: dev enp216s0f1 root
+>>>   Sent 5724464060294 bytes 3017574303 pkt (dropped 261703917, overlimit=
+s
+>>> 0
+>>> requeues 1588)
+>>>   backlog 19340684b 68101p requeues 1588
+>>> qdisc fq 8331: dev enp216s0f1 parent 1:f limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357754034478 bytes 1261904590 pkt (dropped 16345926, overlimits =
+0
+>>> requeues 99)
+>>>   backlog 1190528b 4198p requeues 99
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 15 throttled, 2238 ns latency, 16345926 flows_plim=
+it
+>>> qdisc fq 8324: dev enp216s0f1 parent 1:2 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357941986556 bytes 1265190082 pkt (dropped 16334441, overlimits =
+0
+>>> requeues 114)
+>>>   backlog 1203308b 4237p requeues 114
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 56 throttled, 1988 ns latency, 16334441 flows_plim=
+it
+>>> qdisc fq 8326: dev enp216s0f1 parent 1:4 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357756741808 bytes 1261951272 pkt (dropped 16352852, overlimits =
+0
+>>> requeues 108)
+>>>   backlog 1195356b 4210p requeues 108
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 10 throttled, 1652 ns latency, 16352852 flows_plim=
+it
+>>> qdisc fq 832a: dev enp216s0f1 parent 1:8 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357754168172 bytes 1261906634 pkt (dropped 16375523, overlimits =
+0
+>>> requeues 93)
+>>>   backlog 1191664b 4196p requeues 93
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 4 throttled, 1722 ns latency, 16375523 flows_plimi=
+t
+>>> qdisc fq 8328: dev enp216s0f1 parent 1:6 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357755800928 bytes 1261934832 pkt (dropped 16297692, overlimits =
+0
+>>> requeues 89)
+>>>   backlog 1206432b 4248p requeues 89
+>>>    65 flows (1 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 4 throttled, 1520 ns latency, 16297692 flows_plimi=
+t
+>>> qdisc fq 832c: dev enp216s0f1 parent 1:a limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357757943172 bytes 1261969807 pkt (dropped 16393936, overlimits =
+0
+>>> requeues 97)
+>>>   backlog 1185984b 4176p requeues 97
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 4 throttled, 1257 ns latency, 16393936 flows_plimi=
+t
+>>> qdisc fq 832e: dev enp216s0f1 parent 1:c limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357754956814 bytes 1261920403 pkt (dropped 16373257, overlimits =
+0
+>>> requeues 111)
+>>>   backlog 1184848b 4172p requeues 111
+>>>    65 flows (1 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 11 throttled, 2070 ns latency, 16373257 flows_plim=
+it
+>>> qdisc fq 8332: dev enp216s0f1 parent 1:10 limit 8192p flow_limit 100p
+>>> buckets 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrat=
+e
+>>> 10Gbit refill_delay 40.0ms
+>>>   Sent 357754779582 bytes 1261916755 pkt (dropped 16306559, overlimits =
+0
+>>> requeues 80)
+>>>   backlog 1151336b 4054p requeues 80
+>>>    65 flows (1 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 3 throttled, 1530 ns latency, 16306559 flows_plimi=
+t
+>>> qdisc fq 8330: dev enp216s0f1 parent 1:e limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357754801422 bytes 1261919138 pkt (dropped 16360298, overlimits =
+0
+>>> requeues 68)
+>>>   backlog 1266072b 4457p requeues 68
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 7 throttled, 1114 ns latency, 16360298 flows_plimi=
+t
+>>> qdisc fq 8325: dev enp216s0f1 parent 1:3 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357756968400 bytes 1261953663 pkt (dropped 16377069, overlimits =
+0
+>>> requeues 84)
+>>>   backlog 1267492b 4463p requeues 84
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 6 throttled, 2470 ns latency, 16377069 flows_plimi=
+t
+>>> qdisc fq 8323: dev enp216s0f1 parent 1:1 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357944308424 bytes 1265224502 pkt (dropped 16351766, overlimits =
+0
+>>> requeues 125)
+>>>   backlog 1227164b 4321p requeues 125
+>>>    65 flows (1 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 58 throttled, 2143 ns latency, 16351766 flows_plim=
+it
+>>> qdisc fq 8327: dev enp216s0f1 parent 1:5 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357756634544 bytes 1261949446 pkt (dropped 16354220, overlimits =
+0
+>>> requeues 114)
+>>>   backlog 1176896b 4143p requeues 114
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 5 throttled, 2274 ns latency, 16354220 flows_plimi=
+t
+>>> qdisc fq 8329: dev enp216s0f1 parent 1:7 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357755020876 bytes 1261921756 pkt (dropped 16366535, overlimits =
+0
+>>> requeues 108)
+>>>   backlog 1171216b 4124p requeues 108
+>>>    65 flows (1 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 3 throttled, 932 ns latency, 16366535 flows_plimit
+>>> qdisc fq 832d: dev enp216s0f1 parent 1:b limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357755470474 bytes 1261930198 pkt (dropped 16347462, overlimits =
+0
+>>> requeues 99)
+>>>   backlog 1255848b 4422p requeues 99
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 5 throttled, 1699 ns latency, 16347462 flows_plimi=
+t
+>>> qdisc fq 832b: dev enp216s0f1 parent 1:9 limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357754977102 bytes 1261920885 pkt (dropped 16407954, overlimits =
+0
+>>> requeues 92)
+>>>   backlog 1260108b 4437p requeues 92
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 5 throttled, 1638 ns latency, 16407954 flows_plimi=
+t
+>>> qdisc fq 832f: dev enp216s0f1 parent 1:d limit 8192p flow_limit 100p
+>>> buckets
+>>> 1024 orphan_mask 1023 quantum 3028 initial_quantum 15140 maxrate 10Gbit
+>>> refill_delay 40.0ms
+>>>   Sent 357755499918 bytes 1261929638 pkt (dropped 16358427, overlimits =
+0
+>>> requeues 107)
+>>>   backlog 1194220b 4205p requeues 107
+>>>    64 flows (0 inactive, 0 throttled)
+>>>    0 gc, 0 highprio, 8 throttled, 2257 ns latency, 16358427 flows_plimi=
+t
+>>> qdisc noqueue 0: dev vlan1000 root refcnt 2
+>>>   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>   backlog 0b 0p requeues 0
+>>>
+>>>   ethtool -k enp216s0f1
+>>> Features for enp216s0f1:
+>>> Cannot get device udp-fragmentation-offload settings: Operation not
+>>> supported
+>>> rx-checksumming: on
+>>> tx-checksumming: on
+>>>          tx-checksum-ipv4: off [fixed]
+>>>          tx-checksum-ip-generic: on
+>>>          tx-checksum-ipv6: off [fixed]
+>>>          tx-checksum-fcoe-crc: off [fixed]
+>>>          tx-checksum-sctp: on
+>>> scatter-gather: on
+>>>          tx-scatter-gather: on
+>>>          tx-scatter-gather-fraglist: off [fixed]
+>>> tcp-segmentation-offload: on
+>>>          tx-tcp-segmentation: on
+>>>          tx-tcp-ecn-segmentation: off [fixed]
+>>>          tx-tcp-mangleid-segmentation: on
+>>>          tx-tcp6-segmentation: on
+>>> udp-fragmentation-offload: off
+>>> generic-segmentation-offload: off
+>>> generic-receive-offload: on
+>>> large-receive-offload: off
+>>> rx-vlan-offload: on
+>>> tx-vlan-offload: on
+>>> ntuple-filters: on
+>>> receive-hashing: on
+>>> highdma: on [fixed]
+>>> rx-vlan-filter: on
+>>> vlan-challenged: off [fixed]
+>>> tx-lockless: off [fixed]
+>>> netns-local: off [fixed]
+>>> tx-gso-robust: off [fixed]
+>>> tx-fcoe-segmentation: off [fixed]
+>>> tx-gre-segmentation: on
+>>> tx-gre-csum-segmentation: on
+>>> tx-ipxip4-segmentation: on
+>>> tx-ipxip6-segmentation: on
+>>> tx-udp_tnl-segmentation: on
+>>> tx-udp_tnl-csum-segmentation: on
+>>> tx-gso-partial: on
+>>> tx-sctp-segmentation: off [fixed]
+>>> tx-esp-segmentation: off [fixed]
+>>> fcoe-mtu: off [fixed]
+>>> tx-nocache-copy: on
+>>> loopback: off [fixed]
+>>> rx-fcs: off [fixed]
+>>> rx-all: off
+>>> tx-vlan-stag-hw-insert: off [fixed]
+>>> rx-vlan-stag-hw-parse: off [fixed]
+>>> rx-vlan-stag-filter: off [fixed]
+>>> l2-fwd-offload: off
+>>> hw-tc-offload: on
+>>> esp-hw-offload: off [fixed]
+>>> esp-tx-csum-hw-offload: off [fixed]
+>>> rx-udp_tunnel-port-offload: on
+>>>
+>>>   ethtool -k enp216s0f0
+>>> Features for enp216s0f0:
+>>> Cannot get device udp-fragmentation-offload settings: Operation not
+>>> supported
+>>> rx-checksumming: on
+>>> tx-checksumming: on
+>>>          tx-checksum-ipv4: off [fixed]
+>>>          tx-checksum-ip-generic: on
+>>>          tx-checksum-ipv6: off [fixed]
+>>>          tx-checksum-fcoe-crc: off [fixed]
+>>>          tx-checksum-sctp: on
+>>> scatter-gather: on
+>>>          tx-scatter-gather: on
+>>>          tx-scatter-gather-fraglist: off [fixed]
+>>> tcp-segmentation-offload: on
+>>>          tx-tcp-segmentation: on
+>>>          tx-tcp-ecn-segmentation: off [fixed]
+>>>          tx-tcp-mangleid-segmentation: on
+>>>          tx-tcp6-segmentation: on
+>>> udp-fragmentation-offload: off
+>>> generic-segmentation-offload: off
+>>> generic-receive-offload: on
+>>> large-receive-offload: off
+>>> rx-vlan-offload: on
+>>> tx-vlan-offload: on
+>>> ntuple-filters: on
+>>> receive-hashing: on
+>>> highdma: on [fixed]
+>>> rx-vlan-filter: on
+>>> vlan-challenged: off [fixed]
+>>> tx-lockless: off [fixed]
+>>> netns-local: off [fixed]
+>>> tx-gso-robust: off [fixed]
+>>> tx-fcoe-segmentation: off [fixed]
+>>> tx-gre-segmentation: on
+>>> tx-gre-csum-segmentation: on
+>>> tx-ipxip4-segmentation: on
+>>> tx-ipxip6-segmentation: on
+>>> tx-udp_tnl-segmentation: on
+>>> tx-udp_tnl-csum-segmentation: on
+>>> tx-gso-partial: on
+>>> tx-sctp-segmentation: off [fixed]
+>>> tx-esp-segmentation: off [fixed]
+>>> fcoe-mtu: off [fixed]
+>>> tx-nocache-copy: on
+>>> loopback: off [fixed]
+>>> rx-fcs: off [fixed]
+>>> rx-all: off
+>>> tx-vlan-stag-hw-insert: off [fixed]
+>>> rx-vlan-stag-hw-parse: off [fixed]
+>>> rx-vlan-stag-filter: off [fixed]
+>>> l2-fwd-offload: off
+>>> hw-tc-offload: off
+>>> esp-hw-offload: off [fixed]
+>>> esp-tx-csum-hw-offload: off [fixed]
+>>> rx-udp_tunnel-port-offload: on
+>>>
+>>>
+>
