@@ -1,44 +1,41 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2 0/3] XDP support for tap
-Date: Fri, 11 Aug 2017 19:41:15 +0800
-Message-ID: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
-Cc: kubakici@wp.pl, Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH 1/2] mpls: add handlers
+Date: Fri, 11 Aug 2017 14:34:05 +0200
+Message-ID: <20170811123405.GY773745@eidolon>
+References: <1502396917-14848-1-git-send-email-amine.kherbouche@6wind.com>
+ <1502396917-14848-2-git-send-email-amine.kherbouche@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        David Lamparter <equinox@diac24.net>
+To: Amine Kherbouche <amine.kherbouche@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eidolon.nox.tf ([185.142.180.128]:56190 "EHLO eidolon.nox.tf"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752951AbdHKMrP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Aug 2017 08:47:15 -0400
+Content-Disposition: inline
+In-Reply-To: <1502396917-14848-2-git-send-email-amine.kherbouche@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all:
+On Thu, Aug 10, 2017 at 10:28:36PM +0200, Amine Kherbouche wrote:
+> Mpls handler allows creation/deletion of mpls routes without using
+> rtnetlink. When an incoming mpls packet matches this route, the saved
+> function handler is called.
 
-This series tries to implement XDP support for tap. Two path were
-implemented:
+Since I originally authored this patch, I have come to believe that it
+might be unneccessarily complicated.  It is unlikely that a lot of
+different "handlers" will exist here;  the only things I can think of
+are VPLS support and BIER-MPLS multicast replication.  I'm not saying
+it's a bad idea, but, well, this was in the README that I gave to 6WIND
+with this code:
 
-- fast path: small & non-gso packet, For performance reason we do it
-  at page level and use build_skb() to create skb if necessary.
-- slow path: big or gso packet, we don't want to lose the capability
-  compared to generic XDP, so we export some generic xdp helpers and
-  do it after skb was created.
+...
+MPLS layer:
+- the "MPT_HANDLER" thing is probably overkill, it likely makes more sense to
+  tie in the VPLS code more directly.
+...
 
-xdp1 shows about 41% improvement, xdp_redirect shows about 60%
-improvement.
 
-Changes from V1:
-- fix the race between xdp set and free
-- don't hold extra refcount
-- add XDP_REDIRECT support
-
-Please review.
-
-Jason Wang (3):
-  tap: use build_skb() for small packet
-  net: export some generic xdp helpers
-  tap: XDP support
-
- drivers/net/tun.c         | 247 ++++++++++++++++++++++++++++++++++++++++++----
- include/linux/netdevice.h |   2 +
- net/core/dev.c            |  14 +--
- 3 files changed, 236 insertions(+), 27 deletions(-)
-
--- 
-2.7.4
+-David
