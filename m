@@ -1,7 +1,7 @@
 From: <Bryan.Whitehead@microchip.com>
-Subject: [PATCH net-next 2/3] Add LAN743X to Kconfig and Makefile
-Date: Fri, 11 Aug 2017 19:48:00 +0000
-Message-ID: <90A7E81AE28BAE4CBDDB3B35F187D264406F6049@CHN-SV-EXMX02.mchp-main.com>
+Subject: [PATCH net-next 3/3] Add LAN743X to MAINTAINER list
+Date: Fri, 11 Aug 2017 19:48:05 +0000
+Message-ID: <90A7E81AE28BAE4CBDDB3B35F187D264406F6053@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -10,60 +10,38 @@ To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from esa6.microchip.iphmx.com ([216.71.154.253]:18454 "EHLO
         esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753647AbdHKTsR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 15:48:17 -0400
+        with ESMTP id S1753711AbdHKTsT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 15:48:19 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bryan Whitehead <Bryan.Whitehead@microchip.com>
 
-Add LAN743X Driver to Kconfig and Makefile
-
-Removed "depends on SPI" from NET_VENDOR_MICROCHIP group
-Because all existing drivers already specify SPI dependency, and
-New driver does not have SPI dependency.
+Add LAN743X to MAINTAINER list
 
 Signed-off-by: Bryan Whitehead <Bryan.Whitehead@microchip.com>
 ---
- drivers/net/ethernet/microchip/Kconfig  | 10 +++++++++-
- drivers/net/ethernet/microchip/Makefile |  1 +
- 2 files changed, 10 insertions(+), 1 deletion(-)
+ MAINTAINERS | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/ethernet/microchip/Kconfig b/drivers/net/ethernet/microchip/Kconfig
-index 36a09d9..5796718 100644
---- a/drivers/net/ethernet/microchip/Kconfig
-+++ b/drivers/net/ethernet/microchip/Kconfig
-@@ -5,7 +5,6 @@
- config NET_VENDOR_MICROCHIP
- 	bool "Microchip devices"
- 	default y
--	depends on SPI
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2db0f8c..3216348 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -8749,6 +8749,13 @@ F:	drivers/net/dsa/microchip/*
+ F:	include/linux/platform_data/microchip-ksz.h
+ F:	Documentation/devicetree/bindings/net/dsa/ksz.txt
  
-@@ -42,4 +41,13 @@ config ENCX24J600
-       To compile this driver as a module, choose M here. The module will be
-       called encx24j600.
- 
-+config LAN743X
-+	tristate "LAN7430 support"
-+	depends on PCI
-+	---help---
-+	  Support for the Microchip LAN7430 PCI Express Gigabit Ethernet chip
++MICROCHIP LAN743X ETHERNET DRIVER
++M:	Bryan Whitehead <bryan.whitehead@microchip.com>
++M:	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	drivers/net/ethernet/microchip/lan743x.*
 +
-+	  To compile this driver as a module, choose M here. The module will be
-+	  called lan743x.
-+
- endif # NET_VENDOR_MICROCHIP
-diff --git a/drivers/net/ethernet/microchip/Makefile b/drivers/net/ethernet/microchip/Makefile
-index ff78f62..f7215dd 100644
---- a/drivers/net/ethernet/microchip/Makefile
-+++ b/drivers/net/ethernet/microchip/Makefile
-@@ -4,3 +4,4 @@
- 
- obj-$(CONFIG_ENC28J60) += enc28j60.o
- obj-$(CONFIG_ENCX24J600) += encx24j600.o encx24j600-regmap.o
-+obj-$(CONFIG_LAN743X) += lan743x.o
+ MICROCHIP USB251XB DRIVER
+ M:	Richard Leitner <richard.leitner@skidata.com>
+ L:	linux-usb@vger.kernel.org
 -- 
 2.7.4
