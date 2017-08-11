@@ -1,167 +1,91 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v2] vxlan: change vxlan_[config_]validate() to
- use netlink_ext_ack for error reporting
-Date: Fri, 11 Aug 2017 18:39:57 +0200
-Message-ID: <20170811183957.47f418e6@griffin>
-References: <1502399795-25660-1-git-send-email-girish.moodalbail@oracle.com>
-        <CAJieiUjYggf3zNzwBMFq7zUm+RrZokZ7oNpuz-Hinec=0OSGzA@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC PATCH 2/2] bpf: Initialise mod[] in bpf_trace_printk
+Date: Fri, 11 Aug 2017 18:47:04 +0200
+Message-ID: <598DDF88.6020809@iogearbox.net>
+References: <59897A7C.10009@iogearbox.net> <20170808.094857.245786887664041622.davem@davemloft.net> <650EB3B0-1101-4624-905A-E68D2EC5920F@imgtec.com> <20170808.145433.1287676484744976417.davem@davemloft.net> <20170809073926.GO6973@jhogan-linux.le.imgtec.org> <598B71C9.7090303@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Girish Moodalbail <girish.moodalbail@oracle.com>,
-        pravin shelar <pshelar@ovn.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Matthias Schiffer <mschiffer@universe-factory.net>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48308 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752995AbdHKQkB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Aug 2017 12:40:01 -0400
-In-Reply-To: <CAJieiUjYggf3zNzwBMFq7zUm+RrZokZ7oNpuz-Hinec=0OSGzA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ast@kernel.org, linux-kernel@vger.kernel.org, rostedt@goodmis.org,
+        mingo@redhat.com, netdev@vger.kernel.org
+To: James Hogan <james.hogan@imgtec.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <598B71C9.7090303@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Aug 2017 09:19:34 -0700, Roopa Prabhu wrote:
-> >         if (tb[IFLA_ADDRESS]) {
-> >                 if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN) {
-> > -                       pr_debug("invalid link address (not ethernet)\n");
-> > +                       NL_SET_ERR_MSG_ATTR(extack, tb[IFLA_ADDRESS],
-> > +                                           "Provided link layer address is not Ethernet");
-> >                         return -EINVAL;
-> >                 }
-> 
-> keep it simple and closer to the original msg: "invalid link layer address"
+Hi James,
 
-I prefer more explanatory wording. Girish's is better.
+On 08/09/2017 10:34 PM, Daniel Borkmann wrote:
+> On 08/09/2017 09:39 AM, James Hogan wrote:
+> [...]
+>> time (but please consider looking at the other patch which is certainly
+>> a more real issue).
+>
+> Sorry for the delay, started looking into that and whether we
+> have some other options, I'll get back to you on this.
 
-> >
-> >                 if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS]))) {
-> > -                       pr_debug("invalid all zero ethernet address\n");
-> > +                       NL_SET_ERR_MSG_ATTR(extack, tb[IFLA_ADDRESS],
-> > +                                           "Provided Ethernet address is not unicast");
-> >                         return -EADDRNOTAVAIL;
-> 
-> keep it simple and closer to the original msg: "invalid all zero
-> ethernet address"
+Could we solve this more generically (as in: originally intended) in
+the sense that we don't need to trust the gcc va_list handling; I feel
+this is relying on an implementation detail? Perhaps something like
+below poc patch?
 
-This would be incorrect message. The is_valid_ether_addr function does
-not check only for all zeroes but also for !multicast. Girish's wording
-better expresses what's going on.
+Thanks again,
+Daniel
 
-> > +       if (!data) {
-> > +               NL_SET_ERR_MSG(extack,
-> > +                              "Not enough attributes provided to perform the operation");
-> >                 return -EINVAL;
-> > +       }
-> 
-> "not enough attributes"
+ From 71f16544d455abb6bb82f7253c17c14d2a395e91 Mon Sep 17 00:00:00 2001
+Message-Id: <71f16544d455abb6bb82f7253c17c14d2a395e91.1502469361.git.daniel@iogearbox.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 11 Aug 2017 15:56:32 +0200
+Subject: [PATCH] bpf: fix bpf_trace_printk on 32 bit
 
-You're missing part of the sentence.
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+  kernel/trace/bpf_trace.c | 31 +++++++++++++++++++++++++++----
+  1 file changed, 27 insertions(+), 4 deletions(-)
 
-> >         if (data[IFLA_VXLAN_ID]) {
-> >                 u32 id = nla_get_u32(data[IFLA_VXLAN_ID]);
-> >
-> > -               if (id >= VXLAN_N_VID)
-> > +               if (id >= VXLAN_N_VID) {
-> > +                       NL_SET_ERR_MSG_ATTR(extack, tb[IFLA_VXLAN_ID],
-> > +                                           "VXLAN ID must be lower than 16777216");
-> >                         return -ERANGE;
-> 
-> "invalid vxlan-id"
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 3738519..d4cb36f 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -204,10 +204,33 @@ static const struct bpf_func_proto *bpf_get_probe_write_proto(void)
+  		fmt_cnt++;
+  	}
 
-This is exactly what I objected against in Girish's v1. It would be
-useless to have extended error reporting but report things that don't
-help users. I like the current Girish's wording, it's clear and helpful.
+-	return __trace_printk(1/* fake ip will not be printed */, fmt,
+-			      mod[0] == 2 ? arg1 : mod[0] == 1 ? (long) arg1 : (u32) arg1,
+-			      mod[1] == 2 ? arg2 : mod[1] == 1 ? (long) arg2 : (u32) arg2,
+-			      mod[2] == 2 ? arg3 : mod[2] == 1 ? (long) arg3 : (u32) arg3);
++#define __BPF_TP_EMIT()	__BPF_ARG3_TP()
++#define __BPF_TP(...)							\
++	__trace_printk(1 /* fake ip will not be printed */,		\
++		       fmt, ##__VA_ARGS__)
++
++#define __BPF_ARG1_TP(...)						\
++	((mod[0] == 2 || (mod[0] == 1 && __BITS_PER_LONG == 64))	\
++	  ? __BPF_TP(arg1, ##__VA_ARGS__)				\
++	  : ((mod[0] == 1 || (mod[0] == 0 && __BITS_PER_LONG == 32))	\
++	      ? __BPF_TP((long)arg1, ##__VA_ARGS__)			\
++	      : __BPF_TP((u32)arg1, ##__VA_ARGS__)))
++
++#define __BPF_ARG2_TP(...)						\
++	((mod[1] == 2 || (mod[1] == 1 && __BITS_PER_LONG == 64))	\
++	  ? __BPF_ARG1_TP(arg2, ##__VA_ARGS__)				\
++	  : ((mod[1] == 1 || (mod[1] == 0 && __BITS_PER_LONG == 32))	\
++	      ? __BPF_ARG1_TP((long)arg2, ##__VA_ARGS__)		\
++	      : __BPF_ARG1_TP((u32)arg2, ##__VA_ARGS__)))
++
++#define __BPF_ARG3_TP(...)						\
++	((mod[2] == 2 || (mod[2] == 1 && __BITS_PER_LONG == 64))	\
++	  ? __BPF_ARG2_TP(arg3, ##__VA_ARGS__)				\
++	  : ((mod[2] == 1 || (mod[2] == 0 && __BITS_PER_LONG == 32))	\
++	      ? __BPF_ARG2_TP((long)arg3, ##__VA_ARGS__)		\
++	      : __BPF_ARG2_TP((u32)arg3, ##__VA_ARGS__)))
++
++	return __BPF_TP_EMIT();
+  }
 
-> > @@ -2761,8 +2772,8 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[],
-> >                         = nla_data(data[IFLA_VXLAN_PORT_RANGE]);
-> >
-> >                 if (ntohs(p->high) < ntohs(p->low)) {
-> > -                       pr_debug("port range %u .. %u not valid\n",
-> > -                                ntohs(p->low), ntohs(p->high));
-> > +                       NL_SET_ERR_MSG_ATTR(extack, tb[IFLA_VXLAN_PORT_RANGE],
-> > +                                           "Provided source port range bounds is invalid");
-> >                         return -EINVAL;
-> >                 }
-> 
-> "invalid source port range"
-
-Could be. But please honor proper capitalization.
-
-> > @@ -2933,6 +2945,8 @@ static int vxlan_config_validate(struct net *src_net, struct vxlan_config *conf,
-> >                  */
-> >                 if ((conf->flags & ~VXLAN_F_ALLOWED_GPE) ||
-> >                     !(conf->flags & VXLAN_F_COLLECT_METADATA)) {
-> > +                       NL_SET_ERR_MSG(extack,
-> > +                                      "VXLAN GPE does not support this combination of attributes");
-> >                         return -EINVAL;
-> >                 }
-> 
-> "collect metadata not supported with vxlan gpe"
-
-That's completely wrong message. Not saying that the capitalization is
-wrong, too. Girish's wording precisely explains what went wrong.
-
-> > -       if (vxlan_addr_multicast(&conf->saddr))
-> > +       if (vxlan_addr_multicast(&conf->saddr)) {
-> > +               NL_SET_ERR_MSG(extack, "Local address cannot be multicast");
-> >                 return -EINVAL;
-> 
-> "invalid local address. multicast not supported"
-
-Roopa, what happened to your shift key? And how is this better to what
-Girish proposed?
-
-> > +                       NL_SET_ERR_MSG(extack,
-> > +                                      "IPv6 support not enabled in the kernel");
-> 
-> "invalid address family. ipv6 not enabled"
-
-Ditto.
-
-> >                 lowerdev = __dev_get_by_index(src_net, conf->remote_ifindex);
-> > -               if (!lowerdev)
-> > +               if (!lowerdev) {
-> > +                       NL_SET_ERR_MSG(extack,
-> > +                                      "Specified interface for tunnel endpoint communications not found");
-> >                         return -ENODEV;
-> 
-> "invalid vxlan remote link interface, device not found"
-
-Finally one that looks better :-) Modulo the missing capitalization,
-though.
-
-> > -               if (vxlan_addr_multicast(&conf->remote_ip))
-> > +               if (vxlan_addr_multicast(&conf->remote_ip)) {
-> > +                       NL_SET_ERR_MSG(extack,
-> > +                                      "Interface need to be specified for multicast destination");
-> 
-> "vxlan remote link interface required for multicast remote destination"
-
-I like this one better, too.
-
-> >  #if IS_ENABLED(CONFIG_IPV6)
-> > -               if (conf->flags & VXLAN_F_IPV6_LINKLOCAL)
-> > +               if (conf->flags & VXLAN_F_IPV6_LINKLOCAL) {
-> > +                       NL_SET_ERR_MSG(extack,
-> > +                                      "Interface need to be specified for link-local local/remote addresses");
-> >                         return -EINVAL;
-> 
-> "vxlan link interface required for link-local local/remote addresses"
-
-Okay but to be consistent (and more clear), it should be "remote link
-interface".
-
-> > @@ -3038,6 +3082,7 @@ static int vxlan_config_validate(struct net *src_net, struct vxlan_config *conf,
-> >                     tmp->cfg.remote_ifindex != conf->remote_ifindex)
-> >                         continue;
-> >
-> > +               NL_SET_ERR_MSG(extack, "Specified VNI is duplicate");
-> 
-> "duplicate vni. vxlan device with vni exists."
-
-What about "A VXLAN device with the specified VNI already exists."?
-
- Jiri
+  static const struct bpf_func_proto bpf_trace_printk_proto = {
+-- 
+1.9.3
