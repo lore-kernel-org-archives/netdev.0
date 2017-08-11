@@ -1,44 +1,36 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [PATCHv2 net-next] selftests: bpf: add check for ip XDP redirect
-Date: Fri, 11 Aug 2017 06:46:39 -0700
-Message-ID: <1502459199-6442-1-git-send-email-u9012063@gmail.com>
-Cc: John Fastabend <john.fastabend@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35360 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753196AbdHKNrA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 09:47:00 -0400
-Received: by mail-pf0-f195.google.com with SMTP id j68so3540327pfc.2
-        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 06:47:00 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [v3,06/20] brcm80211: constify usb_device_id
+Date: Fri, 11 Aug 2017 13:54:15 +0000 (UTC)
+Message-ID: <20170811135415.95798602BE@smtp.codeaurora.org>
+References: <ff83342cc9413d79ba18e05b2cb0b53bff338b2f.1502428689.git.arvind.yadav.cs@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: arend.vanspriel@broadcom.com, franky.lin@broadcom.com,
+        hante.meuleman@broadcom.com, chi-hsien.lin@cypress.com,
+        wsa-dev@sang-engineering.com, linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com,
+        brcm80211-dev-list@cypress.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ff83342cc9413d79ba18e05b2cb0b53bff338b2f.1502428689.git.arvind.yadav.cs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kernel test robot reports error when running test_xdp_redirect.sh.
-Check if ip tool supports xdpgeneric, if not, skip the test.
+Arvind Yadav <arvind.yadav.cs@gmail.com> wrote:
 
-Signed-off-by: William Tu <u9012063@gmail.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: John Fastabend <john.fastabend@gmail.com>
----
- tools/testing/selftests/bpf/test_xdp_redirect.sh | 5 +++++
- 1 file changed, 5 insertions(+)
+> usb_device_id are not supposed to change at runtime. All functions
+> working with usb_device_id provided by <linux/usb.h> work with
+> const usb_device_id. So mark the non-const structs as const.
+> 
+> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 
-diff --git a/tools/testing/selftests/bpf/test_xdp_redirect.sh b/tools/testing/selftests/bpf/test_xdp_redirect.sh
-index d8c73ed6e040..344a3656dea6 100755
---- a/tools/testing/selftests/bpf/test_xdp_redirect.sh
-+++ b/tools/testing/selftests/bpf/test_xdp_redirect.sh
-@@ -23,6 +23,11 @@ cleanup()
- 	ip netns del ns2 2> /dev/null
- }
- 
-+ip link set dev lo xdpgeneric off 2>/dev/null > /dev/null
-+if [ $? -ne 0 ];then
-+	echo "selftests: [SKIP] Could not run test without the ip xdpgeneric support"
-+	exit 0
-+fi
- set -e
- 
- ip netns add ns1
+Patch applied to wireless-drivers-next.git, thanks.
+
+a67b133b9da5 brcm80211: constify usb_device_id
+
 -- 
-2.7.4
+https://patchwork.kernel.org/patch/9894975/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
