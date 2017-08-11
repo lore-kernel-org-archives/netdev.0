@@ -1,113 +1,82 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH v2] net: phy: Use tab for indentation in Kconfig
-Date: Fri, 11 Aug 2017 14:48:53 +0200
-Message-ID: <1b8d37ce323728c072e08f5683f2421f62fa297c.1502455731.git.michal.simek@xilinx.com>
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: linux-kernel@vger.kernel.org, monstr@monstr.eu
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH] net: phy: Use tab for indentation in Kconfig
+Date: Fri, 11 Aug 2017 14:50:36 +0200
+Message-ID: <96c640e8-c18a-34db-8236-2022012a0204@monstr.eu>
+References: <abacdc7ec0585cfbeba240ca2780c6020cf7090a.1502184742.git.michal.simek@xilinx.com>
+ <20170808.210537.1599851067118765908.davem@davemloft.net>
+Reply-To: monstr@monstr.eu
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="hxDJKFogux2mvHbQvPkoqEJ0SSTrdDusT"
+Cc: linux-kernel@vger.kernel.org, monstr@monstr.eu,
+        netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com
+To: David Miller <davem@davemloft.net>, michal.simek@xilinx.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170808.210537.1599851067118765908.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Using tabs instead of space for indentaion
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--hxDJKFogux2mvHbQvPkoqEJ0SSTrdDusT
+Content-Type: multipart/mixed; boundary="jGc32cKA9xGnJB7xC5kDG8xlk7pFdK1wc";
+ protected-headers="v1"
+From: Michal Simek <monstr@monstr.eu>
+Reply-To: monstr@monstr.eu
+To: David Miller <davem@davemloft.net>, michal.simek@xilinx.com
+Cc: linux-kernel@vger.kernel.org, monstr@monstr.eu, netdev@vger.kernel.org,
+ andrew@lunn.ch, f.fainelli@gmail.com
+Message-ID: <96c640e8-c18a-34db-8236-2022012a0204@monstr.eu>
+Subject: Re: [PATCH] net: phy: Use tab for indentation in Kconfig
+References: <abacdc7ec0585cfbeba240ca2780c6020cf7090a.1502184742.git.michal.simek@xilinx.com>
+ <20170808.210537.1599851067118765908.davem@davemloft.net>
+In-Reply-To: <20170808.210537.1599851067118765908.davem@davemloft.net>
 
-Signed-off-by: Michal Simek <michal.simek@xilinx.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
----
+--jGc32cKA9xGnJB7xC5kDG8xlk7pFdK1wc
+Content-Type: text/plain; charset=utf-8
+Content-Language: en-US
+Content-Transfer-Encoding: quoted-printable
 
-Changes in v2:
-- Rebased on the top of net-next.
-  HEAD commit: 3b2b69efeca734b78bc85fd02253b0465bb2bec7
-  Suggested by David Miller
+On 9.8.2017 06:05, David Miller wrote:
+> From: Michal Simek <michal.simek@xilinx.com>
+> Date: Tue,  8 Aug 2017 11:32:25 +0200
+>=20
+>> Using tabs instead of space for indentaion
+>>
+>> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+>=20
+> This really isn't appropriate for the 'net' tree, it doesn't fix
+> anything it just makes the spacing consistent.
+>=20
+> Please respin this patch against net-next, thank you.
 
- drivers/net/phy/Kconfig | 42 +++++++++++++++++++++---------------------
- 1 file changed, 21 insertions(+), 21 deletions(-)
+v2 sent rebased on the top of net-next.
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index bf73969a9d2b..81683a9677e9 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -5,7 +5,7 @@
- menuconfig MDIO_DEVICE
- 	tristate "MDIO bus device drivers"
- 	help
--	   MDIO devices and driver infrastructure code.
-+	  MDIO devices and driver infrastructure code.
- 
- config MDIO_BUS
- 	tristate
-@@ -117,11 +117,11 @@ config MDIO_I2C
- 	  This is library mode.
- 
- config MDIO_MOXART
--        tristate "MOXA ART MDIO interface support"
--        depends on ARCH_MOXART
--        help
--          This driver supports the MDIO interface found in the network
--          interface units of the MOXA ART SoC
-+	tristate "MOXA ART MDIO interface support"
-+	depends on ARCH_MOXART
-+	help
-+	  This driver supports the MDIO interface found in the network
-+	  interface units of the MOXA ART SoC
- 
- config MDIO_OCTEON
- 	tristate "Octeon and some ThunderX SOCs MDIO buses"
-@@ -192,7 +192,7 @@ config LED_TRIGGER_PHY
- 	  state change will trigger the events, for consumption by an
- 	  LED class driver.  There are triggers for each link speed currently
- 	  supported by the phy, and are of the form:
--	       <mii bus id>:<phy>:<speed>
-+	      <mii bus id>:<phy>:<speed>
- 
- 	  Where speed is in the form:
- 		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
-@@ -211,9 +211,9 @@ config AMD_PHY
- 	  Currently supports the am79c874
- 
- config AQUANTIA_PHY
--        tristate "Aquantia PHYs"
--        ---help---
--          Currently supports the Aquantia AQ1202, AQ2104, AQR105, AQR405
-+	tristate "Aquantia PHYs"
-+	---help---
-+	  Currently supports the Aquantia AQ1202, AQ2104, AQR105, AQR405
- 
- config AT803X_PHY
- 	tristate "AT803X PHYs"
-@@ -377,21 +377,21 @@ config STE10XP
- 	  This is the driver for the STe100p and STe101p PHYs.
- 
- config TERANETICS_PHY
--        tristate "Teranetics PHYs"
--        ---help---
--          Currently supports the Teranetics TN2020
-+	tristate "Teranetics PHYs"
-+	---help---
-+	  Currently supports the Teranetics TN2020
- 
- config VITESSE_PHY
--        tristate "Vitesse PHYs"
--        ---help---
--          Currently supports the vsc8244
-+	tristate "Vitesse PHYs"
-+	---help---
-+	  Currently supports the vsc8244
- 
- config XILINX_GMII2RGMII
--       tristate "Xilinx GMII2RGMII converter driver"
--       ---help---
--         This driver support xilinx GMII to RGMII IP core it provides
--         the Reduced Gigabit Media Independent Interface(RGMII) between
--         Ethernet physical media devices and the Gigabit Ethernet controller.
-+	tristate "Xilinx GMII2RGMII converter driver"
-+	---help---
-+	  This driver support xilinx GMII to RGMII IP core it provides
-+	  the Reduced Gigabit Media Independent Interface(RGMII) between
-+	  Ethernet physical media devices and the Gigabit Ethernet controller.
- 
- endif # PHYLIB
- 
--- 
-1.9.1
+Thanks,
+Michal
+
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Xilinx Microblaze
+Maintainer of Linux kernel - Xilinx Zynq ARM and ZynqMP ARM64 SoCs
+U-Boot custodian - Xilinx Microblaze/Zynq/ZynqMP SoCs
+
+
+
+--jGc32cKA9xGnJB7xC5kDG8xlk7pFdK1wc--
+
+--hxDJKFogux2mvHbQvPkoqEJ0SSTrdDusT
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iEYEARECAAYFAlmNqCAACgkQykllyylKDCGnuQCghis9TLwC2mucVRW3P/njqwnc
+hbAAnRmWCuj+hX5Exuk2vkaus85nug3i
+=URhm
+-----END PGP SIGNATURE-----
+
+--hxDJKFogux2mvHbQvPkoqEJ0SSTrdDusT--
