@@ -1,41 +1,46 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: Re: [PATCH] net/sched: reset block pointer in tcf_block_put()
-Date: Fri, 11 Aug 2017 23:36:45 +0300
-Message-ID: <ad81a570-dff5-7c74-170e-70e764778cba@yandex-team.ru>
-References: <150235751251.493255.14955523507789154918.stgit@buzz>
- <CAM_iQpX=XLheuuBk_kAa+jHO-e16hnzavHhzHJ4EYWwpjGFzMg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] geneve: use netlink_ext_ack for error
+ reporting in rtnl operations
+Date: Fri, 11 Aug 2017 13:45:14 -0700 (PDT)
+Message-ID: <20170811.134514.1496944956776826656.davem@davemloft.net>
+References: <1502266168-12107-1-git-send-email-girish.moodalbail@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: pshelar@ovn.org, netdev@vger.kernel.org
+To: girish.moodalbail@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forwardcorp1m.cmail.yandex.net ([5.255.216.198]:60647 "EHLO
-        forwardcorp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753517AbdHKUlx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 16:41:53 -0400
-In-Reply-To: <CAM_iQpX=XLheuuBk_kAa+jHO-e16hnzavHhzHJ4EYWwpjGFzMg@mail.gmail.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:59312 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753357AbdHKUpS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 16:45:18 -0400
+In-Reply-To: <1502266168-12107-1-git-send-email-girish.moodalbail@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Date: Wed,  9 Aug 2017 01:09:28 -0700
 
-
-On 11.08.2017 23:18, Cong Wang wrote:
-> On Thu, Aug 10, 2017 at 2:31 AM, Konstantin Khlebnikov
-> <khlebnikov@yandex-team.ru> wrote:
->> In previous API tcf_destroy_chain() could be called several times and
->> some schedulers like hfsc and atm use that. In new API tcf_block_put()
->> frees block but leaves stale pointer, second call will free it once again.
+> Add extack error messages for failure paths while creating/modifying
+> geneve devices. Once extack support is added to iproute2, more
+> meaningful and helpful error messages will be displayed making it easy
+> for users to discern what went wrong.
 > 
-> Which call path do we call tcf_block_put() for multiple times on
-> the same block? Please be specific, it is not obvious.
+> Before:
+> =======
+> $ ip link add gen1 address 0:1:2:3:4:5:6 type geneve id 200 \
+>   remote 192.168.13.2
+> RTNETLINK answers: Invalid argument
 > 
+> After:
+> ======
+> $ ip link add gen1 address 0:1:2:3:4:5:6 type geneve id 200 \
+>   remote 192.168.13.2
+> Error: Provided link layer address is not Ethernet
+> 
+> Also, netdev_dbg() calls used to log errors associated with Netlink
+> request have been removed.
+> 
+> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
 
-For example in hfsc_destroy_qdisc() since a4aebb83cf0da0363684f1c339f7e6149a3e74c1
-second time in hfsc_destroy_class() called from it.
-
-Actually, I see the same pattern in all classy qdiscs.
+Applied, thanks.
