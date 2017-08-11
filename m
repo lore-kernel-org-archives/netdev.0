@@ -1,97 +1,31 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/3] ARM: sun8i: sunxi-h3-h5: add phy-is-integrated
- property to internal PHY
-Date: Fri, 11 Aug 2017 10:39:23 +0200
-Message-ID: <20170811083923.GC25147@Red>
-References: <20170810085129.20463-1-clabbe.montjoie@gmail.com>
- <20170810085129.20463-3-clabbe.montjoie@gmail.com>
- <CAGb2v64dBZgN6-8kHnnN1qiEXHnbXw_FM9WxGHPU0h-tZDbspA@mail.gmail.com>
- <20170811080543.GA25147@Red>
- <CAGb2v66wCRe8nFucJa5nAT1GhO75LmCyfNWQQbwxzh085Zwk+w@mail.gmail.com>
- <20170811081920.GB25147@Red>
- <CAGb2v66SGAKnFoHNqWR+DqS-mY3KA853NmKpdHqf8huOkisLKg@mail.gmail.com>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH net-next] fsl/fman: implement several errata workarounds
+Date: Fri, 11 Aug 2017 08:41:33 +0000
+Message-ID: <AM5PR0402MB269188FDE87431467E6C4076EC890@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+References: <1502372824-30180-1-git-send-email-florinel.iordache@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAGb2v66SGAKnFoHNqWR+DqS-mY3KA853NmKpdHqf8huOkisLKg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: Florinel Iordache <florinel.iordache@nxp.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502372824-30180-1-git-send-email-florinel.iordache@nxp.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 11, 2017 at 04:22:11PM +0800, Chen-Yu Tsai wrote:
-> On Fri, Aug 11, 2017 at 4:19 PM, Corentin Labbe
-> <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > On Fri, Aug 11, 2017 at 04:11:13PM +0800, Chen-Yu Tsai wrote:
-> >> On Fri, Aug 11, 2017 at 4:05 PM, Corentin Labbe
-> >> <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> >> > On Fri, Aug 11, 2017 at 10:42:51AM +0800, Chen-Yu Tsai wrote:
-> >> >> Hi,
-> >> >>
-> >> >> On Thu, Aug 10, 2017 at 4:51 PM, Corentin Labbe
-> >> >> <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> >> >> > This patch add the new phy-is-integrated property to the internal PHY
-> >> >> > node.
-> >> >> >
-> >> >> > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >> >> > ---
-> >> >> >  arch/arm/boot/dts/sunxi-h3-h5.dtsi | 1 +
-> >> >> >  1 file changed, 1 insertion(+)
-> >> >> >
-> >> >> > diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> >> >> > index 4b599b5d26f6..54fc24e4c569 100644
-> >> >> > --- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> >> >> > +++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> >> >> > @@ -425,6 +425,7 @@
-> >> >> >                                         reg = <1>;
-> >> >> >                                         clocks = <&ccu CLK_BUS_EPHY>;
-> >> >> >                                         resets = <&ccu RST_BUS_EPHY>;
-> >> >> > +                                       phy-is-integrated;
-> >> >>
-> >> >> You also need to "delete" this property at the board level for
-> >> >> any board that has the external PHY at address <1>. Otherwise
-> >> >> they will stop working. This is due to the internal and external
-> >> >> PHYs having the same path and node name in the device tree, so
-> >> >> they are effectively the same node.
-> >> >>
-> >> >> ChenYu
-> >> >>
-> >> >
-> >> > They have not the same name, ext_rgmii_phy vs int_mii_phy.
-> >>
-> >> That is just the label. The label plays no part in device tree merging. The path
-> >>
-> >>     /soc/ethernet@1c30000/mdio/ethernet-phy@1
-> >>
-> >> is the same. You can look under
-> >>
-> >>     /proc/device-tree/soc/ethernet@1c30000/mdio
-> >>
-> >> on the OrangePI Plus 2E or any other H3 board that uses an
-> >> external PHY at address 1.
-> >>
-> >> ChenYu
-> >
-> > Since we get the phy node by phy-handle and not by path, I think all should be good.
-> 
-> You are not getting me. The fact that the two seemingly separate
-> nodes are merged together means, whatever properties you put in
-> the internal PHY node, also affect the external PHY node. Once
-> compiled, they are the SAME node.
+> -----Original Message-----
+> From: Florinel Iordache [mailto:florinel.iordache@nxp.com]
+> Subject: [PATCH net-next] fsl/fman: implement several errata workarounds
+>=20
+> Implemented workarounds for the following dTSEC Erratum:
+> A002, A004, A0012, A0014, A004839 on several operations
+> that involve MAC CFG register changes: adjust link,
+> rx pause frames, modify MAC address.
+>=20
+> Signed-off-by: Florinel Iordache <florinel.iordache@nxp.com>
 
-So why not changing the internal node name from ethernet-phy to integrated-phy ?
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Madalin Bucur <madalin.bucur@nxp.com>
