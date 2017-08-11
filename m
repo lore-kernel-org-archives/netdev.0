@@ -1,183 +1,125 @@
-From: isdn@linux-pingi.de
-Subject: Re: [PATCH] mISDN: Fix null pointer dereference at mISDN_FsmNew
-Date: Fri, 11 Aug 2017 16:31:41 +0200
-Message-ID: <09d00804-bcd4-e6b8-df7d-7b74e578e557@linux-pingi.de>
-References: <1502456242-1695-1-git-send-email-vasilyev@ispras.ru>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: Driver profiles RFC
+Date: Fri, 11 Aug 2017 07:34:41 -0700
+Message-ID: <CAJieiUgyJvWfqmX7--n=homKAwTas6gNLo482Ogxtv7VQC42vA@mail.gmail.com>
+References: <6d8560fa-8346-0c43-272d-d39be65ea82f@mellanox.com>
+ <CAJieiUjvVaurfLGw4HCwfu-wwNpHkBH6Vq7APNj+vzu4CuNLdA@mail.gmail.com> <8c2cd3d2-70a8-b583-28af-6c0b1b6f82c0@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Geliang Tang <geliangtang@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ldv-project@linuxtesting.org
-To: Anton Vasilyev <vasilyev@ispras.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502456242-1695-1-git-send-email-vasilyev@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, ivecera@redhat.com,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
+        mlxsw <mlxsw@mellanox.com>
+To: Arkadi Sharshevsky <arkadis@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f48.google.com ([209.85.213.48]:33191 "EHLO
+        mail-vk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752723AbdHKOen (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 10:34:43 -0400
+Received: by mail-vk0-f48.google.com with SMTP id j189so13938750vka.0
+        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 07:34:42 -0700 (PDT)
+In-Reply-To: <8c2cd3d2-70a8-b583-28af-6c0b1b6f82c0@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Anton,
+On Wed, Aug 9, 2017 at 4:43 AM, Arkadi Sharshevsky <arkadis@mellanox.com> w=
+rote:
+>
+>
+> On 08/08/2017 07:08 PM, Roopa Prabhu wrote:
+>> On Tue, Aug 8, 2017 at 6:15 AM, Arkadi Sharshevsky <arkadis@mellanox.com=
+> wrote:
+>>>
 
-good spot, thanks. Dave please apply.
+[snip]
 
-Karsten
+>>> User Configuration
+>>> ------------------
+>>> Such an UAPI is very low level, and thus an average user may not know h=
+ow to
+>>> adjust this sizes according to his needs. The vendor can provide severa=
+l
+>>> tested configuration files that the user can choose from. Each config f=
+ile
+>>> will be measured in terms of: MAC addresses, L3 Neighbors (IPv4, IPv6),
+>>> LPM entries (IPv4,IPv6) in order to provide approximate results. By thi=
+s an
+>>> average user will choose one of the provided ones. Furthermore, a more
+>>> advanced user could play with the numbers for his personal benefit.
+>>>
+>>> Reference
+>>> =3D=3D=3D=3D=3D=3D=3D=3D=3D
+>>> [1] https://emea01.safelinks.protection.outlook.com/?url=3Dhttps%3A%2F%=
+2Fnetdevconf.org%2F2.1%2Fpapers%2Fdpipe_netdev_2_1.odt&data=3D02%7C01%7Cark=
+adis%40mellanox.com%7Cc64b0d54e3e94d07b64c08d4de77bf8b%7Ca652971c7d2e4d9ba6=
+a4d149256f461b%7C0%7C0%7C636378053281241266&sdata=3D9u%2BFwGF%2FjkmNogPF7Cm=
+%2FfwJsaPVkr%2BC3%2F8x1IVbszRg%3D&reserved=3D0
+>>>
+>>
+>> Thanks for sending this out. There is very much a need for this.
+>> and agree, user-space app config can translate to what values they want =
+and
+>>  kernel api can be a low level api.
+>>
+>> But how about we align these resource limits with the kernel resource li=
+mits ?
+>> For example we usually map l3 hw neighbor limits to kernel software gc_t=
+hresh
+>> values (which are configurable via sysctl). This is one way to give
+>> user immediate
+>> feedback on resource full errors. It would be nice if we can introduce
+>> limits for routes and
+>> mac addresses. Defaults could be what they are today but user
+>> configurable ...like I said,
+>> neighbor subsystem already allows this.
+>>
+>
+> Hi Roopa, thanks for the feedback.
+>
+> Regarding aligning the hardware tables sizes with the kernel software
+> limits. The hardware resources (internal memory) are much more limited
+> than the software one. Please consider the following scenario:
+>
+> 1. User adds limit to neighbor table (as you suggested), which uses the
+>    hash memory portion.
+> 2. User adds many routes, the routes uses the hash memory resource as wel=
+l,
+>    potentially.
+> 3. The kernel adds some neighbors dynamically, the neighbor offloading
+>    fails due to lack of this shared resource, the user get confused becau=
+se
+>    its lower then what he configured in 1).
+>
+> Thus providing max size on specific table is not well defined due to
+> limited
+> shared resource. Thus, the feedback the user gets can be not very accurat=
+e.
+> Furthermore, guessing the resource partitioning based only on the subset =
+of
+> tables which use it makes me little bit uncomfortable.
 
-Am 11.08.2017 um 14:57 schrieb Anton Vasilyev:
-> If mISDN_FsmNew() fails to allocate memory for jumpmatrix
-> then null pointer dereference will occur on any write to
-> jumpmatrix.
-> 
-> The patch adds check on successful allocation and
-> corresponding error handling.
-> 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Anton Vasilyev <vasilyev@ispras.ru>
-> ---
->  drivers/isdn/mISDN/fsm.c    |  5 ++++-
->  drivers/isdn/mISDN/fsm.h    |  2 +-
->  drivers/isdn/mISDN/layer1.c |  3 +--
->  drivers/isdn/mISDN/layer2.c | 15 +++++++++++++--
->  drivers/isdn/mISDN/tei.c    | 20 +++++++++++++++++---
->  5 files changed, 36 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/isdn/mISDN/fsm.c b/drivers/isdn/mISDN/fsm.c
-> index 78fc5d5..92e6570 100644
-> --- a/drivers/isdn/mISDN/fsm.c
-> +++ b/drivers/isdn/mISDN/fsm.c
-> @@ -26,7 +26,7 @@
->  
->  #define FSM_TIMER_DEBUG 0
->  
-> -void
-> +int
->  mISDN_FsmNew(struct Fsm *fsm,
->  	     struct FsmNode *fnlist, int fncount)
->  {
-> @@ -34,6 +34,8 @@ mISDN_FsmNew(struct Fsm *fsm,
->  
->  	fsm->jumpmatrix = kzalloc(sizeof(FSMFNPTR) * fsm->state_count *
->  				  fsm->event_count, GFP_KERNEL);
-> +	if (fsm->jumpmatrix == NULL)
-> +		return -ENOMEM;
->  
->  	for (i = 0; i < fncount; i++)
->  		if ((fnlist[i].state >= fsm->state_count) ||
-> @@ -45,6 +47,7 @@ mISDN_FsmNew(struct Fsm *fsm,
->  		} else
->  			fsm->jumpmatrix[fsm->state_count * fnlist[i].event +
->  					fnlist[i].state] = (FSMFNPTR) fnlist[i].routine;
-> +	return 0;
->  }
->  EXPORT_SYMBOL(mISDN_FsmNew);
->  
-> diff --git a/drivers/isdn/mISDN/fsm.h b/drivers/isdn/mISDN/fsm.h
-> index 928f5be..e1def84 100644
-> --- a/drivers/isdn/mISDN/fsm.h
-> +++ b/drivers/isdn/mISDN/fsm.h
-> @@ -55,7 +55,7 @@ struct FsmTimer {
->  	void *arg;
->  };
->  
-> -extern void -(struct Fsm *, struct FsmNode *, int);
-> +extern int mISDN_FsmNew(struct Fsm *, struct FsmNode *, int);
->  extern void mISDN_FsmFree(struct Fsm *);
->  extern int mISDN_
+yep, understood. I am aware of  some of these problems as well.
 
-(struct FsmInst *, int , void *);
->  extern void mISDN_FsmChangeState(struct FsmInst *, int);
-> diff --git a/drivers/isdn/mISDN/layer1.c b/drivers/isdn/mISDN/layer1.c
-> index bebc57b..3192b0e 100644
-> --- a/drivers/isdn/mISDN/layer1.c
-> +++ b/drivers/isdn/mISDN/layer1.c
-> @@ -414,8 +414,7 @@ l1_init(u_int *deb)
->  	l1fsm_s.event_count = L1_EVENT_COUNT;
->  	l1fsm_s.strEvent = strL1Event;
->  	l1fsm_s.strState = strL1SState;
-> -	mISDN_FsmNew(&l1fsm_s, L1SFnList, ARRAY_SIZE(L1SFnList));
-> -	return 0;
-> +	return mISDN_FsmNew(&l1fsm_s, L1SFnList, ARRAY_SIZE(L1SFnList));
->  }
->  
->  void
-> diff --git a/drivers/isdn/mISDN/layer2.c b/drivers/isdn/mISDN/layer2.c
-> index 7243a67..9ff0903 100644
-> --- a/drivers/isdn/mISDN/layer2.c
-> +++ b/drivers/isdn/mISDN/layer2.c
-> @@ -2247,15 +2247,26 @@ static struct Bprotocol X75SLP = {
->  int
->  Isdnl2_Init(u_int *deb)
->  {
-> +	int res;
->  	debug = deb;
->  	mISDN_register_Bprotocol(&X75SLP);
->  	l2fsm.state_count = L2_STATE_COUNT;
->  	l2fsm.event_count = L2_EVENT_COUNT;
->  	l2fsm.strEvent = strL2Event;
->  	l2fsm.strState = strL2State;
-> -	mISDN_FsmNew(&l2fsm, L2FnList, ARRAY_SIZE(L2FnList));
-> -	TEIInit(deb);
-> +	res = mISDN_FsmNew(&l2fsm, L2FnList, ARRAY_SIZE(L2FnList));
-> +	if (res)
-> +		goto error;
-> +	res = TEIInit(deb);
-> +	if (res)
-> +		goto error_fsm;
->  	return 0;
-> +
-> +error_fsm:
-> +	mISDN_FsmFree(&l2fsm);
-> +error:
-> +	mISDN_unregister_Bprotocol(&X75SLP);
-> +	return res;
->  }
->  
->  void
-> diff --git a/drivers/isdn/mISDN/tei.c b/drivers/isdn/mISDN/tei.c
-> index 908127e..12d9e5f 100644
-> --- a/drivers/isdn/mISDN/tei.c
-> +++ b/drivers/isdn/mISDN/tei.c
-> @@ -1387,23 +1387,37 @@ create_teimanager(struct mISDNdevice *dev)
->  
->  int TEIInit(u_int *deb)
->  {
-> +	int res;
->  	debug = deb;
->  	teifsmu.state_count = TEI_STATE_COUNT;
->  	teifsmu.event_count = TEI_EVENT_COUNT;
->  	teifsmu.strEvent = strTeiEvent;
->  	teifsmu.strState = strTeiState;
-> -	mISDN_FsmNew(&teifsmu, TeiFnListUser, ARRAY_SIZE(TeiFnListUser));
-> +	res = mISDN_FsmNew(&teifsmu, TeiFnListUser, ARRAY_SIZE(TeiFnListUser));
-> +	if (res)
-> +		goto error;
->  	teifsmn.state_count = TEI_STATE_COUNT;
->  	teifsmn.event_count = TEI_EVENT_COUNT;
->  	teifsmn.strEvent = strTeiEvent;
->  	teifsmn.strState = strTeiState;
-> -	mISDN_FsmNew(&teifsmn, TeiFnListNet, ARRAY_SIZE(TeiFnListNet));
-> +	res = mISDN_FsmNew(&teifsmn, TeiFnListNet, ARRAY_SIZE(TeiFnListNet));
-> +	if (res)
-> +		goto error_smn;
->  	deactfsm.state_count =  DEACT_STATE_COUNT;
->  	deactfsm.event_count = DEACT_EVENT_COUNT;
->  	deactfsm.strEvent = strDeactEvent;
->  	deactfsm.strState = strDeactState;
-> -	mISDN_FsmNew(&deactfsm, DeactFnList, ARRAY_SIZE(DeactFnList));
-> +	res = mISDN_FsmNew(&deactfsm, DeactFnList, ARRAY_SIZE(DeactFnList));
-> +	if (res)
-> +		goto error_deact;
->  	return 0;
-> +
-> +error_deact:
-> +	mISDN_FsmFree(&teifsmn);
-> +error_smn:
-> +	mISDN_FsmFree(&teifsmu);
-> +error:
-> +	return res;
->  }
->  
->  void TEIFree(void)
-> 
+>
+> The proposed API aims at solving this issue by providing abstraction for
+> this hw behavior, and provide the connection with the hardware table, thu=
+s
+> providing more accurate and well defined description of the system.
+>
+> I totally agree that this API should be enhanced in order provide the
+> occupancy of the this 'resource'. For example, the user first observe the
+> tables and sees the resource<->table mapping, then see the resource
+> occupancy:
+>
+> #devlink dpipe resource occupancy pci/0000:03:00.0 Mem
+>
+> By this the user can understand the offloading limitation, and maybe figu=
+re
+> out that he should change the partitioning.
+>
+
+yes, sounds good.
