@@ -1,29 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] NCSI VLAN Filtering Support
-Date: Fri, 11 Aug 2017 14:48:23 -0700 (PDT)
-Message-ID: <20170811.144823.1928647996484981190.davem@davemloft.net>
-References: <20170811061648.19661-1-sam@mendozajonas.com>
+Subject: Re: [PATCH v3 net-next 2/2] wan: dscc4: convert to plain DMA API
+Date: Fri, 11 Aug 2017 14:49:35 -0700 (PDT)
+Message-ID: <20170811.144935.36255660873272850.davem@davemloft.net>
+References: <1502405721-27738-1-git-send-email-khoroshilov@ispras.ru>
+        <1502405721-27738-2-git-send-email-khoroshilov@ispras.ru>
+        <20170811214549.GA8187@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        openbmc@lists.ozlabs.org, joel@jms.id.au, benh@kernel.crashing.org,
-        gwshan@linux.vnet.ibm.com, ratagupt@in.ibm.com
-To: sam@mendozajonas.com
+Cc: khoroshilov@ispras.ru, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: romieu@fr.zoreil.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170811061648.19661-1-sam@mendozajonas.com>
+In-Reply-To: <20170811214549.GA8187@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Date: Fri, 11 Aug 2017 16:16:45 +1000
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Fri, 11 Aug 2017 23:45:49 +0200
 
-> This series (mainly patch 3) adds VLAN filtering to the NCSI implementation.
-> A fair amount of code already exists in the NCSI stack for VLAN filtering but
-> none of it is actually hooked up. This goes the final mile and fixes a few
-> bugs in the existing code found along the way (patch 2).
+> Alexey Khoroshilov <khoroshilov@ispras.ru> :
+> [...]
+>> diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+>> index 8480dbf..a043fb1 100644
+>> --- a/drivers/net/wan/dscc4.c
+>> +++ b/drivers/net/wan/dscc4.c
+> [...]
+>> @@ -506,8 +506,9 @@ static void dscc4_release_ring(struct dscc4_dev_priv *dpriv)
+>>  	skbuff = dpriv->rx_skbuff;
+>>  	for (i = 0; i < RX_RING_SIZE; i++) {
+>>  		if (*skbuff) {
+>> -			pci_unmap_single(pdev, le32_to_cpu(rx_fd->data),
+>> -				RX_MAX(HDLC_MAX_MRU), PCI_DMA_FROMDEVICE);
+>> +			dma_unmap_single(d, le32_to_cpu(rx_fd->data),
+>> +					 RX_MAX(HDLC_MAX_MRU),
+>> +					 DMA_FROM_DEVICE);
 > 
-> Patch 1 adds the appropriate flag to the ftgmac100 driver to enable filtering
-> as it's a large consumer of NCSI (and what I've been testing on).
+> 					 RX_MAX(HDLC_MAX_MRU), DMA_FROM_DEVICE);
+...
+>> @@ -782,8 +783,8 @@ static int dscc4_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>>  
+>>  	rc = -ENOMEM;
+>>  
+>> -	priv->iqcfg = (__le32 *) pci_alloc_consistent(pdev,
+>> -		IRQ_RING_SIZE*sizeof(__le32), &priv->iqcfg_dma);
+>> +	priv->iqcfg = (__le32 *)dma_alloc_coherent(&pdev->dev,
+>> +		IRQ_RING_SIZE*sizeof(__le32), &priv->iqcfg_dma, GFP_KERNEL);
+> 
+> - the cast can go away
+> - please replace &pdev->dev with a local variable
+> 
+> 	priv->iqcfg = dma_alloc_coherent(d, IRQ_RING_SIZE*sizeof(__le32),
+> 					 &priv->iqcfg_dma, GFP_KERNEL);
+> 
+> Same thing for iqtx and iqrx (beware of copy&paste + tx/rx mismatch).
 
-This patch series does not apply cleanly to net-next, you need to respin.
+Oops, this will need to be sent as a relative fixup as I've applied these
+two patches to net-next, sorry Francois.
