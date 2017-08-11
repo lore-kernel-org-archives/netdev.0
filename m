@@ -1,82 +1,109 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH] net: phy: Use tab for indentation in Kconfig
-Date: Fri, 11 Aug 2017 14:50:36 +0200
-Message-ID: <96c640e8-c18a-34db-8236-2022012a0204@monstr.eu>
-References: <abacdc7ec0585cfbeba240ca2780c6020cf7090a.1502184742.git.michal.simek@xilinx.com>
- <20170808.210537.1599851067118765908.davem@davemloft.net>
-Reply-To: monstr@monstr.eu
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH 2/2] drivers: add vpls support
+Date: Fri, 11 Aug 2017 14:55:47 +0200
+Message-ID: <20170811125547.GZ773745@eidolon>
+References: <1502396917-14848-1-git-send-email-amine.kherbouche@6wind.com>
+ <1502396917-14848-3-git-send-email-amine.kherbouche@6wind.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="hxDJKFogux2mvHbQvPkoqEJ0SSTrdDusT"
-Cc: linux-kernel@vger.kernel.org, monstr@monstr.eu,
-        netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com
-To: David Miller <davem@davemloft.net>, michal.simek@xilinx.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170808.210537.1599851067118765908.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: Amine Kherbouche <amine.kherbouche@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eidolon.nox.tf ([185.142.180.128]:56238 "EHLO eidolon.nox.tf"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752631AbdHKMzu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Aug 2017 08:55:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1502396917-14848-3-git-send-email-amine.kherbouche@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---hxDJKFogux2mvHbQvPkoqEJ0SSTrdDusT
-Content-Type: multipart/mixed; boundary="jGc32cKA9xGnJB7xC5kDG8xlk7pFdK1wc";
- protected-headers="v1"
-From: Michal Simek <monstr@monstr.eu>
-Reply-To: monstr@monstr.eu
-To: David Miller <davem@davemloft.net>, michal.simek@xilinx.com
-Cc: linux-kernel@vger.kernel.org, monstr@monstr.eu, netdev@vger.kernel.org,
- andrew@lunn.ch, f.fainelli@gmail.com
-Message-ID: <96c640e8-c18a-34db-8236-2022012a0204@monstr.eu>
-Subject: Re: [PATCH] net: phy: Use tab for indentation in Kconfig
-References: <abacdc7ec0585cfbeba240ca2780c6020cf7090a.1502184742.git.michal.simek@xilinx.com>
- <20170808.210537.1599851067118765908.davem@davemloft.net>
-In-Reply-To: <20170808.210537.1599851067118765908.davem@davemloft.net>
+On Thu, Aug 10, 2017 at 10:28:37PM +0200, Amine Kherbouche wrote:
+> This commit introduces the support of VPLS virtual device, that allows
+> performing  L2VPN multipoint to multipoint communication over MPLS PSN.
+> 
+> VPLS device encap received ethernet frame over mpls packet and send it the
+> output device, in the other direction, when receiving the right configured
+> mpls packet, the matched mpls route calls the handler vpls function,
+> then pulls out the mpls header and send it back the entry point via
+> netif_rx().
+> 
+> Two functions, mpls_entry_encode() and mpls_output_possible() are
+> exported from mpls/internal.h to be able to use them inside vpls driver.
+> 
+> Signed-off-by: Amine Kherbouche <amine.kherbouche@6wind.com>
 
---jGc32cKA9xGnJB7xC5kDG8xlk7pFdK1wc
-Content-Type: text/plain; charset=utf-8
-Content-Language: en-US
-Content-Transfer-Encoding: quoted-printable
+This code is derivative of code that I authored;  while you
+significantly changed it I'd appreciate if you kept a hint of that.
 
-On 9.8.2017 06:05, David Miller wrote:
-> From: Michal Simek <michal.simek@xilinx.com>
-> Date: Tue,  8 Aug 2017 11:32:25 +0200
->=20
->> Using tabs instead of space for indentaion
->>
->> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
->=20
-> This really isn't appropriate for the 'net' tree, it doesn't fix
-> anything it just makes the spacing consistent.
->=20
-> Please respin this patch against net-next, thank you.
+Unfortunately, I also have some concerns with this patch...
 
-v2 sent rebased on the top of net-next.
+> +#define VPLS_MAX_ID		256	/* Max VPLS WireID (arbitrary) */
 
-Thanks,
-Michal
+There is no point in keeping a VPLS wire ID.  Again, this was in the
+README that accompanied my patchset:
 
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Xilinx Microblaze
-Maintainer of Linux kernel - Xilinx Zynq ARM and ZynqMP ARM64 SoCs
-U-Boot custodian - Xilinx Microblaze/Zynq/ZynqMP SoCs
+- I made a design mistake with the wire ID.  It's simply not needed.  A
+  pseudowire can be identified by its incoming label.  There is also some
+  really ugly code keeping an array of wires...
+
+I don't even see where you're using the wire ID anymore at this point,
+it might be a dead leftover from my code.
+
+[...]
+> +union vpls_nh {
+> +	struct in6_addr		addr6;
+> +	struct in_addr		addr;
+> +};
+> +
+> +struct vpls_dst {
+> +	struct net_device	*dev;
+> +	union vpls_nh		addr;
+> +	u32			label_in, label_out;
+> +	u32			id;
+> +	u16			vlan_id;
+
+I looked at VLAN support and decided against it because the bridge layer
+can handle this perfectly fine by using the bridge's vlan support to tag
+a port's pvid.
+
+> +	u8			via_table;
+> +	u8			flags;
+> +	u8			ttl;
+> +};
+
+[...]
+> +struct vpls_priv {
+> +	struct net		*encap_net;
+> +	struct vpls_dst		dst;
+> +};
+> +
+> +static struct nla_policy vpls_policy[IFLA_VPLS_MAX + 1] = {
+> +	[IFLA_VPLS_ID]		= { .type = NLA_U32 },
+> +	[IFLA_VPLS_IN_LABEL]	= { .type = NLA_U32 },
+> +	[IFLA_VPLS_OUT_LABEL]	= { .type = NLA_U32 },
+> +	[IFLA_VPLS_OIF]		= { .type = NLA_U32 },
+> +	[IFLA_VPLS_TTL]		= { .type = NLA_U8  },
+> +	[IFLA_VPLS_VLANID]	= { .type = NLA_U8 },
+> +	[IFLA_VPLS_NH]		= { .type = NLA_U32 },
+> +	[IFLA_VPLS_NH6]		= { .len = sizeof(struct in6_addr) },
+> +};
+
+The original patchset was point-to-multipoint in a single netdev, and
+had some starts on optimized multicast support (which, admittedly, is a
+bit of a fringe thing, but still.)
+
+This patch implements a single pseudowire (so the name is kind of
+misleading; it's a VLL / VPWS, multiple of which you'd use to build full
+VPLS).  However, you are now missing split-horizon ethernet bridging
+support.  How is that done here?
 
 
+-David
 
---jGc32cKA9xGnJB7xC5kDG8xlk7pFdK1wc--
 
---hxDJKFogux2mvHbQvPkoqEJ0SSTrdDusT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iEYEARECAAYFAlmNqCAACgkQykllyylKDCGnuQCghis9TLwC2mucVRW3P/njqwnc
-hbAAnRmWCuj+hX5Exuk2vkaus85nug3i
-=URhm
------END PGP SIGNATURE-----
-
---hxDJKFogux2mvHbQvPkoqEJ0SSTrdDusT--
+P.S.: for anyone curious, the original patchset is at
+https://github.com/eqvinox/vpls-linux-kernel
+I didn't go ahead with posting it because I felt there were several
+things where I'd want to change the design, hence this README:
+https://github.com/eqvinox/vpls-linux-kernel/commit/81c809d6f9c40c0332098e13fcad65144aa51795
