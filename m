@@ -1,88 +1,33 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net] nfp: do not update MTU from BH in flower app
-Date: Fri, 11 Aug 2017 10:07:03 +0200
-Message-ID: <1502438823-12830-1-git-send-email-simon.horman@netronome.com>
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        Simon Horman <simon.horman@netronome.com>
-To: David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net] nfp: do not update MTU from BH in flower app
+Date: Fri, 11 Aug 2017 10:10:24 +0200
+Message-ID: <20170811081021.GA12975@verge.net.au>
+References: <1502438823-12830-1-git-send-email-simon.horman@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f176.google.com ([209.85.216.176]:37908 "EHLO
-        mail-qt0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752504AbdHKIId (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 04:08:33 -0400
-Received: by mail-qt0-f176.google.com with SMTP id t37so17083294qtg.5
-        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 01:08:33 -0700 (PDT)
+Received: from kirsty.vergenet.net ([202.4.237.240]:44566 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751512AbdHKIKo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 04:10:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1502438823-12830-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Flower app may receive a request to update the MTU of a representor
-netdev upon receipt of a control message from the firmware. This requires
-the RTNL lock which needs to be taken outside of the packet processing
-path.
+On Fri, Aug 11, 2017 at 10:07:03AM +0200, Simon Horman wrote:
+> The Flower app may receive a request to update the MTU of a representor
+> netdev upon receipt of a control message from the firmware. This requires
+> the RTNL lock which needs to be taken outside of the packet processing
+> path.
+> 
+> As a handling of this correctly seems a little to invasive for a fix simply
+> skip setting the MTU for now.
 
-As a handling of this correctly seems a little to invasive for a fix simply
-skip setting the MTU for now.
+Sorry, please ignore this.
 
-Relevant backtrace:
- [ 1496.288489] BUG: scheduling while atomic: kworker/0:3/373/0x00000100
- [ 1496.294911]  dca syscopyarea sysfillrect sysimgblt fb_sys_fops ptp drm mxm_wmi ahci pps_core libahci i2c_algo_bit wmi [last unloaded: nfp]
- [ 1496.294918] CPU: 0 PID: 373 Comm: kworker/0:3 Tainted: G           OE   4.13.0-rc3+ #3
- [ 1496.294919] Hardware name: Supermicro X10DRi/X10DRi, BIOS 2.0 12/28/2015
- [ 1496.294923] Workqueue: events work_for_cpu_fn
- [ 1496.294924] Call Trace:
- [ 1496.294927]  <IRQ>
- [ 1496.294931]  dump_stack+0x63/0x82
- [ 1496.294935]  __schedule_bug+0x54/0x70
- [ 1496.294937]  __schedule+0x62f/0x890
- [ 1496.294941]  ? intel_unmap_sg+0x90/0x90
- [ 1496.294942]  schedule+0x36/0x80
- [ 1496.294943]  schedule_preempt_disabled+0xe/0x10
- [ 1496.294945]  __mutex_lock.isra.2+0x445/0x4a0
- [ 1496.294947]  ? device_is_rmrr_locked+0x12/0x50
- [ 1496.294950]  ? kfree+0x162/0x170
- [ 1496.294952]  ? device_is_rmrr_locked+0x12/0x50
- [ 1496.294953]  ? iommu_should_identity_map+0x50/0xe0
- [ 1496.294954]  __mutex_lock_slowpath+0x13/0x20
- [ 1496.294955]  ? iommu_no_mapping+0x48/0xd0
- [ 1496.294956]  ? __mutex_lock_slowpath+0x13/0x20
- [ 1496.294957]  mutex_lock+0x2f/0x40
- [ 1496.294960]  rtnl_lock+0x15/0x20
- [ 1496.294979]  nfp_flower_cmsg_rx+0xc8/0x150 [nfp]
- [ 1496.294986]  nfp_ctrl_poll+0x286/0x350 [nfp]
- [ 1496.294989]  tasklet_action+0xf6/0x110
- [ 1496.294992]  __do_softirq+0xed/0x278
- [ 1496.294993]  irq_exit+0xb6/0xc0
- [ 1496.294994]  do_IRQ+0x4f/0xd0
- [ 1496.294996]  common_interrupt+0x89/0x89
-
-Fixes: 948faa46c05b ("nfp: add support for control messages for flower app")
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
-Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- src/flower/cmsg.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
-
-diff --git a/src/flower/cmsg.c b/src/flower/cmsg.c
-index dd7fa9cf225f..b0837b58c3a1 100644
---- a/src/flower/cmsg.c
-+++ b/src/flower/cmsg.c
-@@ -115,14 +115,10 @@ nfp_flower_cmsg_portmod_rx(struct nfp_app *app, struct sk_buff *skb)
- 		return;
- 	}
- 
--	if (link) {
-+	if (link)
- 		netif_carrier_on(netdev);
--		rtnl_lock();
--		dev_set_mtu(netdev, be16_to_cpu(msg->mtu));
--		rtnl_unlock();
--	} else {
-+	else
- 		netif_carrier_off(netdev);
--	}
- 	rcu_read_unlock();
- }
- 
--- 
-2.1.4
+It is not against net as it claims. I will post a version against that tree.
