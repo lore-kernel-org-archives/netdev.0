@@ -1,39 +1,38 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 06/51] iplink_vrf: Complain if main table is not found
-Date: Sat, 12 Aug 2017 14:04:25 +0200
-Message-ID: <20170812120510.28750-7-phil@nwl.cc>
+Subject: [iproute PATCH 37/51] netem/maketable: Check return value of fscanf()
+Date: Sat, 12 Aug 2017 14:04:56 +0200
+Message-ID: <20170812120510.28750-38-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:48873 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:33861 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751624AbdHLMJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:09:28 -0400
+        id S1751977AbdHLMJe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:09:34 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/iplink_vrf.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ netem/maketable.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
-index 917630e853375..809eda5de8f6e 100644
---- a/ip/iplink_vrf.c
-+++ b/ip/iplink_vrf.c
-@@ -131,7 +131,10 @@ __u32 ipvrf_get_table(const char *name)
- 					   &answer.n, sizeof(answer)) < 0) {
- 		/* special case "default" vrf to be the main table */
- 		if (errno == ENODEV && !strcmp(name, "default"))
--			rtnl_rttable_a2n(&tb_id, "main");
-+			if (rtnl_rttable_a2n(&tb_id, "main"))
-+				fprintf(stderr,
-+					"BUG: RTTable \"main\" not found.\n");
-+
+diff --git a/netem/maketable.c b/netem/maketable.c
+index ad660e7d457f0..ccb8f0c68b062 100644
+--- a/netem/maketable.c
++++ b/netem/maketable.c
+@@ -38,8 +38,8 @@ readdoubles(FILE *fp, int *number)
+ 	}
  
- 		return tb_id;
+ 	for (i=0; i<limit; ++i){
+-		fscanf(fp, "%lf", &x[i]);
+-		if (feof(fp))
++		if (fscanf(fp, "%lf", &x[i]) != 1 ||
++		    feof(fp))
+ 			break;
+ 		++n;
  	}
 -- 
 2.13.1
