@@ -1,58 +1,74 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V2 3/3] tap: XDP support
-Date: Sat, 12 Aug 2017 10:48:49 +0800
-Message-ID: <8876b3d1-699c-d033-e855-34b24a709c81@redhat.com>
-References: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
- <1502451678-17358-4-git-send-email-jasowang@redhat.com>
- <20170811161223.6808008d@cakuba.netronome.com>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
+ count = 1
+Date: Fri, 11 Aug 2017 20:07:52 -0700
+Message-ID: <CALAqxLX=GP5FMXfoEGuSwUuZp0cTyUCzh+ntSdknevjJioM0hg@mail.gmail.com>
+References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
+ <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com>
+ <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
+ <CALAqxLXv60ReJu26omM6p=ZboEm-Z-3w+q0JcxLXDqqK5ohNoQ@mail.gmail.com>
+ <CAEA6p_AL8uUghtZgp4OmqygcFs-Jiy286P5r6tRd+yeSWxR3KA@mail.gmail.com>
+ <CALAqxLXY-kE2N__eDq514cLycR0-QRpyOCMWpdttO6fgovE2rg@mail.gmail.com>
+ <CAEA6p_C_rEYkJhcniyy6HUHgNxWFoxWzZ-WHsaSmNDwx4D+RXQ@mail.gmail.com>
+ <CAEA6p_AOcNkAWPc7NFBnr8QWi3eHdJiQ2=8D_DB_XthwSDL2+Q@mail.gmail.com>
+ <CALAqxLUoV6EQvofTEv9whW1_QMPBPU7eJBhRFUjaSs7CGeRFww@mail.gmail.com>
+ <CAM_iQpWMWg5ytDq2Y9p9uet1zowGuCX+eksyiyxu9vQ18WoPxQ@mail.gmail.com>
+ <CAEA6p_CooRGNOQN3fosF0JLqmd9aOTuNHKNPE8cbrzDH6c176w@mail.gmail.com>
+ <CAEA6p_COwXWP97wSHvzokmm8ckQ2QEd7=dfNH04ttDPm_z3bcg@mail.gmail.com> <CALAqxLV-e=Uz_zG6VYcKSTG0+qJdpPOv0_vagnGx4bABgzO4tg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        lkml <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux USB List <linux-usb@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>
+To: Wei Wang <weiwan@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170811161223.6808008d@cakuba.netronome.com>
-Content-Language: en-US
+In-Reply-To: <CALAqxLV-e=Uz_zG6VYcKSTG0+qJdpPOv0_vagnGx4bABgzO4tg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 2017年08月12日 07:12, Jakub Kicinski wrote:
-> On Fri, 11 Aug 2017 19:41:18 +0800, Jason Wang wrote:
->> This patch tries to implement XDP for tun. The implementation was
->> split into two parts:
+On Fri, Aug 11, 2017 at 5:31 PM, John Stultz <john.stultz@linaro.org> wrote:
+> On Fri, Aug 11, 2017 at 5:10 PM, Wei Wang <weiwan@google.com> wrote:
+>>> If after Cong's fix, the issue still happens, could you help try the
+>>> patch attached and collect all logs when you try the reproduce the
+>>> issue? It would be great to have logs for both success case and the
+>>> failure case.
+>>>
+>>> Thanks so much for your help.
+>>>
 >>
->> - fast path: small and no gso packet. We try to do XDP at page level
->>    before build_skb(). For XDP_TX, since creating/destroying queues
->>    were completely under control of userspace, it was implemented
->>    through generic XDP helper after skb has been built. This could be
->>    optimized in the future.
->> - slow path: big or gso packet. We try to do it after skb was created
->>    through generic XDP helpers.
+>> I think we have a potential fix for this issue.
+>> Martin and I found that when addrconf_dst_alloc() creates a rt6, it is
+>> possible that rt6->dst.dev points to loopback device while
+>> rt6->rt6i_idev->dev points to a real device.
+>> When the real device goes down, the current fib6 clean up code only
+>> checks for rt6->dst.dev and assumes rt6->rt6i_idev->dev is the same.
+>> That leaves unreleased refcnt on the real device if rt6->dst.dev
+>> points to loopback dev.
 >>
->> Test were done through pktgen with small packets.
+>> The attached potential fix is tested by Martin and made sure it fixes his issue.
 >>
->> xdp1 test shows ~41.1% improvement:
->>
->> Before: ~1.7Mpps
->> After:  ~2.3Mpps
->>
->> xdp_redirect to ixgbe shows ~60% improvement:
->>
->> Before: ~0.8Mpps
->> After:  ~1.38Mpps
->>
->> Suggested-by: Michael S. Tsirkin <mst@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> Looks OK to me now :)
+>> John,
+>> It will be great if you can also give it a try and see if it fixes the
+>> issue on your side before I submit an official patch.
 >
-> Out of curiosity, you say the build_skb() is for "small packets", and it
-> seems you are always reserving the 256B regardless of XDP being
-> installed.  Does this have no performance impact on non-XDP case?
+> So yes, sorry I haven't been able to get back quicker on the other
+> patches sent, was mucking about in other work.
+>
+> So yea, this patch  (potential fix for unregister_netdevice()) seems
+> to avoid the issue.
+>
+> I'm going to do some further testing, but its looking good so far.
 
-Have a test, only less than 1% were noticed which I think could be ignored.
+Looks good so far! I've not hit the issue yet.
 
-Thanks
+Thanks so much for sorting out a fix!
+
+If its useful:
+Tested-by: John Stultz <john.stultz@linaro.org>
+
+thanks again
+-john
