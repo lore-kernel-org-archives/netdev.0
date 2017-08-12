@@ -1,71 +1,58 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: Re: [PATCH 5/5] e1000e: Avoid receiver overrun interrupt bursts
-Date: Fri, 11 Aug 2017 20:47:14 -0600
-Message-ID: <C95AF637-ACAB-4EA9-A287-8DB99A83B830@redfish-solutions.com>
-References: <20170721160937.GA22632@csclub.uwaterloo.ca>
- <20170721183627.13373-1-bpoirier@suse.com>
- <20170721183627.13373-5-bpoirier@suse.com>
- <20170721184848.GU18556@csclub.uwaterloo.ca>
- <49B1F3E9-2A99-4AD6-9574-FC3960E67A77@redfish-solutions.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: Benjamin Poirier <bpoirier@suse.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V2 3/3] tap: XDP support
+Date: Sat, 12 Aug 2017 10:48:49 +0800
+Message-ID: <8876b3d1-699c-d033-e855-34b24a709c81@redhat.com>
+References: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
+ <1502451678-17358-4-git-send-email-jasowang@redhat.com>
+ <20170811161223.6808008d@cakuba.netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <49B1F3E9-2A99-4AD6-9574-FC3960E67A77@redfish-solutions.com>
+In-Reply-To: <20170811161223.6808008d@cakuba.netronome.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> On Aug 11, 2017, at 8:13 PM, Philip Prindeville <philipp_subx@redfish-solutions.com> wrote:
-> 
->> 
->> On Jul 21, 2017, at 12:48 PM, Lennart Sorensen <lsorense@csclub.uwaterloo.ca> wrote:
->> 
->> On Fri, Jul 21, 2017 at 11:36:27AM -0700, Benjamin Poirier wrote:
->>> When e1000e_poll() is not fast enough to keep up with incoming traffic, the
->>> adapter (when operating in msix mode) raises the Other interrupt to signal
->>> Receiver Overrun.
->>> 
->>> This is a double problem because 1) at the moment e1000_msix_other()
->>> assumes that it is only called in case of Link Status Change and 2) if the
->>> condition persists, the interrupt is repeatedly raised again in quick
->>> succession.
->>> 
->>> Ideally we would configure the Other interrupt to not be raised in case of
->>> receiver overrun but this doesn't seem possible on this adapter. Instead,
->>> we handle the first part of the problem by reverting to the practice of
->>> reading ICR in the other interrupt handler, like before commit 16ecba59bc33
->>> ("e1000e: Do not read ICR in Other interrupt"). Thanks to commit
->>> 0a8047ac68e5 ("e1000e: Fix msi-x interrupt automask") which cleared IAME
->>> from CTRL_EXT, reading ICR doesn't interfere with RxQ0, TxQ0 interrupts
->>> anymore. We handle the second part of the problem by not re-enabling the
->>> Other interrupt right away when there is overrun. Instead, we wait until
->>> traffic subsides, napi polling mode is exited and interrupts are
->>> re-enabled.
->>> 
->>> Reported-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
->>> Fixes: 16ecba59bc33 ("e1000e: Do not read ICR in Other interrupt")
->>> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
->> 
->> Any chance of this fix hitting -stable?  After all adapter reset under
->> load is not nice.
->> 
-> 
-> 
-> I tried this patch sequence and I’m seeing a 2% drop in throughput.  CPU utilization at softIRQ is also about 8% higher.  The previous single patch that went out to fix this problem had better performance.
-> 
-> This is on an Atom D525 with an 82574L and running 2 GB streams across a pair of interfaces with iperf3.
-> 
-> -Philip
 
+On 2017年08月12日 07:12, Jakub Kicinski wrote:
+> On Fri, 11 Aug 2017 19:41:18 +0800, Jason Wang wrote:
+>> This patch tries to implement XDP for tun. The implementation was
+>> split into two parts:
+>>
+>> - fast path: small and no gso packet. We try to do XDP at page level
+>>    before build_skb(). For XDP_TX, since creating/destroying queues
+>>    were completely under control of userspace, it was implemented
+>>    through generic XDP helper after skb has been built. This could be
+>>    optimized in the future.
+>> - slow path: big or gso packet. We try to do it after skb was created
+>>    through generic XDP helpers.
+>>
+>> Test were done through pktgen with small packets.
+>>
+>> xdp1 test shows ~41.1% improvement:
+>>
+>> Before: ~1.7Mpps
+>> After:  ~2.3Mpps
+>>
+>> xdp_redirect to ixgbe shows ~60% improvement:
+>>
+>> Before: ~0.8Mpps
+>> After:  ~1.38Mpps
+>>
+>> Suggested-by: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Looks OK to me now :)
+>
+> Out of curiosity, you say the build_skb() is for "small packets", and it
+> seems you are always reserving the 256B regardless of XDP being
+> installed.  Does this have no performance impact on non-XDP case?
 
-Actually, after turning off MSI-X mode (and using MSI mode instead), and setting InterruptRateThrottle to “4” (conservative dynamic mode) across all interfaces, I’m actually seeing slightly better throughput than the earlier patch… with comparable overall CPU utilization and SoftIRQ utilization.
+Have a test, only less than 1% were noticed which I think could be ignored.
 
-So setting the module parameters correctly for routing (and not end-system parameters) makes a big difference when routing.
-
--Philip
+Thanks
