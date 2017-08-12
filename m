@@ -1,39 +1,56 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 48/51] ifcfg: Quote left-hand side of [ ] expression
-Date: Sat, 12 Aug 2017 14:05:07 +0200
-Message-ID: <20170812120510.28750-49-phil@nwl.cc>
+Subject: [iproute PATCH 10/51] iproute: Fix for missing 'Oifs:' display
+Date: Sat, 12 Aug 2017 14:04:29 +0200
+Message-ID: <20170812120510.28750-11-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:37655 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:56567 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752347AbdHLMHK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:07:10 -0400
+        id S1752469AbdHLMHQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:07:16 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This prevents word-splitting and therefore leads to more accurate error
-message in case 'grep -c' prints something other than a number.
+Covscan complained about dead code but after reading it, I assume the
+author's intention was to prefix the interface list with 'Oifs: '.
+Initializing first to 1 and setting it to 0 after above prefix was
+printed should fix it.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/ifcfg | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ ip/iproute.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/ip/ifcfg b/ip/ifcfg
-index 083d9df36742f..30a2dc49816cd 100644
---- a/ip/ifcfg
-+++ b/ip/ifcfg
-@@ -131,7 +131,7 @@ noarp=$?
+diff --git a/ip/iproute.c b/ip/iproute.c
+index cb695ad4141a7..89caac124f489 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -624,7 +624,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	}
+ 	if (tb[RTA_MULTIPATH]) {
+ 		struct rtnexthop *nh = RTA_DATA(tb[RTA_MULTIPATH]);
+-		int first = 0;
++		int first = 1;
  
- ip route add unreachable 224.0.0.0/24 >& /dev/null
- ip route add unreachable 255.255.255.255 >& /dev/null
--if [ `ip link ls $dev | grep -c MULTICAST` -ge 1 ]; then
-+if [ "`ip link ls $dev | grep -c MULTICAST`" -ge 1 ]; then
-   ip route add 224.0.0.0/4 dev $dev scope global >& /dev/null
- fi
+ 		len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
  
+@@ -634,10 +634,12 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 			if (nh->rtnh_len > len)
+ 				break;
+ 			if (r->rtm_flags&RTM_F_CLONED && r->rtm_type == RTN_MULTICAST) {
+-				if (first)
++				if (first) {
+ 					fprintf(fp, "Oifs: ");
+-				else
++					first = 0;
++				} else {
+ 					fprintf(fp, " ");
++				}
+ 			} else
+ 				fprintf(fp, "%s\tnexthop ", _SL_);
+ 			if (nh->rtnh_len > sizeof(*nh)) {
 -- 
 2.13.1
