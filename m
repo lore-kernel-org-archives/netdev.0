@@ -1,8 +1,8 @@
 From: Wei Wang <weiwan@google.com>
 Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
  count = 1
-Date: Sat, 12 Aug 2017 12:29:17 -0700
-Message-ID: <CAEA6p_DO31cGhe=mdd7yOFLJVt+Ys2JwxQHLkjOX9zZEpqCmJw@mail.gmail.com>
+Date: Sat, 12 Aug 2017 12:29:54 -0700
+Message-ID: <CAEA6p_BccA3ZRrhsfT3=4FNLgD_55o-LEqj5BU2onu4HnqCPfA@mail.gmail.com>
 References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
  <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com>
  <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
@@ -15,77 +15,35 @@ References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
  <CAM_iQpWMWg5ytDq2Y9p9uet1zowGuCX+eksyiyxu9vQ18WoPxQ@mail.gmail.com>
  <CAEA6p_CooRGNOQN3fosF0JLqmd9aOTuNHKNPE8cbrzDH6c176w@mail.gmail.com>
  <CAEA6p_COwXWP97wSHvzokmm8ckQ2QEd7=dfNH04ttDPm_z3bcg@mail.gmail.com>
- <CALAqxLV-e=Uz_zG6VYcKSTG0+qJdpPOv0_vagnGx4bABgzO4tg@mail.gmail.com> <CALAqxLX=GP5FMXfoEGuSwUuZp0cTyUCzh+ntSdknevjJioM0hg@mail.gmail.com>
+ <a2a0f380-3e49-8772-dde9-bcebd94cd7fd@gmail.com> <CAEA6p_CxiwXzQHgLA_Oma0pfayYReGc5QmJkV=Td9M1Kdqwbzg@mail.gmail.com>
+ <ddebbddc-bb66-ed0f-423a-277d40f99f66@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        John Stultz <john.stultz@linaro.org>,
         Martin KaFai Lau <kafai@fb.com>,
         lkml <linux-kernel@vger.kernel.org>,
         Network Development <netdev@vger.kernel.org>,
         Linux USB List <linux-usb@vger.kernel.org>,
         "David S. Miller" <davem@davemloft.net>,
         Felipe Balbi <felipe.balbi@linux.intel.com>
-To: John Stultz <john.stultz@linaro.org>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALAqxLX=GP5FMXfoEGuSwUuZp0cTyUCzh+ntSdknevjJioM0hg@mail.gmail.com>
+In-Reply-To: <ddebbddc-bb66-ed0f-423a-277d40f99f66@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Looks good so far! I've not hit the issue yet.
+On Fri, Aug 11, 2017 at 8:37 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 8/11/17 6:25 PM, Wei Wang wrote:
+>> By "a patch to fix that" do you mean after your patch, for every rt6,
+>> rt6->rt6i_idev will be the same as rt6->dst.dev?
 >
-
-Great. I will prepare an official patch then.
-
-> Thanks so much for sorting out a fix!
+> FIB entries should have them the same device with my patch.
 >
-> If its useful:
-> Tested-by: John Stultz <john.stultz@linaro.org>
+> The copies done (ip6_rt_cache_alloc and ip6_rt_pcpu_alloc) will have to
+> set dst.dev to loopback or VRF device for RTF_LOCAL routes; it's the
+> only way to get local traffic to work and this is similar to what IPv4 does.
 
-Sure will do.
+Got it. Thanks David.
 
-Thanks.
 Wei
-
-On Fri, Aug 11, 2017 at 8:07 PM, John Stultz <john.stultz@linaro.org> wrote:
-> On Fri, Aug 11, 2017 at 5:31 PM, John Stultz <john.stultz@linaro.org> wrote:
->> On Fri, Aug 11, 2017 at 5:10 PM, Wei Wang <weiwan@google.com> wrote:
->>>> If after Cong's fix, the issue still happens, could you help try the
->>>> patch attached and collect all logs when you try the reproduce the
->>>> issue? It would be great to have logs for both success case and the
->>>> failure case.
->>>>
->>>> Thanks so much for your help.
->>>>
->>>
->>> I think we have a potential fix for this issue.
->>> Martin and I found that when addrconf_dst_alloc() creates a rt6, it is
->>> possible that rt6->dst.dev points to loopback device while
->>> rt6->rt6i_idev->dev points to a real device.
->>> When the real device goes down, the current fib6 clean up code only
->>> checks for rt6->dst.dev and assumes rt6->rt6i_idev->dev is the same.
->>> That leaves unreleased refcnt on the real device if rt6->dst.dev
->>> points to loopback dev.
->>>
->>> The attached potential fix is tested by Martin and made sure it fixes his issue.
->>>
->>> John,
->>> It will be great if you can also give it a try and see if it fixes the
->>> issue on your side before I submit an official patch.
->>
->> So yes, sorry I haven't been able to get back quicker on the other
->> patches sent, was mucking about in other work.
->>
->> So yea, this patch  (potential fix for unregister_netdevice()) seems
->> to avoid the issue.
->>
->> I'm going to do some further testing, but its looking good so far.
->
-> Looks good so far! I've not hit the issue yet.
->
-> Thanks so much for sorting out a fix!
->
-> If its useful:
-> Tested-by: John Stultz <john.stultz@linaro.org>
->
-> thanks again
-> -john
