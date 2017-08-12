@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/15] i40e: separate hw_features from runtime changing flags
-Date: Sat, 12 Aug 2017 04:08:38 -0700
-Message-ID: <20170812110848.18264-7-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] i40e: remove workaround for Open Firmware MAC address
+Date: Sat, 12 Aug 2017 04:08:39 -0700
+Message-ID: <20170812110848.18264-8-jeffrey.t.kirsher@intel.com>
 References: <20170812110848.18264-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:54045 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:12721 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750915AbdHLLIy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1750948AbdHLLIy (ORCPT <rfc822;netdev@vger.kernel.org>);
         Sat, 12 Aug 2017 07:08:54 -0400
 In-Reply-To: <20170812110848.18264-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,620 +18,132 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-The number of flags found in pf->flags has grown quite large, and there
-are a lot of different types of flags. Most of the flags are simply
-hardware features which are enabled on some firmware or some MAC types.
-Other flags are dynamic run-time flags which enable or disable certain
-features of the driver.
+Since commit b499ffb0a22c ("i40e: Look up MAC address in Open Firmware
+or IDPROM"), we've had support for obtaining the MAC address
+form Open Firmware or IDPROM.
 
-Separate these two types of flags into pf->hw_features and pf->flags.
-The hw_features list will contain a set of features which are enabled at
-init time. This will not contain toggles or otherwise dynamically
-changing features. These flags should not need atomic protections, as
-they will be set once during init and then be essentially read only.
+This code relied on sending the Open Firmware address directly to the
+device firmware instead of relying on our MAC/VLAN filter list. Thus,
+a work around was introduced in commit b1b15df59232 ("i40e: Explicitly
+write platform-specific mac address after PF reset")
 
-Everything else will remain in the flags variable. These flags may be
-modified at any time during run time. A future patch may wish to convert
-these flags into set_bit/clear_bit/test_bit or similar approach to
-ensure atomic correctness.
+We refactored the Open Firmware address enablement code in the ill-named
+commit 41c4c2b50d52 ("i40e: allow look-up of MAC address from Open
+Firmware or IDPROM")
 
-The I40E_FLAG_MFP_ENABLED flag may be a good fit for hw_features but
-currently is used by ethtool in the private flags settings, and thus has
-been left as part of flags.
+Since this refactor, we no longer even set I40E_FLAG_PF_MAC. Further, we
+don't need this work around, because we actually store the MAC address
+as part of the MAC/VLAN filter hash. Thus, we will restore the address
+correctly upon reset.
 
-Additionally, I40E_FLAG_DCB_CAPABLE may be a good fit for the
-hw_features but this patch has not tried to untangle it yet.
+The refactor above failed to revert the workaround, so do that now.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             | 43 +++++++------
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 34 +++++-----
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 72 +++++++++++-----------
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  6 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  8 +--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  4 --
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  2 -
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  2 +-
- 9 files changed, 85 insertions(+), 88 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 60 -----------------------------
+ 2 files changed, 61 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index d616f698e155..f07217b15ffd 100644
+index f07217b15ffd..d0c1bf5441d8 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -75,11 +75,11 @@
- #define I40E_MIN_VSI_ALLOC		83 /* LAN, ATR, FCOE, 64 VF */
- /* max 16 qps */
- #define i40e_default_queues_per_vmdq(pf) \
--		(((pf)->flags & I40E_FLAG_RSS_AQ_CAPABLE) ? 4 : 1)
-+		(((pf)->hw_features & I40E_HW_RSS_AQ_CAPABLE) ? 4 : 1)
- #define I40E_DEFAULT_QUEUES_PER_VF	4
- #define I40E_DEFAULT_QUEUES_PER_TC	1 /* should be a power of 2 */
- #define i40e_pf_get_max_q_per_tc(pf) \
--		(((pf)->flags & I40E_FLAG_128_QP_RSS_CAPABLE) ? 128 : 64)
-+		(((pf)->hw_features & I40E_HW_128_QP_RSS_CAPABLE) ? 128 : 64)
- #define I40E_FDIR_RING			0
- #define I40E_FDIR_RING_COUNT		32
- #define I40E_MAX_AQ_BUF_SIZE		4096
-@@ -401,6 +401,27 @@ struct i40e_pf {
- 	struct timer_list service_timer;
- 	struct work_struct service_task;
- 
-+	u64 hw_features;
-+#define I40E_HW_RSS_AQ_CAPABLE			BIT_ULL(0)
-+#define I40E_HW_128_QP_RSS_CAPABLE		BIT_ULL(1)
-+#define I40E_HW_ATR_EVICT_CAPABLE		BIT_ULL(2)
-+#define I40E_HW_WB_ON_ITR_CAPABLE		BIT_ULL(3)
-+#define I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE	BIT_ULL(4)
-+#define I40E_HW_NO_PCI_LINK_CHECK		BIT_ULL(5)
-+#define I40E_HW_100M_SGMII_CAPABLE		BIT_ULL(6)
-+#define I40E_HW_NO_DCB_SUPPORT			BIT_ULL(7)
-+#define I40E_HW_USE_SET_LLDP_MIB		BIT_ULL(8)
-+#define I40E_HW_GENEVE_OFFLOAD_CAPABLE		BIT_ULL(9)
-+#define I40E_HW_PTP_L4_CAPABLE			BIT_ULL(10)
-+#define I40E_HW_WOL_MC_MAGIC_PKT_WAKE		BIT_ULL(11)
-+#define I40E_HW_MPLS_HDR_OFFLOAD_CAPABLE	BIT_ULL(12)
-+#define I40E_HW_HAVE_CRT_RETIMER		BIT_ULL(13)
-+#define I40E_HW_OUTER_UDP_CSUM_CAPABLE		BIT_ULL(14)
-+#define I40E_HW_PHY_CONTROLS_LEDS		BIT_ULL(15)
-+#define I40E_HW_STOP_FW_LLDP			BIT_ULL(16)
-+#define I40E_HW_PORT_ID_VALID			BIT_ULL(17)
-+#define I40E_HW_RESTART_AUTONEG			BIT_ULL(18)
-+
- 	u64 flags;
- #define I40E_FLAG_RX_CSUM_ENABLED		BIT_ULL(1)
- #define I40E_FLAG_MSI_ENABLED			BIT_ULL(2)
-@@ -420,33 +441,15 @@ struct i40e_pf {
- #define I40E_FLAG_PTP				BIT_ULL(25)
- #define I40E_FLAG_MFP_ENABLED			BIT_ULL(26)
- #define I40E_FLAG_UDP_FILTER_SYNC		BIT_ULL(27)
--#define I40E_FLAG_PORT_ID_VALID			BIT_ULL(28)
- #define I40E_FLAG_DCB_CAPABLE			BIT_ULL(29)
--#define I40E_FLAG_RSS_AQ_CAPABLE		BIT_ULL(31)
--#define I40E_FLAG_HW_ATR_EVICT_CAPABLE		BIT_ULL(32)
--#define I40E_FLAG_OUTER_UDP_CSUM_CAPABLE	BIT_ULL(33)
--#define I40E_FLAG_128_QP_RSS_CAPABLE		BIT_ULL(34)
--#define I40E_FLAG_WB_ON_ITR_CAPABLE		BIT_ULL(35)
+@@ -445,7 +445,6 @@ struct i40e_pf {
  #define I40E_FLAG_VEB_STATS_ENABLED		BIT_ULL(37)
--#define I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE	BIT_ULL(38)
  #define I40E_FLAG_LINK_POLLING_ENABLED		BIT_ULL(39)
  #define I40E_FLAG_VEB_MODE_ENABLED		BIT_ULL(40)
--#define I40E_FLAG_GENEVE_OFFLOAD_CAPABLE	BIT_ULL(41)
--#define I40E_FLAG_NO_PCI_LINK_CHECK		BIT_ULL(42)
--#define I40E_FLAG_100M_SGMII_CAPABLE		BIT_ULL(43)
--#define I40E_FLAG_RESTART_AUTONEG		BIT_ULL(44)
--#define I40E_FLAG_NO_DCB_SUPPORT		BIT_ULL(45)
--#define I40E_FLAG_USE_SET_LLDP_MIB		BIT_ULL(46)
--#define I40E_FLAG_STOP_FW_LLDP			BIT_ULL(47)
--#define I40E_FLAG_PHY_CONTROLS_LEDS		BIT_ULL(48)
- #define I40E_FLAG_PF_MAC			BIT_ULL(50)
+-#define I40E_FLAG_PF_MAC			BIT_ULL(50)
  #define I40E_FLAG_TRUE_PROMISC_SUPPORT		BIT_ULL(51)
--#define I40E_FLAG_HAVE_CRT_RETIMER		BIT_ULL(52)
--#define I40E_FLAG_PTP_L4_CAPABLE		BIT_ULL(53)
  #define I40E_FLAG_CLIENT_RESET			BIT_ULL(54)
  #define I40E_FLAG_TEMP_LINK_POLLING		BIT_ULL(55)
- #define I40E_FLAG_CLIENT_L2_CHANGE		BIT_ULL(56)
--#define I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE		BIT_ULL(57)
- #define I40E_FLAG_LEGACY_RX			BIT_ULL(58)
- 
- 	struct i40e_client_instance *cinst;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 1d29152256fe..c76549e41705 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -271,7 +271,7 @@ static void i40e_phy_type_to_ethtool(struct i40e_pf *pf, u32 *supported,
- 		*advertising |= ADVERTISED_Autoneg;
- 		if (hw_link_info->requested_speeds & I40E_LINK_SPEED_1GB)
- 			*advertising |= ADVERTISED_1000baseT_Full;
--		if (pf->flags & I40E_FLAG_100M_SGMII_CAPABLE) {
-+		if (pf->hw_features & I40E_HW_100M_SGMII_CAPABLE) {
- 			*supported |= SUPPORTED_100baseT_Full;
- 			*advertising |= ADVERTISED_100baseT_Full;
- 		}
-@@ -340,12 +340,12 @@ static void i40e_phy_type_to_ethtool(struct i40e_pf *pf, u32 *supported,
- 			*advertising |= ADVERTISED_20000baseKR2_Full;
- 	}
- 	if (phy_types & I40E_CAP_PHY_TYPE_10GBASE_KR) {
--		if (!(pf->flags & I40E_FLAG_HAVE_CRT_RETIMER))
-+		if (!(pf->hw_features & I40E_HW_HAVE_CRT_RETIMER))
- 			*supported |= SUPPORTED_10000baseKR_Full |
- 				      SUPPORTED_Autoneg;
- 		*advertising |= ADVERTISED_Autoneg;
- 		if (hw_link_info->requested_speeds & I40E_LINK_SPEED_10GB)
--			if (!(pf->flags & I40E_FLAG_HAVE_CRT_RETIMER))
-+			if (!(pf->hw_features & I40E_HW_HAVE_CRT_RETIMER))
- 				*advertising |= ADVERTISED_10000baseKR_Full;
- 	}
- 	if (phy_types & I40E_CAP_PHY_TYPE_10GBASE_KX4) {
-@@ -356,12 +356,12 @@ static void i40e_phy_type_to_ethtool(struct i40e_pf *pf, u32 *supported,
- 			*advertising |= ADVERTISED_10000baseKX4_Full;
- 	}
- 	if (phy_types & I40E_CAP_PHY_TYPE_1000BASE_KX) {
--		if (!(pf->flags & I40E_FLAG_HAVE_CRT_RETIMER))
-+		if (!(pf->hw_features & I40E_HW_HAVE_CRT_RETIMER))
- 			*supported |= SUPPORTED_1000baseKX_Full |
- 				      SUPPORTED_Autoneg;
- 		*advertising |= ADVERTISED_Autoneg;
- 		if (hw_link_info->requested_speeds & I40E_LINK_SPEED_1GB)
--			if (!(pf->flags & I40E_FLAG_HAVE_CRT_RETIMER))
-+			if (!(pf->hw_features & I40E_HW_HAVE_CRT_RETIMER))
- 				*advertising |= ADVERTISED_1000baseKX_Full;
- 	}
- 	if (phy_types & I40E_CAP_PHY_TYPE_25GBASE_KR ||
-@@ -474,7 +474,7 @@ static void i40e_get_settings_link_up(struct i40e_hw *hw,
- 			    SUPPORTED_1000baseT_Full;
- 		if (hw_link_info->requested_speeds & I40E_LINK_SPEED_1GB)
- 			advertising |= ADVERTISED_1000baseT_Full;
--		if (pf->flags & I40E_FLAG_100M_SGMII_CAPABLE) {
-+		if (pf->hw_features & I40E_HW_100M_SGMII_CAPABLE) {
- 			supported |= SUPPORTED_100baseT_Full;
- 			if (hw_link_info->requested_speeds &
- 			    I40E_LINK_SPEED_100MB)
-@@ -1765,7 +1765,7 @@ static int i40e_get_ts_info(struct net_device *dev,
- 			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
- 			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ);
- 
--	if (pf->flags & I40E_FLAG_PTP_L4_CAPABLE)
-+	if (pf->hw_features & I40E_HW_PTP_L4_CAPABLE)
- 		info->rx_filters |= BIT(HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
- 				    BIT(HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
- 				    BIT(HWTSTAMP_FILTER_PTP_V2_EVENT) |
-@@ -2005,7 +2005,7 @@ static int i40e_set_phys_id(struct net_device *netdev,
- 
- 	switch (state) {
- 	case ETHTOOL_ID_ACTIVE:
--		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS)) {
-+		if (!(pf->hw_features & I40E_HW_PHY_CONTROLS_LEDS)) {
- 			pf->led_status = i40e_led_get(hw);
- 		} else {
- 			i40e_aq_set_phy_debug(hw, I40E_PHY_DEBUG_ALL, NULL);
-@@ -2015,19 +2015,19 @@ static int i40e_set_phys_id(struct net_device *netdev,
- 		}
- 		return blink_freq;
- 	case ETHTOOL_ID_ON:
--		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS))
-+		if (!(pf->hw_features & I40E_HW_PHY_CONTROLS_LEDS))
- 			i40e_led_set(hw, 0xf, false);
- 		else
- 			ret = i40e_led_set_phy(hw, true, pf->led_status, 0);
- 		break;
- 	case ETHTOOL_ID_OFF:
--		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS))
-+		if (!(pf->hw_features & I40E_HW_PHY_CONTROLS_LEDS))
- 			i40e_led_set(hw, 0x0, false);
- 		else
- 			ret = i40e_led_set_phy(hw, false, pf->led_status, 0);
- 		break;
- 	case ETHTOOL_ID_INACTIVE:
--		if (!(pf->flags & I40E_FLAG_PHY_CONTROLS_LEDS)) {
-+		if (!(pf->hw_features & I40E_HW_PHY_CONTROLS_LEDS)) {
- 			i40e_led_set(hw, pf->led_status, false);
- 		} else {
- 			ret = i40e_led_set_phy(hw, false, pf->led_status,
-@@ -2727,22 +2727,22 @@ static int i40e_set_rss_hash_opt(struct i40e_pf *pf, struct ethtool_rxnfc *nfc)
- 	switch (nfc->flow_type) {
- 	case TCP_V4_FLOW:
- 		flow_pctype = I40E_FILTER_PCTYPE_NONF_IPV4_TCP;
--		if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE)
-+		if (pf->hw_features & I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE)
- 			hena |=
- 			  BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN_NO_ACK);
- 		break;
- 	case TCP_V6_FLOW:
- 		flow_pctype = I40E_FILTER_PCTYPE_NONF_IPV6_TCP;
--		if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE)
-+		if (pf->hw_features & I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE)
- 			hena |=
- 			  BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV4_TCP_SYN_NO_ACK);
--		if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE)
-+		if (pf->hw_features & I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE)
- 			hena |=
- 			  BIT_ULL(I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN_NO_ACK);
- 		break;
- 	case UDP_V4_FLOW:
- 		flow_pctype = I40E_FILTER_PCTYPE_NONF_IPV4_UDP;
--		if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE)
-+		if (pf->hw_features & I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE)
- 			hena |=
- 			  BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP) |
- 			  BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP);
-@@ -2751,7 +2751,7 @@ static int i40e_set_rss_hash_opt(struct i40e_pf *pf, struct ethtool_rxnfc *nfc)
- 		break;
- 	case UDP_V6_FLOW:
- 		flow_pctype = I40E_FILTER_PCTYPE_NONF_IPV6_UDP;
--		if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE)
-+		if (pf->hw_features & I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE)
- 			hena |=
- 			  BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) |
- 			  BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP);
-@@ -4122,7 +4122,7 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
- 	}
- 
- 	/* Only allow ATR evict on hardware that is capable of handling it */
--	if (pf->flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE)
-+	if (!(pf->hw_features & I40E_HW_ATR_EVICT_CAPABLE))
- 		pf->flags &= ~I40E_FLAG_HW_ATR_EVICT_ENABLED;
- 
- 	if (changed_flags & I40E_FLAG_TRUE_PROMISC_SUPPORT) {
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 5df25df123d7..d7248e5c5f01 100644
+index d7248e5c5f01..4d1eb0c19028 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5350,7 +5350,7 @@ static int i40e_init_pf_dcb(struct i40e_pf *pf)
- 	int err = 0;
+@@ -2713,44 +2713,6 @@ static int i40e_vlan_rx_kill_vid(struct net_device *netdev,
+ 	return 0;
+ }
  
- 	/* Do not enable DCB for SW1 and SW2 images even if the FW is capable */
--	if (pf->flags & I40E_FLAG_NO_DCB_SUPPORT)
-+	if (pf->hw_features & I40E_HW_NO_DCB_SUPPORT)
- 		goto out;
- 
- 	/* Get the initial DCB configuration */
-@@ -7332,7 +7332,7 @@ static void i40e_rebuild(struct i40e_pf *pf, bool reinit, bool lock_acquired)
- 		wr32(hw, I40E_REG_MSS, val);
- 	}
- 
--	if (pf->flags & I40E_FLAG_RESTART_AUTONEG) {
-+	if (pf->hw_features & I40E_HW_RESTART_AUTONEG) {
- 		msleep(75);
- 		ret = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
- 		if (ret)
-@@ -7970,7 +7970,7 @@ static int i40e_alloc_rings(struct i40e_vsi *vsi)
- 		ring->count = vsi->num_desc;
- 		ring->size = 0;
- 		ring->dcb_tc = 0;
--		if (vsi->back->flags & I40E_FLAG_WB_ON_ITR_CAPABLE)
-+		if (vsi->back->hw_features & I40E_HW_WB_ON_ITR_CAPABLE)
- 			ring->flags = I40E_TXR_FLAGS_WB_ON_ITR;
- 		ring->tx_itr_setting = pf->tx_itr_default;
- 		vsi->tx_rings[i] = ring++;
-@@ -7987,7 +7987,7 @@ static int i40e_alloc_rings(struct i40e_vsi *vsi)
- 		ring->count = vsi->num_desc;
- 		ring->size = 0;
- 		ring->dcb_tc = 0;
--		if (vsi->back->flags & I40E_FLAG_WB_ON_ITR_CAPABLE)
-+		if (vsi->back->hw_features & I40E_HW_WB_ON_ITR_CAPABLE)
- 			ring->flags = I40E_TXR_FLAGS_WB_ON_ITR;
- 		set_ring_xdp(ring);
- 		ring->tx_itr_setting = pf->tx_itr_default;
-@@ -8523,7 +8523,7 @@ static int i40e_vsi_config_rss(struct i40e_vsi *vsi)
- 	u8 *lut;
- 	int ret;
- 
--	if (!(pf->flags & I40E_FLAG_RSS_AQ_CAPABLE))
-+	if (!(pf->hw_features & I40E_HW_RSS_AQ_CAPABLE))
- 		return 0;
- 
- 	if (!vsi->rss_size)
-@@ -8653,7 +8653,7 @@ int i40e_config_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size)
- {
- 	struct i40e_pf *pf = vsi->back;
- 
--	if (pf->flags & I40E_FLAG_RSS_AQ_CAPABLE)
-+	if (pf->hw_features & I40E_HW_RSS_AQ_CAPABLE)
- 		return i40e_config_rss_aq(vsi, seed, lut, lut_size);
- 	else
- 		return i40e_config_rss_reg(vsi, seed, lut, lut_size);
-@@ -8672,7 +8672,7 @@ int i40e_get_rss(struct i40e_vsi *vsi, u8 *seed, u8 *lut, u16 lut_size)
- {
- 	struct i40e_pf *pf = vsi->back;
- 
--	if (pf->flags & I40E_FLAG_RSS_AQ_CAPABLE)
-+	if (pf->hw_features & I40E_HW_RSS_AQ_CAPABLE)
- 		return i40e_get_rss_aq(vsi, seed, lut, lut_size);
- 	else
- 		return i40e_get_rss_reg(vsi, seed, lut, lut_size);
-@@ -9001,47 +9001,47 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	}
- 
- 	if (pf->hw.mac.type == I40E_MAC_X722) {
--		pf->flags |= I40E_FLAG_RSS_AQ_CAPABLE
--			     | I40E_FLAG_128_QP_RSS_CAPABLE
--			     | I40E_FLAG_HW_ATR_EVICT_CAPABLE
--			     | I40E_FLAG_OUTER_UDP_CSUM_CAPABLE
--			     | I40E_FLAG_WB_ON_ITR_CAPABLE
--			     | I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE
--			     | I40E_FLAG_NO_PCI_LINK_CHECK
--			     | I40E_FLAG_USE_SET_LLDP_MIB
--			     | I40E_FLAG_GENEVE_OFFLOAD_CAPABLE
--			     | I40E_FLAG_PTP_L4_CAPABLE
--			     | I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE;
-+		pf->hw_features |= (I40E_HW_RSS_AQ_CAPABLE |
-+				    I40E_HW_128_QP_RSS_CAPABLE |
-+				    I40E_HW_ATR_EVICT_CAPABLE |
-+				    I40E_HW_WB_ON_ITR_CAPABLE |
-+				    I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE |
-+				    I40E_HW_NO_PCI_LINK_CHECK |
-+				    I40E_HW_USE_SET_LLDP_MIB |
-+				    I40E_HW_GENEVE_OFFLOAD_CAPABLE |
-+				    I40E_HW_PTP_L4_CAPABLE |
-+				    I40E_HW_WOL_MC_MAGIC_PKT_WAKE |
-+				    I40E_HW_OUTER_UDP_CSUM_CAPABLE);
- 	} else if ((pf->hw.aq.api_maj_ver > 1) ||
- 		   ((pf->hw.aq.api_maj_ver == 1) &&
- 		    (pf->hw.aq.api_min_ver > 4))) {
- 		/* Supported in FW API version higher than 1.4 */
--		pf->flags |= I40E_FLAG_GENEVE_OFFLOAD_CAPABLE;
-+		pf->hw_features |= I40E_HW_GENEVE_OFFLOAD_CAPABLE;
- 	}
- 
- 	/* Enable HW ATR eviction if possible */
--	if (pf->flags & I40E_FLAG_HW_ATR_EVICT_CAPABLE)
-+	if (pf->hw_features & I40E_HW_ATR_EVICT_CAPABLE)
- 		pf->flags |= I40E_FLAG_HW_ATR_EVICT_ENABLED;
- 
- 	if ((pf->hw.mac.type == I40E_MAC_XL710) &&
- 	    (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 33)) ||
- 	    (pf->hw.aq.fw_maj_ver < 4))) {
--		pf->flags |= I40E_FLAG_RESTART_AUTONEG;
-+		pf->hw_features |= I40E_HW_RESTART_AUTONEG;
- 		/* No DCB support  for FW < v4.33 */
--		pf->flags |= I40E_FLAG_NO_DCB_SUPPORT;
-+		pf->hw_features |= I40E_HW_NO_DCB_SUPPORT;
- 	}
- 
- 	/* Disable FW LLDP if FW < v4.3 */
- 	if ((pf->hw.mac.type == I40E_MAC_XL710) &&
- 	    (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 3)) ||
- 	    (pf->hw.aq.fw_maj_ver < 4)))
--		pf->flags |= I40E_FLAG_STOP_FW_LLDP;
-+		pf->hw_features |= I40E_HW_STOP_FW_LLDP;
- 
- 	/* Use the FW Set LLDP MIB API if FW > v4.40 */
- 	if ((pf->hw.mac.type == I40E_MAC_XL710) &&
- 	    (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver >= 40)) ||
- 	    (pf->hw.aq.fw_maj_ver >= 5)))
--		pf->flags |= I40E_FLAG_USE_SET_LLDP_MIB;
-+		pf->hw_features |= I40E_HW_USE_SET_LLDP_MIB;
- 
- 	if (pf->hw.func_caps.vmdq) {
- 		pf->num_vmdq_vsis = I40E_DEFAULT_NUM_VMDQ_VSI;
-@@ -9244,7 +9244,7 @@ static void i40e_udp_tunnel_add(struct net_device *netdev,
- 		pf->udp_ports[next_idx].type = I40E_AQC_TUNNEL_TYPE_VXLAN;
- 		break;
- 	case UDP_TUNNEL_TYPE_GENEVE:
--		if (!(pf->flags & I40E_FLAG_GENEVE_OFFLOAD_CAPABLE))
-+		if (!(pf->hw_features & I40E_HW_GENEVE_OFFLOAD_CAPABLE))
- 			return;
- 		pf->udp_ports[next_idx].type = I40E_AQC_TUNNEL_TYPE_NGE;
- 		break;
-@@ -9311,7 +9311,7 @@ static int i40e_get_phys_port_id(struct net_device *netdev,
- 	struct i40e_pf *pf = np->vsi->back;
- 	struct i40e_hw *hw = &pf->hw;
- 
--	if (!(pf->flags & I40E_FLAG_PORT_ID_VALID))
-+	if (!(pf->hw_features & I40E_HW_PORT_ID_VALID))
- 		return -EOPNOTSUPP;
- 
- 	ppid->id_len = min_t(int, sizeof(hw->mac.port_addr), sizeof(ppid->id));
-@@ -9689,7 +9689,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 			  NETIF_F_RXCSUM		|
- 			  0;
- 
--	if (!(pf->flags & I40E_FLAG_OUTER_UDP_CSUM_CAPABLE))
-+	if (!(pf->hw_features & I40E_HW_OUTER_UDP_CSUM_CAPABLE))
- 		netdev->gso_partial_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
- 
- 	netdev->gso_partial_features |= NETIF_F_GSO_GRE_CSUM;
-@@ -10447,7 +10447,7 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
- 		break;
- 	}
- 
--	if ((pf->flags & I40E_FLAG_RSS_AQ_CAPABLE) &&
-+	if ((pf->hw_features & I40E_HW_RSS_AQ_CAPABLE) &&
- 	    (vsi->type == I40E_VSI_VMDQ2)) {
- 		ret = i40e_vsi_config_rss(vsi);
- 	}
-@@ -11456,7 +11456,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 * Ignore error return codes because if it was already disabled via
- 	 * hardware settings this will fail
- 	 */
--	if (pf->flags & I40E_FLAG_STOP_FW_LLDP) {
-+	if (pf->hw_features & I40E_HW_STOP_FW_LLDP) {
- 		dev_info(&pdev->dev, "Stopping firmware LLDP agent.\n");
- 		i40e_aq_stop_lldp(hw, true, NULL);
- 	}
-@@ -11473,7 +11473,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	ether_addr_copy(hw->mac.perm_addr, hw->mac.addr);
- 	i40e_get_port_mac_addr(hw, hw->mac.port_addr);
- 	if (is_valid_ether_addr(hw->mac.port_addr))
--		pf->flags |= I40E_FLAG_PORT_ID_VALID;
-+		pf->hw_features |= I40E_HW_PORT_ID_VALID;
- 
- 	pci_set_drvdata(pdev, pf);
- 	pci_save_state(pdev);
-@@ -11589,7 +11589,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		wr32(hw, I40E_REG_MSS, val);
- 	}
- 
--	if (pf->flags & I40E_FLAG_RESTART_AUTONEG) {
-+	if (pf->hw_features & I40E_HW_RESTART_AUTONEG) {
- 		msleep(75);
- 		err = i40e_aq_set_link_restart_an(&pf->hw, true, NULL);
- 		if (err)
-@@ -11676,7 +11676,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 * and will report PCI Gen 1 x 1 by default so don't bother
- 	 * checking them.
- 	 */
--	if (!(pf->flags & I40E_FLAG_NO_PCI_LINK_CHECK)) {
-+	if (!(pf->hw_features & I40E_HW_NO_PCI_LINK_CHECK)) {
- 		char speed[PCI_SPEED_SIZE] = "Unknown";
- 		char width[PCI_WIDTH_SIZE] = "Unknown";
- 
-@@ -11747,9 +11747,9 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	if ((pf->hw.device_id == I40E_DEV_ID_10G_BASE_T) ||
- 		(pf->hw.device_id == I40E_DEV_ID_10G_BASE_T4))
--		pf->flags |= I40E_FLAG_PHY_CONTROLS_LEDS;
-+		pf->hw_features |= I40E_HW_PHY_CONTROLS_LEDS;
- 	if (pf->hw.device_id == I40E_DEV_ID_SFP_I_X722)
--		pf->flags |= I40E_FLAG_HAVE_CRT_RETIMER;
-+		pf->hw_features |= I40E_HW_HAVE_CRT_RETIMER;
- 	/* print a string summarizing features */
- 	i40e_print_features(pf);
- 
-@@ -12061,7 +12061,7 @@ static void i40e_shutdown(struct pci_dev *pdev)
- 	 */
- 	i40e_notify_client_of_netdev_close(pf->vsi[pf->lan_vsi], false);
- 
--	if (pf->wol_en && (pf->flags & I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE))
-+	if (pf->wol_en && (pf->hw_features & I40E_HW_WOL_MC_MAGIC_PKT_WAKE))
- 		i40e_enable_mc_magic_wake(pf);
- 
- 	i40e_prep_for_reset(pf, false);
-@@ -12093,7 +12093,7 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- 	set_bit(__I40E_SUSPENDED, pf->state);
- 	set_bit(__I40E_DOWN, pf->state);
- 
--	if (pf->wol_en && (pf->flags & I40E_FLAG_WOL_MC_MAGIC_PKT_WAKE))
-+	if (pf->wol_en && (pf->hw_features & I40E_HW_WOL_MC_MAGIC_PKT_WAKE))
- 		i40e_enable_mc_magic_wake(pf);
- 
- 	i40e_prep_for_reset(pf, false);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index 0129ed3b78ec..d8456c381c99 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -569,7 +569,7 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
- 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
- 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
--		if (!(pf->flags & I40E_FLAG_PTP_L4_CAPABLE))
-+		if (!(pf->hw_features & I40E_HW_PTP_L4_CAPABLE))
- 			return -ERANGE;
- 		pf->ptp_rx = true;
- 		tsyntype = I40E_PRTTSYN_CTL1_V1MESSTYPE0_MASK |
-@@ -583,7 +583,7 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
- 	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
- 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
--		if (!(pf->flags & I40E_FLAG_PTP_L4_CAPABLE))
-+		if (!(pf->hw_features & I40E_HW_PTP_L4_CAPABLE))
- 			return -ERANGE;
- 		/* fall through */
- 	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
-@@ -592,7 +592,7 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
- 		pf->ptp_rx = true;
- 		tsyntype = I40E_PRTTSYN_CTL1_V2MESSTYPE0_MASK |
- 			   I40E_PRTTSYN_CTL1_TSYNTYPE_V2;
--		if (pf->flags & I40E_FLAG_PTP_L4_CAPABLE) {
-+		if (pf->hw_features & I40E_HW_PTP_L4_CAPABLE) {
- 			tsyntype |= I40E_PRTTSYN_CTL1_UDP_ENA_MASK;
- 			config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
- 		} else {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index a39892d2453d..f0a0eabc2666 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -112,7 +112,7 @@ enum i40e_dyn_idx_t {
- 	BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP))
- 
- #define i40e_pf_get_default_rss_hena(pf) \
--	(((pf)->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE) ? \
-+	(((pf)->hw_features & I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE) ? \
- 	  I40E_DEFAULT_RSS_HENA_EXPANDED : I40E_DEFAULT_RSS_HENA)
- 
- /* Supported Rx Buffer Sizes (a multiple of 128) */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 979110d59f67..3ef67dc094fc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1542,14 +1542,14 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_PF) {
- 		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_PF;
- 	} else {
--		if ((pf->flags & I40E_FLAG_RSS_AQ_CAPABLE) &&
-+		if ((pf->hw_features & I40E_HW_RSS_AQ_CAPABLE) &&
- 		    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_AQ))
- 			vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_AQ;
- 		else
- 			vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_REG;
- 	}
- 
--	if (pf->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE) {
-+	if (pf->hw_features & I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE) {
- 		if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
- 			vfres->vf_offload_flags |=
- 				VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2;
-@@ -1558,7 +1558,7 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_ENCAP)
- 		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP;
- 
--	if ((pf->flags & I40E_FLAG_OUTER_UDP_CSUM_CAPABLE) &&
-+	if ((pf->hw_features & I40E_HW_OUTER_UDP_CSUM_CAPABLE) &&
- 	    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM))
- 		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM;
- 
-@@ -1573,7 +1573,7 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RX_POLLING;
- 	}
- 
--	if (pf->flags & I40E_FLAG_WB_ON_ITR_CAPABLE) {
-+	if (pf->hw_features & I40E_HW_WB_ON_ITR_CAPABLE) {
- 		if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
- 			vfres->vf_offload_flags |=
- 					VIRTCHNL_VF_OFFLOAD_WB_ON_ITR;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index 472f606629d4..489684002e94 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -98,10 +98,6 @@ enum i40e_dyn_idx_t {
- 	BIT_ULL(I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP) | \
- 	BIT_ULL(I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP))
- 
--#define i40e_pf_get_default_rss_hena(pf) \
--	(((pf)->flags & I40E_FLAG_MULTIPLE_TCP_UDP_RSS_PCTYPE) ? \
--	  I40E_DEFAULT_RSS_HENA_EXPANDED : I40E_DEFAULT_RSS_HENA)
+-/**
+- * i40e_macaddr_init - explicitly write the mac address filters
+- *
+- * @vsi: pointer to the vsi
+- * @macaddr: the MAC address
+- *
+- * This is needed when the macaddr has been obtained by other
+- * means than the default, e.g., from Open Firmware or IDPROM.
+- * Returns 0 on success, negative on failure
+- **/
+-static int i40e_macaddr_init(struct i40e_vsi *vsi, u8 *macaddr)
+-{
+-	int ret;
+-	struct i40e_aqc_add_macvlan_element_data element;
 -
- /* Supported Rx Buffer Sizes (a multiple of 128) */
- #define I40E_RXBUFFER_256   256
- #define I40E_RXBUFFER_1536  1536  /* 128B aligned standard Ethernet frame */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 52cf38f47349..7f905368fc93 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -238,8 +238,6 @@ struct i40evf_adapter {
- /* duplicates for common code */
- #define I40E_FLAG_DCB_ENABLED			0
- #define I40E_FLAG_RX_CSUM_ENABLED		I40EVF_FLAG_RX_CSUM_ENABLED
--#define I40E_FLAG_WB_ON_ITR_CAPABLE		I40EVF_FLAG_WB_ON_ITR_CAPABLE
--#define I40E_FLAG_OUTER_UDP_CSUM_CAPABLE	I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE
- #define I40E_FLAG_LEGACY_RX			I40EVF_FLAG_LEGACY_RX
- 	/* flags for admin queue service task */
- 	u32 aq_required;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 21ab3ff5e9ec..8603911cc550 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1242,7 +1242,7 @@ static int i40evf_alloc_queues(struct i40evf_adapter *adapter)
- 		tx_ring->dev = &adapter->pdev->dev;
- 		tx_ring->count = adapter->tx_desc_count;
- 		tx_ring->tx_itr_setting = (I40E_ITR_DYNAMIC | I40E_ITR_TX_DEF);
--		if (adapter->flags & I40E_FLAG_WB_ON_ITR_CAPABLE)
-+		if (adapter->flags & I40EVF_FLAG_WB_ON_ITR_CAPABLE)
- 			tx_ring->flags |= I40E_TXR_FLAGS_WB_ON_ITR;
+-	ret = i40e_aq_mac_address_write(&vsi->back->hw,
+-					I40E_AQC_WRITE_TYPE_LAA_WOL,
+-					macaddr, NULL);
+-	if (ret) {
+-		dev_info(&vsi->back->pdev->dev,
+-			 "Addr change for VSI failed: %d\n", ret);
+-		return -EADDRNOTAVAIL;
+-	}
+-
+-	memset(&element, 0, sizeof(element));
+-	ether_addr_copy(element.mac_addr, macaddr);
+-	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
+-	ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
+-	if (ret) {
+-		dev_info(&vsi->back->pdev->dev,
+-			 "add filter failed err %s aq_err %s\n",
+-			 i40e_stat_str(&vsi->back->hw, ret),
+-			 i40e_aq_str(&vsi->back->hw,
+-				     vsi->back->hw.aq.asq_last_status));
+-	}
+-	return ret;
+-}
+-
+ /**
+  * i40e_restore_vlan - Reinstate vlans when vsi/netdev comes back up
+  * @vsi: the vsi being brought back up
+@@ -3203,19 +3165,8 @@ static void i40e_vsi_config_dcb_rings(struct i40e_vsi *vsi)
+  **/
+ static void i40e_set_vsi_rx_mode(struct i40e_vsi *vsi)
+ {
+-	struct i40e_pf *pf = vsi->back;
+-	int err;
+-
+ 	if (vsi->netdev)
+ 		i40e_set_rx_mode(vsi->netdev);
+-
+-	if (!!(pf->flags & I40E_FLAG_PF_MAC)) {
+-		err = i40e_macaddr_init(vsi, pf->hw.mac.addr);
+-		if (err) {
+-			dev_warn(&pf->pdev->dev,
+-				 "could not set up macaddr; err %d\n", err);
+-		}
+-	}
+ }
  
- 		rx_ring = &adapter->rx_rings[i];
+ /**
+@@ -10400,17 +10351,6 @@ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
+ 	switch (vsi->type) {
+ 	/* setup the netdev if needed */
+ 	case I40E_VSI_MAIN:
+-		/* Apply relevant filters if a platform-specific mac
+-		 * address was selected.
+-		 */
+-		if (!!(pf->flags & I40E_FLAG_PF_MAC)) {
+-			ret = i40e_macaddr_init(vsi, pf->hw.mac.addr);
+-			if (ret) {
+-				dev_warn(&pf->pdev->dev,
+-					 "could not set up macaddr; err %d\n",
+-					 ret);
+-			}
+-		}
+ 	case I40E_VSI_VMDQ2:
+ 		ret = i40e_config_netdev(vsi);
+ 		if (ret)
 -- 
 2.14.0
