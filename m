@@ -1,157 +1,149 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/4] i40evf: prevent VF close returning before state tranistions to DOWN
-Date: Sat, 12 Aug 2017 04:08:35 -0700
-Message-ID: <20170812110848.18264-4-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] i40e: prevent changing ITR if adaptive-rx/tx enabled
+Date: Sat, 12 Aug 2017 04:08:47 -0700
+Message-ID: <20170812110848.18264-16-jeffrey.t.kirsher@intel.com>
 References: <20170812110848.18264-1-jeffrey.t.kirsher@intel.com>
-Cc: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7745 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:54045 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750885AbdHLLIx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 07:08:53 -0400
+        id S1751975AbdHLLI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 07:08:57 -0400
 In-Reply-To: <20170812110848.18264-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
+From: Alan Brady <alan.brady@intel.com>
 
-Currently i40evf_close() can return before state transitions to
-__I40EVF_DOWN because of the latency involved in processing and
-receiving response from PF driver and scheduling of VF watchdog_task.
-Due to this inconsistency an immediate call to i40evf_open() fails
-because state is still DOWN_PENDING.
+Currently the driver allows the user to change (or even disable)
+interrupt moderation if adaptive-rx/tx is enabled when this should
+not be the case.
 
-When a VF interface is in up state and we try to add it as slave,
-The bonding driver calls dev_close() and dev_open() in short duration
-resulting in dev_open returning error. The ifenslave command needs
-to be run again for dev_open to succeed.
+Adaptive RX/TX will not respect the user's ITR settings so
+allowing the user to change it is weird.  This bug would also
+allow the user to disable interrupt moderation with adaptive-rx/tx
+enabled which doesn't make much sense either.
 
-This fix ensures that watchdog timer is scheduled immediately after
-admin queue operations are scheduled in i40evf_down(). In addition a
-wait condition is added at the end of i40evf_close so that function
-wont return when state is still DOWN_PENDING. The timeout value is
-chosen after some profiling and includes some buffer.
+This patch makes it such that if adaptive-rx/tx is enabled, the user
+cannot make any manual adjustments to interrupt moderation.  It also
+makes it so that if ITR is disabled but adaptive-rx/tx is then
+enabled, ITR will be re-enabled.
 
-Signed-off-by: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
+Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf.h          |  2 ++
- drivers/net/ethernet/intel/i40evf/i40evf_main.c     | 19 +++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c |  4 +++-
- 3 files changed, 24 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 65 +++++++++++++++++---------
+ 1 file changed, 43 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 7901cc85cbe5..52cf38f47349 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -43,6 +43,7 @@
- #include <linux/bitops.h>
- #include <linux/timer.h>
- #include <linux/workqueue.h>
-+#include <linux/wait.h>
- #include <linux/delay.h>
- #include <linux/gfp.h>
- #include <linux/skbuff.h>
-@@ -194,6 +195,7 @@ struct i40evf_adapter {
- 	struct work_struct adminq_task;
- 	struct delayed_work client_task;
- 	struct delayed_work init_task;
-+	wait_queue_head_t down_waitqueue;
- 	struct i40e_q_vector *q_vectors;
- 	struct list_head vlan_filter_list;
- 	char misc_vector_name[IFNAMSIZ + 9];
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 9e719074a7d7..2b81b4bc13a9 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1143,6 +1143,7 @@ void i40evf_down(struct i40evf_adapter *adapter)
- 	}
- 
- 	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
-+	mod_timer_pending(&adapter->watchdog_timer, jiffies + 1);
- }
- 
- /**
-@@ -1794,6 +1795,7 @@ static void i40evf_disable_vf(struct i40evf_adapter *adapter)
- 	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
- 	adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
- 	adapter->state = __I40EVF_DOWN;
-+	wake_up(&adapter->down_waitqueue);
- 	dev_info(&adapter->pdev->dev, "Reset task did not complete, VF disabled\n");
- }
- 
-@@ -1939,6 +1941,7 @@ static void i40evf_reset_task(struct work_struct *work)
- 		i40evf_irq_enable(adapter, true);
- 	} else {
- 		adapter->state = __I40EVF_DOWN;
-+		wake_up(&adapter->down_waitqueue);
- 	}
- 
- 	return;
-@@ -2238,6 +2241,7 @@ static int i40evf_open(struct net_device *netdev)
- static int i40evf_close(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index a868c8d4fec9..05e89864f781 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -2194,14 +2194,29 @@ static int __i40e_set_coalesce(struct net_device *netdev,
+ 			       int queue)
  {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
-+	int status;
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	u16 intrl_reg, cur_rx_itr, cur_tx_itr;
+ 	struct i40e_vsi *vsi = np->vsi;
+ 	struct i40e_pf *pf = vsi->back;
+-	u16 intrl_reg;
+ 	int i;
  
- 	if (adapter->state <= __I40EVF_DOWN_PENDING)
- 		return 0;
-@@ -2255,7 +2259,18 @@ static int i40evf_close(struct net_device *netdev)
- 	 * still active and can DMA into memory. Resources are cleared in
- 	 * i40evf_virtchnl_completion() after we get confirmation from the PF
- 	 * driver that the rings have been stopped.
-+	 *
-+	 * Also, we wait for state to transition to __I40EVF_DOWN before
-+	 * returning. State change occurs in i40evf_virtchnl_completion() after
-+	 * VF resources are released (which occurs after PF driver processes and
-+	 * responds to admin queue commands).
+ 	if (ec->tx_max_coalesced_frames_irq || ec->rx_max_coalesced_frames_irq)
+ 		vsi->work_limit = ec->tx_max_coalesced_frames_irq;
+ 
++	if (queue < 0) {
++		cur_rx_itr = vsi->rx_rings[0]->rx_itr_setting;
++		cur_tx_itr = vsi->tx_rings[0]->tx_itr_setting;
++	} else if (queue < vsi->num_queue_pairs) {
++		cur_rx_itr = vsi->rx_rings[queue]->rx_itr_setting;
++		cur_tx_itr = vsi->tx_rings[queue]->tx_itr_setting;
++	} else {
++		netif_info(pf, drv, netdev, "Invalid queue value, queue range is 0 - %d\n",
++			   vsi->num_queue_pairs - 1);
++		return -EINVAL;
++	}
++
++	cur_tx_itr &= ~I40E_ITR_DYNAMIC;
++	cur_rx_itr &= ~I40E_ITR_DYNAMIC;
++
+ 	/* tx_coalesce_usecs_high is ignored, use rx-usecs-high instead */
+ 	if (ec->tx_coalesce_usecs_high != vsi->int_rate_limit) {
+ 		netif_info(pf, drv, netdev, "tx-usecs-high is not used, please program rx-usecs-high\n");
+@@ -2214,15 +2229,34 @@ static int __i40e_set_coalesce(struct net_device *netdev,
+ 		return -EINVAL;
+ 	}
+ 
+-	if (ec->rx_coalesce_usecs == 0) {
+-		if (ec->use_adaptive_rx_coalesce)
+-			netif_info(pf, drv, netdev, "rx-usecs=0, need to disable adaptive-rx for a complete disable\n");
+-	} else if ((ec->rx_coalesce_usecs < (I40E_MIN_ITR << 1)) ||
+-		   (ec->rx_coalesce_usecs > (I40E_MAX_ITR << 1))) {
+-			netif_info(pf, drv, netdev, "Invalid value, rx-usecs range is 0-8160\n");
+-			return -EINVAL;
++	if (ec->rx_coalesce_usecs != cur_rx_itr &&
++	    ec->use_adaptive_rx_coalesce) {
++		netif_info(pf, drv, netdev, "RX interrupt moderation cannot be changed if adaptive-rx is enabled.\n");
++		return -EINVAL;
++	}
++
++	if (ec->rx_coalesce_usecs > (I40E_MAX_ITR << 1)) {
++		netif_info(pf, drv, netdev, "Invalid value, rx-usecs range is 0-8160\n");
++		return -EINVAL;
+ 	}
+ 
++	if (ec->tx_coalesce_usecs != cur_tx_itr &&
++	    ec->use_adaptive_tx_coalesce) {
++		netif_info(pf, drv, netdev, "TX interrupt moderation cannot be changed if adaptive-tx is enabled.\n");
++		return -EINVAL;
++	}
++
++	if (ec->tx_coalesce_usecs > (I40E_MAX_ITR << 1)) {
++		netif_info(pf, drv, netdev, "Invalid value, tx-usecs range is 0-8160\n");
++		return -EINVAL;
++	}
++
++	if (ec->use_adaptive_rx_coalesce && !cur_rx_itr)
++		ec->rx_coalesce_usecs = I40E_MIN_ITR << 1;
++
++	if (ec->use_adaptive_tx_coalesce && !cur_tx_itr)
++		ec->tx_coalesce_usecs = I40E_MIN_ITR << 1;
++
+ 	intrl_reg = i40e_intrl_usec_to_reg(ec->rx_coalesce_usecs_high);
+ 	vsi->int_rate_limit = INTRL_REG_TO_USEC(intrl_reg);
+ 	if (vsi->int_rate_limit != ec->rx_coalesce_usecs_high) {
+@@ -2230,27 +2264,14 @@ static int __i40e_set_coalesce(struct net_device *netdev,
+ 			   vsi->int_rate_limit);
+ 	}
+ 
+-	if (ec->tx_coalesce_usecs == 0) {
+-		if (ec->use_adaptive_tx_coalesce)
+-			netif_info(pf, drv, netdev, "tx-usecs=0, need to disable adaptive-tx for a complete disable\n");
+-	} else if ((ec->tx_coalesce_usecs < (I40E_MIN_ITR << 1)) ||
+-		   (ec->tx_coalesce_usecs > (I40E_MAX_ITR << 1))) {
+-			netif_info(pf, drv, netdev, "Invalid value, tx-usecs range is 0-8160\n");
+-			return -EINVAL;
+-	}
+-
+ 	/* rx and tx usecs has per queue value. If user doesn't specify the queue,
+ 	 * apply to all queues.
  	 */
-+
-+	status = wait_event_timeout(adapter->down_waitqueue,
-+				    adapter->state == __I40EVF_DOWN,
-+				    msecs_to_jiffies(200));
-+	if (!status)
-+		netdev_warn(netdev, "Device resources not yet released\n");
+ 	if (queue < 0) {
+ 		for (i = 0; i < vsi->num_queue_pairs; i++)
+ 			i40e_set_itr_per_queue(vsi, ec, i);
+-	} else if (queue < vsi->num_queue_pairs) {
+-		i40e_set_itr_per_queue(vsi, ec, queue);
+ 	} else {
+-		netif_info(pf, drv, netdev, "Invalid queue value, queue range is 0 - %d\n",
+-			   vsi->num_queue_pairs - 1);
+-		return -EINVAL;
++		i40e_set_itr_per_queue(vsi, ec, queue);
+ 	}
+ 
  	return 0;
- }
- 
-@@ -2684,6 +2699,7 @@ static void i40evf_init_task(struct work_struct *work)
- 	adapter->state = __I40EVF_DOWN;
- 	set_bit(__I40E_VSI_DOWN, adapter->vsi.state);
- 	i40evf_misc_irq_enable(adapter);
-+	wake_up(&adapter->down_waitqueue);
- 
- 	adapter->rss_key = kzalloc(adapter->rss_key_size, GFP_KERNEL);
- 	adapter->rss_lut = kzalloc(adapter->rss_lut_size, GFP_KERNEL);
-@@ -2845,6 +2861,9 @@ static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	schedule_delayed_work(&adapter->init_task,
- 			      msecs_to_jiffies(5 * (pdev->devfn & 0x07)));
- 
-+	/* Setup the wait queue for indicating transition to down status */
-+	init_waitqueue_head(&adapter->down_waitqueue);
-+
- 	return 0;
- 
- err_ioremap:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index d2bb250a71af..6c403bf1bbb8 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -991,8 +991,10 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 	case VIRTCHNL_OP_DISABLE_QUEUES:
- 		i40evf_free_all_tx_resources(adapter);
- 		i40evf_free_all_rx_resources(adapter);
--		if (adapter->state == __I40EVF_DOWN_PENDING)
-+		if (adapter->state == __I40EVF_DOWN_PENDING) {
- 			adapter->state = __I40EVF_DOWN;
-+			wake_up(&adapter->down_waitqueue);
-+		}
- 		break;
- 	case VIRTCHNL_OP_VERSION:
- 	case VIRTCHNL_OP_CONFIG_IRQ_MAP:
 -- 
 2.14.0
