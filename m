@@ -1,284 +1,60 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: update debug console logging mechanism
-Date: Fri, 11 Aug 2017 18:43:14 -0700
-Message-ID: <20170812014314.GA1012@felix-thinkpad.cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        ricardo.farrington@cavium.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0046.outbound.protection.outlook.com ([104.47.37.46]:6646
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751770AbdHLBnV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Aug 2017 21:43:21 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Subject: Re: [PATCH 5/5] e1000e: Avoid receiver overrun interrupt bursts
+Date: Fri, 11 Aug 2017 20:13:47 -0600
+Message-ID: <49B1F3E9-2A99-4AD6-9574-FC3960E67A77@redfish-solutions.com>
+References: <20170721160937.GA22632@csclub.uwaterloo.ca>
+ <20170721183627.13373-1-bpoirier@suse.com>
+ <20170721183627.13373-5-bpoirier@suse.com>
+ <20170721184848.GU18556@csclub.uwaterloo.ca>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Benjamin Poirier <bpoirier@suse.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170721184848.GU18556@csclub.uwaterloo.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rick Farrington <ricardo.farrington@cavium.com>
 
-- remove logging dependency upon global func octeon_console_debug_enabled()
-- abstract debug console logging using console structure (via function ptr)
-  to allow for more flexible logging
+> On Jul 21, 2017, at 12:48 PM, Lennart Sorensen <lsorense@csclub.uwaterloo.ca> wrote:
+> 
+> On Fri, Jul 21, 2017 at 11:36:27AM -0700, Benjamin Poirier wrote:
+>> When e1000e_poll() is not fast enough to keep up with incoming traffic, the
+>> adapter (when operating in msix mode) raises the Other interrupt to signal
+>> Receiver Overrun.
+>> 
+>> This is a double problem because 1) at the moment e1000_msix_other()
+>> assumes that it is only called in case of Link Status Change and 2) if the
+>> condition persists, the interrupt is repeatedly raised again in quick
+>> succession.
+>> 
+>> Ideally we would configure the Other interrupt to not be raised in case of
+>> receiver overrun but this doesn't seem possible on this adapter. Instead,
+>> we handle the first part of the problem by reverting to the practice of
+>> reading ICR in the other interrupt handler, like before commit 16ecba59bc33
+>> ("e1000e: Do not read ICR in Other interrupt"). Thanks to commit
+>> 0a8047ac68e5 ("e1000e: Fix msi-x interrupt automask") which cleared IAME
+>> from CTRL_EXT, reading ICR doesn't interfere with RxQ0, TxQ0 interrupts
+>> anymore. We handle the second part of the problem by not re-enabling the
+>> Other interrupt right away when there is overrun. Instead, we wait until
+>> traffic subsides, napi polling mode is exited and interrupts are
+>> re-enabled.
+>> 
+>> Reported-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+>> Fixes: 16ecba59bc33 ("e1000e: Do not read ICR in Other interrupt")
+>> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> 
+> Any chance of this fix hitting -stable?  After all adapter reset under
+> load is not nice.
+> 
 
-Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 44 +++++++++++++++++-
- .../net/ethernet/cavium/liquidio/octeon_console.c  | 54 ++++++++++++++--------
- .../net/ethernet/cavium/liquidio/octeon_device.h   | 17 +++++--
- 3 files changed, 90 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index cbd6287..a5b752e 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -73,7 +73,7 @@
-  * @param console console to check
-  * @returns  1 = enabled. 0 otherwise
-  */
--int octeon_console_debug_enabled(u32 console)
-+static int octeon_console_debug_enabled(u32 console)
- {
- 	return (console_bitmask >> (console)) & 0x1;
- }
-@@ -187,6 +187,9 @@ struct octeon_device_priv {
- static int liquidio_enable_sriov(struct pci_dev *dev, int num_vfs);
- #endif
- 
-+static int octeon_dbg_console_print(struct octeon_device *oct, u32 console_num,
-+				    char *prefix, char *suffix);
-+
- static int octeon_device_init(struct octeon_device *);
- static int liquidio_stop(struct net_device *netdev);
- static void liquidio_remove(struct pci_dev *pdev);
-@@ -4555,6 +4558,7 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 	int j, ret;
- 	int fw_loaded = 0;
- 	char bootcmd[] = "\n";
-+	char *dbg_enb = NULL;
- 	struct octeon_device_priv *oct_priv =
- 		(struct octeon_device_priv *)octeon_dev->priv;
- 	atomic_set(&octeon_dev->status, OCT_DEV_BEGIN_STATE);
-@@ -4761,10 +4765,19 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 			dev_err(&octeon_dev->pci_dev->dev, "Could not access board consoles\n");
- 			return 1;
- 		}
--		ret = octeon_add_console(octeon_dev, 0);
-+		/* If console debug enabled, specify empty string to use default
-+		 * enablement ELSE specify NULL string for 'disabled'.
-+		 */
-+		dbg_enb = octeon_console_debug_enabled(0) ? "" : NULL;
-+		ret = octeon_add_console(octeon_dev, 0, dbg_enb);
- 		if (ret) {
- 			dev_err(&octeon_dev->pci_dev->dev, "Could not access board console\n");
- 			return 1;
-+		} else if (octeon_console_debug_enabled(0)) {
-+			/* If console was added AND we're logging console output
-+			 * then set our console print function.
-+			 */
-+			octeon_dev->console[0].print = octeon_dbg_console_print;
- 		}
- 
- 		atomic_set(&octeon_dev->status, OCT_DEV_CONSOLE_INIT_DONE);
-@@ -4800,6 +4813,33 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- }
- 
- /**
-+ * \brief Debug console print function
-+ * @param octeon_dev  octeon device
-+ * @param console_num console number
-+ * @param prefix      first portion of line to display
-+ * @param suffix      second portion of line to display
-+ *
-+ * The OCTEON debug console outputs entire lines (excluding '\n').
-+ * Normally, the line will be passed in the 'prefix' parameter.
-+ * However, due to buffering, it is possible for a line to be split into two
-+ * parts, in which case they will be passed as the 'prefix' parameter and
-+ * 'suffix' parameter.
-+ */
-+static int octeon_dbg_console_print(struct octeon_device *oct, u32 console_num,
-+				    char *prefix, char *suffix)
-+{
-+	if (prefix && suffix)
-+		dev_info(&oct->pci_dev->dev, "%u: %s%s\n", console_num, prefix,
-+			 suffix);
-+	else if (prefix)
-+		dev_info(&oct->pci_dev->dev, "%u: %s\n", console_num, prefix);
-+	else if (suffix)
-+		dev_info(&oct->pci_dev->dev, "%u: %s\n", console_num, suffix);
-+
-+	return 0;
-+}
-+
-+/**
-  * \brief Exits the module
-  */
- static void __exit liquidio_exit(void)
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-index dd0efc9..19e5212 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-@@ -437,20 +437,31 @@ static void output_console_line(struct octeon_device *oct,
- {
- 	char *line;
- 	s32 i;
-+	size_t len;
- 
- 	line = console_buffer;
- 	for (i = 0; i < bytes_read; i++) {
- 		/* Output a line at a time, prefixed */
- 		if (console_buffer[i] == '\n') {
- 			console_buffer[i] = '\0';
--			if (console->leftover[0]) {
--				dev_info(&oct->pci_dev->dev, "%lu: %s%s\n",
--					 console_num, console->leftover,
--					 line);
-+			/* We need to output 'line', prefaced by 'leftover'.
-+			 * However, it is possible we're being called to
-+			 * output 'leftover' by itself (in the case of nothing
-+			 * having been read from the console).
-+			 *
-+			 * To avoid duplication, check for this condition.
-+			 */
-+			if (console->leftover[0] &&
-+			    (line != console->leftover)) {
-+				if (console->print)
-+					(*console->print)(oct, (u32)console_num,
-+							  console->leftover,
-+							  line);
- 				console->leftover[0] = '\0';
- 			} else {
--				dev_info(&oct->pci_dev->dev, "%lu: %s\n",
--					 console_num, line);
-+				if (console->print)
-+					(*console->print)(oct, (u32)console_num,
-+							  line, NULL);
- 			}
- 			line = &console_buffer[i + 1];
- 		}
-@@ -459,13 +470,16 @@ static void output_console_line(struct octeon_device *oct,
- 	/* Save off any leftovers */
- 	if (line != &console_buffer[bytes_read]) {
- 		console_buffer[bytes_read] = '\0';
--		strcpy(console->leftover, line);
-+		len = strlen(console->leftover);
-+		strncpy(&console->leftover[len], line,
-+			sizeof(console->leftover) - len);
- 	}
- }
- 
- static void check_console(struct work_struct *work)
- {
- 	s32 bytes_read, tries, total_read;
-+	size_t len;
- 	struct octeon_console *console;
- 	struct cavium_wk *wk = (struct cavium_wk *)work;
- 	struct octeon_device *oct = (struct octeon_device *)wk->ctxptr;
-@@ -487,7 +501,7 @@ static void check_console(struct work_struct *work)
- 			total_read += bytes_read;
- 			if (console->waiting)
- 				octeon_console_handle_result(oct, console_num);
--			if (octeon_console_debug_enabled(console_num)) {
-+			if (console->print) {
- 				output_console_line(oct, console, console_num,
- 						    console_buffer, bytes_read);
- 			}
-@@ -502,10 +516,13 @@ static void check_console(struct work_struct *work)
- 	/* If nothing is read after polling the console,
- 	 * output any leftovers if any
- 	 */
--	if (octeon_console_debug_enabled(console_num) &&
--	    (total_read == 0) && (console->leftover[0])) {
--		dev_info(&oct->pci_dev->dev, "%u: %s\n",
--			 console_num, console->leftover);
-+	if (console->print && (total_read == 0) &&
-+	    (console->leftover[0])) {
-+		/* append '\n' as terminator for 'output_console_line' */
-+		len = strlen(console->leftover);
-+		console->leftover[len] = '\n';
-+		output_console_line(oct, console, console_num,
-+				    console->leftover, (s32)(len + 1));
- 		console->leftover[0] = '\0';
- 	}
- 
-@@ -557,7 +574,8 @@ int octeon_init_consoles(struct octeon_device *oct)
- 	return ret;
- }
- 
--int octeon_add_console(struct octeon_device *oct, u32 console_num)
-+int octeon_add_console(struct octeon_device *oct, u32 console_num,
-+		       char *dbg_enb)
- {
- 	int ret = 0;
- 	u32 delay;
-@@ -599,11 +617,11 @@ int octeon_add_console(struct octeon_device *oct, u32 console_num)
- 		delay = OCTEON_CONSOLE_POLL_INTERVAL_MS;
- 		schedule_delayed_work(work, msecs_to_jiffies(delay));
- 
--		if (octeon_console_debug_enabled(console_num)) {
--			ret = octeon_console_send_cmd(oct,
--						      "setenv pci_console_active 1",
--						      2000);
--		}
-+		/* an empty string means use default debug console enablement */
-+		if (dbg_enb && !dbg_enb[0])
-+			dbg_enb = "setenv pci_console_active 1";
-+		if (dbg_enb)
-+			ret = octeon_console_send_cmd(oct, dbg_enb, 2000);
- 
- 		console->active = 1;
- 	}
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index 31efdef..bf51d54 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -194,6 +194,8 @@ struct octeon_reg_list {
- };
- 
- #define OCTEON_CONSOLE_MAX_READ_BYTES 512
-+typedef int (*octeon_console_print_fn)(struct octeon_device *oct,
-+				       u32 num, char *pre, char *suf);
- struct octeon_console {
- 	u32 active;
- 	u32 waiting;
-@@ -201,6 +203,7 @@ struct octeon_console {
- 	u32 buffer_size;
- 	u64 input_base_addr;
- 	u64 output_base_addr;
-+	octeon_console_print_fn print;
- 	char leftover[OCTEON_CONSOLE_MAX_READ_BYTES];
- };
- 
-@@ -739,16 +742,20 @@ int octeon_wait_for_bootloader(struct octeon_device *oct,
-  */
- int octeon_init_consoles(struct octeon_device *oct);
- 
--int octeon_console_debug_enabled(u32 console);
--
- /**
-  * Adds access to a console to the device.
-  *
-- * @param oct which octeon to add to
-- * @param console_num which console
-+ * @param oct:          which octeon to add to
-+ * @param console_num:  which console
-+ * @param dbg_enb:      ptr to debug enablement string, one of:
-+ *                    * NULL for no debug output (i.e. disabled)
-+ *                    * empty string enables debug output (via default method)
-+ *                    * specific string to enable debug console output
-+ *
-  * @return Zero on success, negative on failure.
-  */
--int octeon_add_console(struct octeon_device *oct, u32 console_num);
-+int octeon_add_console(struct octeon_device *oct, u32 console_num,
-+		       char *dbg_enb);
- 
- /** write or read from a console */
- int octeon_console_write(struct octeon_device *oct, u32 console_num,
--- 
-1.8.3.1
+I tried this patch sequence and I’m seeing a 2% drop in throughput.  CPU utilization at softIRQ is also about 8% higher.  The previous single patch that went out to fix this problem had better performance.
+
+This is on an Atom D525 with an 82574L and running 2 GB streams across a pair of interfaces with iperf3.
+
+-Philip
