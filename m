@@ -1,95 +1,153 @@
-From: James Feeney <james-fvV4AYHggTTR7s880joybQ@public.gmane.org>
-Subject: Re: Regression: Bug 196547 - Since 4.12 - bonding module not working
- with wireless drivers
-Date: Sat, 12 Aug 2017 13:30:53 -0600
-Message-ID: <deb37db2-a55b-4010-475a-e756e67d3bc9@nurealm.net>
-References: <87shh0gewn.fsf@kamboji.qca.qualcomm.com>
- <8845e49b-3165-e6df-5935-c86278d220d9@broadcom.com>
- <CADps9UA7S2betC-+5sOXjYWmDC8gnk6JJ9aEueEOoYAC3DU8hg@mail.gmail.com>
- <87tw1edz5j.fsf@kamboji.qca.qualcomm.com>
- <87tw1dck6o.fsf@kamboji.qca.qualcomm.com>
-Reply-To: james-fvV4AYHggTTR7s880joybQ@public.gmane.org
+From: Wei Wang <weiwan@google.com>
+Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
+ count = 1
+Date: Sat, 12 Aug 2017 12:42:42 -0700
+Message-ID: <CAEA6p_Cngs9Nx9OZ15oRMu_43oZTYHjzcw2vzgemfEyh_g0nNA@mail.gmail.com>
+References: <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
+ <CALAqxLXv60ReJu26omM6p=ZboEm-Z-3w+q0JcxLXDqqK5ohNoQ@mail.gmail.com>
+ <CAEA6p_AL8uUghtZgp4OmqygcFs-Jiy286P5r6tRd+yeSWxR3KA@mail.gmail.com>
+ <CALAqxLXY-kE2N__eDq514cLycR0-QRpyOCMWpdttO6fgovE2rg@mail.gmail.com>
+ <CAEA6p_C_rEYkJhcniyy6HUHgNxWFoxWzZ-WHsaSmNDwx4D+RXQ@mail.gmail.com>
+ <CAEA6p_AOcNkAWPc7NFBnr8QWi3eHdJiQ2=8D_DB_XthwSDL2+Q@mail.gmail.com>
+ <CALAqxLUoV6EQvofTEv9whW1_QMPBPU7eJBhRFUjaSs7CGeRFww@mail.gmail.com>
+ <CAM_iQpWMWg5ytDq2Y9p9uet1zowGuCX+eksyiyxu9vQ18WoPxQ@mail.gmail.com>
+ <CAEA6p_CooRGNOQN3fosF0JLqmd9aOTuNHKNPE8cbrzDH6c176w@mail.gmail.com>
+ <CAEA6p_COwXWP97wSHvzokmm8ckQ2QEd7=dfNH04ttDPm_z3bcg@mail.gmail.com> <20170812180129.GA31700@splinter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Mahesh Bandewar <maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Andreas Born <futur.andy-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87tw1dck6o.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Martin KaFai Lau <kafai@fb.com>,
+        lkml <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux USB List <linux-usb@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>
+To: Ido Schimmel <idosch@idosch.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170812180129.GA31700@splinter>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey Kalle
+Hi Ido,
 
-Still, a problem:
+>> -     if ((rt->dst.dev == dev || !dev) &&
+>> +     if ((rt->dst.dev == dev || !dev ||
+>> +          rt->rt6i_idev->dev == dev) &&
+>
+> Can you please explain why this line is needed? While host routes aren't
+> removed from the FIB by rt6_ifdown() (when dst.dev goes down), they are
+> removed later on in addrconf_ifdown().
+>
 
-On 08/12/2017 01:35 AM, Kalle Valo wrote:
-> Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> writes:
-> 
->> Andreas Born <futur.andy-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
+Yes.. Agree. But one difference is that if the route is removed from
+addrconf_ifdown(), dst_dev_put() won't be called to release the
+devices before doing dst_release(). It is OK if dst_release() sees the
+refcnt on dst already drops to 0 and directly destroys the dst. But I
+think it will cause problem if at the time, the dst is still held by
+some other users because then the refcnt on the device going down will
+not get released.
+That's why I think we should remove the dst with either dst->dev ==
+going down dev or rt6->rt6i_idev->dev == going down dev from the fib6
+tree always because there, we always call dst_dev_put() to release the
+device.
+
+> With your patch, if I check the return value of ip6_del_rt() in
+> __ipv6_ifa_notify() I see that -ENONET is returned. Because the host
+> route was already removed by rt6_ifdown(). When the line in question is
+> removed from the patch I don't get the error anymore.
+>
+
+Right. That is expected as the route is already removed from the tree.
+
+> Is it possible that in John's case the host route was correctly removed
+> from the FIB and that the unreleased reference was due to a wrong check
+> in ip6_dst_ifdown() (which you patched correctly AFAICT)?
+>
+
+Yes. possible. But as I explained earlier, I still think we should
+also remove routes with rt6->rt6i_idev->dev == going down dev from the
+tree.
+
+Thanks.
+Wei
+
+On Sat, Aug 12, 2017 at 11:01 AM, Ido Schimmel <idosch@idosch.org> wrote:
+> Hi Wei,
+>
+> On Fri, Aug 11, 2017 at 05:10:02PM -0700, Wei Wang wrote:
+>> I think we have a potential fix for this issue.
+>> Martin and I found that when addrconf_dst_alloc() creates a rt6, it is
+>> possible that rt6->dst.dev points to loopback device while
+>> rt6->rt6i_idev->dev points to a real device.
+>> When the real device goes down, the current fib6 clean up code only
+>> checks for rt6->dst.dev and assumes rt6->rt6i_idev->dev is the same.
+>> That leaves unreleased refcnt on the real device if rt6->dst.dev
+>> points to loopback dev.
+>
+> [...]
+>
+>> From 2d8861808c2029013f6b6e86120ba6902329145b Mon Sep 17 00:00:00 2001
+>> From: Wei Wang <weiwan@google.com>
+>> Date: Fri, 11 Aug 2017 16:36:04 -0700
+>> Subject: [PATCH 1/2] potential fix for unregister_netdevice()
 >>
->>> Earlier today I submitted the patch (bonding: require speed/duplex
->>> only for 802.3ad, alb and tlb) [2] that only partially reverts what is
->>> a regression following my aforementioned logic. This seems to me like
->>> the best solution in the short term since it should satisfy both
->>> usergroups represented by Mahesh and James and restores consistence
->>> with the bonding documentation. James already commented approvingly on
->>> that patch in the bug report. [3]
->>>
->>> Regards
->>> Andreas
->>>
->>> [1]
->>> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/bonding.txt
+>> Change-Id: I5d5f6f7a7ad0f5dd769f33487db17ff2570d52ea
+>> ---
+>>  net/ipv6/route.c | 17 ++++++++---------
+>>  1 file changed, 8 insertions(+), 9 deletions(-)
 >>
->> Great, thanks.
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index 4d30c96a819d..105922903932 100644
+>> --- a/net/ipv6/route.c
+>> +++ b/net/ipv6/route.c
+>> @@ -417,14 +417,12 @@ static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+>>       struct net_device *loopback_dev =
+>>               dev_net(dev)->loopback_dev;
 >>
->> I'll take it the patch is meant for net tree (and not net-next) so that
->> it will be fixed for v4.13? Also it should backported to v4.12 stable
->> tree. I don't see any mention of that in the patch submission and that's
->> why I'm asking.
-> 
-> I see that Dave applied this to the net tree and queued also for stable,
-> excellent. Thanks everyone!
-> 
-> https://patchwork.ozlabs.org/patch/800080/
-> 
-
-Andreas patch failed to address the continuous, *10-times per second* warning
-which will "spam" the log file, sometimes the console, whenever the test fails:
- if (bond_update_speed_duplex(slave) && bond_needs_speed_duplex(bond)) {...}
-which then has:
- netdev_warn(bond->dev, "failed to get link speed/duplex for%s\n",
-			slave->dev->name);
-
-That is the sort of irresponsible code that "works fine" as long as there are no
-errors, and it never actually runs!
-
-I'm guessing that the simple fix is to use "net_warn_ratelimited()" instead of
-"netdev_warn()", where net/core/utils.c says:
-
-/*
- * All net warning printk()s should be guarded by this function.
- */
-int net_ratelimit(void)
-{
-        return __ratelimit(&net_ratelimit_state);
-}
-
-though Andreas has also suggested "pr_warn_ratelimited()", which instead uses
-"__ratelimit(&_rs)".
-
-Here's a link to the rate-limiting patch, after Andreas' patch is already
-applied, since you say that David has already applied the first patch:
-
-https://bugzilla.kernel.org/attachment.cgi?id=257903
-
-
-Thanks
-James
+>> -     if (dev != loopback_dev) {
+>> -             if (idev && idev->dev == dev) {
+>> -                     struct inet6_dev *loopback_idev =
+>> -                             in6_dev_get(loopback_dev);
+>> -                     if (loopback_idev) {
+>> -                             rt->rt6i_idev = loopback_idev;
+>> -                             in6_dev_put(idev);
+>> -                     }
+>> +     if (idev && idev->dev != loopback_dev) {
+>> +             struct inet6_dev *loopback_idev =
+>> +                     in6_dev_get(loopback_dev);
+>> +             if (loopback_idev) {
+>> +                     rt->rt6i_idev = loopback_idev;
+>> +                     in6_dev_put(idev);
+>>               }
+>>       }
+>>  }
+>> @@ -2789,7 +2787,8 @@ static int fib6_ifdown(struct rt6_info *rt, void *arg)
+>>       const struct arg_dev_net *adn = arg;
+>>       const struct net_device *dev = adn->dev;
+>>
+>> -     if ((rt->dst.dev == dev || !dev) &&
+>> +     if ((rt->dst.dev == dev || !dev ||
+>> +          rt->rt6i_idev->dev == dev) &&
+>
+> Can you please explain why this line is needed? While host routes aren't
+> removed from the FIB by rt6_ifdown() (when dst.dev goes down), they are
+> removed later on in addrconf_ifdown().
+>
+> With your patch, if I check the return value of ip6_del_rt() in
+> __ipv6_ifa_notify() I see that -ENONET is returned. Because the host
+> route was already removed by rt6_ifdown(). When the line in question is
+> removed from the patch I don't get the error anymore.
+>
+> Is it possible that in John's case the host route was correctly removed
+> from the FIB and that the unreleased reference was due to a wrong check
+> in ip6_dst_ifdown() (which you patched correctly AFAICT)?
+>
+> Thanks
+>
+>>           rt != adn->net->ipv6.ip6_null_entry &&
+>>           (rt->rt6i_nsiblings == 0 ||
+>>            (dev && netdev_unregistering(dev)) ||
+>> --
+>> 2.14.0.434.g98096fd7a8-goog
+>>
