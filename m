@@ -1,47 +1,39 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 11/51] iproute: Check mark value input
-Date: Sat, 12 Aug 2017 14:04:30 +0200
-Message-ID: <20170812120510.28750-12-phil@nwl.cc>
+Subject: [iproute PATCH 23/51] ifstat: Fix memleak in error case
+Date: Sat, 12 Aug 2017 14:04:42 +0200
+Message-ID: <20170812120510.28750-24-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:58707 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:36749 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752174AbdHLMG5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:06:57 -0400
+        id S1752293AbdHLMHD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:07:03 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/iproute.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ misc/ifstat.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 89caac124f489..5fe8a3a75d5b7 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -1495,7 +1495,8 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
- 			id = *argv;
- 		} else if (strcmp(*argv, "mark") == 0) {
- 			NEXT_ARG();
--			get_unsigned(&mark, *argv, 0);
-+			if (get_unsigned(&mark, *argv, 0))
-+				invarg("invalid mark value\n", *argv);
- 			filter.markmask = -1;
- 		} else if (strcmp(*argv, "via") == 0) {
- 			int family;
-@@ -1712,7 +1713,8 @@ static int iproute_get(int argc, char **argv)
- 			idev = *argv;
- 		} else if (matches(*argv, "mark") == 0) {
- 			NEXT_ARG();
--			get_unsigned(&mark, *argv, 0);
-+			if (get_unsigned(&mark, *argv, 0))
-+				invarg("invalid mark value\n", *argv);
- 		} else if (matches(*argv, "oif") == 0 ||
- 			   strcmp(*argv, "dev") == 0) {
- 			NEXT_ARG();
+diff --git a/misc/ifstat.c b/misc/ifstat.c
+index a853ee6d7e3b3..8fa354265a9a1 100644
+--- a/misc/ifstat.c
++++ b/misc/ifstat.c
+@@ -143,8 +143,10 @@ static int get_nlmsg_extended(const struct sockaddr_nl *who,
+ 		struct rtattr *attr;
+ 
+ 		attr = parse_rtattr_one_nested(sub_type, tb[filter_type]);
+-		if (attr == NULL)
++		if (attr == NULL) {
++			free(n);
+ 			return 0;
++		}
+ 		memcpy(&n->val, RTA_DATA(attr), sizeof(n->val));
+ 	}
+ 	memset(&n->rate, 0, sizeof(n->rate));
 -- 
 2.13.1
