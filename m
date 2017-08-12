@@ -1,90 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] of_mdio: merge branch tails in of_phy_register_fixed_link()
-Date: Sun, 13 Aug 2017 00:03:06 +0300
-Message-ID: <20170812210321.520045884@cogentembedded.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] virtio-net: make array guest_offloads static
+Date: Sat, 12 Aug 2017 22:45:53 +0100
+Message-ID: <20170812214553.6073-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:32865 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752091AbdHLVD1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2017 17:03:27 -0400
-Received: by mail-lf0-f50.google.com with SMTP id d17so27603656lfe.0
-        for <netdev@vger.kernel.org>; Sat, 12 Aug 2017 14:03:26 -0700 (PDT)
-Content-Disposition: inline; filename=of_mdio-merge-branch-tails-in-of_phy_register_fixed_link.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S . Tsirkin" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Looks  like gcc isn't always able to figure  out that 3 *if* branches in
-of_phy_register_fixed_link() calling fixed_phy_register() at their ends
-are similar enough and thus can be merged. The "manual" merge saves 40
-bytes of the object code (AArch64 gcc 4.8.5), and still saves 12 bytes
-even  if gcc was able to merge the branch tails (ARM gcc 4.8.5)...
+From: Colin Ian King <colin.king@canonical.com>
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+The array guest_offloads is local to the source and does not need to
+be in global scope, so make it static. Also tweak formatting.
 
+Cleans up sparse warnings:
+symbol 'guest_offloads' was not declared. Should it be static?
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
-The patch is against DaveM's 'net-next' repo.
+ drivers/net/virtio_net.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
- drivers/of/of_mdio.c |   23 +++++++++++------------
- 1 file changed, 11 insertions(+), 12 deletions(-)
-
-Index: net-next/drivers/of/of_mdio.c
-===================================================================
---- net-next.orig/drivers/of/of_mdio.c
-+++ net-next/drivers/of/of_mdio.c
-@@ -422,16 +422,13 @@ int of_phy_register_fixed_link(struct de
- 	struct fixed_phy_status status = {};
- 	struct device_node *fixed_link_node;
- 	u32 fixed_link_prop[5];
--	struct phy_device *phy;
- 	const char *managed;
--	int link_gpio;
-+	int link_gpio = -1;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index e90de2186ffc..a3f3c66b4530 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -57,10 +57,12 @@ DECLARE_EWMA(pkt_len, 0, 64)
  
--	if (of_property_read_string(np, "managed", &managed) == 0) {
--		if (strcmp(managed, "in-band-status") == 0) {
--			/* status is zeroed, namely its .link member */
--			phy = fixed_phy_register(PHY_POLL, &status, -1, np);
--			return PTR_ERR_OR_ZERO(phy);
--		}
-+	if (of_property_read_string(np, "managed", &managed) == 0 &&
-+	    strcmp(managed, "in-band-status") == 0) {
-+		/* status is zeroed, namely its .link member */
-+		goto register_phy;
- 	}
+ #define VIRTNET_DRIVER_VERSION "1.0.0"
  
- 	/* New binding */
-@@ -454,8 +451,7 @@ int of_phy_register_fixed_link(struct de
- 		if (link_gpio == -EPROBE_DEFER)
- 			return -EPROBE_DEFER;
+-const unsigned long guest_offloads[] = { VIRTIO_NET_F_GUEST_TSO4,
+-					 VIRTIO_NET_F_GUEST_TSO6,
+-					 VIRTIO_NET_F_GUEST_ECN,
+-					 VIRTIO_NET_F_GUEST_UFO };
++static const unsigned long guest_offloads[] = {
++	VIRTIO_NET_F_GUEST_TSO4,
++	VIRTIO_NET_F_GUEST_TSO6,
++	VIRTIO_NET_F_GUEST_ECN,
++	VIRTIO_NET_F_GUEST_UFO
++};
  
--		phy = fixed_phy_register(PHY_POLL, &status, link_gpio, np);
--		return PTR_ERR_OR_ZERO(phy);
-+		goto register_phy;
- 	}
- 
- 	/* Old binding */
-@@ -466,11 +462,14 @@ int of_phy_register_fixed_link(struct de
- 		status.speed  = fixed_link_prop[2];
- 		status.pause  = fixed_link_prop[3];
- 		status.asym_pause = fixed_link_prop[4];
--		phy = fixed_phy_register(PHY_POLL, &status, -1, np);
--		return PTR_ERR_OR_ZERO(phy);
-+		goto register_phy;
- 	}
- 
- 	return -ENODEV;
-+
-+register_phy:
-+	return PTR_ERR_OR_ZERO(fixed_phy_register(PHY_POLL, &status, link_gpio,
-+						  np));
- }
- EXPORT_SYMBOL(of_phy_register_fixed_link);
- 
+ struct virtnet_stats {
+ 	struct u64_stats_sync tx_syncp;
+-- 
+2.11.0
