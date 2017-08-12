@@ -1,228 +1,157 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] i40e/i40evf: rename vf_offload_flags to vf_cap_flags in struct virtchnl_vf_resource
-Date: Sat, 12 Aug 2017 04:08:44 -0700
-Message-ID: <20170812110848.18264-13-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] i40evf: prevent VF close returning before state transitions to DOWN
+Date: Sat, 12 Aug 2017 04:08:36 -0700
+Message-ID: <20170812110848.18264-5-jeffrey.t.kirsher@intel.com>
 References: <20170812110848.18264-1-jeffrey.t.kirsher@intel.com>
-Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:54045 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751731AbdHLLI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 07:08:56 -0400
+        id S1750896AbdHLLIx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 07:08:53 -0400
 In-Reply-To: <20170812110848.18264-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Assmann <sassmann@kpanic.de>
+From: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
 
-The current name of vf_offload_flags indicates that the bitmap is
-limited to offload related features. Make this more generic by renaming
-it to vf_cap_flags, which allows for other capabilities besides
-offloading to be added.
+Currently i40evf_close() can return before state transitions to
+__I40EVF_DOWN because of the latency involved in processing and
+receiving response from PF driver and scheduling of VF watchdog_task.
+Due to this inconsistency an immediate call to i40evf_open() fails
+because state is still DOWN_PENDING.
 
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+When a VF interface is in up state and we try to add it as slave,
+The bonding driver calls dev_close() and dev_open() in short duration
+resulting in dev_open returning error. The ifenslave command needs
+to be run again for dev_open to succeed.
+
+This fix ensures that watchdog timer is scheduled immediately after
+admin queue operations are scheduled in i40evf_down(). In addition a
+wait condition is added at the end of i40evf_close so that function
+wont return when state is still DOWN_PENDING. The timeout value is
+chosen after some profiling and includes some buffer.
+
+Signed-off-by: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 22 +++++++++++-----------
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  2 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         | 10 +++++-----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 12 ++++++------
- include/linux/avf/virtchnl.h                       |  4 ++--
- 5 files changed, 25 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf.h          |  2 ++
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c     | 19 +++++++++++++++++++
+ drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c |  4 +++-
+ 3 files changed, 24 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 3ef67dc094fc..057c77be96e4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1528,39 +1528,39 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 				  VIRTCHNL_VF_OFFLOAD_RSS_REG |
- 				  VIRTCHNL_VF_OFFLOAD_VLAN;
- 
--	vfres->vf_offload_flags = VIRTCHNL_VF_OFFLOAD_L2;
-+	vfres->vf_cap_flags = VIRTCHNL_VF_OFFLOAD_L2;
- 	vsi = pf->vsi[vf->lan_vsi_idx];
- 	if (!vsi->info.pvid)
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_VLAN;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_VLAN;
- 
- 	if (i40e_vf_client_capable(pf, vf->vf_id) &&
- 	    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_IWARP)) {
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_IWARP;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_IWARP;
- 		set_bit(I40E_VF_STATE_IWARPENA, &vf->vf_states);
- 	}
- 
- 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_PF) {
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_PF;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RSS_PF;
- 	} else {
- 		if ((pf->hw_features & I40E_HW_RSS_AQ_CAPABLE) &&
- 		    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_AQ))
--			vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_AQ;
-+			vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RSS_AQ;
- 		else
--			vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_REG;
-+			vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RSS_REG;
- 	}
- 
- 	if (pf->hw_features & I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE) {
- 		if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
--			vfres->vf_offload_flags |=
-+			vfres->vf_cap_flags |=
- 				VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2;
- 	}
- 
- 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_ENCAP)
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP;
- 
- 	if ((pf->hw_features & I40E_HW_OUTER_UDP_CSUM_CAPABLE) &&
- 	    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM))
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM;
- 
- 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RX_POLLING) {
- 		if (pf->flags & I40E_FLAG_MFP_ENABLED) {
-@@ -1570,12 +1570,12 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 			aq_ret = I40E_ERR_PARAM;
- 			goto err;
- 		}
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RX_POLLING;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RX_POLLING;
- 	}
- 
- 	if (pf->hw_features & I40E_HW_WB_ON_ITR_CAPABLE) {
- 		if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
--			vfres->vf_offload_flags |=
-+			vfres->vf_cap_flags |=
- 					VIRTCHNL_VF_OFFLOAD_WB_ON_ITR;
- 	}
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index 1dd1938f594f..d69c2e44cd1a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -1104,7 +1104,7 @@ void i40e_vf_parse_hw_config(struct i40e_hw *hw,
- 	hw->dev_caps.num_rx_qp = msg->num_queue_pairs;
- 	hw->dev_caps.num_tx_qp = msg->num_queue_pairs;
- 	hw->dev_caps.num_msix_vectors_vf = msg->max_vectors;
--	hw->dev_caps.dcb = msg->vf_offload_flags &
-+	hw->dev_caps.dcb = msg->vf_cap_flags &
- 			   VIRTCHNL_VF_OFFLOAD_L2;
- 	hw->dev_caps.fcoe = 0;
- 	for (i = 0; i < msg->num_vsis; i++) {
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index c89767ee0ab2..d85e446d8527 100644
+index 7901cc85cbe5..52cf38f47349 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf.h
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -277,19 +277,19 @@ struct i40evf_adapter {
- 	enum virtchnl_link_speed link_speed;
- 	enum virtchnl_ops current_op;
- #define CLIENT_ALLOWED(_a) ((_a)->vf_res ? \
--			    (_a)->vf_res->vf_offload_flags & \
-+			    (_a)->vf_res->vf_cap_flags & \
- 				VIRTCHNL_VF_OFFLOAD_IWARP : \
- 			    0)
- #define CLIENT_ENABLED(_a) ((_a)->cinst)
- /* RSS by the PF should be preferred over RSS via other methods. */
--#define RSS_PF(_a) ((_a)->vf_res->vf_offload_flags & \
-+#define RSS_PF(_a) ((_a)->vf_res->vf_cap_flags & \
- 		    VIRTCHNL_VF_OFFLOAD_RSS_PF)
--#define RSS_AQ(_a) ((_a)->vf_res->vf_offload_flags & \
-+#define RSS_AQ(_a) ((_a)->vf_res->vf_cap_flags & \
- 		    VIRTCHNL_VF_OFFLOAD_RSS_AQ)
--#define RSS_REG(_a) (!((_a)->vf_res->vf_offload_flags & \
-+#define RSS_REG(_a) (!((_a)->vf_res->vf_cap_flags & \
- 		       (VIRTCHNL_VF_OFFLOAD_RSS_AQ | \
- 			VIRTCHNL_VF_OFFLOAD_RSS_PF)))
--#define VLAN_ALLOWED(_a) ((_a)->vf_res->vf_offload_flags & \
-+#define VLAN_ALLOWED(_a) ((_a)->vf_res->vf_cap_flags & \
- 			  VIRTCHNL_VF_OFFLOAD_VLAN)
- 	struct virtchnl_vf_resource *vf_res; /* incl. all VSIs */
- 	struct virtchnl_vsi_resource *vsi_res; /* our LAN VSI */
+@@ -43,6 +43,7 @@
+ #include <linux/bitops.h>
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
++#include <linux/wait.h>
+ #include <linux/delay.h>
+ #include <linux/gfp.h>
+ #include <linux/skbuff.h>
+@@ -194,6 +195,7 @@ struct i40evf_adapter {
+ 	struct work_struct adminq_task;
+ 	struct delayed_work client_task;
+ 	struct delayed_work init_task;
++	wait_queue_head_t down_waitqueue;
+ 	struct i40e_q_vector *q_vectors;
+ 	struct list_head vlan_filter_list;
+ 	char misc_vector_name[IFNAMSIZ + 9];
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 8603911cc550..4a36c2ee3837 100644
+index 22919b444ddf..21ab3ff5e9ec 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1418,7 +1418,7 @@ static int i40evf_init_rss(struct i40evf_adapter *adapter)
+@@ -1143,6 +1143,7 @@ void i40evf_down(struct i40evf_adapter *adapter)
+ 	}
  
- 	if (!RSS_PF(adapter)) {
- 		/* Enable PCTYPES for RSS, TCP/UDP with IPv4/IPv6 */
--		if (adapter->vf_res->vf_offload_flags &
-+		if (adapter->vf_res->vf_cap_flags &
- 		    VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
- 			adapter->hena = I40E_DEFAULT_RSS_HENA_EXPANDED;
- 		else
-@@ -2371,7 +2371,7 @@ static netdev_features_t i40evf_fix_features(struct net_device *netdev,
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
- 	features &= ~I40EVF_VLAN_FEATURES;
--	if (adapter->vf_res->vf_offload_flags & VIRTCHNL_VF_OFFLOAD_VLAN)
-+	if (adapter->vf_res->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_VLAN)
- 		features |= I40EVF_VLAN_FEATURES;
- 	return features;
+ 	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
++	mod_timer_pending(&adapter->watchdog_timer, jiffies + 1);
  }
-@@ -2458,7 +2458,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 	/* advertise to stack only if offloads for encapsulated packets is
- 	 * supported
- 	 */
--	if (vfres->vf_offload_flags & VIRTCHNL_VF_OFFLOAD_ENCAP) {
-+	if (vfres->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_ENCAP) {
- 		hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL	|
- 				   NETIF_F_GSO_GRE		|
- 				   NETIF_F_GSO_GRE_CSUM		|
-@@ -2468,7 +2468,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 				   NETIF_F_GSO_PARTIAL		|
- 				   0;
  
--		if (!(vfres->vf_offload_flags &
-+		if (!(vfres->vf_cap_flags &
- 		      VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM))
- 			netdev->gso_partial_features |=
- 				NETIF_F_GSO_UDP_TUNNEL_CSUM;
-@@ -2496,7 +2496,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 	adapter->vsi.work_limit = I40E_DEFAULT_IRQ_WORK;
- 	vsi->netdev = adapter->netdev;
- 	vsi->qs_handle = adapter->vsi_res->qset_handle;
--	if (vfres->vf_offload_flags & VIRTCHNL_VF_OFFLOAD_RSS_PF) {
-+	if (vfres->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_RSS_PF) {
- 		adapter->rss_key_size = vfres->rss_key_size;
- 		adapter->rss_lut_size = vfres->rss_lut_size;
+ /**
+@@ -1794,6 +1795,7 @@ static void i40evf_disable_vf(struct i40evf_adapter *adapter)
+ 	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
+ 	adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
+ 	adapter->state = __I40EVF_DOWN;
++	wake_up(&adapter->down_waitqueue);
+ 	dev_info(&adapter->pdev->dev, "Reset task did not complete, VF disabled\n");
+ }
+ 
+@@ -1939,6 +1941,7 @@ static void i40evf_reset_task(struct work_struct *work)
+ 		i40evf_irq_enable(adapter, true);
  	} else {
-@@ -2664,7 +2664,7 @@ static void i40evf_init_task(struct work_struct *work)
- 	if (err)
- 		goto err_sw_init;
- 	i40evf_map_rings_to_vectors(adapter);
--	if (adapter->vf_res->vf_offload_flags &
-+	if (adapter->vf_res->vf_cap_flags &
- 	    VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
- 		adapter->flags |= I40EVF_FLAG_WB_ON_ITR_CAPABLE;
+ 		adapter->state = __I40EVF_DOWN;
++		wake_up(&adapter->down_waitqueue);
+ 	}
  
-diff --git a/include/linux/avf/virtchnl.h b/include/linux/avf/virtchnl.h
-index c893b9520a67..becfca2ae94e 100644
---- a/include/linux/avf/virtchnl.h
-+++ b/include/linux/avf/virtchnl.h
-@@ -223,7 +223,7 @@ struct virtchnl_vsi_resource {
+ 	return;
+@@ -2238,6 +2241,7 @@ static int i40evf_open(struct net_device *netdev)
+ static int i40evf_close(struct net_device *netdev)
+ {
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
++	int status;
  
- VIRTCHNL_CHECK_STRUCT_LEN(16, virtchnl_vsi_resource);
+ 	if (adapter->state <= __I40EVF_DOWN_PENDING)
+ 		return 0;
+@@ -2255,7 +2259,18 @@ static int i40evf_close(struct net_device *netdev)
+ 	 * still active and can DMA into memory. Resources are cleared in
+ 	 * i40evf_virtchnl_completion() after we get confirmation from the PF
+ 	 * driver that the rings have been stopped.
++	 *
++	 * Also, we wait for state to transition to __I40EVF_DOWN before
++	 * returning. State change occurs in i40evf_virtchnl_completion() after
++	 * VF resources are released (which occurs after PF driver processes and
++	 * responds to admin queue commands).
+ 	 */
++
++	status = wait_event_timeout(adapter->down_waitqueue,
++				    adapter->state == __I40EVF_DOWN,
++				    msecs_to_jiffies(200));
++	if (!status)
++		netdev_warn(netdev, "Device resources not yet released\n");
+ 	return 0;
+ }
  
--/* VF offload flags
-+/* VF capability flags
-  * VIRTCHNL_VF_OFFLOAD_L2 flag is inclusive of base mode L2 offloads including
-  * TX/RX Checksum offloading and TSO for non-tunnelled packets.
-  */
-@@ -251,7 +251,7 @@ struct virtchnl_vf_resource {
- 	u16 max_vectors;
- 	u16 max_mtu;
+@@ -2683,6 +2698,7 @@ static void i40evf_init_task(struct work_struct *work)
+ 	adapter->state = __I40EVF_DOWN;
+ 	set_bit(__I40E_VSI_DOWN, adapter->vsi.state);
+ 	i40evf_misc_irq_enable(adapter);
++	wake_up(&adapter->down_waitqueue);
  
--	u32 vf_offload_flags;
-+	u32 vf_cap_flags;
- 	u32 rss_key_size;
- 	u32 rss_lut_size;
+ 	adapter->rss_key = kzalloc(adapter->rss_key_size, GFP_KERNEL);
+ 	adapter->rss_lut = kzalloc(adapter->rss_lut_size, GFP_KERNEL);
+@@ -2844,6 +2860,9 @@ static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	schedule_delayed_work(&adapter->init_task,
+ 			      msecs_to_jiffies(5 * (pdev->devfn & 0x07)));
  
++	/* Setup the wait queue for indicating transition to down status */
++	init_waitqueue_head(&adapter->down_waitqueue);
++
+ 	return 0;
+ 
+ err_ioremap:
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index d2bb250a71af..6c403bf1bbb8 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -991,8 +991,10 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
+ 	case VIRTCHNL_OP_DISABLE_QUEUES:
+ 		i40evf_free_all_tx_resources(adapter);
+ 		i40evf_free_all_rx_resources(adapter);
+-		if (adapter->state == __I40EVF_DOWN_PENDING)
++		if (adapter->state == __I40EVF_DOWN_PENDING) {
+ 			adapter->state = __I40EVF_DOWN;
++			wake_up(&adapter->down_waitqueue);
++		}
+ 		break;
+ 	case VIRTCHNL_OP_VERSION:
+ 	case VIRTCHNL_OP_CONFIG_IRQ_MAP:
 -- 
 2.14.0
