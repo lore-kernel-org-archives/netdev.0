@@ -1,8 +1,8 @@
 From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next 4/8] liquidio: moved liquidio_push_packet to
+Subject: [PATCH net-next 5/8] liquidio: moved liquidio_napi_drv_callback to
  lio_core.c
-Date: Fri, 11 Aug 2017 18:29:14 -0700
-Message-ID: <20170812012914.GA2562@felix-thinkpad.cavium.com>
+Date: Fri, 11 Aug 2017 18:29:15 -0700
+Message-ID: <20170812012915.GA2575@felix-thinkpad.cavium.com>
 References: <20170812012818.GA2505@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,11 +11,11 @@ Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
         intiyaz.basha@cavium.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0071.outbound.protection.outlook.com ([104.47.32.71]:56919
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-cys01nam02on0048.outbound.protection.outlook.com ([104.47.37.48]:21955
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751770AbdHLB3T (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Aug 2017 21:29:19 -0400
+        id S1752016AbdHLB3W (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Aug 2017 21:29:22 -0400
 Content-Disposition: inline
 In-Reply-To: <20170812012818.GA2505@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,486 +23,153 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Intiyaz Basha <intiyaz.basha@cavium.com>
 
-Moving common liquidio_push_packet to lio_core.c
+Moving common liquidio_napi_drv_callback to lio_core.c
 
 Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_core.c    | 149 +++++++++++++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 147 --------------------
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 128 ------------------
- .../net/ethernet/cavium/liquidio/octeon_network.h  |   7 +
- 4 files changed, 156 insertions(+), 275 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    | 39 ++++++++++++++++++++++
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 38 ---------------------
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 13 +-------
+ .../net/ethernet/cavium/liquidio/octeon_network.h  |  1 +
+ 4 files changed, 41 insertions(+), 50 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-index 90583ce..b0b246e 100644
+index b0b246e..8cba927 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-@@ -432,3 +432,152 @@ int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
- 
- 	return ret_val;
+@@ -581,3 +581,42 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 		recv_buffer_free(skb);
+ 	}
  }
 +
-+/** Routine to push packets arriving on Octeon interface upto network layer.
-+ * @param oct_id   - octeon device id.
-+ * @param skbuff   - skbuff struct to be passed to network layer.
-+ * @param len      - size of total data received.
-+ * @param rh       - Control header associated with the packet
-+ * @param param    - additional control data with the packet
-+ * @param arg      - farg registered in droq_ops
++/**
++ * \brief wrapper for calling napi_schedule
++ * @param param parameters to pass to napi_schedule
++ *
++ * Used when scheduling on different CPUs
 + */
-+void
-+liquidio_push_packet(u32 octeon_id __attribute__((unused)),
-+		     void *skbuff,
-+		     u32 len,
-+		     union octeon_rh *rh,
-+		     void *param,
-+		     void *arg)
++static void napi_schedule_wrapper(void *param)
 +{
-+	struct net_device *netdev = (struct net_device *)arg;
-+	struct octeon_droq *droq =
-+	    container_of(param, struct octeon_droq, napi);
-+	struct sk_buff *skb = (struct sk_buff *)skbuff;
-+	struct skb_shared_hwtstamps *shhwtstamps;
 +	struct napi_struct *napi = param;
-+	u16 vtag = 0;
-+	u32 r_dh_off;
-+	u64 ns;
 +
-+	if (netdev) {
-+		struct lio *lio = GET_LIO(netdev);
-+		struct octeon_device *oct = lio->oct_dev;
-+		int packet_was_received;
++	napi_schedule(napi);
++}
 +
-+		/* Do not proceed if the interface is not in RUNNING state. */
-+		if (!ifstate_check(lio, LIO_IFSTATE_RUNNING)) {
-+			recv_buffer_free(skb);
-+			droq->stats.rx_dropped++;
-+			return;
-+		}
++/**
++ * \brief callback when receive interrupt occurs and we are in NAPI mode
++ * @param arg pointer to octeon output queue
++ */
++void liquidio_napi_drv_callback(void *arg)
++{
++	struct octeon_device *oct;
++	struct octeon_droq *droq = arg;
++	int this_cpu = smp_processor_id();
 +
-+		skb->dev = netdev;
++	oct = droq->oct_dev;
 +
-+		skb_record_rx_queue(skb, droq->q_no);
-+		if (likely(len > MIN_SKB_SIZE)) {
-+			struct octeon_skb_page_info *pg_info;
-+			unsigned char *va;
-+
-+			pg_info = ((struct octeon_skb_page_info *)(skb->cb));
-+			if (pg_info->page) {
-+				/* For Paged allocation use the frags */
-+				va = page_address(pg_info->page) +
-+					pg_info->page_offset;
-+				memcpy(skb->data, va, MIN_SKB_SIZE);
-+				skb_put(skb, MIN_SKB_SIZE);
-+				skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
-+						pg_info->page,
-+						pg_info->page_offset +
-+						MIN_SKB_SIZE,
-+						len - MIN_SKB_SIZE,
-+						LIO_RXBUFFER_SZ);
-+			}
-+		} else {
-+			struct octeon_skb_page_info *pg_info =
-+				((struct octeon_skb_page_info *)(skb->cb));
-+			skb_copy_to_linear_data(skb, page_address(pg_info->page)
-+						+ pg_info->page_offset, len);
-+			skb_put(skb, len);
-+			put_page(pg_info->page);
-+		}
-+
-+		r_dh_off = (rh->r_dh.len - 1) * BYTES_PER_DHLEN_UNIT;
-+
-+		if (oct->ptp_enable) {
-+			if (rh->r_dh.has_hwtstamp) {
-+				/* timestamp is included from the hardware at
-+				 * the beginning of the packet.
-+				 */
-+				if (ifstate_check
-+					(lio,
-+					 LIO_IFSTATE_RX_TIMESTAMP_ENABLED)) {
-+					/* Nanoseconds are in the first 64-bits
-+					 * of the packet.
-+					 */
-+					memcpy(&ns, (skb->data + r_dh_off),
-+					       sizeof(ns));
-+					r_dh_off -= BYTES_PER_DHLEN_UNIT;
-+					shhwtstamps = skb_hwtstamps(skb);
-+					shhwtstamps->hwtstamp =
-+						ns_to_ktime(ns +
-+							    lio->ptp_adjust);
-+				}
-+			}
-+		}
-+
-+		if (rh->r_dh.has_hash) {
-+			__be32 *hash_be = (__be32 *)(skb->data + r_dh_off);
-+			u32 hash = be32_to_cpu(*hash_be);
-+
-+			skb_set_hash(skb, hash, PKT_HASH_TYPE_L4);
-+			r_dh_off -= BYTES_PER_DHLEN_UNIT;
-+		}
-+
-+		skb_pull(skb, rh->r_dh.len * BYTES_PER_DHLEN_UNIT);
-+		skb->protocol = eth_type_trans(skb, skb->dev);
-+
-+		if ((netdev->features & NETIF_F_RXCSUM) &&
-+		    (((rh->r_dh.encap_on) &&
-+		      (rh->r_dh.csum_verified & CNNIC_TUN_CSUM_VERIFIED)) ||
-+		     (!(rh->r_dh.encap_on) &&
-+		      (rh->r_dh.csum_verified & CNNIC_CSUM_VERIFIED))))
-+			/* checksum has already been verified */
-+			skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		else
-+			skb->ip_summed = CHECKSUM_NONE;
-+
-+		/* Setting Encapsulation field on basis of status received
-+		 * from the firmware
-+		 */
-+		if (rh->r_dh.encap_on) {
-+			skb->encapsulation = 1;
-+			skb->csum_level = 1;
-+			droq->stats.rx_vxlan++;
-+		}
-+
-+		/* inbound VLAN tag */
-+		if ((netdev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
-+		    rh->r_dh.vlan) {
-+			u16 priority = rh->r_dh.priority;
-+			u16 vid = rh->r_dh.vlan;
-+
-+			vtag = (priority << VLAN_PRIO_SHIFT) | vid;
-+			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vtag);
-+		}
-+
-+		packet_was_received = (napi_gro_receive(napi, skb) != GRO_DROP);
-+
-+		if (packet_was_received) {
-+			droq->stats.rx_bytes_received += len;
-+			droq->stats.rx_pkts_received++;
-+		} else {
-+			droq->stats.rx_dropped++;
-+			netif_info(lio, rx_err, lio->netdev,
-+				   "droq:%d  error rx_dropped:%llu\n",
-+				   droq->q_no, droq->stats.rx_dropped);
-+		}
-+
++	if (OCTEON_CN23XX_PF(oct) || OCTEON_CN23XX_VF(oct) ||
++	    droq->cpu_id == this_cpu) {
++		napi_schedule_irqoff(&droq->napi);
 +	} else {
-+		recv_buffer_free(skb);
++		struct call_single_data *csd = &droq->csd;
++
++		csd->func = napi_schedule_wrapper;
++		csd->info = &droq->napi;
++		csd->flags = 0;
++
++		smp_call_function_single_async(droq->cpu_id, csd);
 +	}
 +}
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index a814d58..68a94c4 100644
+index 68a94c4..4241949 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2228,153 +2228,6 @@ static void if_cfg_callback(struct octeon_device *oct,
- 	wake_up_interruptible(&ctx->wc);
+@@ -2229,44 +2229,6 @@ static void if_cfg_callback(struct octeon_device *oct,
  }
  
--/** Routine to push packets arriving on Octeon interface upto network layer.
-- * @param oct_id   - octeon device id.
-- * @param skbuff   - skbuff struct to be passed to network layer.
-- * @param len      - size of total data received.
-- * @param rh       - Control header associated with the packet
-- * @param param    - additional control data with the packet
-- * @param arg	   - farg registered in droq_ops
+ /**
+- * \brief wrapper for calling napi_schedule
+- * @param param parameters to pass to napi_schedule
+- *
+- * Used when scheduling on different CPUs
 - */
--static void
--liquidio_push_packet(u32 octeon_id __attribute__((unused)),
--		     void *skbuff,
--		     u32 len,
--		     union octeon_rh *rh,
--		     void *param,
--		     void *arg)
+-static void napi_schedule_wrapper(void *param)
 -{
 -	struct napi_struct *napi = param;
--	struct sk_buff *skb = (struct sk_buff *)skbuff;
--	struct skb_shared_hwtstamps *shhwtstamps;
--	u64 ns;
--	u16 vtag = 0;
--	u32 r_dh_off;
--	struct net_device *netdev = (struct net_device *)arg;
--	struct octeon_droq *droq = container_of(param, struct octeon_droq,
--						napi);
--	if (netdev) {
--		int packet_was_received;
--		struct lio *lio = GET_LIO(netdev);
--		struct octeon_device *oct = lio->oct_dev;
 -
--		/* Do not proceed if the interface is not in RUNNING state. */
--		if (!ifstate_check(lio, LIO_IFSTATE_RUNNING)) {
--			recv_buffer_free(skb);
--			droq->stats.rx_dropped++;
--			return;
--		}
+-	napi_schedule(napi);
+-}
 -
--		skb->dev = netdev;
+-/**
+- * \brief callback when receive interrupt occurs and we are in NAPI mode
+- * @param arg pointer to octeon output queue
+- */
+-static void liquidio_napi_drv_callback(void *arg)
+-{
+-	struct octeon_device *oct;
+-	struct octeon_droq *droq = arg;
+-	int this_cpu = smp_processor_id();
 -
--		skb_record_rx_queue(skb, droq->q_no);
--		if (likely(len > MIN_SKB_SIZE)) {
--			struct octeon_skb_page_info *pg_info;
--			unsigned char *va;
+-	oct = droq->oct_dev;
 -
--			pg_info = ((struct octeon_skb_page_info *)(skb->cb));
--			if (pg_info->page) {
--				/* For Paged allocation use the frags */
--				va = page_address(pg_info->page) +
--					pg_info->page_offset;
--				memcpy(skb->data, va, MIN_SKB_SIZE);
--				skb_put(skb, MIN_SKB_SIZE);
--				skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
--						pg_info->page,
--						pg_info->page_offset +
--						MIN_SKB_SIZE,
--						len - MIN_SKB_SIZE,
--						LIO_RXBUFFER_SZ);
--			}
--		} else {
--			struct octeon_skb_page_info *pg_info =
--				((struct octeon_skb_page_info *)(skb->cb));
--			skb_copy_to_linear_data(skb, page_address(pg_info->page)
--						+ pg_info->page_offset, len);
--			skb_put(skb, len);
--			put_page(pg_info->page);
--		}
--
--		r_dh_off = (rh->r_dh.len - 1) * BYTES_PER_DHLEN_UNIT;
--
--		if (oct->ptp_enable) {
--			if (rh->r_dh.has_hwtstamp) {
--				/* timestamp is included from the hardware at
--				 * the beginning of the packet.
--				 */
--				if (ifstate_check
--				    (lio, LIO_IFSTATE_RX_TIMESTAMP_ENABLED)) {
--					/* Nanoseconds are in the first 64-bits
--					 * of the packet.
--					 */
--					memcpy(&ns, (skb->data + r_dh_off),
--					       sizeof(ns));
--					r_dh_off -= BYTES_PER_DHLEN_UNIT;
--					shhwtstamps = skb_hwtstamps(skb);
--					shhwtstamps->hwtstamp =
--						ns_to_ktime(ns +
--							    lio->ptp_adjust);
--				}
--			}
--		}
--
--		if (rh->r_dh.has_hash) {
--			__be32 *hash_be = (__be32 *)(skb->data + r_dh_off);
--			u32 hash = be32_to_cpu(*hash_be);
--
--			skb_set_hash(skb, hash, PKT_HASH_TYPE_L4);
--			r_dh_off -= BYTES_PER_DHLEN_UNIT;
--		}
--
--		skb_pull(skb, rh->r_dh.len * BYTES_PER_DHLEN_UNIT);
--
--		skb->protocol = eth_type_trans(skb, skb->dev);
--		if ((netdev->features & NETIF_F_RXCSUM) &&
--		    (((rh->r_dh.encap_on) &&
--		      (rh->r_dh.csum_verified & CNNIC_TUN_CSUM_VERIFIED)) ||
--		     (!(rh->r_dh.encap_on) &&
--		      (rh->r_dh.csum_verified & CNNIC_CSUM_VERIFIED))))
--			/* checksum has already been verified */
--			skb->ip_summed = CHECKSUM_UNNECESSARY;
--		else
--			skb->ip_summed = CHECKSUM_NONE;
--
--		/* Setting Encapsulation field on basis of status received
--		 * from the firmware
--		 */
--		if (rh->r_dh.encap_on) {
--			skb->encapsulation = 1;
--			skb->csum_level = 1;
--			droq->stats.rx_vxlan++;
--		}
--
--		/* inbound VLAN tag */
--		if ((netdev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
--		    (rh->r_dh.vlan != 0)) {
--			u16 vid = rh->r_dh.vlan;
--			u16 priority = rh->r_dh.priority;
--
--			vtag = priority << 13 | vid;
--			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vtag);
--		}
--
--		packet_was_received = napi_gro_receive(napi, skb) != GRO_DROP;
--
--		if (packet_was_received) {
--			droq->stats.rx_bytes_received += len;
--			droq->stats.rx_pkts_received++;
--		} else {
--			droq->stats.rx_dropped++;
--			netif_info(lio, rx_err, lio->netdev,
--				   "droq:%d  error rx_dropped:%llu\n",
--				   droq->q_no, droq->stats.rx_dropped);
--		}
--
+-	if (OCTEON_CN23XX_PF(oct) || droq->cpu_id == this_cpu) {
+-		napi_schedule_irqoff(&droq->napi);
 -	} else {
--		recv_buffer_free(skb);
+-		struct call_single_data *csd = &droq->csd;
+-
+-		csd->func = napi_schedule_wrapper;
+-		csd->info = &droq->napi;
+-		csd->flags = 0;
+-
+-		smp_call_function_single_async(droq->cpu_id, csd);
 -	}
 -}
 -
- /**
-  * \brief wrapper for calling napi_schedule
-  * @param param parameters to pass to napi_schedule
+-/**
+  * \brief Entry point for NAPI polling
+  * @param napi NAPI structure
+  * @param budget maximum number of items to process
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index a6efd75..013a861 100644
+index 013a861..2663bd6 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1376,134 +1376,6 @@ static void if_cfg_callback(struct octeon_device *oct,
- 	wake_up_interruptible(&ctx->wc);
+@@ -1377,17 +1377,6 @@ static void if_cfg_callback(struct octeon_device *oct,
  }
  
--/** Routine to push packets arriving on Octeon interface upto network layer.
-- * @param oct_id   - octeon device id.
-- * @param skbuff   - skbuff struct to be passed to network layer.
-- * @param len      - size of total data received.
-- * @param rh       - Control header associated with the packet
-- * @param param    - additional control data with the packet
-- * @param arg      - farg registered in droq_ops
+ /**
+- * \brief callback when receive interrupt occurs and we are in NAPI mode
+- * @param arg pointer to octeon output queue
 - */
--static void
--liquidio_push_packet(u32 octeon_id __attribute__((unused)),
--		     void *skbuff,
--		     u32 len,
--		     union octeon_rh *rh,
--		     void *param,
--		     void *arg)
+-static void liquidio_vf_napi_drv_callback(void *arg)
 -{
--	struct napi_struct *napi = param;
--	struct octeon_droq *droq =
--		container_of(param, struct octeon_droq, napi);
--	struct net_device *netdev = (struct net_device *)arg;
--	struct sk_buff *skb = (struct sk_buff *)skbuff;
--	u16 vtag = 0;
--	u32 r_dh_off;
+-	struct octeon_droq *droq = arg;
 -
--	if (netdev) {
--		struct lio *lio = GET_LIO(netdev);
--		int packet_was_received;
--
--		/* Do not proceed if the interface is not in RUNNING state. */
--		if (!ifstate_check(lio, LIO_IFSTATE_RUNNING)) {
--			recv_buffer_free(skb);
--			droq->stats.rx_dropped++;
--			return;
--		}
--
--		skb->dev = netdev;
--
--		skb_record_rx_queue(skb, droq->q_no);
--		if (likely(len > MIN_SKB_SIZE)) {
--			struct octeon_skb_page_info *pg_info;
--			unsigned char *va;
--
--			pg_info = ((struct octeon_skb_page_info *)(skb->cb));
--			if (pg_info->page) {
--				/* For Paged allocation use the frags */
--				va = page_address(pg_info->page) +
--					pg_info->page_offset;
--				memcpy(skb->data, va, MIN_SKB_SIZE);
--				skb_put(skb, MIN_SKB_SIZE);
--				skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
--						pg_info->page,
--						pg_info->page_offset +
--						MIN_SKB_SIZE,
--						len - MIN_SKB_SIZE,
--						LIO_RXBUFFER_SZ);
--			}
--		} else {
--			struct octeon_skb_page_info *pg_info =
--				((struct octeon_skb_page_info *)(skb->cb));
--			skb_copy_to_linear_data(skb,
--						page_address(pg_info->page) +
--						pg_info->page_offset, len);
--			skb_put(skb, len);
--			put_page(pg_info->page);
--		}
--
--		r_dh_off = (rh->r_dh.len - 1) * BYTES_PER_DHLEN_UNIT;
--
--		if (rh->r_dh.has_hwtstamp)
--			r_dh_off -= BYTES_PER_DHLEN_UNIT;
--
--		if (rh->r_dh.has_hash) {
--			__be32 *hash_be = (__be32 *)(skb->data + r_dh_off);
--			u32 hash = be32_to_cpu(*hash_be);
--
--			skb_set_hash(skb, hash, PKT_HASH_TYPE_L4);
--			r_dh_off -= BYTES_PER_DHLEN_UNIT;
--		}
--
--		skb_pull(skb, rh->r_dh.len * BYTES_PER_DHLEN_UNIT);
--		skb->protocol = eth_type_trans(skb, skb->dev);
--
--		if ((netdev->features & NETIF_F_RXCSUM) &&
--		    (((rh->r_dh.encap_on) &&
--		      (rh->r_dh.csum_verified & CNNIC_TUN_CSUM_VERIFIED)) ||
--		     (!(rh->r_dh.encap_on) &&
--		      (rh->r_dh.csum_verified & CNNIC_CSUM_VERIFIED))))
--			/* checksum has already been verified */
--			skb->ip_summed = CHECKSUM_UNNECESSARY;
--		else
--			skb->ip_summed = CHECKSUM_NONE;
--
--		/* Setting Encapsulation field on basis of status received
--		 * from the firmware
--		 */
--		if (rh->r_dh.encap_on) {
--			skb->encapsulation = 1;
--			skb->csum_level = 1;
--			droq->stats.rx_vxlan++;
--		}
--
--		/* inbound VLAN tag */
--		if ((netdev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
--		    rh->r_dh.vlan) {
--			u16 priority = rh->r_dh.priority;
--			u16 vid = rh->r_dh.vlan;
--
--			vtag = (priority << VLAN_PRIO_SHIFT) | vid;
--			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vtag);
--		}
--
--		packet_was_received = (napi_gro_receive(napi, skb) != GRO_DROP);
--
--		if (packet_was_received) {
--			droq->stats.rx_bytes_received += len;
--			droq->stats.rx_pkts_received++;
--		} else {
--			droq->stats.rx_dropped++;
--			netif_info(lio, rx_err, lio->netdev,
--				   "droq:%d  error rx_dropped:%llu\n",
--				   droq->q_no, droq->stats.rx_dropped);
--		}
--
--	} else {
--		recv_buffer_free(skb);
--	}
+-	napi_schedule_irqoff(&droq->napi);
 -}
 -
- /**
-  * \brief callback when receive interrupt occurs and we are in NAPI mode
-  * @param arg pointer to octeon output queue
+-/**
+  * \brief Entry point for NAPI polling
+  * @param napi NAPI structure
+  * @param budget maximum number of items to process
+@@ -1473,7 +1462,7 @@ static int setup_io_queues(struct octeon_device *octeon_dev, int ifidx)
+ 	droq_ops.farg = netdev;
+ 
+ 	droq_ops.poll_mode = 1;
+-	droq_ops.napi_fn = liquidio_vf_napi_drv_callback;
++	droq_ops.napi_fn = liquidio_napi_drv_callback;
+ 	cpu_id = 0;
+ 	cpu_id_modulus = num_present_cpus();
+ 
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-index b2bb34d..5d78fd6 100644
+index 5d78fd6..076fdfc 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-@@ -477,4 +477,11 @@ static inline int wait_for_pending_requests(struct octeon_device *oct)
- void lio_update_txq_status(struct octeon_device *oct, int iq_num);
- int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
- 		      int desc_size, void *app_ctx);
-+void
-+liquidio_push_packet(u32 octeon_id __attribute__((unused)),
-+		     void *skbuff,
-+		     u32 len,
-+		     union octeon_rh *rh,
-+		     void *param,
-+		     void *arg);
+@@ -484,4 +484,5 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 		     union octeon_rh *rh,
+ 		     void *param,
+ 		     void *arg);
++void liquidio_napi_drv_callback(void *arg);
  #endif
 -- 
 2.9.0
