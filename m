@@ -1,28 +1,39 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v3 net-next 2/2] wan: dscc4: convert to plain DMA API
-Date: Sat, 12 Aug 2017 01:32:58 +0200
-Message-ID: <20170811233258.GA11349@electric-eye.fr.zoreil.com>
-References: <1502405721-27738-1-git-send-email-khoroshilov@ispras.ru>
- <1502405721-27738-2-git-send-email-khoroshilov@ispras.ru>
- <20170811214549.GA8187@electric-eye.fr.zoreil.com>
- <20170811.144935.36255660873272850.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: khoroshilov@ispras.ru, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170811.144935.36255660873272850.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net-next] net: ipv4: remove unnecessary check on orig_oif
+Date: Fri, 11 Aug 2017 17:02:02 -0700
+Message-ID: <1502496122-27784-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35058 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751439AbdHLACJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 20:02:09 -0400
+Received: by mail-pg0-f65.google.com with SMTP id l64so4148266pge.2
+        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 17:02:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> :
-[...]
-> Oops, this will need to be sent as a relative fixup as I've applied these
-> two patches to net-next, sorry Francois.
+rt_iif is going to be set to either 0 or orig_oif. If orig_oif
+is 0 it amounts to the same end result so remove the check.
 
-No problem. It works perfectly this way.
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ net/ipv4/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 6324ade81a81..9c9895a6fc0f 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2237,7 +2237,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 	if (!rth)
+ 		return ERR_PTR(-ENOBUFS);
+ 
+-	rth->rt_iif	= orig_oif ? : 0;
++	rth->rt_iif = orig_oif;
+ 	if (res->table)
+ 		rth->rt_table_id = res->table->tb_id;
+ 
 -- 
-Ueimor
+2.1.4
