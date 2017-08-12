@@ -1,63 +1,50 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 01/51] devlink: Check return code of strslashrsplit()
-Date: Sat, 12 Aug 2017 14:04:20 +0200
-Message-ID: <20170812120510.28750-2-phil@nwl.cc>
+Subject: [iproute PATCH 05/51] iplink_can: Prevent overstepping array bounds
+Date: Sat, 12 Aug 2017 14:04:24 +0200
+Message-ID: <20170812120510.28750-6-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:44795 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:54863 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750975AbdHLMGo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:06:44 -0400
+        id S1752555AbdHLMGv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:06:51 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function shouldn't fail because all callers of
-__dl_argv_handle_port() make sure the passed string contains enough
-slashes already, but better make sure if this changes in future the
-function won't access uninitialized data.
+can_state_names array contains at most CAN_STATE_MAX fields, so allowing
+an index to it to be equal to that number is wrong. While here, also
+make sure the array is indeed that big so nothing bad happens if
+CAN_STATE_MAX ever increases.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- devlink/devlink.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+ ip/iplink_can.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/devlink/devlink.c b/devlink/devlink.c
-index f9bc16c350c40..de41a9f4aae10 100644
---- a/devlink/devlink.c
-+++ b/devlink/devlink.c
-@@ -526,18 +526,26 @@ static int __dl_argv_handle_port(char *str,
- 				 char **p_bus_name, char **p_dev_name,
- 				 uint32_t *p_port_index)
- {
--	char *handlestr = handlestr;
--	char *portstr = portstr;
-+	char *handlestr;
-+	char *portstr;
- 	int err;
- 
--	strslashrsplit(str, &handlestr, &portstr);
-+	err = strslashrsplit(str, &handlestr, &portstr);
-+	if (err) {
-+		pr_err("Port identification \"%s\" is invalid\n", str);
-+		return err;
-+	}
- 	err = strtouint32_t(portstr, p_port_index);
- 	if (err) {
- 		pr_err("Port index \"%s\" is not a number or not within range\n",
- 		       portstr);
- 		return err;
- 	}
--	strslashrsplit(handlestr, p_bus_name, p_dev_name);
-+	err = strslashrsplit(handlestr, p_bus_name, p_dev_name);
-+	if (err) {
-+		pr_err("Port identification \"%s\" is invalid\n", str);
-+		return err;
-+	}
+diff --git a/ip/iplink_can.c b/ip/iplink_can.c
+index 5df56b2bbbb3b..2954010fefa22 100644
+--- a/ip/iplink_can.c
++++ b/ip/iplink_can.c
+@@ -251,7 +251,7 @@ static int can_parse_opt(struct link_util *lu, int argc, char **argv,
  	return 0;
  }
+ 
+-static const char *can_state_names[] = {
++static const char *can_state_names[CAN_STATE_MAX] = {
+ 	[CAN_STATE_ERROR_ACTIVE] = "ERROR-ACTIVE",
+ 	[CAN_STATE_ERROR_WARNING] = "ERROR-WARNING",
+ 	[CAN_STATE_ERROR_PASSIVE] = "ERROR-PASSIVE",
+@@ -275,7 +275,7 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 	if (tb[IFLA_CAN_STATE]) {
+ 		uint32_t state = rta_getattr_u32(tb[IFLA_CAN_STATE]);
+ 
+-		fprintf(f, "state %s ", state <= CAN_STATE_MAX ?
++		fprintf(f, "state %s ", state < CAN_STATE_MAX ?
+ 			can_state_names[state] : "UNKNOWN");
+ 	}
  
 -- 
 2.13.1
