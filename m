@@ -1,55 +1,39 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 29/51] ss: Use C99 initializer in netlink_show_one()
-Date: Sat, 12 Aug 2017 14:04:48 +0200
-Message-ID: <20170812120510.28750-30-phil@nwl.cc>
+Subject: [iproute PATCH 27/51] nstat: Fix for potential NULL pointer dereference
+Date: Sat, 12 Aug 2017 14:04:46 +0200
+Message-ID: <20170812120510.28750-28-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:59339 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:35395 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752026AbdHLMFy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:05:54 -0400
+        id S1752026AbdHLMGB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:06:01 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This has the additional benefit of initializing st.ino to zero which is
-used later in is_sctp_assoc() function.
+If the string at 'p' contains neither space not newline, 'p' will become
+NULL. Make sure this isn't the case before dereferencing it.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- misc/ss.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ misc/nstat.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index f0d1c22f75cff..b4f89c85c2d52 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -3470,17 +3470,18 @@ static int netlink_show_one(struct filter *f,
- 				int rq, int wq,
- 				unsigned long long sk, unsigned long long cb)
- {
--	struct sockstat st;
-+	struct sockstat st = {
-+		.state		= SS_CLOSE,
-+		.rq		= rq,
-+		.wq		= wq,
-+		.local.family	= AF_NETLINK,
-+		.remote.family	= AF_NETLINK,
-+	};
+diff --git a/misc/nstat.c b/misc/nstat.c
+index a4dd405d43a93..23e1569d7872b 100644
+--- a/misc/nstat.c
++++ b/misc/nstat.c
+@@ -198,7 +198,7 @@ static void load_ugly_table(FILE *fp)
+ 		off = p - buf;
+ 		p += 2;
  
- 	SPRINT_BUF(prot_buf) = {};
- 	const char *prot_name;
- 	char procname[64] = {};
+-		while (*p) {
++		while (p && *p) {
+ 			char *next;
  
--	st.state = SS_CLOSE;
--	st.rq	 = rq;
--	st.wq	 = wq;
--	st.local.family = st.remote.family = AF_NETLINK;
--
- 	if (f->f) {
- 		st.rport = -1;
- 		st.lport = pid;
+ 			if ((next = strchr(p, ' ')) != NULL)
 -- 
 2.13.1
