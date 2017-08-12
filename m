@@ -1,50 +1,50 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH net-next 2/2] net: ipv4: add check for l3slave for index returned in IP_PKTINFO
-Date: Fri, 11 Aug 2017 17:11:15 -0700
-Message-ID: <1502496675-13349-3-git-send-email-dsahern@gmail.com>
-References: <1502496675-13349-1-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35214 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751863AbdHLALX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2017 20:11:23 -0400
-Received: by mail-pf0-f196.google.com with SMTP id j68so4656998pfc.2
-        for <netdev@vger.kernel.org>; Fri, 11 Aug 2017 17:11:23 -0700 (PDT)
-In-Reply-To: <1502496675-13349-1-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
+ count = 1
+Date: Fri, 11 Aug 2017 18:19:16 -0600
+Message-ID: <a2a0f380-3e49-8772-dde9-bcebd94cd7fd@gmail.com>
+References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
+ <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com>
+ <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
+ <CALAqxLXv60ReJu26omM6p=ZboEm-Z-3w+q0JcxLXDqqK5ohNoQ@mail.gmail.com>
+ <CAEA6p_AL8uUghtZgp4OmqygcFs-Jiy286P5r6tRd+yeSWxR3KA@mail.gmail.com>
+ <CALAqxLXY-kE2N__eDq514cLycR0-QRpyOCMWpdttO6fgovE2rg@mail.gmail.com>
+ <CAEA6p_C_rEYkJhcniyy6HUHgNxWFoxWzZ-WHsaSmNDwx4D+RXQ@mail.gmail.com>
+ <CAEA6p_AOcNkAWPc7NFBnr8QWi3eHdJiQ2=8D_DB_XthwSDL2+Q@mail.gmail.com>
+ <CALAqxLUoV6EQvofTEv9whW1_QMPBPU7eJBhRFUjaSs7CGeRFww@mail.gmail.com>
+ <CAM_iQpWMWg5ytDq2Y9p9uet1zowGuCX+eksyiyxu9vQ18WoPxQ@mail.gmail.com>
+ <CAEA6p_CooRGNOQN3fosF0JLqmd9aOTuNHKNPE8cbrzDH6c176w@mail.gmail.com>
+ <CAEA6p_COwXWP97wSHvzokmm8ckQ2QEd7=dfNH04ttDPm_z3bcg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux USB List <linux-usb@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>
+To: Wei Wang <weiwan@google.com>, Cong Wang <xiyou.wangcong@gmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Martin KaFai Lau <kafai@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEA6p_COwXWP97wSHvzokmm8ckQ2QEd7=dfNH04ttDPm_z3bcg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Similar to the loopback device, for packets sent through a VRF device
-the index returned in ipi_ifindex needs to be the saved index in
-rt_iif.
+On 8/11/17 6:10 PM, Wei Wang wrote:
+> I think we have a potential fix for this issue.
+> Martin and I found that when addrconf_dst_alloc() creates a rt6, it is
+> possible that rt6->dst.dev points to loopback device while
+> rt6->rt6i_idev->dev points to a real device.
+> When the real device goes down, the current fib6 clean up code only
+> checks for rt6->dst.dev and assumes rt6->rt6i_idev->dev is the same.
+> That leaves unreleased refcnt on the real device if rt6->dst.dev
+> points to loopback dev.
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- net/ipv4/ip_sockglue.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Yes, host routes and anycast routes.
 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index dd68a9ed5e40..e558e4f9597b 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -1207,6 +1207,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
- {
- 	struct in_pktinfo *pktinfo = PKTINFO_SKB_CB(skb);
-+	bool l3slave = ipv4_l3mdev_skb(IPCB(skb)->flags);
- 	bool prepare = (inet_sk(sk)->cmsg_flags & IP_CMSG_PKTINFO) ||
- 		       ipv6_sk_rxinfo(sk);
- 
-@@ -1220,7 +1221,7 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
- 		 * (e.g., process binds socket to eth0 for Tx which is
- 		 * redirected to loopback in the rtable/dst).
- 		 */
--		if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX)
-+		if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX || l3slave)
- 			pktinfo->ipi_ifindex = inet_iif(skb);
- 
- 		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
--- 
-2.1.4
+I have a patch to fix that but it is held up on a few VRF test cases
+failing. Hopefully I can get that figured out next week. These unrelated
+routes against the loopback device have been a source of a number of
+problems (e.g. take down 'lo' and all of IPv6 networking stops for that
+namespace).
