@@ -1,50 +1,56 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 20/51] lib/inet_proto: Make sure destination buffers are NULL-terminated
-Date: Sat, 12 Aug 2017 14:04:39 +0200
-Message-ID: <20170812120510.28750-21-phil@nwl.cc>
+Subject: [iproute PATCH 40/51] tc/m_xt: Fix for potential string buffer overflows
+Date: Sat, 12 Aug 2017 14:04:59 +0200
+Message-ID: <20170812120510.28750-41-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:47941 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:37753 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752011AbdHLMHl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:07:41 -0400
+        id S1752594AbdHLMHr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:07:47 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+- Use strncpy() when writing to target->t->u.user.name and make sure the
+  final byte remains untouched (xtables_calloc() set it to zero).
+- 'tname' length sanitization was completely wrong: If it's length
+  exceeded the 16 bytes available in 'k', passing a length value of 16
+  to strncpy() would overwrite the previously NULL'ed 'k[15]'. Also, the
+  sanitization has to happen if 'tname' is exactly 16 bytes long as
+  well.
+
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- lib/inet_proto.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ tc/m_xt.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/lib/inet_proto.c b/lib/inet_proto.c
-index ceda082b12a2e..87ed4769fc3da 100644
---- a/lib/inet_proto.c
-+++ b/lib/inet_proto.c
-@@ -35,8 +35,10 @@ const char *inet_proto_n2a(int proto, char *buf, int len)
- 	pe = getprotobynumber(proto);
- 	if (pe) {
- 		icache = proto;
--		strncpy(ncache, pe->p_name, 16);
--		strncpy(buf, pe->p_name, len);
-+		strncpy(ncache, pe->p_name, 15);
-+		ncache[15] = '\0';
-+		strncpy(buf, pe->p_name, len - 1);
-+		buf[len] = '\0';
- 		return buf;
+diff --git a/tc/m_xt.c b/tc/m_xt.c
+index ad52d239caf61..9218b14594403 100644
+--- a/tc/m_xt.c
++++ b/tc/m_xt.c
+@@ -95,7 +95,8 @@ build_st(struct xtables_target *target, struct xt_entry_target *t)
+ 	if (t == NULL) {
+ 		target->t = xtables_calloc(1, size);
+ 		target->t->u.target_size = size;
+-		strcpy(target->t->u.user.name, target->name);
++		strncpy(target->t->u.user.name, target->name,
++			sizeof(target->t->u.user.name) - 1);
+ 		target->t->u.user.revision = target->revision;
+ 
+ 		if (target->init != NULL)
+@@ -277,8 +278,8 @@ static int parse_ipt(struct action_util *a, int *argc_p,
  	}
- 	snprintf(buf, len, "ipproto-%d", proto);
-@@ -62,7 +64,8 @@ int inet_proto_a2n(const char *buf)
- 	pe = getprotobyname(buf);
- 	if (pe) {
- 		icache = pe->p_proto;
--		strncpy(ncache, pe->p_name, 16);
-+		strncpy(ncache, pe->p_name, 15);
-+		ncache[15] = '\0';
- 		return pe->p_proto;
- 	}
- 	return -1;
+ 	fprintf(stdout, " index %d\n", index);
+ 
+-	if (strlen(tname) > 16) {
+-		size = 16;
++	if (strlen(tname) >= 16) {
++		size = 15;
+ 		k[15] = 0;
+ 	} else {
+ 		size = 1 + strlen(tname);
 -- 
 2.13.1
