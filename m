@@ -1,44 +1,39 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 44/51] tipc/bearer: Fix resource leak in error path
-Date: Sat, 12 Aug 2017 14:05:03 +0200
-Message-ID: <20170812120510.28750-45-phil@nwl.cc>
+Subject: [iproute PATCH 32/51] ss: Make sure index variable is >= 0
+Date: Sat, 12 Aug 2017 14:04:51 +0200
+Message-ID: <20170812120510.28750-33-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:56711 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:37939 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752670AbdHLMKS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:10:18 -0400
+        id S1752637AbdHLMKY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:10:24 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This shouldn't happen but relying upon external data without checking
+may lead to unexpected results.
+
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- tipc/bearer.c | 3 +++
- 1 file changed, 3 insertions(+)
+ misc/ss.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/tipc/bearer.c b/tipc/bearer.c
-index 810344f672af1..c3d4491f8f6ef 100644
---- a/tipc/bearer.c
-+++ b/tipc/bearer.c
-@@ -163,6 +163,7 @@ static int nl_add_udp_enable_opts(struct nlmsghdr *nlh, struct opt *opts,
- 	if (!remip) {
- 		if (generate_multicast(loc->ai_family, buf, sizeof(buf))) {
- 			fprintf(stderr, "Failed to generate multicast address\n");
-+			freeaddrinfo(loc);
- 			return -EINVAL;
- 		}
- 		remip = buf;
-@@ -177,6 +178,8 @@ static int nl_add_udp_enable_opts(struct nlmsghdr *nlh, struct opt *opts,
+diff --git a/misc/ss.c b/misc/ss.c
+index d767b1103ea81..4d2f75b571ea6 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2003,7 +2003,7 @@ static void tcp_timer_print(struct tcpstat *s)
+ 		"unknown"
+ 	};
  
- 	if (rem->ai_family != loc->ai_family) {
- 		fprintf(stderr, "UDP local and remote AF mismatch\n");
-+		freeaddrinfo(rem);
-+		freeaddrinfo(loc);
- 		return -EINVAL;
- 	}
- 
+-	if (s->timer) {
++	if (s->timer >= 0) {
+ 		if (s->timer > 4)
+ 			s->timer = 5;
+ 		printf(" timer:(%s,%s,%d)",
 -- 
 2.13.1
