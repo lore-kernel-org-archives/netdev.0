@@ -1,39 +1,40 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 41/51] tc/q_multiq: Don't pass garbage in TCA_OPTIONS
-Date: Sat, 12 Aug 2017 14:05:00 +0200
-Message-ID: <20170812120510.28750-42-phil@nwl.cc>
+Subject: [iproute PATCH 30/51] ss: Skip useless check in parse_hostcond()
+Date: Sat, 12 Aug 2017 14:04:49 +0200
+Message-ID: <20170812120510.28750-31-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:45241 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:38667 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750968AbdHLMIS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:08:18 -0400
+        id S1752181AbdHLMIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:08:25 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-multiq_parse_opt() doesn't change 'opt' at all. So at least make sure
-it doesn't fill TCA_OPTIONS attribute with garbage from stack.
+The passed 'addr' parameter is dereferenced by caller before and in
+parse_hostcond() multiple times before this check, so assume it is
+always true.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- tc/q_multiq.c | 2 +-
+ misc/ss.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/tc/q_multiq.c b/tc/q_multiq.c
-index 7823931494563..9c09c9a7748f6 100644
---- a/tc/q_multiq.c
-+++ b/tc/q_multiq.c
-@@ -43,7 +43,7 @@ static void explain(void)
- static int multiq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 			    struct nlmsghdr *n)
- {
--	struct tc_multiq_qopt opt;
-+	struct tc_multiq_qopt opt = {};
- 
- 	if (argc) {
- 		if (strcmp(*argv, "help") == 0) {
+diff --git a/misc/ss.c b/misc/ss.c
+index b4f89c85c2d52..5ea388fbf1c1a 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1671,7 +1671,7 @@ void *parse_hostcond(char *addr, bool is_port)
+ 			}
+ 		}
+ 	}
+-	if (!is_port && addr && *addr && *addr != '*') {
++	if (!is_port && *addr && *addr != '*') {
+ 		if (get_prefix_1(&a.addr, addr, fam)) {
+ 			if (get_dns_host(&a, addr, fam)) {
+ 				fprintf(stderr, "Error: an inet prefix is expected rather than \"%s\".\n", addr);
 -- 
 2.13.1
