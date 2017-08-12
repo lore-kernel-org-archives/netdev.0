@@ -1,51 +1,49 @@
 From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] tap: make struct tap_fops static
-Date: Sat, 12 Aug 2017 22:52:31 +0100
-Message-ID: <20170812215231.6272-1-colin.king@canonical.com>
+Subject: [PATCH] rtlwifi: btcoex: make function btc8723b2ant_dac_swing static
+Date: Sat, 12 Aug 2017 23:00:17 +0100
+Message-ID: <20170812220017.6505-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
 Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-        Sainath Grandhi <sainath.grandhi@intel.com>,
-        Jason Wang <jasowang@redhat.com>,
-        Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:52136 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752012AbdHLVwo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2017 17:52:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Yan-Hsuan Chuang <yhchuang@realtek.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Colin Ian King <colin.king@canonical.com>
 
-The structure tap_fops is local to the source and does not need to
-be in global scope, so make it static.
+The function btc8723b2ant_dac_swing  is local to the source and
+does not need to be in global scope, so make it static.
 
 Cleans up sparse warning:
-symbol 'tap_fops' was not declared. Should it be static?
+symbol 'btc8723b2ant_dac_swing' was not declared. Should it be static?
 
 Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- drivers/net/tap.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/tap.c b/drivers/net/tap.c
-index ca267fd28ab8..0d039411e64c 100644
---- a/drivers/net/tap.c
-+++ b/drivers/net/tap.c
-@@ -1127,7 +1127,7 @@ static long tap_compat_ioctl(struct file *file, unsigned int cmd,
+diff --git a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c
+index 31965f0ef69d..9d2ecfbc7b33 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c
++++ b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c
+@@ -833,9 +833,9 @@ static void btc8723b2ant_set_sw_fulltime_dac_swing(struct btc_coexist *btcoex,
+ 		btc8723b2ant_set_dac_swing_reg(btcoex, 0x18);
  }
- #endif
  
--const struct file_operations tap_fops = {
-+static const struct file_operations tap_fops = {
- 	.owner		= THIS_MODULE,
- 	.open		= tap_open,
- 	.release	= tap_release,
+-void btc8723b2ant_dac_swing(struct btc_coexist *btcoexist,
+-			    bool force_exec, bool dac_swing_on,
+-			    u32 dac_swing_lvl)
++static void btc8723b2ant_dac_swing(struct btc_coexist *btcoexist,
++				   bool force_exec, bool dac_swing_on,
++				   u32 dac_swing_lvl)
+ {
+ 	struct rtl_priv *rtlpriv = btcoexist->adapter;
+ 
 -- 
 2.11.0
