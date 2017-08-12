@@ -1,79 +1,284 @@
-From: netdev-owner@vger.kernel.org
-Subject: =?utf-8?B?4piFbmF0aGFseWcxNy0t4oCcSkVDIHdv?=
-        =?utf-8?B?cmxkIDIwMTgg5LiW55WM5aSN5ZCI5p2Q5paZ5bGV6KeI5Y+K5Lya6K6u?=
-        =?utf-8?B?4oCd5bCG5LqO4oCcM+aciDA2LTA45pel4oCd5Zyo4oCc5rOV5Zu95be06buO4oCd?=
-        =?utf-8?B?5Li+6KGMICAgIO+8iOWcsOWPs1AxLUwtTWXvvIk=?=
-Date: Sat, 12 Aug 2017 09:18:17 +0800
-Message-ID: <20170812091828566387@supreme-lighting.com>
-Reply-To: <EMAILQUNFA@163.COM>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: update debug console logging mechanism
+Date: Fri, 11 Aug 2017 18:43:14 -0700
+Message-ID: <20170812014314.GA1012@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="utf-8"
-Content-Transfer-Encoding: base64
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [183.3.222.246] ([183.3.222.246]:59988 "EHLO mx04.utspace.cn"
-        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751783AbdHLBei (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 11 Aug 2017 21:34:38 -0400
+Received: from mail-cys01nam02on0046.outbound.protection.outlook.com ([104.47.37.46]:6646
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751770AbdHLBnV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 11 Aug 2017 21:43:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-5bCK5pWs55qEIG5hdGhhbHlnMTdAeWFob28uY29tIOS8geS4mumihuWvvC/lhazlj7jotJ/otKPk
-urov5Lia55WM5LiT5a6277yM5oKo5aW977yaDQrjgIDjgIANCuOAgOOAgOaWsOadkOaWmeS4ujIx
-5LiW57qq5LiJ5aSn5YWx5oCn5YWz6ZSu5oqA5pyv5LmL5LiA77yM5bey5oiQ5Li65YWo55CD57uP
-5rWO6L+F6YCf5aKe6ZW/55qE5rqQ5Yqo5Yqb5ZKM5o+Q5Y2H5qC45b+D56ue5LqJ5Yqb55qE5oiY
-55Wl54Sm54K544CC5p2Q5paZ5L2c5Li65Yi26YCg5Lia55qE5Z+656GA77yM54m55Yir5piv5paw
-5p2Q5paZ56CU56m25ZKM5Lqn5Lia5Y+R5bGV55qE5rC05bmz5LiO6KeE5qih77yM5bey57uP5oiQ
-5Li66KGh6YeP5LiA5Liq5Zu95a6256eR5oqA6L+b5q2l5ZKM57u85ZCI5a6e5Yqb55qE6YeN6KaB
-5qCH5b+X44CC5Zyo5paw5p2Q5paZ5Y+R5bGV5LiO5bqU55So5Lit77yM5aSN5ZCI5p2Q5paZ5Y2g
-5pyJ55u45b2T6YeN6KaB55qE5Zyw5L2N77yM54m55Yir5bm/5rOb55qE5bqU55So5Zyo5rG96L2m
-44CB5Lqk6YCa44CB6aOO6IO944CB6Iiq56m644CB6Iiq5aSp44CB5YW15Zmo44CB6Ii56Ii244CB
-5Zu96Ziy44CB5py65qKw44CB55S15a2Q44CB5YyW5bel44CB5bu6562R44CB5Yac5Lia44CB5riU
-5Lia44CB57q657uH44CB6L+Q5Yqo5Zmo5p2Q562J6aKG5Z+f77yM5LiA55u05piv5LiW55WM5ZCE
-5Zu95LyY5YWI5Y+R5bGV5ZKM56ue5LqJ5r+A54OI55qE6YeN6KaB6KGM5Lia44CCDQrjgIDjgIAN
-CuOAgOOAgOKAnEpFQ+S4lueVjOWkjeWQiOadkOaWmeWxleiniOWPiuS8muiuruKAne+8iEpFQyB3
-b3JsZCBDb21wb3NpdGVzIFNob3cgJiBDb25mZXJlbmNlc++8ieWIm+WKnuS6jjE5NjPlubTvvIzm
-r4/lubTkuL7lip7kuIDlsYrvvIzoh7MyMDE35bm05oC75YWx5Li+5Yqe5LqGNTLlsYrvvIzkuLvl
-ip7ljZXkvY3mmK/ms5Xlm71KRUPlpI3lkIjmnZDmlpnlj5HlsZXkv4Pov5vkvJovSkVD6ZuG5Zui
-77yM5Lit5Zu95oC75bGV5Zui5bGV5ZWG57uE57uH5Y2V5L2N5Li65pig5b635Zu96ZmF5Lya5bGV
-6ZuG5Zui5Lit5Zu95Luj6KGo5aSE77yM5Zyo5YyX5Lqs44CB5LiK5rW3562J5Zyw6K6+5pyJ5YiG
-5pSv5py65p6E77yM6LSf6LSj6K+l5bGV5Lya5Zyo5Lit5Zu955qE5o6o5bm/5ZKM5oub5ZWG5bel
-5L2c77yISkVD5Lit5Zu95oC75bGV5Zui5oql5ZCN54Ot57q/77yaNDAwMC02ODAtODYw6L2sODE0
-NOOAgTUyMjDvvInjgIJKRUPlpI3lkIjmnZDmlpnlsZXlt7LmiJDkuLrkuJbnlYzkuIrljoblj7Lm
-nIDmgqDkuYXjgIHop4TmqKHmnIDlpKfnmoTlpI3lkIjmnZDmlpnooYzkuJrkuJPkuJrlsZXop4jk
-vJrvvIzlsZXnpLrlkozlj43mmKDkuoblvZPliY3lpI3lkIjmnZDmlpnooYzkuJrnmoTmnIDmlrDm
-ioDmnK/lkozlupTnlKjmiJDmnpzjgIINCuOAgOOAgA0K44CA44CA5Li65LqG5aKe6L+b5Zu95YaF
-5aSW5aSN5ZCI5p2Q5paZ6KGM5Lia55qE5Lqk5rWB5LiO5ZCI5L2c77yM5ZCM5pe25bGV56S65oiR
-5Zu95aSN5ZCI5p2Q5paZ5Lqn5Lia55qE5Y+R5bGV5LiO5oiQ5bCx77yM5biu5Yqp5aKD5YaF5LyB
-5Lia5byA5ouT5Zu95YaF5aSW5biC5Zy677yM5Lit5Zu95Zu96ZmF5aSN5p2Q5Y2P5Lya44CB5pig
-5b635Zu96ZmF5Lya5bGV6ZuG5Zui77yIWU9ORCBFWFBP77yJ5Lit5Zu95Luj6KGo5aSE5bey6L+R
-5Y2B5bm057uE57uH5Lit5Zu95LyB5Lia5Y+C5LiO6K+l5bGV5Lya77yM5Li65Lit5Zu95aSN5ZCI
-5p2Q5paZ6ZuG5Zui44CB5Lit5p2Q56eR5oqA44CB5Lit6ZKi6ZuG5Zui44CB5Lit5Zu95bu65p2Q
-6ZuG5Zui44CB5Lit5Zu95ZWG6aOe44CB5YyX5Lqs54676ZKi6Zmi44CB5LiK5rW35p2w5LqL5p2w
-5paw5p2Q5paZ6ZuG5Zui44CB6YeN5bqG5Zu96ZmF5aSN5ZCI5p2Q5paZ44CB5Lit5Y2X5o6n6IKh
-6ZuG5Zui44CB56em55qH5bKb6ICA5Y2O546755KD6ZKi44CB54Of5Y+w5rCo57q244CB5aSp6ams
-6ZuG5Zui44CB5Y2O5Lic55CG5bel5aSn5a2m44CB5ZOI5bCU5ruo5bel5Lia5aSn5a2m44CB5beo
-55+z6ZuG5Zui44CB5Lit5Ya26ZuG5Zui44CB6YeR5YWJ6ZuG5Zui44CB5rGf6IuP5oGS56We57qk
-57u05p2Q5paZ44CB6YeN5bqG5aSn5a2m44CB5LiK5rW3546755KD6ZKi56CU56m26Zmi44CB5Lit
-5Y2X5aSn5a2m44CB5ZOI5bCU5ruo546755KD6ZKi56CU56m26Zmi562J5LyX5aSa6KGM5Lia5beo
-5aS05ZKM55+l5ZCN5py65p6E5o+Q5L6b5LqG5LyY6LSo6auY5pWI55qE5aKD5aSW5bGV6LS45pyN
-5Yqh44CCDQrjgIDjgIANCuOAgOOAgOKAnEpFQyB3b3JsZCAyMDE4IOesrOS6lOWNgeS4ieS4lueV
-jOWkjeWQiOadkOaWmeWxleiniOWPiuS8muiuruKAneWwhuS6juKAnDPmnIgwNi0wOOaXpeKAneWc
-qOKAnOazleWbveW3tOm7juWxleiniOS8muiuruS4reW/g+KAneWGjeW6puS4vuihjO+8jOaIkeS7
-rOivmumCgOWFqOWbveWQhOWcsOWkjeWQiOadkOaWmeWPiuaWsOadkOaWmeebuOWFs+WNleS9jeS4
-juS4mueVjOS6uuWjq+WKoOWFpeWSseS7rOeahOS4reWbveaAu+WxleWbouWJjeW+gOWPguWxleWP
-guinguOAguOAgOOAgA0K44CA44CADQrjgIDjgIDmnInlhbPlj4LlsZXlj4Lop4LigJxKRUPkuJbn
-lYzlpI3lkIjmnZDmlpnlsZXigJ3kuovlrpzvvIzor7fogZTnu5zjgJDkuK3lm73mgLvlsZXlm6Lj
-gJHnu4Tlip7mlrnigJTigJQg5YWo5Zu957uf5LiA5a6i5pyN54Ot57q/77yaNDAwMC01ODAtODUw
-77yI6L2sNTIyMOOAgTgxNDTjgIE4ODg477yJ44CBMDEw4oCUNjkyMy02OTQ077ybIOmCrueusS9R
-Ue+8mjEyODA5Mzk1I3FxLmNvbe+8myDlvq7kv6HvvJogQ2FuWmhhblhpYW9Yae+8iOWPguWxlea2
-iOaBr++8ieOAgVpoYW5TaGFuZ1poaUppYe+8iOWxleWVhuS5i+Wutu+8ie+8myDlvq7ljZrvvJpo
-dHRwOi8vd2VpYm8uY29tL2plY3Nob3fvvIjlsZXkvJrvvInjgIFodHRwOi8vd2VpYm8uY29tL3lp
-bmdkZWh1aXpoYW7vvIjlhazlj7jvvInjgIINCuOAgOOAgA0K44CA44CA5Y+C5YqgSkVD5bGV5Lya
-5piv5LiA5Liq5aSN5ZCI5p2Q5paZ5Y+K5paw5p2Q5paZ5LyB5Lia6LWw5ZCR5Zu96ZmF5YyW55qE
-5qCH5b+X5ZKM6YCU5b6E77yBDQrjgIDjgIANCuOAgOOAgA0K44CA44CADQrjgIDjgIANCl9fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX1/jgIDjgIANCu+8iOeZvuS4h+e+pOWPkeezu+e7n3zkuLrmgqjl
-j5HpgIF85aaC5LiN5biM5pyb5YaN5pS25Yiw5q2k6KGM5Lia6LWE6K6vfOivt+WbnuWkjeKAnFRE
-K0pFQ+KAneiHs+mCrueusTEwNTU4MDA4MTJAcXEuY29t77yJ
+From: Rick Farrington <ricardo.farrington@cavium.com>
+
+- remove logging dependency upon global func octeon_console_debug_enabled()
+- abstract debug console logging using console structure (via function ptr)
+  to allow for more flexible logging
+
+Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 44 +++++++++++++++++-
+ .../net/ethernet/cavium/liquidio/octeon_console.c  | 54 ++++++++++++++--------
+ .../net/ethernet/cavium/liquidio/octeon_device.h   | 17 +++++--
+ 3 files changed, 90 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index cbd6287..a5b752e 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -73,7 +73,7 @@
+  * @param console console to check
+  * @returns  1 = enabled. 0 otherwise
+  */
+-int octeon_console_debug_enabled(u32 console)
++static int octeon_console_debug_enabled(u32 console)
+ {
+ 	return (console_bitmask >> (console)) & 0x1;
+ }
+@@ -187,6 +187,9 @@ struct octeon_device_priv {
+ static int liquidio_enable_sriov(struct pci_dev *dev, int num_vfs);
+ #endif
+ 
++static int octeon_dbg_console_print(struct octeon_device *oct, u32 console_num,
++				    char *prefix, char *suffix);
++
+ static int octeon_device_init(struct octeon_device *);
+ static int liquidio_stop(struct net_device *netdev);
+ static void liquidio_remove(struct pci_dev *pdev);
+@@ -4555,6 +4558,7 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 	int j, ret;
+ 	int fw_loaded = 0;
+ 	char bootcmd[] = "\n";
++	char *dbg_enb = NULL;
+ 	struct octeon_device_priv *oct_priv =
+ 		(struct octeon_device_priv *)octeon_dev->priv;
+ 	atomic_set(&octeon_dev->status, OCT_DEV_BEGIN_STATE);
+@@ -4761,10 +4765,19 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 			dev_err(&octeon_dev->pci_dev->dev, "Could not access board consoles\n");
+ 			return 1;
+ 		}
+-		ret = octeon_add_console(octeon_dev, 0);
++		/* If console debug enabled, specify empty string to use default
++		 * enablement ELSE specify NULL string for 'disabled'.
++		 */
++		dbg_enb = octeon_console_debug_enabled(0) ? "" : NULL;
++		ret = octeon_add_console(octeon_dev, 0, dbg_enb);
+ 		if (ret) {
+ 			dev_err(&octeon_dev->pci_dev->dev, "Could not access board console\n");
+ 			return 1;
++		} else if (octeon_console_debug_enabled(0)) {
++			/* If console was added AND we're logging console output
++			 * then set our console print function.
++			 */
++			octeon_dev->console[0].print = octeon_dbg_console_print;
+ 		}
+ 
+ 		atomic_set(&octeon_dev->status, OCT_DEV_CONSOLE_INIT_DONE);
+@@ -4800,6 +4813,33 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ }
+ 
+ /**
++ * \brief Debug console print function
++ * @param octeon_dev  octeon device
++ * @param console_num console number
++ * @param prefix      first portion of line to display
++ * @param suffix      second portion of line to display
++ *
++ * The OCTEON debug console outputs entire lines (excluding '\n').
++ * Normally, the line will be passed in the 'prefix' parameter.
++ * However, due to buffering, it is possible for a line to be split into two
++ * parts, in which case they will be passed as the 'prefix' parameter and
++ * 'suffix' parameter.
++ */
++static int octeon_dbg_console_print(struct octeon_device *oct, u32 console_num,
++				    char *prefix, char *suffix)
++{
++	if (prefix && suffix)
++		dev_info(&oct->pci_dev->dev, "%u: %s%s\n", console_num, prefix,
++			 suffix);
++	else if (prefix)
++		dev_info(&oct->pci_dev->dev, "%u: %s\n", console_num, prefix);
++	else if (suffix)
++		dev_info(&oct->pci_dev->dev, "%u: %s\n", console_num, suffix);
++
++	return 0;
++}
++
++/**
+  * \brief Exits the module
+  */
+ static void __exit liquidio_exit(void)
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+index dd0efc9..19e5212 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+@@ -437,20 +437,31 @@ static void output_console_line(struct octeon_device *oct,
+ {
+ 	char *line;
+ 	s32 i;
++	size_t len;
+ 
+ 	line = console_buffer;
+ 	for (i = 0; i < bytes_read; i++) {
+ 		/* Output a line at a time, prefixed */
+ 		if (console_buffer[i] == '\n') {
+ 			console_buffer[i] = '\0';
+-			if (console->leftover[0]) {
+-				dev_info(&oct->pci_dev->dev, "%lu: %s%s\n",
+-					 console_num, console->leftover,
+-					 line);
++			/* We need to output 'line', prefaced by 'leftover'.
++			 * However, it is possible we're being called to
++			 * output 'leftover' by itself (in the case of nothing
++			 * having been read from the console).
++			 *
++			 * To avoid duplication, check for this condition.
++			 */
++			if (console->leftover[0] &&
++			    (line != console->leftover)) {
++				if (console->print)
++					(*console->print)(oct, (u32)console_num,
++							  console->leftover,
++							  line);
+ 				console->leftover[0] = '\0';
+ 			} else {
+-				dev_info(&oct->pci_dev->dev, "%lu: %s\n",
+-					 console_num, line);
++				if (console->print)
++					(*console->print)(oct, (u32)console_num,
++							  line, NULL);
+ 			}
+ 			line = &console_buffer[i + 1];
+ 		}
+@@ -459,13 +470,16 @@ static void output_console_line(struct octeon_device *oct,
+ 	/* Save off any leftovers */
+ 	if (line != &console_buffer[bytes_read]) {
+ 		console_buffer[bytes_read] = '\0';
+-		strcpy(console->leftover, line);
++		len = strlen(console->leftover);
++		strncpy(&console->leftover[len], line,
++			sizeof(console->leftover) - len);
+ 	}
+ }
+ 
+ static void check_console(struct work_struct *work)
+ {
+ 	s32 bytes_read, tries, total_read;
++	size_t len;
+ 	struct octeon_console *console;
+ 	struct cavium_wk *wk = (struct cavium_wk *)work;
+ 	struct octeon_device *oct = (struct octeon_device *)wk->ctxptr;
+@@ -487,7 +501,7 @@ static void check_console(struct work_struct *work)
+ 			total_read += bytes_read;
+ 			if (console->waiting)
+ 				octeon_console_handle_result(oct, console_num);
+-			if (octeon_console_debug_enabled(console_num)) {
++			if (console->print) {
+ 				output_console_line(oct, console, console_num,
+ 						    console_buffer, bytes_read);
+ 			}
+@@ -502,10 +516,13 @@ static void check_console(struct work_struct *work)
+ 	/* If nothing is read after polling the console,
+ 	 * output any leftovers if any
+ 	 */
+-	if (octeon_console_debug_enabled(console_num) &&
+-	    (total_read == 0) && (console->leftover[0])) {
+-		dev_info(&oct->pci_dev->dev, "%u: %s\n",
+-			 console_num, console->leftover);
++	if (console->print && (total_read == 0) &&
++	    (console->leftover[0])) {
++		/* append '\n' as terminator for 'output_console_line' */
++		len = strlen(console->leftover);
++		console->leftover[len] = '\n';
++		output_console_line(oct, console, console_num,
++				    console->leftover, (s32)(len + 1));
+ 		console->leftover[0] = '\0';
+ 	}
+ 
+@@ -557,7 +574,8 @@ int octeon_init_consoles(struct octeon_device *oct)
+ 	return ret;
+ }
+ 
+-int octeon_add_console(struct octeon_device *oct, u32 console_num)
++int octeon_add_console(struct octeon_device *oct, u32 console_num,
++		       char *dbg_enb)
+ {
+ 	int ret = 0;
+ 	u32 delay;
+@@ -599,11 +617,11 @@ int octeon_add_console(struct octeon_device *oct, u32 console_num)
+ 		delay = OCTEON_CONSOLE_POLL_INTERVAL_MS;
+ 		schedule_delayed_work(work, msecs_to_jiffies(delay));
+ 
+-		if (octeon_console_debug_enabled(console_num)) {
+-			ret = octeon_console_send_cmd(oct,
+-						      "setenv pci_console_active 1",
+-						      2000);
+-		}
++		/* an empty string means use default debug console enablement */
++		if (dbg_enb && !dbg_enb[0])
++			dbg_enb = "setenv pci_console_active 1";
++		if (dbg_enb)
++			ret = octeon_console_send_cmd(oct, dbg_enb, 2000);
+ 
+ 		console->active = 1;
+ 	}
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index 31efdef..bf51d54 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -194,6 +194,8 @@ struct octeon_reg_list {
+ };
+ 
+ #define OCTEON_CONSOLE_MAX_READ_BYTES 512
++typedef int (*octeon_console_print_fn)(struct octeon_device *oct,
++				       u32 num, char *pre, char *suf);
+ struct octeon_console {
+ 	u32 active;
+ 	u32 waiting;
+@@ -201,6 +203,7 @@ struct octeon_console {
+ 	u32 buffer_size;
+ 	u64 input_base_addr;
+ 	u64 output_base_addr;
++	octeon_console_print_fn print;
+ 	char leftover[OCTEON_CONSOLE_MAX_READ_BYTES];
+ };
+ 
+@@ -739,16 +742,20 @@ int octeon_wait_for_bootloader(struct octeon_device *oct,
+  */
+ int octeon_init_consoles(struct octeon_device *oct);
+ 
+-int octeon_console_debug_enabled(u32 console);
+-
+ /**
+  * Adds access to a console to the device.
+  *
+- * @param oct which octeon to add to
+- * @param console_num which console
++ * @param oct:          which octeon to add to
++ * @param console_num:  which console
++ * @param dbg_enb:      ptr to debug enablement string, one of:
++ *                    * NULL for no debug output (i.e. disabled)
++ *                    * empty string enables debug output (via default method)
++ *                    * specific string to enable debug console output
++ *
+  * @return Zero on success, negative on failure.
+  */
+-int octeon_add_console(struct octeon_device *oct, u32 console_num);
++int octeon_add_console(struct octeon_device *oct, u32 console_num,
++		       char *dbg_enb);
+ 
+ /** write or read from a console */
+ int octeon_console_write(struct octeon_device *oct, u32 console_num,
+-- 
+1.8.3.1
