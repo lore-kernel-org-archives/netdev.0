@@ -1,38 +1,39 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 37/51] netem/maketable: Check return value of fscanf()
-Date: Sat, 12 Aug 2017 14:04:56 +0200
-Message-ID: <20170812120510.28750-38-phil@nwl.cc>
+Subject: [iproute PATCH 07/51] ipmaddr: Avoid accessing uninitialized data
+Date: Sat, 12 Aug 2017 14:04:26 +0200
+Message-ID: <20170812120510.28750-8-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:33861 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:45143 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751977AbdHLMJe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:09:34 -0400
+        id S1752114AbdHLMJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:09:40 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Looks like this can only happen if /proc/net/igmp is malformed, but
+better be sure.
+
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- netem/maketable.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ ip/ipmaddr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/netem/maketable.c b/netem/maketable.c
-index ad660e7d457f0..ccb8f0c68b062 100644
---- a/netem/maketable.c
-+++ b/netem/maketable.c
-@@ -38,8 +38,8 @@ readdoubles(FILE *fp, int *number)
- 	}
+diff --git a/ip/ipmaddr.c b/ip/ipmaddr.c
+index 4f726fdd976f1..85a69e779563d 100644
+--- a/ip/ipmaddr.c
++++ b/ip/ipmaddr.c
+@@ -136,7 +136,7 @@ static void read_igmp(struct ma_info **result_p)
  
- 	for (i=0; i<limit; ++i){
--		fscanf(fp, "%lf", &x[i]);
--		if (feof(fp))
-+		if (fscanf(fp, "%lf", &x[i]) != 1 ||
-+		    feof(fp))
- 			break;
- 		++n;
- 	}
+ 	while (fgets(buf, sizeof(buf), fp)) {
+ 		struct ma_info *ma;
+-		size_t len;
++		size_t len = 0;
+ 
+ 		if (buf[0] != '\t') {
+ 			sscanf(buf, "%d%s", &m.index, m.name);
 -- 
 2.13.1
