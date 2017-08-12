@@ -1,53 +1,29 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: NACK: [PATCH] rtlwifi: btcoex: make function btc8723b2ant_dac_swing
- static
-Date: Sat, 12 Aug 2017 23:02:54 +0100
-Message-ID: <2cd21542-1129-d93d-480b-752afbf11b8d@canonical.com>
-References: <20170812220017.6505-1-colin.king@canonical.com>
+From: =?utf-8?B?0JDQu9C10LrRgdC10Lkg0JHQvtC70LTRi9GA0LXQsg==?=
+        <devel-net-ne-vlezay80@yandex.ru>
+Subject: Linux MPLS traceroute failure
+Date: Sun, 13 Aug 2017 01:42:43 +0300
+Message-ID: <206091502577763@web5g.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Yan-Hsuan Chuang <yhchuang@realtek.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170812220017.6505-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward101p.mail.yandex.net ([77.88.28.101]:57818 "EHLO
+        forward101p.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752023AbdHLWue (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2017 18:50:34 -0400
+Received: from mxback5g.mail.yandex.net (mxback5g.mail.yandex.net [IPv6:2a02:6b8:0:1472:2741:0:8b7:166])
+        by forward101p.mail.yandex.net (Yandex) with ESMTP id 053036A82530
+        for <netdev@vger.kernel.org>; Sun, 13 Aug 2017 01:42:44 +0300 (MSK)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/08/17 23:00, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> The function btc8723b2ant_dac_swing  is local to the source and
-> does not need to be in global scope, so make it static.
-> 
-> Cleans up sparse warning:
-> symbol 'btc8723b2ant_dac_swing' was not declared. Should it be static?
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c
-> index 31965f0ef69d..9d2ecfbc7b33 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c
-> @@ -833,9 +833,9 @@ static void btc8723b2ant_set_sw_fulltime_dac_swing(struct btc_coexist *btcoex,
->  		btc8723b2ant_set_dac_swing_reg(btcoex, 0x18);
->  }
->  
-> -void btc8723b2ant_dac_swing(struct btc_coexist *btcoexist,
-> -			    bool force_exec, bool dac_swing_on,
-> -			    u32 dac_swing_lvl)
-> +static void btc8723b2ant_dac_swing(struct btc_coexist *btcoexist,
-> +				   bool force_exec, bool dac_swing_on,
-> +				   u32 dac_swing_lvl)
->  {
->  	struct rtl_priv *rtlpriv = btcoexist->adapter;
->  
-> 
-Sent out wrong patch. Please ignore.
+Testing MPLS from Linux kernel 4.12. The trace route is duplicete pe-p hop. This is not visible MPLS label on traceroute.
+
+root@ne-vlezay80:~# traceroute -e 10.10.10.4
+traceroute to 10.10.10.4 (10.10.10.4), 30 hops max, 60 byte packets
+ 1  10.5.5.1 (10.5.5.1)  0.028 ms  0.005 ms  0.006 ms
+ 2  10.4.4.2 (10.4.4.2)  0.021 ms  0.007 ms  0.012 ms
+ 3  10.4.4.2 (10.4.4.2)  0.008 ms  0.008 ms  0.007 ms
+ 4  10.10.10.4 (10.10.10.4)  0.015 ms  0.009 ms  0.008 ms
+root@ne-vlezay80:~# 
