@@ -1,8 +1,8 @@
-From: John Stultz <john.stultz@linaro.org>
+From: David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
  count = 1
-Date: Fri, 11 Aug 2017 20:07:52 -0700
-Message-ID: <CALAqxLX=GP5FMXfoEGuSwUuZp0cTyUCzh+ntSdknevjJioM0hg@mail.gmail.com>
+Date: Fri, 11 Aug 2017 21:37:00 -0600
+Message-ID: <ddebbddc-bb66-ed0f-423a-277d40f99f66@gmail.com>
 References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
  <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com>
  <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
@@ -14,61 +14,36 @@ References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
  <CALAqxLUoV6EQvofTEv9whW1_QMPBPU7eJBhRFUjaSs7CGeRFww@mail.gmail.com>
  <CAM_iQpWMWg5ytDq2Y9p9uet1zowGuCX+eksyiyxu9vQ18WoPxQ@mail.gmail.com>
  <CAEA6p_CooRGNOQN3fosF0JLqmd9aOTuNHKNPE8cbrzDH6c176w@mail.gmail.com>
- <CAEA6p_COwXWP97wSHvzokmm8ckQ2QEd7=dfNH04ttDPm_z3bcg@mail.gmail.com> <CALAqxLV-e=Uz_zG6VYcKSTG0+qJdpPOv0_vagnGx4bABgzO4tg@mail.gmail.com>
+ <CAEA6p_COwXWP97wSHvzokmm8ckQ2QEd7=dfNH04ttDPm_z3bcg@mail.gmail.com>
+ <a2a0f380-3e49-8772-dde9-bcebd94cd7fd@gmail.com>
+ <CAEA6p_CxiwXzQHgLA_Oma0pfayYReGc5QmJkV=Td9M1Kdqwbzg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        lkml <linux-kernel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux USB List <linux-usb@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Felipe Balbi <felipe.balbi@linux.intel.com>
-To: Wei Wang <weiwan@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALAqxLV-e=Uz_zG6VYcKSTG0+qJdpPOv0_vagnGx4bABgzO4tg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>,
+        lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux USB List <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Felipe Balbi <felipe.balbi-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: Wei Wang <weiwan-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAEA6p_CxiwXzQHgLA_Oma0pfayYReGc5QmJkV=Td9M1Kdqwbzg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 11, 2017 at 5:31 PM, John Stultz <john.stultz@linaro.org> wrote:
-> On Fri, Aug 11, 2017 at 5:10 PM, Wei Wang <weiwan@google.com> wrote:
->>> If after Cong's fix, the issue still happens, could you help try the
->>> patch attached and collect all logs when you try the reproduce the
->>> issue? It would be great to have logs for both success case and the
->>> failure case.
->>>
->>> Thanks so much for your help.
->>>
->>
->> I think we have a potential fix for this issue.
->> Martin and I found that when addrconf_dst_alloc() creates a rt6, it is
->> possible that rt6->dst.dev points to loopback device while
->> rt6->rt6i_idev->dev points to a real device.
->> When the real device goes down, the current fib6 clean up code only
->> checks for rt6->dst.dev and assumes rt6->rt6i_idev->dev is the same.
->> That leaves unreleased refcnt on the real device if rt6->dst.dev
->> points to loopback dev.
->>
->> The attached potential fix is tested by Martin and made sure it fixes his issue.
->>
->> John,
->> It will be great if you can also give it a try and see if it fixes the
->> issue on your side before I submit an official patch.
->
-> So yes, sorry I haven't been able to get back quicker on the other
-> patches sent, was mucking about in other work.
->
-> So yea, this patch  (potential fix for unregister_netdevice()) seems
-> to avoid the issue.
->
-> I'm going to do some further testing, but its looking good so far.
+On 8/11/17 6:25 PM, Wei Wang wrote:
+> By "a patch to fix that" do you mean after your patch, for every rt6,
+> rt6->rt6i_idev will be the same as rt6->dst.dev?
 
-Looks good so far! I've not hit the issue yet.
+FIB entries should have them the same device with my patch.
 
-Thanks so much for sorting out a fix!
-
-If its useful:
-Tested-by: John Stultz <john.stultz@linaro.org>
-
-thanks again
--john
+The copies done (ip6_rt_cache_alloc and ip6_rt_pcpu_alloc) will have to
+set dst.dev to loopback or VRF device for RTF_LOCAL routes; it's the
+only way to get local traffic to work and this is similar to what IPv4 does.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
