@@ -1,8 +1,8 @@
 From: Wei Wang <weiwan@google.com>
 Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
  count = 1
-Date: Sat, 12 Aug 2017 12:28:21 -0700
-Message-ID: <CAEA6p_AY=rk_x_HoaBoxR+499E+jHqdUFgYyni6nTaCSfqDs8Q@mail.gmail.com>
+Date: Sat, 12 Aug 2017 12:29:17 -0700
+Message-ID: <CAEA6p_DO31cGhe=mdd7yOFLJVt+Ys2JwxQHLkjOX9zZEpqCmJw@mail.gmail.com>
 References: <CALAqxLWVYgnTnwAwm7uNQ6P_Z8xFd96NQ+G_j1qT+h5F6habag@mail.gmail.com>
  <CALAqxLXG8X2nkLEHM63oiY=M17vcpU2+-ec7x_aBWDCqrj4U-Q@mail.gmail.com>
  <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
@@ -30,6 +30,21 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <CALAqxLX=GP5FMXfoEGuSwUuZp0cTyUCzh+ntSdknevjJioM0hg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+> Looks good so far! I've not hit the issue yet.
+>
+
+Great. I will prepare an official patch then.
+
+> Thanks so much for sorting out a fix!
+>
+> If its useful:
+> Tested-by: John Stultz <john.stultz@linaro.org>
+
+Sure will do.
+
+Thanks.
+Wei
 
 On Fri, Aug 11, 2017 at 8:07 PM, John Stultz <john.stultz@linaro.org> wrote:
 > On Fri, Aug 11, 2017 at 5:31 PM, John Stultz <john.stultz@linaro.org> wrote:
