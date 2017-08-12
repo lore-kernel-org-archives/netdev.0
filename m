@@ -1,41 +1,37 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 51/51] lib/bpf: Check return value of write()
-Date: Sat, 12 Aug 2017 14:05:10 +0200
-Message-ID: <20170812120510.28750-52-phil@nwl.cc>
+Subject: [iproute PATCH 31/51] ss: Drop useless assignment
+Date: Sat, 12 Aug 2017 14:04:50 +0200
+Message-ID: <20170812120510.28750-32-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:34941 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:50143 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752138AbdHLMFs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:05:48 -0400
+        id S1752114AbdHLMGH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:06:07 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is merely to silence the compiler warning. If write to stderr
-failed, assume that printing an error message will fail as well so don't
-even try.
+After '*b = *a', 'b->next' already has the same value as 'a->next'.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- lib/bpf.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ misc/ss.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/lib/bpf.c b/lib/bpf.c
-index 1dcb261dc915f..825e071cea572 100644
---- a/lib/bpf.c
-+++ b/lib/bpf.c
-@@ -591,7 +591,8 @@ int bpf_trace_pipe(void)
- 
- 		ret = read(fd, buff, sizeof(buff) - 1);
- 		if (ret > 0) {
--			write(2, buff, ret);
-+			if (write(STDERR_FILENO, buff, ret) != ret)
-+				return -1;
- 			fflush(stderr);
+diff --git a/misc/ss.c b/misc/ss.c
+index 5ea388fbf1c1a..d767b1103ea81 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1440,7 +1440,6 @@ static int remember_he(struct aafilter *a, struct hostent *he)
+ 			if ((b = malloc(sizeof(*b))) == NULL)
+ 				return cnt;
+ 			*b = *a;
+-			b->next = a->next;
+ 			a->next = b;
  		}
- 	}
+ 		memcpy(b->addr.data, *ptr, len);
 -- 
 2.13.1
