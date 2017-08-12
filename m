@@ -1,68 +1,50 @@
-From: <agar2000@hotmail.com>
-Subject: (unknown)
-Date: Sat, 12 Aug 2017 12:05:24 -0000
-Message-ID: <150253952424.14154.13049346848398176032@verizon.net>
-Mime-Version: 1.0
-Content-Type: application/zip; name="70937464.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH 21/51] lib/libnetlink: Don't pass NULL parameter to memcpy()
+Date: Sat, 12 Aug 2017 14:04:40 +0200
+Message-ID: <20170812120510.28750-22-phil@nwl.cc>
+References: <20170812120510.28750-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-96-244-139-130.bltmmd.fios.verizon.net ([96.244.139.130]:30071
-        "HELO verizon.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with SMTP id S1752368AbdHLMF2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2017 08:05:28 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from orbyte.nwl.cc ([151.80.46.58]:49565 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752318AbdHLMFm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:05:42 -0400
+In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AACACgAAAAA=
+Both addattr_l() and rta_addattr_l() may be called with NULL data
+pointer and 0 alen parameters. Avoid calling memcpy() in that case.
+
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ lib/libnetlink.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 81a344abff27a..5e3adade77077 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -866,7 +866,8 @@ int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
+ 	rta = NLMSG_TAIL(n);
+ 	rta->rta_type = type;
+ 	rta->rta_len = len;
+-	memcpy(RTA_DATA(rta), data, alen);
++	if (alen)
++		memcpy(RTA_DATA(rta), data, alen);
+ 	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len);
+ 	return 0;
+ }
+@@ -953,7 +954,8 @@ int rta_addattr_l(struct rtattr *rta, int maxlen, int type,
+ 	subrta = (struct rtattr *)(((char *)rta) + RTA_ALIGN(rta->rta_len));
+ 	subrta->rta_type = type;
+ 	subrta->rta_len = len;
+-	memcpy(RTA_DATA(subrta), data, alen);
++	if (alen)
++		memcpy(RTA_DATA(subrta), data, alen);
+ 	rta->rta_len = NLMSG_ALIGN(rta->rta_len) + RTA_ALIGN(len);
+ 	return 0;
+ }
+-- 
+2.13.1
