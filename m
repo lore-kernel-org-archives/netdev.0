@@ -1,45 +1,36 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 26/51] lnstat_util: Simplify alloc_and_open() a bit
-Date: Sat, 12 Aug 2017 14:04:45 +0200
-Message-ID: <20170812120510.28750-27-phil@nwl.cc>
+Subject: [iproute PATCH 13/51] iproute_lwtunnel: Argument to strerror must be positive
+Date: Sat, 12 Aug 2017 14:04:32 +0200
+Message-ID: <20170812120510.28750-14-phil@nwl.cc>
 References: <20170812120510.28750-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:44083 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:34047 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751977AbdHLMGc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 12 Aug 2017 08:06:32 -0400
+        id S1752533AbdHLMGi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 12 Aug 2017 08:06:38 -0400
 In-Reply-To: <20170812120510.28750-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Relying upon callers and using unsafe strcpy() is probably not the best
-idea. Aside from that, using snprintf() allows to format the string for
-lf->path in one go.
-
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- misc/lnstat_util.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ ip/iproute_lwtunnel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/misc/lnstat_util.c b/misc/lnstat_util.c
-index cc54598fe1bef..ec19238c24b94 100644
---- a/misc/lnstat_util.c
-+++ b/misc/lnstat_util.c
-@@ -180,11 +180,8 @@ static struct lnstat_file *alloc_and_open(const char *path, const char *file)
+diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
+index 398ab5e077ed8..1a3dc4d4c0ed9 100644
+--- a/ip/iproute_lwtunnel.c
++++ b/ip/iproute_lwtunnel.c
+@@ -643,7 +643,7 @@ static int lwt_parse_bpf(struct rtattr *rta, size_t len,
+ 	err = bpf_parse_common(bpf_type, &cfg, &bpf_cb_ops, &x);
+ 	if (err < 0) {
+ 		fprintf(stderr, "Failed to parse eBPF program: %s\n",
+-			strerror(err));
++			strerror(-err));
+ 		return -1;
  	}
- 
- 	/* initialize */
--	/* de->d_name is guaranteed to be <= NAME_MAX */
--	strcpy(lf->basename, file);
--	strcpy(lf->path, path);
--	strcat(lf->path, "/");
--	strcat(lf->path, lf->basename);
-+	snprintf(lf->basename, sizeof(lf->basename), "%s", file);
-+	snprintf(lf->path, sizeof(lf->path), "%s/%s", path, file);
- 
- 	/* initialize to default */
- 	lf->interval.tv_sec = 1;
+ 	rta_nest_end(rta, nest);
 -- 
 2.13.1
