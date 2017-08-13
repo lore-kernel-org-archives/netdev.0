@@ -1,69 +1,70 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 1/2] mpls: add handlers
-Date: Sat, 12 Aug 2017 20:29:18 -0700
-Message-ID: <CAJieiUijsyWjzNL=oFaGxtuos367v0VrpSaEqwHvVacrk5hcTA@mail.gmail.com>
-References: <1502396917-14848-1-git-send-email-amine.kherbouche@6wind.com>
- <1502396917-14848-2-git-send-email-amine.kherbouche@6wind.com>
- <20170811123405.GY773745@eidolon> <CAJieiUiDN0pk2GDb2+jBQzbjdPTpckSm23SCFGZ9mRHWfQ1H4w@mail.gmail.com>
- <c6fc221b-c0fa-1dbc-d1e2-a746b722dcd7@6wind.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH net-next] liquidio: update debug console logging mechanism
+Date: Sun, 13 Aug 2017 08:55:49 +0300
+Message-ID: <20170813055549.GO24282@mtr-leonro.local>
+References: <20170812014314.GA1012@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Lamparter <equinox@diac24.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Amine Kherbouche <amine.kherbouche@6wind.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="lZZ4ablUVnt2XgAh"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
+        satananda.burla@cavium.com, ricardo.farrington@cavium.com
+To: Felix Manlunas <felix.manlunas@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f177.google.com ([209.85.217.177]:35882 "EHLO
-        mail-ua0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752221AbdHMD3T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2017 23:29:19 -0400
-Received: by mail-ua0-f177.google.com with SMTP id k43so27017047uaf.3
-        for <netdev@vger.kernel.org>; Sat, 12 Aug 2017 20:29:19 -0700 (PDT)
-In-Reply-To: <c6fc221b-c0fa-1dbc-d1e2-a746b722dcd7@6wind.com>
+Received: from mail.kernel.org ([198.145.29.99]:58314 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750884AbdHMFzx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 13 Aug 2017 01:55:53 -0400
+Content-Disposition: inline
+In-Reply-To: <20170812014314.GA1012@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 12, 2017 at 6:35 AM, Amine Kherbouche
-<amine.kherbouche@6wind.com> wrote:
->
->
-> On 11/08/2017 16:37, Roopa Prabhu wrote:
->>
->> On Fri, Aug 11, 2017 at 5:34 AM, David Lamparter <equinox@diac24.net>
->> wrote:
->>>
->>> On Thu, Aug 10, 2017 at 10:28:36PM +0200, Amine Kherbouche wrote:
->>>>
->>>> Mpls handler allows creation/deletion of mpls routes without using
->>>> rtnetlink. When an incoming mpls packet matches this route, the saved
->>>> function handler is called.
->>>
->>> Since I originally authored this patch, I have come to believe that it
->>> might be unneccessarily complicated.  It is unlikely that a lot of
->>> different "handlers" will exist here;  the only things I can think of
->>> are VPLS support and BIER-MPLS multicast replication.  I'm not saying
->>> it's a bad idea, but, well, this was in the README that I gave to 6WIND
->>> with this code:
->>>
->>> ...
->>
->> yes, I would also prefer just exporting the functions  and calling
->> them directly instead of adding a
->> handler layer. We can move to that later if it becomes necessary.
->
-> I understand that the handler layer is an overhead (as said by David's
-> note), and I agree with the solution for exporting the mpls functions that
-> allows route creation/deletion, but how about forwarding the right mpls
-> packet to the right vpls device with the device ptr? I don't see
-> another way.
 
+--lZZ4ablUVnt2XgAh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-hmm...ok, so you are adding a mpls route to get into vpls_rcv and you
-want this route to carry the vpls_rcv information. Ideally if you knew
-the route is pointing to a vpls device kind, you can directly call
-vpls_rcv.
-But, am not sure if a route is necessary here either.
+On Fri, Aug 11, 2017 at 06:43:14PM -0700, Felix Manlunas wrote:
+> From: Rick Farrington <ricardo.farrington@cavium.com>
+>
+> - remove logging dependency upon global func octeon_console_debug_enabled()
+> - abstract debug console logging using console structure (via function ptr)
+>   to allow for more flexible logging
+>
+> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> ---
+>  drivers/net/ethernet/cavium/liquidio/lio_main.c    | 44 +++++++++++++++++-
+>  .../net/ethernet/cavium/liquidio/octeon_console.c  | 54 ++++++++++++++--------
+>  .../net/ethernet/cavium/liquidio/octeon_device.h   | 17 +++++--
+>  3 files changed, 90 insertions(+), 25 deletions(-)
+>
 
-It just seems like the vpls device information is duplicated in the
-mpls route per vpls dev. Wondering if we can skip the route part and
-always do a lookup on vpls-id/label in mpls_rcv to send it to a
-vpls_rcv if there is a match.  This will be the l2 handler for mpls.
+I'm probably missing something important, but why do you need your custom console
+implementation if kernel is full of such built-in options?
+
+Thanks
+
+--lZZ4ablUVnt2XgAh
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlmP6eUACgkQ5GN7iDZy
+WKesiRAAurk/YTtwUkA6jteCNtOuvmyDYq2aPOCyTEDd/qc3xa3YYQ90DmwJUWYF
+OyMcRFXQRFKF9qJryByYqPD5I2nm3sBjDnetDFEvSYPOLBCreK75x48ujyUyCeUL
+4ww27eGeXLwEcEKxwTWtpjy6ol7wGxU1HqpIf8MP7K6w+9fWqEwwdMohuvVMxkrW
+LfK55dAT2xEjGK0hLgrH9TG9rKXN8VidfQosB5COWer354NQFLCEI9rno5uz9KLv
+2E3TSmqfImg8LoHfW3XFeGcsDVmeqKK1OL+7MjykFhibkHRxsy7TAxQMvSXwQzYy
+Cdwz96MYxkOG9GNhZAIb72l9NkY7C6FhoWMnYg/IHN1bkxogDecHfoP9r24GS+Ai
+1Gg3GrxiCb9LU8O+5nqGhNBrJfgBXgw/uSyoPbJwvHOsN0a3srfQz21WDjp9g//V
+tufiY3QYtG2+Rvw5WIIFgfBjcyq6P/qseDcftXRqLf0acbk58Mzyi7emPvIuYlci
+uVgroUc6eKTRQFdicXMx7ouitEOMExc5zN/z4E4iynbBFFZbSc4yJpeped4yk0lJ
+D8Apztx7DR2lRuc0JSDCmEGsVyFJGZMFtx4k4T7TBK328BPmZi7+qGmU+5Sa6tj9
+6ETcqWhbcPCo6NlbDxN89LUUVBjoiUl0V+pjlehL6T/p9/rDozY=
+=1QIv
+-----END PGP SIGNATURE-----
+
+--lZZ4ablUVnt2XgAh--
