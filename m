@@ -1,84 +1,120 @@
-From: Andreas Born <futur.andy-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: Re: Regression: Bug 196547 - Since 4.12 - bonding module not working
- with wireless drivers
-Date: Sun, 13 Aug 2017 19:42:53 +0200
-Message-ID: <CADps9UCgqeUh41iHxCM+CTJh=Tffn-tiSYL2Q+NBb_8EppqRMA@mail.gmail.com>
-References: <87shh0gewn.fsf@kamboji.qca.qualcomm.com> <8845e49b-3165-e6df-5935-c86278d220d9@broadcom.com>
- <CADps9UA7S2betC-+5sOXjYWmDC8gnk6JJ9aEueEOoYAC3DU8hg@mail.gmail.com>
- <87tw1edz5j.fsf@kamboji.qca.qualcomm.com> <87tw1dck6o.fsf@kamboji.qca.qualcomm.com>
- <deb37db2-a55b-4010-475a-e756e67d3bc9@nurealm.net>
+From: Wei Wang <weiwan@google.com>
+Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
+ count = 1
+Date: Sun, 13 Aug 2017 13:56:30 -0700
+Message-ID: <CAEA6p_BtBdPviFVRC4UoJchbz7eH9fM=KDihYA3zUQebmNBpdA@mail.gmail.com>
+References: <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
+ <CALAqxLXv60ReJu26omM6p=ZboEm-Z-3w+q0JcxLXDqqK5ohNoQ@mail.gmail.com>
+ <CAEA6p_AL8uUghtZgp4OmqygcFs-Jiy286P5r6tRd+yeSWxR3KA@mail.gmail.com>
+ <CALAqxLXY-kE2N__eDq514cLycR0-QRpyOCMWpdttO6fgovE2rg@mail.gmail.com>
+ <CAEA6p_C_rEYkJhcniyy6HUHgNxWFoxWzZ-WHsaSmNDwx4D+RXQ@mail.gmail.com>
+ <CAEA6p_AOcNkAWPc7NFBnr8QWi3eHdJiQ2=8D_DB_XthwSDL2+Q@mail.gmail.com>
+ <CALAqxLUoV6EQvofTEv9whW1_QMPBPU7eJBhRFUjaSs7CGeRFww@mail.gmail.com>
+ <CAM_iQpWMWg5ytDq2Y9p9uet1zowGuCX+eksyiyxu9vQ18WoPxQ@mail.gmail.com>
+ <CAEA6p_CooRGNOQN3fosF0JLqmd9aOTuNHKNPE8cbrzDH6c176w@mail.gmail.com>
+ <CAEA6p_COwXWP97wSHvzokmm8ckQ2QEd7=dfNH04ttDPm_z3bcg@mail.gmail.com>
+ <20170812180129.GA31700@splinter> <CAEA6p_Cngs9Nx9OZ15oRMu_43oZTYHjzcw2vzgemfEyh_g0nNA@mail.gmail.com>
+ <61d95fe2-edfd-9fc4-5e21-5b96e4e03c9f@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Mahesh Bandewar <maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: James Feeney <james-fvV4AYHggTTR7s880joybQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <deb37db2-a55b-4010-475a-e756e67d3bc9-fvV4AYHggTTR7s880joybQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Ido Schimmel <idosch@idosch.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Martin KaFai Lau <kafai@fb.com>,
+        lkml <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux USB List <linux-usb@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <61d95fe2-edfd-9fc4-5e21-5b96e4e03c9f@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2017-08-12 21:30 GMT+02:00 James Feeney <james-fvV4AYHggTTR7s880joybQ@public.gmane.org>:
+> Looking at my patch to move host routes from loopback to device with the
+> address, I have this:
 >
+> @@ -2789,7 +2808,8 @@ static int fib6_ifdown(struct rt6_info *rt, void *arg)
+>         const struct arg_dev_net *adn = arg;
+>         const struct net_device *dev = adn->dev;
 >
-> Andreas patch failed to address the continuous, *10-times per second* warning
-> which will "spam" the log file, sometimes the console, whenever the test fails:
->  if (bond_update_speed_duplex(slave) && bond_needs_speed_duplex(bond)) {...}
-> which then has:
->  netdev_warn(bond->dev, "failed to get link speed/duplex for%s\n",
->                         slave->dev->name);
->
-> That is the sort of irresponsible code that "works fine" as long as there are no
-> errors, and it never actually runs!
->
-> I'm guessing that the simple fix is to use "net_warn_ratelimited()" instead of
-> "netdev_warn()", where net/core/utils.c says:
->
-> /*
->  * All net warning printk()s should be guarded by this function.
->  */
-> int net_ratelimit(void)
-> {
->         return __ratelimit(&net_ratelimit_state);
-> }
->
-> though Andreas has also suggested "pr_warn_ratelimited()", which instead uses
-> "__ratelimit(&_rs)".
->
-> Here's a link to the rate-limiting patch, after Andreas' patch is already
-> applied, since you say that David has already applied the first patch:
->
-> https://bugzilla.kernel.org/attachment.cgi?id=257903
->
+> -       if ((rt->dst.dev == dev || !dev) &&
+> +       if ((rt->dst.dev == dev || !dev ||
+> +            (netdev_unregistering(dev) && rt->rt6i_idev->dev == dev)) &&
+>             rt != adn->net->ipv6.ip6_null_entry &&
+>             (rt->rt6i_nsiblings == 0 ||
+>              (dev && netdev_unregistering(dev)) ||
 
-The other day I also sent a patch for part 2 of your bug report on
-this list. Better safe than sorry by doing one thing per patch. This
-second patch received feedback and its v2 is currently awaiting
-review. Sorry, for informing you only now. I should have cc'd you in
-the first place. You can lookup the state of that patch on patchwork.
-[1] It's basically the same as previous versions just changing the
-original code even less.
-.
-I sort of expect that this second patch won't be queued for stable.
-But let's see... Essentially it's a regression too and additionally
-would've been fixed by a plain revert.
+As you explained earlier, after your patch, all entries in the fib6
+tree will have rt->dst.dev be the same as rt->rt6i_idev->dev except
+those ones created by p6_rt_cache_alloc() and ip6_rt_pcpu_alloc().
+Then the above newly added check is mainly to catch those cached dst
+entries (created by ip6_rt_cached_alloc()). right?
+And it is required because __ipv6_ifa_notify() -> ip6_del_rt() won't
+take care of those cached dst entries.
 
-On a side note I would recommend some of my own reading to you about
-patch submission in general [1] and on netdev specifically [2].
-Putting your suggested changes in the right form makes everyone's life
-easier especially your own saving you lots of back and forth by mail.
-Seeing the amount of mail on this list during the last days was reason
-enough to comprehend the necessity of those standards.
+Then I think I should wait for your patches to get merged before
+submitting my patch?
 
-And, just wondering, who's going to eventually close that bugreport?
-https://bugzilla.kernel.org/show_bug.cgi?id=196547
+Thanks.
+Wei
 
-Cheers
-Andreas
 
-[1] https://patchwork.ozlabs.org/patch/800770/
-[2] https://www.kernel.org/doc/html/latest/process/submitting-patches.html
-[3] https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/tree/Documentation/networking/netdev-FAQ.txt
+On Sun, Aug 13, 2017 at 9:24 AM, David Ahern <dsahern@gmail.com> wrote:
+> On 8/12/17 1:42 PM, Wei Wang wrote:
+>> Hi Ido,
+>>
+>>>> -     if ((rt->dst.dev == dev || !dev) &&
+>>>> +     if ((rt->dst.dev == dev || !dev ||
+>>>> +          rt->rt6i_idev->dev == dev) &&
+>>>
+>>> Can you please explain why this line is needed? While host routes aren't
+>>> removed from the FIB by rt6_ifdown() (when dst.dev goes down), they are
+>>> removed later on in addrconf_ifdown().
+>>>
+>>
+>> Yes.. Agree. But one difference is that if the route is removed from
+>> addrconf_ifdown(), dst_dev_put() won't be called to release the
+>> devices before doing dst_release(). It is OK if dst_release() sees the
+>> refcnt on dst already drops to 0 and directly destroys the dst. But I
+>> think it will cause problem if at the time, the dst is still held by
+>> some other users because then the refcnt on the device going down will
+>> not get released.
+>> That's why I think we should remove the dst with either dst->dev ==
+>> going down dev or rt6->rt6i_idev->dev == going down dev from the fib6
+>> tree always because there, we always call dst_dev_put() to release the
+>> device.
+>>
+>>> With your patch, if I check the return value of ip6_del_rt() in
+>>> __ipv6_ifa_notify() I see that -ENONET is returned. Because the host
+>>> route was already removed by rt6_ifdown(). When the line in question is
+>>> removed from the patch I don't get the error anymore.
+>>>
+>>
+>> Right. That is expected as the route is already removed from the tree.
+>>
+>>> Is it possible that in John's case the host route was correctly removed
+>>> from the FIB and that the unreleased reference was due to a wrong check
+>>> in ip6_dst_ifdown() (which you patched correctly AFAICT)?
+>>>
+>>
+>> Yes. possible. But as I explained earlier, I still think we should
+>> also remove routes with rt6->rt6i_idev->dev == going down dev from the
+>> tree.
+>
+> Looking at my patch to move host routes from loopback to device with the
+> address, I have this:
+>
+> @@ -2789,7 +2808,8 @@ static int fib6_ifdown(struct rt6_info *rt, void *arg)
+>         const struct arg_dev_net *adn = arg;
+>         const struct net_device *dev = adn->dev;
+>
+> -       if ((rt->dst.dev == dev || !dev) &&
+> +       if ((rt->dst.dev == dev || !dev ||
+> +            (netdev_unregistering(dev) && rt->rt6i_idev->dev == dev)) &&
+>             rt != adn->net->ipv6.ip6_null_entry &&
+>             (rt->rt6i_nsiblings == 0 ||
+>              (dev && netdev_unregistering(dev)) ||
+>
+>
