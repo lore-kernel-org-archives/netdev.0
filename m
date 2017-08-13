@@ -1,100 +1,262 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Driver profiles RFC
-Date: Sun, 13 Aug 2017 08:32:48 +0200
-Message-ID: <20170813063248.GA1850@nanopsycho>
-References: <6d8560fa-8346-0c43-272d-d39be65ea82f@mellanox.com>
- <20170811145738.6f92e451@cakuba.netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org,
-        David Miller <davem@davemloft.net>, ivecera@redhat.com,
-        roopa@cumulusnetworks.com, Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        john.fastabend@gmail.com, Andrew Lunn <andrew@lunn.ch>,
-        mlxsw <mlxsw@mellanox.com>
-To: Jakub Kicinski <kubakici@wp.pl>
+From: Liping Zhang <zlpnobody@163.com>
+Subject: [PATCH net] openvswitch: fix skb_panic due to the incorrect actions attrlen
+Date: Sun, 13 Aug 2017 15:04:20 +0800
+Message-ID: <20170813070420.73074-1-zlpnobody@163.com>
+Cc: netdev@vger.kernel.org, Liping Zhang <zlpnobody@gmail.com>,
+        Neil McKee <neil.mckee@inmon.com>
+To: pshelar@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:37296 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751202AbdHMGcv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2017 02:32:51 -0400
-Received: by mail-wm0-f65.google.com with SMTP id t138so10899808wmt.4
-        for <netdev@vger.kernel.org>; Sat, 12 Aug 2017 23:32:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170811145738.6f92e451@cakuba.netronome.com>
+Received: from m50-132.163.com ([123.125.50.132]:56650 "EHLO m50-132.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750892AbdHMHWm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 13 Aug 2017 03:22:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Aug 11, 2017 at 11:57:38PM CEST, kubakici@wp.pl wrote:
->On Tue, 8 Aug 2017 16:15:41 +0300, Arkadi Sharshevsky wrote:
->> Driver <--> Devlink API
->> =======================
->> Each driver will register his resources with default values at init in
->> a similar way to DPIPE table registration. In case those resources already
->> exist the default values are discarded. The user will be able to dump and
->> update the resources. In order for the changes to take place the user will
->> need to re-initiate the driver by a specific devlink knob.
->
->What seems missing from the examples is the ability to dump the
->different states - the "pending" configuration and the currently
->applied one.
+From: Liping Zhang <zlpnobody@gmail.com>
 
-Agreed, I miss this too.
+For sw_flow_actions, the actions_len only represents the kernel part's
+size, and when we dump the actions to the userspace, we will do the
+convertions, so it's true size may become bigger than the actions_len.
 
+But unfortunately, for OVS_PACKET_ATTR_ACTIONS, we use the actions_len
+to alloc the skbuff, so the user_skb's size may become insufficient and
+oops will happen like this:
+  skbuff: skb_over_panic: text:ffffffff8148fabf len:1749 put:157 head:
+  ffff881300f39000 data:ffff881300f39000 tail:0x6d5 end:0x6c0 dev:<NULL>
+  ------------[ cut here ]------------
+  kernel BUG at net/core/skbuff.c:129!
+  [...]
+  Call Trace:
+   <IRQ>
+   [<ffffffff8148be82>] skb_put+0x43/0x44
+   [<ffffffff8148fabf>] skb_zerocopy+0x6c/0x1f4
+   [<ffffffffa0290d36>] queue_userspace_packet+0x3a3/0x448 [openvswitch]
+   [<ffffffffa0292023>] ovs_dp_upcall+0x30/0x5c [openvswitch]
+   [<ffffffffa028d435>] output_userspace+0x132/0x158 [openvswitch]
+   [<ffffffffa01e6890>] ? ip6_rcv_finish+0x74/0x77 [ipv6]
+   [<ffffffffa028e277>] do_execute_actions+0xcc1/0xdc8 [openvswitch]
+   [<ffffffffa028e3f2>] ovs_execute_actions+0x74/0x106 [openvswitch]
+   [<ffffffffa0292130>] ovs_dp_process_packet+0xe1/0xfd [openvswitch]
+   [<ffffffffa0292b77>] ? key_extract+0x63c/0x8d5 [openvswitch]
+   [<ffffffffa029848b>] ovs_vport_receive+0xa1/0xc3 [openvswitch]
+  [...]
 
->
->> The above described procedure will require extra reload of the driver.
->> This can be improved as a future optimization.
->
->I'm a bit lost, this says driver reload is required...
+Also we can find that the actions_len is much little than the orig_len:
+  crash> struct sw_flow_actions 0xffff8812f539d000
+  struct sw_flow_actions {
+    rcu = {
+      next = 0xffff8812f5398800,
+      func = 0xffffe3b00035db32
+    },
+    orig_len = 1384,
+    actions_len = 592,
+    actions = 0xffff8812f539d01c
+  }
 
-driver will provide "commit" callback. What he does is up to him. In
-case of mlxsw, we have to reinstantiate the driver, because FW reset is
-required.
+So as a quick fix, use the orig_len instead of the actions_len to alloc
+the user_skb.
 
+Last, this oops happened on our system running a relative old kernel, but
+the same risk still exists on the mainline, since we use the wrong
+actions_len from the beginning.
 
->
->> UAPI
->> ====
->> The user will be able to update the resources on a per resource basis:
->> 
->> $devlink dpipe resource set pci/0000:03:00.0 Mem_Linear 2M
->> 
->> For some resources the size is fixed, for example the size of the internal
->> memory cannot be changed. It is provided merely in order to reflect the
->> nested structure of the resource and to imply the user that Mem = Linear +
->> Hash, thus a set operation on it will fail.
->> 
->> The user can dump the current resource configuration:
->> 
->> #devlink dpipe resource dump tree pci/0000:03:00.0 Mem
->> 
->> The user can specify 'tree' in order to show all the nested resources under
->> the specified one. In case no 'resource name' is specified the TOP hierarchy
->> will be dumped.
->> 
->> After successful resource update the drivers hould be re-instantiated in
->> order for the changes to take place:
->> 
->> $devlink reload pci/0000:03:00.0
->
->... but this shows a devlink reload tigger, so no driver reload?  Were
->you describing two possible solutions?  One with persistent kernel
->database of configs (persistent across driver reloads) and one with no
->persistence and the driver is managing reinit internally when triggered
->via devlink?
+Fixes: ccea74457bbd ("openvswitch: include datapath actions with sampled-packet upcall to userspace")
+Cc: Neil McKee <neil.mckee@inmon.com>
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+---
+ net/openvswitch/actions.c  | 39 +++++++++++++++++++++++++--------------
+ net/openvswitch/datapath.c |  2 +-
+ net/openvswitch/datapath.h |  1 +
+ 3 files changed, 27 insertions(+), 15 deletions(-)
 
-This is misunderstanding. There is no driver reload (modprobe -r &&
-modprobe)
-
-
->
->Another thing that comes to mind is - in case HW/FW reinit takes long
->would it make sense to incorporate some form of pre-population of those
->defaults somehow?  If user knows exactly the config they want upon
->boot, it would seem cleaner if the reconfig did not have to happen and
->devices started out in the right mode.
-
-We were discussing it. There are couple of ways to achieve that, none of
-that is very nice. So we decided to leave this for later, when/if it is
-needed.
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index e4610676299b..799a22dfb89e 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -48,6 +48,7 @@ struct deferred_action {
+ 	struct sk_buff *skb;
+ 	const struct nlattr *actions;
+ 	int actions_len;
++	int actions_attrlen;
+ 
+ 	/* Store pkt_key clone when creating deferred action. */
+ 	struct sw_flow_key pkt_key;
+@@ -135,7 +136,8 @@ static struct deferred_action *action_fifo_put(struct action_fifo *fifo)
+ static struct deferred_action *add_deferred_actions(struct sk_buff *skb,
+ 				    const struct sw_flow_key *key,
+ 				    const struct nlattr *actions,
+-				    const int actions_len)
++				    const int actions_len,
++				    const int actions_attrlen)
+ {
+ 	struct action_fifo *fifo;
+ 	struct deferred_action *da;
+@@ -146,6 +148,7 @@ static struct deferred_action *add_deferred_actions(struct sk_buff *skb,
+ 		da->skb = skb;
+ 		da->actions = actions;
+ 		da->actions_len = actions_len;
++		da->actions_attrlen = actions_attrlen;
+ 		da->pkt_key = *key;
+ 	}
+ 
+@@ -166,6 +169,7 @@ static int clone_execute(struct datapath *dp, struct sk_buff *skb,
+ 			 struct sw_flow_key *key,
+ 			 u32 recirc_id,
+ 			 const struct nlattr *actions, int len,
++			 int actions_attrlen,
+ 			 bool last, bool clone_flow_key);
+ 
+ static void update_ethertype(struct sk_buff *skb, struct ethhdr *hdr,
+@@ -880,7 +884,7 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
+ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 			    struct sw_flow_key *key, const struct nlattr *attr,
+ 			    const struct nlattr *actions, int actions_len,
+-			    uint32_t cutlen)
++			    int actions_attrlen, uint32_t cutlen)
+ {
+ 	struct dp_upcall_info upcall;
+ 	const struct nlattr *a;
+@@ -921,6 +925,7 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 			/* Include actions. */
+ 			upcall.actions = actions;
+ 			upcall.actions_len = actions_len;
++			upcall.actions_attrlen = actions_attrlen;
+ 			break;
+ 		}
+ 
+@@ -936,7 +941,7 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+  */
+ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 		  struct sw_flow_key *key, const struct nlattr *attr,
+-		  bool last)
++		  int actions_attrlen, bool last)
+ {
+ 	struct nlattr *actions;
+ 	struct nlattr *sample_arg;
+@@ -957,8 +962,8 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 	}
+ 
+ 	clone_flow_key = !arg->exec;
+-	return clone_execute(dp, skb, key, 0, actions, rem, last,
+-			     clone_flow_key);
++	return clone_execute(dp, skb, key, 0, actions, rem, actions_attrlen,
++			     last, clone_flow_key);
+ }
+ 
+ static void execute_hash(struct sk_buff *skb, struct sw_flow_key *key,
+@@ -1083,13 +1088,14 @@ static int execute_recirc(struct datapath *dp, struct sk_buff *skb,
+ 	BUG_ON(!is_flow_key_valid(key));
+ 
+ 	recirc_id = nla_get_u32(a);
+-	return clone_execute(dp, skb, key, recirc_id, NULL, 0, last, true);
++	return clone_execute(dp, skb, key, recirc_id, NULL, 0, 0, last, true);
+ }
+ 
+ /* Execute a list of actions against 'skb'. */
+ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			      struct sw_flow_key *key,
+-			      const struct nlattr *attr, int len)
++			      const struct nlattr *attr, int len,
++			      int actions_attrlen)
+ {
+ 	const struct nlattr *a;
+ 	int rem;
+@@ -1130,8 +1136,8 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 		}
+ 
+ 		case OVS_ACTION_ATTR_USERSPACE:
+-			output_userspace(dp, skb, key, a, attr,
+-						     len, OVS_CB(skb)->cutlen);
++			output_userspace(dp, skb, key, a, attr, len,
++					 actions_attrlen, OVS_CB(skb)->cutlen);
+ 			OVS_CB(skb)->cutlen = 0;
+ 			break;
+ 
+@@ -1181,7 +1187,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 		case OVS_ACTION_ATTR_SAMPLE: {
+ 			bool last = nla_is_last(a, rem);
+ 
+-			err = sample(dp, skb, key, a, last);
++			err = sample(dp, skb, key, a, actions_attrlen, last);
+ 			if (last)
+ 				return err;
+ 
+@@ -1231,6 +1237,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ static int clone_execute(struct datapath *dp, struct sk_buff *skb,
+ 			 struct sw_flow_key *key, u32 recirc_id,
+ 			 const struct nlattr *actions, int len,
++			 int actions_attrlen,
+ 			 bool last, bool clone_flow_key)
+ {
+ 	struct deferred_action *da;
+@@ -1258,7 +1265,8 @@ static int clone_execute(struct datapath *dp, struct sk_buff *skb,
+ 				__this_cpu_inc(exec_actions_level);
+ 
+ 			err = do_execute_actions(dp, skb, clone,
+-						 actions, len);
++						 actions, len,
++						 actions_attrlen);
+ 
+ 			if (clone_flow_key)
+ 				__this_cpu_dec(exec_actions_level);
+@@ -1270,7 +1278,7 @@ static int clone_execute(struct datapath *dp, struct sk_buff *skb,
+ 	}
+ 
+ 	/* Out of 'flow_keys' space. Defer actions */
+-	da = add_deferred_actions(skb, key, actions, len);
++	da = add_deferred_actions(skb, key, actions, len, actions_attrlen);
+ 	if (da) {
+ 		if (!actions) { /* Recirc action */
+ 			key = &da->pkt_key;
+@@ -1309,10 +1317,12 @@ static void process_deferred_actions(struct datapath *dp)
+ 		struct sk_buff *skb = da->skb;
+ 		struct sw_flow_key *key = &da->pkt_key;
+ 		const struct nlattr *actions = da->actions;
++		int actions_attrlen = da->actions_attrlen;
+ 		int actions_len = da->actions_len;
+ 
+ 		if (actions)
+-			do_execute_actions(dp, skb, key, actions, actions_len);
++			do_execute_actions(dp, skb, key, actions, actions_len,
++					   actions_attrlen);
+ 		else
+ 			ovs_dp_process_packet(skb, key);
+ 	} while (!action_fifo_is_empty(fifo));
+@@ -1338,7 +1348,8 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 	}
+ 
+ 	err = do_execute_actions(dp, skb, key,
+-				 acts->actions, acts->actions_len);
++				 acts->actions, acts->actions_len,
++				 acts->orig_len);
+ 
+ 	if (level == 1)
+ 		process_deferred_actions(dp);
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 45fe8c8a884d..66162e64e8b5 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -398,7 +398,7 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
+ 
+ 	/* OVS_PACKET_ATTR_ACTIONS */
+ 	if (upcall_info->actions_len)
+-		size += nla_total_size(upcall_info->actions_len);
++		size += nla_total_size(upcall_info->actions_attrlen);
+ 
+ 	/* OVS_PACKET_ATTR_MRU */
+ 	if (upcall_info->mru)
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 5d8dcd88815f..d7dfba5893b4 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -124,6 +124,7 @@ struct dp_upcall_info {
+ 	const struct nlattr *userdata;
+ 	const struct nlattr *actions;
+ 	int actions_len;
++	int actions_attrlen;
+ 	u32 portid;
+ 	u8 cmd;
+ 	u16 mru;
+-- 
+2.13.0
