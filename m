@@ -1,70 +1,100 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH net-next] liquidio: update debug console logging mechanism
-Date: Sun, 13 Aug 2017 08:55:49 +0300
-Message-ID: <20170813055549.GO24282@mtr-leonro.local>
-References: <20170812014314.GA1012@felix-thinkpad.cavium.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: Driver profiles RFC
+Date: Sun, 13 Aug 2017 08:32:48 +0200
+Message-ID: <20170813063248.GA1850@nanopsycho>
+References: <6d8560fa-8346-0c43-272d-d39be65ea82f@mellanox.com>
+ <20170811145738.6f92e451@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="lZZ4ablUVnt2XgAh"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
-        satananda.burla@cavium.com, ricardo.farrington@cavium.com
-To: Felix Manlunas <felix.manlunas@cavium.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org,
+        David Miller <davem@davemloft.net>, ivecera@redhat.com,
+        roopa@cumulusnetworks.com, Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        john.fastabend@gmail.com, Andrew Lunn <andrew@lunn.ch>,
+        mlxsw <mlxsw@mellanox.com>
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:58314 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750884AbdHMFzx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 13 Aug 2017 01:55:53 -0400
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:37296 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751202AbdHMGcv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2017 02:32:51 -0400
+Received: by mail-wm0-f65.google.com with SMTP id t138so10899808wmt.4
+        for <netdev@vger.kernel.org>; Sat, 12 Aug 2017 23:32:50 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170812014314.GA1012@felix-thinkpad.cavium.com>
+In-Reply-To: <20170811145738.6f92e451@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---lZZ4ablUVnt2XgAh
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Fri, Aug 11, 2017 at 06:43:14PM -0700, Felix Manlunas wrote:
-> From: Rick Farrington <ricardo.farrington@cavium.com>
+Fri, Aug 11, 2017 at 11:57:38PM CEST, kubakici@wp.pl wrote:
+>On Tue, 8 Aug 2017 16:15:41 +0300, Arkadi Sharshevsky wrote:
+>> Driver <--> Devlink API
+>> =======================
+>> Each driver will register his resources with default values at init in
+>> a similar way to DPIPE table registration. In case those resources already
+>> exist the default values are discarded. The user will be able to dump and
+>> update the resources. In order for the changes to take place the user will
+>> need to re-initiate the driver by a specific devlink knob.
 >
-> - remove logging dependency upon global func octeon_console_debug_enabled()
-> - abstract debug console logging using console structure (via function ptr)
->   to allow for more flexible logging
+>What seems missing from the examples is the ability to dump the
+>different states - the "pending" configuration and the currently
+>applied one.
+
+Agreed, I miss this too.
+
+
 >
-> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
-> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> ---
->  drivers/net/ethernet/cavium/liquidio/lio_main.c    | 44 +++++++++++++++++-
->  .../net/ethernet/cavium/liquidio/octeon_console.c  | 54 ++++++++++++++--------
->  .../net/ethernet/cavium/liquidio/octeon_device.h   | 17 +++++--
->  3 files changed, 90 insertions(+), 25 deletions(-)
+>> The above described procedure will require extra reload of the driver.
+>> This can be improved as a future optimization.
 >
+>I'm a bit lost, this says driver reload is required...
 
-I'm probably missing something important, but why do you need your custom console
-implementation if kernel is full of such built-in options?
+driver will provide "commit" callback. What he does is up to him. In
+case of mlxsw, we have to reinstantiate the driver, because FW reset is
+required.
 
-Thanks
 
---lZZ4ablUVnt2XgAh
-Content-Type: application/pgp-signature; name="signature.asc"
+>
+>> UAPI
+>> ====
+>> The user will be able to update the resources on a per resource basis:
+>> 
+>> $devlink dpipe resource set pci/0000:03:00.0 Mem_Linear 2M
+>> 
+>> For some resources the size is fixed, for example the size of the internal
+>> memory cannot be changed. It is provided merely in order to reflect the
+>> nested structure of the resource and to imply the user that Mem = Linear +
+>> Hash, thus a set operation on it will fail.
+>> 
+>> The user can dump the current resource configuration:
+>> 
+>> #devlink dpipe resource dump tree pci/0000:03:00.0 Mem
+>> 
+>> The user can specify 'tree' in order to show all the nested resources under
+>> the specified one. In case no 'resource name' is specified the TOP hierarchy
+>> will be dumped.
+>> 
+>> After successful resource update the drivers hould be re-instantiated in
+>> order for the changes to take place:
+>> 
+>> $devlink reload pci/0000:03:00.0
+>
+>... but this shows a devlink reload tigger, so no driver reload?  Were
+>you describing two possible solutions?  One with persistent kernel
+>database of configs (persistent across driver reloads) and one with no
+>persistence and the driver is managing reinit internally when triggered
+>via devlink?
 
------BEGIN PGP SIGNATURE-----
+This is misunderstanding. There is no driver reload (modprobe -r &&
+modprobe)
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlmP6eUACgkQ5GN7iDZy
-WKesiRAAurk/YTtwUkA6jteCNtOuvmyDYq2aPOCyTEDd/qc3xa3YYQ90DmwJUWYF
-OyMcRFXQRFKF9qJryByYqPD5I2nm3sBjDnetDFEvSYPOLBCreK75x48ujyUyCeUL
-4ww27eGeXLwEcEKxwTWtpjy6ol7wGxU1HqpIf8MP7K6w+9fWqEwwdMohuvVMxkrW
-LfK55dAT2xEjGK0hLgrH9TG9rKXN8VidfQosB5COWer354NQFLCEI9rno5uz9KLv
-2E3TSmqfImg8LoHfW3XFeGcsDVmeqKK1OL+7MjykFhibkHRxsy7TAxQMvSXwQzYy
-Cdwz96MYxkOG9GNhZAIb72l9NkY7C6FhoWMnYg/IHN1bkxogDecHfoP9r24GS+Ai
-1Gg3GrxiCb9LU8O+5nqGhNBrJfgBXgw/uSyoPbJwvHOsN0a3srfQz21WDjp9g//V
-tufiY3QYtG2+Rvw5WIIFgfBjcyq6P/qseDcftXRqLf0acbk58Mzyi7emPvIuYlci
-uVgroUc6eKTRQFdicXMx7ouitEOMExc5zN/z4E4iynbBFFZbSc4yJpeped4yk0lJ
-D8Apztx7DR2lRuc0JSDCmEGsVyFJGZMFtx4k4T7TBK328BPmZi7+qGmU+5Sa6tj9
-6ETcqWhbcPCo6NlbDxN89LUUVBjoiUl0V+pjlehL6T/p9/rDozY=
-=1QIv
------END PGP SIGNATURE-----
 
---lZZ4ablUVnt2XgAh--
+>
+>Another thing that comes to mind is - in case HW/FW reinit takes long
+>would it make sense to incorporate some form of pre-population of those
+>defaults somehow?  If user knows exactly the config they want upon
+>boot, it would seem cleaner if the reconfig did not have to happen and
+>devices started out in the right mode.
+
+We were discussing it. There are couple of ways to achieve that, none of
+that is very nice. So we decided to leave this for later, when/if it is
+needed.
