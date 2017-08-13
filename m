@@ -1,86 +1,88 @@
-From: Koichiro Den <den@klaipeden.com>
-Subject: Re: [PATCH net] Revert "vhost: cache used event for better
-	performance"
-Date: Mon, 14 Aug 2017 01:12:26 +0900
-Message-ID: <1502640746.3547.3.camel@klaipeden.com>
-References: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
-	<20170726155435-mutt-send-email-mst@kernel.org>
-	<117542fc-eef9-c043-7c9e-daafceb7db4e@redhat.com>
-	<6b3a9a98-c095-1729-3528-dd521f136797@redhat.com>
-	<20170726190745-mutt-send-email-mst@kernel.org>
-	<1501396011.21001.11.camel@klaipeden.com>
-	<6698b85c-18f4-17e6-db70-7708692fb761@redhat.com>
-	<20170809073422-mutt-send-email-mst@kernel.org>
-	<1502633460.3547.1.camel@klaipeden.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: unregister_netdevice: waiting for eth0 to become free. Usage
+ count = 1
+Date: Sun, 13 Aug 2017 10:24:53 -0600
+Message-ID: <61d95fe2-edfd-9fc4-5e21-5b96e4e03c9f@gmail.com>
+References: <CAM_iQpW2=aKKUmWanbuhqXdZGxr_TqB5pQ+U+A0+=optuGX5-Q@mail.gmail.com>
+ <CALAqxLXv60ReJu26omM6p=ZboEm-Z-3w+q0JcxLXDqqK5ohNoQ@mail.gmail.com>
+ <CAEA6p_AL8uUghtZgp4OmqygcFs-Jiy286P5r6tRd+yeSWxR3KA@mail.gmail.com>
+ <CALAqxLXY-kE2N__eDq514cLycR0-QRpyOCMWpdttO6fgovE2rg@mail.gmail.com>
+ <CAEA6p_C_rEYkJhcniyy6HUHgNxWFoxWzZ-WHsaSmNDwx4D+RXQ@mail.gmail.com>
+ <CAEA6p_AOcNkAWPc7NFBnr8QWi3eHdJiQ2=8D_DB_XthwSDL2+Q@mail.gmail.com>
+ <CALAqxLUoV6EQvofTEv9whW1_QMPBPU7eJBhRFUjaSs7CGeRFww@mail.gmail.com>
+ <CAM_iQpWMWg5ytDq2Y9p9uet1zowGuCX+eksyiyxu9vQ18WoPxQ@mail.gmail.com>
+ <CAEA6p_CooRGNOQN3fosF0JLqmd9aOTuNHKNPE8cbrzDH6c176w@mail.gmail.com>
+ <CAEA6p_COwXWP97wSHvzokmm8ckQ2QEd7=dfNH04ttDPm_z3bcg@mail.gmail.com>
+ <20170812180129.GA31700@splinter>
+ <CAEA6p_Cngs9Nx9OZ15oRMu_43oZTYHjzcw2vzgemfEyh_g0nNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1502633460.3547.1.camel@klaipeden.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Martin KaFai Lau <kafai@fb.com>,
+        lkml <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux USB List <linux-usb@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>
+To: Wei Wang <weiwan@google.com>, Ido Schimmel <idosch@idosch.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEA6p_Cngs9Nx9OZ15oRMu_43oZTYHjzcw2vzgemfEyh_g0nNA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-U29ycnkgSSBtaXN0YWtlbmx5IGZvY3VzZWQgb24gTkVUIGNhc2UsIHBsZWFzZSBwYXNzIGl0IG92
-ZXIuIEkgd2lsbCBkbyBhbnkKcmVsZXZhbnQgc3VnZ2VzdGlvbiBpbiBwYXRjaC1iYXNlZCB3YXku
-IFRoYW5rcy4KCk9uIFN1biwgMjAxNy0wOC0xMyBhdCAyMzoxMSArMDkwMCwgS29pY2hpcm8gRGVu
-IHdyb3RlOgo+IFRoYW5rcyBmb3IgeW91ciBjb21tZW50cywgTWljaGFlbCBhbmQgSmFzb24uIEFu
-ZCBJJ20gc29ycnkgYWJvdXQgbGF0ZQo+IHJlc3BvbnNlLgo+IFRvIGJlIGhvbmVzdCwgSSBhbSBv
-biBhIHN1bW1lciB2YWNhdGlvbiB1bnRpbCBuZXh0IFR1ZXNkYXkuCj4gCj4gSSBub3RpY2VkIHRo
-YXQgd2hhdCBJIHdyb3RlIHdhcyBub3Qgc3VmZmljaWVudC4gUmVnYXJkbGVzcyBvZiBjYWNoaW5n
-Cj4gbWVjaGFuaXNtCj4gZXhpc3RlbmNlLCB0aGUgImV2ZW50IiBjb3VsZCBsZWdpdGltYXRlbHkg
-YmUgYXQgYW55IHBvaW50IG91dCBvZiB0aGUgbGF0ZXN0Cj4gaW50ZXJ2YWwsIHdoaWNoIHZob3N0
-X25vdGlmeSBjaGVja3MgaXQgYWdhaW5zdCwgbWVhbmluZyB0aGF0IGlmIGl0J3Mgb3V0IG9mCj4g
-dGhlCj4gaW50ZXJ2YWwgd2UgY2Fubm90IGRpc3Rpbmd1aXNoIHdoZXRoZXIgb3Igbm90IGl0IGxh
-Z3MgYmVoaW5kIG9yIGhhcyBhCj4gbGVhZC7CoEFuZAo+IGl0IHNlZW1zIHRvIGNvbmZvcm0gdG8g
-dGhlIHNwZWMuIFRoYW5rcyBmb3IgbGVhZGluZyBtZSB0byB0aGUgc3BlYy4gVGhlIGNvcm5lcgo+
-IGNhc2UgSSBwb2ludCBvdXQgaGVyZSBpczoKPiAoMCkgZXZlbnQgaWR4IGZlYXR1cmUgdHVybmVk
-IG9uICsgVFggbmFwaSB0dXJuZWQgb2ZmCj4gLT4gKDEpIGd1ZXN0LXNpZGUgVFggdHJhZmZpYyBi
-dXJzdGluZyBvY2N1cnMgYW5kIGRlbGF5ZWQgY2FsbGJhY2sgc2V0Cj4gLT4gKDIpIHNvbWUgaW50
-ZXJydXB0aW9uIHRyaWdnZXJzIHNrYl94bWl0X2RvbmUKPiAtPiAoMykgZ3Vlc3Qtc2lkZSBtb2Rl
-c3QgdHJhZmZpYyBtYWtlcyB0aGUgaW50ZXJ2YWwgcHJvY2VlZCB0byB1bmJvdW5kZWQKPiBleHRl
-bnQKPiB3aXRob3V0IHVwZGF0aW5nICJldmVudCIgc2luY2UgTk9fSU5URVJSVVBUIGNvbnRpbnVl
-cyB0byBiZSBzZXQgb24gaXRzIHNoYWRvdwo+IGZsYWcuCj4gCj4gSU1ITyzCoGlmIHlvdSBwbGFu
-IHRvIG1ha2UgVFggbmFwaSB0aGUgb25seSBjaG9pY2UsIGRvaW5nIHRoaXMgc29ydCBvZgo+IG9w
-dGltaXNhdGlvbiBiZWZvcmVoYW5kIHNlZW1zIGxpa2VseSB0byBiZSBpbiB2YWluLgo+IAo+IFNv
-LCBpZiB0aGUgbm9uZS1UWCBuYXBpIGNhc2UgY29udGludWVzIHRvIGNvZXhpc3QsIHdoYXQgSSB3
-b3VsZCBsaWtlIHRvCj4gc3VnZ2VzdAo+IGlzIG5vdCBqdXN0IHRoZSBzb3J0IG9mIG15IGxhc3Qg
-ZW1haWwsIGJ1dCBsaWtlIG1ha2luZyBtYXhpbXVtIHN0YWxlbmVzcyBvZgo+ICJldmVudCIgbGVz
-cyB0aGFuIG9yIGVxdWFsIHRvIHZxLm51bSwgYW5kIGFmdGVyd2FyZCBjYWNoaW5nIHN1Z2dlc3Rp
-b24uCj4gT3RoZXJ3aXNlLCBJIGd1ZXNzIEkgc2hvdWxkIG5vdCByZXBvc3QgbXkgbGFzdCBlbWFp
-bCBzaW5jZSBpdCB3b3VsZCBtYWtlCj4gbWF0dGVycwo+IMKgdG9vIGNvbXBsaWNhdGVkIGV2ZW4g
-dGhvdWdoIGl0IHdpbGwgc29vbiBiZSByZW1vdmVkIHdoZW4gVFgtbmFwaSBiZWNvbWVzIHRoZQo+
-IG9ubHkgY2hvaWNlLgo+IAo+IFRoYW5rcyEKPiAKPiAKPiBPbiBXZWQsIDIwMTctMDgtMDkgYXQg
-MDc6MzcgKzAzMDAsIE1pY2hhZWwgUy4gVHNpcmtpbiB3cm90ZToKPiA+IE9uIFdlZCwgQXVnIDA5
-LCAyMDE3IGF0IDEwOjM4OjEwQU0gKzA4MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4gPiA+IEkgdGhp
-bmsgZG9uJ3QgdGhpbmsgY3VycmVudCBjb2RlIGNhbiB3b3JrIHdlbGwgaWYgdnEubnVtIGlzIGdy
-YXRlciB0aGFuCj4gPiA+IDJeMTUuIFNpbmNlIGFsbCBjYWNoZWQgaWR4IGlzIHUxNi4gVGhpcyBs
-b29rcyBsaWtlIGEgYnVnIHdoaWNoIG5lZWRzIHRvIGJlCj4gPiA+IGZpeGVkLgo+ID4gCj4gPiBU
-aGF0J3MgYSBsaW1pdGF0aW9uIG9mIHZpcnRpbyAxLjAuCj4gPiAKPiA+ID4gPiAqIGVsc2UgaWYg
-dGhlIGludGVydmFsIG9mIHZxLm51bSBpcyBbMl4xNSwgMl4xNik6Cj4gPiA+ID4gdGhlIGxvZ2lj
-IGluIHRoZSBvcmlnaW5hbCBwYXRjaCAoODA5ZWNiOWJjYTZhOSkgc3VmZmljZXMKPiA+ID4gPiAq
-IGVsc2UgKD0gbGVzcyB0aGFuIDJeMTUpIChvcHRpb25hbCk6Cj4gPiA+ID4gY2hlY2tpbmcgb25s
-eSAodnJpbmdfbmVlZF9ldmVudCh2cS0+bGFzdF91c2VkX2V2ZW50LCBuZXcgKyB2cS0+bnVtLCBu
-ZXcpCj4gPiA+ID4gd291bGQgc3VmZmljZS4KPiA+ID4gPiAKPiA+ID4gPiBBbSBJIG1pc3Npbmcg
-c29tZXRoaW5nLCBvciBpcyB0aGlzIGlycmVsZXZhbnQ/Cj4gPiAKPiA+IENvdWxkIHlvdSBwbHMg
-cmVwb3N0IHRoZSBzdWdnZXN0aW9uIGNvcHlpbmcgdmlydGlvLWRldiBtYWlsaW5nIGxpc3QKPiA+
-IChzdWJzY3JpYmVyIG9ubHksIHNvcnJ5IGFib3V0IHRoYXQsIGJ1dCBob3N0L2d1ZXN0IEFCSSBk
-aXNjdXNzaW9ucwo+ID4gbmVlZCB0byBjb3B5IHRoYXQgbGlzdCk/Cj4gPiAKPiA+ID4gTG9va3Mg
-bm90LCBJIHRoaW5rIHRoaXMgbWF5IHdvcmsuIExldCBtZSBkbyBzb21lIHRlc3QuCj4gPiA+IAo+
-ID4gPiBUaGFua3MKPiA+IAo+ID4gSSB0aGluayB0aGF0IGF0IHRoaXMgcG9pbnQgaXQncyBwcnVk
-ZW50IHRvIGFkZCBhIGZlYXR1cmUgYml0Cj4gPiBhcyB0aGUgdmlydGlvIHNwZWMgZG9lcyBub3Qg
-cmVxdWlyZSB0byBuZXZlciBtb3ZlIHRoZSBldmVudCBpbmRleCBiYWNrLgo+ID4gCgpfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBt
-YWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0
-cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6
-YXRpb24=
+On 8/12/17 1:42 PM, Wei Wang wrote:
+> Hi Ido,
+> 
+>>> -     if ((rt->dst.dev == dev || !dev) &&
+>>> +     if ((rt->dst.dev == dev || !dev ||
+>>> +          rt->rt6i_idev->dev == dev) &&
+>>
+>> Can you please explain why this line is needed? While host routes aren't
+>> removed from the FIB by rt6_ifdown() (when dst.dev goes down), they are
+>> removed later on in addrconf_ifdown().
+>>
+> 
+> Yes.. Agree. But one difference is that if the route is removed from
+> addrconf_ifdown(), dst_dev_put() won't be called to release the
+> devices before doing dst_release(). It is OK if dst_release() sees the
+> refcnt on dst already drops to 0 and directly destroys the dst. But I
+> think it will cause problem if at the time, the dst is still held by
+> some other users because then the refcnt on the device going down will
+> not get released.
+> That's why I think we should remove the dst with either dst->dev ==
+> going down dev or rt6->rt6i_idev->dev == going down dev from the fib6
+> tree always because there, we always call dst_dev_put() to release the
+> device.
+> 
+>> With your patch, if I check the return value of ip6_del_rt() in
+>> __ipv6_ifa_notify() I see that -ENONET is returned. Because the host
+>> route was already removed by rt6_ifdown(). When the line in question is
+>> removed from the patch I don't get the error anymore.
+>>
+> 
+> Right. That is expected as the route is already removed from the tree.
+> 
+>> Is it possible that in John's case the host route was correctly removed
+>> from the FIB and that the unreleased reference was due to a wrong check
+>> in ip6_dst_ifdown() (which you patched correctly AFAICT)?
+>>
+> 
+> Yes. possible. But as I explained earlier, I still think we should
+> also remove routes with rt6->rt6i_idev->dev == going down dev from the
+> tree.
+
+Looking at my patch to move host routes from loopback to device with the
+address, I have this:
+
+@@ -2789,7 +2808,8 @@ static int fib6_ifdown(struct rt6_info *rt, void *arg)
+        const struct arg_dev_net *adn = arg;
+        const struct net_device *dev = adn->dev;
+
+-       if ((rt->dst.dev == dev || !dev) &&
++       if ((rt->dst.dev == dev || !dev ||
++            (netdev_unregistering(dev) && rt->rt6i_idev->dev == dev)) &&
+            rt != adn->net->ipv6.ip6_null_entry &&
+            (rt->rt6i_nsiblings == 0 ||
+             (dev && netdev_unregistering(dev)) ||
