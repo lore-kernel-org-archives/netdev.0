@@ -1,86 +1,69 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 2/2] drivers: add vpls support
-Date: Sat, 12 Aug 2017 19:46:28 -0700
-Message-ID: <CAJieiUhz2dAdGkdQPPfoqzfq3Kg_DzHkWL1+PZbqxhu3KFDeRg@mail.gmail.com>
+Subject: Re: [PATCH 1/2] mpls: add handlers
+Date: Sat, 12 Aug 2017 20:29:18 -0700
+Message-ID: <CAJieiUijsyWjzNL=oFaGxtuos367v0VrpSaEqwHvVacrk5hcTA@mail.gmail.com>
 References: <1502396917-14848-1-git-send-email-amine.kherbouche@6wind.com>
- <1502396917-14848-3-git-send-email-amine.kherbouche@6wind.com>
- <20170811125547.GZ773745@eidolon> <CAJieiUjiDuhOeGZH9hMf4zTSKfkQ9bhzb9_XE9+5V1ZaDa_f2A@mail.gmail.com>
- <0c3d6029-faa6-aa40-7db5-0970734868b8@6wind.com>
+ <1502396917-14848-2-git-send-email-amine.kherbouche@6wind.com>
+ <20170811123405.GY773745@eidolon> <CAJieiUiDN0pk2GDb2+jBQzbjdPTpckSm23SCFGZ9mRHWfQ1H4w@mail.gmail.com>
+ <c6fc221b-c0fa-1dbc-d1e2-a746b722dcd7@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: David Lamparter <equinox@diac24.net>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Amine Kherbouche <amine.kherbouche@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f42.google.com ([209.85.213.42]:32889 "EHLO
-        mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752156AbdHMCqa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2017 22:46:30 -0400
-Received: by mail-vk0-f42.google.com with SMTP id j189so23541920vka.0
-        for <netdev@vger.kernel.org>; Sat, 12 Aug 2017 19:46:29 -0700 (PDT)
-In-Reply-To: <0c3d6029-faa6-aa40-7db5-0970734868b8@6wind.com>
+Received: from mail-ua0-f177.google.com ([209.85.217.177]:35882 "EHLO
+        mail-ua0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752221AbdHMD3T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2017 23:29:19 -0400
+Received: by mail-ua0-f177.google.com with SMTP id k43so27017047uaf.3
+        for <netdev@vger.kernel.org>; Sat, 12 Aug 2017 20:29:19 -0700 (PDT)
+In-Reply-To: <c6fc221b-c0fa-1dbc-d1e2-a746b722dcd7@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 12, 2017 at 6:40 AM, Amine Kherbouche
+On Sat, Aug 12, 2017 at 6:35 AM, Amine Kherbouche
 <amine.kherbouche@6wind.com> wrote:
 >
 >
-> On 11/08/2017 17:14, Roopa Prabhu wrote:
+> On 11/08/2017 16:37, Roopa Prabhu wrote:
 >>
->> On Fri, Aug 11, 2017 at 5:55 AM, David Lamparter <equinox@diac24.net>
+>> On Fri, Aug 11, 2017 at 5:34 AM, David Lamparter <equinox@diac24.net>
 >> wrote:
 >>>
->>> On Thu, Aug 10, 2017 at 10:28:37PM +0200, Amine Kherbouche wrote:
+>>> On Thu, Aug 10, 2017 at 10:28:36PM +0200, Amine Kherbouche wrote:
 >>>>
->>>> This commit introduces the support of VPLS virtual device, that allows
->>>> performing  L2VPN multipoint to multipoint communication over MPLS PSN.
->>>>
->>>> VPLS device encap received ethernet frame over mpls packet and send it
->>>> the
->>>> output device, in the other direction, when receiving the right
->>>> configured
->>>> mpls packet, the matched mpls route calls the handler vpls function,
->>>> then pulls out the mpls header and send it back the entry point via
->>>> netif_rx().
->>>>
->>>> Two functions, mpls_entry_encode() and mpls_output_possible() are
->>>> exported from mpls/internal.h to be able to use them inside vpls driver.
->>>>
->>>> Signed-off-by: Amine Kherbouche <amine.kherbouche@6wind.com>
->>
->> [snip]
->>
->>> [...]
->>>>
->>>> +union vpls_nh {
->>>> +     struct in6_addr         addr6;
->>>> +     struct in_addr          addr;
->>>> +};
->>>> +
->>>> +struct vpls_dst {
->>>> +     struct net_device       *dev;
->>>> +     union vpls_nh           addr;
->>>> +     u32                     label_in, label_out;
->>>> +     u32                     id;
->>>> +     u16                     vlan_id;
+>>>> Mpls handler allows creation/deletion of mpls routes without using
+>>>> rtnetlink. When an incoming mpls packet matches this route, the saved
+>>>> function handler is called.
 >>>
->>> I looked at VLAN support and decided against it because the bridge layer
->>> can handle this perfectly fine by using the bridge's vlan support to tag
->>> a port's pvid.
+>>> Since I originally authored this patch, I have come to believe that it
+>>> might be unneccessarily complicated.  It is unlikely that a lot of
+>>> different "handlers" will exist here;  the only things I can think of
+>>> are VPLS support and BIER-MPLS multicast replication.  I'm not saying
+>>> it's a bad idea, but, well, this was in the README that I gave to 6WIND
+>>> with this code:
+>>>
+>>> ...
 >>
->> yes, agreed. there is no need for vlan here. The bridge can be
->> configured with the required vlan
->> mapping on the vpls port.
+>> yes, I would also prefer just exporting the functions  and calling
+>> them directly instead of adding a
+>> handler layer. We can move to that later if it becomes necessary.
 >
-> what if the output device cannot handle vlan encapsulation? because on my
-> example of configuration in the cover letter, I sent the vpls packets over
-> a simple physical net device (not a bridge nor a vlan port).
+> I understand that the handler layer is an overhead (as said by David's
+> note), and I agree with the solution for exporting the mpls functions that
+> allows route creation/deletion, but how about forwarding the right mpls
+> packet to the right vpls device with the device ptr? I don't see
+> another way.
 
-There are already multiple ways vlan encap is added today, eg vlan
-device, under a bridge, using tc etc. I don't think every driver
-should carry vlan encap info. see vxlan as an example, it does
-not....you can use a bridge or tc etc for the vlan to vni map. You
-will need a bridge anyways for fwding db, stp etc in such deployments.
 
-We can add vlan in the future if it becomes necessary. I don't see a need today.
+hmm...ok, so you are adding a mpls route to get into vpls_rcv and you
+want this route to carry the vpls_rcv information. Ideally if you knew
+the route is pointing to a vpls device kind, you can directly call
+vpls_rcv.
+But, am not sure if a route is necessary here either.
+
+It just seems like the vpls device information is duplicated in the
+mpls route per vpls dev. Wondering if we can skip the route part and
+always do a lookup on vpls-id/label in mpls_rcv to send it to a
+vpls_rcv if there is a match.  This will be the l2 handler for mpls.
