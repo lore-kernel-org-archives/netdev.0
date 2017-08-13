@@ -1,70 +1,86 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [iproute PATCH 15/51] ipvrf: Fix error path of vrf_switch()
-Date: Sun, 13 Aug 2017 10:00:45 -0600
-Message-ID: <0c57206d-92c4-bfd8-8ac7-ffb03df3c1c0@gmail.com>
-References: <20170812120510.28750-1-phil@nwl.cc>
- <20170812120510.28750-16-phil@nwl.cc>
+From: Koichiro Den <den@klaipeden.com>
+Subject: Re: [PATCH net] Revert "vhost: cache used event for better
+	performance"
+Date: Mon, 14 Aug 2017 01:12:26 +0900
+Message-ID: <1502640746.3547.3.camel@klaipeden.com>
+References: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
+	<20170726155435-mutt-send-email-mst@kernel.org>
+	<117542fc-eef9-c043-7c9e-daafceb7db4e@redhat.com>
+	<6b3a9a98-c095-1729-3528-dd521f136797@redhat.com>
+	<20170726190745-mutt-send-email-mst@kernel.org>
+	<1501396011.21001.11.camel@klaipeden.com>
+	<6698b85c-18f4-17e6-db70-7708692fb761@redhat.com>
+	<20170809073422-mutt-send-email-mst@kernel.org>
+	<1502633460.3547.1.camel@klaipeden.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:37549 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750928AbdHMQAr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2017 12:00:47 -0400
-Received: by mail-pg0-f66.google.com with SMTP id 83so6834607pgb.4
-        for <netdev@vger.kernel.org>; Sun, 13 Aug 2017 09:00:47 -0700 (PDT)
-In-Reply-To: <20170812120510.28750-16-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1502633460.3547.1.camel@klaipeden.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 8/12/17 6:04 AM, Phil Sutter wrote:
-> Apart from trying to close(-1), this also leaked memory.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  ip/ipvrf.c | 9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-> 
-> diff --git a/ip/ipvrf.c b/ip/ipvrf.c
-> index 92e2db98ca7d7..75cc026d072b8 100644
-> --- a/ip/ipvrf.c
-> +++ b/ip/ipvrf.c
-> @@ -373,12 +373,12 @@ static int vrf_switch(const char *name)
->  
->  	/* -1 on length to add '/' to the end */
->  	if (ipvrf_get_netns(netns, sizeof(netns) - 1) < 0)
-> -		return -1;
-> +		goto out;
->  
->  	if (vrf_path(vpath, sizeof(vpath)) < 0) {
->  		fprintf(stderr, "Failed to get base cgroup path: %s\n",
->  			strerror(errno));
-> -		return -1;
-> +		goto out;
->  	}
->  
->  	/* if path already ends in netns then don't add it again */
-> @@ -429,13 +429,14 @@ static int vrf_switch(const char *name)
->  	snprintf(pid, sizeof(pid), "%d", getpid());
->  	if (write(fd, pid, strlen(pid)) < 0) {
->  		fprintf(stderr, "Failed to join cgroup\n");
-> -		goto out;
-> +		goto out2;
->  	}
->  
->  	rc = 0;
-> +out2:
-> +	close(fd);
->  out:
->  	free(mnt);
-> -	close(fd);
->  
->  	return rc;
->  }
-> 
-
-Acked-by: David Ahern <dsahern@gmail.com>
+U29ycnkgSSBtaXN0YWtlbmx5IGZvY3VzZWQgb24gTkVUIGNhc2UsIHBsZWFzZSBwYXNzIGl0IG92
+ZXIuIEkgd2lsbCBkbyBhbnkKcmVsZXZhbnQgc3VnZ2VzdGlvbiBpbiBwYXRjaC1iYXNlZCB3YXku
+IFRoYW5rcy4KCk9uIFN1biwgMjAxNy0wOC0xMyBhdCAyMzoxMSArMDkwMCwgS29pY2hpcm8gRGVu
+IHdyb3RlOgo+IFRoYW5rcyBmb3IgeW91ciBjb21tZW50cywgTWljaGFlbCBhbmQgSmFzb24uIEFu
+ZCBJJ20gc29ycnkgYWJvdXQgbGF0ZQo+IHJlc3BvbnNlLgo+IFRvIGJlIGhvbmVzdCwgSSBhbSBv
+biBhIHN1bW1lciB2YWNhdGlvbiB1bnRpbCBuZXh0IFR1ZXNkYXkuCj4gCj4gSSBub3RpY2VkIHRo
+YXQgd2hhdCBJIHdyb3RlIHdhcyBub3Qgc3VmZmljaWVudC4gUmVnYXJkbGVzcyBvZiBjYWNoaW5n
+Cj4gbWVjaGFuaXNtCj4gZXhpc3RlbmNlLCB0aGUgImV2ZW50IiBjb3VsZCBsZWdpdGltYXRlbHkg
+YmUgYXQgYW55IHBvaW50IG91dCBvZiB0aGUgbGF0ZXN0Cj4gaW50ZXJ2YWwsIHdoaWNoIHZob3N0
+X25vdGlmeSBjaGVja3MgaXQgYWdhaW5zdCwgbWVhbmluZyB0aGF0IGlmIGl0J3Mgb3V0IG9mCj4g
+dGhlCj4gaW50ZXJ2YWwgd2UgY2Fubm90IGRpc3Rpbmd1aXNoIHdoZXRoZXIgb3Igbm90IGl0IGxh
+Z3MgYmVoaW5kIG9yIGhhcyBhCj4gbGVhZC7CoEFuZAo+IGl0IHNlZW1zIHRvIGNvbmZvcm0gdG8g
+dGhlIHNwZWMuIFRoYW5rcyBmb3IgbGVhZGluZyBtZSB0byB0aGUgc3BlYy4gVGhlIGNvcm5lcgo+
+IGNhc2UgSSBwb2ludCBvdXQgaGVyZSBpczoKPiAoMCkgZXZlbnQgaWR4IGZlYXR1cmUgdHVybmVk
+IG9uICsgVFggbmFwaSB0dXJuZWQgb2ZmCj4gLT4gKDEpIGd1ZXN0LXNpZGUgVFggdHJhZmZpYyBi
+dXJzdGluZyBvY2N1cnMgYW5kIGRlbGF5ZWQgY2FsbGJhY2sgc2V0Cj4gLT4gKDIpIHNvbWUgaW50
+ZXJydXB0aW9uIHRyaWdnZXJzIHNrYl94bWl0X2RvbmUKPiAtPiAoMykgZ3Vlc3Qtc2lkZSBtb2Rl
+c3QgdHJhZmZpYyBtYWtlcyB0aGUgaW50ZXJ2YWwgcHJvY2VlZCB0byB1bmJvdW5kZWQKPiBleHRl
+bnQKPiB3aXRob3V0IHVwZGF0aW5nICJldmVudCIgc2luY2UgTk9fSU5URVJSVVBUIGNvbnRpbnVl
+cyB0byBiZSBzZXQgb24gaXRzIHNoYWRvdwo+IGZsYWcuCj4gCj4gSU1ITyzCoGlmIHlvdSBwbGFu
+IHRvIG1ha2UgVFggbmFwaSB0aGUgb25seSBjaG9pY2UsIGRvaW5nIHRoaXMgc29ydCBvZgo+IG9w
+dGltaXNhdGlvbiBiZWZvcmVoYW5kIHNlZW1zIGxpa2VseSB0byBiZSBpbiB2YWluLgo+IAo+IFNv
+LCBpZiB0aGUgbm9uZS1UWCBuYXBpIGNhc2UgY29udGludWVzIHRvIGNvZXhpc3QsIHdoYXQgSSB3
+b3VsZCBsaWtlIHRvCj4gc3VnZ2VzdAo+IGlzIG5vdCBqdXN0IHRoZSBzb3J0IG9mIG15IGxhc3Qg
+ZW1haWwsIGJ1dCBsaWtlIG1ha2luZyBtYXhpbXVtIHN0YWxlbmVzcyBvZgo+ICJldmVudCIgbGVz
+cyB0aGFuIG9yIGVxdWFsIHRvIHZxLm51bSwgYW5kIGFmdGVyd2FyZCBjYWNoaW5nIHN1Z2dlc3Rp
+b24uCj4gT3RoZXJ3aXNlLCBJIGd1ZXNzIEkgc2hvdWxkIG5vdCByZXBvc3QgbXkgbGFzdCBlbWFp
+bCBzaW5jZSBpdCB3b3VsZCBtYWtlCj4gbWF0dGVycwo+IMKgdG9vIGNvbXBsaWNhdGVkIGV2ZW4g
+dGhvdWdoIGl0IHdpbGwgc29vbiBiZSByZW1vdmVkIHdoZW4gVFgtbmFwaSBiZWNvbWVzIHRoZQo+
+IG9ubHkgY2hvaWNlLgo+IAo+IFRoYW5rcyEKPiAKPiAKPiBPbiBXZWQsIDIwMTctMDgtMDkgYXQg
+MDc6MzcgKzAzMDAsIE1pY2hhZWwgUy4gVHNpcmtpbiB3cm90ZToKPiA+IE9uIFdlZCwgQXVnIDA5
+LCAyMDE3IGF0IDEwOjM4OjEwQU0gKzA4MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4gPiA+IEkgdGhp
+bmsgZG9uJ3QgdGhpbmsgY3VycmVudCBjb2RlIGNhbiB3b3JrIHdlbGwgaWYgdnEubnVtIGlzIGdy
+YXRlciB0aGFuCj4gPiA+IDJeMTUuIFNpbmNlIGFsbCBjYWNoZWQgaWR4IGlzIHUxNi4gVGhpcyBs
+b29rcyBsaWtlIGEgYnVnIHdoaWNoIG5lZWRzIHRvIGJlCj4gPiA+IGZpeGVkLgo+ID4gCj4gPiBU
+aGF0J3MgYSBsaW1pdGF0aW9uIG9mIHZpcnRpbyAxLjAuCj4gPiAKPiA+ID4gPiAqIGVsc2UgaWYg
+dGhlIGludGVydmFsIG9mIHZxLm51bSBpcyBbMl4xNSwgMl4xNik6Cj4gPiA+ID4gdGhlIGxvZ2lj
+IGluIHRoZSBvcmlnaW5hbCBwYXRjaCAoODA5ZWNiOWJjYTZhOSkgc3VmZmljZXMKPiA+ID4gPiAq
+IGVsc2UgKD0gbGVzcyB0aGFuIDJeMTUpIChvcHRpb25hbCk6Cj4gPiA+ID4gY2hlY2tpbmcgb25s
+eSAodnJpbmdfbmVlZF9ldmVudCh2cS0+bGFzdF91c2VkX2V2ZW50LCBuZXcgKyB2cS0+bnVtLCBu
+ZXcpCj4gPiA+ID4gd291bGQgc3VmZmljZS4KPiA+ID4gPiAKPiA+ID4gPiBBbSBJIG1pc3Npbmcg
+c29tZXRoaW5nLCBvciBpcyB0aGlzIGlycmVsZXZhbnQ/Cj4gPiAKPiA+IENvdWxkIHlvdSBwbHMg
+cmVwb3N0IHRoZSBzdWdnZXN0aW9uIGNvcHlpbmcgdmlydGlvLWRldiBtYWlsaW5nIGxpc3QKPiA+
+IChzdWJzY3JpYmVyIG9ubHksIHNvcnJ5IGFib3V0IHRoYXQsIGJ1dCBob3N0L2d1ZXN0IEFCSSBk
+aXNjdXNzaW9ucwo+ID4gbmVlZCB0byBjb3B5IHRoYXQgbGlzdCk/Cj4gPiAKPiA+ID4gTG9va3Mg
+bm90LCBJIHRoaW5rIHRoaXMgbWF5IHdvcmsuIExldCBtZSBkbyBzb21lIHRlc3QuCj4gPiA+IAo+
+ID4gPiBUaGFua3MKPiA+IAo+ID4gSSB0aGluayB0aGF0IGF0IHRoaXMgcG9pbnQgaXQncyBwcnVk
+ZW50IHRvIGFkZCBhIGZlYXR1cmUgYml0Cj4gPiBhcyB0aGUgdmlydGlvIHNwZWMgZG9lcyBub3Qg
+cmVxdWlyZSB0byBuZXZlciBtb3ZlIHRoZSBldmVudCBpbmRleCBiYWNrLgo+ID4gCgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBt
+YWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0
+cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6
+YXRpb24=
