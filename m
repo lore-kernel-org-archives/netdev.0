@@ -1,79 +1,85 @@
-From: Koichiro Den <den@klaipeden.com>
-Subject: Re: [PATCH net] Revert "vhost: cache used event for better
-	performance"
-Date: Sun, 13 Aug 2017 23:11:00 +0900
-Message-ID: <1502633460.3547.1.camel@klaipeden.com>
-References: <1501056197-3368-1-git-send-email-jasowang@redhat.com>
-	<20170726155435-mutt-send-email-mst@kernel.org>
-	<117542fc-eef9-c043-7c9e-daafceb7db4e@redhat.com>
-	<6b3a9a98-c095-1729-3528-dd521f136797@redhat.com>
-	<20170726190745-mutt-send-email-mst@kernel.org>
-	<1501396011.21001.11.camel@klaipeden.com>
-	<6698b85c-18f4-17e6-db70-7708692fb761@redhat.com>
-	<20170809073422-mutt-send-email-mst@kernel.org>
+From: Ohad Oz <ohado@mellanox.com>
+Subject: RE: [patch v1 1/2] Allow Mellanox network vendor to be configured if
+ only I2C bus is configured
+Date: Sun, 13 Aug 2017 15:26:56 +0000
+Message-ID: <VI1PR05MB1262B06790B2738CE1C0F889C88F0@VI1PR05MB1262.eurprd05.prod.outlook.com>
+References: <1502385112-103765-1-git-send-email-ohado@mellanox.com>
+ <20170812143715.GN24282@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170809073422-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jiri@resnulli.us" <jiri@resnulli.us>,
+        "Saeed Mahameed" <saeedm@mellanox.com>,
+        Vadim Pasternak <vadimp@mellanox.com>,
+        system-sw-low-level <system-sw-low-level@mellanox.com>
+To: Leon Romanovsky <leon@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0045.outbound.protection.outlook.com ([104.47.0.45]:3264
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750982AbdHMP1A (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 13 Aug 2017 11:27:00 -0400
+In-Reply-To: <20170812143715.GN24282@mtr-leonro.local>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzIGZvciB5b3VyIGNvbW1lbnRzLCBNaWNoYWVsIGFuZCBKYXNvbi4gQW5kIEknbSBzb3Jy
-eSBhYm91dCBsYXRlIHJlc3BvbnNlLgpUbyBiZSBob25lc3QsIEkgYW0gb24gYSBzdW1tZXIgdmFj
-YXRpb24gdW50aWwgbmV4dCBUdWVzZGF5LgoKSSBub3RpY2VkIHRoYXQgd2hhdCBJIHdyb3RlIHdh
-cyBub3Qgc3VmZmljaWVudC4gUmVnYXJkbGVzcyBvZiBjYWNoaW5nIG1lY2hhbmlzbQpleGlzdGVu
-Y2UsIHRoZSAiZXZlbnQiIGNvdWxkIGxlZ2l0aW1hdGVseSBiZSBhdCBhbnkgcG9pbnQgb3V0IG9m
-IHRoZSBsYXRlc3QKaW50ZXJ2YWwsIHdoaWNoIHZob3N0X25vdGlmeSBjaGVja3MgaXQgYWdhaW5z
-dCwgbWVhbmluZyB0aGF0IGlmIGl0J3Mgb3V0IG9mIHRoZQppbnRlcnZhbCB3ZSBjYW5ub3QgZGlz
-dGluZ3Vpc2ggd2hldGhlciBvciBub3QgaXQgbGFncyBiZWhpbmQgb3IgaGFzIGEgbGVhZC7CoEFu
-ZAppdCBzZWVtcyB0byBjb25mb3JtIHRvIHRoZSBzcGVjLiBUaGFua3MgZm9yIGxlYWRpbmcgbWUg
-dG8gdGhlIHNwZWMuIFRoZSBjb3JuZXIKY2FzZSBJIHBvaW50IG91dCBoZXJlIGlzOgooMCkgZXZl
-bnQgaWR4IGZlYXR1cmUgdHVybmVkIG9uICsgVFggbmFwaSB0dXJuZWQgb2ZmCi0+ICgxKSBndWVz
-dC1zaWRlIFRYIHRyYWZmaWMgYnVyc3Rpbmcgb2NjdXJzIGFuZCBkZWxheWVkIGNhbGxiYWNrIHNl
-dAotPiAoMikgc29tZSBpbnRlcnJ1cHRpb24gdHJpZ2dlcnMgc2tiX3htaXRfZG9uZQotPiAoMykg
-Z3Vlc3Qtc2lkZSBtb2Rlc3QgdHJhZmZpYyBtYWtlcyB0aGUgaW50ZXJ2YWwgcHJvY2VlZCB0byB1
-bmJvdW5kZWQgZXh0ZW50CndpdGhvdXQgdXBkYXRpbmcgImV2ZW50IiBzaW5jZSBOT19JTlRFUlJV
-UFQgY29udGludWVzIHRvIGJlIHNldCBvbiBpdHMgc2hhZG93CmZsYWcuCgpJTUhPLMKgaWYgeW91
-IHBsYW4gdG8gbWFrZSBUWCBuYXBpIHRoZSBvbmx5IGNob2ljZSwgZG9pbmcgdGhpcyBzb3J0IG9m
-Cm9wdGltaXNhdGlvbiBiZWZvcmVoYW5kIHNlZW1zIGxpa2VseSB0byBiZSBpbiB2YWluLgoKU28s
-IGlmIHRoZSBub25lLVRYIG5hcGkgY2FzZSBjb250aW51ZXMgdG8gY29leGlzdCwgd2hhdCBJIHdv
-dWxkIGxpa2UgdG8gc3VnZ2VzdAppcyBub3QganVzdCB0aGUgc29ydCBvZiBteSBsYXN0IGVtYWls
-LCBidXQgbGlrZSBtYWtpbmcgbWF4aW11bSBzdGFsZW5lc3Mgb2YKImV2ZW50IiBsZXNzIHRoYW4g
-b3IgZXF1YWwgdG8gdnEubnVtLCBhbmQgYWZ0ZXJ3YXJkIGNhY2hpbmcgc3VnZ2VzdGlvbi4KT3Ro
-ZXJ3aXNlLCBJIGd1ZXNzIEkgc2hvdWxkIG5vdCByZXBvc3QgbXkgbGFzdCBlbWFpbCBzaW5jZSBp
-dCB3b3VsZCBtYWtlIG1hdHRlcnMKIHRvbyBjb21wbGljYXRlZCBldmVuIHRob3VnaCBpdCB3aWxs
-IHNvb24gYmUgcmVtb3ZlZCB3aGVuIFRYLW5hcGkgYmVjb21lcyB0aGUKb25seSBjaG9pY2UuCgpU
-aGFua3MhCgoKT24gV2VkLCAyMDE3LTA4LTA5IGF0IDA3OjM3ICswMzAwLCBNaWNoYWVsIFMuIFRz
-aXJraW4gd3JvdGU6Cj4gT24gV2VkLCBBdWcgMDksIDIwMTcgYXQgMTA6Mzg6MTBBTSArMDgwMCwg
-SmFzb24gV2FuZyB3cm90ZToKPiA+IEkgdGhpbmsgZG9uJ3QgdGhpbmsgY3VycmVudCBjb2RlIGNh
-biB3b3JrIHdlbGwgaWYgdnEubnVtIGlzIGdyYXRlciB0aGFuCj4gPiAyXjE1LiBTaW5jZSBhbGwg
-Y2FjaGVkIGlkeCBpcyB1MTYuIFRoaXMgbG9va3MgbGlrZSBhIGJ1ZyB3aGljaCBuZWVkcyB0byBi
-ZQo+ID4gZml4ZWQuCj4gCj4gVGhhdCdzIGEgbGltaXRhdGlvbiBvZiB2aXJ0aW8gMS4wLgo+IAo+
-ID4gPiAqIGVsc2UgaWYgdGhlIGludGVydmFsIG9mIHZxLm51bSBpcyBbMl4xNSwgMl4xNik6Cj4g
-PiA+IHRoZSBsb2dpYyBpbiB0aGUgb3JpZ2luYWwgcGF0Y2ggKDgwOWVjYjliY2E2YTkpIHN1ZmZp
-Y2VzCj4gPiA+ICogZWxzZSAoPSBsZXNzIHRoYW4gMl4xNSkgKG9wdGlvbmFsKToKPiA+ID4gY2hl
-Y2tpbmcgb25seSAodnJpbmdfbmVlZF9ldmVudCh2cS0+bGFzdF91c2VkX2V2ZW50LCBuZXcgKyB2
-cS0+bnVtLCBuZXcpCj4gPiA+IHdvdWxkIHN1ZmZpY2UuCj4gPiA+IAo+ID4gPiBBbSBJIG1pc3Np
-bmcgc29tZXRoaW5nLCBvciBpcyB0aGlzIGlycmVsZXZhbnQ/Cj4gCj4gQ291bGQgeW91IHBscyBy
-ZXBvc3QgdGhlIHN1Z2dlc3Rpb24gY29weWluZyB2aXJ0aW8tZGV2IG1haWxpbmcgbGlzdAo+IChz
-dWJzY3JpYmVyIG9ubHksIHNvcnJ5IGFib3V0IHRoYXQsIGJ1dCBob3N0L2d1ZXN0IEFCSSBkaXNj
-dXNzaW9ucwo+IG5lZWQgdG8gY29weSB0aGF0IGxpc3QpPwo+IAo+ID4gTG9va3Mgbm90LCBJIHRo
-aW5rIHRoaXMgbWF5IHdvcmsuIExldCBtZSBkbyBzb21lIHRlc3QuCj4gPiAKPiA+IFRoYW5rcwo+
-IAo+IEkgdGhpbmsgdGhhdCBhdCB0aGlzIHBvaW50IGl0J3MgcHJ1ZGVudCB0byBhZGQgYSBmZWF0
-dXJlIGJpdAo+IGFzIHRoZSB2aXJ0aW8gc3BlYyBkb2VzIG5vdCByZXF1aXJlIHRvIG5ldmVyIG1v
-dmUgdGhlIGV2ZW50IGluZGV4IGJhY2suCj4gCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6
-YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5k
-YXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+
+
+> -----Original Message-----
+> From: Leon Romanovsky [mailto:leon@kernel.org]
+> Sent: Saturday, August 12, 2017 5:37 PM
+> To: Ohad Oz <ohado@mellanox.com>
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; jiri@resnulli.us; Saeed
+> Mahameed <saeedm@mellanox.com>; Vadim Pasternak
+> <vadimp@mellanox.com>; system-sw-low-level <system-sw-low-
+> level@mellanox.com>
+> Subject: Re: [patch v1 1/2] Allow Mellanox network vendor to be configure=
+d
+> if only I2C bus is configured
+>=20
+> On Thu, Aug 10, 2017 at 05:11:51PM +0000, Ohad Oz wrote:
+> > Patch allows Mellanox devices on system with no PCI, but with I2C only.
+> >
+>=20
+> Did you test mlx5 device on such system? Did it work for you?
+
+Yes, I did. With PCI config set to disable mlx5 drivers are not built.=20
+Only the following:=20
+/build/drivers/net/Ethernet/mellanox/mlxsw/mlxsw_core.ko
+/build/drivers/net/Ethernet/mellanox /mlxsw/mlxsw_i2c.ko
+/build/drivers/net/Ethernet/mellanox /mlxsw/mlxsw_minimal.ko
+
+While with both options on all drivers are built inc mlx5.
+
+
+> What is the changelog between v0 and v1 of these patches?
+
+No changelog, I've started with v1.
+
+>=20
+> > Signed-off-by: Ohad Oz <ohado@mellanox.com>
+> > ---
+> >  drivers/net/ethernet/mellanox/Kconfig | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >
+> > diff --git a/drivers/net/ethernet/mellanox/Kconfig
+> b/drivers/net/ethernet/mellanox/Kconfig
+> > index 84a2007..0949741 100644
+> > --- a/drivers/net/ethernet/mellanox/Kconfig
+> > +++ b/drivers/net/ethernet/mellanox/Kconfig
+> > @@ -5,7 +5,7 @@
+> >  config NET_VENDOR_MELLANOX
+> >  	bool "Mellanox devices"
+> >  	default y
+> > -	depends on PCI
+> > +	depends on PCI || I2C
+> >  	---help---
+> >  	  If you have a network (Ethernet) card belonging to this class, say =
+Y.
+> >
+> > --
+> > 2.8.0
+> >
