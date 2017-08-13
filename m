@@ -1,62 +1,69 @@
-From: Jan Scheurich <jan.scheurich@ericsson.com>
-Subject: RE: [PATCH net-next v2] openvswitch: enable NSH support
-Date: Sun, 13 Aug 2017 21:13:57 +0000
-Message-ID: <CFF8EF42F1132E4CBE2BF0AB6C21C58D72736EAE@ESESSMB107.ericsson.se>
-References: <1502371275-52446-1-git-send-email-yi.y.yang@intel.com>
-        <20170811102418.6b1be4f7@griffin>
-        <20170811084722.GA19968@cran64.bj.intel.com>
-        <20170811111055.482bd42b@griffin>
-        <79BBBFE6CB6C9B488C1A45ACD284F51961C427FE@SHSMSX103.ccr.corp.intel.com>
-        <20170811114449.745c49c5@griffin>
-        <CFF8EF42F1132E4CBE2BF0AB6C21C58D7273679A@ESESSMB107.ericsson.se>
- <20170811122256.2cec123e@griffin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Yang, Yi Y" <yi.y.yang@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>
-To: Jiri Benc <jbenc@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net] ipv4: route: fix inet_rtm_getroute induced crash
+Date: Mon, 14 Aug 2017 00:52:58 +0200
+Message-ID: <20170813225258.16001-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        David Ahern <dsahern@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:51631 "EHLO
-        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750915AbdHMVN7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2017 17:13:59 -0400
-In-Reply-To: <20170811122256.2cec123e@griffin>
-Content-Language: en-US
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:57598 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750714AbdHMWwn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2017 18:52:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Jiri Benc [mailto:jbenc@redhat.com]
-> Sent: Friday, 11 August, 2017 12:23
-> 
-> On Fri, 11 Aug 2017 10:09:36 +0000, Jan Scheurich wrote:
-> > Unless someone can explain to me why the datapath should understand the
-> > internal structure/format of metadata in push_nsh, I would strongly
-> > vote to keep the metadata as variable length octet sequence in the
-> > non-structured OVS_ACTION_ATTR_PUSH_NSH
-> 
-> Could be but it still needs to be in a different attribute and not in
-> the ovs_action_push_nsh structure.
-> 
-> Separate attributes for MD1/MD2 has the advantage of easier validation:
-> with a separate MD1 type attribute, the size check is easier. With an
-> unstructured MD attribute, we'd need to look into the
-> OVS_ACTION_ATTR_NSH_BASE_HEADER attribute for mdtype and then validate
-> the unstructured MD attribute size manually. Not a big deal, though.
-> I don't have strong opinion here.
-> 
-> But I do have strong opinion that MD needs to go into a separate
-> attribute, whether there are separate attributes for MD1/2 or not.
+"ip route get $daddr iif eth0 from $saddr" causes:
+ BUG: KASAN: use-after-free in ip_route_input_rcu+0x1535/0x1b50
+ Call Trace:
+  ip_route_input_rcu+0x1535/0x1b50
+  ip_route_input_noref+0xf9/0x190
+  tcp_v4_early_demux+0x1a4/0x2b0
+  ip_rcv+0xbcb/0xc05
+  __netif_receive_skb+0x9c/0xd0
+  netif_receive_skb_internal+0x5a8/0x890
 
-Jiri, I am not too familiar with conventions on the OVS netlink interface regarding the handling of variable length fields. What is the benefit of structuring the push_nsh action into
+Problem is that inet_rtm_getroute calls either ip_route_input_rcu (if an
+iif was provided) or ip_route_output_key_hash_rcu.
 
-OVS_ACTION_ATTR_PUSH_NSH
-+-- OVS_ACTION_ATTR_NSH_BASE_HEADER
-+-- OVS_ACTION_ATTR_NSH_MD
+But ip_route_input_rcu, unlike ip_route_output_key_hash_rcu, already
+associates the dst_entry with the skb.  This clears the SKB_DST_NOREF
+bit (i.e. skb_dst_drop will release/free the entry while it should not).
 
-instead of grouping the base header fields and the variable length MD into a single monolithic attribute OVS_ACTION_ATTR_PUSH_NSH? Is the main concern a potential future need to add additional parameters to the push_nsh datapath action? Are there examples for such structured actions other than OVS_ACTION_ATTR_CT where the need is obvious because it is very polymorphic?
+Thus only set the dst if we called ip_route_output_key_hash_rcu().
 
-BR, Jan
+I tested this patch by running:
+ while true;do ip r get 10.0.1.2;done > /dev/null &
+ while true;do ip r get 10.0.1.2 iif eth0  from 10.0.1.1;done > /dev/null &
+... and saw no crash or memory leak.
 
-BTW:  The name OVS_ACTION_ATTR_NSH_BASE_HEADER is misleading because in the NSH draft the term base header is used for the first 32-bit word, whereas here it includes also the 32-bit Service Path header.
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: David Ahern <dsahern@gmail.com>
+Fixes: ba52d61e0ff ("ipv4: route: restore skb_dst_set in inet_rtm_getroute")
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/ipv4/route.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 0383e66f59bc..7effa62beed3 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2750,12 +2750,13 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+ 		err = 0;
+ 		if (IS_ERR(rt))
+ 			err = PTR_ERR(rt);
++		else
++			skb_dst_set(skb, &rt->dst);
+ 	}
+ 
+ 	if (err)
+ 		goto errout_free;
+ 
+-	skb_dst_set(skb, &rt->dst);
+ 	if (rtm->rtm_flags & RTM_F_NOTIFY)
+ 		rt->rt_flags |= RTCF_NOTIFY;
+ 
+-- 
+2.13.0
