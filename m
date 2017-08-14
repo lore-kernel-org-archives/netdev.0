@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 08/11] net: dsa: restore mdb dump
-Date: Mon, 14 Aug 2017 18:22:39 -0400
-Message-ID: <20170814222242.10643-9-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 07/11] net: dsa: debugfs: add port fdb
+Date: Mon, 14 Aug 2017 18:22:38 -0400
+Message-ID: <20170814222242.10643-8-vivien.didelot@savoirfairelinux.com>
 References: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -27,133 +27,80 @@ In-Reply-To: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The same dsa_fdb_dump_cb_t callback is used since there is no
-distinction to do between FDB and MDB entries at this layer.
+Add a debug filesystem "fdb" entry to query a port's hardware FDB
+entries through the .port_fdb_dump switch operation.
 
-Implement mv88e6xxx_port_mdb_dump so that multicast addresses associated
-to a switch port can be dumped.
+This is really convenient to query directly the hardware or inspect DSA
+or CPU links, since these ports are not exposed to userspace.
+
+    # cat port1/fdb
+    vid 0    12:34:56:78:90:ab    static    unicast
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 33 +++++++++++++++++++++++++--------
- include/net/dsa.h                |  3 +++
- 2 files changed, 28 insertions(+), 8 deletions(-)
+ net/dsa/debugfs.c | 36 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 918d8f0fe091..2ad32734b6f6 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1380,7 +1380,7 @@ static int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+diff --git a/net/dsa/debugfs.c b/net/dsa/debugfs.c
+index 012fcf466cc1..8204c62dc9c1 100644
+--- a/net/dsa/debugfs.c
++++ b/net/dsa/debugfs.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <linux/debugfs.h>
++#include <linux/etherdevice.h>
+ #include <linux/seq_file.h>
+ 
+ #include "dsa_priv.h"
+@@ -109,6 +110,36 @@ static int dsa_debugfs_create_file(struct dsa_switch *ds, struct dentry *dir,
+ 	return 0;
  }
  
- static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
--				      u16 fid, u16 vid, int port,
-+				      u16 fid, u16 vid, int port, bool mc,
- 				      dsa_fdb_dump_cb_t *cb, void *data)
- {
- 	struct mv88e6xxx_atu_entry addr;
-@@ -1401,11 +1401,14 @@ static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
- 		if (addr.trunk || (addr.portvec & BIT(port)) == 0)
- 			continue;
- 
--		if (!is_unicast_ether_addr(addr.mac))
-+		if ((is_unicast_ether_addr(addr.mac) && mc) ||
-+		    (is_multicast_ether_addr(addr.mac) && !mc))
- 			continue;
- 
--		is_static = (addr.state ==
--			     MV88E6XXX_G1_ATU_DATA_STATE_UC_STATIC);
-+		is_static = addr.state == mc ?
-+			MV88E6XXX_G1_ATU_DATA_STATE_MC_STATIC :
-+			MV88E6XXX_G1_ATU_DATA_STATE_UC_STATIC;
-+
- 		err = cb(addr.mac, vid, is_static, data);
- 		if (err)
- 			return err;
-@@ -1415,7 +1418,7 @@ static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
- }
- 
- static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
--				  dsa_fdb_dump_cb_t *cb, void *data)
-+				  bool mc, dsa_fdb_dump_cb_t *cb, void *data)
- {
- 	struct mv88e6xxx_vtu_entry vlan = {
- 		.vid = chip->info->max_vid,
-@@ -1428,7 +1431,7 @@ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
- 	if (err)
- 		return err;
- 
--	err = mv88e6xxx_port_db_dump_fid(chip, fid, 0, port, cb, data);
-+	err = mv88e6xxx_port_db_dump_fid(chip, fid, 0, port, mc, cb, data);
- 	if (err)
- 		return err;
- 
-@@ -1442,7 +1445,7 @@ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
- 			break;
- 
- 		err = mv88e6xxx_port_db_dump_fid(chip, vlan.fid, vlan.vid, port,
--						 cb, data);
-+						 mc, cb, data);
- 		if (err)
- 			return err;
- 	} while (vlan.vid < chip->info->max_vid);
-@@ -1457,7 +1460,7 @@ static int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
- 	int err;
- 
- 	mutex_lock(&chip->reg_lock);
--	err = mv88e6xxx_port_db_dump(chip, port, cb, data);
-+	err = mv88e6xxx_port_db_dump(chip, port, false, cb, data);
- 	mutex_unlock(&chip->reg_lock);
- 
- 	return err;
-@@ -3777,6 +3780,19 @@ static int mv88e6xxx_port_mdb_del(struct dsa_switch *ds, int port,
- 	return err;
- }
- 
-+static int mv88e6xxx_port_mdb_dump(struct dsa_switch *ds, int port,
-+				   dsa_fdb_dump_cb_t *cb, void *data)
++static int dsa_debugfs_fdb_dump_cb(const unsigned char *addr, u16 vid,
++				   bool is_static, void *data)
 +{
-+	struct mv88e6xxx_chip *chip = ds->priv;
-+	int err;
++	struct seq_file *seq = data;
++	int i;
 +
-+	mutex_lock(&chip->reg_lock);
-+	err = mv88e6xxx_port_db_dump(chip, port, true, cb, data);
-+	mutex_unlock(&chip->reg_lock);
++	seq_printf(seq, "vid %d", vid);
++	for (i = 0; i < ETH_ALEN; i++)
++		seq_printf(seq, "%s%02x", i ? ":" : "    ", addr[i]);
++	seq_printf(seq, "    %s", is_static ? "static" : "dynamic");
++	seq_printf(seq, "    %s", is_unicast_ether_addr(addr) ?
++		   "unicast" : "multicast");
++	seq_puts(seq, "\n");
 +
-+	return err;
++	return 0;
 +}
 +
- static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
- 	.probe			= mv88e6xxx_drv_probe,
- 	.get_tag_protocol	= mv88e6xxx_get_tag_protocol,
-@@ -3810,6 +3826,7 @@ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
- 	.port_mdb_prepare       = mv88e6xxx_port_mdb_prepare,
- 	.port_mdb_add           = mv88e6xxx_port_mdb_add,
- 	.port_mdb_del           = mv88e6xxx_port_mdb_del,
-+	.port_mdb_dump          = mv88e6xxx_port_mdb_dump,
- 	.crosschip_bridge_join	= mv88e6xxx_crosschip_bridge_join,
- 	.crosschip_bridge_leave	= mv88e6xxx_crosschip_bridge_leave,
- };
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 4ef5d38755d9..1fd419031948 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -288,6 +288,7 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
- 		return ds->rtable[dst->cpu_dp->ds->index];
- }
++static int dsa_debugfs_fdb_read(struct dsa_switch *ds, int id,
++				struct seq_file *seq)
++{
++	if (!ds->ops->port_fdb_dump)
++		return -EOPNOTSUPP;
++
++	return ds->ops->port_fdb_dump(ds, id, dsa_debugfs_fdb_dump_cb, seq);
++}
++
++static const struct dsa_debugfs_ops dsa_debugfs_fdb_ops = {
++	.read = dsa_debugfs_fdb_read,
++};
++
+ static void dsa_debugfs_regs_read_count(struct dsa_switch *ds, int id,
+ 					struct seq_file *seq, int count)
+ {
+@@ -253,6 +284,11 @@ static int dsa_debugfs_create_port(struct dsa_switch *ds, int port)
+ 	if (IS_ERR_OR_NULL(dir))
+ 		return -EFAULT;
  
-+/* FDB (and MDB) dump callback */
- typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
- 			      bool is_static, void *data);
- struct dsa_switch_ops {
-@@ -417,6 +418,8 @@ struct dsa_switch_ops {
- 				struct switchdev_trans *trans);
- 	int	(*port_mdb_del)(struct dsa_switch *ds, int port,
- 				const struct switchdev_obj_port_mdb *mdb);
-+	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
-+				 dsa_fdb_dump_cb_t *cb, void *data);
- 	/*
- 	 * RXNFC
- 	 */
++	err = dsa_debugfs_create_file(ds, dir, "fdb", port,
++				      &dsa_debugfs_fdb_ops);
++	if (err)
++		return err;
++
+ 	err = dsa_debugfs_create_file(ds, dir, "regs", port,
+ 				      &dsa_debugfs_regs_ops);
+ 	if (err)
 -- 
 2.14.0
