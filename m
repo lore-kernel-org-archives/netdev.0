@@ -1,74 +1,68 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] udp: fix linear skb reception with PEEK_OFF
-Date: Mon, 14 Aug 2017 21:31:38 +0200
-Message-ID: <18c1b112032a685518548760890547fdbf292b85.1502739025.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Sasha Levin <alexander.levin@verizon.com>,
-        Al Viro <viro@ZenIV.linux.org.uk>
-To: netdev@vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
+ don't skip empty skbs
+Date: Mon, 14 Aug 2017 15:39:32 -0400
+Message-ID: <CAF=yD-JMFASxWmUxkPBAtsZ_W3x0ssrUxrDN8T6uYwrfmj_68Q@mail.gmail.com>
+References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1756525.aGoekHffaC@tjmaciei-mobl1>
+ <CAF=yD-K4HgOhMMT0tWycZgcqhU5OACQk_roPQEeRems1_Azhgw@mail.gmail.com> <4013878.dizogNlyrN@tjmaciei-mobl1>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Network Development <netdev@vger.kernel.org>
+To: Thiago Macieira <thiago.macieira@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38846 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750771AbdHNTcj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Aug 2017 15:32:39 -0400
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:35758 "EHLO
+        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751000AbdHNTkN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 15:40:13 -0400
+Received: by mail-oi0-f47.google.com with SMTP id e124so93908205oig.2
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 12:40:13 -0700 (PDT)
+In-Reply-To: <4013878.dizogNlyrN@tjmaciei-mobl1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
+On Mon, Aug 14, 2017 at 3:15 PM, Thiago Macieira
+<thiago.macieira@intel.com> wrote:
+> On Monday, 14 August 2017 12:03:16 PDT Willem de Bruijn wrote:
+>> On Mon, Aug 14, 2017 at 2:58 PM, Thiago Macieira
+>>
+>> <thiago.macieira@intel.com> wrote:
+>> > On Monday, 14 August 2017 11:46:42 PDT Willem de Bruijn wrote:
+>> >> > By the way, what were the usecases for the peek offset feature?
+>> >>
+>> >> The idea was to be able to peek at application headers of upper
+>> >> layer protocols and multiplex messages among threads. It proved
+>> >> so complex even for UDP that we did not attempt the same feature
+>> >> for TCP. Also, KCM implements demultiplexing using eBPF today.
+>> >
+>> > Interesting, but how would userspace coordinate like that? Suppose
+>> > multiple
+>> > threads are woken up by a datagram being received
+>>
+>> This assumes a separate listener thread and worker threadpool.
+>
+> The listener thread still needs to synchronise with the worker that got
+> activated and wait for it to recv from the socket before the listener thread
+> can go back to poll().
+>
+> If we are really talking about threads in the same process, it might be easier
+> for the listener to just read the datagram anyway and pass it on to the
+> worker. That way, it can proceed immediately to the next datagram and not have
+> to wait for the possibly slow worker.
+>
+> If it is a separate process, then I don't see another way and this might be
+> necessary.
+>
+> By the way, what does recv with MSG_PEEK | MSG_TRUNC return? Is it the full
+> datagram's size or is it the size minus the peek offset?
 
-copy_linear_skb() is broken; both of its callers actually
-expect 'len' to be the amount we are trying to copy,
-not the offset of the end.
-Fix it keeping the meanings of arguments in sync with what the
-callers (both of them) expect.
-Also restore a saner behavior on EFAULT (i.e. preserving
-the iov_iter position in case of failure):
+udp_recvmsg returns ulen if the flag is passed.
 
-The commit fd851ba9caa9 ("udp: harden copy_linear_skb()")
-avoids the more destructive effect of the buggy
-copy_linear_skb(), e.g. no more invalid memory access, but
-said function still behaves incorrectly: when peeking with
-offset it can fail with EINVAL instead of copying the
-appropriate amount of memory.
+        if (flags & MSG_TRUNC)
+                err = ulen;
 
-Reported-by: Sasha Levin <alexander.levin@verizon.com>
-Fixes: b65ac44674dd ("udp: try to avoid 2 cache miss on dequeue")
-Fixes: fd851ba9caa9 ("udp: harden copy_linear_skb()")
-Signed-off-by: Al Viro <viro@ZenIV.linux.org.uk>
-Acked-by: Paolo Abeni <pabeni@redhat.com>
-Tested-by: Sasha Levin <alexander.levin@verizon.com>
----
-This patch has been buried in a private email exchange for some
-time.
-I'm posting it on behalf of Al Viro, to avoid loosing this merge
-window, since he is busy elsewhere.
----
- include/net/udp.h | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+This is computed earlier in the function as udp payload length and not
+modified after.
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index e9b1d1eacb59..586de4b811b5 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -366,14 +366,13 @@ static inline bool udp_skb_is_linear(struct sk_buff *skb)
- static inline int copy_linear_skb(struct sk_buff *skb, int len, int off,
- 				  struct iov_iter *to)
- {
--	int n, copy = len - off;
-+	int n;
- 
--	if (copy < 0)
--		return -EINVAL;
--	n = copy_to_iter(skb->data + off, copy, to);
--	if (n == copy)
-+	n = copy_to_iter(skb->data + off, len, to);
-+	if (n == len)
- 		return 0;
- 
-+	iov_iter_revert(to, n);
- 	return -EFAULT;
- }
- 
--- 
-2.13.5
+        ulen = udp_skb_len(skb);
