@@ -1,29 +1,37 @@
-From: Vasily Averin <vvs@virtuozzo.com>
-Subject: [PATCH net] udp: consistently apply ufo or fragmentation
-Date: Mon, 14 Aug 2017 14:31:39 +0300
-Message-ID: <a9b32d53-5b3c-9596-7309-e56e3945a110@virtuozzo.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/4] net: sh_eth: constify platform_device_id
+Date: Mon, 14 Aug 2017 14:41:57 +0300
+Message-ID: <eab06299-518f-257a-7b73-589ff5210e01@cogentembedded.com>
+References: <1502622762-11275-1-git-send-email-arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrey Konovalov <andreyknvl@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:11065 "EHLO relay.sw.ru"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752342AbdHNLbu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Aug 2017 07:31:50 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>, wg@grandegger.com,
+        mkl@pengutronix.de, madalin.bucur@nxp.com, davem@davemloft.net,
+        grygorii.strashko@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502622762-11275-1-git-send-email-arvind.yadav.cs@gmail.com>
+Content-Language: en-MW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Willem,
+Hello!
 
-ip*_ufo_append_data() is called now for each skb_is_gso() packet.
-Before the patch it was called for UDP packets only.
+On 08/13/2017 02:12 PM, Arvind Yadav wrote:
 
-Could you please clarify, is it correct?
+> platform_device_id are not supposed to change at runtime. All functions
+> working with platform_device_id provided by <linux/platform_device.h>
+> work with const platform_device_id. So mark the non-const structs as
+> const.
+> 
+> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 
-Thank you,
-	Vasily Averin
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+though it seems too late as DaveM has taken the series...
+
+[...]
+
+MBR, Sergei
