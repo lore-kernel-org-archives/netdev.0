@@ -1,72 +1,50 @@
-From: Ricardo Farrington <Ricardo.Farrington@cavium.com>
-Subject: RE: [PATCH net-next] liquidio: update debug console logging mechanism
-Date: Mon, 14 Aug 2017 16:28:50 +0000
-Message-ID: <CY1PR0701MB1961883A407496B03A8FD870EC8C0@CY1PR0701MB1961.namprd07.prod.outlook.com>
-References: <20170812014314.GA1012@felix-thinkpad.cavium.com>
- <20170813055549.GO24282@mtr-leonro.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
+ performance vs Core/RSS number / HT on
+Date: Mon, 14 Aug 2017 09:33:07 -0700
+Message-ID: <1502728387.4936.26.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
+         <20170812142358.08291888@redhat.com>
+         <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
+         <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
+         <20170814181957.5be27906@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
-        "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>
-To: Leon Romanovsky <leon@kernel.org>,
-        "Manlunas, Felix" <Felix.Manlunas@cavium.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0087.outbound.protection.outlook.com ([104.47.37.87]:33673
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752527AbdHNQ2y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Aug 2017 12:28:54 -0400
-In-Reply-To: <20170813055549.GO24282@mtr-leonro.local>
-Content-Language: en-US
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35971 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752371AbdHNQdJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 12:33:09 -0400
+Received: by mail-pg0-f67.google.com with SMTP id y129so11456207pgy.3
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 09:33:09 -0700 (PDT)
+In-Reply-To: <20170814181957.5be27906@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Leon - the code to which this patch applies handles a data stream from o=
-ur card's firmware to the host (over PCI).
-There are device-specific registers which are accessed to transfer log data=
- from our firmware to the host.
-I don't think there is kernel code that we could use to perform this; this =
-is not general purpose host driver logging.
+On Mon, 2017-08-14 at 18:19 +0200, Jesper Dangaard Brouer wrote:
 
-Rick
+> The output (extracted below) didn't show who called 'do_raw_spin_lock',
+> BUT it showed another interesting thing.  The kernel code
+> __dev_queue_xmit() in might create route dst-cache problem for itself(?),
+> as it will first call skb_dst_force() and then skb_dst_drop() when the
+> packet is transmitted on a VLAN.
+> 
+>  static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+>  {
+>  [...]
+> 	/* If device/qdisc don't need skb->dst, release it right now while
+> 	 * its hot in this cpu cache.
+> 	 */
+> 	if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+> 		skb_dst_drop(skb);
+> 	else
+> 		skb_dst_force(skb);
 
------Original Message-----
-From: Leon Romanovsky [mailto:leon@kernel.org]=20
-Sent: Saturday, August 12, 2017 10:56 PM
-To: Manlunas, Felix <Felix.Manlunas@cavium.com>
-Cc: davem@davemloft.net; netdev@vger.kernel.org; Vatsavayi, Raghu <Raghu.Va=
-tsavayi@cavium.com>; Chickles, Derek <Derek.Chickles@cavium.com>; Burla, Sa=
-tananda <Satananda.Burla@cavium.com>; Ricardo Farrington <Ricardo.Farringto=
-n@cavium.com>
-Subject: Re: [PATCH net-next] liquidio: update debug console logging mechan=
-ism
+This is explained in this commit changelog.
 
-On Fri, Aug 11, 2017 at 06:43:14PM -0700, Felix Manlunas wrote:
-> From: Rick Farrington <ricardo.farrington@cavium.com>
->
-> - remove logging dependency upon global func=20
-> octeon_console_debug_enabled()
-> - abstract debug console logging using console structure (via function pt=
-r)
->   to allow for more flexible logging
->
-> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
-> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> ---
->  drivers/net/ethernet/cavium/liquidio/lio_main.c    | 44 ++++++++++++++++=
-+-
->  .../net/ethernet/cavium/liquidio/octeon_console.c  | 54 ++++++++++++++--=
-------
->  .../net/ethernet/cavium/liquidio/octeon_device.h   | 17 +++++--
->  3 files changed, 90 insertions(+), 25 deletions(-)
->
-
-I'm probably missing something important, but why do you need your custom c=
-onsole implementation if kernel is full of such built-in options?
-
-Thanks
+https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=93f154b594fe47e4a7e5358b309add449a046cd3
