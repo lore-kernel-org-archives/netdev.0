@@ -1,47 +1,78 @@
-From: Nick Desaulniers <ndesaulniers@google.com>
-Subject: Re: [PATCH v2] netfilter: nf_nat_h323: fix logical-not-parentheses warning
-Date: Mon, 14 Aug 2017 10:36:03 -0700
-Message-ID: <CAKwvOdmw+bnN-nKeKbE8WJJ8Enc4PCeC3KD5KpaSVOT4+ycDKQ@mail.gmail.com>
-References: <20170811174259.GA3743@salvia> <20170811181607.33878-1-ndesaulniers@google.com>
+From: "Raj, Ashok" <ashok.raj@intel.com>
+Subject: Re: [PATCH v10 3/5] PCI: Disable Relaxed Ordering Attributes for AMD
+ A1100
+Date: Mon, 14 Aug 2017 10:19:38 -0700
+Message-ID: <20170814171937.GA52656@otc-nc-03>
+References: <1502725499-11276-1-git-send-email-dingtianhong@huawei.com>
+ <1502725499-11276-4-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Matthias Kaehlcke <mka@chromium.org>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        Nick Desaulniers <ndesaulniers@google.com>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170811181607.33878-1-ndesaulniers@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: leedom@chelsio.com, bhelgaas@google.com, helgaas@kernel.org,
+        werner@chelsio.com, ganeshgr@chelsio.com, asit.k.mallick@intel.com,
+        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
+        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
+        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
+        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
+        davem@davemloft.net, alexander.duyck@gmail.com,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com, ashok.raj@intel.com
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1502725499-11276-4-git-send-email-dingtianhong@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Minor nit for the commit message that can get fixed up when being merged:
+On Mon, Aug 14, 2017 at 11:44:57PM +0800, Ding Tianhong wrote:
+> Casey reported that the AMD ARM A1100 SoC has a bug in its PCIe
+> Root Port where Upstream Transaction Layer Packets with the Relaxed
+> Ordering Attribute clear are allowed to bypass earlier TLPs with
+> Relaxed Ordering set, it would cause Data Corruption, so we need
+> to disable Relaxed Ordering Attribute when Upstream TLPs to the
+> Root Port.
+> 
+> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Acked-by: Ashok Raj <ashok.raj@intel.com>
 
-On Fri, Aug 11, 2017 at 11:16 AM, Nick Desaulniers
-<ndesaulniers@google.com> wrote:
+I can't ack this patch :-).. must be someone from AMD. Please remove my
+signature from this.
 
-> if (x)
->   return
-> ...
->
-> rather than:
->
-> if (!x == 0)
-
-should remove the `!`, ex:
-
-if (x == 0)
-
->   ...
-> else
->   return
-
--- 
-Thanks,
-~Nick Desaulniers
+> ---
+>  drivers/pci/quirks.c | 16 ++++++++++++++++
+>  1 file changed, 16 insertions(+)
+> 
+> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> index 1272f7e..1407604 100644
+> --- a/drivers/pci/quirks.c
+> +++ b/drivers/pci/quirks.c
+> @@ -4089,6 +4089,22 @@ static void quirk_relaxedordering_disable(struct pci_dev *dev)
+>  			      quirk_relaxedordering_disable);
+>  
+>  /*
+> + * The AMD ARM A1100 (AKA "SEATTLE") SoC has a bug in its PCIe Root Complex
+> + * where Upstream Transaction Layer Packets with the Relaxed Ordering
+> + * Attribute clear are allowed to bypass earlier TLPs with Relaxed Ordering
+> + * set.  This is a violation of the PCIe 3.0 Transaction Ordering Rules
+> + * outlined in Section 2.4.1 (PCI Express(r) Base Specification Revision 3.0
+> + * November 10, 2010).  As a result, on this platform we can't use Relaxed
+> + * Ordering for Upstream TLPs.
+> + */
+> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a00, PCI_CLASS_NOT_DEFINED, 8,
+> +			      quirk_relaxedordering_disable);
+> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a01, PCI_CLASS_NOT_DEFINED, 8,
+> +			      quirk_relaxedordering_disable);
+> +DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a02, PCI_CLASS_NOT_DEFINED, 8,
+> +			      quirk_relaxedordering_disable);
+> +
+> +/*
+>   * Per PCIe r3.0, sec 2.2.9, "Completion headers must supply the same
+>   * values for the Attribute as were supplied in the header of the
+>   * corresponding Request, except as explicitly allowed when IDO is used."
+> -- 
+> 1.8.3.1
+> 
+> 
