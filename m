@@ -1,55 +1,58 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
- don't skip empty skbs
-Date: Mon, 14 Aug 2017 12:33:48 -0400
-Message-ID: <CAF=yD-+k79=fykYs5x5-7AvE85+JPXv=NcfDy8X-4AGP8P85Pw@mail.gmail.com>
-References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1846443.VTclhqQinN@ring00>
- <CAF=yD-L9CpW-DRtKfWWWKcNKcPSWvXOkTGZoKBq6=fQMrcKVWQ@mail.gmail.com> <2828157.5Eig1SAfYW@tjmaciei-mobl1>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
+ performance vs Core/RSS number / HT on
+Date: Mon, 14 Aug 2017 18:57:50 +0200
+Message-ID: <1502729870.8411.63.camel@redhat.com>
+References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
+         <20170812142358.08291888@redhat.com>
+         <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
+         <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
+         <20170814181957.5be27906@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Matthew Dawson <matthew@mjdsystems.ca>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Network Development <netdev@vger.kernel.org>
-To: Thiago Macieira <thiago.macieira@intel.com>
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:33664 "EHLO
-        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752219AbdHNQe3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 12:34:29 -0400
-Received: by mail-oi0-f49.google.com with SMTP id f11so88821312oic.0
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 09:34:29 -0700 (PDT)
-In-Reply-To: <2828157.5Eig1SAfYW@tjmaciei-mobl1>
+Received: from mx1.redhat.com ([209.132.183.28]:34870 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751365AbdHNQ54 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Aug 2017 12:57:56 -0400
+In-Reply-To: <20170814181957.5be27906@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 14, 2017 at 12:06 PM, Thiago Macieira
-<thiago.macieira@intel.com> wrote:
-> On Monday, 14 August 2017 08:03:50 PDT Willem de Bruijn wrote:
->> > I'm actually surprised that only unix sockets can have negative values.
->> > Is
->> > there a reason for that?  I had assumed that sk_set_peek_off would allow
->> > negative values as the code already has to support negative values due to
->> > what the initial value is.
->>
->> A negative initial value indicates that PEEK_OFF is disabled. It only
->> makes sense to peek from a positive offset from the start of the data.
->
-> But here's a question: if the peek offset is equal to the length, should the
-> reading return an empty datagram? This would indicate to the caller that there
-> was a datagram there, which was skipped over.
+On Mon, 2017-08-14 at 18:19 +0200, Jesper Dangaard Brouer wrote:
+> The output (extracted below) didn't show who called 'do_raw_spin_lock',
+> BUT it showed another interesting thing.  The kernel code
+> __dev_queue_xmit() in might create route dst-cache problem for itself(?),
+> as it will first call skb_dst_force() and then skb_dst_drop() when the
+> packet is transmitted on a VLAN.
+> 
+>  static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+>  {
+>  [...]
+> 	/* If device/qdisc don't need skb->dst, release it right now while
+> 	 * its hot in this cpu cache.
+> 	 */
+> 	if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+> 		skb_dst_drop(skb);
+> 	else
+> 		skb_dst_force(skb);
 
-In the general case, no, it should read at the offset, which is the next skb.
+I think that the high impact of the above code in this specific test is
+mostly due to the following:
 
-Zero length packets are a special case. This did come up before and
-we chose to signal their existence in the queue by returning 0 for each
-once, even in the offset-enabled mode.
+- ingress packets with different RSS rx hash lands on different CPUs
+- but they use the same dst entry, since the destination IPs belong to
+the same subnet
+- the dst refcnt cacheline is contented between all the CPUs
 
-Since we only need to change no-offset semantics to fix this bug,
-I would not change this behavior, which is also expected by some
-applications by now.
+Perhaps we can inprove the situation setting the IFF_XMIT_DST_RELEASE
+flag for vlan if the underlaying device does not have (relevant)
+classifier attached? (and clearing it as needed)
 
->
-> That's how we deal with empty datagrams anyway.
-
-What is? With no-offset and a zero payload skb at the head, peek
-or recv returns 0, right?
+Paolo
