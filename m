@@ -1,50 +1,66 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net 1/1] tipc: accept PACKET_MULTICAST packets
-Date: Mon, 14 Aug 2017 17:55:56 +0200
-Message-ID: <1502726156-5536-1-git-send-email-jon.maloy@ericsson.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next V2 3/3] tap: XDP support
+Date: Mon, 14 Aug 2017 19:01:06 +0300
+Message-ID: <20170814185951-mutt-send-email-mst@kernel.org>
+References: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
+ <1502451678-17358-4-git-send-email-jasowang@redhat.com>
+ <20170811161223.6808008d@cakuba.netronome.com>
+ <8876b3d1-699c-d033-e855-34b24a709c81@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
-        <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:61542 "EHLO
-        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753000AbdHNP4V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 11:56:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Jakub Kicinski <kubakici@wp.pl>, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <8876b3d1-699c-d033-e855-34b24a709c81@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On L2 bearers, the TIPC broadcast function is sending out packets using
-the corresponding L2 broadcast address. At reception, we filter such
-packets under the assumption that they will also be delivered as
-broadcast packets.
+On Sat, Aug 12, 2017 at 10:48:49AM +0800, Jason Wang wrote:
+> 
+> 
+> On 2017年08月12日 07:12, Jakub Kicinski wrote:
+> > On Fri, 11 Aug 2017 19:41:18 +0800, Jason Wang wrote:
+> > > This patch tries to implement XDP for tun. The implementation was
+> > > split into two parts:
+> > > 
+> > > - fast path: small and no gso packet. We try to do XDP at page level
+> > >    before build_skb(). For XDP_TX, since creating/destroying queues
+> > >    were completely under control of userspace, it was implemented
+> > >    through generic XDP helper after skb has been built. This could be
+> > >    optimized in the future.
+> > > - slow path: big or gso packet. We try to do it after skb was created
+> > >    through generic XDP helpers.
+> > > 
+> > > Test were done through pktgen with small packets.
+> > > 
+> > > xdp1 test shows ~41.1% improvement:
+> > > 
+> > > Before: ~1.7Mpps
+> > > After:  ~2.3Mpps
+> > > 
+> > > xdp_redirect to ixgbe shows ~60% improvement:
+> > > 
+> > > Before: ~0.8Mpps
+> > > After:  ~1.38Mpps
+> > > 
+> > > Suggested-by: Michael S. Tsirkin <mst@redhat.com>
+> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > Looks OK to me now :)
+> > 
+> > Out of curiosity, you say the build_skb() is for "small packets", and it
+> > seems you are always reserving the 256B regardless of XDP being
+> > installed.  Does this have no performance impact on non-XDP case?
+> 
+> Have a test, only less than 1% were noticed which I think could be ignored.
+> 
+> Thanks
 
-This assumption doesn't always hold true. Under high load, we have seen
-that a switch may convert the destination address and deliver the packet
-as a PACKET_MULTICAST, something leading to inadvertently dropped
-packets and a stale and reset broadcast link.
+What did you test btw? The biggest issue would be with something like
+UDP with short packets.
 
-We fix this by extending the reception filtering to accept packets of
-type PACKET_MULTICAST.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/bearer.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index d174ee3..767e053 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -596,7 +596,7 @@ static int tipc_l2_rcv_msg(struct sk_buff *skb, struct net_device *dev,
- 	rcu_read_lock();
- 	b = rcu_dereference_rtnl(dev->tipc_ptr);
- 	if (likely(b && test_bit(0, &b->up) &&
--		   (skb->pkt_type <= PACKET_BROADCAST))) {
-+		   (skb->pkt_type <= PACKET_MULTICAST))) {
- 		skb->next = NULL;
- 		tipc_rcv(dev_net(dev), skb, b);
- 		rcu_read_unlock();
 -- 
-2.1.4
+MST
