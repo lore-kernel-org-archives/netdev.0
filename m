@@ -1,46 +1,53 @@
-From: Jens Altmann <jaltmann@aimdigitalpros.com>
-Subject: Cycling Enthusiasts List
-Date: Mon, 14 Aug 2017 14:49:46 -0400
-Message-ID: <cbbbae54-6f24-ad9c-7979-216042902ad1@aimdigitalpros.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] udp: fix linear skb reception with PEEK_OFF
+Date: Mon, 14 Aug 2017 14:06:28 -0700
+Message-ID: <1502744788.4936.30.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <18c1b112032a685518548760890547fdbf292b85.1502739025.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Sasha Levin <alexander.levin@verizon.com>,
+        Al Viro <viro@ZenIV.linux.org.uk>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36807 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752629AbdHNUsv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 16:48:51 -0400
-Received: by mail-pg0-f68.google.com with SMTP id y129so12354331pgy.3
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 13:48:50 -0700 (PDT)
-Received: from [192.168.0.33] ([103.6.157.159])
-        by smtp.gmail.com with ESMTPSA id j9sm16896212pfk.30.2017.08.14.13.48.47
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 14 Aug 2017 13:48:48 -0700 (PDT)
-Content-Language: en-US
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:32903 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752286AbdHNVGb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 17:06:31 -0400
+Received: by mail-pg0-f66.google.com with SMTP id u185so12408429pgb.0
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 14:06:31 -0700 (PDT)
+In-Reply-To: <18c1b112032a685518548760890547fdbf292b85.1502739025.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2017-08-14 at 21:31 +0200, Paolo Abeni wrote:
+> From: Al Viro <viro@ZenIV.linux.org.uk>
+> 
+> copy_linear_skb() is broken; both of its callers actually
+> expect 'len' to be the amount we are trying to copy,
+> not the offset of the end.
+> Fix it keeping the meanings of arguments in sync with what the
+> callers (both of them) expect.
+> Also restore a saner behavior on EFAULT (i.e. preserving
+> the iov_iter position in case of failure):
+> 
+> The commit fd851ba9caa9 ("udp: harden copy_linear_skb()")
+> avoids the more destructive effect of the buggy
+> copy_linear_skb(), e.g. no more invalid memory access, but
+> said function still behaves incorrectly: when peeking with
+> offset it can fail with EINVAL instead of copying the
+> appropriate amount of memory.
+> 
+> Reported-by: Sasha Levin <alexander.levin@verizon.com>
+> Fixes: b65ac44674dd ("udp: try to avoid 2 cache miss on dequeue")
+> Fixes: fd851ba9caa9 ("udp: harden copy_linear_skb()")
+> Signed-off-by: Al Viro <viro@ZenIV.linux.org.uk>
+> Acked-by: Paolo Abeni <pabeni@redhat.com>
+> Tested-by: Sasha Levin <alexander.levin@verizon.com>
+> ---
 
-Hi,
+Oh well.
 
-Greetings of the day!
-
-Would you be interested in acquiring an email list of "Cycling Enthusiasts" from USA?
-
-We also have data for Hikign Enthusiasts, Running Enthusiasts, Camping and Outdoor Enthusiasts, Skiers List, Health and Fitness Enthusiasts, Tennis Enthusiasts, Boxing Enthusiasts, Travelers List, Frequent Travelers List, Basketball Enthusiasts, Golfers, Soccer Enthusiasts, Baseball Enthusiasts and many more.
-
-Each record in the list contains Contact Name (First, Middle and Last Name), Mailing Address, List type and Opt-in email address.
-
-All the contacts are opt-in verified, complete permission based and can be used for unlimited multi-channel marketing.
-
-Please let me know your thoughts towards procuring the Cycling Enthusiasts List.
-
-Best Regards,
-Jens Altmann
-Marketing Manager
-
-
-
-We respect your privacy, if you do not wish to receive any further emails from our end, please reply with a subject “Leave Out”.
+Acked-by: Eric Dumazet <edumazet@google.com>
