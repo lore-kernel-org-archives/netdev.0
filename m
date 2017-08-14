@@ -1,37 +1,87 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] net/sched: reset block pointer in tcf_block_put()
-Date: Mon, 14 Aug 2017 14:15:58 -0700
-Message-ID: <CAM_iQpX2=Fg8JN1c8qnLPae34hsYEG7xUKZ-RoppBnVoBDb+6g@mail.gmail.com>
-References: <150235751251.493255.14955523507789154918.stgit@buzz>
- <CAM_iQpX=XLheuuBk_kAa+jHO-e16hnzavHhzHJ4EYWwpjGFzMg@mail.gmail.com>
- <ad81a570-dff5-7c74-170e-70e764778cba@yandex-team.ru> <CAM_iQpUJRAn75aBrBzoWABt21tgTYLo1MPNQwTUa9BSs0QXyaQ@mail.gmail.com>
- <7267faab-c089-e60b-0696-3734f801c1ba@yandex-team.ru>
+From: Shannon Nelson <shannon.lee.nelson@gmail.com>
+Subject: Re: [net-next 15/15] i40e: synchronize nvmupdate command and adminq subtask
+Date: Mon, 14 Aug 2017 14:40:48 -0700
+Message-ID: <CAP-MU4OY+gBr32S0RzDgOFJpmUVqv1D3GAXcLSReDE7TQPzCxg@mail.gmail.com>
+References: <20170812110848.18264-1-jeffrey.t.kirsher@intel.com> <20170812110848.18264-17-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Cc: David Miller <davem@davemloft.net>,
+        Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com,
+        Stefan Assmann <sassmann@redhat.com>, jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:34092 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752250AbdHNVQT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 17:16:19 -0400
-Received: by mail-pg0-f47.google.com with SMTP id u185so54567952pgb.1
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 14:16:19 -0700 (PDT)
-In-Reply-To: <7267faab-c089-e60b-0696-3734f801c1ba@yandex-team.ru>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36987 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752290AbdHNVkt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 17:40:49 -0400
+Received: by mail-pg0-f66.google.com with SMTP id 83so12523489pgb.4
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 14:40:49 -0700 (PDT)
+In-Reply-To: <20170812110848.18264-17-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 14, 2017 at 5:59 AM, Konstantin Khlebnikov
-<khlebnikov@yandex-team.ru> wrote:
+On Sat, Aug 12, 2017 at 4:08 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
 >
-> This should work, I suppose.
+> During NVM update, state machine gets into unrecoverable state because
+> i40e_clean_adminq_subtask can get scheduled after the admin queue
+> command but before other state variables are updated. This causes
+> incorrect input to i40e_nvmupd_check_wait_event and state transitions
+> don't happen.
 >
-> But this approach requires careful review for all qdisc, mine is completely
-> mechanical.
+> This issue existed before but surfaced after commit 373149fc99a0
+> ("i40e: Decrease the scope of rtnl lock")
+>
+> This fix adds locking around admin queue command and update of
+> state variables so that adminq_subtask will have accurate information
+> whenever it gets scheduled.
+>
+> Signed-off-by: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_nvm.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+> index 6fdecd70dcbc..2cf7db2dc7cd 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+> @@ -753,6 +753,11 @@ i40e_status i40e_nvmupd_command(struct i40e_hw *hw,
+>                 hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+>         }
+>
+> +       /* Acquire lock to prevent race condition where adminq_task
+> +        * can execute after i40e_nvmupd_nvm_read/write but before state
+> +        * variables (nvm_wait_opcode, nvm_release_on_done) are updated
+> +        */
+> +       mutex_lock(&hw->aq.arq_mutex);
+>         switch (hw->nvmupd_state) {
+>         case I40E_NVMUPD_STATE_INIT:
+>                 status = i40e_nvmupd_state_init(hw, cmd, bytes, perrno);
+> @@ -788,6 +793,7 @@ i40e_status i40e_nvmupd_command(struct i40e_hw *hw,
+>                 *perrno = -ESRCH;
+>                 break;
+>         }
 
-Well, we don't have many classful qdisc's. Your patch actually
-touches more qdisc's than mine, because you change an API, so
-it is slightly harder to backport. ;)
+Perhaps I missed a patch somewhere, but I think there is still a
+return statement in the middle of this switch() (INIT_WAIT and
+WRITE_WAIT) that means you can leave the mutex locked.  I thought I
+had seen a newer version of this patch that had this fixed
+
+sln
+
+> +       mutex_unlock(&hw->aq.arq_mutex);
+>         return status;
+>  }
+>
+> --
+> 2.14.0
+>
+
+
+
+-- 
+==============================================
+Mr. Shannon Nelson         Parents can't afford to be squeamish.
