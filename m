@@ -1,9 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 10/11] net: dsa: restore VLAN dump
-Date: Tue, 15 Aug 2017 00:51:47 +0200
-Message-ID: <20170814225147.GG16885@lunn.ch>
+Subject: Re: [PATCH net-next 11/11] net: dsa: debugfs: add port vlan
+Date: Tue, 15 Aug 2017 00:52:13 +0200
+Message-ID: <20170814225213.GH16885@lunn.ch>
 References: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
- <20170814222242.10643-11-vivien.didelot@savoirfairelinux.com>
+ <20170814222242.10643-12-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -26,15 +26,22 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170814222242.10643-11-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170814222242.10643-12-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 14, 2017 at 06:22:41PM -0400, Vivien Didelot wrote:
-> This commit defines a dsa_vlan_dump_cb_t callback, similar to the FDB
-> dump callback and partly reverts commit a0b6b8c9fa3c ("net: dsa: Remove
-> support for vlan dump from DSA's drivers") to restore the DSA drivers
-> VLAN dump operations.
+On Mon, Aug 14, 2017 at 06:22:42PM -0400, Vivien Didelot wrote:
+> Add a debug filesystem "vlan" entry to query a port's hardware VLAN
+> entries through the .port_vlan_dump switch operation.
+> 
+> This is really convenient to query directly the hardware or inspect DSA
+> or CPU links, since these ports are not exposed to userspace.
+> 
+> Here are the VLAN entries for a CPU port:
+> 
+>     # cat port5/vlan
+>     vid 1
+>     vid 42  pvid
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
