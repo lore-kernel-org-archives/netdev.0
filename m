@@ -1,290 +1,57 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/2] mlxsw: spectrum_router: Add support for nexthop group consolidation for IPv6
-Date: Mon, 14 Aug 2017 21:09:20 +0200
-Message-ID: <20170814190920.9576-3-jiri@resnulli.us>
-References: <20170814190920.9576-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Thiago Macieira <thiago.macieira@intel.com>
+Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0 don't skip empty skbs
+Date: Mon, 14 Aug 2017 12:15:27 -0700
+Message-ID: <4013878.dizogNlyrN@tjmaciei-mobl1>
+References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1756525.aGoekHffaC@tjmaciei-mobl1> <CAF=yD-K4HgOhMMT0tWycZgcqhU5OACQk_roPQEeRems1_Azhgw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Network Development <netdev@vger.kernel.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:36493 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751576AbdHNTJ0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 15:09:26 -0400
-Received: by mail-wr0-f194.google.com with SMTP id y67so7542120wrb.3
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 12:09:26 -0700 (PDT)
-In-Reply-To: <20170814190920.9576-1-jiri@resnulli.us>
+Received: from mga09.intel.com ([134.134.136.24]:41107 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750771AbdHNTPg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Aug 2017 15:15:36 -0400
+In-Reply-To: <CAF=yD-K4HgOhMMT0tWycZgcqhU5OACQk_roPQEeRems1_Azhgw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
+On Monday, 14 August 2017 12:03:16 PDT Willem de Bruijn wrote:
+> On Mon, Aug 14, 2017 at 2:58 PM, Thiago Macieira
+> 
+> <thiago.macieira@intel.com> wrote:
+> > On Monday, 14 August 2017 11:46:42 PDT Willem de Bruijn wrote:
+> >> > By the way, what were the usecases for the peek offset feature?
+> >> 
+> >> The idea was to be able to peek at application headers of upper
+> >> layer protocols and multiplex messages among threads. It proved
+> >> so complex even for UDP that we did not attempt the same feature
+> >> for TCP. Also, KCM implements demultiplexing using eBPF today.
+> > 
+> > Interesting, but how would userspace coordinate like that? Suppose
+> > multiple
+> > threads are woken up by a datagram being received
+> 
+> This assumes a separate listener thread and worker threadpool.
 
-Due to limited ASIC resources the maximum number of routes is limited by
-the nexthop resource. In order to improve the routing scale nexthop
-consolidation should be performed.
+The listener thread still needs to synchronise with the worker that got 
+activated and wait for it to recv from the socket before the listener thread 
+can go back to poll().
 
-This patch adds support for IPv6 neighbor consolidation. The hash value
-is calculated based on the nexthop set, by performing bitwise xor on the
-ifindexs of the nexthops, in a similar way to IPv4's kernel implementation.
-In case of collision a full match is performed between the sets which
-include address and ifindex comparison.
+If we are really talking about threads in the same process, it might be easier 
+for the listener to just read the datagram anyway and pass it on to the 
+worker. That way, it can proceed immediately to the next datagram and not have 
+to wait for the possibly slow worker.
 
-Non gateway nexthop groups are not inserted to the hash table due to
-lack of nexthop device (ifindex).
+If it is a separate process, then I don't see another way and this might be 
+necessary.
 
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 150 +++++++++++++++++++--
- 1 file changed, 141 insertions(+), 9 deletions(-)
+By the way, what does recv with MSG_PEEK | MSG_TRUNC return? Is it the full 
+datagram's size or is it the size minus the peek offset?
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 5100429..16676ff 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1509,6 +1509,7 @@ struct mlxsw_sp_nexthop {
- 	struct rhash_head ht_node;
- 	struct mlxsw_sp_nexthop_key key;
- 	unsigned char gw_addr[sizeof(struct in6_addr)];
-+	int ifindex;
- 	struct mlxsw_sp_rif *rif;
- 	u8 should_offload:1, /* set indicates this neigh is connected and
- 			      * should be put to KVD linear area of this group.
-@@ -1543,24 +1544,115 @@ mlxsw_sp_nexthop4_group_fi(const struct mlxsw_sp_nexthop_group *nh_grp)
- }
- 
- struct mlxsw_sp_nexthop_group_cmp_arg {
--	struct fib_info *fi;
-+	enum mlxsw_sp_l3proto proto;
-+	union {
-+		struct fib_info *fi;
-+		struct mlxsw_sp_fib6_entry *fib6_entry;
-+	};
- };
- 
-+static bool
-+mlxsw_sp_nexthop6_group_has_nexthop(const struct mlxsw_sp_nexthop_group *nh_grp,
-+				    const struct in6_addr *gw, int ifindex)
-+{
-+	int i;
-+
-+	for (i = 0; i < nh_grp->count; i++) {
-+		const struct mlxsw_sp_nexthop *nh;
-+
-+		nh = &nh_grp->nexthops[i];
-+		if (nh->ifindex == ifindex &&
-+		    ipv6_addr_equal(gw, (struct in6_addr *) nh->gw_addr))
-+			return true;
-+	}
-+
-+	return false;
-+}
-+
-+static bool
-+mlxsw_sp_nexthop6_group_cmp(const struct mlxsw_sp_nexthop_group *nh_grp,
-+			    const struct mlxsw_sp_fib6_entry *fib6_entry)
-+{
-+	struct mlxsw_sp_rt6 *mlxsw_sp_rt6;
-+
-+	if (nh_grp->count != fib6_entry->nrt6)
-+		return false;
-+
-+	list_for_each_entry(mlxsw_sp_rt6, &fib6_entry->rt6_list, list) {
-+		struct in6_addr *gw;
-+		int ifindex;
-+
-+		ifindex = mlxsw_sp_rt6->rt->dst.dev->ifindex;
-+		gw = &mlxsw_sp_rt6->rt->rt6i_gateway;
-+		if (!mlxsw_sp_nexthop6_group_has_nexthop(nh_grp, gw, ifindex))
-+			return false;
-+	}
-+
-+	return true;
-+}
-+
- static int
- mlxsw_sp_nexthop_group_cmp(struct rhashtable_compare_arg *arg, const void *ptr)
- {
- 	const struct mlxsw_sp_nexthop_group_cmp_arg *cmp_arg = arg->key;
- 	const struct mlxsw_sp_nexthop_group *nh_grp = ptr;
- 
--	return cmp_arg->fi != mlxsw_sp_nexthop4_group_fi(nh_grp);
-+	switch (cmp_arg->proto) {
-+	case MLXSW_SP_L3_PROTO_IPV4:
-+		return cmp_arg->fi != mlxsw_sp_nexthop4_group_fi(nh_grp);
-+	case MLXSW_SP_L3_PROTO_IPV6:
-+		return !mlxsw_sp_nexthop6_group_cmp(nh_grp,
-+						    cmp_arg->fib6_entry);
-+	default:
-+		WARN_ON(1);
-+		return 1;
-+	}
-+}
-+
-+static int
-+mlxsw_sp_nexthop_group_type(const struct mlxsw_sp_nexthop_group *nh_grp)
-+{
-+	return nh_grp->neigh_tbl->family;
- }
- 
- static u32 mlxsw_sp_nexthop_group_hash_obj(const void *data, u32 len, u32 seed)
- {
- 	const struct mlxsw_sp_nexthop_group *nh_grp = data;
--	struct fib_info *fi = mlxsw_sp_nexthop4_group_fi(nh_grp);
-+	const struct mlxsw_sp_nexthop *nh;
-+	struct fib_info *fi;
-+	unsigned int val;
-+	int i;
-+
-+	switch (mlxsw_sp_nexthop_group_type(nh_grp)) {
-+	case AF_INET:
-+		fi = mlxsw_sp_nexthop4_group_fi(nh_grp);
-+		return jhash(&fi, sizeof(fi), seed);
-+	case AF_INET6:
-+		val = nh_grp->count;
-+		for (i = 0; i < nh_grp->count; i++) {
-+			nh = &nh_grp->nexthops[i];
-+			val ^= nh->ifindex;
-+		}
-+		return jhash(&val, sizeof(val), seed);
-+	default:
-+		WARN_ON(1);
-+		return 0;
-+	}
-+}
-+
-+static u32
-+mlxsw_sp_nexthop6_group_hash(struct mlxsw_sp_fib6_entry *fib6_entry, u32 seed)
-+{
-+	unsigned int val = fib6_entry->nrt6;
-+	struct mlxsw_sp_rt6 *mlxsw_sp_rt6;
-+	struct net_device *dev;
-+
-+	list_for_each_entry(mlxsw_sp_rt6, &fib6_entry->rt6_list, list) {
-+		dev = mlxsw_sp_rt6->rt->dst.dev;
-+		val ^= dev->ifindex;
-+	}
- 
--	return jhash(&fi, sizeof(fi), seed);
-+	return jhash(&val, sizeof(val), seed);
- }
- 
- static u32
-@@ -1568,7 +1660,15 @@ mlxsw_sp_nexthop_group_hash(const void *data, u32 len, u32 seed)
- {
- 	const struct mlxsw_sp_nexthop_group_cmp_arg *cmp_arg = data;
- 
--	return jhash(&cmp_arg->fi, sizeof(cmp_arg->fi), seed);
-+	switch (cmp_arg->proto) {
-+	case MLXSW_SP_L3_PROTO_IPV4:
-+		return jhash(&cmp_arg->fi, sizeof(cmp_arg->fi), seed);
-+	case MLXSW_SP_L3_PROTO_IPV6:
-+		return mlxsw_sp_nexthop6_group_hash(cmp_arg->fib6_entry, seed);
-+	default:
-+		WARN_ON(1);
-+		return 0;
-+	}
- }
- 
- static const struct rhashtable_params mlxsw_sp_nexthop_group_ht_params = {
-@@ -1581,6 +1681,10 @@ static const struct rhashtable_params mlxsw_sp_nexthop_group_ht_params = {
- static int mlxsw_sp_nexthop_group_insert(struct mlxsw_sp *mlxsw_sp,
- 					 struct mlxsw_sp_nexthop_group *nh_grp)
- {
-+	if (mlxsw_sp_nexthop_group_type(nh_grp) == AF_INET6 &&
-+	    !nh_grp->gateway)
-+		return 0;
-+
- 	return rhashtable_insert_fast(&mlxsw_sp->router->nexthop_group_ht,
- 				      &nh_grp->ht_node,
- 				      mlxsw_sp_nexthop_group_ht_params);
-@@ -1589,6 +1693,10 @@ static int mlxsw_sp_nexthop_group_insert(struct mlxsw_sp *mlxsw_sp,
- static void mlxsw_sp_nexthop_group_remove(struct mlxsw_sp *mlxsw_sp,
- 					  struct mlxsw_sp_nexthop_group *nh_grp)
- {
-+	if (mlxsw_sp_nexthop_group_type(nh_grp) == AF_INET6 &&
-+	    !nh_grp->gateway)
-+		return;
-+
- 	rhashtable_remove_fast(&mlxsw_sp->router->nexthop_group_ht,
- 			       &nh_grp->ht_node,
- 			       mlxsw_sp_nexthop_group_ht_params);
-@@ -1600,12 +1708,26 @@ mlxsw_sp_nexthop4_group_lookup(struct mlxsw_sp *mlxsw_sp,
- {
- 	struct mlxsw_sp_nexthop_group_cmp_arg cmp_arg;
- 
-+	cmp_arg.proto = MLXSW_SP_L3_PROTO_IPV4;
- 	cmp_arg.fi = fi;
- 	return rhashtable_lookup_fast(&mlxsw_sp->router->nexthop_group_ht,
- 				      &cmp_arg,
- 				      mlxsw_sp_nexthop_group_ht_params);
- }
- 
-+static struct mlxsw_sp_nexthop_group *
-+mlxsw_sp_nexthop6_group_lookup(struct mlxsw_sp *mlxsw_sp,
-+			       struct mlxsw_sp_fib6_entry *fib6_entry)
-+{
-+	struct mlxsw_sp_nexthop_group_cmp_arg cmp_arg;
-+
-+	cmp_arg.proto = MLXSW_SP_L3_PROTO_IPV6;
-+	cmp_arg.fib6_entry = fib6_entry;
-+	return rhashtable_lookup_fast(&mlxsw_sp->router->nexthop_group_ht,
-+				      &cmp_arg,
-+				      mlxsw_sp_nexthop_group_ht_params);
-+}
-+
- static const struct rhashtable_params mlxsw_sp_nexthop_ht_params = {
- 	.key_offset = offsetof(struct mlxsw_sp_nexthop, key),
- 	.head_offset = offsetof(struct mlxsw_sp_nexthop, ht_node),
-@@ -3197,6 +3319,7 @@ static int mlxsw_sp_nexthop6_init(struct mlxsw_sp *mlxsw_sp,
- 
- 	if (!dev)
- 		return 0;
-+	nh->ifindex = dev->ifindex;
- 
- 	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
- 	if (!rif)
-@@ -3254,9 +3377,15 @@ mlxsw_sp_nexthop6_group_create(struct mlxsw_sp *mlxsw_sp,
- 			goto err_nexthop6_init;
- 		mlxsw_sp_rt6 = list_next_entry(mlxsw_sp_rt6, list);
- 	}
-+
-+	err = mlxsw_sp_nexthop_group_insert(mlxsw_sp, nh_grp);
-+	if (err)
-+		goto err_nexthop_group_insert;
-+
- 	mlxsw_sp_nexthop_group_refresh(mlxsw_sp, nh_grp);
- 	return nh_grp;
- 
-+err_nexthop_group_insert:
- err_nexthop6_init:
- 	for (i--; i >= 0; i--) {
- 		nh = &nh_grp->nexthops[i];
-@@ -3273,6 +3402,7 @@ mlxsw_sp_nexthop6_group_destroy(struct mlxsw_sp *mlxsw_sp,
- 	struct mlxsw_sp_nexthop *nh;
- 	int i = nh_grp->count;
- 
-+	mlxsw_sp_nexthop_group_remove(mlxsw_sp, nh_grp);
- 	for (i--; i >= 0; i--) {
- 		nh = &nh_grp->nexthops[i];
- 		mlxsw_sp_nexthop6_fini(mlxsw_sp, nh);
-@@ -3287,10 +3417,12 @@ static int mlxsw_sp_nexthop6_group_get(struct mlxsw_sp *mlxsw_sp,
- {
- 	struct mlxsw_sp_nexthop_group *nh_grp;
- 
--	/* For now, don't consolidate nexthop groups */
--	nh_grp = mlxsw_sp_nexthop6_group_create(mlxsw_sp, fib6_entry);
--	if (IS_ERR(nh_grp))
--		return PTR_ERR(nh_grp);
-+	nh_grp = mlxsw_sp_nexthop6_group_lookup(mlxsw_sp, fib6_entry);
-+	if (!nh_grp) {
-+		nh_grp = mlxsw_sp_nexthop6_group_create(mlxsw_sp, fib6_entry);
-+		if (IS_ERR(nh_grp))
-+			return PTR_ERR(nh_grp);
-+	}
- 
- 	list_add_tail(&fib6_entry->common.nexthop_group_node,
- 		      &nh_grp->fib_list);
 -- 
-2.9.3
+Thiago Macieira - thiago.macieira (AT) intel.com
+  Software Architect - Intel Open Source Technology Center
