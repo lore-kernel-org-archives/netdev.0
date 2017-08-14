@@ -1,186 +1,38 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH V2 net-next 3/8] liquidio: moved octeon_setup_droq to
- lio_core.c
-Date: Mon, 14 Aug 2017 12:01:41 -0700
-Message-ID: <20170814190141.GA1264@felix-thinkpad.cavium.com>
-References: <20170814190034.GA1219@felix-thinkpad.cavium.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
+ don't skip empty skbs
+Date: Mon, 14 Aug 2017 15:03:16 -0400
+Message-ID: <CAF=yD-K4HgOhMMT0tWycZgcqhU5OACQk_roPQEeRems1_Azhgw@mail.gmail.com>
+References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1604496.falisOBPe2@tjmaciei-mobl1>
+ <CAF=yD-L_-XrrPTfqYKGShqYdadER_Qo9_0CoAYE0r=NrircDXA@mail.gmail.com> <1756525.aGoekHffaC@tjmaciei-mobl1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        intiyaz.basha@cavium.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Network Development <netdev@vger.kernel.org>
+To: Thiago Macieira <thiago.macieira@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0084.outbound.protection.outlook.com ([104.47.34.84]:58396
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750896AbdHNTBr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Aug 2017 15:01:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20170814190034.GA1219@felix-thinkpad.cavium.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:36052 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751752AbdHNTD5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 15:03:57 -0400
+Received: by mail-oi0-f48.google.com with SMTP id g131so92603491oic.3
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 12:03:57 -0700 (PDT)
+In-Reply-To: <1756525.aGoekHffaC@tjmaciei-mobl1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Intiyaz Basha <intiyaz.basha@cavium.com>
+On Mon, Aug 14, 2017 at 2:58 PM, Thiago Macieira
+<thiago.macieira@intel.com> wrote:
+> On Monday, 14 August 2017 11:46:42 PDT Willem de Bruijn wrote:
+>> > By the way, what were the usecases for the peek offset feature?
+>>
+>> The idea was to be able to peek at application headers of upper
+>> layer protocols and multiplex messages among threads. It proved
+>> so complex even for UDP that we did not attempt the same feature
+>> for TCP. Also, KCM implements demultiplexing using eBPF today.
+>
+> Interesting, but how would userspace coordinate like that? Suppose multiple
+> threads are woken up by a datagram being received
 
-Moving common octeon_setup_droq to lio_core.c
-
-Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_core.c    | 35 ++++++++++++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 37 ----------------------
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 35 --------------------
- .../net/ethernet/cavium/liquidio/octeon_network.h  |  2 ++
- 4 files changed, 37 insertions(+), 72 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-index b55ab75..90583ce 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-@@ -397,3 +397,38 @@ void lio_update_txq_status(struct octeon_device *oct, int iq_num)
- 		netif_wake_queue(netdev);
- 	}
- }
-+
-+/**
-+ * \brief Setup output queue
-+ * @param oct octeon device
-+ * @param q_no which queue
-+ * @param num_descs how many descriptors
-+ * @param desc_size size of each descriptor
-+ * @param app_ctx application context
-+ */
-+int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
-+		      int desc_size, void *app_ctx)
-+{
-+	int ret_val;
-+
-+	dev_dbg(&oct->pci_dev->dev, "Creating Droq: %d\n", q_no);
-+	/* droq creation and local register settings. */
-+	ret_val = octeon_create_droq(oct, q_no, num_descs, desc_size, app_ctx);
-+	if (ret_val < 0)
-+		return ret_val;
-+
-+	if (ret_val == 1) {
-+		dev_dbg(&oct->pci_dev->dev, "Using default droq %d\n", q_no);
-+		return 0;
-+	}
-+
-+	/* Enable the droq queues */
-+	octeon_set_droq_pkt_op(oct, q_no, 1);
-+
-+	/* Send Credit for Octeon Output queues. Credits are always
-+	 * sent after the output queue is enabled.
-+	 */
-+	writel(oct->droq[q_no]->max_count, oct->droq[q_no]->pkts_credit_reg);
-+
-+	return ret_val;
-+}
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index ba1b493..a814d58 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2196,43 +2196,6 @@ static int load_firmware(struct octeon_device *oct)
- }
- 
- /**
-- * \brief Setup output queue
-- * @param oct octeon device
-- * @param q_no which queue
-- * @param num_descs how many descriptors
-- * @param desc_size size of each descriptor
-- * @param app_ctx application context
-- */
--static int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
--			     int desc_size, void *app_ctx)
--{
--	int ret_val = 0;
--
--	dev_dbg(&oct->pci_dev->dev, "Creating Droq: %d\n", q_no);
--	/* droq creation and local register settings. */
--	ret_val = octeon_create_droq(oct, q_no, num_descs, desc_size, app_ctx);
--	if (ret_val < 0)
--		return ret_val;
--
--	if (ret_val == 1) {
--		dev_dbg(&oct->pci_dev->dev, "Using default droq %d\n", q_no);
--		return 0;
--	}
--	/* tasklet creation for the droq */
--
--	/* Enable the droq queues */
--	octeon_set_droq_pkt_op(oct, q_no, 1);
--
--	/* Send Credit for Octeon Output queues. Credits are always
--	 * sent after the output queue is enabled.
--	 */
--	writel(oct->droq[q_no]->max_count,
--	       oct->droq[q_no]->pkts_credit_reg);
--
--	return ret_val;
--}
--
--/**
-  * \brief Callback for getting interface configuration
-  * @param status status of request
-  * @param buf pointer to resp structure
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index dd0265a..a6efd75 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1345,41 +1345,6 @@ static void free_netsgbuf_with_resp(void *buf)
- }
- 
- /**
-- * \brief Setup output queue
-- * @param oct octeon device
-- * @param q_no which queue
-- * @param num_descs how many descriptors
-- * @param desc_size size of each descriptor
-- * @param app_ctx application context
-- */
--static int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
--			     int desc_size, void *app_ctx)
--{
--	int ret_val;
--
--	dev_dbg(&oct->pci_dev->dev, "Creating Droq: %d\n", q_no);
--	/* droq creation and local register settings. */
--	ret_val = octeon_create_droq(oct, q_no, num_descs, desc_size, app_ctx);
--	if (ret_val < 0)
--		return ret_val;
--
--	if (ret_val == 1) {
--		dev_dbg(&oct->pci_dev->dev, "Using default droq %d\n", q_no);
--		return 0;
--	}
--
--	/* Enable the droq queues */
--	octeon_set_droq_pkt_op(oct, q_no, 1);
--
--	/* Send Credit for Octeon Output queues. Credits are always
--	 * sent after the output queue is enabled.
--	 */
--	writel(oct->droq[q_no]->max_count, oct->droq[q_no]->pkts_credit_reg);
--
--	return ret_val;
--}
--
--/**
-  * \brief Callback for getting interface configuration
-  * @param status status of request
-  * @param buf pointer to resp structure
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-index 0e44ee1..b2bb34d 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-@@ -475,4 +475,6 @@ static inline int wait_for_pending_requests(struct octeon_device *oct)
- }
- 
- void lio_update_txq_status(struct octeon_device *oct, int iq_num);
-+int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
-+		      int desc_size, void *app_ctx);
- #endif
--- 
-2.9.0
+This assumes a separate listener thread and worker threadpool.
