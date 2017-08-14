@@ -1,47 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net 1/1] tipc: avoid inheriting msg_non_seq flag when message
- is returned
-Date: Mon, 14 Aug 2017 11:20:53 -0700 (PDT)
-Message-ID: <20170814.112053.618707344690020434.davem@davemloft.net>
-References: <1502728129-10537-1-git-send-email-jon.maloy@ericsson.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
+ don't skip empty skbs
+Date: Mon, 14 Aug 2017 14:25:23 -0400
+Message-ID: <CAF=yD-JwAidB+Hc+sH9woBMR=3JUnbneB3fCRiJ3wmt3gzTcMg@mail.gmail.com>
+References: <20170814055259.31078-1-matthew@mjdsystems.ca> <2828157.5Eig1SAfYW@tjmaciei-mobl1>
+ <CAF=yD-+k79=fykYs5x5-7AvE85+JPXv=NcfDy8X-4AGP8P85Pw@mail.gmail.com> <13347366.nbnduK6AMs@tjmaciei-mobl1>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, parthasarathy.bhuvaragan@ericsson.com,
-        ying.xue@windriver.com, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Network Development <netdev@vger.kernel.org>
+To: Thiago Macieira <thiago.macieira@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38886 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751365AbdHNSUy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 14:20:54 -0400
-In-Reply-To: <1502728129-10537-1-git-send-email-jon.maloy@ericsson.com>
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:35916 "EHLO
+        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751160AbdHNS0E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 14:26:04 -0400
+Received: by mail-oi0-f53.google.com with SMTP id g131so91661154oic.3
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 11:26:04 -0700 (PDT)
+In-Reply-To: <13347366.nbnduK6AMs@tjmaciei-mobl1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Mon, 14 Aug 2017 18:28:49 +0200
+On Mon, Aug 14, 2017 at 1:02 PM, Thiago Macieira
+<thiago.macieira@intel.com> wrote:
+> On Monday, 14 August 2017 09:33:48 PDT Willem de Bruijn wrote:
+>> > But here's a question: if the peek offset is equal to the length, should
+>> > the reading return an empty datagram? This would indicate to the caller
+>> > that there was a datagram there, which was skipped over.
+>>
+>> In the general case, no, it should read at the offset, which is the next
+>> skb.
+>
+> I beg to differ. In this particular case, we are talking about datagrams. If
+> it were stream sockets, I would agree with you: just skip to the next. But in
+> datagrams, the same way you do return zero-sized ones, I would return an empty
+> one if you peeked at or past the end.
 
-> In the function msg_reverse(), we reverse the header while trying to
-> reuse the original buffer whenever possible. Those rejected/returned
-> messages are always transmitted as unicast, but the msg_non_seq field
-> is not explicitly set to zero as it should be.
-> 
-> We have seen cases where multicast senders set the message type to
-> "NOT dest_droppable", meaning that a multicast message shorter than
-> one MTU will be returned, e.g., during receive buffer overflow, by
-> reusing the original buffer. This has the effect that even the
-> 'msg_non_seq' field is inadvertently inherited by the rejected message,
-> although it is now sent as a unicast message. This again leads the
-> receiving unicast link endpoint to steer the packet toward the broadcast
-> link receive function, where it is dropped. The affected unicast link is
-> thereafter (after 100 failed retransmissions) declared 'stale' and
-> reset.
-> 
-> We fix this by unconditionally setting the 'msg_non_seq' flag to zero
-> for all rejected/returned messages.
-> 
-> Reported-by: Canh Duc Luu <canh.d.luu@dektech.com.au>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+It can be argued either way. I would not change it in the scope of
+this bug.
 
-Also applied, thanks again.
+>
+>> Since we only need to change no-offset semantics to fix this bug,
+>> I would not change this behavior, which is also expected by some
+>> applications by now.
+>
+> Do applications using SOCK_DGRAM rely on the behaviour of skipping over
+> datagrams that are too short?
+
+It is established behavior. It cannot be ruled out that an application
+somewhere depends on it.
