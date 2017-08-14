@@ -1,88 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] dccp: purge write queue in dccp_destroy_sock()
-Date: Mon, 14 Aug 2017 14:10:25 -0700
-Message-ID: <1502745025.4936.34.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net/sched: reset block pointer in tcf_block_put()
+Date: Mon, 14 Aug 2017 14:15:58 -0700
+Message-ID: <CAM_iQpX2=Fg8JN1c8qnLPae34hsYEG7xUKZ-RoppBnVoBDb+6g@mail.gmail.com>
+References: <150235751251.493255.14955523507789154918.stgit@buzz>
+ <CAM_iQpX=XLheuuBk_kAa+jHO-e16hnzavHhzHJ4EYWwpjGFzMg@mail.gmail.com>
+ <ad81a570-dff5-7c74-170e-70e764778cba@yandex-team.ru> <CAM_iQpUJRAn75aBrBzoWABt21tgTYLo1MPNQwTUa9BSs0QXyaQ@mail.gmail.com>
+ <7267faab-c089-e60b-0696-3734f801c1ba@yandex-team.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: David Miller <davem@davemloft.net>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33501 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752527AbdHNVK3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 17:10:29 -0400
-Received: by mail-pg0-f68.google.com with SMTP id u185so12421429pgb.0
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 14:10:29 -0700 (PDT)
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:34092 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752250AbdHNVQT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 17:16:19 -0400
+Received: by mail-pg0-f47.google.com with SMTP id u185so54567952pgb.1
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 14:16:19 -0700 (PDT)
+In-Reply-To: <7267faab-c089-e60b-0696-3734f801c1ba@yandex-team.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, Aug 14, 2017 at 5:59 AM, Konstantin Khlebnikov
+<khlebnikov@yandex-team.ru> wrote:
+>
+> This should work, I suppose.
+>
+> But this approach requires careful review for all qdisc, mine is completely
+> mechanical.
 
-syzkaller reported that DCCP could have a non empty
-write queue at dismantle time.
-
-WARNING: CPU: 1 PID: 2953 at net/core/stream.c:199 sk_stream_kill_queues+0x3ce/0x520 net/core/stream.c:199
-Kernel panic - not syncing: panic_on_warn set ...
-
-CPU: 1 PID: 2953 Comm: syz-executor0 Not tainted 4.13.0-rc4+ #2
-Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16 [inline]
- dump_stack+0x194/0x257 lib/dump_stack.c:52
- panic+0x1e4/0x417 kernel/panic.c:180
- __warn+0x1c4/0x1d9 kernel/panic.c:541
- report_bug+0x211/0x2d0 lib/bug.c:183
- fixup_bug+0x40/0x90 arch/x86/kernel/traps.c:190
- do_trap_no_signal arch/x86/kernel/traps.c:224 [inline]
- do_trap+0x260/0x390 arch/x86/kernel/traps.c:273
- do_error_trap+0x120/0x390 arch/x86/kernel/traps.c:310
- do_invalid_op+0x1b/0x20 arch/x86/kernel/traps.c:323
- invalid_op+0x1e/0x30 arch/x86/entry/entry_64.S:846
-RIP: 0010:sk_stream_kill_queues+0x3ce/0x520 net/core/stream.c:199
-RSP: 0018:ffff8801d182f108 EFLAGS: 00010297
-RAX: ffff8801d1144140 RBX: ffff8801d13cb280 RCX: 0000000000000000
-RDX: 0000000000000000 RSI: ffffffff85137b00 RDI: ffff8801d13cb280
-RBP: ffff8801d182f148 R08: 0000000000000001 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000000 R12: ffff8801d13cb4d0
-R13: ffff8801d13cb3b8 R14: ffff8801d13cb300 R15: ffff8801d13cb3b8
- inet_csk_destroy_sock+0x175/0x3f0 net/ipv4/inet_connection_sock.c:835
- dccp_close+0x84d/0xc10 net/dccp/proto.c:1067
- inet_release+0xed/0x1c0 net/ipv4/af_inet.c:425
- sock_release+0x8d/0x1e0 net/socket.c:597
- sock_close+0x16/0x20 net/socket.c:1126
- __fput+0x327/0x7e0 fs/file_table.c:210
- ____fput+0x15/0x20 fs/file_table.c:246
- task_work_run+0x18a/0x260 kernel/task_work.c:116
- exit_task_work include/linux/task_work.h:21 [inline]
- do_exit+0xa32/0x1b10 kernel/exit.c:865
- do_group_exit+0x149/0x400 kernel/exit.c:969
- get_signal+0x7e8/0x17e0 kernel/signal.c:2330
- do_signal+0x94/0x1ee0 arch/x86/kernel/signal.c:808
- exit_to_usermode_loop+0x21c/0x2d0 arch/x86/entry/common.c:157
- prepare_exit_to_usermode arch/x86/entry/common.c:194 [inline]
- syscall_return_slowpath+0x3a7/0x450 arch/x86/entry/common.c:263
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
----
- net/dccp/proto.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index 9fe25bf63296..86bc40ba6ba5 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -201,10 +201,7 @@ void dccp_destroy_sock(struct sock *sk)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
- 
--	/*
--	 * DCCP doesn't use sk_write_queue, just sk_send_head
--	 * for retransmissions
--	 */
-+	__skb_queue_purge(&sk->sk_write_queue);
- 	if (sk->sk_send_head != NULL) {
- 		kfree_skb(sk->sk_send_head);
- 		sk->sk_send_head = NULL;
+Well, we don't have many classful qdisc's. Your patch actually
+touches more qdisc's than mine, because you change an API, so
+it is slightly harder to backport. ;)
