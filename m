@@ -1,9 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 03/11] net: dsa: debugfs: add tree
-Date: Tue, 15 Aug 2017 00:52:56 +0200
-Message-ID: <20170814225256.GI16885@lunn.ch>
+Subject: Re: [PATCH net-next 01/11] net: dsa: legacy: assign dst->applied
+Date: Tue, 15 Aug 2017 00:58:20 +0200
+Message-ID: <20170814225820.GJ16885@lunn.ch>
 References: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
- <20170814222242.10643-4-vivien.didelot@savoirfairelinux.com>
+ <20170814222242.10643-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -26,19 +26,16 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170814222242.10643-4-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170814222242.10643-2-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 14, 2017 at 06:22:34PM -0400, Vivien Didelot wrote:
-> This commit adds the boiler plate to create a DSA related debug
-> filesystem entry as well as a "tree" file, containing the tree index.
-> 
->     # cat switch1/tree
->     0
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+On Mon, Aug 14, 2017 at 06:22:32PM -0400, Vivien Didelot wrote:
+> The "applied" boolean of the dsa_switch_tree is only set in the new
+> bindings. This patch sets it in the legacy code as well.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+What is missing here is: Why? 
 
-    Andrew
+I see the next patch does a WARN_ON(!applied). Why have a WARN_ON?
+
+  Andrew
