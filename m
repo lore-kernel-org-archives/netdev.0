@@ -1,62 +1,53 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH v10 3/5] PCI: Disable Relaxed Ordering Attributes for AMD
- A1100
-Date: Mon, 14 Aug 2017 18:07:51 +0000
-Message-ID: <MWHPR12MB1600654CA840BC47AFC06127C88C0@MWHPR12MB1600.namprd12.prod.outlook.com>
-References: <1502725499-11276-1-git-send-email-dingtianhong@huawei.com>
- <1502725499-11276-4-git-send-email-dingtianhong@huawei.com>,<20170814171937.GA52656@otc-nc-03>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv4: route: fix inet_rtm_getroute induced crash
+Date: Mon, 14 Aug 2017 11:09:36 -0700 (PDT)
+Message-ID: <20170814.110936.90630312617848721.davem@davemloft.net>
+References: <20170813225258.16001-1-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
-        "helgaas@kernel.org" <helgaas@kernel.org>,
-        Michael Werner <werner@chelsio.com>,
-        Ganesh GR <ganeshgr@chelsio.com>,
-        "asit.k.mallick@intel.com" <asit.k.mallick@intel.com>,
-        "patrick.j.cramer@intel.com" <patrick.j.cramer@intel.com>,
-        "Suravee.Suthikulpanit@amd.com" <Suravee.Suthikulpanit@amd.com>,
-        "Bob.Shaw@amd.com" <Bob.Shaw@amd.com>,
-        "l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-        "amira@mellanox.com" <amira@mellanox.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "David.Laight@aculab.com" <David.Laight@aculab.com>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "catalin.marinas@arm.com" <catalin.marinas@arm.com>,
-        "will.deacon@arm.com" <will.deacon@arm.com>,
-        "mark.rutland@arm.com" <mark.rut
-To: "Raj, Ashok" <ashok.raj@intel.com>,
-        Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170814171937.GA52656@otc-nc-03>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        dsahern@gmail.com
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38578 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752390AbdHNSJh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 14:09:37 -0400
+In-Reply-To: <20170813225258.16001-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-| From: Raj, Ashok <ashok.raj@intel.com>
-| Sent: Monday, August 14, 2017 10:19 AM
-| =A0  =20
-| On Mon, Aug 14, 2017 at 11:44:57PM +0800, Ding Tianhong wrote:
-| > Casey reported that the AMD ARM A1100 SoC has a bug in its PCIe
-| > Root Port where Upstream Transaction Layer Packets with the Relaxed
-| > Ordering Attribute clear are allowed to bypass earlier TLPs with
-| > Relaxed Ordering set, it would cause Data Corruption, so we need
-| > to disable Relaxed Ordering Attribute when Upstream TLPs to the
-| > Root Port.
-| >=20
-| > Signed-off-by: Casey Leedom <leedom@chelsio.com>
-| > Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-| > Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
-| > Acked-by: Ashok Raj <ashok.raj@intel.com>
-|=20
-| I can't ack this patch :-).. must be someone from AMD. Please remove my
-| signature from this.
+From: Florian Westphal <fw@strlen.de>
+Date: Mon, 14 Aug 2017 00:52:58 +0200
 
-  You can go ahead and leave my name on since I'm the person who found and =
-diagnosed the problem (with help from others inside Chelsio).
+> "ip route get $daddr iif eth0 from $saddr" causes:
+>  BUG: KASAN: use-after-free in ip_route_input_rcu+0x1535/0x1b50
+>  Call Trace:
+>   ip_route_input_rcu+0x1535/0x1b50
+>   ip_route_input_noref+0xf9/0x190
+>   tcp_v4_early_demux+0x1a4/0x2b0
+>   ip_rcv+0xbcb/0xc05
+>   __netif_receive_skb+0x9c/0xd0
+>   netif_receive_skb_internal+0x5a8/0x890
+> 
+> Problem is that inet_rtm_getroute calls either ip_route_input_rcu (if an
+> iif was provided) or ip_route_output_key_hash_rcu.
+> 
+> But ip_route_input_rcu, unlike ip_route_output_key_hash_rcu, already
+> associates the dst_entry with the skb.  This clears the SKB_DST_NOREF
+> bit (i.e. skb_dst_drop will release/free the entry while it should not).
+> 
+> Thus only set the dst if we called ip_route_output_key_hash_rcu().
+> 
+> I tested this patch by running:
+>  while true;do ip r get 10.0.1.2;done > /dev/null &
+>  while true;do ip r get 10.0.1.2 iif eth0  from 10.0.1.1;done > /dev/null &
+> ... and saw no crash or memory leak.
+> 
+> Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Cc: David Ahern <dsahern@gmail.com>
+> Fixes: ba52d61e0ff ("ipv4: route: restore skb_dst_set in inet_rtm_getroute")
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-  If anyone on the Linux PCI List knows anyone at AMD who'd be willing to r=
-espond it would be great, but as I noted earlier, I think that AMD has effe=
-ctively abandoned the A1100 ("Seattle") ARM SoC, so I doubt if we'll get an=
-yone from AMD to even comment now.
-
-Casey=
+Applied, thanks Florian.
