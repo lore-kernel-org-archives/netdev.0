@@ -1,8 +1,8 @@
 From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH V2 net-next 2/8] liquidio: moved update_txq_status to
- lio_core.c
-Date: Mon, 14 Aug 2017 12:01:37 -0700
-Message-ID: <20170814190137.GA1253@felix-thinkpad.cavium.com>
+Subject: [PATCH V2 net-next 5/8] liquidio: moved liquidio_napi_drv_callback
+ to lio_core.c
+Date: Mon, 14 Aug 2017 12:01:48 -0700
+Message-ID: <20170814190148.GA1286@felix-thinkpad.cavium.com>
 References: <20170814190034.GA1219@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,11 +11,11 @@ Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
         intiyaz.basha@cavium.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0043.outbound.protection.outlook.com ([104.47.34.43]:61076
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0066.outbound.protection.outlook.com ([104.47.40.66]:4752
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752048AbdHNTBn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Aug 2017 15:01:43 -0400
+        id S1752048AbdHNTBx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Aug 2017 15:01:53 -0400
 Content-Disposition: inline
 In-Reply-To: <20170814190034.GA1219@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,164 +23,153 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Intiyaz Basha <intiyaz.basha@cavium.com>
 
-Moving common update_txq_status to lio_core.c
+Moving common liquidio_napi_drv_callback to lio_core.c
 
 Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_core.c    | 33 ++++++++++++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 35 +---------------------
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 26 +---------------
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    | 39 ++++++++++++++++++++++
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 38 ---------------------
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 13 +-------
  .../net/ethernet/cavium/liquidio/octeon_network.h  |  1 +
- 4 files changed, 36 insertions(+), 59 deletions(-)
+ 4 files changed, 41 insertions(+), 50 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-index adde774..b55ab75 100644
+index b0b246e..8cba927 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-@@ -364,3 +364,36 @@ void cleanup_rx_oom_poll_fn(struct net_device *netdev)
- 		destroy_workqueue(lio->rxq_status_wq.wq);
+@@ -581,3 +581,42 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 		recv_buffer_free(skb);
  	}
  }
 +
-+/* Runs in interrupt context. */
-+void lio_update_txq_status(struct octeon_device *oct, int iq_num)
++/**
++ * \brief wrapper for calling napi_schedule
++ * @param param parameters to pass to napi_schedule
++ *
++ * Used when scheduling on different CPUs
++ */
++static void napi_schedule_wrapper(void *param)
 +{
-+	struct octeon_instr_queue *iq = oct->instr_queue[iq_num];
-+	struct net_device *netdev;
-+	struct lio *lio;
++	struct napi_struct *napi = param;
 +
-+	netdev = oct->props[iq->ifidx].netdev;
++	napi_schedule(napi);
++}
 +
-+	/* This is needed because the first IQ does not have
-+	 * a netdev associated with it.
-+	 */
-+	if (!netdev)
-+		return;
++/**
++ * \brief callback when receive interrupt occurs and we are in NAPI mode
++ * @param arg pointer to octeon output queue
++ */
++void liquidio_napi_drv_callback(void *arg)
++{
++	struct octeon_device *oct;
++	struct octeon_droq *droq = arg;
++	int this_cpu = smp_processor_id();
 +
-+	lio = GET_LIO(netdev);
-+	if (netif_is_multiqueue(netdev)) {
-+		if (__netif_subqueue_stopped(netdev, iq->q_index) &&
-+		    lio->linfo.link.s.link_up &&
-+		    (!octnet_iq_is_full(oct, iq_num))) {
-+			netif_wake_subqueue(netdev, iq->q_index);
-+			INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, iq_num,
-+						  tx_restart, 1);
-+		}
-+	} else if (netif_queue_stopped(netdev) &&
-+		   lio->linfo.link.s.link_up &&
-+		   (!octnet_iq_is_full(oct, lio->txq))) {
-+		INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, lio->txq,
-+					  tx_restart, 1);
-+		netif_wake_queue(netdev);
++	oct = droq->oct_dev;
++
++	if (OCTEON_CN23XX_PF(oct) || OCTEON_CN23XX_VF(oct) ||
++	    droq->cpu_id == this_cpu) {
++		napi_schedule_irqoff(&droq->napi);
++	} else {
++		struct call_single_data *csd = &droq->csd;
++
++		csd->func = napi_schedule_wrapper;
++		csd->info = &droq->napi;
++		csd->flags = 0;
++
++		smp_call_function_single_async(droq->cpu_id, csd);
 +	}
 +}
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index b20d13f..ba1b493 100644
+index 68a94c4..4241949 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -903,39 +903,6 @@ static inline void update_link_status(struct net_device *netdev,
- 	}
+@@ -2229,44 +2229,6 @@ static void if_cfg_callback(struct octeon_device *oct,
  }
  
--/* Runs in interrupt context. */
--static void update_txq_status(struct octeon_device *oct, int iq_num)
+ /**
+- * \brief wrapper for calling napi_schedule
+- * @param param parameters to pass to napi_schedule
+- *
+- * Used when scheduling on different CPUs
+- */
+-static void napi_schedule_wrapper(void *param)
 -{
--	struct net_device *netdev;
--	struct lio *lio;
--	struct octeon_instr_queue *iq = oct->instr_queue[iq_num];
+-	struct napi_struct *napi = param;
 -
--	netdev = oct->props[iq->ifidx].netdev;
+-	napi_schedule(napi);
+-}
 -
--	/* This is needed because the first IQ does not have
--	 * a netdev associated with it.
--	 */
--	if (!netdev)
--		return;
+-/**
+- * \brief callback when receive interrupt occurs and we are in NAPI mode
+- * @param arg pointer to octeon output queue
+- */
+-static void liquidio_napi_drv_callback(void *arg)
+-{
+-	struct octeon_device *oct;
+-	struct octeon_droq *droq = arg;
+-	int this_cpu = smp_processor_id();
 -
--	lio = GET_LIO(netdev);
--	if (netif_is_multiqueue(netdev)) {
--		if (__netif_subqueue_stopped(netdev, iq->q_index) &&
--		    lio->linfo.link.s.link_up &&
--		    (!octnet_iq_is_full(oct, iq_num))) {
--			INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, iq_num,
--						  tx_restart, 1);
--			netif_wake_subqueue(netdev, iq->q_index);
--		}
--	} else if (netif_queue_stopped(netdev) &&
--		   lio->linfo.link.s.link_up &&
--		   (!octnet_iq_is_full(oct, lio->txq))) {
--		INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev,
--					  lio->txq, tx_restart, 1);
--		netif_wake_queue(netdev);
+-	oct = droq->oct_dev;
+-
+-	if (OCTEON_CN23XX_PF(oct) || droq->cpu_id == this_cpu) {
+-		napi_schedule_irqoff(&droq->napi);
+-	} else {
+-		struct call_single_data *csd = &droq->csd;
+-
+-		csd->func = napi_schedule_wrapper;
+-		csd->info = &droq->napi;
+-		csd->flags = 0;
+-
+-		smp_call_function_single_async(droq->cpu_id, csd);
 -	}
 -}
 -
- static
- int liquidio_schedule_msix_droq_pkt_handler(struct octeon_droq *droq, u64 ret)
- {
-@@ -2515,7 +2482,7 @@ static int liquidio_napi_poll(struct napi_struct *napi, int budget)
- 		/* Update iq read-index rather than waiting for next interrupt.
- 		 * Return back if tx_done is false.
- 		 */
--		update_txq_status(oct, iq_no);
-+		lio_update_txq_status(oct, iq_no);
- 	} else {
- 		dev_err(&oct->pci_dev->dev, "%s:  iq (%d) num invalid\n",
- 			__func__, iq_no);
+-/**
+  * \brief Entry point for NAPI polling
+  * @param napi NAPI structure
+  * @param budget maximum number of items to process
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 17623ed..dd0265a 100644
+index 013a861..2663bd6 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -647,30 +647,6 @@ static void update_link_status(struct net_device *netdev,
- 	}
+@@ -1377,17 +1377,6 @@ static void if_cfg_callback(struct octeon_device *oct,
  }
  
--static void update_txq_status(struct octeon_device *oct, int iq_num)
+ /**
+- * \brief callback when receive interrupt occurs and we are in NAPI mode
+- * @param arg pointer to octeon output queue
+- */
+-static void liquidio_vf_napi_drv_callback(void *arg)
 -{
--	struct octeon_instr_queue *iq = oct->instr_queue[iq_num];
--	struct net_device *netdev;
--	struct lio *lio;
+-	struct octeon_droq *droq = arg;
 -
--	netdev = oct->props[iq->ifidx].netdev;
--	lio = GET_LIO(netdev);
--	if (netif_is_multiqueue(netdev)) {
--		if (__netif_subqueue_stopped(netdev, iq->q_index) &&
--		    lio->linfo.link.s.link_up &&
--		    (!octnet_iq_is_full(oct, iq_num))) {
--			netif_wake_subqueue(netdev, iq->q_index);
--			INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev, iq_num,
--						  tx_restart, 1);
--		}
--	} else if (netif_queue_stopped(netdev) && lio->linfo.link.s.link_up &&
--		   (!octnet_iq_is_full(oct, lio->txq))) {
--		INCR_INSTRQUEUE_PKT_COUNT(lio->oct_dev,
--					  lio->txq, tx_restart, 1);
--		netif_wake_queue(netdev);
--	}
+-	napi_schedule_irqoff(&droq->napi);
 -}
 -
- static
- int liquidio_schedule_msix_droq_pkt_handler(struct octeon_droq *droq, u64 ret)
- {
-@@ -1608,7 +1584,7 @@ static int liquidio_napi_poll(struct napi_struct *napi, int budget)
- 		/* Update iq read-index rather than waiting for next interrupt.
- 		 * Return back if tx_done is false.
- 		 */
--		update_txq_status(oct, iq_no);
-+		lio_update_txq_status(oct, iq_no);
- 	} else {
- 		dev_err(&oct->pci_dev->dev, "%s: iq (%d) num invalid\n",
- 			__func__, iq_no);
+-/**
+  * \brief Entry point for NAPI polling
+  * @param napi NAPI structure
+  * @param budget maximum number of items to process
+@@ -1473,7 +1462,7 @@ static int setup_io_queues(struct octeon_device *octeon_dev, int ifidx)
+ 	droq_ops.farg = netdev;
+ 
+ 	droq_ops.poll_mode = 1;
+-	droq_ops.napi_fn = liquidio_vf_napi_drv_callback;
++	droq_ops.napi_fn = liquidio_napi_drv_callback;
+ 	cpu_id = 0;
+ 	cpu_id_modulus = num_present_cpus();
+ 
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-index 043f6e6..0e44ee1 100644
+index 5d78fd6..076fdfc 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-@@ -474,4 +474,5 @@ static inline int wait_for_pending_requests(struct octeon_device *oct)
- 	return 0;
- }
- 
-+void lio_update_txq_status(struct octeon_device *oct, int iq_num);
+@@ -484,4 +484,5 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 		     union octeon_rh *rh,
+ 		     void *param,
+ 		     void *arg);
++void liquidio_napi_drv_callback(void *arg);
  #endif
 -- 
 2.9.0
