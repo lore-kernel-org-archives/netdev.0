@@ -1,139 +1,47 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH v2] sctp: fully initialize the IPv6 address in
- sctp_v6_to_addr()
-Date: Mon, 14 Aug 2017 20:07:08 -0300
-Message-ID: <20170814230708.GA18688@localhost.localdomain>
-References: <20170814184304.82747-1-glider@google.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net] af_key: do not use GFP_KERNEL in atomic contexts
+Date: Mon, 14 Aug 2017 17:07:27 -0600
+Message-ID: <eed2872e-d214-955a-5103-49b2b72f18ab@gmail.com>
+References: <1502731005.4936.29.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        lucien.xin@gmail.com, vyasevich@gmail.com, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, linux-sctp@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Alexander Potapenko <glider@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57224 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752836AbdHNXHL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Aug 2017 19:07:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20170814184304.82747-1-glider@google.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35466 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752916AbdHNXH3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 19:07:29 -0400
+Received: by mail-pg0-f67.google.com with SMTP id l64so12813789pge.2
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 16:07:29 -0700 (PDT)
+In-Reply-To: <1502731005.4936.29.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 14, 2017 at 08:43:04PM +0200, Alexander Potapenko wrote:
-> KMSAN reported use of uninitialized sctp_addr->v4.sin_addr.s_addr and
-> sctp_addr->v6.sin6_scope_id in sctp_v6_cmp_addr() (see below).
-> Make sure all fields of an IPv6 address are initialized, which
-> guarantees that the IPv4 fields are also initialized.
+On 8/14/17 11:16 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> ==================================================================
->  BUG: KMSAN: use of uninitialized memory in sctp_v6_cmp_addr+0x8d4/0x9f0
->  net/sctp/ipv6.c:517
->  CPU: 2 PID: 31056 Comm: syz-executor1 Not tainted 4.11.0-rc5+ #2944
->  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
->  01/01/2011
->  Call Trace:
->   dump_stack+0x172/0x1c0 lib/dump_stack.c:42
->   is_logbuf_locked mm/kmsan/kmsan.c:59 [inline]
->   kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:938
->   native_save_fl arch/x86/include/asm/irqflags.h:18 [inline]
->   arch_local_save_flags arch/x86/include/asm/irqflags.h:72 [inline]
->   arch_local_irq_save arch/x86/include/asm/irqflags.h:113 [inline]
->   __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:467
->   sctp_v6_cmp_addr+0x8d4/0x9f0 net/sctp/ipv6.c:517
->   sctp_v6_get_dst+0x8c7/0x1630 net/sctp/ipv6.c:290
->   sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
->   sctp_assoc_add_peer+0x66d/0x16f0 net/sctp/associola.c:651
->   sctp_sendmsg+0x35a5/0x4f90 net/sctp/socket.c:1871
->   inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
->   sock_sendmsg_nosec net/socket.c:633 [inline]
->   sock_sendmsg net/socket.c:643 [inline]
->   SYSC_sendto+0x608/0x710 net/socket.c:1696
->   SyS_sendto+0x8a/0xb0 net/socket.c:1664
->   entry_SYSCALL_64_fastpath+0x13/0x94
->  RIP: 0033:0x44b479
->  RSP: 002b:00007f6213f21c08 EFLAGS: 00000286 ORIG_RAX: 000000000000002c
->  RAX: ffffffffffffffda RBX: 0000000020000000 RCX: 000000000044b479
->  RDX: 0000000000000041 RSI: 0000000020edd000 RDI: 0000000000000006
->  RBP: 00000000007080a8 R08: 0000000020b85fe4 R09: 000000000000001c
->  R10: 0000000000040005 R11: 0000000000000286 R12: 00000000ffffffff
->  R13: 0000000000003760 R14: 00000000006e5820 R15: 0000000000ff8000
->  origin description: ----dst_saddr@sctp_v6_get_dst
->  local variable created at:
->   sk_fullsock include/net/sock.h:2321 [inline]
->   inet6_sk include/linux/ipv6.h:309 [inline]
->   sctp_v6_get_dst+0x91/0x1630 net/sctp/ipv6.c:241
->   sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
-> ==================================================================
->  BUG: KMSAN: use of uninitialized memory in sctp_v6_cmp_addr+0x8d4/0x9f0
->  net/sctp/ipv6.c:517
->  CPU: 2 PID: 31056 Comm: syz-executor1 Not tainted 4.11.0-rc5+ #2944
->  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
->  01/01/2011
->  Call Trace:
->   dump_stack+0x172/0x1c0 lib/dump_stack.c:42
->   is_logbuf_locked mm/kmsan/kmsan.c:59 [inline]
->   kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:938
->   native_save_fl arch/x86/include/asm/irqflags.h:18 [inline]
->   arch_local_save_flags arch/x86/include/asm/irqflags.h:72 [inline]
->   arch_local_irq_save arch/x86/include/asm/irqflags.h:113 [inline]
->   __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:467
->   sctp_v6_cmp_addr+0x8d4/0x9f0 net/sctp/ipv6.c:517
->   sctp_v6_get_dst+0x8c7/0x1630 net/sctp/ipv6.c:290
->   sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
->   sctp_assoc_add_peer+0x66d/0x16f0 net/sctp/associola.c:651
->   sctp_sendmsg+0x35a5/0x4f90 net/sctp/socket.c:1871
->   inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
->   sock_sendmsg_nosec net/socket.c:633 [inline]
->   sock_sendmsg net/socket.c:643 [inline]
->   SYSC_sendto+0x608/0x710 net/socket.c:1696
->   SyS_sendto+0x8a/0xb0 net/socket.c:1664
->   entry_SYSCALL_64_fastpath+0x13/0x94
->  RIP: 0033:0x44b479
->  RSP: 002b:00007f6213f21c08 EFLAGS: 00000286 ORIG_RAX: 000000000000002c
->  RAX: ffffffffffffffda RBX: 0000000020000000 RCX: 000000000044b479
->  RDX: 0000000000000041 RSI: 0000000020edd000 RDI: 0000000000000006
->  RBP: 00000000007080a8 R08: 0000000020b85fe4 R09: 000000000000001c
->  R10: 0000000000040005 R11: 0000000000000286 R12: 00000000ffffffff
->  R13: 0000000000003760 R14: 00000000006e5820 R15: 0000000000ff8000
->  origin description: ----dst_saddr@sctp_v6_get_dst
->  local variable created at:
->   sk_fullsock include/net/sock.h:2321 [inline]
->   inet6_sk include/linux/ipv6.h:309 [inline]
->   sctp_v6_get_dst+0x91/0x1630 net/sctp/ipv6.c:241
->   sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
-> ==================================================================
+> pfkey_broadcast() might be called from non process contexts,
+> we can not use GFP_KERNEL in these cases [1].
 > 
-> Signed-off-by: Alexander Potapenko <glider@google.com>
-> Reviewed-by: Xin Long <lucien.xin@gmail.com>
-
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-
+> This patch partially reverts commit ba51b6be38c1 ("net: Fix RCU splat in
+> af_key"), only keeping the GFP_ATOMIC forcing under rcu_read_lock()
+> section.
+> 
+> [1] : syzkaller reported :
+...
+> Fixes: ba51b6be38c1 ("net: Fix RCU splat in af_key")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Cc: David Ahern <dsa@cumulusnetworks.com>
 > ---
-> v2 is identical to v1, resending per request by Marcelo Ricardo Leitner.
-> ---
->  net/sctp/ipv6.c | 2 ++
->  1 file changed, 2 insertions(+)
+>  net/key/af_key.c |   48 ++++++++++++++++++++++++---------------------
+>  1 file changed, 26 insertions(+), 22 deletions(-)
 > 
-> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-> index 2a186b201ad2..a15d691829c6 100644
-> --- a/net/sctp/ipv6.c
-> +++ b/net/sctp/ipv6.c
-> @@ -513,6 +513,8 @@ static void sctp_v6_to_addr(union sctp_addr *addr, struct in6_addr *saddr,
->  	addr->sa.sa_family = AF_INET6;
->  	addr->v6.sin6_port = port;
->  	addr->v6.sin6_addr = *saddr;
-> +	addr->v6.sin6_flowinfo = 0;
-> +	addr->v6.sin6_scope_id = 0;
->  }
->  
->  /* Compare addresses exactly.
-> -- 
-> 2.14.0.434.g98096fd7a8-goog
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+
+Thanks for the fix, Eric.
+
+Acked-by: David Ahern <dsahern@gmail.com>
