@@ -1,91 +1,147 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net] ipv4: route: fix inet_rtm_getroute induced crash
-Date: Mon, 14 Aug 2017 07:20:14 +0200
-Message-ID: <20170814052014.GA5672@breakpoint.cc>
-References: <20170813225258.16001-1-fw@strlen.de>
- <17031977-3e7a-9a7f-e53c-538cb030e496@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
-To: David Ahern <dsahern@gmail.com>
+From: Matthew Dawson <matthew@mjdsystems.ca>
+Subject: [PATCH net] datagram: When peeking datagrams with offset < 0 don't skip empty skbs
+Date: Mon, 14 Aug 2017 01:52:59 -0400
+Message-ID: <20170814055259.31078-1-matthew@mjdsystems.ca>
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        "Macieira, Thiago" <thiago.macieira@intel.com>,
+        willemdebruijn.kernel@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:58072 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750878AbdHNFWd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 01:22:33 -0400
-Content-Disposition: inline
-In-Reply-To: <17031977-3e7a-9a7f-e53c-538cb030e496@gmail.com>
+Received: from scadrial.mjdsystems.ca ([198.100.154.185]:50699 "EHLO
+        scadrial.mjdsystems.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751491AbdHNGBc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 02:01:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Ahern <dsahern@gmail.com> wrote:
-> On 8/13/17 4:52 PM, Florian Westphal wrote:
-> > "ip route get $daddr iif eth0 from $saddr" causes:
-> >  BUG: KASAN: use-after-free in ip_route_input_rcu+0x1535/0x1b50
-> >  Call Trace:
-> >   ip_route_input_rcu+0x1535/0x1b50
-> >   ip_route_input_noref+0xf9/0x190
-> >   tcp_v4_early_demux+0x1a4/0x2b0
-> >   ip_rcv+0xbcb/0xc05
-> >   __netif_receive_skb+0x9c/0xd0
-> >   netif_receive_skb_internal+0x5a8/0x890
-> > 
-> > Problem is that inet_rtm_getroute calls either ip_route_input_rcu (if an
-> > iif was provided) or ip_route_output_key_hash_rcu.
-> > 
-> > But ip_route_input_rcu, unlike ip_route_output_key_hash_rcu, already
-> > associates the dst_entry with the skb.  This clears the SKB_DST_NOREF
-> > bit (i.e. skb_dst_drop will release/free the entry while it should not).
-> > 
-> > Thus only set the dst if we called ip_route_output_key_hash_rcu().
-> > 
-> > I tested this patch by running:
-> >  while true;do ip r get 10.0.1.2;done > /dev/null &
-> >  while true;do ip r get 10.0.1.2 iif eth0  from 10.0.1.1;done > /dev/null &
-> > ... and saw no crash or memory leak.
-> > 
-> > Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
-> > Cc: David Ahern <dsahern@gmail.com>
-> > Fixes: ba52d61e0ff ("ipv4: route: restore skb_dst_set in inet_rtm_getroute")
-> > Signed-off-by: Florian Westphal <fw@strlen.de>
-> 
-> Have looked at the change in detail, but are you sure that is the
-> correct Fixes?
+Due to commit e6afc8ace6dd5cef5e812f26c72579da8806f5ac ("udp: remove
+headers from UDP packets before queueing"), when udp packets are being
+peeked the requested extra offset is always 0 as there is no need to skip
+the udp header.  However, when the offset is 0 and the next skb is
+of length 0, it is only returned once.  The behaviour can be seen with
+the following python script:
 
-I'm reasonably sure, yes:
+#!/usr/bin/env python3
+from socket import *;
+f=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+g=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+f.bind(('::', 0));
+addr=('::1', f.getsockname()[1]);
+g.sendto(b'', addr)
+g.sendto(b'b', addr)
+print(f.recvfrom(10, MSG_PEEK));
+print(f.recvfrom(10, MSG_PEEK));
 
-if (iif) {
-  ip_route_input_rcu // 1 might get NOREF dst
-} else {
-  ip_route_output_key_hash_rcu // 2 always takes dst ref
-}
-skb_dst_set /* 3 loses NOREF in case of 1) */
+Where the expected output should be the empty string twice.
 
-> Running these:
->   while true;do ip r get 10.1.1.3;done > /dev/null &
->   while true;do ip r get 10.1.1.3 iif eth0  from 192.16.1.1;done >
-> /dev/null &
-> 
-> at various commits:
->   ffe95ecf3a2 - KASAN backtraces
+Instead, make sk_peek_offset return negative values, and pass those values
+to __skb_try_recv_datagram/__skb_try_recv_from_queue.  If the passed offset
+to __skb_try_recv_from_queue is negative, the checked skb is never skipped.
+After the call, the offset is set to 0 if negative to ensure all further
+calculations are correct.
 
-Right, this is broken state (has both ba52d61e0ff and 3765d35ed8b9)
+Also simplify the if condition in __skb_try_recv_from_queue.  If _off is
+greater then 0, and off is greater then or equal to skb->len, then (_off ||
+skb->len) must always be true assuming skb->len >= 0 is always true.
 
->   374d801522f - works fine
+Also remove a redundant check around a call to sk_peek_offset in af_unix.c,
+as it double checked if MSG_PEEK was set in the flags.
 
-This is fine, it lacks 3765d35ed8b9:
-both branches take a reference on dst so '3' above has no side effect.
+Signed-off-by: Matthew Dawson <matthew@mjdsystems.ca>
+---
+ include/net/sock.h  | 4 +---
+ net/core/datagram.c | 4 ++--
+ net/ipv4/udp.c      | 4 ++++
+ net/ipv6/udp.c      | 4 ++++
+ net/unix/af_unix.c  | 8 +++++---
+ 5 files changed, 16 insertions(+), 8 deletions(-)
 
->   ba52d61e0ff - negative refcnt messages
-
-AFAICS this is before dst gc removal, I guess (but did not
-check) that KASAN vs. refcount just comes from this.
-
->   a5e2ee5da47 - works fine
-
-Should cause a memory leak when iif is not given (ref on dst is
-taken but not released in case of 2), ba52d61e0ff cured this but
-adds the problem described here).
-
-Does that make it clearer?
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 7c0632c7e870..aeeec62992ca 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -507,9 +507,7 @@ int sk_set_peek_off(struct sock *sk, int val);
+ static inline int sk_peek_offset(struct sock *sk, int flags)
+ {
+ 	if (unlikely(flags & MSG_PEEK)) {
+-		s32 off = READ_ONCE(sk->sk_peek_off);
+-		if (off >= 0)
+-			return off;
++		return READ_ONCE(sk->sk_peek_off);
+ 	}
+ 
+ 	return 0;
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ee5647bd91b3..a91cd8aa244b 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -175,8 +175,8 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+ 	*last = queue->prev;
+ 	skb_queue_walk(queue, skb) {
+ 		if (flags & MSG_PEEK) {
+-			if (_off >= skb->len && (skb->len || _off ||
+-						 skb->peeked)) {
++			if (_off >= 0 && _off >= skb->len &&
++			    (_off || skb->peeked)) {
+ 				_off -= skb->len;
+ 				continue;
+ 			}
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index a7c804f73990..a0d8d6d285f4 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1576,6 +1576,10 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+ try_again:
+ 	peeking = off = sk_peek_offset(sk, flags);
+ 	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
++	if (off < 0) {
++		off = 0;
++		peeking = 0;
++	}
+ 	if (!skb)
+ 		return err;
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 578142b7ca3e..34d8f9f8d87d 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -364,6 +364,10 @@ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
+ try_again:
+ 	peeking = off = sk_peek_offset(sk, flags);
+ 	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
++	if (peeking < 0) {
++		off = 0;
++		peeking = 0;
++	}
+ 	if (!skb)
+ 		return err;
+ 
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 7b52a380d710..390e0627dc05 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2127,6 +2127,8 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg,
+ 		skip = sk_peek_offset(sk, flags);
+ 		skb = __skb_try_recv_datagram(sk, flags, NULL, &peeked, &skip,
+ 					      &err, &last);
++		if (skip < 0)
++			skip = 0;
+ 		if (skb)
+ 			break;
+ 
+@@ -2304,10 +2306,10 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state,
+ 	 */
+ 	mutex_lock(&u->iolock);
+ 
+-	if (flags & MSG_PEEK)
+-		skip = sk_peek_offset(sk, flags);
+-	else
++	skip = sk_peek_offset(sk, flags);
++	if (skip < 0) {
+ 		skip = 0;
++	}
+ 
+ 	do {
+ 		int chunk;
+-- 
+2.13.0
