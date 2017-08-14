@@ -1,8 +1,8 @@
 From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH V2 net-next 5/8] liquidio: moved liquidio_napi_drv_callback
- to lio_core.c
-Date: Mon, 14 Aug 2017 12:01:48 -0700
-Message-ID: <20170814190148.GA1286@felix-thinkpad.cavium.com>
+Subject: [PATCH V2 net-next 7/8] liquidio: moved liquidio_setup_io_queues to
+ lio_core.c
+Date: Mon, 14 Aug 2017 12:01:53 -0700
+Message-ID: <20170814190153.GA1308@felix-thinkpad.cavium.com>
 References: <20170814190034.GA1219@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,11 +11,11 @@ Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
         intiyaz.basha@cavium.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0066.outbound.protection.outlook.com ([104.47.40.66]:4752
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+Received: from mail-cys01nam02on0058.outbound.protection.outlook.com ([104.47.37.58]:28256
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752048AbdHNTBx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Aug 2017 15:01:53 -0400
+        id S1752465AbdHNTCA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Aug 2017 15:02:00 -0400
 Content-Disposition: inline
 In-Reply-To: <20170814190034.GA1219@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,153 +23,438 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Intiyaz Basha <intiyaz.basha@cavium.com>
 
-Moving common liquidio_napi_drv_callback to lio_core.c
+Moving common liquidio_setup_io_queues to lio_core.c
 
 Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_core.c    | 39 ++++++++++++++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 38 ---------------------
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 13 +-------
- .../net/ethernet/cavium/liquidio/octeon_network.h  |  1 +
- 4 files changed, 41 insertions(+), 50 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    | 119 ++++++++++++++++++++-
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 109 +------------------
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c |  93 +---------------
+ .../net/ethernet/cavium/liquidio/octeon_network.h  |  13 +--
+ 4 files changed, 118 insertions(+), 216 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-index b0b246e..8cba927 100644
+index 2030c25..d20d0eb 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-@@ -581,3 +581,42 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 		recv_buffer_free(skb);
- 	}
+@@ -406,8 +406,8 @@ static void lio_update_txq_status(struct octeon_device *oct, int iq_num)
+  * @param desc_size size of each descriptor
+  * @param app_ctx application context
+  */
+-int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
+-		      int desc_size, void *app_ctx)
++static int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
++			     int desc_size, void *app_ctx)
+ {
+ 	int ret_val;
+ 
+@@ -441,7 +441,7 @@ int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
+  * @param param    - additional control data with the packet
+  * @param arg      - farg registered in droq_ops
+  */
+-void
++static void
+ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 		     void *skbuff,
+ 		     u32 len,
+@@ -599,7 +599,7 @@ static void napi_schedule_wrapper(void *param)
+  * \brief callback when receive interrupt occurs and we are in NAPI mode
+  * @param arg pointer to octeon output queue
+  */
+-void liquidio_napi_drv_callback(void *arg)
++static void liquidio_napi_drv_callback(void *arg)
+ {
+ 	struct octeon_device *oct;
+ 	struct octeon_droq *droq = arg;
+@@ -626,7 +626,7 @@ void liquidio_napi_drv_callback(void *arg)
+  * @param napi NAPI structure
+  * @param budget maximum number of items to process
+  */
+-int liquidio_napi_poll(struct napi_struct *napi, int budget)
++static int liquidio_napi_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct octeon_instr_queue *iq;
+ 	struct octeon_device *oct;
+@@ -679,3 +679,112 @@ int liquidio_napi_poll(struct napi_struct *napi, int budget)
+ 
+ 	return (!tx_done) ? (budget) : (work_done);
  }
 +
 +/**
-+ * \brief wrapper for calling napi_schedule
-+ * @param param parameters to pass to napi_schedule
++ * \brief Setup input and output queues
++ * @param octeon_dev octeon device
++ * @param ifidx Interface index
 + *
-+ * Used when scheduling on different CPUs
++ * Note: Queues are with respect to the octeon device. Thus
++ * an input queue is for egress packets, and output queues
++ * are for ingress packets.
 + */
-+static void napi_schedule_wrapper(void *param)
++int liquidio_setup_io_queues(struct octeon_device *octeon_dev, int ifidx)
 +{
-+	struct napi_struct *napi = param;
++	struct octeon_droq_ops droq_ops;
++	struct net_device *netdev;
++	struct octeon_droq *droq;
++	struct napi_struct *napi;
++	int cpu_id_modulus;
++	int num_tx_descs;
++	struct lio *lio;
++	int retval = 0;
++	int q, q_no;
++	int cpu_id;
 +
-+	napi_schedule(napi);
-+}
++	netdev = octeon_dev->props[ifidx].netdev;
 +
-+/**
-+ * \brief callback when receive interrupt occurs and we are in NAPI mode
-+ * @param arg pointer to octeon output queue
-+ */
-+void liquidio_napi_drv_callback(void *arg)
-+{
-+	struct octeon_device *oct;
-+	struct octeon_droq *droq = arg;
-+	int this_cpu = smp_processor_id();
++	lio = GET_LIO(netdev);
 +
-+	oct = droq->oct_dev;
++	memset(&droq_ops, 0, sizeof(struct octeon_droq_ops));
 +
-+	if (OCTEON_CN23XX_PF(oct) || OCTEON_CN23XX_VF(oct) ||
-+	    droq->cpu_id == this_cpu) {
-+		napi_schedule_irqoff(&droq->napi);
-+	} else {
-+		struct call_single_data *csd = &droq->csd;
++	droq_ops.fptr = liquidio_push_packet;
++	droq_ops.farg = netdev;
 +
-+		csd->func = napi_schedule_wrapper;
-+		csd->info = &droq->napi;
-+		csd->flags = 0;
++	droq_ops.poll_mode = 1;
++	droq_ops.napi_fn = liquidio_napi_drv_callback;
++	cpu_id = 0;
++	cpu_id_modulus = num_present_cpus();
 +
-+		smp_call_function_single_async(droq->cpu_id, csd);
++	/* set up DROQs. */
++	for (q = 0; q < lio->linfo.num_rxpciq; q++) {
++		q_no = lio->linfo.rxpciq[q].s.q_no;
++		dev_dbg(&octeon_dev->pci_dev->dev,
++			"%s index:%d linfo.rxpciq.s.q_no:%d\n",
++			__func__, q, q_no);
++		retval = octeon_setup_droq(
++		    octeon_dev, q_no,
++		    CFG_GET_NUM_RX_DESCS_NIC_IF(octeon_get_conf(octeon_dev),
++						lio->ifidx),
++		    CFG_GET_NUM_RX_BUF_SIZE_NIC_IF(octeon_get_conf(octeon_dev),
++						   lio->ifidx),
++		    NULL);
++		if (retval) {
++			dev_err(&octeon_dev->pci_dev->dev,
++				"%s : Runtime DROQ(RxQ) creation failed.\n",
++				__func__);
++			return 1;
++		}
++
++		droq = octeon_dev->droq[q_no];
++		napi = &droq->napi;
++		dev_dbg(&octeon_dev->pci_dev->dev, "netif_napi_add netdev:%llx oct:%llx\n",
++			(u64)netdev, (u64)octeon_dev);
++		netif_napi_add(netdev, napi, liquidio_napi_poll, 64);
++
++		/* designate a CPU for this droq */
++		droq->cpu_id = cpu_id;
++		cpu_id++;
++		if (cpu_id >= cpu_id_modulus)
++			cpu_id = 0;
++
++		octeon_register_droq_ops(octeon_dev, q_no, &droq_ops);
 +	}
++
++	if (OCTEON_CN23XX_PF(octeon_dev) || OCTEON_CN23XX_VF(octeon_dev)) {
++		/* 23XX PF/VF can send/recv control messages (via the first
++		 * PF/VF-owned droq) from the firmware even if the ethX
++		 * interface is down, so that's why poll_mode must be off
++		 * for the first droq.
++		 */
++		octeon_dev->droq[0]->ops.poll_mode = 0;
++	}
++
++	/* set up IQs. */
++	for (q = 0; q < lio->linfo.num_txpciq; q++) {
++		num_tx_descs = CFG_GET_NUM_TX_DESCS_NIC_IF(
++		    octeon_get_conf(octeon_dev), lio->ifidx);
++		retval = octeon_setup_iq(octeon_dev, ifidx, q,
++					 lio->linfo.txpciq[q], num_tx_descs,
++					 netdev_get_tx_queue(netdev, q));
++		if (retval) {
++			dev_err(&octeon_dev->pci_dev->dev,
++				" %s : Runtime IQ(TxQ) creation failed.\n",
++				__func__);
++			return 1;
++		}
++
++		/* XPS */
++		if (!OCTEON_CN23XX_VF(octeon_dev) && octeon_dev->msix_on &&
++		    octeon_dev->ioq_vector) {
++			struct octeon_ioq_vector    *ioq_vector;
++
++			ioq_vector = &octeon_dev->ioq_vector[q];
++			netif_set_xps_queue(netdev,
++					    &ioq_vector->affinity_mask,
++					    ioq_vector->iq_index);
++		}
++	}
++
++	return 0;
 +}
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 68a94c4..4241949 100644
+index b00d199..e606d33 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2229,44 +2229,6 @@ static void if_cfg_callback(struct octeon_device *oct,
+@@ -2229,113 +2229,6 @@ static void if_cfg_callback(struct octeon_device *oct,
  }
  
  /**
-- * \brief wrapper for calling napi_schedule
-- * @param param parameters to pass to napi_schedule
+- * \brief Setup input and output queues
+- * @param octeon_dev octeon device
+- * @param ifidx  Interface Index
 - *
-- * Used when scheduling on different CPUs
+- * Note: Queues are with respect to the octeon device. Thus
+- * an input queue is for egress packets, and output queues
+- * are for ingress packets.
 - */
--static void napi_schedule_wrapper(void *param)
+-static inline int setup_io_queues(struct octeon_device *octeon_dev,
+-				  int ifidx)
 -{
--	struct napi_struct *napi = param;
+-	struct octeon_droq_ops droq_ops;
+-	struct net_device *netdev;
+-	int cpu_id;
+-	int cpu_id_modulus;
+-	struct octeon_droq *droq;
+-	struct napi_struct *napi;
+-	int q, q_no, retval = 0;
+-	struct lio *lio;
+-	int num_tx_descs;
 -
--	napi_schedule(napi);
--}
+-	netdev = octeon_dev->props[ifidx].netdev;
 -
--/**
-- * \brief callback when receive interrupt occurs and we are in NAPI mode
-- * @param arg pointer to octeon output queue
-- */
--static void liquidio_napi_drv_callback(void *arg)
--{
--	struct octeon_device *oct;
--	struct octeon_droq *droq = arg;
--	int this_cpu = smp_processor_id();
+-	lio = GET_LIO(netdev);
 -
--	oct = droq->oct_dev;
+-	memset(&droq_ops, 0, sizeof(struct octeon_droq_ops));
 -
--	if (OCTEON_CN23XX_PF(oct) || droq->cpu_id == this_cpu) {
--		napi_schedule_irqoff(&droq->napi);
--	} else {
--		struct call_single_data *csd = &droq->csd;
+-	droq_ops.fptr = liquidio_push_packet;
+-	droq_ops.farg = (void *)netdev;
 -
--		csd->func = napi_schedule_wrapper;
--		csd->info = &droq->napi;
--		csd->flags = 0;
+-	droq_ops.poll_mode = 1;
+-	droq_ops.napi_fn = liquidio_napi_drv_callback;
+-	cpu_id = 0;
+-	cpu_id_modulus = num_present_cpus();
 -
--		smp_call_function_single_async(droq->cpu_id, csd);
+-	/* set up DROQs. */
+-	for (q = 0; q < lio->linfo.num_rxpciq; q++) {
+-		q_no = lio->linfo.rxpciq[q].s.q_no;
+-		dev_dbg(&octeon_dev->pci_dev->dev,
+-			"setup_io_queues index:%d linfo.rxpciq.s.q_no:%d\n",
+-			q, q_no);
+-		retval = octeon_setup_droq(octeon_dev, q_no,
+-					   CFG_GET_NUM_RX_DESCS_NIC_IF
+-						   (octeon_get_conf(octeon_dev),
+-						   lio->ifidx),
+-					   CFG_GET_NUM_RX_BUF_SIZE_NIC_IF
+-						   (octeon_get_conf(octeon_dev),
+-						   lio->ifidx), NULL);
+-		if (retval) {
+-			dev_err(&octeon_dev->pci_dev->dev,
+-				"%s : Runtime DROQ(RxQ) creation failed.\n",
+-				__func__);
+-			return 1;
+-		}
+-
+-		droq = octeon_dev->droq[q_no];
+-		napi = &droq->napi;
+-		dev_dbg(&octeon_dev->pci_dev->dev, "netif_napi_add netdev:%llx oct:%llx pf_num:%d\n",
+-			(u64)netdev, (u64)octeon_dev, octeon_dev->pf_num);
+-		netif_napi_add(netdev, napi, liquidio_napi_poll, 64);
+-
+-		/* designate a CPU for this droq */
+-		droq->cpu_id = cpu_id;
+-		cpu_id++;
+-		if (cpu_id >= cpu_id_modulus)
+-			cpu_id = 0;
+-
+-		octeon_register_droq_ops(octeon_dev, q_no, &droq_ops);
 -	}
+-
+-	if (OCTEON_CN23XX_PF(octeon_dev)) {
+-		/* 23XX PF can receive control messages (via the first PF-owned
+-		 * droq) from the firmware even if the ethX interface is down,
+-		 * so that's why poll_mode must be off for the first droq.
+-		 */
+-		octeon_dev->droq[0]->ops.poll_mode = 0;
+-	}
+-
+-	/* set up IQs. */
+-	for (q = 0; q < lio->linfo.num_txpciq; q++) {
+-		num_tx_descs = CFG_GET_NUM_TX_DESCS_NIC_IF(octeon_get_conf
+-							   (octeon_dev),
+-							   lio->ifidx);
+-		retval = octeon_setup_iq(octeon_dev, ifidx, q,
+-					 lio->linfo.txpciq[q], num_tx_descs,
+-					 netdev_get_tx_queue(netdev, q));
+-		if (retval) {
+-			dev_err(&octeon_dev->pci_dev->dev,
+-				" %s : Runtime IQ(TxQ) creation failed.\n",
+-				__func__);
+-			return 1;
+-		}
+-
+-		if (octeon_dev->ioq_vector) {
+-			struct octeon_ioq_vector *ioq_vector;
+-
+-			ioq_vector = &octeon_dev->ioq_vector[q];
+-			netif_set_xps_queue(netdev,
+-					    &ioq_vector->affinity_mask,
+-					    ioq_vector->iq_index);
+-		}
+-	}
+-
+-	return 0;
 -}
 -
 -/**
-  * \brief Entry point for NAPI polling
-  * @param napi NAPI structure
-  * @param budget maximum number of items to process
+  * \brief Poll routine for checking transmit queue status
+  * @param work work_struct data structure
+  */
+@@ -3895,7 +3788,7 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 		 */
+ 		lio->txq = lio->linfo.txpciq[0].s.q_no;
+ 		lio->rxq = lio->linfo.rxpciq[0].s.q_no;
+-		if (setup_io_queues(octeon_dev, i)) {
++		if (liquidio_setup_io_queues(octeon_dev, i)) {
+ 			dev_err(&octeon_dev->pci_dev->dev, "I/O queues creation failed\n");
+ 			goto setup_nic_dev_fail;
+ 		}
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 013a861..2663bd6 100644
+index 0bd0c30..aa502a8 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1377,17 +1377,6 @@ static void if_cfg_callback(struct octeon_device *oct,
+@@ -1377,97 +1377,6 @@ static void if_cfg_callback(struct octeon_device *oct,
  }
  
  /**
-- * \brief callback when receive interrupt occurs and we are in NAPI mode
-- * @param arg pointer to octeon output queue
+- * \brief Setup input and output queues
+- * @param octeon_dev octeon device
+- * @param ifidx Interface index
+- *
+- * Note: Queues are with respect to the octeon device. Thus
+- * an input queue is for egress packets, and output queues
+- * are for ingress packets.
 - */
--static void liquidio_vf_napi_drv_callback(void *arg)
+-static int setup_io_queues(struct octeon_device *octeon_dev, int ifidx)
 -{
--	struct octeon_droq *droq = arg;
+-	struct octeon_droq_ops droq_ops;
+-	struct net_device *netdev;
+-	int cpu_id_modulus;
+-	struct octeon_droq *droq;
+-	struct napi_struct *napi;
+-	int cpu_id;
+-	int num_tx_descs;
+-	struct lio *lio;
+-	int retval = 0;
+-	int q, q_no;
 -
--	napi_schedule_irqoff(&droq->napi);
+-	netdev = octeon_dev->props[ifidx].netdev;
+-
+-	lio = GET_LIO(netdev);
+-
+-	memset(&droq_ops, 0, sizeof(struct octeon_droq_ops));
+-
+-	droq_ops.fptr = liquidio_push_packet;
+-	droq_ops.farg = netdev;
+-
+-	droq_ops.poll_mode = 1;
+-	droq_ops.napi_fn = liquidio_napi_drv_callback;
+-	cpu_id = 0;
+-	cpu_id_modulus = num_present_cpus();
+-
+-	/* set up DROQs. */
+-	for (q = 0; q < lio->linfo.num_rxpciq; q++) {
+-		q_no = lio->linfo.rxpciq[q].s.q_no;
+-
+-		retval = octeon_setup_droq(
+-		    octeon_dev, q_no,
+-		    CFG_GET_NUM_RX_DESCS_NIC_IF(octeon_get_conf(octeon_dev),
+-						lio->ifidx),
+-		    CFG_GET_NUM_RX_BUF_SIZE_NIC_IF(octeon_get_conf(octeon_dev),
+-						   lio->ifidx),
+-		    NULL);
+-		if (retval) {
+-			dev_err(&octeon_dev->pci_dev->dev,
+-				"%s : Runtime DROQ(RxQ) creation failed.\n",
+-				__func__);
+-			return 1;
+-		}
+-
+-		droq = octeon_dev->droq[q_no];
+-		napi = &droq->napi;
+-		netif_napi_add(netdev, napi, liquidio_napi_poll, 64);
+-
+-		/* designate a CPU for this droq */
+-		droq->cpu_id = cpu_id;
+-		cpu_id++;
+-		if (cpu_id >= cpu_id_modulus)
+-			cpu_id = 0;
+-
+-		octeon_register_droq_ops(octeon_dev, q_no, &droq_ops);
+-	}
+-
+-	/* 23XX VF can send/recv control messages (via the first VF-owned
+-	 * droq) from the firmware even if the ethX interface is down,
+-	 * so that's why poll_mode must be off for the first droq.
+-	 */
+-	octeon_dev->droq[0]->ops.poll_mode = 0;
+-
+-	/* set up IQs. */
+-	for (q = 0; q < lio->linfo.num_txpciq; q++) {
+-		num_tx_descs = CFG_GET_NUM_TX_DESCS_NIC_IF(
+-		    octeon_get_conf(octeon_dev), lio->ifidx);
+-		retval = octeon_setup_iq(octeon_dev, ifidx, q,
+-					 lio->linfo.txpciq[q], num_tx_descs,
+-					 netdev_get_tx_queue(netdev, q));
+-		if (retval) {
+-			dev_err(&octeon_dev->pci_dev->dev,
+-				" %s : Runtime IQ(TxQ) creation failed.\n",
+-				__func__);
+-			return 1;
+-		}
+-	}
+-
+-	return 0;
 -}
 -
 -/**
-  * \brief Entry point for NAPI polling
-  * @param napi NAPI structure
-  * @param budget maximum number of items to process
-@@ -1473,7 +1462,7 @@ static int setup_io_queues(struct octeon_device *octeon_dev, int ifidx)
- 	droq_ops.farg = netdev;
+  * \brief Net device open for LiquidIO
+  * @param netdev network device
+  */
+@@ -2695,7 +2604,7 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 		/* Copy MAC Address to OS network device structure */
+ 		ether_addr_copy(netdev->dev_addr, mac);
  
- 	droq_ops.poll_mode = 1;
--	droq_ops.napi_fn = liquidio_vf_napi_drv_callback;
-+	droq_ops.napi_fn = liquidio_napi_drv_callback;
- 	cpu_id = 0;
- 	cpu_id_modulus = num_present_cpus();
- 
+-		if (setup_io_queues(octeon_dev, i)) {
++		if (liquidio_setup_io_queues(octeon_dev, i)) {
+ 			dev_err(&octeon_dev->pci_dev->dev, "I/O queues creation failed\n");
+ 			goto setup_nic_dev_fail;
+ 		}
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-index 5d78fd6..076fdfc 100644
+index b6597ef..b49b155 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-@@ -484,4 +484,5 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 		     union octeon_rh *rh,
- 		     void *param,
- 		     void *arg);
-+void liquidio_napi_drv_callback(void *arg);
+@@ -166,6 +166,8 @@ void cleanup_rx_oom_poll_fn(struct net_device *netdev);
+  */
+ void liquidio_link_ctrl_cmd_completion(void *nctrl_ptr);
+ 
++int liquidio_setup_io_queues(struct octeon_device *octeon_dev, int ifidx);
++
+ /**
+  * \brief Register ethtool operations
+  * @param netdev    pointer to network device
+@@ -474,15 +476,4 @@ static inline int wait_for_pending_requests(struct octeon_device *oct)
+ 	return 0;
+ }
+ 
+-int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
+-		      int desc_size, void *app_ctx);
+-void
+-liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+-		     void *skbuff,
+-		     u32 len,
+-		     union octeon_rh *rh,
+-		     void *param,
+-		     void *arg);
+-void liquidio_napi_drv_callback(void *arg);
+-int liquidio_napi_poll(struct napi_struct *napi, int budget);
  #endif
 -- 
 2.9.0
