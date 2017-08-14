@@ -1,239 +1,64 @@
-From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Subject: Re: [PATCH net-next v2 2/3] net/ncsi: Configure VLAN tag filter
-Date: Mon, 14 Aug 2017 14:23:18 +1000
-Message-ID: <1502684598.913.13.camel@mendozajonas.com>
-References: <20170814012952.13740-1-sam@mendozajonas.com>
-         <20170814012952.13740-3-sam@mendozajonas.com>
-         <CACPK8XfD=4=Axh+waO0KMRMntLBBWrb86f92NgX134U72wofzw@mail.gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net] ipv4: route: fix inet_rtm_getroute induced crash
+Date: Sun, 13 Aug 2017 22:34:43 -0600
+Message-ID: <17031977-3e7a-9a7f-e53c-538cb030e496@gmail.com>
+References: <20170813225258.16001-1-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        OpenBMC Maillist <openbmc@lists.ozlabs.org>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Gavin Shan <gwshan@linux.vnet.ibm.com>,
-        Ratan K Gupta <ratagupt@in.ibm.com>
-To: Joel Stanley <joel@jms.id.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACPK8XfD=4=Axh+waO0KMRMntLBBWrb86f92NgX134U72wofzw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:35412 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750765AbdHNEep (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 00:34:45 -0400
+Received: by mail-pg0-f48.google.com with SMTP id v189so39184382pgd.2
+        for <netdev@vger.kernel.org>; Sun, 13 Aug 2017 21:34:45 -0700 (PDT)
+In-Reply-To: <20170813225258.16001-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-08-14 at 11:39 +0930, Joel Stanley wrote:
-> On Mon, Aug 14, 2017 at 10:59 AM, Samuel Mendoza-Jonas
-> <sam@mendozajonas.com> wrote:
-> > Make use of the ndo_vlan_rx_{add,kill}_vid callbacks to have the NCSI
-> > stack process new VLAN tags and configure the channel VLAN filter
-> > appropriately.
-> > Several VLAN tags can be set and a "Set VLAN Filter" packet must be sent
-> > for each one, meaning the ncsi_dev_state_config_svf state must be
-> > repeated. An internal list of VLAN tags is maintained, and compared
-> > against the current channel's ncsi_channel_filter in order to keep track
-> > within the state. VLAN filters are removed in a similar manner, with the
-> > introduction of the ncsi_dev_state_config_clear_vids state. The maximum
-> > number of VLAN tag filters is determined by the "Get Capabilities"
-> > response from the channel.
-> > 
-> > Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+On 8/13/17 4:52 PM, Florian Westphal wrote:
+> "ip route get $daddr iif eth0 from $saddr" causes:
+>  BUG: KASAN: use-after-free in ip_route_input_rcu+0x1535/0x1b50
+>  Call Trace:
+>   ip_route_input_rcu+0x1535/0x1b50
+>   ip_route_input_noref+0xf9/0x190
+>   tcp_v4_early_demux+0x1a4/0x2b0
+>   ip_rcv+0xbcb/0xc05
+>   __netif_receive_skb+0x9c/0xd0
+>   netif_receive_skb_internal+0x5a8/0x890
 > 
-> I've given this some testing, but there are a few things I saw below
-> that we should sort out.
+> Problem is that inet_rtm_getroute calls either ip_route_input_rcu (if an
+> iif was provided) or ip_route_output_key_hash_rcu.
 > 
-> > --- a/net/ncsi/ncsi-manage.c
-> > +++ b/net/ncsi/ncsi-manage.c
-> > @@ -38,6 +38,22 @@ static inline int ncsi_filter_size(int table)
-> >         return sizes[table];
-> >  }
-> > 
-> > +u32 *ncsi_get_filter(struct ncsi_channel *nc, int table, int index)
-> > +{
-> > +       struct ncsi_channel_filter *ncf;
-> > +       int size;
-> > +
-> > +       ncf = nc->filters[table];
-> > +       if (!ncf)
-> > +               return NULL;
-> > +
-> > +       size = ncsi_filter_size(table);
-> > +       if (size < 0)
-> > +               return NULL;
-> > +
-> > +       return ncf->data + size * index;
-> > +}
-> > +
-> >  int ncsi_find_filter(struct ncsi_channel *nc, int table, void *data)
-> >  {
-> >         struct ncsi_channel_filter *ncf;
-> > @@ -58,7 +74,7 @@ int ncsi_find_filter(struct ncsi_channel *nc, int table, void *data)
-> >         index = -1;
-> >         while ((index = find_next_bit(bitmap, ncf->total, index + 1))
-> >                < ncf->total) {
-> > -               if (!memcmp(ncf->data + size * index, data, size)) {
-> > +               if (!data || !memcmp(ncf->data + size * index, data, size)) {
+> But ip_route_input_rcu, unlike ip_route_output_key_hash_rcu, already
+> associates the dst_entry with the skb.  This clears the SKB_DST_NOREF
+> bit (i.e. skb_dst_drop will release/free the entry while it should not).
 > 
-> Not clear why this check is required?
+> Thus only set the dst if we called ip_route_output_key_hash_rcu().
+> 
+> I tested this patch by running:
+>  while true;do ip r get 10.0.1.2;done > /dev/null &
+>  while true;do ip r get 10.0.1.2 iif eth0  from 10.0.1.1;done > /dev/null &
+> ... and saw no crash or memory leak.
+> 
+> Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Cc: David Ahern <dsahern@gmail.com>
+> Fixes: ba52d61e0ff ("ipv4: route: restore skb_dst_set in inet_rtm_getroute")
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Right, this could use a comment. This is a small workaround to having a
-way to finding an arbitrary active filter, below in clear_one_vid(). We
-pass NULL as a way of saying "return any enabled filter".
+Have looked at the change in detail, but are you sure that is the
+correct Fixes?
 
-> 
-> >                         spin_unlock_irqrestore(&nc->lock, flags);
-> >                         return index;
-> >                 }
-> > @@ -639,6 +655,83 @@ static void ncsi_suspend_channel(struct ncsi_dev_priv *ndp)
-> >         nd->state = ncsi_dev_state_functional;
-> >  }
-> > 
-> > +/* Check the VLAN filter bitmap for a set filter, and construct a
-> > + * "Set VLAN Filter - Disable" packet if found.
-> > + */
-> > +static int clear_one_vid(struct ncsi_dev_priv *ndp, struct ncsi_channel *nc,
-> > +                        struct ncsi_cmd_arg *nca)
-> > +{
-> > +       int index;
-> > +       u16 vid;
-> > +
-> > +       index = ncsi_find_filter(nc, NCSI_FILTER_VLAN, NULL);
-> > +       if (index < 0) {
-> > +               /* Filter table empty */
-> > +               return -1;
-> > +       }
-> > +
-> > +       vid = *(u16 *)ncsi_get_filter(nc, NCSI_FILTER_VLAN, index);
-> 
-> You just added this function that returns a pointer to a u32. It's
-> strange to see the only call site then throw half of it away.
+Running these:
+  while true;do ip r get 10.1.1.3;done > /dev/null &
+  while true;do ip r get 10.1.1.3 iif eth0  from 192.16.1.1;done >
+/dev/null &
 
-The problem here is that the single ncsi_channel_filter struct is used to
-represent several different filters, and the filter data is stored in a
-u32 data[] type. We cast to u16 in clear_one_vid because we know it's a
-VLAN tag (NCSI_FILTER_VLAN), although we probably should call
-ncsi_filter_size() to be sure.
-> 
-> Also, ncsi_get_filter can return NULL.
-
-That is indeed a problem though!
-
-> 
-> > +       netdev_printk(KERN_DEBUG, ndp->ndev.dev,
-> > +                     "ncsi: removed vlan tag %u at index %d\n",
-> > +                     vid, index + 1);
-> > +       ncsi_remove_filter(nc, NCSI_FILTER_VLAN, index);
-> > +
-> > +       nca->type = NCSI_PKT_CMD_SVF;
-> > +       nca->words[1] = vid;
-> > +       /* HW filter index starts at 1 */
-> > +       nca->bytes[6] = index + 1;
-> > +       nca->bytes[7] = 0x00;
-> > +       return 0;
-> > +}
-> > @@ -751,6 +876,26 @@ static void ncsi_configure_channel(struct ncsi_dev_priv *ndp)
-> >                 break;
-> >         case ncsi_dev_state_config_done:
-> >                 spin_lock_irqsave(&nc->lock, flags);
-> > +               if (nc->reconfigure_needed) {
-> > +                       /* This channel's configuration has been updated
-> > +                        * part-way during the config state - start the
-> > +                        * channel configuration over
-> > +                        */
-> > +                       nc->reconfigure_needed = false;
-> > +                       nc->state = NCSI_CHANNEL_INVISIBLE;
-> > +                       spin_unlock_irqrestore(&nc->lock, flags);
-> > +
-> > +                       spin_lock_irqsave(&ndp->lock, flags);
-> > +                       nc->state = NCSI_CHANNEL_INACTIVE;
-> 
-> This looks strange. What's nc->state up to? Does setting it to
-> NCSI_CHANNEL_INVISIBLE have any affect?
-> 
-> The locking is confusing too.
-
-The locking IS confusing!
-Here I've followed existing convention from a similar case in ncsi-aen,
-but I'm not convinced it's correct. Likely the following would still have
-the desired effect:
-
-                       nc->reconfigure_needed = false;
-                       nc->state = NCSI_CHANNEL_INACTIVE;
-                       spin_unlock_irqrestore(&nc->lock, flags); 
-
-                       spin_lock_irqsave(&ndp->lock, flags);
-                       list_add_tail_rcu(&nc->link, &ndp->channel_queue);
-                       spin_unlock_irqrestore(&ndp->lock, flags);
-
-And something similar in ncsi_kick_channels().
-Ideally I would ask the author Gavin, but in lieu of that I'll need to
-pick it apart a bit to see if the ncsi-aen code is doing something
-important or is just wrong.
-
-> 
-> > +                       list_add_tail_rcu(&nc->link, &ndp->channel_queue);
-> > +                       spin_unlock_irqrestore(&ndp->lock, flags);
-> > +
-> > +                       netdev_printk(KERN_DEBUG, dev,
-> > +                                     "Dirty NCSI channel state reset\n");
-> > +                       ncsi_process_next_channel(ndp);
-> > +                       break;
-> > +               }
-> > +
-> >                 if (nc->modes[NCSI_MODE_LINK].data[2] & 0x1) {
-> >                         hot_nc = nc;
-> >                         nc->state = NCSI_CHANNEL_ACTIVE;
-> > @@ -1191,6 +1336,149 @@ static struct notifier_block ncsi_inet6addr_notifier = {
-> >  };
-> >  #endif /* CONFIG_IPV6 */
-> > 
-> > +static int ncsi_kick_channels(struct ncsi_dev_priv *ndp)
-> > +{
-> > +       struct ncsi_dev *nd = &ndp->ndev;
-> > +       struct ncsi_channel *nc;
-> > +       struct ncsi_package *np;
-> > +       unsigned long flags;
-> > +       unsigned int n = 0;
-> > +
-> > +       NCSI_FOR_EACH_PACKAGE(ndp, np) {
-> > +               NCSI_FOR_EACH_CHANNEL(np, nc) {
-> > +                       spin_lock_irqsave(&nc->lock, flags);
-> > +
-> > +                       /* Channels may be busy, mark dirty instead of
-> > +                        * kicking if;
-> > +                        * a) not ACTIVE (configured)
-> > +                        * b) in the channel_queue (to be configured)
-> > +                        * c) it's ndev is in the config state
-> > +                        */
-> > +                       if (nc->state != NCSI_CHANNEL_ACTIVE) {
-> > +                               if ((ndp->ndev.state & 0xff00) ==
-> > +                                               ncsi_dev_state_config ||
-> > +                                               !list_empty(&nc->link)) {
-> > +                                       netdev_printk(KERN_DEBUG, nd->dev,
-> > +                                                     "ncsi: channel %p marked dirty\n",
-> > +                                                     nc);
-> > +                                       nc->reconfigure_needed = true;
-> > +                               }
-> > +                               spin_unlock_irqrestore(&nc->lock, flags);
-> > +                               continue;
-> > +                       }
-> > +
-> > +                       spin_unlock_irqrestore(&nc->lock, flags);
-> > +
-> > +                       ncsi_stop_channel_monitor(nc);
-> > +                       spin_lock_irqsave(&nc->lock, flags);
-> > +                       nc->state = NCSI_CHANNEL_INVISIBLE;
-> > +                       spin_unlock_irqrestore(&nc->lock, flags);
-> > +
-> > +                       spin_lock_irqsave(&ndp->lock, flags);
-> > +                       nc->state = NCSI_CHANNEL_INACTIVE;
-> 
-> This is a similar pattern to ncsi_configure_channel. I suspect the
-> answer there will be the same as here.
-> 
-> > +                       list_add_tail_rcu(&nc->link, &ndp->channel_queue);
-> > +                       spin_unlock_irqrestore(&ndp->lock, flags);
-> > +
-> > +                       netdev_printk(KERN_DEBUG, nd->dev,
-> > +                                     "ncsi: kicked channel %p\n", nc);
-> > +                       n++;
-> > +               }
-> > +       }
+at various commits:
+  ffe95ecf3a2 - KASAN backtraces
+  374d801522f - works fine
+  ba52d61e0ff - negative refcnt messages
+  a5e2ee5da47 - works fine
