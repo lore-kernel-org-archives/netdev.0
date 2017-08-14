@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 01/11] net: dsa: legacy: assign dst->applied
-Date: Mon, 14 Aug 2017 18:22:32 -0400
-Message-ID: <20170814222242.10643-2-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 09/11] net: dsa: debugfs: add port mdb
+Date: Mon, 14 Aug 2017 18:22:40 -0400
+Message-ID: <20170814222242.10643-10-vivien.didelot@savoirfairelinux.com>
 References: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -27,34 +27,53 @@ In-Reply-To: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The "applied" boolean of the dsa_switch_tree is only set in the new
-bindings. This patch sets it in the legacy code as well.
+Add a debug filesystem "mdb" entry to query a port's hardware MDB
+entries through the .port_mdb_dump switch operation.
+
+This is really convenient to query directly the hardware or inspect DSA
+or CPU links, since these ports are not exposed to userspace.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/legacy.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/dsa/debugfs.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index 91e6f7981d39..a6a0849483d1 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -605,6 +605,7 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 	 */
- 	wmb();
- 	dev->dsa_ptr = dst;
-+	dst->applied = true;
+diff --git a/net/dsa/debugfs.c b/net/dsa/debugfs.c
+index 8204c62dc9c1..98c5068d20da 100644
+--- a/net/dsa/debugfs.c
++++ b/net/dsa/debugfs.c
+@@ -140,6 +140,20 @@ static const struct dsa_debugfs_ops dsa_debugfs_fdb_ops = {
+ 	.read = dsa_debugfs_fdb_read,
+ };
  
- 	return 0;
- }
-@@ -689,6 +690,8 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
- 	dsa_cpu_port_ethtool_restore(dst->cpu_dp);
- 
- 	dev_put(dst->cpu_dp->netdev);
++static int dsa_debugfs_mdb_read(struct dsa_switch *ds, int id,
++				struct seq_file *seq)
++{
++	if (!ds->ops->port_mdb_dump)
++		return -EOPNOTSUPP;
 +
-+	dst->applied = false;
- }
++	/* same callback as for FDB dump */
++	return ds->ops->port_mdb_dump(ds, id, dsa_debugfs_fdb_dump_cb, seq);
++}
++
++static const struct dsa_debugfs_ops dsa_debugfs_mdb_ops = {
++	.read = dsa_debugfs_mdb_read,
++};
++
+ static void dsa_debugfs_regs_read_count(struct dsa_switch *ds, int id,
+ 					struct seq_file *seq, int count)
+ {
+@@ -289,6 +303,11 @@ static int dsa_debugfs_create_port(struct dsa_switch *ds, int port)
+ 	if (err)
+ 		return err;
  
- static int dsa_remove(struct platform_device *pdev)
++	err = dsa_debugfs_create_file(ds, dir, "mdb", port,
++				      &dsa_debugfs_mdb_ops);
++	if (err)
++		return err;
++
+ 	err = dsa_debugfs_create_file(ds, dir, "regs", port,
+ 				      &dsa_debugfs_regs_ops);
+ 	if (err)
 -- 
 2.14.0
