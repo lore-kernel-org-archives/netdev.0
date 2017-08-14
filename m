@@ -1,58 +1,40 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] tcp: ulp: avoid module refcnt leak in tcp_set_ulp
-Date: Mon, 14 Aug 2017 18:04:24 +0200
-Message-ID: <776711b75a664f4a61da8d32eab15d3e794cabe7.1502725540.git.sd@queasysnail.net>
-Cc: Sabrina Dubroca <sd@queasysnail.net>,
-        Dave Watson <davejwatson@fb.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Tom Herbert <tom@quantonium.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Thiago Macieira <thiago.macieira@intel.com>
+Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0 don't skip empty skbs
+Date: Mon, 14 Aug 2017 09:06:35 -0700
+Message-ID: <2828157.5Eig1SAfYW@tjmaciei-mobl1>
+References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1846443.VTclhqQinN@ring00> <CAF=yD-L9CpW-DRtKfWWWKcNKcPSWvXOkTGZoKBq6=fQMrcKVWQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Network Development <netdev@vger.kernel.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56312 "EHLO mx1.redhat.com"
+Received: from mga09.intel.com ([134.134.136.24]:33902 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751441AbdHNQFA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Aug 2017 12:05:00 -0400
+        id S1752150AbdHNQHG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Aug 2017 12:07:06 -0400
+In-Reply-To: <CAF=yD-L9CpW-DRtKfWWWKcNKcPSWvXOkTGZoKBq6=fQMrcKVWQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-__tcp_ulp_find_autoload returns tcp_ulp_ops after taking a reference on
-the module. Then, if ->init fails, tcp_set_ulp propagates the error but
-nothing releases that reference.
+On Monday, 14 August 2017 08:03:50 PDT Willem de Bruijn wrote:
+> > I'm actually surprised that only unix sockets can have negative values. 
+> > Is
+> > there a reason for that?  I had assumed that sk_set_peek_off would allow
+> > negative values as the code already has to support negative values due to
+> > what the initial value is.
+> 
+> A negative initial value indicates that PEEK_OFF is disabled. It only
+> makes sense to peek from a positive offset from the start of the data.
 
-Fixes: 734942cc4ea6 ("tcp: ULP infrastructure")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
-Tom, the generalized ULP version has the same problem in ulp_set().
+But here's a question: if the peek offset is equal to the length, should the 
+reading return an empty datagram? This would indicate to the caller that there 
+was a datagram there, which was skipped over.
 
- net/ipv4/tcp_ulp.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+That's how we deal with empty datagrams anyway.
 
-diff --git a/net/ipv4/tcp_ulp.c b/net/ipv4/tcp_ulp.c
-index 2417f55374c5..6bb9e14c710a 100644
---- a/net/ipv4/tcp_ulp.c
-+++ b/net/ipv4/tcp_ulp.c
-@@ -122,14 +122,14 @@ int tcp_set_ulp(struct sock *sk, const char *name)
- 
- 	ulp_ops = __tcp_ulp_find_autoload(name);
- 	if (!ulp_ops)
--		err = -ENOENT;
--	else
--		err = ulp_ops->init(sk);
-+		return -ENOENT;
- 
--	if (err)
--		goto out;
-+	err = ulp_ops->init(sk);
-+	if (err) {
-+		module_put(ulp_ops->owner);
-+		return err;
-+	}
- 
- 	icsk->icsk_ulp_ops = ulp_ops;
-- out:
--	return err;
-+	return 0;
- }
 -- 
-2.14.0
+Thiago Macieira - thiago.macieira (AT) intel.com
+  Software Architect - Intel Open Source Technology Center
