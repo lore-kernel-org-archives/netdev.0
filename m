@@ -1,8 +1,8 @@
 From: Joel Stanley <joel@jms.id.au>
-Subject: Re: [PATCH net-next v2 2/3] net/ncsi: Configure VLAN tag filter
-Date: Mon, 14 Aug 2017 11:39:52 +0930
-Message-ID: <CACPK8XfD=4=Axh+waO0KMRMntLBBWrb86f92NgX134U72wofzw@mail.gmail.com>
-References: <20170814012952.13740-1-sam@mendozajonas.com> <20170814012952.13740-3-sam@mendozajonas.com>
+Subject: Re: [PATCH net-next v2 1/3] net/ncsi: Fix several packet definitions
+Date: Mon, 14 Aug 2017 11:40:12 +0930
+Message-ID: <CACPK8Xcs+jp39QPVVwebdo6SHwSw=wNSj49c_9PYnYFSWLrphg@mail.gmail.com>
+References: <20170814012952.13740-1-sam@mendozajonas.com> <20170814012952.13740-2-sam@mendozajonas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -13,191 +13,100 @@ Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
         Ratan K Gupta <ratagupt@in.ibm.com>
 To: Samuel Mendoza-Jonas <sam@mendozajonas.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170814012952.13740-3-sam@mendozajonas.com>
+In-Reply-To: <20170814012952.13740-2-sam@mendozajonas.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Mon, Aug 14, 2017 at 10:59 AM, Samuel Mendoza-Jonas
 <sam@mendozajonas.com> wrote:
-> Make use of the ndo_vlan_rx_{add,kill}_vid callbacks to have the NCSI
-> stack process new VLAN tags and configure the channel VLAN filter
-> appropriately.
-> Several VLAN tags can be set and a "Set VLAN Filter" packet must be sent
-> for each one, meaning the ncsi_dev_state_config_svf state must be
-> repeated. An internal list of VLAN tags is maintained, and compared
-> against the current channel's ncsi_channel_filter in order to keep track
-> within the state. VLAN filters are removed in a similar manner, with the
-> introduction of the ncsi_dev_state_config_clear_vids state. The maximum
-> number of VLAN tag filters is determined by the "Get Capabilities"
-> response from the channel.
->
+
+I asked Sam if these should be backported to stable and he said:
+
+> These are straight up bugs except... without my changes we never call
+> this code. As Ben says as time provides a lot of the current definitions
+> need to be gone over, there's a few command/response code paths that are
+> never triggered and could be broken in similar ways.
+
+So we're okay here.
+
 > Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
 
-I've given this some testing, but there are a few things I saw below
-that we should sort out.
+Reviewed-by: Joel Stanley <joel@jms.id.au>
 
-> --- a/net/ncsi/ncsi-manage.c
-> +++ b/net/ncsi/ncsi-manage.c
-> @@ -38,6 +38,22 @@ static inline int ncsi_filter_size(int table)
->         return sizes[table];
->  }
+Cheers,
+
+Joel
+
+> ---
+> v2: Rebased on latest net-next
 >
-> +u32 *ncsi_get_filter(struct ncsi_channel *nc, int table, int index)
-> +{
-> +       struct ncsi_channel_filter *ncf;
-> +       int size;
-> +
-> +       ncf = nc->filters[table];
-> +       if (!ncf)
-> +               return NULL;
-> +
-> +       size = ncsi_filter_size(table);
-> +       if (size < 0)
-> +               return NULL;
-> +
-> +       return ncf->data + size * index;
-> +}
-> +
->  int ncsi_find_filter(struct ncsi_channel *nc, int table, void *data)
->  {
->         struct ncsi_channel_filter *ncf;
-> @@ -58,7 +74,7 @@ int ncsi_find_filter(struct ncsi_channel *nc, int table, void *data)
->         index = -1;
->         while ((index = find_next_bit(bitmap, ncf->total, index + 1))
->                < ncf->total) {
-> -               if (!memcmp(ncf->data + size * index, data, size)) {
-> +               if (!data || !memcmp(ncf->data + size * index, data, size)) {
-
-Not clear why this check is required?
-
->                         spin_unlock_irqrestore(&nc->lock, flags);
->                         return index;
->                 }
-> @@ -639,6 +655,83 @@ static void ncsi_suspend_channel(struct ncsi_dev_priv *ndp)
->         nd->state = ncsi_dev_state_functional;
->  }
+>  net/ncsi/ncsi-cmd.c | 10 +++++-----
+>  net/ncsi/ncsi-pkt.h |  2 +-
+>  net/ncsi/ncsi-rsp.c |  3 ++-
+>  3 files changed, 8 insertions(+), 7 deletions(-)
 >
-> +/* Check the VLAN filter bitmap for a set filter, and construct a
-> + * "Set VLAN Filter - Disable" packet if found.
-> + */
-> +static int clear_one_vid(struct ncsi_dev_priv *ndp, struct ncsi_channel *nc,
-> +                        struct ncsi_cmd_arg *nca)
-> +{
-> +       int index;
-> +       u16 vid;
-> +
-> +       index = ncsi_find_filter(nc, NCSI_FILTER_VLAN, NULL);
-> +       if (index < 0) {
-> +               /* Filter table empty */
-> +               return -1;
-> +       }
-> +
-> +       vid = *(u16 *)ncsi_get_filter(nc, NCSI_FILTER_VLAN, index);
-
-You just added this function that returns a pointer to a u32. It's
-strange to see the only call site then throw half of it away.
-
-Also, ncsi_get_filter can return NULL.
-
-> +       netdev_printk(KERN_DEBUG, ndp->ndev.dev,
-> +                     "ncsi: removed vlan tag %u at index %d\n",
-> +                     vid, index + 1);
-> +       ncsi_remove_filter(nc, NCSI_FILTER_VLAN, index);
-> +
-> +       nca->type = NCSI_PKT_CMD_SVF;
-> +       nca->words[1] = vid;
-> +       /* HW filter index starts at 1 */
-> +       nca->bytes[6] = index + 1;
-> +       nca->bytes[7] = 0x00;
-> +       return 0;
-> +}
-
-> @@ -751,6 +876,26 @@ static void ncsi_configure_channel(struct ncsi_dev_priv *ndp)
->                 break;
->         case ncsi_dev_state_config_done:
->                 spin_lock_irqsave(&nc->lock, flags);
-> +               if (nc->reconfigure_needed) {
-> +                       /* This channel's configuration has been updated
-> +                        * part-way during the config state - start the
-> +                        * channel configuration over
-> +                        */
-> +                       nc->reconfigure_needed = false;
-> +                       nc->state = NCSI_CHANNEL_INVISIBLE;
-> +                       spin_unlock_irqrestore(&nc->lock, flags);
-> +
-> +                       spin_lock_irqsave(&ndp->lock, flags);
-> +                       nc->state = NCSI_CHANNEL_INACTIVE;
-
-This looks strange. What's nc->state up to? Does setting it to
-NCSI_CHANNEL_INVISIBLE have any affect?
-
-The locking is confusing too.
-
-> +                       list_add_tail_rcu(&nc->link, &ndp->channel_queue);
-> +                       spin_unlock_irqrestore(&ndp->lock, flags);
-> +
-> +                       netdev_printk(KERN_DEBUG, dev,
-> +                                     "Dirty NCSI channel state reset\n");
-> +                       ncsi_process_next_channel(ndp);
-> +                       break;
-> +               }
-> +
->                 if (nc->modes[NCSI_MODE_LINK].data[2] & 0x1) {
->                         hot_nc = nc;
->                         nc->state = NCSI_CHANNEL_ACTIVE;
-> @@ -1191,6 +1336,149 @@ static struct notifier_block ncsi_inet6addr_notifier = {
+> diff --git a/net/ncsi/ncsi-cmd.c b/net/ncsi/ncsi-cmd.c
+> index 5e03ed190e18..7567ca63aae2 100644
+> --- a/net/ncsi/ncsi-cmd.c
+> +++ b/net/ncsi/ncsi-cmd.c
+> @@ -139,9 +139,9 @@ static int ncsi_cmd_handler_svf(struct sk_buff *skb,
+>         struct ncsi_cmd_svf_pkt *cmd;
+>
+>         cmd = skb_put_zero(skb, sizeof(*cmd));
+> -       cmd->vlan = htons(nca->words[0]);
+> -       cmd->index = nca->bytes[2];
+> -       cmd->enable = nca->bytes[3];
+> +       cmd->vlan = htons(nca->words[1]);
+> +       cmd->index = nca->bytes[6];
+> +       cmd->enable = nca->bytes[7];
+>         ncsi_cmd_build_header(&cmd->cmd.common, nca);
+>
+>         return 0;
+> @@ -153,7 +153,7 @@ static int ncsi_cmd_handler_ev(struct sk_buff *skb,
+>         struct ncsi_cmd_ev_pkt *cmd;
+>
+>         cmd = skb_put_zero(skb, sizeof(*cmd));
+> -       cmd->mode = nca->bytes[0];
+> +       cmd->mode = nca->bytes[3];
+>         ncsi_cmd_build_header(&cmd->cmd.common, nca);
+>
+>         return 0;
+> @@ -228,7 +228,7 @@ static struct ncsi_cmd_handler {
+>         { NCSI_PKT_CMD_AE,     8, ncsi_cmd_handler_ae      },
+>         { NCSI_PKT_CMD_SL,     8, ncsi_cmd_handler_sl      },
+>         { NCSI_PKT_CMD_GLS,    0, ncsi_cmd_handler_default },
+> -       { NCSI_PKT_CMD_SVF,    4, ncsi_cmd_handler_svf     },
+> +       { NCSI_PKT_CMD_SVF,    8, ncsi_cmd_handler_svf     },
+>         { NCSI_PKT_CMD_EV,     4, ncsi_cmd_handler_ev      },
+>         { NCSI_PKT_CMD_DV,     0, ncsi_cmd_handler_default },
+>         { NCSI_PKT_CMD_SMA,    8, ncsi_cmd_handler_sma     },
+> diff --git a/net/ncsi/ncsi-pkt.h b/net/ncsi/ncsi-pkt.h
+> index 3ea49ed0a935..91b4b66438df 100644
+> --- a/net/ncsi/ncsi-pkt.h
+> +++ b/net/ncsi/ncsi-pkt.h
+> @@ -104,7 +104,7 @@ struct ncsi_cmd_svf_pkt {
+>         unsigned char           index;     /* VLAN table index  */
+>         unsigned char           enable;    /* Enable or disable */
+>         __be32                  checksum;  /* Checksum          */
+> -       unsigned char           pad[14];
+> +       unsigned char           pad[18];
 >  };
->  #endif /* CONFIG_IPV6 */
 >
-> +static int ncsi_kick_channels(struct ncsi_dev_priv *ndp)
-> +{
-> +       struct ncsi_dev *nd = &ndp->ndev;
-> +       struct ncsi_channel *nc;
-> +       struct ncsi_package *np;
-> +       unsigned long flags;
-> +       unsigned int n = 0;
-> +
-> +       NCSI_FOR_EACH_PACKAGE(ndp, np) {
-> +               NCSI_FOR_EACH_CHANNEL(np, nc) {
-> +                       spin_lock_irqsave(&nc->lock, flags);
-> +
-> +                       /* Channels may be busy, mark dirty instead of
-> +                        * kicking if;
-> +                        * a) not ACTIVE (configured)
-> +                        * b) in the channel_queue (to be configured)
-> +                        * c) it's ndev is in the config state
-> +                        */
-> +                       if (nc->state != NCSI_CHANNEL_ACTIVE) {
-> +                               if ((ndp->ndev.state & 0xff00) ==
-> +                                               ncsi_dev_state_config ||
-> +                                               !list_empty(&nc->link)) {
-> +                                       netdev_printk(KERN_DEBUG, nd->dev,
-> +                                                     "ncsi: channel %p marked dirty\n",
-> +                                                     nc);
-> +                                       nc->reconfigure_needed = true;
-> +                               }
-> +                               spin_unlock_irqrestore(&nc->lock, flags);
-> +                               continue;
-> +                       }
-> +
-> +                       spin_unlock_irqrestore(&nc->lock, flags);
-> +
-> +                       ncsi_stop_channel_monitor(nc);
-> +                       spin_lock_irqsave(&nc->lock, flags);
-> +                       nc->state = NCSI_CHANNEL_INVISIBLE;
-> +                       spin_unlock_irqrestore(&nc->lock, flags);
-> +
-> +                       spin_lock_irqsave(&ndp->lock, flags);
-> +                       nc->state = NCSI_CHANNEL_INACTIVE;
-
-This is a similar pattern to ncsi_configure_channel. I suspect the
-answer there will be the same as here.
-
-> +                       list_add_tail_rcu(&nc->link, &ndp->channel_queue);
-> +                       spin_unlock_irqrestore(&ndp->lock, flags);
-> +
-> +                       netdev_printk(KERN_DEBUG, nd->dev,
-> +                                     "ncsi: kicked channel %p\n", nc);
-> +                       n++;
-> +               }
-> +       }
+>  /* Enable VLAN */
+> diff --git a/net/ncsi/ncsi-rsp.c b/net/ncsi/ncsi-rsp.c
+> index 087db775b3dc..c1a191d790e2 100644
+> --- a/net/ncsi/ncsi-rsp.c
+> +++ b/net/ncsi/ncsi-rsp.c
+> @@ -354,7 +354,8 @@ static int ncsi_rsp_handler_svf(struct ncsi_request *nr)
+>
+>         /* Add or remove the VLAN filter */
+>         if (!(cmd->enable & 0x1)) {
+> -               ret = ncsi_remove_filter(nc, NCSI_FILTER_VLAN, cmd->index);
+> +               /* HW indexes from 1 */
+> +               ret = ncsi_remove_filter(nc, NCSI_FILTER_VLAN, cmd->index - 1);
+>         } else {
+>                 vlan = ntohs(cmd->vlan);
+>                 ret = ncsi_add_filter(nc, NCSI_FILTER_VLAN, &vlan);
+> --
+> 2.14.0
+>
