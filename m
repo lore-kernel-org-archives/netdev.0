@@ -1,37 +1,119 @@
-From: Thiago Macieira <thiago.macieira@intel.com>
-Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0 don't skip empty skbs
-Date: Mon, 14 Aug 2017 11:33:48 -0700
-Message-ID: <1604496.falisOBPe2@tjmaciei-mobl1>
-References: <20170814055259.31078-1-matthew@mjdsystems.ca> <13347366.nbnduK6AMs@tjmaciei-mobl1> <CAF=yD-JwAidB+Hc+sH9woBMR=3JUnbneB3fCRiJ3wmt3gzTcMg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Matthew Dawson <matthew@mjdsystems.ca>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:38954 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750936AbdHNSdw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Aug 2017 14:33:52 -0400
-In-Reply-To: <CAF=yD-JwAidB+Hc+sH9woBMR=3JUnbneB3fCRiJ3wmt3gzTcMg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH v2] sctp: fully initialize the IPv6 address in sctp_v6_to_addr()
+Date: Mon, 14 Aug 2017 20:43:04 +0200
+Message-ID: <20170814184304.82747-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, linux-sctp@vger.kernel.org,
+        netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        marcelo.leitner@gmail.com, lucien.xin@gmail.com,
+        vyasevich@gmail.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday, 14 August 2017 11:25:23 PDT Willem de Bruijn wrote:
-> > Do applications using SOCK_DGRAM rely on the behaviour of skipping over
-> > datagrams that are too short?
-> 
-> It is established behavior. It cannot be ruled out that an application
-> somewhere depends on it.
+KMSAN reported use of uninitialized sctp_addr->v4.sin_addr.s_addr and
+sctp_addr->v6.sin6_scope_id in sctp_v6_cmp_addr() (see below).
+Make sure all fields of an IPv6 address are initialized, which
+guarantees that the IPv4 fields are also initialized.
 
-Understood.
+==================================================================
+ BUG: KMSAN: use of uninitialized memory in sctp_v6_cmp_addr+0x8d4/0x9f0
+ net/sctp/ipv6.c:517
+ CPU: 2 PID: 31056 Comm: syz-executor1 Not tainted 4.11.0-rc5+ #2944
+ Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+ 01/01/2011
+ Call Trace:
+  dump_stack+0x172/0x1c0 lib/dump_stack.c:42
+  is_logbuf_locked mm/kmsan/kmsan.c:59 [inline]
+  kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:938
+  native_save_fl arch/x86/include/asm/irqflags.h:18 [inline]
+  arch_local_save_flags arch/x86/include/asm/irqflags.h:72 [inline]
+  arch_local_irq_save arch/x86/include/asm/irqflags.h:113 [inline]
+  __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:467
+  sctp_v6_cmp_addr+0x8d4/0x9f0 net/sctp/ipv6.c:517
+  sctp_v6_get_dst+0x8c7/0x1630 net/sctp/ipv6.c:290
+  sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+  sctp_assoc_add_peer+0x66d/0x16f0 net/sctp/associola.c:651
+  sctp_sendmsg+0x35a5/0x4f90 net/sctp/socket.c:1871
+  inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
+  sock_sendmsg_nosec net/socket.c:633 [inline]
+  sock_sendmsg net/socket.c:643 [inline]
+  SYSC_sendto+0x608/0x710 net/socket.c:1696
+  SyS_sendto+0x8a/0xb0 net/socket.c:1664
+  entry_SYSCALL_64_fastpath+0x13/0x94
+ RIP: 0033:0x44b479
+ RSP: 002b:00007f6213f21c08 EFLAGS: 00000286 ORIG_RAX: 000000000000002c
+ RAX: ffffffffffffffda RBX: 0000000020000000 RCX: 000000000044b479
+ RDX: 0000000000000041 RSI: 0000000020edd000 RDI: 0000000000000006
+ RBP: 00000000007080a8 R08: 0000000020b85fe4 R09: 000000000000001c
+ R10: 0000000000040005 R11: 0000000000000286 R12: 00000000ffffffff
+ R13: 0000000000003760 R14: 00000000006e5820 R15: 0000000000ff8000
+ origin description: ----dst_saddr@sctp_v6_get_dst
+ local variable created at:
+  sk_fullsock include/net/sock.h:2321 [inline]
+  inet6_sk include/linux/ipv6.h:309 [inline]
+  sctp_v6_get_dst+0x91/0x1630 net/sctp/ipv6.c:241
+  sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+==================================================================
+ BUG: KMSAN: use of uninitialized memory in sctp_v6_cmp_addr+0x8d4/0x9f0
+ net/sctp/ipv6.c:517
+ CPU: 2 PID: 31056 Comm: syz-executor1 Not tainted 4.11.0-rc5+ #2944
+ Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+ 01/01/2011
+ Call Trace:
+  dump_stack+0x172/0x1c0 lib/dump_stack.c:42
+  is_logbuf_locked mm/kmsan/kmsan.c:59 [inline]
+  kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:938
+  native_save_fl arch/x86/include/asm/irqflags.h:18 [inline]
+  arch_local_save_flags arch/x86/include/asm/irqflags.h:72 [inline]
+  arch_local_irq_save arch/x86/include/asm/irqflags.h:113 [inline]
+  __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:467
+  sctp_v6_cmp_addr+0x8d4/0x9f0 net/sctp/ipv6.c:517
+  sctp_v6_get_dst+0x8c7/0x1630 net/sctp/ipv6.c:290
+  sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+  sctp_assoc_add_peer+0x66d/0x16f0 net/sctp/associola.c:651
+  sctp_sendmsg+0x35a5/0x4f90 net/sctp/socket.c:1871
+  inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
+  sock_sendmsg_nosec net/socket.c:633 [inline]
+  sock_sendmsg net/socket.c:643 [inline]
+  SYSC_sendto+0x608/0x710 net/socket.c:1696
+  SyS_sendto+0x8a/0xb0 net/socket.c:1664
+  entry_SYSCALL_64_fastpath+0x13/0x94
+ RIP: 0033:0x44b479
+ RSP: 002b:00007f6213f21c08 EFLAGS: 00000286 ORIG_RAX: 000000000000002c
+ RAX: ffffffffffffffda RBX: 0000000020000000 RCX: 000000000044b479
+ RDX: 0000000000000041 RSI: 0000000020edd000 RDI: 0000000000000006
+ RBP: 00000000007080a8 R08: 0000000020b85fe4 R09: 000000000000001c
+ R10: 0000000000040005 R11: 0000000000000286 R12: 00000000ffffffff
+ R13: 0000000000003760 R14: 00000000006e5820 R15: 0000000000ff8000
+ origin description: ----dst_saddr@sctp_v6_get_dst
+ local variable created at:
+  sk_fullsock include/net/sock.h:2321 [inline]
+  inet6_sk include/linux/ipv6.h:309 [inline]
+  sctp_v6_get_dst+0x91/0x1630 net/sctp/ipv6.c:241
+  sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+==================================================================
 
-By the way, what were the usecases for the peek offset feature?
+Signed-off-by: Alexander Potapenko <glider@google.com>
+Reviewed-by: Xin Long <lucien.xin@gmail.com>
+---
+v2 is identical to v1, resending per request by Marcelo Ricardo Leitner.
+---
+ net/sctp/ipv6.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Also, do they apply to non-peeking recv?
-
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 2a186b201ad2..a15d691829c6 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -513,6 +513,8 @@ static void sctp_v6_to_addr(union sctp_addr *addr, struct in6_addr *saddr,
+ 	addr->sa.sa_family = AF_INET6;
+ 	addr->v6.sin6_port = port;
+ 	addr->v6.sin6_addr = *saddr;
++	addr->v6.sin6_flowinfo = 0;
++	addr->v6.sin6_scope_id = 0;
+ }
+ 
+ /* Compare addresses exactly.
 -- 
-Thiago Macieira - thiago.macieira (AT) intel.com
-  Software Architect - Intel Open Source Technology Center
+2.14.0.434.g98096fd7a8-goog
