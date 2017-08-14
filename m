@@ -1,38 +1,46 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
- don't skip empty skbs
-Date: Mon, 14 Aug 2017 15:03:16 -0400
-Message-ID: <CAF=yD-K4HgOhMMT0tWycZgcqhU5OACQk_roPQEeRems1_Azhgw@mail.gmail.com>
-References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1604496.falisOBPe2@tjmaciei-mobl1>
- <CAF=yD-L_-XrrPTfqYKGShqYdadER_Qo9_0CoAYE0r=NrircDXA@mail.gmail.com> <1756525.aGoekHffaC@tjmaciei-mobl1>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net] ipv6: release rt6->rt6i_idev properly during ifdown
+Date: Mon, 14 Aug 2017 13:05:16 -0600
+Message-ID: <6e1bb883-8d44-fcf6-4d2e-6c1ccd0ca95e@gmail.com>
+References: <20170814174459.3569-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Matthew Dawson <matthew@mjdsystems.ca>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Network Development <netdev@vger.kernel.org>
-To: Thiago Macieira <thiago.macieira@intel.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Martin KaFai Lau <kafai@fb.com>
+To: Wei Wang <weiwan@google.com>, David Miller <davem@davemloft.net>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:36052 "EHLO
-        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751752AbdHNTD5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 15:03:57 -0400
-Received: by mail-oi0-f48.google.com with SMTP id g131so92603491oic.3
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 12:03:57 -0700 (PDT)
-In-Reply-To: <1756525.aGoekHffaC@tjmaciei-mobl1>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34300 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750989AbdHNTFS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 15:05:18 -0400
+Received: by mail-pg0-f67.google.com with SMTP id y192so12018657pgd.1
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 12:05:18 -0700 (PDT)
+In-Reply-To: <20170814174459.3569-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 14, 2017 at 2:58 PM, Thiago Macieira
-<thiago.macieira@intel.com> wrote:
-> On Monday, 14 August 2017 11:46:42 PDT Willem de Bruijn wrote:
->> > By the way, what were the usecases for the peek offset feature?
->>
->> The idea was to be able to peek at application headers of upper
->> layer protocols and multiplex messages among threads. It proved
->> so complex even for UDP that we did not attempt the same feature
->> for TCP. Also, KCM implements demultiplexing using eBPF today.
->
-> Interesting, but how would userspace coordinate like that? Suppose multiple
-> threads are woken up by a datagram being received
+On 8/14/17 11:44 AM, Wei Wang wrote:
+> From: Wei Wang <weiwan@google.com>
+> 
+> When a dst is created by addrconf_dst_alloc() for a host route or an
+> anycast route, dst->dev points to loopback dev while rt6->rt6i_idev
+> points to a real device.
+> When the real device goes down, the current cleanup code only checks for
+> dst->dev and assumes rt6->rt6i_idev->dev is the same. This causes the
+> refcount leak on the real device in the above situation.
+> This patch makes sure to always release the refcount taken on
+> rt6->rt6i_idev during dst_dev_put().
+> 
+> Fixes: 587fea741134 ("ipv6: mark DST_NOGC and remove the operation of
+> dst_free()")
+> Reported-by: John Stultz <john.stultz@linaro.org>
+> Tested-by: John Stultz <john.stultz@linaro.org>
+> Tested-by: Martin KaFai Lau <kafai@fb.com>
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> ---
+>  net/ipv6/route.c | 13 +++++--------
+>  1 file changed, 5 insertions(+), 8 deletions(-)
 
-This assumes a separate listener thread and worker threadpool.
+Acked-by: David Ahern <dsahern@gmail.com>
