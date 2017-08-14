@@ -1,49 +1,178 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/2] mlxsw: Add support for nexthop group consolidation for IPv6
-Date: Mon, 14 Aug 2017 21:09:18 +0200
-Message-ID: <20170814190920.9576-1-jiri@resnulli.us>
+Subject: [patch net-next 1/2] mlxsw: spectrum_router: Prepare nexthop group's hash table for IPv6
+Date: Mon, 14 Aug 2017 21:09:19 +0200
+Message-ID: <20170814190920.9576-2-jiri@resnulli.us>
+References: <20170814190920.9576-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:36935 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751515AbdHNTJX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 15:09:23 -0400
-Received: by mail-wr0-f195.google.com with SMTP id f38so7575959wrf.4
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 12:09:23 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36488 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751515AbdHNTJZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 15:09:25 -0400
+Received: by mail-wr0-f194.google.com with SMTP id y67so7542074wrb.3
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 12:09:24 -0700 (PDT)
+In-Reply-To: <20170814190920.9576-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Arkadi says:
+This patch does preparation before introducing IPv6 nexthop group
+consolidation. Currently the nexthop group hash table is used only by
+IPv4 and uses fixed key size. In order to support the IPv6's variable
+length key the current table is changed.
 
-Due to limited ASIC resources the maximum number of routes is limited by
-the nexthop resource. In order to improve the routing scale nexthop
-consolidation should be performed.
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 69 ++++++++++++++++------
+ 1 file changed, 52 insertions(+), 17 deletions(-)
 
-In case of IPv4, the kernel does the consolidation of nexthops in the form
-of the fib_info struct. In that case, the driver uses the fib_info's
-address as a key for the internal nexthop group representative struct
-lookup. In case of IPv6, the kernel doesn't do consolidation, thus the
-driver should implement it by itself.
-
-The hash value is calculated based on the nexthop set, by performing
-bitwise xor on the ifindexs of the nexthops, in a similar way to IPV4's
-kernel implementation. In case of collision a full match is performed
-between the sets which include address and ifindex comparison.
-
-In order to use the same hash table in both cases (IPv4/6), the rhashtable
-is changed to operate on variable length key.
-
-Arkadi Sharshevsky (2):
-  mlxsw: spectrum_router: Prepare nexthop group's hash table for IPv6
-  mlxsw: spectrum_router: Add support for nexthop group consolidation
-    for IPv6
-
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 209 ++++++++++++++++++---
- 1 file changed, 188 insertions(+), 21 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 3d9be36..5100429 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -1522,15 +1522,11 @@ struct mlxsw_sp_nexthop {
+ 	struct mlxsw_sp_neigh_entry *neigh_entry;
+ };
+ 
+-struct mlxsw_sp_nexthop_group_key {
+-	struct fib_info *fi;
+-};
+-
+ struct mlxsw_sp_nexthop_group {
++	void *priv;
+ 	struct rhash_head ht_node;
+ 	struct list_head fib_list; /* list of fib entries that use this group */
+ 	struct neigh_table *neigh_tbl;
+-	struct mlxsw_sp_nexthop_group_key key;
+ 	u8 adj_index_valid:1,
+ 	   gateway:1; /* routes using the group use a gateway */
+ 	u32 adj_index;
+@@ -1540,10 +1536,46 @@ struct mlxsw_sp_nexthop_group {
+ #define nh_rif	nexthops[0].rif
+ };
+ 
++static struct fib_info *
++mlxsw_sp_nexthop4_group_fi(const struct mlxsw_sp_nexthop_group *nh_grp)
++{
++	return nh_grp->priv;
++}
++
++struct mlxsw_sp_nexthop_group_cmp_arg {
++	struct fib_info *fi;
++};
++
++static int
++mlxsw_sp_nexthop_group_cmp(struct rhashtable_compare_arg *arg, const void *ptr)
++{
++	const struct mlxsw_sp_nexthop_group_cmp_arg *cmp_arg = arg->key;
++	const struct mlxsw_sp_nexthop_group *nh_grp = ptr;
++
++	return cmp_arg->fi != mlxsw_sp_nexthop4_group_fi(nh_grp);
++}
++
++static u32 mlxsw_sp_nexthop_group_hash_obj(const void *data, u32 len, u32 seed)
++{
++	const struct mlxsw_sp_nexthop_group *nh_grp = data;
++	struct fib_info *fi = mlxsw_sp_nexthop4_group_fi(nh_grp);
++
++	return jhash(&fi, sizeof(fi), seed);
++}
++
++static u32
++mlxsw_sp_nexthop_group_hash(const void *data, u32 len, u32 seed)
++{
++	const struct mlxsw_sp_nexthop_group_cmp_arg *cmp_arg = data;
++
++	return jhash(&cmp_arg->fi, sizeof(cmp_arg->fi), seed);
++}
++
+ static const struct rhashtable_params mlxsw_sp_nexthop_group_ht_params = {
+-	.key_offset = offsetof(struct mlxsw_sp_nexthop_group, key),
+ 	.head_offset = offsetof(struct mlxsw_sp_nexthop_group, ht_node),
+-	.key_len = sizeof(struct mlxsw_sp_nexthop_group_key),
++	.hashfn	     = mlxsw_sp_nexthop_group_hash,
++	.obj_hashfn  = mlxsw_sp_nexthop_group_hash_obj,
++	.obj_cmpfn   = mlxsw_sp_nexthop_group_cmp,
+ };
+ 
+ static int mlxsw_sp_nexthop_group_insert(struct mlxsw_sp *mlxsw_sp,
+@@ -1563,10 +1595,14 @@ static void mlxsw_sp_nexthop_group_remove(struct mlxsw_sp *mlxsw_sp,
+ }
+ 
+ static struct mlxsw_sp_nexthop_group *
+-mlxsw_sp_nexthop_group_lookup(struct mlxsw_sp *mlxsw_sp,
+-			      struct mlxsw_sp_nexthop_group_key key)
++mlxsw_sp_nexthop4_group_lookup(struct mlxsw_sp *mlxsw_sp,
++			       struct fib_info *fi)
+ {
+-	return rhashtable_lookup_fast(&mlxsw_sp->router->nexthop_group_ht, &key,
++	struct mlxsw_sp_nexthop_group_cmp_arg cmp_arg;
++
++	cmp_arg.fi = fi;
++	return rhashtable_lookup_fast(&mlxsw_sp->router->nexthop_group_ht,
++				      &cmp_arg,
+ 				      mlxsw_sp_nexthop_group_ht_params);
+ }
+ 
+@@ -2063,12 +2099,12 @@ mlxsw_sp_nexthop4_group_create(struct mlxsw_sp *mlxsw_sp, struct fib_info *fi)
+ 	nh_grp = kzalloc(alloc_size, GFP_KERNEL);
+ 	if (!nh_grp)
+ 		return ERR_PTR(-ENOMEM);
++	nh_grp->priv = fi;
+ 	INIT_LIST_HEAD(&nh_grp->fib_list);
+ 	nh_grp->neigh_tbl = &arp_tbl;
+ 
+ 	nh_grp->gateway = fi->fib_nh->nh_scope == RT_SCOPE_LINK;
+ 	nh_grp->count = fi->fib_nhs;
+-	nh_grp->key.fi = fi;
+ 	fib_info_hold(fi);
+ 	for (i = 0; i < nh_grp->count; i++) {
+ 		nh = &nh_grp->nexthops[i];
+@@ -2089,7 +2125,7 @@ mlxsw_sp_nexthop4_group_create(struct mlxsw_sp *mlxsw_sp, struct fib_info *fi)
+ 		nh = &nh_grp->nexthops[i];
+ 		mlxsw_sp_nexthop4_fini(mlxsw_sp, nh);
+ 	}
+-	fib_info_put(nh_grp->key.fi);
++	fib_info_put(fi);
+ 	kfree(nh_grp);
+ 	return ERR_PTR(err);
+ }
+@@ -2108,7 +2144,7 @@ mlxsw_sp_nexthop4_group_destroy(struct mlxsw_sp *mlxsw_sp,
+ 	}
+ 	mlxsw_sp_nexthop_group_refresh(mlxsw_sp, nh_grp);
+ 	WARN_ON_ONCE(nh_grp->adj_index_valid);
+-	fib_info_put(nh_grp->key.fi);
++	fib_info_put(mlxsw_sp_nexthop4_group_fi(nh_grp));
+ 	kfree(nh_grp);
+ }
+ 
+@@ -2116,11 +2152,9 @@ static int mlxsw_sp_nexthop4_group_get(struct mlxsw_sp *mlxsw_sp,
+ 				       struct mlxsw_sp_fib_entry *fib_entry,
+ 				       struct fib_info *fi)
+ {
+-	struct mlxsw_sp_nexthop_group_key key;
+ 	struct mlxsw_sp_nexthop_group *nh_grp;
+ 
+-	key.fi = fi;
+-	nh_grp = mlxsw_sp_nexthop_group_lookup(mlxsw_sp, key);
++	nh_grp = mlxsw_sp_nexthop4_group_lookup(mlxsw_sp, fi);
+ 	if (!nh_grp) {
+ 		nh_grp = mlxsw_sp_nexthop4_group_create(mlxsw_sp, fi);
+ 		if (IS_ERR(nh_grp))
+@@ -2551,7 +2585,8 @@ mlxsw_sp_fib4_entry_lookup(struct mlxsw_sp *mlxsw_sp,
+ 		if (fib4_entry->tb_id == fen_info->tb_id &&
+ 		    fib4_entry->tos == fen_info->tos &&
+ 		    fib4_entry->type == fen_info->type &&
+-		    fib4_entry->common.nh_group->key.fi == fen_info->fi) {
++		    mlxsw_sp_nexthop4_group_fi(fib4_entry->common.nh_group) ==
++		    fen_info->fi) {
+ 			return fib4_entry;
+ 		}
+ 	}
 -- 
 2.9.3
