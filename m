@@ -1,30 +1,49 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [iproute PATCH 51/51] lib/bpf: Check return value of write()
-Date: Mon, 14 Aug 2017 22:35:01 +0200
-Message-ID: <59920975.7080500@iogearbox.net>
-References: <20170812120510.28750-1-phil@nwl.cc> <20170812120510.28750-52-phil@nwl.cc> <59916AB3.1010001@iogearbox.net> <20170814172526.GW16375@orbyte.nwl.cc>
+From: Daniel Walker <danielwa@cisco.com>
+Subject: Re: ipv4: distinguish EHOSTUNREACH from the ENETUNREACH
+Date: Mon, 14 Aug 2017 13:35:24 -0700
+Message-ID: <a3d81771-62d2-f213-c98b-d9bb47cfb234@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Phil Sutter <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Poornima Ranganath <pooranga@cisco.com>,
+        xe-linux-external@cisco.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42599 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751540AbdHNUfP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 16:35:15 -0400
-In-Reply-To: <20170814172526.GW16375@orbyte.nwl.cc>
+Received: from rcdn-iport-5.cisco.com ([173.37.86.76]:9768 "EHLO
+        rcdn-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752453AbdHNUor (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 16:44:47 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/14/2017 07:25 PM, Phil Sutter wrote:
-[...]
-> But I really think we shouldn't make such a fuss about it - writing to
-> stderr either always works or we're in trouble everywhere. This patch
-> was merely to shut gcc up, so no need to waste much energy on a scenario
-> which won't happen anyway.
+Hi,
 
-Yup, fair enough, makes sense.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+It seems like commit cd0f0b is trying to add back these two errors 
+values into ip_route_input_slow(). However, if you follow the code path 
+further down you get to the two exit points of this function,
+
+in net/ipv4/route.c:ip_route_input_slow()
+
+if (rt_cache_valid(rth)) {
+	skb_dst_set_noref(skb, &rth->dst);
+	err = 0;
+	goto out;
+}
+
+and
+
+skb_dst_set(skb, &rth->dst);
+err = 0;
+goto out;
+
+Both of these set "err" variable to 0. This effective destroys the 
+return value which the patch seems to be adding. Am I missing something 
+here?
+
+
+Thanks,
+
+Daniel
