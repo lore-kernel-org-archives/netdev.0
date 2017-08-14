@@ -1,9 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 08/11] net: dsa: restore mdb dump
-Date: Tue, 15 Aug 2017 00:48:01 +0200
-Message-ID: <20170814224801.GE16885@lunn.ch>
+Subject: Re: [PATCH net-next 09/11] net: dsa: debugfs: add port mdb
+Date: Tue, 15 Aug 2017 00:50:08 +0200
+Message-ID: <20170814225008.GF16885@lunn.ch>
 References: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
- <20170814222242.10643-9-vivien.didelot@savoirfairelinux.com>
+ <20170814222242.10643-10-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -26,16 +26,16 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170814222242.10643-9-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170814222242.10643-10-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 14, 2017 at 06:22:39PM -0400, Vivien Didelot wrote:
-> The same dsa_fdb_dump_cb_t callback is used since there is no
-> distinction to do between FDB and MDB entries at this layer.
+On Mon, Aug 14, 2017 at 06:22:40PM -0400, Vivien Didelot wrote:
+> Add a debug filesystem "mdb" entry to query a port's hardware MDB
+> entries through the .port_mdb_dump switch operation.
 > 
-> Implement mv88e6xxx_port_mdb_dump so that multicast addresses associated
-> to a switch port can be dumped.
+> This is really convenient to query directly the hardware or inspect DSA
+> or CPU links, since these ports are not exposed to userspace.
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
