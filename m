@@ -1,66 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next V2 3/3] tap: XDP support
-Date: Mon, 14 Aug 2017 19:01:06 +0300
-Message-ID: <20170814185951-mutt-send-email-mst@kernel.org>
-References: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
- <1502451678-17358-4-git-send-email-jasowang@redhat.com>
- <20170811161223.6808008d@cakuba.netronome.com>
- <8876b3d1-699c-d033-e855-34b24a709c81@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jakub Kicinski <kubakici@wp.pl>, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8876b3d1-699c-d033-e855-34b24a709c81@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] tcp: ulp: avoid module refcnt leak in tcp_set_ulp
+Date: Mon, 14 Aug 2017 18:04:24 +0200
+Message-ID: <776711b75a664f4a61da8d32eab15d3e794cabe7.1502725540.git.sd@queasysnail.net>
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+        Dave Watson <davejwatson@fb.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Tom Herbert <tom@quantonium.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56312 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751441AbdHNQFA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Aug 2017 12:05:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 12, 2017 at 10:48:49AM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年08月12日 07:12, Jakub Kicinski wrote:
-> > On Fri, 11 Aug 2017 19:41:18 +0800, Jason Wang wrote:
-> > > This patch tries to implement XDP for tun. The implementation was
-> > > split into two parts:
-> > > 
-> > > - fast path: small and no gso packet. We try to do XDP at page level
-> > >    before build_skb(). For XDP_TX, since creating/destroying queues
-> > >    were completely under control of userspace, it was implemented
-> > >    through generic XDP helper after skb has been built. This could be
-> > >    optimized in the future.
-> > > - slow path: big or gso packet. We try to do it after skb was created
-> > >    through generic XDP helpers.
-> > > 
-> > > Test were done through pktgen with small packets.
-> > > 
-> > > xdp1 test shows ~41.1% improvement:
-> > > 
-> > > Before: ~1.7Mpps
-> > > After:  ~2.3Mpps
-> > > 
-> > > xdp_redirect to ixgbe shows ~60% improvement:
-> > > 
-> > > Before: ~0.8Mpps
-> > > After:  ~1.38Mpps
-> > > 
-> > > Suggested-by: Michael S. Tsirkin <mst@redhat.com>
-> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > Looks OK to me now :)
-> > 
-> > Out of curiosity, you say the build_skb() is for "small packets", and it
-> > seems you are always reserving the 256B regardless of XDP being
-> > installed.  Does this have no performance impact on non-XDP case?
-> 
-> Have a test, only less than 1% were noticed which I think could be ignored.
-> 
-> Thanks
+__tcp_ulp_find_autoload returns tcp_ulp_ops after taking a reference on
+the module. Then, if ->init fails, tcp_set_ulp propagates the error but
+nothing releases that reference.
 
-What did you test btw? The biggest issue would be with something like
-UDP with short packets.
+Fixes: 734942cc4ea6 ("tcp: ULP infrastructure")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+Tom, the generalized ULP version has the same problem in ulp_set().
 
+ net/ipv4/tcp_ulp.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv4/tcp_ulp.c b/net/ipv4/tcp_ulp.c
+index 2417f55374c5..6bb9e14c710a 100644
+--- a/net/ipv4/tcp_ulp.c
++++ b/net/ipv4/tcp_ulp.c
+@@ -122,14 +122,14 @@ int tcp_set_ulp(struct sock *sk, const char *name)
+ 
+ 	ulp_ops = __tcp_ulp_find_autoload(name);
+ 	if (!ulp_ops)
+-		err = -ENOENT;
+-	else
+-		err = ulp_ops->init(sk);
++		return -ENOENT;
+ 
+-	if (err)
+-		goto out;
++	err = ulp_ops->init(sk);
++	if (err) {
++		module_put(ulp_ops->owner);
++		return err;
++	}
+ 
+ 	icsk->icsk_ulp_ops = ulp_ops;
+- out:
+-	return err;
++	return 0;
+ }
 -- 
-MST
+2.14.0
