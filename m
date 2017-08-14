@@ -1,57 +1,50 @@
-From: Thiago Macieira <thiago.macieira@intel.com>
-Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0 don't skip empty skbs
-Date: Mon, 14 Aug 2017 12:15:27 -0700
-Message-ID: <4013878.dizogNlyrN@tjmaciei-mobl1>
-References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1756525.aGoekHffaC@tjmaciei-mobl1> <CAF=yD-K4HgOhMMT0tWycZgcqhU5OACQk_roPQEeRems1_Azhgw@mail.gmail.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: fix issues with fw_type module parameter
+Date: Mon, 14 Aug 2017 12:17:56 -0700
+Message-ID: <20170814191756.GA1371@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Matthew Dawson <matthew@mjdsystems.ca>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41107 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750771AbdHNTPg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 14 Aug 2017 15:15:36 -0400
-In-Reply-To: <CAF=yD-K4HgOhMMT0tWycZgcqhU5OACQk_roPQEeRems1_Azhgw@mail.gmail.com>
+Received: from mail-dm3nam03on0051.outbound.protection.outlook.com ([104.47.41.51]:2680
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750771AbdHNTSC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Aug 2017 15:18:02 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, 14 August 2017 12:03:16 PDT Willem de Bruijn wrote:
-> On Mon, Aug 14, 2017 at 2:58 PM, Thiago Macieira
-> 
-> <thiago.macieira@intel.com> wrote:
-> > On Monday, 14 August 2017 11:46:42 PDT Willem de Bruijn wrote:
-> >> > By the way, what were the usecases for the peek offset feature?
-> >> 
-> >> The idea was to be able to peek at application headers of upper
-> >> layer protocols and multiplex messages among threads. It proved
-> >> so complex even for UDP that we did not attempt the same feature
-> >> for TCP. Also, KCM implements demultiplexing using eBPF today.
-> > 
-> > Interesting, but how would userspace coordinate like that? Suppose
-> > multiple
-> > threads are woken up by a datagram being received
-> 
-> This assumes a separate listener thread and worker threadpool.
+From: Derek Chickles <derek.chickles@cavium.com>
 
-The listener thread still needs to synchronise with the worker that got 
-activated and wait for it to recv from the socket before the listener thread 
-can go back to poll().
+The fw_type module parameter isn't showing up in the
+/sys/module/liquidio/parameters directory.  Fix it by setting the read
+permission bits for user, group, other in module_param_string().  Revise
+the description of fw_type.  Initialize the fw_type static char array with
+the default value to conform to the module parameter description.
 
-If we are really talking about threads in the same process, it might be easier 
-for the listener to just read the datagram anyway and pass it on to the 
-worker. That way, it can proceed immediately to the next datagram and not have 
-to wait for the possibly slow worker.
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-If it is a separate process, then I don't see another way and this might be 
-necessary.
-
-By the way, what does recv with MSG_PEEK | MSG_TRUNC return? Is it the full 
-datagram's size or is it the size minus the peek offset?
-
--- 
-Thiago Macieira - thiago.macieira (AT) intel.com
-  Software Architect - Intel Open Source Technology Center
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index cbd6287..b8ba2c2 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -59,9 +59,9 @@ static int debug = -1;
+ module_param(debug, int, 0644);
+ MODULE_PARM_DESC(debug, "NETIF_MSG debug bits");
+ 
+-static char fw_type[LIO_MAX_FW_TYPE_LEN];
+-module_param_string(fw_type, fw_type, sizeof(fw_type), 0000);
+-MODULE_PARM_DESC(fw_type, "Type of firmware to be loaded. Default \"nic\"");
++static char fw_type[LIO_MAX_FW_TYPE_LEN] = LIO_FW_NAME_TYPE_NIC;
++module_param_string(fw_type, fw_type, sizeof(fw_type), 0444);
++MODULE_PARM_DESC(fw_type, "Type of firmware to be loaded. Default \"nic\".  Use \"none\" to load firmware from flash.");
+ 
+ static u32 console_bitmask;
+ module_param(console_bitmask, int, 0644);
