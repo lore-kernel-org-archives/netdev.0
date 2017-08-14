@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 09/11] net: dsa: debugfs: add port mdb
-Date: Mon, 14 Aug 2017 18:22:40 -0400
-Message-ID: <20170814222242.10643-10-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 11/11] net: dsa: debugfs: add port vlan
+Date: Mon, 14 Aug 2017 18:22:42 -0400
+Message-ID: <20170814222242.10643-12-vivien.didelot@savoirfairelinux.com>
 References: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -27,53 +27,73 @@ In-Reply-To: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a debug filesystem "mdb" entry to query a port's hardware MDB
-entries through the .port_mdb_dump switch operation.
+Add a debug filesystem "vlan" entry to query a port's hardware VLAN
+entries through the .port_vlan_dump switch operation.
 
 This is really convenient to query directly the hardware or inspect DSA
 or CPU links, since these ports are not exposed to userspace.
 
+Here are the VLAN entries for a CPU port:
+
+    # cat port5/vlan
+    vid 1
+    vid 42  pvid
+
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/debugfs.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+ net/dsa/debugfs.c | 33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
 
 diff --git a/net/dsa/debugfs.c b/net/dsa/debugfs.c
-index 8204c62dc9c1..98c5068d20da 100644
+index 98c5068d20da..b00942368d29 100644
 --- a/net/dsa/debugfs.c
 +++ b/net/dsa/debugfs.c
-@@ -140,6 +140,20 @@ static const struct dsa_debugfs_ops dsa_debugfs_fdb_ops = {
- 	.read = dsa_debugfs_fdb_read,
+@@ -286,6 +286,34 @@ static const struct dsa_debugfs_ops dsa_debugfs_tree_ops = {
+ 	.read = dsa_debugfs_tree_read,
  };
  
-+static int dsa_debugfs_mdb_read(struct dsa_switch *ds, int id,
-+				struct seq_file *seq)
++static int dsa_debugfs_vlan_dump_cb(u16 vid, bool pvid, bool untagged,
++				    void *data)
 +{
-+	if (!ds->ops->port_mdb_dump)
-+		return -EOPNOTSUPP;
++	struct seq_file *seq = data;
 +
-+	/* same callback as for FDB dump */
-+	return ds->ops->port_mdb_dump(ds, id, dsa_debugfs_fdb_dump_cb, seq);
++	seq_printf(seq, "vid %d", vid);
++	if (pvid)
++		seq_puts(seq, "  pvid");
++	if (untagged)
++		seq_puts(seq, "  untagged");
++	seq_puts(seq, "\n");
++
++	return 0;
 +}
 +
-+static const struct dsa_debugfs_ops dsa_debugfs_mdb_ops = {
-+	.read = dsa_debugfs_mdb_read,
++static int dsa_debugfs_vlan_read(struct dsa_switch *ds, int id,
++				 struct seq_file *seq)
++{
++	if (!ds->ops->port_vlan_dump)
++		return -EOPNOTSUPP;
++
++	return ds->ops->port_vlan_dump(ds, id, dsa_debugfs_vlan_dump_cb, seq);
++}
++
++static const struct dsa_debugfs_ops dsa_debugfs_vlan_ops = {
++	.read = dsa_debugfs_vlan_read,
 +};
 +
- static void dsa_debugfs_regs_read_count(struct dsa_switch *ds, int id,
- 					struct seq_file *seq, int count)
+ static int dsa_debugfs_create_port(struct dsa_switch *ds, int port)
  {
-@@ -289,6 +303,11 @@ static int dsa_debugfs_create_port(struct dsa_switch *ds, int port)
+ 	struct dentry *dir;
+@@ -318,6 +346,11 @@ static int dsa_debugfs_create_port(struct dsa_switch *ds, int port)
  	if (err)
  		return err;
  
-+	err = dsa_debugfs_create_file(ds, dir, "mdb", port,
-+				      &dsa_debugfs_mdb_ops);
++	err = dsa_debugfs_create_file(ds, dir, "vlan", port,
++				      &dsa_debugfs_vlan_ops);
 +	if (err)
 +		return err;
 +
- 	err = dsa_debugfs_create_file(ds, dir, "regs", port,
- 				      &dsa_debugfs_regs_ops);
- 	if (err)
+ 	return 0;
+ }
+ 
 -- 
 2.14.0
