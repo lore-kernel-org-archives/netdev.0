@@ -1,46 +1,60 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] mlxsw: spectrum_router: Use correct config option
-Date: Tue, 15 Aug 2017 09:10:33 +0200
-Message-ID: <20170815071033.1420-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Leon Romanovsky <leonro@mellanox.com>
+Subject: Re: [PATCH 1/2] mlx4: remove unnecessary pci_set_drvdata()
+Date: Tue, 15 Aug 2017 10:13:36 +0300
+Message-ID: <20170815071336.GL24282@mtr-leonro.local>
+References: <1502778786-14738-1-git-send-email-yanjun.zhu@oracle.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="vkJ987n7uXEPtlXE"
+Cc: saeedm@mellanox.com, matanb@mellanox.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, yuval.shaia@oracle.com
+To: Zhu Yanjun <yanjun.zhu@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33987 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753233AbdHOHKg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 03:10:36 -0400
-Received: by mail-wm0-f67.google.com with SMTP id x64so518200wmg.1
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 00:10:36 -0700 (PDT)
+Received: from mail-db5eur01on0077.outbound.protection.outlook.com ([104.47.2.77]:32680
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753077AbdHOHNr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 03:13:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1502778786-14738-1-git-send-email-yanjun.zhu@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
 
-I made an embarrassing mistake and used 'IPV6' instead of 'CONFIG_IPV6'
-around the function that updates the kernel about IPv6 neighbours
-activity. This can be a problem if the kernel has more neighbours than a
-certain threshold and it starts deleting those that are supposedly
-inactive.
+--vkJ987n7uXEPtlXE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Fixes: b5f3e0d43012 ("mlxsw: spectrum_router: Fix build when IPv6 isn't enabled")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Tue, Aug 15, 2017 at 02:33:05AM -0400, Zhu Yanjun wrote:
+> The driver core clears the driver data to NULL after device_release
+> or on probe failure. Thus, it is not necessary to manually clear the
+> device driver data to NULL.
+>
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 4895d5b..a0a9728 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1042,7 +1042,7 @@ static void mlxsw_sp_router_neigh_ent_ipv4_process(struct mlxsw_sp *mlxsw_sp,
- 	neigh_release(n);
- }
- 
--#if IS_ENABLED(IPV6)
-+#if IS_ENABLED(CONFIG_IPV6)
- static void mlxsw_sp_router_neigh_ent_ipv6_process(struct mlxsw_sp *mlxsw_sp,
- 						   char *rauhtd_pl,
- 						   int rec_index)
--- 
-2.9.3
+It makes sense and I'm pretty sure that you are right, but I'm failing
+to find the function in device core which sets it to NULL. Can you help
+me and present the actual call stack to that code place?
+
+Thanks,
+
+--vkJ987n7uXEPtlXE
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlmSnx8ACgkQ5GN7iDZy
+WKfmXA/+P3uZidyL/R9taLe6jflgXY4Wdo2QOQL7fgq7C7jfUMo7p5138WiH92nb
+r+TGdqL1u2W8XmSk67py17T7GPAj/ZzMfeLypFLvWoAfROdzD9OE/UZBMCfqvmQ3
+8wYPNQf0FAjRfSRZRH4oaDwZzAF2BJiuJTT4pFLfuuFX34i4kSPVXtSBadhesOzW
+cB+6qZsFmW17YHPW9Sg+GQvRQ/FXEL2i4ZmkzpwOcnYa9GujtQP7MjHCqjrTVrvl
+McdmrRFPN0WPJcGAM/iTcSysTUj9dux+jZhZLbH0U9RuSX1awh6RYqjEQc5oKtJA
+eSin6YmrvmtHUaktAlRyEzKWxOoFaak6L9nMfn2Iqb1RwtRz7jDxhlsuH/wdrF1S
+a0YZDWPXteU541s/Z1HsJ9af8f1mcY/rHypirCbYdSnFJ/NLI8TTwY2UBZhctEfP
+Lns1yaEo+wq7fc8GorPwoXF80bkNAkxfkeVJhGobgaOCnoR2e7hYhKxRXLWYBLiA
+TSZb73dIK4OdMT7DNpCUl4S46JQs3Vixs/TFyVMaAA7oozhSbN/CMnaH/GSS71Dx
+aoIz55srr74jpl3f72XtQl2Na9+v14xULOXIV2OcxUI9abWMZb5xgwLrsau9ZZTF
+r2C1JLjv5BIy2LnMApaXf9FTtIZHoi+nr3m2R6Br7P5w1w4/g2Y=
+=l4vv
+-----END PGP SIGNATURE-----
+
+--vkJ987n7uXEPtlXE--
