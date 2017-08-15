@@ -1,81 +1,70 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Mellanox driver / cant access /prox/irq/XX/smp_affinity after upgrade
- from linux-4.13-rc4-next-20170811 to 4.13.0-rc5-next-20170815
-Date: Tue, 15 Aug 2017 14:21:39 +0200
-Message-ID: <357548fa-2987-4a90-1732-ad298384163e@itcare.pl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv4: fix NULL dereference in free_fib_info_rcu()
+Date: Tue, 15 Aug 2017 05:26:17 -0700
+Message-ID: <1502799977.4936.71.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp19.iq.pl ([86.111.242.224]:54263 "EHLO smtp19.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751147AbdHOMWr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Aug 2017 08:22:47 -0400
-Received: from [192.168.2.200] (unknown [185.78.72.19])
-        (Authenticated sender: pstaszewski@itcare.pl)
-        by smtp.iq.pl (Postfix) with ESMTPSA id 3xWs7T6PWbz3xCH
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 14:22:45 +0200 (CEST)
-Content-Language: pl
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36803 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751654AbdHOM0T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 08:26:19 -0400
+Received: by mail-pg0-f66.google.com with SMTP id y129so1278779pgy.3
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 05:26:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+From: Eric Dumazet <edumazet@google.com>
 
+If fi->fib_metrics could not be allocated in fib_create_info()
+we attempt to dereference a NULL pointer in free_fib_info_rcu() :
 
-After upgrading kernel to latest next there is problem with accessing 
-smp_affinity to write for mellanox driver
+    m = fi->fib_metrics;
+    if (m != &dst_default_metrics && atomic_dec_and_test(&m->refcnt))
+            kfree(m);
 
-For example - MEllanox:
+Before my recent patch, we used to call kfree(NULL) and nothing wrong
+happened.
 
-cat /proc/interrupts | grep ml
-  217:          3          0          0          0 0          0          
-0          0          0          0 0          0          0          
-0          0          0 0          0          0          0          
-0          0 0          0          0          0          0          0 
-0          0          0          0          0          0 0          
-0          0          0          0          0 0          0          
-0          0          0          0 0          0          0          
-0          0          0 0          0          0          0   PCI-MSI 
-91750400-edge mlx5_pages_eq@pci:0000:af:00.0
-  218:      12237          0          0          0 0          0          
-0          0          0          0 0          0          0          
-0          0          0 0          0          0          0          
-0          0 0          0          0          0          0          0 
-0          0          0          0          0          0 0          
-0          0          0          0          0 0          0          
-0          0          0          0 0          0          0          
-0          0          0 0          0          0          0   PCI-MSI 
-91750401-edge mlx5_cmd_eq@pci:0000:af:00.0
+Instead of using RCU to defer freeing while we are under memory stress,
+it seems better to take immediate action.
 
-cat /proc/irq/218/smp_affinity
-ffffff,ffffffff
+This was reported by syzkaller team.
 
-echo  "ffffff,ffffffff " > /proc/irq/218/smp_affinity
--su: echo: write error: Input/output error
+Fixes: 3fb07daff8e9 ("ipv4: add reference counting to metrics")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+---
+ net/ipv4/fib_semantics.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-
-For intel ixgbe:
-
-   90:          1          0          0          0 0          0          
-0          0          0          0 0          0          0          
-0          0          0 0          0          0          0          
-0          0 0          0          0          0          0          0 
-0          0          0          0          0          0 0          
-0          0          0          0          0 0          0          
-0          0          0          0 0          0          0          
-0          0          0 0          0          0          0   PCI-MSI 
-12589056-edge enp24s0f3
-
-cat /proc/irq/90/smp_affinity
-0003ff,f0003fff
-
-  echo "0003ff,f0003fff" > /proc/irq/90/smp_affinity
-
-Without errors.
-
-
-
-BR
-
-Pawel
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index b8d18171cca3..ec3a9ce281a6 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1083,15 +1083,17 @@ struct fib_info *fib_create_info(struct fib_config *cfg,
+ 	fi = kzalloc(sizeof(*fi)+nhs*sizeof(struct fib_nh), GFP_KERNEL);
+ 	if (!fi)
+ 		goto failure;
+-	fib_info_cnt++;
+ 	if (cfg->fc_mx) {
+ 		fi->fib_metrics = kzalloc(sizeof(*fi->fib_metrics), GFP_KERNEL);
+-		if (!fi->fib_metrics)
+-			goto failure;
++		if (unlikely(!fi->fib_metrics)) {
++			kfree(fi);
++			return ERR_PTR(err);
++		}
+ 		atomic_set(&fi->fib_metrics->refcnt, 1);
+-	} else
++	} else {
+ 		fi->fib_metrics = (struct dst_metrics *)&dst_default_metrics;
+-
++	}
++	fib_info_cnt++;
+ 	fi->fib_net = net;
+ 	fi->fib_protocol = cfg->fc_protocol;
+ 	fi->fib_scope = cfg->fc_scope;
