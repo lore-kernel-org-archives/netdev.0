@@ -1,84 +1,105 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v4 iproute2 2/7] rdma: Add dev object
-Date: Tue, 15 Aug 2017 17:00:54 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD005613D@AcuExch.aculab.com>
-References: <20170815130020.29509-1-leonro@mellanox.com>
- <20170815130020.29509-3-leonro@mellanox.com>
- <20170815091205.2c39ea91@xeon-e3>
- <063D6719AE5E284EB5DD2968C1650D6DD005604E@AcuExch.aculab.com>
- <20170815164720.GV24282@mtr-leonro.local>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [PATCH net RESEND] PCI: fix oops when try to find Root Port for
+ a PCI device
+Date: Tue, 15 Aug 2017 12:03:31 -0500
+Message-ID: <20170815170331.GA4099@bhelgaas-glaptop.roam.corp.google.com>
+References: <1502810688-12420-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: 'Stephen Hemminger' <stephen@networkplumber.org>,
-        Doug Ledford <dledford@redhat.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "Ariel Almog" <ariela@mellanox.com>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: 'Leon Romanovsky' <leonro@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.194]:50293 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752262AbdHORBJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 13:01:09 -0400
-In-Reply-To: <20170815164720.GV24282@mtr-leonro.local>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: leedom@chelsio.com, ashok.raj@intel.com, bhelgaas@google.com,
+        werner@chelsio.com, ganeshgr@chelsio.com, asit.k.mallick@intel.com,
+        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
+        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
+        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
+        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
+        davem@davemloft.net, alexander.duyck@gmail.com,
+        eric.dumazet@gmail.com, linux-arm-kernel@lists.infradead.org,
+        netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linuxarm@huawei.com
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1502810688-12420-1-git-send-email-dingtianhong@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Leon Romanovsky
-> Sent: 15 August 2017 17:47
-> On Tue, Aug 15, 2017 at 04:23:11PM +0000, David Laight wrote:
-> > From: Stephen Hemminger
-> > > Sent: 15 August 2017 17:12
-> > > On Tue, 15 Aug 2017 16:00:15 +0300
-> > > Leon Romanovsky <leonro@mellanox.com> wrote:
-> > >
-> > > > +
-> > > > +static const char *dev_caps_to_str(uint32_t idx)
-> > > > +{
-> > > > +	uint64_t cap = 1 << idx;
-> > > > +
-> > > > +	switch (cap) {
-> > > > +	case RDMA_DEV_RESIZE_MAX_WR: return "RESIZE_MAX_WR";
-> > > > +	case RDMA_DEV_BAD_PKEY_CNTR: return "BAD_PKEY_CNTR";
-> > ...
-> > > > +	case RDMA_DEV_RAW_SCATTER_FCS: return "RAW_SCATTER_FCS";
-> > > > +	case RDMA_DEV_RDMA_NETDEV_OPA_VNIC: return "RDMA_NETDEV_OPA_VNIC";
-> > > > +	default: return "UNKNOWN";
-> > > > +	}
-> > >
-> > > Could this be a table in future versions?
-> >
-> > Potentially you could define the constants using some pre-processor
-> > 'magic' that would create the table for you.
-> > Something like (but not compiled):
-> >
-> > #define RDMA_DEV_FLAGS(x) \
-> > 	x(RESIZE_MAX_WR, 0) \
-> > 	x(BAD_PKEY_CNTR, 1) \
-> > (continue for all the bits)
-> >
-> > #define RDMA_DEV_ENUM(name, bit_no) RDMA_DEV_##name = BIT(bit_no),
-> > enum {RDMA_DEV_FLAGS(RDMA_DEV_ENUM)};
-> > #undef RDMA_DEV_ENUM
-> >
-> > #define RDMA_DEV_NAMES(name, bit_no) [bit_no] = #name,
-> > static const char rdma_dev_names[] = {RDMA_DEV_FLAGS(RDMA_DEV_NAMES)};
-I missed the #undef
-> >
+On Tue, Aug 15, 2017 at 11:24:48PM +0800, Ding Tianhong wrote:
+> Eric report a oops when booting the system after applying
+> the commit a99b646afa8a ("PCI: Disable PCIe Relaxed..."):
+> ...
+
+> It looks like the pci_find_pcie_root_port() was trying to
+> find the Root Port for the PCI device which is the Root
+> Port already, it will return NULL and trigger the problem,
+> so check the highest_pcie_bridge to fix thie problem.
+
+The problem was actually with a Root Complex Integrated Endpoint that
+has no upstream PCIe device:
+
+  00:05.2 System peripheral: Intel Corporation Device 0e2a (rev 04)
+        Subsystem: Intel Corporation Device 0e2a
+        Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Capabilities: [40] Express (v2) Root Complex Integrated Endpoint, MSI 00
+                DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
+                        ExtTag- RBE- FLReset-
+                DevCtl: Report errors: Correctable- Non-Fatal- Fatal+ Unsupported+
+                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
+                        MaxPayload 128 bytes, MaxReadReq 128 bytes
+
+> Fixes: a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
+
+This also
+
+Fixes: c56d4450eb68 ("PCI: Turn off Request Attributes to avoid Chelsio T5 Completion erratum")
+
+which added pci_find_pcie_root_port().  Prior to this Relaxed Ordering
+series, we only used pci_find_pcie_root_port() in a Chelsio quirk that
+only applied to non-integrated endpoints, so we didn't trip over the
+bug.
+
+> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
+>  drivers/pci/pci.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 > 
-> David,
-> 
-> How should I handle "uknown" fields without names?
+> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+> index af0cc34..7e2022f 100644
+> --- a/drivers/pci/pci.c
+> +++ b/drivers/pci/pci.c
+> @@ -522,7 +522,8 @@ struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
+>  		bridge = pci_upstream_bridge(bridge);
+>  	}
+>  
+> -	if (pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
+> +	if (highest_pcie_bridge &&
+> +	    pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
+>  		return NULL;
+>  
+>  	return highest_pcie_bridge;
+> -- 
 
-The function that accesses rdma_dev_names[] checks ARRAY_SIZE()
-and for a NULL pointer.
+I think structuring the fix as follows is a little more readable:
 
-WRT the other comment, the spare pointers consume far less space than
-the code for your switch statement.
-
-	David
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index af0cc3456dc1..587cd7623ed8 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -522,10 +522,11 @@ struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
+ 		bridge = pci_upstream_bridge(bridge);
+ 	}
+ 
+-	if (pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
+-		return NULL;
++	if (highest_pcie_bridge &&
++	    pci_pcie_type(highest_pcie_bridge) == PCI_EXP_TYPE_ROOT_PORT)
++		return highest_pcie_bridge;
+ 
+-	return highest_pcie_bridge;
++	return NULL;
+ }
+ EXPORT_SYMBOL(pci_find_pcie_root_port);
+ 
