@@ -1,47 +1,51 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net repost] nfp: do not update MTU from BH in flower app
-Date: Tue, 15 Aug 2017 08:13:48 +0200
-Message-ID: <20170815061347.GA14861@vergenet.net>
-References: <1502439500-16047-1-git-send-email-simon.horman@netronome.com>
- <20170811.145107.1539668262080149471.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
-        oss-drivers@netronome.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:34571 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752134AbdHOGNv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 02:13:51 -0400
-Received: by mail-wm0-f47.google.com with SMTP id t138so21539860wmt.1
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 23:13:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170811.145107.1539668262080149471.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 2/2] mlx5: remove unnecessary pci_set_drvdata()
+Date: Tue, 15 Aug 2017 02:33:06 -0400
+Message-ID: <1502778786-14738-2-git-send-email-yanjun.zhu@oracle.com>
+References: <1502778786-14738-1-git-send-email-yanjun.zhu@oracle.com>
+To: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1502778786-14738-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 11, 2017 at 02:51:07PM -0700, David Miller wrote:
-> From: Simon Horman <simon.horman@netronome.com>
-> Date: Fri, 11 Aug 2017 10:18:20 +0200
-> 
-> > The Flower app may receive a request to update the MTU of a representor
-> > netdev upon receipt of a control message from the firmware. This requires
-> > the RTNL lock which needs to be taken outside of the packet processing
-> > path.
-> > 
-> > As a handling of this correctly seems a little to invasive for a fix simply
-> > skip setting the MTU for now.
-> > 
-> > Relevant backtrace:
->  ...
-> > Fixes: 948faa46c05b ("nfp: add support for control messages for flower app")
-> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> > Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> 
-> Applied.
+The driver core clears the driver data to NULL after device_release
+or on probe failure. Thus, it is not necessary to manually clear the
+device driver data to NULL.
 
-Thanks.
+Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Could you pull net into net-next? I'd like to send up a follow-up
-for net-next to allow processing of the MTU.
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index c065132..2cafbdc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -1407,7 +1407,6 @@ static int init_one(struct pci_dev *pdev,
+ 	cleanup_srcu_struct(&priv->pfault_srcu);
+ clean_dev:
+ #endif
+-	pci_set_drvdata(pdev, NULL);
+ 	devlink_free(devlink);
+ 
+ 	return err;
+@@ -1434,7 +1433,6 @@ static void remove_one(struct pci_dev *pdev)
+ #ifdef CONFIG_INFINIBAND_ON_DEMAND_PAGING
+ 	cleanup_srcu_struct(&priv->pfault_srcu);
+ #endif
+-	pci_set_drvdata(pdev, NULL);
+ 	devlink_free(devlink);
+ }
+ 
+-- 
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
