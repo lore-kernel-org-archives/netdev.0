@@ -1,76 +1,45 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH net-next 0/3] add Hyper-V transport for Virtual Sockets
-Date: Tue, 15 Aug 2017 22:02:46 +0000
-Message-ID: <KL1P15301MB0008660CC5FF0CF8FC169CC1BF8D0@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: 100% CPU load when generating traffic to destination network
+ that nexthop is not reachable
+Date: Wed, 16 Aug 2017 01:11:21 +0300 (EEST)
+Message-ID: <alpine.LFD.2.20.1708160108050.2947@ja.home.ssi.bg>
+References: <177465a0-aaba-4063-e451-ebbf46728b77@itcare.pl>          <1502816253.4936.85.camel@edumazet-glaptop3.roam.corp.google.com>          <baa1807d-cc00-0182-4b34-4d986d62ebcb@itcare.pl>  <1502824260.4936.86.camel@edumazet-glaptop3.roam.corp.google.com>
+  <alpine.LFD.2.20.1708152236360.1666@ja.home.ssi.bg> <1502831185.4936.87.camel@edumazet-glaptop3.roam.corp.google.com> <alpine.LFD.2.20.1708160035510.2947@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "'gregkh@linuxfoundation.org'" <'gregkh@linuxfoundation.org'>,
-        "KY Srinivasan" <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        Andy King <acking@vmware.com>,
-        Dmitry Torokhov <dtor@vmware.com>,
-        George Zhang <georgezhang@vmware.com>,
-        Jorgen Hansen <jhansen@vmware.com>,
-        Reilly Grant <grantr@vmware.com>,
-        "Michal Kubecek" <mkubecek@suse.cz>, Asias He <asias@redhat.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>,
-        Vitaly Kuznetsov <vkuznets@redhat.com>,
-        Cathy Avery <cavery@redhat.com>,
-        "jasowang@redhat.com" <jasowang@redhat.com>,
-        "Rolf Neugebauer" <rolf.neugebauer@docker.com>,
-        Dave Scott <dave.scott@docker.com>,
-        Marcelo Cerri <marcelo.cerri@canonical.com>,
-        "apw@canonical.com" <apw@canonical.com>,
-To: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: =?UTF-8?Q?Pawe=C5=82_Staszewski?= <pstaszewski@itcare.pl>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:47550 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752048AbdHOWL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 18:11:29 -0400
+In-Reply-To: <alpine.LFD.2.20.1708160035510.2947@ja.home.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Hyper-V Sockets (hv_sock) supplies a byte-stream based communication
-mechanism between the host and the guest. It uses VMBus ringbuffer as the
-transportation layer.
+	Hello,
 
-PATCH 01 and 02 are for VMCI and the common infrastructure vsock.
+On Wed, 16 Aug 2017, Julian Anastasov wrote:
 
-PATCH 03 implements the necessary support in Linux guest by introducing a
-new vsock transport for AF_VSOCK.
+> 	I thought about this, it is possible in
+> neigh_event_send:
+> 
+>         if (neigh->used != now)
+>                 neigh->used = now;
+> 	else if (neigh->nud_state == NUD_INCOMPLETE &&
+> 		 neigh->arp_queue_len_bytes + skb->truesize >
+> 		 NEIGH_VAR(neigh->parms, QUEUE_LEN_BYTES)
 
-Please review them.
+	With kfree_skb(skb) here, of course...
 
-Note: there are some other supporting fixes in the VMBus driver. I'll
-post them separately for the char-misc tree.
+> 		return 1;
+> 
+> 	But this is really in fast path and not sure it is
+> worth it. May be if we can move it somehow in __neigh_event_send
+> but as neigh->used is changed early we need a better idea
+> how to reduce the arp_queue hit rate...
 
-
-PS, there was an old implementation of Hyper-V Sockets posted last year:
-https://patchwork.kernel.org/patch/9244467/, which was not accepted. The
-biggest challenge was that why Hyper-V Sockets required a new address
-family, and I explained that was because of its different end point format.
-
-Compared to the old implementation, this new implementation maps Hyper-V
-Sockets end point format <GUID VmID, GUID ServiceID> to vsock's
-<int cid, int port>, and hence it manages to share the common vsock
-infrastructure to greatly reduce duplicate code, and avoid adding a new
-address family. The details are documented in PATCH 03.
-
-Dexuan Cui (3):
-  VMCI: only load on VMware hypervisor
-  vsock: fix vsock_dequeue/enqueue_accept race
-  hv_sock: implements Hyper-V transport for Virtual Sockets (AF_VSOCK)
-
- MAINTAINERS                         |   1 +
- drivers/misc/vmw_vmci/vmci_driver.c |   8 +
- net/vmw_vsock/Kconfig               |  12 +
- net/vmw_vsock/Makefile              |   3 +
- net/vmw_vsock/af_vsock.c            |   7 +
- net/vmw_vsock/hyperv_transport.c    | 890 ++++++++++++++++++++++++++++++++=
-++++
- 6 files changed, 921 insertions(+)
- create mode 100644 net/vmw_vsock/hyperv_transport.c
-
---=20
-2.7.4
+Regards
