@@ -1,11 +1,10 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net] pci: fix oops when try to find Root Port for a PCI device
-Date: Tue, 15 Aug 2017 23:19:11 +0800
-Message-ID: <1502810351-8312-1-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH net RESEND] PCI: fix oops when try to find Root Port for a PCI device
+Date: Tue, 15 Aug 2017 23:24:48 +0800
+Message-ID: <1502810688-12420-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Ding Tianhong <dingtianhong@huawei.com>
 To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <bhelgaas@google.com>,
         <helgaas@kernel.org>, <werner@chelsio.com>, <ganeshgr@chelsio.com>,
         <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
@@ -15,7 +14,7 @@ To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <bhelgaas@google.com>,
         <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
         <will.deacon@arm.com>, <mark.rutland@arm.com>,
         <robin.murphy@arm.com>, <davem@davemloft.net>,
-        <alexander.duyck@gmail.com>,
+        <alexander.duyck@gmail.com>, <eric.dumazet@gmail.com>,
         <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
         <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
         <linuxarm@huawei.com>
