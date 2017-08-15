@@ -1,62 +1,85 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH net-next] liquidio: update debug console logging mechanism
-Date: Tue, 15 Aug 2017 10:22:28 +0300
-Message-ID: <20170815072228.GM24282@mtr-leonro.local>
-References: <20170812014314.GA1012@felix-thinkpad.cavium.com>
- <20170813055549.GO24282@mtr-leonro.local>
- <CY1PR0701MB1961883A407496B03A8FD870EC8C0@CY1PR0701MB1961.namprd07.prod.outlook.com>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH] netfilter: fix indent on in statements
+Date: Tue, 15 Aug 2017 09:26:49 +0200
+Message-ID: <5992A239.5080600@bfs.de>
+References: <20170815065025.18471-1-colin.king@canonical.com>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="UhXv5VeBZ/Y8lRnC"
-Cc: "Manlunas, Felix" <Felix.Manlunas@cavium.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
-        "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        "Burla, Satananda" <Satananda.Burla@cavium.com>
-To: Ricardo Farrington <Ricardo.Farrington@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:41956 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753185AbdHOHWd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Aug 2017 03:22:33 -0400
-Content-Disposition: inline
-In-Reply-To: <CY1PR0701MB1961883A407496B03A8FD870EC8C0@CY1PR0701MB1961.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170815065025.18471-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---UhXv5VeBZ/Y8lRnC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
 
-On Mon, Aug 14, 2017 at 04:28:50PM +0000, Ricardo Farrington wrote:
-> Hi Leon - the code to which this patch applies handles a data stream from our card's firmware to the host (over PCI).
-> There are device-specific registers which are accessed to transfer log data from our firmware to the host.
-> I don't think there is kernel code that we could use to perform this; this is not general purpose host driver logging.
+Am 15.08.2017 08:50, schrieb Colin King:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The returns on some if statements are not indented correctly,
+> add in the missing tab.
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  net/bridge/netfilter/ebt_ip.c  | 4 ++--
+>  net/bridge/netfilter/ebt_ip6.c | 2 +-
+>  2 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/bridge/netfilter/ebt_ip.c b/net/bridge/netfilter/ebt_ip.c
+> index d06968bdf5ec..2b46c50abce0 100644
+> --- a/net/bridge/netfilter/ebt_ip.c
+> +++ b/net/bridge/netfilter/ebt_ip.c
+> @@ -64,14 +64,14 @@ ebt_ip_mt(const struct sk_buff *skb, struct xt_action_param *par)
+>  			if (NF_INVF(info, EBT_IP_DPORT,
+>  				    dst < info->dport[0] ||
+>  				    dst > info->dport[1]))
+> -			return false;
+> +				return false;
 
-I see, it is not really clear form the name "console".
 
-Thanks
+This is hard to read, perhaps it gets better when the result is stored in a tmp-var.
+something like:
+	int isbetween=dst < info->dport[0] ||dst > info->dport[1] ;
+	int state=NF_INVF(info, EBT_IP_DPORT, isbetween );
 
---UhXv5VeBZ/Y8lRnC
-Content-Type: application/pgp-signature; name="signature.asc"
+	if ( state )
+		return false;
 
------BEGIN PGP SIGNATURE-----
+just my 2 cents,
+re,
+ wh
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlmSoTQACgkQ5GN7iDZy
-WKeE8BAAzva+CHkHIHwdDQBFSJAmNjACGm7SBjuT6UiTV3wxIlvRV12dJaOhTnMr
-joR89obrMPKBSEMhDy38/+e61c2zLSWnF0SrKX8Nb23w4DF2t82ilPhuP6JuVmvC
-Spq1NaWFB1A8mYOq+M1pRMrig5LyKJXiGDz84jqUocGi1vCupoECsUUixqZ0S9KI
-+Nr1qI5DoCdYwP/kQcpAFsP6mWl3+Rb9/YJAfVwvQQpauRfKkpoPh6porqv7/V0b
-imsqlO5qleNFD4RARfioTrQO9jqFi/UQSC51Q9yUqiONub+4E80Q8kmgsZ3BIITi
-WjfI5gefHTsK7Z+gETXlYZjyff+07JN+h+1E3kabTUgepKN1hGy86U2EETNbpqxe
-qooIoo1bE+g2Pi/KMWXxKrr0xRMNQD+djsfVHKXjHXerKe4kwPNzUlq11oczDzzw
-1KsjAn2GTXjV+ChlN5/uS9KkrVb0/6wjfDczjuoUEzmbXKqLF4P1FOSZkxb9YkcS
-5SaJFqplsNx/YOTEj8RbLTUqTBKi/bfn8Fy6UJ+17bpWUF2teMpNRDBBHtJj599W
-WoYzBalO1c+dUKmbr0niqVME1EfoDU9f00F52x2gzdpDoKh9YDfyjPbN+fB0VZ4b
-f5UeI5iSgDlUhuze71ccsTI+qNrJFisP9af4fPyEHnNmLUyXqSQ=
-=PNAW
------END PGP SIGNATURE-----
-
---UhXv5VeBZ/Y8lRnC--
+>  		}
+>  		if (info->bitmask & EBT_IP_SPORT) {
+>  			u32 src = ntohs(pptr->src);
+>  			if (NF_INVF(info, EBT_IP_SPORT,
+>  				    src < info->sport[0] ||
+>  				    src > info->sport[1]))
+> -			return false;
+> +				return false;
+>  		}
+>  	}
+>  	return true;
+> diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
+> index 4617491be41e..2a5a52a53ec4 100644
+> --- a/net/bridge/netfilter/ebt_ip6.c
+> +++ b/net/bridge/netfilter/ebt_ip6.c
+> @@ -89,7 +89,7 @@ ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
+>  			if (NF_INVF(info, EBT_IP6_SPORT,
+>  				    src < info->sport[0] ||
+>  				    src > info->sport[1]))
+> -			return false;
+> +				return false;
+>  		}
+>  		if ((info->bitmask & EBT_IP6_ICMP6) &&
+>  		    NF_INVF(info, EBT_IP6_ICMP6,
