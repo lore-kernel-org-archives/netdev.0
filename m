@@ -1,124 +1,190 @@
-From: Leon Romanovsky <leonro@mellanox.com>
-Subject: Re: [PATCH v4 iproute2 2/7] rdma: Add dev object
-Date: Tue, 15 Aug 2017 19:43:50 +0300
-Message-ID: <20170815164350.GU24282@mtr-leonro.local>
-References: <20170815130020.29509-1-leonro@mellanox.com>
- <20170815130020.29509-3-leonro@mellanox.com>
- <20170815091205.2c39ea91@xeon-e3>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
+ don't skip empty skbs
+Date: Tue, 15 Aug 2017 12:45:23 -0400
+Message-ID: <CAF=yD-Lacw9T7G0XZBdHZwEb6HgRuaBoyUN1oTvWixu4a0Fy6Q@mail.gmail.com>
+References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1502702846.8411.25.camel@redhat.com>
+ <1846443.VTclhqQinN@ring00> <CAF=yD-L9CpW-DRtKfWWWKcNKcPSWvXOkTGZoKBq6=fQMrcKVWQ@mail.gmail.com>
+ <1502724662.8411.53.camel@redhat.com> <CAF=yD-+ZNPtF1h1OT=_4yuE7=XtireP_OtbyBefHGdwtJ_ontQ@mail.gmail.com>
+ <1502811641.3475.7.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="3Shs6nLsUBL77Lfu"
-Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ariel Almog <ariela@mellanox.com>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        Network Development <netdev@vger.kernel.org>,
+        "Macieira, Thiago" <thiago.macieira@intel.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0042.outbound.protection.outlook.com ([104.47.2.42]:3308
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751573AbdHOQn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Aug 2017 12:43:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20170815091205.2c39ea91@xeon-e3>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:38722 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751573AbdHOQqF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 12:46:05 -0400
+Received: by mail-oi0-f66.google.com with SMTP id s21so1226643oie.5
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 09:46:05 -0700 (PDT)
+In-Reply-To: <1502811641.3475.7.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---3Shs6nLsUBL77Lfu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Tue, Aug 15, 2017 at 09:12:05AM -0700, Stephen Hemminger wrote:
-> On Tue, 15 Aug 2017 16:00:15 +0300
-> Leon Romanovsky <leonro@mellanox.com> wrote:
+On Tue, Aug 15, 2017 at 11:40 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> On Mon, 2017-08-14 at 21:35 -0400, Willem de Bruijn wrote:
+>> It is not infeasible to fix that and fix up all callers, as Matthew's
+>> patch does. But perhaps this patch is simpler to reason about. Thoughts?
+>>
+>> +static inline bool sk_peek_at_offset(struct sock *sk)
+>> +{
+>> +       return READ_ONCE(sk->sk_peek_off) >= 0;
+>> +}
+>> +
+>>  static inline int sk_peek_offset(struct sock *sk, int flags)
+>>  {
+>>         if (unlikely(flags & MSG_PEEK)) {
+>> diff --git a/net/core/datagram.c b/net/core/datagram.c
+>> index ee5647bd91b3..30b53932af73 100644
+>> --- a/net/core/datagram.c
+>> +++ b/net/core/datagram.c
+>> @@ -175,12 +175,14 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+>>         *last = queue->prev;
+>>         skb_queue_walk(queue, skb) {
+>>                 if (flags & MSG_PEEK) {
+>> -                       if (_off >= skb->len && (skb->len || _off ||
+>> -                                                skb->peeked)) {
+>> +                       if (_off >= skb->len && sk_peek_at_offset(sk) &&
+>> +                           (skb->len || _off || skb->peeked)) {
 >
-> > +
-> > +static const char *dev_caps_to_str(uint32_t idx)
-> > +{
-> > +	uint64_t cap = 1 << idx;
-> > +
-> > +	switch (cap) {
-> > +	case RDMA_DEV_RESIZE_MAX_WR: return "RESIZE_MAX_WR";
-> > +	case RDMA_DEV_BAD_PKEY_CNTR: return "BAD_PKEY_CNTR";
-> > +	case RDMA_DEV_BAD_QKEY_CNTR: return "BAD_QKEY_CNTR";
-> > +	case RDMA_DEV_RAW_MULTI: return "RAW_MULTI";
-> > +	case RDMA_DEV_AUTO_PATH_MIG: return "AUTO_PATH_MIG";
-> > +	case RDMA_DEV_CHANGE_PHY_PORT: return "CHANGE_PHY_POR";
-> > +	case RDMA_DEV_UD_AV_PORT_ENFORCE: return "UD_AV_PORT_ENFORCE";
-> > +	case RDMA_DEV_CURR_QP_STATE_MOD: return "CURR_QP_STATE_MOD";
-> > +	case RDMA_DEV_SHUTDOWN_PORT: return "SHUTDOWN_PORT";
-> > +	case RDMA_DEV_INIT_TYPE: return "INIT_TYPE";
-> > +	case RDMA_DEV_PORT_ACTIVE_EVENT: return "PORT_ACTIVE_EVENT";
-> > +	case RDMA_DEV_SYS_IMAGE_GUID: return "SYS_IMAGE_GUID";
-> > +	case RDMA_DEV_RC_RNR_NAK_GEN: return "RC_RNR_NAK_GEN";
-> > +	case RDMA_DEV_SRQ_RESIZE: return "SRQ_RESIZE";
-> > +	case RDMA_DEV_N_NOTIFY_CQ: return "N_NOTIFY_CQ";
-> > +	case RDMA_DEV_LOCAL_DMA_LKEY: return "LOCAL_DMA_LKEY";
-> > +	case RDMA_DEV_MEM_WINDOW: return "MEM_WINDOW";
-> > +	case RDMA_DEV_UD_IP_CSUM: return "UD_IP_CSUM";
-> > +	case RDMA_DEV_UD_TSO: return "UD_TSO";
-> > +	case RDMA_DEV_XRC: return "XRC";
-> > +	case RDMA_DEV_MEM_MGT_EXTENSIONS: return "MEM_MGT_EXTENSIONS";
-> > +	case RDMA_DEV_BLOCK_MULTICAST_LOOPBACK:
-> > +					return "BLOCK_MULTICAST_LOOPBACK";
-> > +	case RDMA_DEV_MEM_WINDOW_TYPE_2A: return "MEM_WINDOW_TYPE_2A";
-> > +	case RDMA_DEV_MEM_WINDOW_TYPE_2B: return "MEM_WINDOW_TYPE_2B";
-> > +	case RDMA_DEV_RC_IP_CSUM: return "RC_IP_CSUM";
-> > +	case RDMA_DEV_RAW_IP_CSUM: return "RAW_IP_CSUM";
-> > +	case RDMA_DEV_CROSS_CHANNEL: return "CROSS_CHANNEL";
-> > +	case RDMA_DEV_MANAGED_FLOW_STEERING: return "MANAGED_FLOW_STEERING";
-> > +	case RDMA_DEV_SIGNATURE_HANDOVER: return "SIGNATURE_HANDOVER";
-> > +	case RDMA_DEV_ON_DEMAND_PAGING: return "ON_DEMAND_PAGING";
-> > +	case RDMA_DEV_SG_GAPS_REG: return "SG_GAPS_REG";
-> > +	case RDMA_DEV_VIRTUAL_FUNCTION: return "VIRTUAL_FUNCTION";
-> > +	case RDMA_DEV_RAW_SCATTER_FCS: return "RAW_SCATTER_FCS";
-> > +	case RDMA_DEV_RDMA_NETDEV_OPA_VNIC: return "RDMA_NETDEV_OPA_VNIC";
-> > +	default: return "UNKNOWN";
-> > +	}
+> I like the idea a lot, but I think/fear that bad things could happen
+> since sk_peek_off is read twice at different times: one in
+> sk_peek_offset() and one in the above chunk.
 >
-> Could this be a table in future versions?
+> If the above is not an issue (I am not sure) I'm very fine with this
+> approach.
 
-The device capability is 64 bit field -> the table will have 64 entry,
-while most of them should be marked as "UNKNOWN". Because we have holes
-[1] in the fields (for example bit 9), I can't use simple
-"if (idx > max_value) return "uknown"" logic.
+Good point. I don't think we need to read it in the callers at all.
+Then int *off is only used to return to offset within the skb back
+to the callers.
 
-So the answer is yes, I can do it as a table, but it won't look better than
-it is now :)
+Though it should be read only once here, outside the loop.
 
-By writing "future versions", are you asking me to resubmit? or followup patch
-will be possible solution too?
+Something like (also untested):
 
-Thanks
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ee5647bd91b3..06bad8726612 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -170,13 +170,15 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+                                          struct sk_buff **last)
+ {
+        struct sk_buff *skb;
+-       int _off = *off;
++       int _off;
++       bool peek_at_off;
 
-[1] http://marc.info/?l=linux-rdma&m=150278850520856&w=2
++       _off = sk_peek_offset(sk, flags);
++       peek_at_off = _off >= 0;
+        *last = queue->prev;
+        skb_queue_walk(queue, skb) {
+                if (flags & MSG_PEEK) {
+-                       if (_off >= skb->len && (skb->len || _off ||
+-                                                skb->peeked)) {
++                       if (peek_at_off && off >= skb->len &&
++                           (skb->len || _off || skb->peeked)) {
+                                _off -= skb->len;
+                                continue;
+                        }
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index a7c804f73990..4b51b9853406 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1574,7 +1574,7 @@ int udp_recvmsg(struct sock *sk, struct msghdr
+*msg, size_t len, int noblock,
+                return ip_recv_error(sk, msg, len, addr_len);
 
---3Shs6nLsUBL77Lfu
-Content-Type: application/pgp-signature; name="signature.asc"
+ try_again:
+-       peeking = off = sk_peek_offset(sk, flags);
++       peeking = flags & MSG_PEEK;
+        skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
+        if (!skb)
+                return err;
 
------BEGIN PGP SIGNATURE-----
+The explicit peek_at_off is a bit verbose, but we need to be careful
+about signedness between _off and skb->len.
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlmTJMYACgkQ5GN7iDZy
-WKde/RAAn/ImqEaGt2Io+KiEhXuLkSq+W3AroNrLJOe9Xrfdg6OLz5iMyBKzx3bJ
-alFaiyek7cD8DILBGk33EPjyLC5gR6ueseyZLVU2HZURqpwrrVI8hOP/ki3M97cN
-JEKUQuSvD58okjgBZljBcsan6SdtGQX1THJkZRpBvuhLTfkimgmsBKZsOLGNKEIV
-xdJyvKdwmWVeLx0hgNbmnPa3ff/55mBR9t4w6HJ+W5byj44dnNQrnk0N07oabY+q
-l9IoPyGccx3l3B2DUviUG8/QsxGZyvbtrMPTtqAakuaMoteGCJJ9HgC1Ox795X+f
-yipfCsbdMqc5D+rt7UPVKlzP/WqXqbYoGSjnh3QGU4BsmhWepe91GfmMff9iqZi0
-E2Si3sp7Kd0my2m4qh4ZPiJGRJnZzsq/cQkrl4PQ0OouQPeKvlH6uD3JTt1KmA+V
-7hmohzmGtw/9350uYfb375/rnJDOLS0zFMoCriJT5EHkKqW7XevhZgbDVrAgpZdj
-k2/wvdUSUMt/kDgF8lLtLZit7lsdO0yJb9p+69moE5nEg+WnH3cGLcPbTfbsC833
-aItr93cVtLuhojc5xZss/MWpNaHUvh8FdcDA6nFu/EQAhRY2aHWA/X1tt3GNVi1c
-b1HHV0MzyHSjQvj12abBGbPTCELzTYTBsQAoRKNloIcG1Orkls0=
-=8Co0
------END PGP SIGNATURE-----
+> For the record, I thought something like the following (uncomplete,
+> does not even compile):
+> ---
+> diff --git a/include/linux/socket.h b/include/linux/socket.h
+> index 8b13db5163cc..5085cf003b88 100644
+> --- a/include/linux/socket.h
+> +++ b/include/linux/socket.h
+> @@ -286,6 +286,7 @@ struct ucred {
+>  #define MSG_SENDPAGE_NOTLAST 0x20000 /* sendpage() internal : not the last page */
+>  #define MSG_BATCH      0x40000 /* sendmmsg(): more messages coming */
+>  #define MSG_EOF         MSG_FIN
+> +#define MSG_PEEK_OFF   0x80000
 
---3Shs6nLsUBL77Lfu--
+Yes, that also works well.
+
+I'm afraid about exhausting the MSG_* flag space here for a
+feature that is not exposed to userspace. We don't have many flags
+left. We could shadow an existing flag that is unused in this context.
+
+There is another difference between reading sk_peek_offset in the
+caller or in __skb_try_recv_from_queue. The latter is called repeatedly
+when it returns NULL. Each call can modify *off. I believe that it needs
+to restart with _off at sk->sk_peek_off each time, as it restarts from the
+head of the queue each time.
+
+>
+>  #define MSG_FASTOPEN   0x20000000      /* Send data in TCP SYN */
+>  #define MSG_CMSG_CLOEXEC 0x40000000    /* Set close_on_exec for file
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 7c0632c7e870..e75e024b55d2 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -504,12 +504,14 @@ enum sk_pacing {
+>
+>  int sk_set_peek_off(struct sock *sk, int val);
+>
+> -static inline int sk_peek_offset(struct sock *sk, int flags)
+> +static inline int sk_peek_offset(struct sock *sk, int *flags)
+>  {
+> -       if (unlikely(flags & MSG_PEEK)) {
+> +       if (unlikely(*flags & MSG_PEEK)) {
+>                 s32 off = READ_ONCE(sk->sk_peek_off);
+> -               if (off >= 0)
+> +               if (off >= 0) {
+> +                       *flags |= MSG_PEEK_OFF;
+>                         return off;
+> +               }
+>         }
+>
+>         return 0;
+> diff --git a/net/core/datagram.c b/net/core/datagram.c
+> index ee5647bd91b3..91e1d014d64c 100644
+> --- a/net/core/datagram.c
+> +++ b/net/core/datagram.c
+> @@ -175,8 +175,8 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+>         *last = queue->prev;
+>         skb_queue_walk(queue, skb) {
+>                 if (flags & MSG_PEEK) {
+> -                       if (_off >= skb->len && (skb->len || _off ||
+> -                                                skb->peeked)) {
+> +                       if (flags & MSG_PEEK_OFF && _off >= skb->len &&
+> +                           (skb->len || _off || skb->peeked)) {
+>                                 _off -= skb->len;
+>                                 continue;
+>                         }
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index a7c804f73990..7e1bcd3500f4 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1574,7 +1574,7 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+>                 return ip_recv_error(sk, msg, len, addr_len);
+>
+>  try_again:
+> -       peeking = off = sk_peek_offset(sk, flags);
+> +       peeking = off = sk_peek_offset(sk, &flags);
+>         skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
+>         if (!skb)
+>                 return err;
+> ---
+> Paolo
