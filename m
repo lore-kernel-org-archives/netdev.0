@@ -1,34 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 1/3] ipv6: Prevent unexpected sk->sk_prot
- changes
-Date: Tue, 15 Aug 2017 04:39:38 -0700
-Message-ID: <1502797178.4936.61.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
-         <1502795320-22538-2-git-send-email-ilyal@mellanox.com>
+From: Daniel Borkmann via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH net-next] bpf/verifier: track liveness for
+	pruning
+Date: Tue, 15 Aug 2017 13:52:48 +0200
+Message-ID: <5992E090.5040103@iogearbox.net>
+References: <262cf31a-b70d-3dca-c687-8bcc77726011@solarflare.com>
+Reply-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, davejwatson@fb.com,
-        aviadye@mellanox.com, Boris Pismenny <borisp@mellanox.com>
-To: Ilya Lesokhin <ilyal@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:37140 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751644AbdHOLjl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 07:39:41 -0400
-Received: by mail-pg0-f41.google.com with SMTP id y129so4286948pgy.4
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 04:39:40 -0700 (PDT)
-In-Reply-To: <1502795320-22538-2-git-send-email-ilyal@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <262cf31a-b70d-3dca-c687-8bcc77726011-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-08-15 at 14:08 +0300, Ilya Lesokhin wrote:
-> With this patch IPV6 code ensure that only sockets with the
-> expected sk->sk_prot are converted to IPV4.
+On 08/14/2017 07:55 PM, Edward Cree wrote:
+> State of a register doesn't matter if it wasn't read in reaching an exit;
+>   a write screens off all reads downstream of it from all explored_states
+>   upstream of it.
+> This allows us to prune many more branches; here are some processed insn
+>   counts for some Cilium programs:
+> Program                  before  after
+> bpf_lb_opt_-DLB_L3.o       6515   3361
+> bpf_lb_opt_-DLB_L4.o       8976   5176
+> bpf_lb_opt_-DUNKNOWN.o     2960   1137
+> bpf_lxc_opt_-DDROP_ALL.o  95412  48537
+> bpf_lxc_opt_-DUNKNOWN.o  141706  79048
+> bpf_netdev.o              24251  17995
+> bpf_overlay.o             10999   9385
+>
+> The runtime is also improved; here are 'time' results in ms:
+> Program                  before  after
+> bpf_lb_opt_-DLB_L3.o         24      6
+> bpf_lb_opt_-DLB_L4.o         26     11
+> bpf_lb_opt_-DUNKNOWN.o       11      2
+> bpf_lxc_opt_-DDROP_ALL.o   1288    152
+> bpf_lxc_opt_-DUNKNOWN.o    1768    257
+> bpf_netdev.o                 62     31
+> bpf_overlay.o                15     13
+>
+> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 
-It looks like you fix a bug added by a recent commit (in net-next, not
-in net tree) ?
+Awesome work!
 
-Please provide Fixes: tag to ease code review and maintenance.
+[...]
+>   	if (arg_type == ARG_ANYTHING) {
+>   		if (is_pointer_value(env, regno)) {
+> @@ -1639,10 +1675,13 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
+>   	}
+>
+>   	/* reset caller saved regs */
+> -	for (i = 0; i < CALLER_SAVED_REGS; i++)
+> +	for (i = 0; i < CALLER_SAVED_REGS; i++) {
+>   		mark_reg_not_init(regs, caller_saved[i]);
+> +		check_reg_arg(env, i, DST_OP_NO_MARK);
 
-Thanks.
+Don't we need the same in check_ld_abs() since we treat it similar
+to a function call?
+
+> +	}
+>
+>   	/* update return register */
+> +	check_reg_arg(env, BPF_REG_0, DST_OP_NO_MARK);
+[...]
