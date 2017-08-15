@@ -1,46 +1,86 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH 1/2] mlx4: remove unnecessary pci_set_drvdata()
-Date: Tue, 15 Aug 2017 11:21:49 -0600
-Message-ID: <20170815172149.GC15171@obsidianresearch.com>
-References: <1502778786-14738-1-git-send-email-yanjun.zhu@oracle.com>
- <20170815071336.GL24282@mtr-leonro.local>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 02/11] net: dsa: add debugfs interface
+Date: Tue, 15 Aug 2017 10:29:04 -0700
+Message-ID: <2c13f5a3-0cc6-fe1a-86fc-c5bfd8cc2263@gmail.com>
+References: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
+ <20170814222242.10643-3-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zhu Yanjun <yanjun.zhu@oracle.com>, saeedm@mellanox.com,
-        matanb@mellanox.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, yuval.shaia@oracle.com
-To: Leon Romanovsky <leonro@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:45135 "EHLO quartz.orcorp.ca"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752971AbdHORVx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Aug 2017 13:21:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20170815071336.GL24282@mtr-leonro.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        John Crispin <john@phrozen.org>,
+        Woojung Huh <Woojung.Huh@microchip.com>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Maxime Hadjinlian <maxime@devialet.com>,
+        Chris Healy <cphealy@gmail.com>,
+        Maxim Uvarov <muvarov@gmail.com>,
+        Stefan Eichenberger <eichest@gmail.com>,
+        Jason Cobham <jcobham@questertangent.com>,
+        Juergen Borleis <jbe@pengutronix.de>,
+        Tobias Waldekranz <tobias@waldekranz.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170814222242.10643-3-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 15, 2017 at 10:13:36AM +0300, Leon Romanovsky wrote:
-> On Tue, Aug 15, 2017 at 02:33:05AM -0400, Zhu Yanjun wrote:
-> > The driver core clears the driver data to NULL after device_release
-> > or on probe failure. Thus, it is not necessary to manually clear the
-> > device driver data to NULL.
-> >
+
+
+On 08/14/2017 03:22 PM, Vivien Didelot wrote:
+> This commit adds a DEBUG_FS dependent DSA core file creating a generic
+> debug filesystem interface for the DSA switch devices.
 > 
-> It makes sense and I'm pretty sure that you are right, but I'm failing
-> to find the function in device core which sets it to NULL. Can you help
-> me and present the actual call stack to that code place?
+> The interface can be mounted with:
+> 
+>     # mount -t debugfs none /sys/kernel/debug
+> 
+> The dsa directory contains one directory per switch chip:
+> 
+>     # cd /sys/kernel/debug/dsa/
+>     # ls
+>     switch0  switch1 switch2
+> 
+> Each chip directory contains one directory per port:
+> 
+>     # ls -l switch0/
+>     drwxr-xr-x 2 root root 0 Jan  1 00:00 port0
+>     drwxr-xr-x 2 root root 0 Jan  1 00:00 port1
+>     drwxr-xr-x 2 root root 0 Jan  1 00:00 port2
+>     drwxr-xr-x 2 root root 0 Jan  1 00:00 port5
+>     drwxr-xr-x 2 root root 0 Jan  1 00:00 port6
+> 
+> Future patches will add entry files to these directories.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
 
-http://elixir.free-electrons.com/linux/v4.13-rc1/source/drivers/base/dd.c#L840
+> +static int dsa_debugfs_create_switch(struct dsa_switch *ds)
+> +{
+> +	char name[32];
+> +	int i;
+> +
+> +	/* skip if there is no debugfs support */
+> +	if (!dsa_debugfs_dir)
+> +		return 0;
+> +
+> +	snprintf(name, sizeof(name), DSA_SWITCH_FMT, ds->index);
+> +
+> +	ds->debugfs_dir = debugfs_create_dir(name, dsa_debugfs_dir);
+> +	if (IS_ERR_OR_NULL(ds->debugfs_dir))
+> +		return -EFAULT;
+> +
+> +	for (i = 0; i < ds->num_ports; i++) {
+> +		if (!ds->ports[i].dn)
+> +			continue;
 
-The call to the remove callback is on line 833.
-
-This is done after dropping devres, so you could allocate the drv data
-inside a devm object and everything would unwind correctly.
-
-In this case, the kfree is explicit, so I would advocate for still putting
-the null near the kfree to minimize the time where a free'd pointer is
-present - eg incase a devm callback or some other bug accidently
-touches it.
-
-Jason
+This won't create port directories when using platform data, can you
+check for BIT(i) & ds->enabled_port_mask instead?
+-- 
+Florian
