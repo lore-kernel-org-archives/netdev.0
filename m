@@ -1,46 +1,97 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next v2 0/3] Add support for SRv6 local
- segment processing
-Date: Tue, 15 Aug 2017 16:45:25 -0700
-Message-ID: <20170815164525.1a67d1e6@xeon-e3>
-References: <20170809153326.29599-1-david.lebrun@uclouvain.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Lebrun <david.lebrun@uclouvain.be>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: fix bpf_trace_printk on 32 bit archs
+Date: Wed, 16 Aug 2017 01:45:33 +0200
+Message-ID: <dd122e1ec0eadaf3f8fc11107f7a57177dcd8588.1502840567.git.daniel@iogearbox.net>
+Cc: james.hogan@imgtec.com, ast@fb.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:35858 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751095AbdHOXpc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 19:45:32 -0400
-Received: by mail-pg0-f42.google.com with SMTP id i12so14767175pgr.3
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 16:45:32 -0700 (PDT)
-In-Reply-To: <20170809153326.29599-1-david.lebrun@uclouvain.be>
+Received: from www62.your-server.de ([213.133.104.62]:38822 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752593AbdHOXpl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 19:45:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Aug 2017 17:33:23 +0200
-David Lebrun <david.lebrun@uclouvain.be> wrote:
+James reported that on MIPS32 bpf_trace_printk() is currently
+broken while MIPS64 works fine:
 
-> This patch series adds support and documentation for the seg6local
-> lightweight tunnel, enabling to perform operations to SR-enabled packets
-> based on their active segment.
-> 
-> v2: use a table for action names
-> 
-> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
-> 
-> David Lebrun (3):
->   iproute: add helper functions for SRH processing
->   iproute: add support for SRv6 local segment processing
->   man: add documentation for seg6local lwt
-> 
->  ip/iproute.c           |   2 +-
->  ip/iproute_lwtunnel.c  | 324 +++++++++++++++++++++++++++++++++++++++++--------
->  man/man8/ip-route.8.in |  62 +++++++++-
->  3 files changed, 338 insertions(+), 50 deletions(-)
-> 
+  bpf_trace_printk() uses conditional operators to attempt to
+  pass different types to __trace_printk() depending on the
+  format operators. This doesn't work as intended on 32-bit
+  architectures where u32 and long are passed differently to
+  u64, since the result of C conditional operators follows the
+  "usual arithmetic conversions" rules, such that the values
+  passed to __trace_printk() will always be u64 [causing issues
+  later in the va_list handling for vscnprintf()].
 
-Applied to net-next branch.
-Thanks David.
+  For example the samples/bpf/tracex5 test printed lines like
+  below on MIPS32, where the fd and buf have come from the u64
+  fd argument, and the size from the buf argument:
+
+    [...] 1180.941542: 0x00000001: write(fd=1, buf=  (null), size=6258688)
+
+  Instead of this:
+
+    [...] 1625.616026: 0x00000001: write(fd=1, buf=009e4000, size=512)
+
+One way to get it working is to expand various combinations
+of argument types into 8 different combinations for 32 bit
+and 64 bit kernels. Fix tested by James on MIPS32 and MIPS64
+as well that it resolves the issue.
+
+Fixes: 9c959c863f82 ("tracing: Allow BPF programs to call bpf_trace_printk()")
+Reported-by: James Hogan <james.hogan@imgtec.com>
+Tested-by: James Hogan <james.hogan@imgtec.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ kernel/trace/bpf_trace.c | 34 ++++++++++++++++++++++++++++++----
+ 1 file changed, 30 insertions(+), 4 deletions(-)
+
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 3738519..dc498b6 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -204,10 +204,36 @@ static const struct bpf_func_proto *bpf_get_probe_write_proto(void)
+ 		fmt_cnt++;
+ 	}
+ 
+-	return __trace_printk(1/* fake ip will not be printed */, fmt,
+-			      mod[0] == 2 ? arg1 : mod[0] == 1 ? (long) arg1 : (u32) arg1,
+-			      mod[1] == 2 ? arg2 : mod[1] == 1 ? (long) arg2 : (u32) arg2,
+-			      mod[2] == 2 ? arg3 : mod[2] == 1 ? (long) arg3 : (u32) arg3);
++/* Horrid workaround for getting va_list handling working with different
++ * argument type combinations generically for 32 and 64 bit archs.
++ */
++#define __BPF_TP_EMIT()	__BPF_ARG3_TP()
++#define __BPF_TP(...)							\
++	__trace_printk(1 /* Fake ip will not be printed. */,		\
++		       fmt, ##__VA_ARGS__)
++
++#define __BPF_ARG1_TP(...)						\
++	((mod[0] == 2 || (mod[0] == 1 && __BITS_PER_LONG == 64))	\
++	  ? __BPF_TP(arg1, ##__VA_ARGS__)				\
++	  : ((mod[0] == 1 || (mod[0] == 0 && __BITS_PER_LONG == 32))	\
++	      ? __BPF_TP((long)arg1, ##__VA_ARGS__)			\
++	      : __BPF_TP((u32)arg1, ##__VA_ARGS__)))
++
++#define __BPF_ARG2_TP(...)						\
++	((mod[1] == 2 || (mod[1] == 1 && __BITS_PER_LONG == 64))	\
++	  ? __BPF_ARG1_TP(arg2, ##__VA_ARGS__)				\
++	  : ((mod[1] == 1 || (mod[1] == 0 && __BITS_PER_LONG == 32))	\
++	      ? __BPF_ARG1_TP((long)arg2, ##__VA_ARGS__)		\
++	      : __BPF_ARG1_TP((u32)arg2, ##__VA_ARGS__)))
++
++#define __BPF_ARG3_TP(...)						\
++	((mod[2] == 2 || (mod[2] == 1 && __BITS_PER_LONG == 64))	\
++	  ? __BPF_ARG2_TP(arg3, ##__VA_ARGS__)				\
++	  : ((mod[2] == 1 || (mod[2] == 0 && __BITS_PER_LONG == 32))	\
++	      ? __BPF_ARG2_TP((long)arg3, ##__VA_ARGS__)		\
++	      : __BPF_ARG2_TP((u32)arg3, ##__VA_ARGS__)))
++
++	return __BPF_TP_EMIT();
+ }
+ 
+ static const struct bpf_func_proto bpf_trace_printk_proto = {
+-- 
+1.9.3
