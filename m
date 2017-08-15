@@ -1,60 +1,41 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH]  New Chapter on CodingStyle .
-Date: Tue, 15 Aug 2017 16:55:33 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0056122@AcuExch.aculab.com>
-References: <1502536998-5482-1-git-send-email-asd@marian1000.go.ro>
-        <20170812085439.573c6c55@lwn.net>
-        <063D6719AE5E284EB5DD2968C1650D6DD0055A0C@AcuExch.aculab.com>
- <20170815092030.7ec82ace@xeon-e3>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 100% CPU load when generating traffic to destination network
+ that nexthop is not reachable
+Date: Tue, 15 Aug 2017 09:57:33 -0700
+Message-ID: <1502816253.4936.85.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <177465a0-aaba-4063-e451-ebbf46728b77@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: 'Jonathan Corbet' <corbet@lwn.net>,
-        Corcodel Marian <asd@marian1000.go.ro>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Realtek linux nic maintainers" <nic_swsd@realtek.com>
-To: 'Stephen Hemminger' <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170815092030.7ec82ace@xeon-e3>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33297 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751122AbdHOQ5e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 12:57:34 -0400
+Received: by mail-pg0-f65.google.com with SMTP id u185so2308843pgb.0
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 09:57:34 -0700 (PDT)
+In-Reply-To: <177465a0-aaba-4063-e451-ebbf46728b77@itcare.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger
-> Sent: 15 August 2017 17:21
-> On Tue, 15 Aug 2017 10:42:39 +0000
-> David Laight <David.Laight@ACULAB.COM> wrote:
+On Tue, 2017-08-15 at 18:30 +0200, Paweł Staszewski wrote:
+> Hi
 > 
-> > From: Jonathan Corbet
-> > > Sent: 12 August 2017 15:55
-> > ...
-> > > > +		Chapter 20: Put values on initialisers without exception
-> > > > +
-> > > > +When declaring variables on functions must put values:
-> > >
-> > > Thanks for sending a patch for the kernel's documentation.
-> > > Unfortunately, I can't accept this patch for a couple of reasons:
-> > ...
-> > > - The coding style document is there to describe the community's
-> > >   standards for kernel code.  It is *not* a mechanism for imposing new
-> > >   standards.  If you really think that the kernel community should adopt
-> > >   this rule, you will need to argue for it on the mailing lists.  I will
-> > >   say, though, that I do not expect that this effort would be successful.
-> >
-> > I'd even go as far as suggesting almost the opposite.
-> > Declarations should only have initialisers if the value is constant.
 > 
-> Yup. This new rule sound like something taught to people in coding schools.
-> But initializing everything defeats the compiler detection of uninitialized variables
-> which is more useful for catching errors.
+> Doing some tests i discovered that when traffic is send by pktgen to 
+> forwarding host where nexthop for destination network on forwarding 
+> router is not reachable i have 100% cpu on all cores and perf top show 
+> mostly:
+> 
+>      77.19%  [kernel]            [k] queued_spin_lock_slowpath
+>      10.20%  [kernel]            [k] acpi_processor_ffh_cstate_enter
+>       1.41%  [kernel]            [k] queued_write_lock_slowpath
+> 
 
-You'll also get:
-Values being read the wrong side of locks.
-Values being read early so requiring spilling to stack.
+To the rescue (for us to help)
 
-Next someone will be suggesting that all pointers should be checked
-against NULL every time they are used.
+perf record -a -g sleep 10
 
-	David
+perf report --stdio
