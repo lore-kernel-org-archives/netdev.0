@@ -1,40 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: fix possible deadlock in TCP stack vs BPF
- filter
-Date: Mon, 14 Aug 2017 22:32:19 -0700 (PDT)
-Message-ID: <20170814.223219.1520974525933260255.davem@davemloft.net>
-References: <1502757883.4936.41.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Liping Zhang <zlpnobody@gmail.com>
+Subject: Re: [PATCH net] openvswitch: fix skb_panic due to the incorrect
+ actions attrlen
+Date: Tue, 15 Aug 2017 14:02:55 +0800
+Message-ID: <CAML_gOfew0w7Zhna2+2XeLMh6qV73bYNkOnV_cZ07+OCbrD_jA@mail.gmail.com>
+References: <20170813070420.73074-1-zlpnobody@163.com> <CAOrHB_Cy-bxRABSR4keg43U7tj4riVAdFd8So1GUHkNzYXA7bg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengc@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: Liping Zhang <zlpnobody@163.com>,
+        Pravin Shelar <pshelar@nicira.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Neil McKee <neil.mckee@inmon.com>
+To: Pravin Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50780 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751652AbdHOFcU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 01:32:20 -0400
-In-Reply-To: <1502757883.4936.41.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35243 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751652AbdHOGC5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 02:02:57 -0400
+Received: by mail-pg0-f65.google.com with SMTP id l64so105188pge.2
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 23:02:56 -0700 (PDT)
+In-Reply-To: <CAOrHB_Cy-bxRABSR4keg43U7tj4riVAdFd8So1GUHkNzYXA7bg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 14 Aug 2017 17:44:43 -0700
+2017-08-15 13:01 GMT+08:00 Pravin Shelar <pshelar@ovn.org>:
+[...]
+>>  net/openvswitch/actions.c  | 39 +++++++++++++++++++++++++--------------
+>>  net/openvswitch/datapath.c |  2 +-
+>>  net/openvswitch/datapath.h |  1 +
+>>  3 files changed, 27 insertions(+), 15 deletions(-)
+>>
+>> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+>> index e4610676299b..799a22dfb89e 100644
+>> --- a/net/openvswitch/actions.c
+>> +++ b/net/openvswitch/actions.c
+>> @@ -48,6 +48,7 @@ struct deferred_action {
+>>         struct sk_buff *skb;
+>>         const struct nlattr *actions;
+>>         int actions_len;
+>> +       int actions_attrlen;
+>>
+> Have you considered passing this value using struct ovs_skb_cb? That
+> would save passing this parameter in all these functions.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Filtering the ACK packet was not put at the right place.
-> 
-> At this place, we already allocated a child and put it
-> into accept queue.
-> 
-> We absolutely need to call tcp_child_process() to release
-> its spinlock, or we will deadlock at accept() or close() time.
-> 
-> Found by syzkaller team (Thanks a lot !)
-> 
-> Fixes: 8fac365f63c8 ("tcp: Add a tcp_filter hook before handle ack packet")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Thanks for your reviewing.
 
-Applied, thanks.
+Right, this will make codes more clean, I will send V2 later.
