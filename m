@@ -1,75 +1,52 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 1/4] selftests: add 'ip get' to rtnetlink.sh
-Date: Tue, 15 Aug 2017 16:34:41 +0200
-Message-ID: <20170815143444.17002-2-fw@strlen.de>
-References: <20170815143444.17002-1-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next 1/3] ipv6: Prevent unexpected sk->sk_prot
+ changes
+Date: Tue, 15 Aug 2017 07:45:36 -0700
+Message-ID: <1502808336.4936.78.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
+         <1502795320-22538-2-git-send-email-ilyal@mellanox.com>
+         <1502798357.4936.63.camel@edumazet-glaptop3.roam.corp.google.com>
+         <DB6PR05MB31768343CE15F47F8CC12CD8B08D0@DB6PR05MB3176.eurprd05.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ilya Lesokhin <ilyal@mellanox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "davejwatson@fb.com" <davejwatson@fb.com>,
+        Aviad Yehezkel <aviadye@mellanox.com>
+To: Boris Pismenny <borisp@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:41024 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752372AbdHOOe3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 10:34:29 -0400
-In-Reply-To: <20170815143444.17002-1-fw@strlen.de>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:38747 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752435AbdHOOpk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 10:45:40 -0400
+Received: by mail-pg0-f66.google.com with SMTP id 123so1764703pga.5
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 07:45:40 -0700 (PDT)
+In-Reply-To: <DB6PR05MB31768343CE15F47F8CC12CD8B08D0@DB6PR05MB3176.eurprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-exercise ip/ip6 RTM_GETROUTE doit() callpath.
+On Tue, 2017-08-15 at 13:08 +0000, Boris Pismenny wrote:
+> Hi Eric,
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- tools/testing/selftests/net/rtnetlink.sh | 32 ++++++++++++++++++++++++++++++++
- 1 file changed, 32 insertions(+)
 
-diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
-index 5b04ad912525..84b4acf5baa9 100755
---- a/tools/testing/selftests/net/rtnetlink.sh
-+++ b/tools/testing/selftests/net/rtnetlink.sh
-@@ -164,6 +164,37 @@ kci_test_polrouting()
- 	echo "PASS: policy routing"
- }
- 
-+kci_test_route_get()
-+{
-+	ret=0
-+
-+	ip route get 127.0.0.1 > /dev/null
-+	check_err $?
-+	ip route get 127.0.0.1 dev "$devdummy" > /dev/null
-+	check_err $?
-+	ip route get ::1 > /dev/null
-+	check_err $?
-+	ip route get fe80::1 dev "$devdummy" > /dev/null
-+	check_err $?
-+	ip route get 127.0.0.1 from 127.0.0.1 oif lo tos 0x1 mark 0x1 > /dev/null
-+	check_err $?
-+	ip route get ::1 from ::1 iif lo oif lo tos 0x1 mark 0x1 > /dev/null
-+	check_err $?
-+	ip addr add dev "$devdummy" 10.23.7.11/24
-+	check_err $?
-+	ip route get 10.23.7.11 from 10.23.7.12 iif "$devdummy" > /dev/null
-+	check_err $?
-+	ip addr del dev "$devdummy" 10.23.7.11/24
-+	check_err $?
-+
-+	if [ $ret -ne 0 ];then
-+		echo "FAIL: route get"
-+		return 1
-+	fi
-+
-+	echo "PASS: route get"
-+}
-+
- kci_test_rtnl()
- {
- 	kci_add_dummy
-@@ -173,6 +204,7 @@ kci_test_rtnl()
- 	fi
- 
- 	kci_test_polrouting
-+	kci_test_route_get
- 	kci_test_tc
- 	kci_test_gre
- 	kci_test_bridge
--- 
-2.13.0
+> 
+> The IPV6_ADDRFORM socket option assumes that when 
+> (sk->sk_protocol == IPPROTO_TCP)
+> then the sk_proto is set to tcpv6_prot and it replaces it with tcp_prot.
+> 
+> This patch ensures that the IPV6_ADDRFORM socket option doesn't replace
+> the socket's sk_prot to tcp when it is not expected. For example, TLS sockets
+> also replace sk_prot, and we need to prevent IPV6_ADDRFORM from
+> overriding these.
+> 
+> Are you suggesting that each socket protocol will provide a method that
+> converts it from IPv6 to IPv4?
+
+I am just saying IPV6_ADDRFORM is becoming spaghetti code, and maybe
+this is time to make it modular.
+
+The UDP or TCP magic really should be implemented in TCP or UDP files.
+
+(Who knows maybe one day SCTP or DCCP will support IPVADDRFORM)
