@@ -1,7 +1,8 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 0/4] various sizeof cleanups
-Date: Tue, 15 Aug 2017 10:29:15 -0700
-Message-ID: <20170815172919.26153-1-sthemmin@microsoft.com>
+Subject: [PATCH net-next 1/4] tun/tap: use paren's with sizeof
+Date: Tue, 15 Aug 2017 10:29:16 -0700
+Message-ID: <20170815172919.26153-2-sthemmin@microsoft.com>
+References: <20170815172919.26153-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,6 +12,7 @@ Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
 To: mlindner@marvell.com, stephen@networkplumber.org, mst@redhat.com,
 	jasowang@redhat.com
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170815172919.26153-1-sthemmin@microsoft.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -22,35 +24,40 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Noticed some places that were using sizeof as an operator.
-This is legal C but is not the convention used in the kernel.
+Although sizeof is an operator in C. The kernel coding style convention
+is to always use it like a function and add parenthesis.
 
-Stephen Hemminger (4):
-  tun/tap: use paren's with sizeof
-  virtio: put paren around sizeof
-  skge: add paren around sizeof arg
-  mlx4: sizeof style usage
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+---
+ drivers/net/tap.c | 2 +-
+ drivers/net/tun.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
- drivers/net/ethernet/marvell/skge.c                |  2 +-
- drivers/net/ethernet/mellanox/mlx4/alloc.c         |  2 +-
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |  4 ++--
- drivers/net/ethernet/mellanox/mlx4/en_resources.c  |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c         |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_tx.c         |  2 +-
- drivers/net/ethernet/mellanox/mlx4/eq.c            | 20 +++++++++---------
- drivers/net/ethernet/mellanox/mlx4/fw.c            |  2 +-
- drivers/net/ethernet/mellanox/mlx4/icm.c           |  2 +-
- drivers/net/ethernet/mellanox/mlx4/icm.h           |  4 ++--
- drivers/net/ethernet/mellanox/mlx4/intf.c          |  2 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          | 12 +++++------
- drivers/net/ethernet/mellanox/mlx4/mcg.c           | 12 +++++------
- drivers/net/ethernet/mellanox/mlx4/mr.c            | 10 ++++-----
- drivers/net/ethernet/mellanox/mlx4/qp.c            | 12 +++++------
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 24 +++++++++++-----------
- drivers/net/tap.c                                  |  2 +-
- drivers/net/tun.c                                  |  2 +-
- drivers/net/virtio_net.c                           |  2 +-
- 19 files changed, 60 insertions(+), 60 deletions(-)
-
+diff --git a/drivers/net/tap.c b/drivers/net/tap.c
+index 0d039411e64c..21b71ae947fd 100644
+--- a/drivers/net/tap.c
++++ b/drivers/net/tap.c
+@@ -1215,7 +1215,7 @@ int tap_queue_resize(struct tap_dev *tap)
+ 	int n = tap->numqueues;
+ 	int ret, i = 0;
+ 
+-	arrays = kmalloc(sizeof *arrays * n, GFP_KERNEL);
++	arrays = kmalloc_array(n, sizeof(*arrays), GFP_KERNEL);
+ 	if (!arrays)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 5892284eb8d0..f5017121cd57 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -2737,7 +2737,7 @@ static int tun_queue_resize(struct tun_struct *tun)
+ 	int n = tun->numqueues + tun->numdisabled;
+ 	int ret, i;
+ 
+-	arrays = kmalloc(sizeof *arrays * n, GFP_KERNEL);
++	arrays = kmalloc_array(n, sizeof(*arrays), GFP_KERNEL);
+ 	if (!arrays)
+ 		return -ENOMEM;
+ 
 -- 
 2.11.0
