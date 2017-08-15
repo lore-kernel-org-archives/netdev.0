@@ -1,73 +1,81 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: general protection fault in fib_dump_info
-Date: Tue, 15 Aug 2017 14:05:28 +0200
-Message-ID: <20170815120528.GD16998@breakpoint.cc>
-References: <CADUsjNkM2KuAJj6xc=Xj3he8z3B5XYv5m8H5x-FCHwdGjW_AYg@mail.gmail.com>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Mellanox driver / cant access /prox/irq/XX/smp_affinity after upgrade
+ from linux-4.13-rc4-next-20170811 to 4.13.0-rc5-next-20170815
+Date: Tue, 15 Aug 2017 14:21:39 +0200
+Message-ID: <357548fa-2987-4a90-1732-ad298384163e@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netdev@vger.kernel.org, syzkaller@googlegroups.com,
-        roopa@cumulusnetworks.com
-To: idaifish <idaifish@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:40324 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751196AbdHOMIC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 08:08:02 -0400
-Content-Disposition: inline
-In-Reply-To: <CADUsjNkM2KuAJj6xc=Xj3he8z3B5XYv5m8H5x-FCHwdGjW_AYg@mail.gmail.com>
+Received: from smtp19.iq.pl ([86.111.242.224]:54263 "EHLO smtp19.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751147AbdHOMWr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 08:22:47 -0400
+Received: from [192.168.2.200] (unknown [185.78.72.19])
+        (Authenticated sender: pstaszewski@itcare.pl)
+        by smtp.iq.pl (Postfix) with ESMTPSA id 3xWs7T6PWbz3xCH
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 14:22:45 +0200 (CEST)
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-idaifish <idaifish@gmail.com> wrote:
-> Syzkaller hit 'general protection fault in fib_dump_info' bug on
-> commit 4.13-rc5..
+Hi
 
-CC Roopa
 
-> Guilty file: net/ipv4/fib_semantics.c
-> 
-> kasan: GPF could be caused by NULL-ptr deref or user memory access
-> general protection fault: 0000 [#1] SMP KASAN
-> Modules linked in:
-> CPU: 0 PID: 2808 Comm: syz-executor0 Not tainted 4.13.0-rc5 #1
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS
-> Ubuntu-1.8.2-1ubuntu1 04/01/2014
-> task: ffff880078562700 task.stack: ffff880078110000
-> RIP: 0010:fib_dump_info+0x388/0x1170 net/ipv4/fib_semantics.c:1314
-> RSP: 0018:ffff880078117010 EFLAGS: 00010206
-> RAX: dffffc0000000000 RBX: 00000000000000fe RCX: 0000000000000002
-> RDX: 0000000000000006 RSI: ffff880078117084 RDI: 0000000000000030
-> RBP: ffff880078117268 R08: 000000000000000c R09: ffff8800780d80c8
-> R10: 0000000058d629b4 R11: 0000000067fce681 R12: 0000000000000000
-> R13: ffff8800784bd540 R14: ffff8800780d80b5 R15: ffff8800780d80a4
-> FS:  00000000022fa940(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 00000000004387d0 CR3: 0000000079135000 CR4: 00000000000006f0
-> Call Trace:
->  inet_rtm_getroute+0xc89/0x1f50 net/ipv4/route.c:2766
->  rtnetlink_rcv_msg+0x288/0x680 net/core/rtnetlink.c:4217
+After upgrading kernel to latest next there is problem with accessing 
+smp_affinity to write for mellanox driver
 
-Seems like this is from
-b61798130f1be5bff08712308126c2d7ebe390ef
+For example - MEllanox:
 
-Roopa, it seems to assume res.fi != NULL, but afaics there
-is no guarantee, f.e. in ip_route_input_rcu() in the multicast
-branch res isn't changed at all.
+cat /proc/interrupts | grep ml
+  217:          3          0          0          0 0          0          
+0          0          0          0 0          0          0          
+0          0          0 0          0          0          0          
+0          0 0          0          0          0          0          0 
+0          0          0          0          0          0 0          
+0          0          0          0          0 0          0          
+0          0          0          0 0          0          0          
+0          0          0 0          0          0          0   PCI-MSI 
+91750400-edge mlx5_pages_eq@pci:0000:af:00.0
+  218:      12237          0          0          0 0          0          
+0          0          0          0 0          0          0          
+0          0          0 0          0          0          0          
+0          0 0          0          0          0          0          0 
+0          0          0          0          0          0 0          
+0          0          0          0          0 0          0          
+0          0          0          0 0          0          0          
+0          0          0 0          0          0          0   PCI-MSI 
+91750401-edge mlx5_cmd_eq@pci:0000:af:00.0
 
-If thats true, we might need this fix?
+cat /proc/irq/218/smp_affinity
+ffffff,ffffffff
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 7effa62beed3..fc0708f7792d 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2763,7 +2763,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
-        if (rtm->rtm_flags & RTM_F_LOOKUP_TABLE)
-                table_id = rt->rt_table_id;
- 
--       if (rtm->rtm_flags & RTM_F_FIB_MATCH)
-+       if ((rtm->rtm_flags & RTM_F_FIB_MATCH) && res.fi)
-                err = fib_dump_info(skb, NETLINK_CB(in_skb).portid,
-                                    nlh->nlmsg_seq, RTM_NEWROUTE, table_id,
-                                    rt->rt_type, res.prefix, res.prefixlen,
-                                    fl4.flowi4_tos, res.fi, 0);
+echo  "ffffff,ffffffff " > /proc/irq/218/smp_affinity
+-su: echo: write error: Input/output error
+
+
+For intel ixgbe:
+
+   90:          1          0          0          0 0          0          
+0          0          0          0 0          0          0          
+0          0          0 0          0          0          0          
+0          0 0          0          0          0          0          0 
+0          0          0          0          0          0 0          
+0          0          0          0          0 0          0          
+0          0          0          0 0          0          0          
+0          0          0 0          0          0          0   PCI-MSI 
+12589056-edge enp24s0f3
+
+cat /proc/irq/90/smp_affinity
+0003ff,f0003fff
+
+  echo "0003ff,f0003fff" > /proc/irq/90/smp_affinity
+
+Without errors.
+
+
+
+BR
+
+Pawel
