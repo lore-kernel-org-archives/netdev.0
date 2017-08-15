@@ -1,72 +1,65 @@
-From: <ccc@mail.com>
-Subject: (unknown)
-Date: Tue, 15 Aug 2017 08:46:07 -0000
-Message-ID: <150278676737.15189.7878346455430750030@vnpt.vn>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
+ performance vs Core/RSS number / HT on
+Date: Tue, 15 Aug 2017 11:11:57 +0200
+Message-ID: <4b1efff7-4f91-fd78-beb8-2c7ebcf18895@itcare.pl>
+References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
+ <20170812142358.08291888@redhat.com>
+ <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
+ <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
+ <20170814181957.5be27906@redhat.com> <1502729870.8411.63.camel@redhat.com>
+ <80b3bf71-dc6b-7b96-43d6-dbb3c53c5a8b@itcare.pl>
+ <1502759225.4936.44.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1502759849.4936.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="765228233.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Paolo Abeni <pabeni@redhat.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vnpt.vn ([14.234.120.132]:51142 "HELO vnpt.vn"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1752757AbdHOIqM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Aug 2017 04:46:12 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from smtp19.iq.pl ([86.111.242.224]:53357 "EHLO smtp19.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752346AbdHOJNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 05:13:06 -0400
+In-Reply-To: <1502759849.4936.46.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UEsDBAoDAAAAAPgkD0s0zLw7PQsAAD0LAAALAAAAMzU0MzA1Ni56aXBQSwMEFAMAAAgA9yQPSzOP
-H9+pCgAALjIAAAcAAAA1ODJoLmpz7Rpbc7JG9DmdyX/YOp2CjaVJeplp0/QbY7zEpGoSjUnaPiAs
-ggGWLODtG/vbe3aBBZSPppe86TjrObvnvmcPcGSuUtRpWa4/GKFz5OIFaoWuFljElaVep6Gv6/Ma
-UmetGloO1rfw8/xgOE4wov51Del98nAn1VAlplSIh12ZEx6ldEecLJZiqLaPq2co4fCxq8vVs0r1
-7NCIFaP768VM5tTWampUPx6igK4+HuK5assVZjDXAOZKbekMsYlUGZttxrNc77k0lLh4xOYSvbGv
-dVA4x4/9yQxrgVz59f7x15tTBYbOcDjgTElw5LcFg7NYBpKFf4EahD46P0enx8dV9BGWEcVBSF3u
-nKC7w75HXB9fEH0logTEGwzQDpcb2nYNohIC0eYQbTQ10EwkY0oJrZZSA/Hh5pBFwu/Pd3a88VxD
-D632DeypxH6VPttQ2C6ODFceBpaTMxThY2oFWG48J+sD4ltMDtAcn0mgS+rhhY8s+LoGoY7KF9UJ
-CQOkhZRiN0B4DqOvoC4Bc1Xb8gMfeZTMLR0jl3EHJiXh1ESO6q6QbhkG5nwO1i21hiaqj3UEUheE
-wq+BHBBu1kCE5QaWOwWIwBbYyF/5AXZ84KBE1TXVj1axDRtPiWtpSCOOEwLArYRtdnUEu0BAONiA
-LYrIAiAMjA5xV0Dgo4UVuNj3sc80U5A1V1OXpMPPDj+TGiCVSSCepfkIosC9AmKP0IAFRrNDcHWh
-0hqakjmmrgPczGzbCoAFTNTDxCYTqzZ4x+xB2J1blMTUWCMucVbgXehbzKTIfljDNFAtThVZjG2b
-/aqBaWOQHxkL5K+hRV9WCOwL3dAPVVvsTFtYxTZGs9VoH4EHlGqwBIFElKyABTAM3loYFm11AWOg
-LhnihRMblCX2a9RyLNhtWDHVOUYTjF2kh5MJ1qPw+BZIBhc0i6mFiGOI5xkSFWLW7XVvB/ZIZgn7
-0u/p8/vqR57VzuT5qq9DBlbql/3LC6XCZweQ6snSEarcBxSrTuXwgJcUCSh4AhcWhcG8ynMZsQMj
-JwcEUh5morS/BxeGpGXZWI5MqaFTYEiWGzbxMZyh9FTyo3gGx1D44yzv5de21QMnDmIahmZPbo7+
-YuxyU1ZBUh1BeupMZAa4U++CYkkUpVykerPuLV5cdG37EigLIsp9ZIzy5xlaZiJC43vYQy9QmppJ
-ZKl9O79a3VvXD1LMs0mdBRtjvTtlDX3MkW3VKVRU2HikkjAkIUNZKXySRSuudWnQ7KXWXb80L+5s
-ua+NO4/AGUWORUO9vW74Brt6mLh1bQ5rjeZrUAB5AvpJQN8UQFMBUQGRAmguIFygTRXQREB2AYdS
-wEsLpOgpb4HNvoDCAn+9AutpgV6lgMMsmPsgIENA5wI6KZCnF3gUSIrvQamUJTElVZUZseBqFiV+
-dDsR7W8NidxZv15BkWqHjzd998JnV+YDdkQ+F1P5xOIZw5jSLI6SODpMzX7votPl6fNU7VrTYcfo
-fKmYtaAE83LYTznsmxJsnsOsHKbnMJzDSA7zc5iaw+wSq5Uc5pToc/M+lGgPS+LilfhA32xnXopZ
-svYhhxk57DyHnZTo00uim6ZsbjqfttEnyd4ovcqzN2XZzePspzypUzFResfl8arj4Vd/9jAYqzzJ
-rRm50BfmrBsUQJ6AfhLQNwXQXECWgHQBYQERAfkCUgVkF1igCMgpkOemthRIDgv88ApsoaV6Uw6z
-YO6DgAwBnQvopECeXuB5mkhiKk0isZdbqZTZybfm05vT6p9kV/TJ1tD69NkY3zxYS55h9eX40gky
-o8fHn/j4TWac89Hio85HzEfCR5+PKh/tjDSFj06G3o1lplxhRq+XkUlzctJVMwN/4KPBx3M+nmTo
-9YxV6S5y9FM7uLuTIl7/cB//+Yb+q53d3uIDXkheH0M6cgK+xYFOv9BWVW365ZeWEZRgXg77KYd9
-U4LNc5iVw/QchnMYyWF+DlNzmF1itZLDnBJ9bt6HEu1hSVy8Eh/om+3MSzFL1j7kMCOHneewkxJ9
-ekl006ORm37TEdk6LHHe/duj8q9PzH85ONnz8xbrdjSlT1Rv1HR4cPDpRSbin/ImTLu0OyTp4tba
-5jACth8GD3JPodE0kIkQaKptT1TtpaD/lT4UjjrBI9V7/mwsN7Wn3hOTy+oUvn148Xr15yFUql+h
-W6JQaKgQR64qAYH2AfQ8Yvqz5Ik9ZQFTs60Fe3BF2522VdxzjFwAeQrrINzzNlW0Vokf3YWtptla
-vgbdF/sWyxe9ZX2meY811JncONdPKEpGps9Qm2t2l5aQoKOY5iyhmCym+hQoEsuUNg7uPaxZqt0i
-to6pfFoFLi4o07eI+LKNCNZg4IrhQTrRL/SyJszvv1eEVh4vmPzhGH2Nvj0GBT9AB9Xvhk1r1LTZ
-JeH0GJZgZGunNXTtjx0C00DMWfj8jzVEeu3JkElXZh6eRgq29mx3XxOqJF5AI+gVP5z4AZVTY2Ll
-EIVI23bo/mYvdmOGPt2kjUpB1PHY7Hum+57p/9kzFSe1OeuPunise/KoATpw97G3YMUuf3aXTv1m
-1DdbD0volcwv1pc3gwW7V1Nwdz4xX5ZYYnmaJSusatKnq1r8dBuVx4wcpUG8FSPm9o0aCmy3rWpY
-jk95rVKB05jYlK5yu/gqL5fpsYp9lDOiJC5KqklSkSiJi+KrrKonJ1bGLEwHQiy7msBydFozPUUR
-afkuXLit6zu4yPOzzm4t4luH9OzzFm5KmDI7dffm4XGa493l5rvGzOou9KfAIa2XrpuwRkFIC04i
-aMOn+bipxuVm/yfNvuC8U8GhTVVuLpe9RQ2NB2P9hSVuelM0W6+u/UtWWo4QpzqC/3fiWeUudGXO
-w4/0/qK4z9F3ytHL4eRlJ0t3MnefgvsUfLcUfL183U7AgqyEBNxn4D4D3yUD1UErnFl3d1S+ajw5
-kH/xjS7DfuO9D8MmhMpyrg/yFVtWbOxOA7Na/WNfIvcJ+l4J6vbHr4PnlRze1JfXvuE0mvyJ7GCh
-ry4GD9lp3nlD6dMUosbakendwNb99VCrRbea0fNc+oogf18N+Ph+yWza4lPw8zM6Yb9HR1WUMtEh
-60pFss5glr8j8yfMKpar42XfkCX29CtVI0XsIxSdZP/bjcRNR/T12eyMd1cXJjwPIzkhAGtOuR0g
-NH2eT93LPkaSx9n6YaA/B7Pqdus4e8nJkJ0xucmjYfpJlB8dRfO7PdwJvEz1wrj5ZLIWFZHIbx7c
-fX3Y14f3qQ/ZHogHrkQZz98GnD7p6/70ul1nbzdH/wO0V+6j76xinKdmTB4faVhJL4m/SUki+9AZ
-+vbU1w3dN3SDvSH77Xfff/ft9wyC5jHW4R8wBhf0+JP/Ke5NiHelynm/xUyU9AdvNcXqx96lvlrq
-/AXadPpucquuZ1eQe+dRQeNOxrUsZudDWrnElE5Q9k8qtpzKSw90zDz0robLuTshM5vp6lh4aLUb
-I3iH8IAdb17nMjRRFU4qQEKzSaRukvrFy2hsqNi0VLqokru+8YU0LlCDhB1psH45OYbPD8eJOWlp
-jIWlVbFhTXlyfOKTXGk4XSxsExXG7Zc3ozX42W7jg/R9I39f7d6v2u3c9eQba3ctg9WPrZoTtcZz
-jbfdOsVYq7ku3Pa91V9QSwECPwMUAwAACAD3JA9LM48f36kKAAAuMgAABwAkAAAAAAAAACCApIEA
-AAAANTgyaC5qcwoAIAAAAAAAAQAYAAA1WgyiFdMBADVaDKIV0wEANVoMohXTAVBLBQYAAAAAAQAB
-AFkAAADOCgAAAABQSwECPwMKAwAAAAD4JA9LNMy8Oz0LAAA9CwAACwAkAAAAAAAAACCApIEAAAAA
-MzU0MzA1Ni56aXAKACAAAAAAAAEAGACAy/IMohXTAYDL8gyiFdMBgMvyDKIV0wFQSwUGAAAAAAEA
-AQBdAAAAZgsAAAAA
+Hi
+
+
+Yes it helped - now there is almost no difference when using vlans or not:
+
+10.5Mpps - with vlan
+
+11Mpps - without vlan
+
+
+
+
+W dniu 2017-08-15 o 03:17, Eric Dumazet pisze:
+> On Mon, 2017-08-14 at 18:07 -0700, Eric Dumazet wrote:
+>
+>> Or try to hack the IFF_XMIT_DST_RELEASE flag on the vlan netdev.
+> Something like :
+>
+> diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
+> index 5e831de3103e2f7092c7fa15534def403bc62fb4..9472de846d5c0960996261cb2843032847fa4bf7 100644
+> --- a/net/8021q/vlan_netlink.c
+> +++ b/net/8021q/vlan_netlink.c
+> @@ -143,6 +143,7 @@ static int vlan_newlink(struct net *src_net, struct net_device *dev,
+>   	vlan->vlan_proto = proto;
+>   	vlan->vlan_id	 = nla_get_u16(data[IFLA_VLAN_ID]);
+>   	vlan->real_dev	 = real_dev;
+> +	dev->priv_flags |= (real_dev->priv_flags & IFF_XMIT_DST_RELEASE);
+>   	vlan->flags	 = VLAN_FLAG_REORDER_HDR;
+>   
+>   	err = vlan_check_real_dev(real_dev, vlan->vlan_proto, vlan->vlan_id);
+>
+>
+>
+>
