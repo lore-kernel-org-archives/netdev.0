@@ -1,49 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
- performance vs Core/RSS number / HT on
-Date: Mon, 14 Aug 2017 18:17:29 -0700
-Message-ID: <1502759849.4936.46.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
-         <20170812142358.08291888@redhat.com>
-         <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
-         <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
-         <20170814181957.5be27906@redhat.com> <1502729870.8411.63.camel@redhat.com>
-         <80b3bf71-dc6b-7b96-43d6-dbb3c53c5a8b@itcare.pl>
-         <1502759225.4936.44.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
+ don't skip empty skbs
+Date: Mon, 14 Aug 2017 21:35:52 -0400
+Message-ID: <CAF=yD-+ZNPtF1h1OT=_4yuE7=XtireP_OtbyBefHGdwtJ_ontQ@mail.gmail.com>
+References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1502702846.8411.25.camel@redhat.com>
+ <1846443.VTclhqQinN@ring00> <CAF=yD-L9CpW-DRtKfWWWKcNKcPSWvXOkTGZoKBq6=fQMrcKVWQ@mail.gmail.com>
+ <1502724662.8411.53.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paolo Abeni <pabeni@redhat.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        Network Development <netdev@vger.kernel.org>,
+        "Macieira, Thiago" <thiago.macieira@intel.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36092 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753007AbdHOBRd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 21:17:33 -0400
-Received: by mail-pg0-f67.google.com with SMTP id y129so13198072pgy.3
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 18:17:33 -0700 (PDT)
-In-Reply-To: <1502759225.4936.44.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:35603 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752833AbdHOBgd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 21:36:33 -0400
+Received: by mail-oi0-f67.google.com with SMTP id q70so10892006oic.2
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 18:36:33 -0700 (PDT)
+In-Reply-To: <1502724662.8411.53.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-08-14 at 18:07 -0700, Eric Dumazet wrote:
+On Mon, Aug 14, 2017 at 11:31 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> On Mon, 2017-08-14 at 11:03 -0400, Willem de Bruijn wrote:
+>> > I'm actually surprised that only unix sockets can have negative values.  Is
+>> > there a reason for that?  I had assumed that sk_set_peek_off would allow
+>> > negative values as the code already has to support negative values due to what
+>> > the initial value is.
+>>
+>> A negative initial value indicates that PEEK_OFF is disabled. It only
+>> makes sense to peek from a positive offset from the start of the data.
+>
+> With the current code, the user space can disable peeking with offset
+> setting a negative offset value, after that peeking with offset has
+> been enabled. But only for UNIX sockets. I think the same should be
+> allowed for UDP sockets.
 
-> Or try to hack the IFF_XMIT_DST_RELEASE flag on the vlan netdev.
+Agreed. Reverting to no-offset should be allowed.
 
-Something like :
+>> > > I'm wondering adding an explicit SOCK_PEEK_OFF/MSG_PEEK_OFF socket flag
+>> > > would help simplyifing the code:
+>>
+>> The behavior needs to be bifurcated between peeking with
+>> offset and without offset.
+>>
+>> When peeking with offset is enabled by setting SO_PEEK_OFF,
+>> subsequent reads do move the offset, so the observed behavior
+>> is correct.
+>>
+>> When sk->sk_peek_offset is negative, offset mode is disabled
+>> and the same packet must be read twice.
+>>
+>> An explicit boolean flag to discern between the two may make
+>> the code simpler to understand, not sure whether that is logically
+>> required.
+>
+> Yes, an explicit PEEK_OFF flag is just to keep the code simpler, so
+> that there is no need to add checks at every sk_peek_offset() call site
+> and the relevant logic can be fully encapsulated under the MSG_PEEK
+> branch in __skb_try_recv_from_queue(), I think/hope.
+> It's not a functional requirement.
 
-diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
-index 5e831de3103e2f7092c7fa15534def403bc62fb4..9472de846d5c0960996261cb2843032847fa4bf7 100644
---- a/net/8021q/vlan_netlink.c
-+++ b/net/8021q/vlan_netlink.c
-@@ -143,6 +143,7 @@ static int vlan_newlink(struct net *src_net, struct net_device *dev,
- 	vlan->vlan_proto = proto;
- 	vlan->vlan_id	 = nla_get_u16(data[IFLA_VLAN_ID]);
- 	vlan->real_dev	 = real_dev;
-+	dev->priv_flags |= (real_dev->priv_flags & IFF_XMIT_DST_RELEASE);
- 	vlan->flags	 = VLAN_FLAG_REORDER_HDR;
- 
- 	err = vlan_check_real_dev(real_dev, vlan->vlan_proto, vlan->vlan_id);
+It is a problematic that sk_peek_offset returns zero both on zero offset
+and when peeking at offset is disabled.
+
+It is not infeasible to fix that and fix up all callers, as Matthew's
+patch does. But perhaps this patch is simpler to reason about. Thoughts?
+
++static inline bool sk_peek_at_offset(struct sock *sk)
++{
++       return READ_ONCE(sk->sk_peek_off) >= 0;
++}
++
+ static inline int sk_peek_offset(struct sock *sk, int flags)
+ {
+        if (unlikely(flags & MSG_PEEK)) {
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ee5647bd91b3..30b53932af73 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -175,12 +175,14 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+        *last = queue->prev;
+        skb_queue_walk(queue, skb) {
+                if (flags & MSG_PEEK) {
+-                       if (_off >= skb->len && (skb->len || _off ||
+-                                                skb->peeked)) {
++                       if (_off >= skb->len && sk_peek_at_offset(sk) &&
++                           (skb->len || _off || skb->peeked)) {
