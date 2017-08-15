@@ -1,58 +1,141 @@
-From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: [PATCH v2 net-next 1/3] ipv6: Prevent unexpected sk->sk_prot changes
-Date: Tue, 15 Aug 2017 14:08:38 +0300
-Message-ID: <1502795320-22538-2-git-send-email-ilyal@mellanox.com>
-References: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
-Cc: davejwatson@fb.com, aviadye@mellanox.com,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv6: fix NULL dereference in ip6_route_dev_notify()
+Date: Tue, 15 Aug 2017 04:09:51 -0700
+Message-ID: <1502795391.4936.60.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35053 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751445AbdHOLJY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 07:09:24 -0400
-In-Reply-To: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:38484 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752027AbdHOLJx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 07:09:53 -0400
+Received: by mail-pg0-f65.google.com with SMTP id 123so1032042pga.5
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 04:09:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With this patch IPV6 code ensure that only sockets with the
-expected sk->sk_prot are converted to IPV4.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
+Based on a syzkaller report [1], I found that a per cpu allocation
+failure in snmp6_alloc_dev() would then lead to NULL dereference in
+ip6_route_dev_notify().
+
+It seems this is a very old bug, thus no Fixes tag in this submission.
+
+Let's add in6_dev_put_clear() helper, as we will probably use
+it elsewhere (once available/present in net-next)
+
+
+[1] 
+kasan: CONFIG_KASAN_INLINE enabled
+kasan: GPF could be caused by NULL-ptr deref or user memory access
+general protection fault: 0000 [#1] SMP KASAN
+Dumping ftrace buffer:
+   (ftrace buffer empty)
+Modules linked in:
+CPU: 1 PID: 17294 Comm: syz-executor6 Not tainted 4.13.0-rc2+ #10
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+task: ffff88019f456680 task.stack: ffff8801c6e58000
+RIP: 0010:__read_once_size include/linux/compiler.h:250 [inline]
+RIP: 0010:atomic_read arch/x86/include/asm/atomic.h:26 [inline]
+RIP: 0010:refcount_sub_and_test+0x7d/0x1b0 lib/refcount.c:178
+RSP: 0018:ffff8801c6e5f1b0 EFLAGS: 00010202
+RAX: 0000000000000037 RBX: dffffc0000000000 RCX: ffffc90005d25000
+RDX: ffff8801c6e5f218 RSI: ffffffff82342bbf RDI: 0000000000000001
+RBP: ffff8801c6e5f240 R08: 0000000000000001 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000000 R12: 1ffff10038dcbe37
+R13: 0000000000000006 R14: 0000000000000001 R15: 00000000000001b8
+FS:  00007f21e0429700(0000) GS:ffff8801dc100000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000001ddbc22000 CR3: 00000001d632b000 CR4: 00000000001426e0
+DR0: 0000000020000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
+Call Trace:
+ refcount_dec_and_test+0x1a/0x20 lib/refcount.c:211
+ in6_dev_put include/net/addrconf.h:335 [inline]
+ ip6_route_dev_notify+0x1c9/0x4a0 net/ipv6/route.c:3732
+ notifier_call_chain+0x136/0x2c0 kernel/notifier.c:93
+ __raw_notifier_call_chain kernel/notifier.c:394 [inline]
+ raw_notifier_call_chain+0x2d/0x40 kernel/notifier.c:401
+ call_netdevice_notifiers_info+0x51/0x90 net/core/dev.c:1678
+ call_netdevice_notifiers net/core/dev.c:1694 [inline]
+ rollback_registered_many+0x91c/0xe80 net/core/dev.c:7107
+ rollback_registered+0x1be/0x3c0 net/core/dev.c:7149
+ register_netdevice+0xbcd/0xee0 net/core/dev.c:7587
+ register_netdev+0x1a/0x30 net/core/dev.c:7669
+ loopback_net_init+0x76/0x160 drivers/net/loopback.c:214
+ ops_init+0x10a/0x570 net/core/net_namespace.c:118
+ setup_net+0x313/0x710 net/core/net_namespace.c:294
+ copy_net_ns+0x27c/0x580 net/core/net_namespace.c:418
+ create_new_namespaces+0x425/0x880 kernel/nsproxy.c:107
+ unshare_nsproxy_namespaces+0xae/0x1e0 kernel/nsproxy.c:206
+ SYSC_unshare kernel/fork.c:2347 [inline]
+ SyS_unshare+0x653/0xfa0 kernel/fork.c:2297
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+RIP: 0033:0x4512c9
+RSP: 002b:00007f21e0428c08 EFLAGS: 00000216 ORIG_RAX: 0000000000000110
+RAX: ffffffffffffffda RBX: 0000000000718150 RCX: 00000000004512c9
+RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000062020200
+RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000216 R12: 00000000004b973d
+R13: 00000000ffffffff R14: 000000002001d000 R15: 00000000000002dd
+Code: 50 2b 34 82 c7 00 f1 f1 f1 f1 c7 40 04 04 f2 f2 f2 c7 40 08 f3 f3
+f3 f3 e8 a1 43 39 ff 4c 89 f8 48 8b 95 70 ff ff ff 48 c1 e8 03 <0f> b6
+0c 18 4c 89 f8 83 e0 07 83 c0 03 38 c8 7c 08 84 c9 0f 85 
+RIP: __read_once_size include/linux/compiler.h:250 [inline] RSP:
+ffff8801c6e5f1b0
+RIP: atomic_read arch/x86/include/asm/atomic.h:26 [inline] RSP:
+ffff8801c6e5f1b0
+RIP: refcount_sub_and_test+0x7d/0x1b0 lib/refcount.c:178 RSP:
+ffff8801c6e5f1b0
+---[ end trace e441d046c6410d31 ]---
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
 ---
- net/ipv6/ipv6_sockglue.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ include/net/addrconf.h |   10 ++++++++++
+ net/ipv6/route.c       |    6 +++---
+ 2 files changed, 13 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 02d795f..318cd344 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -174,6 +174,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 		if (val == PF_INET) {
- 			struct ipv6_txoptions *opt;
- 			struct sk_buff *pktopt;
-+			struct proto *expected_prot;
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 6df79e96a780..f44ff2476758 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -336,6 +336,16 @@ static inline void in6_dev_put(struct inet6_dev *idev)
+ 		in6_dev_finish_destroy(idev);
+ }
  
- 			if (sk->sk_type == SOCK_RAW)
- 				break;
-@@ -199,6 +200,17 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 				break;
- 			}
++static inline void in6_dev_put_clear(struct inet6_dev **pidev)
++{
++	struct inet6_dev *idev = *pidev;
++
++	if (idev) {
++		in6_dev_put(idev);
++		*pidev = NULL;
++	}
++}
++
+ static inline void __in6_dev_put(struct inet6_dev *idev)
+ {
+ 	refcount_dec(&idev->refcnt);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 99d4727f2b18..94d6a13d47f0 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3721,10 +3721,10 @@ static int ip6_route_dev_notify(struct notifier_block *this,
+ 		/* NETDEV_UNREGISTER could be fired for multiple times by
+ 		 * netdev_wait_allrefs(). Make sure we only call this once.
+ 		 */
+-		in6_dev_put(net->ipv6.ip6_null_entry->rt6i_idev);
++		in6_dev_put_clear(&net->ipv6.ip6_null_entry->rt6i_idev);
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+-		in6_dev_put(net->ipv6.ip6_prohibit_entry->rt6i_idev);
+-		in6_dev_put(net->ipv6.ip6_blk_hole_entry->rt6i_idev);
++		in6_dev_put_clear(&net->ipv6.ip6_prohibit_entry->rt6i_idev);
++		in6_dev_put_clear(&net->ipv6.ip6_blk_hole_entry->rt6i_idev);
+ #endif
+ 	}
  
-+			if (sk->sk_protocol == IPPROTO_TCP &&
-+			    sk->sk_prot != &tcpv6_prot)
-+				break;
-+
-+			expected_prot = &udpv6_prot;
-+			if (sk->sk_protocol == IPPROTO_UDPLITE)
-+				expected_prot = &udplitev6_prot;
-+
-+			if (sk->sk_prot != expected_prot)
-+				break;
-+
- 			fl6_free_socklist(sk);
- 			__ipv6_sock_mc_close(sk);
- 
--- 
-1.8.3.1
