@@ -1,74 +1,88 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v11 5/5] net/cxgb4vf: Use new
- PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
-Date: Tue, 15 Aug 2017 11:23:27 +0800
-Message-ID: <1502767407-6812-6-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH v11 4/5] net/cxgb4: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Tue, 15 Aug 2017 11:23:26 +0800
+Message-ID: <1502767407-6812-5-git-send-email-dingtianhong@huawei.com>
 References: <1502767407-6812-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 Cc: Ding Tianhong <dingtianhong@huawei.com>
 To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <bhelgaas@google.com>,
- <helgaas@kernel.org>, <werner@chelsio.com>, <ganeshgr@chelsio.com>,
- <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
- <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
- <l.stach@pengutronix.de>, <amira@mellanox.com>,
- <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
- <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
- <will.deacon@arm.com>, <mark.rutland@arm.com>, <robin.murphy@arm.com>,
- <davem@davemloft.net>, <alexander.duyck@gmail.com>,
- <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
- <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
- <linuxarm@huawei.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+        <helgaas@kernel.org>, <werner@chelsio.com>, <ganeshgr@chelsio.com>,
+        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
+        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
+        <l.stach@pengutronix.de>, <amira@mellanox.com>,
+        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
+        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
+        <will.deacon@arm.com>, <mark.rutland@arm.com>,
+        <robin.murphy@arm.com>, <davem@davemloft.net>,
+        <alexander.duyck@gmail.com>,
+        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linuxarm@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1502767407-6812-1-git-send-email-dingtianhong@huawei.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Casey Leedom <leedom@chelsio.com>
 
-cxgb4vf Ethernet driver now queries PCIe configuration space to
-determine if it can send TLPs to it with the Relaxed Ordering
-Attribute set, just like the pf did.
+cxgb4 Ethernet driver now queries PCIe configuration space to determine
+if it can send TLPs to it with the Relaxed Ordering Attribute set.
+
+Remove the enable_pcie_relaxed_ordering() to avoid enable PCIe Capability
+Device Control[Relaxed Ordering Enable] at probe routine, to make sure
+the driver will not send the Relaxed Ordering TLPs to the Root Complex which
+could not deal the Relaxed Ordering TLPs.
 
 Signed-off-by: Casey Leedom <leedom@chelsio.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 Reviewed-by: Casey Leedom <leedom@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4vf/adapter.h      |  1 +
- drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c | 18 ++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c          |  3 +++
- 3 files changed, 22 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 23 +++++++++++++++++------
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |  5 +++--
+ 3 files changed, 21 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
-index 109bc63..08c6ddb 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
-@@ -408,6 +408,7 @@ enum { /* adapter flags */
- 	USING_MSI          = (1UL << 1),
- 	USING_MSIX         = (1UL << 2),
- 	QUEUES_BOUND       = (1UL << 3),
-+	ROOT_NO_RELAXED_ORDERING = (1UL << 4),
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index ef4be78..09ea62e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -529,6 +529,7 @@ enum {                                 /* adapter flags */
+ 	USING_SOFT_PARAMS  = (1 << 6),
+ 	MASTER_PF          = (1 << 7),
+ 	FW_OFLD_CONN       = (1 << 9),
++	ROOT_NO_RELAXED_ORDERING = (1 << 10),
  };
  
+ enum {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index e403fa1..33bb867 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4654,11 +4654,6 @@ static void print_port_info(const struct net_device *dev)
+ 		    dev->name, adap->params.vpd.id, adap->name, buf);
+ }
+ 
+-static void enable_pcie_relaxed_ordering(struct pci_dev *dev)
+-{
+-	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
+-}
+-
  /*
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index ac7a150..2b85b87 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -2888,6 +2888,24 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
- 	 */
- 	adapter->name = pci_name(pdev);
+  * Free the following resources:
+  * - memory used for tables
+@@ -4908,7 +4903,6 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	pci_enable_pcie_error_reporting(pdev);
+-	enable_pcie_relaxed_ordering(pdev);
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+ 
+@@ -4947,6 +4941,23 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  	adapter->msg_enable = DFLT_MSG_ENABLE;
-+
+ 	memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
+ 
 +	/* If possible, we use PCIe Relaxed Ordering Attribute to deliver
 +	 * Ingress Packet Data to Free List Buffers in order to allow for
 +	 * chipset performance optimizations between the Root Complex and
@@ -86,29 +100,31 @@ index ac7a150..2b85b87 100644
 +	if (!pcie_relaxed_ordering_enabled(pdev))
 +		adapter->flags |= ROOT_NO_RELAXED_ORDERING;
 +
- 	err = adap_init0(adapter);
- 	if (err)
- 		goto err_unmap_bar;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index e37dde2..05498e7 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -2205,6 +2205,7 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
+ 	spin_lock_init(&adapter->stats_lock);
+ 	spin_lock_init(&adapter->tid_release_lock);
+ 	spin_lock_init(&adapter->win0_lock);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index ede1220..4ef68f6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2719,6 +2719,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 	struct fw_iq_cmd c;
+ 	struct sge *s = &adap->sge;
  	struct port_info *pi = netdev_priv(dev);
- 	struct fw_iq_cmd cmd, rpl;
- 	int ret, iqandst, flsz = 0;
-+	int relaxed = !(adapter->flags & ROOT_NO_RELAXED_ORDERING);
++	int relaxed = !(adap->flags & ROOT_NO_RELAXED_ORDERING);
  
- 	/*
- 	 * If we're using MSI interrupts and we're not initializing the
-@@ -2300,6 +2301,8 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
- 			cpu_to_be32(
- 				FW_IQ_CMD_FL0HOSTFCMODE_V(SGE_HOSTFCMODE_NONE) |
- 				FW_IQ_CMD_FL0PACKEN_F |
-+				FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
-+				FW_IQ_CMD_FL0DATARO_V(relaxed) |
- 				FW_IQ_CMD_FL0PADEN_F);
+ 	/* Size needs to be multiple of 16, including status entry. */
+ 	iq->size = roundup(iq->size, 16);
+@@ -2772,8 +2773,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
  
- 		/* In T6, for egress queue type FL there is internal overhead
+ 		flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
+ 		c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
+-					     FW_IQ_CMD_FL0FETCHRO_F |
+-					     FW_IQ_CMD_FL0DATARO_F |
++					     FW_IQ_CMD_FL0FETCHRO_V(relaxed) |
++					     FW_IQ_CMD_FL0DATARO_V(relaxed) |
+ 					     FW_IQ_CMD_FL0PADEN_F);
+ 		if (cong >= 0)
+ 			c.iqns_to_fl0congen |=
 -- 
 1.8.3.1
