@@ -1,265 +1,74 @@
-From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v4 iproute2 4/7] rdma: Add initial manual for the tool
-Date: Tue, 15 Aug 2017 16:00:17 +0300
-Message-ID: <20170815130020.29509-5-leonro@mellanox.com>
-References: <20170815130020.29509-1-leonro@mellanox.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170815130020.29509-1-leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Boris Pismenny <borisp@mellanox.com>
+Subject: RE: [PATCH v2 net-next 1/3] ipv6: Prevent unexpected sk->sk_prot
+ changes
+Date: Tue, 15 Aug 2017 13:08:05 +0000
+Message-ID: <DB6PR05MB31768343CE15F47F8CC12CD8B08D0@DB6PR05MB3176.eurprd05.prod.outlook.com>
+References: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
+         <1502795320-22538-2-git-send-email-ilyal@mellanox.com>
+ <1502798357.4936.63.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "davejwatson@fb.com" <davejwatson@fb.com>,
+        "Aviad Yehezkel" <aviadye@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Ilya Lesokhin <ilyal@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-eopbgr30073.outbound.protection.outlook.com ([40.107.3.73]:23300
+        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751460AbdHONII (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 09:08:08 -0400
+In-Reply-To: <1502798357.4936.63.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
----
- man/man8/rdma-dev.8  |  55 +++++++++++++++++++++++++++
- man/man8/rdma-link.8 |  55 +++++++++++++++++++++++++++
- man/man8/rdma.8      | 102 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 212 insertions(+)
- create mode 100644 man/man8/rdma-dev.8
- create mode 100644 man/man8/rdma-link.8
- create mode 100644 man/man8/rdma.8
-
-diff --git a/man/man8/rdma-dev.8 b/man/man8/rdma-dev.8
-new file mode 100644
-index 00000000..461681b6
---- /dev/null
-+++ b/man/man8/rdma-dev.8
-@@ -0,0 +1,55 @@
-+.TH RDMA\-DEV 8 "06 Jul 2017" "iproute2" "Linux"
-+.SH NAME
-+rdmak-dev \- RDMA device configuration
-+.SH SYNOPSIS
-+.sp
-+.ad l
-+.in +8
-+.ti -8
-+.B rdma
-+.RI "[ " OPTIONS " ]"
-+.B dev
-+.RI  " { " COMMAND " | "
-+.BR help " }"
-+.sp
-+
-+.ti -8
-+.IR OPTIONS " := { "
-+\fB\-V\fR[\fIersion\fR] |
-+\fB\-d\fR[\fIetails\fR] }
-+
-+.ti -8
-+.B rdma dev show
-+.RI "[ " DEV " ]"
-+
-+.ti -8
-+.B rdma dev help
-+
-+.SH "DESCRIPTION"
-+.SS rdma dev show - display rdma device attributes
-+
-+.PP
-+.I "DEV"
-+- specifies the RDMA device to show.
-+If this argument is omitted all devices are listed.
-+
-+.SH "EXAMPLES"
-+.PP
-+rdma dev
-+.RS 4
-+Shows the state of all RDMA devices on the system.
-+.RE
-+.PP
-+rdma dev show mlx5_3
-+.RS 4
-+Shows the state of specified RDMA device.
-+.RE
-+.PP
-+
-+.SH SEE ALSO
-+.BR rdma (8),
-+.BR rdma-link (8),
-+.br
-+
-+.SH AUTHOR
-+Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-diff --git a/man/man8/rdma-link.8 b/man/man8/rdma-link.8
-new file mode 100644
-index 00000000..8ed049ef
---- /dev/null
-+++ b/man/man8/rdma-link.8
-@@ -0,0 +1,55 @@
-+.TH RDMA\-LINK 8 "06 Jul 2017" "iproute2" "Linux"
-+.SH NAME
-+rdma-link \- rdma link configuration
-+.SH SYNOPSIS
-+.sp
-+.ad l
-+.in +8
-+.ti -8
-+.B devlink
-+.RI "[ " OPTIONS " ]"
-+.B link
-+.RI  " { " COMMAND " | "
-+.BR help " }"
-+.sp
-+
-+.ti -8
-+.IR OPTIONS " := { "
-+\fB\-V\fR[\fIersion\fR] |
-+\fB\-d\fR[\fIetails\fR] }
-+
-+.ti -8
-+.B rdma link show
-+.RI "[ " DEV/PORT_INDEX " ]"
-+
-+.ti -8
-+.B rdma link help
-+
-+.SH "DESCRIPTION"
-+.SS rdma link show - display rdma link attributes
-+
-+.PP
-+.I "DEV/PORT_INDEX"
-+- specifies the RDMa link to show.
-+If this argument is omitted all links are listed.
-+
-+.SH "EXAMPLES"
-+.PP
-+rdma link show
-+.RS 4
-+Shows the state of all rdma links on the system.
-+.RE
-+.PP
-+rdma link show mlx5_2/1
-+.RS 4
-+Shows the state of specified rdma link.
-+.RE
-+.PP
-+
-+.SH SEE ALSO
-+.BR rdma (8),
-+.BR rdma-dev (8),
-+.br
-+
-+.SH AUTHOR
-+Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-diff --git a/man/man8/rdma.8 b/man/man8/rdma.8
-new file mode 100644
-index 00000000..798b33d3
---- /dev/null
-+++ b/man/man8/rdma.8
-@@ -0,0 +1,102 @@
-+.TH RDMA 8 "28 Mar 2017" "iproute2" "Linux"
-+.SH NAME
-+rdma \- RDMA tool
-+.SH SYNOPSIS
-+.sp
-+.ad l
-+.in +8
-+.ti -8
-+.B rdma
-+.RI "[ " OPTIONS " ] " OBJECT " { " COMMAND " | "
-+.BR help " }"
-+.sp
-+
-+.ti -8
-+.IR OBJECT " := { "
-+.BR dev " | " link " }"
-+.sp
-+
-+.ti -8
-+.IR OPTIONS " := { "
-+\fB\-V\fR[\fIersion\fR] |
-+\fB\-d\fR[\fIetails\fR] }
-+\fB\-j\fR[\fIson\fR] }
-+\fB\-p\fR[\fIretty\fR] }
-+
-+.SH OPTIONS
-+
-+.TP
-+.BR "\-V" , " -Version"
-+Print the version of the
-+.B rdma
-+tool and exit.
-+
-+.TP
-+.BR "\-d" , " --details"
-+Otuput detailed information.
-+
-+.TP
-+.BR "\-p" , " --pretty"
-+When combined with -j generate a pretty JSON output.
-+
-+.TP
-+.BR "\-j" , " --json"
-+Generate JSON output.
-+
-+.SS
-+.I OBJECT
-+
-+.TP
-+.B dev
-+- RDMA device.
-+
-+.TP
-+.B link
-+- RDMA port related.
-+
-+.PP
-+The names of all objects may be written in full or
-+abbreviated form, for example
-+.B stats
-+can be abbreviated as
-+.B stat
-+or just
-+.B s.
-+
-+.SS
-+.I COMMAND
-+
-+Specifies the action to perform on the object.
-+The set of possible actions depends on the object type.
-+As a rule, it is possible to
-+.B show
-+(or
-+.B list
-+) objects, but some objects do not allow all of these operations
-+or have some additional commands. The
-+.B help
-+command is available for all objects. It prints
-+out a list of available commands and argument syntax conventions.
-+.sp
-+If no command is given, some default command is assumed.
-+Usually it is
-+.B list
-+or, if the objects of this class cannot be listed,
-+.BR "help" .
-+
-+.SH EXIT STATUS
-+Exit status is 0 if command was successful or a positive integer upon failure.
-+
-+.SH SEE ALSO
-+.BR rdma-dev (8),
-+.BR rdma-link (8),
-+.br
-+
-+.SH REPORTING BUGS
-+Report any bugs to the Linux RDMA mailing list
-+.B <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-+where the development and maintenance is primarily done.
-+You do not have to be subscribed to the list to send a message there.
-+
-+.SH AUTHOR
-+Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
--- 
-2.14.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+SGkgRXJpYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1
+bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBB
+dWd1c3QgMTUsIDIwMTcgMTQ6NTkNCj4gVG86IElseWEgTGVzb2toaW4gPGlseWFsQG1lbGxhbm94
+LmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7
+IGRhdmVqd2F0c29uQGZiLmNvbTsNCj4gQXZpYWQgWWVoZXprZWwgPGF2aWFkeWVAbWVsbGFub3gu
+Y29tPjsgQm9yaXMgUGlzbWVubnkNCj4gPGJvcmlzcEBtZWxsYW5veC5jb20+DQo+IFN1YmplY3Q6
+IFJlOiBbUEFUQ0ggdjIgbmV0LW5leHQgMS8zXSBpcHY2OiBQcmV2ZW50IHVuZXhwZWN0ZWQgc2st
+PnNrX3Byb3QNCj4gY2hhbmdlcw0KPiANCj4gT24gVHVlLCAyMDE3LTA4LTE1IGF0IDE0OjA4ICsw
+MzAwLCBJbHlhIExlc29raGluIHdyb3RlOg0KPiA+IFdpdGggdGhpcyBwYXRjaCBJUFY2IGNvZGUg
+ZW5zdXJlIHRoYXQgb25seSBzb2NrZXRzIHdpdGggdGhlDQo+ID4gZXhwZWN0ZWQgc2stPnNrX3By
+b3QgYXJlIGNvbnZlcnRlZCB0byBJUFY0Lg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogQm9yaXMg
+UGlzbWVubnkgPGJvcmlzcEBtZWxsYW5veC5jb20+DQo+ID4gLS0tDQo+ID4gIG5ldC9pcHY2L2lw
+djZfc29ja2dsdWUuYyB8IDEyICsrKysrKysrKysrKw0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMTIg
+aW5zZXJ0aW9ucygrKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwdjZfc29ja2ds
+dWUuYyBiL25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYw0KPiA+IGluZGV4IDAyZDc5NWYuLjMxOGNk
+MzQ0IDEwMDY0NA0KPiA+IC0tLSBhL25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYw0KPiA+ICsrKyBi
+L25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYw0KPiA+IEBAIC0xNzQsNiArMTc0LDcgQEAgc3RhdGlj
+IGludCBkb19pcHY2X3NldHNvY2tvcHQoc3RydWN0IHNvY2sgKnNrLCBpbnQNCj4gbGV2ZWwsIGlu
+dCBvcHRuYW1lLA0KPiA+ICAJCWlmICh2YWwgPT0gUEZfSU5FVCkgew0KPiA+ICAJCQlzdHJ1Y3Qg
+aXB2Nl90eG9wdGlvbnMgKm9wdDsNCj4gPiAgCQkJc3RydWN0IHNrX2J1ZmYgKnBrdG9wdDsNCj4g
+PiArCQkJc3RydWN0IHByb3RvICpleHBlY3RlZF9wcm90Ow0KPiA+DQo+ID4gIAkJCWlmIChzay0+
+c2tfdHlwZSA9PSBTT0NLX1JBVykNCj4gPiAgCQkJCWJyZWFrOw0KPiA+IEBAIC0xOTksNiArMjAw
+LDE3IEBAIHN0YXRpYyBpbnQgZG9faXB2Nl9zZXRzb2Nrb3B0KHN0cnVjdCBzb2NrICpzaywgaW50
+DQo+IGxldmVsLCBpbnQgb3B0bmFtZSwNCj4gPiAgCQkJCWJyZWFrOw0KPiA+ICAJCQl9DQo+ID4N
+Cj4gPiArCQkJaWYgKHNrLT5za19wcm90b2NvbCA9PSBJUFBST1RPX1RDUCAmJg0KPiA+ICsJCQkg
+ICAgc2stPnNrX3Byb3QgIT0gJnRjcHY2X3Byb3QpDQo+ID4gKwkJCQlicmVhazsNCj4gPiArDQo+
+ID4gKwkJCWV4cGVjdGVkX3Byb3QgPSAmdWRwdjZfcHJvdDsNCj4gPiArCQkJaWYgKHNrLT5za19w
+cm90b2NvbCA9PSBJUFBST1RPX1VEUExJVEUpDQo+ID4gKwkJCQlleHBlY3RlZF9wcm90ID0gJnVk
+cGxpdGV2Nl9wcm90Ow0KPiA+ICsNCj4gPiArCQkJaWYgKHNrLT5za19wcm90ICE9IGV4cGVjdGVk
+X3Byb3QpDQo+ID4gKwkJCQlicmVhazsNCj4gPiArDQo+ID4gIAkJCWZsNl9mcmVlX3NvY2tsaXN0
+KHNrKTsNCj4gPiAgCQkJX19pcHY2X3NvY2tfbWNfY2xvc2Uoc2spOw0KPiA+DQo+IA0KPiBJIGFt
+IGFmcmFpZCBJIGRvIG5vdCB1bmRlcnN0YW5kIHRoaXMgcGF0Y2ggYXQgYWxsLg0KPiANCj4gRGly
+ZWN0IHJlZmVyZW5jZXMgdG8gdGNwdjZfcHJvdCwgdWRwdjZfcHJvdCwgYW5kIHVkcGxpdGV2Nl9w
+cm90IGluDQo+IG5ldC9pcHY2L2lwdjZfc29ja2dsdWUuYyBsb29rcyBjb21wbGV0ZWx5IGJyb2tl
+bi4NCj4gDQo+IFBsZWFzZSBwcm92aWRlIHNvbWV0aGluZyBjbGVhbmVyLCBtYXliZSBieSBhZGRp
+bmcgYSBuZXcgbWV0aG9kDQo+IChpbXBsZW1lbnRhdGlvbiB3b3VsZCB0aGVuIGJlIHByb3ZpZGVk
+IGluIFRDUCAvIFVEUCBjb2RlICkNCj4gDQo+IA0KDQpUaGUgSVBWNl9BRERSRk9STSBzb2NrZXQg
+b3B0aW9uIGFzc3VtZXMgdGhhdCB3aGVuIA0KKHNrLT5za19wcm90b2NvbCA9PSBJUFBST1RPX1RD
+UCkNCnRoZW4gdGhlIHNrX3Byb3RvIGlzIHNldCB0byB0Y3B2Nl9wcm90IGFuZCBpdCByZXBsYWNl
+cyBpdCB3aXRoIHRjcF9wcm90Lg0KDQpUaGlzIHBhdGNoIGVuc3VyZXMgdGhhdCB0aGUgSVBWNl9B
+RERSRk9STSBzb2NrZXQgb3B0aW9uIGRvZXNuJ3QgcmVwbGFjZQ0KdGhlIHNvY2tldCdzIHNrX3By
+b3QgdG8gdGNwIHdoZW4gaXQgaXMgbm90IGV4cGVjdGVkLiBGb3IgZXhhbXBsZSwgVExTIHNvY2tl
+dHMNCmFsc28gcmVwbGFjZSBza19wcm90LCBhbmQgd2UgbmVlZCB0byBwcmV2ZW50IElQVjZfQURE
+UkZPUk0gZnJvbQ0Kb3ZlcnJpZGluZyB0aGVzZS4NCg0KQXJlIHlvdSBzdWdnZXN0aW5nIHRoYXQg
+ZWFjaCBzb2NrZXQgcHJvdG9jb2wgd2lsbCBwcm92aWRlIGEgbWV0aG9kIHRoYXQNCmNvbnZlcnRz
+IGl0IGZyb20gSVB2NiB0byBJUHY0Pw0K
