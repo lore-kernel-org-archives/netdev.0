@@ -1,105 +1,80 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH net RESEND] PCI: fix oops when try to find Root Port for
- a PCI device
-Date: Tue, 15 Aug 2017 12:03:31 -0500
-Message-ID: <20170815170331.GA4099@bhelgaas-glaptop.roam.corp.google.com>
-References: <1502810688-12420-1-git-send-email-dingtianhong@huawei.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH]
+ Adding-Agile-SD-TCP-module-and-modifying-Kconfig-and-makefile
+Date: Tue, 15 Aug 2017 10:10:46 -0700
+Message-ID: <f4104741-a918-c102-ffaa-0221fadda82e@infradead.org>
+References: <20170815130806.25168-1-mohamed.a.alrshah@ieee.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: leedom@chelsio.com, ashok.raj@intel.com, bhelgaas@google.com,
-        werner@chelsio.com, ganeshgr@chelsio.com, asit.k.mallick@intel.com,
-        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
-        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
-        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
-        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
-        davem@davemloft.net, alexander.duyck@gmail.com,
-        eric.dumazet@gmail.com, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org, linux-pci@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linuxarm@huawei.com
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1502810688-12420-1-git-send-email-dingtianhong@huawei.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, torvalds@linux-foundation.org,
+        linux-kernel@vger.kernel.org, Mohamed Othman <mothman@upm.edu.my>,
+        Borhanuddin Ali <borhan@upm.edu.my>,
+        Zurina Hanapi <zurinamh@upm.edu.my>
+To: mohamedalrshah <mohamed.a.alrshah@ieee.org>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170815130806.25168-1-mohamed.a.alrshah@ieee.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 15, 2017 at 11:24:48PM +0800, Ding Tianhong wrote:
-> Eric report a oops when booting the system after applying
-> the commit a99b646afa8a ("PCI: Disable PCIe Relaxed..."):
-> ...
-
-> It looks like the pci_find_pcie_root_port() was trying to
-> find the Root Port for the PCI device which is the Root
-> Port already, it will return NULL and trigger the problem,
-> so check the highest_pcie_bridge to fix thie problem.
-
-The problem was actually with a Root Complex Integrated Endpoint that
-has no upstream PCIe device:
-
-  00:05.2 System peripheral: Intel Corporation Device 0e2a (rev 04)
-        Subsystem: Intel Corporation Device 0e2a
-        Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-        Capabilities: [40] Express (v2) Root Complex Integrated Endpoint, MSI 00
-                DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
-                        ExtTag- RBE- FLReset-
-                DevCtl: Report errors: Correctable- Non-Fatal- Fatal+ Unsupported+
-                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
-                        MaxPayload 128 bytes, MaxReadReq 128 bytes
-
-> Fixes: a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
-
-This also
-
-Fixes: c56d4450eb68 ("PCI: Turn off Request Attributes to avoid Chelsio T5 Completion erratum")
-
-which added pci_find_pcie_root_port().  Prior to this Relaxed Ordering
-series, we only used pci_find_pcie_root_port() in a Chelsio quirk that
-only applied to non-integrated endpoints, so we didn't trip over the
-bug.
-
-> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  drivers/pci/pci.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> index af0cc34..7e2022f 100644
-> --- a/drivers/pci/pci.c
-> +++ b/drivers/pci/pci.c
-> @@ -522,7 +522,8 @@ struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
->  		bridge = pci_upstream_bridge(bridge);
->  	}
+On 08/15/2017 06:08 AM, mohamedalrshah wrote:
+> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+> index 91a2557..474f72c 100644
+> --- a/net/ipv4/Kconfig
+> +++ b/net/ipv4/Kconfig
+> @@ -677,6 +677,17 @@ config TCP_CONG_BBR
+>  	bufferbloat, policers, or AQM schemes that do not provide a delay
+>  	signal. It requires the fq ("Fair Queue") pacing packet scheduler.
 >  
-> -	if (pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
-> +	if (highest_pcie_bridge &&
-> +	    pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
->  		return NULL;
+> +config TCP_CONG_AGILESD
+> +        tristate "Agile-SD Congestion control"
+> +        default n
+> +        ---help---
+> +        
+> +        This is version 1.0 of Agile-SD TCP. It is a sender-side only. 
+
+	                                        It is a sender-side only <what>.
+
+> +        It contributes the Agility Factor (AF) to shorten the epoch time 
+> +        and to make TCP independent from RTT. AF reduces the sensitivity 
+> +        to packet losses, which in turn Agile-SD to achieve better throughput 
+
+                                   in turn allows Agile-SD
+
+> +        over high-speed networks.
+> +
+
+Please drop the tab(s) and space(s) at the ends of lines.
+
+>  choice
+>  	prompt "Default TCP congestion control"
+>  	default DEFAULT_CUBIC
+> @@ -713,6 +724,9 @@ choice
 >  
->  	return highest_pcie_bridge;
-> -- 
+>  	config DEFAULT_BBR
+>  		bool "BBR" if TCP_CONG_BBR=y
+> +        
+> +        config DEFAULT_AGILESD
 
-I think structuring the fix as follows is a little more readable:
+Indent above with tab, not spaces.
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index af0cc3456dc1..587cd7623ed8 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -522,10 +522,11 @@ struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
- 		bridge = pci_upstream_bridge(bridge);
- 	}
- 
--	if (pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
--		return NULL;
-+	if (highest_pcie_bridge &&
-+	    pci_pcie_type(highest_pcie_bridge) == PCI_EXP_TYPE_ROOT_PORT)
-+		return highest_pcie_bridge;
- 
--	return highest_pcie_bridge;
-+	return NULL;
- }
- EXPORT_SYMBOL(pci_find_pcie_root_port);
- 
+> +		bool "AGILESD" if TCP_CONG_AGILESD=y
+>  
+>  	config DEFAULT_RENO
+>  		bool "Reno"
+> @@ -738,6 +752,7 @@ config DEFAULT_TCP_CONG
+>  	default "dctcp" if DEFAULT_DCTCP
+>  	default "cdg" if DEFAULT_CDG
+>  	default "bbr" if DEFAULT_BBR
+> +        default "agilesd" if DEFAULT_AGILESD
+
+Indent above with tab, not spaces.
+
+>  	default "cubic"
+>  
+>  config TCP_MD5SIG
+
+
+-- 
+~Randy
