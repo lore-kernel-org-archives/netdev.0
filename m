@@ -1,114 +1,149 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 100% CPU load when generating traffic to destination network
- that nexthop is not reachable
-Date: Tue, 15 Aug 2017 12:11:00 -0700
-Message-ID: <1502824260.4936.86.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <177465a0-aaba-4063-e451-ebbf46728b77@itcare.pl>
-         <1502816253.4936.85.camel@edumazet-glaptop3.roam.corp.google.com>
-         <baa1807d-cc00-0182-4b34-4d986d62ebcb@itcare.pl>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH] qdisc: add tracepoint qdisc:qdisc_dequeue for dequeued SKBs
+Date: Tue, 15 Aug 2017 21:11:03 +0200
+Message-ID: <150282426296.20350.8045788556432194444.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: pstaszewski@itcare.pl, Jesper Dangaard Brouer <brouer@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:38470 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752247AbdHOTLD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 15:11:03 -0400
-Received: by mail-pg0-f68.google.com with SMTP id 123so2726144pga.5
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 12:11:03 -0700 (PDT)
-In-Reply-To: <baa1807d-cc00-0182-4b34-4d986d62ebcb@itcare.pl>
+Received: from mx1.redhat.com ([209.132.183.28]:49096 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752457AbdHOTLI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 15:11:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-08-15 at 19:42 +0200, Paweł Staszewski wrote:
-> # To display the perf.data header info, please use 
-> --header/--header-only options.
-> #
-> #
-> # Total Lost Samples: 0
-> #
-> # Samples: 2M of event 'cycles'
-> # Event count (approx.): 1585571545969
-> #
-> # Children      Self  Command         Shared Object         Symbol
-> # ........  ........  ..............  .................... 
-> ..............................................
-> #
->       1.82%     0.00%  ksoftirqd/43    [kernel.vmlinux]      [k] 
-> __softirqentry_text_start
->              |
->               --1.82%--__softirqentry_text_start
->                         |
->                          --1.82%--net_rx_action
->                                    |
->                                     --1.82%--mlx5e_napi_poll
->                                               |
-> --1.81%--mlx5e_poll_rx_cq
->                                                          |
-> --1.81%--mlx5e_handle_rx_cqe
->                                                                     |
-> --1.79%--napi_gro_receive
-> |
-> --1.78%--netif_receive_skb_internal
-> |
-> --1.78%--__netif_receive_skb
-> |
-> --1.78%--__netif_receive_skb_core
-> |
-> --1.78%--ip_rcv
-> |
-> --1.78%--ip_rcv_finish
-> |
-> --1.76%--ip_forward
-> |
-> --1.76%--ip_forward_finish
-> |
-> --1.76%--ip_output
-> |
-> --1.76%--ip_finish_output
-> |
-> --1.76%--ip_finish_output2
-> |
-> --1.73%--neigh_resolve_output
-> |
-> --1.73%--neigh_event_send
-> |
-> --1.73%--__neigh_event_send
-> |
-> --1.70%--_raw_write_lock_bh
-> queued_write_lock
-> queued_write_lock_slowpath
-> |
-> --1.67%--queued_spin_lock_slowpath
-> 
-> 
+The main purpose of this tracepoint is to monitor bulk dequeue
+in the network qdisc layer, as it cannot be deducted from the
+existing qdisc stats.
 
-Please try this :
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 16a1a4c4eb57fa1147f230916e2e62e18ef89562..95e0d7702029b583de8229e3c3eb923f6395b072 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -991,14 +991,18 @@ static void neigh_timer_handler(unsigned long arg)
- 
- int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
- {
--	int rc;
- 	bool immediate_probe = false;
-+	int rc;
+The txq_state can be used for determining the reason for zero packet
+dequeues, see enum netdev_queue_state_t.
+
+Notice all packets doesn't necessary activate this tracepoint. As
+qdiscs with flag TCQ_F_CAN_BYPASS, can directly invoke
+sch_direct_xmit() when qdisc_qlen is zero.
+
+Remember that perf record supports filters like:
+
+ perf record -e qdisc:qdisc_dequeue \
+  --filter 'ifindex == 4 && (packets > 1 || txq_state > 0)'
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ include/trace/events/qdisc.h |   50 ++++++++++++++++++++++++++++++++++++++++++
+ net/core/net-traces.c        |    1 +
+ net/sched/sch_generic.c      |    8 +++++--
+ 3 files changed, 57 insertions(+), 2 deletions(-)
+ create mode 100644 include/trace/events/qdisc.h
+
+diff --git a/include/trace/events/qdisc.h b/include/trace/events/qdisc.h
+new file mode 100644
+index 000000000000..60d0d8bd336d
+--- /dev/null
++++ b/include/trace/events/qdisc.h
+@@ -0,0 +1,50 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM qdisc
 +
-+	/* We _should_ test this under write_lock_bh(&neigh->lock),
-+	 * but this is too costly.
-+	 */
-+	if (READ_ONCE(neigh->nud_state) & (NUD_CONNECTED | NUD_DELAY | NUD_PROBE))
-+		return 0;
++#if !defined(_TRACE_QDISC_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_QDISC_H_
++
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <linux/tracepoint.h>
++#include <linux/ftrace.h>
++
++TRACE_EVENT(qdisc_dequeue,
++
++	TP_PROTO(struct Qdisc *qdisc, const struct netdev_queue *txq,
++		 int packets, struct sk_buff *skb),
++
++	TP_ARGS(qdisc, txq, packets, skb),
++
++	TP_STRUCT__entry(
++		__field(	struct Qdisc *,		qdisc	)
++		__field(const	struct netdev_queue *,	txq	)
++		__field(	int,			packets	)
++		__field(	void *,			skbaddr	)
++		__field(	int,			ifindex	)
++		__field(	u32,			handle	)
++		__field(	u32,			parent	)
++		__field(	unsigned long,		txq_state)
++	),
++
++	/* skb==NULL indicate packets dequeued was 0, even when packets==1 */
++	TP_fast_assign(
++		__entry->qdisc		= qdisc;
++		__entry->txq		= txq;
++		__entry->packets	= skb ? packets : 0;
++		__entry->skbaddr	= skb;
++		__entry->ifindex	= txq->dev ? txq->dev->ifindex : 0;
++		__entry->handle		= qdisc->handle;
++		__entry->parent		= qdisc->parent;
++		__entry->txq_state	= txq->state;
++	),
++
++	TP_printk("dequeue ifindex=%d qdisc handle=0x%X parent=0x%X txq_state=0x%lX packets=%d skbaddr=%p",
++		  __entry->ifindex, __entry->handle, __entry->parent,
++		  __entry->txq_state, __entry->packets, __entry->skbaddr )
++);
++
++#endif /* _TRACE_QDISC_H_ */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/net/core/net-traces.c b/net/core/net-traces.c
+index 92da5e4ceb4f..4f1468ccd056 100644
+--- a/net/core/net-traces.c
++++ b/net/core/net-traces.c
+@@ -32,6 +32,7 @@
+ #include <trace/events/sock.h>
+ #include <trace/events/udp.h>
+ #include <trace/events/fib.h>
++#include <trace/events/qdisc.h>
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <trace/events/fib6.h>
+ EXPORT_TRACEPOINT_SYMBOL_GPL(fib6_table_lookup);
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 57ba406f1437..c6b89a34e8d2 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -29,6 +29,7 @@
+ #include <net/sch_generic.h>
+ #include <net/pkt_sched.h>
+ #include <net/dst.h>
++#include <trace/events/qdisc.h>
  
- 	write_lock_bh(&neigh->lock);
- 
- 	rc = 0;
--	if (neigh->nud_state & (NUD_CONNECTED | NUD_DELAY | NUD_PROBE))
--		goto out_unlock_bh;
- 	if (neigh->dead)
- 		goto out_dead;
+ /* Qdisc to use by default */
+ const struct Qdisc_ops *default_qdisc_ops = &pfifo_fast_ops;
+@@ -126,7 +127,7 @@ static struct sk_buff *dequeue_skb(struct Qdisc *q, bool *validate,
+ 			q->q.qlen--;
+ 		} else
+ 			skb = NULL;
+-		return skb;
++		goto trace;
+ 	}
+ 	*validate = true;
+ 	skb = q->skb_bad_txq;
+@@ -139,7 +140,8 @@ static struct sk_buff *dequeue_skb(struct Qdisc *q, bool *validate,
+ 			q->q.qlen--;
+ 			goto bulk;
+ 		}
+-		return NULL;
++		skb = NULL;
++		goto trace;
+ 	}
+ 	if (!(q->flags & TCQ_F_ONETXQUEUE) ||
+ 	    !netif_xmit_frozen_or_stopped(txq))
+@@ -151,6 +153,8 @@ static struct sk_buff *dequeue_skb(struct Qdisc *q, bool *validate,
+ 		else
+ 			try_bulk_dequeue_skb_slow(q, skb, packets);
+ 	}
++trace:
++	trace_qdisc_dequeue(q, txq, *packets, skb);
+ 	return skb;
+ }
  
