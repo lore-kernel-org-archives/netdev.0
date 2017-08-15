@@ -1,34 +1,72 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH 2/5] net/9p: Improve 19 size determinations
-Date: Tue, 15 Aug 2017 15:21:53 +0100
-Message-ID: <20170815142152.GA5426@ZenIV.linux.org.uk>
-References: <22a44d7c-cdb9-e206-4b2c-56e38cbf0de1@users.sourceforge.net>
- <f9eeedc4-5d3d-6622-79f0-11174ea81c49@users.sourceforge.net>
+From: <helga.brickl@arcor.de>
+Subject: (unknown)
+Date: Tue, 15 Aug 2017 14:23:33 -0000
+Message-ID: <150280701361.25645.5651011828972006491@tcvnet.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Van Hensbergen <ericvh@gmail.com>,
-        Latchesar Ionkov <lucho@ionkov.net>,
-        Ron Minnich <rminnich@sandia.gov>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <f9eeedc4-5d3d-6622-79f0-11174ea81c49@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="55560763.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 189-124-7-24.tcvnet.com.br ([189.124.7.24]:33569 "HELO
+        tcvnet.com.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751849AbdHOOXi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 10:23:38 -0400
+Content-Disposition: attachment
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 15, 2017 at 02:00:06PM +0200, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Tue, 15 Aug 2017 09:36:20 +0200
-> 
-> Replace the specification of data structures by variable references
-> as the parameter for the operator "sizeof" to make the corresponding size
-> determination a bit safer according to the Linux coding style convention.
-
-Garbage.  This makes it so much harder to find where the objects of given
-type are created.  It's _not_ safer and any patches of that sort around
-VFS will be shitcanned.  What to do with net/9p patches is up to net/9p
-maintainers, but I would strongly recommend the same treatment.
+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
