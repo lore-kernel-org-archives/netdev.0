@@ -1,42 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: release rt6->rt6i_idev properly during ifdown
-Date: Mon, 14 Aug 2017 22:19:45 -0700 (PDT)
-Message-ID: <20170814.221945.1039673650891799146.davem@davemloft.net>
-References: <20170814174459.3569-1-tracywwnj@gmail.com>
+Subject: Re: [PATCH V2 net-next 0/8] liquidio: adding support for ethtool
+ --set-ring feature
+Date: Mon, 14 Aug 2017 22:21:56 -0700 (PDT)
+Message-ID: <20170814.222156.501253374258719071.davem@davemloft.net>
+References: <20170814190034.GA1219@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kafai@fb.com, dsahern@gmail.com
-To: weiwan@google.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        intiyaz.basha@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50536 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50548 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752977AbdHOFTq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 01:19:46 -0400
-In-Reply-To: <20170814174459.3569-1-tracywwnj@gmail.com>
+        with ESMTP id S1751509AbdHOFV5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 01:21:57 -0400
+In-Reply-To: <20170814190034.GA1219@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
-Date: Mon, 14 Aug 2017 10:44:59 -0700
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Mon, 14 Aug 2017 12:00:34 -0700
 
-> From: Wei Wang <weiwan@google.com>
+> From: Intiyaz Basha <intiyaz.basha@cavium.com>
 > 
-> When a dst is created by addrconf_dst_alloc() for a host route or an
-> anycast route, dst->dev points to loopback dev while rt6->rt6i_idev
-> points to a real device.
-> When the real device goes down, the current cleanup code only checks for
-> dst->dev and assumes rt6->rt6i_idev->dev is the same. This causes the
-> refcount leak on the real device in the above situation.
-> This patch makes sure to always release the refcount taken on
-> rt6->rt6i_idev during dst_dev_put().
+> Code reorganization is required for adding ethtool --set-ring feature.
+> First seven patches are for code reorganization.  The last patch is for
+> adding this feature.
 > 
-> Fixes: 587fea741134 ("ipv6: mark DST_NOGC and remove the operation of
-> dst_free()")
-> Reported-by: John Stultz <john.stultz@linaro.org>
-> Tested-by: John Stultz <john.stultz@linaro.org>
-> Tested-by: Martin KaFai Lau <kafai@fb.com>
-> Signed-off-by: Wei Wang <weiwan@google.com>
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Change Log:
+> V1 -> V2
+>  Only patch #8 was changed:  unnecessary parentheses were removed in two
+>  if-statements in lio_ethtool_set_ringparam().
 
-Applied, thank you.
+Series applied.
