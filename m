@@ -1,84 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fix possible deadlock in TCP stack vs BPF filter
-Date: Mon, 14 Aug 2017 17:44:43 -0700
-Message-ID: <1502757883.4936.41.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
+ performance vs Core/RSS number / HT on
+Date: Tue, 15 Aug 2017 02:45:03 +0200
+Message-ID: <80b3bf71-dc6b-7b96-43d6-dbb3c53c5a8b@itcare.pl>
+References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
+ <20170812142358.08291888@redhat.com>
+ <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
+ <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
+ <20170814181957.5be27906@redhat.com> <1502729870.8411.63.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Chenbo Feng <fengc@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Paolo Abeni <pabeni@redhat.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:37724 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752740AbdHOAop (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2017 20:44:45 -0400
-Received: by mail-pg0-f66.google.com with SMTP id 83so13100672pgb.4
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 17:44:45 -0700 (PDT)
+Received: from smtp19.iq.pl ([86.111.242.224]:48076 "EHLO smtp19.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752740AbdHOAqN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 14 Aug 2017 20:46:13 -0400
+In-Reply-To: <1502729870.8411.63.camel@redhat.com>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-Filtering the ACK packet was not put at the right place.
 
-At this place, we already allocated a child and put it
-into accept queue.
+W dniu 2017-08-14 o 18:57, Paolo Abeni pisze:
+> On Mon, 2017-08-14 at 18:19 +0200, Jesper Dangaard Brouer wrote:
+>> The output (extracted below) didn't show who called 'do_raw_spin_lock',
+>> BUT it showed another interesting thing.  The kernel code
+>> __dev_queue_xmit() in might create route dst-cache problem for itself(?),
+>> as it will first call skb_dst_force() and then skb_dst_drop() when the
+>> packet is transmitted on a VLAN.
+>>
+>>   static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+>>   {
+>>   [...]
+>> 	/* If device/qdisc don't need skb->dst, release it right now while
+>> 	 * its hot in this cpu cache.
+>> 	 */
+>> 	if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+>> 		skb_dst_drop(skb);
+>> 	else
+>> 		skb_dst_force(skb);
+> I think that the high impact of the above code in this specific test is
+> mostly due to the following:
+>
+> - ingress packets with different RSS rx hash lands on different CPUs
+yes but isn't this normal ?
+everybody that want to ballance load over cores will try tu use as many 
+as possible :)
+With some limitations  ... best are 6 to 7 RSS queues - so need to use 6 
+to 7 cpu cores
 
-We absolutely need to call tcp_child_process() to release
-its spinlock, or we will deadlock at accept() or close() time.
+> - but they use the same dst entry, since the destination IPs belong to
+> the same subnet
+typical for ddos - many sources one destination
 
-Found by syzkaller team (Thanks a lot !)
 
-Fixes: 8fac365f63c8 ("tcp: Add a tcp_filter hook before handle ack packet")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Chenbo Feng <fengc@google.com>
----
- net/ipv4/tcp_ipv4.c |    4 ++--
- net/ipv6/tcp_ipv6.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a20e7f03d5f7..e9252c7df809 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1722,6 +1722,8 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 		 */
- 		sock_hold(sk);
- 		refcounted = true;
-+		if (tcp_filter(sk, skb))
-+			goto discard_and_relse;
- 		nsk = tcp_check_req(sk, skb, req, false);
- 		if (!nsk) {
- 			reqsk_put(req);
-@@ -1729,8 +1731,6 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 		}
- 		if (nsk == sk) {
- 			reqsk_put(req);
--		} else if (tcp_filter(sk, skb)) {
--			goto discard_and_relse;
- 		} else if (tcp_child_process(sk, nsk, skb)) {
- 			tcp_v4_send_reset(nsk, skb);
- 			goto discard_and_relse;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 2521690d62d6..206210125fd7 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1456,6 +1456,8 @@ static int tcp_v6_rcv(struct sk_buff *skb)
- 		}
- 		sock_hold(sk);
- 		refcounted = true;
-+		if (tcp_filter(sk, skb))
-+			goto discard_and_relse;
- 		nsk = tcp_check_req(sk, skb, req, false);
- 		if (!nsk) {
- 			reqsk_put(req);
-@@ -1464,8 +1466,6 @@ static int tcp_v6_rcv(struct sk_buff *skb)
- 		if (nsk == sk) {
- 			reqsk_put(req);
- 			tcp_v6_restore_cb(skb);
--		} else if (tcp_filter(sk, skb)) {
--			goto discard_and_relse;
- 		} else if (tcp_child_process(sk, nsk, skb)) {
- 			tcp_v6_send_reset(nsk, skb);
- 			goto discard_and_relse;
+> - the dst refcnt cacheline is contented between all the CPUs
+>
+> Perhaps we can inprove the situation setting the IFF_XMIT_DST_RELEASE
+> flag for vlan if the underlaying device does not have (relevant)
+> classifier attached? (and clearing it as needed)
+>
+> Paolo
+>
