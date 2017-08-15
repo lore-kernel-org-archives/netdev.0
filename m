@@ -1,126 +1,66 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: general protection fault in fib_dump_info
-Date: Tue, 15 Aug 2017 07:55:16 -0700
-Message-ID: <CAJieiUhDoaaAc0w=1-pKGcymVpfYqG9figmrKHduzdtJu_hZig@mail.gmail.com>
-References: <CADUsjNkM2KuAJj6xc=Xj3he8z3B5XYv5m8H5x-FCHwdGjW_AYg@mail.gmail.com>
- <20170815120528.GD16998@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: idaifish <idaifish@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        syzkaller@googlegroups.com
-To: Florian Westphal <fw@strlen.de>
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 00/12] s390/net: updates for 4.14
+Date: Tue, 15 Aug 2017 17:02:38 +0200
+Message-ID: <20170815150250.67158-1-jwi@linux.vnet.ibm.com>
+Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Stefan Raspl <raspl@linux.vnet.ibm.com>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        Julian Wiedmann <jwi@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f175.google.com ([209.85.217.175]:34046 "EHLO
-        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751665AbdHOOzR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 10:55:17 -0400
-Received: by mail-ua0-f175.google.com with SMTP id q25so3781696uah.1
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 07:55:17 -0700 (PDT)
-In-Reply-To: <20170815120528.GD16998@breakpoint.cc>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:56511 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752026AbdHOPDC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 11:03:02 -0400
+Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v7FExqU2087339
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 11:03:01 -0400
+Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2cbsqvtmvy-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 11:03:01 -0400
+Received: from localhost
+        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
+        Tue, 15 Aug 2017 16:02:59 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 15, 2017 at 5:05 AM, Florian Westphal <fw@strlen.de> wrote:
-> idaifish <idaifish@gmail.com> wrote:
->> Syzkaller hit 'general protection fault in fib_dump_info' bug on
->> commit 4.13-rc5..
->
-> CC Roopa
->
->> Guilty file: net/ipv4/fib_semantics.c
->>
->> kasan: GPF could be caused by NULL-ptr deref or user memory access
->> general protection fault: 0000 [#1] SMP KASAN
->> Modules linked in:
->> CPU: 0 PID: 2808 Comm: syz-executor0 Not tainted 4.13.0-rc5 #1
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS
->> Ubuntu-1.8.2-1ubuntu1 04/01/2014
->> task: ffff880078562700 task.stack: ffff880078110000
->> RIP: 0010:fib_dump_info+0x388/0x1170 net/ipv4/fib_semantics.c:1314
->> RSP: 0018:ffff880078117010 EFLAGS: 00010206
->> RAX: dffffc0000000000 RBX: 00000000000000fe RCX: 0000000000000002
->> RDX: 0000000000000006 RSI: ffff880078117084 RDI: 0000000000000030
->> RBP: ffff880078117268 R08: 000000000000000c R09: ffff8800780d80c8
->> R10: 0000000058d629b4 R11: 0000000067fce681 R12: 0000000000000000
->> R13: ffff8800784bd540 R14: ffff8800780d80b5 R15: ffff8800780d80a4
->> FS:  00000000022fa940(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
->> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> CR2: 00000000004387d0 CR3: 0000000079135000 CR4: 00000000000006f0
->> Call Trace:
->>  inet_rtm_getroute+0xc89/0x1f50 net/ipv4/route.c:2766
->>  rtnetlink_rcv_msg+0x288/0x680 net/core/rtnetlink.c:4217
->
-> Seems like this is from
-> b61798130f1be5bff08712308126c2d7ebe390ef
->
-> Roopa, it seems to assume res.fi != NULL, but afaics there
-> is no guarantee, f.e. in ip_route_input_rcu() in the multicast
-> branch res isn't changed at all.
+Hi Dave,
 
-yes, you are right. Just checked. Thanks for catching this and digging
-into it further.
+a mixed bag of minor fixes, cleanups and refactors for net-next. Please apply.
 
+Thanks,
+Julian
 
+Julian Wiedmann (9):
+  s390/qeth: don't access skb after transmission
+  s390/qeth: remove extra L2 adapterparms query
+  s390/qeth: remove extra L3 adapterparms query
+  s390/qeth: simplify fragment type selection
+  s390/qeth: straighten out fill_buffer() interface
+  s390/qeth: clean up fill_buffer() offset logic
+  s390/qeth: make more use of skb API
+  s390/net: reduce inlining
+  s390/qeth: extract bridgeport cmd builder
 
->
-> If thats true, we might need this fix?
+Kittipon Meesompop (3):
+  s390/qeth: reject multicast rxip addresses
+  s390/qeth: fix trace-messages for deleting rxip addresses
+  s390/qeth: fix using of ref counter for rxip addresses
 
-I think fib match should error out for this case.
-still debating about the return error code... But the below should fix it.
+ drivers/s390/net/ctcm_main.c      |   2 +-
+ drivers/s390/net/lcs.c            |  28 ++++----
+ drivers/s390/net/netiucv.c        |   4 +-
+ drivers/s390/net/qeth_core.h      |  11 ++-
+ drivers/s390/net/qeth_core_main.c | 147 ++++++++++++++++++--------------------
+ drivers/s390/net/qeth_core_sys.c  |   2 +-
+ drivers/s390/net/qeth_l2_main.c   | 116 +++++++++++-------------------
+ drivers/s390/net/qeth_l3_main.c   |  49 +++++--------
+ drivers/s390/net/qeth_l3_sys.c    |  17 +++++
+ 9 files changed, 169 insertions(+), 207 deletions(-)
 
-
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-
-index 0383e66f..f21c760 100644
-
---- a/net/ipv4/route.c
-
-+++ b/net/ipv4/route.c
-
-@@ -2762,14 +2762,19 @@ static int inet_rtm_getroute(struct sk_buff
-*in_skb, struct nlmsghdr *nlh,
-
-        if (rtm->rtm_flags & RTM_F_LOOKUP_TABLE)
-
-                table_id = rt->rt_table_id;
-
-
-
--       if (rtm->rtm_flags & RTM_F_FIB_MATCH)
-
-+       if (rtm->rtm_flags & RTM_F_FIB_MATCH) {
-
-+               if (!res->fi) {
-
-+                       err = -EINVAL;
-
-+                       goto errout_free;
-
-+               }
-
-                err = fib_dump_info(skb, NETLINK_CB(in_skb).portid,
-
-                                    nlh->nlmsg_seq, RTM_NEWROUTE, table_id,
-
-                                    rt->rt_type, res.prefix, res.prefixlen,
-
-                                    fl4.flowi4_tos, res.fi, 0);
-
--       else
-
-+       } else {
-
-                err = rt_fill_info(net, dst, src, table_id, &fl4, skb,
-
-                                   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq);
-
-+       }
-
-        if (err < 0)
-
-                goto errout_free;
+-- 
+2.11.2
