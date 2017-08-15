@@ -1,373 +1,265 @@
-From: Leon Romanovsky <leonro@mellanox.com>
-Subject: [PATCH v4 iproute2 7/7] rdma: Add json output to link object
-Date: Tue, 15 Aug 2017 16:00:20 +0300
-Message-ID: <20170815130020.29509-8-leonro@mellanox.com>
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v4 iproute2 4/7] rdma: Add initial manual for the tool
+Date: Tue, 15 Aug 2017 16:00:17 +0300
+Message-ID: <20170815130020.29509-5-leonro@mellanox.com>
 References: <20170815130020.29509-1-leonro@mellanox.com>
-Cc: linux-rdma@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ariel Almog <ariela@mellanox.com>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Doug Ledford <dledford@redhat.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:54118 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751723AbdHONBA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Aug 2017 09:01:00 -0400
-In-Reply-To: <20170815130020.29509-1-leonro@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170815130020.29509-1-leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-An example for the JSON output for two devices system.
-
-root@mtr-leonro:~# rdma link -d -p -j
-[{
-        "ifindex": 1,
-        "port": 1,
-        "ifname": "mlx5_0/1",
-        "subnet_prefix": "fe80:0000:0000:0000",
-        "lid": 13399,
-        "sm_lid": 49151,
-        "lmc": 0,
-        "state": "ACTIVE",
-        "physical_state": "LINK_UP",
-        "caps": ["AUTO_MIG"
-        ]
-    },{
-        "ifindex": 2,
-        "port": 1,
-        "ifname": "mlx5_1/1",
-        "subnet_prefix": "fe80:0000:0000:0000",
-        "lid": 13400,
-        "sm_lid": 49151,
-        "lmc": 0,
-        "state": "ACTIVE",
-        "physical_state": "LINK_UP",
-        "caps": ["AUTO_MIG"
-        ]
-    }
-]
-
-Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- rdma/link.c  | 144 +++++++++++++++++++++++++++++++++++++++++++----------------
- rdma/rdma.h  |   1 -
- rdma/utils.c |   8 ----
- 3 files changed, 105 insertions(+), 48 deletions(-)
+ man/man8/rdma-dev.8  |  55 +++++++++++++++++++++++++++
+ man/man8/rdma-link.8 |  55 +++++++++++++++++++++++++++
+ man/man8/rdma.8      | 102 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 212 insertions(+)
+ create mode 100644 man/man8/rdma-dev.8
+ create mode 100644 man/man8/rdma-link.8
+ create mode 100644 man/man8/rdma.8
 
-diff --git a/rdma/link.c b/rdma/link.c
-index 51858965..b3316e7e 100644
---- a/rdma/link.c
-+++ b/rdma/link.c
-@@ -50,7 +50,7 @@ static const char *caps_to_str(uint32_t idx)
- 	}
- };
- 
--static void link_print_caps(struct nlattr **tb)
-+static void link_print_caps(struct rd *rd, struct nlattr **tb)
- {
- 	uint64_t caps;
- 	uint32_t idx;
-@@ -60,54 +60,89 @@ static void link_print_caps(struct nlattr **tb)
- 
- 	caps = mnl_attr_get_u64(tb[RDMA_NLDEV_ATTR_CAP_FLAGS]);
- 
--	pr_out("\n    caps: <");
-+	if (rd->json_output) {
-+		jsonw_name(rd->jw, "caps");
-+		jsonw_start_array(rd->jw);
-+	} else {
-+		pr_out("\n    caps: <");
-+	}
- 	for (idx = 0; caps; idx++) {
- 		if (caps & 0x1) {
--			pr_out("%s", caps_to_str(idx));
--			if (caps >> 0x1)
--				pr_out(", ");
-+			if (rd->json_output) {
-+				jsonw_string(rd->jw, caps_to_str(idx));
-+			} else {
-+				pr_out("%s", caps_to_str(idx));
-+				if (caps >> 0x1)
-+					pr_out(", ");
-+			}
- 		}
- 		caps >>= 0x1;
- 	}
- 
--	pr_out(">");
-+	if (rd->json_output)
-+		jsonw_end_array(rd->jw);
-+	else
-+		pr_out(">");
- }
- 
--static void link_print_subnet_prefix(struct nlattr **tb)
-+static void link_print_subnet_prefix(struct rd *rd, struct nlattr **tb)
- {
- 	uint64_t subnet_prefix;
-+	uint16_t vp[4];
-+	char str[32];
- 
- 	if (!tb[RDMA_NLDEV_ATTR_SUBNET_PREFIX])
- 		return;
- 
- 	subnet_prefix = mnl_attr_get_u64(tb[RDMA_NLDEV_ATTR_SUBNET_PREFIX]);
--	rd_print_u64("subnet_prefix", subnet_prefix);
-+	memcpy(vp, &subnet_prefix, sizeof(uint64_t));
-+	snprintf(str, 32, "%04x:%04x:%04x:%04x", vp[3], vp[2], vp[1], vp[0]);
-+	if (rd->json_output)
-+		jsonw_string_field(rd->jw, "subnet_prefix", str);
-+	else
-+		pr_out("subnet_prefix %s ", str);
- }
- 
--static void link_print_lid(struct nlattr **tb)
-+static void link_print_lid(struct rd *rd, struct nlattr **tb)
- {
-+	uint32_t lid;
+diff --git a/man/man8/rdma-dev.8 b/man/man8/rdma-dev.8
+new file mode 100644
+index 00000000..461681b6
+--- /dev/null
++++ b/man/man8/rdma-dev.8
+@@ -0,0 +1,55 @@
++.TH RDMA\-DEV 8 "06 Jul 2017" "iproute2" "Linux"
++.SH NAME
++rdmak-dev \- RDMA device configuration
++.SH SYNOPSIS
++.sp
++.ad l
++.in +8
++.ti -8
++.B rdma
++.RI "[ " OPTIONS " ]"
++.B dev
++.RI  " { " COMMAND " | "
++.BR help " }"
++.sp
 +
- 	if (!tb[RDMA_NLDEV_ATTR_LID])
- 		return;
- 
--	pr_out("lid %u ",
--	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_LID]));
-+	lid = mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_LID]);
-+	if (rd->json_output)
-+		jsonw_uint_field(rd->jw, "lid", lid);
-+	else
-+		pr_out("lid %u ", lid);
- }
- 
--static void link_print_sm_lid(struct nlattr **tb)
-+static void link_print_sm_lid(struct rd *rd, struct nlattr **tb)
- {
-+	uint32_t sm_lid;
++.ti -8
++.IR OPTIONS " := { "
++\fB\-V\fR[\fIersion\fR] |
++\fB\-d\fR[\fIetails\fR] }
 +
- 	if (!tb[RDMA_NLDEV_ATTR_SM_LID])
- 		return;
- 
--	pr_out("sm_lid %u ",
--	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_SM_LID]));
-+	sm_lid = mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_SM_LID]);
-+	if (rd->json_output)
-+		jsonw_uint_field(rd->jw, "sm_lid", sm_lid);
-+	else
-+		pr_out("sm_lid %u ", sm_lid);
- }
- 
--static void link_print_lmc(struct nlattr **tb)
-+static void link_print_lmc(struct rd *rd, struct nlattr **tb)
- {
-+	uint8_t lmc;
++.ti -8
++.B rdma dev show
++.RI "[ " DEV " ]"
 +
- 	if (!tb[RDMA_NLDEV_ATTR_LMC])
- 		return;
- 
--	pr_out("lmc %u ", mnl_attr_get_u8(tb[RDMA_NLDEV_ATTR_LMC]));
-+	lmc = mnl_attr_get_u8(tb[RDMA_NLDEV_ATTR_LMC]);
-+	if (rd->json_output)
-+		jsonw_uint_field(rd->jw, "lmc", lmc);
-+	else
-+		pr_out("lmc %u ", lmc);
- }
- 
- static const char *link_state_to_str(uint8_t link_state)
-@@ -123,7 +158,7 @@ static const char *link_state_to_str(uint8_t link_state)
- 	}
- };
- 
--static void link_print_state(struct nlattr **tb)
-+static void link_print_state(struct rd *rd, struct nlattr **tb)
- {
- 	uint8_t state;
- 
-@@ -131,7 +166,10 @@ static void link_print_state(struct nlattr **tb)
- 		return;
- 
- 	state = mnl_attr_get_u8(tb[RDMA_NLDEV_ATTR_PORT_STATE]);
--	pr_out("state %s ", link_state_to_str(state));
-+	if (rd->json_output)
-+		jsonw_string_field(rd->jw, "state", link_state_to_str(state));
-+	else
-+		pr_out("state %s ", link_state_to_str(state));
- }
- 
- static const char *phys_state_to_str(uint8_t phys_state)
-@@ -149,7 +187,7 @@ static const char *phys_state_to_str(uint8_t phys_state)
- 	}
- };
- 
--static void link_print_phys_state(struct nlattr **tb)
-+static void link_print_phys_state(struct rd *rd, struct nlattr **tb)
- {
- 	uint8_t phys_state;
- 
-@@ -157,13 +195,19 @@ static void link_print_phys_state(struct nlattr **tb)
- 		return;
- 
- 	phys_state = mnl_attr_get_u8(tb[RDMA_NLDEV_ATTR_PORT_PHYS_STATE]);
--	pr_out("physical_state %s ", phys_state_to_str(phys_state));
-+	if (rd->json_output)
-+		jsonw_string_field(rd->jw, "physical_state",
-+				   phys_state_to_str(phys_state));
-+	else
-+		pr_out("physical_state %s ", phys_state_to_str(phys_state));
- }
- 
- static int link_parse_cb(const struct nlmsghdr *nlh, void *data)
- {
- 	struct nlattr *tb[RDMA_NLDEV_ATTR_MAX] = {};
- 	struct rd *rd = data;
-+	uint32_t port, idx;
-+	char name[32];
- 
- 	mnl_attr_parse(nlh, 0, rd_attr_cb, tb);
- 	if (!tb[RDMA_NLDEV_ATTR_DEV_INDEX] || !tb[RDMA_NLDEV_ATTR_DEV_NAME])
-@@ -174,21 +218,31 @@ static int link_parse_cb(const struct nlmsghdr *nlh, void *data)
- 		return MNL_CB_ERROR;
- 	}
- 
--	pr_out("%u/%u: %s/%u: ",
--	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]),
--	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_PORT_INDEX]),
--	       mnl_attr_get_str(tb[RDMA_NLDEV_ATTR_DEV_NAME]),
--	       mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_PORT_INDEX]));
--	link_print_subnet_prefix(tb);
--	link_print_lid(tb);
--	link_print_sm_lid(tb);
--	link_print_lmc(tb);
--	link_print_state(tb);
--	link_print_phys_state(tb);
-+	idx = mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_DEV_INDEX]);
-+	port = mnl_attr_get_u32(tb[RDMA_NLDEV_ATTR_PORT_INDEX]);
-+	snprintf(name, 32, "%s/%u",
-+		 mnl_attr_get_str(tb[RDMA_NLDEV_ATTR_DEV_NAME]), port);
++.ti -8
++.B rdma dev help
 +
-+	if (rd->json_output) {
-+		jsonw_uint_field(rd->jw, "ifindex", idx);
-+		jsonw_uint_field(rd->jw, "port", port);
-+		jsonw_string_field(rd->jw, "ifname", name);
++.SH "DESCRIPTION"
++.SS rdma dev show - display rdma device attributes
 +
-+	} else {
-+		pr_out("%u/%u: %s: ", idx, port, name);
-+	}
++.PP
++.I "DEV"
++- specifies the RDMA device to show.
++If this argument is omitted all devices are listed.
 +
-+	link_print_subnet_prefix(rd, tb);
-+	link_print_lid(rd, tb);
-+	link_print_sm_lid(rd, tb);
-+	link_print_lmc(rd, tb);
-+	link_print_state(rd, tb);
-+	link_print_phys_state(rd, tb);
- 	if (rd->show_details)
--		link_print_caps(tb);
-+		link_print_caps(rd, tb);
- 
--	pr_out("\n");
-+	if (!rd->json_output)
-+		pr_out("\n");
- 	return MNL_CB_OK;
- }
- 
-@@ -205,7 +259,12 @@ static int link_no_args(struct rd *rd)
- 	if (ret)
- 		return ret;
- 
--	return rd_recv_msg(rd, link_parse_cb, rd, seq);
-+	if (rd->json_output)
-+		jsonw_start_object(rd->jw);
-+	ret = rd_recv_msg(rd, link_parse_cb, rd, seq);
-+	if (rd->json_output)
-+		jsonw_end_object(rd->jw);
-+	return ret;
- }
- 
- static int link_one_show(struct rd *rd)
-@@ -222,8 +281,10 @@ static int link_show(struct rd *rd)
- {
- 	struct dev_map *dev_map;
- 	uint32_t port;
--	int ret;
-+	int ret = 0;
- 
-+	if (rd->json_output)
-+		jsonw_start_array(rd->jw);
- 	if (rd_no_arg(rd)) {
- 		list_for_each_entry(dev_map, &rd->dev_map_list, list) {
- 			rd->dev_idx = dev_map->idx;
-@@ -231,7 +292,7 @@ static int link_show(struct rd *rd)
- 				rd->port_idx = port;
- 				ret = link_one_show(rd);
- 				if (ret)
--					return ret;
-+					goto out;
- 			}
- 		}
- 
-@@ -240,7 +301,8 @@ static int link_show(struct rd *rd)
- 		port = get_port_from_argv(rd);
- 		if (!dev_map || port > dev_map->num_ports) {
- 			pr_err("Wrong device name\n");
--			return -ENOENT;
-+			ret = -ENOENT;
-+			goto out;
- 		}
- 		rd_arg_inc(rd);
- 		rd->dev_idx = dev_map->idx;
-@@ -248,7 +310,7 @@ static int link_show(struct rd *rd)
- 		for (; rd->port_idx < dev_map->num_ports + 1; rd->port_idx++) {
- 			ret = link_one_show(rd);
- 			if (ret)
--				return ret;
-+				goto out;
- 			if (port)
- 				/*
- 				 * We got request to show link for devname
-@@ -257,7 +319,11 @@ static int link_show(struct rd *rd)
- 				break;
- 		}
- 	}
--	return 0;
++.SH "EXAMPLES"
++.PP
++rdma dev
++.RS 4
++Shows the state of all RDMA devices on the system.
++.RE
++.PP
++rdma dev show mlx5_3
++.RS 4
++Shows the state of specified RDMA device.
++.RE
++.PP
 +
-+out:
-+	if (rd->json_output)
-+		jsonw_end_array(rd->jw);
-+	return ret;
- }
- 
- int cmd_link(struct rd *rd)
-diff --git a/rdma/rdma.h b/rdma/rdma.h
-index 620ec3db..4a9391c1 100644
---- a/rdma/rdma.h
-+++ b/rdma/rdma.h
-@@ -65,7 +65,6 @@ void rd_arg_inc(struct rd *rd);
- char *rd_argv(struct rd *rd);
- uint32_t get_port_from_argv(struct rd *rd);
- 
--void rd_print_u64(char *name, uint64_t val);
- /*
-  * Commands interface
-  */
-diff --git a/rdma/utils.c b/rdma/utils.c
-index 91d05271..eb4377cf 100644
---- a/rdma/utils.c
-+++ b/rdma/utils.c
-@@ -59,14 +59,6 @@ uint32_t get_port_from_argv(struct rd *rd)
- 	return slash ? atoi(slash + 1) : 0;
- }
- 
--void rd_print_u64(char *name, uint64_t val)
--{
--	uint16_t vp[4];
--
--	memcpy(vp, &val, sizeof(uint64_t));
--	pr_out("%s %04x:%04x:%04x:%04x ", name, vp[3], vp[2], vp[1], vp[0]);
--}
--
- static struct dev_map *dev_map_alloc(const char *dev_name)
- {
- 	struct dev_map *dev_map;
++.SH SEE ALSO
++.BR rdma (8),
++.BR rdma-link (8),
++.br
++
++.SH AUTHOR
++Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+diff --git a/man/man8/rdma-link.8 b/man/man8/rdma-link.8
+new file mode 100644
+index 00000000..8ed049ef
+--- /dev/null
++++ b/man/man8/rdma-link.8
+@@ -0,0 +1,55 @@
++.TH RDMA\-LINK 8 "06 Jul 2017" "iproute2" "Linux"
++.SH NAME
++rdma-link \- rdma link configuration
++.SH SYNOPSIS
++.sp
++.ad l
++.in +8
++.ti -8
++.B devlink
++.RI "[ " OPTIONS " ]"
++.B link
++.RI  " { " COMMAND " | "
++.BR help " }"
++.sp
++
++.ti -8
++.IR OPTIONS " := { "
++\fB\-V\fR[\fIersion\fR] |
++\fB\-d\fR[\fIetails\fR] }
++
++.ti -8
++.B rdma link show
++.RI "[ " DEV/PORT_INDEX " ]"
++
++.ti -8
++.B rdma link help
++
++.SH "DESCRIPTION"
++.SS rdma link show - display rdma link attributes
++
++.PP
++.I "DEV/PORT_INDEX"
++- specifies the RDMa link to show.
++If this argument is omitted all links are listed.
++
++.SH "EXAMPLES"
++.PP
++rdma link show
++.RS 4
++Shows the state of all rdma links on the system.
++.RE
++.PP
++rdma link show mlx5_2/1
++.RS 4
++Shows the state of specified rdma link.
++.RE
++.PP
++
++.SH SEE ALSO
++.BR rdma (8),
++.BR rdma-dev (8),
++.br
++
++.SH AUTHOR
++Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+diff --git a/man/man8/rdma.8 b/man/man8/rdma.8
+new file mode 100644
+index 00000000..798b33d3
+--- /dev/null
++++ b/man/man8/rdma.8
+@@ -0,0 +1,102 @@
++.TH RDMA 8 "28 Mar 2017" "iproute2" "Linux"
++.SH NAME
++rdma \- RDMA tool
++.SH SYNOPSIS
++.sp
++.ad l
++.in +8
++.ti -8
++.B rdma
++.RI "[ " OPTIONS " ] " OBJECT " { " COMMAND " | "
++.BR help " }"
++.sp
++
++.ti -8
++.IR OBJECT " := { "
++.BR dev " | " link " }"
++.sp
++
++.ti -8
++.IR OPTIONS " := { "
++\fB\-V\fR[\fIersion\fR] |
++\fB\-d\fR[\fIetails\fR] }
++\fB\-j\fR[\fIson\fR] }
++\fB\-p\fR[\fIretty\fR] }
++
++.SH OPTIONS
++
++.TP
++.BR "\-V" , " -Version"
++Print the version of the
++.B rdma
++tool and exit.
++
++.TP
++.BR "\-d" , " --details"
++Otuput detailed information.
++
++.TP
++.BR "\-p" , " --pretty"
++When combined with -j generate a pretty JSON output.
++
++.TP
++.BR "\-j" , " --json"
++Generate JSON output.
++
++.SS
++.I OBJECT
++
++.TP
++.B dev
++- RDMA device.
++
++.TP
++.B link
++- RDMA port related.
++
++.PP
++The names of all objects may be written in full or
++abbreviated form, for example
++.B stats
++can be abbreviated as
++.B stat
++or just
++.B s.
++
++.SS
++.I COMMAND
++
++Specifies the action to perform on the object.
++The set of possible actions depends on the object type.
++As a rule, it is possible to
++.B show
++(or
++.B list
++) objects, but some objects do not allow all of these operations
++or have some additional commands. The
++.B help
++command is available for all objects. It prints
++out a list of available commands and argument syntax conventions.
++.sp
++If no command is given, some default command is assumed.
++Usually it is
++.B list
++or, if the objects of this class cannot be listed,
++.BR "help" .
++
++.SH EXIT STATUS
++Exit status is 0 if command was successful or a positive integer upon failure.
++
++.SH SEE ALSO
++.BR rdma-dev (8),
++.BR rdma-link (8),
++.br
++
++.SH REPORTING BUGS
++Report any bugs to the Linux RDMA mailing list
++.B <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
++where the development and maintenance is primarily done.
++You do not have to be subscribed to the list to send a message there.
++
++.SH AUTHOR
++Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 -- 
 2.14.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
