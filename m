@@ -1,46 +1,107 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH v2] sctp: fully initialize the IPv6 address in
- sctp_v6_to_addr()
-Date: Tue, 15 Aug 2017 13:31:41 -0300
-Message-ID: <20170815163141.GD18688@localhost.localdomain>
-References: <20170814184304.82747-1-glider@google.com>
- <CAPA1RqDzSs3LogN+z69Ba2yoE6=jniobC-tEGd3TTh3z=39qxg@mail.gmail.com>
- <20170815015814.GB18688@localhost.localdomain>
- <20170814.194051.1408830683580606508.davem@davemloft.net>
- <20170815150557.GC18688@localhost.localdomain>
- <1502811469.4936.84.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Daniel Borkmann via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v2 net-next] bpf/verifier: track liveness
+	for pruning
+Date: Tue, 15 Aug 2017 18:33:46 +0200
+Message-ID: <5993226A.9010704@iogearbox.net>
+References: <3c245ef4-3161-0e5a-3708-6b9b47db01cd@solarflare.com>
+Reply-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        hideaki.yoshifuji@miraclelinux.com, glider@google.com,
-        dvyukov@google.com, kcc@google.com, edumazet@google.com,
-        lucien.xin@gmail.com, vyasevich@gmail.com,
-        linux-kernel@vger.kernel.org, linux-sctp@vger.kernel.org,
-        netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1502811469.4936.84.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <3c245ef4-3161-0e5a-3708-6b9b47db01cd-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 15, 2017 at 08:37:49AM -0700, Eric Dumazet wrote:
-> On Tue, 2017-08-15 at 12:05 -0300, Marcelo Ricardo Leitner wrote:
-> 
-> > Ok, but I should see a difference in the generated code, right?
-> 
-> Depends on the compiler. Have you tried older versions ?
-> 
+On 08/15/2017 03:53 PM, Edward Cree wrote:
+> State of a register doesn't matter if it wasn't read in reaching an exit;
+>   a write screens off all reads downstream of it from all explored_states
+>   upstream of it.
+> This allows us to prune many more branches; here are some processed insn
+>   counts for some Cilium programs:
+> Program                  before  after
+> bpf_lb_opt_-DLB_L3.o       6515   3361
+> bpf_lb_opt_-DLB_L4.o       8976   5176
+> bpf_lb_opt_-DUNKNOWN.o     2960   1137
+> bpf_lxc_opt_-DDROP_ALL.o  95412  48537
+> bpf_lxc_opt_-DUNKNOWN.o  141706  78718
+> bpf_netdev.o              24251  17995
+> bpf_overlay.o             10999   9385
+>
+> The runtime is also improved; here are 'time' results in ms:
+> Program                  before  after
+> bpf_lb_opt_-DLB_L3.o         24      6
+> bpf_lb_opt_-DLB_L4.o         26     11
+> bpf_lb_opt_-DUNKNOWN.o       11      2
+> bpf_lxc_opt_-DDROP_ALL.o   1288    139
+> bpf_lxc_opt_-DUNKNOWN.o    1768    234
+> bpf_netdev.o                 62     31
+> bpf_overlay.o                15     13
+>
+> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+[...]
+> @@ -1639,10 +1675,13 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
+>   	}
+>
+>   	/* reset caller saved regs */
+> -	for (i = 0; i < CALLER_SAVED_REGS; i++)
+> +	for (i = 0; i < CALLER_SAVED_REGS; i++) {
+>   		mark_reg_not_init(regs, caller_saved[i]);
+> +		check_reg_arg(env, i, DST_OP_NO_MARK);
 
-This was with gcc 6.4.1, fc25 standard. Only tested with it and didn't
-check clang either.
+Ah, I oversaw that earlier, this needs to be: s/i/caller_saved[i]/
 
-> One argument is that following struct member definition eases code
-> review.
-> 
-> (It is easier to catch a field init is missing)
+> +	}
+>
+>   	/* update return register */
+> +	check_reg_arg(env, BPF_REG_0, DST_OP_NO_MARK);
 
-And a good one, yes.
+We could leave this for clarity, but ...
 
-Thanks,
-Marcelo
+>   	if (fn->ret_type == RET_INTEGER) {
+>   		/* sets type to SCALAR_VALUE */
+>   		mark_reg_unknown(regs, BPF_REG_0);
+[...]
+>
+>   	/* reset caller saved regs to unreadable */
+> -	for (i = 0; i < CALLER_SAVED_REGS; i++)
+> +	for (i = 0; i < CALLER_SAVED_REGS; i++) {
+>   		mark_reg_not_init(regs, caller_saved[i]);
+> +		check_reg_arg(env, i, DST_OP_NO_MARK);
+
+caller_saved[i]
+
+> +	}
+>
+>   	/* mark destination R0 register as readable, since it contains
+> -	 * the value fetched from the packet
+> +	 * the value fetched from the packet.
+> +	 * Already marked as written above.
+
+... then it should be here as well. Other option is to leave out
+both BPF_REG_0 since covered by caller_saved[] already.
+
+>   	 */
+>   	mark_reg_unknown(regs, BPF_REG_0);
+>   	return 0;
+> @@ -3194,7 +3236,11 @@ static bool regsafe(struct bpf_reg_state *rold,
+>   		    struct bpf_reg_state *rcur,
+>   		    bool varlen_map_access, struct idpair *idmap)
+>   {
+> -	if (memcmp(rold, rcur, sizeof(*rold)) == 0)
+> +	if (!(rold->live & REG_LIVE_READ))
+> +		/* explored state didn't use this */
+> +		return true;
