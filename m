@@ -1,77 +1,42 @@
-From: Daniel Borkmann via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH net-next] bpf/verifier: track liveness for
-	pruning
-Date: Tue, 15 Aug 2017 13:52:48 +0200
-Message-ID: <5992E090.5040103@iogearbox.net>
-References: <262cf31a-b70d-3dca-c687-8bcc77726011@solarflare.com>
-Reply-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 0/5] net/9p: Fine-tuning for some function implementations
+Date: Tue, 15 Aug 2017 13:56:37 +0200
+Message-ID: <22a44d7c-cdb9-e206-4b2c-56e38cbf0de1@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <262cf31a-b70d-3dca-c687-8bcc77726011-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Van Hensbergen <ericvh@gmail.com>,
+        Latchesar Ionkov <lucho@ionkov.net>,
+        Ron Minnich <rminnich@sandia.gov>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/14/2017 07:55 PM, Edward Cree wrote:
-> State of a register doesn't matter if it wasn't read in reaching an exit;
->   a write screens off all reads downstream of it from all explored_states
->   upstream of it.
-> This allows us to prune many more branches; here are some processed insn
->   counts for some Cilium programs:
-> Program                  before  after
-> bpf_lb_opt_-DLB_L3.o       6515   3361
-> bpf_lb_opt_-DLB_L4.o       8976   5176
-> bpf_lb_opt_-DUNKNOWN.o     2960   1137
-> bpf_lxc_opt_-DDROP_ALL.o  95412  48537
-> bpf_lxc_opt_-DUNKNOWN.o  141706  79048
-> bpf_netdev.o              24251  17995
-> bpf_overlay.o             10999   9385
->
-> The runtime is also improved; here are 'time' results in ms:
-> Program                  before  after
-> bpf_lb_opt_-DLB_L3.o         24      6
-> bpf_lb_opt_-DLB_L4.o         26     11
-> bpf_lb_opt_-DUNKNOWN.o       11      2
-> bpf_lxc_opt_-DDROP_ALL.o   1288    152
-> bpf_lxc_opt_-DUNKNOWN.o    1768    257
-> bpf_netdev.o                 62     31
-> bpf_overlay.o                15     13
->
-> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Tue, 15 Aug 2017 13:43:21 +0200
 
-Awesome work!
+Some update suggestions were taken into account
+from static source code analysis.
 
-[...]
->   	if (arg_type == ARG_ANYTHING) {
->   		if (is_pointer_value(env, regno)) {
-> @@ -1639,10 +1675,13 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
->   	}
->
->   	/* reset caller saved regs */
-> -	for (i = 0; i < CALLER_SAVED_REGS; i++)
-> +	for (i = 0; i < CALLER_SAVED_REGS; i++) {
->   		mark_reg_not_init(regs, caller_saved[i]);
-> +		check_reg_arg(env, i, DST_OP_NO_MARK);
+Markus Elfring (5):
+  Delete an error message for a failed memory allocation in five functions
+  Improve 19 size determinations
+  Add a jump target in p9_client_walk()
+  Adjust a jump target in p9_client_attach()
+  Delete an unnecessary variable initialisation in p9_client_attach()
 
-Don't we need the same in check_ld_abs() since we treat it similar
-to a function call?
+ net/9p/client.c       | 51 +++++++++++++++++++++------------------------------
+ net/9p/protocol.c     |  6 +++---
+ net/9p/trans_fd.c     | 16 +++++++---------
+ net/9p/trans_rdma.c   |  8 +++-----
+ net/9p/trans_virtio.c |  6 ++----
+ net/9p/util.c         |  2 +-
+ 6 files changed, 37 insertions(+), 52 deletions(-)
 
-> +	}
->
->   	/* update return register */
-> +	check_reg_arg(env, BPF_REG_0, DST_OP_NO_MARK);
-[...]
+-- 
+2.14.0
