@@ -1,80 +1,79 @@
-From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 1/2] mlx4: remove unnecessary pci_set_drvdata()
-Date: Tue, 15 Aug 2017 21:00:38 +0300
-Message-ID: <20170815180038.GY24282@mtr-leonro.local>
-References: <1502778786-14738-1-git-send-email-yanjun.zhu@oracle.com>
- <20170815071336.GL24282@mtr-leonro.local>
- <20170815172149.GC15171@obsidianresearch.com>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v2 net-next] bpf/verifier: track liveness
+	for pruning
+Date: Tue, 15 Aug 2017 19:06:34 +0100
+Message-ID: <b3fafbb2-d24b-c4b6-8bca-83bc823b03c1@solarflare.com>
+References: <3c245ef4-3161-0e5a-3708-6b9b47db01cd@solarflare.com>
+	<5993226A.9010704@iogearbox.net>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="mYOwxzDtEZWltKxP"
-Cc: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170815172149.GC15171-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, "Alexei
+	Starovoitov" <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <5993226A.9010704-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
---mYOwxzDtEZWltKxP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Tue, Aug 15, 2017 at 11:21:49AM -0600, Jason Gunthorpe wrote:
-> On Tue, Aug 15, 2017 at 10:13:36AM +0300, Leon Romanovsky wrote:
-> > On Tue, Aug 15, 2017 at 02:33:05AM -0400, Zhu Yanjun wrote:
-> > > The driver core clears the driver data to NULL after device_release
-> > > or on probe failure. Thus, it is not necessary to manually clear the
-> > > device driver data to NULL.
-> > >
-> >
-> > It makes sense and I'm pretty sure that you are right, but I'm failing
-> > to find the function in device core which sets it to NULL. Can you help
-> > me and present the actual call stack to that code place?
+On 15/08/17 17:33, Daniel Borkmann wrote:
+> On 08/15/2017 03:53 PM, Edward Cree wrote:
+>> State of a register doesn't matter if it wasn't read in reaching an exit;
+>>   a write screens off all reads downstream of it from all explored_states
+>>   upstream of it.
+>> This allows us to prune many more branches; here are some processed insn
+>>   counts for some Cilium programs:
+>> Program                  before  after
+>> bpf_lb_opt_-DLB_L3.o       6515   3361
+>> bpf_lb_opt_-DLB_L4.o       8976   5176
+>> bpf_lb_opt_-DUNKNOWN.o     2960   1137
+>> bpf_lxc_opt_-DDROP_ALL.o  95412  48537
+>> bpf_lxc_opt_-DUNKNOWN.o  141706  78718
+>> bpf_netdev.o              24251  17995
+>> bpf_overlay.o             10999   9385
+>>
+>> The runtime is also improved; here are 'time' results in ms:
+>> Program                  before  after
+>> bpf_lb_opt_-DLB_L3.o         24      6
+>> bpf_lb_opt_-DLB_L4.o         26     11
+>> bpf_lb_opt_-DUNKNOWN.o       11      2
+>> bpf_lxc_opt_-DDROP_ALL.o   1288    139
+>> bpf_lxc_opt_-DUNKNOWN.o    1768    234
+>> bpf_netdev.o                 62     31
+>> bpf_overlay.o                15     13
+>>
+>> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+> [...]
+>> @@ -1639,10 +1675,13 @@ static int check_call(struct bpf_verifier_env *env, int func_id, int insn_idx)
+>>       }
+>>
+>>       /* reset caller saved regs */
+>> -    for (i = 0; i < CALLER_SAVED_REGS; i++)
+>> +    for (i = 0; i < CALLER_SAVED_REGS; i++) {
+>>           mark_reg_not_init(regs, caller_saved[i]);
+>> +        check_reg_arg(env, i, DST_OP_NO_MARK);
 >
-> http://elixir.free-electrons.com/linux/v4.13-rc1/source/drivers/base/dd.c#L840
+> Ah, I oversaw that earlier, this needs to be: s/i/caller_saved[i]/
+So it does.  Of course testing didn't spot this, because
+ caller_saved[i] == i currently.
+>> +    }
+>>
+>>       /* update return register */
+>> +    check_reg_arg(env, BPF_REG_0, DST_OP_NO_MARK);
 >
-> The call to the remove callback is on line 833.
->
-> This is done after dropping devres, so you could allocate the drv data
-> inside a devm object and everything would unwind correctly.
+> We could leave this for clarity, but ...
+Yeah, I'll replace it with a comment, like the other one.
+Thanks for review :)
 
-Thanks for the pointer. Will it be called in case of failure during
-initialization too?
-
->
-> In this case, the kfree is explicit, so I would advocate for still putting
-> the null near the kfree to minimize the time where a free'd pointer is
-> present - eg incase a devm callback or some other bug accidently
-> touches it.
->
-> Jason
-
---mYOwxzDtEZWltKxP
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlmTNsYACgkQ5GN7iDZy
-WKdnrxAAsurt23xKx0/YT1u5e2CnHrX+8Ys/XaW1MRYB2WG1fvop65hD43FKERLy
-dk9A+KDBDXciCfdI/xYNpiF/0m2PHc/zUSNoZNg1wTrCDl4qkpS1p0l6XPW6o8cv
-f7P18cYek1L4v0cnZzfOjT4ABFi/ULM1zzj+rgdhKU054fXNRHvIVugfErvLGTUH
-UiWkuZCr39MpW5i3BjtB9XUulCCS+2YYxBtdR+9lZ9PI4lQpiaOBEIV15vKw9QmZ
-HW75fGwmV+i0IfAph/RaxRUFIF4yJ7WisSAgvKmuC2yHzvA0q6EnKhIc04EsrkZx
-JG+PZAs/4dnU99kpS7TXvwfhkz/HmG8Pk6OnxuCsxy03PvvM6QNh4r5rYPKMX+hf
-5wwQxNs8Yks3RC1ctTQODyAAoXniGhBe2/hoE+M0dMeCbt32DTTKpT0x9LFp/od6
-EGnYJ3wz2JXSTIBxbJR446BJQA91XHwpZ8/pnRyScovCn5p6KwRYOsQtBeDeCEB2
-JQauh4vQwiWU8j2Z/6UkHmSH3L4BXWWOOSpaE5agAOmPO7zwYGj15KHWglhi8dLe
-jWr5uyWZqWtjcyJW9QQCpaUKRjZlH7SsRMCexPkqbE592v1cpr3j+nDP+KkYrKZq
-cGXxrtFn8slFM5JGhwCfqETkRO4BkfwJ65OFjaaaZKtSlp0e6zo=
-=SAXr
------END PGP SIGNATURE-----
-
---mYOwxzDtEZWltKxP--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-Ed
