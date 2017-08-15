@@ -1,133 +1,147 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the rockchip
- tree
-Date: Tue, 15 Aug 2017 11:52:43 +1000
-Message-ID: <20170815115243.056a5569@canb.auug.org.au>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH v2] sctp: fully initialize the IPv6 address in
+ sctp_v6_to_addr()
+Date: Mon, 14 Aug 2017 22:58:14 -0300
+Message-ID: <20170815015814.GB18688@localhost.localdomain>
+References: <20170814184304.82747-1-glider@google.com>
+ <CAPA1RqDzSs3LogN+z69Ba2yoE6=jniobC-tEGd3TTh3z=39qxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Alexander Potapenko <glider@google.com>, dvyukov@google.com,
+        kcc@google.com, edumazet@google.com, lucien.xin@gmail.com,
+        vyasevich@gmail.com, David Miller <davem@davemloft.net>,
         Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        William Wu <william.wu@rock-chips.com>,
-        David Wu <david.wu@rock-chips.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Heiko Stuebner <heiko@sntech.de>
+        linux-sctp@vger.kernel.org, network dev <netdev@vger.kernel.org>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: =?utf-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAPA1RqDzSs3LogN+z69Ba2yoE6=jniobC-tEGd3TTh3z=39qxg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Tue, Aug 15, 2017 at 10:43:59AM +0900, 吉藤英明 wrote:
+> Hi,
+> 
+> 2017-08-15 3:43 GMT+09:00 Alexander Potapenko <glider@google.com>:
+> > KMSAN reported use of uninitialized sctp_addr->v4.sin_addr.s_addr and
+> > sctp_addr->v6.sin6_scope_id in sctp_v6_cmp_addr() (see below).
+> > Make sure all fields of an IPv6 address are initialized, which
+> > guarantees that the IPv4 fields are also initialized.
+> >
+> > ==================================================================
+> >  BUG: KMSAN: use of uninitialized memory in sctp_v6_cmp_addr+0x8d4/0x9f0
+> >  net/sctp/ipv6.c:517
+> >  CPU: 2 PID: 31056 Comm: syz-executor1 Not tainted 4.11.0-rc5+ #2944
+> >  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+> >  01/01/2011
+> >  Call Trace:
+> >   dump_stack+0x172/0x1c0 lib/dump_stack.c:42
+> >   is_logbuf_locked mm/kmsan/kmsan.c:59 [inline]
+> >   kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:938
+> >   native_save_fl arch/x86/include/asm/irqflags.h:18 [inline]
+> >   arch_local_save_flags arch/x86/include/asm/irqflags.h:72 [inline]
+> >   arch_local_irq_save arch/x86/include/asm/irqflags.h:113 [inline]
+> >   __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:467
+> >   sctp_v6_cmp_addr+0x8d4/0x9f0 net/sctp/ipv6.c:517
+> >   sctp_v6_get_dst+0x8c7/0x1630 net/sctp/ipv6.c:290
+> >   sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+> >   sctp_assoc_add_peer+0x66d/0x16f0 net/sctp/associola.c:651
+> >   sctp_sendmsg+0x35a5/0x4f90 net/sctp/socket.c:1871
+> >   inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
+> >   sock_sendmsg_nosec net/socket.c:633 [inline]
+> >   sock_sendmsg net/socket.c:643 [inline]
+> >   SYSC_sendto+0x608/0x710 net/socket.c:1696
+> >   SyS_sendto+0x8a/0xb0 net/socket.c:1664
+> >   entry_SYSCALL_64_fastpath+0x13/0x94
+> >  RIP: 0033:0x44b479
+> >  RSP: 002b:00007f6213f21c08 EFLAGS: 00000286 ORIG_RAX: 000000000000002c
+> >  RAX: ffffffffffffffda RBX: 0000000020000000 RCX: 000000000044b479
+> >  RDX: 0000000000000041 RSI: 0000000020edd000 RDI: 0000000000000006
+> >  RBP: 00000000007080a8 R08: 0000000020b85fe4 R09: 000000000000001c
+> >  R10: 0000000000040005 R11: 0000000000000286 R12: 00000000ffffffff
+> >  R13: 0000000000003760 R14: 00000000006e5820 R15: 0000000000ff8000
+> >  origin description: ----dst_saddr@sctp_v6_get_dst
+> >  local variable created at:
+> >   sk_fullsock include/net/sock.h:2321 [inline]
+> >   inet6_sk include/linux/ipv6.h:309 [inline]
+> >   sctp_v6_get_dst+0x91/0x1630 net/sctp/ipv6.c:241
+> >   sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+> > ==================================================================
+> >  BUG: KMSAN: use of uninitialized memory in sctp_v6_cmp_addr+0x8d4/0x9f0
+> >  net/sctp/ipv6.c:517
+> >  CPU: 2 PID: 31056 Comm: syz-executor1 Not tainted 4.11.0-rc5+ #2944
+> >  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+> >  01/01/2011
+> >  Call Trace:
+> >   dump_stack+0x172/0x1c0 lib/dump_stack.c:42
+> >   is_logbuf_locked mm/kmsan/kmsan.c:59 [inline]
+> >   kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:938
+> >   native_save_fl arch/x86/include/asm/irqflags.h:18 [inline]
+> >   arch_local_save_flags arch/x86/include/asm/irqflags.h:72 [inline]
+> >   arch_local_irq_save arch/x86/include/asm/irqflags.h:113 [inline]
+> >   __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:467
+> >   sctp_v6_cmp_addr+0x8d4/0x9f0 net/sctp/ipv6.c:517
+> >   sctp_v6_get_dst+0x8c7/0x1630 net/sctp/ipv6.c:290
+> >   sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+> >   sctp_assoc_add_peer+0x66d/0x16f0 net/sctp/associola.c:651
+> >   sctp_sendmsg+0x35a5/0x4f90 net/sctp/socket.c:1871
+> >   inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
+> >   sock_sendmsg_nosec net/socket.c:633 [inline]
+> >   sock_sendmsg net/socket.c:643 [inline]
+> >   SYSC_sendto+0x608/0x710 net/socket.c:1696
+> >   SyS_sendto+0x8a/0xb0 net/socket.c:1664
+> >   entry_SYSCALL_64_fastpath+0x13/0x94
+> >  RIP: 0033:0x44b479
+> >  RSP: 002b:00007f6213f21c08 EFLAGS: 00000286 ORIG_RAX: 000000000000002c
+> >  RAX: ffffffffffffffda RBX: 0000000020000000 RCX: 000000000044b479
+> >  RDX: 0000000000000041 RSI: 0000000020edd000 RDI: 0000000000000006
+> >  RBP: 00000000007080a8 R08: 0000000020b85fe4 R09: 000000000000001c
+> >  R10: 0000000000040005 R11: 0000000000000286 R12: 00000000ffffffff
+> >  R13: 0000000000003760 R14: 00000000006e5820 R15: 0000000000ff8000
+> >  origin description: ----dst_saddr@sctp_v6_get_dst
+> >  local variable created at:
+> >   sk_fullsock include/net/sock.h:2321 [inline]
+> >   inet6_sk include/linux/ipv6.h:309 [inline]
+> >   sctp_v6_get_dst+0x91/0x1630 net/sctp/ipv6.c:241
+> >   sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+> > ==================================================================
+> >
+> > Signed-off-by: Alexander Potapenko <glider@google.com>
+> > Reviewed-by: Xin Long <lucien.xin@gmail.com>
+> > ---
+> > v2 is identical to v1, resending per request by Marcelo Ricardo Leitner.
+> > ---
+> >  net/sctp/ipv6.c | 2 ++
+> >  1 file changed, 2 insertions(+)
+> >
+> > diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> > index 2a186b201ad2..a15d691829c6 100644
+> > --- a/net/sctp/ipv6.c
+> > +++ b/net/sctp/ipv6.c
+> > @@ -513,6 +513,8 @@ static void sctp_v6_to_addr(union sctp_addr *addr, struct in6_addr *saddr,
+> >         addr->sa.sa_family = AF_INET6;
+> >         addr->v6.sin6_port = port;
+> >         addr->v6.sin6_addr = *saddr;
+> > +       addr->v6.sin6_flowinfo = 0;
+> > +       addr->v6.sin6_scope_id = 0;
+> 
+> Please set flowinfo between port and addr.
 
-Today's linux-next merge of the net-next tree got a conflict in:
+Why?
 
-  arch/arm64/boot/dts/rockchip/rk3328.dtsi
-
-between commit:
-
-  c60c0373a5e8 ("arm64: dts: rockchip: add usb2 nodes for RK3328 SoCs")
-
-from the rockchip tree and commit:
-
-  9c4cc910fe28 ("ARM64: dts: rockchip: Add gmac2phy node support for rk3328")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc arch/arm64/boot/dts/rockchip/rk3328.dtsi
-index e6da0cee1241,d48bf5d9f8bd..000000000000
---- a/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-+++ b/arch/arm64/boot/dts/rockchip/rk3328.dtsi
-@@@ -616,45 -426,43 +618,82 @@@
-  		status = "disabled";
-  	};
-  
-+ 	gmac2phy: ethernet@ff550000 {
-+ 		compatible = "rockchip,rk3328-gmac";
-+ 		reg = <0x0 0xff550000 0x0 0x10000>;
-+ 		rockchip,grf = <&grf>;
-+ 		interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
-+ 		interrupt-names = "macirq";
-+ 		clocks = <&cru SCLK_MAC2PHY_SRC>, <&cru SCLK_MAC2PHY_RXTX>,
-+ 			 <&cru SCLK_MAC2PHY_RXTX>, <&cru SCLK_MAC2PHY_REF>,
-+ 			 <&cru ACLK_MAC2PHY>, <&cru PCLK_MAC2PHY>,
-+ 			 <&cru SCLK_MAC2PHY_OUT>;
-+ 		clock-names = "stmmaceth", "mac_clk_rx",
-+ 			      "mac_clk_tx", "clk_mac_ref",
-+ 			      "aclk_mac", "pclk_mac",
-+ 			      "clk_macphy";
-+ 		resets = <&cru SRST_GMAC2PHY_A>, <&cru SRST_MACPHY>;
-+ 		reset-names = "stmmaceth", "mac-phy";
-+ 		phy-mode = "rmii";
-+ 		phy-handle = <&phy>;
-+ 		status = "disabled";
-+ 
-+ 		mdio {
-+ 			compatible = "snps,dwmac-mdio";
-+ 			#address-cells = <1>;
-+ 			#size-cells = <0>;
-+ 
-+ 			phy: phy@0 {
-+ 				compatible = "ethernet-phy-id1234.d400", "ethernet-phy-ieee802.3-c22";
-+ 				reg = <0>;
-+ 				clocks = <&cru SCLK_MAC2PHY_OUT>;
-+ 				resets = <&cru SRST_MACPHY>;
-+ 				pinctrl-names = "default";
-+ 				pinctrl-0 = <&fephyled_rxm1 &fephyled_linkm1>;
-+ 				phy-is-integrated;
-+ 			};
-+ 		};
-+ 	};
-+ 
- +	usb20_otg: usb@ff580000 {
- +		compatible = "rockchip,rk3328-usb", "rockchip,rk3066-usb",
- +			     "snps,dwc2";
- +		reg = <0x0 0xff580000 0x0 0x40000>;
- +		interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
- +		clocks = <&cru HCLK_OTG>;
- +		clock-names = "otg";
- +		dr_mode = "otg";
- +		g-np-tx-fifo-size = <16>;
- +		g-rx-fifo-size = <280>;
- +		g-tx-fifo-size = <256 128 128 64 32 16>;
- +		g-use-dma;
- +		phys = <&u2phy_otg>;
- +		phy-names = "usb2-phy";
- +		status = "disabled";
- +	};
- +
- +	usb_host0_ehci: usb@ff5c0000 {
- +		compatible = "generic-ehci";
- +		reg = <0x0 0xff5c0000 0x0 0x10000>;
- +		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
- +		clocks = <&cru HCLK_HOST0>, <&u2phy>;
- +		clock-names = "usbhost", "utmi";
- +		phys = <&u2phy_host>;
- +		phy-names = "usb";
- +		status = "disabled";
- +	};
- +
- +	usb_host0_ohci: usb@ff5d0000 {
- +		compatible = "generic-ohci";
- +		reg = <0x0 0xff5d0000 0x0 0x10000>;
- +		interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
- +		clocks = <&cru HCLK_HOST0>, <&u2phy>;
- +		clock-names = "usbhost", "utmi";
- +		phys = <&u2phy_host>;
- +		phy-names = "usb";
- +		status = "disabled";
- +	};
- +
-  	gic: interrupt-controller@ff811000 {
-  		compatible = "arm,gic-400";
-  		#interrupt-cells = <3>;
+> 
+> --yoshfuji
+> 
+> >  }
+> >
+> >  /* Compare addresses exactly.
+> > --
+> > 2.14.0.434.g98096fd7a8-goog
+> >
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
