@@ -1,9 +1,9 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 06/11] net: dsa: debugfs: add port registers
-Date: Tue, 15 Aug 2017 10:34:29 -0700
-Message-ID: <41bdddf4-1f2a-82fb-4178-262660e3a781@gmail.com>
+Subject: Re: [PATCH net-next 07/11] net: dsa: debugfs: add port fdb
+Date: Tue, 15 Aug 2017 10:35:51 -0700
+Message-ID: <1a72a0f3-c461-1099-1309-9604a990057c@gmail.com>
 References: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
- <20170814222242.10643-7-vivien.didelot@savoirfairelinux.com>
+ <20170814222242.10643-8-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -26,7 +26,7 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170814222242.10643-7-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170814222242.10643-8-vivien.didelot@savoirfairelinux.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -34,50 +34,52 @@ List-Id: netdev.vger.kernel.org
 
 
 On 08/14/2017 03:22 PM, Vivien Didelot wrote:
-> Add a debug filesystem "regs" entry to query a port's hardware registers
-> through the .get_regs_len and .get_regs_len switch operations.
+> Add a debug filesystem "fdb" entry to query a port's hardware FDB
+> entries through the .port_fdb_dump switch operation.
 > 
-> This is very convenient because it allows one to dump the registers of
-> DSA links, which are not exposed to userspace.
+> This is really convenient to query directly the hardware or inspect DSA
+> or CPU links, since these ports are not exposed to userspace.
 > 
-> Here are the registers of a zii-rev-b CPU and DSA ports:
-> 
->     # pr -mt switch0/port{5,6}/regs
->      0: 4e07			     0: 4d04
->      1: 403e			     1: 003d
->      2: 0000			     2: 0000
->      3: 3521			     3: 3521
->      4: 0533			     4: 373f
->      5: 8000			     5: 0000
->      6: 005f			     6: 003f
->      7: 002a			     7: 002a
->      8: 2080			     8: 2080
->      9: 0001			     9: 0001
->     10: 0000			    10: 0000
->     11: 0020			    11: 0000
->     12: 0000			    12: 0000
->     13: 0000			    13: 0000
->     14: 0000			    14: 0000
->     15: 9100			    15: dada
->     16: 0000			    16: 0000
->     17: 0000			    17: 0000
->     18: 0000			    18: 0000
->     19: 0000			    19: 00d8
->     20: 0000			    20: 0000
->     21: 0000			    21: 0000
->     22: 0022			    22: 0000
->     23: 0000			    23: 0000
->     24: 3210			    24: 3210
->     25: 7654			    25: 7654
->     26: 0000			    26: 0000
->     27: 8000			    27: 8000
->     28: 0000			    28: 0000
->     29: 0000			    29: 0000
->     30: 0000			    30: 0000
->     31: 0000			    31: 0000
+>     # cat port1/fdb
+>     vid 0    12:34:56:78:90:ab    static    unicast
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  net/dsa/debugfs.c | 36 ++++++++++++++++++++++++++++++++++++
+>  1 file changed, 36 insertions(+)
+> 
+> diff --git a/net/dsa/debugfs.c b/net/dsa/debugfs.c
+> index 012fcf466cc1..8204c62dc9c1 100644
+> --- a/net/dsa/debugfs.c
+> +++ b/net/dsa/debugfs.c
+> @@ -10,6 +10,7 @@
+>   */
+>  
+>  #include <linux/debugfs.h>
+> +#include <linux/etherdevice.h>
+>  #include <linux/seq_file.h>
+>  
+>  #include "dsa_priv.h"
+> @@ -109,6 +110,36 @@ static int dsa_debugfs_create_file(struct dsa_switch *ds, struct dentry *dir,
+>  	return 0;
+>  }
+>  
+> +static int dsa_debugfs_fdb_dump_cb(const unsigned char *addr, u16 vid,
+> +				   bool is_static, void *data)
+> +{
+> +	struct seq_file *seq = data;
+> +	int i;
 
+unsigned int i?
+
+> +
+> +	seq_printf(seq, "vid %d", vid);
+> +	for (i = 0; i < ETH_ALEN; i++)
+> +		seq_printf(seq, "%s%02x", i ? ":" : "    ", addr[i]);
+
+Too bad we can use %pM here, or can we?
+
+Other than that:
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
