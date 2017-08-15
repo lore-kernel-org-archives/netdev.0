@@ -1,72 +1,70 @@
-From: <helga.brickl@arcor.de>
-Subject: (unknown)
-Date: Tue, 15 Aug 2017 14:23:33 -0000
-Message-ID: <150280701361.25645.5651011828972006491@tcvnet.com.br>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: Re: [PATCH] net_sched/sfq: update hierarchical backlog when drop
+ packet
+Date: Tue, 15 Aug 2017 17:33:06 +0300
+Message-ID: <9d01e66a-5855-ea9a-ff63-c029ceb46c98@yandex-team.ru>
+References: <150280422406.717624.15125218636935056461.stgit@buzz>
+ <1502806179.4936.76.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="55560763.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 189-124-7-24.tcvnet.com.br ([189.124.7.24]:33569 "HELO
-        tcvnet.com.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751849AbdHOOXi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Aug 2017 10:23:38 -0400
-Content-Disposition: attachment
-Subject: 
+Received: from forwardcorp1o.cmail.yandex.net ([37.9.109.47]:53647 "EHLO
+        forwardcorp1o.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751427AbdHOOdJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 10:33:09 -0400
+In-Reply-To: <1502806179.4936.76.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: ru-RU
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
+On 15.08.2017 17:09, Eric Dumazet wrote:
+> On Tue, 2017-08-15 at 16:37 +0300, Konstantin Khlebnikov wrote:
+>> When sfq_enqueue() drops head packet or packet from another queue it
+>> have to update backlog at upper qdiscs too.
+>>
+>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+>> Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
+>> ---
+>>   net/sched/sch_sfq.c |    5 ++++-
+>>   1 file changed, 4 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+>> index f80ea2cc5f1f..82469ef9655e 100644
+>> --- a/net/sched/sch_sfq.c
+>> +++ b/net/sched/sch_sfq.c
+>> @@ -437,6 +437,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch, struct sk_buff **to_free)
+>>   		qdisc_drop(head, sch, to_free);
+>>   
+>>   		slot_queue_add(slot, skb);
+>> +		qdisc_tree_reduce_backlog(sch, 0, delta);
+>>   		return NET_XMIT_CN;
+>>   	}
+>>   
+>> @@ -468,8 +469,10 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch, struct sk_buff **to_free)
+>>   	/* Return Congestion Notification only if we dropped a packet
+>>   	 * from this flow.
+>>   	 */
+>> -	if (qlen != slot->qlen)
+>> +	if (qlen != slot->qlen) {
+>> +		qdisc_tree_reduce_backlog(sch, 0, dropped - qdisc_pkt_len(skb));
+>>   		return NET_XMIT_CN;
+>> +	}
+>>   
+>>   	/* As we dropped a packet, better let upper stack know this */
+>>   	qdisc_tree_reduce_backlog(sch, 1, dropped);
+>>
+> 
+> Are you sure you have tested this patch ?
+> 
+
+Nope. I'm not sure. But we have something similar in our 4.4 kernel for a while.
+
+Also fq_codel and pfifo_head_drop do something similar tho this.
+
+Probably this might crash without "[PATCH 1/2] net_sched: call qlen_notify only if child qdisc is empty".
+I hadn't tested them separately.
