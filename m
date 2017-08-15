@@ -1,41 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 100% CPU load when generating traffic to destination network
- that nexthop is not reachable
-Date: Tue, 15 Aug 2017 09:57:33 -0700
-Message-ID: <1502816253.4936.85.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <177465a0-aaba-4063-e451-ebbf46728b77@itcare.pl>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
+ don't skip empty skbs
+Date: Tue, 15 Aug 2017 13:00:14 -0400
+Message-ID: <CAF=yD-+jBim==ktwYUNAFkn-N4eabqgNME8NXM77v9-U_bfWPg@mail.gmail.com>
+References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1502702846.8411.25.camel@redhat.com>
+ <1846443.VTclhqQinN@ring00> <CAF=yD-L9CpW-DRtKfWWWKcNKcPSWvXOkTGZoKBq6=fQMrcKVWQ@mail.gmail.com>
+ <1502724662.8411.53.camel@redhat.com> <CAF=yD-+ZNPtF1h1OT=_4yuE7=XtireP_OtbyBefHGdwtJ_ontQ@mail.gmail.com>
+ <1502811641.3475.7.camel@redhat.com> <CAF=yD-Lacw9T7G0XZBdHZwEb6HgRuaBoyUN1oTvWixu4a0Fy6Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        Network Development <netdev@vger.kernel.org>,
+        "Macieira, Thiago" <thiago.macieira@intel.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33297 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751122AbdHOQ5e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 12:57:34 -0400
-Received: by mail-pg0-f65.google.com with SMTP id u185so2308843pgb.0
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 09:57:34 -0700 (PDT)
-In-Reply-To: <177465a0-aaba-4063-e451-ebbf46728b77@itcare.pl>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:36162 "EHLO
+        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751598AbdHORAz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 13:00:55 -0400
+Received: by mail-oi0-f49.google.com with SMTP id g131so12703675oic.3
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 10:00:55 -0700 (PDT)
+In-Reply-To: <CAF=yD-Lacw9T7G0XZBdHZwEb6HgRuaBoyUN1oTvWixu4a0Fy6Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-08-15 at 18:30 +0200, Paweł Staszewski wrote:
-> Hi
-> 
-> 
-> Doing some tests i discovered that when traffic is send by pktgen to 
-> forwarding host where nexthop for destination network on forwarding 
-> router is not reachable i have 100% cpu on all cores and perf top show 
-> mostly:
-> 
->      77.19%  [kernel]            [k] queued_spin_lock_slowpath
->      10.20%  [kernel]            [k] acpi_processor_ffh_cstate_enter
->       1.41%  [kernel]            [k] queued_write_lock_slowpath
-> 
+> There is another difference between reading sk_peek_offset in the
+> caller or in __skb_try_recv_from_queue. The latter is called repeatedly
+> when it returns NULL. Each call can modify *off. I believe that it needs
+> to restart with _off at sk->sk_peek_off each time, as it restarts from the
+> head of the queue each time.
 
-To the rescue (for us to help)
+I made a mistake here. *off is not updated when returning NULL.
 
-perf record -a -g sleep 10
-
-perf report --stdio
+In that case, it is better to read sk_peek_offset once, than to read
+it each time __skb_try_recv_from_queue is entered.
