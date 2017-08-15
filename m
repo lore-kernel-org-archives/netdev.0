@@ -1,7 +1,7 @@
 From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 06/12] s390/qeth: clean up fill_buffer() offset logic
-Date: Tue, 15 Aug 2017 17:02:44 +0200
-Message-ID: <20170815150250.67158-7-jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 07/12] s390/qeth: make more use of skb API
+Date: Tue, 15 Aug 2017 17:02:45 +0200
+Message-ID: <20170815150250.67158-8-jwi@linux.vnet.ibm.com>
 References: <20170815150250.67158-1-jwi@linux.vnet.ibm.com>
 Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Martin Schwidefsky <schwidefsky@de.ibm.com>,
@@ -11,158 +11,141 @@ Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Julian Wiedmann <jwi@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:60247 "EHLO
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:57242 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752563AbdHOPDM (ORCPT
+        by vger.kernel.org with ESMTP id S1752607AbdHOPDM (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 11:03:12 -0400
-Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v7FF34C7057541
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 11:03:12 -0400
-Received: from e06smtp11.uk.ibm.com (e06smtp11.uk.ibm.com [195.75.94.107])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2cbvj333v2-1
+Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v7FExLlj085469
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 11:03:11 -0400
+Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2cbsqvtn6e-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 11:03:12 -0400
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 11:03:11 -0400
 Received: from localhost
-        by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
         Tue, 15 Aug 2017 16:03:09 +0100
 In-Reply-To: <20170815150250.67158-1-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For some xmit paths we pass down a data offset to qeth_fill_buffer(),
-to indicate that the first k bytes of the skb should be skipped when
-mapping it into buffer elements.
-Commit acd9776b5c45 ("s390/qeth: no ETH header for outbound AF_IUCV")
-recently switched the offset for the IUCV-over-HiperSockets path
-from 0 to ETH_HLEN, and now we have
+Replace some open-coded parts with their proper API calls.
 
-	device	offset
-	OSA	= 0
-	IQD	> 0
-
-for all xmit paths.
-
-OSA would previously pass down -1 from do_send_packet(), to distinguish
-between 1) OSA and 2) IQD with offset 0. That's no longer needed now,
-so have it pass 0, make the offset unsigned and clean up how we apply
-the offset in __qeth_fill_buffer().
-
-No change of behaviour for any of our current xmit paths.
+Also remove two skb_[re]set_mac_header() calls in the L2
+xmit paths that are clearly no longer required, since at least
+commit 6d1ccff62780 ("net: reset mac header in dev_start_xmit()").
 
 Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 Acked-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- drivers/s390/net/qeth_core.h      |  6 ++++--
- drivers/s390/net/qeth_core_main.c | 31 ++++++++++++++-----------------
- 2 files changed, 18 insertions(+), 19 deletions(-)
+ drivers/s390/net/qeth_core.h      |  5 -----
+ drivers/s390/net/qeth_core_main.c | 12 +++++-------
+ drivers/s390/net/qeth_l2_main.c   |  7 +++----
+ drivers/s390/net/qeth_l3_main.c   |  4 ++--
+ 4 files changed, 10 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/s390/net/qeth_core.h b/drivers/s390/net/qeth_core.h
-index 7a0ffc71b25d..95266449a50a 100644
+index 95266449a50a..4a4ca5cb37a0 100644
 --- a/drivers/s390/net/qeth_core.h
 +++ b/drivers/s390/net/qeth_core.h
-@@ -951,8 +951,10 @@ int qeth_get_priority_queue(struct qeth_card *, struct sk_buff *, int, int);
- int qeth_get_elements_no(struct qeth_card *card, struct sk_buff *skb,
- 			 int extra_elems, int data_offset);
- int qeth_get_elements_for_frags(struct sk_buff *);
--int qeth_do_send_packet_fast(struct qeth_card *, struct qeth_qdio_out_q *,
--			struct sk_buff *, struct qeth_hdr *, int, int);
-+int qeth_do_send_packet_fast(struct qeth_card *card,
-+			     struct qeth_qdio_out_q *queue, struct sk_buff *skb,
-+			     struct qeth_hdr *hdr, unsigned int offset,
-+			     int hd_len);
- int qeth_do_send_packet(struct qeth_card *, struct qeth_qdio_out_q *,
- 		    struct sk_buff *, struct qeth_hdr *, int);
- int qeth_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+@@ -857,11 +857,6 @@ static inline int qeth_get_ip_version(struct sk_buff *skb)
+ 	}
+ }
+ 
+-static inline int qeth_get_ip_protocol(struct sk_buff *skb)
+-{
+-	return ip_hdr(skb)->protocol;
+-}
+-
+ static inline void qeth_put_buffer_pool_entry(struct qeth_card *card,
+ 		struct qeth_buffer_pool_entry *entry)
+ {
 diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index 9796388780f9..394bee93b891 100644
+index 394bee93b891..6286a8e35924 100644
 --- a/drivers/s390/net/qeth_core_main.c
 +++ b/drivers/s390/net/qeth_core_main.c
-@@ -3890,22 +3890,16 @@ EXPORT_SYMBOL_GPL(qeth_hdr_chk_and_bounce);
- 
- static inline void __qeth_fill_buffer(struct sk_buff *skb,
- 				      struct qeth_qdio_out_buffer *buf,
--				      bool is_first_elem, int offset)
-+				      bool is_first_elem, unsigned int offset)
- {
- 	struct qdio_buffer *buffer = buf->buffer;
- 	int element = buf->next_element_to_fill;
--	int length = skb_headlen(skb);
-+	int length = skb_headlen(skb) - offset;
-+	char *data = skb->data + offset;
+@@ -3897,7 +3897,6 @@ static inline void __qeth_fill_buffer(struct sk_buff *skb,
+ 	int length = skb_headlen(skb) - offset;
+ 	char *data = skb->data + offset;
  	int length_here, cnt;
--	char *data;
- 	struct skb_frag_struct *frag;
+-	struct skb_frag_struct *frag;
  
--	data = skb->data;
--
--	if (offset >= 0) {
--		data = skb->data + offset;
--		length -= offset;
--	}
--
-+	/* map linear part into buffer element(s) */
+ 	/* map linear part into buffer element(s) */
  	while (length > 0) {
- 		/* length_here is the remaining amount of data in this page */
- 		length_here = PAGE_SIZE - ((unsigned long) data % PAGE_SIZE);
-@@ -3931,6 +3925,7 @@ static inline void __qeth_fill_buffer(struct sk_buff *skb,
- 		element++;
- 	}
+@@ -3927,10 +3926,10 @@ static inline void __qeth_fill_buffer(struct sk_buff *skb,
  
-+	/* map page frags into buffer element(s) */
+ 	/* map page frags into buffer element(s) */
  	for (cnt = 0; cnt < skb_shinfo(skb)->nr_frags; cnt++) {
- 		frag = &skb_shinfo(skb)->frags[cnt];
- 		data = (char *)page_to_phys(skb_frag_page(frag)) +
-@@ -3958,8 +3953,9 @@ static inline void __qeth_fill_buffer(struct sk_buff *skb,
- }
- 
- static inline int qeth_fill_buffer(struct qeth_qdio_out_q *queue,
--		struct qeth_qdio_out_buffer *buf, struct sk_buff *skb,
--		struct qeth_hdr *hdr, int offset, int hd_len)
-+				   struct qeth_qdio_out_buffer *buf,
-+				   struct sk_buff *skb, struct qeth_hdr *hdr,
-+				   unsigned int offset, int hd_len)
- {
- 	struct qdio_buffer *buffer;
- 	int flush_cnt = 0, hdr_len;
-@@ -3969,7 +3965,6 @@ static inline int qeth_fill_buffer(struct qeth_qdio_out_q *queue,
- 	refcount_inc(&skb->users);
- 	skb_queue_tail(&buf->skb_list, skb);
- 
--	/*check first on TSO ....*/
- 	if (hdr->hdr.l3.id == QETH_HEADER_TYPE_TSO) {
- 		int element = buf->next_element_to_fill;
- 		is_first_elem = false;
-@@ -3985,7 +3980,8 @@ static inline int qeth_fill_buffer(struct qeth_qdio_out_q *queue,
- 		skb->len  -= hdr_len;
+-		frag = &skb_shinfo(skb)->frags[cnt];
+-		data = (char *)page_to_phys(skb_frag_page(frag)) +
+-			frag->page_offset;
+-		length = frag->size;
++		skb_frag_t *frag = &skb_shinfo(skb)->frags[cnt];
++
++		data = skb_frag_address(frag);
++		length = skb_frag_size(frag);
+ 		while (length > 0) {
+ 			length_here = PAGE_SIZE -
+ 				((unsigned long) data % PAGE_SIZE);
+@@ -3976,8 +3975,7 @@ static inline int qeth_fill_buffer(struct qeth_qdio_out_q *queue,
+ 		buffer->element[element].length = hdr_len;
+ 		buffer->element[element].eflags = SBAL_EFLAGS_FIRST_FRAG;
+ 		buf->next_element_to_fill++;
+-		skb->data += hdr_len;
+-		skb->len  -= hdr_len;
++		skb_pull(skb, hdr_len);
  	}
  
--	if (offset >= 0) {
-+	/* IQD */
-+	if (offset > 0) {
- 		int element = buf->next_element_to_fill;
- 		is_first_elem = false;
+ 	/* IQD */
+diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
+index a6ba897ed707..9c789ad6831a 100644
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -752,11 +752,11 @@ static netdev_tx_t qeth_l2_hard_start_xmit(struct sk_buff *skb,
+ 			if (!hdr)
+ 				goto tx_drop;
+ 			elements_needed++;
+-			skb_reset_mac_header(new_skb);
+ 			qeth_l2_fill_header(card, hdr, new_skb, cast_type);
+ 			hdr->hdr.l2.pkt_length = new_skb->len;
+-			memcpy(((char *)hdr) + sizeof(struct qeth_hdr),
+-				skb_mac_header(new_skb), ETH_HLEN);
++			skb_copy_from_linear_data(new_skb,
++						  ((char *)hdr) + sizeof(*hdr),
++						  ETH_HLEN);
+ 		} else {
+ 			/* create a clone with writeable headroom */
+ 			new_skb = skb_realloc_headroom(skb,
+@@ -764,7 +764,6 @@ static netdev_tx_t qeth_l2_hard_start_xmit(struct sk_buff *skb,
+ 			if (!new_skb)
+ 				goto tx_drop;
+ 			hdr = skb_push(new_skb, sizeof(struct qeth_hdr));
+-			skb_set_mac_header(new_skb, sizeof(struct qeth_hdr));
+ 			qeth_l2_fill_header(card, hdr, new_skb, cast_type);
+ 			if (new_skb->ip_summed == CHECKSUM_PARTIAL)
+ 				qeth_l2_hdr_csum(card, hdr, new_skb);
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index 13124e6fd9d3..97ca8a6cbb21 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -2570,7 +2570,7 @@ static void qeth_tso_fill_header(struct qeth_card *card,
+ 	hdr->ext.hdr_len     = 28;
+ 	/*insert non-fix values */
+ 	hdr->ext.mss = skb_shinfo(skb)->gso_size;
+-	hdr->ext.dg_hdr_len = (__u16)(iph->ihl*4 + tcph->doff*4);
++	hdr->ext.dg_hdr_len = (__u16)(ip_hdrlen(skb) + tcp_hdrlen(skb));
+ 	hdr->ext.payload_len = (__u16)(skb->len - hdr->ext.dg_hdr_len -
+ 				       sizeof(struct qeth_hdr_tso));
+ 	tcph->check = 0;
+@@ -2663,7 +2663,7 @@ static netdev_tx_t qeth_l3_hard_start_xmit(struct sk_buff *skb,
  
-@@ -4022,8 +4018,9 @@ static inline int qeth_fill_buffer(struct qeth_qdio_out_q *queue,
- }
+ 	/* Ignore segment size from skb_is_gso(), 1 page is always used. */
+ 	use_tso = skb_is_gso(skb) &&
+-		  (qeth_get_ip_protocol(skb) == IPPROTO_TCP) && (ipv == 4);
++		  (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4);
  
- int qeth_do_send_packet_fast(struct qeth_card *card,
--		struct qeth_qdio_out_q *queue, struct sk_buff *skb,
--		struct qeth_hdr *hdr, int offset, int hd_len)
-+			     struct qeth_qdio_out_q *queue, struct sk_buff *skb,
-+			     struct qeth_hdr *hdr, unsigned int offset,
-+			     int hd_len)
- {
- 	struct qeth_qdio_out_buffer *buffer;
- 	int index;
-@@ -4103,7 +4100,7 @@ int qeth_do_send_packet(struct qeth_card *card, struct qeth_qdio_out_q *queue,
- 			}
- 		}
- 	}
--	tmp = qeth_fill_buffer(queue, buffer, skb, hdr, -1, 0);
-+	tmp = qeth_fill_buffer(queue, buffer, skb, hdr, 0, 0);
- 	queue->next_buf_to_fill = (queue->next_buf_to_fill + tmp) %
- 				  QDIO_MAX_BUFFERS_PER_Q;
- 	flush_count += tmp;
+ 	if (card->info.type == QETH_CARD_TYPE_IQD) {
+ 		new_skb = skb;
 -- 
 2.11.2
