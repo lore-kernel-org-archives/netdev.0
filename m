@@ -1,35 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH ] dt-bindings: net: ravb : Add support for r8a7745 SoC
-Date: Tue, 15 Aug 2017 18:44:53 +0300
-Message-ID: <cc1b69da-beb0-8cd9-0a05-faa3449236f6@cogentembedded.com>
-References: <1502808020-22406-1-git-send-email-biju.das@bp.renesas.com>
+From: Anton Volkov <avolkov@ispras.ru>
+Subject: Possible race in ks8851_mll.ko
+Date: Tue, 15 Aug 2017 18:57:32 +0300
+Message-ID: <49e80d06-531e-178e-1cb0-3293f275847f@ispras.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>,
-        Chris Paterson <chris.paterson2@renesas.com>,
-        devicetree@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Biju Das <biju.das@bp.renesas.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1502808020-22406-1-git-send-email-biju.das@bp.renesas.com>
-Content-Language: en-MW
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        ldv-project@linuxtesting.org,
+        Alexey Khoroshilov <khoroshilov@ispras.ru>
+To: david.choi@micrel.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/15/2017 05:40 PM, Biju Das wrote:
+Hello.
 
-> Add a new compatible string for the RZ/G1E (R8A7745) SoC.
-> 
-> Signed-off-by: Biju Das <biju.das@bp.renesas.com>
+While searching for races in the Linux kernel I've come across
+"drivers/net/ethernet/micrel/ks8851_mll.ko" module. Here is a question 
+that I came up with while analyzing results. Lines are given using the 
+info from Linux v4.12.
 
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Consider the following case:
 
-[...]
+Thread 1:                    Thread 2:
+ks8851_probe
+   ks = netdev_priv(netdev)
+   register_netdev
+                              ks_start_xmit
+->ks_soft_reset              ->ks_tx_fifo_space
+   ->ks_wrreg16                 ->ks_rdreg16
+       ks->cmd_reg_cache = ...      ks->cmd_reg_cache = ...
+       (ks8851_mll.c: line 536)     (ks8851_mll.c: line 505)
+       iowrite16(ks->cmd_reg_cache) iowrite16(ks->cmd_reg_cache)
 
-MBR, Sergei
+In this case early registration of netdev leads to callback interference 
+in the initialization process. Both ks_wrreg16() and ks_rdreg16() use 
+the same ks. If one of them changes the ks->cmd_reg_cache it is possible 
+that both will use the same value though it should be different. Is this 
+race feasible from your point of view?
+
+Thank you for your time.
+
+-- Anton Volkov
+Linux Verification Center, ISPRAS
+web: http://linuxtesting.org
+e-mail: avolkov@ispras.ru
