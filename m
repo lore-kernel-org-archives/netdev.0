@@ -1,145 +1,51 @@
 From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH 1/2] net_sched: call qlen_notify only if child qdisc is empty
-Date: Tue, 15 Aug 2017 16:39:59 +0300
-Message-ID: <150280439968.717891.6476652519937001709.stgit@buzz>
+Subject: [PATCH] net_sched/sfq: update hierarchical backlog when drop packet
+Date: Tue, 15 Aug 2017 16:37:04 +0300
+Message-ID: <150280422406.717624.15125218636935056461.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Kosina <jkosina@suse.cz>, Eric Dumazet <edumazet@google.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forwardcorp1j.cmail.yandex.net ([5.255.227.106]:35264 "EHLO
-        forwardcorp1j.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751031AbdHONkE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 09:40:04 -0400
+Received: from forwardcorp1o.cmail.yandex.net ([37.9.109.47]:39137 "EHLO
+        forwardcorp1o.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752038AbdHONnq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 09:43:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This callback is used for deactivating class in parent qdisc.
-This is cheaper to test queue length right here.
-
-Also this allows to catch draining screwed backlog and prevent
-second deactivation of already inactive parent class which will
-crash kernel for sure. Kernel with print warning at destruction
-of child qdisc where no packets but backlog is not zero.
+When sfq_enqueue() drops head packet or packet from another queue it
+have to update backlog at upper qdiscs too.
 
 Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
 ---
- net/sched/sch_api.c  |   10 +++++++++-
- net/sched/sch_cbq.c  |    3 +--
- net/sched/sch_drr.c  |    3 +--
- net/sched/sch_hfsc.c |    6 ++----
- net/sched/sch_htb.c  |    3 +--
- net/sched/sch_qfq.c  |    3 +--
- 6 files changed, 15 insertions(+), 13 deletions(-)
+ net/sched/sch_sfq.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index bd24a550e0f9..18da45c0769c 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -752,6 +752,7 @@ void qdisc_tree_reduce_backlog(struct Qdisc *sch, unsigned int n,
- 	const struct Qdisc_class_ops *cops;
- 	unsigned long cl;
- 	u32 parentid;
-+	bool notify;
- 	int drops;
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index f80ea2cc5f1f..82469ef9655e 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -437,6 +437,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch, struct sk_buff **to_free)
+ 		qdisc_drop(head, sch, to_free);
  
- 	if (n == 0 && len == 0)
-@@ -764,6 +765,13 @@ void qdisc_tree_reduce_backlog(struct Qdisc *sch, unsigned int n,
+ 		slot_queue_add(slot, skb);
++		qdisc_tree_reduce_backlog(sch, 0, delta);
+ 		return NET_XMIT_CN;
+ 	}
  
- 		if (sch->flags & TCQ_F_NOPARENT)
- 			break;
-+		/* Notify parent qdisc only if child qdisc becomes empty.
-+		 *
-+		 * If child was empty even before update then backlog
-+		 * counter is screwed and we skip notification because
-+		 * parent class is already passive.
-+		 */
-+		notify = !sch->q.qlen && !WARN_ON_ONCE(!n);
- 		/* TODO: perform the search on a per txq basis */
- 		sch = qdisc_lookup(qdisc_dev(sch), TC_H_MAJ(parentid));
- 		if (sch == NULL) {
-@@ -771,7 +779,7 @@ void qdisc_tree_reduce_backlog(struct Qdisc *sch, unsigned int n,
- 			break;
- 		}
- 		cops = sch->ops->cl_ops;
--		if (cops->qlen_notify) {
-+		if (notify && cops->qlen_notify) {
- 			cl = cops->get(sch, parentid);
- 			cops->qlen_notify(sch, cl);
- 			cops->put(sch, cl);
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 780db43300b1..1bdb0106f342 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1385,8 +1385,7 @@ static void cbq_qlen_notify(struct Qdisc *sch, unsigned long arg)
- {
- 	struct cbq_class *cl = (struct cbq_class *)arg;
+@@ -468,8 +469,10 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch, struct sk_buff **to_free)
+ 	/* Return Congestion Notification only if we dropped a packet
+ 	 * from this flow.
+ 	 */
+-	if (qlen != slot->qlen)
++	if (qlen != slot->qlen) {
++		qdisc_tree_reduce_backlog(sch, 0, dropped - qdisc_pkt_len(skb));
+ 		return NET_XMIT_CN;
++	}
  
--	if (cl->q->q.qlen == 0)
--		cbq_deactivate_class(cl);
-+	cbq_deactivate_class(cl);
- }
- 
- static unsigned long cbq_get(struct Qdisc *sch, u32 classid)
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index a413dc1c2098..1d2f6235dfcf 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -246,8 +246,7 @@ static void drr_qlen_notify(struct Qdisc *csh, unsigned long arg)
- {
- 	struct drr_class *cl = (struct drr_class *)arg;
- 
--	if (cl->qdisc->q.qlen == 0)
--		list_del(&cl->alist);
-+	list_del(&cl->alist);
- }
- 
- static int drr_dump_class(struct Qdisc *sch, unsigned long arg,
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index fd15200f8627..14c99870cdb6 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1221,10 +1221,8 @@ hfsc_qlen_notify(struct Qdisc *sch, unsigned long arg)
- {
- 	struct hfsc_class *cl = (struct hfsc_class *)arg;
- 
--	if (cl->qdisc->q.qlen == 0) {
--		update_vf(cl, 0, 0);
--		set_passive(cl);
--	}
-+	update_vf(cl, 0, 0);
-+	set_passive(cl);
- }
- 
- static unsigned long
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 5d65ec5207e9..dcf3c85e1f4f 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1186,8 +1186,7 @@ static void htb_qlen_notify(struct Qdisc *sch, unsigned long arg)
- {
- 	struct htb_class *cl = (struct htb_class *)arg;
- 
--	if (cl->un.leaf.q->q.qlen == 0)
--		htb_deactivate(qdisc_priv(sch), cl);
-+	htb_deactivate(qdisc_priv(sch), cl);
- }
- 
- static unsigned long htb_get(struct Qdisc *sch, u32 classid)
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index 0e16dfda0bd7..9caa959f91e1 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -1428,8 +1428,7 @@ static void qfq_qlen_notify(struct Qdisc *sch, unsigned long arg)
- 	struct qfq_sched *q = qdisc_priv(sch);
- 	struct qfq_class *cl = (struct qfq_class *)arg;
- 
--	if (cl->qdisc->q.qlen == 0)
--		qfq_deactivate_class(q, cl);
-+	qfq_deactivate_class(q, cl);
- }
- 
- static int qfq_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
+ 	/* As we dropped a packet, better let upper stack know this */
+ 	qdisc_tree_reduce_backlog(sch, 1, dropped);
