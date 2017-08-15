@@ -1,150 +1,56 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the pci tree with the net tree
-Date: Wed, 16 Aug 2017 09:51:28 +1000
-Message-ID: <20170816095128.7205e4f1@canb.auug.org.au>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v4 iproute2 1/7] rdma: Add basic infrastructure for RDMA
+ tool
+Date: Tue, 15 Aug 2017 16:54:16 -0700
+Message-ID: <20170815165416.24e9838a@xeon-e3>
+References: <20170815130020.29509-1-leonro@mellanox.com>
+        <20170815130020.29509-2-leonro@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Ding Tianhong <dingtianhong@huawei.com>,
-        Casey Leedom <leedom@chelsio.com>,
-        Sinan Kaya <okaya@codeaurora.org>
-To: Bjorn Helgaas <bhelgaas@google.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Ariel Almog <ariela@mellanox.com>,
+        Linux Netdev <netdev@vger.kernel.org>
+To: Leon Romanovsky <leonro@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:37290 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752243AbdHOXyX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 19:54:23 -0400
+Received: by mail-pg0-f41.google.com with SMTP id y129so14831800pgy.4
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 16:54:23 -0700 (PDT)
+In-Reply-To: <20170815130020.29509-2-leonro@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Bjorn,
+On Tue, 15 Aug 2017 16:00:14 +0300
+Leon Romanovsky <leonro@mellanox.com> wrote:
 
-Today's linux-next merge of the pci tree got a conflict in:
+> RDMA devices are cross-functional devices from one side,
+> but very tailored for the specific markets from another.
+> 
+> Such diversity caused to spread of RDMA related configuration
+> across various tools, e.g. devlink, ip, ethtool, ib specific and
+> vendor specific solutions.
+> 
+> This patch adds ability to fill device and port information
+> by reading RDMA netlink.
+> 
+> Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
 
-  drivers/pci/probe.c
+Won't build for me.
 
-between commit:
+$ make distclean
 
-  a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
+$ make
 
-from the net tree and commit:
+In file included from rdma.c:12:0:
+rdma.h:23:23: fatal error: rdma/rdma.h: No such file or directory
+ #include <rdma/rdma.h>
+                       ^
 
-  62ce94a7a5a5 ("PCI: Mark Broadcom HT2100 Root Port Extended Tags as broken")
-
-from the pci tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/pci/probe.c
-index e6a917b4acd3,d11fede6bd53..000000000000
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@@ -1751,67 -1753,51 +1753,94 @@@ int pci_configure_extended_tags(struct 
-  	int ret;
-  
-  	if (!pci_is_pcie(dev))
-- 		return;
-+ 		return 0;
-  
-- 	ret = pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &dev_cap);
-+ 	ret = pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &cap);
-  	if (ret)
-- 		return;
-+ 		return 0;
-+ 
-+ 	if (!(cap & PCI_EXP_DEVCAP_EXT_TAG))
-+ 		return 0;
-+ 
-+ 	ret = pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &ctl);
-+ 	if (ret)
-+ 		return 0;
-+ 
-+ 	host = pci_find_host_bridge(dev->bus);
-+ 	if (!host)
-+ 		return 0;
-+ 
-+ 	/*
-+ 	 * If some device in the hierarchy doesn't handle Extended Tags
-+ 	 * correctly, make sure they're disabled.
-+ 	 */
-+ 	if (host->no_ext_tags) {
-+ 		if (ctl & PCI_EXP_DEVCTL_EXT_TAG) {
-+ 			dev_info(&dev->dev, "disabling Extended Tags\n");
-+ 			pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
-+ 						   PCI_EXP_DEVCTL_EXT_TAG);
-+ 		}
-+ 		return 0;
-+ 	}
-  
-- 	if (dev_cap & PCI_EXP_DEVCAP_EXT_TAG)
-+ 	if (!(ctl & PCI_EXP_DEVCTL_EXT_TAG)) {
-+ 		dev_info(&dev->dev, "enabling Extended Tags\n");
-  		pcie_capability_set_word(dev, PCI_EXP_DEVCTL,
-  					 PCI_EXP_DEVCTL_EXT_TAG);
-+ 	}
-+ 	return 0;
-  }
-  
- +/**
- + * pcie_relaxed_ordering_enabled - Probe for PCIe relaxed ordering enable
- + * @dev: PCI device to query
- + *
- + * Returns true if the device has enabled relaxed ordering attribute.
- + */
- +bool pcie_relaxed_ordering_enabled(struct pci_dev *dev)
- +{
- +	u16 v;
- +
- +	pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
- +
- +	return !!(v & PCI_EXP_DEVCTL_RELAX_EN);
- +}
- +EXPORT_SYMBOL(pcie_relaxed_ordering_enabled);
- +
- +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
- +{
- +	struct pci_dev *root;
- +
- +	/* PCI_EXP_DEVICE_RELAX_EN is RsvdP in VFs */
- +	if (dev->is_virtfn)
- +		return;
- +
- +	if (!pcie_relaxed_ordering_enabled(dev))
- +		return;
- +
- +	/*
- +	 * For now, we only deal with Relaxed Ordering issues with Root
- +	 * Ports. Peer-to-Peer DMA is another can of worms.
- +	 */
- +	root = pci_find_pcie_root_port(dev);
- +	if (!root)
- +		return;
- +
- +	if (root->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING) {
- +		pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
- +					   PCI_EXP_DEVCTL_RELAX_EN);
- +		dev_info(&dev->dev, "Disable Relaxed Ordering because the Root Port didn't support it\n");
- +	}
- +}
- +
-  static void pci_configure_device(struct pci_dev *dev)
-  {
-  	struct hotplug_params hpp;
-  	int ret;
-  
-  	pci_configure_mps(dev);
-- 	pci_configure_extended_tags(dev);
-+ 	pci_configure_extended_tags(dev, NULL);
- +	pci_configure_relaxed_ordering(dev);
-  
-  	memset(&hpp, 0, sizeof(hpp));
-  	ret = pci_get_hp_params(dev, &hpp);
+I think your Makefile expects something different.
+Or more Config fallout
