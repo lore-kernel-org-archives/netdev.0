@@ -1,101 +1,76 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net] openvswitch: fix skb_panic due to the incorrect
- actions attrlen
-Date: Mon, 14 Aug 2017 22:01:43 -0700
-Message-ID: <CAOrHB_Cy-bxRABSR4keg43U7tj4riVAdFd8So1GUHkNzYXA7bg@mail.gmail.com>
-References: <20170813070420.73074-1-zlpnobody@163.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V2 3/3] tap: XDP support
+Date: Tue, 15 Aug 2017 13:02:05 +0800
+Message-ID: <1f2ad15c-967d-fee1-b483-891f91682d9e@redhat.com>
+References: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
+ <1502451678-17358-4-git-send-email-jasowang@redhat.com>
+ <20170811161223.6808008d@cakuba.netronome.com>
+ <8876b3d1-699c-d033-e855-34b24a709c81@redhat.com>
+ <20170814185951-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Pravin Shelar <pshelar@nicira.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Liping Zhang <zlpnobody@gmail.com>,
-        Neil McKee <neil.mckee@inmon.com>
-To: Liping Zhang <zlpnobody@163.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:55109 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751605AbdHOFBp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 01:01:45 -0400
-Received: from mail-wr0-f177.google.com (mail-wr0-f177.google.com [209.85.128.177])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 35E15A80C6
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 07:01:44 +0200 (CEST)
-Received: by mail-wr0-f177.google.com with SMTP id b65so15747659wrd.0
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 22:01:44 -0700 (PDT)
-In-Reply-To: <20170813070420.73074-1-zlpnobody@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Jakub Kicinski <kubakici@wp.pl>, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170814185951-mutt-send-email-mst@kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 13, 2017 at 12:04 AM, Liping Zhang <zlpnobody@163.com> wrote:
-> From: Liping Zhang <zlpnobody@gmail.com>
->
-> For sw_flow_actions, the actions_len only represents the kernel part's
-> size, and when we dump the actions to the userspace, we will do the
-> convertions, so it's true size may become bigger than the actions_len.
->
-> But unfortunately, for OVS_PACKET_ATTR_ACTIONS, we use the actions_len
-> to alloc the skbuff, so the user_skb's size may become insufficient and
-> oops will happen like this:
->   skbuff: skb_over_panic: text:ffffffff8148fabf len:1749 put:157 head:
->   ffff881300f39000 data:ffff881300f39000 tail:0x6d5 end:0x6c0 dev:<NULL>
->   ------------[ cut here ]------------
->   kernel BUG at net/core/skbuff.c:129!
->   [...]
->   Call Trace:
->    <IRQ>
->    [<ffffffff8148be82>] skb_put+0x43/0x44
->    [<ffffffff8148fabf>] skb_zerocopy+0x6c/0x1f4
->    [<ffffffffa0290d36>] queue_userspace_packet+0x3a3/0x448 [openvswitch]
->    [<ffffffffa0292023>] ovs_dp_upcall+0x30/0x5c [openvswitch]
->    [<ffffffffa028d435>] output_userspace+0x132/0x158 [openvswitch]
->    [<ffffffffa01e6890>] ? ip6_rcv_finish+0x74/0x77 [ipv6]
->    [<ffffffffa028e277>] do_execute_actions+0xcc1/0xdc8 [openvswitch]
->    [<ffffffffa028e3f2>] ovs_execute_actions+0x74/0x106 [openvswitch]
->    [<ffffffffa0292130>] ovs_dp_process_packet+0xe1/0xfd [openvswitch]
->    [<ffffffffa0292b77>] ? key_extract+0x63c/0x8d5 [openvswitch]
->    [<ffffffffa029848b>] ovs_vport_receive+0xa1/0xc3 [openvswitch]
->   [...]
->
-> Also we can find that the actions_len is much little than the orig_len:
->   crash> struct sw_flow_actions 0xffff8812f539d000
->   struct sw_flow_actions {
->     rcu = {
->       next = 0xffff8812f5398800,
->       func = 0xffffe3b00035db32
->     },
->     orig_len = 1384,
->     actions_len = 592,
->     actions = 0xffff8812f539d01c
->   }
->
-> So as a quick fix, use the orig_len instead of the actions_len to alloc
-> the user_skb.
->
-> Last, this oops happened on our system running a relative old kernel, but
-> the same risk still exists on the mainline, since we use the wrong
-> actions_len from the beginning.
->
-Thanks for fixing it.
 
-> Fixes: ccea74457bbd ("openvswitch: include datapath actions with sampled-packet upcall to userspace")
-> Cc: Neil McKee <neil.mckee@inmon.com>
-> Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
-> ---
->  net/openvswitch/actions.c  | 39 +++++++++++++++++++++++++--------------
->  net/openvswitch/datapath.c |  2 +-
->  net/openvswitch/datapath.h |  1 +
->  3 files changed, 27 insertions(+), 15 deletions(-)
+
+On 2017年08月15日 00:01, Michael S. Tsirkin wrote:
+> On Sat, Aug 12, 2017 at 10:48:49AM +0800, Jason Wang wrote:
+>>
+>> On 2017年08月12日 07:12, Jakub Kicinski wrote:
+>>> On Fri, 11 Aug 2017 19:41:18 +0800, Jason Wang wrote:
+>>>> This patch tries to implement XDP for tun. The implementation was
+>>>> split into two parts:
+>>>>
+>>>> - fast path: small and no gso packet. We try to do XDP at page level
+>>>>     before build_skb(). For XDP_TX, since creating/destroying queues
+>>>>     were completely under control of userspace, it was implemented
+>>>>     through generic XDP helper after skb has been built. This could be
+>>>>     optimized in the future.
+>>>> - slow path: big or gso packet. We try to do it after skb was created
+>>>>     through generic XDP helpers.
+>>>>
+>>>> Test were done through pktgen with small packets.
+>>>>
+>>>> xdp1 test shows ~41.1% improvement:
+>>>>
+>>>> Before: ~1.7Mpps
+>>>> After:  ~2.3Mpps
+>>>>
+>>>> xdp_redirect to ixgbe shows ~60% improvement:
+>>>>
+>>>> Before: ~0.8Mpps
+>>>> After:  ~1.38Mpps
+>>>>
+>>>> Suggested-by: Michael S. Tsirkin <mst@redhat.com>
+>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>> Looks OK to me now :)
+>>>
+>>> Out of curiosity, you say the build_skb() is for "small packets", and it
+>>> seems you are always reserving the 256B regardless of XDP being
+>>> installed.  Does this have no performance impact on non-XDP case?
+>> Have a test, only less than 1% were noticed which I think could be ignored.
+>>
+>> Thanks
+> What did you test btw?
+
+Pktgen
+
+>   The biggest issue would be with something like
+> UDP with short packets.
 >
-> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-> index e4610676299b..799a22dfb89e 100644
-> --- a/net/openvswitch/actions.c
-> +++ b/net/openvswitch/actions.c
-> @@ -48,6 +48,7 @@ struct deferred_action {
->         struct sk_buff *skb;
->         const struct nlattr *actions;
->         int actions_len;
-> +       int actions_attrlen;
->
-Have you considered passing this value using struct ovs_skb_cb? That
-would save passing this parameter in all these functions.
+
+Note that we do this only when sndbuf is INT_MAX. So this is probably 
+not an issue. The only thing matter is more stress to page allocator, 
+but according to the result of pktgen it was very small that could be 
+ignored.
+
+Thanks
