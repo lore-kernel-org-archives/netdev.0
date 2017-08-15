@@ -1,101 +1,145 @@
 From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH] net_sched: reset pointers to tcf blocks in classful qdiscs'
- destructors
-Date: Tue, 15 Aug 2017 16:35:21 +0300
-Message-ID: <150280412126.717517.16274927544808177918.stgit@buzz>
+Subject: [PATCH 1/2] net_sched: call qlen_notify only if child qdisc is empty
+Date: Tue, 15 Aug 2017 16:39:59 +0300
+Message-ID: <150280439968.717891.6476652519937001709.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@mellanox.com>, Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Jiri Kosina <jkosina@suse.cz>, Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forwardcorp1j.cmail.yandex.net ([5.255.227.106]:33918 "EHLO
+Received: from forwardcorp1j.cmail.yandex.net ([5.255.227.106]:35264 "EHLO
         forwardcorp1j.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750997AbdHONf1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 09:35:27 -0400
+        by vger.kernel.org with ESMTP id S1751031AbdHONkE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 09:40:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Traffic filters could keep direct pointers to classes in classful qdisc,
-thus qdisc destruction first removes all filters before freeing classes.
-Class destruction methods also tries to free attached filters but now
-this isn't safe because tcf_block_put() unlike to tcf_destroy_chain()
-cannot be called second time.
+This callback is used for deactivating class in parent qdisc.
+This is cheaper to test queue length right here.
 
-This patch set class->block to NULL after first tcf_block_put() and
-turn second call into no-op.
+Also this allows to catch draining screwed backlog and prevent
+second deactivation of already inactive parent class which will
+crash kernel for sure. Kernel with print warning at destruction
+of child qdisc where no packets but backlog is not zero.
 
 Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Fixes: 6529eaba33f0 ("net: sched: introduce tcf block infractructure")
 ---
- net/sched/sch_atm.c  |    4 +++-
- net/sched/sch_cbq.c  |    4 +++-
- net/sched/sch_hfsc.c |    4 +++-
- net/sched/sch_htb.c  |    4 +++-
- 4 files changed, 12 insertions(+), 4 deletions(-)
+ net/sched/sch_api.c  |   10 +++++++++-
+ net/sched/sch_cbq.c  |    3 +--
+ net/sched/sch_drr.c  |    3 +--
+ net/sched/sch_hfsc.c |    6 ++----
+ net/sched/sch_htb.c  |    3 +--
+ net/sched/sch_qfq.c  |    3 +--
+ 6 files changed, 15 insertions(+), 13 deletions(-)
 
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 572fe2584e48..c403c87aff7a 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -572,8 +572,10 @@ static void atm_tc_destroy(struct Qdisc *sch)
- 	struct atm_flow_data *flow, *tmp;
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index bd24a550e0f9..18da45c0769c 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -752,6 +752,7 @@ void qdisc_tree_reduce_backlog(struct Qdisc *sch, unsigned int n,
+ 	const struct Qdisc_class_ops *cops;
+ 	unsigned long cl;
+ 	u32 parentid;
++	bool notify;
+ 	int drops;
  
- 	pr_debug("atm_tc_destroy(sch %p,[qdisc %p])\n", sch, p);
--	list_for_each_entry(flow, &p->flows, list)
-+	list_for_each_entry(flow, &p->flows, list) {
- 		tcf_block_put(flow->block);
-+		flow->block = NULL;
-+	}
+ 	if (n == 0 && len == 0)
+@@ -764,6 +765,13 @@ void qdisc_tree_reduce_backlog(struct Qdisc *sch, unsigned int n,
  
- 	list_for_each_entry_safe(flow, tmp, &p->flows, list) {
- 		if (flow->ref > 1)
+ 		if (sch->flags & TCQ_F_NOPARENT)
+ 			break;
++		/* Notify parent qdisc only if child qdisc becomes empty.
++		 *
++		 * If child was empty even before update then backlog
++		 * counter is screwed and we skip notification because
++		 * parent class is already passive.
++		 */
++		notify = !sch->q.qlen && !WARN_ON_ONCE(!n);
+ 		/* TODO: perform the search on a per txq basis */
+ 		sch = qdisc_lookup(qdisc_dev(sch), TC_H_MAJ(parentid));
+ 		if (sch == NULL) {
+@@ -771,7 +779,7 @@ void qdisc_tree_reduce_backlog(struct Qdisc *sch, unsigned int n,
+ 			break;
+ 		}
+ 		cops = sch->ops->cl_ops;
+-		if (cops->qlen_notify) {
++		if (notify && cops->qlen_notify) {
+ 			cl = cops->get(sch, parentid);
+ 			cops->qlen_notify(sch, cl);
+ 			cops->put(sch, cl);
 diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 481036f6b54e..780db43300b1 100644
+index 780db43300b1..1bdb0106f342 100644
 --- a/net/sched/sch_cbq.c
 +++ b/net/sched/sch_cbq.c
-@@ -1431,8 +1431,10 @@ static void cbq_destroy(struct Qdisc *sch)
- 	 * be bound to classes which have been destroyed already. --TGR '04
- 	 */
- 	for (h = 0; h < q->clhash.hashsize; h++) {
--		hlist_for_each_entry(cl, &q->clhash.hash[h], common.hnode)
-+		hlist_for_each_entry(cl, &q->clhash.hash[h], common.hnode) {
- 			tcf_block_put(cl->block);
-+			cl->block = NULL;
-+		}
- 	}
- 	for (h = 0; h < q->clhash.hashsize; h++) {
- 		hlist_for_each_entry_safe(cl, next, &q->clhash.hash[h],
+@@ -1385,8 +1385,7 @@ static void cbq_qlen_notify(struct Qdisc *sch, unsigned long arg)
+ {
+ 	struct cbq_class *cl = (struct cbq_class *)arg;
+ 
+-	if (cl->q->q.qlen == 0)
+-		cbq_deactivate_class(cl);
++	cbq_deactivate_class(cl);
+ }
+ 
+ static unsigned long cbq_get(struct Qdisc *sch, u32 classid)
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+index a413dc1c2098..1d2f6235dfcf 100644
+--- a/net/sched/sch_drr.c
++++ b/net/sched/sch_drr.c
+@@ -246,8 +246,7 @@ static void drr_qlen_notify(struct Qdisc *csh, unsigned long arg)
+ {
+ 	struct drr_class *cl = (struct drr_class *)arg;
+ 
+-	if (cl->qdisc->q.qlen == 0)
+-		list_del(&cl->alist);
++	list_del(&cl->alist);
+ }
+ 
+ static int drr_dump_class(struct Qdisc *sch, unsigned long arg,
 diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 3ad02bbe6903..fd15200f8627 100644
+index fd15200f8627..14c99870cdb6 100644
 --- a/net/sched/sch_hfsc.c
 +++ b/net/sched/sch_hfsc.c
-@@ -1530,8 +1530,10 @@ hfsc_destroy_qdisc(struct Qdisc *sch)
- 	unsigned int i;
+@@ -1221,10 +1221,8 @@ hfsc_qlen_notify(struct Qdisc *sch, unsigned long arg)
+ {
+ 	struct hfsc_class *cl = (struct hfsc_class *)arg;
  
- 	for (i = 0; i < q->clhash.hashsize; i++) {
--		hlist_for_each_entry(cl, &q->clhash.hash[i], cl_common.hnode)
-+		hlist_for_each_entry(cl, &q->clhash.hash[i], cl_common.hnode) {
- 			tcf_block_put(cl->block);
-+			cl->block = NULL;
-+		}
- 	}
- 	for (i = 0; i < q->clhash.hashsize; i++) {
- 		hlist_for_each_entry_safe(cl, next, &q->clhash.hash[i],
+-	if (cl->qdisc->q.qlen == 0) {
+-		update_vf(cl, 0, 0);
+-		set_passive(cl);
+-	}
++	update_vf(cl, 0, 0);
++	set_passive(cl);
+ }
+ 
+ static unsigned long
 diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 203286ab4427..5d65ec5207e9 100644
+index 5d65ec5207e9..dcf3c85e1f4f 100644
 --- a/net/sched/sch_htb.c
 +++ b/net/sched/sch_htb.c
-@@ -1258,8 +1258,10 @@ static void htb_destroy(struct Qdisc *sch)
- 	tcf_block_put(q->block);
+@@ -1186,8 +1186,7 @@ static void htb_qlen_notify(struct Qdisc *sch, unsigned long arg)
+ {
+ 	struct htb_class *cl = (struct htb_class *)arg;
  
- 	for (i = 0; i < q->clhash.hashsize; i++) {
--		hlist_for_each_entry(cl, &q->clhash.hash[i], common.hnode)
-+		hlist_for_each_entry(cl, &q->clhash.hash[i], common.hnode) {
- 			tcf_block_put(cl->block);
-+			cl->block = NULL;
-+		}
- 	}
- 	for (i = 0; i < q->clhash.hashsize; i++) {
- 		hlist_for_each_entry_safe(cl, next, &q->clhash.hash[i],
+-	if (cl->un.leaf.q->q.qlen == 0)
+-		htb_deactivate(qdisc_priv(sch), cl);
++	htb_deactivate(qdisc_priv(sch), cl);
+ }
+ 
+ static unsigned long htb_get(struct Qdisc *sch, u32 classid)
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index 0e16dfda0bd7..9caa959f91e1 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -1428,8 +1428,7 @@ static void qfq_qlen_notify(struct Qdisc *sch, unsigned long arg)
+ 	struct qfq_sched *q = qdisc_priv(sch);
+ 	struct qfq_class *cl = (struct qfq_class *)arg;
+ 
+-	if (cl->qdisc->q.qlen == 0)
+-		qfq_deactivate_class(q, cl);
++	qfq_deactivate_class(q, cl);
+ }
+ 
+ static int qfq_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
