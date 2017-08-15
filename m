@@ -1,18 +1,15 @@
 From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: [PATCH v2 net-next 3/3] tls: Use correct sk->sk_prot for IPV6
-Date: Tue, 15 Aug 2017 14:08:40 +0300
-Message-ID: <1502795320-22538-4-git-send-email-ilyal@mellanox.com>
-References: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
+Subject: [PATCH v2 net-next 0/3] Use correct sk->sk_prot for IPV6
+Date: Tue, 15 Aug 2017 14:08:37 +0300
+Message-ID: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
 Cc: davejwatson@fb.com, aviadye@mellanox.com,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>
+        Ilya Lesokhin <ilyal@mellanox.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35039 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35020 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751150AbdHOLJX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 07:09:23 -0400
-In-Reply-To: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
+        with ESMTP id S1751068AbdHOLJY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 07:09:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -25,127 +22,24 @@ some ipv6 callback with the ipv4 equivalents.
 This patch adds ipv6 tls proto structs and uses them when
 attached to ipv6 sockets.
 
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
-Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
----
- net/tls/Kconfig    |  1 +
- net/tls/tls_main.c | 50 ++++++++++++++++++++++++++++++++++++++------------
- 2 files changed, 39 insertions(+), 12 deletions(-)
+Changes since v1:
+- TLS now dependes on IPV6
+This fixes complication issues when TLS is built-in and IPV6 is a module.
+The downside should be small as it is unlikely that there are kernel TLS 
+users who can't afford to include IPV6 in thier kernel.
+- tls_init now checks sk->sk_prot directly
+This is somewhat safer then checking indirectly through sk->sk_family
 
-diff --git a/net/tls/Kconfig b/net/tls/Kconfig
-index eb58303..7e9cf8b 100644
---- a/net/tls/Kconfig
-+++ b/net/tls/Kconfig
-@@ -7,6 +7,7 @@ config TLS
- 	select CRYPTO
- 	select CRYPTO_AES
- 	select CRYPTO_GCM
-+	select IPV6
- 	default n
- 	---help---
- 	Enable kernel support for TLS protocol. This allows symmetric
-diff --git a/net/tls/tls_main.c b/net/tls/tls_main.c
-index 60aff60..9caad11 100644
---- a/net/tls/tls_main.c
-+++ b/net/tls/tls_main.c
-@@ -40,13 +40,25 @@
- #include <linux/sched/signal.h>
- 
- #include <net/tls.h>
-+#include <net/transp_v6.h>
- 
- MODULE_AUTHOR("Mellanox Technologies");
- MODULE_DESCRIPTION("Transport Layer Security Support");
- MODULE_LICENSE("Dual BSD/GPL");
- 
--static struct proto tls_base_prot;
--static struct proto tls_sw_prot;
-+enum {
-+	TLSV4,
-+	TLSV6,
-+	TLS_NUM_PROTS,
-+};
-+
-+enum {
-+	TLS_BASE_TX,
-+	TLS_SW_TX,
-+	TLS_NUM_CONFIG,
-+};
-+
-+static struct proto tls_prots[TLS_NUM_PROTS][TLS_NUM_CONFIG];
- 
- int wait_on_pending_writer(struct sock *sk, long *timeo)
- {
-@@ -342,6 +354,7 @@ static int do_tls_setsockopt_tx(struct sock *sk, char __user *optval,
- 	struct tls_context *ctx = tls_get_ctx(sk);
- 	struct proto *prot = NULL;
- 	int rc = 0;
-+	int ip_ver = sk->sk_family == AF_INET6 ? TLSV6 : TLSV4;
- 
- 	if (!optval || (optlen < sizeof(*crypto_info))) {
- 		rc = -EINVAL;
-@@ -396,7 +409,7 @@ static int do_tls_setsockopt_tx(struct sock *sk, char __user *optval,
- 
- 	/* currently SW is default, we will have ethtool in future */
- 	rc = tls_set_sw_offload(sk, ctx);
--	prot = &tls_sw_prot;
-+	prot = &tls_prots[ip_ver][TLS_SW_TX];
- 	if (rc)
- 		goto err_crypto_info;
- 
-@@ -443,6 +456,12 @@ static int tls_init(struct sock *sk)
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tls_context *ctx;
- 	int rc = 0;
-+	int ip_ver = TLSV4;
-+
-+	if (sk->sk_prot == &tcpv6_prot)
-+		ip_ver = TLSV6;
-+	else if (sk->sk_prot != &tcp_prot)
-+		return -EINVAL;
- 
- 	/* allocate tls context */
- 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-@@ -453,7 +472,8 @@ static int tls_init(struct sock *sk)
- 	icsk->icsk_ulp_data = ctx;
- 	ctx->setsockopt = sk->sk_prot->setsockopt;
- 	ctx->getsockopt = sk->sk_prot->getsockopt;
--	sk->sk_prot = &tls_base_prot;
-+
-+	sk->sk_prot = &tls_prots[ip_ver][TLS_BASE_TX];
- out:
- 	return rc;
- }
-@@ -464,16 +484,22 @@ static int tls_init(struct sock *sk)
- 	.init			= tls_init,
- };
- 
-+static void build_protos(struct proto *prot, struct proto *base)
-+{
-+	prot[TLS_BASE_TX] = *base;
-+	prot[TLS_BASE_TX].setsockopt = tls_setsockopt;
-+	prot[TLS_BASE_TX].getsockopt = tls_getsockopt;
-+
-+	prot[TLS_SW_TX]		= prot[TLS_BASE_TX];
-+	prot[TLS_SW_TX].close	= tls_sk_proto_close;
-+	prot[TLS_SW_TX].sendmsg		= tls_sw_sendmsg;
-+	prot[TLS_SW_TX].sendpage	= tls_sw_sendpage;
-+}
-+
- static int __init tls_register(void)
- {
--	tls_base_prot			= tcp_prot;
--	tls_base_prot.setsockopt	= tls_setsockopt;
--	tls_base_prot.getsockopt	= tls_getsockopt;
--
--	tls_sw_prot			= tls_base_prot;
--	tls_sw_prot.sendmsg		= tls_sw_sendmsg;
--	tls_sw_prot.sendpage            = tls_sw_sendpage;
--	tls_sw_prot.close               = tls_sk_proto_close;
-+	build_protos(tls_prots[TLSV4], &tcp_prot);
-+	build_protos(tls_prots[TLSV6], &tcpv6_prot);
- 
- 	tcp_register_ulp(&tcp_tls_ulp_ops);
- 
+Ilya Lesokhin (3):
+  ipv6: Prevent unexpected sk->sk_prot changes
+  net: Export tcpv6_prot
+  tls: Use correct sk->sk_prot for IPV6
+
+ net/ipv6/ipv6_sockglue.c | 12 ++++++++++++
+ net/ipv6/tcp_ipv6.c      |  1 +
+ net/tls/Kconfig          |  1 +
+ net/tls/tls_main.c       | 50 ++++++++++++++++++++++++++++++++++++------------
+ 4 files changed, 52 insertions(+), 12 deletions(-)
+
 -- 
 1.8.3.1
