@@ -1,59 +1,34 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [patch net-next] ipv6: fib: Provide offload indication using
- nexthop flags
-Date: Tue, 15 Aug 2017 08:18:36 -0600
-Message-ID: <36964869-b0d4-1b03-ca28-654ac3727283@gmail.com>
-References: <20170815070949.1363-1-jiri@resnulli.us>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH 2/5] net/9p: Improve 19 size determinations
+Date: Tue, 15 Aug 2017 15:21:53 +0100
+Message-ID: <20170815142152.GA5426@ZenIV.linux.org.uk>
+References: <22a44d7c-cdb9-e206-4b2c-56e38cbf0de1@users.sourceforge.net>
+ <f9eeedc4-5d3d-6622-79f0-11174ea81c49@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        hannes@stressinduktion.org, yoshfuji@linux-ipv6.org,
-        kuznet@ms2.inr.ac.ru
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34746 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751095AbdHOOSk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 10:18:40 -0400
-Received: by mail-pg0-f65.google.com with SMTP id y192so1706775pgd.1
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 07:18:40 -0700 (PDT)
-In-Reply-To: <20170815070949.1363-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Van Hensbergen <ericvh@gmail.com>,
+        Latchesar Ionkov <lucho@ionkov.net>,
+        Ron Minnich <rminnich@sandia.gov>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <f9eeedc4-5d3d-6622-79f0-11174ea81c49@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/15/17 1:09 AM, Jiri Pirko wrote:
-> From: Ido Schimmel <idosch@mellanox.com>
+On Tue, Aug 15, 2017 at 02:00:06PM +0200, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Tue, 15 Aug 2017 09:36:20 +0200
 > 
-> IPv6 routes currently lack nexthop flags as in IPv4. This has several
-> implications.
-> 
-> In the forwarding path, it requires us to check the carrier state of the
-> nexthop device and potentially ignore a linkdown route, instead of
-> checking for RTNH_F_LINKDOWN.
-> 
-> It also requires capable drivers to use the user facing IPv6-specific
-> route flags to provide offload indication, instead of using the nexthop
-> flags as in IPv4.
-> 
-> Add nexthop flags to IPv6 routes in the 40 bytes hole and use it to
-> provide offload indication instead of the RTF_OFFLOAD flag, which is
-> removed while it's still not part of any official kernel release.
-> 
-> In the near future we would like to use the field for the
-> RTNH_F_{LINKDOWN,DEAD} flags, but this change is more involved and might
-> not be ready in time for the current cycle.
-> 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 8 ++++----
->  include/net/ip6_fib.h                                 | 2 ++
->  include/uapi/linux/ipv6_route.h                       | 1 -
->  net/ipv6/route.c                                      | 7 +------
->  4 files changed, 7 insertions(+), 11 deletions(-)
+> Replace the specification of data structures by variable references
+> as the parameter for the operator "sizeof" to make the corresponding size
+> determination a bit safer according to the Linux coding style convention.
 
-LGTM.
-
-Acked-by: David Ahern <dsahern@gmail.com>
+Garbage.  This makes it so much harder to find where the objects of given
+type are created.  It's _not_ safer and any patches of that sort around
+VFS will be shitcanned.  What to do with net/9p patches is up to net/9p
+maintainers, but I would strongly recommend the same treatment.
