@@ -1,70 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv4: fix NULL dereference in free_fib_info_rcu()
-Date: Tue, 15 Aug 2017 05:26:17 -0700
-Message-ID: <1502799977.4936.71.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [iproute PATCH 51/51] lib/bpf: Check return value of write()
+Date: Tue, 15 Aug 2017 12:31:42 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0055BA8@AcuExch.aculab.com>
+References: <20170812120510.28750-1-phil@nwl.cc>
+ <20170812120510.28750-52-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Phil Sutter' <phil@nwl.cc>,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36803 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751654AbdHOM0T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 08:26:19 -0400
-Received: by mail-pg0-f66.google.com with SMTP id y129so1278779pgy.3
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 05:26:19 -0700 (PDT)
+Received: from smtp-out4.electric.net ([192.162.216.189]:64923 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751129AbdHOMbs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 08:31:48 -0400
+In-Reply-To: <20170812120510.28750-52-phil@nwl.cc>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Phil Sutter
+> Sent: 12 August 2017 13:05
+> This is merely to silence the compiler warning. If write to stderr
+> failed, assume that printing an error message will fail as well so don't
+> even try.
+> 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+>  lib/bpf.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/lib/bpf.c b/lib/bpf.c
+> index 1dcb261dc915f..825e071cea572 100644
+> --- a/lib/bpf.c
+> +++ b/lib/bpf.c
+> @@ -591,7 +591,8 @@ int bpf_trace_pipe(void)
+> 
+>  		ret = read(fd, buff, sizeof(buff) - 1);
+>  		if (ret > 0) {
+> -			write(2, buff, ret);
+> +			if (write(STDERR_FILENO, buff, ret) != ret)
+> +				return -1;
+>  			fflush(stderr);
+>  		}
 
-If fi->fib_metrics could not be allocated in fib_create_info()
-we attempt to dereference a NULL pointer in free_fib_info_rcu() :
+WTF is this code doing anyway?
+write() is a system call, fflush() writes out any data buffered in the
+stdio stream.
+If there was anything buffered you'd want to output it earlier.
+Otherwise if it is going to use fflush() it should be using fwrite().
 
-    m = fi->fib_metrics;
-    if (m != &dst_default_metrics && atomic_dec_and_test(&m->refcnt))
-            kfree(m);
+I presume the function is allowed to write to stderr - since in general
+library functions shouldn't assume fd 0/1/2 or stdin/out/err are valid.
+There is a lot of code out there that does close(0); close(1); close(2);
+but leaves stdout/err valid. Call printf() instead of sprint() and eventually
+10k of data gets written somewhere rather unexpected.
 
-Before my recent patch, we used to call kfree(NULL) and nothing wrong
-happened.
+If it is a copy loop, what is wrong with the last byte of buff[].
+It is valid for write() to return a partial length - the code should
+probably loop until all the data is accepted (or error).
 
-Instead of using RCU to defer freeing while we are under memory stress,
-it seems better to take immediate action.
-
-This was reported by syzkaller team.
-
-Fixes: 3fb07daff8e9 ("ipv4: add reference counting to metrics")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
----
- net/ipv4/fib_semantics.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index b8d18171cca3..ec3a9ce281a6 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1083,15 +1083,17 @@ struct fib_info *fib_create_info(struct fib_config *cfg,
- 	fi = kzalloc(sizeof(*fi)+nhs*sizeof(struct fib_nh), GFP_KERNEL);
- 	if (!fi)
- 		goto failure;
--	fib_info_cnt++;
- 	if (cfg->fc_mx) {
- 		fi->fib_metrics = kzalloc(sizeof(*fi->fib_metrics), GFP_KERNEL);
--		if (!fi->fib_metrics)
--			goto failure;
-+		if (unlikely(!fi->fib_metrics)) {
-+			kfree(fi);
-+			return ERR_PTR(err);
-+		}
- 		atomic_set(&fi->fib_metrics->refcnt, 1);
--	} else
-+	} else {
- 		fi->fib_metrics = (struct dst_metrics *)&dst_default_metrics;
--
-+	}
-+	fib_info_cnt++;
- 	fi->fib_net = net;
- 	fi->fib_protocol = cfg->fc_protocol;
- 	fi->fib_scope = cfg->fc_scope;
+	David
