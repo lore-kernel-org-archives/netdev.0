@@ -1,61 +1,44 @@
-From: Greg Edwards <gedwards@ddn.com>
-Subject: Re: [net-next 11/12] igbvf: convert msleep to mdelay in atomic
- context
-Date: Tue, 15 Aug 2017 13:32:11 -0600
-Message-ID: <20170815193210.GC27768@psuche>
-References: <20170809214746.28139-1-jeffrey.t.kirsher@intel.com>
- <20170809214746.28139-12-jeffrey.t.kirsher@intel.com>
- <063D6719AE5E284EB5DD2968C1650D6DD0054ACD@AcuExch.aculab.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next 0/4] liquidio: adding support for ethtool
+ --set-channels feature
+Date: Tue, 15 Aug 2017 12:45:15 -0700
+Message-ID: <20170815194515.GA2188@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-        David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        intiyaz.basha@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from legacy.ddn.com ([64.47.133.206]:51353 "EHLO legacy.ddn.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751119AbdHOThd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Aug 2017 15:37:33 -0400
+Received: from mail-sn1nam01on0075.outbound.protection.outlook.com ([104.47.32.75]:26448
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752031AbdHOTpR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 15:45:17 -0400
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0054ACD@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 14, 2017 at 10:17:31AM +0000, David Laight wrote:
-> From: Jeff Kirsher
->> Sent: 09 August 2017 22:48
->> From: Greg Edwards <gedwards@ddn.com>
->>
->> This fixes a "scheduling while atomic" splat seen with
->> CONFIG_DEBUG_ATOMIC_SLEEP enabled.
->>
->> Signed-off-by: Greg Edwards <gedwards@ddn.com>
->> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> ---
->>  drivers/net/ethernet/intel/igbvf/vf.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/intel/igbvf/vf.c b/drivers/net/ethernet/intel/igbvf/vf.c
->> index 1d3aa9adcaa8..9577ccf4b26a 100644
->> --- a/drivers/net/ethernet/intel/igbvf/vf.c
->> +++ b/drivers/net/ethernet/intel/igbvf/vf.c
->> @@ -149,7 +149,7 @@ static s32 e1000_reset_hw_vf(struct e1000_hw *hw)
->>  		msgbuf[0] = E1000_VF_RESET;
->>  		mbx->ops.write_posted(hw, msgbuf, 1);
->>
->> -		msleep(10);
->> +		mdelay(10);
->
-> Spinning for 10ms seems somewhat sub-optimal
+From: Intiyaz Basha <intiyaz.basha@cavium.com>
 
-Jeff,
+Code reorganization is required for adding ethtool --set-channels feature.
+First three patches are for code reorganization.  The last patch is for
+adding this feature.
 
-Do we even need this delay?  The subsequent read_posted() will poll for
-the PF's mailbox reply for up to 1s.
+Intiyaz Basha (4):
+  liquidio: moved liquidio_msix_intr_handler to lio_core.c
+  liquidio: moved liquidio_legacy_intr_handler to lio_core.c
+  liquidio: moved octeon_setup_interrupt to lio_core.c
+  liquidio: added support for ethtool --set-channels feature
 
-Greg
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    | 307 ++++++++++++++++++++-
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 190 +++++++++++--
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 295 ++------------------
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 171 ++----------
+ .../net/ethernet/cavium/liquidio/liquidio_common.h |   3 +
+ drivers/net/ethernet/cavium/liquidio/octeon_main.h |   6 +
+ .../net/ethernet/cavium/liquidio/octeon_network.h  |   8 +-
+ 7 files changed, 529 insertions(+), 451 deletions(-)
+
+-- 
+2.9.0
