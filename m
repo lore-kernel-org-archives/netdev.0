@@ -1,37 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next 0/8] liquidio: adding support for ethtool
- --set-ring feature
-Date: Mon, 14 Aug 2017 22:21:56 -0700 (PDT)
-Message-ID: <20170814.222156.501253374258719071.davem@davemloft.net>
-References: <20170814190034.GA1219@felix-thinkpad.cavium.com>
+Subject: Re: [patch net-next 0/2] mlxsw: Add support for nexthop group
+ consolidation for IPv6
+Date: Mon, 14 Aug 2017 22:24:46 -0700 (PDT)
+Message-ID: <20170814.222446.2291698336308702761.davem@davemloft.net>
+References: <20170814190920.9576-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        intiyaz.basha@cavium.com
-To: felix.manlunas@cavium.com
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50548 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50594 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751509AbdHOFV5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 01:21:57 -0400
-In-Reply-To: <20170814190034.GA1219@felix-thinkpad.cavium.com>
+        with ESMTP id S1751628AbdHOFYr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 01:24:47 -0400
+In-Reply-To: <20170814190920.9576-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Mon, 14 Aug 2017 12:00:34 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 14 Aug 2017 21:09:18 +0200
 
-> From: Intiyaz Basha <intiyaz.basha@cavium.com>
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Code reorganization is required for adding ethtool --set-ring feature.
-> First seven patches are for code reorganization.  The last patch is for
-> adding this feature.
+> Arkadi says:
 > 
-> Change Log:
-> V1 -> V2
->  Only patch #8 was changed:  unnecessary parentheses were removed in two
->  if-statements in lio_ethtool_set_ringparam().
+> Due to limited ASIC resources the maximum number of routes is limited by
+> the nexthop resource. In order to improve the routing scale nexthop
+> consolidation should be performed.
+> 
+> In case of IPv4, the kernel does the consolidation of nexthops in the form
+> of the fib_info struct. In that case, the driver uses the fib_info's
+> address as a key for the internal nexthop group representative struct
+> lookup. In case of IPv6, the kernel doesn't do consolidation, thus the
+> driver should implement it by itself.
+> 
+> The hash value is calculated based on the nexthop set, by performing
+> bitwise xor on the ifindexs of the nexthops, in a similar way to IPV4's
+> kernel implementation. In case of collision a full match is performed
+> between the sets which include address and ifindex comparison.
+> 
+> In order to use the same hash table in both cases (IPv4/6), the rhashtable
+> is changed to operate on variable length key.
 
-Series applied.
+Series applied, thanks.
