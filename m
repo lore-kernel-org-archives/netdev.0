@@ -1,106 +1,66 @@
-From: idaifish <idaifish@gmail.com>
-Subject: Re: general protection fault in fib_dump_info
-Date: Tue, 15 Aug 2017 14:42:40 +0800
-Message-ID: <CADUsjNmyusiq+fCChitacZwzHYJVO3_8a60A5=G=Ga2x4Y6xqw@mail.gmail.com>
-References: <CADUsjNkM2KuAJj6xc=Xj3he8z3B5XYv5m8H5x-FCHwdGjW_AYg@mail.gmail.com>
- <1502767994.4936.47.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] netfilter: fix indent on in statements
+Date: Tue, 15 Aug 2017 07:50:25 +0100
+Message-ID: <20170815065025.18471-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: davem@davemloft.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-        syzkaller@googlegroups.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f50.google.com ([209.85.213.50]:37663 "EHLO
-        mail-vk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751666AbdHOGnV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 02:43:21 -0400
-Received: by mail-vk0-f50.google.com with SMTP id r199so281230vke.4
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 23:43:21 -0700 (PDT)
-In-Reply-To: <1502767994.4936.47.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The bug still looks like reproducible after applying the patch [
-https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/?id=2c87d63ac853550e734edfd45e1be5e5aa44fbcc
-]
+From: Colin Ian King <colin.king@canonical.com>
 
+The returns on some if statements are not indented correctly,
+add in the missing tab.
 
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/bridge/netfilter/ebt_ip.c  | 4 ++--
+ net/bridge/netfilter/ebt_ip6.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-2017-08-15 11:33 GMT+08:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Tue, 2017-08-15 at 10:49 +0800, idaifish wrote:
->> Syzkaller hit 'general protection fault in fib_dump_info' bug on
->> commit 4.13-rc5..
->>
->> Guilty file: net/ipv4/fib_semantics.c
->>
->> kasan: GPF could be caused by NULL-ptr deref or user memory access
->> general protection fault: 0000 [#1] SMP KASAN
->> Modules linked in:
->> CPU: 0 PID: 2808 Comm: syz-executor0 Not tainted 4.13.0-rc5 #1
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS
->> Ubuntu-1.8.2-1ubuntu1 04/01/2014
->> task: ffff880078562700 task.stack: ffff880078110000
->> RIP: 0010:fib_dump_info+0x388/0x1170 net/ipv4/fib_semantics.c:1314
->> RSP: 0018:ffff880078117010 EFLAGS: 00010206
->> RAX: dffffc0000000000 RBX: 00000000000000fe RCX: 0000000000000002
->> RDX: 0000000000000006 RSI: ffff880078117084 RDI: 0000000000000030
->> RBP: ffff880078117268 R08: 000000000000000c R09: ffff8800780d80c8
->> R10: 0000000058d629b4 R11: 0000000067fce681 R12: 0000000000000000
->> R13: ffff8800784bd540 R14: ffff8800780d80b5 R15: ffff8800780d80a4
->> FS:  00000000022fa940(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
->> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> CR2: 00000000004387d0 CR3: 0000000079135000 CR4: 00000000000006f0
->> Call Trace:
->>  inet_rtm_getroute+0xc89/0x1f50 net/ipv4/route.c:2766
->>  rtnetlink_rcv_msg+0x288/0x680 net/core/rtnetlink.c:4217
->>  netlink_rcv_skb+0x340/0x470 net/netlink/af_netlink.c:2397
->>  rtnetlink_rcv+0x28/0x30 net/core/rtnetlink.c:4223
->>  netlink_unicast_kernel net/netlink/af_netlink.c:1265 [inline]
->>  netlink_unicast+0x4c4/0x6e0 net/netlink/af_netlink.c:1291
->>  netlink_sendmsg+0x8c4/0xca0 net/netlink/af_netlink.c:1854
->>  sock_sendmsg_nosec net/socket.c:633 [inline]
->>  sock_sendmsg+0xca/0x110 net/socket.c:643
->>  ___sys_sendmsg+0x779/0x8d0 net/socket.c:2035
->>  __sys_sendmsg+0xd1/0x170 net/socket.c:2069
->>  SYSC_sendmsg net/socket.c:2080 [inline]
->>  SyS_sendmsg+0x2d/0x50 net/socket.c:2076
->>  entry_SYSCALL_64_fastpath+0x1a/0xa5
->> RIP: 0033:0x4512e9
->> RSP: 002b:00007ffc75584cc8 EFLAGS: 00000216 ORIG_RAX: 000000000000002e
->> RAX: ffffffffffffffda RBX: 0000000000000002 RCX: 00000000004512e9
->> RDX: 0000000000000000 RSI: 0000000020f2cfc8 RDI: 0000000000000003
->> RBP: 000000000000000e R08: 0000000000000000 R09: 0000000000000000
->> R10: 0000000000000000 R11: 0000000000000216 R12: fffffffffffffffe
->> R13: 0000000000718000 R14: 0000000020c44ff0 R15: 0000000000000000
->> Code: 00 0f b6 8d ec fd ff ff 48 8b 85 f0 fd ff ff 88 48 17 48 8b 45
->> 28 48 8d 78 30 48 b8 00 00 00 00 00 fc ff df 48 89 fa 48 c1 ea 03 <0f>
->> b6 04 02 84 c0 74 08 3c 03 0f 8e cb 0c 00 00 48 8b 45 28 44
->> RIP: fib_dump_info+0x388/0x1170 net/ipv4/fib_semantics.c:1314 RSP:
->> ffff880078117010
->> ---[ end trace 254a7af28348f88b ]---
->> Kernel panic - not syncing: Fatal exception
->> Kernel Offset: disabled
->> Rebooting in 86400 seconds..
->>
->> ---------------------
->>
->> .config and reproducer.prog are attached.  Unfortunately the extracted
->> C program can't work.
->> Maybe you can follow the instruction
->> [https://github.com/google/syzkaller/blob/master/docs/executing_syzkaller_programs.md]
->> to reproduce the bug.
->>
->>
->
-> Probably fixed by commit 2c87d63ac853550e734edfd45e1be5e5aa44fbcc
-> ("ipv4: route: fix inet_rtm_getroute induced crash")
-> (In David Miller net tree)
->
->
-
-
-
+diff --git a/net/bridge/netfilter/ebt_ip.c b/net/bridge/netfilter/ebt_ip.c
+index d06968bdf5ec..2b46c50abce0 100644
+--- a/net/bridge/netfilter/ebt_ip.c
++++ b/net/bridge/netfilter/ebt_ip.c
+@@ -64,14 +64,14 @@ ebt_ip_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 			if (NF_INVF(info, EBT_IP_DPORT,
+ 				    dst < info->dport[0] ||
+ 				    dst > info->dport[1]))
+-			return false;
++				return false;
+ 		}
+ 		if (info->bitmask & EBT_IP_SPORT) {
+ 			u32 src = ntohs(pptr->src);
+ 			if (NF_INVF(info, EBT_IP_SPORT,
+ 				    src < info->sport[0] ||
+ 				    src > info->sport[1]))
+-			return false;
++				return false;
+ 		}
+ 	}
+ 	return true;
+diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
+index 4617491be41e..2a5a52a53ec4 100644
+--- a/net/bridge/netfilter/ebt_ip6.c
++++ b/net/bridge/netfilter/ebt_ip6.c
+@@ -89,7 +89,7 @@ ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 			if (NF_INVF(info, EBT_IP6_SPORT,
+ 				    src < info->sport[0] ||
+ 				    src > info->sport[1]))
+-			return false;
++				return false;
+ 		}
+ 		if ((info->bitmask & EBT_IP6_ICMP6) &&
+ 		    NF_INVF(info, EBT_IP6_ICMP6,
 -- 
-Regards,
-idaifish
+2.11.0
