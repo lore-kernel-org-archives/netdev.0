@@ -1,13 +1,11 @@
 From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 2/2] mlx5: remove unnecessary pci_set_drvdata()
-Date: Tue, 15 Aug 2017 02:33:06 -0400
-Message-ID: <1502778786-14738-2-git-send-email-yanjun.zhu@oracle.com>
-References: <1502778786-14738-1-git-send-email-yanjun.zhu@oracle.com>
+Subject: [PATCH 1/2] mlx4: remove unnecessary pci_set_drvdata()
+Date: Tue, 15 Aug 2017 02:33:05 -0400
+Message-ID: <1502778786-14738-1-git-send-email-yanjun.zhu@oracle.com>
 To: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
         netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1502778786-14738-1-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
@@ -19,29 +17,29 @@ Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 2 --
+ drivers/net/ethernet/mellanox/mlx4/main.c | 2 --
  1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index c065132..2cafbdc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1407,7 +1407,6 @@ static int init_one(struct pci_dev *pdev,
- 	cleanup_srcu_struct(&priv->pfault_srcu);
- clean_dev:
- #endif
--	pci_set_drvdata(pdev, NULL);
- 	devlink_free(devlink);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 09b9bc1..df9b0ef 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -3782,7 +3782,6 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data,
  
- 	return err;
-@@ -1434,7 +1433,6 @@ static void remove_one(struct pci_dev *pdev)
- #ifdef CONFIG_INFINIBAND_ON_DEMAND_PAGING
- 	cleanup_srcu_struct(&priv->pfault_srcu);
- #endif
+ err_disable_pdev:
+ 	mlx4_pci_disable_device(&priv->dev);
 -	pci_set_drvdata(pdev, NULL);
- 	devlink_free(devlink);
+ 	return err;
  }
  
+@@ -3997,7 +3996,6 @@ static void mlx4_remove_one(struct pci_dev *pdev)
+ 	devlink_unregister(devlink);
+ 	kfree(dev->persist);
+ 	devlink_free(devlink);
+-	pci_set_drvdata(pdev, NULL);
+ }
+ 
+ static int restore_current_port_types(struct mlx4_dev *dev,
 -- 
 2.7.4
 
