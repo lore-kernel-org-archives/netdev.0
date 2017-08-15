@@ -1,113 +1,71 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/5] net/9p: Delete an error message for a failed memory
- allocation in five functions
-Date: Tue, 15 Aug 2017 13:58:36 +0200
-Message-ID: <e703fb59-bdc3-fd0d-3cba-3ec970c9328a@users.sourceforge.net>
-References: <22a44d7c-cdb9-e206-4b2c-56e38cbf0de1@users.sourceforge.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next 1/3] ipv6: Prevent unexpected sk->sk_prot
+ changes
+Date: Tue, 15 Aug 2017 04:59:17 -0700
+Message-ID: <1502798357.4936.63.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
+         <1502795320-22538-2-git-send-email-ilyal@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Van Hensbergen <ericvh@gmail.com>,
-        Latchesar Ionkov <lucho@ionkov.net>,
-        Ron Minnich <rminnich@sandia.gov>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <22a44d7c-cdb9-e206-4b2c-56e38cbf0de1@users.sourceforge.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, davejwatson@fb.com,
+        aviadye@mellanox.com, Boris Pismenny <borisp@mellanox.com>
+To: Ilya Lesokhin <ilyal@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36809 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751640AbdHOL7T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 07:59:19 -0400
+Received: by mail-pg0-f67.google.com with SMTP id y129so1196116pgy.3
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 04:59:18 -0700 (PDT)
+In-Reply-To: <1502795320-22538-2-git-send-email-ilyal@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 15 Aug 2017 08:25:41 +0200
+On Tue, 2017-08-15 at 14:08 +0300, Ilya Lesokhin wrote:
+> With this patch IPV6 code ensure that only sockets with the
+> expected sk->sk_prot are converted to IPV4.
+> 
+> Signed-off-by: Boris Pismenny <borisp@mellanox.com>
+> ---
+>  net/ipv6/ipv6_sockglue.c | 12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+> 
+> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+> index 02d795f..318cd344 100644
+> --- a/net/ipv6/ipv6_sockglue.c
+> +++ b/net/ipv6/ipv6_sockglue.c
+> @@ -174,6 +174,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+>  		if (val == PF_INET) {
+>  			struct ipv6_txoptions *opt;
+>  			struct sk_buff *pktopt;
+> +			struct proto *expected_prot;
+>  
+>  			if (sk->sk_type == SOCK_RAW)
+>  				break;
+> @@ -199,6 +200,17 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+>  				break;
+>  			}
+>  
+> +			if (sk->sk_protocol == IPPROTO_TCP &&
+> +			    sk->sk_prot != &tcpv6_prot)
+> +				break;
+> +
+> +			expected_prot = &udpv6_prot;
+> +			if (sk->sk_protocol == IPPROTO_UDPLITE)
+> +				expected_prot = &udplitev6_prot;
+> +
+> +			if (sk->sk_prot != expected_prot)
+> +				break;
+> +
+>  			fl6_free_socklist(sk);
+>  			__ipv6_sock_mc_close(sk);
+>  
 
-Omit an extra message for a memory allocation failure in these functions.
+I am afraid I do not understand this patch at all.
 
-This issue was detected by using the Coccinelle software.
+Direct references to tcpv6_prot, udpv6_prot, and udplitev6_prot in
+net/ipv6/ipv6_sockglue.c looks completely broken.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/9p/client.c       | 7 ++-----
- net/9p/trans_fd.c     | 6 ++----
- net/9p/trans_rdma.c   | 6 ++----
- net/9p/trans_virtio.c | 1 -
- 4 files changed, 6 insertions(+), 14 deletions(-)
-
-diff --git a/net/9p/client.c b/net/9p/client.c
-index 4674235b0d9b..2273181e9ba9 100644
---- a/net/9p/client.c
-+++ b/net/9p/client.c
-@@ -160,11 +160,9 @@ static int parse_opts(char *opts, struct p9_client *clnt)
- 		return 0;
- 
- 	tmp_options = kstrdup(opts, GFP_KERNEL);
--	if (!tmp_options) {
--		p9_debug(P9_DEBUG_ERROR,
--			 "failed to allocate copy of option string\n");
-+	if (!tmp_options)
- 		return -ENOMEM;
--	}
-+
- 	options = tmp_options;
- 
- 	while ((p = strsep(&options, ",")) != NULL) {
-@@ -277,7 +275,6 @@ p9_tag_alloc(struct p9_client *c, u16 tag, unsigned int max_size)
- 					sizeof(struct p9_req_t), GFP_ATOMIC);
- 
- 			if (!c->reqs[row]) {
--				pr_err("Couldn't grow tag array\n");
- 				spin_unlock_irqrestore(&c->lock, flags);
- 				return ERR_PTR(-ENOMEM);
- 			}
-diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
-index ddfa86648f95..3c272e5bc9ea 100644
---- a/net/9p/trans_fd.c
-+++ b/net/9p/trans_fd.c
-@@ -762,11 +762,9 @@ static int parse_opts(char *params, struct p9_fd_opts *opts)
- 		return 0;
- 
- 	tmp_options = kstrdup(params, GFP_KERNEL);
--	if (!tmp_options) {
--		p9_debug(P9_DEBUG_ERROR,
--			 "failed to allocate copy of option string\n");
-+	if (!tmp_options)
- 		return -ENOMEM;
--	}
-+
- 	options = tmp_options;
- 
- 	while ((p = strsep(&options, ",")) != NULL) {
-diff --git a/net/9p/trans_rdma.c b/net/9p/trans_rdma.c
-index 6d8e3031978f..f98b6aae308b 100644
---- a/net/9p/trans_rdma.c
-+++ b/net/9p/trans_rdma.c
-@@ -205,11 +205,9 @@ static int parse_opts(char *params, struct p9_rdma_opts *opts)
- 		return 0;
- 
- 	tmp_options = kstrdup(params, GFP_KERNEL);
--	if (!tmp_options) {
--		p9_debug(P9_DEBUG_ERROR,
--			 "failed to allocate copy of option string\n");
-+	if (!tmp_options)
- 		return -ENOMEM;
--	}
-+
- 	options = tmp_options;
- 
- 	while ((p = strsep(&options, ",")) != NULL) {
-diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
-index f24b25c25106..8a2cf9748398 100644
---- a/net/9p/trans_virtio.c
-+++ b/net/9p/trans_virtio.c
-@@ -552,7 +552,6 @@ static int p9_virtio_probe(struct virtio_device *vdev)
- 
- 	chan = kmalloc(sizeof(struct virtio_chan), GFP_KERNEL);
- 	if (!chan) {
--		pr_err("Failed to allocate virtio 9P channel\n");
- 		err = -ENOMEM;
- 		goto fail;
- 	}
--- 
-2.14.0
+Please provide something cleaner, maybe by adding a new method
+(implementation would then be provided in TCP / UDP code )
