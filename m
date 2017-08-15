@@ -1,97 +1,34 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] bpf: fix bpf_trace_printk on 32 bit archs
-Date: Wed, 16 Aug 2017 01:45:33 +0200
-Message-ID: <dd122e1ec0eadaf3f8fc11107f7a57177dcd8588.1502840567.git.daniel@iogearbox.net>
-Cc: james.hogan@imgtec.com, ast@fb.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38822 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752593AbdHOXpl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 19:45:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 2/2] mlx5: remove unnecessary pci_set_drvdata()
+Date: Tue, 15 Aug 2017 16:47:05 -0700 (PDT)
+Message-ID: <20170815.164705.2143736904090313038.davem@davemloft.net>
+References: <1502778786-14738-1-git-send-email-yanjun.zhu@oracle.com>
+        <1502778786-14738-2-git-send-email-yanjun.zhu@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+To: yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1502778786-14738-2-git-send-email-yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-James reported that on MIPS32 bpf_trace_printk() is currently
-broken while MIPS64 works fine:
+From: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Tue, 15 Aug 2017 02:33:06 -0400
 
-  bpf_trace_printk() uses conditional operators to attempt to
-  pass different types to __trace_printk() depending on the
-  format operators. This doesn't work as intended on 32-bit
-  architectures where u32 and long are passed differently to
-  u64, since the result of C conditional operators follows the
-  "usual arithmetic conversions" rules, such that the values
-  passed to __trace_printk() will always be u64 [causing issues
-  later in the va_list handling for vscnprintf()].
+> The driver core clears the driver data to NULL after device_release
+> or on probe failure. Thus, it is not necessary to manually clear the
+> device driver data to NULL.
+> 
+> Cc: Joe Jin <joe.jin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: Junxiao Bi <junxiao.bi-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Zhu Yanjun <yanjun.zhu-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-  For example the samples/bpf/tracex5 test printed lines like
-  below on MIPS32, where the fd and buf have come from the u64
-  fd argument, and the size from the buf argument:
-
-    [...] 1180.941542: 0x00000001: write(fd=1, buf=  (null), size=6258688)
-
-  Instead of this:
-
-    [...] 1625.616026: 0x00000001: write(fd=1, buf=009e4000, size=512)
-
-One way to get it working is to expand various combinations
-of argument types into 8 different combinations for 32 bit
-and 64 bit kernels. Fix tested by James on MIPS32 and MIPS64
-as well that it resolves the issue.
-
-Fixes: 9c959c863f82 ("tracing: Allow BPF programs to call bpf_trace_printk()")
-Reported-by: James Hogan <james.hogan@imgtec.com>
-Tested-by: James Hogan <james.hogan@imgtec.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- kernel/trace/bpf_trace.c | 34 ++++++++++++++++++++++++++++++----
- 1 file changed, 30 insertions(+), 4 deletions(-)
-
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 3738519..dc498b6 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -204,10 +204,36 @@ static const struct bpf_func_proto *bpf_get_probe_write_proto(void)
- 		fmt_cnt++;
- 	}
- 
--	return __trace_printk(1/* fake ip will not be printed */, fmt,
--			      mod[0] == 2 ? arg1 : mod[0] == 1 ? (long) arg1 : (u32) arg1,
--			      mod[1] == 2 ? arg2 : mod[1] == 1 ? (long) arg2 : (u32) arg2,
--			      mod[2] == 2 ? arg3 : mod[2] == 1 ? (long) arg3 : (u32) arg3);
-+/* Horrid workaround for getting va_list handling working with different
-+ * argument type combinations generically for 32 and 64 bit archs.
-+ */
-+#define __BPF_TP_EMIT()	__BPF_ARG3_TP()
-+#define __BPF_TP(...)							\
-+	__trace_printk(1 /* Fake ip will not be printed. */,		\
-+		       fmt, ##__VA_ARGS__)
-+
-+#define __BPF_ARG1_TP(...)						\
-+	((mod[0] == 2 || (mod[0] == 1 && __BITS_PER_LONG == 64))	\
-+	  ? __BPF_TP(arg1, ##__VA_ARGS__)				\
-+	  : ((mod[0] == 1 || (mod[0] == 0 && __BITS_PER_LONG == 32))	\
-+	      ? __BPF_TP((long)arg1, ##__VA_ARGS__)			\
-+	      : __BPF_TP((u32)arg1, ##__VA_ARGS__)))
-+
-+#define __BPF_ARG2_TP(...)						\
-+	((mod[1] == 2 || (mod[1] == 1 && __BITS_PER_LONG == 64))	\
-+	  ? __BPF_ARG1_TP(arg2, ##__VA_ARGS__)				\
-+	  : ((mod[1] == 1 || (mod[1] == 0 && __BITS_PER_LONG == 32))	\
-+	      ? __BPF_ARG1_TP((long)arg2, ##__VA_ARGS__)		\
-+	      : __BPF_ARG1_TP((u32)arg2, ##__VA_ARGS__)))
-+
-+#define __BPF_ARG3_TP(...)						\
-+	((mod[2] == 2 || (mod[2] == 1 && __BITS_PER_LONG == 64))	\
-+	  ? __BPF_ARG2_TP(arg3, ##__VA_ARGS__)				\
-+	  : ((mod[2] == 1 || (mod[2] == 0 && __BITS_PER_LONG == 32))	\
-+	      ? __BPF_ARG2_TP((long)arg3, ##__VA_ARGS__)		\
-+	      : __BPF_ARG2_TP((u32)arg3, ##__VA_ARGS__)))
-+
-+	return __BPF_TP_EMIT();
- }
- 
- static const struct bpf_func_proto bpf_trace_printk_proto = {
--- 
-1.9.3
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
