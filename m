@@ -1,9 +1,9 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 05/11] net: dsa: debugfs: add port stats
-Date: Tue, 15 Aug 2017 10:34:02 -0700
-Message-ID: <8badb63e-6d7e-2a91-cb44-0c732d4fa744@gmail.com>
+Subject: Re: [PATCH net-next 06/11] net: dsa: debugfs: add port registers
+Date: Tue, 15 Aug 2017 10:34:29 -0700
+Message-ID: <41bdddf4-1f2a-82fb-4178-262660e3a781@gmail.com>
 References: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
- <20170814222242.10643-6-vivien.didelot@savoirfairelinux.com>
+ <20170814222242.10643-7-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -26,7 +26,7 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170814222242.10643-6-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170814222242.10643-7-vivien.didelot@savoirfairelinux.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -34,52 +34,50 @@ List-Id: netdev.vger.kernel.org
 
 
 On 08/14/2017 03:22 PM, Vivien Didelot wrote:
-> Add a debug filesystem "stats" entry to query a port's hardware
-> statistics through the DSA switch .get_sset_count, .get_strings and
-> .get_ethtool_stats operations.
+> Add a debug filesystem "regs" entry to query a port's hardware registers
+> through the .get_regs_len and .get_regs_len switch operations.
 > 
-> This allows one to get statistics about DSA links interconnecting
-> switches, which is very convenient because this kind of port is not
-> exposed to userspace.
+> This is very convenient because it allows one to dump the registers of
+> DSA links, which are not exposed to userspace.
 > 
-> Here are the stats of a zii-rev-b DSA and CPU ports:
+> Here are the registers of a zii-rev-b CPU and DSA ports:
 > 
->     # pr -mt switch0/port{5,6}/stats
->     in_good_octets      : 0             in_good_octets      : 13824
->     in_bad_octets       : 0             in_bad_octets       : 0
->     in_unicast          : 0             in_unicast          : 0
->     in_broadcasts       : 0             in_broadcasts       : 216
->     in_multicasts       : 0             in_multicasts       : 0
->     in_pause            : 0             in_pause            : 0
->     in_undersize        : 0             in_undersize        : 0
->     in_fragments        : 0             in_fragments        : 0
->     in_oversize         : 0             in_oversize         : 0
->     in_jabber           : 0             in_jabber           : 0
->     in_rx_error         : 0             in_rx_error         : 0
->     in_fcs_error        : 0             in_fcs_error        : 0
->     out_octets          : 9216          out_octets          : 0
->     out_unicast         : 0             out_unicast         : 0
->     out_broadcasts      : 144           out_broadcasts      : 0
->     out_multicasts      : 0             out_multicasts      : 0
->     out_pause           : 0             out_pause           : 0
->     excessive           : 0             excessive           : 0
->     collisions          : 0             collisions          : 0
->     deferred            : 0             deferred            : 0
->     single              : 0             single              : 0
->     multiple            : 0             multiple            : 0
->     out_fcs_error       : 0             out_fcs_error       : 0
->     late                : 0             late                : 0
->     hist_64bytes        : 0             hist_64bytes        : 0
->     hist_65_127bytes    : 0             hist_65_127bytes    : 0
->     hist_128_255bytes   : 0             hist_128_255bytes   : 0
->     hist_256_511bytes   : 0             hist_256_511bytes   : 0
->     hist_512_1023bytes  : 0             hist_512_1023bytes  : 0
->     hist_1024_max_bytes : 0             hist_1024_max_bytes : 0
->     sw_in_discards      : 0             sw_in_discards      : 0
->     sw_in_filtered      : 0             sw_in_filtered      : 0
->     sw_out_filtered     : 0             sw_out_filtered     : 216
+>     # pr -mt switch0/port{5,6}/regs
+>      0: 4e07			     0: 4d04
+>      1: 403e			     1: 003d
+>      2: 0000			     2: 0000
+>      3: 3521			     3: 3521
+>      4: 0533			     4: 373f
+>      5: 8000			     5: 0000
+>      6: 005f			     6: 003f
+>      7: 002a			     7: 002a
+>      8: 2080			     8: 2080
+>      9: 0001			     9: 0001
+>     10: 0000			    10: 0000
+>     11: 0020			    11: 0000
+>     12: 0000			    12: 0000
+>     13: 0000			    13: 0000
+>     14: 0000			    14: 0000
+>     15: 9100			    15: dada
+>     16: 0000			    16: 0000
+>     17: 0000			    17: 0000
+>     18: 0000			    18: 0000
+>     19: 0000			    19: 00d8
+>     20: 0000			    20: 0000
+>     21: 0000			    21: 0000
+>     22: 0022			    22: 0000
+>     23: 0000			    23: 0000
+>     24: 3210			    24: 3210
+>     25: 7654			    25: 7654
+>     26: 0000			    26: 0000
+>     27: 8000			    27: 8000
+>     28: 0000			    28: 0000
+>     29: 0000			    29: 0000
+>     30: 0000			    30: 0000
+>     31: 0000			    31: 0000
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
