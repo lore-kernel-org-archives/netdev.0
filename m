@@ -1,61 +1,65 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: [PATCH net] sfc: don't try and read ef10 data on non-ef10 NIC
-Date: Tue, 15 Aug 2017 14:55:32 +0100
-Message-ID: <45a53c3b-b578-56ed-ef41-09bef5b5519c@solarflare.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] dsa: fix flow disector null pointer
+Date: Tue, 15 Aug 2017 15:56:41 +0200
+Message-ID: <20170815135641.GC5751@lunn.ch>
+References: <20170815134340.169914-1-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-        "Stefano Brivio" <sbrivio@redhat.com>
-To: Dave Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Crispin <john@phrozen.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Dmitry Vyukov <dvyukov@google.com>, netdev@vger.kernel.org
+To: Craig Gallek <kraigatgoog@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:54448 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750936AbdHONzm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 09:55:42 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:37088 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751082AbdHON4s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 09:56:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20170815134340.169914-1-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MAC stats command takes a port ID, which doesn't exist on
-pre-ef10 NICs (5000- and 6000- series). This is extracted from the
-NIC specific data; we misinterpret this as the ef10 data structure,
-causing us to read potentially unallocated data. With a KASAN kernel
-this can cause errors with:
-   BUG: KASAN: slab-out-of-bounds in efx_mcdi_mac_stats
+On Tue, Aug 15, 2017 at 09:43:40AM -0400, Craig Gallek wrote:
+> From: Craig Gallek <kraig@google.com>
+> 
+> A recent change to fix up DSA device behavior made the assumption that
+> all skbs passing through the flow disector will be associated with a
+> device. This does not appear to be a safe assumption.  Syzkaller found
+> the crash below by attaching a BPF socket filter that tries to find the
+> payload offset of a packet passing between two unix sockets.
+> 
+> kasan: GPF could be caused by NULL-ptr deref or user memory access
+> general protection fault: 0000 [#1] SMP KASAN
+> Dumping ftrace buffer:
+>    (ftrace buffer empty)
+> Modules linked in:
+> CPU: 0 PID: 2940 Comm: syzkaller872007 Not tainted 4.13.0-rc4-next-20170811 #1
+> Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+> task: ffff8801d1b425c0 task.stack: ffff8801d0bc0000
+> RIP: 0010:__skb_flow_dissect+0xdcd/0x3ae0 net/core/flow_dissector.c:445
+> RSP: 0018:ffff8801d0bc7340 EFLAGS: 00010206
+> RAX: dffffc0000000000 RBX: 0000000000000000 RCX: 0000000000000000
+> RDX: 0000000000000060 RSI: ffffffff856dc080 RDI: 0000000000000300
+> RBP: ffff8801d0bc7870 R08: 0000000000000000 R09: 0000000000000000
+> R10: 0000000000000008 R11: ffffed003a178f1e R12: 0000000000000000
+> R13: 0000000000000000 R14: ffffffff856dc080 R15: ffff8801ce223140
+> FS:  00000000016ed880(0000) GS:ffff8801dc000000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 0000000020008000 CR3: 00000001ce22d000 CR4: 00000000001406f0
+> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+> Call Trace:
+>  skb_flow_dissect_flow_keys include/linux/skbuff.h:1176 [inline]
+>  skb_get_poff+0x9a/0x1a0 net/core/flow_dissector.c:1079
+>  ______skb_get_pay_offset net/core/filter.c:114 [inline]
+>  __skb_get_pay_offset+0x15/0x20 net/core/filter.c:112
+> Code: 80 3c 02 00 44 89 6d 10 0f 85 44 2b 00 00 4d 8b 67 20 48 b8 00 00 00 00 00 fc ff df 49 8d bc 24 00 03 00 00 48 89 fa 48 c1 ea 03 <80> 3c 02 00 0f 85 13 2b 00 00 4d 8b a4 24 00 03 00 00 4d 85 e4
+> RIP: __skb_flow_dissect+0xdcd/0x3ae0 net/core/flow_dissector.c:445 RSP: ffff8801d0bc7340
+> 
+> Fixes: 43e665287f93 ("net-next: dsa: fix flow dissection")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Craig Gallek <kraig@google.com>
 
-Fixes: 0a2ab4d988d7 ("sfc: set the port-id when calling MC_CMD_MAC_STATS")
-Reported-by: Stefano Brivio <sbrivio@redhat.com>
-Tested-by: Stefano Brivio <sbrivio@redhat.com>
-Signed-off-by: Bert Kenward <bkenward@solarflare.com>
----
- drivers/net/ethernet/sfc/mcdi_port.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
-index c905971c5f3a..990a63d7fcb7 100644
---- a/drivers/net/ethernet/sfc/mcdi_port.c
-+++ b/drivers/net/ethernet/sfc/mcdi_port.c
-@@ -938,7 +938,6 @@ enum efx_stats_action {
- static int efx_mcdi_mac_stats(struct efx_nic *efx,
- 			      enum efx_stats_action action, int clear)
- {
--	struct efx_ef10_nic_data *nic_data = efx->nic_data;
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_MAC_STATS_IN_LEN);
- 	int rc;
- 	int change = action == EFX_STATS_PULL ? 0 : 1;
-@@ -960,7 +959,12 @@ static int efx_mcdi_mac_stats(struct efx_nic *efx,
- 			      MAC_STATS_IN_PERIODIC_NOEVENT, 1,
- 			      MAC_STATS_IN_PERIOD_MS, period);
- 	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_DMA_LEN, dma_len);
--	MCDI_SET_DWORD(inbuf, MAC_STATS_IN_PORT_ID, nic_data->vport_id);
-+
-+	if (efx_nic_rev(efx) >= EFX_REV_HUNT_A0) {
-+		struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+
-+		MCDI_SET_DWORD(inbuf, MAC_STATS_IN_PORT_ID, nic_data->vport_id);
-+	}
- 
- 	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_MAC_STATS, inbuf, sizeof(inbuf),
- 				NULL, 0, NULL);
--- 
-2.7.5
+    Andrew
