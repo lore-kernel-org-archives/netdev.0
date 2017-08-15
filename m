@@ -1,39 +1,58 @@
 From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: [PATCH v2 net-next 2/3] net: Export tcpv6_prot
-Date: Tue, 15 Aug 2017 14:08:39 +0300
-Message-ID: <1502795320-22538-3-git-send-email-ilyal@mellanox.com>
+Subject: [PATCH v2 net-next 1/3] ipv6: Prevent unexpected sk->sk_prot changes
+Date: Tue, 15 Aug 2017 14:08:38 +0300
+Message-ID: <1502795320-22538-2-git-send-email-ilyal@mellanox.com>
 References: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
 Cc: davejwatson@fb.com, aviadye@mellanox.com,
         Ilya Lesokhin <ilyal@mellanox.com>,
         Boris Pismenny <borisp@mellanox.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35052 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35053 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751344AbdHOLJY (ORCPT
+        with ESMTP id S1751445AbdHOLJY (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 07:09:24 -0400
 In-Reply-To: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Want to be able to use these in TLS.
+With this patch IPV6 code ensure that only sockets with the
+expected sk->sk_prot are converted to IPV4.
 
 Signed-off-by: Boris Pismenny <borisp@mellanox.com>
 ---
- net/ipv6/tcp_ipv6.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/ipv6/ipv6_sockglue.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 2521690..ef8d5b4 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1944,6 +1944,7 @@ struct proto tcpv6_prot = {
- #endif
- 	.diag_destroy		= tcp_abort,
- };
-+EXPORT_SYMBOL_GPL(tcpv6_prot);
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 02d795f..318cd344 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -174,6 +174,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 		if (val == PF_INET) {
+ 			struct ipv6_txoptions *opt;
+ 			struct sk_buff *pktopt;
++			struct proto *expected_prot;
  
- static struct inet6_protocol tcpv6_protocol = {
- 	.early_demux	=	tcp_v6_early_demux,
+ 			if (sk->sk_type == SOCK_RAW)
+ 				break;
+@@ -199,6 +200,17 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 				break;
+ 			}
+ 
++			if (sk->sk_protocol == IPPROTO_TCP &&
++			    sk->sk_prot != &tcpv6_prot)
++				break;
++
++			expected_prot = &udpv6_prot;
++			if (sk->sk_protocol == IPPROTO_UDPLITE)
++				expected_prot = &udplitev6_prot;
++
++			if (sk->sk_prot != expected_prot)
++				break;
++
+ 			fl6_free_socklist(sk);
+ 			__ipv6_sock_mc_close(sk);
+ 
 -- 
 1.8.3.1
