@@ -1,9 +1,9 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 04/11] net: dsa: debugfs: add tag_protocol
-Date: Tue, 15 Aug 2017 10:31:30 -0700
-Message-ID: <43f9f204-a3aa-a194-90d8-1f8a42fdd83d@gmail.com>
+Subject: Re: [PATCH net-next 05/11] net: dsa: debugfs: add port stats
+Date: Tue, 15 Aug 2017 10:34:02 -0700
+Message-ID: <8badb63e-6d7e-2a91-cb44-0c732d4fa744@gmail.com>
 References: <20170814222242.10643-1-vivien.didelot@savoirfairelinux.com>
- <20170814222242.10643-5-vivien.didelot@savoirfairelinux.com>
+ <20170814222242.10643-6-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -26,7 +26,7 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170814222242.10643-5-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170814222242.10643-6-vivien.didelot@savoirfairelinux.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -34,45 +34,53 @@ List-Id: netdev.vger.kernel.org
 
 
 On 08/14/2017 03:22 PM, Vivien Didelot wrote:
-> Add a debug filesystem "tag_protocol" entry to query the switch tagging
-> protocol through the .get_tag_protocol operation.
+> Add a debug filesystem "stats" entry to query a port's hardware
+> statistics through the DSA switch .get_sset_count, .get_strings and
+> .get_ethtool_stats operations.
 > 
->     # cat switch1/tag_protocol
->     EDSA
+> This allows one to get statistics about DSA links interconnecting
+> switches, which is very convenient because this kind of port is not
+> exposed to userspace.
+> 
+> Here are the stats of a zii-rev-b DSA and CPU ports:
+> 
+>     # pr -mt switch0/port{5,6}/stats
+>     in_good_octets      : 0             in_good_octets      : 13824
+>     in_bad_octets       : 0             in_bad_octets       : 0
+>     in_unicast          : 0             in_unicast          : 0
+>     in_broadcasts       : 0             in_broadcasts       : 216
+>     in_multicasts       : 0             in_multicasts       : 0
+>     in_pause            : 0             in_pause            : 0
+>     in_undersize        : 0             in_undersize        : 0
+>     in_fragments        : 0             in_fragments        : 0
+>     in_oversize         : 0             in_oversize         : 0
+>     in_jabber           : 0             in_jabber           : 0
+>     in_rx_error         : 0             in_rx_error         : 0
+>     in_fcs_error        : 0             in_fcs_error        : 0
+>     out_octets          : 9216          out_octets          : 0
+>     out_unicast         : 0             out_unicast         : 0
+>     out_broadcasts      : 144           out_broadcasts      : 0
+>     out_multicasts      : 0             out_multicasts      : 0
+>     out_pause           : 0             out_pause           : 0
+>     excessive           : 0             excessive           : 0
+>     collisions          : 0             collisions          : 0
+>     deferred            : 0             deferred            : 0
+>     single              : 0             single              : 0
+>     multiple            : 0             multiple            : 0
+>     out_fcs_error       : 0             out_fcs_error       : 0
+>     late                : 0             late                : 0
+>     hist_64bytes        : 0             hist_64bytes        : 0
+>     hist_65_127bytes    : 0             hist_65_127bytes    : 0
+>     hist_128_255bytes   : 0             hist_128_255bytes   : 0
+>     hist_256_511bytes   : 0             hist_256_511bytes   : 0
+>     hist_512_1023bytes  : 0             hist_512_1023bytes  : 0
+>     hist_1024_max_bytes : 0             hist_1024_max_bytes : 0
+>     sw_in_discards      : 0             sw_in_discards      : 0
+>     sw_in_filtered      : 0             sw_in_filtered      : 0
+>     sw_out_filtered     : 0             sw_out_filtered     : 216
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  net/dsa/debugfs.c | 54 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 54 insertions(+)
-> 
-> diff --git a/net/dsa/debugfs.c b/net/dsa/debugfs.c
-> index 5607efdb924d..30a732e86161 100644
-> --- a/net/dsa/debugfs.c
-> +++ b/net/dsa/debugfs.c
-> @@ -109,6 +109,55 @@ static int dsa_debugfs_create_file(struct dsa_switch *ds, struct dentry *dir,
->  	return 0;
->  }
->  
-> +static int dsa_debugfs_tag_protocol_read(struct dsa_switch *ds, int id,
-> +					 struct seq_file *seq)
-> +{
-> +	enum dsa_tag_protocol proto;
-> +
-> +	if (!ds->ops->get_tag_protocol)
-> +		return -EOPNOTSUPP;
-> +
-> +	proto = ds->ops->get_tag_protocol(ds);
-> +
-> +	switch (proto) {
-> +	case DSA_TAG_PROTO_NONE:
-> +		seq_puts(seq, "NONE\n");
 
-Might be worth adding a helper function: does dsa_tag_protocol_to_str()
-which is in include/net/dsa.h so it's easy to keep in sync when new
-taggers are added, then you can just do:
-
-	seq_puts(seq, dsa_tag_protocol_to_str(proto));
-
-and/or use a temporary buffer for adding the trailing newline.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
 Florian
