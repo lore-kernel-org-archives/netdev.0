@@ -1,76 +1,37 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V2 3/3] tap: XDP support
-Date: Tue, 15 Aug 2017 13:02:05 +0800
-Message-ID: <1f2ad15c-967d-fee1-b483-891f91682d9e@redhat.com>
-References: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
- <1502451678-17358-4-git-send-email-jasowang@redhat.com>
- <20170811161223.6808008d@cakuba.netronome.com>
- <8876b3d1-699c-d033-e855-34b24a709c81@redhat.com>
- <20170814185951-mutt-send-email-mst@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v11 0/5] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Mon, 14 Aug 2017 22:15:12 -0700 (PDT)
+Message-ID: <20170814.221512.1430356980828045690.davem@davemloft.net>
+References: <1502767407-6812-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Jakub Kicinski <kubakici@wp.pl>, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170814185951-mutt-send-email-mst@kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: leedom@chelsio.com, ashok.raj@intel.com, bhelgaas@google.com,
+        helgaas@kernel.org, werner@chelsio.com, ganeshgr@chelsio.com,
+        asit.k.mallick@intel.com, patrick.j.cramer@intel.com,
+        Suravee.Suthikulpanit@amd.com, Bob.Shaw@amd.com,
+        l.stach@pengutronix.de, amira@mellanox.com,
+        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
+        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
+        alexander.duyck@gmail.com, linux-arm-kernel@lists.infradead.org,
+        netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linuxarm@huawei.com
+To: dingtianhong@huawei.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1502767407-6812-1-git-send-email-dingtianhong@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Tue, 15 Aug 2017 11:23:22 +0800
 
+> Some devices have problems with Transaction Layer Packets with the Relaxed
+> Ordering Attribute set.  This patch set adds a new PCIe Device Flag,
+> PCI_DEV_FLAGS_NO_RELAXED_ORDERING, a set of PCI Quirks to catch some known
+> devices with Relaxed Ordering issues, and a use of this new flag by the
+> cxgb4 driver to avoid using Relaxed Ordering with problematic Root Complex
+> Ports.
+ ...
 
-On 2017年08月15日 00:01, Michael S. Tsirkin wrote:
-> On Sat, Aug 12, 2017 at 10:48:49AM +0800, Jason Wang wrote:
->>
->> On 2017年08月12日 07:12, Jakub Kicinski wrote:
->>> On Fri, 11 Aug 2017 19:41:18 +0800, Jason Wang wrote:
->>>> This patch tries to implement XDP for tun. The implementation was
->>>> split into two parts:
->>>>
->>>> - fast path: small and no gso packet. We try to do XDP at page level
->>>>     before build_skb(). For XDP_TX, since creating/destroying queues
->>>>     were completely under control of userspace, it was implemented
->>>>     through generic XDP helper after skb has been built. This could be
->>>>     optimized in the future.
->>>> - slow path: big or gso packet. We try to do it after skb was created
->>>>     through generic XDP helpers.
->>>>
->>>> Test were done through pktgen with small packets.
->>>>
->>>> xdp1 test shows ~41.1% improvement:
->>>>
->>>> Before: ~1.7Mpps
->>>> After:  ~2.3Mpps
->>>>
->>>> xdp_redirect to ixgbe shows ~60% improvement:
->>>>
->>>> Before: ~0.8Mpps
->>>> After:  ~1.38Mpps
->>>>
->>>> Suggested-by: Michael S. Tsirkin <mst@redhat.com>
->>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>> Looks OK to me now :)
->>>
->>> Out of curiosity, you say the build_skb() is for "small packets", and it
->>> seems you are always reserving the 256B regardless of XDP being
->>> installed.  Does this have no performance impact on non-XDP case?
->> Have a test, only less than 1% were noticed which I think could be ignored.
->>
->> Thanks
-> What did you test btw?
-
-Pktgen
-
->   The biggest issue would be with something like
-> UDP with short packets.
->
-
-Note that we do this only when sndbuf is INT_MAX. So this is probably 
-not an issue. The only thing matter is more stress to page allocator, 
-but according to the result of pktgen it was very small that could be 
-ignored.
-
-Thanks
+Series applied, thanks.
