@@ -1,7 +1,7 @@
 From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 11/12] s390/qeth: fix trace-messages for deleting rxip addresses
-Date: Tue, 15 Aug 2017 17:02:49 +0200
-Message-ID: <20170815150250.67158-12-jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 08/12] s390/net: reduce inlining
+Date: Tue, 15 Aug 2017 17:02:46 +0200
+Message-ID: <20170815150250.67158-9-jwi@linux.vnet.ibm.com>
 References: <20170815150250.67158-1-jwi@linux.vnet.ibm.com>
 Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Martin Schwidefsky <schwidefsky@de.ibm.com>,
@@ -11,54 +11,476 @@ Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Julian Wiedmann <jwi@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:37276 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752696AbdHOPDS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 11:03:18 -0400
-Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v7FExL40092703
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 11:03:18 -0400
-Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2cbwxtf05j-1
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:57335 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752665AbdHOPDN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 11:03:13 -0400
+Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v7FF2bQZ097722
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 11:03:13 -0400
+Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2cbsqvtn7j-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 11:03:18 -0400
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 11:03:12 -0400
 Received: from localhost
-        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Tue, 15 Aug 2017 16:03:16 +0100
+        Tue, 15 Aug 2017 16:03:10 +0100
 In-Reply-To: <20170815150250.67158-1-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kittipon Meesompop <kmeesomp@linux.vnet.ibm.com>
+Clean up the inline cruft in s390 net drivers. Many of the inlined
+functions had only one caller anyway.
 
-change trace-messages:
-- from addrxip4 to delrxip4
-- from addrxip6 to delrxip6
-
-Signed-off-by: Kittipon Meesompop <kmeesomp@linux.vnet.ibm.com>
+Suggested-by: Joe Perches <joe@perches.com>
 Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 ---
- drivers/s390/net/qeth_l3_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/s390/net/ctcm_main.c      |  2 +-
+ drivers/s390/net/lcs.c            | 28 +++++++----------
+ drivers/s390/net/netiucv.c        |  4 +--
+ drivers/s390/net/qeth_core_main.c | 66 +++++++++++++++++++++------------------
+ drivers/s390/net/qeth_core_sys.c  |  2 +-
+ drivers/s390/net/qeth_l2_main.c   | 24 +++++---------
+ drivers/s390/net/qeth_l3_main.c   | 15 +++++----
+ 7 files changed, 67 insertions(+), 74 deletions(-)
 
+diff --git a/drivers/s390/net/ctcm_main.c b/drivers/s390/net/ctcm_main.c
+index 2ade6131a89f..26363e0816fe 100644
+--- a/drivers/s390/net/ctcm_main.c
++++ b/drivers/s390/net/ctcm_main.c
+@@ -305,7 +305,7 @@ static long ctcm_check_irb_error(struct ccw_device *cdev, struct irb *irb)
+  *  ch		The channel, the sense code belongs to.
+  *  sense	The sense code to inspect.
+  */
+-static inline void ccw_unit_check(struct channel *ch, __u8 sense)
++static void ccw_unit_check(struct channel *ch, __u8 sense)
+ {
+ 	CTCM_DBF_TEXT_(TRACE, CTC_DBF_DEBUG,
+ 			"%s(%s): %02x",
+diff --git a/drivers/s390/net/lcs.c b/drivers/s390/net/lcs.c
+index 619da81dca70..d01b5c2a7760 100644
+--- a/drivers/s390/net/lcs.c
++++ b/drivers/s390/net/lcs.c
+@@ -327,8 +327,7 @@ lcs_set_allowed_threads(struct lcs_card *card, unsigned long threads)
+ 	spin_unlock_irqrestore(&card->mask_lock, flags);
+ 	wake_up(&card->wait_q);
+ }
+-static inline int
+-lcs_threads_running(struct lcs_card *card, unsigned long threads)
++static int lcs_threads_running(struct lcs_card *card, unsigned long threads)
+ {
+         unsigned long flags;
+         int rc = 0;
+@@ -346,8 +345,7 @@ lcs_wait_for_threads(struct lcs_card *card, unsigned long threads)
+                         lcs_threads_running(card, threads) == 0);
+ }
+ 
+-static inline int
+-lcs_set_thread_start_bit(struct lcs_card *card, unsigned long thread)
++static int lcs_set_thread_start_bit(struct lcs_card *card, unsigned long thread)
+ {
+         unsigned long flags;
+ 
+@@ -373,8 +371,7 @@ lcs_clear_thread_running_bit(struct lcs_card *card, unsigned long thread)
+         wake_up(&card->wait_q);
+ }
+ 
+-static inline int
+-__lcs_do_run_thread(struct lcs_card *card, unsigned long thread)
++static int __lcs_do_run_thread(struct lcs_card *card, unsigned long thread)
+ {
+         unsigned long flags;
+         int rc = 0;
+@@ -444,8 +441,7 @@ lcs_setup_card(struct lcs_card *card)
+ 	INIT_LIST_HEAD(&card->lancmd_waiters);
+ }
+ 
+-static inline void
+-lcs_clear_multicast_list(struct lcs_card *card)
++static void lcs_clear_multicast_list(struct lcs_card *card)
+ {
+ #ifdef	CONFIG_IP_MULTICAST
+ 	struct lcs_ipm_list *ipm;
+@@ -656,8 +652,7 @@ __lcs_resume_channel(struct lcs_channel *channel)
+ /**
+  * Make a buffer ready for processing.
+  */
+-static inline void
+-__lcs_ready_buffer_bits(struct lcs_channel *channel, int index)
++static void __lcs_ready_buffer_bits(struct lcs_channel *channel, int index)
+ {
+ 	int prev, next;
+ 
+@@ -1169,8 +1164,8 @@ lcs_get_mac_for_ipm(__be32 ipm, char *mac, struct net_device *dev)
+ /**
+  * function called by net device to handle multicast address relevant things
+  */
+-static inline void
+-lcs_remove_mc_addresses(struct lcs_card *card, struct in_device *in4_dev)
++static void lcs_remove_mc_addresses(struct lcs_card *card,
++				    struct in_device *in4_dev)
+ {
+ 	struct ip_mc_list *im4;
+ 	struct list_head *l;
+@@ -1196,8 +1191,9 @@ lcs_remove_mc_addresses(struct lcs_card *card, struct in_device *in4_dev)
+ 	spin_unlock_irqrestore(&card->ipm_lock, flags);
+ }
+ 
+-static inline struct lcs_ipm_list *
+-lcs_check_addr_entry(struct lcs_card *card, struct ip_mc_list *im4, char *buf)
++static struct lcs_ipm_list *lcs_check_addr_entry(struct lcs_card *card,
++						 struct ip_mc_list *im4,
++						 char *buf)
+ {
+ 	struct lcs_ipm_list *tmp, *ipm = NULL;
+ 	struct list_head *l;
+@@ -1218,8 +1214,8 @@ lcs_check_addr_entry(struct lcs_card *card, struct ip_mc_list *im4, char *buf)
+ 	return ipm;
+ }
+ 
+-static inline void
+-lcs_set_mc_addresses(struct lcs_card *card, struct in_device *in4_dev)
++static void lcs_set_mc_addresses(struct lcs_card *card,
++				 struct in_device *in4_dev)
+ {
+ 
+ 	struct ip_mc_list *im4;
+diff --git a/drivers/s390/net/netiucv.c b/drivers/s390/net/netiucv.c
+index 7e0e6a4019f3..b9c7c1e61da2 100644
+--- a/drivers/s390/net/netiucv.c
++++ b/drivers/s390/net/netiucv.c
+@@ -249,14 +249,14 @@ struct ll_header {
+  * Compatibility macros for busy handling
+  * of network devices.
+  */
+-static inline void netiucv_clear_busy(struct net_device *dev)
++static void netiucv_clear_busy(struct net_device *dev)
+ {
+ 	struct netiucv_priv *priv = netdev_priv(dev);
+ 	clear_bit(0, &priv->tbusy);
+ 	netif_wake_queue(dev);
+ }
+ 
+-static inline int netiucv_test_and_set_busy(struct net_device *dev)
++static int netiucv_test_and_set_busy(struct net_device *dev)
+ {
+ 	struct netiucv_priv *priv = netdev_priv(dev);
+ 	netif_stop_queue(dev);
+diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
+index 6286a8e35924..415424e618ad 100644
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -101,7 +101,7 @@ void qeth_close_dev(struct qeth_card *card)
+ }
+ EXPORT_SYMBOL_GPL(qeth_close_dev);
+ 
+-static inline const char *qeth_get_cardname(struct qeth_card *card)
++static const char *qeth_get_cardname(struct qeth_card *card)
+ {
+ 	if (card->info.guestlan) {
+ 		switch (card->info.type) {
+@@ -330,7 +330,7 @@ static struct qeth_qdio_q *qeth_alloc_qdio_queue(void)
+ 	return q;
+ }
+ 
+-static inline int qeth_cq_init(struct qeth_card *card)
++static int qeth_cq_init(struct qeth_card *card)
+ {
+ 	int rc;
+ 
+@@ -352,7 +352,7 @@ static inline int qeth_cq_init(struct qeth_card *card)
+ 	return rc;
+ }
+ 
+-static inline int qeth_alloc_cq(struct qeth_card *card)
++static int qeth_alloc_cq(struct qeth_card *card)
+ {
+ 	int rc;
+ 
+@@ -397,7 +397,7 @@ static inline int qeth_alloc_cq(struct qeth_card *card)
+ 	goto out;
+ }
+ 
+-static inline void qeth_free_cq(struct qeth_card *card)
++static void qeth_free_cq(struct qeth_card *card)
+ {
+ 	if (card->qdio.c_q) {
+ 		--card->qdio.no_in_queues;
+@@ -408,8 +408,9 @@ static inline void qeth_free_cq(struct qeth_card *card)
+ 	card->qdio.out_bufstates = NULL;
+ }
+ 
+-static inline enum iucv_tx_notify qeth_compute_cq_notification(int sbalf15,
+-	int delayed) {
++static enum iucv_tx_notify qeth_compute_cq_notification(int sbalf15,
++							int delayed)
++{
+ 	enum iucv_tx_notify n;
+ 
+ 	switch (sbalf15) {
+@@ -432,8 +433,8 @@ static inline enum iucv_tx_notify qeth_compute_cq_notification(int sbalf15,
+ 	return n;
+ }
+ 
+-static inline void qeth_cleanup_handled_pending(struct qeth_qdio_out_q *q,
+-	int bidx, int forced_cleanup)
++static void qeth_cleanup_handled_pending(struct qeth_qdio_out_q *q, int bidx,
++					 int forced_cleanup)
+ {
+ 	if (q->card->options.cq != QETH_CQ_ENABLED)
+ 		return;
+@@ -475,8 +476,9 @@ static inline void qeth_cleanup_handled_pending(struct qeth_qdio_out_q *q,
+ }
+ 
+ 
+-static inline void qeth_qdio_handle_aob(struct qeth_card *card,
+-		unsigned long phys_aob_addr) {
++static void qeth_qdio_handle_aob(struct qeth_card *card,
++				 unsigned long phys_aob_addr)
++{
+ 	struct qaob *aob;
+ 	struct qeth_qdio_out_buffer *buffer;
+ 	enum iucv_tx_notify notification;
+@@ -2228,7 +2230,7 @@ static int qeth_cm_setup(struct qeth_card *card)
+ 
+ }
+ 
+-static inline int qeth_get_initial_mtu_for_card(struct qeth_card *card)
++static int qeth_get_initial_mtu_for_card(struct qeth_card *card)
+ {
+ 	switch (card->info.type) {
+ 	case QETH_CARD_TYPE_UNKNOWN:
+@@ -2251,7 +2253,7 @@ static inline int qeth_get_initial_mtu_for_card(struct qeth_card *card)
+ 	}
+ }
+ 
+-static inline int qeth_get_mtu_outof_framesize(int framesize)
++static int qeth_get_mtu_outof_framesize(int framesize)
+ {
+ 	switch (framesize) {
+ 	case 0x4000:
+@@ -2267,7 +2269,7 @@ static inline int qeth_get_mtu_outof_framesize(int framesize)
+ 	}
+ }
+ 
+-static inline int qeth_mtu_is_valid(struct qeth_card *card, int mtu)
++static int qeth_mtu_is_valid(struct qeth_card *card, int mtu)
+ {
+ 	switch (card->info.type) {
+ 	case QETH_CARD_TYPE_OSD:
+@@ -2738,8 +2740,8 @@ static void qeth_initialize_working_pool_list(struct qeth_card *card)
+ 	}
+ }
+ 
+-static inline struct qeth_buffer_pool_entry *qeth_find_free_buffer_pool_entry(
+-		struct qeth_card *card)
++static struct qeth_buffer_pool_entry *qeth_find_free_buffer_pool_entry(
++					struct qeth_card *card)
+ {
+ 	struct list_head *plh;
+ 	struct qeth_buffer_pool_entry *entry;
+@@ -2870,7 +2872,7 @@ int qeth_init_qdio_queues(struct qeth_card *card)
+ }
+ EXPORT_SYMBOL_GPL(qeth_init_qdio_queues);
+ 
+-static inline __u8 qeth_get_ipa_adp_type(enum qeth_link_types link_type)
++static __u8 qeth_get_ipa_adp_type(enum qeth_link_types link_type)
+ {
+ 	switch (link_type) {
+ 	case QETH_LINK_TYPE_HSTR:
+@@ -3888,9 +3890,9 @@ int qeth_hdr_chk_and_bounce(struct sk_buff *skb, struct qeth_hdr **hdr, int len)
+ }
+ EXPORT_SYMBOL_GPL(qeth_hdr_chk_and_bounce);
+ 
+-static inline void __qeth_fill_buffer(struct sk_buff *skb,
+-				      struct qeth_qdio_out_buffer *buf,
+-				      bool is_first_elem, unsigned int offset)
++static void __qeth_fill_buffer(struct sk_buff *skb,
++			       struct qeth_qdio_out_buffer *buf,
++			       bool is_first_elem, unsigned int offset)
+ {
+ 	struct qdio_buffer *buffer = buf->buffer;
+ 	int element = buf->next_element_to_fill;
+@@ -3951,10 +3953,10 @@ static inline void __qeth_fill_buffer(struct sk_buff *skb,
+ 	buf->next_element_to_fill = element;
+ }
+ 
+-static inline int qeth_fill_buffer(struct qeth_qdio_out_q *queue,
+-				   struct qeth_qdio_out_buffer *buf,
+-				   struct sk_buff *skb, struct qeth_hdr *hdr,
+-				   unsigned int offset, int hd_len)
++static int qeth_fill_buffer(struct qeth_qdio_out_q *queue,
++			    struct qeth_qdio_out_buffer *buf,
++			    struct sk_buff *skb, struct qeth_hdr *hdr,
++			    unsigned int offset, int hd_len)
+ {
+ 	struct qdio_buffer *buffer;
+ 	int flush_cnt = 0, hdr_len;
+@@ -4821,7 +4823,7 @@ int qeth_vm_request_mac(struct qeth_card *card)
+ }
+ EXPORT_SYMBOL_GPL(qeth_vm_request_mac);
+ 
+-static inline int qeth_get_qdio_q_format(struct qeth_card *card)
++static int qeth_get_qdio_q_format(struct qeth_card *card)
+ {
+ 	if (card->info.type == QETH_CARD_TYPE_IQD)
+ 		return QDIO_IQDIO_QFMT;
+@@ -4886,9 +4888,12 @@ static void qeth_determine_capabilities(struct qeth_card *card)
+ 	return;
+ }
+ 
+-static inline void qeth_qdio_establish_cq(struct qeth_card *card,
+-	struct qdio_buffer **in_sbal_ptrs,
+-	void (**queue_start_poll) (struct ccw_device *, int, unsigned long)) {
++static void qeth_qdio_establish_cq(struct qeth_card *card,
++				   struct qdio_buffer **in_sbal_ptrs,
++				   void (**queue_start_poll)
++					(struct ccw_device *, int,
++					 unsigned long))
++{
+ 	int i;
+ 
+ 	if (card->options.cq == QETH_CQ_ENABLED) {
+@@ -5180,9 +5185,10 @@ int qeth_core_hardsetup_card(struct qeth_card *card)
+ }
+ EXPORT_SYMBOL_GPL(qeth_core_hardsetup_card);
+ 
+-static inline int qeth_create_skb_frag(struct qeth_qdio_buffer *qethbuffer,
+-		struct qdio_buffer_element *element,
+-		struct sk_buff **pskb, int offset, int *pfrag, int data_len)
++static int qeth_create_skb_frag(struct qeth_qdio_buffer *qethbuffer,
++				struct qdio_buffer_element *element,
++				struct sk_buff **pskb, int offset, int *pfrag,
++				int data_len)
+ {
+ 	struct page *page = virt_to_page(element->addr);
+ 	if (*pskb == NULL) {
+diff --git a/drivers/s390/net/qeth_core_sys.c b/drivers/s390/net/qeth_core_sys.c
+index 6d255c22656d..d1ee9e30c68b 100644
+--- a/drivers/s390/net/qeth_core_sys.c
++++ b/drivers/s390/net/qeth_core_sys.c
+@@ -78,7 +78,7 @@ static ssize_t qeth_dev_card_type_show(struct device *dev,
+ 
+ static DEVICE_ATTR(card_type, 0444, qeth_dev_card_type_show, NULL);
+ 
+-static inline const char *qeth_get_bufsize_str(struct qeth_card *card)
++static const char *qeth_get_bufsize_str(struct qeth_card *card)
+ {
+ 	if (card->qdio.in_buf_size == 16384)
+ 		return "16k";
+diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
+index 9c789ad6831a..368fb85d8851 100644
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -231,13 +231,7 @@ static void qeth_l2_del_all_macs(struct qeth_card *card)
+ 	spin_unlock_bh(&card->mclock);
+ }
+ 
+-static inline u32 qeth_l2_mac_hash(const u8 *addr)
+-{
+-	return get_unaligned((u32 *)(&addr[2]));
+-}
+-
+-static inline int qeth_l2_get_cast_type(struct qeth_card *card,
+-			struct sk_buff *skb)
++static int qeth_l2_get_cast_type(struct qeth_card *card, struct sk_buff *skb)
+ {
+ 	if (card->info.type == QETH_CARD_TYPE_OSN)
+ 		return RTN_UNSPEC;
+@@ -248,8 +242,8 @@ static inline int qeth_l2_get_cast_type(struct qeth_card *card,
+ 	return RTN_UNSPEC;
+ }
+ 
+-static inline void qeth_l2_hdr_csum(struct qeth_card *card,
+-				    struct qeth_hdr *hdr, struct sk_buff *skb)
++static void qeth_l2_hdr_csum(struct qeth_card *card, struct qeth_hdr *hdr,
++			     struct sk_buff *skb)
+ {
+ 	struct iphdr *iph = ip_hdr(skb);
+ 
+@@ -606,13 +600,13 @@ static void qeth_promisc_to_bridge(struct qeth_card *card)
+  * only if there is not in the hash table storage already
+  *
+ */
+-static	void
+-qeth_l2_add_mac(struct qeth_card *card, struct netdev_hw_addr *ha, u8 is_uc)
++static void qeth_l2_add_mac(struct qeth_card *card, struct netdev_hw_addr *ha,
++			    u8 is_uc)
+ {
++	u32 mac_hash = get_unaligned((u32 *)(&ha->addr[2]));
+ 	struct qeth_mac *mac;
+ 
+-	hash_for_each_possible(card->mac_htable, mac, hnode,
+-			qeth_l2_mac_hash(ha->addr)) {
++	hash_for_each_possible(card->mac_htable, mac, hnode, mac_hash) {
+ 		if (is_uc == mac->is_uc &&
+ 		    !memcmp(ha->addr, mac->mac_addr, OSA_ADDR_LEN)) {
+ 			mac->disp_flag = QETH_DISP_ADDR_DO_NOTHING;
+@@ -629,9 +623,7 @@ qeth_l2_add_mac(struct qeth_card *card, struct netdev_hw_addr *ha, u8 is_uc)
+ 	mac->is_uc = is_uc;
+ 	mac->disp_flag = QETH_DISP_ADDR_ADD;
+ 
+-	hash_add(card->mac_htable, &mac->hnode,
+-			qeth_l2_mac_hash(mac->mac_addr));
+-
++	hash_add(card->mac_htable, &mac->hnode, mac_hash);
+ }
+ 
+ static void qeth_l2_set_rx_mode(struct net_device *dev)
 diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index 140ed124d2f0..41bd00454d0f 100644
+index 97ca8a6cbb21..140ed124d2f0 100644
 --- a/drivers/s390/net/qeth_l3_main.c
 +++ b/drivers/s390/net/qeth_l3_main.c
-@@ -784,11 +784,11 @@ void qeth_l3_del_rxip(struct qeth_card *card, enum qeth_prot_versions proto,
- 	ipaddr = qeth_l3_get_addr_buffer(proto);
- 	if (ipaddr) {
- 		if (proto == QETH_PROT_IPV4) {
--			QETH_CARD_TEXT(card, 2, "addrxip4");
-+			QETH_CARD_TEXT(card, 2, "delrxip4");
- 			memcpy(&ipaddr->u.a4.addr, addr, 4);
- 			ipaddr->u.a4.mask = 0;
- 		} else if (proto == QETH_PROT_IPV6) {
--			QETH_CARD_TEXT(card, 2, "addrxip6");
-+			QETH_CARD_TEXT(card, 2, "delrxip6");
- 			memcpy(&ipaddr->u.a6.addr, addr, 16);
- 			ipaddr->u.a6.pfxlen = 0;
- 		}
+@@ -867,7 +867,7 @@ static int qeth_l3_deregister_addr_entry(struct qeth_card *card,
+ 	return rc;
+ }
+ 
+-static inline u8 qeth_l3_get_qeth_hdr_flags4(int cast_type)
++static u8 qeth_l3_get_qeth_hdr_flags4(int cast_type)
+ {
+ 	if (cast_type == RTN_MULTICAST)
+ 		return QETH_CAST_MULTICAST;
+@@ -876,7 +876,7 @@ static inline u8 qeth_l3_get_qeth_hdr_flags4(int cast_type)
+ 	return QETH_CAST_UNICAST;
+ }
+ 
+-static inline u8 qeth_l3_get_qeth_hdr_flags6(int cast_type)
++static u8 qeth_l3_get_qeth_hdr_flags6(int cast_type)
+ {
+ 	u8 ct = QETH_HDR_PASSTHRU | QETH_HDR_IPV6;
+ 	if (cast_type == RTN_MULTICAST)
+@@ -1644,9 +1644,8 @@ static int qeth_l3_vlan_rx_kill_vid(struct net_device *dev,
+ 	return 0;
+ }
+ 
+-static inline int qeth_l3_rebuild_skb(struct qeth_card *card,
+-			struct sk_buff *skb, struct qeth_hdr *hdr,
+-			unsigned short *vlan_id)
++static int qeth_l3_rebuild_skb(struct qeth_card *card, struct sk_buff *skb,
++			       struct qeth_hdr *hdr, unsigned short *vlan_id)
+ {
+ 	__u16 prot;
+ 	struct iphdr *ip_hdr;
+@@ -2396,7 +2395,7 @@ static int qeth_l3_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	return rc;
+ }
+ 
+-inline int qeth_l3_get_cast_type(struct qeth_card *card, struct sk_buff *skb)
++static int qeth_l3_get_cast_type(struct qeth_card *card, struct sk_buff *skb)
+ {
+ 	int cast_type = RTN_UNSPEC;
+ 	struct neighbour *n = NULL;
+@@ -2534,8 +2533,8 @@ static void qeth_l3_fill_header(struct qeth_card *card, struct qeth_hdr *hdr,
+ 	rcu_read_unlock();
+ }
+ 
+-static inline void qeth_l3_hdr_csum(struct qeth_card *card,
+-		struct qeth_hdr *hdr, struct sk_buff *skb)
++static void qeth_l3_hdr_csum(struct qeth_card *card, struct qeth_hdr *hdr,
++			     struct sk_buff *skb)
+ {
+ 	struct iphdr *iph = ip_hdr(skb);
+ 
 -- 
 2.11.2
