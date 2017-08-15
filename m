@@ -1,107 +1,113 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
- performance vs Core/RSS number / HT on
-Date: Tue, 15 Aug 2017 12:28:53 +0200
-Message-ID: <20170815122853.0266c971@redhat.com>
-References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
-        <20170812142358.08291888@redhat.com>
-        <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
-        <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
-        <20170814181957.5be27906@redhat.com>
-        <1ff1b747-758e-afdd-9376-80ff3bd8a6d5@itcare.pl>
-        <20170815112307.2dd366fe@redhat.com>
-        <271f731c-080f-8ccb-cd08-f0ec1dfb0c51@itcare.pl>
-        <20170815115756.7ef50c23@redhat.com>
-        <fee2de62-c781-4ceb-8e97-be2b07eb1ca1@itcare.pl>
-        <3d59ff3b-246b-2f46-2351-31c2d58ca6fe@itcare.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>, brouer@redhat.com
-To: =?UTF-8?B?UGF3ZcWC?= Staszewski <pstaszewski@itcare.pl>
+From: Stefano Brivio <sbrivio@redhat.com>
+Subject: [PATCH] i40e{,vf}: Fix out-of-bound cpumask read in IRQ affinity handler
+Date: Tue, 15 Aug 2017 12:30:14 +0200
+Message-ID: <ae9c9586f61e914dc1c6fe2e6ac1fb2bf07283bc.1502792828.git.sbrivio@redhat.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Alan Brady <alan.brady@intel.com>,
+        Stefan Assmann <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50532 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33140 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753423AbdHOK3C (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 15 Aug 2017 06:29:02 -0400
-In-Reply-To: <3d59ff3b-246b-2f46-2351-31c2d58ca6fe@itcare.pl>
+        id S1753423AbdHOKa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 15 Aug 2017 06:30:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The cpumask used in i40e{,vf}_irq_affinity_notify() is allocated
+by irq_affinity_notify() with alloc_cpumask_var(), which doesn't
+allocate NR_CPUS bits, but only nr_cpumask_bits bits. If we just
+dereference it, we'll read way more than what is allocated, e.g.
+1024 bytes vs. 8 bytes allocated on x86_64 machine with 24 CPUs.
 
-On Tue, 15 Aug 2017 12:05:37 +0200 Paweł Staszewski <pstaszewski@itcare.pl> wrote:
-> W dniu 2017-08-15 o 12:02, Paweł Staszewski pisze:
-> > W dniu 2017-08-15 o 11:57, Jesper Dangaard Brouer pisze:  
-> >> On Tue, 15 Aug 2017 11:30:43 +0200 Paweł Staszewski 
-> >> <pstaszewski@itcare.pl> wrote:
-> >>> W dniu 2017-08-15 o 11:23, Jesper Dangaard Brouer pisze:  
-> >>>> On Tue, 15 Aug 2017 02:38:56 +0200
-> >>>> Paweł Staszewski <pstaszewski@itcare.pl> wrote:  
-> >>>>> W dniu 2017-08-14 o 18:19, Jesper Dangaard Brouer pisze:  
-> >>>>>> On Sun, 13 Aug 2017 18:58:58 +0200 Paweł Staszewski 
-> >>>>>> <pstaszewski@itcare.pl> wrote:  
-[... cut ...]
+Use cpumask_copy() instead. A comprehensive explanation is given
+in the comments about cpumask_var_t, in include/linux/cpumask.h.
 
-> >>> Ethtool(enp175s0f1) stat:      8895566 (      8,895,566) <= tx_prio0_packets /sec
-> >>> Ethtool(enp175s0f1) stat:    640470657 (    640,470,657) <= tx_vport_unicast_bytes /sec
-> >>> Ethtool(enp175s0f1) stat:      8895427 (      8,895,427) <= tx_vport_unicast_packets /sec
-> >>> Ethtool(enp175s0f1) stat:          498 (            498) <= tx_xmit_more /sec  
-> >>
-> >> We are seeing some xmit_more, this is interesting.  Have you noticed,
-> >> if (in the VLAN case) there is a queue in the qdisc layer?
-> >>
-> >> Simply inspect with: tc -s qdisc show dev ixgbe2  
-[...]
-> > physical interface mq attached with pfifo_fast:
-> >
-> > tc -s -d qdisc show dev enp175s0f1
-> > qdisc mq 0: root
-> >  Sent 1397200697212 bytes 3965888669 pkt (dropped 78065663, overlimits 0 requeues 629868)
-> >  backlog 0b 0p requeues 629868
-> > qdisc pfifo_fast 0: parent :38 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> >  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-> >  backlog 0b 0p requeues 0
-> > qdisc pfifo_fast 0: parent :37 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> >  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-> >  backlog 0b 0p requeues 0
-[...]
+KASAN reports:
+[   25.242312] BUG: KASAN: slab-out-of-bounds in i40e_irq_affinity_notify+0x30/0x50 [i40e] at addr ffff880462eea960
+[   25.242315] Read of size 1024 by task kworker/2:1/170
+[   25.242322] CPU: 2 PID: 170 Comm: kworker/2:1 Not tainted 4.11.0-22.el7a.x86_64 #1
+[   25.242325] Hardware name: HP ProLiant DL380 Gen9, BIOS P89 05/06/2015
+[   25.242336] Workqueue: events irq_affinity_notify
+[   25.242340] Call Trace:
+[   25.242350]  dump_stack+0x63/0x8d
+[   25.242358]  kasan_object_err+0x21/0x70
+[   25.242364]  kasan_report+0x288/0x540
+[   25.242397]  ? i40e_irq_affinity_notify+0x30/0x50 [i40e]
+[   25.242403]  check_memory_region+0x13c/0x1a0
+[   25.242408]  __asan_loadN+0xf/0x20
+[   25.242440]  i40e_irq_affinity_notify+0x30/0x50 [i40e]
+[   25.242446]  irq_affinity_notify+0x1b4/0x230
+[   25.242452]  ? irq_set_affinity_notifier+0x130/0x130
+[   25.242457]  ? kasan_slab_free+0x89/0xc0
+[   25.242466]  process_one_work+0x32f/0x6f0
+[   25.242472]  worker_thread+0x89/0x770
+[   25.242481]  ? pci_mmcfg_check_reserved+0xc0/0xc0
+[   25.242488]  kthread+0x18c/0x1e0
+[   25.242493]  ? process_one_work+0x6f0/0x6f0
+[   25.242499]  ? kthread_create_on_node+0xc0/0xc0
+[   25.242506]  ret_from_fork+0x2c/0x40
+[   25.242511] Object at ffff880462eea960, in cache kmalloc-8 size: 8
+[   25.242513] Allocated:
+[   25.242514] PID = 170
+[   25.242522]  save_stack_trace+0x1b/0x20
+[   25.242529]  save_stack+0x46/0xd0
+[   25.242533]  kasan_kmalloc+0xad/0xe0
+[   25.242537]  __kmalloc_node+0x12c/0x2b0
+[   25.242542]  alloc_cpumask_var_node+0x3c/0x60
+[   25.242546]  alloc_cpumask_var+0xe/0x10
+[   25.242550]  irq_affinity_notify+0x94/0x230
+[   25.242555]  process_one_work+0x32f/0x6f0
+[   25.242559]  worker_thread+0x89/0x770
+[   25.242564]  kthread+0x18c/0x1e0
+[   25.242568]  ret_from_fork+0x2c/0x40
+[   25.242569] Freed:
+[   25.242570] PID = 0
+[   25.242572] (stack is not available)
+[   25.242573] Memory state around the buggy address:
+[   25.242578]  ffff880462eea800: fc fc 00 fc fc 00 fc fc 00 fc fc 00 fc fc fb fc
+[   25.242582]  ffff880462eea880: fc fb fc fc fb fc fc 00 fc fc 00 fc fc 00 fc fc
+[   25.242586] >ffff880462eea900: 00 fc fc 00 fc fc 00 fc fc fb fc fc 00 fc fc fc
+[   25.242588]                                                           ^
+[   25.242592]  ffff880462eea980: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+[   25.242596]  ffff880462eeaa00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+[   25.242597] ==================================================================
 
-So, it doesn't look like there is any backlog queue.  Although, this
-can be difficult to measure/see this way (as the kernel empty the queue
-quickly via bulk deq), also given the small amount of xmit_more which
-indicate that the queue was likely very small.
+Fixes: 96db776a3682 ("i40e/i40evf: fix interrupt affinity bug")
+Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
+---
+This should be considered for -stable, back to 4.10.
 
-There is a "dropped" counter, which indicate that you likely had a
-setup (earlier) where you managed to overflow the qdisc queues. 
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-> just see that after changing RSS on nics did't deleted qdisc and added 
-> again:
-> Here situation with qdisc del / add
-> tc -s -d qdisc show dev enp175s0f1
-> qdisc mq 1: root
->   Sent 43738523966 bytes 683414438 pkt (dropped 0, overlimits 0 requeues 1886)
->   backlog 0b 0p requeues 1886
-> qdisc pfifo_fast 0: parent 1:10 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
->   Sent 2585011904 bytes 40390811 pkt (dropped 0, overlimits 0 requeues 110)
->   backlog 0b 0p requeues 110
-> qdisc pfifo_fast 0: parent 1:f bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
->   Sent 2602068416 bytes 40657319 pkt (dropped 0, overlimits 0 requeues 121)
->   backlog 0b 0p requeues 121
-[...]
-
-Exactly as you indicated above, these "dropped" stats came from another
-(earlier) test case. (Great that you caught this yourself)
-
-While trying to reproduce you case, I also managed to cause a situation
-with qdisc overload.  This caused some weird behavior, where I saw
-RX=8Mpps and TX only 4Mpps.  (I didn't figure out the exact tuning that
-caused this, and cannot reproduce it now).
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 2db93d3f6d23..c0e42d162c7c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3495,7 +3495,7 @@ static void i40e_irq_affinity_notify(struct irq_affinity_notify *notify,
+ 	struct i40e_q_vector *q_vector =
+ 		container_of(notify, struct i40e_q_vector, affinity_notify);
+ 
+-	q_vector->affinity_mask = *mask;
++	cpumask_copy(&q_vector->affinity_mask, mask);
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 7c213a347909..a4b60367ecce 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -520,7 +520,7 @@ static void i40evf_irq_affinity_notify(struct irq_affinity_notify *notify,
+ 	struct i40e_q_vector *q_vector =
+ 		container_of(notify, struct i40e_q_vector, affinity_notify);
+ 
+-	q_vector->affinity_mask = *mask;
++	cpumask_copy(&q_vector->affinity_mask, mask);
+ }
+ 
+ /**
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.9.4
