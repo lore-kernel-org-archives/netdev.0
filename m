@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v11 0/5] Add new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
-Date: Mon, 14 Aug 2017 22:15:12 -0700 (PDT)
-Message-ID: <20170814.221512.1430356980828045690.davem@davemloft.net>
-References: <1502767407-6812-1-git-send-email-dingtianhong@huawei.com>
+Subject: Re: [PATCH net] tcp: ulp: avoid module refcnt leak in tcp_set_ulp
+Date: Mon, 14 Aug 2017 22:17:37 -0700 (PDT)
+Message-ID: <20170814.221737.507862199447270473.davem@davemloft.net>
+References: <776711b75a664f4a61da8d32eab15d3e794cabe7.1502725540.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: leedom@chelsio.com, ashok.raj@intel.com, bhelgaas@google.com,
-        helgaas@kernel.org, werner@chelsio.com, ganeshgr@chelsio.com,
-        asit.k.mallick@intel.com, patrick.j.cramer@intel.com,
-        Suravee.Suthikulpanit@amd.com, Bob.Shaw@amd.com,
-        l.stach@pengutronix.de, amira@mellanox.com,
-        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
-        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
-        alexander.duyck@gmail.com, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org, linux-pci@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linuxarm@huawei.com
-To: dingtianhong@huawei.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1502767407-6812-1-git-send-email-dingtianhong@huawei.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davejwatson@fb.com, borisp@mellanox.com,
+        tom@quantonium.net, hannes@stressinduktion.org
+To: sd@queasysnail.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50472 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751605AbdHOFRi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 01:17:38 -0400
+In-Reply-To: <776711b75a664f4a61da8d32eab15d3e794cabe7.1502725540.git.sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Tue, 15 Aug 2017 11:23:22 +0800
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Mon, 14 Aug 2017 18:04:24 +0200
 
-> Some devices have problems with Transaction Layer Packets with the Relaxed
-> Ordering Attribute set.  This patch set adds a new PCIe Device Flag,
-> PCI_DEV_FLAGS_NO_RELAXED_ORDERING, a set of PCI Quirks to catch some known
-> devices with Relaxed Ordering issues, and a use of this new flag by the
-> cxgb4 driver to avoid using Relaxed Ordering with problematic Root Complex
-> Ports.
- ...
+> __tcp_ulp_find_autoload returns tcp_ulp_ops after taking a reference on
+> the module. Then, if ->init fails, tcp_set_ulp propagates the error but
+> nothing releases that reference.
+> 
+> Fixes: 734942cc4ea6 ("tcp: ULP infrastructure")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Series applied, thanks.
+Applied, thanks.
