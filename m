@@ -1,48 +1,47 @@
-From: Liping Zhang <zlpnobody@gmail.com>
-Subject: Re: [PATCH net] openvswitch: fix skb_panic due to the incorrect
- actions attrlen
-Date: Tue, 15 Aug 2017 14:02:55 +0800
-Message-ID: <CAML_gOfew0w7Zhna2+2XeLMh6qV73bYNkOnV_cZ07+OCbrD_jA@mail.gmail.com>
-References: <20170813070420.73074-1-zlpnobody@163.com> <CAOrHB_Cy-bxRABSR4keg43U7tj4riVAdFd8So1GUHkNzYXA7bg@mail.gmail.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net repost] nfp: do not update MTU from BH in flower app
+Date: Tue, 15 Aug 2017 08:13:48 +0200
+Message-ID: <20170815061347.GA14861@vergenet.net>
+References: <1502439500-16047-1-git-send-email-simon.horman@netronome.com>
+ <20170811.145107.1539668262080149471.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Liping Zhang <zlpnobody@163.com>,
-        Pravin Shelar <pshelar@nicira.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Neil McKee <neil.mckee@inmon.com>
-To: Pravin Shelar <pshelar@ovn.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
+        oss-drivers@netronome.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35243 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751652AbdHOGC5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 02:02:57 -0400
-Received: by mail-pg0-f65.google.com with SMTP id l64so105188pge.2
-        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 23:02:56 -0700 (PDT)
-In-Reply-To: <CAOrHB_Cy-bxRABSR4keg43U7tj4riVAdFd8So1GUHkNzYXA7bg@mail.gmail.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:34571 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752134AbdHOGNv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 02:13:51 -0400
+Received: by mail-wm0-f47.google.com with SMTP id t138so21539860wmt.1
+        for <netdev@vger.kernel.org>; Mon, 14 Aug 2017 23:13:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170811.145107.1539668262080149471.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2017-08-15 13:01 GMT+08:00 Pravin Shelar <pshelar@ovn.org>:
-[...]
->>  net/openvswitch/actions.c  | 39 +++++++++++++++++++++++++--------------
->>  net/openvswitch/datapath.c |  2 +-
->>  net/openvswitch/datapath.h |  1 +
->>  3 files changed, 27 insertions(+), 15 deletions(-)
->>
->> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
->> index e4610676299b..799a22dfb89e 100644
->> --- a/net/openvswitch/actions.c
->> +++ b/net/openvswitch/actions.c
->> @@ -48,6 +48,7 @@ struct deferred_action {
->>         struct sk_buff *skb;
->>         const struct nlattr *actions;
->>         int actions_len;
->> +       int actions_attrlen;
->>
-> Have you considered passing this value using struct ovs_skb_cb? That
-> would save passing this parameter in all these functions.
+On Fri, Aug 11, 2017 at 02:51:07PM -0700, David Miller wrote:
+> From: Simon Horman <simon.horman@netronome.com>
+> Date: Fri, 11 Aug 2017 10:18:20 +0200
+> 
+> > The Flower app may receive a request to update the MTU of a representor
+> > netdev upon receipt of a control message from the firmware. This requires
+> > the RTNL lock which needs to be taken outside of the packet processing
+> > path.
+> > 
+> > As a handling of this correctly seems a little to invasive for a fix simply
+> > skip setting the MTU for now.
+> > 
+> > Relevant backtrace:
+>  ...
+> > Fixes: 948faa46c05b ("nfp: add support for control messages for flower app")
+> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> > Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> 
+> Applied.
 
-Thanks for your reviewing.
+Thanks.
 
-Right, this will make codes more clean, I will send V2 later.
+Could you pull net into net-next? I'd like to send up a follow-up
+for net-next to allow processing of the MTU.
