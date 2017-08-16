@@ -1,112 +1,128 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 1/3] vmbus: remove unused vmbus_sendpacket_multipagebuffer
-Date: Wed, 16 Aug 2017 08:56:24 -0700
-Message-ID: <20170816155626.16580-2-sthemmin@microsoft.com>
+Subject: [PATCH net-next 3/3] vmbus: remove unused vmbus_sendpacket_ctl
+Date: Wed, 16 Aug 2017 08:56:26 -0700
+Message-ID: <20170816155626.16580-4-sthemmin@microsoft.com>
 References: <20170816155626.16580-1-sthemmin@microsoft.com>
 Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
 To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33893 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751943AbdHPP4f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 11:56:35 -0400
-Received: by mail-pf0-f175.google.com with SMTP id o86so7829421pfj.1
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 08:56:35 -0700 (PDT)
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:36633 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751943AbdHPP4i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 11:56:38 -0400
+Received: by mail-pg0-f47.google.com with SMTP id i12so24692968pgr.3
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 08:56:38 -0700 (PDT)
 In-Reply-To: <20170816155626.16580-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function is not used anywhere in current code.
+The only usage of vmbus_sendpacket_ctl was by vmbus_sendpacket.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/hv/channel.c   | 56 --------------------------------------------------
- include/linux/hyperv.h |  6 ------
- 2 files changed, 62 deletions(-)
+ drivers/hv/channel.c        | 43 +++++++++++++++++--------------------------
+ drivers/net/hyperv/netvsc.c |  9 ++++-----
+ include/linux/hyperv.h      |  7 -------
+ 3 files changed, 21 insertions(+), 38 deletions(-)
 
 diff --git a/drivers/hv/channel.c b/drivers/hv/channel.c
-index e57cc40cb768..756a1e841142 100644
+index 9223fe8823e0..d9e9676e2b40 100644
 --- a/drivers/hv/channel.c
 +++ b/drivers/hv/channel.c
-@@ -814,62 +814,6 @@ int vmbus_sendpacket_mpb_desc(struct vmbus_channel *channel,
+@@ -647,9 +647,23 @@ void vmbus_close(struct vmbus_channel *channel)
  }
- EXPORT_SYMBOL_GPL(vmbus_sendpacket_mpb_desc);
+ EXPORT_SYMBOL_GPL(vmbus_close);
  
--/*
-- * vmbus_sendpacket_multipagebuffer - Send a multi-page buffer packet
-- * using a GPADL Direct packet type.
+-int vmbus_sendpacket_ctl(struct vmbus_channel *channel, void *buffer,
+-			 u32 bufferlen, u64 requestid,
+-			 enum vmbus_packet_type type, u32 flags)
++/**
++ * vmbus_sendpacket() - Send the specified buffer on the given channel
++ * @channel: Pointer to vmbus_channel structure.
++ * @buffer: Pointer to the buffer you want to receive the data into.
++ * @bufferlen: Maximum size of what the the buffer will hold
++ * @requestid: Identifier of the request
++ * @type: Type of packet that is being send e.g. negotiate, time
++ * packet etc.
++ *
++ * Sends data in @buffer directly to hyper-v via the vmbus
++ * This will send the data unparsed to hyper-v.
++ *
++ * Mainly used by Hyper-V drivers.
++ */
++int vmbus_sendpacket(struct vmbus_channel *channel, void *buffer,
++			   u32 bufferlen, u64 requestid,
++			   enum vmbus_packet_type type, u32 flags)
+ {
+ 	struct vmpacket_descriptor desc;
+ 	u32 packetlen = sizeof(struct vmpacket_descriptor) + bufferlen;
+@@ -676,29 +690,6 @@ int vmbus_sendpacket_ctl(struct vmbus_channel *channel, void *buffer,
+ 
+ 	return hv_ringbuffer_write(channel, bufferlist, num_vecs);
+ }
+-EXPORT_SYMBOL(vmbus_sendpacket_ctl);
+-
+-/**
+- * vmbus_sendpacket() - Send the specified buffer on the given channel
+- * @channel: Pointer to vmbus_channel structure.
+- * @buffer: Pointer to the buffer you want to receive the data into.
+- * @bufferlen: Maximum size of what the the buffer will hold
+- * @requestid: Identifier of the request
+- * @type: Type of packet that is being send e.g. negotiate, time
+- * packet etc.
+- *
+- * Sends data in @buffer directly to hyper-v via the vmbus
+- * This will send the data unparsed to hyper-v.
+- *
+- * Mainly used by Hyper-V drivers.
 - */
--int vmbus_sendpacket_multipagebuffer(struct vmbus_channel *channel,
--				struct hv_multipage_buffer *multi_pagebuffer,
--				void *buffer, u32 bufferlen, u64 requestid)
+-int vmbus_sendpacket(struct vmbus_channel *channel, void *buffer,
+-			   u32 bufferlen, u64 requestid,
+-			   enum vmbus_packet_type type, u32 flags)
 -{
--	struct vmbus_channel_packet_multipage_buffer desc;
--	u32 descsize;
--	u32 packetlen;
--	u32 packetlen_aligned;
--	struct kvec bufferlist[3];
--	u64 aligned_data = 0;
--	u32 pfncount = NUM_PAGES_SPANNED(multi_pagebuffer->offset,
--					 multi_pagebuffer->len);
--
--	if (pfncount > MAX_MULTIPAGE_BUFFER_COUNT)
--		return -EINVAL;
--
--	/*
--	 * Adjust the size down since vmbus_channel_packet_multipage_buffer is
--	 * the largest size we support
--	 */
--	descsize = sizeof(struct vmbus_channel_packet_multipage_buffer) -
--			  ((MAX_MULTIPAGE_BUFFER_COUNT - pfncount) *
--			  sizeof(u64));
--	packetlen = descsize + bufferlen;
--	packetlen_aligned = ALIGN(packetlen, sizeof(u64));
--
--
--	/* Setup the descriptor */
--	desc.type = VM_PKT_DATA_USING_GPA_DIRECT;
--	desc.flags = VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
--	desc.dataoffset8 = descsize >> 3; /* in 8-bytes granularity */
--	desc.length8 = (u16)(packetlen_aligned >> 3);
--	desc.transactionid = requestid;
--	desc.rangecount = 1;
--
--	desc.range.len = multi_pagebuffer->len;
--	desc.range.offset = multi_pagebuffer->offset;
--
--	memcpy(desc.range.pfn_array, multi_pagebuffer->pfn_array,
--	       pfncount * sizeof(u64));
--
--	bufferlist[0].iov_base = &desc;
--	bufferlist[0].iov_len = descsize;
--	bufferlist[1].iov_base = buffer;
--	bufferlist[1].iov_len = bufferlen;
--	bufferlist[2].iov_base = &aligned_data;
--	bufferlist[2].iov_len = (packetlen_aligned - packetlen);
--
--	return hv_ringbuffer_write(channel, bufferlist, 3);
+-	return vmbus_sendpacket_ctl(channel, buffer, bufferlen, requestid,
+-				    type, flags);
 -}
--EXPORT_SYMBOL_GPL(vmbus_sendpacket_multipagebuffer);
--
- /**
-  * vmbus_recvpacket() - Retrieve the user packet on the specified channel
-  * @channel: Pointer to vmbus_channel structure.
+ EXPORT_SYMBOL(vmbus_sendpacket);
+ 
+ /*
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 6031102cbba3..0062b802676f 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -780,11 +780,10 @@ static inline int netvsc_send_pkt(
+ 						  &nvmsg, sizeof(nvmsg),
+ 						  req_id);
+ 	} else {
+-		ret = vmbus_sendpacket_ctl(out_channel, &nvmsg,
+-					   sizeof(struct nvsp_message),
+-					   req_id,
+-					   VM_PKT_DATA_INBAND,
+-					   VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
++		ret = vmbus_sendpacket(out_channel,
++				       &nvmsg, sizeof(nvmsg),
++				       req_id, VM_PKT_DATA_INBAND,
++				       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
+ 	}
+ 
+ 	if (ret == 0) {
 diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index b7d7bbec74e0..39a080ce17da 100644
+index 9692592d43a3..a5f961c4149e 100644
 --- a/include/linux/hyperv.h
 +++ b/include/linux/hyperv.h
-@@ -1052,12 +1052,6 @@ extern int vmbus_sendpacket_pagebuffer_ctl(struct vmbus_channel *channel,
- 					   u64 requestid,
- 					   u32 flags);
+@@ -1030,13 +1030,6 @@ extern int vmbus_sendpacket(struct vmbus_channel *channel,
+ 				  enum vmbus_packet_type type,
+ 				  u32 flags);
  
--extern int vmbus_sendpacket_multipagebuffer(struct vmbus_channel *channel,
--					struct hv_multipage_buffer *mpb,
--					void *buffer,
--					u32 bufferlen,
--					u64 requestid);
+-extern int vmbus_sendpacket_ctl(struct vmbus_channel *channel,
+-				  void *buffer,
+-				  u32 bufferLen,
+-				  u64 requestid,
+-				  enum vmbus_packet_type type,
+-				  u32 flags);
 -
- extern int vmbus_sendpacket_mpb_desc(struct vmbus_channel *channel,
- 				     struct vmbus_packet_mpb_array *mpb,
- 				     u32 desc_size,
+ extern int vmbus_sendpacket_pagebuffer(struct vmbus_channel *channel,
+ 					    struct hv_page_buffer pagebuffers[],
+ 					    u32 pagecount,
 -- 
 2.11.0
