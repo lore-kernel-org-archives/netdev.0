@@ -1,45 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Regression: Bug 196547 - Since 4.12 - bonding module not
- working with wireless drivers
-Date: Wed, 16 Aug 2017 14:01:52 -0700 (PDT)
-Message-ID: <20170816.140152.199379342704102455.davem@davemloft.net>
-References: <deb37db2-a55b-4010-475a-e756e67d3bc9@nurealm.net>
-        <CADps9UCgqeUh41iHxCM+CTJh=Tffn-tiSYL2Q+NBb_8EppqRMA@mail.gmail.com>
-        <2b6fd91a-f7cd-c2bf-6394-060d9b1f5d23@nurealm.net>
+Subject: Re: [PATCH] qdisc: add tracepoint qdisc:qdisc_dequeue for dequeued
+ SKBs
+Date: Wed, 16 Aug 2017 14:09:47 -0700 (PDT)
+Message-ID: <20170816.140947.570761977406039647.davem@davemloft.net>
+References: <150282426296.20350.8045788556432194444.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: futur.andy@googlemail.com, kvalo@codeaurora.org,
-        arend.vanspriel@broadcom.com, maheshb@google.com,
-        andy@greyhouse.net, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, greearb@candelatech.com,
-        dcbw@redhat.com
-To: james@nurealm.net
+Cc: netdev@vger.kernel.org, pstaszewski@itcare.pl
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38134 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38298 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752368AbdHPVBy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 17:01:54 -0400
-In-Reply-To: <2b6fd91a-f7cd-c2bf-6394-060d9b1f5d23@nurealm.net>
+        with ESMTP id S1752233AbdHPVJs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 17:09:48 -0400
+In-Reply-To: <150282426296.20350.8045788556432194444.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: James Feeney <james@nurealm.net>
-Date: Wed, 16 Aug 2017 14:44:27 -0600
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Tue, 15 Aug 2017 21:11:03 +0200
 
-> On 08/13/2017 11:42 AM, Andreas Born wrote:
->> On a side note I would recommend some of my own reading to you about
->> patch submission in general [1] and on netdev specifically [2].
+> The main purpose of this tracepoint is to monitor bulk dequeue
+> in the network qdisc layer, as it cannot be deducted from the
+> existing qdisc stats.
 > 
-> Mmm - [2] and [3], I suspect.  Thanks Andreas.  I'll be studying those.  Yeah,
-> I'm still learning what is needed and what works.  Sometimes, just a note to the
-> author is more than enough to resolve a problem.  Sometimes, discussion is
-> needed.  And other times... well, certain people are infamous... but no problem
-> here, thankfully.
+> The txq_state can be used for determining the reason for zero packet
+> dequeues, see enum netdev_queue_state_t.
 > 
->> And, just wondering, who's going to eventually close that bugreport?
->> https://bugzilla.kernel.org/show_bug.cgi?id=196547
+> Notice all packets doesn't necessary activate this tracepoint. As
+> qdiscs with flag TCQ_F_CAN_BYPASS, can directly invoke
+> sch_direct_xmit() when qdisc_qlen is zero.
 > 
-> I can close it when the patches actually land in the kernel.
+> Remember that perf record supports filters like:
+> 
+>  perf record -e qdisc:qdisc_dequeue \
+>   --filter 'ifindex == 4 && (packets > 1 || txq_state > 0)'
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-All of the patches are in Linus's tree.
+I'll apply this to net-next, thanks Jesper.
