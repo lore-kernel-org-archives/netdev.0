@@ -1,63 +1,123 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 1/2] mpls: add handlers
-Date: Tue, 15 Aug 2017 22:30:21 -0700
-Message-ID: <CAJieiUhp57grbrzNcdyJj+_iKp=rusLfrJjsRPfebAUFEqy89A@mail.gmail.com>
-References: <1502396917-14848-1-git-send-email-amine.kherbouche@6wind.com>
- <1502396917-14848-2-git-send-email-amine.kherbouche@6wind.com>
- <20170811123405.GY773745@eidolon> <CAJieiUiDN0pk2GDb2+jBQzbjdPTpckSm23SCFGZ9mRHWfQ1H4w@mail.gmail.com>
- <c6fc221b-c0fa-1dbc-d1e2-a746b722dcd7@6wind.com> <CAJieiUijsyWjzNL=oFaGxtuos367v0VrpSaEqwHvVacrk5hcTA@mail.gmail.com>
- <20170815093745.GC773745@eidolon>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH 00/10] BPF: sockmap and sk redirect support
+Date: Tue, 15 Aug 2017 22:30:15 -0700
+Message-ID: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Amine Kherbouche <amine.kherbouche@6wind.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Lamparter <equinox@diac24.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, john.fastabend@gmail.com,
+        tom@herbertland.com
+To: davem@davemloft.net, daniel@iogearbox.net, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f169.google.com ([209.85.217.169]:33768 "EHLO
-        mail-ua0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750912AbdHPFaW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 01:30:22 -0400
-Received: by mail-ua0-f169.google.com with SMTP id r9so720565uad.0
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 22:30:22 -0700 (PDT)
-In-Reply-To: <20170815093745.GC773745@eidolon>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34620 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751196AbdHPFak (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 01:30:40 -0400
+Received: by mail-pf0-f196.google.com with SMTP id t86so420006pfe.1
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 22:30:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 15, 2017 at 2:37 AM, David Lamparter <equinox@diac24.net> wrote:
+This series implements a sockmap and socket redirect helper for BPF
+using a model similar to XDP netdev redirect. A sockmap is a BPF map
+type that holds references to sock structs. Then with a new sk
+redirect bpf helper BPF programs can use the map to redirect skbs
+between sockets,
 
-[snip]
+      bpf_sk_redirect_map(map, key, flags)
 
-> I think the reverse is the better option, removing the vpls device
-> information and just going with the route table.  My approach to this
-> would be to add a new netlink route attribute "RTA_VPLS" which
-> identifies the vpls device, is stored in the route table, and provides
-> the device ptr needed here.
-> (The control word config should also be on the route.)
->
-> My reason for thinking this is that the VPLS code needs exactly the same
-> information as does a normal MPLS route:  it attaches to an incoming
-> label (decapsulating packets instead of forwarding them), and for TX it
-> does the same operation of looking up a nexthop (possibly with ECMP
-> support) and adding a label stack.  The code should, in fact, probably
-> reuse the TX path.
->
-> This also fits both an 1:1 and 1:n model pretty well.  Creating a VPLS
-> head-end netdevice doesn't even need any config.  It'd just work like:
-> - ip link add name vpls123 type vpls
-> - ip -f mpls route add \
->         1234 \                              # incoming label for decap
->         vpls vpls123 \                      # new attr: VPLS device
->         as 2345 via inet 10.0.0.1 dev eth0  # outgoing label for encap
->
-> For a 1:n model, one would simply add multiple routes on the same vpls
-> device.
->
+Finally, we need a call site to attach our BPF logic to do socket
+redirects. We added hooks to recv_sock using the existing strparser
+infrastructure to do this. The call site is added via the BPF attach
+map call. To enable users to use this infrastructure a new BPF program
+BPF_PROG_TYPE_SK_SKB is created that allows users to reference sock
+details, such as port and ip address fields, to build useful socket
+layer program. The sockmap datapath is as follows,
 
-this is a nice model too. But, i don't see how vlans and mac based
-learning will fit in here.
+     recv -> strparser -> verdict/action
 
-modeling it same as how vxlan l2 overlay tunnels are done seems like a
-great fit.
-The vpls driver can learn mac's per pw tunnel labels. And this l2 fdb
-table per vpls device can also carry dst information similar to how
-vxlan driver does today.
+where this series implements the drop and redirect actions.
+Additional, actions can be added as needed.
+
+A sample program is provided to illustrate how a sockmap can
+be integrated with cgroups and used to add/delete sockets in
+a sockmap. The program is simple but should show many of the
+key ideas.
+
+To test this work test_maps in selftests/bpf was leveraged.
+We added a set of tests to add sockets and do send/recv ops
+on the sockets to ensure correct behavior. Additionally, the
+selftests tests a series of negative test cases. We can expand
+on this in the future.
+
+I also have a basic test program I use with iperf/netperf
+clients that could be sent as an additional sample if folks
+want this. It needs a bit of cleanup to send to the list and
+wasn't included in this series.
+
+For people who prefer git over pulling patches out of their mail
+editor I've posted the code here,
+
+https://github.com/jrfastab/linux-kernel-xdp/tree/sockmap
+
+For some background information on the genesis of this work
+it might be helpful to review these slides from netconf 2017
+by Thomas Graf,
+
+http://vger.kernel.org/netconf2017.html
+https://docs.google.com/a/covalent.io/presentation/d/1dwSKSBGpUHD3WO5xxzZWj8awV_-xL-oYhvqQMOBhhtk/edit?usp=sharing
+
+Thanks to Daniel Borkmann for reviewing and providing initial
+feedback.
+
+---
+
+John Fastabend (10):
+      net: early init support for strparser
+      net: add sendmsg_locked and sendpage_locked to af_inet6
+      net: fixes for skb_send_sock
+      bpf: introduce new program type for skbs on sockets
+      bpf: export bpf_prog_inc_not_zero
+      bpf: sockmap with sk redirect support
+      bpf: add access to sock fields and pkt data from sk_skb programs
+      bpf: sockmap sample program
+      bpf: selftests: add tests for new __sk_buff members
+      bpf: selftests add sockmap tests
+
+
+ include/linux/bpf.h                                |   14 
+ include/linux/bpf_types.h                          |    2 
+ include/linux/filter.h                             |    2 
+ include/uapi/linux/bpf.h                           |   43 +
+ kernel/bpf/Makefile                                |    2 
+ kernel/bpf/sockmap.c                               |  792 ++++++++++++++++++++
+ kernel/bpf/syscall.c                               |   54 +
+ kernel/bpf/verifier.c                              |   15 
+ net/core/filter.c                                  |  248 ++++++
+ net/core/skbuff.c                                  |    2 
+ net/ipv6/af_inet6.c                                |    2 
+ net/socket.c                                       |    2 
+ net/strparser/strparser.c                          |   10 
+ samples/bpf/bpf_load.c                             |    8 
+ samples/sockmap/Makefile                           |   78 ++
+ samples/sockmap/sockmap_kern.c                     |  110 +++
+ samples/sockmap/sockmap_user.c                     |  286 +++++++
+ tools/include/uapi/linux/bpf.h                     |   46 +
+ tools/lib/bpf/bpf.c                                |   14 
+ tools/lib/bpf/bpf.h                                |    4 
+ tools/lib/bpf/libbpf.c                             |   29 +
+ tools/lib/bpf/libbpf.h                             |    2 
+ tools/testing/selftests/bpf/Makefile               |    2 
+ tools/testing/selftests/bpf/bpf_helpers.h          |    7 
+ tools/testing/selftests/bpf/sockmap_parse_prog.c   |   38 +
+ tools/testing/selftests/bpf/sockmap_verdict_prog.c |   48 +
+ tools/testing/selftests/bpf/test_maps.c            |  308 ++++++++
+ tools/testing/selftests/bpf/test_progs.c           |   55 -
+ tools/testing/selftests/bpf/test_verifier.c        |  152 ++++
+ 29 files changed, 2316 insertions(+), 59 deletions(-)
+ create mode 100644 kernel/bpf/sockmap.c
+ create mode 100644 samples/sockmap/Makefile
+ create mode 100644 samples/sockmap/sockmap_kern.c
+ create mode 100644 samples/sockmap/sockmap_user.c
+ create mode 100644 tools/testing/selftests/bpf/sockmap_parse_prog.c
+ create mode 100644 tools/testing/selftests/bpf/sockmap_verdict_prog.c
