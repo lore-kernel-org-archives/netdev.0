@@ -1,170 +1,64 @@
-From: Chris Mi <chrism@mellanox.com>
-Subject: [patch net-next repost 2/3] net/sched: Change cls_flower to use IDR
-Date: Wed, 16 Aug 2017 04:14:03 -0400
-Message-ID: <1502871244-19870-3-git-send-email-chrism@mellanox.com>
-References: <1502871244-19870-1-git-send-email-chrism@mellanox.com>
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        davem@davemloft.net, mawilcox@microsoft.com
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 0/3] net/sched: Improve getting objects by
+ indexes
+Date: Wed, 16 Aug 2017 10:16:31 +0200
+Message-ID: <20170816081631.GC1868@nanopsycho>
+References: <1502849538-14284-1-git-send-email-chrism@mellanox.com>
+ <144b87a3-bbe4-a194-ed83-e54840d7c7c2@amd.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Mi <chrism@mellanox.com>, netdev@vger.kernel.org
+To: Christian =?iso-8859-1?Q?K=F6nig?= <christian.koenig@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44812 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751636AbdHPIOb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 04:14:31 -0400
-In-Reply-To: <1502871244-19870-1-git-send-email-chrism@mellanox.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34729 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751454AbdHPIQf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 04:16:35 -0400
+Received: by mail-wm0-f66.google.com with SMTP id x64so3913401wmg.1
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 01:16:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <144b87a3-bbe4-a194-ed83-e54840d7c7c2@amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, all filters with the same priority are linked in a doubly
-linked list. Every filter should have a unique handle. To make the
-handle unique, we need to iterate the list every time to see if the
-handle exists or not when inserting a new filter. It is time-consuming.
-For example, it takes about 5m3.169s to insert 64K rules.
+Wed, Aug 16, 2017 at 09:49:07AM CEST, christian.koenig@amd.com wrote:
+>Am 16.08.2017 um 04:12 schrieb Chris Mi:
+>> Using current TC code, it is very slow to insert a lot of rules.
+>> 
+>> In order to improve the rules update rate in TC,
+>> we introduced the following two changes:
+>>          1) changed cls_flower to use IDR to manage the filters.
+>>          2) changed all act_xxx modules to use IDR instead of
+>>             a small hash table
+>> 
+>> But IDR has a limitation that it uses int. TC handle uses u32.
+>> To make sure there is no regression, we also changed IDR to use
+>> unsigned long. All clients of IDR are changed to use new IDR API.
+>
+>WOW, wait a second. The idr change is touching a lot of drivers and to be
+>honest doesn't looks correct at all.
+>
+>Just look at the first chunk of your modification:
+>> @@ -998,8 +999,9 @@ int bsg_register_queue(struct request_queue *q, struct device *parent,
+>>   	mutex_lock(&bsg_mutex);
+>> -	ret = idr_alloc(&bsg_minor_idr, bcd, 0, BSG_MAX_DEVS, GFP_KERNEL);
+>> -	if (ret < 0) {
+>> +	ret = idr_alloc(&bsg_minor_idr, bcd, &idr_index, 0, BSG_MAX_DEVS,
+>> +			GFP_KERNEL);
+>> +	if (ret) {
+>>   		if (ret == -ENOSPC) {
+>>   			printk(KERN_ERR "bsg: too many bsg devices\n");
+>>   			ret = -EINVAL;
+>The condition "if (ret)" will now always be true after the first allocation
+>and so we always run into the error handling after that.
 
-This patch changes cls_flower to use IDR. With this patch, it
-takes about 0m1.127s to insert 64K rules. The improvement is huge.
+On success, idr_alloc returns 0.
 
-But please note that in this testing, all filters share the same action.
-If every filter has a unique action, that is another bottleneck.
-Follow-up patch in this patchset addresses that.
 
-Signed-off-by: Chris Mi <chrism@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/sched/cls_flower.c | 55 +++++++++++++++++++++-----------------------------
- 1 file changed, 23 insertions(+), 32 deletions(-)
+>
+>I've never read the bsg code before, but that's certainly not correct. And
+>that incorrect pattern repeats over and over again in this code.
+>
+>Apart from that why the heck do you want to allocate more than 1<<31 handles?
 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 052e902..071f0ef 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -68,7 +68,6 @@ struct cls_fl_head {
- 	struct rhashtable ht;
- 	struct fl_flow_mask mask;
- 	struct flow_dissector dissector;
--	u32 hgen;
- 	bool mask_assigned;
- 	struct list_head filters;
- 	struct rhashtable_params ht_params;
-@@ -76,6 +75,7 @@ struct cls_fl_head {
- 		struct work_struct work;
- 		struct rcu_head	rcu;
- 	};
-+	struct idr handle_idr;
- };
- 
- struct cls_fl_filter {
-@@ -210,6 +210,7 @@ static int fl_init(struct tcf_proto *tp)
- 
- 	INIT_LIST_HEAD_RCU(&head->filters);
- 	rcu_assign_pointer(tp->root, head);
-+	idr_init(&head->handle_idr);
- 
- 	return 0;
- }
-@@ -295,6 +296,9 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- 
- static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
- {
-+	struct cls_fl_head *head = rtnl_dereference(tp->root);
-+
-+	idr_remove(&head->handle_idr, f->handle);
- 	list_del_rcu(&f->list);
- 	if (!tc_skip_hw(f->flags))
- 		fl_hw_destroy_filter(tp, f);
-@@ -327,6 +331,7 @@ static void fl_destroy(struct tcf_proto *tp)
- 
- 	list_for_each_entry_safe(f, next, &head->filters, list)
- 		__fl_delete(tp, f);
-+	idr_destroy(&head->handle_idr);
- 
- 	__module_get(THIS_MODULE);
- 	call_rcu(&head->rcu, fl_destroy_rcu);
-@@ -335,12 +340,8 @@ static void fl_destroy(struct tcf_proto *tp)
- static void *fl_get(struct tcf_proto *tp, u32 handle)
- {
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
--	struct cls_fl_filter *f;
- 
--	list_for_each_entry(f, &head->filters, list)
--		if (f->handle == handle)
--			return f;
--	return NULL;
-+	return idr_find(&head->handle_idr, handle);
- }
- 
- static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
-@@ -859,27 +860,6 @@ static int fl_set_parms(struct net *net, struct tcf_proto *tp,
- 	return 0;
- }
- 
--static u32 fl_grab_new_handle(struct tcf_proto *tp,
--			      struct cls_fl_head *head)
--{
--	unsigned int i = 0x80000000;
--	u32 handle;
--
--	do {
--		if (++head->hgen == 0x7FFFFFFF)
--			head->hgen = 1;
--	} while (--i > 0 && fl_get(tp, head->hgen));
--
--	if (unlikely(i == 0)) {
--		pr_err("Insufficient number of handles\n");
--		handle = 0;
--	} else {
--		handle = head->hgen;
--	}
--
--	return handle;
--}
--
- static int fl_change(struct net *net, struct sk_buff *in_skb,
- 		     struct tcf_proto *tp, unsigned long base,
- 		     u32 handle, struct nlattr **tca,
-@@ -890,6 +870,7 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 	struct cls_fl_filter *fnew;
- 	struct nlattr **tb;
- 	struct fl_flow_mask mask = {};
-+	unsigned long idr_index;
- 	int err;
- 
- 	if (!tca[TCA_OPTIONS])
-@@ -920,13 +901,21 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 		goto errout;
- 
- 	if (!handle) {
--		handle = fl_grab_new_handle(tp, head);
--		if (!handle) {
--			err = -EINVAL;
-+		err = idr_alloc(&head->handle_idr, fnew, &idr_index,
-+				1, 0x80000000, GFP_KERNEL);
-+		if (err)
- 			goto errout;
--		}
-+		fnew->handle = idr_index;
-+	}
-+
-+	/* user specifies a handle and it doesn't exist */
-+	if (handle && !fold) {
-+		err = idr_alloc(&head->handle_idr, fnew, &idr_index,
-+				handle, handle + 1, GFP_KERNEL);
-+		if (err)
-+			goto errout;
-+		fnew->handle = idr_index;
- 	}
--	fnew->handle = handle;
- 
- 	if (tb[TCA_FLOWER_FLAGS]) {
- 		fnew->flags = nla_get_u32(tb[TCA_FLOWER_FLAGS]);
-@@ -980,6 +969,8 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 	*arg = fnew;
- 
- 	if (fold) {
-+		fnew->handle = handle;
-+		idr_replace(&head->handle_idr, fnew, fnew->handle);
- 		list_replace_rcu(&fold->list, &fnew->list);
- 		tcf_unbind_filter(tp, &fold->res);
- 		call_rcu(&fold->rcu, fl_destroy_filter);
--- 
-1.8.3.1
+tc action indexes for example. That is part of this patchset.
