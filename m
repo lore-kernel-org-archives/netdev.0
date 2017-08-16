@@ -1,324 +1,616 @@
 From: David Lamparter <equinox@diac24.net>
-Subject: [PATCH 1/6] bridge: learn dst metadata in FDB
-Date: Wed, 16 Aug 2017 19:01:57 +0200
-Message-ID: <20170816170202.456851-2-equinox@diac24.net>
+Subject: [PATCH 4/6] mpls: VPLS support
+Date: Wed, 16 Aug 2017 19:02:00 +0200
+Message-ID: <20170816170202.456851-5-equinox@diac24.net>
 References: <20170816170202.456851-1-equinox@diac24.net>
 Cc: amine.kherbouche@6wind.com, roopa@cumulusnetworks.com,
         David Lamparter <equinox@diac24.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eidolon.nox.tf ([185.142.180.128]:43692 "EHLO eidolon.nox.tf"
+Received: from eidolon.nox.tf ([185.142.180.128]:43712 "EHLO eidolon.nox.tf"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752337AbdHPRCS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Aug 2017 13:02:18 -0400
+        id S1752376AbdHPRC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Aug 2017 13:02:27 -0400
 In-Reply-To: <20170816170202.456851-1-equinox@diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This implements holding dst metadata information in the bridge layer,
-but only for unicast entries in the MAC table.  Multicast is still left
-to design and implement.
+[work-in-progress, works but needs changes]
+[v2: refactored lots of things, e.g. dst_metadata, no more genetlink]
 
 Signed-off-by: David Lamparter <equinox@diac24.net>
 ---
- include/net/dst_metadata.h | 19 +++++++++++++------
- net/bridge/br_device.c     |  4 ++++
- net/bridge/br_fdb.c        | 45 +++++++++++++++++++++++++++++++--------------
- net/bridge/br_input.c      |  6 ++++--
- net/bridge/br_private.h    |  4 +++-
- 5 files changed, 55 insertions(+), 23 deletions(-)
+ include/net/dst_metadata.h |  21 ++
+ include/net/vpls.h         |   8 +
+ net/mpls/Kconfig           |  11 ++
+ net/mpls/Makefile          |   1 +
+ net/mpls/vpls.c            | 469 +++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 510 insertions(+)
+ create mode 100644 include/net/vpls.h
+ create mode 100644 net/mpls/vpls.c
 
 diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
-index a803129a4849..8858dc441458 100644
+index 8858dc441458..aeee4ce3b654 100644
 --- a/include/net/dst_metadata.h
 +++ b/include/net/dst_metadata.h
-@@ -56,16 +56,15 @@ static inline bool skb_valid_dst(const struct sk_buff *skb)
- 	return dst && !(dst->flags & DST_METADATA);
+@@ -3,11 +3,13 @@
+ 
+ #include <linux/skbuff.h>
+ #include <net/ip_tunnels.h>
++#include <net/vpls.h>
+ #include <net/dst.h>
+ 
+ enum metadata_type {
+ 	METADATA_IP_TUNNEL,
+ 	METADATA_HW_PORT_MUX,
++	METADATA_VPLS,
+ };
+ 
+ struct hw_port_info {
+@@ -21,6 +23,7 @@ struct metadata_dst {
+ 	union {
+ 		struct ip_tunnel_info	tun_info;
+ 		struct hw_port_info	port_info;
++		struct vpls_info	vpls_info;
+ 	} u;
+ };
+ 
+@@ -49,6 +52,15 @@ static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb)
+ 	return NULL;
  }
  
--static inline int skb_metadata_dst_cmp(const struct sk_buff *skb_a,
--				       const struct sk_buff *skb_b)
-+static inline int dst_metadata_cmp(const struct dst_entry *dst_a,
-+				   const struct dst_entry *dst_b)
- {
- 	const struct metadata_dst *a, *b;
--
--	if (!(skb_a->_skb_refdst | skb_b->_skb_refdst))
-+	if (!(dst_a || dst_b))
- 		return 0;
- 
--	a = (const struct metadata_dst *) skb_dst(skb_a);
--	b = (const struct metadata_dst *) skb_dst(skb_b);
-+	a = (const struct metadata_dst *) dst_a;
-+	b = (const struct metadata_dst *) dst_b;
- 
- 	if (!a != !b || a->type != b->type)
- 		return 1;
-@@ -83,6 +82,14 @@ static inline int skb_metadata_dst_cmp(const struct sk_buff *skb_a,
- 	}
- }
- 
-+static inline int skb_metadata_dst_cmp(const struct sk_buff *skb_a,
-+				       const struct sk_buff *skb_b)
++static inline struct vpls_info *skb_vpls_info(struct sk_buff *skb)
 +{
-+	if (!(skb_a->_skb_refdst | skb_b->_skb_refdst))
-+		return 0;
-+	return dst_metadata_cmp(skb_dst(skb_a), skb_dst(skb_b));
++	struct metadata_dst *md_dst = skb_metadata_dst(skb);
++	if (md_dst && md_dst->type == METADATA_VPLS)
++		return &md_dst->u.vpls_info;
++	return NULL;
 +}
 +
- void metadata_dst_free(struct metadata_dst *);
- struct metadata_dst *metadata_dst_alloc(u8 optslen, enum metadata_type type,
- 					gfp_t flags);
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 861ae2a165f4..534cacf02f8d 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -53,6 +53,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	brstats->tx_bytes += skb->len;
- 	u64_stats_update_end(&brstats->syncp);
++
+ static inline bool skb_valid_dst(const struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+@@ -73,6 +85,9 @@ static inline int dst_metadata_cmp(const struct dst_entry *dst_a,
+ 	case METADATA_HW_PORT_MUX:
+ 		return memcmp(&a->u.port_info, &b->u.port_info,
+ 			      sizeof(a->u.port_info));
++	case METADATA_VPLS:
++		return memcmp(&a->u.vpls_info, &b->u.vpls_info,
++			      sizeof(a->u.vpls_info));
+ 	case METADATA_IP_TUNNEL:
+ 		return memcmp(&a->u.tun_info, &b->u.tun_info,
+ 			      sizeof(a->u.tun_info) +
+@@ -218,4 +233,10 @@ static inline struct metadata_dst *ipv6_tun_rx_dst(struct sk_buff *skb,
+ 				  0, ip6_flowlabel(ip6h), flags, tunnel_id,
+ 				  md_size);
+ }
++
++static inline struct metadata_dst *vpls_rx_dst(void)
++{
++	return metadata_dst_alloc(0, METADATA_VPLS, GFP_ATOMIC);
++}
++
+ #endif /* __NET_DST_METADATA_H */
+diff --git a/include/net/vpls.h b/include/net/vpls.h
+new file mode 100644
+index 000000000000..b261e2d97734
+--- /dev/null
++++ b/include/net/vpls.h
+@@ -0,0 +1,8 @@
++#ifndef __NET_VPLS_H
++#define __NET_VPLS_H 1
++
++struct vpls_info {
++	u32		pw_label;
++};
++
++#endif /* __NET_VPLS_H */
+diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
+index 5c467ef97311..c15ba73efb34 100644
+--- a/net/mpls/Kconfig
++++ b/net/mpls/Kconfig
+@@ -27,6 +27,17 @@ config MPLS_ROUTING
+ 	---help---
+ 	 Add support for forwarding of mpls packets.
  
-+	skb_dst_drop(skb);
- 	BR_INPUT_SKB_CB(skb)->brdev = dev;
++config MPLS_VPLS
++	bool "VPLS support"
++	default y
++	depends on MPLS_ROUTING && BRIDGE_NETFILTER=n
++	---help---
++	 Add support for de-&encapsulating VPLS.  Not compatible with
++	 bridge netfilter due to the latter stomping over VPLS' dst metadata.
++
++comment "disable 'Bridged IP/ARP packets filtering' for VPLS support"
++	depends on BRIDGE_NETFILTER
++
+ config MPLS_IPTUNNEL
+ 	tristate "MPLS: IP over MPLS tunnel support"
+ 	depends on LWTUNNEL && MPLS_ROUTING
+diff --git a/net/mpls/Makefile b/net/mpls/Makefile
+index 9ca923625016..3c028600a980 100644
+--- a/net/mpls/Makefile
++++ b/net/mpls/Makefile
+@@ -6,3 +6,4 @@ obj-$(CONFIG_MPLS_ROUTING) += mpls_router.o
+ obj-$(CONFIG_MPLS_IPTUNNEL) += mpls_iptunnel.o
  
- 	skb_reset_mac_header(skb);
-@@ -81,6 +82,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 		else
- 			br_flood(br, skb, BR_PKT_MULTICAST, false, true);
- 	} else if ((dst = br_fdb_find_rcu(br, dest, vid)) != NULL) {
-+		struct dst_entry *md_dst = rcu_dereference(dst->md_dst);
-+		if (md_dst)
-+			skb_dst_set_noref(skb, md_dst);
- 		br_forward(dst->dst, skb, false, true);
- 	} else {
- 		br_flood(br, skb, BR_PKT_UNICAST, false, true);
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index a79b648aac88..0751fcb89699 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -25,11 +25,13 @@
- #include <asm/unaligned.h>
- #include <linux/if_vlan.h>
- #include <net/switchdev.h>
+ mpls_router-y := af_mpls.o
++mpls_router-$(CONFIG_MPLS_VPLS) += vpls.o
+diff --git a/net/mpls/vpls.c b/net/mpls/vpls.c
+new file mode 100644
+index 000000000000..28ac810da6e9
+--- /dev/null
++++ b/net/mpls/vpls.c
+@@ -0,0 +1,469 @@
++/*
++ *  net/mpls/vpls.c
++ *
++ *  Copyright (C) 2016 David Lamparter
++ *
++ */
++
++#include <linux/netdevice.h>
++#include <linux/slab.h>
++#include <linux/ethtool.h>
++#include <linux/etherdevice.h>
++#include <linux/u64_stats_sync.h>
++#include <linux/mpls.h>
++
++#include <net/rtnetlink.h>
++#include <net/dst.h>
++#include <net/xfrm.h>
++#include <net/mpls.h>
++#include <linux/module.h>
 +#include <net/dst_metadata.h>
- #include "br_private.h"
- 
- static struct kmem_cache *br_fdb_cache __read_mostly;
- static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
--		      const unsigned char *addr, u16 vid);
-+		      struct dst_entry *md_dst, const unsigned char *addr,
-+		      u16 vid);
- static void fdb_notify(struct net_bridge *br,
- 		       const struct net_bridge_fdb_entry *, int);
- 
-@@ -174,6 +176,8 @@ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
- 	if (f->is_static)
- 		fdb_del_hw_addr(br, f->addr.addr);
- 
-+	dst_release(rcu_access_pointer(f->md_dst));
++#include <net/ip_tunnels.h>
 +
- 	hlist_del_init_rcu(&f->hlist);
- 	fdb_notify(br, f, RTM_DELNEIGH);
- 	call_rcu(&f->rcu, fdb_rcu_free);
-@@ -260,7 +264,7 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
- 
- insert:
- 	/* insert new address,  may fail if invalid address or dup. */
--	fdb_insert(br, p, newaddr, 0);
-+	fdb_insert(br, p, NULL, newaddr, 0);
- 
- 	if (!vg || !vg->num_vlans)
- 		goto done;
-@@ -270,7 +274,7 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
- 	 * from under us.
- 	 */
- 	list_for_each_entry(v, &vg->vlan_list, vlist)
--		fdb_insert(br, p, newaddr, v->vid);
-+		fdb_insert(br, p, NULL, newaddr, v->vid);
- 
- done:
- 	spin_unlock_bh(&br->hash_lock);
-@@ -289,10 +293,11 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
- 	if (f && f->is_local && !f->dst && !f->added_by_user)
- 		fdb_delete_local(br, NULL, f);
- 
--	fdb_insert(br, NULL, newaddr, 0);
-+	fdb_insert(br, NULL, NULL, newaddr, 0);
- 	vg = br_vlan_group(br);
- 	if (!vg || !vg->num_vlans)
- 		goto out;
++#include "internal.h"
 +
- 	/* Now remove and add entries for every VLAN configured on the
- 	 * bridge.  This function runs under RTNL so the bitmap will not
- 	 * change from under us.
-@@ -303,7 +308,7 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
- 		f = br_fdb_find(br, br->dev->dev_addr, v->vid);
- 		if (f && f->is_local && !f->dst && !f->added_by_user)
- 			fdb_delete_local(br, NULL, f);
--		fdb_insert(br, NULL, newaddr, v->vid);
-+		fdb_insert(br, NULL, NULL, newaddr, v->vid);
- 	}
- out:
- 	spin_unlock_bh(&br->hash_lock);
-@@ -477,6 +482,7 @@ int br_fdb_fillbuf(struct net_bridge *br, void *buf,
- 
- static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
- 					       struct net_bridge_port *source,
-+					       struct dst_entry *md_dst,
- 					       const unsigned char *addr,
- 					       __u16 vid,
- 					       unsigned char is_local,
-@@ -488,6 +494,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
- 	if (fdb) {
- 		memcpy(fdb->addr.addr, addr, ETH_ALEN);
- 		fdb->dst = source;
-+		rcu_assign_pointer(fdb->md_dst, dst_clone(md_dst));
- 		fdb->vlan_id = vid;
- 		fdb->is_local = is_local;
- 		fdb->is_static = is_static;
-@@ -501,7 +508,8 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
- }
- 
- static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
--		  const unsigned char *addr, u16 vid)
-+		      struct dst_entry *md_dst, const unsigned char *addr,
-+		      u16 vid)
- {
- 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
- 	struct net_bridge_fdb_entry *fdb;
-@@ -521,7 +529,7 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
- 		fdb_delete(br, fdb);
- 	}
- 
--	fdb = fdb_create(head, source, addr, vid, 1, 1);
-+	fdb = fdb_create(head, source, md_dst, addr, vid, 1, 1);
- 	if (!fdb)
- 		return -ENOMEM;
- 
-@@ -537,13 +545,14 @@ int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
- 	int ret;
- 
- 	spin_lock_bh(&br->hash_lock);
--	ret = fdb_insert(br, source, addr, vid);
-+	ret = fdb_insert(br, source, NULL, addr, vid);
- 	spin_unlock_bh(&br->hash_lock);
- 	return ret;
- }
- 
- void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
--		   const unsigned char *addr, u16 vid, bool added_by_user)
-+		   struct dst_entry *md_dst, const unsigned char *addr,
-+		   u16 vid, bool added_by_user)
- {
- 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
- 	struct net_bridge_fdb_entry *fdb;
-@@ -558,6 +567,9 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 	      source->state == BR_STATE_FORWARDING))
- 		return;
- 
-+	if (md_dst && !(md_dst->flags & DST_METADATA))
-+		md_dst = NULL;
++#define DRV_NAME	"vpls"
 +
- 	fdb = fdb_find_rcu(head, addr, vid);
- 	if (likely(fdb)) {
- 		/* attempt to update an entry for a local interface */
-@@ -567,10 +579,15 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 					source->dev->name, addr, vid);
- 		} else {
- 			unsigned long now = jiffies;
-+			struct dst_entry *ref_md = rcu_access_pointer(fdb->md_dst);
- 
- 			/* fastpath: update of existing entry */
--			if (unlikely(source != fdb->dst)) {
-+			if (unlikely(source != fdb->dst ||
-+			    dst_metadata_cmp(md_dst, ref_md))) {
- 				fdb->dst = source;
-+				dst_release(ref_md);
-+				rcu_assign_pointer(fdb->md_dst,
-+						dst_clone(md_dst));
- 				fdb_modified = true;
- 				/* Take over HW learned entry */
- 				if (unlikely(fdb->added_by_external_learn))
-@@ -586,7 +603,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 	} else {
- 		spin_lock(&br->hash_lock);
- 		if (likely(!fdb_find_rcu(head, addr, vid))) {
--			fdb = fdb_create(head, source, addr, vid, 0, 0);
-+			fdb = fdb_create(head, source, md_dst, addr, vid, 0, 0);
- 			if (fdb) {
- 				if (unlikely(added_by_user))
- 					fdb->added_by_user = 1;
-@@ -781,7 +798,7 @@ static int fdb_add_entry(struct net_bridge *br, struct net_bridge_port *source,
- 		if (!(flags & NLM_F_CREATE))
- 			return -ENOENT;
- 
--		fdb = fdb_create(head, source, addr, vid, 0, 0);
-+		fdb = fdb_create(head, source, NULL, addr, vid, 0, 0);
- 		if (!fdb)
- 			return -ENOMEM;
- 
-@@ -844,7 +861,7 @@ static int __br_fdb_add(struct ndmsg *ndm, struct net_bridge *br,
- 		}
- 		local_bh_disable();
- 		rcu_read_lock();
--		br_fdb_update(br, p, addr, vid, true);
-+		br_fdb_update(br, p, NULL, addr, vid, true);
- 		rcu_read_unlock();
- 		local_bh_enable();
- 	} else if (ndm->ndm_flags & NTF_EXT_LEARNED) {
-@@ -1071,7 +1088,7 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
- 	head = &br->hash[br_mac_hash(addr, vid)];
- 	fdb = br_fdb_find(br, addr, vid);
- 	if (!fdb) {
--		fdb = fdb_create(head, p, addr, vid, 0, 0);
-+		fdb = fdb_create(head, p, NULL, addr, vid, 0, 0);
- 		if (!fdb) {
- 			err = -ENOMEM;
- 			goto err_unlock;
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 7637f58c1226..df10c87b2499 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -150,7 +150,8 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
- 	/* insert into forwarding database after filtering to avoid spoofing */
- 	br = p->br;
- 	if (p->flags & BR_LEARNING)
--		br_fdb_update(br, p, eth_hdr(skb)->h_source, vid, false);
-+		br_fdb_update(br, p, skb_dst(skb), eth_hdr(skb)->h_source,
-+			      vid, false);
- 
- 	local_rcv = !!(br->dev->flags & IFF_PROMISC);
- 	dest = eth_hdr(skb)->h_dest;
-@@ -230,7 +231,8 @@ static void __br_handle_local_finish(struct sk_buff *skb)
- 
- 	/* check if vlan is allowed, to avoid spoofing */
- 	if (p->flags & BR_LEARNING && br_should_learn(p, skb, &vid))
--		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid, false);
-+		br_fdb_update(p->br, p, skb_dst(skb),
-+				eth_hdr(skb)->h_source, vid, false);
- }
- 
- /* note: already called with rcu_read_lock */
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index fd9ee73e0a6d..b73f34ed765f 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -164,6 +164,7 @@ struct net_bridge_vlan_group {
- struct net_bridge_fdb_entry {
- 	struct hlist_node		hlist;
- 	struct net_bridge_port		*dst;
-+	struct dst_entry __rcu		*md_dst;
- 
- 	mac_addr			addr;
- 	__u16				vlan_id;
-@@ -524,7 +525,8 @@ int br_fdb_fillbuf(struct net_bridge *br, void *buf, unsigned long count,
- int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
- 		  const unsigned char *addr, u16 vid);
- void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
--		   const unsigned char *addr, u16 vid, bool added_by_user);
-+		   struct dst_entry *md_dst, const unsigned char *addr,
-+		   u16 vid, bool added_by_user);
- 
- int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
- 		  struct net_device *dev, const unsigned char *addr, u16 vid);
++#define MIN_MTU 68		/* Min L3 MTU */
++#define MAX_MTU 65535		/* Max L3 MTU (arbitrary) */
++
++struct vpls_wirelist {
++	struct rcu_head rcu;
++	size_t count;
++	unsigned wires[0];
++};
++
++struct vpls_priv {
++	struct net *encap_net;
++	struct vpls_wirelist __rcu *wires;
++};
++
++static int vpls_xmit_wire(struct sk_buff *skb, struct net_device *dev,
++			  struct vpls_priv *vpls, u32 wire)
++{
++	struct mpls_route *rt;
++	struct mpls_entry_decoded dec;
++
++	dec.bos = 1;
++	dec.ttl = 255;
++
++	rt = mpls_route_input_rcu(vpls->encap_net, wire);
++	if (!rt)
++		return -ENOENT;
++	if (rt->rt_vpls_dev != dev)
++		return -EINVAL;
++
++	return mpls_rt_xmit(skb, rt, dec);
++}
++
++static netdev_tx_t vpls_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	int err = -EINVAL, ok_count = 0;
++	struct vpls_priv *priv = netdev_priv(dev);
++	struct vpls_info *vi;
++	struct pcpu_sw_netstats *stats;
++	size_t len = skb->len;
++
++	rcu_read_lock();
++	vi = skb_vpls_info(skb);
++
++	skb_orphan(skb);
++	skb_forward_csum(skb);
++
++	if (vi) {
++		err = vpls_xmit_wire(skb, dev, priv, vi->pw_label);
++		if (err)
++			goto out_err;
++	} else {
++		struct sk_buff *cloned;
++		struct vpls_wirelist *wl;
++		size_t i;
++
++		wl = rcu_dereference(priv->wires);
++		if (wl->count == 0) {
++			dev->stats.tx_carrier_errors++;
++			goto out_err;
++		}
++
++		for (i = 0; i < wl->count; i++) {
++			cloned = skb_clone(skb, GFP_KERNEL);
++			if (vpls_xmit_wire(cloned, dev, priv, wl->wires[i]))
++				consume_skb(cloned);
++			else
++				ok_count++;
++		}
++		if (!ok_count)
++			goto out_err;
++
++		consume_skb(skb);
++	}
++
++	stats = this_cpu_ptr(dev->tstats);
++	u64_stats_update_begin(&stats->syncp);
++	stats->tx_packets++;
++	stats->tx_bytes += len;
++	u64_stats_update_end(&stats->syncp);
++
++	rcu_read_unlock();
++	return 0;
++
++out_err:
++	dev->stats.tx_errors++;
++
++	consume_skb(skb);
++	rcu_read_unlock();
++	return err;
++}
++
++int vpls_rcv(struct sk_buff *skb, struct net_device *in_dev,
++	     struct packet_type *pt, struct mpls_route *rt,
++	     struct mpls_shim_hdr *hdr, struct net_device *orig_dev)
++{
++	struct net_device *dev = rt->rt_vpls_dev;
++	struct mpls_entry_decoded dec;
++	struct metadata_dst *md_dst;
++	struct pcpu_sw_netstats *stats;
++
++	if (!dev)
++		goto drop_nodev;
++
++	dec = mpls_entry_decode(hdr);
++	if (!dec.bos) {
++		dev->stats.rx_frame_errors++;
++		goto drop;
++	}
++
++	skb_pull(skb, sizeof(*hdr));
++
++	if (unlikely(!pskb_may_pull(skb, ETH_HLEN))) {
++		dev->stats.rx_length_errors++;
++		goto drop;
++	}
++
++	md_dst = vpls_rx_dst();
++	if (unlikely(!md_dst)) {
++		netdev_err(dev, "failed to allocate dst metadata\n");
++		goto drop;
++	}
++	md_dst->u.vpls_info.pw_label = dec.label;
++
++	skb->dev = dev;
++
++	skb_reset_mac_header(skb);
++	skb->protocol = eth_type_trans(skb, dev);
++	skb->ip_summed = CHECKSUM_NONE;
++	skb->pkt_type = PACKET_HOST;
++
++	skb_clear_hash(skb);
++	skb->vlan_tci = 0;
++	skb_set_queue_mapping(skb, 0);
++	skb_scrub_packet(skb, !net_eq(dev_net(in_dev), dev_net(dev)));
++
++	skb_reset_network_header(skb);
++	skb_probe_transport_header(skb, 0);
++
++	skb_dst_drop(skb);
++	skb_dst_set(skb, &md_dst->dst);
++
++	stats = this_cpu_ptr(dev->tstats);
++	u64_stats_update_begin(&stats->syncp);
++	stats->rx_packets++;
++	stats->rx_bytes += skb->len;
++	u64_stats_update_end(&stats->syncp);
++
++	netif_rx(skb);
++	return 0;
++
++drop:
++	dev->stats.rx_errors++;
++drop_nodev:
++	kfree_skb(skb);
++	return NET_RX_DROP;
++}
++
++void vpls_label_update(unsigned label, struct mpls_route *rt_old,
++		       struct mpls_route *rt_new)
++{
++	struct vpls_priv *priv;
++	struct vpls_wirelist *wl, *wl_new;
++	size_t i;
++
++	ASSERT_RTNL();
++
++	if (rt_old && rt_new && rt_old->rt_vpls_dev == rt_new->rt_vpls_dev)
++		return;
++
++	if (rt_old && rt_old->rt_vpls_dev) {
++		priv = netdev_priv(rt_old->rt_vpls_dev);
++		wl = rcu_dereference(priv->wires);
++
++		for (i = 0; i < wl->count; i++)
++			if (wl->wires[i] == label)
++				break;
++
++		if (i == wl->count) {
++			netdev_err(rt_old->rt_vpls_dev,
++				   "can't find pseudowire to remove!\n");
++			goto update_new;
++		}
++
++		wl_new = kmalloc(sizeof(*wl) +
++				 (wl->count - 1) * sizeof(wl->wires[0]),
++				 GFP_ATOMIC);
++		if (!wl_new) {
++			netdev_err(rt_old->rt_vpls_dev,
++				   "out of memory for pseudowire delete!\n");
++			goto update_new;
++		}
++
++		wl_new->count = wl->count - 1;
++		memcpy(wl_new->wires, wl->wires, i * sizeof(wl->wires[0]));
++		memcpy(wl_new->wires + i, wl->wires + i + 1,
++			(wl->count - i - 1) * sizeof(wl->wires[0]));
++
++		rcu_assign_pointer(priv->wires, wl_new);
++		kfree_rcu(wl, rcu);
++
++		if (wl_new->count == 0)
++			netif_carrier_off(rt_old->rt_vpls_dev);
++	}
++
++update_new:
++	if (rt_new && rt_new->rt_vpls_dev) {
++		priv = netdev_priv(rt_new->rt_vpls_dev);
++		wl = rcu_dereference(priv->wires);
++
++		wl_new = kmalloc(sizeof(*wl) +
++				 (wl->count + 1) * sizeof(wl->wires[0]),
++				 GFP_ATOMIC);
++		if (!wl_new) {
++			netdev_err(rt_new->rt_vpls_dev,
++				   "out of memory for pseudowire add!\n");
++			return;
++		}
++		wl_new->count = wl->count + 1;
++		memcpy(wl_new->wires, wl->wires,
++			wl->count * sizeof(wl->wires[0]));
++		wl_new->wires[wl->count] = label;
++
++		rcu_assign_pointer(priv->wires, wl_new);
++		kfree_rcu(wl, rcu);
++
++		if (wl_new->count == 1)
++			netif_carrier_on(rt_new->rt_vpls_dev);
++	}
++}
++
++/* fake multicast ability */
++static void vpls_set_multicast_list(struct net_device *dev)
++{
++}
++
++static int vpls_open(struct net_device *dev)
++{
++	struct vpls_priv *priv = netdev_priv(dev);
++	struct vpls_wirelist *wl;
++
++	wl = rcu_dereference(priv->wires);
++	if (wl->count > 0)
++		netif_carrier_on(dev);
++
++	return 0;
++}
++
++static int vpls_close(struct net_device *dev)
++{
++	netif_carrier_off(dev);
++	return 0;
++}
++
++static int is_valid_vpls_mtu(int new_mtu)
++{
++	return new_mtu >= MIN_MTU && new_mtu <= MAX_MTU;
++}
++
++static int vpls_change_mtu(struct net_device *dev, int new_mtu)
++{
++	if (!is_valid_vpls_mtu(new_mtu))
++		return -EINVAL;
++	dev->mtu = new_mtu;
++	return 0;
++}
++
++static int vpls_dev_init(struct net_device *dev)
++{
++	struct vpls_priv *priv = netdev_priv(dev);
++	priv->wires = kzalloc(sizeof(struct vpls_wirelist), GFP_KERNEL);
++	if (!priv->wires)
++		return -ENOMEM;
++
++	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
++	if (!dev->tstats) {
++		kfree(priv->wires);
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++static void vpls_dev_free(struct net_device *dev)
++{
++	struct vpls_priv *priv = netdev_priv(dev);
++
++	free_percpu(dev->tstats);
++
++	if (priv->wires)
++		kfree(priv->wires);
++
++	if (priv->encap_net)
++		put_net(priv->encap_net);
++
++	free_netdev(dev);
++}
++
++static const struct net_device_ops vpls_netdev_ops = {
++	.ndo_init		= vpls_dev_init,
++	.ndo_open		= vpls_open,
++	.ndo_stop		= vpls_close,
++	.ndo_start_xmit		= vpls_xmit,
++	.ndo_change_mtu		= vpls_change_mtu,
++	.ndo_get_stats64	= ip_tunnel_get_stats64,
++	.ndo_set_rx_mode	= vpls_set_multicast_list,
++	.ndo_set_mac_address	= eth_mac_addr,
++	.ndo_features_check	= passthru_features_check,
++};
++
++int is_vpls_dev(struct net_device *dev)
++{
++	return dev->netdev_ops == &vpls_netdev_ops;
++}
++
++#define VPLS_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | \
++		       NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_HIGHDMA)
++
++static void vpls_setup(struct net_device *dev)
++{
++	ether_setup(dev);
++
++	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
++	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
++	dev->priv_flags |= IFF_NO_QUEUE;
++
++	dev->netdev_ops = &vpls_netdev_ops;
++	dev->features |= NETIF_F_LLTX;
++	dev->features |= VPLS_FEATURES;
++	dev->vlan_features = dev->features;
++	dev->priv_destructor = vpls_dev_free;
++
++	dev->hw_features = VPLS_FEATURES;
++	dev->hw_enc_features = VPLS_FEATURES;
++
++	netif_keep_dst(dev);
++}
++
++/*
++ * netlink interface
++ */
++
++static int vpls_validate(struct nlattr *tb[], struct nlattr *data[],
++			 struct netlink_ext_ack *extack)
++{
++	if (tb[IFLA_ADDRESS]) {
++		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN) {
++			NL_SET_ERR_MSG_ATTR(extack, tb[IFLA_ADDRESS],
++				    "Invalid Ethernet address length");
++			return -EINVAL;
++		}
++		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS]))) {
++			NL_SET_ERR_MSG_ATTR(extack, tb[IFLA_ADDRESS],
++				    "Invalid Ethernet address");
++			return -EADDRNOTAVAIL;
++		}
++	}
++	if (tb[IFLA_MTU]) {
++		if (!is_valid_vpls_mtu(nla_get_u32(tb[IFLA_MTU]))) {
++			NL_SET_ERR_MSG_ATTR(extack, tb[IFLA_MTU],
++				    "Invalid MTU");
++			return -EINVAL;
++		}
++	}
++	return 0;
++}
++
++static struct rtnl_link_ops vpls_link_ops;
++
++static int vpls_newlink(struct net *src_net, struct net_device *dev,
++			struct nlattr *tb[], struct nlattr *data[],
++			struct netlink_ext_ack *extack)
++{
++	int err;
++	struct vpls_priv *priv = netdev_priv(dev);
++
++	if (tb[IFLA_ADDRESS] == NULL)
++		eth_hw_addr_random(dev);
++
++	if (tb[IFLA_IFNAME])
++		nla_strlcpy(dev->name, tb[IFLA_IFNAME], IFNAMSIZ);
++	else
++		snprintf(dev->name, IFNAMSIZ, DRV_NAME "%%d");
++
++	err = register_netdevice(dev);
++	if (err < 0)
++		goto err;
++	priv->encap_net = get_net(src_net);
++
++	netif_carrier_off(dev);
++	return 0;
++
++err:
++	return err;
++}
++
++static void vpls_dellink(struct net_device *dev, struct list_head *head)
++{
++	unregister_netdevice_queue(dev, head);
++}
++
++
++static struct rtnl_link_ops vpls_link_ops = {
++	.kind		= DRV_NAME,
++	.priv_size	= sizeof(struct vpls_priv),
++	.setup		= vpls_setup,
++	.validate	= vpls_validate,
++	.newlink	= vpls_newlink,
++	.dellink	= vpls_dellink,
++};
++
++/*
++ * init/fini
++ */
++
++__init int vpls_init(void)
++{
++	int ret;
++
++	ret = rtnl_link_register(&vpls_link_ops);
++	if (ret)
++		goto out;
++
++	return 0;
++
++out:
++	return ret;
++}
++
++__exit void vpls_exit(void)
++{
++	rtnl_link_unregister(&vpls_link_ops);
++}
++
++#if 0
++/* not currently available as a separate module... */
++
++module_init(vpls_init);
++module_exit(vpls_exit);
++
++MODULE_DESCRIPTION("Virtual Private LAN Service");
++MODULE_LICENSE("GPL v2");
++MODULE_ALIAS_RTNL_LINK(DRV_NAME);
++#endif
 -- 
 2.13.0
