@@ -1,56 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v4 iproute2 1/7] rdma: Add basic infrastructure for RDMA
- tool
-Date: Tue, 15 Aug 2017 16:54:16 -0700
-Message-ID: <20170815165416.24e9838a@xeon-e3>
-References: <20170815130020.29509-1-leonro@mellanox.com>
-        <20170815130020.29509-2-leonro@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next] ipv6: fib: Provide offload indication using
+ nexthop flags
+Date: Tue, 15 Aug 2017 17:05:17 -0700 (PDT)
+Message-ID: <20170815.170517.2085855853566792385.davem@davemloft.net>
+References: <20170815070949.1363-1-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ariel Almog <ariela@mellanox.com>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Leon Romanovsky <leonro@mellanox.com>
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com,
+        dsahern@gmail.com, roopa@cumulusnetworks.com,
+        nikolay@cumulusnetworks.com, hannes@stressinduktion.org,
+        yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:37290 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752243AbdHOXyX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 19:54:23 -0400
-Received: by mail-pg0-f41.google.com with SMTP id y129so14831800pgy.4
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 16:54:23 -0700 (PDT)
-In-Reply-To: <20170815130020.29509-2-leonro@mellanox.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43846 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751095AbdHPAFS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 20:05:18 -0400
+In-Reply-To: <20170815070949.1363-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Aug 2017 16:00:14 +0300
-Leon Romanovsky <leonro@mellanox.com> wrote:
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 15 Aug 2017 09:09:49 +0200
 
-> RDMA devices are cross-functional devices from one side,
-> but very tailored for the specific markets from another.
+> From: Ido Schimmel <idosch@mellanox.com>
 > 
-> Such diversity caused to spread of RDMA related configuration
-> across various tools, e.g. devlink, ip, ethtool, ib specific and
-> vendor specific solutions.
+> IPv6 routes currently lack nexthop flags as in IPv4. This has several
+> implications.
 > 
-> This patch adds ability to fill device and port information
-> by reading RDMA netlink.
+> In the forwarding path, it requires us to check the carrier state of the
+> nexthop device and potentially ignore a linkdown route, instead of
+> checking for RTNH_F_LINKDOWN.
 > 
-> Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+> It also requires capable drivers to use the user facing IPv6-specific
+> route flags to provide offload indication, instead of using the nexthop
+> flags as in IPv4.
+> 
+> Add nexthop flags to IPv6 routes in the 40 bytes hole and use it to
+> provide offload indication instead of the RTF_OFFLOAD flag, which is
+> removed while it's still not part of any official kernel release.
+> 
+> In the near future we would like to use the field for the
+> RTNH_F_{LINKDOWN,DEAD} flags, but this change is more involved and might
+> not be ready in time for the current cycle.
+> 
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Won't build for me.
-
-$ make distclean
-
-$ make
-
-In file included from rdma.c:12:0:
-rdma.h:23:23: fatal error: rdma/rdma.h: No such file or directory
- #include <rdma/rdma.h>
-                       ^
-
-I think your Makefile expects something different.
-Or more Config fallout
+Applied.
