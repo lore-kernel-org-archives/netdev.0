@@ -1,77 +1,98 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 05/10] bpf: export bpf_prog_inc_not_zero
-Date: Tue, 15 Aug 2017 22:32:22 -0700
-Message-ID: <20170816053221.15445.31265.stgit@john-Precision-Tower-5810>
-References: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810>
+From: Leon Romanovsky <leonro@mellanox.com>
+Subject: Re: [PATCH v4 iproute2 1/7] rdma: Add basic infrastructure for RDMA
+ tool
+Date: Wed, 16 Aug 2017 08:32:49 +0300
+Message-ID: <20170816053249.GC24282@mtr-leonro.local>
+References: <20170815130020.29509-1-leonro@mellanox.com>
+ <20170815130020.29509-2-leonro@mellanox.com>
+ <20170815165416.24e9838a@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, john.fastabend@gmail.com,
-        tom@herbertland.com
-To: davem@davemloft.net, daniel@iogearbox.net, ast@fb.com
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="RvYRPxT9kmUw5evD"
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Ariel Almog <ariela@mellanox.com>,
+        Linux Netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34019 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751071AbdHPFcl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 01:32:41 -0400
-Received: by mail-pf0-f193.google.com with SMTP id t86so423783pfe.1
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 22:32:41 -0700 (PDT)
-In-Reply-To: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810>
+Received: from mail-eopbgr10073.outbound.protection.outlook.com ([40.107.1.73]:8706
+        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751577AbdHPFc6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Aug 2017 01:32:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20170815165416.24e9838a@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bpf_prog_inc_not_zero will be used by upcoming sockmap patches this
-patch simply exports it so we can pull it in.
 
-Signed-off-by: John Fastabend <john.fastabend@gmail.com>
----
- include/linux/bpf.h  |    7 +++++++
- kernel/bpf/syscall.c |    3 ++-
- 2 files changed, 9 insertions(+), 1 deletion(-)
+--RvYRPxT9kmUw5evD
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 39229c4..d6e1de8 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -252,6 +252,7 @@ int bpf_prog_test_run_skb(struct bpf_prog *prog, const union bpf_attr *kattr,
- struct bpf_prog * __must_check bpf_prog_add(struct bpf_prog *prog, int i);
- void bpf_prog_sub(struct bpf_prog *prog, int i);
- struct bpf_prog * __must_check bpf_prog_inc(struct bpf_prog *prog);
-+struct bpf_prog * __must_check bpf_prog_inc_not_zero(struct bpf_prog *prog);
- void bpf_prog_put(struct bpf_prog *prog);
- int __bpf_prog_charge(struct user_struct *user, u32 pages);
- void __bpf_prog_uncharge(struct user_struct *user, u32 pages);
-@@ -344,6 +345,12 @@ static inline struct bpf_prog * __must_check bpf_prog_inc(struct bpf_prog *prog)
- 	return ERR_PTR(-EOPNOTSUPP);
- }
- 
-+static inline struct bpf_prog *__must_check
-+bpf_prog_inc_not_zero(struct bpf_prog *prog)
-+{
-+	return ERR_PTR(-EOPNOTSUPP);
-+}
-+
- static inline int __bpf_prog_charge(struct user_struct *user, u32 pages)
- {
- 	return 0;
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index fbe09a0..17e29f5 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -911,7 +911,7 @@ struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
- EXPORT_SYMBOL_GPL(bpf_prog_inc);
- 
- /* prog_idr_lock should have been held */
--static struct bpf_prog *bpf_prog_inc_not_zero(struct bpf_prog *prog)
-+struct bpf_prog *bpf_prog_inc_not_zero(struct bpf_prog *prog)
- {
- 	int refold;
- 
-@@ -927,6 +927,7 @@ static struct bpf_prog *bpf_prog_inc_not_zero(struct bpf_prog *prog)
- 
- 	return prog;
- }
-+EXPORT_SYMBOL_GPL(bpf_prog_inc_not_zero);
- 
- static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *type)
- {
+On Tue, Aug 15, 2017 at 04:54:16PM -0700, Stephen Hemminger wrote:
+> On Tue, 15 Aug 2017 16:00:14 +0300
+> Leon Romanovsky <leonro@mellanox.com> wrote:
+>
+> > RDMA devices are cross-functional devices from one side,
+> > but very tailored for the specific markets from another.
+> >
+> > Such diversity caused to spread of RDMA related configuration
+> > across various tools, e.g. devlink, ip, ethtool, ib specific and
+> > vendor specific solutions.
+> >
+> > This patch adds ability to fill device and port information
+> > by reading RDMA netlink.
+> >
+> > Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+>
+> Won't build for me.
+>
+> $ make distclean
+>
+> $ make
+>
+> In file included from rdma.c:12:0:
+> rdma.h:23:23: fatal error: rdma/rdma.h: No such file or directory
+>  #include <rdma/rdma.h>
+>                        ^
+>
+> I think your Makefile expects something different.
+> Or more Config fallout
+
+Your kernel tree should have this [1] pull request to be merged, because
+I'm adding new header file to UAPI [2].
+
+ create mode 100644 include/uapi/rdma/rdma.h
+
+[1] http://marc.info/?l=linux-rdma&m=150278847820844&w=2
+[2] http://marc.info/?l=linux-rdma&m=150278850520856&w=2
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--RvYRPxT9kmUw5evD
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlmT2QEACgkQ5GN7iDZy
+WKfoNQ//XmgEqnpuK04QYk76O2nlkL8EjlT5awo6vWb6XC9aj4ysjXwxxguQVB1G
+gXrOS6dmpDP7zggKDlPg5aMce6pje1J01T/suuDfqq+6R3wmF7dJOFhyeA6LPT2r
+IIKiRIvPbJFf7GUZrkbNHK8D96I4kWC9qh0UhCmfmcJdShuZiBVMm5QyxqNkpOdw
+NV8O6Nik5AWBL7+NANA7Q0Ik8LAmACH+p89/yM9GnzrUeymxrmX75Edr88xdUeGS
++9hOUluWsNJnUabXqe3B/8QAo7ch/HgwOGSCpdXZhFTyrfiOgLsmqikqy7KLEtje
+qEalHElvBy/cD6sD6U9xOaGiQpB0Rp+jSlBVwT0JPFfmtWUF7wlv04SqlYdaRTw4
+nxJn9uR+LRoy75NpOxQa9JC++PZEGh+OXLCgqo/PoA9qCf868L5Db8HbxtNSxWEt
+0aTqFz83M07kTx+1SS1vj40ZW9bpHdfdzkO1M4urCTVlrXjV8oC929lVOtibrD8H
+sZYzGCBYzT1ACtmkG/nSdtEsUfl0l4K5RX4NWw7gLXunU+SYMICqHeMXAcP07zDz
+iFPS1YPPtwb0GOdseAdxtYnH+6ZeSxZJYgFz6bIpgjDvO1NR38tc8QNfVBsb9Qfq
+PNSik9+c2ToqXDTVLb4kXP3tnuXSgA+7sWFC14fJezW2kd4wzng=
+=6x5H
+-----END PGP SIGNATURE-----
+
+--RvYRPxT9kmUw5evD--
