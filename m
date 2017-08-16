@@ -1,30 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net_sched/hfsc: opencode trivial set_active() and
- set_passive()
-Date: Wed, 16 Aug 2017 10:57:11 -0700 (PDT)
-Message-ID: <20170816.105711.135198873126924977.davem@davemloft.net>
-References: <150280439968.717891.6476652519937001709.stgit@buzz>
-        <150280440342.717891.16424904669818880087.stgit@buzz>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 0/4] various sizeof cleanups
+Date: Wed, 16 Aug 2017 11:02:12 -0700 (PDT)
+Message-ID: <20170816.110212.1356690082964267932.davem@davemloft.net>
+References: <20170815172919.26153-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jkosina@suse.cz,
-        edumazet@google.com, jhs@mojatatu.com
-To: khlebnikov@yandex-team.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34316 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752483AbdHPR5M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 13:57:12 -0400
-In-Reply-To: <150280440342.717891.16424904669818880087.stgit@buzz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mlindner-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, sthemmin-0li6OtcxBFHby3iVrkZq2A@public.gmane.org
+To: stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170815172919.26153-1-sthemmin-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Date: Tue, 15 Aug 2017 16:40:03 +0300
+From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Date: Tue, 15 Aug 2017 10:29:15 -0700
 
-> Any move comment abount update_vf() into right place.
-> 
-> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> Noticed some places that were using sizeof as an operator.
+> This is legal C but is not the convention used in the kernel.
 
-Applied.
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
