@@ -1,32 +1,51 @@
 From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Subject: [PATCH net-next v2 0/2] simplify the tcp_conn_request.
-Date: Wed, 16 Aug 2017 08:28:34 -0700
-Message-ID: <1502897316-3666-1-git-send-email-xiangxia.m.yue@gmail.com>
+Subject: [PATCH net-next v2 1/2] tcp: Remove unnecessary dst check in tcp_conn_request.
+Date: Wed, 16 Aug 2017 08:28:35 -0700
+Message-ID: <1502897316-3666-2-git-send-email-xiangxia.m.yue@gmail.com>
+References: <1502897316-3666-1-git-send-email-xiangxia.m.yue@gmail.com>
 Cc: Tonghao Zhang <xiangxia.m.yue@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:37905 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751531AbdHPP3A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 11:29:00 -0400
-Received: by mail-pg0-f65.google.com with SMTP id 123so5486089pga.5
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 08:28:59 -0700 (PDT)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33828 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751577AbdHPP3D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 11:29:03 -0400
+Received: by mail-pf0-f196.google.com with SMTP id t86so1642413pfe.1
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 08:29:03 -0700 (PDT)
+In-Reply-To: <1502897316-3666-1-git-send-email-xiangxia.m.yue@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches are not bugfix. But just simplify the tcp_conn_request
-function.
+Because we remove the tcp_tw_recycle support in the commit
+4396e46187c ('tcp: remove tcp_tw_recycle') and also delete
+the code 'af_ops->route_req' for sysctl_tw_recycle in tcp_conn_request.
+Now when we call the 'af_ops->route_req', the dist always is
+NULL, and we remove the unnecessay check.
 
-These patches are based on Davem's net-next tree.
+Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+---
+ net/ipv4/tcp_input.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-Tonghao Zhang (2):
-  tcp: Remove unnecessary dst check in tcp_conn_request.
-  tcp: Remove the unused parameter for tcp_try_fastopen.
-
- include/net/tcp.h       |  3 +--
- net/ipv4/tcp_fastopen.c |  6 ++----
- net/ipv4/tcp_input.c    | 11 +++++------
- 3 files changed, 8 insertions(+), 12 deletions(-)
-
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d73903f..7eee2c7 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -6132,11 +6132,10 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 
+ 		isn = af_ops->init_seq(skb);
+ 	}
+-	if (!dst) {
+-		dst = af_ops->route_req(sk, &fl, req);
+-		if (!dst)
+-			goto drop_and_free;
+-	}
++
++	dst = af_ops->route_req(sk, &fl, req);
++	if (!dst)
++		goto drop_and_free;
+ 
+ 	tcp_ecn_create_request(req, skb, sk, dst);
+ 
 -- 
 1.8.3.1
