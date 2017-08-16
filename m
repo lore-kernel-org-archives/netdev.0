@@ -1,76 +1,32 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next PATCH 00/10] BPF: sockmap and sk redirect support
-Date: Wed, 16 Aug 2017 17:25:14 +0200
-Message-ID: <599463DA.9050302@iogearbox.net>
-References: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, tom@herbertland.com
-To: John Fastabend <john.fastabend@gmail.com>, davem@davemloft.net,
-        ast@fb.com
+From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Subject: [PATCH net-next v2 0/2] simplify the tcp_conn_request.
+Date: Wed, 16 Aug 2017 08:28:34 -0700
+Message-ID: <1502897316-3666-1-git-send-email-xiangxia.m.yue@gmail.com>
+Cc: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34488 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751517AbdHPPZU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 11:25:20 -0400
-In-Reply-To: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:37905 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751531AbdHPP3A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 11:29:00 -0400
+Received: by mail-pg0-f65.google.com with SMTP id 123so5486089pga.5
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 08:28:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/16/2017 07:30 AM, John Fastabend wrote:
-> This series implements a sockmap and socket redirect helper for BPF
-> using a model similar to XDP netdev redirect. A sockmap is a BPF map
-> type that holds references to sock structs. Then with a new sk
-> redirect bpf helper BPF programs can use the map to redirect skbs
-> between sockets,
->
->        bpf_sk_redirect_map(map, key, flags)
->
-> Finally, we need a call site to attach our BPF logic to do socket
-> redirects. We added hooks to recv_sock using the existing strparser
-> infrastructure to do this. The call site is added via the BPF attach
-> map call. To enable users to use this infrastructure a new BPF program
-> BPF_PROG_TYPE_SK_SKB is created that allows users to reference sock
-> details, such as port and ip address fields, to build useful socket
-> layer program. The sockmap datapath is as follows,
->
->       recv -> strparser -> verdict/action
->
-> where this series implements the drop and redirect actions.
-> Additional, actions can be added as needed.
->
-> A sample program is provided to illustrate how a sockmap can
-> be integrated with cgroups and used to add/delete sockets in
-> a sockmap. The program is simple but should show many of the
-> key ideas.
->
-> To test this work test_maps in selftests/bpf was leveraged.
-> We added a set of tests to add sockets and do send/recv ops
-> on the sockets to ensure correct behavior. Additionally, the
-> selftests tests a series of negative test cases. We can expand
-> on this in the future.
->
-> I also have a basic test program I use with iperf/netperf
-> clients that could be sent as an additional sample if folks
-> want this. It needs a bit of cleanup to send to the list and
-> wasn't included in this series.
->
-> For people who prefer git over pulling patches out of their mail
-> editor I've posted the code here,
->
-> https://github.com/jrfastab/linux-kernel-xdp/tree/sockmap
->
-> For some background information on the genesis of this work
-> it might be helpful to review these slides from netconf 2017
-> by Thomas Graf,
->
-> http://vger.kernel.org/netconf2017.html
-> https://docs.google.com/a/covalent.io/presentation/d/1dwSKSBGpUHD3WO5xxzZWj8awV_-xL-oYhvqQMOBhhtk/edit?usp=sharing
->
-> Thanks to Daniel Borkmann for reviewing and providing initial
-> feedback.
+These patches are not bugfix. But just simplify the tcp_conn_request
+function.
 
-LGTM, for the set:
+These patches are based on Davem's net-next tree.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Tonghao Zhang (2):
+  tcp: Remove unnecessary dst check in tcp_conn_request.
+  tcp: Remove the unused parameter for tcp_try_fastopen.
+
+ include/net/tcp.h       |  3 +--
+ net/ipv4/tcp_fastopen.c |  6 ++----
+ net/ipv4/tcp_input.c    | 11 +++++------
+ 3 files changed, 8 insertions(+), 12 deletions(-)
+
+-- 
+1.8.3.1
