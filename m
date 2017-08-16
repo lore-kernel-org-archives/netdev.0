@@ -1,58 +1,193 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Something hitting my total number of connections to the server
-Date: Wed, 16 Aug 2017 03:34:21 -0700
-Message-ID: <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
-         <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
+Subject: Re: [patch net-next repost 1/3] idr: Use unsigned long instead of
+ int
+Date: Wed, 16 Aug 2017 03:37:09 -0700
+Message-ID: <1502879829.4936.100.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1502871244-19870-1-git-send-email-chrism@mellanox.com>
+         <1502871244-19870-2-git-send-email-chrism@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Akshat Kakkar <akshat.1984@gmail.com>
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, davem@davemloft.net, mawilcox@microsoft.com
+To: Chris Mi <chrism@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f42.google.com ([209.85.214.42]:36195 "EHLO
-        mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751452AbdHPKeY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 06:34:24 -0400
-Received: by mail-it0-f42.google.com with SMTP id 77so15620926itj.1
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 03:34:23 -0700 (PDT)
-In-Reply-To: <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:37112 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751196AbdHPKhL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 06:37:11 -0400
+Received: by mail-pf0-f196.google.com with SMTP id p13so1033181pfd.4
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 03:37:11 -0700 (PDT)
+In-Reply-To: <1502871244-19870-2-git-send-email-chrism@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-08-16 at 10:18 +0530, Akshat Kakkar wrote:
-> On Mon, Aug 14, 2017 at 2:37 PM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
-> > I have centos 7.3 (Kernel 3.10) running on a server with 128GB RAM and
-> > 2 x 10 Core Xeon Processor.
-> > I have hosted a webserver on it and enabled ssh for remote maintenance.
-> > Previously it was running on Centos 6.3.
-> > After upgrading to CentOS 7.3, occasionally (probably when number of
-> > hits are more on the server), I am not able to create new connections
-> > (neither on web nor on ssh). Existing connections keeps on running
-> > fine.
-> >
-> > I did packet capturing using tcpdump to understand if its some
-> > intermediate network issue.
-> > What I found was the server is not replying for new SYN requests.
-> >
-> > So it's clear that its not at all application issue. Also, there are
-> > no logs in applications logs for any connections dropped, if any.
-> >
-> > I check my firewall rules if there is some rate limiting imposed.
-> > There is nothing in there.
-> >
-> > I check tc, if by mistake some rate limiting is imposed. There is
-> > nothing in there too.
-> >
-> > I have increased noOfFiles to 1000000 and other sysctl parameters, but
-> > the issue is still there.
-> >
-> > Has anybody experienced the same?
-> >
-> > How to go about? Anybody ... Please Help!!!
+On Wed, 2017-08-16 at 04:14 -0400, Chris Mi wrote:
+> IDR uses internally radix tree which uses unsigned long. It doesn't
+> makes sense to have index as signed value.
 > 
-> Its getting lonely out here. Anybody there ???
+> Signed-off-by: Chris Mi <chrism@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  block/bsg.c                                     |  8 ++--
+>  block/genhd.c                                   | 12 +++---
+>  drivers/atm/nicstar.c                           | 11 ++---
+>  drivers/block/drbd/drbd_main.c                  | 31 ++++++++------
+>  drivers/block/drbd/drbd_nl.c                    | 22 +++++-----
+>  drivers/block/drbd/drbd_proc.c                  |  3 +-
+>  drivers/block/drbd/drbd_receiver.c              | 15 ++++---
+>  drivers/block/drbd/drbd_state.c                 | 34 ++++++++-------
+>  drivers/block/drbd/drbd_worker.c                |  6 +--
+>  drivers/block/loop.c                            | 17 +++++---
+>  drivers/block/nbd.c                             | 20 +++++----
+>  drivers/block/zram/zram_drv.c                   |  9 ++--
+>  drivers/char/tpm/tpm-chip.c                     | 10 +++--
+>  drivers/char/tpm/tpm.h                          |  2 +-
+>  drivers/dca/dca-sysfs.c                         |  9 ++--
+>  drivers/firewire/core-cdev.c                    | 18 ++++----
+>  drivers/firewire/core-device.c                  | 15 ++++---
+>  drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c     |  8 ++--
+>  drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c         |  9 ++--
+>  drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c         |  6 +--
+>  drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c         |  2 +-
+>  drivers/gpu/drm/drm_auth.c                      |  9 ++--
+>  drivers/gpu/drm/drm_connector.c                 | 10 +++--
+>  drivers/gpu/drm/drm_context.c                   | 20 +++++----
+>  drivers/gpu/drm/drm_dp_aux_dev.c                | 11 ++---
+>  drivers/gpu/drm/drm_drv.c                       |  6 ++-
+>  drivers/gpu/drm/drm_gem.c                       | 19 +++++----
+>  drivers/gpu/drm/drm_info.c                      |  2 +-
+>  drivers/gpu/drm/drm_mode_object.c               | 11 +++--
+>  drivers/gpu/drm/drm_syncobj.c                   | 18 +++++---
+>  drivers/gpu/drm/exynos/exynos_drm_ipp.c         | 25 ++++++-----
+>  drivers/gpu/drm/i915/gvt/display.c              |  2 +-
+>  drivers/gpu/drm/i915/gvt/kvmgt.c                |  2 +-
+>  drivers/gpu/drm/i915/gvt/vgpu.c                 |  9 ++--
+>  drivers/gpu/drm/i915/i915_debugfs.c             |  6 +--
+>  drivers/gpu/drm/i915/i915_gem_context.c         |  9 ++--
+>  drivers/gpu/drm/qxl/qxl_cmd.c                   |  8 ++--
+>  drivers/gpu/drm/qxl/qxl_release.c               | 14 +++---
+>  drivers/gpu/drm/sis/sis_mm.c                    |  8 ++--
+>  drivers/gpu/drm/tegra/drm.c                     | 10 +++--
+>  drivers/gpu/drm/tilcdc/tilcdc_slave_compat.c    |  3 +-
+>  drivers/gpu/drm/vgem/vgem_fence.c               | 12 +++---
+>  drivers/gpu/drm/via/via_mm.c                    |  8 ++--
+>  drivers/gpu/drm/virtio/virtgpu_kms.c            |  5 ++-
+>  drivers/gpu/drm/virtio/virtgpu_vq.c             |  5 ++-
+>  drivers/gpu/drm/vmwgfx/vmwgfx_resource.c        |  9 ++--
+>  drivers/i2c/i2c-core-base.c                     | 19 +++++----
+>  drivers/infiniband/core/cm.c                    |  8 ++--
+>  drivers/infiniband/core/cma.c                   | 12 +++---
+>  drivers/infiniband/core/rdma_core.c             |  9 ++--
+>  drivers/infiniband/core/sa_query.c              | 23 +++++-----
+>  drivers/infiniband/core/ucm.c                   |  7 ++-
+>  drivers/infiniband/core/ucma.c                  | 14 ++++--
+>  drivers/infiniband/hw/cxgb3/iwch.c              |  4 +-
+>  drivers/infiniband/hw/cxgb3/iwch.h              |  4 +-
+>  drivers/infiniband/hw/cxgb4/device.c            | 18 ++++----
+>  drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |  4 +-
+>  drivers/infiniband/hw/hfi1/init.c               |  9 ++--
+>  drivers/infiniband/hw/hfi1/vnic_main.c          |  6 +--
+>  drivers/infiniband/hw/mlx4/cm.c                 | 13 +++---
+>  drivers/infiniband/hw/ocrdma/ocrdma_main.c      |  7 ++-
+>  drivers/infiniband/hw/qib/qib_init.c            |  9 ++--
+>  drivers/infiniband/ulp/opa_vnic/opa_vnic_vema.c | 10 ++---
+>  drivers/iommu/intel-svm.c                       |  9 ++--
+>  drivers/md/dm.c                                 | 13 +++---
+>  drivers/memstick/core/memstick.c                | 10 +++--
+>  drivers/memstick/core/ms_block.c                |  9 ++--
+>  drivers/memstick/core/mspro_block.c             | 12 ++++--
+>  drivers/mfd/rtsx_pcr.c                          |  9 ++--
+>  drivers/misc/c2port/core.c                      |  7 +--
+>  drivers/misc/cxl/context.c                      |  8 ++--
+>  drivers/misc/cxl/main.c                         | 15 ++++---
+>  drivers/misc/mei/main.c                         |  8 ++--
+>  drivers/misc/mic/scif/scif_api.c                | 11 ++---
+>  drivers/misc/mic/scif/scif_ports.c              | 18 ++++----
+>  drivers/misc/tifm_core.c                        |  9 ++--
+>  drivers/mtd/mtdcore.c                           |  9 ++--
+>  drivers/mtd/mtdcore.h                           |  2 +-
+>  drivers/mtd/ubi/block.c                         |  7 ++-
+>  drivers/net/ppp/ppp_generic.c                   | 27 ++++++------
+>  drivers/net/tap.c                               | 10 +++--
+>  drivers/net/wireless/ath/ath10k/htt.h           |  3 +-
+>  drivers/net/wireless/ath/ath10k/htt_tx.c        | 22 ++++++----
+>  drivers/net/wireless/ath/ath10k/mac.c           |  2 +-
+>  drivers/net/wireless/marvell/mwifiex/main.c     | 13 +++---
+>  drivers/net/wireless/marvell/mwifiex/wmm.c      |  2 +-
+>  drivers/of/overlay.c                            | 15 +++----
+>  drivers/of/unittest.c                           | 25 ++++++-----
+>  drivers/power/supply/bq2415x_charger.c          | 16 +++----
+>  drivers/power/supply/bq27xxx_battery_i2c.c      | 15 ++++---
+>  drivers/power/supply/ds2782_battery.c           |  9 ++--
+>  drivers/powercap/powercap_sys.c                 |  8 ++--
+>  drivers/pps/pps.c                               | 10 +++--
+>  drivers/rapidio/rio_cm.c                        | 17 ++++----
+>  drivers/remoteproc/remoteproc_core.c            |  8 ++--
+>  drivers/rpmsg/virtio_rpmsg_bus.c                |  8 ++--
+>  drivers/scsi/bfa/bfad_im.c                      |  8 ++--
+>  drivers/scsi/ch.c                               |  8 ++--
+>  drivers/scsi/lpfc/lpfc_crtn.h                   |  2 +-
+>  drivers/scsi/lpfc/lpfc_init.c                   | 11 +++--
+>  drivers/scsi/lpfc/lpfc_vport.c                  |  8 ++--
+>  drivers/scsi/sg.c                               | 10 +++--
+>  drivers/scsi/st.c                               |  8 ++--
+>  drivers/staging/greybus/uart.c                  | 22 +++++-----
+>  drivers/staging/unisys/visorhba/visorhba_main.c |  7 +--
+>  drivers/target/iscsi/iscsi_target.c             |  7 +--
+>  drivers/target/iscsi/iscsi_target_login.c       |  9 ++--
+>  drivers/target/target_core_device.c             |  9 ++--
+>  drivers/target/target_core_user.c               | 13 +++---
+>  drivers/tee/tee_shm.c                           |  8 ++--
+>  drivers/uio/uio.c                               |  9 ++--
+>  drivers/usb/class/cdc-acm.c                     | 24 ++++++-----
+>  drivers/usb/core/devices.c                      |  2 +-
+>  drivers/usb/core/hcd.c                          |  7 +--
+>  drivers/usb/mon/mon_main.c                      |  3 +-
+>  drivers/usb/serial/usb-serial.c                 | 11 ++---
+>  drivers/vfio/vfio.c                             | 15 ++++---
+>  fs/dlm/lock.c                                   |  9 ++--
+>  fs/dlm/lockspace.c                              |  6 +--
+>  fs/dlm/recover.c                                | 10 ++---
+>  fs/nfs/nfs4client.c                             |  9 ++--
+>  fs/nfsd/nfs4state.c                             |  8 ++--
+>  fs/notify/inotify/inotify_fsnotify.c            |  4 +-
+>  fs/notify/inotify/inotify_user.c                |  9 ++--
+>  fs/ocfs2/cluster/tcp.c                          | 10 +++--
+>  include/linux/idr.h                             | 26 +++++------
+>  include/linux/of.h                              |  4 +-
+>  include/linux/radix-tree.h                      |  2 +-
+>  include/net/9p/9p.h                             |  2 +-
+>  ipc/msg.c                                       |  2 +-
+>  ipc/sem.c                                       |  2 +-
+>  ipc/shm.c                                       |  4 +-
+>  ipc/util.c                                      | 17 ++++----
+>  kernel/bpf/syscall.c                            | 20 +++++----
+>  kernel/cgroup/cgroup.c                          | 57 +++++++++++++++----------
+>  kernel/events/core.c                            | 10 ++---
+>  kernel/workqueue.c                              | 15 ++++---
+>  lib/idr.c                                       | 38 ++++++++++-------
+>  lib/radix-tree.c                                |  5 ++-
+>  mm/memcontrol.c                                 | 11 +++--
+>  net/9p/client.c                                 | 17 ++++----
+>  net/9p/util.c                                   | 14 +++---
+>  net/core/net_namespace.c                        | 23 +++++-----
+>  net/mac80211/cfg.c                              | 23 +++++-----
+>  net/mac80211/iface.c                            |  3 +-
+>  net/mac80211/main.c                             |  2 +-
+>  net/mac80211/tx.c                               |  7 +--
+>  net/mac80211/util.c                             |  3 +-
+>  net/netlink/genetlink.c                         | 18 ++++----
+>  net/qrtr/qrtr.c                                 | 21 +++++----
+>  net/rxrpc/conn_client.c                         | 15 ++++---
+>  net/sctp/associola.c                            |  8 ++--
+>  net/tipc/server.c                               |  7 +--
+>  153 files changed, 956 insertions(+), 736 deletions(-)
 
-We wont help you unless you use a recent kernel.
 
-3.10 misses all recent improvements in TCP stack (4 years of hard work)
+This is insane
+
+Have you considered switching the pathological hash table in net/sched
+into lib/rhashtable.c ?
+
+Patch would be limited to networking tree.
