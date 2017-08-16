@@ -1,42 +1,47 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: check and errout if res->fi is NULL when
- RTM_F_FIB_MATCH is set
-Date: Tue, 15 Aug 2017 20:56:24 -0600
-Message-ID: <577b280e-5bef-ff83-ab72-fe61b42e02f9@cumulusnetworks.com>
-References: <1502851818-17811-1-git-send-email-roopa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Tue, 15 Aug 2017 20:03:48 -0700 (PDT)
+Message-ID: <20170815.200348.2211153937269214873.davem@davemloft.net>
+References: <20170815.175219.753462032002961032.davem@davemloft.net>
+        <CA+55aFy_6fGAe-0vsuu8tbvuAz661=1YwB6CiS+BU04yUjmpGA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, idaifish@gmail.com,
-        syzkaller@googlegroups.com, dvyukov@google.com,
-        eric.dumazet@gmail.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:35931 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752832AbdHPC40 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 22:56:26 -0400
-Received: by mail-pf0-f181.google.com with SMTP id c28so557136pfe.3
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 19:56:26 -0700 (PDT)
-In-Reply-To: <1502851818-17811-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFy_6fGAe-0vsuu8tbvuAz661=1YwB6CiS+BU04yUjmpGA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/15/17 8:50 PM, Roopa Prabhu wrote:
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 7effa62..49a018f 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2763,14 +2763,21 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
->  	if (rtm->rtm_flags & RTM_F_LOOKUP_TABLE)
->  		table_id = rt->rt_table_id;
->  
-> -	if (rtm->rtm_flags & RTM_F_FIB_MATCH)
-> +	if (rtm->rtm_flags & RTM_F_FIB_MATCH) {
-> +		if (!res.fi) {
-> +			err = fib_props[res->type].error;
-> +			if (!err)
-> +				err = -EINVAL;
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 15 Aug 2017 19:21:16 -0700
 
-I think -EHOSTUNREACH is a better error than EINVAL. Nothing about the
-user inputs are invalid; rather the lookup is failing, but indirectly.
+> On Tue, Aug 15, 2017 at 5:52 PM, David Miller <davem@davemloft.net> wrote:
+>>
+>> dingtianhong (4):
+>>       PCI: Disable PCIe Relaxed Ordering if unsupported
+>>       PCI: Disable Relaxed Ordering for some Intel processors
+>>       PCI: Disable Relaxed Ordering Attributes for AMD A1100
+>>       PCI: fix oops when try to find Root Port for a PCI device
+> 
+> I would *really* have liked to see an ack on these from Bjorn Helgaas.
+> Was he even cc'd?
+> 
+> And while singling those commits out, I would also really have liked
+> to see an actual name there.
+> 
+> The name exists in the sign-off chain:
+> 
+>     Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> 
+> but for some reason not in the actual commit author data, where it's
+> just "dingtianhong".
+> 
+> Pulled, but slightly unhappy.
+
+Bjorn did review these changes, and certainly shaped the final result,
+but indeed I should have gotten an explicit ACK from him.
+
+I'll make sure I do so next time.
