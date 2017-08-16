@@ -1,85 +1,185 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V2 1/3] tap: use build_skb() for small packet
-Date: Wed, 16 Aug 2017 21:16:56 +0800
-Message-ID: <208fa880-c0e5-36e5-3604-eb13fe1de3b9@redhat.com>
-References: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
- <1502451678-17358-2-git-send-email-jasowang@redhat.com>
- <1502855120.4936.89.camel@edumazet-glaptop3.roam.corp.google.com>
- <2ae570ab-01da-2ea2-0549-3e310158b817@redhat.com>
- <1502879084.4936.95.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Boyer, Andrew" <Andrew.Boyer@dell.com>
+Subject: Re: [PATCH] net/mlx4: fix spelling mistake: "availible" ->
+ "available"
+Date: Wed, 16 Aug 2017 13:27:09 +0000
+Message-ID: <D5B9C03F.1D2C0%Andrew.Boyer@emc.com>
+References: <20170816090511.10463-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kubakici@wp.pl
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502879084.4936.95.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <20170816090511.10463-1-colin.king@canonical.com>
 Content-Language: en-US
+Content-ID: <BB1C4C8206975049BB4773B61D7D2E05@mail.corp.emc.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On 2017年08月16日 18:24, Eric Dumazet wrote:
-> On Wed, 2017-08-16 at 11:55 +0800, Jason Wang wrote:
->> On 2017年08月16日 11:45, Eric Dumazet wrote:
->>> You do realize that tun_build_skb() is not thread safe ?
->> Ok, I think the issue if skb_page_frag_refill(), need a spinlock
->> probably. Will prepare a patch.
-> But since tun is used from process context, why don't you use the
-> per-thread generator (no lock involved)
+On 8/16/17, 5:05 AM, "linux-rdma-owner@vger.kernel.org on behalf of Colin
+King" <linux-rdma-owner@vger.kernel.org on behalf of
+colin.king@canonical.com> wrote:
 
-Haven't noticed this before.
+>From: Colin Ian King <colin.king@canonical.com>
+>
+>Trivial fix to spelling mistakes in the mlx4 driver
+>
+>Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>---
+> drivers/net/ethernet/mellanox/mlx4/cmd.c    | 16 ++++++++--------
+> drivers/net/ethernet/mellanox/mlx4/fw_qos.c |  6 +++---
+> drivers/net/ethernet/mellanox/mlx4/fw_qos.h | 10 +++++-----
+> 3 files changed, 16 insertions(+), 16 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>index 674773b28b2e..6309389b09a7 100644
+>--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+>@@ -1958,19 +1958,19 @@ static void mlx4_allocate_port_vpps(struct
+>mlx4_dev *dev, int port)
+> 	int i;
+> 	int err;
+> 	int num_vfs;
+>-	u16 availible_vpp;
+>+	u16 available_vpp;
+> 	u8 vpp_param[MLX4_NUM_UP];
+> 	struct mlx4_qos_manager *port_qos;
+> 	struct mlx4_priv *priv =3D mlx4_priv(dev);
+>=20
+>-	err =3D mlx4_ALLOCATE_VPP_get(dev, port, &availible_vpp, vpp_param);
+>+	err =3D mlx4_ALLOCATE_VPP_get(dev, port, &available_vpp, vpp_param);
+> 	if (err) {
+>-		mlx4_info(dev, "Failed query availible VPPs\n");
+>+		mlx4_info(dev, "Failed query available VPPs\n");
+> 		return;
+> 	}
+>=20
+> 	port_qos =3D &priv->mfunc.master.qos_ctl[port];
+>-	num_vfs =3D (availible_vpp /
+>+	num_vfs =3D (available_vpp /
+> 		   bitmap_weight(port_qos->priority_bm, MLX4_NUM_UP));
+>=20
+> 	for (i =3D 0; i < MLX4_NUM_UP; i++) {
+>@@ -1985,14 +1985,14 @@ static void mlx4_allocate_port_vpps(struct
+>mlx4_dev *dev, int port)
+> 	}
+>=20
+> 	/* Query actual allocated VPP, just to make sure */
+>-	err =3D mlx4_ALLOCATE_VPP_get(dev, port, &availible_vpp, vpp_param);
+>+	err =3D mlx4_ALLOCATE_VPP_get(dev, port, &available_vpp, vpp_param);
+> 	if (err) {
+>-		mlx4_info(dev, "Failed query availible VPPs\n");
+>+		mlx4_info(dev, "Failed query available VPPs\n");
+> 		return;
+> 	}
+>=20
+> 	port_qos->num_of_qos_vfs =3D num_vfs;
+>-	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, availible_vpp);
+>+	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, available_vpp);
 
->
-> tcp_sendmsg() uses this for GFP_KERNEL allocations.
->
-> Untested patch :
->
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 5892284eb8d05b0678d820bad3d0d2c61a879aeb..c38cd840cc0b7fecf182b23976e36f709cacca1f 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -175,7 +175,6 @@ struct tun_file {
->   	struct list_head next;
->   	struct tun_struct *detached;
->   	struct skb_array tx_array;
-> -	struct page_frag alloc_frag;
->   };
->   
->   struct tun_flow_entry {
-> @@ -578,8 +577,6 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
->   		}
->   		if (tun)
->   			skb_array_cleanup(&tfile->tx_array);
-> -		if (tfile->alloc_frag.page)
-> -			put_page(tfile->alloc_frag.page);
->   		sock_put(&tfile->sk);
->   	}
->   }
-> @@ -1272,7 +1269,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
->   				     struct virtio_net_hdr *hdr,
->   				     int len, int *generic_xdp)
->   {
-> -	struct page_frag *alloc_frag = &tfile->alloc_frag;
-> +	struct page_frag *alloc_frag = &current->task_frag;
->   	struct sk_buff *skb;
->   	struct bpf_prog *xdp_prog;
->   	int buflen = SKB_DATA_ALIGN(len + TUN_RX_PAD) +
-> @@ -2580,8 +2577,6 @@ static int tun_chr_open(struct inode *inode, struct file * file)
->   	tfile->sk.sk_write_space = tun_sock_write_space;
->   	tfile->sk.sk_sndbuf = INT_MAX;
->   
-> -	tfile->alloc_frag.page = NULL;
-> -
->   	file->private_data = tfile;
->   	INIT_LIST_HEAD(&tfile->next);
->   
->
->
->
->
+One more here, in the text.          ^^^
 
-Tested-by: Jason Wang <jasowang@redhat.com>
-Acked-by: Jason Wang <jasowang@redhat.com>
+>=20
+> 	for (i =3D 0; i < MLX4_NUM_UP; i++)
+> 		mlx4_dbg(dev, "Port %d UP %d Allocated %d VPPs\n", port, i,
+>@@ -2891,7 +2891,7 @@ static int mlx4_set_vport_qos(struct mlx4_priv
+>*priv, int slave, int port,
+> 	memset(vpp_qos, 0, sizeof(struct mlx4_vport_qos_param) * MLX4_NUM_UP);
+>=20
+> 	if (slave > port_qos->num_of_qos_vfs) {
+>-		mlx4_info(dev, "No availible VPP resources for this VF\n");
+>+		mlx4_info(dev, "No available VPP resources for this VF\n");
+> 		return -EINVAL;
+> 	}
+>=20
+>diff --git a/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+>b/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+>index 8f2fde0487c4..3a09d7122d3b 100644
+>--- a/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+>+++ b/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+>@@ -65,7 +65,7 @@ struct mlx4_set_port_scheduler_context {
+>=20
+> /* Granular Qos (per VF) section */
+> struct mlx4_alloc_vpp_param {
+>-	__be32 availible_vpp;
+>+	__be32 available_vpp;
+> 	__be32 vpp_p_up[MLX4_NUM_UP];
+> };
+>=20
+>@@ -157,7 +157,7 @@ int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8
+>port, u8 *tc_tx_bw,
+> EXPORT_SYMBOL(mlx4_SET_PORT_SCHEDULER);
+>=20
+> int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
+>-			  u16 *availible_vpp, u8 *vpp_p_up)
+>+			  u16 *available_vpp, u8 *vpp_p_up)
+> {
+> 	int i;
+> 	int err;
+>@@ -179,7 +179,7 @@ int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8
+>port,
+> 		goto out;
+>=20
+> 	/* Total number of supported VPPs */
+>-	*availible_vpp =3D (u16)be32_to_cpu(out_param->availible_vpp);
+>+	*available_vpp =3D (u16)be32_to_cpu(out_param->available_vpp);
+>=20
+> 	for (i =3D 0; i < MLX4_NUM_UP; i++)
+> 		vpp_p_up[i] =3D (u8)be32_to_cpu(out_param->vpp_p_up[i]);
+>diff --git a/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
+>b/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
+>index ac1f331878e6..582997577a04 100644
+>--- a/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
+>+++ b/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
+>@@ -84,23 +84,23 @@ int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8
+>port, u8 *prio2tc);
+> int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
+> 			    u8 *pg, u16 *ratelimit);
+> /**
+>- * mlx4_ALLOCATE_VPP_get - Query port VPP availible resources and
+>allocation.
+>- * Before distribution of VPPs to priorities, only availible_vpp is
+>returned.
+>+ * mlx4_ALLOCATE_VPP_get - Query port VPP available resources and
+>allocation.
+>+ * Before distribution of VPPs to priorities, only available_vpp is
+>returned.
+>  * After initialization it returns the distribution of VPPs among
+>priorities.
+>  *
+>  * @dev: mlx4_dev.
+>  * @port: Physical port number.
+>- * @availible_vpp: Pointer to variable where number of availible VPPs is
+>stored
+>+ * @available_vpp: Pointer to variable where number of available VPPs is
+>stored
+>  * @vpp_p_up: Distribution of VPPs to priorities is stored in this array
+>  *
+>  * Returns 0 on success or a negative mlx4_core errno code.
+>  **/
+> int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
+>-			  u16 *availible_vpp, u8 *vpp_p_up);
+>+			  u16 *available_vpp, u8 *vpp_p_up);
+> /**
+>  * mlx4_ALLOCATE_VPP_set - Distribution of VPPs among differnt
+>priorities.
+>  * The total number of VPPs assigned to all for a port must not exceed
+>- * the value reported by availible_vpp in mlx4_ALLOCATE_VPP_get.
+>+ * the value reported by available_vpp in mlx4_ALLOCATE_VPP_get.
+>  * VPP allocation is allowed only after the port type has been set,
+>  * and while no QPs are open for this port.
+>  *
+>--=20
+>2.11.0
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
