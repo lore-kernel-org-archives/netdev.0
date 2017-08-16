@@ -1,46 +1,76 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] ipv6: fix NULL dereference in ip6_route_dev_notify()
-Date: Wed, 16 Aug 2017 11:50:58 -0700
-Message-ID: <CAM_iQpXjhUWPC1goetn2bwG=SPeqWcz+bZvMVWOD_2cbDcG-qw@mail.gmail.com>
-References: <1502795391.4936.60.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH net-next 1/3] VMCI: only load on VMware hypervisor
+Date: Wed, 16 Aug 2017 18:51:36 +0000
+Message-ID: <KL1P15301MB0008FB89237C3BB7A6D2BB39BF820@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+References: <KL1P15301MB00083C97259FF2A700C78442BF8D0@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+ <20170816.110635.1062040564700704290.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:35637 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751611AbdHPSvT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 14:51:19 -0400
-Received: by mail-pg0-f43.google.com with SMTP id v189so26618414pgd.2
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 11:51:19 -0700 (PDT)
-In-Reply-To: <1502795391.4936.60.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+        "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+        KY Srinivasan <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        "Stephen Hemminger" <sthemmin@microsoft.com>,
+        "georgezhang@vmware.com" <georgezhang@vmware.com>,
+        "jhansen@vmware.com" <jhansen@vmware.com>,
+        "mkubecek@suse.cz" <mkubecek@suse.cz>,
+        "asias@redhat.com" <asias@redhat.com>,
+        "stefanha@redhat.com" <stefanha@redhat.com>,
+        "vkuznets@redhat.com" <vkuznets@redhat.com>,
+        "cavery@redhat.com" <cavery@redhat.com>,
+        "jasowang@redhat.com" <jasowang@redhat.com>,
+        "rolf.neugebauer@docker.com" <rolf.neugebauer@docker.com>,
+        "dave.scott@docker.com" <dave.scott@docker.com>,
+        "marcelo.cerri@can
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170816.110635.1062040564700704290.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 15, 2017 at 4:09 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Based on a syzkaller report [1], I found that a per cpu allocation
-> failure in snmp6_alloc_dev() would then lead to NULL dereference in
-> ip6_route_dev_notify().
->
-> It seems this is a very old bug, thus no Fixes tag in this submission.
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, August 16, 2017 11:07
+>=20
+> From: Dexuan Cui <decui@microsoft.com>
+> Date: Tue, 15 Aug 2017 22:13:29 +0000
+>=20
+> > +	/*
+> > +	 * Check if we are running on VMware's hypervisor and bail out
+> > +	 * if we are not.
+> > +	 */
+> > +	if (x86_hyper !=3D &x86_hyper_vmware)
+> > +		return -ENODEV;
+>=20
+> This symbol is only available when CONFIG_HYPERVISOR_GUEST is defined.
+> But this driver does not have a Kconfig dependency on that symbol so
+> the build can fail in some configurations.
 
+Hi David,
+It looks typically modern Linux distros have CONFIG_HYPERVISOR_GUEST=3Dy
+by default, but I agree here we should make the dependency explicit:
 
-It should be introduced by my commit which introduces these
-in6_dev_put().
+--- a/drivers/misc/vmw_vmci/Kconfig
++++ b/drivers/misc/vmw_vmci/Kconfig
+@@ -4,7 +4,7 @@
 
->
-> Let's add in6_dev_put_clear() helper, as we will probably use
-> it elsewhere (once available/present in net-next)
->
+ config VMWARE_VMCI
+        tristate "VMware VMCI Driver"
+-       depends on X86 && PCI
++       depends on X86 && PCI && HYPERVISOR_GUEST
+        help
+          This is VMware's Virtual Machine Communication Interface.  It ena=
+bles
+          high-speed communication between host and guest in a virtual
 
-I don't understand why not just check ->rt6i_idev against NULL
-for -net?
+And it looks it's not a bad thing to add the dependency, because some
+existing VMWare drivers have had the dependency on CONFIG_HYPERVISOR_GUEST=
+=3Dy:
+drivers/input/mouse/vmmouse.c (MOUSE_PS2_VMMOUSE)
+drivers/misc/vmw_balloon.c (VMWARE_BALLOON)
 
-Ideally, we should let notifiers handle this, when we fail in one
-of those notifiers, we should only rollback those succeeded
-rather than all of them, but this may require more changes.
+Do you want me to submit a v2 for this patch with the Kconfig change?
 
-Thanks.
+-- Dexuan
