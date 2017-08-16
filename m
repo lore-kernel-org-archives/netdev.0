@@ -1,7 +1,7 @@
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V4 net-next 05/21] net-next/hinic: Add management messages
-Date: Wed, 16 Aug 2017 19:51:56 +0800
-Message-ID: <e98f841d03fa467dfeac4ac521f51ad8cbc49178.1502883967.git.aviad.krawczyk@huawei.com>
+Subject: [PATCH V4 net-next 06/21] net-next/hinic: Add api cmd commands
+Date: Wed, 16 Aug 2017 19:51:57 +0800
+Message-ID: <f30a067817bd7b8a6ba116288ef75ef7c72434df.1502883967.git.aviad.krawczyk@huawei.com>
 References: <cover.1502883967.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,666 +15,496 @@ In-Reply-To: <cover.1502883967.git.aviad.krawczyk@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add the management messages for sending to api cmd and the asynchronous
-event handler for the completion of the messages.
+Add the api cmd commands for sending management messages to the nic.
 
 Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
 ---
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   |  35 ++
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |   3 +
- drivers/net/ethernet/huawei/hinic/hinic_hw_if.h    |   5 +
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c  | 439 ++++++++++++++++++++-
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h  |  59 +++
- 5 files changed, 538 insertions(+), 3 deletions(-)
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   | 329 ++++++++++++++++++++-
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |  65 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |   6 +
+ 3 files changed, 398 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-index 234ede9..b44ddf2 100644
+index b44ddf2..d0145c6 100644
 --- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
 +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-@@ -54,6 +54,41 @@ enum api_cmd_xor_chk_level {
+@@ -25,7 +25,9 @@
+ #include <linux/jiffies.h>
+ #include <linux/delay.h>
+ #include <linux/log2.h>
++#include <linux/semaphore.h>
+ #include <asm/byteorder.h>
++#include <asm/barrier.h>
+ 
+ #include "hinic_hw_csr.h"
+ #include "hinic_hw_if.h"
+@@ -45,14 +47,313 @@
+ 
+ #define API_CMD_BUF_SIZE                        2048
+ 
++/* Sizes of the members in hinic_api_cmd_cell */
++#define API_CMD_CELL_DESC_SIZE          8
++#define API_CMD_CELL_DATA_ADDR_SIZE     8
++
++#define API_CMD_CELL_ALIGNMENT          8
++
+ #define API_CMD_TIMEOUT                 1000
+ 
++#define MASKED_IDX(chain, idx)          ((idx) & ((chain)->num_cells - 1))
++
++#define SIZE_8BYTES(size)               (ALIGN((size), 8) >> 3)
++#define SIZE_4BYTES(size)               (ALIGN((size), 4) >> 2)
++
++#define RD_DMA_ATTR_DEFAULT             0
++#define WR_DMA_ATTR_DEFAULT             0
++
++enum api_cmd_data_format {
++	SGE_DATA = 1,           /* cell data is passed by hw address */
++};
++
++enum api_cmd_type {
++	API_CMD_WRITE = 0,
++};
++
++enum api_cmd_bypass {
++	NO_BYPASS       = 0,
++	BYPASS          = 1,
++};
++
+ enum api_cmd_xor_chk_level {
+ 	XOR_CHK_DIS = 0,
+ 
+ 	XOR_CHK_ALL = 3,
  };
  
- /**
-+ * api_cmd - API CMD command
++static u8 xor_chksum_set(void *data)
++{
++	int idx;
++	u8 *val, checksum = 0;
++
++	val = data;
++
++	for (idx = 0; idx < 7; idx++)
++		checksum ^= val[idx];
++
++	return checksum;
++}
++
++static void set_prod_idx(struct hinic_api_cmd_chain *chain)
++{
++	enum hinic_api_cmd_chain_type chain_type = chain->chain_type;
++	struct hinic_hwif *hwif = chain->hwif;
++	u32 hw_prod_idx_addr, prod_idx;
++
++	hw_prod_idx_addr = HINIC_CSR_API_CMD_CHAIN_PI_ADDR(chain_type);
++	prod_idx = hinic_hwif_read_reg(hwif, hw_prod_idx_addr);
++
++	prod_idx = HINIC_API_CMD_PI_CLEAR(prod_idx, IDX);
++
++	prod_idx |= HINIC_API_CMD_PI_SET(chain->prod_idx, IDX);
++
++	hinic_hwif_write_reg(hwif, hw_prod_idx_addr, prod_idx);
++}
++
++static u32 get_hw_cons_idx(struct hinic_api_cmd_chain *chain)
++{
++	u32 addr, val;
++
++	addr = HINIC_CSR_API_CMD_STATUS_ADDR(chain->chain_type);
++	val  = hinic_hwif_read_reg(chain->hwif, addr);
++
++	return HINIC_API_CMD_STATUS_GET(val, CONS_IDX);
++}
++
++/**
++ * chain_busy - check if the chain is still processing last requests
++ * @chain: chain to check
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int chain_busy(struct hinic_api_cmd_chain *chain)
++{
++	struct hinic_hwif *hwif = chain->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	u32 prod_idx;
++
++	switch (chain->chain_type) {
++	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
++		chain->cons_idx = get_hw_cons_idx(chain);
++		prod_idx = chain->prod_idx;
++
++		/* check for a space for a new command */
++		if (chain->cons_idx == MASKED_IDX(chain, prod_idx + 1)) {
++			dev_err(&pdev->dev, "API CMD chain %d is busy\n",
++				chain->chain_type);
++			return -EBUSY;
++		}
++		break;
++
++	default:
++		dev_err(&pdev->dev, "Unknown API CMD Chain type\n");
++		break;
++	}
++
++	return 0;
++}
++
++/**
++ * get_cell_data_size - get the data size of a specific cell type
++ * @type: chain type
++ *
++ * Return the data(Desc + Address) size in the cell
++ **/
++static u8 get_cell_data_size(enum hinic_api_cmd_chain_type type)
++{
++	u8 cell_data_size = 0;
++
++	switch (type) {
++	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
++		cell_data_size = ALIGN(API_CMD_CELL_DESC_SIZE +
++				       API_CMD_CELL_DATA_ADDR_SIZE,
++				       API_CMD_CELL_ALIGNMENT);
++		break;
++	default:
++		break;
++	}
++
++	return cell_data_size;
++}
++
++/**
++ * prepare_cell_ctrl - prepare the ctrl of the cell for the command
++ * @cell_ctrl: the control of the cell to set the control value into it
++ * @data_size: the size of the data in the cell
++ **/
++static void prepare_cell_ctrl(u64 *cell_ctrl, u16 data_size)
++{
++	u8 chksum;
++	u64 ctrl;
++
++	ctrl =  HINIC_API_CMD_CELL_CTRL_SET(SIZE_8BYTES(data_size), DATA_SZ)  |
++		HINIC_API_CMD_CELL_CTRL_SET(RD_DMA_ATTR_DEFAULT, RD_DMA_ATTR) |
++		HINIC_API_CMD_CELL_CTRL_SET(WR_DMA_ATTR_DEFAULT, WR_DMA_ATTR);
++
++	chksum = xor_chksum_set(&ctrl);
++
++	ctrl |= HINIC_API_CMD_CELL_CTRL_SET(chksum, XOR_CHKSUM);
++
++	/* The data in the HW should be in Big Endian Format */
++	*cell_ctrl = cpu_to_be64(ctrl);
++}
++
++/**
++ * prepare_api_cmd - prepare API CMD command
 + * @chain: chain for the command
 + * @dest: destination node on the card that will receive the command
 + * @cmd: command data
-+ * @size: the command size
-+ *
-+ * Return 0 - Success, negative - Failure
++ * @cmd_size: the command size
 + **/
-+static int api_cmd(struct hinic_api_cmd_chain *chain,
-+		   enum hinic_node_id dest, u8 *cmd, u16 cmd_size)
++static void prepare_api_cmd(struct hinic_api_cmd_chain *chain,
++			    enum hinic_node_id dest,
++			    void *cmd, u16 cmd_size)
 +{
-+	/* should be implemented */
-+	return -EINVAL;
++	struct hinic_api_cmd_cell *cell = chain->curr_node;
++	struct hinic_api_cmd_cell_ctxt *cell_ctxt;
++	struct hinic_hwif *hwif = chain->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++
++	cell_ctxt = &chain->cell_ctxt[chain->prod_idx];
++
++	switch (chain->chain_type) {
++	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
++		cell->desc = HINIC_API_CMD_DESC_SET(SGE_DATA, API_TYPE)   |
++			     HINIC_API_CMD_DESC_SET(API_CMD_WRITE, RD_WR) |
++			     HINIC_API_CMD_DESC_SET(NO_BYPASS, MGMT_BYPASS);
++		break;
++
++	default:
++		dev_err(&pdev->dev, "unknown Chain type\n");
++		return;
++	}
++
++	cell->desc |= HINIC_API_CMD_DESC_SET(dest, DEST)        |
++		      HINIC_API_CMD_DESC_SET(SIZE_4BYTES(cmd_size), SIZE);
++
++	cell->desc |= HINIC_API_CMD_DESC_SET(xor_chksum_set(&cell->desc),
++					     XOR_CHKSUM);
++
++	/* The data in the HW should be in Big Endian Format */
++	cell->desc = cpu_to_be64(cell->desc);
++
++	memcpy(cell_ctxt->api_cmd_vaddr, cmd, cmd_size);
 +}
 +
 +/**
-+ * hinic_api_cmd_write - Write API CMD command
-+ * @chain: chain for write command
++ * prepare_cell - prepare cell ctrl and cmd in the current cell
++ * @chain: chain for the command
 + * @dest: destination node on the card that will receive the command
 + * @cmd: command data
-+ * @size: the command size
++ * @cmd_size: the command size
 + *
 + * Return 0 - Success, negative - Failure
 + **/
-+int hinic_api_cmd_write(struct hinic_api_cmd_chain *chain,
-+			enum hinic_node_id dest, u8 *cmd, u16 size)
++static void prepare_cell(struct hinic_api_cmd_chain *chain,
++			 enum  hinic_node_id dest,
++			 void *cmd, u16 cmd_size)
 +{
-+	/* Verify the chain type */
-+	if (chain->chain_type == HINIC_API_CMD_WRITE_TO_MGMT_CPU)
-+		return api_cmd(chain, dest, cmd, size);
++	struct hinic_api_cmd_cell *curr_node = chain->curr_node;
++	u16 data_size = get_cell_data_size(chain->chain_type);
 +
-+	return -EINVAL;
++	prepare_cell_ctrl(&curr_node->ctrl, data_size);
++	prepare_api_cmd(chain, dest, cmd, cmd_size);
++}
++
++static inline void cmd_chain_prod_idx_inc(struct hinic_api_cmd_chain *chain)
++{
++	chain->prod_idx = MASKED_IDX(chain, chain->prod_idx + 1);
 +}
 +
 +/**
-  * api_cmd_hw_restart - restart the chain in the HW
-  * @chain: the API CMD specific chain to restart
-  *
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-index 0c83b80..e8865d6 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-@@ -132,6 +132,9 @@ struct hinic_api_cmd_chain {
- 	struct hinic_api_cmd_cell       *curr_node;
- };
- 
-+int hinic_api_cmd_write(struct hinic_api_cmd_chain *chain,
-+			enum hinic_node_id dest, u8 *cmd, u16 size);
-+
- int hinic_api_cmd_init(struct hinic_api_cmd_chain **chain,
- 		       struct hinic_hwif *hwif);
- 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-index b6d9850..98623d6 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-@@ -93,6 +93,7 @@
- #define HINIC_HWIF_NUM_IRQS(hwif)       ((hwif)->attr.num_irqs)
- #define HINIC_HWIF_FUNC_IDX(hwif)       ((hwif)->attr.func_idx)
- #define HINIC_HWIF_PCI_INTF(hwif)       ((hwif)->attr.pci_intf_idx)
-+#define HINIC_HWIF_PF_IDX(hwif)         ((hwif)->attr.pf_idx)
- 
- #define HINIC_FUNC_TYPE(hwif)           ((hwif)->attr.func_type)
- #define HINIC_IS_PF(hwif)               (HINIC_FUNC_TYPE(hwif) == HINIC_PF)
-@@ -127,6 +128,10 @@ enum hinic_mod_type {
- 	HINIC_MOD_MAX   = 15
- };
- 
-+enum hinic_node_id {
-+	HINIC_NODE_ID_MGMT = 21,
-+};
-+
- struct hinic_func_attr {
- 	u16                     func_idx;
- 	u8                      pf_idx;
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-index f914bc7..147c404 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-@@ -16,6 +16,12 @@
- #include <linux/kernel.h>
- #include <linux/types.h>
- #include <linux/errno.h>
-+#include <linux/pci.h>
-+#include <linux/device.h>
-+#include <linux/semaphore.h>
-+#include <linux/completion.h>
-+#include <linux/slab.h>
-+#include <asm/barrier.h>
- 
- #include "hinic_hw_if.h"
- #include "hinic_hw_eqs.h"
-@@ -23,9 +29,267 @@
- #include "hinic_hw_mgmt.h"
- #include "hinic_hw_dev.h"
- 
-+#define SYNC_MSG_ID_MASK                0x1FF
-+
-+#define SYNC_MSG_ID(pf_to_mgmt)         ((pf_to_mgmt)->sync_msg_id)
-+
-+#define SYNC_MSG_ID_INC(pf_to_mgmt)     (SYNC_MSG_ID(pf_to_mgmt) = \
-+					((SYNC_MSG_ID(pf_to_mgmt) + 1) & \
-+					 SYNC_MSG_ID_MASK))
-+
-+#define MSG_SZ_IS_VALID(in_size)        ((in_size) <= MAX_MSG_LEN)
-+
-+#define MGMT_MSG_LEN_MIN                20
-+#define MGMT_MSG_LEN_STEP               16
-+#define MGMT_MSG_RSVD_FOR_DEV           8
-+
-+#define SEGMENT_LEN                     48
-+
-+#define MAX_PF_MGMT_BUF_SIZE            2048
-+
-+/* Data should be SEG LEN size aligned */
-+#define MAX_MSG_LEN                     2016
-+
-+#define MSG_NOT_RESP                    0xFFFF
-+
-+#define MGMT_MSG_TIMEOUT                1000
-+
- #define mgmt_to_pfhwdev(pf_mgmt)        \
- 		container_of(pf_mgmt, struct hinic_pfhwdev, pf_to_mgmt)
- 
-+enum msg_segment_type {
-+	NOT_LAST_SEGMENT        = 0,
-+	LAST_SEGMENT            = 1,
-+};
-+
-+enum mgmt_direction_type {
-+	MGMT_DIRECT_SEND        = 0,
-+	MGMT_RESP               = 1,
-+};
-+
-+enum msg_ack_type {
-+	MSG_ACK         = 0,
-+	MSG_NO_ACK      = 1,
-+};
-+
-+/**
-+ * prepare_header - prepare the header of the message
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @msg_len: the length of the message
-+ * @mod: module in the chip that will get the message
-+ * @ack_type: ask for response
-+ * @direction: the direction of the message
-+ * @cmd: command of the message
-+ * @msg_id: message id
-+ *
-+ * Return the prepared header value
++ * api_cmd_status_update - update the status in the chain struct
++ * @chain: chain to update
 + **/
-+static u64 prepare_header(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			  u16 msg_len, enum hinic_mod_type mod,
-+			  enum msg_ack_type ack_type,
-+			  enum mgmt_direction_type direction,
-+			  u16 cmd, u16 msg_id)
++static void api_cmd_status_update(struct hinic_api_cmd_chain *chain)
 +{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+
-+	return HINIC_MSG_HEADER_SET(msg_len, MSG_LEN)           |
-+	       HINIC_MSG_HEADER_SET(mod, MODULE)                |
-+	       HINIC_MSG_HEADER_SET(SEGMENT_LEN, SEG_LEN)       |
-+	       HINIC_MSG_HEADER_SET(ack_type, NO_ACK)           |
-+	       HINIC_MSG_HEADER_SET(0, ASYNC_MGMT_TO_PF)        |
-+	       HINIC_MSG_HEADER_SET(0, SEQID)                   |
-+	       HINIC_MSG_HEADER_SET(LAST_SEGMENT, LAST)         |
-+	       HINIC_MSG_HEADER_SET(direction, DIRECTION)       |
-+	       HINIC_MSG_HEADER_SET(cmd, CMD)                   |
-+	       HINIC_MSG_HEADER_SET(HINIC_HWIF_PCI_INTF(hwif), PCI_INTF) |
-+	       HINIC_MSG_HEADER_SET(HINIC_HWIF_PF_IDX(hwif), PF_IDX)     |
-+	       HINIC_MSG_HEADER_SET(msg_id, MSG_ID);
-+}
-+
-+/**
-+ * prepare_mgmt_cmd - prepare the mgmt command
-+ * @mgmt_cmd: pointer to the command to prepare
-+ * @header: pointer of the header for the message
-+ * @msg: the data of the message
-+ * @msg_len: the length of the message
-+ **/
-+static void prepare_mgmt_cmd(u8 *mgmt_cmd, u64 *header, u8 *msg, u16 msg_len)
-+{
-+	memset(mgmt_cmd, 0, MGMT_MSG_RSVD_FOR_DEV);
-+
-+	mgmt_cmd += MGMT_MSG_RSVD_FOR_DEV;
-+	memcpy(mgmt_cmd, header, sizeof(*header));
-+
-+	mgmt_cmd += sizeof(*header);
-+	memcpy(mgmt_cmd, msg, msg_len);
-+}
-+
-+/**
-+ * mgmt_msg_len - calculate the total message length
-+ * @msg_data_len: the length of the message data
-+ *
-+ * Return the total message length
-+ **/
-+static u16 mgmt_msg_len(u16 msg_data_len)
-+{
-+	/* RSVD + HEADER_SIZE + DATA_LEN */
-+	u16 msg_len = MGMT_MSG_RSVD_FOR_DEV + sizeof(u64) + msg_data_len;
-+
-+	if (msg_len > MGMT_MSG_LEN_MIN)
-+		msg_len = MGMT_MSG_LEN_MIN +
-+			   ALIGN((msg_len - MGMT_MSG_LEN_MIN),
-+				 MGMT_MSG_LEN_STEP);
-+	else
-+		msg_len = MGMT_MSG_LEN_MIN;
-+
-+	return msg_len;
-+}
-+
-+/**
-+ * send_msg_to_mgmt - send message to mgmt by API CMD
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @mod: module in the chip that will get the message
-+ * @cmd: command of the message
-+ * @data: the msg data
-+ * @data_len: the msg data length
-+ * @ack_type: ask for response
-+ * @direction: the direction of the original message
-+ * @resp_msg_id: msg id to response for
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int send_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			    enum hinic_mod_type mod, u8 cmd,
-+			    u8 *data, u16 data_len,
-+			    enum msg_ack_type ack_type,
-+			    enum mgmt_direction_type direction,
-+			    u16 resp_msg_id)
-+{
-+	struct hinic_api_cmd_chain *chain;
-+	u64 header;
-+	u16 msg_id;
-+
-+	msg_id = SYNC_MSG_ID(pf_to_mgmt);
-+
-+	if (direction == MGMT_RESP) {
-+		header = prepare_header(pf_to_mgmt, data_len, mod, ack_type,
-+					direction, cmd, resp_msg_id);
-+	} else {
-+		SYNC_MSG_ID_INC(pf_to_mgmt);
-+		header = prepare_header(pf_to_mgmt, data_len, mod, ack_type,
-+					direction, cmd, msg_id);
-+	}
-+
-+	prepare_mgmt_cmd(pf_to_mgmt->sync_msg_buf, &header, data, data_len);
-+
-+	chain = pf_to_mgmt->cmd_chain[HINIC_API_CMD_WRITE_TO_MGMT_CPU];
-+	return hinic_api_cmd_write(chain, HINIC_NODE_ID_MGMT,
-+				   pf_to_mgmt->sync_msg_buf,
-+				   mgmt_msg_len(data_len));
-+}
-+
-+/**
-+ * msg_to_mgmt_sync - send sync message to mgmt
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @mod: module in the chip that will get the message
-+ * @cmd: command of the message
-+ * @buf_in: the msg data
-+ * @in_size: the msg data length
-+ * @buf_out: response
-+ * @out_size: response length
-+ * @direction: the direction of the original message
-+ * @resp_msg_id: msg id to response for
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int msg_to_mgmt_sync(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			    enum hinic_mod_type mod, u8 cmd,
-+			    u8 *buf_in, u16 in_size,
-+			    u8 *buf_out, u16 *out_size,
-+			    enum mgmt_direction_type direction,
-+			    u16 resp_msg_id)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
++	enum hinic_api_cmd_chain_type chain_type;
++	struct hinic_api_cmd_status *wb_status;
++	struct hinic_hwif *hwif = chain->hwif;
 +	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_recv_msg *recv_msg;
-+	struct completion *recv_done;
-+	u16 msg_id;
-+	int err;
++	u64 status_header;
++	u32 status;
 +
-+	/* Lock the sync_msg_buf */
-+	down(&pf_to_mgmt->sync_msg_lock);
++	wb_status = chain->wb_status;
++	status_header = be64_to_cpu(wb_status->header);
 +
-+	recv_msg = &pf_to_mgmt->recv_resp_msg_from_mgmt;
-+	recv_done = &recv_msg->recv_done;
-+
-+	if (resp_msg_id == MSG_NOT_RESP)
-+		msg_id = SYNC_MSG_ID(pf_to_mgmt);
-+	else
-+		msg_id = resp_msg_id;
-+
-+	init_completion(recv_done);
-+
-+	err = send_msg_to_mgmt(pf_to_mgmt, mod, cmd, buf_in, in_size,
-+			       MSG_ACK, direction, resp_msg_id);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to send sync msg to mgmt\n");
-+		goto unlock_sync_msg;
++	status = be32_to_cpu(wb_status->status);
++	if (HINIC_API_CMD_STATUS_GET(status, CHKSUM_ERR)) {
++		dev_err(&pdev->dev, "API CMD status: Xor check error\n");
++		return;
 +	}
 +
-+	if (!wait_for_completion_timeout(recv_done, MGMT_MSG_TIMEOUT)) {
-+		dev_err(&pdev->dev, "MGMT timeout, MSG id = %d\n", msg_id);
-+		err = -ETIMEDOUT;
-+		goto unlock_sync_msg;
++	chain_type = HINIC_API_CMD_STATUS_HEADER_GET(status_header, CHAIN_ID);
++	if (chain_type >= HINIC_API_CMD_MAX) {
++		dev_err(&pdev->dev, "unknown API CMD Chain %d\n", chain_type);
++		return;
 +	}
 +
-+	smp_rmb();      /* verify reading after completion */
++	chain->cons_idx = HINIC_API_CMD_STATUS_GET(status, CONS_IDX);
++}
 +
-+	if (recv_msg->msg_id != msg_id) {
-+		dev_err(&pdev->dev, "incorrect MSG for id = %d\n", msg_id);
-+		err = -EFAULT;
-+		goto unlock_sync_msg;
-+	}
++/**
++ * wait_for_status_poll - wait for write to api cmd command to complete
++ * @chain: the chain of the command
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int wait_for_status_poll(struct hinic_api_cmd_chain *chain)
++{
++	int err = -ETIMEDOUT;
++	unsigned long end;
 +
-+	if ((buf_out) && (recv_msg->msg_len <= MAX_PF_MGMT_BUF_SIZE)) {
-+		memcpy(buf_out, recv_msg->msg, recv_msg->msg_len);
-+		*out_size = recv_msg->msg_len;
-+	}
++	end = jiffies + msecs_to_jiffies(API_CMD_TIMEOUT);
++	do {
++		api_cmd_status_update(chain);
 +
-+unlock_sync_msg:
-+	up(&pf_to_mgmt->sync_msg_lock);
++		/* wait for CI to be updated - sign for completion */
++		if (chain->cons_idx == chain->prod_idx) {
++			err = 0;
++			break;
++		}
++
++		msleep(20);
++	} while (time_before(jiffies, end));
++
 +	return err;
 +}
 +
 +/**
-+ * msg_to_mgmt_async - send message to mgmt without response
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @mod: module in the chip that will get the message
-+ * @cmd: command of the message
-+ * @buf_in: the msg data
-+ * @in_size: the msg data length
-+ * @direction: the direction of the original message
-+ * @resp_msg_id: msg id to response for
++ * wait_for_api_cmd_completion - wait for command to complete
++ * @chain: chain for the command
 + *
 + * Return 0 - Success, negative - Failure
 + **/
-+static int msg_to_mgmt_async(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			     enum hinic_mod_type mod, u8 cmd,
-+			     u8 *buf_in, u16 in_size,
-+			     enum mgmt_direction_type direction,
-+			     u16 resp_msg_id)
++static int wait_for_api_cmd_completion(struct hinic_api_cmd_chain *chain)
 +{
++	struct hinic_hwif *hwif = chain->hwif;
++	struct pci_dev *pdev = hwif->pdev;
 +	int err;
 +
-+	/* Lock the sync_msg_buf */
-+	down(&pf_to_mgmt->sync_msg_lock);
++	switch (chain->chain_type) {
++	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
++		err = wait_for_status_poll(chain);
++		if (err) {
++			dev_err(&pdev->dev, "API CMD Poll status timeout\n");
++			break;
++		}
++		break;
 +
-+	err = send_msg_to_mgmt(pf_to_mgmt, mod, cmd, buf_in, in_size,
-+			       MSG_NO_ACK, direction, resp_msg_id);
++	default:
++		dev_err(&pdev->dev, "unknown API CMD Chain type\n");
++		err = -EINVAL;
++		break;
++	}
 +
-+	up(&pf_to_mgmt->sync_msg_lock);
 +	return err;
 +}
 +
  /**
-  * hinic_msg_to_mgmt - send message to mgmt
-  * @pf_to_mgmt: PF to MGMT channel
-@@ -44,8 +308,98 @@ int hinic_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
- 		      void *buf_in, u16 in_size, void *buf_out, u16 *out_size,
- 		      enum hinic_mgmt_msg_type sync)
+  * api_cmd - API CMD command
+  * @chain: chain for the command
+@@ -65,8 +366,30 @@ enum api_cmd_xor_chk_level {
+ static int api_cmd(struct hinic_api_cmd_chain *chain,
+ 		   enum hinic_node_id dest, u8 *cmd, u16 cmd_size)
  {
 -	/* should be implemented */
 -	return -EINVAL;
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+
-+	if (sync != HINIC_MGMT_MSG_SYNC) {
-+		dev_err(&pdev->dev, "Invalid MGMT msg type\n");
-+		return -EINVAL;
-+	}
-+
-+	if (!MSG_SZ_IS_VALID(in_size)) {
-+		dev_err(&pdev->dev, "Invalid MGMT msg buffer size\n");
-+		return -EINVAL;
-+	}
-+
-+	return msg_to_mgmt_sync(pf_to_mgmt, mod, cmd, buf_in, in_size,
-+				buf_out, out_size, MGMT_DIRECT_SEND,
-+				MSG_NOT_RESP);
-+}
-+
-+/**
-+ * mgmt_recv_msg_handler - handler for message from mgmt cpu
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @recv_msg: received message details
-+ **/
-+static void mgmt_recv_msg_handler(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+				  struct hinic_recv_msg *recv_msg)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	u8 *buf_out = recv_msg->buf_out;
-+	u16 out_size = 0;
-+
-+	dev_err(&pdev->dev, "No MGMT msg handler, mod = %d\n", recv_msg->mod);
-+
-+	if (!recv_msg->async_mgmt_to_pf)
-+		/* MGMT sent sync msg, send the response */
-+		msg_to_mgmt_async(pf_to_mgmt, recv_msg->mod, recv_msg->cmd,
-+				  buf_out, out_size, MGMT_RESP,
-+				  recv_msg->msg_id);
-+}
-+
-+/**
-+ * mgmt_resp_msg_handler - handler for a response message from mgmt cpu
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @recv_msg: received message details
-+ **/
-+static void mgmt_resp_msg_handler(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+				  struct hinic_recv_msg *recv_msg)
-+{
-+	wmb();  /* verify writing all, before reading */
-+
-+	complete(&recv_msg->recv_done);
-+}
-+
-+/**
-+ * recv_mgmt_msg_handler - handler for a message from mgmt cpu
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @header: the header of the message
-+ * @recv_msg: received message details
-+ **/
-+static void recv_mgmt_msg_handler(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+				  u64 *header, struct hinic_recv_msg *recv_msg)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	int seq_id, seg_len;
-+	u8 *msg_body;
-+
-+	seq_id = HINIC_MSG_HEADER_GET(*header, SEQID);
-+	seg_len = HINIC_MSG_HEADER_GET(*header, SEG_LEN);
-+
-+	if (seq_id >= (MAX_MSG_LEN / SEGMENT_LEN)) {
-+		dev_err(&pdev->dev, "recv big mgmt msg\n");
-+		return;
-+	}
-+
-+	msg_body = (u8 *)header + sizeof(*header);
-+	memcpy(recv_msg->msg + seq_id * SEGMENT_LEN, msg_body, seg_len);
-+
-+	if (!HINIC_MSG_HEADER_GET(*header, LAST))
-+		return;
-+
-+	recv_msg->cmd = HINIC_MSG_HEADER_GET(*header, CMD);
-+	recv_msg->mod = HINIC_MSG_HEADER_GET(*header, MODULE);
-+	recv_msg->async_mgmt_to_pf = HINIC_MSG_HEADER_GET(*header,
-+							  ASYNC_MGMT_TO_PF);
-+	recv_msg->msg_len = HINIC_MSG_HEADER_GET(*header, MSG_LEN);
-+	recv_msg->msg_id = HINIC_MSG_HEADER_GET(*header, MSG_ID);
-+
-+	if (HINIC_MSG_HEADER_GET(*header, DIRECTION) == MGMT_RESP)
-+		mgmt_resp_msg_handler(pf_to_mgmt, recv_msg);
-+	else
-+		mgmt_recv_msg_handler(pf_to_mgmt, recv_msg);
- }
- 
- /**
-@@ -56,7 +410,77 @@ int hinic_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
-  **/
- static void mgmt_msg_aeqe_handler(void *handle, void *data, u8 size)
- {
--	/* should be implemented */
-+	struct hinic_pf_to_mgmt *pf_to_mgmt = handle;
-+	struct hinic_recv_msg *recv_msg;
-+	u64 *header = (u64 *)data;
-+
-+	recv_msg = HINIC_MSG_HEADER_GET(*header, DIRECTION) ==
-+		   MGMT_DIRECT_SEND ?
-+		   &pf_to_mgmt->recv_msg_from_mgmt :
-+		   &pf_to_mgmt->recv_resp_msg_from_mgmt;
-+
-+	recv_mgmt_msg_handler(pf_to_mgmt, header, recv_msg);
-+}
-+
-+/**
-+ * alloc_recv_msg - allocate receive message memory
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @recv_msg: pointer that will hold the allocated data
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int alloc_recv_msg(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			  struct hinic_recv_msg *recv_msg)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+
-+	recv_msg->msg = devm_kzalloc(&pdev->dev, MAX_PF_MGMT_BUF_SIZE,
-+				     GFP_KERNEL);
-+	if (!recv_msg->msg)
-+		return -ENOMEM;
-+
-+	recv_msg->buf_out = devm_kzalloc(&pdev->dev, MAX_PF_MGMT_BUF_SIZE,
-+					 GFP_KERNEL);
-+	if (!recv_msg->buf_out)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+/**
-+ * alloc_msg_buf - allocate all the message buffers of PF to MGMT channel
-+ * @pf_to_mgmt: PF to MGMT channel
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int alloc_msg_buf(struct hinic_pf_to_mgmt *pf_to_mgmt)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
++	struct hinic_api_cmd_cell_ctxt *ctxt;
 +	int err;
 +
-+	err = alloc_recv_msg(pf_to_mgmt,
-+			     &pf_to_mgmt->recv_msg_from_mgmt);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to allocate recv msg\n");
-+		return err;
++	down(&chain->sem);
++	if (chain_busy(chain)) {
++		up(&chain->sem);
++		return -EBUSY;
 +	}
 +
-+	err = alloc_recv_msg(pf_to_mgmt,
-+			     &pf_to_mgmt->recv_resp_msg_from_mgmt);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to allocate resp recv msg\n");
-+		return err;
-+	}
++	prepare_cell(chain, dest, cmd, cmd_size);
++	cmd_chain_prod_idx_inc(chain);
 +
-+	pf_to_mgmt->sync_msg_buf = devm_kzalloc(&pdev->dev,
-+						MAX_PF_MGMT_BUF_SIZE,
-+						GFP_KERNEL);
-+	if (!pf_to_mgmt->sync_msg_buf)
-+		return -ENOMEM;
++	wmb();  /* inc pi before issue the command */
 +
-+	return 0;
++	set_prod_idx(chain);    /* issue the command */
++
++	ctxt = &chain->cell_ctxt[chain->prod_idx];
++
++	chain->curr_node = ctxt->cell_vaddr;
++
++	err = wait_for_api_cmd_completion(chain);
++
++	up(&chain->sem);
++	return err;
  }
  
  /**
-@@ -76,6 +500,15 @@ int hinic_pf_to_mgmt_init(struct hinic_pf_to_mgmt *pf_to_mgmt,
+@@ -491,6 +814,8 @@ static int api_chain_init(struct hinic_api_cmd_chain *chain,
+ 	chain->prod_idx  = 0;
+ 	chain->cons_idx  = 0;
  
- 	pf_to_mgmt->hwif = hwif;
- 
-+	sema_init(&pf_to_mgmt->sync_msg_lock, 1);
-+	pf_to_mgmt->sync_msg_id = 0;
++	sema_init(&chain->sem, 1);
 +
-+	err = alloc_msg_buf(pf_to_mgmt);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to allocate msg buffers\n");
-+		return err;
-+	}
-+
- 	err = hinic_api_cmd_init(pf_to_mgmt->cmd_chain, hwif);
- 	if (err) {
- 		dev_err(&pdev->dev, "Failed to initialize cmd chains\n");
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-index dff321c..eca7ad8 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-@@ -17,10 +17,48 @@
- #define HINIC_HW_MGMT_H
+ 	cell_ctxt_size = chain->num_cells * sizeof(*chain->cell_ctxt);
+ 	chain->cell_ctxt = devm_kzalloc(&pdev->dev, cell_ctxt_size, GFP_KERNEL);
+ 	if (!chain->cell_ctxt)
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+index e8865d6..31b94d5 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+@@ -17,9 +17,22 @@
+ #define HINIC_HW_API_CMD_H
  
  #include <linux/types.h>
 +#include <linux/semaphore.h>
-+#include <linux/completion.h>
  
  #include "hinic_hw_if.h"
- #include "hinic_hw_api_cmd.h"
  
-+#define HINIC_MSG_HEADER_MSG_LEN_SHIFT                          0
-+#define HINIC_MSG_HEADER_MODULE_SHIFT                           11
-+#define HINIC_MSG_HEADER_SEG_LEN_SHIFT                          16
-+#define HINIC_MSG_HEADER_NO_ACK_SHIFT                           22
-+#define HINIC_MSG_HEADER_ASYNC_MGMT_TO_PF_SHIFT                 23
-+#define HINIC_MSG_HEADER_SEQID_SHIFT                            24
-+#define HINIC_MSG_HEADER_LAST_SHIFT                             30
-+#define HINIC_MSG_HEADER_DIRECTION_SHIFT                        31
-+#define HINIC_MSG_HEADER_CMD_SHIFT                              32
-+#define HINIC_MSG_HEADER_ZEROS_SHIFT                            40
-+#define HINIC_MSG_HEADER_PCI_INTF_SHIFT                         48
-+#define HINIC_MSG_HEADER_PF_IDX_SHIFT                           50
-+#define HINIC_MSG_HEADER_MSG_ID_SHIFT                           54
++#define HINIC_API_CMD_PI_IDX_SHIFT                              0
 +
-+#define HINIC_MSG_HEADER_MSG_LEN_MASK                           0x7FF
-+#define HINIC_MSG_HEADER_MODULE_MASK                            0x1F
-+#define HINIC_MSG_HEADER_SEG_LEN_MASK                           0x3F
-+#define HINIC_MSG_HEADER_NO_ACK_MASK                            0x1
-+#define HINIC_MSG_HEADER_ASYNC_MGMT_TO_PF_MASK                  0x1
-+#define HINIC_MSG_HEADER_SEQID_MASK                             0x3F
-+#define HINIC_MSG_HEADER_LAST_MASK                              0x1
-+#define HINIC_MSG_HEADER_DIRECTION_MASK                         0x1
-+#define HINIC_MSG_HEADER_CMD_MASK                               0xFF
-+#define HINIC_MSG_HEADER_ZEROS_MASK                             0xFF
-+#define HINIC_MSG_HEADER_PCI_INTF_MASK                          0x3
-+#define HINIC_MSG_HEADER_PF_IDX_MASK                            0xF
-+#define HINIC_MSG_HEADER_MSG_ID_MASK                            0x3FF
++#define HINIC_API_CMD_PI_IDX_MASK                               0xFFFFFF
 +
-+#define HINIC_MSG_HEADER_SET(val, member)                       \
-+		((u64)((val) & HINIC_MSG_HEADER_##member##_MASK) << \
-+		 HINIC_MSG_HEADER_##member##_SHIFT)
++#define HINIC_API_CMD_PI_SET(val, member)                       \
++	(((u32)(val) & HINIC_API_CMD_PI_##member##_MASK) <<     \
++	 HINIC_API_CMD_PI_##member##_SHIFT)
 +
-+#define HINIC_MSG_HEADER_GET(val, member)                       \
-+		(((val) >> HINIC_MSG_HEADER_##member##_SHIFT) & \
-+		 HINIC_MSG_HEADER_##member##_MASK)
++#define HINIC_API_CMD_PI_CLEAR(val, member)                     \
++	((val) & (~(HINIC_API_CMD_PI_##member##_MASK            \
++	 << HINIC_API_CMD_PI_##member##_SHIFT)))
 +
- enum hinic_mgmt_msg_type {
- 	HINIC_MGMT_MSG_SYNC = 1,
- };
-@@ -29,9 +67,30 @@ enum hinic_cfg_cmd {
- 	HINIC_CFG_NIC_CAP = 0,
- };
+ #define HINIC_API_CMD_CHAIN_REQ_RESTART_SHIFT                   1
  
-+struct hinic_recv_msg {
-+	u8                      *msg;
-+	u8                      *buf_out;
-+
-+	struct completion       recv_done;
-+
-+	u16                     cmd;
-+	enum hinic_mod_type     mod;
-+	int                     async_mgmt_to_pf;
-+
-+	u16                     msg_len;
-+	u16                     msg_id;
-+};
-+
- struct hinic_pf_to_mgmt {
- 	struct hinic_hwif               *hwif;
+ #define HINIC_API_CMD_CHAIN_REQ_RESTART_MASK                    0x1
+@@ -58,6 +71,56 @@
+ 	((val) & (~(HINIC_API_CMD_CHAIN_CTRL_##member##_MASK    \
+ 	 << HINIC_API_CMD_CHAIN_CTRL_##member##_SHIFT)))
  
-+	struct semaphore                sync_msg_lock;
-+	u16                             sync_msg_id;
-+	u8                              *sync_msg_buf;
++#define HINIC_API_CMD_CELL_CTRL_DATA_SZ_SHIFT                   0
++#define HINIC_API_CMD_CELL_CTRL_RD_DMA_ATTR_SHIFT               16
++#define HINIC_API_CMD_CELL_CTRL_WR_DMA_ATTR_SHIFT               24
++#define HINIC_API_CMD_CELL_CTRL_XOR_CHKSUM_SHIFT                56
 +
-+	struct hinic_recv_msg           recv_resp_msg_from_mgmt;
-+	struct hinic_recv_msg           recv_msg_from_mgmt;
++#define HINIC_API_CMD_CELL_CTRL_DATA_SZ_MASK                    0x3F
++#define HINIC_API_CMD_CELL_CTRL_RD_DMA_ATTR_MASK                0x3F
++#define HINIC_API_CMD_CELL_CTRL_WR_DMA_ATTR_MASK                0x3F
++#define HINIC_API_CMD_CELL_CTRL_XOR_CHKSUM_MASK                 0xFF
 +
- 	struct hinic_api_cmd_chain      *cmd_chain[HINIC_API_CMD_MAX];
- };
++#define HINIC_API_CMD_CELL_CTRL_SET(val, member)                \
++	((((u64)val) & HINIC_API_CMD_CELL_CTRL_##member##_MASK) << \
++	 HINIC_API_CMD_CELL_CTRL_##member##_SHIFT)
++
++#define HINIC_API_CMD_DESC_API_TYPE_SHIFT                       0
++#define HINIC_API_CMD_DESC_RD_WR_SHIFT                          1
++#define HINIC_API_CMD_DESC_MGMT_BYPASS_SHIFT                    2
++#define HINIC_API_CMD_DESC_DEST_SHIFT                           32
++#define HINIC_API_CMD_DESC_SIZE_SHIFT                           40
++#define HINIC_API_CMD_DESC_XOR_CHKSUM_SHIFT                     56
++
++#define HINIC_API_CMD_DESC_API_TYPE_MASK                        0x1
++#define HINIC_API_CMD_DESC_RD_WR_MASK                           0x1
++#define HINIC_API_CMD_DESC_MGMT_BYPASS_MASK                     0x1
++#define HINIC_API_CMD_DESC_DEST_MASK                            0x1F
++#define HINIC_API_CMD_DESC_SIZE_MASK                            0x7FF
++#define HINIC_API_CMD_DESC_XOR_CHKSUM_MASK                      0xFF
++
++#define HINIC_API_CMD_DESC_SET(val, member)                     \
++	((((u64)val) & HINIC_API_CMD_DESC_##member##_MASK) <<   \
++	 HINIC_API_CMD_DESC_##member##_SHIFT)
++
++#define HINIC_API_CMD_STATUS_HEADER_CHAIN_ID_SHIFT              16
++
++#define HINIC_API_CMD_STATUS_HEADER_CHAIN_ID_MASK               0xFF
++
++#define HINIC_API_CMD_STATUS_HEADER_GET(val, member)            \
++	(((val) >> HINIC_API_CMD_STATUS_HEADER_##member##_SHIFT) & \
++	 HINIC_API_CMD_STATUS_HEADER_##member##_MASK)
++
++#define HINIC_API_CMD_STATUS_CONS_IDX_SHIFT                     0
++#define HINIC_API_CMD_STATUS_CHKSUM_ERR_SHIFT                   28
++
++#define HINIC_API_CMD_STATUS_CONS_IDX_MASK                      0xFFFFFF
++#define HINIC_API_CMD_STATUS_CHKSUM_ERR_MASK                    0x3
++
++#define HINIC_API_CMD_STATUS_GET(val, member)                   \
++	(((val) >> HINIC_API_CMD_STATUS_##member##_SHIFT) &     \
++	 HINIC_API_CMD_STATUS_##member##_MASK)
++
+ enum hinic_api_cmd_chain_type {
+ 	HINIC_API_CMD_WRITE_TO_MGMT_CPU = 2,
  
+@@ -122,6 +185,8 @@ struct hinic_api_cmd_chain {
+ 	u32                             prod_idx;
+ 	u32                             cons_idx;
+ 
++	struct semaphore                sem;
++
+ 	struct hinic_api_cmd_cell_ctxt  *cell_ctxt;
+ 
+ 	dma_addr_t                      wb_status_paddr;
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+index a9ece6d..ebbf054 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+@@ -56,7 +56,13 @@
+ #define HINIC_CSR_API_CMD_CHAIN_CTRL_ADDR(idx)          \
+ 	(HINIC_CSR_API_CMD_BASE + 0x14 + (idx) * HINIC_CSR_API_CMD_STRIDE)
+ 
++#define HINIC_CSR_API_CMD_CHAIN_PI_ADDR(idx)            \
++	(HINIC_CSR_API_CMD_BASE + 0x1C + (idx) * HINIC_CSR_API_CMD_STRIDE)
++
+ #define HINIC_CSR_API_CMD_CHAIN_REQ_ADDR(idx)           \
+ 	(HINIC_CSR_API_CMD_BASE + 0x20 + (idx) * HINIC_CSR_API_CMD_STRIDE)
+ 
++#define HINIC_CSR_API_CMD_STATUS_ADDR(idx)              \
++	(HINIC_CSR_API_CMD_BASE + 0x30 + (idx) * HINIC_CSR_API_CMD_STRIDE)
++
+ #endif
 -- 
 1.9.1
