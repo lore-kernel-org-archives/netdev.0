@@ -1,32 +1,123 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: igmp: Use ingress interface rather than vrf device
-Date: Wed, 16 Aug 2017 11:10:28 -0700 (PDT)
-Message-ID: <20170816.111028.670221926288940207.davem@davemloft.net>
-References: <1502847522-13020-1-git-send-email-dsahern@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
-To: dsahern@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34650 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751847AbdHPSK3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 14:10:29 -0400
-In-Reply-To: <1502847522-13020-1-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH v3] sctp: fully initialize the IPv6 address in sctp_v6_to_addr()
+Date: Wed, 16 Aug 2017 20:16:40 +0200
+Message-ID: <20170816181640.40170-1-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, linux-sctp@vger.kernel.org,
+        netdev@vger.kernel.org
+To: dvyukov@google.com, kcc@google.com, edumazet@google.com,
+        marcelo.leitner@gmail.com, lucien.xin@gmail.com,
+        vyasevich@gmail.com, davem@davemloft.net,
+        hideaki.yoshifuji@miraclelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsahern@gmail.com>
-Date: Tue, 15 Aug 2017 18:38:42 -0700
+KMSAN reported use of uninitialized sctp_addr->v4.sin_addr.s_addr and
+sctp_addr->v6.sin6_scope_id in sctp_v6_cmp_addr() (see below).
+Make sure all fields of an IPv6 address are initialized, which
+guarantees that the IPv4 fields are also initialized.
 
-> Anuradha reported that statically added groups for interfaces enslaved
-> to a VRF device were not persisting. The problem is that igmp queries
-> and reports need to use the data in the in_dev for the real ingress
-> device rather than the VRF device. Update igmp_rcv accordingly.
-> 
-> Fixes: e58e41596811 ("net: Enable support for VRF with ipv4 multicast")
-> Reported-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+==================================================================
+ BUG: KMSAN: use of uninitialized memory in sctp_v6_cmp_addr+0x8d4/0x9f0
+ net/sctp/ipv6.c:517
+ CPU: 2 PID: 31056 Comm: syz-executor1 Not tainted 4.11.0-rc5+ #2944
+ Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+ 01/01/2011
+ Call Trace:
+  dump_stack+0x172/0x1c0 lib/dump_stack.c:42
+  is_logbuf_locked mm/kmsan/kmsan.c:59 [inline]
+  kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:938
+  native_save_fl arch/x86/include/asm/irqflags.h:18 [inline]
+  arch_local_save_flags arch/x86/include/asm/irqflags.h:72 [inline]
+  arch_local_irq_save arch/x86/include/asm/irqflags.h:113 [inline]
+  __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:467
+  sctp_v6_cmp_addr+0x8d4/0x9f0 net/sctp/ipv6.c:517
+  sctp_v6_get_dst+0x8c7/0x1630 net/sctp/ipv6.c:290
+  sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+  sctp_assoc_add_peer+0x66d/0x16f0 net/sctp/associola.c:651
+  sctp_sendmsg+0x35a5/0x4f90 net/sctp/socket.c:1871
+  inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
+  sock_sendmsg_nosec net/socket.c:633 [inline]
+  sock_sendmsg net/socket.c:643 [inline]
+  SYSC_sendto+0x608/0x710 net/socket.c:1696
+  SyS_sendto+0x8a/0xb0 net/socket.c:1664
+  entry_SYSCALL_64_fastpath+0x13/0x94
+ RIP: 0033:0x44b479
+ RSP: 002b:00007f6213f21c08 EFLAGS: 00000286 ORIG_RAX: 000000000000002c
+ RAX: ffffffffffffffda RBX: 0000000020000000 RCX: 000000000044b479
+ RDX: 0000000000000041 RSI: 0000000020edd000 RDI: 0000000000000006
+ RBP: 00000000007080a8 R08: 0000000020b85fe4 R09: 000000000000001c
+ R10: 0000000000040005 R11: 0000000000000286 R12: 00000000ffffffff
+ R13: 0000000000003760 R14: 00000000006e5820 R15: 0000000000ff8000
+ origin description: ----dst_saddr@sctp_v6_get_dst
+ local variable created at:
+  sk_fullsock include/net/sock.h:2321 [inline]
+  inet6_sk include/linux/ipv6.h:309 [inline]
+  sctp_v6_get_dst+0x91/0x1630 net/sctp/ipv6.c:241
+  sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+==================================================================
+ BUG: KMSAN: use of uninitialized memory in sctp_v6_cmp_addr+0x8d4/0x9f0
+ net/sctp/ipv6.c:517
+ CPU: 2 PID: 31056 Comm: syz-executor1 Not tainted 4.11.0-rc5+ #2944
+ Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+ 01/01/2011
+ Call Trace:
+  dump_stack+0x172/0x1c0 lib/dump_stack.c:42
+  is_logbuf_locked mm/kmsan/kmsan.c:59 [inline]
+  kmsan_report+0x12a/0x180 mm/kmsan/kmsan.c:938
+  native_save_fl arch/x86/include/asm/irqflags.h:18 [inline]
+  arch_local_save_flags arch/x86/include/asm/irqflags.h:72 [inline]
+  arch_local_irq_save arch/x86/include/asm/irqflags.h:113 [inline]
+  __msan_warning_32+0x61/0xb0 mm/kmsan/kmsan_instr.c:467
+  sctp_v6_cmp_addr+0x8d4/0x9f0 net/sctp/ipv6.c:517
+  sctp_v6_get_dst+0x8c7/0x1630 net/sctp/ipv6.c:290
+  sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+  sctp_assoc_add_peer+0x66d/0x16f0 net/sctp/associola.c:651
+  sctp_sendmsg+0x35a5/0x4f90 net/sctp/socket.c:1871
+  inet_sendmsg+0x498/0x670 net/ipv4/af_inet.c:762
+  sock_sendmsg_nosec net/socket.c:633 [inline]
+  sock_sendmsg net/socket.c:643 [inline]
+  SYSC_sendto+0x608/0x710 net/socket.c:1696
+  SyS_sendto+0x8a/0xb0 net/socket.c:1664
+  entry_SYSCALL_64_fastpath+0x13/0x94
+ RIP: 0033:0x44b479
+ RSP: 002b:00007f6213f21c08 EFLAGS: 00000286 ORIG_RAX: 000000000000002c
+ RAX: ffffffffffffffda RBX: 0000000020000000 RCX: 000000000044b479
+ RDX: 0000000000000041 RSI: 0000000020edd000 RDI: 0000000000000006
+ RBP: 00000000007080a8 R08: 0000000020b85fe4 R09: 000000000000001c
+ R10: 0000000000040005 R11: 0000000000000286 R12: 00000000ffffffff
+ R13: 0000000000003760 R14: 00000000006e5820 R15: 0000000000ff8000
+ origin description: ----dst_saddr@sctp_v6_get_dst
+ local variable created at:
+  sk_fullsock include/net/sock.h:2321 [inline]
+  inet6_sk include/linux/ipv6.h:309 [inline]
+  sctp_v6_get_dst+0x91/0x1630 net/sctp/ipv6.c:241
+  sctp_transport_route+0x101/0x570 net/sctp/transport.c:292
+==================================================================
 
-Applied and queued up for -stable, thanks.
+Signed-off-by: Alexander Potapenko <glider@google.com>
+Reviewed-by: Xin Long <lucien.xin@gmail.com>
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+v3: set flowinfo between port and addr to ease code review.
+v2 is identical to v1, resending per request by Marcelo Ricardo Leitner.
+---
+ net/sctp/ipv6.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 2a186b201ad2..a4b6ffb61495 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -512,7 +512,9 @@ static void sctp_v6_to_addr(union sctp_addr *addr, struct in6_addr *saddr,
+ {
+ 	addr->sa.sa_family = AF_INET6;
+ 	addr->v6.sin6_port = port;
++	addr->v6.sin6_flowinfo = 0;
+ 	addr->v6.sin6_addr = *saddr;
++	addr->v6.sin6_scope_id = 0;
+ }
+ 
+ /* Compare addresses exactly.
+-- 
+2.14.1.480.gb18f417b89-goog
