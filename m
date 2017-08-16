@@ -1,64 +1,74 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/3] net/sched: Improve getting objects by
- indexes
-Date: Wed, 16 Aug 2017 10:16:31 +0200
-Message-ID: <20170816081631.GC1868@nanopsycho>
-References: <1502849538-14284-1-git-send-email-chrism@mellanox.com>
- <144b87a3-bbe4-a194-ed83-e54840d7c7c2@amd.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: Update sysctl documentation to list all supported
+ architectures
+Date: Wed, 16 Aug 2017 10:18:17 +0200
+Message-ID: <5993FFC9.8010206@iogearbox.net>
+References: <1502860557-20247-1-git-send-email-mpe@ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Mi <chrism@mellanox.com>, netdev@vger.kernel.org
-To: Christian =?iso-8859-1?Q?K=F6nig?= <christian.koenig@amd.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34729 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751454AbdHPIQf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 04:16:35 -0400
-Received: by mail-wm0-f66.google.com with SMTP id x64so3913401wmg.1
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 01:16:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <144b87a3-bbe4-a194-ed83-e54840d7c7c2@amd.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Michael Ellerman <mpe@ellerman.id.au>, ast@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502860557-20247-1-git-send-email-mpe@ellerman.id.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Aug 16, 2017 at 09:49:07AM CEST, christian.koenig@amd.com wrote:
->Am 16.08.2017 um 04:12 schrieb Chris Mi:
->> Using current TC code, it is very slow to insert a lot of rules.
->> 
->> In order to improve the rules update rate in TC,
->> we introduced the following two changes:
->>          1) changed cls_flower to use IDR to manage the filters.
->>          2) changed all act_xxx modules to use IDR instead of
->>             a small hash table
->> 
->> But IDR has a limitation that it uses int. TC handle uses u32.
->> To make sure there is no regression, we also changed IDR to use
->> unsigned long. All clients of IDR are changed to use new IDR API.
+Hi Michael,
+
+On 08/16/2017 07:15 AM, Michael Ellerman wrote:
+> The sysctl documentation states that the JIT is only available on
+> x86_64, which is no longer correct.
 >
->WOW, wait a second. The idr change is touching a lot of drivers and to be
->honest doesn't looks correct at all.
+> Update the list to include all architectures that enable HAVE_CBPF_JIT
+> or HAVE_EBPF_JIT under some configuration.
 >
->Just look at the first chunk of your modification:
->> @@ -998,8 +999,9 @@ int bsg_register_queue(struct request_queue *q, struct device *parent,
->>   	mutex_lock(&bsg_mutex);
->> -	ret = idr_alloc(&bsg_minor_idr, bcd, 0, BSG_MAX_DEVS, GFP_KERNEL);
->> -	if (ret < 0) {
->> +	ret = idr_alloc(&bsg_minor_idr, bcd, &idr_index, 0, BSG_MAX_DEVS,
->> +			GFP_KERNEL);
->> +	if (ret) {
->>   		if (ret == -ENOSPC) {
->>   			printk(KERN_ERR "bsg: too many bsg devices\n");
->>   			ret = -EINVAL;
->The condition "if (ret)" will now always be true after the first allocation
->and so we always run into the error handling after that.
+> Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
 
-On success, idr_alloc returns 0.
+Thanks for the patch!
 
-
+>   Documentation/sysctl/net.txt | 5 +++--
+>   1 file changed, 3 insertions(+), 2 deletions(-)
 >
->I've never read the bsg code before, but that's certainly not correct. And
->that incorrect pattern repeats over and over again in this code.
+> diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
+> index 14db18c970b1..f68356024d09 100644
+> --- a/Documentation/sysctl/net.txt
+> +++ b/Documentation/sysctl/net.txt
+> @@ -36,8 +36,9 @@ bpf_jit_enable
+>   --------------
 >
->Apart from that why the heck do you want to allocate more than 1<<31 handles?
+>   This enables Berkeley Packet Filter Just in Time compiler.
+> -Currently supported on x86_64 architecture, bpf_jit provides a framework
+> -to speed packet filtering, the one used by tcpdump/libpcap for example.
+> +Currently supported on arm, arm64, mips, powerpc, s390, sparc and x86_64
+> +architectures, bpf_jit provides a framework to speed packet filtering, the one
+> +used by tcpdump/libpcap for example.
 
-tc action indexes for example. That is part of this patchset.
+Good point, could we actually make that as a bullet list and
+differentiate between cBPF and eBPF JITs, so that a user doesn't
+need to run git grep HAVE_{E,C}BPF_JIT to figure it out what the
+switch enables on the arch used? That would be great.
+
+So for eBPF JITs, we have covered:
+
+  * x86_64
+  * arm64
+  * ppc64
+  * sparc64
+  * mips64
+
+For old cBPF, there is:
+
+  * arm
+  * mips
+  * ppc
+  * sparc
+
+Thanks,
+Daniel
+
+>   Values :
+>   	0 - disable the JIT (default value)
+>   	1 - enable the JIT
+>
