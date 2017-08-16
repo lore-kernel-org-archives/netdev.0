@@ -1,58 +1,74 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH] bpf: Update sysctl documentation to list all supported architectures
-Date: Wed, 16 Aug 2017 21:10:40 +1000
-Message-ID: <8760dnu5sf.fsf@concordia.ellerman.id.au>
-References: <1502860557-20247-1-git-send-email-mpe@ellerman.id.au> <5993FFC9.8010206@iogearbox.net>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [PATCH net] xfrm: Clear sk_dst_cache when applying per-socket
+ policy.
+Date: Wed, 16 Aug 2017 13:19:53 +0200
+Message-ID: <20170816131953.4ac0efe5@beetle>
+References: <20170815222510.21711-1-misterikkit@google.com>
+        <20170816110341.5e899c23@beetle>
+        <1502880234.4936.102.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, ast@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5993FFC9.8010206@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jonathan Basseri <misterikkit@google.com>, netdev@vger.kernel.org,
+        davem@davemloft.net, steffen.klassert@secunet.com
+To: Eric Dumazet <eric.dumazet@gmail.com>, lorenzo@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f181.google.com ([209.85.128.181]:37940 "EHLO
+        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751814AbdHPLT4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 07:19:56 -0400
+Received: by mail-wr0-f181.google.com with SMTP id m57so12701602wrm.5
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 04:19:56 -0700 (PDT)
+In-Reply-To: <1502880234.4936.102.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Daniel Borkmann <daniel@iogearbox.net> writes:
+On Wed, 16 Aug 2017 03:43:54 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> Hi Michael,
->
-> On 08/16/2017 07:15 AM, Michael Ellerman wrote:
->> The sysctl documentation states that the JIT is only available on
->> x86_64, which is no longer correct.
->>
->> Update the list to include all architectures that enable HAVE_CBPF_JIT
->> or HAVE_EBPF_JIT under some configuration.
->>
->> Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
->
-> Thanks for the patch!
->
->>   Documentation/sysctl/net.txt | 5 +++--
->>   1 file changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
->> index 14db18c970b1..f68356024d09 100644
->> --- a/Documentation/sysctl/net.txt
->> +++ b/Documentation/sysctl/net.txt
->> @@ -36,8 +36,9 @@ bpf_jit_enable
->>   --------------
->>
->>   This enables Berkeley Packet Filter Just in Time compiler.
->> -Currently supported on x86_64 architecture, bpf_jit provides a framework
->> -to speed packet filtering, the one used by tcpdump/libpcap for example.
->> +Currently supported on arm, arm64, mips, powerpc, s390, sparc and x86_64
->> +architectures, bpf_jit provides a framework to speed packet filtering, the one
->> +used by tcpdump/libpcap for example.
->
-> Good point, could we actually make that as a bullet list and
-> differentiate between cBPF and eBPF JITs, so that a user doesn't
-> need to run git grep HAVE_{E,C}BPF_JIT to figure it out what the
-> switch enables on the arch used? That would be great.
+> On Wed, 2017-08-16 at 11:03 +0200, Jakub Sitnicki wrote:
+> > On Tue, 15 Aug 2017 15:25:10 -0700
+> > Jonathan Basseri <misterikkit@google.com> wrote:
+> >   
+> > > If an IPv6 socket has a valid dst cache, then xfrm_lookup_route will get
+> > > skipped. However, the cache is not invalidated when applying policy to a
+> > > socket (i.e. IPV6_XFRM_POLICY). The result is that new policies are
+> > > sometimes ignored on those sockets.
+> > > 
+> > > This can be demonstrated like so,
+> > > 1. Create UDPv6 socket.
+> > > 2. connect() the socket.
+> > > 3. Apply an outbound XFRM policy to the socket.
+> > > 4. send() data on the socket.
+> > > 
+> > > Packets will continue to be sent in the clear instead of matching an
+> > > xfrm or returning a no-match error (EAGAIN). This affects calls to
+> > > send() and not sendto().
+> > > 
+> > > Note: Creating normal XFRM policies should have a similar effect on
+> > > sk_dst_cache entries that match the policy, but that is not fixed in
+> > > this patch.
+> > > 
+> > > Fixes: 00bc0ef5880d ("ipv6: Skip XFRM lookup if dst_entry in socket cache is valid")
+> > > Tested: https://android-review.googlesource.com/418659
+> > > Signed-off-by: Jonathan Basseri <misterikkit@google.com>
+> > > ---  
+> > 
+> > Thank you for the fix.
+> > 
+> > Acked-by: Jakub Sitnicki <jkbs@redhat.com>  
+> 
+> I do not believe this fix is correct.
+> 
+> What happens if the socket is TCP ?
+> 
+> sk_dst_reset(sk) is not safe for them.
+> 
+> This might add use-after-free, and eventually crash.
 
-We could.
+You are right. I see that RCU-variant __sk_dst_reset() is used
+throughout TCP stack. Thank you for pointing it out.
 
-Does a user of the sysctl want/need to know the difference though? Or do
-they just want to turn on "the JIT"?
+Please disregard my earlier ACK.
 
-cheers
+-Jakub
