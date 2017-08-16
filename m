@@ -1,41 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Regression: Bug 196547 - Since 4.12 - bonding module not
- working with wireless drivers
-Date: Wed, 16 Aug 2017 14:31:16 -0700 (PDT)
-Message-ID: <20170816.143116.1172751167543812070.davem@davemloft.net>
-References: <CADps9UCgqeUh41iHxCM+CTJh=Tffn-tiSYL2Q+NBb_8EppqRMA@mail.gmail.com>
-        <2b6fd91a-f7cd-c2bf-6394-060d9b1f5d23@nurealm.net>
-        <1502918561.30484.1.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: james@nurealm.net, futur.andy@googlemail.com, kvalo@codeaurora.org,
-        arend.vanspriel@broadcom.com, maheshb@google.com,
-        andy@greyhouse.net, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, greearb@candelatech.com
-To: dcbw@redhat.com
+From: Dimitris Michailidis <dmichail@google.com>
+Subject: [PATCH net-next] macvlan: add offload features for encapsulation
+Date: Wed, 16 Aug 2017 14:34:46 -0700
+Message-ID: <20170816213446.10584-1-dmichail@google.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38768 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752298AbdHPVbR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 17:31:17 -0400
-In-Reply-To: <1502918561.30484.1.camel@redhat.com>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:37144 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752382AbdHPVev (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 17:34:51 -0400
+Received: by mail-pg0-f52.google.com with SMTP id y129so29056310pgy.4
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 14:34:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Williams <dcbw@redhat.com>
-Date: Wed, 16 Aug 2017 16:22:41 -0500
+Currently macvlan devices do not set their hw_enc_features making
+encapsulated Tx packets resort to SW fallbacks. Add encapsulation GSO
+offloads to ->features as is done for the other GSOs and set
+->hw_enc_features.
 
-> My biggest suggestion is that perhaps bonding should grow hysteresis
-> for link speeds. Since WiFi can change speed every packet, you probably
-> don't want the bond characteristics changing every couple seconds just
-> in case your WiFi link is jumping around.  Ethernet won't bounce around
-> that much, so the hysteresis would have no effect there.  Or, if people
-> are concerned about response time to speed changes on ethernet (where
-> you probably do want an instant switch-over) some new flag to indicate
-> that certain devices don't have stable speeds over time.
+Signed-off-by: Dimitris Michailidis <dmichail@google.com>
+---
+ drivers/net/macvlan.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Or just report the average of the range the wireless link can hit, and
-be done with it.
-
-I think you guys are overcomplicating things.
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index ca35c6ba7947..d2aea961e0f4 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -835,7 +835,7 @@ static struct lock_class_key macvlan_netdev_addr_lock_key;
+ 
+ #define ALWAYS_ON_OFFLOADS \
+ 	(NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE | \
+-	 NETIF_F_GSO_ROBUST)
++	 NETIF_F_GSO_ROBUST | NETIF_F_GSO_ENCAP_ALL)
+ 
+ #define ALWAYS_ON_FEATURES (ALWAYS_ON_OFFLOADS | NETIF_F_LLTX)
+ 
+@@ -874,6 +874,7 @@ static int macvlan_init(struct net_device *dev)
+ 	dev->hw_features	|= NETIF_F_LRO;
+ 	dev->vlan_features	= lowerdev->vlan_features & MACVLAN_FEATURES;
+ 	dev->vlan_features	|= ALWAYS_ON_OFFLOADS;
++	dev->hw_enc_features    |= dev->features;
+ 	dev->gso_max_size	= lowerdev->gso_max_size;
+ 	dev->gso_max_segs	= lowerdev->gso_max_segs;
+ 	dev->hard_header_len	= lowerdev->hard_header_len;
+-- 
+2.14.1.480.gb18f417b89-goog
