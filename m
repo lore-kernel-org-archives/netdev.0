@@ -1,36 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sfc: don't try and read ef10 data on non-ef10 NIC
-Date: Tue, 15 Aug 2017 17:19:45 -0700 (PDT)
-Message-ID: <20170815.171945.2105794860753584290.davem@davemloft.net>
-References: <45a53c3b-b578-56ed-ef41-09bef5b5519c@solarflare.com>
+From: =?utf-8?B?0JDQu9C10LrRgdC10Lkg0JHQvtC70LTRi9GA0LXQsg==?=
+        <devel-net-ne-vlezay80@yandex.ru>
+Subject: https://www.spinics.net/lists/kernel/ non work
+Date: Wed, 16 Aug 2017 03:20:35 +0300
+Message-ID: <437031502842835@web21g.yandex.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-        sbrivio@redhat.com
-To: bkenward@solarflare.com
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44144 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752130AbdHPATq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 20:19:46 -0400
-In-Reply-To: <45a53c3b-b578-56ed-ef41-09bef5b5519c@solarflare.com>
+Received: from forward100p.mail.yandex.net ([77.88.28.100]:32962 "EHLO
+        forward100p.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752174AbdHPAUh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 20:20:37 -0400
+Received: from mxback8o.mail.yandex.net (mxback8o.mail.yandex.net [IPv6:2a02:6b8:0:1a2d::22])
+        by forward100p.mail.yandex.net (Yandex) with ESMTP id 4B67C51043A4
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 03:20:36 +0300 (MSK)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bert Kenward <bkenward@solarflare.com>
-Date: Tue, 15 Aug 2017 14:55:32 +0100
+Forbidden
 
-> The MAC stats command takes a port ID, which doesn't exist on
-> pre-ef10 NICs (5000- and 6000- series). This is extracted from the
-> NIC specific data; we misinterpret this as the ef10 data structure,
-> causing us to read potentially unallocated data. With a KASAN kernel
-> this can cause errors with:
->    BUG: KASAN: slab-out-of-bounds in efx_mcdi_mac_stats
-> 
-> Fixes: 0a2ab4d988d7 ("sfc: set the port-id when calling MC_CMD_MAC_STATS")
-> Reported-by: Stefano Brivio <sbrivio@redhat.com>
-> Tested-by: Stefano Brivio <sbrivio@redhat.com>
-> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
-
-Applied, thanks.
+You don't have permission to access /lists/kernel/ on this server.
+Apache/2.4.6 (CentOS) Server at www.spinics.net Port 443
