@@ -1,61 +1,58 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 3/3 v4] drivers: net: ethernet: qualcomm:
- rmnet: Initial implementation
-Date: Wed, 16 Aug 2017 11:08:40 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0056B94@AcuExch.aculab.com>
-References: <1502856953-30321-1-git-send-email-subashab@codeaurora.org>
-        <1502856953-30321-4-git-send-email-subashab@codeaurora.org>
- <20170815.212414.71937112074428743.davem@davemloft.net>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCH] bpf: Update sysctl documentation to list all supported architectures
+Date: Wed, 16 Aug 2017 21:10:40 +1000
+Message-ID: <8760dnu5sf.fsf@concordia.ellerman.id.au>
+References: <1502860557-20247-1-git-send-email-mpe@ellerman.id.au> <5993FFC9.8010206@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "fengguang.wu@intel.com" <fengguang.wu@intel.com>,
-        "dcbw@redhat.com" <dcbw@redhat.com>,
-        "jiri@resnulli.us" <jiri@resnulli.us>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>
-To: 'David Miller' <davem@davemloft.net>,
-        "subashab@codeaurora.org" <subashab@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:63484 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751644AbdHPLIr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 07:08:47 -0400
-In-Reply-To: <20170815.212414.71937112074428743.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, ast@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5993FFC9.8010206@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller
-> Sent: 16 August 2017 05:24
-> From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> Date: Tue, 15 Aug 2017 22:15:53 -0600
-> 
-> > +static int rmnet_unregister_real_device(struct net_device *dev)
-> > +{
-> > +	int config_id = RMNET_LOCAL_LOGICAL_ENDPOINT;
-> > +	struct rmnet_logical_ep_conf_s *epconfig_l;
-> > +	struct rmnet_phys_ep_conf_s *config;
-> > +
-> > +	ASSERT_RTNL();
-> > +
-> > +	netdev_info(dev, "Removing device %s\n", dev->name);
-> > +
-> > +	if (!rmnet_is_real_dev_registered(dev))
-> > +		return -EINVAL;
-> > +
-> > +	for (; config_id < RMNET_MAX_LOGICAL_EP; config_id++) {
-> 
-> This loop is so much harder to understand because you initialize
-> the loop index several lines above the for() statement.  Just
-> initialize it here at the beginning of the for() loop and deal
-> with the fact that this will have to therefore be a multi-line
-> for() statement the best you can.
-...
+Daniel Borkmann <daniel@iogearbox.net> writes:
 
-One way to split the multi-line for() is to put the initialiser
-on the immediately preceding line:
-	config_id = RMNET_LOCAL_LOGICAL_ENDPOINT;
-	for (; config_id < RMNET_MAX_LOGICAL_EP; config_id++) {
+> Hi Michael,
+>
+> On 08/16/2017 07:15 AM, Michael Ellerman wrote:
+>> The sysctl documentation states that the JIT is only available on
+>> x86_64, which is no longer correct.
+>>
+>> Update the list to include all architectures that enable HAVE_CBPF_JIT
+>> or HAVE_EBPF_JIT under some configuration.
+>>
+>> Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+>
+> Thanks for the patch!
+>
+>>   Documentation/sysctl/net.txt | 5 +++--
+>>   1 file changed, 3 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
+>> index 14db18c970b1..f68356024d09 100644
+>> --- a/Documentation/sysctl/net.txt
+>> +++ b/Documentation/sysctl/net.txt
+>> @@ -36,8 +36,9 @@ bpf_jit_enable
+>>   --------------
+>>
+>>   This enables Berkeley Packet Filter Just in Time compiler.
+>> -Currently supported on x86_64 architecture, bpf_jit provides a framework
+>> -to speed packet filtering, the one used by tcpdump/libpcap for example.
+>> +Currently supported on arm, arm64, mips, powerpc, s390, sparc and x86_64
+>> +architectures, bpf_jit provides a framework to speed packet filtering, the one
+>> +used by tcpdump/libpcap for example.
+>
+> Good point, could we actually make that as a bullet list and
+> differentiate between cBPF and eBPF JITs, so that a user doesn't
+> need to run git grep HAVE_{E,C}BPF_JIT to figure it out what the
+> switch enables on the arch used? That would be great.
 
-	David
+We could.
+
+Does a user of the sysctl want/need to know the difference though? Or do
+they just want to turn on "the JIT"?
+
+cheers
