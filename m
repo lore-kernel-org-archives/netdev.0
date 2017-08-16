@@ -1,28 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 0/4] various sizeof cleanups
-Date: Wed, 16 Aug 2017 11:02:12 -0700 (PDT)
-Message-ID: <20170816.110212.1356690082964267932.davem@davemloft.net>
-References: <20170815172919.26153-1-sthemmin@microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/3] VMCI: only load on VMware hypervisor
+Date: Wed, 16 Aug 2017 11:06:35 -0700 (PDT)
+Message-ID: <20170816.110635.1062040564700704290.davem@davemloft.net>
+References: <KL1P15301MB00083C97259FF2A700C78442BF8D0@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mlindner-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, sthemmin-0li6OtcxBFHby3iVrkZq2A@public.gmane.org
-To: stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170815172919.26153-1-sthemmin-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, gregkh@linuxfoundation.org,
+        devel@linuxdriverproject.org, kys@microsoft.com,
+        haiyangz@microsoft.com, sthemmin@microsoft.com,
+        georgezhang@vmware.com, jhansen@vmware.com, mkubecek@suse.cz,
+        asias@redhat.com, stefanha@redhat.com, vkuznets@redhat.com,
+        cavery@redhat.com, jasowang@redhat.com, rolf.neugebauer@docker.com,
+        dave.scott@docker.com, marcelo.cerri@canonical.com,
+        apw@canonical.com, olaf@aepfle.de, joe@perches.com,
+        linux-kernel@vger.kernel.org, dan.carpenter@oracle.com
+To: decui@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <KL1P15301MB00083C97259FF2A700C78442BF8D0@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Date: Tue, 15 Aug 2017 10:29:15 -0700
+From: Dexuan Cui <decui@microsoft.com>
+Date: Tue, 15 Aug 2017 22:13:29 +0000
 
-> Noticed some places that were using sizeof as an operator.
-> This is legal C but is not the convention used in the kernel.
+> +	/*
+> +	 * Check if we are running on VMware's hypervisor and bail out
+> +	 * if we are not.
+> +	 */
+> +	if (x86_hyper != &x86_hyper_vmware)
+> +		return -ENODEV;
 
-Series applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This symbol is only available when CONFIG_HYPERVISOR_GUEST is defined.
+But this driver does not have a Kconfig dependency on that symbol so
+the build can fail in some configurations.
