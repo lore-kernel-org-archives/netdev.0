@@ -1,53 +1,146 @@
-From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: Re: [PATCH net] xfrm: Clear sk_dst_cache when applying per-socket
- policy.
-Date: Wed, 16 Aug 2017 11:03:41 +0200
-Message-ID: <20170816110341.5e899c23@beetle>
-References: <20170815222510.21711-1-misterikkit@google.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] net/mlx4: fix spelling mistake: "availible" -> "available"
+Date: Wed, 16 Aug 2017 10:05:11 +0100
+Message-ID: <20170816090511.10463-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        steffen.klassert@secunet.com, lorenzo@google.com
-To: Jonathan Basseri <misterikkit@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:38167 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751692AbdHPJDp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 05:03:45 -0400
-Received: by mail-wm0-f44.google.com with SMTP id f15so28320656wmg.1
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 02:03:44 -0700 (PDT)
-In-Reply-To: <20170815222510.21711-1-misterikkit@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Aug 2017 15:25:10 -0700
-Jonathan Basseri <misterikkit@google.com> wrote:
+From: Colin Ian King <colin.king@canonical.com>
 
-> If an IPv6 socket has a valid dst cache, then xfrm_lookup_route will get
-> skipped. However, the cache is not invalidated when applying policy to a
-> socket (i.e. IPV6_XFRM_POLICY). The result is that new policies are
-> sometimes ignored on those sockets.
-> 
-> This can be demonstrated like so,
-> 1. Create UDPv6 socket.
-> 2. connect() the socket.
-> 3. Apply an outbound XFRM policy to the socket.
-> 4. send() data on the socket.
-> 
-> Packets will continue to be sent in the clear instead of matching an
-> xfrm or returning a no-match error (EAGAIN). This affects calls to
-> send() and not sendto().
-> 
-> Note: Creating normal XFRM policies should have a similar effect on
-> sk_dst_cache entries that match the policy, but that is not fixed in
-> this patch.
-> 
-> Fixes: 00bc0ef5880d ("ipv6: Skip XFRM lookup if dst_entry in socket cache is valid")
-> Tested: https://android-review.googlesource.com/418659
-> Signed-off-by: Jonathan Basseri <misterikkit@google.com>
-> ---
+Trivial fix to spelling mistakes in the mlx4 driver
 
-Thank you for the fix.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/cmd.c    | 16 ++++++++--------
+ drivers/net/ethernet/mellanox/mlx4/fw_qos.c |  6 +++---
+ drivers/net/ethernet/mellanox/mlx4/fw_qos.h | 10 +++++-----
+ 3 files changed, 16 insertions(+), 16 deletions(-)
 
-Acked-by: Jakub Sitnicki <jkbs@redhat.com>
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 674773b28b2e..6309389b09a7 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -1958,19 +1958,19 @@ static void mlx4_allocate_port_vpps(struct mlx4_dev *dev, int port)
+ 	int i;
+ 	int err;
+ 	int num_vfs;
+-	u16 availible_vpp;
++	u16 available_vpp;
+ 	u8 vpp_param[MLX4_NUM_UP];
+ 	struct mlx4_qos_manager *port_qos;
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 
+-	err = mlx4_ALLOCATE_VPP_get(dev, port, &availible_vpp, vpp_param);
++	err = mlx4_ALLOCATE_VPP_get(dev, port, &available_vpp, vpp_param);
+ 	if (err) {
+-		mlx4_info(dev, "Failed query availible VPPs\n");
++		mlx4_info(dev, "Failed query available VPPs\n");
+ 		return;
+ 	}
+ 
+ 	port_qos = &priv->mfunc.master.qos_ctl[port];
+-	num_vfs = (availible_vpp /
++	num_vfs = (available_vpp /
+ 		   bitmap_weight(port_qos->priority_bm, MLX4_NUM_UP));
+ 
+ 	for (i = 0; i < MLX4_NUM_UP; i++) {
+@@ -1985,14 +1985,14 @@ static void mlx4_allocate_port_vpps(struct mlx4_dev *dev, int port)
+ 	}
+ 
+ 	/* Query actual allocated VPP, just to make sure */
+-	err = mlx4_ALLOCATE_VPP_get(dev, port, &availible_vpp, vpp_param);
++	err = mlx4_ALLOCATE_VPP_get(dev, port, &available_vpp, vpp_param);
+ 	if (err) {
+-		mlx4_info(dev, "Failed query availible VPPs\n");
++		mlx4_info(dev, "Failed query available VPPs\n");
+ 		return;
+ 	}
+ 
+ 	port_qos->num_of_qos_vfs = num_vfs;
+-	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, availible_vpp);
++	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, available_vpp);
+ 
+ 	for (i = 0; i < MLX4_NUM_UP; i++)
+ 		mlx4_dbg(dev, "Port %d UP %d Allocated %d VPPs\n", port, i,
+@@ -2891,7 +2891,7 @@ static int mlx4_set_vport_qos(struct mlx4_priv *priv, int slave, int port,
+ 	memset(vpp_qos, 0, sizeof(struct mlx4_vport_qos_param) * MLX4_NUM_UP);
+ 
+ 	if (slave > port_qos->num_of_qos_vfs) {
+-		mlx4_info(dev, "No availible VPP resources for this VF\n");
++		mlx4_info(dev, "No available VPP resources for this VF\n");
+ 		return -EINVAL;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw_qos.c b/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+index 8f2fde0487c4..3a09d7122d3b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+@@ -65,7 +65,7 @@ struct mlx4_set_port_scheduler_context {
+ 
+ /* Granular Qos (per VF) section */
+ struct mlx4_alloc_vpp_param {
+-	__be32 availible_vpp;
++	__be32 available_vpp;
+ 	__be32 vpp_p_up[MLX4_NUM_UP];
+ };
+ 
+@@ -157,7 +157,7 @@ int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
+ EXPORT_SYMBOL(mlx4_SET_PORT_SCHEDULER);
+ 
+ int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
+-			  u16 *availible_vpp, u8 *vpp_p_up)
++			  u16 *available_vpp, u8 *vpp_p_up)
+ {
+ 	int i;
+ 	int err;
+@@ -179,7 +179,7 @@ int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
+ 		goto out;
+ 
+ 	/* Total number of supported VPPs */
+-	*availible_vpp = (u16)be32_to_cpu(out_param->availible_vpp);
++	*available_vpp = (u16)be32_to_cpu(out_param->available_vpp);
+ 
+ 	for (i = 0; i < MLX4_NUM_UP; i++)
+ 		vpp_p_up[i] = (u8)be32_to_cpu(out_param->vpp_p_up[i]);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw_qos.h b/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
+index ac1f331878e6..582997577a04 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
++++ b/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
+@@ -84,23 +84,23 @@ int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8 port, u8 *prio2tc);
+ int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
+ 			    u8 *pg, u16 *ratelimit);
+ /**
+- * mlx4_ALLOCATE_VPP_get - Query port VPP availible resources and allocation.
+- * Before distribution of VPPs to priorities, only availible_vpp is returned.
++ * mlx4_ALLOCATE_VPP_get - Query port VPP available resources and allocation.
++ * Before distribution of VPPs to priorities, only available_vpp is returned.
+  * After initialization it returns the distribution of VPPs among priorities.
+  *
+  * @dev: mlx4_dev.
+  * @port: Physical port number.
+- * @availible_vpp: Pointer to variable where number of availible VPPs is stored
++ * @available_vpp: Pointer to variable where number of available VPPs is stored
+  * @vpp_p_up: Distribution of VPPs to priorities is stored in this array
+  *
+  * Returns 0 on success or a negative mlx4_core errno code.
+  **/
+ int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
+-			  u16 *availible_vpp, u8 *vpp_p_up);
++			  u16 *available_vpp, u8 *vpp_p_up);
+ /**
+  * mlx4_ALLOCATE_VPP_set - Distribution of VPPs among differnt priorities.
+  * The total number of VPPs assigned to all for a port must not exceed
+- * the value reported by availible_vpp in mlx4_ALLOCATE_VPP_get.
++ * the value reported by available_vpp in mlx4_ALLOCATE_VPP_get.
+  * VPP allocation is allowed only after the port type has been set,
+  * and while no QPs are open for this port.
+  *
+-- 
+2.11.0
