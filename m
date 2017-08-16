@@ -1,55 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: fix bpf_trace_printk on 32 bit archs
-Date: Tue, 15 Aug 2017 17:32:57 -0700 (PDT)
-Message-ID: <20170815.173257.21810623154828496.davem@davemloft.net>
-References: <dd122e1ec0eadaf3f8fc11107f7a57177dcd8588.1502840567.git.daniel@iogearbox.net>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [patch] netlink.7: srcfix Change buffer size in example code
+ about reading netlink message.
+Date: Wed, 16 Aug 2017 02:37:50 +0200
+Message-ID: <86910c29-c68c-dc7d-d5b9-3f20128d5af1@gmail.com>
+References: <e9409957290af5249750afa0f10de3a6@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: james.hogan@imgtec.com, ast@fb.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44416 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752718AbdHPAc6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 20:32:58 -0400
-In-Reply-To: <dd122e1ec0eadaf3f8fc11107f7a57177dcd8588.1502840567.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dwilder <dwilder-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <e9409957290af5249750afa0f10de3a6-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Content-Language: en-US
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 16 Aug 2017 01:45:33 +0200
+On 11/14/2016 11:20 PM, dwilder wrote:
+> The example code in netlink(7) (for reading netlink message) suggests 
+> using
+> a 4k read buffer with recvmsg.  This can cause truncated messages on 
+> systems
+> using a page size is >4096.  Please see:
+> linux/include/linux/netlink.h (in the kernel source)
+> 
+> <snip>
+> /*
+>   *      skb should fit one page. This choice is good for headerless 
+> malloc.
+>   *      But we should limit to 8K so that userspace does not have to
+>   *      use enormous buffer sizes on recvmsg() calls just to avoid
+>   *      MSG_TRUNC when PAGE_SIZE is very large.
+>   */
+> #if PAGE_SIZE < 8192UL
+> #define NLMSG_GOODSIZE  SKB_WITH_OVERHEAD(PAGE_SIZE)
+> #else
+> #define NLMSG_GOODSIZE  SKB_WITH_OVERHEAD(8192UL)
+> #endif
+> 
+> #define NLMSG_DEFAULT_SIZE (NLMSG_GOODSIZE - NLMSG_HDRLEN)
+> <snip>
+> 
+> I was troubleshooting some up-stream code on a ppc64le system
+> (page:size of 64k) This code had duplicated the example from netlink(7) 
+> and
+> was using a 4k buffer.  On x86-64 with a 4k page size this is not a 
+> problem,
+> however on the 64k page system some messages were truncated.  Using an 
+> 8k buffer
+> as implied in netlink.h prevents problems with any page size.
+> 
+> Lets change the example so others don't propagate the problem further.
+> 
+> Signed-off-by David Wilder <dwilder-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
 
-> James reported that on MIPS32 bpf_trace_printk() is currently
-> broken while MIPS64 works fine:
-> 
->   bpf_trace_printk() uses conditional operators to attempt to
->   pass different types to __trace_printk() depending on the
->   format operators. This doesn't work as intended on 32-bit
->   architectures where u32 and long are passed differently to
->   u64, since the result of C conditional operators follows the
->   "usual arithmetic conversions" rules, such that the values
->   passed to __trace_printk() will always be u64 [causing issues
->   later in the va_list handling for vscnprintf()].
-> 
->   For example the samples/bpf/tracex5 test printed lines like
->   below on MIPS32, where the fd and buf have come from the u64
->   fd argument, and the size from the buf argument:
-> 
->     [...] 1180.941542: 0x00000001: write(fd=1, buf=  (null), size=6258688)
-> 
->   Instead of this:
-> 
->     [...] 1625.616026: 0x00000001: write(fd=1, buf=009e4000, size=512)
-> 
-> One way to get it working is to expand various combinations
-> of argument types into 8 different combinations for 32 bit
-> and 64 bit kernels. Fix tested by James on MIPS32 and MIPS64
-> as well that it resolves the issue.
-> 
-> Fixes: 9c959c863f82 ("tracing: Allow BPF programs to call bpf_trace_printk()")
-> Reported-by: James Hogan <james.hogan@imgtec.com>
-> Tested-by: James Hogan <james.hogan@imgtec.com>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Thanks, David. Patch applied.
 
-Applied and queued up for -stable, thanks Daniel.
+Cheers,
+
+Michael
+
+
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
