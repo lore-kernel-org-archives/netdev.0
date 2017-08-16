@@ -1,24 +1,26 @@
-From: =?utf-8?B?0JDQu9C10LrRgdC10Lkg0JHQvtC70LTRi9GA0LXQsg==?=
-        <devel-net-ne-vlezay80@yandex.ru>
-Subject: https://www.spinics.net/lists/kernel/ non work
-Date: Wed, 16 Aug 2017 03:20:35 +0300
-Message-ID: <437031502842835@web21g.yandex.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] inet: make RTM_GETROUTE work without rtnl
+Date: Tue, 15 Aug 2017 17:21:10 -0700 (PDT)
+Message-ID: <20170815.172110.1790071539239773128.davem@davemloft.net>
+References: <20170815143444.17002-1-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward100p.mail.yandex.net ([77.88.28.100]:32962 "EHLO
-        forward100p.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752174AbdHPAUh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 20:20:37 -0400
-Received: from mxback8o.mail.yandex.net (mxback8o.mail.yandex.net [IPv6:2a02:6b8:0:1a2d::22])
-        by forward100p.mail.yandex.net (Yandex) with ESMTP id 4B67C51043A4
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 03:20:36 +0300 (MSK)
+Received: from shards.monkeyblade.net ([184.105.139.130]:44172 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752401AbdHPAVL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 20:21:11 -0400
+In-Reply-To: <20170815143444.17002-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Forbidden
+From: Florian Westphal <fw@strlen.de>
+Date: Tue, 15 Aug 2017 16:34:40 +0200
 
-You don't have permission to access /lists/kernel/ on this server.
-Apache/2.4.6 (CentOS) Server at www.spinics.net Port 443
+> ipv4 getroute doesn't assume rtnl lock is held anymore, also make
+> this true for ipv6, then switch both to DOIT_UNLOCKED.
+
+Series applied, thanks Florian.
