@@ -1,74 +1,44 @@
 From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net-next 0/3 v4] Add support for rmnet driver
-Date: Tue, 15 Aug 2017 22:15:50 -0600
-Message-ID: <1502856953-30321-1-git-send-email-subashab@codeaurora.org>
+Subject: [PATCH net-next 1/3 v4] net: ether: Add support for multiplexing and aggregation type
+Date: Tue, 15 Aug 2017 22:15:51 -0600
+Message-ID: <1502856953-30321-2-git-send-email-subashab@codeaurora.org>
+References: <1502856953-30321-1-git-send-email-subashab@codeaurora.org>
 Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 To: netdev@vger.kernel.org, davem@davemloft.net,
         fengguang.wu@intel.com, dcbw@redhat.com, jiri@resnulli.us,
         stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56572 "EHLO
+Received: from smtp.codeaurora.org ([198.145.29.96]:57332 "EHLO
         smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750795AbdHPEQU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 00:16:20 -0400
+        with ESMTP id S1751129AbdHPEQb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 00:16:31 -0400
+In-Reply-To: <1502856953-30321-1-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---
-v1: Same as the RFC patch with some minor fixes for issues reported by
-kbuild test robot.
+Define the multiplexing and aggregation (MAP) ether type 0xDA1A. This
+is needed for receiving data in the MAP protocol like RMNET. This is
+not an officially registered ID.
 
-v1->v2: Change datatypes and remove config IOCTL as mentioned by David.
-Also fix checkpatch issues and remove some unused code.
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+---
+ include/uapi/linux/if_ether.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-v2->v3: Move location to drivers/net and rename to rmnet. Change the
-userspace - netlink communication from custom netlink to rtnl_link_ops.
-Refactor some code. Use a fixed config for ingress and egress.
-
-v3->v4: Move location to drivers/net/ethernet/qualcomm/.
-Fix comments from Stephen and Jiri -
-Split the ether and arp type changes into seperate patches.
-Remove debug and custom logging and switch to standard netdevice log.
-Remove module parameters. Refactor and change some code style issues.
-
-Subash Abhinov Kasiviswanathan (3):
-  net: ether: Add support for multiplexing and aggregation type
-  net: arp: Add support for raw IP device
-  drivers: net: ethernet: qualcomm: rmnet: Initial implementation
-
- Documentation/networking/rmnet.txt                 |  82 ++++
- drivers/net/ethernet/qualcomm/Kconfig              |   2 +
- drivers/net/ethernet/qualcomm/Makefile             |   2 +
- drivers/net/ethernet/qualcomm/rmnet/Kconfig        |  12 +
- drivers/net/ethernet/qualcomm/rmnet/Makefile       |  14 +
- drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c | 470 +++++++++++++++++++++
- drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h |  60 +++
- .../net/ethernet/qualcomm/rmnet/rmnet_handlers.c   | 301 +++++++++++++
- .../net/ethernet/qualcomm/rmnet/rmnet_handlers.h   |  26 ++
- drivers/net/ethernet/qualcomm/rmnet/rmnet_main.c   |  37 ++
- drivers/net/ethernet/qualcomm/rmnet/rmnet_map.h    |  88 ++++
- .../ethernet/qualcomm/rmnet/rmnet_map_command.c    | 122 ++++++
- .../net/ethernet/qualcomm/rmnet/rmnet_map_data.c   | 105 +++++
- .../net/ethernet/qualcomm/rmnet/rmnet_private.h    |  47 +++
- drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c    | 270 ++++++++++++
- drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.h    |  32 ++
- include/uapi/linux/if_arp.h                        |   1 +
- include/uapi/linux/if_ether.h                      |   4 +-
- 18 files changed, 1674 insertions(+), 1 deletion(-)
- create mode 100644 Documentation/networking/rmnet.txt
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/Kconfig
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/Makefile
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.h
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_main.c
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_map.h
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_map_command.c
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_private.h
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
- create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.h
-
+diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+index 5bc9bfd..e80b03f 100644
+--- a/include/uapi/linux/if_ether.h
++++ b/include/uapi/linux/if_ether.h
+@@ -104,7 +104,9 @@
+ #define ETH_P_QINQ3	0x9300		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
+ #define ETH_P_EDSA	0xDADA		/* Ethertype DSA [ NOT AN OFFICIALLY REGISTERED ID ] */
+ #define ETH_P_AF_IUCV   0xFBFB		/* IBM af_iucv [ NOT AN OFFICIALLY REGISTERED ID ] */
+-
++#define ETH_P_MAP       0xDA1A          /* Multiplexing and Aggregation Protocol
++					 *  NOT AN OFFICIALLY REGISTERED ID ]
++					 */
+ #define ETH_P_802_3_MIN	0x0600		/* If the value in the ethernet type is less than this value
+ 					 * then the frame is Ethernet II. Else it is 802.3 */
+ 
 -- 
 1.9.1
