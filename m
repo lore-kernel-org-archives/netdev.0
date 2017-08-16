@@ -1,50 +1,48 @@
-From: Akshat Kakkar <akshat.1984@gmail.com>
-Subject: Re: Something hitting my total number of connections to the server
-Date: Wed, 16 Aug 2017 10:18:08 +0530
-Message-ID: <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
-References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: netdev <netdev@vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next 2/3 v4] net: arp: Add support for raw IP device
+Date: Wed, 16 Aug 2017 06:52:41 +0200
+Message-ID: <7D61C5CD-5B75-46C8-AC00-C4852FC1A554@holtmann.org>
+References: <1502856953-30321-1-git-send-email-subashab@codeaurora.org>
+ <1502856953-30321-3-git-send-email-subashab@codeaurora.org>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Netdev list <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, fengguang.wu@intel.com,
+        Dan Williams <dcbw@redhat.com>, jiri@resnulli.us,
+        stephen@networkplumber.org
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:32973 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751611AbdHPEsJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 00:48:09 -0400
-Received: by mail-pg0-f49.google.com with SMTP id u5so17968690pgn.0
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 21:48:09 -0700 (PDT)
-In-Reply-To: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
+Received: from coyote.holtmann.net ([212.227.132.17]:46984 "EHLO
+        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751643AbdHPEwo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 00:52:44 -0400
+In-Reply-To: <1502856953-30321-3-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 14, 2017 at 2:37 PM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
-> I have centos 7.3 (Kernel 3.10) running on a server with 128GB RAM and
-> 2 x 10 Core Xeon Processor.
-> I have hosted a webserver on it and enabled ssh for remote maintenance.
-> Previously it was running on Centos 6.3.
-> After upgrading to CentOS 7.3, occasionally (probably when number of
-> hits are more on the server), I am not able to create new connections
-> (neither on web nor on ssh). Existing connections keeps on running
-> fine.
->
-> I did packet capturing using tcpdump to understand if its some
-> intermediate network issue.
-> What I found was the server is not replying for new SYN requests.
->
-> So it's clear that its not at all application issue. Also, there are
-> no logs in applications logs for any connections dropped, if any.
->
-> I check my firewall rules if there is some rate limiting imposed.
-> There is nothing in there.
->
-> I check tc, if by mistake some rate limiting is imposed. There is
-> nothing in there too.
->
-> I have increased noOfFiles to 1000000 and other sysctl parameters, but
-> the issue is still there.
->
-> Has anybody experienced the same?
->
-> How to go about? Anybody ... Please Help!!!
+Hi Subash,
 
-Its getting lonely out here. Anybody there ???
+> Define the raw IP type. This is needed for raw IP net devices
+> like rmnet.
+> 
+> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+> ---
+> include/uapi/linux/if_arp.h | 1 +
+> 1 file changed, 1 insertion(+)
+> 
+> diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
+> index cf73510..d6650e2 100644
+> --- a/include/uapi/linux/if_arp.h
+> +++ b/include/uapi/linux/if_arp.h
+> @@ -59,6 +59,7 @@
+> #define ARPHRD_LAPB	516		/* LAPB				*/
+> #define ARPHRD_DDCMP    517		/* Digital's DDCMP protocol     */
+> #define ARPHRD_RAWHDLC	518		/* Raw HDLC			*/
+> +#define ARPHRD_RAWIP    530             /* Raw IP                       */
+
+what is up with gap here?
+
+Regards
+
+Marcel
