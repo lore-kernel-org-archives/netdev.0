@@ -1,70 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [bug report] net: dsa: ksz: fix skb freeing
-Date: Wed, 16 Aug 2017 23:52:53 +0200
-Message-ID: <20170816215253.GF8760@lunn.ch>
-References: <20170816212719.uyszb2krtgir3xn2@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net] tcp: when rearming RTO, if RTO time is in past then fire RTO ASAP
+Date: Wed, 16 Aug 2017 17:53:36 -0400
+Message-ID: <20170816215336.30419-1-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59087 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752219AbdHPVw7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Aug 2017 17:52:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20170816212719.uyszb2krtgir3xn2@mwanda>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:33215 "EHLO
+        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752346AbdHPVxj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 17:53:39 -0400
+Received: by mail-qk0-f181.google.com with SMTP id a77so27775572qkb.0
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 14:53:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 17, 2017 at 12:27:19AM +0300, Dan Carpenter wrote:
-> Hello Vivien Didelot,
-> 
-> The patch e71cb9e00922: "net: dsa: ksz: fix skb freeing" from Aug 9,
-> 2017, leads to the following static checker warning:
-> 
-> 	net/dsa/tag_ksz.c:64 ksz_xmit()
-> 	warn: 'nskb' was already freed.
+In some situations tcp_send_loss_probe() can realize that it's unable
+to send a loss probe (TLP), and falls back to calling tcp_rearm_rto()
+to schedule an RTO timer. In such cases, sometimes tcp_rearm_rto()
+realizes that the RTO was eligible to fire immediately or at some
+point in the past (delta_us <= 0). Previously in such cases
+tcp_rearm_rto() was scheduling such "overdue" RTOs to happen at now +
+icsk_rto, which caused needless delays of hundreds of milliseconds
+(and non-linear behavior that made reproducible testing
+difficult). This commit changes the logic to schedule "overdue" RTOs
+ASAP, rather than at now + icsk_rto.
 
-> net/dsa/tag_ksz.c
->     35  static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
->     36  {
->     37          struct dsa_slave_priv *p = netdev_priv(dev);
->     38          struct sk_buff *nskb;
->     39          int padlen;
->     40          u8 *tag;
->     41  
->     42          padlen = (skb->len >= ETH_ZLEN) ? 0 : ETH_ZLEN - skb->len;
->     43  
->     44          if (skb_tailroom(skb) >= padlen + KSZ_INGRESS_TAG_LEN) {
->     45                  if (skb_put_padto(skb, skb->len + padlen))
->     46                          return NULL;
->     47  
->     48                  nskb = skb;
->     49          } else {
->     50                  nskb = alloc_skb(NET_IP_ALIGN + skb->len +
->     51                                   padlen + KSZ_INGRESS_TAG_LEN, GFP_ATOMIC);
->     52                  if (!nskb)
->     53                          return NULL;
->     54                  skb_reserve(nskb, NET_IP_ALIGN);
->     55  
->     56                  skb_reset_mac_header(nskb);
->     57                  skb_set_network_header(nskb,
->     58                                         skb_network_header(skb) - skb->head);
->     59                  skb_set_transport_header(nskb,
->     60                                           skb_transport_header(skb) - skb->head);
->     61                  skb_copy_and_csum_dev(skb, skb_put(nskb, skb->len));
->     62  
->     63                  if (skb_put_padto(nskb, nskb->len + padlen)) {
->     64                          kfree_skb(nskb);
->                                 ^^^^^^^^^^^^^^
-> This patch deliberately adds a kfree_skb() here, but it looks like a
-> double free, and my static checker complains.  My guess is you had
-> intended to free "skb" instead of "nskb"?  I'm not positive.
+Suggested-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_input.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-I actually think it is a miss understanding about skb_put_padto()
-actually does. If it returns an error code, it also frees the skb it
-has been asked to modify. So free'ing nsbk is wrong. So line 64 simply
-needs to be removed.
-
-      Andrew
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 53de1424c13c..bab7f0493098 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3009,8 +3009,7 @@ void tcp_rearm_rto(struct sock *sk)
+ 			/* delta_us may not be positive if the socket is locked
+ 			 * when the retrans timer fires and is rescheduled.
+ 			 */
+-			if (delta_us > 0)
+-				rto = usecs_to_jiffies(delta_us);
++			rto = usecs_to_jiffies(max_t(int, delta_us, 1));
+ 		}
+ 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, rto,
+ 					  TCP_RTO_MAX);
+-- 
+2.14.1.480.gb18f417b89-goog
