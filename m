@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] bpf: devmap: remove unnecessary value size
- check
-Date: Wed, 16 Aug 2017 11:35:34 -0700 (PDT)
-Message-ID: <20170816.113534.473760745011942655.davem@davemloft.net>
-References: <20170816063512.14925.40390.stgit@john-Precision-Tower-5810>
+Subject: Re: [PATCH net-next 0/2] nfp: process MTU updates from firmware
+ flower app
+Date: Wed, 16 Aug 2017 11:36:59 -0700 (PDT)
+Message-ID: <20170816.113659.599380793285418828.davem@davemloft.net>
+References: <1502869064-25842-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: john.fastabend@gmail.com
+Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
+        oss-drivers@netronome.com
+To: simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35120 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35150 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751772AbdHPSfe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 14:35:34 -0400
-In-Reply-To: <20170816063512.14925.40390.stgit@john-Precision-Tower-5810>
+        with ESMTP id S1751635AbdHPSg7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 14:36:59 -0400
+In-Reply-To: <1502869064-25842-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Tue, 15 Aug 2017 23:35:12 -0700
+From: Simon Horman <simon.horman@netronome.com>
+Date: Wed, 16 Aug 2017 09:37:42 +0200
 
-> In the devmap alloc map logic we check to ensure that the sizeof the
-> values are not greater than KMALLOC_MAX_SIZE. But, in the dev map case
-> we ensure the value size is 4bytes earlier in the function because all
-> values should be netdev ifindex values.
-> 
-> The second check is harmless but is not needed so remove it.
-> 
-> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+> The first patch of this series moves processing of control messages from a
+> BH handler to a workqueue. That change makes it safe to process MTU
+> updates from the firmware which is added by the second patch of this
+> series.
 
-Applied.
+Series applied, thanks.
