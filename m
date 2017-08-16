@@ -1,36 +1,42 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] tun: make tun_build_skb() thread safe
-Date: Wed, 16 Aug 2017 22:29:55 +0800
-Message-ID: <10bb7c67-d30f-2f72-9e16-a9c3a99bc7fc@redhat.com>
-References: <1502892873-10770-1-git-send-email-jasowang@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] tcp: Remove unnecessary dst check in
+ tcp_conn_request.
+Date: Wed, 16 Aug 2017 07:44:47 -0700
+Message-ID: <1502894687.4936.115.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1502890265-9285-1-git-send-email-xiangxia.m.yue@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: mst@redhat.com, Eric Dumazet <eric.dumazet@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502892873-10770-1-git-send-email-jasowang@redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:37823 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752231AbdHPOoy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 10:44:54 -0400
+Received: by mail-pg0-f47.google.com with SMTP id y129so23861008pgy.4
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 07:44:54 -0700 (PDT)
+In-Reply-To: <1502890265-9285-1-git-send-email-xiangxia.m.yue@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Wed, 2017-08-16 at 06:31 -0700, Tonghao Zhang wrote:
+> Because we remove the tcp_tw_recycle support in the commit
 
 
+> 4396e46187c ('tcp: remove tcp_tw_recycle') and also delete
+> the code 'af_ops->route_req' for sysctl_tw_recycle in tcp_conn_request.
+> Now when we call the 'af_ops->route_req', the dist always is
+> NULL, and we remove the unnecessay check.
 
-On 2017年08月16日 22:14, Jason Wang wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
->
-> tun_build_skb() is not thread safe since it uses per queue page frag,
-> this will break things when multiple threads are sending through same
-> queue. Switch to use per-thread generator (no lock involved).
->
-> Fixes: 66ccbc9c87c2 ("tap: use build_skb() for small packet")
-> Tested-by: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->   drivers/net/tun.c | 7 +------
+Thanks for these patches.
 
-Forget to mention, this is for net-next.
+You forgot :
 
-Thanks
+1) a cover letter ( [PATCH next-next 0/2] tcp: ....
+
+2) clearly state which tree you are targeting 
+( read Documentation/networking/netdev-FAQ.txt )
+
+3) Also, I would also have removed tcp_peer_is_proven()
+since it is also called with dst=NULL
