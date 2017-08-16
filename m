@@ -1,86 +1,131 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next] neigh: initialize neigh entry correctly during arp processing
-Date: Wed, 16 Aug 2017 17:02:51 -0700
-Message-ID: <20170817000251.38469-1-mahesh@bandewar.net>
-Cc: Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        Mahesh Bandewar <mahesh@bandewar.net>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        Kees Cook <keescook@chromium.org>,
-        Reshetova Elena <elena.reshetova@intel.com>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Florian Westphal <fw@strlen.de>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Ihar Hrachyshka <ihrachys@redhat.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
-        Mahesh Bandewar <maheshb@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36539 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751119AbdHQAC7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 20:02:59 -0400
-Received: by mail-pg0-f67.google.com with SMTP id y129so6925078pgy.3
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 17:02:59 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3] openvswitch: enable NSH support
+Date: Thu, 17 Aug 2017 07:49:41 +0800
+Message-ID: <20170816234940.GB123125@cran64.bj.intel.com>
+References: <1502861730-76203-1-git-send-email-yi.y.yang@intel.com>
+	<20170816151528.GG27729@dev-rhel7>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Eric Garver <e@erig.me>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170816151528.GG27729@dev-rhel7>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <maheshb@google.com>
+On Wed, Aug 16, 2017 at 11:15:28PM +0800, Eric Garver wrote:
+> On Wed, Aug 16, 2017 at 01:35:30PM +0800, Yi Yang wrote:
+> > +
+> > +#define NSH_DST_PORT    4790     /* UDP Port for NSH on VXLAN. */
+> > +#define ETH_P_NSH       0x894F   /* Ethertype for NSH. */
+> 
+> ETH_P_NSH probably belongs in include/uapi/linux/if_ether.h with all the
+> other ETH_P_* defines.
+> 
 
-If the ARP processing creates a neigh entry, it's immediately marked
-as STALE without timer and stays that way in that state as long as
-host do not send traffic to that neighbour.
+Ok, I'll move it to include/uapi/linux/if_ether.h, but in userspace, we
+still need to keep it in nsh.h.
 
-I observed this on hosts which are in IPv6 environment, where there is
-very little to no IPv4 traffic and neigh-entries are stuck in STALE
-mode. Ideally, the host should have PROBEd these neighbours before it
-can send the first packet out.
+> >  
+> > +struct ovs_key_nsh {
+> > +	__u8 flags;
+> > +	__u8 mdtype;
+> > +	__u8 np;
+> > +	__u8 pad;
+> > +	__be32 path_hdr;
+> > +	__be32 context[NSH_MD1_CONTEXT_SIZE];
+> > +};
+> > +
+> >  struct sw_flow_key {
+> >  	u8 tun_opts[IP_TUNNEL_OPTS_MAX];
+> >  	u8 tun_opts_len;
+> > @@ -144,6 +154,7 @@ struct sw_flow_key {
+> >  			};
+> >  		} ipv6;
+> >  	};
+> > +	struct ovs_key_nsh nsh;         /* network service header */
+> 
+> Are you intentionally not reserving space in the flow key for
+> OVS_NSH_KEY_ATTR_MD2? I know it's not supported yet, but much of the
+> code is stubbed out for it - just making sure this wasn't an oversight.
+> 
 
-It happens as a result of following call sequence in an environment
-where host is mostly quiet as far as IPv4 traffic but few connected
-hosts/gateways are sending ARPs.
+For MD type 2, we'll reuse tun_metedata keys in struct flow_tnl which
+will be reworked and it will be shared by NSH and GENEVE, so we won't
+have new keys in "struct ovs_key_nsh" for MD type 2.
 
-   arp_process()
-     neigh_event_ns()
-       neigh_lookup()
-         neigh_create()
-           neigh_alloc()
-             nud_state=NUD_NONE
-     neigh_update(nud_state=NUD_STALE)
+> >  	struct {
+> >  		/* Connection tracking fields not packed above. */
+> >  		struct {
+> > diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+> > index f07d10a..79059db 100644
+> > --- a/net/openvswitch/flow_netlink.c
+> > +++ b/net/openvswitch/flow_netlink.c
+> > @@ -78,9 +78,11 @@ static bool actions_may_change_flow(const struct nlattr *actions)
+> >  		case OVS_ACTION_ATTR_HASH:
+> >  		case OVS_ACTION_ATTR_POP_ETH:
+> >  		case OVS_ACTION_ATTR_POP_MPLS:
+> > +		case OVS_ACTION_ATTR_POP_NSH:
+> >  		case OVS_ACTION_ATTR_POP_VLAN:
+> >  		case OVS_ACTION_ATTR_PUSH_ETH:
+> >  		case OVS_ACTION_ATTR_PUSH_MPLS:
+> > +		case OVS_ACTION_ATTR_PUSH_NSH:
+> >  		case OVS_ACTION_ATTR_PUSH_VLAN:
+> >  		case OVS_ACTION_ATTR_SAMPLE:
+> >  		case OVS_ACTION_ATTR_SET:
+> > @@ -322,12 +324,22 @@ size_t ovs_tun_key_attr_size(void)
+> >  		+ nla_total_size(2);   /* OVS_TUNNEL_KEY_ATTR_TP_DST */
+> >  }
+> >  
+> > +size_t ovs_nsh_key_attr_size(void)
+> > +{
+> > +	/* Whenever adding new OVS_NSH_KEY_ FIELDS, we should consider
+> > +	 * updating this function.
+> > +	 */
+> > +	return  nla_total_size(8)      /* OVS_NSH_KEY_ATTR_BASE */
+> > +		+ nla_total_size(16)   /* OVS_NSH_KEY_ATTR_MD1 */
+> > +		+ nla_total_size(248); /* OVS_NSH_KEY_ATTR_MD2 */
+> 
+> _MD1 and _MD2 are mutually exclusive. You only need the larger of the
+> two.
+> 
+> Maybe use OVS_PUSH_NSH_MAX_MD_LEN instead of 248.
 
-In the above scenario, the neighbour entry does not get a chance to get
-PROBEd as subsequent call to neigh_update() marks  this entry STALE.
-This patch initializes the neigh-entry correctly if it was created as a
-result of neigh_lookup instead of just updating it in neigh_event_ns()
-right after creating it.
+Got it, will use nla_total_size(NSH_M_TYPE2_MAX_LEN - NSH_BASE_HDR_LEN)
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- net/core/neighbour.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+> > +
+> > +		switch (type) {
+> > +		case OVS_NSH_KEY_ATTR_BASE: {
+> > +			const struct ovs_nsh_key_base *base =
+> > +				(struct ovs_nsh_key_base *)nla_data(a);
+> > +			nsh->flags = base->flags;
+> > +			nsh->mdtype = base->mdtype;
+> > +			nsh->np = base->np;
+> > +			nsh->path_hdr = base->path_hdr;
+> > +			break;
+> > +		}
+> > +		case OVS_NSH_KEY_ATTR_MD1: {
+> > +			const struct ovs_nsh_key_md1 *md1 =
+> > +				(struct ovs_nsh_key_md1 *)nla_data(a);
+> > +			memcpy(nsh->context, md1->context, sizeof(*md1));
+> > +			break;
+> > +		}
+> > +		case OVS_NSH_KEY_ATTR_MD2:
+> > +			/* Not supported yet */
+> > +			break;
+> 
+> When we encounter these metadata attributes do we need to verify that
+> nsh->mdtype is set correctly? Keep in mind we may parse ATTR_MD{1,2}
+> before ATTR_BASE.
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 16a1a4c4eb57..d8a35db6c43b 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1300,9 +1300,13 @@ struct neighbour *neigh_event_ns(struct neigh_table *tbl,
- {
- 	struct neighbour *neigh = __neigh_lookup(tbl, saddr, dev,
- 						 lladdr || !dev->addr_len);
--	if (neigh)
--		neigh_update(neigh, lladdr, NUD_STALE,
--			     NEIGH_UPDATE_F_OVERRIDE, 0);
-+	if (neigh) {
-+		if (neigh->nud_state & NUD_VALID)
-+			neigh_update(neigh, lladdr, NUD_STALE,
-+				     NEIGH_UPDATE_F_OVERRIDE, 0);
-+		else
-+			neigh_event_send(neigh, NULL);
-+	}
- 	return neigh;
- }
- EXPORT_SYMBOL(neigh_event_ns);
--- 
-2.14.1.480.gb18f417b89-goog
+Good point, will add check code for this.
