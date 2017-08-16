@@ -1,8 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 07/10] bpf: add access to sock fields and pkt data
- from sk_skb programs
-Date: Tue, 15 Aug 2017 22:33:09 -0700
-Message-ID: <20170816053309.15445.97681.stgit@john-Precision-Tower-5810>
+Subject: [net-next PATCH 08/10] bpf: sockmap sample program
+Date: Tue, 15 Aug 2017 22:33:32 -0700
+Message-ID: <20170816053332.15445.90625.stgit@john-Precision-Tower-5810>
 References: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,28 +10,662 @@ Cc: tgraf@suug.ch, netdev@vger.kernel.org, john.fastabend@gmail.com,
         tom@herbertland.com
 To: davem@davemloft.net, daniel@iogearbox.net, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35414 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751494AbdHPFd0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 01:33:26 -0400
-Received: by mail-pg0-f66.google.com with SMTP id l64so4387264pge.2
-        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 22:33:26 -0700 (PDT)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:37855 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751159AbdHPFdu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 01:33:50 -0400
+Received: by mail-pf0-f193.google.com with SMTP id p13so426020pfd.4
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 22:33:50 -0700 (PDT)
 In-Reply-To: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This program binds a program to a cgroup and then matches hard
+coded IP addresses and adds these to a sockmap.
+
+This will receive messages from the backend and send them to
+the client.
+
+     client:X <---> frontend:10000 client:X <---> backend:10001
+
+To keep things simple this is only designed for 1:1 connections
+using hard coded values. A more complete example would allow many
+backends and clients.
+
+To run,
+
+ # sockmap <cgroup2_dir>
+
 Signed-off-by: John Fastabend <john.fastabend@gmail.com>
 ---
- include/uapi/linux/bpf.h |    9 ++
- kernel/bpf/verifier.c    |    1 
- net/core/filter.c        |  169 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 179 insertions(+)
+ samples/bpf/bpf_load.c                    |    8 +
+ samples/sockmap/Makefile                  |   78 ++++++++
+ samples/sockmap/sockmap_kern.c            |  110 +++++++++++
+ samples/sockmap/sockmap_user.c            |  286 +++++++++++++++++++++++++++++
+ tools/include/uapi/linux/bpf.h            |   46 +++++
+ tools/lib/bpf/bpf.c                       |   14 +
+ tools/lib/bpf/bpf.h                       |    4 
+ tools/testing/selftests/bpf/bpf_helpers.h |    7 +
+ 8 files changed, 547 insertions(+), 6 deletions(-)
+ create mode 100644 samples/sockmap/Makefile
+ create mode 100644 samples/sockmap/sockmap_kern.c
+ create mode 100644 samples/sockmap/sockmap_user.c
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 7f77476..5ecbe81 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -712,6 +712,15 @@ struct __sk_buff {
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index 899f403..a8552b8 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -65,6 +65,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 	bool is_cgroup_skb = strncmp(event, "cgroup/skb", 10) == 0;
+ 	bool is_cgroup_sk = strncmp(event, "cgroup/sock", 11) == 0;
+ 	bool is_sockops = strncmp(event, "sockops", 7) == 0;
++	bool is_sk_skb = strncmp(event, "sk_skb", 6) == 0;
+ 	size_t insns_cnt = size / sizeof(struct bpf_insn);
+ 	enum bpf_prog_type prog_type;
+ 	char buf[256];
+@@ -92,6 +93,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 		prog_type = BPF_PROG_TYPE_CGROUP_SOCK;
+ 	} else if (is_sockops) {
+ 		prog_type = BPF_PROG_TYPE_SOCK_OPS;
++	} else if (is_sk_skb) {
++		prog_type = BPF_PROG_TYPE_SK_SKB;
+ 	} else {
+ 		printf("Unknown event '%s'\n", event);
+ 		return -1;
+@@ -109,7 +112,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 	if (is_xdp || is_perf_event || is_cgroup_skb || is_cgroup_sk)
+ 		return 0;
+ 
+-	if (is_socket || is_sockops) {
++	if (is_socket || is_sockops || is_sk_skb) {
+ 		if (is_socket)
+ 			event += 6;
+ 		else
+@@ -567,7 +570,8 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
+ 		    memcmp(shname, "perf_event", 10) == 0 ||
+ 		    memcmp(shname, "socket", 6) == 0 ||
+ 		    memcmp(shname, "cgroup/", 7) == 0 ||
+-		    memcmp(shname, "sockops", 7) == 0) {
++		    memcmp(shname, "sockops", 7) == 0 ||
++		    memcmp(shname, "sk_skb", 6) == 0) {
+ 			ret = load_and_attach(shname, data->d_buf,
+ 					      data->d_size);
+ 			if (ret != 0)
+diff --git a/samples/sockmap/Makefile b/samples/sockmap/Makefile
+new file mode 100644
+index 0000000..9291ab8
+--- /dev/null
++++ b/samples/sockmap/Makefile
+@@ -0,0 +1,78 @@
++# kbuild trick to avoid linker error. Can be omitted if a module is built.
++obj- := dummy.o
++
++# List of programs to build
++hostprogs-y := sockmap
++
++# Libbpf dependencies
++LIBBPF := ../../tools/lib/bpf/bpf.o
++
++HOSTCFLAGS += -I$(objtree)/usr/include
++HOSTCFLAGS += -I$(srctree)/tools/lib/
++HOSTCFLAGS += -I$(srctree)/tools/testing/selftests/bpf/
++HOSTCFLAGS += -I$(srctree)/tools/lib/ -I$(srctree)/tools/include
++HOSTCFLAGS += -I$(srctree)/tools/perf
++
++sockmap-objs := ../bpf/bpf_load.o $(LIBBPF) sockmap_user.o
++
++# Tell kbuild to always build the programs
++always := $(hostprogs-y)
++always += sockmap_kern.o
++
++HOSTLOADLIBES_sockmap += -lelf -lpthread
++
++# Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
++#  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
++LLC ?= llc
++CLANG ?= clang
++
++# Trick to allow make to be run from this directory
++all:
++	$(MAKE) -C ../../ $(CURDIR)/
++
++clean:
++	$(MAKE) -C ../../ M=$(CURDIR) clean
++	@rm -f *~
++
++$(obj)/syscall_nrs.s:	$(src)/syscall_nrs.c
++	$(call if_changed_dep,cc_s_c)
++
++$(obj)/syscall_nrs.h:	$(obj)/syscall_nrs.s FORCE
++	$(call filechk,offsets,__SYSCALL_NRS_H__)
++
++clean-files += syscall_nrs.h
++
++FORCE:
++
++
++# Verify LLVM compiler tools are available and bpf target is supported by llc
++.PHONY: verify_cmds verify_target_bpf $(CLANG) $(LLC)
++
++verify_cmds: $(CLANG) $(LLC)
++	@for TOOL in $^ ; do \
++		if ! (which -- "$${TOOL}" > /dev/null 2>&1); then \
++			echo "*** ERROR: Cannot find LLVM tool $${TOOL}" ;\
++			exit 1; \
++		else true; fi; \
++	done
++
++verify_target_bpf: verify_cmds
++	@if ! (${LLC} -march=bpf -mattr=help > /dev/null 2>&1); then \
++		echo "*** ERROR: LLVM (${LLC}) does not support 'bpf' target" ;\
++		echo "   NOTICE: LLVM version >= 3.7.1 required" ;\
++		exit 2; \
++	else true; fi
++
++$(src)/*.c: verify_target_bpf
++
++# asm/sysreg.h - inline assembly used by it is incompatible with llvm.
++# But, there is no easy way to fix it, so just exclude it since it is
++# useless for BPF samples.
++$(obj)/%.o: $(src)/%.c
++	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) -I$(obj) \
++		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
++		-Wno-compare-distinct-pointer-types \
++		-Wno-gnu-variable-sized-type-not-at-end \
++		-Wno-address-of-packed-member -Wno-tautological-compare \
++		-Wno-unknown-warning-option \
++		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+diff --git a/samples/sockmap/sockmap_kern.c b/samples/sockmap/sockmap_kern.c
+new file mode 100644
+index 0000000..6ff986f
+--- /dev/null
++++ b/samples/sockmap/sockmap_kern.c
+@@ -0,0 +1,110 @@
++/* Copyright (c) 2017 Covalent IO, Inc. http://covalent.io
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++#include <uapi/linux/bpf.h>
++#include <uapi/linux/if_ether.h>
++#include <uapi/linux/if_packet.h>
++#include <uapi/linux/ip.h>
++#include "../../tools/testing/selftests/bpf/bpf_helpers.h"
++#include "../../tools/testing/selftests/bpf/bpf_endian.h"
++
++/* Sockmap sample program connects a client and a backend together
++ * using cgroups.
++ *
++ *    client:X <---> frontend:80 client:X <---> backend:80
++ *
++ * For simplicity we hard code values here and bind 1:1. The hard
++ * coded values are part of the setup in sockmap.sh script that
++ * is associated with this BPF program.
++ *
++ * The bpf_printk is verbose and prints information as connections
++ * are established and verdicts are decided.
++ */
++
++#define bpf_printk(fmt, ...)					\
++({								\
++	       char ____fmt[] = fmt;				\
++	       bpf_trace_printk(____fmt, sizeof(____fmt),	\
++				##__VA_ARGS__);			\
++})
++
++struct bpf_map_def SEC("maps") sock_map = {
++	.type = BPF_MAP_TYPE_SOCKMAP,
++	.key_size = sizeof(int),
++	.value_size = sizeof(int),
++	.max_entries = 20,
++};
++
++SEC("sk_skb1")
++int bpf_prog1(struct __sk_buff *skb)
++{
++	return skb->len;
++}
++
++SEC("sk_skb2")
++int bpf_prog2(struct __sk_buff *skb)
++{
++	__u32 lport = skb->local_port;
++	__u32 rport = skb->remote_port;
++	int ret = 0;
++
++	if (lport == 10000)
++		ret = 10;
++	else
++		ret = 1;
++
++	bpf_printk("sockmap: %d -> %d @ %d\n", lport, bpf_ntohl(rport), ret);
++	return bpf_sk_redirect_map(&sock_map, ret, 0);
++}
++
++SEC("sockops")
++int bpf_sockmap(struct bpf_sock_ops *skops)
++{
++	__u32 lport, rport;
++	int op, err = 0, index, key, ret;
++
++
++	op = (int) skops->op;
++
++	switch (op) {
++	case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
++		lport = skops->local_port;
++		rport = skops->remote_port;
++
++		if (lport == 10000) {
++			ret = 1;
++			err = bpf_sock_map_update(skops, &sock_map, &ret,
++						  BPF_NOEXIST,
++						  BPF_SOCKMAP_STRPARSER);
++			bpf_printk("passive(%i -> %i) map ctx update err: %d\n",
++				   lport, bpf_ntohl(rport), err);
++		}
++		break;
++	case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
++		lport = skops->local_port;
++		rport = skops->remote_port;
++
++		if (bpf_ntohl(rport) == 10001) {
++			ret = 10;
++			err = bpf_sock_map_update(skops, &sock_map, &ret,
++						  BPF_NOEXIST,
++						  BPF_SOCKMAP_STRPARSER);
++			bpf_printk("active(%i -> %i) map ctx update err: %d\n",
++				   lport, bpf_ntohl(rport), err);
++		}
++		break;
++	default:
++		break;
++	}
++
++	return 0;
++}
++char _license[] SEC("license") = "GPL";
+diff --git a/samples/sockmap/sockmap_user.c b/samples/sockmap/sockmap_user.c
+new file mode 100644
+index 0000000..fb78f5a
+--- /dev/null
++++ b/samples/sockmap/sockmap_user.c
+@@ -0,0 +1,286 @@
++/* Copyright (c) 2017 Covalent IO, Inc. http://covalent.io
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++#include <stdio.h>
++#include <stdlib.h>
++#include <sys/socket.h>
++#include <sys/ioctl.h>
++#include <sys/select.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <unistd.h>
++#include <string.h>
++#include <errno.h>
++#include <sys/ioctl.h>
++#include <stdbool.h>
++#include <signal.h>
++#include <fcntl.h>
++
++#include <sys/time.h>
++#include <sys/types.h>
++
++#include <linux/netlink.h>
++#include <linux/socket.h>
++#include <linux/sock_diag.h>
++#include <linux/bpf.h>
++#include <linux/if_link.h>
++#include <assert.h>
++#include <libgen.h>
++
++#include "../bpf/bpf_load.h"
++#include "../bpf/bpf_util.h"
++#include "../bpf/libbpf.h"
++
++int running;
++void running_handler(int a);
++
++/* randomly selected ports for testing on lo */
++#define S1_PORT 10000
++#define S2_PORT 10001
++
++static int sockmap_test_sockets(int rate, int dot)
++{
++	int i, sc, err, max_fd, one = 1;
++	int s1, s2, c1, c2, p1, p2;
++	struct sockaddr_in addr;
++	struct timeval timeout;
++	char buf[1024] = {0};
++	int *fds[4] = {&s1, &s2, &c1, &c2};
++	fd_set w;
++
++	s1 = s2 = p1 = p2 = c1 = c2 = 0;
++
++	/* Init sockets */
++	for (i = 0; i < 4; i++) {
++		*fds[i] = socket(AF_INET, SOCK_STREAM, 0);
++		if (*fds[i] < 0) {
++			perror("socket s1 failed()");
++			err = *fds[i];
++			goto out;
++		}
++	}
++
++	/* Allow reuse */
++	for (i = 0; i < 2; i++) {
++		err = setsockopt(*fds[i], SOL_SOCKET, SO_REUSEADDR,
++				 (char *)&one, sizeof(one));
++		if (err) {
++			perror("setsockopt failed()");
++			goto out;
++		}
++	}
++
++	/* Non-blocking sockets */
++	for (i = 0; i < 4; i++) {
++		err = ioctl(*fds[i], FIONBIO, (char *)&one);
++		if (err < 0) {
++			perror("ioctl s1 failed()");
++			goto out;
++		}
++	}
++
++	/* Bind server sockets */
++	memset(&addr, 0, sizeof(struct sockaddr_in));
++	addr.sin_family = AF_INET;
++	addr.sin_addr.s_addr = inet_addr("127.0.0.1");
++
++	addr.sin_port = htons(S1_PORT);
++	err = bind(s1, (struct sockaddr *)&addr, sizeof(addr));
++	if (err < 0) {
++		perror("bind s1 failed()\n");
++		goto out;
++	}
++
++	addr.sin_port = htons(S2_PORT);
++	err = bind(s2, (struct sockaddr *)&addr, sizeof(addr));
++	if (err < 0) {
++		perror("bind s2 failed()\n");
++		goto out;
++	}
++
++	/* Listen server sockets */
++	addr.sin_port = htons(S1_PORT);
++	err = listen(s1, 32);
++	if (err < 0) {
++		perror("listen s1 failed()\n");
++		goto out;
++	}
++
++	addr.sin_port = htons(S2_PORT);
++	err = listen(s2, 32);
++	if (err < 0) {
++		perror("listen s1 failed()\n");
++		goto out;
++	}
++
++	/* Initiate Connect */
++	addr.sin_port = htons(S1_PORT);
++	err = connect(c1, (struct sockaddr *)&addr, sizeof(addr));
++	if (err < 0 && errno != EINPROGRESS) {
++		perror("connect c1 failed()\n");
++		goto out;
++	}
++
++	addr.sin_port = htons(S2_PORT);
++	err = connect(c2, (struct sockaddr *)&addr, sizeof(addr));
++	if (err < 0 && errno != EINPROGRESS) {
++		perror("connect c2 failed()\n");
++		goto out;
++	}
++
++	/* Accept Connecrtions */
++	p1 = accept(s1, NULL, NULL);
++	if (p1 < 0) {
++		perror("accept s1 failed()\n");
++		goto out;
++	}
++
++	p2 = accept(s2, NULL, NULL);
++	if (p2 < 0) {
++		perror("accept s1 failed()\n");
++		goto out;
++	}
++
++	max_fd = p2;
++	timeout.tv_sec = 10;
++	timeout.tv_usec = 0;
++
++	printf("connected sockets: c1 <-> p1, c2 <-> p2\n");
++	printf("cgroups binding: c1(%i) <-> s1(%i) - - - c2(%i) <-> s2(%i)\n",
++		c1, s1, c2, s2);
++
++	/* Ping/Pong data from client to server */
++	sc = send(c1, buf, sizeof(buf), 0);
++	if (sc < 0) {
++		perror("send failed()\n");
++		goto out;
++	}
++
++	do {
++		int s, rc, i;
++
++		/* FD sets */
++		FD_ZERO(&w);
++		FD_SET(c1, &w);
++		FD_SET(c2, &w);
++		FD_SET(p1, &w);
++		FD_SET(p2, &w);
++
++		s = select(max_fd + 1, &w, NULL, NULL, &timeout);
++		if (s == -1) {
++			perror("select()");
++			break;
++		} else if (!s) {
++			fprintf(stderr, "unexpected timeout\n");
++			break;
++		}
++
++		for (i = 0; i <= max_fd && s > 0; ++i) {
++			if (!FD_ISSET(i, &w))
++				continue;
++
++			s--;
++
++			rc = recv(i, buf, sizeof(buf), 0);
++			if (rc < 0) {
++				if (errno != EWOULDBLOCK) {
++					perror("recv failed()\n");
++					break;
++				}
++			}
++
++			if (rc == 0) {
++				close(i);
++				break;
++			}
++
++			sc = send(i, buf, rc, 0);
++			if (sc < 0) {
++				perror("send failed()\n");
++				break;
++			}
++		}
++		sleep(rate);
++		if (dot) {
++			printf(".");
++			fflush(stdout);
++
++		}
++	} while (running);
++
++out:
++	close(s1);
++	close(s2);
++	close(p1);
++	close(p2);
++	close(c1);
++	close(c2);
++	return err;
++}
++
++int main(int argc, char **argv)
++{
++	int rate = 1, dot = 1;
++	char filename[256];
++	int err, cg_fd;
++	char *cg_path;
++
++	cg_path = argv[argc - 1];
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	running = 1;
++
++	/* catch SIGINT */
++	signal(SIGINT, running_handler);
++
++	if (load_bpf_file(filename)) {
++		fprintf(stderr, "load_bpf_file: (%s) %s\n",
++			filename, strerror(errno));
++		return 1;
++	}
++
++	/* Cgroup configuration */
++	cg_fd = open(cg_path, O_DIRECTORY, O_RDONLY);
++	if (cg_fd < 0) {
++		fprintf(stderr, "ERROR: (%i) open cg path failed: %s\n",
++			cg_fd, cg_path);
++		return cg_fd;
++	}
++
++	/* Attach programs to sockmap */
++	err = __bpf_prog_attach(prog_fd[0], prog_fd[1], map_fd[0],
++				BPF_CGROUP_SMAP_INGRESS, 0);
++	if (err) {
++		fprintf(stderr, "ERROR: bpf_prog_attach (sockmap): %d (%s)\n",
++			err, strerror(errno));
++		return err;
++	}
++
++	/* Attach to cgroups */
++	err = bpf_prog_attach(prog_fd[2], cg_fd, BPF_CGROUP_SOCK_OPS, 0);
++	if (err) {
++		fprintf(stderr, "ERROR: bpf_prog_attach (groups): %d (%s)\n",
++			err, strerror(errno));
++		return err;
++	}
++
++	err = sockmap_test_sockets(rate, dot);
++	if (err) {
++		fprintf(stderr, "ERROR: test socket failed: %d\n", err);
++		return err;
++	}
++	return 0;
++}
++
++void running_handler(int a)
++{
++	running = 0;
++}
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index bf3b2e2..2d97dd2 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -110,6 +110,7 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_ARRAY_OF_MAPS,
+ 	BPF_MAP_TYPE_HASH_OF_MAPS,
+ 	BPF_MAP_TYPE_DEVMAP,
++	BPF_MAP_TYPE_SOCKMAP,
+ };
+ 
+ enum bpf_prog_type {
+@@ -127,6 +128,7 @@ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_LWT_OUT,
+ 	BPF_PROG_TYPE_LWT_XMIT,
+ 	BPF_PROG_TYPE_SOCK_OPS,
++	BPF_PROG_TYPE_SK_SKB,
+ };
+ 
+ enum bpf_attach_type {
+@@ -134,11 +136,18 @@ enum bpf_attach_type {
+ 	BPF_CGROUP_INET_EGRESS,
+ 	BPF_CGROUP_INET_SOCK_CREATE,
+ 	BPF_CGROUP_SOCK_OPS,
++	BPF_CGROUP_SMAP_INGRESS,
+ 	__MAX_BPF_ATTACH_TYPE
+ };
+ 
+ #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
+ 
++enum bpf_sockmap_flags {
++	BPF_SOCKMAP_UNSPEC,
++	BPF_SOCKMAP_STRPARSER,
++	__MAX_BPF_SOCKMAP_FLAG
++};
++
+ /* If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
+  * to the given target_fd cgroup the descendent cgroup will be able to
+  * override effective bpf program that was inherited from this cgroup
+@@ -210,6 +219,7 @@ enum bpf_attach_type {
+ 		__u32		attach_bpf_fd;	/* eBPF program to attach */
+ 		__u32		attach_type;
+ 		__u32		attach_flags;
++		__u32		attach_bpf_fd2;
+ 	};
+ 
+ 	struct { /* anonymous struct used by BPF_PROG_TEST_RUN command */
+@@ -545,6 +555,23 @@ enum bpf_attach_type {
+  *     @mode: operation mode (enum bpf_adj_room_mode)
+  *     @flags: reserved for future use
+  *     Return: 0 on success or negative error code
++ *
++ * int bpf_sk_redirect_map(map, key, flags)
++ *     Redirect skb to a sock in map using key as a lookup key for the
++ *     sock in map.
++ *     @map: pointer to sockmap
++ *     @key: key to lookup sock in map
++ *     @flags: reserved for future use
++ *     Return: SK_REDIRECT
++ *
++ * int bpf_sock_map_update(skops, map, key, flags, map_flags)
++ *	@skops: pointer to bpf_sock_ops
++ *	@map: pointer to sockmap to update
++ *	@key: key to insert/update sock in map
++ *	@flags: same flags as map update elem
++ *	@map_flags: sock map specific flags
++ *	   bit 1: Enable strparser
++ *	   other bits: reserved
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -598,7 +625,9 @@ enum bpf_attach_type {
+ 	FN(set_hash),			\
+ 	FN(setsockopt),			\
+ 	FN(skb_adjust_room),		\
+-	FN(redirect_map),
++	FN(redirect_map),		\
++	FN(sk_redirect_map),		\
++	FN(sock_map_update),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+@@ -675,6 +704,15 @@ struct __sk_buff {
  	__u32 data;
  	__u32 data_end;
  	__u32 napi_id;
@@ -48,251 +681,85 @@ index 7f77476..5ecbe81 100644
  };
  
  struct bpf_tunnel_key {
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index a439ad5..bfed82e 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -848,6 +848,7 @@ static bool may_access_direct_pkt_data(struct bpf_verifier_env *env,
- 	case BPF_PROG_TYPE_SCHED_ACT:
- 	case BPF_PROG_TYPE_XDP:
- 	case BPF_PROG_TYPE_LWT_XMIT:
-+	case BPF_PROG_TYPE_SK_SKB:
- 		if (meta)
- 			return meta->pkt_access;
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 934b92f..9a9e31f 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -3278,8 +3278,16 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
- static const struct bpf_func_proto *sk_skb_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-+	case BPF_FUNC_skb_store_bytes:
-+		return &bpf_skb_store_bytes_proto;
- 	case BPF_FUNC_skb_load_bytes:
- 		return &bpf_skb_load_bytes_proto;
-+	case BPF_FUNC_skb_pull_data:
-+		return &bpf_skb_pull_data_proto;
-+	case BPF_FUNC_skb_change_tail:
-+		return &bpf_skb_change_tail_proto;
-+	case BPF_FUNC_skb_change_head:
-+		return &bpf_skb_change_head_proto;
- 	case BPF_FUNC_get_socket_cookie:
- 		return &bpf_get_socket_cookie_proto;
- 	case BPF_FUNC_get_socket_uid:
-@@ -3343,6 +3351,10 @@ static bool bpf_skb_is_valid_access(int off, int size, enum bpf_access_type type
- 		if (off + size > offsetofend(struct __sk_buff, cb[4]))
- 			return false;
- 		break;
-+	case bpf_ctx_range_till(struct __sk_buff, remote_ip6[0], remote_ip6[3]):
-+	case bpf_ctx_range_till(struct __sk_buff, local_ip6[0], local_ip6[3]):
-+	case bpf_ctx_range_till(struct __sk_buff, remote_ip4, remote_ip4):
-+	case bpf_ctx_range_till(struct __sk_buff, local_ip4, local_ip4):
- 	case bpf_ctx_range(struct __sk_buff, data):
- 	case bpf_ctx_range(struct __sk_buff, data_end):
- 		if (size != size_default)
-@@ -3371,6 +3383,7 @@ static bool sk_filter_is_valid_access(int off, int size,
- 	case bpf_ctx_range(struct __sk_buff, tc_classid):
- 	case bpf_ctx_range(struct __sk_buff, data):
- 	case bpf_ctx_range(struct __sk_buff, data_end):
-+	case bpf_ctx_range_till(struct __sk_buff, family, local_port):
- 		return false;
- 	}
- 
-@@ -3392,6 +3405,7 @@ static bool lwt_is_valid_access(int off, int size,
- {
- 	switch (off) {
- 	case bpf_ctx_range(struct __sk_buff, tc_classid):
-+	case bpf_ctx_range_till(struct __sk_buff, family, local_port):
- 		return false;
- 	}
- 
-@@ -3505,6 +3519,8 @@ static bool tc_cls_act_is_valid_access(int off, int size,
- 	case bpf_ctx_range(struct __sk_buff, data_end):
- 		info->reg_type = PTR_TO_PACKET_END;
- 		break;
-+	case bpf_ctx_range_till(struct __sk_buff, family, local_port):
-+		return false;
- 	}
- 
- 	return bpf_skb_is_valid_access(off, size, type, info);
-@@ -3582,11 +3598,63 @@ static bool sock_ops_is_valid_access(int off, int size,
- 	return __is_valid_sock_ops_access(off, size);
- }
- 
-+static int sk_skb_prologue(struct bpf_insn *insn_buf, bool direct_write,
-+			   const struct bpf_prog *prog)
-+{
-+	struct bpf_insn *insn = insn_buf;
-+
-+	if (!direct_write)
-+		return 0;
-+
-+	/* if (!skb->cloned)
-+	 *       goto start;
-+	 *
-+	 * (Fast-path, otherwise approximation that we might be
-+	 *  a clone, do the rest in helper.)
-+	 */
-+	*insn++ = BPF_LDX_MEM(BPF_B, BPF_REG_6, BPF_REG_1, CLONED_OFFSET());
-+	*insn++ = BPF_ALU32_IMM(BPF_AND, BPF_REG_6, CLONED_MASK);
-+	*insn++ = BPF_JMP_IMM(BPF_JEQ, BPF_REG_6, 0, 7);
-+
-+	/* ret = bpf_skb_pull_data(skb, 0); */
-+	*insn++ = BPF_MOV64_REG(BPF_REG_6, BPF_REG_1);
-+	*insn++ = BPF_ALU64_REG(BPF_XOR, BPF_REG_2, BPF_REG_2);
-+	*insn++ = BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+			       BPF_FUNC_skb_pull_data);
-+	/* if (!ret)
-+	 *      goto restore;
-+	 * return SK_DROP;
-+	 */
-+	*insn++ = BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 2);
-+	*insn++ = BPF_ALU32_IMM(BPF_MOV, BPF_REG_0, SK_DROP);
-+	*insn++ = BPF_EXIT_INSN();
-+
-+	/* restore: */
-+	*insn++ = BPF_MOV64_REG(BPF_REG_1, BPF_REG_6);
-+	/* start: */
-+	*insn++ = prog->insnsi[0];
-+
-+	return insn - insn_buf;
-+}
-+
- static bool sk_skb_is_valid_access(int off, int size,
- 				   enum bpf_access_type type,
- 				   struct bpf_insn_access_aux *info)
- {
-+	if (type == BPF_WRITE) {
-+		switch (off) {
-+		case bpf_ctx_range(struct __sk_buff, mark):
-+		case bpf_ctx_range(struct __sk_buff, tc_index):
-+		case bpf_ctx_range(struct __sk_buff, priority):
-+			break;
-+		default:
-+			return false;
-+		}
-+	}
-+
- 	switch (off) {
-+	case bpf_ctx_range(struct __sk_buff, tc_classid):
-+		return false;
- 	case bpf_ctx_range(struct __sk_buff, data):
- 		info->reg_type = PTR_TO_PACKET;
- 		break;
-@@ -3781,6 +3849,106 @@ static u32 bpf_convert_ctx_access(enum bpf_access_type type,
- 		*insn++ = BPF_MOV64_IMM(si->dst_reg, 0);
- #endif
- 		break;
-+	case offsetof(struct __sk_buff, family):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_family) != 2);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct sk_buff, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->dst_reg,
-+				      bpf_target_off(struct sock_common,
-+						     skc_family,
-+						     2, target_size));
-+		break;
-+	case offsetof(struct __sk_buff, remote_ip4):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_daddr) != 4);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct sk_buff, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
-+				      bpf_target_off(struct sock_common,
-+						     skc_daddr,
-+						     4, target_size));
-+		break;
-+	case offsetof(struct __sk_buff, local_ip4):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common,
-+					  skc_rcv_saddr) != 4);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct sk_buff, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
-+				      bpf_target_off(struct sock_common,
-+						     skc_rcv_saddr,
-+						     4, target_size));
-+		break;
-+	case offsetof(struct __sk_buff, remote_ip6[0]) ...
-+	     offsetof(struct __sk_buff, remote_ip6[3]):
-+#if IS_ENABLED(CONFIG_IPV6)
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common,
-+					  skc_v6_daddr.s6_addr32[0]) != 4);
-+
-+		off = si->off;
-+		off -= offsetof(struct __sk_buff, remote_ip6[0]);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct sk_buff, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
-+				      offsetof(struct sock_common,
-+					       skc_v6_daddr.s6_addr32[0]) +
-+				      off);
-+#else
-+		*insn++ = BPF_MOV32_IMM(si->dst_reg, 0);
-+#endif
-+		break;
-+	case offsetof(struct __sk_buff, local_ip6[0]) ...
-+	     offsetof(struct __sk_buff, local_ip6[3]):
-+#if IS_ENABLED(CONFIG_IPV6)
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common,
-+					  skc_v6_rcv_saddr.s6_addr32[0]) != 4);
-+
-+		off = si->off;
-+		off -= offsetof(struct __sk_buff, local_ip6[0]);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct sk_buff, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
-+				      offsetof(struct sock_common,
-+					       skc_v6_rcv_saddr.s6_addr32[0]) +
-+				      off);
-+#else
-+		*insn++ = BPF_MOV32_IMM(si->dst_reg, 0);
-+#endif
-+		break;
-+
-+	case offsetof(struct __sk_buff, remote_port):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_dport) != 2);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct sk_buff, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->dst_reg,
-+				      bpf_target_off(struct sock_common,
-+						     skc_dport,
-+						     2, target_size));
-+#ifndef __BIG_ENDIAN_BITFIELD
-+		*insn++ = BPF_ALU32_IMM(BPF_LSH, si->dst_reg, 16);
-+#endif
-+		break;
-+
-+	case offsetof(struct __sk_buff, local_port):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sock_common, skc_num) != 2);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct sk_buff, sk),
-+				      si->dst_reg, si->src_reg,
-+				      offsetof(struct sk_buff, sk));
-+		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->dst_reg,
-+				      bpf_target_off(struct sock_common,
-+						     skc_num, 2, target_size));
-+		break;
- 	}
- 
- 	return insn - insn_buf;
-@@ -4069,6 +4237,7 @@ static u32 sock_ops_convert_ctx_access(enum bpf_access_type type,
- 	.get_func_proto		= sk_skb_func_proto,
- 	.is_valid_access	= sk_skb_is_valid_access,
- 	.convert_ctx_access	= bpf_convert_ctx_access,
-+	.gen_prologue		= sk_skb_prologue,
+@@ -734,6 +772,12 @@ struct xdp_md {
+ 	__u32 data_end;
  };
  
- int sk_detach_filter(struct sock *sk)
++enum sk_action {
++	SK_ABORTED = 0,
++	SK_DROP,
++	SK_REDIRECT,
++};
++
+ #define BPF_TAG_SIZE	8
+ 
+ struct bpf_prog_info {
+diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+index e5bbb09..7766015 100644
+--- a/tools/lib/bpf/bpf.c
++++ b/tools/lib/bpf/bpf.c
+@@ -211,20 +211,28 @@ int bpf_obj_get(const char *pathname)
+ 	return sys_bpf(BPF_OBJ_GET, &attr, sizeof(attr));
+ }
+ 
+-int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type,
+-		    unsigned int flags)
++int __bpf_prog_attach(int prog_fd1, int prog_fd2, int target_fd,
++		      enum bpf_attach_type type,
++		      unsigned int flags)
+ {
+ 	union bpf_attr attr;
+ 
+ 	bzero(&attr, sizeof(attr));
+ 	attr.target_fd	   = target_fd;
+-	attr.attach_bpf_fd = prog_fd;
++	attr.attach_bpf_fd = prog_fd1;
++	attr.attach_bpf_fd2 = prog_fd2;
+ 	attr.attach_type   = type;
+ 	attr.attach_flags  = flags;
+ 
+ 	return sys_bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
+ }
+ 
++int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type,
++		    unsigned int flags)
++{
++	return __bpf_prog_attach(prog_fd, 0, target_fd, type, flags);
++}
++
+ int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
+ {
+ 	union bpf_attr attr;
+diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+index 418c86e..eaee585 100644
+--- a/tools/lib/bpf/bpf.h
++++ b/tools/lib/bpf/bpf.h
+@@ -50,6 +50,10 @@ int bpf_map_update_elem(int fd, const void *key, const void *value,
+ int bpf_obj_get(const char *pathname);
+ int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type,
+ 		    unsigned int flags);
++int __bpf_prog_attach(int prog1, int prog2,
++		      int attachable_fd,
++		      enum bpf_attach_type type,
++		      unsigned int flags);
+ int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
+ int bpf_prog_test_run(int prog_fd, int repeat, void *data, __u32 size,
+ 		      void *data_out, __u32 *size_out, __u32 *retval,
+diff --git a/tools/testing/selftests/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
+index acbd605..73092d4 100644
+--- a/tools/testing/selftests/bpf/bpf_helpers.h
++++ b/tools/testing/selftests/bpf/bpf_helpers.h
+@@ -65,6 +65,13 @@ static int (*bpf_xdp_adjust_head)(void *ctx, int offset) =
+ static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
+ 			     int optlen) =
+ 	(void *) BPF_FUNC_setsockopt;
++static int (*bpf_sk_redirect_map)(void *map, int key, int flags) =
++	(void *) BPF_FUNC_sk_redirect_map;
++static int (*bpf_sock_map_update)(void *map, void *key, void *value,
++				  unsigned long long flags,
++				  unsigned long long map_lags) =
++	(void *) BPF_FUNC_sock_map_update;
++
+ 
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
