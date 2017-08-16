@@ -1,72 +1,35 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next V2 1/3] tap: use build_skb() for small packet
-Date: Wed, 16 Aug 2017 06:59:14 +0300
-Message-ID: <20170816065837-mutt-send-email-mst@kernel.org>
-References: <1502451678-17358-1-git-send-email-jasowang@redhat.com>
- <1502451678-17358-2-git-send-email-jasowang@redhat.com>
- <1502855120.4936.89.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170816064951-mutt-send-email-mst@kernel.org>
- <5280f66f-85cf-fa4f-1a1c-7acbac2c9ab7@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net repost] nfp: do not update MTU from BH in flower app
+Date: Tue, 15 Aug 2017 21:03:58 -0700 (PDT)
+Message-ID: <20170815.210358.1704629747295212922.davem@davemloft.net>
+References: <20170811.145107.1539668262080149471.davem@davemloft.net>
+        <20170815061347.GA14861@vergenet.net>
+        <20170815.175240.1812725528326133547.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kubakici@wp.pl
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5280f66f-85cf-fa4f-1a1c-7acbac2c9ab7@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
+        oss-drivers@netronome.com
+To: simon.horman@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47582 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750795AbdHPEEC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 00:04:02 -0400
+In-Reply-To: <20170815.175240.1812725528326133547.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 16, 2017 at 11:57:51AM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年08月16日 11:55, Michael S. Tsirkin wrote:
-> > On Tue, Aug 15, 2017 at 08:45:20PM -0700, Eric Dumazet wrote:
-> > > On Fri, 2017-08-11 at 19:41 +0800, Jason Wang wrote:
-> > > > We use tun_alloc_skb() which calls sock_alloc_send_pskb() to allocate
-> > > > skb in the past. This socket based method is not suitable for high
-> > > > speed userspace like virtualization which usually:
-> > > > 
-> > > > - ignore sk_sndbuf (INT_MAX) and expect to receive the packet as fast as
-> > > >    possible
-> > > > - don't want to be block at sendmsg()
-> > > > 
-> > > > To eliminate the above overheads, this patch tries to use build_skb()
-> > > > for small packet. We will do this only when the following conditions
-> > > > are all met:
-> > > > 
-> > > > - TAP instead of TUN
-> > > > - sk_sndbuf is INT_MAX
-> > > > - caller don't want to be blocked
-> > > > - zerocopy is not used
-> > > > - packet size is smaller enough to use build_skb()
-> > > > 
-> > > > Pktgen from guest to host shows ~11% improvement for rx pps of tap:
-> > > > 
-> > > > Before: ~1.70Mpps
-> > > > After : ~1.88Mpps
-> > > > 
-> > > > What's more important, this makes it possible to implement XDP for tap
-> > > > before creating skbs.
-> > > Well well well.
-> > > 
-> > > You do realize that tun_build_skb() is not thread safe ?
-> > The issue is alloc frag, isn't it?
-> > I guess for now we can limit this to XDP mode only, and
-> > just allocate full pages in that mode.
-> > 
-> > 
-> 
-> Limit this to XDP mode only does not prevent user from sending packets to
-> same queue in parallel I think?
-> 
-> Thanks
+From: David Miller <davem@davemloft.net>
+Date: Tue, 15 Aug 2017 17:52:40 -0700 (PDT)
 
-Yes but then you can just drop the page frag allocator since
-XDP is assumed not to care about truesize for most packets.
+> From: Simon Horman <simon.horman@netronome.com>
+> Date: Tue, 15 Aug 2017 08:13:48 +0200
+> 
+>> Could you pull net into net-next? I'd like to send up a follow-up
+>> for net-next to allow processing of the MTU.
+> 
+> Once Linus takes the pull request I just sent to him, I will
+> do this.
 
--- 
-MST
+And this is now done.
