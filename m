@@ -1,22 +1,49 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH v2] net: inet: diag: expose sockets cgroup classid
-Date: Wed, 16 Aug 2017 13:15:57 -0700
-Message-ID: <CAM_iQpXCf9j6XHYFnqmb_n+aqj4_j_LO5s0rcxakdJYiJCi0oA@mail.gmail.com>
-References: <20170727181352.18547-1-alexander.levin@verizon.com> <20170816201707.xbpquud3ar3uarst@sasha-lappy>
+Subject: Re: [PATCH net] ipv6: fix NULL dereference in ip6_route_dev_notify()
+Date: Wed, 16 Aug 2017 13:16:39 -0700
+Message-ID: <CAM_iQpWEZMt=5o6_DWqsg-Qv82BhhwEfMY4t5LxYYXG9Ny+1LA@mail.gmail.com>
+References: <1502795391.4936.60.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXjhUWPC1goetn2bwG=SPeqWcz+bZvMVWOD_2cbDcG-qw@mail.gmail.com>
+ <1502910934.4936.142.camel@edumazet-glaptop3.roam.corp.google.com> <1502912256.4936.150.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170816201707.xbpquud3ar3uarst@sasha-lappy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35084 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752266AbdHPURA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 16:17:00 -0400
+Received: by mail-pg0-f65.google.com with SMTP id t80so84838pgb.2
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 13:17:00 -0700 (PDT)
+In-Reply-To: <1502912256.4936.150.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 16, 2017 at 1:13 PM, Levin, Alexander (Sasha Levin)
-<alexander.levin@verizon.com> wrote:
-> Ping?
+On Wed, Aug 16, 2017 at 12:37 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2017-08-16 at 12:15 -0700, Eric Dumazet wrote:
+>> On Wed, 2017-08-16 at 11:50 -0700, Cong Wang wrote:
+>> > On Tue, Aug 15, 2017 at 4:09 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > > From: Eric Dumazet <edumazet@google.com>
+>> > >
+>> > > Based on a syzkaller report [1], I found that a per cpu allocation
+>> > > failure in snmp6_alloc_dev() would then lead to NULL dereference in
+>> > > ip6_route_dev_notify().
+>> > >
+>> > > It seems this is a very old bug, thus no Fixes tag in this submission.
+>> >
+>> >
+>> > It should be introduced by my commit which introduces these
+>> > in6_dev_put().
+>> >
+>>
+>> Sorry, which commit exactly ?
+>>
+>> I got the issue on 4.3 up to latest 4.12
+>
+> Oh you're right, this was because I had backported
+> 242d3a49a2a1a71d8eb9f953db1bcaa9d698ce00 into my trees a while back...
+>
+> So the bug was only added in 4.12
 
-I guess you missed the comment saying you need to check
-the return value of nla_put_u32().
+Yes this is correct.
