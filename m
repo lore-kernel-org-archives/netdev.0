@@ -1,49 +1,85 @@
 From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Subject: [PATCH 1/2] tcp: Remove unnecessary dst check in tcp_conn_request.
-Date: Wed, 16 Aug 2017 06:31:04 -0700
-Message-ID: <1502890265-9285-1-git-send-email-xiangxia.m.yue@gmail.com>
+Subject: [PATCH 2/2] tcp: Remove the unused parameter for tcp_try_fastopen.
+Date: Wed, 16 Aug 2017 06:31:05 -0700
+Message-ID: <1502890265-9285-2-git-send-email-xiangxia.m.yue@gmail.com>
+References: <1502890265-9285-1-git-send-email-xiangxia.m.yue@gmail.com>
 Cc: Tonghao Zhang <xiangxia.m.yue@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35864 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752313AbdHPNbY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 09:31:24 -0400
-Received: by mail-pf0-f195.google.com with SMTP id t83so1391364pfj.3
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 06:31:24 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:32965 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752413AbdHPNb0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 09:31:26 -0400
+Received: by mail-pf0-f194.google.com with SMTP id c65so1389591pfl.0
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 06:31:26 -0700 (PDT)
+In-Reply-To: <1502890265-9285-1-git-send-email-xiangxia.m.yue@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Because we remove the tcp_tw_recycle support in the commit
-4396e46187c ('tcp: remove tcp_tw_recycle') and also delete
-the code 'af_ops->route_req' for sysctl_tw_recycle in tcp_conn_request.
-Now when we call the 'af_ops->route_req', the dist always is
-NULL, and we remove the unnecessay check.
-
 Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
 ---
- net/ipv4/tcp_input.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+ include/net/tcp.h       | 3 +--
+ net/ipv4/tcp_fastopen.c | 6 ++----
+ net/ipv4/tcp_input.c    | 2 +-
+ 3 files changed, 4 insertions(+), 7 deletions(-)
 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index afdab3781425..a995004ae946 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1533,8 +1533,7 @@ int tcp_fastopen_reset_cipher(void *key, unsigned int len);
+ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb);
+ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
+ 			      struct request_sock *req,
+-			      struct tcp_fastopen_cookie *foc,
+-			      struct dst_entry *dst);
++			      struct tcp_fastopen_cookie *foc);
+ void tcp_fastopen_init_key_once(bool publish);
+ bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
+ 			     struct tcp_fastopen_cookie *cookie);
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index ce9c7fef200f..e3c33220c418 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -171,7 +171,6 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ static struct sock *tcp_fastopen_create_child(struct sock *sk,
+ 					      struct sk_buff *skb,
+-					      struct dst_entry *dst,
+ 					      struct request_sock *req)
+ {
+ 	struct tcp_sock *tp;
+@@ -278,8 +277,7 @@ static bool tcp_fastopen_queue_check(struct sock *sk)
+  */
+ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
+ 			      struct request_sock *req,
+-			      struct tcp_fastopen_cookie *foc,
+-			      struct dst_entry *dst)
++			      struct tcp_fastopen_cookie *foc)
+ {
+ 	struct tcp_fastopen_cookie valid_foc = { .len = -1 };
+ 	bool syn_data = TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq + 1;
+@@ -312,7 +310,7 @@ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
+ 		 * data in SYN_RECV state.
+ 		 */
+ fastopen:
+-		child = tcp_fastopen_create_child(sk, skb, dst, req);
++		child = tcp_fastopen_create_child(sk, skb, req);
+ 		if (child) {
+ 			foc->len = -1;
+ 			NET_INC_STATS(sock_net(sk),
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d73903fe8c83..7eee2c7ddb7a 100644
+index 7eee2c7ddb7a..21df0868f206 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -6132,11 +6132,10 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 
- 		isn = af_ops->init_seq(skb);
+@@ -6151,7 +6151,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 	tcp_openreq_init_rwin(req, sk, dst);
+ 	if (!want_cookie) {
+ 		tcp_reqsk_record_syn(sk, req, skb);
+-		fastopen_sk = tcp_try_fastopen(sk, skb, req, &foc, dst);
++		fastopen_sk = tcp_try_fastopen(sk, skb, req, &foc);
  	}
--	if (!dst) {
--		dst = af_ops->route_req(sk, &fl, req);
--		if (!dst)
--			goto drop_and_free;
--	}
-+
-+	dst = af_ops->route_req(sk, &fl, req);
-+	if (!dst)
-+		goto drop_and_free;
- 
- 	tcp_ecn_create_request(req, skb, sk, dst);
- 
+ 	if (fastopen_sk) {
+ 		af_ops->send_synack(fastopen_sk, dst, &fl, req,
 -- 
 2.13.4
