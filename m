@@ -1,88 +1,120 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ptr_ring: use kmalloc_array()
-Date: Wed, 16 Aug 2017 10:36:47 -0700
-Message-ID: <1502905007.4936.133.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: [PATCH net-next 3/3 v4] drivers: net: ethernet: qualcomm: rmnet:
+ Initial implementation
+Date: Wed, 16 Aug 2017 11:38:16 -0600
+Message-ID: <60e2cdb8b1c442cc1c40dab750e8b7b6@codeaurora.org>
+References: <1502856953-30321-1-git-send-email-subashab@codeaurora.org>
+ <1502856953-30321-4-git-send-email-subashab@codeaurora.org>
+ <20170815.212414.71937112074428743.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, fengguang.wu@intel.com, dcbw@redhat.com,
+        jiri@resnulli.us, stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>,
+        David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36077 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752636AbdHPRgt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 13:36:49 -0400
-Received: by mail-pf0-f195.google.com with SMTP id t83so1896209pfj.3
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 10:36:49 -0700 (PDT)
+Received: from smtp.codeaurora.org ([198.145.29.96]:39014 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751640AbdHPRiS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 13:38:18 -0400
+In-Reply-To: <20170815.212414.71937112074428743.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+>> > +static int rmnet_unregister_real_device(struct net_device *dev)
+>> > +{
+>> > +	int config_id = RMNET_LOCAL_LOGICAL_ENDPOINT;
+>> > +	struct rmnet_logical_ep_conf_s *epconfig_l;
+>> > +	struct rmnet_phys_ep_conf_s *config;
+>> > +
+>> > +	ASSERT_RTNL();
+>> > +
+>> > +	netdev_info(dev, "Removing device %s\n", dev->name);
+>> > +
+>> > +	if (!rmnet_is_real_dev_registered(dev))
+>> > +		return -EINVAL;
+>> > +
+>> > +	for (; config_id < RMNET_MAX_LOGICAL_EP; config_id++) {
+>> 
+>> This loop is so much harder to understand because you initialize
+>> the loop index several lines above the for() statement.  Just
+>> initialize it here at the beginning of the for() loop and deal
+>> with the fact that this will have to therefore be a multi-line
+>> for() statement the best you can.
+> ...
+> 
+> One way to split the multi-line for() is to put the initialiser
+> on the immediately preceding line:
+> 	config_id = RMNET_LOCAL_LOGICAL_ENDPOINT;
+> 	for (; config_id < RMNET_MAX_LOGICAL_EP; config_id++) {
+> 
+> 	David
 
-As found by syzkaller, malicious users can set whatever tx_queue_len
-on a tun device and eventually crash the kernel.
+Hi DaveM / David
 
-Lets remove the ALIGN(XXX, SMP_CACHE_BYTES) thing since a small
-ring buffer is not fast anyway.
+I'll move the initialization as above.
 
-Fixes: 2e0ab8ca83c1 ("ptr_ring: array based FIFO for pointers")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
----
- include/linux/ptr_ring.h  |    9 +++++----
- include/linux/skb_array.h |    3 ++-
- 2 files changed, 7 insertions(+), 5 deletions(-)
+> 
+>> +static int rmnet_set_egress_data_format(struct net_device *dev,	u32 
+>> edf,
+>> +					u16 agg_size, u16 agg_count)
+> 
+> Use a space instead of a TAB character before the "u32 edf," argument.
+> 
 
-diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-index d8c97ec8a8e6..37b4bb2545b3 100644
---- a/include/linux/ptr_ring.h
-+++ b/include/linux/ptr_ring.h
-@@ -436,9 +436,9 @@ static inline int ptr_ring_consume_batched_bh(struct ptr_ring *r,
- 	__PTR_RING_PEEK_CALL_v; \
- })
- 
--static inline void **__ptr_ring_init_queue_alloc(int size, gfp_t gfp)
-+static inline void **__ptr_ring_init_queue_alloc(unsigned int size, gfp_t gfp)
- {
--	return kzalloc(ALIGN(size * sizeof(void *), SMP_CACHE_BYTES), gfp);
-+	return kcalloc(size, sizeof(void *), gfp);
- }
- 
- static inline void __ptr_ring_set_size(struct ptr_ring *r, int size)
-@@ -582,7 +582,8 @@ static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
-  * In particular if you consume ring in interrupt or BH context, you must
-  * disable interrupts/BH when doing so.
-  */
--static inline int ptr_ring_resize_multiple(struct ptr_ring **rings, int nrings,
-+static inline int ptr_ring_resize_multiple(struct ptr_ring **rings,
-+					   unsigned int nrings,
- 					   int size,
- 					   gfp_t gfp, void (*destroy)(void *))
- {
-@@ -590,7 +591,7 @@ static inline int ptr_ring_resize_multiple(struct ptr_ring **rings, int nrings,
- 	void ***queues;
- 	int i;
- 
--	queues = kmalloc(nrings * sizeof *queues, gfp);
-+	queues = kmalloc_array(nrings, sizeof(*queues), gfp);
- 	if (!queues)
- 		goto noqueues;
- 
-diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-index 35226cd4efb0..8621ffdeecbf 100644
---- a/include/linux/skb_array.h
-+++ b/include/linux/skb_array.h
-@@ -193,7 +193,8 @@ static inline int skb_array_resize(struct skb_array *a, int size, gfp_t gfp)
- }
- 
- static inline int skb_array_resize_multiple(struct skb_array **rings,
--					    int nrings, int size, gfp_t gfp)
-+					    int nrings, unsigned int size,
-+					    gfp_t gfp)
- {
- 	BUILD_BUG_ON(offsetof(struct skb_array, ring));
- 	return ptr_ring_resize_multiple((struct ptr_ring **)rings,
+I'll fix this.
+
+>> +static int
+>> +__rmnet_set_logical_endpoint_config(struct net_device *dev,
+>> +				    int config_id,
+>> +				    struct rmnet_logical_ep_conf_s *epconfig)
+>> +{
+>> +	struct rmnet_logical_ep_conf_s *epconfig_l;
+>> +
+>> +	ASSERT_RTNL();
+>> +
+>> +	epconfig_l = rmnet_get_logical_ep(dev, config_id);
+>> +
+>> +	if (!epconfig_l || epconfig_l->refcount)
+>> +		return -EINVAL;
+>> +
+>> +	memcpy(epconfig_l, epconfig, sizeof(struct 
+>> rmnet_logical_ep_conf_s));
+>> +	if (config_id == RMNET_LOCAL_LOGICAL_ENDPOINT)
+>> +		epconfig_l->mux_id = 0;
+>> +	else
+>> +		epconfig_l->mux_id = config_id;
+>> +
+>> +	dev_hold(epconfig_l->egress_dev);
+>> +	return 0;
+>> +}
+> 
+> This looks really messy.
+> 
+> One invariant that must hold is that if I try to take down netdev
+> "X", all resources holding a reference to X will be immediately
+> (or quickly) dropped when that request comes in via notifiers.
+> 
+> Will this happen properly for this egress_dev reference counting?
+> 
+>> +static int rmnet_config_notify_cb(struct notifier_block *nb,
+>> +				  unsigned long event, void *data)
+>> +{
+>> +	struct net_device *dev = netdev_notifier_info_to_dev(data);
+>> +
+>> +	if (!dev)
+>> +		return NOTIFY_DONE;
+>> +
+>> +	switch (event) {
+>> +	case NETDEV_UNREGISTER_FINAL:
+>> +	case NETDEV_UNREGISTER:
+>> +		netdev_info(dev, "Kernel unregister\n");
+>> +		rmnet_force_unassociate_device(dev);
+>> +		break;
+> 
+> So I guess it happens here?
+
+Yes, all the rmnet devices are removed from the real_dev
+in the notifier callback.
