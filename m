@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ptr_ring: use kmalloc_array()
-Date: Wed, 16 Aug 2017 16:29:15 -0700 (PDT)
-Message-ID: <20170816.162915.89069404027644244.davem@davemloft.net>
-References: <1502905007.4936.133.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net] ipv4: better IP_MAX_MTU enforcement
+Date: Wed, 16 Aug 2017 16:29:25 -0700 (PDT)
+Message-ID: <20170816.162925.2199453201191784671.davem@davemloft.net>
+References: <1502906952.4936.140.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com
+Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40932 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40940 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752444AbdHPX3Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 19:29:16 -0400
-In-Reply-To: <1502905007.4936.133.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1752382AbdHPX3Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 19:29:25 -0400
+In-Reply-To: <1502906952.4936.140.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 16 Aug 2017 10:36:47 -0700
+Date: Wed, 16 Aug 2017 11:09:12 -0700
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> As found by syzkaller, malicious users can set whatever tx_queue_len
-> on a tun device and eventually crash the kernel.
+> While working on yet another syzkaller report, I found
+> that our IP_MAX_MTU enforcements were not properly done.
 > 
-> Lets remove the ALIGN(XXX, SMP_CACHE_BYTES) thing since a small
-> ring buffer is not fast anyway.
+> gcc seems to reload dev->mtu for min(dev->mtu, IP_MAX_MTU), and
+> final result can be bigger than IP_MAX_MTU :/
 > 
-> Fixes: 2e0ab8ca83c1 ("ptr_ring: array based FIFO for pointers")
+> This is a problem because device mtu can be changed on other cpus or
+> threads.
+> 
+> While this patch does not fix the issue I am working on, it is
+> probably worth addressing it.
+> 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 
-Applied and queued up for -stable.
+Also applied and queued up for -stable.
+
+Thanks.
