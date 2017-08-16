@@ -1,67 +1,81 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH] tun: make tun_build_skb() thread safe
-Date: Wed, 16 Aug 2017 22:14:33 +0800
-Message-ID: <1502892873-10770-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, Eric Dumazet <eric.dumazet@gmail.com>,
-        Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH][V2] net/mlx4: fix spelling mistake: "availible" ->
+ "available"
+Date: Wed, 16 Aug 2017 17:21:34 +0300
+Message-ID: <20170816142134.GR24282@mtr-leonro.local>
+References: <20170816134250.6689-1-colin.king@canonical.com>
+ <20170816135851.GP24282@mtr-leonro.local>
+ <fa81af22-0a98-bbda-718d-e069287172fd@canonical.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="CXwywHnYJ7GE90zd"
+Cc: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <fa81af22-0a98-bbda-718d-e069287172fd-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
 
-tun_build_skb() is not thread safe since it uses per queue page frag,
-this will break things when multiple threads are sending through same
-queue. Switch to use per-thread generator (no lock involved).
+--CXwywHnYJ7GE90zd
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Fixes: 66ccbc9c87c2 ("tap: use build_skb() for small packet")
-Tested-by: Jason Wang <jasowang@redhat.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+On Wed, Aug 16, 2017 at 03:02:31PM +0100, Colin Ian King wrote:
+> On 16/08/17 14:58, Leon Romanovsky wrote:
+> > On Wed, Aug 16, 2017 at 02:42:50PM +0100, Colin King wrote:
+> >> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> >>
+> >> Trivial fix to spelling mistakes in the mlx4 driver.
+> >>
+> >> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> >> ---
+> >>  drivers/net/ethernet/mellanox/mlx4/cmd.c    | 16 ++++++++--------
+> >>  drivers/net/ethernet/mellanox/mlx4/fw_qos.c |  6 +++---
+> >>  drivers/net/ethernet/mellanox/mlx4/fw_qos.h | 10 +++++-----
+> >>  3 files changed, 16 insertions(+), 16 deletions(-)
+> >>
+> >
+> > What are the changes between this version and previous one?
+> >
+> > Thanks
+> >
+> A fix on "Availible"
+>
+> -	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, availible_vpp);
+> +	mlx4_dbg(dev, "Port %d Available VPPs %d\n", port, available_vpp);
+>
+> Colin
+>
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 5892284..c38cd84 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -175,7 +175,6 @@ struct tun_file {
- 	struct list_head next;
- 	struct tun_struct *detached;
- 	struct skb_array tx_array;
--	struct page_frag alloc_frag;
- };
- 
- struct tun_flow_entry {
-@@ -578,8 +577,6 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 		}
- 		if (tun)
- 			skb_array_cleanup(&tfile->tx_array);
--		if (tfile->alloc_frag.page)
--			put_page(tfile->alloc_frag.page);
- 		sock_put(&tfile->sk);
- 	}
- }
-@@ -1272,7 +1269,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
- 				     struct virtio_net_hdr *hdr,
- 				     int len, int *generic_xdp)
- {
--	struct page_frag *alloc_frag = &tfile->alloc_frag;
-+	struct page_frag *alloc_frag = &current->task_frag;
- 	struct sk_buff *skb;
- 	struct bpf_prog *xdp_prog;
- 	int buflen = SKB_DATA_ALIGN(len + TUN_RX_PAD) +
-@@ -2580,8 +2577,6 @@ static int tun_chr_open(struct inode *inode, struct file * file)
- 	tfile->sk.sk_write_space = tun_sock_write_space;
- 	tfile->sk.sk_sndbuf = INT_MAX;
- 
--	tfile->alloc_frag.page = NULL;
--
- 	file->private_data = tfile;
- 	INIT_LIST_HEAD(&tfile->next);
- 
--- 
-2.7.4
+
+Thanks,
+Reviewed-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+
+--CXwywHnYJ7GE90zd
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlmUVO4ACgkQ5GN7iDZy
+WKcKhhAAvfr47rZk/UxrjyT/8/BuYLAtcUR3ecV1YR3NCOeAfL1VLWI/lytsw8Gg
+or1H1O/k/vhzLtBlD6u0KHqakUbDizPkGsuqcV/9sdpMkVkYHZbpI9cjV1wLfNq9
+tRWDIue7+qeoeF8Kyr91VTWLSE0h0cnXk+LtjfOd9mibXvmYm+TuTMyL3xi/fPuV
+/T3lFCP8Y97Di2v3K4iX/Ab3qS1axPaXXy1fpUXm0ecjB0bzgCv1Bqd4lC80HhM2
+GzWlLYpxQ9/owAAtjOvjvlZgIYkSzlocJL5m+FDHurFgWE1zxwDLnwTlk8RY8lK1
+SpVee1pkGKGQAHGS6JT//8HIYC33e/xz5jIywnHptBatm8FwWAhXVkDjAAN18v1G
+ihUo8B1VY4PYOaEJeNVqdr7RBiiWnWzjD/OrsY8ujvpWgPjjiKxOBzZ1MiHDFzzD
+Z+yEyqCwfXopAKztEMU9TohG96N2nwbZg+LZY4Tc19z4FoaVesp5PaXYgkbk9Tq/
+6ylXCfBgAnBzyAOCCyJfutcaOROxePzLmpvnh5+jSIdqHxfyemPZH6HK2fa+COg/
+kUh7WHlIRjwOrqEDat4bJC74S02Ep1RlEVaphbqqGoK23XK+iYivTO9knNAWbxxz
+3dvxPOUDvqMmHrjVMN+nkA7qtiLhRqw5o/8HFZl/6xD0N4Kw/OQ=
+=imF8
+-----END PGP SIGNATURE-----
+
+--CXwywHnYJ7GE90zd--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
