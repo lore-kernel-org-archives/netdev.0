@@ -1,64 +1,66 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: [PATCH 5/6] bridge: add VPLS pseudowire info in fdb dump
-Date: Wed, 16 Aug 2017 19:02:01 +0200
-Message-ID: <20170816170202.456851-6-equinox@diac24.net>
-References: <20170816170202.456851-1-equinox@diac24.net>
-Cc: amine.kherbouche@6wind.com, roopa@cumulusnetworks.com,
-        David Lamparter <equinox@diac24.net>
-To: netdev@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH 1/2] net_sched: call qlen_notify only if child qdisc is empty
+Date: Wed, 16 Aug 2017 10:22:02 -0700
+Message-ID: <CAM_iQpWmJsMWrqoA3h1eLkssaMXOc6kbsj75S9mdSokFKunumw@mail.gmail.com>
+References: <150280439968.717891.6476652519937001709.stgit@buzz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jiri Kosina <jkosina@suse.cz>,
+        Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eidolon.nox.tf ([185.142.180.128]:43718 "EHLO eidolon.nox.tf"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751678AbdHPRC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Aug 2017 13:02:29 -0400
-In-Reply-To: <20170816170202.456851-1-equinox@diac24.net>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35885 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752780AbdHPRWX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 13:22:23 -0400
+Received: by mail-pf0-f195.google.com with SMTP id t83so1869316pfj.3
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 10:22:23 -0700 (PDT)
+In-Reply-To: <150280439968.717891.6476652519937001709.stgit@buzz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a NDA_VPLS_WIRE attribute to the FDB dump if we have dst metadata
-that is indicative of a VPLS pseudowire.  This is really helpful for
-debugging.
+On Tue, Aug 15, 2017 at 6:39 AM, Konstantin Khlebnikov
+<khlebnikov@yandex-team.ru> wrote:
+> This callback is used for deactivating class in parent qdisc.
+> This is cheaper to test queue length right here.
+>
+> Also this allows to catch draining screwed backlog and prevent
+> second deactivation of already inactive parent class which will
+> crash kernel for sure. Kernel with print warning at destruction
+> of child qdisc where no packets but backlog is not zero.
 
-Signed-off-by: David Lamparter <equinox@diac24.net>
----
- include/uapi/linux/neighbour.h |  1 +
- net/bridge/br_fdb.c            | 12 ++++++++++++
- 2 files changed, 13 insertions(+)
+Good cleanup. Please explicitly mark patches like this as
+for net-next.
 
-diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
-index 3199d28980b3..703089c91b04 100644
---- a/include/uapi/linux/neighbour.h
-+++ b/include/uapi/linux/neighbour.h
-@@ -27,6 +27,7 @@ enum {
- 	NDA_MASTER,
- 	NDA_LINK_NETNSID,
- 	NDA_SRC_VNI,
-+	NDA_VPLS_WIRE,
- 	__NDA_MAX
- };
- 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 0751fcb89699..ffbaff914d55 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -670,6 +670,18 @@ static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
- 
- 	if (fdb->vlan_id && nla_put(skb, NDA_VLAN, sizeof(u16), &fdb->vlan_id))
- 		goto nla_put_failure;
-+	if (fdb->md_dst) {
-+		struct metadata_dst *md_dst;
-+		md_dst = (struct metadata_dst *)fdb->md_dst;
-+		/* ensured in br_fdb_update */
-+		BUG_ON(!(md_dst->dst.flags & DST_METADATA));
-+
-+		if (md_dst->type == METADATA_VPLS) {
-+			unsigned wire = md_dst->u.vpls_info.pw_label;
-+			if (nla_put_u32(skb, NDA_VPLS_WIRE, wire))
-+				goto nla_put_failure;
-+		}
-+	}
- 
- 	nlmsg_end(skb, nlh);
- 	return 0;
--- 
-2.13.0
+Just one comment below.
+
+
+> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> index bd24a550e0f9..18da45c0769c 100644
+> --- a/net/sched/sch_api.c
+> +++ b/net/sched/sch_api.c
+> @@ -752,6 +752,7 @@ void qdisc_tree_reduce_backlog(struct Qdisc *sch, unsigned int n,
+>         const struct Qdisc_class_ops *cops;
+>         unsigned long cl;
+>         u32 parentid;
+> +       bool notify;
+>         int drops;
+>
+>         if (n == 0 && len == 0)
+> @@ -764,6 +765,13 @@ void qdisc_tree_reduce_backlog(struct Qdisc *sch, unsigned int n,
+>
+>                 if (sch->flags & TCQ_F_NOPARENT)
+>                         break;
+> +               /* Notify parent qdisc only if child qdisc becomes empty.
+> +                *
+> +                * If child was empty even before update then backlog
+> +                * counter is screwed and we skip notification because
+> +                * parent class is already passive.
+> +                */
+> +               notify = !sch->q.qlen && !WARN_ON_ONCE(!n);
+
+Since 'n' never changes in this function, can we just move
+this WARN_ON_ONCE() right before the loop??
