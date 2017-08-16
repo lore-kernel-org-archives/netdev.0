@@ -1,48 +1,65 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH net-next 2/3 v4] net: arp: Add support for raw IP device
-Date: Wed, 16 Aug 2017 06:52:41 +0200
-Message-ID: <7D61C5CD-5B75-46C8-AC00-C4852FC1A554@holtmann.org>
-References: <1502856953-30321-1-git-send-email-subashab@codeaurora.org>
- <1502856953-30321-3-git-send-email-subashab@codeaurora.org>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev list <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>, fengguang.wu@intel.com,
-        Dan Williams <dcbw@redhat.com>, jiri@resnulli.us,
-        stephen@networkplumber.org
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net] net: check and errout if res->fi is NULL when
+ RTM_F_FIB_MATCH is set
+Date: Tue, 15 Aug 2017 21:55:32 -0700
+Message-ID: <CAJieiUiDzph45Uzxfp=7rGKarZXpPQ4T488ykBQoZC3VPKSJvg@mail.gmail.com>
+References: <1502851818-17811-1-git-send-email-roopa@cumulusnetworks.com> <577b280e-5bef-ff83-ab72-fe61b42e02f9@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Florian Westphal <fw@strlen.de>, idaifish <idaifish@gmail.com>,
+        syzkaller@googlegroups.com, Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([212.227.132.17]:46984 "EHLO
-        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751643AbdHPEwo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 00:52:44 -0400
-In-Reply-To: <1502856953-30321-3-git-send-email-subashab@codeaurora.org>
+Received: from mail-vk0-f41.google.com ([209.85.213.41]:37879 "EHLO
+        mail-vk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750902AbdHPEzd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 00:55:33 -0400
+Received: by mail-vk0-f41.google.com with SMTP id r199so8765475vke.4
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2017 21:55:33 -0700 (PDT)
+In-Reply-To: <577b280e-5bef-ff83-ab72-fe61b42e02f9@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Subash,
+On Tue, Aug 15, 2017 at 7:56 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 8/15/17 8:50 PM, Roopa Prabhu wrote:
+>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>> index 7effa62..49a018f 100644
+>> --- a/net/ipv4/route.c
+>> +++ b/net/ipv4/route.c
+>> @@ -2763,14 +2763,21 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
+>>       if (rtm->rtm_flags & RTM_F_LOOKUP_TABLE)
+>>               table_id = rt->rt_table_id;
+>>
+>> -     if (rtm->rtm_flags & RTM_F_FIB_MATCH)
+>> +     if (rtm->rtm_flags & RTM_F_FIB_MATCH) {
+>> +             if (!res.fi) {
+>> +                     err = fib_props[res->type].error;
+>> +                     if (!err)
+>> +                             err = -EINVAL;
+>
+> I think -EHOSTUNREACH is a better error than EINVAL. Nothing about the
+> user inputs are invalid; rather the lookup is failing, but indirectly.
 
-> Define the raw IP type. This is needed for raw IP net devices
-> like rmnet.
-> 
-> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> ---
-> include/uapi/linux/if_arp.h | 1 +
-> 1 file changed, 1 insertion(+)
-> 
-> diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
-> index cf73510..d6650e2 100644
-> --- a/include/uapi/linux/if_arp.h
-> +++ b/include/uapi/linux/if_arp.h
-> @@ -59,6 +59,7 @@
-> #define ARPHRD_LAPB	516		/* LAPB				*/
-> #define ARPHRD_DDCMP    517		/* Digital's DDCMP protocol     */
-> #define ARPHRD_RAWHDLC	518		/* Raw HDLC			*/
-> +#define ARPHRD_RAWIP    530             /* Raw IP                       */
+ I have been going back and forth on this looking at other examples.
+I would have preferred ip_route_input_rcu returned the right error
+code for this....but i prefer not to touch that given it may break
+something else.
 
-what is up with gap here?
+EHOSTUNREACH is only returned for RTN_UNREACHABLE routes.
 
-Regards
+        [RTN_UNREACHABLE] = {
 
-Marcel
+                .error  = -EHOSTUNREACH,
+
+                .scope  = RT_SCOPE_UNIVERSE,
+
+        },
+
+In the example i am using it was failing due to a daddr being zero. so
+seemed like -EINVAL would fit.
+
+If EHOSTUNREACH can cover most errors, I am fine with changing it to
+-EHOSTUNREACH.
