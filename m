@@ -1,49 +1,61 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next repost 1/3] idr: Use unsigned long instead of int
-Date: Wed, 16 Aug 2017 13:06:12 +0200
-Message-ID: <20170816110612.GI1868@nanopsycho>
-References: <1502871244-19870-1-git-send-email-chrism@mellanox.com>
- <1502871244-19870-2-git-send-email-chrism@mellanox.com>
- <1502879829.4936.100.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170816105305.GH1868@nanopsycho>
- <1502881133.4936.104.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 3/3 v4] drivers: net: ethernet: qualcomm:
+ rmnet: Initial implementation
+Date: Wed, 16 Aug 2017 11:08:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0056B94@AcuExch.aculab.com>
+References: <1502856953-30321-1-git-send-email-subashab@codeaurora.org>
+        <1502856953-30321-4-git-send-email-subashab@codeaurora.org>
+ <20170815.212414.71937112074428743.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Mi <chrism@mellanox.com>, netdev@vger.kernel.org,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com, davem@davemloft.net,
-        mawilcox@microsoft.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "fengguang.wu@intel.com" <fengguang.wu@intel.com>,
+        "dcbw@redhat.com" <dcbw@redhat.com>,
+        "jiri@resnulli.us" <jiri@resnulli.us>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>
+To: 'David Miller' <davem@davemloft.net>,
+        "subashab@codeaurora.org" <subashab@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:38643 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751530AbdHPLGP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 07:06:15 -0400
-Received: by mail-wr0-f195.google.com with SMTP id g32so2408538wrd.5
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 04:06:14 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1502881133.4936.104.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from smtp-out6.electric.net ([192.162.217.184]:63484 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751644AbdHPLIr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 07:08:47 -0400
+In-Reply-To: <20170815.212414.71937112074428743.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Aug 16, 2017 at 12:58:53PM CEST, eric.dumazet@gmail.com wrote:
->On Wed, 2017-08-16 at 12:53 +0200, Jiri Pirko wrote:
->
->> rhashtable is unnecesary big hammer for this. IDR is nice fit for
->> this purpose.
->
->Obviously IDR does not fit, since you have to change its ABI.
+From: David Miller
+> Sent: 16 August 2017 05:24
+> From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+> Date: Tue, 15 Aug 2017 22:15:53 -0600
+> 
+> > +static int rmnet_unregister_real_device(struct net_device *dev)
+> > +{
+> > +	int config_id = RMNET_LOCAL_LOGICAL_ENDPOINT;
+> > +	struct rmnet_logical_ep_conf_s *epconfig_l;
+> > +	struct rmnet_phys_ep_conf_s *config;
+> > +
+> > +	ASSERT_RTNL();
+> > +
+> > +	netdev_info(dev, "Removing device %s\n", dev->name);
+> > +
+> > +	if (!rmnet_is_real_dev_registered(dev))
+> > +		return -EINVAL;
+> > +
+> > +	for (; config_id < RMNET_MAX_LOGICAL_EP; config_id++) {
+> 
+> This loop is so much harder to understand because you initialize
+> the loop index several lines above the for() statement.  Just
+> initialize it here at the beginning of the for() loop and deal
+> with the fact that this will have to therefore be a multi-line
+> for() statement the best you can.
+...
 
-I don't think it is a problem to adjust something to your needs.
-Moreover, if it's API is misdesigned from the beginning. We are just
-putting IDR back on track, cleaning it's API. I don't see anything wrong
-on that. Everyone would benefit.
+One way to split the multi-line for() is to put the initialiser
+on the immediately preceding line:
+	config_id = RMNET_LOCAL_LOGICAL_ENDPOINT;
+	for (; config_id < RMNET_MAX_LOGICAL_EP; config_id++) {
 
-
->
->If rhashtable does not fit this, then I wonder why we spent so many days
->of work adding it in the kernel.
-
-It fits, sure. But it is not needed (the big hammer I mentioned).
-We don't need a custom key for lookup. Just a single pointer as a key
-would do. And that is exactly why IDR is here for. Does not make sense
-to use anything else when we have the thing to do the work right here.
+	David
