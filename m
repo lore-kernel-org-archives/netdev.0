@@ -1,198 +1,239 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH net RESEND] PCI: fix oops when try to find Root Port for
- a PCI device
-Date: Wed, 16 Aug 2017 15:02:37 -0500
-Message-ID: <20170816200237.GE28977@bhelgaas-glaptop.roam.corp.google.com>
-References: <1502810688-12420-1-git-send-email-dingtianhong@huawei.com>
- <20170815170331.GA4099@bhelgaas-glaptop.roam.corp.google.com>
- <20170816193303.GA14147@ulmo>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [net-next:master 1065/1071] net//core/filter.c:1881:8: error:
+ implicit declaration of function '__sock_map_lookup_elem'
+Date: Thu, 17 Aug 2017 04:04:19 +0800
+Message-ID: <201708170416.1xAg6Dkf%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ding Tianhong <dingtianhong@huawei.com>, mark.rutland@arm.com,
-        gabriele.paoloni@huawei.com, asit.k.mallick@intel.com,
-        catalin.marinas@arm.com, will.deacon@arm.com, linuxarm@huawei.com,
-        alexander.duyck@gmail.com, ashok.raj@intel.com,
-        eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com,
-        linux-pci@vger.kernel.org, ganeshgr@chelsio.com, Bob.Shaw@amd.com,
-        leedom@chelsio.com, patrick.j.cramer@intel.com,
-        bhelgaas@google.com, werner@chelsio.com,
-        linux-arm-kernel@lists.infradead.org, amira@mellanox.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        David.Laight@aculab.com, Suravee.Suthikulpanit@amd.com,
-        robin.murphy@arm.com, davem@davemloft.net, l.stach@pengutronix.de
-To: Thierry Reding <thierry.reding@gmail.com>
+Content-Type: multipart/mixed; boundary="x+6KMIRAuhnl3hBn"
+Cc: kbuild-all@01.org, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:45256 "EHLO mail.kernel.org"
+Received: from mga03.intel.com ([134.134.136.65]:15371 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751678AbdHPUCj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Aug 2017 16:02:39 -0400
+        id S1751611AbdHPUFU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Aug 2017 16:05:20 -0400
 Content-Disposition: inline
-In-Reply-To: <20170816193303.GA14147@ulmo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 16, 2017 at 09:33:03PM +0200, Thierry Reding wrote:
-> On Tue, Aug 15, 2017 at 12:03:31PM -0500, Bjorn Helgaas wrote:
-> > On Tue, Aug 15, 2017 at 11:24:48PM +0800, Ding Tianhong wrote:
-> > > Eric report a oops when booting the system after applying
-> > > the commit a99b646afa8a ("PCI: Disable PCIe Relaxed..."):
-> > > ...
-> > 
-> > > It looks like the pci_find_pcie_root_port() was trying to
-> > > find the Root Port for the PCI device which is the Root
-> > > Port already, it will return NULL and trigger the problem,
-> > > so check the highest_pcie_bridge to fix thie problem.
-> > 
-> > The problem was actually with a Root Complex Integrated Endpoint that
-> > has no upstream PCIe device:
-> > 
-> >   00:05.2 System peripheral: Intel Corporation Device 0e2a (rev 04)
-> >         Subsystem: Intel Corporation Device 0e2a
-> >         Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
-> >         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-> >         Capabilities: [40] Express (v2) Root Complex Integrated Endpoint, MSI 00
-> >                 DevCap: MaxPayload 128 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
-> >                         ExtTag- RBE- FLReset-
-> >                 DevCtl: Report errors: Correctable- Non-Fatal- Fatal+ Unsupported+
-> >                         RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
-> >                         MaxPayload 128 bytes, MaxReadReq 128 bytes
-> 
-> I've started seeing this crash on Tegra K1 as well. Here's the device
-> for which it oopses:
-> 
-> 00:02.0 PCI bridge: NVIDIA Corporation TegraK1 PCIe x1 Bridge (rev a1) (prog-if 00 [Normal decode])
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ Stepping- SERR+ FastB2B- DisINTx+
->         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
->         Latency: 0, Cache Line Size: 64 bytes
->         Interrupt: pin A routed to IRQ 391
->         Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
->         I/O behind bridge: 00001000-00001fff [size=4K]
->         Memory behind bridge: 13000000-130fffff [size=1M]
->         Prefetchable memory behind bridge: 0000000020000000-00000000200fffff [size=1M]
->         Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- <SERR- <PERR-
->         BridgeCtl: Parity+ SERR- NoISA- VGA- MAbort- >Reset- FastB2B-
->                 PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
->         Capabilities: [40] Subsystem: NVIDIA Corporation TegraK1 PCIe x1 Bridge
->         Capabilities: [48] Power Management version 3
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
->                 Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
->         Capabilities: [50] MSI: Enable+ Count=1/2 Maskable- 64bit+
->                 Address: 000000fcfffff000  Data: 0000
->         Capabilities: [60] HyperTransport: MSI Mapping Enable- Fixed-
->                 Mapping Address Base: 00000000fee00000
->         Capabilities: [80] Express (v2) Root Port (Slot+), MSI 00
->                 DevCap: MaxPayload 128 bytes, PhantFunc 0
->                         ExtTag+ RBE+
->                 DevCtl: Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
->                         RlxdOrd+ ExtTag+ PhantFunc- AuxPwr- NoSnoop+
->                         MaxPayload 128 bytes, MaxReadReq 512 bytes
->                 DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr- TransPend-
->                 LnkCap: Port #1, Speed 5GT/s, Width x1, ASPM L0s, Exit Latency L0s <512ns
->                         ClockPM- Surprise- LLActRep+ BwNot+ ASPMOptComp-
->                 LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- CommClk+
->                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
->                 LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive+ BWMgmt+ ABWMgmt-
->                 SltCap: AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug- Surprise-
->                         Slot #0, PowerLimit 0.000W; Interlock- NoCompl-
->                 SltCtl: Enable: AttnBtn- PwrFlt- MRL- PresDet- CmdCplt- HPIrq- LinkChg-
->                         Control: AttnInd Off, PwrInd On, Power- Interlock-
->                 SltSta: Status: AttnBtn- PowerFlt- MRL- CmdCplt- PresDet+ Interlock-
->                         Changed: MRL- PresDet+ LinkState+
->                 RootCtl: ErrCorrectable- ErrNon-Fatal- ErrFatal- PMEIntEna+ CRSVisible-
->                 RootCap: CRSVisible-
->                 RootSta: PME ReqID 0000, PMEStatus- PMEPending-
->                 DevCap2: Completion Timeout: Range AB, TimeoutDis+, LTR-, OBFF Not Supported ARIFwd-
->                          AtomicOpsCap: Routing- 32bit- 64bit- 128bitCAS-
->                 DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-, LTR-, OBFF Disabled ARIFwd-
->                          AtomicOpsCtl: ReqEn- EgressBlck-
->                 LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance- SpeedDis-
->                          Transmit Margin: Normal Operating Range, EnterModifiedCompliance- ComplianceSOS-
->                          Compliance De-emphasis: -6dB
->                 LnkSta2: Current De-emphasis Level: -3.5dB, EqualizationComplete-, EqualizationPhase1-
->                          EqualizationPhase2-, EqualizationPhase3-, LinkEqualizationRequest-
->         Kernel driver in use: pcieport
-> 
-> > > Fixes: a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
-> > 
-> > This also
-> > 
-> > Fixes: c56d4450eb68 ("PCI: Turn off Request Attributes to avoid Chelsio T5 Completion erratum")
-> > 
-> > which added pci_find_pcie_root_port().  Prior to this Relaxed Ordering
-> > series, we only used pci_find_pcie_root_port() in a Chelsio quirk that
-> > only applied to non-integrated endpoints, so we didn't trip over the
-> > bug.
-> > 
-> > > Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > > Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> > > ---
-> > >  drivers/pci/pci.c | 3 ++-
-> > >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > > 
-> > > diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> > > index af0cc34..7e2022f 100644
-> > > --- a/drivers/pci/pci.c
-> > > +++ b/drivers/pci/pci.c
-> > > @@ -522,7 +522,8 @@ struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
-> > >  		bridge = pci_upstream_bridge(bridge);
-> > >  	}
-> > >  
-> > > -	if (pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
-> > > +	if (highest_pcie_bridge &&
-> > > +	    pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
-> > >  		return NULL;
-> > >  
-> > >  	return highest_pcie_bridge;
-> > > -- 
-> > 
-> > I think structuring the fix as follows is a little more readable:
-> > 
-> > diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> > index af0cc3456dc1..587cd7623ed8 100644
-> > --- a/drivers/pci/pci.c
-> > +++ b/drivers/pci/pci.c
-> > @@ -522,10 +522,11 @@ struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
-> >  		bridge = pci_upstream_bridge(bridge);
-> >  	}
-> >  
-> > -	if (pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
-> > -		return NULL;
-> > +	if (highest_pcie_bridge &&
-> > +	    pci_pcie_type(highest_pcie_bridge) == PCI_EXP_TYPE_ROOT_PORT)
-> > +		return highest_pcie_bridge;
-> >  
-> > -	return highest_pcie_bridge;
-> > +	return NULL;
-> >  }
-> >  EXPORT_SYMBOL(pci_find_pcie_root_port);
-> 
-> In case of Tegra, dev actually points to the root port. Now if I read
-> the above code correctly, highest_pcie_bridge will still be NULL in that
-> case, which in turn will return NULL from pci_find_pcie_root_port(). But
-> shouldn't it really return dev?
-> 
-> The patch that I used to fix the issue is this:
-> 
-> --->8---
-> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> index 2c712dcfd37d..dd56c1c05614 100644
-> --- a/drivers/pci/pci.c
-> +++ b/drivers/pci/pci.c
-> @@ -514,7 +514,7 @@ EXPORT_SYMBOL(pci_find_resource);
->   */
->  struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
->  {
-> -       struct pci_dev *bridge, *highest_pcie_bridge = NULL;
-> +       struct pci_dev *bridge, *highest_pcie_bridge = dev;
->  
->         bridge = pci_upstream_bridge(dev);
->         while (bridge && pci_is_pcie(bridge)) {
-> --->8---
-> 
-> That works correctly if this function ends up being called on the PCIe
-> root port, though perhaps that's not what this function is supposed to
-> do. It's somewhat unclear from the kerneldoc what the function should
-> be doing when called on a root port device itself.
 
-Your fix looks right to me.
+--x+6KMIRAuhnl3hBn
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   cf9d01405925e3f8144c99d7bf7b184449794066
+commit: 174a79ff9515f400b9a6115643dafd62a635b7e6 [1065/1071] bpf: sockmap with sk redirect support
+config: cris-etrax-100lx_v2_defconfig (attached as .config)
+compiler: cris-linux-gcc (GCC) 6.2.0
+reproduce:
+        wget https://raw.githubusercontent.com/01org/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
+        chmod +x ~/bin/make.cross
+        git checkout 174a79ff9515f400b9a6115643dafd62a635b7e6
+        # save the attached .config to linux build tree
+        make.cross ARCH=cris 
+
+All error/warnings (new ones prefixed by >>):
+
+   net//core/filter.c: In function 'do_sk_redirect_map':
+>> net//core/filter.c:1881:8: error: implicit declaration of function '__sock_map_lookup_elem' [-Werror=implicit-function-declaration]
+      sk = __sock_map_lookup_elem(ri->map, ri->ifindex);
+           ^~~~~~~~~~~~~~~~~~~~~~
+>> net//core/filter.c:1881:6: warning: assignment makes pointer from integer without a cast [-Wint-conversion]
+      sk = __sock_map_lookup_elem(ri->map, ri->ifindex);
+         ^
+   cc1: some warnings being treated as errors
+
+vim +/__sock_map_lookup_elem +1881 net//core/filter.c
+
+  1874	
+  1875	struct sock *do_sk_redirect_map(void)
+  1876	{
+  1877		struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+  1878		struct sock *sk = NULL;
+  1879	
+  1880		if (ri->map) {
+> 1881			sk = __sock_map_lookup_elem(ri->map, ri->ifindex);
+  1882	
+  1883			ri->ifindex = 0;
+  1884			ri->map = NULL;
+  1885			/* we do not clear flags for future lookup */
+  1886		}
+  1887	
+  1888		return sk;
+  1889	}
+  1890	
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+
+--x+6KMIRAuhnl3hBn
+Content-Type: application/gzip
+Content-Disposition: attachment; filename=".config.gz"
+Content-Transfer-Encoding: base64
+
+H4sICJuklFkAAy5jb25maWcAlFxbc9u2s3/vp+CkZ860D2ks3+KcM3oAQVBCRRIMAEqyXziK
+rDSa2pL/ktw23/7sgqQJkoDS05m2NnZxX+z+9kL//NPPAXk97Z9Xp+169fT0Pfhjs9scVqfN
+Y/B1+7T53yASQSZ0wCKufwPmZLt7/efD+rA9Bte/ja5+u3h/WN8Es81ht3kK6H73dfvHK3Tf
+7nc//fwTFVnMJ2WaFuPvzS8PImNllJK2RS4US8sJy5jktFQ5zxJBZ0D/Oag5iKTTckpUyRMx
+uSyLq8sA5t/tT8Fxc/Kz3V7bbDVTM890wfhkqttlNARKEh5KomGVLCH3LUMmSi5yIXWZkrxt
+joWkDJqWZmtCRkyObxui0oTOtCTAoYocO7cdqeSq/W36MB5dXLzNJUuaF2o8ahoiFtc/JVzp
+8bsPT9svH573j69Pm+OH/yoykrJSsoQRxT78tjb38K7py+XnciEkHilcys/BxFzxE57K60t7
+TaEUM5aVIitVau2PZ1yXLJvD8eLkKdfjq8t2D0Kpkoo05wkbv3vXXkbdVmqmtOMa4IpJMmdS
+cZFhP0dzSQot2nXACZAi0eVUKI3bHb/7ZbffbX615lQLkjslQ92rOc+pk5YLxZdl+rlgBXMs
+tNphylIh70ui4T6n1t1PSRbBxi1ZLRQD+XHLZwGPyKaY24DbCY6vX47fj6fNc3sbjTji5amp
+WLSTGjGHaRTwaM1TJuJYMd3cLsjNB706/hmcts+bYLV7DI6n1ekYrNbr/evutN390U6iOZ2h
+oJWEUlFkmmcTey+hispcCsrgBIBDO3eliZqBmGs12JmkRaCGO4NZ7kug2TPBryVb5ky6ZEVV
+zHZ31etvFoGjOJeIo8MSkwSlMhWZlyljLCoVm9AQX5mTLSx4EpUhzy7d4sRn1Q9OmcfuMVwn
+j/V4dN2055JnelYqErM+z5X1oCZSFLlyTkqnjM5yAcOAElBaSOZkw2ejclBG7lEUDBOZV2em
+8r2kWMFbzCWjoCMj91Gi4nSfXjKDznOjVGTkem60FDkINX9gqFlLEAn4X0oy2nllfTYFP7gk
+515RnVhPJwO1wjMRMVvzkjkrCx6Nbtu2MI/bXyrBbH/v8aaglTi8R9k2KXiZKYikWQDInUUx
+59c22wcLS20ojr1Uegrfu1R2xxmwq/tUuboYwWonrwUtS7m102Ji7TSJ4YlIZpHBoJRxYW8h
+LjRbWn1y0dkgn2QkiSP7wcKS7QY2Z5k2Da1c5PGZrasp6F/rFrllFkg057DEurPqqWJpbEbs
+kjQYMiRScnNvb32gkUWRR65zOrq4Hqi5Gvzkm8PX/eF5tVtvAvbXZgcql4Dypah0N4djq//m
+aXUCpVG51W02G02KEN5H507QkBIN1rkDiVRCQtdJwQBdNuFmIyEcgJywxqz2xy5jyRgqwVKC
+iROpTxlogG4R0aQEo81jDjqBe/QrGJKYJ2BhnFTzCG+vQ8AagL8mGSoiiobHsXrD2xFiYxIX
+BM4UrHyZEwkS0YCLrtYwgAyWohkFNekYXE95Zsbjc1tJpCIqEjC5IFPmlaCKsx7WRJMQwE4C
+FwsyeNnbVwNMp26LoQi8QrCwOXcpxAQBcwirXhAZqct2UgF2CF6bKlTOsmjQTqjubx8MPYBY
+FsM9cRRAwA3+yzCLngPUrc7Mj7hREQt48+WMyYwlgOeX/y/mRgTPY3qlAQ3pfzWHxV5dm5dd
+Iqou8CSKruKpcDIV8/dfVkfwhf6s3vjLYQ9eUQWhhnMify3mcHzdAbtn24A78IPgfU+ZhNvw
+PFOexZa2Q+cD1a8tmkZFqxTtyUU7Ty2wjlHD2r1qUEkYkbiji2sbHSr3U7XoPqTbmnnNJpLr
+82AA/Sa3wkUOmkagNVj1qqWXbRF68BrQFGgTkZPhDeerw2mLzmqgv79sjvatwnSaa+OGRHOE
+H04boiKhWlbLxMW801whfRGo9bcN+my2PeCiAl6ZELl9D017xIg5Acf8DQuNPw8dparxbbim
+GadxDNWQ6yHH79Zf//PmlqWfB6uxVGNLnN2HXXPaEML4s2v5mblZdPnLwnj96O7YrqehS5iy
+pp+jOfsuQPqYr7NNrHu/rRzt30NX3s46z/BOU42moYOmumAKfyujIs3fThtNyRS20EEB9ViK
+Sp53DHOll0XhkfSqW8oVddkRmBuntpanJVk2z2v87rDfn8YfHjd/fXg+PX552q//vAq2uy20
+PWHM57C2HO2q64JoOo2Ey9WpGGIC+MHAvw7EMrQZKixwLaMzmgqcDJbmKLJZB/037XORgPIm
+0q1eai7HuHFCdAdRYkOJbgGiwjq80z31UAjsUqI6NpwudZ0nAF9ybcTJhG+u29MHEEe7OiLl
+E0n6Njqf3gMSiCJZ6goOuRQ4mCxqidWcg1nQAkFExzFQ6Zl3nqJlTxHrwGTj64tPtz2LhnBK
+ARzKB2GVxptEZxk8I4MrZmkHaSQMVCaBp++8mYdcCLd1fAgLtyV4UJW8uBFUlKB9ADSLobaZ
+D2PCWnGp7mDFdHV4/Ht12Lw97K68ji4ukqVP0A2xnF8OpNyDrzDyB1IGhwwmImf0yvuCKhA2
+uhi+n4rSjYR2GCJJUuMXW+G6+lkmAEVRWhY80tOxizqqel73ZzW+SYlxzAvnzvpco3/F5Q7n
+9rn8p9TylFnlqlb3B8cc/DW6CPYvaOMtk2udED6eAvAooqjx+qL6p8uXEwD2kRreQR4awpnV
+U5Vf/IgHIHmfo0MH4mjSvyVslOOrQePlpFU6baMc3wwar1xjXsl+o2SKFmCjmXQIYUs8d9Et
+17mLbrnOXTR4XqCZuMZHDCD4083q1sWC/lTVPAaXvT+Vwpv/wSRGOJohVpcgFNcXXj6MRGWT
+8c3taOTiMZIJUhRxOR6tz3KAKz3uy5/NEjZrOs+EM/2AA2f6+nVwNCIG5DEtdCQWmVPpW4Ew
++AUM4gRuTjVvLtuc/t4f/gQXafjqwALOWAfQVC2wWuICEUXGl514Dvw+4G1DwInrCS1j2bFM
++LsJDDnHMFRVhHBKCaduWGF4Ktvttm7VICCfXGlO3S8fT27G7h0L5ln3iHheBRgp8QSkgaHx
+UEoJ2NCzNWDLM3dM11xjzs8RJwhcWVq43eiKp9RFBr65J1KUgeCKGfeEnqsR5pp7qUV0dgJk
+iYU7/I9HWhJP8AVpTLn3zqtlIXjz0811n1mZYRrSB0OkCD/hDWaqmybsc5iRvOSQsX5ffDG9
+Jk3zprm7Tjxl7wszHJIsfsCBVBAWpaVwvyCcHX6cnPOs33hoEXI6dG4bOvipr1+2tm+ClDS6
+UdyzxHx+65MgTJKCAaIpke54F24v1zAzYCTFY/f2moEAyhvnB1RBmvcwacsa80R3/aO3xgrX
+nOv2doJvkGcPCBZ08Nft02lz8CXk2/6t9nZMDz+Bazjzp/6GrIMs6hneRLhvKMMcRJYZKO9j
+wDQZjBOxuY/DBGS9yqZeyvIMFyg0xbwqdz70IHj+P2eO3l4bCLEkRhSvfctXwljGcyxRkZ+l
+4xkR6dHqFflcd8l+Z/TMCuAQgIvn548QWGAN53kiSj36Fa6AajdNejC19uX5weV3tieXnhlC
+yaOJy8+v8g+o6RTpvRxscg42T0hW3l1cjj47yRGjmUfYkoS6YTPPPTFwTRL3w1le3rinILk7
+jptPhW9ZnDGG+7nxCBDTVT7ZvV3qiRvDJRETcXWSRc6yOXitmrqN+bx6Nd5Xb9SO13ileeJJ
+hyg3pDJ7NKvx6iHgSK7A1VeVOvdzZVS5sj/G4i7Rnbkvu3nW8HPSw9zBaXM89XITxmDN9IS5
+c3JTkkoSceGOUhB3Jy4jt4x7IvAEdMlS+l5lXM6oJ7uoJQPfahj3r+kLjgVPXeNF4wkKpdsb
+TXg4IFaH1fTabTaPx+C0D75sgs1u9eUJy+D2hyAl1DBYNW11CwJ9k9ozFWAmaGIlYRYcWt3q
+K55xT4YI7+yTWyVRwmM3geXT0peNyWJP5ZMCYJJ4zXXJYzctWZyBu5HS5SDyV9MmUsBKe1l6
+ozXZHN+mo0tK7k3OteZoRD46bP/aHI7mcr68gsV9v90FW0y0f12tN4NID9NTzBtayLj2dpnk
+JBnGNap2K359Jm7R8CYFCAEm9GLirHjrcMuqkgPcNVODpcY3nmF/FGqz2M6FYCy2czEYi+3q
+DJtU13duS1LRCxWaMj3vKVSAAKG2FnJ8e3Nzddsfg3vqqyrqJPcorXof9xmdSpGJQtV78kdY
+l1yZkGcv6l/H5mosn2AGMSsXU5aVHkn1d8DA/5zr+zfh3fy1XW8aGYamNrG0XdfNgehHT4qq
+aGTKktwuNeo0g7LU004ZJrwbneaxKzQCmiuLSCLsXF4uq+FiLtMFAafflLtZiZIF4EZMV1lN
+DSvP6uy8XTkFh/LG0VnY20gmGtOsPyZJEvZwf2MpkkQsTL7YSmVZ+8QQcCT53PNYawY2lx4g
+WjFguWo9DCDgVMzdKlDdq3J6DyuecyXcE77VE+cFTst9VXeoMtQUjifCwr/YkXIMX4/Bo5GZ
+ToYanSRfFUuqO+VV8CvsJsIklklLu1eCXFa2/QwXkR+HHL2M+svqcLTEu4BfgrQqWDaFUfqw
+2h2fjHsUJKvvnZQ4zhEmMzg2uwTHNPZKw2PtMaI+AvdSZBx5h1Mqjtz6SKXeTrhgITwlm0h8
+qxDALKjBiIPzlCT9IEX6IX5aHb8F62/bl+DxTW/Y9xbz7kn9zsCnyKUIWbcdxLJsmrs3H3ME
+3nWFjkthIBdmDUMCMNrkjspRd/Ae9fIs9bq/gh79zntu/UW4AzoOTme6rNk8723GtF26jom7
+fZ43sn/lhpxpwK1Ll3V8u4cUYNTgBSMFlDY507HQPOnuAgRooAk85XzmZYeqV4tkxDBdvbxg
+TP/Rwl1GGFdr0Ep9WRQIK5d4+Bj3Uv35Mcedeir1jYiCcTdpaf/DSYjupXA69AQrEwZDmJ2o
+zdPX9+v97rTa7gDdA3etW6131RlLJedmyqfuVJIRPh1Vp9+2mWSRAAe9cRW6JCZNLReSbq+7
+ExnNd4nL7e8o2h7/fC927ynexwBbdAaJBJ24gR1SM8ADfkWWsT7djJ7keMr/Xf3/MsjBmXve
+PO8P333nWXXwTaNyXmYei4r0InSnCITbLwINi2DWcUF18Zmr8A1zyPiL28mtmSiAkTNfEzRs
+Sa/aasAQydBf+2ZWE7ri4w21I2BWY1VcPB7dumhVbr9T8kEj0AoYKqDR3L0eLPIVCIvAmTq7
+YN+GsnnKyq4rWumW7XHtwjcA8dJ7LMtyA/2MJkIV0mSM/ehK+R4vvewLhpmbsRzV4/H15WV/
+OHXKQAyl/HRFl7eDbnrzz+oY8N3xdHh9NrXfx2+rA+iXE6IcHCp4An0TPMJety/4oz20Rr0+
+GJNgHHkVxPmEBF+3h2dTnfK4/3v3tF89BtW3Xw264uD6PgUppwYsVq+/oSnKY0fzHARz2NoO
+NN0fT14iXR0eXdN4+fcvhz1aCrAb6rQ6bcCi7FZ/bPCsgl+oUOmvfX8I1/c2XHsLdOqJVi2r
+Gg4vkcRFA+x9mAzZekGUmmJCvjzqgCbeLQKrD0Hxxp60MtTIIhAxS9f58InwCD8rk75PcpRb
+35mxwHXwE+t4p+8tuzWsS9VUeRZ8YXbtmgU3MYJTFzq2ykBkka8Oyzxs96P+XJCEP3hcOJO5
+ZD5jTCjG2N1x4aWPAr0UcwN7mA1+UsIfIMOArHehSEQXTUv4wbMhXbhXBe3l3Jyq+fjQs4K5
+TxFnSc8qVQ8IY4etOnrsvjYAEafD9ssrfvir/t6e1t8CcgCEd9qsT6+HzdDpGIbUcMFzlkVC
+gq9OKNbWmm8lW6nDnBsptXLFBu3eKXmwCyVtEghIpjlxEyXtBxYbSiGFdOFmc8gkYr3Py0As
+XFrAGjGUgkRg/zsyf+32C6JeDmU4GnugU547N2W8BTfl7vJmuXSSUiLnrPt9WTpPfYH+FGWN
+lKELx9qDcipZZ8yZuru7GZWp86Mtq2dG4M5T7lwq/IiBupQ5qXdXn3plZ1Phqm62uqAKQWBm
+d/sMDSWDWz3fVbKMKaKcK5GYWpJOkiKpKrpfzqrlJGR9pOToydhn95AiITJOiHQfi9J4GaIz
+o05hfz+ecu55PAv+0Ks8qlrKxc3owh2BfmO46jI41nufgc2973iC0YKWy2TSuxTLFIETWNkd
+Pz0s3GYTPExfMiTPPR+2Jt0CqKooGDDQ++P2cRMUKmwMuuHabB7r3BBSmgwceVy9YPJ/YPoX
+YIC6Z1vlrsqFs/AT2d90V5RqZn270KHproLVU2/NSLdbausUm2TpNQeVckWFm9TTU32SVLyj
+OjA94Kwqtzu2asxFZBEn3pORpE4XuWgMLZGPqLiboLS7XXv4H+4jW5XYJGPEWJaRJiPATK4x
+WGwxXfjLsIbyV8xJHjeb4PSt4XJ41wtfwlZFbgJ4ZAOR57uX19MQwlrx07wY+ipv1fP8gwiw
+i4UUMAHTVVXYgP/te2A9DnjCuXKnqyoGSRZnqDXcOD8EUFPft4f1MJJ6xygMizv8T1Lm9DAp
+OIarNWqJ1udtcJ/JEbUAz4UasAj2012Z63tLuBI2IfTe21gHAy5vbrubIwl+WlPlgaTHaS8n
+yg24679q4k6GgeKuPrCxE1EzaHLE4w7b1ZNLnOsVAsq5GPTK9rv3hnCsuhu97JDWeoyCSHCG
+PPW6NY+iNFt6bEPFUQvU75pMcMB/wfpDNulJKtQ5ZQX+aP6jQcy3mB5DCBJVf/Xv1gx5ysvq
+b5i4skjTRf31d0dzN41VZpyL3q22ru3Vp+5f4KkSRDSlnARrxyuwnOLFuVSepvBv7lBdl9Sp
+sTyZZJV7XGs4FCdh6vHF89yRB9N5sMaP6FwrwhLS0c3dHX7c3c112tagBjH4F1y8JaWWWVg9
+PprEG7wGM/HxN+uPyeRcwFjDhKk3j25i8OaPVQzjdVV493n18gIQyIzgeL1mgGjhqywz5CZF
+iuF8/Csffs4UzqkY4rM0jqoFbP55gXPq20N3RUQuFlg5O/dAR0OVzFf7WdHxjzklrvL96SLt
+ftBnGgB1u9VrRa3uAl3AoaJbneBo3eoxU0KqkqicecrsGpb44+ju4sYdIbd57i5jd8SmYTJ3
+EXtgRsPE9d3HswwAX0afzrPk9O7j1a3b7bB5ri/Pj5NpWmKgIuVKe7IKb6xU397eubMjNs/H
+j+7Sl4ZHTfXoBxypotcfU7d0dpnCqx8clKLTm9vl8lwqomGd65GvMq5hWdxd3V5+nJ6XlIqJ
+ebjMaRN3XOzMB8NK4Uc3SvHQ/DmtChrsd9v1MVDbp+16vwvC1frPl6dVN3QO/VzZEZqSwXDh
+Yb96XO+fg+PLZr39ul0HJA2JPRh2G+qY16f/a+zamtvGdfBf8WM7s+0mTtvtPuwDdbPV6BZK
+ip28aNLETTzdxBlfZk///QFA3QUwnelMagKiKBIEQRD4eNz+OL3cU6SC5aww8MgLys/zAmFJ
+8tAVTt/g2Us/ziLh/C3Aw8QvkiwgOY8/n/Fjq5z157MzuWn09A3s6wQPKZALPJG+uPi8rorc
+VUIgBDHGwnKi/UUJSl462MOtXAOQNxmAxf7u9QkFgVlJPT01A5Sbzd6p08N2N3N3WXPs8F6O
+yIdKcK/BIN0QV7C/e97Mvp9+/ABrxZtaK4EUy+xeRggxWEWux31cZ+cvFKUz8rMOTHfOK48x
+dunSDaHlRRH5FewsQ9VzmiJ9AjmIhS1cydIdnESUw5lkgnagjPMWY3n29OuAmJEmeIebEfg2
+sFj4fUWaEX3t+iEfFY1UWm+uJeOWOJS38KcyQw3c/UcD9i827BfZUYjy8cHl2lrcZL5bldJx
+C76qjLJQNLTLFS8FcSzMFj/G7EApzWglJw0bWKTQCSMJV0WDsqEMJd4bHSsmHM0cAsTKKYNe
+4mYnhTeJWyGuDd+kcu2FeSaBvpWCUiDcAmPnT9tyvd1DK7ihwsfQJBzpmvos+X6/O+x+HGdL
+GOr9h+vZ42lzYLeGJnwPNRoiB/BzD3Z6ImDVqkEq5cdXhZGTcogBsGGKy97UHAR/EnGW3T1u
+jrQHyNt2m2gwML2PGzxK5ToG4xULPKWenrHr1+fD43gW58D4Lid0xln6MsP4kffd4jg6jm1X
+z3znjivafozXo/KuD8tkHcrH8NCGSsj6zGLc2gbaFwIA1oW4ZhFaJ7/jFWQxW3GnHwpWhgVs
+UDC2P9H/nPd3zqDeRW1A24e3Tv+CeDpOqC77kJndLqjZKgn6FEyX6jJNFGqquciF+8dsrar5
+1yTG7ayQF9DnwvrkjZArhXEJCT5aTWe6ennY77YP/a+FhVinwpbJEzIqMLxESiThy8llXQ0P
+TMyKjyEXA3OhNxG78UOuyaOwgDDKJhiuK4Z1CxPcjPRgxoBgzysBOQRoFxbaJ4mm/RDBEHOJ
+/k0mrWXSIsjFljqF5XVJGFkeDebykwg+KggAkAxGpnLZcP81KtxgCONRl5nounFcSFMvwrkh
+3aDjtgo+8dCgvRnT++3xE1ffZGNIxJaepEUY9BCmvXFBaAqqGl20q1oZAtsPV2UqhHcQxRWi
+lRH3NchFCQowC0egYVgYLP4V4yxy7+6fRuZyPkkPMmTvAwY6Y/gZzgxmYoR5+veXL2dSK0ov
+4FrgpfmfgSr+TAqpXoPiJtR6Dc+KYlxMBNVo8cPm9LAjAPXudY3ahOW5Cnpueiq4HAKFUdkY
+vJYKCeUIdvohJs4MILGA6C7DyNM+J2yYmdF/K7n2up+UI9Kvjwr4+TTiWWP0Em8ilWCaR04l
+2lfmz6QPm2EJc2NzGpjRQfNS2KstfFlNKM9CC2Ta0krKolIkO5bWODJp+lSrkY2G7MaoKakB
+Ys8m5QRnZ3JI+n3V0RFYmnBaecVhGPMyjiVItbYqedANC4aAI7AA4ifKCQWG93bkmTal0W0q
+PqHRBz59RJdOyMm+C8bnULrzq1LlS2nGW1a8OEQMGkkNxhbpyWTaVbL+ZKV+kana9tJMhgJH
+RHxRkUoy2RxDDCdlQ6Snhr+v56PfF4MALSoR1QuRJXiCXAb7ByLnMFnQeWWGJ1a9hDZct8c/
+4a3DZhvnak95lonOBrFmpmQafNGpOkzQleDgQml9cTPxmdRTsoKTDa9oulrV+NVPd/c/R9nj
+Nb5zDWk7zaV43W9fjj/Js/LwvDk8cp6DGnMcZyw3NU2EJYJREHZyC0f9V7sKgBbBNW/C8amn
+XymvzbzIG2PPm8bsnl9hNf5AdyKARXL/80DNvjfle67l5lQGAR85azKhDNaV0kkPDb+X+Wjo
+cYnp0IjO30uY1HhZBz75z/nZvPcZiFmcVSqPqzGee8+OVx5VrIRT+TIpEe0WKnBSAc6ATIh0
+lVgTJdn5XyOVth80egbTeVHhw8IdqxFGQ/OJIxbTgWkSDQIfTA/RfQb2RtLVKytfXTY4lIIv
+BvfwIMyaA6E1VbWZq/0jTm/z/fT4OJoU1H2w1/KTXII6r/EIgVHGrKRq4BNzsOWkOGmqJnUQ
+h0UID2/x4ivp8Ac5JoiX44FDgG/YZEh2muG65iXOEOsLUvBeB9uLlqN0DmOhYzfPot39z9Or
+mZbLu5fHoRcpDQhWtUTo3Cl2e+81SATLMzF3grBMqyv2JKo3NAnIC1ou/IZwQK+uVVT2MrkM
+sU7u74ob8GQD7d99FxWPdcyQLI+eedqMnp94Zl5auh9bden7YzAqk8eFsQqtwM/eHV63LxRG
+8Mfs+XTc/G8D/9kc7z9+/Ph+qiQ7WHLb4Nv8pbUUvVkJbLljnMwRfIaFrd6OI6Y+6JwowLRu
+vlra+IM4FZhKNL6sqBOZlWlbW5ngaGpue+IrQV2Ht9CUSe77HuL1yXcr1GrJzH7bl0oX1dRK
+KHyLQ0B5N0RyM4S+kJ1Sxy1o+BYMymdsC7yRh9eiOr32xQt73hwPvKwHr4axc/xWNfJ40aVE
+V7nFqjMdAPrErERaXoMMp3EzweJBuAy8hVb3eOVrTbGz38ySyTtlDGS7lScCwyRxb4p0Glyi
+8T4oMIiKKXAQ4SDQ/R+5dGxJLCLV6S4+Q5BzeQicQvuWISIbAHRsZWczeuHLJ/sEpSYv/TWi
+R1i+CeywZFFDUghxdch3CYxFyjsjiYFMUiFMAulOWEh50EQvS8EHTlSNsEMEpGL5VunSEaI2
+wByWriAflKWFE3O7EwAySszlMG6qdTnxg3Z6k3CIhM1Mh0VeOrlKEC45KYXEK+Lg/SwGdH7h
+8ecStbaLQxmwIcGQ5UWNPokRRcnkrps6oPX+tN8ef3Fbikv/RljJfbfEezIqD/Y7dH5E95dY
+ea1E3n7HLMal0qCuYfFBp7KbZjeErOKqkUNxwiateAUsx8iD8KNmyrBGtum47jsVA+rZUHsX
+ApL/PG3scnf/6/W4g13bfjPb7WdPm39fKT10wAzfs4B1v6t+UDyflsOuhi2csjrRpRtmS19P
+STjT2MIpq+6fI3RlLGPvfqZRA8WWXGYZ85HokRuAWTTvEAALa7LHq4+a6rset8urqbFKYEeh
+J22py7nWjJGZ2QcrL8xpE0xWHVPLIjiff41L7hSo5kgGN5r1Cqc9hx4vgjVlXkR/eBXdNPlt
+FlUWS1ihJ4pEnY5Pmxe8lxWTMv2XexR+PIv8b3t8mqnDYXe/JZJ3d7zra5mmcQKuXtNJdrK7
+VPBvfpal0c35xRkf0Vjz5v7VMIhnLCVLBRvD6zYQj+Kin3cPIzyj+sUOv2FuyILfuSVLVy7U
+TeH1f02ONJ9QUpOzN9q2tr8ctP9KKybLDKF9xO7gsxYbBRMrl5HL9RsNvR5VWqcAP4IdyDVB
+uxdCDH2f4w2G4vzMk9ALa4kUrZWm/39DFmOPdxm3ZPvTIciqH+FfG5uOPdAwb3EI8csdx/wz
+j1zUcVzMrXXkS3UuCwdQ4Q2MeADh87l1vICDj1St6cVCn/9trWGVjV5hBGv7+jRII2+XW06P
+Q6kUHNRwJKUTWicd2I9WgYAt2SoI7XLnqtiPotC6UCI+v1W0kME63J5gAdfkgP5a9ctS3Srr
+UpPDHl3ZRarR+3Z9LyQctHSdjVCkJgLkW3uzWKXjQWn9+PvN4TCK4G17EC9yEs6aaw1/K8CH
+GPLXT1ahjm6tsgTkJRN7d/fysHueJafn75t9fX/YOAS5Fec8rNxMs2DxzUdqB92tSTmxVIgi
+rAiGNtKvU5ZJnd/CoqDrCTVsAQSDjbxsb+nuljGvDdffYtaCa3zMh+a6ZZVccT3iX1OCnasQ
+Lanuf6gKpuF0DN3N/ohRkWBvGfCzw/bx5Y6QMeg0aeQ9cWBzqG+Y/b9xtW6/7+/2v2b73em4
+fekngDphgQCcOveHW7HmOs6OznxsEyJI9zgUYdQ7i22jB90Q40/719e394xLxcOuc8GsBJEQ
+BsUVoPjwOev6Dy8qyorLdyXTYtSGiznr5hkyRKHrOzdfmUcNRZrJxKL0SlYkyOEI5xyuvNy4
+fPZGFDpWA8vl7Qy6TN5IRX1DcD1kvJeNHM32fsM4DDyKQBXaCQKV1oq135frWwStZ19mSJXj
+fmN9EHlFOaPdK7DIiwdQ+giKihdVilBNyEDx4/wRjXfVx0yJMFplKtuNz3AgIqn2hD6UYOtC
+fVWJUEB5fS2gRBRvwutussXMQMUGtuTGgQjt/z8VuiGOyIMAAA==
+
+--x+6KMIRAuhnl3hBn--
