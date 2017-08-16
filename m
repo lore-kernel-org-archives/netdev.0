@@ -1,72 +1,161 @@
-From: =?UTF-8?Q?Christian_K=c3=b6nig?= <christian.koenig@amd.com>
-Subject: Re: [patch net-next 0/3] net/sched: Improve getting objects by
- indexes
-Date: Wed, 16 Aug 2017 11:41:11 +0200
-Message-ID: <e13dd37c-f323-ba92-a7a6-cd3515c20ccc@amd.com>
-References: <1502849538-14284-1-git-send-email-chrism@mellanox.com>
- <144b87a3-bbe4-a194-ed83-e54840d7c7c2@amd.com>
- <20170816081631.GC1868@nanopsycho>
- <e3cb8f8e-7808-48b4-d90d-67f30ab39687@amd.com>
- <20170816083939.GD1868@nanopsycho>
- <5867bd36-b758-f364-062a-2b612e8c7318@amd.com>
- <20170816093144.GE1868@nanopsycho>
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: Re: [PATCH] net/mlx4: fix spelling mistake: "availible" ->
+ "available"
+Date: Wed, 16 Aug 2017 12:42:41 +0300
+Message-ID: <20170816094240.GB4896@yuvallap>
+References: <20170816090511.10463-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Chris Mi <chrism@mellanox.com>, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0044.outbound.protection.outlook.com ([104.47.42.44]:61515
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751654AbdHPJlX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Aug 2017 05:41:23 -0400
-In-Reply-To: <20170816093144.GE1868@nanopsycho>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170816090511.10463-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am 16.08.2017 um 11:31 schrieb Jiri Pirko:
-> [SNIP]
-> I don't. It is an API change, maintainers of the individual drivers are
-> not expected to review the patches like this.
+On Wed, Aug 16, 2017 at 10:05:11AM +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> Trivial fix to spelling mistakes in the mlx4 driver
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/cmd.c    | 16 ++++++++--------
+>  drivers/net/ethernet/mellanox/mlx4/fw_qos.c |  6 +++---
+>  drivers/net/ethernet/mellanox/mlx4/fw_qos.h | 10 +++++-----
+>  3 files changed, 16 insertions(+), 16 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> index 674773b28b2e..6309389b09a7 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+> @@ -1958,19 +1958,19 @@ static void mlx4_allocate_port_vpps(struct mlx4_dev *dev, int port)
+>  	int i;
+>  	int err;
+>  	int num_vfs;
+> -	u16 availible_vpp;
+> +	u16 available_vpp;
+>  	u8 vpp_param[MLX4_NUM_UP];
+>  	struct mlx4_qos_manager *port_qos;
+>  	struct mlx4_priv *priv = mlx4_priv(dev);
+>  
+> -	err = mlx4_ALLOCATE_VPP_get(dev, port, &availible_vpp, vpp_param);
+> +	err = mlx4_ALLOCATE_VPP_get(dev, port, &available_vpp, vpp_param);
+>  	if (err) {
+> -		mlx4_info(dev, "Failed query availible VPPs\n");
+> +		mlx4_info(dev, "Failed query available VPPs\n");
+>  		return;
+>  	}
+>  
+>  	port_qos = &priv->mfunc.master.qos_ctl[port];
+> -	num_vfs = (availible_vpp /
+> +	num_vfs = (available_vpp /
+>  		   bitmap_weight(port_qos->priority_bm, MLX4_NUM_UP));
+>  
+>  	for (i = 0; i < MLX4_NUM_UP; i++) {
+> @@ -1985,14 +1985,14 @@ static void mlx4_allocate_port_vpps(struct mlx4_dev *dev, int port)
+>  	}
+>  
+>  	/* Query actual allocated VPP, just to make sure */
+> -	err = mlx4_ALLOCATE_VPP_get(dev, port, &availible_vpp, vpp_param);
+> +	err = mlx4_ALLOCATE_VPP_get(dev, port, &available_vpp, vpp_param);
+>  	if (err) {
+> -		mlx4_info(dev, "Failed query availible VPPs\n");
+> +		mlx4_info(dev, "Failed query available VPPs\n");
+>  		return;
+>  	}
+>  
+>  	port_qos->num_of_qos_vfs = num_vfs;
+> -	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, availible_vpp);
+> +	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, available_vpp);
+>  
+>  	for (i = 0; i < MLX4_NUM_UP; i++)
+>  		mlx4_dbg(dev, "Port %d UP %d Allocated %d VPPs\n", port, i,
+> @@ -2891,7 +2891,7 @@ static int mlx4_set_vport_qos(struct mlx4_priv *priv, int slave, int port,
+>  	memset(vpp_qos, 0, sizeof(struct mlx4_vport_qos_param) * MLX4_NUM_UP);
+>  
+>  	if (slave > port_qos->num_of_qos_vfs) {
+> -		mlx4_info(dev, "No availible VPP resources for this VF\n");
+> +		mlx4_info(dev, "No available VPP resources for this VF\n");
+>  		return -EINVAL;
+>  	}
+>  
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/fw_qos.c b/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+> index 8f2fde0487c4..3a09d7122d3b 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
+> @@ -65,7 +65,7 @@ struct mlx4_set_port_scheduler_context {
+>  
+>  /* Granular Qos (per VF) section */
+>  struct mlx4_alloc_vpp_param {
+> -	__be32 availible_vpp;
+> +	__be32 available_vpp;
+>  	__be32 vpp_p_up[MLX4_NUM_UP];
+>  };
+>  
+> @@ -157,7 +157,7 @@ int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
+>  EXPORT_SYMBOL(mlx4_SET_PORT_SCHEDULER);
+>  
+>  int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
+> -			  u16 *availible_vpp, u8 *vpp_p_up)
+> +			  u16 *available_vpp, u8 *vpp_p_up)
+>  {
+>  	int i;
+>  	int err;
+> @@ -179,7 +179,7 @@ int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
+>  		goto out;
+>  
+>  	/* Total number of supported VPPs */
+> -	*availible_vpp = (u16)be32_to_cpu(out_param->availible_vpp);
+> +	*available_vpp = (u16)be32_to_cpu(out_param->available_vpp);
+>  
+>  	for (i = 0; i < MLX4_NUM_UP; i++)
+>  		vpp_p_up[i] = (u8)be32_to_cpu(out_param->vpp_p_up[i]);
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/fw_qos.h b/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
+> index ac1f331878e6..582997577a04 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
+> @@ -84,23 +84,23 @@ int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8 port, u8 *prio2tc);
+>  int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
+>  			    u8 *pg, u16 *ratelimit);
+>  /**
+> - * mlx4_ALLOCATE_VPP_get - Query port VPP availible resources and allocation.
+> - * Before distribution of VPPs to priorities, only availible_vpp is returned.
+> + * mlx4_ALLOCATE_VPP_get - Query port VPP available resources and allocation.
+> + * Before distribution of VPPs to priorities, only available_vpp is returned.
+>   * After initialization it returns the distribution of VPPs among priorities.
+>   *
+>   * @dev: mlx4_dev.
+>   * @port: Physical port number.
+> - * @availible_vpp: Pointer to variable where number of availible VPPs is stored
+> + * @available_vpp: Pointer to variable where number of available VPPs is stored
+>   * @vpp_p_up: Distribution of VPPs to priorities is stored in this array
+>   *
+>   * Returns 0 on success or a negative mlx4_core errno code.
+>   **/
+>  int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
+> -			  u16 *availible_vpp, u8 *vpp_p_up);
+> +			  u16 *available_vpp, u8 *vpp_p_up);
+>  /**
+>   * mlx4_ALLOCATE_VPP_set - Distribution of VPPs among differnt priorities.
+>   * The total number of VPPs assigned to all for a port must not exceed
+> - * the value reported by availible_vpp in mlx4_ALLOCATE_VPP_get.
+> + * the value reported by available_vpp in mlx4_ALLOCATE_VPP_get.
+>   * VPP allocation is allowed only after the port type has been set,
+>   * and while no QPs are open for this port.
+>   *
 
-Yeah, completely agree.
+Reviewed-by: Yuval Shaia <yuval.shaia@oracle.com>
 
->> If yes then it somehow makes sense to send the patch bit by bit, if no then
->> it doesn't seem to make to much sense to CC them all individually.
->>
->>>>>> I've never read the bsg code before, but that's certainly not correct. And
->>>>>> that incorrect pattern repeats over and over again in this code.
->>>>>>
->>>>>> Apart from that why the heck do you want to allocate more than 1<<31 handles?
->>>>> tc action indexes for example. That is part of this patchset.
->>>> Well, let me refine the question: Why does tc action indexes need more than
->>>> 31 bits? From an outside view that looks like pure overkill.
->>> That is current state, uapi. We have to live with it.
->> Is the range to allocate from part of the uapi or what is the issue here?
-> Yes.
+(I'm using setlocal spell spelllang=en to avoid such spelling mistakes)
 
-A bit strange uapi design, but ok in this case that change actually 
-makes sense.
-
->> If the issue is that userspace can specify the handle then I suggest that you
->> use the radix tree directly instead of the idr wrapper around it.
-> But why? idr is exactly the tool we need. Only signed int does not suit
-> us. In fact, it does not make sense idr is using signed int when it
-> uses radix tree with unsigned long under the hood.
-
-Well it always depends on what you do and how to use it.
-
-In amdgpu for example for have very very short lived objects and only 
-few of them are active at the same time.
-
-The solution was not to use and idr, but rather 64bit identifiers and a 
-ring buffer with the last 128 entries.
-
-But in your case changing the idr calling convention actually makes 
-sense (at least from the tn mile high view), feel free to add an 
-Acked-by: Christian König <christian.koenig@amd.com> on it.
-
-Regards,
-Christian.
+> -- 
+> 2.11.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
