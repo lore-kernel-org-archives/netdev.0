@@ -1,49 +1,34 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 0/2] bpf: sockmap build fixes
-Date: Wed, 16 Aug 2017 15:58:58 -0700
-Message-ID: <5994CE32.3050804@gmail.com>
-References: <20170816220049.25438.62373.stgit@john-Precision-Tower-5810>        <20170816.153516.1392924482619263360.davem@davemloft.net> <20170816.154204.2107336943249325947.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv4: convert dst_metrics.refcnt from atomic_t
+ to refcount_t
+Date: Wed, 16 Aug 2017 16:16:08 -0700
+Message-ID: <1502925368.4936.151.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1502911469.4936.148.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, eric.dumazet@gmail.com, dsahern@gmail.com,
-        netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:37595 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752441AbdHPW7M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 18:59:12 -0400
-Received: by mail-pg0-f49.google.com with SMTP id y129so30164905pgy.4
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 15:59:12 -0700 (PDT)
-In-Reply-To: <20170816.154204.2107336943249325947.davem@davemloft.net>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35262 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752592AbdHPXQK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 19:16:10 -0400
+Received: by mail-pg0-f68.google.com with SMTP id t80so646693pgb.2
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 16:16:09 -0700 (PDT)
+In-Reply-To: <1502911469.4936.148.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/16/2017 03:42 PM, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 16 Aug 2017 15:35:16 -0700 (PDT)
+On Wed, 2017-08-16 at 12:24 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
->> From: John Fastabend <john.fastabend@gmail.com>
->> Date: Wed, 16 Aug 2017 15:01:52 -0700
->>
->>> Two build fixes for sockmap, this should resolve the build errors
->>> and warnings that were reported. Thanks everyone.
->>
->> Series applied, thanks John.
+> refcount_t type and corresponding API should be
+> used instead of atomic_t when the variable is used as
+> a reference counter. This allows to avoid accidental
+> refcounter overflows that might lead to use-after-free
+> situations.
 > 
-> Actually, now there is a new problem:
-> 
-> ERROR: "tcp_sendpage_locked" [net/ipv6/ipv6.ko] undefined!
-> ERROR: "tcp_sendmsg_locked" [net/ipv6/ipv6.ko] undefined!
-> make[1]: *** [scripts/Makefile.modpost:91: __modpost] Error 1
-> make: *** [Makefile:1217: modules] Error 2
-> 
-> I added GPL exports for these, but please do an allmodconfig
-> build before you submit anything to me when there are weird
-> inter-module dependencies like this.
-> 
-> Thanks.
-> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Thanks and allmodconfig noted.
+Please disregard. I will send a v2.
