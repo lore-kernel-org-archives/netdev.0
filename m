@@ -1,49 +1,109 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
- don't skip empty skbs
-Date: Wed, 16 Aug 2017 19:40:04 -0400
-Message-ID: <CAF=yD-+8CrTx=JNj4hVnn8B5cmCFRJttsdRx5Ab-2mW6LgCayg@mail.gmail.com>
-References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1502702846.8411.25.camel@redhat.com>
- <1846443.VTclhqQinN@ring00> <CAF=yD-L9CpW-DRtKfWWWKcNKcPSWvXOkTGZoKBq6=fQMrcKVWQ@mail.gmail.com>
- <1502724662.8411.53.camel@redhat.com> <CAF=yD-+ZNPtF1h1OT=_4yuE7=XtireP_OtbyBefHGdwtJ_ontQ@mail.gmail.com>
- <1502811641.3475.7.camel@redhat.com> <CAF=yD-Lacw9T7G0XZBdHZwEb6HgRuaBoyUN1oTvWixu4a0Fy6Q@mail.gmail.com>
- <CAF=yD-+jBim==ktwYUNAFkn-N4eabqgNME8NXM77v9-U_bfWPg@mail.gmail.com>
- <1502875722.3548.11.camel@redhat.com> <CAF=yD-K8FMicoSS6u-0r_J0p0fTyn4GNwhXn7_gRSSMYmAzw5g@mail.gmail.com>
- <1502914822.2796.6.camel@redhat.com> <CAF=yD-JryS8g=8nB7yq9WVdCOjqSb7uNwncrRfWPmMQbdYrh3w@mail.gmail.com>
+From: "Yang, Yi" <yi.y.yang@intel.com>
+Subject: Re: [PATCH v3] openvswitch: enable NSH support
+Date: Thu, 17 Aug 2017 07:37:04 +0800
+Message-ID: <20170816233703.GA123125@cran64.bj.intel.com>
+References: <1502861730-76203-1-git-send-email-yi.y.yang@intel.com>
+ <20170816111921.7a039be5@griffin>
+ <20170816093129.GA112234@cran64.bj.intel.com>
+ <20170816160322.6a0def09@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Matthew Dawson <matthew@mjdsystems.ca>,
-        Network Development <netdev@vger.kernel.org>,
-        "Macieira, Thiago" <thiago.macieira@intel.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, e@erig.me
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:38317 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752417AbdHPXkp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 19:40:45 -0400
-Received: by mail-oi0-f68.google.com with SMTP id s21so4980958oie.5
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 16:40:45 -0700 (PDT)
-In-Reply-To: <CAF=yD-JryS8g=8nB7yq9WVdCOjqSb7uNwncrRfWPmMQbdYrh3w@mail.gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:20605 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752358AbdHPXvg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Aug 2017 19:51:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20170816160322.6a0def09@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->  static inline int sk_peek_offset(struct sock *sk, int flags)
->  {
-> -       if (unlikely(flags & MSG_PEEK)) {
-> -               s32 off = READ_ONCE(sk->sk_peek_off);
-> -               if (off >= 0)
-> -                       return off;
-> -       }
-> +       if (unlikely(flags & MSG_PEEK))
-> +               return READ_ONCE(sk->sk_peek_off);
+On Wed, Aug 16, 2017 at 10:03:22PM +0800, Jiri Benc wrote:
+> On Wed, 16 Aug 2017 17:31:30 +0800, Yang, Yi wrote:
+> > On Wed, Aug 16, 2017 at 11:19:21AM +0200, Jiri Benc wrote:
+> > > > --- a/include/uapi/linux/openvswitch.h
+> > > > +++ b/include/uapi/linux/openvswitch.h
+> > > [...]
+> > > > +#define NSH_MD1_CONTEXT_SIZE 4
+> > > 
+> > > Please move this to nsh.h and use it there, too, instead of the open
+> > > coded 4.
+> > 
+> > ovs code is very ugly, it will convert array[4] in
+> > datapath/linux/compat/include/linux/openvswitch.h to other struct, I
+> > have to change context[4] to such format :-), we can use 4 here for
+> > Linux kernel.
+> 
+> Oh, right, this is uAPI and nsh.h is kernel internal. My suggestion was
+> nonsense, let's keep it as it was in your patch.
+> 
+> > > > +	case OVS_KEY_ATTR_NSH: {
+> > > > +		struct ovs_key_nsh nsh;
+> > > > +		struct ovs_key_nsh nsh_mask;
+> > > > +		size_t size = nla_len(a) / 2;
+> > > > +		struct nlattr attr[1 + DIV_ROUND_UP(sizeof(struct ovs_key_ipv6)
+> > > > +						    , sizeof(struct nlattr))];
+> > > > +		struct nlattr mask[1 + DIV_ROUND_UP(sizeof(struct ovs_key_ipv6)
+> > > > +						    , sizeof(struct nlattr))];
+> > > > +
+> > > > +		attr->nla_type = nla_type(a);
+> > > > +		mask->nla_type = attr->nla_type;
+> > > > +		attr->nla_len = NLA_HDRLEN + size;
+> > > > +		mask->nla_len = attr->nla_len;
+> > > > +		memcpy(attr + 1, (char *)(a + 1), size);
+> > > > +		memcpy(mask + 1, (char *)(a + 1) + size, size);
+> > > 
+> > > This is too hacky. Please find a better way to handle this.
+> > > 
+> > > One option is to create a struct with struct nlattr as the first member
+> > > followed by a char buffer. Still not nice but at least it's clear
+> > > what's the intent.
+> > 
+> > The issue is nested attributes only can use this way, nested attribute
+> > for SET_MASKED is very special, we have to handle it specially.
+> 
+> I'm not sure you understood what I meant. Let me explain in code:
+> 
+> 	struct {
+> 		struct nlattr attr;
+> 		struct ovs_key_ipv6 data;
+> 	} attr, mask;
+> 
+> 	attr->attr.nla_type = nla_type(a);
+> 	attr->attr.nl_len = NLA_HDRLEN + size;
+> 	memcpy(&attr->data, a + 1, size);
+> 
+> It's much less hacky and doing the same thing.
+> 
+> I'm not sure we don't need verification of size not overflowing the
+> available buffer. Is it checked beforehand elsewhere?
+> 
+> I also spotted one more bug: the 'mask' variable is not used anywhere.
+> The second call of nsh_key_from_nlattr should use mask, not attr.
 >
->         return 0;
->  }
 
-I noticed too late that this function is used in one case where the
-result is not blindly passed to __skb_try_recv_from_queue.
+I have verified it in my real sfc test environment, but it is indeed
+a bug, because mask and attr are same, so the result is still attr.
 
-The AF_UNIX stream case will need a floor on its offset.
+But here attr and mask shoud be of "struct nlattr attr", I'll polish it.
+ 
+> > > > +	key->nsh.path_hdr = nsh->path_hdr;
+> > > > +	switch (key->nsh.mdtype) {
+> > > > +	case NSH_M_TYPE1:
+> > > > +		if ((length << 2) != NSH_M_TYPE1_LEN)
+> > > 
+> > > Why length << 2?
+> > 
+> > len in NSH header is number of 4 octets, so need to multiply 4.
+> 
+> Should nsh_get_len take care of that, then?
+> 
 
--               skip = sk_peek_offset(sk, flags);
-+               skip = max(sk_peek_offset(sk, flags), 0);
+There are two helpers for this, nsh_hdr_len gets actual length,
+nsh_get_len gets "len" field in nsh header.
+
+> Thanks,
+> 
+>  Jiri
