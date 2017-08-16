@@ -1,185 +1,186 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net 2/2] net: ixgbe: Use new IXGBE_FLAG2_ROOT_NO_RELAXED_ORDERING flag
-Date: Wed, 16 Aug 2017 17:41:47 +0800
-Message-ID: <1502876507-9360-3-git-send-email-dingtianhong@huawei.com>
-References: <1502876507-9360-1-git-send-email-dingtianhong@huawei.com>
+From: "Yang, Yi" <yi.y.yang@intel.com>
+Subject: Re: [PATCH v3] openvswitch: enable NSH support
+Date: Wed, 16 Aug 2017 17:31:30 +0800
+Message-ID: <20170816093129.GA112234@cran64.bj.intel.com>
+References: <1502861730-76203-1-git-send-email-yi.y.yang@intel.com>
+ <20170816111921.7a039be5@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ding Tianhong <dingtianhong@huawei.com>
-To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
-        <keescook@chromium.org>, <linux-kernel@vger.kernel.org>,
-        <sparclinux@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
-        <alexander.duyck@gmail.com>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502876507-9360-1-git-send-email-dingtianhong@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, e@erig.me, dev@openvswitch.org
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga07.intel.com ([134.134.136.100]:23259 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751287AbdHPJqP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Aug 2017 05:46:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20170816111921.7a039be5@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ixgbe driver use the compile check to determine if it can
-send TLPs to Root Port with the Relaxed Ordering Attribute set,
-this is too inconvenient, now the new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING
-has been added to the kernel and we could check the bit4 in the PCIe
-Davice Control register to determine whether we should use the Relaxed
-Ordering Attributes or not, so we add a new flag which called
-IXGBE_FLAG2_ROOT_NO_RELAXED_ORDERING to the ixgbe driver, it will
-be set if the Root Port couldn't deal the upstream TLPs with Relaxed
-Ordering Attribute, then the driver could know what to do next.
+On Wed, Aug 16, 2017 at 11:19:21AM +0200, Jiri Benc wrote:
+> Please always CC reviewers of the previous versions, thanks.
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h        |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 37 ++++++++++++-------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 32 +++++++++++----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 17 ++++++++++++
- 4 files changed, 53 insertions(+), 34 deletions(-)
+Jiri, thank you for quick review. Sorry, I made a mistake on
+sending and missed all the CCs, will indeed do this in next version.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index dd55787..50e0553 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -621,6 +621,7 @@ struct ixgbe_adapter {
- #define IXGBE_FLAG2_EEE_CAPABLE			BIT(14)
- #define IXGBE_FLAG2_EEE_ENABLED			BIT(15)
- #define IXGBE_FLAG2_RX_LEGACY			BIT(16)
-+#define IXGBE_FLAG2_ROOT_NO_RELAXED_ORDERING	BIT(17)
- 
- 	/* Tx fast path data */
- 	int num_tx_queues;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 523f9d0..0727a30 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -175,31 +175,30 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw *hw)
-  **/
- static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
- {
--#ifndef CONFIG_SPARC
--	u32 regval;
--	u32 i;
--#endif
-+	u32 regval, i;
- 	s32 ret_val;
-+	struct ixgbe_adapter *adapter = hw->back;
- 
- 	ret_val = ixgbe_start_hw_generic(hw);
- 
--#ifndef CONFIG_SPARC
--	/* Disable relaxed ordering */
--	for (i = 0; ((i < hw->mac.max_tx_queues) &&
--	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
--		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
--	}
-+	if (adapter->flags2 & IXGBE_FLAG2_ROOT_NO_RELAXED_ORDERING) {
-+		/* Disable relaxed ordering */
-+		for (i = 0; ((i < hw->mac.max_tx_queues) &&
-+		     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
-+			regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
-+		}
- 
--	for (i = 0; ((i < hw->mac.max_rx_queues) &&
--	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
--		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
--			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+		for (i = 0; ((i < hw->mac.max_rx_queues) &&
-+		     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
-+			regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
-+				    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+		}
- 	}
--#endif
-+
- 	if (ret_val)
- 		return ret_val;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index d4933d2..2473c0b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -342,6 +342,7 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
- s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
- {
- 	u32 i;
-+	struct ixgbe_adapter *adapter = hw->back;
- 
- 	/* Clear the rate limiters */
- 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
-@@ -350,25 +351,26 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
- 	}
- 	IXGBE_WRITE_FLUSH(hw);
- 
--#ifndef CONFIG_SPARC
--	/* Disable relaxed ordering */
--	for (i = 0; i < hw->mac.max_tx_queues; i++) {
--		u32 regval;
-+	if (adapter->flags2 & IXGBE_FLAG2_ROOT_NO_RELAXED_ORDERING) {
-+		/* Disable relaxed ordering */
-+		for (i = 0; i < hw->mac.max_tx_queues; i++) {
-+			u32 regval;
- 
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
--		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
--	}
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
-+			regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
-+		}
- 
--	for (i = 0; i < hw->mac.max_rx_queues; i++) {
--		u32 regval;
-+		for (i = 0; i < hw->mac.max_rx_queues; i++) {
-+			u32 regval;
- 
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
--		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
--			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
-+			regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
-+				    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+		}
- 	}
--#endif
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index f1dbdf2..f576be7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -10081,6 +10081,23 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_ioremap;
- 	}
- 
-+	/* If possible, we use PCIe Relaxed Ordering Attribute to deliver
-+	 * Ingress Packet Data to Free List Buffers in order to allow for
-+	 * chipset performance optimizations between the Root Complex and
-+	 * Memory Controllers.  (Messages to the associated Ingress Queue
-+	 * notifying new Packet Placement in the Free Lists Buffers will be
-+	 * send without the Relaxed Ordering Attribute thus guaranteeing that
-+	 * all preceding PCIe Transaction Layer Packets will be processed
-+	 * first.)  But some Root Complexes have various issues with Upstream
-+	 * Transaction Layer Packets with the Relaxed Ordering Attribute set.
-+	 * The PCIe devices which under the Root Complexes will be cleared the
-+	 * Relaxed Ordering bit in the configuration space, So we check our
-+	 * PCIe configuration space to see if it's flagged with advice against
-+	 * using Relaxed Ordering.
-+	 */
-+	if (!pcie_relaxed_ordering_enabled(pdev))
-+		adapter->flags2 |= IXGBE_FLAG2_ROOT_NO_RELAXED_ORDERING;
-+
- 	netdev->netdev_ops = &ixgbe_netdev_ops;
- 	ixgbe_set_ethtool_ops(netdev);
- 	netdev->watchdog_timeo = 5 * HZ;
--- 
-1.8.3.1
+> > +	__be16 ver_flags_len;
+> > +	u8 md_type;
+> > +	u8 next_proto;
+> > +	__be32 path_hdr;
+> > +	u8 metadata[NSH_M_TYPE2_MAX_LEN-8];
+> > +};
+> 
+> Please get rid of this struct. It's a copy of struct nsh_hdr with some
+> space added to the bottom.
+> 
+> One of the options (though maybe not the best one, feel free to come up
+> with something better) is to change struct nsh_md1_ctx to:
+> 
+> struct nsh_md1_ctx {
+> 	__be32 context[];
+> };
+> 
+> and change struct push_nsh_para:
+> 
+> struct push_nsh_para {
+> 	struct nsh_hdr hdr;
+> 	u8 metadata[NSH_M_TYPE2_MAX_LEN-8];
+> };
+> 
+> Another option (a better one, though a bit more work) is to get rid of
+> push_nsh_para completely and just pass a properly allocated nsh_hdr
+> around. Introduce macros and/or functions to help with the allocation.
+>
+
+Yeah, good point, we can use dynamic allocation and struct nsh_hdr * to
+handle this.
+
+> > +static inline struct nsh_md1_ctx *nsh_md1_ctx(struct nsh_hdr *nsh)
+> > +{
+> > +	return &nsh->md1;
+> > +}
+> > +
+> > +static inline struct nsh_md2_tlv *nsh_md2_ctx(struct nsh_hdr *nsh)
+> > +{
+> > +	return nsh->md2;
+> > +}
+> 
+> These are unused, please remove them.
+
+Will remove them, userspace does use them.
+
+> 
+> > --- a/include/uapi/linux/openvswitch.h
+> > +++ b/include/uapi/linux/openvswitch.h
+> [...]
+> > +#define NSH_MD1_CONTEXT_SIZE 4
+> 
+> Please move this to nsh.h and use it there, too, instead of the open
+> coded 4.
+
+ovs code is very ugly, it will convert array[4] in
+datapath/linux/compat/include/linux/openvswitch.h to other struct, I
+have to change context[4] to such format :-), we can use 4 here for
+Linux kernel.
+
+> 
+> > +static int push_nsh(struct sk_buff *skb, struct sw_flow_key *key,
+> > +		    const struct push_nsh_para *pnp)
+> > +{
+> > +	struct nsh_hdr *nsh;
+> > +	size_t length = ((ntohs(pnp->ver_flags_len) & NSH_LEN_MASK)
+> > +			     >> NSH_LEN_SHIFT) << 2;
+> 
+> Once push_nsh_para is removed/changed, this can be changed to a call to
+> nsh_hdr_len.
+
+Yes, will do that way.
+
+> 
+> > +	flags = (ntohs(nsh->ver_flags_len) & NSH_FLAGS_MASK) >>
+> > +		NSH_FLAGS_SHIFT;
+> 
+> nsh_get_flags
+
+Missed this one :-)
+
+> 
+> > +	case OVS_KEY_ATTR_NSH: {
+> > +		struct ovs_key_nsh nsh;
+> > +		struct ovs_key_nsh nsh_mask;
+> > +		size_t size = nla_len(a) / 2;
+> > +		struct nlattr attr[1 + DIV_ROUND_UP(sizeof(struct ovs_key_ipv6)
+> > +						    , sizeof(struct nlattr))];
+> > +		struct nlattr mask[1 + DIV_ROUND_UP(sizeof(struct ovs_key_ipv6)
+> > +						    , sizeof(struct nlattr))];
+> > +
+> > +		attr->nla_type = nla_type(a);
+> > +		mask->nla_type = attr->nla_type;
+> > +		attr->nla_len = NLA_HDRLEN + size;
+> > +		mask->nla_len = attr->nla_len;
+> > +		memcpy(attr + 1, (char *)(a + 1), size);
+> > +		memcpy(mask + 1, (char *)(a + 1) + size, size);
+> 
+> This is too hacky. Please find a better way to handle this.
+> 
+> One option is to create a struct with struct nlattr as the first member
+> followed by a char buffer. Still not nice but at least it's clear
+> what's the intent.
+
+The issue is nested attributes only can use this way, nested attribute
+for SET_MASKED is very special, we have to handle it specially.
+
+> 
+> > +static int parse_nsh(struct sk_buff *skb, struct sw_flow_key *key)
+> > +{
+> > +	struct nsh_hdr *nsh = (struct nsh_hdr *)skb_network_header(skb);
+> > +	u8 version, length;
+> > +	u32 path_hdr;
+> > +	int i;
+> > +
+> > +	memset(&key->nsh, 0, sizeof(struct ovs_key_nsh));
+> > +	version = nsh_get_ver(nsh);
+> > +	length = nsh_get_len(nsh);
+> > +
+> > +	key->nsh.flags = nsh_get_flags(nsh);
+> > +	key->nsh.mdtype = nsh->md_type;
+> > +	key->nsh.np = nsh->next_proto;
+> > +	path_hdr = ntohl(nsh->path_hdr);
+> 
+> The path_hdr variable is unused.
+
+Will remove it.
+
+> 
+> > +	key->nsh.path_hdr = nsh->path_hdr;
+> > +	switch (key->nsh.mdtype) {
+> > +	case NSH_M_TYPE1:
+> > +		if ((length << 2) != NSH_M_TYPE1_LEN)
+> 
+> Why length << 2?
+
+len in NSH header is number of 4 octets, so need to multiply 4.
+
+> 
+> > +			return -EINVAL;
+> > +
+> > +		for (i = 0; i < 4; i++)
+> 
+> NSH_MD1_CONTEXT_SIZE
+
+Ok
+
+> 
+> > +			key->nsh.context[i] = nsh->md1.context[i];
+> > +
+> > +		break;
+> 
+> Will go through the rest later. Feel free to send a new version
+> meanwhile.
+> 
+> Thanks,
+> 
+>  Jiri
+
+Thank you so much for your comments, will work out new version ASAP.
