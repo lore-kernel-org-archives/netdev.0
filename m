@@ -1,46 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3] VMCI: only load on VMware hypervisor
-Date: Wed, 16 Aug 2017 11:54:16 -0700 (PDT)
-Message-ID: <20170816.115416.1591353514541788122.davem@davemloft.net>
-References: <KL1P15301MB00083C97259FF2A700C78442BF8D0@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170816.110635.1062040564700704290.davem@davemloft.net>
- <KL1P15301MB0008FB89237C3BB7A6D2BB39BF820@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 00/10] BPF: sockmap and sk redirect support
+Date: Wed, 16 Aug 2017 12:06:36 -0700
+Message-ID: <599497BC.6010205@gmail.com>
+References: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810>        <20170816.112819.1162151697604053267.davem@davemloft.net> <20170816.113501.1961184995639656444.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mkubecek@suse.cz, jasowang@redhat.com, georgezhang@vmware.com,
- sthemmin@microsoft.com, rolf.neugebauer@docker.com,
- marcelo.cerri@canonical.com, asias@redhat.com, dan.carpenter@oracle.com,
- olaf@aepfle.de, haiyangz@microsoft.com, dave.scott@docker.com,
- stefanha@redhat.com, apw@canonical.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org, joe@perches.com,
- devel@linuxdriverproject.org, vkuznets@redhat.com, jhansen@vmware.com
-To: decui@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <KL1P15301MB0008FB89237C3BB7A6D2BB39BF820@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-7
+Content-Transfer-Encoding: 8bit
+Cc: daniel@iogearbox.net, ast@fb.com, tgraf@suug.ch,
+        netdev@vger.kernel.org, tom@herbertland.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:37921 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751765AbdHPTHK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 15:07:10 -0400
+Received: by mail-pg0-f65.google.com with SMTP id 123so5969611pga.5
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 12:07:10 -0700 (PDT)
+In-Reply-To: <20170816.113501.1961184995639656444.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dexuan Cui <decui@microsoft.com>
-Date: Wed, 16 Aug 2017 18:51:36 +0000
+On 08/16/2017 11:35 AM, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 16 Aug 2017 11:28:19 -0700 (PDT)
+> 
+>> From: John Fastabend <john.fastabend@gmail.com>
+>> Date: Tue, 15 Aug 2017 22:30:15 -0700
+>>
+>>> This series implements a sockmap and socket redirect helper for BPF
+>>> using a model similar to XDP netdev redirect.
+>>
+>> Series applied, thanks John.
+>>
+> 
+> We get a legit warning from gcc due to these changes:
+> 
+> kernel/bpf/sockmap.c: In function ¡smap_state_change¢:
+> kernel/bpf/sockmap.c:156:21: warning: ¡psock¢ may be used uninitialized in this function [-Wmaybe-uninitialized]
+>   struct smap_psock *psock;
+> 
+> It's the default switch case in this function, psock is not initialized
+> for sure at this point.
+> 
 
-> It looks typically modern Linux distros have CONFIG_HYPERVISOR_GUEST=y
-> by default
+I missed this with older gcc4 it seems. Fixed now and compiling without errors
+now with gcc4/5. Below is the diff and all verifier/sockmap tests pass. Want a
+v2 I presume?
 
-It doesn't matter what any distribution does or does not do.
-
-People are going to do 'randconfig' builds over thousands and
-thousands of configuration combinations to test your changes,
-and those tests will fail.
-
-> Do you want me to submit a v2 for this patch with the Kconfig change?
-
-Of course, there is no way I can apply your series as-is.
+diff --git a/kernel/bpf/sockmap.c b/kernel/bpf/sockmap.c
+index 792f0ad..f7e5e6c 100644
+--- a/kernel/bpf/sockmap.c
++++ b/kernel/bpf/sockmap.c
+@@ -188,6 +188,9 @@ static void smap_state_change(struct sock *sk)
+                        smap_release_sock(sk);
+                break;
+        default:
++               psock = smap_psock_sk(sk);
++               if (unlikely(!psock))
++                       break;
+                smap_report_sk_error(psock, EPIPE);
+                break;
+        }
