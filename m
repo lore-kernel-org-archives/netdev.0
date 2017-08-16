@@ -1,83 +1,115 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net V3] openvswitch: fix skb_panic due to the incorrect
- actions attrlen
-Date: Wed, 16 Aug 2017 12:21:17 -0700
-Message-ID: <CAOrHB_CTLaHZnM=GfgaKK_YfqqkN3xbuUhZTTS-u=uE7rcPVUg@mail.gmail.com>
-References: <20170816053007.13991-1-zlpnobody@163.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv4: convert dst_metrics.refcnt from atomic_t to
+ refcount_t
+Date: Wed, 16 Aug 2017 12:24:29 -0700
+Message-ID: <1502911469.4936.148.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Liping Zhang <zlpnobody@gmail.com>,
-        Neil McKee <neil.mckee@inmon.com>
-To: Liping Zhang <zlpnobody@163.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:45681 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751893AbdHPTVU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 15:21:20 -0400
-Received: from mail-wr0-f173.google.com (mail-wr0-f173.google.com [209.85.128.173])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id D99B1A80C8
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 21:21:18 +0200 (CEST)
-Received: by mail-wr0-f173.google.com with SMTP id x43so24838949wrb.3
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 12:21:18 -0700 (PDT)
-In-Reply-To: <20170816053007.13991-1-zlpnobody@163.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36958 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752168AbdHPTYb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 15:24:31 -0400
+Received: by mail-pg0-f65.google.com with SMTP id 83so6052302pgb.4
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 12:24:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 15, 2017 at 10:30 PM, Liping Zhang <zlpnobody@163.com> wrote:
-> From: Liping Zhang <zlpnobody@gmail.com>
->
-> For sw_flow_actions, the actions_len only represents the kernel part's
-> size, and when we dump the actions to the userspace, we will do the
-> convertions, so it's true size may become bigger than the actions_len.
->
-> But unfortunately, for OVS_PACKET_ATTR_ACTIONS, we use the actions_len
-> to alloc the skbuff, so the user_skb's size may become insufficient and
-> oops will happen like this:
->   skbuff: skb_over_panic: text:ffffffff8148fabf len:1749 put:157 head:
->   ffff881300f39000 data:ffff881300f39000 tail:0x6d5 end:0x6c0 dev:<NULL>
->   ------------[ cut here ]------------
->   kernel BUG at net/core/skbuff.c:129!
->   [...]
->   Call Trace:
->    <IRQ>
->    [<ffffffff8148be82>] skb_put+0x43/0x44
->    [<ffffffff8148fabf>] skb_zerocopy+0x6c/0x1f4
->    [<ffffffffa0290d36>] queue_userspace_packet+0x3a3/0x448 [openvswitch]
->    [<ffffffffa0292023>] ovs_dp_upcall+0x30/0x5c [openvswitch]
->    [<ffffffffa028d435>] output_userspace+0x132/0x158 [openvswitch]
->    [<ffffffffa01e6890>] ? ip6_rcv_finish+0x74/0x77 [ipv6]
->    [<ffffffffa028e277>] do_execute_actions+0xcc1/0xdc8 [openvswitch]
->    [<ffffffffa028e3f2>] ovs_execute_actions+0x74/0x106 [openvswitch]
->    [<ffffffffa0292130>] ovs_dp_process_packet+0xe1/0xfd [openvswitch]
->    [<ffffffffa0292b77>] ? key_extract+0x63c/0x8d5 [openvswitch]
->    [<ffffffffa029848b>] ovs_vport_receive+0xa1/0xc3 [openvswitch]
->   [...]
->
-> Also we can find that the actions_len is much little than the orig_len:
->   crash> struct sw_flow_actions 0xffff8812f539d000
->   struct sw_flow_actions {
->     rcu = {
->       next = 0xffff8812f5398800,
->       func = 0xffffe3b00035db32
->     },
->     orig_len = 1384,
->     actions_len = 592,
->     actions = 0xffff8812f539d01c
->   }
->
-> So as a quick fix, use the orig_len instead of the actions_len to alloc
-> the user_skb.
->
-> Last, this oops happened on our system running a relative old kernel, but
-> the same risk still exists on the mainline, since we use the wrong
-> actions_len from the beginning.
->
-> Fixes: ccea74457bbd ("openvswitch: include datapath actions with sampled-packet upcall to userspace")
-> Cc: Neil McKee <neil.mckee@inmon.com>
-> Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+From: Eric Dumazet <edumazet@google.com>
 
-Looks good.
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+refcount_t type and corresponding API should be
+used instead of atomic_t when the variable is used as
+a reference counter. This allows to avoid accidental
+refcounter overflows that might lead to use-after-free
+situations.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/dst.h        |    2 +-
+ net/core/dst.c           |    6 +++---
+ net/ipv4/fib_semantics.c |    2 +-
+ net/ipv4/route.c         |    4 ++--
+ 4 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index f73611ec401754d4f52b5310a24da53566dafce6..dd38177c3a61f5c4e48be9d57d4d10d6b7d14672 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -107,7 +107,7 @@ struct dst_entry {
+ 
+ struct dst_metrics {
+ 	u32		metrics[RTAX_MAX];
+-	atomic_t	refcnt;
++	refcount_t	refcnt;
+ };
+ extern const struct dst_metrics dst_default_metrics;
+ 
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 00aa972ad1a1a451c24f3f8211243ad35c19433a..d6ead757c25895da01eb61bc9636c7e9b3cdfb3e 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -55,7 +55,7 @@ const struct dst_metrics dst_default_metrics = {
+ 	 * We really want to avoid false sharing on this variable, and catch
+ 	 * any writes on it.
+ 	 */
+-	.refcnt = ATOMIC_INIT(1),
++	.refcnt = REFCOUNT_INIT(1),
+ };
+ 
+ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
+@@ -213,7 +213,7 @@ u32 *dst_cow_metrics_generic(struct dst_entry *dst, unsigned long old)
+ 		struct dst_metrics *old_p = (struct dst_metrics *)__DST_METRICS_PTR(old);
+ 		unsigned long prev, new;
+ 
+-		atomic_set(&p->refcnt, 1);
++		refcount_set(&p->refcnt, 1);
+ 		memcpy(p->metrics, old_p->metrics, sizeof(p->metrics));
+ 
+ 		new = (unsigned long) p;
+@@ -225,7 +225,7 @@ u32 *dst_cow_metrics_generic(struct dst_entry *dst, unsigned long old)
+ 			if (prev & DST_METRICS_READ_ONLY)
+ 				p = NULL;
+ 		} else if (prev & DST_METRICS_REFCOUNTED) {
+-			if (atomic_dec_and_test(&old_p->refcnt))
++			if (refcount_dec_and_test(&old_p->refcnt))
+ 				kfree(old_p);
+ 		}
+ 	}
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index d521caf57385fa05f76036708057b95052330cb1..dd2ac3ed82ac86f8b417852233dfea69711e982d 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1090,7 +1090,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg,
+ 			kfree(fi);
+ 			return ERR_PTR(err);
+ 		}
+-		atomic_set(&fi->fib_metrics->refcnt, 1);
++		refcount_set(&fi->fib_metrics->refcnt, 1);
+ 	} else {
+ 		fi->fib_metrics = (struct dst_metrics *)&dst_default_metrics;
+ 	}
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index d400c05431063fc7bdd15b83ab540acc86decb3d..872b4cb136d3fa0cda403836cc83a156a65310a3 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1398,7 +1398,7 @@ static void ipv4_dst_destroy(struct dst_entry *dst)
+ 	struct dst_metrics *p = (struct dst_metrics *)DST_METRICS_PTR(dst);
+ 	struct rtable *rt = (struct rtable *) dst;
+ 
+-	if (p != &dst_default_metrics && atomic_dec_and_test(&p->refcnt))
++	if (p != &dst_default_metrics && refcount_dec_and_test(&p->refcnt))
+ 		kfree(p);
+ 
+ 	if (!list_empty(&rt->rt_uncached)) {
+@@ -1456,7 +1456,7 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
+ 		dst_init_metrics(&rt->dst, fi->fib_metrics->metrics, true);
+ 		if (fi->fib_metrics != &dst_default_metrics) {
+ 			rt->dst._metrics |= DST_METRICS_REFCOUNTED;
+-			atomic_inc(&fi->fib_metrics->refcnt);
++			refcount_inc(&fi->fib_metrics->refcnt);
+ 		}
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 		rt->dst.tclassid = nh->nh_tclassid;
