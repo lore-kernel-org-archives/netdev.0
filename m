@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] net: ixgbe: Use new flag to disable Relaxed
- Ordering
-Date: Wed, 16 Aug 2017 10:56:47 -0700 (PDT)
-Message-ID: <20170816.105647.341781221143669151.davem@davemloft.net>
-References: <1502876507-9360-1-git-send-email-dingtianhong@huawei.com>
+Subject: Re: [PATCH 1/2] net_sched: call qlen_notify only if child qdisc is
+ empty
+Date: Wed, 16 Aug 2017 10:56:57 -0700 (PDT)
+Message-ID: <20170816.105657.1279204691313415545.davem@davemloft.net>
+References: <150280439968.717891.6476652519937001709.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, keescook@chromium.org,
-        linux-kernel@vger.kernel.org, sparclinux@vger.kernel.org,
-        intel-wired-lan@lists.osuosl.org, alexander.duyck@gmail.com,
-        netdev@vger.kernel.org
-To: dingtianhong@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502876507-9360-1-git-send-email-dingtianhong@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jkosina@suse.cz,
+        edumazet@google.com, jhs@mojatatu.com
+To: khlebnikov@yandex-team.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34296 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752229AbdHPR46 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 13:56:58 -0400
+In-Reply-To: <150280439968.717891.6476652519937001709.stgit@buzz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Wed, 16 Aug 2017 17:41:45 +0800
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Date: Tue, 15 Aug 2017 16:39:59 +0300
 
-> The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING has been added
-> to indicate that Relaxed Ordering Attributes (RO) should not
-> be used for Transaction Layer Packets (TLP) targeted toward
-> these affected Root Port, it will clear the bit4 in the PCIe
-> Device Control register, so the PCIe device drivers could
-> query PCIe configuration space to determine if it can send
-> TLPs to Root Port with the Relaxed Ordering Attributes set.
+> This callback is used for deactivating class in parent qdisc.
+> This is cheaper to test queue length right here.
 > 
-> The ixgbe driver could use this flag to determine if it can
-> send TLPs to Root Port with the Relaxed Ordering Attributes set.
+> Also this allows to catch draining screwed backlog and prevent
+> second deactivation of already inactive parent class which will
+> crash kernel for sure. Kernel with print warning at destruction
+> of child qdisc where no packets but backlog is not zero.
+> 
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 
-I'll let the Intel guys pick this up.
+Applied.
