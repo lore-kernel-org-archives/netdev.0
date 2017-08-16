@@ -1,43 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 00/10] BPF: sockmap and sk redirect support
-Date: Wed, 16 Aug 2017 12:13:05 -0700 (PDT)
-Message-ID: <20170816.121305.1824274693019781357.davem@davemloft.net>
-References: <20170816.112819.1162151697604053267.davem@davemloft.net>
-        <20170816.113501.1961184995639656444.davem@davemloft.net>
-        <599497BC.6010205@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv6: fix NULL dereference in ip6_route_dev_notify()
+Date: Wed, 16 Aug 2017 12:15:34 -0700
+Message-ID: <1502910934.4936.142.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1502795391.4936.60.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpXjhUWPC1goetn2bwG=SPeqWcz+bZvMVWOD_2cbDcG-qw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: daniel@iogearbox.net, ast@fb.com, tgraf@suug.ch,
-        netdev@vger.kernel.org, tom@herbertland.com
-To: john.fastabend@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35944 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751847AbdHPTNG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 15:13:06 -0400
-In-Reply-To: <599497BC.6010205@gmail.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36801 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752542AbdHPTPg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 15:15:36 -0400
+Received: by mail-pg0-f66.google.com with SMTP id y129so6029035pgy.3
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 12:15:36 -0700 (PDT)
+In-Reply-To: <CAM_iQpXjhUWPC1goetn2bwG=SPeqWcz+bZvMVWOD_2cbDcG-qw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSm9obiBGYXN0YWJlbmQgPGpvaG4uZmFzdGFiZW5kQGdtYWlsLmNvbT4NCkRhdGU6IFdl
-ZCwgMTYgQXVnIDIwMTcgMTI6MDY6MzYgLTA3MDANCg0KPiBPbiAwOC8xNi8yMDE3IDExOjM1IEFN
-LCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+PiBGcm9tOiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVt
-bG9mdC5uZXQ+DQo+PiBEYXRlOiBXZWQsIDE2IEF1ZyAyMDE3IDExOjI4OjE5IC0wNzAwIChQRFQp
-DQo+PiANCj4+PiBGcm9tOiBKb2huIEZhc3RhYmVuZCA8am9obi5mYXN0YWJlbmRAZ21haWwuY29t
-Pg0KPj4+IERhdGU6IFR1ZSwgMTUgQXVnIDIwMTcgMjI6MzA6MTUgLTA3MDANCj4+Pg0KPj4+PiBU
-aGlzIHNlcmllcyBpbXBsZW1lbnRzIGEgc29ja21hcCBhbmQgc29ja2V0IHJlZGlyZWN0IGhlbHBl
-ciBmb3IgQlBGDQo+Pj4+IHVzaW5nIGEgbW9kZWwgc2ltaWxhciB0byBYRFAgbmV0ZGV2IHJlZGly
-ZWN0Lg0KPj4+DQo+Pj4gU2VyaWVzIGFwcGxpZWQsIHRoYW5rcyBKb2huLg0KPj4+DQo+PiANCj4+
-IFdlIGdldCBhIGxlZ2l0IHdhcm5pbmcgZnJvbSBnY2MgZHVlIHRvIHRoZXNlIGNoYW5nZXM6DQo+
-PiANCj4+IGtlcm5lbC9icGYvc29ja21hcC5jOiBJbiBmdW5jdGlvbiChc21hcF9zdGF0ZV9jaGFu
-Z2WiOg0KPj4ga2VybmVsL2JwZi9zb2NrbWFwLmM6MTU2OjIxOiB3YXJuaW5nOiChcHNvY2uiIG1h
-eSBiZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbiBbLVdtYXliZS11bmluaXRp
-YWxpemVkXQ0KPj4gICBzdHJ1Y3Qgc21hcF9wc29jayAqcHNvY2s7DQo+PiANCj4+IEl0J3MgdGhl
-IGRlZmF1bHQgc3dpdGNoIGNhc2UgaW4gdGhpcyBmdW5jdGlvbiwgcHNvY2sgaXMgbm90IGluaXRp
-YWxpemVkDQo+PiBmb3Igc3VyZSBhdCB0aGlzIHBvaW50Lg0KPj4gDQo+IA0KPiBJIG1pc3NlZCB0
-aGlzIHdpdGggb2xkZXIgZ2NjNCBpdCBzZWVtcy4gRml4ZWQgbm93IGFuZCBjb21waWxpbmcgd2l0
-aG91dCBlcnJvcnMNCj4gbm93IHdpdGggZ2NjNC81LiBCZWxvdyBpcyB0aGUgZGlmZiBhbmQgYWxs
-IHZlcmlmaWVyL3NvY2ttYXAgdGVzdHMgcGFzcy4gV2FudCBhDQo+IHYyIEkgcHJlc3VtZT8NCg0K
-SSBhbHJlYWR5IHB1c2hlZCBvdXQgdjEsIHNvIHlvdSdsbCBuZWVkIHRvIHNlbmQgbWUgYSBmaXh1
-cCBwYXRjaC4NCg==
+On Wed, 2017-08-16 at 11:50 -0700, Cong Wang wrote:
+> On Tue, Aug 15, 2017 at 4:09 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > Based on a syzkaller report [1], I found that a per cpu allocation
+> > failure in snmp6_alloc_dev() would then lead to NULL dereference in
+> > ip6_route_dev_notify().
+> >
+> > It seems this is a very old bug, thus no Fixes tag in this submission.
+> 
+> 
+> It should be introduced by my commit which introduces these
+> in6_dev_put().
+> 
+
+Sorry, which commit exactly ?
+
+I got the issue on 4.3 up to latest 4.12
