@@ -1,42 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qdisc: add tracepoint qdisc:qdisc_dequeue for dequeued
- SKBs
-Date: Wed, 16 Aug 2017 14:09:47 -0700 (PDT)
-Message-ID: <20170816.140947.570761977406039647.davem@davemloft.net>
-References: <150282426296.20350.8045788556432194444.stgit@firesoul>
+Subject: Re: [PATCH net V3] openvswitch: fix skb_panic due to the incorrect
+ actions attrlen
+Date: Wed, 16 Aug 2017 14:13:05 -0700 (PDT)
+Message-ID: <20170816.141305.1998207836740801812.davem@davemloft.net>
+References: <20170816053007.13991-1-zlpnobody@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pstaszewski@itcare.pl
-To: brouer@redhat.com
+Cc: pshelar@ovn.org, netdev@vger.kernel.org, zlpnobody@gmail.com,
+        neil.mckee@inmon.com
+To: zlpnobody@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38298 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38364 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752233AbdHPVJs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 17:09:48 -0400
-In-Reply-To: <150282426296.20350.8045788556432194444.stgit@firesoul>
+        with ESMTP id S1752130AbdHPVNG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 17:13:06 -0400
+In-Reply-To: <20170816053007.13991-1-zlpnobody@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Tue, 15 Aug 2017 21:11:03 +0200
+From: Liping Zhang <zlpnobody@163.com>
+Date: Wed, 16 Aug 2017 13:30:07 +0800
 
-> The main purpose of this tracepoint is to monitor bulk dequeue
-> in the network qdisc layer, as it cannot be deducted from the
-> existing qdisc stats.
+> From: Liping Zhang <zlpnobody@gmail.com>
 > 
-> The txq_state can be used for determining the reason for zero packet
-> dequeues, see enum netdev_queue_state_t.
+> For sw_flow_actions, the actions_len only represents the kernel part's
+> size, and when we dump the actions to the userspace, we will do the
+> convertions, so it's true size may become bigger than the actions_len.
 > 
-> Notice all packets doesn't necessary activate this tracepoint. As
-> qdiscs with flag TCQ_F_CAN_BYPASS, can directly invoke
-> sch_direct_xmit() when qdisc_qlen is zero.
+> But unfortunately, for OVS_PACKET_ATTR_ACTIONS, we use the actions_len
+> to alloc the skbuff, so the user_skb's size may become insufficient and
+> oops will happen like this:
+ ...
+> Also we can find that the actions_len is much little than the orig_len:
+>   crash> struct sw_flow_actions 0xffff8812f539d000
+>   struct sw_flow_actions {
+>     rcu = {
+>       next = 0xffff8812f5398800,
+>       func = 0xffffe3b00035db32
+>     },
+>     orig_len = 1384,
+>     actions_len = 592,
+>     actions = 0xffff8812f539d01c
+>   }
 > 
-> Remember that perf record supports filters like:
+> So as a quick fix, use the orig_len instead of the actions_len to alloc
+> the user_skb.
 > 
->  perf record -e qdisc:qdisc_dequeue \
->   --filter 'ifindex == 4 && (packets > 1 || txq_state > 0)'
+> Last, this oops happened on our system running a relative old kernel, but
+> the same risk still exists on the mainline, since we use the wrong
+> actions_len from the beginning.
 > 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Fixes: ccea74457bbd ("openvswitch: include datapath actions with sampled-packet upcall to userspace")
+> Cc: Neil McKee <neil.mckee@inmon.com>
+> Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 
-I'll apply this to net-next, thanks Jesper.
+Applied and queued up for -stable, thanks.
