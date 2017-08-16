@@ -1,182 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tipc: fix use-after-free
-Date: Wed, 16 Aug 2017 09:41:54 -0700
-Message-ID: <1502901714.4936.126.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] tun: make tun_build_skb() thread safe
+Date: Wed, 16 Aug 2017 19:55:09 +0300
+Message-ID: <20170816195342-mutt-send-email-mst@kernel.org>
+References: <1502892873-10770-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35660 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752257AbdHPQl4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 12:41:56 -0400
-Received: by mail-pf0-f193.google.com with SMTP id j68so1790212pfc.2
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 09:41:56 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1502892873-10770-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Aug 16, 2017 at 10:14:33PM +0800, Jason Wang wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> tun_build_skb() is not thread safe since it uses per queue page frag,
+> this will break things when multiple threads are sending through same
+> queue. Switch to use per-thread generator (no lock involved).
+> 
+> Fixes: 66ccbc9c87c2 ("tap: use build_skb() for small packet")
+> Tested-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-syszkaller reported use-after-free in tipc [1]
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-When msg->rep skb is freed, set the pointer to NULL,
-so that caller does not free it again.
+Jason, given the switch to task_frag, would it be worth it to look at
+using higher order allocs along the lines of
+5640f7685831e088fe6c2e1f863a6805962f8e81 as well?
 
-[1]
-
-==================================================================
-BUG: KASAN: use-after-free in skb_push+0xd4/0xe0 net/core/skbuff.c:1466
-Read of size 8 at addr ffff8801c6e71e90 by task syz-executor5/4115
-
-CPU: 1 PID: 4115 Comm: syz-executor5 Not tainted 4.13.0-rc4+ #32
-Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16 [inline]
- dump_stack+0x194/0x257 lib/dump_stack.c:52
- print_address_description+0x73/0x250 mm/kasan/report.c:252
- kasan_report_error mm/kasan/report.c:351 [inline]
- kasan_report+0x24e/0x340 mm/kasan/report.c:409
- __asan_report_load8_noabort+0x14/0x20 mm/kasan/report.c:430
- skb_push+0xd4/0xe0 net/core/skbuff.c:1466
- tipc_nl_compat_recv+0x833/0x18f0 net/tipc/netlink_compat.c:1209
- genl_family_rcv_msg+0x7b7/0xfb0 net/netlink/genetlink.c:598
- genl_rcv_msg+0xb2/0x140 net/netlink/genetlink.c:623
- netlink_rcv_skb+0x216/0x440 net/netlink/af_netlink.c:2397
- genl_rcv+0x28/0x40 net/netlink/genetlink.c:634
- netlink_unicast_kernel net/netlink/af_netlink.c:1265 [inline]
- netlink_unicast+0x4e8/0x6f0 net/netlink/af_netlink.c:1291
- netlink_sendmsg+0xa4a/0xe60 net/netlink/af_netlink.c:1854
- sock_sendmsg_nosec net/socket.c:633 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:643
- sock_write_iter+0x31a/0x5d0 net/socket.c:898
- call_write_iter include/linux/fs.h:1743 [inline]
- new_sync_write fs/read_write.c:457 [inline]
- __vfs_write+0x684/0x970 fs/read_write.c:470
- vfs_write+0x189/0x510 fs/read_write.c:518
- SYSC_write fs/read_write.c:565 [inline]
- SyS_write+0xef/0x220 fs/read_write.c:557
- entry_SYSCALL_64_fastpath+0x1f/0xbe
-RIP: 0033:0x4512e9
-RSP: 002b:00007f3bc8184c08 EFLAGS: 00000216 ORIG_RAX: 0000000000000001
-RAX: ffffffffffffffda RBX: 0000000000718000 RCX: 00000000004512e9
-RDX: 0000000000000020 RSI: 0000000020fdb000 RDI: 0000000000000006
-RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000216 R12: 00000000004b5e76
-R13: 00007f3bc8184b48 R14: 00000000004b5e86 R15: 0000000000000000
-
-Allocated by task 4115:
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
- save_stack+0x43/0xd0 mm/kasan/kasan.c:447
- set_track mm/kasan/kasan.c:459 [inline]
- kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:551
- kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:489
- kmem_cache_alloc_node+0x13d/0x750 mm/slab.c:3651
- __alloc_skb+0xf1/0x740 net/core/skbuff.c:219
- alloc_skb include/linux/skbuff.h:903 [inline]
- tipc_tlv_alloc+0x26/0xb0 net/tipc/netlink_compat.c:148
- tipc_nl_compat_dumpit+0xf2/0x3c0 net/tipc/netlink_compat.c:248
- tipc_nl_compat_handle net/tipc/netlink_compat.c:1130 [inline]
- tipc_nl_compat_recv+0x756/0x18f0 net/tipc/netlink_compat.c:1199
- genl_family_rcv_msg+0x7b7/0xfb0 net/netlink/genetlink.c:598
- genl_rcv_msg+0xb2/0x140 net/netlink/genetlink.c:623
- netlink_rcv_skb+0x216/0x440 net/netlink/af_netlink.c:2397
- genl_rcv+0x28/0x40 net/netlink/genetlink.c:634
- netlink_unicast_kernel net/netlink/af_netlink.c:1265 [inline]
- netlink_unicast+0x4e8/0x6f0 net/netlink/af_netlink.c:1291
- netlink_sendmsg+0xa4a/0xe60 net/netlink/af_netlink.c:1854
- sock_sendmsg_nosec net/socket.c:633 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:643
- sock_write_iter+0x31a/0x5d0 net/socket.c:898
- call_write_iter include/linux/fs.h:1743 [inline]
- new_sync_write fs/read_write.c:457 [inline]
- __vfs_write+0x684/0x970 fs/read_write.c:470
- vfs_write+0x189/0x510 fs/read_write.c:518
- SYSC_write fs/read_write.c:565 [inline]
- SyS_write+0xef/0x220 fs/read_write.c:557
- entry_SYSCALL_64_fastpath+0x1f/0xbe
-
-Freed by task 4115:
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
- save_stack+0x43/0xd0 mm/kasan/kasan.c:447
- set_track mm/kasan/kasan.c:459 [inline]
- kasan_slab_free+0x71/0xc0 mm/kasan/kasan.c:524
- __cache_free mm/slab.c:3503 [inline]
- kmem_cache_free+0x77/0x280 mm/slab.c:3763
- kfree_skbmem+0x1a1/0x1d0 net/core/skbuff.c:622
- __kfree_skb net/core/skbuff.c:682 [inline]
- kfree_skb+0x165/0x4c0 net/core/skbuff.c:699
- tipc_nl_compat_dumpit+0x36a/0x3c0 net/tipc/netlink_compat.c:260
- tipc_nl_compat_handle net/tipc/netlink_compat.c:1130 [inline]
- tipc_nl_compat_recv+0x756/0x18f0 net/tipc/netlink_compat.c:1199
- genl_family_rcv_msg+0x7b7/0xfb0 net/netlink/genetlink.c:598
- genl_rcv_msg+0xb2/0x140 net/netlink/genetlink.c:623
- netlink_rcv_skb+0x216/0x440 net/netlink/af_netlink.c:2397
- genl_rcv+0x28/0x40 net/netlink/genetlink.c:634
- netlink_unicast_kernel net/netlink/af_netlink.c:1265 [inline]
- netlink_unicast+0x4e8/0x6f0 net/netlink/af_netlink.c:1291
- netlink_sendmsg+0xa4a/0xe60 net/netlink/af_netlink.c:1854
- sock_sendmsg_nosec net/socket.c:633 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:643
- sock_write_iter+0x31a/0x5d0 net/socket.c:898
- call_write_iter include/linux/fs.h:1743 [inline]
- new_sync_write fs/read_write.c:457 [inline]
- __vfs_write+0x684/0x970 fs/read_write.c:470
- vfs_write+0x189/0x510 fs/read_write.c:518
- SYSC_write fs/read_write.c:565 [inline]
- SyS_write+0xef/0x220 fs/read_write.c:557
- entry_SYSCALL_64_fastpath+0x1f/0xbe
-
-The buggy address belongs to the object at ffff8801c6e71dc0
- which belongs to the cache skbuff_head_cache of size 224
-The buggy address is located 208 bytes inside of
- 224-byte region [ffff8801c6e71dc0, ffff8801c6e71ea0)
-The buggy address belongs to the page:
-page:ffffea00071b9c40 count:1 mapcount:0 mapping:ffff8801c6e71000 index:0x0
-flags: 0x200000000000100(slab)
-raw: 0200000000000100 ffff8801c6e71000 0000000000000000 000000010000000c
-raw: ffffea0007224a20 ffff8801d98caf48 ffff8801d9e79040 0000000000000000
-page dumped because: kasan: bad access detected
-
-Memory state around the buggy address:
- ffff8801c6e71d80: fc fc fc fc fc fc fc fc fb fb fb fb fb fb fb fb
- ffff8801c6e71e00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->ffff8801c6e71e80: fb fb fb fb fc fc fc fc fc fc fc fc fc fc fc fc
-                         ^
- ffff8801c6e71f00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
- ffff8801c6e71f80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
-==================================================================
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov  <dvyukov@google.com>
-Cc: Jon Maloy <jon.maloy@ericsson.com>
-Cc: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/netlink_compat.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index 9bfe886ab330..750949dfc1d7 100644
---- a/net/tipc/netlink_compat.c
-+++ b/net/tipc/netlink_compat.c
-@@ -258,13 +258,15 @@ static int tipc_nl_compat_dumpit(struct tipc_nl_compat_cmd_dump *cmd,
- 	arg = nlmsg_new(0, GFP_KERNEL);
- 	if (!arg) {
- 		kfree_skb(msg->rep);
-+		msg->rep = NULL;
- 		return -ENOMEM;
- 	}
- 
- 	err = __tipc_nl_compat_dumpit(cmd, msg, arg);
--	if (err)
-+	if (err) {
- 		kfree_skb(msg->rep);
--
-+		msg->rep = NULL;
-+	}
- 	kfree_skb(arg);
- 
- 	return err;
+> ---
+>  drivers/net/tun.c | 7 +------
+>  1 file changed, 1 insertion(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 5892284..c38cd84 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -175,7 +175,6 @@ struct tun_file {
+>  	struct list_head next;
+>  	struct tun_struct *detached;
+>  	struct skb_array tx_array;
+> -	struct page_frag alloc_frag;
+>  };
+>  
+>  struct tun_flow_entry {
+> @@ -578,8 +577,6 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+>  		}
+>  		if (tun)
+>  			skb_array_cleanup(&tfile->tx_array);
+> -		if (tfile->alloc_frag.page)
+> -			put_page(tfile->alloc_frag.page);
+>  		sock_put(&tfile->sk);
+>  	}
+>  }
+> @@ -1272,7 +1269,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
+>  				     struct virtio_net_hdr *hdr,
+>  				     int len, int *generic_xdp)
+>  {
+> -	struct page_frag *alloc_frag = &tfile->alloc_frag;
+> +	struct page_frag *alloc_frag = &current->task_frag;
+>  	struct sk_buff *skb;
+>  	struct bpf_prog *xdp_prog;
+>  	int buflen = SKB_DATA_ALIGN(len + TUN_RX_PAD) +
+> @@ -2580,8 +2577,6 @@ static int tun_chr_open(struct inode *inode, struct file * file)
+>  	tfile->sk.sk_write_space = tun_sock_write_space;
+>  	tfile->sk.sk_sndbuf = INT_MAX;
+>  
+> -	tfile->alloc_frag.page = NULL;
+> -
+>  	file->private_data = tfile;
+>  	INIT_LIST_HEAD(&tfile->next);
+>  
+> -- 
+> 2.7.4
