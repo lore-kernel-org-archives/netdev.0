@@ -1,53 +1,36 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net] tcp: when rearming RTO, if RTO time is in past then fire RTO ASAP
-Date: Wed, 16 Aug 2017 17:53:36 -0400
-Message-ID: <20170816215336.30419-1-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH 0/2] bpf: sockmap build fixes
+Date: Wed, 16 Aug 2017 15:01:52 -0700
+Message-ID: <20170816220049.25438.62373.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
+To: daniel@iogearbox.net, davem@davemloft.net, eric.dumazet@gmail.com,
+        dsahern@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:33215 "EHLO
-        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752346AbdHPVxj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 17:53:39 -0400
-Received: by mail-qk0-f181.google.com with SMTP id a77so27775572qkb.0
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 14:53:39 -0700 (PDT)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35871 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752266AbdHPWCG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 18:02:06 -0400
+Received: by mail-pg0-f65.google.com with SMTP id y129so6572889pgy.3
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 15:02:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In some situations tcp_send_loss_probe() can realize that it's unable
-to send a loss probe (TLP), and falls back to calling tcp_rearm_rto()
-to schedule an RTO timer. In such cases, sometimes tcp_rearm_rto()
-realizes that the RTO was eligible to fire immediately or at some
-point in the past (delta_us <= 0). Previously in such cases
-tcp_rearm_rto() was scheduling such "overdue" RTOs to happen at now +
-icsk_rto, which caused needless delays of hundreds of milliseconds
-(and non-linear behavior that made reproducible testing
-difficult). This commit changes the logic to schedule "overdue" RTOs
-ASAP, rather than at now + icsk_rto.
+Two build fixes for sockmap, this should resolve the build errors
+and warnings that were reported. Thanks everyone.
 
-Suggested-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_input.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 53de1424c13c..bab7f0493098 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3009,8 +3009,7 @@ void tcp_rearm_rto(struct sock *sk)
- 			/* delta_us may not be positive if the socket is locked
- 			 * when the retrans timer fires and is rescheduled.
- 			 */
--			if (delta_us > 0)
--				rto = usecs_to_jiffies(delta_us);
-+			rto = usecs_to_jiffies(max_t(int, delta_us, 1));
- 		}
- 		inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS, rto,
- 					  TCP_RTO_MAX);
--- 
-2.14.1.480.gb18f417b89-goog
+John Fastabend (2):
+      bpf: sockmap state change warning fix
+      bpf: sock_map fixes for !CONFIG_BPF_SYSCALL and !STREAM_PARSER
+
+
+ include/linux/bpf.h       |   10 +++++++++-
+ include/linux/bpf_types.h |    2 ++
+ kernel/bpf/Makefile       |    5 ++++-
+ kernel/bpf/core.c         |    1 +
+ kernel/bpf/sockmap.c      |    3 +++
+ 5 files changed, 19 insertions(+), 2 deletions(-)
