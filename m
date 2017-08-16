@@ -1,60 +1,51 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
 Subject: Re: [patch] netlink.7: srcfix Change buffer size in example code
  about reading netlink message.
-Date: Wed, 16 Aug 2017 02:37:50 +0200
-Message-ID: <86910c29-c68c-dc7d-d5b9-3f20128d5af1@gmail.com>
+Date: Wed, 16 Aug 2017 02:40:09 +0200
+Message-ID: <30f1a7e1-707a-b8b1-7414-2f97a79ac372@gmail.com>
 References: <e9409957290af5249750afa0f10de3a6@linux.vnet.ibm.com>
+ <7f6d8b0b-6f29-37af-9b25-47a2e78a31fd@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dwilder <dwilder-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <e9409957290af5249750afa0f10de3a6-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Cc: mtk.manpages@gmail.com, linux-man@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hpe.com>, dwilder <dwilder@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:37436 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753544AbdHPAkQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 20:40:16 -0400
+In-Reply-To: <7f6d8b0b-6f29-37af-9b25-47a2e78a31fd@hpe.com>
 Content-Language: en-US
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/14/2016 11:20 PM, dwilder wrote:
-> The example code in netlink(7) (for reading netlink message) suggests 
-> using
-> a 4k read buffer with recvmsg.  This can cause truncated messages on 
-> systems
-> using a page size is >4096.  Please see:
-> linux/include/linux/netlink.h (in the kernel source)
+On 11/14/2016 11:36 PM, Rick Jones wrote:
+>> Lets change the example so others don't propagate the problem further.
+>>
+>> Signed-off-by David Wilder <dwilder@us.ibm.com>
+>>
+>> --- man7/netlink.7.orig 2016-11-14 13:30:36.522101156 -0800
+>> +++ man7/netlink.7      2016-11-14 13:30:51.002086354 -0800
+>> @@ -511,7 +511,7 @@
+>>  .in +4n
+>>  .nf
+>>  int len;
+>> -char buf[4096];
+>> +char buf[8192];
 > 
-> <snip>
-> /*
->   *      skb should fit one page. This choice is good for headerless 
-> malloc.
->   *      But we should limit to 8K so that userspace does not have to
->   *      use enormous buffer sizes on recvmsg() calls just to avoid
->   *      MSG_TRUNC when PAGE_SIZE is very large.
->   */
-> #if PAGE_SIZE < 8192UL
-> #define NLMSG_GOODSIZE  SKB_WITH_OVERHEAD(PAGE_SIZE)
-> #else
-> #define NLMSG_GOODSIZE  SKB_WITH_OVERHEAD(8192UL)
-> #endif
+> Since there doesn't seem to be a define one could use in the user space 
+> linux/netlink.h (?), but there are comments in the example code in the 
+> manpage, how about also including a brief comment to the effect that 
+> using 8192 bytes will avoid message truncation problems on platforms 
+> with a large PAGE_SIZE?
 > 
-> #define NLMSG_DEFAULT_SIZE (NLMSG_GOODSIZE - NLMSG_HDRLEN)
-> <snip>
+> /* avoid msg truncation on > 4096 byte PAGE_SIZE platforms */
 > 
-> I was troubleshooting some up-stream code on a ppc64le system
-> (page:size of 64k) This code had duplicated the example from netlink(7) 
-> and
-> was using a 4k buffer.  On x86-64 with a 4k page size this is not a 
-> problem,
-> however on the 64k page system some messages were truncated.  Using an 
-> 8k buffer
-> as implied in netlink.h prevents problems with any page size.
-> 
-> Lets change the example so others don't propagate the problem further.
-> 
-> Signed-off-by David Wilder <dwilder-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+> or something like that.
 
-Thanks, David. Patch applied.
+Thanks for the suggestion, Rick. Done!
 
 Cheers,
 
@@ -65,7 +56,3 @@ Michael
 Michael Kerrisk
 Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
 Linux/UNIX System Programming Training: http://man7.org/training/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
