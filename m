@@ -1,36 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] mlxsw: spectrum_router: Use correct config
- option
-Date: Tue, 15 Aug 2017 17:05:23 -0700 (PDT)
-Message-ID: <20170815.170523.1305734328748006612.davem@davemloft.net>
-References: <20170815071033.1420-1-jiri@resnulli.us>
+Subject: Re: [PATCH net] ipv6: fix NULL dereference in
+ ip6_route_dev_notify()
+Date: Tue, 15 Aug 2017 17:06:54 -0700 (PDT)
+Message-ID: <20170815.170654.981410365504343461.davem@davemloft.net>
+References: <1502795391.4936.60.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43860 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43884 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752339AbdHPAFY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 20:05:24 -0400
-In-Reply-To: <20170815071033.1420-1-jiri@resnulli.us>
+        with ESMTP id S1751095AbdHPAGy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2017 20:06:54 -0400
+In-Reply-To: <1502795391.4936.60.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue, 15 Aug 2017 09:10:33 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 15 Aug 2017 04:09:51 -0700
 
-> From: Ido Schimmel <idosch@mellanox.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> I made an embarrassing mistake and used 'IPV6' instead of 'CONFIG_IPV6'
-> around the function that updates the kernel about IPv6 neighbours
-> activity. This can be a problem if the kernel has more neighbours than a
-> certain threshold and it starts deleting those that are supposedly
-> inactive.
+> Based on a syzkaller report [1], I found that a per cpu allocation
+> failure in snmp6_alloc_dev() would then lead to NULL dereference in
+> ip6_route_dev_notify().
 > 
-> Fixes: b5f3e0d43012 ("mlxsw: spectrum_router: Fix build when IPv6 isn't enabled")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> It seems this is a very old bug, thus no Fixes tag in this submission.
+> 
+> Let's add in6_dev_put_clear() helper, as we will probably use
+> it elsewhere (once available/present in net-next)
+ ...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 
-Also applied, thanks.
+Applied and queued up for -stable, thanks Eric.
