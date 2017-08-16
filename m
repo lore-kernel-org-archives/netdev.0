@@ -1,77 +1,127 @@
-From: Chris Wilson <chris@chris-wilson.co.uk>
-Subject: Re: [patch net-next 0/3] net/sched: Improve getting objects by indexes
-Date: Wed, 16 Aug 2017 10:19:53 +0100
-Message-ID: <150287519355.15499.3124883464555211520@mail.alporthouse.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 0/3] net/sched: Improve getting objects by
+ indexes
+Date: Wed, 16 Aug 2017 11:31:44 +0200
+Message-ID: <20170816093144.GE1868@nanopsycho>
 References: <1502849538-14284-1-git-send-email-chrism@mellanox.com>
  <144b87a3-bbe4-a194-ed83-e54840d7c7c2@amd.com>
+ <20170816081631.GC1868@nanopsycho>
+ <e3cb8f8e-7808-48b4-d90d-67f30ab39687@amd.com>
+ <20170816083939.GD1868@nanopsycho>
+ <5867bd36-b758-f364-062a-2b612e8c7318@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: lucho@ionkov.net, sergey.senozhatsky.work@gmail.com, snitzer@redhat.com,
- wsa@the-dreams.de, markb@mellanox.com, tom.leiming@gmail.com,
- stefanr@s5r6.in-berlin.de, zhi.a.wang@intel.com, nsekhar@ti.com,
- dri-devel@lists.freedesktop.org, bfields@fieldses.org,
- linux-sctp@vger.kernel.org, paulus@samba.org, jinpu.wang@profitbricks.com,
- pshelar@ovn.org, sumit.semwal@linaro.org, AlexBin.Xie@amd.com,
- david1.zhou@amd.com, linux-samsung-soc@vger.kernel.org,
- maximlevitsky@gmail.com, sudarsana.kalluru@qlogic.com, marek.vasut@gmail.com,
- linux-atm-general@lists.sourceforge.net, dtwlin@gmail.com,
- michel.daenzer@amd.com, dledford@redhat.com, tpmdd-devel@lists.sourceforge.net,
- stern@rowland.harvard.edu, longman@redhat.com,
- niranjana.vishwanathapura@intel.com, philipp.reisner@linbit.com,
- shli@kernel.org, linux@roeck-us.net, ohad@wizery.com, pmladek@suse.com,
- dick.kennedy@broadcom.com, linux-
-To: =?utf-8?q?Christian_K=C3=B6nig?= <christian.koenig@amd.com>,
- "Chris Mi" <chrism@mellanox.com>, netdev@vger.kernel.org
-Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
-In-Reply-To: <144b87a3-bbe4-a194-ed83-e54840d7c7c2@amd.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
-List-Post: <mailto:ath10k@lists.infradead.org>
-List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
-Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
-Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Mi <chrism@mellanox.com>, netdev@vger.kernel.org
+To: Christian =?iso-8859-1?Q?K=F6nig?= <christian.koenig@amd.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:34256 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751490AbdHPJbr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 05:31:47 -0400
+Received: by mail-wr0-f194.google.com with SMTP id x43so2117127wrb.1
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 02:31:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5867bd36-b758-f364-062a-2b612e8c7318@amd.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-UXVvdGluZyBDaHJpc3RpYW4gS8O2bmlnICgyMDE3LTA4LTE2IDA4OjQ5OjA3KQo+IEFtIDE2LjA4
-LjIwMTcgdW0gMDQ6MTIgc2NocmllYiBDaHJpcyBNaToKPiA+IFVzaW5nIGN1cnJlbnQgVEMgY29k
-ZSwgaXQgaXMgdmVyeSBzbG93IHRvIGluc2VydCBhIGxvdCBvZiBydWxlcy4KPiA+Cj4gPiBJbiBv
-cmRlciB0byBpbXByb3ZlIHRoZSBydWxlcyB1cGRhdGUgcmF0ZSBpbiBUQywKPiA+IHdlIGludHJv
-ZHVjZWQgdGhlIGZvbGxvd2luZyB0d28gY2hhbmdlczoKPiA+ICAgICAgICAgIDEpIGNoYW5nZWQg
-Y2xzX2Zsb3dlciB0byB1c2UgSURSIHRvIG1hbmFnZSB0aGUgZmlsdGVycy4KPiA+ICAgICAgICAg
-IDIpIGNoYW5nZWQgYWxsIGFjdF94eHggbW9kdWxlcyB0byB1c2UgSURSIGluc3RlYWQgb2YKPiA+
-ICAgICAgICAgICAgIGEgc21hbGwgaGFzaCB0YWJsZQo+ID4KPiA+IEJ1dCBJRFIgaGFzIGEgbGlt
-aXRhdGlvbiB0aGF0IGl0IHVzZXMgaW50LiBUQyBoYW5kbGUgdXNlcyB1MzIuCj4gPiBUbyBtYWtl
-IHN1cmUgdGhlcmUgaXMgbm8gcmVncmVzc2lvbiwgd2UgYWxzbyBjaGFuZ2VkIElEUiB0byB1c2UK
-PiA+IHVuc2lnbmVkIGxvbmcuIEFsbCBjbGllbnRzIG9mIElEUiBhcmUgY2hhbmdlZCB0byB1c2Ug
-bmV3IElEUiBBUEkuCj4gCj4gV09XLCB3YWl0IGEgc2Vjb25kLiBUaGUgaWRyIGNoYW5nZSBpcyB0
-b3VjaGluZyBhIGxvdCBvZiBkcml2ZXJzIGFuZCB0byAKPiBiZSBob25lc3QgZG9lc24ndCBsb29r
-cyBjb3JyZWN0IGF0IGFsbC4KPiAKPiBKdXN0IGxvb2sgYXQgdGhlIGZpcnN0IGNodW5rIG9mIHlv
-dXIgbW9kaWZpY2F0aW9uOgo+ID4gQEAgLTk5OCw4ICs5OTksOSBAQCBpbnQgYnNnX3JlZ2lzdGVy
-X3F1ZXVlKHN0cnVjdCByZXF1ZXN0X3F1ZXVlICpxLCBzdHJ1Y3QgZGV2aWNlICpwYXJlbnQsCj4g
-PiAgIAo+ID4gICAgICAgbXV0ZXhfbG9jaygmYnNnX211dGV4KTsKPiA+ICAgCj4gPiAtICAgICBy
-ZXQgPSBpZHJfYWxsb2MoJmJzZ19taW5vcl9pZHIsIGJjZCwgMCwgQlNHX01BWF9ERVZTLCBHRlBf
-S0VSTkVMKTsKPiA+IC0gICAgIGlmIChyZXQgPCAwKSB7Cj4gPiArICAgICByZXQgPSBpZHJfYWxs
-b2MoJmJzZ19taW5vcl9pZHIsIGJjZCwgJmlkcl9pbmRleCwgMCwgQlNHX01BWF9ERVZTLAo+ID4g
-KyAgICAgICAgICAgICAgICAgICAgIEdGUF9LRVJORUwpOwo+ID4gKyAgICAgaWYgKHJldCkgewo+
-ID4gICAgICAgICAgICAgICBpZiAocmV0ID09IC1FTk9TUEMpIHsKPiA+ICAgICAgICAgICAgICAg
-ICAgICAgICBwcmludGsoS0VSTl9FUlIgImJzZzogdG9vIG1hbnkgYnNnIGRldmljZXNcbiIpOwo+
-ID4gICAgICAgICAgICAgICAgICAgICAgIHJldCA9IC1FSU5WQUw7Cj4gVGhlIGNvbmRpdGlvbiAi
-aWYgKHJldCkiIHdpbGwgbm93IGFsd2F5cyBiZSB0cnVlIGFmdGVyIHRoZSBmaXJzdCAKPiBhbGxv
-Y2F0aW9uIGFuZCBzbyB3ZSBhbHdheXMgcnVuIGludG8gdGhlIGVycm9yIGhhbmRsaW5nIGFmdGVy
-IHRoYXQuCgpyZXQgaXMgbm93IHB1cmVseSB0aGUgZXJyb3IgY29kZSwgc28gaXQgZG9lc24ndCBs
-b29rIHRoYXQgc3VzcGljaW91cy4KCj4gSSd2ZSBuZXZlciByZWFkIHRoZSBic2cgY29kZSBiZWZv
-cmUsIGJ1dCB0aGF0J3MgY2VydGFpbmx5IG5vdCBjb3JyZWN0LiAKPiBBbmQgdGhhdCBpbmNvcnJl
-Y3QgcGF0dGVybiByZXBlYXRzIG92ZXIgYW5kIG92ZXIgYWdhaW4gaW4gdGhpcyBjb2RlLgo+IAo+
-IEFwYXJ0IGZyb20gdGhhdCB3aHkgdGhlIGhlY2sgZG8geW91IHdhbnQgdG8gYWxsb2NhdGUgbW9y
-ZSB0aGFuIDE8PDMxIAo+IGhhbmRsZXM/CgpBbmQgbW9yZSB0byB0aGUgcG9pbnQsIGFyYml0cmFy
-aWx5IGNoYW5naW5nIHRoZSBtYXhpbXVtIHRvIFVMT05HX01BWAp3aGVyZSB0aGUgQUJJIG9ubHkg
-c3VwcG9ydHMgVTMyX01BWCBpcyBkYW5nZXJvdXMuIFVubGVzcyB5b3UgZG8gdGhlCmFuYWx5c2lz
-IG90aGVyd2lzZSwgeW91IGhhdmUgdG8gcmVwbGFjZSBhbGwgdGhlIGVuZD0wIHdpdGggZW5kPUlO
-VF9NQVgKdG8gbWFpbnRhaW4gZXhpc3RpbmcgYmVoYXZpb3VyLgotQ2hyaXMKCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmF0aDEwayBtYWlsaW5nIGxpc3QK
-YXRoMTBrQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFp
-bG1hbi9saXN0aW5mby9hdGgxMGsK
+Wed, Aug 16, 2017 at 10:55:56AM CEST, christian.koenig@amd.com wrote:
+>Am 16.08.2017 um 10:39 schrieb Jiri Pirko:
+>> Wed, Aug 16, 2017 at 10:31:35AM CEST, christian.koenig@amd.com wrote:
+>> > Am 16.08.2017 um 10:16 schrieb Jiri Pirko:
+>> > > Wed, Aug 16, 2017 at 09:49:07AM CEST, christian.koenig@amd.com wrote:
+>> > > > Am 16.08.2017 um 04:12 schrieb Chris Mi:
+>> > > > > Using current TC code, it is very slow to insert a lot of rules.
+>> > > > > 
+>> > > > > In order to improve the rules update rate in TC,
+>> > > > > we introduced the following two changes:
+>> > > > >            1) changed cls_flower to use IDR to manage the filters.
+>> > > > >            2) changed all act_xxx modules to use IDR instead of
+>> > > > >               a small hash table
+>> > > > > 
+>> > > > > But IDR has a limitation that it uses int. TC handle uses u32.
+>> > > > > To make sure there is no regression, we also changed IDR to use
+>> > > > > unsigned long. All clients of IDR are changed to use new IDR API.
+>> > > > WOW, wait a second. The idr change is touching a lot of drivers and to be
+>> > > > honest doesn't looks correct at all.
+>> > > > 
+>> > > > Just look at the first chunk of your modification:
+>> > > > > @@ -998,8 +999,9 @@ int bsg_register_queue(struct request_queue *q, struct device *parent,
+>> > > > >     	mutex_lock(&bsg_mutex);
+>> > > > > -	ret = idr_alloc(&bsg_minor_idr, bcd, 0, BSG_MAX_DEVS, GFP_KERNEL);
+>> > > > > -	if (ret < 0) {
+>> > > > > +	ret = idr_alloc(&bsg_minor_idr, bcd, &idr_index, 0, BSG_MAX_DEVS,
+>> > > > > +			GFP_KERNEL);
+>> > > > > +	if (ret) {
+>> > > > >     		if (ret == -ENOSPC) {
+>> > > > >     			printk(KERN_ERR "bsg: too many bsg devices\n");
+>> > > > >     			ret = -EINVAL;
+>> > > > The condition "if (ret)" will now always be true after the first allocation
+>> > > > and so we always run into the error handling after that.
+>> > > On success, idr_alloc returns 0.
+>> > Ah, I see. You change the idr_alloc to return the resulting index as separate
+>> > parameter.
+>> > 
+>> > You should explicit note that in the commit message, cause that is something
+>> > easily overlooked.
+>> > 
+>> > In general I strongly suggest to add a separate interface for allocating
+>> > unsigned long handles, use that for the while being and then move the
+>> > existing drivers over bit by bit.
+>> > 
+>> > A single patch which touches so many different driver is practically
+>> > impossible to review consequently.
+>> Understood. I think is is good to avoid having some "idr_alloc2". That
+>> is why I suggested to do this in one go, to avoid "idr_alloc2" and then
+>> patch to rename "idr_alloc2" to "idr_alloc" once nobody uses the original
+>> "idr_alloc". In fact, if you do it driver, by driver, the review burden
+>> would be the same, probably even bigger, you'll just have 100+ patches.
+>> Why would it help?
+>
+>Because it would give each maintainer only the part of the change he is
+>interested in.
+>
+>Current status of this change is that you send a mail with nearly 300 people
+>on CC.
+
+That was a mistake to cc all.
+
+
+>
+>Do you really expect to get an reviewed-by or acked-by on this single patch
+>from all of them?
+
+I don't. It is an API change, maintainers of the individual drivers are
+not expected to review the patches like this.
+
+
+>
+>If yes then it somehow makes sense to send the patch bit by bit, if no then
+>it doesn't seem to make to much sense to CC them all individually.
+>
+>> > > > I've never read the bsg code before, but that's certainly not correct. And
+>> > > > that incorrect pattern repeats over and over again in this code.
+>> > > > 
+>> > > > Apart from that why the heck do you want to allocate more than 1<<31 handles?
+>> > > tc action indexes for example. That is part of this patchset.
+>> > Well, let me refine the question: Why does tc action indexes need more than
+>> > 31 bits? From an outside view that looks like pure overkill.
+>> That is current state, uapi. We have to live with it.
+>
+>Is the range to allocate from part of the uapi or what is the issue here?
+
+Yes.
+
+>
+>If the issue is that userspace can specify the handle then I suggest that you
+>use the radix tree directly instead of the idr wrapper around it.
+
+But why? idr is exactly the tool we need. Only signed int does not suit
+us. In fact, it does not make sense idr is using signed int when it
+uses radix tree with unsigned long under the hood.
+
+
+
+>
+>Regards,
+>Christian.
