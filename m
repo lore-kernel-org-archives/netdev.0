@@ -1,146 +1,128 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net/mlx4: fix spelling mistake: "availible" -> "available"
-Date: Wed, 16 Aug 2017 10:05:11 +0100
-Message-ID: <20170816090511.10463-1-colin.king@canonical.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/3] ARM: sun8i: sunxi-h3-h5: add phy-is-integrated
+ property to internal PHY
+Date: Wed, 16 Aug 2017 11:12:54 +0200
+Message-ID: <20170816091254.GB5732@Red>
+References: <20170810085129.20463-1-clabbe.montjoie@gmail.com>
+ <20170810085129.20463-3-clabbe.montjoie@gmail.com>
+ <CAGb2v64dBZgN6-8kHnnN1qiEXHnbXw_FM9WxGHPU0h-tZDbspA@mail.gmail.com>
+ <20170811080543.GA25147@Red>
+ <CAGb2v66wCRe8nFucJa5nAT1GhO75LmCyfNWQQbwxzh085Zwk+w@mail.gmail.com>
+ <20170811081920.GB25147@Red>
+ <CAGb2v66SGAKnFoHNqWR+DqS-mY3KA853NmKpdHqf8huOkisLKg@mail.gmail.com>
+ <20170811132526.GD25147@Red>
+ <302496B2-46F1-456D-A9A0-8257B5582695@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        andrew-g2DYL2Zd6BY@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <302496B2-46F1-456D-A9A0-8257B5582695-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On Fri, Aug 11, 2017 at 08:03:29AM -0700, Florian Fainelli wrote:
+> On August 11, 2017 6:25:26 AM PDT, Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> >On Fri, Aug 11, 2017 at 04:22:11PM +0800, Chen-Yu Tsai wrote:
+> >> On Fri, Aug 11, 2017 at 4:19 PM, Corentin Labbe
+> >> <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> >> > On Fri, Aug 11, 2017 at 04:11:13PM +0800, Chen-Yu Tsai wrote:
+> >> >> On Fri, Aug 11, 2017 at 4:05 PM, Corentin Labbe
+> >> >> <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> >> >> > On Fri, Aug 11, 2017 at 10:42:51AM +0800, Chen-Yu Tsai wrote:
+> >> >> >> Hi,
+> >> >> >>
+> >> >> >> On Thu, Aug 10, 2017 at 4:51 PM, Corentin Labbe
+> >> >> >> <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> >> >> >> > This patch add the new phy-is-integrated property to the
+> >internal PHY
+> >> >> >> > node.
+> >> >> >> >
+> >> >> >> > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >> >> >> > ---
+> >> >> >> >  arch/arm/boot/dts/sunxi-h3-h5.dtsi | 1 +
+> >> >> >> >  1 file changed, 1 insertion(+)
+> >> >> >> >
+> >> >> >> > diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+> >b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+> >> >> >> > index 4b599b5d26f6..54fc24e4c569 100644
+> >> >> >> > --- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+> >> >> >> > +++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+> >> >> >> > @@ -425,6 +425,7 @@
+> >> >> >> >                                         reg = <1>;
+> >> >> >> >                                         clocks = <&ccu
+> >CLK_BUS_EPHY>;
+> >> >> >> >                                         resets = <&ccu
+> >RST_BUS_EPHY>;
+> >> >> >> > +                                       phy-is-integrated;
+> >> >> >>
+> >> >> >> You also need to "delete" this property at the board level for
+> >> >> >> any board that has the external PHY at address <1>. Otherwise
+> >> >> >> they will stop working. This is due to the internal and
+> >external
+> >> >> >> PHYs having the same path and node name in the device tree, so
+> >> >> >> they are effectively the same node.
+> >> >> >>
+> >> >> >> ChenYu
+> >> >> >>
+> >> >> >
+> >> >> > They have not the same name, ext_rgmii_phy vs int_mii_phy.
+> >> >>
+> >> >> That is just the label. The label plays no part in device tree
+> >merging. The path
+> >> >>
+> >> >>     /soc/ethernet@1c30000/mdio/ethernet-phy@1
+> >> >>
+> >> >> is the same. You can look under
+> >> >>
+> >> >>     /proc/device-tree/soc/ethernet@1c30000/mdio
+> >> >>
+> >> >> on the OrangePI Plus 2E or any other H3 board that uses an
+> >> >> external PHY at address 1.
+> >> >>
+> >> >> ChenYu
+> >> >
+> >> > Since we get the phy node by phy-handle and not by path, I think
+> >all should be good.
+> >> 
+> >> You are not getting me. The fact that the two seemingly separate
+> >> nodes are merged together means, whatever properties you put in
+> >> the internal PHY node, also affect the external PHY node. Once
+> >> compiled, they are the SAME node.
+> >
+> >Hello Rob, florian, mark
+> >
+> >Adding a delete property on all external ethernet-phy@1 is a bit
+> >overkill, and I dont like the idea that nodes are merged.
+> 
+> This is not exactly up to you that's just how DTC works.
+> 
+> >What do you think about other possible solutions:
+> >- Using integrated-phy@1 for the integrated PHY node name
+> 
+> That might be okay although you are using now a seemingly non-standard unit name.
+> 
+> >- Using a fake address like 31 (see patch below)
+> 
+> You could also drop the address part in the unit name although we'd probably get a DTC warning for that.
+> 
+> I suspect both of your solutions and what I mentioned above will be producing DTC warnings to some extent... Rob what do you think?
+> 
 
-Trivial fix to spelling mistakes in the mlx4 driver
+I think I found an easier solution, putting phy-is-integrated on board DT nodes only.
+I will send an updated serie.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c    | 16 ++++++++--------
- drivers/net/ethernet/mellanox/mlx4/fw_qos.c |  6 +++---
- drivers/net/ethernet/mellanox/mlx4/fw_qos.h | 10 +++++-----
- 3 files changed, 16 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 674773b28b2e..6309389b09a7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1958,19 +1958,19 @@ static void mlx4_allocate_port_vpps(struct mlx4_dev *dev, int port)
- 	int i;
- 	int err;
- 	int num_vfs;
--	u16 availible_vpp;
-+	u16 available_vpp;
- 	u8 vpp_param[MLX4_NUM_UP];
- 	struct mlx4_qos_manager *port_qos;
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 
--	err = mlx4_ALLOCATE_VPP_get(dev, port, &availible_vpp, vpp_param);
-+	err = mlx4_ALLOCATE_VPP_get(dev, port, &available_vpp, vpp_param);
- 	if (err) {
--		mlx4_info(dev, "Failed query availible VPPs\n");
-+		mlx4_info(dev, "Failed query available VPPs\n");
- 		return;
- 	}
- 
- 	port_qos = &priv->mfunc.master.qos_ctl[port];
--	num_vfs = (availible_vpp /
-+	num_vfs = (available_vpp /
- 		   bitmap_weight(port_qos->priority_bm, MLX4_NUM_UP));
- 
- 	for (i = 0; i < MLX4_NUM_UP; i++) {
-@@ -1985,14 +1985,14 @@ static void mlx4_allocate_port_vpps(struct mlx4_dev *dev, int port)
- 	}
- 
- 	/* Query actual allocated VPP, just to make sure */
--	err = mlx4_ALLOCATE_VPP_get(dev, port, &availible_vpp, vpp_param);
-+	err = mlx4_ALLOCATE_VPP_get(dev, port, &available_vpp, vpp_param);
- 	if (err) {
--		mlx4_info(dev, "Failed query availible VPPs\n");
-+		mlx4_info(dev, "Failed query available VPPs\n");
- 		return;
- 	}
- 
- 	port_qos->num_of_qos_vfs = num_vfs;
--	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, availible_vpp);
-+	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, available_vpp);
- 
- 	for (i = 0; i < MLX4_NUM_UP; i++)
- 		mlx4_dbg(dev, "Port %d UP %d Allocated %d VPPs\n", port, i,
-@@ -2891,7 +2891,7 @@ static int mlx4_set_vport_qos(struct mlx4_priv *priv, int slave, int port,
- 	memset(vpp_qos, 0, sizeof(struct mlx4_vport_qos_param) * MLX4_NUM_UP);
- 
- 	if (slave > port_qos->num_of_qos_vfs) {
--		mlx4_info(dev, "No availible VPP resources for this VF\n");
-+		mlx4_info(dev, "No available VPP resources for this VF\n");
- 		return -EINVAL;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw_qos.c b/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
-index 8f2fde0487c4..3a09d7122d3b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw_qos.c
-@@ -65,7 +65,7 @@ struct mlx4_set_port_scheduler_context {
- 
- /* Granular Qos (per VF) section */
- struct mlx4_alloc_vpp_param {
--	__be32 availible_vpp;
-+	__be32 available_vpp;
- 	__be32 vpp_p_up[MLX4_NUM_UP];
- };
- 
-@@ -157,7 +157,7 @@ int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
- EXPORT_SYMBOL(mlx4_SET_PORT_SCHEDULER);
- 
- int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
--			  u16 *availible_vpp, u8 *vpp_p_up)
-+			  u16 *available_vpp, u8 *vpp_p_up)
- {
- 	int i;
- 	int err;
-@@ -179,7 +179,7 @@ int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
- 		goto out;
- 
- 	/* Total number of supported VPPs */
--	*availible_vpp = (u16)be32_to_cpu(out_param->availible_vpp);
-+	*available_vpp = (u16)be32_to_cpu(out_param->available_vpp);
- 
- 	for (i = 0; i < MLX4_NUM_UP; i++)
- 		vpp_p_up[i] = (u8)be32_to_cpu(out_param->vpp_p_up[i]);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw_qos.h b/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
-index ac1f331878e6..582997577a04 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw_qos.h
-@@ -84,23 +84,23 @@ int mlx4_SET_PORT_PRIO2TC(struct mlx4_dev *dev, u8 port, u8 *prio2tc);
- int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
- 			    u8 *pg, u16 *ratelimit);
- /**
-- * mlx4_ALLOCATE_VPP_get - Query port VPP availible resources and allocation.
-- * Before distribution of VPPs to priorities, only availible_vpp is returned.
-+ * mlx4_ALLOCATE_VPP_get - Query port VPP available resources and allocation.
-+ * Before distribution of VPPs to priorities, only available_vpp is returned.
-  * After initialization it returns the distribution of VPPs among priorities.
-  *
-  * @dev: mlx4_dev.
-  * @port: Physical port number.
-- * @availible_vpp: Pointer to variable where number of availible VPPs is stored
-+ * @available_vpp: Pointer to variable where number of available VPPs is stored
-  * @vpp_p_up: Distribution of VPPs to priorities is stored in this array
-  *
-  * Returns 0 on success or a negative mlx4_core errno code.
-  **/
- int mlx4_ALLOCATE_VPP_get(struct mlx4_dev *dev, u8 port,
--			  u16 *availible_vpp, u8 *vpp_p_up);
-+			  u16 *available_vpp, u8 *vpp_p_up);
- /**
-  * mlx4_ALLOCATE_VPP_set - Distribution of VPPs among differnt priorities.
-  * The total number of VPPs assigned to all for a port must not exceed
-- * the value reported by availible_vpp in mlx4_ALLOCATE_VPP_get.
-+ * the value reported by available_vpp in mlx4_ALLOCATE_VPP_get.
-  * VPP allocation is allowed only after the port type has been set,
-  * and while no QPs are open for this port.
-  *
--- 
-2.11.0
+Regards
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
