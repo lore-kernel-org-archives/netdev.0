@@ -1,93 +1,216 @@
-From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH][V2] net/mlx4: fix spelling mistake: "availible" ->
- "available"
-Date: Wed, 16 Aug 2017 15:02:31 +0100
-Message-ID: <fa81af22-0a98-bbda-718d-e069287172fd@canonical.com>
-References: <20170816134250.6689-1-colin.king@canonical.com>
- <20170816135851.GP24282@mtr-leonro.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] dccp: defer ccid_hc_tx_delete() at dismantle time
+Date: Wed, 16 Aug 2017 07:03:15 -0700
+Message-ID: <1502892195.4936.111.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="GaVcvxsP2jMV7R9CowxFf593bbo0g5rc2"
-Cc: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170816135851.GP24282-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:37224 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751882AbdHPODR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 10:03:17 -0400
+Received: by mail-pg0-f68.google.com with SMTP id 83so5343245pgb.4
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 07:03:17 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---GaVcvxsP2jMV7R9CowxFf593bbo0g5rc2
-Content-Type: multipart/mixed; boundary="FGbPQAqjbJ9o03QWvfbHAlED6UcooGh3G";
- protected-headers="v1"
-From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Message-ID: <fa81af22-0a98-bbda-718d-e069287172fd-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH][V2] net/mlx4: fix spelling mistake: "availible" ->
- "available"
-References: <20170816134250.6689-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
- <20170816135851.GP24282-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-In-Reply-To: <20170816135851.GP24282-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+From: Eric Dumazet <edumazet@google.com>
 
---FGbPQAqjbJ9o03QWvfbHAlED6UcooGh3G
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+syszkaller team reported another problem in DCCP [1]
 
-On 16/08/17 14:58, Leon Romanovsky wrote:
-> On Wed, Aug 16, 2017 at 02:42:50PM +0100, Colin King wrote:
->> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
->>
->> Trivial fix to spelling mistakes in the mlx4 driver.
->>
->> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
->> ---
->>  drivers/net/ethernet/mellanox/mlx4/cmd.c    | 16 ++++++++--------
->>  drivers/net/ethernet/mellanox/mlx4/fw_qos.c |  6 +++---
->>  drivers/net/ethernet/mellanox/mlx4/fw_qos.h | 10 +++++-----
->>  3 files changed, 16 insertions(+), 16 deletions(-)
->>
->=20
-> What are the changes between this version and previous one?
->=20
-> Thanks
->=20
-A fix on "Availible"
+Problem here is that the structure holding RTO timer
+(ccid2_hc_tx_rto_expire() handler) is freed too soon.
 
--	mlx4_dbg(dev, "Port %d Availible VPPs %d\n", port, availible_vpp);
-+	mlx4_dbg(dev, "Port %d Available VPPs %d\n", port, available_vpp);
+We can not use del_timer_sync() to cancel the timer
+since this timer wants to grab socket lock (that would risk a dead lock)
 
-Colin
+Solution is to defer the freeing of memory when all references to
+the socket were released. Socket timers do own a reference, so this
+should fix the issue.
+
+[1]
+==================================================================
+BUG: KASAN: use-after-free in ccid2_hc_tx_rto_expire+0x51c/0x5c0 net/dccp/ccids/ccid2.c:144
+Read of size 4 at addr ffff8801d2660540 by task kworker/u4:7/3365
+
+CPU: 1 PID: 3365 Comm: kworker/u4:7 Not tainted 4.13.0-rc4+ #3
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+Workqueue: events_unbound call_usermodehelper_exec_work
+Call Trace:
+ <IRQ>
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x194/0x257 lib/dump_stack.c:52
+ print_address_description+0x73/0x250 mm/kasan/report.c:252
+ kasan_report_error mm/kasan/report.c:351 [inline]
+ kasan_report+0x24e/0x340 mm/kasan/report.c:409
+ __asan_report_load4_noabort+0x14/0x20 mm/kasan/report.c:429
+ ccid2_hc_tx_rto_expire+0x51c/0x5c0 net/dccp/ccids/ccid2.c:144
+ call_timer_fn+0x233/0x830 kernel/time/timer.c:1268
+ expire_timers kernel/time/timer.c:1307 [inline]
+ __run_timers+0x7fd/0xb90 kernel/time/timer.c:1601
+ run_timer_softirq+0x21/0x80 kernel/time/timer.c:1614
+ __do_softirq+0x2f5/0xba3 kernel/softirq.c:284
+ invoke_softirq kernel/softirq.c:364 [inline]
+ irq_exit+0x1cc/0x200 kernel/softirq.c:405
+ exiting_irq arch/x86/include/asm/apic.h:638 [inline]
+ smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:1044
+ apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:702
+RIP: 0010:arch_local_irq_enable arch/x86/include/asm/paravirt.h:824 [inline]
+RIP: 0010:__raw_write_unlock_irq include/linux/rwlock_api_smp.h:267 [inline]
+RIP: 0010:_raw_write_unlock_irq+0x56/0x70 kernel/locking/spinlock.c:343
+RSP: 0018:ffff8801cd50eaa8 EFLAGS: 00000286 ORIG_RAX: ffffffffffffff10
+RAX: dffffc0000000000 RBX: ffffffff85a090c0 RCX: 0000000000000006
+RDX: 1ffffffff0b595f3 RSI: 1ffff1003962f989 RDI: ffffffff85acaf98
+RBP: ffff8801cd50eab0 R08: 0000000000000001 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000000 R12: ffff8801cc96ea60
+R13: dffffc0000000000 R14: ffff8801cc96e4c0 R15: ffff8801cc96e4c0
+ </IRQ>
+ release_task+0xe9e/0x1a40 kernel/exit.c:220
+ wait_task_zombie kernel/exit.c:1162 [inline]
+ wait_consider_task+0x29b8/0x33c0 kernel/exit.c:1389
+ do_wait_thread kernel/exit.c:1452 [inline]
+ do_wait+0x441/0xa90 kernel/exit.c:1523
+ kernel_wait4+0x1f5/0x370 kernel/exit.c:1665
+ SYSC_wait4+0x134/0x140 kernel/exit.c:1677
+ SyS_wait4+0x2c/0x40 kernel/exit.c:1673
+ call_usermodehelper_exec_sync kernel/kmod.c:286 [inline]
+ call_usermodehelper_exec_work+0x1a0/0x2c0 kernel/kmod.c:323
+ process_one_work+0xbf3/0x1bc0 kernel/workqueue.c:2097
+ worker_thread+0x223/0x1860 kernel/workqueue.c:2231
+ kthread+0x35e/0x430 kernel/kthread.c:231
+ ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:425
+
+Allocated by task 21267:
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459 [inline]
+ kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:551
+ kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:489
+ kmem_cache_alloc+0x127/0x750 mm/slab.c:3561
+ ccid_new+0x20e/0x390 net/dccp/ccid.c:151
+ dccp_hdlr_ccid+0x27/0x140 net/dccp/feat.c:44
+ __dccp_feat_activate+0x142/0x2a0 net/dccp/feat.c:344
+ dccp_feat_activate_values+0x34e/0xa90 net/dccp/feat.c:1538
+ dccp_rcv_request_sent_state_process net/dccp/input.c:472 [inline]
+ dccp_rcv_state_process+0xed1/0x1620 net/dccp/input.c:677
+ dccp_v4_do_rcv+0xeb/0x160 net/dccp/ipv4.c:679
+ sk_backlog_rcv include/net/sock.h:911 [inline]
+ __release_sock+0x124/0x360 net/core/sock.c:2269
+ release_sock+0xa4/0x2a0 net/core/sock.c:2784
+ inet_wait_for_connect net/ipv4/af_inet.c:557 [inline]
+ __inet_stream_connect+0x671/0xf00 net/ipv4/af_inet.c:643
+ inet_stream_connect+0x58/0xa0 net/ipv4/af_inet.c:682
+ SYSC_connect+0x204/0x470 net/socket.c:1642
+ SyS_connect+0x24/0x30 net/socket.c:1623
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+
+Freed by task 3049:
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459 [inline]
+ kasan_slab_free+0x71/0xc0 mm/kasan/kasan.c:524
+ __cache_free mm/slab.c:3503 [inline]
+ kmem_cache_free+0x77/0x280 mm/slab.c:3763
+ ccid_hc_tx_delete+0xc5/0x100 net/dccp/ccid.c:190
+ dccp_destroy_sock+0x1d1/0x2b0 net/dccp/proto.c:225
+ inet_csk_destroy_sock+0x166/0x3f0 net/ipv4/inet_connection_sock.c:833
+ dccp_done+0xb7/0xd0 net/dccp/proto.c:145
+ dccp_time_wait+0x13d/0x300 net/dccp/minisocks.c:72
+ dccp_rcv_reset+0x1d1/0x5b0 net/dccp/input.c:160
+ dccp_rcv_state_process+0x8fc/0x1620 net/dccp/input.c:663
+ dccp_v4_do_rcv+0xeb/0x160 net/dccp/ipv4.c:679
+ sk_backlog_rcv include/net/sock.h:911 [inline]
+ __sk_receive_skb+0x33e/0xc00 net/core/sock.c:521
+ dccp_v4_rcv+0xef1/0x1c00 net/dccp/ipv4.c:871
+ ip_local_deliver_finish+0x2e2/0xba0 net/ipv4/ip_input.c:216
+ NF_HOOK include/linux/netfilter.h:248 [inline]
+ ip_local_deliver+0x1ce/0x6d0 net/ipv4/ip_input.c:257
+ dst_input include/net/dst.h:477 [inline]
+ ip_rcv_finish+0x8db/0x19c0 net/ipv4/ip_input.c:397
+ NF_HOOK include/linux/netfilter.h:248 [inline]
+ ip_rcv+0xc3f/0x17d0 net/ipv4/ip_input.c:488
+ __netif_receive_skb_core+0x19af/0x33d0 net/core/dev.c:4417
+ __netif_receive_skb+0x2c/0x1b0 net/core/dev.c:4455
+ process_backlog+0x203/0x740 net/core/dev.c:5130
+ napi_poll net/core/dev.c:5527 [inline]
+ net_rx_action+0x792/0x1910 net/core/dev.c:5593
+ __do_softirq+0x2f5/0xba3 kernel/softirq.c:284
+
+The buggy address belongs to the object at ffff8801d2660100
+ which belongs to the cache ccid2_hc_tx_sock of size 1240
+The buggy address is located 1088 bytes inside of
+ 1240-byte region [ffff8801d2660100, ffff8801d26605d8)
+The buggy address belongs to the page:
+page:ffffea0007499800 count:1 mapcount:0 mapping:ffff8801d2660100 index:0x0 compound_mapcount: 0
+flags: 0x200000000008100(slab|head)
+raw: 0200000000008100 ffff8801d2660100 0000000000000000 0000000100000005
+raw: ffffea00075271a0 ffffea0007538820 ffff8801d3aef9c0 0000000000000000
+page dumped because: kasan: bad access detected
+
+Memory state around the buggy address:
+ ffff8801d2660400: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff8801d2660480: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>ffff8801d2660500: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+                                           ^
+ ffff8801d2660580: fb fb fb fb fb fb fb fb fb fb fb fc fc fc fc fc
+ ffff8801d2660600: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+==================================================================
 
 
---FGbPQAqjbJ9o03QWvfbHAlED6UcooGh3G--
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/proto.c |   14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
---GaVcvxsP2jMV7R9CowxFf593bbo0g5rc2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQI2BAEBCAAgBQJZlFB4GRxjb2xpbi5raW5nQGNhbm9uaWNhbC5jb20ACgkQaMKH
-38aoAiYdYhAAom/ESTLZdedEayVImdIEVv04VLcSn8Rqd+uj7EGDJcQNriLk8bi8
-0tGNOZO/YadvoFF8O4LASrcW+F7bBHK4Jv/pWig6dZ4EWVXkEyN9SX6XJwi585V/
-SVETLxMXn1YkZQWboKgYZQoCj0SpCQZmfG8uGsLGtXbJ9JGaycItxdvCatY/ivC1
-WOvQT1Pm0q88SZPE6eP0noKkeRXVjADlF9vshZZsnC9/8kIGt9wzyEqN6Z7fZsbx
-0u7kQtywkKiUWX8MhtFuNizOf4cjNRt5IoRme4fLi6kzpzkSdm4VLtfIHCnLJMdz
-zqXWvSOsscy8RQwelWnAZAco6uCVQzChsGPzoq75asSegkBFvtcP4y14Knonn4hw
-3yG2t6clnYh1qEmAIZqYqb7woVhPZZ2/KkDnD0SCJVDH3RpNp2w4v05kQHWmqPRb
-Ug4yaIqdHi/C4ApgzyBvgIrzD8y2ANSRSU2kw5Su7XngAUDG1+cGFwukIgE2/iOk
-0EMh+CRQB/UeruuieiieAxKsLdwy4d7U86TvKGZLITaGvwBLbFjL0rRU43MCGLKK
-kvAEzHZKV7/44J1ZEsVeUmFf0wj9lwt2lPZiHgP74Sqn2hW6ClNcFT/hLGU0+3KV
-e8cUbOttilmCFqooO8e+V2GGTBD0yQ1XTi3dGMlEr3hQz7ytPGly3Ok=
-=Muas
------END PGP SIGNATURE-----
-
---GaVcvxsP2jMV7R9CowxFf593bbo0g5rc2--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index 86bc40ba6ba5..b68168fcc06a 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -24,6 +24,7 @@
+ #include <net/checksum.h>
+ 
+ #include <net/inet_sock.h>
++#include <net/inet_common.h>
+ #include <net/sock.h>
+ #include <net/xfrm.h>
+ 
+@@ -170,6 +171,15 @@ const char *dccp_packet_name(const int type)
+ 
+ EXPORT_SYMBOL_GPL(dccp_packet_name);
+ 
++static void dccp_sk_destruct(struct sock *sk)
++{
++	struct dccp_sock *dp = dccp_sk(sk);
++
++	ccid_hc_tx_delete(dp->dccps_hc_tx_ccid, sk);
++	dp->dccps_hc_tx_ccid = NULL;
++	inet_sock_destruct(sk);
++}
++
+ int dccp_init_sock(struct sock *sk, const __u8 ctl_sock_initialized)
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
+@@ -179,6 +189,7 @@ int dccp_init_sock(struct sock *sk, const __u8 ctl_sock_initialized)
+ 	icsk->icsk_syn_retries	= sysctl_dccp_request_retries;
+ 	sk->sk_state		= DCCP_CLOSED;
+ 	sk->sk_write_space	= dccp_write_space;
++	sk->sk_destruct		= dccp_sk_destruct;
+ 	icsk->icsk_sync_mss	= dccp_sync_mss;
+ 	dp->dccps_mss_cache	= 536;
+ 	dp->dccps_rate_last	= jiffies;
+@@ -219,8 +230,7 @@ void dccp_destroy_sock(struct sock *sk)
+ 		dp->dccps_hc_rx_ackvec = NULL;
+ 	}
+ 	ccid_hc_rx_delete(dp->dccps_hc_rx_ccid, sk);
+-	ccid_hc_tx_delete(dp->dccps_hc_tx_ccid, sk);
+-	dp->dccps_hc_rx_ccid = dp->dccps_hc_tx_ccid = NULL;
++	dp->dccps_hc_rx_ccid = NULL;
+ 
+ 	/* clean up feature negotiation state */
+ 	dccp_feat_list_purge(&dp->dccps_featneg);
