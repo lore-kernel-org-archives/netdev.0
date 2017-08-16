@@ -1,79 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] tun: make tun_build_skb() thread safe
-Date: Wed, 16 Aug 2017 19:55:09 +0300
-Message-ID: <20170816195342-mutt-send-email-mst@kernel.org>
-References: <1502892873-10770-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1502892873-10770-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Lamparter <equinox@diac24.net>
+Subject: [RFC net-next] VPLS support
+Date: Wed, 16 Aug 2017 19:01:56 +0200
+Message-ID: <20170816170202.456851-1-equinox@diac24.net>
+Cc: amine.kherbouche@6wind.com, roopa@cumulusnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eidolon.nox.tf ([185.142.180.128]:43686 "EHLO eidolon.nox.tf"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751531AbdHPRCM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Aug 2017 13:02:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 16, 2017 at 10:14:33PM +0800, Jason Wang wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> tun_build_skb() is not thread safe since it uses per queue page frag,
-> this will break things when multiple threads are sending through same
-> queue. Switch to use per-thread generator (no lock involved).
-> 
-> Fixes: 66ccbc9c87c2 ("tap: use build_skb() for small packet")
-> Tested-by: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+Hi all,
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Jason, given the switch to task_frag, would it be worth it to look at
-using higher order allocs along the lines of
-5640f7685831e088fe6c2e1f863a6805962f8e81 as well?
+triggered by Amine posting VPLS support earlier, this is what I had in
+mind on my end.  You may note the patches share some bits, this is
+because both series are derived from hacks I did at 33C3 in December
+2016.
 
-> ---
->  drivers/net/tun.c | 7 +------
->  1 file changed, 1 insertion(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 5892284..c38cd84 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -175,7 +175,6 @@ struct tun_file {
->  	struct list_head next;
->  	struct tun_struct *detached;
->  	struct skb_array tx_array;
-> -	struct page_frag alloc_frag;
->  };
->  
->  struct tun_flow_entry {
-> @@ -578,8 +577,6 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
->  		}
->  		if (tun)
->  			skb_array_cleanup(&tfile->tx_array);
-> -		if (tfile->alloc_frag.page)
-> -			put_page(tfile->alloc_frag.page);
->  		sock_put(&tfile->sk);
->  	}
->  }
-> @@ -1272,7 +1269,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
->  				     struct virtio_net_hdr *hdr,
->  				     int len, int *generic_xdp)
->  {
-> -	struct page_frag *alloc_frag = &tfile->alloc_frag;
-> +	struct page_frag *alloc_frag = &current->task_frag;
->  	struct sk_buff *skb;
->  	struct bpf_prog *xdp_prog;
->  	int buflen = SKB_DATA_ALIGN(len + TUN_RX_PAD) +
-> @@ -2580,8 +2577,6 @@ static int tun_chr_open(struct inode *inode, struct file * file)
->  	tfile->sk.sk_write_space = tun_sock_write_space;
->  	tfile->sk.sk_sndbuf = INT_MAX;
->  
-> -	tfile->alloc_frag.page = NULL;
-> -
->  	file->private_data = tfile;
->  	INIT_LIST_HEAD(&tfile->next);
->  
-> -- 
-> 2.7.4
+This patchset is different in the following ways:
+- one vpls device encapsulates many pseudowires
+- the pseudowire is learned in the bridge FDB as dst_metadata
+- to do this, the bridge is extended to learn / keep dst metadata in its fdb
+  on a per-entry level
+- configuring pseudowires happens through the mpls LIB, through route
+  add/delete commands
+- the TX path is shared with normal MPLS forwarding
+  - this also means this supports ECMP without any further work and without
+    copypasta'ing it from af_mpls.c
+- pseudowire control word is supported
+
+iproute2 / FRR patches are at:
+- https://github.com/eqvinox/vpls-iproute2
+- https://github.com/opensourcerouting/frr/commits/vpls
+while this patchset is also available at:
+- https://github.com/eqvinox/vpls-linux-kernel
+(but please be aware that I'm amending and rebasing commits)
+
+I've tested some basic setups, the chain from LDP down into the kernel works
+at least in these.  FRR has some testcases around from OpenBSD VPLS support,
+I haven't wired that up to run against Linux / this patchset yet.
+
+The patchset needs a lot of polishing (yes I left my TODO notes in the
+commit messages), for now my primary concern is overall design feedback.
+Roopa has already provided a lot of input (Thanks!);  the major topic I'm
+expecting to get discussion on is the bridge FDB changes.
+
+Note that there is a rather large spec difference to VXLAN;  VPLS has
+no concept that is analog to a "VNI".  There is nothing to do on a
+per-vlan basis.  (Don't get confused by "vlan pseudowire mode", that's
+just a fixed tag insertion on a per-remote-endpoint level.)
+
+
+Cheers / input & feedback appreciated,
+
+-David
+
+
+P.S.: For a little context on the bridge FDB changes - I'm hoping to find
+some time to extend this to the MDB to allow aggregating dst metadata and
+handing down a list of dst metas on TX.  This isn't specifically for VPLS
+but rather to give sufficient information to the 802.11 stack to allow it to
+optimize selecting rates (or unicasting) for multicast traffic by having the
+multicast subscriber list known.  This is done by major commercial wifi
+solutions (e.g. google "dynamic multicast optimization".)
