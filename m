@@ -1,35 +1,55 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next 0/2] nfp: process MTU updates from firmware flower app
-Date: Wed, 16 Aug 2017 09:37:42 +0200
-Message-ID: <1502869064-25842-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next 2/2] nfp: process MTU updates from firmware flower app
+Date: Wed, 16 Aug 2017 09:37:44 +0200
+Message-ID: <1502869064-25842-3-git-send-email-simon.horman@netronome.com>
+References: <1502869064-25842-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:36682 "EHLO
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:38300 "EHLO
         mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751068AbdHPHhy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 03:37:54 -0400
-Received: by mail-wm0-f47.google.com with SMTP id t201so24052184wmt.1
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 00:37:54 -0700 (PDT)
+        with ESMTP id S1751082AbdHPHh5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 03:37:57 -0400
+Received: by mail-wm0-f47.google.com with SMTP id f15so26640957wmg.1
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 00:37:57 -0700 (PDT)
+In-Reply-To: <1502869064-25842-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first patch of this series moves processing of control messages from a
-BH handler to a workqueue. That change makes it safe to process MTU
-updates from the firmware which is added by the second patch of this
-series.
+Now that control message processing occurs in a workqueue rather than a BH
+handler MTU updates received from the firmware may be safely processed.
 
-Simon Horman (2):
-  nfp: process control messages in workqueue in flower app
-  nfp: process MTU updates from firmware flower app
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
- drivers/net/ethernet/netronome/nfp/flower/cmsg.c | 35 ++++++++++++++++++++++--
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h |  1 +
- drivers/net/ethernet/netronome/nfp/flower/main.c | 14 ++++++++--
- drivers/net/ethernet/netronome/nfp/flower/main.h |  5 ++++
- 4 files changed, 50 insertions(+), 5 deletions(-)
-
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+index 6c8c22491fe7..806924b82adc 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+@@ -150,10 +150,17 @@ nfp_flower_cmsg_portmod_rx(struct nfp_app *app, struct sk_buff *skb)
+ 		return;
+ 	}
+ 
+-	if (link)
++	if (link) {
++		u16 mtu = be16_to_cpu(msg->mtu);
++
+ 		netif_carrier_on(netdev);
+-	else
++
++		/* An MTU of 0 from the firmware should be ignored */
++		if (mtu)
++			dev_set_mtu(netdev, mtu);
++	} else {
+ 		netif_carrier_off(netdev);
++	}
+ 	rcu_read_unlock();
+ }
+ 
 -- 
 2.1.4
