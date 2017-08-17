@@ -1,280 +1,515 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH V4 net 0/2] ipv6: fix flowlabel issue for reset packet
-Date: Thu, 17 Aug 2017 12:07:47 -0700
-Message-ID: <CALx6S37h-uFZrruQ8KWVp+BRKDEVKe-bPbJAS2oMFsXFr8PTpg@mail.gmail.com>
-References: <cover.1501539150.git.shli@fb.com> <CALx6S36DcpqqqhosdN4qNqTNYZkxZ=0Qy-=uKXHVM_yQoE4XbQ@mail.gmail.com>
- <20170810163033.kriwd2pivmuuzfnb@kernel.org> <CALx6S35UKD3AyqxM-zKMCANi=TR_e26mRjKYKH7QreckBu2dEg@mail.gmail.com>
- <20170810191314.vo6yl7dgndga4heh@kernel.org> <CALx6S34CwcYNtBzEoEMrBP3O54Fsnot=YzeHCNCM0yeuaFUozQ@mail.gmail.com>
- <20170815025224.trjgcp3z6i3cgfy2@kernel.org> <CALx6S34f2r-sQi_gNAS9mxTX0JPeOJrhN8q3wzD-14knCB7DUA@mail.gmail.com>
- <20170815224252.6vjkyqsngybl3z3m@kernel.org> <CALx6S34C5aT+UX-Rz39iu5FX-U-EAw23ZiBEcGP90HZRj4xf+g@mail.gmail.com>
- <20170817172602.mmv73kjxuwwimxo6@kernel.org>
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Subject: [PATCH V7 net-next 20/22] net-next/hinic: Add ethtool and stats
+Date: Fri, 18 Aug 2017 03:04:54 +0800
+Message-ID: <cc83f1f188f36adda3824009e3ad1ffc7852e6ce.1502996307.git.aviad.krawczyk@huawei.com>
+References: <cover.1502996306.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Martin KaFai Lau <kafai@fb.com>
-To: Shaohua Li <shli@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f173.google.com ([209.85.220.173]:35300 "EHLO
-        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753272AbdHQTHt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 15:07:49 -0400
-Received: by mail-qk0-f173.google.com with SMTP id 130so7193325qkg.2
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 12:07:49 -0700 (PDT)
-In-Reply-To: <20170817172602.mmv73kjxuwwimxo6@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
+        <aviad.krawczyk@huawei.com>, <zhaochen6@huawei.com>,
+        <tony.qu@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1502996306.git.aviad.krawczyk@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 17, 2017 at 10:26 AM, Shaohua Li <shli@kernel.org> wrote:
-> On Tue, Aug 15, 2017 at 05:15:46PM -0700, Tom Herbert wrote:
->> On Tue, Aug 15, 2017 at 3:42 PM, Shaohua Li <shli@kernel.org> wrote:
->> > On Tue, Aug 15, 2017 at 07:08:31AM -0700, Tom Herbert wrote:
->> >> On Mon, Aug 14, 2017 at 7:52 PM, Shaohua Li <shli@kernel.org> wrote:
->> >> > On Fri, Aug 11, 2017 at 06:00:20PM -0700, Tom Herbert wrote:
->> >> >> On Thu, Aug 10, 2017 at 12:13 PM, Shaohua Li <shli@kernel.org> wro=
-te:
->> >> >> > On Thu, Aug 10, 2017 at 11:30:51AM -0700, Tom Herbert wrote:
->> >> >> >> On Thu, Aug 10, 2017 at 9:30 AM, Shaohua Li <shli@kernel.org> w=
-rote:
->> >> >> >> > On Wed, Aug 09, 2017 at 09:40:08AM -0700, Tom Herbert wrote:
->> >> >> >> >> On Mon, Jul 31, 2017 at 3:19 PM, Shaohua Li <shli@kernel.org=
-> wrote:
->> >> >> >> >> > From: Shaohua Li <shli@fb.com>
->> >> >> >> >> >
->> >> >> >> >> > Please see below tcpdump output:
->> >> >> >> >> > 21:00:48.109122 IP6 (flowlabel 0x43304, hlim 64, next-head=
-er TCP (6) payload length: 40) fec0::5054:ff:fe12:3456.55804 > fec0::5054:f=
-f:fe12:3456.5555: Flags [S], cksum 0x0529 (incorrect -> 0xf56c), seq 328221=
-4508, win 43690, options [mss 65476,sackOK,TS val 2500903437 ecr 0,nop,wsca=
-le 7], length 0
->> >> >> >> >> > 21:00:48.109381 IP6 (flowlabel 0xd827f, hlim 64, next-head=
-er TCP (6) payload length: 40) fec0::5054:ff:fe12:3456.5555 > fec0::5054:ff=
-:fe12:3456.55804: Flags [S.], cksum 0x0529 (incorrect -> 0x49ad), seq 19238=
-01573, ack 3282214509, win 43690, options [mss 65476,sackOK,TS val 25009034=
-37 ecr 2500903437,nop,wscale 7], length 0
->> >> >> >> >> > 21:00:48.109548 IP6 (flowlabel 0x43304, hlim 64, next-head=
-er TCP (6) payload length: 32) fec0::5054:ff:fe12:3456.55804 > fec0::5054:f=
-f:fe12:3456.5555: Flags [.], cksum 0x0521 (incorrect -> 0x1bdf), seq 1, ack=
- 1, win 342, options [nop,nop,TS val 2500903437 ecr 2500903437], length 0
->> >> >> >> >> > 21:00:48.109823 IP6 (flowlabel 0x43304, hlim 64, next-head=
-er TCP (6) payload length: 62) fec0::5054:ff:fe12:3456.55804 > fec0::5054:f=
-f:fe12:3456.5555: Flags [P.], cksum 0x053f (incorrect -> 0xb8b1), seq 1:31,=
- ack 1, win 342, options [nop,nop,TS val 2500903437 ecr 2500903437], length=
- 30
->> >> >> >> >> > 21:00:48.109910 IP6 (flowlabel 0xd827f, hlim 64, next-head=
-er TCP (6) payload length: 32) fec0::5054:ff:fe12:3456.5555 > fec0::5054:ff=
-:fe12:3456.55804: Flags [.], cksum 0x0521 (incorrect -> 0x1bc1), seq 1, ack=
- 31, win 342, options [nop,nop,TS val 2500903437 ecr 2500903437], length 0
->> >> >> >> >> > 21:00:48.110043 IP6 (flowlabel 0xd827f, hlim 64, next-head=
-er TCP (6) payload length: 56) fec0::5054:ff:fe12:3456.5555 > fec0::5054:ff=
-:fe12:3456.55804: Flags [P.], cksum 0x0539 (incorrect -> 0xb726), seq 1:25,=
- ack 31, win 342, options [nop,nop,TS val 2500903438 ecr 2500903437], lengt=
-h 24
->> >> >> >> >> > 21:00:48.110173 IP6 (flowlabel 0x43304, hlim 64, next-head=
-er TCP (6) payload length: 32) fec0::5054:ff:fe12:3456.55804 > fec0::5054:f=
-f:fe12:3456.5555: Flags [.], cksum 0x0521 (incorrect -> 0x1ba7), seq 31, ac=
-k 25, win 342, options [nop,nop,TS val 2500903438 ecr 2500903438], length 0
->> >> >> >> >> > 21:00:48.110211 IP6 (flowlabel 0xd827f, hlim 64, next-head=
-er TCP (6) payload length: 32) fec0::5054:ff:fe12:3456.5555 > fec0::5054:ff=
-:fe12:3456.55804: Flags [F.], cksum 0x0521 (incorrect -> 0x1ba7), seq 25, a=
-ck 31, win 342, options [nop,nop,TS val 2500903438 ecr 2500903437], length =
-0
->> >> >> >> >> > 21:00:48.151099 IP6 (flowlabel 0x43304, hlim 64, next-head=
-er TCP (6) payload length: 32) fec0::5054:ff:fe12:3456.55804 > fec0::5054:f=
-f:fe12:3456.5555: Flags [.], cksum 0x0521 (incorrect -> 0x1ba6), seq 31, ac=
-k 26, win 342, options [nop,nop,TS val 2500903438 ecr 2500903438], length 0
->> >> >> >> >> > 21:00:49.110524 IP6 (flowlabel 0x43304, hlim 64, next-head=
-er TCP (6) payload length: 56) fec0::5054:ff:fe12:3456.55804 > fec0::5054:f=
-f:fe12:3456.5555: Flags [P.], cksum 0x0539 (incorrect -> 0xb324), seq 31:55=
-, ack 26, win 342, options [nop,nop,TS val 2500904438 ecr 2500903438], leng=
-th 24
->> >> >> >> >> > 21:00:49.110637 IP6 (flowlabel 0xb34d5, hlim 64, next-head=
-er TCP (6) payload length: 20) fec0::5054:ff:fe12:3456.5555 > fec0::5054:ff=
-:fe12:3456.55804: Flags [R], cksum 0x0515 (incorrect -> 0x668c), seq 192380=
-1599, win 0, length 0
->> >> >> >> >> >
->> >> >> >> >> > The flowlabel of reset packet (0xb34d5) and flowlabel of n=
-ormal packet
->> >> >> >> >> > (0xd827f) are different. This causes our router doesn't co=
-rrectly close tcp
->> >> >> >> >> > connection. The patches try to fix the issue.
->> >> >> >> >> >
->> >> >> >> >> Shaohua,
->> >> >> >> >>
->> >> >> >> >> Can you give some more detail about what the router doesn't =
-close the
->> >> >> >> >> TCP connection means? I'm guessing the problem is either: 1)=
- the
->> >> >> >> >> router is maintaining connection state that includes the flo=
-w label in
->> >> >> >> >> a connection tuple. 2) some router in the path is maintainin=
-g
->> >> >> >> >> connection state, but when the flow label changes the flow's=
- packet
->> >> >> >> >> are routed through a different router that doesn't have a st=
-ate for
->> >> >> >> >> the flow it drops the packet. #1 should be easily fix in the=
- router,
->> >> >> >> >> flow labels cannot be used as state. #2 is the known problem=
- that
->> >> >> >> >> stateful firewalls have killed our ability to use multihomin=
-g.
->> >> >> >> >
->> >> >> >> > The #2 is exactly the problem we saw.
->> >> >> >> >
->> >> >> >> >> Another consideration is that sk_txhash is also used in rout=
-ing
->> >> >> >> >> decisions by the local host (flow label is normally derived =
-from
->> >> >> >> >> txhash). If you want to ensure that connections are routed
->> >> >> >> >> consistently for timewait state you might need sk_txhash sav=
-ed also.
->> >> >> >> >
->> >> >> >> > As far as I understood, we don't use sk_txhash for routing se=
-lection. The code
->> >> >> >> > does routing selection with flowlabel user configured, at tha=
-t time we don't
->> >> >> >> > derive fl6.flowlabel from skb->hash (which is from sk_txhash)=
-. The code always
->> >> >> >> > does routing selection first and then uses ip6_make_flowlabel=
- to build packet
->> >> >> >> > data where we derive flowlabel from skb->hash.
->> >> >> >> >
->> >> >> >> That is assuming one particular use case. Generally, if you wan=
-t to
->> >> >> >> ensure all packets for a flow take the same path you'll need tx=
-_hash
->> >> >> >> and make it persistent (disable flow bender). For instance, if =
-you
->> >> >> >> were doing UDP encapsulation like in VXLAN the UDP source port
->> >> >> >> selection is unaffected by saved flow label for the lifetime of=
- the
->> >> >> >> flow. So we would still hit #2 in that case and the stateful de=
-vice
->> >> >> >> doesn't see whole flow. It might be just as easy to move tx_has=
-h in
->> >> >> >> skc_common so that it's available in TW state for this purpose.=
- Then
->> >> >> >> when moving to TW state just copy the tx_hash.
->> >> >> >
->> >> >> > Hi Tom,
->> >> >> >
->> >> >> > My original implementation is to add a tx_hash in tw sock, we th=
-en copy sock's
->> >> >> > tx_hash to the tw tx_hash. This does makes things simplier. One =
-concern from
->> >> >> > Eric is this will increase the size of tw sock. If we move tx_ha=
-sh to
->> >> >> > skc_common, all sock size will increase, is this acceptable?
->> >> >>
->> >> >> I think that can only be measured by how critical it is to
->> >> >> persistently route all packets the same exact way for every
->> >> >> connection. Page one of the IP book clearly states that IP packets=
- can
->> >> >> be dropped, duplicated, or received out of order. Received OOO imp=
-lies
->> >> >> that packet for the same flow are allowed to take different paths.=
- The
->> >> >> requirement that packets for the same flow must always take the sa=
-me
->> >> >> path through the network was created by stateful middleboxes-- it'=
-s
->> >> >> not inherent in the architecture of IP networking. Unfortunately,
->> >> >> we're seeing this become more and more of a problem as more device=
-s
->> >> >> are multi-homed (like smart phones) and these network requirement
->> >> >> cripple our ability to take advantage of features like that.
->> >> >>
->> >> >> Personally, I wish the middleboxes fix the problem they created, b=
-ut I
->> >> >> suppose we need to be pragmatic at least in the short term.
->> >> >
->> >> > Hmm, I still hesitate to add a new field in skc_common. Fixing curr=
-ent problem
->> >> > looks propriate in current stage. I'd defer fixing the generic issu=
-e till it's
->> >> > necessary.
->> >> >
->> >> Shaohua,
->> >>
->> >> An alternative would be to not initialize sk_txhash, but instead defe=
-r
->> >> hash computation to use flow dissector in the TX path when the hash i=
-s
->> >> needed (to get flow label, src port for UDP encap, route for
->> >> multipath, etc.). At the first hash computation in TX path  the resul=
-t
->> >> in sk_txhash. TW state there is no socket so flow dissector is
->> >> always used but that should yield the same hash. No extra fields woul=
-d
->> >> be needed and additional cost is negligible.
->> >
->> > Hi Tom,
->> >
->> > Did you mean revert 877d1f6291f8(net: Set sk_txhash from a random numb=
-er)? This
->> > could fix the issue. So in normal case we calculate the sk_txhash usin=
-g flow
->> > dissector but in negative routing case we use the random hash, is this=
- what you
->> > want?
->> >
->> No. What you'd want is something like a sysctl that sets an alternate
->> mode for sk_txhash processing. sk_txhash is derived from flow
->> dissector for the first TX packet and then it's never allowed to
->> change. Maybe this should be called persistent-hash mode.
->
-> persistent-hash will almostly mean disabling auto flowlabel. We'd prefer
-> disabling auto flowlabel rather than the persistent-hash. But I think we =
-do
-> want to use the auto flowlabel for load balancing, so the persistent-hash=
- isn't
-> a go for us.
->
-Those are two separate features here. Auto flow label means
-automatically generating flow labels for packets based on some hash. A
-persistent hash means that once a hash is determined for a connection
-it never changes, so the flow label derived from the hash never
-changes.
+Add ethtool operations and statistics operations.
 
-> Let's take the other way. Your main concern is the multipath selection. I=
- think
-> this can be fixed. We can still use the tw->tw_flowlabel to store the aut=
-o
-> created flowlabel like what my patch does, but we use an extra bit in tw_=
-pad of
-> inet_timewait_sock to indicate this flowlabel is auto created. In the res=
-et
-> packet send path, we don't use the auto created flowlabel for route slect=
-ion,
-> but just for packet data. This will keep current multipath selection beha=
-vior
-> and fix the reset packet flowlabel issue.
->
->> > There seems to have other bug in this side. From my understanding, com=
-mit
->> > 265f94ff54d6(net: Recompute sk_txhash on negative routing advice) trie=
-s to
->> > select a different route. But the multipath selection code
->> > (rt6_multipath_select) doesn't use sk_txhash or skb->hash, it does use
->> > fl6.flowlabel, but that is the flowlabel user sets. So looks like the =
-commit
->> > doesn't change anything.
->> >
->> The routing functions typically don't use sock of skbuff, but use flow
->> structs instead. It may be reasonable to add a hash to those.
->
-> I'll look at this issue later. It's not related to current flowlabel prob=
-lem.
->
-As I mentioned already, this is not a problem specific to flowlabels.
-This is a problem about getting all the elements of the system work
-together to ensure that all packets of flow are routed they same way
-in order to meet a requirement imposed by middleboxes. You can solve
-this problem just to make flow labels work, but IMO that's just
-kicking the can down the road for someone else to have to debug and
-solve when they hit the same underlying issue but in a different
-context.
+Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
+---
+ drivers/net/ethernet/huawei/hinic/hinic_dev.h  |   3 +
+ drivers/net/ethernet/huawei/hinic/hinic_main.c | 218 ++++++++++++++++++++++++-
+ drivers/net/ethernet/huawei/hinic/hinic_port.c |  31 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.h |  45 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.c   |  19 +++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.h   |   2 +
+ drivers/net/ethernet/huawei/hinic/hinic_tx.c   |  22 +++
+ drivers/net/ethernet/huawei/hinic/hinic_tx.h   |   2 +
+ 8 files changed, 341 insertions(+), 1 deletion(-)
 
-Tom
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
+index 15d0c2e..5186cc9 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_dev.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
+@@ -56,6 +56,9 @@ struct hinic_dev {
+ 
+ 	struct hinic_txq                *txqs;
+ 	struct hinic_rxq                *rxqs;
++
++	struct hinic_txq_stats          tx_stats;
++	struct hinic_rxq_stats          rx_stats;
+ };
+ 
+ #endif
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
+index 4a5f23f..a77a7f8 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_main.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_main.c
+@@ -69,6 +69,186 @@
+ 
+ static int change_mac_addr(struct net_device *netdev, const u8 *addr);
+ 
++static void set_link_speed(struct ethtool_link_ksettings *link_ksettings,
++			   enum hinic_speed speed)
++{
++	switch (speed) {
++	case HINIC_SPEED_10MB_LINK:
++		link_ksettings->base.speed = SPEED_10;
++		break;
++
++	case HINIC_SPEED_100MB_LINK:
++		link_ksettings->base.speed = SPEED_100;
++		break;
++
++	case HINIC_SPEED_1000MB_LINK:
++		link_ksettings->base.speed = SPEED_1000;
++		break;
++
++	case HINIC_SPEED_10GB_LINK:
++		link_ksettings->base.speed = SPEED_10000;
++		break;
++
++	case HINIC_SPEED_25GB_LINK:
++		link_ksettings->base.speed = SPEED_25000;
++		break;
++
++	case HINIC_SPEED_40GB_LINK:
++		link_ksettings->base.speed = SPEED_40000;
++		break;
++
++	case HINIC_SPEED_100GB_LINK:
++		link_ksettings->base.speed = SPEED_100000;
++		break;
++
++	default:
++		link_ksettings->base.speed = SPEED_UNKNOWN;
++		break;
++	}
++}
++
++static int hinic_get_link_ksettings(struct net_device *netdev,
++				    struct ethtool_link_ksettings
++				    *link_ksettings)
++{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	enum hinic_port_link_state link_state;
++	struct hinic_port_cap port_cap;
++	int err;
++
++	ethtool_link_ksettings_zero_link_mode(link_ksettings, advertising);
++	ethtool_link_ksettings_add_link_mode(link_ksettings, supported,
++					     Autoneg);
++
++	link_ksettings->base.speed   = SPEED_UNKNOWN;
++	link_ksettings->base.autoneg = AUTONEG_DISABLE;
++	link_ksettings->base.duplex  = DUPLEX_UNKNOWN;
++
++	err = hinic_port_get_cap(nic_dev, &port_cap);
++	if (err) {
++		netif_err(nic_dev, drv, netdev,
++			  "Failed to get port capabilities\n");
++		return err;
++	}
++
++	err = hinic_port_link_state(nic_dev, &link_state);
++	if (err) {
++		netif_err(nic_dev, drv, netdev,
++			  "Failed to get port link state\n");
++		return err;
++	}
++
++	if (link_state != HINIC_LINK_STATE_UP) {
++		netif_info(nic_dev, drv, netdev, "No link\n");
++		return err;
++	}
++
++	set_link_speed(link_ksettings, port_cap.speed);
++
++	if (!!(port_cap.autoneg_cap & HINIC_AUTONEG_SUPPORTED))
++		ethtool_link_ksettings_add_link_mode(link_ksettings,
++						     advertising, Autoneg);
++
++	if (port_cap.autoneg_state == HINIC_AUTONEG_ACTIVE)
++		link_ksettings->base.autoneg = AUTONEG_ENABLE;
++
++	link_ksettings->base.duplex = (port_cap.duplex == HINIC_DUPLEX_FULL) ?
++				       DUPLEX_FULL : DUPLEX_HALF;
++	return 0;
++}
++
++static void hinic_get_drvinfo(struct net_device *netdev,
++			      struct ethtool_drvinfo *info)
++{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_hwif *hwif = hwdev->hwif;
++
++	strlcpy(info->driver, HINIC_DRV_NAME, sizeof(info->driver));
++	strlcpy(info->bus_info, pci_name(hwif->pdev), sizeof(info->bus_info));
++}
++
++static void hinic_get_ringparam(struct net_device *netdev,
++				struct ethtool_ringparam *ring)
++{
++	ring->rx_max_pending = HINIC_RQ_DEPTH;
++	ring->tx_max_pending = HINIC_SQ_DEPTH;
++	ring->rx_pending = HINIC_RQ_DEPTH;
++	ring->tx_pending = HINIC_SQ_DEPTH;
++}
++
++static void hinic_get_channels(struct net_device *netdev,
++			       struct ethtool_channels *channels)
++{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++
++	channels->max_rx = hwdev->nic_cap.max_qps;
++	channels->max_tx = hwdev->nic_cap.max_qps;
++	channels->max_other    = 0;
++	channels->max_combined = 0;
++	channels->rx_count = hinic_hwdev_num_qps(hwdev);
++	channels->tx_count = hinic_hwdev_num_qps(hwdev);
++	channels->other_count    = 0;
++	channels->combined_count = 0;
++}
++
++static const struct ethtool_ops hinic_ethtool_ops = {
++	.get_link_ksettings = hinic_get_link_ksettings,
++	.get_drvinfo = hinic_get_drvinfo,
++	.get_link = ethtool_op_get_link,
++	.get_ringparam = hinic_get_ringparam,
++	.get_channels = hinic_get_channels,
++};
++
++static void update_rx_stats(struct hinic_dev *nic_dev, struct hinic_rxq *rxq)
++{
++	struct hinic_rxq_stats *nic_rx_stats = &nic_dev->rx_stats;
++	struct hinic_rxq_stats rx_stats;
++
++	u64_stats_init(&rx_stats.syncp);
++
++	hinic_rxq_get_stats(rxq, &rx_stats);
++
++	u64_stats_update_begin(&nic_rx_stats->syncp);
++	nic_rx_stats->bytes += rx_stats.bytes;
++	nic_rx_stats->pkts  += rx_stats.pkts;
++	u64_stats_update_end(&nic_rx_stats->syncp);
++
++	hinic_rxq_clean_stats(rxq);
++}
++
++static void update_tx_stats(struct hinic_dev *nic_dev, struct hinic_txq *txq)
++{
++	struct hinic_txq_stats *nic_tx_stats = &nic_dev->tx_stats;
++	struct hinic_txq_stats tx_stats;
++
++	u64_stats_init(&tx_stats.syncp);
++
++	hinic_txq_get_stats(txq, &tx_stats);
++
++	u64_stats_update_begin(&nic_tx_stats->syncp);
++	nic_tx_stats->bytes += tx_stats.bytes;
++	nic_tx_stats->pkts += tx_stats.pkts;
++	nic_tx_stats->tx_busy += tx_stats.tx_busy;
++	nic_tx_stats->tx_wake += tx_stats.tx_wake;
++	nic_tx_stats->tx_dropped += tx_stats.tx_dropped;
++	u64_stats_update_end(&nic_tx_stats->syncp);
++
++	hinic_txq_clean_stats(txq);
++}
++
++static void update_nic_stats(struct hinic_dev *nic_dev)
++{
++	int i, num_qps = hinic_hwdev_num_qps(nic_dev->hwdev);
++
++	for (i = 0; i < num_qps; i++)
++		update_rx_stats(nic_dev, &nic_dev->rxqs[i]);
++
++	for (i = 0; i < num_qps; i++)
++		update_tx_stats(nic_dev, &nic_dev->txqs[i]);
++}
++
+ /**
+  * create_txqs - Create the Logical Tx Queues of specific NIC device
+  * @nic_dev: the specific NIC device
+@@ -303,6 +483,8 @@ static int hinic_close(struct net_device *netdev)
+ 	netif_carrier_off(netdev);
+ 	netif_tx_disable(netdev);
+ 
++	update_nic_stats(nic_dev);
++
+ 	up(&nic_dev->mgmt_lock);
+ 
+ 	err = hinic_port_set_func_state(nic_dev, HINIC_FUNC_PORT_DISABLE);
+@@ -580,6 +762,31 @@ static void hinic_tx_timeout(struct net_device *netdev)
+ 	netif_err(nic_dev, drv, netdev, "Tx timeout\n");
+ }
+ 
++static void hinic_get_stats64(struct net_device *netdev,
++			      struct rtnl_link_stats64 *stats)
++{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	struct hinic_rxq_stats *nic_rx_stats;
++	struct hinic_txq_stats *nic_tx_stats;
++
++	nic_rx_stats = &nic_dev->rx_stats;
++	nic_tx_stats = &nic_dev->tx_stats;
++
++	down(&nic_dev->mgmt_lock);
++
++	if (nic_dev->flags & HINIC_INTF_UP)
++		update_nic_stats(nic_dev);
++
++	up(&nic_dev->mgmt_lock);
++
++	stats->rx_bytes   = nic_rx_stats->bytes;
++	stats->rx_packets = nic_rx_stats->pkts;
++
++	stats->tx_bytes   = nic_tx_stats->bytes;
++	stats->tx_packets = nic_tx_stats->pkts;
++	stats->tx_errors  = nic_tx_stats->tx_dropped;
++}
++
+ static const struct net_device_ops hinic_netdev_ops = {
+ 	.ndo_open = hinic_open,
+ 	.ndo_stop = hinic_close,
+@@ -591,7 +798,7 @@ static void hinic_tx_timeout(struct net_device *netdev)
+ 	.ndo_set_rx_mode = hinic_set_rx_mode,
+ 	.ndo_start_xmit = hinic_xmit_frame,
+ 	.ndo_tx_timeout = hinic_tx_timeout,
+-	/* more operations should be filled */
++	.ndo_get_stats64 = hinic_get_stats64,
+ };
+ 
+ static void netdev_features_init(struct net_device *netdev)
+@@ -663,6 +870,8 @@ static void link_status_event_handler(void *handle, void *buf_in, u16 in_size,
+ static int nic_dev_init(struct pci_dev *pdev)
+ {
+ 	struct hinic_rx_mode_work *rx_mode_work;
++	struct hinic_txq_stats *tx_stats;
++	struct hinic_rxq_stats *rx_stats;
+ 	struct hinic_dev *nic_dev;
+ 	struct net_device *netdev;
+ 	struct hinic_hwdev *hwdev;
+@@ -689,6 +898,7 @@ static int nic_dev_init(struct pci_dev *pdev)
+ 	}
+ 
+ 	netdev->netdev_ops = &hinic_netdev_ops;
++	netdev->ethtool_ops = &hinic_ethtool_ops;
+ 
+ 	nic_dev = (struct hinic_dev *)netdev_priv(netdev);
+ 	nic_dev->netdev = netdev;
+@@ -702,6 +912,12 @@ static int nic_dev_init(struct pci_dev *pdev)
+ 
+ 	sema_init(&nic_dev->mgmt_lock, 1);
+ 
++	tx_stats = &nic_dev->tx_stats;
++	rx_stats = &nic_dev->rx_stats;
++
++	u64_stats_init(&tx_stats->syncp);
++	u64_stats_init(&rx_stats->syncp);
++
+ 	nic_dev->vlan_bitmap = devm_kzalloc(&pdev->dev,
+ 					    VLAN_BITMAP_SIZE(nic_dev),
+ 					    GFP_KERNEL);
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.c b/drivers/net/ethernet/huawei/hinic/hinic_port.c
+index 528ec6f..4d4e3f0 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_port.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_port.c
+@@ -346,3 +346,34 @@ int hinic_port_set_func_state(struct hinic_dev *nic_dev,
+ 
+ 	return 0;
+ }
++
++/**
++ * hinic_port_get_cap - get port capabilities
++ * @nic_dev: nic device
++ * @port_cap: returned port capabilities
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_get_cap(struct hinic_dev *nic_dev,
++		       struct hinic_port_cap *port_cap)
++{
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_hwif *hwif = hwdev->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	u16 out_size;
++	int err;
++
++	port_cap->func_idx = HINIC_HWIF_FUNC_IDX(hwif);
++
++	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_GET_CAP,
++				 port_cap, sizeof(*port_cap),
++				 port_cap, &out_size);
++	if (err || (out_size != sizeof(*port_cap)) || port_cap->status) {
++		dev_err(&pdev->dev,
++			"Failed to get port capabilities, ret = %d\n",
++			port_cap->status);
++		return -EINVAL;
++	}
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.h b/drivers/net/ethernet/huawei/hinic/hinic_port.h
+index 17f9d7fc..9404365 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_port.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_port.h
+@@ -45,6 +45,33 @@ enum hinic_func_port_state {
+ 	HINIC_FUNC_PORT_ENABLE  = 2,
+ };
+ 
++enum hinic_autoneg_cap {
++	HINIC_AUTONEG_UNSUPPORTED,
++	HINIC_AUTONEG_SUPPORTED,
++};
++
++enum hinic_autoneg_state {
++	HINIC_AUTONEG_DISABLED,
++	HINIC_AUTONEG_ACTIVE,
++};
++
++enum hinic_duplex {
++	HINIC_DUPLEX_HALF,
++	HINIC_DUPLEX_FULL,
++};
++
++enum hinic_speed {
++	HINIC_SPEED_10MB_LINK = 0,
++	HINIC_SPEED_100MB_LINK,
++	HINIC_SPEED_1000MB_LINK,
++	HINIC_SPEED_10GB_LINK,
++	HINIC_SPEED_25GB_LINK,
++	HINIC_SPEED_40GB_LINK,
++	HINIC_SPEED_100GB_LINK,
++
++	HINIC_SPEED_UNKNOWN = 0xFF,
++};
++
+ struct hinic_port_mac_cmd {
+ 	u8              status;
+ 	u8              version;
+@@ -125,6 +152,21 @@ struct hinic_port_func_state_cmd {
+ 	u8      rsvd2[3];
+ };
+ 
++struct hinic_port_cap {
++	u8      status;
++	u8      version;
++	u8      rsvd0[6];
++
++	u16     func_idx;
++	u16     rsvd1;
++	u8      port_type;
++	u8      autoneg_cap;
++	u8      autoneg_state;
++	u8      duplex;
++	u8      speed;
++	u8      rsvd2[3];
++};
++
+ int hinic_port_add_mac(struct hinic_dev *nic_dev, const u8 *addr,
+ 		       u16 vlan_id);
+ 
+@@ -150,4 +192,7 @@ int hinic_port_set_state(struct hinic_dev *nic_dev,
+ int hinic_port_set_func_state(struct hinic_dev *nic_dev,
+ 			      enum hinic_func_port_state state);
+ 
++int hinic_port_get_cap(struct hinic_dev *nic_dev,
++		       struct hinic_port_cap *port_cap);
++
+ #endif
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_rx.c b/drivers/net/ethernet/huawei/hinic/hinic_rx.c
+index 6367fa1..bbe5d7d 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_rx.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_rx.c
+@@ -58,6 +58,25 @@ void hinic_rxq_clean_stats(struct hinic_rxq *rxq)
+ }
+ 
+ /**
++ * hinic_rxq_get_stats - get statistics of Rx Queue
++ * @rxq: Logical Rx Queue
++ * @stats: return updated stats here
++ **/
++void hinic_rxq_get_stats(struct hinic_rxq *rxq, struct hinic_rxq_stats *stats)
++{
++	struct hinic_rxq_stats *rxq_stats = &rxq->rxq_stats;
++	unsigned int start;
++
++	u64_stats_update_begin(&stats->syncp);
++	do {
++		start = u64_stats_fetch_begin(&rxq_stats->syncp);
++		stats->pkts = rxq_stats->pkts;
++		stats->bytes = rxq_stats->bytes;
++	} while (u64_stats_fetch_retry(&rxq_stats->syncp, start));
++	u64_stats_update_end(&stats->syncp);
++}
++
++/**
+  * rxq_stats_init - Initialize the statistics of specific queue
+  * @rxq: Logical Rx Queue
+  **/
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_rx.h b/drivers/net/ethernet/huawei/hinic/hinic_rx.h
+index 538c886..27c9af4 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_rx.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_rx.h
+@@ -45,6 +45,8 @@ struct hinic_rxq {
+ 
+ void hinic_rxq_clean_stats(struct hinic_rxq *rxq);
+ 
++void hinic_rxq_get_stats(struct hinic_rxq *rxq, struct hinic_rxq_stats *stats);
++
+ int hinic_init_rxq(struct hinic_rxq *rxq, struct hinic_rq *rq,
+ 		   struct net_device *netdev);
+ 
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_tx.c b/drivers/net/ethernet/huawei/hinic/hinic_tx.c
+index d0c539f..b5056c3 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_tx.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_tx.c
+@@ -67,6 +67,28 @@ void hinic_txq_clean_stats(struct hinic_txq *txq)
+ }
+ 
+ /**
++ * hinic_txq_get_stats - get statistics of Tx Queue
++ * @txq: Logical Tx Queue
++ * @stats: return updated stats here
++ **/
++void hinic_txq_get_stats(struct hinic_txq *txq, struct hinic_txq_stats *stats)
++{
++	struct hinic_txq_stats *txq_stats = &txq->txq_stats;
++	unsigned int start;
++
++	u64_stats_update_begin(&stats->syncp);
++	do {
++		start = u64_stats_fetch_begin(&txq_stats->syncp);
++		stats->pkts = txq_stats->pkts;
++		stats->bytes = txq_stats->bytes;
++		stats->tx_busy = txq_stats->tx_busy;
++		stats->tx_wake = txq_stats->tx_wake;
++		stats->tx_dropped = txq_stats->tx_dropped;
++	} while (u64_stats_fetch_retry(&txq_stats->syncp, start));
++	u64_stats_update_end(&stats->syncp);
++}
++
++/**
+  * txq_stats_init - Initialize the statistics of specific queue
+  * @txq: Logical Tx Queue
+  **/
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_tx.h b/drivers/net/ethernet/huawei/hinic/hinic_tx.h
+index 7123c7f..1fa55dc 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_tx.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_tx.h
+@@ -50,6 +50,8 @@ struct hinic_txq {
+ 
+ void hinic_txq_clean_stats(struct hinic_txq *txq);
+ 
++void hinic_txq_get_stats(struct hinic_txq *txq, struct hinic_txq_stats *stats);
++
+ netdev_tx_t hinic_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
+ 
+ int hinic_init_txq(struct hinic_txq *txq, struct hinic_sq *sq,
+-- 
+1.9.1
