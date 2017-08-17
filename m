@@ -1,57 +1,76 @@
 From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v4 05/12] Documentation: net: phy: Add phy-is-internal
+Subject: Re: [PATCH v4 2/4] dt-bindings: can: can-transceiver: Document new
  binding
-Date: Thu, 17 Aug 2017 10:10:25 -0500
-Message-ID: <20170817151025.sdbusesfq7spy4fm@rob-hp-laptop>
-References: <1502280475-736-1-git-send-email-david.wu@rock-chips.com>
- <1502280630-2254-1-git-send-email-david.wu@rock-chips.com>
- <778B0470-8ABD-46AD-A63D-F0CF4911C800@gmail.com>
- <20170810002041.GA10776@lunn.ch>
- <1bff1793-fe46-f263-fbf5-ef65ffbc5dc9@rock-chips.com>
+Date: Thu, 17 Aug 2017 10:10:36 -0500
+Message-ID: <20170817151036.jyvg63oyhkne5jsg@rob-hp-laptop>
+References: <20170810005916.27163-1-fcooper@ti.com>
+ <20170810005916.27163-3-fcooper@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
-        heiko@sntech.de, mark.rutland@arm.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, olof@lixom.net, linux@armlinux.org.uk,
-        arnd@arndb.de, peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, hwg@rock-chips.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David.Wu" <david.wu@rock-chips.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+        netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        wg@grandegger.com, mkl@pengutronix.de,
+        quentin.schulz@free-electrons.com, dev.kurt@vandijck-laurijssen.be,
+        andrew@lunn.ch, sergei.shtylyov@cogentembedded.com,
+        socketcan@hartkopp.net
+To: Franklin S Cooper Jr <fcooper@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1bff1793-fe46-f263-fbf5-ef65ffbc5dc9@rock-chips.com>
+In-Reply-To: <20170810005916.27163-3-fcooper@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 10, 2017 at 06:57:40PM +0800, David.Wu wrote:
-> Hi Andrew, Florian
+On Wed, Aug 09, 2017 at 07:59:14PM -0500, Franklin S Cooper Jr wrote:
+> Add documentation to describe usage of the new can-transceiver binding.
+> This new binding is applicable for any CAN device therefore it exists as
+> its own document.
 > 
-> 在 2017/8/10 8:20, Andrew Lunn 写道:
-> > Hi Florian, David.
-> > 
-> > I'm happy with the property name. But i think the text needs more
-> > description. We deal with Ethernet switches with integrated PHYs. Yet
-> > for us, this property is unneeded.
-> > 
-> > Seeing this property means some bit of software needs to ensure the
-> > internal PHY should be used, when given the choice between an internal
-> > and external PHY. So i would say something like:
-> > 
-> >      If set, indicates that the PHY is integrated into the same
-> >      physical package as the Ethernet MAC. If needed, muxers should be
-> >      configured to ensure the (internal) PHY is used. The absence of this
-> >      property indicates the muxers should be configured so that the
-> >      external PHY is used.
+> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+> ---
+> Version 4 changes:
+> Drop unit address.
+> Switch from using fixed-transceiver to can-transceiver
 > 
-> Are we supposed to replace the words "internal" with "integrated" here?
-> So we have three kinds of PHY, they are intenal, external and integrated
-> PHYs.
+>  .../bindings/net/can/can-transceiver.txt           | 24 ++++++++++++++++++++++
+>  1 file changed, 24 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/can/can-transceiver.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/can/can-transceiver.txt b/Documentation/devicetree/bindings/net/can/can-transceiver.txt
+> new file mode 100644
+> index 0000000..2c31dc0
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/can/can-transceiver.txt
+> @@ -0,0 +1,24 @@
+> +Generic CAN transceiver Device Tree binding
+> +------------------------------
+> +
+> +CAN transceiver typically limits the max speed in standard CAN and CAN FD
+> +modes. Typically these limitations are static and the transceivers themselves
+> +provide no way to detect this limitation at runtime. For this situation,
+> +the "can-transceiver" node can be used.
+> +
+> +Required Properties:
+> + max-bitrate:	a positive non 0 value that determines the max
+> +		speed that CAN/CAN-FD can run. Any other value
+> +		will be ignored.
+> +
+> +Examples:
+> +
+> +Based on Texas Instrument's TCAN1042HGV CAN Transceiver
+> +
+> +m_can0 {
+> +	....
+> +	can-transceiver@ {
 
-And you can have both a XAUI/serdes phy and the ethernet phy. It should 
-be clear this is for the latter.
+Need to drop the @ too. With that,
 
-Rob
+Acked-by: Rob Herring <robh@kernel.org>
+
+
+> +		max-bitrate = <5000000>;
+> +	};
+> +	...
+> +};
+> -- 
+> 2.9.4.dirty
+> 
