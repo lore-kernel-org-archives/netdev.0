@@ -1,56 +1,84 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] net: sched: fix NULL pointer dereference when action
- calls some targets
-Date: Thu, 17 Aug 2017 12:02:20 +0200
-Message-ID: <20170817100220.GC6928@salvia>
-References: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
- <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
- <CADvbK_fuuBrh+eOuhQU+SYs9uazH2TRP+KUmhxU=hNZ=EkOT=Q@mail.gmail.com>
- <CAM_iQpXbtHDxVjZ=DoTiLXHLQy6q=JVBa66EqSOy95ZbFg-wkQ@mail.gmail.com>
- <CADvbK_cCQY0McHiZFKSTjdGdAjhB6RBej5n=SH2=hsLYC=Xa7w@mail.gmail.com>
+From: Amritha Nambiar <amritha.nambiar@intel.com>
+Subject: [RFC PATCH v2 0/6] Configure cloud filters in i40e via tc-flower
+ classifier
+Date: Thu, 17 Aug 2017 03:26:45 -0700
+Message-ID: <150296538797.16910.13738130623106637990.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, kiran.patil@intel.com,
+        amritha.nambiar@intel.com, netdev@vger.kernel.org,
+        mitch.a.williams@intel.com, alexander.duyck@gmail.com,
+        neerav.parikh@intel.com, sridhar.samudrala@intel.com,
+        carolyn.wyborny@intel.com
+To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:47256 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750913AbdHQKCw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 06:02:52 -0400
-Content-Disposition: inline
-In-Reply-To: <CADvbK_cCQY0McHiZFKSTjdGdAjhB6RBej5n=SH2=hsLYC=Xa7w@mail.gmail.com>
+Received: from mga04.intel.com ([192.55.52.120]:56001 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752092AbdHQK1g (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 06:27:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 16, 2017 at 08:39:44PM +1200, Xin Long wrote:
-> On Wed, Aug 9, 2017 at 7:33 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > On Mon, Aug 7, 2017 at 7:33 PM, Xin Long <lucien.xin@gmail.com> wrote:
-> >> On Tue, Aug 8, 2017 at 9:15 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> >>> This looks like a completely API burden?
-> >> netfilter xt targets are not really compatible with netsched action.
-> >> I've got to say, the patch is just a way to make checkentry return
-> >> false and avoid panic. like [1] said
-> >
-> > I don't doubt you fix a crash, I am thinking if we can
-> > "fix" the API instead of fixing the caller.
-> Hi, Cong,
-> 
-> For now, I don't think it's possible to change APIs or  some of their targets
-> for the panic caused by action xt calling.
-> 
-> The common way should be fixed in net_sched side.
-> 
-> Given that the issue is very easy to triggered,
-> let's wait for netfilter's replies for another few days,
-> otherwise I will repost the fix, agree ?
+This patch series enables configuring cloud filters in i40e
+using the tc-flower classifier. The only tc-filter action
+supported is to redirect packets to a traffic class on the
+same device. The tc/mirred:redirect action is extended to
+accept a traffic class to achieve this.
 
-Please, post the workaround so the kernel doesn't crash anymore.
+The cloud filters are added for a VSI and are cleaned up when
+the VSI is deleted. The filters that match on L4 ports needs
+enhanced admin queue functions with big buffer support for
+extended general fields in Add/Remove Cloud filters command.
 
-This is going to be very hard to fix, it's broken since the very
-beginning...
+Example:
+# tc qdisc add dev eth0 ingress
 
-Thanks!
+# ethtool -K eth0 hw-tc-offload on
+
+# tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
+  dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
+  skip_sw action mirred ingress redirect dev eth0 tclass 1
+
+# tc filter show dev eth0 parent ffff:
+filter protocol ip pref 1 flower chain 0
+filter protocol ip pref 1 flower chain 0 handle 0x1
+  eth_type ipv4
+  ip_proto udp
+  dst_ip 192.168.1.1
+  dst_port 22
+  skip_sw
+  in_hw
+        action order 1: mirred (Ingress Redirect to device eth0) stolen tclass 1
+        index 7 ref 1 bind 1
+---
+
+Amritha Nambiar (6):
+      [net-next]net: sched: act_mirred: Extend redirect action to accept a traffic class
+      [net-next]net: i40e: Maintain a mapping of TCs with the VSI seids
+      [net-next]net: i40e: Extend set switch config command to accept cloud filter mode
+      [net-next]net: i40e: Admin queue definitions for cloud filters
+      [net-next]net: i40e: Clean up of cloud filters
+      [net-next]net: i40e: Enable cloud filters in i40e via tc flower classifier
+
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |    2 
+ drivers/net/ethernet/intel/i40e/i40e.h             |   56 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  139 +++
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  194 ++++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |    2 
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 1003 +++++++++++++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   19 
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |   10 
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  108 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |    2 
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |    2 
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |    3 
+ .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |    3 
+ drivers/net/ethernet/netronome/nfp/bpf/offload.c   |    1 
+ drivers/net/ethernet/netronome/nfp/flower/action.c |    4 
+ include/net/tc_act/tc_mirred.h                     |   16 
+ include/uapi/linux/tc_act/tc_mirred.h              |    3 
+ net/dsa/slave.c                                    |    3 
+ net/sched/act_mirred.c                             |   15 
+ 19 files changed, 1543 insertions(+), 42 deletions(-)
