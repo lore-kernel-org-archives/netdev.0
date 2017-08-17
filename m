@@ -1,45 +1,35 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 5/7] lnstat_util: Simplify alloc_and_open() a bit
-Date: Thu, 17 Aug 2017 19:09:30 +0200
-Message-ID: <20170817170932.24659-6-phil@nwl.cc>
-References: <20170817170932.24659-1-phil@nwl.cc>
+Subject: [iproute PATCH v2 0/5] Covscan: Fix potential NULL pointer dereferences
+Date: Thu, 17 Aug 2017 19:09:26 +0200
+Message-ID: <20170817170931.24545-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:35905 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:41157 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753639AbdHQRNy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 13:13:54 -0400
-In-Reply-To: <20170817170932.24659-1-phil@nwl.cc>
+        id S1753747AbdHQROT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 13:14:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Relying upon callers and using unsafe strcpy() is probably not the best
-idea. Aside from that, using snprintf() allows to format the string for
-lf->path in one go.
+This series collects patches from v1 which eliminate possible cases of
+NULL pointer dereferences.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- misc/lnstat_util.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+No changes to the actual patches, just splitting into smaller series.
 
-diff --git a/misc/lnstat_util.c b/misc/lnstat_util.c
-index cc54598fe1bef..ec19238c24b94 100644
---- a/misc/lnstat_util.c
-+++ b/misc/lnstat_util.c
-@@ -180,11 +180,8 @@ static struct lnstat_file *alloc_and_open(const char *path, const char *file)
- 	}
- 
- 	/* initialize */
--	/* de->d_name is guaranteed to be <= NAME_MAX */
--	strcpy(lf->basename, file);
--	strcpy(lf->path, path);
--	strcat(lf->path, "/");
--	strcat(lf->path, lf->basename);
-+	snprintf(lf->basename, sizeof(lf->basename), "%s", file);
-+	snprintf(lf->path, sizeof(lf->path), "%s/%s", path, file);
- 
- 	/* initialize to default */
- 	lf->interval.tv_sec = 1;
+Phil Sutter (5):
+  ifstat, nstat: Check fdopen() return value
+  nstat: Fix for potential NULL pointer dereference
+  tc/q_netem: Don't dereference possibly NULL pointer
+  tc/tc_filter: Make sure filter name is not empty
+  tipc/bearer: Prevent NULL pointer dereference
+
+ misc/ifstat.c  | 16 +++++++++++-----
+ misc/nstat.c   | 18 ++++++++++++------
+ tc/q_netem.c   |  4 +++-
+ tc/tc_filter.c |  3 +++
+ tipc/bearer.c  |  4 ++--
+ 5 files changed, 31 insertions(+), 14 deletions(-)
+
 -- 
 2.13.1
