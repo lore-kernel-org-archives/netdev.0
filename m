@@ -1,139 +1,59 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH 2/2] xdp: adjust xdp redirect tracepoint to include return
- error code
-Date: Thu, 17 Aug 2017 18:22:37 +0200
-Message-ID: <150298695758.6608.7128764985631537683.stgit@firesoul>
-References: <150298692691.6608.11908184719252996949.stgit@firesoul>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
+ don't skip empty skbs
+Date: Thu, 17 Aug 2017 12:45:48 -0400
+Message-ID: <CAF=yD-Kt7AQ8ZUCky+MQLn13FDPrM=u+Ha9oD5kw17N5Xz8Uuw@mail.gmail.com>
+References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1502914822.2796.6.camel@redhat.com>
+ <CAF=yD-JryS8g=8nB7yq9WVdCOjqSb7uNwncrRfWPmMQbdYrh3w@mail.gmail.com> <2020045.ridbXvZZ6f@ring00>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Paolo Abeni <pabeni@redhat.com>,
+        Network Development <netdev@vger.kernel.org>,
+        "Macieira, Thiago" <thiago.macieira@intel.com>
+To: Matthew Dawson <matthew@mjdsystems.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49432 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753005AbdHQQWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 12:22:41 -0400
-In-Reply-To: <150298692691.6608.11908184719252996949.stgit@firesoul>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:35707 "EHLO
+        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751107AbdHQQqc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 12:46:32 -0400
+Received: by mail-oi0-f52.google.com with SMTP id e124so72413641oig.2
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 09:46:32 -0700 (PDT)
+In-Reply-To: <2020045.ridbXvZZ6f@ring00>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The return error code need to be included in the tracepoint
-xdp:xdp_redirect, else its not possible to distinguish successful or
-failed XDP_REDIRECT transmits.
+>> @@ -169,14 +169,20 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock
+>> *sk, int *peeked, int *off, int *err, struct sk_buff **last)
+>>  {
+>> +       bool peek_at_off = false;
+>>         struct sk_buff *skb;
+>> -       int _off = *off;
+>> +       int _off = 0;
+>> +
+>> +       if (flags & MSG_PEEK && (*off) >= 0) {
+>> +               peek_at_off = true;
+>> +               _off = *off;
+>> +       }
+>>
+>>         *last = queue->prev;
+>>         skb_queue_walk(queue, skb) {
+>>                 if (flags & MSG_PEEK) {
+>> -                       if (_off >= skb->len && (skb->len || _off ||
+>> -                                                skb->peeked)) {
+>> +                       if (peek_at_off && _off >= skb->len &&
+>> +                           (skb->len || _off || skb->peeked)) {
+>                                 ^ I'm pretty sure we can remove this check
+> (that skb->len is not zero) in this if statement.  If _off is zero, then skb-
+>>len must also be zero (since _off >= skb->len, if _off is 0, skb->len <= 0.
+> If skb->len can't be negative, then skb->len <= 0 => skb->len == 0).  If _off
+> is not zero, then checking skb->len is redundant.
 
-XDP have no queuing mechanism. Thus, it is fairly easily to overrun a
-NIC transmit queue.  The eBPF program invoking helpers (bpf_redirect
-or bpf_redirect_map) to redirect a packet doesn't get any feedback
-whether the packet was actually transmitted.
+Good point.
 
-Info on failed transmits in the tracepoint xdp:xdp_redirect, is
-interesting as this opens for providing a feedback-loop to the
-receiving XDP program.
+>>                                 _off -= skb->len;
+>>                                 continue;
+>>                         }
+> Is this queued to go in already? Or can I help by updating my patch with what
+> was discussed here?  I can do that today if wanted.
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- include/trace/events/xdp.h |   11 +++++++----
- net/core/filter.c          |   19 ++++++++++++-------
- 2 files changed, 19 insertions(+), 11 deletions(-)
-
-diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-index 7b1eb7b4be41..0e42e69f773b 100644
---- a/include/trace/events/xdp.h
-+++ b/include/trace/events/xdp.h
-@@ -53,15 +53,16 @@ TRACE_EVENT(xdp_redirect,
- 
- 	TP_PROTO(const struct net_device *from,
- 		 const struct net_device *to,
--		 const struct bpf_prog *xdp, u32 act),
-+		 const struct bpf_prog *xdp, u32 act, int err),
- 
--	TP_ARGS(from, to, xdp, act),
-+	TP_ARGS(from, to, xdp, act, err),
- 
- 	TP_STRUCT__entry(
- 		__string(name_from, from->name)
- 		__string(name_to, to->name)
- 		__array(u8, prog_tag, 8)
- 		__field(u32, act)
-+		__field(int, err)
- 	),
- 
- 	TP_fast_assign(
-@@ -70,12 +71,14 @@ TRACE_EVENT(xdp_redirect,
- 		__assign_str(name_from, from->name);
- 		__assign_str(name_to, to->name);
- 		__entry->act = act;
-+		__entry->err = err;
- 	),
- 
--	TP_printk("prog=%s from=%s to=%s action=%s",
-+	TP_printk("prog=%s from=%s to=%s action=%s err=%d",
- 		  __print_hex_str(__entry->prog_tag, 8),
- 		  __get_str(name_from), __get_str(name_to),
--		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB))
-+		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
-+		  __entry->err)
- );
- #endif /* _TRACE_XDP_H */
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 5afe3ac191ec..70c9631da7f2 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2496,14 +2496,16 @@ int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
- 	struct bpf_map *map = ri->map;
- 	u32 index = ri->ifindex;
- 	struct net_device *fwd;
--	int err = -EINVAL;
-+	int err;
- 
- 	ri->ifindex = 0;
- 	ri->map = NULL;
- 
- 	fwd = __dev_map_lookup_elem(map, index);
--	if (!fwd)
-+	if (!fwd) {
-+		err = -EINVAL;
- 		goto out;
-+	}
- 
- 	if (ri->map_to_flush && (ri->map_to_flush != map))
- 		xdp_do_flush_map();
-@@ -2513,7 +2515,7 @@ int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
- 		ri->map_to_flush = map;
- 
- out:
--	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT);
-+	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
- 	return err;
- }
- 
-@@ -2523,6 +2525,7 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
- 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
- 	struct net_device *fwd;
- 	u32 index = ri->ifindex;
-+	int err;
- 
- 	if (ri->map)
- 		return xdp_do_redirect_map(dev, xdp, xdp_prog);
-@@ -2532,12 +2535,14 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
- 	ri->map = NULL;
- 	if (unlikely(!fwd)) {
- 		bpf_warn_invalid_xdp_redirect(index);
--		return -EINVAL;
-+		err = -EINVAL;
-+		goto out;
- 	}
- 
--	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT);
--
--	return __bpf_tx_xdp(fwd, NULL, xdp, 0);
-+	err = __bpf_tx_xdp(fwd, NULL, xdp, 0);
-+out:
-+	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
-+	return err;
- }
- EXPORT_SYMBOL_GPL(xdp_do_redirect);
- 
+It isn't. Please do if no one else has additional comments.
