@@ -1,74 +1,41 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: [PATCH] netfilter: ipset: ipset list may return wrong member count for set with timeout
-Date: Thu, 17 Aug 2017 01:23:55 -0400
-Message-ID: <1502947435-18549-1-git-send-email-vpai@akamai.com>
-Cc: johunt@akamai.com, pai.vishwain@gmail.com, vpai@akamai.com,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org
-To: pablo@netfilter.org, kadlec@blackhole.kfki.hu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00190b01.pphosted.com ([67.231.157.127]:54155 "EHLO
-        mx0b-00190b01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750800AbdHQFYK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 01:24:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jay Vosburgh <jay.vosburgh-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: Regression: Bug 196547 - Since 4.12 - bonding module not working with wireless drivers
+Date: Wed, 16 Aug 2017 22:33:41 -0700
+Message-ID: <28296.1502948021@famine>
+References: <CADps9UCgqeUh41iHxCM+CTJh=Tffn-tiSYL2Q+NBb_8EppqRMA@mail.gmail.com> <2b6fd91a-f7cd-c2bf-6394-060d9b1f5d23@nurealm.net> <1502918561.30484.1.camel@redhat.com> <20170816.143116.1172751167543812070.davem@davemloft.net> <1502935907.30484.4.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, james-fvV4AYHggTTR7s880joybQ@public.gmane.org,
+        futur.andy-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+        andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-reply-to: <1502935907.30484.4.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Content-ID: <28295.1502948021.1@famine>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Simple testcase:
+Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+[...]
+>You'll probably say "aim for the 75% case" or something like that,
+>which is fine, but then you're depending on your 75% case to be (a)
+>single AP, (b) never move (eg, only bond wifi + ethernet), (c) little
+>radio interference.  I'm not sure I'd buy that.  If I've put words in
+>your mouth, forgive me.
 
-$ ipset create test hash:ip timeout 5
-$ ipset add test 1.2.3.4
-$ ipset add test 1.2.2.2
-$ sleep 5
+	The primary use case that I'm aware of for bonding with wireless
+devices is in active-backup mode, paired with an ethernet adapter set as
+the bonding "primary" device.  I think this is the case that absolutely
+should just work.  I don't think bonding cares (or should care) about
+(a) - (c) for this use.
 
-$ ipset l
-Name: test
-Type: hash:ip
-Revision: 5
-Header: family inet hashsize 1024 maxelem 65536 timeout 5
-Size in memory: 296
-References: 0
-Number of entries: 2
-Members:
+	Your point (b) suggests that there are use cases other than the
+above; I'm unfamiliar with any use other than wifi + ethernet, can you
+elaborate?
 
-We return "Number of entries: 2" but no members are listed. That is
-because mtype_list runs "ip_set_timeout_expired" and does not list the
-expired entries, but set->elements is never upated (until mtype_gc
-cleans it up later).
+	-J
 
-Reviewed-by: Joshua Hunt <johunt@akamai.com>
-Signed-off-by: Vishwanath Pai <vpai@akamai.com>
 ---
- net/netfilter/ipset/ip_set_hash_gen.h | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-index f236c0b..ff3d31c 100644
---- a/net/netfilter/ipset/ip_set_hash_gen.h
-+++ b/net/netfilter/ipset/ip_set_hash_gen.h
-@@ -1041,12 +1041,22 @@ struct htype {
- static int
- mtype_head(struct ip_set *set, struct sk_buff *skb)
- {
--	const struct htype *h = set->data;
-+	struct htype *h = set->data;
- 	const struct htable *t;
- 	struct nlattr *nested;
- 	size_t memsize;
- 	u8 htable_bits;
- 
-+	/* If any members have expired, set->elements will be wrong
-+	 * mytype_expire function will update it with the right count.
-+	 * we do not hold set->lock here, so grab it first.
-+	 */
-+	if (SET_WITH_TIMEOUT(set)) {
-+		spin_lock_bh(&set->lock);
-+		mtype_expire(set, h);
-+		spin_unlock_bh(&set->lock);
-+	}
-+
- 	rcu_read_lock_bh();
- 	t = rcu_dereference_bh_nfnl(h->table);
- 	memsize = mtype_ahash_memsize(h, t) + set->ext_size;
--- 
-1.9.1
+	-Jay Vosburgh, jay.vosburgh-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
