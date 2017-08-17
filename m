@@ -1,104 +1,171 @@
 From: Julien Fortin <julien@cumulusnetworks.com>
-Subject: [PATCH iproute2 json v2 27/27] ip: iplink_vlan.c: add json output support
-Date: Thu, 17 Aug 2017 10:36:14 -0700
-Message-ID: <20170817173614.54987-28-julien@cumulusnetworks.com>
+Subject: [PATCH iproute2 json v2 23/27] ip: link_iptnl.c: add json output support
+Date: Thu, 17 Aug 2017 10:36:10 -0700
+Message-ID: <20170817173614.54987-24-julien@cumulusnetworks.com>
 References: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
         dsa@cumulusnetworks.com, Julien Fortin <julien@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f179.google.com ([209.85.128.179]:33030 "EHLO
-        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753748AbdHQRmf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:42:35 -0400
-Received: by mail-wr0-f179.google.com with SMTP id b65so50154394wrd.0
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:42:34 -0700 (PDT)
+Received: from mail-wr0-f174.google.com ([209.85.128.174]:37768 "EHLO
+        mail-wr0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753692AbdHQRmT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:42:19 -0400
+Received: by mail-wr0-f174.google.com with SMTP id z91so41351227wrc.4
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:42:18 -0700 (PDT)
 In-Reply-To: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Julien Fortin <julien@cumulusnetworks.com>
 
-Schema:
+Schema
 {
-    "protocol": {
+    "remote": {
         "type": "string",
-        "attr": "IFLA_VLAN_PROTOCOL"
+        "attr": "IFLA_IPTUN_REMOTE"
     },
-    "id": {
-        "type": "uint",
-        "attr": "IFLA_VLAN_ID"
+    "local": {
+        "type": "string",
+        "attr": "IFLA_IPTUN_LOCAL"
     },
-    "flags": {
-        "type": "array",
-        "attr": "IFLA_VLAN_FLAGS",
-        "array": [
-            {
+    "link": {
+        "type": "string",
+        "attr": "IFLA_IPTUN_LINK",
+        "mutually_exclusive": {
+            "link_index": {
+                "type": "uint",
+            }
+        }
+    },
+    "ttl": {
+        "type": "int",
+        "attr": "IFLA_IPTUN_TTL"
+    },
+    "tos": {
+        "type": "string",
+        "attr": "IFLA_IPTUN_TOS"
+    },
+    "pmtudisc": {
+        "type": "bool",
+        "attr": "IFLA_IPTUN_PMTUDISC"
+    },
+    "isatap": {
+        "type": "bool",
+        "attr": "SIT_ISATAP & IFLA_IPTUN_FLAGS"
+    },
+    "6rd": {
+        "type": "dict",
+        "attr": "IFLA_IPTUN_6RD_PREFIXLEN",
+        "dict": {
+            "prefix": {
                 "type": "string"
+            },
+            "prefixlen": {
+                "type": "uint",
+                "attr": "IFLA_IPTUN_6RD_PREFIXLEN"
+            },
+            "relay_prefix": {
+                "type": "string"
+            },
+            "relay_prefixlen": {
+                "type": "uint",
+                "attr": "IFLA_IPTUN_6RD_PREFIXLEN"
             }
-        ]
+        }
     },
-    "ingress_qos": {
-        "type": "array",
-        "attr": "IFLA_VLAN_INGRESS_QOS",
-        "array": [
-            {
-                "type": "dict",
-                "dict": {
-                    "from": {
-                        "type": "uint"
-                    },
-                    "to": {
-                        "type": "uint"
-                    }
-                }
+    "encap": {
+        "type": "dict",
+        "attr": "IFLA_IPTUN_ENCAP_TYPE",
+        "dict": {
+            "type": {
+                "type": "string",
+                "attr": "IFLA_IPTUN_ENCAP_TYPE"
+            },
+            "sport": {
+                "type": "uint",
+                "attr": "IFLA_IPTUN_ENCAP_SPORT"
+            },
+            "dport": {
+                "type": "uint",
+                "attr": "IFLA_IPTUN_ENCAP_DPORT"
+            },
+            "csum": {
+                "type": "bool",
+                "attr": "TUNNEL_ENCAP_FLAG_CSUM"
+            },
+            "csum6": {
+                "type": "bool",
+                "attr": "TUNNEL_ENCAP_FLAG_CSUM6"
+            },
+            "remcsum": {
+                "type": "bool",
+                "attr": "TUNNEL_ENCAP_FLAG_REMCSUM"
             }
-        ]
-    },
-    "egress_qos": {
-        "type": "array",
-        "attr": "IFLA_VLAN_EGRESS_QOS",
-        "array": [
-            {
-                "type": "dict",
-                "dict": {
-                    "from": {
-                        "type": "uint"
-                    },
-                    "to": {
-                        "type": "uint"
-                    }
-                }
-            }
-        ]
+        }
     }
 }
 
-$ ip link add name eth0.42 link eth0 type vlan id 42
+$ ip tunnel add tun0 mode ipip local 192.0.2.1 remote 198.51.100.3
+$ ip link show
+10: tunl0@NONE: <NOARP> mtu 1480 qdisc noop state DOWN mode DEFAULT group
+default
+    link/ipip 0.0.0.0 brd 0.0.0.0
+11: tun0@NONE: <POINTOPOINT,NOARP> mtu 1480 qdisc noop state DOWN mode
+DEFAULT group default
+    link/ipip 192.0.2.1 peer 198.51.100.3
 $ ip -details -json link show
 [{
-        "ifindex": 30,
-        "ifname": "eth0.42",
-        "link": "eth0",
-        "flags": ["BROADCAST","MULTICAST"],
-        "mtu": 1500,
+        "ifindex": 10,
+        "ifname": "tunl0",
+        "link": null,
+        "flags": ["NOARP"],
+        "mtu": 1480,
         "qdisc": "noop",
         "operstate": "DOWN",
         "linkmode": "DEFAULT",
         "group": "default",
-        "link_type": "ether",
-        "address": "08:00:27:db:31:88",
-        "broadcast": "ff:ff:ff:ff:ff:ff",
+        "link_type": "ipip",
+        "address": "0.0.0.0",
+        "broadcast": "0.0.0.0",
         "promiscuity": 0,
         "linkinfo": {
-            "info_kind": "vlan",
+            "info_kind": "ipip",
             "info_data": {
-                "protocol": "802.1Q",
-                "id": 42,
-                "flags": ["REORDER_HDR"]
+                "remote": "any",
+                "local": "any",
+                "ttl": 0,
+                "pmtudisc": false
             }
         },
-        "inet6_addr_gen_mode": "eui64",
+        "num_tx_queues": 1,
+        "num_rx_queues": 1,
+        "gso_max_size": 65536,
+        "gso_max_segs": 65535
+    },{
+        "ifindex": 11,
+        "ifname": "tun0",
+        "link": null,
+        "flags": ["POINTOPOINT","NOARP"],
+        "mtu": 1480,
+        "qdisc": "noop",
+        "operstate": "DOWN",
+        "linkmode": "DEFAULT",
+        "group": "default",
+        "link_type": "ipip",
+        "address": "192.0.2.1",
+        "link_pointtopoint": true,
+        "broadcast": "198.51.100.3",
+        "promiscuity": 0,
+        "linkinfo": {
+            "info_kind": "ipip",
+            "info_data": {
+                "remote": "198.51.100.3",
+                "local": "192.0.2.1",
+                "ttl": 0,
+                "pmtudisc": true
+            }
+        },
         "num_tx_queues": 1,
         "num_rx_queues": 1,
         "gso_max_size": 65536,
@@ -108,122 +175,231 @@ $ ip -details -json link show
 
 Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
 ---
- ip/iplink_vlan.c | 62 ++++++++++++++++++++++++++++++++++++++++----------------
- 1 file changed, 44 insertions(+), 18 deletions(-)
+ ip/link_iptnl.c | 155 ++++++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 106 insertions(+), 49 deletions(-)
 
-diff --git a/ip/iplink_vlan.c b/ip/iplink_vlan.c
-index b47236d8..4d78cf9e 100644
---- a/ip/iplink_vlan.c
-+++ b/ip/iplink_vlan.c
-@@ -164,37 +164,51 @@ static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	return 0;
- }
+diff --git a/ip/link_iptnl.c b/ip/link_iptnl.c
+index d24e7376..6a725e91 100644
+--- a/ip/link_iptnl.c
++++ b/ip/link_iptnl.c
+@@ -398,7 +398,7 @@ static void iptunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[
+ 			remote = format_host(AF_INET, 4, &addr);
+ 	}
  
--static void vlan_print_map(FILE *f, char *name, struct rtattr *attr)
-+static void vlan_print_map(FILE *f,
-+			   const char *name_json,
-+			   const char *name_fp,
-+			   struct rtattr *attr)
- {
- 	struct ifla_vlan_qos_mapping *m;
- 	struct rtattr *i;
- 	int rem;
+-	fprintf(f, "remote %s ", remote);
++	print_string(PRINT_ANY, "remote", "remote %s ", remote);
  
--	fprintf(f, "\n      %s { ", name);
-+	open_json_array(PRINT_JSON, name_json);
-+	print_string(PRINT_FP, NULL, "\n      %s { ", name_fp);
+ 	if (tb[IFLA_IPTUN_LOCAL]) {
+ 		unsigned int addr = rta_getattr_u32(tb[IFLA_IPTUN_LOCAL]);
+@@ -407,43 +407,55 @@ static void iptunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[
+ 			local = format_host(AF_INET, 4, &addr);
+ 	}
  
- 	rem = RTA_PAYLOAD(attr);
- 	for (i = RTA_DATA(attr); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
- 		m = RTA_DATA(i);
--		fprintf(f, "%u:%u ", m->from, m->to);
+-	fprintf(f, "local %s ", local);
++	print_string(PRINT_ANY, "local", "local %s ", local);
+ 
+ 	if (tb[IFLA_IPTUN_LINK] && rta_getattr_u32(tb[IFLA_IPTUN_LINK])) {
+ 		unsigned int link = rta_getattr_u32(tb[IFLA_IPTUN_LINK]);
+ 		const char *n = if_indextoname(link, s2);
+ 
+ 		if (n)
+-			fprintf(f, "dev %s ", n);
++			print_string(PRINT_ANY, "link", "dev %s ", n);
+ 		else
+-			fprintf(f, "dev %u ", link);
++			print_int(PRINT_ANY, "link_index", "dev %u ", link);
+ 	}
+ 
+-	if (tb[IFLA_IPTUN_TTL] && rta_getattr_u8(tb[IFLA_IPTUN_TTL]))
+-		fprintf(f, "ttl %d ", rta_getattr_u8(tb[IFLA_IPTUN_TTL]));
+-	else
+-		fprintf(f, "ttl inherit ");
++	if (tb[IFLA_IPTUN_TTL]) {
++		__u8 ttl = rta_getattr_u8(tb[IFLA_IPTUN_TTL]);
 +
-+		if (is_json_context()) {
-+			open_json_object(NULL);
-+			print_uint(PRINT_JSON, "from", NULL, m->from);
-+			print_uint(PRINT_JSON, "to", NULL, m->to);
-+			close_json_object();
-+		} else {
-+			fprintf(f, "%u:%u ", m->from, m->to);
++		if (ttl)
++			print_int(PRINT_ANY, "ttl", "ttl %d ", ttl);
++		else
++			print_int(PRINT_JSON, "ttl", NULL, ttl);
++	} else {
++		print_string(PRINT_FP, NULL, "ttl %s ", "inherit");
++	}
+ 
+-	if (tb[IFLA_IPTUN_TOS] && rta_getattr_u8(tb[IFLA_IPTUN_TOS])) {
++	if (tb[IFLA_IPTUN_TOS]) {
+ 		int tos = rta_getattr_u8(tb[IFLA_IPTUN_TOS]);
+ 
+-		fputs("tos ", f);
+-		if (tos == 1)
+-			fputs("inherit ", f);
+-		else
+-			fprintf(f, "0x%x ", tos);
++		if (tos) {
++			if (is_json_context()) {
++				print_0xhex(PRINT_JSON, "tos", "%#x", tos);
++			} else {
++				fputs("tos ", f);
++				if (tos == 1)
++					fputs("inherit ", f);
++				else
++					fprintf(f, "0x%x ", tos);
++			}
 +		}
  	}
--	fprintf(f, "} ");
-+
-+	close_json_array(PRINT_JSON, NULL);
-+	print_string(PRINT_FP, NULL, "%s ", "}");
- }
  
- static void vlan_print_flags(FILE *fp, __u32 flags)
- {
--	fprintf(fp, "<");
--#define _PF(f)	if (flags & VLAN_FLAG_##f) { \
--			flags &= ~VLAN_FLAG_##f; \
--			fprintf(fp, #f "%s", flags ? "," : ""); \
--		}
-+	open_json_array(PRINT_ANY, is_json_context() ? "flags" : "<");
-+#define _PF(f)	if (flags & VLAN_FLAG_##f) {				\
-+		flags &= ~VLAN_FLAG_##f;				\
-+		print_string(PRINT_ANY, NULL, flags ? "%s," : "%s", #f); \
-+	}
- 	_PF(REORDER_HDR);
- 	_PF(GVRP);
- 	_PF(MVRP);
- 	_PF(LOOSE_BINDING);
- #undef _PF
- 	if (flags)
--		fprintf(fp, "%x", flags);
--	fprintf(fp, "> ");
-+		print_hex(PRINT_ANY, NULL, "%x", flags);
-+	close_json_array(PRINT_ANY, "> ");
- }
- 
- static void vlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
-@@ -214,13 +228,19 @@ static void vlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 		return;
- 
- 	if (tb[IFLA_VLAN_PROTOCOL])
--		fprintf(f, "protocol %s ",
--			ll_proto_n2a(rta_getattr_u16(tb[IFLA_VLAN_PROTOCOL]),
-+		print_string(PRINT_ANY,
-+			     "protocol",
-+			     "protocol %s ",
-+			     ll_proto_n2a(
-+				     rta_getattr_u16(tb[IFLA_VLAN_PROTOCOL]),
- 				     b1, sizeof(b1)));
+ 	if (tb[IFLA_IPTUN_PMTUDISC] && rta_getattr_u8(tb[IFLA_IPTUN_PMTUDISC]))
+-		fprintf(f, "pmtudisc ");
++		print_bool(PRINT_ANY, "pmtudisc", "pmtudisc ", true);
  	else
--		fprintf(f, "protocol 802.1q ");
-+		print_string(PRINT_ANY, "protocol", "protocol %s ", "802.1q");
+-		fprintf(f, "nopmtudisc ");
++		print_bool(PRINT_ANY, "pmtudisc", "nopmtudisc ", false);
  
--	fprintf(f, "id %u ", rta_getattr_u16(tb[IFLA_VLAN_ID]));
-+	print_uint(PRINT_ANY,
-+		   "id",
-+		   "id %u ",
-+		   rta_getattr_u16(tb[IFLA_VLAN_ID]));
+ 	if (tb[IFLA_IPTUN_FLAGS]) {
+ 		__u16 iflags = rta_getattr_u16(tb[IFLA_IPTUN_FLAGS]);
  
- 	if (tb[IFLA_VLAN_FLAGS]) {
- 		if (RTA_PAYLOAD(tb[IFLA_VLAN_FLAGS]) < sizeof(*flags))
-@@ -229,13 +249,19 @@ static void vlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 		vlan_print_flags(f, flags->flags);
+ 		if (iflags & SIT_ISATAP)
+-			fprintf(f, "isatap ");
++			print_bool(PRINT_ANY, "isatap", "isatap ", true);
  	}
- 	if (tb[IFLA_VLAN_INGRESS_QOS])
--		vlan_print_map(f, "ingress-qos-map", tb[IFLA_VLAN_INGRESS_QOS]);
-+		vlan_print_map(f,
-+			       "ingress_qos",
-+			       "ingress-qos-map",
-+			       tb[IFLA_VLAN_INGRESS_QOS]);
- 	if (tb[IFLA_VLAN_EGRESS_QOS])
--		vlan_print_map(f, "egress-qos-map", tb[IFLA_VLAN_EGRESS_QOS]);
-+		vlan_print_map(f,
-+			       "egress_qos",
-+			       "egress-qos-map",
-+			       tb[IFLA_VLAN_EGRESS_QOS]);
+ 
+ 	if (tb[IFLA_IPTUN_6RD_PREFIXLEN] &&
+@@ -453,14 +465,32 @@ static void iptunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[
+ 		__u32 relayprefix =
+ 			rta_getattr_u32(tb[IFLA_IPTUN_6RD_RELAY_PREFIX]);
+ 
+-		printf("6rd-prefix %s/%u ",
+-		       inet_ntop(AF_INET6, RTA_DATA(tb[IFLA_IPTUN_6RD_PREFIX]),
+-				 s1, sizeof(s1)),
+-		       prefixlen);
+-		if (relayprefix) {
+-			printf("6rd-relay_prefix %s/%u ",
+-			       format_host(AF_INET, 4, &relayprefix),
+-			       relayprefixlen);
++		const char *prefix = inet_ntop(AF_INET6,
++					       RTA_DATA(tb[IFLA_IPTUN_6RD_PREFIX]),
++					       s1, sizeof(s1));
++
++		if (is_json_context()) {
++			print_string(PRINT_JSON, "prefix", NULL, prefix);
++			print_int(PRINT_JSON, "prefixlen", NULL, prefixlen);
++			if (relayprefix) {
++				print_string(PRINT_JSON,
++					     "relay_prefix",
++					     NULL,
++					     format_host(AF_INET,
++							 4,
++							 &relayprefix));
++				print_int(PRINT_JSON,
++					  "relay_prefixlen",
++					  NULL,
++					  relayprefixlen);
++			}
++		} else {
++			printf("6rd-prefix %s/%u ", prefix, prefixlen);
++			if (relayprefix) {
++				printf("6rd-relay_prefix %s/%u ",
++				       format_host(AF_INET, 4, &relayprefix),
++				       relayprefixlen);
++			}
+ 		}
+ 	}
+ 
+@@ -470,45 +500,72 @@ static void iptunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[
+ 		__u16 sport = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_SPORT]);
+ 		__u16 dport = rta_getattr_u16(tb[IFLA_IPTUN_ENCAP_DPORT]);
+ 
+-		fputs("encap ", f);
++		print_string(PRINT_FP, NULL, "encap ", NULL);
+ 		switch (type) {
+ 		case TUNNEL_ENCAP_FOU:
+-			fputs("fou ", f);
++			print_string(PRINT_ANY, "type", "%s ", "fou");
+ 			break;
+ 		case TUNNEL_ENCAP_GUE:
+-			fputs("gue ", f);
++			print_string(PRINT_ANY, "type", "%s ", "gue");
+ 			break;
+ 		default:
+-			fputs("unknown ", f);
++			print_null(PRINT_ANY, "type", "unknown ", NULL);
+ 			break;
+ 		}
+ 
+-		if (sport == 0)
+-			fputs("encap-sport auto ", f);
+-		else
+-			fprintf(f, "encap-sport %u", ntohs(sport));
++		if (is_json_context()) {
++			print_uint(PRINT_JSON,
++				   "sport",
++				   NULL,
++				   sport ? ntohs(sport) : 0);
++			print_uint(PRINT_JSON, "dport", NULL, ntohs(dport));
++			print_bool(PRINT_JSON,
++				   "csum",
++				   NULL,
++				   flags & TUNNEL_ENCAP_FLAG_CSUM);
++			print_bool(PRINT_JSON,
++				   "csum6",
++				   NULL,
++				   flags & TUNNEL_ENCAP_FLAG_CSUM6);
++			print_bool(PRINT_JSON,
++				   "remcsum",
++				   NULL,
++				   flags & TUNNEL_ENCAP_FLAG_REMCSUM);
++			close_json_object();
++		} else {
++			if (sport == 0)
++				fputs("encap-sport auto ", f);
++			else
++				fprintf(f, "encap-sport %u", ntohs(sport));
+ 
+-		fprintf(f, "encap-dport %u ", ntohs(dport));
++			fprintf(f, "encap-dport %u ", ntohs(dport));
+ 
+-		if (flags & TUNNEL_ENCAP_FLAG_CSUM)
+-			fputs("encap-csum ", f);
+-		else
+-			fputs("noencap-csum ", f);
++			if (flags & TUNNEL_ENCAP_FLAG_CSUM)
++				fputs("encap-csum ", f);
++			else
++				fputs("noencap-csum ", f);
+ 
+-		if (flags & TUNNEL_ENCAP_FLAG_CSUM6)
+-			fputs("encap-csum6 ", f);
+-		else
+-			fputs("noencap-csum6 ", f);
++			if (flags & TUNNEL_ENCAP_FLAG_CSUM6)
++				fputs("encap-csum6 ", f);
++			else
++				fputs("noencap-csum6 ", f);
+ 
+-		if (flags & TUNNEL_ENCAP_FLAG_REMCSUM)
+-			fputs("encap-remcsum ", f);
+-		else
+-			fputs("noencap-remcsum ", f);
++			if (flags & TUNNEL_ENCAP_FLAG_REMCSUM)
++				fputs("encap-remcsum ", f);
++			else
++				fputs("noencap-remcsum ", f);
++		}
+ 	}
+ 
+-	if (tb[IFLA_IPTUN_FWMARK] && rta_getattr_u32(tb[IFLA_IPTUN_FWMARK]))
+-		fprintf(f, "fwmark 0x%x ",
+-			rta_getattr_u32(tb[IFLA_IPTUN_FWMARK]));
++	if (tb[IFLA_IPTUN_FWMARK]) {
++		__u32 fwmark = rta_getattr_u32(tb[IFLA_IPTUN_FWMARK]);
++
++		if (fwmark) {
++			snprintf(s2, sizeof(s2), "0x%x", fwmark);
++
++			print_string(PRINT_ANY, "fwmark", "fwmark %s ", s2);
++		}
++	}
  }
  
- static void vlan_print_help(struct link_util *lu, int argc, char **argv,
--	FILE *f)
-+			    FILE *f)
- {
- 	print_explain(f);
- }
+ static void iptunnel_print_help(struct link_util *lu, int argc, char **argv,
 -- 
 2.14.1
