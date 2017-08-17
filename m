@@ -1,42 +1,39 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 0/7] Covscan: Fixes for string termination
-Date: Thu, 17 Aug 2017 19:09:25 +0200
-Message-ID: <20170817170932.24659-1-phil@nwl.cc>
+Subject: [iproute PATCH v2 2/7] ipntable: No need to check and assign to parms_rta
+Date: Thu, 17 Aug 2017 19:09:26 +0200
+Message-ID: <20170817170931.24089-3-phil@nwl.cc>
+References: <20170817170931.24089-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:43241 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:59945 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753374AbdHQRMI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 13:12:08 -0400
+        id S1753300AbdHQRMO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 13:12:14 -0400
+In-Reply-To: <20170817170931.24089-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series collects patches from v1 dealing with code potentially
-leaving string buffers unterminated. This does not include situations
-where it happens for parsed interface names since an overall solution
-was attempted for that and it's state is still unclear due to lack of
-feedback from upstream.
+This variable is initialized at declaration and nowhere else does any
+assignment to it happen, so just drop the check.
 
-No changes to the actual patches, just splitting into smaller series.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ ip/ipntable.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Phil Sutter (7):
-  ipntable: Make sure filter.name is NULL-terminated
-  xfrm_state: Make sure alg_name is NULL-terminated
-  lib/fs: Fix format string in find_fs_mount()
-  lib/inet_proto: Make sure destination buffers are NULL-terminated
-  lnstat_util: Simplify alloc_and_open() a bit
-  tc/m_xt: Fix for potential string buffer overflows
-  lib/ll_map: Make sure im->name is NULL-terminated
-
- ip/ipntable.c      | 3 ++-
- ip/xfrm_state.c    | 3 ++-
- lib/fs.c           | 2 +-
- lib/inet_proto.c   | 9 ++++++---
- lib/ll_map.c       | 4 ++--
- misc/lnstat_util.c | 7 ++-----
- tc/m_xt.c          | 7 ++++---
- 7 files changed, 19 insertions(+), 16 deletions(-)
-
+diff --git a/ip/ipntable.c b/ip/ipntable.c
+index 7be1f04d33d90..30907146e85a3 100644
+--- a/ip/ipntable.c
++++ b/ip/ipntable.c
+@@ -202,8 +202,6 @@ static int ipntable_modify(int cmd, int flags, int argc, char **argv)
+ 			if (get_u32(&queue, *argv, 0))
+ 				invarg("\"queue\" value is invalid", *argv);
+ 
+-			if (!parms_rta)
+-				parms_rta = (struct rtattr *)&parms_buf;
+ 			rta_addattr32(parms_rta, sizeof(parms_buf),
+ 				      NDTPA_QUEUE_LEN, queue);
+ 			parms_change = 1;
 -- 
 2.13.1
