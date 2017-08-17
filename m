@@ -1,113 +1,107 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 01/15] net/mlx5e: Send PAOS command on interface up/down
-Date: Thu, 17 Aug 2017 16:29:49 +0300
-Message-ID: <20170817133003.16900-2-saeedm@mellanox.com>
+Subject: [net-next 05/15] net/mlx5e: Add PCIe outbound stalls counters
+Date: Thu, 17 Aug 2017 16:29:53 +0300
+Message-ID: <20170817133003.16900-6-saeedm@mellanox.com>
 References: <20170817133003.16900-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
+        Gal Pressman <galp@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47108 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47119 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751575AbdHQNaR (ORCPT
+        with ESMTP id S1752246AbdHQNaR (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 09:30:17 -0400
 In-Reply-To: <20170817133003.16900-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-Upon interface up/down, driver will send POAS (Ports Administrative and
-Operational Status Register) in order to inform the Firmware on the
-desired status of the port by the driver.
+outbound_pci_stalled_rd - The percentage of time within the last second
+that the NIC had outbound non-posted read requests but could not perform
+the operation due to insufficient non-posted credits.
 
-Since now we might change physical link status on mlx5e_open/close,
-logical VF representor should not use mlx5e_open/close ndos as is, and
-should call the logical version mlx5e_open/closed_locked.
+outbound_pci_stalled_wr - The percentage of time within the
+last second that the NIC had outbound posted writes requests but could
+not perform the operation due to insufficient posted credits.
 
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+outbound_pci_stalled_rd_events - The number of events where
+outbound_pci_stalled_rd was above the threshold.
+
+outbound_pci_stalled_wr_events - The number of events where
+outbound_pci_stalled_wr was above the threshold.
+
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  7 +++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  | 20 +++++++++++++-------
- 2 files changed, 20 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c |  8 ++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h   | 13 ++++++++++++-
+ 2 files changed, 20 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 8633ca5af6ed..6921c6fe3087 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2682,6 +2682,8 @@ int mlx5e_open(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 917fade5f5d5..07202f7322fc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -246,6 +246,10 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, uint8_t *data)
+ 		strcpy(data + (idx++) * ETH_GSTRING_LEN,
+ 		       pcie_perf_stats_desc[i].format);
  
- 	mutex_lock(&priv->state_lock);
- 	err = mlx5e_open_locked(netdev);
-+	if (!err)
-+		mlx5_set_port_admin_status(priv->mdev, MLX5_PORT_UP);
- 	mutex_unlock(&priv->state_lock);
- 
- 	return err;
-@@ -2716,6 +2718,7 @@ int mlx5e_close(struct net_device *netdev)
- 		return -ENODEV;
- 
- 	mutex_lock(&priv->state_lock);
-+	mlx5_set_port_admin_status(priv->mdev, MLX5_PORT_DOWN);
- 	err = mlx5e_close_locked(netdev);
- 	mutex_unlock(&priv->state_lock);
- 
-@@ -4187,6 +4190,10 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
- 
- 	mlx5e_init_l2_addr(priv);
- 
-+	/* Marking the link as currently not needed by the Driver */
-+	if (!netif_running(netdev))
-+		mlx5_set_port_admin_status(mdev, MLX5_PORT_DOWN);
++	for (i = 0; i < NUM_PCIE_PERF_STALL_COUNTERS(priv); i++)
++		strcpy(data + (idx++) * ETH_GSTRING_LEN,
++		       pcie_perf_stall_stats_desc[i].format);
 +
- 	/* MTU range: 68 - hw-specific max */
- 	netdev->min_mtu = ETH_MIN_MTU;
- 	mlx5_query_port_max_mtu(priv->mdev, &max_mtu, 1);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index f34c00fbf78c..5e0f2d234ace 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -613,15 +613,18 @@ static int mlx5e_rep_open(struct net_device *dev)
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
- 	int err;
+ 	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
+ 		for (i = 0; i < NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS; i++)
+ 			sprintf(data + (idx++) * ETH_GSTRING_LEN,
+@@ -377,6 +381,10 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
+ 		data[idx++] = MLX5E_READ_CTR32_BE(&priv->stats.pcie.pcie_perf_counters,
+ 						  pcie_perf_stats_desc, i);
  
--	err = mlx5e_open(dev);
-+	mutex_lock(&priv->state_lock);
-+	err = mlx5e_open_locked(dev);
- 	if (err)
--		return err;
-+		goto unlock;
++	for (i = 0; i < NUM_PCIE_PERF_STALL_COUNTERS(priv); i++)
++		data[idx++] = MLX5E_READ_CTR32_BE(&priv->stats.pcie.pcie_perf_counters,
++						  pcie_perf_stall_stats_desc, i);
++
+ 	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
+ 		for (i = 0; i < NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS; i++)
+ 			data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pport.per_prio_counters[prio],
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+index e65517eafc58..bdddddc46170 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+@@ -305,6 +305,13 @@ static const struct counter_desc pcie_perf_stats_desc[] = {
+ 	{ "tx_pci_signal_integrity", PCIE_PERF_OFF(tx_errors) },
+ };
  
--	err = mlx5_eswitch_set_vport_state(esw, rep->vport, MLX5_ESW_VPORT_ADMIN_STATE_UP);
--	if (!err)
-+	if (!mlx5_eswitch_set_vport_state(esw, rep->vport,
-+					  MLX5_ESW_VPORT_ADMIN_STATE_UP))
- 		netif_carrier_on(dev);
++static const struct counter_desc pcie_perf_stall_stats_desc[] = {
++	{ "outbound_pci_stalled_rd", PCIE_PERF_OFF(outbound_stalled_reads) },
++	{ "outbound_pci_stalled_wr", PCIE_PERF_OFF(outbound_stalled_writes) },
++	{ "outbound_pci_stalled_rd_events", PCIE_PERF_OFF(outbound_stalled_reads_events) },
++	{ "outbound_pci_stalled_wr_events", PCIE_PERF_OFF(outbound_stalled_writes_events) },
++};
++
+ struct mlx5e_rq_stats {
+ 	u64 packets;
+ 	u64 bytes;
+@@ -397,6 +404,9 @@ static const struct counter_desc sq_stats_desc[] = {
+ #define NUM_PCIE_PERF_COUNTERS(priv) \
+ 	(ARRAY_SIZE(pcie_perf_stats_desc) * \
+ 	 MLX5_CAP_MCAM_FEATURE((priv)->mdev, pcie_performance_group))
++#define NUM_PCIE_PERF_STALL_COUNTERS(priv) \
++	(ARRAY_SIZE(pcie_perf_stall_stats_desc) * \
++	 MLX5_CAP_MCAM_FEATURE((priv)->mdev, pcie_outbound_stalled))
+ #define NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS \
+ 	ARRAY_SIZE(pport_per_prio_traffic_stats_desc)
+ #define NUM_PPORT_PER_PRIO_PFC_COUNTERS \
+@@ -407,7 +417,8 @@ static const struct counter_desc sq_stats_desc[] = {
+ 					 NUM_PPORT_PHY_STATISTICAL_COUNTERS(priv) + \
+ 					 NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS * \
+ 					 NUM_PPORT_PRIO)
+-#define NUM_PCIE_COUNTERS(priv)		NUM_PCIE_PERF_COUNTERS(priv)
++#define NUM_PCIE_COUNTERS(priv)		(NUM_PCIE_PERF_COUNTERS(priv) + \
++					 NUM_PCIE_PERF_STALL_COUNTERS(priv))
+ #define NUM_RQ_STATS			ARRAY_SIZE(rq_stats_desc)
+ #define NUM_SQ_STATS			ARRAY_SIZE(sq_stats_desc)
  
--	return 0;
-+unlock:
-+	mutex_unlock(&priv->state_lock);
-+	return err;
- }
- 
- static int mlx5e_rep_close(struct net_device *dev)
-@@ -630,10 +633,13 @@ static int mlx5e_rep_close(struct net_device *dev)
- 	struct mlx5e_rep_priv *rpriv = priv->ppriv;
- 	struct mlx5_eswitch_rep *rep = rpriv->rep;
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
-+	int ret;
- 
-+	mutex_lock(&priv->state_lock);
- 	(void)mlx5_eswitch_set_vport_state(esw, rep->vport, MLX5_ESW_VPORT_ADMIN_STATE_DOWN);
--
--	return mlx5e_close(dev);
-+	ret = mlx5e_close_locked(dev);
-+	mutex_unlock(&priv->state_lock);
-+	return ret;
- }
- 
- static int mlx5e_rep_get_phys_port_name(struct net_device *dev,
 -- 
 2.13.0
