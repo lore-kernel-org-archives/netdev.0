@@ -1,579 +1,704 @@
 From: Julien Fortin <julien@cumulusnetworks.com>
-Subject: [PATCH iproute2 json v2 11/27] ip: iplink_bridge_slave.c: add json output support
-Date: Thu, 17 Aug 2017 10:35:58 -0700
-Message-ID: <20170817173614.54987-12-julien@cumulusnetworks.com>
+Subject: [PATCH iproute2 json v2 12/27] ip: iplink_can.c: add json output support
+Date: Thu, 17 Aug 2017 10:35:59 -0700
+Message-ID: <20170817173614.54987-13-julien@cumulusnetworks.com>
 References: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
         dsa@cumulusnetworks.com, Julien Fortin <julien@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f178.google.com ([209.85.128.178]:35300 "EHLO
-        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753425AbdHQRlG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:41:06 -0400
-Received: by mail-wr0-f178.google.com with SMTP id 49so41470462wrw.2
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:41:05 -0700 (PDT)
+Received: from mail-wr0-f180.google.com ([209.85.128.180]:35372 "EHLO
+        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753541AbdHQRlP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:41:15 -0400
+Received: by mail-wr0-f180.google.com with SMTP id 49so41473753wrw.2
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:41:15 -0700 (PDT)
 In-Reply-To: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Julien Fortin <julien@cumulusnetworks.com>
 
-Schema:
-bridge_slave: IFLA_INFO_SLAVE_DATA
+Schema: IFLA_INFO_DATA
 {
+    "ctrlmode": {
+        "type": "array",
+        "attr": "IFLA_CAN_CTRLMODE",
+        "array": [
+            {
+                "type": "string"
+            }
+        ]
+    },
     "state": {
         "type": "string",
-        "attr": "IFLA_BRPORT_STATE",
-        "mutually_exclusive": {
-            "state_index": {
-                "type": "uint",
-                "comment": "if (state > BR_STATE_BLOCKING)"
+        "attr": "IFLA_CAN_STATE"
+    },
+    "berr_counter": {
+        "type": "dict",
+        "attr": "IFLA_CAN_BERR_COUNTER",
+        "dict": {
+            "tx": {
+                "type": "int"
+            },
+            "rx": {
+                "type": "int"
             }
         }
     },
-    "priority": {
+    "restart_ms": {
         "type": "int",
-        "attr": "IFLA_BRPORT_PRIORITY"
+        "attr": "IFLA_CAN_RESTART_MS"
     },
-    "cost": {
+    "bittiming": {
+        "type": "dict",
+        "attr": "IFLA_CAN_BITTIMING",
+        "dict": {
+            "bitrate": {
+                "type": "int"
+            },
+            "sample_point": {
+                "type": "float"
+            },
+            "tq": {
+                "type": "int"
+            },
+            "prop_seg": {
+                "type": "int"
+            },
+            "phase_seg1": {
+                "type": "int"
+            },
+            "phase_seg2": {
+                "type": "int"
+            },
+            "sjw": {
+                "type": "int"
+            }
+        }
+    },
+    "bittiming_const": {
+        "type": "dict",
+        "attr": "IFLA_CAN_BITTIMING_CONST",
+        "dict": {
+            "name": {
+                "type": "string"
+            },
+            "tseg1": {
+                "type": "dict",
+                "dict": {
+                    "min": {
+                        "type": "int"
+                    },
+                    "max": {
+                        "type": "int"
+                    }
+                }
+            },
+            "tseg2": {
+                "type": "dict",
+                "dict": {
+                    "min": {
+                        "type": "int"
+                    },
+                    "max": {
+                        "type": "int"
+                    }
+                }
+            },
+            "sjw": {
+                "type": "dict",
+                "dict": {
+                    "min": {
+                        "type": "int"
+                    },
+                    "max": {
+                        "type": "int"
+                    }
+                }
+            },
+            "brp": {
+                "type": "dict",
+                "dict": {
+                    "min": {
+                        "type": "int"
+                    },
+                    "max": {
+                        "type": "int"
+                    }
+                }
+            },
+            "brp_inc": {
+                "type": "int"
+            }
+        }
+    },
+    "bittiming_bitrate": {
+        "type": "uint",
+        "attr": "IFLA_CAN_BITTIMING"
+    },
+    "bitrate_const": {
+        "type": "array",
+        "attr": "IFLA_CAN_BITRATE_CONST",
+        "array": [
+            {
+                "type": "uint"
+            }
+        ]
+    },
+    "data_bittiming": {
+        "type": "dict",
+        "attr": "IFLA_CAN_DATA_BITTIMING",
+        "dict": {
+            "bitrate": {
+                "type": "int"
+            },
+            "sample_point": {
+                "type": "float"
+            },
+            "tq": {
+                "type": "int"
+            },
+            "prop_seg": {
+                "type": "int"
+            },
+            "phase_seg1": {
+                "type": "int"
+            },
+            "phase_seg2": {
+                "type": "int"
+            },
+            "sjw": {
+                "type": "int"
+            }
+        }
+    },
+    "data_bittiming_const": {
+        "type": "dict",
+        "attr": "IFLA_CAN_DATA_BITTIMING_CONST",
+        "dict": {
+            "name": {
+                "type": "string"
+            },
+            "tseg1": {
+                "type": "dict",
+                "dict": {
+                    "min": {
+                        "type": "int"
+                    },
+                    "max": {
+                        "type": "int"
+                    }
+                }
+            },
+            "tseg2": {
+                "type": "dict",
+                "dict": {
+                    "min": {
+                        "type": "int"
+                    },
+                    "max": {
+                        "type": "int"
+                    }
+                }
+            },
+            "sjw": {
+                "type": "dict",
+                "dict": {
+                    "min": {
+                        "type": "int"
+                    },
+                    "max": {
+                        "type": "int"
+                    }
+                }
+            },
+            "brp": {
+                "type": "dict",
+                "dict": {
+                    "min": {
+                        "type": "int"
+                    },
+                    "max": {
+                        "type": "int"
+                    }
+                }
+            },
+            "brp_inc": {
+                "type": "int"
+            }
+        }
+    },
+    "data_bittiming_bitrate": {
+        "type": "uint",
+        "attr": "IFLA_CAN_DATA_BITTIMING"
+    },
+    "data_bitrate_const": {
+        "type": "array",
+        "attr": "IFLA_CAN_DATA_BITRATE_CONST",
+        "array": [
+            {
+                "type": "uint"
+            }
+        ]
+    },
+    "termination": {
+        "type": "unsigned short",
+        "attr": "IFLA_CAN_TERMINATION"
+    },
+    "termination_const": {
+        "type": "array",
+        "attr": "IFLA_CAN_TERMINATION_CONST",
+        "array": [
+            {
+                "type": "unsigned short"
+            }
+        ]
+    },
+    "clock": {
         "type": "int",
-        "attr": "IFLA_BRPORT_COST"
-    },
-    "mode": {
-        "type": "bool",
-        "attr": "IFLA_BRPORT_MODE"
-    },
-    "guard": {
-        "type": "bool",
-        "attr": "IFLA_BRPORT_GUARD"
-    },
-    "protect": {
-        "type": "bool",
-        "attr": "IFLA_BRPORT_PROTECT"
-    },
-    "fast_leave": {
-        "type": "bool",
-        "attr": "IFLA_BRPORT_FAST_LEAVE"
-    },
-    "learning": {
-        "type": "bool",
-        "attr": "IFLA_BRPORT_LEARNING"
-    },
-    "unicast_flood": {
-        "type": "bool",
-        "attr": "IFLA_BRPORT_UNICAST_FLOOD"
-    },
-    "id": {
-        "type": "string",
-        "attr": "IFLA_BRPORT_ID"
-    },
-    "no": {
-        "type": "string",
-        "attr": "IFLA_BRPORT_NO"
-    },
-    "designated_port": {
-        "type": "uint",
-        "attr": "IFLA_BRPORT_DESIGNATED_PORT"
-    },
-    "designated_cost": {
-        "type": "uint",
-        "attr": "IFLA_BRPORT_DESIGNATED_COST"
-    },
-    "bridge_id": {
-        "type": "string",
-        "attr": "IFLA_BRPORT_BRIDGE_ID"
-    },
-    "root_id": {
-        "type": "string",
-        "attr": "IFLA_BRPORT_ROOT_ID"
-    },
-    "hold_timer": {
-        "type": "float",
-        "attr": "IFLA_BRPORT_HOLD_TIMER"
-    },
-    "message_age_timer": {
-        "type": "float",
-        "attr": "IFLA_BRPORT_MESSAGE_AGE_TIMER"
-    },
-    "forward_delay_timer": {
-        "type": "float",
-        "attr": "IFLA_BRPORT_FORWARD_DELAY_TIMER"
-    },
-    "topology_change_ack": {
-        "type": "uint",
-        "attr": "IFLA_BRPORT_TOPOLOGY_CHANGE_ACK"
-    },
-    "config_pending": {
-        "type": "uint",
-        "attr": "IFLA_BRPORT_CONFIG_PENDING"
-    },
-    "proxyarp": {
-        "type": "bool",
-        "attr": "IFLA_BRPORT_PROXYARP"
-    },
-    "proxyarp_wifi": {
-        "type": "bool",
-        "attr": "IFLA_BRPORT_PROXYARP_WIFI"
-    },
-    "multicast_router": {
-        "type": "uint",
-        "attr": "IFLA_BRPORT_MULTICAST_ROUTER"
-    },
-    "mcast_flood": {
-        "type": "bool",
-        "attr": "IFLA_BRPORT_MCAST_FLOOD"
+        "attr": "IFLA_CAN_CLOCK"
     }
 }
 
-$ ip link add dev br42 type bridge
-$ ip link add dev bond42 type bond
-$ ip link set dev bond42 master br42
-$ ip link set dev bond42 up
-$ ip link set dev br42 up
-$ ip -details link show
-$ ip -details link show
-15: br42: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state
-UP mode DEFAULT group default
-    link/ether 22:8f:91:bb:9f:09 brd ff:ff:ff:ff:ff:ff promiscuity 0
-    bridge forward_delay 1500 hello_time 200 max_age 2000 ageing_time
-30000 stp_state 0 priority 32768 vlan_filtering 0 vlan_protocol 802.1Q
-bridge_id 8000.22:8f:91:bb:9f:9 designated_root 8000.22:8f:91:bb:9f:9
-root_port 0 root_path_cost 0 topology_change 0 topology_change_detected 0
-hello_timer    0.00 tcn_timer    0.00 topology_change_timer    0.00
-gc_timer  199.11 vlan_default_pvid 1 vlan_stats_enabled 0 group_fwd_mask 0
-group_address 01:80:c2:00:00:00 mcast_snooping 1 mcast_router 1
-mcast_query_use_ifaddr 0 mcast_querier 0 mcast_hash_elasticity 4096
-mcast_hash_max 4096 mcast_last_member_count 2 mcast_startup_query_count 2
-mcast_last_member_interval 100 mcast_membership_interval 26000
-mcast_querier_interval 25500 mcast_query_interval 12500
-mcast_query_response_interval 1000 mcast_startup_query_interval 3125
-mcast_stats_enabled 0 mcast_igmp_version 2 mcast_mld_version 1
-nf_call_iptables 0 nf_call_ip6tables 0 nf_call_arptables 0 addrgenmode
-eui64
-16: bond42: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc
-noqueue master br42 state UNKNOWN mode DEFAULT group default
-    link/ether 22:8f:91:bb:9f:09 brd ff:ff:ff:ff:ff:ff promiscuity 1
-    bond mode 802.3ad miimon 100 updelay 0 downdelay 0 use_carrier 1
-arp_interval 0 arp_validate none arp_all_targets any primary_reselect
-always fail_over_mac none xmit_hash_policy layer3+4 resend_igmp 1
-num_grat_arp 1 all_slaves_active 0 min_links 1 lp_interval 1
-packets_per_slave 1 lacp_rate fast ad_select stable ad_actor_sys_prio
-65535 ad_user_port_key 0 ad_actor_system 00:00:00:00:00:00
-    bridge_slave state forwarding priority 8 cost 100 hairpin off guard
-off root_block off fastleave off learning on flood on port_id 0x8001
-port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge
-8000.22:8f:91:bb:9f:9 designated_root 8000.22:8f:91:bb:9f:9 hold_timer
-0.00 message_age_timer    0.00 forward_delay_timer    0.00
-topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off
-mcast_router 1 mcast_fast_leave off mcast_flood on neigh_suppress off
-addrgenmode eui64
-
-$ ip -details -json link show
-[{
-        "ifindex": 15,
-        "ifname": "br42",
-        "flags": ["BROADCAST","MULTICAST","UP","LOWER_UP"],
-        "mtu": 1500,
-        "qdisc": "noqueue",
-        "operstate": "UP",
-        "linkmode": "DEFAULT",
-        "group": "default",
-        "link_type": "ether",
-        "address": "22:8f:91:bb:9f:09",
-        "broadcast": "ff:ff:ff:ff:ff:ff",
-        "promiscuity": 0,
-        "linkinfo": {
-            "info_kind": "bridge",
-            "info_data": {
-                "forward_delay": 1500,
-                "hello_time": 200,
-                "max_age": 2000,
-                "ageing_time": 30000,
-                "stp_state": 0,
-                "priority": 32768,
-                "vlan_filtering": 0,
-                "vlan_protocol": "802.1Q",
-                "bridge_id": "8000.22:8f:91:bb:9f:9",
-                "root_id": "8000.22:8f:91:bb:9f:9",
-                "root_port": 0,
-                "root_path_cost": 0,
-                "topology_change": 0,
-                "topology_change_detected": 0,
-                "hello_timer": 0.00,
-                "tcn_timer": 0.00,
-                "topology_change_timer": 0.00,
-                "gc_timer": 298.27,
-                "vlan_default_pvid": 1,
-                "vlan_stats_enabled": 0,
-                "group_fwd_mask": "0",
-                "group_addr": "01:80:c2:00:00:00",
-                "mcast_snooping": 1,
-                "mcast_router": 1,
-                "mcast_query_use_ifaddr": 0,
-                "mcast_querier": 0,
-                "mcast_hash_elasticity": 4096,
-                "mcast_hash_max": 4096,
-                "mcast_last_member_cnt": 2,
-                "mcast_startup_query_cnt": 2,
-                "mcast_last_member_intvl": 100,
-                "mcast_membership_intvl": 26000,
-                "mcast_querier_intvl": 25500,
-                "mcast_query_intvl": 12500,
-                "mcast_query_response_intvl": 1000,
-                "mcast_startup_query_intvl": 3125,
-                "mcast_stats_enabled": 0,
-                "mcast_igmp_version": 2,
-                "mcast_mld_version": 1,
-                "nf_call_iptables": 0,
-                "nf_call_ip6tables": 0,
-                "nf_call_arptables": 0
-            }
-        },
-        "inet6_addr_gen_mode": "eui64",
-        "num_tx_queues": 1,
-        "num_rx_queues": 1,
-        "gso_max_size": 65536,
-        "gso_max_segs": 65535
-    },{
-        "ifindex": 16,
-        "ifname": "bond42",
-        "flags": ["BROADCAST","MULTICAST","MASTER","UP","LOWER_UP"],
-        "mtu": 1500,
-        "qdisc": "noqueue",
-        "master": "br42",
-        "operstate": "UNKNOWN",
-        "linkmode": "DEFAULT",
-        "group": "default",
-        "link_type": "ether",
-        "address": "22:8f:91:bb:9f:09",
-        "broadcast": "ff:ff:ff:ff:ff:ff",
-        "promiscuity": 1,
-        "linkinfo": {
-            "info_kind": "bond",
-            "info_data": {
-                "mode": "802.3ad",
-                "miimon": 100,
-                "updelay": 0,
-                "downdelay": 0,
-                "use_carrier": 1,
-                "arp_interval": 0,
-                "arp_validate": null,
-                "arp_all_targets": "any",
-                "primary_reselect": "always",
-                "fail_over_mac": "none",
-                "xmit_hash_policy": "layer3+4",
-                "resend_igmp": 1,
-                "num_peer_notif": 1,
-                "all_slaves_active": 0,
-                "min_links": 1,
-                "lp_interval": 1,
-                "packets_per_slave": 1,
-                "ad_lacp_rate": "fast",
-                "ad_select": "stable",
-                "ad_actor_sys_prio": 65535,
-                "ad_user_port_key": 0,
-                "ad_actor_system": "00:00:00:00:00:00"
-            },
-            "info_slave_kind": "bridge",
-            "info_slave_data": {
-                "state": "forwarding",
-                "priority": 8,
-                "cost": 100,
-                "hairpin": false,
-                "guard": false,
-                "root_block": false,
-                "fastleave": false,
-                "learning": true,
-                "flood": true,
-                "id": "0x8001",
-                "no": "0x1",
-                "designated_port": 32769,
-                "designated_cost": 0,
-                "bridge_id": "8000.22:8f:91:bb:9f:9",
-                "root_id": "8000.22:8f:91:bb:9f:9",
-                "hold_timer": 0.00,
-                "message_age_timer": 0.00,
-                "forward_delay_timer": 11.97,
-                "topology_change_ack": 0,
-                "config_pending": 0,
-                "proxy_arp": false,
-                "proxy_arp_wifi": false,
-                "multicast_router": 1,
-                "mcast_flood": true
-            }
-        },
-        "inet6_addr_gen_mode": "eui64",
-        "num_tx_queues": 16,
-        "num_rx_queues": 16,
-        "gso_max_size": 65536,
-        "gso_max_segs": 65535
+IFLA_INFO_XSTATS
+{
+    "restarts": {
+        "type": "int"
+    },
+    "bus_error": {
+        "type": "int"
+    },
+    "arbitration_lost": {
+        "type": "int"
+    },
+    "error_warning": {
+        "type": "int"
+    },
+    "error_passive": {
+        "type": "int"
+    },
+    "bus_off": {
+        "type": "int"
     }
-]
+}
 
 Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
 ---
- ip/iplink_bridge_slave.c | 185 +++++++++++++++++++++++++++++------------------
- 1 file changed, 114 insertions(+), 71 deletions(-)
+ ip/iplink_can.c | 282 ++++++++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 211 insertions(+), 71 deletions(-)
 
-diff --git a/ip/iplink_bridge_slave.c b/ip/iplink_bridge_slave.c
-index 3e883328..80272b09 100644
---- a/ip/iplink_bridge_slave.c
-+++ b/ip/iplink_bridge_slave.c
-@@ -56,14 +56,52 @@ static const char *port_states[] = {
- static void print_portstate(FILE *f, __u8 state)
+diff --git a/ip/iplink_can.c b/ip/iplink_can.c
+index 5df56b2b..f415558a 100644
+--- a/ip/iplink_can.c
++++ b/ip/iplink_can.c
+@@ -89,11 +89,11 @@ static void set_ctrlmode(char *name, char *arg,
+ 
+ static void print_ctrlmode(FILE *f, __u32 cm)
  {
- 	if (state <= BR_STATE_BLOCKING)
--		fprintf(f, "state %s ", port_states[state]);
-+		print_string(PRINT_ANY,
-+			     "state",
-+			     "state %s ",
-+			     port_states[state]);
- 	else
--		fprintf(f, "state (%d) ", state);
-+		print_int(PRINT_ANY, "state_index", "state (%d) ", state);
+-	fprintf(f, "<");
+-#define _PF(cmflag, cmname)					\
+-	if (cm & cmflag) {					\
+-		cm &= ~cmflag;					\
+-		fprintf(f, "%s%s", cmname, cm ? "," : "");	\
++	open_json_array(PRINT_ANY, is_json_context() ? "ctrlmode" : "<");
++#define _PF(cmflag, cmname)						\
++	if (cm & cmflag) {						\
++		cm &= ~cmflag;						\
++		print_string(PRINT_ANY, NULL, cm ? "%s," : "%s", cmname); \
+ 	}
+ 	_PF(CAN_CTRLMODE_LOOPBACK, "LOOPBACK");
+ 	_PF(CAN_CTRLMODE_LISTENONLY, "LISTEN-ONLY");
+@@ -105,8 +105,8 @@ static void print_ctrlmode(FILE *f, __u32 cm)
+ 	_PF(CAN_CTRLMODE_PRESUME_ACK, "PRESUME-ACK");
+ #undef _PF
+ 	if (cm)
+-		fprintf(f, "%x", cm);
+-	fprintf(f, "> ");
++		print_hex(PRINT_ANY, NULL, "%x", cm);
++	close_json_array(PRINT_ANY, "> ");
  }
  
--static void print_onoff(FILE *f, char *flag, __u8 val)
-+static void _print_onoff(FILE *f, char *json_flag, char *flag, __u8 val)
- {
--	fprintf(f, "%s %s ", flag, val ? "on" : "off");
-+	if (is_json_context())
-+		print_bool(PRINT_JSON, flag, NULL, val);
-+	else
-+		fprintf(f, "%s %s ", flag, val ? "on" : "off");
+ static int can_parse_opt(struct link_util *lu, int argc, char **argv,
+@@ -260,6 +260,14 @@ static const char *can_state_names[] = {
+ 	[CAN_STATE_SLEEPING] = "SLEEPING"
+ };
+ 
++static void can_print_json_timing_min_max(const char *attr, int min, int max)
++{
++	open_json_object(attr);
++	print_int(PRINT_JSON, "min", NULL, min);
++	print_int(PRINT_JSON, "max", NULL, max);
++	close_json_object();
 +}
 +
-+static void _print_hex(FILE *f,
-+		       const char *json_attr,
-+		       const char *attr,
-+		       __u16 val)
-+{
-+	if (is_json_context()) {
-+		SPRINT_BUF(b1);
-+
-+		snprintf(b1, sizeof(b1), "0x%x", val);
-+		print_string(PRINT_JSON, json_attr, NULL, b1);
-+	} else {
-+		fprintf(f, "%s 0x%x ", attr, val);
-+	}
-+}
-+
-+static void _print_timer(FILE *f, const char *attr, struct rtattr *timer)
-+{
-+	struct timeval tv;
-+
-+	__jiffies_to_tv(&tv, rta_getattr_u64(timer));
-+	if (is_json_context()) {
-+		json_writer_t *jw = get_json_writer();
-+
-+		jsonw_name(jw, attr);
-+		jsonw_printf(jw, "%i.%.2i",
-+			     (int)tv.tv_sec, (int)tv.tv_usec / 10000);
-+	} else {
-+		fprintf(f, "%s %4i.%.2i ", attr, (int)tv.tv_sec,
-+			(int)tv.tv_usec / 10000);
-+	}
- }
+ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ {
+ 	if (!tb)
+@@ -275,32 +283,64 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 	if (tb[IFLA_CAN_STATE]) {
+ 		uint32_t state = rta_getattr_u32(tb[IFLA_CAN_STATE]);
  
- static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
-@@ -76,59 +114,70 @@ static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
- 		print_portstate(f, rta_getattr_u8(tb[IFLA_BRPORT_STATE]));
- 
- 	if (tb[IFLA_BRPORT_PRIORITY])
--		fprintf(f, "priority %d ",
--			rta_getattr_u16(tb[IFLA_BRPORT_PRIORITY]));
-+		print_int(PRINT_ANY,
-+			  "priority",
-+			  "priority %d ",
-+			  rta_getattr_u16(tb[IFLA_BRPORT_PRIORITY]));
- 
- 	if (tb[IFLA_BRPORT_COST])
--		fprintf(f, "cost %d ",
--			rta_getattr_u32(tb[IFLA_BRPORT_COST]));
-+		print_int(PRINT_ANY,
-+			  "cost",
-+			  "cost %d ",
-+			  rta_getattr_u32(tb[IFLA_BRPORT_COST]));
- 
- 	if (tb[IFLA_BRPORT_MODE])
--		print_onoff(f, "hairpin",
--			    rta_getattr_u8(tb[IFLA_BRPORT_MODE]));
-+		_print_onoff(f, "mode", "hairpin",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_MODE]));
- 
- 	if (tb[IFLA_BRPORT_GUARD])
--		print_onoff(f, "guard",
--			    rta_getattr_u8(tb[IFLA_BRPORT_GUARD]));
-+		_print_onoff(f, "guard", "guard",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_GUARD]));
- 
- 	if (tb[IFLA_BRPORT_PROTECT])
--		print_onoff(f, "root_block",
--			    rta_getattr_u8(tb[IFLA_BRPORT_PROTECT]));
-+		_print_onoff(f, "protect", "root_block",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_PROTECT]));
- 
- 	if (tb[IFLA_BRPORT_FAST_LEAVE])
--		print_onoff(f, "fastleave",
--			    rta_getattr_u8(tb[IFLA_BRPORT_FAST_LEAVE]));
-+		_print_onoff(f, "fast_leave", "fastleave",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_FAST_LEAVE]));
- 
- 	if (tb[IFLA_BRPORT_LEARNING])
--		print_onoff(f, "learning",
--			rta_getattr_u8(tb[IFLA_BRPORT_LEARNING]));
-+		_print_onoff(f, "learning", "learning",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_LEARNING]));
- 
- 	if (tb[IFLA_BRPORT_UNICAST_FLOOD])
--		print_onoff(f, "flood",
--			rta_getattr_u8(tb[IFLA_BRPORT_UNICAST_FLOOD]));
-+		_print_onoff(f, "unicast_flood", "flood",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_UNICAST_FLOOD]));
- 
- 	if (tb[IFLA_BRPORT_ID])
--		fprintf(f, "port_id 0x%x ",
--			rta_getattr_u16(tb[IFLA_BRPORT_ID]));
-+		_print_hex(f, "id", "port_id",
-+			   rta_getattr_u16(tb[IFLA_BRPORT_ID]));
- 
- 	if (tb[IFLA_BRPORT_NO])
--		fprintf(f, "port_no 0x%x ",
--			rta_getattr_u16(tb[IFLA_BRPORT_NO]));
-+		_print_hex(f, "no", "port_no",
-+			   rta_getattr_u16(tb[IFLA_BRPORT_NO]));
- 
- 	if (tb[IFLA_BRPORT_DESIGNATED_PORT])
--		fprintf(f, "designated_port %u ",
--			rta_getattr_u16(tb[IFLA_BRPORT_DESIGNATED_PORT]));
-+		print_uint(PRINT_ANY,
-+			   "designated_port",
-+			   "designated_port %u ",
-+			   rta_getattr_u16(tb[IFLA_BRPORT_DESIGNATED_PORT]));
- 
- 	if (tb[IFLA_BRPORT_DESIGNATED_COST])
--		fprintf(f, "designated_cost %u ",
--			rta_getattr_u16(tb[IFLA_BRPORT_DESIGNATED_COST]));
-+		print_uint(PRINT_ANY,
-+			   "designated_cost",
-+			   "designated_cost %u ",
-+			   rta_getattr_u16(tb[IFLA_BRPORT_DESIGNATED_COST]));
- 
- 	if (tb[IFLA_BRPORT_BRIDGE_ID]) {
- 		char bridge_id[32];
- 
- 		br_dump_bridge_id(RTA_DATA(tb[IFLA_BRPORT_BRIDGE_ID]),
- 				  bridge_id, sizeof(bridge_id));
--		fprintf(f, "designated_bridge %s ", bridge_id);
-+		print_string(PRINT_ANY,
-+			     "bridge_id",
-+			     "designated_bridge %s ",
-+			     bridge_id);
+-		fprintf(f, "state %s ", state <= CAN_STATE_MAX ?
+-			can_state_names[state] : "UNKNOWN");
++		if (state <= CAN_STATE_MAX)
++			print_string(PRINT_ANY, "state", "state %s ",
++				     can_state_names[state]);
++		else
++			print_null(PRINT_ANY, "state", "state UNKNOWN", NULL);
  	}
  
- 	if (tb[IFLA_BRPORT_ROOT_ID]) {
-@@ -136,65 +185,59 @@ static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
+ 	if (tb[IFLA_CAN_BERR_COUNTER]) {
+ 		struct can_berr_counter *bc =
+ 			RTA_DATA(tb[IFLA_CAN_BERR_COUNTER]);
  
- 		br_dump_bridge_id(RTA_DATA(tb[IFLA_BRPORT_ROOT_ID]),
- 				  root_id, sizeof(root_id));
--		fprintf(f, "designated_root %s ", root_id);
--	}
--
--	if (tb[IFLA_BRPORT_HOLD_TIMER]) {
--		struct timeval tv;
--		__u64 htimer;
--
--		htimer = rta_getattr_u64(tb[IFLA_BRPORT_HOLD_TIMER]);
--		__jiffies_to_tv(&tv, htimer);
--		fprintf(f, "hold_timer %4i.%.2i ", (int)tv.tv_sec,
--			(int)tv.tv_usec/10000);
-+		print_string(PRINT_ANY,
-+			     "root_id",
-+			     "designated_root %s ", root_id);
+-		fprintf(f, "(berr-counter tx %d rx %d) ", bc->txerr, bc->rxerr);
++		if (is_json_context()) {
++			open_json_object("berr_counter");
++			print_int(PRINT_JSON, "tx", NULL, bc->txerr);
++			print_int(PRINT_JSON, "rx", NULL, bc->rxerr);
++			close_json_object();
++		} else {
++			fprintf(f, "(berr-counter tx %d rx %d) ",
++				bc->txerr, bc->rxerr);
++		}
  	}
  
--	if (tb[IFLA_BRPORT_MESSAGE_AGE_TIMER]) {
--		struct timeval tv;
--		__u64 agetimer;
-+	if (tb[IFLA_BRPORT_HOLD_TIMER])
-+		_print_timer(f, "hold_timer", tb[IFLA_BRPORT_HOLD_TIMER]);
+ 	if (tb[IFLA_CAN_RESTART_MS]) {
+ 		__u32 *restart_ms = RTA_DATA(tb[IFLA_CAN_RESTART_MS]);
  
--		agetimer = rta_getattr_u64(tb[IFLA_BRPORT_MESSAGE_AGE_TIMER]);
--		__jiffies_to_tv(&tv, agetimer);
--		fprintf(f, "message_age_timer %4i.%.2i ", (int)tv.tv_sec,
--			(int)tv.tv_usec/10000);
--	}
--
--	if (tb[IFLA_BRPORT_FORWARD_DELAY_TIMER]) {
--		struct timeval tv;
--		__u64 fwdtimer;
-+	if (tb[IFLA_BRPORT_MESSAGE_AGE_TIMER])
-+		_print_timer(f, "message_age_timer",
-+			     tb[IFLA_BRPORT_MESSAGE_AGE_TIMER]);
+-		fprintf(f, "restart-ms %d ", *restart_ms);
++		print_int(PRINT_ANY,
++			  "restart_ms",
++			  "restart-ms %d ",
++			  *restart_ms);
+ 	}
  
--		fwdtimer = rta_getattr_u64(tb[IFLA_BRPORT_FORWARD_DELAY_TIMER]);
--		__jiffies_to_tv(&tv, fwdtimer);
--		fprintf(f, "forward_delay_timer %4i.%.2i ", (int)tv.tv_sec,
--			(int)tv.tv_usec/10000);
--	}
-+	if (tb[IFLA_BRPORT_FORWARD_DELAY_TIMER])
-+		_print_timer(f, "forward_delay_timer",
-+			     tb[IFLA_BRPORT_FORWARD_DELAY_TIMER]);
+ 	/* bittiming is irrelevant if fixed bitrate is defined */
+ 	if (tb[IFLA_CAN_BITTIMING] && !tb[IFLA_CAN_BITRATE_CONST]) {
+ 		struct can_bittiming *bt = RTA_DATA(tb[IFLA_CAN_BITTIMING]);
  
- 	if (tb[IFLA_BRPORT_TOPOLOGY_CHANGE_ACK])
--		fprintf(f, "topology_change_ack %u ",
--			rta_getattr_u8(tb[IFLA_BRPORT_TOPOLOGY_CHANGE_ACK]));
-+		print_uint(PRINT_ANY,
-+			   "topology_change_ack",
-+			   "topology_change_ack %u ",
-+			   rta_getattr_u8(tb[IFLA_BRPORT_TOPOLOGY_CHANGE_ACK]));
+-		fprintf(f, "\n	  bitrate %d sample-point %.3f ",
+-			bt->bitrate, (float)bt->sample_point / 1000.);
+-		fprintf(f, "\n	  tq %d prop-seg %d phase-seg1 %d phase-seg2 %d sjw %d",
+-			bt->tq, bt->prop_seg, bt->phase_seg1, bt->phase_seg2,
+-			bt->sjw);
++		if (is_json_context()) {
++			open_json_object("bittiming");
++			print_int(PRINT_ANY, "bitrate", NULL, bt->bitrate);
++			jsonw_float_field_fmt(get_json_writer(),
++					      "sample_point", "%.3f",
++					      (float) bt->sample_point / 1000.);
++			print_int(PRINT_ANY, "tq", NULL, bt->tq);
++			print_int(PRINT_ANY, "prop_seg", NULL, bt->prop_seg);
++			print_int(PRINT_ANY, "phase_seg1",
++				  NULL, bt->phase_seg1);
++			print_int(PRINT_ANY, "phase_seg2",
++				  NULL, bt->phase_seg2);
++			print_int(PRINT_ANY, "sjw", NULL, bt->sjw);
++			close_json_object();
++		} else {
++			fprintf(f, "\n	  bitrate %d sample-point %.3f ",
++				bt->bitrate, (float) bt->sample_point / 1000.);
++			fprintf(f,
++				"\n	  tq %d prop-seg %d phase-seg1 %d phase-seg2 %d sjw %d",
++				bt->tq, bt->prop_seg,
++				bt->phase_seg1, bt->phase_seg2,
++				bt->sjw);
++		}
+ 	}
  
- 	if (tb[IFLA_BRPORT_CONFIG_PENDING])
--		fprintf(f, "config_pending %u ",
--			rta_getattr_u8(tb[IFLA_BRPORT_CONFIG_PENDING]));
-+		print_uint(PRINT_ANY,
-+			   "config_pending",
-+			   "config_pending %u ",
-+			   rta_getattr_u8(tb[IFLA_BRPORT_CONFIG_PENDING]));
+ 	/* bittiming const is irrelevant if fixed bitrate is defined */
+@@ -308,40 +348,68 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 		struct can_bittiming_const *btc =
+ 			RTA_DATA(tb[IFLA_CAN_BITTIMING_CONST]);
+ 
+-		fprintf(f, "\n	  %s: tseg1 %d..%d tseg2 %d..%d "
+-			"sjw 1..%d brp %d..%d brp-inc %d",
+-			btc->name, btc->tseg1_min, btc->tseg1_max,
+-			btc->tseg2_min, btc->tseg2_max, btc->sjw_max,
+-			btc->brp_min, btc->brp_max, btc->brp_inc);
++		if (is_json_context()) {
++			open_json_object("bittiming_const");
++			print_string(PRINT_JSON, "name", NULL, btc->name);
++			can_print_json_timing_min_max("tseg1",
++						      btc->tseg1_min,
++						      btc->tseg1_max);
++			can_print_json_timing_min_max("tseg2",
++						      btc->tseg2_min,
++						      btc->tseg2_max);
++			can_print_json_timing_min_max("sjw", 1, btc->sjw_max);
++			can_print_json_timing_min_max("brp",
++						      btc->brp_min,
++						      btc->brp_max);
++			print_int(PRINT_JSON, "brp_inc", NULL, btc->brp_inc);
++			close_json_object();
++		} else {
++			fprintf(f, "\n	  %s: tseg1 %d..%d tseg2 %d..%d "
++				"sjw 1..%d brp %d..%d brp-inc %d",
++				btc->name, btc->tseg1_min, btc->tseg1_max,
++				btc->tseg2_min, btc->tseg2_max, btc->sjw_max,
++				btc->brp_min, btc->brp_max, btc->brp_inc);
++		}
+ 	}
+ 
+ 	if (tb[IFLA_CAN_BITRATE_CONST]) {
+ 		__u32 *bitrate_const = RTA_DATA(tb[IFLA_CAN_BITRATE_CONST]);
+ 		int bitrate_cnt = RTA_PAYLOAD(tb[IFLA_CAN_BITRATE_CONST]) /
+-				  sizeof(*bitrate_const);
++			sizeof(*bitrate_const);
+ 		int i;
+ 		__u32 bitrate = 0;
+ 
+ 		if (tb[IFLA_CAN_BITTIMING]) {
+ 			struct can_bittiming *bt =
+-			    RTA_DATA(tb[IFLA_CAN_BITTIMING]);
++				RTA_DATA(tb[IFLA_CAN_BITTIMING]);
+ 			bitrate = bt->bitrate;
+ 		}
+ 
+-		fprintf(f, "\n	  bitrate %u", bitrate);
+-		fprintf(f, "\n	     [");
++		if (is_json_context()) {
++			print_uint(PRINT_JSON,
++				   "bittiming_bitrate",
++				   NULL, bitrate);
++			open_json_array(PRINT_JSON, "bitrate_const");
++			for (i = 0; i < bitrate_cnt; ++i)
++				print_uint(PRINT_JSON, NULL, NULL,
++					   bitrate_const[i]);
++			close_json_array(PRINT_JSON, NULL);
++		} else {
++			fprintf(f, "\n	  bitrate %u", bitrate);
++			fprintf(f, "\n	     [");
 +
- 	if (tb[IFLA_BRPORT_PROXYARP])
--		print_onoff(f, "proxy_arp",
--			    rta_getattr_u8(tb[IFLA_BRPORT_PROXYARP]));
-+		_print_onoff(f, "proxyarp", "proxy_arp",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_PROXYARP]));
++			for (i = 0; i < bitrate_cnt - 1; ++i) {
++				/* This will keep lines below 80 signs */
++				if (!(i % 6) && i)
++					fprintf(f, "\n	      ");
++
++				fprintf(f, "%8u, ", bitrate_const[i]);
++			}
  
- 	if (tb[IFLA_BRPORT_PROXYARP_WIFI])
--		print_onoff(f, "proxy_arp_wifi",
--			    rta_getattr_u8(tb[IFLA_BRPORT_PROXYARP_WIFI]));
-+		_print_onoff(f, "proxyarp_wifi", "proxy_arp_wifi",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_PROXYARP_WIFI]));
+-		for (i = 0; i < bitrate_cnt - 1; ++i) {
+-			/* This will keep lines below 80 signs */
+ 			if (!(i % 6) && i)
+ 				fprintf(f, "\n	      ");
+-
+-			fprintf(f, "%8u, ", bitrate_const[i]);
++			fprintf(f, "%8u ]", bitrate_const[i]);
+ 		}
+-
+-		if (!(i % 6) && i)
+-			fprintf(f, "\n	      ");
+-		fprintf(f, "%8u ]", bitrate_const[i]);
+ 	}
  
- 	if (tb[IFLA_BRPORT_MULTICAST_ROUTER])
--		fprintf(f, "mcast_router %u ",
--			rta_getattr_u8(tb[IFLA_BRPORT_MULTICAST_ROUTER]));
-+		print_uint(PRINT_ANY,
-+			   "multicast_router",
-+			   "mcast_router %u ",
-+			   rta_getattr_u8(tb[IFLA_BRPORT_MULTICAST_ROUTER]));
+ 	/* data bittiming is irrelevant if fixed bitrate is defined */
+@@ -349,12 +417,30 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 		struct can_bittiming *dbt =
+ 			RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING]);
  
- 	if (tb[IFLA_BRPORT_FAST_LEAVE])
--		print_onoff(f, "mcast_fast_leave",
--			    rta_getattr_u8(tb[IFLA_BRPORT_FAST_LEAVE]));
-+		// not printing any json here because
-+		// we already printed fast_leave before
-+		print_string(PRINT_FP,
-+			     NULL,
-+			     "mcast_fast_leave %s ",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_FAST_LEAVE]) ? "on" : "off");
+-		fprintf(f, "\n	  dbitrate %d dsample-point %.3f ",
+-			dbt->bitrate, (float)dbt->sample_point / 1000.);
+-		fprintf(f, "\n	  dtq %d dprop-seg %d dphase-seg1 %d "
+-			"dphase-seg2 %d dsjw %d",
+-			dbt->tq, dbt->prop_seg, dbt->phase_seg1,
+-			dbt->phase_seg2, dbt->sjw);
++		if (is_json_context()) {
++			open_json_object("data_bittiming");
++			print_int(PRINT_JSON, "bitrate", NULL, dbt->bitrate);
++			jsonw_float_field_fmt(get_json_writer(),
++					      "sample_point",
++					      "%.3f",
++					      (float) dbt->sample_point / 1000.);
++			print_int(PRINT_JSON, "tq", NULL, dbt->tq);
++			print_int(PRINT_JSON, "prop_seg", NULL, dbt->prop_seg);
++			print_int(PRINT_JSON, "phase_seg1",
++				  NULL, dbt->phase_seg1);
++			print_int(PRINT_JSON, "phase_seg2",
++				  NULL, dbt->phase_seg2);
++			print_int(PRINT_JSON, "sjw", NULL, dbt->sjw);
++			close_json_object();
++		} else {
++			fprintf(f, "\n	  dbitrate %d dsample-point %.3f ",
++				dbt->bitrate,
++				(float) dbt->sample_point / 1000.);
++			fprintf(f, "\n	  dtq %d dprop-seg %d dphase-seg1 %d "
++				"dphase-seg2 %d dsjw %d",
++				dbt->tq, dbt->prop_seg, dbt->phase_seg1,
++				dbt->phase_seg2, dbt->sjw);
++		}
+ 	}
  
- 	if (tb[IFLA_BRPORT_MCAST_FLOOD])
--		print_onoff(f, "mcast_flood",
--			rta_getattr_u8(tb[IFLA_BRPORT_MCAST_FLOOD]));
-+		_print_onoff(f, "mcast_flood", "mcast_flood",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_MCAST_FLOOD]));
+ 	/* data bittiming const is irrelevant if fixed bitrate is defined */
+@@ -363,63 +449,102 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 		struct can_bittiming_const *dbtc =
+ 			RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING_CONST]);
+ 
+-		fprintf(f, "\n	  %s: dtseg1 %d..%d dtseg2 %d..%d "
+-			"dsjw 1..%d dbrp %d..%d dbrp-inc %d",
+-			dbtc->name, dbtc->tseg1_min, dbtc->tseg1_max,
+-			dbtc->tseg2_min, dbtc->tseg2_max, dbtc->sjw_max,
+-			dbtc->brp_min, dbtc->brp_max, dbtc->brp_inc);
++		if (is_json_context()) {
++			open_json_object("data_bittiming_const");
++			print_string(PRINT_JSON, "name", NULL, dbtc->name);
++			can_print_json_timing_min_max("tseg1",
++						      dbtc->tseg1_min,
++						      dbtc->tseg1_max);
++			can_print_json_timing_min_max("tseg2",
++						      dbtc->tseg2_min,
++						      dbtc->tseg2_max);
++			can_print_json_timing_min_max("sjw", 1, dbtc->sjw_max);
++			can_print_json_timing_min_max("brp",
++						      dbtc->brp_min,
++						      dbtc->brp_max);
++
++			print_int(PRINT_JSON, "brp_inc", NULL, dbtc->brp_inc);
++			close_json_object();
++		} else {
++			fprintf(f, "\n	  %s: dtseg1 %d..%d dtseg2 %d..%d "
++				"dsjw 1..%d dbrp %d..%d dbrp-inc %d",
++				dbtc->name, dbtc->tseg1_min, dbtc->tseg1_max,
++				dbtc->tseg2_min, dbtc->tseg2_max, dbtc->sjw_max,
++				dbtc->brp_min, dbtc->brp_max, dbtc->brp_inc);
++		}
+ 	}
+ 
+ 	if (tb[IFLA_CAN_DATA_BITRATE_CONST]) {
+ 		__u32 *dbitrate_const =
+-		    RTA_DATA(tb[IFLA_CAN_DATA_BITRATE_CONST]);
++			RTA_DATA(tb[IFLA_CAN_DATA_BITRATE_CONST]);
+ 		int dbitrate_cnt =
+-		    RTA_PAYLOAD(tb[IFLA_CAN_DATA_BITRATE_CONST]) /
+-		    sizeof(*dbitrate_const);
++			RTA_PAYLOAD(tb[IFLA_CAN_DATA_BITRATE_CONST]) /
++			sizeof(*dbitrate_const);
+ 		int i;
+ 		__u32 dbitrate = 0;
+ 
+ 		if (tb[IFLA_CAN_DATA_BITTIMING]) {
+ 			struct can_bittiming *dbt =
+-			    RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING]);
++				RTA_DATA(tb[IFLA_CAN_DATA_BITTIMING]);
+ 			dbitrate = dbt->bitrate;
+ 		}
+ 
+-		fprintf(f, "\n	  dbitrate %u", dbitrate);
+-		fprintf(f, "\n	     [");
++		if (is_json_context()) {
++			print_uint(PRINT_JSON, "data_bittiming_bitrate",
++				   NULL, dbitrate);
++			open_json_array(PRINT_JSON, "data_bitrate_const");
++			for (i = 0; i < dbitrate_cnt; ++i)
++				print_uint(PRINT_JSON, NULL, NULL,
++					   dbitrate_const[i]);
++			close_json_array(PRINT_JSON, NULL);
++		} else {
++			fprintf(f, "\n	  dbitrate %u", dbitrate);
++			fprintf(f, "\n	     [");
++
++			for (i = 0; i < dbitrate_cnt - 1; ++i) {
++				/* This will keep lines below 80 signs */
++				if (!(i % 6) && i)
++					fprintf(f, "\n	      ");
++
++				fprintf(f, "%8u, ", dbitrate_const[i]);
++			}
+ 
+-		for (i = 0; i < dbitrate_cnt - 1; ++i) {
+-			/* This will keep lines below 80 signs */
+ 			if (!(i % 6) && i)
+ 				fprintf(f, "\n	      ");
+-
+-			fprintf(f, "%8u, ", dbitrate_const[i]);
++			fprintf(f, "%8u ]", dbitrate_const[i]);
+ 		}
+-
+-		if (!(i % 6) && i)
+-			fprintf(f, "\n	      ");
+-		fprintf(f, "%8u ]", dbitrate_const[i]);
+ 	}
+ 
+ 	if (tb[IFLA_CAN_TERMINATION_CONST] && tb[IFLA_CAN_TERMINATION]) {
+ 		__u16 *trm = RTA_DATA(tb[IFLA_CAN_TERMINATION]);
+ 		__u16 *trm_const = RTA_DATA(tb[IFLA_CAN_TERMINATION_CONST]);
+ 		int trm_cnt = RTA_PAYLOAD(tb[IFLA_CAN_TERMINATION_CONST]) /
+-			      sizeof(*trm_const);
++			sizeof(*trm_const);
+ 		int i;
+ 
+-		fprintf(f, "\n	  termination %hu [ ", *trm);
++		if (is_json_context()) {
++			print_hu(PRINT_JSON, "termination", NULL, *trm);
++			open_json_array(PRINT_JSON, "termination_const");
++			for (i = 0; i < trm_cnt; ++i)
++				print_hu(PRINT_JSON, NULL, NULL, trm_const[i]);
++			close_json_array(PRINT_JSON, NULL);
++		} else {
++			fprintf(f, "\n	  termination %hu [ ", *trm);
+ 
+-		for (i = 0; i < trm_cnt - 1; ++i)
+-			fprintf(f, "%hu, ", trm_const[i]);
++			for (i = 0; i < trm_cnt - 1; ++i)
++				fprintf(f, "%hu, ", trm_const[i]);
+ 
+-		fprintf(f, "%hu ]", trm_const[i]);
++			fprintf(f, "%hu ]", trm_const[i]);
++		}
+ 	}
+ 
+ 	if (tb[IFLA_CAN_CLOCK]) {
+ 		struct can_clock *clock = RTA_DATA(tb[IFLA_CAN_CLOCK]);
+ 
+-		fprintf(f, "\n	  clock %d", clock->freq);
++		print_int(PRINT_ANY,
++			  "clock",
++			  "\n	  clock %d",
++			  clock->freq);
+ 	}
+ 
+ }
+@@ -431,17 +556,32 @@ static void can_print_xstats(struct link_util *lu,
+ 
+ 	if (xstats && RTA_PAYLOAD(xstats) == sizeof(*stats)) {
+ 		stats = RTA_DATA(xstats);
+-		fprintf(f, "\n	  re-started bus-errors arbit-lost "
+-			"error-warn error-pass bus-off");
+-		fprintf(f, "\n	  %-10d %-10d %-10d %-10d %-10d %-10d",
+-			stats->restarts, stats->bus_error,
+-			stats->arbitration_lost, stats->error_warning,
+-			stats->error_passive, stats->bus_off);
++
++		if (is_json_context()) {
++			print_int(PRINT_JSON, "restarts",
++				  NULL, stats->restarts);
++			print_int(PRINT_JSON, "bus_error",
++				  NULL, stats->bus_error);
++			print_int(PRINT_JSON, "arbitration_lost",
++				  NULL, stats->arbitration_lost);
++			print_int(PRINT_JSON, "error_warning",
++				  NULL, stats->error_warning);
++			print_int(PRINT_JSON, "error_passive",
++				  NULL, stats->error_passive);
++			print_int(PRINT_JSON, "bus_off", NULL, stats->bus_off);
++		} else {
++			fprintf(f, "\n	  re-started bus-errors arbit-lost "
++				"error-warn error-pass bus-off");
++			fprintf(f, "\n	  %-10d %-10d %-10d %-10d %-10d %-10d",
++				stats->restarts, stats->bus_error,
++				stats->arbitration_lost, stats->error_warning,
++				stats->error_passive, stats->bus_off);
++		}
+ 	}
  }
  
- static void bridge_slave_parse_on_off(char *arg_name, char *arg_val,
+ static void can_print_help(struct link_util *lu, int argc, char **argv,
+-	FILE *f)
++			   FILE *f)
+ {
+ 	print_usage(f);
+ }
 -- 
 2.14.1
