@@ -1,34 +1,35 @@
 From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
 Subject: Re: [PATCH v4 1/4] can: dev: Add support for limiting configured
  bitrate
-Date: Thu, 17 Aug 2017 12:54:48 -0500
-Message-ID: <b1082666-6cdf-374e-2c83-8d520e0996ad@ti.com>
+Date: Thu, 17 Aug 2017 13:05:52 -0500
+Message-ID: <193455e6-524a-4897-cba0-5c37a943827f@ti.com>
 References: <20170810005916.27163-1-fcooper@ti.com>
  <20170810005916.27163-2-fcooper@ti.com>
- <9a6f4fdf-a4f6-283b-0e5a-693cc7d263ef@cogentembedded.com>
+ <4a96c6a8-b8c5-24a1-5e99-44751a0ae987@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
         <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
         <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
         <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
         <dev.kurt-yI9piX4KPfawT/RRk36CISFp6vIno51x@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+        <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>, <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9a6f4fdf-a4f6-283b-0e5a-693cc7d263ef-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+In-Reply-To: <4a96c6a8-b8c5-24a1-5e99-44751a0ae987-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 Content-Language: en-US
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-
-On 08/10/2017 05:05 AM, Sergei Shtylyov wrote:
-> Hello!
+Hi,
+On 08/10/2017 10:29 AM, Marc Kleine-Budde wrote:
+> Hello,
 > 
-> On 8/10/2017 3:59 AM, Franklin S Cooper Jr wrote:
+> sorry for stepping in late....
 > 
+> On 08/10/2017 02:59 AM, Franklin S Cooper Jr wrote:
 >> Various CAN or CAN-FD IP may be able to run at a faster rate than
 >> what the transceiver the CAN node is connected to. This can lead to
 >> unexpected errors. However, CAN transceivers typically have fixed
@@ -44,73 +45,140 @@ On 08/10/2017 05:05 AM, Sergei Shtylyov wrote:
 >> Version 4 changes:
 >> Used can-transceiver instead of fixed-transceiver.
 >>
->>   drivers/net/can/dev.c   | 50
->> +++++++++++++++++++++++++++++++++++++++++++++++++
->>   include/linux/can/dev.h |  5 +++++
->>   2 files changed, 55 insertions(+)
+>>  drivers/net/can/dev.c   | 50 +++++++++++++++++++++++++++++++++++++++++++++++++
+>>  include/linux/can/dev.h |  5 +++++
+>>  2 files changed, 55 insertions(+)
 >>
 >> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
 >> index 365a8cc..372108f 100644
 >> --- a/drivers/net/can/dev.c
 >> +++ b/drivers/net/can/dev.c
-> [...]
+>> @@ -27,6 +27,7 @@
+>>  #include <linux/can/skb.h>
+>>  #include <linux/can/netlink.h>
+>>  #include <linux/can/led.h>
+>> +#include <linux/of.h>
+>>  #include <net/rtnetlink.h>
+>>  
+>>  #define MOD_DESC "CAN device driver interface"
 >> @@ -814,6 +815,39 @@ int open_candev(struct net_device *dev)
->>   }
->>   EXPORT_SYMBOL_GPL(open_candev);
->>   +#ifdef CONFIG_OF
+>>  }
+>>  EXPORT_SYMBOL_GPL(open_candev);
+>>  
+>> +#ifdef CONFIG_OF
 >> +/*
 >> + * Common function that can be used to understand the limitation of
->> + * a transceiver when it provides no means to determine these
->> limitations
+>> + * a transceiver when it provides no means to determine these limitations
 >> + * at runtime.
 >> + */
 >> +void of_can_transceiver(struct net_device *dev)
 >> +{
->> +    struct device_node *dn;
->> +    struct can_priv *priv = netdev_priv(dev);
->> +    struct device_node *np;
->> +    unsigned int max_bitrate;
->> +    int ret;
+>> +	struct device_node *dn;
+>> +	struct can_priv *priv = netdev_priv(dev);
+>> +	struct device_node *np;
+>> +	unsigned int max_bitrate;
+>> +	int ret;
 >> +
->> +    np = dev->dev.parent->of_node;
+>> +	np = dev->dev.parent->of_node;
+>> +
+>> +	dn = of_get_child_by_name(np, "can-transceiver");
+>> +	if (!dn)
+>> +		return;
+>> +
+>> +	max_bitrate = 0;
+>> +	ret = of_property_read_u32(dn, "max-bitrate", &max_bitrate);
 > 
->    I'd do that as an initializer.
+> IIRC the last argument is only modified in case of no error, so what about:
+> 	ret = of_property_read_u32(dn, "max-bitrate",
+> 			&priv->max_bitrate);
 
-Ok
+That works
 > 
 >> +
->> +    dn = of_get_child_by_name(np, "can-transceiver");
->> +    if (!dn)
->> +        return;
->> +
->> +    max_bitrate = 0;
->> +    ret = of_property_read_u32(dn, "max-bitrate", &max_bitrate);
+>> +	if (max_bitrate > 0) {
+>> +		priv->max_bitrate = max_bitrate;
+>> +		priv->is_bitrate_limited = true;
 > 
->    I'd initialize max_bitrate to 0 as iff of_property_read_u32() fails,
-> it'll leave the variable unset...>
->> +
->> +    if (max_bitrate > 0) {
-> 
->    You risk checking unset variable here.
+> Do we need is_bitrate_limited...
 
-Four lines up I am already setting max_bitrate to a default value of 0.
-
+No.
 > 
->> +        priv->max_bitrate = max_bitrate;
->> +        priv->is_bitrate_limited = true;
->> +    } else if (ret != -EINVAL) {
->> +        netdev_warn(dev, "Invalid value for transceiver max bitrate\n");
->> +    }
+>> +	} else if (ret != -EINVAL) {
+>> +		netdev_warn(dev, "Invalid value for transceiver max bitrate\n");
+>> +	}
 >> +}
 >> +EXPORT_SYMBOL(of_can_transceiver);
 >> +#endif
 >> +
->>   /*
->>    * Common close function for cleanup before the device gets closed.
->>    *
-> [...]
+>>  /*
+>>   * Common close function for cleanup before the device gets closed.
+>>   *
+>> @@ -913,6 +947,14 @@ static int can_changelink(struct net_device *dev, struct nlattr *tb[],
+>>  					priv->bitrate_const_cnt);
+>>  		if (err)
+>>  			return err;
+>> +
+>> +		if (priv->is_bitrate_limited &&
+>> +		    bt.bitrate > priv->max_bitrate) {
 > 
-> MBR, Sergei
+> ...can we just use priv->max_bitrate?
+
+Yes
+
+Thanks for reviewing and for your feedback.
+> 
+> 	if (priv->max_bitrate && bt.bitrate > priv->max_bitrate)
+> 
+>> +			netdev_err(dev, "arbitration bitrate surpasses transceiver capabilities of %d bps\n",
+>> +				   priv->max_bitrate);
+>> +			return -EINVAL;
+>> +		}
+>> +
+>>  		memcpy(&priv->bittiming, &bt, sizeof(bt));
+>>  
+>>  		if (priv->do_set_bittiming) {
+>> @@ -997,6 +1039,14 @@ static int can_changelink(struct net_device *dev, struct nlattr *tb[],
+>>  					priv->data_bitrate_const_cnt);
+>>  		if (err)
+>>  			return err;
+>> +
+>> +		if (priv->is_bitrate_limited &&
+>> +		    dbt.bitrate > priv->max_bitrate) {
+>> +			netdev_err(dev, "canfd data bitrate surpasses transceiver capabilities of %d bps\n",
+>> +				   priv->max_bitrate);
+>> +			return -EINVAL;
+>> +		}
+>> +
+>>  		memcpy(&priv->data_bittiming, &dbt, sizeof(dbt));
+>>  
+>>  		if (priv->do_set_data_bittiming) {
+>> diff --git a/include/linux/can/dev.h b/include/linux/can/dev.h
+>> index 141b05a..5519f59 100644
+>> --- a/include/linux/can/dev.h
+>> +++ b/include/linux/can/dev.h
+>> @@ -47,6 +47,9 @@ struct can_priv {
+>>  	unsigned int data_bitrate_const_cnt;
+>>  	struct can_clock clock;
+>>  
+>> +	unsigned int max_bitrate;
+>> +	bool is_bitrate_limited;
+>> +
+>>  	enum can_state state;
+>>  
+>>  	/* CAN controller features - see include/uapi/linux/can/netlink.h */
+>> @@ -165,6 +168,8 @@ void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev,
+>>  unsigned int can_get_echo_skb(struct net_device *dev, unsigned int idx);
+>>  void can_free_echo_skb(struct net_device *dev, unsigned int idx);
+>>  
+>> +void of_can_transceiver(struct net_device *dev);
+>> +
+>>  struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf);
+>>  struct sk_buff *alloc_canfd_skb(struct net_device *dev,
+>>  				struct canfd_frame **cfd);
+>>
+> 
+> Marc
+> 
 --
 To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
