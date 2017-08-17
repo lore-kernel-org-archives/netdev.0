@@ -1,7 +1,7 @@
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V6 09/21] net-next/hinic: Add Rx mode and link event handler
-Date: Thu, 17 Aug 2017 20:25:17 +0800
-Message-ID: <13b5db166007fb0cc4ac807effdabd9d455a93c9.1502972068.git.aviad.krawczyk@huawei.com>
+Subject: [PATCH V6 07/21] net-next/hinic: Add aeqs
+Date: Thu, 17 Aug 2017 20:25:15 +0800
+Message-ID: <6da7c3a8dd75eef2537f600dcd926e6b0c186e37.1502972068.git.aviad.krawczyk@huawei.com>
 References: <cover.1502972068.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,1099 +15,858 @@ In-Reply-To: <cover.1502972068.git.aviad.krawczyk@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add port management message for setting Rx mode in the card,
-used for rx_mode netdev operation.
-The link event handler is used for getting a notification about the
-link state.
+Handle aeq elements that are accumulated on the aeq by calling the
+registered handler for the specific event.
 
 Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
 ---
- drivers/net/ethernet/huawei/hinic/hinic_dev.h     |  17 ++
- drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h  |   2 +
- drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c  | 118 +++++++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h  |  37 +++
- drivers/net/ethernet/huawei/hinic/hinic_hw_if.c   |  17 ++
- drivers/net/ethernet/huawei/hinic/hinic_hw_if.h   |  17 ++
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c |  64 ++++-
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h |  28 +++
- drivers/net/ethernet/huawei/hinic/hinic_main.c    | 284 ++++++++++++++++++++++
- drivers/net/ethernet/huawei/hinic/hinic_port.c    |  92 +++++++
- drivers/net/ethernet/huawei/hinic/hinic_port.h    |  66 +++++
- 11 files changed, 741 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h |  49 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c | 464 ++++++++++++++++++++++-
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h |  81 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.c  |  91 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.h  |  46 +++
+ 5 files changed, 729 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-index e54a45c..5c5b4e9 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-@@ -19,19 +19,36 @@
- #include <linux/netdevice.h>
- #include <linux/types.h>
- #include <linux/semaphore.h>
-+#include <linux/workqueue.h>
-+#include <linux/bitops.h>
- 
- #include "hinic_hw_dev.h"
- 
- #define HINIC_DRV_NAME          "hinic"
- 
-+enum hinic_flags {
-+	HINIC_LINK_UP = BIT(0),
-+	HINIC_INTF_UP = BIT(1),
-+};
-+
-+struct hinic_rx_mode_work {
-+	struct work_struct      work;
-+	u32                     rx_mode;
-+};
-+
- struct hinic_dev {
- 	struct net_device               *netdev;
- 	struct hinic_hwdev              *hwdev;
- 
- 	u32                             msg_enable;
- 
-+	unsigned int                    flags;
-+
- 	struct semaphore                mgmt_lock;
- 	unsigned long                   *vlan_bitmap;
-+
-+	struct hinic_rx_mode_work       rx_mode_work;
-+	struct workqueue_struct         *workq;
- };
- 
- #endif
 diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-index 52eb89c..1f57301 100644
+index ebbf054..52eb89c 100644
 --- a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
 +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-@@ -20,6 +20,8 @@
- #define HINIC_CSR_FUNC_ATTR0_ADDR                       0x0
- #define HINIC_CSR_FUNC_ATTR1_ADDR                       0x4
+@@ -65,4 +65,53 @@
+ #define HINIC_CSR_API_CMD_STATUS_ADDR(idx)              \
+ 	(HINIC_CSR_API_CMD_BASE + 0x30 + (idx) * HINIC_CSR_API_CMD_STRIDE)
  
-+#define HINIC_CSR_FUNC_ATTR5_ADDR                       0x14
++/* MSI-X registers */
++#define HINIC_CSR_MSIX_CTRL_BASE                        0x2000
++#define HINIC_CSR_MSIX_CNT_BASE                         0x2004
 +
- #define HINIC_DMA_ATTR_BASE                             0xC80
- #define HINIC_ELECTION_BASE                             0x4200
- 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-index 6bb6c33..75fd6d2 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-@@ -230,6 +230,114 @@ int hinic_port_msg_cmd(struct hinic_hwdev *hwdev, enum hinic_port_cmd cmd,
- }
- 
- /**
-+ * hinic_hwdev_cb_register - register callback handler for MGMT events
-+ * @hwdev: the NIC HW device
-+ * @cmd: the mgmt event
-+ * @handle: private data for the handler
-+ * @handler: event handler
-+ **/
-+void hinic_hwdev_cb_register(struct hinic_hwdev *hwdev,
-+			     enum hinic_mgmt_msg_cmd cmd, void *handle,
-+			     void (*handler)(void *handle, void *buf_in,
-+					     u16 in_size, void *buf_out,
-+					     u16 *out_size))
-+{
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_pfhwdev *pfhwdev;
-+	struct hinic_nic_cb *nic_cb;
-+	u8 cmd_cb;
++#define HINIC_CSR_MSIX_STRIDE                           0x8
 +
-+	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
-+		dev_err(&pdev->dev, "unsupported PCI Function type\n");
-+		return;
-+	}
++#define HINIC_CSR_MSIX_CTRL_ADDR(idx)                   \
++	(HINIC_CSR_MSIX_CTRL_BASE + (idx) * HINIC_CSR_MSIX_STRIDE)
 +
-+	pfhwdev = container_of(hwdev, struct hinic_pfhwdev, hwdev);
++#define HINIC_CSR_MSIX_CNT_ADDR(idx)                    \
++	(HINIC_CSR_MSIX_CNT_BASE + (idx) * HINIC_CSR_MSIX_STRIDE)
 +
-+	cmd_cb = cmd - HINIC_MGMT_MSG_CMD_BASE;
-+	nic_cb = &pfhwdev->nic_cb[cmd_cb];
++/* EQ registers */
++#define HINIC_AEQ_MTT_OFF_BASE_ADDR                     0x200
 +
-+	nic_cb->handler = handler;
-+	nic_cb->handle = handle;
-+	nic_cb->cb_state = HINIC_CB_ENABLED;
-+}
++#define HINIC_EQ_MTT_OFF_STRIDE                         0x40
 +
-+/**
-+ * hinic_hwdev_cb_unregister - unregister callback handler for MGMT events
-+ * @hwdev: the NIC HW device
-+ * @cmd: the mgmt event
-+ **/
-+void hinic_hwdev_cb_unregister(struct hinic_hwdev *hwdev,
-+			       enum hinic_mgmt_msg_cmd cmd)
-+{
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_pfhwdev *pfhwdev;
-+	struct hinic_nic_cb *nic_cb;
-+	u8 cmd_cb;
++#define HINIC_CSR_AEQ_MTT_OFF(id)                       \
++	(HINIC_AEQ_MTT_OFF_BASE_ADDR + (id) * HINIC_EQ_MTT_OFF_STRIDE)
 +
-+	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
-+		dev_err(&pdev->dev, "unsupported PCI Function type\n");
-+		return;
-+	}
++#define HINIC_CSR_EQ_PAGE_OFF_STRIDE                    8
 +
-+	pfhwdev = container_of(hwdev, struct hinic_pfhwdev, hwdev);
++#define HINIC_CSR_AEQ_HI_PHYS_ADDR_REG(q_id, pg_num)    \
++	(HINIC_CSR_AEQ_MTT_OFF(q_id) + \
++	 (pg_num) * HINIC_CSR_EQ_PAGE_OFF_STRIDE)
 +
-+	cmd_cb = cmd - HINIC_MGMT_MSG_CMD_BASE;
-+	nic_cb = &pfhwdev->nic_cb[cmd_cb];
++#define HINIC_CSR_AEQ_LO_PHYS_ADDR_REG(q_id, pg_num)    \
++	(HINIC_CSR_AEQ_MTT_OFF(q_id) + \
++	 (pg_num) * HINIC_CSR_EQ_PAGE_OFF_STRIDE + 4)
 +
-+	nic_cb->cb_state &= ~HINIC_CB_ENABLED;
++#define HINIC_AEQ_CTRL_0_ADDR_BASE                      0xE00
++#define HINIC_AEQ_CTRL_1_ADDR_BASE                      0xE04
++#define HINIC_AEQ_CONS_IDX_ADDR_BASE                    0xE08
++#define HINIC_AEQ_PROD_IDX_ADDR_BASE                    0xE0C
 +
-+	while (nic_cb->cb_state & HINIC_CB_RUNNING)
-+		schedule();
++#define HINIC_EQ_OFF_STRIDE                             0x80
 +
-+	nic_cb->handler = NULL;
-+}
++#define HINIC_CSR_AEQ_CTRL_0_ADDR(idx)                  \
++	(HINIC_AEQ_CTRL_0_ADDR_BASE + (idx) * HINIC_EQ_OFF_STRIDE)
 +
-+/**
-+ * nic_mgmt_msg_handler - nic mgmt event handler
-+ * @handle: private data for the handler
-+ * @buf_in: input buffer
-+ * @in_size: input size
-+ * @buf_out: output buffer
-+ * @out_size: returned output size
-+ **/
-+static void nic_mgmt_msg_handler(void *handle, u8 cmd, void *buf_in,
-+				 u16 in_size, void *buf_out, u16 *out_size)
-+{
-+	struct hinic_pfhwdev *pfhwdev = (struct hinic_pfhwdev *)handle;
-+	struct hinic_hwdev *hwdev = &pfhwdev->hwdev;
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_nic_cb *nic_cb;
-+	enum hinic_cb_state cb_state;
-+	u8 cmd_cb;
++#define HINIC_CSR_AEQ_CTRL_1_ADDR(idx)                  \
++	(HINIC_AEQ_CTRL_1_ADDR_BASE + (idx) * HINIC_EQ_OFF_STRIDE)
 +
-+	if ((cmd < HINIC_MGMT_MSG_CMD_BASE) ||
-+	    (cmd >= HINIC_MGMT_MSG_CMD_MAX)) {
-+		dev_err(&pdev->dev, "unknown L2NIC event, cmd = %d\n", cmd);
-+		return;
-+	}
++#define HINIC_CSR_AEQ_CONS_IDX_ADDR(idx)                \
++	(HINIC_AEQ_CONS_IDX_ADDR_BASE + (idx) * HINIC_EQ_OFF_STRIDE)
 +
-+	cmd_cb = (enum hinic_mgmt_msg_cmd)cmd - HINIC_MGMT_MSG_CMD_BASE;
++#define HINIC_CSR_AEQ_PROD_IDX_ADDR(idx)                \
++	(HINIC_AEQ_PROD_IDX_ADDR_BASE + (idx) * HINIC_EQ_OFF_STRIDE)
 +
-+	nic_cb = &pfhwdev->nic_cb[cmd_cb];
-+
-+	cb_state = cmpxchg(&nic_cb->cb_state,
-+			   HINIC_CB_ENABLED,
-+			   HINIC_CB_ENABLED | HINIC_CB_RUNNING);
-+
-+	if ((cb_state == HINIC_CB_ENABLED) && (nic_cb->handler))
-+		nic_cb->handler(nic_cb->handle, buf_in,
-+				in_size, buf_out, out_size);
-+	else
-+		dev_err(&pdev->dev, "Unhandled NIC Event %d\n", cmd);
-+
-+	nic_cb->cb_state &= ~HINIC_CB_RUNNING;
-+}
-+
-+/**
-  * init_pfhwdev - Initialize the extended components of PF
-  * @pfhwdev: the HW device for PF
+ #endif
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
+index a099d20..a53d5b3 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
+@@ -13,17 +13,74 @@
   *
-@@ -248,6 +356,10 @@ static int init_pfhwdev(struct hinic_pfhwdev *pfhwdev)
- 		return err;
- 	}
+  */
  
-+	hinic_register_mgmt_msg_cb(&pfhwdev->pf_to_mgmt, HINIC_MOD_L2NIC,
-+				   pfhwdev, nic_mgmt_msg_handler);
-+
-+	hinic_set_pf_action(hwif, HINIC_PF_MGMT_ACTIVE);
- 	return 0;
- }
- 
-@@ -257,6 +369,12 @@ static int init_pfhwdev(struct hinic_pfhwdev *pfhwdev)
-  **/
- static void free_pfhwdev(struct hinic_pfhwdev *pfhwdev)
- {
-+	struct hinic_hwdev *hwdev = &pfhwdev->hwdev;
-+
-+	hinic_set_pf_action(hwdev->hwif, HINIC_PF_MGMT_INIT);
-+
-+	hinic_unregister_mgmt_msg_cb(&pfhwdev->pf_to_mgmt, HINIC_MOD_L2NIC);
-+
- 	hinic_pf_to_mgmt_free(&pfhwdev->pf_to_mgmt);
- }
- 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-index ee9e76a..1cd8159 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-@@ -18,6 +18,7 @@
- 
- #include <linux/pci.h>
++#include <linux/kernel.h>
  #include <linux/types.h>
-+#include <linux/bitops.h>
+ #include <linux/errno.h>
+ #include <linux/pci.h>
+ #include <linux/device.h>
+ #include <linux/workqueue.h>
++#include <linux/interrupt.h>
++#include <linux/slab.h>
++#include <linux/dma-mapping.h>
++#include <linux/log2.h>
++#include <asm/byteorder.h>
++#include <asm/barrier.h>
  
++#include "hinic_hw_csr.h"
  #include "hinic_hw_if.h"
  #include "hinic_hw_eqs.h"
-@@ -25,6 +26,9 @@
  
- #define HINIC_MAX_QPS   32
+ #define HINIC_EQS_WQ_NAME                       "hinic_eqs"
  
-+#define HINIC_MGMT_NUM_MSG_CMD  (HINIC_MGMT_MSG_CMD_MAX - \
-+				 HINIC_MGMT_MSG_CMD_BASE)
++#define GET_EQ_NUM_PAGES(eq, pg_size)           \
++		(ALIGN((eq)->q_len * (eq)->elem_size, pg_size) / (pg_size))
 +
- struct hinic_cap {
- 	u16     max_qps;
- 	u16     num_qps;
-@@ -55,6 +59,19 @@ enum hinic_port_cmd {
- 	HINIC_PORT_CMD_GET_CAP          = 170,
- };
- 
-+enum hinic_mgmt_msg_cmd {
-+	HINIC_MGMT_MSG_CMD_BASE         = 160,
++#define GET_EQ_NUM_ELEMS_IN_PG(eq, pg_size)     ((pg_size) / (eq)->elem_size)
 +
-+	HINIC_MGMT_MSG_CMD_LINK_STATUS  = 160,
++#define EQ_CONS_IDX_REG_ADDR(eq)        HINIC_CSR_AEQ_CONS_IDX_ADDR((eq)->q_id)
++#define EQ_PROD_IDX_REG_ADDR(eq)        HINIC_CSR_AEQ_PROD_IDX_ADDR((eq)->q_id)
 +
-+	HINIC_MGMT_MSG_CMD_MAX,
++#define EQ_HI_PHYS_ADDR_REG(eq, pg_num) \
++		HINIC_CSR_AEQ_HI_PHYS_ADDR_REG((eq)->q_id, pg_num)
++
++#define EQ_LO_PHYS_ADDR_REG(eq, pg_num) \
++		HINIC_CSR_AEQ_LO_PHYS_ADDR_REG((eq)->q_id, pg_num)
++
++#define GET_EQ_ELEMENT(eq, idx)         \
++		((eq)->virt_addr[(idx) / (eq)->num_elem_in_pg] + \
++		 (((idx) & ((eq)->num_elem_in_pg - 1)) * (eq)->elem_size))
++
++#define GET_AEQ_ELEM(eq, idx)           ((struct hinic_aeq_elem *) \
++					GET_EQ_ELEMENT(eq, idx))
++
++#define GET_CURR_AEQ_ELEM(eq)           GET_AEQ_ELEM(eq, (eq)->cons_idx)
++
++#define PAGE_IN_4K(page_size)           ((page_size) >> 12)
++#define EQ_SET_HW_PAGE_SIZE_VAL(eq)     (ilog2(PAGE_IN_4K((eq)->page_size)))
++
++#define ELEMENT_SIZE_IN_32B(eq)         (((eq)->elem_size) >> 5)
++#define EQ_SET_HW_ELEM_SIZE_VAL(eq)     (ilog2(ELEMENT_SIZE_IN_32B(eq)))
++
++#define EQ_MAX_PAGES                    8
++
++#define aeq_to_aeqs(eq)                 \
++		container_of((eq) - (eq)->q_id, struct hinic_aeqs, aeq[0])
++
++#define work_to_aeq_work(work)          \
++		container_of(work, struct hinic_eq_work, work)
++
++#define DMA_ATTR_AEQ_DEFAULT            0
++
++enum eq_int_mode {
++	EQ_INT_MODE_ARMED,
++	EQ_INT_MODE_ALWAYS
 +};
 +
-+enum hinic_cb_state {
-+	HINIC_CB_ENABLED = BIT(0),
-+	HINIC_CB_RUNNING = BIT(1),
++enum eq_arm_state {
++	EQ_NOT_ARMED,
++	EQ_ARMED
 +};
 +
- struct hinic_hwdev {
- 	struct hinic_hwif               *hwif;
- 	struct msix_entry               *msix_entries;
-@@ -64,12 +81,32 @@ struct hinic_hwdev {
- 	struct hinic_cap                nic_cap;
- };
+ /**
+  * hinic_aeq_register_hw_cb - register AEQ callback for specific event
+  * @aeqs: pointer to Async eqs of the chip
+@@ -61,6 +118,326 @@ void hinic_aeq_unregister_hw_cb(struct hinic_aeqs *aeqs,
+ 	hwe_cb->hwe_handler = NULL;
+ }
  
-+struct hinic_nic_cb {
-+	void    (*handler)(void *handle, void *buf_in,
-+			   u16 in_size, void *buf_out,
-+			   u16 *out_size);
++static u8 eq_cons_idx_checksum_set(u32 val)
++{
++	u8 checksum = 0;
++	int idx;
 +
-+	void            *handle;
-+	unsigned long   cb_state;
-+};
++	for (idx = 0; idx < 32; idx += 4)
++		checksum ^= ((val >> idx) & 0xF);
 +
- struct hinic_pfhwdev {
- 	struct hinic_hwdev              hwdev;
- 
- 	struct hinic_pf_to_mgmt         pf_to_mgmt;
++	return (checksum & 0xF);
++}
 +
-+	struct hinic_nic_cb             nic_cb[HINIC_MGMT_NUM_MSG_CMD];
- };
- 
-+void hinic_hwdev_cb_register(struct hinic_hwdev *hwdev,
-+			     enum hinic_mgmt_msg_cmd cmd, void *handle,
-+			     void (*handler)(void *handle, void *buf_in,
-+					     u16 in_size, void *buf_out,
-+					     u16 *out_size));
++/**
++ * eq_update_ci - update the HW cons idx of event queue
++ * @eq: the event queue to update the cons idx for
++ **/
++static void eq_update_ci(struct hinic_eq *eq)
++{
++	u32 val, addr = EQ_CONS_IDX_REG_ADDR(eq);
 +
-+void hinic_hwdev_cb_unregister(struct hinic_hwdev *hwdev,
-+			       enum hinic_mgmt_msg_cmd cmd);
++	/* Read Modify Write */
++	val = hinic_hwif_read_reg(eq->hwif, addr);
 +
- int hinic_port_msg_cmd(struct hinic_hwdev *hwdev, enum hinic_port_cmd cmd,
- 		       void *buf_in, u16 in_size, void *buf_out,
- 		       u16 *out_size);
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
-index 2b9410c..d4e6ec4 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
-@@ -117,6 +117,23 @@ int hinic_msix_attr_cnt_clear(struct hinic_hwif *hwif, u16 msix_index)
++	val = HINIC_EQ_CI_CLEAR(val, IDX)       &
++	      HINIC_EQ_CI_CLEAR(val, WRAPPED)   &
++	      HINIC_EQ_CI_CLEAR(val, INT_ARMED) &
++	      HINIC_EQ_CI_CLEAR(val, XOR_CHKSUM);
++
++	val |= HINIC_EQ_CI_SET(eq->cons_idx, IDX)    |
++	       HINIC_EQ_CI_SET(eq->wrapped, WRAPPED) |
++	       HINIC_EQ_CI_SET(EQ_ARMED, INT_ARMED);
++
++	val |= HINIC_EQ_CI_SET(eq_cons_idx_checksum_set(val), XOR_CHKSUM);
++
++	hinic_hwif_write_reg(eq->hwif, addr, val);
++}
++
++/**
++ * aeq_irq_handler - handler for the AEQ event
++ * @eq: the Async Event Queue that received the event
++ **/
++static void aeq_irq_handler(struct hinic_eq *eq)
++{
++	struct hinic_aeqs *aeqs = aeq_to_aeqs(eq);
++	struct hinic_hwif *hwif = aeqs->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	struct hinic_aeq_elem *aeqe_curr;
++	struct hinic_hw_event_cb *hwe_cb;
++	enum hinic_aeq_type event;
++	unsigned long eqe_state;
++	u32 aeqe_desc;
++	int i, size;
++
++	for (i = 0; i < eq->q_len; i++) {
++		aeqe_curr = GET_CURR_AEQ_ELEM(eq);
++
++		/* Data in HW is in Big endian Format */
++		aeqe_desc = be32_to_cpu(aeqe_curr->desc);
++
++		/* HW toggles the wrapped bit, when it adds eq element */
++		if (HINIC_EQ_ELEM_DESC_GET(aeqe_desc, WRAPPED) == eq->wrapped)
++			break;
++
++		event = HINIC_EQ_ELEM_DESC_GET(aeqe_desc, TYPE);
++		if (event >= HINIC_MAX_AEQ_EVENTS) {
++			dev_err(&pdev->dev, "Unknown AEQ Event %d\n", event);
++			return;
++		}
++
++		if (!HINIC_EQ_ELEM_DESC_GET(aeqe_desc, SRC)) {
++			hwe_cb = &aeqs->hwe_cb[event];
++
++			size = HINIC_EQ_ELEM_DESC_GET(aeqe_desc, SIZE);
++
++			eqe_state = cmpxchg(&hwe_cb->hwe_state,
++					    HINIC_EQE_ENABLED,
++					    HINIC_EQE_ENABLED |
++					    HINIC_EQE_RUNNING);
++			if ((eqe_state == HINIC_EQE_ENABLED) &&
++			    (hwe_cb->hwe_handler))
++				hwe_cb->hwe_handler(hwe_cb->handle,
++						    aeqe_curr->data, size);
++			else
++				dev_err(&pdev->dev, "Unhandled AEQ Event %d\n",
++					event);
++
++			hwe_cb->hwe_state &= ~HINIC_EQE_RUNNING;
++		}
++
++		eq->cons_idx++;
++
++		if (eq->cons_idx == eq->q_len) {
++			eq->cons_idx = 0;
++			eq->wrapped = !eq->wrapped;
++		}
++	}
++}
++
++/**
++ * eq_irq_handler - handler for the EQ event
++ * @data: the Event Queue that received the event
++ **/
++static void eq_irq_handler(void *data)
++{
++	struct hinic_eq *eq = (struct hinic_eq *)data;
++
++	if (eq->type == HINIC_AEQ)
++		aeq_irq_handler(eq);
++
++	eq_update_ci(eq);
++}
++
++/**
++ * eq_irq_work - the work of the EQ that received the event
++ * @work: the work struct that is associated with the EQ
++ **/
++static void eq_irq_work(struct work_struct *work)
++{
++	struct hinic_eq_work *aeq_work = work_to_aeq_work(work);
++	struct hinic_eq *aeq;
++
++	aeq = (struct hinic_eq *)aeq_work->data;
++	eq_irq_handler(aeq);
++}
++
++/**
++ * aeq_interrupt - aeq interrupt handler
++ * @irq: irq number
++ * @data: the Async Event Queue that collected the event
++ **/
++static irqreturn_t aeq_interrupt(int irq, void *data)
++{
++	struct hinic_eq *aeq = (struct hinic_eq *)data;
++	struct hinic_aeqs *aeqs = aeq_to_aeqs(aeq);
++	struct hinic_eq_work *aeq_work;
++
++	/* clear resend timer cnt register */
++	hinic_msix_attr_cnt_clear(aeq->hwif, aeq->msix_entry.entry);
++
++	aeq_work = &aeq->aeq_work;
++	aeq_work->data = aeq;
++
++	queue_work(aeqs->workq, &aeq_work->work);
++
++	return IRQ_HANDLED;
++}
++
++void set_ctrl0(struct hinic_eq *eq)
++{
++	struct msix_entry *msix_entry = &eq->msix_entry;
++	struct  hinic_hwif *hwif = eq->hwif;
++	enum hinic_eq_type type = eq->type;
++	u32 addr, val, ctrl0;
++
++	if (type == HINIC_AEQ) {
++		/* RMW Ctrl0 */
++		addr = HINIC_CSR_AEQ_CTRL_0_ADDR(eq->q_id);
++
++		val = hinic_hwif_read_reg(hwif, addr);
++
++		val = HINIC_AEQ_CTRL_0_CLEAR(val, INT_IDX)      &
++		      HINIC_AEQ_CTRL_0_CLEAR(val, DMA_ATTR)     &
++		      HINIC_AEQ_CTRL_0_CLEAR(val, PCI_INTF_IDX) &
++		      HINIC_AEQ_CTRL_0_CLEAR(val, INT_MODE);
++
++		ctrl0 = HINIC_AEQ_CTRL_0_SET(msix_entry->entry, INT_IDX)     |
++			HINIC_AEQ_CTRL_0_SET(DMA_ATTR_AEQ_DEFAULT, DMA_ATTR) |
++			HINIC_AEQ_CTRL_0_SET(HINIC_HWIF_PCI_INTF(hwif),
++					     PCI_INTF_IDX)                   |
++			HINIC_AEQ_CTRL_0_SET(EQ_INT_MODE_ARMED, INT_MODE);
++
++		val |= ctrl0;
++
++		hinic_hwif_write_reg(hwif, addr, val);
++	}
++}
++
++void set_ctrl1(struct hinic_eq *eq)
++{
++	struct  hinic_hwif *hwif = eq->hwif;
++	enum hinic_eq_type type = eq->type;
++	u32 page_size_val, elem_size;
++	u32 addr, val, ctrl1;
++
++	if (type == HINIC_AEQ) {
++		/* RMW Ctrl1 */
++		addr = HINIC_CSR_AEQ_CTRL_1_ADDR(eq->q_id);
++
++		page_size_val = EQ_SET_HW_PAGE_SIZE_VAL(eq);
++		elem_size = EQ_SET_HW_ELEM_SIZE_VAL(eq);
++
++		val = hinic_hwif_read_reg(hwif, addr);
++
++		val = HINIC_AEQ_CTRL_1_CLEAR(val, LEN)          &
++		      HINIC_AEQ_CTRL_1_CLEAR(val, ELEM_SIZE)    &
++		      HINIC_AEQ_CTRL_1_CLEAR(val, PAGE_SIZE);
++
++		ctrl1 = HINIC_AEQ_CTRL_1_SET(eq->q_len, LEN)            |
++			HINIC_AEQ_CTRL_1_SET(elem_size, ELEM_SIZE)      |
++			HINIC_AEQ_CTRL_1_SET(page_size_val, PAGE_SIZE);
++
++		val |= ctrl1;
++
++		hinic_hwif_write_reg(hwif, addr, val);
++	}
++}
++
++/**
++ * set_eq_ctrls - setting eq's ctrl registers
++ * @eq: the Event Queue for setting
++ **/
++static void set_eq_ctrls(struct hinic_eq *eq)
++{
++	set_ctrl0(eq);
++	set_ctrl1(eq);
++}
++
++/**
++ * aeq_elements_init - initialize all the elements in the aeq
++ * @eq: the Async Event Queue
++ * @init_val: value to initialize the elements with it
++ **/
++static void aeq_elements_init(struct hinic_eq *eq, u32 init_val)
++{
++	struct hinic_aeq_elem *aeqe;
++	int i;
++
++	for (i = 0; i < eq->q_len; i++) {
++		aeqe = GET_AEQ_ELEM(eq, i);
++		aeqe->desc = cpu_to_be32(init_val);
++	}
++
++	wmb();  /* Write the initilzation values */
++}
++
++/**
++ * alloc_eq_pages - allocate the pages for the queue
++ * @eq: the event queue
++ *
++ * Return 0 - Success, Negative - Failure
++ **/
++static int alloc_eq_pages(struct hinic_eq *eq)
++{
++	struct hinic_hwif *hwif = eq->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	u32 init_val, addr, val;
++	size_t addr_size;
++	int err, pg;
++
++	addr_size = eq->num_pages * sizeof(*eq->dma_addr);
++	eq->dma_addr = devm_kzalloc(&pdev->dev, addr_size, GFP_KERNEL);
++	if (!eq->dma_addr)
++		return -ENOMEM;
++
++	addr_size = eq->num_pages * sizeof(*eq->virt_addr);
++	eq->virt_addr = devm_kzalloc(&pdev->dev, addr_size, GFP_KERNEL);
++	if (!eq->virt_addr) {
++		err = -ENOMEM;
++		goto err_virt_addr_alloc;
++	}
++
++	for (pg = 0; pg < eq->num_pages; pg++) {
++		eq->virt_addr[pg] = dma_zalloc_coherent(&pdev->dev,
++							eq->page_size,
++							&eq->dma_addr[pg],
++							GFP_KERNEL);
++		if (!eq->virt_addr[pg]) {
++			err = -ENOMEM;
++			goto err_dma_alloc;
++		}
++
++		addr = EQ_HI_PHYS_ADDR_REG(eq, pg);
++		val = upper_32_bits(eq->dma_addr[pg]);
++
++		hinic_hwif_write_reg(hwif, addr, val);
++
++		addr = EQ_LO_PHYS_ADDR_REG(eq, pg);
++		val = lower_32_bits(eq->dma_addr[pg]);
++
++		hinic_hwif_write_reg(hwif, addr, val);
++	}
++
++	init_val = HINIC_EQ_ELEM_DESC_SET(eq->wrapped, WRAPPED);
++
++	if (eq->type == HINIC_AEQ)
++		aeq_elements_init(eq, init_val);
++
++	return 0;
++
++err_dma_alloc:
++	while (--pg >= 0)
++		dma_free_coherent(&pdev->dev, eq->page_size,
++				  eq->virt_addr[pg],
++				  eq->dma_addr[pg]);
++
++	devm_kfree(&pdev->dev, eq->virt_addr);
++
++err_virt_addr_alloc:
++	devm_kfree(&pdev->dev, eq->dma_addr);
++	return err;
++}
++
++/**
++ * free_eq_pages - free the pages of the queue
++ * @eq: the Event Queue
++ **/
++static void free_eq_pages(struct hinic_eq *eq)
++{
++	struct hinic_hwif *hwif = eq->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	int pg;
++
++	for (pg = 0; pg < eq->num_pages; pg++)
++		dma_free_coherent(&pdev->dev, eq->page_size,
++				  eq->virt_addr[pg],
++				  eq->dma_addr[pg]);
++
++	devm_kfree(&pdev->dev, eq->virt_addr);
++	devm_kfree(&pdev->dev, eq->dma_addr);
++}
++
+ /**
+  * init_eq - initialize Event Queue
+  * @eq: the event queue
+@@ -77,8 +454,81 @@ static int init_eq(struct hinic_eq *eq, struct hinic_hwif *hwif,
+ 		   enum hinic_eq_type type, int q_id, u32 q_len, u32 page_size,
+ 		   struct msix_entry entry)
+ {
+-	/* should be implemented */
++	struct pci_dev *pdev = hwif->pdev;
++	int err;
++
++	eq->hwif = hwif;
++	eq->type = type;
++	eq->q_id = q_id;
++	eq->q_len = q_len;
++	eq->page_size = page_size;
++
++	/* Clear PI and CI, also clear the ARM bit */
++	hinic_hwif_write_reg(eq->hwif, EQ_CONS_IDX_REG_ADDR(eq), 0);
++	hinic_hwif_write_reg(eq->hwif, EQ_PROD_IDX_REG_ADDR(eq), 0);
++
++	eq->cons_idx = 0;
++	eq->wrapped = 0;
++
++	if (type == HINIC_AEQ) {
++		eq->elem_size = HINIC_AEQE_SIZE;
++	} else {
++		dev_err(&pdev->dev, "Invalid EQ type\n");
++		return -EINVAL;
++	}
++
++	eq->num_pages = GET_EQ_NUM_PAGES(eq, page_size);
++	eq->num_elem_in_pg = GET_EQ_NUM_ELEMS_IN_PG(eq, page_size);
++
++	eq->msix_entry = entry;
++
++	if (eq->num_elem_in_pg & (eq->num_elem_in_pg - 1)) {
++		dev_err(&pdev->dev, "num elements in eq page != power of 2\n");
++		return -EINVAL;
++	}
++
++	if (eq->num_pages > EQ_MAX_PAGES) {
++		dev_err(&pdev->dev, "too many pages for eq\n");
++		return -EINVAL;
++	}
++
++	set_eq_ctrls(eq);
++	eq_update_ci(eq);
++
++	err = alloc_eq_pages(eq);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to allocate pages for eq\n");
++		return err;
++	}
++
++	if (type == HINIC_AEQ) {
++		struct hinic_eq_work *aeq_work = &eq->aeq_work;
++
++		INIT_WORK(&aeq_work->work, eq_irq_work);
++	}
++
++	/* set the attributes of the msix entry */
++	hinic_msix_attr_set(eq->hwif, eq->msix_entry.entry,
++			    HINIC_EQ_MSIX_PENDING_LIMIT_DEFAULT,
++			    HINIC_EQ_MSIX_COALESC_TIMER_DEFAULT,
++			    HINIC_EQ_MSIX_LLI_TIMER_DEFAULT,
++			    HINIC_EQ_MSIX_LLI_CREDIT_LIMIT_DEFAULT,
++			    HINIC_EQ_MSIX_RESEND_TIMER_DEFAULT);
++
++	if (type == HINIC_AEQ)
++		err = request_irq(entry.vector, aeq_interrupt, 0,
++				  "hinic_aeq", eq);
++
++	if (err) {
++		dev_err(&pdev->dev, "Failed to request irq for the EQ\n");
++		goto err_req_irq;
++	}
++
+ 	return 0;
++
++err_req_irq:
++	free_eq_pages(eq);
++	return err;
  }
  
  /**
-+ * hinic_set_pf_action - set action on pf channel
+@@ -87,7 +537,17 @@ static int init_eq(struct hinic_eq *eq, struct hinic_hwif *hwif,
+  **/
+ static void remove_eq(struct hinic_eq *eq)
+ {
+-	/* should be implemented */
++	struct msix_entry *entry = &eq->msix_entry;
++
++	free_irq(entry->vector, eq);
++
++	if (eq->type == HINIC_AEQ) {
++		struct hinic_eq_work *aeq_work = &eq->aeq_work;
++
++		cancel_work_sync(&aeq_work->work);
++	}
++
++	free_eq_pages(eq);
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
+index 1580127..7f50b2f 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
+@@ -24,8 +24,84 @@
+ 
+ #include "hinic_hw_if.h"
+ 
++#define HINIC_AEQ_CTRL_0_INT_IDX_SHIFT          0
++#define HINIC_AEQ_CTRL_0_DMA_ATTR_SHIFT         12
++#define HINIC_AEQ_CTRL_0_PCI_INTF_IDX_SHIFT     20
++#define HINIC_AEQ_CTRL_0_INT_MODE_SHIFT         31
++
++#define HINIC_AEQ_CTRL_0_INT_IDX_MASK           0x3FF
++#define HINIC_AEQ_CTRL_0_DMA_ATTR_MASK          0x3F
++#define HINIC_AEQ_CTRL_0_PCI_INTF_IDX_MASK      0x3
++#define HINIC_AEQ_CTRL_0_INT_MODE_MASK          0x1
++
++#define HINIC_AEQ_CTRL_0_SET(val, member)       \
++			(((u32)(val) & HINIC_AEQ_CTRL_0_##member##_MASK) << \
++			 HINIC_AEQ_CTRL_0_##member##_SHIFT)
++
++#define HINIC_AEQ_CTRL_0_CLEAR(val, member)     \
++			((val) & (~(HINIC_AEQ_CTRL_0_##member##_MASK \
++			 << HINIC_AEQ_CTRL_0_##member##_SHIFT)))
++
++#define HINIC_AEQ_CTRL_1_LEN_SHIFT              0
++#define HINIC_AEQ_CTRL_1_ELEM_SIZE_SHIFT        24
++#define HINIC_AEQ_CTRL_1_PAGE_SIZE_SHIFT        28
++
++#define HINIC_AEQ_CTRL_1_LEN_MASK               0x1FFFFF
++#define HINIC_AEQ_CTRL_1_ELEM_SIZE_MASK         0x3
++#define HINIC_AEQ_CTRL_1_PAGE_SIZE_MASK         0xF
++
++#define HINIC_AEQ_CTRL_1_SET(val, member)       \
++			(((u32)(val) & HINIC_AEQ_CTRL_1_##member##_MASK) << \
++			 HINIC_AEQ_CTRL_1_##member##_SHIFT)
++
++#define HINIC_AEQ_CTRL_1_CLEAR(val, member)     \
++			((val) & (~(HINIC_AEQ_CTRL_1_##member##_MASK \
++			 << HINIC_AEQ_CTRL_1_##member##_SHIFT)))
++
++#define HINIC_EQ_ELEM_DESC_TYPE_SHIFT           0
++#define HINIC_EQ_ELEM_DESC_SRC_SHIFT            7
++#define HINIC_EQ_ELEM_DESC_SIZE_SHIFT           8
++#define HINIC_EQ_ELEM_DESC_WRAPPED_SHIFT        31
++
++#define HINIC_EQ_ELEM_DESC_TYPE_MASK            0x7F
++#define HINIC_EQ_ELEM_DESC_SRC_MASK             0x1
++#define HINIC_EQ_ELEM_DESC_SIZE_MASK            0xFF
++#define HINIC_EQ_ELEM_DESC_WRAPPED_MASK         0x1
++
++#define HINIC_EQ_ELEM_DESC_SET(val, member)     \
++			(((u32)(val) & HINIC_EQ_ELEM_DESC_##member##_MASK) << \
++			 HINIC_EQ_ELEM_DESC_##member##_SHIFT)
++
++#define HINIC_EQ_ELEM_DESC_GET(val, member)     \
++			(((val) >> HINIC_EQ_ELEM_DESC_##member##_SHIFT) & \
++			 HINIC_EQ_ELEM_DESC_##member##_MASK)
++
++#define HINIC_EQ_CI_IDX_SHIFT                   0
++#define HINIC_EQ_CI_WRAPPED_SHIFT               20
++#define HINIC_EQ_CI_XOR_CHKSUM_SHIFT            24
++#define HINIC_EQ_CI_INT_ARMED_SHIFT             31
++
++#define HINIC_EQ_CI_IDX_MASK                    0xFFFFF
++#define HINIC_EQ_CI_WRAPPED_MASK                0x1
++#define HINIC_EQ_CI_XOR_CHKSUM_MASK             0xF
++#define HINIC_EQ_CI_INT_ARMED_MASK              0x1
++
++#define HINIC_EQ_CI_SET(val, member)            \
++			(((u32)(val) & HINIC_EQ_CI_##member##_MASK) << \
++			 HINIC_EQ_CI_##member##_SHIFT)
++
++#define HINIC_EQ_CI_CLEAR(val, member)          \
++			((val) & (~(HINIC_EQ_CI_##member##_MASK \
++			 << HINIC_EQ_CI_##member##_SHIFT)))
++
+ #define HINIC_MAX_AEQS                  4
+ 
++#define HINIC_AEQE_SIZE                 64
++
++#define HINIC_AEQE_DESC_SIZE            4
++#define HINIC_AEQE_DATA_SIZE            \
++			(HINIC_AEQE_SIZE - HINIC_AEQE_DESC_SIZE)
++
+ #define HINIC_DEFAULT_AEQ_LEN           64
+ 
+ #define HINIC_EQ_PAGE_SIZE              SZ_4K
+@@ -45,6 +121,11 @@ enum hinic_eqe_state {
+ 	HINIC_EQE_RUNNING = BIT(1),
+ };
+ 
++struct hinic_aeq_elem {
++	u8      data[HINIC_AEQE_DATA_SIZE];
++	u32     desc;
++};
++
+ struct hinic_eq_work {
+ 	struct work_struct      work;
+ 	void                    *data;
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
+index edf1842..2b9410c 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
+@@ -25,6 +25,97 @@
+ 
+ #define PCIE_ATTR_ENTRY         0
+ 
++#define VALID_MSIX_IDX(attr, msix_index) ((msix_index) < (attr)->num_irqs)
++
++/**
++ * hinic_msix_attr_set - set message attribute for msix entry
 + * @hwif: the HW interface of a pci function device
-+ * @action: action on pf channel
++ * @msix_index: msix_index
++ * @pending_limit: the maximum pending interrupt events (unit 8)
++ * @coalesc_timer: coalesc period for interrupt (unit 8 us)
++ * @lli_timer: replenishing period for low latency credit (unit 8 us)
++ * @lli_credit_limit: maximum credits for low latency msix messages (unit 8)
++ * @resend_timer: maximum wait for resending msix (unit coalesc period)
 + *
 + * Return 0 - Success, negative - Failure
 + **/
-+void hinic_set_pf_action(struct hinic_hwif *hwif, enum hinic_pf_action action)
++int hinic_msix_attr_set(struct hinic_hwif *hwif, u16 msix_index,
++			u8 pending_limit, u8 coalesc_timer,
++			u8 lli_timer, u8 lli_credit_limit,
++			u8 resend_timer)
 +{
-+	u32 attr5 = hinic_hwif_read_reg(hwif, HINIC_CSR_FUNC_ATTR5_ADDR);
++	u32 msix_ctrl, addr;
 +
-+	attr5 = HINIC_FA5_CLEAR(attr5, PF_ACTION);
-+	attr5 |= HINIC_FA5_SET(action, PF_ACTION);
++	if (!VALID_MSIX_IDX(&hwif->attr, msix_index))
++		return -EINVAL;
 +
-+	hinic_hwif_write_reg(hwif, HINIC_CSR_FUNC_ATTR5_ADDR, attr5);
++	msix_ctrl = HINIC_MSIX_ATTR_SET(pending_limit, PENDING_LIMIT)   |
++		    HINIC_MSIX_ATTR_SET(coalesc_timer, COALESC_TIMER)   |
++		    HINIC_MSIX_ATTR_SET(lli_timer, LLI_TIMER)           |
++		    HINIC_MSIX_ATTR_SET(lli_credit_limit, LLI_CREDIT)   |
++		    HINIC_MSIX_ATTR_SET(resend_timer, RESEND_TIMER);
++
++	addr = HINIC_CSR_MSIX_CTRL_ADDR(msix_index);
++
++	hinic_hwif_write_reg(hwif, addr, msix_ctrl);
++	return 0;
 +}
 +
 +/**
++ * hinic_msix_attr_get - get message attribute of msix entry
++ * @hwif: the HW interface of a pci function device
++ * @msix_index: msix_index
++ * @pending_limit: the maximum pending interrupt events (unit 8)
++ * @coalesc_timer: coalesc period for interrupt (unit 8 us)
++ * @lli_timer: replenishing period for low latency credit (unit 8 us)
++ * @lli_credit_limit: maximum credits for low latency msix messages (unit 8)
++ * @resend_timer: maximum wait for resending msix (unit coalesc period)
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_msix_attr_get(struct hinic_hwif *hwif, u16 msix_index,
++			u8 *pending_limit, u8 *coalesc_timer,
++			u8 *lli_timer, u8 *lli_credit_limit,
++			u8 *resend_timer)
++{
++	u32 addr, val;
++
++	if (!VALID_MSIX_IDX(&hwif->attr, msix_index))
++		return -EINVAL;
++
++	addr = HINIC_CSR_MSIX_CTRL_ADDR(msix_index);
++	val  = hinic_hwif_read_reg(hwif, addr);
++
++	*pending_limit    = HINIC_MSIX_ATTR_GET(val, PENDING_LIMIT);
++	*coalesc_timer    = HINIC_MSIX_ATTR_GET(val, COALESC_TIMER);
++	*lli_timer        = HINIC_MSIX_ATTR_GET(val, LLI_TIMER);
++	*lli_credit_limit = HINIC_MSIX_ATTR_GET(val, LLI_CREDIT);
++	*resend_timer     = HINIC_MSIX_ATTR_GET(val, RESEND_TIMER);
++	return 0;
++}
++
++/**
++ * hinic_msix_attr_cnt_clear - clear message attribute counters for msix entry
++ * @hwif: the HW interface of a pci function device
++ * @msix_index: msix_index
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_msix_attr_cnt_clear(struct hinic_hwif *hwif, u16 msix_index)
++{
++	u32 msix_ctrl, addr;
++
++	if (!VALID_MSIX_IDX(&hwif->attr, msix_index))
++		return -EINVAL;
++
++	msix_ctrl = HINIC_MSIX_CNT_SET(1, RESEND_TIMER);
++
++	addr = HINIC_CSR_MSIX_CNT_ADDR(msix_index);
++
++	hinic_hwif_write_reg(hwif, addr, msix_ctrl);
++	return 0;
++}
++
+ /**
   * hwif_ready - test if the HW is ready for use
   * @hwif: the HW interface of a pci function device
-  *
 diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-index 707a046..2280698 100644
+index 98623d6..707a046 100644
 --- a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
 +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-@@ -73,6 +73,15 @@
- #define HINIC_FA1_GET(val, member)                              \
- 	(((val) >> HINIC_FA1_##member##_SHIFT) & HINIC_FA1_##member##_MASK)
+@@ -88,6 +88,34 @@
+ 	((val) & (~(HINIC_PPF_ELECTION_##member##_MASK          \
+ 	 << HINIC_PPF_ELECTION_##member##_SHIFT)))
  
-+#define HINIC_FA5_PF_ACTION_SHIFT                               0
-+#define HINIC_FA5_PF_ACTION_MASK                                0xFFFF
++#define HINIC_MSIX_PENDING_LIMIT_SHIFT                          0
++#define HINIC_MSIX_COALESC_TIMER_SHIFT                          8
++#define HINIC_MSIX_LLI_TIMER_SHIFT                              16
++#define HINIC_MSIX_LLI_CREDIT_SHIFT                             24
++#define HINIC_MSIX_RESEND_TIMER_SHIFT                           29
 +
-+#define HINIC_FA5_SET(val, member)                              \
-+	(((u32)(val) & HINIC_FA5_##member##_MASK) << HINIC_FA5_##member##_SHIFT)
++#define HINIC_MSIX_PENDING_LIMIT_MASK                           0xFF
++#define HINIC_MSIX_COALESC_TIMER_MASK                           0xFF
++#define HINIC_MSIX_LLI_TIMER_MASK                               0xFF
++#define HINIC_MSIX_LLI_CREDIT_MASK                              0x1F
++#define HINIC_MSIX_RESEND_TIMER_MASK                            0x7
 +
-+#define HINIC_FA5_CLEAR(val, member)                            \
-+	((val) & (~(HINIC_FA5_##member##_MASK << HINIC_FA5_##member##_SHIFT)))
++#define HINIC_MSIX_ATTR_SET(val, member)                        \
++	(((u32)(val) & HINIC_MSIX_##member##_MASK) <<           \
++	 HINIC_MSIX_##member##_SHIFT)
 +
- #define HINIC_PPF_ELECTION_IDX_SHIFT                            0
- #define HINIC_PPF_ELECTION_IDX_MASK                             0x1F
++#define HINIC_MSIX_ATTR_GET(val, member)                        \
++	(((val) >> HINIC_MSIX_##member##_SHIFT) &               \
++	 HINIC_MSIX_##member##_MASK)
++
++#define HINIC_MSIX_CNT_RESEND_TIMER_SHIFT                       29
++
++#define HINIC_MSIX_CNT_RESEND_TIMER_MASK                        0x1
++
++#define HINIC_MSIX_CNT_SET(val, member)                         \
++	(((u32)(val) & HINIC_MSIX_CNT_##member##_MASK) <<       \
++	 HINIC_MSIX_CNT_##member##_SHIFT)
++
+ #define HINIC_HWIF_NUM_AEQS(hwif)       ((hwif)->attr.num_aeqs)
+ #define HINIC_HWIF_NUM_CEQS(hwif)       ((hwif)->attr.num_ceqs)
+ #define HINIC_HWIF_NUM_IRQS(hwif)       ((hwif)->attr.num_irqs)
+@@ -105,6 +133,12 @@
+ #define HINIC_PCIE_AT_DISABLE           0
+ #define HINIC_PCIE_PH_DISABLE           0
  
-@@ -166,6 +175,12 @@ enum hinic_node_id {
- 	HINIC_NODE_ID_MGMT = 21,
- };
- 
-+enum hinic_pf_action {
-+	HINIC_PF_MGMT_INIT = 0x0,
++#define HINIC_EQ_MSIX_PENDING_LIMIT_DEFAULT     0       /* Disabled */
++#define HINIC_EQ_MSIX_COALESC_TIMER_DEFAULT     0xFF    /* max */
++#define HINIC_EQ_MSIX_LLI_TIMER_DEFAULT         0       /* Disabled */
++#define HINIC_EQ_MSIX_LLI_CREDIT_LIMIT_DEFAULT  0       /* Disabled */
++#define HINIC_EQ_MSIX_RESEND_TIMER_DEFAULT      7       /* max */
 +
-+	HINIC_PF_MGMT_ACTIVE = 0x11,
-+};
+ enum hinic_pcie_nosnoop {
+ 	HINIC_PCIE_SNOOP        = 0,
+ 	HINIC_PCIE_NO_SNOOP     = 1,
+@@ -166,6 +200,18 @@ static inline void hinic_hwif_write_reg(struct hinic_hwif *hwif, u32 reg,
+ 	writel(cpu_to_be32(val), hwif->cfg_regs_bar + reg);
+ }
+ 
++int hinic_msix_attr_set(struct hinic_hwif *hwif, u16 msix_index,
++			u8 pending_limit, u8 coalesc_timer,
++			u8 lli_timer_cfg, u8 lli_credit_limit,
++			u8 resend_timer);
 +
- struct hinic_func_attr {
- 	u16                     func_idx;
- 	u8                      pf_idx;
-@@ -212,6 +227,8 @@ int hinic_msix_attr_get(struct hinic_hwif *hwif, u16 msix_index,
- 
- int hinic_msix_attr_cnt_clear(struct hinic_hwif *hwif, u16 msix_index);
- 
-+void hinic_set_pf_action(struct hinic_hwif *hwif, enum hinic_pf_action action);
++int hinic_msix_attr_get(struct hinic_hwif *hwif, u16 msix_index,
++			u8 *pending_limit, u8 *coalesc_timer_cfg,
++			u8 *lli_timer, u8 *lli_credit_limit,
++			u8 *resend_timer);
++
++int hinic_msix_attr_cnt_clear(struct hinic_hwif *hwif, u16 msix_index);
 +
  int hinic_init_hwif(struct hinic_hwif *hwif, struct pci_dev *pdev);
  
  void hinic_free_hwif(struct hinic_hwif *hwif);
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-index 147c404..434e134 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-@@ -73,6 +73,46 @@ enum msg_ack_type {
- };
- 
- /**
-+ * hinic_register_mgmt_msg_cb - register msg handler for a msg from a module
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @mod: module in the chip that this handler will handle its messages
-+ * @handle: private data for the callback
-+ * @callback: the handler that will handle messages
-+ **/
-+void hinic_register_mgmt_msg_cb(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+				enum hinic_mod_type mod,
-+				void *handle,
-+				void (*callback)(void *handle,
-+						 u8 cmd, void *buf_in,
-+						 u16 in_size, void *buf_out,
-+						 u16 *out_size))
-+{
-+	struct hinic_mgmt_cb *mgmt_cb = &pf_to_mgmt->mgmt_cb[mod];
-+
-+	mgmt_cb->cb = callback;
-+	mgmt_cb->handle = handle;
-+	mgmt_cb->state = HINIC_MGMT_CB_ENABLED;
-+}
-+
-+/**
-+ * hinic_unregister_mgmt_msg_cb - unregister msg handler for a msg from a module
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @mod: module in the chip that this handler handles its messages
-+ **/
-+void hinic_unregister_mgmt_msg_cb(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+				  enum hinic_mod_type mod)
-+{
-+	struct hinic_mgmt_cb *mgmt_cb = &pf_to_mgmt->mgmt_cb[mod];
-+
-+	mgmt_cb->state &= ~HINIC_MGMT_CB_ENABLED;
-+
-+	while (mgmt_cb->state & HINIC_MGMT_CB_RUNNING)
-+		schedule();
-+
-+	mgmt_cb->cb = NULL;
-+}
-+
-+/**
-  * prepare_header - prepare the header of the message
-  * @pf_to_mgmt: PF to MGMT channel
-  * @msg_len: the length of the message
-@@ -337,9 +377,31 @@ static void mgmt_recv_msg_handler(struct hinic_pf_to_mgmt *pf_to_mgmt,
- 	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
- 	struct pci_dev *pdev = hwif->pdev;
- 	u8 *buf_out = recv_msg->buf_out;
-+	struct hinic_mgmt_cb *mgmt_cb;
-+	unsigned long cb_state;
- 	u16 out_size = 0;
- 
--	dev_err(&pdev->dev, "No MGMT msg handler, mod = %d\n", recv_msg->mod);
-+	if (recv_msg->mod >= HINIC_MOD_MAX) {
-+		dev_err(&pdev->dev, "Unknown MGMT MSG module = %d\n",
-+			recv_msg->mod);
-+		return;
-+	}
-+
-+	mgmt_cb = &pf_to_mgmt->mgmt_cb[recv_msg->mod];
-+
-+	cb_state = cmpxchg(&mgmt_cb->state,
-+			   HINIC_MGMT_CB_ENABLED,
-+			   HINIC_MGMT_CB_ENABLED | HINIC_MGMT_CB_RUNNING);
-+
-+	if ((cb_state == HINIC_MGMT_CB_ENABLED) && (mgmt_cb->cb))
-+		mgmt_cb->cb(mgmt_cb->handle, recv_msg->cmd,
-+			    recv_msg->msg, recv_msg->msg_len,
-+			    buf_out, &out_size);
-+	else
-+		dev_err(&pdev->dev, "No MGMT msg handler, mod = %d\n",
-+			recv_msg->mod);
-+
-+	mgmt_cb->state &= ~HINIC_MGMT_CB_RUNNING;
- 
- 	if (!recv_msg->async_mgmt_to_pf)
- 		/* MGMT sent sync msg, send the response */
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-index eca7ad8..8021406 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-@@ -19,6 +19,7 @@
- #include <linux/types.h>
- #include <linux/semaphore.h>
- #include <linux/completion.h>
-+#include <linux/bitops.h>
- 
- #include "hinic_hw_if.h"
- #include "hinic_hw_api_cmd.h"
-@@ -67,6 +68,11 @@ enum hinic_cfg_cmd {
- 	HINIC_CFG_NIC_CAP = 0,
- };
- 
-+enum hinic_mgmt_cb_state {
-+	HINIC_MGMT_CB_ENABLED = BIT(0),
-+	HINIC_MGMT_CB_RUNNING = BIT(1),
-+};
-+
- struct hinic_recv_msg {
- 	u8                      *msg;
- 	u8                      *buf_out;
-@@ -81,6 +87,15 @@ struct hinic_recv_msg {
- 	u16                     msg_id;
- };
- 
-+struct hinic_mgmt_cb {
-+	void    (*cb)(void *handle, u8 cmd,
-+		      void *buf_in, u16 in_size,
-+		      void *buf_out, u16 *out_size);
-+
-+	void            *handle;
-+	unsigned long   state;
-+};
-+
- struct hinic_pf_to_mgmt {
- 	struct hinic_hwif               *hwif;
- 
-@@ -92,8 +107,21 @@ struct hinic_pf_to_mgmt {
- 	struct hinic_recv_msg           recv_msg_from_mgmt;
- 
- 	struct hinic_api_cmd_chain      *cmd_chain[HINIC_API_CMD_MAX];
-+
-+	struct hinic_mgmt_cb            mgmt_cb[HINIC_MOD_MAX];
- };
- 
-+void hinic_register_mgmt_msg_cb(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+				enum hinic_mod_type mod,
-+				void *handle,
-+				void (*callback)(void *handle,
-+						 u8 cmd, void *buf_in,
-+						 u16 in_size, void *buf_out,
-+						 u16 *out_size));
-+
-+void hinic_unregister_mgmt_msg_cb(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+				  enum hinic_mod_type mod);
-+
- int hinic_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
- 		      enum hinic_mod_type mod, u8 cmd,
- 		      void *buf_in, u16 in_size, void *buf_out, u16 *out_size,
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-index f46c2bc..3fe8a6f 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_main.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-@@ -24,9 +24,11 @@
- #include <linux/slab.h>
- #include <linux/if_vlan.h>
- #include <linux/semaphore.h>
-+#include <linux/workqueue.h>
- #include <net/ip.h>
- #include <linux/bitops.h>
- #include <linux/bitmap.h>
-+#include <linux/delay.h>
- #include <linux/err.h>
- 
- #include "hinic_hw_dev.h"
-@@ -39,12 +41,99 @@
- 
- #define PCI_DEVICE_ID_HI1822_PF         0x1822
- 
-+#define HINIC_WQ_NAME                   "hinic_dev"
-+
- #define MSG_ENABLE_DEFAULT              (NETIF_MSG_DRV | NETIF_MSG_PROBE | \
- 					 NETIF_MSG_IFUP |                  \
- 					 NETIF_MSG_TX_ERR | NETIF_MSG_RX_ERR)
- 
- #define VLAN_BITMAP_SIZE(nic_dev)       (ALIGN(VLAN_N_VID, 8) / 8)
- 
-+#define work_to_rx_mode_work(work)      \
-+		container_of(work, struct hinic_rx_mode_work, work)
-+
-+#define rx_mode_work_to_nic_dev(rx_mode_work) \
-+		container_of(rx_mode_work, struct hinic_dev, rx_mode_work)
-+
-+static int change_mac_addr(struct net_device *netdev, const u8 *addr);
-+
-+static int hinic_open(struct net_device *netdev)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	enum hinic_port_link_state link_state;
-+	int err, ret;
-+
-+	err = hinic_port_set_state(nic_dev, HINIC_PORT_ENABLE);
-+	if (err) {
-+		netif_err(nic_dev, drv, netdev,
-+			  "Failed to set port state\n");
-+		return err;
-+	}
-+
-+	/* Wait up to 3 sec between port enable to link state */
-+	msleep(3000);
-+
-+	down(&nic_dev->mgmt_lock);
-+
-+	err = hinic_port_link_state(nic_dev, &link_state);
-+	if (err) {
-+		netif_err(nic_dev, drv, netdev, "Failed to get link state\n");
-+		goto err_port_link;
-+	}
-+
-+	if (link_state == HINIC_LINK_STATE_UP)
-+		nic_dev->flags |= HINIC_LINK_UP;
-+
-+	nic_dev->flags |= HINIC_INTF_UP;
-+
-+	if ((nic_dev->flags & (HINIC_LINK_UP | HINIC_INTF_UP)) ==
-+	    (HINIC_LINK_UP | HINIC_INTF_UP)) {
-+		netif_info(nic_dev, drv, netdev, "link + intf UP\n");
-+		netif_carrier_on(netdev);
-+		netif_tx_wake_all_queues(netdev);
-+	}
-+
-+	up(&nic_dev->mgmt_lock);
-+
-+	netif_info(nic_dev, drv, netdev, "HINIC_INTF is UP\n");
-+	return 0;
-+
-+err_port_link:
-+	up(&nic_dev->mgmt_lock);
-+	ret = hinic_port_set_state(nic_dev, HINIC_PORT_DISABLE);
-+	if (ret)
-+		netif_warn(nic_dev, drv, netdev,
-+			   "Failed to revert port state\n");
-+	return err;
-+}
-+
-+static int hinic_close(struct net_device *netdev)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	unsigned int flags;
-+	int err;
-+
-+	down(&nic_dev->mgmt_lock);
-+
-+	flags = nic_dev->flags;
-+	nic_dev->flags &= ~HINIC_INTF_UP;
-+
-+	netif_carrier_off(netdev);
-+	netif_tx_disable(netdev);
-+
-+	up(&nic_dev->mgmt_lock);
-+
-+	err = hinic_port_set_state(nic_dev, HINIC_PORT_DISABLE);
-+	if (err) {
-+		netif_err(nic_dev, drv, netdev, "Failed to set port state\n");
-+		nic_dev->flags |= (flags & HINIC_INTF_UP);
-+		return err;
-+	}
-+
-+	netif_info(nic_dev, drv, netdev, "HINIC_INTF is DOWN\n");
-+	return 0;
-+}
-+
- static int hinic_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct hinic_dev *nic_dev = netdev_priv(netdev);
-@@ -118,6 +207,77 @@ static int hinic_set_mac_addr(struct net_device *netdev, void *addr)
- 	return err;
- }
- 
-+/**
-+ * add_mac_addr - add mac address to network device
-+ * @netdev: network device
-+ * @addr: mac address to add
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int add_mac_addr(struct net_device *netdev, const u8 *addr)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	u16 vid = 0;
-+	int err;
-+
-+	if (!is_valid_ether_addr(addr))
-+		return -EADDRNOTAVAIL;
-+
-+	netif_info(nic_dev, drv, netdev, "set mac addr = %02x %02x %02x %02x %02x %02x\n",
-+		   addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-+
-+	down(&nic_dev->mgmt_lock);
-+
-+	do {
-+		err = hinic_port_add_mac(nic_dev, addr, vid);
-+		if (err) {
-+			netif_err(nic_dev, drv, netdev, "Failed to add mac\n");
-+			break;
-+		}
-+
-+		vid = find_next_bit(nic_dev->vlan_bitmap, VLAN_N_VID, vid + 1);
-+	} while (vid != VLAN_N_VID);
-+
-+	up(&nic_dev->mgmt_lock);
-+	return err;
-+}
-+
-+/**
-+ * remove_mac_addr - remove mac address from network device
-+ * @netdev: network device
-+ * @addr: mac address to remove
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int remove_mac_addr(struct net_device *netdev, const u8 *addr)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	u16 vid = 0;
-+	int err;
-+
-+	if (!is_valid_ether_addr(addr))
-+		return -EADDRNOTAVAIL;
-+
-+	netif_info(nic_dev, drv, netdev, "remove mac addr = %02x %02x %02x %02x %02x %02x\n",
-+		   addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-+
-+	down(&nic_dev->mgmt_lock);
-+
-+	do {
-+		err = hinic_port_del_mac(nic_dev, addr, vid);
-+		if (err) {
-+			netif_err(nic_dev, drv, netdev,
-+				  "Failed to delete mac\n");
-+			break;
-+		}
-+
-+		vid = find_next_bit(nic_dev->vlan_bitmap, VLAN_N_VID, vid + 1);
-+	} while (vid != VLAN_N_VID);
-+
-+	up(&nic_dev->mgmt_lock);
-+	return err;
-+}
-+
- static int hinic_vlan_rx_add_vid(struct net_device *netdev,
- 				 __always_unused __be16 proto, u16 vid)
- {
-@@ -182,12 +342,56 @@ static int hinic_vlan_rx_kill_vid(struct net_device *netdev,
- 	return err;
- }
- 
-+static void set_rx_mode(struct work_struct *work)
-+{
-+	struct hinic_rx_mode_work *rx_mode_work = work_to_rx_mode_work(work);
-+	struct hinic_dev *nic_dev = rx_mode_work_to_nic_dev(rx_mode_work);
-+
-+	netif_info(nic_dev, drv, nic_dev->netdev, "set rx mode work\n");
-+
-+	hinic_port_set_rx_mode(nic_dev, rx_mode_work->rx_mode);
-+
-+	__dev_uc_sync(nic_dev->netdev, add_mac_addr, remove_mac_addr);
-+	__dev_mc_sync(nic_dev->netdev, add_mac_addr, remove_mac_addr);
-+}
-+
-+static void hinic_set_rx_mode(struct net_device *netdev)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	struct hinic_rx_mode_work *rx_mode_work;
-+	u32 rx_mode;
-+
-+	rx_mode_work = &nic_dev->rx_mode_work;
-+
-+	rx_mode = HINIC_RX_MODE_UC |
-+		  HINIC_RX_MODE_MC |
-+		  HINIC_RX_MODE_BC;
-+
-+	if (netdev->flags & IFF_PROMISC)
-+		rx_mode |= HINIC_RX_MODE_PROMISC;
-+	else if (netdev->flags & IFF_ALLMULTI)
-+		rx_mode |= HINIC_RX_MODE_MC_ALL;
-+
-+	rx_mode_work->rx_mode = rx_mode;
-+
-+	queue_work(nic_dev->workq, &rx_mode_work->work);
-+}
-+
-+netdev_tx_t hinic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-+{
-+	return NETDEV_TX_BUSY;
-+}
-+
- static const struct net_device_ops hinic_netdev_ops = {
-+	.ndo_open = hinic_open,
-+	.ndo_stop = hinic_close,
- 	.ndo_change_mtu = hinic_change_mtu,
- 	.ndo_set_mac_address = hinic_set_mac_addr,
- 	.ndo_validate_addr = eth_validate_addr,
- 	.ndo_vlan_rx_add_vid = hinic_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid = hinic_vlan_rx_kill_vid,
-+	.ndo_set_rx_mode = hinic_set_rx_mode,
-+	.ndo_start_xmit = hinic_xmit_frame,
- 	/* more operations should be filled */
- };
- 
-@@ -201,6 +405,57 @@ static void netdev_features_init(struct net_device *netdev)
- }
- 
- /**
-+ * link_status_event_handler - link event handler
-+ * @handle: nic device for the handler
-+ * @buf_in: input buffer
-+ * @in_size: input size
-+ * @buf_in: output buffer
-+ * @out_size: returned output size
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static void link_status_event_handler(void *handle, void *buf_in, u16 in_size,
-+				      void *buf_out, u16 *out_size)
-+{
-+	struct hinic_port_link_status *link_status, *ret_link_status;
-+	struct hinic_dev *nic_dev = (struct hinic_dev *)handle;
-+
-+	link_status = buf_in;
-+
-+	if (link_status->link == HINIC_LINK_STATE_UP) {
-+		down(&nic_dev->mgmt_lock);
-+
-+		nic_dev->flags |= HINIC_LINK_UP;
-+
-+		if ((nic_dev->flags & (HINIC_LINK_UP | HINIC_INTF_UP)) ==
-+		    (HINIC_LINK_UP | HINIC_INTF_UP)) {
-+			netif_carrier_on(nic_dev->netdev);
-+			netif_tx_wake_all_queues(nic_dev->netdev);
-+		}
-+
-+		up(&nic_dev->mgmt_lock);
-+
-+		netif_info(nic_dev, drv, nic_dev->netdev, "HINIC_Link is UP\n");
-+	} else {
-+		down(&nic_dev->mgmt_lock);
-+
-+		nic_dev->flags &= ~HINIC_LINK_UP;
-+
-+		netif_carrier_off(nic_dev->netdev);
-+		netif_tx_disable(nic_dev->netdev);
-+
-+		up(&nic_dev->mgmt_lock);
-+
-+		netif_info(nic_dev, drv, nic_dev->netdev, "HINIC_Link is DOWN\n");
-+	}
-+
-+	ret_link_status = buf_out;
-+	ret_link_status->status = 0;
-+
-+	*out_size = sizeof(*ret_link_status);
-+}
-+
-+/**
-  * nic_dev_init - Initialize the NIC device
-  * @pdev: the NIC pci device
-  *
-@@ -208,6 +463,7 @@ static void netdev_features_init(struct net_device *netdev)
-  **/
- static int nic_dev_init(struct pci_dev *pdev)
- {
-+	struct hinic_rx_mode_work *rx_mode_work;
- 	struct hinic_dev *nic_dev;
- 	struct net_device *netdev;
- 	struct hinic_hwdev *hwdev;
-@@ -239,6 +495,7 @@ static int nic_dev_init(struct pci_dev *pdev)
- 	nic_dev->netdev = netdev;
- 	nic_dev->hwdev = hwdev;
- 	nic_dev->msg_enable = MSG_ENABLE_DEFAULT;
-+	nic_dev->flags = 0;
- 
- 	sema_init(&nic_dev->mgmt_lock, 1);
- 
-@@ -250,6 +507,12 @@ static int nic_dev_init(struct pci_dev *pdev)
- 		goto err_vlan_bitmap;
- 	}
- 
-+	nic_dev->workq = create_singlethread_workqueue(HINIC_WQ_NAME);
-+	if (!nic_dev->workq) {
-+		err = -ENOMEM;
-+		goto err_workq;
-+	}
-+
- 	pci_set_drvdata(pdev, netdev);
- 
- 	err = hinic_port_get_mac(nic_dev, netdev->dev_addr);
-@@ -268,10 +531,16 @@ static int nic_dev_init(struct pci_dev *pdev)
- 		goto err_set_mtu;
- 	}
- 
-+	rx_mode_work = &nic_dev->rx_mode_work;
-+	INIT_WORK(&rx_mode_work->work, set_rx_mode);
-+
- 	netdev_features_init(netdev);
- 
- 	netif_carrier_off(netdev);
- 
-+	hinic_hwdev_cb_register(nic_dev->hwdev, HINIC_MGMT_MSG_CMD_LINK_STATUS,
-+				nic_dev, link_status_event_handler);
-+
- 	err = register_netdev(netdev);
- 	if (err) {
- 		dev_err(&pdev->dev, "Failed to register netdev\n");
-@@ -281,10 +550,16 @@ static int nic_dev_init(struct pci_dev *pdev)
- 	return 0;
- 
- err_reg_netdev:
-+	hinic_hwdev_cb_unregister(nic_dev->hwdev,
-+				  HINIC_MGMT_MSG_CMD_LINK_STATUS);
-+	cancel_work_sync(&rx_mode_work->work);
-+
- err_set_mtu:
- err_add_mac:
- 	pci_set_drvdata(pdev, NULL);
-+	destroy_workqueue(nic_dev->workq);
- 
-+err_workq:
- err_vlan_bitmap:
- 	free_netdev(netdev);
- 
-@@ -357,11 +632,20 @@ static void hinic_remove(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	struct hinic_rx_mode_work *rx_mode_work;
- 
- 	unregister_netdev(netdev);
- 
-+	hinic_hwdev_cb_unregister(nic_dev->hwdev,
-+				  HINIC_MGMT_MSG_CMD_LINK_STATUS);
-+
-+	rx_mode_work = &nic_dev->rx_mode_work;
-+	cancel_work_sync(&rx_mode_work->work);
-+
- 	pci_set_drvdata(pdev, NULL);
- 
-+	destroy_workqueue(nic_dev->workq);
-+
- 	hinic_free_hwdev(nic_dev->hwdev);
- 
- 	free_netdev(netdev);
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.c b/drivers/net/ethernet/huawei/hinic/hinic_port.c
-index 5b249e8..0dafede 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_port.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_port.c
-@@ -222,3 +222,95 @@ int hinic_port_del_vlan(struct hinic_dev *nic_dev, u16 vlan_id)
- 				 &port_vlan_cmd, sizeof(port_vlan_cmd),
- 				 NULL, NULL);
- }
-+
-+/**
-+ * hinic_port_set_rx_mode - set rx mode in the nic device
-+ * @nic_dev: nic device
-+ * @rx_mode: the rx mode to set
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_set_rx_mode(struct hinic_dev *nic_dev, u32 rx_mode)
-+{
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+	struct hinic_port_rx_mode_cmd rx_mode_cmd;
-+
-+	rx_mode_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwdev->hwif);
-+	rx_mode_cmd.rx_mode = rx_mode;
-+
-+	return hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_SET_RX_MODE,
-+				  &rx_mode_cmd, sizeof(rx_mode_cmd),
-+				  NULL, NULL);
-+}
-+
-+/**
-+ * hinic_port_link_state - get the link state
-+ * @nic_dev: nic device
-+ * @link_state: the returned link state
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_link_state(struct hinic_dev *nic_dev,
-+			  enum hinic_port_link_state *link_state)
-+{
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct hinic_port_link_cmd link_cmd;
-+	struct pci_dev *pdev = hwif->pdev;
-+	u16 out_size;
-+	int err;
-+
-+	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
-+		dev_err(&pdev->dev, "unsupported PCI Function type\n");
-+		return -EINVAL;
-+	}
-+
-+	link_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwif);
-+
-+	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_GET_LINK_STATE,
-+				 &link_cmd, sizeof(link_cmd),
-+				 &link_cmd, &out_size);
-+	if (err || (out_size != sizeof(link_cmd)) || link_cmd.status) {
-+		dev_err(&pdev->dev, "Failed to get link state, ret = %d\n",
-+			link_cmd.status);
-+		return -EINVAL;
-+	}
-+
-+	*link_state = link_cmd.state;
-+	return 0;
-+}
-+
-+/**
-+ * hinic_port_set_state - set port state
-+ * @nic_dev: nic device
-+ * @state: the state to set
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_set_state(struct hinic_dev *nic_dev, enum hinic_port_state state)
-+{
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+	struct hinic_port_state_cmd port_state;
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	u16 out_size;
-+	int err;
-+
-+	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
-+		dev_err(&pdev->dev, "unsupported PCI Function type\n");
-+		return -EINVAL;
-+	}
-+
-+	port_state.state = state;
-+
-+	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_SET_PORT_STATE,
-+				 &port_state, sizeof(port_state),
-+				 &port_state, &out_size);
-+	if (err || (out_size != sizeof(port_state)) || port_state.status) {
-+		dev_err(&pdev->dev, "Failed to set port state, ret = %d\n",
-+			port_state.status);
-+		return -EFAULT;
-+	}
-+
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.h b/drivers/net/ethernet/huawei/hinic/hinic_port.h
-index 4cafb94..3a8da8e 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_port.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_port.h
-@@ -18,9 +18,28 @@
- 
- #include <linux/types.h>
- #include <linux/etherdevice.h>
-+#include <linux/bitops.h>
- 
- #include "hinic_dev.h"
- 
-+enum hinic_rx_mode {
-+	HINIC_RX_MODE_UC        = BIT(0),
-+	HINIC_RX_MODE_MC        = BIT(1),
-+	HINIC_RX_MODE_BC        = BIT(2),
-+	HINIC_RX_MODE_MC_ALL    = BIT(3),
-+	HINIC_RX_MODE_PROMISC   = BIT(4),
-+};
-+
-+enum hinic_port_link_state {
-+	HINIC_LINK_STATE_DOWN,
-+	HINIC_LINK_STATE_UP,
-+};
-+
-+enum hinic_port_state {
-+	HINIC_PORT_DISABLE      = 0,
-+	HINIC_PORT_ENABLE       = 3,
-+};
-+
- struct hinic_port_mac_cmd {
- 	u8              status;
- 	u8              version;
-@@ -51,6 +70,45 @@ struct hinic_port_vlan_cmd {
- 	u16     vlan_id;
- };
- 
-+struct hinic_port_rx_mode_cmd {
-+	u8      status;
-+	u8      version;
-+	u8      rsvd0[6];
-+
-+	u16     func_idx;
-+	u16     rsvd;
-+	u32     rx_mode;
-+};
-+
-+struct hinic_port_link_cmd {
-+	u8      status;
-+	u8      version;
-+	u8      rsvd0[6];
-+
-+	u16     func_idx;
-+	u8      state;
-+	u8      rsvd1;
-+};
-+
-+struct hinic_port_state_cmd {
-+	u8      status;
-+	u8      version;
-+	u8      rsvd0[6];
-+
-+	u8      state;
-+	u8      rsvd1[3];
-+};
-+
-+struct hinic_port_link_status {
-+	u8      status;
-+	u8      version;
-+	u8      rsvd0[6];
-+
-+	u16     rsvd1;
-+	u8      link;
-+	u8      rsvd2;
-+};
-+
- int hinic_port_add_mac(struct hinic_dev *nic_dev, const u8 *addr,
- 		       u16 vlan_id);
- 
-@@ -65,4 +123,12 @@ int hinic_port_del_mac(struct hinic_dev *nic_dev, const u8 *addr,
- 
- int hinic_port_del_vlan(struct hinic_dev *nic_dev, u16 vlan_id);
- 
-+int hinic_port_set_rx_mode(struct hinic_dev *nic_dev, u32 rx_mode);
-+
-+int hinic_port_link_state(struct hinic_dev *nic_dev,
-+			  enum hinic_port_link_state *link_state);
-+
-+int hinic_port_set_state(struct hinic_dev *nic_dev,
-+			 enum hinic_port_state state);
-+
- #endif
 -- 
 1.9.1
