@@ -1,39 +1,40 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 1/7] ipaddress: Make buffer for filter.flushb static
-Date: Thu, 17 Aug 2017 19:09:25 +0200
-Message-ID: <20170817170931.24302-2-phil@nwl.cc>
-References: <20170817170931.24302-1-phil@nwl.cc>
+Subject: [iproute PATCH v2 5/7] ss: Skip useless check in parse_hostcond()
+Date: Thu, 17 Aug 2017 19:09:29 +0200
+Message-ID: <20170817170931.24089-6-phil@nwl.cc>
+References: <20170817170931.24089-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:52421 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:57507 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753329AbdHQRLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 13:11:49 -0400
-In-Reply-To: <20170817170931.24302-1-phil@nwl.cc>
+        id S1753165AbdHQRLm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 13:11:42 -0400
+In-Reply-To: <20170817170931.24089-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The buffer is accessed outside of the function defining it, so make it
-static.
+The passed 'addr' parameter is dereferenced by caller before and in
+parse_hostcond() multiple times before this check, so assume it is
+always true.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/ipaddress.c | 2 +-
+ misc/ss.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 4d37c5e045071..3c9decb51b412 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1488,7 +1488,7 @@ static void ipaddr_filter(struct nlmsg_chain *linfo, struct nlmsg_chain *ainfo)
- static int ipaddr_flush(void)
- {
- 	int round = 0;
--	char flushb[4096-512];
-+	static char flushb[4096-512];
- 
- 	filter.flushb = flushb;
- 	filter.flushp = 0;
+diff --git a/misc/ss.c b/misc/ss.c
+index f0d1c22f75cff..2debccce5260b 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1671,7 +1671,7 @@ void *parse_hostcond(char *addr, bool is_port)
+ 			}
+ 		}
+ 	}
+-	if (!is_port && addr && *addr && *addr != '*') {
++	if (!is_port && *addr && *addr != '*') {
+ 		if (get_prefix_1(&a.addr, addr, fam)) {
+ 			if (get_dns_host(&a, addr, fam)) {
+ 				fprintf(stderr, "Error: an inet prefix is expected rather than \"%s\".\n", addr);
 -- 
 2.13.1
