@@ -1,60 +1,74 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH net RESEND] PCI: fix oops when try to find Root Port for a PCI device
-Date: Thu, 17 Aug 2017 15:12:58 +1000
-Message-ID: <87fucqsrol.fsf@concordia.ellerman.id.au>
-References: <1502810688-12420-1-git-send-email-dingtianhong@huawei.com> <20170815170331.GA4099@bhelgaas-glaptop.roam.corp.google.com> <20170816193303.GA14147@ulmo>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ding Tianhong <dingtianhong@huawei.com>, mark.rutland@arm.com,
-        gabriele.paoloni@huawei.com, asit.k.mallick@intel.com,
-        catalin.marinas@arm.com, will.deacon@arm.com, linuxarm@huawei.com,
-        alexander.duyck@gmail.com, ashok.raj@intel.com,
-        eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com,
-        linux-pci@vger.kernel.org, ganeshgr@chelsio.com, Bob.Shaw@amd.com,
-        leedom@chelsio.com, patrick.j.cramer@intel.com,
-        bhelgaas@google.com, werner@chelsio.com,
-        linux-arm-kernel@lists.infradead.org, amira@mellanox.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        David.Laight@aculab.com, Suravee.Suthikulpanit@amd.com,
-        robin.murphy@arm.com, davem@davemloft.net, l.stach@pengutronix.de
-To: Thierry Reding <thierry.reding@gmail.com>,
-        Bjorn Helgaas <helgaas@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170816193303.GA14147@ulmo>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vishwanath Pai <vpai@akamai.com>
+Subject: [PATCH] netfilter: ipset: ipset list may return wrong member count for set with timeout
+Date: Thu, 17 Aug 2017 01:23:55 -0400
+Message-ID: <1502947435-18549-1-git-send-email-vpai@akamai.com>
+Cc: johunt@akamai.com, pai.vishwain@gmail.com, vpai@akamai.com,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org
+To: pablo@netfilter.org, kadlec@blackhole.kfki.hu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00190b01.pphosted.com ([67.231.157.127]:54155 "EHLO
+        mx0b-00190b01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750800AbdHQFYK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 01:24:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thierry Reding <thierry.reding@gmail.com> writes:
-...
->
-> In case of Tegra, dev actually points to the root port. Now if I read
-> the above code correctly, highest_pcie_bridge will still be NULL in that
-> case, which in turn will return NULL from pci_find_pcie_root_port(). But
-> shouldn't it really return dev?
->
-> The patch that I used to fix the issue is this:
->
-> --->8---
-> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> index 2c712dcfd37d..dd56c1c05614 100644
-> --- a/drivers/pci/pci.c
-> +++ b/drivers/pci/pci.c
-> @@ -514,7 +514,7 @@ EXPORT_SYMBOL(pci_find_resource);
->   */
->  struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
->  {
-> -       struct pci_dev *bridge, *highest_pcie_bridge = NULL;
-> +       struct pci_dev *bridge, *highest_pcie_bridge = dev;
->  
->         bridge = pci_upstream_bridge(dev);
->         while (bridge && pci_is_pcie(bridge)) {
-> --->8---
->
-> That works correctly if this function ends up being called on the PCIe
-> root port, though perhaps that's not what this function is supposed to
-> do. It's somewhat unclear from the kerneldoc what the function should
-> be doing when called on a root port device itself.
+Simple testcase:
 
-That also works for me on powerpc (oops reported up thread).
+$ ipset create test hash:ip timeout 5
+$ ipset add test 1.2.3.4
+$ ipset add test 1.2.2.2
+$ sleep 5
 
-cheers
+$ ipset l
+Name: test
+Type: hash:ip
+Revision: 5
+Header: family inet hashsize 1024 maxelem 65536 timeout 5
+Size in memory: 296
+References: 0
+Number of entries: 2
+Members:
+
+We return "Number of entries: 2" but no members are listed. That is
+because mtype_list runs "ip_set_timeout_expired" and does not list the
+expired entries, but set->elements is never upated (until mtype_gc
+cleans it up later).
+
+Reviewed-by: Joshua Hunt <johunt@akamai.com>
+Signed-off-by: Vishwanath Pai <vpai@akamai.com>
+---
+ net/netfilter/ipset/ip_set_hash_gen.h | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index f236c0b..ff3d31c 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -1041,12 +1041,22 @@ struct htype {
+ static int
+ mtype_head(struct ip_set *set, struct sk_buff *skb)
+ {
+-	const struct htype *h = set->data;
++	struct htype *h = set->data;
+ 	const struct htable *t;
+ 	struct nlattr *nested;
+ 	size_t memsize;
+ 	u8 htable_bits;
+ 
++	/* If any members have expired, set->elements will be wrong
++	 * mytype_expire function will update it with the right count.
++	 * we do not hold set->lock here, so grab it first.
++	 */
++	if (SET_WITH_TIMEOUT(set)) {
++		spin_lock_bh(&set->lock);
++		mtype_expire(set, h);
++		spin_unlock_bh(&set->lock);
++	}
++
+ 	rcu_read_lock_bh();
+ 	t = rcu_dereference_bh_nfnl(h->table);
+ 	memsize = mtype_ahash_memsize(h, t) + set->ext_size;
+-- 
+1.9.1
