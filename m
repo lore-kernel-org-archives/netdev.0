@@ -1,143 +1,46 @@
-From: "Jorgen S. Hansen" <jhansen@vmware.com>
-Subject: Re: [PATCH] vsock: only load vmci transport on VMware hypervisor by
- default
-Date: Thu, 17 Aug 2017 15:16:58 +0000
-Message-ID: <04460E3B-B213-4090-96CD-00CEEBE6AC32@vmware.com>
-References: <KL1P15301MB0008F70D4E5248AB7A296CE3BF830@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170817135559.GG5539@stefanha-x1.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Dexuan Cui <decui@microsoft.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-        "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-        KY Srinivasan <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        "Stephen Hemminger" <sthemmin@microsoft.com>,
-        George Zhang <georgezhang@vmware.com>,
-        Michal Kubecek <mkubecek@suse.cz>, Asias He <asias@redhat.com>,
-        "Vitaly Kuznetsov" <vkuznets@redhat.com>,
-        Cathy Avery <cavery@redhat.com>,
-        "jasowang@redhat.com" <jasowang@redhat.com>,
-        Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        Dave Scott <dave.scott@docker.com>,
-        "Marcelo Cerri" <marcelo.cerri@canonical.com>,
-        "apw@canonical.com" <apw@canonical.com>,
-To: Stefan Hajnoczi <stefanha@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170817135559.GG5539@stefanha-x1.localdomain>
-Content-Language: en-US
-Content-ID: <3F713CD72BC7564A908376CE0F641686@namprd05.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 1/2] bpf: don't enable preemption twice in smap_do_verdict
+Date: Thu, 17 Aug 2017 17:22:36 +0200
+Message-ID: <d90eed71c2a723edd75f19fb1b921fec74d8a514.1502983087.git.daniel@iogearbox.net>
+References: <cover.1502983087.git.daniel@iogearbox.net>
+Cc: john.fastabend@gmail.com, ast@fb.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:60884 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753113AbdHQPWm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 11:22:42 -0400
+In-Reply-To: <cover.1502983087.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1502983087.git.daniel@iogearbox.net>
+References: <cover.1502983087.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQo+IE9uIEF1ZyAxNywgMjAxNywgYXQgMzo1NSBQTSwgU3RlZmFuIEhham5vY3ppIDxzdGVmYW5o
-YUByZWRoYXQuY29tPiB3cm90ZToNCj4gDQo+IE9uIFRodSwgQXVnIDE3LCAyMDE3IGF0IDA4OjAw
-OjI5QU0gKzAwMDAsIERleHVhbiBDdWkgd3JvdGU6DQo+PiANCj4+IFdpdGhvdXQgdGhlIHBhdGNo
-LCB2bXdfdnNvY2tfdm1jaV90cmFuc3BvcnQua28gY2FuIGF1dG9tYXRpY2FsbHkgbG9hZA0KPj4g
-d2hlbiBhbiBhcHBsaWNhdGlvbiBjcmVhdGVzIGFuIEFGX1ZTT0NLIHNvY2tldC4NCj4+IA0KPj4g
-VGhpcyBpcyB0aGUgZXhwZWN0ZWQgZ29vZCBiZWhhdmlvciBvbiBWTXdhcmUgaHlwZXJ2aXNvciwg
-YnV0IGFzIHdlDQo+PiBhcmUgZ29pbmcgdG8gYWRkIGh2X3NvY2sua28gKGkuZS4gSHlwZXItViB0
-cmFuc3BvcnQgZm9yIEFGX1ZTT0NLKSwgd2UNCj4+IHNob3VsZCBtYWtlIHN1cmUgdm13X3Zzb2Nr
-X3ZtY2lfdHJhbnNwb3J0LmtvIGNhbid0IGxvYWQgb24gSHlwZXItViwNCj4+IG90aGVyd2lzZSB0
-aGVyZSBpcyBhIC1FQlVTWSBjb25mbGljdCB3aGVuIGJvdGggdm13X3Zzb2NrX3ZtY2lfdHJhbnNw
-b3J0LmtvDQo+PiBhbmQgaHZfc29jay5rbyB0cnkgdG8gY2FsbCB2c29ja19jb3JlX2luaXQoKSBv
-biBIeXBlci1WLg0KPj4gDQo+PiBPbiB0aGUgb3RoZXIgaGFuZCwgaHZfc29jay5rbyBjYW4gb25s
-eSBsb2FkIG9uIEh5cGVyLVYsIGJlY2F1c2UgaXQNCj4+IGRlcGVuZHMgb24gaHZfdm1idXMua28s
-IHdoaWNoIGRldGVjdHMgSHlwZXItViBpbiBodl9hY3BpX2luaXQoKS4NCj4+IA0KPj4gS1ZNJ3Mg
-dnNvY2tfdmlydGlvX3RyYW5zcG9ydCBkb2Vzbid0IGhhdmUgdGhlIGlzc3VlIGJlY2F1c2UgaXQg
-ZG9lc24ndA0KPj4gZGVmaW5lIE1PRFVMRV9BTElBU19ORVRQUk9UTyhQRl9WU09DSykuDQo+IA0K
-PiBUaGFua3MgZm9yIHNlbmRpbmcgdGhpcyBwYXRjaCwgdm1jaSdzIE1PRFVMRV9BTElBU19ORVRQ
-Uk9UTyhQRl9WU09DSykgaXMNCj4gYSBwcm9ibGVtIGZvciB2aG9zdF92c29jay5rbyAodGhlIHZp
-cnRpbyBob3N0IGRyaXZlcikgdG9vLiAgQSBob3N0DQo+IHVzZXJzcGFjZSBwcm9ncmFtIGNhbiBj
-cmVhdGUgYSBBRl9WU09DSyBzb2NrZXQgYmVmb3JlIHZob3N0X3Zzb2NrIGlzDQo+IGxvYWRlZC4g
-IFRoZSB2bWNpIHRyYW5zcG9ydCB3aWxsIGJlIHVuY29uZGl0aW9uYWxseSBsb2FkZWQgYW5kIHRo
-YXQncw0KPiBub3QgdGhlIHJpZ2h0IGJlaGF2aW9yLg0KPiANCj4gUHV0dGluZyBhc2lkZSBuZXN0
-ZWQgdmlydHVhbGl6YXRpb24sIEkgd2FudCB0byBsb2FkIHRoZSB0cmFuc3BvcnQgKHZtY2ksDQo+
-IEh5cGVyLVYsIHZzb2NrKSBmb3Igd2hpY2ggdGhlcmUgaXMgcGFyYXZpcnR1YWxpemVkIGhhcmR3
-YXJlIHByZXNlbnQNCj4gaW5zaWRlIHRoZSBndWVzdC4NCg0KR29vZCBwb2ludHMuIENvbXBsZXRl
-bHkgYWdyZWUgdGhhdCB0aGlzIGlzIHRoZSBkZXNpcmVkIGJlaGF2aW9yIGZvciBhIGd1ZXN0Lg0K
-DQoNCj4gSXQncyBhIGxpdHRsZSB0cmlja2VyIG9uIHRoZSBob3N0IHNpZGUgKGRvZXNuJ3QgbWF0
-dGVyIGZvciBIeXBlci1WIGFuZA0KPiBwcm9iYWJseSBhbHNvIGRvZXNuJ3QgZm9yIFZNd2FyZSkg
-YmVjYXVzZSB0aGUgaG9zdC1zaWRlIGRyaXZlciBpcyBhDQo+IHNvZnR3YXJlIGRldmljZSB3aXRo
-IG5vIGhhcmR3YXJlIGJhY2tpbmcgaXQuICBJbiBLVk0gd2UgYXNzdW1lIHRoZQ0KPiB2aG9zdF92
-c29jay5rbyBrZXJuZWwgbW9kdWxlIHdpbGwgYmUgbG9hZGVkIHN1ZmZpY2llbnRseSBlYXJseS4N
-Cg0KU2luY2UgdGhlIHZtY2kgZHJpdmVyIGlzIGN1cnJlbnRseSB0aWVkIHRvIFBGX1ZTT0NLIGl0
-IGhhc27igJl0IGJlZW4gYSBwcm9ibGVtLCBidXQgb24gdGhlIGhvc3Qgc2lkZSB0aGUgVk1DSSBk
-cml2ZXIgaGFzIG5vIGhhcmR3YXJlIGJhY2tpbmcgaXQgZWl0aGVyLCBzbyB3aGVuIHdlIG1vdmUg
-dG8gYSBtb3JlIGFwcHJvcHJpYXRlIHNvbHV0aW9uLCB0aGlzIHdpbGwgYmUgYW4gaXNzdWUgZm9y
-IFZNQ0kgYXMgd2VsbC4gSeKAmWxsIGNoZWNrIG91ciBzaGlwcGVkIHByb2R1Y3RzLCBidXQgdGhl
-eSBtb3N0IGxpa2VseSBhc3N1bWUgdGhhdCBpZiBhbiB1cHN0cmVhbWVkIHZtY2kgbW9kdWxlIGlz
-IHByZXNlbnQsIGl0IHdpbGwgYmUgbG9hZGVkIGF1dG9tYXRpY2FsbHkuDQoNCj4gDQo+IFRoaW5n
-cyBnZXQgdHJpY2tpZXIgd2l0aCBuZXN0ZWQgdmlydHVhbGl6YXRpb24gYmVjYXVzZSB0aGUgVk0g
-bWlnaHQgd2FudA0KPiB0byB0YWxrIHRvIGl0cyBob3N0IGJ1dCBhbHNvIHRvIGl0cyBuZXN0ZWQg
-Vk1zLiAgVGhlIHNpbXBsZSB3YXkgb2YNCj4gZml4aW5nIHRoaXMgd291bGQgYmUgdG8gYWxsb3cg
-dHdvIHRyYW5zcG9ydHMgbG9hZGVkIHNpbXVsdGFuZW91c2x5IGFuZA0KPiByb3V0ZSB0cmFmZmlj
-IGRlc3RpbmVkIHRvIENJRCAyIHRvIHRoZSBob3N0IHRyYW5zcG9ydCBhbmQgYWxsIG90aGVyDQo+
-IHRyYWZmaWMgdG8gdGhlIGd1ZXN0IHRyYW5zcG9ydC4NCg0KVGhpcyBpcyBjbG9zZSB0byB0aGUg
-cm91dGluZyB0aGUgVk1DSSBkcml2ZXIgZG9lcyBpbiBhIG5lc3RlZCBlbnZpcm9ubWVudCwgYnV0
-IHRoYXQgaXMgd2l0aCB0aGUgYXNzdW1wdGlvbiB0aGF0IHRoZXJlIGlzIG9ubHkgb25lIHR5cGUg
-b2YgdHJhbnNwb3J0LiBIYXZpbmcgdHdvIGRpZmZlcmVudCB0cmFuc3BvcnRzIHdvdWxkIHJlcXVp
-cmUgdGhhdCB3ZSBkZWxheSByZXNvbHZpbmcgdGhlIHRyYW5zcG9ydCB0eXBlIHVudGlsIHRoZSBz
-b2NrZXQgZW5kcG9pbnQgaGFzIGJlZW4gYm91bmQgdG8gYW4gYWRkcmVzcy4gVGhpbmdzIGdldCB0
-cmlja2llciBpZiBsaXN0ZW5pbmcgc29ja2V0cyB1c2UgVk1BRERSX0NJRF9BTlkgLSBpZiBvbmx5
-IG9uZSB0cmFuc3BvcnQgaXMgcHJlc2VudCwgdGhpcyB3b3VsZCBhbGxvdyB0aGUgc29ja2V0IHRv
-IGFjY2VwdCBjb25uZWN0aW9ucyBmcm9tIGJvdGggZ3Vlc3RzIGFuZCBvdXRlciBob3N0LCBidXQg
-d2l0aCBtdWx0aXBsZSB0cmFuc3BvcnRzIHRoYXQgd29u4oCZdCB3b3JrLCBzaW5jZSB3ZSBjYW7i
-gJl0IGFzc29jaWF0ZSBhIHNvY2tldCB3aXRoIGEgdHJhbnNwb3J0IHVudGlsIHRoZSBzb2NrZXQg
-aXMgYm91bmQuDQogDQo+IA0KPiBQZXJoYXBzIHdlIHNob3VsZCBkaXNjdXNzIHRoZXNlIGNhc2Vz
-IGEgYml0IG1vcmUgdG8gZmlndXJlIG91dCBob3cgdG8NCj4gYXZvaWQgY29uZmxpY3RzIG92ZXIg
-TU9EVUxFX0FMSUFTX05FVFBST1RPKFBGX1ZTT0NLKS4NCg0KQWdyZWVkLg0KDQo+IA0KPj4gDQo+
-PiBUaGUgcGF0Y2ggYWxzbyBhZGRzIGEgbW9kdWxlIHBhcmFtZXRlciAic2tpcF9oeXBlcnZpc29y
-X2NoZWNrIiBmb3INCj4+IHZtd192c29ja192bWNpX3RyYW5zcG9ydC5rby4NCj4+IA0KPj4gU2ln
-bmVkLW9mZi1ieTogRGV4dWFuIEN1aSA8ZGVjdWlAbWljcm9zb2Z0LmNvbT4NCj4+IENjOiBBbG9r
-IEthdGFyaWEgPGFrYXRhcmlhQHZtd2FyZS5jb20+DQo+PiBDYzogQW5keSBLaW5nIDxhY2tpbmdA
-dm13YXJlLmNvbT4NCj4+IENjOiBBZGl0IFJhbmFkaXZlIDxhZGl0ckB2bXdhcmUuY29tPg0KPj4g
-Q2M6IEdlb3JnZSBaaGFuZyA8Z2VvcmdlemhhbmdAdm13YXJlLmNvbT4NCj4+IENjOiBKb3JnZW4g
-SGFuc2VuIDxqaGFuc2VuQHZtd2FyZS5jb20+DQo+PiBDYzogSy4gWS4gU3Jpbml2YXNhbiA8a3lz
-QG1pY3Jvc29mdC5jb20+DQo+PiBDYzogSGFpeWFuZyBaaGFuZyA8aGFpeWFuZ3pAbWljcm9zb2Z0
-LmNvbT4NCj4+IENjOiBTdGVwaGVuIEhlbW1pbmdlciA8c3RoZW1taW5AbWljcm9zb2Z0LmNvbT4N
-Cj4+IC0tLQ0KPj4gbmV0L3Ztd192c29jay9LY29uZmlnICAgICAgICAgIHwgIDIgKy0NCj4+IG5l
-dC92bXdfdnNvY2svdm1jaV90cmFuc3BvcnQuYyB8IDExICsrKysrKysrKysrDQo+PiAyIGZpbGVz
-IGNoYW5nZWQsIDEyIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCj4+IA0KPj4gZGlmZiAt
-LWdpdCBhL25ldC92bXdfdnNvY2svS2NvbmZpZyBiL25ldC92bXdfdnNvY2svS2NvbmZpZw0KPj4g
-aW5kZXggYTI0MzY5ZC4uM2Y1MjkyOSAxMDA2NDQNCj4+IC0tLSBhL25ldC92bXdfdnNvY2svS2Nv
-bmZpZw0KPj4gKysrIGIvbmV0L3Ztd192c29jay9LY29uZmlnDQo+PiBAQCAtMTcsNyArMTcsNyBA
-QCBjb25maWcgVlNPQ0tFVFMNCj4+IA0KPj4gY29uZmlnIFZNV0FSRV9WTUNJX1ZTT0NLRVRTDQo+
-PiAJdHJpc3RhdGUgIlZNd2FyZSBWTUNJIHRyYW5zcG9ydCBmb3IgVmlydHVhbCBTb2NrZXRzIg0K
-Pj4gLQlkZXBlbmRzIG9uIFZTT0NLRVRTICYmIFZNV0FSRV9WTUNJDQo+PiArCWRlcGVuZHMgb24g
-VlNPQ0tFVFMgJiYgVk1XQVJFX1ZNQ0kgJiYgSFlQRVJWSVNPUl9HVUVTVA0KPj4gCWhlbHANCj4+
-IAkgIFRoaXMgbW9kdWxlIGltcGxlbWVudHMgYSBWTUNJIHRyYW5zcG9ydCBmb3IgVmlydHVhbCBT
-b2NrZXRzLg0KPj4gDQo+PiBkaWZmIC0tZ2l0IGEvbmV0L3Ztd192c29jay92bWNpX3RyYW5zcG9y
-dC5jIGIvbmV0L3Ztd192c29jay92bWNpX3RyYW5zcG9ydC5jDQo+PiBpbmRleCAxMGFlNzgyLi5j
-MDY4ODczIDEwMDY0NA0KPj4gLS0tIGEvbmV0L3Ztd192c29jay92bWNpX3RyYW5zcG9ydC5jDQo+
-PiArKysgYi9uZXQvdm13X3Zzb2NrL3ZtY2lfdHJhbnNwb3J0LmMNCj4+IEBAIC0xNiw2ICsxNiw3
-IEBADQo+PiAjaW5jbHVkZSA8bGludXgvdHlwZXMuaD4NCj4+ICNpbmNsdWRlIDxsaW51eC9iaXRv
-cHMuaD4NCj4+ICNpbmNsdWRlIDxsaW51eC9jcmVkLmg+DQo+PiArI2luY2x1ZGUgPGxpbnV4L2h5
-cGVydmlzb3IuaD4NCj4+ICNpbmNsdWRlIDxsaW51eC9pbml0Lmg+DQo+PiAjaW5jbHVkZSA8bGlu
-dXgvaW8uaD4NCj4+ICNpbmNsdWRlIDxsaW51eC9rZXJuZWwuaD4NCj4+IEBAIC03Myw2ICs3NCwx
-MCBAQCBzdHJ1Y3Qgdm1jaV90cmFuc3BvcnRfcmVjdl9wa3RfaW5mbyB7DQo+PiAJc3RydWN0IHZt
-Y2lfdHJhbnNwb3J0X3BhY2tldCBwa3Q7DQo+PiB9Ow0KPj4gDQo+PiArc3RhdGljIGJvb2wgc2tp
-cF9oeXBlcnZpc29yX2NoZWNrOw0KPj4gK21vZHVsZV9wYXJhbShza2lwX2h5cGVydmlzb3JfY2hl
-Y2ssIGJvb2wsIDA0NDQpOw0KPj4gK01PRFVMRV9QQVJNX0RFU0MoaG90X2FkZCwgIklmIHNldCwg
-YXR0ZW1wdCB0byBsb2FkIG9uIG5vbi1WTXdhcmUgcGxhdGZvcm1zIik7DQo+PiArDQo+PiBzdGF0
-aWMgTElTVF9IRUFEKHZtY2lfdHJhbnNwb3J0X2NsZWFudXBfbGlzdCk7DQo+PiBzdGF0aWMgREVG
-SU5FX1NQSU5MT0NLKHZtY2lfdHJhbnNwb3J0X2NsZWFudXBfbG9jayk7DQo+PiBzdGF0aWMgREVD
-TEFSRV9XT1JLKHZtY2lfdHJhbnNwb3J0X2NsZWFudXBfd29yaywgdm1jaV90cmFuc3BvcnRfY2xl
-YW51cCk7DQo+PiBAQCAtMjA4NSw2ICsyMDkwLDEyIEBAIHN0YXRpYyBpbnQgX19pbml0IHZtY2lf
-dHJhbnNwb3J0X2luaXQodm9pZCkNCj4+IHsNCj4+IAlpbnQgZXJyOw0KPj4gDQo+PiArCS8qIENo
-ZWNrIGlmIHdlIGFyZSBydW5uaW5nIG9uIFZNd2FyZSdzIGh5cGVydmlzb3IgYW5kIGJhaWwgb3V0
-DQo+PiArCSAqIGlmIHdlIGFyZSBub3QuDQo+PiArCSAqLw0KPj4gKwlpZiAoIXNraXBfaHlwZXJ2
-aXNvcl9jaGVjayAmJiB4ODZfaHlwZXIgIT0gJng4Nl9oeXBlcl92bXdhcmUpDQo+PiArCQlyZXR1
-cm4gLUVOT0RFVjsNCj4+ICsNCg0KSeKAmW1hIGJpdCBjb25jZXJuZWQgd2l0aCB0aGlzLiBPbiB0
-aGUgaG9zdC1zaWRlLCB3ZSBzdGlsbCB3YW50IHRvIGJlIGFibGUgdG8gdXNlIHRoZSBWTUNJIHRy
-YW5zcG9ydCwgc28gdG8gYWxsb3cgdGhhdCwgdGhlIGFib3ZlIHNob3VsZCBhbHNvIGFsbG93IGxv
-YWRpbmcgdGhlIHRyYW5zcG9ydCB3aGVuIHg4Nl9oeXBlciA9PSBOVUxMLiBIb3dldmVyLCB0aGlz
-IG1heSBzdGlsbCBjYXVzZSBhIGNvbmZsaWN0IHdpdGggdmlydGlvIGhvc3Qgc2lkZSBzdXBwb3J0
-LCBzbyBpdCBsb29rcyBsaWtlIHdlIG5lZWQgdG8gZmluZCBhIGJldHRlciBvdmVyYWxsIHdheSB0
-byBtYWtlIHRoZSBwcm90b2NvbHMgY28tZXhpc3QuDQoNCj4+IAkvKiBDcmVhdGUgdGhlIGRhdGFn
-cmFtIGhhbmRsZSB0aGF0IHdlIHdpbGwgdXNlIHRvIHNlbmQgYW5kIHJlY2VpdmUgYWxsDQo+PiAJ
-ICogVlNvY2tldCBjb250cm9sIG1lc3NhZ2VzIGZvciB0aGlzIGNvbnRleHQuDQo+PiAJICovDQo+
-PiAtLSANCj4+IDIuNy40DQoNCg==
+In smap_do_verdict(), the fall-through branch leads to call
+preempt_enable() twice for the SK_REDIRECT, which creates an
+imbalance. Only enable it for all remaining cases again.
+
+Fixes: 174a79ff9515 ("bpf: sockmap with sk redirect support")
+Reported-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ kernel/bpf/sockmap.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/bpf/sockmap.c b/kernel/bpf/sockmap.c
+index f7e5e6c..39de541 100644
+--- a/kernel/bpf/sockmap.c
++++ b/kernel/bpf/sockmap.c
+@@ -135,7 +135,8 @@ static void smap_do_verdict(struct smap_psock *psock, struct sk_buff *skb)
+ 	/* Fall through and free skb otherwise */
+ 	case SK_DROP:
+ 	default:
+-		preempt_enable();
++		if (rc != SK_REDIRECT)
++			preempt_enable();
+ 		kfree_skb(skb);
+ 	}
+ }
+-- 
+1.9.3
