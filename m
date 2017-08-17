@@ -1,41 +1,47 @@
 From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] liquidio: fix spelling mistake: "interuupt" -> "interrupt"
-Date: Thu, 17 Aug 2017 09:19:30 +0100
-Message-ID: <20170817081930.12986-1-colin.king@canonical.com>
+Subject: [PATCH][net-next] net: hns3: ensure media_type is unitialized
+Date: Thu, 17 Aug 2017 10:01:07 +0100
+Message-ID: <20170817090107.14310-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        netdev@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Yisen Zhuang <yisen.zhuang@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        Daode Huang <huangdaode@hisilicon.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        lipeng <lipeng321@huawei.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Colin Ian King <colin.king@canonical.com>
 
-Trivial fix to spelling mistake in dev_info message
+Media type is only set if h->ae_algo->ops->get_media_type is called
+so there is a possibility that media_type is uninitialized when it is
+used a switch statement.  Fix this by initializing media_type to
+HNAE3_MEDIA_TYPE_UNKNOWN.
 
+Detected by CoverityScan, CID#1452624("Uninitialized scalar variable")
+
+Fixes: 496d03e960ae ("net: hns3: Add Ethtool support to HNS3 driver")
 Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 2 +-
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index 08aa06c90d46..a63ddf07f168 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -412,7 +412,7 @@ lio_irq_reallocate_irqs(struct octeon_device *oct, uint32_t num_ioqs)
- 	kfree(oct->irq_name_storage);
- 	oct->irq_name_storage = NULL;
- 	if (octeon_setup_interrupt(oct, num_ioqs)) {
--		dev_info(&oct->pci_dev->dev, "Setup interuupt failed\n");
-+		dev_info(&oct->pci_dev->dev, "Setup interrupt failed\n");
- 		return 1;
- 	}
- 
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
+index 0ad65e47c77e..53cab3ad4cda 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
+@@ -304,7 +304,7 @@ static int hns3_get_link_ksettings(struct net_device *netdev,
+ 	struct hnae3_handle *h = priv->ae_handle;
+ 	u32 supported_caps;
+ 	u32 advertised_caps;
+-	u8 media_type;
++	u8 media_type = HNAE3_MEDIA_TYPE_UNKNOWN;
+ 	u8 link_stat;
+ 	u8 auto_neg;
+ 	u8 duplex;
 -- 
 2.11.0
