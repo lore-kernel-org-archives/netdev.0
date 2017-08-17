@@ -1,57 +1,147 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] net: sched: fix NULL pointer dereference when action
- calls some targets
-Date: Thu, 17 Aug 2017 12:33:44 +0200
-Message-ID: <20170817103344.GA7568@salvia>
-References: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
- <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
- <CADvbK_fuuBrh+eOuhQU+SYs9uazH2TRP+KUmhxU=hNZ=EkOT=Q@mail.gmail.com>
- <CAM_iQpXbtHDxVjZ=DoTiLXHLQy6q=JVBa66EqSOy95ZbFg-wkQ@mail.gmail.com>
- <CADvbK_cCQY0McHiZFKSTjdGdAjhB6RBej5n=SH2=hsLYC=Xa7w@mail.gmail.com>
- <20170817100220.GC6928@salvia>
+From: Amritha Nambiar <amritha.nambiar@intel.com>
+Subject: [RFC,
+ iproute2 PATCH v2] tc/mirred: Extend the mirred/redirect action to
+ accept additional traffic class parameter
+Date: Thu, 17 Aug 2017 03:39:38 -0700
+Message-ID: <150296637888.17366.17085150347312326898.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170817100220.GC6928@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: amritha.nambiar@intel.com
+To: stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:32836 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751843AbdHQKka (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 06:40:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 17, 2017 at 12:02:20PM +0200, Pablo Neira Ayuso wrote:
-> On Wed, Aug 16, 2017 at 08:39:44PM +1200, Xin Long wrote:
-> > On Wed, Aug 9, 2017 at 7:33 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > > On Mon, Aug 7, 2017 at 7:33 PM, Xin Long <lucien.xin@gmail.com> wrote:
-> > >> On Tue, Aug 8, 2017 at 9:15 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > >>> This looks like a completely API burden?
-> > >> netfilter xt targets are not really compatible with netsched action.
-> > >> I've got to say, the patch is just a way to make checkentry return
-> > >> false and avoid panic. like [1] said
-> > >
-> > > I don't doubt you fix a crash, I am thinking if we can
-> > > "fix" the API instead of fixing the caller.
-> > Hi, Cong,
-> > 
-> > For now, I don't think it's possible to change APIs or  some of their targets
-> > for the panic caused by action xt calling.
-> > 
-> > The common way should be fixed in net_sched side.
-> > 
-> > Given that the issue is very easy to triggered,
-> > let's wait for netfilter's replies for another few days,
-> > otherwise I will repost the fix, agree ?
-> 
-> Please, post the workaround so the kernel doesn't crash anymore.
-> 
-> This is going to be very hard to fix, it's broken since the very
-> beginning...
+The Mirred/redirect action is extended to accept a traffic
+class on the device in addition to the device's ifindex.
 
-Wait a second, you could rename par->nft_compat to par->no_entry. From
-net/sched/ you can set this to 1, so the entry checks are ignored.
+Usage: mirred <DIRECTION> <ACTION> <dev DEVICENAME> <tclass TC_INDEX>
 
-I'm refering to patch 55917a21d0cc0
+Example:
+# tc qdisc add dev eth0 ingress
+
+# tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
+  dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
+  skip_sw action mirred ingress redirect dev eth0 tclass 1
+
+v2: Renamed the parameter 'tc' to 'tclass'. Replaced atoi with
+strtoul and used NEXT_ARG() construct.
+
+Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
+---
+ include/linux/tc_act/tc_mirred.h |    3 +++
+ tc/m_mirred.c                    |   35 +++++++++++++++++++++++++++++++----
+ 2 files changed, 34 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/tc_act/tc_mirred.h b/include/linux/tc_act/tc_mirred.h
+index 3d7a2b3..ea06a47 100644
+--- a/include/linux/tc_act/tc_mirred.h
++++ b/include/linux/tc_act/tc_mirred.h
+@@ -9,6 +9,8 @@
+ #define TCA_EGRESS_MIRROR 2 /* mirror packet to EGRESS */
+ #define TCA_INGRESS_REDIR 3  /* packet redirect to INGRESS*/
+ #define TCA_INGRESS_MIRROR 4 /* mirror packet to INGRESS */
++
++#define MIRRED_F_TCLASS	0x1
+                                                                                 
+ struct tc_mirred {
+ 	tc_gen;
+@@ -21,6 +23,7 @@ enum {
+ 	TCA_MIRRED_TM,
+ 	TCA_MIRRED_PARMS,
+ 	TCA_MIRRED_PAD,
++	TCA_MIRRED_TCLASS,
+ 	__TCA_MIRRED_MAX
+ };
+ #define TCA_MIRRED_MAX (__TCA_MIRRED_MAX - 1)
+diff --git a/tc/m_mirred.c b/tc/m_mirred.c
+index 2384bda..1cb477a 100644
+--- a/tc/m_mirred.c
++++ b/tc/m_mirred.c
+@@ -29,12 +29,13 @@
+ static void
+ explain(void)
+ {
+-	fprintf(stderr, "Usage: mirred <DIRECTION> <ACTION> [index INDEX] <dev DEVICENAME>\n");
++	fprintf(stderr, "Usage: mirred <DIRECTION> <ACTION> [index INDEX] <dev DEVICENAME> [tclass TCINDEX]\n");
+ 	fprintf(stderr, "where:\n");
+ 	fprintf(stderr, "\tDIRECTION := <ingress | egress>\n");
+ 	fprintf(stderr, "\tACTION := <mirror | redirect>\n");
+ 	fprintf(stderr, "\tINDEX  is the specific policy instance id\n");
+ 	fprintf(stderr, "\tDEVICENAME is the devicename\n");
++	fprintf(stderr, "\tTCINDEX is the traffic class index\n");
+ 
+ }
+ 
+@@ -72,6 +73,9 @@ parse_direction(struct action_util *a, int *argc_p, char ***argv_p,
+ 	struct tc_mirred p = {};
+ 	struct rtattr *tail;
+ 	char d[16] = {};
++	__u32 flags = 0;
++	char *end;
++	__u8 tc;
+ 
+ 	while (argc > 0) {
+ 
+@@ -139,9 +143,23 @@ parse_direction(struct action_util *a, int *argc_p, char ***argv_p,
+ 					duparg("dev", *argv);
+ 
+ 				strncpy(d, *argv, sizeof(d)-1);
+-				argc--;
+-				argv++;
+-
++				NEXT_ARG_FWD();
++
++				if (argc > 0 && matches(*argv, "tclass") == 0) {
++					NEXT_ARG();
++					tc = strtoul(*argv, &end, 0);
++					if (*end) {
++						fprintf(stderr, "Illegal TC index\n");
++						return -1;
++					}
++					if (tc >= TC_QOPT_MAX_QUEUE) {
++						fprintf(stderr, "TC index exceeds max range\n");
++						return -1;
++					}
++					flags |= MIRRED_F_TCLASS;
++					ok++;
++					NEXT_ARG_FWD();
++				}
+ 				break;
+ 
+ 			}
+@@ -193,6 +211,9 @@ parse_direction(struct action_util *a, int *argc_p, char ***argv_p,
+ 	tail = NLMSG_TAIL(n);
+ 	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
+ 	addattr_l(n, MAX_MSG, TCA_MIRRED_PARMS, &p, sizeof(p));
++	if (flags & MIRRED_F_TCLASS)
++		addattr_l(n, MAX_MSG, TCA_MIRRED_TCLASS,
++			  &tc, sizeof(tc));
+ 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
+ 
+ 	*argc_p = argc;
+@@ -248,6 +269,7 @@ print_mirred(struct action_util *au, FILE * f, struct rtattr *arg)
+ 	struct tc_mirred *p;
+ 	struct rtattr *tb[TCA_MIRRED_MAX + 1];
+ 	const char *dev;
++	__u8 *tc;
+ 
+ 	if (arg == NULL)
+ 		return -1;
+@@ -273,6 +295,11 @@ print_mirred(struct action_util *au, FILE * f, struct rtattr *arg)
+ 	fprintf(f, "mirred (%s to device %s)", mirred_n2a(p->eaction), dev);
+ 	print_action_control(f, " ", p->action, "");
+ 
++	if (tb[TCA_MIRRED_TCLASS]) {
++		tc = RTA_DATA(tb[TCA_MIRRED_TCLASS]);
++		fprintf(f, " tclass %u", *tc);
++	}
++
+ 	fprintf(f, "\n ");
+ 	fprintf(f, "\tindex %u ref %d bind %d", p->index, p->refcnt,
+ 		p->bindcnt);
