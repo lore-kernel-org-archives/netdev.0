@@ -1,59 +1,62 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
- don't skip empty skbs
-Date: Thu, 17 Aug 2017 12:45:48 -0400
-Message-ID: <CAF=yD-Kt7AQ8ZUCky+MQLn13FDPrM=u+Ha9oD5kw17N5Xz8Uuw@mail.gmail.com>
-References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1502914822.2796.6.camel@redhat.com>
- <CAF=yD-JryS8g=8nB7yq9WVdCOjqSb7uNwncrRfWPmMQbdYrh3w@mail.gmail.com> <2020045.ridbXvZZ6f@ring00>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next] net: ipv6: put host and anycast routes on device
+ with address
+Date: Thu, 17 Aug 2017 10:56:54 -0600
+Message-ID: <3b4eb556-a25b-75a8-9d29-1974607044cf@gmail.com>
+References: <1502923076-12292-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Paolo Abeni <pabeni@redhat.com>,
-        Network Development <netdev@vger.kernel.org>,
-        "Macieira, Thiago" <thiago.macieira@intel.com>
-To: Matthew Dawson <matthew@mjdsystems.ca>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, hannes@stressinduktion.org
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:35707 "EHLO
-        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751107AbdHQQqc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 12:46:32 -0400
-Received: by mail-oi0-f52.google.com with SMTP id e124so72413641oig.2
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 09:46:32 -0700 (PDT)
-In-Reply-To: <2020045.ridbXvZZ6f@ring00>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34761 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751943AbdHQQ5B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 12:57:01 -0400
+Received: by mail-pg0-f67.google.com with SMTP id y192so10756084pgd.1
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 09:57:01 -0700 (PDT)
+In-Reply-To: <1502923076-12292-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> @@ -169,14 +169,20 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock
->> *sk, int *peeked, int *off, int *err, struct sk_buff **last)
->>  {
->> +       bool peek_at_off = false;
->>         struct sk_buff *skb;
->> -       int _off = *off;
->> +       int _off = 0;
->> +
->> +       if (flags & MSG_PEEK && (*off) >= 0) {
->> +               peek_at_off = true;
->> +               _off = *off;
->> +       }
->>
->>         *last = queue->prev;
->>         skb_queue_walk(queue, skb) {
->>                 if (flags & MSG_PEEK) {
->> -                       if (_off >= skb->len && (skb->len || _off ||
->> -                                                skb->peeked)) {
->> +                       if (peek_at_off && _off >= skb->len &&
->> +                           (skb->len || _off || skb->peeked)) {
->                                 ^ I'm pretty sure we can remove this check
-> (that skb->len is not zero) in this if statement.  If _off is zero, then skb-
->>len must also be zero (since _off >= skb->len, if _off is 0, skb->len <= 0.
-> If skb->len can't be negative, then skb->len <= 0 => skb->len == 0).  If _off
-> is not zero, then checking skb->len is redundant.
+On 8/16/17 4:37 PM, David Ahern wrote:
+> One nagging difference between ipv4 and ipv6 is host routes for ipv6
+> addresses are installed using the loopback device or VRF / L3 Master
+> device. e.g.,
+> 
+>     2001:db8:1::/120 dev veth0 proto kernel metric 256 pref medium
+>     local 2001:db8:1::1 dev lo table local proto kernel metric 0 pref medium
+> 
+> Using the loopback device is convenient -- necessary for local tx, but
+> has some nasty side effects, most notably setting the 'lo' device down
+> causes all host routes for all local IPv6 address to be removed from the
+> FIB and completely breaks IPv6 networking across all interfaces.
+> 
+> This patch puts FIB entries for IPv6 routes against the device. This
+> simplifies the routes in the FIB, for example by making dst->dev and
+> rt6i_idev->dev the same (a future patch can look at removing the device
+> reference taken for rt6i_idev for FIB entries). For example:
+> 
+>     $ ip -6 r ls table all | grep veth1
+>     2001:db8:99::/120 dev veth1 proto kernel metric 256 pref medium
+>     anycast 2001:db8:99:: dev veth1 table local proto kernel metric 0 pref medium
+>     local 2001:db8:99::1 dev veth1 table local proto kernel metric 0 pref medium
+> 
+> When copies are made on FIB lookups, the cloned route has dst->dev
+> set to loopback (or the L3 master device). This is needed for the
+> local Tx of packets to local addresses.
+> 
+> With fib entries allocated against the real network device, the addrconf
+> code that reinserts host routes on admin up of 'lo' is no longer needed.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> ---
+>  net/ipv6/addrconf.c | 42 ------------------------------------------
+>  net/ipv6/route.c    | 46 ++++++++++++++++++++++++++++++++++------------
+>  2 files changed, 34 insertions(+), 54 deletions(-)
+>
 
-Good point.
-
->>                                 _off -= skb->len;
->>                                 continue;
->>                         }
-> Is this queued to go in already? Or can I help by updating my patch with what
-> was discussed here?  I can do that today if wanted.
-
-It isn't. Please do if no one else has additional comments.
+DaveM: please drop this one. I found a use case that is failing: UDP
+packets to a local linklocal address with no server are not getting the
+ICMP unreachable. Will send a v2 when tests complete.
