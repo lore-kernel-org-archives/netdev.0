@@ -1,18 +1,18 @@
 From: Julien Fortin <julien@cumulusnetworks.com>
-Subject: [PATCH iproute2 json v2 19/27] ip: ipmacsec.c: add json output support
-Date: Thu, 17 Aug 2017 10:36:06 -0700
-Message-ID: <20170817173614.54987-20-julien@cumulusnetworks.com>
+Subject: [PATCH iproute2 json v2 18/27] ip: iplink_xdp.c: add json output support
+Date: Thu, 17 Aug 2017 10:36:05 -0700
+Message-ID: <20170817173614.54987-19-julien@cumulusnetworks.com>
 References: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
         dsa@cumulusnetworks.com, Julien Fortin <julien@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f177.google.com ([209.85.128.177]:33669 "EHLO
-        mail-wr0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753603AbdHQRlo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:41:44 -0400
-Received: by mail-wr0-f177.google.com with SMTP id b65so50136378wrd.0
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:41:43 -0700 (PDT)
+Received: from mail-wr0-f179.google.com ([209.85.128.179]:34085 "EHLO
+        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753595AbdHQRlj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:41:39 -0400
+Received: by mail-wr0-f179.google.com with SMTP id y96so47244372wrc.1
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:41:38 -0700 (PDT)
 In-Reply-To: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,185 +21,70 @@ From: Julien Fortin <julien@cumulusnetworks.com>
 
 Schema
 {
-    "sci": {
-        "type": "string",
-        "attr": "IFLA_MACSEC_SCI"
-    },
-    "protect": {
-        "type": "string",
-        "attr": "IFLA_MACSEC_PROTECT"
-    },
-    "cipher_suite": {
-        "type": "string",
-        "attr": "IFLA_MACSEC_CIPHER_SUITE"
-    },
-    "icv_len": {
+    "attached": {
         "type": "uint",
-        "attr": "IFLA_MACSEC_ICV_LEN"
+        "attr": "IFLA_XDP_ATTACHED"
     },
-    "encoding_sa": {
+    "prog_id": {
         "type": "uint",
-        "attr": "IFLA_MACSEC_ENCODING_SA"
-    },
-    "validation": {
-        "type": "string",
-        "attr": "IFLA_MACSEC_VALIDATION"
-    },
-    "encrypt": {
-        "type": "string",
-        "attr": "IFLA_MACSEC_ENCRYPT"
-    },
-    "inc_sci": {
-        "type": "string",
-        "attr": "IFLA_MACSEC_INC_SCI"
-    },
-    "es": {
-        "type": "string",
-        "attr": "IFLA_MACSEC_ES"
-    },
-    "scb": {
-        "type": "string",
-        "attr": "IFLA_MACSEC_SCB"
-    },
-    "replay_protect": {
-        "type": "string",
-        "attr": "IFLA_MACSEC_REPLAY_PROTECT"
-    },
-    "window": {
-        "type": "int",
-        "attr": ""
+        "attr": "IFLA_XDP_PROG_ID"
     }
 }
 
 Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
 ---
- ip/ipmacsec.c | 84 ++++++++++++++++++++++++++++++++++++++++++++++-------------
- 1 file changed, 66 insertions(+), 18 deletions(-)
+ ip/iplink_xdp.c | 31 ++++++++++++++++++-------------
+ 1 file changed, 18 insertions(+), 13 deletions(-)
 
-diff --git a/ip/ipmacsec.c b/ip/ipmacsec.c
-index aa89a00f..ecc371a5 100644
---- a/ip/ipmacsec.c
-+++ b/ip/ipmacsec.c
-@@ -561,9 +561,14 @@ static int validate_secy_dump(struct rtattr **attrs)
- static void print_flag(FILE *f, struct rtattr *attrs[], const char *desc,
- 		       int field)
- {
--	if (attrs[field])
--		fprintf(f, "%s %s ", desc,
--			values_on_off[!!rta_getattr_u8(attrs[field])]);
-+	if (attrs[field]) {
-+		const char *v = values_on_off[!!rta_getattr_u8(attrs[field])];
-+
-+		if (is_json_context())
-+			print_string(PRINT_JSON, desc, NULL, v);
-+		else
-+			fprintf(f, "%s %s ", desc, v);
-+	}
- }
+diff --git a/ip/iplink_xdp.c b/ip/iplink_xdp.c
+index 9ae9ee5d..3a61076e 100644
+--- a/ip/iplink_xdp.c
++++ b/ip/iplink_xdp.c
+@@ -16,6 +16,7 @@
  
- #define DEFAULT_CIPHER_NAME "GCM-AES-128"
-@@ -1017,8 +1022,16 @@ static void macsec_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ #include "xdp.h"
+ #include "bpf_util.h"
++#include "ip_common.h"
+ 
+ extern int force;
+ 
+@@ -92,20 +93,24 @@ void xdp_dump(FILE *fp, struct rtattr *xdp)
  		return;
  
- 	if (tb[IFLA_MACSEC_SCI]) {
--		fprintf(f, "sci %016llx ",
--			ntohll(rta_getattr_u64(tb[IFLA_MACSEC_SCI])));
-+		if (is_json_context()) {
-+			SPRINT_BUF(b1);
-+
-+			snprintf(b1, sizeof(b1), "%016llx",
-+				 ntohll(rta_getattr_u64(tb[IFLA_MACSEC_SCI])));
-+			print_string(PRINT_JSON, "sci", NULL, b1);
-+		} else {
-+			fprintf(f, "sci %016llx ",
-+				ntohll(rta_getattr_u64(tb[IFLA_MACSEC_SCI])));
-+		}
- 	}
- 
- 	print_flag(f, tb, "protect", IFLA_MACSEC_PROTECT);
-@@ -1026,35 +1039,70 @@ static void macsec_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	if (tb[IFLA_MACSEC_CIPHER_SUITE]) {
- 		__u64 csid = rta_getattr_u64(tb[IFLA_MACSEC_CIPHER_SUITE]);
- 
--		fprintf(f, "cipher %s ", cs_id_to_name(csid));
-+		print_string(PRINT_ANY,
-+			     "cipher_suite",
-+			     "cipher %s ",
-+			     cs_id_to_name(csid));
- 	}
- 
- 	if (tb[IFLA_MACSEC_ICV_LEN]) {
--		fprintf(f, "icvlen %hhu ",
--			rta_getattr_u8(tb[IFLA_MACSEC_ICV_LEN]));
-+		if (is_json_context()) {
-+			char b2[4];
-+
-+			snprintf(b2, sizeof(b2), "%hhu",
-+				 rta_getattr_u8(tb[IFLA_MACSEC_ICV_LEN]));
-+			print_uint(PRINT_JSON, "icv_len", NULL, atoi(b2));
-+		} else {
-+			fprintf(f, "icvlen %hhu ",
-+				rta_getattr_u8(tb[IFLA_MACSEC_ICV_LEN]));
-+		}
- 	}
- 
- 	if (tb[IFLA_MACSEC_ENCODING_SA]) {
--		fprintf(f, "encodingsa %hhu ",
--			rta_getattr_u8(tb[IFLA_MACSEC_ENCODING_SA]));
-+		if (is_json_context()) {
-+			char b2[4];
-+
-+			snprintf(b2, sizeof(b2), "%hhu",
-+				 rta_getattr_u8(tb[IFLA_MACSEC_ENCODING_SA]));
-+			print_uint(PRINT_JSON, "encoding_sa", NULL, atoi(b2));
-+		} else {
-+			fprintf(f, "encodingsa %hhu ",
-+				rta_getattr_u8(tb[IFLA_MACSEC_ENCODING_SA]));
-+		}
- 	}
- 
- 	if (tb[IFLA_MACSEC_VALIDATION]) {
- 		__u8 val = rta_getattr_u8(tb[IFLA_MACSEC_VALIDATION]);
- 
--		fprintf(f, "validate %s ", VALIDATE_STR[val]);
-+		print_string(PRINT_ANY,
-+			     "validation",
-+			     "validate %s ",
-+			     VALIDATE_STR[val]);
-+	}
-+
-+	const char *inc_sci, *es, *replay;
-+
+ 	mode = rta_getattr_u8(tb[IFLA_XDP_ATTACHED]);
+-	if (mode == XDP_ATTACHED_NONE)
+-		return;
+-	else if (mode == XDP_ATTACHED_DRV)
+-		fprintf(fp, "xdp");
+-	else if (mode == XDP_ATTACHED_SKB)
+-		fprintf(fp, "xdpgeneric");
+-	else if (mode == XDP_ATTACHED_HW)
+-		fprintf(fp, "xdpoffload");
+-	else
+-		fprintf(fp, "xdp[%u]", mode);
 +	if (is_json_context()) {
-+		inc_sci = "inc_sci";
-+		replay = "replay_protect";
-+		es = "es";
++		print_uint(PRINT_JSON, "attached", NULL, mode);
 +	} else {
-+		inc_sci = "send_sci";
-+		es = "end_station";
-+		replay = "replay";
- 	}
++		if (mode == XDP_ATTACHED_NONE)
++			return;
++		else if (mode == XDP_ATTACHED_DRV)
++			fprintf(fp, "xdp");
++		else if (mode == XDP_ATTACHED_SKB)
++			fprintf(fp, "xdpgeneric");
++		else if (mode == XDP_ATTACHED_HW)
++			fprintf(fp, "xdpoffload");
++		else
++			fprintf(fp, "xdp[%u]", mode);
++	}
  
- 	print_flag(f, tb, "encrypt", IFLA_MACSEC_ENCRYPT);
--	print_flag(f, tb, "send_sci", IFLA_MACSEC_INC_SCI);
--	print_flag(f, tb, "end_station", IFLA_MACSEC_ES);
-+	print_flag(f, tb, inc_sci, IFLA_MACSEC_INC_SCI);
-+	print_flag(f, tb, es, IFLA_MACSEC_ES);
- 	print_flag(f, tb, "scb", IFLA_MACSEC_SCB);
-+	print_flag(f, tb, replay, IFLA_MACSEC_REPLAY_PROTECT);
+ 	if (tb[IFLA_XDP_PROG_ID])
+-		fprintf(fp, "/id:%u",
+-			rta_getattr_u32(tb[IFLA_XDP_PROG_ID]));
++		print_uint(PRINT_ANY, "prog_id", "/id:%u",
++				   rta_getattr_u32(tb[IFLA_XDP_PROG_ID]));
  
--	print_flag(f, tb, "replay", IFLA_MACSEC_REPLAY_PROTECT);
--	if (tb[IFLA_MACSEC_WINDOW]) {
--		fprintf(f, "window %d ",
--			rta_getattr_u32(tb[IFLA_MACSEC_WINDOW]));
--	}
-+	if (tb[IFLA_MACSEC_WINDOW])
-+		print_int(PRINT_ANY,
-+			  "window",
-+			  "window %d ",
-+			  rta_getattr_u32(tb[IFLA_MACSEC_WINDOW]));
+-	fprintf(fp, " ");
++	print_string(PRINT_FP, NULL, "%c", " ");
  }
- 
- static bool check_txsc_flags(bool es, bool scb, bool sci)
 -- 
 2.14.1
