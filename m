@@ -1,141 +1,113 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net v2 2/2] net: ixgbe: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
-Date: Thu, 17 Aug 2017 11:25:16 +0800
-Message-ID: <1502940316-13384-3-git-send-email-dingtianhong@huawei.com>
-References: <1502940316-13384-1-git-send-email-dingtianhong@huawei.com>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Subject: Re: Regression: Bug 196547 - Since 4.12 - bonding module not working
+ with wireless drivers
+Date: Wed, 16 Aug 2017 20:32:11 -0700
+Message-ID: <51235f75-efd1-20af-31ab-19dbba91b359@candelatech.com>
+References: <CADps9UCgqeUh41iHxCM+CTJh=Tffn-tiSYL2Q+NBb_8EppqRMA@mail.gmail.com>
+ <2b6fd91a-f7cd-c2bf-6394-060d9b1f5d23@nurealm.net>
+ <1502918561.30484.1.camel@redhat.com>
+ <20170816.143116.1172751167543812070.davem@davemloft.net>
+ <1502935907.30484.4.camel@redhat.com>
+ <2abaf7ec-947a-6a30-e6d3-4f75605dd50d@candelatech.com>
+ <1502939894.30484.9.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ding Tianhong <dingtianhong@huawei.com>
-To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
-        <keescook@chromium.org>, <linux-kernel@vger.kernel.org>,
-        <sparclinux@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
-        <alexander.duyck@gmail.com>, <netdev@vger.kernel.org>,
-        <linuxarm@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502940316-13384-1-git-send-email-dingtianhong@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: james-fvV4AYHggTTR7s880joybQ@public.gmane.org, futur.andy-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+        andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1502939894.30484.9.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The ixgbe driver use the compile check to determine if it can
-send TLPs to Root Port with the Relaxed Ordering Attribute set,
-this is too inconvenient, now the new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING
-has been added to the kernel and we could check the bit4 in the PCIe
-Device Control register to determine whether we should use the Relaxed
-Ordering Attributes or not, so use this new way in the ixgbe driver.
+On 08/16/2017 08:18 PM, Dan Williams wrote:
+> On Wed, 2017-08-16 at 19:36 -0700, Ben Greear wrote:
+>> On 08/16/2017 07:11 PM, Dan Williams wrote:
+>>> On Wed, 2017-08-16 at 14:31 -0700, David Miller wrote:
+>>>> From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>>> Date: Wed, 16 Aug 2017 16:22:41 -0500
+>>>>
+>>>>> My biggest suggestion is that perhaps bonding should grow
+>>>>
+>>>> hysteresis
+>>>>> for link speeds. Since WiFi can change speed every packet, you
+>>>>
+>>>> probably
+>>>>> don't want the bond characteristics changing every couple
+>>>>> seconds
+>>>>
+>>>> just
+>>>>> in case your WiFi link is jumping around.  Ethernet won't
+>>>>> bounce
+>>>>
+>>>> around
+>>>>> that much, so the hysteresis would have no effect there.  Or,
+>>>>> if
+>>>>
+>>>> people
+>>>>> are concerned about response time to speed changes on ethernet
+>>>>
+>>>> (where
+>>>>> you probably do want an instant switch-over) some new flag to
+>>>>
+>>>> indicate
+>>>>> that certain devices don't have stable speeds over time.
+>>>>
+>>>> Or just report the average of the range the wireless link can
+>>>> hit,
+>>>> and
+>>>> be done with it.
+>>>>
+>>>> I think you guys are overcomplicating things.
+>>>
+>>> That range can be from 1 to > 800Mb/s.  No, it won't usually be all
+>>> over that range, but it won't be uncommon to fluctuate by hundreds
+>>> of
+>>> Mb/s.  I'm not sure a simple average is really the answer
+>>> here.  Even
+>>> doing that would require new knobs to ethtool, since the rate
+>>> depends
+>>> heavily on card capabilities and also what AP you're connected to
+>>> *at
+>>> that moment*.  If you roam to another AP, then the max speed can
+>>> certainly change.
+>>>
+>>> You'll probably say "aim for the 75% case" or something like that,
+>>> which is fine, but then you're depending on your 75% case to be (a)
+>>> single AP, (b) never move (eg, only bond wifi + ethernet), (c)
+>>> little
+>>> radio interference.  I'm not sure I'd buy that.  If I've put words
+>>> in
+>>> your mouth, forgive me.
+>>
+>> If you keep ethtool API simple and just return the last (rx-rate +
+>> tx-rate) / 2, or the rate averaged
+>> over the last 100 frames or 10 seconds, then the caller can do longer
+>> term averaging
+>> as it sees fit.  Probably no need for lots of averaging complexity in
+>> the kernel.
+>
+> Yeah, that works too, but I was thinking it was better to present the
+> actual data through ethtool so that things other than bonding could use
+> it, and since bonding is the thing that actually cares about the
+> fluctuation, make it do the more extensive processing.
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 37 ++++++++++++-------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 32 +++++++++++----------
- 2 files changed, 35 insertions(+), 34 deletions(-)
+What do you mean by 'actual data'?  If you want to know the most accurate
+transmit/rx rate info, then you need to pay attention to each and every frame's tx/rx rate, as
+well as it's ampdu/amsdu, retries, etc.  It is virtually impossible.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 523f9d0..d1571e3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -175,31 +175,30 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw *hw)
-  **/
- static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
- {
--#ifndef CONFIG_SPARC
--	u32 regval;
--	u32 i;
--#endif
-+	u32 regval, i;
- 	s32 ret_val;
-+	struct ixgbe_adapter *adapter = hw->back;
- 
- 	ret_val = ixgbe_start_hw_generic(hw);
- 
--#ifndef CONFIG_SPARC
--	/* Disable relaxed ordering */
--	for (i = 0; ((i < hw->mac.max_tx_queues) &&
--	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
--		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
--	}
-+	if (!pcie_relaxed_ordering_enabled(adapter->pdev)) {
-+		/* Disable relaxed ordering */
-+		for (i = 0; ((i < hw->mac.max_tx_queues) &&
-+		     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
-+			regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
-+		}
- 
--	for (i = 0; ((i < hw->mac.max_rx_queues) &&
--	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
--		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
--			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+		for (i = 0; ((i < hw->mac.max_rx_queues) &&
-+		     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
-+			regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
-+				    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+		}
- 	}
--#endif
-+
- 	if (ret_val)
- 		return ret_val;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index d4933d2..d1052ee 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -342,6 +342,7 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
- s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
- {
- 	u32 i;
-+	struct ixgbe_adapter *adapter = hw->back;
- 
- 	/* Clear the rate limiters */
- 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
-@@ -350,25 +351,26 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
- 	}
- 	IXGBE_WRITE_FLUSH(hw);
- 
--#ifndef CONFIG_SPARC
--	/* Disable relaxed ordering */
--	for (i = 0; i < hw->mac.max_tx_queues; i++) {
--		u32 regval;
-+	if (!pcie_relaxed_ordering_enabled(adapter->pdev)) {
-+		/* Disable relaxed ordering */
-+		for (i = 0; i < hw->mac.max_tx_queues; i++) {
-+			u32 regval;
- 
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
--		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
--	}
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
-+			regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
-+		}
- 
--	for (i = 0; i < hw->mac.max_rx_queues; i++) {
--		u32 regval;
-+		for (i = 0; i < hw->mac.max_rx_queues; i++) {
-+			u32 regval;
- 
--		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
--		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
--			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
--		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+			regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
-+			regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
-+				    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
-+			IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+		}
- 	}
--#endif
-+
- 	return 0;
- }
- 
+So, you will have to settle for something less...  I suggest something simple
+to calculate, similar to existing values that are available via debugfs and/or
+'iw dev foo station dump', etc.  Let higher layers manipulate the raw data
+as they see fit (they can query ethtool as often as they like).
+
+Thanks,
+Ben
+
+
 -- 
-1.8.3.1
+Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Candela Technologies Inc  http://www.candelatech.com
