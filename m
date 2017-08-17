@@ -1,8 +1,7 @@
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V6 04/21] net-next/hinic: Initialize api cmd hw
-Date: Thu, 17 Aug 2017 20:25:12 +0800
-Message-ID: <de6c7126db9d106ae094405b9f2075e813eb4307.1502972068.git.aviad.krawczyk@huawei.com>
-References: <cover.1502972068.git.aviad.krawczyk@huawei.com>
+Subject: [PATCH V6 00/21] Huawei HiNIC Ethernet Driver
+Date: Thu, 17 Aug 2017 20:25:08 +0800
+Message-ID: <cover.1502972068.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
@@ -11,319 +10,161 @@ Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
         <tony.qu@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1502972068.git.aviad.krawczyk@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update the hardware about api cmd resources and initialize it.
+The patch-set contains the support of the HiNIC Ethernet driver for
+hinic family of PCIE Network Interface Cards.
 
-Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
----
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   | 173 ++++++++++++++++++++-
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |  38 +++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |  26 ++++
- 3 files changed, 236 insertions(+), 1 deletion(-)
+The Huawei's PCIE HiNIC card is a new Ethernet card and hence there was
+a need of a new driver.
 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-index 4291f8e..234ede9 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-@@ -13,6 +13,7 @@
-  *
-  */
- 
-+#include <linux/kernel.h>
- #include <linux/types.h>
- #include <linux/errno.h>
- #include <linux/pci.h>
-@@ -21,8 +22,12 @@
- #include <linux/dma-mapping.h>
- #include <linux/bitops.h>
- #include <linux/err.h>
-+#include <linux/jiffies.h>
-+#include <linux/delay.h>
-+#include <linux/log2.h>
- #include <asm/byteorder.h>
- 
-+#include "hinic_hw_csr.h"
- #include "hinic_hw_if.h"
- #include "hinic_hw_api_cmd.h"
- 
-@@ -35,8 +40,157 @@
- 		(((cell_size) >= API_CMD_CELL_SIZE_MIN) ? \
- 		 (1 << (fls(cell_size - 1))) : API_CMD_CELL_SIZE_MIN)
- 
-+#define API_CMD_CELL_SIZE_VAL(size)             \
-+		ilog2((size) >> API_CMD_CELL_SIZE_SHIFT)
-+
- #define API_CMD_BUF_SIZE                        2048
- 
-+#define API_CMD_TIMEOUT                 1000
-+
-+enum api_cmd_xor_chk_level {
-+	XOR_CHK_DIS = 0,
-+
-+	XOR_CHK_ALL = 3,
-+};
-+
-+/**
-+ * api_cmd_hw_restart - restart the chain in the HW
-+ * @chain: the API CMD specific chain to restart
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int api_cmd_hw_restart(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	int err = -ETIMEDOUT;
-+	unsigned long end;
-+	u32 reg_addr, val;
-+
-+	/* Read Modify Write */
-+	reg_addr = HINIC_CSR_API_CMD_CHAIN_REQ_ADDR(chain->chain_type);
-+	val = hinic_hwif_read_reg(hwif, reg_addr);
-+
-+	val = HINIC_API_CMD_CHAIN_REQ_CLEAR(val, RESTART);
-+	val |= HINIC_API_CMD_CHAIN_REQ_SET(1, RESTART);
-+
-+	hinic_hwif_write_reg(hwif, reg_addr, val);
-+
-+	end = jiffies + msecs_to_jiffies(API_CMD_TIMEOUT);
-+	do {
-+		val = hinic_hwif_read_reg(hwif, reg_addr);
-+
-+		if (!HINIC_API_CMD_CHAIN_REQ_GET(val, RESTART)) {
-+			err = 0;
-+			break;
-+		}
-+
-+		msleep(20);
-+	} while (time_before(jiffies, end));
-+
-+	return err;
-+}
-+
-+/**
-+ * api_cmd_ctrl_init - set the control register of a chain
-+ * @chain: the API CMD specific chain to set control register for
-+ **/
-+static void api_cmd_ctrl_init(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 reg_addr, ctrl;
-+	u16 cell_size;
-+
-+	/* Read Modify Write */
-+	reg_addr = HINIC_CSR_API_CMD_CHAIN_CTRL_ADDR(chain->chain_type);
-+
-+	cell_size = API_CMD_CELL_SIZE_VAL(chain->cell_size);
-+
-+	ctrl = hinic_hwif_read_reg(hwif, reg_addr);
-+
-+	ctrl =  HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, RESTART_WB_STAT) &
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, XOR_ERR)         &
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, AEQE_EN)         &
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, XOR_CHK_EN)      &
-+		HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, CELL_SIZE);
-+
-+	ctrl |= HINIC_API_CMD_CHAIN_CTRL_SET(1, XOR_ERR)              |
-+		HINIC_API_CMD_CHAIN_CTRL_SET(XOR_CHK_ALL, XOR_CHK_EN) |
-+		HINIC_API_CMD_CHAIN_CTRL_SET(cell_size, CELL_SIZE);
-+
-+	hinic_hwif_write_reg(hwif, reg_addr, ctrl);
-+}
-+
-+/**
-+ * api_cmd_set_status_addr - set the status address of a chain in the HW
-+ * @chain: the API CMD specific chain to set in HW status address for
-+ **/
-+static void api_cmd_set_status_addr(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 addr, val;
-+
-+	addr = HINIC_CSR_API_CMD_STATUS_HI_ADDR(chain->chain_type);
-+	val = upper_32_bits(chain->wb_status_paddr);
-+	hinic_hwif_write_reg(hwif, addr, val);
-+
-+	addr = HINIC_CSR_API_CMD_STATUS_LO_ADDR(chain->chain_type);
-+	val = lower_32_bits(chain->wb_status_paddr);
-+	hinic_hwif_write_reg(hwif, addr, val);
-+}
-+
-+/**
-+ * api_cmd_set_num_cells - set the number cells of a chain in the HW
-+ * @chain: the API CMD specific chain to set in HW the number of cells for
-+ **/
-+static void api_cmd_set_num_cells(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 addr, val;
-+
-+	addr = HINIC_CSR_API_CMD_CHAIN_NUM_CELLS_ADDR(chain->chain_type);
-+	val  = chain->num_cells;
-+	hinic_hwif_write_reg(hwif, addr, val);
-+}
-+
-+/**
-+ * api_cmd_head_init - set the head of a chain in the HW
-+ * @chain: the API CMD specific chain to set in HW the head for
-+ **/
-+static void api_cmd_head_init(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 addr, val;
-+
-+	addr = HINIC_CSR_API_CMD_CHAIN_HEAD_HI_ADDR(chain->chain_type);
-+	val = upper_32_bits(chain->head_cell_paddr);
-+	hinic_hwif_write_reg(hwif, addr, val);
-+
-+	addr = HINIC_CSR_API_CMD_CHAIN_HEAD_LO_ADDR(chain->chain_type);
-+	val = lower_32_bits(chain->head_cell_paddr);
-+	hinic_hwif_write_reg(hwif, addr, val);
-+}
-+
-+/**
-+ * api_cmd_chain_hw_clean - clean the HW
-+ * @chain: the API CMD specific chain
-+ **/
-+static void api_cmd_chain_hw_clean(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 addr, ctrl;
-+
-+	addr = HINIC_CSR_API_CMD_CHAIN_CTRL_ADDR(chain->chain_type);
-+
-+	ctrl = hinic_hwif_read_reg(hwif, addr);
-+	ctrl = HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, RESTART_WB_STAT) &
-+	       HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, XOR_ERR)         &
-+	       HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, AEQE_EN)         &
-+	       HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, XOR_CHK_EN)      &
-+	       HINIC_API_CMD_CHAIN_CTRL_CLEAR(ctrl, CELL_SIZE);
-+
-+	hinic_hwif_write_reg(hwif, addr, ctrl);
-+}
-+
- /**
-  * api_cmd_chain_hw_init - initialize the chain in the HW
-  * @chain: the API CMD specific chain to initialize in HW
-@@ -45,7 +199,23 @@
-  **/
- static int api_cmd_chain_hw_init(struct hinic_api_cmd_chain *chain)
- {
--	/* should be implemented */
-+	struct hinic_hwif *hwif = chain->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	int err;
-+
-+	api_cmd_chain_hw_clean(chain);
-+
-+	api_cmd_set_status_addr(chain);
-+
-+	err = api_cmd_hw_restart(chain);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to restart API CMD HW\n");
-+		return err;
-+	}
-+
-+	api_cmd_ctrl_init(chain);
-+	api_cmd_set_num_cells(chain);
-+	api_cmd_head_init(chain);
- 	return 0;
- }
- 
-@@ -373,6 +543,7 @@ static void api_chain_free(struct hinic_api_cmd_chain *chain)
-  **/
- static void api_cmd_destroy_chain(struct hinic_api_cmd_chain *chain)
- {
-+	api_cmd_chain_hw_clean(chain);
- 	api_cmd_destroy_cells(chain, chain->num_cells);
- 	api_chain_free(chain);
- }
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-index 9c7d1e5..0c83b80 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-@@ -20,6 +20,44 @@
- 
- #include "hinic_hw_if.h"
- 
-+#define HINIC_API_CMD_CHAIN_REQ_RESTART_SHIFT                   1
-+
-+#define HINIC_API_CMD_CHAIN_REQ_RESTART_MASK                    0x1
-+
-+#define HINIC_API_CMD_CHAIN_REQ_SET(val, member)                \
-+	(((u32)(val) & HINIC_API_CMD_CHAIN_REQ_##member##_MASK) << \
-+	 HINIC_API_CMD_CHAIN_REQ_##member##_SHIFT)
-+
-+#define HINIC_API_CMD_CHAIN_REQ_GET(val, member)                \
-+	(((val) >> HINIC_API_CMD_CHAIN_REQ_##member##_SHIFT) &  \
-+	 HINIC_API_CMD_CHAIN_REQ_##member##_MASK)
-+
-+#define HINIC_API_CMD_CHAIN_REQ_CLEAR(val, member)              \
-+	((val) & (~(HINIC_API_CMD_CHAIN_REQ_##member##_MASK     \
-+	 << HINIC_API_CMD_CHAIN_REQ_##member##_SHIFT)))
-+
-+#define HINIC_API_CMD_CHAIN_CTRL_RESTART_WB_STAT_SHIFT          1
-+#define HINIC_API_CMD_CHAIN_CTRL_XOR_ERR_SHIFT                  2
-+#define HINIC_API_CMD_CHAIN_CTRL_AEQE_EN_SHIFT                  4
-+#define HINIC_API_CMD_CHAIN_CTRL_AEQ_ID_SHIFT                   8
-+#define HINIC_API_CMD_CHAIN_CTRL_XOR_CHK_EN_SHIFT               28
-+#define HINIC_API_CMD_CHAIN_CTRL_CELL_SIZE_SHIFT                30
-+
-+#define HINIC_API_CMD_CHAIN_CTRL_RESTART_WB_STAT_MASK           0x1
-+#define HINIC_API_CMD_CHAIN_CTRL_XOR_ERR_MASK                   0x1
-+#define HINIC_API_CMD_CHAIN_CTRL_AEQE_EN_MASK                   0x1
-+#define HINIC_API_CMD_CHAIN_CTRL_AEQ_ID_MASK                    0x3
-+#define HINIC_API_CMD_CHAIN_CTRL_XOR_CHK_EN_MASK                0x3
-+#define HINIC_API_CMD_CHAIN_CTRL_CELL_SIZE_MASK                 0x3
-+
-+#define HINIC_API_CMD_CHAIN_CTRL_SET(val, member)               \
-+	(((u32)(val) & HINIC_API_CMD_CHAIN_CTRL_##member##_MASK) << \
-+	 HINIC_API_CMD_CHAIN_CTRL_##member##_SHIFT)
-+
-+#define HINIC_API_CMD_CHAIN_CTRL_CLEAR(val, member)             \
-+	((val) & (~(HINIC_API_CMD_CHAIN_CTRL_##member##_MASK    \
-+	 << HINIC_API_CMD_CHAIN_CTRL_##member##_SHIFT)))
-+
- enum hinic_api_cmd_chain_type {
- 	HINIC_API_CMD_WRITE_TO_MGMT_CPU = 2,
- 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-index c3440a9..a9ece6d 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-@@ -33,4 +33,30 @@
- #define HINIC_CSR_PPF_ELECTION_ADDR(idx)                \
- 	(HINIC_ELECTION_BASE +  (idx) * HINIC_PPF_ELECTION_STRIDE)
- 
-+/* API CMD registers */
-+#define HINIC_CSR_API_CMD_BASE                          0xF000
-+
-+#define HINIC_CSR_API_CMD_STRIDE                        0x100
-+
-+#define HINIC_CSR_API_CMD_CHAIN_HEAD_HI_ADDR(idx)       \
-+	(HINIC_CSR_API_CMD_BASE + 0x0 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_CHAIN_HEAD_LO_ADDR(idx)       \
-+	(HINIC_CSR_API_CMD_BASE + 0x4 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_STATUS_HI_ADDR(idx)           \
-+	(HINIC_CSR_API_CMD_BASE + 0x8 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_STATUS_LO_ADDR(idx)           \
-+	(HINIC_CSR_API_CMD_BASE + 0xC + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_CHAIN_NUM_CELLS_ADDR(idx)     \
-+	(HINIC_CSR_API_CMD_BASE + 0x10 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_CHAIN_CTRL_ADDR(idx)          \
-+	(HINIC_CSR_API_CMD_BASE + 0x14 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
-+#define HINIC_CSR_API_CMD_CHAIN_REQ_ADDR(idx)           \
-+	(HINIC_CSR_API_CMD_BASE + 0x20 + (idx) * HINIC_CSR_API_CMD_STRIDE)
-+
- #endif
+The current driver is meant to be used for the Physical Function and there
+would soon be a support for Virtual Function and more features once the
+basic PF driver has been accepted.
+
+Changes V5 -> V6:
+1. Fix cover letter Message-Id 
+
+Changes V4 -> V5:
+1. Remove select_queue NOP - David Miller comment
+        https://lkml.org/lkml/2017/8/16/625
+
+Changes V3 -> V4:
+1. Reverse christmas tree order - David Miller comment
+        https://lkml.org/lkml/2017/8/3/862
+
+Changes V2 -> V3:
+1. Replace dev_ functions by netif_ functions - Joe Perches comment
+        https://lkml.org/lkml/2017/7/19/424
+2. Fix the driver directory in MAINTAINERS file - Sergei Shtylyov comment
+        https://lkml.org/lkml/2017/7/19/615
+3. Add a newline at the end of Makefile - David Miller comment
+        https://lkml.org/lkml/2017/7/19/1345
+4. Return a pointer as a val instead of in arg - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+5. Change the error labels to err_xyz - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+6. Remove check of Func Type in free function - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+7. Remove !netdev check in remove function - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+8. Use module_pci_driver - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+9. Move the PCI device ID to the .c file - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+10. Remove void * to avoid passing wrong ptr - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+
+Changes V1 -> V2:
+1. remove driver verstion - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/372
+2. replace kzalloc by devm_kzalloc for short clean - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/372
+3. replace pr_ functions by dev_ functions - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/375
+4. seperate last patch by moving ops to a new patch - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/377
+
+Aviad Krawczyk (21):
+  net-next/hinic: Initialize hw interface
+  net-next/hinic: Initialize hw device components
+  net-next/hinic: Initialize api cmd resources
+  net-next/hinic: Initialize api cmd hw
+  net-next/hinic: Add management messages
+  net-next/hinic: Add api cmd commands
+  net-next/hinic: Add aeqs
+  net-next/hinic: Add port management commands
+  net-next/hinic: Add Rx mode and link event handler
+  net-next/hinic: Add logical Txq and Rxq
+  net-next/hinic: Add wq
+  net-next/hinic: Add qp resources
+  net-next/hinic: Set qp context
+  net-next/hinic: Initialize cmdq
+  net-next/hinic: Add ceqs
+  net-next/hinic: Add cmdq commands
+  net-next/hinic: Add cmdq completion handler
+  net-next/hinic: Add Rx handler
+  net-next/hinic: Add Tx operation
+  net-next/hinic: Add ethtool and stats
+  net-next/hinic: Add netpoll
+
+ Documentation/networking/hinic.txt                 |  125 +++
+ MAINTAINERS                                        |    7 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/huawei/Kconfig                |   19 +
+ drivers/net/ethernet/huawei/Makefile               |    5 +
+ drivers/net/ethernet/huawei/hinic/Kconfig          |   13 +
+ drivers/net/ethernet/huawei/hinic/Makefile         |    6 +
+ drivers/net/ethernet/huawei/hinic/hinic_common.c   |   80 ++
+ drivers/net/ethernet/huawei/hinic/hinic_common.h   |   38 +
+ drivers/net/ethernet/huawei/hinic/hinic_dev.h      |   64 ++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   |  977 +++++++++++++++++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |  208 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c  |  946 +++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h  |  187 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |  149 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c   | 1045 ++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h   |  239 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c   |  888 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h   |  265 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.c    |  352 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.h    |  272 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.c    |  533 ++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.h    |   97 ++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c  |  597 +++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h  |  153 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.c    |  892 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h    |  180 ++++
+ .../net/ethernet/huawei/hinic/hinic_hw_qp_ctxt.h   |  214 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c    |  879 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h    |  117 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h   |  368 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_main.c     | 1111 ++++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.c     |  379 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.h     |  198 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.c       |  510 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.h       |   55 +
+ drivers/net/ethernet/huawei/hinic/hinic_tx.c       |  503 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_tx.h       |   62 ++
+ 39 files changed, 12735 insertions(+)
+ create mode 100644 Documentation/networking/hinic.txt
+ create mode 100644 drivers/net/ethernet/huawei/Kconfig
+ create mode 100644 drivers/net/ethernet/huawei/Makefile
+ create mode 100644 drivers/net/ethernet/huawei/hinic/Kconfig
+ create mode 100644 drivers/net/ethernet/huawei/hinic/Makefile
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_dev.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_io.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_io.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp_ctxt.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_main.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_rx.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_rx.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_tx.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_tx.h
+
 -- 
 1.9.1
