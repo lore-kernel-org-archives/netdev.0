@@ -1,661 +1,229 @@
-From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V7 net-next 03/22] net-next/hinic: Initialize api cmd resources
-Date: Fri, 18 Aug 2017 03:04:37 +0800
-Message-ID: <b0b225efd0e8c37da4ad0e01aa3293e0c28fe4f2.1502996306.git.aviad.krawczyk@huawei.com>
-References: <cover.1502996306.git.aviad.krawczyk@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
-        <aviad.krawczyk@huawei.com>, <zhaochen6@huawei.com>,
-        <tony.qu@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1502996306.git.aviad.krawczyk@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH v2 net-next] net: ipv6: put host and anycast routes on device with address
+Date: Thu, 17 Aug 2017 12:17:20 -0700
+Message-ID: <1502997440-32334-1-git-send-email-dsahern@gmail.com>
+Cc: yoshfuji@linux-ipv6.org, hannes@stressinduktion.org,
+        David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:38423 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752820AbdHQTR2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 15:17:28 -0400
+Received: by mail-pg0-f66.google.com with SMTP id 123so11238794pga.5
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 12:17:28 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Initialize api cmd resources as part of management initialization.
+One nagging difference between ipv4 and ipv6 is host routes for ipv6
+addresses are installed using the loopback device or VRF / L3 Master
+device. e.g.,
 
-Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
+    2001:db8:1::/120 dev veth0 proto kernel metric 256 pref medium
+    local 2001:db8:1::1 dev lo table local proto kernel metric 0 pref medium
+
+Using the loopback device is convenient -- necessary for local tx, but
+has some nasty side effects, most notably setting the 'lo' device down
+causes all host routes for all local IPv6 address to be removed from the
+FIB and completely breaks IPv6 networking across all interfaces.
+
+This patch puts FIB entries for IPv6 routes against the device. This
+simplifies the routes in the FIB, for example by making dst->dev and
+rt6i_idev->dev the same (a future patch can look at removing the device
+reference taken for rt6i_idev for FIB entries).
+
+When copies are made on FIB lookups, the cloned route has dst->dev
+set to loopback (or the L3 master device). This is needed for the
+local Tx of packets to local addresses.
+
+With fib entries allocated against the real network device, the addrconf
+code that reinserts host routes on admin up of 'lo' is no longer needed.
+
+Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- drivers/net/ethernet/huawei/hinic/Makefile         |   4 +-
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   | 446 +++++++++++++++++++++
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   | 102 +++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c  |  10 +
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h  |   3 +
- 5 files changed, 563 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+v2
+- update icmp6_send to use rt6i_idev for linklocal addresses if
+  skb dev is loopback. ICMP unreachables were hitting the wrong
+  route in response to UDP messages to local linklocal addresses
+  with no server listening
 
-diff --git a/drivers/net/ethernet/huawei/hinic/Makefile b/drivers/net/ethernet/huawei/hinic/Makefile
-index 717ad71..beba90a 100644
---- a/drivers/net/ethernet/huawei/hinic/Makefile
-+++ b/drivers/net/ethernet/huawei/hinic/Makefile
-@@ -1,4 +1,4 @@
- obj-$(CONFIG_HINIC) += hinic.o
- 
--hinic-y := hinic_main.o hinic_hw_dev.o hinic_hw_mgmt.o hinic_hw_eqs.o \
--	   hinic_hw_if.o
-+hinic-y := hinic_main.o hinic_hw_dev.o hinic_hw_mgmt.o hinic_hw_api_cmd.o \
-+	   hinic_hw_eqs.o hinic_hw_if.o
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-new file mode 100644
-index 0000000..4291f8e
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-@@ -0,0 +1,446 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#include <linux/types.h>
-+#include <linux/errno.h>
-+#include <linux/pci.h>
-+#include <linux/device.h>
-+#include <linux/slab.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/bitops.h>
-+#include <linux/err.h>
-+#include <asm/byteorder.h>
-+
-+#include "hinic_hw_if.h"
-+#include "hinic_hw_api_cmd.h"
-+
-+#define API_CHAIN_NUM_CELLS                     32
-+
-+#define API_CMD_CELL_SIZE_SHIFT                 6
-+#define API_CMD_CELL_SIZE_MIN                   (BIT(API_CMD_CELL_SIZE_SHIFT))
-+
-+#define API_CMD_CELL_SIZE(cell_size)            \
-+		(((cell_size) >= API_CMD_CELL_SIZE_MIN) ? \
-+		 (1 << (fls(cell_size - 1))) : API_CMD_CELL_SIZE_MIN)
-+
-+#define API_CMD_BUF_SIZE                        2048
-+
-+/**
-+ * api_cmd_chain_hw_init - initialize the chain in the HW
-+ * @chain: the API CMD specific chain to initialize in HW
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int api_cmd_chain_hw_init(struct hinic_api_cmd_chain *chain)
-+{
-+	/* should be implemented */
-+	return 0;
-+}
-+
-+/**
-+ * free_cmd_buf - free the dma buffer of API CMD command
-+ * @chain: the API CMD specific chain of the cmd
-+ * @cell_idx: the cell index of the cmd
-+ **/
-+static void free_cmd_buf(struct hinic_api_cmd_chain *chain, int cell_idx)
-+{
-+	struct hinic_api_cmd_cell_ctxt *cell_ctxt;
-+	struct hinic_hwif *hwif = chain->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+
-+	cell_ctxt = &chain->cell_ctxt[cell_idx];
-+
-+	dma_free_coherent(&pdev->dev, API_CMD_BUF_SIZE,
-+			  cell_ctxt->api_cmd_vaddr,
-+			  cell_ctxt->api_cmd_paddr);
-+}
-+
-+/**
-+ * alloc_cmd_buf - allocate a dma buffer for API CMD command
-+ * @chain: the API CMD specific chain for the cmd
-+ * @cell: the cell in the HW for the cmd
-+ * @cell_idx: the index of the cell
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int alloc_cmd_buf(struct hinic_api_cmd_chain *chain,
-+			 struct hinic_api_cmd_cell *cell, int cell_idx)
-+{
-+	struct hinic_api_cmd_cell_ctxt *cell_ctxt;
-+	struct hinic_hwif *hwif = chain->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	dma_addr_t cmd_paddr;
-+	u8 *cmd_vaddr;
-+	int err = 0;
-+
-+	cmd_vaddr = dma_zalloc_coherent(&pdev->dev, API_CMD_BUF_SIZE,
-+					&cmd_paddr, GFP_KERNEL);
-+	if (!cmd_vaddr) {
-+		dev_err(&pdev->dev, "Failed to allocate API CMD DMA memory\n");
-+		return -ENOMEM;
-+	}
-+
-+	cell_ctxt = &chain->cell_ctxt[cell_idx];
-+
-+	cell_ctxt->api_cmd_vaddr = cmd_vaddr;
-+	cell_ctxt->api_cmd_paddr = cmd_paddr;
-+
-+	/* set the cmd DMA address in the cell */
-+	switch (chain->chain_type) {
-+	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
-+		/* The data in the HW should be in Big Endian Format */
-+		cell->write.hw_cmd_paddr = cpu_to_be64(cmd_paddr);
-+		break;
-+
-+	default:
-+		dev_err(&pdev->dev, "Unsupported API CMD chain type\n");
-+		free_cmd_buf(chain, cell_idx);
-+		err = -EINVAL;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
-+/**
-+ * api_cmd_create_cell - create API CMD cell for specific chain
-+ * @chain: the API CMD specific chain to create its cell
-+ * @cell_idx: the index of the cell to create
-+ * @pre_node: previous cell
-+ * @node_vaddr: the returned virt addr of the cell
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int api_cmd_create_cell(struct hinic_api_cmd_chain *chain,
-+			       int cell_idx,
-+			       struct hinic_api_cmd_cell *pre_node,
-+			       struct hinic_api_cmd_cell **node_vaddr)
-+{
-+	struct hinic_api_cmd_cell_ctxt *cell_ctxt;
-+	struct hinic_hwif *hwif = chain->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_api_cmd_cell *node;
-+	dma_addr_t node_paddr;
-+	int err;
-+
-+	node = dma_zalloc_coherent(&pdev->dev, chain->cell_size,
-+				   &node_paddr, GFP_KERNEL);
-+	if (!node) {
-+		dev_err(&pdev->dev, "Failed to allocate dma API CMD cell\n");
-+		return -ENOMEM;
-+	}
-+
-+	node->read.hw_wb_resp_paddr = 0;
-+
-+	cell_ctxt = &chain->cell_ctxt[cell_idx];
-+	cell_ctxt->cell_vaddr = node;
-+	cell_ctxt->cell_paddr = node_paddr;
-+
-+	if (!pre_node) {
-+		chain->head_cell_paddr = node_paddr;
-+		chain->head_node = node;
-+	} else {
-+		/* The data in the HW should be in Big Endian Format */
-+		pre_node->next_cell_paddr = cpu_to_be64(node_paddr);
-+	}
-+
-+	switch (chain->chain_type) {
-+	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
-+		err = alloc_cmd_buf(chain, node, cell_idx);
-+		if (err) {
-+			dev_err(&pdev->dev, "Failed to allocate cmd buffer\n");
-+			goto err_alloc_cmd_buf;
-+		}
-+		break;
-+
-+	default:
-+		dev_err(&pdev->dev, "Unsupported API CMD chain type\n");
-+		err = -EINVAL;
-+		goto err_alloc_cmd_buf;
-+	}
-+
-+	*node_vaddr = node;
-+	return 0;
-+
-+err_alloc_cmd_buf:
-+	dma_free_coherent(&pdev->dev, chain->cell_size, node, node_paddr);
-+	return err;
-+}
-+
-+/**
-+ * api_cmd_destroy_cell - destroy API CMD cell of specific chain
-+ * @chain: the API CMD specific chain to destroy its cell
-+ * @cell_idx: the cell to destroy
-+ **/
-+static void api_cmd_destroy_cell(struct hinic_api_cmd_chain *chain,
-+				 int cell_idx)
-+{
-+	struct hinic_api_cmd_cell_ctxt *cell_ctxt;
-+	struct hinic_hwif *hwif = chain->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_api_cmd_cell *node;
-+	dma_addr_t node_paddr;
-+	size_t node_size;
-+
-+	cell_ctxt = &chain->cell_ctxt[cell_idx];
-+
-+	node = cell_ctxt->cell_vaddr;
-+	node_paddr = cell_ctxt->cell_paddr;
-+	node_size = chain->cell_size;
-+
-+	if (cell_ctxt->api_cmd_vaddr) {
-+		switch (chain->chain_type) {
-+		case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
-+			free_cmd_buf(chain, cell_idx);
-+			break;
-+		default:
-+			dev_err(&pdev->dev, "Unsupported API CMD chain type\n");
-+			break;
-+		}
-+
-+		dma_free_coherent(&pdev->dev, node_size, node,
-+				  node_paddr);
-+	}
-+}
-+
-+/**
-+ * api_cmd_destroy_cells - destroy API CMD cells of specific chain
-+ * @chain: the API CMD specific chain to destroy its cells
-+ * @num_cells: number of cells to destroy
-+ **/
-+static void api_cmd_destroy_cells(struct hinic_api_cmd_chain *chain,
-+				  int num_cells)
-+{
-+	int cell_idx;
-+
-+	for (cell_idx = 0; cell_idx < num_cells; cell_idx++)
-+		api_cmd_destroy_cell(chain, cell_idx);
-+}
-+
-+/**
-+ * api_cmd_create_cells - create API CMD cells for specific chain
-+ * @chain: the API CMD specific chain
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int api_cmd_create_cells(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_api_cmd_cell *node = NULL, *pre_node = NULL;
-+	struct hinic_hwif *hwif = chain->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	int err, cell_idx;
-+
-+	for (cell_idx = 0; cell_idx < chain->num_cells; cell_idx++) {
-+		err = api_cmd_create_cell(chain, cell_idx, pre_node, &node);
-+		if (err) {
-+			dev_err(&pdev->dev, "Failed to create API CMD cell\n");
-+			goto err_create_cell;
-+		}
-+
-+		pre_node = node;
-+	}
-+
-+	/* set the Final node to point on the start */
-+	node->next_cell_paddr = cpu_to_be64(chain->head_cell_paddr);
-+
-+	/* set the current node to be the head */
-+	chain->curr_node = chain->head_node;
-+	return 0;
-+
-+err_create_cell:
-+	api_cmd_destroy_cells(chain, cell_idx);
-+	return err;
-+}
-+
-+/**
-+ * api_chain_init - initialize API CMD specific chain
-+ * @chain: the API CMD specific chain to initialize
-+ * @attr: attributes to set in the chain
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int api_chain_init(struct hinic_api_cmd_chain *chain,
-+			  struct hinic_api_cmd_chain_attr *attr)
-+{
-+	struct hinic_hwif *hwif = attr->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	size_t cell_ctxt_size;
-+
-+	chain->hwif = hwif;
-+	chain->chain_type  = attr->chain_type;
-+	chain->num_cells = attr->num_cells;
-+	chain->cell_size = attr->cell_size;
-+
-+	chain->prod_idx  = 0;
-+	chain->cons_idx  = 0;
-+
-+	cell_ctxt_size = chain->num_cells * sizeof(*chain->cell_ctxt);
-+	chain->cell_ctxt = devm_kzalloc(&pdev->dev, cell_ctxt_size, GFP_KERNEL);
-+	if (!chain->cell_ctxt)
-+		return -ENOMEM;
-+
-+	chain->wb_status = dma_zalloc_coherent(&pdev->dev,
-+					       sizeof(*chain->wb_status),
-+					       &chain->wb_status_paddr,
-+					       GFP_KERNEL);
-+	if (!chain->wb_status) {
-+		dev_err(&pdev->dev, "Failed to allocate DMA wb status\n");
-+		return -ENOMEM;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * api_chain_free - free API CMD specific chain
-+ * @chain: the API CMD specific chain to free
-+ **/
-+static void api_chain_free(struct hinic_api_cmd_chain *chain)
-+{
-+	struct hinic_hwif *hwif = chain->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+
-+	dma_free_coherent(&pdev->dev, sizeof(*chain->wb_status),
-+			  chain->wb_status, chain->wb_status_paddr);
-+}
-+
-+/**
-+ * api_cmd_create_chain - create API CMD specific chain
-+ * @attr: attributes to set the chain
-+ *
-+ * Return the created chain
-+ **/
-+static struct hinic_api_cmd_chain *
-+	api_cmd_create_chain(struct hinic_api_cmd_chain_attr *attr)
-+{
-+	struct hinic_hwif *hwif = attr->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_api_cmd_chain *chain;
-+	int err;
-+
-+	if (attr->num_cells & (attr->num_cells - 1)) {
-+		dev_err(&pdev->dev, "Invalid number of cells, must be power of 2\n");
-+		return ERR_PTR(-EINVAL);
-+	}
-+
-+	chain = devm_kzalloc(&pdev->dev, sizeof(*chain), GFP_KERNEL);
-+	if (!chain)
-+		return ERR_PTR(-ENOMEM);
-+
-+	err = api_chain_init(chain, attr);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to initialize chain\n");
-+		return ERR_PTR(err);
-+	}
-+
-+	err = api_cmd_create_cells(chain);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to create cells for API CMD chain\n");
-+		goto err_create_cells;
-+	}
-+
-+	err = api_cmd_chain_hw_init(chain);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to initialize chain HW\n");
-+		goto err_chain_hw_init;
-+	}
-+
-+	return chain;
-+
-+err_chain_hw_init:
-+	api_cmd_destroy_cells(chain, chain->num_cells);
-+
-+err_create_cells:
-+	api_chain_free(chain);
-+	return ERR_PTR(err);
-+}
-+
-+/**
-+ * api_cmd_destroy_chain - destroy API CMD specific chain
-+ * @chain: the API CMD specific chain to destroy
-+ **/
-+static void api_cmd_destroy_chain(struct hinic_api_cmd_chain *chain)
-+{
-+	api_cmd_destroy_cells(chain, chain->num_cells);
-+	api_chain_free(chain);
-+}
-+
-+/**
-+ * hinic_api_cmd_init - Initialize all the API CMD chains
-+ * @chain: the API CMD chains that are initialized
-+ * @hwif: the hardware interface of a pci function device
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_api_cmd_init(struct hinic_api_cmd_chain **chain,
-+		       struct hinic_hwif *hwif)
-+{
-+	enum hinic_api_cmd_chain_type type, chain_type;
-+	struct hinic_api_cmd_chain_attr attr;
-+	struct pci_dev *pdev = hwif->pdev;
-+	size_t hw_cell_sz;
-+	int err;
-+
-+	hw_cell_sz = sizeof(struct hinic_api_cmd_cell);
-+
-+	attr.hwif = hwif;
-+	attr.num_cells  = API_CHAIN_NUM_CELLS;
-+	attr.cell_size  = API_CMD_CELL_SIZE(hw_cell_sz);
-+
-+	chain_type = HINIC_API_CMD_WRITE_TO_MGMT_CPU;
-+	for ( ; chain_type < HINIC_API_CMD_MAX; chain_type++) {
-+		attr.chain_type = chain_type;
-+
-+		if (chain_type != HINIC_API_CMD_WRITE_TO_MGMT_CPU)
-+			continue;
-+
-+		chain[chain_type] = api_cmd_create_chain(&attr);
-+		if (IS_ERR(chain[chain_type])) {
-+			dev_err(&pdev->dev, "Failed to create chain %d\n",
-+				chain_type);
-+			goto err_create_chain;
-+		}
-+	}
-+
-+	return 0;
-+
-+err_create_chain:
-+	type = HINIC_API_CMD_WRITE_TO_MGMT_CPU;
-+	for ( ; type < chain_type; type++) {
-+		if (type != HINIC_API_CMD_WRITE_TO_MGMT_CPU)
-+			continue;
-+
-+		api_cmd_destroy_chain(chain[type]);
-+	}
-+
-+	return err;
-+}
-+
-+/**
-+ * hinic_api_cmd_free - free the API CMD chains
-+ * @chain: the API CMD chains that are freed
-+ **/
-+void hinic_api_cmd_free(struct hinic_api_cmd_chain **chain)
-+{
-+	enum hinic_api_cmd_chain_type chain_type;
-+
-+	chain_type = HINIC_API_CMD_WRITE_TO_MGMT_CPU;
-+	for ( ; chain_type < HINIC_API_CMD_MAX; chain_type++) {
-+		if (chain_type != HINIC_API_CMD_WRITE_TO_MGMT_CPU)
-+			continue;
-+
-+		api_cmd_destroy_chain(chain[chain_type]);
-+	}
-+}
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-new file mode 100644
-index 0000000..9c7d1e5
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-@@ -0,0 +1,102 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#ifndef HINIC_HW_API_CMD_H
-+#define HINIC_HW_API_CMD_H
-+
-+#include <linux/types.h>
-+
-+#include "hinic_hw_if.h"
-+
-+enum hinic_api_cmd_chain_type {
-+	HINIC_API_CMD_WRITE_TO_MGMT_CPU = 2,
-+
-+	HINIC_API_CMD_MAX,
-+};
-+
-+struct hinic_api_cmd_chain_attr {
-+	struct hinic_hwif               *hwif;
-+	enum hinic_api_cmd_chain_type   chain_type;
-+
-+	u32                             num_cells;
-+	u16                             cell_size;
-+};
-+
-+struct hinic_api_cmd_status {
-+	u64     header;
-+	u32     status;
-+	u32     rsvd0;
-+	u32     rsvd1;
-+	u32     rsvd2;
-+	u64     rsvd3;
-+};
-+
-+/* HW struct */
-+struct hinic_api_cmd_cell {
-+	u64 ctrl;
-+
-+	/* address is 64 bit in HW struct */
-+	u64 next_cell_paddr;
-+
-+	u64 desc;
-+
-+	/* HW struct */
-+	union {
-+		struct {
-+			u64 hw_cmd_paddr;
-+		} write;
-+
-+		struct {
-+			u64 hw_wb_resp_paddr;
-+			u64 hw_cmd_paddr;
-+		} read;
-+	};
-+};
-+
-+struct hinic_api_cmd_cell_ctxt {
-+	dma_addr_t                      cell_paddr;
-+	struct hinic_api_cmd_cell       *cell_vaddr;
-+
-+	dma_addr_t                      api_cmd_paddr;
-+	u8                              *api_cmd_vaddr;
-+};
-+
-+struct hinic_api_cmd_chain {
-+	struct hinic_hwif               *hwif;
-+	enum hinic_api_cmd_chain_type   chain_type;
-+
-+	u32                             num_cells;
-+	u16                             cell_size;
-+
-+	/* HW members in 24 bit format */
-+	u32                             prod_idx;
-+	u32                             cons_idx;
-+
-+	struct hinic_api_cmd_cell_ctxt  *cell_ctxt;
-+
-+	dma_addr_t                      wb_status_paddr;
-+	struct hinic_api_cmd_status     *wb_status;
-+
-+	dma_addr_t                      head_cell_paddr;
-+	struct hinic_api_cmd_cell       *head_node;
-+	struct hinic_api_cmd_cell       *curr_node;
-+};
-+
-+int hinic_api_cmd_init(struct hinic_api_cmd_chain **chain,
-+		       struct hinic_hwif *hwif);
-+
-+void hinic_api_cmd_free(struct hinic_api_cmd_chain **chain);
-+
-+#endif
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-index 8ae8ed9..f914bc7 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-@@ -19,6 +19,7 @@
- 
- #include "hinic_hw_if.h"
- #include "hinic_hw_eqs.h"
-+#include "hinic_hw_api_cmd.h"
- #include "hinic_hw_mgmt.h"
- #include "hinic_hw_dev.h"
- 
-@@ -70,9 +71,17 @@ int hinic_pf_to_mgmt_init(struct hinic_pf_to_mgmt *pf_to_mgmt,
+ net/ipv6/addrconf.c | 42 ------------------------------------------
+ net/ipv6/icmp.c     | 15 +++++++++++++--
+ net/ipv6/route.c    | 46 ++++++++++++++++++++++++++++++++++------------
+ 3 files changed, 47 insertions(+), 56 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 640792e1ecb7..45d0a24644de 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3030,9 +3030,6 @@ static void sit_add_v4_addrs(struct inet6_dev *idev)
+ static void init_loopback(struct net_device *dev)
  {
- 	struct hinic_pfhwdev *pfhwdev = mgmt_to_pfhwdev(pf_to_mgmt);
- 	struct hinic_hwdev *hwdev = &pfhwdev->hwdev;
-+	struct pci_dev *pdev = hwif->pdev;
-+	int err;
+ 	struct inet6_dev  *idev;
+-	struct net_device *sp_dev;
+-	struct inet6_ifaddr *sp_ifa;
+-	struct rt6_info *sp_rt;
  
- 	pf_to_mgmt->hwif = hwif;
+ 	/* ::1 */
  
-+	err = hinic_api_cmd_init(pf_to_mgmt->cmd_chain, hwif);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to initialize cmd chains\n");
-+		return err;
+@@ -3045,45 +3042,6 @@ static void init_loopback(struct net_device *dev)
+ 	}
+ 
+ 	add_addr(idev, &in6addr_loopback, 128, IFA_HOST);
+-
+-	/* Add routes to other interface's IPv6 addresses */
+-	for_each_netdev(dev_net(dev), sp_dev) {
+-		if (!strcmp(sp_dev->name, dev->name))
+-			continue;
+-
+-		idev = __in6_dev_get(sp_dev);
+-		if (!idev)
+-			continue;
+-
+-		read_lock_bh(&idev->lock);
+-		list_for_each_entry(sp_ifa, &idev->addr_list, if_list) {
+-
+-			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+-				continue;
+-
+-			if (sp_ifa->rt) {
+-				/* This dst has been added to garbage list when
+-				 * lo device down, release this obsolete dst and
+-				 * reallocate a new router for ifa.
+-				 */
+-				if (!sp_ifa->rt->rt6i_node) {
+-					ip6_rt_put(sp_ifa->rt);
+-					sp_ifa->rt = NULL;
+-				} else {
+-					continue;
+-				}
+-			}
+-
+-			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, false);
+-
+-			/* Failure cases are ignored */
+-			if (!IS_ERR(sp_rt)) {
+-				sp_ifa->rt = sp_rt;
+-				ip6_ins_rt(sp_rt);
+-			}
+-		}
+-		read_unlock_bh(&idev->lock);
+-	}
+ }
+ 
+ void addrconf_add_linklocal(struct inet6_dev *idev,
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 8d7b113958b1..4f82830fc068 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -459,9 +459,20 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
+ 	 *	Source addr check
+ 	 */
+ 
+-	if (__ipv6_addr_needs_scope_id(addr_type))
++	if (__ipv6_addr_needs_scope_id(addr_type)) {
+ 		iif = skb->dev->ifindex;
+-	else {
++
++		/* for local packets, get the real device index */
++		if (iif == LOOPBACK_IFINDEX) {
++			dst = skb_dst(skb);
++			if (dst) {
++				struct rt6_info *rt;
++
++				rt = container_of(dst, struct rt6_info, dst);
++				iif = rt->rt6i_idev->dev->ifindex;
++			}
++		}
++	} else {
+ 		dst = skb_dst(skb);
+ 		iif = l3mdev_master_ifindex(dst ? dst->dev : skb->dev);
+ 	}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index dc021ed6dd37..1864effcaf00 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -958,10 +958,34 @@ int ip6_ins_rt(struct rt6_info *rt)
+ 	return __ip6_ins_rt(rt, &info, &mxc, NULL);
+ }
+ 
++/* called with rcu_lock held */
++static struct net_device *ip6_rt_get_dev_rcu(struct rt6_info *rt)
++{
++	struct net_device *dev = rt->dst.dev;
++
++	if (rt->rt6i_flags & RTF_LOCAL) {
++		/* for copies of local routes, dst->dev needs to be the
++		 * device if it is a master device, the master device if
++		 * device is enslaved, and the loopback as the default
++		 */
++		if (netif_is_l3_slave(dev) &&
++		    !rt6_need_strict(&rt->rt6i_dst.addr))
++			dev = l3mdev_master_dev_rcu(dev);
++		else if (!netif_is_l3_master(dev))
++			dev = dev_net(dev)->loopback_dev;
++		/* last case is netif_is_l3_master(dev) is true in which
++		 * case we want dev returned to be dev
++		 */
 +	}
 +
- 	hinic_aeq_register_hw_cb(&hwdev->aeqs, HINIC_MSG_FROM_MGMT_CPU,
- 				 pf_to_mgmt,
- 				 mgmt_msg_aeqe_handler);
-@@ -89,4 +98,5 @@ void hinic_pf_to_mgmt_free(struct hinic_pf_to_mgmt *pf_to_mgmt)
- 	struct hinic_hwdev *hwdev = &pfhwdev->hwdev;
- 
- 	hinic_aeq_unregister_hw_cb(&hwdev->aeqs, HINIC_MSG_FROM_MGMT_CPU);
-+	hinic_api_cmd_free(pf_to_mgmt->cmd_chain);
- }
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-index b4b34b7..dff321c 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-@@ -19,6 +19,7 @@
- #include <linux/types.h>
- 
- #include "hinic_hw_if.h"
-+#include "hinic_hw_api_cmd.h"
- 
- enum hinic_mgmt_msg_type {
- 	HINIC_MGMT_MSG_SYNC = 1,
-@@ -30,6 +31,8 @@ enum hinic_cfg_cmd {
- 
- struct hinic_pf_to_mgmt {
- 	struct hinic_hwif               *hwif;
++	return dev;
++}
 +
-+	struct hinic_api_cmd_chain      *cmd_chain[HINIC_API_CMD_MAX];
- };
+ static struct rt6_info *ip6_rt_cache_alloc(struct rt6_info *ort,
+ 					   const struct in6_addr *daddr,
+ 					   const struct in6_addr *saddr)
+ {
++	struct net_device *dev;
+ 	struct rt6_info *rt;
  
- int hinic_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
+ 	/*
+@@ -971,8 +995,10 @@ static struct rt6_info *ip6_rt_cache_alloc(struct rt6_info *ort,
+ 	if (ort->rt6i_flags & (RTF_CACHE | RTF_PCPU))
+ 		ort = (struct rt6_info *)ort->dst.from;
+ 
+-	rt = __ip6_dst_alloc(dev_net(ort->dst.dev), ort->dst.dev, 0);
+-
++	rcu_read_lock();
++	dev = ip6_rt_get_dev_rcu(ort);
++	rt = __ip6_dst_alloc(dev_net(dev), dev, 0);
++	rcu_read_unlock();
+ 	if (!rt)
+ 		return NULL;
+ 
+@@ -1000,11 +1026,13 @@ static struct rt6_info *ip6_rt_cache_alloc(struct rt6_info *ort,
+ 
+ static struct rt6_info *ip6_rt_pcpu_alloc(struct rt6_info *rt)
+ {
++	struct net_device *dev;
+ 	struct rt6_info *pcpu_rt;
+ 
+-	pcpu_rt = __ip6_dst_alloc(dev_net(rt->dst.dev),
+-				  rt->dst.dev, rt->dst.flags);
+-
++	rcu_read_lock();
++	dev = ip6_rt_get_dev_rcu(rt);
++	pcpu_rt = __ip6_dst_alloc(dev_net(dev), dev, rt->dst.flags);
++	rcu_read_unlock();
+ 	if (!pcpu_rt)
+ 		return NULL;
+ 	ip6_rt_copy_init(pcpu_rt, rt);
+@@ -2688,15 +2716,9 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ {
+ 	u32 tb_id;
+ 	struct net *net = dev_net(idev->dev);
+-	struct net_device *dev = net->loopback_dev;
++	struct net_device *dev = idev->dev;
+ 	struct rt6_info *rt;
+ 
+-	/* use L3 Master device as loopback for host routes if device
+-	 * is enslaved and address is not link local or multicast
+-	 */
+-	if (!rt6_need_strict(addr))
+-		dev = l3mdev_master_dev_rcu(idev->dev) ? : dev;
+-
+ 	rt = ip6_dst_alloc(net, dev, DST_NOCOUNT);
+ 	if (!rt)
+ 		return ERR_PTR(-ENOMEM);
 -- 
-1.9.1
+2.1.4
