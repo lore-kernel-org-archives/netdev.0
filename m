@@ -1,188 +1,65 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 03/15] net/mlx5e: IPoIB, Add support for get_link_ksettings in ethtool
-Date: Thu, 17 Aug 2017 16:29:51 +0300
-Message-ID: <20170817133003.16900-4-saeedm@mellanox.com>
+Subject: [net-next 04/15] net/mlx5: Add PCIe outbound stalls counters infrastructure
+Date: Thu, 17 Aug 2017 16:29:52 +0300
+Message-ID: <20170817133003.16900-5-saeedm@mellanox.com>
 References: <20170817133003.16900-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Shalom Lagziel <shaloml@mellanox.com>,
+        Gal Pressman <galp@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47118 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47117 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751882AbdHQNaR (ORCPT
+        with ESMTP id S1751786AbdHQNaR (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 09:30:17 -0400
 In-Reply-To: <20170817133003.16900-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shalom Lagziel <shaloml@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-Add support for "ethtool DEVNAME" over ipoib ports,
-Display standard port information for IPoIB netdevices using ethtool
-For example:
-$ ethtool ib2
-> Settings for ib2:
-        Supported ports: [ ]
-        Supported link modes:   Not reported
-        Supported pause frame use: No
-        Supports auto-negotiation: No
-        Advertised link modes:  Not reported
-        Advertised pause frame use: No
-        Advertised auto-negotiation: No
-        Speed: 100000Mb/s
-        Duplex: Full
-        Port: Other
-        PHYAD: 0
-        Transceiver: internal
-        Auto-negotiation: off
-        Link detected: yes
+Add capability bit in MCAM register and counters to MPCNT register.
 
-Signed-off-by: Shalom Lagziel <shaloml@mellanox.com>
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../ethernet/mellanox/mlx5/core/ipoib/ethtool.c    | 130 +++++++++++++++++++--
- 1 file changed, 118 insertions(+), 12 deletions(-)
+ include/linux/mlx5/mlx5_ifc.h | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
-index b080fabfe8de..dd49a59854e5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
-@@ -131,17 +131,123 @@ static int mlx5i_flash_device(struct net_device *netdev,
- 	return mlx5e_ethtool_flash_device(priv, flash);
- }
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index c99daffc3c3c..ba533b39c885 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -1854,7 +1854,17 @@ struct mlx5_ifc_pcie_perf_cntrs_grp_data_layout_bits {
  
-+enum mlx5_ptys_width {
-+	MLX5_PTYS_WIDTH_1X	= 1 << 0,
-+	MLX5_PTYS_WIDTH_2X	= 1 << 1,
-+	MLX5_PTYS_WIDTH_4X	= 1 << 2,
-+	MLX5_PTYS_WIDTH_8X	= 1 << 3,
-+	MLX5_PTYS_WIDTH_12X	= 1 << 4,
-+};
+ 	u8         crc_error_tlp[0x20];
+ 
+-	u8         reserved_at_140[0x680];
++	u8         reserved_at_140[0x40];
 +
-+static inline int mlx5_ptys_width_enum_to_int(enum mlx5_ptys_width width)
-+{
-+	switch (width) {
-+	case MLX5_PTYS_WIDTH_1X:  return  1;
-+	case MLX5_PTYS_WIDTH_2X:  return  2;
-+	case MLX5_PTYS_WIDTH_4X:  return  4;
-+	case MLX5_PTYS_WIDTH_8X:  return  8;
-+	case MLX5_PTYS_WIDTH_12X: return 12;
-+	default:		  return -1;
-+	}
-+}
++	u8         outbound_stalled_reads[0x20];
 +
-+enum mlx5_ptys_rate {
-+	MLX5_PTYS_RATE_SDR	= 1 << 0,
-+	MLX5_PTYS_RATE_DDR	= 1 << 1,
-+	MLX5_PTYS_RATE_QDR	= 1 << 2,
-+	MLX5_PTYS_RATE_FDR10	= 1 << 3,
-+	MLX5_PTYS_RATE_FDR	= 1 << 4,
-+	MLX5_PTYS_RATE_EDR	= 1 << 5,
-+	MLX5_PTYS_RATE_HDR	= 1 << 6,
-+};
++	u8         outbound_stalled_writes[0x20];
 +
-+static inline int mlx5_ptys_rate_enum_to_int(enum mlx5_ptys_rate rate)
-+{
-+	switch (rate) {
-+	case MLX5_PTYS_RATE_SDR:   return 2500;
-+	case MLX5_PTYS_RATE_DDR:   return 5000;
-+	case MLX5_PTYS_RATE_QDR:
-+	case MLX5_PTYS_RATE_FDR10: return 10000;
-+	case MLX5_PTYS_RATE_FDR:   return 14000;
-+	case MLX5_PTYS_RATE_EDR:   return 25000;
-+	case MLX5_PTYS_RATE_HDR:   return 50000;
-+	default:		   return -1;
-+	}
-+}
++	u8         outbound_stalled_reads_events[0x20];
 +
-+static int mlx5i_get_port_settings(struct net_device *netdev,
-+				   u16 *ib_link_width_oper, u16 *ib_proto_oper)
-+{
-+	struct mlx5e_priv *priv    = mlx5i_epriv(netdev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)] = {0};
-+	int ret;
++	u8         outbound_stalled_writes_events[0x20];
 +
-+	ret = mlx5_query_port_ptys(mdev, out, sizeof(out), MLX5_PTYS_IB, 1);
-+	if (ret)
-+		return ret;
-+
-+	*ib_link_width_oper = MLX5_GET(ptys_reg, out, ib_link_width_oper);
-+	*ib_proto_oper      = MLX5_GET(ptys_reg, out, ib_proto_oper);
-+
-+	return 0;
-+}
-+
-+static int mlx5i_get_speed_settings(u16 ib_link_width_oper, u16 ib_proto_oper)
-+{
-+	int rate, width;
-+
-+	rate = mlx5_ptys_rate_enum_to_int(ib_proto_oper);
-+	if (rate < 0)
-+		return -EINVAL;
-+	width = mlx5_ptys_width_enum_to_int(ib_link_width_oper);
-+	if (width < 0)
-+		return -EINVAL;
-+
-+	return rate * width;
-+}
-+
-+static int mlx5i_get_link_ksettings(struct net_device *netdev,
-+				    struct ethtool_link_ksettings *link_ksettings)
-+{
-+	u16 ib_link_width_oper;
-+	u16 ib_proto_oper;
-+	int speed, ret;
-+
-+	ret = mlx5i_get_port_settings(netdev, &ib_link_width_oper, &ib_proto_oper);
-+	if (ret)
-+		return ret;
-+
-+	ethtool_link_ksettings_zero_link_mode(link_ksettings, supported);
-+	ethtool_link_ksettings_zero_link_mode(link_ksettings, advertising);
-+
-+	speed = mlx5i_get_speed_settings(ib_link_width_oper, ib_proto_oper);
-+	if (speed < 0)
-+		return -EINVAL;
-+
-+	link_ksettings->base.duplex = DUPLEX_FULL;
-+	link_ksettings->base.port = PORT_OTHER;
-+
-+	link_ksettings->base.autoneg = AUTONEG_DISABLE;
-+
-+	link_ksettings->base.speed = speed;
-+
-+	return 0;
-+}
-+
- const struct ethtool_ops mlx5i_ethtool_ops = {
--	.get_drvinfo       = mlx5i_get_drvinfo,
--	.get_strings       = mlx5i_get_strings,
--	.get_sset_count    = mlx5i_get_sset_count,
--	.get_ethtool_stats = mlx5i_get_ethtool_stats,
--	.get_ringparam     = mlx5i_get_ringparam,
--	.set_ringparam     = mlx5i_set_ringparam,
--	.flash_device      = mlx5i_flash_device,
--	.get_channels      = mlx5i_get_channels,
--	.set_channels      = mlx5i_set_channels,
--	.get_coalesce      = mlx5i_get_coalesce,
--	.set_coalesce      = mlx5i_set_coalesce,
--	.get_ts_info       = mlx5i_get_ts_info,
-+	.get_drvinfo        = mlx5i_get_drvinfo,
-+	.get_strings        = mlx5i_get_strings,
-+	.get_sset_count     = mlx5i_get_sset_count,
-+	.get_ethtool_stats  = mlx5i_get_ethtool_stats,
-+	.get_ringparam      = mlx5i_get_ringparam,
-+	.set_ringparam      = mlx5i_set_ringparam,
-+	.flash_device       = mlx5i_flash_device,
-+	.get_channels       = mlx5i_get_channels,
-+	.set_channels       = mlx5i_set_channels,
-+	.get_coalesce       = mlx5i_get_coalesce,
-+	.set_coalesce       = mlx5i_set_coalesce,
-+	.get_ts_info        = mlx5i_get_ts_info,
-+	.get_link_ksettings = mlx5i_get_link_ksettings,
-+	.get_link           = ethtool_op_get_link,
++	u8         reserved_at_200[0x5c0];
  };
+ 
+ struct mlx5_ifc_cmd_inter_comp_event_bits {
+@@ -7744,8 +7754,9 @@ struct mlx5_ifc_pcam_reg_bits {
+ };
+ 
+ struct mlx5_ifc_mcam_enhanced_features_bits {
+-	u8         reserved_at_0[0x7d];
+-
++	u8         reserved_at_0[0x7b];
++	u8         pcie_outbound_stalled[0x1];
++	u8         reserved_at_7c[0x1];
+ 	u8         mtpps_enh_out_per_adj[0x1];
+ 	u8         mtpps_fs[0x1];
+ 	u8         pcie_performance_group[0x1];
 -- 
 2.13.0
