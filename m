@@ -1,66 +1,45 @@
-From: Akshat Kakkar <akshat.1984@gmail.com>
-Subject: Re: Something hitting my total number of connections to the server
-Date: Thu, 17 Aug 2017 14:35:40 +0530
-Message-ID: <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com>
-References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
- <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com> <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] datagram: When peeking datagrams with offset < 0
+ don't skip empty skbs
+Date: Thu, 17 Aug 2017 09:15:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0058EDB@AcuExch.aculab.com>
+References: <20170814055259.31078-1-matthew@mjdsystems.ca>
+ <1502702846.8411.25.camel@redhat.com> <1846443.VTclhqQinN@ring00>
+ <CAF=yD-L9CpW-DRtKfWWWKcNKcPSWvXOkTGZoKBq6=fQMrcKVWQ@mail.gmail.com>
+ <1502724662.8411.53.camel@redhat.com>
+ <CAF=yD-+ZNPtF1h1OT=_4yuE7=XtireP_OtbyBefHGdwtJ_ontQ@mail.gmail.com>
+ <1502811641.3475.7.camel@redhat.com>
+ <CAF=yD-Lacw9T7G0XZBdHZwEb6HgRuaBoyUN1oTvWixu4a0Fy6Q@mail.gmail.com>
+ <CAF=yD-+jBim==ktwYUNAFkn-N4eabqgNME8NXM77v9-U_bfWPg@mail.gmail.com>
+ <1502875722.3548.11.camel@redhat.com>
+ <CAF=yD-K8FMicoSS6u-0r_J0p0fTyn4GNwhXn7_gRSSMYmAzw5g@mail.gmail.com>
+ <1502914822.2796.6.camel@redhat.com>
+ <CAF=yD-JryS8g=8nB7yq9WVdCOjqSb7uNwncrRfWPmMQbdYrh3w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        Network Development <netdev@vger.kernel.org>,
+        "Macieira, Thiago" <thiago.macieira@intel.com>
+To: 'Willem de Bruijn' <willemdebruijn.kernel@gmail.com>,
+        Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:34269 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750775AbdHQJFl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 05:05:41 -0400
-Received: by mail-pg0-f45.google.com with SMTP id u185so38808639pgb.1
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 02:05:41 -0700 (PDT)
-In-Reply-To: <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from smtp-out4.electric.net ([192.162.216.181]:57020 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750939AbdHQJPW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 05:15:22 -0400
+In-Reply-To: <CAF=yD-JryS8g=8nB7yq9WVdCOjqSb7uNwncrRfWPmMQbdYrh3w@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 16, 2017 at 4:04 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-08-16 at 10:18 +0530, Akshat Kakkar wrote:
->> On Mon, Aug 14, 2017 at 2:37 PM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
->> > I have centos 7.3 (Kernel 3.10) running on a server with 128GB RAM and
->> > 2 x 10 Core Xeon Processor.
->> > I have hosted a webserver on it and enabled ssh for remote maintenance.
->> > Previously it was running on Centos 6.3.
->> > After upgrading to CentOS 7.3, occasionally (probably when number of
->> > hits are more on the server), I am not able to create new connections
->> > (neither on web nor on ssh). Existing connections keeps on running
->> > fine.
->> >
->> > I did packet capturing using tcpdump to understand if its some
->> > intermediate network issue.
->> > What I found was the server is not replying for new SYN requests.
->> >
->> > So it's clear that its not at all application issue. Also, there are
->> > no logs in applications logs for any connections dropped, if any.
->> >
->> > I check my firewall rules if there is some rate limiting imposed.
->> > There is nothing in there.
->> >
->> > I check tc, if by mistake some rate limiting is imposed. There is
->> > nothing in there too.
->> >
->> > I have increased noOfFiles to 1000000 and other sysctl parameters, but
->> > the issue is still there.
->> >
->> > Has anybody experienced the same?
->> >
->> > How to go about? Anybody ... Please Help!!!
->>
->> Its getting lonely out here. Anybody there ???
->
-> We wont help you unless you use a recent kernel.
->
-> 3.10 misses all recent improvements in TCP stack (4 years of hard work)
->
->
->
->
->
-
-I upgraded to 4.4 but still experiencing same issue.
-Please help.
+RnJvbTogV2lsbGVtIGRlIEJydWlqbg0KPiBTZW50OiAxNyBBdWd1c3QgMjAxNyAwMDoyNw0KPiBB
+Y3R1YWxseSwgaXQgaXMgc2FmZSBldmVuIHdpdGhvdXQgdGhlIGNoZWNrLiBPdmVyZmxvdyBvZiB0
+aGUgc2lnbmVkIGludGVnZXINCj4gaXMgYmVuaWduIGhlcmUuDQoNCklJUkMgdGhlIEMgbGFuZ3Vh
+Z2Ugc3RhdGVzIHRoYXQgJ3NpZ25lZCBpbnRlZ2VyIG92ZXJmbG93JyBpcyB1bmRlZmluZWQuDQpT
+byAnTUFYSU5UICsgMScgZG9lc24ndCBoYXZlIHRvIGVxdWFsICctTUFYSU5UIC0gMScgKGFzIG9u
+ZSB3b3VsZA0KZXhwZWN0IG9uIGEgMidzIGNvbXBsaW1lbnQgc3lzdGVtKS4NCg0KV2hpbGUgdGhl
+IGxpbnV4IGtlcm5lbCBwcm9iYWJseSB3b24ndCBydW4gb24gc3lzdGVtcyB3aGVyZSB0aGlzIGlz
+bid0IHRydWUNCihlZyB3aGVyZSBzaWduZWQgYXJpdGhtZXRpYyBzYXR1cmF0ZXMpIGdjYyB3aWxs
+IGFzc3VtZSBpdCBjYW4ndCBoYXBwZW4NCmFuZCBvcHRpbWlzZSBjb2RlIHdpdGggdGhhdCBhc3N1
+bXB0aW9uLg0KDQpUaGlzIG1heSBub3QgbWF0dGVyIGhlcmUgLi4uDQoNCglEYXZpZA0KDQo=
