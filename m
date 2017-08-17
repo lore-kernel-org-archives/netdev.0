@@ -1,35 +1,60 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 0/5] Covscan: Fix potential NULL pointer dereferences
-Date: Thu, 17 Aug 2017 19:09:26 +0200
-Message-ID: <20170817170931.24545-1-phil@nwl.cc>
+Subject: [iproute PATCH v2 1/3] iproute_lwtunnel: csum_mode value checking was ineffective
+Date: Thu, 17 Aug 2017 19:09:30 +0200
+Message-ID: <20170817170932.24812-2-phil@nwl.cc>
+References: <20170817170932.24812-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:41157 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:34955 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753747AbdHQROT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 13:14:19 -0400
+        id S1753760AbdHQRO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 13:14:26 -0400
+In-Reply-To: <20170817170932.24812-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series collects patches from v1 which eliminate possible cases of
-NULL pointer dereferences.
+ila_csum_name2mode() returning -1 on error but being declared as
+returning __u8 doesn't make much sense. Change the code to correctly
+detect this issue. Checking for __u8 overruns shouldn't be necessary
+though since ila_csum_name2mode() return values are well-defined.
 
-No changes to the actual patches, just splitting into smaller series.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ ip/iproute_lwtunnel.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-Phil Sutter (5):
-  ifstat, nstat: Check fdopen() return value
-  nstat: Fix for potential NULL pointer dereference
-  tc/q_netem: Don't dereference possibly NULL pointer
-  tc/tc_filter: Make sure filter name is not empty
-  tipc/bearer: Prevent NULL pointer dereference
-
- misc/ifstat.c  | 16 +++++++++++-----
- misc/nstat.c   | 18 ++++++++++++------
- tc/q_netem.c   |  4 +++-
- tc/tc_filter.c |  3 +++
- tipc/bearer.c  |  4 ++--
- 5 files changed, 31 insertions(+), 14 deletions(-)
-
+diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
+index 5c0c7d110d23e..398ab5e077ed8 100644
+--- a/ip/iproute_lwtunnel.c
++++ b/ip/iproute_lwtunnel.c
+@@ -171,7 +171,7 @@ static char *ila_csum_mode2name(__u8 csum_mode)
+ 	}
+ }
+ 
+-static __u8 ila_csum_name2mode(char *name)
++static int ila_csum_name2mode(char *name)
+ {
+ 	if (strcmp(name, "adj-transport") == 0)
+ 		return ILA_CSUM_ADJUST_TRANSPORT;
+@@ -517,7 +517,7 @@ static int parse_encap_ila(struct rtattr *rta, size_t len,
+ 
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "csum-mode") == 0) {
+-			__u8 csum_mode;
++			int csum_mode;
+ 
+ 			NEXT_ARG();
+ 
+@@ -526,7 +526,8 @@ static int parse_encap_ila(struct rtattr *rta, size_t len,
+ 				invarg("\"csum-mode\" value is invalid\n",
+ 				       *argv);
+ 
+-			rta_addattr8(rta, 1024, ILA_ATTR_CSUM_MODE, csum_mode);
++			rta_addattr8(rta, 1024, ILA_ATTR_CSUM_MODE,
++				     (__u8)csum_mode);
+ 
+ 			argc--; argv++;
+ 		} else {
 -- 
 2.13.1
