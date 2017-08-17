@@ -1,7 +1,7 @@
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V7 net-next 05/22] net-next/hinic: Add management messages
-Date: Fri, 18 Aug 2017 03:04:39 +0800
-Message-ID: <a714ecc1a2108a9fe7691eb139e312da511a316b.1502996306.git.aviad.krawczyk@huawei.com>
+Subject: [PATCH V7 net-next 11/22] net-next/hinic: Add wq
+Date: Fri, 18 Aug 2017 03:04:45 +0800
+Message-ID: <838da25d950e384454dedf2708e877811152ebee.1502996306.git.aviad.krawczyk@huawei.com>
 References: <cover.1502996306.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,666 +15,1134 @@ In-Reply-To: <cover.1502996306.git.aviad.krawczyk@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add the management messages for sending to api cmd and the asynchronous
-event handler for the completion of the messages.
+Create work queues for being used by the queue pairs.
 
 Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
 ---
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   |  35 ++
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |   3 +
- drivers/net/ethernet/huawei/hinic/hinic_hw_if.h    |   5 +
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c  | 439 ++++++++++++++++++++-
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h  |  59 +++
- 5 files changed, 538 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/huawei/hinic/Makefile       |   4 +-
+ drivers/net/ethernet/huawei/hinic/hinic_common.h |  25 ++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.c  |  69 ++-
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.h  |   6 +
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h  |  14 +
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c  | 517 +++++++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h  |  86 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h | 253 +++++++++++
+ 8 files changed, 969 insertions(+), 5 deletions(-)
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h
 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-index 234ede9..b44ddf2 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-@@ -54,6 +54,41 @@ enum api_cmd_xor_chk_level {
- };
+diff --git a/drivers/net/ethernet/huawei/hinic/Makefile b/drivers/net/ethernet/huawei/hinic/Makefile
+index f60c449..0575a34 100644
+--- a/drivers/net/ethernet/huawei/hinic/Makefile
++++ b/drivers/net/ethernet/huawei/hinic/Makefile
+@@ -1,5 +1,5 @@
+ obj-$(CONFIG_HINIC) += hinic.o
  
- /**
-+ * api_cmd - API CMD command
-+ * @chain: chain for the command
-+ * @dest: destination node on the card that will receive the command
-+ * @cmd: command data
-+ * @size: the command size
+ hinic-y := hinic_main.o hinic_tx.o hinic_rx.o hinic_port.o hinic_hw_dev.o \
+-	   hinic_hw_io.o hinic_hw_mgmt.o hinic_hw_api_cmd.o hinic_hw_eqs.o \
+-	   hinic_hw_if.o
++	   hinic_hw_io.o hinic_hw_wq.o hinic_hw_mgmt.o hinic_hw_api_cmd.o \
++	   hinic_hw_eqs.o hinic_hw_if.o
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_common.h b/drivers/net/ethernet/huawei/hinic/hinic_common.h
+new file mode 100644
+index 0000000..6a83c15
+--- /dev/null
++++ b/drivers/net/ethernet/huawei/hinic/hinic_common.h
+@@ -0,0 +1,25 @@
++/*
++ * Huawei HiNIC PCI Express Linux driver
++ * Copyright(c) 2017 Huawei Technologies Co., Ltd
 + *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int api_cmd(struct hinic_api_cmd_chain *chain,
-+		   enum hinic_node_id dest, u8 *cmd, u16 cmd_size)
-+{
-+	/* should be implemented */
-+	return -EINVAL;
-+}
-+
-+/**
-+ * hinic_api_cmd_write - Write API CMD command
-+ * @chain: chain for write command
-+ * @dest: destination node on the card that will receive the command
-+ * @cmd: command data
-+ * @size: the command size
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
 + *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_api_cmd_write(struct hinic_api_cmd_chain *chain,
-+			enum hinic_node_id dest, u8 *cmd, u16 size)
-+{
-+	/* Verify the chain type */
-+	if (chain->chain_type == HINIC_API_CMD_WRITE_TO_MGMT_CPU)
-+		return api_cmd(chain, dest, cmd, size);
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * for more details.
++ *
++ */
 +
-+	return -EINVAL;
-+}
++#ifndef HINIC_COMMON_H
++#define HINIC_COMMON_H
 +
-+/**
-  * api_cmd_hw_restart - restart the chain in the HW
-  * @chain: the API CMD specific chain to restart
-  *
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-index 0c83b80..e8865d6 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-@@ -132,6 +132,9 @@ struct hinic_api_cmd_chain {
- 	struct hinic_api_cmd_cell       *curr_node;
- };
- 
-+int hinic_api_cmd_write(struct hinic_api_cmd_chain *chain,
-+			enum hinic_node_id dest, u8 *cmd, u16 size);
-+
- int hinic_api_cmd_init(struct hinic_api_cmd_chain **chain,
- 		       struct hinic_hwif *hwif);
- 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-index b6d9850..98623d6 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-@@ -93,6 +93,7 @@
- #define HINIC_HWIF_NUM_IRQS(hwif)       ((hwif)->attr.num_irqs)
- #define HINIC_HWIF_FUNC_IDX(hwif)       ((hwif)->attr.func_idx)
- #define HINIC_HWIF_PCI_INTF(hwif)       ((hwif)->attr.pci_intf_idx)
-+#define HINIC_HWIF_PF_IDX(hwif)         ((hwif)->attr.pf_idx)
- 
- #define HINIC_FUNC_TYPE(hwif)           ((hwif)->attr.func_type)
- #define HINIC_IS_PF(hwif)               (HINIC_FUNC_TYPE(hwif) == HINIC_PF)
-@@ -127,6 +128,10 @@ enum hinic_mod_type {
- 	HINIC_MOD_MAX   = 15
- };
- 
-+enum hinic_node_id {
-+	HINIC_NODE_ID_MGMT = 21,
++struct hinic_sge {
++	u32             hi_addr;
++	u32             lo_addr;
++	u32             len;
 +};
 +
- struct hinic_func_attr {
- 	u16                     func_idx;
- 	u8                      pf_idx;
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-index f914bc7..147c404 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-@@ -16,6 +16,12 @@
- #include <linux/kernel.h>
- #include <linux/types.h>
- #include <linux/errno.h>
++#endif
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_io.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_io.c
+index ebe28ee..1bf944e 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_io.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_io.c
+@@ -20,6 +20,8 @@
+ #include <linux/slab.h>
+ 
+ #include "hinic_hw_if.h"
++#include "hinic_hw_wqe.h"
++#include "hinic_hw_wq.h"
+ #include "hinic_hw_qp.h"
+ #include "hinic_hw_io.h"
+ 
+@@ -38,8 +40,33 @@ static int init_qp(struct hinic_func_to_io *func_to_io,
+ 		   struct msix_entry *sq_msix_entry,
+ 		   struct msix_entry *rq_msix_entry)
+ {
+-	/* should be implemented */
++	struct hinic_hwif *hwif = func_to_io->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	int err;
++
++	qp->q_id = q_id;
++
++	err = hinic_wq_allocate(&func_to_io->wqs, &func_to_io->sq_wq[q_id],
++				HINIC_SQ_WQEBB_SIZE, HINIC_SQ_PAGE_SIZE,
++				HINIC_SQ_DEPTH, HINIC_SQ_WQE_MAX_SIZE);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to allocate WQ for SQ\n");
++		return err;
++	}
++
++	err = hinic_wq_allocate(&func_to_io->wqs, &func_to_io->rq_wq[q_id],
++				HINIC_RQ_WQEBB_SIZE, HINIC_RQ_PAGE_SIZE,
++				HINIC_RQ_DEPTH, HINIC_RQ_WQE_SIZE);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to allocate WQ for RQ\n");
++		goto err_rq_alloc;
++	}
++
+ 	return 0;
++
++err_rq_alloc:
++	hinic_wq_free(&func_to_io->wqs, &func_to_io->sq_wq[q_id]);
++	return err;
+ }
+ 
+ /**
+@@ -50,7 +77,10 @@ static int init_qp(struct hinic_func_to_io *func_to_io,
+ static void destroy_qp(struct hinic_func_to_io *func_to_io,
+ 		       struct hinic_qp *qp)
+ {
+-	/* should be implemented */
++	int q_id = qp->q_id;
++
++	hinic_wq_free(&func_to_io->wqs, &func_to_io->rq_wq[q_id]);
++	hinic_wq_free(&func_to_io->wqs, &func_to_io->sq_wq[q_id]);
+ }
+ 
+ /**
+@@ -70,7 +100,7 @@ int hinic_io_create_qps(struct hinic_func_to_io *func_to_io,
+ {
+ 	struct hinic_hwif *hwif = func_to_io->hwif;
+ 	struct pci_dev *pdev = hwif->pdev;
+-	size_t qps_size;
++	size_t qps_size, wq_size;
+ 	int i, j, err;
+ 
+ 	qps_size = num_qps * sizeof(*func_to_io->qps);
+@@ -78,6 +108,20 @@ int hinic_io_create_qps(struct hinic_func_to_io *func_to_io,
+ 	if (!func_to_io->qps)
+ 		return -ENOMEM;
+ 
++	wq_size = num_qps * sizeof(*func_to_io->sq_wq);
++	func_to_io->sq_wq = devm_kzalloc(&pdev->dev, wq_size, GFP_KERNEL);
++	if (!func_to_io->sq_wq) {
++		err = -ENOMEM;
++		goto err_sq_wq;
++	}
++
++	wq_size = num_qps * sizeof(*func_to_io->rq_wq);
++	func_to_io->rq_wq = devm_kzalloc(&pdev->dev, wq_size, GFP_KERNEL);
++	if (!func_to_io->rq_wq) {
++		err = -ENOMEM;
++		goto err_rq_wq;
++	}
++
+ 	for (i = 0; i < num_qps; i++) {
+ 		err = init_qp(func_to_io, &func_to_io->qps[i], i,
+ 			      &sq_msix_entries[i], &rq_msix_entries[i]);
+@@ -93,6 +137,12 @@ int hinic_io_create_qps(struct hinic_func_to_io *func_to_io,
+ 	for (j = 0; j < i; j++)
+ 		destroy_qp(func_to_io, &func_to_io->qps[j]);
+ 
++	devm_kfree(&pdev->dev, func_to_io->rq_wq);
++
++err_rq_wq:
++	devm_kfree(&pdev->dev, func_to_io->sq_wq);
++
++err_sq_wq:
+ 	devm_kfree(&pdev->dev, func_to_io->qps);
+ 	return err;
+ }
+@@ -111,6 +161,9 @@ void hinic_io_destroy_qps(struct hinic_func_to_io *func_to_io, int num_qps)
+ 	for (i = 0; i < num_qps; i++)
+ 		destroy_qp(func_to_io, &func_to_io->qps[i]);
+ 
++	devm_kfree(&pdev->dev, func_to_io->rq_wq);
++	devm_kfree(&pdev->dev, func_to_io->sq_wq);
++
+ 	devm_kfree(&pdev->dev, func_to_io->qps);
+ }
+ 
+@@ -128,10 +181,19 @@ int hinic_io_init(struct hinic_func_to_io *func_to_io,
+ 		  struct hinic_hwif *hwif, u16 max_qps, int num_ceqs,
+ 		  struct msix_entry *ceq_msix_entries)
+ {
++	struct pci_dev *pdev = hwif->pdev;
++	int err;
++
+ 	func_to_io->hwif = hwif;
+ 	func_to_io->qps = NULL;
+ 	func_to_io->max_qps = max_qps;
+ 
++	err = hinic_wqs_alloc(&func_to_io->wqs, 2 * max_qps, hwif);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to allocate WQS for IO\n");
++		return err;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -141,4 +203,5 @@ int hinic_io_init(struct hinic_func_to_io *func_to_io,
+  **/
+ void hinic_io_free(struct hinic_func_to_io *func_to_io)
+ {
++	hinic_wqs_free(&func_to_io->wqs);
+ }
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_io.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_io.h
+index 7cdcffd..6cacb8e 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_io.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_io.h
+@@ -20,11 +20,17 @@
+ #include <linux/pci.h>
+ 
+ #include "hinic_hw_if.h"
++#include "hinic_hw_wq.h"
+ #include "hinic_hw_qp.h"
+ 
+ struct hinic_func_to_io {
+ 	struct hinic_hwif       *hwif;
+ 
++	struct hinic_wqs        wqs;
++
++	struct hinic_wq         *sq_wq;
++	struct hinic_wq         *rq_wq;
++
+ 	struct hinic_qp         *qps;
+ 	u16                     max_qps;
+ };
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h
+index 64330fb..4031728 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h
+@@ -16,6 +16,18 @@
+ #ifndef HINIC_HW_QP_H
+ #define HINIC_HW_QP_H
+ 
++#include <linux/types.h>
++#include <linux/sizes.h>
++
++#define HINIC_SQ_WQEBB_SIZE                     64
++#define HINIC_RQ_WQEBB_SIZE                     32
++
++#define HINIC_SQ_PAGE_SIZE                      SZ_4K
++#define HINIC_RQ_PAGE_SIZE                      SZ_4K
++
++#define HINIC_SQ_DEPTH                          SZ_4K
++#define HINIC_RQ_DEPTH                          SZ_4K
++
+ struct hinic_sq {
+ 	/* should be implemented */
+ };
+@@ -27,6 +39,8 @@ struct hinic_rq {
+ struct hinic_qp {
+ 	struct hinic_sq         sq;
+ 	struct hinic_rq         rq;
++
++	u16     q_id;
+ };
+ 
+ #endif
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
+new file mode 100644
+index 0000000..88d370e
+--- /dev/null
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
+@@ -0,0 +1,517 @@
++/*
++ * Huawei HiNIC PCI Express Linux driver
++ * Copyright(c) 2017 Huawei Technologies Co., Ltd
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * for more details.
++ *
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
 +#include <linux/pci.h>
 +#include <linux/device.h>
-+#include <linux/semaphore.h>
-+#include <linux/completion.h>
++#include <linux/dma-mapping.h>
 +#include <linux/slab.h>
-+#include <asm/barrier.h>
- 
- #include "hinic_hw_if.h"
- #include "hinic_hw_eqs.h"
-@@ -23,9 +29,267 @@
- #include "hinic_hw_mgmt.h"
- #include "hinic_hw_dev.h"
- 
-+#define SYNC_MSG_ID_MASK                0x1FF
-+
-+#define SYNC_MSG_ID(pf_to_mgmt)         ((pf_to_mgmt)->sync_msg_id)
-+
-+#define SYNC_MSG_ID_INC(pf_to_mgmt)     (SYNC_MSG_ID(pf_to_mgmt) = \
-+					((SYNC_MSG_ID(pf_to_mgmt) + 1) & \
-+					 SYNC_MSG_ID_MASK))
-+
-+#define MSG_SZ_IS_VALID(in_size)        ((in_size) <= MAX_MSG_LEN)
-+
-+#define MGMT_MSG_LEN_MIN                20
-+#define MGMT_MSG_LEN_STEP               16
-+#define MGMT_MSG_RSVD_FOR_DEV           8
-+
-+#define SEGMENT_LEN                     48
-+
-+#define MAX_PF_MGMT_BUF_SIZE            2048
-+
-+/* Data should be SEG LEN size aligned */
-+#define MAX_MSG_LEN                     2016
-+
-+#define MSG_NOT_RESP                    0xFFFF
-+
-+#define MGMT_MSG_TIMEOUT                1000
-+
- #define mgmt_to_pfhwdev(pf_mgmt)        \
- 		container_of(pf_mgmt, struct hinic_pfhwdev, pf_to_mgmt)
- 
-+enum msg_segment_type {
-+	NOT_LAST_SEGMENT        = 0,
-+	LAST_SEGMENT            = 1,
-+};
-+
-+enum mgmt_direction_type {
-+	MGMT_DIRECT_SEND        = 0,
-+	MGMT_RESP               = 1,
-+};
-+
-+enum msg_ack_type {
-+	MSG_ACK         = 0,
-+	MSG_NO_ACK      = 1,
-+};
-+
-+/**
-+ * prepare_header - prepare the header of the message
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @msg_len: the length of the message
-+ * @mod: module in the chip that will get the message
-+ * @ack_type: ask for response
-+ * @direction: the direction of the message
-+ * @cmd: command of the message
-+ * @msg_id: message id
-+ *
-+ * Return the prepared header value
-+ **/
-+static u64 prepare_header(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			  u16 msg_len, enum hinic_mod_type mod,
-+			  enum msg_ack_type ack_type,
-+			  enum mgmt_direction_type direction,
-+			  u16 cmd, u16 msg_id)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+
-+	return HINIC_MSG_HEADER_SET(msg_len, MSG_LEN)           |
-+	       HINIC_MSG_HEADER_SET(mod, MODULE)                |
-+	       HINIC_MSG_HEADER_SET(SEGMENT_LEN, SEG_LEN)       |
-+	       HINIC_MSG_HEADER_SET(ack_type, NO_ACK)           |
-+	       HINIC_MSG_HEADER_SET(0, ASYNC_MGMT_TO_PF)        |
-+	       HINIC_MSG_HEADER_SET(0, SEQID)                   |
-+	       HINIC_MSG_HEADER_SET(LAST_SEGMENT, LAST)         |
-+	       HINIC_MSG_HEADER_SET(direction, DIRECTION)       |
-+	       HINIC_MSG_HEADER_SET(cmd, CMD)                   |
-+	       HINIC_MSG_HEADER_SET(HINIC_HWIF_PCI_INTF(hwif), PCI_INTF) |
-+	       HINIC_MSG_HEADER_SET(HINIC_HWIF_PF_IDX(hwif), PF_IDX)     |
-+	       HINIC_MSG_HEADER_SET(msg_id, MSG_ID);
-+}
-+
-+/**
-+ * prepare_mgmt_cmd - prepare the mgmt command
-+ * @mgmt_cmd: pointer to the command to prepare
-+ * @header: pointer of the header for the message
-+ * @msg: the data of the message
-+ * @msg_len: the length of the message
-+ **/
-+static void prepare_mgmt_cmd(u8 *mgmt_cmd, u64 *header, u8 *msg, u16 msg_len)
-+{
-+	memset(mgmt_cmd, 0, MGMT_MSG_RSVD_FOR_DEV);
-+
-+	mgmt_cmd += MGMT_MSG_RSVD_FOR_DEV;
-+	memcpy(mgmt_cmd, header, sizeof(*header));
-+
-+	mgmt_cmd += sizeof(*header);
-+	memcpy(mgmt_cmd, msg, msg_len);
-+}
-+
-+/**
-+ * mgmt_msg_len - calculate the total message length
-+ * @msg_data_len: the length of the message data
-+ *
-+ * Return the total message length
-+ **/
-+static u16 mgmt_msg_len(u16 msg_data_len)
-+{
-+	/* RSVD + HEADER_SIZE + DATA_LEN */
-+	u16 msg_len = MGMT_MSG_RSVD_FOR_DEV + sizeof(u64) + msg_data_len;
-+
-+	if (msg_len > MGMT_MSG_LEN_MIN)
-+		msg_len = MGMT_MSG_LEN_MIN +
-+			   ALIGN((msg_len - MGMT_MSG_LEN_MIN),
-+				 MGMT_MSG_LEN_STEP);
-+	else
-+		msg_len = MGMT_MSG_LEN_MIN;
-+
-+	return msg_len;
-+}
-+
-+/**
-+ * send_msg_to_mgmt - send message to mgmt by API CMD
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @mod: module in the chip that will get the message
-+ * @cmd: command of the message
-+ * @data: the msg data
-+ * @data_len: the msg data length
-+ * @ack_type: ask for response
-+ * @direction: the direction of the original message
-+ * @resp_msg_id: msg id to response for
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int send_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			    enum hinic_mod_type mod, u8 cmd,
-+			    u8 *data, u16 data_len,
-+			    enum msg_ack_type ack_type,
-+			    enum mgmt_direction_type direction,
-+			    u16 resp_msg_id)
-+{
-+	struct hinic_api_cmd_chain *chain;
-+	u64 header;
-+	u16 msg_id;
-+
-+	msg_id = SYNC_MSG_ID(pf_to_mgmt);
-+
-+	if (direction == MGMT_RESP) {
-+		header = prepare_header(pf_to_mgmt, data_len, mod, ack_type,
-+					direction, cmd, resp_msg_id);
-+	} else {
-+		SYNC_MSG_ID_INC(pf_to_mgmt);
-+		header = prepare_header(pf_to_mgmt, data_len, mod, ack_type,
-+					direction, cmd, msg_id);
-+	}
-+
-+	prepare_mgmt_cmd(pf_to_mgmt->sync_msg_buf, &header, data, data_len);
-+
-+	chain = pf_to_mgmt->cmd_chain[HINIC_API_CMD_WRITE_TO_MGMT_CPU];
-+	return hinic_api_cmd_write(chain, HINIC_NODE_ID_MGMT,
-+				   pf_to_mgmt->sync_msg_buf,
-+				   mgmt_msg_len(data_len));
-+}
-+
-+/**
-+ * msg_to_mgmt_sync - send sync message to mgmt
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @mod: module in the chip that will get the message
-+ * @cmd: command of the message
-+ * @buf_in: the msg data
-+ * @in_size: the msg data length
-+ * @buf_out: response
-+ * @out_size: response length
-+ * @direction: the direction of the original message
-+ * @resp_msg_id: msg id to response for
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int msg_to_mgmt_sync(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			    enum hinic_mod_type mod, u8 cmd,
-+			    u8 *buf_in, u16 in_size,
-+			    u8 *buf_out, u16 *out_size,
-+			    enum mgmt_direction_type direction,
-+			    u16 resp_msg_id)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_recv_msg *recv_msg;
-+	struct completion *recv_done;
-+	u16 msg_id;
-+	int err;
-+
-+	/* Lock the sync_msg_buf */
-+	down(&pf_to_mgmt->sync_msg_lock);
-+
-+	recv_msg = &pf_to_mgmt->recv_resp_msg_from_mgmt;
-+	recv_done = &recv_msg->recv_done;
-+
-+	if (resp_msg_id == MSG_NOT_RESP)
-+		msg_id = SYNC_MSG_ID(pf_to_mgmt);
-+	else
-+		msg_id = resp_msg_id;
-+
-+	init_completion(recv_done);
-+
-+	err = send_msg_to_mgmt(pf_to_mgmt, mod, cmd, buf_in, in_size,
-+			       MSG_ACK, direction, resp_msg_id);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to send sync msg to mgmt\n");
-+		goto unlock_sync_msg;
-+	}
-+
-+	if (!wait_for_completion_timeout(recv_done, MGMT_MSG_TIMEOUT)) {
-+		dev_err(&pdev->dev, "MGMT timeout, MSG id = %d\n", msg_id);
-+		err = -ETIMEDOUT;
-+		goto unlock_sync_msg;
-+	}
-+
-+	smp_rmb();      /* verify reading after completion */
-+
-+	if (recv_msg->msg_id != msg_id) {
-+		dev_err(&pdev->dev, "incorrect MSG for id = %d\n", msg_id);
-+		err = -EFAULT;
-+		goto unlock_sync_msg;
-+	}
-+
-+	if ((buf_out) && (recv_msg->msg_len <= MAX_PF_MGMT_BUF_SIZE)) {
-+		memcpy(buf_out, recv_msg->msg, recv_msg->msg_len);
-+		*out_size = recv_msg->msg_len;
-+	}
-+
-+unlock_sync_msg:
-+	up(&pf_to_mgmt->sync_msg_lock);
-+	return err;
-+}
-+
-+/**
-+ * msg_to_mgmt_async - send message to mgmt without response
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @mod: module in the chip that will get the message
-+ * @cmd: command of the message
-+ * @buf_in: the msg data
-+ * @in_size: the msg data length
-+ * @direction: the direction of the original message
-+ * @resp_msg_id: msg id to response for
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int msg_to_mgmt_async(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			     enum hinic_mod_type mod, u8 cmd,
-+			     u8 *buf_in, u16 in_size,
-+			     enum mgmt_direction_type direction,
-+			     u16 resp_msg_id)
-+{
-+	int err;
-+
-+	/* Lock the sync_msg_buf */
-+	down(&pf_to_mgmt->sync_msg_lock);
-+
-+	err = send_msg_to_mgmt(pf_to_mgmt, mod, cmd, buf_in, in_size,
-+			       MSG_NO_ACK, direction, resp_msg_id);
-+
-+	up(&pf_to_mgmt->sync_msg_lock);
-+	return err;
-+}
-+
- /**
-  * hinic_msg_to_mgmt - send message to mgmt
-  * @pf_to_mgmt: PF to MGMT channel
-@@ -44,8 +308,98 @@ int hinic_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
- 		      void *buf_in, u16 in_size, void *buf_out, u16 *out_size,
- 		      enum hinic_mgmt_msg_type sync)
- {
--	/* should be implemented */
--	return -EINVAL;
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+
-+	if (sync != HINIC_MGMT_MSG_SYNC) {
-+		dev_err(&pdev->dev, "Invalid MGMT msg type\n");
-+		return -EINVAL;
-+	}
-+
-+	if (!MSG_SZ_IS_VALID(in_size)) {
-+		dev_err(&pdev->dev, "Invalid MGMT msg buffer size\n");
-+		return -EINVAL;
-+	}
-+
-+	return msg_to_mgmt_sync(pf_to_mgmt, mod, cmd, buf_in, in_size,
-+				buf_out, out_size, MGMT_DIRECT_SEND,
-+				MSG_NOT_RESP);
-+}
-+
-+/**
-+ * mgmt_recv_msg_handler - handler for message from mgmt cpu
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @recv_msg: received message details
-+ **/
-+static void mgmt_recv_msg_handler(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+				  struct hinic_recv_msg *recv_msg)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	u8 *buf_out = recv_msg->buf_out;
-+	u16 out_size = 0;
-+
-+	dev_err(&pdev->dev, "No MGMT msg handler, mod = %d\n", recv_msg->mod);
-+
-+	if (!recv_msg->async_mgmt_to_pf)
-+		/* MGMT sent sync msg, send the response */
-+		msg_to_mgmt_async(pf_to_mgmt, recv_msg->mod, recv_msg->cmd,
-+				  buf_out, out_size, MGMT_RESP,
-+				  recv_msg->msg_id);
-+}
-+
-+/**
-+ * mgmt_resp_msg_handler - handler for a response message from mgmt cpu
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @recv_msg: received message details
-+ **/
-+static void mgmt_resp_msg_handler(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+				  struct hinic_recv_msg *recv_msg)
-+{
-+	wmb();  /* verify writing all, before reading */
-+
-+	complete(&recv_msg->recv_done);
-+}
-+
-+/**
-+ * recv_mgmt_msg_handler - handler for a message from mgmt cpu
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @header: the header of the message
-+ * @recv_msg: received message details
-+ **/
-+static void recv_mgmt_msg_handler(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+				  u64 *header, struct hinic_recv_msg *recv_msg)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	int seq_id, seg_len;
-+	u8 *msg_body;
-+
-+	seq_id = HINIC_MSG_HEADER_GET(*header, SEQID);
-+	seg_len = HINIC_MSG_HEADER_GET(*header, SEG_LEN);
-+
-+	if (seq_id >= (MAX_MSG_LEN / SEGMENT_LEN)) {
-+		dev_err(&pdev->dev, "recv big mgmt msg\n");
-+		return;
-+	}
-+
-+	msg_body = (u8 *)header + sizeof(*header);
-+	memcpy(recv_msg->msg + seq_id * SEGMENT_LEN, msg_body, seg_len);
-+
-+	if (!HINIC_MSG_HEADER_GET(*header, LAST))
-+		return;
-+
-+	recv_msg->cmd = HINIC_MSG_HEADER_GET(*header, CMD);
-+	recv_msg->mod = HINIC_MSG_HEADER_GET(*header, MODULE);
-+	recv_msg->async_mgmt_to_pf = HINIC_MSG_HEADER_GET(*header,
-+							  ASYNC_MGMT_TO_PF);
-+	recv_msg->msg_len = HINIC_MSG_HEADER_GET(*header, MSG_LEN);
-+	recv_msg->msg_id = HINIC_MSG_HEADER_GET(*header, MSG_ID);
-+
-+	if (HINIC_MSG_HEADER_GET(*header, DIRECTION) == MGMT_RESP)
-+		mgmt_resp_msg_handler(pf_to_mgmt, recv_msg);
-+	else
-+		mgmt_recv_msg_handler(pf_to_mgmt, recv_msg);
- }
- 
- /**
-@@ -56,7 +410,77 @@ int hinic_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
-  **/
- static void mgmt_msg_aeqe_handler(void *handle, void *data, u8 size)
- {
--	/* should be implemented */
-+	struct hinic_pf_to_mgmt *pf_to_mgmt = handle;
-+	struct hinic_recv_msg *recv_msg;
-+	u64 *header = (u64 *)data;
-+
-+	recv_msg = HINIC_MSG_HEADER_GET(*header, DIRECTION) ==
-+		   MGMT_DIRECT_SEND ?
-+		   &pf_to_mgmt->recv_msg_from_mgmt :
-+		   &pf_to_mgmt->recv_resp_msg_from_mgmt;
-+
-+	recv_mgmt_msg_handler(pf_to_mgmt, header, recv_msg);
-+}
-+
-+/**
-+ * alloc_recv_msg - allocate receive message memory
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @recv_msg: pointer that will hold the allocated data
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int alloc_recv_msg(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			  struct hinic_recv_msg *recv_msg)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+
-+	recv_msg->msg = devm_kzalloc(&pdev->dev, MAX_PF_MGMT_BUF_SIZE,
-+				     GFP_KERNEL);
-+	if (!recv_msg->msg)
-+		return -ENOMEM;
-+
-+	recv_msg->buf_out = devm_kzalloc(&pdev->dev, MAX_PF_MGMT_BUF_SIZE,
-+					 GFP_KERNEL);
-+	if (!recv_msg->buf_out)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+/**
-+ * alloc_msg_buf - allocate all the message buffers of PF to MGMT channel
-+ * @pf_to_mgmt: PF to MGMT channel
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int alloc_msg_buf(struct hinic_pf_to_mgmt *pf_to_mgmt)
-+{
-+	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	int err;
-+
-+	err = alloc_recv_msg(pf_to_mgmt,
-+			     &pf_to_mgmt->recv_msg_from_mgmt);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to allocate recv msg\n");
-+		return err;
-+	}
-+
-+	err = alloc_recv_msg(pf_to_mgmt,
-+			     &pf_to_mgmt->recv_resp_msg_from_mgmt);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to allocate resp recv msg\n");
-+		return err;
-+	}
-+
-+	pf_to_mgmt->sync_msg_buf = devm_kzalloc(&pdev->dev,
-+						MAX_PF_MGMT_BUF_SIZE,
-+						GFP_KERNEL);
-+	if (!pf_to_mgmt->sync_msg_buf)
-+		return -ENOMEM;
-+
-+	return 0;
- }
- 
- /**
-@@ -76,6 +500,15 @@ int hinic_pf_to_mgmt_init(struct hinic_pf_to_mgmt *pf_to_mgmt,
- 
- 	pf_to_mgmt->hwif = hwif;
- 
-+	sema_init(&pf_to_mgmt->sync_msg_lock, 1);
-+	pf_to_mgmt->sync_msg_id = 0;
-+
-+	err = alloc_msg_buf(pf_to_mgmt);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to allocate msg buffers\n");
-+		return err;
-+	}
-+
- 	err = hinic_api_cmd_init(pf_to_mgmt->cmd_chain, hwif);
- 	if (err) {
- 		dev_err(&pdev->dev, "Failed to initialize cmd chains\n");
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-index dff321c..eca7ad8 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-@@ -17,10 +17,48 @@
- #define HINIC_HW_MGMT_H
- 
- #include <linux/types.h>
++#include <linux/atomic.h>
 +#include <linux/semaphore.h>
-+#include <linux/completion.h>
- 
- #include "hinic_hw_if.h"
- #include "hinic_hw_api_cmd.h"
- 
-+#define HINIC_MSG_HEADER_MSG_LEN_SHIFT                          0
-+#define HINIC_MSG_HEADER_MODULE_SHIFT                           11
-+#define HINIC_MSG_HEADER_SEG_LEN_SHIFT                          16
-+#define HINIC_MSG_HEADER_NO_ACK_SHIFT                           22
-+#define HINIC_MSG_HEADER_ASYNC_MGMT_TO_PF_SHIFT                 23
-+#define HINIC_MSG_HEADER_SEQID_SHIFT                            24
-+#define HINIC_MSG_HEADER_LAST_SHIFT                             30
-+#define HINIC_MSG_HEADER_DIRECTION_SHIFT                        31
-+#define HINIC_MSG_HEADER_CMD_SHIFT                              32
-+#define HINIC_MSG_HEADER_ZEROS_SHIFT                            40
-+#define HINIC_MSG_HEADER_PCI_INTF_SHIFT                         48
-+#define HINIC_MSG_HEADER_PF_IDX_SHIFT                           50
-+#define HINIC_MSG_HEADER_MSG_ID_SHIFT                           54
++#include <linux/errno.h>
++#include <linux/vmalloc.h>
++#include <asm/byteorder.h>
 +
-+#define HINIC_MSG_HEADER_MSG_LEN_MASK                           0x7FF
-+#define HINIC_MSG_HEADER_MODULE_MASK                            0x1F
-+#define HINIC_MSG_HEADER_SEG_LEN_MASK                           0x3F
-+#define HINIC_MSG_HEADER_NO_ACK_MASK                            0x1
-+#define HINIC_MSG_HEADER_ASYNC_MGMT_TO_PF_MASK                  0x1
-+#define HINIC_MSG_HEADER_SEQID_MASK                             0x3F
-+#define HINIC_MSG_HEADER_LAST_MASK                              0x1
-+#define HINIC_MSG_HEADER_DIRECTION_MASK                         0x1
-+#define HINIC_MSG_HEADER_CMD_MASK                               0xFF
-+#define HINIC_MSG_HEADER_ZEROS_MASK                             0xFF
-+#define HINIC_MSG_HEADER_PCI_INTF_MASK                          0x3
-+#define HINIC_MSG_HEADER_PF_IDX_MASK                            0xF
-+#define HINIC_MSG_HEADER_MSG_ID_MASK                            0x3FF
++#include "hinic_hw_if.h"
++#include "hinic_hw_wq.h"
 +
-+#define HINIC_MSG_HEADER_SET(val, member)                       \
-+		((u64)((val) & HINIC_MSG_HEADER_##member##_MASK) << \
-+		 HINIC_MSG_HEADER_##member##_SHIFT)
++#define WQS_BLOCKS_PER_PAGE             4
 +
-+#define HINIC_MSG_HEADER_GET(val, member)                       \
-+		(((val) >> HINIC_MSG_HEADER_##member##_SHIFT) & \
-+		 HINIC_MSG_HEADER_##member##_MASK)
++#define WQ_BLOCK_SIZE                   4096
++#define WQS_PAGE_SIZE                   (WQS_BLOCKS_PER_PAGE * WQ_BLOCK_SIZE)
 +
- enum hinic_mgmt_msg_type {
- 	HINIC_MGMT_MSG_SYNC = 1,
- };
-@@ -29,9 +67,30 @@ enum hinic_cfg_cmd {
- 	HINIC_CFG_NIC_CAP = 0,
- };
- 
-+struct hinic_recv_msg {
-+	u8                      *msg;
-+	u8                      *buf_out;
++#define WQS_MAX_NUM_BLOCKS              128
++#define WQS_FREE_BLOCKS_SIZE(wqs)       (WQS_MAX_NUM_BLOCKS * \
++					 sizeof((wqs)->free_blocks[0]))
 +
-+	struct completion       recv_done;
++#define WQ_SIZE(wq)                     ((wq)->q_depth * (wq)->wqebb_size)
 +
-+	u16                     cmd;
-+	enum hinic_mod_type     mod;
-+	int                     async_mgmt_to_pf;
++#define WQ_PAGE_ADDR_SIZE               sizeof(u64)
++#define WQ_MAX_PAGES                    (WQ_BLOCK_SIZE / WQ_PAGE_ADDR_SIZE)
 +
-+	u16                     msg_len;
-+	u16                     msg_id;
++#define WQ_BASE_VADDR(wqs, wq)          \
++			((void *)((wqs)->page_vaddr[(wq)->page_idx]) \
++				+ (wq)->block_idx * WQ_BLOCK_SIZE)
++
++#define WQ_BASE_PADDR(wqs, wq)          \
++			((wqs)->page_paddr[(wq)->page_idx] \
++				+ (wq)->block_idx * WQ_BLOCK_SIZE)
++
++#define WQ_BASE_ADDR(wqs, wq)           \
++			((void *)((wqs)->shadow_page_vaddr[(wq)->page_idx]) \
++				+ (wq)->block_idx * WQ_BLOCK_SIZE)
++
++/**
++ * queue_alloc_page - allocate page for Queue
++ * @hwif: HW interface for allocating DMA
++ * @vaddr: virtual address will be returned in this address
++ * @paddr: physical address will be returned in this address
++ * @shadow_vaddr: VM area will be return here for holding WQ page addresses
++ * @page_sz: page size of each WQ page
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int queue_alloc_page(struct hinic_hwif *hwif, u64 **vaddr, u64 *paddr,
++			    void ***shadow_vaddr, size_t page_sz)
++{
++	struct pci_dev *pdev = hwif->pdev;
++	dma_addr_t dma_addr;
++
++	*vaddr = dma_zalloc_coherent(&pdev->dev, page_sz, &dma_addr,
++				     GFP_KERNEL);
++	if (!*vaddr) {
++		dev_err(&pdev->dev, "Failed to allocate dma for wqs page\n");
++		return -ENOMEM;
++	}
++
++	*paddr = (u64)dma_addr;
++
++	/* use vzalloc for big mem */
++	*shadow_vaddr = vzalloc(page_sz);
++	if (!*shadow_vaddr)
++		goto err_shadow_vaddr;
++
++	return 0;
++
++err_shadow_vaddr:
++	dma_free_coherent(&pdev->dev, page_sz, *vaddr, dma_addr);
++	return -ENOMEM;
++}
++
++/**
++ * wqs_allocate_page - allocate page for WQ set
++ * @wqs: Work Queue Set
++ * @page_idx: the page index of the page will be allocated
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int wqs_allocate_page(struct hinic_wqs *wqs, int page_idx)
++{
++	return queue_alloc_page(wqs->hwif, &wqs->page_vaddr[page_idx],
++				&wqs->page_paddr[page_idx],
++				&wqs->shadow_page_vaddr[page_idx],
++				WQS_PAGE_SIZE);
++}
++
++/**
++ * wqs_free_page - free page of WQ set
++ * @wqs: Work Queue Set
++ * @page_idx: the page index of the page will be freed
++ **/
++static void wqs_free_page(struct hinic_wqs *wqs, int page_idx)
++{
++	struct hinic_hwif *hwif = wqs->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++
++	dma_free_coherent(&pdev->dev, WQS_PAGE_SIZE,
++			  wqs->page_vaddr[page_idx],
++			  (dma_addr_t)wqs->page_paddr[page_idx]);
++	vfree(wqs->shadow_page_vaddr[page_idx]);
++}
++
++static int alloc_page_arrays(struct hinic_wqs *wqs)
++{
++	struct hinic_hwif *hwif = wqs->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	size_t size;
++
++	size = wqs->num_pages * sizeof(*wqs->page_paddr);
++	wqs->page_paddr = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
++	if (!wqs->page_paddr)
++		return -ENOMEM;
++
++	size = wqs->num_pages * sizeof(*wqs->page_vaddr);
++	wqs->page_vaddr = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
++	if (!wqs->page_vaddr)
++		goto err_page_vaddr;
++
++	size = wqs->num_pages * sizeof(*wqs->shadow_page_vaddr);
++	wqs->shadow_page_vaddr = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
++	if (!wqs->shadow_page_vaddr)
++		goto err_page_shadow_vaddr;
++
++	return 0;
++
++err_page_shadow_vaddr:
++	devm_kfree(&pdev->dev, wqs->page_vaddr);
++
++err_page_vaddr:
++	devm_kfree(&pdev->dev, wqs->page_paddr);
++	return -ENOMEM;
++}
++
++static void free_page_arrays(struct hinic_wqs *wqs)
++{
++	struct hinic_hwif *hwif = wqs->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++
++	devm_kfree(&pdev->dev, wqs->shadow_page_vaddr);
++	devm_kfree(&pdev->dev, wqs->page_vaddr);
++	devm_kfree(&pdev->dev, wqs->page_paddr);
++}
++
++static int wqs_next_block(struct hinic_wqs *wqs, int *page_idx,
++			  int *block_idx)
++{
++	int pos;
++
++	down(&wqs->alloc_blocks_lock);
++
++	wqs->num_free_blks--;
++
++	if (wqs->num_free_blks < 0) {
++		wqs->num_free_blks++;
++		up(&wqs->alloc_blocks_lock);
++		return -ENOMEM;
++	}
++
++	pos = wqs->alloc_blk_pos++;
++	pos &= WQS_MAX_NUM_BLOCKS - 1;
++
++	*page_idx = wqs->free_blocks[pos].page_idx;
++	*block_idx = wqs->free_blocks[pos].block_idx;
++
++	wqs->free_blocks[pos].page_idx = -1;
++	wqs->free_blocks[pos].block_idx = -1;
++
++	up(&wqs->alloc_blocks_lock);
++	return 0;
++}
++
++static void wqs_return_block(struct hinic_wqs *wqs, int page_idx,
++			     int block_idx)
++{
++	int pos;
++
++	down(&wqs->alloc_blocks_lock);
++
++	pos = wqs->return_blk_pos++;
++	pos &= WQS_MAX_NUM_BLOCKS - 1;
++
++	wqs->free_blocks[pos].page_idx = page_idx;
++	wqs->free_blocks[pos].block_idx = block_idx;
++
++	wqs->num_free_blks++;
++
++	up(&wqs->alloc_blocks_lock);
++}
++
++static void init_wqs_blocks_arr(struct hinic_wqs *wqs)
++{
++	int page_idx, blk_idx, pos = 0;
++
++	for (page_idx = 0; page_idx < wqs->num_pages; page_idx++) {
++		for (blk_idx = 0; blk_idx < WQS_BLOCKS_PER_PAGE; blk_idx++) {
++			wqs->free_blocks[pos].page_idx = page_idx;
++			wqs->free_blocks[pos].block_idx = blk_idx;
++			pos++;
++		}
++	}
++
++	wqs->alloc_blk_pos = 0;
++	wqs->return_blk_pos = pos;
++	wqs->num_free_blks = pos;
++
++	sema_init(&wqs->alloc_blocks_lock, 1);
++}
++
++/**
++ * hinic_wqs_alloc - allocate Work Queues set
++ * @wqs: Work Queue Set
++ * @max_wqs: maximum wqs to allocate
++ * @hwif: HW interface for use for the allocation
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_wqs_alloc(struct hinic_wqs *wqs, int max_wqs,
++		    struct hinic_hwif *hwif)
++{
++	struct pci_dev *pdev = hwif->pdev;
++	int err, i, page_idx;
++
++	max_wqs = ALIGN(max_wqs, WQS_BLOCKS_PER_PAGE);
++
++	if (max_wqs > WQS_MAX_NUM_BLOCKS)  {
++		dev_err(&pdev->dev, "Invalid max_wqs = %d\n", max_wqs);
++		return -EINVAL;
++	}
++
++	wqs->hwif = hwif;
++	wqs->num_pages = max_wqs / WQS_BLOCKS_PER_PAGE;
++
++	if (alloc_page_arrays(wqs)) {
++		dev_err(&pdev->dev,
++			"Failed to allocate mem for page addresses\n");
++		return -ENOMEM;
++	}
++
++	for (page_idx = 0; page_idx < wqs->num_pages; page_idx++) {
++		err = wqs_allocate_page(wqs, page_idx);
++		if (err) {
++			dev_err(&pdev->dev, "Failed wq page allocation\n");
++			goto err_wq_allocate_page;
++		}
++	}
++
++	wqs->free_blocks = devm_kzalloc(&pdev->dev, WQS_FREE_BLOCKS_SIZE(wqs),
++					GFP_KERNEL);
++	if (!wqs->free_blocks) {
++		err = -ENOMEM;
++		goto err_alloc_blocks;
++	}
++
++	init_wqs_blocks_arr(wqs);
++	return 0;
++
++err_alloc_blocks:
++err_wq_allocate_page:
++	for (i = 0; i < page_idx; i++)
++		wqs_free_page(wqs, i);
++
++	free_page_arrays(wqs);
++	return err;
++}
++
++/**
++ * hinic_wqs_free - free Work Queues set
++ * @wqs: Work Queue Set
++ **/
++void hinic_wqs_free(struct hinic_wqs *wqs)
++{
++	struct hinic_hwif *hwif = wqs->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	int page_idx;
++
++	devm_kfree(&pdev->dev, wqs->free_blocks);
++
++	for (page_idx = 0; page_idx < wqs->num_pages; page_idx++)
++		wqs_free_page(wqs, page_idx);
++
++	free_page_arrays(wqs);
++}
++
++/**
++ * alloc_wqes_shadow - allocate WQE shadows for WQ
++ * @wq: WQ to allocate shadows for
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int alloc_wqes_shadow(struct hinic_wq *wq)
++{
++	struct hinic_hwif *hwif = wq->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	size_t size;
++
++	size = wq->num_q_pages * wq->max_wqe_size;
++	wq->shadow_wqe = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
++	if (!wq->shadow_wqe)
++		return -ENOMEM;
++
++	size = wq->num_q_pages * sizeof(wq->prod_idx);
++	wq->shadow_idx = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
++	if (!wq->shadow_idx)
++		goto err_shadow_idx;
++
++	return 0;
++
++err_shadow_idx:
++	devm_kfree(&pdev->dev, wq->shadow_wqe);
++	return -ENOMEM;
++}
++
++/**
++ * free_wqes_shadow - free WQE shadows of WQ
++ * @wq: WQ to free shadows from
++ **/
++static void free_wqes_shadow(struct hinic_wq *wq)
++{
++	struct hinic_hwif *hwif = wq->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++
++	devm_kfree(&pdev->dev, wq->shadow_idx);
++	devm_kfree(&pdev->dev, wq->shadow_wqe);
++}
++
++/**
++ * free_wq_pages - free pages of WQ
++ * @hwif: HW interface for releasing dma addresses
++ * @wq: WQ to free pages from
++ * @num_q_pages: number pages to free
++ **/
++static void free_wq_pages(struct hinic_wq *wq, struct hinic_hwif *hwif,
++			  int num_q_pages)
++{
++	struct pci_dev *pdev = hwif->pdev;
++	int i;
++
++	for (i = 0; i < num_q_pages; i++) {
++		void **vaddr = &wq->shadow_block_vaddr[i];
++		u64 *paddr = &wq->block_vaddr[i];
++		dma_addr_t dma_addr;
++
++		dma_addr = (dma_addr_t)be64_to_cpu(*paddr);
++		dma_free_coherent(&pdev->dev, wq->wq_page_size, *vaddr,
++				  dma_addr);
++	}
++
++	free_wqes_shadow(wq);
++}
++
++/**
++ * alloc_wq_pages - alloc pages for WQ
++ * @hwif: HW interface for allocating dma addresses
++ * @wq: WQ to allocate pages for
++ * @max_pages: maximum pages allowed
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int alloc_wq_pages(struct hinic_wq *wq, struct hinic_hwif *hwif,
++			  int max_pages)
++{
++	struct pci_dev *pdev = hwif->pdev;
++	int i, err, num_q_pages;
++
++	num_q_pages = ALIGN(WQ_SIZE(wq), wq->wq_page_size) / wq->wq_page_size;
++	if (num_q_pages > max_pages) {
++		dev_err(&pdev->dev, "Number wq pages exceeds the limit\n");
++		return -EINVAL;
++	}
++
++	if (num_q_pages & (num_q_pages - 1)) {
++		dev_err(&pdev->dev, "Number wq pages must be power of 2\n");
++		return -EINVAL;
++	}
++
++	wq->num_q_pages = num_q_pages;
++
++	err = alloc_wqes_shadow(wq);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to allocate wqe shadow\n");
++		return err;
++	}
++
++	for (i = 0; i < num_q_pages; i++) {
++		void **vaddr = &wq->shadow_block_vaddr[i];
++		u64 *paddr = &wq->block_vaddr[i];
++		dma_addr_t dma_addr;
++
++		*vaddr = dma_zalloc_coherent(&pdev->dev, wq->wq_page_size,
++					     &dma_addr, GFP_KERNEL);
++		if (!*vaddr) {
++			dev_err(&pdev->dev, "Failed to allocate wq page\n");
++			goto err_alloc_wq_pages;
++		}
++
++		/* HW uses Big Endian Format */
++		*paddr = cpu_to_be64(dma_addr);
++	}
++
++	return 0;
++
++err_alloc_wq_pages:
++	free_wq_pages(wq, hwif, i);
++	return -ENOMEM;
++}
++
++/**
++ * hinic_wq_allocate - Allocate the WQ resources from the WQS
++ * @wqs: WQ set from which to allocate the WQ resources
++ * @wq: WQ to allocate resources for it from the WQ set
++ * @wqebb_size: Work Queue Block Byte Size
++ * @wq_page_size: the page size in the Work Queue
++ * @q_depth: number of wqebbs in WQ
++ * @max_wqe_size: maximum WQE size that will be used in the WQ
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_wq_allocate(struct hinic_wqs *wqs, struct hinic_wq *wq,
++		      u16 wqebb_size, u16 wq_page_size, u16 q_depth,
++		      u16 max_wqe_size)
++{
++	struct hinic_hwif *hwif = wqs->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	u16 num_wqebbs_per_page;
++	int err;
++
++	if (wqebb_size == 0) {
++		dev_err(&pdev->dev, "wqebb_size must be > 0\n");
++		return -EINVAL;
++	}
++
++	if (wq_page_size == 0) {
++		dev_err(&pdev->dev, "wq_page_size must be > 0\n");
++		return -EINVAL;
++	}
++
++	if (q_depth & (q_depth - 1)) {
++		dev_err(&pdev->dev, "WQ q_depth must be power of 2\n");
++		return -EINVAL;
++	}
++
++	num_wqebbs_per_page = ALIGN(wq_page_size, wqebb_size) / wqebb_size;
++
++	if (num_wqebbs_per_page & (num_wqebbs_per_page - 1)) {
++		dev_err(&pdev->dev, "num wqebbs per page must be power of 2\n");
++		return -EINVAL;
++	}
++
++	wq->hwif = hwif;
++
++	err = wqs_next_block(wqs, &wq->page_idx, &wq->block_idx);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to get free wqs next block\n");
++		return err;
++	}
++
++	wq->wqebb_size = wqebb_size;
++	wq->wq_page_size = wq_page_size;
++	wq->q_depth = q_depth;
++	wq->max_wqe_size = max_wqe_size;
++	wq->num_wqebbs_per_page = num_wqebbs_per_page;
++
++	wq->block_vaddr = WQ_BASE_VADDR(wqs, wq);
++	wq->shadow_block_vaddr = WQ_BASE_ADDR(wqs, wq);
++	wq->block_paddr = WQ_BASE_PADDR(wqs, wq);
++
++	err = alloc_wq_pages(wq, wqs->hwif, WQ_MAX_PAGES);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to allocate wq pages\n");
++		goto err_alloc_wq_pages;
++	}
++
++	atomic_set(&wq->cons_idx, 0);
++	atomic_set(&wq->prod_idx, 0);
++	atomic_set(&wq->delta, q_depth);
++	wq->mask = q_depth - 1;
++
++	return 0;
++
++err_alloc_wq_pages:
++	wqs_return_block(wqs, wq->page_idx, wq->block_idx);
++	return err;
++}
++
++/**
++ * hinic_wq_free - Free the WQ resources to the WQS
++ * @wqs: WQ set to free the WQ resources to it
++ * @wq: WQ to free its resources to the WQ set resources
++ **/
++void hinic_wq_free(struct hinic_wqs *wqs, struct hinic_wq *wq)
++{
++	free_wq_pages(wq, wqs->hwif, wq->num_q_pages);
++
++	wqs_return_block(wqs, wq->page_idx, wq->block_idx);
++}
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
+new file mode 100644
+index 0000000..7c114da
+--- /dev/null
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
+@@ -0,0 +1,86 @@
++/*
++ * Huawei HiNIC PCI Express Linux driver
++ * Copyright(c) 2017 Huawei Technologies Co., Ltd
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * for more details.
++ *
++ */
++
++#ifndef HINIC_HW_WQ_H
++#define HINIC_HW_WQ_H
++
++#include <linux/types.h>
++#include <linux/semaphore.h>
++#include <linux/atomic.h>
++
++#include "hinic_hw_if.h"
++
++struct hinic_free_block {
++	int     page_idx;
++	int     block_idx;
 +};
 +
- struct hinic_pf_to_mgmt {
- 	struct hinic_hwif               *hwif;
- 
-+	struct semaphore                sync_msg_lock;
-+	u16                             sync_msg_id;
-+	u8                              *sync_msg_buf;
++struct hinic_wq {
++	struct hinic_hwif       *hwif;
 +
-+	struct hinic_recv_msg           recv_resp_msg_from_mgmt;
-+	struct hinic_recv_msg           recv_msg_from_mgmt;
++	int             page_idx;
++	int             block_idx;
 +
- 	struct hinic_api_cmd_chain      *cmd_chain[HINIC_API_CMD_MAX];
- };
- 
++	u16             wqebb_size;
++	u16             wq_page_size;
++	u16             q_depth;
++	u16             max_wqe_size;
++	u16             num_wqebbs_per_page;
++
++	/* The addresses are 64 bit in the HW */
++	u64             block_paddr;
++	void            **shadow_block_vaddr;
++	u64             *block_vaddr;
++
++	int             num_q_pages;
++	u8              *shadow_wqe;
++	u16             *shadow_idx;
++
++	atomic_t        cons_idx;
++	atomic_t        prod_idx;
++	atomic_t        delta;
++	u16             mask;
++};
++
++struct hinic_wqs {
++	struct hinic_hwif       *hwif;
++	int                     num_pages;
++
++	/* The addresses are 64 bit in the HW */
++	u64                     *page_paddr;
++	u64                     **page_vaddr;
++	void                    ***shadow_page_vaddr;
++
++	struct hinic_free_block *free_blocks;
++	int                     alloc_blk_pos;
++	int                     return_blk_pos;
++	int                     num_free_blks;
++
++	/* Lock for getting a free block from the WQ set */
++	struct semaphore        alloc_blocks_lock;
++};
++
++int hinic_wqs_alloc(struct hinic_wqs *wqs, int num_wqs,
++		    struct hinic_hwif *hwif);
++
++void hinic_wqs_free(struct hinic_wqs *wqs);
++
++int hinic_wq_allocate(struct hinic_wqs *wqs, struct hinic_wq *wq,
++		      u16 wqebb_size, u16 wq_page_size, u16 q_depth,
++		      u16 max_wqe_size);
++
++void hinic_wq_free(struct hinic_wqs *wqs, struct hinic_wq *wq);
++
++#endif
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h
+new file mode 100644
+index 0000000..d727c4d
+--- /dev/null
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h
+@@ -0,0 +1,253 @@
++/*
++ * Huawei HiNIC PCI Express Linux driver
++ * Copyright(c) 2017 Huawei Technologies Co., Ltd
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * for more details.
++ *
++ */
++
++#ifndef HINIC_HW_WQE_H
++#define HINIC_HW_WQE_H
++
++#include "hinic_common.h"
++
++#define HINIC_SQ_CTRL_BUFDESC_SECT_LEN_SHIFT    0
++#define HINIC_SQ_CTRL_TASKSECT_LEN_SHIFT        16
++#define HINIC_SQ_CTRL_DATA_FORMAT_SHIFT         22
++#define HINIC_SQ_CTRL_LEN_SHIFT                 29
++
++#define HINIC_SQ_CTRL_BUFDESC_SECT_LEN_MASK     0xFF
++#define HINIC_SQ_CTRL_TASKSECT_LEN_MASK         0x1F
++#define HINIC_SQ_CTRL_DATA_FORMAT_MASK          0x1
++#define HINIC_SQ_CTRL_LEN_MASK                  0x3
++
++#define HINIC_SQ_CTRL_QUEUE_INFO_MSS_SHIFT      13
++
++#define HINIC_SQ_CTRL_QUEUE_INFO_MSS_MASK       0x3FFF
++
++#define HINIC_SQ_CTRL_SET(val, member)          \
++		(((u32)(val) & HINIC_SQ_CTRL_##member##_MASK) \
++		 << HINIC_SQ_CTRL_##member##_SHIFT)
++
++#define HINIC_SQ_CTRL_GET(val, member)          \
++		(((val) >> HINIC_SQ_CTRL_##member##_SHIFT) \
++		 & HINIC_SQ_CTRL_##member##_MASK)
++
++#define HINIC_SQ_TASK_INFO0_L2HDR_LEN_SHIFT     0
++#define HINIC_SQ_TASK_INFO0_L4_OFFLOAD_SHIFT    8
++#define HINIC_SQ_TASK_INFO0_INNER_L3TYPE_SHIFT  10
++#define HINIC_SQ_TASK_INFO0_VLAN_OFFLOAD_SHIFT  12
++#define HINIC_SQ_TASK_INFO0_PARSE_FLAG_SHIFT    13
++/* 1 bit reserved */
++#define HINIC_SQ_TASK_INFO0_TSO_FLAG_SHIFT      15
++#define HINIC_SQ_TASK_INFO0_VLAN_TAG_SHIFT      16
++
++#define HINIC_SQ_TASK_INFO0_L2HDR_LEN_MASK      0xFF
++#define HINIC_SQ_TASK_INFO0_L4_OFFLOAD_MASK     0x3
++#define HINIC_SQ_TASK_INFO0_INNER_L3TYPE_MASK   0x3
++#define HINIC_SQ_TASK_INFO0_VLAN_OFFLOAD_MASK   0x1
++#define HINIC_SQ_TASK_INFO0_PARSE_FLAG_MASK     0x1
++/* 1 bit reserved */
++#define HINIC_SQ_TASK_INFO0_TSO_FLAG_MASK       0x1
++#define HINIC_SQ_TASK_INFO0_VLAN_TAG_MASK       0xFFFF
++
++#define HINIC_SQ_TASK_INFO0_SET(val, member)    \
++		(((u32)(val) & HINIC_SQ_TASK_INFO0_##member##_MASK) <<  \
++		 HINIC_SQ_TASK_INFO0_##member##_SHIFT)
++
++/* 8 bits reserved */
++#define HINIC_SQ_TASK_INFO1_MEDIA_TYPE_SHIFT    8
++#define HINIC_SQ_TASK_INFO1_INNER_L4_LEN_SHIFT  16
++#define HINIC_SQ_TASK_INFO1_INNER_L3_LEN_SHIFT  24
++
++/* 8 bits reserved */
++#define HINIC_SQ_TASK_INFO1_MEDIA_TYPE_MASK     0xFF
++#define HINIC_SQ_TASK_INFO1_INNER_L4_LEN_MASK   0xFF
++#define HINIC_SQ_TASK_INFO1_INNER_L3_LEN_MASK   0xFF
++
++#define HINIC_SQ_TASK_INFO1_SET(val, member)    \
++		(((u32)(val) & HINIC_SQ_TASK_INFO1_##member##_MASK) <<  \
++		 HINIC_SQ_TASK_INFO1_##member##_SHIFT)
++
++#define HINIC_SQ_TASK_INFO2_TUNNEL_L4_LEN_SHIFT 0
++#define HINIC_SQ_TASK_INFO2_OUTER_L3_LEN_SHIFT  12
++#define HINIC_SQ_TASK_INFO2_TUNNEL_L4TYPE_SHIFT 19
++/* 1 bit reserved */
++#define HINIC_SQ_TASK_INFO2_OUTER_L3TYPE_SHIFT  22
++/* 8 bits reserved */
++
++#define HINIC_SQ_TASK_INFO2_TUNNEL_L4_LEN_MASK  0xFFF
++#define HINIC_SQ_TASK_INFO2_OUTER_L3_LEN_MASK   0x7F
++#define HINIC_SQ_TASK_INFO2_TUNNEL_L4TYPE_MASK  0x3
++/* 1 bit reserved */
++#define HINIC_SQ_TASK_INFO2_OUTER_L3TYPE_MASK   0x3
++/* 8 bits reserved */
++
++#define HINIC_SQ_TASK_INFO2_SET(val, member)    \
++		(((u32)(val) & HINIC_SQ_TASK_INFO2_##member##_MASK) <<  \
++		 HINIC_SQ_TASK_INFO2_##member##_SHIFT)
++
++/* 31 bits reserved */
++#define HINIC_SQ_TASK_INFO4_L2TYPE_SHIFT        31
++
++/* 31 bits reserved */
++#define HINIC_SQ_TASK_INFO4_L2TYPE_MASK         0x1
++
++#define HINIC_SQ_TASK_INFO4_SET(val, member)    \
++		(((u32)(val) & HINIC_SQ_TASK_INFO4_##member##_MASK) << \
++		 HINIC_SQ_TASK_INFO4_##member##_SHIFT)
++
++#define HINIC_RQ_CQE_STATUS_RXDONE_SHIFT        31
++
++#define HINIC_RQ_CQE_STATUS_RXDONE_MASK         0x1
++
++#define HINIC_RQ_CQE_STATUS_GET(val, member)    \
++		(((val) >> HINIC_RQ_CQE_STATUS_##member##_SHIFT) & \
++		 HINIC_RQ_CQE_STATUS_##member##_MASK)
++
++#define HINIC_RQ_CQE_STATUS_CLEAR(val, member)  \
++		((val) & (~(HINIC_RQ_CQE_STATUS_##member##_MASK << \
++		 HINIC_RQ_CQE_STATUS_##member##_SHIFT)))
++
++#define HINIC_RQ_CQE_SGE_LEN_SHIFT              16
++
++#define HINIC_RQ_CQE_SGE_LEN_MASK               0xFFFF
++
++#define HINIC_RQ_CQE_SGE_GET(val, member)       \
++		(((val) >> HINIC_RQ_CQE_SGE_##member##_SHIFT) & \
++		 HINIC_RQ_CQE_SGE_##member##_MASK)
++
++#define HINIC_RQ_CTRL_BUFDESC_SECT_LEN_SHIFT    0
++#define HINIC_RQ_CTRL_COMPLETE_FORMAT_SHIFT     15
++#define HINIC_RQ_CTRL_COMPLETE_LEN_SHIFT        27
++#define HINIC_RQ_CTRL_LEN_SHIFT                 29
++
++#define HINIC_RQ_CTRL_BUFDESC_SECT_LEN_MASK     0xFF
++#define HINIC_RQ_CTRL_COMPLETE_FORMAT_MASK      0x1
++#define HINIC_RQ_CTRL_COMPLETE_LEN_MASK         0x3
++#define HINIC_RQ_CTRL_LEN_MASK                  0x3
++
++#define HINIC_RQ_CTRL_SET(val, member)          \
++		(((u32)(val) & HINIC_RQ_CTRL_##member##_MASK) << \
++		 HINIC_RQ_CTRL_##member##_SHIFT)
++
++#define HINIC_SQ_WQE_SIZE(nr_sges)              \
++		(sizeof(struct hinic_sq_ctrl) + \
++		 sizeof(struct hinic_sq_task) + \
++		 (nr_sges) * sizeof(struct hinic_sq_bufdesc))
++
++#define HINIC_MAX_SQ_BUFDESCS           17
++
++#define HINIC_SQ_WQE_MAX_SIZE           320
++#define HINIC_RQ_WQE_SIZE               32
++
++enum hinic_l4offload_type {
++	HINIC_L4_OFF_DISABLE            = 0,
++	HINIC_TCP_OFFLOAD_ENABLE        = 1,
++	HINIC_SCTP_OFFLOAD_ENABLE       = 2,
++	HINIC_UDP_OFFLOAD_ENABLE        = 3,
++};
++
++enum hinic_vlan_offload {
++	HINIC_VLAN_OFF_DISABLE = 0,
++	HINIC_VLAN_OFF_ENABLE  = 1,
++};
++
++enum hinic_pkt_parsed {
++	HINIC_PKT_NOT_PARSED = 0,
++	HINIC_PKT_PARSED     = 1,
++};
++
++enum hinic_outer_l3type {
++	HINIC_OUTER_L3TYPE_UNKNOWN              = 0,
++	HINIC_OUTER_L3TYPE_IPV6                 = 1,
++	HINIC_OUTER_L3TYPE_IPV4_NO_CHKSUM       = 2,
++	HINIC_OUTER_L3TYPE_IPV4_CHKSUM          = 3,
++};
++
++enum hinic_media_type {
++	HINIC_MEDIA_UNKNOWN = 0,
++};
++
++enum hinic_l2type {
++	HINIC_L2TYPE_ETH = 0,
++};
++
++enum hinc_tunnel_l4type {
++	HINIC_TUNNEL_L4TYPE_UNKNOWN = 0,
++};
++
++struct hinic_sq_ctrl {
++	u32     ctrl_info;
++	u32     queue_info;
++};
++
++struct hinic_sq_task {
++	u32     pkt_info0;
++	u32     pkt_info1;
++	u32     pkt_info2;
++	u32     ufo_v6_identify;
++	u32     pkt_info4;
++	u32     zero_pad;
++};
++
++struct hinic_sq_bufdesc {
++	struct hinic_sge sge;
++	u32     rsvd;
++};
++
++struct hinic_sq_wqe {
++	struct hinic_sq_ctrl            ctrl;
++	struct hinic_sq_task            task;
++	struct hinic_sq_bufdesc         buf_descs[HINIC_MAX_SQ_BUFDESCS];
++};
++
++struct hinic_rq_cqe {
++	u32     status;
++	u32     len;
++
++	u32     rsvd2;
++	u32     rsvd3;
++	u32     rsvd4;
++	u32     rsvd5;
++	u32     rsvd6;
++	u32     rsvd7;
++};
++
++struct hinic_rq_ctrl {
++	u32     ctrl_info;
++};
++
++struct hinic_rq_cqe_sect {
++	struct hinic_sge        sge;
++	u32                     rsvd;
++};
++
++struct hinic_rq_bufdesc {
++	u32     hi_addr;
++	u32     lo_addr;
++};
++
++struct hinic_rq_wqe {
++	struct hinic_rq_ctrl            ctrl;
++	u32                             rsvd;
++	struct hinic_rq_cqe_sect        cqe_sect;
++	struct hinic_rq_bufdesc         buf_desc;
++};
++
++struct hinic_hw_wqe {
++	/* HW Format */
++	union {
++		struct hinic_sq_wqe     sq_wqe;
++		struct hinic_rq_wqe     rq_wqe;
++	};
++};
++
++#endif
 -- 
 1.9.1
