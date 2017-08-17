@@ -1,153 +1,167 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH 1/6] bridge: learn dst metadata in FDB
-Date: Thu, 17 Aug 2017 14:51:12 +0300
-Message-ID: <d4265b8d-93bb-630f-8d39-5eb0a3a259b8@cumulusnetworks.com>
-References: <20170816170202.456851-1-equinox@diac24.net>
-	<20170816170202.456851-2-equinox@diac24.net>
-	<1fbaa432-6241-fad0-5407-8b87abb965ae@cumulusnetworks.com>
-	<20170817110324.GK773745@eidolon>
-	<4d4c8d17-1e0b-b78f-983b-e419e153b2bf@cumulusnetworks.com>
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Subject: [PATCH V5 net-next 00/21] Huawei HiNIC Ethernet Driver
+Date: Thu, 17 Aug 2017 19:52:41 +0800
+Message-ID: <cover.1502970631.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
-	amine.kherbouche@6wind.com
-To: David Lamparter <equinox@diac24.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <4d4c8d17-1e0b-b78f-983b-e419e153b2bf@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
+        <aviad.krawczyk@huawei.com>, <zhaochen6@huawei.com>,
+        <tony.qu@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 17/08/17 14:39, Nikolay Aleksandrov wrote:
-> On 17/08/17 14:03, David Lamparter wrote:
->> Hi Nikolay,
->>
->>
->> On Wed, Aug 16, 2017 at 11:38:06PM +0300, Nikolay Aleksandrov wrote:
->>> On 16/08/17 20:01, David Lamparter wrote:
->>>> This implements holding dst metadata information in the bridge layer,
->>>> but only for unicast entries in the MAC table.  Multicast is still left
->>>> to design and implement.
->>>
->>> Sorry but I do not agree with this change, adding a special case for
->>> VPLS in the bridge code
->>
->> I don't think this is specific to VPLS at all, though you're right that
->> VPLS is the only user currently.
->>
->>> and hitting the fast path for everyone in a few different places for a
->>> feature that the majority will not use does not sound acceptable to
->>> me. We've been trying hard to optimize it, trying to avoid additional
->>> cache lines, removing tests and keeping special cases to a minimum. 
->>
->> skb->dst is on the same cacheline as skb->len.
->> fdb->md_dst is on the same cacheline as fdb->dst.
->> Both will be 0 in a lot of cases, so this should be two null checks on
->> data that is hot in the cache.  Are you sure this is an actual problem?
->>
-> 
-> Sure - no, I haven't benchmarked it, but I don't see skb->len being on
-> the same cache line as _skb_refdst assuming 64 byte cache lines.
+The patch-set contains the support of the HiNIC Ethernet driver for
+hinic family of PCIE Network Interface Cards.
 
-I should've been clearer - that obviously depends on the kernel config, but
-in order for them to be in the same line you need to disable either one of 
-conntrack, bridge_netfilter or xfrm, these are almost always enabled (at
-least in all major distributions).
+The Huawei's PCIE HiNIC card is a new Ethernet card and hence there was
+a need of a new driver.
 
-> But again any special cases, in my opinion, should be handled on their own,
-> it is both about the fast path and the code complexity that they bring in.
-> 
->>> I understand that you want to use the fdb tables and avoid
->>> duplication, but this is not worth it. There're other similar use
->>> cases and they have their own private fdb tables, that way the user
->>> can opt out and is much cleaner and separated.
->>
->> Sure, this can be done.  I think it's a noticeable performance penalty
->> to have the entire fdb copied (multiple times for H-VPLS even), but I
->> understand that it's preferable to have the normal cases faster in
->> exchange.  As the previous paragraph notes, I still wonder if that hit
->> to the normal case exists though.
->>
->> I will leave this to Amine, he's paid to work on VPLS while I'm doing
->> this for fun ;)
->>
->> There is however another concern I have here.  As I noted in my
->> introductory mail, I'm working on the bridge MDB making similar changes.
->> And there's actually strong use cases for this in both VPLS and the
->> 802.11 code (though I'm not sure I can code the latter one up, it's
->> related to rate control and this is seriously complicated - the goal is
->> to select a multicast rate based on the now-known receiving STAs).
->>
->> I really hope you're not suggesting the entire MDB with IPv4 & IPv6
->> snooping be duplicated into both VPLS and mac80211?
->>
-> 
-> Code can always be shared if there are more users, no need to stuff everything in
-> the bridge, but I'm not that familiar with this case, once patches are out I can
-> comment further.
-> 
->>> As you've noted this is only an RFC so I will not point out every issue, but there seems
->>> to be a major problem with br_fdb_update(), note that it runs without any locks except RCU.
->>
->> Right, Thanks! ... I only thought about concurrent access, forgetting
->> about concurrent modification...  I'll replace it with an xchg I think.
->> (No need for a lock that way)
-> 
-> I think you can still lose references to a dst that way, what if someone changes the
-> dst you read before the xchg and you xchg it ?
-> 
->>
->> That said, now that I think about it, the skb_dst_set_noref() in the
->> following chunk is probably not safe if the VPLS device has a qdisc on
->> it.  I was relying on the fact that br_dev_xmit is holding RCU there,
->> but if the SKB is queued, md_dst might go away in the meantime...
->> ... probably need to change this to dst_hold() + skb_dst_set()...
->>
->>
->> -David
->>
->>>> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
->>>> index 861ae2a165f4..534cacf02f8d 100644
->>>> --- a/net/bridge/br_device.c
->>>> +++ b/net/bridge/br_device.c
->>>> @@ -81,6 +82,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
->>>>  		else
->>>>  			br_flood(br, skb, BR_PKT_MULTICAST, false, true);
->>>>  	} else if ((dst = br_fdb_find_rcu(br, dest, vid)) != NULL) {
->>>> +		struct dst_entry *md_dst = rcu_dereference(dst->md_dst);
->>>> +		if (md_dst)
->>>> +			skb_dst_set_noref(skb, md_dst);
->>>>  		br_forward(dst->dst, skb, false, true);
->>>>  	} else {
->>>>  		br_flood(br, skb, BR_PKT_UNICAST, false, true);
->>
->>
->>>> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
->>>> index a79b648aac88..0751fcb89699 100644
->>>> @@ -567,10 +579,15 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
->>>>  					source->dev->name, addr, vid);
->>>>  		} else {
->>>>  			unsigned long now = jiffies;
->>>> +			struct dst_entry *ref_md = rcu_access_pointer(fdb->md_dst);
->>>>  
->>>>  			/* fastpath: update of existing entry */
->>>> -			if (unlikely(source != fdb->dst)) {
->>>> +			if (unlikely(source != fdb->dst ||
->>>> +			    dst_metadata_cmp(md_dst, ref_md))) {
->>>>  				fdb->dst = source;
->>>> +				dst_release(ref_md);
->>>> +				rcu_assign_pointer(fdb->md_dst,
->>>> +						dst_clone(md_dst));
->>>>  				fdb_modified = true;
->>>>  				/* Take over HW learned entry */
->>>>  				if (unlikely(fdb->added_by_external_learn))
-> 
+The current driver is meant to be used for the Physical Function and there
+would soon be a support for Virtual Function and more features once the
+basic PF driver has been accepted.
+
+Changes V4 -> V5:
+1. Remove select_queue NOP - David Miller comment
+        https://lkml.org/lkml/2017/8/16/625
+
+Changes V3 -> V4:
+1. Reverse christmas tree order - David Miller comment
+        https://lkml.org/lkml/2017/8/3/862
+
+Changes V2 -> V3:
+1. Replace dev_ functions by netif_ functions - Joe Perches comment
+        https://lkml.org/lkml/2017/7/19/424
+2. Fix the driver directory in MAINTAINERS file - Sergei Shtylyov comment
+        https://lkml.org/lkml/2017/7/19/615
+3. Add a newline at the end of Makefile - David Miller comment
+        https://lkml.org/lkml/2017/7/19/1345
+4. Return a pointer as a val instead of in arg - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+5. Change the error labels to err_xyz - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+6. Remove check of Func Type in free function - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+7. Remove !netdev check in remove function - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+8. Use module_pci_driver - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+9. Move the PCI device ID to the .c file - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+10. Remove void * to avoid passing wrong ptr - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+
+Changes V1 -> V2:
+1. remove driver verstion - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/372
+2. replace kzalloc by devm_kzalloc for short clean - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/372
+3. replace pr_ functions by dev_ functions - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/375
+4. seperate last patch by moving ops to a new patch - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/377
+
+Aviad Krawczyk (21):
+  net-next/hinic: Initialize hw interface
+  net-next/hinic: Initialize hw device components
+  net-next/hinic: Initialize api cmd resources
+  net-next/hinic: Initialize api cmd hw
+  net-next/hinic: Add management messages
+  net-next/hinic: Add api cmd commands
+  net-next/hinic: Add aeqs
+  net-next/hinic: Add port management commands
+  net-next/hinic: Add Rx mode and link event handler
+  net-next/hinic: Add logical Txq and Rxq
+  net-next/hinic: Add wq
+  net-next/hinic: Add qp resources
+  net-next/hinic: Set qp context
+  net-next/hinic: Initialize cmdq
+  net-next/hinic: Add ceqs
+  net-next/hinic: Add cmdq commands
+  net-next/hinic: Add cmdq completion handler
+  net-next/hinic: Add Rx handler
+  net-next/hinic: Add Tx operation
+  net-next/hinic: Add ethtool and stats
+  net-next/hinic: Add netpoll
+
+ Documentation/networking/hinic.txt                 |  125 +++
+ MAINTAINERS                                        |    7 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/huawei/Kconfig                |   19 +
+ drivers/net/ethernet/huawei/Makefile               |    5 +
+ drivers/net/ethernet/huawei/hinic/Kconfig          |   13 +
+ drivers/net/ethernet/huawei/hinic/Makefile         |    6 +
+ drivers/net/ethernet/huawei/hinic/hinic_common.c   |   80 ++
+ drivers/net/ethernet/huawei/hinic/hinic_common.h   |   38 +
+ drivers/net/ethernet/huawei/hinic/hinic_dev.h      |   64 ++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   |  977 +++++++++++++++++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |  208 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c  |  946 +++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h  |  187 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |  149 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c   | 1045 ++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h   |  239 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c   |  888 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h   |  265 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.c    |  352 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.h    |  272 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.c    |  533 ++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.h    |   97 ++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c  |  597 +++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h  |  153 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.c    |  892 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h    |  180 ++++
+ .../net/ethernet/huawei/hinic/hinic_hw_qp_ctxt.h   |  214 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c    |  879 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h    |  117 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h   |  368 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_main.c     | 1111 ++++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.c     |  379 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.h     |  198 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.c       |  510 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.h       |   55 +
+ drivers/net/ethernet/huawei/hinic/hinic_tx.c       |  503 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_tx.h       |   62 ++
+ 39 files changed, 12735 insertions(+)
+ create mode 100644 Documentation/networking/hinic.txt
+ create mode 100644 drivers/net/ethernet/huawei/Kconfig
+ create mode 100644 drivers/net/ethernet/huawei/Makefile
+ create mode 100644 drivers/net/ethernet/huawei/hinic/Kconfig
+ create mode 100644 drivers/net/ethernet/huawei/hinic/Makefile
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_dev.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_io.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_io.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp_ctxt.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_main.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_rx.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_rx.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_tx.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_tx.h
+
+-- 
+1.9.1
