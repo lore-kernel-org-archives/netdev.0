@@ -1,56 +1,48 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 3/7] iproute: Fix for missing 'Oifs:' display
-Date: Thu, 17 Aug 2017 19:09:27 +0200
-Message-ID: <20170817170931.24089-4-phil@nwl.cc>
-References: <20170817170931.24089-1-phil@nwl.cc>
+Subject: [iproute PATCH v2 3/5] tc/q_netem: Don't dereference possibly NULL pointer
+Date: Thu, 17 Aug 2017 19:09:29 +0200
+Message-ID: <20170817170931.24545-4-phil@nwl.cc>
+References: <20170817170931.24545-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:47331 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:47405 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753386AbdHQRKj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 13:10:39 -0400
-In-Reply-To: <20170817170931.24089-1-phil@nwl.cc>
+        id S1753386AbdHQRKq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 13:10:46 -0400
+In-Reply-To: <20170817170931.24545-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Covscan complained about dead code but after reading it, I assume the
-author's intention was to prefix the interface list with 'Oifs: '.
-Initializing first to 1 and setting it to 0 after above prefix was
-printed should fix it.
+Assuming 'opt' might be NULL, move the call to RTA_PAYLOAD to after the
+check since it dereferences its parameter.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/iproute.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ tc/q_netem.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index cb695ad4141a7..89caac124f489 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -624,7 +624,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	}
- 	if (tb[RTA_MULTIPATH]) {
- 		struct rtnexthop *nh = RTA_DATA(tb[RTA_MULTIPATH]);
--		int first = 0;
-+		int first = 1;
+diff --git a/tc/q_netem.c b/tc/q_netem.c
+index 0975ae111de97..7e3330512041a 100644
+--- a/tc/q_netem.c
++++ b/tc/q_netem.c
+@@ -538,7 +538,7 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 	int *ecn = NULL;
+ 	struct tc_netem_qopt qopt;
+ 	const struct tc_netem_rate *rate = NULL;
+-	int len = RTA_PAYLOAD(opt) - sizeof(qopt);
++	int len;
+ 	__u64 rate64 = 0;
  
- 		len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
+ 	SPRINT_BUF(b1);
+@@ -546,6 +546,8 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 	if (opt == NULL)
+ 		return 0;
  
-@@ -634,10 +634,12 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			if (nh->rtnh_len > len)
- 				break;
- 			if (r->rtm_flags&RTM_F_CLONED && r->rtm_type == RTN_MULTICAST) {
--				if (first)
-+				if (first) {
- 					fprintf(fp, "Oifs: ");
--				else
-+					first = 0;
-+				} else {
- 					fprintf(fp, " ");
-+				}
- 			} else
- 				fprintf(fp, "%s\tnexthop ", _SL_);
- 			if (nh->rtnh_len > sizeof(*nh)) {
++	len = RTA_PAYLOAD(opt) - sizeof(qopt);
++
+ 	if (len < 0) {
+ 		fprintf(stderr, "options size error\n");
+ 		return -1;
 -- 
 2.13.1
