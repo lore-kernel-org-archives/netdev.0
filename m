@@ -1,59 +1,74 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 1/1] net/mlx4_core: Enable 4K UAR if SRIOV module parameter is not enabled
-Date: Thu, 17 Aug 2017 18:29:52 +0300
-Message-ID: <20170817152952.21592-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Kamal Heib <kamalh@mellanox.com>,
-        Huy Nguyen <huyn@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [net-next 11/15] net/mlx5e: Properly indent within conditional statements
+Date: Thu, 17 Aug 2017 18:35:10 +0300
+Message-ID: <CALzJLG-g7V0mmFYT2+j=DGWNHiuYk44BbfCW77zsORmEr2xWWA@mail.gmail.com>
+References: <20170817133003.16900-1-saeedm@mellanox.com> <20170817133003.16900-12-saeedm@mellanox.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0059721@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36723 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753018AbdHQPaN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 11:30:13 -0400
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:34169 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751882AbdHQPfb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 11:35:31 -0400
+Received: by mail-lf0-f68.google.com with SMTP id o85so4621605lff.1
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 08:35:31 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0059721@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Huy Nguyen <huyn@mellanox.com>
+On Thu, Aug 17, 2017 at 5:18 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Saeed Mahameed
+>> Sent: 17 August 2017 14:30
+>> To: David S. Miller
+>> Cc: netdev@vger.kernel.org; Leon Romanovsky; Or Gerlitz; Saeed Mahameed
+>> Subject: [net-next 11/15] net/mlx5e: Properly indent within conditional statements
+>>
+>> From: Or Gerlitz <ogerlitz@mellanox.com>
+>>
+>> To fix these checkpatch complaints:
+>>
+>> WARNING: suspect code indent for conditional statements (8, 24)
+>> +       if (eth_proto & (MLX5E_PROT_MASK(MLX5E_10GBASE_SR)
+>> [...]
+>> +                       return PORT_FIBRE;
+>>
+>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+>> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+>> ---
+>>  .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 22 +++++++++++-----------
+>>  1 file changed, 11 insertions(+), 11 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+>> b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+>> index a75ac4d11c5b..ed161312a773 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+>> @@ -988,23 +988,23 @@ static u8 get_connector_port(u32 eth_proto, u8 connector_type)
+>>               return ptys2connector_type[connector_type];
+>>
+>>       if (eth_proto & (MLX5E_PROT_MASK(MLX5E_10GBASE_SR)
+>> -                      | MLX5E_PROT_MASK(MLX5E_40GBASE_SR4)
+>> -                      | MLX5E_PROT_MASK(MLX5E_100GBASE_SR4)
+>> -                      | MLX5E_PROT_MASK(MLX5E_1000BASE_CX_SGMII))) {
+>> -                     return PORT_FIBRE;
+>> +         | MLX5E_PROT_MASK(MLX5E_40GBASE_SR4)
+>> +         | MLX5E_PROT_MASK(MLX5E_100GBASE_SR4)
+>> +         | MLX5E_PROT_MASK(MLX5E_1000BASE_CX_SGMII))) {
+>> +             return PORT_FIBRE;
+>
+> Gah, that is why the rules are stupid.
+> If anything the continuation lines want indenting a few more bytes.
+>
 
-enable_4k_uar module parameter was added in patch cited below to
-address the backward compatibility issue in SRIOV when the VM has
-system's PAGE_SIZE uar implementation and the Hypervisor has 4k uar
-implementation.
+Totally agree,
+But if Or wants to follow the rules, I won't stand in his way :).
 
-The above compatibility issue does not exist in the non SRIOV case.
-In this patch, we always enable 4k uar implementation if SRIOV
-is not enabled on mlx4's supported cards.
-
-Fixes: 76e39ccf9c36 ("net/mlx4_core: Fix backward compatibility on VFs")
-Signed-off-by: Huy Nguyen <huyn@mellanox.com>
-Reviewed-by: Daniel Jurgens <danielj@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 09b9bc17bce9..5fe5cdc51357 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -432,7 +432,7 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 		/* Virtual PCI function needs to determine UAR page size from
- 		 * firmware. Only master PCI function can set the uar page size
- 		 */
--		if (enable_4k_uar)
-+		if (enable_4k_uar || !dev->persist->num_vfs)
- 			dev->uar_page_shift = DEFAULT_UAR_PAGE_SHIFT;
- 		else
- 			dev->uar_page_shift = PAGE_SHIFT;
-@@ -2277,7 +2277,7 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
- 
- 		dev->caps.max_fmr_maps = (1 << (32 - ilog2(dev->caps.num_mpts))) - 1;
- 
--		if (enable_4k_uar) {
-+		if (enable_4k_uar || !dev->persist->num_vfs) {
- 			init_hca.log_uar_sz = ilog2(dev->caps.num_uars) +
- 						    PAGE_SHIFT - DEFAULT_UAR_PAGE_SHIFT;
- 			init_hca.uar_page_sz = DEFAULT_UAR_PAGE_SHIFT - 12;
--- 
-2.13.0
+>         David
+>
