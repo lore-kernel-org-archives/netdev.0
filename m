@@ -1,46 +1,62 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net 0/2] net: ixgbe: Use new flag to disable Relaxed
- Ordering
-Date: Thu, 17 Aug 2017 09:22:46 +0800
-Message-ID: <ea51f2cc-49f7-3689-d503-23c56e6fe90b@huawei.com>
-References: <1502876507-9360-1-git-send-email-dingtianhong@huawei.com>
- <20170816.105647.341781221143669151.davem@davemloft.net>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: remove support for deprecated f/w cmd
+ OCTNET_CMD_RESET_PF
+Date: Wed, 16 Aug 2017 18:30:13 -0700
+Message-ID: <20170817013013.GA3149@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <jeffrey.t.kirsher@intel.com>, <keescook@chromium.org>,
-        <linux-kernel@vger.kernel.org>, <sparclinux@vger.kernel.org>,
-        <intel-wired-lan@lists.osuosl.org>, <alexander.duyck@gmail.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <20170816.105647.341781221143669151.davem@davemloft.net>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0076.outbound.protection.outlook.com ([104.47.33.76]:50771
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751798AbdHQBaK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Aug 2017 21:30:10 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Rick Farrington <ricardo.farrington@cavium.com>
 
+Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c        | 9 ---------
+ drivers/net/ethernet/cavium/liquidio/liquidio_common.h | 1 -
+ 2 files changed, 10 deletions(-)
 
-On 2017/8/17 1:56, David Miller wrote:
-> From: Ding Tianhong <dingtianhong@huawei.com>
-> Date: Wed, 16 Aug 2017 17:41:45 +0800
-> 
->> The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING has been added
->> to indicate that Relaxed Ordering Attributes (RO) should not
->> be used for Transaction Layer Packets (TLP) targeted toward
->> these affected Root Port, it will clear the bit4 in the PCIe
->> Device Control register, so the PCIe device drivers could
->> query PCIe configuration space to determine if it can send
->> TLPs to Root Port with the Relaxed Ordering Attributes set.
->>
->> The ixgbe driver could use this flag to determine if it can
->> send TLPs to Root Port with the Relaxed Ordering Attributes set.
-> 
-> I'll let the Intel guys pick this up.
-> 
-Thanks David, but I am not sure when the Intel guys would take over,
-just Alex has replied, so I will release a new version according Alex's
-suggestion.
-
-> .
-> 
-
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 0eea6a2..db85f8f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -1409,15 +1409,6 @@ static void liquidio_destroy_nic_device(struct octeon_device *oct, int ifidx)
+ 	if (atomic_read(&lio->ifstate) & LIO_IFSTATE_RUNNING)
+ 		liquidio_stop(netdev);
+ 
+-	if (fw_type_is_none()) {
+-		struct octnic_ctrl_pkt nctrl;
+-
+-		memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
+-		nctrl.ncmd.s.cmd = OCTNET_CMD_RESET_PF;
+-		nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
+-		octnet_send_nic_ctrl_pkt(oct, &nctrl);
+-	}
+-
+ 	if (oct->props[lio->ifidx].napi_enabled == 1) {
+ 		list_for_each_entry_safe(napi, n, &netdev->napi_list, dev_list)
+ 			napi_disable(napi);
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index 18d2955..906e30a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -189,7 +189,6 @@ static inline void add_sg_size(struct octeon_sg_entry *sg_entry,
+ #define   OCTNET_CMD_Q                0
+ 
+ /* NIC Command types */
+-#define   OCTNET_CMD_RESET_PF         0x0
+ #define   OCTNET_CMD_CHANGE_MTU       0x1
+ #define   OCTNET_CMD_CHANGE_MACADDR   0x2
+ #define   OCTNET_CMD_CHANGE_DEVFLAGS  0x3
