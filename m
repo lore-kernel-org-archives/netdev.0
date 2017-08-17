@@ -1,40 +1,52 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [net-next PATCH 07/10] bpf: add access to sock fields and pkt
- data from sk_skb programs
-Date: Wed, 16 Aug 2017 22:42:12 -0700
-Message-ID: <f6bdacf6-7a8c-226f-5a22-f14bebac356b@fb.com>
-References: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810>
- <20170816053309.15445.97681.stgit@john-Precision-Tower-5810>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] net: sched: fix NULL pointer dereference when action
+ calls some targets
+Date: Wed, 16 Aug 2017 22:57:54 -0700
+Message-ID: <CAM_iQpVDQ3iZ-bRPNNPKtXPTRQXdTJFtzPcMn2SupZWy6O_cqw@mail.gmail.com>
+References: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
+ <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
+ <CADvbK_fuuBrh+eOuhQU+SYs9uazH2TRP+KUmhxU=hNZ=EkOT=Q@mail.gmail.com>
+ <CAM_iQpXbtHDxVjZ=DoTiLXHLQy6q=JVBa66EqSOy95ZbFg-wkQ@mail.gmail.com> <CADvbK_cCQY0McHiZFKSTjdGdAjhB6RBej5n=SH2=hsLYC=Xa7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <tgraf@suug.ch>, <netdev@vger.kernel.org>, <tom@herbertland.com>
-To: John Fastabend <john.fastabend@gmail.com>, <davem@davemloft.net>,
-        <daniel@iogearbox.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: network dev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43886 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750903AbdHQFmi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 01:42:38 -0400
-In-Reply-To: <20170816053309.15445.97681.stgit@john-Precision-Tower-5810>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33484 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751369AbdHQF6P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 01:58:15 -0400
+In-Reply-To: <CADvbK_cCQY0McHiZFKSTjdGdAjhB6RBej5n=SH2=hsLYC=Xa7w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/15/17 10:33 PM, John Fastabend wrote:
-> +static int sk_skb_prologue(struct bpf_insn *insn_buf, bool direct_write,
-> +			   const struct bpf_prog *prog)
-> +{
-> +	struct bpf_insn *insn = insn_buf;
-> +
-> +	if (!direct_write)
-> +		return 0;
-> +
-> +	/* if (!skb->cloned)
-> +	 *       goto start;
-> +	 *
-> +	 * (Fast-path, otherwise approximation that we might be
-> +	 *  a clone, do the rest in helper.)
-> +	 */
+On Wed, Aug 16, 2017 at 1:39 AM, Xin Long <lucien.xin@gmail.com> wrote:
+> On Wed, Aug 9, 2017 at 7:33 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Mon, Aug 7, 2017 at 7:33 PM, Xin Long <lucien.xin@gmail.com> wrote:
+>>> On Tue, Aug 8, 2017 at 9:15 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>>> This looks like a completely API burden?
+>>> netfilter xt targets are not really compatible with netsched action.
+>>> I've got to say, the patch is just a way to make checkentry return
+>>> false and avoid panic. like [1] said
+>>
+>> I don't doubt you fix a crash, I am thinking if we can
+>> "fix" the API instead of fixing the caller.
+> Hi, Cong,
+>
+> For now, I don't think it's possible to change APIs or  some of their targets
+> for the panic caused by action xt calling.
+>
+> The common way should be fixed in net_sched side.
+>
+> Given that the issue is very easy to triggered,
+> let's wait for netfilter's replies for another few days,
+> otherwise I will repost the fix, agree ?
 
-iirc we're doing something similar in other prologue generator?
-can be consolidated?
+Yeah, no objections from me.
+
+By the way, do you know how other callers of this API
+use 'entryinfo'? Do they pass the address of the struct
+on stack too?
