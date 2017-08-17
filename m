@@ -1,7 +1,7 @@
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V7 net-next 02/22] net-next/hinic: Initialize hw device components
-Date: Fri, 18 Aug 2017 03:04:36 +0800
-Message-ID: <fd4632d9a2ee5495e6f0a615d84dd63f8b644503.1502996306.git.aviad.krawczyk@huawei.com>
+Subject: [PATCH V7 net-next 05/22] net-next/hinic: Add management messages
+Date: Fri, 18 Aug 2017 03:04:39 +0800
+Message-ID: <a714ecc1a2108a9fe7691eb139e312da511a316b.1502996306.git.aviad.krawczyk@huawei.com>
 References: <cover.1502996306.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,747 +15,666 @@ In-Reply-To: <cover.1502996306.git.aviad.krawczyk@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Initialize hw device by calling the initialization functions of aeqs and
-management channel.
+Add the management messages for sending to api cmd and the asynchronous
+event handler for the completion of the messages.
 
 Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
 ---
- drivers/net/ethernet/huawei/hinic/Makefile        |   3 +-
- drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c  | 172 ++++++++++++++++++++--
- drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h  |  14 +-
- drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c  | 149 +++++++++++++++++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h  | 107 ++++++++++++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_if.h   |   8 +
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c |  92 ++++++++++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h |  45 ++++++
- 8 files changed, 576 insertions(+), 14 deletions(-)
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   |  35 ++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |   3 +
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.h    |   5 +
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c  | 439 ++++++++++++++++++++-
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h  |  59 +++
+ 5 files changed, 538 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/huawei/hinic/Makefile b/drivers/net/ethernet/huawei/hinic/Makefile
-index 353cee0..717ad71 100644
---- a/drivers/net/ethernet/huawei/hinic/Makefile
-+++ b/drivers/net/ethernet/huawei/hinic/Makefile
-@@ -1,3 +1,4 @@
- obj-$(CONFIG_HINIC) += hinic.o
- 
--hinic-y := hinic_main.o hinic_hw_dev.o hinic_hw_if.o
-+hinic-y := hinic_main.o hinic_hw_dev.o hinic_hw_mgmt.o hinic_hw_eqs.o \
-+	   hinic_hw_if.o
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-index f681846..d430e60 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-@@ -23,11 +23,132 @@
- #include <linux/err.h>
- 
- #include "hinic_hw_if.h"
-+#include "hinic_hw_eqs.h"
-+#include "hinic_hw_mgmt.h"
- #include "hinic_hw_dev.h"
- 
- #define MAX_IRQS(max_qps, num_aeqs, num_ceqs)   \
- 		 (2 * (max_qps) + (num_aeqs) + (num_ceqs))
- 
-+enum intr_type {
-+	INTR_MSIX_TYPE,
-+};
-+
-+/* HW struct */
-+struct hinic_dev_cap {
-+	u8      status;
-+	u8      version;
-+	u8      rsvd0[6];
-+
-+	u8      rsvd1[5];
-+	u8      intr_type;
-+	u8      rsvd2[66];
-+	u16     max_sqs;
-+	u16     max_rqs;
-+	u8      rsvd3[208];
-+};
-+
-+/**
-+ * get_capability - convert device capabilities to NIC capabilities
-+ * @hwdev: the HW device to set and convert device capabilities for
-+ * @dev_cap: device capabilities from FW
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int get_capability(struct hinic_hwdev *hwdev,
-+			  struct hinic_dev_cap *dev_cap)
-+{
-+	struct hinic_cap *nic_cap = &hwdev->nic_cap;
-+	int num_aeqs, num_ceqs, num_irqs;
-+
-+	if (!HINIC_IS_PF(hwdev->hwif) && !HINIC_IS_PPF(hwdev->hwif))
-+		return -EINVAL;
-+
-+	if (dev_cap->intr_type != INTR_MSIX_TYPE)
-+		return -EFAULT;
-+
-+	num_aeqs = HINIC_HWIF_NUM_AEQS(hwdev->hwif);
-+	num_ceqs = HINIC_HWIF_NUM_CEQS(hwdev->hwif);
-+	num_irqs = HINIC_HWIF_NUM_IRQS(hwdev->hwif);
-+
-+	/* Each QP has its own (SQ + RQ) interrupts */
-+	nic_cap->num_qps = (num_irqs - (num_aeqs + num_ceqs)) / 2;
-+
-+	/* num_qps must be power of 2 */
-+	nic_cap->num_qps = BIT(fls(nic_cap->num_qps) - 1);
-+
-+	nic_cap->max_qps = dev_cap->max_sqs + 1;
-+	if (nic_cap->max_qps != (dev_cap->max_rqs + 1))
-+		return -EFAULT;
-+
-+	if (nic_cap->num_qps > nic_cap->max_qps)
-+		nic_cap->num_qps = nic_cap->max_qps;
-+
-+	return 0;
-+}
-+
-+/**
-+ * get_cap_from_fw - get device capabilities from FW
-+ * @pfhwdev: the PF HW device to get capabilities for
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int get_cap_from_fw(struct hinic_pfhwdev *pfhwdev)
-+{
-+	struct hinic_hwdev *hwdev = &pfhwdev->hwdev;
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_dev_cap dev_cap;
-+	u16 in_len, out_len;
-+	int err;
-+
-+	in_len = 0;
-+	out_len = sizeof(dev_cap);
-+
-+	err = hinic_msg_to_mgmt(&pfhwdev->pf_to_mgmt, HINIC_MOD_CFGM,
-+				HINIC_CFG_NIC_CAP, &dev_cap, in_len, &dev_cap,
-+				&out_len, HINIC_MGMT_MSG_SYNC);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to get capability from FW\n");
-+		return err;
-+	}
-+
-+	return get_capability(hwdev, &dev_cap);
-+}
-+
-+/**
-+ * get_dev_cap - get device capabilities
-+ * @hwdev: the NIC HW device to get capabilities for
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int get_dev_cap(struct hinic_hwdev *hwdev)
-+{
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_pfhwdev *pfhwdev;
-+	int err;
-+
-+	switch (HINIC_FUNC_TYPE(hwif)) {
-+	case HINIC_PPF:
-+	case HINIC_PF:
-+		pfhwdev = container_of(hwdev, struct hinic_pfhwdev, hwdev);
-+
-+		err = get_cap_from_fw(pfhwdev);
-+		if (err) {
-+			dev_err(&pdev->dev, "Failed to get capability from FW\n");
-+			return err;
-+		}
-+		break;
-+
-+	default:
-+		dev_err(&pdev->dev, "Unsupported PCI Function type\n");
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
- /**
-  * init_msix - enable the msix and save the entries
-  * @hwdev: the NIC HW device
-@@ -86,7 +207,17 @@ static void disable_msix(struct hinic_hwdev *hwdev)
-  **/
- static int init_pfhwdev(struct hinic_pfhwdev *pfhwdev)
- {
--	/* Initialize PF HW device extended components */
-+	struct hinic_hwdev *hwdev = &pfhwdev->hwdev;
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	int err;
-+
-+	err = hinic_pf_to_mgmt_init(&pfhwdev->pf_to_mgmt, hwif);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to initialize PF to MGMT channel\n");
-+		return err;
-+	}
-+
- 	return 0;
- }
- 
-@@ -96,6 +227,7 @@ static int init_pfhwdev(struct hinic_pfhwdev *pfhwdev)
-  **/
- static void free_pfhwdev(struct hinic_pfhwdev *pfhwdev)
- {
-+	hinic_pf_to_mgmt_free(&pfhwdev->pf_to_mgmt);
- }
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+index 234ede9..b44ddf2 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+@@ -54,6 +54,41 @@ enum api_cmd_xor_chk_level {
+ };
  
  /**
-@@ -111,7 +243,7 @@ struct hinic_hwdev *hinic_init_hwdev(struct pci_dev *pdev)
- 	struct hinic_pfhwdev *pfhwdev;
- 	struct hinic_hwdev *hwdev;
- 	struct hinic_hwif *hwif;
--	int err;
-+	int err, num_aeqs;
- 
- 	hwif = devm_kzalloc(&pdev->dev, sizeof(*hwif), GFP_KERNEL);
- 	if (!hwif)
-@@ -144,15 +276,37 @@ struct hinic_hwdev *hinic_init_hwdev(struct pci_dev *pdev)
- 		goto err_init_msix;
- 	}
- 
-+	num_aeqs = HINIC_HWIF_NUM_AEQS(hwif);
-+
-+	err = hinic_aeqs_init(&hwdev->aeqs, hwif, num_aeqs,
-+			      HINIC_DEFAULT_AEQ_LEN, HINIC_EQ_PAGE_SIZE,
-+			      hwdev->msix_entries);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to init async event queues\n");
-+		goto err_aeqs_init;
-+	}
-+
- 	err = init_pfhwdev(pfhwdev);
- 	if (err) {
- 		dev_err(&pdev->dev, "Failed to init PF HW device\n");
- 		goto err_init_pfhwdev;
- 	}
- 
-+	err = get_dev_cap(hwdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to get device capabilities\n");
-+		goto err_dev_cap;
-+	}
-+
- 	return hwdev;
- 
-+err_dev_cap:
-+	free_pfhwdev(pfhwdev);
-+
- err_init_pfhwdev:
-+	hinic_aeqs_free(&hwdev->aeqs);
-+
-+err_aeqs_init:
- 	disable_msix(hwdev);
- 
- err_init_msix:
-@@ -174,6 +328,8 @@ void hinic_free_hwdev(struct hinic_hwdev *hwdev)
- 
- 	free_pfhwdev(pfhwdev);
- 
-+	hinic_aeqs_free(&hwdev->aeqs);
-+
- 	disable_msix(hwdev);
- 
- 	hinic_free_hwif(hwdev->hwif);
-@@ -187,15 +343,7 @@ void hinic_free_hwdev(struct hinic_hwdev *hwdev)
-  **/
- int hinic_hwdev_num_qps(struct hinic_hwdev *hwdev)
- {
--	int num_aeqs, num_ceqs, nr_irqs, num_qps;
-+	struct hinic_cap *nic_cap = &hwdev->nic_cap;
- 
--	num_aeqs = HINIC_HWIF_NUM_AEQS(hwdev->hwif);
--	num_ceqs = HINIC_HWIF_NUM_CEQS(hwdev->hwif);
--	nr_irqs  = HINIC_HWIF_NUM_IRQS(hwdev->hwif);
--
--	/* Each QP has its own (SQ + RQ) interrupt */
--	num_qps = (nr_irqs - (num_aeqs + num_ceqs)) / 2;
--
--	/* num_qps must be power of 2 */
--	return BIT(fls(num_qps) - 1);
-+	return nic_cap->num_qps;
- }
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-index b42e0eb..feb60138 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-@@ -17,20 +17,32 @@
- #define HINIC_HW_DEV_H
- 
- #include <linux/pci.h>
-+#include <linux/types.h>
- 
- #include "hinic_hw_if.h"
-+#include "hinic_hw_eqs.h"
-+#include "hinic_hw_mgmt.h"
- 
- #define HINIC_MAX_QPS   32
- 
-+struct hinic_cap {
-+	u16     max_qps;
-+	u16     num_qps;
-+};
-+
- struct hinic_hwdev {
- 	struct hinic_hwif               *hwif;
- 	struct msix_entry               *msix_entries;
-+
-+	struct hinic_aeqs               aeqs;
-+
-+	struct hinic_cap                nic_cap;
- };
- 
- struct hinic_pfhwdev {
- 	struct hinic_hwdev              hwdev;
- 
--	/* PF Extended components should be here */
-+	struct hinic_pf_to_mgmt         pf_to_mgmt;
- };
- 
- struct hinic_hwdev *hinic_init_hwdev(struct pci_dev *pdev);
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
-new file mode 100644
-index 0000000..a099d20
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
-@@ -0,0 +1,149 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#include <linux/types.h>
-+#include <linux/errno.h>
-+#include <linux/pci.h>
-+#include <linux/device.h>
-+#include <linux/workqueue.h>
-+
-+#include "hinic_hw_if.h"
-+#include "hinic_hw_eqs.h"
-+
-+#define HINIC_EQS_WQ_NAME                       "hinic_eqs"
-+
-+/**
-+ * hinic_aeq_register_hw_cb - register AEQ callback for specific event
-+ * @aeqs: pointer to Async eqs of the chip
-+ * @event: aeq event to register callback for it
-+ * @handle: private data will be used by the callback
-+ * @hw_handler: callback function
-+ **/
-+void hinic_aeq_register_hw_cb(struct hinic_aeqs *aeqs,
-+			      enum hinic_aeq_type event, void *handle,
-+			      void (*hwe_handler)(void *handle, void *data,
-+						  u8 size))
-+{
-+	struct hinic_hw_event_cb *hwe_cb = &aeqs->hwe_cb[event];
-+
-+	hwe_cb->hwe_handler = hwe_handler;
-+	hwe_cb->handle = handle;
-+	hwe_cb->hwe_state = HINIC_EQE_ENABLED;
-+}
-+
-+/**
-+ * hinic_aeq_unregister_hw_cb - unregister the AEQ callback for specific event
-+ * @aeqs: pointer to Async eqs of the chip
-+ * @event: aeq event to unregister callback for it
-+ **/
-+void hinic_aeq_unregister_hw_cb(struct hinic_aeqs *aeqs,
-+				enum hinic_aeq_type event)
-+{
-+	struct hinic_hw_event_cb *hwe_cb = &aeqs->hwe_cb[event];
-+
-+	hwe_cb->hwe_state &= ~HINIC_EQE_ENABLED;
-+
-+	while (hwe_cb->hwe_state & HINIC_EQE_RUNNING)
-+		schedule();
-+
-+	hwe_cb->hwe_handler = NULL;
-+}
-+
-+/**
-+ * init_eq - initialize Event Queue
-+ * @eq: the event queue
-+ * @hwif: the HW interface of a PCI function device
-+ * @type: the type of the event queue, aeq or ceq
-+ * @q_id: Queue id number
-+ * @q_len: the number of EQ elements
-+ * @page_size: the page size of the pages in the event queue
-+ * @entry: msix entry associated with the event queue
-+ *
-+ * Return 0 - Success, Negative - Failure
-+ **/
-+static int init_eq(struct hinic_eq *eq, struct hinic_hwif *hwif,
-+		   enum hinic_eq_type type, int q_id, u32 q_len, u32 page_size,
-+		   struct msix_entry entry)
-+{
-+	/* should be implemented */
-+	return 0;
-+}
-+
-+/**
-+ * remove_eq - remove Event Queue
-+ * @eq: the event queue
-+ **/
-+static void remove_eq(struct hinic_eq *eq)
-+{
-+	/* should be implemented */
-+}
-+
-+/**
-+ * hinic_aeqs_init - initialize all the aeqs
-+ * @aeqs: pointer to Async eqs of the chip
-+ * @hwif: the HW interface of a PCI function device
-+ * @num_aeqs: number of AEQs
-+ * @q_len: number of EQ elements
-+ * @page_size: the page size of the pages in the event queue
-+ * @msix_entries: msix entries associated with the event queues
++ * api_cmd - API CMD command
++ * @chain: chain for the command
++ * @dest: destination node on the card that will receive the command
++ * @cmd: command data
++ * @size: the command size
 + *
 + * Return 0 - Success, negative - Failure
 + **/
-+int hinic_aeqs_init(struct hinic_aeqs *aeqs, struct hinic_hwif *hwif,
-+		    int num_aeqs, u32 q_len, u32 page_size,
-+		    struct msix_entry *msix_entries)
-+{
-+	struct pci_dev *pdev = hwif->pdev;
-+	int err, i, q_id;
-+
-+	aeqs->workq = create_singlethread_workqueue(HINIC_EQS_WQ_NAME);
-+	if (!aeqs->workq)
-+		return -ENOMEM;
-+
-+	aeqs->hwif = hwif;
-+	aeqs->num_aeqs = num_aeqs;
-+
-+	for (q_id = 0; q_id < num_aeqs; q_id++) {
-+		err = init_eq(&aeqs->aeq[q_id], hwif, HINIC_AEQ, q_id, q_len,
-+			      page_size, msix_entries[q_id]);
-+		if (err) {
-+			dev_err(&pdev->dev, "Failed to init aeq %d\n", q_id);
-+			goto err_init_aeq;
-+		}
-+	}
-+
-+	return 0;
-+
-+err_init_aeq:
-+	for (i = 0; i < q_id; i++)
-+		remove_eq(&aeqs->aeq[i]);
-+
-+	destroy_workqueue(aeqs->workq);
-+	return err;
-+}
-+
-+/**
-+ * hinic_aeqs_free - free all the aeqs
-+ * @aeqs: pointer to Async eqs of the chip
-+ **/
-+void hinic_aeqs_free(struct hinic_aeqs *aeqs)
-+{
-+	int q_id;
-+
-+	for (q_id = 0; q_id < aeqs->num_aeqs ; q_id++)
-+		remove_eq(&aeqs->aeq[q_id]);
-+
-+	destroy_workqueue(aeqs->workq);
-+}
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
-new file mode 100644
-index 0000000..1580127
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
-@@ -0,0 +1,107 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#ifndef HINIC_HW_EQS_H
-+#define HINIC_HW_EQS_H
-+
-+#include <linux/types.h>
-+#include <linux/workqueue.h>
-+#include <linux/pci.h>
-+#include <linux/sizes.h>
-+#include <linux/bitops.h>
-+
-+#include "hinic_hw_if.h"
-+
-+#define HINIC_MAX_AEQS                  4
-+
-+#define HINIC_DEFAULT_AEQ_LEN           64
-+
-+#define HINIC_EQ_PAGE_SIZE              SZ_4K
-+
-+enum hinic_eq_type {
-+	HINIC_AEQ,
-+};
-+
-+enum hinic_aeq_type {
-+	HINIC_MSG_FROM_MGMT_CPU = 2,
-+
-+	HINIC_MAX_AEQ_EVENTS,
-+};
-+
-+enum hinic_eqe_state {
-+	HINIC_EQE_ENABLED = BIT(0),
-+	HINIC_EQE_RUNNING = BIT(1),
-+};
-+
-+struct hinic_eq_work {
-+	struct work_struct      work;
-+	void                    *data;
-+};
-+
-+struct hinic_eq {
-+	struct hinic_hwif       *hwif;
-+
-+	enum hinic_eq_type      type;
-+	int                     q_id;
-+	u32                     q_len;
-+	u32                     page_size;
-+
-+	u32                     cons_idx;
-+	int                     wrapped;
-+
-+	size_t                  elem_size;
-+	int                     num_pages;
-+	int                     num_elem_in_pg;
-+
-+	struct msix_entry       msix_entry;
-+
-+	dma_addr_t              *dma_addr;
-+	void                    **virt_addr;
-+
-+	struct hinic_eq_work    aeq_work;
-+};
-+
-+struct hinic_hw_event_cb {
-+	void    (*hwe_handler)(void *handle, void *data, u8 size);
-+	void                    *handle;
-+	unsigned long           hwe_state;
-+};
-+
-+struct hinic_aeqs {
-+	struct hinic_hwif       *hwif;
-+
-+	struct hinic_eq         aeq[HINIC_MAX_AEQS];
-+	int                     num_aeqs;
-+
-+	struct hinic_hw_event_cb hwe_cb[HINIC_MAX_AEQ_EVENTS];
-+
-+	struct workqueue_struct *workq;
-+};
-+
-+void hinic_aeq_register_hw_cb(struct hinic_aeqs *aeqs,
-+			      enum hinic_aeq_type event, void *handle,
-+			      void (*hwe_handler)(void *handle, void *data,
-+						  u8 size));
-+
-+void hinic_aeq_unregister_hw_cb(struct hinic_aeqs *aeqs,
-+				enum hinic_aeq_type event);
-+
-+int hinic_aeqs_init(struct hinic_aeqs *aeqs, struct hinic_hwif *hwif,
-+		    int num_aeqs, u32 q_len, u32 page_size,
-+		    struct msix_entry *msix_entries);
-+
-+void hinic_aeqs_free(struct hinic_aeqs *aeqs);
-+
-+#endif
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-index d1a8fa2..b6d9850 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
-@@ -119,6 +119,14 @@ enum hinic_func_type {
- 	HINIC_PPF       = 2,
- };
- 
-+enum hinic_mod_type {
-+	HINIC_MOD_COMM  = 0,    /* HW communication module */
-+	HINIC_MOD_L2NIC = 1,    /* L2NIC module */
-+	HINIC_MOD_CFGM  = 7,    /* Configuration module */
-+
-+	HINIC_MOD_MAX   = 15
-+};
-+
- struct hinic_func_attr {
- 	u16                     func_idx;
- 	u8                      pf_idx;
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-new file mode 100644
-index 0000000..8ae8ed9
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
-@@ -0,0 +1,92 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/errno.h>
-+
-+#include "hinic_hw_if.h"
-+#include "hinic_hw_eqs.h"
-+#include "hinic_hw_mgmt.h"
-+#include "hinic_hw_dev.h"
-+
-+#define mgmt_to_pfhwdev(pf_mgmt)        \
-+		container_of(pf_mgmt, struct hinic_pfhwdev, pf_to_mgmt)
-+
-+/**
-+ * hinic_msg_to_mgmt - send message to mgmt
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @mod: module in the chip that will get the message
-+ * @cmd: command of the message
-+ * @buf_in: the msg data
-+ * @in_size: the msg data length
-+ * @buf_out: response
-+ * @out_size: returned response length
-+ * @sync: sync msg or async msg
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+		      enum hinic_mod_type mod, u8 cmd,
-+		      void *buf_in, u16 in_size, void *buf_out, u16 *out_size,
-+		      enum hinic_mgmt_msg_type sync)
++static int api_cmd(struct hinic_api_cmd_chain *chain,
++		   enum hinic_node_id dest, u8 *cmd, u16 cmd_size)
 +{
 +	/* should be implemented */
 +	return -EINVAL;
 +}
 +
 +/**
-+ * mgmt_msg_aeqe_handler - handler for a mgmt message event
-+ * @handle: PF to MGMT channel
-+ * @data: the header of the message
-+ * @size: unused
-+ **/
-+static void mgmt_msg_aeqe_handler(void *handle, void *data, u8 size)
-+{
-+	/* should be implemented */
-+}
-+
-+/**
-+ * hinic_pf_to_mgmt_init - initialize PF to MGMT channel
-+ * @pf_to_mgmt: PF to MGMT channel
-+ * @hwif: HW interface the PF to MGMT will use for accessing HW
++ * hinic_api_cmd_write - Write API CMD command
++ * @chain: chain for write command
++ * @dest: destination node on the card that will receive the command
++ * @cmd: command data
++ * @size: the command size
 + *
 + * Return 0 - Success, negative - Failure
 + **/
-+int hinic_pf_to_mgmt_init(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			  struct hinic_hwif *hwif)
++int hinic_api_cmd_write(struct hinic_api_cmd_chain *chain,
++			enum hinic_node_id dest, u8 *cmd, u16 size)
 +{
-+	struct hinic_pfhwdev *pfhwdev = mgmt_to_pfhwdev(pf_to_mgmt);
-+	struct hinic_hwdev *hwdev = &pfhwdev->hwdev;
++	/* Verify the chain type */
++	if (chain->chain_type == HINIC_API_CMD_WRITE_TO_MGMT_CPU)
++		return api_cmd(chain, dest, cmd, size);
 +
-+	pf_to_mgmt->hwif = hwif;
++	return -EINVAL;
++}
 +
-+	hinic_aeq_register_hw_cb(&hwdev->aeqs, HINIC_MSG_FROM_MGMT_CPU,
-+				 pf_to_mgmt,
-+				 mgmt_msg_aeqe_handler);
++/**
+  * api_cmd_hw_restart - restart the chain in the HW
+  * @chain: the API CMD specific chain to restart
+  *
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+index 0c83b80..e8865d6 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+@@ -132,6 +132,9 @@ struct hinic_api_cmd_chain {
+ 	struct hinic_api_cmd_cell       *curr_node;
+ };
+ 
++int hinic_api_cmd_write(struct hinic_api_cmd_chain *chain,
++			enum hinic_node_id dest, u8 *cmd, u16 size);
++
+ int hinic_api_cmd_init(struct hinic_api_cmd_chain **chain,
+ 		       struct hinic_hwif *hwif);
+ 
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
+index b6d9850..98623d6 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
+@@ -93,6 +93,7 @@
+ #define HINIC_HWIF_NUM_IRQS(hwif)       ((hwif)->attr.num_irqs)
+ #define HINIC_HWIF_FUNC_IDX(hwif)       ((hwif)->attr.func_idx)
+ #define HINIC_HWIF_PCI_INTF(hwif)       ((hwif)->attr.pci_intf_idx)
++#define HINIC_HWIF_PF_IDX(hwif)         ((hwif)->attr.pf_idx)
+ 
+ #define HINIC_FUNC_TYPE(hwif)           ((hwif)->attr.func_type)
+ #define HINIC_IS_PF(hwif)               (HINIC_FUNC_TYPE(hwif) == HINIC_PF)
+@@ -127,6 +128,10 @@ enum hinic_mod_type {
+ 	HINIC_MOD_MAX   = 15
+ };
+ 
++enum hinic_node_id {
++	HINIC_NODE_ID_MGMT = 21,
++};
++
+ struct hinic_func_attr {
+ 	u16                     func_idx;
+ 	u8                      pf_idx;
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
+index f914bc7..147c404 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
+@@ -16,6 +16,12 @@
+ #include <linux/kernel.h>
+ #include <linux/types.h>
+ #include <linux/errno.h>
++#include <linux/pci.h>
++#include <linux/device.h>
++#include <linux/semaphore.h>
++#include <linux/completion.h>
++#include <linux/slab.h>
++#include <asm/barrier.h>
+ 
+ #include "hinic_hw_if.h"
+ #include "hinic_hw_eqs.h"
+@@ -23,9 +29,267 @@
+ #include "hinic_hw_mgmt.h"
+ #include "hinic_hw_dev.h"
+ 
++#define SYNC_MSG_ID_MASK                0x1FF
++
++#define SYNC_MSG_ID(pf_to_mgmt)         ((pf_to_mgmt)->sync_msg_id)
++
++#define SYNC_MSG_ID_INC(pf_to_mgmt)     (SYNC_MSG_ID(pf_to_mgmt) = \
++					((SYNC_MSG_ID(pf_to_mgmt) + 1) & \
++					 SYNC_MSG_ID_MASK))
++
++#define MSG_SZ_IS_VALID(in_size)        ((in_size) <= MAX_MSG_LEN)
++
++#define MGMT_MSG_LEN_MIN                20
++#define MGMT_MSG_LEN_STEP               16
++#define MGMT_MSG_RSVD_FOR_DEV           8
++
++#define SEGMENT_LEN                     48
++
++#define MAX_PF_MGMT_BUF_SIZE            2048
++
++/* Data should be SEG LEN size aligned */
++#define MAX_MSG_LEN                     2016
++
++#define MSG_NOT_RESP                    0xFFFF
++
++#define MGMT_MSG_TIMEOUT                1000
++
+ #define mgmt_to_pfhwdev(pf_mgmt)        \
+ 		container_of(pf_mgmt, struct hinic_pfhwdev, pf_to_mgmt)
+ 
++enum msg_segment_type {
++	NOT_LAST_SEGMENT        = 0,
++	LAST_SEGMENT            = 1,
++};
++
++enum mgmt_direction_type {
++	MGMT_DIRECT_SEND        = 0,
++	MGMT_RESP               = 1,
++};
++
++enum msg_ack_type {
++	MSG_ACK         = 0,
++	MSG_NO_ACK      = 1,
++};
++
++/**
++ * prepare_header - prepare the header of the message
++ * @pf_to_mgmt: PF to MGMT channel
++ * @msg_len: the length of the message
++ * @mod: module in the chip that will get the message
++ * @ack_type: ask for response
++ * @direction: the direction of the message
++ * @cmd: command of the message
++ * @msg_id: message id
++ *
++ * Return the prepared header value
++ **/
++static u64 prepare_header(struct hinic_pf_to_mgmt *pf_to_mgmt,
++			  u16 msg_len, enum hinic_mod_type mod,
++			  enum msg_ack_type ack_type,
++			  enum mgmt_direction_type direction,
++			  u16 cmd, u16 msg_id)
++{
++	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
++
++	return HINIC_MSG_HEADER_SET(msg_len, MSG_LEN)           |
++	       HINIC_MSG_HEADER_SET(mod, MODULE)                |
++	       HINIC_MSG_HEADER_SET(SEGMENT_LEN, SEG_LEN)       |
++	       HINIC_MSG_HEADER_SET(ack_type, NO_ACK)           |
++	       HINIC_MSG_HEADER_SET(0, ASYNC_MGMT_TO_PF)        |
++	       HINIC_MSG_HEADER_SET(0, SEQID)                   |
++	       HINIC_MSG_HEADER_SET(LAST_SEGMENT, LAST)         |
++	       HINIC_MSG_HEADER_SET(direction, DIRECTION)       |
++	       HINIC_MSG_HEADER_SET(cmd, CMD)                   |
++	       HINIC_MSG_HEADER_SET(HINIC_HWIF_PCI_INTF(hwif), PCI_INTF) |
++	       HINIC_MSG_HEADER_SET(HINIC_HWIF_PF_IDX(hwif), PF_IDX)     |
++	       HINIC_MSG_HEADER_SET(msg_id, MSG_ID);
++}
++
++/**
++ * prepare_mgmt_cmd - prepare the mgmt command
++ * @mgmt_cmd: pointer to the command to prepare
++ * @header: pointer of the header for the message
++ * @msg: the data of the message
++ * @msg_len: the length of the message
++ **/
++static void prepare_mgmt_cmd(u8 *mgmt_cmd, u64 *header, u8 *msg, u16 msg_len)
++{
++	memset(mgmt_cmd, 0, MGMT_MSG_RSVD_FOR_DEV);
++
++	mgmt_cmd += MGMT_MSG_RSVD_FOR_DEV;
++	memcpy(mgmt_cmd, header, sizeof(*header));
++
++	mgmt_cmd += sizeof(*header);
++	memcpy(mgmt_cmd, msg, msg_len);
++}
++
++/**
++ * mgmt_msg_len - calculate the total message length
++ * @msg_data_len: the length of the message data
++ *
++ * Return the total message length
++ **/
++static u16 mgmt_msg_len(u16 msg_data_len)
++{
++	/* RSVD + HEADER_SIZE + DATA_LEN */
++	u16 msg_len = MGMT_MSG_RSVD_FOR_DEV + sizeof(u64) + msg_data_len;
++
++	if (msg_len > MGMT_MSG_LEN_MIN)
++		msg_len = MGMT_MSG_LEN_MIN +
++			   ALIGN((msg_len - MGMT_MSG_LEN_MIN),
++				 MGMT_MSG_LEN_STEP);
++	else
++		msg_len = MGMT_MSG_LEN_MIN;
++
++	return msg_len;
++}
++
++/**
++ * send_msg_to_mgmt - send message to mgmt by API CMD
++ * @pf_to_mgmt: PF to MGMT channel
++ * @mod: module in the chip that will get the message
++ * @cmd: command of the message
++ * @data: the msg data
++ * @data_len: the msg data length
++ * @ack_type: ask for response
++ * @direction: the direction of the original message
++ * @resp_msg_id: msg id to response for
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int send_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
++			    enum hinic_mod_type mod, u8 cmd,
++			    u8 *data, u16 data_len,
++			    enum msg_ack_type ack_type,
++			    enum mgmt_direction_type direction,
++			    u16 resp_msg_id)
++{
++	struct hinic_api_cmd_chain *chain;
++	u64 header;
++	u16 msg_id;
++
++	msg_id = SYNC_MSG_ID(pf_to_mgmt);
++
++	if (direction == MGMT_RESP) {
++		header = prepare_header(pf_to_mgmt, data_len, mod, ack_type,
++					direction, cmd, resp_msg_id);
++	} else {
++		SYNC_MSG_ID_INC(pf_to_mgmt);
++		header = prepare_header(pf_to_mgmt, data_len, mod, ack_type,
++					direction, cmd, msg_id);
++	}
++
++	prepare_mgmt_cmd(pf_to_mgmt->sync_msg_buf, &header, data, data_len);
++
++	chain = pf_to_mgmt->cmd_chain[HINIC_API_CMD_WRITE_TO_MGMT_CPU];
++	return hinic_api_cmd_write(chain, HINIC_NODE_ID_MGMT,
++				   pf_to_mgmt->sync_msg_buf,
++				   mgmt_msg_len(data_len));
++}
++
++/**
++ * msg_to_mgmt_sync - send sync message to mgmt
++ * @pf_to_mgmt: PF to MGMT channel
++ * @mod: module in the chip that will get the message
++ * @cmd: command of the message
++ * @buf_in: the msg data
++ * @in_size: the msg data length
++ * @buf_out: response
++ * @out_size: response length
++ * @direction: the direction of the original message
++ * @resp_msg_id: msg id to response for
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int msg_to_mgmt_sync(struct hinic_pf_to_mgmt *pf_to_mgmt,
++			    enum hinic_mod_type mod, u8 cmd,
++			    u8 *buf_in, u16 in_size,
++			    u8 *buf_out, u16 *out_size,
++			    enum mgmt_direction_type direction,
++			    u16 resp_msg_id)
++{
++	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	struct hinic_recv_msg *recv_msg;
++	struct completion *recv_done;
++	u16 msg_id;
++	int err;
++
++	/* Lock the sync_msg_buf */
++	down(&pf_to_mgmt->sync_msg_lock);
++
++	recv_msg = &pf_to_mgmt->recv_resp_msg_from_mgmt;
++	recv_done = &recv_msg->recv_done;
++
++	if (resp_msg_id == MSG_NOT_RESP)
++		msg_id = SYNC_MSG_ID(pf_to_mgmt);
++	else
++		msg_id = resp_msg_id;
++
++	init_completion(recv_done);
++
++	err = send_msg_to_mgmt(pf_to_mgmt, mod, cmd, buf_in, in_size,
++			       MSG_ACK, direction, resp_msg_id);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to send sync msg to mgmt\n");
++		goto unlock_sync_msg;
++	}
++
++	if (!wait_for_completion_timeout(recv_done, MGMT_MSG_TIMEOUT)) {
++		dev_err(&pdev->dev, "MGMT timeout, MSG id = %d\n", msg_id);
++		err = -ETIMEDOUT;
++		goto unlock_sync_msg;
++	}
++
++	smp_rmb();      /* verify reading after completion */
++
++	if (recv_msg->msg_id != msg_id) {
++		dev_err(&pdev->dev, "incorrect MSG for id = %d\n", msg_id);
++		err = -EFAULT;
++		goto unlock_sync_msg;
++	}
++
++	if ((buf_out) && (recv_msg->msg_len <= MAX_PF_MGMT_BUF_SIZE)) {
++		memcpy(buf_out, recv_msg->msg, recv_msg->msg_len);
++		*out_size = recv_msg->msg_len;
++	}
++
++unlock_sync_msg:
++	up(&pf_to_mgmt->sync_msg_lock);
++	return err;
++}
++
++/**
++ * msg_to_mgmt_async - send message to mgmt without response
++ * @pf_to_mgmt: PF to MGMT channel
++ * @mod: module in the chip that will get the message
++ * @cmd: command of the message
++ * @buf_in: the msg data
++ * @in_size: the msg data length
++ * @direction: the direction of the original message
++ * @resp_msg_id: msg id to response for
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int msg_to_mgmt_async(struct hinic_pf_to_mgmt *pf_to_mgmt,
++			     enum hinic_mod_type mod, u8 cmd,
++			     u8 *buf_in, u16 in_size,
++			     enum mgmt_direction_type direction,
++			     u16 resp_msg_id)
++{
++	int err;
++
++	/* Lock the sync_msg_buf */
++	down(&pf_to_mgmt->sync_msg_lock);
++
++	err = send_msg_to_mgmt(pf_to_mgmt, mod, cmd, buf_in, in_size,
++			       MSG_NO_ACK, direction, resp_msg_id);
++
++	up(&pf_to_mgmt->sync_msg_lock);
++	return err;
++}
++
+ /**
+  * hinic_msg_to_mgmt - send message to mgmt
+  * @pf_to_mgmt: PF to MGMT channel
+@@ -44,8 +308,98 @@ int hinic_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
+ 		      void *buf_in, u16 in_size, void *buf_out, u16 *out_size,
+ 		      enum hinic_mgmt_msg_type sync)
+ {
+-	/* should be implemented */
+-	return -EINVAL;
++	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++
++	if (sync != HINIC_MGMT_MSG_SYNC) {
++		dev_err(&pdev->dev, "Invalid MGMT msg type\n");
++		return -EINVAL;
++	}
++
++	if (!MSG_SZ_IS_VALID(in_size)) {
++		dev_err(&pdev->dev, "Invalid MGMT msg buffer size\n");
++		return -EINVAL;
++	}
++
++	return msg_to_mgmt_sync(pf_to_mgmt, mod, cmd, buf_in, in_size,
++				buf_out, out_size, MGMT_DIRECT_SEND,
++				MSG_NOT_RESP);
++}
++
++/**
++ * mgmt_recv_msg_handler - handler for message from mgmt cpu
++ * @pf_to_mgmt: PF to MGMT channel
++ * @recv_msg: received message details
++ **/
++static void mgmt_recv_msg_handler(struct hinic_pf_to_mgmt *pf_to_mgmt,
++				  struct hinic_recv_msg *recv_msg)
++{
++	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	u8 *buf_out = recv_msg->buf_out;
++	u16 out_size = 0;
++
++	dev_err(&pdev->dev, "No MGMT msg handler, mod = %d\n", recv_msg->mod);
++
++	if (!recv_msg->async_mgmt_to_pf)
++		/* MGMT sent sync msg, send the response */
++		msg_to_mgmt_async(pf_to_mgmt, recv_msg->mod, recv_msg->cmd,
++				  buf_out, out_size, MGMT_RESP,
++				  recv_msg->msg_id);
++}
++
++/**
++ * mgmt_resp_msg_handler - handler for a response message from mgmt cpu
++ * @pf_to_mgmt: PF to MGMT channel
++ * @recv_msg: received message details
++ **/
++static void mgmt_resp_msg_handler(struct hinic_pf_to_mgmt *pf_to_mgmt,
++				  struct hinic_recv_msg *recv_msg)
++{
++	wmb();  /* verify writing all, before reading */
++
++	complete(&recv_msg->recv_done);
++}
++
++/**
++ * recv_mgmt_msg_handler - handler for a message from mgmt cpu
++ * @pf_to_mgmt: PF to MGMT channel
++ * @header: the header of the message
++ * @recv_msg: received message details
++ **/
++static void recv_mgmt_msg_handler(struct hinic_pf_to_mgmt *pf_to_mgmt,
++				  u64 *header, struct hinic_recv_msg *recv_msg)
++{
++	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	int seq_id, seg_len;
++	u8 *msg_body;
++
++	seq_id = HINIC_MSG_HEADER_GET(*header, SEQID);
++	seg_len = HINIC_MSG_HEADER_GET(*header, SEG_LEN);
++
++	if (seq_id >= (MAX_MSG_LEN / SEGMENT_LEN)) {
++		dev_err(&pdev->dev, "recv big mgmt msg\n");
++		return;
++	}
++
++	msg_body = (u8 *)header + sizeof(*header);
++	memcpy(recv_msg->msg + seq_id * SEGMENT_LEN, msg_body, seg_len);
++
++	if (!HINIC_MSG_HEADER_GET(*header, LAST))
++		return;
++
++	recv_msg->cmd = HINIC_MSG_HEADER_GET(*header, CMD);
++	recv_msg->mod = HINIC_MSG_HEADER_GET(*header, MODULE);
++	recv_msg->async_mgmt_to_pf = HINIC_MSG_HEADER_GET(*header,
++							  ASYNC_MGMT_TO_PF);
++	recv_msg->msg_len = HINIC_MSG_HEADER_GET(*header, MSG_LEN);
++	recv_msg->msg_id = HINIC_MSG_HEADER_GET(*header, MSG_ID);
++
++	if (HINIC_MSG_HEADER_GET(*header, DIRECTION) == MGMT_RESP)
++		mgmt_resp_msg_handler(pf_to_mgmt, recv_msg);
++	else
++		mgmt_recv_msg_handler(pf_to_mgmt, recv_msg);
+ }
+ 
+ /**
+@@ -56,7 +410,77 @@ int hinic_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
+  **/
+ static void mgmt_msg_aeqe_handler(void *handle, void *data, u8 size)
+ {
+-	/* should be implemented */
++	struct hinic_pf_to_mgmt *pf_to_mgmt = handle;
++	struct hinic_recv_msg *recv_msg;
++	u64 *header = (u64 *)data;
++
++	recv_msg = HINIC_MSG_HEADER_GET(*header, DIRECTION) ==
++		   MGMT_DIRECT_SEND ?
++		   &pf_to_mgmt->recv_msg_from_mgmt :
++		   &pf_to_mgmt->recv_resp_msg_from_mgmt;
++
++	recv_mgmt_msg_handler(pf_to_mgmt, header, recv_msg);
++}
++
++/**
++ * alloc_recv_msg - allocate receive message memory
++ * @pf_to_mgmt: PF to MGMT channel
++ * @recv_msg: pointer that will hold the allocated data
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int alloc_recv_msg(struct hinic_pf_to_mgmt *pf_to_mgmt,
++			  struct hinic_recv_msg *recv_msg)
++{
++	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++
++	recv_msg->msg = devm_kzalloc(&pdev->dev, MAX_PF_MGMT_BUF_SIZE,
++				     GFP_KERNEL);
++	if (!recv_msg->msg)
++		return -ENOMEM;
++
++	recv_msg->buf_out = devm_kzalloc(&pdev->dev, MAX_PF_MGMT_BUF_SIZE,
++					 GFP_KERNEL);
++	if (!recv_msg->buf_out)
++		return -ENOMEM;
++
 +	return 0;
 +}
 +
 +/**
-+ * hinic_pf_to_mgmt_free - free PF to MGMT channel
++ * alloc_msg_buf - allocate all the message buffers of PF to MGMT channel
 + * @pf_to_mgmt: PF to MGMT channel
++ *
++ * Return 0 - Success, negative - Failure
 + **/
-+void hinic_pf_to_mgmt_free(struct hinic_pf_to_mgmt *pf_to_mgmt)
++static int alloc_msg_buf(struct hinic_pf_to_mgmt *pf_to_mgmt)
 +{
-+	struct hinic_pfhwdev *pfhwdev = mgmt_to_pfhwdev(pf_to_mgmt);
-+	struct hinic_hwdev *hwdev = &pfhwdev->hwdev;
++	struct hinic_hwif *hwif = pf_to_mgmt->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	int err;
 +
-+	hinic_aeq_unregister_hw_cb(&hwdev->aeqs, HINIC_MSG_FROM_MGMT_CPU);
-+}
++	err = alloc_recv_msg(pf_to_mgmt,
++			     &pf_to_mgmt->recv_msg_from_mgmt);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to allocate recv msg\n");
++		return err;
++	}
++
++	err = alloc_recv_msg(pf_to_mgmt,
++			     &pf_to_mgmt->recv_resp_msg_from_mgmt);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to allocate resp recv msg\n");
++		return err;
++	}
++
++	pf_to_mgmt->sync_msg_buf = devm_kzalloc(&pdev->dev,
++						MAX_PF_MGMT_BUF_SIZE,
++						GFP_KERNEL);
++	if (!pf_to_mgmt->sync_msg_buf)
++		return -ENOMEM;
++
++	return 0;
+ }
+ 
+ /**
+@@ -76,6 +500,15 @@ int hinic_pf_to_mgmt_init(struct hinic_pf_to_mgmt *pf_to_mgmt,
+ 
+ 	pf_to_mgmt->hwif = hwif;
+ 
++	sema_init(&pf_to_mgmt->sync_msg_lock, 1);
++	pf_to_mgmt->sync_msg_id = 0;
++
++	err = alloc_msg_buf(pf_to_mgmt);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to allocate msg buffers\n");
++		return err;
++	}
++
+ 	err = hinic_api_cmd_init(pf_to_mgmt->cmd_chain, hwif);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "Failed to initialize cmd chains\n");
 diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-new file mode 100644
-index 0000000..b4b34b7
---- /dev/null
+index dff321c..eca7ad8 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
 +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-@@ -0,0 +1,45 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
+@@ -17,10 +17,48 @@
+ #define HINIC_HW_MGMT_H
+ 
+ #include <linux/types.h>
++#include <linux/semaphore.h>
++#include <linux/completion.h>
+ 
+ #include "hinic_hw_if.h"
+ #include "hinic_hw_api_cmd.h"
+ 
++#define HINIC_MSG_HEADER_MSG_LEN_SHIFT                          0
++#define HINIC_MSG_HEADER_MODULE_SHIFT                           11
++#define HINIC_MSG_HEADER_SEG_LEN_SHIFT                          16
++#define HINIC_MSG_HEADER_NO_ACK_SHIFT                           22
++#define HINIC_MSG_HEADER_ASYNC_MGMT_TO_PF_SHIFT                 23
++#define HINIC_MSG_HEADER_SEQID_SHIFT                            24
++#define HINIC_MSG_HEADER_LAST_SHIFT                             30
++#define HINIC_MSG_HEADER_DIRECTION_SHIFT                        31
++#define HINIC_MSG_HEADER_CMD_SHIFT                              32
++#define HINIC_MSG_HEADER_ZEROS_SHIFT                            40
++#define HINIC_MSG_HEADER_PCI_INTF_SHIFT                         48
++#define HINIC_MSG_HEADER_PF_IDX_SHIFT                           50
++#define HINIC_MSG_HEADER_MSG_ID_SHIFT                           54
 +
-+#ifndef HINIC_HW_MGMT_H
-+#define HINIC_HW_MGMT_H
++#define HINIC_MSG_HEADER_MSG_LEN_MASK                           0x7FF
++#define HINIC_MSG_HEADER_MODULE_MASK                            0x1F
++#define HINIC_MSG_HEADER_SEG_LEN_MASK                           0x3F
++#define HINIC_MSG_HEADER_NO_ACK_MASK                            0x1
++#define HINIC_MSG_HEADER_ASYNC_MGMT_TO_PF_MASK                  0x1
++#define HINIC_MSG_HEADER_SEQID_MASK                             0x3F
++#define HINIC_MSG_HEADER_LAST_MASK                              0x1
++#define HINIC_MSG_HEADER_DIRECTION_MASK                         0x1
++#define HINIC_MSG_HEADER_CMD_MASK                               0xFF
++#define HINIC_MSG_HEADER_ZEROS_MASK                             0xFF
++#define HINIC_MSG_HEADER_PCI_INTF_MASK                          0x3
++#define HINIC_MSG_HEADER_PF_IDX_MASK                            0xF
++#define HINIC_MSG_HEADER_MSG_ID_MASK                            0x3FF
 +
-+#include <linux/types.h>
++#define HINIC_MSG_HEADER_SET(val, member)                       \
++		((u64)((val) & HINIC_MSG_HEADER_##member##_MASK) << \
++		 HINIC_MSG_HEADER_##member##_SHIFT)
 +
-+#include "hinic_hw_if.h"
++#define HINIC_MSG_HEADER_GET(val, member)                       \
++		(((val) >> HINIC_MSG_HEADER_##member##_SHIFT) & \
++		 HINIC_MSG_HEADER_##member##_MASK)
 +
-+enum hinic_mgmt_msg_type {
-+	HINIC_MGMT_MSG_SYNC = 1,
+ enum hinic_mgmt_msg_type {
+ 	HINIC_MGMT_MSG_SYNC = 1,
+ };
+@@ -29,9 +67,30 @@ enum hinic_cfg_cmd {
+ 	HINIC_CFG_NIC_CAP = 0,
+ };
+ 
++struct hinic_recv_msg {
++	u8                      *msg;
++	u8                      *buf_out;
++
++	struct completion       recv_done;
++
++	u16                     cmd;
++	enum hinic_mod_type     mod;
++	int                     async_mgmt_to_pf;
++
++	u16                     msg_len;
++	u16                     msg_id;
 +};
 +
-+enum hinic_cfg_cmd {
-+	HINIC_CFG_NIC_CAP = 0,
-+};
+ struct hinic_pf_to_mgmt {
+ 	struct hinic_hwif               *hwif;
+ 
++	struct semaphore                sync_msg_lock;
++	u16                             sync_msg_id;
++	u8                              *sync_msg_buf;
 +
-+struct hinic_pf_to_mgmt {
-+	struct hinic_hwif               *hwif;
-+};
++	struct hinic_recv_msg           recv_resp_msg_from_mgmt;
++	struct hinic_recv_msg           recv_msg_from_mgmt;
 +
-+int hinic_msg_to_mgmt(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+		      enum hinic_mod_type mod, u8 cmd,
-+		      void *buf_in, u16 in_size, void *buf_out, u16 *out_size,
-+		      enum hinic_mgmt_msg_type sync);
-+
-+int hinic_pf_to_mgmt_init(struct hinic_pf_to_mgmt *pf_to_mgmt,
-+			  struct hinic_hwif *hwif);
-+
-+void hinic_pf_to_mgmt_free(struct hinic_pf_to_mgmt *pf_to_mgmt);
-+
-+#endif
+ 	struct hinic_api_cmd_chain      *cmd_chain[HINIC_API_CMD_MAX];
+ };
+ 
 -- 
 1.9.1
