@@ -1,47 +1,54 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] bpf: no need to nullify ri->map in xdp_do_redirect
-Date: Thu, 17 Aug 2017 08:59:52 -0700
-Message-ID: <5995BD78.1070808@gmail.com>
-References: <782d0b6850cb1a63230c0fd634f1e61d67a01e60.1502975082.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/2] bpf: don't enable preemption twice in smap_do_verdict
+Date: Thu, 17 Aug 2017 09:03:25 -0700
+Message-ID: <5995BE4D.10503@gmail.com>
+References: <cover.1502983087.git.daniel@iogearbox.net> <d90eed71c2a723edd75f19fb1b921fec74d8a514.1502983087.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
 Cc: ast@fb.com, netdev@vger.kernel.org
 To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:38485 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751305AbdHQQAD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 12:00:03 -0400
-Received: by mail-pg0-f66.google.com with SMTP id 123so10506609pga.5
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 09:00:02 -0700 (PDT)
-In-Reply-To: <782d0b6850cb1a63230c0fd634f1e61d67a01e60.1502975082.git.daniel@iogearbox.net>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34111 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751561AbdHQQDe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 12:03:34 -0400
+Received: by mail-pg0-f65.google.com with SMTP id y192so10548771pgd.1
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 09:03:34 -0700 (PDT)
+In-Reply-To: <d90eed71c2a723edd75f19fb1b921fec74d8a514.1502983087.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/17/2017 06:07 AM, Daniel Borkmann wrote:
-> We are guaranteed to have a NULL ri->map in this branch since
-> we test for it earlier, so we don't need to reset it here.
+On 08/17/2017 08:22 AM, Daniel Borkmann wrote:
+> In smap_do_verdict(), the fall-through branch leads to call
+> preempt_enable() twice for the SK_REDIRECT, which creates an
+> imbalance. Only enable it for all remaining cases again.
 > 
+> Fixes: 174a79ff9515 ("bpf: sockmap with sk redirect support")
+> Reported-by: Alexei Starovoitov <ast@kernel.org>
 > Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 > ---
->  net/core/filter.c | 1 -
->  1 file changed, 1 deletion(-)
+>  kernel/bpf/sockmap.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 > 
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index e9f8dce..ea3ca34 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -2568,7 +2568,6 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
->  
->  	fwd = dev_get_by_index_rcu(dev_net(dev), index);
->  	ri->ifindex = 0;
-> -	ri->map = NULL;
->  	if (unlikely(!fwd)) {
->  		bpf_warn_invalid_xdp_redirect(index);
->  		return -EINVAL;
+> diff --git a/kernel/bpf/sockmap.c b/kernel/bpf/sockmap.c
+> index f7e5e6c..39de541 100644
+> --- a/kernel/bpf/sockmap.c
+> +++ b/kernel/bpf/sockmap.c
+> @@ -135,7 +135,8 @@ static void smap_do_verdict(struct smap_psock *psock, struct sk_buff *skb)
+>  	/* Fall through and free skb otherwise */
+>  	case SK_DROP:
+>  	default:
+> -		preempt_enable();
+> +		if (rc != SK_REDIRECT)
+> +			preempt_enable();
+>  		kfree_skb(skb);
+>  	}
+>  }
 > 
 
-Thanks this was on my todo list as well.
+Yep looks good, nice catch Alexei. Thanks! I'll add a selftests entry
+in test_maps to catch this fall through case. Looks like we don't hit
+this case during selftests at the moment.
 
 Acked-by: John Fastabend <john.fastabend@gmail.com>
