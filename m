@@ -1,45 +1,49 @@
-From: Stefano Brivio <sbrivio@redhat.com>
-Subject: Re: [PATCH] i40e{,vf}: Fix out-of-bound cpumask read in IRQ
- affinity handler
-Date: Thu, 17 Aug 2017 03:13:27 +0200
-Message-ID: <20170817031327.16eede3c@elisabeth>
-References: <ae9c9586f61e914dc1c6fe2e6ac1fb2bf07283bc.1502792828.git.sbrivio@redhat.com>
-        <1502929524.32783.3.camel@intel.com>
-        <20170817030109.31580d73@elisabeth>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net RESEND] PCI: fix oops when try to find Root Port for a
+ PCI device
+Date: Thu, 17 Aug 2017 09:14:06 +0800
+Message-ID: <fe758f12-9f9c-3878-ccb8-ebf232098888@huawei.com>
+References: <20170815170331.GA4099@bhelgaas-glaptop.roam.corp.google.com>
+ <20170816193303.GA14147@ulmo>
+ <20170816200237.GE28977@bhelgaas-glaptop.roam.corp.google.com>
+ <20170816.135952.1915098012719012810.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        "David S . Miller" <davem@davemloft.net>,
-        Alan Brady <alan.brady@intel.com>,
-        Stefan Assmann <sassmann@redhat.com>,
-        Juergen Gross <jgross@suse.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38586 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751490AbdHQBNf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Aug 2017 21:13:35 -0400
-In-Reply-To: <20170817030109.31580d73@elisabeth>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <thierry.reding@gmail.com>, <mark.rutland@arm.com>,
+        <gabriele.paoloni@huawei.com>, <asit.k.mallick@intel.com>,
+        <catalin.marinas@arm.com>, <will.deacon@arm.com>,
+        <linuxarm@huawei.com>, <alexander.duyck@gmail.com>,
+        <ashok.raj@intel.com>, <eric.dumazet@gmail.com>,
+        <jeffrey.t.kirsher@intel.com>, <linux-pci@vger.kernel.org>,
+        <ganeshgr@chelsio.com>, <Bob.Shaw@amd.com>, <leedom@chelsio.com>,
+        <patrick.j.cramer@intel.com>, <bhelgaas@google.com>,
+        <werner@chelsio.com>, <linux-arm-kernel@lists.infradead.org>,
+        <amira@mellanox.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <David.Laight@aculab.com>,
+        <Suravee.Suthikulpanit@amd.com>, <robin.murphy@arm.com>,
+        <l.stach@pengutronix.de>
+To: David Miller <davem@davemloft.net>, <helgaas@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170816.135952.1915098012719012810.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Aug 2017 03:01:09 +0200
-Stefano Brivio <sbrivio@redhat.com> wrote:
 
-> Before posting, however, I checked patchwork at:
-> 
-> 	https://patchwork.ozlabs.org/project/intel-wired-lan/list/
-> 
-> and also your git tree (listed in MAINTAINERS) at:
-> 
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue.git
-> 
-> but I couldn't find that commit. I also can't find it now. So I suppose
-> I'm looking for it in the wrong place. Can you please tell me which
-> tree or patchwork I should check before submitting patches for i40e, so
-> that I avoid further duplicate submissions next time?
 
-Okay, I just found your e-mail on netdev (I wasn't expecting to see
-this queued up for net-next). IMHO, this should be queued for -net (and
--stable) instead (and my previous comments still apply).
+On 2017/8/17 4:59, David Miller wrote:
+> From: Bjorn Helgaas <helgaas@kernel.org>
+> Date: Wed, 16 Aug 2017 15:02:37 -0500
+> 
+>> Your fix looks right to me.
+> 
+> Someone please submit this fix formally because this change is now in
+> Linus's tree.
+> 
+
+I will send it.
+
+> Thank you.
+> 
+> .
+> 
