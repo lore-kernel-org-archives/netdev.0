@@ -1,21 +1,18 @@
 From: Julien Fortin <julien@cumulusnetworks.com>
-Subject: [PATCH iproute2 json v2 25/27] ip: link_vti6.c: add json output support
-Date: Thu, 17 Aug 2017 10:36:12 -0700
-Message-ID: <20170817173614.54987-26-julien@cumulusnetworks.com>
+Subject: [PATCH iproute2 json v2 26/27] ip: link_macvlan.c: add json output support
+Date: Thu, 17 Aug 2017 10:36:13 -0700
+Message-ID: <20170817173614.54987-27-julien@cumulusnetworks.com>
 References: <20170817173614.54987-1-julien@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
         dsa@cumulusnetworks.com, Julien Fortin <julien@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f172.google.com ([209.85.128.172]:34455 "EHLO
-        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753748AbdHQRm1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:42:27 -0400
-Received: by mail-wr0-f172.google.com with SMTP id y96so47261842wrc.1
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:42:26 -0700 (PDT)
+Received: from mail-wr0-f179.google.com ([209.85.128.179]:38414 "EHLO
+        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753748AbdHQRmb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:42:31 -0400
+Received: by mail-wr0-f179.google.com with SMTP id 5so25449287wrz.5
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:42:30 -0700 (PDT)
 In-Reply-To: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -24,128 +21,49 @@ From: Julien Fortin <julien@cumulusnetworks.com>
 
 Schema:
 {
-    "remote": {
+    "mode": {
         "type": "string",
-        "attr": "IFLA_VTI_REMOTE"
+        "attr": "IFLA_MACVLAN_MODE"
     },
-    "local": {
-        "type": "string",
-        "attr": "IFLA_VTI_LOCAL"
+    "nopromisc": {
+        "type": "bool",
+        "attr": "MACVLAN_FLAG_NOPROMISC"
     },
-    "link": {
-        "type": "string",
-        "attr": "IFLA_VTI_LINK",
-        "mutually_exclusive": {
-            "link_index": {
-                "type": "uint",
+    "macaddr_count": {
+        "type": "int",
+        "attr": "IFLA_MACVLAN_MACADDR_COUNT"
+    },
+    "macaddr_data": {
+        "type": "array",
+        "attr": "IFLA_MACVLAN_MACADDR_DATA",
+        "array": [
+            {
+                "type": "string"
             }
-        }
+        ]
     },
-    "ikey": {
-        "type": "string",
-        "attr": "IFLA_VTI_IKEY"
-    },
-    "okey": {
-        "type": "string",
-        "attr": "IFLA_VTI_OKEY"
-    }
 }
 
-➜  ~ ip -6 tunnel add name vti6 mode vti6 local 2001:db8:1::1/64 remote
-2001:0db8:85a3:0000:0000:8a2e:0370:7334
-➜  ~ ip link show
-10: ip6tnl0@NONE: <NOARP> mtu 1452 qdisc noop state DOWN mode DEFAULT
-group default
-    link/tunnel6 :: brd ::
-11: ip6_vti0@NONE: <NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT
-group default
-    link/tunnel6 :: brd ::
-12: vti6@NONE: <POINTOPOINT,NOARP> mtu 1500 qdisc noop state DOWN mode
-DEFAULT group default
-    link/tunnel6 2001:db8:1::1 peer 2001:db8:85a3::8a2e:370:7334
-➜  ~ ./ip -details -json link show
+$ ip link add name peth0 link eth0 type macvlan
+$ ip -details -json link show peth0
 [{
-        "ifindex": 10,
-        "ifname": "ip6tnl0",
-        "link": null,
-        "flags": ["NOARP"],
-        "mtu": 1452,
-        "qdisc": "noop",
-        "operstate": "DOWN",
-        "linkmode": "DEFAULT",
-        "group": "default",
-        "link_type": "tunnel6",
-        "address": "::",
-        "broadcast": "::",
-        "promiscuity": 0,
-        "linkinfo": {
-            "info_kind": "ip6tnl",
-            "info_data": {
-                "proto": "ip6ip6",
-                "remote": "::",
-                "local": "::",
-                "encap_limit": 0,
-                "ttl": 0,
-                "flowinfo_tclass": "0x00",
-                "flowlabel": "0x00000",
-                "flowinfo": "0x00000000"
-            }
-        },
-        "inet6_addr_gen_mode": "eui64",
-        "num_tx_queues": 1,
-        "num_rx_queues": 1,
-        "gso_max_size": 65536,
-        "gso_max_segs": 65535
-    },{
-        "ifindex": 11,
-        "ifname": "ip6_vti0",
-        "link": null,
-        "flags": ["NOARP"],
+        "ifindex": 26,
+        "ifname": "peth0",
+        "link": "eth0",
+        "flags": ["BROADCAST","MULTICAST"],
         "mtu": 1500,
         "qdisc": "noop",
         "operstate": "DOWN",
         "linkmode": "DEFAULT",
         "group": "default",
-        "link_type": "tunnel6",
-        "address": "::",
-        "broadcast": "::",
+        "link_type": "ether",
+        "address": "7a:84:48:3e:7b:1c",
+        "broadcast": "ff:ff:ff:ff:ff:ff",
         "promiscuity": 0,
         "linkinfo": {
-            "info_kind": "vti6",
+            "info_kind": "macvlan",
             "info_data": {
-                "remote": "::",
-                "local": "::",
-                "ikey": "0.0.0.0",
-                "okey": "0.0.0.0"
-            }
-        },
-        "inet6_addr_gen_mode": "eui64",
-        "num_tx_queues": 1,
-        "num_rx_queues": 1,
-        "gso_max_size": 65536,
-        "gso_max_segs": 65535
-    },{
-        "ifindex": 12,
-        "ifname": "vti6",
-        "link": null,
-        "flags": ["POINTOPOINT","NOARP"],
-        "mtu": 1500,
-        "qdisc": "noop",
-        "operstate": "DOWN",
-        "linkmode": "DEFAULT",
-        "group": "default",
-        "link_type": "tunnel6",
-        "address": "2001:db8:1::1",
-        "link_pointtopoint": true,
-        "broadcast": "2001:db8:85a3::8a2e:370:7334",
-        "promiscuity": 0,
-        "linkinfo": {
-            "info_kind": "vti6",
-            "info_data": {
-                "remote": "2001:db8:85a3::8a2e:370:7334",
-                "local": "2001:db8:1::1",
-                "ikey": "0.0.0.0",
-                "okey": "0.0.0.0"
+                "mode": "vepa"
             }
         },
         "inet6_addr_gen_mode": "eui64",
@@ -158,64 +76,86 @@ DEFAULT group default
 
 Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
 ---
- ip/link_vti6.c | 22 ++++++++++++++--------
- 1 file changed, 14 insertions(+), 8 deletions(-)
+ ip/iplink_macvlan.c | 37 +++++++++++++++++++++++++------------
+ 1 file changed, 25 insertions(+), 12 deletions(-)
 
-diff --git a/ip/link_vti6.c b/ip/link_vti6.c
-index 6ea1fc23..8198d468 100644
---- a/ip/link_vti6.c
-+++ b/ip/link_vti6.c
-@@ -225,7 +225,7 @@ static void vti6_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 		remote = format_host(AF_INET6, 16, &daddr);
- 	}
+diff --git a/ip/iplink_macvlan.c b/ip/iplink_macvlan.c
+index 662eb6ff..b966a615 100644
+--- a/ip/iplink_macvlan.c
++++ b/ip/iplink_macvlan.c
+@@ -193,13 +193,15 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
+ 		return;
  
--	fprintf(f, "remote %s ", remote);
-+	print_string(PRINT_ANY, "remote", "remote %s ", remote);
+ 	mode = rta_getattr_u32(tb[IFLA_MACVLAN_MODE]);
+-	fprintf(f, "mode %s ",
+-		  mode == MACVLAN_MODE_PRIVATE ? "private"
+-		: mode == MACVLAN_MODE_VEPA    ? "vepa"
+-		: mode == MACVLAN_MODE_BRIDGE  ? "bridge"
+-		: mode == MACVLAN_MODE_PASSTHRU  ? "passthru"
+-		: mode == MACVLAN_MODE_SOURCE  ? "source"
+-		:				 "unknown");
++	print_string(PRINT_ANY,
++		     "mode",
++		     "mode %s ",
++		     mode == MACVLAN_MODE_PRIVATE ? "private"
++		     : mode == MACVLAN_MODE_VEPA    ? "vepa"
++		     : mode == MACVLAN_MODE_BRIDGE  ? "bridge"
++		     : mode == MACVLAN_MODE_PASSTHRU  ? "passthru"
++		     : mode == MACVLAN_MODE_SOURCE  ? "source"
++		     :				 "unknown");
  
- 	if (tb[IFLA_VTI_LOCAL]) {
- 		memcpy(&saddr, RTA_DATA(tb[IFLA_VTI_LOCAL]), sizeof(saddr));
-@@ -233,29 +233,35 @@ static void vti6_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 		local = format_host(AF_INET6, 16, &saddr);
- 	}
+ 	if (!tb[IFLA_MACVLAN_FLAGS] ||
+ 	    RTA_PAYLOAD(tb[IFLA_MACVLAN_FLAGS]) < sizeof(__u16))
+@@ -208,7 +210,7 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
+ 		flags = rta_getattr_u16(tb[IFLA_MACVLAN_FLAGS]);
  
--	fprintf(f, "local %s ", local);
-+	print_string(PRINT_ANY, "local", "local %s ", local);
+ 	if (flags & MACVLAN_FLAG_NOPROMISC)
+-		fprintf(f, "nopromisc ");
++		print_bool(PRINT_ANY, "nopromisc", "nopromisc ", true);
  
- 	if (tb[IFLA_VTI_LINK] && (link = rta_getattr_u32(tb[IFLA_VTI_LINK]))) {
- 		const char *n = if_indextoname(link, s2);
+ 	/* in source mode, there are more options to print */
  
- 		if (n)
--			fprintf(f, "dev %s ", n);
-+			print_string(PRINT_ANY, "link", "dev %s ", n);
- 		else
--			fprintf(f, "dev %u ", link);
-+			print_uint(PRINT_ANY, "link_index", "dev %u ", link);
- 	}
+@@ -220,7 +222,7 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
+ 		return;
  
- 	if (tb[IFLA_VTI_IKEY]) {
- 		inet_ntop(AF_INET, RTA_DATA(tb[IFLA_VTI_IKEY]), s2, sizeof(s2));
--		fprintf(f, "ikey %s ", s2);
-+		print_string(PRINT_ANY, "ikey", "ikey %s ", s2);
- 	}
+ 	count = rta_getattr_u32(tb[IFLA_MACVLAN_MACADDR_COUNT]);
+-	fprintf(f, "remotes (%d) ", count);
++	print_int(PRINT_ANY, "macaddr_count", "remotes (%d) ", count);
  
- 	if (tb[IFLA_VTI_OKEY]) {
- 		inet_ntop(AF_INET, RTA_DATA(tb[IFLA_VTI_OKEY]), s2, sizeof(s2));
--		fprintf(f, "okey %s ", s2);
-+		print_string(PRINT_ANY, "okey", "okey %s ", s2);
- 	}
+ 	if (!tb[IFLA_MACVLAN_MACADDR_DATA])
+ 		return;
+@@ -228,18 +230,29 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
+ 	rta = RTA_DATA(tb[IFLA_MACVLAN_MACADDR_DATA]);
+ 	len = RTA_PAYLOAD(tb[IFLA_MACVLAN_MACADDR_DATA]);
  
--	if (tb[IFLA_VTI_FWMARK] && rta_getattr_u32(tb[IFLA_VTI_FWMARK])) {
--		fprintf(f, "fwmark 0x%x ", rta_getattr_u32(tb[IFLA_VTI_FWMARK]));
-+	if (tb[IFLA_VTI_FWMARK]) {
-+		__u32 fwmark = rta_getattr_u32(tb[IFLA_VTI_FWMARK]);
++	open_json_array(PRINT_JSON, "macaddr_data");
+ 	for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+ 		if (rta->rta_type != IFLA_MACVLAN_MACADDR ||
+ 		    RTA_PAYLOAD(rta) < 6)
+ 			continue;
+ 		addr = RTA_DATA(rta);
+-		fprintf(f, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x ", addr[0],
+-			addr[1], addr[2], addr[3], addr[4], addr[5]);
++		if (is_json_context()) {
++			SPRINT_BUF(b1);
 +
-+		if (fwmark) {
-+			snprintf(s2, sizeof(s2), "0x%x", fwmark);
-+
-+			print_string(PRINT_ANY, "fwmark", "fwmark %s ", s2);
++			snprintf(b1, sizeof(b1),
++				 "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x", addr[0],
++				 addr[1], addr[2], addr[3], addr[4], addr[5]);
++			print_string(PRINT_JSON, NULL, NULL, b1);
++		} else {
++			fprintf(f, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x ", addr[0],
++				addr[1], addr[2], addr[3], addr[4], addr[5]);
 +		}
  	}
++	close_json_array(PRINT_JSON, NULL);
  }
  
+ static void macvlan_print_help(struct link_util *lu, int argc, char **argv,
+-	FILE *f)
++			       FILE *f)
+ {
+ 	print_explain(lu, f);
+ }
 -- 
 2.14.1
