@@ -1,50 +1,103 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] dsa: remove unused net_device arg from handlers
-Date: Thu, 17 Aug 2017 11:53:56 -0700
-Message-ID: <74dc3b77-67b9-286b-edbd-acec6cba3694@gmail.com>
-References: <20170817144700.16218-1-fw@strlen.de>
- <20170817182116.GE21715@lunn.ch> <20170817184058.GA7154@breakpoint.cc>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 06/10] bpf: sockmap with sk redirect support
+Date: Thu, 17 Aug 2017 11:58:00 -0700
+Message-ID: <5995E738.9090803@gmail.com>
+References: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810> <20170816053247.15445.69312.stgit@john-Precision-Tower-5810> <fbc6e111-f610-2ef9-bb2a-6503d747124f@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com
-To: Florian Westphal <fw@strlen.de>, Andrew Lunn <andrew@lunn.ch>
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, tom@herbertland.com
+To: Alexei Starovoitov <ast@fb.com>, davem@davemloft.net,
+        daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:34780 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753230AbdHQSyB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 14:54:01 -0400
-Received: by mail-wr0-f195.google.com with SMTP id p14so1243783wrg.1
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 11:54:00 -0700 (PDT)
-In-Reply-To: <20170817184058.GA7154@breakpoint.cc>
-Content-Language: en-US
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35666 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753355AbdHQS6L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 14:58:11 -0400
+Received: by mail-pg0-f65.google.com with SMTP id t80so5058196pgb.2
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 11:58:10 -0700 (PDT)
+In-Reply-To: <fbc6e111-f610-2ef9-bb2a-6503d747124f@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/17/2017 11:40 AM, Florian Westphal wrote:
-> Andrew Lunn <andrew@lunn.ch> wrote:
->> On Thu, Aug 17, 2017 at 04:47:00PM +0200, Florian Westphal wrote:
->>> compile tested only, but saw no warnings/errors with
->>> allmodconfig build.
->>>  
->>>  static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
->>> -			  struct packet_type *pt, struct net_device *orig_dev)
->>> +			  struct packet_type *pt, struct net_device *unused)
->>
->> Hi Florian
->>
->> Looks O.K. to me. I can test it out later.
->>
->> Is there a bigger picture here? Do you plan to remove the second
->> net_device parameter everywhere?
+
+[...]
+
+
+>> +
+>> +static void smap_tx_work(struct work_struct *w)
+>> +{
+>> +    struct smap_psock *psock;
+>> +    struct sk_buff *skb;
+>> +    int rem, off, n;
+>> +
+>> +    psock = container_of(w, struct smap_psock, tx_work);
+>> +
+>> +    /* lock sock to avoid losing sk_socket at some point during loop */
+>> +    lock_sock(psock->sock);
+>> +    if (psock->save_skb) {
+>> +        skb = psock->save_skb;
+>> +        rem = psock->save_rem;
+>> +        off = psock->save_off;
+>> +        psock->save_skb = NULL;
+>> +        goto start;
+>> +    }
+>> +
+>> +    while ((skb = skb_dequeue(&psock->rxqueue))) {
+>> +        rem = skb->len;
+>> +        off = 0;
+>> +start:
+>> +        do {
+>> +            if (likely(psock->sock->sk_socket))
+>> +                n = skb_send_sock_locked(psock->sock,
+>> +                             skb, off, rem);
 > 
-> Its tempting, seems only af_packet uses it.  I'll see if there is
-> another (simpler) way of getting the orig ifindex into af_packet.
+> so this will be hot loop ?
+> Do you have perf report by any chance? Curious how it looks.
+
+I had some old ones but lets generate some fresh ones and we can go over
+them. I'll post later today/tomorrow.
+
+> 
+>> +    /* reserve BPF programs early so can abort easily on failures */
+>> +    if (map_flags & BPF_SOCKMAP_STRPARSER) {
+> 
+> why have two 'flags' arguments and new helper just for this?
+> can normal update() be used and extra bits of flag there?
 > 
 
-FWIW, I still have some changes queued locally that make use of orig_dev
-to support the switch tag HW insertion/extraction, but I think "dev"
-here is equally suitable since it still points to the DSA master network
-device.
--- 
-Florian
+The new helper is needed regardless to handle consuming the skops ctx
+pointer from programs attached to cgroups. This way we can attach sockets
+in cgroups when they enter specified TCP states.
+
+The map_flags arg was because I expect we may end up with a few more flags
+in sockmap and thought it was reasonable to keep separate namespaces for
+the two flag types, BPF_ and BPF_SOCKMAP_*. It does however have the one
+issue that when doing the update via syscall the flags are not available.
+
+If there is no objection to consuming some bits of the normal flags a small
+patch could do that. I think we will need at least two more bits going forward
+for additional features. I guess though the map flags is not pressed for
+bit space yet though.
+
+>> -#define BPF_PROG_ATTACH_LAST_FIELD attach_flags
+>> +#define BPF_PROG_ATTACH_LAST_FIELD attach_bpf_fd2
+> 
+>> +    prog1 = bpf_prog_get_type(attr->attach_bpf_fd, ptype);
+>> +    if (IS_ERR(prog1)) {
+>> +        fdput(f);
+>> +        return PTR_ERR(prog1);
+>> +    }
+>> +
+>> +    prog2 = bpf_prog_get_type(attr->attach_bpf_fd2, ptype);
+> 
+> could you add a comment to uapi on possible uses of this field
+> otherwise the name is not readable.
+
+Yep no problem. I have a couple patches queued up for selftests and
+automatically pulling in STREAM_PARSER, along with couple minor other
+things so I'll push this update with those.
+
+Thanks,
+John
+ 
