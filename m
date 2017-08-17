@@ -1,42 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Regression: Bug 196547 - Since 4.12 - bonding module not
- working with wireless drivers
-Date: Wed, 16 Aug 2017 19:42:03 -0700 (PDT)
-Message-ID: <20170816.194203.2292396744409301402.davem@davemloft.net>
-References: <1502918561.30484.1.camel@redhat.com>
-        <20170816.143116.1172751167543812070.davem@davemloft.net>
-        <1502935907.30484.4.camel@redhat.com>
+Subject: Re: [PATCH net] PCI: fix the return value for the
+ pci_find_pcie_root_port()
+Date: Wed, 16 Aug 2017 19:42:35 -0700 (PDT)
+Message-ID: <20170816.194235.391501463422735735.davem@davemloft.net>
+References: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: james@nurealm.net, futur.andy@googlemail.com, kvalo@codeaurora.org,
-        arend.vanspriel@broadcom.com, maheshb@google.com,
-        andy@greyhouse.net, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, greearb@candelatech.com
-To: dcbw@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44284 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751517AbdHQCmG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 22:42:06 -0400
-In-Reply-To: <1502935907.30484.4.camel@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: leedom@chelsio.com, ashok.raj@intel.com, bhelgaas@google.com,
+        helgaas@kernel.org, werner@chelsio.com, ganeshgr@chelsio.com,
+        asit.k.mallick@intel.com, patrick.j.cramer@intel.com,
+        Suravee.Suthikulpanit@amd.com, Bob.Shaw@amd.com,
+        l.stach@pengutronix.de, amira@mellanox.com,
+        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
+        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
+        alexander.duyck@gmail.com, eric.dumazet@gmail.com,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com, thierry.reding@gmail.com
+To: dingtianhong@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Williams <dcbw@redhat.com>
-Date: Wed, 16 Aug 2017 21:11:47 -0500
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Thu, 17 Aug 2017 10:25:30 +0800
 
-> You'll probably say "aim for the 75% case" or something like that,
-> which is fine, but then you're depending on your 75% case to be (a)
-> single AP, (b) never move (eg, only bond wifi + ethernet), (c) little
-> radio interference.  I'm not sure I'd buy that.  If I've put words in
-> your mouth, forgive me.
+> The pci_find_pcie_root_port() would return NULL if the given
+> dev is already a Root Port, it looks like unfriendly to the
+> PCIe Root Port device, Thierry and Bjorn suggest to let this
+> function return the given dev under this circumstances.
+> 
+> Fixes: 0e405232871d6 ("PCI: fix oops when try to find Root Port for a PCI device")
+> Suggested-by: Thierry Reding <thierry.reding@gmail.com>
+> Suggested-by: Bjorn Helgaas <helgaas@kernel.org>
+> Signed-off-by: Thierry Reding <thierry.reding@gmail.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
-You can interpret what I'm saying as "some reasonable value is
-better than no value at all."
+Bjorn, please review and ACK so Linus doesn't rip my head off again
+:-)
 
-You can keep arguing about AP changes, radio interference, etc.
-but anything is better than the current situation.
-
-Start small and simple, try to handle everything over time and
-gradually.
+Thanks.
