@@ -1,160 +1,220 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next 3/3 v5] drivers: net: ethernet: qualcomm: rmnet:
- Initial implementation
-Date: Thu, 17 Aug 2017 00:38:31 -0600
-Message-ID: <0bcdb3670a82c3b73567cd3d5e70340b@codeaurora.org>
-References: <1502931307-517-1-git-send-email-subashab@codeaurora.org>
- <1502931307-517-4-git-send-email-subashab@codeaurora.org>
- <1502939764.30484.7.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        fengguang.wu@intel.com, jiri@resnulli.us,
-        stephen@networkplumber.org, David.Laight@aculab.com,
-        marcel@holtmann.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:42606 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751965AbdHQGic (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 02:38:32 -0400
-In-Reply-To: <1502939764.30484.7.camel@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH REPOST v5 iproute2 0/8] RDMAtool
+Date: Thu, 17 Aug 2017 09:56:06 +0300
+Message-ID: <20170817065614.1393-1-leonro@mellanox.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> I'm probably forgetting a bit of the original context.  Say you have
-> one of these "network devices in IP mode".  What happens with the
-> device *before* you attach an rmnet child?  Can it pass traffic before
-> that point at all, or does the modem expect MAP already?
+This is fifth revision of series implementing the RDAMtool -  the tool
+to configure RDMA devices.
 
-Hi Dan
+It looks like everyone who was interested to read cover letter already did it,
+so I'll start from the changelog:
 
-All traffic needs to be in MAP format only.
+Changelog:
+v4->v5:
+ * Rebased to latest net-next branch
+ * Moved BIT() macro from devlink to general utils.h file - Patch #1.
+ * Changed the order of patches - moved man pages to be last patch.
+ * Rewrote all switch->case->return_string constructions to be static
+   tables with help of David's macro magic. Thanks a lot.
+ * Dropped dependency on exported device and port properties. Now tool depends
+   on RDMA netlink only and all needed code is already in Doug's for-next.
+ * Added two OPA specific physical link states, because their names is
+   too broad - TEST and OFFLINE, I named it as OPA_TEST and OPA_OFFLINE.
+v3->v4:
+ * Rebased to latest net-next branch
+ * Added JSON output -j (json) and -p (pretty output)
+ * Exported and reused kernel UAPIs and defines instead of hard coded
+   version.
+v2->v3:
+ * Removed MAX()
+ * Reduced scope of rd_argv_match
+ * Removed return from rdma_free_devmap
+ * Added extra break at rdma_send_msg
+v1->v2:
+ * Squashed multiple (and similar) patches to be one patch for dev object
+   and one patch for link object.
+ * Removed port_map struct
+ * Removed global netlink dump during initialization, it removed the need to store
+   the intermediate variables and reuse ability of netlink to signal if variable
+   exists or doesn't.
+ * Added "-d" --details option and put all CAPs under it.
 
->> +	dev_hold(real_dev);
-> 
-> I could be entirely wrong, but isn't this mostly handled for you if you
-> use netdev_upper_dev_link() like ipvlan and macvlan do?  That looks
-> like it provides a couple things: (a) handles the dev_hold() for you
-> and (b) provides mechanisms to get the upper device if you need it.
-> I'm not actually familiar with the "adjacent device" functionality, but
-> it looked similar in purpose.
+v0->v1:
+ * Moved hunk with changes in man/Makefile from first patch to the last patch
+ * Removed the "unknown command" from the examples in commit messages
+ * Removed special "caps" parsing command and put it to be part of general "show" command
+ * Changed parsed capability format to be similar to iproute2 suite
+ * Added FW version as an output of show command.
+ * Added forgotten CAP_FLAGS to the nla_policy list
+RFC->v0:
+ * Removed everything that is not implemented yet.
+ * Abandoned sysfs interfaces in favor of netlink.
 
-Does this API modify the data path as well or is it only for 
-establishing
-a hierarchy between nodes (which I assume should help for easier 
-cleanup).
-Currently, I register with the real_dev and use the rx_handler to 
-intercept
-the incoming MAP packets. If netdev_upper_dev_link only modifies the 
-device
-refcounting, I should be able to easily modify to use it.
+-----
+The initial proposal was sent as RFC [1] and was based on sysfs entries as POC.
 
-> 
->> +	return 0;
->> +}
->> +
->> +static int __rmnet_set_endpoint_config(struct net_device *dev, int
->> config_id,
->> +				       struct rmnet_endpoint *ep)
->> +{
->> +	struct rmnet_endpoint *dev_ep;
->> +
->> +	ASSERT_RTNL();
->> +
->> +	dev_ep = rmnet_get_endpoint(dev, config_id);
->> +
->> +	if (!dev_ep || dev_ep->refcount)
->> +		return -EINVAL;
->> +
->> +	memcpy(dev_ep, ep, sizeof(struct rmnet_endpoint));
->> +	if (config_id == RMNET_LOCAL_LOGICAL_ENDPOINT)
->> +		dev_ep->mux_id = 0;
->> +	else
->> +		dev_ep->mux_id = config_id;
-> 
-> So... if config_id is LOGICAL_ENDPOINT (-1) this sets mux_id to 0.
-> 
-> But if config_id is 0, it *also* sets mux_id to 0?
-> 
-> Can you clarify what mux_id = 0 actually means here?  Can you also talk
-> a bit about the difference between local_ep and muxed_ep?
-> 
+The current series was rewritten completely to work with RDMA netlinks as
+a source of user<->kernel communications. In order to achieve that, the
+RDMA netlinks were extensively refactored and modernized [2, 3, 4 and 5].
 
-mux_id 0 is for the pass through mode (for the testing scenario).
-The MAP packets arriving maybe shipped as is to a different net device
-(say one exposed by USB).
+The Doug's for-next tag includes most of the needed patches for this tool.
 
-While transmitting packets from rmnet dev to real_dev, the local_ep
-has the information about the rmnet dev. Based on that, the MAP
-header is stamped and packet is transmitted.
+The following is an example of various runs on my machine with 5 devices
+(4 in IB mode and one in Ethernet mode).
 
-muxed_ep is for receiving the packets where the MAP header is
-stripped off and the packets is passed to the appropriate rmnet dev.
+### Without parameters
+$ rdma
+Usage: rdma [ OPTIONS ] OBJECT { COMMAND | help }
+where  OBJECT := { dev | link | help }
+       OPTIONS := { -V[ersion] | -d[etails] | -j[son] | -p[retty]}
 
->> +	case NETDEV_UNREGISTER_FINAL:
-> I don't see anywhere that RMNET_INGRESS_FIX_ETHERNET can get set?
-> Also, can't that be autodetected?
-> 
-> 
-> Just use ETH_HLEN instead of RMNET_ETHERNET_HEADER_LENGTH.
-> 
-> But really, I can't see where FIX_ETHERNET ever gets set.  And as
-> above, can't this be automatically detected?  Can you describe what the
-> issue is here in more detail?
-> 
-> I know for qmi_wwan.c we had to fix up a number of firmware bugs, but
-> all that is done automatically.
-> 
-The ethernet mode was earlier for some experimental configurations.
+### With unspecified device name
+$ rdma dev
+1: mlx5_0: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3457 sys_image_guid 5254:00c0:fe12:3457
+2: mlx5_1: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3458 sys_image_guid 5254:00c0:fe12:3458
+3: mlx5_2: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3459 sys_image_guid 5254:00c0:fe12:3459
+4: mlx5_3: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345a sys_image_guid 5254:00c0:fe12:345a
+5: mlx5_4: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345b sys_image_guid 5254:00c0:fe12:345b
 
->> +	int egress_format = RMNET_EGRESS_FORMAT_MUXING |
->> +			    RMNET_EGRESS_FORMAT_MAP;
->> +	struct net_device *real_dev;
->> +	int mode = RMNET_EPMODE_VND;
->> +	u16 mux_id;
->> +
->> +	real_dev = __dev_get_by_index(src_net,
->> nla_get_u32(tb[IFLA_LINK]));
->> +	if (!real_dev || !dev)
->> +		return -ENODEV;
->> +
->> +	if (!data[IFLA_VLAN_ID])
-> 
-> Also, I wasn't thinking to actually *use* IFLA_VLAN_ID, but I'll let
-> others weigh in.  It does fit in this case, I think, but maybe creating
-> an RMNET-specific attribute would be better?
-> 
+### Detailed mode
+$ rdma -d dev
+1: mlx5_0: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3457 sys_image_guid 5254:00c0:fe12:3457
+    caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
+2: mlx5_1: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3458 sys_image_guid 5254:00c0:fe12:3458
+    caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
+3: mlx5_2: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3459 sys_image_guid 5254:00c0:fe12:3459
+    caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
+4: mlx5_3: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345a sys_image_guid 5254:00c0:fe12:345a
+    caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
+5: mlx5_4: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345b sys_image_guid 5254:00c0:fe12:345b
+    caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
 
-I have implemented a single message for setting up the device based on 
-mux
-in this patchset so this suffices for me :) . Stephen had suggested to 
-reuse
-existing structs as much as possible.
+### Specific device
+$ rdma dev show mlx5_4
+5: mlx5_4: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345b sys_image_guid 5254:00c0:fe12:345b
 
->> +struct rmnet_map_control_command {
->> +	u8  command_name;
->> +	u8  cmd_type:2;
->> +	u8  reserved:6;
->> +	u16 reserved2;
->> +	u32 transaction_id;
->> +	union {
->> +		u8  data[65528];
-> 
-> Um....  that seems really, really odd.  Typically this would go below
-> the flow_control struct, and actually be:
-> 
-> u8 data[0];
-> 
-> To indicate that the struct member should exist and that you can use
-> it, but that it has no specific size (since the size will be determined
-> by the skb size or by a protocol field instead).
-> 
-> Thats all for now...
-> 
-> Dan
-> 
+### Specific device in detailed mode
+$ rdma dev show mlx5_4 -d
+5: mlx5_4: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345b sys_image_guid 5254:00c0:fe12:345b
+    caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
 
-I will change this to u8 data[0];
+### Unknown command (caps)
+$ rdma dev show mlx5_4 caps
+Unknown parameter 'caps'.
+
+### Link properties without device name
+$ rdma link
+1/1: mlx5_0/1: subnet_prefix fe80:0000:0000:0000 lid 13399 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+2/1: mlx5_1/1: subnet_prefix fe80:0000:0000:0000 lid 13400 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+3/1: mlx5_2/1: subnet_prefix fe80:0000:0000:0000 lid 13401 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+4/1: mlx5_3/1: state DOWN physical_state DISABLED
+5/1: mlx5_4/1: subnet_prefix fe80:0000:0000:0000 lid 13403 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+
+### Link properties in detailed mode
+$ rdma link -d
+1/1: mlx5_0/1: subnet_prefix fe80:0000:0000:0000 lid 13399 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+    caps: <AUTO_MIGR>
+2/1: mlx5_1/1: subnet_prefix fe80:0000:0000:0000 lid 13400 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+    caps: <AUTO_MIGR>
+3/1: mlx5_2/1: subnet_prefix fe80:0000:0000:0000 lid 13401 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+    caps: <AUTO_MIGR>
+4/1: mlx5_3/1: state DOWN physical_state DISABLED
+    caps: <CM, IP_BASED_GIDS>
+5/1: mlx5_4/1: subnet_prefix fe80:0000:0000:0000 lid 13403 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+    caps: <AUTO_MIGR>
+
+### All links for specific device
+$ rdma link show mlx5_3
+1/1: mlx5_0/1: subnet_prefix fe80:0000:0000:0000 lid 13399 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+
+### Detailed link properties for specific device
+$ rdma link -d show mlx5_3
+1/1: mlx5_0/1: subnet_prefix fe80:0000:0000:0000 lid 13399 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+    caps: <AUTO_MIGR>
+
+### Specific port for specific device
+$ rdma link show mlx5_4/1
+1/1: mlx5_0/1: subnet_prefix fe80:0000:0000:0000 lid 13399 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+
+### Unknown parameter
+$ rdma link show mlx5_4/1 caps
+Unknown parameter 'caps'.
+
+Thanks
+
+Available in the "topic/rdmatool-netlink-v5" topic branch of this git repo:
+git://git.kernel.org/pub/scm/linux/kernel/git/leon/iproute2.git
+
+Or for browsing:
+https://git.kernel.org/cgit/linux/kernel/git/leon/iproute2.git/log/?h=topic/rdmatool-netlink-v5
+
+Thanks
+
+[1] https://www.spinics.net/lists/linux-rdma/msg49575.html
+[2] https://patchwork.kernel.org/patch/9752865/
+[3] https://www.spinics.net/lists/linux-rdma/msg50827.html
+[4] https://www.spinics.net/lists/linux-rdma/msg51210.html
+[5] https://patchwork.kernel.org/patch/9811729/ and https://patchwork.kernel.org/patch/9811731/]
+
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Cc: Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Cc: Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+
+Leon Romanovsky (8):
+  utils: Move BIT macro to common header
+  rdma: Add basic infrastructure for RDMA tool
+  rdma: Add dev object
+  rdma: Add link object
+  rdma: Add json and pretty outputs
+  rdma: Implement json output for dev object
+  rdma: Add json output to link object
+  rdma: Add initial manual for the tool
+
+ Makefile             |   2 +-
+ devlink/devlink.c    |   2 +-
+ include/utils.h      |   2 +
+ man/man8/rdma-dev.8  |  55 +++++++++
+ man/man8/rdma-link.8 |  55 +++++++++
+ man/man8/rdma.8      | 102 +++++++++++++++
+ rdma/.gitignore      |   1 +
+ rdma/Makefile        |  22 ++++
+ rdma/dev.c           | 284 ++++++++++++++++++++++++++++++++++++++++++
+ rdma/link.c          | 343 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ rdma/rdma.c          | 143 +++++++++++++++++++++
+ rdma/rdma.h          |  93 ++++++++++++++
+ rdma/utils.c         | 266 +++++++++++++++++++++++++++++++++++++++
+ 13 files changed, 1368 insertions(+), 2 deletions(-)
+ create mode 100644 man/man8/rdma-dev.8
+ create mode 100644 man/man8/rdma-link.8
+ create mode 100644 man/man8/rdma.8
+ create mode 100644 rdma/.gitignore
+ create mode 100644 rdma/Makefile
+ create mode 100644 rdma/dev.c
+ create mode 100644 rdma/link.c
+ create mode 100644 rdma/rdma.c
+ create mode 100644 rdma/rdma.h
+ create mode 100644 rdma/utils.c
+
+--
+2.14.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
