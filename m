@@ -1,50 +1,191 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] tcp: when rearming RTO, if RTO time is in past then
- fire RTO ASAP
-Date: Thu, 17 Aug 2017 10:56:17 -0400
-Message-ID: <CADVnQymXKqcjEyNjTpK_c+eWbryZ0RL+4Y46_6DrOCVO_j+g7A@mail.gmail.com>
-References: <20170816215336.30419-1-ncardwell@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next] dsa: remove unused net_device arg from handlers
+Date: Thu, 17 Aug 2017 16:47:00 +0200
+Message-ID: <20170817144700.16218-1-fw@strlen.de>
+Cc: f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f179.google.com ([209.85.216.179]:33342 "EHLO
-        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750957AbdHQO4s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 10:56:48 -0400
-Received: by mail-qt0-f179.google.com with SMTP id a18so39031880qta.0
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 07:56:48 -0700 (PDT)
-In-Reply-To: <20170816215336.30419-1-ncardwell@google.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:56490 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751149AbdHQO5p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 10:57:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 16, 2017 at 5:53 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> In some situations tcp_send_loss_probe() can realize that it's unable
-> to send a loss probe (TLP), and falls back to calling tcp_rearm_rto()
-> to schedule an RTO timer. In such cases, sometimes tcp_rearm_rto()
-> realizes that the RTO was eligible to fire immediately or at some
-> point in the past (delta_us <= 0). Previously in such cases
-> tcp_rearm_rto() was scheduling such "overdue" RTOs to happen at now +
-> icsk_rto, which caused needless delays of hundreds of milliseconds
-> (and non-linear behavior that made reproducible testing
-> difficult). This commit changes the logic to schedule "overdue" RTOs
-> ASAP, rather than at now + icsk_rto.
->
-> Suggested-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
+compile tested only, but saw no warnings/errors with
+allmodconfig build.
 
-Forgot to mention:
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/net/dsa.h     | 6 ++----
+ net/dsa/dsa.c         | 4 ++--
+ net/dsa/tag_brcm.c    | 3 +--
+ net/dsa/tag_dsa.c     | 3 +--
+ net/dsa/tag_edsa.c    | 3 +--
+ net/dsa/tag_ksz.c     | 3 +--
+ net/dsa/tag_lan9303.c | 2 +-
+ net/dsa/tag_mtk.c     | 3 +--
+ net/dsa/tag_qca.c     | 3 +--
+ net/dsa/tag_trailer.c | 3 +--
+ 10 files changed, 12 insertions(+), 21 deletions(-)
 
-Fixes: 6ba8a3b19e76 ("tcp: Tail loss probe (TLP)")
-
-This is a -stable candidate.
-
-thanks,
-neal
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 7f46b521313e..398ca8d70ccd 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -104,8 +104,7 @@ struct packet_type;
+ struct dsa_device_ops {
+ 	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
+ 	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
+-			       struct packet_type *pt,
+-			       struct net_device *orig_dev);
++			       struct packet_type *pt);
+ 	int (*flow_dissect)(const struct sk_buff *skb, __be16 *proto,
+ 			    int *offset);
+ };
+@@ -134,8 +133,7 @@ struct dsa_switch_tree {
+ 	/* Copy of tag_ops->rcv for faster access in hot path */
+ 	struct sk_buff *	(*rcv)(struct sk_buff *skb,
+ 				       struct net_device *dev,
+-				       struct packet_type *pt,
+-				       struct net_device *orig_dev);
++				       struct packet_type *pt);
+ 
+ 	/*
+ 	 * The switch port to which the CPU is attached.
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 99e38af85fc5..03c58b0eb082 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -186,7 +186,7 @@ struct net_device *dsa_dev_to_net_device(struct device *dev)
+ EXPORT_SYMBOL_GPL(dsa_dev_to_net_device);
+ 
+ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
+-			  struct packet_type *pt, struct net_device *orig_dev)
++			  struct packet_type *pt, struct net_device *unused)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct sk_buff *nskb = NULL;
+@@ -202,7 +202,7 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	if (!skb)
+ 		return 0;
+ 
+-	nskb = dst->rcv(skb, dev, pt, orig_dev);
++	nskb = dst->rcv(skb, dev, pt);
+ 	if (!nskb) {
+ 		kfree_skb(skb);
+ 		return 0;
+diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
+index c697d9815177..de74c3f77818 100644
+--- a/net/dsa/tag_brcm.c
++++ b/net/dsa/tag_brcm.c
+@@ -89,8 +89,7 @@ static struct sk_buff *brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev
+ }
+ 
+ static struct sk_buff *brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+-				    struct packet_type *pt,
+-				    struct net_device *orig_dev)
++				    struct packet_type *pt)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
+diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
+index 12867a4b458f..fbf9ca954773 100644
+--- a/net/dsa/tag_dsa.c
++++ b/net/dsa/tag_dsa.c
+@@ -65,8 +65,7 @@ static struct sk_buff *dsa_xmit(struct sk_buff *skb, struct net_device *dev)
+ }
+ 
+ static struct sk_buff *dsa_rcv(struct sk_buff *skb, struct net_device *dev,
+-			       struct packet_type *pt,
+-			       struct net_device *orig_dev)
++			       struct packet_type *pt)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct dsa_switch *ds;
+diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
+index 67a9d26f9075..76367ba1b2e2 100644
+--- a/net/dsa/tag_edsa.c
++++ b/net/dsa/tag_edsa.c
+@@ -78,8 +78,7 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
+ }
+ 
+ static struct sk_buff *edsa_rcv(struct sk_buff *skb, struct net_device *dev,
+-				struct packet_type *pt,
+-				struct net_device *orig_dev)
++				struct packet_type *pt)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct dsa_switch *ds;
+diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
+index de66ca8e6201..17f30675c15c 100644
+--- a/net/dsa/tag_ksz.c
++++ b/net/dsa/tag_ksz.c
+@@ -76,8 +76,7 @@ static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
+ }
+ 
+ static struct sk_buff *ksz_rcv(struct sk_buff *skb, struct net_device *dev,
+-			       struct packet_type *pt,
+-			       struct net_device *orig_dev)
++			       struct packet_type *pt)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
+diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
+index e23e7635fa00..0b9826105e42 100644
+--- a/net/dsa/tag_lan9303.c
++++ b/net/dsa/tag_lan9303.c
+@@ -68,7 +68,7 @@ static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
+ }
+ 
+ static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
+-			struct packet_type *pt, struct net_device *orig_dev)
++			struct packet_type *pt)
+ {
+ 	u16 *lan9303_tag;
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
+index 02163c045a96..ec8ee5f43255 100644
+--- a/net/dsa/tag_mtk.c
++++ b/net/dsa/tag_mtk.c
+@@ -44,8 +44,7 @@ static struct sk_buff *mtk_tag_xmit(struct sk_buff *skb,
+ }
+ 
+ static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+-				   struct packet_type *pt,
+-				   struct net_device *orig_dev)
++				   struct packet_type *pt)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct dsa_switch *ds;
+diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
+index 1867a3d11f28..1d4c70711c0f 100644
+--- a/net/dsa/tag_qca.c
++++ b/net/dsa/tag_qca.c
+@@ -63,8 +63,7 @@ static struct sk_buff *qca_tag_xmit(struct sk_buff *skb, struct net_device *dev)
+ }
+ 
+ static struct sk_buff *qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+-				   struct packet_type *pt,
+-				   struct net_device *orig_dev)
++				   struct packet_type *pt)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
+diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
+index b09e56214005..8707157dea32 100644
+--- a/net/dsa/tag_trailer.c
++++ b/net/dsa/tag_trailer.c
+@@ -56,8 +56,7 @@ static struct sk_buff *trailer_xmit(struct sk_buff *skb, struct net_device *dev)
+ }
+ 
+ static struct sk_buff *trailer_rcv(struct sk_buff *skb, struct net_device *dev,
+-				   struct packet_type *pt,
+-				   struct net_device *orig_dev)
++				   struct packet_type *pt)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
+-- 
+2.13.0
