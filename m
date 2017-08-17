@@ -1,77 +1,72 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Subject: [PATCH] PCI: Allow PCI express root ports to find themselves
-Date: Thu, 17 Aug 2017 13:06:14 +0200
-Message-ID: <20170817110614.11454-1-thierry.reding@gmail.com>
-References: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com>
-Cc: leedom@chelsio.com, ashok.raj@intel.com, werner@chelsio.com,
-        ganeshgr@chelsio.com, asit.k.mallick@intel.com,
-        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
-        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
-        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
-        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
-        alexander.duyck@gmail.com, eric.dumazet@gmail.com,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com
-To: David Miller <davem@davemloft.net>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        Ding Tianhong <dingtianhong@huawei.com>,
-        Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] net: sched: fix NULL pointer dereference when action
+ calls some targets
+Date: Thu, 17 Aug 2017 23:24:00 +1200
+Message-ID: <CADvbK_e+EntdONqnVEEDK+gqzcJHoy2gu5syoYznjaM22zKMCQ@mail.gmail.com>
+References: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
+ <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
+ <CADvbK_fuuBrh+eOuhQU+SYs9uazH2TRP+KUmhxU=hNZ=EkOT=Q@mail.gmail.com>
+ <CAM_iQpXbtHDxVjZ=DoTiLXHLQy6q=JVBa66EqSOy95ZbFg-wkQ@mail.gmail.com>
+ <CADvbK_cCQY0McHiZFKSTjdGdAjhB6RBej5n=SH2=hsLYC=Xa7w@mail.gmail.com>
+ <20170817100220.GC6928@salvia> <20170817103344.GA7568@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:34082 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750913AbdHQLYH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 07:24:07 -0400
+In-Reply-To: <20170817103344.GA7568@salvia>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thierry Reding <treding@nvidia.com>
+On Thu, Aug 17, 2017 at 10:33 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Thu, Aug 17, 2017 at 12:02:20PM +0200, Pablo Neira Ayuso wrote:
+>> On Wed, Aug 16, 2017 at 08:39:44PM +1200, Xin Long wrote:
+>> > On Wed, Aug 9, 2017 at 7:33 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> > > On Mon, Aug 7, 2017 at 7:33 PM, Xin Long <lucien.xin@gmail.com> wrote:
+>> > >> On Tue, Aug 8, 2017 at 9:15 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> > >>> This looks like a completely API burden?
+>> > >> netfilter xt targets are not really compatible with netsched action.
+>> > >> I've got to say, the patch is just a way to make checkentry return
+>> > >> false and avoid panic. like [1] said
+>> > >
+>> > > I don't doubt you fix a crash, I am thinking if we can
+>> > > "fix" the API instead of fixing the caller.
+>> > Hi, Cong,
+>> >
+>> > For now, I don't think it's possible to change APIs or  some of their targets
+>> > for the panic caused by action xt calling.
+>> >
+>> > The common way should be fixed in net_sched side.
+>> >
+>> > Given that the issue is very easy to triggered,
+>> > let's wait for netfilter's replies for another few days,
+>> > otherwise I will repost the fix, agree ?
+>>
+>> Please, post the workaround so the kernel doesn't crash anymore.
+>>
+>> This is going to be very hard to fix, it's broken since the very
+>> beginning...
+>
+> Wait a second, you could rename par->nft_compat to par->no_entry. From
+> net/sched/ you can set this to 1, so the entry checks are ignored.
+>
+> I'm refering to patch 55917a21d0cc0
 
-If the pci_find_pcie_root_port() function is called on a root port
-itself, return the root port rather than NULL.
+par->nft_compat wasn't used to ignore the entry checks, if we rename it
+as no_entry, some other targets still needs to update. like the ones in
+this patch's changelog:
+ECN: ecn_tg_check()
+TPROXY: tproxy_tg4_check()
 
-This effectively reverts commit 0e405232871d6 ("PCI: fix oops when
-try to find Root Port for a PCI device") which added an extra check
-that would now be redundant.
-
-Fixes: a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
-Fixes: c56d4450eb68 ("PCI: Turn off Request Attributes to avoid Chelsio T5 Completion erratum")
-Signed-off-by: Thierry Reding <treding@nvidia.com>
----
-This applies on top of and was tested on next-20170817.
-
-Michael, it'd be great if you could test this one again to clarify
-whether or not the fix that's already in Linus' tree is still needed, or
-whether it's indeed obsoleted by this patch.
-
- drivers/pci/pci.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index b05c587e335a..dd56c1c05614 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -514,7 +514,7 @@ EXPORT_SYMBOL(pci_find_resource);
-  */
- struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
- {
--	struct pci_dev *bridge, *highest_pcie_bridge = NULL;
-+	struct pci_dev *bridge, *highest_pcie_bridge = dev;
- 
- 	bridge = pci_upstream_bridge(dev);
- 	while (bridge && pci_is_pcie(bridge)) {
-@@ -522,11 +522,10 @@ struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
- 		bridge = pci_upstream_bridge(bridge);
- 	}
- 
--	if (highest_pcie_bridge &&
--	    pci_pcie_type(highest_pcie_bridge) == PCI_EXP_TYPE_ROOT_PORT)
--		return highest_pcie_bridge;
-+	if (pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
-+		return NULL;
- 
--	return NULL;
-+	return highest_pcie_bridge;
- }
- EXPORT_SYMBOL(pci_find_pcie_root_port);
- 
--- 
-2.13.3
+which means these two checks will be ignored for nft as well, that is
+not what we want.
+As nft has e4.ip.proto and e4.ip.invflags being set which net/sched
+gets nothing. they are still different.
