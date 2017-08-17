@@ -1,55 +1,57 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH] bpf: Update sysctl documentation to list all supported architectures
-Date: Thu, 17 Aug 2017 20:31:39 +1000
-Message-ID: <87lgmibi44.fsf@concordia.ellerman.id.au>
-References: <1502860557-20247-1-git-send-email-mpe@ellerman.id.au> <5993FFC9.8010206@iogearbox.net> <8760dnu5sf.fsf@concordia.ellerman.id.au> <5994489E.1020806@iogearbox.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] net: sched: fix NULL pointer dereference when action
+ calls some targets
+Date: Thu, 17 Aug 2017 12:33:44 +0200
+Message-ID: <20170817103344.GA7568@salvia>
+References: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
+ <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
+ <CADvbK_fuuBrh+eOuhQU+SYs9uazH2TRP+KUmhxU=hNZ=EkOT=Q@mail.gmail.com>
+ <CAM_iQpXbtHDxVjZ=DoTiLXHLQy6q=JVBa66EqSOy95ZbFg-wkQ@mail.gmail.com>
+ <CADvbK_cCQY0McHiZFKSTjdGdAjhB6RBej5n=SH2=hsLYC=Xa7w@mail.gmail.com>
+ <20170817100220.GC6928@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, ast@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5994489E.1020806@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170817100220.GC6928@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Borkmann <daniel@iogearbox.net> writes:
-> On 08/16/2017 01:10 PM, Michael Ellerman wrote:
->> Daniel Borkmann <daniel@iogearbox.net> writes:
->>> On 08/16/2017 07:15 AM, Michael Ellerman wrote:
->>>> diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
->>>> index 14db18c970b1..f68356024d09 100644
->>>> --- a/Documentation/sysctl/net.txt
->>>> +++ b/Documentation/sysctl/net.txt
->>>> @@ -36,8 +36,9 @@ bpf_jit_enable
->>>>    --------------
->>>>
->>>>    This enables Berkeley Packet Filter Just in Time compiler.
->>>> -Currently supported on x86_64 architecture, bpf_jit provides a framework
->>>> -to speed packet filtering, the one used by tcpdump/libpcap for example.
->>>> +Currently supported on arm, arm64, mips, powerpc, s390, sparc and x86_64
->>>> +architectures, bpf_jit provides a framework to speed packet filtering, the one
->>>> +used by tcpdump/libpcap for example.
->>>
->>> Good point, could we actually make that as a bullet list and
->>> differentiate between cBPF and eBPF JITs, so that a user doesn't
->>> need to run git grep HAVE_{E,C}BPF_JIT to figure it out what the
->>> switch enables on the arch used? That would be great.
->>
->> We could.
->>
->> Does a user of the sysctl want/need to know the difference though? Or do
->> they just want to turn on "the JIT"?
->
-> They would just turn it on, but I think it would be nice to inform
-> them which archs support eBPF (which is a superset of cBPF in term
-> of what can be jited), so in case they have some native eBPF programs
-> they would see whether these can also be jited.
+On Thu, Aug 17, 2017 at 12:02:20PM +0200, Pablo Neira Ayuso wrote:
+> On Wed, Aug 16, 2017 at 08:39:44PM +1200, Xin Long wrote:
+> > On Wed, Aug 9, 2017 at 7:33 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > > On Mon, Aug 7, 2017 at 7:33 PM, Xin Long <lucien.xin@gmail.com> wrote:
+> > >> On Tue, Aug 8, 2017 at 9:15 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > >>> This looks like a completely API burden?
+> > >> netfilter xt targets are not really compatible with netsched action.
+> > >> I've got to say, the patch is just a way to make checkentry return
+> > >> false and avoid panic. like [1] said
+> > >
+> > > I don't doubt you fix a crash, I am thinking if we can
+> > > "fix" the API instead of fixing the caller.
+> > Hi, Cong,
+> > 
+> > For now, I don't think it's possible to change APIs or  some of their targets
+> > for the panic caused by action xt calling.
+> > 
+> > The common way should be fixed in net_sched side.
+> > 
+> > Given that the issue is very easy to triggered,
+> > let's wait for netfilter's replies for another few days,
+> > otherwise I will repost the fix, agree ?
+> 
+> Please, post the workaround so the kernel doesn't crash anymore.
+> 
+> This is going to be very hard to fix, it's broken since the very
+> beginning...
 
-OK. v2 just sent.
+Wait a second, you could rename par->nft_compat to par->no_entry. From
+net/sched/ you can set this to 1, so the entry checks are ignored.
 
-The text could probably use some more tweaking to mention the other
-things BPF is used for these days, but I didn't really feel qualified to
-do that.
-
-cheers
+I'm refering to patch 55917a21d0cc0
