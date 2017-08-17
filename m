@@ -1,60 +1,37 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 1/3] iproute_lwtunnel: csum_mode value checking was ineffective
-Date: Thu, 17 Aug 2017 19:09:30 +0200
-Message-ID: <20170817170932.24812-2-phil@nwl.cc>
-References: <20170817170932.24812-1-phil@nwl.cc>
+Subject: [iproute PATCH v2 2/7] xfrm_state: Make sure alg_name is NULL-terminated
+Date: Thu, 17 Aug 2017 19:09:27 +0200
+Message-ID: <20170817170932.24659-3-phil@nwl.cc>
+References: <20170817170932.24659-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:34955 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:42137 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753760AbdHQRO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 13:14:26 -0400
-In-Reply-To: <20170817170932.24812-1-phil@nwl.cc>
+        id S1753723AbdHQRON (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 13:14:13 -0400
+In-Reply-To: <20170817170932.24659-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ila_csum_name2mode() returning -1 on error but being declared as
-returning __u8 doesn't make much sense. Change the code to correctly
-detect this issue. Checking for __u8 overruns shouldn't be necessary
-though since ila_csum_name2mode() return values are well-defined.
-
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/iproute_lwtunnel.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ ip/xfrm_state.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
-index 5c0c7d110d23e..398ab5e077ed8 100644
---- a/ip/iproute_lwtunnel.c
-+++ b/ip/iproute_lwtunnel.c
-@@ -171,7 +171,7 @@ static char *ila_csum_mode2name(__u8 csum_mode)
- 	}
- }
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index e11c93bf1c3b5..7c0389038986e 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -125,7 +125,8 @@ static int xfrm_algo_parse(struct xfrm_algo *alg, enum xfrm_attr_type_t type,
+ 	fprintf(stderr, "warning: ALGO-NAME/ALGO-KEYMAT values will be sent to the kernel promiscuously! (verifying them isn't implemented yet)\n");
+ #endif
  
--static __u8 ila_csum_name2mode(char *name)
-+static int ila_csum_name2mode(char *name)
- {
- 	if (strcmp(name, "adj-transport") == 0)
- 		return ILA_CSUM_ADJUST_TRANSPORT;
-@@ -517,7 +517,7 @@ static int parse_encap_ila(struct rtattr *rta, size_t len,
+-	strncpy(alg->alg_name, name, sizeof(alg->alg_name));
++	strncpy(alg->alg_name, name, sizeof(alg->alg_name) - 1);
++	alg->alg_name[sizeof(alg->alg_name) - 1] = '\0';
  
- 	while (argc > 0) {
- 		if (strcmp(*argv, "csum-mode") == 0) {
--			__u8 csum_mode;
-+			int csum_mode;
- 
- 			NEXT_ARG();
- 
-@@ -526,7 +526,8 @@ static int parse_encap_ila(struct rtattr *rta, size_t len,
- 				invarg("\"csum-mode\" value is invalid\n",
- 				       *argv);
- 
--			rta_addattr8(rta, 1024, ILA_ATTR_CSUM_MODE, csum_mode);
-+			rta_addattr8(rta, 1024, ILA_ATTR_CSUM_MODE,
-+				     (__u8)csum_mode);
- 
- 			argc--; argv++;
- 		} else {
+ 	if (slen > 2 && strncmp(key, "0x", 2) == 0) {
+ 		/* split two chars "0x" from the top */
 -- 
 2.13.1
