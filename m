@@ -1,50 +1,33 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 3/7] iplink_can: Prevent overstepping array bounds
-Date: Thu, 17 Aug 2017 19:09:27 +0200
-Message-ID: <20170817170931.24302-4-phil@nwl.cc>
-References: <20170817170931.24302-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf: fix liveness propagation to parent in
+ spilled stack slots
+Date: Thu, 17 Aug 2017 10:16:11 -0700 (PDT)
+Message-ID: <20170817.101611.23983207839678338.davem@davemloft.net>
+References: <058693b94f456324fd1a3d5946fa486e3a09ca06.1502974643.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ecree@solarflare.com, ast@fb.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:41341 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753619AbdHQRNm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 13:13:42 -0400
-In-Reply-To: <20170817170931.24302-1-phil@nwl.cc>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59940 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753742AbdHQRQM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:16:12 -0400
+In-Reply-To: <058693b94f456324fd1a3d5946fa486e3a09ca06.1502974643.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-can_state_names array contains at most CAN_STATE_MAX fields, so allowing
-an index to it to be equal to that number is wrong. While here, also
-make sure the array is indeed that big so nothing bad happens if
-CAN_STATE_MAX ever increases.
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 17 Aug 2017 14:59:40 +0200
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/iplink_can.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Using parent->regs[] when propagating REG_LIVE_READ for spilled regs
+> doesn't work since parent->regs[] denote the set of normal registers
+> but not spilled ones. Propagate to the correct regs.
+> 
+> Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Edward Cree <ecree@solarflare.com>
 
-diff --git a/ip/iplink_can.c b/ip/iplink_can.c
-index 5df56b2bbbb3b..2954010fefa22 100644
---- a/ip/iplink_can.c
-+++ b/ip/iplink_can.c
-@@ -251,7 +251,7 @@ static int can_parse_opt(struct link_util *lu, int argc, char **argv,
- 	return 0;
- }
- 
--static const char *can_state_names[] = {
-+static const char *can_state_names[CAN_STATE_MAX] = {
- 	[CAN_STATE_ERROR_ACTIVE] = "ERROR-ACTIVE",
- 	[CAN_STATE_ERROR_WARNING] = "ERROR-WARNING",
- 	[CAN_STATE_ERROR_PASSIVE] = "ERROR-PASSIVE",
-@@ -275,7 +275,7 @@ static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	if (tb[IFLA_CAN_STATE]) {
- 		uint32_t state = rta_getattr_u32(tb[IFLA_CAN_STATE]);
- 
--		fprintf(f, "state %s ", state <= CAN_STATE_MAX ?
-+		fprintf(f, "state %s ", state < CAN_STATE_MAX ?
- 			can_state_names[state] : "UNKNOWN");
- 	}
- 
--- 
-2.13.1
+Applied.
