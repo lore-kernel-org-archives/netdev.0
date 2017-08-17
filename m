@@ -1,50 +1,50 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net] datagram: When peeking datagrams with offset < 0
- don't skip empty skbs
-Date: Thu, 17 Aug 2017 10:37:31 -0400
-Message-ID: <CAF=yD-KnjmCkqZuphj4yJdpB0j6NuBXGHUev4Z1zecN8+95d-Q@mail.gmail.com>
-References: <20170814055259.31078-1-matthew@mjdsystems.ca> <1502702846.8411.25.camel@redhat.com>
- <1846443.VTclhqQinN@ring00> <CAF=yD-L9CpW-DRtKfWWWKcNKcPSWvXOkTGZoKBq6=fQMrcKVWQ@mail.gmail.com>
- <1502724662.8411.53.camel@redhat.com> <CAF=yD-+ZNPtF1h1OT=_4yuE7=XtireP_OtbyBefHGdwtJ_ontQ@mail.gmail.com>
- <1502811641.3475.7.camel@redhat.com> <CAF=yD-Lacw9T7G0XZBdHZwEb6HgRuaBoyUN1oTvWixu4a0Fy6Q@mail.gmail.com>
- <CAF=yD-+jBim==ktwYUNAFkn-N4eabqgNME8NXM77v9-U_bfWPg@mail.gmail.com>
- <1502875722.3548.11.camel@redhat.com> <CAF=yD-K8FMicoSS6u-0r_J0p0fTyn4GNwhXn7_gRSSMYmAzw5g@mail.gmail.com>
- <1502914822.2796.6.camel@redhat.com> <CAF=yD-JryS8g=8nB7yq9WVdCOjqSb7uNwncrRfWPmMQbdYrh3w@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DD0058EDB@AcuExch.aculab.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net] tcp: when rearming RTO, if RTO time is in past then
+ fire RTO ASAP
+Date: Thu, 17 Aug 2017 10:56:17 -0400
+Message-ID: <CADVnQymXKqcjEyNjTpK_c+eWbryZ0RL+4Y46_6DrOCVO_j+g7A@mail.gmail.com>
+References: <20170816215336.30419-1-ncardwell@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Paolo Abeni <pabeni@redhat.com>,
-        Matthew Dawson <matthew@mjdsystems.ca>,
-        Network Development <netdev@vger.kernel.org>,
-        "Macieira, Thiago" <thiago.macieira@intel.com>
-To: David Laight <David.Laight@aculab.com>
+Cc: Netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35488 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750991AbdHQOiN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 10:38:13 -0400
-Received: by mail-oi0-f68.google.com with SMTP id q70so6606557oic.2
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 07:38:13 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0058EDB@AcuExch.aculab.com>
+Received: from mail-qt0-f179.google.com ([209.85.216.179]:33342 "EHLO
+        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750957AbdHQO4s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 10:56:48 -0400
+Received: by mail-qt0-f179.google.com with SMTP id a18so39031880qta.0
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 07:56:48 -0700 (PDT)
+In-Reply-To: <20170816215336.30419-1-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 17, 2017 at 5:15 AM, David Laight <David.Laight@aculab.com> wrote:
-> From: Willem de Bruijn
->> Sent: 17 August 2017 00:27
->> Actually, it is safe even without the check. Overflow of the signed integer
->> is benign here.
+On Wed, Aug 16, 2017 at 5:53 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> In some situations tcp_send_loss_probe() can realize that it's unable
+> to send a loss probe (TLP), and falls back to calling tcp_rearm_rto()
+> to schedule an RTO timer. In such cases, sometimes tcp_rearm_rto()
+> realizes that the RTO was eligible to fire immediately or at some
+> point in the past (delta_us <= 0). Previously in such cases
+> tcp_rearm_rto() was scheduling such "overdue" RTOs to happen at now +
+> icsk_rto, which caused needless delays of hundreds of milliseconds
+> (and non-linear behavior that made reproducible testing
+> difficult). This commit changes the logic to schedule "overdue" RTOs
+> ASAP, rather than at now + icsk_rto.
 >
-> IIRC the C language states that 'signed integer overflow' is undefined.
-> So 'MAXINT + 1' doesn't have to equal '-MAXINT - 1' (as one would
-> expect on a 2's compliment system).
->
-> While the linux kernel probably won't run on systems where this isn't true
-> (eg where signed arithmetic saturates) gcc will assume it can't happen
-> and optimise code with that assumption.
+> Suggested-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-Ah, of course. Thanks. The last patch does not rely on such tricks, indeed.
+Forgot to mention:
 
-On rereading, it is actually very similar to Matthew's original. The
-main difference is handling the negative offset case inside
-__skb_try_recv_from_queue instead of in each caller.
+Fixes: 6ba8a3b19e76 ("tcp: Tail loss probe (TLP)")
+
+This is a -stable candidate.
+
+thanks,
+neal
