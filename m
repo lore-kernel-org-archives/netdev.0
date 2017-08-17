@@ -1,67 +1,78 @@
-From: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
-Subject: [PATCH v3] net: inet: diag: expose sockets cgroup classid
-Date: Thu, 17 Aug 2017 00:35:11 +0000
-Message-ID: <20170817003910.15904-1-alexander.levin@verizon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>,
-        "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
-To: "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: [PATCH net-next 0/3 v5] Add support for rmnet driver
+Date: Wed, 16 Aug 2017 18:55:04 -0600
+Message-ID: <1502931307-517-1-git-send-email-subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+        fengguang.wu@intel.com, dcbw@redhat.com, jiri@resnulli.us,
+        stephen@networkplumber.org, David.Laight@ACULAB.COM,
+        marcel@holtmann.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:44408 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751888AbdHQAzw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 20:55:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Levin, Alexander (Sasha Levin)" <alexander.levin@one.verizon.com>
+--
+v1: Same as the RFC patch with some minor fixes for issues reported by
+kbuild test robot.
 
-This is useful for directly looking up a task based on class id rather than
-having to scan through all open file descriptors.
+v1->v2: Change datatypes and remove config IOCTL as mentioned by David.
+Also fix checkpatch issues and remove some unused code.
 
-Signed-off-by: Sasha Levin <alexander.levin@verizon.com>
----
- include/uapi/linux/inet_diag.h |  1 +
- net/ipv4/inet_diag.c           | 11 +++++++++++
- 2 files changed, 12 insertions(+)
+v2->v3: Move location to drivers/net and rename to rmnet. Change the
+userspace - netlink communication from custom netlink to rtnl_link_ops.
+Refactor some code. Use a fixed config for ingress and egress.
 
-diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.=
-h
-index bbe201047df6..678496897a68 100644
---- a/include/uapi/linux/inet_diag.h
-+++ b/include/uapi/linux/inet_diag.h
-@@ -142,6 +142,7 @@ enum {
- 	INET_DIAG_PAD,
- 	INET_DIAG_MARK,
- 	INET_DIAG_BBRINFO,
-+	INET_DIAG_CLASS_ID,
- 	__INET_DIAG_MAX,
- };
-=20
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 3828b3a805cd..67325d5832d7 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -274,6 +274,17 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_con=
-nection_sock *icsk,
- 			goto errout;
- 	}
-=20
-+	if (ext & (1 << (INET_DIAG_CLASS_ID - 1))) {
-+		u32 classid =3D 0;
-+
-+#ifdef CONFIG_SOCK_CGROUP_DATA
-+		classid =3D sock_cgroup_classid(&sk->sk_cgrp_data);
-+#endif
-+
-+		if (nla_put_u32(skb, INET_DIAG_CLASS_ID, classid))
-+			goto errout;
-+	}
-+
- out:
- 	nlmsg_end(skb, nlh);
- 	return 0;
---=20
-2.11.0
+v3->v4: Move location to drivers/net/ethernet/qualcomm/.
+Fix comments from Stephen and Jiri -
+Split the ether and arp type changes into seperate patches.
+Remove debug and custom logging and switch to standard netdevice log.
+Remove module parameters. Refactor and change some code style issues.
+
+v4->v5: Rename some structs and variables. Move the initializer
+before the for loop start. Put the arp type in correct sequence.
+
+Subash Abhinov Kasiviswanathan (3):
+  net: ether: Add support for multiplexing and aggregation type
+  net: arp: Add support for raw IP device
+  drivers: net: ethernet: qualcomm: rmnet: Initial implementation
+
+ Documentation/networking/rmnet.txt                 |  82 ++++
+ drivers/net/ethernet/qualcomm/Kconfig              |   2 +
+ drivers/net/ethernet/qualcomm/Makefile             |   2 +
+ drivers/net/ethernet/qualcomm/rmnet/Kconfig        |  12 +
+ drivers/net/ethernet/qualcomm/rmnet/Makefile       |  14 +
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c | 467 +++++++++++++++++++++
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h |  58 +++
+ .../net/ethernet/qualcomm/rmnet/rmnet_handlers.c   | 297 +++++++++++++
+ .../net/ethernet/qualcomm/rmnet/rmnet_handlers.h   |  26 ++
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_main.c   |  37 ++
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_map.h    |  88 ++++
+ .../ethernet/qualcomm/rmnet/rmnet_map_command.c    | 122 ++++++
+ .../net/ethernet/qualcomm/rmnet/rmnet_map_data.c   | 105 +++++
+ .../net/ethernet/qualcomm/rmnet/rmnet_private.h    |  47 +++
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c    | 267 ++++++++++++
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.h    |  32 ++
+ include/uapi/linux/if_arp.h                        |   1 +
+ include/uapi/linux/if_ether.h                      |   4 +-
+ 18 files changed, 1662 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/networking/rmnet.txt
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/Kconfig
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/Makefile
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.h
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_main.c
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_map.h
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_map_command.c
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_private.h
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
+ create mode 100644 drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.h
+
+-- 
+1.9.1
