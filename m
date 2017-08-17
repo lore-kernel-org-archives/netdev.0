@@ -1,42 +1,102 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] bpf: fix liveness propagation to parent in spilled stack slots
-Date: Thu, 17 Aug 2017 14:59:40 +0200
-Message-ID: <058693b94f456324fd1a3d5946fa486e3a09ca06.1502974643.git.daniel@iogearbox.net>
-Cc: ecree@solarflare.com, ast@fb.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH 1/6] bridge: learn dst metadata in FDB
+Date: Thu, 17 Aug 2017 16:04:20 +0300
+Message-ID: <88c29511-ec61-8eba-3d37-8f467cef42eb@cumulusnetworks.com>
+References: <20170816170202.456851-1-equinox@diac24.net>
+ <20170816170202.456851-2-equinox@diac24.net>
+ <1fbaa432-6241-fad0-5407-8b87abb965ae@cumulusnetworks.com>
+ <20170817110324.GK773745@eidolon>
+ <4d4c8d17-1e0b-b78f-983b-e419e153b2bf@cumulusnetworks.com>
+ <20170817124530.GN773745@eidolon>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, amine.kherbouche@6wind.com,
+        roopa@cumulusnetworks.com, stephen@networkplumber.org,
+        "bridge@lists.linux-foundation.org"
+        <bridge@lists.linux-foundation.org>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40438 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750988AbdHQM74 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 08:59:56 -0400
+Received: from mail-wr0-f174.google.com ([209.85.128.174]:35012 "EHLO
+        mail-wr0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752914AbdHQNEX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 09:04:23 -0400
+Received: by mail-wr0-f174.google.com with SMTP id 49so34520282wrw.2
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 06:04:22 -0700 (PDT)
+In-Reply-To: <20170817124530.GN773745@eidolon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using parent->regs[] when propagating REG_LIVE_READ for spilled regs
-doesn't work since parent->regs[] denote the set of normal registers
-but not spilled ones. Propagate to the correct regs.
+On 17/08/17 15:45, David Lamparter wrote:
+> On Thu, Aug 17, 2017 at 02:39:43PM +0300, Nikolay Aleksandrov wrote:
+>> On 17/08/17 14:03, David Lamparter wrote:
+>>> On Wed, Aug 16, 2017 at 11:38:06PM +0300, Nikolay Aleksandrov wrote:
+>>>> On 16/08/17 20:01, David Lamparter wrote:
+>>>> and hitting the fast path for everyone in a few different places for a
+>>>> feature that the majority will not use does not sound acceptable to
+>>>> me. We've been trying hard to optimize it, trying to avoid additional
+>>>> cache lines, removing tests and keeping special cases to a minimum. 
+>>>
+>>> skb->dst is on the same cacheline as skb->len.
+>>> fdb->md_dst is on the same cacheline as fdb->dst.
+>>> Both will be 0 in a lot of cases, so this should be two null checks on
+>>> data that is hot in the cache.  Are you sure this is an actual problem?
+>>>
+>>
+>> Sure - no, I haven't benchmarked it, but I don't see skb->len being on
+>> the same cache line as _skb_refdst assuming 64 byte cache lines.
+>> But again any special cases, in my opinion, should be handled on their own,
+>> it is both about the fast path and the code complexity that they bring in.
+> 
+> (separate thread)
+> 
+> [cut]
+>>> I really hope you're not suggesting the entire MDB with IPv4 & IPv6
+>>> snooping be duplicated into both VPLS and mac80211?
+>>
+>> Code can always be shared if there are more users, no need to stuff
+>> everything in the bridge,
+> 
+> The MDB code is far from trivial, has several configuration knobs, and
+> even sends its own queries if configured to do so.  It can also use
+> quite a bit of memory of there's a nontrivial number of multicast
+> groups.  I *really* think it shouldn't be duplicated.
+> 
+>> but I'm not that familiar with this case, once patches are out I can
+>> comment further.
+> 
+> I've pushed my hacks to:
+> https://github.com/eqvinox/vpls-linux-kernel/commits/mdb-hack
+> (top two commits)
+> 
+> THIS IS ABSOLUTELY A PROOF OF CONCEPT.  It doesn't un-learn dst
+> metadata, it probably leaks buckets, and it may kill your cat.
+> (I haven't pushed my attempts at mac80211, because I haven't gotten
+> anywhere useful there just yet.)
+> 
+>>>> As you've noted this is only an RFC so I will not point out every issue, but there seems
+>>>> to be a major problem with br_fdb_update(), note that it runs without any locks except RCU.
+>>>
+>>> Right, Thanks! ... I only thought about concurrent access, forgetting
+>>> about concurrent modification...  I'll replace it with an xchg I think.
+>>> (No need for a lock that way)
+>>
+>> I think you can still lose references to a dst that way, what if someone changes the
+>> dst you read before the xchg and you xchg it ?
+> 
+> The dst to be released is the return from (atomic) xchg, not the value
+> read earlier for comparison.  This can happen in parallel, but apart
+> from a little extra churn in the update case it has no ill effects.
+> 
+> If someone changes it in the meantime, they have new dst information for
+> the fdb entry, and so do we.  With xchg'ing it, either one of the
+> updates will stick and the other will be properly released.  Considering
+> that there is no correct ordering here (either packet could be processed
+> a nanosecond later or earlier), this is perfectly fine as an outcome.
 
-Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Edward Cree <ecree@solarflare.com>
----
- kernel/bpf/verifier.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Yep right you are, my bad.
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 958ba84..40f669d 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -3460,7 +3460,7 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
- 		if (parent->spilled_regs[i].live & REG_LIVE_READ)
- 			continue;
- 		if (state->spilled_regs[i].live == REG_LIVE_READ) {
--			parent->regs[i].live |= REG_LIVE_READ;
-+			parent->spilled_regs[i].live |= REG_LIVE_READ;
- 			touched = true;
- 		}
- 	}
--- 
-1.9.3
+> 
+> 
+> -David
+> 
