@@ -1,41 +1,45 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 4/7] lib/rt_names: Drop dead code in rtnl_rttable_n2a()
-Date: Thu, 17 Aug 2017 19:09:28 +0200
-Message-ID: <20170817170931.24089-5-phil@nwl.cc>
-References: <20170817170931.24089-1-phil@nwl.cc>
+Subject: [iproute PATCH v2 5/7] lnstat_util: Simplify alloc_and_open() a bit
+Date: Thu, 17 Aug 2017 19:09:30 +0200
+Message-ID: <20170817170932.24659-6-phil@nwl.cc>
+References: <20170817170932.24659-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:60613 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:35905 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753603AbdHQRNf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 13:13:35 -0400
-In-Reply-To: <20170817170931.24089-1-phil@nwl.cc>
+        id S1753639AbdHQRNy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 13:13:54 -0400
+In-Reply-To: <20170817170932.24659-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since 'id' is 32bit unsigned, it can never exceed RT_TABLE_MAX (which is
-defined to 0xFFFFFFFF). Therefore drop that never matching conditional.
+Relying upon callers and using unsafe strcpy() is probably not the best
+idea. Aside from that, using snprintf() allows to format the string for
+lf->path in one go.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- lib/rt_names.c | 4 ----
- 1 file changed, 4 deletions(-)
+ misc/lnstat_util.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/lib/rt_names.c b/lib/rt_names.c
-index 04c15ff5b15f8..e5efd78e6f810 100644
---- a/lib/rt_names.c
-+++ b/lib/rt_names.c
-@@ -410,10 +410,6 @@ const char *rtnl_rttable_n2a(__u32 id, char *buf, int len)
- {
- 	struct rtnl_hash_entry *entry;
+diff --git a/misc/lnstat_util.c b/misc/lnstat_util.c
+index cc54598fe1bef..ec19238c24b94 100644
+--- a/misc/lnstat_util.c
++++ b/misc/lnstat_util.c
+@@ -180,11 +180,8 @@ static struct lnstat_file *alloc_and_open(const char *path, const char *file)
+ 	}
  
--	if (id > RT_TABLE_MAX) {
--		snprintf(buf, len, "%u", id);
--		return buf;
--	}
- 	if (!rtnl_rttable_init)
- 		rtnl_rttable_initialize();
- 	entry = rtnl_rttable_hash[id & 255];
+ 	/* initialize */
+-	/* de->d_name is guaranteed to be <= NAME_MAX */
+-	strcpy(lf->basename, file);
+-	strcpy(lf->path, path);
+-	strcat(lf->path, "/");
+-	strcat(lf->path, lf->basename);
++	snprintf(lf->basename, sizeof(lf->basename), "%s", file);
++	snprintf(lf->path, sizeof(lf->path), "%s/%s", path, file);
+ 
+ 	/* initialize to default */
+ 	lf->interval.tv_sec = 1;
 -- 
 2.13.1
