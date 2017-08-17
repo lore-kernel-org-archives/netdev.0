@@ -1,18 +1,18 @@
 From: Julien Fortin <julien@cumulusnetworks.com>
-Subject: [PATCH iproute2 json v2 03/27] json_writer: add new json handlers (null, float with format, lluint, hu)
-Date: Thu, 17 Aug 2017 10:35:50 -0700
-Message-ID: <20170817173614.54987-4-julien@cumulusnetworks.com>
+Subject: [PATCH iproute2 json v2 01/27] color: add new COLOR_NONE and disable_color function
+Date: Thu, 17 Aug 2017 10:35:48 -0700
+Message-ID: <20170817173614.54987-2-julien@cumulusnetworks.com>
 References: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
         dsa@cumulusnetworks.com, Julien Fortin <julien@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f173.google.com ([209.85.128.173]:38409 "EHLO
-        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753393AbdHQRkU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:40:20 -0400
-Received: by mail-wr0-f173.google.com with SMTP id 5so25401074wrz.5
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:40:20 -0700 (PDT)
+Received: from mail-wr0-f178.google.com ([209.85.128.178]:32987 "EHLO
+        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752664AbdHQRkN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:40:13 -0400
+Received: by mail-wr0-f178.google.com with SMTP id b65so50104860wrd.0
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:40:12 -0700 (PDT)
 In-Reply-To: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,145 +21,64 @@ From: Julien Fortin <julien@cumulusnetworks.com>
 
 Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
 ---
- include/json_writer.h |  9 +++++++++
- lib/json_writer.c     | 44 ++++++++++++++++++++++++++++++++++++++++----
- 2 files changed, 49 insertions(+), 4 deletions(-)
+ include/color.h |  2 ++
+ lib/color.c     | 12 ++++++++++--
+ 2 files changed, 12 insertions(+), 2 deletions(-)
 
-diff --git a/include/json_writer.h b/include/json_writer.h
-index ab9a008a..1516aafb 100644
---- a/include/json_writer.h
-+++ b/include/json_writer.h
-@@ -33,20 +33,29 @@ void jsonw_pretty(json_writer_t *self, bool on);
- void jsonw_name(json_writer_t *self, const char *name);
+diff --git a/include/color.h b/include/color.h
+index ba0b237e..1cd6f7d2 100644
+--- a/include/color.h
++++ b/include/color.h
+@@ -2,6 +2,7 @@
+ #define __COLOR_H__ 1
  
- /* Add value  */
-+void jsonw_printf(json_writer_t *self, const char *fmt, ...);
- void jsonw_string(json_writer_t *self, const char *value);
- void jsonw_bool(json_writer_t *self, bool value);
- void jsonw_float(json_writer_t *self, double number);
-+void jsonw_float_fmt(json_writer_t *self, const char *fmt, double num);
- void jsonw_uint(json_writer_t *self, uint64_t number);
-+void jsonw_hu(json_writer_t *self, unsigned short number);
- void jsonw_int(json_writer_t *self, int64_t number);
- void jsonw_null(json_writer_t *self);
-+void jsonw_lluint(json_writer_t *self, unsigned long long int num);
+ enum color_attr {
++	COLOR_NONE,
+ 	COLOR_IFNAME,
+ 	COLOR_MAC,
+ 	COLOR_INET,
+@@ -12,6 +13,7 @@ enum color_attr {
+ };
  
- /* Useful Combinations of name and value */
- void jsonw_string_field(json_writer_t *self, const char *prop, const char *val);
- void jsonw_bool_field(json_writer_t *self, const char *prop, bool value);
- void jsonw_float_field(json_writer_t *self, const char *prop, double num);
- void jsonw_uint_field(json_writer_t *self, const char *prop, uint64_t num);
-+void jsonw_hu_field(json_writer_t *self, const char *prop, unsigned short num);
- void jsonw_int_field(json_writer_t *self, const char *prop, int64_t num);
- void jsonw_null_field(json_writer_t *self, const char *prop);
-+void jsonw_lluint_field(json_writer_t *self, const char *prop,
-+			unsigned long long int num);
-+void jsonw_float_field_fmt(json_writer_t *self, const char *prop,
-+			   const char *fmt, double val);
- 
- /* Collections */
- void jsonw_start_object(json_writer_t *self);
-diff --git a/lib/json_writer.c b/lib/json_writer.c
-index 9fc05e96..6b77d288 100644
---- a/lib/json_writer.c
-+++ b/lib/json_writer.c
-@@ -156,7 +156,7 @@ void jsonw_name(json_writer_t *self, const char *name)
- 		putc(' ', self->out);
+ void enable_color(void);
++void check_if_color_enabled(void);
+ void set_color_palette(void);
+ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...);
+ enum color_attr ifa_family_color(__u8 ifa_family);
+diff --git a/lib/color.c b/lib/color.c
+index 4e947500..79d5e289 100644
+--- a/lib/color.c
++++ b/lib/color.c
+@@ -89,6 +89,14 @@ void set_color_palette(void)
+ 		is_dark_bg = 1;
  }
  
--static void jsonw_printf(json_writer_t *self, const char *fmt, ...)
-+void jsonw_printf(json_writer_t *self, const char *fmt, ...)
- {
- 	va_list ap;
- 
-@@ -199,23 +199,38 @@ void jsonw_bool(json_writer_t *self, bool val)
- 	jsonw_printf(self, "%s", val ? "true" : "false");
- }
- 
--#ifdef notused
- void jsonw_null(json_writer_t *self)
- {
- 	jsonw_printf(self, "null");
- }
- 
-+void jsonw_float_fmt(json_writer_t *self, const char *fmt, double num)
++void check_if_color_enabled(void)
 +{
-+	jsonw_printf(self, fmt, num);
++	if (color_is_enabled) {
++		fprintf(stderr, "Option \"-json\" conflicts with \"-color\".\n");
++		exit(1);
++	}
 +}
 +
-+#ifdef notused
- void jsonw_float(json_writer_t *self, double num)
+ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
  {
- 	jsonw_printf(self, "%g", num);
- }
- #endif
+ 	int ret = 0;
+@@ -96,13 +104,13 @@ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
  
-+void jsonw_hu(json_writer_t *self, unsigned short num)
-+{
-+	jsonw_printf(self, "%hu", num);
-+}
-+
- void jsonw_uint(json_writer_t *self, uint64_t num)
- {
- 	jsonw_printf(self, "%"PRIu64, num);
- }
+ 	va_start(args, fmt);
  
-+void jsonw_lluint(json_writer_t *self, unsigned long long int num)
-+{
-+	jsonw_printf(self, "%llu", num);
-+}
-+
- void jsonw_int(json_writer_t *self, int64_t num)
- {
- 	jsonw_printf(self, "%"PRId64, num);
-@@ -242,25 +257,46 @@ void jsonw_float_field(json_writer_t *self, const char *prop, double val)
- }
- #endif
+-	if (!color_is_enabled) {
++	if (!color_is_enabled || attr == COLOR_NONE) {
+ 		ret = vfprintf(fp, fmt, args);
+ 		goto end;
+ 	}
  
-+void jsonw_float_field_fmt(json_writer_t *self,
-+			   const char *prop,
-+			   const char *fmt,
-+			   double val)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_float_fmt(self, fmt, val);
-+}
-+
- void jsonw_uint_field(json_writer_t *self, const char *prop, uint64_t num)
- {
- 	jsonw_name(self, prop);
- 	jsonw_uint(self, num);
- }
+ 	ret += fprintf(fp, "%s",
+-		       color_codes[attr_colors[is_dark_bg ? attr + 7 : attr]]);
++		       color_codes[attr_colors[is_dark_bg ? attr + 8 : attr]]);
+ 	ret += vfprintf(fp, fmt, args);
+ 	ret += fprintf(fp, "%s", color_codes[C_CLEAR]);
  
-+void jsonw_hu_field(json_writer_t *self, const char *prop, unsigned short num)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_hu(self, num);
-+}
-+
-+void jsonw_lluint_field(json_writer_t *self,
-+			const char *prop,
-+			unsigned long long int num)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_lluint(self, num);
-+}
-+
- void jsonw_int_field(json_writer_t *self, const char *prop, int64_t num)
- {
- 	jsonw_name(self, prop);
- 	jsonw_int(self, num);
- }
- 
--#ifdef notused
- void jsonw_null_field(json_writer_t *self, const char *prop)
- {
- 	jsonw_name(self, prop);
- 	jsonw_null(self);
- }
--#endif
- 
- #ifdef TEST
- int main(int argc, char **argv)
 -- 
 2.14.1
