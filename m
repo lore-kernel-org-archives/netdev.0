@@ -1,30 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bpf: Update sysctl documentation to list all
- supported architectures
-Date: Thu, 17 Aug 2017 10:09:52 -0700 (PDT)
-Message-ID: <20170817.100952.216038410685469125.davem@davemloft.net>
-References: <1502965839-23115-1-git-send-email-mpe@ellerman.id.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, daniel@iogearbox.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: mpe@ellerman.id.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502965839-23115-1-git-send-email-mpe@ellerman.id.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v2 5/7] ss: Use C99 initializer in netlink_show_one()
+Date: Thu, 17 Aug 2017 19:09:29 +0200
+Message-ID: <20170817170931.24302-6-phil@nwl.cc>
+References: <20170817170931.24302-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:55983 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753346AbdHQRKI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 13:10:08 -0400
+In-Reply-To: <20170817170931.24302-1-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Thu, 17 Aug 2017 20:30:39 +1000
+This has the additional benefit of initializing st.ino to zero which is
+used later in is_sctp_assoc() function.
 
-> The sysctl documentation states that the JIT is only available on
-> x86_64, which is no longer correct.
-> 
-> Update the list, and break it out to indicate which architectures
-> support the cBPF JIT (via HAVE_CBPF_JIT) or the eBPF JIT
-> (HAVE_EBPF_JIT).
-> 
-> Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ misc/ss.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-Applied, thanks Michael.
+diff --git a/misc/ss.c b/misc/ss.c
+index b2a7f069e294c..d767b1103ea81 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -3469,17 +3469,18 @@ static int netlink_show_one(struct filter *f,
+ 				int rq, int wq,
+ 				unsigned long long sk, unsigned long long cb)
+ {
+-	struct sockstat st;
++	struct sockstat st = {
++		.state		= SS_CLOSE,
++		.rq		= rq,
++		.wq		= wq,
++		.local.family	= AF_NETLINK,
++		.remote.family	= AF_NETLINK,
++	};
+ 
+ 	SPRINT_BUF(prot_buf) = {};
+ 	const char *prot_name;
+ 	char procname[64] = {};
+ 
+-	st.state = SS_CLOSE;
+-	st.rq	 = rq;
+-	st.wq	 = wq;
+-	st.local.family = st.remote.family = AF_NETLINK;
+-
+ 	if (f->f) {
+ 		st.rport = -1;
+ 		st.lport = pid;
+-- 
+2.13.1
