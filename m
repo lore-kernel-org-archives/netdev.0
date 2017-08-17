@@ -1,58 +1,82 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net] PCI: fix the return value for the pci_find_pcie_root_port()
-Date: Thu, 17 Aug 2017 10:25:30 +0800
-Message-ID: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Subject: Re: Regression: Bug 196547 - Since 4.12 - bonding module not working
+ with wireless drivers
+Date: Wed, 16 Aug 2017 19:36:57 -0700
+Message-ID: <2abaf7ec-947a-6a30-e6d3-4f75605dd50d@candelatech.com>
+References: <CADps9UCgqeUh41iHxCM+CTJh=Tffn-tiSYL2Q+NBb_8EppqRMA@mail.gmail.com>
+ <2b6fd91a-f7cd-c2bf-6394-060d9b1f5d23@nurealm.net>
+ <1502918561.30484.1.camel@redhat.com>
+ <20170816.143116.1172751167543812070.davem@davemloft.net>
+ <1502935907.30484.4.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-        Thierry Reding <thierry.reding@gmail.com>
-To: <leedom@chelsio.com>, <ashok.raj@intel.com>, <bhelgaas@google.com>,
-        <helgaas@kernel.org>, <werner@chelsio.com>, <ganeshgr@chelsio.com>,
-        <asit.k.mallick@intel.com>, <patrick.j.cramer@intel.com>,
-        <Suravee.Suthikulpanit@amd.com>, <Bob.Shaw@amd.com>,
-        <l.stach@pengutronix.de>, <amira@mellanox.com>,
-        <gabriele.paoloni@huawei.com>, <David.Laight@aculab.com>,
-        <jeffrey.t.kirsher@intel.com>, <catalin.marinas@arm.com>,
-        <will.deacon@arm.com>, <mark.rutland@arm.com>,
-        <robin.murphy@arm.com>, <davem@davemloft.net>,
-        <alexander.duyck@gmail.com>, <eric.dumazet@gmail.com>,
-        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-        <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linuxarm@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga05-in.huawei.com ([45.249.212.191]:3574 "EHLO
-        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751943AbdHQC0N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 22:26:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: james-fvV4AYHggTTR7s880joybQ@public.gmane.org, futur.andy-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+        andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1502935907.30484.4.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The pci_find_pcie_root_port() would return NULL if the given
-dev is already a Root Port, it looks like unfriendly to the
-PCIe Root Port device, Thierry and Bjorn suggest to let this
-function return the given dev under this circumstances.
+On 08/16/2017 07:11 PM, Dan Williams wrote:
+> On Wed, 2017-08-16 at 14:31 -0700, David Miller wrote:
+>> From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> Date: Wed, 16 Aug 2017 16:22:41 -0500
+>>
+>>> My biggest suggestion is that perhaps bonding should grow
+>> hysteresis
+>>> for link speeds. Since WiFi can change speed every packet, you
+>> probably
+>>> don't want the bond characteristics changing every couple seconds
+>> just
+>>> in case your WiFi link is jumping around.  Ethernet won't bounce
+>> around
+>>> that much, so the hysteresis would have no effect there.  Or, if
+>> people
+>>> are concerned about response time to speed changes on ethernet
+>> (where
+>>> you probably do want an instant switch-over) some new flag to
+>> indicate
+>>> that certain devices don't have stable speeds over time.
+>>
+>> Or just report the average of the range the wireless link can hit,
+>> and
+>> be done with it.
+>>
+>> I think you guys are overcomplicating things.
+>
+> That range can be from 1 to > 800Mb/s.  No, it won't usually be all
+> over that range, but it won't be uncommon to fluctuate by hundreds of
+> Mb/s.  I'm not sure a simple average is really the answer here.  Even
+> doing that would require new knobs to ethtool, since the rate depends
+> heavily on card capabilities and also what AP you're connected to *at
+> that moment*.  If you roam to another AP, then the max speed can
+> certainly change.
+>
+> You'll probably say "aim for the 75% case" or something like that,
+> which is fine, but then you're depending on your 75% case to be (a)
+> single AP, (b) never move (eg, only bond wifi + ethernet), (c) little
+> radio interference.  I'm not sure I'd buy that.  If I've put words in
+> your mouth, forgive me.
 
-Fixes: 0e405232871d6 ("PCI: fix oops when try to find Root Port for a PCI device")
-Suggested-by: Thierry Reding <thierry.reding@gmail.com>
-Suggested-by: Bjorn Helgaas <helgaas@kernel.org>
-Signed-off-by: Thierry Reding <thierry.reding@gmail.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/pci/pci.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If you keep ethtool API simple and just return the last (rx-rate + tx-rate) / 2, or the rate averaged
+over the last 100 frames or 10 seconds, then the caller can do longer term averaging
+as it sees fit.  Probably no need for lots of averaging complexity in the kernel.
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index 7e2022f..352bb53 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -514,7 +514,7 @@ struct resource *pci_find_resource(struct pci_dev *dev, struct resource *res)
-  */
- struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
- {
--	struct pci_dev *bridge, *highest_pcie_bridge = NULL;
-+	struct pci_dev *bridge, *highest_pcie_bridge = dev;
- 
- 	bridge = pci_upstream_bridge(dev);
- 	while (bridge && pci_is_pcie(bridge)) {
+rate-ctrl for wifi basically doesn't happen until you transmit or receive a
+fairly steady stream, so it will fluctuate a lot.
+
+Thanks,
+Ben
+
+>
+> Dan
+>
+
+
 -- 
-1.8.3.1
+Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Candela Technologies Inc  http://www.candelatech.com
