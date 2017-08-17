@@ -1,194 +1,128 @@
 From: Julien Fortin <julien@cumulusnetworks.com>
-Subject: [PATCH iproute2 json v2 10/27] ip: iplink_bridge.c: add json output support
-Date: Thu, 17 Aug 2017 10:35:57 -0700
-Message-ID: <20170817173614.54987-11-julien@cumulusnetworks.com>
+Subject: [PATCH iproute2 json v2 11/27] ip: iplink_bridge_slave.c: add json output support
+Date: Thu, 17 Aug 2017 10:35:58 -0700
+Message-ID: <20170817173614.54987-12-julien@cumulusnetworks.com>
 References: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Cc: roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
         dsa@cumulusnetworks.com, Julien Fortin <julien@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f180.google.com ([209.85.128.180]:36432 "EHLO
-        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753508AbdHQRk7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:40:59 -0400
-Received: by mail-wr0-f180.google.com with SMTP id f8so5670370wrf.3
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:40:58 -0700 (PDT)
+Received: from mail-wr0-f178.google.com ([209.85.128.178]:35300 "EHLO
+        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753425AbdHQRlG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 13:41:06 -0400
+Received: by mail-wr0-f178.google.com with SMTP id 49so41470462wrw.2
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 10:41:05 -0700 (PDT)
 In-Reply-To: <20170817173614.54987-1-julien@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Julien Fortin <julien@cumulusnetworks.com>
 
-Schema and live example:
-bridge: IFLA_INFO_DATA
+Schema:
+bridge_slave: IFLA_INFO_SLAVE_DATA
 {
-    "forward_delay": {
-        "type": "uint",
-        "attr": "IFLA_BR_FORWARD_DELAY"
-    },
-    "hello_time": {
-        "type": "uint",
-        "attr": "IFLA_BR_HELLO_TIME"
-    },
-    "max_age": {
-        "type": "uint",
-        "attr": "IFLA_BR_MAX_AGE"
-    },
-    "ageing_time": {
-        "type": "uint",
-        "attr": "IFLA_BR_AGEING_TIME"
-    },
-    "stp_state": {
-        "type": "uint",
-        "attr": "IFLA_BR_STP_STATE"
+    "state": {
+        "type": "string",
+        "attr": "IFLA_BRPORT_STATE",
+        "mutually_exclusive": {
+            "state_index": {
+                "type": "uint",
+                "comment": "if (state > BR_STATE_BLOCKING)"
+            }
+        }
     },
     "priority": {
-        "type": "uint",
-        "attr": "IFLA_BR_PRIORITY"
+        "type": "int",
+        "attr": "IFLA_BRPORT_PRIORITY"
     },
-    "vlan_filtering": {
-        "type": "uint",
-        "attr": "IFLA_BR_VLAN_FILTERING"
+    "cost": {
+        "type": "int",
+        "attr": "IFLA_BRPORT_COST"
     },
-    "vlan_protocol": {
+    "mode": {
+        "type": "bool",
+        "attr": "IFLA_BRPORT_MODE"
+    },
+    "guard": {
+        "type": "bool",
+        "attr": "IFLA_BRPORT_GUARD"
+    },
+    "protect": {
+        "type": "bool",
+        "attr": "IFLA_BRPORT_PROTECT"
+    },
+    "fast_leave": {
+        "type": "bool",
+        "attr": "IFLA_BRPORT_FAST_LEAVE"
+    },
+    "learning": {
+        "type": "bool",
+        "attr": "IFLA_BRPORT_LEARNING"
+    },
+    "unicast_flood": {
+        "type": "bool",
+        "attr": "IFLA_BRPORT_UNICAST_FLOOD"
+    },
+    "id": {
         "type": "string",
-        "attr": "IFLA_BR_VLAN_PROTOCOL"
+        "attr": "IFLA_BRPORT_ID"
+    },
+    "no": {
+        "type": "string",
+        "attr": "IFLA_BRPORT_NO"
+    },
+    "designated_port": {
+        "type": "uint",
+        "attr": "IFLA_BRPORT_DESIGNATED_PORT"
+    },
+    "designated_cost": {
+        "type": "uint",
+        "attr": "IFLA_BRPORT_DESIGNATED_COST"
     },
     "bridge_id": {
         "type": "string",
-        "attr": "IFLA_BR_BRIDGE_ID"
+        "attr": "IFLA_BRPORT_BRIDGE_ID"
     },
     "root_id": {
         "type": "string",
-        "attr": "IFLA_BR_ROOT_ID"
+        "attr": "IFLA_BRPORT_ROOT_ID"
     },
-    "root_port": {
-        "type": "uint",
-        "attr": "IFLA_BR_ROOT_PORT"
-    },
-    "root_path_cost": {
-        "type": "uint",
-        "attr": "IFLA_BR_ROOT_PATH_COST"
-    },
-    "topology_change": {
-        "type": "uint",
-        "attr": "IFLA_BR_TOPOLOGY_CHANGE"
-    },
-    "topology_change_detected": {
-        "type": "uint",
-        "attr": "IFLA_BR_TOPOLOGY_CHANGE_DETECTED"
-    },
-    "hello_timer": {
+    "hold_timer": {
         "type": "float",
-        "attr": "IFLA_BR_HELLO_TIMER"
+        "attr": "IFLA_BRPORT_HOLD_TIMER"
     },
-    "tcn_timer": {
+    "message_age_timer": {
         "type": "float",
-        "attr": "IFLA_BR_TCN_TIMER"
+        "attr": "IFLA_BRPORT_MESSAGE_AGE_TIMER"
     },
-    "topology_change_timer": {
+    "forward_delay_timer": {
         "type": "float",
-        "attr": "IFLA_BR_TOPOLOGY_CHANGE_TIMER"
+        "attr": "IFLA_BRPORT_FORWARD_DELAY_TIMER"
     },
-    "gc_timer": {
-        "type": "float",
-        "attr": "IFLA_BR_GC_TIMER"
-    },
-    "vlan_default_pvid": {
+    "topology_change_ack": {
         "type": "uint",
-        "attr": "IFLA_BR_VLAN_DEFAULT_PVID"
+        "attr": "IFLA_BRPORT_TOPOLOGY_CHANGE_ACK"
     },
-    "vlan_stats_enabled": {
+    "config_pending": {
         "type": "uint",
-        "attr": "IFLA_BR_VLAN_STATS_ENABLED"
+        "attr": "IFLA_BRPORT_CONFIG_PENDING"
     },
-    "group_fwd_mask": {
-        "type": "string",
-        "attr": "IFLA_BR_GROUP_FWD_MASK"
+    "proxyarp": {
+        "type": "bool",
+        "attr": "IFLA_BRPORT_PROXYARP"
     },
-    "group_addr": {
-        "type": "string",
-        "attr": "IFLA_BR_GROUP_ADDR"
+    "proxyarp_wifi": {
+        "type": "bool",
+        "attr": "IFLA_BRPORT_PROXYARP_WIFI"
     },
-    "mcast_snooping": {
+    "multicast_router": {
         "type": "uint",
-        "attr": "IFLA_BR_MCAST_SNOOPING"
+        "attr": "IFLA_BRPORT_MULTICAST_ROUTER"
     },
-    "mcast_router": {
-        "type": "uint",
-        "attr": "IFLA_BR_MCAST_ROUTER"
-    },
-    "mcast_query_use_ifaddr": {
-        "type": "uint",
-        "attr": "IFLA_BR_MCAST_QUERY_USE_IFADDR"
-    },
-    "mcast_querier": {
-        "type": "uint",
-        "attr": "IFLA_BR_MCAST_QUERIER"
-    },
-    "mcast_hash_elasticity": {
-        "type": "uint",
-        "attr": "IFLA_BR_MCAST_HASH_ELASTICITY"
-    },
-    "mcast_hash_max": {
-        "type": "uint",
-        "attr": "IFLA_BR_MCAST_HASH_MAX"
-    },
-    "mcast_last_member_cnt": {
-        "type": "uint",
-        "attr": "IFLA_BR_MCAST_LAST_MEMBER_CNT"
-    },
-    "mcast_startup_query_cnt": {
-        "type": "uint",
-        "attr": "IFLA_BR_MCAST_STARTUP_QUERY_CNT"
-    },
-    "mcast_last_member_intvl": {
-        "type": "lluint",
-        "attr": "IFLA_BR_MCAST_LAST_MEMBER_INTVL"
-    },
-    "mcast_membership_intvl": {
-        "type": "lluint",
-        "attr": "IFLA_BR_MCAST_MEMBERSHIP_INTVL"
-    },
-    "mcast_querier_intvl": {
-        "type": "lluint",
-        "attr": "IFLA_BR_MCAST_QUERIER_INTVL"
-    },
-    "mcast_query_intvl": {
-        "type": "lluint",
-        "attr": "IFLA_BR_MCAST_QUERY_INTVL"
-    },
-    "mcast_query_response_intvl": {
-        "type": "lluint",
-        "attr": "IFLA_BR_MCAST_QUERY_RESPONSE_INTVL"
-    },
-    "mcast_startup_query_intvl": {
-        "type": "lluint",
-        "attr": "IFLA_BR_MCAST_STARTUP_QUERY_INTVL"
-    },
-    "mcast_stats_enabled": {
-        "type": "uint",
-        "attr": "IFLA_BR_MCAST_STATS_ENABLED"
-    },
-    "mcast_igmp_version": {
-        "type": "uint",
-        "attr": "IFLA_BR_MCAST_IGMP_VERSION"
-    },
-    "mcast_mld_version": {
-        "type": "uint",
-        "attr": "IFLA_BR_MCAST_MLD_VERSION"
-    },
-    "nf_call_iptables": {
-        "type": "uint",
-        "attr": "IFLA_BR_NF_CALL_IPTABLES"
-    },
-    "nf_call_ip6tables": {
-        "type": "uint",
-        "attr": "IFLA_BR_NF_CALL_IP6TABLES"
-    },
-    "nf_call_arptables": {
-        "type": "uint",
-        "attr": "IFLA_BR_NF_CALL_ARPTABLES"
+    "mcast_flood": {
+        "type": "bool",
+        "attr": "IFLA_BRPORT_MCAST_FLOOD"
     }
 }
 
@@ -197,7 +131,7 @@ $ ip link add dev bond42 type bond
 $ ip link set dev bond42 master br42
 $ ip link set dev bond42 up
 $ ip link set dev br42 up
-
+$ ip -details link show
 $ ip -details link show
 15: br42: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state
 UP mode DEFAULT group default
@@ -379,20 +313,53 @@ $ ip -details -json link show
 
 Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
 ---
- ip/iplink_bridge.c | 293 +++++++++++++++++++++++++++++++++--------------------
- 1 file changed, 185 insertions(+), 108 deletions(-)
+ ip/iplink_bridge_slave.c | 185 +++++++++++++++++++++++++++++------------------
+ 1 file changed, 114 insertions(+), 71 deletions(-)
 
-diff --git a/ip/iplink_bridge.c b/ip/iplink_bridge.c
-index cccdec1c..d3250980 100644
---- a/ip/iplink_bridge.c
-+++ b/ip/iplink_bridge.c
-@@ -373,45 +373,81 @@ static int bridge_parse_opt(struct link_util *lu, int argc, char **argv,
- 	return 0;
+diff --git a/ip/iplink_bridge_slave.c b/ip/iplink_bridge_slave.c
+index 3e883328..80272b09 100644
+--- a/ip/iplink_bridge_slave.c
++++ b/ip/iplink_bridge_slave.c
+@@ -56,14 +56,52 @@ static const char *port_states[] = {
+ static void print_portstate(FILE *f, __u8 state)
+ {
+ 	if (state <= BR_STATE_BLOCKING)
+-		fprintf(f, "state %s ", port_states[state]);
++		print_string(PRINT_ANY,
++			     "state",
++			     "state %s ",
++			     port_states[state]);
+ 	else
+-		fprintf(f, "state (%d) ", state);
++		print_int(PRINT_ANY, "state_index", "state (%d) ", state);
  }
  
-+static void _bridge_print_timer(FILE *f,
-+				const char *attr,
-+				struct rtattr *timer)
+-static void print_onoff(FILE *f, char *flag, __u8 val)
++static void _print_onoff(FILE *f, char *json_flag, char *flag, __u8 val)
+ {
+-	fprintf(f, "%s %s ", flag, val ? "on" : "off");
++	if (is_json_context())
++		print_bool(PRINT_JSON, flag, NULL, val);
++	else
++		fprintf(f, "%s %s ", flag, val ? "on" : "off");
++}
++
++static void _print_hex(FILE *f,
++		       const char *json_attr,
++		       const char *attr,
++		       __u16 val)
++{
++	if (is_json_context()) {
++		SPRINT_BUF(b1);
++
++		snprintf(b1, sizeof(b1), "0x%x", val);
++		print_string(PRINT_JSON, json_attr, NULL, b1);
++	} else {
++		fprintf(f, "%s 0x%x ", attr, val);
++	}
++}
++
++static void _print_timer(FILE *f, const char *attr, struct rtattr *timer)
 +{
 +	struct timeval tv;
 +
@@ -402,392 +369,211 @@ index cccdec1c..d3250980 100644
 +
 +		jsonw_name(jw, attr);
 +		jsonw_printf(jw, "%i.%.2i",
-+			     (int)tv.tv_sec,
-+			     (int)tv.tv_usec / 10000);
++			     (int)tv.tv_sec, (int)tv.tv_usec / 10000);
 +	} else {
 +		fprintf(f, "%s %4i.%.2i ", attr, (int)tv.tv_sec,
 +			(int)tv.tv_usec / 10000);
 +	}
-+}
-+
- static void bridge_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- {
- 	if (!tb)
- 		return;
+ }
  
- 	if (tb[IFLA_BR_FORWARD_DELAY])
--		fprintf(f, "forward_delay %u ",
--			rta_getattr_u32(tb[IFLA_BR_FORWARD_DELAY]));
+ static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
+@@ -76,59 +114,70 @@ static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
+ 		print_portstate(f, rta_getattr_u8(tb[IFLA_BRPORT_STATE]));
+ 
+ 	if (tb[IFLA_BRPORT_PRIORITY])
+-		fprintf(f, "priority %d ",
+-			rta_getattr_u16(tb[IFLA_BRPORT_PRIORITY]));
++		print_int(PRINT_ANY,
++			  "priority",
++			  "priority %d ",
++			  rta_getattr_u16(tb[IFLA_BRPORT_PRIORITY]));
+ 
+ 	if (tb[IFLA_BRPORT_COST])
+-		fprintf(f, "cost %d ",
+-			rta_getattr_u32(tb[IFLA_BRPORT_COST]));
++		print_int(PRINT_ANY,
++			  "cost",
++			  "cost %d ",
++			  rta_getattr_u32(tb[IFLA_BRPORT_COST]));
+ 
+ 	if (tb[IFLA_BRPORT_MODE])
+-		print_onoff(f, "hairpin",
+-			    rta_getattr_u8(tb[IFLA_BRPORT_MODE]));
++		_print_onoff(f, "mode", "hairpin",
++			     rta_getattr_u8(tb[IFLA_BRPORT_MODE]));
+ 
+ 	if (tb[IFLA_BRPORT_GUARD])
+-		print_onoff(f, "guard",
+-			    rta_getattr_u8(tb[IFLA_BRPORT_GUARD]));
++		_print_onoff(f, "guard", "guard",
++			     rta_getattr_u8(tb[IFLA_BRPORT_GUARD]));
+ 
+ 	if (tb[IFLA_BRPORT_PROTECT])
+-		print_onoff(f, "root_block",
+-			    rta_getattr_u8(tb[IFLA_BRPORT_PROTECT]));
++		_print_onoff(f, "protect", "root_block",
++			     rta_getattr_u8(tb[IFLA_BRPORT_PROTECT]));
+ 
+ 	if (tb[IFLA_BRPORT_FAST_LEAVE])
+-		print_onoff(f, "fastleave",
+-			    rta_getattr_u8(tb[IFLA_BRPORT_FAST_LEAVE]));
++		_print_onoff(f, "fast_leave", "fastleave",
++			     rta_getattr_u8(tb[IFLA_BRPORT_FAST_LEAVE]));
+ 
+ 	if (tb[IFLA_BRPORT_LEARNING])
+-		print_onoff(f, "learning",
+-			rta_getattr_u8(tb[IFLA_BRPORT_LEARNING]));
++		_print_onoff(f, "learning", "learning",
++			     rta_getattr_u8(tb[IFLA_BRPORT_LEARNING]));
+ 
+ 	if (tb[IFLA_BRPORT_UNICAST_FLOOD])
+-		print_onoff(f, "flood",
+-			rta_getattr_u8(tb[IFLA_BRPORT_UNICAST_FLOOD]));
++		_print_onoff(f, "unicast_flood", "flood",
++			     rta_getattr_u8(tb[IFLA_BRPORT_UNICAST_FLOOD]));
+ 
+ 	if (tb[IFLA_BRPORT_ID])
+-		fprintf(f, "port_id 0x%x ",
+-			rta_getattr_u16(tb[IFLA_BRPORT_ID]));
++		_print_hex(f, "id", "port_id",
++			   rta_getattr_u16(tb[IFLA_BRPORT_ID]));
+ 
+ 	if (tb[IFLA_BRPORT_NO])
+-		fprintf(f, "port_no 0x%x ",
+-			rta_getattr_u16(tb[IFLA_BRPORT_NO]));
++		_print_hex(f, "no", "port_no",
++			   rta_getattr_u16(tb[IFLA_BRPORT_NO]));
+ 
+ 	if (tb[IFLA_BRPORT_DESIGNATED_PORT])
+-		fprintf(f, "designated_port %u ",
+-			rta_getattr_u16(tb[IFLA_BRPORT_DESIGNATED_PORT]));
 +		print_uint(PRINT_ANY,
-+			   "forward_delay",
-+			   "forward_delay %u ",
-+			   rta_getattr_u32(tb[IFLA_BR_FORWARD_DELAY]));
++			   "designated_port",
++			   "designated_port %u ",
++			   rta_getattr_u16(tb[IFLA_BRPORT_DESIGNATED_PORT]));
  
- 	if (tb[IFLA_BR_HELLO_TIME])
--		fprintf(f, "hello_time %u ",
--			rta_getattr_u32(tb[IFLA_BR_HELLO_TIME]));
+ 	if (tb[IFLA_BRPORT_DESIGNATED_COST])
+-		fprintf(f, "designated_cost %u ",
+-			rta_getattr_u16(tb[IFLA_BRPORT_DESIGNATED_COST]));
 +		print_uint(PRINT_ANY,
-+			   "hello_time",
-+			   "hello_time %u ",
-+			   rta_getattr_u32(tb[IFLA_BR_HELLO_TIME]));
++			   "designated_cost",
++			   "designated_cost %u ",
++			   rta_getattr_u16(tb[IFLA_BRPORT_DESIGNATED_COST]));
  
- 	if (tb[IFLA_BR_MAX_AGE])
--		fprintf(f, "max_age %u ",
--			rta_getattr_u32(tb[IFLA_BR_MAX_AGE]));
-+		print_uint(PRINT_ANY,
-+			   "max_age",
-+			   "max_age %u ",
-+			   rta_getattr_u32(tb[IFLA_BR_MAX_AGE]));
+ 	if (tb[IFLA_BRPORT_BRIDGE_ID]) {
+ 		char bridge_id[32];
  
- 	if (tb[IFLA_BR_AGEING_TIME])
--		fprintf(f, "ageing_time %u ",
--			rta_getattr_u32(tb[IFLA_BR_AGEING_TIME]));
-+		print_uint(PRINT_ANY,
-+			   "ageing_time",
-+			   "ageing_time %u ",
-+			   rta_getattr_u32(tb[IFLA_BR_AGEING_TIME]));
- 
- 	if (tb[IFLA_BR_STP_STATE])
--		fprintf(f, "stp_state %u ",
--			rta_getattr_u32(tb[IFLA_BR_STP_STATE]));
-+		print_uint(PRINT_ANY,
-+			   "stp_state",
-+			   "stp_state %u ",
-+			   rta_getattr_u32(tb[IFLA_BR_STP_STATE]));
- 
- 	if (tb[IFLA_BR_PRIORITY])
--		fprintf(f, "priority %u ",
--			rta_getattr_u16(tb[IFLA_BR_PRIORITY]));
-+		print_uint(PRINT_ANY,
-+			   "priority",
-+			   "priority %u ",
-+			   rta_getattr_u16(tb[IFLA_BR_PRIORITY]));
- 
- 	if (tb[IFLA_BR_VLAN_FILTERING])
--		fprintf(f, "vlan_filtering %u ",
--			rta_getattr_u8(tb[IFLA_BR_VLAN_FILTERING]));
-+		print_uint(PRINT_ANY,
-+			   "vlan_filtering",
-+			   "vlan_filtering %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_VLAN_FILTERING]));
- 
- 	if (tb[IFLA_BR_VLAN_PROTOCOL]) {
- 		SPRINT_BUF(b1);
- 
--		fprintf(f, "vlan_protocol %s ",
--			ll_proto_n2a(rta_getattr_u16(tb[IFLA_BR_VLAN_PROTOCOL]),
--				     b1, sizeof(b1)));
-+		print_string(PRINT_ANY,
-+			     "vlan_protocol",
-+			     "vlan_protocol %s ",
-+			     ll_proto_n2a(rta_getattr_u16(tb[IFLA_BR_VLAN_PROTOCOL]),
-+					  b1, sizeof(b1)));
- 	}
- 
- 	if (tb[IFLA_BR_BRIDGE_ID]) {
-@@ -419,7 +455,10 @@ static void bridge_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 
- 		br_dump_bridge_id(RTA_DATA(tb[IFLA_BR_BRIDGE_ID]), bridge_id,
- 				  sizeof(bridge_id));
--		fprintf(f, "bridge_id %s ", bridge_id);
+ 		br_dump_bridge_id(RTA_DATA(tb[IFLA_BRPORT_BRIDGE_ID]),
+ 				  bridge_id, sizeof(bridge_id));
+-		fprintf(f, "designated_bridge %s ", bridge_id);
 +		print_string(PRINT_ANY,
 +			     "bridge_id",
-+			     "bridge_id %s ",
++			     "designated_bridge %s ",
 +			     bridge_id);
  	}
  
- 	if (tb[IFLA_BR_ROOT_ID]) {
-@@ -427,163 +466,201 @@ static void bridge_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 	if (tb[IFLA_BRPORT_ROOT_ID]) {
+@@ -136,65 +185,59 @@ static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
  
- 		br_dump_bridge_id(RTA_DATA(tb[IFLA_BR_BRIDGE_ID]), root_id,
- 				  sizeof(root_id));
+ 		br_dump_bridge_id(RTA_DATA(tb[IFLA_BRPORT_ROOT_ID]),
+ 				  root_id, sizeof(root_id));
 -		fprintf(f, "designated_root %s ", root_id);
+-	}
+-
+-	if (tb[IFLA_BRPORT_HOLD_TIMER]) {
+-		struct timeval tv;
+-		__u64 htimer;
+-
+-		htimer = rta_getattr_u64(tb[IFLA_BRPORT_HOLD_TIMER]);
+-		__jiffies_to_tv(&tv, htimer);
+-		fprintf(f, "hold_timer %4i.%.2i ", (int)tv.tv_sec,
+-			(int)tv.tv_usec/10000);
 +		print_string(PRINT_ANY,
 +			     "root_id",
-+			     "designated_root %s ",
-+			     root_id);
++			     "designated_root %s ", root_id);
  	}
  
- 	if (tb[IFLA_BR_ROOT_PORT])
--		fprintf(f, "root_port %u ",
--			rta_getattr_u16(tb[IFLA_BR_ROOT_PORT]));
-+		print_uint(PRINT_ANY,
-+			   "root_port",
-+			   "root_port %u ",
-+			   rta_getattr_u16(tb[IFLA_BR_ROOT_PORT]));
- 
- 	if (tb[IFLA_BR_ROOT_PATH_COST])
--		fprintf(f, "root_path_cost %u ",
--			rta_getattr_u32(tb[IFLA_BR_ROOT_PATH_COST]));
-+		print_uint(PRINT_ANY,
-+			   "root_path_cost",
-+			   "root_path_cost %u ",
-+			   rta_getattr_u32(tb[IFLA_BR_ROOT_PATH_COST]));
- 
- 	if (tb[IFLA_BR_TOPOLOGY_CHANGE])
--		fprintf(f, "topology_change %u ",
--			rta_getattr_u8(tb[IFLA_BR_TOPOLOGY_CHANGE]));
-+		print_uint(PRINT_ANY,
-+			   "topology_change",
-+			   "topology_change %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_TOPOLOGY_CHANGE]));
- 
- 	if (tb[IFLA_BR_TOPOLOGY_CHANGE_DETECTED])
--		fprintf(f, "topology_change_detected %u ",
--			rta_getattr_u8(tb[IFLA_BR_TOPOLOGY_CHANGE_DETECTED]));
--
--	if (tb[IFLA_BR_HELLO_TIMER]) {
+-	if (tb[IFLA_BRPORT_MESSAGE_AGE_TIMER]) {
 -		struct timeval tv;
--
--		__jiffies_to_tv(&tv, rta_getattr_u64(tb[IFLA_BR_HELLO_TIMER]));
--		fprintf(f, "hello_timer %4i.%.2i ", (int)tv.tv_sec,
+-		__u64 agetimer;
++	if (tb[IFLA_BRPORT_HOLD_TIMER])
++		_print_timer(f, "hold_timer", tb[IFLA_BRPORT_HOLD_TIMER]);
+ 
+-		agetimer = rta_getattr_u64(tb[IFLA_BRPORT_MESSAGE_AGE_TIMER]);
+-		__jiffies_to_tv(&tv, agetimer);
+-		fprintf(f, "message_age_timer %4i.%.2i ", (int)tv.tv_sec,
 -			(int)tv.tv_usec/10000);
 -	}
 -
--	if (tb[IFLA_BR_TCN_TIMER]) {
+-	if (tb[IFLA_BRPORT_FORWARD_DELAY_TIMER]) {
 -		struct timeval tv;
--
--		__jiffies_to_tv(&tv, rta_getattr_u64(tb[IFLA_BR_TCN_TIMER]));
--		fprintf(f, "tcn_timer %4i.%.2i ", (int)tv.tv_sec,
+-		__u64 fwdtimer;
++	if (tb[IFLA_BRPORT_MESSAGE_AGE_TIMER])
++		_print_timer(f, "message_age_timer",
++			     tb[IFLA_BRPORT_MESSAGE_AGE_TIMER]);
+ 
+-		fwdtimer = rta_getattr_u64(tb[IFLA_BRPORT_FORWARD_DELAY_TIMER]);
+-		__jiffies_to_tv(&tv, fwdtimer);
+-		fprintf(f, "forward_delay_timer %4i.%.2i ", (int)tv.tv_sec,
 -			(int)tv.tv_usec/10000);
 -	}
++	if (tb[IFLA_BRPORT_FORWARD_DELAY_TIMER])
++		_print_timer(f, "forward_delay_timer",
++			     tb[IFLA_BRPORT_FORWARD_DELAY_TIMER]);
+ 
+ 	if (tb[IFLA_BRPORT_TOPOLOGY_CHANGE_ACK])
+-		fprintf(f, "topology_change_ack %u ",
+-			rta_getattr_u8(tb[IFLA_BRPORT_TOPOLOGY_CHANGE_ACK]));
 +		print_uint(PRINT_ANY,
-+			   "topology_change_detected",
-+			   "topology_change_detected %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_TOPOLOGY_CHANGE_DETECTED]));
++			   "topology_change_ack",
++			   "topology_change_ack %u ",
++			   rta_getattr_u8(tb[IFLA_BRPORT_TOPOLOGY_CHANGE_ACK]));
  
--	if (tb[IFLA_BR_TOPOLOGY_CHANGE_TIMER]) {
--		unsigned long jiffies;
--		struct timeval tv;
-+	if (tb[IFLA_BR_HELLO_TIMER])
-+		_bridge_print_timer(f, "hello_timer", tb[IFLA_BR_HELLO_TIMER]);
- 
--		jiffies = rta_getattr_u64(tb[IFLA_BR_TOPOLOGY_CHANGE_TIMER]);
--		__jiffies_to_tv(&tv, jiffies);
--		fprintf(f, "topology_change_timer %4i.%.2i ", (int)tv.tv_sec,
--			(int)tv.tv_usec/10000);
--	}
-+	if (tb[IFLA_BR_TCN_TIMER])
-+		_bridge_print_timer(f, "tcn_timer", tb[IFLA_BR_TCN_TIMER]);
- 
--	if (tb[IFLA_BR_GC_TIMER]) {
--		struct timeval tv;
-+	if (tb[IFLA_BR_TOPOLOGY_CHANGE_TIMER])
-+		_bridge_print_timer(f, "topology_change_timer",
-+				    tb[IFLA_BR_TOPOLOGY_CHANGE_TIMER]);
- 
--		__jiffies_to_tv(&tv, rta_getattr_u64(tb[IFLA_BR_GC_TIMER]));
--		fprintf(f, "gc_timer %4i.%.2i ", (int)tv.tv_sec,
--			(int)tv.tv_usec/10000);
--	}
-+	if (tb[IFLA_BR_GC_TIMER])
-+		_bridge_print_timer(f, "gc_timer", tb[IFLA_BR_GC_TIMER]);
- 
- 	if (tb[IFLA_BR_VLAN_DEFAULT_PVID])
--		fprintf(f, "vlan_default_pvid %u ",
--			rta_getattr_u16(tb[IFLA_BR_VLAN_DEFAULT_PVID]));
+ 	if (tb[IFLA_BRPORT_CONFIG_PENDING])
+-		fprintf(f, "config_pending %u ",
+-			rta_getattr_u8(tb[IFLA_BRPORT_CONFIG_PENDING]));
 +		print_uint(PRINT_ANY,
-+			   "vlan_default_pvid",
-+			   "vlan_default_pvid %u ",
-+			   rta_getattr_u16(tb[IFLA_BR_VLAN_DEFAULT_PVID]));
++			   "config_pending",
++			   "config_pending %u ",
++			   rta_getattr_u8(tb[IFLA_BRPORT_CONFIG_PENDING]));
++
+ 	if (tb[IFLA_BRPORT_PROXYARP])
+-		print_onoff(f, "proxy_arp",
+-			    rta_getattr_u8(tb[IFLA_BRPORT_PROXYARP]));
++		_print_onoff(f, "proxyarp", "proxy_arp",
++			     rta_getattr_u8(tb[IFLA_BRPORT_PROXYARP]));
  
- 	if (tb[IFLA_BR_VLAN_STATS_ENABLED])
--		fprintf(f, "vlan_stats_enabled %u ",
--			rta_getattr_u8(tb[IFLA_BR_VLAN_STATS_ENABLED]));
-+		print_uint(PRINT_ANY,
-+			   "vlan_stats_enabled",
-+			   "vlan_stats_enabled %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_VLAN_STATS_ENABLED]));
+ 	if (tb[IFLA_BRPORT_PROXYARP_WIFI])
+-		print_onoff(f, "proxy_arp_wifi",
+-			    rta_getattr_u8(tb[IFLA_BRPORT_PROXYARP_WIFI]));
++		_print_onoff(f, "proxyarp_wifi", "proxy_arp_wifi",
++			     rta_getattr_u8(tb[IFLA_BRPORT_PROXYARP_WIFI]));
  
- 	if (tb[IFLA_BR_GROUP_FWD_MASK])
--		fprintf(f, "group_fwd_mask %#x ",
--			rta_getattr_u16(tb[IFLA_BR_GROUP_FWD_MASK]));
-+		print_0xhex(PRINT_ANY,
-+			    "group_fwd_mask",
-+			    "group_fwd_mask %#x ",
-+			    rta_getattr_u16(tb[IFLA_BR_GROUP_FWD_MASK]));
- 
- 	if (tb[IFLA_BR_GROUP_ADDR]) {
- 		SPRINT_BUF(mac);
- 
--		fprintf(f, "group_address %s ",
--			ll_addr_n2a(RTA_DATA(tb[IFLA_BR_GROUP_ADDR]),
--				    RTA_PAYLOAD(tb[IFLA_BR_GROUP_ADDR]),
--				    1 /*ARPHDR_ETHER*/, mac, sizeof(mac)));
-+		print_string(PRINT_ANY,
-+			     "group_addr",
-+			     "group_address %s ",
-+			     ll_addr_n2a(RTA_DATA(tb[IFLA_BR_GROUP_ADDR]),
-+					 RTA_PAYLOAD(tb[IFLA_BR_GROUP_ADDR]),
-+					 1 /*ARPHDR_ETHER*/, mac, sizeof(mac)));
- 	}
- 
- 	if (tb[IFLA_BR_MCAST_SNOOPING])
--		fprintf(f, "mcast_snooping %u ",
--			rta_getattr_u8(tb[IFLA_BR_MCAST_SNOOPING]));
-+		print_uint(PRINT_ANY,
-+			   "mcast_snooping",
-+			   "mcast_snooping %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_MCAST_SNOOPING]));
- 
- 	if (tb[IFLA_BR_MCAST_ROUTER])
+ 	if (tb[IFLA_BRPORT_MULTICAST_ROUTER])
 -		fprintf(f, "mcast_router %u ",
--			rta_getattr_u8(tb[IFLA_BR_MCAST_ROUTER]));
+-			rta_getattr_u8(tb[IFLA_BRPORT_MULTICAST_ROUTER]));
 +		print_uint(PRINT_ANY,
-+			   "mcast_router",
++			   "multicast_router",
 +			   "mcast_router %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_MCAST_ROUTER]));
++			   rta_getattr_u8(tb[IFLA_BRPORT_MULTICAST_ROUTER]));
  
- 	if (tb[IFLA_BR_MCAST_QUERY_USE_IFADDR])
--		fprintf(f, "mcast_query_use_ifaddr %u ",
--			rta_getattr_u8(tb[IFLA_BR_MCAST_QUERY_USE_IFADDR]));
-+		print_uint(PRINT_ANY,
-+			   "mcast_query_use_ifaddr",
-+			   "mcast_query_use_ifaddr %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_MCAST_QUERY_USE_IFADDR]));
+ 	if (tb[IFLA_BRPORT_FAST_LEAVE])
+-		print_onoff(f, "mcast_fast_leave",
+-			    rta_getattr_u8(tb[IFLA_BRPORT_FAST_LEAVE]));
++		// not printing any json here because
++		// we already printed fast_leave before
++		print_string(PRINT_FP,
++			     NULL,
++			     "mcast_fast_leave %s ",
++			     rta_getattr_u8(tb[IFLA_BRPORT_FAST_LEAVE]) ? "on" : "off");
  
- 	if (tb[IFLA_BR_MCAST_QUERIER])
--		fprintf(f, "mcast_querier %u ",
--			rta_getattr_u8(tb[IFLA_BR_MCAST_QUERIER]));
-+		print_uint(PRINT_ANY,
-+			   "mcast_querier",
-+			   "mcast_querier %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_MCAST_QUERIER]));
- 
- 	if (tb[IFLA_BR_MCAST_HASH_ELASTICITY])
--		fprintf(f, "mcast_hash_elasticity %u ",
--			rta_getattr_u32(tb[IFLA_BR_MCAST_HASH_ELASTICITY]));
-+		print_uint(PRINT_ANY,
-+			   "mcast_hash_elasticity",
-+			   "mcast_hash_elasticity %u ",
-+			   rta_getattr_u32(tb[IFLA_BR_MCAST_HASH_ELASTICITY]));
- 
- 	if (tb[IFLA_BR_MCAST_HASH_MAX])
--		fprintf(f, "mcast_hash_max %u ",
--			rta_getattr_u32(tb[IFLA_BR_MCAST_HASH_MAX]));
-+		print_uint(PRINT_ANY,
-+			   "mcast_hash_max",
-+			   "mcast_hash_max %u ",
-+			   rta_getattr_u32(tb[IFLA_BR_MCAST_HASH_MAX]));
- 
- 	if (tb[IFLA_BR_MCAST_LAST_MEMBER_CNT])
--		fprintf(f, "mcast_last_member_count %u ",
--			rta_getattr_u32(tb[IFLA_BR_MCAST_LAST_MEMBER_CNT]));
-+		print_uint(PRINT_ANY,
-+			   "mcast_last_member_cnt",
-+			   "mcast_last_member_count %u ",
-+			   rta_getattr_u32(tb[IFLA_BR_MCAST_LAST_MEMBER_CNT]));
- 
- 	if (tb[IFLA_BR_MCAST_STARTUP_QUERY_CNT])
--		fprintf(f, "mcast_startup_query_count %u ",
--			rta_getattr_u32(tb[IFLA_BR_MCAST_STARTUP_QUERY_CNT]));
-+		print_uint(PRINT_ANY,
-+			   "mcast_startup_query_cnt",
-+			   "mcast_startup_query_count %u ",
-+			   rta_getattr_u32(tb[IFLA_BR_MCAST_STARTUP_QUERY_CNT]));
- 
- 	if (tb[IFLA_BR_MCAST_LAST_MEMBER_INTVL])
--		fprintf(f, "mcast_last_member_interval %llu ",
--			rta_getattr_u64(tb[IFLA_BR_MCAST_LAST_MEMBER_INTVL]));
-+		print_lluint(PRINT_ANY,
-+			     "mcast_last_member_intvl",
-+			     "mcast_last_member_interval %llu ",
-+			     rta_getattr_u64(tb[IFLA_BR_MCAST_LAST_MEMBER_INTVL]));
- 
- 	if (tb[IFLA_BR_MCAST_MEMBERSHIP_INTVL])
--		fprintf(f, "mcast_membership_interval %llu ",
--			rta_getattr_u64(tb[IFLA_BR_MCAST_MEMBERSHIP_INTVL]));
-+		print_lluint(PRINT_ANY,
-+			     "mcast_membership_intvl",
-+			     "mcast_membership_interval %llu ",
-+			     rta_getattr_u64(tb[IFLA_BR_MCAST_MEMBERSHIP_INTVL]));
- 
- 	if (tb[IFLA_BR_MCAST_QUERIER_INTVL])
--		fprintf(f, "mcast_querier_interval %llu ",
--			rta_getattr_u64(tb[IFLA_BR_MCAST_QUERIER_INTVL]));
-+		print_lluint(PRINT_ANY,
-+			     "mcast_querier_intvl",
-+			     "mcast_querier_interval %llu ",
-+			     rta_getattr_u64(tb[IFLA_BR_MCAST_QUERIER_INTVL]));
- 
- 	if (tb[IFLA_BR_MCAST_QUERY_INTVL])
--		fprintf(f, "mcast_query_interval %llu ",
--			rta_getattr_u64(tb[IFLA_BR_MCAST_QUERY_INTVL]));
-+		print_lluint(PRINT_ANY,
-+			     "mcast_query_intvl",
-+			     "mcast_query_interval %llu ",
-+			     rta_getattr_u64(tb[IFLA_BR_MCAST_QUERY_INTVL]));
- 
- 	if (tb[IFLA_BR_MCAST_QUERY_RESPONSE_INTVL])
--		fprintf(f, "mcast_query_response_interval %llu ",
--			rta_getattr_u64(tb[IFLA_BR_MCAST_QUERY_RESPONSE_INTVL]));
-+		print_lluint(PRINT_ANY,
-+			     "mcast_query_response_intvl",
-+			     "mcast_query_response_interval %llu ",
-+			     rta_getattr_u64(tb[IFLA_BR_MCAST_QUERY_RESPONSE_INTVL]));
- 
- 	if (tb[IFLA_BR_MCAST_STARTUP_QUERY_INTVL])
--		fprintf(f, "mcast_startup_query_interval %llu ",
--			rta_getattr_u64(tb[IFLA_BR_MCAST_STARTUP_QUERY_INTVL]));
-+		print_lluint(PRINT_ANY,
-+			     "mcast_startup_query_intvl",
-+			     "mcast_startup_query_interval %llu ",
-+			     rta_getattr_u64(tb[IFLA_BR_MCAST_STARTUP_QUERY_INTVL]));
- 
- 	if (tb[IFLA_BR_MCAST_STATS_ENABLED])
--		fprintf(f, "mcast_stats_enabled %u ",
--			rta_getattr_u8(tb[IFLA_BR_MCAST_STATS_ENABLED]));
-+		print_uint(PRINT_ANY,
-+			   "mcast_stats_enabled",
-+			   "mcast_stats_enabled %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_MCAST_STATS_ENABLED]));
- 
- 	if (tb[IFLA_BR_MCAST_IGMP_VERSION])
--		fprintf(f, "mcast_igmp_version %u ",
--			rta_getattr_u8(tb[IFLA_BR_MCAST_IGMP_VERSION]));
-+		print_uint(PRINT_ANY,
-+			   "mcast_igmp_version",
-+			   "mcast_igmp_version %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_MCAST_IGMP_VERSION]));
- 
- 	if (tb[IFLA_BR_MCAST_MLD_VERSION])
--		fprintf(f, "mcast_mld_version %u ",
--			rta_getattr_u8(tb[IFLA_BR_MCAST_MLD_VERSION]));
-+		print_uint(PRINT_ANY,
-+			   "mcast_mld_version",
-+			   "mcast_mld_version %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_MCAST_MLD_VERSION]));
- 
- 	if (tb[IFLA_BR_NF_CALL_IPTABLES])
--		fprintf(f, "nf_call_iptables %u ",
--			rta_getattr_u8(tb[IFLA_BR_NF_CALL_IPTABLES]));
-+		print_uint(PRINT_ANY,
-+			   "nf_call_iptables",
-+			   "nf_call_iptables %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_NF_CALL_IPTABLES]));
- 
- 	if (tb[IFLA_BR_NF_CALL_IP6TABLES])
--		fprintf(f, "nf_call_ip6tables %u ",
--			rta_getattr_u8(tb[IFLA_BR_NF_CALL_IP6TABLES]));
-+		print_uint(PRINT_ANY,
-+			   "nf_call_ip6tables",
-+			   "nf_call_ip6tables %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_NF_CALL_IP6TABLES]));
- 
- 	if (tb[IFLA_BR_NF_CALL_ARPTABLES])
--		fprintf(f, "nf_call_arptables %u ",
--			rta_getattr_u8(tb[IFLA_BR_NF_CALL_ARPTABLES]));
-+		print_uint(PRINT_ANY,
-+			   "nf_call_arptables",
-+			   "nf_call_arptables %u ",
-+			   rta_getattr_u8(tb[IFLA_BR_NF_CALL_ARPTABLES]));
+ 	if (tb[IFLA_BRPORT_MCAST_FLOOD])
+-		print_onoff(f, "mcast_flood",
+-			rta_getattr_u8(tb[IFLA_BRPORT_MCAST_FLOOD]));
++		_print_onoff(f, "mcast_flood", "mcast_flood",
++			     rta_getattr_u8(tb[IFLA_BRPORT_MCAST_FLOOD]));
  }
  
- static void bridge_print_help(struct link_util *lu, int argc, char **argv,
--		FILE *f)
-+			      FILE *f)
- {
- 	print_explain(f);
- }
+ static void bridge_slave_parse_on_off(char *arg_name, char *arg_val,
 -- 
 2.14.1
