@@ -1,44 +1,108 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 5/5] tipc/bearer: Fix resource leak in error path
-Date: Thu, 17 Aug 2017 19:09:31 +0200
-Message-ID: <20170817170931.24435-6-phil@nwl.cc>
-References: <20170817170931.24435-1-phil@nwl.cc>
+Subject: [iproute PATCH v2 1/2] ss: Don't leak fd in tcp_show_netlink_file()
+Date: Thu, 17 Aug 2017 19:09:30 +0200
+Message-ID: <20170817170931.24224-2-phil@nwl.cc>
+References: <20170817170931.24224-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:42709 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:57703 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753425AbdHQRLE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 13:11:04 -0400
-In-Reply-To: <20170817170931.24435-1-phil@nwl.cc>
+        id S1753018AbdHQRLL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 13:11:11 -0400
+In-Reply-To: <20170817170931.24224-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- tipc/bearer.c | 3 +++
- 1 file changed, 3 insertions(+)
+ misc/ss.c | 32 ++++++++++++++++++++------------
+ 1 file changed, 20 insertions(+), 12 deletions(-)
 
-diff --git a/tipc/bearer.c b/tipc/bearer.c
-index 810344f672af1..c3d4491f8f6ef 100644
---- a/tipc/bearer.c
-+++ b/tipc/bearer.c
-@@ -163,6 +163,7 @@ static int nl_add_udp_enable_opts(struct nlmsghdr *nlh, struct opt *opts,
- 	if (!remip) {
- 		if (generate_multicast(loc->ai_family, buf, sizeof(buf))) {
- 			fprintf(stderr, "Failed to generate multicast address\n");
-+			freeaddrinfo(loc);
- 			return -EINVAL;
- 		}
- 		remip = buf;
-@@ -177,6 +178,8 @@ static int nl_add_udp_enable_opts(struct nlmsghdr *nlh, struct opt *opts,
+diff --git a/misc/ss.c b/misc/ss.c
+index d767b1103ea81..07eecfa7a36db 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2687,41 +2687,44 @@ static int tcp_show_netlink_file(struct filter *f)
+ {
+ 	FILE	*fp;
+ 	char	buf[16384];
++	int	err = -1;
  
- 	if (rem->ai_family != loc->ai_family) {
- 		fprintf(stderr, "UDP local and remote AF mismatch\n");
-+		freeaddrinfo(rem);
-+		freeaddrinfo(loc);
- 		return -EINVAL;
+ 	if ((fp = fopen(getenv("TCPDIAG_FILE"), "r")) == NULL) {
+ 		perror("fopen($TCPDIAG_FILE)");
+-		return -1;
++		return err;
  	}
  
+ 	while (1) {
+-		int status, err;
++		int status, err2;
+ 		struct nlmsghdr *h = (struct nlmsghdr *)buf;
+ 		struct sockstat s = {};
+ 
+ 		status = fread(buf, 1, sizeof(*h), fp);
+ 		if (status < 0) {
+ 			perror("Reading header from $TCPDIAG_FILE");
+-			return -1;
++			break;
+ 		}
+ 		if (status != sizeof(*h)) {
+ 			perror("Unexpected EOF reading $TCPDIAG_FILE");
+-			return -1;
++			break;
+ 		}
+ 
+ 		status = fread(h+1, 1, NLMSG_ALIGN(h->nlmsg_len-sizeof(*h)), fp);
+ 
+ 		if (status < 0) {
+ 			perror("Reading $TCPDIAG_FILE");
+-			return -1;
++			break;
+ 		}
+ 		if (status + sizeof(*h) < h->nlmsg_len) {
+ 			perror("Unexpected EOF reading $TCPDIAG_FILE");
+-			return -1;
++			break;
+ 		}
+ 
+ 		/* The only legal exit point */
+-		if (h->nlmsg_type == NLMSG_DONE)
+-			return 0;
++		if (h->nlmsg_type == NLMSG_DONE) {
++			err = 0;
++			break;
++		}
+ 
+ 		if (h->nlmsg_type == NLMSG_ERROR) {
+ 			struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
+@@ -2732,7 +2735,7 @@ static int tcp_show_netlink_file(struct filter *f)
+ 				errno = -err->error;
+ 				perror("TCPDIAG answered");
+ 			}
+-			return -1;
++			break;
+ 		}
+ 
+ 		parse_diag_msg(h, &s);
+@@ -2741,10 +2744,15 @@ static int tcp_show_netlink_file(struct filter *f)
+ 		if (f && f->f && run_ssfilter(f->f, &s) == 0)
+ 			continue;
+ 
+-		err = inet_show_sock(h, &s);
+-		if (err < 0)
+-			return err;
++		err2 = inet_show_sock(h, &s);
++		if (err2 < 0) {
++			err = err2;
++			break;
++		}
+ 	}
++
++	fclose(fp);
++	return err;
+ }
+ 
+ static int tcp_show(struct filter *f, int socktype)
 -- 
 2.13.1
