@@ -1,93 +1,52 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH] PCI: Allow PCI express root ports to find themselves
-Date: Thu, 17 Aug 2017 11:58:47 -0500
-Message-ID: <20170817165847.GJ28977@bhelgaas-glaptop.roam.corp.google.com>
-References: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com>
- <20170817110614.11454-1-thierry.reding@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vsock: only load vmci transport on VMware hypervisor
+ by default
+Date: Thu, 17 Aug 2017 10:04:01 -0700 (PDT)
+Message-ID: <20170817.100401.864010589587308706.davem@davemloft.net>
+References: <KL1P15301MB0008F70D4E5248AB7A296CE3BF830@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        Ding Tianhong <dingtianhong@huawei.com>,
-        Michael Ellerman <mpe@ellerman.id.au>, mark.rutland@arm.com,
-        gabriele.paoloni@huawei.com, asit.k.mallick@intel.com,
-        catalin.marinas@arm.com, will.deacon@arm.com, linuxarm@huawei.com,
-        alexander.duyck@gmail.com, ashok.raj@intel.com,
-        eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com,
-        linux-pci@vger.kernel.org, ganeshgr@chelsio.com, Bob.Shaw@amd.com,
-        leedom@chelsio.com, patrick.j.cramer@intel.com, werner@chelsio.com,
-        linux-arm-kernel@lists.infradead.org, amira@mellanox.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        David.Laight@aculab.com, Suravee.Suthikulpanit@amd.com,
-        robin.murphy@arm.com, l.stach@pengutronix.de
-To: Thierry Reding <thierry.reding@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170817110614.11454-1-thierry.reding@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mkubecek@suse.cz, jasowang@redhat.com, georgezhang@vmware.com,
+ sthemmin@microsoft.com, rolf.neugebauer@docker.com,
+ marcelo.cerri@canonical.com, asias@redhat.com, dan.carpenter@oracle.com,
+ olaf@aepfle.de, haiyangz@microsoft.com, dave.scott@docker.com,
+ stefanha@redhat.com, apw@canonical.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org, joe@perches.com,
+ devel@linuxdriverproject.org, vkuznets@redhat.com, jhansen@vmware.com
+To: decui@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <KL1P15301MB0008F70D4E5248AB7A296CE3BF830@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 17, 2017 at 01:06:14PM +0200, Thierry Reding wrote:
-> From: Thierry Reding <treding@nvidia.com>
-> 
-> If the pci_find_pcie_root_port() function is called on a root port
-> itself, return the root port rather than NULL.
-> 
-> This effectively reverts commit 0e405232871d6 ("PCI: fix oops when
-> try to find Root Port for a PCI device") which added an extra check
-> that would now be redundant.
-> 
-> Fixes: a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
-> Fixes: c56d4450eb68 ("PCI: Turn off Request Attributes to avoid Chelsio T5 Completion erratum")
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
+From: Dexuan Cui <decui@microsoft.com>
+Date: Thu, 17 Aug 2017 08:00:29 +0000
 
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
+> @@ -73,6 +74,10 @@ struct vmci_transport_recv_pkt_info {
+>  	struct vmci_transport_packet pkt;
+>  };
+>  
+> +static bool skip_hypervisor_check;
+> +module_param(skip_hypervisor_check, bool, 0444);
+> +MODULE_PARM_DESC(hot_add, "If set, attempt to load on non-VMware platforms");
+> +
 
-I *think* this should work for everybody, but I can't test it personally.
+I would avoid module parameters at all costs.
 
-> ---
-> This applies on top of and was tested on next-20170817.
-> 
-> Michael, it'd be great if you could test this one again to clarify
-> whether or not the fix that's already in Linus' tree is still needed, or
-> whether it's indeed obsoleted by this patch.
-> 
->  drivers/pci/pci.c | 9 ++++-----
->  1 file changed, 4 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> index b05c587e335a..dd56c1c05614 100644
-> --- a/drivers/pci/pci.c
-> +++ b/drivers/pci/pci.c
-> @@ -514,7 +514,7 @@ EXPORT_SYMBOL(pci_find_resource);
->   */
->  struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
->  {
-> -	struct pci_dev *bridge, *highest_pcie_bridge = NULL;
-> +	struct pci_dev *bridge, *highest_pcie_bridge = dev;
->  
->  	bridge = pci_upstream_bridge(dev);
->  	while (bridge && pci_is_pcie(bridge)) {
-> @@ -522,11 +522,10 @@ struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
->  		bridge = pci_upstream_bridge(bridge);
->  	}
->  
-> -	if (highest_pcie_bridge &&
-> -	    pci_pcie_type(highest_pcie_bridge) == PCI_EXP_TYPE_ROOT_PORT)
-> -		return highest_pcie_bridge;
-> +	if (pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
-> +		return NULL;
->  
-> -	return NULL;
-> +	return highest_pcie_bridge;
->  }
->  EXPORT_SYMBOL(pci_find_pcie_root_port);
->  
-> -- 
-> 2.13.3
-> 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+It is the worst possible interface for users of your software.
+
+You really need to fundamentally solve the problems related to making
+sure the proper modules for the VM actually present on the system get
+loaded when necessary rather than adding hacks like this.
+
+Unlike a proper solution, these hacks are ugly but have to stay around
+forever once you put them in place.
