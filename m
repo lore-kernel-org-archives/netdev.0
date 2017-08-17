@@ -1,77 +1,45 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Subject: Re: [PATCH next] neigh: initialize neigh entry correctly during arp processing
-Date: Wed, 16 Aug 2017 18:02:33 -0700
-Message-ID: <CAF2d9ji7cQ+hYXVChytLyW4Czedx95Myi19NuD5VKOEcvaEqZw@mail.gmail.com>
-References: <20170817000251.38469-1-mahesh@bandewar.net> <20170817003215.GQ6984@oracle.com>
+From: Stefano Brivio <sbrivio@redhat.com>
+Subject: Re: [PATCH] i40e{,vf}: Fix out-of-bound cpumask read in IRQ
+ affinity handler
+Date: Thu, 17 Aug 2017 03:13:27 +0200
+Message-ID: <20170817031327.16eede3c@elisabeth>
+References: <ae9c9586f61e914dc1c6fe2e6ac1fb2bf07283bc.1502792828.git.sbrivio@redhat.com>
+        <1502929524.32783.3.camel@intel.com>
+        <20170817030109.31580d73@elisabeth>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Hans Liljestrand <ishkamiel@gmail.com>,
-        Kees Cook <keescook@chromium.org>,
-        Reshetova Elena <elena.reshetova@intel.com>,
-        Florian Westphal <fw@strlen.de>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Ihar Hrachyshka <ihrachys@redhat.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        "David S . Miller" <davem@davemloft.net>,
+        Alan Brady <alan.brady@intel.com>,
+        Stefan Assmann <sassmann@redhat.com>,
+        Juergen Gross <jgross@suse.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f51.google.com ([209.85.214.51]:33051 "EHLO
-        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751943AbdHQBCz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 21:02:55 -0400
-Received: by mail-it0-f51.google.com with SMTP id f16so458398itb.0
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 18:02:55 -0700 (PDT)
-In-Reply-To: <20170817003215.GQ6984@oracle.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38586 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751490AbdHQBNf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 16 Aug 2017 21:13:35 -0400
+In-Reply-To: <20170817030109.31580d73@elisabeth>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 16, 2017 at 5:32 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (08/16/17 17:02), Mahesh Bandewar wrote:
->>
->> From: Mahesh Bandewar <maheshb@google.com>
->>
->> If the ARP processing creates a neigh entry, it's immediately marked
->> as STALE without timer and stays that way in that state as long as
->> host do not send traffic to that neighbour.
->
-> Perhaps I dont understand the specific  packet exchange case
-> that your patch is trying to fix,  but if the neighbor entry
-> is created as a result of an incoming packet (but we have not
-> yet sent anything to this neighbor) then it should be marked STALE?
-> IOW, STALE means "Ingress path claims this adjacency, but egress
-> path has not been verified".  Is the problem that the neigh never
-> goes into PROBE?
->
-Correct. The entry gets created  (NUD_NONE) and few jiffies later it
-gets marked as STALE. It's doesn't even get a chance to get PROBEd.
+On Thu, 17 Aug 2017 03:01:09 +0200
+Stefano Brivio <sbrivio@redhat.com> wrote:
 
->> +     if (neigh) {
->> +             if (neigh->nud_state & NUD_VALID)
->> +                     neigh_update(neigh, lladdr, NUD_STALE,
->> +                                  NEIGH_UPDATE_F_OVERRIDE, 0);
->> +             else
->> +                     neigh_event_send(neigh, NULL);
->> +     }
->
-> NUD_VALID is already a mask of
->  (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE|NUD_PROBE|NUD_STALE|NUD_DELAY)
-> are you sure you want to force the transition of probe/delay -> stale
-> here?
-It's not forced and neigh_update() has guards / provision to consider
-these type of transition and wont force it. Just that if the state is
-not-valid (NUD_INCOMPLETE | NUD_NONE) etc then it marks it STALE and
-deletes the timer.
+> Before posting, however, I checked patchwork at:
+> 
+> 	https://patchwork.ozlabs.org/project/intel-wired-lan/list/
+> 
+> and also your git tree (listed in MAINTAINERS) at:
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue.git
+> 
+> but I couldn't find that commit. I also can't find it now. So I suppose
+> I'm looking for it in the wrong place. Can you please tell me which
+> tree or patchwork I should check before submitting patches for i40e, so
+> that I avoid further duplicate submissions next time?
 
-> Maybe it woudl help to describe the exact wire packet
-> exchange that is broken today, but fixed by your patch.
->
-> --Sowmini
->
->
+Okay, I just found your e-mail on netdev (I wasn't expecting to see
+this queued up for net-next). IMHO, this should be queued for -net (and
+-stable) instead (and my previous comments still apply).
