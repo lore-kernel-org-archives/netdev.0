@@ -1,7 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net v2 0/2] net: ixgbe: Use new flag to disable Relaxed Ordering
-Date: Thu, 17 Aug 2017 11:25:14 +0800
-Message-ID: <1502940316-13384-1-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH net v2 2/2] net: ixgbe: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Thu, 17 Aug 2017 11:25:16 +0800
+Message-ID: <1502940316-13384-3-git-send-email-dingtianhong@huawei.com>
+References: <1502940316-13384-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Ding Tianhong <dingtianhong@huawei.com>
@@ -11,33 +12,130 @@ To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
         <alexander.duyck@gmail.com>, <netdev@vger.kernel.org>,
         <linuxarm@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1502940316-13384-1-git-send-email-dingtianhong@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING has been added
-to indicate that Relaxed Ordering Attributes (RO) should not
-be used for Transaction Layer Packets (TLP) targeted toward
-these affected Root Port, it will clear the bit4 in the PCIe
-Device Control register, so the PCIe device drivers could
-query PCIe configuration space to determine if it can send
-TLPs to Root Port with the Relaxed Ordering Attributes set.
+The ixgbe driver use the compile check to determine if it can
+send TLPs to Root Port with the Relaxed Ordering Attribute set,
+this is too inconvenient, now the new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+has been added to the kernel and we could check the bit4 in the PCIe
+Device Control register to determine whether we should use the Relaxed
+Ordering Attributes or not, so use this new way in the ixgbe driver.
 
-The ixgbe driver could use this flag to determine if it can
-send TLPs to Root Port with the Relaxed Ordering Attributes set.
-
-v2: Simplify the original program according Alex's suggestion,
-    remove the new ixgbe flag2 and only check the bit4 in the
-    PCIe Device Control register. 
-
-Ding Tianhong (2):
-  Revert commit 1a8b6d76dc5b ("net:add one common config...")
-  net: ixgbe: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
-
- arch/Kconfig                                    |  3 --
- arch/sparc/Kconfig                              |  1 -
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
  drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 37 ++++++++++++-------------
  drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 32 +++++++++++----------
- 4 files changed, 35 insertions(+), 38 deletions(-)
+ 2 files changed, 35 insertions(+), 34 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 523f9d0..d1571e3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -175,31 +175,30 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
+ {
+-#ifndef CONFIG_SPARC
+-	u32 regval;
+-	u32 i;
+-#endif
++	u32 regval, i;
+ 	s32 ret_val;
++	struct ixgbe_adapter *adapter = hw->back;
+ 
+ 	ret_val = ixgbe_start_hw_generic(hw);
+ 
+-#ifndef CONFIG_SPARC
+-	/* Disable relaxed ordering */
+-	for (i = 0; ((i < hw->mac.max_tx_queues) &&
+-	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
+-		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
+-	}
++	if (!pcie_relaxed_ordering_enabled(adapter->pdev)) {
++		/* Disable relaxed ordering */
++		for (i = 0; ((i < hw->mac.max_tx_queues) &&
++		     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
++			regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
++			regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
++			IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
++		}
+ 
+-	for (i = 0; ((i < hw->mac.max_rx_queues) &&
+-	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
+-		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
+-			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
++		for (i = 0; ((i < hw->mac.max_rx_queues) &&
++		     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
++			regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
++			regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
++				    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
++			IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
++		}
+ 	}
+-#endif
++
+ 	if (ret_val)
+ 		return ret_val;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index d4933d2..d1052ee 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -342,6 +342,7 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
+ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
+ {
+ 	u32 i;
++	struct ixgbe_adapter *adapter = hw->back;
+ 
+ 	/* Clear the rate limiters */
+ 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+@@ -350,25 +351,26 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
+ 	}
+ 	IXGBE_WRITE_FLUSH(hw);
+ 
+-#ifndef CONFIG_SPARC
+-	/* Disable relaxed ordering */
+-	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+-		u32 regval;
++	if (!pcie_relaxed_ordering_enabled(adapter->pdev)) {
++		/* Disable relaxed ordering */
++		for (i = 0; i < hw->mac.max_tx_queues; i++) {
++			u32 regval;
+ 
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
+-		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
+-	}
++			regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
++			regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
++			IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
++		}
+ 
+-	for (i = 0; i < hw->mac.max_rx_queues; i++) {
+-		u32 regval;
++		for (i = 0; i < hw->mac.max_rx_queues; i++) {
++			u32 regval;
+ 
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
+-		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
+-			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
++			regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
++			regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
++				    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
++			IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
++		}
+ 	}
+-#endif
++
+ 	return 0;
+ }
+ 
 -- 
 1.8.3.1
