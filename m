@@ -1,65 +1,47 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 04/15] net/mlx5: Add PCIe outbound stalls counters infrastructure
-Date: Thu, 17 Aug 2017 16:29:52 +0300
-Message-ID: <20170817133003.16900-5-saeedm@mellanox.com>
+Subject: [net-next 02/15] net/mlx5e: IPoIB, Fix driver name retrieved by ethtool
+Date: Thu, 17 Aug 2017 16:29:50 +0300
+Message-ID: <20170817133003.16900-3-saeedm@mellanox.com>
 References: <20170817133003.16900-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Gal Pressman <galp@mellanox.com>,
+        Feras Daoud <ferasda@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47117 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47100 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751786AbdHQNaR (ORCPT
+        with ESMTP id S1751666AbdHQNaR (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 09:30:17 -0400
 In-Reply-To: <20170817133003.16900-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gal Pressman <galp@mellanox.com>
+From: Feras Daoud <ferasda@mellanox.com>
 
-Add capability bit in MCAM register and counters to MPCNT register.
+Printing an enhanced IPoIB device information using
+"ethtool -i DEVNAME", prints the low level driver name: mlx5_core.
+This commit changes the name to mlx5_core [ib_ipoib], to include the
+ipoib device driver infromation.
 
-Signed-off-by: Gal Pressman <galp@mellanox.com>
+Fixes: 076b0936e5fb ("net/mlx5e: IPoIB, Add ethtool support")
+Signed-off-by: Feras Daoud <ferasda@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/linux/mlx5/mlx5_ifc.h | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index c99daffc3c3c..ba533b39c885 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -1854,7 +1854,17 @@ struct mlx5_ifc_pcie_perf_cntrs_grp_data_layout_bits {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
+index eb04e97d8765..b080fabfe8de 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
+@@ -39,6 +39,8 @@ static void mlx5i_get_drvinfo(struct net_device *dev,
+ 	struct mlx5e_priv *priv = mlx5i_epriv(dev);
  
- 	u8         crc_error_tlp[0x20];
+ 	mlx5e_ethtool_get_drvinfo(priv, drvinfo);
++	strlcpy(drvinfo->driver, DRIVER_NAME "[ib_ipoib]",
++		sizeof(drvinfo->driver));
+ }
  
--	u8         reserved_at_140[0x680];
-+	u8         reserved_at_140[0x40];
-+
-+	u8         outbound_stalled_reads[0x20];
-+
-+	u8         outbound_stalled_writes[0x20];
-+
-+	u8         outbound_stalled_reads_events[0x20];
-+
-+	u8         outbound_stalled_writes_events[0x20];
-+
-+	u8         reserved_at_200[0x5c0];
- };
- 
- struct mlx5_ifc_cmd_inter_comp_event_bits {
-@@ -7744,8 +7754,9 @@ struct mlx5_ifc_pcam_reg_bits {
- };
- 
- struct mlx5_ifc_mcam_enhanced_features_bits {
--	u8         reserved_at_0[0x7d];
--
-+	u8         reserved_at_0[0x7b];
-+	u8         pcie_outbound_stalled[0x1];
-+	u8         reserved_at_7c[0x1];
- 	u8         mtpps_enh_out_per_adj[0x1];
- 	u8         mtpps_fs[0x1];
- 	u8         pcie_performance_group[0x1];
+ static void mlx5i_get_strings(struct net_device *dev,
 -- 
 2.13.0
