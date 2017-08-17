@@ -1,7 +1,7 @@
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V5 net-next 14/21] net-next/hinic: Initialize cmdq
-Date: Thu, 17 Aug 2017 19:52:55 +0800
-Message-ID: <cf42d0eb2e1a412a5e48ca98bcf9fa29aec15b81.1502970631.git.aviad.krawczyk@huawei.com>
+Subject: [PATCH V5 net-next 08/21] net-next/hinic: Add port management commands
+Date: Thu, 17 Aug 2017 19:52:49 +0800
+Message-ID: <173c025cc2d6d544af7bdee18215990ba31c1590.1502970631.git.aviad.krawczyk@huawei.com>
 References: <cover.1502970631.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,662 +15,690 @@ In-Reply-To: <cover.1502970631.git.aviad.krawczyk@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Create the work queues for cmdq and update the nic about the
-work queue contexts. cmdq commands are used for updating the nic about
-the qp contexts.
+Add the port management commands that are sent as management messages.
+The port management commands are used for netdev operations.
 
 Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
 ---
- drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c | 282 +++++++++++++++++++++-
- drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h |  53 ++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h  |   2 +
- drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h |   5 +
- drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c   | 156 ++++++++++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h   |   8 +
- 6 files changed, 500 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/huawei/hinic/Makefile       |   4 +-
+ drivers/net/ethernet/huawei/hinic/hinic_dev.h    |   4 +
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c |  30 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h |  29 +++
+ drivers/net/ethernet/huawei/hinic/hinic_main.c   | 195 +++++++++++++++++++-
+ drivers/net/ethernet/huawei/hinic/hinic_port.c   | 224 +++++++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.h   |  68 +++++++
+ 7 files changed, 551 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.h
 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c
-index 2fd3924..0dccbe6 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c
-@@ -13,11 +13,49 @@
+diff --git a/drivers/net/ethernet/huawei/hinic/Makefile b/drivers/net/ethernet/huawei/hinic/Makefile
+index beba90a..dbb1b9d 100644
+--- a/drivers/net/ethernet/huawei/hinic/Makefile
++++ b/drivers/net/ethernet/huawei/hinic/Makefile
+@@ -1,4 +1,4 @@
+ obj-$(CONFIG_HINIC) += hinic.o
+ 
+-hinic-y := hinic_main.o hinic_hw_dev.o hinic_hw_mgmt.o hinic_hw_api_cmd.o \
+-	   hinic_hw_eqs.o hinic_hw_if.o
++hinic-y := hinic_main.o hinic_port.o hinic_hw_dev.o hinic_hw_mgmt.o \
++	   hinic_hw_api_cmd.o hinic_hw_eqs.o hinic_hw_if.o
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
+index 6c2c896..e54a45c 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_dev.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
+@@ -18,6 +18,7 @@
+ 
+ #include <linux/netdevice.h>
+ #include <linux/types.h>
++#include <linux/semaphore.h>
+ 
+ #include "hinic_hw_dev.h"
+ 
+@@ -28,6 +29,9 @@ struct hinic_dev {
+ 	struct hinic_hwdev              *hwdev;
+ 
+ 	u32                             msg_enable;
++
++	struct semaphore                mgmt_lock;
++	unsigned long                   *vlan_bitmap;
+ };
+ 
+ #endif
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+index d430e60..6bb6c33 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+@@ -200,6 +200,36 @@ static void disable_msix(struct hinic_hwdev *hwdev)
+ }
+ 
+ /**
++ * hinic_port_msg_cmd - send port msg to mgmt
++ * @hwdev: the NIC HW device
++ * @cmd: the port command
++ * @buf_in: input buffer
++ * @in_size: input size
++ * @buf_out: output buffer
++ * @out_size: returned output size
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_msg_cmd(struct hinic_hwdev *hwdev, enum hinic_port_cmd cmd,
++		       void *buf_in, u16 in_size, void *buf_out, u16 *out_size)
++{
++	struct hinic_hwif *hwif = hwdev->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	struct hinic_pfhwdev *pfhwdev;
++
++	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
++		dev_err(&pdev->dev, "unsupported PCI Function type\n");
++		return -EINVAL;
++	}
++
++	pfhwdev = container_of(hwdev, struct hinic_pfhwdev, hwdev);
++
++	return hinic_msg_to_mgmt(&pfhwdev->pf_to_mgmt, HINIC_MOD_L2NIC, cmd,
++				 buf_in, in_size, buf_out, out_size,
++				 HINIC_MGMT_MSG_SYNC);
++}
++
++/**
+  * init_pfhwdev - Initialize the extended components of PF
+  * @pfhwdev: the HW device for PF
+  *
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
+index feb60138..ee9e76a 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
+@@ -30,6 +30,31 @@ struct hinic_cap {
+ 	u16     num_qps;
+ };
+ 
++enum hinic_port_cmd {
++	HINIC_PORT_CMD_CHANGE_MTU       = 2,
++
++	HINIC_PORT_CMD_ADD_VLAN         = 3,
++	HINIC_PORT_CMD_DEL_VLAN         = 4,
++
++	HINIC_PORT_CMD_SET_MAC          = 9,
++	HINIC_PORT_CMD_GET_MAC          = 10,
++	HINIC_PORT_CMD_DEL_MAC          = 11,
++
++	HINIC_PORT_CMD_SET_RX_MODE      = 12,
++
++	HINIC_PORT_CMD_GET_LINK_STATE   = 24,
++
++	HINIC_PORT_CMD_SET_PORT_STATE   = 41,
++
++	HINIC_PORT_CMD_FWCTXT_INIT      = 69,
++
++	HINIC_PORT_CMD_SET_FUNC_STATE   = 93,
++
++	HINIC_PORT_CMD_GET_GLOBAL_QPN   = 102,
++
++	HINIC_PORT_CMD_GET_CAP          = 170,
++};
++
+ struct hinic_hwdev {
+ 	struct hinic_hwif               *hwif;
+ 	struct msix_entry               *msix_entries;
+@@ -45,6 +70,10 @@ struct hinic_pfhwdev {
+ 	struct hinic_pf_to_mgmt         pf_to_mgmt;
+ };
+ 
++int hinic_port_msg_cmd(struct hinic_hwdev *hwdev, enum hinic_port_cmd cmd,
++		       void *buf_in, u16 in_size, void *buf_out,
++		       u16 *out_size);
++
+ struct hinic_hwdev *hinic_init_hwdev(struct pci_dev *pdev);
+ 
+ void hinic_free_hwdev(struct hinic_hwdev *hwdev);
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
+index 10df850..f46c2bc 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_main.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_main.c
+@@ -13,6 +13,7 @@
   *
   */
  
 +#include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/pci.h>
+ #include <linux/device.h>
+@@ -20,9 +21,16 @@
  #include <linux/types.h>
- #include <linux/errno.h>
-+#include <linux/pci.h>
-+#include <linux/device.h>
+ #include <linux/etherdevice.h>
+ #include <linux/netdevice.h>
 +#include <linux/slab.h>
-+#include <linux/vmalloc.h>
-+#include <linux/spinlock.h>
-+#include <linux/sizes.h>
-+#include <linux/atomic.h>
-+#include <linux/log2.h>
-+#include <asm/byteorder.h>
++#include <linux/if_vlan.h>
++#include <linux/semaphore.h>
++#include <net/ip.h>
++#include <linux/bitops.h>
++#include <linux/bitmap.h>
+ #include <linux/err.h>
  
- #include "hinic_hw_if.h"
-+#include "hinic_hw_mgmt.h"
-+#include "hinic_hw_wq.h"
- #include "hinic_hw_cmdq.h"
-+#include "hinic_hw_io.h"
-+#include "hinic_hw_dev.h"
-+
-+#define CMDQ_DB_OFF                     SZ_2K
-+
-+#define CMDQ_WQEBB_SIZE                 64
-+#define CMDQ_DEPTH                      SZ_4K
-+
-+#define CMDQ_WQ_PAGE_SIZE               SZ_4K
-+
-+#define WQE_LCMD_SIZE                   64
-+#define WQE_SCMD_SIZE                   64
-+
-+#define CMDQ_PFN(addr, page_size)       ((addr) >> (ilog2(page_size)))
-+
-+#define cmdq_to_cmdqs(cmdq)     container_of((cmdq) - (cmdq)->cmdq_type, \
-+					     struct hinic_cmdqs, cmdq[0])
-+
-+#define cmdqs_to_func_to_io(cmdqs)      container_of(cmdqs, \
-+						     struct hinic_func_to_io, \
-+						     cmdqs)
-+
-+enum cmdq_wqe_type {
-+	WQE_LCMD_TYPE = 0,
-+	WQE_SCMD_TYPE = 1,
-+};
+ #include "hinic_hw_dev.h"
++#include "hinic_port.h"
+ #include "hinic_dev.h"
  
- /**
-  * hinic_alloc_cmdq_buf - alloc buffer for sending command
-@@ -29,8 +67,17 @@
- int hinic_alloc_cmdq_buf(struct hinic_cmdqs *cmdqs,
- 			 struct hinic_cmdq_buf *cmdq_buf)
- {
--	/* should be implemented */
--	return -ENOMEM;
-+	struct hinic_hwif *hwif = cmdqs->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
+ MODULE_AUTHOR("Huawei Technologies CO., Ltd");
+@@ -35,10 +43,163 @@
+ 					 NETIF_MSG_IFUP |                  \
+ 					 NETIF_MSG_TX_ERR | NETIF_MSG_RX_ERR)
+ 
++#define VLAN_BITMAP_SIZE(nic_dev)       (ALIGN(VLAN_N_VID, 8) / 8)
 +
-+	cmdq_buf->buf = pci_pool_alloc(cmdqs->cmdq_buf_pool, GFP_KERNEL,
-+				       &cmdq_buf->dma_addr);
-+	if (!cmdq_buf->buf) {
-+		dev_err(&pdev->dev, "Failed to allocate cmd from the pool\n");
-+		return -ENOMEM;
-+	}
-+
-+	return 0;
- }
- 
- /**
-@@ -41,7 +88,7 @@ int hinic_alloc_cmdq_buf(struct hinic_cmdqs *cmdqs,
- void hinic_free_cmdq_buf(struct hinic_cmdqs *cmdqs,
- 			 struct hinic_cmdq_buf *cmdq_buf)
- {
--	/* should be implemented */
-+	pci_pool_free(cmdqs->cmdq_buf_pool, cmdq_buf->buf, cmdq_buf->dma_addr);
- }
- 
- /**
-@@ -63,6 +110,169 @@ int hinic_cmdq_direct_resp(struct hinic_cmdqs *cmdqs,
- }
- 
- /**
-+ * cmdq_init_queue_ctxt - init the queue ctxt of a cmdq
-+ * @cmdq_ctxt: cmdq ctxt to initialize
-+ * @cmdq: the cmdq
-+ * @cmdq_pages: the memory of the queue
-+ **/
-+static void cmdq_init_queue_ctxt(struct hinic_cmdq_ctxt *cmdq_ctxt,
-+				 struct hinic_cmdq *cmdq,
-+				 struct hinic_cmdq_pages *cmdq_pages)
++static int hinic_change_mtu(struct net_device *netdev, int new_mtu)
 +{
-+	struct hinic_cmdq_ctxt_info *ctxt_info = &cmdq_ctxt->ctxt_info;
-+	u64 wq_first_page_paddr, cmdq_first_block_paddr, pfn;
-+	struct hinic_cmdqs *cmdqs = cmdq_to_cmdqs(cmdq);
-+	struct hinic_wq *wq = cmdq->wq;
-+
-+	/* The data in the HW is in Big Endian Format */
-+	wq_first_page_paddr = be64_to_cpu(*wq->block_vaddr);
-+
-+	pfn = CMDQ_PFN(wq_first_page_paddr, wq->wq_page_size);
-+
-+	ctxt_info->curr_wqe_page_pfn =
-+		HINIC_CMDQ_CTXT_PAGE_INFO_SET(pfn, CURR_WQE_PAGE_PFN)   |
-+		HINIC_CMDQ_CTXT_PAGE_INFO_SET(HINIC_CEQ_ID_CMDQ, EQ_ID) |
-+		HINIC_CMDQ_CTXT_PAGE_INFO_SET(1, CEQ_ARM)               |
-+		HINIC_CMDQ_CTXT_PAGE_INFO_SET(1, CEQ_EN)                |
-+		HINIC_CMDQ_CTXT_PAGE_INFO_SET(cmdq->wrapped, WRAPPED);
-+
-+	/* block PFN - Read Modify Write */
-+	cmdq_first_block_paddr = cmdq_pages->page_paddr;
-+
-+	pfn = CMDQ_PFN(cmdq_first_block_paddr, wq->wq_page_size);
-+
-+	ctxt_info->wq_block_pfn =
-+		HINIC_CMDQ_CTXT_BLOCK_INFO_SET(pfn, WQ_BLOCK_PFN) |
-+		HINIC_CMDQ_CTXT_BLOCK_INFO_SET(atomic_read(&wq->cons_idx), CI);
-+
-+	cmdq_ctxt->func_idx = HINIC_HWIF_FUNC_IDX(cmdqs->hwif);
-+	cmdq_ctxt->cmdq_type  = cmdq->cmdq_type;
-+}
-+
-+/**
-+ * init_cmdq - initialize cmdq
-+ * @cmdq: the cmdq
-+ * @wq: the wq attaced to the cmdq
-+ * @q_type: the cmdq type of the cmdq
-+ * @db_area: doorbell area for the cmdq
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int init_cmdq(struct hinic_cmdq *cmdq, struct hinic_wq *wq,
-+		     enum hinic_cmdq_type q_type, void __iomem *db_area)
-+{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
 +	int err;
 +
-+	cmdq->wq = wq;
-+	cmdq->cmdq_type = q_type;
-+	cmdq->wrapped = 1;
++	netif_info(nic_dev, drv, netdev, "set_mtu = %d\n", new_mtu);
 +
-+	spin_lock_init(&cmdq->cmdq_lock);
++	err = hinic_port_set_mtu(nic_dev, new_mtu);
++	if (err)
++		netif_err(nic_dev, drv, netdev, "Failed to set port mtu\n");
++	else
++		netdev->mtu = new_mtu;
 +
-+	cmdq->done = vzalloc(wq->q_depth * sizeof(*cmdq->done));
-+	if (!cmdq->done)
-+		return -ENOMEM;
-+
-+	cmdq->errcode = vzalloc(wq->q_depth * sizeof(*cmdq->errcode));
-+	if (!cmdq->errcode) {
-+		err = -ENOMEM;
-+		goto err_errcode;
-+	}
-+
-+	cmdq->db_base = db_area + CMDQ_DB_OFF;
-+	return 0;
-+
-+err_errcode:
-+	vfree(cmdq->done);
 +	return err;
 +}
 +
 +/**
-+ * free_cmdq - Free cmdq
-+ * @cmdq: the cmdq to free
-+ **/
-+static void free_cmdq(struct hinic_cmdq *cmdq)
-+{
-+	vfree(cmdq->errcode);
-+	vfree(cmdq->done);
-+}
-+
-+/**
-+ * init_cmdqs_ctxt - write the cmdq ctxt to HW after init all cmdq
-+ * @hwdev: the NIC HW device
-+ * @cmdqs: cmdqs to write the ctxts for
-+ * &db_area: db_area for all the cmdqs
++ * change_mac_addr - change the main mac address of network device
++ * @netdev: network device
++ * @addr: mac address to set
 + *
 + * Return 0 - Success, negative - Failure
 + **/
-+static int init_cmdqs_ctxt(struct hinic_hwdev *hwdev,
-+			   struct hinic_cmdqs *cmdqs, void __iomem **db_area)
++static int change_mac_addr(struct net_device *netdev, const u8 *addr)
 +{
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	enum hinic_cmdq_type type, cmdq_type;
-+	struct hinic_cmdq_ctxt *cmdq_ctxts;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_pfhwdev *pfhwdev;
-+	size_t cmdq_ctxts_size;
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	u16 vid = 0;
 +	int err;
 +
-+	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
-+		dev_err(&pdev->dev, "Unsupported PCI function type\n");
++	if (!is_valid_ether_addr(addr))
++		return -EADDRNOTAVAIL;
++
++	netif_info(nic_dev, drv, netdev, "change mac addr = %02x %02x %02x %02x %02x %02x\n",
++		   addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
++
++	down(&nic_dev->mgmt_lock);
++
++	do {
++		err = hinic_port_del_mac(nic_dev, netdev->dev_addr, vid);
++		if (err) {
++			netif_err(nic_dev, drv, netdev,
++				  "Failed to delete mac\n");
++			break;
++		}
++
++		err = hinic_port_add_mac(nic_dev, addr, vid);
++		if (err) {
++			netif_err(nic_dev, drv, netdev, "Failed to add mac\n");
++			break;
++		}
++
++		vid = find_next_bit(nic_dev->vlan_bitmap, VLAN_N_VID, vid + 1);
++	} while (vid != VLAN_N_VID);
++
++	up(&nic_dev->mgmt_lock);
++	return err;
++}
++
++static int hinic_set_mac_addr(struct net_device *netdev, void *addr)
++{
++	unsigned char new_mac[ETH_ALEN];
++	struct sockaddr *saddr = addr;
++	int err;
++
++	memcpy(new_mac, saddr->sa_data, ETH_ALEN);
++
++	err = change_mac_addr(netdev, new_mac);
++	if (!err)
++		memcpy(netdev->dev_addr, new_mac, ETH_ALEN);
++
++	return err;
++}
++
++static int hinic_vlan_rx_add_vid(struct net_device *netdev,
++				 __always_unused __be16 proto, u16 vid)
++{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	int ret, err;
++
++	netif_info(nic_dev, drv, netdev, "add vid = %d\n", vid);
++
++	down(&nic_dev->mgmt_lock);
++
++	err = hinic_port_add_vlan(nic_dev, vid);
++	if (err) {
++		netif_err(nic_dev, drv, netdev, "Failed to add vlan\n");
++		goto err_vlan_add;
++	}
++
++	err = hinic_port_add_mac(nic_dev, netdev->dev_addr, vid);
++	if (err) {
++		netif_err(nic_dev, drv, netdev, "Failed to set mac\n");
++		goto err_add_mac;
++	}
++
++	bitmap_set(nic_dev->vlan_bitmap, vid, 1);
++
++	up(&nic_dev->mgmt_lock);
++	return 0;
++
++err_add_mac:
++	ret = hinic_port_del_vlan(nic_dev, vid);
++	if (ret)
++		netif_err(nic_dev, drv, netdev,
++			  "Failed to revert by removing vlan\n");
++
++err_vlan_add:
++	up(&nic_dev->mgmt_lock);
++	return err;
++}
++
++static int hinic_vlan_rx_kill_vid(struct net_device *netdev,
++				  __always_unused __be16 proto, u16 vid)
++{
++	struct hinic_dev *nic_dev = netdev_priv(netdev);
++	int err;
++
++	netif_info(nic_dev, drv, netdev, "remove vid = %d\n", vid);
++
++	down(&nic_dev->mgmt_lock);
++
++	err = hinic_port_del_vlan(nic_dev, vid);
++	if (err) {
++		netif_err(nic_dev, drv, netdev, "Failed to delete vlan\n");
++		goto err_del_vlan;
++	}
++
++	bitmap_clear(nic_dev->vlan_bitmap, vid, 1);
++
++	up(&nic_dev->mgmt_lock);
++	return 0;
++
++err_del_vlan:
++	up(&nic_dev->mgmt_lock);
++	return err;
++}
++
+ static const struct net_device_ops hinic_netdev_ops = {
+-	/* Operations are empty, should be filled */
++	.ndo_change_mtu = hinic_change_mtu,
++	.ndo_set_mac_address = hinic_set_mac_addr,
++	.ndo_validate_addr = eth_validate_addr,
++	.ndo_vlan_rx_add_vid = hinic_vlan_rx_add_vid,
++	.ndo_vlan_rx_kill_vid = hinic_vlan_rx_kill_vid,
++	/* more operations should be filled */
+ };
+ 
++static void netdev_features_init(struct net_device *netdev)
++{
++	netdev->hw_features = NETIF_F_SG | NETIF_F_HIGHDMA;
++
++	netdev->vlan_features = netdev->hw_features;
++
++	netdev->features = netdev->hw_features | NETIF_F_HW_VLAN_CTAG_FILTER;
++}
++
+ /**
+  * nic_dev_init - Initialize the NIC device
+  * @pdev: the NIC pci device
+@@ -79,8 +240,36 @@ static int nic_dev_init(struct pci_dev *pdev)
+ 	nic_dev->hwdev = hwdev;
+ 	nic_dev->msg_enable = MSG_ENABLE_DEFAULT;
+ 
++	sema_init(&nic_dev->mgmt_lock, 1);
++
++	nic_dev->vlan_bitmap = devm_kzalloc(&pdev->dev,
++					    VLAN_BITMAP_SIZE(nic_dev),
++					    GFP_KERNEL);
++	if (!nic_dev->vlan_bitmap) {
++		err = -ENOMEM;
++		goto err_vlan_bitmap;
++	}
++
+ 	pci_set_drvdata(pdev, netdev);
+ 
++	err = hinic_port_get_mac(nic_dev, netdev->dev_addr);
++	if (err)
++		dev_warn(&pdev->dev, "Failed to get mac address\n");
++
++	err = hinic_port_add_mac(nic_dev, netdev->dev_addr, 0);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to add mac\n");
++		goto err_add_mac;
++	}
++
++	err = hinic_port_set_mtu(nic_dev, netdev->mtu);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to set mtu\n");
++		goto err_set_mtu;
++	}
++
++	netdev_features_init(netdev);
++
+ 	netif_carrier_off(netdev);
+ 
+ 	err = register_netdev(netdev);
+@@ -92,7 +281,11 @@ static int nic_dev_init(struct pci_dev *pdev)
+ 	return 0;
+ 
+ err_reg_netdev:
++err_set_mtu:
++err_add_mac:
+ 	pci_set_drvdata(pdev, NULL);
++
++err_vlan_bitmap:
+ 	free_netdev(netdev);
+ 
+ err_alloc_etherdev:
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.c b/drivers/net/ethernet/huawei/hinic/hinic_port.c
+new file mode 100644
+index 0000000..5b249e8
+--- /dev/null
++++ b/drivers/net/ethernet/huawei/hinic/hinic_port.c
+@@ -0,0 +1,224 @@
++/*
++ * Huawei HiNIC PCI Express Linux driver
++ * Copyright(c) 2017 Huawei Technologies Co., Ltd
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * for more details.
++ *
++ */
++
++#include <linux/types.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/if_vlan.h>
++#include <linux/pci.h>
++#include <linux/device.h>
++#include <linux/errno.h>
++
++#include "hinic_hw_if.h"
++#include "hinic_hw_dev.h"
++#include "hinic_port.h"
++#include "hinic_dev.h"
++
++#define HINIC_MIN_MTU_SIZE              256
++#define HINIC_MAX_JUMBO_FRAME_SIZE      15872
++
++enum mac_op {
++	MAC_DEL,
++	MAC_SET,
++};
++
++/**
++ * change_mac - change(add or delete) mac address
++ * @nic_dev: nic device
++ * @addr: mac address
++ * @vlan_id: vlan number to set with the mac
++ * @op: add or delete the mac
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int change_mac(struct hinic_dev *nic_dev, const u8 *addr,
++		      u16 vlan_id, enum mac_op op)
++{
++	struct net_device *netdev = nic_dev->netdev;
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_port_mac_cmd port_mac_cmd;
++	struct hinic_hwif *hwif = hwdev->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	enum hinic_port_cmd cmd;
++	u16 out_size;
++	int err;
++
++	if (vlan_id >= VLAN_N_VID) {
++		netif_err(nic_dev, drv, netdev, "Invalid VLAN number\n");
 +		return -EINVAL;
 +	}
 +
-+	cmdq_ctxts_size = HINIC_MAX_CMDQ_TYPES * sizeof(*cmdq_ctxts);
-+	cmdq_ctxts = devm_kzalloc(&pdev->dev, cmdq_ctxts_size, GFP_KERNEL);
-+	if (!cmdq_ctxts)
-+		return -ENOMEM;
++	if (op == MAC_SET)
++		cmd = HINIC_PORT_CMD_SET_MAC;
++	else
++		cmd = HINIC_PORT_CMD_DEL_MAC;
 +
-+	pfhwdev = container_of(hwdev, struct hinic_pfhwdev, hwdev);
++	port_mac_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwif);
++	port_mac_cmd.vlan_id = vlan_id;
++	memcpy(port_mac_cmd.mac, addr, ETH_ALEN);
 +
-+	cmdq_type = HINIC_CMDQ_SYNC;
-+	for (; cmdq_type < HINIC_MAX_CMDQ_TYPES; cmdq_type++) {
-+		err = init_cmdq(&cmdqs->cmdq[cmdq_type],
-+				&cmdqs->saved_wqs[cmdq_type], cmdq_type,
-+				db_area[cmdq_type]);
-+		if (err) {
-+			dev_err(&pdev->dev, "Failed to initialize cmdq\n");
-+			goto err_init_cmdq;
-+		}
-+
-+		cmdq_init_queue_ctxt(&cmdq_ctxts[cmdq_type],
-+				     &cmdqs->cmdq[cmdq_type],
-+				     &cmdqs->cmdq_pages);
++	err = hinic_port_msg_cmd(hwdev, cmd, &port_mac_cmd,
++				 sizeof(port_mac_cmd),
++				 &port_mac_cmd, &out_size);
++	if (err || (out_size != sizeof(port_mac_cmd)) || port_mac_cmd.status) {
++		dev_err(&pdev->dev, "Failed to change MAC, ret = %d\n",
++			port_mac_cmd.status);
++		return -EFAULT;
 +	}
 +
-+	/* Write the CMDQ ctxts */
-+	cmdq_type = HINIC_CMDQ_SYNC;
-+	for (; cmdq_type < HINIC_MAX_CMDQ_TYPES; cmdq_type++) {
-+		err = hinic_msg_to_mgmt(&pfhwdev->pf_to_mgmt, HINIC_MOD_COMM,
-+					HINIC_COMM_CMD_CMDQ_CTXT_SET,
-+					&cmdq_ctxts[cmdq_type],
-+					sizeof(cmdq_ctxts[cmdq_type]),
-+					NULL, NULL, HINIC_MGMT_MSG_SYNC);
-+		if (err) {
-+			dev_err(&pdev->dev, "Failed to set CMDQ CTXT type = %d\n",
-+				cmdq_type);
-+			goto err_write_cmdq_ctxt;
-+		}
-+	}
-+
-+	devm_kfree(&pdev->dev, cmdq_ctxts);
 +	return 0;
-+
-+err_write_cmdq_ctxt:
-+	cmdq_type = HINIC_MAX_CMDQ_TYPES;
-+
-+err_init_cmdq:
-+	for (type = HINIC_CMDQ_SYNC; type < cmdq_type; type++)
-+		free_cmdq(&cmdqs->cmdq[type]);
-+
-+	devm_kfree(&pdev->dev, cmdq_ctxts);
-+	return err;
 +}
 +
 +/**
-  * hinic_init_cmdqs - init all cmdqs
-  * @cmdqs: cmdqs to init
-  * @hwif: HW interface for accessing cmdqs
-@@ -73,8 +283,55 @@ int hinic_cmdq_direct_resp(struct hinic_cmdqs *cmdqs,
- int hinic_init_cmdqs(struct hinic_cmdqs *cmdqs, struct hinic_hwif *hwif,
- 		     void __iomem **db_area)
- {
--	/* should be implemented */
--	return -EINVAL;
-+	struct hinic_func_to_io *func_to_io = cmdqs_to_func_to_io(cmdqs);
++ * hinic_port_add_mac - add mac address
++ * @nic_dev: nic device
++ * @addr: mac address
++ * @vlan_id: vlan number to set with the mac
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_add_mac(struct hinic_dev *nic_dev,
++		       const u8 *addr, u16 vlan_id)
++{
++	return change_mac(nic_dev, addr, vlan_id, MAC_SET);
++}
++
++/**
++ * hinic_port_del_mac - remove mac address
++ * @nic_dev: nic device
++ * @addr: mac address
++ * @vlan_id: vlan number that is connected to the mac
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_del_mac(struct hinic_dev *nic_dev, const u8 *addr,
++		       u16 vlan_id)
++{
++	return change_mac(nic_dev, addr, vlan_id, MAC_DEL);
++}
++
++/**
++ * hinic_port_get_mac - get the mac address of the nic device
++ * @nic_dev: nic device
++ * @addr: returned mac address
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_get_mac(struct hinic_dev *nic_dev, u8 *addr)
++{
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_port_mac_cmd port_mac_cmd;
++	struct hinic_hwif *hwif = hwdev->hwif;
 +	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_hwdev *hwdev;
-+	size_t saved_wqs_size;
-+	u16 max_wqe_size;
++	u16 out_size;
 +	int err;
 +
-+	cmdqs->hwif = hwif;
-+	cmdqs->cmdq_buf_pool = pci_pool_create("hinic_cmdq", pdev,
-+					       HINIC_CMDQ_BUF_SIZE,
-+					       HINIC_CMDQ_BUF_SIZE, 0);
-+	if (!cmdqs->cmdq_buf_pool)
-+		return -ENOMEM;
++	port_mac_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwif);
 +
-+	saved_wqs_size = HINIC_MAX_CMDQ_TYPES * sizeof(struct hinic_wq);
-+	cmdqs->saved_wqs = devm_kzalloc(&pdev->dev, saved_wqs_size, GFP_KERNEL);
-+	if (!cmdqs->saved_wqs) {
-+		err = -ENOMEM;
-+		goto err_saved_wqs;
++	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_GET_MAC,
++				 &port_mac_cmd, sizeof(port_mac_cmd),
++				 &port_mac_cmd, &out_size);
++	if (err || (out_size != sizeof(port_mac_cmd)) || port_mac_cmd.status) {
++		dev_err(&pdev->dev, "Failed to get mac, ret = %d\n",
++			port_mac_cmd.status);
++		return -EFAULT;
 +	}
 +
-+	max_wqe_size = WQE_LCMD_SIZE;
-+	err = hinic_wqs_cmdq_alloc(&cmdqs->cmdq_pages, cmdqs->saved_wqs, hwif,
-+				   HINIC_MAX_CMDQ_TYPES, CMDQ_WQEBB_SIZE,
-+				   CMDQ_WQ_PAGE_SIZE, CMDQ_DEPTH, max_wqe_size);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to allocate CMDQ wqs\n");
-+		goto err_cmdq_wqs;
++	memcpy(addr, port_mac_cmd.mac, ETH_ALEN);
++	return 0;
++}
++
++/**
++ * hinic_port_set_mtu - set mtu
++ * @nic_dev: nic device
++ * @new_mtu: new mtu
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_set_mtu(struct hinic_dev *nic_dev, int new_mtu)
++{
++	struct net_device *netdev = nic_dev->netdev;
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_port_mtu_cmd port_mtu_cmd;
++	struct hinic_hwif *hwif = hwdev->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	int err, max_frame;
++	u16 out_size;
++
++	if (new_mtu < HINIC_MIN_MTU_SIZE) {
++		netif_err(nic_dev, drv, netdev, "mtu < MIN MTU size");
++		return -EINVAL;
 +	}
 +
-+	hwdev = container_of(func_to_io, struct hinic_hwdev, func_to_io);
-+	err = init_cmdqs_ctxt(hwdev, cmdqs, db_area);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to write cmdq ctxt\n");
-+		goto err_cmdq_ctxt;
++	max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
++	if (max_frame > HINIC_MAX_JUMBO_FRAME_SIZE) {
++		netif_err(nic_dev, drv, netdev, "mtu > MAX MTU size");
++		return -EINVAL;
++	}
++
++	port_mtu_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwif);
++	port_mtu_cmd.mtu = new_mtu;
++
++	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_CHANGE_MTU,
++				 &port_mtu_cmd, sizeof(port_mtu_cmd),
++				 &port_mtu_cmd, &out_size);
++	if (err || (out_size != sizeof(port_mtu_cmd)) || port_mtu_cmd.status) {
++		dev_err(&pdev->dev, "Failed to set mtu, ret = %d\n",
++			port_mtu_cmd.status);
++		return -EFAULT;
 +	}
 +
 +	return 0;
++}
 +
-+err_cmdq_ctxt:
-+	hinic_wqs_cmdq_free(&cmdqs->cmdq_pages, cmdqs->saved_wqs,
-+			    HINIC_MAX_CMDQ_TYPES);
++/**
++ * hinic_port_add_vlan - add vlan to the nic device
++ * @nic_dev: nic device
++ * @vlan_id: the vlan number to add
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_add_vlan(struct hinic_dev *nic_dev, u16 vlan_id)
++{
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_port_vlan_cmd port_vlan_cmd;
 +
-+err_cmdq_wqs:
-+	devm_kfree(&pdev->dev, cmdqs->saved_wqs);
++	port_vlan_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwdev->hwif);
++	port_vlan_cmd.vlan_id = vlan_id;
 +
-+err_saved_wqs:
-+	pci_pool_destroy(cmdqs->cmdq_buf_pool);
-+	return err;
- }
- 
- /**
-@@ -83,5 +340,18 @@ int hinic_init_cmdqs(struct hinic_cmdqs *cmdqs, struct hinic_hwif *hwif,
-  **/
- void hinic_free_cmdqs(struct hinic_cmdqs *cmdqs)
- {
--	/* should be implemented */
-+	struct hinic_hwif *hwif = cmdqs->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	enum hinic_cmdq_type cmdq_type;
++	return hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_ADD_VLAN,
++				  &port_vlan_cmd, sizeof(port_vlan_cmd),
++				  NULL, NULL);
++}
 +
-+	cmdq_type = HINIC_CMDQ_SYNC;
-+	for (; cmdq_type < HINIC_MAX_CMDQ_TYPES; cmdq_type++)
-+		free_cmdq(&cmdqs->cmdq[cmdq_type]);
++/**
++ * hinic_port_del_vlan - delete vlan from the nic device
++ * @nic_dev: nic device
++ * @vlan_id: the vlan number to delete
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_port_del_vlan(struct hinic_dev *nic_dev, u16 vlan_id)
++{
++	struct hinic_hwdev *hwdev = nic_dev->hwdev;
++	struct hinic_port_vlan_cmd port_vlan_cmd;
 +
-+	hinic_wqs_cmdq_free(&cmdqs->cmdq_pages, cmdqs->saved_wqs,
-+			    HINIC_MAX_CMDQ_TYPES);
++	port_vlan_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwdev->hwif);
++	port_vlan_cmd.vlan_id = vlan_id;
 +
-+	devm_kfree(&pdev->dev, cmdqs->saved_wqs);
++	return hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_DEL_VLAN,
++				 &port_vlan_cmd, sizeof(port_vlan_cmd),
++				 NULL, NULL);
++}
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.h b/drivers/net/ethernet/huawei/hinic/hinic_port.h
+new file mode 100644
+index 0000000..4cafb94
+--- /dev/null
++++ b/drivers/net/ethernet/huawei/hinic/hinic_port.h
+@@ -0,0 +1,68 @@
++/*
++ * Huawei HiNIC PCI Express Linux driver
++ * Copyright(c) 2017 Huawei Technologies Co., Ltd
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * for more details.
++ *
++ */
 +
-+	pci_pool_destroy(cmdqs->cmdq_buf_pool);
- }
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h
-index c9e97ca..5ec59f1 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h
-@@ -24,6 +24,40 @@
- #include "hinic_hw_if.h"
- #include "hinic_hw_wq.h"
- 
-+#define HINIC_CMDQ_CTXT_CURR_WQE_PAGE_PFN_SHIFT         0
-+#define HINIC_CMDQ_CTXT_EQ_ID_SHIFT                     56
-+#define HINIC_CMDQ_CTXT_CEQ_ARM_SHIFT                   61
-+#define HINIC_CMDQ_CTXT_CEQ_EN_SHIFT                    62
-+#define HINIC_CMDQ_CTXT_WRAPPED_SHIFT                   63
++#ifndef HINIC_PORT_H
++#define HINIC_PORT_H
 +
-+#define HINIC_CMDQ_CTXT_CURR_WQE_PAGE_PFN_MASK          0xFFFFFFFFFFFFF
-+#define HINIC_CMDQ_CTXT_EQ_ID_MASK                      0x1F
-+#define HINIC_CMDQ_CTXT_CEQ_ARM_MASK                    0x1
-+#define HINIC_CMDQ_CTXT_CEQ_EN_MASK                     0x1
-+#define HINIC_CMDQ_CTXT_WRAPPED_MASK                    0x1
++#include <linux/types.h>
++#include <linux/etherdevice.h>
 +
-+#define HINIC_CMDQ_CTXT_PAGE_INFO_SET(val, member)      \
-+			(((u64)(val) & HINIC_CMDQ_CTXT_##member##_MASK) \
-+			 << HINIC_CMDQ_CTXT_##member##_SHIFT)
++#include "hinic_dev.h"
 +
-+#define HINIC_CMDQ_CTXT_PAGE_INFO_CLEAR(val, member)    \
-+			((val) & (~((u64)HINIC_CMDQ_CTXT_##member##_MASK \
-+			 << HINIC_CMDQ_CTXT_##member##_SHIFT)))
++struct hinic_port_mac_cmd {
++	u8              status;
++	u8              version;
++	u8              rsvd0[6];
 +
-+#define HINIC_CMDQ_CTXT_WQ_BLOCK_PFN_SHIFT              0
-+#define HINIC_CMDQ_CTXT_CI_SHIFT                        52
-+
-+#define HINIC_CMDQ_CTXT_WQ_BLOCK_PFN_MASK               0xFFFFFFFFFFFFF
-+#define HINIC_CMDQ_CTXT_CI_MASK                         0xFFF
-+
-+#define HINIC_CMDQ_CTXT_BLOCK_INFO_SET(val, member)     \
-+			(((u64)(val) & HINIC_CMDQ_CTXT_##member##_MASK) \
-+			 << HINIC_CMDQ_CTXT_##member##_SHIFT)
-+
-+#define HINIC_CMDQ_CTXT_BLOCK_INFO_CLEAR(val, member)   \
-+			((val) & (~((u64)HINIC_CMDQ_CTXT_##member##_MASK \
-+			 << HINIC_CMDQ_CTXT_##member##_SHIFT)))
-+
- #define HINIC_CMDQ_BUF_SIZE             2048
- 
- enum hinic_cmdq_type {
-@@ -38,6 +72,25 @@ struct hinic_cmdq_buf {
- 	size_t          size;
- };
- 
-+struct hinic_cmdq_ctxt_info {
-+	u64     curr_wqe_page_pfn;
-+	u64     wq_block_pfn;
++	u16             func_idx;
++	u16             vlan_id;
++	u16             rsvd1;
++	unsigned char   mac[ETH_ALEN];
 +};
 +
-+struct hinic_cmdq_ctxt {
++struct hinic_port_mtu_cmd {
 +	u8      status;
 +	u8      version;
 +	u8      rsvd0[6];
 +
 +	u16     func_idx;
-+	u8      cmdq_type;
-+	u8      rsvd1[1];
-+
-+	u8      rsvd2[4];
-+
-+	struct hinic_cmdq_ctxt_info ctxt_info;
++	u16     rsvd1;
++	u32     mtu;
 +};
 +
- struct hinic_cmdq {
- 	struct hinic_wq         *wq;
- 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
-index 7f50b2f..ca584c0 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
-@@ -106,6 +106,8 @@
- 
- #define HINIC_EQ_PAGE_SIZE              SZ_4K
- 
-+#define HINIC_CEQ_ID_CMDQ               0
++struct hinic_port_vlan_cmd {
++	u8      status;
++	u8      version;
++	u8      rsvd0[6];
 +
- enum hinic_eq_type {
- 	HINIC_AEQ,
- };
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-index 8021406..90116c2 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
-@@ -68,6 +68,11 @@ enum hinic_cfg_cmd {
- 	HINIC_CFG_NIC_CAP = 0,
- };
- 
-+enum hinic_comm_cmd {
-+	HINIC_COMM_CMD_CMDQ_CTXT_SET    = 0x10,
-+	HINIC_COMM_CMD_CMDQ_CTXT_GET    = 0x11,
++	u16     func_idx;
++	u16     vlan_id;
 +};
 +
- enum hinic_mgmt_cb_state {
- 	HINIC_MGMT_CB_ENABLED = BIT(0),
- 	HINIC_MGMT_CB_RUNNING = BIT(1),
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
-index 88d370e..5a3689a 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
-@@ -27,6 +27,7 @@
- 
- #include "hinic_hw_if.h"
- #include "hinic_hw_wq.h"
-+#include "hinic_hw_cmdq.h"
- 
- #define WQS_BLOCKS_PER_PAGE             4
- 
-@@ -42,6 +43,11 @@
- #define WQ_PAGE_ADDR_SIZE               sizeof(u64)
- #define WQ_MAX_PAGES                    (WQ_BLOCK_SIZE / WQ_PAGE_ADDR_SIZE)
- 
-+#define CMDQ_BLOCK_SIZE                 512
-+#define CMDQ_PAGE_SIZE                  4096
++int hinic_port_add_mac(struct hinic_dev *nic_dev, const u8 *addr,
++		       u16 vlan_id);
 +
-+#define CMDQ_WQ_MAX_PAGES               (CMDQ_BLOCK_SIZE / WQ_PAGE_ADDR_SIZE)
++int hinic_port_del_mac(struct hinic_dev *nic_dev, const u8 *addr,
++		       u16 vlan_id);
 +
- #define WQ_BASE_VADDR(wqs, wq)          \
- 			((void *)((wqs)->page_vaddr[(wq)->page_idx]) \
- 				+ (wq)->block_idx * WQ_BLOCK_SIZE)
-@@ -54,6 +60,18 @@
- 			((void *)((wqs)->shadow_page_vaddr[(wq)->page_idx]) \
- 				+ (wq)->block_idx * WQ_BLOCK_SIZE)
- 
-+#define CMDQ_BASE_VADDR(cmdq_pages, wq) \
-+			((void *)((cmdq_pages)->page_vaddr) \
-+				+ (wq)->block_idx * CMDQ_BLOCK_SIZE)
++int hinic_port_get_mac(struct hinic_dev *nic_dev, u8 *addr);
 +
-+#define CMDQ_BASE_PADDR(cmdq_pages, wq) \
-+			((cmdq_pages)->page_paddr \
-+				+ (wq)->block_idx * CMDQ_BLOCK_SIZE)
++int hinic_port_set_mtu(struct hinic_dev *nic_dev, int new_mtu);
 +
-+#define CMDQ_BASE_ADDR(cmdq_pages, wq)  \
-+			((void *)((cmdq_pages)->shadow_page_vaddr) \
-+				+ (wq)->block_idx * CMDQ_BLOCK_SIZE)
++int hinic_port_add_vlan(struct hinic_dev *nic_dev, u16 vlan_id);
 +
- /**
-  * queue_alloc_page - allocate page for Queue
-  * @hwif: HW interface for allocating DMA
-@@ -122,6 +140,37 @@ static void wqs_free_page(struct hinic_wqs *wqs, int page_idx)
- 	vfree(wqs->shadow_page_vaddr[page_idx]);
- }
- 
-+/**
-+ * cmdq_allocate_page - allocate page for cmdq
-+ * @cmdq_pages: the pages of the cmdq queue struct to hold the page
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int cmdq_allocate_page(struct hinic_cmdq_pages *cmdq_pages)
-+{
-+	return queue_alloc_page(cmdq_pages->hwif, &cmdq_pages->page_vaddr,
-+				&cmdq_pages->page_paddr,
-+				&cmdq_pages->shadow_page_vaddr,
-+				CMDQ_PAGE_SIZE);
-+}
++int hinic_port_del_vlan(struct hinic_dev *nic_dev, u16 vlan_id);
 +
-+/**
-+ * cmdq_free_page - free page from cmdq
-+ * @cmdq_pages: the pages of the cmdq queue struct that hold the page
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static void cmdq_free_page(struct hinic_cmdq_pages *cmdq_pages)
-+{
-+	struct hinic_hwif *hwif = cmdq_pages->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+
-+	dma_free_coherent(&pdev->dev, CMDQ_PAGE_SIZE,
-+			  cmdq_pages->page_vaddr,
-+			  (dma_addr_t)cmdq_pages->page_paddr);
-+	vfree(cmdq_pages->shadow_page_vaddr);
-+}
-+
- static int alloc_page_arrays(struct hinic_wqs *wqs)
- {
- 	struct hinic_hwif *hwif = wqs->hwif;
-@@ -515,3 +564,110 @@ void hinic_wq_free(struct hinic_wqs *wqs, struct hinic_wq *wq)
- 
- 	wqs_return_block(wqs, wq->page_idx, wq->block_idx);
- }
-+
-+/**
-+ * hinic_wqs_cmdq_alloc - Allocate wqs for cmdqs
-+ * @cmdq_pages: will hold the pages of the cmdq
-+ * @wq: returned wqs
-+ * @hwif: HW interface
-+ * @cmdq_blocks: number of cmdq blocks/wq to allocate
-+ * @wqebb_size: Work Queue Block Byte Size
-+ * @wq_page_size: the page size in the Work Queue
-+ * @q_depth: number of wqebbs in WQ
-+ * @max_wqe_size: maximum WQE size that will be used in the WQ
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_wqs_cmdq_alloc(struct hinic_cmdq_pages *cmdq_pages,
-+			 struct hinic_wq *wq, struct hinic_hwif *hwif,
-+			 int cmdq_blocks, u16 wqebb_size, u16 wq_page_size,
-+			 u16 q_depth, u16 max_wqe_size)
-+{
-+	struct pci_dev *pdev = hwif->pdev;
-+	u16 num_wqebbs_per_page;
-+	int i, j, err = -ENOMEM;
-+
-+	if (wqebb_size == 0) {
-+		dev_err(&pdev->dev, "wqebb_size must be > 0\n");
-+		return -EINVAL;
-+	}
-+
-+	if (wq_page_size == 0) {
-+		dev_err(&pdev->dev, "wq_page_size must be > 0\n");
-+		return -EINVAL;
-+	}
-+
-+	if (q_depth & (q_depth - 1)) {
-+		dev_err(&pdev->dev, "WQ q_depth must be power of 2\n");
-+		return -EINVAL;
-+	}
-+
-+	num_wqebbs_per_page = ALIGN(wq_page_size, wqebb_size) / wqebb_size;
-+
-+	if (num_wqebbs_per_page & (num_wqebbs_per_page - 1)) {
-+		dev_err(&pdev->dev, "num wqebbs per page must be power of 2\n");
-+		return -EINVAL;
-+	}
-+
-+	cmdq_pages->hwif = hwif;
-+
-+	err = cmdq_allocate_page(cmdq_pages);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to allocate CMDQ page\n");
-+		return err;
-+	}
-+
-+	for (i = 0; i < cmdq_blocks; i++) {
-+		wq[i].hwif = hwif;
-+		wq[i].page_idx = 0;
-+		wq[i].block_idx = i;
-+
-+		wq[i].wqebb_size = wqebb_size;
-+		wq[i].wq_page_size = wq_page_size;
-+		wq[i].q_depth = q_depth;
-+		wq[i].max_wqe_size = max_wqe_size;
-+		wq[i].num_wqebbs_per_page = num_wqebbs_per_page;
-+
-+		wq[i].block_vaddr = CMDQ_BASE_VADDR(cmdq_pages, &wq[i]);
-+		wq[i].shadow_block_vaddr = CMDQ_BASE_ADDR(cmdq_pages, &wq[i]);
-+		wq[i].block_paddr = CMDQ_BASE_PADDR(cmdq_pages, &wq[i]);
-+
-+		err = alloc_wq_pages(&wq[i], cmdq_pages->hwif,
-+				     CMDQ_WQ_MAX_PAGES);
-+		if (err) {
-+			dev_err(&pdev->dev, "Failed to alloc CMDQ blocks\n");
-+			goto err_cmdq_block;
-+		}
-+
-+		atomic_set(&wq[i].cons_idx, 0);
-+		atomic_set(&wq[i].prod_idx, 0);
-+		atomic_set(&wq[i].delta, q_depth);
-+		wq[i].mask = q_depth - 1;
-+	}
-+
-+	return 0;
-+
-+err_cmdq_block:
-+	for (j = 0; j < i; j++)
-+		free_wq_pages(&wq[j], cmdq_pages->hwif, wq[j].num_q_pages);
-+
-+	cmdq_free_page(cmdq_pages);
-+	return err;
-+}
-+
-+/**
-+ * hinic_wqs_cmdq_free - Free wqs from cmdqs
-+ * @cmdq_pages: hold the pages of the cmdq
-+ * @wq: wqs to free
-+ * @cmdq_blocks: number of wqs to free
-+ **/
-+void hinic_wqs_cmdq_free(struct hinic_cmdq_pages *cmdq_pages,
-+			 struct hinic_wq *wq, int cmdq_blocks)
-+{
-+	int i;
-+
-+	for (i = 0; i < cmdq_blocks; i++)
-+		free_wq_pages(&wq[i], cmdq_pages->hwif, wq[i].num_q_pages);
-+
-+	cmdq_free_page(cmdq_pages);
-+}
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
-index 8ce259a..a3c4469 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
-@@ -81,6 +81,14 @@ struct hinic_cmdq_pages {
- 	struct hinic_hwif       *hwif;
- };
- 
-+int hinic_wqs_cmdq_alloc(struct hinic_cmdq_pages *cmdq_pages,
-+			 struct hinic_wq *wq, struct hinic_hwif *hwif,
-+			 int cmdq_blocks, u16 wqebb_size, u16 wq_page_size,
-+			 u16 q_depth, u16 max_wqe_size);
-+
-+void hinic_wqs_cmdq_free(struct hinic_cmdq_pages *cmdq_pages,
-+			 struct hinic_wq *wq, int cmdq_blocks);
-+
- int hinic_wqs_alloc(struct hinic_wqs *wqs, int num_wqs,
- 		    struct hinic_hwif *hwif);
- 
++#endif
 -- 
 1.9.1
