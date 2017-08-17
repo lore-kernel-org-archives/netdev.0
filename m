@@ -1,81 +1,95 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] net: sched: fix NULL pointer dereference when action
- calls some targets
-Date: Thu, 17 Aug 2017 14:44:54 +0200
-Message-ID: <20170817124454.GA29209@salvia>
-References: <0fa9a53725dd661571461cf283ec88cf15f4b139.1501932907.git.lucien.xin@gmail.com>
- <CAM_iQpWcg0a46gJ6Qp3F1pqvvsaJYajmDC2uG_mi9Av_vkFo2w@mail.gmail.com>
- <CADvbK_fuuBrh+eOuhQU+SYs9uazH2TRP+KUmhxU=hNZ=EkOT=Q@mail.gmail.com>
- <CAM_iQpXbtHDxVjZ=DoTiLXHLQy6q=JVBa66EqSOy95ZbFg-wkQ@mail.gmail.com>
- <CADvbK_cCQY0McHiZFKSTjdGdAjhB6RBej5n=SH2=hsLYC=Xa7w@mail.gmail.com>
- <20170817100220.GC6928@salvia>
- <20170817103344.GA7568@salvia>
- <CADvbK_e+EntdONqnVEEDK+gqzcJHoy2gu5syoYznjaM22zKMCQ@mail.gmail.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH 1/6] bridge: learn dst metadata in FDB
+Date: Thu, 17 Aug 2017 14:45:30 +0200
+Message-ID: <20170817124530.GN773745@eidolon>
+References: <20170816170202.456851-1-equinox@diac24.net>
+ <20170816170202.456851-2-equinox@diac24.net>
+ <1fbaa432-6241-fad0-5407-8b87abb965ae@cumulusnetworks.com>
+ <20170817110324.GK773745@eidolon>
+ <4d4c8d17-1e0b-b78f-983b-e419e153b2bf@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Xin Long <lucien.xin@gmail.com>
+Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org,
+        amine.kherbouche@6wind.com, roopa@cumulusnetworks.com,
+        stephen@networkplumber.org,
+        "bridge@lists.linux-foundation.org"
+        <bridge@lists.linux-foundation.org>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:48696 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750988AbdHQMpV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 08:45:21 -0400
+Received: from eidolon.nox.tf ([185.142.180.128]:49238 "EHLO eidolon.nox.tf"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751620AbdHQMpd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 08:45:33 -0400
 Content-Disposition: inline
-In-Reply-To: <CADvbK_e+EntdONqnVEEDK+gqzcJHoy2gu5syoYznjaM22zKMCQ@mail.gmail.com>
+In-Reply-To: <4d4c8d17-1e0b-b78f-983b-e419e153b2bf@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 17, 2017 at 11:24:00PM +1200, Xin Long wrote:
-> On Thu, Aug 17, 2017 at 10:33 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> > On Thu, Aug 17, 2017 at 12:02:20PM +0200, Pablo Neira Ayuso wrote:
-> >> On Wed, Aug 16, 2017 at 08:39:44PM +1200, Xin Long wrote:
-> >> > On Wed, Aug 9, 2017 at 7:33 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> >> > > On Mon, Aug 7, 2017 at 7:33 PM, Xin Long <lucien.xin@gmail.com> wrote:
-> >> > >> On Tue, Aug 8, 2017 at 9:15 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> >> > >>> This looks like a completely API burden?
-> >> > >> netfilter xt targets are not really compatible with netsched action.
-> >> > >> I've got to say, the patch is just a way to make checkentry return
-> >> > >> false and avoid panic. like [1] said
-> >> > >
-> >> > > I don't doubt you fix a crash, I am thinking if we can
-> >> > > "fix" the API instead of fixing the caller.
-> >> > Hi, Cong,
-> >> >
-> >> > For now, I don't think it's possible to change APIs or  some of their targets
-> >> > for the panic caused by action xt calling.
-> >> >
-> >> > The common way should be fixed in net_sched side.
-> >> >
-> >> > Given that the issue is very easy to triggered,
-> >> > let's wait for netfilter's replies for another few days,
-> >> > otherwise I will repost the fix, agree ?
-> >>
-> >> Please, post the workaround so the kernel doesn't crash anymore.
-> >>
-> >> This is going to be very hard to fix, it's broken since the very
-> >> beginning...
-> >
-> > Wait a second, you could rename par->nft_compat to par->no_entry. From
-> > net/sched/ you can set this to 1, so the entry checks are ignored.
-> >
-> > I'm refering to patch 55917a21d0cc0
+On Thu, Aug 17, 2017 at 02:39:43PM +0300, Nikolay Aleksandrov wrote:
+> On 17/08/17 14:03, David Lamparter wrote:
+> > On Wed, Aug 16, 2017 at 11:38:06PM +0300, Nikolay Aleksandrov wrote:
+> >> On 16/08/17 20:01, David Lamparter wrote:
+> >> and hitting the fast path for everyone in a few different places for a
+> >> feature that the majority will not use does not sound acceptable to
+> >> me. We've been trying hard to optimize it, trying to avoid additional
+> >> cache lines, removing tests and keeping special cases to a minimum. 
+> > 
+> > skb->dst is on the same cacheline as skb->len.
+> > fdb->md_dst is on the same cacheline as fdb->dst.
+> > Both will be 0 in a lot of cases, so this should be two null checks on
+> > data that is hot in the cache.  Are you sure this is an actual problem?
+> > 
 > 
-> par->nft_compat wasn't used to ignore the entry checks, if we rename it
-> as no_entry, some other targets still needs to update. like the ones in
-> this patch's changelog:
-> ECN: ecn_tg_check()
-> TPROXY: tproxy_tg4_check()
+> Sure - no, I haven't benchmarked it, but I don't see skb->len being on
+> the same cache line as _skb_refdst assuming 64 byte cache lines.
+> But again any special cases, in my opinion, should be handled on their own,
+> it is both about the fast path and the code complexity that they bring in.
+
+(separate thread)
+
+[cut]
+> > I really hope you're not suggesting the entire MDB with IPv4 & IPv6
+> > snooping be duplicated into both VPLS and mac80211?
 > 
-> which means these two checks will be ignored for nft as well, that is
-> not what we want.
-> As nft has e4.ip.proto and e4.ip.invflags being set which net/sched
-> gets nothing. they are still different.
+> Code can always be shared if there are more users, no need to stuff
+> everything in the bridge,
 
-I see, then just fix this crash. It's been known among people that the
-number of extensions that act_ipt supports is limited.
+The MDB code is far from trivial, has several configuration knobs, and
+even sends its own queries if configured to do so.  It can also use
+quite a bit of memory of there's a nontrivial number of multicast
+groups.  I *really* think it shouldn't be duplicated.
 
-Thanks.
+> but I'm not that familiar with this case, once patches are out I can
+> comment further.
+
+I've pushed my hacks to:
+https://github.com/eqvinox/vpls-linux-kernel/commits/mdb-hack
+(top two commits)
+
+THIS IS ABSOLUTELY A PROOF OF CONCEPT.  It doesn't un-learn dst
+metadata, it probably leaks buckets, and it may kill your cat.
+(I haven't pushed my attempts at mac80211, because I haven't gotten
+anywhere useful there just yet.)
+
+> >> As you've noted this is only an RFC so I will not point out every issue, but there seems
+> >> to be a major problem with br_fdb_update(), note that it runs without any locks except RCU.
+> > 
+> > Right, Thanks! ... I only thought about concurrent access, forgetting
+> > about concurrent modification...  I'll replace it with an xchg I think.
+> > (No need for a lock that way)
+> 
+> I think you can still lose references to a dst that way, what if someone changes the
+> dst you read before the xchg and you xchg it ?
+
+The dst to be released is the return from (atomic) xchg, not the value
+read earlier for comparison.  This can happen in parallel, but apart
+from a little extra churn in the update case it has no ill effects.
+
+If someone changes it in the meantime, they have new dst information for
+the fdb entry, and so do we.  With xchg'ing it, either one of the
+updates will stick and the other will be properly released.  Considering
+that there is no correct ordering here (either packet could be processed
+a nanosecond later or earlier), this is perfectly fine as an outcome.
+
+
+-David
