@@ -1,191 +1,61 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next] dsa: remove unused net_device arg from handlers
-Date: Thu, 17 Aug 2017 16:47:00 +0200
-Message-ID: <20170817144700.16218-1-fw@strlen.de>
-Cc: f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
-        Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:56490 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751149AbdHQO5p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 10:57:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v4 06/12] net: stmmac: dwmac-rk: Add internal phy support
+Date: Thu, 17 Aug 2017 10:10:28 -0500
+Message-ID: <20170817151028.ewrgdk7qqd3nqzhe@rob-hp-laptop>
+References: <1502280475-736-1-git-send-email-david.wu@rock-chips.com>
+ <1502280661-2308-1-git-send-email-david.wu@rock-chips.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, heiko@sntech.de, andrew@lunn.ch,
+        f.fainelli@gmail.com, mark.rutland@arm.com,
+        catalin.marinas@arm.com, will.deacon@arm.com, olof@lixom.net,
+        linux@armlinux.org.uk, arnd@arndb.de, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, huangtao@rock-chips.com,
+        hwg@rock-chips.com, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        linux-rockchip@lists.infradead.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Wu <david.wu@rock-chips.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1502280661-2308-1-git-send-email-david.wu@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-compile tested only, but saw no warnings/errors with
-allmodconfig build.
+On Wed, Aug 09, 2017 at 08:11:01PM +0800, David Wu wrote:
+> To make internal phy work, need to configure the phy_clock,
+> phy cru_reset and related registers.
+> 
+> Signed-off-by: David Wu <david.wu@rock-chips.com>
+> ---
+> change in v4:
+>  - PHY is internal or not base on the phy-is-internal property via phy node.
+> 
+>  .../devicetree/bindings/net/rockchip-dwmac.txt     |  4 +-
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 88 ++++++++++++++++++++++
+>  2 files changed, 91 insertions(+), 1 deletion(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+> index 8f42755..4f51305 100644
+> --- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+> +++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+> @@ -25,7 +25,8 @@ Required properties:
+>   - clock-names: One name for each entry in the clocks property.
+>   - phy-mode: See ethernet.txt file in the same directory.
+>   - pinctrl-names: Names corresponding to the numbered pinctrl states.
+> - - pinctrl-0: pin-control mode. can be <&rgmii_pins> or <&rmii_pins>.
+> + - pinctrl-0: pin-control mode. can be <&rgmii_pins>, <&rmii_pins> or led pins
+> +   for internal phy mode.
+>   - clock_in_out: For RGMII, it must be "input", means main clock(125MHz)
+>     is not sourced from SoC's PLL, but input from PHY; For RMII, "input" means
+>     PHY provides the reference clock(50MHz), "output" means GMAC provides the
+> @@ -40,6 +41,7 @@ Optional properties:
+>   - tx_delay: Delay value for TXD timing. Range value is 0~0x7F, 0x30 as default.
+>   - rx_delay: Delay value for RXD timing. Range value is 0~0x7F, 0x10 as default.
+>   - phy-supply: phandle to a regulator if the PHY needs one
+> + - clocks: <&cru MAC_PHY>: Clock selector for internal macphy
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/net/dsa.h     | 6 ++----
- net/dsa/dsa.c         | 4 ++--
- net/dsa/tag_brcm.c    | 3 +--
- net/dsa/tag_dsa.c     | 3 +--
- net/dsa/tag_edsa.c    | 3 +--
- net/dsa/tag_ksz.c     | 3 +--
- net/dsa/tag_lan9303.c | 2 +-
- net/dsa/tag_mtk.c     | 3 +--
- net/dsa/tag_qca.c     | 3 +--
- net/dsa/tag_trailer.c | 3 +--
- 10 files changed, 12 insertions(+), 21 deletions(-)
+I assume this is required if internal phy is used. 'clocks' is already 
+documented above, so this needs to be documented with it.
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 7f46b521313e..398ca8d70ccd 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -104,8 +104,7 @@ struct packet_type;
- struct dsa_device_ops {
- 	struct sk_buff *(*xmit)(struct sk_buff *skb, struct net_device *dev);
- 	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
--			       struct packet_type *pt,
--			       struct net_device *orig_dev);
-+			       struct packet_type *pt);
- 	int (*flow_dissect)(const struct sk_buff *skb, __be16 *proto,
- 			    int *offset);
- };
-@@ -134,8 +133,7 @@ struct dsa_switch_tree {
- 	/* Copy of tag_ops->rcv for faster access in hot path */
- 	struct sk_buff *	(*rcv)(struct sk_buff *skb,
- 				       struct net_device *dev,
--				       struct packet_type *pt,
--				       struct net_device *orig_dev);
-+				       struct packet_type *pt);
- 
- 	/*
- 	 * The switch port to which the CPU is attached.
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 99e38af85fc5..03c58b0eb082 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -186,7 +186,7 @@ struct net_device *dsa_dev_to_net_device(struct device *dev)
- EXPORT_SYMBOL_GPL(dsa_dev_to_net_device);
- 
- static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
--			  struct packet_type *pt, struct net_device *orig_dev)
-+			  struct packet_type *pt, struct net_device *unused)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct sk_buff *nskb = NULL;
-@@ -202,7 +202,7 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
- 	if (!skb)
- 		return 0;
- 
--	nskb = dst->rcv(skb, dev, pt, orig_dev);
-+	nskb = dst->rcv(skb, dev, pt);
- 	if (!nskb) {
- 		kfree_skb(skb);
- 		return 0;
-diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-index c697d9815177..de74c3f77818 100644
---- a/net/dsa/tag_brcm.c
-+++ b/net/dsa/tag_brcm.c
-@@ -89,8 +89,7 @@ static struct sk_buff *brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev
- }
- 
- static struct sk_buff *brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
--				    struct packet_type *pt,
--				    struct net_device *orig_dev)
-+				    struct packet_type *pt)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index 12867a4b458f..fbf9ca954773 100644
---- a/net/dsa/tag_dsa.c
-+++ b/net/dsa/tag_dsa.c
-@@ -65,8 +65,7 @@ static struct sk_buff *dsa_xmit(struct sk_buff *skb, struct net_device *dev)
- }
- 
- static struct sk_buff *dsa_rcv(struct sk_buff *skb, struct net_device *dev,
--			       struct packet_type *pt,
--			       struct net_device *orig_dev)
-+			       struct packet_type *pt)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_switch *ds;
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index 67a9d26f9075..76367ba1b2e2 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -78,8 +78,7 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- }
- 
- static struct sk_buff *edsa_rcv(struct sk_buff *skb, struct net_device *dev,
--				struct packet_type *pt,
--				struct net_device *orig_dev)
-+				struct packet_type *pt)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_switch *ds;
-diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
-index de66ca8e6201..17f30675c15c 100644
---- a/net/dsa/tag_ksz.c
-+++ b/net/dsa/tag_ksz.c
-@@ -76,8 +76,7 @@ static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
- }
- 
- static struct sk_buff *ksz_rcv(struct sk_buff *skb, struct net_device *dev,
--			       struct packet_type *pt,
--			       struct net_device *orig_dev)
-+			       struct packet_type *pt)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
-diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
-index e23e7635fa00..0b9826105e42 100644
---- a/net/dsa/tag_lan9303.c
-+++ b/net/dsa/tag_lan9303.c
-@@ -68,7 +68,7 @@ static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
- }
- 
- static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
--			struct packet_type *pt, struct net_device *orig_dev)
-+			struct packet_type *pt)
- {
- 	u16 *lan9303_tag;
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
-diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
-index 02163c045a96..ec8ee5f43255 100644
---- a/net/dsa/tag_mtk.c
-+++ b/net/dsa/tag_mtk.c
-@@ -44,8 +44,7 @@ static struct sk_buff *mtk_tag_xmit(struct sk_buff *skb,
- }
- 
- static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
--				   struct packet_type *pt,
--				   struct net_device *orig_dev)
-+				   struct packet_type *pt)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_switch *ds;
-diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
-index 1867a3d11f28..1d4c70711c0f 100644
---- a/net/dsa/tag_qca.c
-+++ b/net/dsa/tag_qca.c
-@@ -63,8 +63,7 @@ static struct sk_buff *qca_tag_xmit(struct sk_buff *skb, struct net_device *dev)
- }
- 
- static struct sk_buff *qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
--				   struct packet_type *pt,
--				   struct net_device *orig_dev)
-+				   struct packet_type *pt)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index b09e56214005..8707157dea32 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -56,8 +56,7 @@ static struct sk_buff *trailer_xmit(struct sk_buff *skb, struct net_device *dev)
- }
- 
- static struct sk_buff *trailer_rcv(struct sk_buff *skb, struct net_device *dev,
--				   struct packet_type *pt,
--				   struct net_device *orig_dev)
-+				   struct packet_type *pt)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
- 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
--- 
-2.13.0
+Rob
