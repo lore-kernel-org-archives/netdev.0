@@ -1,36 +1,63 @@
-From: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
-Subject: Re: [PATCH v2] net: inet: diag: expose sockets cgroup classid
-Date: Thu, 17 Aug 2017 00:28:24 +0000
-Message-ID: <20170817003228.o2bhmm7escre2czu@sasha-lappy>
-References: <20170727181352.18547-1-alexander.levin@verizon.com>
- <20170816201707.xbpquud3ar3uarst@sasha-lappy>
- <CAM_iQpXCf9j6XHYFnqmb_n+aqj4_j_LO5s0rcxakdJYiJCi0oA@mail.gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH next] neigh: initialize neigh entry correctly during arp
+ processing
+Date: Wed, 16 Aug 2017 20:32:15 -0400
+Message-ID: <20170817003215.GQ6984@oracle.com>
+References: <20170817000251.38469-1-mahesh@bandewar.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpXCf9j6XHYFnqmb_n+aqj4_j_LO5s0rcxakdJYiJCi0oA@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <68E18BC183FDC5499B3C08AB8CD0040B@vzwcorp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        Kees Cook <keescook@chromium.org>,
+        Reshetova Elena <elena.reshetova@intel.com>,
+        Florian Westphal <fw@strlen.de>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Ihar Hrachyshka <ihrachys@redhat.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Mahesh Bandewar <mahesh@bandewar.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:37507 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751542AbdHQAc7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 20:32:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20170817000251.38469-1-mahesh@bandewar.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 16, 2017 at 01:15:57PM -0700, Cong Wang wrote:
->On Wed, Aug 16, 2017 at 1:13 PM, Levin, Alexander (Sasha Levin)
-><alexander.levin@verizon.com> wrote:
->> Ping?
->
->I guess you missed the comment saying you need to check
->the return value of nla_put_u32().
+On (08/16/17 17:02), Mahesh Bandewar wrote:
+> 
+> From: Mahesh Bandewar <maheshb@google.com>
+> 
+> If the ARP processing creates a neigh entry, it's immediately marked
+> as STALE without timer and stays that way in that state as long as
+> host do not send traffic to that neighbour.
 
-Indeed I did. Odd, I don't see the mail locally, but I can find it in patch=
-work.... I'll send a v3.
+Perhaps I dont understand the specific  packet exchange case
+that your patch is trying to fix,  but if the neighbor entry
+is created as a result of an incoming packet (but we have not
+yet sent anything to this neighbor) then it should be marked STALE?
+IOW, STALE means "Ingress path claims this adjacency, but egress
+path has not been verified".  Is the problem that the neigh never
+goes into PROBE?
 
---=20
+> +	if (neigh) {
+> +		if (neigh->nud_state & NUD_VALID)
+> +			neigh_update(neigh, lladdr, NUD_STALE,
+> +				     NEIGH_UPDATE_F_OVERRIDE, 0);
+> +		else
+> +			neigh_event_send(neigh, NULL);
+> +	}
 
-Thanks,
-Sasha=
+NUD_VALID is already a mask of 
+ (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE|NUD_PROBE|NUD_STALE|NUD_DELAY)
+are you sure you want to force the transition of probe/delay -> stale
+here? Maybe it woudl help to describe the exact wire packet
+exchange that is broken today, but fixed by your patch.
+
+--Sowmini
