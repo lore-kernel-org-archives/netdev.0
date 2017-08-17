@@ -1,156 +1,77 @@
-From: Stefano Brivio <sbrivio@redhat.com>
-Subject: Re: [PATCH] i40e{,vf}: Fix out-of-bound cpumask read in IRQ
- affinity handler
-Date: Thu, 17 Aug 2017 03:01:09 +0200
-Message-ID: <20170817030109.31580d73@elisabeth>
-References: <ae9c9586f61e914dc1c6fe2e6ac1fb2bf07283bc.1502792828.git.sbrivio@redhat.com>
-        <1502929524.32783.3.camel@intel.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH next] neigh: initialize neigh entry correctly during arp processing
+Date: Wed, 16 Aug 2017 18:02:33 -0700
+Message-ID: <CAF2d9ji7cQ+hYXVChytLyW4Czedx95Myi19NuD5VKOEcvaEqZw@mail.gmail.com>
+References: <20170817000251.38469-1-mahesh@bandewar.net> <20170817003215.GQ6984@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        "David S . Miller" <davem@davemloft.net>,
-        Alan Brady <alan.brady@intel.com>,
-        Stefan Assmann <sassmann@redhat.com>,
-        Juergen Gross <jgross@suse.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Mahesh Bandewar <mahesh@bandewar.net>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        Kees Cook <keescook@chromium.org>,
+        Reshetova Elena <elena.reshetova@intel.com>,
+        Florian Westphal <fw@strlen.de>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Ihar Hrachyshka <ihrachys@redhat.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51396 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751588AbdHQBBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 16 Aug 2017 21:01:16 -0400
-In-Reply-To: <1502929524.32783.3.camel@intel.com>
+Received: from mail-it0-f51.google.com ([209.85.214.51]:33051 "EHLO
+        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751943AbdHQBCz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 21:02:55 -0400
+Received: by mail-it0-f51.google.com with SMTP id f16so458398itb.0
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 18:02:55 -0700 (PDT)
+In-Reply-To: <20170817003215.GQ6984@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
-
-On Wed, 16 Aug 2017 17:25:24 -0700
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-
-> On Tue, 2017-08-15 at 12:30 +0200, Stefano Brivio wrote:
-> > The cpumask used in i40e{,vf}_irq_affinity_notify() is allocated
-> > by irq_affinity_notify() with alloc_cpumask_var(), which doesn't
-> > allocate NR_CPUS bits, but only nr_cpumask_bits bits. If we just
-> > dereference it, we'll read way more than what is allocated, e.g.
-> > 1024 bytes vs. 8 bytes allocated on x86_64 machine with 24 CPUs.
-> > 
-> > Use cpumask_copy() instead. A comprehensive explanation is given
-> > in the comments about cpumask_var_t, in include/linux/cpumask.h.
-> > 
-> > KASAN reports:
-> > [   25.242312] BUG: KASAN: slab-out-of-bounds in
-> > i40e_irq_affinity_notify+0x30/0x50 [i40e] at addr ffff880462eea960
-> > [   25.242315] Read of size 1024 by task kworker/2:1/170
-> > [   25.242322] CPU: 2 PID: 170 Comm: kworker/2:1 Not tainted 4.11.0-
-> > 22.el7a.x86_64 #1
-> > [   25.242325] Hardware name: HP ProLiant DL380 Gen9, BIOS P89
-> > 05/06/2015
-> > [   25.242336] Workqueue: events irq_affinity_notify
-> > [   25.242340] Call Trace:
-> > [   25.242350]  dump_stack+0x63/0x8d
-> > [   25.242358]  kasan_object_err+0x21/0x70
-> > [   25.242364]  kasan_report+0x288/0x540
-> > [   25.242397]  ? i40e_irq_affinity_notify+0x30/0x50 [i40e]
-> > [   25.242403]  check_memory_region+0x13c/0x1a0
-> > [   25.242408]  __asan_loadN+0xf/0x20
-> > [   25.242440]  i40e_irq_affinity_notify+0x30/0x50 [i40e]
-> > [   25.242446]  irq_affinity_notify+0x1b4/0x230
-> > [   25.242452]  ? irq_set_affinity_notifier+0x130/0x130
-> > [   25.242457]  ? kasan_slab_free+0x89/0xc0
-> > [   25.242466]  process_one_work+0x32f/0x6f0
-> > [   25.242472]  worker_thread+0x89/0x770
-> > [   25.242481]  ? pci_mmcfg_check_reserved+0xc0/0xc0
-> > [   25.242488]  kthread+0x18c/0x1e0
-> > [   25.242493]  ? process_one_work+0x6f0/0x6f0
-> > [   25.242499]  ? kthread_create_on_node+0xc0/0xc0
-> > [   25.242506]  ret_from_fork+0x2c/0x40
-> > [   25.242511] Object at ffff880462eea960, in cache kmalloc-8 size: 8
-> > [   25.242513] Allocated:
-> > [   25.242514] PID = 170
-> > [   25.242522]  save_stack_trace+0x1b/0x20
-> > [   25.242529]  save_stack+0x46/0xd0
-> > [   25.242533]  kasan_kmalloc+0xad/0xe0
-> > [   25.242537]  __kmalloc_node+0x12c/0x2b0
-> > [   25.242542]  alloc_cpumask_var_node+0x3c/0x60
-> > [   25.242546]  alloc_cpumask_var+0xe/0x10
-> > [   25.242550]  irq_affinity_notify+0x94/0x230
-> > [   25.242555]  process_one_work+0x32f/0x6f0
-> > [   25.242559]  worker_thread+0x89/0x770
-> > [   25.242564]  kthread+0x18c/0x1e0
-> > [   25.242568]  ret_from_fork+0x2c/0x40
-> > [   25.242569] Freed:
-> > [   25.242570] PID = 0
-> > [   25.242572] (stack is not available)
-> > [   25.242573] Memory state around the buggy address:
-> > [   25.242578]  ffff880462eea800: fc fc 00 fc fc 00 fc fc 00 fc fc 00
-> > fc fc fb fc
-> > [   25.242582]  ffff880462eea880: fc fb fc fc fb fc fc 00 fc fc 00 fc
-> > fc 00 fc fc
-> > [   25.242586] >ffff880462eea900: 00 fc fc 00 fc fc 00 fc fc fb fc fc
-> > 00 fc fc fc
-> > [  
-> > 25.242588]                                                          
-> > ^
-> > [   25.242592]  ffff880462eea980: fc fc fc fc fc fc fc fc fc fc fc fc
-> > fc fc fc fc
-> > [   25.242596]  ffff880462eeaa00: fc fc fc fc fc fc fc fc fc fc fc fc
-> > fc fc fc fc
-> > [   25.242597]
-> > ==================================================================
-> > 
-> > Fixes: 96db776a3682 ("i40e/i40evf: fix interrupt affinity bug")
-> > Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
-> > ---
-> > This should be considered for -stable, back to 4.10.
-> > 
-> >  drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
-> >  drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
-> >  2 files changed, 2 insertions(+), 2 deletions(-)  
-> 
-> This is already resolved with a previous patch from Jacob Keller, see
-> the following commit in my tree:
-> 
-> commit f15ac286b0d111499e0fec4b50c8c870ad3b4573
-> Author: Jacob Keller <jacob.e.keller@intel.com>
-> Date:   Wed Aug 16 17:12:00 2017 -0700
-
-This doesn't look like a previous patch. Please note that I posted this
-on Tuesday (and Juergen on Saturday, with v2 on Wednesday at 19:52
-+0200).
-
-Before posting, however, I checked patchwork at:
-
-	https://patchwork.ozlabs.org/project/intel-wired-lan/list/
-
-and also your git tree (listed in MAINTAINERS) at:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue.git
-
-but I couldn't find that commit. I also can't find it now. So I suppose
-I'm looking for it in the wrong place. Can you please tell me which
-tree or patchwork I should check before submitting patches for i40e, so
-that I avoid further duplicate submissions next time?
-
-A couple of notes about the commit message (as I can't find the commit
-you mentioned):
-
->     i40e: use cpumask_copy instead of direct assignment
-
-This should be for both i40e and i40evf.
-
->     According to the header file cpumask.h, we shouldn't be directly
-> copying
->     a cpumask_t, since its a bitmap and might not be copied correctly.
-> Lets
->     use the provided cpumask_copy() function instead.
+On Wed, Aug 16, 2017 at 5:32 PM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (08/16/17 17:02), Mahesh Bandewar wrote:
+>>
+>> From: Mahesh Bandewar <maheshb@google.com>
+>>
+>> If the ARP processing creates a neigh entry, it's immediately marked
+>> as STALE without timer and stays that way in that state as long as
+>> host do not send traffic to that neighbour.
 >
->     Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Perhaps I dont understand the specific  packet exchange case
+> that your patch is trying to fix,  but if the neighbor entry
+> is created as a result of an incoming packet (but we have not
+> yet sent anything to this neighbor) then it should be marked STALE?
+> IOW, STALE means "Ingress path claims this adjacency, but egress
+> path has not been verified".  Is the problem that the neigh never
+> goes into PROBE?
+>
+Correct. The entry gets created  (NUD_NONE) and few jiffies later it
+gets marked as STALE. It's doesn't even get a chance to get PROBEd.
 
-A Fixes: tag would be useful here, please see my patch.
+>> +     if (neigh) {
+>> +             if (neigh->nud_state & NUD_VALID)
+>> +                     neigh_update(neigh, lladdr, NUD_STALE,
+>> +                                  NEIGH_UPDATE_F_OVERRIDE, 0);
+>> +             else
+>> +                     neigh_event_send(neigh, NULL);
+>> +     }
+>
+> NUD_VALID is already a mask of
+>  (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE|NUD_PROBE|NUD_STALE|NUD_DELAY)
+> are you sure you want to force the transition of probe/delay -> stale
+> here?
+It's not forced and neigh_update() has guards / provision to consider
+these type of transition and wont force it. Just that if the state is
+not-valid (NUD_INCOMPLETE | NUD_NONE) etc then it marks it STALE and
+deletes the timer.
 
-I think it would also be helpful to mention that this causes a (big)
-out-of-bound read (again, see my patch or v2 from Juergen), and make it
-clear that this should be queued for -stable.
-
-Thanks,
+> Maybe it woudl help to describe the exact wire packet
+> exchange that is broken today, but fixed by your patch.
+>
+> --Sowmini
+>
+>
