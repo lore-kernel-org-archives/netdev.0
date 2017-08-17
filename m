@@ -1,110 +1,149 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [net-next PATCH 06/10] bpf: sockmap with sk redirect support
-Date: Thu, 17 Aug 2017 15:28:03 -0700
-Message-ID: <a6dafa0a-9cb2-6d70-5db7-fe44108a6c2c@fb.com>
-References: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810>
- <20170816053247.15445.69312.stgit@john-Precision-Tower-5810>
- <fbc6e111-f610-2ef9-bb2a-6503d747124f@fb.com> <5995E738.9090803@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] about net: Fix inconsistent teardown and release of private
+ netdev state.
+Date: Thu, 17 Aug 2017 15:30:40 -0700
+Message-ID: <1503009040.4936.161.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <tgraf@suug.ch>, <netdev@vger.kernel.org>, <tom@herbertland.com>
-To: John Fastabend <john.fastabend@gmail.com>, <davem@davemloft.net>,
-        <daniel@iogearbox.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43597 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752632AbdHQW23 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 18:28:29 -0400
-In-Reply-To: <5995E738.9090803@gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34013 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753271AbdHQWan (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 18:30:43 -0400
+Received: by mail-pg0-f67.google.com with SMTP id y192so11880656pgd.1
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 15:30:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/17/17 11:58 AM, John Fastabend wrote:
->>> +    /* reserve BPF programs early so can abort easily on failures */
->>> +    if (map_flags & BPF_SOCKMAP_STRPARSER) {
->> why have two 'flags' arguments and new helper just for this?
->> can normal update() be used and extra bits of flag there?
->>
-> The new helper is needed regardless to handle consuming the skops ctx
-> pointer from programs attached to cgroups. This way we can attach sockets
-> in cgroups when they enter specified TCP states.
->
-> The map_flags arg was because I expect we may end up with a few more flags
-> in sockmap and thought it was reasonable to keep separate namespaces for
-> the two flag types, BPF_ and BPF_SOCKMAP_*. It does however have the one
-> issue that when doing the update via syscall the flags are not available.
->
-> If there is no objection to consuming some bits of the normal flags a small
-> patch could do that. I think we will need at least two more bits going forward
-> for additional features. I guess though the map flags is not pressed for
-> bit space yet though.
->
+David
 
-hmm. looking at the patch further. I'm not excited with this new api.
-Why this BPF_SOCKMAP_STRPARSER flag is needed at all?
-The sample code doesn't use it. What could be the use case?
-Some future proofing? but the code seems to work properly only in
-strparser mode... like 'verdict' bpf prog is called only
-from strparser callback... and no other way to call it...
-and normal map_update_elem() implies BPF_SOCKMAP_STRPARSER too...
-I don't see detach api either..
+If I read correctly this commit :
+cf124db566e6b036b8bcbe8decbed740bdfac8c6
+("net: Fix inconsistent teardown and release of private netdev state.")
 
-Why BPF_CGROUP_SMAP_INGRESS has 'cgroup' suffix in there?
-It doesn't deal with cgroups. It attaches a pair of prog_fds to sockmap.
-I guess it's ok-ish to use BPF_PROG_ATTACH syscall command for that,
-but using BPF_CGROUP_SMAP_INGRESS as 'attach type' is very confusing.
-Why couldn't you use multiple normal bpf_map_update() commands to
-store two prog_fds into stockmap ?
-You could have reserved two special numerical key values 0xdead and
-0xbeef or -1/-2 for these two progs?
-If I read it correctly this new prog_attach sub-command doesn't attach
-to any event, it only stores two hidden bpf programs inside sockmap.
+We have problems in drivers providing priv_destructor
+and handling a failure in register_netdevice()
 
-Later proper prog_attach to actual cgroup is done with normal cgroup_fd
-and BPF_CGROUP_SOCK_OPS prog type which looks completely independent
-of sockmap, no?
-It seems right now there is psock <-> one sockmap restriction
-which looks implementation related. If we ever want to remove that
-restriction such uapi will prevent us from doing it, since it's
-doing too much stuff under the cover.
+register_netdevice() might have called ->priv_destructor()
+or not.
 
-i like the sock to sock redirect concept of the patch, but uapi needs
-to be improved before it goes to released kernel.
+So we do not really know if we need to clean up or not.
 
-How about we break it down into smaller chunks of work and
-expose what's happening underneath as explicit user driven actions?
-Like:
-- map_fd = create_map(BPF_MAP_TYPE_SOCKMAP) will create an empty map
-- add new explicit helper to create psock in given map_fd or
-   use prog_attach() cmd to attach to socket instead of sockmap ?
-- two map_udpate_elem(map_fd, -1, strparser_prog_fd)
-   map_update_elem(map_fd, -2, verdict_prog_fd)
-   will store the progs in there which are currently hidden.
-   map_delete_elem(-1) and (-2) would clear them.
-   Alternatively pass both FDs at once as 8-byte key into single
-   map_update() cmd
-   or create new psock object that will keep strpaser and verdict progs?
-- keep prog_attach(BPF_CGROUP_SOCK_OPS) as-is for
-   BPF_CGROUP_SOCK_OPS prog type which can call new helper
-   bpf_foo(ctx, ...) that will convert ctx socket into strparser mode
-   without making association to sockmap.
+Any idea how to fix the issue ?
 
-My main objection to the api is that hidden psock object makes
-the api confusing to use and I'm struggling to see how it will
-be extensible. Like what if we want more than two strparser+verdict
-progs in sockmap? or multiple sockmaps out of the same verdict prog?
-I'm also struggling to wrap my head how prog_attach cmd attaches
-to a map and hidden creation of strparser in a socket.
-It seems right now psock == one rx socket that works in strparser
-mode while sockmap is secondary set of tx sockets to redirect to.
-If so, psock and sockmap should be independent in uapi.
-Like prog_attach would attach strpaser and verdict programs to
-a socket switching it to strparser mode.
-If SK_REDIRECT is not returned it would be dropping skbs (like now),
-if redirect requested, the smap_do_verdict() will pick the next
-socket from sockmap and there will be no rigid connection
-between sockmap and psock and we can use multiple sockmaps
-from the same verdict program. smap_do_verdict() only needs
-to know peer socket to redirect to.
-Thoughts?
+(syzkaller got double frees when kfree(tun->security) was attempted a
+2nd time)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 19cbbbb1b63bbd74fcf7e74faf6541b3b7472b65..57d6b9aa3f64954d4d8350c46662ef3810209889 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -2078,7 +2078,12 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+        return 0;
+ 
+ err_detach:
++       /* register_netdevice() failed but called our priv_destructor
++        * (tun_free_netdev()). But maybe not :(
++        */
+        tun_detach_all(dev);
++       goto err_free_dev;
++
+ err_free_flow:
+        tun_flow_uninit(tun);
+        security_tun_dev_free_security(tun->security);
+
+
+
+syzkaller trace :
+
+BUG: KASAN: double-free or invalid-free in selinux_tun_dev_free_security+0x15/0x20 security/selinux/hooks.c:5023
+
+CPU: 0 PID: 2919 Comm: syzkaller227220 Not tainted 4.13.0-rc4+ #23
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x194/0x257 lib/dump_stack.c:52
+ print_address_description+0x7f/0x260 mm/kasan/report.c:252
+ kasan_report_double_free+0x55/0x80 mm/kasan/report.c:333
+ kasan_slab_free+0xa0/0xc0 mm/kasan/kasan.c:514
+ __cache_free mm/slab.c:3503 [inline]
+ kfree+0xd3/0x260 mm/slab.c:3820
+ selinux_tun_dev_free_security+0x15/0x20 security/selinux/hooks.c:5023
+ security_tun_dev_free_security+0x48/0x80 security/security.c:1512
+ tun_set_iff drivers/net/tun.c:1884 [inline]
+ __tun_chr_ioctl+0x2ce6/0x3d50 drivers/net/tun.c:2064
+ tun_chr_ioctl+0x2a/0x40 drivers/net/tun.c:2309
+ vfs_ioctl fs/ioctl.c:45 [inline]
+ do_vfs_ioctl+0x1b1/0x1520 fs/ioctl.c:685
+ SYSC_ioctl fs/ioctl.c:700 [inline]
+ SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+RIP: 0033:0x443ff9
+RSP: 002b:00007ffc34271f68 EFLAGS: 00000217 ORIG_RAX: 0000000000000010
+RAX: ffffffffffffffda RBX: 00000000004002e0 RCX: 0000000000443ff9
+RDX: 0000000020533000 RSI: 00000000400454ca RDI: 0000000000000003
+RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000217 R12: 0000000000401ce0
+R13: 0000000000401d70 R14: 0000000000000000 R15: 0000000000000000
+
+Allocated by task 2919:
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459 [inline]
+ kasan_kmalloc+0xaa/0xd0 mm/kasan/kasan.c:551
+ kmem_cache_alloc_trace+0x101/0x6f0 mm/slab.c:3627
+ kmalloc include/linux/slab.h:493 [inline]
+ kzalloc include/linux/slab.h:666 [inline]
+ selinux_tun_dev_alloc_security+0x49/0x170 security/selinux/hooks.c:5012
+ security_tun_dev_alloc_security+0x6d/0xa0 security/security.c:1506
+ tun_set_iff drivers/net/tun.c:1839 [inline]
+ __tun_chr_ioctl+0x1730/0x3d50 drivers/net/tun.c:2064
+ tun_chr_ioctl+0x2a/0x40 drivers/net/tun.c:2309
+ vfs_ioctl fs/ioctl.c:45 [inline]
+ do_vfs_ioctl+0x1b1/0x1520 fs/ioctl.c:685
+ SYSC_ioctl fs/ioctl.c:700 [inline]
+ SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+
+Freed by task 2919:
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459 [inline]
+ kasan_slab_free+0x6e/0xc0 mm/kasan/kasan.c:524
+ __cache_free mm/slab.c:3503 [inline]
+ kfree+0xd3/0x260 mm/slab.c:3820
+ selinux_tun_dev_free_security+0x15/0x20 security/selinux/hooks.c:5023
+ security_tun_dev_free_security+0x48/0x80 security/security.c:1512
+ tun_free_netdev+0x13b/0x1b0 drivers/net/tun.c:1563
+ register_netdevice+0x8d0/0xee0 net/core/dev.c:7605
+ tun_set_iff drivers/net/tun.c:1859 [inline]
+ __tun_chr_ioctl+0x1caf/0x3d50 drivers/net/tun.c:2064
+ tun_chr_ioctl+0x2a/0x40 drivers/net/tun.c:2309
+ vfs_ioctl fs/ioctl.c:45 [inline]
+ do_vfs_ioctl+0x1b1/0x1520 fs/ioctl.c:685
+ SYSC_ioctl fs/ioctl.c:700 [inline]
+ SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+
+The buggy address belongs to the object at ffff8801d2843b40
+ which belongs to the cache kmalloc-32 of size 32
+The buggy address is located 0 bytes inside of
+ 32-byte region [ffff8801d2843b40, ffff8801d2843b60)
+The buggy address belongs to the page:
+page:ffffea000660cea8 count:1 mapcount:0 mapping:ffff8801d2843000 index:0xffff8801d2843fc1
+flags: 0x200000000000100(slab)
+raw: 0200000000000100 ffff8801d2843000 ffff8801d2843fc1 000000010000003f
+raw: ffffea0006626a40 ffffea00066141a0 ffff8801dbc00100
+page dumped because: kasan: bad access detected
+
+Memory state around the buggy address:
+ ffff8801d2843a00: fb fb fb fb fc fc fc fc fb fb fb fb fc fc fc fc
+ ffff8801d2843a80: 00 00 00 fc fc fc fc fc fb fb fb fb fc fc fc fc
+>ffff8801d2843b00: 00 00 00 00 fc fc fc fc fb fb fb fb fc fc fc fc
+                                           ^
+ ffff8801d2843b80: fb fb fb fb fc fc fc fc fb fb fb fb fc fc fc fc
+ ffff8801d2843c00: fb fb fb fb fc fc fc fc fb fb fb fb fc fc fc fc
+==================================================================
