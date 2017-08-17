@@ -1,45 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] PCI: fix the return value for the
- pci_find_pcie_root_port()
-Date: Wed, 16 Aug 2017 19:42:35 -0700 (PDT)
-Message-ID: <20170816.194235.391501463422735735.davem@davemloft.net>
-References: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: leedom@chelsio.com, ashok.raj@intel.com, bhelgaas@google.com,
-        helgaas@kernel.org, werner@chelsio.com, ganeshgr@chelsio.com,
-        asit.k.mallick@intel.com, patrick.j.cramer@intel.com,
-        Suravee.Suthikulpanit@amd.com, Bob.Shaw@amd.com,
-        l.stach@pengutronix.de, amira@mellanox.com,
-        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
-        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
-        alexander.duyck@gmail.com, eric.dumazet@gmail.com,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com, thierry.reding@gmail.com
-To: dingtianhong@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Subject: [PATCH net-next v2 1/2] tcp: Remove unnecessary dst check in tcp_conn_request.
+Date: Wed, 16 Aug 2017 20:02:45 -0700
+Message-ID: <1502938966-6345-2-git-send-email-xiangxia.m.yue@gmail.com>
+References: <1502938966-6345-1-git-send-email-xiangxia.m.yue@gmail.com>
+Cc: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:38378 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751643AbdHQDDK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2017 23:03:10 -0400
+Received: by mail-pg0-f68.google.com with SMTP id 123so7466717pga.5
+        for <netdev@vger.kernel.org>; Wed, 16 Aug 2017 20:03:10 -0700 (PDT)
+In-Reply-To: <1502938966-6345-1-git-send-email-xiangxia.m.yue@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Thu, 17 Aug 2017 10:25:30 +0800
+Because we remove the tcp_tw_recycle support in the commit
+4396e46187c ('tcp: remove tcp_tw_recycle') and also delete
+the code 'af_ops->route_req' for sysctl_tw_recycle in tcp_conn_request.
+Now when we call the 'af_ops->route_req', the dist always is
+NULL, and we remove the unnecessay check.
 
-> The pci_find_pcie_root_port() would return NULL if the given
-> dev is already a Root Port, it looks like unfriendly to the
-> PCIe Root Port device, Thierry and Bjorn suggest to let this
-> function return the given dev under this circumstances.
-> 
-> Fixes: 0e405232871d6 ("PCI: fix oops when try to find Root Port for a PCI device")
-> Suggested-by: Thierry Reding <thierry.reding@gmail.com>
-> Suggested-by: Bjorn Helgaas <helgaas@kernel.org>
-> Signed-off-by: Thierry Reding <thierry.reding@gmail.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+---
+ net/ipv4/tcp_input.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-Bjorn, please review and ACK so Linus doesn't rip my head off again
-:-)
-
-Thanks.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d73903f..7eee2c7 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -6132,11 +6132,10 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 
+ 		isn = af_ops->init_seq(skb);
+ 	}
+-	if (!dst) {
+-		dst = af_ops->route_req(sk, &fl, req);
+-		if (!dst)
+-			goto drop_and_free;
+-	}
++
++	dst = af_ops->route_req(sk, &fl, req);
++	if (!dst)
++		goto drop_and_free;
+ 
+ 	tcp_ecn_create_request(req, skb, sk, dst);
+ 
+-- 
+1.8.3.1
