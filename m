@@ -1,73 +1,35 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH iproute2] libnetlink: Fix extack attribute parsing
-Date: Thu, 17 Aug 2017 13:43:00 -0700
-Message-ID: <1503002580-21267-1-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:37807 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753259AbdHQUnJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 16:43:09 -0400
-Received: by mail-pg0-f66.google.com with SMTP id 83so11550819pgb.4
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 13:43:09 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Thoughts on staging and on fixing up drivers?
+Date: Thu, 17 Aug 2017 23:46:37 +0300
+Message-ID: <20170817204531.dorcib3omnxi3f6u@mwanda>
+References: <20170817174652.17656-1-Larry.Finger@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, Ping-Ke Shih <pkshih@realtek.com>,
+ Yan-Hsuan Chuang <yhchuang@realtek.com>, gregkh@linuxfoundation.org,
+ Shaofu <shaofu@realtek.com>, Birming Chiu <birming@realtek.com>,
+ netdev@vger.kernel.org, Steven Ting <steventing@realtek.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <20170817174652.17656-1-Larry.Finger@lwfinger.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Initialize tb in nl_dump_ext_err since not all attributes will be
-sent in the messages.
+I'm excited to see all the @realtek.com addresses.  :)
 
-Add error checking on mnl_attr_parse and print messages on the off
-chance the ext ack attributes fail to validate.
+Larry, you've migrated a bunch of staging code, and tried various
+approaches.  Do you have any lessons on what has worked and what hasn't
+and if there is anything we can do to make the process better?
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- lib/libnetlink.c | 15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
-
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index 81a344abff27..874e660be7eb 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -49,13 +49,17 @@ static int err_attr_cb(const struct nlattr *attr, void *data)
- 	const struct nlattr **tb = data;
- 	uint16_t type;
- 
--	if (mnl_attr_type_valid(attr, NLMSGERR_ATTR_MAX) < 0)
-+	if (mnl_attr_type_valid(attr, NLMSGERR_ATTR_MAX) < 0) {
-+		fprintf(stderr, "Invalid extack attribute\n");
- 		return MNL_CB_ERROR;
-+	}
- 
- 	type = mnl_attr_get_type(attr);
--	if (mnl_attr_validate(attr, extack_policy[type]) < 0)
-+	if (mnl_attr_validate(attr, extack_policy[type]) < 0) {
-+		fprintf(stderr, "extack attribute %d failed validation\n",
-+			type);
- 		return MNL_CB_ERROR;
--
-+	}
- 
- 	tb[type] = attr;
- 	return MNL_CB_OK;
-@@ -64,7 +68,7 @@ static int err_attr_cb(const struct nlattr *attr, void *data)
- /* dump netlink extended ack error message */
- static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
- {
--	struct nlattr *tb[NLMSGERR_ATTR_MAX + 1];
-+	struct nlattr *tb[NLMSGERR_ATTR_MAX + 1] = {};
- 	const struct nlmsgerr *err = mnl_nlmsg_get_payload(nlh);
- 	const struct nlmsghdr *err_nlh = NULL;
- 	unsigned int hlen = sizeof(*err);
-@@ -79,7 +83,8 @@ static int nl_dump_ext_err(const struct nlmsghdr *nlh, nl_ext_ack_fn_t errfn)
- 	if (!(nlh->nlmsg_flags & NLM_F_CAPPED))
- 		hlen += mnl_nlmsg_get_payload_len(&err->msg);
- 
--	mnl_attr_parse(nlh, hlen, err_attr_cb, tb);
-+	if (mnl_attr_parse(nlh, hlen, err_attr_cb, tb) != MNL_CB_OK)
-+		return 0;
- 
- 	if (tb[NLMSGERR_ATTR_MSG])
- 		errmsg = mnl_attr_get_str(tb[NLMSGERR_ATTR_MSG]);
--- 
-2.1.4
+regards,
+dan carpenter
