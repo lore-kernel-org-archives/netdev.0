@@ -1,70 +1,51 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: using PASIDs to enable a safe variant of direct ring access
-Date: Fri, 18 Aug 2017 06:39:44 +0300
-Message-ID: <20170818055946-mutt-send-email-mst@kernel.org>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCH] PCI: Allow PCI express root ports to find themselves
+Date: Fri, 18 Aug 2017 14:32:36 +1000
+Message-ID: <87bmndqyvv.fsf@concordia.ellerman.id.au>
+References: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com> <20170817110614.11454-1-thierry.reding@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, john.ronciak@intel.com, amirv@mellanox.com,
-        eric.dumazet@gmail.com, danny.zhou@intel.com,
-        Ilan Tayari <ilant@mellanox.com>,
-        "Raj, Ashok" <ashok.raj@intel.com>,
-        "Tian, Kevin" <kevin.tian@intel.com>
-To: John Fastabend <john.fastabend@gmail.com>, fw@strlen.de,
-        gerlitz.or@gmail.com, hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33518 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753775AbdHRDjq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 23:39:46 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: leedom@chelsio.com, ashok.raj@intel.com, werner@chelsio.com,
+        ganeshgr@chelsio.com, asit.k.mallick@intel.com,
+        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
+        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
+        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
+        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
+        alexander.duyck@gmail.com, eric.dumazet@gmail.com,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com
+To: Thierry Reding <thierry.reding@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170817110614.11454-1-thierry.reding@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Back in 2014, patches "net: sched: af_packet support for direct ring
-access" were rejected since there was no memory protection performed by
-any part of the system.
+Thierry Reding <thierry.reding@gmail.com> writes:
 
-The point of the patchset was
-	to split off a set of driver queues
-	from the driver and map the queues into user space via mmap. This
-	allows the queues to be directly manipulated from user space. For
-	raw packet interface this removes any overhead from the kernel network
-	stack.
+> From: Thierry Reding <treding@nvidia.com>
+>
+> If the pci_find_pcie_root_port() function is called on a root port
+> itself, return the root port rather than NULL.
+>
+> This effectively reverts commit 0e405232871d6 ("PCI: fix oops when
+> try to find Root Port for a PCI device") which added an extra check
+> that would now be redundant.
+>
+> Fixes: a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
+> Fixes: c56d4450eb68 ("PCI: Turn off Request Attributes to avoid Chelsio T5 Completion erratum")
+> Signed-off-by: Thierry Reding <treding@nvidia.com>
+> ---
+> This applies on top of and was tested on next-20170817.
+>
+> Michael, it'd be great if you could test this one again to clarify
+> whether or not the fix that's already in Linus' tree is still needed, or
+> whether it's indeed obsoleted by this patch.
 
-In other words this was proposed to help people using userspace drivers -
-they don't really need them to be in full control of their devices. Only
-data path operations need to avoid system call overhead, all setup is
-better off managed by the kernel (maybe they should stop using userspace
-drivers, but that's a different discussion).
+This works fine for me, applied on top of Linus' tree (d33a2a914319).
 
-Unfortunately the patches were insecure: as all dma memory accesses by the
-same device are tagged with the same source (bus/device/function) the
-iommu can not differentiate between kernel and userspace queues and so
-can not protect us from a malicious userspace. So from security POV
-this is not much better than userspace banging hardware registers
-directly really.
-
-However, there actually exists a way to attach an extra tag
-to each pci express transaction, and that's with PASID support
-which has been supported in the kernel for a while now.
-
-So all we need is a NIC that will allow the kernel to attach a PASID tag
-to queues that are given to userspace, and the patches could then be
-made safe for this NIC by using the IOMMU for protection.
-
-GPUs commonly support PASIDs and utilize this for security more or less
-exactly like this, but I do not think any NICs do, so far.
-
-Why not?
-
-Could this be something that's easy to add to existing/future hardware?
-Maybe with a firmware update?  What we need is just ability to specify
-for each queue which PASID to use when doing DMA to send/receive
-packets.
-
-Not working for a hardware vendor, I'd love to hear from people who are.
-
-Thanks,
-
--- 
-MST
+cheers
