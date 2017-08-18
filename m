@@ -1,37 +1,33 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][netdev-next] bnxt_en: fix spelling mistake: "swtichdev" -> "switchdev"
-Date: Fri, 18 Aug 2017 16:40:00 +0100
-Message-ID: <20170818154000.19068-1-colin.king@canonical.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] libnetlink: Fix extack attribute parsing
+Date: Fri, 18 Aug 2017 08:48:37 -0700
+Message-ID: <20170818084837.0bcc6ff2@xeon-e3>
+References: <1503002580-21267-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Michael Chan <michael.chan@broadcom.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:33409 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750944AbdHRPsq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 11:48:46 -0400
+Received: by mail-pg0-f45.google.com with SMTP id t3so38771812pgt.0
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 08:48:46 -0700 (PDT)
+In-Reply-To: <1503002580-21267-1-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Thu, 17 Aug 2017 13:43:00 -0700
+David Ahern <dsahern@gmail.com> wrote:
 
-Trivial fix to spelling mistake in a netdev_info message
+> Initialize tb in nl_dump_ext_err since not all attributes will be
+> sent in the messages.
+> 
+> Add error checking on mnl_attr_parse and print messages on the off
+> chance the ext ack attributes fail to validate.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-index b05c5d0ee3f9..86cce6f53f78 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-@@ -428,7 +428,7 @@ static int bnxt_dl_eswitch_mode_set(struct devlink *devlink, u16 mode)
- 	case DEVLINK_ESWITCH_MODE_SWITCHDEV:
- 		if (pci_num_vf(bp->pdev) == 0) {
- 			netdev_info(bp->dev,
--				    "Enable VFs before setting swtichdev mode");
-+				    "Enable VFs before setting switchdev mode");
- 			rc = -EPERM;
- 			goto done;
- 		}
--- 
-2.11.0
+Applied, thanks David
