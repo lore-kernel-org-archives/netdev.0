@@ -1,48 +1,51 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [iproute PATCH v2 2/2] ifcfg: Quote left-hand side of [ ]
- expression
-Date: Fri, 18 Aug 2017 09:32:52 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD005A809@AcuExch.aculab.com>
-References: <20170817170932.24900-1-phil@nwl.cc>
- <20170817170932.24900-3-phil@nwl.cc>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: stmmac: socfgpa: Ensure emac bit set in sys manager
+ for MII/GMII/SGMII.
+Date: Fri, 18 Aug 2017 12:58:30 +0300
+Message-ID: <55cc4f69-95a4-65e9-234d-880bfcf1fed0@cogentembedded.com>
+References: <1503039314-575-1-git-send-email-stephan.gatzka@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Phil Sutter' <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.181]:60915 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750920AbdHRJc5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 05:32:57 -0400
-In-Reply-To: <20170817170932.24900-3-phil@nwl.cc>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Stephan Gatzka <stephan.gatzka@gmail.com>, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503039314-575-1-git-send-email-stephan.gatzka@gmail.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Phil Sutter
-> Sent: 17 August 2017 18:10
-> This prevents word-splitting and therefore leads to more accurate error
-> message in case 'grep -c' prints something other than a number.
+Hello!
+
+On 8/18/2017 9:55 AM, Stephan Gatzka wrote:
+
+> When using MII/GMII/SGMII in the Altera SoC, the phy needs to be
+> wired through the FPGA. To ensure correct behavior, the appropriate
+> bit in the System Manager FPGA Interface Group register needs to be
+> set.
 > 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: Stephan Gatzka <stephan.gatzka@gmail.com>
 > ---
->  ip/ifcfg | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>   drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 5 ++++-
+>   1 file changed, 4 insertions(+), 1 deletion(-)
 > 
-> diff --git a/ip/ifcfg b/ip/ifcfg
-> index 083d9df36742f..30a2dc49816cd 100644
-> --- a/ip/ifcfg
-> +++ b/ip/ifcfg
-> @@ -131,7 +131,7 @@ noarp=$?
-> 
->  ip route add unreachable 224.0.0.0/24 >& /dev/null
->  ip route add unreachable 255.255.255.255 >& /dev/null
-> -if [ `ip link ls $dev | grep -c MULTICAST` -ge 1 ]; then
-> +if [ "`ip link ls $dev | grep -c MULTICAST`" -ge 1 ]; then
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+> index 17d4bba..d7c231b 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+> @@ -269,7 +269,10 @@ static int socfpga_dwmac_set_phy_mode(struct socfpga_dwmac *dwmac)
+>   	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
+>   	ctrl |= val << reg_shift;
+>   
+> -	if (dwmac->f2h_ptp_ref_clk) {
+> +	if ((dwmac->f2h_ptp_ref_clk) ||
+> +	    (phymode == PHY_INTERFACE_MODE_MII) ||
+> +	    (phymode == PHY_INTERFACE_MODE_GMII) ||
+> +	    (phymode == PHY_INTERFACE_MODE_SGMII)) {
 
-You could drag all these scripts into the 1990's by using $(...)
-instead of `...`.
+    Inner parens not needed at all (especially the first pair).
 
-	David
+[...]
+
+MBR, Sergei
