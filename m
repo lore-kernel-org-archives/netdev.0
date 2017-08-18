@@ -1,197 +1,157 @@
-From: Vallish Vaidyeshwara <vallish@amazon.com>
-Subject: [PATCH RESEND 2/2] selftests/net: add test to verify datagram socket timeout
-Date: Fri, 18 Aug 2017 18:44:10 +0000
-Message-ID: <1503081850-10671-3-git-send-email-vallish@amazon.com>
-References: <1503081850-10671-1-git-send-email-vallish@amazon.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <eduval@amazon.com>, <anchalag@amazon.com>, <vallish@amazon.com>
-To: <davem@davemloft.net>, <shuah@kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503081850-10671-1-git-send-email-vallish@amazon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Matthew Dawson <matthew@mjdsystems.ca>
+Subject: [PATCH net v3] datagram: When peeking datagrams with offset < 0 don't skip empty skbs
+Date: Fri, 18 Aug 2017 15:04:54 -0400
+Message-ID: <20170818190454.7214-1-matthew@mjdsystems.ca>
+Cc: Matthew Dawson <matthew@mjdsystems.ca>,
+        "Macieira, Thiago" <thiago.macieira@intel.com>,
+        willemdebruijn.kernel@gmail.com, Paolo Abeni <pabeni@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from scadrial.mjdsystems.ca ([198.100.154.185]:40904 "EHLO
+        scadrial.mjdsystems.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751173AbdHRTFC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 15:05:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-AF_UNIX and AF_INET datagram sockets use high resolution timer to time
-SO_RCVTIMEO value used with setsockopt(2). This test checks for the
-accuracy of kernel notifying these sockets timeout to application. Test
-program has code to check AF_UNIX socket, however the kernel function used
-to timeout AF_INET socket is the same kernel function used by AF_UNIX as
-well which is __skb_wait_for_more_packets().
+Due to commit e6afc8ace6dd5cef5e812f26c72579da8806f5ac ("udp: remove
+headers from UDP packets before queueing"), when udp packets are being
+peeked the requested extra offset is always 0 as there is no need to skip
+the udp header.  However, when the offset is 0 and the next skb is
+of length 0, it is only returned once.  The behaviour can be seen with
+the following python script:
 
-Reported-by: Manjula Peiris <thelgep@amazon.com>
-Reviewed-by: Eduardo Valentin <eduval@amazon.com>
-Reviewed-by: Anchal Agarwal <anchalag@amazon.com>
-Signed-off-by: Vallish Vaidyeshwara <vallish@amazon.com>
+from socket import *;
+f=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+g=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+f.bind(('::', 0));
+addr=('::1', f.getsockname()[1]);
+g.sendto(b'', addr)
+g.sendto(b'b', addr)
+print(f.recvfrom(10, MSG_PEEK));
+print(f.recvfrom(10, MSG_PEEK));
+
+Where the expected output should be the empty string twice.
+
+Instead, make sk_peek_offset return negative values, and pass those values
+to __skb_try_recv_datagram/__skb_try_recv_from_queue.  If the passed offset
+to __skb_try_recv_from_queue is negative, the checked skb is never skipped.
+__skb_try_recv_from_queue will then ensure the offset is reset back to 0
+if a peek is requested without an offset, unless no packets are found.
+
+Also simplify the if condition in __skb_try_recv_from_queue.  If _off is
+greater then 0, and off is greater then or equal to skb->len, then
+(_off || skb->len) must always be true assuming skb->len >= 0 is always
+true.
+
+Also remove a redundant check around a call to sk_peek_offset in af_unix.c,
+as it double checked if MSG_PEEK was set in the flags.
+
+V2:
+ - Moved the negative fixup into __skb_try_recv_from_queue, and remove now
+redundant checks
+ - Fix peeking in udp{,v6}_recvmsg to report the right value when the
+offset is 0
+
+V3:
+ - Marked new branch in __skb_try_recv_from_queue as unlikely.
+
+Signed-off-by: Matthew Dawson <matthew@mjdsystems.ca>
+Acked-by: Willem de Bruijn <willemb@google.com>
 ---
- tools/testing/selftests/net/Makefile               |   3 +-
- .../testing/selftests/net/datagram_sock_timeout.c  | 119 +++++++++++++++++++++
- .../selftests/net/run_datagram_sock_timeout.sh     |  12 +++
- 3 files changed, 133 insertions(+), 1 deletion(-)
- create mode 100644 tools/testing/selftests/net/datagram_sock_timeout.c
- create mode 100755 tools/testing/selftests/net/run_datagram_sock_timeout.sh
+ include/net/sock.h  |  4 +---
+ net/core/datagram.c | 12 +++++++++---
+ net/ipv4/udp.c      |  3 ++-
+ net/ipv6/udp.c      |  3 ++-
+ net/unix/af_unix.c  |  5 +----
+ 5 files changed, 15 insertions(+), 12 deletions(-)
 
-diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-index f6c9dbf..eb5a8c7 100644
---- a/tools/testing/selftests/net/Makefile
-+++ b/tools/testing/selftests/net/Makefile
-@@ -3,11 +3,12 @@
- CFLAGS =  -Wall -Wl,--no-as-needed -O2 -g
- CFLAGS += -I../../../../usr/include/
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 7c0632c7e870..aeeec62992ca 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -507,9 +507,7 @@ int sk_set_peek_off(struct sock *sk, int val);
+ static inline int sk_peek_offset(struct sock *sk, int flags)
+ {
+ 	if (unlikely(flags & MSG_PEEK)) {
+-		s32 off = READ_ONCE(sk->sk_peek_off);
+-		if (off >= 0)
+-			return off;
++		return READ_ONCE(sk->sk_peek_off);
+ 	}
  
--TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh
-+TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh run_datagram_sock_timeout.sh
- TEST_GEN_FILES =  socket
- TEST_GEN_FILES += psock_fanout psock_tpacket
- TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
- TEST_GEN_FILES += reuseport_dualstack
-+TEST_GEN_FILES += datagram_sock_timeout
+ 	return 0;
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ee5647bd91b3..a21ca8dee5ea 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -169,14 +169,20 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+ 					  int *peeked, int *off, int *err,
+ 					  struct sk_buff **last)
+ {
++	bool peek_at_off = false;
+ 	struct sk_buff *skb;
+-	int _off = *off;
++	int _off = 0;
++
++	if (unlikely(flags & MSG_PEEK && *off >= 0)) {
++		peek_at_off = true;
++		_off = *off;
++	}
  
- include ../lib.mk
+ 	*last = queue->prev;
+ 	skb_queue_walk(queue, skb) {
+ 		if (flags & MSG_PEEK) {
+-			if (_off >= skb->len && (skb->len || _off ||
+-						 skb->peeked)) {
++			if (peek_at_off && _off >= skb->len &&
++			    (_off || skb->peeked)) {
+ 				_off -= skb->len;
+ 				continue;
+ 			}
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index a7c804f73990..cd1d044a7fa5 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1574,7 +1574,8 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+ 		return ip_recv_error(sk, msg, len, addr_len);
  
-diff --git a/tools/testing/selftests/net/datagram_sock_timeout.c b/tools/testing/selftests/net/datagram_sock_timeout.c
-new file mode 100644
-index 0000000..2549be5
---- /dev/null
-+++ b/tools/testing/selftests/net/datagram_sock_timeout.c
-@@ -0,0 +1,119 @@
-+/*
-+ * Copyright 2017 Amazon.com, Inc.
-+ * Author: Manjula Peiris <thelgep@amazon.com>
-+ *         Vallish Vaidyeshwara <vallish@amazon.com>
-+ *
-+ * selftests/net: test to verify datagram socket timeout
-+ *
-+ * AF_UNIX and AF_INET datagram sockets use high resolution timer to time
-+ * SO_RCVTIMEO value used with setsockopt(2). This test checks for the accuracy
-+ * of kernel notifying these sockets timeout to application. Test program has
-+ * code to check AF_UNIX socket, however the kernel function used to timeout
-+ * AF_INET socket is the same kernel function used by AF_UNIX as well which is
-+ * __skb_wait_for_more_packets().
-+ *
-+ * License (GPLv2):
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program.
-+ */
-+
-+#include <stdlib.h>
-+#include <sys/socket.h>
-+#include <unistd.h>
-+#include <signal.h>
-+#include <stdio.h>
-+#include <fcntl.h>
-+#include <err.h>
-+#include <errno.h>
-+#include <sys/un.h>
-+#include <time.h>
-+#include <assert.h>
-+
-+#define BUF_SIZE 128
-+#define KB 1024
-+#define NUM_FD 2
-+
-+static int set_socket_timeout(int sockfd, unsigned int ms)
-+{
-+	int ret;
-+	struct timeval timeout;
-+	socklen_t cb = sizeof(timeout);
-+
-+	timeout.tv_sec = ms / 1000;
-+	timeout.tv_usec = (ms % 1000) * 1000;
-+	ret = setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, cb);
-+	return ret;
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	char err[BUF_SIZE];
-+	int ret;
-+	int fds[NUM_FD];
-+	struct msghdr message;
-+	char buffer[KB];
-+	struct sockaddr_storage src_addr;
-+	struct iovec iov[1];
-+	time_t start, end;
-+	unsigned int timeout;
-+
-+	iov[0].iov_base = buffer;
-+	iov[0].iov_len = sizeof(buffer);
-+	message.msg_name = &src_addr;
-+	message.msg_namelen = sizeof(src_addr);
-+	message.msg_iov = iov;
-+	message.msg_iovlen = 1;
-+	message.msg_control = 0;
-+	message.msg_controllen = 0;
-+
-+	if (argc != 2) {
-+		fprintf(stderr,
-+			"datagram_sock_timeout failed: no timeout specified\n");
-+		return -1;
-+	}
-+	timeout = (unsigned int)(atoi(argv[1]));
-+
-+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, fds) != 0) {
-+		strerror_r(errno, err, BUF_SIZE);
-+		fprintf(stderr, "socketpair() call failed with %s\n", err);
-+		return -1;
-+	}
-+
-+	if (set_socket_timeout(fds[0], timeout) != 0) {
-+		strerror_r(errno, err, BUF_SIZE);
-+		fprintf(stderr, "setsockopt() call failed with %s\n", err);
-+		return -1;
-+	}
-+
-+	start = time(NULL);
-+	ret = (int)recvmsg(fds[0], &message, 0);
-+	end = time(NULL);
-+	if (!(ret == -1 && errno == 11)) {
-+		fprintf(stderr,
-+			"datagram_sock_timeout failed: test was interrupted\n");
-+		return -1;
-+	}
-+
-+	if (((int)(end - start)) != (timeout / 1000)) {
-+		fprintf(stderr,
-+			"datagram_sock_timeout failed: took %.2f seconds\n",
-+			(double)(end - start));
-+		return -1;
-+	}
-+
-+	close(fds[0]);
-+	close(fds[1]);
-+
-+	fprintf(stderr, "datagram_sock_timeout passed\n");
-+	return 0;
-+}
-diff --git a/tools/testing/selftests/net/run_datagram_sock_timeout.sh b/tools/testing/selftests/net/run_datagram_sock_timeout.sh
-new file mode 100755
-index 0000000..d5f4f82
---- /dev/null
-+++ b/tools/testing/selftests/net/run_datagram_sock_timeout.sh
-@@ -0,0 +1,12 @@
-+#!/bin/sh
-+# Runs datagram socket timeout test
-+
-+echo "--------------------"
-+echo "running run_datagram_sock_timeout test"
-+echo "--------------------"
-+./datagram_sock_timeout 180000
-+if [ $? -ne 0 ]; then
-+	echo "[FAIL]"
-+else
-+	echo "[PASS]"
-+fi
+ try_again:
+-	peeking = off = sk_peek_offset(sk, flags);
++	peeking = flags & MSG_PEEK;
++	off = sk_peek_offset(sk, flags);
+ 	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
+ 	if (!skb)
+ 		return err;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 578142b7ca3e..20039c8501eb 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -362,7 +362,8 @@ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
+ 		return ipv6_recv_rxpmtu(sk, msg, len, addr_len);
+ 
+ try_again:
+-	peeking = off = sk_peek_offset(sk, flags);
++	peeking = flags & MSG_PEEK;
++	off = sk_peek_offset(sk, flags);
+ 	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
+ 	if (!skb)
+ 		return err;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 7b52a380d710..be8982b4f8c0 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2304,10 +2304,7 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state,
+ 	 */
+ 	mutex_lock(&u->iolock);
+ 
+-	if (flags & MSG_PEEK)
+-		skip = sk_peek_offset(sk, flags);
+-	else
+-		skip = 0;
++	skip = max(sk_peek_offset(sk, flags), 0);
+ 
+ 	do {
+ 		int chunk;
 -- 
-2.7.3.AMZN
+2.13.0
