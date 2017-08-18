@@ -1,41 +1,55 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH v2 1/7] ipaddress: Make buffer for filter.flushb
- static
-Date: Fri, 18 Aug 2017 08:55:19 -0700
-Message-ID: <20170818085519.5a81f54f@xeon-e3>
-References: <20170817170931.24302-1-phil@nwl.cc>
-        <20170817170931.24302-2-phil@nwl.cc>
-        <20170818115703.GC16375@orbyte.nwl.cc>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH net-next] net: hns3: Add support to change MTU in
+ hardware & netdev
+Date: Fri, 18 Aug 2017 18:01:57 +0200
+Message-ID: <20170818160157.GB3258@lunn.ch>
+References: <20170818113558.71928-1-salil.mehta@huawei.com>
+ <20170818133128.GA523@lunn.ch>
+ <F4CC6FACFEB3C54C9141D49AD221F7F93B86F75F@FRAEML521-MBX.china.huawei.com>
+ <20170818150358.GA3258@lunn.ch>
+ <F4CC6FACFEB3C54C9141D49AD221F7F93B86F9E7@FRAEML521-MBX.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:37577 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750847AbdHRPz1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 11:55:27 -0400
-Received: by mail-pg0-f51.google.com with SMTP id y129so66890252pgy.4
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 08:55:27 -0700 (PDT)
-In-Reply-To: <20170818115703.GC16375@orbyte.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        "lipeng (Y)" <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <F4CC6FACFEB3C54C9141D49AD221F7F93B86F9E7-WFPaWmAhWqtUuCJht5byYAK1hpo4iccwjNknBlVQO8k@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 18 Aug 2017 13:57:03 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+> for example,
+> file: drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  
+>  		netdev->priv_flags |= IFF_UNICAST_FLT;
+>  
+> +		/* MTU range: 81 - 9600 */
+> +		netdev->min_mtu = 81; 
+> +		netdev->max_mtu = MAX_MTU;
 
-> On Thu, Aug 17, 2017 at 07:09:25PM +0200, Phil Sutter wrote:
-> > The buffer is accessed outside of the function defining it, so make it
-> > static.
-> > 
-> > Signed-off-by: Phil Sutter <phil@nwl.cc>  
-> 
-> Self-NACK: Access to flushb should be sane since all accessors are
-> called from ipaddr_flush(). Looking at the covscan output again, it
-> merely complained about filter.flusb still pointing to the local buffer
-> when ipaddr_flush() returns.
-> 
-> Cheers, Phil
+In this cause, the driver is not using the default values. So it sets
+them.
 
-Ok, dropping this  sub-series
+Anyway, try it. After your alloc_etherdev_mqs(), print the value of
+min_mtu. It should already be set to MIN_ETH_MTU.
+
+> I see. IMHO HNS3 is currently limited by maximum buffer per descriptor
+> which is 64k. I am sure such frames would get dropped in the hardware
+> itself and which I guess should be more preferable than dropping in
+> driver since it saves you some precious cpu cycles?
+
+If you hardware handles this, then you don't need to do anything.
+
+   Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
