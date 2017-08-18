@@ -1,46 +1,76 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] mlx5: ensure 0 is returned when vport is zero
-Date: Fri, 18 Aug 2017 14:49:25 +0100
-Message-ID: <20170818134925.16604-1-colin.king@canonical.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v2 00/13] amd-xgbe: AMD XGBE driver updates
+ 2017-08-17
+Date: Fri, 18 Aug 2017 09:02:09 -0500
+Message-ID: <20170818140209.14804.94997.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-co1nam03on0072.outbound.protection.outlook.com ([104.47.40.72]:15718
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753270AbdHROCP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Aug 2017 10:02:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+The following updates are included in this driver update series:
 
-Currently, if vport is zero then then an uninialized return status
-in err is returned.  Since the only return status at the end of the
-function esw_add_uc_addr is zero for the current set of return paths
-we may as well just return 0 rather than err to fix this issue.
+- Set the MDIO mode to clause 45 for the 10GBase-T configuration
+- Set the MII control width to 8-bits for speeds less than 1Gbps
+- Fix an issue to related to module removal when the devices are up
+- Fix ethtool statistics related to packet counting of TSO packets
+- Add support for device renaming
+- Add additional dynamic debug output for the PCS window calculation
+- Optimize reading of DMA channel interrupt enablement register
+- Add additional dynamic debug output about the hardware features
+- Add per queue Tx and Rx ethtool statistics
+- Add a macro to clear ethtool_link_ksettings modes
+- Convert the driver to use the ethtool_link_ksettings
+- Add support for VXLAN offload capabilities
+- Add additional ethtool statistics related to VXLAN
 
-Detected by CoverityScan, CID#1452698 ("Uninitialized scalar variable")
+This patch series is based on net-next.
 
-Fixes: eeb66cdb6826 ("net/mlx5: Separate between E-Switch and MPFS")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index 6d9fb6ac6e9b..c77f4c0c7769 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -401,7 +401,7 @@ static int esw_add_uc_addr(struct mlx5_eswitch *esw, struct vport_addr *vaddr)
- 	esw_debug(esw->dev, "\tADDED UC MAC: vport[%d] %pM fr(%p)\n",
- 		  vport, mac, vaddr->flow_rule);
- 
--	return err;
-+	return 0;
- }
- 
- static int esw_del_uc_addr(struct mlx5_eswitch *esw, struct vport_addr *vaddr)
+Changes since v1:
+- Remove added debugfs support for reading SFP eeprom and phydev
+  registers
+
+
+Tom Lendacky (13):
+      amd-xgbe: Set the MDIO mode for 10000Base-T configuration
+      amd-xgbe: Set the MII control width for the MAC interface
+      amd-xgbe: Be sure driver shuts down cleanly on module removal
+      amd-xgbe: Update TSO packet statistics accuracy
+      amd-xgbe: Add support to handle device renaming
+      amd-xgbe: Add additional dynamic debug messages
+      amd-xgbe: Optimize DMA channel interrupt enablement
+      amd-xgbe: Add hardware features debug output
+      amd-xgbe: Add per queue Tx and Rx statistics
+      net: ethtool: Add macro to clear a link mode setting
+      amd-xgbe: Convert to using the new link mode settings
+      amd-xgbe: Add support for VXLAN offload capabilities
+      amd-xgbe: Add additional ethtool statistics
+
+
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h  |   25 +
+ drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c |   25 +
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |  198 ++++++++---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |  487 ++++++++++++++++++++++++++
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   86 +++--
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c    |   97 +++--
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c    |   81 +++-
+ drivers/net/ethernet/amd/xgbe/xgbe-pci.c     |    4 
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c  |   54 ++-
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c  |  352 ++++++++++---------
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |   91 ++++-
+ include/linux/ethtool.h                      |   11 +
+ 12 files changed, 1158 insertions(+), 353 deletions(-)
+
 -- 
-2.11.0
+Tom Lendacky
