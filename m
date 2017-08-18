@@ -1,73 +1,99 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next 2/2] liquidio: with embedded f/w, issue droq credits
- before enablement
-Date: Thu, 17 Aug 2017 23:11:30 -0700
-Message-ID: <20170818061130.GA4045@felix-thinkpad.cavium.com>
-References: <20170818061037.GA4024@felix-thinkpad.cavium.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH v3 net 2/2] net: ixgbe: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Fri, 18 Aug 2017 14:21:05 +0800
+Message-ID: <1503037265-11144-3-git-send-email-dingtianhong@huawei.com>
+References: <1503037265-11144-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        ricardo.farrington@cavium.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0060.outbound.protection.outlook.com ([104.47.34.60]:11399
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751176AbdHRGLW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 02:11:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20170818061037.GA4024@felix-thinkpad.cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Ding Tianhong <dingtianhong@huawei.com>
+To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
+        <keescook@chromium.org>, <linux-kernel@vger.kernel.org>,
+        <sparclinux@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
+        <alexander.duyck@gmail.com>, <netdev@vger.kernel.org>,
+        <linuxarm@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503037265-11144-1-git-send-email-dingtianhong@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rick Farrington <ricardo.farrington@cavium.com>
+The ixgbe driver use the compile check to determine if it can
+send TLPs to Root Port with the Relaxed Ordering Attribute set,
+this is too inconvenient, now the new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+has been added to the kernel and we could check the bit4 in the PCIe
+Device Control register to determine whether we should use the Relaxed
+Ordering Attributes or not, so use this new way in the ixgbe driver.
 
-1. Issue credits BEFORE enabling DROQ's; this prevents PKTPF_ERR interrupt.
-
-Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c | 20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 22 ----------------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 19 -------------------
+ 2 files changed, 41 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index dccd447..89d4bbc 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -4040,6 +4040,18 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 523f9d0..8a32eb7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -175,31 +175,9 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
+ {
+-#ifndef CONFIG_SPARC
+-	u32 regval;
+-	u32 i;
+-#endif
+ 	s32 ret_val;
  
- 	atomic_set(&octeon_dev->status, OCT_DEV_INTR_SET_DONE);
- 
-+	/* Send Credit for Octeon Output queues. Credits are always sent BEFORE
-+	 * the output queue is enabled.
-+	 * This ensures that we'll receive the f/w CORE DRV_ACTIVE message in
-+	 * case we've configured CN23XX_SLI_GBL_CONTROL[NOPTR_D] = 0.
-+	 * Otherwise, it is possible that the DRV_ACTIVE message will be sent
-+	 * before any credits have been issued, causing the ring to be reset
-+	 * (and the f/w appear to never have started).
-+	 */
-+	for (j = 0; j < octeon_dev->num_oqs; j++)
-+		writel(octeon_dev->droq[j]->max_count,
-+		       octeon_dev->droq[j]->pkts_credit_reg);
-+
- 	/* Enable the input and output queues for this Octeon device */
- 	ret = octeon_dev->fn_list.enable_io_queues(octeon_dev);
- 	if (ret) {
-@@ -4124,14 +4136,6 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 
- 	atomic_set(&octeon_dev->status, OCT_DEV_HOST_OK);
- 
--	/* Send Credit for Octeon Output queues. Credits are always sent after
--	 * the output queue is enabled.
--	 */
--	for (j = 0; j < octeon_dev->num_oqs; j++)
--		writel(octeon_dev->droq[j]->max_count,
--		       octeon_dev->droq[j]->pkts_credit_reg);
+ 	ret_val = ixgbe_start_hw_generic(hw);
 -
--	/* Packets can start arriving on the output queues from this point. */
+-#ifndef CONFIG_SPARC
+-	/* Disable relaxed ordering */
+-	for (i = 0; ((i < hw->mac.max_tx_queues) &&
+-	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
+-		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
+-	}
+-
+-	for (i = 0; ((i < hw->mac.max_rx_queues) &&
+-	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
+-		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
+-			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
+-	}
+-#endif
+ 	if (ret_val)
+ 		return ret_val;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index d4933d2..96c324f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -350,25 +350,6 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
+ 	}
+ 	IXGBE_WRITE_FLUSH(hw);
+ 
+-#ifndef CONFIG_SPARC
+-	/* Disable relaxed ordering */
+-	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+-		u32 regval;
+-
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
+-		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
+-	}
+-
+-	for (i = 0; i < hw->mac.max_rx_queues; i++) {
+-		u32 regval;
+-
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
+-		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
+-			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
+-	}
+-#endif
  	return 0;
  }
  
 -- 
-2.9.0
+1.8.3.1
