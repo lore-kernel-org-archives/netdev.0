@@ -1,70 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] datagram: When peeking datagrams with offset <
- 0 don't skip empty skbs
-Date: Fri, 18 Aug 2017 15:13:32 -0700 (PDT)
-Message-ID: <20170818.151332.1551388172093785238.davem@davemloft.net>
-References: <20170818190454.7214-1-matthew@mjdsystems.ca>
+Subject: Re: [PATCH v3 net-next] ipv4: convert dst_metrics.refcnt from
+ atomic_t to refcount_t
+Date: Fri, 18 Aug 2017 15:14:24 -0700 (PDT)
+Message-ID: <20170818.151424.887124840705267368.davem@davemloft.net>
+References: <1502925599.4936.153.camel@edumazet-glaptop3.roam.corp.google.com>
+        <CAM_iQpWbxs6aa-axQrwN5pipaCDX3ws_08LaQON8p4WfrJ7SDg@mail.gmail.com>
+        <1503083287.22502.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, thiago.macieira@intel.com,
-        willemdebruijn.kernel@gmail.com, pabeni@redhat.com
-To: matthew@mjdsystems.ca
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33568 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33590 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751350AbdHRWNg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 18:13:36 -0400
-In-Reply-To: <20170818190454.7214-1-matthew@mjdsystems.ca>
+        with ESMTP id S1752111AbdHRWOY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 18:14:24 -0400
+In-Reply-To: <1503083287.22502.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Dawson <matthew@mjdsystems.ca>
-Date: Fri, 18 Aug 2017 15:04:54 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 18 Aug 2017 12:08:07 -0700
 
-> Due to commit e6afc8ace6dd5cef5e812f26c72579da8806f5ac ("udp: remove
-> headers from UDP packets before queueing"), when udp packets are being
-> peeked the requested extra offset is always 0 as there is no need to skip
-> the udp header.  However, when the offset is 0 and the next skb is
-> of length 0, it is only returned once.  The behaviour can be seen with
-> the following python script:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> from socket import *;
-> f=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
-> g=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
-> f.bind(('::', 0));
-> addr=('::1', f.getsockname()[1]);
-> g.sendto(b'', addr)
-> g.sendto(b'b', addr)
-> print(f.recvfrom(10, MSG_PEEK));
-> print(f.recvfrom(10, MSG_PEEK));
+> refcount_t type and corresponding API should be
+> used instead of atomic_t when the variable is used as
+> a reference counter. This allows to avoid accidental
+> refcounter overflows that might lead to use-after-free
+> situations.
 > 
-> Where the expected output should be the empty string twice.
-> 
-> Instead, make sk_peek_offset return negative values, and pass those values
-> to __skb_try_recv_datagram/__skb_try_recv_from_queue.  If the passed offset
-> to __skb_try_recv_from_queue is negative, the checked skb is never skipped.
-> __skb_try_recv_from_queue will then ensure the offset is reset back to 0
-> if a peek is requested without an offset, unless no packets are found.
-> 
-> Also simplify the if condition in __skb_try_recv_from_queue.  If _off is
-> greater then 0, and off is greater then or equal to skb->len, then
-> (_off || skb->len) must always be true assuming skb->len >= 0 is always
-> true.
-> 
-> Also remove a redundant check around a call to sk_peek_offset in af_unix.c,
-> as it double checked if MSG_PEEK was set in the flags.
-> 
-> V2:
->  - Moved the negative fixup into __skb_try_recv_from_queue, and remove now
-> redundant checks
->  - Fix peeking in udp{,v6}_recvmsg to report the right value when the
-> offset is 0
-> 
-> V3:
->  - Marked new branch in __skb_try_recv_from_queue as unlikely.
-> 
-> Signed-off-by: Matthew Dawson <matthew@mjdsystems.ca>
-> Acked-by: Willem de Bruijn <willemb@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> v3: added the include <linux/refcount.h> to be safe (Cong Wang)
+> v2: fix a missing change in net/ipv4/fib_semantics.c
 
-Applied and queued up for -stable, thanks.
+Applied, thanks Eric.
