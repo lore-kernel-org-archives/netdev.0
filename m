@@ -1,33 +1,65 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net] net: sched: fix p_filter_chain check in tcf_chain_flush
-Date: Fri, 18 Aug 2017 09:59:51 -0700
-Message-ID: <CAM_iQpUQC9-CEc4DeWdst+wx0n1pF3MFSnWiG4HO4bEeUyYq7w@mail.gmail.com>
-References: <20170818081043.2130-1-jiri@resnulli.us>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: RE: [PATCH net-next] net: hns3: Add support to change MTU in
+ hardware & netdev
+Date: Fri, 18 Aug 2017 17:01:43 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B86FDE2@FRAEML521-MBX.china.huawei.com>
+References: <20170818113558.71928-1-salil.mehta@huawei.com>
+ <20170818133128.GA523@lunn.ch>
+ <F4CC6FACFEB3C54C9141D49AD221F7F93B86F75F@FRAEML521-MBX.china.huawei.com>
+ <20170818150358.GA3258@lunn.ch>
+ <F4CC6FACFEB3C54C9141D49AD221F7F93B86F9E7@FRAEML521-MBX.china.huawei.com>
+ <20170818160157.GB3258@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34095 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750812AbdHRRAM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 13:00:12 -0400
-Received: by mail-pg0-f67.google.com with SMTP id i12so574606pgr.1
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 10:00:12 -0700 (PDT)
-In-Reply-To: <20170818081043.2130-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 18, 2017 at 1:10 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> The dereference before check is wrong and leads to an oops when
-> p_filter_chain is NULL. The check needs to be done on the pointer to
-> prevent NULL dereference.
->
-> Fixes: f93e1cdcf42c ("net/sched: fix filter flushing")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Hi Andrew,
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+> > -----Original Message-----
+> > From: Andrew Lunn [mailto:andrew@lunn.ch]
+> > Sent: Friday, August 18, 2017 5:02 PM
+> > To: Salil Mehta
+> > Cc: davem@davemloft.net; Zhuangyuzeng (Yisen); lipeng (Y);
+> > mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
+> > kernel@vger.kernel.org; linux-rdma@vger.kernel.org; Linuxarm
+> > Subject: Re: [PATCH net-next] net: hns3: Add support to change MTU in
+> > hardware & netdev
+> >
+> > > for example,
+> > > file: drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> > > static int init_one(struct pci_dev *pdev, const struct
+> pci_device_id
+> > *ent)
+> > >
+> > >  		netdev->priv_flags |= IFF_UNICAST_FLT;
+> > >
+> > > +		/* MTU range: 81 - 9600 */
+> > > +		netdev->min_mtu = 81;
+> > > +		netdev->max_mtu = MAX_MTU;
+> >
+> > In this cause, the driver is not using the default values. So it sets
+> > them.
+> >
+> > Anyway, try it. After your alloc_etherdev_mqs(), print the value of
+> > min_mtu. It should already be set to MIN_ETH_MTU.
+> I understand your point. In this case, I would like to keep the
+> range being set by the driver just to be more explicit.
+> So for now keep this initialization in the driver?
+Removed the min_mtu initialization from the driver code and added a
+comment over it to be explicit. Please have a look at the V2 patch.
+
+Thanks
+Salil
