@@ -1,53 +1,62 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: [PATCH net-next] net: check type when freeing metadata dst
-Date: Fri, 18 Aug 2017 14:16:51 +0200
-Message-ID: <20170818121651.516877-1-equinox@diac24.net>
-Cc: David Lamparter <equinox@diac24.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Sridhar Samudrala <sridhar.samudrala@intel.com>,
-        Simon Horman <horms@verge.net.au>,
-        "David S . Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eidolon.nox.tf ([185.142.180.128]:57540 "EHLO eidolon.nox.tf"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751091AbdHRMRC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 08:17:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH v3 0/4] net: stmmac: Detect PHY location with phy-is-integrated
+Date: Fri, 18 Aug 2017 14:21:14 +0200
+Message-ID: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
+Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: robh+dt@kernel.org, mark.rutland@arm.com, linux@armlinux.org.uk,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a new metadata dst type field added in "net: store
-port/representator id in metadata_dst", but metadata_dst_free() wasn't
-updated to check it before freeing the METADATA_IP_TUNNEL specific dst
-cache entry.
+Hello
 
-This is not currently causing problems since it's far enough back in the
-struct to be zeroed for the only other type currently in existance
-(METADATA_HW_PORT_MUX), but nevertheless it's not correct.
+The current way to find if the PHY is internal is to compare DT phy-mode
+and emac_variant/internal_phy.
+But it will negate a possible future SoC where an external PHY use the
+same phy mode than the integrated one.
 
-Fixes: 3fcece12bc1b6dcdf0986f2cd9e8f63b1f9b6aa0
-Signed-off-by: David Lamparter <equinox@diac24.net>
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
-Cc: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Cc: Simon Horman <horms@verge.net.au>
-Cc: David S. Miller <davem@davemloft.net>
----
- net/core/dst.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+This patchs series adds a new way to find if the PHY is integrated, via
+the phy-is-integrated DT property.
 
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 00aa972ad1a1..7954d1710d97 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -299,7 +299,8 @@ EXPORT_SYMBOL_GPL(metadata_dst_alloc);
- void metadata_dst_free(struct metadata_dst *md_dst)
- {
- #ifdef CONFIG_DST_CACHE
--	dst_cache_destroy(&md_dst->u.tun_info.dst_cache);
-+	if (md_dst->type == METADATA_IP_TUNNEL)
-+		dst_cache_destroy(&md_dst->u.tun_info.dst_cache);
- #endif
- 	kfree(md_dst);
- }
+Since it exists both integrated and external ethernet-phy@1, they are merged in
+the final DTB and so share all properties.
+For avoiding this, and better represent the reality, we use a MDIO mux.
+
+Note that sun8i-v3s-emac have also an integrated PHY, but since it lacks
+any external PHY support, it is not necessary to add MDIO mux to it.
+
+The first patch should go via the sunxi tree.
+Note that this serie will need backporting the patch
+"Documentation: net: phy: Add phy-is-integrated binding" which is in net-next
+
+Thanks
+Regards
+
+Changes since v2:
+- Add a MDIO mux for creating distinction between integrated and external MDIO.
+- phy-is-integrated is not set in dtsi.
+
+Changes since v1:
+- Dropped phy-is-integrated documentation patch since another same patch was already merged
+- Moved phy-is-integrated from SoC dtsi to final board DT.
+
+Corentin Labbe (4):
+  ARM: dts: sunxi: h3/h5: represent the mdio switch used by
+    sun8i-h3-emac
+  net: stmmac: dwmac-sun8i: choose internal PHY via phy-is-integrated
+  net: stmmac: register parent MDIO node for sun8i-h3-emac
+  dt-bindings: net: dwmac-sun8i: update documentation about integrated
+    PHY
+
+ .../devicetree/bindings/net/dwmac-sun8i.txt        | 112 +++++++++++++++++++--
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi                 |  28 +++++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c  |  16 +--
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  12 ++-
+ 4 files changed, 146 insertions(+), 22 deletions(-)
+
 -- 
 2.13.0
