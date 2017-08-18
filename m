@@ -1,87 +1,39 @@
-From: Shawn Lin <shawn.lin@rock-chips.com>
-Subject: Re: [PATCH] PCI: Allow PCI express root ports to find themselves
-Date: Fri, 18 Aug 2017 09:29:17 +0800
-Message-ID: <31ef56f9-ec22-81de-638e-326261a20f08@rock-chips.com>
-References: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com>
- <20170817110614.11454-1-thierry.reding@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next] bpf: Fix map-in-map checking in the verifier
+Date: Thu, 17 Aug 2017 19:08:26 -0700
+Message-ID: <59964C1A.7050902@gmail.com>
+References: <20170818011443.562793-1-kafai@fb.com> <eb62aeba-487b-e3fe-3c9d-85c0b8eeaf04@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: shawn.lin@rock-chips.com, leedom@chelsio.com, ashok.raj@intel.com,
-        werner@chelsio.com, ganeshgr@chelsio.com, asit.k.mallick@intel.com,
-        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
-        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
-        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
-        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
-        alexander.duyck@gmail.com, eric.dumazet@gmail.com,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com
-To: Thierry Reding <thierry.reding@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        Ding Tianhong <dingtianhong@huawei.com>,
-        Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170817110614.11454-1-thierry.reding@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <daniel@iogearbox.net>, kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>, Martin KaFai Lau <kafai@fb.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:35885 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753890AbdHRCIi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 22:08:38 -0400
+Received: by mail-pg0-f45.google.com with SMTP id i12so54349537pgr.3
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 19:08:38 -0700 (PDT)
+In-Reply-To: <eb62aeba-487b-e3fe-3c9d-85c0b8eeaf04@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+On 08/17/2017 06:17 PM, Alexei Starovoitov wrote:
+> On 8/17/17 6:14 PM, Martin KaFai Lau wrote:
+>> In check_map_func_compatibility(), a 'break' has been accidentally
+>> removed for the BPF_MAP_TYPE_ARRAY_OF_MAPS and BPF_MAP_TYPE_HASH_OF_MAPS
+>> cases.  This patch adds it back.
+>>
+>> Fixes: 174a79ff9515 ("bpf: sockmap with sk redirect support")
+>> Cc: John Fastabend <john.fastabend@gmail.com>
+>> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> 
+> Nice catch!
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> 
 
-On 2017/8/17 19:06, Thierry Reding wrote:
-> From: Thierry Reding <treding@nvidia.com>
-> 
-> If the pci_find_pcie_root_port() function is called on a root port
-> itself, return the root port rather than NULL.
-> 
-> This effectively reverts commit 0e405232871d6 ("PCI: fix oops when
-> try to find Root Port for a PCI device") which added an extra check
-> that would now be redundant.
-> 
-> Fixes: a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
-> Fixes: c56d4450eb68 ("PCI: Turn off Request Attributes to avoid Chelsio T5 Completion erratum")
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
+Thanks a lot!
 
-Tested-by: Shawn Lin <shawn.lin@rock-chips.com>
-
-> ---
-> This applies on top of and was tested on next-20170817.
-> 
-> Michael, it'd be great if you could test this one again to clarify
-> whether or not the fix that's already in Linus' tree is still needed, or
-> whether it's indeed obsoleted by this patch.
-> 
->   drivers/pci/pci.c | 9 ++++-----
->   1 file changed, 4 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-> index b05c587e335a..dd56c1c05614 100644
-> --- a/drivers/pci/pci.c
-> +++ b/drivers/pci/pci.c
-> @@ -514,7 +514,7 @@ EXPORT_SYMBOL(pci_find_resource);
->    */
->   struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
->   {
-> -	struct pci_dev *bridge, *highest_pcie_bridge = NULL;
-> +	struct pci_dev *bridge, *highest_pcie_bridge = dev;
->   
->   	bridge = pci_upstream_bridge(dev);
->   	while (bridge && pci_is_pcie(bridge)) {
-> @@ -522,11 +522,10 @@ struct pci_dev *pci_find_pcie_root_port(struct pci_dev *dev)
->   		bridge = pci_upstream_bridge(bridge);
->   	}
->   
-> -	if (highest_pcie_bridge &&
-> -	    pci_pcie_type(highest_pcie_bridge) == PCI_EXP_TYPE_ROOT_PORT)
-> -		return highest_pcie_bridge;
-> +	if (pci_pcie_type(highest_pcie_bridge) != PCI_EXP_TYPE_ROOT_PORT)
-> +		return NULL;
->   
-> -	return NULL;
-> +	return highest_pcie_bridge;
->   }
->   EXPORT_SYMBOL(pci_find_pcie_root_port);
->   
-> 
+Acked-by: John Fastabend <john.fastabend@gmail.com>
