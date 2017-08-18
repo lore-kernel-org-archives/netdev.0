@@ -1,166 +1,174 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 02/12] nfp: provide ethtool_drvinfo on representors
-Date: Fri, 18 Aug 2017 15:48:12 -0700
-Message-ID: <20170818224822.8409-3-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 04/12] nfp: don't report standard netdev statistics in ethtool
+Date: Fri, 18 Aug 2017 15:48:14 -0700
+Message-ID: <20170818224822.8409-5-jakub.kicinski@netronome.com>
 References: <20170818224822.8409-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:34119 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751054AbdHRWtZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 18:49:25 -0400
-Received: by mail-pg0-f48.google.com with SMTP id n4so8837441pgn.1
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 15:49:25 -0700 (PDT)
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:38464 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751566AbdHRWt1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 18:49:27 -0400
+Received: by mail-pg0-f49.google.com with SMTP id t80so44861940pgb.5
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 15:49:27 -0700 (PDT)
 In-Reply-To: <20170818224822.8409-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Extend representors' ethtool ops to show basic info like firmware
-version, driver version, and driver name.
+We have been recently called out as a bad example for reporting
+standard netdev statistics as part of ethtool.  Fix that :)
 
-While at it don't set drvinfo.n_stats and drvinfo.regdump_len,
-core will invoke appropriate handlers to get those.
-
-A helper is added to turn a netdev into nfp_app for convenience.
+Removing standard statistics allows us to simplify the structure
+holding definitions since we no longer have to mux different types
+of statistics.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_app.c       | 20 ++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_app.h       |  2 +
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 44 ++++++++++++++++------
- 3 files changed, 54 insertions(+), 12 deletions(-)
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 109 ++++++---------------
+ 1 file changed, 32 insertions(+), 77 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
-index c704c022574f..505e63f47419 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
-@@ -38,6 +38,7 @@
- #include "nfpcore/nfp_nffw.h"
- #include "nfp_app.h"
- #include "nfp_main.h"
-+#include "nfp_net.h"
- #include "nfp_net_repr.h"
- 
- static const struct nfp_app_type *apps[] = {
-@@ -48,6 +49,25 @@ static const struct nfp_app_type *apps[] = {
- #endif
- };
- 
-+struct nfp_app *nfp_app_from_netdev(struct net_device *netdev)
-+{
-+	if (nfp_netdev_is_nfp_net(netdev)) {
-+		struct nfp_net *nn = netdev_priv(netdev);
-+
-+		return nn->app;
-+	}
-+
-+	if (nfp_netdev_is_nfp_repr(netdev)) {
-+		struct nfp_repr *repr = netdev_priv(netdev);
-+
-+		return repr->app;
-+	}
-+
-+	WARN(1, "Unknown netdev type for nfp_app\n");
-+
-+	return NULL;
-+}
-+
- const char *nfp_app_mip_name(struct nfp_app *app)
- {
- 	if (!app || !app->pf->mip)
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-index f34e8778fae2..c13b9bbe7e62 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
-@@ -293,6 +293,8 @@ static inline struct net_device *nfp_app_repr_get(struct nfp_app *app, u32 id)
- 	return app->type->repr_get(app, id);
- }
- 
-+struct nfp_app *nfp_app_from_netdev(struct net_device *netdev);
-+
- struct nfp_reprs *
- nfp_app_reprs_set(struct nfp_app *app, enum nfp_repr_type type,
- 		  struct nfp_reprs *reprs);
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 3edc5d62ad5b..3c34c8b27dcf 100644
+index 289fa318a651..1753bfbc8b47 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-@@ -147,34 +147,53 @@ static void nfp_net_get_nspinfo(struct nfp_app *app, char *version)
- 	if (IS_ERR(nsp))
- 		return;
+@@ -59,74 +59,44 @@ enum nfp_dump_diag {
+ 	NFP_DUMP_NSP_DIAG = 0,
+ };
  
--	snprintf(version, ETHTOOL_FWVERS_LEN, "sp:%hu.%hu",
-+	snprintf(version, ETHTOOL_FWVERS_LEN, "%hu.%hu",
- 		 nfp_nsp_get_abi_ver_major(nsp),
- 		 nfp_nsp_get_abi_ver_minor(nsp));
+-/* Support for stats. Returns netdev, driver, and device stats */
+-enum { NETDEV_ET_STATS, NFP_NET_DRV_ET_STATS, NFP_NET_DEV_ET_STATS };
+-struct _nfp_net_et_stats {
++struct nfp_et_stat {
+ 	char name[ETH_GSTRING_LEN];
+-	int type;
+-	int sz;
+ 	int off;
+ };
  
- 	nfp_nsp_close(nsp);
- }
+-#define NN_ET_NETDEV_STAT(m) NETDEV_ET_STATS,			\
+-		FIELD_SIZEOF(struct net_device_stats, m),	\
+-		offsetof(struct net_device_stats, m)
+-/* For stats in the control BAR (other than Q stats) */
+-#define NN_ET_DEV_STAT(m) NFP_NET_DEV_ET_STATS,			\
+-		sizeof(u64),					\
+-		(m)
+-static const struct _nfp_net_et_stats nfp_net_et_stats[] = {
+-	/* netdev stats */
+-	{"rx_packets", NN_ET_NETDEV_STAT(rx_packets)},
+-	{"tx_packets", NN_ET_NETDEV_STAT(tx_packets)},
+-	{"rx_bytes", NN_ET_NETDEV_STAT(rx_bytes)},
+-	{"tx_bytes", NN_ET_NETDEV_STAT(tx_bytes)},
+-	{"rx_errors", NN_ET_NETDEV_STAT(rx_errors)},
+-	{"tx_errors", NN_ET_NETDEV_STAT(tx_errors)},
+-	{"rx_dropped", NN_ET_NETDEV_STAT(rx_dropped)},
+-	{"tx_dropped", NN_ET_NETDEV_STAT(tx_dropped)},
+-	{"multicast", NN_ET_NETDEV_STAT(multicast)},
+-	{"collisions", NN_ET_NETDEV_STAT(collisions)},
+-	{"rx_over_errors", NN_ET_NETDEV_STAT(rx_over_errors)},
+-	{"rx_crc_errors", NN_ET_NETDEV_STAT(rx_crc_errors)},
+-	{"rx_frame_errors", NN_ET_NETDEV_STAT(rx_frame_errors)},
+-	{"rx_fifo_errors", NN_ET_NETDEV_STAT(rx_fifo_errors)},
+-	{"rx_missed_errors", NN_ET_NETDEV_STAT(rx_missed_errors)},
+-	{"tx_aborted_errors", NN_ET_NETDEV_STAT(tx_aborted_errors)},
+-	{"tx_carrier_errors", NN_ET_NETDEV_STAT(tx_carrier_errors)},
+-	{"tx_fifo_errors", NN_ET_NETDEV_STAT(tx_fifo_errors)},
++static const struct nfp_et_stat nfp_net_et_stats[] = {
+ 	/* Stats from the device */
+-	{"dev_rx_discards", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_RX_DISCARDS)},
+-	{"dev_rx_errors", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_RX_ERRORS)},
+-	{"dev_rx_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_RX_OCTETS)},
+-	{"dev_rx_uc_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_RX_UC_OCTETS)},
+-	{"dev_rx_mc_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_RX_MC_OCTETS)},
+-	{"dev_rx_bc_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_RX_BC_OCTETS)},
+-	{"dev_rx_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_RX_FRAMES)},
+-	{"dev_rx_mc_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_RX_MC_FRAMES)},
+-	{"dev_rx_bc_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_RX_BC_FRAMES)},
+-
+-	{"dev_tx_discards", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_DISCARDS)},
+-	{"dev_tx_errors", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_ERRORS)},
+-	{"dev_tx_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_OCTETS)},
+-	{"dev_tx_uc_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_UC_OCTETS)},
+-	{"dev_tx_mc_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_MC_OCTETS)},
+-	{"dev_tx_bc_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_BC_OCTETS)},
+-	{"dev_tx_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_FRAMES)},
+-	{"dev_tx_mc_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_MC_FRAMES)},
+-	{"dev_tx_bc_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_TX_BC_FRAMES)},
+-
+-	{"bpf_pass_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP0_FRAMES)},
+-	{"bpf_pass_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP0_BYTES)},
++	{ "dev_rx_discards",	NFP_NET_CFG_STATS_RX_DISCARDS },
++	{ "dev_rx_errors",	NFP_NET_CFG_STATS_RX_ERRORS },
++	{ "dev_rx_bytes",	NFP_NET_CFG_STATS_RX_OCTETS },
++	{ "dev_rx_uc_bytes",	NFP_NET_CFG_STATS_RX_UC_OCTETS },
++	{ "dev_rx_mc_bytes",	NFP_NET_CFG_STATS_RX_MC_OCTETS },
++	{ "dev_rx_bc_bytes",	NFP_NET_CFG_STATS_RX_BC_OCTETS },
++	{ "dev_rx_pkts",	NFP_NET_CFG_STATS_RX_FRAMES },
++	{ "dev_rx_mc_pkts",	NFP_NET_CFG_STATS_RX_MC_FRAMES },
++	{ "dev_rx_bc_pkts",	NFP_NET_CFG_STATS_RX_BC_FRAMES },
++
++	{ "dev_tx_discards",	NFP_NET_CFG_STATS_TX_DISCARDS },
++	{ "dev_tx_errors",	NFP_NET_CFG_STATS_TX_ERRORS },
++	{ "dev_tx_bytes",	NFP_NET_CFG_STATS_TX_OCTETS },
++	{ "dev_tx_uc_bytes",	NFP_NET_CFG_STATS_TX_UC_OCTETS },
++	{ "dev_tx_mc_bytes",	NFP_NET_CFG_STATS_TX_MC_OCTETS },
++	{ "dev_tx_bc_bytes",	NFP_NET_CFG_STATS_TX_BC_OCTETS },
++	{ "dev_tx_pkts",	NFP_NET_CFG_STATS_TX_FRAMES },
++	{ "dev_tx_mc_pkts",	NFP_NET_CFG_STATS_TX_MC_FRAMES },
++	{ "dev_tx_bc_pkts",	NFP_NET_CFG_STATS_TX_BC_FRAMES },
++
++	{ "bpf_pass_pkts",	NFP_NET_CFG_STATS_APP0_FRAMES },
++	{ "bpf_pass_bytes",	NFP_NET_CFG_STATS_APP0_BYTES },
+ 	/* see comments in outro functions in nfp_bpf_jit.c to find out
+ 	 * how different BPF modes use app-specific counters
+ 	 */
+-	{"bpf_app1_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP1_FRAMES)},
+-	{"bpf_app1_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP1_BYTES)},
+-	{"bpf_app2_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP2_FRAMES)},
+-	{"bpf_app2_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP2_BYTES)},
+-	{"bpf_app3_pkts", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP3_FRAMES)},
+-	{"bpf_app3_bytes", NN_ET_DEV_STAT(NFP_NET_CFG_STATS_APP3_BYTES)},
++	{ "bpf_app1_pkts",	NFP_NET_CFG_STATS_APP1_FRAMES },
++	{ "bpf_app1_bytes",	NFP_NET_CFG_STATS_APP1_BYTES },
++	{ "bpf_app2_pkts",	NFP_NET_CFG_STATS_APP2_FRAMES },
++	{ "bpf_app2_bytes",	NFP_NET_CFG_STATS_APP2_BYTES },
++	{ "bpf_app3_pkts",	NFP_NET_CFG_STATS_APP3_FRAMES },
++	{ "bpf_app3_bytes",	NFP_NET_CFG_STATS_APP3_BYTES },
+ };
  
--static void nfp_net_get_drvinfo(struct net_device *netdev,
--				struct ethtool_drvinfo *drvinfo)
-+static void
-+nfp_get_drvinfo(struct nfp_app *app, struct pci_dev *pdev,
-+		const char *vnic_version, struct ethtool_drvinfo *drvinfo)
+ #define NN_ET_GLOBAL_STATS_LEN ARRAY_SIZE(nfp_net_et_stats)
+@@ -421,28 +391,13 @@ static void nfp_net_get_stats(struct net_device *netdev,
  {
- 	char nsp_version[ETHTOOL_FWVERS_LEN] = {};
--	struct nfp_net *nn = netdev_priv(netdev);
+ 	u64 gathered_stats[NN_ET_RVEC_GATHER_STATS] = {};
+ 	struct nfp_net *nn = netdev_priv(netdev);
+-	struct rtnl_link_stats64 *netdev_stats;
+-	struct rtnl_link_stats64 temp = {};
+ 	u64 tmp[NN_ET_RVEC_GATHER_STATS];
+ 	u8 __iomem *io_p;
+ 	int i, j, k;
+-	u8 *p;
+-
+-	netdev_stats = dev_get_stats(netdev, &temp);
  
--	strlcpy(drvinfo->driver, nn->pdev->driver->name,
--		sizeof(drvinfo->driver));
-+	strlcpy(drvinfo->driver, pdev->driver->name, sizeof(drvinfo->driver));
- 	strlcpy(drvinfo->version, nfp_driver_version, sizeof(drvinfo->version));
- 
--	nfp_net_get_nspinfo(nn->app, nsp_version);
-+	nfp_net_get_nspinfo(app, nsp_version);
- 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
--		 "%d.%d.%d.%d %s %s %s",
-+		 "%s %s %s %s", vnic_version, nsp_version,
-+		 nfp_app_mip_name(app), nfp_app_name(app));
-+}
-+
-+static void
-+nfp_net_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
-+{
-+	char vnic_version[ETHTOOL_FWVERS_LEN] = {};
-+	struct nfp_net *nn = netdev_priv(netdev);
-+
-+	snprintf(vnic_version, sizeof(vnic_version), "%d.%d.%d.%d",
- 		 nn->fw_ver.resv, nn->fw_ver.class,
--		 nn->fw_ver.major, nn->fw_ver.minor, nsp_version,
--		 nfp_app_mip_name(nn->app), nfp_app_name(nn->app));
-+		 nn->fw_ver.major, nn->fw_ver.minor);
- 	strlcpy(drvinfo->bus_info, pci_name(nn->pdev),
- 		sizeof(drvinfo->bus_info));
- 
--	drvinfo->n_stats = NN_ET_STATS_LEN;
--	drvinfo->regdump_len = NFP_NET_CFG_BAR_SZ;
-+	nfp_get_drvinfo(nn->app, nn->pdev, vnic_version, drvinfo);
-+}
-+
-+static void
-+nfp_app_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
-+{
-+	struct nfp_app *app;
-+
-+	app = nfp_app_from_netdev(netdev);
-+	if (!app)
-+		return;
-+
-+	nfp_get_drvinfo(app, app->pdev, "*", drvinfo);
- }
- 
- /**
-@@ -940,6 +959,7 @@ static const struct ethtool_ops nfp_net_ethtool_ops = {
- };
- 
- const struct ethtool_ops nfp_port_ethtool_ops = {
-+	.get_drvinfo		= nfp_app_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- };
- 
+ 	for (i = 0; i < NN_ET_GLOBAL_STATS_LEN; i++) {
+-		switch (nfp_net_et_stats[i].type) {
+-		case NETDEV_ET_STATS:
+-			p = (char *)netdev_stats + nfp_net_et_stats[i].off;
+-			data[i] = nfp_net_et_stats[i].sz == sizeof(u64) ?
+-				*(u64 *)p : *(u32 *)p;
+-			break;
+-
+-		case NFP_NET_DEV_ET_STATS:
+-			io_p = nn->dp.ctrl_bar + nfp_net_et_stats[i].off;
+-			data[i] = readq(io_p);
+-			break;
+-		}
++		io_p = nn->dp.ctrl_bar + nfp_net_et_stats[i].off;
++		data[i] = readq(io_p);
+ 	}
+ 	for (j = 0; j < nn->dp.num_r_vecs; j++) {
+ 		unsigned int start;
 -- 
 2.11.0
