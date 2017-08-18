@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 10/14] amd-xgbe: Add per queue Tx and Rx
- statistics
-Date: Thu, 17 Aug 2017 19:03:34 -0500
-Message-ID: <20170818000334.10005.12505.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 11/14] net: ethtool: Add macro to clear a link
+ mode setting
+Date: Thu, 17 Aug 2017 19:03:44 -0500
+Message-ID: <20170818000344.10005.76938.stgit@tlendack-t1.amdoffice.net>
 References: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,168 +10,42 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0087.outbound.protection.outlook.com ([104.47.32.87]:55952
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam02on0074.outbound.protection.outlook.com ([104.47.36.74]:57920
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753887AbdHRADk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 20:03:40 -0400
+        id S1753887AbdHRADu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 20:03:50 -0400
 In-Reply-To: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add per queue Tx and Rx packet and byte counts.
+There are currently macros to set and test an ETHTOOL_LINK_MODE_ setting,
+but not to clear one. Add a macro to clear an ETHTOOL_LINK_MODE_ setting.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |   23 ++++++++++++++++-------
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   26 +++++++++++++++++++++++++-
- drivers/net/ethernet/amd/xgbe/xgbe.h         |    5 +++++
- 3 files changed, 46 insertions(+), 8 deletions(-)
+ include/linux/ethtool.h |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 75a479c..a978408 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1609,6 +1609,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 	struct xgbe_ring_data *rdata;
- 	struct xgbe_ring_desc *rdesc;
- 	struct xgbe_packet_data *packet = &ring->packet_data;
-+	unsigned int tx_packets, tx_bytes;
- 	unsigned int csum, tso, vlan;
- 	unsigned int tso_context, vlan_context;
- 	unsigned int tx_set_ic;
-@@ -1618,6 +1619,9 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index afdbb70..4587a4c 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -137,6 +137,17 @@ struct ethtool_link_ksettings {
+ 	__set_bit(ETHTOOL_LINK_MODE_ ## mode ## _BIT, (ptr)->link_modes.name)
  
- 	DBGPR("-->xgbe_dev_xmit\n");
- 
-+	tx_packets = packet->tx_packets;
-+	tx_bytes = packet->tx_bytes;
+ /**
++ * ethtool_link_ksettings_del_link_mode - clear bit in link_ksettings
++ * link mode mask
++ *   @ptr : pointer to struct ethtool_link_ksettings
++ *   @name : one of supported/advertising/lp_advertising
++ *   @mode : one of the ETHTOOL_LINK_MODE_*_BIT
++ * (not atomic, no bound checking)
++ */
++#define ethtool_link_ksettings_del_link_mode(ptr, name, mode)		\
++	__clear_bit(ETHTOOL_LINK_MODE_ ## mode ## _BIT, (ptr)->link_modes.name)
 +
- 	csum = XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES,
- 			      CSUM_ENABLE);
- 	tso = XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES,
-@@ -1645,13 +1649,12 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 	 *     - Addition of Tx frame count to the frame count since the
- 	 *       last interrupt was set does not exceed the frame count setting
- 	 */
--	ring->coalesce_count += packet->tx_packets;
-+	ring->coalesce_count += tx_packets;
- 	if (!pdata->tx_frames)
- 		tx_set_ic = 0;
--	else if (packet->tx_packets > pdata->tx_frames)
-+	else if (tx_packets > pdata->tx_frames)
- 		tx_set_ic = 1;
--	else if ((ring->coalesce_count % pdata->tx_frames) <
--		 packet->tx_packets)
-+	else if ((ring->coalesce_count % pdata->tx_frames) < tx_packets)
- 		tx_set_ic = 1;
- 	else
- 		tx_set_ic = 0;
-@@ -1741,7 +1744,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, TCPHDRLEN,
- 				  packet->tcp_header_len / 4);
- 
--		pdata->ext_stats.tx_tso_packets += packet->tx_packets;
-+		pdata->ext_stats.tx_tso_packets += tx_packets;
- 	} else {
- 		/* Enable CRC and Pad Insertion */
- 		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, CPC, 0);
-@@ -1789,8 +1792,11 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 1);
- 
- 	/* Save the Tx info to report back during cleanup */
--	rdata->tx.packets = packet->tx_packets;
--	rdata->tx.bytes = packet->tx_bytes;
-+	rdata->tx.packets = tx_packets;
-+	rdata->tx.bytes = tx_bytes;
-+
-+	pdata->ext_stats.txq_packets[channel->queue_index] += tx_packets;
-+	pdata->ext_stats.txq_bytes[channel->queue_index] += tx_bytes;
- 
- 	/* In case the Tx DMA engine is running, make sure everything
- 	 * is written to the descriptor(s) before setting the OWN bit
-@@ -1944,6 +1950,9 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 				       FRAME, 1);
- 	}
- 
-+	pdata->ext_stats.rxq_packets[channel->queue_index]++;
-+	pdata->ext_stats.rxq_bytes[channel->queue_index] += rdata->rx.len;
-+
- 	DBGPR("<--xgbe_dev_read: %s - descriptor=%u (cur=%d)\n", channel->name,
- 	      ring->cur & (ring->rdesc_count - 1), ring->cur);
- 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index 67a2e52..f80b186 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -186,6 +186,7 @@ struct xgbe_stats {
- 
- static void xgbe_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- {
-+	struct xgbe_prv_data *pdata = netdev_priv(netdev);
- 	int i;
- 
- 	switch (stringset) {
-@@ -195,6 +196,18 @@ static void xgbe_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 			       ETH_GSTRING_LEN);
- 			data += ETH_GSTRING_LEN;
- 		}
-+		for (i = 0; i < pdata->tx_ring_count; i++) {
-+			sprintf(data, "txq_%u_packets", i);
-+			data += ETH_GSTRING_LEN;
-+			sprintf(data, "txq_%u_bytes", i);
-+			data += ETH_GSTRING_LEN;
-+		}
-+		for (i = 0; i < pdata->rx_ring_count; i++) {
-+			sprintf(data, "rxq_%u_packets", i);
-+			data += ETH_GSTRING_LEN;
-+			sprintf(data, "rxq_%u_bytes", i);
-+			data += ETH_GSTRING_LEN;
-+		}
- 		break;
- 	}
- }
-@@ -211,15 +224,26 @@ static void xgbe_get_ethtool_stats(struct net_device *netdev,
- 		stat = (u8 *)pdata + xgbe_gstring_stats[i].stat_offset;
- 		*data++ = *(u64 *)stat;
- 	}
-+	for (i = 0; i < pdata->tx_ring_count; i++) {
-+		*data++ = pdata->ext_stats.txq_packets[i];
-+		*data++ = pdata->ext_stats.txq_bytes[i];
-+	}
-+	for (i = 0; i < pdata->rx_ring_count; i++) {
-+		*data++ = pdata->ext_stats.rxq_packets[i];
-+		*data++ = pdata->ext_stats.rxq_bytes[i];
-+	}
- }
- 
- static int xgbe_get_sset_count(struct net_device *netdev, int stringset)
- {
-+	struct xgbe_prv_data *pdata = netdev_priv(netdev);
- 	int ret;
- 
- 	switch (stringset) {
- 	case ETH_SS_STATS:
--		ret = XGBE_STATS_COUNT;
-+		ret = XGBE_STATS_COUNT +
-+		      (pdata->tx_ring_count * 2) +
-+		      (pdata->rx_ring_count * 2);
- 		break;
- 
- 	default:
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index c7dd273..929c6b2 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -668,6 +668,11 @@ struct xgbe_ext_stats {
- 	u64 tx_tso_packets;
- 	u64 rx_split_header_packets;
- 	u64 rx_buffer_unavailable;
-+
-+	u64 txq_packets[XGBE_MAX_DMA_CHANNELS];
-+	u64 txq_bytes[XGBE_MAX_DMA_CHANNELS];
-+	u64 rxq_packets[XGBE_MAX_DMA_CHANNELS];
-+	u64 rxq_bytes[XGBE_MAX_DMA_CHANNELS];
- };
- 
- struct xgbe_hw_if {
++/**
+  * ethtool_link_ksettings_test_link_mode - test bit in ksettings link mode mask
+  *   @ptr : pointer to struct ethtool_link_ksettings
+  *   @name : one of supported/advertising/lp_advertising
