@@ -1,50 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] PCI: Allow PCI express root ports to find themselves
-Date: Fri, 18 Aug 2017 16:14:52 -0700 (PDT)
-Message-ID: <20170818.161452.1186139926380057795.davem@davemloft.net>
-References: <1502936730-7368-1-git-send-email-dingtianhong@huawei.com>
-        <20170817110614.11454-1-thierry.reding@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 net-next] net: ipv6: put host and anycast routes on device with address
+Date: Fri, 18 Aug 2017 19:15:31 -0400
+Message-ID: <87wp60lb70.fsf@stressinduktion.org>
+References: <1502997440-32334-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bhelgaas@google.com, dingtianhong@huawei.com, mpe@ellerman.id.au,
-        leedom@chelsio.com, ashok.raj@intel.com, werner@chelsio.com,
-        ganeshgr@chelsio.com, asit.k.mallick@intel.com,
-        patrick.j.cramer@intel.com, Suravee.Suthikulpanit@amd.com,
-        Bob.Shaw@amd.com, l.stach@pengutronix.de, amira@mellanox.com,
-        gabriele.paoloni@huawei.com, David.Laight@aculab.com,
-        jeffrey.t.kirsher@intel.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, mark.rutland@arm.com, robin.murphy@arm.com,
-        alexander.duyck@gmail.com, eric.dumazet@gmail.com,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linuxarm@huawei.com
-To: thierry.reding@gmail.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20170817110614.11454-1-thierry.reding@gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:36895 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751060AbdHRXPd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 19:15:33 -0400
+In-Reply-To: <1502997440-32334-1-git-send-email-dsahern@gmail.com> (David
+        Ahern's message of "Thu, 17 Aug 2017 12:17:20 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thierry Reding <thierry.reding@gmail.com>
-Date: Thu, 17 Aug 2017 13:06:14 +0200
+Hello David,
 
-> From: Thierry Reding <treding@nvidia.com>
-> 
-> If the pci_find_pcie_root_port() function is called on a root port
-> itself, return the root port rather than NULL.
-> 
-> This effectively reverts commit 0e405232871d6 ("PCI: fix oops when
-> try to find Root Port for a PCI device") which added an extra check
-> that would now be redundant.
-> 
-> Fixes: a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
-> Fixes: c56d4450eb68 ("PCI: Turn off Request Attributes to avoid Chelsio T5 Completion erratum")
-> Signed-off-by: Thierry Reding <treding@nvidia.com>
-> ---
-> This applies on top of and was tested on next-20170817.
-> 
-> Michael, it'd be great if you could test this one again to clarify
-> whether or not the fix that's already in Linus' tree is still needed, or
-> whether it's indeed obsoleted by this patch.
+David Ahern <dsahern@gmail.com> writes:
 
-Applied, thanks everyone.
+> @@ -2688,15 +2716,9 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+>  {
+>  	u32 tb_id;
+>  	struct net *net = dev_net(idev->dev);
+> -	struct net_device *dev = net->loopback_dev;
+> +	struct net_device *dev = idev->dev;
+>  	struct rt6_info *rt;
+>  
+> -	/* use L3 Master device as loopback for host routes if device
+> -	 * is enslaved and address is not link local or multicast
+> -	 */
+> -	if (!rt6_need_strict(addr))
+> -		dev = l3mdev_master_dev_rcu(idev->dev) ? : dev;
+> -
+>  	rt = ip6_dst_alloc(net, dev, DST_NOCOUNT);
+>  	if (!rt)
+>  		return ERR_PTR(-ENOMEM);
+
+I am afraid this change might break Java:
+
+<http://hg.openjdk.java.net/jdk9/jdk9/jdk/file/65464a307408/src/java.base/unix/native/libnet/net_util_md.c#l574>
+
+I am all in for this change, but maybe it might be necessary to mask
+RTF_LOCAL routes with "lo" somehow.
+
+Bye,
+Hannes
