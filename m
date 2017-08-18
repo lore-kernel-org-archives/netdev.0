@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 05/14] amd-xgbe: Add additional debugfs
- support
-Date: Thu, 17 Aug 2017 22:02:03 -0700 (PDT)
-Message-ID: <20170817.220203.1607309698344574831.davem@davemloft.net>
-References: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
-        <20170818000250.10005.87855.stgit@tlendack-t1.amdoffice.net>
-        <20170818003057.GA11030@lunn.ch>
+Subject: Re: [PATCH V5 net-next 01/21] net-next/hinic: Initialize hw
+ interface
+Date: Thu, 17 Aug 2017 22:03:43 -0700 (PDT)
+Message-ID: <20170817.220343.905568389038615738.davem@davemloft.net>
+References: <cover.1502970631.git.aviad.krawczyk@huawei.com>
+        <544e2ccb65ea083d9b736df6ea0bdd59353da815.1502970631.git.aviad.krawczyk@huawei.com>
+        <20170817174205.6a1b12b6@xeon-e3>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.lendacky@amd.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44066 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750954AbdHRFCE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 01:02:04 -0400
-In-Reply-To: <20170818003057.GA11030@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: aviad.krawczyk@huawei.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, bc.y@huawei.com, victor.gissin@huawei.com,
+        zhaochen6@huawei.com, tony.qu@huawei.com
+To: stephen@networkplumber.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170817174205.6a1b12b6@xeon-e3>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Fri, 18 Aug 2017 02:30:57 +0200
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 17 Aug 2017 17:42:05 -0700
 
-> On Thu, Aug 17, 2017 at 07:02:50PM -0500, Tom Lendacky wrote:
->> Add additional debugfs support for reading / writing registers of any
->> attached external phy devices as well as the SFP eeprom data.
-> 
-> Hi Tom
-> 
-> What is wrong with using the standard APIs for this?
-> 
-> ethtool --moduile-info
-> 
-> ioctls SIOCGMIIREG and SIOCSMIIREG.
+> Please drop these functions, they do nothing and are not used
+> as stubs in any operations table.
 
-Yeah debugfs is a horrible choice for this.
+It might have been helpful to scan the entire series to understand
+why it looks this way.
 
-debugfs in general should be strongly avoided.  We have rich eneough
-facilities to export just about anything that is actually appropriate
-and useful, and where we do not existing facilities should be extended
-as needed rather than ignored.
+He's building the driver up, one piece at a time, filling in the full
+implementation as is possible as more and more infrastructure is added.
+
+So some functions start empty when a method is needed to be filled in,
+and then gradually obtains more and more content throughout the
+series.
+
+And this is a fine way to add a huge new driver (although not my
+personal preference).
