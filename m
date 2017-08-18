@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] net/sched: Fix the logic error to decide the
- ingress qdisc
-Date: Fri, 18 Aug 2017 10:29:29 -0700 (PDT)
-Message-ID: <20170818.102929.1752805484538604868.davem@davemloft.net>
-References: <1503055460-36795-1-git-send-email-chrism@mellanox.com>
+Subject: Re: [PATCH] nfp: fix infinite loop on umapping cleanup
+Date: Fri, 18 Aug 2017 10:29:19 -0700 (PDT)
+Message-ID: <20170818.102919.1311901104192299250.davem@davemloft.net>
+References: <20170818111150.13716-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us
-To: chrism@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57040 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751126AbdHRR3a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 13:29:30 -0400
-In-Reply-To: <1503055460-36795-1-git-send-email-chrism@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: simon.horman@netronome.com, daniel@iogearbox.net,
+        oss-drivers@netronome.com, netdev@vger.kernel.org,
+        jakub.kicinski@netronome.com, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170818111150.13716-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Chris Mi <chrism@mellanox.com>
-Date: Fri, 18 Aug 2017 07:24:20 -0400
+From: Colin King <colin.king@canonical.com>
+Date: Fri, 18 Aug 2017 12:11:50 +0100
 
-> The offending commit used a newly added helper function.
-> But the logic is wrong. Without this fix, the affected NICs
-> can't do HW offload. Error -EOPNOTSUPP will be returned directly.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Fixes: a2e8da9378cc ("net/sched: use newly added classid identity helpers")
-> Signed-off-by: Chris Mi <chrism@mellanox.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> The while loop that performs the dma page unmapping never decrements
+> index counter f and hence loops forever. Fix this with a pre-decrement
+> on f.
+> 
+> Detected by CoverityScan, CID#1357309 ("Infinite loop")
+> 
+> Fixes: 4c3523623dc0 ("net: add driver for Netronome NFP4000/NFP6000 NIC VFs")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied.
+Applied and queued up for -stable.
