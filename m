@@ -1,93 +1,39 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH net-next 3/3] hv_sock: implements Hyper-V transport for
- Virtual Sockets (AF_VSOCK)
-Date: Fri, 18 Aug 2017 22:23:54 +0000
-Message-ID: <KL1P15301MB0008C56CCD01B69186EF3A93BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
-References: <KL1P15301MB00086EF58514BFD08F66B6C4BF8D0@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170817145551.GI5539@stefanha-x1.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V4 net 0/2] ipv6: fix flowlabel issue for reset packet
+Date: Fri, 18 Aug 2017 15:27:09 -0700 (PDT)
+Message-ID: <20170818.152709.1530391846414055080.davem@davemloft.net>
+References: <20170817225521.ybb7cclaxs6skdem@kafai-mba.dhcp.thefacebook.com>
+        <CALx6S3498iPfNs4Wt5RWjoxZS0nXHT=qvdSgZhZbqxswqJqdZw@mail.gmail.com>
+        <20170818205136.nsmlmyshaobsyukc@kafai-mba.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Michal Kubecek <mkubecek@suse.cz>, "joe@perches.com" <joe@perches.com>,
- "olaf@aepfle.de" <olaf@aepfle.de>, Stephen Hemminger <sthemmin@microsoft.com>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Haiyang
- Zhang <haiyangz@microsoft.com>, Dave Scott <dave.scott@docker.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>, Jorgen Hansen <jhansen@vmware.com>,
- Rolf Neugebauer <rolf.neugebauer@docker.com>,
- Marcelo Cerri <marcelo.cerri@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Vitaly Kuznetsov <vkuznets@redhat.com>,
- "davem@davemloft.net" <davem@davemloft.net>,
- George Zhang <georgezhang@vmware.com>,
- Dan Carpenter <dan.carpenter@oracle.com>
-To: Stefan Hajnoczi <stefanha@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170817145551.GI5539@stefanha-x1.localdomain>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: tom@herbertland.com, shli@kernel.org, netdev@vger.kernel.org
+To: kafai@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33868 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750847AbdHRW1K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 18:27:10 -0400
+In-Reply-To: <20170818205136.nsmlmyshaobsyukc@kafai-mba.dhcp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Stefan Hajnoczi [mailto:stefanha@redhat.com]
-> Sent: Thursday, August 17, 2017 07:56
-> To: Dexuan Cui <decui@microsoft.com>
-> On Tue, Aug 15, 2017 at 10:18:41PM +0000, Dexuan Cui wrote:
-> > +static u32 hvs_get_local_cid(void)
-> > +{
-> > +	return VMADDR_CID_ANY;
-> > +}
-> 
-> Interesting concept: the guest never knows its CID.  This is nice from a
-> live migration perspective.  Currently VMCI and virtio adjust listen
-> socket local CIDs after migration.
-> 
-> > +static bool hvs_stream_allow(u32 cid, u32 port)
-> > +{
-> > +	static const u32 valid_cids[] = {
-> > +		VMADDR_CID_ANY,
-> 
-> Is this for loopback?
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Fri, 18 Aug 2017 13:51:36 -0700
 
-No, we don't support lookback in Linux VM, at least for now.
-In our Linux implementation, Linux VM can only connect to the host, and
-here when Linux VM calls connect(), I treat  VMADDR_CID_ANY 
-the same as VMADDR_CID_HOST.
+> It seems like that middle box specifically drops TCP_RST if it
+> does not know anything about this flow.  Since the flowlabel of the TCP_RST
+> (sent in TW state) is always different, it always lands to a different middle
+> box.  All of these TCP_RST cannot be delivered.
 
-> > +		VMADDR_CID_HOST,
-> > +	};
-> > +	int i;
-> > +
-> > +	/* The host's port range [MIN_HOST_EPHEMERAL_PORT, 0xFFFFFFFF)
-> is
-> > +	 * reserved as ephemeral ports, which are used as the host's ports
-> > +	 * when the host initiates connections.
-> > +	 */
-> > +	if (port > MAX_HOST_LISTEN_PORT)
-> > +		return false;
-> 
-> Without this if statement the guest will attempt to connect.  I guess
-> there will be no listen sockets above MAX_HOST_LISTEN_PORT, so the
-> connection attempt will fail.
+This really is illegal behavior.  The flow label is not a flow _KEY_
+by any definition whatsoever.
 
-You're correct.
-To use the vsock common infrastructure, we have to map Hyper-V's
-GUID <VM_ID, Service_ID> to int <cid, port>, and hence we must limit
-the port range we can listen() on to [0, MAX_LISTEN_PORT], i.e.
-we can only use half of the whole 32-bit port space for listen().
-This is detailed in the long comments starting at about Line 100.
- 
-> ...but hardcode this knowledge into the guest driver?
-I'd like the guest's connect() to fail immediately here.
-IMO this is better than a connect timeout. :-)
+Flow labels are an optimization, not a determinant for flow matching
+particularly for proper TCP state processing.
 
-Thanks,
--- Dexuan
+I'd rather you invest all of this energy getting that vendor to fix
+their kit.
+
+Thank you.
