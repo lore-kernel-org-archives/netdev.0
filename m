@@ -1,114 +1,162 @@
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH net-next] net: hns3: Add support to change MTU in
- hardware & netdev
-Date: Fri, 18 Aug 2017 15:34:59 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B86F9E7@FRAEML521-MBX.china.huawei.com>
-References: <20170818113558.71928-1-salil.mehta@huawei.com>
- <20170818133128.GA523@lunn.ch>
- <F4CC6FACFEB3C54C9141D49AD221F7F93B86F75F@FRAEML521-MBX.china.huawei.com>
- <20170818150358.GA3258@lunn.ch>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH] vsock: only load vmci transport on VMware hypervisor by
+ default
+Date: Fri, 18 Aug 2017 16:37:16 +0100
+Message-ID: <20170818153716.GB17572@stefanha-x1.localdomain>
+References: <KL1P15301MB0008F70D4E5248AB7A296CE3BF830@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+ <20170817135559.GG5539@stefanha-x1.localdomain>
+ <04460E3B-B213-4090-96CD-00CEEBE6AC32@vmware.com>
+ <KL1P15301MB0008A67BF969A47309CFA992BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "lipeng (Y)" <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170818150358.GA3258-g2DYL2Zd6BY@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="JYK4vJDZwFMowpUq"
+Cc: "Jorgen S. Hansen" <jhansen@vmware.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+        "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+        KY Srinivasan <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        George Zhang <georgezhang@vmware.com>,
+        Michal Kubecek <mkubecek@suse.cz>, Asias He <asias@redhat.com>,
+        Vitaly Kuznetsov <vkuznets@redhat.com>,
+        Cathy Avery <cavery@redhat.com>,
+        "jasowang@redhat.com" <jasowang@redhat.com>,
+        Rolf Neugebauer <rolf.neugebauer@docker.com>,
+        Dave Scott <dave.scott@docker.com>,
+        Marcelo Cerri <marcelo.cerri@canonical.com>,
+        "apw@canonical.com" <apw@canonical.com>,
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <KL1P15301MB0008A67BF969A47309CFA992BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew-g2DYL2Zd6BY@public.gmane.org]
-> Sent: Friday, August 18, 2017 4:04 PM
-> To: Salil Mehta
-> Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Zhuangyuzeng (Yisen); lipeng (Y);
-> dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org; mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org;
-> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
-> rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm
-> Subject: Re: [PATCH net-next] net: hns3: Add support to change MTU in
-> hardware & netdev
-> 
-> > > > +	/* MTU range: 68 - 9706 */
-> > > > +	netdev->min_mtu = ETH_MIN_MTU;
+--JYK4vJDZwFMowpUq
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, Aug 18, 2017 at 03:07:30AM +0000, Dexuan Cui wrote:
+> > From: Jorgen S. Hansen [mailto:jhansen@vmware.com]
+> > Sent: Thursday, August 17, 2017 08:17
 > > >
-> > > http://elixir.free-
-> > > electrons.com/linux/latest/source/net/ethernet/eth.c#L361
-> > Supported range of Min and Max MTU should be at the discretion
-> > of the driver. Therefore, initialization looks fine to me.
-> >
-> > I could not clearly understand the problem being highlighted
-> > over here. Could you further clarify?
-> 
-> This is already setting min_mtu to ETH_MIN_MTU. There is no need for
-> you to set it.
-I grep'ed entire code and could see min and max MTUs being set by the
-Respective Ethernet driver code. I also verified by the original patch
-floated by the Jarod where he did that Change across all the drivers
-https://patchwork.kernel.org/patch/9387361/
+> > > Putting aside nested virtualization, I want to load the transport (vm=
+ci,
+> > > Hyper-V, vsock) for which there is paravirtualized hardware present
+> > > inside the guest.
+> >=20
+> > Good points. Completely agree that this is the desired behavior for a g=
+uest.
+> >=20
+> >=20
+> > > It's a little tricker on the host side (doesn't matter for Hyper-V and
+> > > probably also doesn't for VMware) because the host-side driver is a
+> > > software device with no hardware backing it.  In KVM we assume the
+> > > vhost_vsock.ko kernel module will be loaded sufficiently early.
+> >=20
+> > Since the vmci driver is currently tied to PF_VSOCK it hasn=E2=80=99t b=
+een a problem,
+> > but on the host side the VMCI driver has no hardware backing it either,=
+ so
+> > when we move to a more appropriate solution, this will be an issue for =
+VMCI as
+> > well. I=E2=80=99ll check our shipped products, but they most likely ass=
+ume that if an
+> > upstreamed vmci module is present, it will be loaded automatically.
+>=20
+> Hyper-V Sockets is a standard feature of VMBus v4.0, so we can easily know
+> we can and should load iff vmbus_proto_version >=3D VERSION_WIN10.
+>=20
+> > > Things get trickier with nested virtualization because the VM might w=
+ant
+> > > to talk to its host but also to its nested VMs.  The simple way of
+> > > fixing this would be to allow two transports loaded simultaneously and
+> > > route traffic destined to CID 2 to the host transport and all other
+> > > traffic to the guest transport.
+>=20
+> This sounds like a little tricky to me.
+> CID is not really used by us, because we only support guest<->host commun=
+ication,
+> and don't support guest<->guest communication. The Hyper-V host references
+> every VM by VmID (which is invisible to the VM), and a VM can only talk t=
+o the
+> host via this feature.
 
-for example,
-file: drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 		netdev->priv_flags |= IFF_UNICAST_FLT;
- 
-+		/* MTU range: 81 - 9600 */
-+		netdev->min_mtu = 81; 
-+		netdev->max_mtu = MAX_MTU;
+Applications running inside the guest should use VMADDR_CID_HOST (2) to
+connect to the host, even on Hyper-V.
 
-Many such changes are present in the above mentioned patch.
-Hope I am not missing anything there?
+By the way, we should collaborate on a test suite and a vsock(7) man
+page that documents the semantics of AF_VSOCK sockets.  This way our
+transports will have the same behavior and AF_VSOCK applications will
+work on all 3 hypervisors.
 
-Thanks
-Salil
-> 
-> > > >  #define HNS3_RING_MAX_PENDING			32768
-> > > > +#define HNS3_MAX_MTU				9728
+Not all features need to be supported.  For example, VMCI supports
+SOCK_DGRAM while Hyper-V and virtio do not.  But features that are
+available should behave identically.
+
+> > This is close to the routing the VMCI driver does in a nested environme=
+nt, but
+> > that is with the assumption that there is only one type of transport. H=
+aving two
+> > different transports would require that we delay resolving the transpor=
+t type
+> > until the socket endpoint has been bound to an address. Things get tric=
+kier if
+> > listening sockets use VMADDR_CID_ANY - if only one transport is present=
+, this
+> > would allow the socket to accept connections from both guests and outer=
+ host,
+> > but with multiple transports that won=E2=80=99t work, since we can=E2=
+=80=99t associate a socket
+> > with a transport until the socket is bound.
+> >=20
 > > >
-> > > It seems odd that it does not already exists somewhere. The core
-> does
-> > > not enforce the MTU.  You could be passed a frame which is bigger.
-> So
-> > > you should check before trying to pass something to the hardware
-> which
-> > > the hardware cannot handle.
-> > There is a check already in place for this as well since 4.10-rc1.
-> 
-> Yes, the core will check when changing the MTU.
-> 
-> But when passing frames to be transmitted, it does not check the frame
-> fits the MTU.  DSA actually makes use of this, when passing frames to
-> an Ethernet switch attached to the interface. We need to add an extra
-> header to the frame, which makes the frame bigger than the MTU. Most
-> Ethernet drivers are happy with this, they send the frame. Other
-> reject it, and we have had to make driver changes. And some just
-> explode :-(
-I see. IMHO HNS3 is currently limited by maximum buffer per descriptor
-which is 64k. I am sure such frames would get dropped in the hardware
-itself and which I guess should be more preferable than dropping in
-driver since it saves you some precious cpu cycles?
+> > > Perhaps we should discuss these cases a bit more to figure out how to
+> > > avoid conflicts over MODULE_ALIAS_NETPROTO(PF_VSOCK).
+> >=20
+> > Agreed.
+>=20
+> Can we use the 'protocol' parameter in the socket() function:
+> int socket(int domain, int type, int protocol)=20
+>=20
+> IMO currently the 'protocol' is not really used.
+> I think we can modify __vsock_core_init() to allow multiple transport lay=
+ers to
+>  be registered, and we can define different 'protocol' numbers for
+> VMware/KVM/Hyper-V, and ask the application to explicitly specify what sh=
+ould
+> be used. Considering compatibility, we can use the default transport in a=
+ given
+> VM depending on the underlying hypervisor.=20
 
-So I am not able to appreciate the presence of such a MTU check in
-the live data-path. Maybe I am missing something here?
+I think AF_VSOCK should hide the transport from users/applications.
+Think of same-on-same nested virtualization: VMware-on-VMware or
+KVM-on-KVM.  In that case specifying VMCI or virtio doesn't help.
 
-Thanks
-Salil
-> 
-> If 9728 is a hard limit for your device, you should check when passed
-> a frame to make sure it is actually <= 9728 bytes in length.
-> 
->      Andrew
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We'd still need to distinguish between "to guest" and "to host"
+(currently VMCI has code to do this but virtio does not).
+
+The natural place to distinguish the destination is when dealing with
+the sockaddr in connect(), bind(), etc.
+
+Stefan
+
+--JYK4vJDZwFMowpUq
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBAgAGBQJZlwmsAAoJEJykq7OBq3PIAdcH/3OXAVGfEiJ5qNOtcZ+BCN8z
+9aFPmtGyWtpleahYhwOiwt2K9Nu+U22qAShghzi1iwhZ1cPZH+HNdfCht5DgZ9Dh
+hPj5ZoOYaVW/ffI+XyrCzWONDDt+HA2k0/mZ2K/eJTPcmydyhgJ8/1rNsy+Nl73I
+5VQW87UUvh3MMzUgJ98gg8WLzZdmZDFO7e/wMQrMdmRQd3hIy+ZT+k2riE27+p3+
+dRNaiO6MRGYEtS3QHbb0bmbijg42c84edLaoWE9b34f+1FMUQ2DpAI11a9YLV6yY
+5QbBnHbDpJaAWsMTF4y5G346CJuttfhw5qQfLuY29XMraPQi6KCVSxve+ZBopdU=
+=PXGS
+-----END PGP SIGNATURE-----
+
+--JYK4vJDZwFMowpUq--
