@@ -1,37 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] mlx5: ensure 0 is returned when vport is zero
-Date: Fri, 18 Aug 2017 16:29:22 -0700 (PDT)
-Message-ID: <20170818.162922.1769160270805446057.davem@davemloft.net>
-References: <20170818134925.16604-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 00/13] amd-xgbe: AMD XGBE driver updates
+ 2017-08-17
+Date: Fri, 18 Aug 2017 16:31:37 -0700 (PDT)
+Message-ID: <20170818.163137.47392007166160893.davem@davemloft.net>
+References: <20170818140209.14804.94997.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170818134925.16604-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34972 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751045AbdHRXbi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 19:31:38 -0400
+In-Reply-To: <20170818140209.14804.94997.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Date: Fri, 18 Aug 2017 14:49:25 +0100
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Fri, 18 Aug 2017 09:02:09 -0500
 
-> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> The following updates are included in this driver update series:
 > 
-> Currently, if vport is zero then then an uninialized return status
-> in err is returned.  Since the only return status at the end of the
-> function esw_add_uc_addr is zero for the current set of return paths
-> we may as well just return 0 rather than err to fix this issue.
+> - Set the MDIO mode to clause 45 for the 10GBase-T configuration
+> - Set the MII control width to 8-bits for speeds less than 1Gbps
+> - Fix an issue to related to module removal when the devices are up
+> - Fix ethtool statistics related to packet counting of TSO packets
+> - Add support for device renaming
+> - Add additional dynamic debug output for the PCS window calculation
+> - Optimize reading of DMA channel interrupt enablement register
+> - Add additional dynamic debug output about the hardware features
+> - Add per queue Tx and Rx ethtool statistics
+> - Add a macro to clear ethtool_link_ksettings modes
+> - Convert the driver to use the ethtool_link_ksettings
+> - Add support for VXLAN offload capabilities
+> - Add additional ethtool statistics related to VXLAN
 > 
-> Detected by CoverityScan, CID#1452698 ("Uninitialized scalar variable")
-> 
-> Fixes: eeb66cdb6826 ("net/mlx5: Separate between E-Switch and MPFS")
-> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> This patch series is based on net-next.
 
-Applied to net-next, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks.
