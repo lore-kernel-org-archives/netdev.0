@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 09/14] amd-xgbe: Add hardware features debug
- output
-Date: Thu, 17 Aug 2017 19:03:26 -0500
-Message-ID: <20170818000326.10005.31325.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 10/14] amd-xgbe: Add per queue Tx and Rx
+ statistics
+Date: Thu, 17 Aug 2017 19:03:34 -0500
+Message-ID: <20170818000334.10005.12505.stgit@tlendack-t1.amdoffice.net>
 References: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,116 +10,168 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0070.outbound.protection.outlook.com ([104.47.40.70]:32293
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0087.outbound.protection.outlook.com ([104.47.32.87]:55952
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753887AbdHRADa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 20:03:30 -0400
+        id S1753887AbdHRADk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 20:03:40 -0400
 In-Reply-To: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the dynamic debug support to output information about the hardware
-features reported by the device.
+Add per queue Tx and Rx packet and byte counts.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |   78 +++++++++++++++++++++++++++++-
- 1 file changed, 75 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |   23 ++++++++++++++++-------
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   26 +++++++++++++++++++++++++-
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |    5 +++++
+ 3 files changed, 46 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index d6d29d8..7498bb8 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -732,8 +732,6 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
- 	unsigned int mac_hfr0, mac_hfr1, mac_hfr2;
- 	struct xgbe_hw_features *hw_feat = &pdata->hw_feat;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 75a479c..a978408 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -1609,6 +1609,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 	struct xgbe_ring_data *rdata;
+ 	struct xgbe_ring_desc *rdesc;
+ 	struct xgbe_packet_data *packet = &ring->packet_data;
++	unsigned int tx_packets, tx_bytes;
+ 	unsigned int csum, tso, vlan;
+ 	unsigned int tso_context, vlan_context;
+ 	unsigned int tx_set_ic;
+@@ -1618,6 +1619,9 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
  
--	DBGPR("-->xgbe_get_all_hw_features\n");
--
- 	mac_hfr0 = XGMAC_IOREAD(pdata, MAC_HWF0R);
- 	mac_hfr1 = XGMAC_IOREAD(pdata, MAC_HWF1R);
- 	mac_hfr2 = XGMAC_IOREAD(pdata, MAC_HWF2R);
-@@ -828,7 +826,81 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
- 	hw_feat->rx_fifo_size = 1 << (hw_feat->rx_fifo_size + 7);
- 	hw_feat->tx_fifo_size = 1 << (hw_feat->tx_fifo_size + 7);
+ 	DBGPR("-->xgbe_dev_xmit\n");
  
--	DBGPR("<--xgbe_get_all_hw_features\n");
-+	if (netif_msg_probe(pdata)) {
-+		dev_dbg(pdata->dev, "Hardware features:\n");
++	tx_packets = packet->tx_packets;
++	tx_bytes = packet->tx_bytes;
 +
-+		/* Hardware feature register 0 */
-+		dev_dbg(pdata->dev, "  1GbE support              : %s\n",
-+			hw_feat->gmii ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  VLAN hash filter          : %s\n",
-+			hw_feat->vlhash ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  MDIO interface            : %s\n",
-+			hw_feat->sma ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  Wake-up packet support    : %s\n",
-+			hw_feat->rwk ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  Magic packet support      : %s\n",
-+			hw_feat->mgk ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  Management counters       : %s\n",
-+			hw_feat->mmc ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  ARP offload               : %s\n",
-+			hw_feat->aoe ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  IEEE 1588-2008 Timestamp  : %s\n",
-+			hw_feat->ts ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  Energy Efficient Ethernet : %s\n",
-+			hw_feat->eee ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  TX checksum offload       : %s\n",
-+			hw_feat->tx_coe ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  RX checksum offload       : %s\n",
-+			hw_feat->rx_coe ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  Additional MAC addresses  : %u\n",
-+			hw_feat->addn_mac);
-+		dev_dbg(pdata->dev, "  Timestamp source          : %s\n",
-+			(hw_feat->ts_src == 1) ? "internal" :
-+			(hw_feat->ts_src == 2) ? "external" :
-+			(hw_feat->ts_src == 3) ? "internal/external" : "n/a");
-+		dev_dbg(pdata->dev, "  SA/VLAN insertion         : %s\n",
-+			hw_feat->sa_vlan_ins ? "yes" : "no");
+ 	csum = XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES,
+ 			      CSUM_ENABLE);
+ 	tso = XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES,
+@@ -1645,13 +1649,12 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 	 *     - Addition of Tx frame count to the frame count since the
+ 	 *       last interrupt was set does not exceed the frame count setting
+ 	 */
+-	ring->coalesce_count += packet->tx_packets;
++	ring->coalesce_count += tx_packets;
+ 	if (!pdata->tx_frames)
+ 		tx_set_ic = 0;
+-	else if (packet->tx_packets > pdata->tx_frames)
++	else if (tx_packets > pdata->tx_frames)
+ 		tx_set_ic = 1;
+-	else if ((ring->coalesce_count % pdata->tx_frames) <
+-		 packet->tx_packets)
++	else if ((ring->coalesce_count % pdata->tx_frames) < tx_packets)
+ 		tx_set_ic = 1;
+ 	else
+ 		tx_set_ic = 0;
+@@ -1741,7 +1744,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, TCPHDRLEN,
+ 				  packet->tcp_header_len / 4);
+ 
+-		pdata->ext_stats.tx_tso_packets += packet->tx_packets;
++		pdata->ext_stats.tx_tso_packets += tx_packets;
+ 	} else {
+ 		/* Enable CRC and Pad Insertion */
+ 		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, CPC, 0);
+@@ -1789,8 +1792,11 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 		XGMAC_SET_BITS_LE(rdesc->desc2, TX_NORMAL_DESC2, IC, 1);
+ 
+ 	/* Save the Tx info to report back during cleanup */
+-	rdata->tx.packets = packet->tx_packets;
+-	rdata->tx.bytes = packet->tx_bytes;
++	rdata->tx.packets = tx_packets;
++	rdata->tx.bytes = tx_bytes;
 +
-+		/* Hardware feature register 1 */
-+		dev_dbg(pdata->dev, "  RX fifo size              : %u\n",
-+			hw_feat->rx_fifo_size);
-+		dev_dbg(pdata->dev, "  TX fifo size              : %u\n",
-+			hw_feat->tx_fifo_size);
-+		dev_dbg(pdata->dev, "  IEEE 1588 high word       : %s\n",
-+			hw_feat->adv_ts_hi ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  DMA width                 : %u\n",
-+			hw_feat->dma_width);
-+		dev_dbg(pdata->dev, "  Data Center Bridging      : %s\n",
-+			hw_feat->dcb ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  Split header              : %s\n",
-+			hw_feat->sph ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  TCP Segmentation Offload  : %s\n",
-+			hw_feat->tso ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  Debug memory interface    : %s\n",
-+			hw_feat->dma_debug ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  Receive Side Scaling      : %s\n",
-+			hw_feat->rss ? "yes" : "no");
-+		dev_dbg(pdata->dev, "  Traffic Class count       : %u\n",
-+			hw_feat->tc_cnt);
-+		dev_dbg(pdata->dev, "  Hash table size           : %u\n",
-+			hw_feat->hash_table_size);
-+		dev_dbg(pdata->dev, "  L3/L4 Filters             : %u\n",
-+			hw_feat->l3l4_filter_num);
++	pdata->ext_stats.txq_packets[channel->queue_index] += tx_packets;
++	pdata->ext_stats.txq_bytes[channel->queue_index] += tx_bytes;
+ 
+ 	/* In case the Tx DMA engine is running, make sure everything
+ 	 * is written to the descriptor(s) before setting the OWN bit
+@@ -1944,6 +1950,9 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
+ 				       FRAME, 1);
+ 	}
+ 
++	pdata->ext_stats.rxq_packets[channel->queue_index]++;
++	pdata->ext_stats.rxq_bytes[channel->queue_index] += rdata->rx.len;
 +
-+		/* Hardware feature register 2 */
-+		dev_dbg(pdata->dev, "  RX queue count            : %u\n",
-+			hw_feat->rx_q_cnt);
-+		dev_dbg(pdata->dev, "  TX queue count            : %u\n",
-+			hw_feat->tx_q_cnt);
-+		dev_dbg(pdata->dev, "  RX DMA channel count      : %u\n",
-+			hw_feat->rx_ch_cnt);
-+		dev_dbg(pdata->dev, "  TX DMA channel count      : %u\n",
-+			hw_feat->rx_ch_cnt);
-+		dev_dbg(pdata->dev, "  PPS outputs               : %u\n",
-+			hw_feat->pps_out_num);
-+		dev_dbg(pdata->dev, "  Auxiliary snapshot inputs : %u\n",
-+			hw_feat->aux_snap_num);
+ 	DBGPR("<--xgbe_dev_read: %s - descriptor=%u (cur=%d)\n", channel->name,
+ 	      ring->cur & (ring->rdesc_count - 1), ring->cur);
+ 
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index 67a2e52..f80b186 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -186,6 +186,7 @@ struct xgbe_stats {
+ 
+ static void xgbe_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ {
++	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 	int i;
+ 
+ 	switch (stringset) {
+@@ -195,6 +196,18 @@ static void xgbe_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ 			       ETH_GSTRING_LEN);
+ 			data += ETH_GSTRING_LEN;
+ 		}
++		for (i = 0; i < pdata->tx_ring_count; i++) {
++			sprintf(data, "txq_%u_packets", i);
++			data += ETH_GSTRING_LEN;
++			sprintf(data, "txq_%u_bytes", i);
++			data += ETH_GSTRING_LEN;
++		}
++		for (i = 0; i < pdata->rx_ring_count; i++) {
++			sprintf(data, "rxq_%u_packets", i);
++			data += ETH_GSTRING_LEN;
++			sprintf(data, "rxq_%u_bytes", i);
++			data += ETH_GSTRING_LEN;
++		}
+ 		break;
+ 	}
+ }
+@@ -211,15 +224,26 @@ static void xgbe_get_ethtool_stats(struct net_device *netdev,
+ 		stat = (u8 *)pdata + xgbe_gstring_stats[i].stat_offset;
+ 		*data++ = *(u64 *)stat;
+ 	}
++	for (i = 0; i < pdata->tx_ring_count; i++) {
++		*data++ = pdata->ext_stats.txq_packets[i];
++		*data++ = pdata->ext_stats.txq_bytes[i];
++	}
++	for (i = 0; i < pdata->rx_ring_count; i++) {
++		*data++ = pdata->ext_stats.rxq_packets[i];
++		*data++ = pdata->ext_stats.rxq_bytes[i];
 +	}
  }
  
- static void xgbe_napi_enable(struct xgbe_prv_data *pdata, unsigned int add)
+ static int xgbe_get_sset_count(struct net_device *netdev, int stringset)
+ {
++	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+ 	int ret;
+ 
+ 	switch (stringset) {
+ 	case ETH_SS_STATS:
+-		ret = XGBE_STATS_COUNT;
++		ret = XGBE_STATS_COUNT +
++		      (pdata->tx_ring_count * 2) +
++		      (pdata->rx_ring_count * 2);
+ 		break;
+ 
+ 	default:
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index c7dd273..929c6b2 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -668,6 +668,11 @@ struct xgbe_ext_stats {
+ 	u64 tx_tso_packets;
+ 	u64 rx_split_header_packets;
+ 	u64 rx_buffer_unavailable;
++
++	u64 txq_packets[XGBE_MAX_DMA_CHANNELS];
++	u64 txq_bytes[XGBE_MAX_DMA_CHANNELS];
++	u64 rxq_packets[XGBE_MAX_DMA_CHANNELS];
++	u64 rxq_bytes[XGBE_MAX_DMA_CHANNELS];
+ };
+ 
+ struct xgbe_hw_if {
