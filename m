@@ -1,73 +1,53 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v2 0/6] net: stmmac: Detect PHY location with
- phy-is-integrated
-Date: Fri, 18 Aug 2017 11:24:27 +0200
-Message-ID: <20170818092427.GA7425@Red>
-References: <20170817075149.16178-1-clabbe.montjoie@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [iproute PATCH v2 4/5] tc/tc_filter: Make sure filter name is
+ not empty
+Date: Fri, 18 Aug 2017 09:30:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD005A7E9@AcuExch.aculab.com>
+References: <20170817170931.24545-1-phil@nwl.cc>
+ <20170817170931.24545-5-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: robh+dt@kernel.org, mark.rutland@arm.com, linux@armlinux.org.uk,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170817075149.16178-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Phil Sutter' <phil@nwl.cc>,
+        Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.186]:62017 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750729AbdHRJak (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 05:30:40 -0400
+In-Reply-To: <20170817170931.24545-5-phil@nwl.cc>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 17, 2017 at 09:51:43AM +0200, Corentin Labbe wrote:
-> Hello
+From: Phil Sutter
+> Sent: 17 August 2017 18:10
+> The later check for 'k[0] != 0' requires a non-empty filter name,
+> otherwise NULL pointer dereference in 'q' might happen.
 > 
-> The current way to find if the phy is internal is to compare DT phy-mode
-> and emac_variant/internal_phy.
-> But it will negate a possible future SoC where an external PHY use the
-> same phy mode than the integrated one.
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+>  tc/tc_filter.c | 3 +++
+>  1 file changed, 3 insertions(+)
 > 
-> This patchs series adds a new way to find if the PHY is integrated, via
-> the phy-is-integrated DT property.
-> 
-> Since it exists both integrated and external ethernet-phy@1, they are merged in
-> the final DTB and so share all properties.
-> For avoiding this, the phy-is-integrated is added only to board DT.
-> 
-> The first five patchs should go via the sunxi tree.
-> the last one should go via the net tree.
-> Note that this serie will need backporting the patch
-> "Documentation: net: phy: Add phy-is-integrated binding" which is in net-next
-> 
-> Thanks
-> Regards
-> 
-> Changes since v1:
-> - Dropped phy-is-integrated documentation patch since another same patch was already merged
-> - Moved phy-is-integrated from SoC dtsi to final board DT.
-> 
-> Corentin Labbe (6):
->   ARM: sun8i: orangepipc: Set phy-is-integrated to the internal phy node
->   ARM: sun8i: beelink-x2: Set phy-is-integrated to the internal phy node
->   ARM: sun8i: nanopi-neo: Set phy-is-integrated to the internal phy node
->   ARM: sun8i: orangepi-2: Set phy-is-integrated to the internal phy node
->   ARM: sun8i: orangepi-one: Set phy-is-integrated to the internal phy
->     node
->   net: stmmac: dwmac-sun8i: choose internal PHY via phy-is-integrated
-> 
->  arch/arm/boot/dts/sun8i-h3-beelink-x2.dts         |  4 ++++
->  arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts         |  4 ++++
->  arch/arm/boot/dts/sun8i-h3-orangepi-2.dts         |  4 ++++
->  arch/arm/boot/dts/sun8i-h3-orangepi-one.dts       |  4 ++++
->  arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts        |  4 ++++
->  drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 16 ++++++++--------
->  6 files changed, 28 insertions(+), 8 deletions(-)
-> 
-> -- 
-> 2.13.0
-> 
+> diff --git a/tc/tc_filter.c b/tc/tc_filter.c
+> index b13fb9185d4fd..a799edb35886d 100644
+> --- a/tc/tc_filter.c
+> +++ b/tc/tc_filter.c
+> @@ -412,6 +412,9 @@ static int tc_filter_get(int cmd, unsigned int flags, int argc, char **argv)
+>  			usage();
+>  			return 0;
+>  		} else {
+> +			if (!strlen(*argv))
+> +				invarg("invalid filter name", *argv);
 
-Hello
+That is nearly as bad as:
+	p[strlen(p)] = 0;
 
-Self NACK, the comment from Rob on previous series is pertinent.
-I will send a v3 which use a mdio-mux for solving all problems.
-
-Regards
+> +
+>  			strncpy(k, *argv, sizeof(k)-1);
+> 
+>  			q = get_filter_kind(k);
+> --
+> 2.13.1
