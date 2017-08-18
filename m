@@ -1,94 +1,40 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH] vsock: only load vmci transport on VMware hypervisor by
- default
-Date: Fri, 18 Aug 2017 23:07:37 +0000
-Message-ID: <KL1P15301MB00083B1F5B70CBAB7C42BBD3BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
-References: <KL1P15301MB0008F70D4E5248AB7A296CE3BF830@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170817135559.GG5539@stefanha-x1.localdomain>
- <04460E3B-B213-4090-96CD-00CEEBE6AC32@vmware.com>
- <KL1P15301MB0008A67BF969A47309CFA992BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170818153716.GB17572@stefanha-x1.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: when rearming RTO, if RTO time is in past
+ then fire RTO ASAP
+Date: Fri, 18 Aug 2017 16:08:20 -0700 (PDT)
+Message-ID: <20170818.160820.1134182631606956474.davem@davemloft.net>
+References: <20170816215336.30419-1-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Jorgen S. Hansen" <jhansen@vmware.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-        "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-        KY Srinivasan <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        "Stephen Hemminger" <sthemmin@microsoft.com>,
-        George Zhang <georgezhang@vmware.com>,
-        Michal Kubecek <mkubecek@suse.cz>, Asias He <asias@redhat.com>,
-        "Vitaly Kuznetsov" <vkuznets@redhat.com>,
-        Cathy Avery <cavery@redhat.com>,
-        "jasowang@redhat.com" <jasowang@redhat.com>,
-        Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        Dave Scott <dave.scott@docker.com>,
-        "Marcelo Cerri" <marcelo.cerri@canonical.com>,
-        "apw@canonical.com" <apw@canonical.c
-To: Stefan Hajnoczi <stefanha@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170818153716.GB17572@stefanha-x1.localdomain>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ycheng@google.com, edumazet@google.com
+To: ncardwell@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34582 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751852AbdHRXIV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 19:08:21 -0400
+In-Reply-To: <20170816215336.30419-1-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBTdGVmYW4gSGFqbm9jemkgW21haWx0bzpzdGVmYW5oYUByZWRoYXQuY29tXQ0KPiA+
-IENJRCBpcyBub3QgcmVhbGx5IHVzZWQgYnkgdXMsIGJlY2F1c2Ugd2Ugb25seSBzdXBwb3J0IGd1
-ZXN0PC0+aG9zdA0KPiBjb21tdW5pY2F0aW9uLA0KPiA+IGFuZCBkb24ndCBzdXBwb3J0IGd1ZXN0
-PC0+Z3Vlc3QgY29tbXVuaWNhdGlvbi4gVGhlIEh5cGVyLVYgaG9zdA0KPiByZWZlcmVuY2VzDQo+
-ID4gZXZlcnkgVk0gYnkgVm1JRCAod2hpY2ggaXMgaW52aXNpYmxlIHRvIHRoZSBWTSksIGFuZCBh
-IFZNIGNhbiBvbmx5IHRhbGsgdG8NCj4gdGhlDQo+ID4gaG9zdCB2aWEgdGhpcyBmZWF0dXJlLg0K
-PiANCj4gQXBwbGljYXRpb25zIHJ1bm5pbmcgaW5zaWRlIHRoZSBndWVzdCBzaG91bGQgdXNlIFZN
-QUREUl9DSURfSE9TVCAoMikgdG8NCj4gY29ubmVjdCB0byB0aGUgaG9zdCwgZXZlbiBvbiBIeXBl
-ci1WLg0KSSBoYXZlIG5vIG9iamVjdGlvbiwgYW5kIHRoaXMgcGF0Y2ggZG9lcyBzdXBwb3J0IHRo
-aXMgdXNhZ2Ugb2YgdGhlDQp1c2VyLXNwYWNlIGFwcGxpY2F0aW9ucy4NCiANCj4gQnkgdGhlIHdh
-eSwgd2Ugc2hvdWxkIGNvbGxhYm9yYXRlIG9uIGEgdGVzdCBzdWl0ZSBhbmQgYSB2c29jayg3KSBt
-YW4NCj4gcGFnZSB0aGF0IGRvY3VtZW50cyB0aGUgc2VtYW50aWNzIG9mIEFGX1ZTT0NLIHNvY2tl
-dHMuICBUaGlzIHdheSBvdXINCj4gdHJhbnNwb3J0cyB3aWxsIGhhdmUgdGhlIHNhbWUgYmVoYXZp
-b3IgYW5kIEFGX1ZTT0NLIGFwcGxpY2F0aW9ucyB3aWxsDQo+IHdvcmsgb24gYWxsIDMgaHlwZXJ2
-aXNvcnMuDQpJIGNhbid0IGFncmVlIG1vcmUuIDotKQ0KQlRXLCBJIGhhdmUgYmVlbiB1c2luZyBS
-b2xmJ3MgdGVzdCBzdWl0ZSB0byB0ZXN0IG15IHBhdGNoOg0KaHR0cHM6Ly9naXRodWIuY29tL3Ju
-L3ZpcnRzb2NrL3RyZWUvbWFzdGVyL2MNCk1heWJlIHRoaXMgY2FuIGJlIGEgZ29vZCBzdGFydGlu
-ZyBwb2ludC4NCiANCj4gTm90IGFsbCBmZWF0dXJlcyBuZWVkIHRvIGJlIHN1cHBvcnRlZC4gIEZv
-ciBleGFtcGxlLCBWTUNJIHN1cHBvcnRzDQo+IFNPQ0tfREdSQU0gd2hpbGUgSHlwZXItViBhbmQg
-dmlydGlvIGRvIG5vdC4gIEJ1dCBmZWF0dXJlcyB0aGF0IGFyZQ0KPiBhdmFpbGFibGUgc2hvdWxk
-IGJlaGF2ZSBpZGVudGljYWxseS4NCkkgdG90YWxseSBhZ3JlZSwgdGhvdWdoIEknbSBhZnJhaWQg
-SHlwZXItViBtYXkgaGF2ZSBhIGxpdHRsZSBtb3JlIGxpbWl0YXRpb25zDQpjb21wYXJlZCB0byBW
-TXdhcmUvS1ZNIGR1byB0byB0aGUgPFZNX0lELCBTZXJ2aWNlSUQ+IDwtLT4gPGNpZCwgcG9ydD4N
-Cm1hcHBpbmcuDQogDQo+ID4gQ2FuIHdlIHVzZSB0aGUgJ3Byb3RvY29sJyBwYXJhbWV0ZXIgaW4g
-dGhlIHNvY2tldCgpIGZ1bmN0aW9uOg0KPiA+IGludCBzb2NrZXQoaW50IGRvbWFpbiwgaW50IHR5
-cGUsIGludCBwcm90b2NvbCkNCj4gPg0KPiA+IElNTyBjdXJyZW50bHkgdGhlICdwcm90b2NvbCcg
-aXMgbm90IHJlYWxseSB1c2VkLg0KPiA+IEkgdGhpbmsgd2UgY2FuIG1vZGlmeSBfX3Zzb2NrX2Nv
-cmVfaW5pdCgpIHRvIGFsbG93IG11bHRpcGxlIHRyYW5zcG9ydCBsYXllcnMNCj4gdG8NCj4gPiAg
-YmUgcmVnaXN0ZXJlZCwgYW5kIHdlIGNhbiBkZWZpbmUgZGlmZmVyZW50ICdwcm90b2NvbCcgbnVt
-YmVycyBmb3INCj4gPiBWTXdhcmUvS1ZNL0h5cGVyLVYsIGFuZCBhc2sgdGhlIGFwcGxpY2F0aW9u
-IHRvIGV4cGxpY2l0bHkgc3BlY2lmeSB3aGF0DQo+IHNob3VsZA0KPiA+IGJlIHVzZWQuIENvbnNp
-ZGVyaW5nIGNvbXBhdGliaWxpdHksIHdlIGNhbiB1c2UgdGhlIGRlZmF1bHQgdHJhbnNwb3J0IGlu
-IGENCj4gZ2l2ZW4NCj4gPiBWTSBkZXBlbmRpbmcgb24gdGhlIHVuZGVybHlpbmcgaHlwZXJ2aXNv
-ci4NCj4gDQo+IEkgdGhpbmsgQUZfVlNPQ0sgc2hvdWxkIGhpZGUgdGhlIHRyYW5zcG9ydCBmcm9t
-IHVzZXJzL2FwcGxpY2F0aW9ucy4NCklkZWFsbHkgeWVzLCBidXQgbGV0J3MgY29uc2lkZXIgdGhl
-IEtWTS1vbi1LVk0gbmVzdGVkIHNjZW5hcmlvOiB3aGVuDQphbiBhcHBsaWNhdGlvbiBpbiB0aGUg
-TGV2ZWwtMSBWTSBjcmVhdGVzIGFuIEFGX1ZTT0NLIHNvY2tldCBhbmQgY2FsbA0KY29ubmVjdCgp
-IGZvciBpdCwgaG93IGNhbiB3ZSBrbm93IGlmIHRoZSBhcHAgaXMgdHJ5aW5nIHRvIGNvbm5lY3Qg
-dG8NCnRoZSBMZXZlbC0wIGhvc3QsIG9yIGNvbm5lY3QgdG8gdGhlIExldmVsLTIgVk0/IFdlIGNh
-bid0LiBUaGF0J3Mgd2h5DQpJIHByb3Bvc2Ugd2Ugc2hvdWxkIHVzZSB0aGUgJ3Byb3RvY29sJyBw
-YXJhbWV0ZXIgdG8gZGlzdGluZ3Vpc2ggYmV0d2Vlbg0KInRvIGd1ZXN0IiBhbmQgInRvIGhvc3Qi
-Lg0KDQpXaXRoIG15IHByb3Bvc2FsLCBpbiB0aGUgYWJvdmUgc2NlbmFyaW8sIGJ5IGRlZmF1bHQg
-KHRoZSAncHJvdG9jb2wnIGlzIDApLA0Kd2UgY2hvb3NlIHRoZSAidG8gaG9zdCIgdHJhbnNwb3J0
-IGxheWVyIHdoZW4gc29ja2V0KCkgaXMgY2FsbGVkOyBpZiB0aGUNCnVzZXJzcGFjZSBhcHAgZXhw
-bGljaXRseSBzcGVjaWZpZXMgInRvIGd1ZXN0Iiwgd2UgY2hvb3NlIHRoZSAidG8gZ3Vlc3QiDQp0
-cmFuc3BvcnQgbGF5ZXIgd2hlbiBzb2NrZXQoKSBpcyBjYWxsZWQuIFRoaXMgd2F5LCB0aGUgY29u
-bmVjdCgpLCBiaW5kKCksIGV0Yy4NCmNhbiB3b3JrIGF1dG9tYXRpY2FsbHkuDQooT2YgY291cnNl
-LCB0aGUgZGVmYXVsdCB0cmFuc3BvcnQgZm9yIGEgZ2l2ZSBWTSBjYW4gYmUgYmV0dGVyIGNob3Nl
-bg0KaWYgd2UgZGV0ZWN0IHdoaWNoIG5lc3RlZCBsZXZlbCB0aGUgYXBwIGlzIHJ1bm5pbmcgb24u
-KQ0KDQo+IFRoaW5rIG9mIHNhbWUtb24tc2FtZSBuZXN0ZWQgdmlydHVhbGl6YXRpb246IFZNd2Fy
-ZS1vbi1WTXdhcmUgb3INCj4gS1ZNLW9uLUtWTS4gIEluIHRoYXQgY2FzZSBzcGVjaWZ5aW5nIFZN
-Q0kgb3IgdmlydGlvIGRvZXNuJ3QgaGVscC4NCj4gDQo+IFdlJ2Qgc3RpbGwgbmVlZCB0byBkaXN0
-aW5ndWlzaCBiZXR3ZWVuICJ0byBndWVzdCIgYW5kICJ0byBob3N0Ig0KPiAoY3VycmVudGx5IFZN
-Q0kgaGFzIGNvZGUgdG8gZG8gdGhpcyBidXQgdmlydGlvIGRvZXMgbm90KS4NCj4gDQo+IFRoZSBu
-YXR1cmFsIHBsYWNlIHRvIGRpc3Rpbmd1aXNoIHRoZSBkZXN0aW5hdGlvbiBpcyB3aGVuIGRlYWxp
-bmcgd2l0aA0KPiB0aGUgc29ja2FkZHIgaW4gY29ubmVjdCgpLCBiaW5kKCksIGV0Yy4NCj4gDQo+
-IFN0ZWZhbg0KDQpUaGFua3MsDQotLSBEZXh1YW4NCg==
+From: Neal Cardwell <ncardwell@google.com>
+Date: Wed, 16 Aug 2017 17:53:36 -0400
+
+> In some situations tcp_send_loss_probe() can realize that it's unable
+> to send a loss probe (TLP), and falls back to calling tcp_rearm_rto()
+> to schedule an RTO timer. In such cases, sometimes tcp_rearm_rto()
+> realizes that the RTO was eligible to fire immediately or at some
+> point in the past (delta_us <= 0). Previously in such cases
+> tcp_rearm_rto() was scheduling such "overdue" RTOs to happen at now +
+> icsk_rto, which caused needless delays of hundreds of milliseconds
+> (and non-linear behavior that made reproducible testing
+> difficult). This commit changes the logic to schedule "overdue" RTOs
+> ASAP, rather than at now + icsk_rto.
+> 
+> Suggested-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Applied with Fixes: tag added and queued up for -stable, thanks Neal.
