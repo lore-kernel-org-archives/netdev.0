@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 2/2] bpf: Allow numa selection in INNER_LRU_HASH_PREALLOC test of map_perf_test
-Date: Fri, 18 Aug 2017 11:28:01 -0700
-Message-ID: <20170818182801.2518162-3-kafai@fb.com>
+Subject: [PATCH net-next 1/2] bpf: Allow selecting numa node during map creation
+Date: Fri, 18 Aug 2017 11:28:00 -0700
+Message-ID: <20170818182801.2518162-2-kafai@fb.com>
 References: <20170818182801.2518162-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,148 +9,123 @@ Cc: Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:54648 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751558AbdHRS2E (ORCPT
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:38290 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751537AbdHRS2E (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 14:28:04 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v7IIN9M3020033
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+        by m0001303.ppops.net (8.16.0.21/8.16.0.21) with SMTP id v7IIR86C007938
         for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 11:28:03 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2ce567g2t2-1
+        by m0001303.ppops.net with ESMTP id 2ce4ktg8mm-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 11:28:03 -0700
 Received: from facebook.com (2401:db00:11:d09a:face:0:41:0)     by
- mx-out.facebook.com (10.102.107.99) with ESMTP id
- f80ed6ea844211e7afb00002c99293a0-3a617150 for <netdev@vger.kernel.org>;        Fri,
+ mx-out.facebook.com (10.103.99.97) with ESMTP  id
+ f8150132844211e7a7120002c9931860-fa7f8150 for <netdev@vger.kernel.org>;        Fri,
  18 Aug 2017 11:28:02 -0700
 In-Reply-To: <20170818182801.2518162-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes the needed changes to allow each process of
-the INNER_LRU_HASH_PREALLOC test to provide its numa node id
-when creating the lru map.
+The current map creation API does not allow to provide the numa-node
+preference.  The memory usually comes from where the map-creation-process
+is running.  The performance is not ideal if the bpf_prog is known to
+always run in a numa node different from the map-creation-process.
+
+One of the use case is sharding on CPU to different LRU maps (i.e.
+an array of LRU maps).  Here is the test result of map_perf_test on
+the INNER_LRU_HASH_PREALLOC test if we force the lru map used by
+CPU0 to be allocated from a remote numa node:
+
+[ The machine has 20 cores. CPU0-9 at node 0. CPU10-19 at node 1 ]
+
+># taskset -c 10 ./map_perf_test 512 8 1260000 8000000
+5:inner_lru_hash_map_perf pre-alloc 1628380 events per sec
+4:inner_lru_hash_map_perf pre-alloc 1626396 events per sec
+3:inner_lru_hash_map_perf pre-alloc 1626144 events per sec
+6:inner_lru_hash_map_perf pre-alloc 1621657 events per sec
+2:inner_lru_hash_map_perf pre-alloc 1621534 events per sec
+1:inner_lru_hash_map_perf pre-alloc 1620292 events per sec
+7:inner_lru_hash_map_perf pre-alloc 1613305 events per sec
+0:inner_lru_hash_map_perf pre-alloc 1239150 events per sec  #<<<
+
+After specifying numa node:
+># taskset -c 10 ./map_perf_test 512 8 1260000 8000000
+5:inner_lru_hash_map_perf pre-alloc 1629627 events per sec
+3:inner_lru_hash_map_perf pre-alloc 1628057 events per sec
+1:inner_lru_hash_map_perf pre-alloc 1623054 events per sec
+6:inner_lru_hash_map_perf pre-alloc 1616033 events per sec
+2:inner_lru_hash_map_perf pre-alloc 1614630 events per sec
+4:inner_lru_hash_map_perf pre-alloc 1612651 events per sec
+7:inner_lru_hash_map_perf pre-alloc 1609337 events per sec
+0:inner_lru_hash_map_perf pre-alloc 1619340 events per sec #<<<
+
+This patch adds one field, numa_node, to the bpf_attr.  Since numa node 0
+is a valid node, a new flag BPF_F_NUMA_NODE is also added.  The numa_node
+field is honored if and only if the BPF_F_NUMA_NODE flag is set.
+
+Numa node selection is not supported for percpu map.
+
+This patch does not change all the kmalloc.  F.e.
+'htab = kzalloc()' is not changed since the object
+is small enough to stay in the cache.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@fb.com>
 ---
- samples/bpf/bpf_load.c                    | 21 ++++++++++++--------
- samples/bpf/bpf_load.h                    |  1 +
- samples/bpf/map_perf_test_kern.c          |  2 ++
- samples/bpf/map_perf_test_user.c          | 12 +++++++++---
- tools/include/uapi/linux/bpf.h            | 10 +++++++++-
- tools/lib/bpf/bpf.c                       | 32 +++++++++++++++++++++++++++----
- tools/lib/bpf/bpf.h                       |  6 ++++++
- tools/testing/selftests/bpf/bpf_helpers.h |  1 +
- 8 files changed, 69 insertions(+), 16 deletions(-)
+ include/linux/bpf.h      | 10 +++++++++-
+ include/uapi/linux/bpf.h | 10 +++++++++-
+ kernel/bpf/arraymap.c    |  7 +++++--
+ kernel/bpf/devmap.c      |  9 ++++++---
+ kernel/bpf/hashtab.c     | 19 +++++++++++++++----
+ kernel/bpf/lpm_trie.c    |  9 +++++++--
+ kernel/bpf/sockmap.c     | 10 +++++++---
+ kernel/bpf/stackmap.c    |  8 +++++---
+ kernel/bpf/syscall.c     | 14 ++++++++++----
+ 9 files changed, 73 insertions(+), 23 deletions(-)
 
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index a8552b8a2ab6..6aa50098dfb8 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -201,7 +201,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- static int load_maps(struct bpf_map_data *maps, int nr_maps,
- 		     fixup_map_cb fixup_map)
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 1cc6c5ff61ec..55b88e329804 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -51,6 +51,7 @@ struct bpf_map {
+ 	u32 map_flags;
+ 	u32 pages;
+ 	u32 id;
++	int numa_node;
+ 	struct user_struct *user;
+ 	const struct bpf_map_ops *ops;
+ 	struct work_struct work;
+@@ -264,7 +265,7 @@ struct bpf_map * __must_check bpf_map_inc(struct bpf_map *map, bool uref);
+ void bpf_map_put_with_uref(struct bpf_map *map);
+ void bpf_map_put(struct bpf_map *map);
+ int bpf_map_precharge_memlock(u32 pages);
+-void *bpf_map_area_alloc(size_t size);
++void *bpf_map_area_alloc(size_t size, int numa_node);
+ void bpf_map_area_free(void *base);
+ 
+ extern int sysctl_unprivileged_bpf_disabled;
+@@ -316,6 +317,13 @@ struct net_device  *__dev_map_lookup_elem(struct bpf_map *map, u32 key);
+ void __dev_map_insert_ctx(struct bpf_map *map, u32 index);
+ void __dev_map_flush(struct bpf_map *map);
+ 
++/* Return map's numa specified by userspace */
++static inline int bpf_map_attr_numa_node(const union bpf_attr *attr)
++{
++	return (attr->map_flags & BPF_F_NUMA_NODE) ?
++		attr->numa_node : NUMA_NO_NODE;
++}
++
+ #else
+ static inline struct bpf_prog *bpf_prog_get(u32 ufd)
  {
--	int i;
-+	int i, numa_node;
- 
- 	for (i = 0; i < nr_maps; i++) {
- 		if (fixup_map) {
-@@ -213,21 +213,26 @@ static int load_maps(struct bpf_map_data *maps, int nr_maps,
- 			}
- 		}
- 
-+		numa_node = maps[i].def.map_flags & BPF_F_NUMA_NODE ?
-+			maps[i].def.numa_node : -1;
-+
- 		if (maps[i].def.type == BPF_MAP_TYPE_ARRAY_OF_MAPS ||
- 		    maps[i].def.type == BPF_MAP_TYPE_HASH_OF_MAPS) {
- 			int inner_map_fd = map_fd[maps[i].def.inner_map_idx];
- 
--			map_fd[i] = bpf_create_map_in_map(maps[i].def.type,
-+			map_fd[i] = bpf_create_map_in_map_node(maps[i].def.type,
- 							maps[i].def.key_size,
- 							inner_map_fd,
- 							maps[i].def.max_entries,
--							maps[i].def.map_flags);
-+							maps[i].def.map_flags,
-+							numa_node);
- 		} else {
--			map_fd[i] = bpf_create_map(maps[i].def.type,
--						   maps[i].def.key_size,
--						   maps[i].def.value_size,
--						   maps[i].def.max_entries,
--						   maps[i].def.map_flags);
-+			map_fd[i] = bpf_create_map_node(maps[i].def.type,
-+							maps[i].def.key_size,
-+							maps[i].def.value_size,
-+							maps[i].def.max_entries,
-+							maps[i].def.map_flags,
-+							numa_node);
- 		}
- 		if (map_fd[i] < 0) {
- 			printf("failed to create a map: %d %s\n",
-diff --git a/samples/bpf/bpf_load.h b/samples/bpf/bpf_load.h
-index ca0563d04744..453e3226b4ce 100644
---- a/samples/bpf/bpf_load.h
-+++ b/samples/bpf/bpf_load.h
-@@ -13,6 +13,7 @@ struct bpf_map_def {
- 	unsigned int max_entries;
- 	unsigned int map_flags;
- 	unsigned int inner_map_idx;
-+	unsigned int numa_node;
- };
- 
- struct bpf_map_data {
-diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
-index 245165817fbe..ca3b22ed577a 100644
---- a/samples/bpf/map_perf_test_kern.c
-+++ b/samples/bpf/map_perf_test_kern.c
-@@ -40,6 +40,8 @@ struct bpf_map_def SEC("maps") inner_lru_hash_map = {
- 	.key_size = sizeof(u32),
- 	.value_size = sizeof(long),
- 	.max_entries = MAX_ENTRIES,
-+	.map_flags = BPF_F_NUMA_NODE,
-+	.numa_node = 0,
- };
- 
- struct bpf_map_def SEC("maps") array_of_lru_hashs = {
-diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
-index 1a8894b5ac51..bccbf8478e43 100644
---- a/samples/bpf/map_perf_test_user.c
-+++ b/samples/bpf/map_perf_test_user.c
-@@ -97,14 +97,20 @@ static void do_test_lru(enum test_type test, int cpu)
- 
- 	if (test == INNER_LRU_HASH_PREALLOC) {
- 		int outer_fd = map_fd[array_of_lru_hashs_idx];
-+		unsigned int mycpu, mynode;
- 
- 		assert(cpu < MAX_NR_CPUS);
- 
- 		if (cpu) {
-+			ret = syscall(__NR_getcpu, &mycpu, &mynode, NULL);
-+			assert(!ret);
-+
- 			inner_lru_map_fds[cpu] =
--				bpf_create_map(BPF_MAP_TYPE_LRU_HASH,
--					       sizeof(uint32_t), sizeof(long),
--					       inner_lru_hash_size, 0);
-+				bpf_create_map_node(BPF_MAP_TYPE_LRU_HASH,
-+						    sizeof(uint32_t),
-+						    sizeof(long),
-+						    inner_lru_hash_size, 0,
-+						    mynode);
- 			if (inner_lru_map_fds[cpu] == -1) {
- 				printf("cannot create BPF_MAP_TYPE_LRU_HASH %s(%d)\n",
- 				       strerror(errno), errno);
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 2d97dd27c8f6..f8f6377fd541 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -168,6 +168,7 @@ enum bpf_sockmap_flags {
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 5ecbe812a2cc..843818dff96d 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -165,6 +165,7 @@ enum bpf_attach_type {
  #define BPF_NOEXIST	1 /* create new element if it didn't exist */
  #define BPF_EXIST	2 /* update existing element */
  
@@ -158,7 +133,7 @@ index 2d97dd27c8f6..f8f6377fd541 100644
  #define BPF_F_NO_PREALLOC	(1U << 0)
  /* Instead of having one common LRU list in the
   * BPF_MAP_TYPE_LRU_[PERCPU_]HASH map, use a percpu LRU list
-@@ -176,6 +177,8 @@ enum bpf_sockmap_flags {
+@@ -173,6 +174,8 @@ enum bpf_attach_type {
   * across different LRU lists.
   */
  #define BPF_F_NO_COMMON_LRU	(1U << 1)
@@ -167,7 +142,7 @@ index 2d97dd27c8f6..f8f6377fd541 100644
  
  union bpf_attr {
  	struct { /* anonymous struct used by BPF_MAP_CREATE command */
-@@ -183,8 +186,13 @@ union bpf_attr {
+@@ -180,8 +183,13 @@ union bpf_attr {
  		__u32	key_size;	/* size of key in bytes */
  		__u32	value_size;	/* size of value in bytes */
  		__u32	max_entries;	/* max number of entries in a map */
@@ -182,101 +157,339 @@ index 2d97dd27c8f6..f8f6377fd541 100644
  	};
  
  	struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index 77660157a684..a0717610b116 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -57,8 +57,9 @@ static inline int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
- 	return syscall(__NR_bpf, cmd, attr, size);
- }
- 
--int bpf_create_map(enum bpf_map_type map_type, int key_size,
--		   int value_size, int max_entries, __u32 map_flags)
-+int bpf_create_map_node(enum bpf_map_type map_type, int key_size,
-+			int value_size, int max_entries, __u32 map_flags,
-+			int node)
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index d771a3872500..96e9c5c1dfc9 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -49,13 +49,15 @@ static int bpf_array_alloc_percpu(struct bpf_array *array)
+ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
  {
- 	union bpf_attr attr;
+ 	bool percpu = attr->map_type == BPF_MAP_TYPE_PERCPU_ARRAY;
++	int numa_node = bpf_map_attr_numa_node(attr);
+ 	struct bpf_array *array;
+ 	u64 array_size;
+ 	u32 elem_size;
  
-@@ -69,12 +70,24 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size,
- 	attr.value_size = value_size;
- 	attr.max_entries = max_entries;
- 	attr.map_flags = map_flags;
-+	if (node >= 0) {
-+		attr.map_flags |= BPF_F_NUMA_NODE;
-+		attr.numa_node = node;
-+	}
+ 	/* check sanity of attributes */
+ 	if (attr->max_entries == 0 || attr->key_size != 4 ||
+-	    attr->value_size == 0 || attr->map_flags)
++	    attr->value_size == 0 || attr->map_flags & ~BPF_F_NUMA_NODE ||
++	    (percpu && numa_node != NUMA_NO_NODE))
+ 		return ERR_PTR(-EINVAL);
  
- 	return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
- }
+ 	if (attr->value_size > KMALLOC_MAX_SIZE)
+@@ -77,7 +79,7 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
+ 		return ERR_PTR(-ENOMEM);
  
--int bpf_create_map_in_map(enum bpf_map_type map_type, int key_size,
--			  int inner_map_fd, int max_entries, __u32 map_flags)
-+int bpf_create_map(enum bpf_map_type map_type, int key_size,
-+		   int value_size, int max_entries, __u32 map_flags)
-+{
-+	return bpf_create_map_node(map_type, key_size, value_size,
-+				   max_entries, map_flags, -1);
-+}
+ 	/* allocate all map elements and zero-initialize them */
+-	array = bpf_map_area_alloc(array_size);
++	array = bpf_map_area_alloc(array_size, numa_node);
+ 	if (!array)
+ 		return ERR_PTR(-ENOMEM);
+ 
+@@ -87,6 +89,7 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
+ 	array->map.value_size = attr->value_size;
+ 	array->map.max_entries = attr->max_entries;
+ 	array->map.map_flags = attr->map_flags;
++	array->map.numa_node = numa_node;
+ 	array->elem_size = elem_size;
+ 
+ 	if (!percpu)
+diff --git a/kernel/bpf/devmap.c b/kernel/bpf/devmap.c
+index 18a72a8add43..67f4f00ce33a 100644
+--- a/kernel/bpf/devmap.c
++++ b/kernel/bpf/devmap.c
+@@ -80,7 +80,7 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
+ 
+ 	/* check sanity of attributes */
+ 	if (attr->max_entries == 0 || attr->key_size != 4 ||
+-	    attr->value_size != 4 || attr->map_flags)
++	    attr->value_size != 4 || attr->map_flags & ~BPF_F_NUMA_NODE)
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	dtab = kzalloc(sizeof(*dtab), GFP_USER);
+@@ -93,6 +93,7 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
+ 	dtab->map.value_size = attr->value_size;
+ 	dtab->map.max_entries = attr->max_entries;
+ 	dtab->map.map_flags = attr->map_flags;
++	dtab->map.numa_node = bpf_map_attr_numa_node(attr);
+ 
+ 	err = -ENOMEM;
+ 
+@@ -119,7 +120,8 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
+ 		goto free_dtab;
+ 
+ 	dtab->netdev_map = bpf_map_area_alloc(dtab->map.max_entries *
+-					      sizeof(struct bpf_dtab_netdev *));
++					      sizeof(struct bpf_dtab_netdev *),
++					      dtab->map.numa_node);
+ 	if (!dtab->netdev_map)
+ 		goto free_dtab;
+ 
+@@ -344,7 +346,8 @@ static int dev_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 	if (!ifindex) {
+ 		dev = NULL;
+ 	} else {
+-		dev = kmalloc(sizeof(*dev), GFP_ATOMIC | __GFP_NOWARN);
++		dev = kmalloc_node(sizeof(*dev), GFP_ATOMIC | __GFP_NOWARN,
++				   map->numa_node);
+ 		if (!dev)
+ 			return -ENOMEM;
+ 
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index 4fb463172aa8..47ae748c3a49 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -18,6 +18,9 @@
+ #include "bpf_lru_list.h"
+ #include "map_in_map.h"
+ 
++#define HTAB_CREATE_FLAG_MASK \
++	(BPF_F_NO_PREALLOC | BPF_F_NO_COMMON_LRU | BPF_F_NUMA_NODE)
 +
-+int bpf_create_map_in_map_node(enum bpf_map_type map_type, int key_size,
-+			       int inner_map_fd, int max_entries,
-+			       __u32 map_flags, int node)
+ struct bucket {
+ 	struct hlist_nulls_head head;
+ 	raw_spinlock_t lock;
+@@ -138,7 +141,8 @@ static int prealloc_init(struct bpf_htab *htab)
+ 	if (!htab_is_percpu(htab) && !htab_is_lru(htab))
+ 		num_entries += num_possible_cpus();
+ 
+-	htab->elems = bpf_map_area_alloc(htab->elem_size * num_entries);
++	htab->elems = bpf_map_area_alloc(htab->elem_size * num_entries,
++					 htab->map.numa_node);
+ 	if (!htab->elems)
+ 		return -ENOMEM;
+ 
+@@ -233,6 +237,7 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 	 */
+ 	bool percpu_lru = (attr->map_flags & BPF_F_NO_COMMON_LRU);
+ 	bool prealloc = !(attr->map_flags & BPF_F_NO_PREALLOC);
++	int numa_node = bpf_map_attr_numa_node(attr);
+ 	struct bpf_htab *htab;
+ 	int err, i;
+ 	u64 cost;
+@@ -248,7 +253,7 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 		 */
+ 		return ERR_PTR(-EPERM);
+ 
+-	if (attr->map_flags & ~(BPF_F_NO_PREALLOC | BPF_F_NO_COMMON_LRU))
++	if (attr->map_flags & ~HTAB_CREATE_FLAG_MASK)
+ 		/* reserved bits should not be used */
+ 		return ERR_PTR(-EINVAL);
+ 
+@@ -258,6 +263,9 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 	if (lru && !prealloc)
+ 		return ERR_PTR(-ENOTSUPP);
+ 
++	if (numa_node != NUMA_NO_NODE && (percpu || percpu_lru))
++		return ERR_PTR(-EINVAL);
++
+ 	htab = kzalloc(sizeof(*htab), GFP_USER);
+ 	if (!htab)
+ 		return ERR_PTR(-ENOMEM);
+@@ -268,6 +276,7 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 	htab->map.value_size = attr->value_size;
+ 	htab->map.max_entries = attr->max_entries;
+ 	htab->map.map_flags = attr->map_flags;
++	htab->map.numa_node = numa_node;
+ 
+ 	/* check sanity of attributes.
+ 	 * value_size == 0 may be allowed in the future to use map as a set
+@@ -346,7 +355,8 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 
+ 	err = -ENOMEM;
+ 	htab->buckets = bpf_map_area_alloc(htab->n_buckets *
+-					   sizeof(struct bucket));
++					   sizeof(struct bucket),
++					   htab->map.numa_node);
+ 	if (!htab->buckets)
+ 		goto free_htab;
+ 
+@@ -689,7 +699,8 @@ static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
+ 				atomic_dec(&htab->count);
+ 				return ERR_PTR(-E2BIG);
+ 			}
+-		l_new = kmalloc(htab->elem_size, GFP_ATOMIC | __GFP_NOWARN);
++		l_new = kmalloc_node(htab->elem_size, GFP_ATOMIC | __GFP_NOWARN,
++				     htab->map.numa_node);
+ 		if (!l_new)
+ 			return ERR_PTR(-ENOMEM);
+ 	}
+diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
+index b09185f0f17d..1b767844a76f 100644
+--- a/kernel/bpf/lpm_trie.c
++++ b/kernel/bpf/lpm_trie.c
+@@ -244,7 +244,8 @@ static struct lpm_trie_node *lpm_trie_node_alloc(const struct lpm_trie *trie,
+ 	if (value)
+ 		size += trie->map.value_size;
+ 
+-	node = kmalloc(size, GFP_ATOMIC | __GFP_NOWARN);
++	node = kmalloc_node(size, GFP_ATOMIC | __GFP_NOWARN,
++			    trie->map.numa_node);
+ 	if (!node)
+ 		return NULL;
+ 
+@@ -405,6 +406,8 @@ static int trie_delete_elem(struct bpf_map *map, void *key)
+ #define LPM_KEY_SIZE_MAX	LPM_KEY_SIZE(LPM_DATA_SIZE_MAX)
+ #define LPM_KEY_SIZE_MIN	LPM_KEY_SIZE(LPM_DATA_SIZE_MIN)
+ 
++#define LPM_CREATE_FLAG_MASK	(BPF_F_NO_PREALLOC | BPF_F_NUMA_NODE)
++
+ static struct bpf_map *trie_alloc(union bpf_attr *attr)
  {
- 	union bpf_attr attr;
+ 	struct lpm_trie *trie;
+@@ -416,7 +419,8 @@ static struct bpf_map *trie_alloc(union bpf_attr *attr)
  
-@@ -86,10 +99,21 @@ int bpf_create_map_in_map(enum bpf_map_type map_type, int key_size,
- 	attr.inner_map_fd = inner_map_fd;
- 	attr.max_entries = max_entries;
- 	attr.map_flags = map_flags;
-+	if (node >= 0) {
-+		attr.map_flags |= BPF_F_NUMA_NODE;
-+		attr.numa_node = node;
-+	}
+ 	/* check sanity of attributes */
+ 	if (attr->max_entries == 0 ||
+-	    attr->map_flags != BPF_F_NO_PREALLOC ||
++	    !(attr->map_flags & BPF_F_NO_PREALLOC) ||
++	    attr->map_flags & ~LPM_CREATE_FLAG_MASK ||
+ 	    attr->key_size < LPM_KEY_SIZE_MIN ||
+ 	    attr->key_size > LPM_KEY_SIZE_MAX ||
+ 	    attr->value_size < LPM_VAL_SIZE_MIN ||
+@@ -433,6 +437,7 @@ static struct bpf_map *trie_alloc(union bpf_attr *attr)
+ 	trie->map.value_size = attr->value_size;
+ 	trie->map.max_entries = attr->max_entries;
+ 	trie->map.map_flags = attr->map_flags;
++	trie->map.numa_node = bpf_map_attr_numa_node(attr);
+ 	trie->data_size = attr->key_size -
+ 			  offsetof(struct bpf_lpm_trie_key, data);
+ 	trie->max_prefixlen = trie->data_size * 8;
+diff --git a/kernel/bpf/sockmap.c b/kernel/bpf/sockmap.c
+index 39de541fbcdc..78b2bb9370ac 100644
+--- a/kernel/bpf/sockmap.c
++++ b/kernel/bpf/sockmap.c
+@@ -443,7 +443,9 @@ static struct smap_psock *smap_init_psock(struct sock *sock,
+ {
+ 	struct smap_psock *psock;
  
- 	return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+-	psock = kzalloc(sizeof(struct smap_psock), GFP_ATOMIC | __GFP_NOWARN);
++	psock = kzalloc_node(sizeof(struct smap_psock),
++			     GFP_ATOMIC | __GFP_NOWARN,
++			     stab->map.numa_node);
+ 	if (!psock)
+ 		return ERR_PTR(-ENOMEM);
+ 
+@@ -465,7 +467,7 @@ static struct bpf_map *sock_map_alloc(union bpf_attr *attr)
+ 
+ 	/* check sanity of attributes */
+ 	if (attr->max_entries == 0 || attr->key_size != 4 ||
+-	    attr->value_size != 4 || attr->map_flags)
++	    attr->value_size != 4 || attr->map_flags & ~BPF_F_NUMA_NODE)
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	if (attr->value_size > KMALLOC_MAX_SIZE)
+@@ -481,6 +483,7 @@ static struct bpf_map *sock_map_alloc(union bpf_attr *attr)
+ 	stab->map.value_size = attr->value_size;
+ 	stab->map.max_entries = attr->max_entries;
+ 	stab->map.map_flags = attr->map_flags;
++	stab->map.numa_node = bpf_map_attr_numa_node(attr);
+ 
+ 	/* make sure page count doesn't overflow */
+ 	cost = (u64) stab->map.max_entries * sizeof(struct sock *);
+@@ -495,7 +498,8 @@ static struct bpf_map *sock_map_alloc(union bpf_attr *attr)
+ 		goto free_stab;
+ 
+ 	stab->sock_map = bpf_map_area_alloc(stab->map.max_entries *
+-					    sizeof(struct sock *));
++					    sizeof(struct sock *),
++					    stab->map.numa_node);
+ 	if (!stab->sock_map)
+ 		goto free_stab;
+ 
+diff --git a/kernel/bpf/stackmap.c b/kernel/bpf/stackmap.c
+index 31147d730abf..135be433e9a0 100644
+--- a/kernel/bpf/stackmap.c
++++ b/kernel/bpf/stackmap.c
+@@ -31,7 +31,8 @@ static int prealloc_elems_and_freelist(struct bpf_stack_map *smap)
+ 	u32 elem_size = sizeof(struct stack_map_bucket) + smap->map.value_size;
+ 	int err;
+ 
+-	smap->elems = bpf_map_area_alloc(elem_size * smap->map.max_entries);
++	smap->elems = bpf_map_area_alloc(elem_size * smap->map.max_entries,
++					 smap->map.numa_node);
+ 	if (!smap->elems)
+ 		return -ENOMEM;
+ 
+@@ -59,7 +60,7 @@ static struct bpf_map *stack_map_alloc(union bpf_attr *attr)
+ 	if (!capable(CAP_SYS_ADMIN))
+ 		return ERR_PTR(-EPERM);
+ 
+-	if (attr->map_flags)
++	if (attr->map_flags & ~BPF_F_NUMA_NODE)
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	/* check sanity of attributes */
+@@ -75,7 +76,7 @@ static struct bpf_map *stack_map_alloc(union bpf_attr *attr)
+ 	if (cost >= U32_MAX - PAGE_SIZE)
+ 		return ERR_PTR(-E2BIG);
+ 
+-	smap = bpf_map_area_alloc(cost);
++	smap = bpf_map_area_alloc(cost, bpf_map_attr_numa_node(attr));
+ 	if (!smap)
+ 		return ERR_PTR(-ENOMEM);
+ 
+@@ -91,6 +92,7 @@ static struct bpf_map *stack_map_alloc(union bpf_attr *attr)
+ 	smap->map.map_flags = attr->map_flags;
+ 	smap->n_buckets = n_buckets;
+ 	smap->map.pages = round_up(cost, PAGE_SIZE) >> PAGE_SHIFT;
++	smap->map.numa_node = bpf_map_attr_numa_node(attr);
+ 
+ 	err = bpf_map_precharge_memlock(smap->map.pages);
+ 	if (err)
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index d2f2bdf71ffa..693da918e84e 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -105,7 +105,7 @@ static struct bpf_map *find_and_alloc_map(union bpf_attr *attr)
+ 	return map;
  }
  
-+int bpf_create_map_in_map(enum bpf_map_type map_type, int key_size,
-+			  int inner_map_fd, int max_entries, __u32 map_flags)
-+{
-+	return bpf_create_map_in_map_node(map_type, key_size, inner_map_fd,
-+					  max_entries, map_flags, -1);
-+}
+-void *bpf_map_area_alloc(size_t size)
++void *bpf_map_area_alloc(size_t size, int numa_node)
+ {
+ 	/* We definitely need __GFP_NORETRY, so OOM killer doesn't
+ 	 * trigger under memory pressure as we really just want to
+@@ -115,12 +115,13 @@ void *bpf_map_area_alloc(size_t size)
+ 	void *area;
+ 
+ 	if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
+-		area = kmalloc(size, GFP_USER | flags);
++		area = kmalloc_node(size, GFP_USER | flags, numa_node);
+ 		if (area != NULL)
+ 			return area;
+ 	}
+ 
+-	return __vmalloc(size, GFP_KERNEL | flags, PAGE_KERNEL);
++	return __vmalloc_node_flags_caller(size, numa_node, GFP_KERNEL | flags,
++					   __builtin_return_address(0));
+ }
+ 
+ void bpf_map_area_free(void *area)
+@@ -309,10 +310,11 @@ int bpf_map_new_fd(struct bpf_map *map)
+ 		   offsetof(union bpf_attr, CMD##_LAST_FIELD) - \
+ 		   sizeof(attr->CMD##_LAST_FIELD)) != NULL
+ 
+-#define BPF_MAP_CREATE_LAST_FIELD inner_map_fd
++#define BPF_MAP_CREATE_LAST_FIELD numa_node
+ /* called via syscall */
+ static int map_create(union bpf_attr *attr)
+ {
++	int numa_node = bpf_map_attr_numa_node(attr);
+ 	struct bpf_map *map;
+ 	int err;
+ 
+@@ -320,6 +322,10 @@ static int map_create(union bpf_attr *attr)
+ 	if (err)
+ 		return -EINVAL;
+ 
++	if (numa_node != NUMA_NO_NODE &&
++	    (numa_node >= nr_node_ids || !node_online(numa_node)))
++		return -EINVAL;
 +
- int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn *insns,
- 		     size_t insns_cnt, const char *license,
- 		     __u32 kern_version, char *log_buf, size_t log_buf_sz)
-diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index eaee585c1cea..90e9d4e85d08 100644
---- a/tools/lib/bpf/bpf.h
-+++ b/tools/lib/bpf/bpf.h
-@@ -24,8 +24,14 @@
- #include <linux/bpf.h>
- #include <stddef.h>
- 
-+int bpf_create_map_node(enum bpf_map_type map_type, int key_size,
-+			int value_size, int max_entries, __u32 map_flags,
-+			int node);
- int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
- 		   int max_entries, __u32 map_flags);
-+int bpf_create_map_in_map_node(enum bpf_map_type map_type, int key_size,
-+			       int inner_map_fd, int max_entries,
-+			       __u32 map_flags, int node);
- int bpf_create_map_in_map(enum bpf_map_type map_type, int key_size,
- 			  int inner_map_fd, int max_entries, __u32 map_flags);
- 
-diff --git a/tools/testing/selftests/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
-index 73092d4a898e..98f3be26d390 100644
---- a/tools/testing/selftests/bpf/bpf_helpers.h
-+++ b/tools/testing/selftests/bpf/bpf_helpers.h
-@@ -94,6 +94,7 @@ struct bpf_map_def {
- 	unsigned int max_entries;
- 	unsigned int map_flags;
- 	unsigned int inner_map_idx;
-+	unsigned int numa_node;
- };
- 
- static int (*bpf_skb_load_bytes)(void *ctx, int off, void *to, int len) =
+ 	/* find map type and init map: hashtable vs rbtree vs bloom vs ... */
+ 	map = find_and_alloc_map(attr);
+ 	if (IS_ERR(map))
 -- 
 2.9.5
