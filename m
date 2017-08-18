@@ -1,76 +1,43 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 00/13] amd-xgbe: AMD XGBE driver updates
- 2017-08-17
-Date: Fri, 18 Aug 2017 09:02:09 -0500
-Message-ID: <20170818140209.14804.94997.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v2 01/13] amd-xgbe: Set the MDIO mode for
+ 10000Base-T configuration
+Date: Fri, 18 Aug 2017 09:02:18 -0500
+Message-ID: <20170818140218.14804.24933.stgit@tlendack-t1.amdoffice.net>
+References: <20170818140209.14804.94997.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0072.outbound.protection.outlook.com ([104.47.40.72]:15718
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0060.outbound.protection.outlook.com ([104.47.42.60]:59328
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753270AbdHROCP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 10:02:15 -0400
+        id S1753215AbdHROCX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Aug 2017 10:02:23 -0400
+In-Reply-To: <20170818140209.14804.94997.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following updates are included in this driver update series:
+Currently the MDIO mode is set to none for the 10000Base-T, which is
+incorrect.  The MDIO mode should for this configuration should be
+clause 45.
 
-- Set the MDIO mode to clause 45 for the 10GBase-T configuration
-- Set the MII control width to 8-bits for speeds less than 1Gbps
-- Fix an issue to related to module removal when the devices are up
-- Fix ethtool statistics related to packet counting of TSO packets
-- Add support for device renaming
-- Add additional dynamic debug output for the PCS window calculation
-- Optimize reading of DMA channel interrupt enablement register
-- Add additional dynamic debug output about the hardware features
-- Add per queue Tx and Rx ethtool statistics
-- Add a macro to clear ethtool_link_ksettings modes
-- Convert the driver to use the ethtool_link_ksettings
-- Add support for VXLAN offload capabilities
-- Add additional ethtool statistics related to VXLAN
-
-This patch series is based on net-next.
-
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Changes since v1:
-- Remove added debugfs support for reading SFP eeprom and phydev
-  registers
-
-
-Tom Lendacky (13):
-      amd-xgbe: Set the MDIO mode for 10000Base-T configuration
-      amd-xgbe: Set the MII control width for the MAC interface
-      amd-xgbe: Be sure driver shuts down cleanly on module removal
-      amd-xgbe: Update TSO packet statistics accuracy
-      amd-xgbe: Add support to handle device renaming
-      amd-xgbe: Add additional dynamic debug messages
-      amd-xgbe: Optimize DMA channel interrupt enablement
-      amd-xgbe: Add hardware features debug output
-      amd-xgbe: Add per queue Tx and Rx statistics
-      net: ethtool: Add macro to clear a link mode setting
-      amd-xgbe: Convert to using the new link mode settings
-      amd-xgbe: Add support for VXLAN offload capabilities
-      amd-xgbe: Add additional ethtool statistics
-
-
- drivers/net/ethernet/amd/xgbe/xgbe-common.h  |   25 +
- drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c |   25 +
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |  198 ++++++++---
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |  487 ++++++++++++++++++++++++++
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   86 +++--
- drivers/net/ethernet/amd/xgbe/xgbe-main.c    |   97 +++--
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c    |   81 +++-
- drivers/net/ethernet/amd/xgbe/xgbe-pci.c     |    4 
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c  |   54 ++-
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c  |  352 ++++++++++---------
- drivers/net/ethernet/amd/xgbe/xgbe.h         |   91 ++++-
- include/linux/ethtool.h                      |   11 +
- 12 files changed, 1158 insertions(+), 353 deletions(-)
-
--- 
-Tom Lendacky
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+index 04b5c14..81c45fa 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+@@ -2921,7 +2921,7 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
+ 			phy_data->start_mode = XGBE_MODE_KR;
+ 		}
+ 
+-		phy_data->phydev_mode = XGBE_MDIO_MODE_NONE;
++		phy_data->phydev_mode = XGBE_MDIO_MODE_CL45;
+ 		break;
+ 
+ 	/* 10GBase-R support */
