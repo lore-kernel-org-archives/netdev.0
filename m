@@ -1,90 +1,102 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: Re: [iproute PATCH 21/51] lib/libnetlink: Don't pass NULL parameter
- to memcpy()
-Date: Fri, 18 Aug 2017 15:13:39 -0400 (EDT)
-Message-ID: <1953007845.2202528.1503083619344.JavaMail.zimbra@redhat.com>
-References: <20170812120510.28750-1-phil@nwl.cc> <20170812120510.28750-22-phil@nwl.cc> <20170815081555.104dab6e@xeon-e3> <20170815164255.GA10864@orbyte.nwl.cc>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: [RFC PATCH] can: m_can: Support higher speed CAN-FD bitrates
+Date: Fri, 18 Aug 2017 14:39:47 -0500
+Message-ID: <20170818193947.27862-1-fcooper@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33392 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751037AbdHRTNl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 15:13:41 -0400
-In-Reply-To: <20170815164255.GA10864@orbyte.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Franklin S Cooper Jr <fcooper@ti.com>
+To: <wg@grandegger.com>, <mkl@pengutronix.de>, <mario.huettel@gmx.net>,
+        <socketcan@hartkopp.net>, <quentin.schulz@free-electrons.com>,
+        <edumazet@google.com>, <linux-can@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: "Phil Sutter" <phil@nwl.cc>
-> To: "Stephen Hemminger" <stephen@networkplumber.org>
-> Cc: netdev@vger.kernel.org
-> Sent: Tuesday, August 15, 2017 12:42:55 PM
-> Subject: Re: [iproute PATCH 21/51] lib/libnetlink: Don't pass NULL parameter to memcpy()
-> 
-> On Tue, Aug 15, 2017 at 08:15:55AM -0700, Stephen Hemminger wrote:
-> > On Sat, 12 Aug 2017 14:04:40 +0200
-> > Phil Sutter <phil@nwl.cc> wrote:
-> > 
-> > > Both addattr_l() and rta_addattr_l() may be called with NULL data
-> > > pointer and 0 alen parameters. Avoid calling memcpy() in that case.
-> > > 
-> > > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> > 
-> > What are you fixing. memcpy(dest, NULL, 0) should be harmless NOP
-> 
-> Yes, if that turns into a NOP this patch is not needed.
-> 
-> Thanks, Phil
-> 
+During test transmitting using CAN-FD at high bitrates (4 Mbps) only
+resulted in errors. Scoping the signals I noticed that only a single bit
+was being transmitted and with a bit more investigation realized the actual
+MCAN IP would go back to initialization mode automatically.
 
-It is a NOP in this case, but it is also "undefined behavior" and can lead
-to the compiler assuming that dest != NULL, which would be problematic
-if dest were dereferenced later in the code (it isn't in this case, but
-might be in general).
+It appears this issue is due to the MCAN needing to use the Transmitter
+Delay Compensation Mode as defined in the MCAN User's Guide. When this
+mode is used the User's Guide indicates that the Transmitter Delay
+Compensation Offset register should be set. The document mentions that this
+register should be set to (1/dbitrate)/2*(Func Clk Freq).
 
-A small example with current gcc:
+Additional CAN-CIA's "Bit Time Requirements for CAN FD" document indicates
+that this TDC mode is only needed for data bit rates above 2.5 Mbps.
+Therefore, only enable this mode and only set TDCO when the data bit rate
+is above 2.5 Mbps.
 
-foo.c:
-    #include <stdio.h>
+Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+---
+I'm pretty surprised that this hasn't been implemented already since
+the primary purpose of CAN-FD is to go beyond 1 Mbps and the MCAN IP
+supports up to 10 Mbps.
 
-    extern void foo(char *, size_t);
+So it will be nice to get comments from users of this driver to understand
+if they have been able to use CAN-FD beyond 2.5 Mbps without this patch.
+If they haven't what did they do to get around it if they needed higher
+speeds.
 
-    int main(int argc, char **argv)
-    {
-            char x[128];
+Meanwhile I plan on testing this using a more "realistic" CAN bus to insure
+everything still works at 5 Mbps which is the max speed of my CAN
+transceiver.
 
-            foo(x, sizeof x);
-            foo(NULL, 0);
+ drivers/net/can/m_can/m_can.c | 24 +++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
 
-            return 0;
-    }
-
-bar.c:
-    #include <stdio.h>
-    #include <string.h>
-
-    void foo(char *ptr, size_t len)
-    {
-            memset(ptr, 0, len);
-
-            if (ptr)
-                    printf("ptr is non-null: %p\n", ptr);
-    }
-
-Compile the code:
-
-    $ gcc -o foobar -O2 foo.c bar.c
-
-Execute it (note second line of output, which might be surprising):
-
-    $ ./foobar
-    ptr is non-null: 0x7ffdc47daef0
-    ptr is non-null: (nil)
-
-
-Regards,
-
-    Lance Richardson
+diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+index f4947a7..720e073 100644
+--- a/drivers/net/can/m_can/m_can.c
++++ b/drivers/net/can/m_can/m_can.c
+@@ -126,6 +126,12 @@ enum m_can_mram_cfg {
+ #define DBTP_DSJW_SHIFT		0
+ #define DBTP_DSJW_MASK		(0xf << DBTP_DSJW_SHIFT)
+ 
++/* Transmitter Delay Compensation Register (TDCR) */
++#define TDCR_TDCO_SHIFT		8
++#define TDCR_TDCO_MASK		(0x7F << TDCR_TDCO_SHIFT)
++#define TDCR_TDCF_SHIFT		0
++#define TDCR_TDCF_MASK		(0x7F << TDCR_TDCO_SHIFT)
++
+ /* Test Register (TEST) */
+ #define TEST_LBCK		BIT(4)
+ 
+@@ -977,6 +983,8 @@ static int m_can_set_bittiming(struct net_device *dev)
+ 	const struct can_bittiming *dbt = &priv->can.data_bittiming;
+ 	u16 brp, sjw, tseg1, tseg2;
+ 	u32 reg_btp;
++	u32 enable_tdc = 0;
++	u32 tdco;
+ 
+ 	brp = bt->brp - 1;
+ 	sjw = bt->sjw - 1;
+@@ -991,9 +999,23 @@ static int m_can_set_bittiming(struct net_device *dev)
+ 		sjw = dbt->sjw - 1;
+ 		tseg1 = dbt->prop_seg + dbt->phase_seg1 - 1;
+ 		tseg2 = dbt->phase_seg2 - 1;
++
++		/* TDC is only needed for bitrates beyond 2.5 MBit/s
++		 * Specified in the "Bit Time Requirements for CAN FD" document
++		 */
++		if (dbt->bitrate > 2500000) {
++			enable_tdc = DBTP_TDC;
++			/* Equation based on Bosch's M_CAN User Manual's
++			 * Transmitter Delay Compensation Section
++			 */
++			tdco = priv->can.clock.freq / (dbt->bitrate * 2);
++			m_can_write(priv, M_CAN_TDCR, tdco << TDCR_TDCO_SHIFT);
++		}
++
+ 		reg_btp = (brp << DBTP_DBRP_SHIFT) | (sjw << DBTP_DSJW_SHIFT) |
+ 			(tseg1 << DBTP_DTSEG1_SHIFT) |
+-			(tseg2 << DBTP_DTSEG2_SHIFT);
++			(tseg2 << DBTP_DTSEG2_SHIFT) | enable_tdc;
++
+ 		m_can_write(priv, M_CAN_DBTP, reg_btp);
+ 	}
+ 
+-- 
+2.9.4.dirty
