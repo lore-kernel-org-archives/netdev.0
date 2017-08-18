@@ -1,53 +1,36 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: fix Smatch error
-Date: Fri, 18 Aug 2017 13:07:19 -0700
-Message-ID: <20170818200719.GA4685@felix-thinkpad.cavium.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH RESEND 0/2] enable hires timer to timeout datagram socket
+Date: Fri, 18 Aug 2017 22:18:54 +0200
+Message-ID: <20170818201854.xes246oviptinwvq@localhost>
+References: <1503081850-10671-1-git-send-email-vallish@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        intiyaz.basha@cavium.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0064.outbound.protection.outlook.com ([104.47.32.64]:65456
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751687AbdHRUHJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 16:07:09 -0400
+Cc: davem@davemloft.net, shuah@kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, eduval@amazon.com,
+        anchalag@amazon.com, tglx@linutronix.de
+To: Vallish Vaidyeshwara <vallish@amazon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1503081850-10671-1-git-send-email-vallish@amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Intiyaz Basha <intiyaz.basha@cavium.com>
+On Fri, Aug 18, 2017 at 06:44:08PM +0000, Vallish Vaidyeshwara wrote:
+> There has been a behavior change in 4.9 kernel with refactoring of Kernel
+> timer wheel in 4.8. We have a use case wherein our datagram socket
+> application is sensitive to socket timeout including long timeouts.
+> 
+> One of the test runs with a timeout value of 180 seconds timed out at
+> 190 seconds.
 
-Fix Smatch error by not dereferencing iq pointer if it's NULL.
+So the whole premise of the new timer wheel is that long timeouts need
+not be very accurate.
 
-See http://marc.info/?l=kernel-janitors&m=150296723301129&w=2
+> Patch 1: Has core code change of enabling hires timer to timeout datagram
+> 	 socket on AF_UNIX and AF_INET domain
 
-Also, remove unnecessary parentheses.
+Using hrtimers will hurt performance for most applications.  Can you
+please explain your use case and why is it so important?
 
-Fixes: d314ac222829 ("liquidio: moved liquidio_napi_poll to lio_core.c")
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_core.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-index d4f0646..0e7896c 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-@@ -668,8 +668,8 @@ static int liquidio_napi_poll(struct napi_struct *napi, int budget)
- 
- #define MAX_REG_CNT  2000000U
- 	/* force enable interrupt if reg cnts are high to avoid wraparound */
--	if (((work_done < budget) && (tx_done)) ||
--	    (iq->pkt_in_done >= MAX_REG_CNT) ||
-+	if ((work_done < budget && tx_done) ||
-+	    (iq && iq->pkt_in_done >= MAX_REG_CNT) ||
- 	    (droq->pkt_count >= MAX_REG_CNT)) {
- 		tx_done = 1;
- 		napi_complete_done(napi, work_done);
--- 
-1.8.3.1
+Thanks,
+Richard
