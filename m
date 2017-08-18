@@ -1,57 +1,43 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next v1 05/14] amd-xgbe: Add additional debugfs
- support
-Date: Fri, 18 Aug 2017 07:58:03 -0500
-Message-ID: <624ab709-c609-1f8d-b635-c824dac5c693@amd.com>
-References: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
- <20170818000250.10005.87855.stgit@tlendack-t1.amdoffice.net>
- <20170818003057.GA11030@lunn.ch>
- <20170817.220203.1607309698344574831.davem@davemloft.net>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] netxen: fix incorrect loop counter decrement
+Date: Fri, 18 Aug 2017 14:12:06 +0100
+Message-ID: <20170818131206.15417-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0046.outbound.protection.outlook.com ([104.47.42.46]:21289
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751036AbdHRM6I (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 08:58:08 -0400
-In-Reply-To: <20170817.220203.1607309698344574831.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Manish Chopra <manish.chopra@cavium.com>,
+        Rahul Verma <rahul.verma@cavium.com>,
+        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/18/2017 12:02 AM, David Miller wrote:
-> From: Andrew Lunn <andrew@lunn.ch>
-> Date: Fri, 18 Aug 2017 02:30:57 +0200
-> 
->> On Thu, Aug 17, 2017 at 07:02:50PM -0500, Tom Lendacky wrote:
->>> Add additional debugfs support for reading / writing registers of any
->>> attached external phy devices as well as the SFP eeprom data.
->>
->> Hi Tom
->>
->> What is wrong with using the standard APIs for this?
->>
->> ethtool --moduile-info
->>
->> ioctls SIOCGMIIREG and SIOCSMIIREG.
-> 
-> Yeah debugfs is a horrible choice for this.
-> 
-> debugfs in general should be strongly avoided.  We have rich eneough
-> facilities to export just about anything that is actually appropriate
-> and useful, and where we do not existing facilities should be extended
-> as needed rather than ignored.
+From: Colin Ian King <colin.king@canonical.com>
 
-I was intending this to be purely debugging and that's why I chose
-debugfs as opposed to ethtool.  I can switch over to using ethtool
-though.  I'll resubmit the series without this patch and look at
-moving to this to ethtool as a separate patch later.
+The loop counter k is currently being decremented from zero which
+is incorrect. Fix this by incrementing k instead
 
-Thanks,
-Tom
+Detected by CoverityScan, CID#401847 ("Infinite loop")
 
-> 
+Fixes: 83f18a557c6d ("netxen_nic: fw dump support")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index 66ff15d08bad..0a66389c06c2 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -2311,7 +2311,7 @@ netxen_md_rdqueue(struct netxen_adapter *adapter,
+ 				 loop_cnt++) {
+ 		NX_WR_DUMP_REG(select_addr, adapter->ahw.pci_base0, queue_id);
+ 		read_addr = queueEntry->read_addr;
+-		for (k = 0; k < read_cnt; k--) {
++		for (k = 0; k < read_cnt; k++) {
+ 			NX_RD_DUMP_REG(read_addr, adapter->ahw.pci_base0,
+ 							&read_value);
+ 			*data_buff++ = read_value;
+-- 
+2.11.0
