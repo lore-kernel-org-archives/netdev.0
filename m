@@ -1,32 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] nfp: fix infinite loop on umapping cleanup
-Date: Fri, 18 Aug 2017 10:29:19 -0700 (PDT)
-Message-ID: <20170818.102919.1311901104192299250.davem@davemloft.net>
-References: <20170818111150.13716-1-colin.king@canonical.com>
+Subject: Re: [PATCH net-next 0/3] Misc. Bug fixes for HNS3 Ethernet Driver
+Date: Fri, 18 Aug 2017 10:32:18 -0700 (PDT)
+Message-ID: <20170818.103218.2140502496822291281.davem@davemloft.net>
+References: <20170818113139.153200-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: simon.horman@netronome.com, daniel@iogearbox.net,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        jakub.kicinski@netronome.com, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Cc: yisen.zhuang@huawei.com, lipeng321@huawei.com,
+        dan.carpenter@oracle.com, mehta.salil.lnk@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linuxarm@huawei.com
+To: salil.mehta@huawei.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170818111150.13716-1-colin.king@canonical.com>
+In-Reply-To: <20170818113139.153200-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Fri, 18 Aug 2017 12:11:50 +0100
+From: Salil Mehta <salil.mehta@huawei.com>
+Date: Fri, 18 Aug 2017 12:31:36 +0100
 
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> The while loop that performs the dma page unmapping never decrements
-> index counter f and hence loops forever. Fix this with a pre-decrement
-> on f.
-> 
-> Detected by CoverityScan, CID#1357309 ("Infinite loop")
-> 
-> Fixes: 4c3523623dc0 ("net: add driver for Netronome NFP4000/NFP6000 NIC VFs")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> This patch-set fixes various bugs reported by community.
 
-Applied and queued up for -stable.
+Series applied.
