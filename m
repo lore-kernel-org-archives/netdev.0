@@ -1,42 +1,51 @@
-From: Akshat Kakkar <akshat.1984@gmail.com>
-Subject: Re: Something hitting my total number of connections to the server
-Date: Fri, 18 Aug 2017 14:44:00 +0530
-Message-ID: <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com>
-References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
- <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
- <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com> <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [iproute PATCH v2 1/7] ipntable: Make sure filter.name is
+ NULL-terminated
+Date: Fri, 18 Aug 2017 09:19:16 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD005A7B4@AcuExch.aculab.com>
+References: <20170817170932.24659-1-phil@nwl.cc>
+ <20170817170932.24659-2-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Phil Sutter' <phil@nwl.cc>,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:37144 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750709AbdHRJOB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 05:14:01 -0400
-Received: by mail-pg0-f41.google.com with SMTP id y129so60655237pgy.4
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 02:14:01 -0700 (PDT)
-In-Reply-To: <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from smtp-out4.electric.net ([192.162.216.181]:62706 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751552AbdHRJTW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 05:19:22 -0400
+In-Reply-To: <20170817170932.24659-2-phil@nwl.cc>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 17, 2017 at 5:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2017-08-17 at 14:35 +0530, Akshat Kakkar wrote:
->
->> I upgraded to 4.4 but still experiencing same issue.
->> Please help.
->
-> Still too old kernel, shoot again ;)
->
->
+From: Phil Sutter
+> Sent: 17 August 2017 18:09
+> To: Stephen Hemminger
+> Cc: netdev@vger.kernel.org
+> Subject: [iproute PATCH v2 1/7] ipntable: Make sure filter.name is NULL-terminated
+> 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+>  ip/ipntable.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/ip/ipntable.c b/ip/ipntable.c
+> index 879626ee4f491..7be1f04d33d90 100644
+> --- a/ip/ipntable.c
+> +++ b/ip/ipntable.c
+> @@ -633,7 +633,8 @@ static int ipntable_show(int argc, char **argv)
+>  		} else if (strcmp(*argv, "name") == 0) {
+>  			NEXT_ARG();
+> 
+> -			strncpy(filter.name, *argv, sizeof(filter.name));
+> +			strncpy(filter.name, *argv, sizeof(filter.name) - 1);
+> +			filter.name[sizeof(filter.name) - 1] = '\0';
 
+Why not check for overflow instead?
+			if (filter.name[sizeof(filter.name) - 1])
+				usage("filer name too long");
 
-Sorry but that's the maximum I can try as of now as its the LT version.
-
-Besides, this issue was not present in 2.6.32 but came with 3.10 and
-still there in 4.4, so I doubt if it has to do with some kernel and/or
-kernel parameters much as you guys are good enough not to keep an
-issue for so long (around 3 years).
-
-So please help.
+	David
