@@ -1,57 +1,58 @@
-From: Stefano Brivio <sbrivio@redhat.com>
-Subject: [PATCH net] ipv6: accept 64k - 1 packet length in ip6_find_1stfragopt()
-Date: Fri, 18 Aug 2017 14:40:53 +0200
-Message-ID: <9597319ba96a966ee580bd04f36584b52dfa2c48.1503059705.git.sbrivio@redhat.com>
-Cc: Sabrina Dubroca <sd@queasysnail.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Akshat Kakkar <akshat.1984@gmail.com>
+Subject: Re: Something hitting my total number of connections to the server
+Date: Fri, 18 Aug 2017 18:14:26 +0530
+Message-ID: <CAA5aLPjNL0tDXjnPkTcBF8x+HqauQfWQVqWqKggLGqSdsg3Gog@mail.gmail.com>
+References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
+ <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
+ <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com>
+ <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com> <1503057984.4936.163.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53462 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750993AbdHRMlV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 08:41:21 -0400
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35389 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750812AbdHRMo1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 08:44:27 -0400
+Received: by mail-pg0-f65.google.com with SMTP id t80so8806435pgb.2
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 05:44:27 -0700 (PDT)
+In-Reply-To: <1503057984.4936.163.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A packet length of exactly IPV6_MAXPLEN is allowed, we should
-refuse parsing options only if the size is 64KiB or more.
-
-While at it, remove one extra variable and one assignment which
-were also introduced by the commit that introduced the size
-check. Checking the sum 'offset + len' and only later adding
-'len' to 'offset' doesn't provide any advantage over directly
-summing to 'offset' and checking it.
-
-Fixes: 6399f1fae4ec ("ipv6: avoid overflow of offset in ip6_find_1stfragopt")
-Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
----
- net/ipv6/output_core.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index abb2c307fbe8..a338bbc33cf3 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -86,7 +86,6 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
- 
- 	while (offset <= packet_len) {
- 		struct ipv6_opt_hdr *exthdr;
--		unsigned int len;
- 
- 		switch (**nexthdr) {
- 
-@@ -112,10 +111,9 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
- 
- 		exthdr = (struct ipv6_opt_hdr *)(skb_network_header(skb) +
- 						 offset);
--		len = ipv6_optlen(exthdr);
--		if (len + offset >= IPV6_MAXPLEN)
-+		offset += ipv6_optlen(exthdr);
-+		if (offset > IPV6_MAXPLEN)
- 			return -EINVAL;
--		offset += len;
- 		*nexthdr = &exthdr->nexthdr;
- 	}
- 
--- 
-2.9.4
+On Fri, Aug 18, 2017 at 5:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2017-08-18 at 14:44 +0530, Akshat Kakkar wrote:
+>> On Thu, Aug 17, 2017 at 5:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Thu, 2017-08-17 at 14:35 +0530, Akshat Kakkar wrote:
+>> >
+>> >> I upgraded to 4.4 but still experiencing same issue.
+>> >> Please help.
+>> >
+>> > Still too old kernel, shoot again ;)
+>> >
+>> >
+>>
+>>
+>> Sorry but that's the maximum I can try as of now as its the LT version.
+>>
+>> Besides, this issue was not present in 2.6.32 but came with 3.10 and
+>> still there in 4.4, so I doubt if it has to do with some kernel and/or
+>> kernel parameters much as you guys are good enough not to keep an
+>> issue for so long (around 3 years).
+>>
+>> So please help.
+>
+> netdev is the developer list.
+>
+> We deal with recent kernels only. Because we already spent time fixing
+> all these issues, we are not going to spend time fixing old kernels.
+>
+> Please to your distro provider to backport the needed patches.
+>
+>
+>
+I appreciate that.
+Can you just recall if there was any such issue which was fixed after 4.4.
