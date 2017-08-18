@@ -1,55 +1,43 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: [PATCH net-next] net: check type when freeing metadata dst
-Date: Fri, 18 Aug 2017 14:31:35 +0200
-Message-ID: <20170818123135.518080-1-equinox@diac24.net>
-References: <a983211c-530a-8f73-ed00-c95840ce3d08@cogentembedded.com>
-Cc: David Lamparter <equinox@diac24.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Sridhar Samudrala <sridhar.samudrala@intel.com>,
-        Simon Horman <horms@verge.net.au>,
-        "David S . Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 2/2] xdp: adjust xdp redirect tracepoint to include return
+ error code
+Date: Fri, 18 Aug 2017 14:38:29 +0200
+Message-ID: <5996DFC5.6070204@iogearbox.net>
+References: <150298692691.6608.11908184719252996949.stgit@firesoul>        <150298695758.6608.7128764985631537683.stgit@firesoul>        <5995E472.70609@gmail.com>        <20170817212857.1de3f557@redhat.com>        <5995F1D6.8040103@gmail.com> <20170818142946.1bad7203@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eidolon.nox.tf ([185.142.180.128]:57610 "EHLO eidolon.nox.tf"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750808AbdHRMbq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 08:31:46 -0400
-In-Reply-To: <a983211c-530a-8f73-ed00-c95840ce3d08@cogentembedded.com>
+Received: from www62.your-server.de ([213.133.104.62]:60801 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750987AbdHRMic (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 08:38:32 -0400
+In-Reply-To: <20170818142946.1bad7203@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 3fcece12bc1b ("net: store port/representator id in metadata_dst")
-added a new type field to metadata_dst, but metadata_dst_free() wasn't
-updated to check it before freeing the METADATA_IP_TUNNEL specific dst
-cache entry.
+On 08/18/2017 02:29 PM, Jesper Dangaard Brouer wrote:
+> On Thu, 17 Aug 2017 12:43:18 -0700
+> John Fastabend <john.fastabend@gmail.com> wrote:
+>
+>>>>> @@ -2532,12 +2535,14 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+>>>>>   	ri->map = NULL;
+>>>>>   	if (unlikely(!fwd)) {
+>>>>>   		bpf_warn_invalid_xdp_redirect(index);
+>>
+>> I think we should drop the warn_invalid now that we have a tracepoint.
+>> The tracepoint is much nicer for debugging vs a warning for what might
+>> be a valid case depending on xdp program.
+>
+> I agree.  I'll do that in a follow up patch. I'll likely remove the
+> bpf_warn_invalid_xdp_redirect() function completely.
 
-This is not currently causing problems since it's far enough back in the
-struct to be zeroed for the only other type currently in existance
-(METADATA_HW_PORT_MUX), but nevertheless it's not correct.
++1
 
-Fixes: 3fcece12bc1b ("net: store port/representator id in metadata_dst")
-Signed-off-by: David Lamparter <equinox@diac24.net>
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
-Cc: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Cc: Simon Horman <horms@verge.net.au>
-Cc: David S. Miller <davem@davemloft.net>
----
- net/core/dst.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> We also have bpf_warn_invalid_xdp_action() but that might be relevant
+> to keep around(?).
 
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 00aa972ad1a1..7954d1710d97 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -299,7 +299,8 @@ EXPORT_SYMBOL_GPL(metadata_dst_alloc);
- void metadata_dst_free(struct metadata_dst *md_dst)
- {
- #ifdef CONFIG_DST_CACHE
--	dst_cache_destroy(&md_dst->u.tun_info.dst_cache);
-+	if (md_dst->type == METADATA_IP_TUNNEL)
-+		dst_cache_destroy(&md_dst->u.tun_info.dst_cache);
- #endif
- 	kfree(md_dst);
- }
--- 
-2.13.0
+Keeping this is fine, imo.
