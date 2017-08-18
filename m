@@ -1,67 +1,102 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH net-next] net: hns3: Add support to change MTU in
- hardware & netdev
-Date: Fri, 18 Aug 2017 17:03:58 +0200
-Message-ID: <20170818150358.GA3258@lunn.ch>
-References: <20170818113558.71928-1-salil.mehta@huawei.com>
- <20170818133128.GA523@lunn.ch>
- <F4CC6FACFEB3C54C9141D49AD221F7F93B86F75F@FRAEML521-MBX.china.huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "lipeng (Y)" <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org" <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <F4CC6FACFEB3C54C9141D49AD221F7F93B86F75F-WFPaWmAhWqtUuCJht5byYAK1hpo4iccwjNknBlVQO8k@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf, doc: improve sysctl knob description
+Date: Fri, 18 Aug 2017 17:11:06 +0200
+Message-ID: <5590c8b2426b46f038184153918663019c3bc7c7.1503068601.git.daniel@iogearbox.net>
+Cc: ast@fb.com, mpe@ellerman.id.au, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:53091 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751037AbdHRPLS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 11:11:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > > +	/* MTU range: 68 - 9706 */
-> > > +	netdev->min_mtu = ETH_MIN_MTU;
-> > 
-> > http://elixir.free-
-> > electrons.com/linux/latest/source/net/ethernet/eth.c#L361
-> Supported range of Min and Max MTU should be at the discretion
-> of the driver. Therefore, initialization looks fine to me.
-> 
-> I could not clearly understand the problem being highlighted
-> over here. Could you further clarify?
+Current context speaking of tcpdump filters is out of date these
+days, so lets improve the sysctl description for the BPF knobs
+a bit.
 
-This is already setting min_mtu to ETH_MIN_MTU. There is no need for
-you to set it.
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ [ Given Michael's arch list update went to net, here's the
+   follow-up for improving the description as mentioned. ]
 
-> > >  #define HNS3_RING_MAX_PENDING			32768
-> > > +#define HNS3_MAX_MTU				9728
-> > 
-> > It seems odd that it does not already exists somewhere. The core does
-> > not enforce the MTU.  You could be passed a frame which is bigger. So
-> > you should check before trying to pass something to the hardware which
-> > the hardware cannot handle.
-> There is a check already in place for this as well since 4.10-rc1.
+ Documentation/sysctl/net.txt | 37 +++++++++++++++++++++++--------------
+ 1 file changed, 23 insertions(+), 14 deletions(-)
 
-Yes, the core will check when changing the MTU.
-
-But when passing frames to be transmitted, it does not check the frame
-fits the MTU.  DSA actually makes use of this, when passing frames to
-an Ethernet switch attached to the interface. We need to add an extra
-header to the frame, which makes the frame bigger than the MTU. Most
-Ethernet drivers are happy with this, they send the frame. Other
-reject it, and we have had to make driver changes. And some just
-explode :-(
-
-If 9728 is a hard limit for your device, you should check when passed
-a frame to make sure it is actually <= 9728 bytes in length.
-
-     Andrew
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
+index b9c3c60..d7c2b88 100644
+--- a/Documentation/sysctl/net.txt
++++ b/Documentation/sysctl/net.txt
+@@ -35,23 +35,32 @@ Table : Subdirectories in /proc/sys/net
+ bpf_jit_enable
+ --------------
+ 
+-This enables Berkeley Packet Filter Just in Time compiler.
+-
+-There are two flavors of JIT, the new eBPF JIT supported on:
++This enables the BPF Just in Time (JIT) compiler. BPF is a flexible
++and efficient infrastructure allowing to execute bytecode at various
++hook points. It is used in a number of Linux kernel subsystems such
++as networking (e.g. XDP, tc), tracing (e.g. kprobes, uprobes, tracepoints)
++and security (e.g. seccomp). LLVM has a BPF back end that can compile
++restricted C into a sequence of BPF instructions. After program load
++through bpf(2) and passing a verifier in the kernel, a JIT will then
++translate these BPF proglets into native CPU instructions. There are
++two flavors of JITs, the newer eBPF JIT currently supported on:
+   - x86_64
+   - arm64
+   - ppc64
+   - sparc64
+   - mips64
+ 
+-And the older cBPF JIT supported on:
++And the older cBPF JIT supported on the following archs:
+   - arm
+   - mips
+   - ppc
+   - sparc
+ 
+-The BPF JIT provides a framework to speed packet filtering, the one used by
+-tcpdump/libpcap for example.
++eBPF JITs are a superset of cBPF JITs, meaning the kernel will
++migrate cBPF instructions into eBPF instructions and then JIT
++compile them transparently. Older cBPF JITs can only translate
++tcpdump filters, seccomp rules, etc, but not mentioned eBPF
++programs loaded through bpf(2).
+ 
+ Values :
+ 	0 - disable the JIT (default value)
+@@ -61,9 +70,9 @@ Values :
+ bpf_jit_harden
+ --------------
+ 
+-This enables hardening for the Berkeley Packet Filter Just in Time compiler.
+-Supported are eBPF JIT backends. Enabling hardening trades off performance,
+-but can mitigate JIT spraying.
++This enables hardening for the BPF JIT compiler. Supported are eBPF
++JIT backends. Enabling hardening trades off performance, but can
++mitigate JIT spraying.
+ Values :
+ 	0 - disable JIT hardening (default value)
+ 	1 - enable JIT hardening for unprivileged users only
+@@ -72,11 +81,11 @@ Values :
+ bpf_jit_kallsyms
+ ----------------
+ 
+-When Berkeley Packet Filter Just in Time compiler is enabled, then compiled
+-images are unknown addresses to the kernel, meaning they neither show up in
+-traces nor in /proc/kallsyms. This enables export of these addresses, which
+-can be used for debugging/tracing. If bpf_jit_harden is enabled, this feature
+-is disabled.
++When BPF JIT compiler is enabled, then compiled images are unknown
++addresses to the kernel, meaning they neither show up in traces nor
++in /proc/kallsyms. This enables export of these addresses, which can
++be used for debugging/tracing. If bpf_jit_harden is enabled, this
++feature is disabled.
+ Values :
+ 	0 - disable JIT kallsyms export (default value)
+ 	1 - enable JIT kallsyms export for privileged users only
+-- 
+1.9.3
