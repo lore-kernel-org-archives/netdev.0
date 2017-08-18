@@ -1,117 +1,173 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 13/13] amd-xgbe: Add additional ethtool
- statistics
-Date: Fri, 18 Aug 2017 09:04:14 -0500
-Message-ID: <20170818140414.14804.67301.stgit@tlendack-t1.amdoffice.net>
-References: <20170818140209.14804.94997.stgit@tlendack-t1.amdoffice.net>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net v2] datagram: When peeking datagrams with offset < 0
+ don't skip empty skbs
+Date: Fri, 18 Aug 2017 16:05:18 +0200
+Message-ID: <1503065118.3344.18.camel@redhat.com>
+References: <20170818021157.20070-1-matthew@mjdsystems.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: "Macieira, Thiago" <thiago.macieira@intel.com>,
+        willemdebruijn.kernel@gmail.com
+To: Matthew Dawson <matthew@mjdsystems.ca>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0081.outbound.protection.outlook.com ([104.47.40.81]:51666
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752115AbdHROEU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 10:04:20 -0400
-In-Reply-To: <20170818140209.14804.94997.stgit@tlendack-t1.amdoffice.net>
+Received: from mx1.redhat.com ([209.132.183.28]:41046 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753244AbdHROFV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Aug 2017 10:05:21 -0400
+In-Reply-To: <20170818021157.20070-1-matthew@mjdsystems.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add some additional statistics for tracking VXLAN packets and checksum
-errors.
+On Thu, 2017-08-17 at 22:11 -0400, Matthew Dawson wrote:
+> Due to commit e6afc8ace6dd5cef5e812f26c72579da8806f5ac ("udp: remove
+> headers from UDP packets before queueing"), when udp packets are being
+> peeked the requested extra offset is always 0 as there is no need to skip
+> the udp header.  However, when the offset is 0 and the next skb is
+> of length 0, it is only returned once.  The behaviour can be seen with
+> the following python script:
+> 
+> from socket import *;
+> f=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+> g=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+> f.bind(('::', 0));
+> addr=('::1', f.getsockname()[1]);
+> g.sendto(b'', addr)
+> g.sendto(b'b', addr)
+> print(f.recvfrom(10, MSG_PEEK));
+> print(f.recvfrom(10, MSG_PEEK));
+> 
+> Where the expected output should be the empty string twice.
+> 
+> Instead, make sk_peek_offset return negative values, and pass those values
+> to __skb_try_recv_datagram/__skb_try_recv_from_queue.  If the passed offset
+> to __skb_try_recv_from_queue is negative, the checked skb is never skipped.
+> __skb_try_recv_from_queue will then ensure the offset is reset back to 0
+> if a peek is requested without an offset, unless no packets are found.
+> 
+> Also simplify the if condition in __skb_try_recv_from_queue.  If _off is
+> greater then 0, and off is greater then or equal to skb->len, then
+> (_off || skb->len) must always be true assuming skb->len >= 0 is always
+> true.
+> 
+> Also remove a redundant check around a call to sk_peek_offset in af_unix.c,
+> as it double checked if MSG_PEEK was set in the flags.
+> 
+> V2:
+>  - Moved the negative fixup into __skb_try_recv_from_queue, and remove now
+> redundant checks
+>  - Fix peeking in udp{,v6}_recvmsg to report the right value when the
+> offset is 0
+> 
+> Signed-off-by: Matthew Dawson <matthew@mjdsystems.ca>
+> ---
+>  include/net/sock.h  |  4 +---
+>  net/core/datagram.c | 12 +++++++++---
+>  net/ipv4/udp.c      |  3 ++-
+>  net/ipv6/udp.c      |  3 ++-
+>  net/unix/af_unix.c  |  5 +----
+>  5 files changed, 15 insertions(+), 12 deletions(-)
+> 
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 7c0632c7e870..aeeec62992ca 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -507,9 +507,7 @@ int sk_set_peek_off(struct sock *sk, int val);
+>  static inline int sk_peek_offset(struct sock *sk, int flags)
+>  {
+>  	if (unlikely(flags & MSG_PEEK)) {
+> -		s32 off = READ_ONCE(sk->sk_peek_off);
+> -		if (off >= 0)
+> -			return off;
+> +		return READ_ONCE(sk->sk_peek_off);
+>  	}
+>  
+>  	return 0;
+> diff --git a/net/core/datagram.c b/net/core/datagram.c
+> index ee5647bd91b3..4b558503bef5 100644
+> --- a/net/core/datagram.c
+> +++ b/net/core/datagram.c
+> @@ -169,14 +169,20 @@ struct sk_buff *__skb_try_recv_from_queue(struct sock *sk,
+>  					  int *peeked, int *off, int *err,
+>  					  struct sk_buff **last)
+>  {
+> +	bool peek_at_off = false;
+>  	struct sk_buff *skb;
+> -	int _off = *off;
+> +	int _off = 0;
+> +
+> +	if (flags & MSG_PEEK && *off >= 0) {
+> +		peek_at_off = true;
+> +		_off = *off;
+> +	}
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |    8 +++++++-
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |    4 ++++
- drivers/net/ethernet/amd/xgbe/xgbe.h         |    5 +++++
- 3 files changed, 16 insertions(+), 1 deletion(-)
+I think that unlikely() will fit the above condition
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 1bf671e..671203d 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1805,10 +1805,13 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 				  packet->length);
- 	}
- 
--	if (vxlan)
-+	if (vxlan) {
- 		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, VNP,
- 				  TX_NORMAL_DESC3_VXLAN_PACKET);
- 
-+		pdata->ext_stats.tx_vxlan_packets += packet->tx_packets;
-+	}
-+
- 	for (i = cur_index - start_index + 1; i < packet->rdesc_count; i++) {
- 		cur_index++;
- 		rdata = XGBE_GET_DESC_DATA(ring, cur_index);
-@@ -1981,6 +1984,7 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 	if (XGMAC_GET_BITS_LE(rdesc->desc2, RX_NORMAL_DESC2, TNP)) {
- 		XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
- 			       TNP, 1);
-+		pdata->ext_stats.rx_vxlan_packets++;
- 
- 		l34t = XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, L34T);
- 		switch (l34t) {
-@@ -2018,11 +2022,13 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 				       CSUM_DONE, 0);
- 			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
- 				       TNPCSUM_DONE, 0);
-+			pdata->ext_stats.rx_csum_errors++;
- 		} else if (tnp && ((etlt == 0x09) || (etlt == 0x0a))) {
- 			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
- 				       CSUM_DONE, 0);
- 			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
- 				       TNPCSUM_DONE, 0);
-+			pdata->ext_stats.rx_vxlan_csum_errors++;
- 		} else {
- 			XGMAC_SET_BITS(packet->errors, RX_PACKET_ERRORS,
- 				       FRAME, 1);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index cea25ac..ff397bb 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -146,6 +146,7 @@ struct xgbe_stats {
- 	XGMAC_MMC_STAT("tx_broadcast_packets", txbroadcastframes_gb),
- 	XGMAC_MMC_STAT("tx_multicast_packets", txmulticastframes_gb),
- 	XGMAC_MMC_STAT("tx_vlan_packets", txvlanframes_g),
-+	XGMAC_EXT_STAT("tx_vxlan_packets", tx_vxlan_packets),
- 	XGMAC_EXT_STAT("tx_tso_packets", tx_tso_packets),
- 	XGMAC_MMC_STAT("tx_64_byte_packets", tx64octets_gb),
- 	XGMAC_MMC_STAT("tx_65_to_127_byte_packets", tx65to127octets_gb),
-@@ -162,6 +163,7 @@ struct xgbe_stats {
- 	XGMAC_MMC_STAT("rx_broadcast_packets", rxbroadcastframes_g),
- 	XGMAC_MMC_STAT("rx_multicast_packets", rxmulticastframes_g),
- 	XGMAC_MMC_STAT("rx_vlan_packets", rxvlanframes_gb),
-+	XGMAC_EXT_STAT("rx_vxlan_packets", rx_vxlan_packets),
- 	XGMAC_MMC_STAT("rx_64_byte_packets", rx64octets_gb),
- 	XGMAC_MMC_STAT("rx_65_to_127_byte_packets", rx65to127octets_gb),
- 	XGMAC_MMC_STAT("rx_128_to_255_byte_packets", rx128to255octets_gb),
-@@ -177,6 +179,8 @@ struct xgbe_stats {
- 	XGMAC_MMC_STAT("rx_out_of_range_errors", rxoutofrangetype),
- 	XGMAC_MMC_STAT("rx_fifo_overflow_errors", rxfifooverflow),
- 	XGMAC_MMC_STAT("rx_watchdog_errors", rxwatchdogerror),
-+	XGMAC_EXT_STAT("rx_csum_errors", rx_csum_errors),
-+	XGMAC_EXT_STAT("rx_vxlan_csum_errors", rx_vxlan_csum_errors),
- 	XGMAC_MMC_STAT("rx_pause_frames", rxpauseframes),
- 	XGMAC_EXT_STAT("rx_split_header_packets", rx_split_header_packets),
- 	XGMAC_EXT_STAT("rx_buffer_unavailable", rx_buffer_unavailable),
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index db155fe..ad102c8 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -715,6 +715,11 @@ struct xgbe_ext_stats {
- 	u64 txq_bytes[XGBE_MAX_DMA_CHANNELS];
- 	u64 rxq_packets[XGBE_MAX_DMA_CHANNELS];
- 	u64 rxq_bytes[XGBE_MAX_DMA_CHANNELS];
-+
-+	u64 tx_vxlan_packets;
-+	u64 rx_vxlan_packets;
-+	u64 rx_csum_errors;
-+	u64 rx_vxlan_csum_errors;
- };
- 
- struct xgbe_hw_if {
+>  
+>  	*last = queue->prev;
+>  	skb_queue_walk(queue, skb) {
+>  		if (flags & MSG_PEEK) {
+> -			if (_off >= skb->len && (skb->len || _off ||
+> -						 skb->peeked)) {
+> +			if (peek_at_off && _off >= skb->len &&
+> +			    (_off || skb->peeked)) {
+>  				_off -= skb->len;
+>  				continue;
+>  			}
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index a7c804f73990..cd1d044a7fa5 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1574,7 +1574,8 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
+>  		return ip_recv_error(sk, msg, len, addr_len);
+>  
+>  try_again:
+> -	peeking = off = sk_peek_offset(sk, flags);
+> +	peeking = flags & MSG_PEEK;
+> +	off = sk_peek_offset(sk, flags);
+>  	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
+>  	if (!skb)
+>  		return err;
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 578142b7ca3e..20039c8501eb 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -362,7 +362,8 @@ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
+>  		return ipv6_recv_rxpmtu(sk, msg, len, addr_len);
+>  
+>  try_again:
+> -	peeking = off = sk_peek_offset(sk, flags);
+> +	peeking = flags & MSG_PEEK;
+> +	off = sk_peek_offset(sk, flags);
+>  	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
+>  	if (!skb)
+>  		return err;
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index 7b52a380d710..be8982b4f8c0 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -2304,10 +2304,7 @@ static int unix_stream_read_generic(struct unix_stream_read_state *state,
+>  	 */
+>  	mutex_lock(&u->iolock);
+>  
+> -	if (flags & MSG_PEEK)
+> -		skip = sk_peek_offset(sk, flags);
+> -	else
+> -		skip = 0;
+> +	skip = max(sk_peek_offset(sk, flags), 0);
+>  
+>  	do {
+>  		int chunk;
+
+later we have:
+
+	chunk = min_t(unsigned int, unix_skb_len(skb) - skip, size);
+
+without any call to __skb_try_recv_from_queue(), so we will get
+bad/unexpected values from the above assignment when 'skip' is
+negative.
+
+Overall I still think that adding/using an explicit MSG_PEEK_OFF bit
+would produce a simpler code, but is just a personal preference.
+
+Paolo
