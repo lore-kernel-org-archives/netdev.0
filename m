@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf, doc: improve sysctl knob description
-Date: Fri, 18 Aug 2017 11:03:21 -0700 (PDT)
-Message-ID: <20170818.110321.992272966832244766.davem@davemloft.net>
-References: <5590c8b2426b46f038184153918663019c3bc7c7.1503068601.git.daniel@iogearbox.net>
+Subject: Re: pull request: bluetooth-next 2017-08-18
+Date: Fri, 18 Aug 2017 11:08:45 -0700 (PDT)
+Message-ID: <20170818.110845.1899396553687410545.davem@davemloft.net>
+References: <20170818161623.GA22628@x1c.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, mpe@ellerman.id.au, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: johan.hedberg@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57638 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57732 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750913AbdHRSDW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 14:03:22 -0400
-In-Reply-To: <5590c8b2426b46f038184153918663019c3bc7c7.1503068601.git.daniel@iogearbox.net>
+        with ESMTP id S1751814AbdHRSIq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 14:08:46 -0400
+In-Reply-To: <20170818161623.GA22628@x1c.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 18 Aug 2017 17:11:06 +0200
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Fri, 18 Aug 2017 19:16:23 +0300
 
-> Current context speaking of tcpdump filters is out of date these
-> days, so lets improve the sysctl description for the BPF knobs
-> a bit.
+> Here's one more bluetooth-next pull request for the 4.14 kernel:
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>  - Multiple fixes for Broadcom controllers
+>  - Fixes to the bluecard HCI driver
+>  - New USB ID for Realtek RTL8723BE controller
+>  - Fix static analyzer warning with kfree
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Applied, thanks Daniel.
+Pulled, thank you.
