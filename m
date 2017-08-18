@@ -1,52 +1,47 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] net: check type when freeing metadata dst
-Date: Fri, 18 Aug 2017 15:25:53 +0300
-Message-ID: <a983211c-530a-8f73-ed00-c95840ce3d08@cogentembedded.com>
-References: <20170818121651.516877-1-equinox@diac24.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 2/2] xdp: adjust xdp redirect tracepoint to include
+ return error code
+Date: Fri, 18 Aug 2017 14:29:46 +0200
+Message-ID: <20170818142946.1bad7203@redhat.com>
+References: <150298692691.6608.11908184719252996949.stgit@firesoul>
+        <150298695758.6608.7128764985631537683.stgit@firesoul>
+        <5995E472.70609@gmail.com>
+        <20170817212857.1de3f557@redhat.com>
+        <5995F1D6.8040103@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Sridhar Samudrala <sridhar.samudrala@intel.com>,
-        Simon Horman <horms@verge.net.au>,
-        "David S . Miller" <davem@davemloft.net>
-To: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:37421 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751549AbdHRMZ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 08:25:57 -0400
-Received: by mail-lf0-f49.google.com with SMTP id f7so22034824lfg.4
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 05:25:56 -0700 (PDT)
-In-Reply-To: <20170818121651.516877-1-equinox@diac24.net>
-Content-Language: en-MW
+Received: from mx1.redhat.com ([209.132.183.28]:33536 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751644AbdHRM3v (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Aug 2017 08:29:51 -0400
+In-Reply-To: <5995F1D6.8040103@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Thu, 17 Aug 2017 12:43:18 -0700
+John Fastabend <john.fastabend@gmail.com> wrote:
 
-On 08/18/2017 03:16 PM, David Lamparter wrote:
-
-> There is a new metadata dst type field added in "net: store
-> port/representator id in metadata_dst", but metadata_dst_free() wasn't
-> updated to check it before freeing the METADATA_IP_TUNNEL specific dst
-> cache entry.
+> >>> @@ -2532,12 +2535,14 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+> >>>  	ri->map = NULL;
+> >>>  	if (unlikely(!fwd)) {
+> >>>  		bpf_warn_invalid_xdp_redirect(index);  
 > 
-> This is not currently causing problems since it's far enough back in the
-> struct to be zeroed for the only other type currently in existance
-> (METADATA_HW_PORT_MUX), but nevertheless it's not correct.
-> 
-> Fixes: 3fcece12bc1b6dcdf0986f2cd9e8f63b1f9b6aa0
+> I think we should drop the warn_invalid now that we have a tracepoint.
+> The tracepoint is much nicer for debugging vs a warning for what might
+> be a valid case depending on xdp program.
 
-    Please see Documentation/process/submitting-patches.rst on how this tag 
-(and the commit citing in your description as well) should look like.
+I agree.  I'll do that in a follow up patch. I'll likely remove the
+bpf_warn_invalid_xdp_redirect() function completely.
 
-> Signed-off-by: David Lamparter <equinox@diac24.net>
-> Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Cc: Sridhar Samudrala <sridhar.samudrala@intel.com>
-> Cc: Simon Horman <horms@verge.net.au>
-> Cc: David S. Miller <davem@davemloft.net>
+We also have bpf_warn_invalid_xdp_action() but that might be relevant
+to keep around(?).
 
-[...]
-
-MBR, Sergei
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
