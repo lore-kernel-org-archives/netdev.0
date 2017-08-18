@@ -1,60 +1,61 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [iproute PATCH v2 4/5] tc/tc_filter: Make sure filter name is
- not empty
-Date: Fri, 18 Aug 2017 16:34:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD005AE0E@AcuExch.aculab.com>
-References: <20170817170931.24545-1-phil@nwl.cc>
- <20170817170931.24545-5-phil@nwl.cc>
- <063D6719AE5E284EB5DD2968C1650D6DD005A7E9@AcuExch.aculab.com>
- <20170818111613.GH10864@orbyte.nwl.cc>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH v2 4/7] lib/inet_proto: Make sure destination
+ buffers are NULL-terminated
+Date: Fri, 18 Aug 2017 09:37:33 -0700
+Message-ID: <20170818093734.705f6742@xeon-e3>
+References: <20170817170932.24659-1-phil@nwl.cc>
+        <20170817170932.24659-5-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Phil Sutter' <phil@nwl.cc>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:61031 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750949AbdHRQet (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 12:34:49 -0400
-In-Reply-To: <20170818111613.GH10864@orbyte.nwl.cc>
-Content-Language: en-US
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:36390 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750984AbdHRQhm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 12:37:42 -0400
+Received: by mail-pg0-f51.google.com with SMTP id i12so67642234pgr.3
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 09:37:42 -0700 (PDT)
+In-Reply-To: <20170817170932.24659-5-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter
-> Sent: 18 August 2017 12:16
-> On Fri, Aug 18, 2017 at 09:30:35AM +0000, David Laight wrote:
-> > From: Phil Sutter
-> > > Sent: 17 August 2017 18:10
-> > > The later check for 'k[0] != 0' requires a non-empty filter name,
-> > > otherwise NULL pointer dereference in 'q' might happen.
-> > >
-> > > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> > > ---
-> > >  tc/tc_filter.c | 3 +++
-> > >  1 file changed, 3 insertions(+)
-> > >
-> > > diff --git a/tc/tc_filter.c b/tc/tc_filter.c
-> > > index b13fb9185d4fd..a799edb35886d 100644
-> > > --- a/tc/tc_filter.c
-> > > +++ b/tc/tc_filter.c
-> > > @@ -412,6 +412,9 @@ static int tc_filter_get(int cmd, unsigned int flags, int argc, char **argv)
-> > >  			usage();
-> > >  			return 0;
-> > >  		} else {
-> > > +			if (!strlen(*argv))
-> > > +				invarg("invalid filter name", *argv);
-> >
-> > That is nearly as bad as:
-> > 	p[strlen(p)] = 0;
-> 
-> Hey, it's not impossible! I could call tc like so:
-> 
-> | # tc filter get protocol ip prio 1 ""
+On Thu, 17 Aug 2017 19:09:29 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-You missed the point. Just check **argv there is no need to
-determine the length just to check it is non-zero.
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+>  lib/inet_proto.c | 9 ++++++---
+>  1 file changed, 6 insertions(+), 3 deletions(-)
+> 
+> diff --git a/lib/inet_proto.c b/lib/inet_proto.c
+> index ceda082b12a2e..87ed4769fc3da 100644
+> --- a/lib/inet_proto.c
+> +++ b/lib/inet_proto.c
+> @@ -35,8 +35,10 @@ const char *inet_proto_n2a(int proto, char *buf, int len)
+>  	pe = getprotobynumber(proto);
+>  	if (pe) {
+>  		icache = proto;
+> -		strncpy(ncache, pe->p_name, 16);
+> -		strncpy(buf, pe->p_name, len);
+> +		strncpy(ncache, pe->p_name, 15);
+> +		ncache[15] = '\0';
+> +		strncpy(buf, pe->p_name, len - 1);
+> +		buf[len] = '\0';
+>  		return buf;
+>  	}
+>  	snprintf(buf, len, "ipproto-%d", proto);
+> @@ -62,7 +64,8 @@ int inet_proto_a2n(const char *buf)
+>  	pe = getprotobyname(buf);
+>  	if (pe) {
+>  		icache = pe->p_proto;
+> -		strncpy(ncache, pe->p_name, 16);
+> +		strncpy(ncache, pe->p_name, 15);
+> +		ncache[15] = '\0';
+>  		return pe->p_proto;
+>  	}
+>  	return -1;
 
-	David
+Depending on proto name to be 15 characters or less is a silly
+choice. Why not use strdup() and do it right?
