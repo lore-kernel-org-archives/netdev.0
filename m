@@ -1,32 +1,44 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: Fix map-in-map checking in the verifier
-Date: Fri, 18 Aug 2017 10:10:40 +0200
-Message-ID: <5996A100.8070601@iogearbox.net>
-References: <20170818011443.562793-1-kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@fb.com>, kernel-team@fb.com,
-        John Fastabend <john.fastabend@gmail.com>
-To: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] net: sched: fix p_filter_chain check in tcf_chain_flush
+Date: Fri, 18 Aug 2017 10:10:43 +0200
+Message-ID: <20170818081043.2130-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41728 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751687AbdHRIKm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 04:10:42 -0400
-In-Reply-To: <20170818011443.562793-1-kafai@fb.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:33622 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751726AbdHRIKr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 04:10:47 -0400
+Received: by mail-wr0-f195.google.com with SMTP id 5so675859wrz.0
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 01:10:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/18/2017 03:14 AM, Martin KaFai Lau wrote:
-> In check_map_func_compatibility(), a 'break' has been accidentally
-> removed for the BPF_MAP_TYPE_ARRAY_OF_MAPS and BPF_MAP_TYPE_HASH_OF_MAPS
-> cases.  This patch adds it back.
->
-> Fixes: 174a79ff9515 ("bpf: sockmap with sk redirect support")
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-Thanks for spotting!
+The dereference before check is wrong and leads to an oops when
+p_filter_chain is NULL. The check needs to be done on the pointer to
+prevent NULL dereference.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Fixes: f93e1cdcf42c ("net/sched: fix filter flushing")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/sched/cls_api.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index ebeeb87..eef6b07 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -190,7 +190,7 @@ static void tcf_chain_flush(struct tcf_chain *chain)
+ {
+ 	struct tcf_proto *tp;
+ 
+-	if (*chain->p_filter_chain)
++	if (chain->p_filter_chain)
+ 		RCU_INIT_POINTER(*chain->p_filter_chain, NULL);
+ 	while ((tp = rtnl_dereference(chain->filter_chain)) != NULL) {
+ 		RCU_INIT_POINTER(chain->filter_chain, tp->next);
+-- 
+2.9.3
