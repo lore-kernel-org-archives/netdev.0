@@ -1,140 +1,269 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v3 net-next] ipv4: convert dst_metrics.refcnt from atomic_t
- to refcount_t
-Date: Fri, 18 Aug 2017 12:08:07 -0700
-Message-ID: <1503083287.22502.5.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1502911469.4936.148.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1502925599.4936.153.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpWbxs6aa-axQrwN5pipaCDX3ws_08LaQON8p4WfrJ7SDg@mail.gmail.com>
+From: Eric Garver <e@erig.me>
+Subject: Re: [PATCH net-next v4] openvswitch: enable NSH support
+Date: Fri, 18 Aug 2017 15:09:47 -0400
+Message-ID: <20170818190947.GA1479@dev-rhel7>
+References: <1503041071-68753-1-git-send-email-yi.y.yang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, blp@ovn.org,
+        jbenc@redhat.com, jan.scheurich@ericsson.com
+To: Yi Yang <yi.y.yang@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35424 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751744AbdHRTIK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 15:08:10 -0400
-Received: by mail-pg0-f65.google.com with SMTP id t80so10188556pgb.2
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 12:08:10 -0700 (PDT)
-In-Reply-To: <CAM_iQpWbxs6aa-axQrwN5pipaCDX3ws_08LaQON8p4WfrJ7SDg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53114 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751850AbdHRTJp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Aug 2017 15:09:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1503041071-68753-1-git-send-email-yi.y.yang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, Aug 18, 2017 at 03:24:31PM +0800, Yi Yang wrote:
+> v3->v4
+>  - Add new NSH match field ttl
+>  - Update NSH header to the latest format
+>    which will be final format and won't change
+>    per its author's confirmation.
+>  - Fix comments for v3.
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
+Hi Yi,
+Only a few comments below since Jiri already supplied lots of feedback.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-v3: added the include <linux/refcount.h> to be safe (Cong Wang)
-v2: fix a missing change in net/ipv4/fib_semantics.c
+> 
+> v2->v3
+>  - Change OVS_KEY_ATTR_NSH to nested key to handle
+>    length-fixed attributes and length-variable
+>    attriubte more flexibly.
+>  - Remove struct ovs_action_push_nsh completely
+>  - Add code to handle nested attribute for SET_MASKED
+>  - Change PUSH_NSH to use the nested OVS_KEY_ATTR_NSH
+>    to transfer NSH header data.
+>  - Fix comments and coding style issues by Jiri and Eric
+> 
+> v1->v2
+>  - Change encap_nsh and decap_nsh to push_nsh and pop_nsh
+>  - Dynamically allocate struct ovs_action_push_nsh for
+>    length-variable metadata.
+> 
+> OVS master and 2.8 branch has merged NSH userspace
+> patch series, this patch is to enable NSH support
+> in kernel data path in order that OVS can support
+> NSH in 2.8 release in compat mode by porting this.
+> 
+> Signed-off-by: Yi Yang <yi.y.yang@intel.com>
+> ---
+[..]
+> @@ -1210,6 +1373,20 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+>  		case OVS_ACTION_ATTR_POP_ETH:
+>  			err = pop_eth(skb, key);
+>  			break;
+> +
+> +		case OVS_ACTION_ATTR_PUSH_NSH: {
+> +			u8 buffer[256];
 
- include/net/dst.h        |    3 ++-
- net/core/dst.c           |    6 +++---
- net/ipv4/fib_semantics.c |    4 ++--
- net/ipv4/route.c         |    4 ++--
- 4 files changed, 9 insertions(+), 8 deletions(-)
+Use NSH_M_TYPE2_MAX_LEN
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index f73611ec401754d4f52b5310a24da53566dafce6..93568bd0a3520bb7402f04d90cf04ac99c81cfbe 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -14,6 +14,7 @@
- #include <linux/rcupdate.h>
- #include <linux/bug.h>
- #include <linux/jiffies.h>
-+#include <linux/refcount.h>
- #include <net/neighbour.h>
- #include <asm/processor.h>
- 
-@@ -107,7 +108,7 @@ struct dst_entry {
- 
- struct dst_metrics {
- 	u32		metrics[RTAX_MAX];
--	atomic_t	refcnt;
-+	refcount_t	refcnt;
- };
- extern const struct dst_metrics dst_default_metrics;
- 
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 00aa972ad1a1a451c24f3f8211243ad35c19433a..d6ead757c25895da01eb61bc9636c7e9b3cdfb3e 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -55,7 +55,7 @@ const struct dst_metrics dst_default_metrics = {
- 	 * We really want to avoid false sharing on this variable, and catch
- 	 * any writes on it.
- 	 */
--	.refcnt = ATOMIC_INIT(1),
-+	.refcnt = REFCOUNT_INIT(1),
- };
- 
- void dst_init(struct dst_entry *dst, struct dst_ops *ops,
-@@ -213,7 +213,7 @@ u32 *dst_cow_metrics_generic(struct dst_entry *dst, unsigned long old)
- 		struct dst_metrics *old_p = (struct dst_metrics *)__DST_METRICS_PTR(old);
- 		unsigned long prev, new;
- 
--		atomic_set(&p->refcnt, 1);
-+		refcount_set(&p->refcnt, 1);
- 		memcpy(p->metrics, old_p->metrics, sizeof(p->metrics));
- 
- 		new = (unsigned long) p;
-@@ -225,7 +225,7 @@ u32 *dst_cow_metrics_generic(struct dst_entry *dst, unsigned long old)
- 			if (prev & DST_METRICS_READ_ONLY)
- 				p = NULL;
- 		} else if (prev & DST_METRICS_REFCOUNTED) {
--			if (atomic_dec_and_test(&old_p->refcnt))
-+			if (refcount_dec_and_test(&old_p->refcnt))
- 				kfree(old_p);
- 		}
- 	}
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index d521caf57385fa05f76036708057b95052330cb1..394d800db50c77c21b65e14569eb4d8b5246406f 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -220,7 +220,7 @@ static void free_fib_info_rcu(struct rcu_head *head)
- 	} endfor_nexthops(fi);
- 
- 	m = fi->fib_metrics;
--	if (m != &dst_default_metrics && atomic_dec_and_test(&m->refcnt))
-+	if (m != &dst_default_metrics && refcount_dec_and_test(&m->refcnt))
- 		kfree(m);
- 	kfree(fi);
- }
-@@ -1090,7 +1090,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg,
- 			kfree(fi);
- 			return ERR_PTR(err);
- 		}
--		atomic_set(&fi->fib_metrics->refcnt, 1);
-+		refcount_set(&fi->fib_metrics->refcnt, 1);
- 	} else {
- 		fi->fib_metrics = (struct dst_metrics *)&dst_default_metrics;
- 	}
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d400c05431063fc7bdd15b83ab540acc86decb3d..872b4cb136d3fa0cda403836cc83a156a65310a3 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1398,7 +1398,7 @@ static void ipv4_dst_destroy(struct dst_entry *dst)
- 	struct dst_metrics *p = (struct dst_metrics *)DST_METRICS_PTR(dst);
- 	struct rtable *rt = (struct rtable *) dst;
- 
--	if (p != &dst_default_metrics && atomic_dec_and_test(&p->refcnt))
-+	if (p != &dst_default_metrics && refcount_dec_and_test(&p->refcnt))
- 		kfree(p);
- 
- 	if (!list_empty(&rt->rt_uncached)) {
-@@ -1456,7 +1456,7 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
- 		dst_init_metrics(&rt->dst, fi->fib_metrics->metrics, true);
- 		if (fi->fib_metrics != &dst_default_metrics) {
- 			rt->dst._metrics |= DST_METRICS_REFCOUNTED;
--			atomic_inc(&fi->fib_metrics->refcnt);
-+			refcount_inc(&fi->fib_metrics->refcnt);
- 		}
- #ifdef CONFIG_IP_ROUTE_CLASSID
- 		rt->dst.tclassid = nh->nh_tclassid;
+> +			struct nsh_hdr *nsh_hdr = (struct nsh_hdr *)buffer;
+> +			const struct nsh_hdr *nsh_src = nsh_hdr;
+> +
+> +			nsh_hdr_from_nlattr(nla_data(a), nsh_hdr);
+> +			err = push_nsh(skb, key, nsh_src);
+> +			break;
+> +		}
+> +
+> +		case OVS_ACTION_ATTR_POP_NSH:
+> +			err = pop_nsh(skb, key);
+> +			break;
+>  		}
+>  
+>  		if (unlikely(err)) {
+[..]
+> +int nsh_key_from_nlattr(const struct nlattr *attr,
+> +			struct ovs_key_nsh *nsh)
+> +{
+> +	struct nlattr *a;
+> +	int rem;
+> +	bool has_md1 = false;
+> +	bool has_md2 = false;
+> +
+> +	nla_for_each_nested(a, attr, rem) {
+> +		int type = nla_type(a);
+> +
+> +		if (type > OVS_NSH_KEY_ATTR_MAX) {
+> +			OVS_NLERR(1, "nsh attr %d is out of range max %d",
+> +				  type, OVS_NSH_KEY_ATTR_MAX);
+> +			return -EINVAL;
+> +		}
+> +
+> +		if (!check_attr_len(nla_len(a),
+> +				    ovs_nsh_key_attr_lens[type].len)) {
+> +			OVS_NLERR(
+> +			    1,
+> +			    "nsh attr %d has unexpected len %d expected %d",
+> +			    type,
+> +			    nla_len(a),
+> +			    ovs_nsh_key_attr_lens[type].len
+> +			);
+> +			return -EINVAL;
+> +		}
+> +
+> +		switch (type) {
+> +		case OVS_NSH_KEY_ATTR_BASE: {
+> +			const struct ovs_nsh_key_base *base =
+> +				(struct ovs_nsh_key_base *)nla_data(a);
+> +
+> +			memcpy(nsh, base, sizeof(*base));
+> +			break;
+> +		}
+> +		case OVS_NSH_KEY_ATTR_MD1: {
+> +			const struct ovs_nsh_key_md1 *md1 =
+> +				(struct ovs_nsh_key_md1 *)nla_data(a);
+> +
+> +			has_md1 = true;
+> +			memcpy(nsh->context, md1->context, sizeof(*md1));
+> +			break;
+> +		}
+> +		case OVS_NSH_KEY_ATTR_MD2:
+> +			/* Not supported yet */
+
+return -ENOTPSUPP if it's not supported.
+
+> +			has_md2 = true;
+> +			break;
+> +		default:
+> +			OVS_NLERR(1, "Unknown nsh attribute %d",
+> +				  type);
+> +			return -EINVAL;
+> +		}
+> +	}
+> +
+> +	if (rem > 0) {
+> +		OVS_NLERR(1, "nsh attribute has %d unknown bytes.", rem);
+> +		return -EINVAL;
+> +	}
+> +
+> +	if ((has_md1 && nsh->mdtype != NSH_M_TYPE1) ||
+> +	    (has_md2 && nsh->mdtype != NSH_M_TYPE2)) {
+> +		OVS_NLERR(1, "nsh attribute has unmatched MD type %d.",
+> +			  nsh->mdtype);
+> +		return -EINVAL;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static int nsh_key_put_from_nlattr(const struct nlattr *attr,
+> +				   struct sw_flow_match *match, bool is_mask,
+> +				   bool log)
+> +{
+> +	struct nlattr *a;
+> +	int rem;
+> +	bool has_md1 = false;
+> +	bool has_md2 = false;
+> +	u8 mdtype = 0;
+> +
+> +	nla_for_each_nested(a, attr, rem) {
+> +		int type = nla_type(a);
+> +		int i;
+> +
+> +		if (type > OVS_NSH_KEY_ATTR_MAX) {
+> +			OVS_NLERR(log, "nsh attr %d is out of range max %d",
+> +				  type, OVS_NSH_KEY_ATTR_MAX);
+> +			return -EINVAL;
+> +		}
+> +
+> +		if (!check_attr_len(nla_len(a),
+> +				    ovs_nsh_key_attr_lens[type].len)) {
+> +			OVS_NLERR(
+> +			    log,
+> +			    "nsh attr %d has unexpected len %d expected %d",
+> +			    type,
+> +			    nla_len(a),
+> +			    ovs_nsh_key_attr_lens[type].len
+> +			);
+> +			return -EINVAL;
+> +		}
+> +
+> +		switch (type) {
+> +		case OVS_NSH_KEY_ATTR_BASE: {
+> +			const struct ovs_nsh_key_base *base =
+> +				(struct ovs_nsh_key_base *)nla_data(a);
+> +
+> +			mdtype = base->mdtype;
+> +			SW_FLOW_KEY_PUT(match, nsh.flags,
+> +					base->flags, is_mask);
+> +			SW_FLOW_KEY_PUT(match, nsh.ttl,
+> +					base->ttl, is_mask);
+> +			SW_FLOW_KEY_PUT(match, nsh.mdtype,
+> +					base->mdtype, is_mask);
+> +			SW_FLOW_KEY_PUT(match, nsh.np,
+> +					base->np, is_mask);
+> +			SW_FLOW_KEY_PUT(match, nsh.path_hdr,
+> +					base->path_hdr, is_mask);
+> +			break;
+> +		}
+> +		case OVS_NSH_KEY_ATTR_MD1: {
+> +			const struct ovs_nsh_key_md1 *md1 =
+> +				(struct ovs_nsh_key_md1 *)nla_data(a);
+> +
+> +			has_md1 = true;
+> +			for (i = 0; i < NSH_MD1_CONTEXT_SIZE; i++)
+> +				SW_FLOW_KEY_PUT(match, nsh.context[i],
+> +						md1->context[i], is_mask);
+> +			break;
+> +		}
+> +		case OVS_NSH_KEY_ATTR_MD2:
+> +			/* Not supported yet */
+
+return -ENOTPSUPP if it's not supported.
+
+> +			has_md2 = true;
+> +			break;
+> +		default:
+> +			OVS_NLERR(log, "Unknown nsh attribute %d",
+> +				  type);
+> +			return -EINVAL;
+> +		}
+> +	}
+> +
+> +	if (rem > 0) {
+> +		OVS_NLERR(log, "nsh attribute has %d unknown bytes.", rem);
+> +		return -EINVAL;
+> +	}
+> +
+> +	if (!is_mask) {
+> +		if ((has_md1 && mdtype != NSH_M_TYPE1) ||
+> +		    (has_md2 && mdtype != NSH_M_TYPE2)) {
+> +			OVS_NLERR(1, "nsh attribute has unmatched MD type %d.",
+> +				  mdtype);
+> +			return -EINVAL;
+> +		}
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+[..]
+> @@ -2636,6 +2984,17 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
+>  			mac_proto = MAC_PROTO_ETHERNET;
+>  			break;
+>  
+> +		case OVS_ACTION_ATTR_PUSH_NSH:
+
+You need to some validation here, especially the metadata lengths.
+Relying on action_lens is not enough because it's variable.
+
+> +			mac_proto = MAC_PROTO_NONE;
+> +			break;
+> +
+> +		case OVS_ACTION_ATTR_POP_NSH:
+> +			if (key->nsh.np == NSH_P_ETHERNET)
+> +				mac_proto = MAC_PROTO_ETHERNET;
+> +			else
+> +				mac_proto = MAC_PROTO_NONE;
+> +			break;
+> +
+>  		default:
+>  			OVS_NLERR(log, "Unknown Action type %d", type);
+>  			return -EINVAL;
+[..]
