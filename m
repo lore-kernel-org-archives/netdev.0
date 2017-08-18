@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH 3/6] dpaa_eth: enable Rx hashing control
-Date: Fri, 18 Aug 2017 11:56:25 +0300
-Message-ID: <1503046588-24349-4-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH 5/6] Documentation: networking: add RSS information
+Date: Fri, 18 Aug 2017 11:56:27 +0300
+Message-ID: <1503046588-24349-6-git-send-email-madalin.bucur@nxp.com>
 References: <1503046588-24349-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -13,143 +13,103 @@ In-Reply-To: <1503046588-24349-1-git-send-email-madalin.bucur@nxp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow ethtool control of the Rx flow hashing. By default RSS is
-enabled, this allows to turn it off by bypassing the FMan Keygen
-block and sending all traffic on the default Rx frame queue.
-
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c | 113 +++++++++++++++++++++
- 1 file changed, 113 insertions(+)
+ Documentation/networking/dpaa.txt | 68 ++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 67 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-index aad825088..965f652 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-@@ -399,6 +399,117 @@ static void dpaa_get_strings(struct net_device *net_dev, u32 stringset,
- 	memcpy(strings, dpaa_stats_global, size);
- }
+diff --git a/Documentation/networking/dpaa.txt b/Documentation/networking/dpaa.txt
+index 76e016d..f88194f 100644
+--- a/Documentation/networking/dpaa.txt
++++ b/Documentation/networking/dpaa.txt
+@@ -13,6 +13,7 @@ Contents
+ 	- Configuring DPAA Ethernet in your kernel
+ 	- DPAA Ethernet Frame Processing
+ 	- DPAA Ethernet Features
++	- DPAA IRQ Affinity and Receive Side Scaling
+ 	- Debugging
  
-+static int dpaa_get_hash_opts(struct net_device *dev,
-+			      struct ethtool_rxnfc *cmd)
-+{
-+	cmd->data = 0;
+ DPAA Ethernet Overview
+@@ -147,7 +148,10 @@ gradually.
+ 
+ The driver has Rx and Tx checksum offloading for UDP and TCP. Currently the Rx
+ checksum offload feature is enabled by default and cannot be controlled through
+-ethtool.
++ethtool. Also, rx-flow-hash and rx-hashing was added. The addition of RSS
++provides a big performance boost for the forwarding scenarios, allowing
++different traffic flows received by one interface to be processed by different
++CPUs in parallel.
+ 
+ The driver has support for multiple prioritized Tx traffic classes. Priorities
+ range from 0 (lowest) to 3 (highest). These are mapped to HW workqueues with
+@@ -166,6 +170,68 @@ classes as follows:
+ tc qdisc add dev <int> root handle 1: \
+ 	 mqprio num_tc 4 map 0 0 0 0 1 1 1 1 2 2 2 2 3 3 3 3 hw 1
+ 
++DPAA IRQ Affinity and Receive Side Scaling
++==========================================
 +
-+	switch (cmd->flow_type) {
-+	case TCP_V4_FLOW:
-+	case TCP_V6_FLOW:
-+	case UDP_V4_FLOW:
-+	case UDP_V6_FLOW:
-+		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		/* Fall through */
-+	case IPV4_FLOW:
-+	case IPV6_FLOW:
-+	case SCTP_V4_FLOW:
-+	case SCTP_V6_FLOW:
-+	case AH_ESP_V4_FLOW:
-+	case AH_ESP_V6_FLOW:
-+	case AH_V4_FLOW:
-+	case AH_V6_FLOW:
-+	case ESP_V4_FLOW:
-+	case ESP_V6_FLOW:
-+		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
-+		break;
-+	default:
-+		cmd->data = 0;
-+		break;
-+	}
++Traffic coming on the DPAA Rx queues or on the DPAA Tx confirmation
++queues is seen by the CPU as ingress traffic on a certain portal.
++The DPAA QMan portal interrupts are affined each to a certain CPU.
++The same portal interrupt services all the QMan portal consumers.
 +
-+	return 0;
-+}
++By default the DPAA Ethernet driver enables RSS, making use of the
++DPAA FMan Parser and Keygen blocks to distribute traffic on 128
++hardware frame queues using a hash on IP v4/v6 source and destination
++and L4 source and destination ports, in present in the received frame.
++When RSS is disabled, all traffic received by a certain interface is
++received on the default Rx frame queue. The default DPAA Rx frame
++queues are configured to put the received traffic into a pool channel
++that allows any available CPU portal to dequeue the ingress traffic.
++The default frame queues have the HOLDACTIVE option set, ensuring that
++traffic bursts from a certain queue are serviced by the same CPU.
++This ensures a very low rate of frame reordering. A drawback of this
++is that only one CPU at a time can service the traffic received by a
++certain interface when RSS is not enabled.
 +
-+static int dpaa_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
-+			  u32 *unused)
-+{
-+	int ret = -EOPNOTSUPP;
++To implement RSS, the DPAA Ethernet driver allocates an extra set of
++128 Rx frame queues that are configured to dedicated channels, in a
++round-robin manner. The mapping of the frame queues to CPUs is now
++hardcoded, there is no indirection table to move traffic for a certain
++FQ (hash result) to another CPU. The ingress traffic arriving on one
++of these frame queues will arrive at the same portal and will always
++be processed by the same CPU. This ensures intra-flow order preservation
++and workload distribution for multiple traffic flows.
 +
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXFH:
-+		ret = dpaa_get_hash_opts(dev, cmd);
-+		break;
-+	default:
-+		break;
-+	}
++RSS can be turned off for a certain interface using ethtool, i.e.
 +
-+	return ret;
-+}
++	# ethtool -N fm1-mac9 rx-flow-hash tcp4 ""
 +
-+static void dpaa_set_hash(struct net_device *net_dev, bool enable)
-+{
-+	struct mac_device *mac_dev;
-+	struct fman_port *rxport;
-+	struct dpaa_priv *priv;
++To turn it back on, one needs to set rx-flow-hash for tcp4/6 or udp4/6:
 +
-+	priv = netdev_priv(net_dev);
-+	mac_dev = priv->mac_dev;
-+	rxport = mac_dev->port[0];
++	# ethtool -N fm1-mac9 rx-flow-hash udp4 sfdn
 +
-+	fman_port_use_kg_hash(rxport, enable);
-+}
++There is no independent control for individual protocols, any command
++run for one of tcp4|udp4|ah4|esp4|sctp4|tcp6|udp6|ah6|esp6|sctp6 is
++going to control the rx-flow-hashing for all protocols on that interface.
 +
-+static int dpaa_set_hash_opts(struct net_device *dev,
-+			      struct ethtool_rxnfc *nfc)
-+{
-+	int ret = -EINVAL;
++Besides using the FMan Keygen computed hash for spreading traffic on the
++128 Rx FQs, the DPAA Ethernet driver also sets the skb hash value when
++the NETIF_F_RXHASH feature is on (active by default). This can be turned
++on or off through ethtool, i.e.:
 +
-+	/* we support hashing on IPv4/v6 src/dest IP and L4 src/dest port */
-+	if (nfc->data &
-+	    ~(RXH_IP_SRC | RXH_IP_DST | RXH_L4_B_0_1 | RXH_L4_B_2_3))
-+		return -EINVAL;
++	# ethtool -K fm1-mac9 rx-hashing off
++	# ethtool -k fm1-mac9 | grep hash
++	receive-hashing: off
++	# ethtool -K fm1-mac9 rx-hashing on
++	Actual changes:
++	receive-hashing: on
++	# ethtool -k fm1-mac9 | grep hash
++	receive-hashing: on
 +
-+	switch (nfc->flow_type) {
-+	case TCP_V4_FLOW:
-+	case TCP_V6_FLOW:
-+	case UDP_V4_FLOW:
-+	case UDP_V6_FLOW:
-+	case IPV4_FLOW:
-+	case IPV6_FLOW:
-+	case SCTP_V4_FLOW:
-+	case SCTP_V6_FLOW:
-+	case AH_ESP_V4_FLOW:
-+	case AH_ESP_V6_FLOW:
-+	case AH_V4_FLOW:
-+	case AH_V6_FLOW:
-+	case ESP_V4_FLOW:
-+	case ESP_V6_FLOW:
-+		dpaa_set_hash(dev, !!nfc->data);
-+		ret = 0;
-+		break;
-+	default:
-+		break;
-+	}
++Please note that Rx hashing depends upon the rx-flow-hashing being on
++for that interface - turning off rx-flow-hashing will also disable the
++rx-hashing (without ethtool reporting it as off as that depends on the
++NETIF_F_RXHASH feature flag).
 +
-+	return ret;
-+}
-+
-+static int dpaa_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
-+{
-+	int ret = -EOPNOTSUPP;
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_SRXFH:
-+		ret = dpaa_set_hash_opts(dev, cmd);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- const struct ethtool_ops dpaa_ethtool_ops = {
- 	.get_drvinfo = dpaa_get_drvinfo,
- 	.get_msglevel = dpaa_get_msglevel,
-@@ -412,4 +523,6 @@ const struct ethtool_ops dpaa_ethtool_ops = {
- 	.get_strings = dpaa_get_strings,
- 	.get_link_ksettings = dpaa_get_link_ksettings,
- 	.set_link_ksettings = dpaa_set_link_ksettings,
-+	.get_rxnfc = dpaa_get_rxnfc,
-+	.set_rxnfc = dpaa_set_rxnfc,
- };
+ Debugging
+ =========
+ 
 -- 
 2.1.0
