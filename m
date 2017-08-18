@@ -1,50 +1,40 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 net-next] net: ipv6: put host and anycast routes on device with address
-Date: Fri, 18 Aug 2017 19:15:31 -0400
-Message-ID: <87wp60lb70.fsf@stressinduktion.org>
-References: <1502997440-32334-1-git-send-email-dsahern@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/1] net/mlx4_core: Enable 4K UAR if SRIOV module
+ parameter is not enabled
+Date: Fri, 18 Aug 2017 16:16:07 -0700 (PDT)
+Message-ID: <20170818.161607.1630814326634748163.davem@davemloft.net>
+References: <20170817152952.21592-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: David Ahern <dsahern@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kamalh@mellanox.com, huyn@mellanox.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:36895 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751060AbdHRXPd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 19:15:33 -0400
-In-Reply-To: <1502997440-32334-1-git-send-email-dsahern@gmail.com> (David
-        Ahern's message of "Thu, 17 Aug 2017 12:17:20 -0700")
+Received: from shards.monkeyblade.net ([184.105.139.130]:34726 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751107AbdHRXQI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 19:16:08 -0400
+In-Reply-To: <20170817152952.21592-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Thu, 17 Aug 2017 18:29:52 +0300
 
-David Ahern <dsahern@gmail.com> writes:
+> From: Huy Nguyen <huyn@mellanox.com>
+> 
+> enable_4k_uar module parameter was added in patch cited below to
+> address the backward compatibility issue in SRIOV when the VM has
+> system's PAGE_SIZE uar implementation and the Hypervisor has 4k uar
+> implementation.
+> 
+> The above compatibility issue does not exist in the non SRIOV case.
+> In this patch, we always enable 4k uar implementation if SRIOV
+> is not enabled on mlx4's supported cards.
+> 
+> Fixes: 76e39ccf9c36 ("net/mlx4_core: Fix backward compatibility on VFs")
+> Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+> Reviewed-by: Daniel Jurgens <danielj@mellanox.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 
-> @@ -2688,15 +2716,9 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
->  {
->  	u32 tb_id;
->  	struct net *net = dev_net(idev->dev);
-> -	struct net_device *dev = net->loopback_dev;
-> +	struct net_device *dev = idev->dev;
->  	struct rt6_info *rt;
->  
-> -	/* use L3 Master device as loopback for host routes if device
-> -	 * is enslaved and address is not link local or multicast
-> -	 */
-> -	if (!rt6_need_strict(addr))
-> -		dev = l3mdev_master_dev_rcu(idev->dev) ? : dev;
-> -
->  	rt = ip6_dst_alloc(net, dev, DST_NOCOUNT);
->  	if (!rt)
->  		return ERR_PTR(-ENOMEM);
-
-I am afraid this change might break Java:
-
-<http://hg.openjdk.java.net/jdk9/jdk9/jdk/file/65464a307408/src/java.base/unix/native/libnet/net_util_md.c#l574>
-
-I am all in for this change, but maybe it might be necessary to mask
-RTF_LOCAL routes with "lo" somehow.
-
-Bye,
-Hannes
+Applied and queued up for -stable, thanks.
