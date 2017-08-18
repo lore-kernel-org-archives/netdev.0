@@ -1,101 +1,109 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH] vsock: only load vmci transport on VMware hypervisor by
- default
-Date: Fri, 18 Aug 2017 03:07:30 +0000
-Message-ID: <KL1P15301MB0008A67BF969A47309CFA992BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
-References: <KL1P15301MB0008F70D4E5248AB7A296CE3BF830@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170817135559.GG5539@stefanha-x1.localdomain>
- <04460E3B-B213-4090-96CD-00CEEBE6AC32@vmware.com>
+From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH v3 net-next] bpf/verifier: track liveness
+	for pruning
+Date: Thu, 17 Aug 2017 20:21:41 -0700
+Message-ID: <89ff34f7-84ee-0e0a-3766-5b4d046189bf@fb.com>
+References: <f40d3d54-c88a-7348-99ca-66db8075a8d5@solarflare.com>
+Reply-To: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Michal Kubecek <mkubecek@suse.cz>, "joe@perches.com" <joe@perches.com>,
- "olaf@aepfle.de" <olaf@aepfle.de>, Stephen Hemminger <sthemmin@microsoft.com>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Haiyang
- Zhang <haiyangz@microsoft.com>, Dave Scott <dave.scott@docker.com>,
- "apw@canonical.com" <apw@canonical.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Vitaly Kuznetsov <vkuznets@redhat.com>,
- Rolf Neugebauer <rolf.neugebauer@docker.com>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- Marcelo Cerri <marcelo.cerri@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Asias He <asias@redhat.com>, "davem@davemloft.net" <davem@davemloft.net>,
- George Zhang <georgezhang@vmware.com>,
- Dan Carpenter <dan.carpenter@oracle.com>
-To: "Jorgen S. Hansen" <jhansen@vmware.com>, Stefan Hajnoczi
- <stefanha@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <04460E3B-B213-4090-96CD-00CEEBE6AC32@vmware.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei
+	Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Daniel Borkmann
+	<daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <f40d3d54-c88a-7348-99ca-66db8075a8d5-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-PiBGcm9tOiBKb3JnZW4gUy4gSGFuc2VuIFttYWlsdG86amhhbnNlbkB2bXdhcmUuY29tXQ0KPiBT
-ZW50OiBUaHVyc2RheSwgQXVndXN0IDE3LCAyMDE3IDA4OjE3DQo+ID4NCj4gPiBQdXR0aW5nIGFz
-aWRlIG5lc3RlZCB2aXJ0dWFsaXphdGlvbiwgSSB3YW50IHRvIGxvYWQgdGhlIHRyYW5zcG9ydCAo
-dm1jaSwNCj4gPiBIeXBlci1WLCB2c29jaykgZm9yIHdoaWNoIHRoZXJlIGlzIHBhcmF2aXJ0dWFs
-aXplZCBoYXJkd2FyZSBwcmVzZW50DQo+ID4gaW5zaWRlIHRoZSBndWVzdC4NCj4gDQo+IEdvb2Qg
-cG9pbnRzLiBDb21wbGV0ZWx5IGFncmVlIHRoYXQgdGhpcyBpcyB0aGUgZGVzaXJlZCBiZWhhdmlv
-ciBmb3IgYSBndWVzdC4NCj4gDQo+IA0KPiA+IEl0J3MgYSBsaXR0bGUgdHJpY2tlciBvbiB0aGUg
-aG9zdCBzaWRlIChkb2Vzbid0IG1hdHRlciBmb3IgSHlwZXItViBhbmQNCj4gPiBwcm9iYWJseSBh
-bHNvIGRvZXNuJ3QgZm9yIFZNd2FyZSkgYmVjYXVzZSB0aGUgaG9zdC1zaWRlIGRyaXZlciBpcyBh
-DQo+ID4gc29mdHdhcmUgZGV2aWNlIHdpdGggbm8gaGFyZHdhcmUgYmFja2luZyBpdC4gIEluIEtW
-TSB3ZSBhc3N1bWUgdGhlDQo+ID4gdmhvc3RfdnNvY2sua28ga2VybmVsIG1vZHVsZSB3aWxsIGJl
-IGxvYWRlZCBzdWZmaWNpZW50bHkgZWFybHkuDQo+IA0KPiBTaW5jZSB0aGUgdm1jaSBkcml2ZXIg
-aXMgY3VycmVudGx5IHRpZWQgdG8gUEZfVlNPQ0sgaXQgaGFzbuKAmXQgYmVlbiBhIHByb2JsZW0s
-DQo+IGJ1dCBvbiB0aGUgaG9zdCBzaWRlIHRoZSBWTUNJIGRyaXZlciBoYXMgbm8gaGFyZHdhcmUg
-YmFja2luZyBpdCBlaXRoZXIsIHNvDQo+IHdoZW4gd2UgbW92ZSB0byBhIG1vcmUgYXBwcm9wcmlh
-dGUgc29sdXRpb24sIHRoaXMgd2lsbCBiZSBhbiBpc3N1ZSBmb3IgVk1DSSBhcw0KPiB3ZWxsLiBJ
-4oCZbGwgY2hlY2sgb3VyIHNoaXBwZWQgcHJvZHVjdHMsIGJ1dCB0aGV5IG1vc3QgbGlrZWx5IGFz
-c3VtZSB0aGF0IGlmIGFuDQo+IHVwc3RyZWFtZWQgdm1jaSBtb2R1bGUgaXMgcHJlc2VudCwgaXQg
-d2lsbCBiZSBsb2FkZWQgYXV0b21hdGljYWxseS4NCg0KSHlwZXItViBTb2NrZXRzIGlzIGEgc3Rh
-bmRhcmQgZmVhdHVyZSBvZiBWTUJ1cyB2NC4wLCBzbyB3ZSBjYW4gZWFzaWx5IGtub3cNCndlIGNh
-biBhbmQgc2hvdWxkIGxvYWQgaWZmIHZtYnVzX3Byb3RvX3ZlcnNpb24gPj0gVkVSU0lPTl9XSU4x
-MC4NCg0KPiA+IFRoaW5ncyBnZXQgdHJpY2tpZXIgd2l0aCBuZXN0ZWQgdmlydHVhbGl6YXRpb24g
-YmVjYXVzZSB0aGUgVk0gbWlnaHQgd2FudA0KPiA+IHRvIHRhbGsgdG8gaXRzIGhvc3QgYnV0IGFs
-c28gdG8gaXRzIG5lc3RlZCBWTXMuICBUaGUgc2ltcGxlIHdheSBvZg0KPiA+IGZpeGluZyB0aGlz
-IHdvdWxkIGJlIHRvIGFsbG93IHR3byB0cmFuc3BvcnRzIGxvYWRlZCBzaW11bHRhbmVvdXNseSBh
-bmQNCj4gPiByb3V0ZSB0cmFmZmljIGRlc3RpbmVkIHRvIENJRCAyIHRvIHRoZSBob3N0IHRyYW5z
-cG9ydCBhbmQgYWxsIG90aGVyDQo+ID4gdHJhZmZpYyB0byB0aGUgZ3Vlc3QgdHJhbnNwb3J0Lg0K
-DQpUaGlzIHNvdW5kcyBsaWtlIGEgbGl0dGxlIHRyaWNreSB0byBtZS4NCkNJRCBpcyBub3QgcmVh
-bGx5IHVzZWQgYnkgdXMsIGJlY2F1c2Ugd2Ugb25seSBzdXBwb3J0IGd1ZXN0PC0+aG9zdCBjb21t
-dW5pY2F0aW9uLA0KYW5kIGRvbid0IHN1cHBvcnQgZ3Vlc3Q8LT5ndWVzdCBjb21tdW5pY2F0aW9u
-LiBUaGUgSHlwZXItViBob3N0IHJlZmVyZW5jZXMNCmV2ZXJ5IFZNIGJ5IFZtSUQgKHdoaWNoIGlz
-IGludmlzaWJsZSB0byB0aGUgVk0pLCBhbmQgYSBWTSBjYW4gb25seSB0YWxrIHRvIHRoZQ0KaG9z
-dCB2aWEgdGhpcyBmZWF0dXJlLg0KDQo+IFRoaXMgaXMgY2xvc2UgdG8gdGhlIHJvdXRpbmcgdGhl
-IFZNQ0kgZHJpdmVyIGRvZXMgaW4gYSBuZXN0ZWQgZW52aXJvbm1lbnQsIGJ1dA0KPiB0aGF0IGlz
-IHdpdGggdGhlIGFzc3VtcHRpb24gdGhhdCB0aGVyZSBpcyBvbmx5IG9uZSB0eXBlIG9mIHRyYW5z
-cG9ydC4gSGF2aW5nIHR3bw0KPiBkaWZmZXJlbnQgdHJhbnNwb3J0cyB3b3VsZCByZXF1aXJlIHRo
-YXQgd2UgZGVsYXkgcmVzb2x2aW5nIHRoZSB0cmFuc3BvcnQgdHlwZQ0KPiB1bnRpbCB0aGUgc29j
-a2V0IGVuZHBvaW50IGhhcyBiZWVuIGJvdW5kIHRvIGFuIGFkZHJlc3MuIFRoaW5ncyBnZXQgdHJp
-Y2tpZXIgaWYNCj4gbGlzdGVuaW5nIHNvY2tldHMgdXNlIFZNQUREUl9DSURfQU5ZIC0gaWYgb25s
-eSBvbmUgdHJhbnNwb3J0IGlzIHByZXNlbnQsIHRoaXMNCj4gd291bGQgYWxsb3cgdGhlIHNvY2tl
-dCB0byBhY2NlcHQgY29ubmVjdGlvbnMgZnJvbSBib3RoIGd1ZXN0cyBhbmQgb3V0ZXIgaG9zdCwN
-Cj4gYnV0IHdpdGggbXVsdGlwbGUgdHJhbnNwb3J0cyB0aGF0IHdvbuKAmXQgd29yaywgc2luY2Ug
-d2UgY2Fu4oCZdCBhc3NvY2lhdGUgYSBzb2NrZXQNCj4gd2l0aCBhIHRyYW5zcG9ydCB1bnRpbCB0
-aGUgc29ja2V0IGlzIGJvdW5kLg0KPiANCj4gPg0KPiA+IFBlcmhhcHMgd2Ugc2hvdWxkIGRpc2N1
-c3MgdGhlc2UgY2FzZXMgYSBiaXQgbW9yZSB0byBmaWd1cmUgb3V0IGhvdyB0bw0KPiA+IGF2b2lk
-IGNvbmZsaWN0cyBvdmVyIE1PRFVMRV9BTElBU19ORVRQUk9UTyhQRl9WU09DSykuDQo+IA0KPiBB
-Z3JlZWQuDQoNCkNhbiB3ZSB1c2UgdGhlICdwcm90b2NvbCcgcGFyYW1ldGVyIGluIHRoZSBzb2Nr
-ZXQoKSBmdW5jdGlvbjoNCmludCBzb2NrZXQoaW50IGRvbWFpbiwgaW50IHR5cGUsIGludCBwcm90
-b2NvbCkgDQoNCklNTyBjdXJyZW50bHkgdGhlICdwcm90b2NvbCcgaXMgbm90IHJlYWxseSB1c2Vk
-Lg0KSSB0aGluayB3ZSBjYW4gbW9kaWZ5IF9fdnNvY2tfY29yZV9pbml0KCkgdG8gYWxsb3cgbXVs
-dGlwbGUgdHJhbnNwb3J0IGxheWVycyB0bw0KIGJlIHJlZ2lzdGVyZWQsIGFuZCB3ZSBjYW4gZGVm
-aW5lIGRpZmZlcmVudCAncHJvdG9jb2wnIG51bWJlcnMgZm9yDQpWTXdhcmUvS1ZNL0h5cGVyLVYs
-IGFuZCBhc2sgdGhlIGFwcGxpY2F0aW9uIHRvIGV4cGxpY2l0bHkgc3BlY2lmeSB3aGF0IHNob3Vs
-ZA0KYmUgdXNlZC4gQ29uc2lkZXJpbmcgY29tcGF0aWJpbGl0eSwgd2UgY2FuIHVzZSB0aGUgZGVm
-YXVsdCB0cmFuc3BvcnQgaW4gYSBnaXZlbg0KVk0gZGVwZW5kaW5nIG9uIHRoZSB1bmRlcmx5aW5n
-IGh5cGVydmlzb3IuIA0KDQotLSBEZXh1YW4NCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCmRldmVsIG1haWxpbmcgbGlzdApkZXZlbEBsaW51eGRyaXZlcnBy
-b2plY3Qub3JnCmh0dHA6Ly9kcml2ZXJkZXYubGludXhkcml2ZXJwcm9qZWN0Lm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL2RyaXZlcmRldi1kZXZlbAo=
+On 8/15/17 12:34 PM, Edward Cree wrote:
+> State of a register doesn't matter if it wasn't read in reaching an exit;
+>  a write screens off all reads downstream of it from all explored_states
+>  upstream of it.
+> This allows us to prune many more branches; here are some processed insn
+>  counts for some Cilium programs:
+> Program                  before  after
+> bpf_lb_opt_-DLB_L3.o       6515   3361
+> bpf_lb_opt_-DLB_L4.o       8976   5176
+> bpf_lb_opt_-DUNKNOWN.o     2960   1137
+> bpf_lxc_opt_-DDROP_ALL.o  95412  48537
+> bpf_lxc_opt_-DUNKNOWN.o  141706  78718
+> bpf_netdev.o              24251  17995
+> bpf_overlay.o             10999   9385
+>
+> The runtime is also improved; here are 'time' results in ms:
+> Program                  before  after
+> bpf_lb_opt_-DLB_L3.o         24      6
+> bpf_lb_opt_-DLB_L4.o         26     11
+> bpf_lb_opt_-DUNKNOWN.o       11      2
+> bpf_lxc_opt_-DDROP_ALL.o   1288    139
+> bpf_lxc_opt_-DUNKNOWN.o    1768    234
+> bpf_netdev.o                 62     31
+> bpf_overlay.o                15     13
+>
+> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+
+this is one ingenious hack. Love it!
+I took me whole day to understand most of it, but I still have
+few questions:
+
+> +
+> +static void propagate_liveness(const struct bpf_verifier_state *state,
+> +			       struct bpf_verifier_state *parent)
+
+here the name 'parent' is very confusing, since for the first
+iteration of the loop below it transfers lives from 'neighbor'
+state to the current state and only then traverses the link
+of parents in the current.
+Would be good to document it, since I was struggling the most
+with this name until I realized that the way you build parent link list
+in is_state_visited() is actual sequence of roughly basic blocks and
+the name 'parent' applies there, but not for the first iteration
+of this function.
+
+> @@ -3407,6 +3501,14 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
+>  	memcpy(&new_sl->state, &env->cur_state, sizeof(env->cur_state));
+>  	new_sl->next = env->explored_states[insn_idx];
+>  	env->explored_states[insn_idx] = new_sl;
+> +	/* connect new state to parentage chain */
+> +	env->cur_state.parent = &new_sl->state;
+> +	/* clear liveness marks in current state */
+> +	for (i = 0; i < BPF_REG_FP; i++)
+> +		env->cur_state.regs[i].live = REG_LIVE_NONE;
+> +	for (i = 0; i < MAX_BPF_STACK / BPF_REG_SIZE; i++)
+> +		if (env->cur_state.stack_slot_type[i * BPF_REG_SIZE] == STACK_SPILL)
+> +			env->cur_state.spilled_regs[i].live = REG_LIVE_NONE;
+
+and this part I don't get at all.
+It seems you're trying to sort-of do per-fake-basic block liveness
+analysis, but our state_list_marks are not correct if we go with
+canonical basic block definition, since we mark the jump insn and
+not insn after the branch and not every basic block boundary is
+properly detected.
+So if algorithm should only work for basic blocks (for sequences of
+instructions without control flow changes) then it's broken.
+If it should work with control flow insns then it should also work
+for the whole chain of insns from the first one till bpf_exit...
+So I tried removing two above clearing loops and results are much
+better:
+                         before  after
+bpf_lb-DLB_L3.o         2604    1120
+bpf_lb-DLB_L4.o         11159   1371
+bpf_lb-DUNKNOWN.o       1116    485
+bpf_lxc-DDROP_ALL.o     34566   12758
+bpf_lxc-DUNKNOWN.o      53267   18337
+bpf_netdev.o            17843   10564
+bpf_overlay.o           8672    5513
+
+but it feels too good to be true and probably not correct.
+So either way we need to fix something it seems.
