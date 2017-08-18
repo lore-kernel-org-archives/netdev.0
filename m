@@ -1,219 +1,106 @@
-From: Chen-Yu Tsai <wens@csie.org>
-Subject: Re: [PATCH v3 4/4] dt-bindings: net: dwmac-sun8i: update
- documentation about integrated PHY
-Date: Sat, 19 Aug 2017 00:57:07 +0800
-Message-ID: <CAGb2v67tHYh3hcC58kw_8cGHpMm56Swfy67OUq7vxBqmr6ERfw@mail.gmail.com>
-References: <20170818122118.4925-1-clabbe.montjoie@gmail.com> <20170818122118.4925-5-clabbe.montjoie@gmail.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH V2 net-next] net: hns3: Add support to change MTU in HNS3 hardware
+Date: Fri, 18 Aug 2017 17:57:59 +0100
+Message-ID: <20170818165759.20152-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Maxime Ripard <maxime.ripard@free-electrons.com>,
-        Chen-Yu Tsai <wens@csie.org>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        devicetree <devicetree@vger.kernel.org>,
-        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <lipeng321@huawei.com>, <mehta.salil.lnk@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-rdma@vger.kernel.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170818122118.4925-5-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 18, 2017 at 8:21 PM, Corentin Labbe
-<clabbe.montjoie@gmail.com> wrote:
-> This patch add documentation about the MDIO switch used on sun8i-h3-emac
-> for integrated PHY.
->
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> ---
->  .../devicetree/bindings/net/dwmac-sun8i.txt        | 112 +++++++++++++++++++--
->  1 file changed, 105 insertions(+), 7 deletions(-)
->
-> diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> index 725f3b187886..631084122532 100644
-> --- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> @@ -39,7 +39,7 @@ Optional properties for the following compatibles:
->  - allwinner,leds-active-low: EPHY LEDs are active low
->
->  Required child node of emac:
-> -- mdio bus node: should be named mdio
-> +- mdio bus node: should be named mdio (or mdio_parent in case of H3)
+This patch adds the following support to the HNS3 driver:
+1. Support to change the Maximum Transmission Unit of a
+   of a port in the HNS NIC hardware .
+2. Initializes the supported MTU range for the netdevice.
 
-The node would still be named "mdio". You are confusing the node name
-with the label. But you don't really need the mdio node for the H3.
-You could say here that it is not needed for the H3. See below.
+Signed-off-by: lipeng <lipeng321@huawei.com>
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+---
+PATCH V2: Addresses comments given by Andrew Lunn
+          1. https://lkml.org/lkml/2017/8/18/282
+PATCH V1: Initial Submit
+---
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 38 ++++++++++++++++++++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |  1 +
+ 2 files changed, 39 insertions(+)
 
->
->  Required properties of the mdio node:
->  - #address-cells: shall be 1
-> @@ -48,14 +48,21 @@ Required properties of the mdio node:
->  The device node referenced by "phy" or "phy-handle" should be a child node
->  of the mdio node. See phy.txt for the generic PHY bindings.
->
-> -Required properties of the phy node with the following compatibles:
-> +Required mdio-mux nodes for the following compatibles:
-
-The following compatibles require an mdio-mux node:
-
-> +  - "allwinner,sun8i-h3-emac",
-
-Drop the comma. It's already a list.
-
-> +- a mdio-mux node with compatible = "allwinner,sun8i-h3-mdio-switch"
-
-Required properties for the mdio-mux node:
-  - compatible: "allwinner,sun8i-h3-mdio-switch"
-
-> +  - mdio-parent-bus: The parent bus is "mdio_parent"
-
-This is optional in the mdio-mux binding. Since you have the mdio-mux under
-the EMAC node, it should be obvious that it is connected to the EMAC. The
-parent phandle is more useful for muxes that are separate from the controller,
-such as an external GPIO-controlled mux. So you could just drop it.
-
-> +  - two child mdio, one for the integrated mdio, one for the external mdio
-> +
-> +Required properties of the integrated phy node with the following compatibles:
-
-The following compatibles require a PHY node representing the integrated
-PHY, under the integrated MDIO bus node if an mdio-mux node is used:
-
->    - "allwinner,sun8i-h3-emac",
->    - "allwinner,sun8i-v3s-emac":
-
-Required properties of the integrated PHY node:
-
->  - clocks: a phandle to the reference clock for the EPHY
->  - resets: a phandle to the reset control for the EPHY
-> +- phy-is-integrated
-> +- Should be a child of the integrated mdio
->
-> -Example:
-> -
-> +Example with integrated PHY:
->  emac: ethernet@1c0b000 {
->         compatible = "allwinner,sun8i-h3-emac";
->         syscon = <&syscon>;
-> @@ -75,10 +82,101 @@ emac: ethernet@1c0b000 {
->         mdio: mdio {
->                 #address-cells = <1>;
->                 #size-cells = <0>;
-> -               int_mii_phy: ethernet-phy@1 {
-> +       };
-> +       mdio-mux {
-
-Drop the mdio node as mentioned above. And also have spaces between
-blocks to be consistent in styling. It's also easier to read.
-
-> +               compatible = "allwinner,sun8i-h3-mdio-switch";
-> +               mdio-parent-bus = <&mdio>;
-> +               #address-cells = <1>;
-> +               #size-cells = <0>;
-> +
-> +               int_mdio: mdio@1 {
-> +                       reg = <1>;
-> +                       #address-cells = <1>;
-> +                       #size-cells = <0>;
-> +                       int_mii_phy: ethernet-phy@1 {
-> +                               reg = <1>;
-> +                               clocks = <&ccu CLK_BUS_EPHY>;
-> +                               resets = <&ccu RST_BUS_EPHY>;
-> +                               phy-is-integrated
-> +                       };
-> +               };
-> +               ext_mdio: mdio@0 {
-> +                       reg = <0>;
-> +                       #address-cells = <1>;
-> +                       #size-cells = <0>;
-> +               };
-> +};
-> +
-> +Example with external PHY:
-> +emac: ethernet@1c0b000 {
-> +       compatible = "allwinner,sun8i-h3-emac";
-> +       syscon = <&syscon>;
-> +       reg = <0x01c0b000 0x104>;
-> +       interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> +       interrupt-names = "macirq";
-> +       resets = <&ccu RST_BUS_EMAC>;
-> +       reset-names = "stmmaceth";
-> +       clocks = <&ccu CLK_BUS_EMAC>;
-> +       clock-names = "stmmaceth";
-> +       #address-cells = <1>;
-> +       #size-cells = <0>;
-> +
-> +       phy-handle = <&ext_rgmii_phy>;
-> +       phy-mode = "rgmii";
-> +       allwinner,leds-active-low;
-
-You don't need this when using the external PHY.
-
-Regards
-ChenYu
-
-> +       mdio: mdio {
-> +               #address-cells = <1>;
-> +               #size-cells = <0>;
-> +       };
-> +       mdio-mux {
-> +               compatible = "allwinner,sun8i-h3-mdio-switch";
-> +               mdio-parent-bus = <&mdio>;
-> +               #address-cells = <1>;
-> +               #size-cells = <0>;
-> +
-> +               int_mdio: mdio@1 {
-> +                       reg = <1>;
-> +                       #address-cells = <1>;
-> +                       #size-cells = <0>;
-> +                       int_mii_phy: ethernet-phy@1 {
-> +                               reg = <1>;
-> +                               clocks = <&ccu CLK_BUS_EPHY>;
-> +                               resets = <&ccu RST_BUS_EPHY>;
-> +                               phy-is-integrated
-> +                       };
-> +               };
-> +               ext_mdio: mdio@0 {
-> +                       reg = <0>;
-> +                       #address-cells = <1>;
-> +                       #size-cells = <0>;
-> +                       ext_rgmii_phy: ethernet-phy@1 {
-> +                               reg = <1>;
-> +                       };
-> +               };
-> +};
-> +
-> +Example with SoC without integrated PHY
-> +
-> +emac: ethernet@1c0b000 {
-> +       compatible = "allwinner,sun8i-a83t-emac";
-> +       syscon = <&syscon>;
-> +       reg = <0x01c0b000 0x104>;
-> +       interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> +       interrupt-names = "macirq";
-> +       resets = <&ccu RST_BUS_EMAC>;
-> +       reset-names = "stmmaceth";
-> +       clocks = <&ccu CLK_BUS_EMAC>;
-> +       clock-names = "stmmaceth";
-> +       #address-cells = <1>;
-> +       #size-cells = <0>;
-> +
-> +       phy-handle = <&ext_rgmii_phy>;
-> +       phy-mode = "rgmii";
-> +       mdio: mdio {
-> +               #address-cells = <1>;
-> +               #size-cells = <0>;
-> +               ext_rgmii_phy: ethernet-phy@1 {
->                         reg = <1>;
-> -                       clocks = <&ccu CLK_BUS_EPHY>;
-> -                       resets = <&ccu RST_BUS_EPHY>;
->                 };
->         };
->  };
-> --
-> 2.13.0
->
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index e731f87..d905ea1 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -1278,11 +1278,46 @@ static int hns3_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan,
+ 	return ret;
+ }
+ 
++static int hns3_nic_change_mtu(struct net_device *netdev, int new_mtu)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	bool if_running = netif_running(netdev);
++	int ret;
++
++	if (!h->ae_algo->ops->set_mtu)
++		return -ENOTSUPP;
++
++	/* if this was called with netdev up then bring netdevice down */
++	if (if_running) {
++		(void)hns3_nic_net_stop(netdev);
++		msleep(100);
++	}
++
++	ret = h->ae_algo->ops->set_mtu(h, new_mtu);
++	if (ret) {
++		netdev_err(netdev, "failed to change MTU in hardware %d\n",
++			   ret);
++		return ret;
++	}
++
++	/* if the netdev was running earlier, bring it up again */
++	if (if_running) {
++		if (hns3_nic_net_open(netdev)) {
++			netdev_err(netdev, "MTU, couldnt up netdev again\n");
++			ret = -EINVAL;
++		}
++	}
++
++	return ret;
++}
++
+ static const struct net_device_ops hns3_nic_netdev_ops = {
+ 	.ndo_open		= hns3_nic_net_open,
+ 	.ndo_stop		= hns3_nic_net_stop,
+ 	.ndo_start_xmit		= hns3_nic_net_xmit,
+ 	.ndo_set_mac_address	= hns3_nic_net_set_mac_address,
++	.ndo_change_mtu		= hns3_nic_change_mtu,
+ 	.ndo_set_features	= hns3_nic_set_features,
+ 	.ndo_get_stats64	= hns3_nic_get_stats64,
+ 	.ndo_setup_tc		= hns3_nic_setup_tc,
+@@ -2752,6 +2787,9 @@ static int hns3_client_init(struct hnae3_handle *handle)
+ 		goto out_reg_netdev_fail;
+ 	}
+ 
++	/* MTU range: (ETH_MIN_MTU(kernel default) - 9706) */
++	netdev->max_mtu = HNS3_MAX_MTU - (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
++
+ 	return ret;
+ 
+ out_reg_netdev_fail:
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+index a6e8f15..7e87461 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+@@ -76,6 +76,7 @@ enum hns3_nic_state {
+ #define HNS3_RING_NAME_LEN			16
+ #define HNS3_BUFFER_SIZE_2048			2048
+ #define HNS3_RING_MAX_PENDING			32768
++#define HNS3_MAX_MTU				9728
+ 
+ #define HNS3_BD_SIZE_512_TYPE			0
+ #define HNS3_BD_SIZE_1024_TYPE			1
+-- 
+2.7.4
