@@ -1,49 +1,241 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [iproute PATCH v2 2/2] ifcfg: Quote left-hand side of [ ]
- expression
-Date: Fri, 18 Aug 2017 16:38:15 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD005AE2B@AcuExch.aculab.com>
-References: <20170817170932.24900-1-phil@nwl.cc>
- <20170817170932.24900-3-phil@nwl.cc>
- <063D6719AE5E284EB5DD2968C1650D6DD005A809@AcuExch.aculab.com>
- <20170818112414.GJ10864@orbyte.nwl.cc>
+From: Matthew Dawson <matthew@mjdsystems.ca>
+Subject: Re: [PATCH net v2] datagram: When peeking datagrams with offset < 0 don't skip empty skbs
+Date: Fri, 18 Aug 2017 12:39:20 -0400
+Message-ID: <1789862.HUSStbeWG9@ring00>
+References: <20170818021157.20070-1-matthew@mjdsystems.ca> <1503065118.3344.18.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Phil Sutter' <phil@nwl.cc>
+Content-Type: multipart/signed; boundary="nextPart1734268.0KIerqPdb2"; micalg="pgp-sha256"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org,
+        "Macieira, Thiago" <thiago.macieira@intel.com>,
+        willemdebruijn.kernel@gmail.com
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.194]:61105 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752563AbdHRQiW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 12:38:22 -0400
-In-Reply-To: <20170818112414.GJ10864@orbyte.nwl.cc>
-Content-Language: en-US
+Received: from scadrial.mjdsystems.ca ([198.100.154.185]:53536 "EHLO
+        scadrial.mjdsystems.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751060AbdHRQj2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 12:39:28 -0400
+In-Reply-To: <1503065118.3344.18.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter
-> Sent: 18 August 2017 12:24
-...
-> > > -if [ `ip link ls $dev | grep -c MULTICAST` -ge 1 ]; then
-> > > +if [ "`ip link ls $dev | grep -c MULTICAST`" -ge 1 ]; then
-> >
-> > You could drag all these scripts into the 1990's by using $(...)
-> > instead of `...`.
-> 
-> That's a different kettle of fish IMO, using $() doesn't change the
-> situation this addresses:
-> 
-> | $ [ $(echo foo bar) -eq 0 ] && echo ok
-> | bash: [: too many arguments
-> | $ [ "$(echo foo bar)" -eq 0 ] && echo ok
-> | bash: [: foo bar: integer expression expected
+--nextPart1734268.0KIerqPdb2
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="UTF-8"
 
-I didn't say it would.
-IFS=
-set -o noglob
-would though - not that I'd suggest it here.
-protecting the 'eval' is somewhat harder.
+On Friday, August 18, 2017 10:05:18 AM EDT Paolo Abeni wrote:
+> On Thu, 2017-08-17 at 22:11 -0400, Matthew Dawson wrote:
+> > Due to commit e6afc8ace6dd5cef5e812f26c72579da8806f5ac ("udp: remove
+> > headers from UDP packets before queueing"), when udp packets are being
+> > peeked the requested extra offset is always 0 as there is no need to skip
+> > the udp header.  However, when the offset is 0 and the next skb is
+> > of length 0, it is only returned once.  The behaviour can be seen with
+> > the following python script:
+> > 
+> > from socket import *;
+> > f=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+> > g=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+> > f.bind(('::', 0));
+> > addr=('::1', f.getsockname()[1]);
+> > g.sendto(b'', addr)
+> > g.sendto(b'b', addr)
+> > print(f.recvfrom(10, MSG_PEEK));
+> > print(f.recvfrom(10, MSG_PEEK));
+> > 
+> > Where the expected output should be the empty string twice.
+> > 
+> > Instead, make sk_peek_offset return negative values, and pass those values
+> > to __skb_try_recv_datagram/__skb_try_recv_from_queue.  If the passed
+> > offset
+> > to __skb_try_recv_from_queue is negative, the checked skb is never
+> > skipped.
+> > __skb_try_recv_from_queue will then ensure the offset is reset back to 0
+> > if a peek is requested without an offset, unless no packets are found.
+> > 
+> > Also simplify the if condition in __skb_try_recv_from_queue.  If _off is
+> > greater then 0, and off is greater then or equal to skb->len, then
+> > (_off || skb->len) must always be true assuming skb->len >= 0 is always
+> > true.
+> > 
+> > Also remove a redundant check around a call to sk_peek_offset in
+> > af_unix.c,
+> > as it double checked if MSG_PEEK was set in the flags.
+> > 
+> > V2:
+> >  - Moved the negative fixup into __skb_try_recv_from_queue, and remove now
+> > 
+> > redundant checks
+> > 
+> >  - Fix peeking in udp{,v6}_recvmsg to report the right value when the
+> > 
+> > offset is 0
+> > 
+> > Signed-off-by: Matthew Dawson <matthew@mjdsystems.ca>
+> > ---
+> > 
+> >  include/net/sock.h  |  4 +---
+> >  net/core/datagram.c | 12 +++++++++---
+> >  net/ipv4/udp.c      |  3 ++-
+> >  net/ipv6/udp.c      |  3 ++-
+> >  net/unix/af_unix.c  |  5 +----
+> >  5 files changed, 15 insertions(+), 12 deletions(-)
+> > 
+> > diff --git a/include/net/sock.h b/include/net/sock.h
+> > index 7c0632c7e870..aeeec62992ca 100644
+> > --- a/include/net/sock.h
+> > +++ b/include/net/sock.h
+> > @@ -507,9 +507,7 @@ int sk_set_peek_off(struct sock *sk, int val);
+> > 
+> >  static inline int sk_peek_offset(struct sock *sk, int flags)
+> >  {
+> >  
+> >  	if (unlikely(flags & MSG_PEEK)) {
+> > 
+> > -		s32 off = READ_ONCE(sk->sk_peek_off);
+> > -		if (off >= 0)
+> > -			return off;
+> > +		return READ_ONCE(sk->sk_peek_off);
+> > 
+> >  	}
+> >  	
+> >  	return 0;
+> > 
+> > diff --git a/net/core/datagram.c b/net/core/datagram.c
+> > index ee5647bd91b3..4b558503bef5 100644
+> > --- a/net/core/datagram.c
+> > +++ b/net/core/datagram.c
+> > @@ -169,14 +169,20 @@ struct sk_buff *__skb_try_recv_from_queue(struct
+> > sock *sk,> 
+> >  					  int *peeked, int *off, int *err,
+> >  					  struct sk_buff **last)
+> >  
+> >  {
+> > 
+> > +	bool peek_at_off = false;
+> > 
+> >  	struct sk_buff *skb;
+> > 
+> > -	int _off = *off;
+> > +	int _off = 0;
+> > +
+> > +	if (flags & MSG_PEEK && *off >= 0) {
+> > +		peek_at_off = true;
+> > +		_off = *off;
+> > +	}
+> 
+> I think that unlikely() will fit the above condition
+Sounds good.
 
-	David
+> 
+> >  	*last = queue->prev;
+> >  	skb_queue_walk(queue, skb) {
+> >  	
+> >  		if (flags & MSG_PEEK) {
+> > 
+> > -			if (_off >= skb->len && (skb->len || _off ||
+> > -						 skb->peeked)) {
+> > +			if (peek_at_off && _off >= skb->len &&
+> > +			    (_off || skb->peeked)) {
+> > 
+> >  				_off -= skb->len;
+> >  				continue;
+> >  			
+> >  			}
+> > 
+> > diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> > index a7c804f73990..cd1d044a7fa5 100644
+> > --- a/net/ipv4/udp.c
+> > +++ b/net/ipv4/udp.c
+> > @@ -1574,7 +1574,8 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg,
+> > size_t len, int noblock,> 
+> >  		return ip_recv_error(sk, msg, len, addr_len);
+> >  
+> >  try_again:
+> > -	peeking = off = sk_peek_offset(sk, flags);
+> > +	peeking = flags & MSG_PEEK;
+> > +	off = sk_peek_offset(sk, flags);
+> > 
+> >  	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
+> >  	if (!skb)
+> >  	
+> >  		return err;
+> > 
+> > diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> > index 578142b7ca3e..20039c8501eb 100644
+> > --- a/net/ipv6/udp.c
+> > +++ b/net/ipv6/udp.c
+> > @@ -362,7 +362,8 @@ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg,
+> > size_t len,> 
+> >  		return ipv6_recv_rxpmtu(sk, msg, len, addr_len);
+> >  
+> >  try_again:
+> > -	peeking = off = sk_peek_offset(sk, flags);
+> > +	peeking = flags & MSG_PEEK;
+> > +	off = sk_peek_offset(sk, flags);
+> > 
+> >  	skb = __skb_recv_udp(sk, flags, noblock, &peeked, &off, &err);
+> >  	if (!skb)
+> >  	
+> >  		return err;
+> > 
+> > diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> > index 7b52a380d710..be8982b4f8c0 100644
+> > --- a/net/unix/af_unix.c
+> > +++ b/net/unix/af_unix.c
+> > @@ -2304,10 +2304,7 @@ static int unix_stream_read_generic(struct
+> > unix_stream_read_state *state,> 
+> >  	 */
+> >  	
+> >  	mutex_lock(&u->iolock);
+> > 
+> > -	if (flags & MSG_PEEK)
+> > -		skip = sk_peek_offset(sk, flags);
+> > -	else
+> > -		skip = 0;
+> > +	skip = max(sk_peek_offset(sk, flags), 0);
+> > 
+> >  	do {
+> >  	
+> >  		int chunk;
+> 
+> later we have:
+> 
+> 	chunk = min_t(unsigned int, unix_skb_len(skb) - skip, size);
+> 
+> without any call to __skb_try_recv_from_queue(), so we will get
+> bad/unexpected values from the above assignment when 'skip' is
+> negative.
+The assignment to skip should ensure it is never less then zero, thanks to the 
+max(sk...(), 0).  Thus that shouldn't be an issue?
+
+> 
+> Overall I still think that adding/using an explicit MSG_PEEK_OFF bit
+> would produce a simpler code, but is just a personal preference.
+I don't mind either way, that just seemed to be the preference I saw from the 
+discussion around the patch.  I think either way will work, so whatever the 
+list prefers I'm happy with.
+
+-- 
+Matthew
+--nextPart1734268.0KIerqPdb2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEEkRWwpe7qWxgM14Ep+0kv31Jtww0FAlmXGDgACgkQ+0kv31Jt
+ww0fZA//eoHtPdjOvKk+TsEW8lgXV29+eibRxVGZ+DXPnANezv8TJ8YrfpfBDIFl
+JRpjYLPtA81SVntqB8HSpssmbA7fS5sDnX+Jn5EB/L+iwyizai+TJ8j67AmLaBTk
+v5ZMqx+2RV4v9Ddl4IceIPc3Bx3bSJ0ahD0Bg97XFfreERRP1jJRAACdBTenrSw7
+O0ec6sfXc6awheMII75wYs2VSRnQb4njGLTJa+xGNMWxBEV1mQgrNpHL9pc03+2n
+0iLkWSBqxZLS88M9kQkVI5pxdvYL6QDv/uvenxya17kAJDk7OdDbWxvjxGOTZxbo
+zimaSe8h9tW7oIY7VgQtgyhfDR5Hg+pPBdNmGJN4M2B4u9aZWYtxybWo/5L7DFg6
+u1onggTYkEKli0khk5bFT+gUUDvnJSA+tRdmit3Ckp4QUp1juJAPjkonQXo69Oxs
+dO6C2lGAwYt9pE8hX3T5xaSC6ez5/TKMaPuxOH8ktZ8HC6XEzeo6M+8nkgOSvMsz
+sDmbwmPLJgY4rlxJ/xxRenvlyeQgWpfPCRqVKqKSIaLuxG4iqgt3ZEmtfWooPCZ3
+VVPPBeZ+zF6DYkgHjaxiajfoZzl0G1dnsS0AcaL7TV4fuJBXEzJlxgtnOhNcfAOi
+OroAuAa+MFgBFZoP7tQm4+RQA5mxRS1MdMWnG3havT+T7noYjsM=
+=o/iA
+-----END PGP SIGNATURE-----
+
+--nextPart1734268.0KIerqPdb2--
