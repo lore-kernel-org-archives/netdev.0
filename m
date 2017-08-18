@@ -1,67 +1,26 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next 2/2] liquidio: make VF driver notify NIC firmware of
- MTU change
-Date: Fri, 18 Aug 2017 11:35:20 -0700
-Message-ID: <20170818183520.GA4522@felix-thinkpad.cavium.com>
-References: <20170818183432.GA4487@felix-thinkpad.cavium.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Does the kernel have a function to parse a text IPv6 address?
+Date: Fri, 18 Aug 2017 11:37:03 -0700
+Message-ID: <CAM_iQpWQVAnOrV6C+pD-hvNTxoRMQjt-rY1hJvws9=1WpNU80w@mail.gmail.com>
+References: <30054.1503081121@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        veerasenareddy.burru@cavium.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0067.outbound.protection.outlook.com ([104.47.32.67]:22368
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750987AbdHRSfK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 14:35:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20170818183432.GA4487@felix-thinkpad.cavium.com>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:33156 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750971AbdHRShY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 14:37:24 -0400
+Received: by mail-pg0-f44.google.com with SMTP id t3so41305639pgt.0
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 11:37:24 -0700 (PDT)
+In-Reply-To: <30054.1503081121@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 22 ++++++++++++++++++----
- 1 file changed, 18 insertions(+), 4 deletions(-)
+On Fri, Aug 18, 2017 at 11:32 AM, David Howells <dhowells@redhat.com> wrote:
+> Does the kernel have a function to parse a text IPv6 address of the form
+> "x:y:..::z" and put it into a struct sockaddr_in6?
+>
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 0402b18..e947783 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1545,13 +1545,27 @@ static struct net_device_stats *liquidio_get_stats(struct net_device *netdev)
- static int liquidio_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+	int ret = 0;
- 
--	lio->mtu = new_mtu;
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
- 
--	netif_info(lio, probe, lio->netdev, "MTU Changed from %d to %d\n",
--		   netdev->mtu, new_mtu);
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_CHANGE_MTU;
-+	nctrl.ncmd.s.param1 = new_mtu;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.wait_time = LIO_CMD_WAIT_TM;
-+	nctrl.netpndev = (u64)netdev;
-+	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
- 
--	netdev->mtu = new_mtu;
-+	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
-+	if (ret < 0) {
-+		dev_err(&oct->pci_dev->dev, "Failed to set MTU\n");
-+		return -EIO;
-+	}
-+
-+	lio->mtu = new_mtu;
- 
- 	return 0;
- }
--- 
-2.9.0
+in6_pton() in net/core/utils.c.
