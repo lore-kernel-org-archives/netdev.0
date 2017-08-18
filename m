@@ -1,43 +1,70 @@
-From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: [PATCH v5 4/4] can: m_can: Add call to of_can_transceiver
-Date: Fri, 18 Aug 2017 15:21:37 -0500
-Message-ID: <20170818202137.29816-5-fcooper@ti.com>
+From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v5 2/4] dt-bindings: can: can-transceiver: Document new binding
+Date: Fri, 18 Aug 2017 15:21:35 -0500
+Message-ID: <20170818202137.29816-3-fcooper@ti.com>
 References: <20170818202137.29816-1-fcooper@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Franklin S Cooper Jr <fcooper@ti.com>
-To: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
-        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
-        <quentin.schulz@free-electrons.com>,
-        <dev.kurt@vandijck-laurijssen.be>, <andrew@lunn.ch>,
-        <sergei.shtylyov@cogentembedded.com>, <socketcan@hartkopp.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170818202137.29816-1-fcooper@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        <dev.kurt-yI9piX4KPfawT/RRk36CISFp6vIno51x@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>, <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170818202137.29816-1-fcooper-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add call to new generic functions that provides support via a binding
-to limit the arbitration rate and/or data rate imposed by the physical
-transceiver connected to the MCAN peripheral.
+Add documentation to describe usage of the new can-transceiver binding.
+This new binding is applicable for any CAN device therefore it exists as
+its own document.
 
-Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+Signed-off-by: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/can/m_can/m_can.c | 2 ++
- 1 file changed, 2 insertions(+)
+Version 5 changes:
+Remove @ symbol from can-transceiver example
 
-diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-index f4947a7..f72116e 100644
---- a/drivers/net/can/m_can/m_can.c
-+++ b/drivers/net/can/m_can/m_can.c
-@@ -1649,6 +1649,8 @@ static int m_can_plat_probe(struct platform_device *pdev)
- 
- 	devm_can_led_init(dev);
- 
-+	of_can_transceiver(dev);
+ .../bindings/net/can/can-transceiver.txt           | 24 ++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/can/can-transceiver.txt
+
+diff --git a/Documentation/devicetree/bindings/net/can/can-transceiver.txt b/Documentation/devicetree/bindings/net/can/can-transceiver.txt
+new file mode 100644
+index 0000000..0011f53
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/can/can-transceiver.txt
+@@ -0,0 +1,24 @@
++Generic CAN transceiver Device Tree binding
++------------------------------
 +
- 	dev_info(&pdev->dev, "%s device registered (irq=%d, version=%d)\n",
- 		 KBUILD_MODNAME, dev->irq, priv->version);
- 
++CAN transceiver typically limits the max speed in standard CAN and CAN FD
++modes. Typically these limitations are static and the transceivers themselves
++provide no way to detect this limitation at runtime. For this situation,
++the "can-transceiver" node can be used.
++
++Required Properties:
++ max-bitrate:	a positive non 0 value that determines the max
++		speed that CAN/CAN-FD can run. Any other value
++		will be ignored.
++
++Examples:
++
++Based on Texas Instrument's TCAN1042HGV CAN Transceiver
++
++m_can0 {
++	....
++	can-transceiver {
++		max-bitrate = <5000000>;
++	};
++	...
++};
 -- 
 2.9.4.dirty
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
