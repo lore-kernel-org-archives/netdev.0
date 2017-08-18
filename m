@@ -1,8 +1,8 @@
 From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next 1/2] liquidio: move macro definition to a proper
- place
-Date: Fri, 18 Aug 2017 11:35:17 -0700
-Message-ID: <20170818183517.GA4513@felix-thinkpad.cavium.com>
+Subject: [PATCH net-next 2/2] liquidio: make VF driver notify NIC firmware of
+ MTU change
+Date: Fri, 18 Aug 2017 11:35:20 -0700
+Message-ID: <20170818183520.GA4522@felix-thinkpad.cavium.com>
 References: <20170818183432.GA4487@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,52 +11,57 @@ Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
         veerasenareddy.burru@cavium.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0044.outbound.protection.outlook.com ([104.47.38.44]:51808
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0067.outbound.protection.outlook.com ([104.47.32.67]:22368
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750987AbdHRSfH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 14:35:07 -0400
+        id S1750987AbdHRSfK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Aug 2017 14:35:10 -0400
 Content-Disposition: inline
 In-Reply-To: <20170818183432.GA4487@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The macro LIO_CMD_WAIT_TM is not specific to the PF driver; it can be used
-by the VF driver too, so move its definition from a PF-specific header file
-to one that's common to PF and VF.
-
 Signed-off-by: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 ---
- drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h | 2 --
- drivers/net/ethernet/cavium/liquidio/liquidio_common.h  | 2 ++
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-index dee6046..2aba524 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-@@ -24,8 +24,6 @@
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index 0402b18..e947783 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -1545,13 +1545,27 @@ static struct net_device_stats *liquidio_get_stats(struct net_device *netdev)
+ static int liquidio_change_mtu(struct net_device *netdev, int new_mtu)
+ {
+ 	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++	struct octnic_ctrl_pkt nctrl;
++	int ret = 0;
  
- #include "cn23xx_pf_regs.h"
+-	lio->mtu = new_mtu;
++	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
  
--#define LIO_CMD_WAIT_TM 100
--
- /* Register address and configuration for a CN23XX devices.
-  * If device specific changes need to be made then add a struct to include
-  * device specific fields as shown in the commented section
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index 18d2955..a2274e6 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -238,6 +238,8 @@ static inline void add_sg_size(struct octeon_sg_entry *sg_entry,
- #define   OCTNET_CMD_VLAN_FILTER_ENABLE 0x1
- #define   OCTNET_CMD_VLAN_FILTER_DISABLE 0x0
+-	netif_info(lio, probe, lio->netdev, "MTU Changed from %d to %d\n",
+-		   netdev->mtu, new_mtu);
++	nctrl.ncmd.u64 = 0;
++	nctrl.ncmd.s.cmd = OCTNET_CMD_CHANGE_MTU;
++	nctrl.ncmd.s.param1 = new_mtu;
++	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
++	nctrl.wait_time = LIO_CMD_WAIT_TM;
++	nctrl.netpndev = (u64)netdev;
++	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
  
-+#define   LIO_CMD_WAIT_TM 100
+-	netdev->mtu = new_mtu;
++	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
++	if (ret < 0) {
++		dev_err(&oct->pci_dev->dev, "Failed to set MTU\n");
++		return -EIO;
++	}
 +
- /* RX(packets coming from wire) Checksum verification flags */
- /* TCP/UDP csum */
- #define   CNNIC_L4SUM_VERIFIED             0x1
++	lio->mtu = new_mtu;
+ 
+ 	return 0;
+ }
 -- 
 2.9.0
