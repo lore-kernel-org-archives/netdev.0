@@ -1,39 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V4 net 0/2] ipv6: fix flowlabel issue for reset packet
-Date: Fri, 18 Aug 2017 15:27:09 -0700 (PDT)
-Message-ID: <20170818.152709.1530391846414055080.davem@davemloft.net>
-References: <20170817225521.ybb7cclaxs6skdem@kafai-mba.dhcp.thefacebook.com>
-        <CALx6S3498iPfNs4Wt5RWjoxZS0nXHT=qvdSgZhZbqxswqJqdZw@mail.gmail.com>
-        <20170818205136.nsmlmyshaobsyukc@kafai-mba.dhcp.thefacebook.com>
+From: Vallish Vaidyeshwara <vallish@amazon.com>
+Subject: Re: [PATCH RESEND 0/2] enable hires timer to timeout datagram socket
+Date: Fri, 18 Aug 2017 22:27:56 +0000
+Message-ID: <20170818222756.GB28737@amazon.com>
+References: <1503081850-10671-1-git-send-email-vallish@amazon.com>
+ <20170818201854.xes246oviptinwvq@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, shli@kernel.org, netdev@vger.kernel.org
-To: kafai@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33868 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750847AbdHRW1K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 18:27:10 -0400
-In-Reply-To: <20170818205136.nsmlmyshaobsyukc@kafai-mba.dhcp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <shuah@kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <eduval@amazon.com>, <anchalag@amazon.com>, <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170818201854.xes246oviptinwvq@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Fri, 18 Aug 2017 13:51:36 -0700
+On Fri, Aug 18, 2017 at 10:18:54PM +0200, Richard Cochran wrote:
+> On Fri, Aug 18, 2017 at 06:44:08PM +0000, Vallish Vaidyeshwara wrote:
+> > There has been a behavior change in 4.9 kernel with refactoring of Kernel
+> > timer wheel in 4.8. We have a use case wherein our datagram socket
+> > application is sensitive to socket timeout including long timeouts.
+> > 
+> > One of the test runs with a timeout value of 180 seconds timed out at
+> > 190 seconds.
+> 
+> So the whole premise of the new timer wheel is that long timeouts need
+> not be very accurate.
+> 
+> > Patch 1: Has core code change of enabling hires timer to timeout datagram
+> > 	 socket on AF_UNIX and AF_INET domain
+>
 
-> It seems like that middle box specifically drops TCP_RST if it
-> does not know anything about this flow.  Since the flowlabel of the TCP_RST
-> (sent in TW state) is always different, it always lands to a different middle
-> box.  All of these TCP_RST cannot be delivered.
+Hello Richard,
 
-This really is illegal behavior.  The flow label is not a flow _KEY_
-by any definition whatsoever.
+> Using hrtimers will hurt performance for most applications.  Can you
+> please explain your use case and why is it so important?
+>
 
-Flow labels are an optimization, not a determinant for flow matching
-particularly for proper TCP state processing.
+We have a on-demand application that uses long timeouts and needs to react to
+events within milliseconds. With this change in behavior, we notice from 4.4 to
+4.9, the legacy application is now exhibiting incorrect behavior with same set
+of system calls.
 
-I'd rather you invest all of this energy getting that vendor to fix
-their kit.
+Thanks.
+-Vallish
 
-Thank you.
+> Thanks,
+> Richard
+> 
+> 
