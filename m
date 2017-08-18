@@ -1,43 +1,51 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] netxen: fix incorrect loop counter decrement
-Date: Fri, 18 Aug 2017 14:12:06 +0100
-Message-ID: <20170818131206.15417-1-colin.king@canonical.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] about net: Fix inconsistent teardown and release of
+ private netdev state.
+Date: Fri, 18 Aug 2017 06:13:49 -0700
+Message-ID: <1503062029.4936.173.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1503009040.4936.161.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170817.222131.548007722474107806.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Manish Chopra <manish.chopra@cavium.com>,
-        Rahul Verma <rahul.verma@cavium.com>,
-        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35230 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751644AbdHRNNv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 09:13:51 -0400
+Received: by mail-pg0-f65.google.com with SMTP id t80so8918953pgb.2
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 06:13:51 -0700 (PDT)
+In-Reply-To: <20170817.222131.548007722474107806.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Thu, 2017-08-17 at 22:21 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 17 Aug 2017 15:30:40 -0700
+> 
+> > So we do not really know if we need to clean up or not.
+> 
+> We always know, the answer is that whenever register_netdev() fails we
+> never need to perform any cleanup which is done by priv_destructor.
+> 
+> > Any idea how to fix the issue ?
+> 
+> Your patch is exactly how we should fix this, but without the comment.
+> The logic is straightforward.
+> 
+> If register_netdevice() fails any resources handled by priv_destructor
+> are cleaned up, it is guaranteed.
 
-The loop counter k is currently being decremented from zero which
-is incorrect. Fix this by incrementing k instead
+Not in current code.
 
-Detected by CoverityScan, CID#401847 ("Infinite loop")
+There are some failures which do a "goto out;" 
 
-Fixes: 83f18a557c6d ("netxen_nic: fw dump support")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+out:
+	return ret;
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-index 66ff15d08bad..0a66389c06c2 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-@@ -2311,7 +2311,7 @@ netxen_md_rdqueue(struct netxen_adapter *adapter,
- 				 loop_cnt++) {
- 		NX_WR_DUMP_REG(select_addr, adapter->ahw.pci_base0, queue_id);
- 		read_addr = queueEntry->read_addr;
--		for (k = 0; k < read_cnt; k--) {
-+		for (k = 0; k < read_cnt; k++) {
- 			NX_RD_DUMP_REG(read_addr, adapter->ahw.pci_base0,
- 							&read_value);
- 			*data_buff++ = read_value;
--- 
-2.11.0
+
+In these cases, priv_destructor is not called.
+
+So we need multiple fixes I think :/
