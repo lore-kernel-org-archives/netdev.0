@@ -1,65 +1,77 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH net-next] net: hns3: Add support to change MTU in
- hardware & netdev
-Date: Fri, 18 Aug 2017 17:01:43 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B86FDE2@FRAEML521-MBX.china.huawei.com>
-References: <20170818113558.71928-1-salil.mehta@huawei.com>
- <20170818133128.GA523@lunn.ch>
- <F4CC6FACFEB3C54C9141D49AD221F7F93B86F75F@FRAEML521-MBX.china.huawei.com>
- <20170818150358.GA3258@lunn.ch>
- <F4CC6FACFEB3C54C9141D49AD221F7F93B86F9E7@FRAEML521-MBX.china.huawei.com>
- <20170818160157.GB3258@lunn.ch>
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for sun8i-h3-emac
+Date: Sat, 19 Aug 2017 01:05:21 +0800
+Message-ID: <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
+References: <20170818122118.4925-1-clabbe.montjoie@gmail.com> <20170818122118.4925-4-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        "lipeng (Y)" <lipeng321@huawei.com>,
-        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        Linuxarm <linuxarm@huawei.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Maxime Ripard <maxime.ripard@free-electrons.com>,
+        Chen-Yu Tsai <wens@csie.org>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        devicetree <devicetree@vger.kernel.org>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
+In-Reply-To: <20170818122118.4925-4-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Fri, Aug 18, 2017 at 8:21 PM, Corentin Labbe
+<clabbe.montjoie@gmail.com> wrote:
+> In case of a MDIO switch, the registered MDIO node should be
+> the parent of the PHY. Otherwise of_phy_connect will fail.
+>
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 12 ++++++++++--
+>  1 file changed, 10 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index a366b3747eeb..ca3cc99d8960 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -312,10 +312,12 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
+>         static const struct of_device_id need_mdio_ids[] = {
+>                 { .compatible = "snps,dwc-qos-ethernet-4.10" },
+>                 { .compatible = "allwinner,sun8i-a83t-emac" },
+> -               { .compatible = "allwinner,sun8i-h3-emac" },
+>                 { .compatible = "allwinner,sun8i-v3s-emac" },
+>                 { .compatible = "allwinner,sun50i-a64-emac" },
+>         };
+> +       static const struct of_device_id need_mdio_mux_ids[] = {
+> +               { .compatible = "allwinner,sun8i-h3-emac" },
+> +       };
+>
+>         /* If phy-handle property is passed from DT, use it as the PHY */
+>         plat->phy_node = of_parse_phandle(np, "phy-handle", 0);
+> @@ -332,7 +334,13 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
+>                 mdio = false;
+>         }
+>
+> -       if (of_match_node(need_mdio_ids, np)) {
+> +       /*
+> +        * In case of a MDIO switch/mux, the registered MDIO node should be
+> +        * the parent of the PHY. Otherwise of_phy_connect will fail.
+> +        */
+> +       if (of_match_node(need_mdio_mux_ids, np)) {
+> +                plat->mdio_node =  of_get_parent(plat->phy_node);
 
-> > -----Original Message-----
-> > From: Andrew Lunn [mailto:andrew@lunn.ch]
-> > Sent: Friday, August 18, 2017 5:02 PM
-> > To: Salil Mehta
-> > Cc: davem@davemloft.net; Zhuangyuzeng (Yisen); lipeng (Y);
-> > mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
-> > kernel@vger.kernel.org; linux-rdma@vger.kernel.org; Linuxarm
-> > Subject: Re: [PATCH net-next] net: hns3: Add support to change MTU in
-> > hardware & netdev
-> >
-> > > for example,
-> > > file: drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> > > static int init_one(struct pci_dev *pdev, const struct
-> pci_device_id
-> > *ent)
-> > >
-> > >  		netdev->priv_flags |= IFF_UNICAST_FLT;
-> > >
-> > > +		/* MTU range: 81 - 9600 */
-> > > +		netdev->min_mtu = 81;
-> > > +		netdev->max_mtu = MAX_MTU;
-> >
-> > In this cause, the driver is not using the default values. So it sets
-> > them.
-> >
-> > Anyway, try it. After your alloc_etherdev_mqs(), print the value of
-> > min_mtu. It should already be set to MIN_ETH_MTU.
-> I understand your point. In this case, I would like to keep the
-> range being set by the driver just to be more explicit.
-> So for now keep this initialization in the driver?
-Removed the min_mtu initialization from the driver code and added a
-comment over it to be explicit. Please have a look at the V2 patch.
+Extra space before of_get_parent.
 
-Thanks
-Salil
+Also this is going to fail horribly if a fixed link is used.
+
+ChenYu
+
+> +       } else if (of_match_node(need_mdio_ids, np)) {
+>                 plat->mdio_node = of_get_child_by_name(np, "mdio");
+>         } else {
+>                 /**
+> --
+> 2.13.0
+>
