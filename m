@@ -1,7 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v3 0/4] net: stmmac: Detect PHY location with phy-is-integrated
-Date: Fri, 18 Aug 2017 14:21:14 +0200
-Message-ID: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
+Subject: [PATCH v3 2/4] net: stmmac: dwmac-sun8i: choose internal PHY via phy-is-integrated
+Date: Fri, 18 Aug 2017 14:21:16 +0200
+Message-ID: <20170818122118.4925-3-clabbe.montjoie@gmail.com>
+References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
 Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
         Corentin Labbe <clabbe.montjoie@gmail.com>
@@ -9,54 +10,98 @@ To: robh+dt@kernel.org, mark.rutland@arm.com, linux@armlinux.org.uk,
         maxime.ripard@free-electrons.com, wens@csie.org,
         peppe.cavallaro@st.com, alexandre.torgue@st.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello
-
-The current way to find if the PHY is internal is to compare DT phy-mode
+The current way to find if the phy is internal is to compare DT phy-mode
 and emac_variant/internal_phy.
 But it will negate a possible future SoC where an external PHY use the
-same phy mode than the integrated one.
+same phy mode than the internal one.
 
-This patchs series adds a new way to find if the PHY is integrated, via
-the phy-is-integrated DT property.
+This patch adds a new way to find if the PHY is internal, via
+the phy-is-integrated property.
 
-Since it exists both integrated and external ethernet-phy@1, they are merged in
-the final DTB and so share all properties.
-For avoiding this, and better represent the reality, we use a MDIO mux.
+Since the internal_phy variable does not need anymore to contain the xMII mode
+used by the internal PHY, it is still used for knowing the presence of an
+internal PHY, so it is modified to a boolean soc_has_internal_phy.
 
-Note that sun8i-v3s-emac have also an integrated PHY, but since it lacks
-any external PHY support, it is not necessary to add MDIO mux to it.
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-The first patch should go via the sunxi tree.
-Note that this serie will need backporting the patch
-"Documentation: net: phy: Add phy-is-integrated binding" which is in net-next
-
-Thanks
-Regards
-
-Changes since v2:
-- Add a MDIO mux for creating distinction between integrated and external MDIO.
-- phy-is-integrated is not set in dtsi.
-
-Changes since v1:
-- Dropped phy-is-integrated documentation patch since another same patch was already merged
-- Moved phy-is-integrated from SoC dtsi to final board DT.
-
-Corentin Labbe (4):
-  ARM: dts: sunxi: h3/h5: represent the mdio switch used by
-    sun8i-h3-emac
-  net: stmmac: dwmac-sun8i: choose internal PHY via phy-is-integrated
-  net: stmmac: register parent MDIO node for sun8i-h3-emac
-  dt-bindings: net: dwmac-sun8i: update documentation about integrated
-    PHY
-
- .../devicetree/bindings/net/dwmac-sun8i.txt        | 112 +++++++++++++++++++--
- arch/arm/boot/dts/sunxi-h3-h5.dtsi                 |  28 +++++-
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c  |  16 +--
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  12 ++-
- 4 files changed, 146 insertions(+), 22 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+index fffd6d5fc907..672553b652bd 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -41,14 +41,14 @@
+  *				This value is used for disabling properly EMAC
+  *				and used as a good starting value in case of the
+  *				boot process(uboot) leave some stuff.
+- * @internal_phy:		Does the MAC embed an internal PHY
++ * @soc_has_internal_phy:	Does the MAC embed an internal PHY
+  * @support_mii:		Does the MAC handle MII
+  * @support_rmii:		Does the MAC handle RMII
+  * @support_rgmii:		Does the MAC handle RGMII
+  */
+ struct emac_variant {
+ 	u32 default_syscon_value;
+-	int internal_phy;
++	bool soc_has_internal_phy;
+ 	bool support_mii;
+ 	bool support_rmii;
+ 	bool support_rgmii;
+@@ -75,7 +75,7 @@ struct sunxi_priv_data {
+ 
+ static const struct emac_variant emac_variant_h3 = {
+ 	.default_syscon_value = 0x58000,
+-	.internal_phy = PHY_INTERFACE_MODE_MII,
++	.soc_has_internal_phy = true,
+ 	.support_mii = true,
+ 	.support_rmii = true,
+ 	.support_rgmii = true
+@@ -83,20 +83,20 @@ static const struct emac_variant emac_variant_h3 = {
+ 
+ static const struct emac_variant emac_variant_v3s = {
+ 	.default_syscon_value = 0x38000,
+-	.internal_phy = PHY_INTERFACE_MODE_MII,
++	.soc_has_internal_phy = true,
+ 	.support_mii = true
+ };
+ 
+ static const struct emac_variant emac_variant_a83t = {
+ 	.default_syscon_value = 0,
+-	.internal_phy = 0,
++	.soc_has_internal_phy = false,
+ 	.support_mii = true,
+ 	.support_rgmii = true
+ };
+ 
+ static const struct emac_variant emac_variant_a64 = {
+ 	.default_syscon_value = 0,
+-	.internal_phy = 0,
++	.soc_has_internal_phy = false,
+ 	.support_mii = true,
+ 	.support_rmii = true,
+ 	.support_rgmii = true
+@@ -648,7 +648,7 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
+ 			 "Current syscon value is not the default %x (expect %x)\n",
+ 			 val, reg);
+ 
+-	if (gmac->variant->internal_phy) {
++	if (gmac->variant->soc_has_internal_phy) {
+ 		if (!gmac->use_internal_phy) {
+ 			/* switch to external PHY interface */
+ 			reg &= ~H3_EPHY_SELECT;
+@@ -932,7 +932,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	plat_dat->interface = of_get_phy_mode(dev->of_node);
+-	if (plat_dat->interface == gmac->variant->internal_phy) {
++	if (of_property_read_bool(plat_dat->phy_node, "phy-is-integrated")) {
+ 		dev_info(&pdev->dev, "Will use internal PHY\n");
+ 		gmac->use_internal_phy = true;
+ 		gmac->ephy_clk = of_clk_get(plat_dat->phy_node, 0);
 -- 
 2.13.0
