@@ -1,53 +1,41 @@
-From: Joel Fernandes <joelaf@google.com>
-Subject: Re: [PATCH RFC v2 3/5] samples/bpf: Fix inline asm issues building
- samples on arm64
-Date: Thu, 17 Aug 2017 23:55:38 -0700
-Message-ID: <CAJWu+orAs9X+sj6NBUEgvo5NzNCW2g=AR=K-u4Mn81VMmXB=2w@mail.gmail.com>
-References: <20170807130602.31785-4-joelaf@google.com> <20170807.112840.395506747161262549.davem@davemloft.net>
- <CAJWu+orPBSozHo6PDnvg9+RzmYVO=rwwNZk45kHFsBJmy-3A-Q@mail.gmail.com> <20170808.203540.2238751604302920304.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Chenbo Feng <fengc@google.com>,
-        Alison Chaiken <alison@she-devel.com>,
-        Juri Lelli <Juri.Lelli@arm.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "open list:BPF (Safe dynamic programs and tools)"
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170808.203540.2238751604302920304.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: gfree.wind@vip.163.com
+Subject: [PATCH net-next] net: sched: Add the invalid handle check in qdisc_class_find
+Date: Fri, 18 Aug 2017 15:23:24 +0800
+Message-ID: <1503041004-105572-1-git-send-email-gfree.wind@vip.163.com>
+Cc: Gao Feng <gfree.wind@vip.163.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m181-177.vip.163.com ([123.58.177.181]:51060 "EHLO
+        m181-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750971AbdHRHXm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 03:23:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 8, 2017 at 8:35 PM, David Miller <davem@davemloft.net> wrote:
-> From: Joel Fernandes <joelaf@google.com>
-> Date: Mon, 7 Aug 2017 18:20:49 -0700
->
->> On Mon, Aug 7, 2017 at 11:28 AM, David Miller <davem@davemloft.net> wrote:
->>> The amount of hellish hacks we are adding to deal with this is getting
->>> way out of control.
->>
->> I agree with you that hellish hacks are being added which is why it
->> keeps breaking. I think one of the things my series does is to add
->> back inclusion of asm headers that were previously removed (that is
->> the worst hellish hack in my opinion that existing in mainline). So in
->> that respect my patch is an improvement and makes it possible to build
->> for arm64 platforms (which is currently broken in mainline).
->
-> Yeah that is a problem.
->
-> Perhaps another avenue of attack is to separate "type" header files from
-> stuff that has functiond declarations and inline assembler code.
+From: Gao Feng <gfree.wind@vip.163.com>
 
-I was thinking that's probably a huge undertaking if you meant doing
-the above for every arch?
+Add the invalid handle "0" check to avoid unnecessary search, because
+the qdisc uses the skb->priority as the handle value to look up, and
+it is "0" usually.
 
-Also another way could be to modify clang to ignore inline asm
-directives during compilation? Do you have any comments about such
-approach?
+Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+---
+ include/net/sch_generic.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-thanks,
-
--Joel
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 5865db9..107c524 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -393,6 +393,9 @@ static inline unsigned int qdisc_class_hash(u32 id, u32 mask)
+ 	struct Qdisc_class_common *cl;
+ 	unsigned int h;
+ 
++	if (!id)
++		return NULL;
++
+ 	h = qdisc_class_hash(id, hash->hashmask);
+ 	hlist_for_each_entry(cl, &hash->hash[h], hnode) {
+ 		if (cl->classid == id)
+-- 
+1.9.1
