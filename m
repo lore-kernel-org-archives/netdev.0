@@ -1,108 +1,42 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH v2 0/5] ARM: dts: rcar-gen2: Convert to new CPG/MSSR bindings
-Date: Fri, 18 Aug 2017 11:11:33 +0200
-Message-ID: <1503047498-29078-1-git-send-email-geert+renesas@glider.be>
-Cc: linux-renesas-soc@vger.kernel.org, linux-clk@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Akshat Kakkar <akshat.1984@gmail.com>
+Subject: Re: Something hitting my total number of connections to the server
+Date: Fri, 18 Aug 2017 14:44:00 +0530
+Message-ID: <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com>
+References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
+ <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
+ <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com> <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:37144 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750709AbdHRJOB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 05:14:01 -0400
+Received: by mail-pg0-f41.google.com with SMTP id y129so60655237pgy.4
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 02:14:01 -0700 (PDT)
+In-Reply-To: <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-	Hi Simon, Magnus,
+On Thu, Aug 17, 2017 at 5:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2017-08-17 at 14:35 +0530, Akshat Kakkar wrote:
+>
+>> I upgraded to 4.4 but still experiencing same issue.
+>> Please help.
+>
+> Still too old kernel, shoot again ;)
+>
+>
 
-Currently Renesas R-Car Gen2 SoCs use the common clk-rcar-gen2,
-clk-mstp, and clk-div6 drivers, which depend on most clocks being
-described in DT.  Especially the module (MSTP) clocks are cumbersome and
-error prone, due to 3 arrays (clocks, clock-indices, and
-clock-output-names) to be kept in sync. In addition, the clk-mstp driver
-cannot be extended easily to also support module resets, which are
-provided by the same hardware module.
 
-Hence when developing support for R-Car Gen3 SoCs, another approach was
-chosen, which led to the CPG/MSSR driver core, and SoC-specific
-subdrivers (initially for R-Car Gen3, but later also for RZ/G1).
+Sorry but that's the maximum I can try as of now as its the LT version.
 
-This series converts the various R-Car Gen2 DTSes to migrate to the new
-CPG/MSSR drivers that were added in v4.13-rc1.
+Besides, this issue was not present in 2.6.32 but came with 3.10 and
+still there in 4.4, so I doubt if it has to do with some kernel and/or
+kernel parameters much as you guys are good enough not to keep an
+issue for so long (around 3 years).
 
-Note that module reset descriptions will be added later.
-
-Changes compared to v1:
-  - Rebased.
-
-Dependencies:
-  - renesas-devel-20170818-v4.13-rc5.
-
-Known issues:
-  - The CPG/MSSR driver is initialized later than the old clk-rcar-gen2
-    driver, causing changes of initialization order for other drivers.
-
-    Currently the PHY subsystem does not support probe deferral
-
-	+irq: no irq domain found for /interrupt-controller@e61c0000 !
-
-	-Micrel KSZ8041RNLI ee700000.ethernet-ffffffff:01: attached PHY driver [Micrel KSZ8041RNLI] (mii_bus:phy_addr=ee700000.ethernet-ffffffff:01, irq=182)
-	+Micrel KSZ8041RNLI ee700000.ethernet-ffffffff:01: attached PHY driver [Micrel KSZ8041RNLI] (mii_bus:phy_addr=ee700000.ethernet-ffffffff:01, irq=-1)
-
-    leading to the Ethernet PHY falling back to polling instead of using an
-    interrupt.  This can be remedied by "of_mdio: Fix broken PHY IRQ in
-    case of probe deferral" (https://patchwork.kernel.org/patch/9734175/),
-    which is still pending approval.
-
-    Fortunately the impact of this is limited to a small delay in the
-    detection of cable (un)plugging.
-    Note that when using the PHY interrupt, cable unplugging is reported
-    instantaneous, but plugging takes ca. 1.5-1.8 seconds.  Hence when
-    using polling with the standard interval of 1 second, the link comes up
-    in about the same time.
-
-For your convenience, this series is also available in the
-topic/rcar2-cpg-mssr-dt-v2 branch of my renesas-drivers git repository at
-git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-drivers.git.
-
-This has been tested on r8a7790/lager, r8a7791/koelsch, r8a7792/blanche,
-r8a7793/gose, and r8a7794/alt.  /sys/kernel/debug/clk/clk_summary has
-been compared before and after the conversion.
-
-Thanks for applying!
-
-Geert Uytterhoeven (5):
-  ARM: dts: r8a7790: Convert to new CPG/MSSR bindings
-  ARM: dts: r8a7791: Convert to new CPG/MSSR bindings
-  ARM: dts: r8a7792: Convert to new CPG/MSSR bindings
-  ARM: dts: r8a7793: Convert to new CPG/MSSR bindings
-  ARM: dts: r8a7794: Convert to new CPG/MSSR bindings
-
- arch/arm/boot/dts/r8a7790-lager.dts   |   7 +-
- arch/arm/boot/dts/r8a7790.dtsi        | 557 ++++++----------------------------
- arch/arm/boot/dts/r8a7791-koelsch.dts |   4 +-
- arch/arm/boot/dts/r8a7791-porter.dts  |   4 +-
- arch/arm/boot/dts/r8a7791.dtsi        | 557 +++++++---------------------------
- arch/arm/boot/dts/r8a7792-blanche.dts |   3 +-
- arch/arm/boot/dts/r8a7792-wheat.dts   |   3 +-
- arch/arm/boot/dts/r8a7792.dtsi        | 333 ++++----------------
- arch/arm/boot/dts/r8a7793-gose.dts    |   4 +-
- arch/arm/boot/dts/r8a7793.dtsi        | 459 +++++-----------------------
- arch/arm/boot/dts/r8a7794-alt.dts     |   3 +-
- arch/arm/boot/dts/r8a7794-silk.dts    |   3 +-
- arch/arm/boot/dts/r8a7794.dtsi        | 528 +++++---------------------------
- 13 files changed, 430 insertions(+), 2035 deletions(-)
-
--- 
-2.7.4
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+So please help.
