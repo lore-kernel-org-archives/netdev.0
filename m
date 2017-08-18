@@ -1,117 +1,60 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 14/14] amd-xgbe: Add additional ethtool
- statistics
-Date: Thu, 17 Aug 2017 19:04:13 -0500
-Message-ID: <20170818000413.10005.60568.stgit@tlendack-t1.amdoffice.net>
-References: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
+From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Subject: [PATCH] rtlwifi: btcoex: 23b 1ant: fix duplicated code for different
+ branches
+Date: Thu, 17 Aug 2017 19:22:19 -0500
+Message-ID: <20170818002219.GA9475@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0083.outbound.protection.outlook.com ([104.47.36.83]:51328
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753887AbdHRAES (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 20:04:18 -0400
-In-Reply-To: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
+Received: from gateway32.websitewelcome.com ([192.185.145.1]:44186 "EHLO
+        gateway32.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753449AbdHRAW0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 20:22:26 -0400
+Received: from cm16.websitewelcome.com (cm16.websitewelcome.com [100.42.49.19])
+        by gateway32.websitewelcome.com (Postfix) with ESMTP id E48822AC130
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 19:22:25 -0500 (CDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add some additional statistics for tracking VXLAN packets and checksum
-errors.
+Refactor code in order to avoid identical code for different branches.
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+This issue was detected with the help of Coccinelle.
+
+Addresses-Coverity-ID: 1415177
+Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |    8 +++++++-
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |    4 ++++
- drivers/net/ethernet/amd/xgbe/xgbe.h         |    5 +++++
- 3 files changed, 16 insertions(+), 1 deletion(-)
+This issue was reported by Coverity and it was tested by compilation only.
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 1bf671e..671203d 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1805,10 +1805,13 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 				  packet->length);
- 	}
- 
--	if (vxlan)
-+	if (vxlan) {
- 		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, VNP,
- 				  TX_NORMAL_DESC3_VXLAN_PACKET);
- 
-+		pdata->ext_stats.tx_vxlan_packets += packet->tx_packets;
-+	}
-+
- 	for (i = cur_index - start_index + 1; i < packet->rdesc_count; i++) {
- 		cur_index++;
- 		rdata = XGBE_GET_DESC_DATA(ring, cur_index);
-@@ -1981,6 +1984,7 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 	if (XGMAC_GET_BITS_LE(rdesc->desc2, RX_NORMAL_DESC2, TNP)) {
- 		XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
- 			       TNP, 1);
-+		pdata->ext_stats.rx_vxlan_packets++;
- 
- 		l34t = XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, L34T);
- 		switch (l34t) {
-@@ -2018,11 +2022,13 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 				       CSUM_DONE, 0);
- 			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
- 				       TNPCSUM_DONE, 0);
-+			pdata->ext_stats.rx_csum_errors++;
- 		} else if (tnp && ((etlt == 0x09) || (etlt == 0x0a))) {
- 			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
- 				       CSUM_DONE, 0);
- 			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
- 				       TNPCSUM_DONE, 0);
-+			pdata->ext_stats.rx_vxlan_csum_errors++;
- 		} else {
- 			XGMAC_SET_BITS(packet->errors, RX_PACKET_ERRORS,
- 				       FRAME, 1);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index cea25ac..ff397bb 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -146,6 +146,7 @@ struct xgbe_stats {
- 	XGMAC_MMC_STAT("tx_broadcast_packets", txbroadcastframes_gb),
- 	XGMAC_MMC_STAT("tx_multicast_packets", txmulticastframes_gb),
- 	XGMAC_MMC_STAT("tx_vlan_packets", txvlanframes_g),
-+	XGMAC_EXT_STAT("tx_vxlan_packets", tx_vxlan_packets),
- 	XGMAC_EXT_STAT("tx_tso_packets", tx_tso_packets),
- 	XGMAC_MMC_STAT("tx_64_byte_packets", tx64octets_gb),
- 	XGMAC_MMC_STAT("tx_65_to_127_byte_packets", tx65to127octets_gb),
-@@ -162,6 +163,7 @@ struct xgbe_stats {
- 	XGMAC_MMC_STAT("rx_broadcast_packets", rxbroadcastframes_g),
- 	XGMAC_MMC_STAT("rx_multicast_packets", rxmulticastframes_g),
- 	XGMAC_MMC_STAT("rx_vlan_packets", rxvlanframes_gb),
-+	XGMAC_EXT_STAT("rx_vxlan_packets", rx_vxlan_packets),
- 	XGMAC_MMC_STAT("rx_64_byte_packets", rx64octets_gb),
- 	XGMAC_MMC_STAT("rx_65_to_127_byte_packets", rx65to127octets_gb),
- 	XGMAC_MMC_STAT("rx_128_to_255_byte_packets", rx128to255octets_gb),
-@@ -177,6 +179,8 @@ struct xgbe_stats {
- 	XGMAC_MMC_STAT("rx_out_of_range_errors", rxoutofrangetype),
- 	XGMAC_MMC_STAT("rx_fifo_overflow_errors", rxfifooverflow),
- 	XGMAC_MMC_STAT("rx_watchdog_errors", rxwatchdogerror),
-+	XGMAC_EXT_STAT("rx_csum_errors", rx_csum_errors),
-+	XGMAC_EXT_STAT("rx_vxlan_csum_errors", rx_vxlan_csum_errors),
- 	XGMAC_MMC_STAT("rx_pause_frames", rxpauseframes),
- 	XGMAC_EXT_STAT("rx_split_header_packets", rx_split_header_packets),
- 	XGMAC_EXT_STAT("rx_buffer_unavailable", rx_buffer_unavailable),
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 6d4057a..c0c78ee 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -715,6 +715,11 @@ struct xgbe_ext_stats {
- 	u64 txq_bytes[XGBE_MAX_DMA_CHANNELS];
- 	u64 rxq_packets[XGBE_MAX_DMA_CHANNELS];
- 	u64 rxq_bytes[XGBE_MAX_DMA_CHANNELS];
-+
-+	u64 tx_vxlan_packets;
-+	u64 rx_vxlan_packets;
-+	u64 rx_csum_errors;
-+	u64 rx_vxlan_csum_errors;
- };
- 
- struct xgbe_hw_if {
+ .../net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c   | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c
+index 03998d2..c044252 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c
++++ b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c
+@@ -600,14 +600,8 @@ static void halbtc8723b1ant_coex_table_with_type(struct btc_coexist *btcoexist,
+ 						   0xffffff, 0x3);
+ 		break;
+ 	case 5:
+-		if ((coex_sta->cck_ever_lock) && (coex_sta->scan_ap_num <= 5))
+-			halbtc8723b1ant_coex_table(btcoexist, force_exec,
+-						   0x5a5a5a5a, 0x5aaa5a5a,
+-						   0xffffff, 0x3);
+-		else
+-			halbtc8723b1ant_coex_table(btcoexist, force_exec,
+-						   0x5a5a5a5a, 0x5aaa5a5a,
+-						   0xffffff, 0x3);
++		halbtc8723b1ant_coex_table(btcoexist, force_exec, 0x5a5a5a5a,
++					   0x5aaa5a5a, 0xffffff, 0x3);
+ 		break;
+ 	case 6:
+ 		halbtc8723b1ant_coex_table(btcoexist, force_exec, 0x55555555,
+-- 
+2.5.0
