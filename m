@@ -1,62 +1,101 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net] net: sched: fix NULL pointer dereference when action calls some targets
-Date: Fri, 18 Aug 2017 11:01:36 +0800
-Message-ID: <f9e3e9338eeb819c40efb13fed33514a3df23c14.1503025296.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, Cong Wang <xiyou.wangcong@gmail.com>,
-        pablo@netfilter.org
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34299 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753892AbdHRDBp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2017 23:01:45 -0400
-Received: by mail-pg0-f66.google.com with SMTP id y192so12721707pgd.1
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2017 20:01:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH] vsock: only load vmci transport on VMware hypervisor by
+ default
+Date: Fri, 18 Aug 2017 03:07:30 +0000
+Message-ID: <KL1P15301MB0008A67BF969A47309CFA992BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+References: <KL1P15301MB0008F70D4E5248AB7A296CE3BF830@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+ <20170817135559.GG5539@stefanha-x1.localdomain>
+ <04460E3B-B213-4090-96CD-00CEEBE6AC32@vmware.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Michal Kubecek <mkubecek@suse.cz>, "joe@perches.com" <joe@perches.com>,
+ "olaf@aepfle.de" <olaf@aepfle.de>, Stephen Hemminger <sthemmin@microsoft.com>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Haiyang
+ Zhang <haiyangz@microsoft.com>, Dave Scott <dave.scott@docker.com>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Vitaly Kuznetsov <vkuznets@redhat.com>,
+ Rolf Neugebauer <rolf.neugebauer@docker.com>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ Marcelo Cerri <marcelo.cerri@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ Asias He <asias@redhat.com>, "davem@davemloft.net" <davem@davemloft.net>,
+ George Zhang <georgezhang@vmware.com>,
+ Dan Carpenter <dan.carpenter@oracle.com>
+To: "Jorgen S. Hansen" <jhansen@vmware.com>, Stefan Hajnoczi
+ <stefanha@redhat.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <04460E3B-B213-4090-96CD-00CEEBE6AC32@vmware.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-As we know in some target's checkentry it may dereference par.entryinfo
-to check entry stuff inside. But when sched action calls xt_check_target,
-par.entryinfo is set with NULL. It would cause kernel panic when calling
-some targets.
-
-It can be reproduce with:
-  # tc qd add dev eth1 ingress handle ffff:
-  # tc filter add dev eth1 parent ffff: u32 match u32 0 0 action xt \
-    -j ECN --ecn-tcp-remove
-
-It could also crash kernel when using target CLUSTERIP or TPROXY.
-
-By now there's no proper value for par.entryinfo in ipt_init_target,
-but it can not be set with NULL. This patch is to void all these
-panics by setting it with an ipt_entry obj with all members = 0.
-
-Note that this issue has been there since the very beginning.
-
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sched/act_ipt.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index d516ba8..5417078 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -41,6 +41,7 @@ static int ipt_init_target(struct net *net, struct xt_entry_target *t,
- {
- 	struct xt_tgchk_param par;
- 	struct xt_target *target;
-+	struct ipt_entry e = {};
- 	int ret = 0;
- 
- 	target = xt_request_find_target(AF_INET, t->u.user.name,
-@@ -52,6 +53,7 @@ static int ipt_init_target(struct net *net, struct xt_entry_target *t,
- 	memset(&par, 0, sizeof(par));
- 	par.net       = net;
- 	par.table     = table;
-+	par.entryinfo = &e;
- 	par.target    = target;
- 	par.targinfo  = t->data;
- 	par.hook_mask = hook;
--- 
-2.1.0
+PiBGcm9tOiBKb3JnZW4gUy4gSGFuc2VuIFttYWlsdG86amhhbnNlbkB2bXdhcmUuY29tXQ0KPiBT
+ZW50OiBUaHVyc2RheSwgQXVndXN0IDE3LCAyMDE3IDA4OjE3DQo+ID4NCj4gPiBQdXR0aW5nIGFz
+aWRlIG5lc3RlZCB2aXJ0dWFsaXphdGlvbiwgSSB3YW50IHRvIGxvYWQgdGhlIHRyYW5zcG9ydCAo
+dm1jaSwNCj4gPiBIeXBlci1WLCB2c29jaykgZm9yIHdoaWNoIHRoZXJlIGlzIHBhcmF2aXJ0dWFs
+aXplZCBoYXJkd2FyZSBwcmVzZW50DQo+ID4gaW5zaWRlIHRoZSBndWVzdC4NCj4gDQo+IEdvb2Qg
+cG9pbnRzLiBDb21wbGV0ZWx5IGFncmVlIHRoYXQgdGhpcyBpcyB0aGUgZGVzaXJlZCBiZWhhdmlv
+ciBmb3IgYSBndWVzdC4NCj4gDQo+IA0KPiA+IEl0J3MgYSBsaXR0bGUgdHJpY2tlciBvbiB0aGUg
+aG9zdCBzaWRlIChkb2Vzbid0IG1hdHRlciBmb3IgSHlwZXItViBhbmQNCj4gPiBwcm9iYWJseSBh
+bHNvIGRvZXNuJ3QgZm9yIFZNd2FyZSkgYmVjYXVzZSB0aGUgaG9zdC1zaWRlIGRyaXZlciBpcyBh
+DQo+ID4gc29mdHdhcmUgZGV2aWNlIHdpdGggbm8gaGFyZHdhcmUgYmFja2luZyBpdC4gIEluIEtW
+TSB3ZSBhc3N1bWUgdGhlDQo+ID4gdmhvc3RfdnNvY2sua28ga2VybmVsIG1vZHVsZSB3aWxsIGJl
+IGxvYWRlZCBzdWZmaWNpZW50bHkgZWFybHkuDQo+IA0KPiBTaW5jZSB0aGUgdm1jaSBkcml2ZXIg
+aXMgY3VycmVudGx5IHRpZWQgdG8gUEZfVlNPQ0sgaXQgaGFzbuKAmXQgYmVlbiBhIHByb2JsZW0s
+DQo+IGJ1dCBvbiB0aGUgaG9zdCBzaWRlIHRoZSBWTUNJIGRyaXZlciBoYXMgbm8gaGFyZHdhcmUg
+YmFja2luZyBpdCBlaXRoZXIsIHNvDQo+IHdoZW4gd2UgbW92ZSB0byBhIG1vcmUgYXBwcm9wcmlh
+dGUgc29sdXRpb24sIHRoaXMgd2lsbCBiZSBhbiBpc3N1ZSBmb3IgVk1DSSBhcw0KPiB3ZWxsLiBJ
+4oCZbGwgY2hlY2sgb3VyIHNoaXBwZWQgcHJvZHVjdHMsIGJ1dCB0aGV5IG1vc3QgbGlrZWx5IGFz
+c3VtZSB0aGF0IGlmIGFuDQo+IHVwc3RyZWFtZWQgdm1jaSBtb2R1bGUgaXMgcHJlc2VudCwgaXQg
+d2lsbCBiZSBsb2FkZWQgYXV0b21hdGljYWxseS4NCg0KSHlwZXItViBTb2NrZXRzIGlzIGEgc3Rh
+bmRhcmQgZmVhdHVyZSBvZiBWTUJ1cyB2NC4wLCBzbyB3ZSBjYW4gZWFzaWx5IGtub3cNCndlIGNh
+biBhbmQgc2hvdWxkIGxvYWQgaWZmIHZtYnVzX3Byb3RvX3ZlcnNpb24gPj0gVkVSU0lPTl9XSU4x
+MC4NCg0KPiA+IFRoaW5ncyBnZXQgdHJpY2tpZXIgd2l0aCBuZXN0ZWQgdmlydHVhbGl6YXRpb24g
+YmVjYXVzZSB0aGUgVk0gbWlnaHQgd2FudA0KPiA+IHRvIHRhbGsgdG8gaXRzIGhvc3QgYnV0IGFs
+c28gdG8gaXRzIG5lc3RlZCBWTXMuICBUaGUgc2ltcGxlIHdheSBvZg0KPiA+IGZpeGluZyB0aGlz
+IHdvdWxkIGJlIHRvIGFsbG93IHR3byB0cmFuc3BvcnRzIGxvYWRlZCBzaW11bHRhbmVvdXNseSBh
+bmQNCj4gPiByb3V0ZSB0cmFmZmljIGRlc3RpbmVkIHRvIENJRCAyIHRvIHRoZSBob3N0IHRyYW5z
+cG9ydCBhbmQgYWxsIG90aGVyDQo+ID4gdHJhZmZpYyB0byB0aGUgZ3Vlc3QgdHJhbnNwb3J0Lg0K
+DQpUaGlzIHNvdW5kcyBsaWtlIGEgbGl0dGxlIHRyaWNreSB0byBtZS4NCkNJRCBpcyBub3QgcmVh
+bGx5IHVzZWQgYnkgdXMsIGJlY2F1c2Ugd2Ugb25seSBzdXBwb3J0IGd1ZXN0PC0+aG9zdCBjb21t
+dW5pY2F0aW9uLA0KYW5kIGRvbid0IHN1cHBvcnQgZ3Vlc3Q8LT5ndWVzdCBjb21tdW5pY2F0aW9u
+LiBUaGUgSHlwZXItViBob3N0IHJlZmVyZW5jZXMNCmV2ZXJ5IFZNIGJ5IFZtSUQgKHdoaWNoIGlz
+IGludmlzaWJsZSB0byB0aGUgVk0pLCBhbmQgYSBWTSBjYW4gb25seSB0YWxrIHRvIHRoZQ0KaG9z
+dCB2aWEgdGhpcyBmZWF0dXJlLg0KDQo+IFRoaXMgaXMgY2xvc2UgdG8gdGhlIHJvdXRpbmcgdGhl
+IFZNQ0kgZHJpdmVyIGRvZXMgaW4gYSBuZXN0ZWQgZW52aXJvbm1lbnQsIGJ1dA0KPiB0aGF0IGlz
+IHdpdGggdGhlIGFzc3VtcHRpb24gdGhhdCB0aGVyZSBpcyBvbmx5IG9uZSB0eXBlIG9mIHRyYW5z
+cG9ydC4gSGF2aW5nIHR3bw0KPiBkaWZmZXJlbnQgdHJhbnNwb3J0cyB3b3VsZCByZXF1aXJlIHRo
+YXQgd2UgZGVsYXkgcmVzb2x2aW5nIHRoZSB0cmFuc3BvcnQgdHlwZQ0KPiB1bnRpbCB0aGUgc29j
+a2V0IGVuZHBvaW50IGhhcyBiZWVuIGJvdW5kIHRvIGFuIGFkZHJlc3MuIFRoaW5ncyBnZXQgdHJp
+Y2tpZXIgaWYNCj4gbGlzdGVuaW5nIHNvY2tldHMgdXNlIFZNQUREUl9DSURfQU5ZIC0gaWYgb25s
+eSBvbmUgdHJhbnNwb3J0IGlzIHByZXNlbnQsIHRoaXMNCj4gd291bGQgYWxsb3cgdGhlIHNvY2tl
+dCB0byBhY2NlcHQgY29ubmVjdGlvbnMgZnJvbSBib3RoIGd1ZXN0cyBhbmQgb3V0ZXIgaG9zdCwN
+Cj4gYnV0IHdpdGggbXVsdGlwbGUgdHJhbnNwb3J0cyB0aGF0IHdvbuKAmXQgd29yaywgc2luY2Ug
+d2UgY2Fu4oCZdCBhc3NvY2lhdGUgYSBzb2NrZXQNCj4gd2l0aCBhIHRyYW5zcG9ydCB1bnRpbCB0
+aGUgc29ja2V0IGlzIGJvdW5kLg0KPiANCj4gPg0KPiA+IFBlcmhhcHMgd2Ugc2hvdWxkIGRpc2N1
+c3MgdGhlc2UgY2FzZXMgYSBiaXQgbW9yZSB0byBmaWd1cmUgb3V0IGhvdyB0bw0KPiA+IGF2b2lk
+IGNvbmZsaWN0cyBvdmVyIE1PRFVMRV9BTElBU19ORVRQUk9UTyhQRl9WU09DSykuDQo+IA0KPiBB
+Z3JlZWQuDQoNCkNhbiB3ZSB1c2UgdGhlICdwcm90b2NvbCcgcGFyYW1ldGVyIGluIHRoZSBzb2Nr
+ZXQoKSBmdW5jdGlvbjoNCmludCBzb2NrZXQoaW50IGRvbWFpbiwgaW50IHR5cGUsIGludCBwcm90
+b2NvbCkgDQoNCklNTyBjdXJyZW50bHkgdGhlICdwcm90b2NvbCcgaXMgbm90IHJlYWxseSB1c2Vk
+Lg0KSSB0aGluayB3ZSBjYW4gbW9kaWZ5IF9fdnNvY2tfY29yZV9pbml0KCkgdG8gYWxsb3cgbXVs
+dGlwbGUgdHJhbnNwb3J0IGxheWVycyB0bw0KIGJlIHJlZ2lzdGVyZWQsIGFuZCB3ZSBjYW4gZGVm
+aW5lIGRpZmZlcmVudCAncHJvdG9jb2wnIG51bWJlcnMgZm9yDQpWTXdhcmUvS1ZNL0h5cGVyLVYs
+IGFuZCBhc2sgdGhlIGFwcGxpY2F0aW9uIHRvIGV4cGxpY2l0bHkgc3BlY2lmeSB3aGF0IHNob3Vs
+ZA0KYmUgdXNlZC4gQ29uc2lkZXJpbmcgY29tcGF0aWJpbGl0eSwgd2UgY2FuIHVzZSB0aGUgZGVm
+YXVsdCB0cmFuc3BvcnQgaW4gYSBnaXZlbg0KVk0gZGVwZW5kaW5nIG9uIHRoZSB1bmRlcmx5aW5n
+IGh5cGVydmlzb3IuIA0KDQotLSBEZXh1YW4NCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fCmRldmVsIG1haWxpbmcgbGlzdApkZXZlbEBsaW51eGRyaXZlcnBy
+b2plY3Qub3JnCmh0dHA6Ly9kcml2ZXJkZXYubGludXhkcml2ZXJwcm9qZWN0Lm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL2RyaXZlcmRldi1kZXZlbAo=
