@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 12/14] amd-xgbe: Convert to using the new link
- mode settings
-Date: Thu, 17 Aug 2017 19:03:54 -0500
-Message-ID: <20170818000354.10005.2508.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 13/14] amd-xgbe: Add support for VXLAN offload
+ capabilities
+Date: Thu, 17 Aug 2017 19:04:04 -0500
+Message-ID: <20170818000404.10005.29777.stgit@tlendack-t1.amdoffice.net>
 References: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,1349 +10,857 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0082.outbound.protection.outlook.com ([104.47.36.82]:51024
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0041.outbound.protection.outlook.com ([104.47.42.41]:29784
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753887AbdHRAEB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 20:04:01 -0400
+        id S1753921AbdHRAEJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 20:04:09 -0400
 In-Reply-To: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert from using the old u32 supported, advertising, etc. link settings
-to the new link mode settings that support bit positions / settings
-greater than 32 bits.
+The hardware has the capability to perform checksum offload support
+(both Tx and Rx) and TSO support for VXLAN packets. Add the support
+required to enable this.
+
+The hardware can only support a single VXLAN port for offload. If more
+than one VXLAN port is added then the offload capabilities have to be
+disabled and can no longer be advertised.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   56 ++--
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c    |   77 +++---
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c  |   54 ++--
- drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c  |  350 ++++++++++++++------------
- drivers/net/ethernet/amd/xgbe/xgbe.h         |   50 +++-
- 5 files changed, 345 insertions(+), 242 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |   24 ++
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |   92 +++++++
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c    |  365 +++++++++++++++++++++++++++
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c   |   23 ++
+ drivers/net/ethernet/amd/xgbe/xgbe.h        |   22 ++
+ 5 files changed, 520 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index f80b186..cea25ac 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -267,6 +267,7 @@ static int xgbe_set_pauseparam(struct net_device *netdev,
- 			       struct ethtool_pauseparam *pause)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+index d07edf9..9431330 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+@@ -298,6 +298,7 @@
+ #define MAC_RWKPFR			0x00c4
+ #define MAC_LPICSR			0x00d0
+ #define MAC_LPITCR			0x00d4
++#define MAC_TIR				0x00e0
+ #define MAC_VR				0x0110
+ #define MAC_DR				0x0114
+ #define MAC_HWF0R			0x011c
+@@ -364,6 +365,8 @@
+ #define MAC_HWF0R_TXCOESEL_WIDTH	1
+ #define MAC_HWF0R_VLHASH_INDEX		4
+ #define MAC_HWF0R_VLHASH_WIDTH		1
++#define MAC_HWF0R_VXN_INDEX		29
++#define MAC_HWF0R_VXN_WIDTH		1
+ #define MAC_HWF1R_ADDR64_INDEX		14
+ #define MAC_HWF1R_ADDR64_WIDTH		2
+ #define MAC_HWF1R_ADVTHWORD_INDEX	13
+@@ -448,6 +451,8 @@
+ #define MAC_PFR_PR_WIDTH		1
+ #define MAC_PFR_VTFE_INDEX		16
+ #define MAC_PFR_VTFE_WIDTH		1
++#define MAC_PFR_VUCC_INDEX		22
++#define MAC_PFR_VUCC_WIDTH		1
+ #define MAC_PMTCSR_MGKPKTEN_INDEX	1
+ #define MAC_PMTCSR_MGKPKTEN_WIDTH	1
+ #define MAC_PMTCSR_PWRDWN_INDEX		0
+@@ -510,6 +515,12 @@
+ #define MAC_TCR_SS_WIDTH		2
+ #define MAC_TCR_TE_INDEX		0
+ #define MAC_TCR_TE_WIDTH		1
++#define MAC_TCR_VNE_INDEX		24
++#define MAC_TCR_VNE_WIDTH		1
++#define MAC_TCR_VNM_INDEX		25
++#define MAC_TCR_VNM_WIDTH		1
++#define MAC_TIR_TNID_INDEX		0
++#define MAC_TIR_TNID_WIDTH		16
+ #define MAC_TSCR_AV8021ASMEN_INDEX	28
+ #define MAC_TSCR_AV8021ASMEN_WIDTH	1
+ #define MAC_TSCR_SNAPTYPSEL_INDEX	16
+@@ -1153,11 +1164,17 @@
+ #define RX_PACKET_ATTRIBUTES_RSS_HASH_WIDTH	1
+ #define RX_PACKET_ATTRIBUTES_FIRST_INDEX	7
+ #define RX_PACKET_ATTRIBUTES_FIRST_WIDTH	1
++#define RX_PACKET_ATTRIBUTES_TNP_INDEX		8
++#define RX_PACKET_ATTRIBUTES_TNP_WIDTH		1
++#define RX_PACKET_ATTRIBUTES_TNPCSUM_DONE_INDEX	9
++#define RX_PACKET_ATTRIBUTES_TNPCSUM_DONE_WIDTH	1
+ 
+ #define RX_NORMAL_DESC0_OVT_INDEX		0
+ #define RX_NORMAL_DESC0_OVT_WIDTH		16
+ #define RX_NORMAL_DESC2_HL_INDEX		0
+ #define RX_NORMAL_DESC2_HL_WIDTH		10
++#define RX_NORMAL_DESC2_TNP_INDEX		11
++#define RX_NORMAL_DESC2_TNP_WIDTH		1
+ #define RX_NORMAL_DESC3_CDA_INDEX		27
+ #define RX_NORMAL_DESC3_CDA_WIDTH		1
+ #define RX_NORMAL_DESC3_CTXT_INDEX		30
+@@ -1184,9 +1201,11 @@
+ #define RX_DESC3_L34T_IPV4_TCP			1
+ #define RX_DESC3_L34T_IPV4_UDP			2
+ #define RX_DESC3_L34T_IPV4_ICMP			3
++#define RX_DESC3_L34T_IPV4_UNKNOWN		7
+ #define RX_DESC3_L34T_IPV6_TCP			9
+ #define RX_DESC3_L34T_IPV6_UDP			10
+ #define RX_DESC3_L34T_IPV6_ICMP			11
++#define RX_DESC3_L34T_IPV6_UNKNOWN		15
+ 
+ #define RX_CONTEXT_DESC3_TSA_INDEX		4
+ #define RX_CONTEXT_DESC3_TSA_WIDTH		1
+@@ -1201,6 +1220,8 @@
+ #define TX_PACKET_ATTRIBUTES_VLAN_CTAG_WIDTH	1
+ #define TX_PACKET_ATTRIBUTES_PTP_INDEX		3
+ #define TX_PACKET_ATTRIBUTES_PTP_WIDTH		1
++#define TX_PACKET_ATTRIBUTES_VXLAN_INDEX	4
++#define TX_PACKET_ATTRIBUTES_VXLAN_WIDTH	1
+ 
+ #define TX_CONTEXT_DESC2_MSS_INDEX		0
+ #define TX_CONTEXT_DESC2_MSS_WIDTH		15
+@@ -1241,8 +1262,11 @@
+ #define TX_NORMAL_DESC3_TCPPL_WIDTH		18
+ #define TX_NORMAL_DESC3_TSE_INDEX		18
+ #define TX_NORMAL_DESC3_TSE_WIDTH		1
++#define TX_NORMAL_DESC3_VNP_INDEX		23
++#define TX_NORMAL_DESC3_VNP_WIDTH		3
+ 
+ #define TX_NORMAL_DESC2_VLAN_INSERT		0x2
++#define TX_NORMAL_DESC3_VXLAN_PACKET		0x3
+ 
+ /* MDIO undefined or vendor specific registers */
+ #ifndef MDIO_PMA_10GBR_PMD_CTRL
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index a978408..1bf671e 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -479,6 +479,50 @@ static bool xgbe_is_pfc_queue(struct xgbe_prv_data *pdata,
+ 	return false;
+ }
+ 
++static void xgbe_set_vxlan_id(struct xgbe_prv_data *pdata)
++{
++	/* Program the VXLAN port */
++	XGMAC_IOWRITE_BITS(pdata, MAC_TIR, TNID, pdata->vxlan_port);
++
++	netif_dbg(pdata, drv, pdata->netdev, "VXLAN tunnel id set to %hx\n",
++		  pdata->vxlan_port);
++}
++
++static void xgbe_enable_vxlan(struct xgbe_prv_data *pdata)
++{
++	if (!pdata->hw_feat.vxn)
++		return;
++
++	/* Program the VXLAN port */
++	xgbe_set_vxlan_id(pdata);
++
++	/* Allow for IPv6/UDP zero-checksum VXLAN packets */
++	XGMAC_IOWRITE_BITS(pdata, MAC_PFR, VUCC, 1);
++
++	/* Enable VXLAN tunneling mode */
++	XGMAC_IOWRITE_BITS(pdata, MAC_TCR, VNM, 0);
++	XGMAC_IOWRITE_BITS(pdata, MAC_TCR, VNE, 1);
++
++	netif_dbg(pdata, drv, pdata->netdev, "VXLAN acceleration enabled\n");
++}
++
++static void xgbe_disable_vxlan(struct xgbe_prv_data *pdata)
++{
++	if (!pdata->hw_feat.vxn)
++		return;
++
++	/* Disable tunneling mode */
++	XGMAC_IOWRITE_BITS(pdata, MAC_TCR, VNE, 0);
++
++	/* Clear IPv6/UDP zero-checksum VXLAN packets setting */
++	XGMAC_IOWRITE_BITS(pdata, MAC_PFR, VUCC, 0);
++
++	/* Clear the VXLAN port */
++	XGMAC_IOWRITE_BITS(pdata, MAC_TIR, TNID, 0);
++
++	netif_dbg(pdata, drv, pdata->netdev, "VXLAN acceleration disabled\n");
++}
++
+ static int xgbe_disable_tx_flow_control(struct xgbe_prv_data *pdata)
  {
- 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	int ret = 0;
+ 	unsigned int max_q_count, q_count;
+@@ -1610,7 +1654,7 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 	struct xgbe_ring_desc *rdesc;
+ 	struct xgbe_packet_data *packet = &ring->packet_data;
+ 	unsigned int tx_packets, tx_bytes;
+-	unsigned int csum, tso, vlan;
++	unsigned int csum, tso, vlan, vxlan;
+ 	unsigned int tso_context, vlan_context;
+ 	unsigned int tx_set_ic;
+ 	int start_index = ring->cur;
+@@ -1628,6 +1672,8 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 			     TSO_ENABLE);
+ 	vlan = XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES,
+ 			      VLAN_CTAG);
++	vxlan = XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES,
++			       VXLAN);
  
- 	if (pause->autoneg && (pdata->phy.autoneg != AUTONEG_ENABLE)) {
-@@ -279,16 +280,21 @@ static int xgbe_set_pauseparam(struct net_device *netdev,
- 	pdata->phy.tx_pause = pause->tx_pause;
- 	pdata->phy.rx_pause = pause->rx_pause;
- 
--	pdata->phy.advertising &= ~ADVERTISED_Pause;
--	pdata->phy.advertising &= ~ADVERTISED_Asym_Pause;
-+	XGBE_CLR_ADV(lks, Pause);
-+	XGBE_CLR_ADV(lks, Asym_Pause);
- 
- 	if (pause->rx_pause) {
--		pdata->phy.advertising |= ADVERTISED_Pause;
--		pdata->phy.advertising |= ADVERTISED_Asym_Pause;
-+		XGBE_SET_ADV(lks, Pause);
-+		XGBE_SET_ADV(lks, Asym_Pause);
+ 	if (tso && (packet->mss != ring->tx.cur_mss))
+ 		tso_context = 1;
+@@ -1759,6 +1805,10 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+ 				  packet->length);
  	}
  
--	if (pause->tx_pause)
--		pdata->phy.advertising ^= ADVERTISED_Asym_Pause;
-+	if (pause->tx_pause) {
-+		/* Equivalent to XOR of Asym_Pause */
-+		if (XGBE_ADV(lks, Asym_Pause))
-+			XGBE_CLR_ADV(lks, Asym_Pause);
-+		else
-+			XGBE_SET_ADV(lks, Asym_Pause);
++	if (vxlan)
++		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, VNP,
++				  TX_NORMAL_DESC3_VXLAN_PACKET);
++
+ 	for (i = cur_index - start_index + 1; i < packet->rdesc_count; i++) {
+ 		cur_index++;
+ 		rdata = XGBE_GET_DESC_DATA(ring, cur_index);
+@@ -1920,9 +1970,27 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
+ 	rdata->rx.len = XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, PL);
+ 
+ 	/* Set checksum done indicator as appropriate */
+-	if (netdev->features & NETIF_F_RXCSUM)
++	if (netdev->features & NETIF_F_RXCSUM) {
+ 		XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
+ 			       CSUM_DONE, 1);
++		XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
++			       TNPCSUM_DONE, 1);
++	}
++
++	/* Set the tunneled packet indicator */
++	if (XGMAC_GET_BITS_LE(rdesc->desc2, RX_NORMAL_DESC2, TNP)) {
++		XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
++			       TNP, 1);
++
++		l34t = XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, L34T);
++		switch (l34t) {
++		case RX_DESC3_L34T_IPV4_UNKNOWN:
++		case RX_DESC3_L34T_IPV6_UNKNOWN:
++			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
++				       TNPCSUM_DONE, 0);
++			break;
++		}
 +	}
  
- 	if (netif_running(netdev))
- 		ret = pdata->phy_if.phy_config_aneg(pdata);
-@@ -300,22 +306,20 @@ static int xgbe_get_link_ksettings(struct net_device *netdev,
- 				   struct ethtool_link_ksettings *cmd)
- {
- 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 
- 	cmd->base.phy_address = pdata->phy.address;
- 
--	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
--						pdata->phy.supported);
--	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
--						pdata->phy.advertising);
--	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.lp_advertising,
--						pdata->phy.lp_advertising);
--
- 	cmd->base.autoneg = pdata->phy.autoneg;
- 	cmd->base.speed = pdata->phy.speed;
- 	cmd->base.duplex = pdata->phy.duplex;
- 
- 	cmd->base.port = PORT_NONE;
- 
-+	XGBE_LM_COPY(cmd, supported, lks, supported);
-+	XGBE_LM_COPY(cmd, advertising, lks, advertising);
-+	XGBE_LM_COPY(cmd, lp_advertising, lks, lp_advertising);
+ 	/* Check for errors (only valid in last descriptor) */
+ 	err = XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, ES);
+@@ -1942,12 +2010,23 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
+ 				  packet->vlan_ctag);
+ 		}
+ 	} else {
+-		if ((etlt == 0x05) || (etlt == 0x06))
++		unsigned int tnp = XGMAC_GET_BITS(packet->attributes,
++						  RX_PACKET_ATTRIBUTES, TNP);
 +
++		if ((etlt == 0x05) || (etlt == 0x06)) {
+ 			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
+ 				       CSUM_DONE, 0);
+-		else
++			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
++				       TNPCSUM_DONE, 0);
++		} else if (tnp && ((etlt == 0x09) || (etlt == 0x0a))) {
++			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
++				       CSUM_DONE, 0);
++			XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
++				       TNPCSUM_DONE, 0);
++		} else {
+ 			XGMAC_SET_BITS(packet->errors, RX_PACKET_ERRORS,
+ 				       FRAME, 1);
++		}
+ 	}
+ 
+ 	pdata->ext_stats.rxq_packets[channel->queue_index]++;
+@@ -3536,5 +3615,10 @@ void xgbe_init_function_ptrs_dev(struct xgbe_hw_if *hw_if)
+ 	hw_if->disable_ecc_ded = xgbe_disable_ecc_ded;
+ 	hw_if->disable_ecc_sec = xgbe_disable_ecc_sec;
+ 
++	/* For VXLAN */
++	hw_if->enable_vxlan = xgbe_enable_vxlan;
++	hw_if->disable_vxlan = xgbe_disable_vxlan;
++	hw_if->set_vxlan_id = xgbe_set_vxlan_id;
++
+ 	DBGPR("<--xgbe_init_function_ptrs\n");
+ }
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 7498bb8..608693d 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -124,6 +124,7 @@
+ #include <linux/if_ether.h>
+ #include <linux/net_tstamp.h>
+ #include <linux/phy.h>
++#include <net/vxlan.h>
+ 
+ #include "xgbe.h"
+ #include "xgbe-common.h"
+@@ -756,6 +757,7 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
+ 					      ADDMACADRSEL);
+ 	hw_feat->ts_src      = XGMAC_GET_BITS(mac_hfr0, MAC_HWF0R, TSSTSSEL);
+ 	hw_feat->sa_vlan_ins = XGMAC_GET_BITS(mac_hfr0, MAC_HWF0R, SAVLANINS);
++	hw_feat->vxn         = XGMAC_GET_BITS(mac_hfr0, MAC_HWF0R, VXN);
+ 
+ 	/* Hardware feature register 1 */
+ 	hw_feat->rx_fifo_size  = XGMAC_GET_BITS(mac_hfr1, MAC_HWF1R,
+@@ -860,6 +862,8 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
+ 			(hw_feat->ts_src == 3) ? "internal/external" : "n/a");
+ 		dev_dbg(pdata->dev, "  SA/VLAN insertion         : %s\n",
+ 			hw_feat->sa_vlan_ins ? "yes" : "no");
++		dev_dbg(pdata->dev, "  VXLAN/NVGRE support       : %s\n",
++			hw_feat->vxn ? "yes" : "no");
+ 
+ 		/* Hardware feature register 1 */
+ 		dev_dbg(pdata->dev, "  RX fifo size              : %u\n",
+@@ -903,6 +907,116 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
+ 	}
+ }
+ 
++static void xgbe_disable_vxlan_offloads(struct xgbe_prv_data *pdata)
++{
++	struct net_device *netdev = pdata->netdev;
++
++	if (!pdata->vxlan_offloads_set)
++		return;
++
++	netdev_info(netdev, "disabling VXLAN offloads\n");
++
++	netdev->hw_enc_features &= ~(NETIF_F_SG |
++				     NETIF_F_IP_CSUM |
++				     NETIF_F_IPV6_CSUM |
++				     NETIF_F_RXCSUM |
++				     NETIF_F_TSO |
++				     NETIF_F_TSO6 |
++				     NETIF_F_GRO |
++				     NETIF_F_GSO_UDP_TUNNEL |
++				     NETIF_F_GSO_UDP_TUNNEL_CSUM);
++
++	netdev->features &= ~(NETIF_F_GSO_UDP_TUNNEL |
++			      NETIF_F_GSO_UDP_TUNNEL_CSUM);
++
++	pdata->vxlan_offloads_set = 0;
++}
++
++static void xgbe_disable_vxlan_hw(struct xgbe_prv_data *pdata)
++{
++	if (!pdata->vxlan_port_set)
++		return;
++
++	pdata->hw_if.disable_vxlan(pdata);
++
++	pdata->vxlan_port_set = 0;
++	pdata->vxlan_port = 0;
++}
++
++static void xgbe_disable_vxlan_accel(struct xgbe_prv_data *pdata)
++{
++	xgbe_disable_vxlan_offloads(pdata);
++
++	xgbe_disable_vxlan_hw(pdata);
++}
++
++static void xgbe_enable_vxlan_offloads(struct xgbe_prv_data *pdata)
++{
++	struct net_device *netdev = pdata->netdev;
++
++	if (pdata->vxlan_offloads_set)
++		return;
++
++	netdev_info(netdev, "enabling VXLAN offloads\n");
++
++	netdev->hw_enc_features |= NETIF_F_SG |
++				   NETIF_F_IP_CSUM |
++				   NETIF_F_IPV6_CSUM |
++				   NETIF_F_RXCSUM |
++				   NETIF_F_TSO |
++				   NETIF_F_TSO6 |
++				   NETIF_F_GRO |
++				   pdata->vxlan_features;
++
++	netdev->features |= pdata->vxlan_features;
++
++	pdata->vxlan_offloads_set = 1;
++}
++
++static void xgbe_enable_vxlan_hw(struct xgbe_prv_data *pdata)
++{
++	struct xgbe_vxlan_data *vdata;
++
++	if (pdata->vxlan_port_set)
++		return;
++
++	if (list_empty(&pdata->vxlan_ports))
++		return;
++
++	vdata = list_first_entry(&pdata->vxlan_ports,
++				 struct xgbe_vxlan_data, list);
++
++	pdata->vxlan_port_set = 1;
++	pdata->vxlan_port = be16_to_cpu(vdata->port);
++
++	pdata->hw_if.enable_vxlan(pdata);
++}
++
++static void xgbe_enable_vxlan_accel(struct xgbe_prv_data *pdata)
++{
++	/* VXLAN acceleration desired? */
++	if (!pdata->vxlan_features)
++		return;
++
++	/* VXLAN acceleration possible? */
++	if (pdata->vxlan_force_disable)
++		return;
++
++	xgbe_enable_vxlan_hw(pdata);
++
++	xgbe_enable_vxlan_offloads(pdata);
++}
++
++static void xgbe_reset_vxlan_accel(struct xgbe_prv_data *pdata)
++{
++	xgbe_disable_vxlan_hw(pdata);
++
++	if (pdata->vxlan_features)
++		xgbe_enable_vxlan_offloads(pdata);
++
++	pdata->vxlan_force_disable = 0;
++}
++
+ static void xgbe_napi_enable(struct xgbe_prv_data *pdata, unsigned int add)
+ {
+ 	struct xgbe_channel *channel;
+@@ -1226,6 +1340,8 @@ static int xgbe_start(struct xgbe_prv_data *pdata)
+ 	hw_if->enable_tx(pdata);
+ 	hw_if->enable_rx(pdata);
+ 
++	udp_tunnel_get_rx_info(netdev);
++
+ 	netif_tx_start_all_queues(netdev);
+ 
+ 	xgbe_start_timers(pdata);
+@@ -1267,6 +1383,8 @@ static void xgbe_stop(struct xgbe_prv_data *pdata)
+ 	xgbe_stop_timers(pdata);
+ 	flush_workqueue(pdata->dev_workqueue);
+ 
++	xgbe_reset_vxlan_accel(pdata);
++
+ 	hw_if->disable_tx(pdata);
+ 	hw_if->disable_rx(pdata);
+ 
+@@ -1555,10 +1673,18 @@ static int xgbe_prep_tso(struct sk_buff *skb, struct xgbe_packet_data *packet)
+ 	if (ret)
+ 		return ret;
+ 
+-	packet->header_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+-	packet->tcp_header_len = tcp_hdrlen(skb);
++	if (XGMAC_GET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES, VXLAN)) {
++		packet->header_len = skb_inner_transport_offset(skb) +
++				     inner_tcp_hdrlen(skb);
++		packet->tcp_header_len = inner_tcp_hdrlen(skb);
++	} else {
++		packet->header_len = skb_transport_offset(skb) +
++				     tcp_hdrlen(skb);
++		packet->tcp_header_len = tcp_hdrlen(skb);
++	}
+ 	packet->tcp_payload_len = skb->len - packet->header_len;
+ 	packet->mss = skb_shinfo(skb)->gso_size;
++
+ 	DBGPR("  packet->header_len=%u\n", packet->header_len);
+ 	DBGPR("  packet->tcp_header_len=%u, packet->tcp_payload_len=%u\n",
+ 	      packet->tcp_header_len, packet->tcp_payload_len);
+@@ -1573,6 +1699,49 @@ static int xgbe_prep_tso(struct sk_buff *skb, struct xgbe_packet_data *packet)
  	return 0;
  }
  
-@@ -323,7 +327,8 @@ static int xgbe_set_link_ksettings(struct net_device *netdev,
- 				   const struct ethtool_link_ksettings *cmd)
++static bool xgbe_is_vxlan(struct xgbe_prv_data *pdata, struct sk_buff *skb)
++{
++	struct xgbe_vxlan_data *vdata;
++
++	if (pdata->vxlan_force_disable)
++		return false;
++
++	if (!skb->encapsulation)
++		return false;
++
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		return false;
++
++	switch (skb->protocol) {
++	case htons(ETH_P_IP):
++		if (ip_hdr(skb)->protocol != IPPROTO_UDP)
++			return false;
++		break;
++
++	case htons(ETH_P_IPV6):
++		if (ipv6_hdr(skb)->nexthdr != IPPROTO_UDP)
++			return false;
++		break;
++
++	default:
++		return false;
++	}
++
++	/* See if we have the UDP port in our list */
++	list_for_each_entry(vdata, &pdata->vxlan_ports, list) {
++		if ((skb->protocol == htons(ETH_P_IP)) &&
++		    (vdata->sa_family == AF_INET) &&
++		    (vdata->port == udp_hdr(skb)->dest))
++			return true;
++		else if ((skb->protocol == htons(ETH_P_IPV6)) &&
++			 (vdata->sa_family == AF_INET6) &&
++			 (vdata->port == udp_hdr(skb)->dest))
++			return true;
++	}
++
++	return false;
++}
++
+ static int xgbe_is_tso(struct sk_buff *skb)
+ {
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL)
+@@ -1621,6 +1790,10 @@ static void xgbe_packet_info(struct xgbe_prv_data *pdata,
+ 		XGMAC_SET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES,
+ 			       CSUM_ENABLE, 1);
+ 
++	if (xgbe_is_vxlan(pdata, skb))
++		XGMAC_SET_BITS(packet->attributes, TX_PACKET_ATTRIBUTES,
++			       VXLAN, 1);
++
+ 	if (skb_vlan_tag_present(skb)) {
+ 		/* VLAN requires an extra descriptor if tag is different */
+ 		if (skb_vlan_tag_get(skb) != ring->tx.cur_vlan_ctag)
+@@ -2050,18 +2223,83 @@ static int xgbe_setup_tc(struct net_device *netdev, enum tc_setup_type type,
+ 	return 0;
+ }
+ 
++static netdev_features_t xgbe_fix_features(struct net_device *netdev,
++					   netdev_features_t features)
++{
++	struct xgbe_prv_data *pdata = netdev_priv(netdev);
++	netdev_features_t vxlan_base, vxlan_mask;
++
++	vxlan_base = NETIF_F_GSO_UDP_TUNNEL | NETIF_F_RX_UDP_TUNNEL_PORT;
++	vxlan_mask = vxlan_base | NETIF_F_GSO_UDP_TUNNEL_CSUM;
++
++	pdata->vxlan_features = features & vxlan_mask;
++
++	/* Only fix VXLAN-related features */
++	if (!pdata->vxlan_features)
++		return features;
++
++	/* If VXLAN isn't supported then clear any features:
++	 *   This is needed because NETIF_F_RX_UDP_TUNNEL_PORT gets
++	 *   automatically set if ndo_udp_tunnel_add is set.
++	 */
++	if (!pdata->hw_feat.vxn)
++		return features & ~vxlan_mask;
++
++	/* VXLAN CSUM requires VXLAN base */
++	if ((features & NETIF_F_GSO_UDP_TUNNEL_CSUM) &&
++	    !(features & NETIF_F_GSO_UDP_TUNNEL)) {
++		netdev_notice(netdev,
++			      "forcing tx udp tunnel support\n");
++		features |= NETIF_F_GSO_UDP_TUNNEL;
++	}
++
++	/* Can't do one without doing the other */
++	if ((features & vxlan_base) != vxlan_base) {
++		netdev_notice(netdev,
++			      "forcing both tx and rx udp tunnel support\n");
++		features |= vxlan_base;
++	}
++
++	if (features & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM)) {
++		if (!(features & NETIF_F_GSO_UDP_TUNNEL_CSUM)) {
++			netdev_notice(netdev,
++				      "forcing tx udp tunnel checksumming on\n");
++			features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
++		}
++	} else {
++		if (features & NETIF_F_GSO_UDP_TUNNEL_CSUM) {
++			netdev_notice(netdev,
++				      "forcing tx udp tunnel checksumming off\n");
++			features &= ~NETIF_F_GSO_UDP_TUNNEL_CSUM;
++		}
++	}
++
++	pdata->vxlan_features = features & vxlan_mask;
++
++	/* Adjust UDP Tunnel based on current state */
++	if (pdata->vxlan_force_disable) {
++		netdev_notice(netdev,
++			      "VXLAN acceleration disabled, turning off udp tunnel features\n");
++		features &= ~vxlan_mask;
++	}
++
++	return features;
++}
++
+ static int xgbe_set_features(struct net_device *netdev,
+ 			     netdev_features_t features)
  {
  	struct xgbe_prv_data *pdata = netdev_priv(netdev);
--	u32 advertising;
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
-+	__ETHTOOL_DECLARE_LINK_MODE_MASK(advertising);
- 	u32 speed;
- 	int ret;
+ 	struct xgbe_hw_if *hw_if = &pdata->hw_if;
+ 	netdev_features_t rxhash, rxcsum, rxvlan, rxvlan_filter;
++	netdev_features_t udp_tunnel;
+ 	int ret = 0;
  
-@@ -355,15 +360,17 @@ static int xgbe_set_link_ksettings(struct net_device *netdev,
- 		}
- 	}
+ 	rxhash = pdata->netdev_features & NETIF_F_RXHASH;
+ 	rxcsum = pdata->netdev_features & NETIF_F_RXCSUM;
+ 	rxvlan = pdata->netdev_features & NETIF_F_HW_VLAN_CTAG_RX;
+ 	rxvlan_filter = pdata->netdev_features & NETIF_F_HW_VLAN_CTAG_FILTER;
++	udp_tunnel = pdata->netdev_features & NETIF_F_GSO_UDP_TUNNEL;
  
--	ethtool_convert_link_mode_to_legacy_u32(&advertising,
--						cmd->link_modes.advertising);
--
- 	netif_dbg(pdata, link, netdev,
--		  "requested advertisement %#x, phy supported %#x\n",
--		  advertising, pdata->phy.supported);
-+		  "requested advertisement 0x%*pb, phy supported 0x%*pb\n",
-+		  __ETHTOOL_LINK_MODE_MASK_NBITS, cmd->link_modes.advertising,
-+		  __ETHTOOL_LINK_MODE_MASK_NBITS, lks->link_modes.supported);
+ 	if ((features & NETIF_F_RXHASH) && !rxhash)
+ 		ret = hw_if->enable_rss(pdata);
+@@ -2085,6 +2323,11 @@ static int xgbe_set_features(struct net_device *netdev,
+ 	else if (!(features & NETIF_F_HW_VLAN_CTAG_FILTER) && rxvlan_filter)
+ 		hw_if->disable_rx_vlan_filtering(pdata);
+ 
++	if ((features & NETIF_F_GSO_UDP_TUNNEL) && !udp_tunnel)
++		xgbe_enable_vxlan_accel(pdata);
++	else if (!(features & NETIF_F_GSO_UDP_TUNNEL) && udp_tunnel)
++		xgbe_disable_vxlan_accel(pdata);
 +
-+	bitmap_and(advertising,
-+		   cmd->link_modes.advertising, lks->link_modes.supported,
-+		   __ETHTOOL_LINK_MODE_MASK_NBITS);
+ 	pdata->netdev_features = features;
  
--	advertising &= pdata->phy.supported;
--	if ((cmd->base.autoneg == AUTONEG_ENABLE) && !advertising) {
-+	if ((cmd->base.autoneg == AUTONEG_ENABLE) &&
-+	    bitmap_empty(advertising, __ETHTOOL_LINK_MODE_MASK_NBITS)) {
- 		netdev_err(netdev,
- 			   "unsupported requested advertisement\n");
- 		return -EINVAL;
-@@ -373,12 +380,13 @@ static int xgbe_set_link_ksettings(struct net_device *netdev,
- 	pdata->phy.autoneg = cmd->base.autoneg;
- 	pdata->phy.speed = speed;
- 	pdata->phy.duplex = cmd->base.duplex;
--	pdata->phy.advertising = advertising;
-+	bitmap_copy(lks->link_modes.advertising, advertising,
-+		    __ETHTOOL_LINK_MODE_MASK_NBITS);
- 
- 	if (cmd->base.autoneg == AUTONEG_ENABLE)
--		pdata->phy.advertising |= ADVERTISED_Autoneg;
-+		XGBE_SET_ADV(lks, Autoneg);
- 	else
--		pdata->phy.advertising &= ~ADVERTISED_Autoneg;
-+		XGBE_CLR_ADV(lks, Autoneg);
- 
- 	if (netif_running(netdev))
- 		ret = pdata->phy_if.phy_config_aneg(pdata);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-index 2409202..072b9f6 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-@@ -615,12 +615,14 @@ static enum xgbe_an xgbe_an73_page_received(struct xgbe_prv_data *pdata)
- 
- static enum xgbe_an xgbe_an73_incompat_link(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
-+
- 	/* Be sure we aren't looping trying to negotiate */
- 	if (xgbe_in_kr_mode(pdata)) {
- 		pdata->kr_state = XGBE_RX_ERROR;
- 
--		if (!(pdata->phy.advertising & ADVERTISED_1000baseKX_Full) &&
--		    !(pdata->phy.advertising & ADVERTISED_2500baseX_Full))
-+		if (!XGBE_ADV(lks, 1000baseKX_Full) &&
-+		    !XGBE_ADV(lks, 2500baseX_Full))
- 			return XGBE_AN_NO_LINK;
- 
- 		if (pdata->kx_state != XGBE_RX_BPA)
-@@ -628,7 +630,7 @@ static enum xgbe_an xgbe_an73_incompat_link(struct xgbe_prv_data *pdata)
- 	} else {
- 		pdata->kx_state = XGBE_RX_ERROR;
- 
--		if (!(pdata->phy.advertising & ADVERTISED_10000baseKR_Full))
-+		if (!XGBE_ADV(lks, 10000baseKR_Full))
- 			return XGBE_AN_NO_LINK;
- 
- 		if (pdata->kr_state != XGBE_RX_BPA)
-@@ -944,18 +946,19 @@ static void xgbe_an_state_machine(struct work_struct *work)
- 
- static void xgbe_an37_init(struct xgbe_prv_data *pdata)
- {
--	unsigned int advertising, reg;
-+	struct ethtool_link_ksettings lks;
-+	unsigned int reg;
- 
--	advertising = pdata->phy_if.phy_impl.an_advertising(pdata);
-+	pdata->phy_if.phy_impl.an_advertising(pdata, &lks);
- 
- 	/* Set up Advertisement register */
- 	reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_ADVERTISE);
--	if (advertising & ADVERTISED_Pause)
-+	if (XGBE_ADV(&lks, Pause))
- 		reg |= 0x100;
- 	else
- 		reg &= ~0x100;
- 
--	if (advertising & ADVERTISED_Asym_Pause)
-+	if (XGBE_ADV(&lks, Asym_Pause))
- 		reg |= 0x80;
- 	else
- 		reg &= ~0x80;
-@@ -992,13 +995,14 @@ static void xgbe_an37_init(struct xgbe_prv_data *pdata)
- 
- static void xgbe_an73_init(struct xgbe_prv_data *pdata)
- {
--	unsigned int advertising, reg;
-+	struct ethtool_link_ksettings lks;
-+	unsigned int reg;
- 
--	advertising = pdata->phy_if.phy_impl.an_advertising(pdata);
-+	pdata->phy_if.phy_impl.an_advertising(pdata, &lks);
- 
- 	/* Set up Advertisement register 3 first */
- 	reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 2);
--	if (advertising & ADVERTISED_10000baseR_FEC)
-+	if (XGBE_ADV(&lks, 10000baseR_FEC))
- 		reg |= 0xc000;
- 	else
- 		reg &= ~0xc000;
-@@ -1007,13 +1011,13 @@ static void xgbe_an73_init(struct xgbe_prv_data *pdata)
- 
- 	/* Set up Advertisement register 2 next */
- 	reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 1);
--	if (advertising & ADVERTISED_10000baseKR_Full)
-+	if (XGBE_ADV(&lks, 10000baseKR_Full))
- 		reg |= 0x80;
- 	else
- 		reg &= ~0x80;
- 
--	if ((advertising & ADVERTISED_1000baseKX_Full) ||
--	    (advertising & ADVERTISED_2500baseX_Full))
-+	if (XGBE_ADV(&lks, 1000baseKX_Full) ||
-+	    XGBE_ADV(&lks, 2500baseX_Full))
- 		reg |= 0x20;
- 	else
- 		reg &= ~0x20;
-@@ -1022,12 +1026,12 @@ static void xgbe_an73_init(struct xgbe_prv_data *pdata)
- 
- 	/* Set up Advertisement register 1 last */
- 	reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE);
--	if (advertising & ADVERTISED_Pause)
-+	if (XGBE_ADV(&lks, Pause))
- 		reg |= 0x400;
- 	else
- 		reg &= ~0x400;
- 
--	if (advertising & ADVERTISED_Asym_Pause)
-+	if (XGBE_ADV(&lks, Asym_Pause))
- 		reg |= 0x800;
- 	else
- 		reg &= ~0x800;
-@@ -1283,9 +1287,10 @@ static enum xgbe_mode xgbe_phy_status_aneg(struct xgbe_prv_data *pdata)
- 
- static void xgbe_phy_status_result(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	enum xgbe_mode mode;
- 
--	pdata->phy.lp_advertising = 0;
-+	XGBE_ZERO_LP_ADV(lks);
- 
- 	if ((pdata->phy.autoneg != AUTONEG_ENABLE) || pdata->parallel_detect)
- 		mode = xgbe_cur_mode(pdata);
-@@ -1515,17 +1520,21 @@ static void xgbe_dump_phy_registers(struct xgbe_prv_data *pdata)
- 
- static int xgbe_phy_best_advertised_speed(struct xgbe_prv_data *pdata)
- {
--	if (pdata->phy.advertising & ADVERTISED_10000baseKR_Full)
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
-+
-+	if (XGBE_ADV(lks, 10000baseKR_Full))
- 		return SPEED_10000;
--	else if (pdata->phy.advertising & ADVERTISED_10000baseT_Full)
-+	else if (XGBE_ADV(lks, 10000baseT_Full))
- 		return SPEED_10000;
--	else if (pdata->phy.advertising & ADVERTISED_2500baseX_Full)
-+	else if (XGBE_ADV(lks, 2500baseX_Full))
- 		return SPEED_2500;
--	else if (pdata->phy.advertising & ADVERTISED_1000baseKX_Full)
-+	else if (XGBE_ADV(lks, 2500baseT_Full))
-+		return SPEED_2500;
-+	else if (XGBE_ADV(lks, 1000baseKX_Full))
- 		return SPEED_1000;
--	else if (pdata->phy.advertising & ADVERTISED_1000baseT_Full)
-+	else if (XGBE_ADV(lks, 1000baseT_Full))
- 		return SPEED_1000;
--	else if (pdata->phy.advertising & ADVERTISED_100baseT_Full)
-+	else if (XGBE_ADV(lks, 100baseT_Full))
- 		return SPEED_100;
- 
- 	return SPEED_UNKNOWN;
-@@ -1538,6 +1547,7 @@ static void xgbe_phy_exit(struct xgbe_prv_data *pdata)
- 
- static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	int ret;
- 
- 	mutex_init(&pdata->an_mutex);
-@@ -1555,11 +1565,13 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 	ret = pdata->phy_if.phy_impl.init(pdata);
- 	if (ret)
- 		return ret;
--	pdata->phy.advertising = pdata->phy.supported;
-+
-+	/* Copy supported link modes to advertising link modes */
-+	XGBE_LM_COPY(lks, advertising, lks, supported);
- 
- 	pdata->phy.address = 0;
- 
--	if (pdata->phy.advertising & ADVERTISED_Autoneg) {
-+	if (XGBE_ADV(lks, Autoneg)) {
- 		pdata->phy.autoneg = AUTONEG_ENABLE;
- 		pdata->phy.speed = SPEED_UNKNOWN;
- 		pdata->phy.duplex = DUPLEX_UNKNOWN;
-@@ -1576,16 +1588,21 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 	pdata->phy.rx_pause = pdata->rx_pause;
- 
- 	/* Fix up Flow Control advertising */
--	pdata->phy.advertising &= ~ADVERTISED_Pause;
--	pdata->phy.advertising &= ~ADVERTISED_Asym_Pause;
-+	XGBE_CLR_ADV(lks, Pause);
-+	XGBE_CLR_ADV(lks, Asym_Pause);
- 
- 	if (pdata->rx_pause) {
--		pdata->phy.advertising |= ADVERTISED_Pause;
--		pdata->phy.advertising |= ADVERTISED_Asym_Pause;
-+		XGBE_SET_ADV(lks, Pause);
-+		XGBE_SET_ADV(lks, Asym_Pause);
- 	}
- 
--	if (pdata->tx_pause)
--		pdata->phy.advertising ^= ADVERTISED_Asym_Pause;
-+	if (pdata->tx_pause) {
-+		/* Equivalent to XOR of Asym_Pause */
-+		if (XGBE_ADV(lks, Asym_Pause))
-+			XGBE_CLR_ADV(lks, Asym_Pause);
-+		else
-+			XGBE_SET_ADV(lks, Asym_Pause);
-+	}
- 
- 	if (netif_msg_drv(pdata))
- 		xgbe_dump_phy_registers(pdata);
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
-index c75edca..d16eae4 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v1.c
-@@ -231,20 +231,21 @@ static void xgbe_phy_kr_training_post(struct xgbe_prv_data *pdata)
- 
- static enum xgbe_mode xgbe_phy_an_outcome(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	enum xgbe_mode mode;
- 	unsigned int ad_reg, lp_reg;
- 
--	pdata->phy.lp_advertising |= ADVERTISED_Autoneg;
--	pdata->phy.lp_advertising |= ADVERTISED_Backplane;
-+	XGBE_SET_LP_ADV(lks, Autoneg);
-+	XGBE_SET_LP_ADV(lks, Backplane);
- 
- 	/* Compare Advertisement and Link Partner register 1 */
- 	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE);
- 	lp_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_LPA);
- 	if (lp_reg & 0x400)
--		pdata->phy.lp_advertising |= ADVERTISED_Pause;
-+		XGBE_SET_LP_ADV(lks, Pause);
- 	if (lp_reg & 0x800)
--		pdata->phy.lp_advertising |= ADVERTISED_Asym_Pause;
-+		XGBE_SET_LP_ADV(lks, Asym_Pause);
- 
- 	if (pdata->phy.pause_autoneg) {
- 		/* Set flow control based on auto-negotiation result */
-@@ -266,12 +267,12 @@ static enum xgbe_mode xgbe_phy_an_outcome(struct xgbe_prv_data *pdata)
- 	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 1);
- 	lp_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_LPA + 1);
- 	if (lp_reg & 0x80)
--		pdata->phy.lp_advertising |= ADVERTISED_10000baseKR_Full;
-+		XGBE_SET_LP_ADV(lks, 10000baseKR_Full);
- 	if (lp_reg & 0x20) {
- 		if (phy_data->speed_set == XGBE_SPEEDSET_2500_10000)
--			pdata->phy.lp_advertising |= ADVERTISED_2500baseX_Full;
-+			XGBE_SET_LP_ADV(lks, 2500baseX_Full);
- 		else
--			pdata->phy.lp_advertising |= ADVERTISED_1000baseKX_Full;
-+			XGBE_SET_LP_ADV(lks, 1000baseKX_Full);
- 	}
- 
- 	ad_reg &= lp_reg;
-@@ -290,14 +291,17 @@ static enum xgbe_mode xgbe_phy_an_outcome(struct xgbe_prv_data *pdata)
- 	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 2);
- 	lp_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_LPA + 2);
- 	if (lp_reg & 0xc000)
--		pdata->phy.lp_advertising |= ADVERTISED_10000baseR_FEC;
-+		XGBE_SET_LP_ADV(lks, 10000baseR_FEC);
- 
- 	return mode;
+ 	DBGPR("<--xgbe_set_features\n");
+@@ -2092,6 +2335,111 @@ static int xgbe_set_features(struct net_device *netdev,
+ 	return 0;
  }
  
--static unsigned int xgbe_phy_an_advertising(struct xgbe_prv_data *pdata)
-+static void xgbe_phy_an_advertising(struct xgbe_prv_data *pdata,
-+				    struct ethtool_link_ksettings *dlks)
- {
--	return pdata->phy.advertising;
-+	struct ethtool_link_ksettings *slks = &pdata->phy.lks;
++static void xgbe_udp_tunnel_add(struct net_device *netdev,
++				struct udp_tunnel_info *ti)
++{
++	struct xgbe_prv_data *pdata = netdev_priv(netdev);
++	struct xgbe_vxlan_data *vdata;
 +
-+	XGBE_LM_COPY(dlks, advertising, slks, advertising);
- }
- 
- static int xgbe_phy_an_config(struct xgbe_prv_data *pdata)
-@@ -565,11 +569,10 @@ static void xgbe_phy_set_mode(struct xgbe_prv_data *pdata, enum xgbe_mode mode)
- }
- 
- static bool xgbe_phy_check_mode(struct xgbe_prv_data *pdata,
--				enum xgbe_mode mode, u32 advert)
-+				enum xgbe_mode mode, bool advert)
- {
- 	if (pdata->phy.autoneg == AUTONEG_ENABLE) {
--		if (pdata->phy.advertising & advert)
--			return true;
-+		return advert;
- 	} else {
- 		enum xgbe_mode cur_mode;
- 
-@@ -583,16 +586,18 @@ static bool xgbe_phy_check_mode(struct xgbe_prv_data *pdata,
- 
- static bool xgbe_phy_use_mode(struct xgbe_prv_data *pdata, enum xgbe_mode mode)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
-+
- 	switch (mode) {
- 	case XGBE_MODE_KX_1000:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_1000baseKX_Full);
-+					   XGBE_ADV(lks, 1000baseKX_Full));
- 	case XGBE_MODE_KX_2500:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_2500baseX_Full);
-+					   XGBE_ADV(lks, 2500baseX_Full));
- 	case XGBE_MODE_KR:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_10000baseKR_Full);
-+					   XGBE_ADV(lks, 10000baseKR_Full));
- 	default:
- 		return false;
- 	}
-@@ -672,6 +677,7 @@ static void xgbe_phy_exit(struct xgbe_prv_data *pdata)
- 
- static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	struct xgbe_phy_data *phy_data;
- 	int ret;
- 
-@@ -790,21 +796,23 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 	}
- 
- 	/* Initialize supported features */
--	pdata->phy.supported = SUPPORTED_Autoneg;
--	pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--	pdata->phy.supported |= SUPPORTED_Backplane;
--	pdata->phy.supported |= SUPPORTED_10000baseKR_Full;
-+	XGBE_ZERO_SUP(lks);
-+	XGBE_SET_SUP(lks, Autoneg);
-+	XGBE_SET_SUP(lks, Pause);
-+	XGBE_SET_SUP(lks, Asym_Pause);
-+	XGBE_SET_SUP(lks, Backplane);
-+	XGBE_SET_SUP(lks, 10000baseKR_Full);
- 	switch (phy_data->speed_set) {
- 	case XGBE_SPEEDSET_1000_10000:
--		pdata->phy.supported |= SUPPORTED_1000baseKX_Full;
-+		XGBE_SET_SUP(lks, 1000baseKX_Full);
- 		break;
- 	case XGBE_SPEEDSET_2500_10000:
--		pdata->phy.supported |= SUPPORTED_2500baseX_Full;
-+		XGBE_SET_SUP(lks, 2500baseX_Full);
- 		break;
- 	}
- 
- 	if (pdata->fec_ability & MDIO_PMA_10GBR_FECABLE_ABLE)
--		pdata->phy.supported |= SUPPORTED_10000baseR_FEC;
-+		XGBE_SET_SUP(lks, 10000baseR_FEC);
- 
- 	pdata->phy_data = phy_data;
- 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-index 4463487..bb8b264 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-@@ -711,18 +711,13 @@ static int xgbe_phy_mii_read(struct mii_bus *mii, int addr, int reg)
- 
- static void xgbe_phy_sfp_phy_settings(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 
- 	if (!phy_data->sfp_mod_absent && !phy_data->sfp_changed)
- 		return;
- 
--	pdata->phy.supported &= ~SUPPORTED_Autoneg;
--	pdata->phy.supported &= ~(SUPPORTED_Pause | SUPPORTED_Asym_Pause);
--	pdata->phy.supported &= ~SUPPORTED_TP;
--	pdata->phy.supported &= ~SUPPORTED_FIBRE;
--	pdata->phy.supported &= ~SUPPORTED_100baseT_Full;
--	pdata->phy.supported &= ~SUPPORTED_1000baseT_Full;
--	pdata->phy.supported &= ~SUPPORTED_10000baseT_Full;
-+	XGBE_ZERO_SUP(lks);
- 
- 	if (phy_data->sfp_mod_absent) {
- 		pdata->phy.speed = SPEED_UNKNOWN;
-@@ -730,18 +725,13 @@ static void xgbe_phy_sfp_phy_settings(struct xgbe_prv_data *pdata)
- 		pdata->phy.autoneg = AUTONEG_ENABLE;
- 		pdata->phy.pause_autoneg = AUTONEG_ENABLE;
- 
--		pdata->phy.supported |= SUPPORTED_Autoneg;
--		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--		pdata->phy.supported |= SUPPORTED_TP;
--		pdata->phy.supported |= SUPPORTED_FIBRE;
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100)
--			pdata->phy.supported |= SUPPORTED_100baseT_Full;
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
--			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000)
--			pdata->phy.supported |= SUPPORTED_10000baseT_Full;
-+		XGBE_SET_SUP(lks, Autoneg);
-+		XGBE_SET_SUP(lks, Pause);
-+		XGBE_SET_SUP(lks, Asym_Pause);
-+		XGBE_SET_SUP(lks, TP);
-+		XGBE_SET_SUP(lks, FIBRE);
- 
--		pdata->phy.advertising = pdata->phy.supported;
-+		XGBE_LM_COPY(lks, advertising, lks, supported);
- 
- 		return;
- 	}
-@@ -755,8 +745,18 @@ static void xgbe_phy_sfp_phy_settings(struct xgbe_prv_data *pdata)
- 		pdata->phy.duplex = DUPLEX_UNKNOWN;
- 		pdata->phy.autoneg = AUTONEG_ENABLE;
- 		pdata->phy.pause_autoneg = AUTONEG_ENABLE;
--		pdata->phy.supported |= SUPPORTED_Autoneg;
--		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
-+		XGBE_SET_SUP(lks, Autoneg);
-+		XGBE_SET_SUP(lks, Pause);
-+		XGBE_SET_SUP(lks, Asym_Pause);
-+		if (phy_data->sfp_base == XGBE_SFP_BASE_1000_T) {
-+			if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100)
-+				XGBE_SET_SUP(lks, 100baseT_Full);
-+			if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
-+				XGBE_SET_SUP(lks, 1000baseT_Full);
-+		} else {
-+			if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
-+				XGBE_SET_SUP(lks, 1000baseX_Full);
-+		}
- 		break;
- 	case XGBE_SFP_BASE_10000_SR:
- 	case XGBE_SFP_BASE_10000_LR:
-@@ -767,6 +767,27 @@ static void xgbe_phy_sfp_phy_settings(struct xgbe_prv_data *pdata)
- 		pdata->phy.duplex = DUPLEX_FULL;
- 		pdata->phy.autoneg = AUTONEG_DISABLE;
- 		pdata->phy.pause_autoneg = AUTONEG_DISABLE;
-+		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000) {
-+			switch (phy_data->sfp_base) {
-+			case XGBE_SFP_BASE_10000_SR:
-+				XGBE_SET_SUP(lks, 10000baseSR_Full);
-+				break;
-+			case XGBE_SFP_BASE_10000_LR:
-+				XGBE_SET_SUP(lks, 10000baseLR_Full);
-+				break;
-+			case XGBE_SFP_BASE_10000_LRM:
-+				XGBE_SET_SUP(lks, 10000baseLRM_Full);
-+				break;
-+			case XGBE_SFP_BASE_10000_ER:
-+				XGBE_SET_SUP(lks, 10000baseER_Full);
-+				break;
-+			case XGBE_SFP_BASE_10000_CR:
-+				XGBE_SET_SUP(lks, 10000baseCR_Full);
-+				break;
-+			default:
-+				break;
-+			}
-+		}
- 		break;
- 	default:
- 		pdata->phy.speed = SPEED_UNKNOWN;
-@@ -780,38 +801,14 @@ static void xgbe_phy_sfp_phy_settings(struct xgbe_prv_data *pdata)
- 	case XGBE_SFP_BASE_1000_T:
- 	case XGBE_SFP_BASE_1000_CX:
- 	case XGBE_SFP_BASE_10000_CR:
--		pdata->phy.supported |= SUPPORTED_TP;
-+		XGBE_SET_SUP(lks, TP);
- 		break;
- 	default:
--		pdata->phy.supported |= SUPPORTED_FIBRE;
--	}
--
--	switch (phy_data->sfp_speed) {
--	case XGBE_SFP_SPEED_100_1000:
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100)
--			pdata->phy.supported |= SUPPORTED_100baseT_Full;
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
--			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
--		break;
--	case XGBE_SFP_SPEED_1000:
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
--			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
-+		XGBE_SET_SUP(lks, FIBRE);
- 		break;
--	case XGBE_SFP_SPEED_10000:
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000)
--			pdata->phy.supported |= SUPPORTED_10000baseT_Full;
--		break;
--	default:
--		/* Choose the fastest supported speed */
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000)
--			pdata->phy.supported |= SUPPORTED_10000baseT_Full;
--		else if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
--			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
--		else if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100)
--			pdata->phy.supported |= SUPPORTED_100baseT_Full;
- 	}
- 
--	pdata->phy.advertising = pdata->phy.supported;
-+	XGBE_LM_COPY(lks, advertising, lks, supported);
- }
- 
- static bool xgbe_phy_sfp_bit_rate(struct xgbe_sfp_eeprom *sfp_eeprom,
-@@ -888,8 +885,10 @@ static void xgbe_phy_external_phy_quirks(struct xgbe_prv_data *pdata)
- 
- static int xgbe_phy_find_phy_device(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	struct phy_device *phydev;
-+	u32 advertising;
- 	int ret;
- 
- 	/* If we already have a PHY, just return */
-@@ -945,7 +944,10 @@ static int xgbe_phy_find_phy_device(struct xgbe_prv_data *pdata)
- 	phy_data->phydev = phydev;
- 
- 	xgbe_phy_external_phy_quirks(pdata);
--	phydev->advertising &= pdata->phy.advertising;
-+
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						lks->link_modes.advertising);
-+	phydev->advertising &= advertising;
- 
- 	phy_start_aneg(phy_data->phydev);
- 
-@@ -1352,6 +1354,7 @@ static unsigned char *xgbe_phy_sfp_eeprom(struct xgbe_prv_data *pdata)
- 
- static void xgbe_phy_phydev_flowctrl(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	u16 lcl_adv = 0, rmt_adv = 0;
- 	u8 fc;
-@@ -1368,11 +1371,11 @@ static void xgbe_phy_phydev_flowctrl(struct xgbe_prv_data *pdata)
- 		lcl_adv |= ADVERTISE_PAUSE_ASYM;
- 
- 	if (phy_data->phydev->pause) {
--		pdata->phy.lp_advertising |= ADVERTISED_Pause;
-+		XGBE_SET_LP_ADV(lks, Pause);
- 		rmt_adv |= LPA_PAUSE_CAP;
- 	}
- 	if (phy_data->phydev->asym_pause) {
--		pdata->phy.lp_advertising |= ADVERTISED_Asym_Pause;
-+		XGBE_SET_LP_ADV(lks, Asym_Pause);
- 		rmt_adv |= LPA_PAUSE_ASYM;
- 	}
- 
-@@ -1385,10 +1388,11 @@ static void xgbe_phy_phydev_flowctrl(struct xgbe_prv_data *pdata)
- 
- static enum xgbe_mode xgbe_phy_an37_sgmii_outcome(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	enum xgbe_mode mode;
- 
--	pdata->phy.lp_advertising |= ADVERTISED_Autoneg;
--	pdata->phy.lp_advertising |= ADVERTISED_TP;
-+	XGBE_SET_LP_ADV(lks, Autoneg);
-+	XGBE_SET_LP_ADV(lks, TP);
- 
- 	/* Use external PHY to determine flow control */
- 	if (pdata->phy.pause_autoneg)
-@@ -1397,21 +1401,21 @@ static enum xgbe_mode xgbe_phy_an37_sgmii_outcome(struct xgbe_prv_data *pdata)
- 	switch (pdata->an_status & XGBE_SGMII_AN_LINK_SPEED) {
- 	case XGBE_SGMII_AN_LINK_SPEED_100:
- 		if (pdata->an_status & XGBE_SGMII_AN_LINK_DUPLEX) {
--			pdata->phy.lp_advertising |= ADVERTISED_100baseT_Full;
-+			XGBE_SET_LP_ADV(lks, 100baseT_Full);
- 			mode = XGBE_MODE_SGMII_100;
- 		} else {
- 			/* Half-duplex not supported */
--			pdata->phy.lp_advertising |= ADVERTISED_100baseT_Half;
-+			XGBE_SET_LP_ADV(lks, 100baseT_Half);
- 			mode = XGBE_MODE_UNKNOWN;
- 		}
- 		break;
- 	case XGBE_SGMII_AN_LINK_SPEED_1000:
- 		if (pdata->an_status & XGBE_SGMII_AN_LINK_DUPLEX) {
--			pdata->phy.lp_advertising |= ADVERTISED_1000baseT_Full;
-+			XGBE_SET_LP_ADV(lks, 1000baseT_Full);
- 			mode = XGBE_MODE_SGMII_1000;
- 		} else {
- 			/* Half-duplex not supported */
--			pdata->phy.lp_advertising |= ADVERTISED_1000baseT_Half;
-+			XGBE_SET_LP_ADV(lks, 1000baseT_Half);
- 			mode = XGBE_MODE_UNKNOWN;
- 		}
- 		break;
-@@ -1424,19 +1428,20 @@ static enum xgbe_mode xgbe_phy_an37_sgmii_outcome(struct xgbe_prv_data *pdata)
- 
- static enum xgbe_mode xgbe_phy_an37_outcome(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	enum xgbe_mode mode;
- 	unsigned int ad_reg, lp_reg;
- 
--	pdata->phy.lp_advertising |= ADVERTISED_Autoneg;
--	pdata->phy.lp_advertising |= ADVERTISED_FIBRE;
-+	XGBE_SET_LP_ADV(lks, Autoneg);
-+	XGBE_SET_LP_ADV(lks, FIBRE);
- 
- 	/* Compare Advertisement and Link Partner register */
- 	ad_reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_ADVERTISE);
- 	lp_reg = XMDIO_READ(pdata, MDIO_MMD_VEND2, MDIO_VEND2_AN_LP_ABILITY);
- 	if (lp_reg & 0x100)
--		pdata->phy.lp_advertising |= ADVERTISED_Pause;
-+		XGBE_SET_LP_ADV(lks, Pause);
- 	if (lp_reg & 0x80)
--		pdata->phy.lp_advertising |= ADVERTISED_Asym_Pause;
-+		XGBE_SET_LP_ADV(lks, Asym_Pause);
- 
- 	if (pdata->phy.pause_autoneg) {
- 		/* Set flow control based on auto-negotiation result */
-@@ -1454,10 +1459,8 @@ static enum xgbe_mode xgbe_phy_an37_outcome(struct xgbe_prv_data *pdata)
- 		}
- 	}
- 
--	if (lp_reg & 0x40)
--		pdata->phy.lp_advertising |= ADVERTISED_1000baseT_Half;
- 	if (lp_reg & 0x20)
--		pdata->phy.lp_advertising |= ADVERTISED_1000baseT_Full;
-+		XGBE_SET_LP_ADV(lks, 1000baseX_Full);
- 
- 	/* Half duplex is not supported */
- 	ad_reg &= lp_reg;
-@@ -1468,12 +1471,13 @@ static enum xgbe_mode xgbe_phy_an37_outcome(struct xgbe_prv_data *pdata)
- 
- static enum xgbe_mode xgbe_phy_an73_redrv_outcome(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 	enum xgbe_mode mode;
- 	unsigned int ad_reg, lp_reg;
- 
--	pdata->phy.lp_advertising |= ADVERTISED_Autoneg;
--	pdata->phy.lp_advertising |= ADVERTISED_Backplane;
-+	XGBE_SET_LP_ADV(lks, Autoneg);
-+	XGBE_SET_LP_ADV(lks, Backplane);
- 
- 	/* Use external PHY to determine flow control */
- 	if (pdata->phy.pause_autoneg)
-@@ -1483,9 +1487,9 @@ static enum xgbe_mode xgbe_phy_an73_redrv_outcome(struct xgbe_prv_data *pdata)
- 	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 1);
- 	lp_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_LPA + 1);
- 	if (lp_reg & 0x80)
--		pdata->phy.lp_advertising |= ADVERTISED_10000baseKR_Full;
-+		XGBE_SET_LP_ADV(lks, 10000baseKR_Full);
- 	if (lp_reg & 0x20)
--		pdata->phy.lp_advertising |= ADVERTISED_1000baseKX_Full;
-+		XGBE_SET_LP_ADV(lks, 1000baseKX_Full);
- 
- 	ad_reg &= lp_reg;
- 	if (ad_reg & 0x80) {
-@@ -1538,26 +1542,27 @@ static enum xgbe_mode xgbe_phy_an73_redrv_outcome(struct xgbe_prv_data *pdata)
- 	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 2);
- 	lp_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_LPA + 2);
- 	if (lp_reg & 0xc000)
--		pdata->phy.lp_advertising |= ADVERTISED_10000baseR_FEC;
-+		XGBE_SET_LP_ADV(lks, 10000baseR_FEC);
- 
- 	return mode;
- }
- 
- static enum xgbe_mode xgbe_phy_an73_outcome(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	enum xgbe_mode mode;
- 	unsigned int ad_reg, lp_reg;
- 
--	pdata->phy.lp_advertising |= ADVERTISED_Autoneg;
--	pdata->phy.lp_advertising |= ADVERTISED_Backplane;
-+	XGBE_SET_LP_ADV(lks, Autoneg);
-+	XGBE_SET_LP_ADV(lks, Backplane);
- 
- 	/* Compare Advertisement and Link Partner register 1 */
- 	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE);
- 	lp_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_LPA);
- 	if (lp_reg & 0x400)
--		pdata->phy.lp_advertising |= ADVERTISED_Pause;
-+		XGBE_SET_LP_ADV(lks, Pause);
- 	if (lp_reg & 0x800)
--		pdata->phy.lp_advertising |= ADVERTISED_Asym_Pause;
-+		XGBE_SET_LP_ADV(lks, Asym_Pause);
- 
- 	if (pdata->phy.pause_autoneg) {
- 		/* Set flow control based on auto-negotiation result */
-@@ -1579,9 +1584,9 @@ static enum xgbe_mode xgbe_phy_an73_outcome(struct xgbe_prv_data *pdata)
- 	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 1);
- 	lp_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_LPA + 1);
- 	if (lp_reg & 0x80)
--		pdata->phy.lp_advertising |= ADVERTISED_10000baseKR_Full;
-+		XGBE_SET_LP_ADV(lks, 10000baseKR_Full);
- 	if (lp_reg & 0x20)
--		pdata->phy.lp_advertising |= ADVERTISED_1000baseKX_Full;
-+		XGBE_SET_LP_ADV(lks, 1000baseKX_Full);
- 
- 	ad_reg &= lp_reg;
- 	if (ad_reg & 0x80)
-@@ -1595,7 +1600,7 @@ static enum xgbe_mode xgbe_phy_an73_outcome(struct xgbe_prv_data *pdata)
- 	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 2);
- 	lp_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_LPA + 2);
- 	if (lp_reg & 0xc000)
--		pdata->phy.lp_advertising |= ADVERTISED_10000baseR_FEC;
-+		XGBE_SET_LP_ADV(lks, 10000baseR_FEC);
- 
- 	return mode;
- }
-@@ -1616,41 +1621,43 @@ static enum xgbe_mode xgbe_phy_an_outcome(struct xgbe_prv_data *pdata)
- 	}
- }
- 
--static unsigned int xgbe_phy_an_advertising(struct xgbe_prv_data *pdata)
-+static void xgbe_phy_an_advertising(struct xgbe_prv_data *pdata,
-+				    struct ethtool_link_ksettings *dlks)
- {
-+	struct ethtool_link_ksettings *slks = &pdata->phy.lks;
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
--	unsigned int advertising;
-+
-+	XGBE_LM_COPY(dlks, advertising, slks, advertising);
- 
- 	/* Without a re-driver, just return current advertising */
- 	if (!phy_data->redrv)
--		return pdata->phy.advertising;
++	if (!pdata->hw_feat.vxn)
 +		return;
- 
- 	/* With the KR re-driver we need to advertise a single speed */
--	advertising = pdata->phy.advertising;
--	advertising &= ~ADVERTISED_1000baseKX_Full;
--	advertising &= ~ADVERTISED_10000baseKR_Full;
-+	XGBE_CLR_ADV(dlks, 1000baseKX_Full);
-+	XGBE_CLR_ADV(dlks, 10000baseKR_Full);
- 
- 	switch (phy_data->port_mode) {
- 	case XGBE_PORT_MODE_BACKPLANE:
--		advertising |= ADVERTISED_10000baseKR_Full;
-+		XGBE_SET_ADV(dlks, 10000baseKR_Full);
- 		break;
- 	case XGBE_PORT_MODE_BACKPLANE_2500:
--		advertising |= ADVERTISED_1000baseKX_Full;
-+		XGBE_SET_ADV(dlks, 1000baseKX_Full);
- 		break;
- 	case XGBE_PORT_MODE_1000BASE_T:
- 	case XGBE_PORT_MODE_1000BASE_X:
- 	case XGBE_PORT_MODE_NBASE_T:
--		advertising |= ADVERTISED_1000baseKX_Full;
-+		XGBE_SET_ADV(dlks, 1000baseKX_Full);
- 		break;
- 	case XGBE_PORT_MODE_10GBASE_T:
- 		if (phy_data->phydev &&
- 		    (phy_data->phydev->speed == SPEED_10000))
--			advertising |= ADVERTISED_10000baseKR_Full;
-+			XGBE_SET_ADV(dlks, 10000baseKR_Full);
- 		else
--			advertising |= ADVERTISED_1000baseKX_Full;
-+			XGBE_SET_ADV(dlks, 1000baseKX_Full);
- 		break;
- 	case XGBE_PORT_MODE_10GBASE_R:
--		advertising |= ADVERTISED_10000baseKR_Full;
-+		XGBE_SET_ADV(dlks, 10000baseKR_Full);
- 		break;
- 	case XGBE_PORT_MODE_SFP:
- 		switch (phy_data->sfp_base) {
-@@ -1658,24 +1665,24 @@ static unsigned int xgbe_phy_an_advertising(struct xgbe_prv_data *pdata)
- 		case XGBE_SFP_BASE_1000_SX:
- 		case XGBE_SFP_BASE_1000_LX:
- 		case XGBE_SFP_BASE_1000_CX:
--			advertising |= ADVERTISED_1000baseKX_Full;
-+			XGBE_SET_ADV(dlks, 1000baseKX_Full);
- 			break;
- 		default:
--			advertising |= ADVERTISED_10000baseKR_Full;
-+			XGBE_SET_ADV(dlks, 10000baseKR_Full);
- 			break;
- 		}
- 		break;
- 	default:
--		advertising |= ADVERTISED_10000baseKR_Full;
-+		XGBE_SET_ADV(dlks, 10000baseKR_Full);
- 		break;
- 	}
--
--	return advertising;
- }
- 
- static int xgbe_phy_an_config(struct xgbe_prv_data *pdata)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
-+	u32 advertising;
- 	int ret;
- 
- 	ret = xgbe_phy_find_phy_device(pdata);
-@@ -1685,9 +1692,12 @@ static int xgbe_phy_an_config(struct xgbe_prv_data *pdata)
- 	if (!phy_data->phydev)
- 		return 0;
- 
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						lks->link_modes.advertising);
 +
- 	phy_data->phydev->autoneg = pdata->phy.autoneg;
- 	phy_data->phydev->advertising = phy_data->phydev->supported &
--					pdata->phy.advertising;
-+					advertising;
- 
- 	if (pdata->phy.autoneg != AUTONEG_ENABLE) {
- 		phy_data->phydev->speed = pdata->phy.speed;
-@@ -2148,11 +2158,10 @@ static void xgbe_phy_set_mode(struct xgbe_prv_data *pdata, enum xgbe_mode mode)
- }
- 
- static bool xgbe_phy_check_mode(struct xgbe_prv_data *pdata,
--				enum xgbe_mode mode, u32 advert)
-+				enum xgbe_mode mode, bool advert)
- {
- 	if (pdata->phy.autoneg == AUTONEG_ENABLE) {
--		if (pdata->phy.advertising & advert)
--			return true;
-+		return advert;
- 	} else {
- 		enum xgbe_mode cur_mode;
- 
-@@ -2167,13 +2176,15 @@ static bool xgbe_phy_check_mode(struct xgbe_prv_data *pdata,
- static bool xgbe_phy_use_basex_mode(struct xgbe_prv_data *pdata,
- 				    enum xgbe_mode mode)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
++	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
++		return;
 +
- 	switch (mode) {
- 	case XGBE_MODE_X:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_1000baseT_Full);
-+					   XGBE_ADV(lks, 1000baseX_Full));
- 	case XGBE_MODE_KR:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_10000baseT_Full);
-+					   XGBE_ADV(lks, 10000baseKR_Full));
- 	default:
- 		return false;
- 	}
-@@ -2182,19 +2193,21 @@ static bool xgbe_phy_use_basex_mode(struct xgbe_prv_data *pdata,
- static bool xgbe_phy_use_baset_mode(struct xgbe_prv_data *pdata,
- 				    enum xgbe_mode mode)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
++	pdata->vxlan_port_count++;
 +
- 	switch (mode) {
- 	case XGBE_MODE_SGMII_100:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_100baseT_Full);
-+					   XGBE_ADV(lks, 100baseT_Full));
- 	case XGBE_MODE_SGMII_1000:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_1000baseT_Full);
-+					   XGBE_ADV(lks, 1000baseT_Full));
- 	case XGBE_MODE_KX_2500:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_2500baseX_Full);
-+					   XGBE_ADV(lks, 2500baseT_Full));
- 	case XGBE_MODE_KR:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_10000baseT_Full);
-+					   XGBE_ADV(lks, 10000baseT_Full));
- 	default:
- 		return false;
- 	}
-@@ -2203,6 +2216,7 @@ static bool xgbe_phy_use_baset_mode(struct xgbe_prv_data *pdata,
- static bool xgbe_phy_use_sfp_mode(struct xgbe_prv_data *pdata,
- 				  enum xgbe_mode mode)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	struct xgbe_phy_data *phy_data = pdata->phy_data;
- 
- 	switch (mode) {
-@@ -2210,22 +2224,26 @@ static bool xgbe_phy_use_sfp_mode(struct xgbe_prv_data *pdata,
- 		if (phy_data->sfp_base == XGBE_SFP_BASE_1000_T)
- 			return false;
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_1000baseT_Full);
-+					   XGBE_ADV(lks, 1000baseX_Full));
- 	case XGBE_MODE_SGMII_100:
- 		if (phy_data->sfp_base != XGBE_SFP_BASE_1000_T)
- 			return false;
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_100baseT_Full);
-+					   XGBE_ADV(lks, 100baseT_Full));
- 	case XGBE_MODE_SGMII_1000:
- 		if (phy_data->sfp_base != XGBE_SFP_BASE_1000_T)
- 			return false;
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_1000baseT_Full);
-+					   XGBE_ADV(lks, 1000baseT_Full));
- 	case XGBE_MODE_SFI:
- 		if (phy_data->sfp_mod_absent)
- 			return true;
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_10000baseT_Full);
-+					   XGBE_ADV(lks, 10000baseSR_Full)  ||
-+					   XGBE_ADV(lks, 10000baseLR_Full)  ||
-+					   XGBE_ADV(lks, 10000baseLRM_Full) ||
-+					   XGBE_ADV(lks, 10000baseER_Full)  ||
-+					   XGBE_ADV(lks, 10000baseCR_Full));
- 	default:
- 		return false;
- 	}
-@@ -2234,10 +2252,12 @@ static bool xgbe_phy_use_sfp_mode(struct xgbe_prv_data *pdata,
- static bool xgbe_phy_use_bp_2500_mode(struct xgbe_prv_data *pdata,
- 				      enum xgbe_mode mode)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
++	netif_dbg(pdata, drv, netdev,
++		  "adding VXLAN tunnel, family=%hx/port=%hx\n",
++		  ti->sa_family, be16_to_cpu(ti->port));
 +
- 	switch (mode) {
- 	case XGBE_MODE_KX_2500:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_2500baseX_Full);
-+					   XGBE_ADV(lks, 2500baseX_Full));
- 	default:
- 		return false;
- 	}
-@@ -2246,13 +2266,15 @@ static bool xgbe_phy_use_bp_2500_mode(struct xgbe_prv_data *pdata,
- static bool xgbe_phy_use_bp_mode(struct xgbe_prv_data *pdata,
- 				 enum xgbe_mode mode)
- {
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
++	if (pdata->vxlan_force_disable)
++		return;
 +
- 	switch (mode) {
- 	case XGBE_MODE_KX_1000:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_1000baseKX_Full);
-+					   XGBE_ADV(lks, 1000baseKX_Full));
- 	case XGBE_MODE_KR:
- 		return xgbe_phy_check_mode(pdata, mode,
--					   ADVERTISED_10000baseKR_Full);
-+					   XGBE_ADV(lks, 10000baseKR_Full));
- 	default:
- 		return false;
- 	}
-@@ -2820,6 +2842,7 @@ static void xgbe_phy_exit(struct xgbe_prv_data *pdata)
- static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_phy_impl_if *phy_impl = &pdata->phy_if.phy_impl;
-+	struct ethtool_link_ksettings *lks = &pdata->phy.lks;
- 	struct xgbe_phy_data *phy_data;
- 	struct mii_bus *mii;
- 	unsigned int reg;
-@@ -2899,32 +2922,33 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 	phy_data->cur_mode = XGBE_MODE_UNKNOWN;
++	vdata = kzalloc(sizeof(*vdata), GFP_ATOMIC);
++	if (!vdata) {
++		/* Can no longer properly track VXLAN ports */
++		pdata->vxlan_force_disable = 1;
++		netif_dbg(pdata, drv, netdev,
++			  "internal error, disabling VXLAN accelerations\n");
++
++		xgbe_disable_vxlan_accel(pdata);
++
++		return;
++	}
++	vdata->sa_family = ti->sa_family;
++	vdata->port = ti->port;
++
++	list_add_tail(&vdata->list, &pdata->vxlan_ports);
++
++	/* First port added? */
++	if (pdata->vxlan_port_count == 1) {
++		xgbe_enable_vxlan_accel(pdata);
++
++		return;
++	}
++}
++
++static void xgbe_udp_tunnel_del(struct net_device *netdev,
++				struct udp_tunnel_info *ti)
++{
++	struct xgbe_prv_data *pdata = netdev_priv(netdev);
++	struct xgbe_vxlan_data *vdata;
++
++	if (!pdata->hw_feat.vxn)
++		return;
++
++	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
++		return;
++
++	netif_dbg(pdata, drv, netdev,
++		  "deleting VXLAN tunnel, family=%hx/port=%hx\n",
++		  ti->sa_family, be16_to_cpu(ti->port));
++
++	/* Don't need safe version since loop terminates with deletion */
++	list_for_each_entry(vdata, &pdata->vxlan_ports, list) {
++		if (vdata->sa_family != ti->sa_family)
++			continue;
++
++		if (vdata->port != ti->port)
++			continue;
++
++		list_del(&vdata->list);
++		kfree(vdata);
++
++		break;
++	}
++
++	pdata->vxlan_port_count--;
++	if (!pdata->vxlan_port_count) {
++		xgbe_reset_vxlan_accel(pdata);
++
++		return;
++	}
++
++	if (pdata->vxlan_force_disable)
++		return;
++
++	/* See if VXLAN tunnel id needs to be changed */
++	vdata = list_first_entry(&pdata->vxlan_ports,
++				 struct xgbe_vxlan_data, list);
++	if (pdata->vxlan_port == be16_to_cpu(vdata->port))
++		return;
++
++	pdata->vxlan_port = be16_to_cpu(vdata->port);
++	pdata->hw_if.set_vxlan_id(pdata);
++}
++
++static netdev_features_t xgbe_features_check(struct sk_buff *skb,
++					     struct net_device *netdev,
++					     netdev_features_t features)
++{
++	features = vlan_features_check(skb, features);
++	features = vxlan_features_check(skb, features);
++
++	return features;
++}
++
+ static const struct net_device_ops xgbe_netdev_ops = {
+ 	.ndo_open		= xgbe_open,
+ 	.ndo_stop		= xgbe_close,
+@@ -2109,7 +2457,11 @@ static int xgbe_set_features(struct net_device *netdev,
+ 	.ndo_poll_controller	= xgbe_poll_controller,
+ #endif
+ 	.ndo_setup_tc		= xgbe_setup_tc,
++	.ndo_fix_features	= xgbe_fix_features,
+ 	.ndo_set_features	= xgbe_set_features,
++	.ndo_udp_tunnel_add	= xgbe_udp_tunnel_add,
++	.ndo_udp_tunnel_del	= xgbe_udp_tunnel_del,
++	.ndo_features_check	= xgbe_features_check,
+ };
  
- 	/* Initialize supported features */
--	pdata->phy.supported = 0;
-+	XGBE_ZERO_SUP(lks);
+ const struct net_device_ops *xgbe_get_netdev_ops(void)
+@@ -2422,6 +2774,15 @@ static int xgbe_rx_poll(struct xgbe_channel *channel, int budget)
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
  
- 	switch (phy_data->port_mode) {
- 	/* Backplane support */
- 	case XGBE_PORT_MODE_BACKPLANE:
--		pdata->phy.supported |= SUPPORTED_Autoneg;
--		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--		pdata->phy.supported |= SUPPORTED_Backplane;
-+		XGBE_SET_SUP(lks, Autoneg);
-+		XGBE_SET_SUP(lks, Pause);
-+		XGBE_SET_SUP(lks, Asym_Pause);
-+		XGBE_SET_SUP(lks, Backplane);
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000) {
--			pdata->phy.supported |= SUPPORTED_1000baseKX_Full;
-+			XGBE_SET_SUP(lks, 1000baseKX_Full);
- 			phy_data->start_mode = XGBE_MODE_KX_1000;
- 		}
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000) {
--			pdata->phy.supported |= SUPPORTED_10000baseKR_Full;
-+			XGBE_SET_SUP(lks, 10000baseKR_Full);
- 			if (pdata->fec_ability & MDIO_PMA_10GBR_FECABLE_ABLE)
--				pdata->phy.supported |=
--					SUPPORTED_10000baseR_FEC;
-+				XGBE_SET_SUP(lks, 10000baseR_FEC);
- 			phy_data->start_mode = XGBE_MODE_KR;
- 		}
+ 		if (XGMAC_GET_BITS(packet->attributes,
++				   RX_PACKET_ATTRIBUTES, TNP)) {
++			skb->encapsulation = 1;
++
++			if (XGMAC_GET_BITS(packet->attributes,
++					   RX_PACKET_ATTRIBUTES, TNPCSUM_DONE))
++				skb->csum_level = 1;
++		}
++
++		if (XGMAC_GET_BITS(packet->attributes,
+ 				   RX_PACKET_ATTRIBUTES, VLAN_CTAG))
+ 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+ 					       packet->vlan_ctag);
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index c5ff385..d91fa59 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -193,6 +193,7 @@ struct xgbe_prv_data *xgbe_alloc_pdata(struct device *dev)
+ 	mutex_init(&pdata->i2c_mutex);
+ 	init_completion(&pdata->i2c_complete);
+ 	init_completion(&pdata->mdio_complete);
++	INIT_LIST_HEAD(&pdata->vxlan_ports);
  
- 		phy_data->phydev_mode = XGBE_MDIO_MODE_NONE;
- 		break;
- 	case XGBE_PORT_MODE_BACKPLANE_2500:
--		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--		pdata->phy.supported |= SUPPORTED_Backplane;
--		pdata->phy.supported |= SUPPORTED_2500baseX_Full;
-+		XGBE_SET_SUP(lks, Pause);
-+		XGBE_SET_SUP(lks, Asym_Pause);
-+		XGBE_SET_SUP(lks, Backplane);
-+		XGBE_SET_SUP(lks, 2500baseX_Full);
- 		phy_data->start_mode = XGBE_MODE_KX_2500;
+ 	pdata->msg_enable = netif_msg_init(debug, default_msg_level);
  
- 		phy_data->phydev_mode = XGBE_MDIO_MODE_NONE;
-@@ -2932,15 +2956,16 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
+@@ -374,6 +375,28 @@ int xgbe_config_netdev(struct xgbe_prv_data *pdata)
+ 	if (pdata->hw_feat.rss)
+ 		netdev->hw_features |= NETIF_F_RXHASH;
  
- 	/* MDIO 1GBase-T support */
- 	case XGBE_PORT_MODE_1000BASE_T:
--		pdata->phy.supported |= SUPPORTED_Autoneg;
--		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--		pdata->phy.supported |= SUPPORTED_TP;
-+		XGBE_SET_SUP(lks, Autoneg);
-+		XGBE_SET_SUP(lks, Pause);
-+		XGBE_SET_SUP(lks, Asym_Pause);
-+		XGBE_SET_SUP(lks, TP);
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100) {
--			pdata->phy.supported |= SUPPORTED_100baseT_Full;
-+			XGBE_SET_SUP(lks, 100baseT_Full);
- 			phy_data->start_mode = XGBE_MODE_SGMII_100;
- 		}
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000) {
--			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
-+			XGBE_SET_SUP(lks, 1000baseT_Full);
- 			phy_data->start_mode = XGBE_MODE_SGMII_1000;
- 		}
- 
-@@ -2951,10 +2976,11 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 
- 	/* MDIO Base-X support */
- 	case XGBE_PORT_MODE_1000BASE_X:
--		pdata->phy.supported |= SUPPORTED_Autoneg;
--		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--		pdata->phy.supported |= SUPPORTED_FIBRE;
--		pdata->phy.supported |= SUPPORTED_1000baseT_Full;
-+		XGBE_SET_SUP(lks, Autoneg);
-+		XGBE_SET_SUP(lks, Pause);
-+		XGBE_SET_SUP(lks, Asym_Pause);
-+		XGBE_SET_SUP(lks, FIBRE);
-+		XGBE_SET_SUP(lks, 1000baseX_Full);
- 		phy_data->start_mode = XGBE_MODE_X;
- 
- 		phy_data->phydev_mode = XGBE_MDIO_MODE_CL22;
-@@ -2964,19 +2990,20 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 
- 	/* MDIO NBase-T support */
- 	case XGBE_PORT_MODE_NBASE_T:
--		pdata->phy.supported |= SUPPORTED_Autoneg;
--		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--		pdata->phy.supported |= SUPPORTED_TP;
-+		XGBE_SET_SUP(lks, Autoneg);
-+		XGBE_SET_SUP(lks, Pause);
-+		XGBE_SET_SUP(lks, Asym_Pause);
-+		XGBE_SET_SUP(lks, TP);
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100) {
--			pdata->phy.supported |= SUPPORTED_100baseT_Full;
-+			XGBE_SET_SUP(lks, 100baseT_Full);
- 			phy_data->start_mode = XGBE_MODE_SGMII_100;
- 		}
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000) {
--			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
-+			XGBE_SET_SUP(lks, 1000baseT_Full);
- 			phy_data->start_mode = XGBE_MODE_SGMII_1000;
- 		}
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_2500) {
--			pdata->phy.supported |= SUPPORTED_2500baseX_Full;
-+			XGBE_SET_SUP(lks, 2500baseT_Full);
- 			phy_data->start_mode = XGBE_MODE_KX_2500;
- 		}
- 
-@@ -2987,19 +3014,20 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 
- 	/* 10GBase-T support */
- 	case XGBE_PORT_MODE_10GBASE_T:
--		pdata->phy.supported |= SUPPORTED_Autoneg;
--		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--		pdata->phy.supported |= SUPPORTED_TP;
-+		XGBE_SET_SUP(lks, Autoneg);
-+		XGBE_SET_SUP(lks, Pause);
-+		XGBE_SET_SUP(lks, Asym_Pause);
-+		XGBE_SET_SUP(lks, TP);
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100) {
--			pdata->phy.supported |= SUPPORTED_100baseT_Full;
-+			XGBE_SET_SUP(lks, 100baseT_Full);
- 			phy_data->start_mode = XGBE_MODE_SGMII_100;
- 		}
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000) {
--			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
-+			XGBE_SET_SUP(lks, 1000baseT_Full);
- 			phy_data->start_mode = XGBE_MODE_SGMII_1000;
- 		}
- 		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000) {
--			pdata->phy.supported |= SUPPORTED_10000baseT_Full;
-+			XGBE_SET_SUP(lks, 10000baseT_Full);
- 			phy_data->start_mode = XGBE_MODE_KR;
- 		}
- 
-@@ -3010,12 +3038,16 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 
- 	/* 10GBase-R support */
- 	case XGBE_PORT_MODE_10GBASE_R:
--		pdata->phy.supported |= SUPPORTED_Autoneg;
--		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--		pdata->phy.supported |= SUPPORTED_TP;
--		pdata->phy.supported |= SUPPORTED_10000baseT_Full;
-+		XGBE_SET_SUP(lks, Autoneg);
-+		XGBE_SET_SUP(lks, Pause);
-+		XGBE_SET_SUP(lks, Asym_Pause);
-+		XGBE_SET_SUP(lks, FIBRE);
-+		XGBE_SET_SUP(lks, 10000baseSR_Full);
-+		XGBE_SET_SUP(lks, 10000baseLR_Full);
-+		XGBE_SET_SUP(lks, 10000baseLRM_Full);
-+		XGBE_SET_SUP(lks, 10000baseER_Full);
- 		if (pdata->fec_ability & MDIO_PMA_10GBR_FECABLE_ABLE)
--			pdata->phy.supported |= SUPPORTED_10000baseR_FEC;
-+			XGBE_SET_SUP(lks, 10000baseR_FEC);
- 		phy_data->start_mode = XGBE_MODE_SFI;
- 
- 		phy_data->phydev_mode = XGBE_MDIO_MODE_NONE;
-@@ -3023,22 +3055,17 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 
- 	/* SFP support */
- 	case XGBE_PORT_MODE_SFP:
--		pdata->phy.supported |= SUPPORTED_Autoneg;
--		pdata->phy.supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--		pdata->phy.supported |= SUPPORTED_TP;
--		pdata->phy.supported |= SUPPORTED_FIBRE;
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100) {
--			pdata->phy.supported |= SUPPORTED_100baseT_Full;
-+		XGBE_SET_SUP(lks, Autoneg);
-+		XGBE_SET_SUP(lks, Pause);
-+		XGBE_SET_SUP(lks, Asym_Pause);
-+		XGBE_SET_SUP(lks, TP);
-+		XGBE_SET_SUP(lks, FIBRE);
-+		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_100)
- 			phy_data->start_mode = XGBE_MODE_SGMII_100;
--		}
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000) {
--			pdata->phy.supported |= SUPPORTED_1000baseT_Full;
-+		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_1000)
- 			phy_data->start_mode = XGBE_MODE_SGMII_1000;
--		}
--		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000) {
--			pdata->phy.supported |= SUPPORTED_10000baseT_Full;
-+		if (phy_data->port_speeds & XGBE_PHY_PORT_SPEED_10000)
- 			phy_data->start_mode = XGBE_MODE_SFI;
--		}
- 
- 		phy_data->phydev_mode = XGBE_MDIO_MODE_CL22;
- 		phy_impl->phydev_read = xgbe_phy_phydev_read;
-@@ -3052,8 +3079,9 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 	}
- 
- 	if (netif_msg_probe(pdata))
--		dev_dbg(pdata->dev, "phy supported=%#x\n",
--			pdata->phy.supported);
-+		dev_dbg(pdata->dev, "phy supported=0x%*pb\n",
-+			__ETHTOOL_LINK_MODE_MASK_NBITS,
-+			lks->link_modes.supported);
- 
- 	if ((phy_data->conn_type & XGBE_CONN_TYPE_MDIO) &&
- 	    (phy_data->phydev_mode != XGBE_MDIO_MODE_NONE)) {
++	if (pdata->hw_feat.vxn) {
++		netdev->hw_enc_features = NETIF_F_SG |
++					  NETIF_F_IP_CSUM |
++					  NETIF_F_IPV6_CSUM |
++					  NETIF_F_RXCSUM |
++					  NETIF_F_TSO |
++					  NETIF_F_TSO6 |
++					  NETIF_F_GRO |
++					  NETIF_F_GSO_UDP_TUNNEL |
++					  NETIF_F_GSO_UDP_TUNNEL_CSUM |
++					  NETIF_F_RX_UDP_TUNNEL_PORT;
++
++		netdev->hw_features |= NETIF_F_GSO_UDP_TUNNEL |
++				       NETIF_F_GSO_UDP_TUNNEL_CSUM |
++				       NETIF_F_RX_UDP_TUNNEL_PORT;
++
++		pdata->vxlan_offloads_set = 1;
++		pdata->vxlan_features = NETIF_F_GSO_UDP_TUNNEL |
++					NETIF_F_GSO_UDP_TUNNEL_CSUM |
++					NETIF_F_RX_UDP_TUNNEL_PORT;
++	}
++
+ 	netdev->vlan_features |= NETIF_F_SG |
+ 				 NETIF_F_IP_CSUM |
+ 				 NETIF_F_IPV6_CSUM |
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 929c6b2..12860be 100644
+index 12860be..6d4057a 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -131,6 +131,7 @@
- #include <linux/cpumask.h>
+@@ -132,6 +132,7 @@
  #include <linux/interrupt.h>
  #include <linux/dcache.h>
-+#include <linux/ethtool.h>
+ #include <linux/ethtool.h>
++#include <linux/list.h>
  
  #define XGBE_DRV_NAME		"amd-xgbe"
  #define XGBE_DRV_VERSION	"1.0.3"
-@@ -296,6 +297,48 @@
- /* MDIO port types */
- #define XGMAC_MAX_C22_PORT		3
- 
-+/* Link mode bit operations */
-+#define XGBE_ZERO_SUP(_ls)		\
-+	ethtool_link_ksettings_zero_link_mode((_ls), supported)
+@@ -817,6 +818,11 @@ struct xgbe_hw_if {
+ 	/* For ECC */
+ 	void (*disable_ecc_ded)(struct xgbe_prv_data *);
+ 	void (*disable_ecc_sec)(struct xgbe_prv_data *, enum xgbe_ecc_sec);
 +
-+#define XGBE_SET_SUP(_ls, _mode)	\
-+	ethtool_link_ksettings_add_link_mode((_ls), supported, _mode)
-+
-+#define XGBE_CLR_SUP(_ls, _mode)	\
-+	ethtool_link_ksettings_del_link_mode((_ls), supported, _mode)
-+
-+#define XGBE_IS_SUP(_ls, _mode)	\
-+	ethtool_link_ksettings_test_link_mode((_ls), supported, _mode)
-+
-+#define XGBE_ZERO_ADV(_ls)		\
-+	ethtool_link_ksettings_zero_link_mode((_ls), advertising)
-+
-+#define XGBE_SET_ADV(_ls, _mode)	\
-+	ethtool_link_ksettings_add_link_mode((_ls), advertising, _mode)
-+
-+#define XGBE_CLR_ADV(_ls, _mode)	\
-+	ethtool_link_ksettings_del_link_mode((_ls), advertising, _mode)
-+
-+#define XGBE_ADV(_ls, _mode)		\
-+	ethtool_link_ksettings_test_link_mode((_ls), advertising, _mode)
-+
-+#define XGBE_ZERO_LP_ADV(_ls)		\
-+	ethtool_link_ksettings_zero_link_mode((_ls), lp_advertising)
-+
-+#define XGBE_SET_LP_ADV(_ls, _mode)	\
-+	ethtool_link_ksettings_add_link_mode((_ls), lp_advertising, _mode)
-+
-+#define XGBE_CLR_LP_ADV(_ls, _mode)	\
-+	ethtool_link_ksettings_del_link_mode((_ls), lp_advertising, _mode)
-+
-+#define XGBE_LP_ADV(_ls, _mode)		\
-+	ethtool_link_ksettings_test_link_mode((_ls), lp_advertising, _mode)
-+
-+#define XGBE_LM_COPY(_dst, _dname, _src, _sname)	\
-+	bitmap_copy((_dst)->link_modes._dname,		\
-+		    (_src)->link_modes._sname,		\
-+		    __ETHTOOL_LINK_MODE_MASK_NBITS)
-+
- struct xgbe_prv_data;
- 
- struct xgbe_packet_data {
-@@ -563,9 +606,7 @@ enum xgbe_mdio_mode {
++	/* For VXLAN */
++	void (*enable_vxlan)(struct xgbe_prv_data *);
++	void (*disable_vxlan)(struct xgbe_prv_data *);
++	void (*set_vxlan_id)(struct xgbe_prv_data *);
  };
  
- struct xgbe_phy {
--	u32 supported;
--	u32 advertising;
--	u32 lp_advertising;
-+	struct ethtool_link_ksettings lks;
+ /* This structure represents implementation specific routines for an
+@@ -950,6 +956,7 @@ struct xgbe_hw_features {
+ 	unsigned int addn_mac;		/* Additional MAC Addresses */
+ 	unsigned int ts_src;		/* Timestamp Source */
+ 	unsigned int sa_vlan_ins;	/* Source Address or VLAN Insertion */
++	unsigned int vxn;		/* VXLAN/NVGRE */
  
- 	int address;
+ 	/* HW Feature Register1 */
+ 	unsigned int rx_fifo_size;	/* MTL Receive FIFO Size */
+@@ -988,6 +995,12 @@ struct xgbe_version_data {
+ 	unsigned int rx_desc_prefetch;
+ };
  
-@@ -818,7 +859,8 @@ struct xgbe_phy_impl_if {
- 	int (*an_config)(struct xgbe_prv_data *);
++struct xgbe_vxlan_data {
++	struct list_head list;
++	sa_family_t sa_family;
++	__be16 port;
++};
++
+ struct xgbe_prv_data {
+ 	struct net_device *netdev;
+ 	struct pci_dev *pcidev;
+@@ -1129,6 +1142,15 @@ struct xgbe_prv_data {
+ 	u32 rss_table[XGBE_RSS_MAX_TABLE_SIZE];
+ 	u32 rss_options;
  
- 	/* Set/override auto-negotiation advertisement settings */
--	unsigned int (*an_advertising)(struct xgbe_prv_data *);
-+	void (*an_advertising)(struct xgbe_prv_data *,
-+			       struct ethtool_link_ksettings *);
- 
- 	/* Process results of auto-negotiation */
- 	enum xgbe_mode (*an_outcome)(struct xgbe_prv_data *);
++	/* VXLAN settings */
++	unsigned int vxlan_port_set;
++	unsigned int vxlan_offloads_set;
++	unsigned int vxlan_force_disable;
++	unsigned int vxlan_port_count;
++	struct list_head vxlan_ports;
++	u16 vxlan_port;
++	netdev_features_t vxlan_features;
++
+ 	/* Netdev related settings */
+ 	unsigned char mac_addr[ETH_ALEN];
+ 	netdev_features_t netdev_features;
