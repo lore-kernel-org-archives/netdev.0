@@ -1,53 +1,66 @@
-From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH] mlx5: ensure 0 is returned when vport is zero
-Date: Fri, 18 Aug 2017 16:27:04 +0100
-Message-ID: <c5800ec1-3487-3c57-fcab-86d8e527552e@canonical.com>
-References: <20170818152550.18358-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170818152550.18358-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][net-next] net: hns3: fix a handful of spelling mistakes
+Date: Fri, 18 Aug 2017 16:30:00 +0100
+Message-ID: <20170818153000.18516-1-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: Yisen Zhuang <yisen.zhuang@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        lipeng <lipeng321@huawei.com>,
+        Daode Huang <huangdaode@hisilicon.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 18/08/17 16:25, Colin King wrote:
-> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> 
-> Currently, if vport is zero then then an uninialized return status
-> in err is returned.  Since the only return status at the end of the
-> function esw_add_uc_addr is zero for the current set of return paths
-> we may as well just return 0 rather than err to fix this issue.
-> 
-> Detected by CoverityScan, CID#1452698 ("Uninitialized scalar variable")
-> 
-> Fixes: eeb66cdb6826 ("net/mlx5: Separate between E-Switch and MPFS")
-> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-> index 6d9fb6ac6e9b..c77f4c0c7769 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-> @@ -401,7 +401,7 @@ static int esw_add_uc_addr(struct mlx5_eswitch *esw, struct vport_addr *vaddr)
->  	esw_debug(esw->dev, "\tADDED UC MAC: vport[%d] %pM fr(%p)\n",
->  		  vport, mac, vaddr->flow_rule);
->  
-> -	return err;
-> +	return 0;
->  }
->  
->  static int esw_del_uc_addr(struct mlx5_eswitch *esw, struct vport_addr *vaddr)
-> 
-Apologies, I accidentally re-sent this by mistake.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+From: Colin Ian King <colin.king@canonical.com>
+
+Trival fix to spelling mistakes:
+
+firware -> firmware
+invald -> invalid
+mutilcast -> multicast
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c  | 2 +-
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
+index bc869842728f..8b511e6e0ce9 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
+@@ -334,7 +334,7 @@ int hclge_cmd_init(struct hclge_dev *hdev)
+ 	}
+ 	hdev->fw_version = version;
+ 
+-	dev_info(&hdev->pdev->dev, "The firware version is %08x\n", version);
++	dev_info(&hdev->pdev->dev, "The firmware version is %08x\n", version);
+ 
+ 	return 0;
+ err_csq:
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+index 6fb7648bb2f2..bb45365fb817 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+@@ -1952,7 +1952,7 @@ int hclge_cfg_mac_speed_dup(struct hclge_dev *hdev, int speed, u8 duplex)
+ 			       HCLGE_CFG_SPEED_S, 5);
+ 		break;
+ 	default:
+-		dev_err(&hdev->pdev->dev, "invald speed (%d)\n", speed);
++		dev_err(&hdev->pdev->dev, "invalid speed (%d)\n", speed);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -3476,7 +3476,7 @@ int hclge_rm_mc_addr_common(struct hclge_vport *vport,
+ 	} else {
+ 		/* This mac addr do not exist, can't delete it */
+ 		dev_err(&hdev->pdev->dev,
+-			"Rm mutilcast mac addr failed, ret = %d.\n",
++			"Rm multicast mac addr failed, ret = %d.\n",
+ 			status);
+ 		return -EIO;
+ 	}
+-- 
+2.11.0
