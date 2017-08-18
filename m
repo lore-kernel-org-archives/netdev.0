@@ -1,7 +1,7 @@
 From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: [PATCH v5 3/4] dt-bindings: can: m_can: Document new can transceiver binding
-Date: Fri, 18 Aug 2017 15:21:36 -0500
-Message-ID: <20170818202137.29816-4-fcooper@ti.com>
+Subject: [PATCH v5 4/4] can: m_can: Add call to of_can_transceiver
+Date: Fri, 18 Aug 2017 15:21:37 -0500
+Message-ID: <20170818202137.29816-5-fcooper@ti.com>
 References: <20170818202137.29816-1-fcooper@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,42 +17,27 @@ In-Reply-To: <20170818202137.29816-1-fcooper@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add information regarding can-transceiver binding. This is especially
-important for MCAN since the IP allows CAN FD mode to run significantly
-faster than what most transceivers are capable of.
+Add call to new generic functions that provides support via a binding
+to limit the arbitration rate and/or data rate imposed by the physical
+transceiver connected to the MCAN peripheral.
 
 Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
-Acked-by: Rob Herring <robh@kernel.org>
 ---
-Remove @ symbol from can-transceiver example
+ drivers/net/can/m_can/m_can.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
- Documentation/devicetree/bindings/net/can/m_can.txt | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/Documentation/devicetree/bindings/net/can/m_can.txt b/Documentation/devicetree/bindings/net/can/m_can.txt
-index 9e33177..0bdae2a 100644
---- a/Documentation/devicetree/bindings/net/can/m_can.txt
-+++ b/Documentation/devicetree/bindings/net/can/m_can.txt
-@@ -43,6 +43,11 @@ Required properties:
- 			  Please refer to 2.4.1 Message RAM Configuration in
- 			  Bosch M_CAN user manual for details.
+diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+index f4947a7..f72116e 100644
+--- a/drivers/net/can/m_can/m_can.c
++++ b/drivers/net/can/m_can/m_can.c
+@@ -1649,6 +1649,8 @@ static int m_can_plat_probe(struct platform_device *pdev)
  
-+Optional Subnode:
-+- can-transceiver	: Can-transceiver subnode describing maximum speed
-+			  that can be used for CAN/CAN-FD modes. See
-+			  Documentation/devicetree/bindings/net/can/can-transceiver.txt
-+			  for details.
- Example:
- SoC dtsi:
- m_can1: can@020e8000 {
-@@ -64,4 +69,8 @@ Board dts:
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&pinctrl_m_can1>;
- 	status = "enabled";
+ 	devm_can_led_init(dev);
+ 
++	of_can_transceiver(dev);
 +
-+	can-transceiver {
-+		max-bitrate = <5000000>;
-+	};
- };
+ 	dev_info(&pdev->dev, "%s device registered (irq=%d, version=%d)\n",
+ 		 KBUILD_MODNAME, dev->irq, priv->version);
+ 
 -- 
 2.9.4.dirty
