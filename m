@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 08/14] amd-xgbe: Optimize DMA channel interrupt
- enablement
-Date: Thu, 17 Aug 2017 19:03:17 -0500
-Message-ID: <20170818000317.10005.92976.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 09/14] amd-xgbe: Add hardware features debug
+ output
+Date: Thu, 17 Aug 2017 19:03:26 -0500
+Message-ID: <20170818000326.10005.31325.stgit@tlendack-t1.amdoffice.net>
 References: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,230 +10,116 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0079.outbound.protection.outlook.com ([104.47.34.79]:2464
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0070.outbound.protection.outlook.com ([104.47.40.70]:32293
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753887AbdHRADX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 17 Aug 2017 20:03:23 -0400
+        id S1753887AbdHRADa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 17 Aug 2017 20:03:30 -0400
 In-Reply-To: <20170818000201.10005.36182.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently whenever the driver needs to enable or disable interrupts for
-a DMA channel it reads the interrupt enable register (IER), updates the
-value and then writes the new value back to the IER. Since the hardware
-does not change the IER, software can track this value and elimiate the
-need to read it each time.
-
-Add the IER value to the channel related data structure and use that as
-the base for enabling and disabling interrupts, thus removing the need
-for the MMIO read.
+Use the dynamic debug support to output information about the hardware
+features reported by the device.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c |   77 ++++++++++++++----------------
- drivers/net/ethernet/amd/xgbe/xgbe.h     |    4 +-
- 2 files changed, 37 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c |   78 +++++++++++++++++++++++++++++-
+ 1 file changed, 75 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index bb60507..75a479c 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -605,7 +605,6 @@ static void xgbe_config_flow_control(struct xgbe_prv_data *pdata)
- static void xgbe_enable_dma_interrupts(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_channel *channel;
--	unsigned int dma_ch_isr, dma_ch_ier;
- 	unsigned int i;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index d6d29d8..7498bb8 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -732,8 +732,6 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
+ 	unsigned int mac_hfr0, mac_hfr1, mac_hfr2;
+ 	struct xgbe_hw_features *hw_feat = &pdata->hw_feat;
  
- 	/* Set the interrupt mode if supported */
-@@ -617,20 +616,20 @@ static void xgbe_enable_dma_interrupts(struct xgbe_prv_data *pdata)
- 		channel = pdata->channel[i];
+-	DBGPR("-->xgbe_get_all_hw_features\n");
+-
+ 	mac_hfr0 = XGMAC_IOREAD(pdata, MAC_HWF0R);
+ 	mac_hfr1 = XGMAC_IOREAD(pdata, MAC_HWF1R);
+ 	mac_hfr2 = XGMAC_IOREAD(pdata, MAC_HWF2R);
+@@ -828,7 +826,81 @@ void xgbe_get_all_hw_features(struct xgbe_prv_data *pdata)
+ 	hw_feat->rx_fifo_size = 1 << (hw_feat->rx_fifo_size + 7);
+ 	hw_feat->tx_fifo_size = 1 << (hw_feat->tx_fifo_size + 7);
  
- 		/* Clear all the interrupts which are set */
--		dma_ch_isr = XGMAC_DMA_IOREAD(channel, DMA_CH_SR);
--		XGMAC_DMA_IOWRITE(channel, DMA_CH_SR, dma_ch_isr);
-+		XGMAC_DMA_IOWRITE(channel, DMA_CH_SR,
-+				  XGMAC_DMA_IOREAD(channel, DMA_CH_SR));
- 
- 		/* Clear all interrupt enable bits */
--		dma_ch_ier = 0;
-+		channel->curr_ier = 0;
- 
- 		/* Enable following interrupts
- 		 *   NIE  - Normal Interrupt Summary Enable
- 		 *   AIE  - Abnormal Interrupt Summary Enable
- 		 *   FBEE - Fatal Bus Error Enable
- 		 */
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, NIE, 1);
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, AIE, 1);
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, FBEE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, NIE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, AIE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, FBEE, 1);
- 
- 		if (channel->tx_ring) {
- 			/* Enable the following Tx interrupts
-@@ -639,7 +638,8 @@ static void xgbe_enable_dma_interrupts(struct xgbe_prv_data *pdata)
- 			 *          mode)
- 			 */
- 			if (!pdata->per_channel_irq || pdata->channel_irq_mode)
--				XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TIE, 1);
-+				XGMAC_SET_BITS(channel->curr_ier,
-+					       DMA_CH_IER, TIE, 1);
- 		}
- 		if (channel->rx_ring) {
- 			/* Enable following Rx interrupts
-@@ -648,12 +648,13 @@ static void xgbe_enable_dma_interrupts(struct xgbe_prv_data *pdata)
- 			 *          per channel interrupts in edge triggered
- 			 *          mode)
- 			 */
--			XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RBUE, 1);
-+			XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, RBUE, 1);
- 			if (!pdata->per_channel_irq || pdata->channel_irq_mode)
--				XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RIE, 1);
-+				XGMAC_SET_BITS(channel->curr_ier,
-+					       DMA_CH_IER, RIE, 1);
- 		}
- 
--		XGMAC_DMA_IOWRITE(channel, DMA_CH_IER, dma_ch_ier);
-+		XGMAC_DMA_IOWRITE(channel, DMA_CH_IER, channel->curr_ier);
- 	}
+-	DBGPR("<--xgbe_get_all_hw_features\n");
++	if (netif_msg_probe(pdata)) {
++		dev_dbg(pdata->dev, "Hardware features:\n");
++
++		/* Hardware feature register 0 */
++		dev_dbg(pdata->dev, "  1GbE support              : %s\n",
++			hw_feat->gmii ? "yes" : "no");
++		dev_dbg(pdata->dev, "  VLAN hash filter          : %s\n",
++			hw_feat->vlhash ? "yes" : "no");
++		dev_dbg(pdata->dev, "  MDIO interface            : %s\n",
++			hw_feat->sma ? "yes" : "no");
++		dev_dbg(pdata->dev, "  Wake-up packet support    : %s\n",
++			hw_feat->rwk ? "yes" : "no");
++		dev_dbg(pdata->dev, "  Magic packet support      : %s\n",
++			hw_feat->mgk ? "yes" : "no");
++		dev_dbg(pdata->dev, "  Management counters       : %s\n",
++			hw_feat->mmc ? "yes" : "no");
++		dev_dbg(pdata->dev, "  ARP offload               : %s\n",
++			hw_feat->aoe ? "yes" : "no");
++		dev_dbg(pdata->dev, "  IEEE 1588-2008 Timestamp  : %s\n",
++			hw_feat->ts ? "yes" : "no");
++		dev_dbg(pdata->dev, "  Energy Efficient Ethernet : %s\n",
++			hw_feat->eee ? "yes" : "no");
++		dev_dbg(pdata->dev, "  TX checksum offload       : %s\n",
++			hw_feat->tx_coe ? "yes" : "no");
++		dev_dbg(pdata->dev, "  RX checksum offload       : %s\n",
++			hw_feat->rx_coe ? "yes" : "no");
++		dev_dbg(pdata->dev, "  Additional MAC addresses  : %u\n",
++			hw_feat->addn_mac);
++		dev_dbg(pdata->dev, "  Timestamp source          : %s\n",
++			(hw_feat->ts_src == 1) ? "internal" :
++			(hw_feat->ts_src == 2) ? "external" :
++			(hw_feat->ts_src == 3) ? "internal/external" : "n/a");
++		dev_dbg(pdata->dev, "  SA/VLAN insertion         : %s\n",
++			hw_feat->sa_vlan_ins ? "yes" : "no");
++
++		/* Hardware feature register 1 */
++		dev_dbg(pdata->dev, "  RX fifo size              : %u\n",
++			hw_feat->rx_fifo_size);
++		dev_dbg(pdata->dev, "  TX fifo size              : %u\n",
++			hw_feat->tx_fifo_size);
++		dev_dbg(pdata->dev, "  IEEE 1588 high word       : %s\n",
++			hw_feat->adv_ts_hi ? "yes" : "no");
++		dev_dbg(pdata->dev, "  DMA width                 : %u\n",
++			hw_feat->dma_width);
++		dev_dbg(pdata->dev, "  Data Center Bridging      : %s\n",
++			hw_feat->dcb ? "yes" : "no");
++		dev_dbg(pdata->dev, "  Split header              : %s\n",
++			hw_feat->sph ? "yes" : "no");
++		dev_dbg(pdata->dev, "  TCP Segmentation Offload  : %s\n",
++			hw_feat->tso ? "yes" : "no");
++		dev_dbg(pdata->dev, "  Debug memory interface    : %s\n",
++			hw_feat->dma_debug ? "yes" : "no");
++		dev_dbg(pdata->dev, "  Receive Side Scaling      : %s\n",
++			hw_feat->rss ? "yes" : "no");
++		dev_dbg(pdata->dev, "  Traffic Class count       : %u\n",
++			hw_feat->tc_cnt);
++		dev_dbg(pdata->dev, "  Hash table size           : %u\n",
++			hw_feat->hash_table_size);
++		dev_dbg(pdata->dev, "  L3/L4 Filters             : %u\n",
++			hw_feat->l3l4_filter_num);
++
++		/* Hardware feature register 2 */
++		dev_dbg(pdata->dev, "  RX queue count            : %u\n",
++			hw_feat->rx_q_cnt);
++		dev_dbg(pdata->dev, "  TX queue count            : %u\n",
++			hw_feat->tx_q_cnt);
++		dev_dbg(pdata->dev, "  RX DMA channel count      : %u\n",
++			hw_feat->rx_ch_cnt);
++		dev_dbg(pdata->dev, "  TX DMA channel count      : %u\n",
++			hw_feat->rx_ch_cnt);
++		dev_dbg(pdata->dev, "  PPS outputs               : %u\n",
++			hw_feat->pps_out_num);
++		dev_dbg(pdata->dev, "  Auxiliary snapshot inputs : %u\n",
++			hw_feat->aux_snap_num);
++	}
  }
  
-@@ -1964,44 +1965,40 @@ static int xgbe_is_last_desc(struct xgbe_ring_desc *rdesc)
- static int xgbe_enable_int(struct xgbe_channel *channel,
- 			   enum xgbe_int int_id)
- {
--	unsigned int dma_ch_ier;
--
--	dma_ch_ier = XGMAC_DMA_IOREAD(channel, DMA_CH_IER);
--
- 	switch (int_id) {
- 	case XGMAC_INT_DMA_CH_SR_TI:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TIE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, TIE, 1);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_TPS:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TXSE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, TXSE, 1);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_TBU:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TBUE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, TBUE, 1);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_RI:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RIE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, RIE, 1);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_RBU:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RBUE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, RBUE, 1);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_RPS:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RSE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, RSE, 1);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_TI_RI:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TIE, 1);
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RIE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, TIE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, RIE, 1);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_FBE:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, FBEE, 1);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, FBEE, 1);
- 		break;
- 	case XGMAC_INT_DMA_ALL:
--		dma_ch_ier |= channel->saved_ier;
-+		channel->curr_ier |= channel->saved_ier;
- 		break;
- 	default:
- 		return -1;
- 	}
- 
--	XGMAC_DMA_IOWRITE(channel, DMA_CH_IER, dma_ch_ier);
-+	XGMAC_DMA_IOWRITE(channel, DMA_CH_IER, channel->curr_ier);
- 
- 	return 0;
- }
-@@ -2009,45 +2006,41 @@ static int xgbe_enable_int(struct xgbe_channel *channel,
- static int xgbe_disable_int(struct xgbe_channel *channel,
- 			    enum xgbe_int int_id)
- {
--	unsigned int dma_ch_ier;
--
--	dma_ch_ier = XGMAC_DMA_IOREAD(channel, DMA_CH_IER);
--
- 	switch (int_id) {
- 	case XGMAC_INT_DMA_CH_SR_TI:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TIE, 0);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, TIE, 0);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_TPS:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TXSE, 0);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, TXSE, 0);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_TBU:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TBUE, 0);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, TBUE, 0);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_RI:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RIE, 0);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, RIE, 0);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_RBU:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RBUE, 0);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, RBUE, 0);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_RPS:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RSE, 0);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, RSE, 0);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_TI_RI:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, TIE, 0);
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, RIE, 0);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, TIE, 0);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, RIE, 0);
- 		break;
- 	case XGMAC_INT_DMA_CH_SR_FBE:
--		XGMAC_SET_BITS(dma_ch_ier, DMA_CH_IER, FBEE, 0);
-+		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, FBEE, 0);
- 		break;
- 	case XGMAC_INT_DMA_ALL:
--		channel->saved_ier = dma_ch_ier & XGBE_DMA_INTERRUPT_MASK;
--		dma_ch_ier &= ~XGBE_DMA_INTERRUPT_MASK;
-+		channel->saved_ier = channel->curr_ier;
-+		channel->curr_ier = 0;
- 		break;
- 	default:
- 		return -1;
- 	}
- 
--	XGMAC_DMA_IOWRITE(channel, DMA_CH_IER, dma_ch_ier);
-+	XGMAC_DMA_IOWRITE(channel, DMA_CH_IER, channel->curr_ier);
- 
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 4932a44..c7dd273 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -182,8 +182,6 @@
- #define XGBE_IRQ_MODE_EDGE	0
- #define XGBE_IRQ_MODE_LEVEL	1
- 
--#define XGBE_DMA_INTERRUPT_MASK	0x31c7
--
- #define XGMAC_MIN_PACKET	60
- #define XGMAC_STD_PACKET_MTU	1500
- #define XGMAC_MAX_STD_PACKET	1518
-@@ -462,6 +460,8 @@ struct xgbe_channel {
- 	/* Netdev related settings */
- 	struct napi_struct napi;
- 
-+	/* Per channel interrupt enablement tracker */
-+	unsigned int curr_ier;
- 	unsigned int saved_ier;
- 
- 	unsigned int tx_timer_active;
+ static void xgbe_napi_enable(struct xgbe_prv_data *pdata, unsigned int add)
