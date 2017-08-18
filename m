@@ -1,45 +1,73 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [iproute PATCH v2 2/3] iproute_lwtunnel: Argument to strerror
- must be positive
-Date: Fri, 18 Aug 2017 09:21:34 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD005A7C8@AcuExch.aculab.com>
-References: <20170817170932.24812-1-phil@nwl.cc>
- <20170817170932.24812-3-phil@nwl.cc>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v2 0/6] net: stmmac: Detect PHY location with
+ phy-is-integrated
+Date: Fri, 18 Aug 2017 11:24:27 +0200
+Message-ID: <20170818092427.GA7425@Red>
+References: <20170817075149.16178-1-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Phil Sutter' <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.182]:51764 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751801AbdHRJVk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 05:21:40 -0400
-In-Reply-To: <20170817170932.24812-3-phil@nwl.cc>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: robh+dt@kernel.org, mark.rutland@arm.com, linux@armlinux.org.uk,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170817075149.16178-1-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Phil Sutter
-> Sent: 17 August 2017 18:10
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  ip/iproute_lwtunnel.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+On Thu, Aug 17, 2017 at 09:51:43AM +0200, Corentin Labbe wrote:
+> Hello
 > 
-> diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
-> index 398ab5e077ed8..1a3dc4d4c0ed9 100644
-> --- a/ip/iproute_lwtunnel.c
-> +++ b/ip/iproute_lwtunnel.c
-> @@ -643,7 +643,7 @@ static int lwt_parse_bpf(struct rtattr *rta, size_t len,
->  	err = bpf_parse_common(bpf_type, &cfg, &bpf_cb_ops, &x);
->  	if (err < 0) {
->  		fprintf(stderr, "Failed to parse eBPF program: %s\n",
-> -			strerror(err));
-> +			strerror(-err));
+> The current way to find if the phy is internal is to compare DT phy-mode
+> and emac_variant/internal_phy.
+> But it will negate a possible future SoC where an external PHY use the
+> same phy mode than the integrated one.
+> 
+> This patchs series adds a new way to find if the PHY is integrated, via
+> the phy-is-integrated DT property.
+> 
+> Since it exists both integrated and external ethernet-phy@1, they are merged in
+> the final DTB and so share all properties.
+> For avoiding this, the phy-is-integrated is added only to board DT.
+> 
+> The first five patchs should go via the sunxi tree.
+> the last one should go via the net tree.
+> Note that this serie will need backporting the patch
+> "Documentation: net: phy: Add phy-is-integrated binding" which is in net-next
+> 
+> Thanks
+> Regards
+> 
+> Changes since v1:
+> - Dropped phy-is-integrated documentation patch since another same patch was already merged
+> - Moved phy-is-integrated from SoC dtsi to final board DT.
+> 
+> Corentin Labbe (6):
+>   ARM: sun8i: orangepipc: Set phy-is-integrated to the internal phy node
+>   ARM: sun8i: beelink-x2: Set phy-is-integrated to the internal phy node
+>   ARM: sun8i: nanopi-neo: Set phy-is-integrated to the internal phy node
+>   ARM: sun8i: orangepi-2: Set phy-is-integrated to the internal phy node
+>   ARM: sun8i: orangepi-one: Set phy-is-integrated to the internal phy
+>     node
+>   net: stmmac: dwmac-sun8i: choose internal PHY via phy-is-integrated
+> 
+>  arch/arm/boot/dts/sun8i-h3-beelink-x2.dts         |  4 ++++
+>  arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts         |  4 ++++
+>  arch/arm/boot/dts/sun8i-h3-orangepi-2.dts         |  4 ++++
+>  arch/arm/boot/dts/sun8i-h3-orangepi-one.dts       |  4 ++++
+>  arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts        |  4 ++++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 16 ++++++++--------
+>  6 files changed, 28 insertions(+), 8 deletions(-)
+> 
+> -- 
+> 2.13.0
+> 
 
-If we are in userspace I'd expect errno values to be +ve.
-Returning a -ve errno is very non-standard.
+Hello
 
-	David
+Self NACK, the comment from Rob on previous series is pertinent.
+I will send a v3 which use a mdio-mux for solving all problems.
+
+Regards
