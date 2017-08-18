@@ -1,34 +1,31 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net v2] datagram: When peeking datagrams with offset < 0
- don't skip empty skbs
-Date: Fri, 18 Aug 2017 13:56:10 -0400
-Message-ID: <CAF=yD-+GgSo1MXTT-7ADzs2ktKMQRhiH+0zMg+rwX0BA9+1SDQ@mail.gmail.com>
-References: <20170818021157.20070-1-matthew@mjdsystems.ca> <1503065118.3344.18.camel@redhat.com>
- <1789862.HUSStbeWG9@ring00>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netxen: fix incorrect loop counter decrement
+Date: Fri, 18 Aug 2017 10:59:20 -0700 (PDT)
+Message-ID: <20170818.105920.806261873907360749.davem@davemloft.net>
+References: <20170818131206.15417-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Paolo Abeni <pabeni@redhat.com>,
-        Network Development <netdev@vger.kernel.org>,
-        "Macieira, Thiago" <thiago.macieira@intel.com>
-To: Matthew Dawson <matthew@mjdsystems.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:34697 "EHLO
-        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752562AbdHRR4w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 13:56:52 -0400
-Received: by mail-oi0-f49.google.com with SMTP id x3so103931953oia.1
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 10:56:51 -0700 (PDT)
-In-Reply-To: <1789862.HUSStbeWG9@ring00>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: manish.chopra@cavium.com, rahul.verma@cavium.com,
+        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170818131206.15417-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> > +   if (flags & MSG_PEEK && *off >= 0) {
->> > +           peek_at_off = true;
->> > +           _off = *off;
->> > +   }
->>
->> I think that unlikely() will fit the above condition
-> Sounds good.
+From: Colin King <colin.king@canonical.com>
+Date: Fri, 18 Aug 2017 14:12:06 +0100
 
-Doesn't the compiler implicitly mark branches as unlikely if they
-do not have an else clause?
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The loop counter k is currently being decremented from zero which
+> is incorrect. Fix this by incrementing k instead
+> 
+> Detected by CoverityScan, CID#401847 ("Infinite loop")
+> 
+> Fixes: 83f18a557c6d ("netxen_nic: fw dump support")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+
+Applied.
