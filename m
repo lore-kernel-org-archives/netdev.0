@@ -1,236 +1,71 @@
-From: David Daney <david.daney@cavium.com>
-Subject: [PATCH 2/3] MIPS,bpf: Implement JLT, JLE, JSLT and JSLE ops in the eBPF JIT.
-Date: Fri, 18 Aug 2017 16:40:32 -0700
-Message-ID: <20170818234033.5990-3-david.daney@cavium.com>
-References: <20170818234033.5990-1-david.daney@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
-        David Daney <david.daney@cavium.com>
-To: Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170818234033.5990-1-david.daney@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 1/2] bpf: improve htab inlining for future 32 bit jits
+Date: Sat, 19 Aug 2017 01:51:55 +0200
+Message-ID: <a2a1360af1df20e5a11269441656b5daffabdd77.1503100047.git.daniel@iogearbox.net>
+References: <cover.1503100047.git.daniel@iogearbox.net>
+Cc: ast@fb.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:48202 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750967AbdHRXwC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 19:52:02 -0400
+In-Reply-To: <cover.1503100047.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1503100047.git.daniel@iogearbox.net>
+References: <cover.1503100047.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: David Daney <david.daney@cavium.com>
+Lets future proof htab lookup inlining, commit 9015d2f59535 ("bpf:
+inline htab_map_lookup_elem()") was making the assumption that a
+direct call emission to __htab_map_lookup_elem() will always work
+out for JITs. This is currently true since all JITs we have are
+for 64 bit archs, but in case of 32 bit JITs like upcoming arm32,
+we get a NULL pointer dereference when executing the call to
+__htab_map_lookup_elem() since passed arguments are of a different
+size (unsigned long vs. u64 for pointers) than what we do out of
+BPF. Thus, lets do a proper BPF_CALL_2() declaration such that we
+don't need to make any such assumptions.
+
+Reported-by: Shubham Bansal <illusionist.neo@gmail.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- arch/mips/net/ebpf_jit.c | 101 +++++++++++++++++++++++++++++++++--------------
- 1 file changed, 72 insertions(+), 29 deletions(-)
+ kernel/bpf/hashtab.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/arch/mips/net/ebpf_jit.c b/arch/mips/net/ebpf_jit.c
-index 721216b..c1e21cb 100644
---- a/arch/mips/net/ebpf_jit.c
-+++ b/arch/mips/net/ebpf_jit.c
-@@ -990,8 +990,12 @@ static int build_one_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
- 		goto jeq_common;
- 	case BPF_JMP | BPF_JEQ | BPF_X: /* JMP_REG */
- 	case BPF_JMP | BPF_JNE | BPF_X:
-+	case BPF_JMP | BPF_JSLT | BPF_X:
-+	case BPF_JMP | BPF_JSLE | BPF_X:
- 	case BPF_JMP | BPF_JSGT | BPF_X:
- 	case BPF_JMP | BPF_JSGE | BPF_X:
-+	case BPF_JMP | BPF_JLT | BPF_X:
-+	case BPF_JMP | BPF_JLE | BPF_X:
- 	case BPF_JMP | BPF_JGT | BPF_X:
- 	case BPF_JMP | BPF_JGE | BPF_X:
- 	case BPF_JMP | BPF_JSET | BPF_X:
-@@ -1013,28 +1017,34 @@ static int build_one_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
- 			cmp_eq = false;
- 			dst = MIPS_R_AT;
- 			src = MIPS_R_ZERO;
--		} else if (BPF_OP(insn->code) == BPF_JSGT) {
-+		} else if (BPF_OP(insn->code) == BPF_JSGT || BPF_OP(insn->code) == BPF_JSLE) {
- 			emit_instr(ctx, dsubu, MIPS_R_AT, dst, src);
- 			if ((insn + 1)->code == (BPF_JMP | BPF_EXIT) && insn->off == 1) {
- 				b_off = b_imm(exit_idx, ctx);
- 				if (is_bad_offset(b_off))
- 					return -E2BIG;
--				emit_instr(ctx, blez, MIPS_R_AT, b_off);
-+				if (BPF_OP(insn->code) == BPF_JSGT)
-+					emit_instr(ctx, blez, MIPS_R_AT, b_off);
-+				else
-+					emit_instr(ctx, bgtz, MIPS_R_AT, b_off);
- 				emit_instr(ctx, nop);
- 				return 2; /* We consumed the exit. */
- 			}
- 			b_off = b_imm(this_idx + insn->off + 1, ctx);
- 			if (is_bad_offset(b_off))
- 				return -E2BIG;
--			emit_instr(ctx, bgtz, MIPS_R_AT, b_off);
-+			if (BPF_OP(insn->code) == BPF_JSGT)
-+				emit_instr(ctx, bgtz, MIPS_R_AT, b_off);
-+			else
-+				emit_instr(ctx, blez, MIPS_R_AT, b_off);
- 			emit_instr(ctx, nop);
- 			break;
--		} else if (BPF_OP(insn->code) == BPF_JSGE) {
-+		} else if (BPF_OP(insn->code) == BPF_JSGE || BPF_OP(insn->code) == BPF_JSLT) {
- 			emit_instr(ctx, slt, MIPS_R_AT, dst, src);
--			cmp_eq = true;
-+			cmp_eq = BPF_OP(insn->code) == BPF_JSGE;
- 			dst = MIPS_R_AT;
- 			src = MIPS_R_ZERO;
--		} else if (BPF_OP(insn->code) == BPF_JGT) {
-+		} else if (BPF_OP(insn->code) == BPF_JGT || BPF_OP(insn->code) == BPF_JLE) {
- 			/* dst or src could be AT */
- 			emit_instr(ctx, dsubu, MIPS_R_T8, dst, src);
- 			emit_instr(ctx, sltu, MIPS_R_AT, dst, src);
-@@ -1042,12 +1052,12 @@ static int build_one_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
- 			emit_instr(ctx, movz, MIPS_R_T9, MIPS_R_SP, MIPS_R_T8);
- 			emit_instr(ctx, movn, MIPS_R_T9, MIPS_R_ZERO, MIPS_R_T8);
- 			emit_instr(ctx, or, MIPS_R_AT, MIPS_R_T9, MIPS_R_AT);
--			cmp_eq = true;
-+			cmp_eq = BPF_OP(insn->code) == BPF_JGT;
- 			dst = MIPS_R_AT;
- 			src = MIPS_R_ZERO;
--		} else if (BPF_OP(insn->code) == BPF_JGE) {
-+		} else if (BPF_OP(insn->code) == BPF_JGE || BPF_OP(insn->code) == BPF_JLT) {
- 			emit_instr(ctx, sltu, MIPS_R_AT, dst, src);
--			cmp_eq = true;
-+			cmp_eq = BPF_OP(insn->code) == BPF_JGE;
- 			dst = MIPS_R_AT;
- 			src = MIPS_R_ZERO;
- 		} else { /* JNE/JEQ case */
-@@ -1110,6 +1120,8 @@ static int build_one_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
- 		break;
- 	case BPF_JMP | BPF_JSGT | BPF_K: /* JMP_IMM */
- 	case BPF_JMP | BPF_JSGE | BPF_K: /* JMP_IMM */
-+	case BPF_JMP | BPF_JSLT | BPF_K: /* JMP_IMM */
-+	case BPF_JMP | BPF_JSLE | BPF_K: /* JMP_IMM */
- 		cmp_eq = (BPF_OP(insn->code) == BPF_JSGE);
- 		dst = ebpf_to_mips_reg(ctx, insn, dst_reg_fp_ok);
- 		if (dst < 0)
-@@ -1120,65 +1132,92 @@ static int build_one_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
- 				b_off = b_imm(exit_idx, ctx);
- 				if (is_bad_offset(b_off))
- 					return -E2BIG;
--				if (cmp_eq)
--					emit_instr(ctx, bltz, dst, b_off);
--				else
-+				switch (BPF_OP(insn->code)) {
-+				case BPF_JSGT:
- 					emit_instr(ctx, blez, dst, b_off);
-+					break;
-+				case BPF_JSGE:
-+					emit_instr(ctx, bltz, dst, b_off);
-+					break;
-+				case BPF_JSLT:
-+					emit_instr(ctx, bgez, dst, b_off);
-+					break;
-+				case BPF_JSLE:
-+					emit_instr(ctx, bgtz, dst, b_off);
-+					break;
-+				}
- 				emit_instr(ctx, nop);
- 				return 2; /* We consumed the exit. */
- 			}
- 			b_off = b_imm(this_idx + insn->off + 1, ctx);
- 			if (is_bad_offset(b_off))
- 				return -E2BIG;
--			if (cmp_eq)
--				emit_instr(ctx, bgez, dst, b_off);
--			else
-+			switch (BPF_OP(insn->code)) {
-+			case BPF_JSGT:
- 				emit_instr(ctx, bgtz, dst, b_off);
-+				break;
-+			case BPF_JSGE:
-+				emit_instr(ctx, bgez, dst, b_off);
-+				break;
-+			case BPF_JSLT:
-+				emit_instr(ctx, bltz, dst, b_off);
-+				break;
-+			case BPF_JSLE:
-+				emit_instr(ctx, blez, dst, b_off);
-+				break;
-+			}
- 			emit_instr(ctx, nop);
- 			break;
- 		}
- 		/*
- 		 * only "LT" compare available, so we must use imm + 1
--		 * to generate "GT"
-+		 * to generate "GT" and imm -1 to generate LE
- 		 */
--		t64s = insn->imm + (cmp_eq ? 0 : 1);
-+		if (BPF_OP(insn->code) == BPF_JSGT)
-+			t64s = insn->imm + 1;
-+		else if (BPF_OP(insn->code) == BPF_JSLE)
-+			t64s = insn->imm + 1;
-+		else
-+			t64s = insn->imm;
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index 4fb4631..cabf37b 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -437,7 +437,8 @@ static struct htab_elem *lookup_nulls_elem_raw(struct hlist_nulls_head *head,
+  * The return value is adjusted by BPF instructions
+  * in htab_map_gen_lookup().
+  */
+-static void *__htab_map_lookup_elem(struct bpf_map *map, void *key)
++static __always_inline void *__htab_map_lookup_elem(struct bpf_map *map,
++						    void *key)
+ {
+ 	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
+ 	struct hlist_nulls_head *head;
+@@ -479,12 +480,17 @@ static void *htab_map_lookup_elem(struct bpf_map *map, void *key)
+  * bpf_prog
+  *   __htab_map_lookup_elem
+  */
++BPF_CALL_2(bpf_htab_lookup_helper, struct bpf_map *, map, void *, key)
++{
++	return (unsigned long) __htab_map_lookup_elem(map, key);
++}
 +
-+		cmp_eq = BPF_OP(insn->code) == BPF_JSGT || BPF_OP(insn->code) == BPF_JSGE;
- 		if (t64s >= S16_MIN && t64s <= S16_MAX) {
- 			emit_instr(ctx, slti, MIPS_R_AT, dst, (int)t64s);
- 			src = MIPS_R_AT;
- 			dst = MIPS_R_ZERO;
--			cmp_eq = true;
- 			goto jeq_common;
- 		}
- 		emit_const_to_reg(ctx, MIPS_R_AT, (u64)t64s);
- 		emit_instr(ctx, slt, MIPS_R_AT, dst, MIPS_R_AT);
- 		src = MIPS_R_AT;
- 		dst = MIPS_R_ZERO;
--		cmp_eq = true;
- 		goto jeq_common;
+ static u32 htab_map_gen_lookup(struct bpf_map *map, struct bpf_insn *insn_buf)
+ {
+ 	struct bpf_insn *insn = insn_buf;
+ 	const int ret = BPF_REG_0;
  
- 	case BPF_JMP | BPF_JGT | BPF_K:
- 	case BPF_JMP | BPF_JGE | BPF_K:
-+	case BPF_JMP | BPF_JLT | BPF_K:
-+	case BPF_JMP | BPF_JLE | BPF_K:
- 		cmp_eq = (BPF_OP(insn->code) == BPF_JGE);
- 		dst = ebpf_to_mips_reg(ctx, insn, dst_reg_fp_ok);
- 		if (dst < 0)
- 			return dst;
- 		/*
- 		 * only "LT" compare available, so we must use imm + 1
--		 * to generate "GT"
-+		 * to generate "GT" and imm -1 to generate LE
- 		 */
--		t64s = (u64)(u32)(insn->imm) + (cmp_eq ? 0 : 1);
--		if (t64s >= 0 && t64s <= S16_MAX) {
--			emit_instr(ctx, sltiu, MIPS_R_AT, dst, (int)t64s);
--			src = MIPS_R_AT;
--			dst = MIPS_R_ZERO;
--			cmp_eq = true;
--			goto jeq_common;
--		}
-+		if (BPF_OP(insn->code) == BPF_JGT)
-+			t64s = (u64)(u32)(insn->imm) + 1;
-+		else if (BPF_OP(insn->code) == BPF_JLE)
-+			t64s = (u64)(u32)(insn->imm) + 1;
-+		else
-+			t64s = (u64)(u32)(insn->imm);
-+
-+		cmp_eq = BPF_OP(insn->code) == BPF_JGT || BPF_OP(insn->code) == BPF_JGE;
-+
- 		emit_const_to_reg(ctx, MIPS_R_AT, (u64)t64s);
- 		emit_instr(ctx, sltu, MIPS_R_AT, dst, MIPS_R_AT);
- 		src = MIPS_R_AT;
- 		dst = MIPS_R_ZERO;
--		cmp_eq = true;
- 		goto jeq_common;
- 
- 	case BPF_JMP | BPF_JSET | BPF_K: /* JMP_IMM */
-@@ -1712,10 +1751,14 @@ static int reg_val_propagate_range(struct jit_ctx *ctx, u64 initial_rvt,
- 			case BPF_JEQ:
- 			case BPF_JGT:
- 			case BPF_JGE:
-+			case BPF_JLT:
-+			case BPF_JLE:
- 			case BPF_JSET:
- 			case BPF_JNE:
- 			case BPF_JSGT:
- 			case BPF_JSGE:
-+			case BPF_JSLT:
-+			case BPF_JSLE:
- 				if (follow_taken) {
- 					rvt[idx] |= RVT_BRANCH_TAKEN;
- 					idx += insn->off;
+-	*insn++ = BPF_EMIT_CALL((u64 (*)(u64, u64, u64, u64, u64))__htab_map_lookup_elem);
++	*insn++ = BPF_EMIT_CALL(bpf_htab_lookup_helper);
+ 	*insn++ = BPF_JMP_IMM(BPF_JEQ, ret, 0, 1);
+ 	*insn++ = BPF_ALU64_IMM(BPF_ADD, ret,
+ 				offsetof(struct htab_elem, key) +
 -- 
-2.9.5
+1.9.3
