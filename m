@@ -1,85 +1,66 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Subject: Re: [PATCH net v2] datagram: When peeking datagrams with offset < 0
  don't skip empty skbs
-Date: Fri, 18 Aug 2017 13:52:03 -0400
-Message-ID: <CAF=yD-L5DVQ-pDuk+B_CWkmQsZ8+L04SppkmCO0QahaiNWAaWw@mail.gmail.com>
-References: <20170818021157.20070-1-matthew@mjdsystems.ca> <1503065118.3344.18.camel@redhat.com>
- <1789862.HUSStbeWG9@ring00> <1503078168.3344.54.camel@redhat.com>
+Date: Fri, 18 Aug 2017 13:52:54 -0400
+Message-ID: <CAF=yD-Jup=gjVpvwuRZ4r_x7j+7_+p-GBLAYGVvoUU49Q9LTFQ@mail.gmail.com>
+References: <20170818021157.20070-1-matthew@mjdsystems.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Matthew Dawson <matthew@mjdsystems.ca>,
-        Network Development <netdev@vger.kernel.org>,
-        "Macieira, Thiago" <thiago.macieira@intel.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Cc: Network Development <netdev@vger.kernel.org>,
+        "Macieira, Thiago" <thiago.macieira@intel.com>,
+        Paolo Abeni <pabeni@redhat.com>
+To: Matthew Dawson <matthew@mjdsystems.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:33922 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751173AbdHRRwo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 13:52:44 -0400
-Received: by mail-oi0-f65.google.com with SMTP id v11so9973492oif.1
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 10:52:44 -0700 (PDT)
-In-Reply-To: <1503078168.3344.54.camel@redhat.com>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:33832 "EHLO
+        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750846AbdHRRxf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 13:53:35 -0400
+Received: by mail-oi0-f46.google.com with SMTP id x3so103851147oia.1
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 10:53:35 -0700 (PDT)
+In-Reply-To: <20170818021157.20070-1-matthew@mjdsystems.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 18, 2017 at 1:42 PM, Paolo Abeni <pabeni@redhat.com> wrote:
-> On Fri, 2017-08-18 at 12:39 -0400, Matthew Dawson wrote:
->> On Friday, August 18, 2017 10:05:18 AM EDT Paolo Abeni wrote:
->> > On Thu, 2017-08-17 at 22:11 -0400, Matthew Dawson wrote:
->> > > diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
->> > > index 7b52a380d710..be8982b4f8c0 100644
->> > > --- a/net/unix/af_unix.c
->> > > +++ b/net/unix/af_unix.c
->> > > @@ -2304,10 +2304,7 @@ static int unix_stream_read_generic(struct
->> > > unix_stream_read_state *state,>
->> > >    */
->> > >
->> > >   mutex_lock(&u->iolock);
->> > >
->> > > - if (flags & MSG_PEEK)
->> > > -         skip = sk_peek_offset(sk, flags);
->> > > - else
->> > > -         skip = 0;
->> > > + skip = max(sk_peek_offset(sk, flags), 0);
->> > >
->> > >   do {
->> > >
->> > >           int chunk;
->> >
->> > later we have:
->> >
->> >     chunk = min_t(unsigned int, unix_skb_len(skb) - skip, size);
->> >
->> > without any call to __skb_try_recv_from_queue(), so we will get
->> > bad/unexpected values from the above assignment when 'skip' is
->> > negative.
->>
->> The assignment to skip should ensure it is never less then zero, thanks to the
->> max(sk...(), 0).  Thus that shouldn't be an issue?
+On Thu, Aug 17, 2017 at 10:11 PM, Matthew Dawson <matthew@mjdsystems.ca> wrote:
+> Due to commit e6afc8ace6dd5cef5e812f26c72579da8806f5ac ("udp: remove
+> headers from UDP packets before queueing"), when udp packets are being
+> peeked the requested extra offset is always 0 as there is no need to skip
+> the udp header.  However, when the offset is 0 and the next skb is
+> of length 0, it is only returned once.  The behaviour can be seen with
+> the following python script:
 >
-> Right, I missed the max() call. Thanks for pointing it out.
-> I'm fine with the above.
+> from socket import *;
+> f=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+> g=socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+> f.bind(('::', 0));
+> addr=('::1', f.getsockname()[1]);
+> g.sendto(b'', addr)
+> g.sendto(b'b', addr)
+> print(f.recvfrom(10, MSG_PEEK));
+> print(f.recvfrom(10, MSG_PEEK));
 >
->> >
->> > Overall I still think that adding/using an explicit MSG_PEEK_OFF bit
->> > would produce a simpler code, but is just a personal preference.
->>
->> I don't mind either way, that just seemed to be the preference I saw from the
->> discussion around the patch.  I think either way will work, so whatever the
->> list prefers I'm happy with.
+> Where the expected output should be the empty string twice.
 >
-> I'm ok either way. Probably it's worth continue this way.
+> Instead, make sk_peek_offset return negative values, and pass those values
+> to __skb_try_recv_datagram/__skb_try_recv_from_queue.  If the passed offset
+> to __skb_try_recv_from_queue is negative, the checked skb is never skipped.
+> __skb_try_recv_from_queue will then ensure the offset is reset back to 0
+> if a peek is requested without an offset, unless no packets are found.
+>
+> Also simplify the if condition in __skb_try_recv_from_queue.  If _off is
+> greater then 0, and off is greater then or equal to skb->len, then
+> (_off || skb->len) must always be true assuming skb->len >= 0 is always
+> true.
+>
+> Also remove a redundant check around a call to sk_peek_offset in af_unix.c,
+> as it double checked if MSG_PEEK was set in the flags.
+>
+> V2:
+>  - Moved the negative fixup into __skb_try_recv_from_queue, and remove now
+> redundant checks
+>  - Fix peeking in udp{,v6}_recvmsg to report the right value when the
+> offset is 0
+>
+> Signed-off-by: Matthew Dawson <matthew@mjdsystems.ca>
 
-I don't think anyone cares too much, as long as this is fixed.
-
-I have a slight subjective preference for directly passing the sk_peek_off
-variable and relying on the negative value as signal for whether the
-SO_PEEK_OFF mode is enabled or not, simply because that signal
-already exists and we avoid an intermediate conversion step.
-
-That said, I have a follow-on bug fix for __sk_queue_drop_skb where
-that signal is not available, but the flags argument is. I believe that
-we will need to take the same action in both cases, so that this is moot.
-Just mentioning it in case that would sway opinion the other way.
-
-As said, I'm fine with both. Will Ack this.
+Acked-by: Willem de Bruijn <willemb@google.com>
