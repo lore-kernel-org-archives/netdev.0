@@ -1,26 +1,53 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Does the kernel have a function to parse a text IPv6 address?
-Date: Fri, 18 Aug 2017 11:37:03 -0700
-Message-ID: <CAM_iQpWQVAnOrV6C+pD-hvNTxoRMQjt-rY1hJvws9=1WpNU80w@mail.gmail.com>
-References: <30054.1503081121@warthog.procyon.org.uk>
+From: Vallish Vaidyeshwara <vallish@amazon.com>
+Subject: [PATCH RESEND 0/2] enable hires timer to timeout datagram socket
+Date: Fri, 18 Aug 2017 18:44:08 +0000
+Message-ID: <1503081850-10671-1-git-send-email-vallish@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Howells <dhowells@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:33156 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750971AbdHRShY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 14:37:24 -0400
-Received: by mail-pg0-f44.google.com with SMTP id t3so41305639pgt.0
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 11:37:24 -0700 (PDT)
-In-Reply-To: <30054.1503081121@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <eduval@amazon.com>, <anchalag@amazon.com>, <vallish@amazon.com>
+To: <davem@davemloft.net>, <shuah@kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 18, 2017 at 11:32 AM, David Howells <dhowells@redhat.com> wrote:
-> Does the kernel have a function to parse a text IPv6 address of the form
-> "x:y:..::z" and put it into a struct sockaddr_in6?
->
+Hello Dave,
 
-in6_pton() in net/core/utils.c.
+Resending the patch series to include netdev mailing list with a
+cover letter.
+
+I am submitting 2 patch series to enable hires timer to timeout
+datagram sockets (AF_UNIX & AF_INET domain) and test code to test
+timeout accuracy on these sockets.
+
+There has been a behavior change in 4.9 kernel with refactoring of Kernel
+timer wheel in 4.8. We have a use case wherein our datagram socket
+application is sensitive to socket timeout including long timeouts.
+
+One of the test runs with a timeout value of 180 seconds timed out at
+190 seconds.
+[root@]# ./datagram_sock_timeout 180000
+datagram_sock_timeout failed: took 190.00 seconds
+[root@]#
+The same program when run on a 4.4 kernel would timeout more accurately and
+the kernel added slack was not noticeable to user application.
+
+Patch 1: Has core code change of enabling hires timer to timeout datagram
+	 socket on AF_UNIX and AF_INET domain
+Patch 2: Test code to report regression in timeout behavior related to
+	 patch 1
+
+Vallish Vaidyeshwara (2):
+  net: enable high resolution timer mode to timeout datagram sockets
+  selftests/net: add test to verify datagram socket timeout
+
+ net/core/datagram.c                                |  11 +-
+ tools/testing/selftests/net/Makefile               |   3 +-
+ .../testing/selftests/net/datagram_sock_timeout.c  | 119 +++++++++++++++++++++
+ .../selftests/net/run_datagram_sock_timeout.sh     |  12 +++
+ 4 files changed, 143 insertions(+), 2 deletions(-)
+ create mode 100644 tools/testing/selftests/net/datagram_sock_timeout.c
+ create mode 100755 tools/testing/selftests/net/run_datagram_sock_timeout.sh
+
+-- 
+2.7.3.AMZN
