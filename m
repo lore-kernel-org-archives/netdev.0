@@ -1,8 +1,9 @@
 From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next 0/2] liquidio: initialization fixes for embedded
- firmware
-Date: Thu, 17 Aug 2017 23:10:37 -0700
-Message-ID: <20170818061037.GA4024@felix-thinkpad.cavium.com>
+Subject: [PATCH net-next 1/2] liquidio: with embedded f/w, don't reload f/w,
+ issue pf flr at exit
+Date: Thu, 17 Aug 2017 23:11:25 -0700
+Message-ID: <20170818061125.GA4036@felix-thinkpad.cavium.com>
+References: <20170818061037.GA4024@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
@@ -10,29 +11,130 @@ Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
         ricardo.farrington@cavium.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0050.outbound.protection.outlook.com ([104.47.42.50]:12560
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-dm3nam03on0043.outbound.protection.outlook.com ([104.47.41.43]:21600
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751045AbdHRGK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 18 Aug 2017 02:10:29 -0400
+        id S1750807AbdHRGLT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 18 Aug 2017 02:11:19 -0400
 Content-Disposition: inline
+In-Reply-To: <20170818061037.GA4024@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rick Farrington <ricardo.farrington@cavium.com>
 
-Fix problems when using an adapter w/embedded f/w (param "fw_type=none").
-
-1. Add support for PF FLR when exiting.
+1. Add support for PF FLR when exiting
+   (enables CORE_DRV_ACTIVE upon next driver init)
 2. Skip some initialization (don't try to load f/w, activate consoles).
-3. Issue credits BEFORE enabling DROQs.
 
-Rick Farrington (2):
-  liquidio: with embedded f/w, don't reload f/w, issue pf flr at exit
-  liquidio: with embedded f/w, issue droq credits before enablement
+Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c | 70 ++++++++++++++++---------
+ 1 file changed, 46 insertions(+), 24 deletions(-)
 
- drivers/net/ethernet/cavium/liquidio/lio_main.c | 90 ++++++++++++++++---------
- 1 file changed, 58 insertions(+), 32 deletions(-)
-
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index db85f8f..dccd447 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -1122,6 +1122,33 @@ static bool fw_type_is_none(void)
+ }
+ 
+ /**
++ * \brief PCI FLR for each Octeon device.
++ * @param oct octeon device
++ */
++static void octeon_pci_flr(struct octeon_device *oct)
++{
++	int rc;
++
++	pci_save_state(oct->pci_dev);
++
++	pci_cfg_access_lock(oct->pci_dev);
++
++	/* Quiesce the device completely */
++	pci_write_config_word(oct->pci_dev, PCI_COMMAND,
++			      PCI_COMMAND_INTX_DISABLE);
++
++	rc = __pci_reset_function_locked(oct->pci_dev);
++
++	if (rc != 0)
++		dev_err(&oct->pci_dev->dev, "Error %d resetting PCI function %d\n",
++			rc, oct->pf_num);
++
++	pci_cfg_access_unlock(oct->pci_dev);
++
++	pci_restore_state(oct->pci_dev);
++}
++
++/**
+  *\brief Destroy resources associated with octeon device
+  * @param pdev PCI device structure
+  * @param ent unused
+@@ -1269,14 +1296,16 @@ static void octeon_destroy_resources(struct octeon_device *oct)
+ 	case OCT_DEV_PCI_MAP_DONE:
+ 		refcount = octeon_deregister_device(oct);
+ 
+-		if (!fw_type_is_none()) {
+-			/* Soft reset the octeon device before exiting.
+-			 * Implementation note: here, we reset the device
+-			 * if it is a CN6XXX OR the last CN23XX device.
+-			 */
+-			if (OCTEON_CN6XXX(oct) || !refcount)
+-				oct->fn_list.soft_reset(oct);
+-		}
++		/* Soft reset the octeon device before exiting.
++		 * However, if fw was loaded from card (i.e. autoboot),
++		 * perform an FLR instead.
++		 * Implementation note: only soft-reset the device
++		 * if it is a CN6XXX OR the LAST CN23XX device.
++		 */
++		if (fw_type_is_none())
++			octeon_pci_flr(oct);
++		else if (OCTEON_CN6XXX(oct) || !refcount)
++			oct->fn_list.soft_reset(oct);
+ 
+ 		octeon_unmap_pci_barx(oct, 0);
+ 		octeon_unmap_pci_barx(oct, 1);
+@@ -1903,11 +1932,6 @@ static int load_firmware(struct octeon_device *oct)
+ 	char fw_name[LIO_MAX_FW_FILENAME_LEN];
+ 	char *tmp_fw_type;
+ 
+-	if (fw_type_is_none()) {
+-		dev_info(&oct->pci_dev->dev, "Skipping firmware load\n");
+-		return ret;
+-	}
+-
+ 	if (fw_type[0] == '\0')
+ 		tmp_fw_type = LIO_FW_NAME_TYPE_NIC;
+ 	else
+@@ -3891,18 +3915,16 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 	octeon_dev->app_mode = CVM_DRV_INVALID_APP;
+ 
+ 	if (OCTEON_CN23XX_PF(octeon_dev)) {
+-		if (!cn23xx_fw_loaded(octeon_dev)) {
++		if (!cn23xx_fw_loaded(octeon_dev) && !fw_type_is_none()) {
+ 			fw_loaded = 0;
+-			if (!fw_type_is_none()) {
+-				/* Do a soft reset of the Octeon device. */
+-				if (octeon_dev->fn_list.soft_reset(octeon_dev))
+-					return 1;
+-				/* things might have changed */
+-				if (!cn23xx_fw_loaded(octeon_dev))
+-					fw_loaded = 0;
+-				else
+-					fw_loaded = 1;
+-			}
++			/* Do a soft reset of the Octeon device. */
++			if (octeon_dev->fn_list.soft_reset(octeon_dev))
++				return 1;
++			/* things might have changed */
++			if (!cn23xx_fw_loaded(octeon_dev))
++				fw_loaded = 0;
++			else
++				fw_loaded = 1;
+ 		} else {
+ 			fw_loaded = 1;
+ 		}
 -- 
 2.9.0
