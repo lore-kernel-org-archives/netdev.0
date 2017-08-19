@@ -1,108 +1,36 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 2/2] bpf: inline map in map lookup functions for array and htab
-Date: Sat, 19 Aug 2017 03:12:46 +0200
-Message-ID: <4979169fdaf4924378bacc43cadb6a3f6a8679b6.1503104831.git.daniel@iogearbox.net>
-References: <cover.1503104831.git.daniel@iogearbox.net>
-Cc: ast@fb.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57143 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751059AbdHSBMw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 21:12:52 -0400
-In-Reply-To: <cover.1503104831.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1503104831.git.daniel@iogearbox.net>
-References: <cover.1503104831.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH 0/3] MIPS,bpf: Improvements for MIPS eBPF JIT
+Date: Sat, 19 Aug 2017 03:18:38 +0200
+Message-ID: <599791EE.7010701@iogearbox.net>
+References: <20170818234033.5990-1-david.daney@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org
+To: David Daney <david.daney@cavium.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170818234033.5990-1-david.daney@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Avoid two successive functions calls for the map in map lookup, first
-is the bpf_map_lookup_elem() helper call, and second the callback via
-map->ops->map_lookup_elem() to get to the map in map implementation.
-Implementation inlines array and htab flavor for map in map lookups.
+On 08/19/2017 01:40 AM, David Daney wrote:
+> Here are several improvements and bug fixes for the MIPS eBPF JIT.
+>
+> The main change is the addition of support for JLT, JLE, JSLT and JSLE
+> ops, that were recently added.
+>
+> Also fix WARN output when used with preemptable kernel, and a small
+> cleanup/optimization in the use of BPF_OP(insn->code).
+>
+> I suggest that the whole thing go via the BPF/net-next path as there
+> are dependencies on code that is not yet merged to Linus' tree.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- kernel/bpf/arraymap.c | 26 ++++++++++++++++++++++++++
- kernel/bpf/hashtab.c  | 17 +++++++++++++++++
- 2 files changed, 43 insertions(+)
+Yes, this would be via net-next.
 
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index d771a38..b25d6ce 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -603,6 +603,31 @@ static void *array_of_map_lookup_elem(struct bpf_map *map, void *key)
- 	return READ_ONCE(*inner_map);
- }
- 
-+static u32 array_of_map_gen_lookup(struct bpf_map *map,
-+				   struct bpf_insn *insn_buf)
-+{
-+	u32 elem_size = round_up(map->value_size, 8);
-+	struct bpf_insn *insn = insn_buf;
-+	const int ret = BPF_REG_0;
-+	const int map_ptr = BPF_REG_1;
-+	const int index = BPF_REG_2;
-+
-+	*insn++ = BPF_ALU64_IMM(BPF_ADD, map_ptr, offsetof(struct bpf_array, value));
-+	*insn++ = BPF_LDX_MEM(BPF_W, ret, index, 0);
-+	*insn++ = BPF_JMP_IMM(BPF_JGE, ret, map->max_entries, 5);
-+	if (is_power_of_2(elem_size))
-+		*insn++ = BPF_ALU64_IMM(BPF_LSH, ret, ilog2(elem_size));
-+	else
-+		*insn++ = BPF_ALU64_IMM(BPF_MUL, ret, elem_size);
-+	*insn++ = BPF_ALU64_REG(BPF_ADD, ret, map_ptr);
-+	*insn++ = BPF_LDX_MEM(BPF_DW, ret, ret, 0);
-+	*insn++ = BPF_JMP_IMM(BPF_JEQ, ret, 0, 1);
-+	*insn++ = BPF_JMP_IMM(BPF_JA, 0, 0, 1);
-+	*insn++ = BPF_MOV64_IMM(ret, 0);
-+
-+	return insn - insn_buf;
-+}
-+
- const struct bpf_map_ops array_of_maps_map_ops = {
- 	.map_alloc = array_of_map_alloc,
- 	.map_free = array_of_map_free,
-@@ -612,4 +637,5 @@ static void *array_of_map_lookup_elem(struct bpf_map *map, void *key)
- 	.map_fd_get_ptr = bpf_map_fd_get_ptr,
- 	.map_fd_put_ptr = bpf_map_fd_put_ptr,
- 	.map_fd_sys_lookup_elem = bpf_map_fd_sys_lookup_elem,
-+	.map_gen_lookup = array_of_map_gen_lookup,
- };
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index 4fb4631..3f9a5a2 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -1311,6 +1311,22 @@ static void *htab_of_map_lookup_elem(struct bpf_map *map, void *key)
- 	return READ_ONCE(*inner_map);
- }
- 
-+static u32 htab_of_map_gen_lookup(struct bpf_map *map,
-+				  struct bpf_insn *insn_buf)
-+{
-+	struct bpf_insn *insn = insn_buf;
-+	const int ret = BPF_REG_0;
-+
-+	*insn++ = BPF_EMIT_CALL((u64 (*)(u64, u64, u64, u64, u64))__htab_map_lookup_elem);
-+	*insn++ = BPF_JMP_IMM(BPF_JEQ, ret, 0, 2);
-+	*insn++ = BPF_ALU64_IMM(BPF_ADD, ret,
-+				offsetof(struct htab_elem, key) +
-+				round_up(map->key_size, 8));
-+	*insn++ = BPF_LDX_MEM(BPF_DW, ret, ret, 0);
-+
-+	return insn - insn_buf;
-+}
-+
- static void htab_of_map_free(struct bpf_map *map)
- {
- 	bpf_map_meta_free(map->inner_map_meta);
-@@ -1326,4 +1342,5 @@ static void htab_of_map_free(struct bpf_map *map)
- 	.map_fd_get_ptr = bpf_map_fd_get_ptr,
- 	.map_fd_put_ptr = bpf_map_fd_put_ptr,
- 	.map_fd_sys_lookup_elem = bpf_map_fd_sys_lookup_elem,
-+	.map_gen_lookup = htab_of_map_gen_lookup,
- };
--- 
-1.9.3
+> Still pending are changes to reduce stack usage when the verifier can
+> determine the maximum stack size.
+
+Awesome, thanks a lot!
