@@ -1,109 +1,128 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH 06/10] bpf: sockmap with sk redirect support
-Date: Sat, 19 Aug 2017 13:52:16 -0700
-Message-ID: <5998A500.8090407@gmail.com>
-References: <20170816052338.15445.83732.stgit@john-Precision-Tower-5810> <20170816053247.15445.69312.stgit@john-Precision-Tower-5810> <fbc6e111-f610-2ef9-bb2a-6503d747124f@fb.com> <5995E738.9090803@gmail.com> <a6dafa0a-9cb2-6d70-5db7-fe44108a6c2c@fb.com> <599698D0.9040803@gmail.com> <653a9c34-c187-636d-40f4-eb74a819c3d5@fb.com> <5997B0C5.703@gmail.com> <5e3248bf-1951-5859-8cfb-4fdb641dcc41@fb.com>
+From: Shubham Bansal <illusionist.neo@gmail.com>
+Subject: Re: [PATCH net-next v3] arm: eBPF JIT compiler
+Date: Sun, 20 Aug 2017 02:58:37 +0530
+Message-ID: <CAHgaXd+hccuUYXfTs6gMbvxBctrypofc2FJ10q3QAc0jGsgeyQ@mail.gmail.com>
+References: <1503134429-29063-1-git-send-email-illusionist.neo@gmail.com>
+ <c2f4c796-0cb0-7eca-6cab-fed6b25020d5@fb.com> <CAHgaXdJnHxu4gJ8ZVFmrmaXyZL1oFkTbz2K___xKLQedTLmBQg@mail.gmail.com>
+ <9d77730f-c6a8-b337-599e-5919207a7e0a@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, tom@herbertland.com
-To: Alexei Starovoitov <ast@fb.com>, davem@davemloft.net,
-        daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:35334 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751533AbdHSUwa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 19 Aug 2017 16:52:30 -0400
-Received: by mail-pg0-f52.google.com with SMTP id u191so6037699pgc.2
-        for <netdev@vger.kernel.org>; Sat, 19 Aug 2017 13:52:30 -0700 (PDT)
-In-Reply-To: <5e3248bf-1951-5859-8cfb-4fdb641dcc41@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
+        David Miller <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        linux-arm-kernel@lists.infradead.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        Kees Cook <keescook@chromium.org>, Andrew Lunn <andrew@lunn.ch>
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9d77730f-c6a8-b337-599e-5919207a7e0a@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/18/2017 09:50 PM, Alexei Starovoitov wrote:
-> On 8/18/17 8:30 PM, John Fastabend wrote:
->> So this is really close to what I proposed above. For a TX_SOCKMAP
->> simply do not attach any programs,
->>
->>    bpf_create_map(BPF_MAP_TYPE_SOCKMAP, .... )
->>    [...]
->>
->> For an RX_SOCKMAP,
->>
->>    bpf_create_map(BPF_MAP_TYPE_SOCKMAP, .... )
->>    bpf_prog_attach(verdict_prog, map_fd, BPF_SMAP_STREAM_VERDICT, 0);
->>    bpf_prog_attach(parse_prog, map_fd, BPF_SMAP_STREAM_PARSER, 0);
->>
->> With the new attach type (compared to the fd2 thing before) we can easily
->> extend maps to contain other program types as needed. So in the future
->> we might have TX_SOCKMAP, RX_SOCKMAP, FOO_SOCKMAP, ...
-> 
-> agree. that sounds as good generalization.
-> 
->> I don't see the need to have the API enforce the map type via update
->> specifiers bpf_{rx|tx}_sock_map_update. The programmer should "know"
->> the type by virtue of the programs attached. This is more flexible
->> as well because it allows a map to be TX only, RX only or TX/RX.
-> 
-> makes sense. good point.
-> 
->> With this proposal we can relax the restriction where a sock can only
->> be in a single map and even allow a sock to be in the same map multiple
->> times. The limitation we do have to enforce is allowing a sock in the
->> a map with different BPF_SMAP_STREAM_* programs. But I think this
->> should be clear to the programmer (with good tracing functions and
->> error codes).
->>
->> Slight aside: but by creating map size of 1 we have an object that
->> contains programs and later we can attach a sock to it, looks like
->> the following,
->>
->>       create_map(BPF_MAP_TYPE_SOCKMAP,...)
->>       bpf_prog_attach(...)
->>       [...]
->>       bpf_update_map_elem(fd, map, key, flags)
->>
->> I think this is very close to your first approach where you suggested
->> a program container object.
-> 
-> yep.
-> 
->>> Or you have cases when two RX sockets need to redirect into each
->>> other and in both cases strparser+verdict need to run?
->> If we don't do rx, tx restrictions and use my suggestion here we
->> don't have this limitation. OR because we allow socks in multiple
->> maps now the user can simply put the sockets in different maps.
-> 
-> agree. good point as well.
-> 
->>> In such case we need to allow bpf_sk_redirect_map() to use on
->>> RX_SOCKMAP map as well,
->>> but looking at current implementation you only allow one psock per map,
->>> so two sockets forwarding to each other cannot work due to only one queue.
->>> Am I missing anything from what you want to achieve?
->> I don't think so. But lets get rid of the one psock per map, I took a shot
->> at relaxing that today and was able to get it with a refcount on the psock
->> which seems to work OK.
-> 
-> +1
-> 
->> Also reorganizing the psock structure into clear sections tx_psock, rx_psock,
->> general_psock will probably help readers.
-> 
-> nice. thanks!
-> 
->>> Thoughts?
->>>
->> What do you think of my counter proposal I started coding it up and it
->> actually (other than pushing code snippets around) seems to work out
->> nicely with the existing code base. I think it is really a nice improvement.
-> 
-> ok. I think we're mostly on the same page and patches will
-> either bring us to the full agreement or show where we disagree :)
+Here are numbers.
 
-I'll work up the patches Monday/Tuesday and we should have plenty of time to
-work out any kinks. The bit I did Friday makes me think the changes to support
-this should be straight forward.
+Without any JIT enabled
 
-Thanks,
-John
+test_pkt_access:PASS:ipv4 1823 nsec
+test_pkt_access:PASS:ipv6 1743 nsec
+test_xdp:PASS:ipv4 769022 nsec
+test_xdp:PASS:ipv6 15408 nsec
+test_l4lb:PASS:ipv4 12441 nsec
+test_l4lb:PASS:ipv6 18131 nsec
+test_tcp_estats:PASS: 0 nsec
+test_bpf_obj_id:PASS:get-fd-by-notexist-prog-id 0 nsec
+test_bpf_obj_id:PASS:get-fd-by-notexist-map-id 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:check total prog id found by get_next_id 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:check get-map-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:check get-map-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:check total map id found by get_next_id 0 nsec
+test_pkt_md_access:PASS: 5816 nsec
+Summary: 30 PASSED, 0 FAILED
+
+With only bpf_jit_enable
+
+test_pkt_access:PASS:ipv4 263 nsec
+test_pkt_access:PASS:ipv6 337 nsec
+test_xdp:PASS:ipv4 1377212 nsec
+test_xdp:PASS:ipv6 1290381 nsec
+test_l4lb:PASS:ipv4 2689 nsec
+test_l4lb:PASS:ipv6 3804 nsec
+test_tcp_estats:PASS: 0 nsec
+test_bpf_obj_id:PASS:get-fd-by-notexist-prog-id 0 nsec
+test_bpf_obj_id:PASS:get-fd-by-notexist-map-id 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:check total prog id found by get_next_id 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:check get-map-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:check get-map-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:check total map id found by get_next_id 0 nsec
+test_pkt_md_access:PASS: 41609 nsec
+Summary: 30 PASSED, 0 FAILED
+
+
+With bpf_jit_enable and bpf_jit_harden set
+
+test_pkt_access:PASS:ipv4 416 nsec
+test_pkt_access:PASS:ipv6 509 nsec
+test_xdp:PASS:ipv4 1512428 nsec
+test_xdp:PASS:ipv6 962318 nsec
+test_l4lb:PASS:ipv4 4135 nsec
+test_l4lb:PASS:ipv6 5497 nsec
+test_tcp_estats:PASS: 0 nsec
+test_bpf_obj_id:PASS:get-fd-by-notexist-prog-id 0 nsec
+test_bpf_obj_id:PASS:get-fd-by-notexist-map-id 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-info(fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:get-prog-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-prog-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:check total prog id found by get_next_id 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:check get-map-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:get-map-fd(next_id) 0 nsec
+test_bpf_obj_id:PASS:check get-map-info(next_id->fd) 0 nsec
+test_bpf_obj_id:PASS:check total map id found by get_next_id 0 nsec
+test_pkt_md_access:PASS: 24774 nsec
+Summary: 30 PASSED, 0 FAILED
+
+-Shubham
