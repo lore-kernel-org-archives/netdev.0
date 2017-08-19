@@ -1,36 +1,38 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 0/3] MIPS,bpf: Improvements for MIPS eBPF JIT
-Date: Sat, 19 Aug 2017 03:18:38 +0200
-Message-ID: <599791EE.7010701@iogearbox.net>
-References: <20170818234033.5990-1-david.daney@cavium.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next v2 1/2] bpf: make htab inlining more robust wrt
+ assumptions
+Date: Fri, 18 Aug 2017 18:20:24 -0700
+Message-ID: <b005c1b5-12c9-3477-b4e9-49798ac0e0ba@fb.com>
+References: <cover.1503104831.git.daniel@iogearbox.net>
+ <03f4e86a029058d0f674fd9bf288e55a5ec07df3.1503104831.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org
-To: David Daney <david.daney@cavium.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170818234033.5990-1-david.daney@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36515 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751054AbdHSBUu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 21:20:50 -0400
+In-Reply-To: <03f4e86a029058d0f674fd9bf288e55a5ec07df3.1503104831.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/19/2017 01:40 AM, David Daney wrote:
-> Here are several improvements and bug fixes for the MIPS eBPF JIT.
+On 8/18/17 6:12 PM, Daniel Borkmann wrote:
+> Commit 9015d2f59535 ("bpf: inline htab_map_lookup_elem()") was
+> making the assumption that a direct call emission to the function
+> __htab_map_lookup_elem() will always work out for JITs.
 >
-> The main change is the addition of support for JLT, JLE, JSLT and JSLE
-> ops, that were recently added.
+> This is currently true since all JITs we have are for 64 bit archs,
+> but in case of 32 bit JITs like upcoming arm32, we get a NULL pointer
+> dereference when executing the call to __htab_map_lookup_elem()
+> since passed arguments are of a different size (due to pointer args)
+> than what we do out of BPF. Guard and thus limit this for now for
+> the current 64 bit JITs only.
 >
-> Also fix WARN output when used with preemptable kernel, and a small
-> cleanup/optimization in the use of BPF_OP(insn->code).
->
-> I suggest that the whole thing go via the BPF/net-next path as there
-> are dependencies on code that is not yet merged to Linus' tree.
+> Reported-by: Shubham Bansal <illusionist.neo@gmail.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Yes, this would be via net-next.
-
-> Still pending are changes to reduce stack usage when the verifier can
-> determine the maximum stack size.
-
-Awesome, thanks a lot!
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Thanks. That's good robustness fix.
