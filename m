@@ -1,32 +1,50 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH 5/5] net: defxx: constify eisa_device_id
-Date: Sat, 19 Aug 2017 13:06:56 +0100 (BST)
-Message-ID: <alpine.LFD.2.20.1708191306120.19107@eddie.linux-mips.org>
-References: <1503125614-15297-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: [PATCH] net_sched: fix order of queue length updates in
+ qdisc_replace()
+Date: Sat, 19 Aug 2017 15:37:07 +0300
+Message-ID: <150314622756.18396.5215271249872220640.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Received: from localhost.localdomain ([127.0.0.1]:57548 "EHLO
-        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S23992517AbdHSMG4EN4zB (ORCPT
-        <rfc822;netdev@vger.kernel.org> + 1 other);
-        Sat, 19 Aug 2017 14:06:56 +0200
-In-Reply-To: <1503125614-15297-1-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>, stable@vger.kernel.org
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forwardcorp1j.cmail.yandex.net ([5.255.227.106]:54927 "EHLO
+        forwardcorp1j.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751035AbdHSMhO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 19 Aug 2017 08:37:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 19 Aug 2017, Arvind Yadav wrote:
+This important to call qdisc_tree_reduce_backlog() after changing queue
+length. Parent qdisc should deactivate class in ->qlen_notify() called from
+qdisc_tree_reduce_backlog() but this happens only if qdisc->q.qlen in zero.
 
-> eisa_device_id are not supposed to change at runtime. All functions
-> working with eisa_device_id provided by <linux/eisa.h> work with
-> const eisa_device_id. So mark the non-const structs as const.
-> 
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
-> ---
+Missed class deactivations leads to crashes/warnings at picking packets
+from empty qdisc and corrupting state at reactivating this class in future.
 
-Reviewed-by: Maciej W. Rozycki <macro@linux-mips.org>
+Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Fixes: 86a7996cc8a0 ("net_sched: introduce qdisc_replace() helper")
+Cc: Stable <stable@vger.kernel.org>
+---
+ include/net/sch_generic.h |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-  Maciej
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 1c123e2b2415..67f815e5d525 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -806,8 +806,11 @@ static inline struct Qdisc *qdisc_replace(struct Qdisc *sch, struct Qdisc *new,
+ 	old = *pold;
+ 	*pold = new;
+ 	if (old != NULL) {
+-		qdisc_tree_reduce_backlog(old, old->q.qlen, old->qstats.backlog);
++		unsigned int qlen = old->q.qlen;
++		unsigned int backlog = old->qstats.backlog;
++
+ 		qdisc_reset(old);
++		qdisc_tree_reduce_backlog(old, qlen, backlog);
+ 	}
+ 	sch_tree_unlock(sch);
+ 
