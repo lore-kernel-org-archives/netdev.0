@@ -1,47 +1,36 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
- sun8i-h3-emac
-Date: Sat, 19 Aug 2017 22:38:36 +0200
-Message-ID: <20170819203836.GA21567@lunn.ch>
-References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
- <20170818122118.4925-4-clabbe.montjoie@gmail.com>
- <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
- <20170819185025.GB13266@Red>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next v3] arm: eBPF JIT compiler
+Date: Sat, 19 Aug 2017 13:48:43 -0700
+Message-ID: <9d77730f-c6a8-b337-599e-5919207a7e0a@fb.com>
+References: <1503134429-29063-1-git-send-email-illusionist.neo@gmail.com>
+ <c2f4c796-0cb0-7eca-6cab-fed6b25020d5@fb.com>
+ <CAHgaXdJnHxu4gJ8ZVFmrmaXyZL1oFkTbz2K___xKLQedTLmBQg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chen-Yu Tsai <wens@csie.org>, Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Maxime Ripard <maxime.ripard@free-electrons.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        devicetree <devicetree@vger.kernel.org>,
-        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
+        David Miller <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        <linux-arm-kernel@lists.infradead.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Kees Cook <keescook@chromium.org>, Andrew Lunn <andrew@lunn.ch>
+To: Shubham Bansal <illusionist.neo@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170819185025.GB13266@Red>
+In-Reply-To: <CAHgaXdJnHxu4gJ8ZVFmrmaXyZL1oFkTbz2K___xKLQedTLmBQg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 19, 2017 at 08:50:25PM +0200, Corentin Labbe wrote:
-> On Sat, Aug 19, 2017 at 01:05:21AM +0800, Chen-Yu Tsai wrote:
-> > On Fri, Aug 18, 2017 at 8:21 PM, Corentin Labbe
-> > <clabbe.montjoie@gmail.com> wrote:
-> > > In case of a MDIO switch, the registered MDIO node should be
-> > > the parent of the PHY. Otherwise of_phy_connect will fail.
+On 8/19/17 12:59 PM, Shubham Bansal wrote:
+> not be able to compare them like kees this week.
+> Does that sound good?
 
-Hi Corentin
+yeah. that's fine. I was more interested in selftests/.../test_progs
+numbers before/after, since they're more representative of real world
+performance vs test_bpf.ko
 
-Sorry, I missed this patch series. Looking at patchwork...
+> Thats right. But still an improvement I guess. I think I discussed it
+> with Daniel and I thought, I should get this patch reach mainstream
+> first then I can improve on it.
 
-Can you represent the MDIO mux using 
-
-Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
-
-It would be better if you could reuse existing infrastructure than
-invent something new.
-
-   Andrew
+agree. To me the patch looks ready to land.
