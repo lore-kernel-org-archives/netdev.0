@@ -1,32 +1,47 @@
-From: "IT Department" <annasalai.hp@careind.net>
-Subject: Email Notication
-Date: Sat, 19 Aug 2017 21:25:55 +0100
-Message-ID: <20170819201702.1CEAA2862909@cams.careind.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
+ sun8i-h3-emac
+Date: Sat, 19 Aug 2017 22:38:36 +0200
+Message-ID: <20170819203836.GA21567@lunn.ch>
+References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
+ <20170818122118.4925-4-clabbe.montjoie@gmail.com>
+ <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
+ <20170819185025.GB13266@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cams.careind.net ([1.23.164.19]:57774 "EHLO cams.careind.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751533AbdHSU0D (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 19 Aug 2017 16:26:03 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-        by cams.careind.net (Postfix) with ESMTP id E969E2862854
-        for <netdev@vger.kernel.org>; Sun, 20 Aug 2017 01:47:03 +0530 (IST)
-Received: from cams.careind.net ([127.0.0.1])
-        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id 3NxlawGDOo9J for <netdev@vger.kernel.org>;
-        Sun, 20 Aug 2017 01:47:03 +0530 (IST)
-Received: from [192.168.0.2] (unknown [192.168.0.31])
-        by cams.careind.net (Postfix) with ESMTPSA id 1CEAA2862909
-        for <netdev@vger.kernel.org>; Sun, 20 Aug 2017 01:47:01 +0530 (IST)
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chen-Yu Tsai <wens@csie.org>, Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Maxime Ripard <maxime.ripard@free-electrons.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        devicetree <devicetree@vger.kernel.org>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170819185025.GB13266@Red>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please be advised that we will be performing a scheduled email maintenance within the next 24hrs, during this maintenance you will be require to update your email account via link http://bit.ly/2wjyBS7
+On Sat, Aug 19, 2017 at 08:50:25PM +0200, Corentin Labbe wrote:
+> On Sat, Aug 19, 2017 at 01:05:21AM +0800, Chen-Yu Tsai wrote:
+> > On Fri, Aug 18, 2017 at 8:21 PM, Corentin Labbe
+> > <clabbe.montjoie@gmail.com> wrote:
+> > > In case of a MDIO switch, the registered MDIO node should be
+> > > the parent of the PHY. Otherwise of_phy_connect will fail.
 
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+Hi Corentin
+
+Sorry, I missed this patch series. Looking at patchwork...
+
+Can you represent the MDIO mux using 
+
+Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
+
+It would be better if you could reuse existing infrastructure than
+invent something new.
+
+   Andrew
