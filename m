@@ -1,7 +1,8 @@
 From: Koichiro Den <den@klaipeden.com>
-Subject: [PATCH net-next] virtio-net: make napi_tx param easier to grasp
-Date: Sat, 19 Aug 2017 15:37:07 +0900
-Message-ID: <20170819063707.26822-1-den@klaipeden.com>
+Subject: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit path if
+	no tx napi
+Date: Sat, 19 Aug 2017 15:38:54 +0900
+Message-ID: <20170819063854.27010-1-den@klaipeden.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,97 +20,37 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-The module param napi_tx needs not to be writable for now since we do
-not have any means of activating/deactivating it online, which seems to
-be a low priority. Also make it clear that napi_tx is disabled when it
-has been dynamically disabled behind the scenes.
+Facing the possible unbounded delay relying on freeing on xmit path,
+we also better to invoke and clear the upper layer zerocopy callback
+beforehand to keep them from waiting for unbounded duration in vain.
+For instance, this removes the possible deadlock in the case that the
+upper layer is a zerocopy-enabled vhost-net.
+This does not apply if napi_tx is enabled since it will be called in
+reasonale time.
 
 Signed-off-by: Koichiro Den <den@klaipeden.com>
 ---
- drivers/net/virtio_net.c | 34 +++++++++++++++++++---------------
- 1 file changed, 19 insertions(+), 15 deletions(-)
+ drivers/net/virtio_net.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 4302f313d9a7..ea4e7ddcd377 100644
+index 4302f313d9a7..f7deaa5b7b50 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -37,7 +37,7 @@ module_param(napi_weight, int, 0444);
- static bool csum = true, gso = true, napi_tx;
- module_param(csum, bool, 0444);
- module_param(gso, bool, 0444);
--module_param(napi_tx, bool, 0644);
-+module_param(napi_tx, bool, 0444);
+@@ -1290,6 +1290,14 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
  
- /* FIXME: MTU in config. */
- #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-@@ -1026,20 +1026,13 @@ static void virtnet_napi_enable(struct virtqueue *vq, struct napi_struct *napi)
- 	local_bh_enable();
- }
- 
--static void virtnet_napi_tx_enable(struct virtnet_info *vi,
--				   struct virtqueue *vq,
--				   struct napi_struct *napi)
-+static void virtnet_napi_tx_enable(struct virtqueue *vq, struct napi_struct *napi)
- {
--	if (!napi->weight)
--		return;
--
--	/* Tx napi touches cachelines on the cpu handling tx interrupts. Only
--	 * enable the feature if this is likely affine with the transmit path.
--	 */
--	if (!vi->affinity_hint_set) {
-+	if (!napi_tx)
- 		napi->weight = 0;
-+
-+	if (!napi->weight)
- 		return;
--	}
- 
- 	return virtnet_napi_enable(vq, napi);
- }
-@@ -1179,13 +1172,19 @@ static int virtnet_open(struct net_device *dev)
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	int i;
- 
-+	/* Tx napi touches cachelines on the cpu handling tx interrupts. Only
-+	 * enable the feature if this is likely affine with the transmit path.
-+	 */
-+	if (!vi->affinity_hint_set)
-+		napi_tx = false;
-+
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		if (i < vi->curr_queue_pairs)
- 			/* Make sure we have some buffers: if oom use wq. */
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
- 		virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
--		virtnet_napi_tx_enable(vi, vi->sq[i].vq, &vi->sq[i].napi);
-+		virtnet_napi_tx_enable(vi->sq[i].vq, &vi->sq[i].napi);
+ 	/* Don't wait up for transmitted skbs to be freed. */
+ 	if (!use_napi) {
++		if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
++			struct ubuf_info *uarg;
++			uarg = skb_shinfo(skb)->destructor_arg;
++			if (uarg->callback)
++			    uarg->callback(uarg, true);
++			skb_shinfo(skb)->destructor_arg = NULL;
++			skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
++		}
+ 		skb_orphan(skb);
+ 		nf_reset(skb);
  	}
- 
- 	return 0;
-@@ -1890,6 +1889,12 @@ static int virtnet_restore_up(struct virtio_device *vdev)
- 
- 	virtio_device_ready(vdev);
- 
-+	/* Tx napi touches cachelines on the cpu handling tx interrupts. Only
-+	 * enable the feature if this is likely affine with the transmit path.
-+	 */
-+	if (!vi->affinity_hint_set)
-+		napi_tx = false;
-+
- 	if (netif_running(vi->dev)) {
- 		for (i = 0; i < vi->curr_queue_pairs; i++)
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
-@@ -1897,8 +1902,7 @@ static int virtnet_restore_up(struct virtio_device *vdev)
- 
- 		for (i = 0; i < vi->max_queue_pairs; i++) {
- 			virtnet_napi_enable(vi->rq[i].vq, &vi->rq[i].napi);
--			virtnet_napi_tx_enable(vi, vi->sq[i].vq,
--					       &vi->sq[i].napi);
-+			virtnet_napi_tx_enable(vi->sq[i].vq, &vi->sq[i].napi);
- 		}
- 	}
- 
 -- 
 2.9.4
