@@ -1,43 +1,30 @@
-From: Koichiro Den <den@klaipeden.com>
-Subject: [PATCH 2/2] vhost-net: revert vhost_exceeds_maxpend logic to its original
-Date: Sat, 19 Aug 2017 15:41:29 +0900
-Message-ID: <20170819064129.27272-1-den@klaipeden.com>
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org
-To: mst@redhat.com, jasowang@redhat.com
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH 0/5] constify net eisa_device_id
+Date: Sat, 19 Aug 2017 12:21:42 +0530
+Message-ID: <1503125503-15075-1-git-send-email-arvind.yadav.cs@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net, tremyfr@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To depend on vq.num and the usage of VHOST_MAX_PEND is not succinct
-and in some case unexpected, so revert its logic part only.
+eisa_device_id are not supposed to change at runtime. All functions
+working with eisa_device_id provided by <linux/eisa.h> work with
+const eisa_device_id. So mark the non-const structs as const.
 
-Signed-off-by: Koichiro Den <den@klaipeden.com>
----
- drivers/vhost/net.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+Arvind Yadav (5):
+  [PATCH 1/5] net: 3c509: constify eisa_device_id
+  [PATCH 2/5] net: 3c59x: constify eisa_device_id
+  [PATCH 3/5] net: de4x5: constify eisa_device_id
+  [PATCH 4/5] net: hp100: constify eisa_device_id
+  [PATCH 5/5] net: defxx: constify eisa_device_id
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 06d044862e58..99cf99b308a7 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -433,11 +433,15 @@ static int vhost_net_tx_get_vq_desc(struct vhost_net *net,
- 
- static bool vhost_exceeds_maxpend(struct vhost_net *net)
- {
-+	int num_pends;
- 	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
- 	struct vhost_virtqueue *vq = &nvq->vq;
- 
--	return (nvq->upend_idx + vq->num - VHOST_MAX_PEND) % UIO_MAXIOV
--		== nvq->done_idx;
-+	num_pends = likely(nvq->upend_idx >= nvq->done_idx) ?
-+		(nvq->upend_idx - nvq->done_idx) :
-+		(nvq->upend_idx + UIO_MAXIOV - nvq->done_idx);
-+
-+	return num_pends > VHOST_MAX_PEND;
- }
- 
- /* Expects to be always run from workqueue - which acts as
+ drivers/net/ethernet/3com/3c509.c      | 2 +-
+ drivers/net/ethernet/3com/3c59x.c      | 2 +-
+ drivers/net/ethernet/dec/tulip/de4x5.c | 2 +-
+ drivers/net/ethernet/hp/hp100.c        | 2 +-
+ drivers/net/fddi/defxx.c               | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
+
 -- 
-2.9.4
+2.7.4
