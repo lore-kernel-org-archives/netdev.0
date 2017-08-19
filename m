@@ -1,79 +1,115 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
- sun8i-h3-emac
-Date: Sat, 19 Aug 2017 20:50:25 +0200
-Message-ID: <20170819185025.GB13266@Red>
-References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
- <20170818122118.4925-4-clabbe.montjoie@gmail.com>
- <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next v3] arm: eBPF JIT compiler
+Date: Sat, 19 Aug 2017 12:04:31 -0700
+Message-ID: <c2f4c796-0cb0-7eca-6cab-fed6b25020d5@fb.com>
+References: <1503134429-29063-1-git-send-email-illusionist.neo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Maxime Ripard <maxime.ripard@free-electrons.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        devicetree <devicetree@vger.kernel.org>,
-        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Chen-Yu Tsai <wens@csie.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, keescook@chromium.org, daniel@iogearbox.net,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
+To: Shubham Bansal <illusionist.neo@gmail.com>, <linux@armlinux.org.uk>,
+ <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1503134429-29063-1-git-send-email-illusionist.neo@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 19, 2017 at 01:05:21AM +0800, Chen-Yu Tsai wrote:
-> On Fri, Aug 18, 2017 at 8:21 PM, Corentin Labbe
-> <clabbe.montjoie@gmail.com> wrote:
-> > In case of a MDIO switch, the registered MDIO node should be
-> > the parent of the PHY. Otherwise of_phy_connect will fail.
-> >
-> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> > ---
-> >  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 12 ++++++++++--
-> >  1 file changed, 10 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > index a366b3747eeb..ca3cc99d8960 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > @@ -312,10 +312,12 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
-> >         static const struct of_device_id need_mdio_ids[] = {
-> >                 { .compatible = "snps,dwc-qos-ethernet-4.10" },
-> >                 { .compatible = "allwinner,sun8i-a83t-emac" },
-> > -               { .compatible = "allwinner,sun8i-h3-emac" },
-> >                 { .compatible = "allwinner,sun8i-v3s-emac" },
-> >                 { .compatible = "allwinner,sun50i-a64-emac" },
-> >         };
-> > +       static const struct of_device_id need_mdio_mux_ids[] = {
-> > +               { .compatible = "allwinner,sun8i-h3-emac" },
-> > +       };
-> >
-> >         /* If phy-handle property is passed from DT, use it as the PHY */
-> >         plat->phy_node = of_parse_phandle(np, "phy-handle", 0);
-> > @@ -332,7 +334,13 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
-> >                 mdio = false;
-> >         }
-> >
-> > -       if (of_match_node(need_mdio_ids, np)) {
-> > +       /*
-> > +        * In case of a MDIO switch/mux, the registered MDIO node should be
-> > +        * the parent of the PHY. Otherwise of_phy_connect will fail.
-> > +        */
-> > +       if (of_match_node(need_mdio_mux_ids, np)) {
-> > +                plat->mdio_node =  of_get_parent(plat->phy_node);
-> 
-> Extra space before of_get_parent.
-> 
-> Also this is going to fail horribly if a fixed link is used.
-> 
+On 8/19/17 2:20 AM, Shubham Bansal wrote:
+> The JIT compiler emits ARM 32 bit instructions. Currently, It supports
+> eBPF only. Classic BPF is supported because of the conversion by BPF core.
+>
+> This patch is essentially changing the current implementation of JIT compiler
+> of Berkeley Packet Filter from classic to internal with almost all
+> instructions from eBPF ISA supported except the following
+> 	BPF_ALU64 | BPF_DIV | BPF_K
+> 	BPF_ALU64 | BPF_DIV | BPF_X
+> 	BPF_ALU64 | BPF_MOD | BPF_K
+> 	BPF_ALU64 | BPF_MOD | BPF_X
+> 	BPF_STX | BPF_XADD | BPF_W
+> 	BPF_STX | BPF_XADD | BPF_DW
+>
+> Implementation is using scratch space to emulate 64 bit eBPF ISA on 32 bit
+> ARM because of deficiency of general purpose registers on ARM. Currently,
+> only LITTLE ENDIAN machines are supported in this eBPF JIT Compiler.
+>
+> This patch needs to be applied after the fix from Daniel Borkmann, that is
+> "[net-next,v2,1/2] bpf: make htab inlining more robust wrt assumptions"
+>
+> with message ID:
+> 03f4e86a029058d0f674fd9bf288e55a5ec07df3.1503104831.git.daniel@iogearbox.net
+>
+> Tested on ARMv7 with QEMU by me (Shubham Bansal).
+>
+> Testing results on ARMv7:
+>
+> 1) test_bpf: Summary: 341 PASSED, 0 FAILED, [312/333 JIT'ed]
+> 2) test_tag: OK (40945 tests)
+> 3) test_progs: Summary: 30 PASSED, 0 FAILED
+> 4) test_lpm: OK
+> 5) test_lru_map: OK
+>
+> Above tests are all done with following flags enabled discreatly.
+>
+> 1) bpf_jit_enable=1
+> 	a) CONFIG_FRAME_POINTER enabled
+> 	b) CONFIG_FRAME_POINTER disabled
+> 2) bpf_jit_enable=1 and bpf_jit_harden=2
+> 	a) CONFIG_FRAME_POINTER enabled
+> 	b) CONFIG_FRAME_POINTER disabled
+>
+> See Documentation/networking/filter.txt for more information.
+>
+> Signed-off-by: Shubham Bansal <illusionist.neo@gmail.com>
 
-Hello
+impressive work.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-I will add an extra patch for handling fixed-link for both need_mdio_mux_ids/need_mdio_ids cases.
+Any performance numbers with vs without JIT ?
 
-Thanks
-Regards
+> +static const u8 bpf2a32[][2] = {
+> +	/* return value from in-kernel function, and exit value from eBPF */
+> +	[BPF_REG_0] = {ARM_R1, ARM_R0},
+> +	/* arguments from eBPF program to in-kernel function */
+> +	[BPF_REG_1] = {ARM_R3, ARM_R2},
+
+as far as i understand arm32 calling convention the mapping makes sense
+to me. Hard to come up with anything better than the above.
+
+> +	/* function call */
+> +	case BPF_JMP | BPF_CALL:
+> +	{
+> +		const u8 *r0 = bpf2a32[BPF_REG_0];
+> +		const u8 *r1 = bpf2a32[BPF_REG_1];
+> +		const u8 *r2 = bpf2a32[BPF_REG_2];
+> +		const u8 *r3 = bpf2a32[BPF_REG_3];
+> +		const u8 *r4 = bpf2a32[BPF_REG_4];
+> +		const u8 *r5 = bpf2a32[BPF_REG_5];
+> +		const u32 func = (u32)__bpf_call_base + (u32)imm;
+> +
+> +		emit_a32_mov_r64(true, r0, r1, false, false, ctx);
+> +		emit_a32_mov_r64(true, r1, r2, false, true, ctx);
+> +		emit_push_r64(r5, 0, ctx);
+> +		emit_push_r64(r4, 8, ctx);
+> +		emit_push_r64(r3, 16, ctx);
+> +
+> +		emit_a32_mov_i(tmp[1], func, false, ctx);
+> +		emit_blx_r(tmp[1], ctx);
+
+to improve the cost of call we can teach verifier to mark the registers
+actually used to pass arguments, so not all pushes would be needed.
+But it may be drop in the bucket comparing to the cost of compound
+64-bit alu ops.
+There was some work on llvm side to use 32-bit subregisters which
+should help 32-bit architectures and JITs, but it didn't go far.
+So if you're interested further improving bpf program speeds on arm32
+you may take a look at llvm side. I can certainly provide the tips.
