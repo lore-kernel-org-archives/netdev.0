@@ -1,154 +1,66 @@
-From: Wei Wang <weiwan@google.com>
-Subject: [PATCH net] ipv6: repair fib6 tree in failure case
-Date: Fri, 18 Aug 2017 17:14:49 -0700
-Message-ID: <20170819001449.42844-1-tracywwnj@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>, Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/2] bpf: improve htab inlining for future 32
+ bit jits
+Date: Sat, 19 Aug 2017 02:21:28 +0200
+Message-ID: <59978488.9010802@iogearbox.net>
+References: <cover.1503100047.git.daniel@iogearbox.net> <a2a1360af1df20e5a11269441656b5daffabdd77.1503100047.git.daniel@iogearbox.net> <43a2b95f-db1d-8c33-a7d6-42f8299ddcb3@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:38518 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751597AbdHSAO5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 20:14:57 -0400
-Received: by mail-pg0-f50.google.com with SMTP id t80so45724350pgb.5
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 17:14:57 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:52044 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751090AbdHSAVc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 20:21:32 -0400
+In-Reply-To: <43a2b95f-db1d-8c33-a7d6-42f8299ddcb3@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
+On 08/19/2017 02:00 AM, Alexei Starovoitov wrote:
+> On 8/18/17 4:51 PM, Daniel Borkmann wrote:
+>> Lets future proof htab lookup inlining, commit 9015d2f59535 ("bpf:
+>> inline htab_map_lookup_elem()") was making the assumption that a
+>> direct call emission to __htab_map_lookup_elem() will always work
+>> out for JITs. This is currently true since all JITs we have are
+>> for 64 bit archs, but in case of 32 bit JITs like upcoming arm32,
+>> we get a NULL pointer dereference when executing the call to
+>> __htab_map_lookup_elem() since passed arguments are of a different
+>> size (unsigned long vs. u64 for pointers) than what we do out of
+>> BPF. Thus, lets do a proper BPF_CALL_2() declaration such that we
+>> don't need to make any such assumptions.
+>>
+>> Reported-by: Shubham Bansal <illusionist.neo@gmail.com>
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>
+> assuming on 64-bit archs the should be no perf difference
+> and only increase in .text, since __htab_map_lookup_elem
+> is now force inlined into a bunch of places?
+> I guess that's ok, but kinda sux for 64-bit archs to pay
+> such penalty because of 32-bit archs.
 
-In fib6_add(), it is possible that fib6_add_1() picks an intermediate
-node and sets the node's fn->leaf to NULL in order to add this new
-route. However, if fib6_add_rt2node() fails to add the new
-route for some reason, fn->leaf will be left as NULL and could
-potentially cause crash when fn->leaf is accessed in fib6_locate().
-This patch makes sure fib6_repair_tree() is called to properly repair
-fn->leaf in the above failure case.
+Yeah true, text bumps from 11k to 13k, doesn't pay off.
 
-Here is the syzkaller reported general protection fault in fib6_locate:
-kasan: CONFIG_KASAN_INLINE enabled
-kasan: GPF could be caused by NULL-ptr deref or user memory access
-general protection fault: 0000 [#1] SMP KASAN
-Modules linked in:
-CPU: 0 PID: 40937 Comm: syz-executor3 Not tainted
-Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
-task: ffff8801d7d64100 ti: ffff8801d01a0000 task.ti: ffff8801d01a0000
-RIP: 0010:[<ffffffff82a3e0e1>]  [<ffffffff82a3e0e1>] __ipv6_prefix_equal64_half include/net/ipv6.h:475 [inline]
-RIP: 0010:[<ffffffff82a3e0e1>]  [<ffffffff82a3e0e1>] ipv6_prefix_equal include/net/ipv6.h:492 [inline]
-RIP: 0010:[<ffffffff82a3e0e1>]  [<ffffffff82a3e0e1>] fib6_locate_1 net/ipv6/ip6_fib.c:1210 [inline]
-RIP: 0010:[<ffffffff82a3e0e1>]  [<ffffffff82a3e0e1>] fib6_locate+0x281/0x3c0 net/ipv6/ip6_fib.c:1233
-RSP: 0018:ffff8801d01a36a8  EFLAGS: 00010202
-RAX: 0000000000000020 RBX: ffff8801bc790e00 RCX: ffffc90002983000
-RDX: 0000000000001219 RSI: ffff8801d01a37a0 RDI: 0000000000000100
-RBP: ffff8801d01a36f0 R08: 00000000000000ff R09: 0000000000000000
-R10: 0000000000000003 R11: 0000000000000000 R12: 0000000000000001
-R13: dffffc0000000000 R14: ffff8801d01a37a0 R15: 0000000000000000
-FS:  00007f6afd68c700(0000) GS:ffff8801db400000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 00000000004c6340 CR3: 00000000ba41f000 CR4: 00000000001426f0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
-Stack:
- ffff8801d01a37a8 ffff8801d01a3780 ffffed003a0346f5 0000000c82a23ea0
- ffff8800b7bd7700 ffff8801d01a3780 ffff8800b6a1c940 ffffffff82a23ea0
- ffff8801d01a3920 ffff8801d01a3748 ffffffff82a223d6 ffff8801d7d64988
-Call Trace:
- [<ffffffff82a223d6>] ip6_route_del+0x106/0x570 net/ipv6/route.c:2109
- [<ffffffff82a23f9d>] inet6_rtm_delroute+0xfd/0x100 net/ipv6/route.c:3075
- [<ffffffff82621359>] rtnetlink_rcv_msg+0x549/0x7a0 net/core/rtnetlink.c:3450
- [<ffffffff8274c1d1>] netlink_rcv_skb+0x141/0x370 net/netlink/af_netlink.c:2281
- [<ffffffff82613ddf>] rtnetlink_rcv+0x2f/0x40 net/core/rtnetlink.c:3456
- [<ffffffff8274ad38>] netlink_unicast_kernel net/netlink/af_netlink.c:1206 [inline]
- [<ffffffff8274ad38>] netlink_unicast+0x518/0x750 net/netlink/af_netlink.c:1232
- [<ffffffff8274b83e>] netlink_sendmsg+0x8ce/0xc30 net/netlink/af_netlink.c:1778
- [<ffffffff82564aff>] sock_sendmsg_nosec net/socket.c:609 [inline]
- [<ffffffff82564aff>] sock_sendmsg+0xcf/0x110 net/socket.c:619
- [<ffffffff82564d62>] sock_write_iter+0x222/0x3a0 net/socket.c:834
- [<ffffffff8178523d>] new_sync_write+0x1dd/0x2b0 fs/read_write.c:478
- [<ffffffff817853f4>] __vfs_write+0xe4/0x110 fs/read_write.c:491
- [<ffffffff81786c38>] vfs_write+0x178/0x4b0 fs/read_write.c:538
- [<ffffffff817892a9>] SYSC_write fs/read_write.c:585 [inline]
- [<ffffffff817892a9>] SyS_write+0xd9/0x1b0 fs/read_write.c:577
- [<ffffffff82c71e32>] entry_SYSCALL_64_fastpath+0x12/0x17
+> May be drop always_inline and do such thing conditionally
+> on 32-bit archs only?
 
-Note: there is no "Fixes" tag as this seems to be a bug introduced
-very early.
+I will guard with this instead:
 
-Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv6/ip6_fib.c | 24 +++++++++++-------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 4f6e7eb..e42c096 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -4160,7 +4160,11 @@ static int fixup_bpf_calls(struct bpf_verifier_env *env)
+                         continue;
+                 }
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 78b9359b06fd..549aacc3cb2c 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1118,7 +1118,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 			/* Create subtree root node */
- 			sfn = node_alloc();
- 			if (!sfn)
--				goto st_failure;
-+				goto failure;
- 
- 			sfn->leaf = info->nl_net->ipv6.ip6_null_entry;
- 			atomic_inc(&info->nl_net->ipv6.ip6_null_entry->rt6i_ref);
-@@ -1135,12 +1135,12 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 
- 			if (IS_ERR(sn)) {
- 				/* If it is failed, discard just allocated
--				   root, and then (in st_failure) stale node
-+				   root, and then (in failure) stale node
- 				   in main tree.
- 				 */
- 				node_free(sfn);
- 				err = PTR_ERR(sn);
--				goto st_failure;
-+				goto failure;
- 			}
- 
- 			/* Now link new subtree to main tree */
-@@ -1155,7 +1155,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 
- 			if (IS_ERR(sn)) {
- 				err = PTR_ERR(sn);
--				goto st_failure;
-+				goto failure;
- 			}
- 		}
- 
-@@ -1196,18 +1196,17 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 			atomic_inc(&pn->leaf->rt6i_ref);
- 		}
- #endif
--		/* Always release dst as dst->__refcnt is guaranteed
--		 * to be taken before entering this function
--		 */
--		dst_release_immediate(&rt->dst);
-+		goto failure;
- 	}
- 	return err;
- 
--#ifdef CONFIG_IPV6_SUBTREES
--	/* Subtree creation failed, probably main tree node
--	   is orphan. If it is, shoot it.
-+failure:
-+	/* fn->leaf could be NULL if fn is an intermediate node and we
-+	 * failed to add the new route to it in both subtree creation
-+	 * failure and fib6_add_rt2node() failure case.
-+	 * In both cases, fib6_repair_tree() should be called to fix
-+	 * fn->leaf.
- 	 */
--st_failure:
- 	if (fn && !(fn->fn_flags & (RTN_RTINFO|RTN_ROOT)))
- 		fib6_repair_tree(info->nl_net, fn);
- 	/* Always release dst as dst->__refcnt is guaranteed
-@@ -1215,7 +1214,6 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 	 */
- 	dst_release_immediate(&rt->dst);
- 	return err;
--#endif
- }
- 
- /*
--- 
-2.14.1.480.gb18f417b89-goog
+-               if (ebpf_jit_enabled() && insn->imm == BPF_FUNC_map_lookup_elem) {
++               /* BPF_EMIT_CALL() assumptions in some of the map_gen_lookup
++                * handlers are currently limited to 64 bit only.
++                */
++               if (ebpf_jit_enabled() && BITS_PER_LONG == 64 &&
++                   insn->imm == BPF_FUNC_map_lookup_elem) {
+                         map_ptr = env->insn_aux_data[i + delta].map_ptr;
+                         if (map_ptr == BPF_MAP_PTR_POISON ||
+                             !map_ptr->ops->map_gen_lookup)
