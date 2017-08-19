@@ -1,60 +1,66 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: ipv6: put host and anycast routes on
- device with address
-Date: Fri, 18 Aug 2017 18:05:56 -0600
-Message-ID: <75e79efe-4a41-7b15-b7bb-8ed0624b72b5@gmail.com>
-References: <1502997440-32334-1-git-send-email-dsahern@gmail.com>
- <87wp60lb70.fsf@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH RFC net] fsl/man: Inherit parent device and of_node
+Date: Fri, 18 Aug 2017 17:12:55 -0700
+Message-ID: <20170819001255.20755-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, madalin.bucur@nxp.com,
+        junote@outlook.com, igal.liberman@freescale.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34357 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751816AbdHSAGC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 20:06:02 -0400
-Received: by mail-pg0-f66.google.com with SMTP id i12so1852663pgr.1
-        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 17:06:02 -0700 (PDT)
-In-Reply-To: <87wp60lb70.fsf@stressinduktion.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:34960 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751090AbdHSAM7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 20:12:59 -0400
+Received: by mail-qk0-f196.google.com with SMTP id a77so10109357qkb.2
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 17:12:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/18/17 5:15 PM, Hannes Frederic Sowa wrote:
-> Hello David,
-> 
-> David Ahern <dsahern@gmail.com> writes:
-> 
->> @@ -2688,15 +2716,9 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
->>  {
->>  	u32 tb_id;
->>  	struct net *net = dev_net(idev->dev);
->> -	struct net_device *dev = net->loopback_dev;
->> +	struct net_device *dev = idev->dev;
->>  	struct rt6_info *rt;
->>  
->> -	/* use L3 Master device as loopback for host routes if device
->> -	 * is enslaved and address is not link local or multicast
->> -	 */
->> -	if (!rt6_need_strict(addr))
->> -		dev = l3mdev_master_dev_rcu(idev->dev) ? : dev;
->> -
->>  	rt = ip6_dst_alloc(net, dev, DST_NOCOUNT);
->>  	if (!rt)
->>  		return ERR_PTR(-ENOMEM);
-> 
-> I am afraid this change might break Java:
-> 
-> <http://hg.openjdk.java.net/jdk9/jdk9/jdk/file/65464a307408/src/java.base/unix/native/libnet/net_util_md.c#l574>
-> 
-> I am all in for this change, but maybe it might be necessary to mask
-> RTF_LOCAL routes with "lo" somehow.
+Junote Cai reported that he was not able to get a DSA setup involving the
+Freescale DPAA/FMAN driver to work and narrowed it down to
+of_find_net_device_by_node(). This function requires the network device's
+device reference to be correctly set which is the case here, though we have
+lost any device_node association there.
 
-That's asinine. The if_inet6 processing is just getting the 'lo'
-interface index. Why scan the file looking for that? The ipv6_route
-processing is assembling routes against the loopback device regardless
-of what the route is. Do you know why - what the route list is used for?
+The problem is that dpaa_eth_add_device() allocates a "dpaa-ethernet" platform
+device, and later on dpaa_eth_probe() is called but SET_NETDEV_DEV() won't be
+propagating &pdev->dev.of_node properly. Fix this by inherenting both the parent
+device and the of_node when dpaa_eth_add_device() creates the platform device.
 
-If it matters, we could keep 'lo' as the device for RTF_LOCAL routes in
-the proc files to keep backwards compatibility.
+Fixes: 3933961682a3 ("fsl/fman: Add FMan MAC driver")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Madalin,
+
+After this patch, Junote was able to get the DSA switch probed correctly however
+he was also observing a resource conflict, but I don't think this patch is responsible
+for that per-se, please review:
+
+iommu: Adding device ffe488000.port to group 21
+fsl_mac ffe4e0000.ethernet: FMan dTSEC version: 0x08240101
+fsl_mac ffe4e0000.ethernet: FMan MAC address: 00:04:9f:ef:05:01
+fsl_mac dpaa-ethernet.0: __devm_request_mem_region(mac) failed
+fsl_mac: probe of dpaa-ethernet.0 failed with error -16
+fsl_mac dpaa-ethernet.0: __devm_request_mem_region(mac) failed
+fsl_mac: probe of dpaa-ethernet.0 failed with error -16
+fsl_dpa dpaa-ethernet.0 eth0: Probed interface eth0
+
+ drivers/net/ethernet/freescale/fman/mac.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
+index 6e67d22fd0d5..1c7da16ad0ff 100644
+--- a/drivers/net/ethernet/freescale/fman/mac.c
++++ b/drivers/net/ethernet/freescale/fman/mac.c
+@@ -623,6 +623,8 @@ static struct platform_device *dpaa_eth_add_device(int fman_id,
+ 		goto no_mem;
+ 	}
+ 
++	pdev->dev.of_node = node;
++	pdev->dev.parent = priv->dev;
+ 	set_dma_ops(&pdev->dev, get_dma_ops(priv->dev));
+ 
+ 	ret = platform_device_add_data(pdev, &data, sizeof(data));
+-- 
+2.11.0
