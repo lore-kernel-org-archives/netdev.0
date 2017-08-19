@@ -1,33 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/12] nfp: add basic ethtool callbacks to
- representors
-Date: Fri, 18 Aug 2017 18:04:33 -0700 (PDT)
-Message-ID: <20170818.180433.182193954731357475.davem@davemloft.net>
-References: <20170818224822.8409-1-jakub.kicinski@netronome.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: jakub.kicinski@netronome.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next v2 1/2] bpf: make htab inlining more robust wrt assumptions
+Date: Sat, 19 Aug 2017 03:12:45 +0200
+Message-ID: <03f4e86a029058d0f674fd9bf288e55a5ec07df3.1503104831.git.daniel@iogearbox.net>
+References: <cover.1503104831.git.daniel@iogearbox.net>
+Cc: ast@fb.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36334 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751017AbdHSBEe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 21:04:34 -0400
-In-Reply-To: <20170818224822.8409-1-jakub.kicinski@netronome.com>
+Received: from www62.your-server.de ([213.133.104.62]:57141 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751054AbdHSBMw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 21:12:52 -0400
+In-Reply-To: <cover.1503104831.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1503104831.git.daniel@iogearbox.net>
+References: <cover.1503104831.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Fri, 18 Aug 2017 15:48:10 -0700
+Commit 9015d2f59535 ("bpf: inline htab_map_lookup_elem()") was
+making the assumption that a direct call emission to the function
+__htab_map_lookup_elem() will always work out for JITs.
 
-> This set extends the basic ethtool functionality to representor
-> netdevs.  I start with providing link state via ethtool and then
-> move on to functions such as driver information, statistics and
-> FW log dump.  The series contains a number of clean ups to the
-> ethtool stats code too, some of the logic is simplified by making 
-> better use of the nfp_port abstraction.  The stats we expose on 
-> representors are only the PCIe and MAC port statistics firmware 
-> maintains for us.
+This is currently true since all JITs we have are for 64 bit archs,
+but in case of 32 bit JITs like upcoming arm32, we get a NULL pointer
+dereference when executing the call to __htab_map_lookup_elem()
+since passed arguments are of a different size (due to pointer args)
+than what we do out of BPF. Guard and thus limit this for now for
+the current 64 bit JITs only.
 
-Looks good, series applied, thanks.
+Reported-by: Shubham Bansal <illusionist.neo@gmail.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ kernel/bpf/verifier.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 4f6e7eb..e42c096 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -4160,7 +4160,11 @@ static int fixup_bpf_calls(struct bpf_verifier_env *env)
+ 			continue;
+ 		}
+ 
+-		if (ebpf_jit_enabled() && insn->imm == BPF_FUNC_map_lookup_elem) {
++		/* BPF_EMIT_CALL() assumptions in some of the map_gen_lookup
++		 * handlers are currently limited to 64 bit only.
++		 */
++		if (ebpf_jit_enabled() && BITS_PER_LONG == 64 &&
++		    insn->imm == BPF_FUNC_map_lookup_elem) {
+ 			map_ptr = env->insn_aux_data[i + delta].map_ptr;
+ 			if (map_ptr == BPF_MAP_PTR_POISON ||
+ 			    !map_ptr->ops->map_gen_lookup)
+-- 
+1.9.3
