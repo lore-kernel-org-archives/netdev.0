@@ -1,32 +1,60 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 2/2] bpf: inline map in map lookup functions for
- array and htab
-Date: Fri, 18 Aug 2017 17:05:10 -0700
-Message-ID: <f5309f0a-b647-c759-e0c0-efdf5a1d8002@fb.com>
-References: <cover.1503100047.git.daniel@iogearbox.net>
- <501683f73390c81a7abaa0683f3675860a79adc7.1503100047.git.daniel@iogearbox.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: ipv6: put host and anycast routes on
+ device with address
+Date: Fri, 18 Aug 2017 18:05:56 -0600
+Message-ID: <75e79efe-4a41-7b15-b7bb-8ed0624b72b5@gmail.com>
+References: <1502997440-32334-1-git-send-email-dsahern@gmail.com>
+ <87wp60lb70.fsf@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:45647 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751060AbdHSAFh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 20:05:37 -0400
-In-Reply-To: <501683f73390c81a7abaa0683f3675860a79adc7.1503100047.git.daniel@iogearbox.net>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34357 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751816AbdHSAGC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2017 20:06:02 -0400
+Received: by mail-pg0-f66.google.com with SMTP id i12so1852663pgr.1
+        for <netdev@vger.kernel.org>; Fri, 18 Aug 2017 17:06:02 -0700 (PDT)
+In-Reply-To: <87wp60lb70.fsf@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/18/17 4:51 PM, Daniel Borkmann wrote:
-> Avoid two successive functions calls for the map in map lookup, first
-> is the bpf_map_lookup_elem() helper call, and second the callback via
-> map->ops->map_lookup_elem() to get to the map in map implementation.
-> Implementation inlines array and htab flavor for map in map lookups.
->
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+On 8/18/17 5:15 PM, Hannes Frederic Sowa wrote:
+> Hello David,
+> 
+> David Ahern <dsahern@gmail.com> writes:
+> 
+>> @@ -2688,15 +2716,9 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+>>  {
+>>  	u32 tb_id;
+>>  	struct net *net = dev_net(idev->dev);
+>> -	struct net_device *dev = net->loopback_dev;
+>> +	struct net_device *dev = idev->dev;
+>>  	struct rt6_info *rt;
+>>  
+>> -	/* use L3 Master device as loopback for host routes if device
+>> -	 * is enslaved and address is not link local or multicast
+>> -	 */
+>> -	if (!rt6_need_strict(addr))
+>> -		dev = l3mdev_master_dev_rcu(idev->dev) ? : dev;
+>> -
+>>  	rt = ip6_dst_alloc(net, dev, DST_NOCOUNT);
+>>  	if (!rt)
+>>  		return ERR_PTR(-ENOMEM);
+> 
+> I am afraid this change might break Java:
+> 
+> <http://hg.openjdk.java.net/jdk9/jdk9/jdk/file/65464a307408/src/java.base/unix/native/libnet/net_util_md.c#l574>
+> 
+> I am all in for this change, but maybe it might be necessary to mask
+> RTF_LOCAL routes with "lo" somehow.
 
-lgtm
-thanks for adding this optimization.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+That's asinine. The if_inet6 processing is just getting the 'lo'
+interface index. Why scan the file looking for that? The ipv6_route
+processing is assembling routes against the loopback device regardless
+of what the route is. Do you know why - what the route list is used for?
+
+If it matters, we could keep 'lo' as the device for RTF_LOCAL routes in
+the proc files to keep backwards compatibility.
