@@ -1,150 +1,79 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v6 iproute2 5/8] rdma: Add json and pretty outputs
-Date: Sun, 20 Aug 2017 12:58:25 +0300
-Message-ID: <20170820095828.13812-6-leon@kernel.org>
-References: <20170820095828.13812-1-leon@kernel.org>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170820095828.13812-1-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH v3 net 1/2 RESEND] Revert commit 1a8b6d76dc5b ("net:add one common config...")
+Date: Sun, 20 Aug 2017 18:10:54 +0800
+Message-ID: <1503223855-24616-2-git-send-email-dingtianhong@huawei.com>
+References: <1503223855-24616-1-git-send-email-dingtianhong@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Ding Tianhong <dingtianhong@huawei.com>
+To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
+        <keescook@chromium.org>, <linux-kernel@vger.kernel.org>,
+        <sparclinux@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
+        <alexander.duyck@gmail.com>, <netdev@vger.kernel.org>,
+        <linuxarm@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503223855-24616-1-git-send-email-dingtianhong@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING has been added
+to indicate that Relaxed Ordering Attributes (RO) should not
+be used for Transaction Layer Packets (TLP) targeted toward
+these affected Root Port, it will clear the bit4 in the PCIe
+Device Control register, so the PCIe device drivers could
+query PCIe configuration space to determine if it can send
+TLPs to Root Port with the Relaxed Ordering Attributes set.
 
-Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+With this new flag  we don't need the config ARCH_WANT_RELAX_ORDER
+to control the Relaxed Ordering Attributes for the ixgbe drivers
+just like the commit 1a8b6d76dc5b ("net:add one common config...") did,
+so revert this commit.
+
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- rdma/rdma.c | 31 ++++++++++++++++++++++++++++---
- rdma/rdma.h |  4 ++++
- 2 files changed, 32 insertions(+), 3 deletions(-)
+ arch/Kconfig                                    | 3 ---
+ arch/sparc/Kconfig                              | 1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 +-
+ 3 files changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/rdma/rdma.c b/rdma/rdma.c
-index 74c09e8b..f9f4f2a2 100644
---- a/rdma/rdma.c
-+++ b/rdma/rdma.c
-@@ -16,7 +16,7 @@ static void help(char *name)
- {
- 	pr_out("Usage: %s [ OPTIONS ] OBJECT { COMMAND | help }\n"
- 	       "where  OBJECT := { dev | link | help }\n"
--	       "       OPTIONS := { -V[ersion] | -d[etails]}\n", name);
-+	       "       OPTIONS := { -V[ersion] | -d[etails] | -j[son] | -p[retty]}\n", name);
- }
+diff --git a/arch/Kconfig b/arch/Kconfig
+index 21d0089..00cfc63 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -928,9 +928,6 @@ config STRICT_MODULE_RWX
+ 	  and non-text memory will be made non-executable. This provides
+ 	  protection against certain security exploits (e.g. writing to text)
  
- static int cmd_help(struct rd *rd)
-@@ -47,6 +47,16 @@ static int rd_init(struct rd *rd, int argc, char **argv, char *filename)
- 	rd->argc = argc;
- 	rd->argv = argv;
- 	INIT_LIST_HEAD(&rd->dev_map_list);
-+
-+	if (rd->json_output) {
-+		rd->jw = jsonw_new(stdout);
-+		if (!rd->jw) {
-+			pr_err("Failed to create JSON writer\n");
-+			return -ENOMEM;
-+		}
-+		jsonw_pretty(rd->jw, rd->pretty_output);
-+	}
-+
- 	rd->buff = malloc(MNL_SOCKET_BUFFER_SIZE);
- 	if (!rd->buff)
- 		return -ENOMEM;
-@@ -62,6 +72,8 @@ static int rd_init(struct rd *rd, int argc, char **argv, char *filename)
+-config ARCH_WANT_RELAX_ORDER
+-	bool
+-
+ config REFCOUNT_FULL
+ 	bool "Perform full reference count validation at the expense of speed"
+ 	help
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index a4a6261..987a575 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -44,7 +44,6 @@ config SPARC
+ 	select ARCH_HAS_SG_CHAIN
+ 	select CPU_NO_EFFICIENT_FFS
+ 	select LOCKDEP_SMALL if LOCKDEP
+-	select ARCH_WANT_RELAX_ORDER
  
- static void rd_free(struct rd *rd)
- {
-+	if (rd->json_output)
-+		jsonw_destroy(&rd->jw);
- 	free(rd->buff);
- 	rd_free_devmap(rd);
- }
-@@ -71,10 +83,14 @@ int main(int argc, char **argv)
- 	static const struct option long_options[] = {
- 		{ "version",		no_argument,		NULL, 'V' },
- 		{ "help",		no_argument,		NULL, 'h' },
-+		{ "json",		no_argument,		NULL, 'j' },
-+		{ "pretty",		no_argument,		NULL, 'p' },
- 		{ "details",		no_argument,		NULL, 'd' },
- 		{ NULL, 0, NULL, 0 }
- 	};
-+	bool pretty_output = false;
- 	bool show_details = false;
-+	bool json_output = false;
- 	char *filename;
- 	struct rd rd;
- 	int opt;
-@@ -82,16 +98,22 @@ int main(int argc, char **argv)
+ config SPARC32
+ 	def_bool !64BIT
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 4e35e70..d4933d2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -350,7 +350,7 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
+ 	}
+ 	IXGBE_WRITE_FLUSH(hw);
  
- 	filename = basename(argv[0]);
- 
--	while ((opt = getopt_long(argc, argv, "Vhd",
-+	while ((opt = getopt_long(argc, argv, "Vhdpj",
- 				  long_options, NULL)) >= 0) {
- 		switch (opt) {
- 		case 'V':
- 			printf("%s utility, iproute2-ss%s\n",
- 			       filename, SNAPSHOT);
- 			return EXIT_SUCCESS;
-+		case 'p':
-+			pretty_output = true;
-+			break;
- 		case 'd':
- 			show_details = true;
- 			break;
-+		case 'j':
-+			json_output = true;
-+			break;
- 		case 'h':
- 			help(filename);
- 			return EXIT_SUCCESS;
-@@ -105,11 +127,14 @@ int main(int argc, char **argv)
- 	argc -= optind;
- 	argv += optind;
- 
-+	rd.show_details = show_details;
-+	rd.json_output = json_output;
-+	rd.pretty_output = pretty_output;
-+
- 	err = rd_init(&rd, argc, argv, filename);
- 	if (err)
- 		goto out;
- 
--	rd.show_details = show_details;
- 	err = rd_cmd(&rd);
- out:
- 	/* Always cleanup */
-diff --git a/rdma/rdma.h b/rdma/rdma.h
-index 36b047d3..4c564fef 100644
---- a/rdma/rdma.h
-+++ b/rdma/rdma.h
-@@ -21,6 +21,7 @@
- 
- #include "list.h"
- #include "utils.h"
-+#include "json_writer.h"
- 
- #define pr_err(args...) fprintf(stderr, ##args)
- #define pr_out(args...) fprintf(stdout, ##args)
-@@ -46,6 +47,9 @@ struct rd {
- 	struct mnl_socket *nl;
- 	struct nlmsghdr *nlh;
- 	char *buff;
-+	json_writer_t *jw;
-+	bool json_output;
-+	bool pretty_output;
- };
- 
- struct rd_cmd {
+-#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
++#ifndef CONFIG_SPARC
+ 	/* Disable relaxed ordering */
+ 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+ 		u32 regval;
 -- 
-2.14.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.8.3.1
