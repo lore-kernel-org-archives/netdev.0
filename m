@@ -1,55 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4/cxgbvf: Handle 32-bit fw port
- capabilities
-Date: Sat, 19 Aug 2017 21:34:30 -0700 (PDT)
-Message-ID: <20170819.213430.892558113817773681.davem@davemloft.net>
-References: <1503071492-4822-1-git-send-email-ganeshgr@chelsio.com>
-        <20170819.213240.451867452734302860.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
-        indranil@chelsio.com, leedom@chelsio.com, venkatesh@chelsio.com
-To: ganeshgr@chelsio.com
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH v2] net: ibm: emac: Fix some error handling path in 'emac_probe()'
+Date: Sun, 20 Aug 2017 06:35:00 +0200
+Message-ID: <20170820043500.24864-1-christophe.jaillet@wanadoo.fr>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: davem@davemloft.net, chunkeey@googlemail.com, jarod@redhat.com,
+        ivan@de.ibm.com, ebiggers@google.com, tklauser@distanz.ch,
+        tremyfr@gmail.com, robh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56004 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751020AbdHTEeb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 00:34:31 -0400
-In-Reply-To: <20170819.213240.451867452734302860.davem@davemloft.net>
+Received: from smtp01.smtpout.orange.fr ([80.12.242.123]:46491 "EHLO
+        smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751139AbdHTEfM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 00:35:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU2F0LCAxOSBB
-dWcgMjAxNyAyMTozMjo0MCAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEdhbmVzaCBHb3VkYXIgPGdh
-bmVzaGdyQGNoZWxzaW8uY29tPg0KPiBEYXRlOiBGcmksIDE4IEF1ZyAyMDE3IDIxOjIxOjMyICsw
-NTMwDQo+IA0KPj4gSW1wbGVtZW50IG5ldyAzMi1iaXQgRmlybXdhcmUgUG9ydCBDYXBhYmlsaXRp
-ZXMgaW4gb3JkZXIgdG8NCj4+IGhhbmRsZSBuZXcgc3BlZWRzIHdoaWNoIGNvdWxkbid0IGJlIHJl
-cHJlc2VudGVkIGluIHRoZSBvbGQgMTYtYml0DQo+PiBGaXJtd2FyZSBQb3J0IENhcGFiaWxpdGll
-cyB2YWx1ZXMuDQo+PiANCj4+IEJhc2VkIG9uIHRoZSBvcmlnaW5hbCB3b3JrIG9mIENhc2V5IExl
-ZWRvbSA8bGVlZG9tQGNoZWxzaW8uY29tPg0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBHYW5lc2gg
-R291ZGFyIDxnYW5lc2hnckBjaGVsc2lvLmNvbT4NCj4gDQo+IEFwcGxpZWQuDQoNClJldmVydGVk
-LCB0aGlzIGRvZXNuJ3QgZXZlbiBidWlsZCENCg0KW2RhdmVtQGxvY2FsaG9zdCBuZXQtbmV4dF0k
-IG1ha2UgLXMgLWo4DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9jaGVsc2lvL2N4Z2I0L2N4Z2I0X21h
-aW4uYzogSW4gZnVuY3Rpb24goWZ3ZXZ0cV9oYW5kbGVyojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0
-L2NoZWxzaW8vY3hnYjQvY3hnYjRfbWFpbi5jOjUzNDo1MDogZXJyb3I6IGV4cGVjdGVkIKEpoiBi
-ZWZvcmUgoXuiIHRva2VuDQogICAgICAgIGFjdGlvbiA9PSBGV19QT1JUX0FDVElPTl9HRVRfUE9S
-VF9JTkZPMzIpIHsNCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgXg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNC9jeGdiNF9tYWluLmM6
-NTYwOjI6IGVycm9yOiBleHBlY3RlZCBleHByZXNzaW9uIGJlZm9yZSChfaIgdG9rZW4NCiAgfSBl
-bHNlIGlmIChvcGNvZGUgPT0gQ1BMX0wyVF9XUklURV9SUEwpIHsNCiAgXg0KQXQgdG9wIGxldmVs
-Og0KZHJpdmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNC9jeGdiNF9tYWluLmM6NDYzOjEz
-OiB3YXJuaW5nOiChZGNiX3JwbKIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWZ1bmN0
-aW9uXQ0KIHN0YXRpYyB2b2lkIGRjYl9ycGwoc3RydWN0IGFkYXB0ZXIgKmFkYXAsIGNvbnN0IHN0
-cnVjdCBmd19wb3J0X2NtZCAqcGNtZCkNCiAgICAgICAgICAgICBefn5+fn5+DQptYWtlWzVdOiAq
-KiogW3NjcmlwdHMvTWFrZWZpbGUuYnVpbGQ6MzAzOiBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaGVs
-c2lvL2N4Z2I0L2N4Z2I0X21haW4ub10gRXJyb3IgMQ0KbWFrZVs1XTogKioqIFdhaXRpbmcgZm9y
-IHVuZmluaXNoZWQgam9icy4uLi4NCm1ha2VbNF06ICoqKiBbc2NyaXB0cy9NYWtlZmlsZS5idWls
-ZDo1NjE6IGRyaXZlcnMvbmV0L2V0aGVybmV0L2NoZWxzaW8vY3hnYjRdIEVycm9yIDINCm1ha2Vb
-M106ICoqKiBbc2NyaXB0cy9NYWtlZmlsZS5idWlsZDo1NjE6IGRyaXZlcnMvbmV0L2V0aGVybmV0
-L2NoZWxzaW9dIEVycm9yIDINCm1ha2VbM106ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVkIGpv
-YnMuLi4uDQptYWtlWzJdOiAqKiogW3NjcmlwdHMvTWFrZWZpbGUuYnVpbGQ6NTYxOiBkcml2ZXJz
-L25ldC9ldGhlcm5ldF0gRXJyb3IgMg0KbWFrZVsxXTogKioqIFtzY3JpcHRzL01ha2VmaWxlLmJ1
-aWxkOjU2MTogZHJpdmVycy9uZXRdIEVycm9yIDINCm1ha2VbMV06ICoqKiBXYWl0aW5nIGZvciB1
-bmZpbmlzaGVkIGpvYnMuLi4uDQptYWtlOiAqKiogW01ha2VmaWxlOjEwMTk6IGRyaXZlcnNdIEVy
-cm9yIDINCg==
+If 'irq_of_parse_and_map()' or 'of_address_to_resource()' fail, 'err' is
+known to be 0 at this point.
+So return -ENODEV instead in the first case and use 'of_iomap()' instead of
+the equivalent 'of_address_to_resource()/ioremap()' combinaison in the 2nd
+case.
+
+Doing so, the 'rsrc_regs' field of the 'emac_instance struct' becomes
+redundant and is removed.
+
+While at it, turn a 'err != 0' test into an equivalent 'err' to be more
+consistent.
+
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+---
+v2: use of_iomap() to simplify code
+    remove 'rsrc_regs' field of the 'emac_instance struct'
+    update comment
+---
+ drivers/net/ethernet/ibm/emac/core.c | 12 ++++--------
+ drivers/net/ethernet/ibm/emac/core.h |  1 -
+ 2 files changed, 4 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
+index 95135d20458f..7feff2450ed6 100644
+--- a/drivers/net/ethernet/ibm/emac/core.c
++++ b/drivers/net/ethernet/ibm/emac/core.c
+@@ -3032,7 +3032,7 @@ static int emac_probe(struct platform_device *ofdev)
+ 
+ 	/* Init various config data based on device-tree */
+ 	err = emac_init_config(dev);
+-	if (err != 0)
++	if (err)
+ 		goto err_free;
+ 
+ 	/* Get interrupts. EMAC irq is mandatory, WOL irq is optional */
+@@ -3040,18 +3040,14 @@ static int emac_probe(struct platform_device *ofdev)
+ 	dev->wol_irq = irq_of_parse_and_map(np, 1);
+ 	if (!dev->emac_irq) {
+ 		printk(KERN_ERR "%pOF: Can't map main interrupt\n", np);
++		err = -ENODEV;
+ 		goto err_free;
+ 	}
+ 	ndev->irq = dev->emac_irq;
+ 
+ 	/* Map EMAC regs */
+-	if (of_address_to_resource(np, 0, &dev->rsrc_regs)) {
+-		printk(KERN_ERR "%pOF: Can't get registers address\n", np);
+-		goto err_irq_unmap;
+-	}
+-	// TODO : request_mem_region
+-	dev->emacp = ioremap(dev->rsrc_regs.start,
+-			     resource_size(&dev->rsrc_regs));
++	// TODO : platform_get_resource() and devm_ioremap_resource()
++	dev->emacp = of_iomap(np, 0);
+ 	if (dev->emacp == NULL) {
+ 		printk(KERN_ERR "%pOF: Can't map device registers!\n", np);
+ 		err = -ENOMEM;
+diff --git a/drivers/net/ethernet/ibm/emac/core.h b/drivers/net/ethernet/ibm/emac/core.h
+index f10e156641d5..369de2cfb15b 100644
+--- a/drivers/net/ethernet/ibm/emac/core.h
++++ b/drivers/net/ethernet/ibm/emac/core.h
+@@ -167,7 +167,6 @@ struct emac_error_stats {
+ 
+ struct emac_instance {
+ 	struct net_device		*ndev;
+-	struct resource			rsrc_regs;
+ 	struct emac_regs		__iomem *emacp;
+ 	struct platform_device		*ofdev;
+ 	struct device_node		**blist; /* bootlist entry */
+-- 
+2.11.0
