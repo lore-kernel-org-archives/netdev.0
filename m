@@ -1,58 +1,65 @@
-From: "IT Department" <arkom.sr@cattelecom.com>
-Subject: Email Notication
-Date: Sun, 20 Aug 2017 13:19:56 +0100
-Message-ID: <20170820121951.390AB381824@cat-mta1.zimbra.cattelecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: netdev@vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [V2 net-next 04/15] net/mlx5: Add PCIe outbound stalls counters infrastructure
+Date: Sun, 20 Aug 2017 16:49:05 +0300
+Message-ID: <20170820134916.10222-5-saeedm@mellanox.com>
+References: <20170820134916.10222-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
+        Gal Pressman <galp@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from catmail05.cattelecom.com ([122.155.96.45]:24532 "EHLO
-        cat-mta4.zimbra.cattelecom.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752928AbdHTNNp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 09:13:45 -0400
-Received: from localhost (localhost [127.0.0.1])
-        by cat-mta4.zimbra.cattelecom.com (Postfix) with ESMTP id 01A267CDE3C
-        for <netdev@vger.kernel.org>; Sun, 20 Aug 2017 19:19:54 +0700 (ICT)
-Received: from cat-mta4.zimbra.cattelecom.com ([127.0.0.1])
-        by localhost (cat-mta4.zimbra.cattelecom.com [127.0.0.1]) (amavisd-new, port 10032)
-        with ESMTP id wECjqVGlYKlx for <netdev@vger.kernel.org>;
-        Sun, 20 Aug 2017 19:19:53 +0700 (ICT)
-Received: from localhost (localhost [127.0.0.1])
-        by cat-mta4.zimbra.cattelecom.com (Postfix) with ESMTP id 930D67D1DFD
-        for <netdev@vger.kernel.org>; Sun, 20 Aug 2017 19:19:53 +0700 (ICT)
-Received: from cat-mta4.zimbra.cattelecom.com ([127.0.0.1])
-        by localhost (cat-mta4.zimbra.cattelecom.com [127.0.0.1]) (amavisd-new, port 10026)
-        with ESMTP id oVRBd9yypXsn for <netdev@vger.kernel.org>;
-        Sun, 20 Aug 2017 19:19:53 +0700 (ICT)
-Received: from cat-mta1.zimbra.cattelecom.com (cat-mta1.zimbra.cattelecom.com [192.168.242.134])
-        by cat-mta4.zimbra.cattelecom.com (Postfix) with ESMTPS id 590B17CCB09
-        for <netdev@vger.kernel.org>; Sun, 20 Aug 2017 19:19:53 +0700 (ICT)
-Received: from localhost (localhost [127.0.0.1])
-        by cat-mta1.zimbra.cattelecom.com (Postfix) with ESMTP id F1C8E3817D9
-        for <netdev@vger.kernel.org>; Sun, 20 Aug 2017 19:19:52 +0700 (ICT)
-Received: from cat-mta1.zimbra.cattelecom.com ([127.0.0.1])
-        by localhost (cat-mta1.zimbra.cattelecom.com [127.0.0.1]) (amavisd-new, port 10032)
-        with ESMTP id Ot5aQhR8mn91 for <netdev@vger.kernel.org>;
-        Sun, 20 Aug 2017 19:19:52 +0700 (ICT)
-Received: from localhost (localhost [127.0.0.1])
-        by cat-mta1.zimbra.cattelecom.com (Postfix) with ESMTP id AF4AA381833
-        for <netdev@vger.kernel.org>; Sun, 20 Aug 2017 19:19:52 +0700 (ICT)
-Received: from cat-mta1.zimbra.cattelecom.com ([127.0.0.1])
-        by localhost (cat-mta1.zimbra.cattelecom.com [127.0.0.1]) (amavisd-new, port 10026)
-        with ESMTP id bB5QHkP6PWRF for <netdev@vger.kernel.org>;
-        Sun, 20 Aug 2017 19:19:52 +0700 (ICT)
-Received: from [192.168.0.2] (unknown [105.112.39.24])
-        by cat-mta1.zimbra.cattelecom.com (Postfix) with ESMTPSA id 390AB381824
-        for <netdev@vger.kernel.org>; Sun, 20 Aug 2017 19:19:50 +0700 (ICT)
-Content-Description: Mail message body
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44767 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751814AbdHTNtX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 09:49:23 -0400
+In-Reply-To: <20170820134916.10222-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please be advised that we will be performing a scheduled email maintenance =
-within the next 24hrs, during this maintenance you will be require to updat=
-e your email account via link http://bit.ly/2wjyBS7
+From: Gal Pressman <galp@mellanox.com>
 
+Add capability bit in MCAM register and counters to MPCNT register.
+
+Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+ include/linux/mlx5/mlx5_ifc.h | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index c99daffc3c3c..ba533b39c885 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -1854,7 +1854,17 @@ struct mlx5_ifc_pcie_perf_cntrs_grp_data_layout_bits {
+ 
+ 	u8         crc_error_tlp[0x20];
+ 
+-	u8         reserved_at_140[0x680];
++	u8         reserved_at_140[0x40];
++
++	u8         outbound_stalled_reads[0x20];
++
++	u8         outbound_stalled_writes[0x20];
++
++	u8         outbound_stalled_reads_events[0x20];
++
++	u8         outbound_stalled_writes_events[0x20];
++
++	u8         reserved_at_200[0x5c0];
+ };
+ 
+ struct mlx5_ifc_cmd_inter_comp_event_bits {
+@@ -7744,8 +7754,9 @@ struct mlx5_ifc_pcam_reg_bits {
+ };
+ 
+ struct mlx5_ifc_mcam_enhanced_features_bits {
+-	u8         reserved_at_0[0x7d];
+-
++	u8         reserved_at_0[0x7b];
++	u8         pcie_outbound_stalled[0x1];
++	u8         reserved_at_7c[0x1];
+ 	u8         mtpps_enh_out_per_adj[0x1];
+ 	u8         mtpps_fs[0x1];
+ 	u8         pcie_performance_group[0x1];
+-- 
+2.13.0
