@@ -1,47 +1,64 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [V2 net-next 02/15] net/mlx5e: IPoIB, Fix driver name retrieved by ethtool
-Date: Sun, 20 Aug 2017 16:49:03 +0300
-Message-ID: <20170820134916.10222-3-saeedm@mellanox.com>
+Subject: [V2 net-next 06/15] net/mlx5: Add RX buffer fullness counters infrastructure
+Date: Sun, 20 Aug 2017 16:49:07 +0300
+Message-ID: <20170820134916.10222-7-saeedm@mellanox.com>
 References: <20170820134916.10222-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Feras Daoud <ferasda@mellanox.com>,
+        Gal Pressman <galp@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44764 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44762 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750742AbdHTNtX (ORCPT
+        with ESMTP id S1750962AbdHTNtX (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 09:49:23 -0400
 In-Reply-To: <20170820134916.10222-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Feras Daoud <ferasda@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-Printing an enhanced IPoIB device information using
-"ethtool -i DEVNAME", prints the low level driver name: mlx5_core.
-This commit changes the name to mlx5_core [ib_ipoib], to include the
-ipoib device driver infromation.
+Add capability bit in PCAM register and counters to PPCNT register.
 
-Fixes: 076b0936e5fb ("net/mlx5e: IPoIB, Add ethtool support")
-Signed-off-by: Feras Daoud <ferasda@mellanox.com>
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c | 2 ++
- 1 file changed, 2 insertions(+)
+ include/linux/mlx5/mlx5_ifc.h | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
-index eb04e97d8765..b080fabfe8de 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
-@@ -39,6 +39,8 @@ static void mlx5i_get_drvinfo(struct net_device *dev,
- 	struct mlx5e_priv *priv = mlx5i_epriv(dev);
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index ba533b39c885..cf7ff52c594e 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -1538,7 +1538,17 @@ struct mlx5_ifc_eth_extended_cntrs_grp_data_layout_bits {
  
- 	mlx5e_ethtool_get_drvinfo(priv, drvinfo);
-+	strlcpy(drvinfo->driver, DRIVER_NAME "[ib_ipoib]",
-+		sizeof(drvinfo->driver));
- }
+ 	u8         port_transmit_wait_low[0x20];
  
- static void mlx5i_get_strings(struct net_device *dev,
+-	u8         reserved_at_40[0x780];
++	u8         reserved_at_40[0x100];
++
++	u8         rx_buffer_almost_full_high[0x20];
++
++	u8         rx_buffer_almost_full_low[0x20];
++
++	u8         rx_buffer_full_high[0x20];
++
++	u8         rx_buffer_full_low[0x20];
++
++	u8         reserved_at_1c0[0x600];
+ };
+ 
+ struct mlx5_ifc_eth_3635_cntrs_grp_data_layout_bits {
+@@ -7723,8 +7733,9 @@ struct mlx5_ifc_peir_reg_bits {
+ };
+ 
+ struct mlx5_ifc_pcam_enhanced_features_bits {
+-	u8         reserved_at_0[0x7c];
++	u8         reserved_at_0[0x7b];
+ 
++	u8         rx_buffer_fullness_counters[0x1];
+ 	u8         ptys_connector_type[0x1];
+ 	u8         reserved_at_7d[0x1];
+ 	u8         ppcnt_discard_group[0x1];
 -- 
 2.13.0
