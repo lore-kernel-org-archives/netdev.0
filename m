@@ -1,81 +1,188 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [V2 net-next 11/15] net/mlx5e: Properly indent within conditional statements
-Date: Sun, 20 Aug 2017 16:49:12 +0300
-Message-ID: <20170820134916.10222-12-saeedm@mellanox.com>
+Subject: [V2 net-next 03/15] net/mlx5e: IPoIB, Add support for get_link_ksettings in ethtool
+Date: Sun, 20 Aug 2017 16:49:04 +0300
+Message-ID: <20170820134916.10222-4-saeedm@mellanox.com>
 References: <20170820134916.10222-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
+        Shalom Lagziel <shaloml@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44807 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44774 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752944AbdHTNtX (ORCPT
+        with ESMTP id S1752942AbdHTNtX (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 09:49:23 -0400
 In-Reply-To: <20170820134916.10222-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+From: Shalom Lagziel <shaloml@mellanox.com>
 
-To fix these checkpatch complaints:
+Add support for "ethtool DEVNAME" over ipoib ports,
+Display standard port information for IPoIB netdevices using ethtool
+For example:
+$ ethtool ib2
+> Settings for ib2:
+        Supported ports: [ ]
+        Supported link modes:   Not reported
+        Supported pause frame use: No
+        Supports auto-negotiation: No
+        Advertised link modes:  Not reported
+        Advertised pause frame use: No
+        Advertised auto-negotiation: No
+        Speed: 100000Mb/s
+        Duplex: Full
+        Port: Other
+        PHYAD: 0
+        Transceiver: internal
+        Auto-negotiation: off
+        Link detected: yes
 
-WARNING: suspect code indent for conditional statements (8, 24)
-+       if (eth_proto & (MLX5E_PROT_MASK(MLX5E_10GBASE_SR)
-[...]
-+                       return PORT_FIBRE;
-
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Shalom Lagziel <shaloml@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 31 ++++++++++++----------
- 1 file changed, 17 insertions(+), 14 deletions(-)
+ .../ethernet/mellanox/mlx5/core/ipoib/ethtool.c    | 130 +++++++++++++++++++--
+ 1 file changed, 118 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index a75ac4d11c5b..1f3d87e28618 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -987,24 +987,27 @@ static u8 get_connector_port(u32 eth_proto, u8 connector_type)
- 	if (connector_type && connector_type < MLX5E_CONNECTOR_TYPE_NUMBER)
- 		return ptys2connector_type[connector_type];
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
+index b080fabfe8de..dd49a59854e5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
+@@ -131,17 +131,123 @@ static int mlx5i_flash_device(struct net_device *netdev,
+ 	return mlx5e_ethtool_flash_device(priv, flash);
+ }
  
--	if (eth_proto & (MLX5E_PROT_MASK(MLX5E_10GBASE_SR)
--			 | MLX5E_PROT_MASK(MLX5E_40GBASE_SR4)
--			 | MLX5E_PROT_MASK(MLX5E_100GBASE_SR4)
--			 | MLX5E_PROT_MASK(MLX5E_1000BASE_CX_SGMII))) {
--			return PORT_FIBRE;
-+	if (eth_proto &
-+	    (MLX5E_PROT_MASK(MLX5E_10GBASE_SR)   |
-+	     MLX5E_PROT_MASK(MLX5E_40GBASE_SR4)  |
-+	     MLX5E_PROT_MASK(MLX5E_100GBASE_SR4) |
-+	     MLX5E_PROT_MASK(MLX5E_1000BASE_CX_SGMII))) {
-+		return PORT_FIBRE;
- 	}
- 
--	if (eth_proto & (MLX5E_PROT_MASK(MLX5E_40GBASE_CR4)
--			 | MLX5E_PROT_MASK(MLX5E_10GBASE_CR)
--			 | MLX5E_PROT_MASK(MLX5E_100GBASE_CR4))) {
--			return PORT_DA;
-+	if (eth_proto &
-+	    (MLX5E_PROT_MASK(MLX5E_40GBASE_CR4) |
-+	     MLX5E_PROT_MASK(MLX5E_10GBASE_CR)  |
-+	     MLX5E_PROT_MASK(MLX5E_100GBASE_CR4))) {
-+		return PORT_DA;
- 	}
- 
--	if (eth_proto & (MLX5E_PROT_MASK(MLX5E_10GBASE_KX4)
--			 | MLX5E_PROT_MASK(MLX5E_10GBASE_KR)
--			 | MLX5E_PROT_MASK(MLX5E_40GBASE_KR4)
--			 | MLX5E_PROT_MASK(MLX5E_100GBASE_KR4))) {
--			return PORT_NONE;
-+	if (eth_proto &
-+	    (MLX5E_PROT_MASK(MLX5E_10GBASE_KX4) |
-+	     MLX5E_PROT_MASK(MLX5E_10GBASE_KR)  |
-+	     MLX5E_PROT_MASK(MLX5E_40GBASE_KR4) |
-+	     MLX5E_PROT_MASK(MLX5E_100GBASE_KR4))) {
-+		return PORT_NONE;
- 	}
- 
- 	return PORT_OTHER;
++enum mlx5_ptys_width {
++	MLX5_PTYS_WIDTH_1X	= 1 << 0,
++	MLX5_PTYS_WIDTH_2X	= 1 << 1,
++	MLX5_PTYS_WIDTH_4X	= 1 << 2,
++	MLX5_PTYS_WIDTH_8X	= 1 << 3,
++	MLX5_PTYS_WIDTH_12X	= 1 << 4,
++};
++
++static inline int mlx5_ptys_width_enum_to_int(enum mlx5_ptys_width width)
++{
++	switch (width) {
++	case MLX5_PTYS_WIDTH_1X:  return  1;
++	case MLX5_PTYS_WIDTH_2X:  return  2;
++	case MLX5_PTYS_WIDTH_4X:  return  4;
++	case MLX5_PTYS_WIDTH_8X:  return  8;
++	case MLX5_PTYS_WIDTH_12X: return 12;
++	default:		  return -1;
++	}
++}
++
++enum mlx5_ptys_rate {
++	MLX5_PTYS_RATE_SDR	= 1 << 0,
++	MLX5_PTYS_RATE_DDR	= 1 << 1,
++	MLX5_PTYS_RATE_QDR	= 1 << 2,
++	MLX5_PTYS_RATE_FDR10	= 1 << 3,
++	MLX5_PTYS_RATE_FDR	= 1 << 4,
++	MLX5_PTYS_RATE_EDR	= 1 << 5,
++	MLX5_PTYS_RATE_HDR	= 1 << 6,
++};
++
++static inline int mlx5_ptys_rate_enum_to_int(enum mlx5_ptys_rate rate)
++{
++	switch (rate) {
++	case MLX5_PTYS_RATE_SDR:   return 2500;
++	case MLX5_PTYS_RATE_DDR:   return 5000;
++	case MLX5_PTYS_RATE_QDR:
++	case MLX5_PTYS_RATE_FDR10: return 10000;
++	case MLX5_PTYS_RATE_FDR:   return 14000;
++	case MLX5_PTYS_RATE_EDR:   return 25000;
++	case MLX5_PTYS_RATE_HDR:   return 50000;
++	default:		   return -1;
++	}
++}
++
++static int mlx5i_get_port_settings(struct net_device *netdev,
++				   u16 *ib_link_width_oper, u16 *ib_proto_oper)
++{
++	struct mlx5e_priv *priv    = mlx5i_epriv(netdev);
++	struct mlx5_core_dev *mdev = priv->mdev;
++	u32 out[MLX5_ST_SZ_DW(ptys_reg)] = {0};
++	int ret;
++
++	ret = mlx5_query_port_ptys(mdev, out, sizeof(out), MLX5_PTYS_IB, 1);
++	if (ret)
++		return ret;
++
++	*ib_link_width_oper = MLX5_GET(ptys_reg, out, ib_link_width_oper);
++	*ib_proto_oper      = MLX5_GET(ptys_reg, out, ib_proto_oper);
++
++	return 0;
++}
++
++static int mlx5i_get_speed_settings(u16 ib_link_width_oper, u16 ib_proto_oper)
++{
++	int rate, width;
++
++	rate = mlx5_ptys_rate_enum_to_int(ib_proto_oper);
++	if (rate < 0)
++		return -EINVAL;
++	width = mlx5_ptys_width_enum_to_int(ib_link_width_oper);
++	if (width < 0)
++		return -EINVAL;
++
++	return rate * width;
++}
++
++static int mlx5i_get_link_ksettings(struct net_device *netdev,
++				    struct ethtool_link_ksettings *link_ksettings)
++{
++	u16 ib_link_width_oper;
++	u16 ib_proto_oper;
++	int speed, ret;
++
++	ret = mlx5i_get_port_settings(netdev, &ib_link_width_oper, &ib_proto_oper);
++	if (ret)
++		return ret;
++
++	ethtool_link_ksettings_zero_link_mode(link_ksettings, supported);
++	ethtool_link_ksettings_zero_link_mode(link_ksettings, advertising);
++
++	speed = mlx5i_get_speed_settings(ib_link_width_oper, ib_proto_oper);
++	if (speed < 0)
++		return -EINVAL;
++
++	link_ksettings->base.duplex = DUPLEX_FULL;
++	link_ksettings->base.port = PORT_OTHER;
++
++	link_ksettings->base.autoneg = AUTONEG_DISABLE;
++
++	link_ksettings->base.speed = speed;
++
++	return 0;
++}
++
+ const struct ethtool_ops mlx5i_ethtool_ops = {
+-	.get_drvinfo       = mlx5i_get_drvinfo,
+-	.get_strings       = mlx5i_get_strings,
+-	.get_sset_count    = mlx5i_get_sset_count,
+-	.get_ethtool_stats = mlx5i_get_ethtool_stats,
+-	.get_ringparam     = mlx5i_get_ringparam,
+-	.set_ringparam     = mlx5i_set_ringparam,
+-	.flash_device      = mlx5i_flash_device,
+-	.get_channels      = mlx5i_get_channels,
+-	.set_channels      = mlx5i_set_channels,
+-	.get_coalesce      = mlx5i_get_coalesce,
+-	.set_coalesce      = mlx5i_set_coalesce,
+-	.get_ts_info       = mlx5i_get_ts_info,
++	.get_drvinfo        = mlx5i_get_drvinfo,
++	.get_strings        = mlx5i_get_strings,
++	.get_sset_count     = mlx5i_get_sset_count,
++	.get_ethtool_stats  = mlx5i_get_ethtool_stats,
++	.get_ringparam      = mlx5i_get_ringparam,
++	.set_ringparam      = mlx5i_set_ringparam,
++	.flash_device       = mlx5i_flash_device,
++	.get_channels       = mlx5i_get_channels,
++	.set_channels       = mlx5i_set_channels,
++	.get_coalesce       = mlx5i_get_coalesce,
++	.set_coalesce       = mlx5i_set_coalesce,
++	.get_ts_info        = mlx5i_get_ts_info,
++	.get_link_ksettings = mlx5i_get_link_ksettings,
++	.get_link           = ethtool_op_get_link,
+ };
 -- 
 2.13.0
