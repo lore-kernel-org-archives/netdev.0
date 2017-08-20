@@ -1,32 +1,27 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: [PATCH net-next v3] arm: eBPF JIT compiler
-Date: Mon, 21 Aug 2017 03:46:05 +0530
-Message-ID: <CAHgaXdKFtv9GUWJZBpTkbq807a+=rJRJ+fk3rKqPW1Jhjert3A@mail.gmail.com>
-References: <1503134429-29063-1-git-send-email-illusionist.neo@gmail.com> <599A0961.3010300@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [pull request][V2 net-next 00/15] Mellanox, mlx5 updates
+ 2017-08-17
+Date: Sun, 20 Aug 2017 15:19:59 -0700 (PDT)
+Message-ID: <20170820.151959.2262501920719279110.davem@davemloft.net>
+References: <20170820134916.10222-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
-        David Miller <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@fb.com>,
-        linux-arm-kernel@lists.infradead.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Kees Cook <keescook@chromium.org>, Andrew Lunn <andrew@lunn.ch>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <599A0961.3010300@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leonro@mellanox.com
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43876 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753334AbdHTWUA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 18:20:00 -0400
+In-Reply-To: <20170820134916.10222-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> With the below #ifdef __LITTLE_ENDIAN spanning the entire
-> bpf_int_jit_compile(), a user can then enable and compile
-> eBPF JIT for big endian, even set the bpf_jit_enable to 1
-> to turn it on, but it won't JIT anything, which is contrary
-> to the expectation.
->
-> This should rather be a hard dependency in the Kconfig, if
-> I got it correctly, expressed as e.g.
->
->         select HAVE_EBPF_JIT if !CPU_ENDIAN_BE32
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Sun, 20 Aug 2017 16:49:01 +0300
 
-Will do it. That's a good catch. Thanks Daniel.
+> The following changes provide updates for mlx5 ethernet and IPoIB
+> netdevice driver.
+
+Pulled, thanks Saeed.
