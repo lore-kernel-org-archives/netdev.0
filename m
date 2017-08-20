@@ -1,267 +1,150 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: [PATCH v6 iproute2 8/8] rdma: Add initial manual for the tool
-Date: Sun, 20 Aug 2017 12:58:28 +0300
-Message-ID: <20170820095828.13812-9-leon@kernel.org>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH v6 iproute2 5/8] rdma: Add json and pretty outputs
+Date: Sun, 20 Aug 2017 12:58:25 +0300
+Message-ID: <20170820095828.13812-6-leon@kernel.org>
 References: <20170820095828.13812-1-leon@kernel.org>
-Cc: linux-rdma@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ariel Almog <ariela@mellanox.com>,
-        David Laight <David.Laight@ACULAB.COM>,
-        Linux Netdev <netdev@vger.kernel.org>
-To: Doug Ledford <dledford@redhat.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:49270 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752572AbdHTJ6y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 20 Aug 2017 05:58:54 -0400
-In-Reply-To: <20170820095828.13812-1-leon@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        Jiri Pirko <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ariel Almog <ariela-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+        Linux Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170820095828.13812-1-leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Leon Romanovsky <leonro@mellanox.com>
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+Signed-off-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- man/man8/rdma-dev.8  |  55 +++++++++++++++++++++++++++
- man/man8/rdma-link.8 |  55 +++++++++++++++++++++++++++
- man/man8/rdma.8      | 102 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 212 insertions(+)
- create mode 100644 man/man8/rdma-dev.8
- create mode 100644 man/man8/rdma-link.8
- create mode 100644 man/man8/rdma.8
+ rdma/rdma.c | 31 ++++++++++++++++++++++++++++---
+ rdma/rdma.h |  4 ++++
+ 2 files changed, 32 insertions(+), 3 deletions(-)
 
-diff --git a/man/man8/rdma-dev.8 b/man/man8/rdma-dev.8
-new file mode 100644
-index 00000000..461681b6
---- /dev/null
-+++ b/man/man8/rdma-dev.8
-@@ -0,0 +1,55 @@
-+.TH RDMA\-DEV 8 "06 Jul 2017" "iproute2" "Linux"
-+.SH NAME
-+rdmak-dev \- RDMA device configuration
-+.SH SYNOPSIS
-+.sp
-+.ad l
-+.in +8
-+.ti -8
-+.B rdma
-+.RI "[ " OPTIONS " ]"
-+.B dev
-+.RI  " { " COMMAND " | "
-+.BR help " }"
-+.sp
+diff --git a/rdma/rdma.c b/rdma/rdma.c
+index 74c09e8b..f9f4f2a2 100644
+--- a/rdma/rdma.c
++++ b/rdma/rdma.c
+@@ -16,7 +16,7 @@ static void help(char *name)
+ {
+ 	pr_out("Usage: %s [ OPTIONS ] OBJECT { COMMAND | help }\n"
+ 	       "where  OBJECT := { dev | link | help }\n"
+-	       "       OPTIONS := { -V[ersion] | -d[etails]}\n", name);
++	       "       OPTIONS := { -V[ersion] | -d[etails] | -j[son] | -p[retty]}\n", name);
+ }
+ 
+ static int cmd_help(struct rd *rd)
+@@ -47,6 +47,16 @@ static int rd_init(struct rd *rd, int argc, char **argv, char *filename)
+ 	rd->argc = argc;
+ 	rd->argv = argv;
+ 	INIT_LIST_HEAD(&rd->dev_map_list);
 +
-+.ti -8
-+.IR OPTIONS " := { "
-+\fB\-V\fR[\fIersion\fR] |
-+\fB\-d\fR[\fIetails\fR] }
++	if (rd->json_output) {
++		rd->jw = jsonw_new(stdout);
++		if (!rd->jw) {
++			pr_err("Failed to create JSON writer\n");
++			return -ENOMEM;
++		}
++		jsonw_pretty(rd->jw, rd->pretty_output);
++	}
 +
-+.ti -8
-+.B rdma dev show
-+.RI "[ " DEV " ]"
+ 	rd->buff = malloc(MNL_SOCKET_BUFFER_SIZE);
+ 	if (!rd->buff)
+ 		return -ENOMEM;
+@@ -62,6 +72,8 @@ static int rd_init(struct rd *rd, int argc, char **argv, char *filename)
+ 
+ static void rd_free(struct rd *rd)
+ {
++	if (rd->json_output)
++		jsonw_destroy(&rd->jw);
+ 	free(rd->buff);
+ 	rd_free_devmap(rd);
+ }
+@@ -71,10 +83,14 @@ int main(int argc, char **argv)
+ 	static const struct option long_options[] = {
+ 		{ "version",		no_argument,		NULL, 'V' },
+ 		{ "help",		no_argument,		NULL, 'h' },
++		{ "json",		no_argument,		NULL, 'j' },
++		{ "pretty",		no_argument,		NULL, 'p' },
+ 		{ "details",		no_argument,		NULL, 'd' },
+ 		{ NULL, 0, NULL, 0 }
+ 	};
++	bool pretty_output = false;
+ 	bool show_details = false;
++	bool json_output = false;
+ 	char *filename;
+ 	struct rd rd;
+ 	int opt;
+@@ -82,16 +98,22 @@ int main(int argc, char **argv)
+ 
+ 	filename = basename(argv[0]);
+ 
+-	while ((opt = getopt_long(argc, argv, "Vhd",
++	while ((opt = getopt_long(argc, argv, "Vhdpj",
+ 				  long_options, NULL)) >= 0) {
+ 		switch (opt) {
+ 		case 'V':
+ 			printf("%s utility, iproute2-ss%s\n",
+ 			       filename, SNAPSHOT);
+ 			return EXIT_SUCCESS;
++		case 'p':
++			pretty_output = true;
++			break;
+ 		case 'd':
+ 			show_details = true;
+ 			break;
++		case 'j':
++			json_output = true;
++			break;
+ 		case 'h':
+ 			help(filename);
+ 			return EXIT_SUCCESS;
+@@ -105,11 +127,14 @@ int main(int argc, char **argv)
+ 	argc -= optind;
+ 	argv += optind;
+ 
++	rd.show_details = show_details;
++	rd.json_output = json_output;
++	rd.pretty_output = pretty_output;
 +
-+.ti -8
-+.B rdma dev help
-+
-+.SH "DESCRIPTION"
-+.SS rdma dev show - display rdma device attributes
-+
-+.PP
-+.I "DEV"
-+- specifies the RDMA device to show.
-+If this argument is omitted all devices are listed.
-+
-+.SH "EXAMPLES"
-+.PP
-+rdma dev
-+.RS 4
-+Shows the state of all RDMA devices on the system.
-+.RE
-+.PP
-+rdma dev show mlx5_3
-+.RS 4
-+Shows the state of specified RDMA device.
-+.RE
-+.PP
-+
-+.SH SEE ALSO
-+.BR rdma (8),
-+.BR rdma-link (8),
-+.br
-+
-+.SH AUTHOR
-+Leon Romanovsky <leonro@mellanox.com>
-diff --git a/man/man8/rdma-link.8 b/man/man8/rdma-link.8
-new file mode 100644
-index 00000000..8ed049ef
---- /dev/null
-+++ b/man/man8/rdma-link.8
-@@ -0,0 +1,55 @@
-+.TH RDMA\-LINK 8 "06 Jul 2017" "iproute2" "Linux"
-+.SH NAME
-+rdma-link \- rdma link configuration
-+.SH SYNOPSIS
-+.sp
-+.ad l
-+.in +8
-+.ti -8
-+.B devlink
-+.RI "[ " OPTIONS " ]"
-+.B link
-+.RI  " { " COMMAND " | "
-+.BR help " }"
-+.sp
-+
-+.ti -8
-+.IR OPTIONS " := { "
-+\fB\-V\fR[\fIersion\fR] |
-+\fB\-d\fR[\fIetails\fR] }
-+
-+.ti -8
-+.B rdma link show
-+.RI "[ " DEV/PORT_INDEX " ]"
-+
-+.ti -8
-+.B rdma link help
-+
-+.SH "DESCRIPTION"
-+.SS rdma link show - display rdma link attributes
-+
-+.PP
-+.I "DEV/PORT_INDEX"
-+- specifies the RDMa link to show.
-+If this argument is omitted all links are listed.
-+
-+.SH "EXAMPLES"
-+.PP
-+rdma link show
-+.RS 4
-+Shows the state of all rdma links on the system.
-+.RE
-+.PP
-+rdma link show mlx5_2/1
-+.RS 4
-+Shows the state of specified rdma link.
-+.RE
-+.PP
-+
-+.SH SEE ALSO
-+.BR rdma (8),
-+.BR rdma-dev (8),
-+.br
-+
-+.SH AUTHOR
-+Leon Romanovsky <leonro@mellanox.com>
-diff --git a/man/man8/rdma.8 b/man/man8/rdma.8
-new file mode 100644
-index 00000000..798b33d3
---- /dev/null
-+++ b/man/man8/rdma.8
-@@ -0,0 +1,102 @@
-+.TH RDMA 8 "28 Mar 2017" "iproute2" "Linux"
-+.SH NAME
-+rdma \- RDMA tool
-+.SH SYNOPSIS
-+.sp
-+.ad l
-+.in +8
-+.ti -8
-+.B rdma
-+.RI "[ " OPTIONS " ] " OBJECT " { " COMMAND " | "
-+.BR help " }"
-+.sp
-+
-+.ti -8
-+.IR OBJECT " := { "
-+.BR dev " | " link " }"
-+.sp
-+
-+.ti -8
-+.IR OPTIONS " := { "
-+\fB\-V\fR[\fIersion\fR] |
-+\fB\-d\fR[\fIetails\fR] }
-+\fB\-j\fR[\fIson\fR] }
-+\fB\-p\fR[\fIretty\fR] }
-+
-+.SH OPTIONS
-+
-+.TP
-+.BR "\-V" , " -Version"
-+Print the version of the
-+.B rdma
-+tool and exit.
-+
-+.TP
-+.BR "\-d" , " --details"
-+Otuput detailed information.
-+
-+.TP
-+.BR "\-p" , " --pretty"
-+When combined with -j generate a pretty JSON output.
-+
-+.TP
-+.BR "\-j" , " --json"
-+Generate JSON output.
-+
-+.SS
-+.I OBJECT
-+
-+.TP
-+.B dev
-+- RDMA device.
-+
-+.TP
-+.B link
-+- RDMA port related.
-+
-+.PP
-+The names of all objects may be written in full or
-+abbreviated form, for example
-+.B stats
-+can be abbreviated as
-+.B stat
-+or just
-+.B s.
-+
-+.SS
-+.I COMMAND
-+
-+Specifies the action to perform on the object.
-+The set of possible actions depends on the object type.
-+As a rule, it is possible to
-+.B show
-+(or
-+.B list
-+) objects, but some objects do not allow all of these operations
-+or have some additional commands. The
-+.B help
-+command is available for all objects. It prints
-+out a list of available commands and argument syntax conventions.
-+.sp
-+If no command is given, some default command is assumed.
-+Usually it is
-+.B list
-+or, if the objects of this class cannot be listed,
-+.BR "help" .
-+
-+.SH EXIT STATUS
-+Exit status is 0 if command was successful or a positive integer upon failure.
-+
-+.SH SEE ALSO
-+.BR rdma-dev (8),
-+.BR rdma-link (8),
-+.br
-+
-+.SH REPORTING BUGS
-+Report any bugs to the Linux RDMA mailing list
-+.B <linux-rdma@vger.kernel.org>
-+where the development and maintenance is primarily done.
-+You do not have to be subscribed to the list to send a message there.
-+
-+.SH AUTHOR
-+Leon Romanovsky <leonro@mellanox.com>
+ 	err = rd_init(&rd, argc, argv, filename);
+ 	if (err)
+ 		goto out;
+ 
+-	rd.show_details = show_details;
+ 	err = rd_cmd(&rd);
+ out:
+ 	/* Always cleanup */
+diff --git a/rdma/rdma.h b/rdma/rdma.h
+index 36b047d3..4c564fef 100644
+--- a/rdma/rdma.h
++++ b/rdma/rdma.h
+@@ -21,6 +21,7 @@
+ 
+ #include "list.h"
+ #include "utils.h"
++#include "json_writer.h"
+ 
+ #define pr_err(args...) fprintf(stderr, ##args)
+ #define pr_out(args...) fprintf(stdout, ##args)
+@@ -46,6 +47,9 @@ struct rd {
+ 	struct mnl_socket *nl;
+ 	struct nlmsghdr *nlh;
+ 	char *buff;
++	json_writer_t *jw;
++	bool json_output;
++	bool pretty_output;
+ };
+ 
+ struct rd_cmd {
 -- 
 2.14.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
