@@ -1,55 +1,68 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH net-next 4/4] mlx4: sizeof style usage
-Date: Sun, 20 Aug 2017 13:27:14 +0300
-Message-ID: <d38cac6d-77a7-e411-73b0-78adad9cbd5f@mellanox.com>
-References: <20170815172919.26153-1-sthemmin@microsoft.com>
- <20170815172919.26153-5-sthemmin@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        virtualization@lists.linux-foundation.org,
-        Stephen Hemminger <sthemmin@microsoft.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        mlindner@marvell.com, mst@redhat.com, jasowang@redhat.com
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: [RFC PATCH] dt-binding: net: sfp binding documentation
+Date: Sun, 20 Aug 2017 13:28:06 +0300
+Message-ID: <d73b635069a2054d110632f1f4196cd4bc281e7f.1503224886.git.baruch@tkos.co.il>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        Baruch Siach <baruch@tkos.co.il>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Russell King <rmk+kernel@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0074.outbound.protection.outlook.com ([104.47.2.74]:28224
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752417AbdHTK1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 20 Aug 2017 06:27:25 -0400
-In-Reply-To: <20170815172919.26153-5-sthemmin@microsoft.com>
-Content-Language: en-US
+Received: from guitar.tcltek.co.il ([192.115.133.116]:46483 "EHLO
+        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751634AbdHTK2y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 20 Aug 2017 06:28:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Stephen.
-Sorry for the late reply, I was on vacation.
-I know this is already accepted, but still I have one comment.
+Add device-tree binding documentation SFP transceivers. Support for SFP
+transceivers has been recently introduced (drivers/net/phy/sfp.c).
 
-On 15/08/2017 8:29 PM, Stephen Hemminger wrote:
-> The kernel coding style is to treat sizeof as a function
-> (ie. with parenthesis) not as an operator.
-> 
-> Also use kcalloc and kmalloc_array
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> ---
-> @@ -726,7 +726,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
->   			}
->   			memcpy(&priv->mfunc.master.comm_arm_bit_vector,
->   			       eqe->event.comm_channel_arm.bit_vec,
-> -			       sizeof eqe->event.comm_channel_arm.bit_vec);
-> +			       sizeof(eqe)->event.comm_channel_arm.bit_vec);
+Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+---
 
-I think the brackets here are misplaced.
-Shouldn't they be as follows?
+The SFP driver is on net-next.
 
-sizeof(eqe->event.comm_channel_arm.bit_vec));
+Not sure about the rate-select-gpio property name. The SFP+ standard
+(not supported yet) uses two signals, RS0 and RS1. RS0 is compatible
+with the SFP rate select signal, while RS1 controls the Tx rate.
+---
+ Documentation/devicetree/bindings/net/sff-sfp.txt | 24 +++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/sff-sfp.txt
 
->   			queue_work(priv->mfunc.master.comm_wq,
->   				   &priv->mfunc.master.comm_work);
->   			break;
-
-Thanks,
-Tariq
+diff --git a/Documentation/devicetree/bindings/net/sff-sfp.txt b/Documentation/devicetree/bindings/net/sff-sfp.txt
+new file mode 100644
+index 000000000000..f0c27bc3925e
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/sff-sfp.txt
+@@ -0,0 +1,24 @@
++Small Form Factor (SFF) Committee Small Form-factor Pluggable (SFP)
++Transceiver
++
++Required properties:
++
++- compatible : must be "sff,sfp"
++
++Optional Properties:
++
++- i2c-bus : phandle of an I2C bus controller for the SFP two wire serial
++  interface
++
++- moddef0-gpio : phandle of the MOD-DEF0 (AKA Mod_ABS) module presence input
++  gpio signal
++
++- los-gpio : phandle of the Receiver Loss of Signal Indication input gpio
++  signal
++
++- tx-fault-gpio : phandle of the Module Transmitter Fault input gpio signal
++
++- tx-disable-gpio : phandle of the Transmitter Disable output gpio signal
++
++- rate-select-gpio : phandle of the Rx Signaling Rate Select (AKA RS0) output
++  gpio
+-- 
+2.14.1
