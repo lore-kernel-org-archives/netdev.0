@@ -1,58 +1,52 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [V2 net-next 09/15] net/mlx5: Avoid blank lines after/before open/close brace
-Date: Sun, 20 Aug 2017 16:49:10 +0300
-Message-ID: <20170820134916.10222-10-saeedm@mellanox.com>
-References: <20170820134916.10222-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44781 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752937AbdHTNtX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 09:49:23 -0400
-In-Reply-To: <20170820134916.10222-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
+ sun8i-h3-emac
+Date: Sun, 20 Aug 2017 16:25:45 +0200
+Message-ID: <20170820142545.GB24150@lunn.ch>
+References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
+ <20170818122118.4925-4-clabbe.montjoie@gmail.com>
+ <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
+ <20170819185025.GB13266@Red>
+ <20170819203836.GA21567@lunn.ch>
+ <20170820065757.GA6081@Red>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170820065757.GA6081@Red>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+> I think we cannot use mdio-mux-mmioreg since the register for doing
+> the switch is in middle of the "System Control" and shared with
+> other functions.  This is why we use a sycon/regmap for selecting
+> the MDIO.
 
-To fix these checkpatch complaints:
+You could add a mdio-mux-regmap.c.
 
-CHECK: Blank lines aren't necessary after an open brace '{'
-CHECK: Blank lines aren't necessary before a close brace '}'
+However, it probably need restructuring of the stmmac mdio code, to
+make the mdio bus usable as a separate driver. You need stmmac mdio
+to probe first, then mdio-mux-remap should probe, and then lastly
+stmmmac mac driver.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 1 -
- drivers/net/ethernet/mellanox/mlx5/core/sriov.c      | 1 -
- 2 files changed, 2 deletions(-)
+With stmmac mdio and stmmac mac being in one driver, there is no time
+in the middle to allow the mux driver to probe.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index d453a11f41fe..a75ac4d11c5b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -176,7 +176,6 @@ static bool mlx5e_query_global_pause_combined(struct mlx5e_priv *priv)
- 
- int mlx5e_ethtool_get_sset_count(struct mlx5e_priv *priv, int sset)
- {
--
- 	switch (sset) {
- 	case ETH_SS_STATS:
- 		return NUM_SW_COUNTERS +
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
-index 5e7ffc9fad78..55b07c5ecd12 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
-@@ -71,7 +71,6 @@ static int mlx5_device_enable_sriov(struct mlx5_core_dev *dev, int num_vfs)
- 		sriov->vfs_ctx[vf].enabled = 1;
- 		sriov->enabled_vfs++;
- 		mlx5_core_dbg(dev, "successfully enabled VF* %d\n", vf);
--
- 	}
- 
- 	return 0;
--- 
-2.13.0
+It is some effort, but a nice cleanup and generalization.
+
+   Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
