@@ -1,46 +1,55 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3 net 0/2 RESEND] net: ixgbe: Use new flag to disable Relaxed Ordering
-Date: Sun, 20 Aug 2017 18:10:53 +0800
-Message-ID: <1503223855-24616-1-git-send-email-dingtianhong@huawei.com>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [PATCH net-next 4/4] mlx4: sizeof style usage
+Date: Sun, 20 Aug 2017 13:27:14 +0300
+Message-ID: <d38cac6d-77a7-e411-73b0-78adad9cbd5f@mellanox.com>
+References: <20170815172919.26153-1-sthemmin@microsoft.com>
+ <20170815172919.26153-5-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ding Tianhong <dingtianhong@huawei.com>
-To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
-        <keescook@chromium.org>, <linux-kernel@vger.kernel.org>,
-        <sparclinux@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
-        <alexander.duyck@gmail.com>, <netdev@vger.kernel.org>,
-        <linuxarm@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        virtualization@lists.linux-foundation.org,
+        Stephen Hemminger <sthemmin@microsoft.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        mlindner@marvell.com, mst@redhat.com, jasowang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0074.outbound.protection.outlook.com ([104.47.2.74]:28224
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752417AbdHTK1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 20 Aug 2017 06:27:25 -0400
+In-Reply-To: <20170815172919.26153-5-sthemmin@microsoft.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING has been added
-to indicate that Relaxed Ordering Attributes (RO) should not
-be used for Transaction Layer Packets (TLP) targeted toward
-these affected Root Port, it will clear the bit4 in the PCIe
-Device Control register, so the PCIe device drivers could
-query PCIe configuration space to determine if it can send
-TLPs to Root Port with the Relaxed Ordering Attributes set.
+Thanks Stephen.
+Sorry for the late reply, I was on vacation.
+I know this is already accepted, but still I have one comment.
 
-The ixgbe driver could use this flag to determine if it can
-send TLPs to Root Port with the Relaxed Ordering Attributes set.
+On 15/08/2017 8:29 PM, Stephen Hemminger wrote:
+> The kernel coding style is to treat sizeof as a function
+> (ie. with parenthesis) not as an operator.
+> 
+> Also use kcalloc and kmalloc_array
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> ---
+> @@ -726,7 +726,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+>   			}
+>   			memcpy(&priv->mfunc.master.comm_arm_bit_vector,
+>   			       eqe->event.comm_channel_arm.bit_vec,
+> -			       sizeof eqe->event.comm_channel_arm.bit_vec);
+> +			       sizeof(eqe)->event.comm_channel_arm.bit_vec);
 
-v2: Simplify the original program according Alex's suggestion,
-    remove the new ixgbe flag2 and only check the bit4 in the
-    PCIe Device Control register. 
+I think the brackets here are misplaced.
+Shouldn't they be as follows?
 
-v3: Remove the code that clears the bits in DCA_T/RXCTRL, relaxed
-    ordering should be enabled by the HW when the bus allow it.
+sizeof(eqe->event.comm_channel_arm.bit_vec));
 
-Ding Tianhong (2):
-  Revert commit 1a8b6d76dc5b ("net:add one common config...")
-  net: ixgbe: Use new IXGBE_FLAG2_ROOT_NO_RELAXED_ORDERING flag
+>   			queue_work(priv->mfunc.master.comm_wq,
+>   				   &priv->mfunc.master.comm_work);
+>   			break;
 
- arch/Kconfig                                    |  3 --
- arch/sparc/Kconfig                              |  1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 37 ++++++++++++-------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 32 +++++++++++----------
- 4 files changed, 35 insertions(+), 38 deletions(-)
-
--- 
-1.8.3.1
+Thanks,
+Tariq
