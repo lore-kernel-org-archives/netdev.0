@@ -1,24 +1,39 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: [PATCH net-next v3] arm: eBPF JIT compiler
-Date: Sun, 20 Aug 2017 21:42:32 +0530
-Message-ID: <CAHgaXdJACSL8m0zS3O_m1MSenqMLAnRtRk_3tViBt5exhpEV1w@mail.gmail.com>
-References: <1503134429-29063-1-git-send-email-illusionist.neo@gmail.com> <c2f4c796-0cb0-7eca-6cab-fed6b25020d5@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
-        David Miller <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        linux-arm-kernel@lists.infradead.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Kees Cook <keescook@chromium.org>, Andrew Lunn <andrew@lunn.ch>
-To: Alexei Starovoitov <ast@fb.com>
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH] ieee802154: ca8210: Fix a potential NULL pointer dereference
+Date: Sun, 20 Aug 2017 18:25:02 +0200
+Message-ID: <20170820162502.4342-1-christophe.jaillet@wanadoo.fr>
+Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: h.morris@cascoda.com, linuxdev@cascoda.com, alex.aring@gmail.com,
+        stefan@osg.samsung.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c2f4c796-0cb0-7eca-6cab-fed6b25020d5@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+'spi' is known to be NULL, so we dereference a NULL pointer here.
+Use 'pr_crit()' instead of 'dev_crit()' to report the message.
 
-David, Russell, Kees and Daniel, Anything from your side? Is this
-patch ready to land in net-next?
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+---
+ drivers/net/ieee802154/ca8210.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/drivers/net/ieee802154/ca8210.c b/drivers/net/ieee802154/ca8210.c
+index 326243fae7e2..24a1eabbbc9d 100644
+--- a/drivers/net/ieee802154/ca8210.c
++++ b/drivers/net/ieee802154/ca8210.c
+@@ -917,10 +917,7 @@ static int ca8210_spi_transfer(
+ 	struct cas_control *cas_ctl;
+ 
+ 	if (!spi) {
+-		dev_crit(
+-			&spi->dev,
+-			"NULL spi device passed to ca8210_spi_transfer\n"
+-		);
++		pr_crit("NULL spi device passed to %s\n", __func__);
+ 		return -ENODEV;
+ 	}
+ 
+-- 
+2.11.0
