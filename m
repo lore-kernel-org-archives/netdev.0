@@ -1,188 +1,104 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [V2 net-next 03/15] net/mlx5e: IPoIB, Add support for get_link_ksettings in ethtool
-Date: Sun, 20 Aug 2017 16:49:04 +0300
-Message-ID: <20170820134916.10222-4-saeedm@mellanox.com>
-References: <20170820134916.10222-1-saeedm@mellanox.com>
+Subject: [pull request][V2 net-next 00/15] Mellanox, mlx5 updates 2017-08-17
+Date: Sun, 20 Aug 2017 16:49:01 +0300
+Message-ID: <20170820134916.10222-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Shalom Lagziel <shaloml@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44774 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44765 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752942AbdHTNtX (ORCPT
+        with ESMTP id S1752963AbdHTNtX (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 09:49:23 -0400
-In-Reply-To: <20170820134916.10222-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shalom Lagziel <shaloml@mellanox.com>
+Hi Dave,
 
-Add support for "ethtool DEVNAME" over ipoib ports,
-Display standard port information for IPoIB netdevices using ethtool
-For example:
-$ ethtool ib2
-> Settings for ib2:
-        Supported ports: [ ]
-        Supported link modes:   Not reported
-        Supported pause frame use: No
-        Supports auto-negotiation: No
-        Advertised link modes:  Not reported
-        Advertised pause frame use: No
-        Advertised auto-negotiation: No
-        Speed: 100000Mb/s
-        Duplex: Full
-        Port: Other
-        PHYAD: 0
-        Transceiver: internal
-        Auto-negotiation: off
-        Link detected: yes
+Tthe following changes provide updates for mlx5 ethernet and IPoIB
+netdevice driver.
 
-Signed-off-by: Shalom Lagziel <shaloml@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+For more details please see tag log message below.
+Please pull and let me know if there's any problem.
+
+V1->V2:
+	- Rebase on latest net-next
+	- Fix a typo in 1st patch's commit message.
+	- Fix indentation in "Properly indent within conditional statements" patch.
+
+Thanks,
+Saeed.
+
 ---
- .../ethernet/mellanox/mlx5/core/ipoib/ethtool.c    | 130 +++++++++++++++++++--
- 1 file changed, 118 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
-index b080fabfe8de..dd49a59854e5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
-@@ -131,17 +131,123 @@ static int mlx5i_flash_device(struct net_device *netdev,
- 	return mlx5e_ethtool_flash_device(priv, flash);
- }
- 
-+enum mlx5_ptys_width {
-+	MLX5_PTYS_WIDTH_1X	= 1 << 0,
-+	MLX5_PTYS_WIDTH_2X	= 1 << 1,
-+	MLX5_PTYS_WIDTH_4X	= 1 << 2,
-+	MLX5_PTYS_WIDTH_8X	= 1 << 3,
-+	MLX5_PTYS_WIDTH_12X	= 1 << 4,
-+};
-+
-+static inline int mlx5_ptys_width_enum_to_int(enum mlx5_ptys_width width)
-+{
-+	switch (width) {
-+	case MLX5_PTYS_WIDTH_1X:  return  1;
-+	case MLX5_PTYS_WIDTH_2X:  return  2;
-+	case MLX5_PTYS_WIDTH_4X:  return  4;
-+	case MLX5_PTYS_WIDTH_8X:  return  8;
-+	case MLX5_PTYS_WIDTH_12X: return 12;
-+	default:		  return -1;
-+	}
-+}
-+
-+enum mlx5_ptys_rate {
-+	MLX5_PTYS_RATE_SDR	= 1 << 0,
-+	MLX5_PTYS_RATE_DDR	= 1 << 1,
-+	MLX5_PTYS_RATE_QDR	= 1 << 2,
-+	MLX5_PTYS_RATE_FDR10	= 1 << 3,
-+	MLX5_PTYS_RATE_FDR	= 1 << 4,
-+	MLX5_PTYS_RATE_EDR	= 1 << 5,
-+	MLX5_PTYS_RATE_HDR	= 1 << 6,
-+};
-+
-+static inline int mlx5_ptys_rate_enum_to_int(enum mlx5_ptys_rate rate)
-+{
-+	switch (rate) {
-+	case MLX5_PTYS_RATE_SDR:   return 2500;
-+	case MLX5_PTYS_RATE_DDR:   return 5000;
-+	case MLX5_PTYS_RATE_QDR:
-+	case MLX5_PTYS_RATE_FDR10: return 10000;
-+	case MLX5_PTYS_RATE_FDR:   return 14000;
-+	case MLX5_PTYS_RATE_EDR:   return 25000;
-+	case MLX5_PTYS_RATE_HDR:   return 50000;
-+	default:		   return -1;
-+	}
-+}
-+
-+static int mlx5i_get_port_settings(struct net_device *netdev,
-+				   u16 *ib_link_width_oper, u16 *ib_proto_oper)
-+{
-+	struct mlx5e_priv *priv    = mlx5i_epriv(netdev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)] = {0};
-+	int ret;
-+
-+	ret = mlx5_query_port_ptys(mdev, out, sizeof(out), MLX5_PTYS_IB, 1);
-+	if (ret)
-+		return ret;
-+
-+	*ib_link_width_oper = MLX5_GET(ptys_reg, out, ib_link_width_oper);
-+	*ib_proto_oper      = MLX5_GET(ptys_reg, out, ib_proto_oper);
-+
-+	return 0;
-+}
-+
-+static int mlx5i_get_speed_settings(u16 ib_link_width_oper, u16 ib_proto_oper)
-+{
-+	int rate, width;
-+
-+	rate = mlx5_ptys_rate_enum_to_int(ib_proto_oper);
-+	if (rate < 0)
-+		return -EINVAL;
-+	width = mlx5_ptys_width_enum_to_int(ib_link_width_oper);
-+	if (width < 0)
-+		return -EINVAL;
-+
-+	return rate * width;
-+}
-+
-+static int mlx5i_get_link_ksettings(struct net_device *netdev,
-+				    struct ethtool_link_ksettings *link_ksettings)
-+{
-+	u16 ib_link_width_oper;
-+	u16 ib_proto_oper;
-+	int speed, ret;
-+
-+	ret = mlx5i_get_port_settings(netdev, &ib_link_width_oper, &ib_proto_oper);
-+	if (ret)
-+		return ret;
-+
-+	ethtool_link_ksettings_zero_link_mode(link_ksettings, supported);
-+	ethtool_link_ksettings_zero_link_mode(link_ksettings, advertising);
-+
-+	speed = mlx5i_get_speed_settings(ib_link_width_oper, ib_proto_oper);
-+	if (speed < 0)
-+		return -EINVAL;
-+
-+	link_ksettings->base.duplex = DUPLEX_FULL;
-+	link_ksettings->base.port = PORT_OTHER;
-+
-+	link_ksettings->base.autoneg = AUTONEG_DISABLE;
-+
-+	link_ksettings->base.speed = speed;
-+
-+	return 0;
-+}
-+
- const struct ethtool_ops mlx5i_ethtool_ops = {
--	.get_drvinfo       = mlx5i_get_drvinfo,
--	.get_strings       = mlx5i_get_strings,
--	.get_sset_count    = mlx5i_get_sset_count,
--	.get_ethtool_stats = mlx5i_get_ethtool_stats,
--	.get_ringparam     = mlx5i_get_ringparam,
--	.set_ringparam     = mlx5i_set_ringparam,
--	.flash_device      = mlx5i_flash_device,
--	.get_channels      = mlx5i_get_channels,
--	.set_channels      = mlx5i_set_channels,
--	.get_coalesce      = mlx5i_get_coalesce,
--	.set_coalesce      = mlx5i_set_coalesce,
--	.get_ts_info       = mlx5i_get_ts_info,
-+	.get_drvinfo        = mlx5i_get_drvinfo,
-+	.get_strings        = mlx5i_get_strings,
-+	.get_sset_count     = mlx5i_get_sset_count,
-+	.get_ethtool_stats  = mlx5i_get_ethtool_stats,
-+	.get_ringparam      = mlx5i_get_ringparam,
-+	.set_ringparam      = mlx5i_set_ringparam,
-+	.flash_device       = mlx5i_flash_device,
-+	.get_channels       = mlx5i_get_channels,
-+	.set_channels       = mlx5i_set_channels,
-+	.get_coalesce       = mlx5i_get_coalesce,
-+	.set_coalesce       = mlx5i_set_coalesce,
-+	.get_ts_info        = mlx5i_get_ts_info,
-+	.get_link_ksettings = mlx5i_get_link_ksettings,
-+	.get_link           = ethtool_op_get_link,
- };
--- 
-2.13.0
+The following changes since commit d6e1e46f69fbe956e877cdd00dbfb002baddf577:
+
+  bpf: linux/bpf.h needs linux/numa.h (2017-08-19 23:34:03 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-updates-2017-08-17-V2
+
+for you to fetch changes up to 9da5106c5656fdd7626af8abc09677364055f2c9:
+
+  net/mlx5e: Use size_t to store byte offset in statistics descriptors (2017-08-20 12:57:20 +0300)
+
+----------------------------------------------------------------
+mlx5-updates-2017-08-17
+
+Some updates for mlx5 ethernet and IPoIB device driver.
+
+Eran added the support for manage physical link state from netdevice upon
+interface open/close requests.
+
+Feras fixed the driver name showed in ethtool for IPoIB interfaces.
+Shalom Added the support for IPoIB netdevice ethtool get link settings.
+
+Gal and Eran exposed new diagnostic counters for outbound PCIe stalls and overflow
+and RX buffer fullness statistics.
+
+Code cleanups from Or Gerlitz.
+Variable types cleanup from Gal.
+
+Thanks,
+Saeed.
+
+----------------------------------------------------------------
+Eran Ben Elisha (2):
+      net/mlx5e: Send PAOS command on interface up/down
+      net/mlx5e: Add outbound PCI buffer overflow counter
+
+Feras Daoud (1):
+      net/mlx5e: IPoIB, Fix driver name retrieved by ethtool
+
+Gal Pressman (6):
+      net/mlx5: Add PCIe outbound stalls counters infrastructure
+      net/mlx5e: Add PCIe outbound stalls counters
+      net/mlx5: Add RX buffer fullness counters infrastructure
+      net/mlx5e: Add RX buffer fullness counters
+      net/mlx5e: Use kernel types instead of uint*_t in ethtool callbacks
+      net/mlx5e: Use size_t to store byte offset in statistics descriptors
+
+Or Gerlitz (5):
+      net/mlx5: Avoid blank lines after/before open/close brace
+      net/mlx5: Add a blank line after declarations
+      net/mlx5e: Properly indent within conditional statements
+      net/mlx5e: Avoid using multiple blank lines
+      net/mlx5e: Place constants on the right side of comparisons
+
+Shalom Lagziel (1):
+      net/mlx5e: IPoIB, Add support for get_link_ksettings in ethtool
+
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c    |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   1 -
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  64 +++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  13 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  20 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |  46 ++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   1 +
+ .../ethernet/mellanox/mlx5/core/ipoib/ethtool.c    | 135 ++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   1 -
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |   1 -
+ include/linux/mlx5/mlx5_ifc.h                      |  34 +++++-
+ 12 files changed, 267 insertions(+), 54 deletions(-)
