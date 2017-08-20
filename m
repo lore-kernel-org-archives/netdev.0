@@ -1,104 +1,113 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [pull request][V2 net-next 00/15] Mellanox, mlx5 updates 2017-08-17
-Date: Sun, 20 Aug 2017 16:49:01 +0300
-Message-ID: <20170820134916.10222-1-saeedm@mellanox.com>
+Subject: [V2 net-next 01/15] net/mlx5e: Send PAOS command on interface up/down
+Date: Sun, 20 Aug 2017 16:49:02 +0300
+Message-ID: <20170820134916.10222-2-saeedm@mellanox.com>
+References: <20170820134916.10222-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
+        Eran Ben Elisha <eranbe@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44765 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44792 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752963AbdHTNtX (ORCPT
+        with ESMTP id S1752956AbdHTNtX (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 09:49:23 -0400
+In-Reply-To: <20170820134916.10222-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-Tthe following changes provide updates for mlx5 ethernet and IPoIB
-netdevice driver.
+Upon interface up/down, driver will send PAOS (Ports Administrative and
+Operational Status Register) in order to inform the Firmware on the
+desired status of the port by the driver.
 
-For more details please see tag log message below.
-Please pull and let me know if there's any problem.
+Since now we might change physical link status on mlx5e_open/close,
+logical VF representor should not use mlx5e_open/close ndos as is, and
+should call the logical version mlx5e_open/closed_locked.
 
-V1->V2:
-	- Rebase on latest net-next
-	- Fix a typo in 1st patch's commit message.
-	- Fix indentation in "Properly indent within conditional statements" patch.
-
-Thanks,
-Saeed.
-
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  7 +++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  | 20 +++++++++++++-------
+ 2 files changed, 20 insertions(+), 7 deletions(-)
 
-The following changes since commit d6e1e46f69fbe956e877cdd00dbfb002baddf577:
-
-  bpf: linux/bpf.h needs linux/numa.h (2017-08-19 23:34:03 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-updates-2017-08-17-V2
-
-for you to fetch changes up to 9da5106c5656fdd7626af8abc09677364055f2c9:
-
-  net/mlx5e: Use size_t to store byte offset in statistics descriptors (2017-08-20 12:57:20 +0300)
-
-----------------------------------------------------------------
-mlx5-updates-2017-08-17
-
-Some updates for mlx5 ethernet and IPoIB device driver.
-
-Eran added the support for manage physical link state from netdevice upon
-interface open/close requests.
-
-Feras fixed the driver name showed in ethtool for IPoIB interfaces.
-Shalom Added the support for IPoIB netdevice ethtool get link settings.
-
-Gal and Eran exposed new diagnostic counters for outbound PCIe stalls and overflow
-and RX buffer fullness statistics.
-
-Code cleanups from Or Gerlitz.
-Variable types cleanup from Gal.
-
-Thanks,
-Saeed.
-
-----------------------------------------------------------------
-Eran Ben Elisha (2):
-      net/mlx5e: Send PAOS command on interface up/down
-      net/mlx5e: Add outbound PCI buffer overflow counter
-
-Feras Daoud (1):
-      net/mlx5e: IPoIB, Fix driver name retrieved by ethtool
-
-Gal Pressman (6):
-      net/mlx5: Add PCIe outbound stalls counters infrastructure
-      net/mlx5e: Add PCIe outbound stalls counters
-      net/mlx5: Add RX buffer fullness counters infrastructure
-      net/mlx5e: Add RX buffer fullness counters
-      net/mlx5e: Use kernel types instead of uint*_t in ethtool callbacks
-      net/mlx5e: Use size_t to store byte offset in statistics descriptors
-
-Or Gerlitz (5):
-      net/mlx5: Avoid blank lines after/before open/close brace
-      net/mlx5: Add a blank line after declarations
-      net/mlx5e: Properly indent within conditional statements
-      net/mlx5e: Avoid using multiple blank lines
-      net/mlx5e: Place constants on the right side of comparisons
-
-Shalom Lagziel (1):
-      net/mlx5e: IPoIB, Add support for get_link_ksettings in ethtool
-
- drivers/net/ethernet/mellanox/mlx5/core/alloc.c    |   1 +
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   1 -
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  64 +++++++---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  13 ++
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  20 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |  46 ++++++-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   1 +
- .../ethernet/mellanox/mlx5/core/ipoib/ethtool.c    | 135 ++++++++++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |   1 -
- drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |   1 -
- include/linux/mlx5/mlx5_ifc.h                      |  34 +++++-
- 12 files changed, 267 insertions(+), 54 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 2fc3832bc2f3..7c512a4c6d5c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2682,6 +2682,8 @@ int mlx5e_open(struct net_device *netdev)
+ 
+ 	mutex_lock(&priv->state_lock);
+ 	err = mlx5e_open_locked(netdev);
++	if (!err)
++		mlx5_set_port_admin_status(priv->mdev, MLX5_PORT_UP);
+ 	mutex_unlock(&priv->state_lock);
+ 
+ 	return err;
+@@ -2716,6 +2718,7 @@ int mlx5e_close(struct net_device *netdev)
+ 		return -ENODEV;
+ 
+ 	mutex_lock(&priv->state_lock);
++	mlx5_set_port_admin_status(priv->mdev, MLX5_PORT_DOWN);
+ 	err = mlx5e_close_locked(netdev);
+ 	mutex_unlock(&priv->state_lock);
+ 
+@@ -4187,6 +4190,10 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
+ 
+ 	mlx5e_init_l2_addr(priv);
+ 
++	/* Marking the link as currently not needed by the Driver */
++	if (!netif_running(netdev))
++		mlx5_set_port_admin_status(mdev, MLX5_PORT_DOWN);
++
+ 	/* MTU range: 68 - hw-specific max */
+ 	netdev->min_mtu = ETH_MIN_MTU;
+ 	mlx5_query_port_max_mtu(priv->mdev, &max_mtu, 1);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 7a9f53f74976..45c088c10ee1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -613,15 +613,18 @@ static int mlx5e_rep_open(struct net_device *dev)
+ 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+ 	int err;
+ 
+-	err = mlx5e_open(dev);
++	mutex_lock(&priv->state_lock);
++	err = mlx5e_open_locked(dev);
+ 	if (err)
+-		return err;
++		goto unlock;
+ 
+-	err = mlx5_eswitch_set_vport_state(esw, rep->vport, MLX5_ESW_VPORT_ADMIN_STATE_UP);
+-	if (!err)
++	if (!mlx5_eswitch_set_vport_state(esw, rep->vport,
++					  MLX5_ESW_VPORT_ADMIN_STATE_UP))
+ 		netif_carrier_on(dev);
+ 
+-	return 0;
++unlock:
++	mutex_unlock(&priv->state_lock);
++	return err;
+ }
+ 
+ static int mlx5e_rep_close(struct net_device *dev)
+@@ -630,10 +633,13 @@ static int mlx5e_rep_close(struct net_device *dev)
+ 	struct mlx5e_rep_priv *rpriv = priv->ppriv;
+ 	struct mlx5_eswitch_rep *rep = rpriv->rep;
+ 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
++	int ret;
+ 
++	mutex_lock(&priv->state_lock);
+ 	(void)mlx5_eswitch_set_vport_state(esw, rep->vport, MLX5_ESW_VPORT_ADMIN_STATE_DOWN);
+-
+-	return mlx5e_close(dev);
++	ret = mlx5e_close_locked(dev);
++	mutex_unlock(&priv->state_lock);
++	return ret;
+ }
+ 
+ static int mlx5e_rep_get_phys_port_name(struct net_device *dev,
+-- 
+2.13.0
