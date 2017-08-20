@@ -1,33 +1,24 @@
-From: DR JAMES OMENKA <savianopeppe@tim.it>
-Subject: PICK UP YOUR ATM VISA CARD
-Date: Sun, 20 Aug 2017 00:34:32 +0200 (CEST)
-Message-ID: <15dfca22a0e.savianopeppe@tim.it>
-Reply-To: fedexexpresscompany4@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] constify net eisa_device_id
+Date: Sat, 19 Aug 2017 17:13:56 -0700 (PDT)
+Message-ID: <20170819.171356.1494785022831637936.davem@davemloft.net>
+References: <1503125503-15075-1-git-send-email-arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp301.alice.it ([82.57.200.117]:59075 "EHLO smtp301.alice.it"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752004AbdHSWhn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 19 Aug 2017 18:37:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tremyfr@gmail.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: arvind.yadav.cs@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503125503-15075-1-git-send-email-arvind.yadav.cs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We have finally arranged to deliver your ATM CARD worth $17.900, 000.00 usd 
-this through the help of IMF director John Andy and every necessary arrangement 
-has been made successfully with the National Fedex Agent Rev DR. Leonard 
-Robbert.
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Date: Sat, 19 Aug 2017 12:21:42 +0530
 
-manager dr james omenka tel:+229-99 08 42 94
-Email..fedexexpresscompany4@gmail.com
+> eisa_device_id are not supposed to change at runtime. All functions
+> working with eisa_device_id provided by <linux/eisa.h> work with
+> const eisa_device_id. So mark the non-const structs as const.
 
-Contact the Fedex agent with your delivery information, your phone number, 
-address, city, nearest airport and your receiver's name. and also be informed 
-that delivery agent will leave to this country as soon as you have proceed with 
-the Fedex requirement fee of $250 for your fund deliver, your ATM 
-CARD PIN code Is 4421.
-
-mr.ahmed yaki
-for the management of boa.
+Series applied, thanks.
