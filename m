@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v3 net 1/2 RESEND] Revert commit 1a8b6d76dc5b ("net:add one common config...")
-Date: Sun, 20 Aug 2017 18:10:54 +0800
-Message-ID: <1503223855-24616-2-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH v3 net 2/2 RESEND] net: ixgbe: Use new PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Sun, 20 Aug 2017 18:10:55 +0800
+Message-ID: <1503223855-24616-3-git-send-email-dingtianhong@huawei.com>
 References: <1503223855-24616-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,64 +16,84 @@ In-Reply-To: <1503223855-24616-1-git-send-email-dingtianhong@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING has been added
-to indicate that Relaxed Ordering Attributes (RO) should not
-be used for Transaction Layer Packets (TLP) targeted toward
-these affected Root Port, it will clear the bit4 in the PCIe
-Device Control register, so the PCIe device drivers could
-query PCIe configuration space to determine if it can send
-TLPs to Root Port with the Relaxed Ordering Attributes set.
-
-With this new flag  we don't need the config ARCH_WANT_RELAX_ORDER
-to control the Relaxed Ordering Attributes for the ixgbe drivers
-just like the commit 1a8b6d76dc5b ("net:add one common config...") did,
-so revert this commit.
+The ixgbe driver use the compile check to determine if it can
+send TLPs to Root Port with the Relaxed Ordering Attribute set,
+this is too inconvenient, now the new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+has been added to the kernel and we could check the bit4 in the PCIe
+Device Control register to determine whether we should use the Relaxed
+Ordering Attributes or not, so use this new way in the ixgbe driver.
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- arch/Kconfig                                    | 3 ---
- arch/sparc/Kconfig                              | 1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 +-
- 3 files changed, 1 insertion(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 22 ----------------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 19 -------------------
+ 2 files changed, 41 deletions(-)
 
-diff --git a/arch/Kconfig b/arch/Kconfig
-index 21d0089..00cfc63 100644
---- a/arch/Kconfig
-+++ b/arch/Kconfig
-@@ -928,9 +928,6 @@ config STRICT_MODULE_RWX
- 	  and non-text memory will be made non-executable. This provides
- 	  protection against certain security exploits (e.g. writing to text)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 523f9d0..8a32eb7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -175,31 +175,9 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
+ {
+-#ifndef CONFIG_SPARC
+-	u32 regval;
+-	u32 i;
+-#endif
+ 	s32 ret_val;
  
--config ARCH_WANT_RELAX_ORDER
--	bool
+ 	ret_val = ixgbe_start_hw_generic(hw);
 -
- config REFCOUNT_FULL
- 	bool "Perform full reference count validation at the expense of speed"
- 	help
-diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
-index a4a6261..987a575 100644
---- a/arch/sparc/Kconfig
-+++ b/arch/sparc/Kconfig
-@@ -44,7 +44,6 @@ config SPARC
- 	select ARCH_HAS_SG_CHAIN
- 	select CPU_NO_EFFICIENT_FFS
- 	select LOCKDEP_SMALL if LOCKDEP
--	select ARCH_WANT_RELAX_ORDER
+-#ifndef CONFIG_SPARC
+-	/* Disable relaxed ordering */
+-	for (i = 0; ((i < hw->mac.max_tx_queues) &&
+-	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
+-		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
+-	}
+-
+-	for (i = 0; ((i < hw->mac.max_rx_queues) &&
+-	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
+-		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
+-			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
+-	}
+-#endif
+ 	if (ret_val)
+ 		return ret_val;
  
- config SPARC32
- 	def_bool !64BIT
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 4e35e70..d4933d2 100644
+index d4933d2..96c324f 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -350,7 +350,7 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
+@@ -350,25 +350,6 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
  	}
  	IXGBE_WRITE_FLUSH(hw);
  
--#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
-+#ifndef CONFIG_SPARC
- 	/* Disable relaxed ordering */
- 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
- 		u32 regval;
+-#ifndef CONFIG_SPARC
+-	/* Disable relaxed ordering */
+-	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+-		u32 regval;
+-
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
+-		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
+-	}
+-
+-	for (i = 0; i < hw->mac.max_rx_queues; i++) {
+-		u32 regval;
+-
+-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
+-		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
+-			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+-		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
+-	}
+-#endif
+ 	return 0;
+ }
+ 
 -- 
 1.8.3.1
