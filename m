@@ -1,27 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/2] BPF inline improvements
-Date: Sat, 19 Aug 2017 21:56:51 -0700 (PDT)
-Message-ID: <20170819.215651.731190886787905988.davem@davemloft.net>
-References: <cover.1503104831.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56298 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751164AbdHTE4w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 00:56:52 -0400
-In-Reply-To: <cover.1503104831.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net 0/2] netfilter: ipvs: some fixes in sctp_conn_schedule
+Date: Sun, 20 Aug 2017 13:38:06 +0800
+Message-ID: <cover.1503207076.git.lucien.xin@gmail.com>
+Cc: pablo@netfilter.org, Alex Gartrell <agartrell@fb.com>,
+        lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+        horms@verge.net.au, ja@ssi.bg, wensong@linux-vs.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Sat, 19 Aug 2017 03:12:44 +0200
+Patch 1/2 fixes the regression introduced by commit 5e26b1b3abce.
+Patch 2/2 makes ipvs not create conn for sctp ABORT packet.
 
-> First one makes htab inlining more robust wrt future jits and
-> second one inlines map in map lookups through map_gen_lookup()
-> callback.
+Xin Long (2):
+  netfilter: ipvs: fix the issue that sctp_conn_schedule drops non-INIT
+    packet
+  netfilter: ipvs: do not create conn for ABORT packet in
+    sctp_conn_schedule
 
-Series applied, thanks Daniel.
+ net/netfilter/ipvs/ip_vs_proto_sctp.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+-- 
+2.1.0
+
