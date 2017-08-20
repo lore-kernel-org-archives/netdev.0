@@ -1,16 +1,16 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [V2 net-next 13/15] net/mlx5e: Place constants on the right side of comparisons
-Date: Sun, 20 Aug 2017 16:49:14 +0300
-Message-ID: <20170820134916.10222-14-saeedm@mellanox.com>
+Subject: [V2 net-next 11/15] net/mlx5e: Properly indent within conditional statements
+Date: Sun, 20 Aug 2017 16:49:12 +0300
+Message-ID: <20170820134916.10222-12-saeedm@mellanox.com>
 References: <20170820134916.10222-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44808 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44807 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752973AbdHTNtX (ORCPT
+        with ESMTP id S1752944AbdHTNtX (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 09:49:23 -0400
 In-Reply-To: <20170820134916.10222-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,28 +20,62 @@ From: Or Gerlitz <ogerlitz@mellanox.com>
 
 To fix these checkpatch complaints:
 
-WARNING: Comparisons should place the constant on the right side of the test
+WARNING: suspect code indent for conditional statements (8, 24)
++       if (eth_proto & (MLX5E_PROT_MASK(MLX5E_10GBASE_SR)
+[...]
++                       return PORT_FIBRE;
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 31 ++++++++++++----------
+ 1 file changed, 17 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 8e224bcbc6a6..55a6786d3c4c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -509,8 +509,8 @@ static void mlx5e_lro_update_hdr(struct sk_buff *skb, struct mlx5_cqe64 *cqe,
- 	u16 tot_len;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index a75ac4d11c5b..1f3d87e28618 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -987,24 +987,27 @@ static u8 get_connector_port(u32 eth_proto, u8 connector_type)
+ 	if (connector_type && connector_type < MLX5E_CONNECTOR_TYPE_NUMBER)
+ 		return ptys2connector_type[connector_type];
  
- 	u8 l4_hdr_type = get_cqe_l4_hdr_type(cqe);
--	int tcp_ack = ((CQE_L4_HDR_TYPE_TCP_ACK_NO_DATA  == l4_hdr_type) ||
--		       (CQE_L4_HDR_TYPE_TCP_ACK_AND_DATA == l4_hdr_type));
-+	int tcp_ack = ((l4_hdr_type == CQE_L4_HDR_TYPE_TCP_ACK_NO_DATA) ||
-+		       (l4_hdr_type == CQE_L4_HDR_TYPE_TCP_ACK_AND_DATA));
+-	if (eth_proto & (MLX5E_PROT_MASK(MLX5E_10GBASE_SR)
+-			 | MLX5E_PROT_MASK(MLX5E_40GBASE_SR4)
+-			 | MLX5E_PROT_MASK(MLX5E_100GBASE_SR4)
+-			 | MLX5E_PROT_MASK(MLX5E_1000BASE_CX_SGMII))) {
+-			return PORT_FIBRE;
++	if (eth_proto &
++	    (MLX5E_PROT_MASK(MLX5E_10GBASE_SR)   |
++	     MLX5E_PROT_MASK(MLX5E_40GBASE_SR4)  |
++	     MLX5E_PROT_MASK(MLX5E_100GBASE_SR4) |
++	     MLX5E_PROT_MASK(MLX5E_1000BASE_CX_SGMII))) {
++		return PORT_FIBRE;
+ 	}
  
- 	skb->mac_len = ETH_HLEN;
- 	proto = __vlan_get_protocol(skb, eth->h_proto, &network_depth);
+-	if (eth_proto & (MLX5E_PROT_MASK(MLX5E_40GBASE_CR4)
+-			 | MLX5E_PROT_MASK(MLX5E_10GBASE_CR)
+-			 | MLX5E_PROT_MASK(MLX5E_100GBASE_CR4))) {
+-			return PORT_DA;
++	if (eth_proto &
++	    (MLX5E_PROT_MASK(MLX5E_40GBASE_CR4) |
++	     MLX5E_PROT_MASK(MLX5E_10GBASE_CR)  |
++	     MLX5E_PROT_MASK(MLX5E_100GBASE_CR4))) {
++		return PORT_DA;
+ 	}
+ 
+-	if (eth_proto & (MLX5E_PROT_MASK(MLX5E_10GBASE_KX4)
+-			 | MLX5E_PROT_MASK(MLX5E_10GBASE_KR)
+-			 | MLX5E_PROT_MASK(MLX5E_40GBASE_KR4)
+-			 | MLX5E_PROT_MASK(MLX5E_100GBASE_KR4))) {
+-			return PORT_NONE;
++	if (eth_proto &
++	    (MLX5E_PROT_MASK(MLX5E_10GBASE_KX4) |
++	     MLX5E_PROT_MASK(MLX5E_10GBASE_KR)  |
++	     MLX5E_PROT_MASK(MLX5E_40GBASE_KR4) |
++	     MLX5E_PROT_MASK(MLX5E_100GBASE_KR4))) {
++		return PORT_NONE;
+ 	}
+ 
+ 	return PORT_OTHER;
 -- 
 2.13.0
