@@ -1,42 +1,73 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] virtio-net: make napi_tx param easier to grasp
-Date: Sun, 20 Aug 2017 16:30:38 -0400
-Message-ID: <CAF=yD-JA_JPyUbDd=SR9Epvzw6-kbUcrfvwRWODwmeV+yHEMHw@mail.gmail.com>
-References: <20170819063707.26822-1-den@klaipeden.com>
+Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
+	path if no tx napi
+Date: Sun, 20 Aug 2017 16:49:15 -0400
+Message-ID: <CAF=yD-LYLsQNt_5yYZ+PUwv04ZwaJUXn-YakH=tuh0TV+BG7iA@mail.gmail.com>
+References: <20170819063854.27010-1-den@klaipeden.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        Network Development <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
 To: Koichiro Den <den@klaipeden.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:37804 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753191AbdHTUbU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 16:31:20 -0400
-Received: by mail-oi0-f68.google.com with SMTP id k77so283560oib.4
-        for <netdev@vger.kernel.org>; Sun, 20 Aug 2017 13:31:20 -0700 (PDT)
-In-Reply-To: <20170819063707.26822-1-den@klaipeden.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170819063854.27010-1-den@klaipeden.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 19, 2017 at 2:37 AM, Koichiro Den <den@klaipeden.com> wrote:
-> The module param napi_tx needs not to be writable for now since we do
-> not have any means of activating/deactivating it online,
+On Sat, Aug 19, 2017 at 2:38 AM, Koichiro Den <den@klaipeden.com> wrote:
+> Facing the possible unbounded delay relying on freeing on xmit path,
+> we also better to invoke and clear the upper layer zerocopy callback
+> beforehand to keep them from waiting for unbounded duration in vain.
 
-A virtio_net device inherits its napi tx mode from the global napi_tx flag
-on device up. It is possible to change the parameter and bring a device
-down/up to change the device mode.
+Good point.
 
-> @@ -1179,13 +1172,19 @@ static int virtnet_open(struct net_device *dev)
->         struct virtnet_info *vi = netdev_priv(dev);
->         int i;
+> For instance, this removes the possible deadlock in the case that the
+> upper layer is a zerocopy-enabled vhost-net.
+> This does not apply if napi_tx is enabled since it will be called in
+> reasonale time.
+
+Indeed. Btw, I am gathering data to eventually make napi the default
+mode. But that is taking some time.
+
 >
-> +       /* Tx napi touches cachelines on the cpu handling tx interrupts. Only
-> +        * enable the feature if this is likely affine with the transmit path.
-> +        */
-> +       if (!vi->affinity_hint_set)
-> +               napi_tx = false;
-> +
+> Signed-off-by: Koichiro Den <den@klaipeden.com>
+> ---
+>  drivers/net/virtio_net.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 4302f313d9a7..f7deaa5b7b50 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1290,6 +1290,14 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+>
+>         /* Don't wait up for transmitted skbs to be freed. */
+>         if (!use_napi) {
+> +               if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
+> +                       struct ubuf_info *uarg;
+> +                       uarg = skb_shinfo(skb)->destructor_arg;
+> +                       if (uarg->callback)
+> +                           uarg->callback(uarg, true);
+> +                       skb_shinfo(skb)->destructor_arg = NULL;
+> +                       skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
+> +               }
 
-This disables napi globally if a specific device lacks affinity.
+Instead of open coding, this can use skb_zcopy_clear.
+
+>                 skb_orphan(skb);
+>                 nf_reset(skb);
+>         }
+> --
+> 2.9.4
+>
+>
