@@ -1,36 +1,35 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] ieee802154: ca8210: Fix a potential NULL pointer
- dereference
-Date: Sun, 20 Aug 2017 20:52:21 +0200
-Message-ID: <ECF0BF4F-CBFA-42B2-9976-C268ADF1EA10@holtmann.org>
-References: <20170820162502.4342-1-christophe.jaillet@wanadoo.fr>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Harry Morris <h.morris@cascoda.com>, linuxdev@cascoda.com,
-        Alexander Aring <alex.aring@gmail.com>,
-        Stefan Schmidt <stefan@osg.samsung.com>,
-        linux-wpan@vger.kernel.org, Netdev list <netdev@vger.kernel.org>,
-        kernel list <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170820162502.4342-1-christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Leblond <eric@regit.org>
+Subject: [PATCH] tools lib bpf: improve warning
+Date: Sun, 20 Aug 2017 21:48:14 +0200
+Message-ID: <20170820194814.13785-1-eric@regit.org>
+Cc: Eric Leblond <eric@regit.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from home.regit.org ([37.187.126.138]:57216 "EHLO home.regit.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753183AbdHTTs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 20 Aug 2017 15:48:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Christophe,
+Signed-off-by: Eric Leblond <eric@regit.org>
+---
+ tools/lib/bpf/libbpf.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-> 'spi' is known to be NULL, so we dereference a NULL pointer here.
-> Use 'pr_crit()' instead of 'dev_crit()' to report the message.
-> 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-> ---
-> drivers/net/ieee802154/ca8210.c | 5 +----
-> 1 file changed, 1 insertion(+), 4 deletions(-)
-
-patch has been applied to bluetooth-next tree.
-
-Regards
-
-Marcel
+diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+index 1cc3ea0ffdc3..35f6dfcdc565 100644
+--- a/tools/lib/bpf/libbpf.c
++++ b/tools/lib/bpf/libbpf.c
+@@ -879,7 +879,8 @@ bpf_object__create_maps(struct bpf_object *obj)
+ 			size_t j;
+ 			int err = *pfd;
+ 
+-			pr_warning("failed to create map: %s\n",
++			pr_warning("failed to create map (name: '%s'): %s\n",
++				   obj->maps[i].name,
+ 				   strerror(errno));
+ 			for (j = 0; j < i; j++)
+ 				zclose(obj->maps[j].fd);
+-- 
+2.14.1
