@@ -1,16 +1,16 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [V2 net-next 04/15] net/mlx5: Add PCIe outbound stalls counters infrastructure
-Date: Sun, 20 Aug 2017 16:49:05 +0300
-Message-ID: <20170820134916.10222-5-saeedm@mellanox.com>
+Subject: [V2 net-next 14/15] net/mlx5e: Use kernel types instead of uint*_t in ethtool callbacks
+Date: Sun, 20 Aug 2017 16:49:15 +0300
+Message-ID: <20170820134916.10222-15-saeedm@mellanox.com>
 References: <20170820134916.10222-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Gal Pressman <galp@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44767 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44793 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751814AbdHTNtX (ORCPT
+        with ESMTP id S1752866AbdHTNtX (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 09:49:23 -0400
 In-Reply-To: <20170820134916.10222-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,48 +18,62 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Gal Pressman <galp@mellanox.com>
 
-Add capability bit in MCAM register and counters to MPCNT register.
+Fix checkpatch errors:
+CHECK:PREFER_KERNEL_TYPES: Prefer kernel type 'u32' over 'uint32_t'
 
 Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/linux/mlx5/mlx5_ifc.h | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c    | 8 +++-----
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c | 3 +--
+ 2 files changed, 4 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index c99daffc3c3c..ba533b39c885 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -1854,7 +1854,17 @@ struct mlx5_ifc_pcie_perf_cntrs_grp_data_layout_bits {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 1f3d87e28618..c30cf6b4736f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -206,7 +206,7 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+ 	return mlx5e_ethtool_get_sset_count(priv, sset);
+ }
  
- 	u8         crc_error_tlp[0x20];
+-static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, uint8_t *data)
++static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, u8 *data)
+ {
+ 	int i, j, tc, prio, idx = 0;
+ 	unsigned long pfc_combined;
+@@ -308,8 +308,7 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, uint8_t *data)
+ 					priv->channel_tc2txq[i][tc]);
+ }
  
--	u8         reserved_at_140[0x680];
-+	u8         reserved_at_140[0x40];
-+
-+	u8         outbound_stalled_reads[0x20];
-+
-+	u8         outbound_stalled_writes[0x20];
-+
-+	u8         outbound_stalled_reads_events[0x20];
-+
-+	u8         outbound_stalled_writes_events[0x20];
-+
-+	u8         reserved_at_200[0x5c0];
- };
+-void mlx5e_ethtool_get_strings(struct mlx5e_priv *priv,
+-			       uint32_t stringset, uint8_t *data)
++void mlx5e_ethtool_get_strings(struct mlx5e_priv *priv, u32 stringset, u8 *data)
+ {
+ 	int i;
  
- struct mlx5_ifc_cmd_inter_comp_event_bits {
-@@ -7744,8 +7754,9 @@ struct mlx5_ifc_pcam_reg_bits {
- };
+@@ -331,8 +330,7 @@ void mlx5e_ethtool_get_strings(struct mlx5e_priv *priv,
+ 	}
+ }
  
- struct mlx5_ifc_mcam_enhanced_features_bits {
--	u8         reserved_at_0[0x7d];
--
-+	u8         reserved_at_0[0x7b];
-+	u8         pcie_outbound_stalled[0x1];
-+	u8         reserved_at_7c[0x1];
- 	u8         mtpps_enh_out_per_adj[0x1];
- 	u8         mtpps_fs[0x1];
- 	u8         pcie_performance_group[0x1];
+-static void mlx5e_get_strings(struct net_device *dev,
+-			      uint32_t stringset, uint8_t *data)
++static void mlx5e_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
+index dd49a59854e5..43c126c63955 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ethtool.c
+@@ -43,8 +43,7 @@ static void mlx5i_get_drvinfo(struct net_device *dev,
+ 		sizeof(drvinfo->driver));
+ }
+ 
+-static void mlx5i_get_strings(struct net_device *dev,
+-			      uint32_t stringset, uint8_t *data)
++static void mlx5i_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ {
+ 	struct mlx5e_priv *priv  = mlx5i_epriv(dev);
+ 
 -- 
 2.13.0
