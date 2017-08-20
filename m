@@ -1,46 +1,60 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [net-next:master 1184/1189] include/linux/bpf.h:324:21: error:
- 'NUMA_NO_NODE' undeclared
-Date: Sat, 19 Aug 2017 23:44:35 -0700
-Message-ID: <20170820064435.condwbct5aqeufut@kafai-mba.local>
-References: <201708201349.qPOeS6kf%fengguang.wu@intel.com>
- <20170819.233313.2054468070616685885.davem@davemloft.net>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
+ sun8i-h3-emac
+Date: Sun, 20 Aug 2017 08:57:57 +0200
+Message-ID: <20170820065757.GA6081@Red>
+References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
+ <20170818122118.4925-4-clabbe.montjoie@gmail.com>
+ <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
+ <20170819185025.GB13266@Red>
+ <20170819203836.GA21567@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <fengguang.wu@intel.com>, <kbuild-all@01.org>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:45450 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751607AbdHTGol (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 02:44:41 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170819.233313.2054468070616685885.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170819203836.GA21567-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 19, 2017 at 11:33:13PM -0700, David Miller wrote:
-> From: kbuild test robot <fengguang.wu@intel.com>
-> Date: Sun, 20 Aug 2017 13:43:54 +0800
->
-> > tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-> > head:   228498596c44041c710f5a633904205bc1cd9177
-> > commit: 96eabe7a40aa17e613cf3db2c742ee8b1fc764d0 [1184/1189] bpf: Allow selecting numa node during map creation
-> > config: i386-randconfig-s1-201734 (attached as .config)
-> > compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
-> > reproduce:
-> >         git checkout 96eabe7a40aa17e613cf3db2c742ee8b1fc764d0
-> >         # save the attached .config to linux build tree
-> >         make ARCH=i386
-> >
-> > All error/warnings (new ones prefixed by >>):
-> >
-> >    In file included from net/bpf/test_run.c:7:0:
-> >    include/linux/bpf.h: In function 'bpf_map_attr_numa_node':
-> >>> include/linux/bpf.h:324:21: error: 'NUMA_NO_NODE' undeclared (first use in this function)
-> >       attr->numa_node : NUMA_NO_NODE;
-> >                         ^~~~~~~~~~~~
->
-> I'll add the linux/numa.h include to linux/bpf.h
-Thanks for fixing it.  Sorry for the mistake.
+On Sat, Aug 19, 2017 at 10:38:36PM +0200, Andrew Lunn wrote:
+> On Sat, Aug 19, 2017 at 08:50:25PM +0200, Corentin Labbe wrote:
+> > On Sat, Aug 19, 2017 at 01:05:21AM +0800, Chen-Yu Tsai wrote:
+> > > On Fri, Aug 18, 2017 at 8:21 PM, Corentin Labbe
+> > > <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > > > In case of a MDIO switch, the registered MDIO node should be
+> > > > the parent of the PHY. Otherwise of_phy_connect will fail.
+> 
+> Hi Corentin
+> 
+> Sorry, I missed this patch series. Looking at patchwork...
+
+That's my fault, I forgot to set you in recipient like in last send.
+
+> 
+> Can you represent the MDIO mux using 
+> 
+> Documentation/devicetree/bindings/net/mdio-mux-mmioreg.txt
+> 
+> It would be better if you could reuse existing infrastructure than
+> invent something new.
+> 
+
+I think we cannot use mdio-mux-mmioreg since the register for doing the switch is in middle of the "System Control" and shared with other functions.
+This is why we use a sycon/regmap for selecting the MDIO.
+
+Regards
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
