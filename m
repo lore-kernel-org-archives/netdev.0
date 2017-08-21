@@ -1,85 +1,42 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 1/5] ifstat, nstat: Check fdopen() return value
-Date: Mon, 21 Aug 2017 12:03:04 +0200
-Message-ID: <20170821100308.24854-2-phil@nwl.cc>
+Subject: [iproute PATCH v3 2/5] nstat: Fix for potential NULL pointer dereference
+Date: Mon, 21 Aug 2017 12:03:05 +0200
+Message-ID: <20170821100308.24854-3-phil@nwl.cc>
 References: <20170821100308.24854-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:37501 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:58493 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752939AbdHUKDq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 06:03:46 -0400
+        id S1753065AbdHUKDw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 06:03:52 -0400
 In-Reply-To: <20170821100308.24854-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prevent passing NULL FILE pointer to fgets() later.
-
-Fix both tools in a single patch since the code changes are basically
-identical.
+If the string at 'p' contains neither space not newline, 'p' will become
+NULL. Make sure this isn't the case before dereferencing it.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- misc/ifstat.c | 16 +++++++++++-----
- misc/nstat.c  | 16 +++++++++++-----
- 2 files changed, 22 insertions(+), 10 deletions(-)
+Changes since v2:
+- Call abort() if 'p' becomes NULL.
+---
+ misc/nstat.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/misc/ifstat.c b/misc/ifstat.c
-index 1be21703bf14c..ac3eff6b870a9 100644
---- a/misc/ifstat.c
-+++ b/misc/ifstat.c
-@@ -992,12 +992,18 @@ int main(int argc, char *argv[])
- 	    && verify_forging(fd) == 0) {
- 		FILE *sfp = fdopen(fd, "r");
- 
--		load_raw_table(sfp);
--		if (hist_db && source_mismatch) {
--			fprintf(stderr, "ifstat: history is stale, ignoring it.\n");
--			hist_db = NULL;
-+		if (!sfp) {
-+			fprintf(stderr, "ifstat: fdopen failed: %s\n",
-+				strerror(errno));
-+			close(fd);
-+		} else  {
-+			load_raw_table(sfp);
-+			if (hist_db && source_mismatch) {
-+				fprintf(stderr, "ifstat: history is stale, ignoring it.\n");
-+				hist_db = NULL;
-+			}
-+			fclose(sfp);
- 		}
--		fclose(sfp);
- 	} else {
- 		if (fd >= 0)
- 			close(fd);
 diff --git a/misc/nstat.c b/misc/nstat.c
-index 1212b1f2c8128..a4dd405d43a93 100644
+index a4dd405d43a93..56e9367e99736 100644
 --- a/misc/nstat.c
 +++ b/misc/nstat.c
-@@ -706,12 +706,18 @@ int main(int argc, char *argv[])
- 	    && verify_forging(fd) == 0) {
- 		FILE *sfp = fdopen(fd, "r");
- 
--		load_good_table(sfp);
--		if (hist_db && source_mismatch) {
--			fprintf(stderr, "nstat: history is stale, ignoring it.\n");
--			hist_db = NULL;
-+		if (!sfp) {
-+			fprintf(stderr, "nstat: fdopen failed: %s\n",
-+				strerror(errno));
-+			close(fd);
-+		} else {
-+			load_good_table(sfp);
-+			if (hist_db && source_mismatch) {
-+				fprintf(stderr, "nstat: history is stale, ignoring it.\n");
-+				hist_db = NULL;
-+			}
-+			fclose(sfp);
+@@ -217,6 +217,8 @@ static void load_ugly_table(FILE *fp)
+ 			n->next = db;
+ 			db = n;
+ 			p = next;
++			if (!p)
++				abort();
  		}
--		fclose(sfp);
- 	} else {
- 		if (fd >= 0)
- 			close(fd);
+ 		n = db;
+ 		if (fgets(buf, sizeof(buf), fp) == NULL)
 -- 
 2.13.1
