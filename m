@@ -1,45 +1,36 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 1/2] vhost: remove the possible fruitless search on iotlb
- prefetch
-Date: Mon, 21 Aug 2017 11:09:00 +0800
-Message-ID: <3e8361c3-8a1b-6f30-80a1-1d45dabfdc39@redhat.com>
-References: <20170819064114.27219-1-den@klaipeden.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] liquidio: fix use of pf in pass-through mode
+ in a virtual machine
+Date: Sun, 20 Aug 2017 20:21:45 -0700 (PDT)
+Message-ID: <20170820.202145.1702048414230943774.davem@davemloft.net>
+References: <20170819012149.GA4838@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org
-To: Koichiro Den <den@klaipeden.com>, mst@redhat.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        ricardo.farrington@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35034 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750742AbdHUDJH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 20 Aug 2017 23:09:07 -0400
-In-Reply-To: <20170819064114.27219-1-den@klaipeden.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:49484 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750985AbdHUDVq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 23:21:46 -0400
+In-Reply-To: <20170819012149.GA4838@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Fri, 18 Aug 2017 18:21:49 -0700
 
+> From: Rick Farrington <ricardo.farrington@cavium.com>
+> 
+> Fix problem when PF is used in pass-through mode in a VM (w/embedded f/w).
+> 
+> If host error reading PF num from CN23XX_PCIE_SRIOV_FDL reg,
+> try to retrieve PF num from SLI_PKT(0)_INPUT_CONTROL (initialized by f/w).
+> 
+> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 
-On 2017年08月19日 14:41, Koichiro Den wrote:
-> Signed-off-by: Koichiro Den <den@klaipeden.com>
-> ---
->   drivers/vhost/vhost.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index e4613a3c362d..93e909afc1c3 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -1184,7 +1184,7 @@ static int iotlb_access_ok(struct vhost_virtqueue *vq,
->   	while (len > s) {
->   		node = vhost_umem_interval_tree_iter_first(&umem->umem_tree,
->   							   addr,
-> -							   addr + len - 1);
-> +							   addr + len - s - 1);
->   		if (node == NULL || node->start > addr) {
->   			vhost_iotlb_miss(vq, addr, access);
->   			return false;
-
-Acked-by: Jason Wang <jasowang@redhat.com>
+Applied.
