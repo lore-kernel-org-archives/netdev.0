@@ -1,65 +1,56 @@
-From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH 2/2] net: phy: Don't use drv when it is NULL in phy_attached_print
-Date: Mon, 21 Aug 2017 09:52:35 +0200
-Message-ID: <20170821075235.28473-3-romain.perier@collabora.com>
-References: <20170821075235.28473-1-romain.perier@collabora.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Romain Perier <romain.perier@collabora.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for sun8i-h3-emac
+Date: Mon, 21 Aug 2017 16:10:17 +0800
+Message-ID: <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
+References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
+ <20170818122118.4925-4-clabbe.montjoie@gmail.com> <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
+ <20170819185025.GB13266@Red> <20170819203836.GA21567@lunn.ch>
+ <20170820065757.GA6081@Red> <20170820142545.GB24150@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
+        Chen-Yu Tsai <wens@csie.org>, Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Maxime Ripard <maxime.ripard@free-electrons.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
         Alexandre Torgue <alexandre.torgue@st.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
+        devicetree <devicetree@vger.kernel.org>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170821075235.28473-1-romain.perier@collabora.com>
+In-Reply-To: <20170820142545.GB24150@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, if this logging function is used prior the phy driver is
-binded to the phy device (that is usually done from .ndo_open),
-'phydev->drv' might be NULL, resulting in a kernel crash. That is
-typically the case in the stmmac driver, info about the phy is displayed
-during the registration of the MDIO bus, and then genphy driver is binded
-to this phydev when .ndo_open is called.
+On Sun, Aug 20, 2017 at 10:25 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> I think we cannot use mdio-mux-mmioreg since the register for doing
+>> the switch is in middle of the "System Control" and shared with
+>> other functions.  This is why we use a sycon/regmap for selecting
+>> the MDIO.
+>
+> You could add a mdio-mux-regmap.c.
+>
+> However, it probably need restructuring of the stmmac mdio code, to
+> make the mdio bus usable as a separate driver. You need stmmac mdio
+> to probe first, then mdio-mux-remap should probe, and then lastly
+> stmmmac mac driver.
+>
+> With stmmac mdio and stmmac mac being in one driver, there is no time
+> in the middle to allow the mux driver to probe.
+>
+> It is some effort, but a nice cleanup and generalization.
 
-This commit fixes the issue by using the right genphy driver, when
-phydev->drv is NULL.
+I'm not sure mdio-mux is the right thing here.
 
-Fixes: commit fbca164776e4 ("net: stmmac: Use the right logging functi")
-Signed-off-by: Romain Perier <romain.perier@collabora.com>
----
- drivers/net/phy/phy_device.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+Looking at mdio-mux, it seems to provide a way to access multiplexed
+MDIO buses. It says nothing about the MAC<->PHY connection.
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 9493fb369682..b38926bc275f 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -877,15 +877,24 @@ EXPORT_SYMBOL(phy_attached_info);
- #define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)"
- void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
- {
-+	struct phy_driver *drv = phydev->drv;
-+
-+	if (!drv) {
-+		if (phydev->is_c45)
-+			drv = &genphy_10g_driver;
-+		else
-+			drv = &genphy_driver;
-+	}
-+
- 	if (!fmt) {
- 		dev_info(&phydev->mdio.dev, ATTACHED_FMT "\n",
--			 phydev->drv->name, phydev_name(phydev),
-+			 drv->name, phydev_name(phydev),
- 			 phydev->irq);
- 	} else {
- 		va_list ap;
- 
- 		dev_info(&phydev->mdio.dev, ATTACHED_FMT,
--			 phydev->drv->name, phydev_name(phydev),
-+			 drv->name, phydev_name(phydev),
- 			 phydev->irq);
- 
- 		va_start(ap, fmt);
--- 
-2.11.0
+With our hardware, and likely Rockchip's as well, the muxed connections
+include the MDIO and MII connections, which are muxed at the same time.
+It's likely to cause some confusion or even bugs if we implement it as
+a separate driver.
+
+ChenYu
