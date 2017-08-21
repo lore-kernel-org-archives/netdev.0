@@ -1,72 +1,118 @@
-From: Akshat Kakkar <akshat.1984@gmail.com>
-Subject: Re: Something hitting my total number of connections to the server
-Date: Mon, 21 Aug 2017 22:58:10 +0530
-Message-ID: <CAA5aLPhtK8YbSDua-F16C0W9fLm2w4=ta4g+Tv+wsUEqYPCxUg@mail.gmail.com>
-References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
- <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
- <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com>
- <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DD005C7B1@AcuExch.aculab.com>
- <CAA5aLPhVSnJkGNtwEeswbPnhT_RdJewAKDs-pJOUzTPEpwkUAA@mail.gmail.com> <1503328678.2499.3.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Laight <David.Laight@aculab.com>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:34228 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754042AbdHUR2M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 13:28:12 -0400
-Received: by mail-pg0-f51.google.com with SMTP id n4so39915057pgn.1
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 10:28:11 -0700 (PDT)
-In-Reply-To: <1503328678.2499.3.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: [PATCH] ptp: make ptp_clock_info const
+Date: Mon, 21 Aug 2017 23:01:12 +0530
+Message-ID: <1503336672-22918-1-git-send-email-bhumirks@gmail.com>
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: julia.lawall@lip6.fr, richardcochran@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday, August 21, 2017, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> On Mon, 2017-08-21 at 15:26 +0530, Akshat Kakkar wrote:
-> > On Mon, Aug 21, 2017 at 3:13 PM, David Laight <David.Laight@aculab.com> wrote:
-> > > From: Akshat Kakkar
-> > >> Sent: 18 August 2017 10:14
-> > >> On Thu, Aug 17, 2017 at 5:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > >> > On Thu, 2017-08-17 at 14:35 +0530, Akshat Kakkar wrote:
-> > >> >
-> > >> >> I upgraded to 4.4 but still experiencing same issue.
-> > >> >> Please help.
-> > >> >
-> > >> > Still too old kernel, shoot again ;)
-> > >> >
-> > >> >
-> > >>
-> > >>
-> > >> Sorry but that's the maximum I can try as of now as its the LT version.
-> > >
-> > > You should be able to build a current kernel and run it with your
-> > > existing user space.
-> > >
-> > >         David
-> > >
-> >
-> > The issue is with tcp timestamp. When I am disabling it, things are
-> > working fine but when I enable the issue re-occurs. However, I am not
-> > seeing tcp timestamps on packet, even when it is enabled simply
-> > because my client doesn't support it.
-> >
-> > But the question is, if I my client doesnt support timestamp , why
-> > enabling timestamp on server side is creating an issue??
->
-> Maybe you changed some sysctls wrongly ?
->
->
+Make these const as they are only used in a copy operation.
+Done using Coccinelle.
 
-As mentioned in my initial description, the server is not sending
-SYN-ACK. Thats what the main symptom. For completeness, its not
-sending any RST also.
-However, if I disable TCP timestamp ... the server starts giving SYN-ACK.
-The strangest thing is, my client doesnt initiate a connection with
-tcp timestamp, so how come disabling tcp timestamp is making things
-work.
+@match disable optional_qualifier@
+identifier s;
+@@
+static struct ptp_clock_info s = {...};
+
+@ref@
+position p;
+identifier match.s;
+@@
+s@p
+
+@good1@
+position ref.p;
+identifier match.s,f,c;
+expression e;
+@@
+(
+e = s@p
+|
+e = s@p.f
+|
+c(...,s@p.f,...)
+|
+c(...,s@p,...)
+)
+
+@bad depends on  !good1@
+position ref.p;
+identifier match.s;
+@@
+s@p
+
+@depends on forall !bad disable optional_qualifier@
+identifier match.s;
+@@
+static
++ const
+struct ptp_clock_info s;
+
+Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+---
+File ptp_ixp46x.c is not tested as I could not find any architecture
+to cross compile it. 
+
+ drivers/ptp/ptp_dte.c    | 2 +-
+ drivers/ptp/ptp_ixp46x.c | 2 +-
+ drivers/ptp/ptp_kvm.c    | 2 +-
+ drivers/ptp/ptp_pch.c    | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/ptp/ptp_dte.c b/drivers/ptp/ptp_dte.c
+index faf6f7a..6edd3b9 100644
+--- a/drivers/ptp/ptp_dte.c
++++ b/drivers/ptp/ptp_dte.c
+@@ -221,7 +221,7 @@ static int ptp_dte_enable(struct ptp_clock_info *ptp,
+ 	return -EOPNOTSUPP;
+ }
+ 
+-static struct ptp_clock_info ptp_dte_caps = {
++static const struct ptp_clock_info ptp_dte_caps = {
+ 	.owner		= THIS_MODULE,
+ 	.name		= "DTE PTP timer",
+ 	.max_adj	= 50000000,
+diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
+index 344a3ba..1171ffd 100644
+--- a/drivers/ptp/ptp_ixp46x.c
++++ b/drivers/ptp/ptp_ixp46x.c
+@@ -236,7 +236,7 @@ static int ptp_ixp_enable(struct ptp_clock_info *ptp,
+ 	return -EOPNOTSUPP;
+ }
+ 
+-static struct ptp_clock_info ptp_ixp_caps = {
++static const struct ptp_clock_info ptp_ixp_caps = {
+ 	.owner		= THIS_MODULE,
+ 	.name		= "IXP46X timer",
+ 	.max_adj	= 66666655,
+diff --git a/drivers/ptp/ptp_kvm.c b/drivers/ptp/ptp_kvm.c
+index bb86569..2b1b212 100644
+--- a/drivers/ptp/ptp_kvm.c
++++ b/drivers/ptp/ptp_kvm.c
+@@ -150,7 +150,7 @@ static int ptp_kvm_enable(struct ptp_clock_info *ptp,
+ 	return -EOPNOTSUPP;
+ }
+ 
+-static struct ptp_clock_info ptp_kvm_caps = {
++static const struct ptp_clock_info ptp_kvm_caps = {
+ 	.owner		= THIS_MODULE,
+ 	.name		= "KVM virtual PTP",
+ 	.max_adj	= 0,
+diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
+index 3aa22ae..b328517 100644
+--- a/drivers/ptp/ptp_pch.c
++++ b/drivers/ptp/ptp_pch.c
+@@ -509,7 +509,7 @@ static int ptp_pch_enable(struct ptp_clock_info *ptp,
+ 	return -EOPNOTSUPP;
+ }
+ 
+-static struct ptp_clock_info ptp_pch_caps = {
++static const struct ptp_clock_info ptp_pch_caps = {
+ 	.owner		= THIS_MODULE,
+ 	.name		= "PCH timer",
+ 	.max_adj	= 50000000,
+-- 
+1.9.1
