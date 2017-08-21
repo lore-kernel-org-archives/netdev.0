@@ -1,72 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next] gre: introduce native tunnel support for
- ERSPAN
-Date: Mon, 21 Aug 2017 11:02:26 -0700 (PDT)
-Message-ID: <20170821.110226.325505016722205417.davem@davemloft.net>
-References: <1503062680-43972-1-git-send-email-u9012063@gmail.com>
+Subject: Re: [PATCH net-next 2/2] liquidio: make VF driver notify NIC
+ firmware of MTU change
+Date: Mon, 21 Aug 2017 11:04:19 -0700 (PDT)
+Message-ID: <20170821.110419.1444561309238985446.davem@davemloft.net>
+References: <20170818183432.GA4487@felix-thinkpad.cavium.com>
+        <20170818183520.GA4522@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mvohra@vmware.com, kuznet@ms2.inr.ac.ru,
-        yoshfuji@linux-ipv6.org
-To: u9012063@gmail.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        veerasenareddy.burru@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37960 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37986 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752744AbdHUSC1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 14:02:27 -0400
-In-Reply-To: <1503062680-43972-1-git-send-email-u9012063@gmail.com>
+        with ESMTP id S1753141AbdHUSEU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 14:04:20 -0400
+In-Reply-To: <20170818183520.GA4522@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: William Tu <u9012063@gmail.com>
-Date: Fri, 18 Aug 2017 06:24:40 -0700
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Fri, 18 Aug 2017 11:35:20 -0700
 
-> +static int erspan_rcv(struct sk_buff *skb, struct tnl_ptk_info *tpi,
-> +		      int gre_hdr_len)
-> +{
-> +	struct net *net = dev_net(skb->dev);
-> +	struct ip_tunnel_net *itn;
-> +	struct ip_tunnel *tunnel;
-> +	struct metadata_dst *tun_dst = NULL;
-> +	const struct iphdr *iph;
-> +	struct erspanhdr *ershdr;
-> +	__be32 index;
-> +	__be32 session_id;
-> +	int len;
+> Signed-off-by: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> ---
+>  drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 22 ++++++++++++++++++----
+>  1 file changed, 18 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+> index 0402b18..e947783 100644
+> --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+> +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+> @@ -1545,13 +1545,27 @@ static struct net_device_stats *liquidio_get_stats(struct net_device *netdev)
+>  static int liquidio_change_mtu(struct net_device *netdev, int new_mtu)
+>  {
+>  	struct lio *lio = GET_LIO(netdev);
+> +	struct octeon_device *oct = lio->oct_dev;
+> +	struct octnic_ctrl_pkt nctrl;
+> +	int ret = 0;
 
-Please order local variables from longest to shortest line, ie. reverse
-christmas tree format.
-
-> +
-> +	itn = net_generic(net, erspan_net_id);
-> +	iph = ip_hdr(skb);
-> +	len =  iph->ihl * 4 + gre_hdr_len + sizeof(*ershdr);
-> +
-> +	if (unlikely(!pskb_may_pull(skb, len)))
-> +		return -ENOMEM;
-
-I think the len passed here is wrong, it should be
-"gre_hdr_len + sizeof(*ershdr)".
-> +static void erspan_build_header(struct sk_buff *skb,
-> +				__be32 id, u32 index, bool truncate)
-> +{
-> +	struct erspanhdr *ershdr;
-> +	struct iphdr *iphdr = ip_hdr(skb);
-> +	struct ethhdr *eth = eth_hdr(skb);
-> +	struct qtag_prefix {
-> +		__be16 eth_type;
-> +		__be16 tci;
-> +	} *qp;
-> +	u16 vlan_tci = 0;
-> +	enum erspan_encap_type enc_type = ERSPAN_ENCAP_NOVLAN;
-
-Reverse christmas tree for the local variables, please.
-
-> +static int erspan_validate(struct nlattr *tb[], struct nlattr *data[],
-> +			   struct netlink_ext_ack *extack)
-> +{
-> +	int ret;
-> +	__be16 flags = 0;
-
-Likewise.
+Please order local variable declarations from longest to shortest line.
