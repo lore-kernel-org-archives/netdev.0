@@ -1,29 +1,34 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH v2] mt7601u: check memory allocation failure
-Date: Mon, 21 Aug 2017 15:25:15 -0700
-Message-ID: <20170821152515.717a4681@cakuba.netronome.com>
-References: <20170821220617.21513-1-christophe.jaillet@wanadoo.fr>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: XDP redirect measurements, gotchas and tracepoints
+Date: Mon, 21 Aug 2017 15:35:42 -0700
+Message-ID: <20170821223540.atktdricmks26c27@ast-mbp>
+References: <20170821212506.1cb0d5d6@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kvalo@codeaurora.org, matthias.bgg@gmail.com,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170821220617.21513-1-christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        =?utf-8?B?UGF3ZcWC?= Staszewski <pstaszewski@itcare.pl>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:38815 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753541AbdHUWft (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 18:35:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20170821212506.1cb0d5d6@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Aug 2017 00:06:17 +0200, Christophe JAILLET wrote:
-> Check memory allocation failure and return -ENOMEM in such a case, as
-> already done a few lines below.
+On Mon, Aug 21, 2017 at 09:25:06PM +0200, Jesper Dangaard Brouer wrote:
 > 
-> As 'dev->tx_q' can be NULL, we also need to check for that in
-> 'mt7601u_free_tx()', and return early.
-> 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> Third gotcha(3): You got this far, loaded xdp on both interfaces, and
+> notice now that (with default setup) you can RX with 14Mpps but only
+> TX with 6.9Mpps (and might have 5% idle cycles).  I debugged this via
+> perf tracepoint event xdp:xdp_redirect, and found this was due to
+> overrunning the xdp TX ring-queue size.
 
-Acked-by: Jakub Kicinski <kubakici@wp.pl>
+we should probably fix this somehow.
+Once tx-ing netdev added to devmap we can enable xdp on it automatically?
