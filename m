@@ -1,52 +1,45 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next] net: sched: Add the invalid handle check in
- qdisc_class_find
-Date: Mon, 21 Aug 2017 16:17:01 -0400
-Message-ID: <13811d3e-9800-8277-c861-2fab9de8e4b9@mojatatu.com>
-References: <1503041004-105572-1-git-send-email-gfree.wind@vip.163.com>
- <20170821.104749.419102990180912192.davem@davemloft.net>
- <CAM_iQpW_odL=iqONVX2cLqPr_XQ-J40Ruv+kYMvwPThR42Udrg@mail.gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH v3 net-next] bpf/verifier: track liveness for pruning
+Date: Mon, 21 Aug 2017 21:24:24 +0100
+Message-ID: <e4075575-b12c-5c6f-bac3-0c7ba8e04802@solarflare.com>
+References: <f40d3d54-c88a-7348-99ca-66db8075a8d5@solarflare.com>
+ <89ff34f7-84ee-0e0a-3766-5b4d046189bf@fb.com>
+ <b8a46388-74ea-81f9-df08-3b6b88042229@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Gao Feng <gfree.wind@vip.163.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:36072 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753541AbdHUURE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 16:17:04 -0400
-Received: by mail-io0-f195.google.com with SMTP id o196so1768992ioe.3
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 13:17:03 -0700 (PDT)
-In-Reply-To: <CAM_iQpW_odL=iqONVX2cLqPr_XQ-J40Ruv+kYMvwPThR42Udrg@mail.gmail.com>
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>
+To: Alexei Starovoitov <ast@fb.com>, <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b8a46388-74ea-81f9-df08-3b6b88042229@solarflare.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-08-21 03:58 PM, Cong Wang wrote:
-> On Mon, Aug 21, 2017 at 10:47 AM, David Miller <davem@davemloft.net> wrote:
->> From: gfree.wind@vip.163.com
->> Date: Fri, 18 Aug 2017 15:23:24 +0800
->>
->>> From: Gao Feng <gfree.wind@vip.163.com>
->>>
->>> Add the invalid handle "0" check to avoid unnecessary search, because
->>> the qdisc uses the skb->priority as the handle value to look up, and
->>> it is "0" usually.
->>>
->>> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
->>
->> Jamal, Cong, please review.
->>
->> If 'id' zero is never hashed into the tables, this change looks
->> legitimate.
-> 
-> Looks good to me.
->
+On 18/08/17 15:16, Edward Cree wrote:
+> On 18/08/17 04:21, Alexei Starovoitov wrote:
+>> It seems you're trying to sort-of do per-fake-basic block liveness
+>> analysis, but our state_list_marks are not correct if we go with
+>> canonical basic block definition, since we mark the jump insn and
+>> not insn after the branch and not every basic block boundary is
+>> properly detected.
+> I think the reason this works is that jump insns can't do writes.
+> [snip]
+> the sl->state will never have any write marks and it'll all just work.
+> But I should really test that!
+I tested this, and found that, no, sl->state can have write marks, and the
+ algorithm will get the wrong answer in that case.  So I've got a patch to
+ make the first iteration ignore write marks, as part of a series which I
+ will post shortly.  When I do so, please re-do your tests with adding
+ state_list_marks in strange and exciting places; it should work wherever
+ you put them.  Like you say, it "magically doesn't depend on proper basic
+ block boundaries", and that's because really pruning is just a kind of
+ checkpointing that just happens to be most effective when done just after
+ a jump (pop_stack).
 
-Looks good to me as well...
+Can I have a SOB for your "grr" test program, so I can include it in the
+ series?
 
-cheers,
-jamal
+-Ed
