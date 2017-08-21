@@ -1,54 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 1/1] tipc: don't reset stale
- broadcast send link
-Date: Mon, 21 Aug 2017 13:38:11 -0700 (PDT)
-Message-ID: <20170821.133811.1648013984195015459.davem@davemloft.net>
-References: <1503331170-21745-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH net-next] net: sched: Add the invalid handle check in
+ qdisc_class_find
+Date: Mon, 21 Aug 2017 13:40:53 -0700 (PDT)
+Message-ID: <20170821.134053.615186544797752008.davem@davemloft.net>
+References: <1503041004-105572-1-git-send-email-gfree.wind@vip.163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ying.xue@windriver.com, netdev@vger.kernel.org,
- tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1503331170-21745-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/options/tipc-discussion>,
- <mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
- <mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: gfree.wind@vip.163.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41014 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754118AbdHUUky (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 16:40:54 -0400
+In-Reply-To: <1503041004-105572-1-git-send-email-gfree.wind@vip.163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Mon, 21 Aug 2017 17:59:30 +0200
+From: gfree.wind@vip.163.com
+Date: Fri, 18 Aug 2017 15:23:24 +0800
 
-> When the broadcast send link after 100 attempts has failed to
-> transfer a packet to all peers, we consider it stale, and reset
-> it. Thereafter it needs to re-synchronize with the peers, something
-> currently done by just resetting and re-establishing all links to
-> all peers. This has turned out to be overkill, with potentially
-> unwanted consequences for the remaining cluster.
+> From: Gao Feng <gfree.wind@vip.163.com>
 > 
-> A closer analysis reveals that this can be done much simpler. When
-> this kind of failure happens, for reasons that may lie outside the
-> TIPC protocol, it is typically only one peer which is failing to
-> receive and acknowledge packets. It is hence sufficient to identify
-> and reset the links only to that peer to resolve the situation, without
-> having to reset the broadcast link at all. This solution entails a much
-> lower risk of negative consequences for the own node as well as for
-> the overall cluster.
+> Add the invalid handle "0" check to avoid unnecessary search, because
+> the qdisc uses the skb->priority as the handle value to look up, and
+> it is "0" usually.
 > 
-> We implement this change in this commit.
-> 
-> Reviewed-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-> Acked-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
 
-Applied, thanks Jon.
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, Slashdot.org! http://sdm.link/slashdot
+Applied, thanks.
