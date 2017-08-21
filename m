@@ -1,44 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
- sun8i-h3-emac
-Date: Mon, 21 Aug 2017 15:20:15 +0200
-Message-ID: <20170821132015.GB1703@lunn.ch>
-References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
- <20170818122118.4925-4-clabbe.montjoie@gmail.com>
- <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
- <20170819185025.GB13266@Red>
- <20170819203836.GA21567@lunn.ch>
- <20170820065757.GA6081@Red>
- <20170820142545.GB24150@lunn.ch>
- <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Maxime Ripard <maxime.ripard@free-electrons.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        devicetree <devicetree@vger.kernel.org>,
-        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Chen-Yu Tsai <wens@csie.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v3 7/7] lib/ll_map: Choose size of new cache items at run-time
+Date: Mon, 21 Aug 2017 15:23:41 +0200
+Message-ID: <20170821132341.23118-8-phil@nwl.cc>
+References: <20170821132341.23118-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:55639 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753264AbdHUNXx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 09:23:53 -0400
+In-Reply-To: <20170821132341.23118-1-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> With our hardware, and likely Rockchip's as well, the muxed connections
-> include the MDIO and MII connections
+Instead of having a fixed buffer of 16 bytes for the interface name,
+tailor size of new ll_cache entry using the interface name's actual
+length. This also makes sure the following call to strcpy() is safe.
 
-Ah, i did not realise the MII was muxed as well. Then i agree, an MDIO
-mux is wrong.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ lib/ll_map.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-However, please try to make the binding not look like an mdio mux. We
-don't want people misunderstanding the binding and thinking it is an
-mdio mux.
-
-     Andrew
+diff --git a/lib/ll_map.c b/lib/ll_map.c
+index 4e4556c9ac80b..70684b02042b6 100644
+--- a/lib/ll_map.c
++++ b/lib/ll_map.c
+@@ -30,7 +30,7 @@ struct ll_cache {
+ 	unsigned	flags;
+ 	unsigned 	index;
+ 	unsigned short	type;
+-	char		name[IFNAMSIZ];
++	char		name[];
+ };
+ 
+ #define IDXMAP_SIZE	1024
+@@ -120,7 +120,7 @@ int ll_remember_index(const struct sockaddr_nl *who,
+ 		return 0;
+ 	}
+ 
+-	im = malloc(sizeof(*im));
++	im = malloc(sizeof(*im) + strlen(ifname) + 1);
+ 	if (im == NULL)
+ 		return 0;
+ 	im->index = ifi->ifi_index;
+-- 
+2.13.1
