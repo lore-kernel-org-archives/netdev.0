@@ -1,109 +1,46 @@
-From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH] net: ethernet: stmmac: dwmac-rk: Add rv1108 gmac support
-Date: Mon, 21 Aug 2017 18:12:55 +0800
-Message-ID: <1503310375-30393-1-git-send-email-david.wu@rock-chips.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, netdev@vger.kernel.org,
-        linux-rockchip@lists.infradead.org, linux-kernel@vger.kernel.org,
-        David Wu <david.wu@rock-chips.com>
-To: davem@davemloft.net, heiko@sntech.de, robh+dt@kernel.org,
-        linux@armlinux.org.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jan Scheurich <jan.scheurich@ericsson.com>
+Subject: RE: [PATCH net-next v4] openvswitch: enable NSH support
+Date: Mon, 21 Aug 2017 10:10:38 +0000
+Message-ID: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A5C7@ESESSMB107.ericsson.se>
+References: <1503041071-68753-1-git-send-email-yi.y.yang@intel.com>
+        <20170818152601.3760aaec@griffin>
+        <20170821061109.GA72656@cran64.bj.intel.com>
+        <20170821101925.3f9b36a1@griffin>
+        <20170821083900.GA74649@cran64.bj.intel.com>
+        <CFF8EF42F1132E4CBE2BF0AB6C21C58D727494F3@ESESSMB107.ericsson.se>
+        <20170821113514.6f0ec15e@griffin>
+        <CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A55C@ESESSMB107.ericsson.se>
+ <20170821115106.70fa1e1d@griffin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Yang, Yi" <yi.y.yang@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "dev@openvswitch.org" <dev@openvswitch.org>,
+        "blp@ovn.org" <blp@ovn.org>, "e@erig.me" <e@erig.me>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:59109 "EHLO
+        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753012AbdHUKKl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 06:10:41 -0400
+In-Reply-To: <20170821115106.70fa1e1d@griffin>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It only supports rmii interface. Add constants and callback functions
-for the dwmac on rv1108 socs. As can be seen, the base structure is
-the same, only registers and the bits in them moved slightly.
+> > NSH can be carried over Ethernet with a 14 byte header. In that case
+> > the total NSH header would typically be 16-bit aligned, so that all
+> > 32-bit members would be misaligned.
+> 
+> See NET_IP_ALIGN in include/linux/skbuff.h.
 
-Signed-off-by: David Wu <david.wu@rock-chips.com>
----
- .../devicetree/bindings/net/rockchip-dwmac.txt     |  1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 53 ++++++++++++++++++++++
- 2 files changed, 54 insertions(+)
+If I understand correctly, this is a default definition that can be overridden by drivers so that we still cannot rely on the Ethernet payload always being 32-bit-aligned. 
 
-diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-index 8f42755..c132538 100644
---- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-+++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-@@ -10,6 +10,7 @@ Required properties:
-    "rockchip,rk3366-gmac": found on RK3366 SoCs
-    "rockchip,rk3368-gmac": found on RK3368 SoCs
-    "rockchip,rk3399-gmac": found on RK3399 SoCs
-+   "rockchip,rv1108-gmac": found on RV1108 SoCs
-  - reg: addresses and length of the register sets for the device.
-  - interrupts: Should contain the GMAC interrupts.
-  - interrupt-names: Should contain the interrupt names "macirq".
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index 2176403..99823f5 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -787,6 +787,58 @@ static void rk3399_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
- 	.set_rmii_speed = rk3399_set_rmii_speed,
- };
- 
-+#define RV1108_GRF_GMAC_CON0		0X0900
-+
-+/* RV1108_GRF_GMAC_CON0 */
-+#define RV1108_GMAC_PHY_INTF_SEL_RMII	(GRF_CLR_BIT(4) | GRF_CLR_BIT(5) | \
-+					GRF_BIT(6))
-+#define RV1108_GMAC_FLOW_CTRL		GRF_BIT(3)
-+#define RV1108_GMAC_FLOW_CTRL_CLR	GRF_CLR_BIT(3)
-+#define RV1108_GMAC_SPEED_10M		GRF_CLR_BIT(2)
-+#define RV1108_GMAC_SPEED_100M		GRF_BIT(2)
-+#define RV1108_GMAC_RMII_CLK_25M	GRF_BIT(7)
-+#define RV1108_GMAC_RMII_CLK_2_5M	GRF_CLR_BIT(7)
-+
-+static void rv1108_set_to_rmii(struct rk_priv_data *bsp_priv)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "%s: Missing rockchip,grf property\n", __func__);
-+		return;
-+	}
-+
-+	regmap_write(bsp_priv->grf, RV1108_GRF_GMAC_CON0,
-+		     RV1108_GMAC_PHY_INTF_SEL_RMII);
-+}
-+
-+static void rv1108_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "%s: Missing rockchip,grf property\n", __func__);
-+		return;
-+	}
-+
-+	if (speed == 10) {
-+		regmap_write(bsp_priv->grf, RV1108_GRF_GMAC_CON0,
-+			     RV1108_GMAC_RMII_CLK_2_5M |
-+			     RV1108_GMAC_SPEED_10M);
-+	} else if (speed == 100) {
-+		regmap_write(bsp_priv->grf, RV1108_GRF_GMAC_CON0,
-+			     RV1108_GMAC_RMII_CLK_25M |
-+			     RV1108_GMAC_SPEED_100M);
-+	} else {
-+		dev_err(dev, "unknown speed value for RMII! speed=%d", speed);
-+	}
-+}
-+
-+static const struct rk_gmac_ops rv1108_ops = {
-+	.set_to_rmii = rv1108_set_to_rmii,
-+	.set_rmii_speed = rv1108_set_rmii_speed,
-+};
-+
- #define RK_GRF_MACPHY_CON0		0xb00
- #define RK_GRF_MACPHY_CON1		0xb04
- #define RK_GRF_MACPHY_CON2		0xb08
-@@ -1267,6 +1319,7 @@ static int rk_gmac_resume(struct device *dev)
- 	{ .compatible = "rockchip,rk3366-gmac", .data = &rk3366_ops },
- 	{ .compatible = "rockchip,rk3368-gmac", .data = &rk3368_ops },
- 	{ .compatible = "rockchip,rk3399-gmac", .data = &rk3399_ops },
-+	{ .compatible = "rockchip,rv1108-gmac", .data = &rv1108_ops },
- 	{ }
- };
- MODULE_DEVICE_TABLE(of, rk_gmac_dwmac_match);
--- 
-1.9.1
+Furthermore, there seem to be machine architectures that cannot handle misaligned 32-bit access at all (not even with a performance penalty).
+
+Or why else does OVS user space code take so great pain to model possible misalignment and provide/use safe access functions?
+
+Does Linux kernel code generally ignore this risk?
+
+/Jan
