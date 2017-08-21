@@ -1,7 +1,7 @@
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V8 net-next 08/22] net-next/hinic: Add port management commands
-Date: Mon, 21 Aug 2017 23:55:54 +0800
-Message-ID: <d46c7eaab1be1f9f18e0742f18e19691c0d2bca7.1503330613.git.aviad.krawczyk@huawei.com>
+Subject: [PATCH V8 net-next 06/22] net-next/hinic: Add api cmd commands
+Date: Mon, 21 Aug 2017 23:55:52 +0800
+Message-ID: <4fff66df68b113df89e7b115ab7208862909a7a1.1503330613.git.aviad.krawczyk@huawei.com>
 References: <cover.1503330613.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,690 +15,496 @@ In-Reply-To: <cover.1503330613.git.aviad.krawczyk@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add the port management commands that are sent as management messages.
-The port management commands are used for netdev operations.
+Add the api cmd commands for sending management messages to the nic.
 
 Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
 ---
- drivers/net/ethernet/huawei/hinic/Makefile       |   4 +-
- drivers/net/ethernet/huawei/hinic/hinic_dev.h    |   4 +
- drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c |  30 +++
- drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h |  29 +++
- drivers/net/ethernet/huawei/hinic/hinic_main.c   | 195 +++++++++++++++++++-
- drivers/net/ethernet/huawei/hinic/hinic_port.c   | 224 +++++++++++++++++++++++
- drivers/net/ethernet/huawei/hinic/hinic_port.h   |  68 +++++++
- 7 files changed, 551 insertions(+), 3 deletions(-)
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.c
- create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.h
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   | 329 ++++++++++++++++++++-
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |  65 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |   6 +
+ 3 files changed, 398 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/huawei/hinic/Makefile b/drivers/net/ethernet/huawei/hinic/Makefile
-index beba90a..dbb1b9d 100644
---- a/drivers/net/ethernet/huawei/hinic/Makefile
-+++ b/drivers/net/ethernet/huawei/hinic/Makefile
-@@ -1,4 +1,4 @@
- obj-$(CONFIG_HINIC) += hinic.o
- 
--hinic-y := hinic_main.o hinic_hw_dev.o hinic_hw_mgmt.o hinic_hw_api_cmd.o \
--	   hinic_hw_eqs.o hinic_hw_if.o
-+hinic-y := hinic_main.o hinic_port.o hinic_hw_dev.o hinic_hw_mgmt.o \
-+	   hinic_hw_api_cmd.o hinic_hw_eqs.o hinic_hw_if.o
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-index 6c2c896..e54a45c 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-@@ -18,6 +18,7 @@
- 
- #include <linux/netdevice.h>
- #include <linux/types.h>
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+index 7e7a76e..8901801 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+@@ -25,7 +25,9 @@
+ #include <linux/jiffies.h>
+ #include <linux/delay.h>
+ #include <linux/log2.h>
 +#include <linux/semaphore.h>
+ #include <asm/byteorder.h>
++#include <asm/barrier.h>
  
- #include "hinic_hw_dev.h"
+ #include "hinic_hw_csr.h"
+ #include "hinic_hw_if.h"
+@@ -45,14 +47,313 @@
  
-@@ -28,6 +29,9 @@ struct hinic_dev {
- 	struct hinic_hwdev              *hwdev;
+ #define API_CMD_BUF_SIZE                        2048
  
- 	u32                             msg_enable;
++/* Sizes of the members in hinic_api_cmd_cell */
++#define API_CMD_CELL_DESC_SIZE          8
++#define API_CMD_CELL_DATA_ADDR_SIZE     8
 +
-+	struct semaphore                mgmt_lock;
-+	unsigned long                   *vlan_bitmap;
++#define API_CMD_CELL_ALIGNMENT          8
++
+ #define API_CMD_TIMEOUT                 1000
+ 
++#define MASKED_IDX(chain, idx)          ((idx) & ((chain)->num_cells - 1))
++
++#define SIZE_8BYTES(size)               (ALIGN((size), 8) >> 3)
++#define SIZE_4BYTES(size)               (ALIGN((size), 4) >> 2)
++
++#define RD_DMA_ATTR_DEFAULT             0
++#define WR_DMA_ATTR_DEFAULT             0
++
++enum api_cmd_data_format {
++	SGE_DATA = 1,           /* cell data is passed by hw address */
++};
++
++enum api_cmd_type {
++	API_CMD_WRITE = 0,
++};
++
++enum api_cmd_bypass {
++	NO_BYPASS       = 0,
++	BYPASS          = 1,
++};
++
+ enum api_cmd_xor_chk_level {
+ 	XOR_CHK_DIS = 0,
+ 
+ 	XOR_CHK_ALL = 3,
  };
  
- #endif
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-index d430e60..6bb6c33 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
-@@ -200,6 +200,36 @@ static void disable_msix(struct hinic_hwdev *hwdev)
++static u8 xor_chksum_set(void *data)
++{
++	int idx;
++	u8 *val, checksum = 0;
++
++	val = data;
++
++	for (idx = 0; idx < 7; idx++)
++		checksum ^= val[idx];
++
++	return checksum;
++}
++
++static void set_prod_idx(struct hinic_api_cmd_chain *chain)
++{
++	enum hinic_api_cmd_chain_type chain_type = chain->chain_type;
++	struct hinic_hwif *hwif = chain->hwif;
++	u32 addr, prod_idx;
++
++	addr = HINIC_CSR_API_CMD_CHAIN_PI_ADDR(chain_type);
++	prod_idx = hinic_hwif_read_reg(hwif, addr);
++
++	prod_idx = HINIC_API_CMD_PI_CLEAR(prod_idx, IDX);
++
++	prod_idx |= HINIC_API_CMD_PI_SET(chain->prod_idx, IDX);
++
++	hinic_hwif_write_reg(hwif, addr, prod_idx);
++}
++
++static u32 get_hw_cons_idx(struct hinic_api_cmd_chain *chain)
++{
++	u32 addr, val;
++
++	addr = HINIC_CSR_API_CMD_STATUS_ADDR(chain->chain_type);
++	val  = hinic_hwif_read_reg(chain->hwif, addr);
++
++	return HINIC_API_CMD_STATUS_GET(val, CONS_IDX);
++}
++
++/**
++ * chain_busy - check if the chain is still processing last requests
++ * @chain: chain to check
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int chain_busy(struct hinic_api_cmd_chain *chain)
++{
++	struct hinic_hwif *hwif = chain->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	u32 prod_idx;
++
++	switch (chain->chain_type) {
++	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
++		chain->cons_idx = get_hw_cons_idx(chain);
++		prod_idx = chain->prod_idx;
++
++		/* check for a space for a new command */
++		if (chain->cons_idx == MASKED_IDX(chain, prod_idx + 1)) {
++			dev_err(&pdev->dev, "API CMD chain %d is busy\n",
++				chain->chain_type);
++			return -EBUSY;
++		}
++		break;
++
++	default:
++		dev_err(&pdev->dev, "Unknown API CMD Chain type\n");
++		break;
++	}
++
++	return 0;
++}
++
++/**
++ * get_cell_data_size - get the data size of a specific cell type
++ * @type: chain type
++ *
++ * Return the data(Desc + Address) size in the cell
++ **/
++static u8 get_cell_data_size(enum hinic_api_cmd_chain_type type)
++{
++	u8 cell_data_size = 0;
++
++	switch (type) {
++	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
++		cell_data_size = ALIGN(API_CMD_CELL_DESC_SIZE +
++				       API_CMD_CELL_DATA_ADDR_SIZE,
++				       API_CMD_CELL_ALIGNMENT);
++		break;
++	default:
++		break;
++	}
++
++	return cell_data_size;
++}
++
++/**
++ * prepare_cell_ctrl - prepare the ctrl of the cell for the command
++ * @cell_ctrl: the control of the cell to set the control value into it
++ * @data_size: the size of the data in the cell
++ **/
++static void prepare_cell_ctrl(u64 *cell_ctrl, u16 data_size)
++{
++	u8 chksum;
++	u64 ctrl;
++
++	ctrl =  HINIC_API_CMD_CELL_CTRL_SET(SIZE_8BYTES(data_size), DATA_SZ)  |
++		HINIC_API_CMD_CELL_CTRL_SET(RD_DMA_ATTR_DEFAULT, RD_DMA_ATTR) |
++		HINIC_API_CMD_CELL_CTRL_SET(WR_DMA_ATTR_DEFAULT, WR_DMA_ATTR);
++
++	chksum = xor_chksum_set(&ctrl);
++
++	ctrl |= HINIC_API_CMD_CELL_CTRL_SET(chksum, XOR_CHKSUM);
++
++	/* The data in the HW should be in Big Endian Format */
++	*cell_ctrl = cpu_to_be64(ctrl);
++}
++
++/**
++ * prepare_api_cmd - prepare API CMD command
++ * @chain: chain for the command
++ * @dest: destination node on the card that will receive the command
++ * @cmd: command data
++ * @cmd_size: the command size
++ **/
++static void prepare_api_cmd(struct hinic_api_cmd_chain *chain,
++			    enum hinic_node_id dest,
++			    void *cmd, u16 cmd_size)
++{
++	struct hinic_api_cmd_cell *cell = chain->curr_node;
++	struct hinic_api_cmd_cell_ctxt *cell_ctxt;
++	struct hinic_hwif *hwif = chain->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++
++	cell_ctxt = &chain->cell_ctxt[chain->prod_idx];
++
++	switch (chain->chain_type) {
++	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
++		cell->desc = HINIC_API_CMD_DESC_SET(SGE_DATA, API_TYPE)   |
++			     HINIC_API_CMD_DESC_SET(API_CMD_WRITE, RD_WR) |
++			     HINIC_API_CMD_DESC_SET(NO_BYPASS, MGMT_BYPASS);
++		break;
++
++	default:
++		dev_err(&pdev->dev, "unknown Chain type\n");
++		return;
++	}
++
++	cell->desc |= HINIC_API_CMD_DESC_SET(dest, DEST)        |
++		      HINIC_API_CMD_DESC_SET(SIZE_4BYTES(cmd_size), SIZE);
++
++	cell->desc |= HINIC_API_CMD_DESC_SET(xor_chksum_set(&cell->desc),
++					     XOR_CHKSUM);
++
++	/* The data in the HW should be in Big Endian Format */
++	cell->desc = cpu_to_be64(cell->desc);
++
++	memcpy(cell_ctxt->api_cmd_vaddr, cmd, cmd_size);
++}
++
++/**
++ * prepare_cell - prepare cell ctrl and cmd in the current cell
++ * @chain: chain for the command
++ * @dest: destination node on the card that will receive the command
++ * @cmd: command data
++ * @cmd_size: the command size
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static void prepare_cell(struct hinic_api_cmd_chain *chain,
++			 enum  hinic_node_id dest,
++			 void *cmd, u16 cmd_size)
++{
++	struct hinic_api_cmd_cell *curr_node = chain->curr_node;
++	u16 data_size = get_cell_data_size(chain->chain_type);
++
++	prepare_cell_ctrl(&curr_node->ctrl, data_size);
++	prepare_api_cmd(chain, dest, cmd, cmd_size);
++}
++
++static inline void cmd_chain_prod_idx_inc(struct hinic_api_cmd_chain *chain)
++{
++	chain->prod_idx = MASKED_IDX(chain, chain->prod_idx + 1);
++}
++
++/**
++ * api_cmd_status_update - update the status in the chain struct
++ * @chain: chain to update
++ **/
++static void api_cmd_status_update(struct hinic_api_cmd_chain *chain)
++{
++	enum hinic_api_cmd_chain_type chain_type;
++	struct hinic_api_cmd_status *wb_status;
++	struct hinic_hwif *hwif = chain->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	u64 status_header;
++	u32 status;
++
++	wb_status = chain->wb_status;
++	status_header = be64_to_cpu(wb_status->header);
++
++	status = be32_to_cpu(wb_status->status);
++	if (HINIC_API_CMD_STATUS_GET(status, CHKSUM_ERR)) {
++		dev_err(&pdev->dev, "API CMD status: Xor check error\n");
++		return;
++	}
++
++	chain_type = HINIC_API_CMD_STATUS_HEADER_GET(status_header, CHAIN_ID);
++	if (chain_type >= HINIC_API_CMD_MAX) {
++		dev_err(&pdev->dev, "unknown API CMD Chain %d\n", chain_type);
++		return;
++	}
++
++	chain->cons_idx = HINIC_API_CMD_STATUS_GET(status, CONS_IDX);
++}
++
++/**
++ * wait_for_status_poll - wait for write to api cmd command to complete
++ * @chain: the chain of the command
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int wait_for_status_poll(struct hinic_api_cmd_chain *chain)
++{
++	int err = -ETIMEDOUT;
++	unsigned long end;
++
++	end = jiffies + msecs_to_jiffies(API_CMD_TIMEOUT);
++	do {
++		api_cmd_status_update(chain);
++
++		/* wait for CI to be updated - sign for completion */
++		if (chain->cons_idx == chain->prod_idx) {
++			err = 0;
++			break;
++		}
++
++		msleep(20);
++	} while (time_before(jiffies, end));
++
++	return err;
++}
++
++/**
++ * wait_for_api_cmd_completion - wait for command to complete
++ * @chain: chain for the command
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++static int wait_for_api_cmd_completion(struct hinic_api_cmd_chain *chain)
++{
++	struct hinic_hwif *hwif = chain->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	int err;
++
++	switch (chain->chain_type) {
++	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
++		err = wait_for_status_poll(chain);
++		if (err) {
++			dev_err(&pdev->dev, "API CMD Poll status timeout\n");
++			break;
++		}
++		break;
++
++	default:
++		dev_err(&pdev->dev, "unknown API CMD Chain type\n");
++		err = -EINVAL;
++		break;
++	}
++
++	return err;
++}
++
+ /**
+  * api_cmd - API CMD command
+  * @chain: chain for the command
+@@ -65,8 +366,30 @@ enum api_cmd_xor_chk_level {
+ static int api_cmd(struct hinic_api_cmd_chain *chain,
+ 		   enum hinic_node_id dest, u8 *cmd, u16 cmd_size)
+ {
+-	/* should be implemented */
+-	return -EINVAL;
++	struct hinic_api_cmd_cell_ctxt *ctxt;
++	int err;
++
++	down(&chain->sem);
++	if (chain_busy(chain)) {
++		up(&chain->sem);
++		return -EBUSY;
++	}
++
++	prepare_cell(chain, dest, cmd, cmd_size);
++	cmd_chain_prod_idx_inc(chain);
++
++	wmb();  /* inc pi before issue the command */
++
++	set_prod_idx(chain);    /* issue the command */
++
++	ctxt = &chain->cell_ctxt[chain->prod_idx];
++
++	chain->curr_node = ctxt->cell_vaddr;
++
++	err = wait_for_api_cmd_completion(chain);
++
++	up(&chain->sem);
++	return err;
  }
  
  /**
-+ * hinic_port_msg_cmd - send port msg to mgmt
-+ * @hwdev: the NIC HW device
-+ * @cmd: the port command
-+ * @buf_in: input buffer
-+ * @in_size: input size
-+ * @buf_out: output buffer
-+ * @out_size: returned output size
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_msg_cmd(struct hinic_hwdev *hwdev, enum hinic_port_cmd cmd,
-+		       void *buf_in, u16 in_size, void *buf_out, u16 *out_size)
-+{
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	struct hinic_pfhwdev *pfhwdev;
-+
-+	if (!HINIC_IS_PF(hwif) && !HINIC_IS_PPF(hwif)) {
-+		dev_err(&pdev->dev, "unsupported PCI Function type\n");
-+		return -EINVAL;
-+	}
-+
-+	pfhwdev = container_of(hwdev, struct hinic_pfhwdev, hwdev);
-+
-+	return hinic_msg_to_mgmt(&pfhwdev->pf_to_mgmt, HINIC_MOD_L2NIC, cmd,
-+				 buf_in, in_size, buf_out, out_size,
-+				 HINIC_MGMT_MSG_SYNC);
-+}
-+
-+/**
-  * init_pfhwdev - Initialize the extended components of PF
-  * @pfhwdev: the HW device for PF
-  *
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-index feb60138..ee9e76a 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
-@@ -30,6 +30,31 @@ struct hinic_cap {
- 	u16     num_qps;
- };
+@@ -491,6 +814,8 @@ static int api_chain_init(struct hinic_api_cmd_chain *chain,
+ 	chain->prod_idx  = 0;
+ 	chain->cons_idx  = 0;
  
-+enum hinic_port_cmd {
-+	HINIC_PORT_CMD_CHANGE_MTU       = 2,
++	sema_init(&chain->sem, 1);
 +
-+	HINIC_PORT_CMD_ADD_VLAN         = 3,
-+	HINIC_PORT_CMD_DEL_VLAN         = 4,
-+
-+	HINIC_PORT_CMD_SET_MAC          = 9,
-+	HINIC_PORT_CMD_GET_MAC          = 10,
-+	HINIC_PORT_CMD_DEL_MAC          = 11,
-+
-+	HINIC_PORT_CMD_SET_RX_MODE      = 12,
-+
-+	HINIC_PORT_CMD_GET_LINK_STATE   = 24,
-+
-+	HINIC_PORT_CMD_SET_PORT_STATE   = 41,
-+
-+	HINIC_PORT_CMD_FWCTXT_INIT      = 69,
-+
-+	HINIC_PORT_CMD_SET_FUNC_STATE   = 93,
-+
-+	HINIC_PORT_CMD_GET_GLOBAL_QPN   = 102,
-+
-+	HINIC_PORT_CMD_GET_CAP          = 170,
-+};
-+
- struct hinic_hwdev {
- 	struct hinic_hwif               *hwif;
- 	struct msix_entry               *msix_entries;
-@@ -45,6 +70,10 @@ struct hinic_pfhwdev {
- 	struct hinic_pf_to_mgmt         pf_to_mgmt;
- };
+ 	cell_ctxt_size = chain->num_cells * sizeof(*chain->cell_ctxt);
+ 	chain->cell_ctxt = devm_kzalloc(&pdev->dev, cell_ctxt_size, GFP_KERNEL);
+ 	if (!chain->cell_ctxt)
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+index e8865d6..31b94d5 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+@@ -17,9 +17,22 @@
+ #define HINIC_HW_API_CMD_H
  
-+int hinic_port_msg_cmd(struct hinic_hwdev *hwdev, enum hinic_port_cmd cmd,
-+		       void *buf_in, u16 in_size, void *buf_out,
-+		       u16 *out_size);
-+
- struct hinic_hwdev *hinic_init_hwdev(struct pci_dev *pdev);
- 
- void hinic_free_hwdev(struct hinic_hwdev *hwdev);
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-index 1d7aed0..772e4e6 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_main.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-@@ -13,6 +13,7 @@
-  *
-  */
- 
-+#include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/pci.h>
- #include <linux/device.h>
-@@ -20,9 +21,16 @@
  #include <linux/types.h>
- #include <linux/etherdevice.h>
- #include <linux/netdevice.h>
-+#include <linux/slab.h>
-+#include <linux/if_vlan.h>
 +#include <linux/semaphore.h>
-+#include <net/ip.h>
-+#include <linux/bitops.h>
-+#include <linux/bitmap.h>
- #include <linux/err.h>
  
- #include "hinic_hw_dev.h"
-+#include "hinic_port.h"
- #include "hinic_dev.h"
+ #include "hinic_hw_if.h"
  
- MODULE_AUTHOR("Huawei Technologies CO., Ltd");
-@@ -35,10 +43,163 @@
- 					 NETIF_MSG_IFUP |                  \
- 					 NETIF_MSG_TX_ERR | NETIF_MSG_RX_ERR)
++#define HINIC_API_CMD_PI_IDX_SHIFT                              0
++
++#define HINIC_API_CMD_PI_IDX_MASK                               0xFFFFFF
++
++#define HINIC_API_CMD_PI_SET(val, member)                       \
++	(((u32)(val) & HINIC_API_CMD_PI_##member##_MASK) <<     \
++	 HINIC_API_CMD_PI_##member##_SHIFT)
++
++#define HINIC_API_CMD_PI_CLEAR(val, member)                     \
++	((val) & (~(HINIC_API_CMD_PI_##member##_MASK            \
++	 << HINIC_API_CMD_PI_##member##_SHIFT)))
++
+ #define HINIC_API_CMD_CHAIN_REQ_RESTART_SHIFT                   1
  
-+#define VLAN_BITMAP_SIZE(nic_dev)       (ALIGN(VLAN_N_VID, 8) / 8)
-+
-+static int hinic_change_mtu(struct net_device *netdev, int new_mtu)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	int err;
-+
-+	netif_info(nic_dev, drv, netdev, "set_mtu = %d\n", new_mtu);
-+
-+	err = hinic_port_set_mtu(nic_dev, new_mtu);
-+	if (err)
-+		netif_err(nic_dev, drv, netdev, "Failed to set port mtu\n");
-+	else
-+		netdev->mtu = new_mtu;
-+
-+	return err;
-+}
-+
-+/**
-+ * change_mac_addr - change the main mac address of network device
-+ * @netdev: network device
-+ * @addr: mac address to set
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int change_mac_addr(struct net_device *netdev, const u8 *addr)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	u16 vid = 0;
-+	int err;
-+
-+	if (!is_valid_ether_addr(addr))
-+		return -EADDRNOTAVAIL;
-+
-+	netif_info(nic_dev, drv, netdev, "change mac addr = %02x %02x %02x %02x %02x %02x\n",
-+		   addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-+
-+	down(&nic_dev->mgmt_lock);
-+
-+	do {
-+		err = hinic_port_del_mac(nic_dev, netdev->dev_addr, vid);
-+		if (err) {
-+			netif_err(nic_dev, drv, netdev,
-+				  "Failed to delete mac\n");
-+			break;
-+		}
-+
-+		err = hinic_port_add_mac(nic_dev, addr, vid);
-+		if (err) {
-+			netif_err(nic_dev, drv, netdev, "Failed to add mac\n");
-+			break;
-+		}
-+
-+		vid = find_next_bit(nic_dev->vlan_bitmap, VLAN_N_VID, vid + 1);
-+	} while (vid != VLAN_N_VID);
-+
-+	up(&nic_dev->mgmt_lock);
-+	return err;
-+}
-+
-+static int hinic_set_mac_addr(struct net_device *netdev, void *addr)
-+{
-+	unsigned char new_mac[ETH_ALEN];
-+	struct sockaddr *saddr = addr;
-+	int err;
-+
-+	memcpy(new_mac, saddr->sa_data, ETH_ALEN);
-+
-+	err = change_mac_addr(netdev, new_mac);
-+	if (!err)
-+		memcpy(netdev->dev_addr, new_mac, ETH_ALEN);
-+
-+	return err;
-+}
-+
-+static int hinic_vlan_rx_add_vid(struct net_device *netdev,
-+				 __always_unused __be16 proto, u16 vid)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	int ret, err;
-+
-+	netif_info(nic_dev, drv, netdev, "add vid = %d\n", vid);
-+
-+	down(&nic_dev->mgmt_lock);
-+
-+	err = hinic_port_add_vlan(nic_dev, vid);
-+	if (err) {
-+		netif_err(nic_dev, drv, netdev, "Failed to add vlan\n");
-+		goto err_vlan_add;
-+	}
-+
-+	err = hinic_port_add_mac(nic_dev, netdev->dev_addr, vid);
-+	if (err) {
-+		netif_err(nic_dev, drv, netdev, "Failed to set mac\n");
-+		goto err_add_mac;
-+	}
-+
-+	bitmap_set(nic_dev->vlan_bitmap, vid, 1);
-+
-+	up(&nic_dev->mgmt_lock);
-+	return 0;
-+
-+err_add_mac:
-+	ret = hinic_port_del_vlan(nic_dev, vid);
-+	if (ret)
-+		netif_err(nic_dev, drv, netdev,
-+			  "Failed to revert by removing vlan\n");
-+
-+err_vlan_add:
-+	up(&nic_dev->mgmt_lock);
-+	return err;
-+}
-+
-+static int hinic_vlan_rx_kill_vid(struct net_device *netdev,
-+				  __always_unused __be16 proto, u16 vid)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	int err;
-+
-+	netif_info(nic_dev, drv, netdev, "remove vid = %d\n", vid);
-+
-+	down(&nic_dev->mgmt_lock);
-+
-+	err = hinic_port_del_vlan(nic_dev, vid);
-+	if (err) {
-+		netif_err(nic_dev, drv, netdev, "Failed to delete vlan\n");
-+		goto err_del_vlan;
-+	}
-+
-+	bitmap_clear(nic_dev->vlan_bitmap, vid, 1);
-+
-+	up(&nic_dev->mgmt_lock);
-+	return 0;
-+
-+err_del_vlan:
-+	up(&nic_dev->mgmt_lock);
-+	return err;
-+}
-+
- static const struct net_device_ops hinic_netdev_ops = {
--	/* Operations are empty, should be filled */
-+	.ndo_change_mtu = hinic_change_mtu,
-+	.ndo_set_mac_address = hinic_set_mac_addr,
-+	.ndo_validate_addr = eth_validate_addr,
-+	.ndo_vlan_rx_add_vid = hinic_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid = hinic_vlan_rx_kill_vid,
-+	/* more operations should be filled */
- };
+ #define HINIC_API_CMD_CHAIN_REQ_RESTART_MASK                    0x1
+@@ -58,6 +71,56 @@
+ 	((val) & (~(HINIC_API_CMD_CHAIN_CTRL_##member##_MASK    \
+ 	 << HINIC_API_CMD_CHAIN_CTRL_##member##_SHIFT)))
  
-+static void netdev_features_init(struct net_device *netdev)
-+{
-+	netdev->hw_features = NETIF_F_SG | NETIF_F_HIGHDMA;
++#define HINIC_API_CMD_CELL_CTRL_DATA_SZ_SHIFT                   0
++#define HINIC_API_CMD_CELL_CTRL_RD_DMA_ATTR_SHIFT               16
++#define HINIC_API_CMD_CELL_CTRL_WR_DMA_ATTR_SHIFT               24
++#define HINIC_API_CMD_CELL_CTRL_XOR_CHKSUM_SHIFT                56
 +
-+	netdev->vlan_features = netdev->hw_features;
++#define HINIC_API_CMD_CELL_CTRL_DATA_SZ_MASK                    0x3F
++#define HINIC_API_CMD_CELL_CTRL_RD_DMA_ATTR_MASK                0x3F
++#define HINIC_API_CMD_CELL_CTRL_WR_DMA_ATTR_MASK                0x3F
++#define HINIC_API_CMD_CELL_CTRL_XOR_CHKSUM_MASK                 0xFF
 +
-+	netdev->features = netdev->hw_features | NETIF_F_HW_VLAN_CTAG_FILTER;
-+}
++#define HINIC_API_CMD_CELL_CTRL_SET(val, member)                \
++	((((u64)val) & HINIC_API_CMD_CELL_CTRL_##member##_MASK) << \
++	 HINIC_API_CMD_CELL_CTRL_##member##_SHIFT)
 +
- /**
-  * nic_dev_init - Initialize the NIC device
-  * @pdev: the NIC pci device
-@@ -79,8 +240,36 @@ static int nic_dev_init(struct pci_dev *pdev)
- 	nic_dev->hwdev  = hwdev;
- 	nic_dev->msg_enable = MSG_ENABLE_DEFAULT;
++#define HINIC_API_CMD_DESC_API_TYPE_SHIFT                       0
++#define HINIC_API_CMD_DESC_RD_WR_SHIFT                          1
++#define HINIC_API_CMD_DESC_MGMT_BYPASS_SHIFT                    2
++#define HINIC_API_CMD_DESC_DEST_SHIFT                           32
++#define HINIC_API_CMD_DESC_SIZE_SHIFT                           40
++#define HINIC_API_CMD_DESC_XOR_CHKSUM_SHIFT                     56
++
++#define HINIC_API_CMD_DESC_API_TYPE_MASK                        0x1
++#define HINIC_API_CMD_DESC_RD_WR_MASK                           0x1
++#define HINIC_API_CMD_DESC_MGMT_BYPASS_MASK                     0x1
++#define HINIC_API_CMD_DESC_DEST_MASK                            0x1F
++#define HINIC_API_CMD_DESC_SIZE_MASK                            0x7FF
++#define HINIC_API_CMD_DESC_XOR_CHKSUM_MASK                      0xFF
++
++#define HINIC_API_CMD_DESC_SET(val, member)                     \
++	((((u64)val) & HINIC_API_CMD_DESC_##member##_MASK) <<   \
++	 HINIC_API_CMD_DESC_##member##_SHIFT)
++
++#define HINIC_API_CMD_STATUS_HEADER_CHAIN_ID_SHIFT              16
++
++#define HINIC_API_CMD_STATUS_HEADER_CHAIN_ID_MASK               0xFF
++
++#define HINIC_API_CMD_STATUS_HEADER_GET(val, member)            \
++	(((val) >> HINIC_API_CMD_STATUS_HEADER_##member##_SHIFT) & \
++	 HINIC_API_CMD_STATUS_HEADER_##member##_MASK)
++
++#define HINIC_API_CMD_STATUS_CONS_IDX_SHIFT                     0
++#define HINIC_API_CMD_STATUS_CHKSUM_ERR_SHIFT                   28
++
++#define HINIC_API_CMD_STATUS_CONS_IDX_MASK                      0xFFFFFF
++#define HINIC_API_CMD_STATUS_CHKSUM_ERR_MASK                    0x3
++
++#define HINIC_API_CMD_STATUS_GET(val, member)                   \
++	(((val) >> HINIC_API_CMD_STATUS_##member##_SHIFT) &     \
++	 HINIC_API_CMD_STATUS_##member##_MASK)
++
+ enum hinic_api_cmd_chain_type {
+ 	HINIC_API_CMD_WRITE_TO_MGMT_CPU = 2,
  
-+	sema_init(&nic_dev->mgmt_lock, 1);
-+
-+	nic_dev->vlan_bitmap = devm_kzalloc(&pdev->dev,
-+					    VLAN_BITMAP_SIZE(nic_dev),
-+					    GFP_KERNEL);
-+	if (!nic_dev->vlan_bitmap) {
-+		err = -ENOMEM;
-+		goto err_vlan_bitmap;
-+	}
-+
- 	pci_set_drvdata(pdev, netdev);
+@@ -122,6 +185,8 @@ struct hinic_api_cmd_chain {
+ 	u32                             prod_idx;
+ 	u32                             cons_idx;
  
-+	err = hinic_port_get_mac(nic_dev, netdev->dev_addr);
-+	if (err)
-+		dev_warn(&pdev->dev, "Failed to get mac address\n");
++	struct semaphore                sem;
 +
-+	err = hinic_port_add_mac(nic_dev, netdev->dev_addr, 0);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to add mac\n");
-+		goto err_add_mac;
-+	}
-+
-+	err = hinic_port_set_mtu(nic_dev, netdev->mtu);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to set mtu\n");
-+		goto err_set_mtu;
-+	}
-+
-+	netdev_features_init(netdev);
-+
- 	netif_carrier_off(netdev);
+ 	struct hinic_api_cmd_cell_ctxt  *cell_ctxt;
  
- 	err = register_netdev(netdev);
-@@ -92,7 +281,11 @@ static int nic_dev_init(struct pci_dev *pdev)
- 	return 0;
+ 	dma_addr_t                      wb_status_paddr;
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+index a9ece6d..ebbf054 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+@@ -56,7 +56,13 @@
+ #define HINIC_CSR_API_CMD_CHAIN_CTRL_ADDR(idx)          \
+ 	(HINIC_CSR_API_CMD_BASE + 0x14 + (idx) * HINIC_CSR_API_CMD_STRIDE)
  
- err_reg_netdev:
-+err_set_mtu:
-+err_add_mac:
- 	pci_set_drvdata(pdev, NULL);
++#define HINIC_CSR_API_CMD_CHAIN_PI_ADDR(idx)            \
++	(HINIC_CSR_API_CMD_BASE + 0x1C + (idx) * HINIC_CSR_API_CMD_STRIDE)
 +
-+err_vlan_bitmap:
- 	free_netdev(netdev);
+ #define HINIC_CSR_API_CMD_CHAIN_REQ_ADDR(idx)           \
+ 	(HINIC_CSR_API_CMD_BASE + 0x20 + (idx) * HINIC_CSR_API_CMD_STRIDE)
  
- err_alloc_etherdev:
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.c b/drivers/net/ethernet/huawei/hinic/hinic_port.c
-new file mode 100644
-index 0000000..5b249e8
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_port.c
-@@ -0,0 +1,224 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
++#define HINIC_CSR_API_CMD_STATUS_ADDR(idx)              \
++	(HINIC_CSR_API_CMD_BASE + 0x30 + (idx) * HINIC_CSR_API_CMD_STRIDE)
 +
-+#include <linux/types.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/if_vlan.h>
-+#include <linux/pci.h>
-+#include <linux/device.h>
-+#include <linux/errno.h>
-+
-+#include "hinic_hw_if.h"
-+#include "hinic_hw_dev.h"
-+#include "hinic_port.h"
-+#include "hinic_dev.h"
-+
-+#define HINIC_MIN_MTU_SIZE              256
-+#define HINIC_MAX_JUMBO_FRAME_SIZE      15872
-+
-+enum mac_op {
-+	MAC_DEL,
-+	MAC_SET,
-+};
-+
-+/**
-+ * change_mac - change(add or delete) mac address
-+ * @nic_dev: nic device
-+ * @addr: mac address
-+ * @vlan_id: vlan number to set with the mac
-+ * @op: add or delete the mac
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int change_mac(struct hinic_dev *nic_dev, const u8 *addr,
-+		      u16 vlan_id, enum mac_op op)
-+{
-+	struct net_device *netdev = nic_dev->netdev;
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+	struct hinic_port_mac_cmd port_mac_cmd;
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	enum hinic_port_cmd cmd;
-+	u16 out_size;
-+	int err;
-+
-+	if (vlan_id >= VLAN_N_VID) {
-+		netif_err(nic_dev, drv, netdev, "Invalid VLAN number\n");
-+		return -EINVAL;
-+	}
-+
-+	if (op == MAC_SET)
-+		cmd = HINIC_PORT_CMD_SET_MAC;
-+	else
-+		cmd = HINIC_PORT_CMD_DEL_MAC;
-+
-+	port_mac_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwif);
-+	port_mac_cmd.vlan_id = vlan_id;
-+	memcpy(port_mac_cmd.mac, addr, ETH_ALEN);
-+
-+	err = hinic_port_msg_cmd(hwdev, cmd, &port_mac_cmd,
-+				 sizeof(port_mac_cmd),
-+				 &port_mac_cmd, &out_size);
-+	if (err || (out_size != sizeof(port_mac_cmd)) || port_mac_cmd.status) {
-+		dev_err(&pdev->dev, "Failed to change MAC, ret = %d\n",
-+			port_mac_cmd.status);
-+		return -EFAULT;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * hinic_port_add_mac - add mac address
-+ * @nic_dev: nic device
-+ * @addr: mac address
-+ * @vlan_id: vlan number to set with the mac
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_add_mac(struct hinic_dev *nic_dev,
-+		       const u8 *addr, u16 vlan_id)
-+{
-+	return change_mac(nic_dev, addr, vlan_id, MAC_SET);
-+}
-+
-+/**
-+ * hinic_port_del_mac - remove mac address
-+ * @nic_dev: nic device
-+ * @addr: mac address
-+ * @vlan_id: vlan number that is connected to the mac
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_del_mac(struct hinic_dev *nic_dev, const u8 *addr,
-+		       u16 vlan_id)
-+{
-+	return change_mac(nic_dev, addr, vlan_id, MAC_DEL);
-+}
-+
-+/**
-+ * hinic_port_get_mac - get the mac address of the nic device
-+ * @nic_dev: nic device
-+ * @addr: returned mac address
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_get_mac(struct hinic_dev *nic_dev, u8 *addr)
-+{
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+	struct hinic_port_mac_cmd port_mac_cmd;
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	u16 out_size;
-+	int err;
-+
-+	port_mac_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwif);
-+
-+	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_GET_MAC,
-+				 &port_mac_cmd, sizeof(port_mac_cmd),
-+				 &port_mac_cmd, &out_size);
-+	if (err || (out_size != sizeof(port_mac_cmd)) || port_mac_cmd.status) {
-+		dev_err(&pdev->dev, "Failed to get mac, ret = %d\n",
-+			port_mac_cmd.status);
-+		return -EFAULT;
-+	}
-+
-+	memcpy(addr, port_mac_cmd.mac, ETH_ALEN);
-+	return 0;
-+}
-+
-+/**
-+ * hinic_port_set_mtu - set mtu
-+ * @nic_dev: nic device
-+ * @new_mtu: new mtu
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_set_mtu(struct hinic_dev *nic_dev, int new_mtu)
-+{
-+	struct net_device *netdev = nic_dev->netdev;
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+	struct hinic_port_mtu_cmd port_mtu_cmd;
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	int err, max_frame;
-+	u16 out_size;
-+
-+	if (new_mtu < HINIC_MIN_MTU_SIZE) {
-+		netif_err(nic_dev, drv, netdev, "mtu < MIN MTU size");
-+		return -EINVAL;
-+	}
-+
-+	max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
-+	if (max_frame > HINIC_MAX_JUMBO_FRAME_SIZE) {
-+		netif_err(nic_dev, drv, netdev, "mtu > MAX MTU size");
-+		return -EINVAL;
-+	}
-+
-+	port_mtu_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwif);
-+	port_mtu_cmd.mtu = new_mtu;
-+
-+	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_CHANGE_MTU,
-+				 &port_mtu_cmd, sizeof(port_mtu_cmd),
-+				 &port_mtu_cmd, &out_size);
-+	if (err || (out_size != sizeof(port_mtu_cmd)) || port_mtu_cmd.status) {
-+		dev_err(&pdev->dev, "Failed to set mtu, ret = %d\n",
-+			port_mtu_cmd.status);
-+		return -EFAULT;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * hinic_port_add_vlan - add vlan to the nic device
-+ * @nic_dev: nic device
-+ * @vlan_id: the vlan number to add
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_add_vlan(struct hinic_dev *nic_dev, u16 vlan_id)
-+{
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+	struct hinic_port_vlan_cmd port_vlan_cmd;
-+
-+	port_vlan_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwdev->hwif);
-+	port_vlan_cmd.vlan_id = vlan_id;
-+
-+	return hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_ADD_VLAN,
-+				  &port_vlan_cmd, sizeof(port_vlan_cmd),
-+				  NULL, NULL);
-+}
-+
-+/**
-+ * hinic_port_del_vlan - delete vlan from the nic device
-+ * @nic_dev: nic device
-+ * @vlan_id: the vlan number to delete
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_del_vlan(struct hinic_dev *nic_dev, u16 vlan_id)
-+{
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+	struct hinic_port_vlan_cmd port_vlan_cmd;
-+
-+	port_vlan_cmd.func_idx = HINIC_HWIF_FUNC_IDX(hwdev->hwif);
-+	port_vlan_cmd.vlan_id = vlan_id;
-+
-+	return hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_DEL_VLAN,
-+				 &port_vlan_cmd, sizeof(port_vlan_cmd),
-+				 NULL, NULL);
-+}
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.h b/drivers/net/ethernet/huawei/hinic/hinic_port.h
-new file mode 100644
-index 0000000..4cafb94
---- /dev/null
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_port.h
-@@ -0,0 +1,68 @@
-+/*
-+ * Huawei HiNIC PCI Express Linux driver
-+ * Copyright(c) 2017 Huawei Technologies Co., Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-+ * for more details.
-+ *
-+ */
-+
-+#ifndef HINIC_PORT_H
-+#define HINIC_PORT_H
-+
-+#include <linux/types.h>
-+#include <linux/etherdevice.h>
-+
-+#include "hinic_dev.h"
-+
-+struct hinic_port_mac_cmd {
-+	u8              status;
-+	u8              version;
-+	u8              rsvd0[6];
-+
-+	u16             func_idx;
-+	u16             vlan_id;
-+	u16             rsvd1;
-+	unsigned char   mac[ETH_ALEN];
-+};
-+
-+struct hinic_port_mtu_cmd {
-+	u8      status;
-+	u8      version;
-+	u8      rsvd0[6];
-+
-+	u16     func_idx;
-+	u16     rsvd1;
-+	u32     mtu;
-+};
-+
-+struct hinic_port_vlan_cmd {
-+	u8      status;
-+	u8      version;
-+	u8      rsvd0[6];
-+
-+	u16     func_idx;
-+	u16     vlan_id;
-+};
-+
-+int hinic_port_add_mac(struct hinic_dev *nic_dev, const u8 *addr,
-+		       u16 vlan_id);
-+
-+int hinic_port_del_mac(struct hinic_dev *nic_dev, const u8 *addr,
-+		       u16 vlan_id);
-+
-+int hinic_port_get_mac(struct hinic_dev *nic_dev, u8 *addr);
-+
-+int hinic_port_set_mtu(struct hinic_dev *nic_dev, int new_mtu);
-+
-+int hinic_port_add_vlan(struct hinic_dev *nic_dev, u16 vlan_id);
-+
-+int hinic_port_del_vlan(struct hinic_dev *nic_dev, u16 vlan_id);
-+
-+#endif
+ #endif
 -- 
 1.9.1
