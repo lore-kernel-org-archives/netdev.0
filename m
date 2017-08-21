@@ -1,71 +1,179 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH 3/6] mpls: add VPLS entry points
-Date: Mon, 21 Aug 2017 17:55:25 +0200
-Message-ID: <20170821155525.GW773745@eidolon>
-References: <20170816170202.456851-1-equinox@diac24.net>
- <20170816170202.456851-4-equinox@diac24.net>
- <268e2bb8-b35b-61ed-1e23-59200f67c621@6wind.com>
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Subject: [PATCH V8 net-next 00/22] Huawei HiNIC Ethernet Driver
+Date: Mon, 21 Aug 2017 23:55:46 +0800
+Message-ID: <cover.1503330613.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org,
-        roopa@cumulusnetworks.com
-To: Amine Kherbouche <amine.kherbouche@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eidolon.nox.tf ([185.142.180.128]:36690 "EHLO eidolon.nox.tf"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753245AbdHUPz1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 11:55:27 -0400
-Content-Disposition: inline
-In-Reply-To: <268e2bb8-b35b-61ed-1e23-59200f67c621@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
+        <aviad.krawczyk@huawei.com>, <zhaochen6@huawei.com>,
+        <tony.qu@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 21, 2017 at 04:01:15PM +0200, Amine Kherbouche wrote:
-> On 08/16/2017 07:01 PM, David Lamparter wrote:
-> > This wires up the neccessary calls for VPLS into the MPLS forwarding
-> > pieces.  Since CONFIG_MPLS_VPLS doesn't exist yet in Kconfig, it'll
-> > never be enabled, so we're on the stubs for now.
-[...]
-> > +	if (rt->rt_payload_type == MPT_VPLS)
-> > +		return vpls_rcv(skb, dev, pt, rt, hdr, orig_dev);
-> 
-> you should get the ret value of vpls_rcv() and increment stats if error 
-> occurs.
+The patch-set contains the support of the HiNIC Ethernet driver for
+hinic family of PCIE Network Interface Cards.
 
-An error in vpls_rcv() is not a receive error on the outer device's MPLS
-layer;  the packet was received correctly (and counted for that at the
-beginning of mpls_forward()) and dispatched onto an appropriately
-configured VPLS device.  vpls_rcv() counts its own stats on the inner
-device.
+The Huawei's PCIE HiNIC card is a new Ethernet card and hence there was
+a need of a new driver.
 
-[...]
-> > +static inline int vpls_rcv(skb, in_dev, pt, rt, hdr, orig_dev)
-> > +{
-> > +	kfree_skb(skb);
-> > +	return NET_RX_DROP;
-> 
-> just return NET_RX_DROP;
+The current driver is meant to be used for the Physical Function and there
+would soon be a support for Virtual Function and more features once the
+basic PF driver has been accepted.
 
-This is not correct;  the skb ownership is passed down to vpls_rcv(),
-which itself will pass it on via netif_rx().  This is also why the call
-in mpls_forward() does *not* "goto drop", instead directly returning.
-vpls_rcv() consumes the skb in all cases.  Doing this the other way
-around would incur extra overhead through a skb_clone() in vpls_rcv()
-before giving it to netif_rx().
+Changes V7 -> V8:
+1. Remove unnecessary cast from void * - Stephen Hemminger comment
+	https://lkml.org/lkml/2017/8/17/1008
 
-Note that the vpls_rcv() dummy function in this patch can't be called
-because the kernel will refuse to install a VPLS route into the label
-table (the is_vpls_device() check will be 0).  The dummy is just to keep
-the code tidy.
+Changes V6 -> V7:
+1. Separate netpoll and MAINTAINERS patch - Sergei Shtylyov comment
+	https://lkml.org/lkml/2017/8/17/479
 
-[...]
-> > +#endif
-> s/ #endif/#endif /* CONFIG_MPLS_VPLS *//
+Changes V5 -> V6:
+1. Fix cover letter Message-Id
 
-Fixed in next ver (along with the bugged prototype reported by the
-build bot.)
+Changes V4 -> V5:
+1. Remove select_queue NOP - David Miller comment
+        https://lkml.org/lkml/2017/8/16/625
 
-Cheers,
+Changes V3 -> V4:
+1. Reverse christmas tree order - David Miller comment
+        https://lkml.org/lkml/2017/8/3/862
 
+Changes V2 -> V3:
+1. Replace dev_ functions by netif_ functions - Joe Perches comment
+        https://lkml.org/lkml/2017/7/19/424
+2. Fix the driver directory in MAINTAINERS file - Sergei Shtylyov comment
+        https://lkml.org/lkml/2017/7/19/615
+3. Add a newline at the end of Makefile - David Miller comment
+        https://lkml.org/lkml/2017/7/19/1345
+4. Return a pointer as a val instead of in arg - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+5. Change the error labels to err_xyz - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+6. Remove check of Func Type in free function - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+7. Remove !netdev check in remove function - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+8. Use module_pci_driver - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+9. Move the PCI device ID to the .c file - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
+10. Remove void * to avoid passing wrong ptr - Francois Romieu comment
+        https://lkml.org/lkml/2017/7/19/1319
 
--David
+Changes V1 -> V2:
+1. remove driver verstion - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/372
+2. replace kzalloc by devm_kzalloc for short clean - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/372
+3. replace pr_ functions by dev_ functions - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/375
+4. seperate last patch by moving ops to a new patch - Andrew Lunn comment
+        https://lkml.org/lkml/2017/7/12/377
+
+Aviad Krawczyk (22):
+  net-next/hinic: Initialize hw interface
+  net-next/hinic: Initialize hw device components
+  net-next/hinic: Initialize api cmd resources
+  net-next/hinic: Initialize api cmd hw
+  net-next/hinic: Add management messages
+  net-next/hinic: Add api cmd commands
+  net-next/hinic: Add aeqs
+  net-next/hinic: Add port management commands
+  net-next/hinic: Add Rx mode and link event handler
+  net-next/hinic: Add logical Txq and Rxq
+  net-next/hinic: Add wq
+  net-next/hinic: Add qp resources
+  net-next/hinic: Set qp context
+  net-next/hinic: Initialize cmdq
+  net-next/hinic: Add ceqs
+  net-next/hinic: Add cmdq commands
+  net-next/hinic: Add cmdq completion handler
+  net-next/hinic: Add Rx handler
+  net-next/hinic: Add Tx operation
+  net-next/hinic: Add ethtool and stats
+  net-next/hinic: Add netpoll
+  net-next/hinic: Add Maintainer
+
+ Documentation/networking/hinic.txt                 |  125 +++
+ MAINTAINERS                                        |    7 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/huawei/Kconfig                |   19 +
+ drivers/net/ethernet/huawei/Makefile               |    5 +
+ drivers/net/ethernet/huawei/hinic/Kconfig          |   13 +
+ drivers/net/ethernet/huawei/hinic/Makefile         |    6 +
+ drivers/net/ethernet/huawei/hinic/hinic_common.c   |   80 ++
+ drivers/net/ethernet/huawei/hinic/hinic_common.h   |   38 +
+ drivers/net/ethernet/huawei/hinic/hinic_dev.h      |   64 ++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   |  977 +++++++++++++++++
+ .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |  208 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c  |  946 +++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h  |  187 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |  149 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c   | 1048 ++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h   |  239 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c   |  886 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h   |  265 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.c    |  351 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.h    |  272 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.c    |  533 ++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_io.h    |   97 ++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c  |  597 +++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h  |  153 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.c    |  887 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h    |  180 ++++
+ .../net/ethernet/huawei/hinic/hinic_hw_qp_ctxt.h   |  214 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c    |  878 ++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h    |  117 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h   |  368 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_main.c     | 1111 ++++++++++++++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.c     |  379 +++++++
+ drivers/net/ethernet/huawei/hinic/hinic_port.h     |  198 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.c       |  509 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_rx.h       |   55 +
+ drivers/net/ethernet/huawei/hinic/hinic_tx.c       |  503 +++++++++
+ drivers/net/ethernet/huawei/hinic/hinic_tx.h       |   62 ++
+ 39 files changed, 12728 insertions(+)
+ create mode 100644 Documentation/networking/hinic.txt
+ create mode 100644 drivers/net/ethernet/huawei/Kconfig
+ create mode 100644 drivers/net/ethernet/huawei/Makefile
+ create mode 100644 drivers/net/ethernet/huawei/hinic/Kconfig
+ create mode 100644 drivers/net/ethernet/huawei/hinic/Makefile
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_common.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_dev.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_dev.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_io.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_io.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_mgmt.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_qp_ctxt.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wq.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_hw_wqe.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_main.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_port.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_rx.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_rx.h
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_tx.c
+ create mode 100644 drivers/net/ethernet/huawei/hinic/hinic_tx.h
+
+-- 
+1.9.1
