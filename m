@@ -1,8 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 3/4] xfrm: policy: check policy direction value
-Date: Mon, 21 Aug 2017 08:08:02 +0200
-Message-ID: <1503295683-19153-4-git-send-email-steffen.klassert@secunet.com>
-References: <1503295683-19153-1-git-send-email-steffen.klassert@secunet.com>
+Subject: pull request (net): ipsec 2017-08-21
+Date: Mon, 21 Aug 2017 08:07:59 +0200
+Message-ID: <1503295683-19153-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -10,51 +9,57 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:35478 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:35446 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751077AbdHUGIL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 02:08:11 -0400
-In-Reply-To: <1503295683-19153-1-git-send-email-steffen.klassert@secunet.com>
+        id S1750937AbdHUGIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 02:08:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladis Dronov <vdronov@redhat.com>
+1) Fix memleaks when ESP takes an error path.
 
-The 'dir' parameter in xfrm_migrate() is a user-controlled byte which is used
-as an array index. This can lead to an out-of-bound access, kernel lockup and
-DoS. Add a check for the 'dir' value.
+2) Fix null pointer dereference when creating a sub policy
+   that matches the same outer flow as main policy does.
+   From Koichiro Den.
 
-This fixes CVE-2017-11600.
+3) Fix possible out-of-bound access in xfrm_migrate.
+   This patch should go to the stable trees too.
+   From Vladis Dronov.
 
-References: https://bugzilla.redhat.com/show_bug.cgi?id=1474928
-Fixes: 80c9abaabf42 ("[XFRM]: Extension for dynamic update of endpoint address(es)")
-Cc: <stable@vger.kernel.org> # v2.6.21-rc1
-Reported-by: "bo Zhang" <zhangbo5891001@gmail.com>
-Signed-off-by: Vladis Dronov <vdronov@redhat.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_policy.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+4) ESP can return positive and negative error values,
+   so treat both cases as an error.
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index ff61d85..6f5a0dad 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -3308,9 +3308,15 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 	struct xfrm_state *x_new[XFRM_MAX_DEPTH];
- 	struct xfrm_migrate *mp;
- 
-+	/* Stage 0 - sanity checks */
- 	if ((err = xfrm_migrate_check(m, num_migrate)) < 0)
- 		goto out;
- 
-+	if (dir >= XFRM_POLICY_MAX) {
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
- 	/* Stage 1 - find policy */
- 	if ((pol = xfrm_migrate_policy_find(sel, dir, type, net)) == NULL) {
- 		err = -ENOENT;
--- 
-2.7.4
+Please pull or let me know if there are problems.
+
+Thanks!
+
+The following changes since commit edaf3825182958a1fd5e39708fcb6ea48eca2060:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2017-07-12 19:30:57 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
+
+for you to fetch changes up to 4ff0308f06da5016aafb05330ed37809b54f81ae:
+
+  esp: Fix error handling on layer 2 xmit. (2017-08-07 08:31:07 +0200)
+
+----------------------------------------------------------------
+Koichiro Den (1):
+      xfrm: fix null pointer dereference on state and tmpl sort
+
+Steffen Klassert (2):
+      esp: Fix memleaks on error paths.
+      esp: Fix error handling on layer 2 xmit.
+
+Vladis Dronov (1):
+      xfrm: policy: check policy direction value
+
+ net/ipv4/esp4.c         | 13 ++++++++-----
+ net/ipv4/esp4_offload.c |  2 +-
+ net/ipv6/esp6.c         |  9 +++++----
+ net/ipv6/esp6_offload.c |  2 +-
+ net/xfrm/xfrm_policy.c  |  6 ++++++
+ net/xfrm/xfrm_state.c   |  8 ++++++++
+ 6 files changed, 29 insertions(+), 11 deletions(-)
