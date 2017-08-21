@@ -1,45 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] liquidio: make VF driver notify NIC
- firmware of MTU change
-Date: Mon, 21 Aug 2017 11:04:19 -0700 (PDT)
-Message-ID: <20170821.110419.1444561309238985446.davem@davemloft.net>
-References: <20170818183432.GA4487@felix-thinkpad.cavium.com>
-        <20170818183520.GA4522@felix-thinkpad.cavium.com>
+From: Vallish Vaidyeshwara <vallish@amazon.com>
+Subject: Re: [PATCH RESEND 0/2] enable hires timer to timeout datagram socket
+Date: Mon, 21 Aug 2017 18:22:10 +0000
+Message-ID: <20170821182210.GA2983@amazon.com>
+References: <1503081850-10671-1-git-send-email-vallish@amazon.com>
+ <20170818201854.xes246oviptinwvq@localhost>
+ <20170818222756.GB28737@amazon.com>
+ <20170819062145.vtr63ri4v577cymz@localhost>
+ <20170820014744.GA43685@amazon.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        veerasenareddy.burru@cavium.com
-To: felix.manlunas@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37986 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753141AbdHUSEU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 14:04:20 -0400
-In-Reply-To: <20170818183520.GA4522@felix-thinkpad.cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <shuah@kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <eduval@amazon.com>, <anchalag@amazon.com>, <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170820014744.GA43685@amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Fri, 18 Aug 2017 11:35:20 -0700
-
-> Signed-off-by: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> ---
->  drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 22 ++++++++++++++++++----
->  1 file changed, 18 insertions(+), 4 deletions(-)
+On Sun, Aug 20, 2017 at 01:47:45AM +0000, Vallish Vaidyeshwara wrote:
+> On Sat, Aug 19, 2017 at 08:21:45AM +0200, Richard Cochran wrote:
+> > On Fri, Aug 18, 2017 at 10:27:56PM +0000, Vallish Vaidyeshwara wrote:
+> > > We have a on-demand application that uses long timeouts and needs to react to
+> > > events within milliseconds.
+> >
 > 
-> diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-> index 0402b18..e947783 100644
-> --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-> +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-> @@ -1545,13 +1545,27 @@ static struct net_device_stats *liquidio_get_stats(struct net_device *netdev)
->  static int liquidio_change_mtu(struct net_device *netdev, int new_mtu)
->  {
->  	struct lio *lio = GET_LIO(netdev);
-> +	struct octeon_device *oct = lio->oct_dev;
-> +	struct octnic_ctrl_pkt nctrl;
-> +	int ret = 0;
+> Hello Richard,
+> 
+> > Huh?  The test program you posted does not react to any event.
+> >
+> 
+> Application has logic for complex events and test program is kept simple to
+> highlight the change in behavior seen with system calls.
+>
 
-Please order local variable declarations from longest to shortest line.
+Hello Richard,
+
+AWS Lambda is affected by this change in behavior in
+system call. Following links has more information:
+https://en.wikipedia.org/wiki/AWS_Lambda
+https://aws.amazon.com/lambda/
+
+Thanks.
+-Vallish
