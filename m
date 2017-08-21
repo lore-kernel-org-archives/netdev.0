@@ -1,74 +1,47 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH V2 net-next 2/2] liquidio: make VF driver notify NIC firmware
- of MTU change
-Date: Mon, 21 Aug 2017 12:35:59 -0700
-Message-ID: <20170821193559.GA6129@felix-thinkpad.cavium.com>
-References: <20170821193527.GA6102@felix-thinkpad.cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        veerasenareddy.burru@cavium.com
-To: davem@davemloft.net
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: dsa: skb_put_padto() already frees nskb
+Date: Mon, 21 Aug 2017 12:41:31 -0700
+Message-ID: <20170821194131.27839-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didtelot@savoirfairelinux.com, woojung.huh@microchip.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0073.outbound.protection.outlook.com ([104.47.34.73]:20448
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753492AbdHUTff (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 15:35:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20170821193527.GA6102@felix-thinkpad.cavium.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36817 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753222AbdHUTli (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 15:41:38 -0400
+Received: by mail-wr0-f194.google.com with SMTP id f8so14113531wrf.3
+        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 12:41:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
+skb_put_padto() already frees the passed sk_buff reference upon error,
+so calling kfree_skb() on it again is not necessary.
 
-Signed-off-by: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Detected by CoverityScan, CID#1416687 ("USE_AFTER_FREE")
+
+Fixes: e71cb9e00922 ("net: dsa: ksz: fix skb freeing")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 27 ++++++++++++++++++----
- 1 file changed, 22 insertions(+), 5 deletions(-)
+ net/dsa/tag_ksz.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 0402b18..2e993ce 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1544,14 +1544,31 @@ static struct net_device_stats *liquidio_get_stats(struct net_device *netdev)
-  */
- static int liquidio_change_mtu(struct net_device *netdev, int new_mtu)
- {
--	struct lio *lio = GET_LIO(netdev);
-+	struct octnic_ctrl_pkt nctrl;
-+	struct octeon_device *oct;
-+	struct lio *lio;
-+	int ret = 0;
+diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
+index de66ca8e6201..107172c82107 100644
+--- a/net/dsa/tag_ksz.c
++++ b/net/dsa/tag_ksz.c
+@@ -60,10 +60,8 @@ static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
+ 					 skb_transport_header(skb) - skb->head);
+ 		skb_copy_and_csum_dev(skb, skb_put(nskb, skb->len));
  
--	lio->mtu = new_mtu;
-+	lio = GET_LIO(netdev);
-+	oct = lio->oct_dev;
-+
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
+-		if (skb_put_padto(nskb, nskb->len + padlen)) {
+-			kfree_skb(nskb);
++		if (skb_put_padto(nskb, nskb->len + padlen))
+ 			return NULL;
+-		}
  
--	netif_info(lio, probe, lio->netdev, "MTU Changed from %d to %d\n",
--		   netdev->mtu, new_mtu);
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_CHANGE_MTU;
-+	nctrl.ncmd.s.param1 = new_mtu;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.wait_time = LIO_CMD_WAIT_TM;
-+	nctrl.netpndev = (u64)netdev;
-+	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
-+
-+	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
-+	if (ret < 0) {
-+		dev_err(&oct->pci_dev->dev, "Failed to set MTU\n");
-+		return -EIO;
-+	}
- 
--	netdev->mtu = new_mtu;
-+	lio->mtu = new_mtu;
- 
- 	return 0;
- }
+ 		kfree_skb(skb);
+ 	}
 -- 
-2.9.0
+2.9.3
