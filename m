@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v7 08/10] bpf: Add a Landlock sandbox example
-Date: Mon, 21 Aug 2017 02:09:31 +0200
-Message-ID: <20170821000933.13024-9-mic@digikod.net>
+Subject: [PATCH net-next v7 04/10] bpf: Define handle_fs and add a new helper bpf_handle_fs_get_mode()
+Date: Mon, 21 Aug 2017 02:09:27 +0200
+Message-ID: <20170821000933.13024-5-mic@digikod.net>
 References: <20170821000933.13024-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -30,17 +30,9 @@ In-Reply-To: <20170821000933.13024-1-mic@digikod.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a basic sandbox tool to create a process isolated from some part of
-the system. This sandbox create a read-only environment. It is only
-allowed to write to a character device such as a TTY:
-
-  # :> X
-  # echo $?
-  0
-  # ./samples/bpf/landlock1 /bin/sh -i
-  Launching a new sandboxed process.
-  # :> Y
-  cannot create Y: Operation not permitted
+Add an eBPF function bpf_handle_fs_get_mode(handle_fs) to get the mode
+of a an abstract object wrapping either a file, a dentry, a path, or an
+inode.
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Cc: Alexei Starovoitov <ast@kernel.org>
@@ -50,179 +42,170 @@ Cc: David S. Miller <davem@davemloft.net>
 Cc: James Morris <james.l.morris@oracle.com>
 Cc: Kees Cook <keescook@chromium.org>
 Cc: Serge E. Hallyn <serge@hallyn.com>
+Cc: Jann Horn <jann@thejh.net>
 ---
 
 Changes since v6:
-* check return value of load_and_attach()
-* allow to write on pipes
-* rename BPF_PROG_TYPE_LANDLOCK to BPF_PROG_TYPE_LANDLOCK_RULE
-* rename Landlock version to ABI to better reflect its purpose
-* use const variable (suggested by Kees Cook)
-* remove useless definitions (suggested by Kees Cook)
-* add detailed explanations (suggested by Kees Cook)
+* remove WARN_ON() for missing dentry->d_inode
+* refactor bpf_landlock_func_proto() (suggested by Kees Cook)
 
 Changes since v5:
-* cosmetic fixes
-* rebase
+* cosmetic fixes and rebase
 
 Changes since v4:
-* write Landlock rule in C and compiled it with LLVM
-* remove cgroup handling
-* remove path handling: only handle a read-only environment
-* remove errno return codes
+* use a file abstraction (handle) to wrap inode, dentry, path and file
+  structs
+* remove bpf_landlock_cmp_fs_beneath()
+* rename the BPF helper and move it to kernel/bpf/
+* tighten helpers accessible by a Landlock rule
 
 Changes since v3:
-* remove seccomp and origin field: completely free from seccomp programs
-* handle more FS-related hooks
-* handle inode hooks and directory traversal
-* add faked but consistent view thanks to ENOENT
-* add /lib64 in the example
-* fix spelling
-* rename some types and definitions (e.g. SECCOMP_ADD_LANDLOCK_RULE)
+* remove bpf_landlock_cmp_fs_prop() (suggested by Alexie Starovoitov)
+* add hooks dealing with struct inode and struct path pointers:
+  inode_permission and inode_getattr
+* add abstraction over eBPF helper arguments thanks to wrapping structs
+* add bpf_landlock_get_fs_mode() helper to check file type and mode
+* merge WARN_ON() (suggested by Kees Cook)
+* fix and update bpf_helpers.h
+* use BPF_CALL_* for eBPF helpers (suggested by Alexie Starovoitov)
+* make handle arraymap safe (RCU) and remove buggy synchronize_rcu()
+* factor out the arraymay walk
+* use size_t to index array (suggested by Jann Horn)
 
 Changes since v2:
-* use BPF_PROG_ATTACH for cgroup handling
+* add MNT_INTERNAL check to only add file handle from user-visible FS
+  (e.g. no anonymous inode)
+* replace struct file* with struct path* in map_landlock_handle
+* add BPF protos
+* fix bpf_landlock_cmp_fs_prop_with_struct_file()
 ---
- samples/bpf/Makefile         |   4 ++
- samples/bpf/bpf_load.c       |  28 ++++++++++--
- samples/bpf/landlock1_kern.c | 100 +++++++++++++++++++++++++++++++++++++++++++
- samples/bpf/landlock1_user.c | 100 +++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 229 insertions(+), 3 deletions(-)
- create mode 100644 samples/bpf/landlock1_kern.c
- create mode 100644 samples/bpf/landlock1_user.c
+ include/linux/bpf.h                       | 31 ++++++++++++++++++
+ include/uapi/linux/bpf.h                  |  8 +++++
+ kernel/bpf/Makefile                       |  2 +-
+ kernel/bpf/helpers_fs.c                   | 52 +++++++++++++++++++++++++++++++
+ kernel/bpf/verifier.c                     |  6 ++++
+ security/landlock/init.c                  | 17 ++++++++++
+ tools/include/uapi/linux/bpf.h            | 10 +++++-
+ tools/testing/selftests/bpf/bpf_helpers.h |  2 ++
+ 8 files changed, 126 insertions(+), 2 deletions(-)
+ create mode 100644 kernel/bpf/helpers_fs.c
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index f1010fe759fe..08d5d728e3e0 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -40,6 +40,7 @@ hostprogs-y += load_sock_ops
- hostprogs-y += xdp_redirect
- hostprogs-y += xdp_redirect_map
- hostprogs-y += syscall_tp
-+hostprogs-y += landlock1
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index aef2e6f6d763..5316393150e1 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -16,6 +16,11 @@
+ #include <linux/rbtree_latch.h>
+ #include <linux/numa.h>
  
- # Libbpf dependencies
- LIBBPF := ../../tools/lib/bpf/bpf.o
-@@ -84,6 +85,7 @@ per_socket_stats_example-objs := $(LIBBPF) cookie_uid_helper_example.o
- xdp_redirect-objs := bpf_load.o $(LIBBPF) xdp_redirect_user.o
- xdp_redirect_map-objs := bpf_load.o $(LIBBPF) xdp_redirect_map_user.o
- syscall_tp-objs := bpf_load.o $(LIBBPF) syscall_tp_user.o
-+landlock1-objs := bpf_load.o $(LIBBPF) landlock1_user.o
++/* FS helpers */
++#include <linux/dcache.h> /* struct dentry */
++#include <linux/fs.h> /* struct file, struct inode */
++#include <linux/path.h> /* struct path */
++
+ struct perf_event;
+ struct bpf_prog;
+ struct bpf_map;
+@@ -85,6 +90,8 @@ enum bpf_arg_type {
  
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -128,6 +130,7 @@ always += tcp_clamp_kern.o
- always += xdp_redirect_kern.o
- always += xdp_redirect_map_kern.o
- always += syscall_tp_kern.o
-+always += landlock1_kern.o
+ 	ARG_PTR_TO_CTX,		/* pointer to context */
+ 	ARG_ANYTHING,		/* any (initialized) argument is ok */
++
++	ARG_CONST_PTR_TO_HANDLE_FS,	/* pointer to an abstract FS struct */
+ };
  
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(srctree)/tools/lib/
-@@ -167,6 +170,7 @@ HOSTLOADLIBES_test_map_in_map += -lelf
- HOSTLOADLIBES_xdp_redirect += -lelf
- HOSTLOADLIBES_xdp_redirect_map += -lelf
- HOSTLOADLIBES_syscall_tp += -lelf
-+HOSTLOADLIBES_landlock1 += -lelf
+ /* type of values returned from helper functions */
+@@ -141,6 +148,7 @@ enum bpf_reg_type {
+ 	PTR_TO_STACK,		 /* reg == frame_pointer + offset */
+ 	PTR_TO_PACKET,		 /* reg points to skb->data */
+ 	PTR_TO_PACKET_END,	 /* skb->data + headlen */
++	CONST_PTR_TO_HANDLE_FS,	 /* FS helpers */
+ };
  
- # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index 01a506f768da..30fcddda8b81 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -31,6 +31,8 @@
+ /* The information passed from prog-specific *_is_valid_access
+@@ -223,6 +231,26 @@ struct bpf_event_entry {
+ 	struct rcu_head rcu;
+ };
  
- static char license[128];
- static int kern_version;
-+static union bpf_prog_subtype subtype = {};
-+static bool has_subtype;
- static bool processed_sec[128];
- char bpf_log_buf[BPF_LOG_BUF_SIZE];
- int map_fd[MAX_MAPS];
-@@ -66,6 +68,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 	bool is_cgroup_sk = strncmp(event, "cgroup/sock", 11) == 0;
- 	bool is_sockops = strncmp(event, "sockops", 7) == 0;
- 	bool is_sk_skb = strncmp(event, "sk_skb", 6) == 0;
-+	bool is_landlock = strncmp(event, "landlock", 8) == 0;
- 	size_t insns_cnt = size / sizeof(struct bpf_insn);
- 	enum bpf_prog_type prog_type;
- 	char buf[256];
-@@ -96,6 +99,13 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 		prog_type = BPF_PROG_TYPE_SOCK_OPS;
- 	} else if (is_sk_skb) {
- 		prog_type = BPF_PROG_TYPE_SK_SKB;
-+	} else if (is_landlock) {
-+		prog_type = BPF_PROG_TYPE_LANDLOCK_RULE;
-+		if (!has_subtype) {
-+			printf("No subtype\n");
-+			return -1;
-+		}
-+		st = &subtype;
- 	} else {
- 		printf("Unknown event '%s'\n", event);
- 		return -1;
-@@ -110,7 +120,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
++/* FS helpers */
++enum bpf_handle_fs_type {
++	BPF_HANDLE_FS_TYPE_NONE,
++	BPF_HANDLE_FS_TYPE_FILE,
++	BPF_HANDLE_FS_TYPE_INODE,
++	BPF_HANDLE_FS_TYPE_PATH,
++	BPF_HANDLE_FS_TYPE_DENTRY,
++};
++
++struct bpf_handle_fs {
++	enum bpf_handle_fs_type type;
++	union {
++		struct file *file;
++		struct inode *inode;
++		const struct path *path;
++		struct dentry *dentry;
++	};
++};
++
++
+ u64 bpf_tail_call(u64 ctx, u64 r2, u64 index, u64 r4, u64 r5);
+ u64 bpf_get_stackid(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
  
- 	prog_fd[prog_cnt++] = fd;
+@@ -415,6 +443,9 @@ extern const struct bpf_func_proto bpf_skb_vlan_pop_proto;
+ extern const struct bpf_func_proto bpf_get_stackid_proto;
+ extern const struct bpf_func_proto bpf_sock_map_update_proto;
  
--	if (is_xdp || is_perf_event || is_cgroup_skb || is_cgroup_sk)
-+	if (is_xdp || is_perf_event || is_cgroup_skb || is_cgroup_sk ||
-+	    is_landlock)
- 		return 0;
++/* FS helpers */
++extern const struct bpf_func_proto bpf_handle_fs_get_mode_proto;
++
+ /* Shared helpers among cBPF and eBPF. */
+ void bpf_user_rnd_init_once(void);
+ u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 20da634da941..1624c0bbdf33 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -600,6 +600,13 @@ union bpf_attr {
+  *	@map_flags: sock map specific flags
+  *	   bit 1: Enable strparser
+  *	   other bits: reserved
++ *
++ * s64 bpf_handle_fs_get_mode(handle_fs)
++ *     Get the mode of a struct bpf_handle_fs
++ *     fs: struct bpf_handle_fs address
++ *     Return:
++ *       >= 0 file mode
++ *       < 0 error
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -656,6 +663,7 @@ union bpf_attr {
+ 	FN(redirect_map),		\
+ 	FN(sk_redirect_map),		\
+ 	FN(sock_map_update),		\
++	FN(handle_fs_get_mode),		\
  
- 	if (is_socket || is_sockops || is_sk_skb) {
-@@ -454,6 +465,7 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
- 	kern_version = 0;
- 	memset(license, 0, sizeof(license));
- 	memset(processed_sec, 0, sizeof(processed_sec));
-+	has_subtype = false;
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index 897daa005b23..41e2e4b9f80c 100644
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -1,6 +1,6 @@
+ obj-y := core.o
  
- 	if (elf_version(EV_CURRENT) == EV_NONE)
- 		return 1;
-@@ -502,6 +514,16 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
- 			data_maps = data;
- 			for (j = 0; j < MAX_MAPS; j++)
- 				map_data[j].fd = -1;
-+		} else if (strcmp(shname, "subtype") == 0) {
-+			processed_sec[i] = true;
-+			if (data->d_size != sizeof(union bpf_prog_subtype)) {
-+				printf("invalid size of subtype section %zd\n",
-+				       data->d_size);
-+				return 1;
-+			}
-+			memcpy(&subtype, data->d_buf,
-+			       sizeof(union bpf_prog_subtype));
-+			has_subtype = true;
- 		} else if (shdr.sh_type == SHT_SYMTAB) {
- 			strtabidx = shdr.sh_link;
- 			symbols = data;
-@@ -562,7 +584,6 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
- 
- 	/* load programs */
- 	for (i = 1; i < ehdr.e_shnum; i++) {
--
- 		if (processed_sec[i])
- 			continue;
- 
-@@ -577,7 +598,8 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
- 		    memcmp(shname, "socket", 6) == 0 ||
- 		    memcmp(shname, "cgroup/", 7) == 0 ||
- 		    memcmp(shname, "sockops", 7) == 0 ||
--		    memcmp(shname, "sk_skb", 6) == 0) {
-+		    memcmp(shname, "sk_skb", 6) == 0 ||
-+		    memcmp(shname, "landlock", 8) == 0) {
- 			ret = load_and_attach(shname, data->d_buf,
- 					      data->d_size);
- 			if (ret != 0)
-diff --git a/samples/bpf/landlock1_kern.c b/samples/bpf/landlock1_kern.c
+-obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o tnum.o
++obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o tnum.o helpers_fs.o
+ obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o lpm_trie.o map_in_map.o
+ ifeq ($(CONFIG_NET),y)
+ obj-$(CONFIG_BPF_SYSCALL) += devmap.o
+diff --git a/kernel/bpf/helpers_fs.c b/kernel/bpf/helpers_fs.c
 new file mode 100644
-index 000000000000..4ed80d8eee4e
+index 000000000000..c79313979957
 --- /dev/null
-+++ b/samples/bpf/landlock1_kern.c
-@@ -0,0 +1,100 @@
++++ b/kernel/bpf/helpers_fs.c
+@@ -0,0 +1,52 @@
 +/*
-+ * Landlock rule - partial read-only filesystem
++ * BPF filesystem helpers
 + *
 + * Copyright © 2017 Mickaël Salaün <mic@digikod.net>
 + *
@@ -231,201 +214,154 @@ index 000000000000..4ed80d8eee4e
 + * published by the Free Software Foundation.
 + */
 +
-+/*
-+ * This file contains a function that will be compiled to eBPF bytecode thanks
-+ * to LLVM/Clang.
-+ *
-+ * Each SEC() means that the following function or variable will be part of a
-+ * custom ELF section. This sections are then processed by the userspace part
-+ * (see landlock1_user.c) to extract eBPF bytecode and take into account
-+ * variables describing the eBPF program subtype or its license.
-+ */
++#include <linux/bpf.h> /* struct bpf_handle_fs */
++#include <linux/errno.h>
++#include <linux/filter.h> /* BPF_CALL*() */
 +
-+#include <uapi/linux/bpf.h>
-+#include <uapi/linux/stat.h> /* S_ISCHR() */
-+#include "bpf_helpers.h"
-+
-+/*
-+ * The function landlock_fs_prog1() is a simple Landlock rule enforced on a set
-+ * of processes. This rule will be run for each file-system operations and will
-+ * then forbid any write on a file-descriptor except if this file-descriptor
-+ * point to a pipe. Hence, it will not be possible to create new files nor to
-+ * modify a regular file.
-+ *
-+ * The argument ctx contains the context of the rule when it is run, which
-+ * enable to check which action on which file is requested. This context can
-+ * change for each run of the rule.
-+ */
-+SEC("landlock1")
-+static int landlock_fs_prog1(struct landlock_context *ctx)
++BPF_CALL_1(bpf_handle_fs_get_mode, struct bpf_handle_fs *, handle_fs)
 +{
-+	char fmt_error_mode[] = "landlock1: error: get_mode:%lld\n";
-+	char fmt_error_access[] = "landlock1: error: access denied\n";
-+	long long ret;
-+
-+	/*
-+	 * The argument ctx->arg2 contains bitflags of actions for which the
-+	 * rule is run.  The flag LANDLOCK_ACTION_FS_WRITE means that a write
-+	 * is requested by one of the userspace processes restricted by this
-+	 * rule. The following test allows any actions which does not include a
-+	 * write.
-+	 */
-+	if (!(ctx->arg2 & LANDLOCK_ACTION_FS_WRITE))
-+		return 0;
-+
-+	/*
-+	 * The argument ctx->arg1 is a file handle for which the process want
-+	 * to access. The function bpf_handle_fs_get_mode() return the mode of
-+	 * a file (e.g. S_IFBLK, S_IFDIR, S_IFREG...). If there is an error,
-+	 * for example if the argument is not a file handle, then an
-+	 * -errno value is returned. Otherwise the caller get the file mode as
-+	 *  with stat(2).
-+	 */
-+	ret = bpf_handle_fs_get_mode((void *)ctx->arg1);
-+	if (ret < 0) {
-+
-+		/*
-+		 * The bpf_trace_printk() function enable to write in the
-+		 * kernel eBPF debug log, accessible through
-+		 * /sys/kernel/debug/tracing/trace_pipe . To be allowed to call
-+		 * this function, a Landlock rule must have the
-+		 * LANDLOCK_SUBTYPE_ABILITY_DEBUG ability, which is only
-+		 * allowed for CAP_SYS_ADMIN.
-+		 */
-+		bpf_trace_printk(fmt_error_mode, sizeof(fmt_error_mode), ret);
-+		return 1;
++	if (WARN_ON(!handle_fs))
++		return -EFAULT;
++	if (!handle_fs->file) {
++		/* file can be null for anonymous mmap */
++		WARN_ON(handle_fs->type != BPF_HANDLE_FS_TYPE_FILE);
++		return -ENOENT;
 +	}
-+
-+	/*
-+	 * This check allows the action on the file if it is a directory or a
-+	 * pipe. Otherwise, a message is printed to the eBPF log.
-+	 */
-+	if (S_ISCHR(ret) || S_ISFIFO(ret))
-+		return 0;
-+	bpf_trace_printk(fmt_error_access, sizeof(fmt_error_access));
-+	return 1;
++	switch (handle_fs->type) {
++	case BPF_HANDLE_FS_TYPE_FILE:
++		if (WARN_ON(!handle_fs->file->f_inode))
++			return -ENOENT;
++		return handle_fs->file->f_inode->i_mode;
++	case BPF_HANDLE_FS_TYPE_INODE:
++		return handle_fs->inode->i_mode;
++	case BPF_HANDLE_FS_TYPE_PATH:
++		if (WARN_ON(!handle_fs->path->dentry ||
++				!handle_fs->path->dentry->d_inode))
++			return -ENOENT;
++		return handle_fs->path->dentry->d_inode->i_mode;
++	case BPF_HANDLE_FS_TYPE_DENTRY:
++		if (!handle_fs->dentry->d_inode)
++			return -ENOENT;
++		return handle_fs->dentry->d_inode->i_mode;
++	case BPF_HANDLE_FS_TYPE_NONE:
++	default:
++		WARN_ON(1);
++		return -EFAULT;
++	}
 +}
 +
-+/*
-+ * This subtype enable to set the ABI, which ensure that the eBPF context and
-+ * program behavior will be compatible with this Landlock rule.
-+ */
-+SEC("subtype")
-+static const union bpf_prog_subtype _subtype = {
-+	.landlock_rule = {
-+		.abi = 1,
-+		.event = LANDLOCK_SUBTYPE_EVENT_FS,
-+		.ability = LANDLOCK_SUBTYPE_ABILITY_DEBUG,
-+	}
++const struct bpf_func_proto bpf_handle_fs_get_mode_proto = {
++	.func		= bpf_handle_fs_get_mode,
++	.gpl_only	= true,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_CONST_PTR_TO_HANDLE_FS,
 +};
-+
-+SEC("license")
-+static const char _license[] = "GPL";
-diff --git a/samples/bpf/landlock1_user.c b/samples/bpf/landlock1_user.c
-new file mode 100644
-index 000000000000..27435dc4acb1
---- /dev/null
-+++ b/samples/bpf/landlock1_user.c
-@@ -0,0 +1,100 @@
-+/*
-+ * Landlock sandbox - partial read-only filesystem
-+ *
-+ * Copyright © 2017 Mickaël Salaün <mic@digikod.net>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2, as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include "bpf_load.h"
-+#include "libbpf.h"
-+
-+#define _GNU_SOURCE
-+#include <errno.h>
-+#include <fcntl.h> /* open() */
-+#include <linux/bpf.h>
-+#include <linux/filter.h>
-+#include <linux/prctl.h>
-+#include <linux/seccomp.h>
-+#include <stddef.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/prctl.h>
-+#include <sys/syscall.h>
-+#include <unistd.h>
-+
-+#ifndef seccomp
-+static int seccomp(unsigned int op, unsigned int flags, void *args)
-+{
-+	errno = 0;
-+	return syscall(__NR_seccomp, op, flags, args);
-+}
-+#endif
-+
-+
-+struct landlock_rule {
-+	enum landlock_subtype_event event;
-+	struct bpf_insn *bpf;
-+	size_t size;
-+};
-+
-+static int apply_sandbox(int prog_fd)
-+{
-+	int ret = 0;
-+
-+	/* safer to set no_new_privs */
-+	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
-+		perror("prctl(no_new_priv)");
-+		return 1;
-+	}
-+	/* set up the test sandbox */
-+	if (seccomp(SECCOMP_PREPEND_LANDLOCK_RULE, 0, &prog_fd)) {
-+		perror("seccomp(set_hook)");
-+		ret = 1;
-+	}
-+	close(prog_fd);
-+
-+	return ret;
-+}
-+
-+int main(int argc, char * const argv[], char * const *envp)
-+{
-+	char filename[256];
-+	char *cmd_path;
-+	char * const *cmd_argv;
-+
-+	if (argc < 2) {
-+		fprintf(stderr, "usage: %s <cmd> [args]...\n\n", argv[0]);
-+		fprintf(stderr, "Launch a command in a read-only environment "
-+				"(except for character devices).\n");
-+		fprintf(stderr, "Display debug with: "
-+				"cat /sys/kernel/debug/tracing/trace_pipe &\n");
-+		return 1;
-+	}
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+	if (!prog_fd[0]) {
-+		if (errno) {
-+			printf("load_bpf_file: %s\n", strerror(errno));
-+		} else {
-+			printf("load_bpf_file: Error\n");
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 74933f5aba0e..258369a056a9 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -188,6 +188,7 @@ static const char * const reg_type_str[] = {
+ 	[PTR_TO_STACK]		= "fp",
+ 	[PTR_TO_PACKET]		= "pkt",
+ 	[PTR_TO_PACKET_END]	= "pkt_end",
++	[CONST_PTR_TO_HANDLE_FS] = "handle_fs",
+ };
+ 
+ #define __BPF_FUNC_STR_FN(x) [BPF_FUNC_ ## x] = __stringify(bpf_ ## x)
+@@ -704,6 +705,7 @@ static bool is_spillable_regtype(enum bpf_reg_type type)
+ 	case PTR_TO_PACKET:
+ 	case PTR_TO_PACKET_END:
+ 	case CONST_PTR_TO_MAP:
++	case CONST_PTR_TO_HANDLE_FS:
+ 		return true;
+ 	default:
+ 		return false;
+@@ -1371,6 +1373,10 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 regno,
+ 		expected_type = PTR_TO_CTX;
+ 		if (type != expected_type)
+ 			goto err_type;
++	} else if (arg_type == ARG_CONST_PTR_TO_HANDLE_FS) {
++		expected_type = CONST_PTR_TO_HANDLE_FS;
++		if (type != expected_type)
++			goto err_type;
+ 	} else if (arg_type == ARG_PTR_TO_MEM ||
+ 		   arg_type == ARG_PTR_TO_UNINIT_MEM) {
+ 		expected_type = PTR_TO_STACK;
+diff --git a/security/landlock/init.c b/security/landlock/init.c
+index c7922a91aa57..09acbc74abd6 100644
+--- a/security/landlock/init.c
++++ b/security/landlock/init.c
+@@ -37,6 +37,9 @@ static inline bool bpf_landlock_is_valid_subtype(
+ 
+ 	switch (prog_subtype->landlock_rule.event) {
+ 	case LANDLOCK_SUBTYPE_EVENT_FS:
++	case LANDLOCK_SUBTYPE_EVENT_FS_IOCTL:
++	case LANDLOCK_SUBTYPE_EVENT_FS_LOCK:
++	case LANDLOCK_SUBTYPE_EVENT_FS_FCNTL:
+ 		break;
+ 	case LANDLOCK_SUBTYPE_EVENT_UNSPEC:
+ 	default:
+@@ -72,6 +75,20 @@ static inline const struct bpf_func_proto *bpf_landlock_func_proto(
+ 		enum bpf_func_id func_id,
+ 		const union bpf_prog_subtype *prog_subtype)
+ {
++	/* context-dependant functions */
++	switch (prog_subtype->landlock_rule.event) {
++	case LANDLOCK_SUBTYPE_EVENT_FS:
++	case LANDLOCK_SUBTYPE_EVENT_FS_IOCTL:
++	case LANDLOCK_SUBTYPE_EVENT_FS_LOCK:
++	case LANDLOCK_SUBTYPE_EVENT_FS_FCNTL:
++		switch (func_id) {
++		case BPF_FUNC_handle_fs_get_mode:
++			return &bpf_handle_fs_get_mode_proto;
++		default:
++			break;
 +		}
-+		return 1;
 +	}
 +
-+	if (apply_sandbox(prog_fd[0]))
-+		return 1;
-+	cmd_path = argv[1];
-+	cmd_argv = argv + 1;
-+	fprintf(stderr, "Launching a new sandboxed process.\n");
-+	execve(cmd_path, cmd_argv, envp);
-+	perror("execve");
-+	return 1;
-+}
+ 	/* generic functions */
+ 	if (prog_subtype->landlock_rule.ability &
+ 			LANDLOCK_SUBTYPE_ABILITY_DEBUG) {
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index e83bdecf9d27..f844e38ee10b 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -592,6 +592,13 @@ union bpf_attr {
+  *	@map_flags: sock map specific flags
+  *	   bit 1: Enable strparser
+  *	   other bits: reserved
++ *
++ * s64 bpf_handle_fs_get_mode(handle_fs)
++ *     Get the mode of a struct bpf_handle_fs
++ *     fs: struct bpf_handle_fs address
++ *     Return:
++ *       >= 0 file mode
++ *       < 0 error
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -647,7 +654,8 @@ union bpf_attr {
+ 	FN(skb_adjust_room),		\
+ 	FN(redirect_map),		\
+ 	FN(sk_redirect_map),		\
+-	FN(sock_map_update),
++	FN(sock_map_update),		\
++	FN(handle_fs_get_mode),		\
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/tools/testing/selftests/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
+index 98f3be26d390..809cc0b70333 100644
+--- a/tools/testing/selftests/bpf/bpf_helpers.h
++++ b/tools/testing/selftests/bpf/bpf_helpers.h
+@@ -72,6 +72,8 @@ static int (*bpf_sock_map_update)(void *map, void *key, void *value,
+ 				  unsigned long long map_lags) =
+ 	(void *) BPF_FUNC_sock_map_update;
+ 
++static long long (*bpf_handle_fs_get_mode)(void *handle_fs) =
++	(void *) BPF_FUNC_handle_fs_get_mode;
+ 
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
 -- 
 2.14.1
