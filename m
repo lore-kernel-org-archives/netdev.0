@@ -1,51 +1,41 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 2/2] vhost-net: revert vhost_exceeds_maxpend logic to its
-	original
-Date: Mon, 21 Aug 2017 11:06:33 +0800
-Message-ID: <0cbc33d6-eb1e-cea4-4cdf-a8a88932da62@redhat.com>
-References: <20170819064129.27272-1-den@klaipeden.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: repair fib6 tree in failure case
+Date: Sun, 20 Aug 2017 20:07:31 -0700 (PDT)
+Message-ID: <20170820.200731.997277808682483073.davem@davemloft.net>
+References: <20170819001449.42844-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Koichiro Den <den@klaipeden.com>, mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170819064129.27272-1-den@klaipeden.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: weiwan@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49292 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751135AbdHUDHc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 23:07:32 -0400
+In-Reply-To: <20170819001449.42844-1-tracywwnj@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDjmnIgxOeaXpSAxNDo0MSwgS29pY2hpcm8gRGVuIHdyb3RlOgo+IFRvIGRl
-cGVuZCBvbiB2cS5udW0gYW5kIHRoZSB1c2FnZSBvZiBWSE9TVF9NQVhfUEVORCBpcyBub3Qgc3Vj
-Y2luY3QKPiBhbmQgaW4gc29tZSBjYXNlIHVuZXhwZWN0ZWQsIHNvIHJldmVydCBpdHMgbG9naWMg
-cGFydCBvbmx5LgoKSGk6CgpDb3VsZCB5b3UgZXhwbGFpbiBhIGxpdHRsZSBiaXQgbW9yZSBvbiB0
-aGUgY2FzZSB0aGF0IGlzIHdhcyBub3Qgc3VmZmljZW50PwoKVGhhbmtzCgo+Cj4gU2lnbmVkLW9m
-Zi1ieTogS29pY2hpcm8gRGVuIDxkZW5Aa2xhaXBlZGVuLmNvbT4KPiAtLS0KPiAgIGRyaXZlcnMv
-dmhvc3QvbmV0LmMgfCA4ICsrKysrKy0tCj4gICAxIGZpbGUgY2hhbmdlZCwgNiBpbnNlcnRpb25z
-KCspLCAyIGRlbGV0aW9ucygtKQo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvdmhvc3QvbmV0LmMg
-Yi9kcml2ZXJzL3Zob3N0L25ldC5jCj4gaW5kZXggMDZkMDQ0ODYyZTU4Li45OWNmOTliMzA4YTcg
-MTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy92aG9zdC9uZXQuYwo+ICsrKyBiL2RyaXZlcnMvdmhvc3Qv
-bmV0LmMKPiBAQCAtNDMzLDExICs0MzMsMTUgQEAgc3RhdGljIGludCB2aG9zdF9uZXRfdHhfZ2V0
-X3ZxX2Rlc2Moc3RydWN0IHZob3N0X25ldCAqbmV0LAo+ICAgCj4gICBzdGF0aWMgYm9vbCB2aG9z
-dF9leGNlZWRzX21heHBlbmQoc3RydWN0IHZob3N0X25ldCAqbmV0KQo+ICAgewo+ICsJaW50IG51
-bV9wZW5kczsKPiAgIAlzdHJ1Y3Qgdmhvc3RfbmV0X3ZpcnRxdWV1ZSAqbnZxID0gJm5ldC0+dnFz
-W1ZIT1NUX05FVF9WUV9UWF07Cj4gICAJc3RydWN0IHZob3N0X3ZpcnRxdWV1ZSAqdnEgPSAmbnZx
-LT52cTsKPiAgIAo+IC0JcmV0dXJuIChudnEtPnVwZW5kX2lkeCArIHZxLT5udW0gLSBWSE9TVF9N
-QVhfUEVORCkgJSBVSU9fTUFYSU9WCj4gLQkJPT0gbnZxLT5kb25lX2lkeDsKPiArCW51bV9wZW5k
-cyA9IGxpa2VseShudnEtPnVwZW5kX2lkeCA+PSBudnEtPmRvbmVfaWR4KSA/Cj4gKwkJKG52cS0+
-dXBlbmRfaWR4IC0gbnZxLT5kb25lX2lkeCkgOgo+ICsJCShudnEtPnVwZW5kX2lkeCArIFVJT19N
-QVhJT1YgLSBudnEtPmRvbmVfaWR4KTsKPiArCj4gKwlyZXR1cm4gbnVtX3BlbmRzID4gVkhPU1Rf
-TUFYX1BFTkQ7Cj4gICB9Cj4gICAKPiAgIC8qIEV4cGVjdHMgdG8gYmUgYWx3YXlzIHJ1biBmcm9t
-IHdvcmtxdWV1ZSAtIHdoaWNoIGFjdHMgYXMKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXph
-dGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRh
-dGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+From: Wei Wang <weiwan@google.com>
+Date: Fri, 18 Aug 2017 17:14:49 -0700
+
+> From: Wei Wang <weiwan@google.com>
+> 
+> In fib6_add(), it is possible that fib6_add_1() picks an intermediate
+> node and sets the node's fn->leaf to NULL in order to add this new
+> route. However, if fib6_add_rt2node() fails to add the new
+> route for some reason, fn->leaf will be left as NULL and could
+> potentially cause crash when fn->leaf is accessed in fib6_locate().
+> This patch makes sure fib6_repair_tree() is called to properly repair
+> fn->leaf in the above failure case.
+> 
+> Here is the syzkaller reported general protection fault in fib6_locate:
+ ...
+> Note: there is no "Fixes" tag as this seems to be a bug introduced
+> very early.
+> 
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+
+Applied and queued up for -stable.
