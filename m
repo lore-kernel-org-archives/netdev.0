@@ -1,34 +1,28 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] can: peak_pci: Make i2c_algo_bit_data const
-Date: Mon, 21 Aug 2017 18:56:14 +0530
-Message-ID: <1503321974-25802-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, wg@grandegger.com, mkl@pengutronix.de,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
+Subject: Re: [PATCH 5/6] platform/x86: make device_attribute const
+Date: Mon, 21 Aug 2017 10:22:05 -0300
+Message-ID: <20170821132204.fhm5hu432l2jiffj@siri.cascardo.eti.br>
+References: <1503315792-14837-1-git-send-email-bhumirks@gmail.com>
+ <1503315792-14837-6-git-send-email-bhumirks@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: julia.lawall@lip6.fr, rjw@rjwysocki.net, lenb@kernel.org,
+        jbacik@fb.com, jikos@kernel.org, benjamin.tissoires@redhat.com,
+        manish.chopra@cavium.com, rahul.verma@cavium.com,
+        Dept-GELinuxNICDev@cavium.com, harish.patil@cavium.com,
+        don@syst.com.br, dvhart@infradead.org, andy@infradead.org,
+        sre@kernel.org, linux-acpi@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-block@vger.kernel.org,
+        nbd-general@lists.sourceforge.net, linux-input@vger.kernel.org,
+        netdev@vger.kernel.org, platform-driver-x86@vger.kernel.org,
+        linux-pm@vger.kernel.org
+To: Bhumika Goyal <bhumirks@gmail.com>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1503315792-14837-6-git-send-email-bhumirks@gmail.com>
+Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make this const as it is only used in a copy operation.
+For classmate-laptop.c
 
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
----
- drivers/net/can/sja1000/peak_pci.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
-index 131026f..44f1e37 100644
---- a/drivers/net/can/sja1000/peak_pci.c
-+++ b/drivers/net/can/sja1000/peak_pci.c
-@@ -425,7 +425,7 @@ static void peak_pciec_write_reg(const struct sja1000_priv *priv,
- 	peak_pci_write_reg(priv, port, val);
- }
- 
--static struct i2c_algo_bit_data peak_pciec_i2c_bit_ops = {
-+static const struct i2c_algo_bit_data peak_pciec_i2c_bit_ops = {
- 	.setsda	= pita_setsda,
- 	.setscl	= pita_setscl,
- 	.getsda	= pita_getsda,
--- 
-1.9.1
+Acked-by: Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>
