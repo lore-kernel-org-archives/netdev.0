@@ -1,40 +1,60 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 3/7] lib/fs: Fix format string in find_fs_mount()
-Date: Mon, 21 Aug 2017 15:23:37 +0200
-Message-ID: <20170821132341.23118-4-phil@nwl.cc>
-References: <20170821132341.23118-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] tcp: Remove unnecessary dst check in tcp_conn_request.
+Date: Mon, 21 Aug 2017 21:24:57 +0800
+Message-ID: <CAMDZJNW_nqUm7LaKy5GJBKMhKV6GeZS_yAnUy+gT68NatT_EZg@mail.gmail.com>
+References: <1502938966-6345-1-git-send-email-xiangxia.m.yue@gmail.com>
+ <1502938966-6345-2-git-send-email-xiangxia.m.yue@gmail.com> <20170819.212524.1982304186024322688.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:35659 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753904AbdHUNYh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 09:24:37 -0400
-In-Reply-To: <20170821132341.23118-1-phil@nwl.cc>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:37413 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753684AbdHUNY6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 09:24:58 -0400
+Received: by mail-oi0-f66.google.com with SMTP id k77so1943564oib.4
+        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 06:24:58 -0700 (PDT)
+In-Reply-To: <20170819.212524.1982304186024322688.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A field width of 4096 allows fscanf() to store that amount of characters
-into the given buffer, though that doesn't include the terminating NULL
-byte. Decrease the value by one to leave space for it.
+Thanks,  yes  this is a bug. I found this bug exists from 3.17~ 4.13.
+The commit is d94e0417
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- lib/fs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+One question:  should I send a patch for each kernel version because
+code conflicts ?
 
-diff --git a/lib/fs.c b/lib/fs.c
-index c59ac564581d0..1ff881ecfcd8c 100644
---- a/lib/fs.c
-+++ b/lib/fs.c
-@@ -45,7 +45,7 @@ static char *find_fs_mount(const char *fs_to_find)
- 		return NULL;
- 	}
- 
--	while (fscanf(fp, "%*s %4096s %127s %*s %*d %*d\n",
-+	while (fscanf(fp, "%*s %4095s %127s %*s %*d %*d\n",
- 		      path, fstype) == 2) {
- 		if (strcmp(fstype, fs_to_find) == 0) {
- 			mnt = strdup(path);
--- 
-2.13.1
+a patch for v4.12
+a patch for v4.11
+a patch for v4.10~v4.7
+a patch for v4.6~v3.17
+
+and
+a patch for  net-next, because tcp_tw_recycle has been removed.
+
+Thanks very much.
+
+On Sun, Aug 20, 2017 at 12:25 PM, David Miller <davem@davemloft.net> wrote:
+> From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+> Date: Wed, 16 Aug 2017 20:02:45 -0700
+>
+>> Because we remove the tcp_tw_recycle support in the commit
+>> 4396e46187c ('tcp: remove tcp_tw_recycle') and also delete
+>> the code 'af_ops->route_req' for sysctl_tw_recycle in tcp_conn_request.
+>> Now when we call the 'af_ops->route_req', the dist always is
+>> NULL, and we remove the unnecessay check.
+>>
+>> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
+>
+> This is a bug actually, rather than something to paper over
+> by removing the check.
+>
+> Code earlier in this function needs a proper 'dst' in order to operate
+> properly.
+>
+> There is a call to tcp_peer_is_proven() which must have a proper route
+> to make the determination yet it will always be NULL.
+>
+> Please investigate what the code is doing and how a test became
+> "unnecessary" over time before blindly removing it, thank you.
