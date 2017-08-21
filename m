@@ -1,100 +1,70 @@
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH V3 net-next] net: hns3: Add support to change MTU in
- HNS3 hardware
-Date: Mon, 21 Aug 2017 15:05:00 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B875790@FRAEML521-MBX.china.huawei.com>
-References: <20170821101223.111852-1-salil.mehta@huawei.com>
- <20170821142939.GG1703@lunn.ch>
- <F4CC6FACFEB3C54C9141D49AD221F7F93B875655@FRAEML521-MBX.china.huawei.com>
- <20170821144741.GN1724@mtr-leonro.local>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: [RFC PATCH] dt-binding: net: sfp binding documentation
+Date: Mon, 21 Aug 2017 18:06:53 +0300
+Message-ID: <20170821150653.jmoogmxklkfbrzxg@sapphire.tkos.co.il>
+References: <d73b635069a2054d110632f1f4196cd4bc281e7f.1503224886.git.baruch@tkos.co.il>
+ <20170821125317.GS20805@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "lipeng (Y)" <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170821144741.GN1724-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from guitar.tcltek.co.il ([192.115.133.116]:46561 "EHLO
+        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753206AbdHUPG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 11:06:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20170821125317.GS20805@n2100.armlinux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Leon,
+Hi Russell,
 
-> -----Original Message-----
-> From: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:linux-rdma-
-> owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of Leon Romanovsky
-> Sent: Monday, August 21, 2017 3:48 PM
-> To: Salil Mehta
-> Cc: Andrew Lunn; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Zhuangyuzeng (Yisen); lipeng (Y);
-> mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
-> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm
-> Subject: Re: [PATCH V3 net-next] net: hns3: Add support to change MTU
-> in HNS3 hardware
+On Mon, Aug 21, 2017 at 01:53:17PM +0100, Russell King - ARM Linux wrote:
+> On Sun, Aug 20, 2017 at 01:28:06PM +0300, Baruch Siach wrote:
+> > Add device-tree binding documentation SFP transceivers. Support for SFP
+> > transceivers has been recently introduced (drivers/net/phy/sfp.c).
+> > 
+> > Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> > ---
+> > 
+> > The SFP driver is on net-next.
+> > 
+> > Not sure about the rate-select-gpio property name. The SFP+ standard
+> > (not supported yet) uses two signals, RS0 and RS1. RS0 is compatible
+> > with the SFP rate select signal, while RS1 controls the Tx rate.
 > 
-> On Mon, Aug 21, 2017 at 02:32:40PM +0000, Salil Mehta wrote:
-> > Hi Andrew,
-> >
-> > > -----Original Message-----
-> > > From: Andrew Lunn [mailto:andrew-g2DYL2Zd6BY@public.gmane.org]
-> > > Sent: Monday, August 21, 2017 3:30 PM
-> > > To: Salil Mehta
-> > > Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Zhuangyuzeng (Yisen); lipeng (Y);
-> > > mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
-> > > kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm
-> > > Subject: Re: [PATCH V3 net-next] net: hns3: Add support to change
-> MTU
-> > > in HNS3 hardware
-> > >
-> > > On Mon, Aug 21, 2017 at 11:12:23AM +0100, Salil Mehta wrote:
-> > > > This patch adds the following support to the HNS3 driver:
-> > > > 1. Support to change the Maximum Transmission Unit of a
-> > > >    of a port in the HNS NIC hardware.
-> > > > 2. Initializes the supported MTU range for the netdevice.
-> > > >
-> > > > Signed-off-by: lipeng <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> > > > Signed-off-by: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> > >
-> > > Hi Salil
-> > >
-> > > Apart from Leon comments.
-> > >
-> > > Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-> > >
-> > >     Andrew
-> >
-> > I will incorporate Leon's comment and float V4 patch today. Thanks!
-> >
-> 
-> Salil,
-> 
-> I had two comment there and not one. Please don't miss it :)
-Sure, I should admit that I missed one comment while I replied to the
-mail but later realized that, and incorporated it while I floated the
-V4 patch. Having a bad day of misses...phew!
+> SFP+ is usable with this, but the platforms I have do not wire the
+> rate select pins on the SFP+ sockets to GPIOs, but hard-wire them.
 
-Again, thanks Andrew & Leon for helping me out in reviewing this patch.
+So maybe naming this signal 'rate-select0-gpio' would make it more future 
+(SPF+) proof? Or 'rate-select-rx-gpio'?
 
-Best regards
-Salil
+> Note that I didn't expect the SFP code to just get merged with very
+> little in the way of real in-depth review of things like:
 > 
-> Thanks
-> 
-> > Best regards
-> > Salil
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-rdma"
-> in
-> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> * the way the SFP code works, and its structure
+> * analysis of the bindings checking that they're fit for everyone's
+>   purposes.
+
+I was also surprised to see the "sff,sfp" compatible string with no ack from 
+DT maintainers. Hence this RFC.
+
+> The implementation that I've designed is based around the boards that
+> I have access to and the various public SFP documentation.  I think
+> documenting the bindings suggests that they are stable - I don't think
+> we're really ready to make that assertion yet - there may be things
+> that have been missed which will only come up when other people start
+> using this code.
+
+baruch
+
+-- 
+     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
