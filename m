@@ -1,41 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: repair fib6 tree in failure case
-Date: Sun, 20 Aug 2017 20:07:31 -0700 (PDT)
-Message-ID: <20170820.200731.997277808682483073.davem@davemloft.net>
-References: <20170819001449.42844-1-tracywwnj@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 1/2] vhost: remove the possible fruitless search on iotlb
+ prefetch
+Date: Mon, 21 Aug 2017 11:09:00 +0800
+Message-ID: <3e8361c3-8a1b-6f30-80a1-1d45dabfdc39@redhat.com>
+References: <20170819064114.27219-1-den@klaipeden.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: weiwan@google.com
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        netdev@vger.kernel.org
+To: Koichiro Den <den@klaipeden.com>, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49292 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751135AbdHUDHc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 23:07:32 -0400
-In-Reply-To: <20170819001449.42844-1-tracywwnj@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35034 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750742AbdHUDJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 20 Aug 2017 23:09:07 -0400
+In-Reply-To: <20170819064114.27219-1-den@klaipeden.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
-Date: Fri, 18 Aug 2017 17:14:49 -0700
 
-> From: Wei Wang <weiwan@google.com>
-> 
-> In fib6_add(), it is possible that fib6_add_1() picks an intermediate
-> node and sets the node's fn->leaf to NULL in order to add this new
-> route. However, if fib6_add_rt2node() fails to add the new
-> route for some reason, fn->leaf will be left as NULL and could
-> potentially cause crash when fn->leaf is accessed in fib6_locate().
-> This patch makes sure fib6_repair_tree() is called to properly repair
-> fn->leaf in the above failure case.
-> 
-> Here is the syzkaller reported general protection fault in fib6_locate:
- ...
-> Note: there is no "Fixes" tag as this seems to be a bug introduced
-> very early.
-> 
-> Signed-off-by: Wei Wang <weiwan@google.com>
-> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Applied and queued up for -stable.
+On 2017年08月19日 14:41, Koichiro Den wrote:
+> Signed-off-by: Koichiro Den <den@klaipeden.com>
+> ---
+>   drivers/vhost/vhost.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index e4613a3c362d..93e909afc1c3 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -1184,7 +1184,7 @@ static int iotlb_access_ok(struct vhost_virtqueue *vq,
+>   	while (len > s) {
+>   		node = vhost_umem_interval_tree_iter_first(&umem->umem_tree,
+>   							   addr,
+> -							   addr + len - 1);
+> +							   addr + len - s - 1);
+>   		if (node == NULL || node->start > addr) {
+>   			vhost_iotlb_miss(vq, addr, access);
+>   			return false;
+
+Acked-by: Jason Wang <jasowang@redhat.com>
