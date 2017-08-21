@@ -1,36 +1,45 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH] mt7601u: check memory allocation failure
-Date: Mon, 21 Aug 2017 14:41:36 -0700
-Message-ID: <20170821144136.477bf655@cakuba.netronome.com>
-References: <20170821205956.20859-1-christophe.jaillet@wanadoo.fr>
-        <20170821143430.635e4b92@cakuba.netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kvalo@codeaurora.org, matthias.bgg@gmail.com,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next,1/4] hv_netvsc: Clean up unused parameter from netvsc_get_hash()
+Date: Mon, 21 Aug 2017 14:55:52 -0700
+Message-ID: <1503352555-9256-1-git-send-email-haiyangz@exchange.microsoft.com>
+Reply-To: haiyangz@microsoft.com
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+        vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170821143430.635e4b92@cakuba.netronome.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Aug 2017 14:34:30 -0700, Jakub Kicinski wrote:
-> On Mon, 21 Aug 2017 22:59:56 +0200, Christophe JAILLET wrote:
-> > Check memory allocation failure and return -ENOMEM in such a case, as
-> > already done a few lines below
-> > 
-> > Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>  
-> 
-> Acked-by: Jakub Kicinski <kubakici@wp.pl>
+From: Haiyang Zhang <haiyangz@microsoft.com>
 
-Wait, I take that back.  This code is a bit weird.  We would return an
-error, then mt7601u_dma_init() will call mt7601u_free_tx_queue() which
-doesn't check for tx_q == NULL condition.
+The parameter "sk" is not in use.
 
-Looks like mt7601u_free_tx() has to check for dev->tx_q == NULL and
-return early if that's the case.  Or mt7601u_alloc_tx() should really
-clean things up on it's own on failure.  Ugh.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index b33f050..4677d21 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -193,7 +193,7 @@ static int netvsc_close(struct net_device *net)
+ /* Azure hosts don't support non-TCP port numbers in hashing yet. We compute
+  * hash for non-TCP traffic with only IP numbers.
+  */
+-static inline u32 netvsc_get_hash(struct sk_buff *skb, struct sock *sk)
++static inline u32 netvsc_get_hash(struct sk_buff *skb)
+ {
+ 	struct flow_keys flow;
+ 	u32 hash;
+@@ -227,7 +227,7 @@ static inline int netvsc_get_tx_queue(struct net_device *ndev,
+ 	struct sock *sk = skb->sk;
+ 	int q_idx;
+ 
+-	q_idx = ndc->tx_send_table[netvsc_get_hash(skb, sk) &
++	q_idx = ndc->tx_send_table[netvsc_get_hash(skb) &
+ 				   (VRSS_SEND_TAB_SIZE - 1)];
+ 
+ 	/* If queue index changed record the new value */
+-- 
+1.7.1
