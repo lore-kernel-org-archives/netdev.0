@@ -1,47 +1,32 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/2] vhost: remove the possible fruitless search on iotlb
- prefetch
-Date: Mon, 21 Aug 2017 22:45:58 +0300
-Message-ID: <20170821223039-mutt-send-email-mst@kernel.org>
-References: <20170819064114.27219-1-den@klaipeden.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] net: dsa: skb_put_padto() already frees nskb
+Date: Mon, 21 Aug 2017 21:47:24 +0200
+Message-ID: <20170821194724.GC7076@lunn.ch>
+References: <20170821194143.27885-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, kvm@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Koichiro Den <den@klaipeden.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        vivien.didelot@savoirfairelinux.com, woojung.huh@microchip.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40400 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:37642 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753877AbdHUTp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 15:45:59 -0400
+        id S1753644AbdHUTr3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 15:47:29 -0400
 Content-Disposition: inline
-In-Reply-To: <20170819064114.27219-1-den@klaipeden.com>
+In-Reply-To: <20170821194143.27885-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 19, 2017 at 03:41:14PM +0900, Koichiro Den wrote:
-> Signed-off-by: Koichiro Den <den@klaipeden.com>
-> ---
->  drivers/vhost/vhost.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+On Mon, Aug 21, 2017 at 12:41:43PM -0700, Florian Fainelli wrote:
+> skb_put_padto() already frees the passed sk_buff reference upon error,
+> so calling kfree_skb() on it again is not necessary.
 > 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index e4613a3c362d..93e909afc1c3 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -1184,7 +1184,7 @@ static int iotlb_access_ok(struct vhost_virtqueue *vq,
->  	while (len > s) {
->  		node = vhost_umem_interval_tree_iter_first(&umem->umem_tree,
->  							   addr,
-> -							   addr + len - 1);
-> +							   addr + len - s - 1);
->  		if (node == NULL || node->start > addr) {
->  			vhost_iotlb_miss(vq, addr, access);
->  			return false;
-
-This works but it probably makes sense to just refactor the code to make end of
-range a variable. I posted a patch like this, pls take a look.
-
-> -- 
-> 2.9.4
+> Detected by CoverityScan, CID#1416687 ("USE_AFTER_FREE")
 > 
+> Fixes: e71cb9e00922 ("net: dsa: ksz: fix skb freeing")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
