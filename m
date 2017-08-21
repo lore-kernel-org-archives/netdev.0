@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] cxgb4/cxgbvf: Handle 32-bit fw port
- capabilities
-Date: Sun, 20 Aug 2017 19:52:32 -0700 (PDT)
-Message-ID: <20170820.195232.1129948557882734273.davem@davemloft.net>
-References: <1503218751-24948-1-git-send-email-ganeshgr@chelsio.com>
+Subject: Re: [PATCH v2] net: ibm: emac: Fix some error handling path in
+ 'emac_probe()'
+Date: Sun, 20 Aug 2017 19:53:20 -0700 (PDT)
+Message-ID: <20170820.195320.1737734418974269546.davem@davemloft.net>
+References: <20170820043500.24864-1-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
-        indranil@chelsio.com, leedom@chelsio.com, venkatesh@chelsio.com
-To: ganeshgr@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48990 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753500AbdHUCwd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 22:52:33 -0400
-In-Reply-To: <1503218751-24948-1-git-send-email-ganeshgr@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: chunkeey@googlemail.com, jarod@redhat.com, ivan@de.ibm.com,
+        ebiggers@google.com, tklauser@distanz.ch, tremyfr@gmail.com,
+        robh@kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170820043500.24864-1-christophe.jaillet@wanadoo.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Date: Sun, 20 Aug 2017 14:15:51 +0530
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Sun, 20 Aug 2017 06:35:00 +0200
 
-> Implement new 32-bit Firmware Port Capabilities in order to
-> handle new speeds which couldn't be represented in the old 16-bit
-> Firmware Port Capabilities values.
+> If 'irq_of_parse_and_map()' or 'of_address_to_resource()' fail, 'err' is
+> known to be 0 at this point.
+> So return -ENODEV instead in the first case and use 'of_iomap()' instead of
+> the equivalent 'of_address_to_resource()/ioremap()' combinaison in the 2nd
+> case.
 > 
-> Based on the original work of Casey Leedom <leedom@chelsio.com>
+> Doing so, the 'rsrc_regs' field of the 'emac_instance struct' becomes
+> redundant and is removed.
 > 
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> While at it, turn a 'err != 0' test into an equivalent 'err' to be more
+> consistent.
+> 
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 > ---
-> v2: Fixes build error when DCB is enabled
+> v2: use of_iomap() to simplify code
+>     remove 'rsrc_regs' field of the 'emac_instance struct'
+>     update comment
 
-Applied.
+Applied to net-next.
