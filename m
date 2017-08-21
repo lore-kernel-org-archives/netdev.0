@@ -1,7 +1,7 @@
 From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V8 net-next 06/22] net-next/hinic: Add api cmd commands
-Date: Mon, 21 Aug 2017 23:55:52 +0800
-Message-ID: <4fff66df68b113df89e7b115ab7208862909a7a1.1503330613.git.aviad.krawczyk@huawei.com>
+Subject: [PATCH V8 net-next 07/22] net-next/hinic: Add aeqs
+Date: Mon, 21 Aug 2017 23:55:53 +0800
+Message-ID: <e84242981f190ebebcae2b9dc8fcdeb826899e06.1503330613.git.aviad.krawczyk@huawei.com>
 References: <cover.1503330613.git.aviad.krawczyk@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,496 +15,856 @@ In-Reply-To: <cover.1503330613.git.aviad.krawczyk@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add the api cmd commands for sending management messages to the nic.
+Handle aeq elements that are accumulated on the aeq by calling the
+registered handler for the specific event.
 
 Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
 ---
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.c   | 329 ++++++++++++++++++++-
- .../net/ethernet/huawei/hinic/hinic_hw_api_cmd.h   |  65 ++++
- drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h   |   6 +
- 3 files changed, 398 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h |  49 +++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c | 463 ++++++++++++++++++++++-
+ drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h |  81 ++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.c  |  90 +++++
+ drivers/net/ethernet/huawei/hinic/hinic_hw_if.h  |  46 +++
+ 5 files changed, 727 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-index 7e7a76e..8901801 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-@@ -25,7 +25,9 @@
- #include <linux/jiffies.h>
- #include <linux/delay.h>
- #include <linux/log2.h>
-+#include <linux/semaphore.h>
- #include <asm/byteorder.h>
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+index ebbf054..52eb89c 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
+@@ -65,4 +65,53 @@
+ #define HINIC_CSR_API_CMD_STATUS_ADDR(idx)              \
+ 	(HINIC_CSR_API_CMD_BASE + 0x30 + (idx) * HINIC_CSR_API_CMD_STRIDE)
+ 
++/* MSI-X registers */
++#define HINIC_CSR_MSIX_CTRL_BASE                        0x2000
++#define HINIC_CSR_MSIX_CNT_BASE                         0x2004
++
++#define HINIC_CSR_MSIX_STRIDE                           0x8
++
++#define HINIC_CSR_MSIX_CTRL_ADDR(idx)                   \
++	(HINIC_CSR_MSIX_CTRL_BASE + (idx) * HINIC_CSR_MSIX_STRIDE)
++
++#define HINIC_CSR_MSIX_CNT_ADDR(idx)                    \
++	(HINIC_CSR_MSIX_CNT_BASE + (idx) * HINIC_CSR_MSIX_STRIDE)
++
++/* EQ registers */
++#define HINIC_AEQ_MTT_OFF_BASE_ADDR                     0x200
++
++#define HINIC_EQ_MTT_OFF_STRIDE                         0x40
++
++#define HINIC_CSR_AEQ_MTT_OFF(id)                       \
++	(HINIC_AEQ_MTT_OFF_BASE_ADDR + (id) * HINIC_EQ_MTT_OFF_STRIDE)
++
++#define HINIC_CSR_EQ_PAGE_OFF_STRIDE                    8
++
++#define HINIC_CSR_AEQ_HI_PHYS_ADDR_REG(q_id, pg_num)    \
++	(HINIC_CSR_AEQ_MTT_OFF(q_id) + \
++	 (pg_num) * HINIC_CSR_EQ_PAGE_OFF_STRIDE)
++
++#define HINIC_CSR_AEQ_LO_PHYS_ADDR_REG(q_id, pg_num)    \
++	(HINIC_CSR_AEQ_MTT_OFF(q_id) + \
++	 (pg_num) * HINIC_CSR_EQ_PAGE_OFF_STRIDE + 4)
++
++#define HINIC_AEQ_CTRL_0_ADDR_BASE                      0xE00
++#define HINIC_AEQ_CTRL_1_ADDR_BASE                      0xE04
++#define HINIC_AEQ_CONS_IDX_ADDR_BASE                    0xE08
++#define HINIC_AEQ_PROD_IDX_ADDR_BASE                    0xE0C
++
++#define HINIC_EQ_OFF_STRIDE                             0x80
++
++#define HINIC_CSR_AEQ_CTRL_0_ADDR(idx)                  \
++	(HINIC_AEQ_CTRL_0_ADDR_BASE + (idx) * HINIC_EQ_OFF_STRIDE)
++
++#define HINIC_CSR_AEQ_CTRL_1_ADDR(idx)                  \
++	(HINIC_AEQ_CTRL_1_ADDR_BASE + (idx) * HINIC_EQ_OFF_STRIDE)
++
++#define HINIC_CSR_AEQ_CONS_IDX_ADDR(idx)                \
++	(HINIC_AEQ_CONS_IDX_ADDR_BASE + (idx) * HINIC_EQ_OFF_STRIDE)
++
++#define HINIC_CSR_AEQ_PROD_IDX_ADDR(idx)                \
++	(HINIC_AEQ_PROD_IDX_ADDR_BASE + (idx) * HINIC_EQ_OFF_STRIDE)
++
+ #endif
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
+index a099d20..6b03bc6 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
+@@ -13,17 +13,74 @@
+  *
+  */
+ 
++#include <linux/kernel.h>
+ #include <linux/types.h>
+ #include <linux/errno.h>
+ #include <linux/pci.h>
+ #include <linux/device.h>
+ #include <linux/workqueue.h>
++#include <linux/interrupt.h>
++#include <linux/slab.h>
++#include <linux/dma-mapping.h>
++#include <linux/log2.h>
++#include <asm/byteorder.h>
 +#include <asm/barrier.h>
  
- #include "hinic_hw_csr.h"
++#include "hinic_hw_csr.h"
  #include "hinic_hw_if.h"
-@@ -45,14 +47,313 @@
+ #include "hinic_hw_eqs.h"
  
- #define API_CMD_BUF_SIZE                        2048
+ #define HINIC_EQS_WQ_NAME                       "hinic_eqs"
  
-+/* Sizes of the members in hinic_api_cmd_cell */
-+#define API_CMD_CELL_DESC_SIZE          8
-+#define API_CMD_CELL_DATA_ADDR_SIZE     8
++#define GET_EQ_NUM_PAGES(eq, pg_size)           \
++		(ALIGN((eq)->q_len * (eq)->elem_size, pg_size) / (pg_size))
 +
-+#define API_CMD_CELL_ALIGNMENT          8
++#define GET_EQ_NUM_ELEMS_IN_PG(eq, pg_size)     ((pg_size) / (eq)->elem_size)
 +
- #define API_CMD_TIMEOUT                 1000
- 
-+#define MASKED_IDX(chain, idx)          ((idx) & ((chain)->num_cells - 1))
++#define EQ_CONS_IDX_REG_ADDR(eq)        HINIC_CSR_AEQ_CONS_IDX_ADDR((eq)->q_id)
++#define EQ_PROD_IDX_REG_ADDR(eq)        HINIC_CSR_AEQ_PROD_IDX_ADDR((eq)->q_id)
 +
-+#define SIZE_8BYTES(size)               (ALIGN((size), 8) >> 3)
-+#define SIZE_4BYTES(size)               (ALIGN((size), 4) >> 2)
++#define EQ_HI_PHYS_ADDR_REG(eq, pg_num) \
++		HINIC_CSR_AEQ_HI_PHYS_ADDR_REG((eq)->q_id, pg_num)
 +
-+#define RD_DMA_ATTR_DEFAULT             0
-+#define WR_DMA_ATTR_DEFAULT             0
++#define EQ_LO_PHYS_ADDR_REG(eq, pg_num) \
++		HINIC_CSR_AEQ_LO_PHYS_ADDR_REG((eq)->q_id, pg_num)
 +
-+enum api_cmd_data_format {
-+	SGE_DATA = 1,           /* cell data is passed by hw address */
++#define GET_EQ_ELEMENT(eq, idx)         \
++		((eq)->virt_addr[(idx) / (eq)->num_elem_in_pg] + \
++		 (((idx) & ((eq)->num_elem_in_pg - 1)) * (eq)->elem_size))
++
++#define GET_AEQ_ELEM(eq, idx)           ((struct hinic_aeq_elem *) \
++					GET_EQ_ELEMENT(eq, idx))
++
++#define GET_CURR_AEQ_ELEM(eq)           GET_AEQ_ELEM(eq, (eq)->cons_idx)
++
++#define PAGE_IN_4K(page_size)           ((page_size) >> 12)
++#define EQ_SET_HW_PAGE_SIZE_VAL(eq)     (ilog2(PAGE_IN_4K((eq)->page_size)))
++
++#define ELEMENT_SIZE_IN_32B(eq)         (((eq)->elem_size) >> 5)
++#define EQ_SET_HW_ELEM_SIZE_VAL(eq)     (ilog2(ELEMENT_SIZE_IN_32B(eq)))
++
++#define EQ_MAX_PAGES                    8
++
++#define aeq_to_aeqs(eq)                 \
++		container_of((eq) - (eq)->q_id, struct hinic_aeqs, aeq[0])
++
++#define work_to_aeq_work(work)          \
++		container_of(work, struct hinic_eq_work, work)
++
++#define DMA_ATTR_AEQ_DEFAULT            0
++
++enum eq_int_mode {
++	EQ_INT_MODE_ARMED,
++	EQ_INT_MODE_ALWAYS
 +};
 +
-+enum api_cmd_type {
-+	API_CMD_WRITE = 0,
++enum eq_arm_state {
++	EQ_NOT_ARMED,
++	EQ_ARMED
 +};
 +
-+enum api_cmd_bypass {
-+	NO_BYPASS       = 0,
-+	BYPASS          = 1,
-+};
-+
- enum api_cmd_xor_chk_level {
- 	XOR_CHK_DIS = 0,
+ /**
+  * hinic_aeq_register_hw_cb - register AEQ callback for specific event
+  * @aeqs: pointer to Async eqs of the chip
+@@ -61,6 +118,325 @@ void hinic_aeq_unregister_hw_cb(struct hinic_aeqs *aeqs,
+ 	hwe_cb->hwe_handler = NULL;
+ }
  
- 	XOR_CHK_ALL = 3,
- };
- 
-+static u8 xor_chksum_set(void *data)
++static u8 eq_cons_idx_checksum_set(u32 val)
 +{
++	u8 checksum = 0;
 +	int idx;
-+	u8 *val, checksum = 0;
 +
-+	val = data;
++	for (idx = 0; idx < 32; idx += 4)
++		checksum ^= ((val >> idx) & 0xF);
 +
-+	for (idx = 0; idx < 7; idx++)
-+		checksum ^= val[idx];
-+
-+	return checksum;
-+}
-+
-+static void set_prod_idx(struct hinic_api_cmd_chain *chain)
-+{
-+	enum hinic_api_cmd_chain_type chain_type = chain->chain_type;
-+	struct hinic_hwif *hwif = chain->hwif;
-+	u32 addr, prod_idx;
-+
-+	addr = HINIC_CSR_API_CMD_CHAIN_PI_ADDR(chain_type);
-+	prod_idx = hinic_hwif_read_reg(hwif, addr);
-+
-+	prod_idx = HINIC_API_CMD_PI_CLEAR(prod_idx, IDX);
-+
-+	prod_idx |= HINIC_API_CMD_PI_SET(chain->prod_idx, IDX);
-+
-+	hinic_hwif_write_reg(hwif, addr, prod_idx);
-+}
-+
-+static u32 get_hw_cons_idx(struct hinic_api_cmd_chain *chain)
-+{
-+	u32 addr, val;
-+
-+	addr = HINIC_CSR_API_CMD_STATUS_ADDR(chain->chain_type);
-+	val  = hinic_hwif_read_reg(chain->hwif, addr);
-+
-+	return HINIC_API_CMD_STATUS_GET(val, CONS_IDX);
++	return (checksum & 0xF);
 +}
 +
 +/**
-+ * chain_busy - check if the chain is still processing last requests
-+ * @chain: chain to check
-+ *
-+ * Return 0 - Success, negative - Failure
++ * eq_update_ci - update the HW cons idx of event queue
++ * @eq: the event queue to update the cons idx for
 + **/
-+static int chain_busy(struct hinic_api_cmd_chain *chain)
++static void eq_update_ci(struct hinic_eq *eq)
 +{
-+	struct hinic_hwif *hwif = chain->hwif;
++	u32 val, addr = EQ_CONS_IDX_REG_ADDR(eq);
++
++	/* Read Modify Write */
++	val = hinic_hwif_read_reg(eq->hwif, addr);
++
++	val = HINIC_EQ_CI_CLEAR(val, IDX)       &
++	      HINIC_EQ_CI_CLEAR(val, WRAPPED)   &
++	      HINIC_EQ_CI_CLEAR(val, INT_ARMED) &
++	      HINIC_EQ_CI_CLEAR(val, XOR_CHKSUM);
++
++	val |= HINIC_EQ_CI_SET(eq->cons_idx, IDX)    |
++	       HINIC_EQ_CI_SET(eq->wrapped, WRAPPED) |
++	       HINIC_EQ_CI_SET(EQ_ARMED, INT_ARMED);
++
++	val |= HINIC_EQ_CI_SET(eq_cons_idx_checksum_set(val), XOR_CHKSUM);
++
++	hinic_hwif_write_reg(eq->hwif, addr, val);
++}
++
++/**
++ * aeq_irq_handler - handler for the AEQ event
++ * @eq: the Async Event Queue that received the event
++ **/
++static void aeq_irq_handler(struct hinic_eq *eq)
++{
++	struct hinic_aeqs *aeqs = aeq_to_aeqs(eq);
++	struct hinic_hwif *hwif = aeqs->hwif;
 +	struct pci_dev *pdev = hwif->pdev;
-+	u32 prod_idx;
++	struct hinic_aeq_elem *aeqe_curr;
++	struct hinic_hw_event_cb *hwe_cb;
++	enum hinic_aeq_type event;
++	unsigned long eqe_state;
++	u32 aeqe_desc;
++	int i, size;
 +
-+	switch (chain->chain_type) {
-+	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
-+		chain->cons_idx = get_hw_cons_idx(chain);
-+		prod_idx = chain->prod_idx;
++	for (i = 0; i < eq->q_len; i++) {
++		aeqe_curr = GET_CURR_AEQ_ELEM(eq);
 +
-+		/* check for a space for a new command */
-+		if (chain->cons_idx == MASKED_IDX(chain, prod_idx + 1)) {
-+			dev_err(&pdev->dev, "API CMD chain %d is busy\n",
-+				chain->chain_type);
-+			return -EBUSY;
++		/* Data in HW is in Big endian Format */
++		aeqe_desc = be32_to_cpu(aeqe_curr->desc);
++
++		/* HW toggles the wrapped bit, when it adds eq element */
++		if (HINIC_EQ_ELEM_DESC_GET(aeqe_desc, WRAPPED) == eq->wrapped)
++			break;
++
++		event = HINIC_EQ_ELEM_DESC_GET(aeqe_desc, TYPE);
++		if (event >= HINIC_MAX_AEQ_EVENTS) {
++			dev_err(&pdev->dev, "Unknown AEQ Event %d\n", event);
++			return;
 +		}
-+		break;
 +
-+	default:
-+		dev_err(&pdev->dev, "Unknown API CMD Chain type\n");
-+		break;
++		if (!HINIC_EQ_ELEM_DESC_GET(aeqe_desc, SRC)) {
++			hwe_cb = &aeqs->hwe_cb[event];
++
++			size = HINIC_EQ_ELEM_DESC_GET(aeqe_desc, SIZE);
++
++			eqe_state = cmpxchg(&hwe_cb->hwe_state,
++					    HINIC_EQE_ENABLED,
++					    HINIC_EQE_ENABLED |
++					    HINIC_EQE_RUNNING);
++			if ((eqe_state == HINIC_EQE_ENABLED) &&
++			    (hwe_cb->hwe_handler))
++				hwe_cb->hwe_handler(hwe_cb->handle,
++						    aeqe_curr->data, size);
++			else
++				dev_err(&pdev->dev, "Unhandled AEQ Event %d\n",
++					event);
++
++			hwe_cb->hwe_state &= ~HINIC_EQE_RUNNING;
++		}
++
++		eq->cons_idx++;
++
++		if (eq->cons_idx == eq->q_len) {
++			eq->cons_idx = 0;
++			eq->wrapped = !eq->wrapped;
++		}
 +	}
++}
++
++/**
++ * eq_irq_handler - handler for the EQ event
++ * @data: the Event Queue that received the event
++ **/
++static void eq_irq_handler(void *data)
++{
++	struct hinic_eq *eq = data;
++
++	if (eq->type == HINIC_AEQ)
++		aeq_irq_handler(eq);
++
++	eq_update_ci(eq);
++}
++
++/**
++ * eq_irq_work - the work of the EQ that received the event
++ * @work: the work struct that is associated with the EQ
++ **/
++static void eq_irq_work(struct work_struct *work)
++{
++	struct hinic_eq_work *aeq_work = work_to_aeq_work(work);
++	struct hinic_eq *aeq;
++
++	aeq = aeq_work->data;
++	eq_irq_handler(aeq);
++}
++
++/**
++ * aeq_interrupt - aeq interrupt handler
++ * @irq: irq number
++ * @data: the Async Event Queue that collected the event
++ **/
++static irqreturn_t aeq_interrupt(int irq, void *data)
++{
++	struct hinic_eq_work *aeq_work;
++	struct hinic_eq *aeq = data;
++	struct hinic_aeqs *aeqs;
++
++	/* clear resend timer cnt register */
++	hinic_msix_attr_cnt_clear(aeq->hwif, aeq->msix_entry.entry);
++
++	aeq_work = &aeq->aeq_work;
++	aeq_work->data = aeq;
++
++	aeqs = aeq_to_aeqs(aeq);
++	queue_work(aeqs->workq, &aeq_work->work);
++
++	return IRQ_HANDLED;
++}
++
++void set_ctrl0(struct hinic_eq *eq)
++{
++	struct msix_entry *msix_entry = &eq->msix_entry;
++	enum hinic_eq_type type = eq->type;
++	u32 addr, val, ctrl0;
++
++	if (type == HINIC_AEQ) {
++		/* RMW Ctrl0 */
++		addr = HINIC_CSR_AEQ_CTRL_0_ADDR(eq->q_id);
++
++		val = hinic_hwif_read_reg(eq->hwif, addr);
++
++		val = HINIC_AEQ_CTRL_0_CLEAR(val, INT_IDX)      &
++		      HINIC_AEQ_CTRL_0_CLEAR(val, DMA_ATTR)     &
++		      HINIC_AEQ_CTRL_0_CLEAR(val, PCI_INTF_IDX) &
++		      HINIC_AEQ_CTRL_0_CLEAR(val, INT_MODE);
++
++		ctrl0 = HINIC_AEQ_CTRL_0_SET(msix_entry->entry, INT_IDX)     |
++			HINIC_AEQ_CTRL_0_SET(DMA_ATTR_AEQ_DEFAULT, DMA_ATTR) |
++			HINIC_AEQ_CTRL_0_SET(HINIC_HWIF_PCI_INTF(eq->hwif),
++					     PCI_INTF_IDX)                   |
++			HINIC_AEQ_CTRL_0_SET(EQ_INT_MODE_ARMED, INT_MODE);
++
++		val |= ctrl0;
++
++		hinic_hwif_write_reg(eq->hwif, addr, val);
++	}
++}
++
++void set_ctrl1(struct hinic_eq *eq)
++{
++	enum hinic_eq_type type = eq->type;
++	u32 page_size_val, elem_size;
++	u32 addr, val, ctrl1;
++
++	if (type == HINIC_AEQ) {
++		/* RMW Ctrl1 */
++		addr = HINIC_CSR_AEQ_CTRL_1_ADDR(eq->q_id);
++
++		page_size_val = EQ_SET_HW_PAGE_SIZE_VAL(eq);
++		elem_size = EQ_SET_HW_ELEM_SIZE_VAL(eq);
++
++		val = hinic_hwif_read_reg(eq->hwif, addr);
++
++		val = HINIC_AEQ_CTRL_1_CLEAR(val, LEN)          &
++		      HINIC_AEQ_CTRL_1_CLEAR(val, ELEM_SIZE)    &
++		      HINIC_AEQ_CTRL_1_CLEAR(val, PAGE_SIZE);
++
++		ctrl1 = HINIC_AEQ_CTRL_1_SET(eq->q_len, LEN)            |
++			HINIC_AEQ_CTRL_1_SET(elem_size, ELEM_SIZE)      |
++			HINIC_AEQ_CTRL_1_SET(page_size_val, PAGE_SIZE);
++
++		val |= ctrl1;
++
++		hinic_hwif_write_reg(eq->hwif, addr, val);
++	}
++}
++
++/**
++ * set_eq_ctrls - setting eq's ctrl registers
++ * @eq: the Event Queue for setting
++ **/
++static void set_eq_ctrls(struct hinic_eq *eq)
++{
++	set_ctrl0(eq);
++	set_ctrl1(eq);
++}
++
++/**
++ * aeq_elements_init - initialize all the elements in the aeq
++ * @eq: the Async Event Queue
++ * @init_val: value to initialize the elements with it
++ **/
++static void aeq_elements_init(struct hinic_eq *eq, u32 init_val)
++{
++	struct hinic_aeq_elem *aeqe;
++	int i;
++
++	for (i = 0; i < eq->q_len; i++) {
++		aeqe = GET_AEQ_ELEM(eq, i);
++		aeqe->desc = cpu_to_be32(init_val);
++	}
++
++	wmb();  /* Write the initilzation values */
++}
++
++/**
++ * alloc_eq_pages - allocate the pages for the queue
++ * @eq: the event queue
++ *
++ * Return 0 - Success, Negative - Failure
++ **/
++static int alloc_eq_pages(struct hinic_eq *eq)
++{
++	struct hinic_hwif *hwif = eq->hwif;
++	struct pci_dev *pdev = hwif->pdev;
++	u32 init_val, addr, val;
++	size_t addr_size;
++	int err, pg;
++
++	addr_size = eq->num_pages * sizeof(*eq->dma_addr);
++	eq->dma_addr = devm_kzalloc(&pdev->dev, addr_size, GFP_KERNEL);
++	if (!eq->dma_addr)
++		return -ENOMEM;
++
++	addr_size = eq->num_pages * sizeof(*eq->virt_addr);
++	eq->virt_addr = devm_kzalloc(&pdev->dev, addr_size, GFP_KERNEL);
++	if (!eq->virt_addr) {
++		err = -ENOMEM;
++		goto err_virt_addr_alloc;
++	}
++
++	for (pg = 0; pg < eq->num_pages; pg++) {
++		eq->virt_addr[pg] = dma_zalloc_coherent(&pdev->dev,
++							eq->page_size,
++							&eq->dma_addr[pg],
++							GFP_KERNEL);
++		if (!eq->virt_addr[pg]) {
++			err = -ENOMEM;
++			goto err_dma_alloc;
++		}
++
++		addr = EQ_HI_PHYS_ADDR_REG(eq, pg);
++		val = upper_32_bits(eq->dma_addr[pg]);
++
++		hinic_hwif_write_reg(hwif, addr, val);
++
++		addr = EQ_LO_PHYS_ADDR_REG(eq, pg);
++		val = lower_32_bits(eq->dma_addr[pg]);
++
++		hinic_hwif_write_reg(hwif, addr, val);
++	}
++
++	init_val = HINIC_EQ_ELEM_DESC_SET(eq->wrapped, WRAPPED);
++
++	if (eq->type == HINIC_AEQ)
++		aeq_elements_init(eq, init_val);
 +
 +	return 0;
-+}
 +
-+/**
-+ * get_cell_data_size - get the data size of a specific cell type
-+ * @type: chain type
-+ *
-+ * Return the data(Desc + Address) size in the cell
-+ **/
-+static u8 get_cell_data_size(enum hinic_api_cmd_chain_type type)
-+{
-+	u8 cell_data_size = 0;
++err_dma_alloc:
++	while (--pg >= 0)
++		dma_free_coherent(&pdev->dev, eq->page_size,
++				  eq->virt_addr[pg],
++				  eq->dma_addr[pg]);
 +
-+	switch (type) {
-+	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
-+		cell_data_size = ALIGN(API_CMD_CELL_DESC_SIZE +
-+				       API_CMD_CELL_DATA_ADDR_SIZE,
-+				       API_CMD_CELL_ALIGNMENT);
-+		break;
-+	default:
-+		break;
-+	}
++	devm_kfree(&pdev->dev, eq->virt_addr);
 +
-+	return cell_data_size;
-+}
-+
-+/**
-+ * prepare_cell_ctrl - prepare the ctrl of the cell for the command
-+ * @cell_ctrl: the control of the cell to set the control value into it
-+ * @data_size: the size of the data in the cell
-+ **/
-+static void prepare_cell_ctrl(u64 *cell_ctrl, u16 data_size)
-+{
-+	u8 chksum;
-+	u64 ctrl;
-+
-+	ctrl =  HINIC_API_CMD_CELL_CTRL_SET(SIZE_8BYTES(data_size), DATA_SZ)  |
-+		HINIC_API_CMD_CELL_CTRL_SET(RD_DMA_ATTR_DEFAULT, RD_DMA_ATTR) |
-+		HINIC_API_CMD_CELL_CTRL_SET(WR_DMA_ATTR_DEFAULT, WR_DMA_ATTR);
-+
-+	chksum = xor_chksum_set(&ctrl);
-+
-+	ctrl |= HINIC_API_CMD_CELL_CTRL_SET(chksum, XOR_CHKSUM);
-+
-+	/* The data in the HW should be in Big Endian Format */
-+	*cell_ctrl = cpu_to_be64(ctrl);
-+}
-+
-+/**
-+ * prepare_api_cmd - prepare API CMD command
-+ * @chain: chain for the command
-+ * @dest: destination node on the card that will receive the command
-+ * @cmd: command data
-+ * @cmd_size: the command size
-+ **/
-+static void prepare_api_cmd(struct hinic_api_cmd_chain *chain,
-+			    enum hinic_node_id dest,
-+			    void *cmd, u16 cmd_size)
-+{
-+	struct hinic_api_cmd_cell *cell = chain->curr_node;
-+	struct hinic_api_cmd_cell_ctxt *cell_ctxt;
-+	struct hinic_hwif *hwif = chain->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+
-+	cell_ctxt = &chain->cell_ctxt[chain->prod_idx];
-+
-+	switch (chain->chain_type) {
-+	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
-+		cell->desc = HINIC_API_CMD_DESC_SET(SGE_DATA, API_TYPE)   |
-+			     HINIC_API_CMD_DESC_SET(API_CMD_WRITE, RD_WR) |
-+			     HINIC_API_CMD_DESC_SET(NO_BYPASS, MGMT_BYPASS);
-+		break;
-+
-+	default:
-+		dev_err(&pdev->dev, "unknown Chain type\n");
-+		return;
-+	}
-+
-+	cell->desc |= HINIC_API_CMD_DESC_SET(dest, DEST)        |
-+		      HINIC_API_CMD_DESC_SET(SIZE_4BYTES(cmd_size), SIZE);
-+
-+	cell->desc |= HINIC_API_CMD_DESC_SET(xor_chksum_set(&cell->desc),
-+					     XOR_CHKSUM);
-+
-+	/* The data in the HW should be in Big Endian Format */
-+	cell->desc = cpu_to_be64(cell->desc);
-+
-+	memcpy(cell_ctxt->api_cmd_vaddr, cmd, cmd_size);
-+}
-+
-+/**
-+ * prepare_cell - prepare cell ctrl and cmd in the current cell
-+ * @chain: chain for the command
-+ * @dest: destination node on the card that will receive the command
-+ * @cmd: command data
-+ * @cmd_size: the command size
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static void prepare_cell(struct hinic_api_cmd_chain *chain,
-+			 enum  hinic_node_id dest,
-+			 void *cmd, u16 cmd_size)
-+{
-+	struct hinic_api_cmd_cell *curr_node = chain->curr_node;
-+	u16 data_size = get_cell_data_size(chain->chain_type);
-+
-+	prepare_cell_ctrl(&curr_node->ctrl, data_size);
-+	prepare_api_cmd(chain, dest, cmd, cmd_size);
-+}
-+
-+static inline void cmd_chain_prod_idx_inc(struct hinic_api_cmd_chain *chain)
-+{
-+	chain->prod_idx = MASKED_IDX(chain, chain->prod_idx + 1);
-+}
-+
-+/**
-+ * api_cmd_status_update - update the status in the chain struct
-+ * @chain: chain to update
-+ **/
-+static void api_cmd_status_update(struct hinic_api_cmd_chain *chain)
-+{
-+	enum hinic_api_cmd_chain_type chain_type;
-+	struct hinic_api_cmd_status *wb_status;
-+	struct hinic_hwif *hwif = chain->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	u64 status_header;
-+	u32 status;
-+
-+	wb_status = chain->wb_status;
-+	status_header = be64_to_cpu(wb_status->header);
-+
-+	status = be32_to_cpu(wb_status->status);
-+	if (HINIC_API_CMD_STATUS_GET(status, CHKSUM_ERR)) {
-+		dev_err(&pdev->dev, "API CMD status: Xor check error\n");
-+		return;
-+	}
-+
-+	chain_type = HINIC_API_CMD_STATUS_HEADER_GET(status_header, CHAIN_ID);
-+	if (chain_type >= HINIC_API_CMD_MAX) {
-+		dev_err(&pdev->dev, "unknown API CMD Chain %d\n", chain_type);
-+		return;
-+	}
-+
-+	chain->cons_idx = HINIC_API_CMD_STATUS_GET(status, CONS_IDX);
-+}
-+
-+/**
-+ * wait_for_status_poll - wait for write to api cmd command to complete
-+ * @chain: the chain of the command
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+static int wait_for_status_poll(struct hinic_api_cmd_chain *chain)
-+{
-+	int err = -ETIMEDOUT;
-+	unsigned long end;
-+
-+	end = jiffies + msecs_to_jiffies(API_CMD_TIMEOUT);
-+	do {
-+		api_cmd_status_update(chain);
-+
-+		/* wait for CI to be updated - sign for completion */
-+		if (chain->cons_idx == chain->prod_idx) {
-+			err = 0;
-+			break;
-+		}
-+
-+		msleep(20);
-+	} while (time_before(jiffies, end));
-+
++err_virt_addr_alloc:
++	devm_kfree(&pdev->dev, eq->dma_addr);
 +	return err;
 +}
 +
 +/**
-+ * wait_for_api_cmd_completion - wait for command to complete
-+ * @chain: chain for the command
-+ *
-+ * Return 0 - Success, negative - Failure
++ * free_eq_pages - free the pages of the queue
++ * @eq: the Event Queue
 + **/
-+static int wait_for_api_cmd_completion(struct hinic_api_cmd_chain *chain)
++static void free_eq_pages(struct hinic_eq *eq)
 +{
-+	struct hinic_hwif *hwif = chain->hwif;
++	struct hinic_hwif *hwif = eq->hwif;
 +	struct pci_dev *pdev = hwif->pdev;
-+	int err;
++	int pg;
 +
-+	switch (chain->chain_type) {
-+	case HINIC_API_CMD_WRITE_TO_MGMT_CPU:
-+		err = wait_for_status_poll(chain);
-+		if (err) {
-+			dev_err(&pdev->dev, "API CMD Poll status timeout\n");
-+			break;
-+		}
-+		break;
++	for (pg = 0; pg < eq->num_pages; pg++)
++		dma_free_coherent(&pdev->dev, eq->page_size,
++				  eq->virt_addr[pg],
++				  eq->dma_addr[pg]);
 +
-+	default:
-+		dev_err(&pdev->dev, "unknown API CMD Chain type\n");
-+		err = -EINVAL;
-+		break;
-+	}
-+
-+	return err;
++	devm_kfree(&pdev->dev, eq->virt_addr);
++	devm_kfree(&pdev->dev, eq->dma_addr);
 +}
 +
  /**
-  * api_cmd - API CMD command
-  * @chain: chain for the command
-@@ -65,8 +366,30 @@ enum api_cmd_xor_chk_level {
- static int api_cmd(struct hinic_api_cmd_chain *chain,
- 		   enum hinic_node_id dest, u8 *cmd, u16 cmd_size)
+  * init_eq - initialize Event Queue
+  * @eq: the event queue
+@@ -77,8 +453,81 @@ static int init_eq(struct hinic_eq *eq, struct hinic_hwif *hwif,
+ 		   enum hinic_eq_type type, int q_id, u32 q_len, u32 page_size,
+ 		   struct msix_entry entry)
  {
 -	/* should be implemented */
--	return -EINVAL;
-+	struct hinic_api_cmd_cell_ctxt *ctxt;
++	struct pci_dev *pdev = hwif->pdev;
 +	int err;
 +
-+	down(&chain->sem);
-+	if (chain_busy(chain)) {
-+		up(&chain->sem);
-+		return -EBUSY;
++	eq->hwif = hwif;
++	eq->type = type;
++	eq->q_id = q_id;
++	eq->q_len = q_len;
++	eq->page_size = page_size;
++
++	/* Clear PI and CI, also clear the ARM bit */
++	hinic_hwif_write_reg(eq->hwif, EQ_CONS_IDX_REG_ADDR(eq), 0);
++	hinic_hwif_write_reg(eq->hwif, EQ_PROD_IDX_REG_ADDR(eq), 0);
++
++	eq->cons_idx = 0;
++	eq->wrapped = 0;
++
++	if (type == HINIC_AEQ) {
++		eq->elem_size = HINIC_AEQE_SIZE;
++	} else {
++		dev_err(&pdev->dev, "Invalid EQ type\n");
++		return -EINVAL;
 +	}
 +
-+	prepare_cell(chain, dest, cmd, cmd_size);
-+	cmd_chain_prod_idx_inc(chain);
++	eq->num_pages = GET_EQ_NUM_PAGES(eq, page_size);
++	eq->num_elem_in_pg = GET_EQ_NUM_ELEMS_IN_PG(eq, page_size);
 +
-+	wmb();  /* inc pi before issue the command */
++	eq->msix_entry = entry;
 +
-+	set_prod_idx(chain);    /* issue the command */
++	if (eq->num_elem_in_pg & (eq->num_elem_in_pg - 1)) {
++		dev_err(&pdev->dev, "num elements in eq page != power of 2\n");
++		return -EINVAL;
++	}
 +
-+	ctxt = &chain->cell_ctxt[chain->prod_idx];
++	if (eq->num_pages > EQ_MAX_PAGES) {
++		dev_err(&pdev->dev, "too many pages for eq\n");
++		return -EINVAL;
++	}
 +
-+	chain->curr_node = ctxt->cell_vaddr;
++	set_eq_ctrls(eq);
++	eq_update_ci(eq);
 +
-+	err = wait_for_api_cmd_completion(chain);
++	err = alloc_eq_pages(eq);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to allocate pages for eq\n");
++		return err;
++	}
 +
-+	up(&chain->sem);
++	if (type == HINIC_AEQ) {
++		struct hinic_eq_work *aeq_work = &eq->aeq_work;
++
++		INIT_WORK(&aeq_work->work, eq_irq_work);
++	}
++
++	/* set the attributes of the msix entry */
++	hinic_msix_attr_set(eq->hwif, eq->msix_entry.entry,
++			    HINIC_EQ_MSIX_PENDING_LIMIT_DEFAULT,
++			    HINIC_EQ_MSIX_COALESC_TIMER_DEFAULT,
++			    HINIC_EQ_MSIX_LLI_TIMER_DEFAULT,
++			    HINIC_EQ_MSIX_LLI_CREDIT_LIMIT_DEFAULT,
++			    HINIC_EQ_MSIX_RESEND_TIMER_DEFAULT);
++
++	if (type == HINIC_AEQ)
++		err = request_irq(entry.vector, aeq_interrupt, 0,
++				  "hinic_aeq", eq);
++
++	if (err) {
++		dev_err(&pdev->dev, "Failed to request irq for the EQ\n");
++		goto err_req_irq;
++	}
++
+ 	return 0;
++
++err_req_irq:
++	free_eq_pages(eq);
 +	return err;
  }
  
  /**
-@@ -491,6 +814,8 @@ static int api_chain_init(struct hinic_api_cmd_chain *chain,
- 	chain->prod_idx  = 0;
- 	chain->cons_idx  = 0;
- 
-+	sema_init(&chain->sem, 1);
+@@ -87,7 +536,17 @@ static int init_eq(struct hinic_eq *eq, struct hinic_hwif *hwif,
+  **/
+ static void remove_eq(struct hinic_eq *eq)
+ {
+-	/* should be implemented */
++	struct msix_entry *entry = &eq->msix_entry;
 +
- 	cell_ctxt_size = chain->num_cells * sizeof(*chain->cell_ctxt);
- 	chain->cell_ctxt = devm_kzalloc(&pdev->dev, cell_ctxt_size, GFP_KERNEL);
- 	if (!chain->cell_ctxt)
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-index e8865d6..31b94d5 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.h
-@@ -17,9 +17,22 @@
- #define HINIC_HW_API_CMD_H
++	free_irq(entry->vector, eq);
++
++	if (eq->type == HINIC_AEQ) {
++		struct hinic_eq_work *aeq_work = &eq->aeq_work;
++
++		cancel_work_sync(&aeq_work->work);
++	}
++
++	free_eq_pages(eq);
+ }
  
- #include <linux/types.h>
-+#include <linux/semaphore.h>
+ /**
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
+index 1580127..7f50b2f 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.h
+@@ -24,8 +24,84 @@
  
  #include "hinic_hw_if.h"
  
-+#define HINIC_API_CMD_PI_IDX_SHIFT                              0
++#define HINIC_AEQ_CTRL_0_INT_IDX_SHIFT          0
++#define HINIC_AEQ_CTRL_0_DMA_ATTR_SHIFT         12
++#define HINIC_AEQ_CTRL_0_PCI_INTF_IDX_SHIFT     20
++#define HINIC_AEQ_CTRL_0_INT_MODE_SHIFT         31
 +
-+#define HINIC_API_CMD_PI_IDX_MASK                               0xFFFFFF
++#define HINIC_AEQ_CTRL_0_INT_IDX_MASK           0x3FF
++#define HINIC_AEQ_CTRL_0_DMA_ATTR_MASK          0x3F
++#define HINIC_AEQ_CTRL_0_PCI_INTF_IDX_MASK      0x3
++#define HINIC_AEQ_CTRL_0_INT_MODE_MASK          0x1
 +
-+#define HINIC_API_CMD_PI_SET(val, member)                       \
-+	(((u32)(val) & HINIC_API_CMD_PI_##member##_MASK) <<     \
-+	 HINIC_API_CMD_PI_##member##_SHIFT)
++#define HINIC_AEQ_CTRL_0_SET(val, member)       \
++			(((u32)(val) & HINIC_AEQ_CTRL_0_##member##_MASK) << \
++			 HINIC_AEQ_CTRL_0_##member##_SHIFT)
 +
-+#define HINIC_API_CMD_PI_CLEAR(val, member)                     \
-+	((val) & (~(HINIC_API_CMD_PI_##member##_MASK            \
-+	 << HINIC_API_CMD_PI_##member##_SHIFT)))
++#define HINIC_AEQ_CTRL_0_CLEAR(val, member)     \
++			((val) & (~(HINIC_AEQ_CTRL_0_##member##_MASK \
++			 << HINIC_AEQ_CTRL_0_##member##_SHIFT)))
 +
- #define HINIC_API_CMD_CHAIN_REQ_RESTART_SHIFT                   1
++#define HINIC_AEQ_CTRL_1_LEN_SHIFT              0
++#define HINIC_AEQ_CTRL_1_ELEM_SIZE_SHIFT        24
++#define HINIC_AEQ_CTRL_1_PAGE_SIZE_SHIFT        28
++
++#define HINIC_AEQ_CTRL_1_LEN_MASK               0x1FFFFF
++#define HINIC_AEQ_CTRL_1_ELEM_SIZE_MASK         0x3
++#define HINIC_AEQ_CTRL_1_PAGE_SIZE_MASK         0xF
++
++#define HINIC_AEQ_CTRL_1_SET(val, member)       \
++			(((u32)(val) & HINIC_AEQ_CTRL_1_##member##_MASK) << \
++			 HINIC_AEQ_CTRL_1_##member##_SHIFT)
++
++#define HINIC_AEQ_CTRL_1_CLEAR(val, member)     \
++			((val) & (~(HINIC_AEQ_CTRL_1_##member##_MASK \
++			 << HINIC_AEQ_CTRL_1_##member##_SHIFT)))
++
++#define HINIC_EQ_ELEM_DESC_TYPE_SHIFT           0
++#define HINIC_EQ_ELEM_DESC_SRC_SHIFT            7
++#define HINIC_EQ_ELEM_DESC_SIZE_SHIFT           8
++#define HINIC_EQ_ELEM_DESC_WRAPPED_SHIFT        31
++
++#define HINIC_EQ_ELEM_DESC_TYPE_MASK            0x7F
++#define HINIC_EQ_ELEM_DESC_SRC_MASK             0x1
++#define HINIC_EQ_ELEM_DESC_SIZE_MASK            0xFF
++#define HINIC_EQ_ELEM_DESC_WRAPPED_MASK         0x1
++
++#define HINIC_EQ_ELEM_DESC_SET(val, member)     \
++			(((u32)(val) & HINIC_EQ_ELEM_DESC_##member##_MASK) << \
++			 HINIC_EQ_ELEM_DESC_##member##_SHIFT)
++
++#define HINIC_EQ_ELEM_DESC_GET(val, member)     \
++			(((val) >> HINIC_EQ_ELEM_DESC_##member##_SHIFT) & \
++			 HINIC_EQ_ELEM_DESC_##member##_MASK)
++
++#define HINIC_EQ_CI_IDX_SHIFT                   0
++#define HINIC_EQ_CI_WRAPPED_SHIFT               20
++#define HINIC_EQ_CI_XOR_CHKSUM_SHIFT            24
++#define HINIC_EQ_CI_INT_ARMED_SHIFT             31
++
++#define HINIC_EQ_CI_IDX_MASK                    0xFFFFF
++#define HINIC_EQ_CI_WRAPPED_MASK                0x1
++#define HINIC_EQ_CI_XOR_CHKSUM_MASK             0xF
++#define HINIC_EQ_CI_INT_ARMED_MASK              0x1
++
++#define HINIC_EQ_CI_SET(val, member)            \
++			(((u32)(val) & HINIC_EQ_CI_##member##_MASK) << \
++			 HINIC_EQ_CI_##member##_SHIFT)
++
++#define HINIC_EQ_CI_CLEAR(val, member)          \
++			((val) & (~(HINIC_EQ_CI_##member##_MASK \
++			 << HINIC_EQ_CI_##member##_SHIFT)))
++
+ #define HINIC_MAX_AEQS                  4
  
- #define HINIC_API_CMD_CHAIN_REQ_RESTART_MASK                    0x1
-@@ -58,6 +71,56 @@
- 	((val) & (~(HINIC_API_CMD_CHAIN_CTRL_##member##_MASK    \
- 	 << HINIC_API_CMD_CHAIN_CTRL_##member##_SHIFT)))
++#define HINIC_AEQE_SIZE                 64
++
++#define HINIC_AEQE_DESC_SIZE            4
++#define HINIC_AEQE_DATA_SIZE            \
++			(HINIC_AEQE_SIZE - HINIC_AEQE_DESC_SIZE)
++
+ #define HINIC_DEFAULT_AEQ_LEN           64
  
-+#define HINIC_API_CMD_CELL_CTRL_DATA_SZ_SHIFT                   0
-+#define HINIC_API_CMD_CELL_CTRL_RD_DMA_ATTR_SHIFT               16
-+#define HINIC_API_CMD_CELL_CTRL_WR_DMA_ATTR_SHIFT               24
-+#define HINIC_API_CMD_CELL_CTRL_XOR_CHKSUM_SHIFT                56
-+
-+#define HINIC_API_CMD_CELL_CTRL_DATA_SZ_MASK                    0x3F
-+#define HINIC_API_CMD_CELL_CTRL_RD_DMA_ATTR_MASK                0x3F
-+#define HINIC_API_CMD_CELL_CTRL_WR_DMA_ATTR_MASK                0x3F
-+#define HINIC_API_CMD_CELL_CTRL_XOR_CHKSUM_MASK                 0xFF
-+
-+#define HINIC_API_CMD_CELL_CTRL_SET(val, member)                \
-+	((((u64)val) & HINIC_API_CMD_CELL_CTRL_##member##_MASK) << \
-+	 HINIC_API_CMD_CELL_CTRL_##member##_SHIFT)
-+
-+#define HINIC_API_CMD_DESC_API_TYPE_SHIFT                       0
-+#define HINIC_API_CMD_DESC_RD_WR_SHIFT                          1
-+#define HINIC_API_CMD_DESC_MGMT_BYPASS_SHIFT                    2
-+#define HINIC_API_CMD_DESC_DEST_SHIFT                           32
-+#define HINIC_API_CMD_DESC_SIZE_SHIFT                           40
-+#define HINIC_API_CMD_DESC_XOR_CHKSUM_SHIFT                     56
-+
-+#define HINIC_API_CMD_DESC_API_TYPE_MASK                        0x1
-+#define HINIC_API_CMD_DESC_RD_WR_MASK                           0x1
-+#define HINIC_API_CMD_DESC_MGMT_BYPASS_MASK                     0x1
-+#define HINIC_API_CMD_DESC_DEST_MASK                            0x1F
-+#define HINIC_API_CMD_DESC_SIZE_MASK                            0x7FF
-+#define HINIC_API_CMD_DESC_XOR_CHKSUM_MASK                      0xFF
-+
-+#define HINIC_API_CMD_DESC_SET(val, member)                     \
-+	((((u64)val) & HINIC_API_CMD_DESC_##member##_MASK) <<   \
-+	 HINIC_API_CMD_DESC_##member##_SHIFT)
-+
-+#define HINIC_API_CMD_STATUS_HEADER_CHAIN_ID_SHIFT              16
-+
-+#define HINIC_API_CMD_STATUS_HEADER_CHAIN_ID_MASK               0xFF
-+
-+#define HINIC_API_CMD_STATUS_HEADER_GET(val, member)            \
-+	(((val) >> HINIC_API_CMD_STATUS_HEADER_##member##_SHIFT) & \
-+	 HINIC_API_CMD_STATUS_HEADER_##member##_MASK)
-+
-+#define HINIC_API_CMD_STATUS_CONS_IDX_SHIFT                     0
-+#define HINIC_API_CMD_STATUS_CHKSUM_ERR_SHIFT                   28
-+
-+#define HINIC_API_CMD_STATUS_CONS_IDX_MASK                      0xFFFFFF
-+#define HINIC_API_CMD_STATUS_CHKSUM_ERR_MASK                    0x3
-+
-+#define HINIC_API_CMD_STATUS_GET(val, member)                   \
-+	(((val) >> HINIC_API_CMD_STATUS_##member##_SHIFT) &     \
-+	 HINIC_API_CMD_STATUS_##member##_MASK)
-+
- enum hinic_api_cmd_chain_type {
- 	HINIC_API_CMD_WRITE_TO_MGMT_CPU = 2,
+ #define HINIC_EQ_PAGE_SIZE              SZ_4K
+@@ -45,6 +121,11 @@ enum hinic_eqe_state {
+ 	HINIC_EQE_RUNNING = BIT(1),
+ };
  
-@@ -122,6 +185,8 @@ struct hinic_api_cmd_chain {
- 	u32                             prod_idx;
- 	u32                             cons_idx;
- 
-+	struct semaphore                sem;
++struct hinic_aeq_elem {
++	u8      data[HINIC_AEQE_DATA_SIZE];
++	u32     desc;
++};
 +
- 	struct hinic_api_cmd_cell_ctxt  *cell_ctxt;
+ struct hinic_eq_work {
+ 	struct work_struct      work;
+ 	void                    *data;
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
+index edf1842..0cfada7 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.c
+@@ -25,6 +25,96 @@
  
- 	dma_addr_t                      wb_status_paddr;
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-index a9ece6d..ebbf054 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_csr.h
-@@ -56,7 +56,13 @@
- #define HINIC_CSR_API_CMD_CHAIN_CTRL_ADDR(idx)          \
- 	(HINIC_CSR_API_CMD_BASE + 0x14 + (idx) * HINIC_CSR_API_CMD_STRIDE)
+ #define PCIE_ATTR_ENTRY         0
  
-+#define HINIC_CSR_API_CMD_CHAIN_PI_ADDR(idx)            \
-+	(HINIC_CSR_API_CMD_BASE + 0x1C + (idx) * HINIC_CSR_API_CMD_STRIDE)
++#define VALID_MSIX_IDX(attr, msix_index) ((msix_index) < (attr)->num_irqs)
 +
- #define HINIC_CSR_API_CMD_CHAIN_REQ_ADDR(idx)           \
- 	(HINIC_CSR_API_CMD_BASE + 0x20 + (idx) * HINIC_CSR_API_CMD_STRIDE)
- 
-+#define HINIC_CSR_API_CMD_STATUS_ADDR(idx)              \
-+	(HINIC_CSR_API_CMD_BASE + 0x30 + (idx) * HINIC_CSR_API_CMD_STRIDE)
++/**
++ * hinic_msix_attr_set - set message attribute for msix entry
++ * @hwif: the HW interface of a pci function device
++ * @msix_index: msix_index
++ * @pending_limit: the maximum pending interrupt events (unit 8)
++ * @coalesc_timer: coalesc period for interrupt (unit 8 us)
++ * @lli_timer: replenishing period for low latency credit (unit 8 us)
++ * @lli_credit_limit: maximum credits for low latency msix messages (unit 8)
++ * @resend_timer: maximum wait for resending msix (unit coalesc period)
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_msix_attr_set(struct hinic_hwif *hwif, u16 msix_index,
++			u8 pending_limit, u8 coalesc_timer,
++			u8 lli_timer, u8 lli_credit_limit,
++			u8 resend_timer)
++{
++	u32 msix_ctrl, addr;
 +
- #endif
++	if (!VALID_MSIX_IDX(&hwif->attr, msix_index))
++		return -EINVAL;
++
++	msix_ctrl = HINIC_MSIX_ATTR_SET(pending_limit, PENDING_LIMIT)   |
++		    HINIC_MSIX_ATTR_SET(coalesc_timer, COALESC_TIMER)   |
++		    HINIC_MSIX_ATTR_SET(lli_timer, LLI_TIMER)           |
++		    HINIC_MSIX_ATTR_SET(lli_credit_limit, LLI_CREDIT)   |
++		    HINIC_MSIX_ATTR_SET(resend_timer, RESEND_TIMER);
++
++	addr = HINIC_CSR_MSIX_CTRL_ADDR(msix_index);
++
++	hinic_hwif_write_reg(hwif, addr, msix_ctrl);
++	return 0;
++}
++
++/**
++ * hinic_msix_attr_get - get message attribute of msix entry
++ * @hwif: the HW interface of a pci function device
++ * @msix_index: msix_index
++ * @pending_limit: the maximum pending interrupt events (unit 8)
++ * @coalesc_timer: coalesc period for interrupt (unit 8 us)
++ * @lli_timer: replenishing period for low latency credit (unit 8 us)
++ * @lli_credit_limit: maximum credits for low latency msix messages (unit 8)
++ * @resend_timer: maximum wait for resending msix (unit coalesc period)
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_msix_attr_get(struct hinic_hwif *hwif, u16 msix_index,
++			u8 *pending_limit, u8 *coalesc_timer,
++			u8 *lli_timer, u8 *lli_credit_limit,
++			u8 *resend_timer)
++{
++	u32 addr, val;
++
++	if (!VALID_MSIX_IDX(&hwif->attr, msix_index))
++		return -EINVAL;
++
++	addr = HINIC_CSR_MSIX_CTRL_ADDR(msix_index);
++	val  = hinic_hwif_read_reg(hwif, addr);
++
++	*pending_limit    = HINIC_MSIX_ATTR_GET(val, PENDING_LIMIT);
++	*coalesc_timer    = HINIC_MSIX_ATTR_GET(val, COALESC_TIMER);
++	*lli_timer        = HINIC_MSIX_ATTR_GET(val, LLI_TIMER);
++	*lli_credit_limit = HINIC_MSIX_ATTR_GET(val, LLI_CREDIT);
++	*resend_timer     = HINIC_MSIX_ATTR_GET(val, RESEND_TIMER);
++	return 0;
++}
++
++/**
++ * hinic_msix_attr_cnt_clear - clear message attribute counters for msix entry
++ * @hwif: the HW interface of a pci function device
++ * @msix_index: msix_index
++ *
++ * Return 0 - Success, negative - Failure
++ **/
++int hinic_msix_attr_cnt_clear(struct hinic_hwif *hwif, u16 msix_index)
++{
++	u32 msix_ctrl, addr;
++
++	if (!VALID_MSIX_IDX(&hwif->attr, msix_index))
++		return -EINVAL;
++
++	msix_ctrl = HINIC_MSIX_CNT_SET(1, RESEND_TIMER);
++	addr = HINIC_CSR_MSIX_CNT_ADDR(msix_index);
++
++	hinic_hwif_write_reg(hwif, addr, msix_ctrl);
++	return 0;
++}
++
+ /**
+  * hwif_ready - test if the HW is ready for use
+  * @hwif: the HW interface of a pci function device
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
+index 98623d6..707a046 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_if.h
+@@ -88,6 +88,34 @@
+ 	((val) & (~(HINIC_PPF_ELECTION_##member##_MASK          \
+ 	 << HINIC_PPF_ELECTION_##member##_SHIFT)))
+ 
++#define HINIC_MSIX_PENDING_LIMIT_SHIFT                          0
++#define HINIC_MSIX_COALESC_TIMER_SHIFT                          8
++#define HINIC_MSIX_LLI_TIMER_SHIFT                              16
++#define HINIC_MSIX_LLI_CREDIT_SHIFT                             24
++#define HINIC_MSIX_RESEND_TIMER_SHIFT                           29
++
++#define HINIC_MSIX_PENDING_LIMIT_MASK                           0xFF
++#define HINIC_MSIX_COALESC_TIMER_MASK                           0xFF
++#define HINIC_MSIX_LLI_TIMER_MASK                               0xFF
++#define HINIC_MSIX_LLI_CREDIT_MASK                              0x1F
++#define HINIC_MSIX_RESEND_TIMER_MASK                            0x7
++
++#define HINIC_MSIX_ATTR_SET(val, member)                        \
++	(((u32)(val) & HINIC_MSIX_##member##_MASK) <<           \
++	 HINIC_MSIX_##member##_SHIFT)
++
++#define HINIC_MSIX_ATTR_GET(val, member)                        \
++	(((val) >> HINIC_MSIX_##member##_SHIFT) &               \
++	 HINIC_MSIX_##member##_MASK)
++
++#define HINIC_MSIX_CNT_RESEND_TIMER_SHIFT                       29
++
++#define HINIC_MSIX_CNT_RESEND_TIMER_MASK                        0x1
++
++#define HINIC_MSIX_CNT_SET(val, member)                         \
++	(((u32)(val) & HINIC_MSIX_CNT_##member##_MASK) <<       \
++	 HINIC_MSIX_CNT_##member##_SHIFT)
++
+ #define HINIC_HWIF_NUM_AEQS(hwif)       ((hwif)->attr.num_aeqs)
+ #define HINIC_HWIF_NUM_CEQS(hwif)       ((hwif)->attr.num_ceqs)
+ #define HINIC_HWIF_NUM_IRQS(hwif)       ((hwif)->attr.num_irqs)
+@@ -105,6 +133,12 @@
+ #define HINIC_PCIE_AT_DISABLE           0
+ #define HINIC_PCIE_PH_DISABLE           0
+ 
++#define HINIC_EQ_MSIX_PENDING_LIMIT_DEFAULT     0       /* Disabled */
++#define HINIC_EQ_MSIX_COALESC_TIMER_DEFAULT     0xFF    /* max */
++#define HINIC_EQ_MSIX_LLI_TIMER_DEFAULT         0       /* Disabled */
++#define HINIC_EQ_MSIX_LLI_CREDIT_LIMIT_DEFAULT  0       /* Disabled */
++#define HINIC_EQ_MSIX_RESEND_TIMER_DEFAULT      7       /* max */
++
+ enum hinic_pcie_nosnoop {
+ 	HINIC_PCIE_SNOOP        = 0,
+ 	HINIC_PCIE_NO_SNOOP     = 1,
+@@ -166,6 +200,18 @@ static inline void hinic_hwif_write_reg(struct hinic_hwif *hwif, u32 reg,
+ 	writel(cpu_to_be32(val), hwif->cfg_regs_bar + reg);
+ }
+ 
++int hinic_msix_attr_set(struct hinic_hwif *hwif, u16 msix_index,
++			u8 pending_limit, u8 coalesc_timer,
++			u8 lli_timer_cfg, u8 lli_credit_limit,
++			u8 resend_timer);
++
++int hinic_msix_attr_get(struct hinic_hwif *hwif, u16 msix_index,
++			u8 *pending_limit, u8 *coalesc_timer_cfg,
++			u8 *lli_timer, u8 *lli_credit_limit,
++			u8 *resend_timer);
++
++int hinic_msix_attr_cnt_clear(struct hinic_hwif *hwif, u16 msix_index);
++
+ int hinic_init_hwif(struct hinic_hwif *hwif, struct pci_dev *pdev);
+ 
+ void hinic_free_hwif(struct hinic_hwif *hwif);
 -- 
 1.9.1
