@@ -1,74 +1,81 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH V4 net-next] net: hns3: Add support to change MTU in
- HNS3 hardware
-Date: Mon, 21 Aug 2017 14:58:46 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B875735@FRAEML521-MBX.china.huawei.com>
-References: <20170821144003.49436-1-salil.mehta@huawei.com>
- <20170821144838.GO1724@mtr-leonro.local>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 1/3 v6] net: ether: Add support for
+ multiplexing and aggregation type
+Date: Mon, 21 Aug 2017 15:00:14 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD005CC8C@AcuExch.aculab.com>
+References: <1503120931-30092-1-git-send-email-subashab@codeaurora.org>
+        <1503120931-30092-2-git-send-email-subashab@codeaurora.org>
+        <6dd2e0b7-51ec-18a3-07fb-3952a114b89a@mojatatu.com>
+ <20170820.151207.1229905735989482121.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        "lipeng (Y)" <lipeng321@huawei.com>,
-        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+Cc: "subashab@codeaurora.org" <subashab@codeaurora.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        Linuxarm <linuxarm@huawei.com>
-To: Leon Romanovsky <leon@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170821144838.GO1724@mtr-leonro.local>
+        "fengguang.wu@intel.com" <fengguang.wu@intel.com>,
+        "dcbw@redhat.com" <dcbw@redhat.com>,
+        "jiri@resnulli.us" <jiri@resnulli.us>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "marcel@holtmann.org" <marcel@holtmann.org>
+To: 'David Miller' <davem@davemloft.net>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.192]:57895 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753245AbdHUPAV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 11:00:21 -0400
+In-Reply-To: <20170820.151207.1229905735989482121.davem@davemloft.net>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Leon,
-
-> -----Original Message-----
-> From: Leon Romanovsky [mailto:leon@kernel.org]
-> Sent: Monday, August 21, 2017 3:49 PM
-> To: Salil Mehta
-> Cc: davem@davemloft.net; Zhuangyuzeng (Yisen); lipeng (Y);
-> mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; linux-rdma@vger.kernel.org; Linuxarm
-> Subject: Re: [PATCH V4 net-next] net: hns3: Add support to change MTU
-> in HNS3 hardware
+From: David Miller
+> Sent: 20 August 2017 23:12
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> Date: Sun, 20 Aug 2017 14:18:03 -0400
 > 
-> On Mon, Aug 21, 2017 at 03:40:03PM +0100, Salil Mehta wrote:
-> > This patch adds the following support to the HNS3 driver:
-> > 1. Support to change the Maximum Transmission Unit of a
-> >    port in the HNS NIC hardware.
-> > 2. Initializes the supported MTU range for the netdevice.
+> > On 17-08-19 01:35 AM, Subash Abhinov Kasiviswanathan wrote:
+> >> Define the multiplexing and aggregation (MAP) ether type 0xDA1A. This
+> >> is needed for receiving data in the MAP protocol like RMNET. This is
+> >> not an officially registered ID.
+> >> Signed-off-by: Subash Abhinov Kasiviswanathan
+> >> <subashab@codeaurora.org>
+> >> ---
+> >>   include/uapi/linux/if_ether.h | 4 +++-
+> >>   1 file changed, 3 insertions(+), 1 deletion(-)
+> >> diff --git a/include/uapi/linux/if_ether.h
+> >> b/include/uapi/linux/if_ether.h
+> >> index 5bc9bfd..e80b03f 100644
+> >> --- a/include/uapi/linux/if_ether.h
+> >> +++ b/include/uapi/linux/if_ether.h
+> >> @@ -104,7 +104,9 @@
+> >>   #define ETH_P_QINQ3 0x9300 /* deprecated QinQ VLAN [ NOT AN OFFICIALLY
+> >>   #REGISTERED ID ] */
+> >>   #define ETH_P_EDSA 0xDADA /* Ethertype DSA [ NOT AN OFFICIALLY
+> >>   #REGISTERED ID ] */
+> >>   #define ETH_P_AF_IUCV 0xFBFB /* IBM af_iucv [ NOT AN OFFICIALLY
+> >>   #REGISTERED ID ] */
+> >> -
+> >> +#define ETH_P_MAP 0xDA1A /* Multiplexing and Aggregation Protocol
+> >> + * NOT AN OFFICIALLY REGISTERED ID ]
 > >
-> > Signed-off-by: lipeng <lipeng321@huawei.com>
-> > Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
-> > ---
-> > PATCH V4: Addressed some minor comments Leon Romanovsky
-> >           1. https://lkml.org/lkml/2017/8/21/212
-> > PATCH V3: Addressed some minor comments Leon Romanovsky
-> >           1. https://lkml.org/lkml/2017/8/20/27
-> > PATCH V2: Addresses comments given by Andrew Lunn
-> >           1. https://lkml.org/lkml/2017/8/18/282
-> > PATCH V1: Initial Submit
-> > ---
-> >  .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 34
-> ++++++++++++++++++++++
-> >  .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |  1 +
-> >  2 files changed, 35 insertions(+)
+> > You cant just arbitrarly assign yourself an ethertype.  The IEEE may
+> > never issue you one - and if they do, it will likely not be the one
+> > you want i.e above.
 > >
+> > If there is a way for you to make this a config option that is not
+> > hardcoded to some default value then that would be the best approach
+> > to take.
 > 
-> Wrong error code is not "minor" comment.
-Sorry for the wrong terminology used. Both of the comments
-were definitely useful and I have taken into consideration
-both of them in my recent patch. I think I missed it while
-replying, saw it while and created the patch later.
-Sorry for that again.
-
-I will correct this in my subsequent patch.
-
-Best regards
-Salil
+> This may be a kind of a different situation, these ethertypes exist
+> only internally in the kernel and never on the wire.
 > 
-> Thanks,
-> Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+> It's just controlling the demux on ethernet receive.
+> 
+> We have several IDs like this, and thus this addition is consistent
+> with existing practice.
+
+Are they ever put into ethernet packets?
+If not then use values below 1500.
+
+	David
