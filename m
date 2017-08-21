@@ -1,40 +1,39 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 0/6] Covscan: Don't access garbage
-Date: Mon, 21 Aug 2017 11:26:58 +0200
-Message-ID: <20170821092704.21614-1-phil@nwl.cc>
+Subject: [iproute PATCH v3 1/6] ipaddress: Avoid accessing uninitialized variable lcl
+Date: Mon, 21 Aug 2017 11:26:59 +0200
+Message-ID: <20170821092704.21614-2-phil@nwl.cc>
+References: <20170821092704.21614-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:33439 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:51993 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751811AbdHUJ13 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 05:27:29 -0400
+        id S1752804AbdHUJ1f (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 05:27:35 -0400
+In-Reply-To: <20170821092704.21614-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series collects patches from v1 which resolve situations where
-garbage might be read, either due to missing initialization of
-variables or accessing data which went out of scope.
+If no address was given, ipaddr_modify() accesses uninitialized data
+when assigning to req.ifa.ifa_prefixlen.
 
-Changes since v2:
-- Rebased onto current master branch.
-- Dropped first patch since it is not a real issue.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ ip/ipaddress.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Phil Sutter (6):
-  ipaddress: Avoid accessing uninitialized variable lcl
-  iplink_can: Prevent overstepping array bounds
-  ipmaddr: Avoid accessing uninitialized data
-  ss: Use C99 initializer in netlink_show_one()
-  netem/maketable: Check return value of fstat()
-  tc/q_multiq: Don't pass garbage in TCA_OPTIONS
-
- ip/ipaddress.c    |  2 +-
- ip/iplink_can.c   |  4 ++--
- ip/ipmaddr.c      |  2 +-
- misc/ss.c         | 13 +++++++------
- netem/maketable.c |  4 ++--
- tc/q_multiq.c     |  2 +-
- 6 files changed, 14 insertions(+), 13 deletions(-)
-
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 4d37c5e045071..c9312f06dbd4d 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -1888,7 +1888,7 @@ static int ipaddr_modify(int cmd, int flags, int argc, char **argv)
+ 	char  *lcl_arg = NULL;
+ 	char  *valid_lftp = NULL;
+ 	char  *preferred_lftp = NULL;
+-	inet_prefix lcl;
++	inet_prefix lcl = {};
+ 	inet_prefix peer;
+ 	int local_len = 0;
+ 	int peer_len = 0;
 -- 
 2.13.1
