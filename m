@@ -1,52 +1,48 @@
-From: "Yang, Yi" <yi.y.yang@intel.com>
-Subject: Re: [PATCH net-next v4] openvswitch: enable NSH support
-Date: Mon, 21 Aug 2017 14:31:31 +0800
-Message-ID: <20170821063130.GA73165@cran64.bj.intel.com>
-References: <1503041071-68753-1-git-send-email-yi.y.yang@intel.com>
- <20170818152601.3760aaec@griffin>
- <20170818153103.5a757abe@griffin>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: IPsec workshop at netdevconf
+Date: Mon, 21 Aug 2017 09:10:49 +0200
+Message-ID: <20170821071049.GE31224@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "blp@ovn.org" <blp@ovn.org>, "e@erig.me" <e@erig.me>,
-        "jan.scheurich@ericsson.com" <jan.scheurich@ericsson.com>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Florian Westphal <fw@strlen.de>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:22011 "EHLO mga14.intel.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:37434 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751050AbdHUGqH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 02:46:07 -0400
+        id S1751010AbdHUHKw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 03:10:52 -0400
 Content-Disposition: inline
-In-Reply-To: <20170818153103.5a757abe@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 18, 2017 at 09:31:03PM +0800, Jiri Benc wrote:
-> On Fri, 18 Aug 2017 15:26:01 +0200, Jiri Benc wrote:
-> > Out of time for today, will continue the review next week. Again, feel
-> > free to send a new version meanwhile or wait for the rest of the
-> > review, whatever works better for you.
-> 
-> One more thing: before you send a new version, be sure and double check
-> that you addressed *all* of the feedback. In this version, you still
-> have not addressed a few things I gave feedback on in the previous
-> version. This wastes everyone's time.
+Hi all,
 
-I did check every comment you added and tried my best to fix them, maybe
-you mean that hacky attr & mask code, I think that one is ok in v4, I have
-used your proposal in v5 and has small change, from my perspective, they
-don't have what difference :-)
+we plan for an IPsec workshop at the next netdev conference in November.
+Is there anybody interested to present something or is there anybody who
+want to discuss something?
 
-> 
-> It doesn't mean I'm always right, of course, but you either explain why
-> I'm wrong or change the code. It's generally not acceptable to ignore
-> feedback.
+So far we have the following tentative topics:
 
-Will be more careful later in order that we can have a more efficient
-review. Thank you so much for your great comments.
+Donald Skidmore:
 
-> 
-> Thank you,
-> 
->  Jiri
+Presentation: The intel implementation of the IPsec offload support.
+Discussion: Virtualization with IPsec offload; IPsec offload with OVS
+
+Boris Pismenny:
+
+Presentation: Describe trailer removal; Describe ESN; show performance
+numbers.
+
+Discussion: Full device terminated IPsec offload; software fallback
+problems common to TLS and IPsec; auth failure using decrypted packet
+vs. plaintext packet
+
+Steffen Klassert:
+
+Presentation: The IPsec status update.
+
+Discussion: Redesigning the IPsec VTI interfaces.
